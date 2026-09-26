@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-09-26",
+  "status": "planning_pins_not_a_complete_build_lock",
+  "sources": [
+    {
+      "id": "winuae",
+      "role": "engine",
+      "repository": "https://github.com/tonioni/WinUAE.git",
+      "version": "6.0.3",
+      "tag": "6030",
+      "tag_object": "88e3c2c6eac57d6dfc2ed688455a35e2e3a86a59",
+      "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+      "required": true,
+      "verified": "GitHub annotated tag peeled to commit; source build not tested"
+    },
+    {
+      "id": "machawk",
+      "role": "primary_user_selected_runtime_and_integration_reference",
+      "repository": null,
+      "local_path": "../MacHawk",
+      "commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+      "required": true,
+      "reference_manifest": "plan/machawk.reference.json",
+      "verified": "Local source inspected read-only; dirty UAE changes fingerprinted; no emulator/runtime execution in planning session"
+    },
+    {
+      "id": "bizhawk",
+      "role": "secondary_public_comparison_reference",
+      "repository": "https://github.com/TASEmulators/BizHawk.git",
+      "commit": "1a140d98b8cc4a705db89d4738d76196c84044ea",
+      "required": false,
+      "verified": "Pinned source files read; not a claim of latest release or executed runtime"
+    },
+    {
+      "id": "bizhawk_uae_reference",
+      "role": "reference_only_not_engine",
+      "repository": "https://github.com/TASEmulators/libretro-uae.git",
+      "commit": "ccecb1ead642c1bbe391308b88a7ffa9478b918d",
+      "required": true,
+      "verified": "Gitlink at waterbox/uae/libretro-uae in the inspected MacHawk/BizHawk tree; its frame-control path was inspected as architectural reference"
+    },
+    {
+      "id": "puae_libretro_reference",
+      "role": "reference_only_not_engine",
+      "repository": "https://github.com/libretro/libretro-uae.git",
+      "commit": null,
+      "required": true,
+      "verified": "README inspected only; T01 must pin repository commit, not WinUAE SHA from README"
+    },
+    {
+      "id": "libretro_api",
+      "role": "api_headers",
+      "repository": "https://github.com/libretro/libretro-common.git",
+      "commit": null,
+      "required": true,
+      "verified": "T01 must pin header source and minimal selected dependencies"
+    },
+    {
+      "id": "waterbox_musl",
+      "role": "toolchain_dependency",
+      "repository": null,
+      "commit": "2063abc4e16c84218757b1db10d3cdf9f36ef3f8",
+      "required": true,
+      "verified": "Local HEAD inspected, clean; T01/T09 must validate selected guest recipe and capture full toolchain inputs",
+      "local_path": "../MacHawk/waterbox/musl"
+    }
+  ],
+  "unresolved": [
+    "T00: inventory host tools and choose actual native/Waterbox runners without claiming availability",
+    "T01: complete null dependency pins and file/license manifests",
+    "T02: decide selected dependencies from actual WinUAE 6.0.3 source graph",
+    "T03/T09: pin native generators and Waterbox sysroot/toolchain build recipes",
+    "T01/T09: capture complete MacHawk build inputs and guest toolchain; selected-file fingerprint is not a complete runtime lock"
+  ]
+}

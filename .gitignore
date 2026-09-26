@@ -1,0 +1,22 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Derived build trees and native artifacts
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+Testing/
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.wbx
+*.wbx.zst
+
+# Editor-local files
+.vscode/
+.idea/

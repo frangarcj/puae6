@@ -1,0 +1,1956 @@
+{
+  "schema_version": 1,
+  "purpose": "Plan de implementacion. Todas las tareas empiezan pendientes; no hay core ejecutable.",
+  "check_ids": [
+    "PLAN01",
+    "ENV01",
+    "BUILD01",
+    "HARNESS01",
+    "ADR01",
+    "SRC01",
+    "GEN01",
+    "HOST01",
+    "ABI01",
+    "LIFE01",
+    "STEP01",
+    "DET01",
+    "DET02",
+    "DET03",
+    "DET04",
+    "DET05",
+    "DET06",
+    "AV01",
+    "AV02",
+    "IN01",
+    "MED01",
+    "MED02",
+    "MED03",
+    "STATE01",
+    "STATE02",
+    "LR01",
+    "LR02",
+    "REF01",
+    "SAFE01",
+    "FUZZ01",
+    "PERF01",
+    "UPD01",
+    "PKG01",
+    "WB01",
+    "WB02",
+    "WB03",
+    "WB04",
+    "WB05",
+    "WB06",
+    "WB07",
+    "WB08",
+    "WB09",
+    "WB10",
+    "WB11",
+    "WB12",
+    "WB13",
+    "WB14",
+    "WB15"
+  ],
+  "tasks": [
+    {
+      "id": "T00",
+      "title": "Inventariar entorno y fijar los runners reales",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/00-evidence.md",
+        "docs/06-execution.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "reports/environment.md",
+        "plan/runners.json"
+      ],
+      "steps": [
+        "Ejecutar validate y las pruebas del inspector; registrar que aun no hay emulador.",
+        "Consultar versiones y disponibilidad de Python, Git, CMake, Ninja, compiladores C/C++ y dotnet sin instalar ni cambiar configuracion global.",
+        "Inventariar primero ../MacHawk Darwin ARM64: Xcode/Clang, Rust/Cargo, Docker, .NET, caches y permisos; registrar runners nativos/x86_64 adicionales sin asumir que existen. No ejecutar scripts amplios de build ni modificar el checkout."
+      ],
+      "checks": [
+        "PLAN01",
+        "ENV01"
+      ],
+      "acceptance": [
+        "El informe contiene comandos y versiones reales, permisos y limitaciones; no confunde cross-build con ejecucion.",
+        "Cada runner tiene estado explicito y responsable de provision; la ausencia de Waterbox bloqueara T09, no se oculta aqui."
+      ],
+      "stop": "No acceder a otra maquina ni instalar toolchains para resolver una ausencia sin autorizacion. Inventariar una ausencia permite cerrar esta tarea; no permite aprobar tests del runner ausente.",
+      "evidence": null
+    },
+    {
+      "id": "T01",
+      "title": "Importar fuentes inmutables y completar procedencia",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T00"
+      ],
+      "read": [
+        "docs/00-evidence.md",
+        "docs/05-maintenance.md",
+        "plan/upstream.lock.json",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "upstream/winuae/**",
+        "references/**",
+        "manifests/upstream-files.json",
+        "manifests/licenses.json",
+        "plan/upstream.lock.json",
+        "tools/import_sources.py",
+        "plan/machawk.reference.json"
+      ],
+      "steps": [
+        "Verificar el tag 6030 y su commit peeled; importar un snapshot fiel sin editarlo y producir hashes por archivo.",
+        "Resolver los commits de PUAE, libretro headers y submodulos requeridos por el BizHawk fijado; no usar el SHA WinUAE del README como SHA de PUAE.",
+        "Implementar fetch explicito por pin y verificacion offline; inventariar licencias y exclusiones. No incluir firmware ni juegos privados.",
+        "Capturar los inputs completos seleccionados de MacHawk HEAD y los cambios locales pertinentes en una referencia bajo uae, con hashes y procedencia; no copiar assets privados ni limpiar/modificar ../MacHawk. El fingerprint parcial de la inspeccion no sustituye este snapshot de build."
+      ],
+      "checks": [
+        "SRC01"
+      ],
+      "acceptance": [
+        "Reimportar reproduce el mismo manifiesto; una alteracion en pristine falla la verificacion.",
+        "Los pins de fuentes obligatorios son commits completos y todas las dependencias seleccionadas tienen procedencia/licencia registrada."
+      ],
+      "stop": "Si falta una fuente o sus condiciones no estan claras, bloquear la parte afectada; no descargar un reemplazo de origen incierto ni inicializar Git/config global por conveniencia.",
+      "evidence": null
+    },
+    {
+      "id": "T02",
+      "title": "Mapear fuentes y dependencia real del host",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T01"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/00-evidence.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0001-host-port.md",
+        "tools/check_host_surface.py"
+      ],
+      "steps": [
+        "Seguir includes y simbolos del preset A500 desde el entrypoint real; separar CPU/chipset de UI, audio host, threading, I/O, reloj y plugins.",
+        "Inventariar cada simbolo host necesario, sus llamadores y semantica; clasificar features excluidas sin crear stubs exitosos.",
+        "Auditar od-unix a un commit concreto: registrar las piezas reutilizables y si existen en 6030; elegir la frontera minima, no master entero.",
+        "Auditar en el PUAE/MacHawk fijado Makefile, bizhawk.c, libretro-core/glue y newcpu: separar frame-control reutilizable, soporte host portable y frontend-only; registrar simbolos/rutas/licencia y no convertir libretro-core.c en dependencia del nuevo motor.",
+        "Crear allowlist de fuentes por perfil y un check que detecte includes/simbolos prohibidos; probarlo introduciendo un caso sintetico rechazado.",
+        "Auditar la frontera MacHawk ARM64 con docs/07-machawk.md: target ELF, x18/x28, sysroot y paginas 4/16 KiB; no usar el default x86_64/4096 de common.mak para el guest Darwin."
+      ],
+      "checks": [
+        "HOST01",
+        "ADR01"
+      ],
+      "acceptance": [
+        "Cada dependencia requerida tiene backend previsto y test; cada exclusion tiene motivo.",
+        "Se conocen los generadores y fuentes compilables, sin glob de todo WinUAE ni una capa Win32 general."
+      ],
+      "stop": "Una dependencia sin semantica conocida necesita un caso minimo y lectura del caller; no implementar un return 0 para desbloquear el enlace.",
+      "evidence": null
+    },
+    {
+      "id": "T03",
+      "title": "Reproducir generadores y materializar parches",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T02"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tools/generate_cpu.py",
+        "tools/materialize_upstream.py",
+        "patches/winuae/**",
+        "manifests/codegen.json",
+        "cmake/HostTools.cmake",
+        "tests/codegen/**"
+      ],
+      "steps": [
+        "Construir los generadores reales del commit con compilador HOST y documentar inputs/flags/salidas; no ejecutar herramientas target en configure.",
+        "Materializar pristine mas cola ordenada en build/upstream; aplicar parches exactos y fallar ante conflictos o archivos alterados.",
+        "Generar en build/generated; excluir del source manifest las copias alternativas de las mismas salidas.",
+        "Comparar dos directorios limpios y comprobar que un parche invalido falla sin aceptar fuzz."
+      ],
+      "checks": [
+        "GEN01",
+        "SRC01"
+      ],
+      "acceptance": [
+        "Dos regeneraciones producen los mismos hashes y cada salida tiene un generador identificado.",
+        "La compilacion nunca necesita editar cpuemu/cpustbl generados ni el snapshot limpio."
+      ],
+      "stop": "Si el generador depende del host, localizar la diferencia antes de compartir caches; no versionar una salida arbitraria como solucion.",
+      "evidence": null
+    },
+    {
+      "id": "T04",
+      "title": "Congelar API minima y preparar pruebas honestas",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T01"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/06-execution.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "tests/contracts/**",
+        "tests/fixtures/**",
+        "tests/scenarios/**",
+        "tools/check.py",
+        "tools/scenario_schema.py"
+      ],
+      "steps": [
+        "Definir el header C con tipos, errores, ownership y capacidades; compilar probes C y C++ sin exponer estructuras WinUAE.",
+        "Crear esquema de escenarios y salida de hashes/diagnosticos; escribir microprograma propio y receta reproducible para las primeras pruebas.",
+        "Implementar dispatcher de check IDs: un check no implementado falla; mocks de transporte se identifican como HARNESS, nunca como emulacion.",
+        "Probar escenarios invalidos, offsets fuera de rango, salida truncada y que una prueba inexistente no devuelva PASS."
+      ],
+      "checks": [
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "Header y schema tienen tests positivos/negativos; hay fixture de procedencia comprobada.",
+        "El dispatcher distingue NOT_IMPLEMENTED, BLOCKED, FAIL y PASS sin aprobar un escenario sin motor."
+      ],
+      "stop": "Dividir antes de superar el presupuesto de cambio; no implementar el motor entero ni declarar ABI C# validada en esta tarea.",
+      "evidence": null
+    },
+    {
+      "id": "T09",
+      "title": "Probar Waterbox real de MacHawk Darwin ARM64 antes del port",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T04"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "plan/upstream.lock.json",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tests/waterbox-smoke/**",
+        "tools/build_waterbox.py",
+        "plan/toolchains.json",
+        "integration/bizhawk/smoke/**"
+      ],
+      "steps": [
+        "Construir mini-core contador/RAM/ROM con la receta ARM64 local: WBX_TARGET_ARCH=aarch64, WBX_HOST_PAGE_SIZE=16384, x18/x28 reservados, linkscript AArch64 y sysroot fijado. Mantener todos los outputs de ensayo fuera de los archivos de MacHawk del usuario.",
+        "Ejecutar init, seal, avanzar, snapshot, continuar, restaurar y repetir DENTRO de Waterbox; repetir en sandbox nuevo.",
+        "Probar layout, C++ usado, canarios y lifetime de buffers host; registrar heaps y fallo controlado por capacidad.",
+        "Etiquetar resultados SMOKE_RUNTIME: aun no prueban Amiga. Si T07 elige corutina, ampliar esta prueba antes de integrar esa solucion.",
+        "Probar preservacion de x18/x28/TLS, escrituras en las cuatro paginas logicas de un grupo fisico, permisos incompatibles y carga del guest/dylib exactos. El harness no puede imprimir mismatch y retornar exito."
+      ],
+      "checks": [
+        "WB01",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "Logs identifican el runner y runtime reales; restore en una nueva instancia reproduce el contador/RAM sin punteros host obsoletos.",
+        "Toolchain queda fijada y existe receta repetible, no una biblioteca nativa renombrada .wbx.",
+        "La ejecucion ocurre en el runtime Darwin ARM64 de MacHawk y identifica hashes del guest y dylib realmente cargados; no fallback a UAE antiguo/x86_64."
+      ],
+      "stop": "Sin runner real o sysroot valido queda blocked. No sustituir por cross-compile o mock ni posponer la incertidumbre hasta el final del proyecto.",
+      "evidence": null
+    },
+    {
+      "id": "T05",
+      "title": "Implementar la superficie portable minima",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T02",
+        "T04"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md"
+      ],
+      "touch": [
+        "ports/portable/**",
+        "ports/native/**",
+        "patches/winuae/**",
+        "tests/host/**",
+        "manifests/host-surface.json"
+      ],
+      "steps": [
+        "Implementar por familias pequenas tipos/includes, logging, memoria e I/O necesarios de la allowlist; cada familia tiene test de errores.",
+        "Separar tiempo emulado de medicion host; eliminar dependencias de UI y comprobar que features excluidas se rechazan.",
+        "Probar width/alignment/endian y conversiones LP64/LLP64 en la frontera, sin renombrado masivo del motor.",
+        "Medir el delta upstream y registrar la procedencia de cualquier pieza tomada de od-unix."
+      ],
+      "checks": [
+        "HOST01",
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "Probes compilan en los hosts iniciales disponibles; cada simbolo implementado cumple su ficha y errores.",
+        "No hay callbacks por acceso RAM ni un falso windows.h que oculte dependencias."
+      ],
+      "stop": "Si excede 1-5 archivos manuales por cambio, dividir la familia manteniendo este gate como agregador; no resolver veinte subsistemas en un parche.",
+      "evidence": null
+    },
+    {
+      "id": "T06",
+      "title": "Enlazar el motor A500 nativo sin interfaz",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T03",
+        "T05"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md"
+      ],
+      "touch": [
+        "CMakeLists.txt",
+        "CMakePresets.json",
+        "cmake/**",
+        "adapters/headless/**",
+        "manifests/source-manifest.json",
+        "bridge/**"
+      ],
+      "steps": [
+        "Crear presets native-debug/native-release y target p6_headless usando manifiesto y salidas codegen.",
+        "Enlazar solo el perfil A500; resolver cada undefined symbol contra host-surface, no copiando el core viejo.",
+        "A\u00f1adir checks de imports y fuentes prohibidas al build; registrar diferencias por compilador.",
+        "Probar build limpio, offline despues de fetch y error ante una feature no soportada."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Binario headless enlaza sin SDL/Qt/Win32 host ni plugins y reporta identidad/config soportada.",
+        "Presets CMake/CTest documentados existen realmente; no se anuncia arranque Amiga todavia."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": null
+    },
+    {
+      "id": "T07",
+      "title": "Demostrar avance y continuacion segura por frame",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T06",
+        "T04"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/frame_step.cpp",
+        "patches/winuae/**",
+        "tests/step/**",
+        "docs/adr/0002-frame-boundary.md",
+        "tests/waterbox-smoke/**"
+      ],
+      "steps": [
+        "Comparar el m68k_go/frame_end/SPCFLAG_CHECK del PUAE fijado con el scheduler/bucle CPU real de WinUAE 6.0.3; listar el delta exacto, estado de pila, punto seguro y desfase de eventos.",
+        "Portar primero esa semantica minima con nombres neutrales al frontend y exponerla mediante bridge/frame_step.cpp como p6_run_frame; no incluir libretro.h, no reiniciar la CPU y no implementar un scheduler alternativo.",
+        "Ejecutar micro-ROM: N llamadas p6_run_frame versus avance equivalente, incluyendo interrupciones y operacion que cruza el borde; registrar tambien una regresion que fallaria si el boundary volviera a depender de retro_run.",
+        "Solo si una incompatibilidad concreta de 6.0.3 impide el mecanismo anterior, comparar una corutina cooperativa, justificar por que el delta de referencia no sirve y probar su pila/continuacion dentro del smoke Waterbox antes de aceptar el ADR."
+      ],
+      "checks": [
+        "STEP01",
+        "ADR01"
+      ],
+      "acceptance": [
+        "Primer boundary y continuaciones son observables, repetibles y no pierden eventos ni estado local.",
+        "ADR demuestra el port minimo del mecanismo PUAE fijado o documenta por que es inviable antes de elegir una corutina; no longjmp, hilo del SO ni rewrite del scheduler."
+      ],
+      "stop": "Sin comparar primero contra el frame-control del PUAE fijado y explicar la pila/primer evento divergente, bloquear. La alternativa corutina a\u00f1ade WB01 como check obligatorio de esta ficha.",
+      "evidence": null
+    },
+    {
+      "id": "T08",
+      "title": "Arrancar A500 y entregar video correcto",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T07"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/video.cpp",
+        "bridge/config.cpp",
+        "config/profiles/**",
+        "adapters/headless/**",
+        "tests/scenarios/a500/**"
+      ],
+      "steps": [
+        "Construir preset A500 explicito a partir de preferencias upstream verificadas; validar ROM/memoria/region y errores.",
+        "Conectar renderer software y metadatos stride, dimensiones, field parity y cadencia; asegurar capacidades antes de escribir.",
+        "Ejecutar micro-ROM PAL/NTSC con raster e interlace; demostrar instrucciones y cambios hardware, no solo una imagen negra.",
+        "A\u00f1adir arranque con Kickstart autorizado como escenario separado cuando este disponible."
+      ],
+      "checks": [
+        "STEP01",
+        "AV01"
+      ],
+      "acceptance": [
+        "Video canonico, ticks y efectos de hardware del fixture coinciden con el escenario; cambios de modo no desbordan buffers.",
+        "Toda compatibilidad Kickstart no probada queda identificada, no extrapolada del fixture libre."
+      ],
+      "stop": "Si no se conoce el limite de salida o el significado campo/frame, resolverlo antes de reservar un buffer a ojo.",
+      "evidence": null
+    },
+    {
+      "id": "T10",
+      "title": "Implementar entrada normalizada y lag real",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T08"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/input.cpp",
+        "bridge/include/p6.h",
+        "tests/input/**",
+        "tests/scenarios/input/**",
+        "patches/winuae/**"
+      ],
+      "steps": [
+        "Mapear scancodes, press/release y dos puertos; consumir deltas de raton sin autorepeat host.",
+        "Aplicar eventos en orden estable en boundary y registrar cualquier estado latched o conversion previa.",
+        "Instrumentar consultas reales de entrada del hardware para lag; no equiparar input_poll con lectura del invitado.",
+        "Crear microtest que alterna leer/no leer, mantiene teclas y cambia puertos; comparar replay."
+      ],
+      "checks": [
+        "IN01",
+        "STEP01"
+      ],
+      "acceptance": [
+        "Teclas no quedan retenidas tras release/reset; raton y joystick reproducen la secuencia esperada.",
+        "Lag cambia segun lecturas invitadas definidas y el callback opcional no cambia hashes."
+      ],
+      "stop": "Si una lectura de CIA/puerto tiene efectos laterales desconocidos, investigar el punto exacto; no inyectar input por escritura directa arbitraria en registros.",
+      "evidence": null
+    },
+    {
+      "id": "T11",
+      "title": "Conectar audio sin deriva ni dependencia host",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T08"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/audio.cpp",
+        "ports/portable/audio/**",
+        "tests/audio/**",
+        "tests/scenarios/audio/**",
+        "patches/winuae/**"
+      ],
+      "steps": [
+        "Entregar Paula a buffer acotado de PCM stereo; documentar rate/filtro y distinguir frames stereo de int16 individuales.",
+        "Conservar acumulador fraccionario, fases y filtros; no retroalimentar velocidad Amiga con buffer-fill del frontend.",
+        "Medir muestras acumuladas frente a ticks durante PAL/NTSC y cambios permitidos, incluido DMA activo.",
+        "Comparar ejecucion continua con tramos de entrega de audio desactivada."
+      ],
+      "checks": [
+        "AV02",
+        "DET05"
+      ],
+      "acceptance": [
+        "No hay drift por redondeo de muestras/frame ni overflow; el futuro es igual al descartar solo la entrega.",
+        "Todas las variables de filtro/resampler que afectan al futuro quedan inventariadas para T14."
+      ],
+      "stop": "Una diferencia de floats entre hosts debe medirse y quedar abierta para DET04; no declarar bit-exactitud ni usar fast-math para disimular el costo.",
+      "evidence": null
+    },
+    {
+      "id": "T12",
+      "title": "Cargar firmware y discos readonly por identidad",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T08"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "bridge/media.cpp",
+        "ports/portable/media/**",
+        "tests/media/**",
+        "tests/scenarios/disk/**"
+      ],
+      "steps": [
+        "Asignar content IDs a firmware/discos y cargar floppies readonly antes de iniciar; separar path host de nombre logico.",
+        "Implementar mount/eject/swap mediante eventos boundary sobre lista precargada, con limites y errores claros.",
+        "Probar ausencia, disco equivocado, drive inexistente, swap durante actividad y write-protect.",
+        "Registrar estado de track/MFM/revolucion/motor/cache que T14 debera capturar."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Los medios base permanecen identicos y replay de swaps es estable.",
+        "Ningun acceso implicito al filesystem host, plugin o BIOS descargada forma parte del perfil."
+      ],
+      "stop": "Un formato que necesite biblioteca nueva se excluye explicitamente del MVP; no convertir datos sin preservar semantica de pista.",
+      "evidence": null
+    },
+    {
+      "id": "T13",
+      "title": "Cerrar reset y limpieza de globales",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T10",
+        "T11",
+        "T12",
+        "T26"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md"
+      ],
+      "touch": [
+        "bridge/lifecycle.cpp",
+        "ports/portable/**",
+        "tests/lifecycle/**",
+        "manifests/state-inventory.json",
+        "patches/winuae/**"
+      ],
+      "steps": [
+        "Implementar init/load/run/reset/unload/shutdown y cleanup de load parcial; listar globales y recursos que se inicializan por sesion.",
+        "Ejecutar 100 ciclos load/run/unload con distintas configs, error a mitad de load y doble shutdown.",
+        "Probar reset conservando medios/overlay y liberacion de teclas segun el comportamiento definido.",
+        "Intentar segunda instancia nativa y obtener BUSY, no contaminacion silenciosa."
+      ],
+      "checks": [
+        "LIFE01",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "No quedan recursos, callbacks ni preferencias heredadas entre cargas; no hay nueva fuga/OOB detectable.",
+        "El contrato de instancia unica es explicito y no requiere convertir todos los globales en objetos."
+      ],
+      "stop": "Un reset que solo funciona recreando toda la instancia necesita corregirse o quedar como limitacion de perfil; no fingir equivalencia.",
+      "evidence": null
+    },
+    {
+      "id": "T26",
+      "title": "Introducir sanitizers y fuzzing temprano",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T06",
+        "T04"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/02-contracts.md"
+      ],
+      "touch": [
+        "cmake/Sanitizers.cmake",
+        "tests/fuzz/**",
+        "tests/canaries/**",
+        "tools/check.py",
+        "reports/sanitizer-baseline.md"
+      ],
+      "steps": [
+        "A\u00f1adir build nativo ASan/UBSan y leaks donde sea compatible; inventariar problemas upstream sin esconderlos con -w o desactivar todo el check.",
+        "Fuzzear config, rutas logicas, escenarios y medios con fixtures libres y asignaciones acotadas.",
+        "Preparar el target de estados para activarlo al existir T15; marcarlo NOT_IMPLEMENTED hasta entonces.",
+        "Guardar seeds de cada bug corregido y documentar limites del sandbox para instrumentacion."
+      ],
+      "checks": [
+        "SAFE01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Los targets existentes ejecutan corpus y casos invalidos sin errores nuevos; un OOB intencional se detecta en self-test separado.",
+        "El informe enumera superficies aun no implementadas; no declara fuzzing de estados completado antes de T15."
+      ],
+      "stop": "Errores heredados necesitan reproducer y priorizacion; no suprimir una familia entera de UB para aprobar.",
+      "evidence": null
+    },
+    {
+      "id": "T14",
+      "title": "Inventariar todo el estado causal antes de serializar",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T13"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/state-inventory.json",
+        "docs/adr/0003-state-format.md",
+        "tests/state/**",
+        "bridge/state_probe.cpp"
+      ],
+      "steps": [
+        "Auditar savestate upstream y asignar cada componente a save/restore, reset y prueba: CPU, scheduler, chipset, CIA, RAM, disco, input, audio, video y bridge.",
+        "Distinguir punteros internos, recursos host, caches derivadas y estado que permanece en pila/corutina.",
+        "Definir envelope versionado, identidad de config/medios y checks de integridad/bounds; no prometer lectura .uss heredada.",
+        "Crear probes canonicos por subsistema sin hashear padding o direcciones del proceso."
+      ],
+      "checks": [
+        "ADR01",
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "No hay componente causal sin propietario y politica de restore; las omisiones de caches tienen prueba pendiente identificada.",
+        "El formato y los hashes distinguen estado nativo de snapshot Waterbox."
+      ],
+      "stop": "Si el serializador upstream omite algo requerido, registrar extension concreta; no asumir que guardar toda la RAM basta.",
+      "evidence": null
+    },
+    {
+      "id": "T19",
+      "title": "Arrancar WinUAE6 real dentro de Waterbox MacHawk ARM64",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T09",
+        "T13",
+        "T16"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/build/**",
+        "tools/build_waterbox.py",
+        "manifests/waterbox-memory.json"
+      ],
+      "steps": [
+        "Generar receta WBX AArch64 desde el mismo source manifest/codegen; aplicar el contrato MacHawk de x18/x28 y paginas 4/16 KiB a todas las unidades target, sin modificar el runtime por conveniencia.",
+        "Enlazar WinUAE + host port + bridge + adapter/waterbox; no enlazar adapters/libretro ni llamar retro_run. Reutilizar la semantica p6_run_frame ya validada por T07/T16, no mantener una segunda ruta de scheduler.",
+        "Implementar host layer Waterbox y clasificar cada region antes de seal; capturar todo mutable como default.",
+        "Cargar firmware/medios e inicializar A500 antes de PostInit; reservar heaps desde medidas, no copiar numeros del port viejo.",
+        "Ejecutar el fixture A500 en sandbox real y repetir 10000 boundaries; comparar hashes hardware/ticks contra headless/libretro con la misma config/input, y probar render/audio off y canarios."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "STEP01",
+        "WB02",
+        "WB07",
+        "WB08",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "puae6.wbx ejecuta hardware Amiga real dentro del runtime fijado, usa la misma primitive p6_run_frame que los otros adaptadores y no carga uae.wbx antiguo.",
+        "Init/seal/run y presupuestos de memoria estan documentados; no hay punteros managed retenidos."
+      ],
+      "stop": "Un .wbx que solo enlaza no pasa. Si requiere corutina no demostrada en WB01 o I/O mutable host, bloquear y resolver esa dependencia.",
+      "evidence": null
+    },
+    {
+      "id": "T20",
+      "title": "Integrar PUAE6 como core C# independiente",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T19"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/00-evidence.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/patches/**",
+        "adapters/waterbox/**",
+        "tests/ffi/**"
+      ],
+      "steps": [
+        "Crear binding/wrapper contra los archivos reales del MacHawk fijado, no APIs supuestas de master publico; usar core ID nuevo y puae6.wbx sin sustituir UAE/uae.wbx. El wrapper habla solo la ABI Waterbox de PUAE6: no retro_* ni globals directos del motor.",
+        "Implementar entrada, video/audio sincronico, sync settings, region y drive light necesarios.",
+        "Exponer Chip/Slow/Fast RAM validas con flags y byte order correctos; no crear System Bus falso con efectos laterales.",
+        "Probar sizeof/offsetof/C# layout en ambos sentidos, capacidades A/V y aislamiento al alternar dos sandboxes."
+      ],
+      "checks": [
+        "ABI01",
+        "IN01",
+        "WB04",
+        "WB07"
+      ],
+      "acceptance": [
+        "BizHawk carga PUAE6 de forma explicita, mantiene UAE y sus peliculas sin sustituirlo.",
+        "Dominios no tienen punteros temporales ni regiones vacias; buffers no se escriben fuera del contrato."
+      ],
+      "stop": "No aplicar cambios al BizHawk instalado ni al proyecto hermano MacHawk; mantener patch/receta revisables dentro del marco autorizado.",
+      "evidence": null
+    },
+    {
+      "id": "T21",
+      "title": "Cerrar snapshots Waterbox y estado del wrapper",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T20",
+        "T14"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/**",
+        "adapters/waterbox/**",
+        "manifests/state-inventory.json",
+        "tests/waterbox-state/**"
+      ],
+      "steps": [
+        "Guardar con snapshot todo estado causal del sandbox; inventariar cada campo C# y a\u00f1adir hooks de estado donde no sea derivable.",
+        "Tras load, reponer delegates y limpiar referencias de buffers host; validar identidad/build/medios sin dejar instancia medio restaurada.",
+        "Probar save N, avanzar M, restore, repetir con DMA/disco/input y eventos pendientes.",
+        "Restaurar en sandbox B nuevo, variar direcciones de buffers y comprobar todos los campos causales C#."
+      ],
+      "checks": [
+        "WB03",
+        "WB04",
+        "WB05",
+        "WB06",
+        "WB07",
+        "WB11",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "Continuacion hardware/A/V identica en instancia original y nueva; rechazo seguro de estado incompatible.",
+        "No se ha usado el serializador nativo para reemplazar la prueba de snapshot real."
+      ],
+      "stop": "Si una cache externa o puntero anterior explica que solo funcione en A, corregir ownership/rebinding; no limitar el test a esa instancia.",
+      "evidence": null
+    },
+    {
+      "id": "T22",
+      "title": "Validar peliculas, ramas y seek de A500 en BizHawk",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T21"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tests/bizhawk-movies/**",
+        "integration/bizhawk/tests/**",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Crear pelicula fixture con teclado, raton, joystick, reset y eject/insert; fijar sync settings/firmware/media/build.",
+        "Reproducir en dos procesos y realizar seeks/ramas repetidos con estados intermedios, incluidos campos de video y audio activos.",
+        "Alternar render/sound y comparar futuros; comprobar lag/cycle counters contra el fixture.",
+        "Documentar alcance A500 y rechazo de peliculas del core UAE anterior; no prometer conversion automatica.",
+        "Reutilizar solo partes auditadas de uae-cd32-headless/whdload-regression de MacHawk; ampliar firmas de video a PCM y estado causal y devolver fallo explicito ante mismatch. Las pruebas del port antiguo no prueban PUAE6."
+      ],
+      "checks": [
+        "WB02",
+        "WB08",
+        "WB09",
+        "DET06"
+      ],
+      "acceptance": [
+        "Movie/seek converge en el runtime real sin efectos persistentes de input o medio.",
+        "M1 Waterbox solo se declara para configuraciones/firmware efectivamente probados."
+      ],
+      "stop": "Un desync se minimiza al primer boundary/campo; no actualizar la pelicula golden para esconderlo.",
+      "evidence": null
+    },
+    {
+      "id": "T15",
+      "title": "Implementar estados nativos semanticos y acotados",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T14",
+        "T26"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "patches/winuae/**",
+        "ports/portable/state_io/**",
+        "tests/state/**",
+        "tests/fuzz/state/**"
+      ],
+      "steps": [
+        "Adaptar I/O semantico upstream a memoria y a\u00f1adir envelope/extensiones identificadas, con encoding por campos y limites.",
+        "Calcular state_bound por perfil y medios al load; validar longitud/config/identidad antes de restaurar y hacer fallo transaccional.",
+        "Ejecutar roundtrip, continuacion en proceso nuevo y estados cerca de DMA/audio/disco/teclas.",
+        "Activar fuzzer de estados truncados, manipulados y de otro build/ROM; garantizar que el estado anterior sigue utilizable tras rechazo."
+      ],
+      "checks": [
+        "STATE01",
+        "STATE02",
+        "DET02",
+        "DET03",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Bound no crece durante la sesion y no hay serializacion de heap/punteros nativos.",
+        "Hashes futuros coinciden; input, audio, video y drive state del inventario quedan cubiertos."
+      ],
+      "stop": "Una omision upstream exige extension y regresion; no declarar soporte rewind devolviendo un buffer parcial.",
+      "evidence": null
+    },
+    {
+      "id": "T16",
+      "title": "Implementar el adaptador libretro minimo",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T13"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/00-evidence.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "cmake/Libretro.cmake",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "Exportar la API libretro usando header fijado como adaptador fino sobre p6_*; conectar lifecycle y negociar pixel format, entrada, logs y audio batch sin acceder directamente al scheduler ni a globals WinUAE.",
+        "retro_run hace input poll y exactamente una llamada p6_run_frame, luego entrega video/audio; no implementa un segundo boundary, no duerme ni sincroniza con reloj host.",
+        "Probar frontend minimo que rechaza capacidades opcionales y consumo parcial de audio, sin desbordes ni reentrada; comparar N boundaries con headless usando config/input normalizados y hashes hardware/ticks iguales.",
+        "Ejecutar core con frontend real y fixture A500; mientras no se complete T18 anunciar serialize_size=0."
+      ],
+      "checks": [
+        "LR01",
+        "LIFE01",
+        "STEP01",
+        "AV01",
+        "AV02"
+      ],
+      "acceptance": [
+        "Se carga/descarga sin UI propia ni referencias a BizHawk, y devuelve control mediante la misma p6_run_frame que headless.",
+        "Los callbacks cumplen frecuencia, conteos, ownership y negociacion segun el contrato."
+      ],
+      "stop": "Si libretro necesita tocar directamente el scheduler/globals de WinUAE fuera del bridge, corregir la API comun antes de duplicar logica. No usar un hilo del SO para hacer que retro_run parezca sincrono; un harness solo no sustituye el smoke del frontend real.",
+      "evidence": null
+    },
+    {
+      "id": "T17",
+      "title": "Unificar opciones, VFS y control de discos libretro",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T16"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/01-architecture.md"
+      ],
+      "touch": [
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "tests/config/**",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "Crear esquema unico para presets/opciones/sync settings; clasificar cambios reboot frente a presentacion y producir config_hash canonico.",
+        "Adaptar VFS/path fallback de manera explicita y probar rutas UTF-8, largas e invalidas; no usar paths como identidad de contenido.",
+        "Implementar playlist readonly y disk control sobre eventos de medios; no cambiar disco desde callback concurrente.",
+        "Rechazar opciones de CPU/RAM/ROM no soportadas en vez de aceptar parcialmente la config."
+      ],
+      "checks": [
+        "LR01",
+        "MED01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "La misma configuracion normalizada alimenta headless, libretro y wrapper, sin defaults divergentes.",
+        "Cambio que afecta tama\u00f1o de estado necesita recarga y no modifica bound en caliente."
+      ],
+      "stop": "No importar .uae entero ni plugins por compatibilidad historica; a\u00f1adir solo claves allowlist con diagnosticos.",
+      "evidence": null
+    },
+    {
+      "id": "T18",
+      "title": "Habilitar estados y replay especulativo libretro",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15",
+        "T17"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/state.cpp",
+        "tests/libretro-host/**",
+        "tests/scenarios/rewind/**"
+      ],
+      "steps": [
+        "Conectar serialize_size/save/load al bound y formato nativos, sin truncar ni anunciar mas capacidad que la real.",
+        "Probar buffers exactos, menores, mayores y estados incompatibles con rechazo sin corrupcion.",
+        "Ejecutar rewind y runahead en frontend real; las ramas no dejan input, audio pendiente ni eventos de disco en el futuro correcto.",
+        "Probar render/sound off y reset alrededor del save/load; documentar que netplay sigue sin habilitar hasta su propia prueba."
+      ],
+      "checks": [
+        "STATE01",
+        "STATE02",
+        "LR02",
+        "DET02",
+        "DET05"
+      ],
+      "acceptance": [
+        "El estado anunciado no crece y el replay converge con mismos medios/config.",
+        "No se prometen estados .uss, snapshots WBX ni estados de PUAE anterior intercambiables."
+      ],
+      "stop": "Ante fuga de estado especulativo desactivar la feature en el perfil hasta corregirla, no ignorar el desync.",
+      "evidence": null
+    },
+    {
+      "id": "T23",
+      "title": "A\u00f1adir ECS/A600 sin relajar el gate A500",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T18",
+        "T22"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "config/profiles/**",
+        "manifests/source-manifest.json",
+        "tests/scenarios/ecs/**",
+        "bridge/config.cpp"
+      ],
+      "steps": [
+        "Derivar preset A600/ECS del upstream fijado, con memoria/ROM/clock explicitamente validados; no a\u00f1adir FPU/MMU.",
+        "A\u00f1adir escenarios de modos ECS y variaciones PAL/NTSC con capacidades y audio correctos.",
+        "Ejecutar estado nativo y snapshot Waterbox en el perfil nuevo, y repetir todo gate A500.",
+        "Actualizar tabla de capacidades y config schema; etiquetar firmware pendiente como no probado."
+      ],
+      "checks": [
+        "AV01",
+        "AV02",
+        "DET02",
+        "WB03",
+        "LR01"
+      ],
+      "acceptance": [
+        "ECS funciona por los mismos adaptadores sin ifdefs de frontend en el motor.",
+        "A500 mantiene hashes salvo cambio upstream explicado y aprobado."
+      ],
+      "stop": "Si un cambio se limita a un preset, no retocar algoritmos CPU/chipset para hacer arrancar un titulo.",
+      "evidence": null
+    },
+    {
+      "id": "T24",
+      "title": "A\u00f1adir A1200/AGA y 68020 interpretado",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "config/profiles/**",
+        "manifests/source-manifest.json",
+        "tests/scenarios/aga/**",
+        "bridge/config.cpp",
+        "manifests/state-inventory.json"
+      ],
+      "steps": [
+        "Seleccionar las fuentes y generacion 68020/AGA del upstream, sin JIT/FPU/MMU y sin duplicar el motor.",
+        "Documentar configuracion de caches/prefetch/clock que usa el preset y a\u00f1adir su estado al inventario.",
+        "Probar bitplanes/paleta/copper/blitter/CPU y modos de video con fixtures y referencia.",
+        "Repetir restore nativo y Waterbox, load/unload y audio en todas las configuraciones publicadas."
+      ],
+      "checks": [
+        "GEN01",
+        "AV01",
+        "AV02",
+        "DET02",
+        "WB03",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "AGA/020 avanza y restaura correctamente sin alterar la semantica para ganar FPS.",
+        "State bound y heaps se recalculan por perfil; no se reutiliza el presupuesto A500 sin comprobarlo."
+      ],
+      "stop": "No a\u00f1adir todas las aceleradoras WinUAE para resolver dependencias del 020; cortar por feature y probar la seleccion.",
+      "evidence": null
+    },
+    {
+      "id": "T25",
+      "title": "Cerrar matriz de ISA, compiladores y sistemas",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "cmake/toolchains/**",
+        "plan/toolchains.json",
+        "plan/runners.json",
+        "tests/portability/**",
+        "reports/platform-matrix.md"
+      ],
+      "steps": [
+        "Construir/ejecutar los perfiles en Linux x86_64 Clang/GCC, macOS ARM64 y los runners Windows x86_64/Linux ARM64 anunciados.",
+        "Comparar hashes canonicos de hardware y A/V separadamente con mismo rate/filtro/config; variar locale, hora y rutas.",
+        "Auditar aliasing, shifts, endian, unaligned y LLP64; una diferencia requiere reproducer antes de cambiar flags.",
+        "Ejecutar guest ARM64 en MacHawk Darwin como fila principal y a\u00f1adir runtime Linux/Windows x86_64 como filas separadas. No trasladar snapshots binarios entre ISA ni deducir soporte solo del build."
+      ],
+      "checks": [
+        "DET04",
+        "DET06",
+        "BUILD01",
+        "SAFE01",
+        "WB02",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "Solo se marcan soportadas las combinaciones ejecutadas; build-only y bloqueadas se distinguen.",
+        "La tabla identifica exactitud hardware/A/V y compatibilidad de estados por alcance, sin deducirla del ABI."
+      ],
+      "stop": "Un runner ausente no se sustituye por suposiciones; completar release solo para la matriz declarada con evidencia o registrar un cambio de alcance revisado.",
+      "evidence": null
+    },
+    {
+      "id": "T27",
+      "title": "A\u00f1adir escritura de discos mediante overlay reversible",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15",
+        "T12"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "ports/portable/media/**",
+        "bridge/media.cpp",
+        "bridge/state.cpp",
+        "tests/media-cow/**",
+        "manifests/state-inventory.json"
+      ],
+      "steps": [
+        "Implementar base inmutable mas overlay de granularidad adecuada al formato; conservar estado de pista/MFM y writes diferidos.",
+        "Reservar limites al load e incluirlos en state_bound; overflow produce error antes de escribir fuera del buffer.",
+        "Crear fixture que escribe, guarda, sobrescribe, restaura y verifica contenido/track state anterior.",
+        "Separar export/commit durable explicito y atomico; no escribir base ni flushear durante pasos especulativos."
+      ],
+      "checks": [
+        "MED02",
+        "STATE01",
+        "DET02",
+        "LR02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Rewind revierte bytes y todos los metadatos causales del drive; la base sigue con su hash inicial.",
+        "El tama\u00f1o anunciado no crece con nuevas escrituras y el flush no ocurre como efecto oculto de run/save/load."
+      ],
+      "stop": "Una representacion por sectores que pierde escrituras de pista necesita redise\u00f1o local; no descartar datos silenciosamente.",
+      "evidence": null
+    },
+    {
+      "id": "T28",
+      "title": "Validar overlay y persistencia en Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T27",
+        "T21"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "integration/bizhawk/core/**",
+        "tests/waterbox-media/**",
+        "manifests/waterbox-memory.json"
+      ],
+      "steps": [
+        "Colocar overlay/metadata en memoria capturada; mantener base en readonly y lista de medios predefinida al seal.",
+        "Definir export/import acotado de persistencia sin mapear todo HDF como SaveRAM automaticamente.",
+        "Reproducir WB10 con writes, ramas, seek y restore en sandbox nuevo; comprobar que el archivo durable no cambia.",
+        "Medir crecimiento de snapshots/heaps ante escrituras adversarias y probar agotamiento."
+      ],
+      "checks": [
+        "WB10",
+        "WB04",
+        "WB11",
+        "WB12"
+      ],
+      "acceptance": [
+        "Rollback y persistencia durable son operaciones distintas y verificadas en runtime real.",
+        "La pelicula especulativa no deja modificaciones fuera del sandbox ni necesita callbacks mutables host."
+      ],
+      "stop": "No marcar medio determinista si un handle/cursor externo cambia el resultado tras restore.",
+      "evidence": null
+    },
+    {
+      "id": "T29",
+      "title": "Incorporar HDF como dispositivo de bloques determinista",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T27",
+        "T28",
+        "T24"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "ports/portable/block/**",
+        "bridge/media.cpp",
+        "config/schema/**",
+        "tests/hdf/**",
+        "manifests/source-manifest.json"
+      ],
+      "steps": [
+        "Seleccionar backend HDF upstream necesario y validar geometria, offsets, longitudes y dispositivo soportado.",
+        "Mantener base identificada e inmutable mas overlay; decidir precarga o lecturas puras por ID/offset con cache descartable probada.",
+        "Probar particiones/lecturas/escrituras y estado de controlador alrededor de save/load tanto nativo como WBX.",
+        "Publicar limites de tama\u00f1o y memoria por perfil; rechazar explicitamente montajes de directorios host en deterministic."
+      ],
+      "checks": [
+        "MED03",
+        "MED02",
+        "WB10",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Mismos contenidos/config producen mismas operaciones sin depender de paths, timestamps ni orden de directorios.",
+        "No hay asignacion ilimitada al recibir geometria malformada ni cursor mutable host fuera del estado."
+      ],
+      "stop": "Si el backend demanda otro controlador o thread, crear subtarea con superficie y pruebas; no habilitar todos los dispositivos de WinUAE.",
+      "evidence": null
+    },
+    {
+      "id": "T30",
+      "title": "Definir y probar un flujo WHDLoad reproducible",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T29"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tools/prepare_whdload.py",
+        "config/whdload/**",
+        "tests/whdload/**",
+        "docs/whdload.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Fijar manifest de instalacion: archivos/boot/config/hashes y herramientas autorizadas, separando datos distribuidos de assets del usuario.",
+        "Generar imagen determinista con orden, timestamps y contenido controlados o exigir imagen previamente identificada; no ejecutar scripts arbitrarios del juego en el host.",
+        "Probar arranque, input, escritura y restore desde el mismo conjunto instalado en ambos adaptadores.",
+        "Documentar restricciones de formatos/instaladores y que el flujo no replica automaticamente toda la UX de PUAE viejo."
+      ],
+      "checks": [
+        "MED03",
+        "DET02",
+        "WB03",
+        "SRC01"
+      ],
+      "acceptance": [
+        "Dos preparaciones legales con los mismos inputs producen el mismo manifest/imagen; replay no monta carpetas host.",
+        "Licencias y assets faltantes son visibles; no incluir Kickstart ni contenidos comerciales en CI publico."
+      ],
+      "stop": "Sin fixtures legales que prueben el flujo, dejarlo blocked o reducir alcance formalmente; no anunciar WHDLoad por poder abrir un HDF.",
+      "evidence": null
+    },
+    {
+      "id": "T31",
+      "title": "A\u00f1adir UX libretro sin contaminar la emulacion",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17",
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "adapters/libretro/ui/**",
+        "adapters/libretro/config_import.cpp",
+        "tests/libretro-ui/**",
+        "docs/options.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Inventariar UX util del PUAE fijado y seleccionar teclado virtual, crop, indicadores y mapping sin copiar motor antiguo.",
+        "Implementar presentacion fuera del hash hardware y convertir acciones UI a inputs/eventos normales serializables.",
+        "Crear importador .uae allowlist con errores por claves peligrosas/no soportadas, sin plugins ni shell.",
+        "Probar que toggles de overlay/crop/volumen no cambian hardware; opciones semanticas van a sync config."
+      ],
+      "checks": [
+        "LR01",
+        "IN01",
+        "DET05",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El core sigue siendo utilizable sin UI propia y los defaults coinciden con el esquema comun.",
+        "Codigo reutilizado conserva procedencia/licencia y no introduce deps Win32/SDL en el motor."
+      ],
+      "stop": "Si una comodidad exige mutar hardware sin input/config registrado, redise\u00f1ar la frontera en vez de ocultarla como setting grafico.",
+      "evidence": null
+    },
+    {
+      "id": "T32",
+      "title": "Cerrar corpus diferencial y diagnostico de desync",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T25",
+        "T26",
+        "T28",
+        "T30",
+        "T31"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/00-evidence.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tests/scenarios/**",
+        "tests/reference/**",
+        "tools/compare_runs.py",
+        "manifests/fixtures.json",
+        "reports/corpus-matrix.md"
+      ],
+      "steps": [
+        "Construir referencia del mismo WinUAE SHA con instrumentacion minima separada; normalizar clocks/config/assets y output.",
+        "Completar al menos 20 escenarios con las categorias OCS/ECS/AGA, PAL/NTSC, audio, input, medios y restore definidas.",
+        "Comparar ticks/eventos/CPU/chipset y A/V canonicos; emitir primer boundary y subsistema divergente con inputs previos.",
+        "Repetir procesos, instancia nueva, entorno distinto, sanitizers y fuzz de todos los parsers ya implementados."
+      ],
+      "checks": [
+        "REF01",
+        "DET01",
+        "DET02",
+        "DET03",
+        "DET04",
+        "DET06",
+        "SAFE01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Toda diferencia con la referencia esta explicada y respaldada por un test o bloquea release.",
+        "Golden tiene procedencia; no se cambian hashes automaticamente ni se llama exactitud hardware absoluta a igualdad con WinUAE."
+      ],
+      "stop": "Un corpus compuesto solo de pantallas de arranque no satisface cobertura; a\u00f1adir microtests antes de optimizar.",
+      "evidence": null
+    },
+    {
+      "id": "T33",
+      "title": "Medir baseline de rendimiento y snapshots",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T32"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tools/bench.py",
+        "tests/bench/**",
+        "reports/baselines/**",
+        "plan/performance-budgets.json"
+      ],
+      "steps": [
+        "Implementar benchmark sin vsync que separa motor, conversion/adaptador, I/O y save/load; reloj host solo para medir.",
+        "Ejecutar warmup y repeticiones del protocolo por perfil/runner; conservar datos brutos, versiones, carga y condiciones.",
+        "Medir mediana/p95, asignaciones/copias, RSS/heaps, bytes de snapshot y dirty pages solo si realmente disponibles.",
+        "Ratificar presupuesto por maquina y perfil sin convertir las metas propuestas en resultados observados.",
+        "En Darwin ARM64 distinguir paginas logicas de 4 KiB y grupos fisicos de 16 KiB; registrar dirty tracking por la unidad realmente medida y costo del runtime local."
+      ],
+      "checks": [
+        "PERF01",
+        "WB12"
+      ],
+      "acceptance": [
+        "La baseline es reproducible y compara modos de precision equivalentes; native y Waterbox aparecen por separado.",
+        "Se identifica el principal costo y el margen frente al tiempo emulado de cada unidad de video."
+      ],
+      "stop": "Sin runner de rendimiento estable guardar resultados como orientativos; no aplicar un umbral duro basado en una muestra ruidosa.",
+      "evidence": null
+    },
+    {
+      "id": "T34",
+      "title": "Optimizar copies, logs y allocs medidos",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T33"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/01-architecture.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "adapters/**",
+        "tests/bench/**",
+        "reports/optimizations/**"
+      ],
+      "steps": [
+        "Elegir un hotspot demostrado de adaptacion/presentacion; escribir benchmark y prueba de equivalencia antes del cambio.",
+        "Eliminar solo copia, formateo o asignacion redundante respetando lifetime/capacidad y threading.",
+        "Comparar antes/despues con cinco repeticiones y mismo build profile; ejecutar hashes/restore y memory checks.",
+        "Registrar decision de conservar o revertir; si no hay mejora confiable, entregar informe sin optimizacion artificial."
+      ],
+      "checks": [
+        "PERF01",
+        "DET01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Ganancia es medible o queda justificado no cambiar; no hay regressions de determinismo/ownership.",
+        "No se modifica timing ni se saltan componentes de hardware para mejorar FPS."
+      ],
+      "stop": "No retener punteros host entre frames para llamar zero-copy a una referencia invalida; preferir una copia correcta.",
+      "evidence": null
+    },
+    {
+      "id": "T35",
+      "title": "Evaluar SIMD y flags sin perder referencia escalar",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T34"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "ports/portable/simd/**",
+        "cmake/Optimization.cmake",
+        "tests/simd/**",
+        "docs/adr/0004-native-optimizations.md",
+        "reports/optimizations/**"
+      ],
+      "steps": [
+        "Evaluar un hotspot real de pixel/audio; mantener ruta escalar y dispatch por capacidades probado.",
+        "Comparar buffers adversarios, alineamiento/tails y PCM/pixeles bit a bit; no aplicar fast-math al perfil determinista.",
+        "Medir LTO/PGO solo con toolchain fijada y corpus representativo, sin -march=native en releases.",
+        "Aceptar la ruta solo con mejora estable y costo razonable; un informe de no conveniencia puede cerrar la tarea."
+      ],
+      "checks": [
+        "PERF01",
+        "DET04",
+        "SAFE01",
+        "ADR01"
+      ],
+      "acceptance": [
+        "Resultados escalares y optimizados equivalentes en plataformas anunciadas, incluido fallback sin SIMD.",
+        "Cada flag/dispatch queda documentado y no obliga a bifurcar algoritmos CPU/chipset."
+      ],
+      "stop": "Una ganancia que requiere relajar precision cambia el perfil y necesita otra tarea; no presentarla como optimizacion neutra.",
+      "evidence": null
+    },
+    {
+      "id": "T36",
+      "title": "Reducir costo de snapshots solo con prueba de reconstruccion",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T34",
+        "T21"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "manifests/waterbox-memory.json",
+        "tests/waterbox-poison/**",
+        "reports/optimizations/**"
+      ],
+      "steps": [
+        "Clasificar principales paginas/buffers del costo de snapshot y elegir como maximo una cache candidata por cambio.",
+        "Demostrar reconstruccion exacta con poison tras restore, instancia nueva, ambos campos interlaced y cambios de modo.",
+        "Repetir audio/drive/movie seek y medir tama\u00f1o/latencia/heap; no excluir filtros, estado de pista ni historia causal.",
+        "Si no hay exclusion segura, mantener memoria capturada y registrar la razon, sin forzar una mejora.",
+        "Comprobar alineacion y permisos por grupo fisico 16 KiB en MacHawk; no mezclar categorias incompatibles ni asumir que solo se ensucia una pagina 4 KiB."
+      ],
+      "checks": [
+        "WB03",
+        "WB04",
+        "WB05",
+        "WB08",
+        "WB09",
+        "WB12",
+        "WB14"
+      ],
+      "acceptance": [
+        "Toda region invisible tiene prueba especifica; snapshot sigue correcto tras reconstruccion adversaria.",
+        "Presupuesto mejora mediblemente o se documenta una baseline segura aceptada."
+      ],
+      "stop": "Un solo desync invalida la exclusion; no reducir el test al caso no entrelazado para aprobar.",
+      "evidence": null
+    },
+    {
+      "id": "T37",
+      "title": "Automatizar actualizaciones sin esconder conflictos",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T32",
+        "T02"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "tools/update_upstream.py",
+        "tools/materialize_upstream.py",
+        "tests/upstream-update/**",
+        "patches/winuae/series.json"
+      ],
+      "steps": [
+        "Implementar OLD_SHA/NEW_SHA en area de trabajo propia, verificacion de snapshot y reporte de manifiestos/licencias/fuentes.",
+        "Aplicar parches exactos uno a uno, regenerar outputs y registrar conflictos sin elegir ours/theirs automaticamente.",
+        "Probar parche roto, archivo a\u00f1adido relevante y generador cambiado; producir salida no exitosa y diagnostico util.",
+        "Preparar ejecucion de la suite y comparacion de hashes/performance sin modificar goldens ni publicar nada."
+      ],
+      "checks": [
+        "UPD01",
+        "SRC01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "La herramienta es repetible, no altera pristine ni directorios ajenos y distingue cambio semantico de fallo de port.",
+        "No hay descargas master implicitas ni parches con fuzz."
+      ],
+      "stop": "Automatizar la deteccion no autoriza resolver conflictos semanticos; dejar reporte y tarea por conflicto.",
+      "evidence": null
+    },
+    {
+      "id": "T38",
+      "title": "Ensayar una actualizacion upstream real",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T37",
+        "T33"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "reports/update-rehearsal/**",
+        "docs/adr/0005-update-rehearsal.md",
+        "tests/upstream-update/**"
+      ],
+      "steps": [
+        "Elegir y fijar un candidato upstream concreto, registrar release notes y alcance; no necesita reemplazar la baseline final.",
+        "Ejecutar importacion, cola, codegen, builds nativos/WBX, corpus, estados en instancia nueva y benchmark.",
+        "Resolver conflictos en area de ensayo con lectura/test por parche; registrar esfuerzo, delta y cambios de semantica.",
+        "Demostrar retorno al conjunto de pins anterior sin alterar instalaciones o archivos del usuario."
+      ],
+      "checks": [
+        "UPD01",
+        "REF01",
+        "GEN01",
+        "WB03",
+        "WB04",
+        "PERF01",
+        "ADR01"
+      ],
+      "acceptance": [
+        "Existe evidencia de una actualizacion real y sus conflictos/compatibilidad, no solo un mock.",
+        "No quedan diferencias desconocidas ni promesas de cargar snapshots antiguos con el nuevo layout."
+      ],
+      "stop": "Sin candidato apropiado o runner necesario el ensayo queda blocked; no declarar mantenimiento demostrado por contar lineas de parches.",
+      "evidence": null
+    },
+    {
+      "id": "T39",
+      "title": "Integrar CI completa y artifacts de diagnostico",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T25",
+        "T26",
+        "T32",
+        "T33"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        ".github/workflows/**",
+        "tools/ci/**",
+        "tests/ci/**",
+        "docs/ci.md"
+      ],
+      "steps": [
+        "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
+        "Incluir smoke WBX real, restore/new instance, corpus, fuzz, clean-build y presupuesto; separar runners de perf y sanitizers.",
+        "Archivar logs, primeros desyncs y manifests sin ROMs privadas ni rutas sensibles; fijar dependencias/actions.",
+        "Probar que un check faltante/fallido o asset requerido ausente bloquea la puerta, sin convertirlo en continue-on-error.",
+        "Mantener WB13-WB15 y smoke real MacHawk ARM64 desde el primer gate; los jobs x86_64 no lo sustituyen."
+      ],
+      "checks": [
+        "PLAN01",
+        "BUILD01",
+        "DET02",
+        "WB03",
+        "FUZZ01",
+        "PERF01",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "Las recetas se han ejecutado en los runners declarados; escribir YAML no equivale a tener CI verde.",
+        "Cada resultado identifica source/patchset/codegen/toolchain/perfil y permite reproducir el fallo."
+      ],
+      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente.",
+      "evidence": null
+    },
+    {
+      "id": "T40",
+      "title": "Preparar paquetes reproducibles y documentacion de usuario",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T38",
+        "T39",
+        "T30",
+        "T31",
+        "T35",
+        "T36"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tools/package.py",
+        "docs/user/**",
+        "manifests/release/**",
+        "tests/packages/**"
+      ],
+      "steps": [
+        "Empaquetar core libretro por plataforma y WBX/integracion por runtime, cada uno con build ID, perfiles, fuentes/parches y licencias.",
+        "Construir dos veces desde limpio en condiciones fijadas; comparar artefactos y explicar cualquier metadata variable.",
+        "Probar instalacion aislada, firmware ausente, estado incompatible y coexistencia con UAE antiguo.",
+        "Escribir limites de soporte, controles, opciones, medios/overlays, estados y recuperacion de errores sin incluir assets privados."
+      ],
+      "checks": [
+        "PKG01",
+        "SRC01",
+        "BUILD01",
+        "STATE02",
+        "WB11"
+      ],
+      "acceptance": [
+        "Los artefactos probados contienen exactamente el codigo/recetas declarados y no dependen de paths locales ocultos.",
+        "Distribucion no implica publicacion: paquetes quedan locales para revision."
+      ],
+      "stop": "Un binario sin fuentes/licencias o con reproducibilidad no demostrada no satisface release; registrar diferencias en vez de afirmar byte identity.",
+      "evidence": null
+    },
+    {
+      "id": "T41",
+      "title": "Auditar y decidir la primera release",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T40"
+      ],
+      "read": [
+        "README.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md"
+      ],
+      "touch": [
+        "reports/release-readiness.md",
+        "docs/user/release-notes.md",
+        "plan/upstream.lock.json"
+      ],
+      "steps": [
+        "Revisar evidencia de todas las tareas obligatorias y cada plataforma/perfil anunciado; cerrar pendientes del lock solo tras verificarlos.",
+        "Ejecutar gate completo de corpus, libretro, snapshots/movie WBX, malformed inputs y presupuestos sobre paquetes finales.",
+        "Registrar incompatibilidades y conservar artefacto anterior para peliculas; auditar que no se sustituyo uae.wbx.",
+        "Decidir READY o BLOCKED con razones. Preparar notas locales; publicar o enviar PR requiere orden separada."
+      ],
+      "checks": [
+        "PKG01",
+        "PLAN01",
+        "REF01",
+        "LR02",
+        "WB09",
+        "WB10",
+        "PERF01"
+      ],
+      "acceptance": [
+        "No hay check obligatorio omitido, pin requerido nulo ni desync inexplicado en el alcance publicado.",
+        "Tras guardar este informe y marcar T41 done, validate --release comprueba coherencia documental; no sustituye los logs de la suite."
+      ],
+      "stop": "No marcar done/READY para alcanzar una fecha. Si se reduce el alcance, cambiar requisitos/matriz de forma explicita y revisada, no borrar una prueba fallida.",
+      "evidence": null
+    },
+    {
+      "id": "T42",
+      "title": "Estudio posterior de JIT nativo y perfil acelerado",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "docs/adr/future-jit.md",
+        "reports/research/jit/**",
+        "plan/extensions/jit.json"
+      ],
+      "steps": [
+        "Medir si el interpreter incumple un caso prioritario; auditar backends JIT upstream y sus licencias/ISA a pin concreto.",
+        "Dise\u00f1ar invalidacion, self-modifying code, W^X, caches y politica de estados/perfil separado; no habilitarlo en Waterbox por arrastre.",
+        "Producir subbacklog con pruebas de paridad, seguridad y actualizacion antes de implementar."
+      ],
+      "checks": [
+        "ADR01"
+      ],
+      "acceptance": [
+        "Decision justificada de adoptar, posponer o rechazar, con costos y pasos verificables; no se anuncia JIT funcional."
+      ],
+      "stop": "Sin hotspot medido no escribir un recompilador nuevo ni prometer determinismo TAS.",
+      "evidence": null
+    },
+    {
+      "id": "T43",
+      "title": "Estudio posterior CD32/CDTV y formatos opticos",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "docs/adr/future-cd.md",
+        "plan/extensions/cd.json",
+        "reports/research/cd/**"
+      ],
+      "steps": [
+        "Inventariar controladores/Akiko/CD audio y dependencias de formatos por separado, con licencias y medios de prueba legales.",
+        "Definir identidad, TOC, latencia/seek emulado, audio y caches/estado de lecturas reproducibles.",
+        "Dividir en importacion/backend/controller/input/snapshot/corpus; no confundir joystick CD32 con emulacion completa de la maquina."
+      ],
+      "checks": [
+        "ADR01"
+      ],
+      "acceptance": [
+        "Subplan cierra contratos de medios y snapshots antes de ampliar perfiles; compatibilidad sigue no anunciada."
+      ],
+      "stop": "No permitir lectura directa de una unidad fisica en deterministic como atajo.",
+      "evidence": null
+    },
+    {
+      "id": "T44",
+      "title": "Estudio posterior FPU/MMU y CPUs avanzadas",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "docs/adr/future-fpu-mmu.md",
+        "plan/extensions/fpu-mmu.json",
+        "reports/research/fpu-mmu/**"
+      ],
+      "steps": [
+        "Auditar implementacion upstream, softfloat/hostfloat, precision extendida, NaN, rounding y modelos CPU.",
+        "Definir corpus de excepciones, TLB/ATC, prefetch, faults y estado; separar soporte MMU de habilitar todos los modelos.",
+        "Planificar comparacion x86_64/ARM64 y politicas de perfil/estado sin prometer bit-exactitud no medida."
+      ],
+      "checks": [
+        "ADR01"
+      ],
+      "acceptance": [
+        "Hay matriz y subbacklog por CPU/FPU/MMU; los perfiles actuales permanecen sin cambiar."
+      ],
+      "stop": "No usar floats nativos por defecto sin comparar la semantica requerida.",
+      "evidence": null
+    },
+    {
+      "id": "T45",
+      "title": "Estudio posterior RTG sin acoplar una UI",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "docs/adr/future-rtg.md",
+        "plan/extensions/rtg.json",
+        "reports/research/rtg/**"
+      ],
+      "steps": [
+        "Elegir un dispositivo RTG upstream concreto e inventariar VRAM/modos/capacidades y dependencias host.",
+        "Dise\u00f1ar ownership de buffers, cambios de modo y estado VRAM que puedan soportar ambos adaptadores sin D3D/OpenGL obligatorio.",
+        "Crear subbacklog de pruebas de modos, bounds, snapshot y presupuesto de memoria antes del port."
+      ],
+      "checks": [
+        "ADR01"
+      ],
+      "acceptance": [
+        "RTG tiene contrato acotado y costo de snapshots cuantificable; no se introduce una GPU host en el motor base."
+      ],
+      "stop": "No reservar VRAM o dimensiones ilimitadas para aceptar cualquier modo.",
+      "evidence": null
+    },
+    {
+      "id": "T46",
+      "title": "Auditar runtimes adicionales sin aplazar el MacHawk inicial",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/00-evidence.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "docs/adr/future-waterbox-platforms.md",
+        "plan/extensions/waterbox-platforms.json",
+        "reports/research/waterbox-platforms/**"
+      ],
+      "steps": [
+        "MacHawk Darwin ARM64 ya es referencia principal desde T00/T09/T19. Identificar aqui solamente otro runtime/fork o cambio de arquitectura solicitado y fijar su commit antes de proponer soporte.",
+        "Auditar loader, ABI, sysroot, snapshot y calling convention; separar cambios del core de un port del runtime.",
+        "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte."
+      ],
+      "checks": [
+        "ADR01"
+      ],
+      "acceptance": [
+        "El estudio adicional no rebaja ni aplaza el soporte MacHawk inicial; separa cambios de runtime y core con evidencia o bloqueo real."
+      ],
+      "stop": "No cambiar el binding del proyecto ni modificar MacHawk sin peticion expresa; usar referencias autorizadas y registrar limites.",
+      "evidence": null
+    },
+    {
+      "id": "T47",
+      "title": "Evaluar multiples instancias nativas sin refactor masivo",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "docs/adr/future-multi-instance.md",
+        "plan/extensions/multi-instance.json",
+        "reports/research/multi-instance/**"
+      ],
+      "steps": [
+        "Definir caso real que necesita dos instancias en la misma imagen y comparar aislamiento por proceso/sandbox con contexto explicito.",
+        "Inventariar costo de conversion incremental de globales, TLS/allocators y actualizaciones upstream.",
+        "Proponer subbacklog y pruebas alternadas/carga-error/restauracion solo si el beneficio justifica el costo."
+      ],
+      "checks": [
+        "ADR01"
+      ],
+      "acceptance": [
+        "Decision y pruebas previstas son concretas; no se elimina BUSY ni se anuncia reentrancia antes de implementarla."
+      ],
+      "stop": "No reescribir toda la arquitectura por elegancia si aislamiento existente resuelve el caso.",
+      "evidence": null
+    }
+  ]
+}

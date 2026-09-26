@@ -1,0 +1,178 @@
+# 03. Plan especifico BizHawk / Waterbox
+
+## Objetivo y referencia
+
+Producir `puae6.wbx` y un adaptador C# identificado como PUAE6, coexistiendo con
+UAE existente. No sobrescribir uae.wbx ni cambiar retroactivamente el core ID de
+peliculas guardadas. S5-S8 en 00-evidence.md contienen las rutas inspeccionadas.
+Referencia principal: ../MacHawk en HEAD 9b62757833c9bdd15bf43cef058c88bf91eb0ad7,
+con fingerprint local en plan/machawk.reference.json. El pin BizHawk publico
+1a140d98b8cc4a705db89d4738d76196c84044ea queda como comparador secundario.
+
+No confundir tres entregas: compilacion C++ nativa ARM64, generacion del WBX y
+carga/ejecucion real por Waterbox. Cada una tiene su gate. El primer runner es
+MacHawk Darwin ARM64 usando guest ELF AArch64 y el runtime local, segun
+docs/07-machawk.md. Linux/Windows x86_64 son filas adicionales de portabilidad.
+Que exista el runtime ARM64 no significa que PUAE6 o sus snapshots ya funcionen.
+
+## Forma del port existente y frontera que conserva PUAE6
+
+El UAE local de MacHawk NO es un frontend libretro generico. Su Makefile toma el
+arbol libretro-uae y compila parte de su glue, pero bizhawk.c exporta Init,
+FrameAdvance y GetMemoryAreas para Waterbox y llama directamente a umain/m68k_go.
+Esta distincion es deliberada en PUAE6: el mecanismo de retorno por frame sirve
+como referencia para bridge/frame_step, pero adapters/libretro no se enlaza dentro
+del guest Waterbox y FrameAdvance no llama retro_run.
+
+La receta nueva debe enlazar WinUAE + host port + bridge + adapters/waterbox.
+Cualquier pieza tomada del libretro-uae fijado se clasifica primero como engine
+patch, portable host support o frontend-only. El ultimo grupo no entra en WBX.
+Esto evita que opciones RETRO_ENVIRONMENT, callbacks de frontend o globals de UX
+se conviertan en dependencias accidentales de BizHawk.
+
+## T09: prueba de riesgo antes de terminar el port
+
+Construir con el sysroot real un mini-core que no emula Amiga: contador, RAM,
+ROM sellada, buffer descartable y paquete de entrada. Esta prueba se etiqueta
+SMOKE_RUNTIME, no prueba de compatibilidad. Ejecutar init -> seal -> avanzar ->
+snapshot -> avanzar -> restore -> repetir; comparar resultados y referencias.
+
+Incluir asignaciones C++, globals, constructores usados, calling convention y
+buffers host. Si T07 necesita corutina, incluir su pila/continuacion en este test.
+Hacer restore en un segundo sandbox equivalente y alternar dos sandboxes.
+Medir memoria asignada/limite; provocar agotamiento para obtener fallo controlado.
+
+Si no hay runtime disponible, T09 queda blocked y la compatibilidad Waterbox NO
+se da por resuelta. No retrasar la primera prueba real hasta tener WHDLoad o AGA.
+
+## Build
+
+Usar common.mak y linkscript_aarch64.T de MacHawk con sysroot fijado, flags
+WBX_TARGET_ARCH=aarch64, WBX_HOST_PAGE_SIZE=16384 y reserva de x18/x28. No inventar
+un linker script propio ni enlazar bibliotecas Mach-O del host en el WBX. El build
+nativo puede usar CMake; el manifiesto de fuentes compartido genera la lista SRCS
+para la receta Waterbox sin convertir todo BizHawk a CMake.
+
+Los generadores de CPU/tablas se ejecutan en el HOST de build. Sus salidas son
+texto portable y se compilan para el target. No intentar ejecutar un binario WBX
+durante configure ni un generador ARM64 en el runner x86_64. Cache key incluye
+SHA del generador, inputs, toolchain y perfil; registrar hashes y reproducibilidad.
+
+Build determinista inicial: interpreter, un hilo de emulacion, sin JIT, sin
+bibliotecas dinamicas de plugins, sin SDL/Qt/Win32, sin sockets ni dispositivos
+reales. No se afirma que Waterbox sea incapaz de JIT en general: es una exclusion
+de este proyecto para acotar estado, toolchain y presupuesto de mantenimiento.
+
+## Ciclo de vida
+
+1. C# valida sync settings, firmware, manifiesto y limites; registra delegates vivos.
+2. PreInit crea sandbox y binding de exportaciones, con heap budgets explicitos.
+3. Inyectar ROM y todos los medios MVP de solo lectura con nombres logicos estables.
+4. Inicializar WinUAE/bridge, tablas, buffers, banks y todos los recursos necesarios.
+5. Consultar/configurar dominios; finalizar init y ejecutar PostInit/Seal en el orden
+   exacto que requiere el pin. No usar Seal como equivalente a primera llamada de run.
+6. En cada FrameAdvance, fijar buffers host SOLO durante la llamada, entregar entrada
+   normalizada, llamar la misma p6_run_frame usada por headless/libretro y devolver
+   dimensiones/muestras/ciclos/lag. No llamar retro_run desde el guest.
+7. Guardar snapshot mas cualquier estado C# relevante. Al restaurar, reponer bindings.
+8. Dispose libera el sandbox completo y recursos C#; no depender de free de sealed/plain.
+
+Las bases de memory domains se asignan antes de PostInit. No cambiar RAM/banks en
+caliente invalidando las vistas. Una nueva configuracion de memoria necesita nuevo
+sandbox o una ruta explicita que regenere dominios y tenga pruebas.
+
+## Clasificacion de memoria: tabla obligatoria en T19
+
+| Categoria | Ejemplos | Tratamiento inicial |
+| --- | --- | --- |
+| Inmutable | ROM, lookup tables, base de discos precargada | sealed solo tras demostrar que no se parchea/escribe |
+| Estado emulado | RAM, registros, scheduler, CIA, drive/overlay, RTC | memoria capturada por Waterbox |
+| Estado del algoritmo | audio filtros/fases, prefetch, historia entrelazada, continuacion | capturada salvo prueba de reconstruccion exacta |
+| Output de una llamada | buffer de entrega host, conversion ya completada | referencia temporal; se limpia antes de retornar |
+| Cache derivada | traducciones de formato, tablas regenerables | capturada inicialmente; exclusion solo con prueba poison |
+| Estado C# | edges de botones, disco seleccionado, conversion de raton, config dinamica permitida | SaveStateBinaryInternal/LoadStateBinaryInternal o derivacion exacta demostrada |
+
+S7 define sealed/invisible/plain. El default seguro es capturar todo estado mutable.
+No persistir punteros a arrays managed, FILE* del host, direcciones de callbacks no
+rebindables ni cursores externos. Los punteros internos del sandbox siguen el
+contrato de Waterbox y NO tienen por que reemplazarse todos por offsets; los
+formatos semanticos nativos son otra cosa. No mezclar esas dos reglas.
+
+Buffers invisible solo tras test: llenar con valores adversarios justo despues de
+restore, ejecutar y comparar estado/A/V presente y futuro durante suficientes
+campos. En weave/interlace hay que verificar al menos ambos campos y los cambios
+de modo. Los filtros de audio NO son meros buffers de salida descartables.
+
+Reserva de heaps por perfil, no copiar sin medir los valores de UAE.cs. Mantener
+margen de capacidad y registrar peak de sbrk/mmap/plain/sealed/invisible. No asumir
+que RAM invitada = memoria total. El costo de snapshot se mide aparte del RSS.
+
+## Estado C# y callbacks
+
+WaterboxCore guarda ciertos contadores/RTC/base pero no conoce los campos nuevos
+de PUAE6 (S6). Inventariar todos los campos del wrapper y clasificarlos. Deben
+volver al valor correcto edges de eject/insert, seleccion de unidad/slot, raton
+previo, entrada latched, flags de reset, cualquier indice de medio y config mutable.
+Preferencia: estado causal en bridge dentro del sandbox; evitar duplicarlo en C#.
+
+Override de SaveStateBinaryInternal y LoadStateBinaryInternal cuando proceda.
+Formato propio con version y bounds. Validar identidad/build/medios ANTES de una
+restauracion que pueda modificar el sandbox; si el base loader no admite ese
+orden, envolverlo o definir rechazo seguro/recreacion. No intentar adivinar datos.
+
+Despues del restore no quedan callbacks de una instancia anterior. Establecer de
+nuevo input/LED/debug segun las reglas del host; conservar las referencias a los
+delegates mientras el sandbox pueda llamarlos. Los buffers A/V fijados de una
+llamada anterior nunca se reutilizan por su direccion vieja.
+
+La prueba mas exigente crea B desde el mismo WBX/config/media, restaura un estado
+creado en A y ejecuta las mismas entradas. Una prueba solo en A puede ocultar
+punteros externos y cache/state C# omitidos.
+
+## Dominios de memoria, bus e instrumentacion
+
+Exponer Chip RAM como Primary, Slow/Fast RAM solo si existen y ROM como lectura.
+Nombres/tamanos/flags y byte order corresponden al espacio Amiga. No anunciar una
+region de tamaño cero o un puntero temporal. Verificar lecturas multi-byte sobre
+bytes de guest, especialmente endian, alineamiento y alias de bancos.
+
+Un System Bus de debugger requiere lecturas sin efectos laterales o advertencia
+precisa; leer registros de dispositivos mediante un acceso normal puede cambiar
+la emulacion. No implementar bus falso como una RAM lineal. Debug writes y cheats
+son acciones externas explicitamente registradas o desactivadas durante pruebas TAS.
+
+FrameAdvance informa ciclo y lag reales segun 02-contracts. Implementar servicios
+minimos del pin: IEmulator, IVideoProvider, ISoundProvider sincronico, IStatable,
+input y memory domains; añadir IDriveLight/region/settings y persistencia cuando
+su comportamiento este probado. No inventar tipos C# que el pin no contiene.
+
+## Medios y escritura
+
+Primer port: medios readonly precargados. No introducir un callback host de I/O
+mutable solo para evitar resolver init/seal. La lista de discos pertenece al
+manifiesto de sesion; swap selecciona IDs de esa lista despues de seal.
+
+M3 añade overlay de escritura capturado. Al cargar un estado se revierte overlay,
+bitstream/track cache y metadatos de drive, no solo un buffer ADF. No usar el filesystem
+del host para writes que sobrevivan a un rewind sin formar parte del estado.
+ISaveRam puede usarse para una representacion acotada, pero NO mapear el HDF entero
+como save RAM automaticamente. Definir export/import del overlay y distinguir
+persistencia durable del rollback. Peliculas reproducidas no flushean por defecto.
+
+## Suite de aceptacion Waterbox
+
+WB01 mini-core real antes del port Amiga; no emulacion de wrapper nativo.
+WB02 A500 arranca y avanza 10000 unidades de video con input fijo dos veces.
+WB03 snapshot a N, ejecutar M, restaurar, repetir M: igual hash hardware/video/audio.
+WB04 restore en sandbox B nuevo y dos sandboxes alternados sin contaminacion.
+WB05 estado durante motor de disco activo, DMA/audio, tecla retenida y swap pendiente.
+WB06 cada campo C# con efecto causal cambia entre save/load y recupera su efecto.
+WB07 canarios en A/V, limites de memoria y referencias host invalidadas/repuestas.
+WB08 render/sound desactivados temporalmente no cambian futura emulacion.
+WB09 reproducir pelicula con reset, raton, teclado y eject/insert; rama/seek repetido.
+WB10 overlay de disco vuelve atras y no modifica medio base ni archivo durable.
+WB11 estado de otro core/build/ROM se rechaza sin corromper la instancia.
+WB12 medir p50/p95 de frame y snapshot, bytes/paginas mutadas y ocupacion de heaps.
+
+Estos IDs pertenecen a docs/04-validation.md y deben ejecutarse en las tareas
+correspondientes. No afirmar soporte de Waterbox a partir de WB01 solo.

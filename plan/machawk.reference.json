@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-09-26",
+  "local_path": "../MacHawk",
+  "purpose": "Primary user-selected Waterbox integration reference; read-only audit",
+  "commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+  "remote_note": "Configured origin is TASEmulators/BizHawk; local commit availability on that remote was not verified.",
+  "runtime_target": "darwin-arm64 host with aarch64 Waterbox ELF guest",
+  "runtime_execution_this_session": false,
+  "selected_file_sha256": {
+    "waterbox/common.mak": "9f1938ad6ebb497607cd25c3f7a23ecc5ae3d0b37c3e0107fe3cc0852094bd34",
+    "waterbox/linkscript_aarch64.T": "a1ca92826e43c979efab02843874f33543c945a8fbd16c23034419ad4ba668df",
+    "waterbox/waterboxhost/DARWIN_ARM64.md": "88a32146df2a7da7452f5fd8ba2221749bc5887df2cf8d45509f4a9b53b2127f",
+    "waterbox/waterboxhost/rust-toolchain.toml": "a7878e34b9c384cebeee054f9dce3d1290c78befa952a14e30dff43eae165d2e",
+    "waterbox/waterboxhost/src/context/interop_aarch64.s": "cef442a0ebbc59aa6f81d88cb8bdb6cd40eb77f5c85723495f4c47e2fb3b67ee",
+    "waterbox/waterboxhost/src/context/thunks.rs": "14f0abd831e9c16436e093f9459077748242461af38cfce2c1980edf5e7924cf",
+    "waterbox/waterboxhost/src/memory_block/pal.rs": "88107f0379bd4d83c71b4ef82c7e61f3a6f039f65a34ebcf9b41cf0a1f91052f",
+    "waterbox/waterboxhost/src/memory_block/pageblock.rs": "e6be94a737e84c75b2e7b18c929469732e8a85cea7b8e07417dcb0d4049d02de",
+    "waterbox/uae/Makefile": "27858f1b1d45ad3e36d16224f86603b3ab817339729bef458d0b877258980af1",
+    "waterbox/uae/bizhawk.c": "8d96fe94da200bb6a2a4035bfb7e7e181537c8e046a1548930b538623af5e6b5",
+    "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.cs": "9841d32db56a6511bc6aa7685c88ebf0f65bd68799ae5262210a915ea6216a5b",
+    "src/BizHawk.Emulation.Cores/Waterbox/WaterboxCore.cs": "c01db2cba5492f340e6daf144f827727392d84af2e8daeb9a0eee8b962951de2",
+    "waterbox/waterboxhost/uae-cd32-headless/Program.cs": "20ad2640f743a5043e23ff1c92c20391ddd6d98fd4da4c5348b662b4700ee2aa"
+  },
+  "uae_reference": {
+    "commit": "ccecb1ead642c1bbe391308b88a7ffa9478b918d",
+    "dirty_source_sha256": {
+      "sources/src/akiko.c": "d7c0527558347b148ffdff4512bfd4acd79e8d9f9dd0b19d178e14347fc4e5cf",
+      "sources/src/blkdev_cdimage.c": "21080a4d764d699d5442db13021ee579baa7c8bf8dd509d1247ac9c7b49876d5",
+      "sources/src/cd32_fmv.c": "b6981e1765a11688e45efbf0ea0d587098bb325ff1418b0a7412abc115b2fe3f",
+      "sources/src/expansion.c": "fc397ac51e75af94845aa3c64b0fb4a95e6791da7d912e45f50a95e0dd2c122b",
+      "sources/src/filesys.c": "657bd459f94ea61457f386359ab0e28ad3e2e4ca4f2ac929166d2607b605ff13",
+      "sources/src/hardfile.c": "2455abce16305d0d1968cc5b75e72ba5fc912de86f0b1169e08ee15749c29af0",
+      "sources/src/include/cd32_fmv.h": "c1eb39727eb3c3048f166b3cbb90926a6b5f58b511592f53f7ca42049cbb972b",
+      "sources/src/zfile_archive.c": "27e96ae227f8a88d58ad7ab6d6fddac7114e332e4eed8e190fa9d4c145c0b542"
+    },
+    "diff_sha256": "0cd166e660f1bd3200bd7cbfc06deaeec4b2bd865f402b31e3cbedbb6a7a2630"
+  },
+  "musl_commit": "2063abc4e16c84218757b1db10d3cdf9f36ef3f8",
+  "notes": [
+    "No commercial assets read, copied or hashed.",
+    "Selected-file fingerprint is not a complete reproducible runtime source snapshot; T01 must capture the full selected build inputs.",
+    "DARWIN_ARM64.md mentions a different musl pin for Hatari; use the actual chosen guest build recipe, not that unrelated example.",
+    "User changes were not modified."
+  ],
+  "reference_fingerprint_sha256": "fe84c5b373ec65734509aa5434e1cb3e30d0a41a75814f0627f48332a5f43c81"
+}
