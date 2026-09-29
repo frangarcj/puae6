@@ -83,6 +83,9 @@ class UnitSourceTests(unittest.TestCase):
         self.assertIn(FLAG, reset_wait)
         tail = specialties[specialties.rindex("return 0;") - 250:]
         self.assertIn(f"if (regs.spcflags & {FLAG})\n\t\treturn 1;", tail)
+        # The test-only observer sits in front of that return and is invisible to the profile build.
+        self.assertLess(specialties.index("#ifdef P6_UNIT_TRACE"), specialties.rindex(f"if (regs.spcflags & {FLAG})"))
+        self.assertNotIn("P6_UNIT_TRACE", (ROOT / "ports/portable/sysconfig.h").read_text())
         # Loops without a poll are excluded by configuration, not silently accepted.
         self.assertIn("m68k_reset_delay", specialties)
         manifest = json.loads((ROOT / "manifests/config-invariants.json").read_text())

@@ -69,7 +69,8 @@ umain y hace el primer m68k_go(1,0), mientras FrameAdvance aplica input/eventos 
 reanuda con m68k_go(1,1).
 
 La salida por frame del arbol fijado esta en el camino libretro: unlockscr guarda
-metadatos de dibujo, pone libretro_frame_end=1 y activa SPCFLAG_CHECK. newcpu.c
+metadatos de dibujo, pone libretro_frame_end=1 y activa set_special(1); el fork MacHawk activa
+SPCFLAG_CHECK (docs/adr/0005). newcpu.c
 comprueba ese flag despues del run_func, lo limpia y retorna sin reiniciar la CPU.
 retro_run usa esa misma reanudacion. Por tanto el port viejo prueba una primitive
 de continuacion util, no que Waterbox deba convertirse en frontend libretro.

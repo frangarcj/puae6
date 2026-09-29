@@ -89,7 +89,7 @@ arquitectura: waterbox/uae/Makefile usa CORE_DIR=libretro-uae y compila
 libretro-core.c/libretro-glue.c con __LIBRETRO__, pero bizhawk.c no llama
 retro_run. Inicializa con umain()+m68k_go(1,0) y cada FrameAdvance reanuda con
 m68k_go(1,1). En el core viejo, unlockscr() marca libretro_frame_end y
-SPCFLAG_CHECK; m68k_go retorna al detectar ese boundary. Por tanto, la semantica
+set_special(1) (SPCFLAG_CHECK es del fork MacHawk; ver docs/adr/0005); m68k_go retorna al detectar ese boundary. Por tanto, la semantica
 de frame-step ya tiene una referencia probada, mientras que la ABI libretro y la
 ABI Waterbox siguen siendo adaptadores distintos.
 

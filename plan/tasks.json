@@ -7001,7 +7001,7 @@
       "title": "p6_run_frame y prueba de continuacion STEP01 en headless",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T07b"
       ],
@@ -7015,21 +7015,28 @@
         "bridge/include/p6.h"
       ],
       "touch": [
-        "bridge/frame_step.cpp",
-        "bridge/include/**",
+        "bridge/**",
         "CMakeLists.txt",
         "adapters/headless/**",
         "patches/winuae/**",
         "tests/step/**",
         "tests/host/**",
+        "tests/fixtures/**",
         "tests/test_plan.py",
+        "docs/adr/0004-host-patch-budget.md",
         "docs/adr/0005-frame-boundary.md",
-        "manifests/host-surface.json"
+        "manifests/host-surface.json",
+        "manifests/config-invariants.json",
+        "docs/00-evidence.md",
+        "docs/01-architecture.md",
+        "docs/07-machawk.md",
+        "docs/06-execution.md"
       ],
       "steps": [
         "Implementar p6_run_frame (reset, medios, entrada, una unidad, recogida de video/ticks) sobre m68k_go_unit; sin libretro.h ni scheduler propio.",
         "Semilla solo-test P6_UNIT_TRACE y micro-ROM con interrupciones y operaciones largas que cruzan el borde; N llamadas frente a avance continuo (O1-O5), dos procesos (O2) y las cinco mutaciones que deben romper STEP01.",
-        "ADR 0005 (0002 esta ocupado por otra decision): mecanismo, delta con PUAE, pila, riesgos y pasos de validacion; corregir en el ADR el texto sobre SPCFLAG_CHECK."
+        "ADR 0005 (0002 esta ocupado por otra decision): mecanismo, delta con PUAE, pila, riesgos y pasos de validacion; corregir en el ADR el texto sobre SPCFLAG_CHECK.",
+        "Ampliacion touch: bridge/** y tests/fixtures/** (session.h, ROMs de escenario), ADR 0004 (presupuesto), config-invariants y las tres lineas de docs que describen SPCFLAG_CHECK del fork MacHawk como si fuera el PUAE fijado."
       ],
       "checks": [
         "STEP01",
@@ -7041,14 +7048,14 @@
         "ADR demuestra el port minimo del mecanismo; sin longjmp, hilo del SO ni rewrite del scheduler."
       ],
       "stop": "Si una mutacion no rompe STEP01 la prueba no vale. STEP01 aprobado solo en headless no cubre libretro ni Waterbox (T16/T19).",
-      "evidence": null
+      "evidence": "reports/tasks/T07c.md"
     },
     {
       "id": "T07",
       "title": "Demostrar avance y continuacion segura por frame",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06",
         "T04",
@@ -7085,7 +7092,7 @@
         "ADR demuestra el port minimo del mecanismo PUAE fijado o documenta por que es inviable antes de elegir una corutina; no longjmp, hilo del SO ni rewrite del scheduler."
       ],
       "stop": "Sin comparar primero contra el frame-control del PUAE fijado y explicar la pila/primer evento divergente, bloquear. La alternativa corutina añade WB01 como check obligatorio de esta ficha.",
-      "evidence": null
+      "evidence": "reports/tasks/T07.md"
     },
     {
       "id": "T08",

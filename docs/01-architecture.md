@@ -108,7 +108,8 @@ llamar al siguiente frame; no se duerme dentro del motor.
 ## Avance por frame: referencia probada, port minimo a demostrar en 6.0.3
 
 La referencia PUAE/MacHawk ya demuestra un patron concreto: unlockscr marca el
-fin de frame y solicita SPCFLAG_CHECK; el m68k_go modificado observa la peticion,
+fin de frame y pone libretro_frame_end y el bit 0 de spcflags (docs/adr/0005 corrige la
+atribucion de SPCFLAG_CHECK al fork MacHawk); el m68k_go modificado observa la peticion,
 retorna al caller y en la llamada siguiente reanuda el scheduler. retro_run usa
 esa ruta y el shim BizHawk la invoca directamente. Esto reduce el espacio de
 diseno, pero NO demuestra que el mismo parche aplique sin cambios a WinUAE 6.0.3.

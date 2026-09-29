@@ -35,6 +35,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(P6_SANITIZERS "Instrument native code with ASan and UBSan" OFF)
+option(P6_UNIT_TRACE "Test-only: engine reports and can swallow video boundaries (STEP01)" OFF)
 add_compile_options(-fno-fast-math)
 if(P6_SANITIZERS)
     add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all
@@ -58,6 +59,9 @@ add_library(p6_portable STATIC
     ports/portable/sound_lifecycle.cpp
     ports/portable/diagnostics.cpp
     ports/portable/gui.cpp)
+if(P6_UNIT_TRACE)
+    target_compile_definitions(p6_engine PRIVATE P6_UNIT_TRACE)
+endif()
 foreach(_target IN ITEMS p6_engine p6_portable)
     add_dependencies(${_target} p6_codegen)
     target_include_directories(${_target} PRIVATE
@@ -88,7 +92,7 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp bridge/lifecycle.cpp)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/lifecycle.cpp bridge/frame_step.cpp)
 add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
 target_include_directories(p6_bridge PRIVATE
@@ -107,6 +111,15 @@ target_include_directories(p6_lifecycle_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_lifecycle_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_lifecycle_probe PRIVATE p6_bridge p6_portable)
+if(P6_UNIT_TRACE)
+    # STEP01 harness (tests/step/test_step.py drives it). Only in trace builds: the profile never has the hook.
+    add_executable(p6_step_probe tests/step/step_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+    add_dependencies(p6_step_probe p6_codegen)
+    target_include_directories(p6_step_probe PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+    target_compile_options(p6_step_probe PRIVATE -UNDEBUG)
+    target_link_libraries(p6_step_probe PRIVATE p6_bridge p6_portable)
+endif()
 add_test(NAME headless-identity COMMAND p6_headless --identity)
 set_tests_properties(headless-identity PROPERTIES LABELS "headless;link" TIMEOUT 30
     PASS_REGULAR_EXPRESSION "core: puae6-headless.*profile: ${P6_PROFILE}.*machines: A500.*abi: 1.*boot: not implemented")

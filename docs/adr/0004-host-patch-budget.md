@@ -347,3 +347,11 @@ UBSan), y get_line desplazaba a la izquierda el centinela negativo de pixeles. L
 conserva los valores de los buffers validos (desplazamiento sin signo) y no toca punteros nulos.
 Candidato a upstream. La exploracion con UBSan en modo recover sobre el arranque completo dio solo
 estos cinco sitios; T08 volvera a explorar con mas lineas dibujadas.
+
+T07c añade 0062: 62 parches/30 archivos/2024 lineas (+30), sin archivos nuevos. Es solo de pruebas: bajo
+P6_UNIT_TRACE, que ningun preset define, el borde de unidad llama a un observador y puede tragarse los N-1
+primeros bordes (en la cola de do_specialties y en los dos bucles de espera) para que el mismo motor avance N
+unidades con y sin volver. Alternativa descartada: medir desde fuera con un segundo scheduler o un hilo, que es
+lo que STEP01 debe descartar. Como es codigo de prueba dentro del motor, su presencia se limita con una prueba
+(el objeto normal no referencia p6_unit_*) y no cuenta para el diseño de produccion. El presupuesto de 1500
+lineas sigue superado; se revisara en M2.

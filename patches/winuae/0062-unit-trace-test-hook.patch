@@ -1,0 +1,62 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -4518,7 +4518,23 @@
+ 		}
+ 	}
+ 	return false;
++}
++
++#ifdef P6_UNIT_TRACE
++// Test builds only (never defined by the profile): report each video boundary, and let a run swallow the
++// first p6_unit_skip of them, so the same engine can advance N units with and without returning.
++extern int p6_unit_skip;
++extern void p6_unit_observe(void);
++static bool p6_unit_swallowed(void)
++{
++	p6_unit_observe();
++	if (p6_unit_skip <= 0)
++		return false;
++	--p6_unit_skip;
++	unset_special(SPCFLAG_UNIT_END);
++	return true;
+ }
++#endif
+ 
+ static bool haltloop(void)
+ {
+@@ -4589,6 +4605,10 @@
+ 				prevvpos = 1;
+ 			x_do_cycles(8 * CYCLE_UNIT);
+ 
++#ifdef P6_UNIT_TRACE
++			if ((regs.spcflags & SPCFLAG_UNIT_END) && !(regs.spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE)) && p6_unit_swallowed())
++				continue;
++#endif
+ 			if (regs.spcflags) {
+ 				if ((regs.spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE | SPCFLAG_UNIT_END)))
+ 					return true;
+@@ -4782,6 +4802,12 @@
+ 		cpu_halt_clear();
+ 		x_do_cycles(4 * CYCLE_UNIT);
+ 		spcflags = regs.spcflags;
++#ifdef P6_UNIT_TRACE
++		if ((spcflags & SPCFLAG_UNIT_END) && !(spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE)) && p6_unit_swallowed()) {
++			spcflags = regs.spcflags;
++			continue;
++		}
++#endif
+ 		if (!(spcflags & SPCFLAG_CPUINRESET) || (spcflags & SPCFLAG_BRK) || (spcflags & SPCFLAG_MODE_CHANGE) || (spcflags & SPCFLAG_UNIT_END)) {
+ 			break;
+ 		}
+@@ -4942,6 +4968,10 @@
+ #endif
+ 	}
+ 
++#ifdef P6_UNIT_TRACE
++	if ((regs.spcflags & SPCFLAG_UNIT_END) && p6_unit_swallowed())
++		return 0;
++#endif
+ #ifdef P6_PORTABLE
+ 	// Live read: the flag can arrive while an interrupt is entered above. The caller clears it.
+ 	if (regs.spcflags & SPCFLAG_UNIT_END)

@@ -1766,6 +1766,30 @@
           "after_sha256": "12fc3c8b59f5ab55e9f8483a10b4e055422046fcb1d9ca0edc51b956f60f44d7"
         }
       ]
+    },
+    {
+      "id": "0062-unit-trace-test-hook",
+      "file": "patches/winuae/0062-unit-trace-test-hook.patch",
+      "sha256": "d1dec7686558ab97f7b5458e19000b5f506dee15131b32ae552bd5aa25848e87",
+      "title": "Test-only hook at each video boundary",
+      "reason": "STEP01 compares N resumed calls with the same engine advancing N units without returning; that needs an observer and a way to swallow boundaries at every place where the boundary is decided (the instruction tail and both wait loops). The blocks exist only when P6_UNIT_TRACE is defined, which no profile or release build does.",
+      "category": "host hooks",
+      "order": 62,
+      "symbols": [
+        "haltloop",
+        "do_specialties",
+        "p6_unit_swallowed"
+      ],
+      "test": "STEP01; tests.step.test_step; tests.host.test_unit_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "e886087a54856dcaafcb5ceda6596df3298a8815ab2773d5ef7615044b309882",
+          "after_sha256": "0d4ca102ee265168b0618a96b71d48c5bd1018d176c766bdbb237b5450f3aaae"
+        }
+      ]
     }
   ]
 }

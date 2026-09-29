@@ -10,6 +10,7 @@
 // configuration, media and state belong to later tasks; nothing here claims them.
 #include "p6.h"
 #include "error_util.h"
+#include "session.h"
 #include <stdio.h>
 
 #include "sysconfig.h"
@@ -35,24 +36,24 @@
 #include "rtc_time.h"
 #include "video_present.h"
 
+namespace p6_session {
+Session session;
+}
+
+using p6_session::Guard;
+using p6_session::State;
+using p6_session::session;
+
 namespace {
 
-enum class State { Uninitialized, Initialized, Loaded };
+p6_config &config = session.config;
+
 // How far the engine start-up got, so that a failed or finished load undoes exactly that.
 enum class Stage { None, Blob, Devices, CpuBegun };
 
-State state = State::Uninitialized;
 Stage stage = Stage::None;
-p6_config config;
-bool active;  // an API call is in progress: calls are not reentrant
 
 const char *const kFirmwareId = "p6-firmware.rom";
-
-struct Guard {
-    bool ok;
-    Guard() : ok(!active) { active = true; }
-    ~Guard() { if (ok) active = false; }
-};
 
 bool config_supported(const p6_config &c, p6_error *error, p6_result *result)
 {
@@ -206,13 +207,13 @@ extern "C" p6_result p6_init(const p6_config *supplied, p6_error *error)
         return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
     if (!supplied)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "config is null");
-    if (state != State::Uninitialized)
+    if (session.state != State::Uninitialized)
         return p6_fail(error, P6_ERROR_BAD_STATE, "already initialized");
     p6_result result = P6_OK;
     if (!config_supported(*supplied, error, &result))
         return result;
     config = *supplied;
-    state = State::Initialized;
+    session.state = State::Initialized;
     return P6_OK;
 }
 
@@ -224,9 +225,9 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
     Guard guard;
     if (!guard.ok)
         return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
-    if (state != State::Initialized)
+    if (session.state != State::Initialized)
         return p6_fail(error, P6_ERROR_BAD_STATE,
-                       state == State::Loaded ? "an image is already loaded" : "p6_init has not been called");
+                       session.state == State::Uninitialized ? "p6_init has not been called" : "an image is already loaded");
     if (media_count != 0)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "media are not supported yet");
     if (!firmware.data || firmware.bytes == 0)
@@ -239,7 +240,10 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
         release_engine();
         return result;
     }
-    state = State::Loaded;
+    session.unit_index = 0;
+    session.master_ticks = 0;
+    session.cycles_seen = get_cycles();
+    session.state = State::Loaded;
     return P6_OK;
 }
 
@@ -251,9 +255,9 @@ extern "C" p6_result p6_unload(p6_error *error)
     Guard guard;
     if (!guard.ok)
         return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
-    if (state == State::Loaded) {
+    if (session.state == State::Loaded || session.state == State::Faulted) {
         release_engine();
-        state = State::Initialized;
+        session.state = State::Initialized;
     }
     return P6_OK;
 }
@@ -266,8 +270,8 @@ extern "C" p6_result p6_shutdown(p6_error *error)
     Guard guard;
     if (!guard.ok)
         return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
-    if (state == State::Loaded)
+    if (session.state == State::Loaded || session.state == State::Faulted)
         release_engine();
-    state = State::Uninitialized;
+    session.state = State::Uninitialized;
     return P6_OK;
 }

@@ -85,7 +85,17 @@ Estado del build nativo (verificado en T06c; existe, pero no arranca ninguna maq
     P6_TEST_COMPILERS=1 python3 -m unittest tests.codegen.test_compilers   # matriz Apple clang/LLVM/GCC
 
 `p6_headless --identity` imprime perfil, commit de WinUAE, serie de parches y capacidades;
-`boot: not implemented` es cierto hasta T07/T08.
+`boot: not implemented` es cierto hasta T08 (el bridge ya avanza unidades, T07, pero no entrega video ni audio).
+
+STEP01 (T07c) usa un arbol propio con el gancho de prueba del parche 0062, que ningun preset define:
+
+    python3 -m unittest tests.step.test_step                    # arbol build/step-trace, ~1 min tras la primera compilacion
+    P6_TEST_MUTANTS=1 python3 -m unittest tests.step.test_step.MutantTests   # cinco mutantes del mecanismo + control
+    python3 -m unittest tests.host.test_bridge_lifecycle        # init/load/unload sobre el motor real (T07b)
+    P6_TEST_SANITIZERS=1 python3 -m unittest tests.host.test_bridge_lifecycle   # lo mismo bajo ASan/UBSan
+
+`tools/check.py --check STEP01` sigue respondiendo NOT_IMPLEMENTED: el dispatcher de T04 solo conoce HARNESS01 y
+sus tests lo fijan. La evidencia de STEP01 son los modulos anteriores.
 
 Secuencia de build nativo despues de T06 (contrato original):
 
