@@ -6864,7 +6864,7 @@
       "title": "Enlazar el motor A500 nativo sin interfaz",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06a",
         "T06b",
@@ -6903,7 +6903,7 @@
         "Presets CMake/CTest documentados existen realmente; no se anuncia arranque Amiga todavia."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06.md"
     },
     {
       "id": "T07",
