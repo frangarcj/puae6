@@ -1481,6 +1481,28 @@
           "after_sha256": "69d30b902d2f449ea50bab06b8285d7210a70f72c1907675c5751de33cd41d8a"
         }
       ]
+    },
+    {
+      "id": "0054-gencpu-select-models",
+      "file": "patches/winuae/0054-gencpu-select-models.patch",
+      "sha256": "fb1ae72ea42bb18ba769b76bcc903243bc2f65835cc03be7e19b4bd46a7497d7",
+      "title": "Let gencpu emit only the CPU models named on its command line",
+      "reason": "gencpu writes cpustbl.cpp and one handler file per CPU model in a fixed loop, so the generated table names about 11859 handlers of models the profile never compiles (only CPUEMU_13 is built) and the link cannot resolve them. Generated output must not be edited, so the generator gets an optional list of model numbers, validated before any file is created; without arguments it behaves exactly as upstream (tested byte for byte). The recipe asks for models 13 and 14 (68000 cycle-exact handlers and their table).",
+      "category": "host hooks",
+      "order": 54,
+      "symbols": [
+        "main"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_gencpu_models; tests.codegen.test_engine_imports",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "70ee5f48ee52ea1b16e4e235e4ddb5b09cc9e4c78ae4e586df4b088f9e220344",
+          "after_sha256": "9e6e8ae8d6434867207ea25b0acacaf0e1c601a5a0253d705f96977ae8744271"
+        }
+      ]
     }
   ]
 }

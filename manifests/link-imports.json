@@ -5,14 +5,6 @@
   "description": "Symbols still unresolved when every engine object and the portable library are linked into a probe dylib. tests.codegen.test_engine_imports fails on any unclassified symbol and on any listed name that no longer appears, so the list can only shrink deliberately.",
   "families": [
     {
-      "id": "cpu_dispatch_other_models",
-      "owner": "T06c",
-      "disposition": "select",
-      "reason": "Generated cpustbl.cpp names the handlers of every CPU model; only CPUEMU_13 is compiled (patch 0014 narrows cputbls). Select the table without editing generated output.",
-      "regex": "^op_[0-9a-f]{4}_",
-      "count": 11859
-    },
-    {
       "id": "state_serializer",
       "owner": "T15",
       "disposition": "state_gate",

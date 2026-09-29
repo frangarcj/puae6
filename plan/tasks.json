@@ -6581,13 +6581,60 @@
       "evidence": "reports/tasks/T06b.md"
     },
     {
+      "id": "T06ca",
+      "title": "Generar solo las tablas de CPU que el perfil A500 compila",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T06b2cb"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0001-host-port.md",
+        "reports/tasks/T06b2cb.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "manifests/codegen.json"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/codegen.json",
+        "manifests/source-manifest.json",
+        "manifests/link-imports.json",
+        "tools/generate_cpu.py",
+        "tests/codegen/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Hacer que gencpu acepte por argumento los modelos a emitir (sin argumentos emite todos, como upstream) y que el receta pida solo los del perfil, para que cpustbl.cpp deje de nombrar los 11859 manejadores de los demas modelos; la salida sigue siendo generada, nunca editada.",
+        "Comprobar GEN01 (dos generaciones identicas), que el perfil sigue enlazando cpuemu_13 y que la tabla de opcodes en ejecucion no cambia."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "cpustbl.cpp y cputbl.h solo referencian los modelos del perfil; la puerta de imports pierde los 11859 op_ y la tabla en ejecucion es identica. No certifica enlace ni arranque."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06ca.md"
+    },
+    {
       "id": "T06c",
       "title": "Enlace headless y puerta de imports/fuentes nativas",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T06b"
+        "T06b",
+        "T06ca"
       ],
       "read": [
         "docs/01-architecture.md",

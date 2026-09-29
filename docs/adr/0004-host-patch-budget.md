@@ -260,3 +260,24 @@ normalizar pasa de dispersa a un manifiesto verificable,
 manifests/config-invariants.json (T13). Sin ese rechazo, varias opciones se
 ignorarian en silencio (rtcfile, cs_ide = -1 normalizado, cpuboard, cache JIT...).
 Revisar el presupuesto en M2, cuando A600/A1200 reactiven parte de estas regiones.
+
+Cola tras T06cg: 53 parches/28 archivos/1647 lineas de delta.
+
+T06ca incorpora gencpu.cpp como archivo 29: 54 parches/29 archivos/1664 lineas de
+delta (+17). Es un parche a una HERRAMIENTA HOST, no al motor: main() acepta
+numeros de modelo por argumento (validados antes de crear ningun fichero) y, sin
+argumentos, emite todo como upstream. El receta pide los modelos 13 y 14. Efecto:
+cpustbl.cpp pasa de 73328 a 3198 lineas, cputbl.h de 69295 a 6229, y desaparecen
+11859 simbolos sin resolver; cpuemu_13.cpp y las tablas 13/14 salen identicas byte
+a byte. La puerta de imports baja de 12018 a 159.
+
+Alternativas descartadas. (1) `CPUEMU_68000_ONLY`: bandera oficial de upstream que
+gencpu ya emite, pero `struct regstruct` pierde los campos de MMU/cache (cacr,
+mmu_enabled, tcr...) que newcpu.cpp y newcpu_common.cpp siguen usando, asi que no
+compila; upstream no la mantiene de forma consistente. (2) Dejar la tabla completa
+y confiar en `-dead_strip`: dependeria del enlazador (una dylib exporta todo, y ELF y
+Mach-O difieren en si informan indefinidos de secciones descartadas) y ocultaria la
+dependencia que la puerta existe para mostrar. (3) Editar cpustbl.cpp o definir los
+manejadores: prohibido, la salida generada no se toca. Consecuencia para M2: el
+receta debera pedir tambien los modelos de 68020/AGA; es cambiar un argumento, no
+un parche. El delta de 1500 lineas sigue superado (ADR anterior).
