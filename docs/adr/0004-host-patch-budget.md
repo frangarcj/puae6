@@ -1,0 +1,184 @@
+# ADR 0004: presupuesto de archivos al cerrar lifecycle A500
+
+T06b2w incorpora devices.cpp como archivo upstream distinto 16. La alarma de
+docs/05-maintenance.md era 15 archivos/1500 lineas para M1, no un permiso para
+ocultar adaptaciones en headers ni enlazar proveedores ficticios. Antes de este
+cambio hay 16 parches sobre 15 archivos, 412 lineas de delta; el build real
+todavia falla en 14 unidades (build/t06b2t-engine-failures.log).
+
+Decision: aceptar este archivo adicional y revisar el coste de los siguientes
+con evidencia de compilacion. Mantener 1500 lineas como alarma de revision, no
+ampliar automaticamente el alcance funcional ni declarar cerrado M1. El parche
+devices solo guarda llamadas de features excluidas y headers host; no mueve ni
+reescribe registry, bucles o el orden de los dispositivos conservados.
+
+Alternativas descartadas: un devices nuevo duplicaria el orden upstream; stubs
+de threads/MCU/CD/RTG ocultarian dependencias; incluir sus fuentes introduciria
+servicios host y dispositivos fuera de A500. Guardas locales mantienen visible
+el delta en su caller y permiten compararlo durante la actualizacion upstream.
+
+Fronteras revisadas: init_shm de od-win32/mman solo reconfigura Fast/Z3/RTG
+(cero en este perfil), mientras memory_reset/cleanup conservan Chip/Slow/ROM.
+native2amiga requiere la cola EXTER de FILESYS y threads; traps/rtarea pertenecen
+a esa integracion excluida. device_func_* y blkdev gestionan CD/SCSI, no el ADF
+de DISK. sampler captura audio host, ethernet es host, cpuboard_rethink atiende
+aceleradoras. Keyboard mode 0 usa CIA; los tres MCU solo son necesarios en modos
+positivos. memory, DISK, CIA, audio, input, blitter, dongle y rethink_uae_int se
+conservan. graphics_leave/close_sound siguen siendo frontera A/V requerida.
+
+Precondicion interna: prefs del perfil A500 validas, sin Fast/Z3/RTG, cpuboard,
+CD, sampler, hostfs, red ni teclado MCU. T06c/T13 deben rechazarlas al validar
+config publica; estos hooks void no son una API de negociacion de features.
+Los imports MCU de CIA y los servicios de otras unidades siguen abiertos hasta
+el cierre global; retirar su lifecycle aqui no demuestra el enlace del core.
+
+Validacion: unidad entera e imports, orden/argumentos de callbacks mediante
+boundaries observados, sanitizadores y regresiones cercanas. No sustituye un
+reset real de la maquina ni un snapshot Waterbox. El recuento de delta se toma
+de series.json/parches, no del arbol generado ni de lineas ocultas en macros.
+
+T06b2aa incorpora audio.cpp como archivo 17: solo guarda el exporter sampleripper
+y sus dos callers, no modifica sintesis ni DMA. El exporter escribe WAV al host
+y depende de rutas/config de UI; esta fuera de M1. No se sustituye por un ripper
+que devuelve exito. La alternativa de aliases TCHAR globales introduciria
+escrituras host y no resolveria su exclusion. Se acepta este delta local; el
+proveedor PCM se implementa en ports/portable y no copia el backend Win32.
+PERIOD_MAX depende de ULONG_MAX aunque per es int: el aviso LP64 descubierto
+en este build requiere revision con reproducer antes de cerrar audio.
+
+T06b2ag incorpora softfloat/softfloat.cpp y softfloat-specialize.h como archivos
+18/19. Clang rechaza float_raise declarado extern y definido static; se conserva
+la declaracion y se hace inline externo, con definicion incluida por todos sus
+callers. El include usa ahora el nombre exacto SOFTFLOAT-MACROS.H para hosts
+sensibles a mayusculas. No cambia aritmetica ni tablas; cada cambio identifica
+la derivacion PUAE6 y conserva los avisos originales. El presupuesto de lineas
+sigue siendo 1500. Las dos unidades seleccionadas son necesarias para tan.
+
+El wrapper Paula conserva conversion binary64/extended80/tan/binary64 de
+fpp_native.cpp, pero usa un unico float_status local inicializado a precision80
+y round_to_zero. Upstream configura un local que no usa, operando con fs global
+que solo inicializa fp_init_native; depender de ese lifecycle requeriria FPU
+fuera del perfil. La referencia del test usa el wrapper upstream con fs ya
+inicializado: no se afirma equivalencia con su estado previo a inicializacion.
+Se descarta tan/tanl porque cambiaria algoritmo, precision y redondeo.
+
+Las variables floatx80_internal_* siguen siendo globals ordinarios del motor,
+no alloc_invisible ni TLS; no se excluyen de snapshots. La ejecucion sigue el
+contrato de un unico hilo/instancia y no introduce callbacks dentro del calculo.
+El estado local evita arrastrar flags de excepcion del FPU, pero no promete
+reentrancia general de SoftFloat. El snapshot real y los filtros completos
+cross-ISA siguen teniendo su propia puerta; este probe solo prueba la tangente
+y los coeficientes RC, no makefir ni toda la cadena de audio.
+
+T06b2am incorpora custom.cpp como archivo 20. La cola anterior tiene 24 parches
+sobre 19 archivos y 529 lineas de delta. Se acepta una guarda local de negociacion
+host en compute_framesync y de bases de reloj host en compute_vsynctime, mas la
+notificacion del reloj fisico Paula. Copiar estos calculos a otro scheduler o
+simular un monitor esconderia dependencias y permitiria variar CIA/TOD con el
+refresco del host. Se conserva el selector de tasas nominales calculadas desde
+geometria y reloj de chipset, sin redondear a 50/60; interlace/LOF/half-line y el
+resto del raster no se reescriben. La alarma de 1500 lineas sigue vigente.
+
+En P6, devices_update_sound recibe CHIPSET_CLOCK_PAL/NTSC y syncadjust=1;
+devices_update_sync conserva svpos con su ajuste de campo. Las bases temporales
+del host no se fabrican ni inicializan con constantes: eliminar sus consumidores
+y cerrar custom completo sigue pendiente. Esta decision no valida un frame ni
+el pipeline de dibujo; pruebas extraen los cuerpos reales con fronteras observadas.
+
+T06b2bc incorpora rommgr.cpp como archivo21 por una correccion aritmetica de
+checksum: el primer byte de cada word se promovia a int antes de multiplicar
+por2^24, con overflow signed para valores>=128. El reproducer ejecuta el cuerpo
+real con cuatro bytesFF y UBSan; la correccion convierte el primer operando a
+uae_u32, manteniendo suma end-around-carry y orden big-endian. No se sustituye el
+checksum por una implementacion paralela ni se desactiva el sanitizador.
+Se acepta este archivo adicional; la alarma de1500 lineas permanece vigente.
+
+El perfil A500 de read_kickstart exige transferencias completas de256/512 KiB
+(256 en buffer512 solo si se permite espejo) o un prefijo exacto de consulta.
+No repara checksum ni redondea lecturas incompletas. El checksum solicitado se
+comprueba sobre bytes logicos despues del descifrado, sin usar exec.library como
+condicion para validarlo. Se conservan el orden de espejo/descifrado y el salto
+de512 bytes y limite256 KiB del formato KICK. La consulta de version exige32
+bytes, cierra el stream en fallo y no modifica el resultado causal de carga.
+
+Esto prueba transferencia y checksum; no demuestra firmware arrancable ni
+compatibilidad del modelo. Formas de contenedor completas, aliases, descifrado,
+content ID y configuracion publica siguen pendientes en T06b2bd/T06c. Un error
+puede dejar bytes parcialmente escritos en el banco; las guardas de T06b2ba
+impiden ejecutar CPU con ese resultado. No se promete rollback de la carga.
+La prueba con datos sinteticos y las fronteras observadas no valida reset/frame
+completo. Compilar memory no sustituye el cierre de rommgr ni del motor.
+
+T06b2bk acepta include/statusline.h como archivo22 de la cola. Su declaracion
+createstatusline(HWND,int) expone un tipo Windows a disk/input/cfgfile/drawing,
+aunque todos los callers y la implementacion estan en od-win32 no seleccionado.
+Se guarda esa declaracion fuera de P6, sin inventar HWND ni retirar las funciones
+HUD genericas. drawing.cpp ya pertenece a la cola por resolucion de generados.
+Seleccionar sus brazos sincronos existentes conserva algoritmos RGA/Denise y
+elimina el lifecycle del worker; no se emulan semaforos. La alarma1500 sigue
+vigente, y objeto/render completo mantiene su puerta si aparecen otros errores.
+
+T06b2bo acepta main.cpp como archivo23:39 parches y1090 líneas de delta (+19).
+La inclusión threaddep no tiene consumidores y queda fuera de P6; se excluye el
+lanzador desktop completo, sin copiar inicialización ni ofrecer bootstrap falso.
+Mantener main de escritorio arrastraría UI/configuración host y un segundo punto
+de entrada a m68k_go; eliminar toda la unidad perdería globals/prefs/PRNG/reset
+que usa el motor. El futuro bridge debe realizar su lifecycle real con errores.
+
+uaerandomizeseed P6 delega en uaesetrandseed con la semilla explícita, incluido
+cero que ya normaliza a1: contrato fijado en T05e, sin reloj local de fallback.
+Los dos globals del PRNG permanecen en memoria ordinaria. La limpieza sin
+AUTOCONFIG usa los arrays actuales de RAM/RTG en vez de tres campos inexistentes;
+no habilita expansión ni sustituye el rechazo de configuración en la API pública.
+La alarma1500 sigue vigente; se prueba conservación de Chip/Slow y otros campos.
+
+T06b2bq acepta expansion.cpp y cfgfile.cpp como archivos24/25. Tras retirar el
+include threaddep aparecen39 errores de catálogos/hooks fuera de A500. P6 excluye
+periféricos/acceleradoras del catálogo, conserva slot0 sin dispositivo y subtype
+nulo porque existen accesos directos del motor; mantiene AutoConfig genérico y
+metadata memoryboards. Chip/Slow no proceden de ese catálogo. Se guardan hooks
+FILESYS sin proveedor. No se rellenan funciones init con éxito ficticio.
+
+El catálogo reducido exige adaptar get_unit_expansion_rom a su terminador real,
+y excluir el exporter de mounts legacy que indexaba directamente el array.
+write_filesys_config P6 avisa explícitamente si recibe montajes no soportados;
+no exporta ni indexa. El rechazo público causal sigue pendiente: el void legacy
+no sustituye un status p6_*. Acelerar compilación sin estas fronteras dejaría OOB.
+No se habilitan SCSI/CD/red ni se arrastra su implementación para resolver enlaces.
+
+T06b2by acepta savestate.cpp como archivo26. Se conserva por sus globals y helpers
+compartidos, según state_policy; retirar la unidad perdería soporte usado por el
+motor. El delta separa quick-slot de escritorio y export CD fuera del perfil,
+acota el texto de versión y corrige tipos de printf. No copia un serializer ni
+habilita CD/host paths para satisfacer el enlace. La alarma1500 sigue vigente.
+Los imports legacy restantes requieren su cierre propio; compilar esta unidad
+no aprueba estados nativos, rewind ni snapshots Waterbox.
+
+Cola tras T06b2by:45 parches/26 archivos/1203 líneas de delta (+16).
+
+T06b2ca acepta disk.cpp como archivo27:46 parches/27 archivos/1242 líneas de
+delta (+39). DISK_validate_filename es el caller real de apertura para el drive;
+sustituir el resolvedor desktop por un stub global ocultaría configuración de
+rutas. Se adapta solo esta frontera a IDs de assets ADF inmutables, sin cambiar
+lectura de pistas ni DMA. Se rechazan tipos ROM/key y errores de CRC, conservando
+propiedad del stream y protección de escritura. La alarma1500 sigue vigente.
+La compilación completa de disk, validación geométrica e inserción conservan sus
+puertas en la continuación; este cambio no anuncia un disquete arrancable.
+
+Cola tras T06b2ca: 46 parches/27 archivos/1242 lineas de delta.
+
+T06b2cc mantiene disk.cpp como archivo 27 (sin archivos nuevos): 47 parches/27
+archivos/1289 lineas de delta (+47). Son 14 regiones P6_PORTABLE que excluyen,
+con sus callers, la creacion de ADF (fecha del reloj host y escritura),
+overlay/save-image y proteccion por atributos del host, el XML de bootblocks y
+el cambio de disco por nombre, mas la region FLOPPYBRIDGE del catalogo de perfiles
+y el rechazo de ejecutables en DISK_validate_filename. Alternativas descartadas:
+proveer gettimeofday/_wunlink/_tfopen o un disk_date fijo (ocultaria una
+dependencia del reloj y de rutas del host y produciria imagenes con fecha
+inventada), y dejar el codigo sin excluir para que el enlace lo descubra (el
+compilador ya prueba que no compila). Se conserva lectura de pistas, DMA,
+registros y temporizacion; wrprot es siempre true con el overlay fuera. La
+alarma de 1500 lineas sigue vigente con 211 de margen.
+Limites: SAVESTATE sigue sin definirse (gate T15), imports target_addtorecent,
+fullpath, console_out y gui_ask_disk siguen abiertos en T06b2cb, y
+inputdevice.cpp aun llama a disk_prevnext. No se anuncia un disquete arrancable.

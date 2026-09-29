@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-09-26",
+  "evidence": "reports/environment.md",
+  "purpose": "Inventario T00; no certifica builds, ejecucion de emuladores ni determinismo.",
+  "status_definitions": {
+    "tools_available_unvalidated": "Herramientas consultadas; build y ejecucion PUAE6 pendientes.",
+    "not_provisioned": "No se ha identificado ni accedido a un runner ejecutable de esta plataforma.",
+    "reference_available_unvalidated": "Referencia funcional segun usuario, con receta local documentada; PUAE6 pendiente de validar."
+  },
+  "runners": [
+    {
+      "id": "native-macos-arm64",
+      "status": "tools_available_unvalidated",
+      "host": "macOS 26.7 (25G229) arm64",
+      "host_page_size": 16384,
+      "location": "local",
+      "provision_owner": "Propietario del entorno local (usuario)",
+      "validation_owner": "Implementador de T03/T06/T25",
+      "tools": {
+        "python": "3.14.7",
+        "git": "2.50.1 (Apple Git-155)",
+        "cmake": "4.3.2",
+        "ninja": "1.13.2",
+        "apple_clang": "21.0.0 (clang-2100.1.1.101)",
+        "xcode": "26.6 (17F113)",
+        "macos_sdk": "26.5",
+        "homebrew_llvm_lld": "22.1.8"
+      },
+      "build_verified": false,
+      "emulator_execution_verified": false,
+      "remaining": [
+        "Crear y probar los targets nativos PUAE6; gcc/g++ actuales son Clang, no una segunda toolchain GCC."
+      ]
+    },
+    {
+      "id": "waterbox-macos-arm64",
+      "status": "reference_available_unvalidated",
+      "host": "macOS 26.7 (25G229) arm64",
+      "guest": "Waterbox ELF aarch64",
+      "host_page_size": 16384,
+      "guest_logical_page_size": 4096,
+      "reference_path": "../MacHawk",
+      "reference_manifest": "plan/machawk.reference.json",
+      "reference_commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+      "reference_access": "read_only",
+      "provision_owner": "Propietario del entorno local (usuario)",
+      "validation_owner": "Implementador de T01/T09",
+      "build_verified": false,
+      "emulator_execution_verified": false,
+      "snapshot_verified": false,
+      "cached_artifacts_present": true,
+      "remaining": [
+        "Fijar inputs completos y outputs aislados bajo uae; caches y WBX existentes no validan PUAE6.",
+        "Capturar toolchain Rust efectiva: nightly fijado en archivo; receta local RUSTC_BOOTSTRAP=1 cargo test con Rust/Cargo Homebrew disponible, aun no ejecutada aqui.",
+        "Usar invocacion apropiada: DOTNET_ROLL_FORWARD=Major permite runtime 10 para net8.0 segun waterbox/vice/README.md; el preflight del smoke amplio exige 8, no todo Waterbox.",
+        "Reconsultar daemon Docker al ejecutar: socket inaccesible en T00; receta existente guest usa imagen machawk-wbx:arm64 (Clang 18), independiente del LLVM host observado.",
+        "Verificar toolchain/sysroots, x18/x28, paginas 4/16 KiB y permisos MAP_JIT mediante T09 real.",
+        "Sin ejecucion real del mini-core en Waterbox, la puerta de T09 queda bloqueada."
+      ]
+    },
+    {
+      "id": "linux-x86_64",
+      "status": "not_provisioned",
+      "host": "Linux x86_64",
+      "location": null,
+      "provision_owner": "Propietario del entorno/CI (usuario)",
+      "validation_owner": "Implementador de T25/T39",
+      "build_verified": false,
+      "emulator_execution_verified": false,
+      "remaining": [
+        "Asignar runner nativo y Waterbox Linux; QEMU 11.0.3 local sin VM ejecutada no lo acredita."
+      ]
+    },
+    {
+      "id": "windows-x86_64",
+      "status": "not_provisioned",
+      "host": "Windows x86_64",
+      "location": null,
+      "provision_owner": "Propietario del entorno/CI (usuario)",
+      "validation_owner": "Implementador de T25/T39",
+      "build_verified": false,
+      "emulator_execution_verified": false,
+      "remaining": [
+        "Asignar runner nativo y Waterbox Windows; Wine en PATH no demuestra esa plataforma."
+      ]
+    },
+    {
+      "id": "linux-arm64",
+      "status": "not_provisioned",
+      "host": "Linux arm64",
+      "location": null,
+      "provision_owner": "Propietario del entorno/CI (usuario)",
+      "validation_owner": "Implementador de T25/T39",
+      "build_verified": false,
+      "emulator_execution_verified": false,
+      "remaining": [
+        "Asignar runner Linux ARM64; no se ha iniciado contenedor ni accedido a otra maquina."
+      ]
+    },
+    {
+      "id": "macos-x86_64",
+      "status": "not_provisioned",
+      "host": "macOS x86_64",
+      "location": null,
+      "provision_owner": "Propietario del entorno/CI (usuario)",
+      "validation_owner": "Implementador de la matriz que anuncie esta plataforma",
+      "build_verified": false,
+      "emulator_execution_verified": false,
+      "remaining": [
+        "Rosetta presente por ruta; no se probo ejecucion traducida ni existe un runner Intel identificado."
+      ]
+    }
+  ]
+}

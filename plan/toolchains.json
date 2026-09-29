@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "profile": "darwin-arm64-local-smoke",
+  "sysroot": {
+    "source_path": "../MacHawk/waterbox/waterboxhost/target/musl-sysroot-aarch64-darwin",
+    "inventory_sha256": "ee086b2a4403e8c17dfe93d04e944e660321d33249af50ce89abcbf2e28afc8b",
+    "file_count": 1270,
+    "associated_source": "waterbox_musl_darwin",
+    "provenance": "Prebuilt local cache, musl associated with pinned 22440+overlays; LLVM library cache marker 18.1.8. Binary inventory verifies exact input, not a source rebuild.",
+    "release_source_rebuild_verified": false
+  },
+  "tools": {
+    "clang": {
+      "path": "/opt/homebrew/opt/llvm/bin/clang",
+      "sha256": "305697d3868243dca6e4aabf4f628df7de135d701eb4fd78f6a5d7528fef4395",
+      "version": "Homebrew clang version 22.1.8"
+    },
+    "lld": {
+      "path": "/opt/homebrew/bin/ld.lld",
+      "sha256": "49360efaf217d95b91799645d390f38eda27132d5dbdbe2ab459d361d3282f3b",
+      "version": "Homebrew LLD 22.1.8 (compatible with GNU linkers)"
+    },
+    "cargo": {
+      "path": "/opt/homebrew/bin/cargo",
+      "sha256": "c905263371d3b9cf800ff0e89bb255e03eca6ff0b1db576d316cd9b5f2b68532",
+      "version": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)"
+    },
+    "rustc": {
+      "path": "/opt/homebrew/bin/rustc",
+      "sha256": "54fc6be3de239a33058f5c11586b97d590337d26de9bcf575f28d9e6a43e4918",
+      "version": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)"
+    },
+    "make": {
+      "path": "/usr/bin/make",
+      "sha256": "5b1ddb7e9c11b87a034fc88b212e8ac243cfe2b4db696d767aa44c79595fc09a",
+      "version": "GNU Make 3.81"
+    }
+  },
+  "runtime": {
+    "source": "machawk",
+    "target": "aarch64-apple-darwin",
+    "cargo_locked": true,
+    "rustc_bootstrap": "1",
+    "profile": "debug"
+  },
+  "guest": {
+    "target": "aarch64-linux-gnu",
+    "reserved_registers": [
+      "x18",
+      "x28"
+    ],
+    "host_page_size": 16384,
+    "profile": "release"
+  }
+}
