@@ -3,29 +3,5 @@
   "profile": "deterministic-a500",
   "triage": "first pass",
   "description": "Symbols still unresolved when every engine object and the portable library are linked into a probe dylib. tests.codegen.test_engine_imports fails on any unclassified symbol and on any listed name that no longer appears, so the list can only shrink deliberately.",
-  "families": [
-    {
-      "id": "video_presentation",
-      "owner": "T08",
-      "disposition": "provide",
-      "reason": "Presentation boundary called by the renderer and custom: buffers, lock/unlock and frame hand-over. The video contract defines the provider.",
-      "names": [
-        "check_prefs_changed_gfx",
-        "flashscreen",
-        "getgfxoffset",
-        "gfx_hdr",
-        "gfxboard_refresh",
-        "graphics_leave",
-        "graphics_reset",
-        "lockscr",
-        "max_uae_height",
-        "max_uae_width",
-        "render_screen",
-        "show_screen",
-        "target_graphics_buffer_update",
-        "unlockscr",
-        "updatedisplayarea"
-      ]
-    }
-  ]
+  "families": []
 }

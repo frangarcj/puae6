@@ -48,14 +48,22 @@ class EngineImportTests(unittest.TestCase):
                  str(Path(directory) / "probe.dylib"), *map(str, objects),
                  str(BUILD / "libp6_portable.a")], capture_output=True, text=True, timeout=300)
         cls.link_output = link.stderr
+        cls.link_returncode = link.returncode
         cls.unresolved = re.findall(r'^\s+"([^"]+)", referenced from:', link.stderr, re.M)
         cls.manifest = json.loads((ROOT / "manifests/link-imports.json").read_text())
 
     def test_link_probe_ran_over_every_selected_object(self):
         self.assertEqual(len(self.objects), self.expected_objects)
-        # The probe must fail only because of undefined symbols, not a toolchain problem.
-        self.assertIn("Undefined symbols for architecture", self.link_output)
         self.assertEqual(len(self.unresolved), len(set(self.unresolved)))
+        # Two definitions of one symbol are never acceptable, listed or not.
+        self.assertNotIn("duplicate symbol", self.link_output)
+        if self.unresolved:
+            # The probe fails only because of the listed undefined symbols.
+            self.assertIn("Undefined symbols for architecture", self.link_output)
+        else:
+            # Nothing unresolved: the engine and the portable layer link completely.
+            self.assertEqual(self.link_returncode, 0, self.link_output)
+            self.assertEqual(self.manifest["families"], [])
 
     def test_manifest_shape_and_owners(self):
         tasks = {t["id"] for t in json.loads((ROOT / "plan/tasks.json").read_text())["tasks"]}

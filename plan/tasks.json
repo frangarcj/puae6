@@ -6763,7 +6763,7 @@
       "title": "Frontera de presentacion de video del motor",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06cb"
       ],

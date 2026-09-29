@@ -985,6 +985,19 @@
           ],
           "for_T10": "Lag must be counted at guest reads (JOYxDAT, POTGOR, CIA fire lines, get_next_key), not at read(). Define per-frame key order (keybuf holds 256 entries and drops on overflow), Caps Lock latch ownership, keys held through a reset, and the state outside snapshots (static float fract in setmousestate, mouse_axis[], keybuf[256])."
         }
+      },
+      "video_presentation_provider": {
+        "task": "T06ce",
+        "patch": "patches/winuae/0058-drawing-rtg-refresh-guard.patch",
+        "file": "ports/portable/video_present.{h,cpp}",
+        "defines": "lockscr, unlockscr, render_screen, show_screen, graphics_leave, graphics_reset, check_prefs_changed_gfx, target_graphics_buffer_update, updatedisplayarea, getgfxoffset, max_uae_width, max_uae_height, flashscreen, gfx_hdr",
+        "buffer": "One static XRGB8888 buffer of 1824x626 (stride 7296, 4.36 MiB in BSS), zeroed at init; capacity derived from the engine's own arithmetic (custom.cpp compute_framesync), to be measured by T08. A mode beyond it is refused before any write (lockscr fails, p6_video_status reports it).",
+        "bridge_calls": "p6_video_init once per load after custom_init/init_m68k and before the first m68k reset; per unit p6_video_status then p6_video_present and p6_video_frame_get; p6_video_clear at p6_reset; p6_video_rebind after any native state load. graphics_setup/graphics_init are not called by any compiled unit and are replaced by p6_video_init. The compiled engine never calls render_screen/show_screen (only the dead full_redraw_all does), so the hand-over is driven by the bridge.",
+        "guard": "gfxboard_refresh is referenced only under picasso_on, never set without graphics boards; drawing.cpp guards it with PICASSO96 (0058).",
+        "tests": [
+          "tests.host.test_video_present: lock/unlock/render/show sequences, byte order of an XRGB pixel through the real gfxutil.cpp, frame and pass counters, active rectangle, oversize rejection, idempotence; object exports and imports"
+        ],
+        "for_T08": "Crop and aspect (active rectangle is the whole raster), interlace fields (gfx_iscanlines default 1; map interlace/long-field to P6_FIELD_EVEN/ODD), HAM/EHB micro-ROM proofs, genlock invisibility, measure the capacity maxima, discard policy and X byte, and what p6_run_frame returns when a unit ends without a new drawing pass. init_row_map keeps static caches (drawing.cpp:1309-1327) that survive unload/load: part of the T13/T15 re-init inventory."
       }
     },
     "allocation": {

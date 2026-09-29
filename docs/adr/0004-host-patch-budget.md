@@ -305,3 +305,18 @@ las acciones de escritorio; definirlas ocultaria que esas rutas no existen y dej
 un cambio futuro de la config publica activarlas sin que nada lo notase. La puerta de
 imports pasa de 155 a 29 simbolos (solo entrada y video, con proveedores reales en
 T06cd/T06ce). El presupuesto de 1500 lineas sigue superado; se revisara en M2.
+
+Cola tras T06cb: 57 parches/30 archivos/1868 lineas de delta.
+
+T06ce añade 0058 y 0059: 59 parches/30 archivos/1875 lineas (+7), sin archivos nuevos. 0058
+guarda en drawing.cpp la llamada a gfxboard_refresh con PICASSO96, la macro que upstream ya
+usa para el resto del codigo de tarjetas graficas y que sigue sin definirse (candidato a
+upstream; no depende de la bandera del perfil). 0059 deja al port las tres definiciones de
+estado de la GUI (no_gui, quit_to_gui, gui_data) que main.cpp y ports/portable/gui.cpp
+definian a la vez; el enlace completo lo destapo como simbolos duplicados, no indefinidos.
+Alternativa descartada: borrar las del port, que tienen el valor headless (no_gui = true) y
+son las que usan los servicios observacionales de la GUI.
+
+Con esto el motor A500 y la capa portable enlazan por completo (dylib con -undefined error,
+0 indefinidos y 0 duplicados). La puerta de imports pasa a exigir enlace limpio mientras su
+manifiesto este vacio. El presupuesto de 1500 lineas sigue superado; se revisara en M2.

@@ -1665,6 +1665,48 @@
           "after_sha256": "ccb6171241346e5d8a76a087c027a09c1ae662089d1a1b962117f5f542a7645c"
         }
       ]
+    },
+    {
+      "id": "0058-drawing-rtg-refresh-guard",
+      "file": "patches/winuae/0058-drawing-rtg-refresh-guard.patch",
+      "sha256": "57a2f968962ef9f8afc59a76ec5a2025421d8f11604b4dcb8e1649c999adcde5",
+      "title": "Call the graphics-board refresh only when graphics boards are built",
+      "reason": "full_redraw_all called gfxboard_refresh under picasso_on, which is never set in the A500 profile (no graphics boards); the definition lives in the excluded board code, so the reference only ever served the link. PICASSO96 is the feature macro upstream already uses for the surrounding board code and it stays undefined, so the guard is an upstream candidate and is not tied to the profile flag.",
+      "category": "host hooks",
+      "order": 58,
+      "symbols": [
+        "full_redraw_all"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_video_present",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "d80c0e168b368dfb43b52ac309532983117a29e2a7e2eb729fb70b50802e82f7",
+          "after_sha256": "4fec3f6e9a2639e06e643b24e9ee9a7de8ee1597b3436ef0833b1e1cb7b61f0a"
+        }
+      ]
+    },
+    {
+      "id": "0059-main-gui-state-owned-by-port",
+      "file": "patches/winuae/0059-main-gui-state-owned-by-port.patch",
+      "sha256": "a525db0f58ae4b62ca49815f7e83e97a748352d808e8a915897b12e9cb19e481",
+      "title": "Leave the GUI observation state to the portable layer",
+      "reason": "main.cpp defines no_gui, quit_to_gui and gui_data with the values of the desktop launcher, and ports/portable/gui.cpp defines the same three with the headless values (no_gui = true) that the observational GUI services use; linking both fails with duplicate symbols. The port owns the state, so the definitions in main.cpp are guarded.",
+      "category": "host hooks",
+      "order": 59,
+      "symbols": [],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports (link without duplicate symbols); tests.host.test_diagnostics",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "e42295f3f7dbae1f52df428dfc0417b4484a5a09729139baf5fe65f249d6c866",
+          "after_sha256": "dc2cef4acf632e0fd70101b4359f4983743bf7bdefb49cad7039cf913839256c"
+        }
+      ]
     }
   ]
 }

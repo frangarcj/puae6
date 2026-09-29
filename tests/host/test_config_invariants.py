@@ -12,7 +12,7 @@ class ConfigInvariantTests(unittest.TestCase):
         series = json.loads((ROOT / "patches/winuae/series.json").read_text())
         numbers = {p["id"].split("-", 1)[0] for p in series["patches"]}
         self.assertEqual(manifest["profile"], "deterministic-a500")
-        self.assertGreaterEqual(len(manifest["invariants"]), 24)
+        self.assertGreaterEqual(len(manifest["invariants"]), 27)
         for item in manifest["invariants"]:
             with self.subTest(option=item["option"]):
                 self.assertTrue(item["require"] and len(item["why"]) > 20)

@@ -210,6 +210,30 @@
         "0056"
       ],
       "why": "input_get_default_* refuse those modes and ports with return 0; the engine ignores the return value, so the public config must reject them."
+    },
+    {
+      "option": "gfx_autoresolution_vga (upstream default true), gfx_autoresolution",
+      "require": "false / 0",
+      "patches": [
+        "0058"
+      ],
+      "why": "The engine would rewrite gfx_resolution and call graphics_reset; p6_video_init refuses the configuration (P6_VIDEO_CFG_AUTORESOLUTION)."
+    },
+    {
+      "option": "gfx_framerate",
+      "require": "1",
+      "patches": [
+        "0058"
+      ],
+      "why": "Frame skip omits the drawing of whole video units."
+    },
+    {
+      "option": "gfx_resolution/gfx_vresolution beyond superhires x double, cs_color_burst, gfx_grayscale, genlock*, monitoremu*, cs_cd32fmv, gfx_luminance/contrast/gamma*, refresh_indicator",
+      "require": "default / off",
+      "patches": [
+        "0058"
+      ],
+      "why": "The presentation provider owns one 1824x626 XRGB8888 buffer and rejects modes and auxiliary buffers it cannot serve; colour math reaches libm pow()."
     }
   ]
 }
