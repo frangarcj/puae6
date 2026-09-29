@@ -79,8 +79,9 @@ class DiskSourceTests(unittest.TestCase):
         pristine = (ROOT / "upstream/winuae/disk.cpp").read_text(errors="replace")
         for signature in EXCLUDED_DEFINITIONS.values():
             self.assertIn(signature, patched, signature)
-        # 14 regions in patch 0047; a new one must be a deliberate, documented change.
-        self.assertEqual(14, patched.count("#ifndef P6_PORTABLE"))
+        # 14 regions in patch 0047 and 2 in 0052 (input-record hooks); a new one must be a
+        # deliberate, documented change.
+        self.assertEqual(16, patched.count("#ifndef P6_PORTABLE"))
         self.assertEqual(pristine.count("#ifndef P6_PORTABLE"), 0)
 
 

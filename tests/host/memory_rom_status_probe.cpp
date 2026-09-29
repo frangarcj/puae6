@@ -63,7 +63,8 @@ void uae_restart(uae_prefs *, int, const TCHAR *) { std::abort(); }
 static void a1000_handle_kickstart(int mode) { assert(mode == 0 && !a1000_bootrom); }
 static bool load_extendedkickstart(const TCHAR *name, int) { assert(!name[0]); return false; }
 static void patch_kick() { ++patches; }
-void protect_roms(bool enabled) { assert(enabled == (protections % 2 == 1)); ++protections; }
+// Host ROM page protection only serves the JIT (patch 0051): loading must never call it.
+void protect_roms(bool) { ++protections; }
 void notify_user(int message)
 {
     if (message == NUMSG_KSROMCRCERROR) ++crc_notices;
@@ -72,8 +73,6 @@ void notify_user(int message)
 void error_log(const TCHAR *format, ...) { assert(!strcmp(format, "Failed to open '%s'\n")); ++errors; }
 static void init_mem_banks() { ++lifecycle; }
 void virtualdevice_init() { ++lifecycle; }
-void cpuboard_reset(int hard) { assert(hard == 1); ++lifecycle; }
-void cpuboard_cleanup() { ++lifecycle; }
 bool mapped_malloc(addrbank *bank)
 {
     assert(bank == &kickmem_bank && bank->reserved_size == ROM_SIZE_512);
@@ -95,12 +94,12 @@ static void restore(const char *name, int expected, bool bad_checksum = false)
     protections = notices = errors = opens = keys = crc_notices = 0;
     set_roms_modified(); reload_roms();
     assert(p6_memory_rom_status() == expected && !roms_modified && need_hardreset);
-    assert(protections == 2 && patches == before + (expected == P6_ROM_LOAD_OK));
+    assert(protections == 0 && patches == before + (expected == P6_ROM_LOAD_OK));
     assert(notices == (expected != P6_ROM_LOAD_OK) && errors == notices);
     assert(crc_notices == bad_checksum);
     assert(keys == 0 && opens == (expected != P6_ROM_UNSUPPORTED && expected != P6_ROM_NO_MEMORY));
     reload_roms(); // No requested reload must retain the same causal error.
-    assert(p6_memory_rom_status() == expected && protections == 2);
+    assert(p6_memory_rom_status() == expected && protections == 0);
     p6_diag_reset(); // Diagnostics are not the owner of load outcome.
     assert(p6_memory_rom_status() == expected);
 }
@@ -136,7 +135,7 @@ int main()
     assert(p6_blob_register("corrupt.rom", P6_BLOB_ROM, corrupt, sizeof corrupt) == 0);
     assert(p6_memory_rom_status() == P6_ROM_UNLOADED);
     memory_init();
-    assert(p6_memory_rom_status() == P6_ROM_UNLOADED && lifecycle == 3 && kickmem_bank.baseaddr);
+    assert(p6_memory_rom_status() == P6_ROM_UNLOADED && lifecycle == 2 && kickmem_bank.baseaddr);
     restore("fixture.rom", P6_ROM_LOAD_OK);
     assert(!memcmp(kickmem_bank.baseaddr, payload, sizeof payload));
     for (unsigned i = 0; i < 80; ++i) { // Also detects leaked streams on error.
@@ -180,7 +179,7 @@ int main()
     assert(!memcmp(kickmem_bank.baseaddr, half, sizeof half));
     restore("fixture.rom", P6_ROM_LOAD_OK);
     memory_cleanup();
-    assert(p6_memory_rom_status() == P6_ROM_UNLOADED && !kickmem_bank.baseaddr && lifecycle == 4);
+    assert(p6_memory_rom_status() == P6_ROM_UNLOADED && !kickmem_bank.baseaddr && lifecycle == 2);
     fail_allocation = true;
     memory_init();
     assert(!kickmem_bank.baseaddr && p6_memory_rom_status() == P6_ROM_UNLOADED);

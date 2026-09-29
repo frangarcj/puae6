@@ -37,19 +37,6 @@
       ]
     },
     {
-      "id": "input_recording",
-      "owner": "T06b2cb",
-      "disposition": "guard_callers",
-      "reason": "Input record/playback is excluded; callers remain in cia, newcpu, disk, savestate and inputdevice and must be guarded like the other excluded features.",
-      "regex": "^inprec_",
-      "count": 13,
-      "names": [
-        "input_play",
-        "input_record",
-        "inputrecord_debug"
-      ]
-    },
-    {
       "id": "input_device_backends",
       "owner": "T10",
       "disposition": "provide",
@@ -89,7 +76,6 @@
         "gui_ask_disk",
         "gui_display",
         "handle_msgpump",
-        "isfullscreen",
         "pause_emulation",
         "pausevideograb",
         "savestate_quick",
@@ -130,52 +116,6 @@
         "target_graphics_buffer_update",
         "unlockscr",
         "updatedisplayarea"
-      ]
-    },
-    {
-      "id": "cpuboard",
-      "owner": "T06b2cb",
-      "disposition": "guard_callers",
-      "reason": "Accelerator boards are excluded (public config rejects cpuboard_type != 0), but memory, newcpu, expansion and main still reference the hooks.",
-      "regex": "^cpuboard_",
-      "count": 14
-    },
-    {
-      "id": "rtg_hostfs_traps",
-      "owner": "T06b2cb",
-      "disposition": "guard_callers",
-      "reason": "RTG, host filesystem units and trap helpers are excluded; expansion, memory, newcpu and inputdevice still reference their banks and accessors.",
-      "names": [
-        "filesys_bank",
-        "get_mem_bank_real",
-        "gfxboard_get_configtype",
-        "gfxboard_get_romtype",
-        "gfxboard_get_vram_max",
-        "gfxboard_get_vram_min",
-        "gfxmem_banks",
-        "max_z3fastmem",
-        "mman_set_barriers",
-        "nr_directory_units",
-        "rtarea_bank",
-        "rtarea_base",
-        "trap_get_dreg",
-        "trap_get_long",
-        "trap_get_word",
-        "trap_is_indirect"
-      ]
-    },
-    {
-      "id": "non_a500_banks",
-      "owner": "T06b2cb",
-      "disposition": "guard_callers",
-      "reason": "Gayle, Gary and motherboard-resource banks of A600/A1200/A3000 models are referenced by memory.cpp although the A500 profile does not map them.",
-      "names": [
-        "gary_timeout",
-        "gary_toenb",
-        "gayle2_bank",
-        "gayle_bank",
-        "mbres_bank",
-        "protect_roms"
       ]
     },
     {
@@ -221,29 +161,6 @@
         "setsystime",
         "uae_int_requested",
         "uae_time"
-      ]
-    },
-    {
-      "id": "excluded_models_code",
-      "owner": "T06b2cb",
-      "disposition": "guard_callers",
-      "reason": "Code for excluded hardware still referenced: Nordic Power cartridge descrambling and 68040 cache fetch helpers.",
-      "names": [
-        "descramble_nordicpro",
-        "next_ilong_cache040",
-        "next_iword_cache040"
-      ]
-    },
-    {
-      "id": "config_defaults_excluded_devices",
-      "owner": "T06b2cb",
-      "disposition": "guard_callers",
-      "reason": "Preference hooks of excluded devices and of the desktop target called from cfgfile and main defaults.",
-      "names": [
-        "blkdev_default_prefs",
-        "blkdev_fix_prefs",
-        "target_default_options",
-        "target_fixup_options"
       ]
     }
   ]

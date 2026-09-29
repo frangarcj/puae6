@@ -18,8 +18,15 @@ static int calls[8], call_count, configure_result = 1;
 
 #include "cfgfile_preset_under_test.h"
 
+// The pristine reference still calls target_default_options first; the patched file (0053)
+// excludes that desktop host-defaults hook, so it must not be reached: no stub is provided.
+#ifdef TEST_REFERENCE
+constexpr int kHook = 1;
 void target_default_options(struct uae_prefs *p, int type)
 { assert(p == &prefs && type == 1); calls[call_count++] = 1; }
+#else
+constexpr int kHook = 0;
+#endif
 void cfgfile_compatibility_romtype(struct uae_prefs *p)
 { assert(p == &prefs); calls[call_count++] = 2; }
 int configure_rom(struct uae_prefs *p, const int *rom, int msg)
@@ -86,7 +93,7 @@ static void run_case(bool dirty, int rom_result, int ntsc)
 
     call_count = 0;
     buildin_default_prefs(&prefs);
-    require(call_count == 2 && calls[0] == 1 && calls[1] == 2,
+    require(call_count == 1 + kHook && (!kHook || calls[0] == 1) && calls[kHook] == 2,
             "default callbacks called in order with expected arguments");
     for (int i = 0; i < MAX_RAM_BOARDS; ++i)
         require(boards_clear(&prefs.fastmem[i], &prefs.z3fastmem[i]),
@@ -106,7 +113,7 @@ static void run_case(bool dirty, int rom_result, int ntsc)
     memcpy(&first_default, &prefs, sizeof prefs);
     call_count = 0;
     buildin_default_prefs(&prefs);
-    require(call_count == 2 && calls[0] == 1 && calls[1] == 2 &&
+    require(call_count == 1 + kHook && (!kHook || calls[0] == 1) && calls[kHook] == 2 &&
             memcmp(&prefs, &first_default, sizeof prefs) == 0,
             "reapplying base preset changed stable state");
     for (int i = 0; i < MAX_RAM_BOARDS; ++i)
@@ -115,7 +122,7 @@ static void run_case(bool dirty, int rom_result, int ntsc)
 
     configure_result = rom_result;
     int result = bip_a500(&prefs, 0, 0, 0);
-    require(result == rom_result && call_count == 3 && calls[2] == 3,
+    require(result == rom_result && call_count == 2 + kHook && calls[1 + kHook] == 3,
             "A500 ROM selection callback or result propagation mismatch");
     require(prefs.cpu_model == 68000 && prefs.cpu_cycle_exact &&
             prefs.cpu_memory_cycle_exact && prefs.blitter_cycle_exact,
@@ -137,7 +144,7 @@ static void run_case(bool dirty, int rom_result, int ntsc)
            prefs.config_version, digest);
 
     result = bip_a500(&prefs, 3, 0, 0);
-    require(result == rom_result && call_count == 4 && calls[3] == 3 &&
+    require(result == rom_result && call_count == 3 + kHook && calls[2 + kHook] == 3 &&
             prefs.bogomem.size == 0 && prefs.chipmem.size == 0x80000 &&
             prefs.cs_rtc == 0,
             "A500 no-Slow configuration inherited Fast/Z3 RAM or RTC state");

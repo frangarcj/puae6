@@ -80,10 +80,9 @@ void custom_cpuchange() { std::abort(); }
 void target_cpu_speed() { std::abort(); }
 void uaerandomizeseed() { std::abort(); }
 uae_u32 uaerand() { std::abort(); }
-addrbank *get_mem_bank_real(uaecptr) { std::abort(); }
+addrbank *mem_banks[MEMORY_BANKS]{};  // get_mem_bank() reads it; a null bank fails loudly if reached
 void custom_end_drawing() { std::abort(); }
 int memory_valid_address(uaecptr, uae_u32) { std::abort(); }
-bool inprec_prepare_record(const TCHAR *) { std::abort(); }
 uae_u8 *memory_get_real_address(uaecptr) { std::abort(); }
 void check_prefs_changed_audio() { std::abort(); }
 void cpu_halt(int) { std::abort(); }
@@ -134,8 +133,9 @@ static void reset_error_stops_before_cpu_reset_and_cleans_up()
     assert(prelude_calls == 3 && reset_prelude_calls == 4 && reset_calls == 1);
     assert(reset_hard && !reset_keyboard);
     assert(reset2_calls == 0 && run_calls == 0);
-    assert(protect_calls == 1 && !protect_value);
-    assert(barrier_calls == 1 && barrier_value && in_m68k_go == 0);
+    // Host ROM page protection and memory barriers only serve the JIT; patch 0050 removed
+    // both calls, so the failed-reset cleanup must not reach the host at all.
+    assert(protect_calls == 0 && barrier_calls == 0 && in_m68k_go == 0);
 }
 
 int main()

@@ -1281,6 +1281,206 @@
           "after_sha256": "5f2e5686e4ef10f5153103c0cea19e8998ac1237af314a4599c8f90b93853acf"
         }
       ]
+    },
+    {
+      "id": "0050-newcpu-excluded-hooks",
+      "file": "patches/winuae/0050-newcpu-excluded-hooks.patch",
+      "sha256": "cae99cff7961400b7e8a54caf184d7a0a586cebe5a7ffd83bff34aab95214bc1",
+      "title": "Exclude input recording, accelerator boards, host memory protection and the trap area from the CPU core",
+      "reason": "The link-closure gate showed newcpu still naming excluded features: input record/playback hooks, cpuboard reset/fc hooks, JIT-only memory barriers and ROM protection, the UAE trap area and the debugger's real-bank lookup. Each is guarded at its caller; get_mem_bank_real (defined only in the debugger) becomes get_mem_bank, identical without memwatch. The MOVES function-code wrappers stay because cpuemu_13 uses them. Public config must reject cpuboard_type, inprecfile, uaeboard and JIT.",
+      "category": "host hooks",
+      "order": 50,
+      "symbols": [
+        "cpureset",
+        "dfc_nommu_put_byte",
+        "dfc_nommu_put_long",
+        "dfc_nommu_put_word",
+        "do_interrupt",
+        "in_rom",
+        "in_rtarea",
+        "m68k_go",
+        "m68k_reset2",
+        "m68k_run_1_ce",
+        "maybe_disable_fpu",
+        "op_illg",
+        "prefs_changed_cpu",
+        "set_cpu_tracer",
+        "sfc_nommu_get_byte",
+        "sfc_nommu_get_long",
+        "sfc_nommu_get_word",
+        "x_get_disp_ea_040",
+        "x_get_disp_ea_ce020"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_cpu_handlers",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "5dcc1d90cceafb31210c552d1f3a417f0b498cd52acefb0a573681dff30b0760",
+          "after_sha256": "59303173dc3f03a910049b6dc09cb7d8b9bba1b9d818c0a24364e6d659529bc8"
+        },
+        {
+          "path": "newcpu_common.cpp",
+          "before_sha256": "c050d9eabca25582fda9dae437c16ce3e228871dbf898991e57e49e8f4f35bc2",
+          "after_sha256": "f31d116051da14ad8a6e9ce58f3fbb5b7019f6e01715230039d03287623b1d09"
+        }
+      ]
+    },
+    {
+      "id": "0051-memory-custom-excluded-hooks",
+      "file": "patches/winuae/0051-memory-custom-excluded-hooks.patch",
+      "sha256": "ffe999272b27d6035a3ac80457ce79a91a940fb35c09eda34e0286947ea24a3f",
+      "title": "Exclude accelerator, Gayle/Gary, trap-area and ROM-protection hooks from the memory map",
+      "reason": "memory.o still referenced cpuboard hooks, the A600/A1200/A3000 Gayle and mbres banks, Gary timeout flags (only written by those banks, hence constant zero), host ROM page protection, the UAE boot ROM/trap area and the debugger-only get_mem_bank_real. Guarded at the callers; ordinary A500 bank mapping and Gary non-range logic stay. Public config must normalize cs_ide to 0 (upstream sets -1 for generic configs, which maps Gayle), and reject cs_pcmcia, cs_fatgaryrev/cs_ramseyrev >= 0, cpuboard_type, uaeboard, cachesize and filesystem/RTG/SCSI options.",
+      "category": "host hooks",
+      "order": 51,
+      "symbols": [
+        "a1000_handle_kickstart",
+        "a3000_fakekick",
+        "addr_valid",
+        "allocate_memory",
+        "default_xlate",
+        "dummy_get",
+        "dummy_put",
+        "dummylog",
+        "gary_wait",
+        "is_cycle_ce",
+        "map_overlay",
+        "maybe_map_boot_rom",
+        "memory_cleanup",
+        "memory_clear",
+        "memory_init",
+        "memory_reset",
+        "memory_restore",
+        "restore_roms"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_memory_rom_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "89ecd02e716d2732a097f939ee18e17c3e10ded89f63b0e12edc8f737cc0a065",
+          "after_sha256": "123cd43bb25c0046c05e78ab587e843c7d990e41d99063a52c4154bba0478f32"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "ad1127b8ec622d1f84d9a30c48faec6f48bbcb97781f049999ce53a81d110594",
+          "after_sha256": "3977bb65794f51b20f2daf1c8c53340a7526d7ddda0814c49f1a293f1717524c"
+        }
+      ]
+    },
+    {
+      "id": "0052-input-state-rom-excluded-recording",
+      "file": "patches/winuae/0052-input-state-rom-excluded-recording.patch",
+      "sha256": "a9fb8c963de8a4629fc0876ceedf900e303b074a1581602098b7a8aaf5d3d2f4",
+      "title": "Exclude input record/playback, trap-driven mousehack and cartridge descrambling from input, disk, state and ROM code",
+      "reason": "inputdevice, disk and savestate still called the input-recording API; savestate_capture only runs under input recording (it returns when input_record is off) so it and its callers are guarded; the magic mouse reads RTG/trap context through uaelib traps; Nordic Power/X-Power cartridge images need descrambling. Guarded at the callers, upstream text kept. A scrambled cartridge image now fails its CRC check; public config must reject inprecfile, state capture/rewind (statecapture*), uaeboard, input_tablet and ROMTYPE_ALL_CART, and the bridge must not expose AKS_STATECAPTURE.",
+      "category": "host hooks",
+      "order": 52,
+      "symbols": [
+        "descramble",
+        "drive_eject",
+        "drive_insert",
+        "get_base",
+        "get_gfxbase",
+        "get_intuitionbase",
+        "handle_custom_event",
+        "handle_input_event2",
+        "input_mousehack_status",
+        "inputdevice_close",
+        "inputdevice_handle_inputcode2",
+        "inputdevice_hsync",
+        "inputdevice_playevents",
+        "maybe_read_input",
+        "mergecd32",
+        "mouseedge",
+        "mousehack_enable",
+        "mousehack_reset",
+        "mousehack_wakeup",
+        "read_rom",
+        "resetinput",
+        "savestate_capture",
+        "savestate_check",
+        "savestate_init",
+        "savestate_initsave",
+        "savestate_memorysave",
+        "savestate_rewind",
+        "setbuttonstateall",
+        "setjoystickstate",
+        "setmousestate"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_input_source; tests.host.test_disk_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "c5a086b3312855871f1ad328402cc303ad427ee671745bf5f01bf422e7cccd60",
+          "after_sha256": "77349128570f1f8d647d9edfec2074d48f0f94863fe2d8f8a260ccb9703eddf0"
+        },
+        {
+          "path": "disk.cpp",
+          "before_sha256": "e997a4bca73a65965abee968b429f27a4fe19b7b47610421ac9857bd4eeaa5b1",
+          "after_sha256": "ee4a80ac0031210965d775ffeba3793617780f3183389f62324db49d2b57b91c"
+        },
+        {
+          "path": "savestate.cpp",
+          "before_sha256": "dcd067f8e97e26f03529bc8ee1880b5dbc54c981d2d56b235f349a0cb151b1df",
+          "after_sha256": "9ab5ba9d84f58bf08a4eb59c4b79e911d3796c6bdc9b3a7e36139b01e1cfe4bd"
+        },
+        {
+          "path": "rommgr.cpp",
+          "before_sha256": "b2b4b5d7322d803f25833559427d7f94e8d10a652e59eb527566c4795681700f",
+          "after_sha256": "8084bbe19d79adcff9ec3e93b3ce234b8aeaab252c2c3a549eabe2d5e389b2db"
+        }
+      ]
+    },
+    {
+      "id": "0053-config-excluded-devices",
+      "file": "patches/winuae/0053-config-excluded-devices.patch",
+      "sha256": "e22e79198ddab1993957179e28bd227eb137805051c635126c506f331870e583",
+      "title": "Exclude accelerator, RTG, directory-unit, UAE boot ROM and desktop-target hooks from configuration and expansion",
+      "reason": "main, expansion and cfgfile still called cpuboard sizing/autoconfig, graphics-board limits, directory-unit checks, the SCSI default and the desktop target hooks; filesys_bank showed as unresolved because its definition sits under FILESYS while two exported UAE-board helpers referenced it outside that block; need_uae_boot_rom depended on the traps area (rtarea_base, zero when it is not built) and now returns no boot ROM. Guarded at the callers, upstream text kept. Dropping target_default_options changes host-side defaults the core never reads (sampler card, gfx api). Public config must reject cpuboard_type, rtg memory/type/initial_active/monitor_id, z3 chip/fast memory, non-default cdslots, scsi, directory mounts, uaeboard and cachesize.",
+      "category": "host hooks",
+      "order": 53,
+      "symbols": [
+        "buildin_default_prefs",
+        "cfgfile_compatibility_rtg",
+        "check_boot_rom",
+        "default_prefs",
+        "expamem_init_last",
+        "expamem_z3hack",
+        "expansion_add_autoconfig",
+        "expansion_clear",
+        "filesys_xlate",
+        "fixup_cpu",
+        "fixup_prefs",
+        "need_uae_boot_rom",
+        "romtype_restricted",
+        "uaeboard_alloc_ram"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_expansion_source; tests.host.test_main_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "435424f66817752ba9d842e8b866791f70eef9e7237ab0f0ce75495d085c5572",
+          "after_sha256": "695ddab714c2c91b3d3816de442a067b4f297208af25543cc6bd201241a53e05"
+        },
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "8c0a28cf92587d9156af10aebc48f19f5eae7daaa3049f05888e9f6fb62e50ea",
+          "after_sha256": "c44a4530f911ec1c57272acc9643df922f81e940d51e91298e4b4b4044e9fae3"
+        },
+        {
+          "path": "cfgfile.cpp",
+          "before_sha256": "2103c477aa1fee2af58811c6b994e1b6645991271caccacfb28fc935b10a48c2",
+          "after_sha256": "69d30b902d2f449ea50bab06b8285d7210a70f72c1907675c5751de33cd41d8a"
+        }
+      ]
     }
   ]
 }

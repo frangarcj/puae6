@@ -1,0 +1,340 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -190,6 +190,8 @@
+ #define NONEXISTINGDATA 0
+ //#define NONEXISTINGDATA 0xffffffff
+ 
++#ifndef P6_PORTABLE
++// The UAE boot ROM (uaeboard >= 2) needs the traps area, which the A500 profile does not build.
+ static bool map_uae_boot_rom_direct(void)
+ {
+ 	if (!fakeuaebootrom_bank.allocated_size) {
+@@ -239,6 +241,7 @@
+ 	}
+ 	return false;
+ }
++#endif
+ 
+ static void dummylog(int rw, uaecptr addr, int size, uae_u32 val, int ins)
+ {
+@@ -275,6 +278,8 @@
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE
++// gary_timeout/gary_toenb are only set by the A3000 Gary registers (gayle.cpp), not built in the A500 profile.
+ // 250ms delay
+ static void gary_wait(uaecptr addr, int size, bool write)
+ {
+@@ -291,6 +296,7 @@
+ 		cnt--;
+ 	}
+ }
++#endif
+ 
+ static bool gary_nonrange(uaecptr addr)
+ {
+@@ -319,12 +325,14 @@
+ 		flash_write(addr, val);
+ #endif
+ 
++#ifndef P6_PORTABLE
+ 	if (gary_nonrange(addr) || (size > sz_byte && gary_nonrange(addr + (1 << size) - 1))) {
+ 		if (gary_timeout)
+ 			gary_wait(addr, size, true);
+ 		if (gary_toenb && currprefs.mmu_model)
+ 			hardware_exception2(addr, val, false, false, size);
+ 	}
++#endif
+ }
+ 
+ static uae_u32 nonexistingdata(void)
+@@ -409,17 +417,21 @@
+ 	}
+ #endif
+ 
++#ifndef P6_PORTABLE
+ 	if ((size == sz_word || size == sz_long) && inst && maybe_map_boot_rom(addr)) {
+ 		if (size == sz_word)
+ 			return get_word(addr);
+ 		return get_long(addr);
+ 	}
++#endif
+ 
+ 	if (gary_nonrange(addr) || (size > sz_byte && gary_nonrange(addr + (1 << size) - 1))) {
++#ifndef P6_PORTABLE
+ 		if (gary_timeout)
+ 			gary_wait(addr, size, false);
+ 		if (gary_toenb)
+ 			hardware_exception2(addr, 0, true, false, size);
++#endif
+ 		return v;
+ 	}
+ 
+@@ -1062,7 +1074,10 @@
+ {
+ 	if (!a1000_bootrom)
+ 		return;
++#ifndef P6_PORTABLE
++	// Host ROM page protection only serves the JIT, which the profile excludes.
+ 	protect_roms (false);
++#endif
+ 	if (mode == 0) {
+ 		a1000_kickstart_mode = 0;
+ 		if (a1000_kickstart_size == ROM_SIZE_256) {
+@@ -1385,11 +1400,15 @@
+ 		return kickmem_xlate(2);
+ 	}
+ 
++#ifndef P6_PORTABLE
+ 	if (maybe_map_boot_rom(addr))
+ 		return get_real_address(addr);
++#endif
+ 
+ 	be_recursive++;
++#ifndef P6_PORTABLE
+ 	int size = currprefs.cpu_model >= 68020 ? 4 : 2;
++#endif
+ 	if (quit_program == 0) {
+ 		/* do this only in 68010+ mode, there are some tricky A500 programs.. */
+ 		if ((currprefs.cpu_model > 68000 || !currprefs.cpu_compatible) && !currprefs.mmu_model) {
+@@ -1419,11 +1438,16 @@
+ 				memory_map_dump();
+ #endif
+ 			}
++#ifdef P6_PORTABLE
++			// gary_toenb is never set without the A3000 Gary registers.
++			cpu_halt(CPU_HALT_OPCODE_FETCH_FROM_NON_EXISTING_ADDRESS);
++#else
+ 			if (0 || (gary_toenb && (gary_nonrange(addr) || (size > 1 && gary_nonrange(addr + size - 1))))) {
+ 				hardware_exception2(addr, 0, true, true, size);
+ 			} else {
+ 				cpu_halt(CPU_HALT_OPCODE_FETCH_FROM_NON_EXISTING_ADDRESS);
+ 			}
++#endif
+ 		}
+ 	}
+ 	be_recursive--;
+@@ -1616,7 +1640,9 @@
+ {
+ 	static uae_u8 *kickstore;
+ 
++#ifndef P6_PORTABLE
+ 	protect_roms (false);
++#endif
+ 	if (map) {
+ 		uae_u8 *fkickmemory = a3000lmem_bank.baseaddr + a3000lmem_bank.reserved_size - fkickmem_size;
+ 		if (fkickmemory[2] == 0x4e && fkickmemory[3] == 0xf9 && fkickmemory[4] == 0x00) {
+@@ -1648,7 +1674,9 @@
+ 		xfree (kickstore);
+ 		kickstore = NULL;
+ 	}
++#ifndef P6_PORTABLE
+ 	protect_roms (true);
++#endif
+ }
+ 
+ static void descramble_alg(uae_u8 *data, int size)
+@@ -2768,6 +2796,8 @@
+ 	allocate_memory_custombanks();
+ 
+ 	if (savestate_state == STATE_RESTORE) {
++#ifndef P6_PORTABLE
++		// The traps area (rtarea) is not built in the A500 profile: no boot ROM to restore.
+ 		if (bootrom_filepos) {
+ 			if (currprefs.uaeboard < 0)
+ 				currprefs.uaeboard = 0;
+@@ -2778,6 +2808,7 @@
+ 				map_banks_set(&rtarea_bank, rtarea_base >> 16, 1, 0);
+ 			}
+ 		}
++#endif
+ 		restore_ram (chip_filepos, chipmem_bank.baseaddr);
+ 		if (bogomem_bank.allocated_size > 0)
+ 			restore_ram (bogo_filepos, bogomem_bank.baseaddr);
+@@ -2800,7 +2831,10 @@
+ 	bogo_filepos = 0;
+ 	a3000lmem_filepos = 0;
+ 	a3000hmem_filepos = 0;
++#ifndef P6_PORTABLE
++	// Accelerator boards are excluded from the A500 profile.
+ 	cpuboard_init();
++#endif
+ }
+ 
+ static void setmemorywidth(struct ramboard *mb, addrbank *ab)
+@@ -2961,10 +2995,19 @@
+ 		addrbank *rb = NULL;
+ 		if (size < 32 && bogomem_aliasing == 0)
+ 			size = 32;
++#ifdef P6_PORTABLE
++		// The debugger's memwatch layer is not built: the mapped bank is the real bank.
++		cb = &get_mem_bank(0xf00000);
++#else
+ 		cb = get_mem_bank_real(0xf00000);
++#endif
+ 		if (!rb && cb && (cb->flags & ABFLAG_ROM) && get_word(0xf00000) == 0x1114)
+ 			rb = cb;
++#ifdef P6_PORTABLE
++		cb = &get_mem_bank(0xe00000);
++#else
+ 		cb = get_mem_bank_real(0xe00000);
++#endif
+ 		if (!rb && cb && (cb->flags & ABFLAG_ROM) && get_word(0xe00000) == 0x1114)
+ 			rb = cb;
+ 		if (!rb)
+@@ -2974,7 +3017,9 @@
+ 	initramboard(&chipmem_bank, &currprefs.chipmem);
+ 	overlay_state = chip;
+ 	fill_ce_banks();
++#ifndef P6_PORTABLE
+ 	cpuboard_overlay_override();
++#endif
+ 	if (!isrestore() && valid_address(regs.pc, 4)) {
+ 		m68k_setpc_normal(m68k_getpc());
+ 	}
+@@ -3059,13 +3104,17 @@
+ 	if (a3000hmem_bank.baseaddr)
+ 		memset(a3000hmem_bank.baseaddr, 0, a3000hmem_bank.allocated_size);
+ 	expansion_clear ();
++#ifndef P6_PORTABLE
+ 	cpuboard_clear();
++#endif
+ }
+ 
+ static void restore_roms(void)
+ {
+ 	roms_modified = false;
++#ifndef P6_PORTABLE
+ 	protect_roms (false);
++#endif
+ 	write_log (_T("ROM loader.. (%s)\n"), currprefs.romfile);
+ 	kickstart_rom = 1;
+ 	a1000_handle_kickstart (0);
+@@ -3092,7 +3141,6 @@
+ 			notify_user (NUMSG_NOROM);
+ 		}
+ #ifdef P6_PORTABLE
+-		protect_roms(true);
+ 		return;
+ #else
+ 		load_kickstart_replacement ();
+@@ -3104,7 +3152,6 @@
+ 			// Known 020/030 or A4000 requirements cannot adapt the A500 profile.
+ 			if (rd->cpu & 15) {
+ 				rom_load_status = P6_ROM_UNSUPPORTED;
+-				protect_roms(true);
+ 				return;
+ 			}
+ #endif
+@@ -3143,7 +3190,9 @@
+ 	}
+ 	patch_kick ();
+ 	write_log (_T("ROM loader end\n"));
++#ifndef P6_PORTABLE
+ 	protect_roms (true);
++#endif
+ }
+ 
+ bool read_kickstart_version(struct uae_prefs *p)
+@@ -3183,7 +3232,9 @@
+ void memory_restore(void)
+ {
+ 	last_address_space_24 = currprefs.address_space_24;
++#ifndef P6_PORTABLE
+ 	cpuboard_map();
++#endif
+ 	map_banks_set(&kickmem_bank, 0xF8, 8, 0);
+ }
+ 
+@@ -3235,7 +3286,9 @@
+ 	currprefs.cs_fatgaryrev = changed_prefs.cs_fatgaryrev;
+ 	currprefs.cs_ramseyrev = changed_prefs.cs_ramseyrev;
+ 	currprefs.cs_unmapped_space = changed_prefs.cs_unmapped_space;
++#ifndef P6_PORTABLE
+ 	cpuboard_reset(mem_hardreset);
++#endif
+ 
+ 	gayleorfatgary = ((currprefs.chipset_mask & CSMASK_AGA) || currprefs.cs_pcmcia || currprefs.cs_ide > 0 || currprefs.cs_mbdmac) && !currprefs.cs_cd32cd;
+ 
+@@ -3293,6 +3346,8 @@
+ 			map_banks (&bogomem_bank, 0xC0, t, 0);
+ 		initramboard(&bogomem_bank, &currprefs.bogomem);
+ 	}
++#ifndef P6_PORTABLE
++	// Gayle (A600/A1200 IDE and PCMCIA, A4000 IDE) is not part of the A500 profile.
+ 	if (currprefs.cs_ide || currprefs.cs_pcmcia) {
+ 		if (currprefs.cs_ide == IDE_A600A1200 || currprefs.cs_pcmcia) {
+ 			map_banks (&gayle_bank, 0xD8, 6, 0);
+@@ -3305,6 +3360,7 @@
+ 		if (currprefs.cs_ide < 0)
+ 			map_banks (&gayle_bank, 0xDD, 1, 0);
+ 	}
++#endif
+ 	if (currprefs.cs_rtc == 3) { // A2000 clock
+ 		map_banks (&clock_bank, 0xD8, 4, 0);
+ 		clock_bank.startmask = 0xd80000;
+@@ -3317,8 +3373,11 @@
+ 		map_banks (&clock_bank, 0xDC, 1, 0); /* none clock */
+ 		clock_bank.startmask = 0xdc0000;
+ 	}
++#ifndef P6_PORTABLE
++	// Fat Gary/Ramsey motherboard resources (A3000/A4000) are not part of the A500 profile.
+ 	if (currprefs.cs_fatgaryrev >= 0 || currprefs.cs_ramseyrev >= 0)
+ 		map_banks (&mbres_bank, 0xDE, 1, 0);
++#endif
+ #ifdef CD32
+ 	if (currprefs.cs_cd32c2p || currprefs.cs_cd32cd || currprefs.cs_cd32nvram) {
+ 		map_banks (&akiko_bank, AKIKO_BASE >> 16, 1, 0);
+@@ -3340,10 +3399,14 @@
+ 	if (debugmem_bank.baseaddr) {
+ 		map_banks(&debugmem_bank, debugmem_bank.start >> 16, debugmem_bank.allocated_size >> 16, 0);
+ 	}
++#ifndef P6_PORTABLE
+ 	cpuboard_map();
++#endif
+ 	map_banks_set(&kickmem_bank, 0xF8, 8, 0);
+ 	if (currprefs.maprom && _tcscmp(currprefs.romfile, _T(":AROS"))) {
++#ifndef P6_PORTABLE
+ 		if (!cpuboard_maprom())
++#endif
+ 			map_banks_set(&kickram_bank, currprefs.maprom >> 16, extendedkickmem2a_bank.allocated_size ? 32 : (extendedkickmem_bank.allocated_size ? 16 : 8), 0);
+ 	}
+ 	/* map beta Kickstarts at 0x200000/0xC00000/0xF00000 */
+@@ -3511,7 +3574,9 @@
+ 	kickmem_init();
+ 	_tcscpy (currprefs.romfile, _T("<none>"));
+ 	currprefs.romextfile[0] = 0;
++#ifndef P6_PORTABLE
+ 	cpuboard_reset(1);
++#endif
+ 
+ #ifdef ACTION_REPLAY
+ 	action_replay_unload (0);
+@@ -3546,7 +3611,9 @@
+ 	a1000_bootrom = NULL;
+ 	a1000_kickstart_mode = 0;
+ 
++#ifndef P6_PORTABLE
+ 	cpuboard_cleanup();
++#endif
+ #ifdef ACTION_REPLAY
+ 	action_replay_cleanup();
+ #endif
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -12967,7 +12967,12 @@
+ 
+ bool is_cycle_ce(uaecptr addr)
+ {
++#ifdef P6_PORTABLE
++	// The debugger's memwatch layer is not built: the mapped bank is the real bank.
++	addrbank *ab = &get_mem_bank(addr);
++#else
+ 	addrbank *ab = get_mem_bank_real(addr);
++#endif
+ 	if (!ab || (ab->flags & ABFLAG_CHIPRAM) || ab == &custom_bank) {
+ 		struct rgabuf *r = read_rga_out();
+ 		if (r->alloc <= 0) {

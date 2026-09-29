@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "profile": "deterministic-a500",
+  "purpose": "Options the public configuration layer (T13) must reject or normalize for the exclusion patches to be safe. Each entry names the patch that stops honouring the option, so an ignored option can never be silently accepted.",
+  "status": "specification: nothing enforces these yet",
+  "invariants": [
+    {"option": "rtcfile", "require": "empty", "patches": ["0049"], "why": "Clock RAM is not persisted to a host file in M1; a non-empty value would be ignored silently."},
+    {"option": "input_autoswitchleftright", "require": "0", "patches": ["0048"], "why": "The auto-switch compared wall-clock time."},
+    {"option": "jports[].jd[].id in the JSEM_CUSTOM range, jports_custom[].custom", "require": "unused", "patches": ["0048"], "why": "Custom port scripts were configuration text."},
+    {"option": "input_tablet, MOUSEUNTRAP_MAGIC (magic mouse)", "require": "off", "patches": ["0052"], "why": "Trap-driven mousehack reads RTG/trap context."},
+    {"option": "inprecfile and input record/play; statecapture*", "require": "empty / 0", "patches": ["0048", "0049", "0050", "0052"], "why": "Input recording and its state capture are excluded; the bridge must also not expose AKS_STATECAPTURE."},
+    {"option": "cpuboard_type, cpuboard_subtype, cpuboardmem*", "require": "0", "patches": ["0050", "0051", "0053"], "why": "Accelerator boards are excluded."},
+    {"option": "cpu_model", "require": "68000 or 68010 in M1", "patches": ["0050"], "why": "The 68020+ address decoding and the 68040 cache helpers are compiled out; M2 revisits this."},
+    {"option": "cachesize (JIT), debugger, memwatch", "require": "0 / off", "patches": ["0050", "0051", "0053"], "why": "Host memory protection and the debugger's real-bank lookup only serve the JIT and the debugger."},
+    {"option": "uaeboard, boot_rom (uae_boot_rom_type), traps area", "require": "0", "patches": ["0050", "0051", "0053"], "why": "The UAE boot ROM and RTAREA need the trap area; need_uae_boot_rom now reports none."},
+    {"option": "cs_ide", "require": "normalize to 0", "patches": ["0051"], "why": "Upstream sets -1 for generic configurations, which maps the Gayle bank; without it reads fall to dummy_bank and change bus behaviour."},
+    {"option": "cs_pcmcia", "require": "0", "patches": ["0051"], "why": "Gayle PCMCIA is excluded."},
+    {"option": "cs_fatgaryrev, cs_ramseyrev", "require": "< 0", "patches": ["0051"], "why": "Gary timeout flags are constant zero without the A3000 motherboard registers."},
+    {"option": "rtgboards[].rtgmem_size, rtgmem_type, initial_active, monitor_id", "require": "0 / below hardware", "patches": ["0053"], "why": "Graphics boards are excluded."},
+    {"option": "z3chipmem.size, z3fastmem[].size, fastmem on non-M2 profiles", "require": "0", "patches": ["0051", "0053"], "why": "Zorro III memory is excluded."},
+    {"option": "scsi, mountitems (directory units), cdslots", "require": "0 / empty / default", "patches": ["0053"], "why": "Host filesystem, SCSI and CD units are excluded; blkdev defaults are no longer initialised."},
+    {"option": "ROM types ROMTYPE_ALL_CART (Nordic Power, X-Power)", "require": "reject", "patches": ["0052"], "why": "Cartridge descrambling is excluded; a scrambled image would fail its CRC."},
+    {"option": "floppy media", "require": "explicit read-only ADF assets", "patches": ["0046", "0047"], "why": "Creation, overlays and host paths are excluded."},
+    {"option": "preprocessor: AUTOCONFIG, FILESYS, SAVESTATE, DEBUGGER, PARALLEL_PORT, FLOPPYBRIDGE", "require": "undefined", "patches": ["0047", "0049", "0050"], "why": "Several guards rely on these staying undefined (op_illg stops compiling if AUTOCONFIG is defined)."}
+  ]
+}

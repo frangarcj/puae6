@@ -229,3 +229,34 @@ el port; el simbolo existiria solo para que el enlace pasase, ocultando que la
 rama no debe existir. Limite: la RAM del reloj no se persiste en M1 y la config
 publica debe rechazar `rtcfile`; sin ese rechazo la opcion se ignoraria en
 silencio.
+
+Cola tras T06b2cf: 49 parches/28 archivos/1367 lineas de delta.
+
+T06b2cg supera la alarma: 53 parches/28 archivos/1647 lineas de delta (+280 en
+cuatro parches: 0050 newcpu 51, 0051 memory/custom 76, 0052 input/disk/savestate/
+rommgr 93, 0053 main/expansion/cfgfile 60). No hay archivos nuevos. Coste y
+motivo: la puerta de imports (T06b2ce) enseno que 10 unidades seguian nombrando
+funciones excluidas (grabacion de entrada, aceleradoras, RTG/hostfs/trampas,
+bancos Gayle/Gary, proteccion de memoria del host, arranque UAE, cartuchos);
+cerrar 59 simbolos exige guardar unos 100 sitios de llamada. Todos siguen el
+mismo patron, `#ifndef P6_PORTABLE` con el texto upstream intacto (salvo tres
+sustituciones exactas: get_mem_bank_real por get_mem_bank, sin memwatch;
+need_uae_boot_rom sin area de traps; expamem_z3hack sin memoria de aceleradora),
+asi que un update los reaplica de forma mecanica y la puerta detecta cualquier
+regresion.
+
+Alternativas descartadas. (1) Un modulo del port con definiciones "no soportado"
+de esos simbolos: ahorraria unas 250 lineas, pero convierte una opcion mal
+configurada en un aborto en mitad de la emulacion en lugar de un rechazo previo, y
+oculta las dependencias que la puerta existe para mostrar (misma razon que en
+0049). (2) Macros por funcion (CPUBOARD, GAYLE, INPUTREC...): es mejor a largo
+plazo, pues permitirian reactivar cada una en M2 y despues, pero el numero de
+ediciones es el mismo y ahora se ignorarian casi todas; las guardas actuales se
+renombran de forma mecanica cuando una funcion vuelva. (3) Dejar los simbolos sin
+resolver y proporcionarlos en el enlace: rechazado por AGENTS.md.
+
+Consecuencia: la lista de opciones que la config publica debe rechazar o
+normalizar pasa de dispersa a un manifiesto verificable,
+manifests/config-invariants.json (T13). Sin ese rechazo, varias opciones se
+ignorarian en silencio (rtcfile, cs_ide = -1 normalizado, cpuboard, cache JIT...).
+Revisar el presupuesto en M2, cuando A600/A1200 reactiven parte de estas regiones.

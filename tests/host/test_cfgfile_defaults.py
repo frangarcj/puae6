@@ -62,7 +62,7 @@ int configure_rom(struct uae_prefs *p, const int *rom, int msg)
 void inputdevice_default_prefs(struct uae_prefs *p) { assert(p == &prefs); event(14); }
 void blkdev_default_prefs(struct uae_prefs *p) { assert(p == &prefs); event(15); }
 void target_default_options(struct uae_prefs *p, int type)
-{ assert(p == &prefs && type == 7); p->cpu_frequency = 12345; event(16); }
+{ assert(p == &prefs && type == 7); event(16); }
 void zfile_fclose(struct zfile *z) { assert(z == nullptr); ++cache_count; event(20); }
 struct zfile *zfile_fopen_empty(struct zfile *prev, const TCHAR *name)
 { assert(prev == nullptr && !_tcscmp(name, _T("configstore"))); ++cache_count; event(21); return fake_file; }
@@ -83,14 +83,19 @@ int main()
     int expected[7], n = 0;
     expected[n++] = 10 + reset;
     if (reset) { expected[n++] = 12; expected[n++] = 12; }
-    expected[n++] = 13; expected[n++] = 14; expected[n++] = 15; expected[n++] = 16;
+    expected[n++] = 13; expected[n++] = 14;
+#ifndef P6_EXCLUDED_HOOKS
+    // Patch 0053 excludes the block-device defaults (SCSI unit 0 after the memset) and the
+    // desktop host defaults from the portable profile.
+    expected[n++] = 15; expected[n++] = 16;
+#endif
     assert(event_count == n + (cache_count ? 4 : 0));
     for (int i=0; i<n; ++i) assert(events[i] == expected[i]);
     if (cache_count) {
       assert(events[n] == 20 && events[n+1] == 21 && events[n+2] == 22 && events[n+3] == 23);
       assert(default_file == fake_file);
     } else assert(default_file == nullptr);
-    assert(prefs.cpu_frequency == 12345 && savestate_state == 0);
+    assert(savestate_state == 0);
     assert(prefs.mountitems == 0);
     printf("%d %llu %d %d\n", reset, digest(), event_count, cache_count);
   } }
@@ -123,7 +128,8 @@ class CfgfileDefaultsTests(unittest.TestCase):
                     extracted += function(text, "void default_prefs (") + "\n"
                     (tmp / "default_prefs_under_test.h").write_text(extracted)
                     exe = tmp / (label + opt[2:])
-                    subprocess.run(["clang++", "-std=c++17", opt, "-UNDEBUG",
+                    hooks = ["-DP6_EXCLUDED_HOOKS"] if label == "patched" else []
+                    subprocess.run(["clang++", "-std=c++17", opt, "-UNDEBUG", *hooks,
                                     "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
                                     *includes, str(tmp / "probe.cpp"), "-o", str(exe)],
                                    check=True, timeout=120)

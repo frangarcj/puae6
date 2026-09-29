@@ -76,7 +76,7 @@ static void expect_load(const char *id, int expected, const std::vector<uae_u8> 
     set_roms_modified();
     reload_roms();
     assert(p6_memory_rom_status() == expected && !roms_modified && need_hardreset);
-    assert(protections == 2);
+    assert(protections == 0);
     const bool cpu_rejection = use_known_rom && expected == P6_ROM_UNSUPPORTED;
     assert(patches == old_patches + (expected == P6_ROM_LOAD_OK));
     assert(notices == (expected != P6_ROM_LOAD_OK && !cpu_rejection));

@@ -4527,13 +4527,61 @@
       "evidence": "reports/tasks/T06b2cf.md"
     },
     {
+      "id": "T06b2cg",
+      "title": "Cerrar los simbolos excluidos que quedaban en CPU, memoria, configuracion, entrada, estado y ROM",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T06b2cf"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "docs/07-machawk.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0004-host-patch-budget.md",
+        "reports/tasks/T06b2ca.md",
+        "reports/tasks/T06b2cc.md",
+        "reports/tasks/T06b2cd.md",
+        "reports/tasks/T06b2ce.md",
+        "reports/tasks/T06b2cf.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/link-imports.json",
+        "manifests/config-invariants.json",
+        "tests/host/**",
+        "tests/codegen/**",
+        "tests/test_plan.py",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Guardar en newcpu, memory, custom, main, expansion, cfgfile, inputdevice, disk, savestate y rommgr los sitios que aun nombran grabacion de entrada, aceleradoras, RTG/hostfs/trampas, bancos Gayle/Gary, proteccion de memoria del host, arranque UAE y cartuchos, sin definir simbolos ni dar proveedores ficticios.",
+        "Sacar de manifests/link-imports.json solo lo que la puerta confirme resuelto; dejar a T06b2cb sin simbolos propios.",
+        "Consolidar en manifests/config-invariants.json las opciones que la config publica debe rechazar o normalizar para que las guardas sean seguras, atadas a los parches que las hacen inertes; ADR por superar la alarma de 1500 lineas."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Los 33 objetos compilan; la puerta baja de 12078 a 12018 simbolos y ninguna familia con dueño T06b2cb queda abierta. Las guardas dependen de invariantes de configuracion que aun nadie impone (T13). No certifica enlace, arranque ni Waterbox."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2cg.md"
+    },
+    {
       "id": "T06b2cb",
       "title": "Cerrar entrada, medios y dependencias de estado A500",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T06b2cf"
+        "T06b2cg"
       ],
       "read": [
         "docs/01-architecture.md",
