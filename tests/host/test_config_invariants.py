@@ -25,6 +25,17 @@ class ConfigInvariantTests(unittest.TestCase):
         covered = {p for item in manifest["invariants"] for p in item["patches"]}
         self.assertLessEqual({"0046", "0047", "0048", "0049", "0050", "0051", "0052", "0053", "0055", "0056", "0060"}, covered)
 
+    def test_invariants_marked_as_held_by_the_preset_match_the_profile_file(self):
+        manifest = json.loads((ROOT / "manifests/config-invariants.json").read_text())
+        profile = json.loads((ROOT / "config/profiles/a500-ocs.json").read_text())
+        values = {f["name"]: f["value"] for f in profile["fields"]}
+        held = [item for item in manifest["invariants"] if "profile" in item]
+        self.assertGreaterEqual(len(held), 9)
+        for item in held:
+            for name, value in item["profile"].items():
+                with self.subTest(option=item["option"], field=name):
+                    self.assertEqual(values[name], value)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,14 +20,14 @@ builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 
 
-def build_probe(directory, sanitizers):
+def build_probe(directory, sanitizers, target="p6_lifecycle_probe"):
     subprocess.run(["cmake", "-S", str(ROOT), "-B", str(directory), "-G", "Ninja",
                     "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++",
                     "-DCMAKE_BUILD_TYPE=Debug", f"-DP6_SANITIZERS={'ON' if sanitizers else 'OFF'}"],
                    check=True, capture_output=True, text=True, timeout=120)
-    subprocess.run(["cmake", "--build", str(directory), "--target", "p6_lifecycle_probe"],
+    subprocess.run(["cmake", "--build", str(directory), "--target", target],
                    check=True, capture_output=True, text=True, timeout=1500)
-    return directory / "p6_lifecycle_probe"
+    return directory / target
 
 
 def run_probe(exe):

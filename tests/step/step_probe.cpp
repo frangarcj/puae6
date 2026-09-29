@@ -41,6 +41,7 @@ struct Record {
     int64_t cycles;
     int line, unit_hpos;
     int halted, stopped;
+    uint32_t vw, vh, vflags;
     uint64_t frames, passes;   // presentation provider: frame hand-overs and drawing passes so far
     uint64_t digest;
 };
@@ -92,7 +93,7 @@ extern "C++" void p6_unit_observe(void)
     r.halted = regs.halted;
     r.stopped = regs.stopped;
     p6_video_frame_info video{};
-    if (p6_video_frame_get(&video) == 0) { r.frames = video.frame_counter; r.passes = video.pass_counter; }
+    if (p6_video_frame_get(&video) == 0) { r.frames = video.frame_counter; r.passes = video.pass_counter; r.vw = video.width; r.vh = video.height; r.vflags = video.flags; }
     r.digest = state_digest();
     trace.push_back(r);
 }
@@ -196,9 +197,9 @@ int main(int argc, char **argv)
     for (size_t i = 0; i < trace.size(); ++i) {
         const Record &r = trace[i];
         printf("unit %zu pc=%06x op=%04x d0=%08x d1=%08x sr=%04x line=%d hpos=%d cycles=%" PRId64
-               " halted=%d stopped=%d video=%" PRIu64 "/%" PRIu64 " digest=%016" PRIx64 "\n",
+               " halted=%d stopped=%d video=%" PRIu64 "/%" PRIu64 " size=%ux%u/%u digest=%016" PRIx64 "\n",
                i + 1, r.pc, r.opcode, r.d0, r.d1, r.sr, r.line, r.unit_hpos, r.cycles, r.halted, r.stopped,
-               r.frames, r.passes, r.digest);
+               r.frames, r.passes, r.vw, r.vh, r.vflags, r.digest);
     }
     printf("final digest=%016" PRIx64 " ticks=%" PRIu64 "\n", state_digest(), last_ticks);
     check(p6_unload(&error), "p6_unload");

@@ -86,6 +86,9 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.flags = 1;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.reserved[3] = 1;                assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.rtc_epoch_seconds = INT64_MIN;  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.rtc_epoch_seconds = INT64_MAX;  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(e.message[0] != 0);
     p6_error bad{};                                      // an error struct we cannot write to
     c = make_config();                                   assert(p6_init(&c, &bad) == P6_ERROR_BAD_ARGUMENT);
     assert(load(rom, &e) == P6_ERROR_BAD_STATE);         // none of the rejected inits initialized anything
@@ -94,7 +97,12 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
 static void rejects_bad_firmware(const std::vector<uint8_t> &good)
 {
     p6_error e = make_error();
+    // Rejections before the engine: the preferences of an earlier run stay exactly as they were.
+    currprefs.seed = 0x5eed1234;
     assert(p6_load(p6_buffer{nullptr, 0}, nullptr, 0, &e) == P6_ERROR_NEED_FIRMWARE);
+    const std::vector<uint8_t> oversized(2 * 1024 * 1024, 0);
+    assert(load(oversized, &e) == P6_ERROR_WRONG_MEDIA && e.message[0] != 0);
+    assert(currprefs.seed == 0x5eed1234 && in_m68k_go == 0);
     p6_media media{};
     assert(p6_load(buffer_of(good), &media, 1, &e) == P6_ERROR_UNSUPPORTED);
     assert(in_m68k_go == 0);

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "profile": "deterministic-a500",
   "purpose": "Options the public configuration layer (T13) must reject or normalize for the exclusion patches to be safe. Each entry names the patch that stops honouring the option, so an ignored option can never be silently accepted.",
-  "status": "specification: nothing enforces these yet",
+  "status": "specification for the public configuration layer (T13). Entries with a 'profile' key already hold in the fixed A500 preset of ABI v1 (config/profiles/a500-ocs.json, checked against the engine by tests/host/test_a500_profile.py); the rest describe options p6_config cannot express yet and must be enforced when it can.",
   "invariants": [
     {
       "option": "rtcfile",
@@ -63,7 +63,10 @@
       "patches": [
         "0050"
       ],
-      "why": "The 68020+ address decoding and the 68040 cache helpers are compiled out; M2 revisits this."
+      "why": "The 68020+ address decoding and the 68040 cache helpers are compiled out; M2 revisits this.",
+      "profile": {
+        "cpu_model": 68000
+      }
     },
     {
       "option": "cachesize (JIT), debugger, memwatch",
@@ -73,7 +76,10 @@
         "0051",
         "0053"
       ],
-      "why": "Host memory protection and the debugger's real-bank lookup only serve the JIT and the debugger."
+      "why": "Host memory protection and the debugger's real-bank lookup only serve the JIT and the debugger.",
+      "profile": {
+        "cachesize": 0
+      }
     },
     {
       "option": "uaeboard, boot_rom (uae_boot_rom_type), traps area",
@@ -83,7 +89,10 @@
         "0051",
         "0053"
       ],
-      "why": "The UAE boot ROM and RTAREA need the trap area; need_uae_boot_rom now reports none."
+      "why": "The UAE boot ROM and RTAREA need the trap area; need_uae_boot_rom now reports none.",
+      "profile": {
+        "uaeboard": 0
+      }
     },
     {
       "option": "cs_ide",
@@ -91,7 +100,10 @@
       "patches": [
         "0051"
       ],
-      "why": "Upstream sets -1 for generic configurations, which maps the Gayle bank; without it reads fall to dummy_bank and change bus behaviour."
+      "why": "Upstream sets -1 for generic configurations, which maps the Gayle bank; without it reads fall to dummy_bank and change bus behaviour.",
+      "profile": {
+        "cs_ide": 0
+      }
     },
     {
       "option": "cs_pcmcia",
@@ -99,7 +111,10 @@
       "patches": [
         "0051"
       ],
-      "why": "Gayle PCMCIA is excluded."
+      "why": "Gayle PCMCIA is excluded.",
+      "profile": {
+        "cs_pcmcia": 0
+      }
     },
     {
       "option": "cs_fatgaryrev, cs_ramseyrev",
@@ -217,7 +232,11 @@
       "patches": [
         "0058"
       ],
-      "why": "The engine would rewrite gfx_resolution and call graphics_reset; p6_video_init refuses the configuration (P6_VIDEO_CFG_AUTORESOLUTION)."
+      "why": "The engine would rewrite gfx_resolution and call graphics_reset; p6_video_init refuses the configuration (P6_VIDEO_CFG_AUTORESOLUTION).",
+      "profile": {
+        "gfx_autoresolution": 0,
+        "gfx_autoresolution_vga": 0
+      }
     },
     {
       "option": "gfx_framerate",
@@ -225,7 +244,10 @@
       "patches": [
         "0058"
       ],
-      "why": "Frame skip omits the drawing of whole video units."
+      "why": "Frame skip omits the drawing of whole video units.",
+      "profile": {
+        "gfx_framerate": 1
+      }
     },
     {
       "option": "gfx_resolution/gfx_vresolution beyond superhires x double, cs_color_burst, gfx_grayscale, genlock*, monitoremu*, cs_cd32fmv, gfx_luminance/contrast/gamma*, refresh_indicator",
@@ -241,7 +263,10 @@
       "patches": [
         "0060"
       ],
-      "why": "The wait for a delayed reset keeps a vsync counter on the stack of do_specialties and does not poll the unit request; a run call could never return."
+      "why": "The wait for a delayed reset keeps a vsync counter on the stack of do_specialties and does not poll the unit request; a run call could never return.",
+      "profile": {
+        "reset_delay": 0
+      }
     },
     {
       "option": "crash_auto_reset",
@@ -249,7 +274,10 @@
       "patches": [
         "0060"
       ],
-      "why": "A halted CPU must stay in the halt wait loop, which polls the unit request; an automatic reset would replace the crash with a silent restart the guest cannot observe."
+      "why": "A halted CPU must stay in the halt wait loop, which polls the unit request; an automatic reset would replace the crash with a silent restart the guest cannot observe.",
+      "profile": {
+        "crash_auto_reset": 0
+      }
     }
   ]
 }

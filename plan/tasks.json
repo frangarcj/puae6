@@ -7095,13 +7095,149 @@
       "evidence": "reports/tasks/T07.md"
     },
     {
+      "id": "T08a",
+      "title": "Preset A500 explicito y validacion de config en el bridge",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T07"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0005-frame-boundary.md",
+        "reports/tasks/T07.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "config/profiles/**",
+        "CMakeLists.txt",
+        "manifests/config-invariants.json",
+        "tests/host/**",
+        "tests/scenarios/a500/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Mover la construccion de preferencias de lifecycle.cpp a bridge/config.cpp: preset A500 explicito (derivado de built_in_prefs model 0 config 0) mas los campos de p6_config, con cada override propio listado y justificado en config/profiles.",
+        "Validar config, firmware, memoria y region antes de tocar el motor, con errores tipados y mensajes acotados; imponer los invariantes de manifests/config-invariants.json que ya conciernen a este preset.",
+        "Probar que el perfil JSON coincide con las preferencias leidas del motor tras cargar (PAL y NTSC) y que un campo sin declarar o distinto falla."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "El preset no depende de valores por defecto implicitos de default_prefs: cada campo relevante esta en el perfil o falla la prueba.",
+        "Una config no soportada se rechaza antes de init/load con codigo y texto acotado; el motor no se toca."
+      ],
+      "stop": "Si un campo del preset no se puede derivar de las preferencias upstream, registrar por que y no inventar un valor.",
+      "evidence": "reports/tasks/T08a.md"
+    },
+    {
+      "id": "T08b",
+      "title": "Video entregado por p6_run_frame: raster canonico y metadatos",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T08a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0005-frame-boundary.md",
+        "reports/tasks/T07.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "CMakeLists.txt",
+        "adapters/headless/**",
+        "patches/winuae/**",
+        "tests/host/**",
+        "tests/step/**",
+        "tests/scenarios/a500/**",
+        "tests/test_plan.py",
+        "docs/adr/0004-host-patch-budget.md",
+        "docs/adr/0006-video-output.md",
+        "manifests/config-invariants.json"
+      ],
+      "steps": [
+        "Fijar por escrito el raster de salida por estandar (PAL/NTSC), resolucion y entrelazado a partir del codigo de 6.0.3, y quien decide cada campo del p6_frame: ancho, alto, stride, region activa, aspecto, paridad de campo y cadencia como fraccion entera.",
+        "Implementar bridge/video.cpp: presentar tras cada unidad, rellenar p6_frame solo cuando cabe en el limite demostrado, error controlado antes de escribir si un modo lo supera, y publicar las capacidades reales en p6_query_caps.",
+        "Que el observador de STEP01 use la misma ruta de presentacion que el bridge (sin duplicarla)."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "AV01"
+      ],
+      "acceptance": [
+        "p6_run_frame entrega video con metadatos coherentes con el motor; render=false suprime la entrega y no cambia el estado.",
+        "Ningun modo del invitado escribe fuera del buffer; el limite esta demostrado, no supuesto."
+      ],
+      "stop": "Si no se conoce el limite de salida o el significado campo/frame, resolverlo antes de reservar un buffer.",
+      "evidence": null
+    },
+    {
+      "id": "T08c",
+      "title": "Escenarios A500 PAL/NTSC con raster e interlace y hashes de video canonicos",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T08b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0005-frame-boundary.md",
+        "reports/tasks/T07.md"
+      ],
+      "touch": [
+        "tests/scenarios/a500/**",
+        "tests/fixtures/**",
+        "tests/step/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "adapters/headless/**",
+        "bridge/**",
+        "tools/scenario_schema.py",
+        "docs/04-validation.md"
+      ],
+      "steps": [
+        "Micro-ROMs que dibujen con bitplanes, copper y sprites en PAL y NTSC, lores y hires, con y sin entrelazado; el resultado esperado se deriva del programa (registros y colores), no de una captura del propio motor.",
+        "Hash de video canonico sobre pixeles activos sin padding, y comprobar en cada escenario que los cambios de hardware (colores, paleta por copper, plano de bits) son visibles en la imagen y en el estado.",
+        "Cambios de modo del invitado en medio de la ejecucion (lores<->hires, entrelazado on/off) sin desbordar el buffer; STEP01 sobre estos escenarios.",
+        "Escenario de Kickstart autorizado definido y separado: sin ROM presente queda BLOCKED y su compatibilidad se declara no probada."
+      ],
+      "checks": [
+        "STEP01",
+        "AV01"
+      ],
+      "acceptance": [
+        "Video canonico, ticks y efectos de hardware del fixture coinciden con el escenario; cambios de modo no desbordan buffers.",
+        "Toda compatibilidad Kickstart no probada queda identificada, no extrapolada del fixture libre."
+      ],
+      "stop": "Un escenario cuyo resultado esperado se copia de la salida del motor no pasa: derivarlo del programa.",
+      "evidence": null
+    },
+    {
       "id": "T08",
       "title": "Arrancar A500 y entregar video correcto",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T07"
+        "T07",
+        "T08a",
+        "T08b",
+        "T08c"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -7118,7 +7254,8 @@
         "Construir preset A500 explicito a partir de preferencias upstream verificadas; validar ROM/memoria/region y errores.",
         "Conectar renderer software y metadatos stride, dimensiones, field parity y cadencia; asegurar capacidades antes de escribir.",
         "Ejecutar micro-ROM PAL/NTSC con raster e interlace; demostrar instrucciones y cambios hardware, no solo una imagen negra.",
-        "Añadir arranque con Kickstart autorizado como escenario separado cuando este disponible."
+        "Añadir arranque con Kickstart autorizado como escenario separado cuando este disponible.",
+        "Division de alcance: T08a preset y validacion de config, T08b video y metadatos del bridge, T08c escenarios y hashes. T08 conserva STEP01/AV01 y toda su aceptacion original; tests/test_plan.py preserva esta puerta."
       ],
       "checks": [
         "STEP01",

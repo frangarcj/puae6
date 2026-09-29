@@ -92,7 +92,7 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp bridge/lifecycle.cpp bridge/frame_step.cpp)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp)
 add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
 target_include_directories(p6_bridge PRIVATE
@@ -111,6 +111,13 @@ target_include_directories(p6_lifecycle_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_lifecycle_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_lifecycle_probe PRIVATE p6_bridge p6_portable)
+# Reports how the bridge's A500 preferences differ from upstream's own (tests/host/test_a500_profile.py).
+add_executable(p6_profile_probe tests/host/a500_profile_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_profile_probe p6_codegen)
+target_include_directories(p6_profile_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_profile_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_profile_probe PRIVATE p6_bridge p6_portable)
 if(P6_UNIT_TRACE)
     # STEP01 harness (tests/step/test_step.py drives it). Only in trace builds: the profile never has the hook.
     add_executable(p6_step_probe tests/step/step_probe.cpp $<TARGET_OBJECTS:p6_engine>)
