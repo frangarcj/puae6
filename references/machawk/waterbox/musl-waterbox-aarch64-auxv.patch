@@ -1,0 +1,19 @@
+diff --git a/src/env/waterbox_aarch64/__libc_start_main.c b/src/env/waterbox_aarch64/__libc_start_main.c
+index 3441a491..4439cc51 100644
+--- a/src/env/waterbox_aarch64/__libc_start_main.c
++++ b/src/env/waterbox_aarch64/__libc_start_main.c
+@@ -69,13 +69,9 @@ weak_alias(libc_start_init, __libc_start_init);
+ 
+-static const Elf64_auxv_t __auxvs[] = {
+-	{ AT_PAGESZ, { 0x1000 } },
+-};
+-
+ static const void *const __args[] =
+ {
+ 	"waterbox", NULL,
+ 	"WATERBOX=1", NULL,
+-	&__auxvs[0],
++	(void *)AT_PAGESZ, (void *)0x1000,
+ 	AT_NULL,
+ };
+ 

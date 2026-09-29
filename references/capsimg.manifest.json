@@ -1,0 +1,601 @@
+{
+  "schema_version": 1,
+  "source": {
+    "id": "machawk_capsimg",
+    "repository": "https://github.com/FrodeSolheim/capsimg.git",
+    "commit": "ed4cb0912fb1a2a0d5203111c6f6abd50d411b56",
+    "local_path": "../MacHawk/waterbox/uae/capsimg",
+    "snapshot": {
+      "destination": "references/capsimg",
+      "manifest": "references/capsimg.manifest.json"
+    }
+  },
+  "destination": "references/capsimg",
+  "files": [
+    {
+      "path": ".github/workflows/linux.yml",
+      "mode": "100644",
+      "sha256": "853de2511018c918c2ce3247fa0da4440213cfc0d97fe137a1c3b3d9db9407e8"
+    },
+    {
+      "path": ".github/workflows/macos.yml",
+      "mode": "100644",
+      "sha256": "9e1c2997d45fca36f42393643eb66712008443fe4e0c6930d5ed1e6d0e7349b3"
+    },
+    {
+      "path": ".github/workflows/windows.yml",
+      "mode": "100644",
+      "sha256": "f1b052827e13bffad02b6f6263d94411c300b8b7c5f40707f5bb7aea18e24b21"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "sha256": "0f0c9933b156a2f24737eb92a08e3006f39309f026daf43331f448f62e926136"
+    },
+    {
+      "path": "BASEVERSION.FS",
+      "mode": "100644",
+      "sha256": "f9893302cd3158f3b5aea394dcd2a91574869e9e6ff69e9235b10a3bf8c983fb"
+    },
+    {
+      "path": "CAPSImg/CAPSImg.aps",
+      "mode": "100644",
+      "sha256": "5ef7c79632eabe27c49dbb95dba744dd7b1c94d2147ce701dfec03d9a7ecafc5"
+    },
+    {
+      "path": "CAPSImg/CAPSImg.cpp",
+      "mode": "100644",
+      "sha256": "fa6d86e1e4b60767ab9500e4ed061c02458a82769d8f11a982ade7ee7edcda9d"
+    },
+    {
+      "path": "CAPSImg/CAPSImg.rc",
+      "mode": "100644",
+      "sha256": "9bc51565e9b91ca9b7129cb2df6109cb4ffe605cdc78f9f0f2041f7aff3abd0a"
+    },
+    {
+      "path": "CAPSImg/CAPSImg.vcxproj",
+      "mode": "100644",
+      "sha256": "56e5083b1170e66a7534ee54d6872e099b1e7d1699b55564057b6c218f05ed2a"
+    },
+    {
+      "path": "CAPSImg/CAPSImg.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "e9697631d0da5af15b88d0323428c7ae7fb8fecbe3b2e30dfdb0a477486c2cf6"
+    },
+    {
+      "path": "CAPSImg/CAPSImg.vcxproj.user",
+      "mode": "100644",
+      "sha256": "42e0d27ffe931edad474a88db8ff4fb78894398ec69e6b3c045e79e7506f74e8"
+    },
+    {
+      "path": "CAPSImg/CapsAPI.cpp",
+      "mode": "100644",
+      "sha256": "669312b9fe7ed18ca52a6d10d861aff08b9f8b214b38d5d9595a6ebd8c63670b"
+    },
+    {
+      "path": "CAPSImg/CapsCore.h",
+      "mode": "100644",
+      "sha256": "b3019f5c3d1e2021bd36fbcd06ba797beb00c419ae2b883522a7d3357ca7eed7"
+    },
+    {
+      "path": "CAPSImg/CapsFDCEmulator.cpp",
+      "mode": "100644",
+      "sha256": "000ac2d6d0c40e8ec5caefdb35283657f8a1a0910edc28f4bdfb14881ccef8ef"
+    },
+    {
+      "path": "CAPSImg/CapsFDCEmulator.h",
+      "mode": "100644",
+      "sha256": "93a0071e392084dbd1298555420fc6f9a79a639b3ab5b7e744449b82535efea3"
+    },
+    {
+      "path": "CAPSImg/CapsFile.cpp",
+      "mode": "100644",
+      "sha256": "3214cf5090167821a73c7a1703fa095053bc4e86514dcba0cfd09349ccc67606"
+    },
+    {
+      "path": "CAPSImg/CapsFile.h",
+      "mode": "100644",
+      "sha256": "cb4ee133c3475421f4cc1f29bf2b36f136bc516277858f9363fce3afafbc6d3c"
+    },
+    {
+      "path": "CAPSImg/CapsFormatMFM.cpp",
+      "mode": "100644",
+      "sha256": "86e459c2a32b37c42a6a883c95206327a2850fc3b6c6715de2830e09e4f71d94"
+    },
+    {
+      "path": "CAPSImg/CapsFormatMFM.h",
+      "mode": "100644",
+      "sha256": "e4e752ea87fdce511aee8827e5f7281b45f8503223ca5389d6afd97bb69d1d71"
+    },
+    {
+      "path": "CAPSImg/CapsImage.cpp",
+      "mode": "100644",
+      "sha256": "d952ae58078871d00475540a50f5457248017e182d5a4633a764263632f913f6"
+    },
+    {
+      "path": "CAPSImg/CapsImage.h",
+      "mode": "100644",
+      "sha256": "2eb91b872a3e06efe8f956b94626c883fbd82d63f15ab075dcf3ebfab769af87"
+    },
+    {
+      "path": "CAPSImg/CapsImageStd.cpp",
+      "mode": "100644",
+      "sha256": "e688685d66a6457da117e3dcdc20afe852f019af25869d5872f853c748978e70"
+    },
+    {
+      "path": "CAPSImg/CapsImageStd.h",
+      "mode": "100644",
+      "sha256": "f2e6f6d817b642985612996e6147fed316c58b74d4651f159bdba4b1eb1f3b75"
+    },
+    {
+      "path": "CAPSImg/CapsLoader.cpp",
+      "mode": "100644",
+      "sha256": "cd13f9c588a9e8d62c72ce09dcf569b6bffc000ed90c030e55011067081ab6a6"
+    },
+    {
+      "path": "CAPSImg/CapsLoader.h",
+      "mode": "100644",
+      "sha256": "f1963b685e31cbad95e45fce3e4519e7b1cb33c850d031d3bcd8e74d5acee015"
+    },
+    {
+      "path": "CAPSImg/DiskImage.cpp",
+      "mode": "100644",
+      "sha256": "694be03fbeb7a044bac83b591336dc5539bec4b1762444dc5863e61e1891369b"
+    },
+    {
+      "path": "CAPSImg/DiskImage.h",
+      "mode": "100644",
+      "sha256": "fb8e1c1cef1733461ea0a66d58c413ad2f6c55186d356a1647e65172e198dbdc"
+    },
+    {
+      "path": "CAPSImg/DiskImageFactory.cpp",
+      "mode": "100644",
+      "sha256": "92314772a7827ed37de5dd17275a17eb326bac58156580f01e0efb66c196603d"
+    },
+    {
+      "path": "CAPSImg/DiskImageFactory.h",
+      "mode": "100644",
+      "sha256": "056fca2cad53097a70edf1dc30fe5a80237a7151f89210dbcc7682b5ab976eba"
+    },
+    {
+      "path": "CAPSImg/LICENSE",
+      "mode": "100644",
+      "sha256": "3e5b0d79618838cef124ef8c1d9f91608188bda30b57050ce8104b8872f0b0cb"
+    },
+    {
+      "path": "CAPSImg/Makefile.in",
+      "mode": "100644",
+      "sha256": "dac4a72e0f0b62b5d46bd52b798260f445d6ce99f9a429bcb6db0944ad628be5"
+    },
+    {
+      "path": "CAPSImg/StreamCueImage.cpp",
+      "mode": "100644",
+      "sha256": "359414a0ee4a9797a639f2af741d9768ff915277118f17435dcf6b024a575859"
+    },
+    {
+      "path": "CAPSImg/StreamCueImage.h",
+      "mode": "100644",
+      "sha256": "b23a452f4e6e64abcde30a27a705e421c17723072ef0be9192c634dbe41fbfbd"
+    },
+    {
+      "path": "CAPSImg/StreamImage.cpp",
+      "mode": "100644",
+      "sha256": "eb9db39036942efecae7832f095a59cafbb6eef3ff5574c52bcd89e08c6bc261"
+    },
+    {
+      "path": "CAPSImg/StreamImage.h",
+      "mode": "100644",
+      "sha256": "d445950abf4595f7ea44f7b489f8982195bfcde281d6ddbded41e9c05c467543"
+    },
+    {
+      "path": "CAPSImg/bootstrap.sh",
+      "mode": "100644",
+      "sha256": "d1631705d045b7b38b13e9032b358c702186a61865c8421ad0fdd9b70672fb97"
+    },
+    {
+      "path": "CAPSImg/config.guess",
+      "mode": "100644",
+      "sha256": "e0c1d7ef8ce964fb57c35e7704ae8661d7e4ca87d6a3c18950e503ae26b62319"
+    },
+    {
+      "path": "CAPSImg/config.sub",
+      "mode": "100644",
+      "sha256": "f7e62c3cb15cd5bbc4e7f3617793b227481fc554d39697a9c322a266d20fb626"
+    },
+    {
+      "path": "CAPSImg/configure.in",
+      "mode": "100644",
+      "sha256": "1c270d8a5949a1719ea8a06b0c984cea181cbedb0cb10977bf32177122d37875"
+    },
+    {
+      "path": "CAPSImg/dllmain.cpp",
+      "mode": "100644",
+      "sha256": "aeba339ad25fa7f35f8e2ddcd09d830d8202626d19588f1c6640bcfb18889be5"
+    },
+    {
+      "path": "CAPSImg/install-sh",
+      "mode": "100644",
+      "sha256": "608b76d735bb2ec2bcb1271644c3d5e7a428fb8d2338e114e8a48ebf91ccfd23"
+    },
+    {
+      "path": "CAPSImg/libcapsimage.map",
+      "mode": "100644",
+      "sha256": "b0754140256b76762682b85119354e869773401bbe5a34f387d7a04678505d5d"
+    },
+    {
+      "path": "CAPSImg/resource.h",
+      "mode": "100644",
+      "sha256": "41e281c72b4424748470536e6d9b82dee366cd2d9826131d7d01140ea0bd573a"
+    },
+    {
+      "path": "CAPSImg/stdafx.cpp",
+      "mode": "100644",
+      "sha256": "d6bb1c40b931e096829ff5929e8192afef5c6ed593c51f0d4b8f0c63449e64f7"
+    },
+    {
+      "path": "CAPSImg/stdafx.h",
+      "mode": "100644",
+      "sha256": "eadc608f5e784aad0c5d9dfa2c8f6456ec6f57e4adc50245d749fba4e38061f2"
+    },
+    {
+      "path": "CAPSImg/targetver.h",
+      "mode": "100644",
+      "sha256": "eb04e9a8f30f57906e78daa6ac1ee5a89871df68dffaed9de0d4110b68c7a4a1"
+    },
+    {
+      "path": "Codec/CTRawCodec.cpp",
+      "mode": "100644",
+      "sha256": "0b01bafb11734ad71a26afa802c3e025f1a41a5d0458b1c5e947d82c3c10169b"
+    },
+    {
+      "path": "Codec/CTRawCodec.h",
+      "mode": "100644",
+      "sha256": "347ee3af71631f00f19a15b08f2173bfb3ffdf07372e0a70ba9caccec2806d50"
+    },
+    {
+      "path": "Codec/CTRawCodecDecompressor.cpp",
+      "mode": "100644",
+      "sha256": "06d4bcbfb98768ecfd2b6b7f057d34d47ba067de5ea59a685ddc82dd6982b000"
+    },
+    {
+      "path": "Codec/CapsDefinitions.h",
+      "mode": "100644",
+      "sha256": "8758908a845a92f1dcb40a1686ca943414308873c47790d6ca8a4a31ba14143d"
+    },
+    {
+      "path": "Codec/DiskEncoding.cpp",
+      "mode": "100644",
+      "sha256": "9a69bd093a48d56b3addf6b754ec1df7cb235b5d4a7da9a1c9f292ccfc80399c"
+    },
+    {
+      "path": "Codec/DiskEncoding.h",
+      "mode": "100644",
+      "sha256": "d6438b3db826ed3da29d22af3a25622490244fb662bdee341e52832233bba8af"
+    },
+    {
+      "path": "Compatibility/dirent.h",
+      "mode": "100644",
+      "sha256": "33d10f5e6a675cf926cef7cbedc8ba05af25892f3d73915e979303b37a45e228"
+    },
+    {
+      "path": "Core/BaseFile.cpp",
+      "mode": "100644",
+      "sha256": "f112481e8438950b7fb9735dd435227aa585b4fae1530752a87ccce0d7a80ace"
+    },
+    {
+      "path": "Core/BaseFile.h",
+      "mode": "100644",
+      "sha256": "31f8ded511340692d4a2fcb3be04b4e349e3a10b3358422536cccce55cf65949"
+    },
+    {
+      "path": "Core/BitBuffer.cpp",
+      "mode": "100644",
+      "sha256": "67ff9b51023be9bc4b8bf1b45c8bfa69edba7c4480d258fc00960778284f334c"
+    },
+    {
+      "path": "Core/BitBuffer.h",
+      "mode": "100644",
+      "sha256": "0bcfe1cd035cda1ed668c36a1ff27e21387422aa1c86a909c38e7cdd7d072f07"
+    },
+    {
+      "path": "Core/CRC.cpp",
+      "mode": "100644",
+      "sha256": "1a7a5afe4f1681f71e4b45c7f03b111ff48cccfaa957817b2c5e617aa71a51bd"
+    },
+    {
+      "path": "Core/CRC.h",
+      "mode": "100644",
+      "sha256": "bff3550172b0214d143ddfe6f47889f71c9a5321ee24f2f955e7a6489371ed27"
+    },
+    {
+      "path": "Core/CommonTypes.h",
+      "mode": "100644",
+      "sha256": "80de08c77c5ac419425c174c6762101aecb73f23f7c2b97643cc8a373794451b"
+    },
+    {
+      "path": "Core/DiskFile.cpp",
+      "mode": "100644",
+      "sha256": "0e23d819d12cddb306050b7eea1371a2f950e6bd909dbb765fcaef185086399e"
+    },
+    {
+      "path": "Core/DiskFile.h",
+      "mode": "100644",
+      "sha256": "0d2b1db4294db7ce2bbc95b6d6763f0bc1307f69f792db83bf286a0ec679af35"
+    },
+    {
+      "path": "Core/MemoryFile.cpp",
+      "mode": "100644",
+      "sha256": "29e20b0349b976ac742821ed427c59509f2a4d03e9641bc099387b4889598549"
+    },
+    {
+      "path": "Core/MemoryFile.h",
+      "mode": "100644",
+      "sha256": "b3874ebb2568c58e0b3783d907d46cb7d30f6b0b4bde27e5bc02aa480c7b452e"
+    },
+    {
+      "path": "DONATIONS.txt",
+      "mode": "100644",
+      "sha256": "8b147ba57d12e9482775311b70eeeda00d1a9516041e116ee540bf5c124f3469"
+    },
+    {
+      "path": "Device/C2Comm.h",
+      "mode": "100644",
+      "sha256": "074360a3cb6e23153757d04403af0600d6915a522d5754a3c9fe9e84e35f8914"
+    },
+    {
+      "path": "HISTORY.txt",
+      "mode": "100644",
+      "sha256": "e66871160da457cdd8ebe2894233b78228522afe0c2c2a71ab5fbe425f468a4b"
+    },
+    {
+      "path": "LICENCE.txt",
+      "mode": "100644",
+      "sha256": "fff9bc3bdd543212d8cf859afa6e4ae6b4d95e7845f94c907e3ec066f0b67439"
+    },
+    {
+      "path": "LibIPF/CapsAPI.h",
+      "mode": "100644",
+      "sha256": "3aa644b7057d445cf2959d46aceefc8b176aa4bcc6475d94b62e8fb94edf41db"
+    },
+    {
+      "path": "LibIPF/CapsFDC.h",
+      "mode": "100644",
+      "sha256": "950214b8bac1d220c8cdbe7113c2f3face97c10e63fc9181b89e8976e16a0df0"
+    },
+    {
+      "path": "LibIPF/CapsForm.h",
+      "mode": "100644",
+      "sha256": "0f401be4ecab7d92e89ca8a4ce4bfe7d7be77d0db28d3308bbc869e16817ec78"
+    },
+    {
+      "path": "LibIPF/CapsLib.h",
+      "mode": "100644",
+      "sha256": "7e20d588888aa70ea7af253e300db47d463d9203549fc1548c3e8a7caee2aeb4"
+    },
+    {
+      "path": "LibIPF/CapsLibAll.h",
+      "mode": "100644",
+      "sha256": "33fbb7a0daba088812e3c3ff06a68496991c6b8456045cc0e57570d6e189790a"
+    },
+    {
+      "path": "LibIPF/CapsLibVersion.h",
+      "mode": "100644",
+      "sha256": "89ca19e30fd3b3226887c0345603e6f04f641bacc65ce2dd4f825f368b8ec684"
+    },
+    {
+      "path": "LibIPF/ComLib.h",
+      "mode": "100644",
+      "sha256": "c007cd703867814b97bda45e01f81e7f13740a4435c20130e3ddae4d8eaaddec"
+    },
+    {
+      "path": "Makefile",
+      "mode": "100644",
+      "sha256": "7f634aff858b06b976016c46aad0132ffe663d2fb3dfeb2e70d6f36bf1c7b7de"
+    },
+    {
+      "path": "PACKAGE.FS",
+      "mode": "100644",
+      "sha256": "8a9f0e67e6faa82ab64998f13a334cde8db7bcb95c17cb5ed262e81e094a3fda"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "sha256": "b0ef47fcc0fdd5264a02d48558b85548b1fa78758453910512c5ab6e1c170565"
+    },
+    {
+      "path": "RELEASE.txt",
+      "mode": "100644",
+      "sha256": "5f0f8c7c914cf4bf02740d4c3242dffe2a843b10ef2471b69fc68702cd760f71"
+    },
+    {
+      "path": "SPStudio_Dev.sln",
+      "mode": "100644",
+      "sha256": "3fb2a6a5b543147f8fd131556f107a6b62510aff110dd97669052628079600e0"
+    },
+    {
+      "path": "bootstrap",
+      "mode": "100755",
+      "sha256": "df38bf3f83beb3a0ddbf26a486f9e12da11eb7e4cc79ba430790da97650951ad"
+    },
+    {
+      "path": "configure",
+      "mode": "100755",
+      "sha256": "9cef0e8761b785c01953e84d3c53448007898bbdaa19ec378ab43142b60efb89"
+    },
+    {
+      "path": "fsbuild/.gitignore",
+      "mode": "100644",
+      "sha256": "0818cf615ef0ac2f2a612fe4304964b122a383a0cada7ca4692298d630688128"
+    },
+    {
+      "path": "fsbuild/__init__.py",
+      "mode": "100644",
+      "sha256": "2a15b72a9c8da1d7898bb75301111fc3b671fa1428b8543295e1745561f47769"
+    },
+    {
+      "path": "fsbuild/all",
+      "mode": "100755",
+      "sha256": "9e6fc90f9dff9f6fea9dc8ba7d7992db52ccda02fd82c202ffbc5b4371e92fda"
+    },
+    {
+      "path": "fsbuild/archive",
+      "mode": "100755",
+      "sha256": "e310cd4f50b3de09880bcd30d8adefa136fd95a246423adc79233e55af9f3078"
+    },
+    {
+      "path": "fsbuild/bootstrap",
+      "mode": "100755",
+      "sha256": "8c297017339d56a1de681ff985f43f36b35f93a9ba3113671ec1508c37201f51"
+    },
+    {
+      "path": "fsbuild/build",
+      "mode": "100755",
+      "sha256": "5ea98460141da63bf56ab925a1e56178596928b7a2102a3d30a01678ecbbd79d"
+    },
+    {
+      "path": "fsbuild/bundle",
+      "mode": "100755",
+      "sha256": "b40fe78c999ecf89d95743df081407b73573dea04b71ac4d59dd0c897061a90c"
+    },
+    {
+      "path": "fsbuild/bundle.sh",
+      "mode": "100644",
+      "sha256": "0bb2c381c8ea8851fed787108e2fa89c5ddc963342b81e0474e6d732a6d8d21e"
+    },
+    {
+      "path": "fsbuild/clean",
+      "mode": "100755",
+      "sha256": "777426bd9c70b7cad759d607ba0f4e256b3626d6b461d89aa33c58126705ef49"
+    },
+    {
+      "path": "fsbuild/clean.sh",
+      "mode": "100644",
+      "sha256": "effa200089d06dc376521ef82f93b4e34eaaf7db52d27616b5497df16801856e"
+    },
+    {
+      "path": "fsbuild/configure",
+      "mode": "100755",
+      "sha256": "7f3b66690c920dcb2d3d4156af384ab1bd4f3769b189391c5e6af721231c0f90"
+    },
+    {
+      "path": "fsbuild/configure.sh",
+      "mode": "100644",
+      "sha256": "8aba578797452d66ab12c2988c3781f6caeb0755bdd8209bfdf75b6f19059826"
+    },
+    {
+      "path": "fsbuild/download.py",
+      "mode": "100644",
+      "sha256": "ac4c4ff76ad77127f83a12b0b3a7e7258da582627d7188f11cb3a76f067b6e1e"
+    },
+    {
+      "path": "fsbuild/frameworkify.sh",
+      "mode": "100644",
+      "sha256": "8328101087cbf6121f7a1ba5f6b0987b5772e50b71a24f529196d142b8d71d96"
+    },
+    {
+      "path": "fsbuild/make",
+      "mode": "100755",
+      "sha256": "6ce6ba76354b320f56e7da61515fc557596c318ee92b93f2ab5278630c4b1770"
+    },
+    {
+      "path": "fsbuild/notarize",
+      "mode": "100755",
+      "sha256": "a82331b42339fa97276b928372f53d68811bcae67b99da94faaf9a0f70f57751"
+    },
+    {
+      "path": "fsbuild/plugin.post.sh",
+      "mode": "100644",
+      "sha256": "0bd4176fe3aa37ad58b0d9bc16f7230333293d0ea8540a5547963131a0e0ff79"
+    },
+    {
+      "path": "fsbuild/plugin.pre.sh",
+      "mode": "100644",
+      "sha256": "3c521cebe4c07d4cf89c071dee21d79d6e43320cbc9358de5a309e1d648e0bbf"
+    },
+    {
+      "path": "fsbuild/sign",
+      "mode": "100755",
+      "sha256": "9e631ecfc2e8327cabe2af86922c24caeda6a9593b2de18bb7a21bc9ddb5d5e2"
+    },
+    {
+      "path": "fsbuild/standalone.py",
+      "mode": "100644",
+      "sha256": "11ef70361bde88152113cf491d29125b467d2654bcafd0919a0a1f45e07d9ea1"
+    },
+    {
+      "path": "fsbuild/system.sh",
+      "mode": "100644",
+      "sha256": "ca53f559b9bebaed4386d219c3c927444bd4889b2f4035c054a05293db2942ef"
+    },
+    {
+      "path": "fsbuild/upload",
+      "mode": "100755",
+      "sha256": "8997682e511312e3e6f8a5d622230039a0dfa91a587ed6bdf4d2ec158b097fe7"
+    },
+    {
+      "path": "fsbuild/version",
+      "mode": "100755",
+      "sha256": "3a106d111829393aaa55a3710e82f1119dd2ae758d118d18bab9067ac56dc534"
+    },
+    {
+      "path": "fsdeps/.gitignore",
+      "mode": "100644",
+      "sha256": "6121a3979687e6eadb75f0f2c751449090195c99df1ac0166ed0cb7fbef53d62"
+    },
+    {
+      "path": "fsdeps/bashrc",
+      "mode": "100644",
+      "sha256": "8d8e8d482a45734fcec22657cef1e5ff20bbfc5f110a330d139cd705bdd8fd51"
+    },
+    {
+      "path": "fsdeps/build",
+      "mode": "100755",
+      "sha256": "5bc62156dae3ce040bffad79e9bb98ca242f2ed0c89c195d4d5d56ec35487440"
+    },
+    {
+      "path": "fsdeps/build.sh",
+      "mode": "100644",
+      "sha256": "c8d01f5a6ea2780687b8fc545cc489ce17e7024727e27ef93331bdce9d2d65d3"
+    },
+    {
+      "path": "fsdeps/clean",
+      "mode": "100755",
+      "sha256": "e449f5514b2e49354815285692bdcd769ac248fd32d18e968a077a6580360dc8"
+    },
+    {
+      "path": "fsdeps/dep.sh",
+      "mode": "100644",
+      "sha256": "c15aaa9cffcaaf548e71630f5c1818b20ef5904ae544b3d8ac69461b33a86b8b"
+    },
+    {
+      "path": "fsdeps/download.py",
+      "mode": "100644",
+      "sha256": "f0c08cb918f3ace2868a14c3072c85cb087f93b8aa04ae49f2f3f2a459f5a85e"
+    },
+    {
+      "path": "fsdeps/env.sh",
+      "mode": "100644",
+      "sha256": "e54e34d5b3112981b899a0161a3d736581e27a2bddc78ea19798ef57cbba5a10"
+    },
+    {
+      "path": "fsdeps/make",
+      "mode": "100755",
+      "sha256": "63303089884dcff431de70efe60fdb8523de2e93b15b664a01af0c0969617df7"
+    },
+    {
+      "path": "fsdeps/replace.py",
+      "mode": "100644",
+      "sha256": "71781c81a00a1bd8a0a87237f3ec344ba4855c83162ded586a57945a2c76e744"
+    },
+    {
+      "path": "fsdeps/system.sh",
+      "mode": "100644",
+      "sha256": "0b875d9f388fe706501f7ce7f665e858886c61b88c8a735bcb01c4c24150aba6"
+    },
+    {
+      "path": "fsdeps/use",
+      "mode": "100755",
+      "sha256": "7496ebdabe33aa3d70f5278037b0b95528d786bfb8f7c71f37fbf922753d7d52"
+    }
+  ]
+}

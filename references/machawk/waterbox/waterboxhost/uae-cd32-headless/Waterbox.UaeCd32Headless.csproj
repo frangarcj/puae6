@@ -1,0 +1,88 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
+		<NativeHostPath Condition="'$(NativeHostPath)' == ''">../target/debug/libwaterboxhost.dylib</NativeHostPath>
+		<UaeWbxPath Condition="'$(UaeWbxPath)' == ''">../target/obj/uae-aarch64-darwin/debug/uae.wbx</UaeWbxPath>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="System.Drawing.Common" Version="6.0.0" />
+		<ProjectReference Include="../../../src/BizHawk.Common/BizHawk.Common.csproj" />
+		<ProjectReference Include="../../../src/BizHawk.Emulation.DiscSystem/BizHawk.Emulation.DiscSystem.csproj" />
+		<Analyzer Include="../../../References/BizHawk.SrcGen.SettingsUtil.dll" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/BizInvokeUtilities.cs" Link="BizInvoke/BizInvokeUtilities.cs" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/BizInvoker.cs" Link="BizInvoke/BizInvoker.cs" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/BizInvokerUtilities.cs" Link="BizInvoke/BizInvokerUtilities.cs" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/CallingConventionAdapter.cs" Link="BizInvoke/CallingConventionAdapter.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/CoreAttribute.cs" Link="EmulationCommon/CoreAttribute.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/CoreComms.cs" Link="EmulationCommon/CoreComms.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Enums.cs" Link="EmulationCommon/Enums.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/EmulationExceptions.cs" Link="EmulationCommon/EmulationExceptions.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/ServiceAttributes.cs" Link="EmulationCommon/ServiceAttributes.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/VSystemID.cs" Link="EmulationCommon/VSystemID.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/ControllerDefinitionMerger.cs" Link="EmulationCommon/ControllerDefinitionMerger.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/MemoryDomain.cs" Link="EmulationCommon/MemoryDomain.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/MemoryDomainStream.cs" Link="EmulationCommon/MemoryDomainStream.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/ControllerDefinition.cs" Link="EmulationCommon/ControllerDefinition.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/Bk2MnemonicLookup.cs" Link="EmulationCommon/Bk2MnemonicLookup.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/BasicServiceProvider.cs" Link="EmulationCommon/BasicServiceProvider.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/SnowyNullVideo.cs" Link="EmulationCommon/SnowyNullVideo.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/InputCallbackSystem.cs" Link="EmulationCommon/InputCallbackSystem.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisConstraint.cs" Link="EmulationCommon/Axes/AxisConstraint.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisDict.cs" Link="EmulationCommon/Axes/AxisDict.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisPairOrientation.cs" Link="EmulationCommon/Axes/AxisPairOrientation.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisSpec.cs" Link="EmulationCommon/Axes/AxisSpec.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/Axes/CircularAxisConstraint.cs" Link="EmulationCommon/Axes/CircularAxisConstraint.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/Axes/NoOpAxisConstraint.cs" Link="EmulationCommon/Axes/NoOpAxisConstraint.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Base Implementations/NullController.cs" Link="EmulationCommon/NullController.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Database/FirmwareID.cs" Link="EmulationCommon/FirmwareID.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/ICoreFileProvider.cs" Link="EmulationCommon/ICoreFileProvider.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/IController.cs" Link="EmulationCommon/IController.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/IEmulator.cs" Link="EmulationCommon/IEmulator.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/IEmulatorService.cs" Link="EmulationCommon/IEmulatorService.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/IEmulatorServiceProvider.cs" Link="EmulationCommon/IEmulatorServiceProvider.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/IInputCallbackSystem.cs" Link="EmulationCommon/IInputCallbackSystem.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/IOpenGLProvider.cs" Link="EmulationCommon/IOpenGLProvider.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/IGLTextureProvider.cs" Link="EmulationCommon/IGLTextureProvider.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/IDriveLight.cs" Link="EmulationCommon/IDriveLight.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/IInputPollable.cs" Link="EmulationCommon/IInputPollable.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/IMemoryDomains.cs" Link="EmulationCommon/IMemoryDomains.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/IRegionable.cs" Link="EmulationCommon/IRegionable.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/ISaveRam.cs" Link="EmulationCommon/ISaveRam.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/ISettable.cs" Link="EmulationCommon/ISettable.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/ISoundProvider.cs" Link="EmulationCommon/ISoundProvider.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/IStatable.cs" Link="EmulationCommon/IStatable.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Common/Interfaces/Services/IVideoProvider.cs" Link="EmulationCommon/IVideoProvider.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/CoreLoadParameters.cs" Link="EmulationCores/CoreLoadParameters.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/CoreNames.cs" Link="EmulationCores/CoreNames.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/WaterboxHostNative.cs" Link="Waterbox/WaterboxHostNative.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/WaterboxHostPlatform.cs" Link="Waterbox/WaterboxHostPlatform.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/WaterboxHost.cs" Link="Waterbox/WaterboxHost.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/LibWaterboxCore.cs" Link="Waterbox/LibWaterboxCore.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/WaterboxCore.cs" Link="Waterbox/WaterboxCore.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/WaterboxMemoryDomain.cs" Link="Waterbox/WaterboxMemoryDomain.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/LibUAE.cs" Link="Amiga/LibUAE.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.cs" Link="Amiga/UAE.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.Controllers.cs" Link="Amiga/UAE.Controllers.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.IDriveLight.cs" Link="Amiga/UAE.IDriveLight.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.IRegionable.cs" Link="Amiga/UAE.IRegionable.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs" Link="Amiga/UAE.ISettable.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISaveRam.cs" Link="Amiga/UAE.ISaveRam.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.WHDLoad.cs" Link="Amiga/UAE.WHDLoad.cs" />
+		<Using Include="System.Object" Alias="Lock" />
+		<None Include="$(NativeHostPath)" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="$(UaeWbxPath)" Link="dll/uae.wbx" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+	<Target Name="RemoveTransitivePolySharpAnalyzer" BeforeTargets="CoreCompile">
+		<ItemGroup>
+			<_TransitivePolySharpAnalyzer Include="@(Analyzer)" Condition="'%(Analyzer.NuGetPackageId)' == 'PolySharp'" />
+			<Analyzer Remove="@(_TransitivePolySharpAnalyzer)" />
+		</ItemGroup>
+	</Target>
+</Project>

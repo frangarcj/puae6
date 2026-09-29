@@ -1,0 +1,13 @@
+# Reusable Waterbox guest toolchain. Build once per arch:
+#   docker build --platform linux/arm64 -t machawk-wbx:arm64 -f waterbox/waterboxhost/docker/Dockerfile.wbx-toolchain .
+#   docker build --platform linux/amd64 -t machawk-wbx:amd64 -f waterbox/waterboxhost/docker/Dockerfile.wbx-toolchain .
+# Use (aarch64 darwin guest, sysroot from waterbox/waterboxhost/target):
+#   docker run --rm --platform linux/arm64 -v "$PWD:/repo" -v "$PWD/waterbox/waterboxhost/target:/work" machawk-wbx:arm64 \
+#     make -C /repo/waterbox/<core> debug -j8 WBX_TARGET_ARCH=aarch64 WBX_HOST_PAGE_SIZE=16384 \
+#     SYSROOT=/work/musl-sysroot-aarch64-darwin OUT_DIR=/work/obj/<core>-aarch64-darwin
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+    clang lld llvm make cmake ninja-build git python3 zstd file xxd ca-certificates patch \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /repo

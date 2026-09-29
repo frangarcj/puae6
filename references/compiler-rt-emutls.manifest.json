@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source": {
+    "id": "compiler_rt_emutls",
+    "repository": "https://github.com/llvm/llvm-project.git",
+    "commit": "3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff",
+    "tag": "llvmorg-18.1.8",
+    "tag_object": "76caf4176cd7877ad5952737d56da6f515ee4602",
+    "local_path": "build/source-cache/llvm-emutls",
+    "snapshot": {
+      "destination": "references/compiler-rt-emutls",
+      "manifest": "references/compiler-rt-emutls.manifest.json",
+      "include": [
+        "compiler-rt/LICENSE.TXT",
+        "compiler-rt/lib/builtins/emutls.c",
+        "compiler-rt/lib/builtins/int_lib.h",
+        "compiler-rt/lib/builtins/int_types.h",
+        "compiler-rt/lib/builtins/int_util.h",
+        "compiler-rt/lib/builtins/int_endianness.h"
+      ]
+    }
+  },
+  "destination": "references/compiler-rt-emutls",
+  "files": [
+    {
+      "path": "compiler-rt/LICENSE.TXT",
+      "mode": "100644",
+      "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+    },
+    {
+      "path": "compiler-rt/lib/builtins/emutls.c",
+      "mode": "100644",
+      "sha256": "a4437f3e329a0835adbc7df38e36df12f358d05c073b11813c409f849c2345d2"
+    },
+    {
+      "path": "compiler-rt/lib/builtins/int_endianness.h",
+      "mode": "100644",
+      "sha256": "ec5175561075845b7b16a92ad5ecdfd42a284de2736dd07e4ca7011b75c37709"
+    },
+    {
+      "path": "compiler-rt/lib/builtins/int_lib.h",
+      "mode": "100644",
+      "sha256": "b31130f10484636895daa13b91b63d47ea82b45547f29e4dd136b48a67854d30"
+    },
+    {
+      "path": "compiler-rt/lib/builtins/int_types.h",
+      "mode": "100644",
+      "sha256": "26517abcfb05e989f4ac18b38779bc118637e0a5b3e44536c3733cc47b33026e"
+    },
+    {
+      "path": "compiler-rt/lib/builtins/int_util.h",
+      "mode": "100644",
+      "sha256": "63d06198ab720a75c20bfd84be895c2746581b129168bae6201e7384bbb0473b"
+    }
+  ]
+}

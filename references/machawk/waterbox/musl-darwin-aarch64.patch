@@ -1,0 +1,43 @@
+diff --git a/arch/waterbox_aarch64/pthread_arch.h b/arch/waterbox_aarch64/pthread_arch.h
+--- a/arch/waterbox_aarch64/pthread_arch.h
++++ b/arch/waterbox_aarch64/pthread_arch.h
+@@ -1,6 +1,6 @@
+ static inline struct pthread *__pthread_self()
+ {
+     long *context;
+-    __asm__ ("mrs %0,tpidr_el0" : "=r"(context));
+-    return (struct pthread *)context[0];
++    __asm__ ("mov %0,x28" : "=r"(context));
++    return (void *)((char *)context[0] - sizeof(struct pthread));
+ }
+diff --git a/src/thread/waterbox_aarch64/__set_thread_area.c b/src/thread/waterbox_aarch64/__set_thread_area.c
+--- a/src/thread/waterbox_aarch64/__set_thread_area.c
++++ b/src/thread/waterbox_aarch64/__set_thread_area.c
+@@ -3,7 +3,7 @@
+ int __set_thread_area(void *p)
+ {
+     long *context;
+-    __asm__ ("mrs %0, tpidr_el0" : "=r" (context));
++    __asm__ ("mov %0, x28" : "=r" (context));
+     context[0] = (long)p;
+     return 0;
+ }
+diff --git a/wbox_configure_aarch64.sh b/wbox_configure_aarch64.sh
+--- a/wbox_configure_aarch64.sh
++++ b/wbox_configure_aarch64.sh
+@@ -6 +6 @@ if [ -z "$CC" ]; then export CC="clang"; fi
+-export CFLAGS="-target aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Werror -fvisibility=hidden -mcmodel=large -mstack-protector-guard=global -fno-pic -fno-pie -fcf-protection=none" # TODO: Add -flto
++export CFLAGS="-target aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Werror -fvisibility=hidden -mcmodel=large -mstack-protector-guard=global -fno-pic -fno-pie -fcf-protection=none -ffixed-x18 -ffixed-x28 -DWBX_HOST_PAGE_SIZE=16384" # TODO: Add -flto
+diff --git a/src/internal/pthread_impl.h b/src/internal/pthread_impl.h
+--- a/src/internal/pthread_impl.h
++++ b/src/internal/pthread_impl.h
+@@ -181,4 +181,8 @@ extern hidden unsigned __default_stacksize;
+ #define DEFAULT_STACK_SIZE 131072
+-#define DEFAULT_GUARD_SIZE 8192
++#ifdef WBX_HOST_PAGE_SIZE
++#define DEFAULT_GUARD_SIZE WBX_HOST_PAGE_SIZE
++#else
++#define DEFAULT_GUARD_SIZE 8192
++#endif
+ 
+ #define DEFAULT_STACK_MAX (8<<20)

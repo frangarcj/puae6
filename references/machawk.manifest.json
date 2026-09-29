@@ -1,0 +1,1925 @@
+{
+  "schema_version": 1,
+  "source": {
+    "id": "machawk",
+    "repository": null,
+    "commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+    "local_path": "../MacHawk",
+    "snapshot": {
+      "destination": "references/machawk",
+      "manifest": "references/machawk.manifest.json",
+      "include": [
+        ".global.editorconfig.ini",
+        ".stylecop.json",
+        "Common.props",
+        "Directory.Packages.props",
+        "ExternalProjects/Analyzers.editorconfig",
+        "ExternalProjects/AnalyzersCommon",
+        "ExternalProjects/AnalyzersCommon.props",
+        "ExternalProjects/BizHawk.Analyzer",
+        "ExternalProjects/BizHawk.SrcGen.ReflectionCache",
+        "ExternalProjects/BizHawk.SrcGen.SettingsUtil",
+        "ExternalProjects/BizHawk.SrcGen.VersionInfo",
+        "ExternalProjects/LibCommon.props",
+        "ExternalProjects/iso-parser",
+        "LICENSE",
+        "global.json",
+        "src/BannedSymbols.BannedApiAnalyzers.txt",
+        "src/BizHawk.BizInvoke/BizInvokeUtilities.cs",
+        "src/BizHawk.BizInvoke/BizInvoker.cs",
+        "src/BizHawk.BizInvoke/BizInvokerUtilities.cs",
+        "src/BizHawk.BizInvoke/CallingConventionAdapter.cs",
+        "src/BizHawk.Common",
+        "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisConstraint.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisDict.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisPairOrientation.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisSpec.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/Axes/CircularAxisConstraint.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/Axes/NoOpAxisConstraint.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/BasicServiceProvider.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/Bk2MnemonicLookup.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/ControllerDefinition.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/InputCallbackSystem.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/MemoryDomain.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/MemoryDomainStream.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/NullController.cs",
+        "src/BizHawk.Emulation.Common/Base Implementations/SnowyNullVideo.cs",
+        "src/BizHawk.Emulation.Common/ControllerDefinitionMerger.cs",
+        "src/BizHawk.Emulation.Common/CoreAttribute.cs",
+        "src/BizHawk.Emulation.Common/CoreComms.cs",
+        "src/BizHawk.Emulation.Common/Database/FirmwareID.cs",
+        "src/BizHawk.Emulation.Common/EmulationExceptions.cs",
+        "src/BizHawk.Emulation.Common/Enums.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/IController.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/ICoreFileProvider.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/IEmulator.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/IEmulatorService.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/IEmulatorServiceProvider.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/IInputCallbackSystem.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/IOpenGLProvider.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/IDriveLight.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/IGLTextureProvider.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/IInputPollable.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/IMemoryDomains.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/IRegionable.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/ISaveRam.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/ISettable.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/ISoundProvider.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/IStatable.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/IVideoProvider.cs",
+        "src/BizHawk.Emulation.Common/ServiceAttributes.cs",
+        "src/BizHawk.Emulation.Common/VSystemID.cs",
+        "src/BizHawk.Emulation.Cores/Computers/Amiga",
+        "src/BizHawk.Emulation.Cores/CoreLoadParameters.cs",
+        "src/BizHawk.Emulation.Cores/CoreNames.cs",
+        "src/BizHawk.Emulation.Cores/Waterbox",
+        "src/BizHawk.Emulation.DiscSystem",
+        "src/MainSlnCommon.props",
+        "src/Menees.Analyzers.Settings.xml",
+        "waterbox/common.mak",
+        "waterbox/emulibc",
+        "waterbox/libcxx",
+        "waterbox/linkscript.T",
+        "waterbox/linkscript_aarch64.T",
+        "waterbox/musl-darwin-aarch64.patch",
+        "waterbox/musl-waterbox-aarch64-auxv.patch",
+        "waterbox/musl-waterbox-getcwd.patch",
+        "waterbox/musl-waterbox-x86_64-atomics.patch",
+        "waterbox/readme.txt",
+        "waterbox/uae",
+        "waterbox/waterboxhost/Cargo.lock",
+        "waterbox/waterboxhost/Cargo.toml",
+        "waterbox/waterboxhost/DARWIN_ARM64.md",
+        "waterbox/waterboxhost/README.md",
+        "waterbox/waterboxhost/build-debug-no-dirty-detection.sh",
+        "waterbox/waterboxhost/build-debug.sh",
+        "waterbox/waterboxhost/build-release.sh",
+        "waterbox/waterboxhost/csharp-smoke",
+        "waterbox/waterboxhost/docker",
+        "waterbox/waterboxhost/rust-toolchain.toml",
+        "waterbox/waterboxhost/smoke",
+        "waterbox/waterboxhost/src",
+        "waterbox/waterboxhost/uae-cd32-headless"
+      ],
+      "exclude": [
+        "waterbox/uae/libretro-uae",
+        "waterbox/uae/capsimg",
+        "waterbox/uae/.vscode"
+      ],
+      "scope": "Selected source closure: WaterboxHost, emulibc, guest recipes, UAE shim, managed source/project closure and generator/ISOParser sources. Excludes assets, prebuilt References DLLs, outputs, other cores; registry packages and final toolchain provision remain T09."
+    }
+  },
+  "destination": "references/machawk",
+  "files": [
+    {
+      "path": ".global.editorconfig.ini",
+      "mode": "100644",
+      "sha256": "ffbcb6f7642aed4c451103d3bed64a2eb6b9b20de69235b41d1e53d5ca44b846"
+    },
+    {
+      "path": ".stylecop.json",
+      "mode": "100644",
+      "sha256": "03bdd1aaff62da19e366beb26af9c78e898e14b83c2d2b8e5648de058463eea0"
+    },
+    {
+      "path": "Common.props",
+      "mode": "100644",
+      "sha256": "0f9411ea3d7e04e112ca131c079e303a5a3600cdc1036fc933da7189c4a19800"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "mode": "100644",
+      "sha256": "b5ae07e898a44e3279ac34df078a153b6398193ca55541ff70856ad94cd3eb68"
+    },
+    {
+      "path": "ExternalProjects/Analyzers.editorconfig",
+      "mode": "100644",
+      "sha256": "b281619a1ee7ff7bcef23f027a7f41b1029e3b3838f4303f833f93c02d565c48"
+    },
+    {
+      "path": "ExternalProjects/AnalyzersCommon.props",
+      "mode": "100644",
+      "sha256": "20c0a29fb33dd7973da356277307d2e63211934adc5af1e628b1d359d2017e5d"
+    },
+    {
+      "path": "ExternalProjects/AnalyzersCommon/CSharpOperatorSigils.cs",
+      "mode": "100644",
+      "sha256": "941231ef5522dded3d97e36600e4ee224e10c4dcb5a7505bfaf4083539f30764"
+    },
+    {
+      "path": "ExternalProjects/AnalyzersCommon/CSharpTypeKeywords.cs",
+      "mode": "100644",
+      "sha256": "0699fa0e27629331f384a863ccfe2e67c031981dc54610f51eb8caff17266042"
+    },
+    {
+      "path": "ExternalProjects/AnalyzersCommon/DiagnosticDescriptorExtensions.cs",
+      "mode": "100644",
+      "sha256": "2deb72db1619a96c05ba83e4b25b978abe9ecda9dfcfcd7e8eab311cb4e66085"
+    },
+    {
+      "path": "ExternalProjects/AnalyzersCommon/RoslynUtils.cs",
+      "mode": "100644",
+      "sha256": "7478430c62446ff1bbe6ad1e6765970cbf1e0f027e4cf3009c42f071f0ced3db"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/.gitignore",
+      "mode": "100644",
+      "sha256": "eb41b7e857c059a60139dd918a4c5b91d4426340d19339a6d7913b9b028d564f"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/AmbiguousMoneyToFloatConversionAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "065840c75e816c5b53204833fe0896cedab5c9dd22a39126adf049fba38e6950"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/BizHawk.Analyzer.csproj",
+      "mode": "100644",
+      "sha256": "a597c600a0b7242996a9d1796184dcfbd6e9c375d6cd96e716f49fbdac3af52e"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/DanglingElseAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "11d817f31f976a3370fc1d4b6ade09de29f6b2719c08aeeaa2cfc7613802a61f"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/DefineCheckedOpAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "53950464e5d46dbf6d0e50c6d3a20e8a15f017d7bd4295361df1055134d0a668"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/EnforceMessageInTestAssertCallAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "ceabe23866d22225e13efbe9ec25aa8a6406fe3ab2cc1e227fa13e0beb66f348"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/ExprBodiedMemberFlowAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "8b5eada37949d15c794a94028c1870533beaa955e17e552b55fc0395520655e4"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/FeatureNotImplementedAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "1125736451f0f39a8266bf8bd9e40acd1ce04ccb15af574a7569079011fb3be9"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/FirstOrDefaultOnStructAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "20d1ab42d7566af45f37edaf4b92e4dc7018a0615321185598f795beae7e0a1f"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/HawkSourceAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "d50bbd86b5d92ff5b7db5b914b111dcaecb0c534e1c96e3ab98fd41b45c796f7"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/LINQOnStringsAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "96a289971983c5dc3f59196be54e2c18a725243ee225cd2382e9c498bd92b196"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/LiteralExpectedAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "08ce415d7fbb3165becb3f53a7a9e89634269debd5b8b895d849cec34d62beca"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/NoNullEventArgsAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "b99480c214d164f7f42030c303e3a9ca4ebe2a8aee62e5469008957ad1fb19b1"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/NoTargetTypedThrowAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "89a44699715ab1cb4a5a278f6be1126e24f585b3f6b836619089bcf647416074"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/OmitOverridesOnRefStructAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "1c98a8f10bd014d2d542e187955e75b9b4b712257949b5759683fbc0a4b59021"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/OrderBySelfAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "560133712fae31fa3bcbb534c2353382680fe044e3b79d2d1cf40900732d2a4e"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/TernaryInferredTypeMismatchAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "a5957b63a515639ccfcff05597608ef4f199f546af2c4b4c677c16066bc5023d"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/TryGetValueImplicitDiscardAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "5cd203c7c211e7657cd8768e74ca95c57acb3a06c6d856530b91720749354492"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/UseNameofOperatorAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "f55af1eeab4e08c5622f871fa28861a5d42e89c4af1b79268824e796e421ab7c"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/UseSimplerBoolFlipAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "f34d2a5ee1ab0feaea96e8d182a7c8502cb2182ab8d05057279857654c38f8b1"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/UseSpanIsEmptyAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "85a463da4cf9d1d342151fe855d36498c4e000b3d0db428f504c5b47c87d8c73"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/UseTypeofOperatorAnalyzer.cs",
+      "mode": "100644",
+      "sha256": "2cae7bcb0491fc90d2f8bf33820ce5ea137b2bd9592b25e0dadd52d34b10becb"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/build_debug.sh",
+      "mode": "120000",
+      "sha256": "acf0fdb7d670e2c12ba730734f49362447b3bc88131ac7f89fd6e66ad88f5e22"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/build_release.sh",
+      "mode": "120000",
+      "sha256": "8623fbfc2aab25bc2f3c63cfbde81996a3ff97d074fd4673deda92739634a358"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.Analyzer/test_with_helloworld.sh",
+      "mode": "100755",
+      "sha256": "6b05ecae41b4d9ac7579ab69fe2b0d0203ccddf551434fb546fe62d6602ec7e7"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.ReflectionCache/.gitignore",
+      "mode": "100644",
+      "sha256": "eb41b7e857c059a60139dd918a4c5b91d4426340d19339a6d7913b9b028d564f"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.ReflectionCache/BizHawk.SrcGen.ReflectionCache.csproj",
+      "mode": "100644",
+      "sha256": "459ad54d903f6889abd57ebfc99b43bfe6ab28c8647dae587c101152b38727aa"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.ReflectionCache/ReflectionCacheGenerator.cs",
+      "mode": "100644",
+      "sha256": "f97aa1cb0e7d6b47edc8af2b3bd74e4b8d2b9066d619194168070a85ac2f9763"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.ReflectionCache/build_debug.sh",
+      "mode": "120000",
+      "sha256": "acf0fdb7d670e2c12ba730734f49362447b3bc88131ac7f89fd6e66ad88f5e22"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.ReflectionCache/build_release.sh",
+      "mode": "120000",
+      "sha256": "8623fbfc2aab25bc2f3c63cfbde81996a3ff97d074fd4673deda92739634a358"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.SettingsUtil/.gitignore",
+      "mode": "100644",
+      "sha256": "eb41b7e857c059a60139dd918a4c5b91d4426340d19339a6d7913b9b028d564f"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.SettingsUtil/BizHawk.SrcGen.SettingsUtil.csproj",
+      "mode": "100644",
+      "sha256": "05a70ccc7021d4942881acc4d1b0482e027f5964d0bbfc5b1e7ebce748ebbd2b"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.SettingsUtil/DefaultSetterGenerator.cs",
+      "mode": "100644",
+      "sha256": "714aebd4c4301ea3b43d2cb52f34d62d0f11481419818b0185c636cea2eea4f6"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.SettingsUtil/build_debug.sh",
+      "mode": "120000",
+      "sha256": "acf0fdb7d670e2c12ba730734f49362447b3bc88131ac7f89fd6e66ad88f5e22"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.SettingsUtil/build_release.sh",
+      "mode": "120000",
+      "sha256": "8623fbfc2aab25bc2f3c63cfbde81996a3ff97d074fd4673deda92739634a358"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.VersionInfo/.gitignore",
+      "mode": "100644",
+      "sha256": "eb41b7e857c059a60139dd918a4c5b91d4426340d19339a6d7913b9b028d564f"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.VersionInfo/BizHawk.SrcGen.VersionInfo.csproj",
+      "mode": "100644",
+      "sha256": "459ad54d903f6889abd57ebfc99b43bfe6ab28c8647dae587c101152b38727aa"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.VersionInfo/VersionInfoGenerator.cs",
+      "mode": "100644",
+      "sha256": "1e5a6298c628000103925d52c679b3c9d3ed02aa5a19cdcbd30232253aa0338c"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.VersionInfo/build_debug.sh",
+      "mode": "120000",
+      "sha256": "acf0fdb7d670e2c12ba730734f49362447b3bc88131ac7f89fd6e66ad88f5e22"
+    },
+    {
+      "path": "ExternalProjects/BizHawk.SrcGen.VersionInfo/build_release.sh",
+      "mode": "120000",
+      "sha256": "8623fbfc2aab25bc2f3c63cfbde81996a3ff97d074fd4673deda92739634a358"
+    },
+    {
+      "path": "ExternalProjects/LibCommon.props",
+      "mode": "100644",
+      "sha256": "7d88f2f8285f33e35340beb823662cadf05cfc56f212941e4b7c6898bb5b6853"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/.gitignore",
+      "mode": "100644",
+      "sha256": "eb41b7e857c059a60139dd918a4c5b91d4426340d19339a6d7913b9b028d564f"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/EndianBitConverter.cs",
+      "mode": "100644",
+      "sha256": "838653941f719ded4f239bcf8dd27541ce32cab25d762ce1eab8c8e769bbc2f4"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/ISODirectoryNode.cs",
+      "mode": "100644",
+      "sha256": "4fa60f6a3b1940db6df62f82248aac598d0c8f39ccbb57b3a587680ae65dbd46"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/ISOFile.cs",
+      "mode": "100644",
+      "sha256": "66b7c3620339fa218b55bb874a4464a5f8fc0ceeda4002e15b2021504c09d0fd"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/ISOFileNode.cs",
+      "mode": "100644",
+      "sha256": "4d35a14857aa51e2bf42c7ab2e2602d8257c60e055079cfe228379c8411cd2a8"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/ISONode.cs",
+      "mode": "100644",
+      "sha256": "34eb9b255bfb822fdc3cf83f06b9d8fcb0bb6ef4c6eb2b5f79bb8d49237431c1"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/ISONodeRecord.cs",
+      "mode": "100644",
+      "sha256": "696742097bac899486fa65959692a1c434329caf1fe104e9359d3c0e26d29fcd"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/ISOParser.csproj",
+      "mode": "100644",
+      "sha256": "a685a654ac8062f3162d26b79fa1fd2545a8982eaca5aa90dd9c550b71e4508f"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/ISOVolumeDescriptor.cs",
+      "mode": "100644",
+      "sha256": "11c6189df69e85fa0fb7b5bd78af8a33a4ee7fb15334d44bac7a1cba30686d1f"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/LICENSE.md",
+      "mode": "100644",
+      "sha256": "85abaea0d5ef0eeed7cf385ed7d7f1c6c4eb7e542e7af3fe781abf96b8d17d02"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/README.md",
+      "mode": "100644",
+      "sha256": "d8ca1d4f287f04ae934f90bdfb061a482507d0ee78bb8937c43e39cfea5a0b68"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/build_debug.sh",
+      "mode": "120000",
+      "sha256": "acf0fdb7d670e2c12ba730734f49362447b3bc88131ac7f89fd6e66ad88f5e22"
+    },
+    {
+      "path": "ExternalProjects/iso-parser/build_release.sh",
+      "mode": "120000",
+      "sha256": "8623fbfc2aab25bc2f3c63cfbde81996a3ff97d074fd4673deda92739634a358"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "sha256": "6601cab56cb56875001906593a3adf94d52a0b82e6919fcbee81c31a48499121"
+    },
+    {
+      "path": "global.json",
+      "mode": "100644",
+      "sha256": "885423654996ef60f577d909c28af5a39cbf454b2531c1db649cc4db9595816b"
+    },
+    {
+      "path": "src/BannedSymbols.BannedApiAnalyzers.txt",
+      "mode": "100644",
+      "sha256": "1677ca255bbd2db4caf993d81f0341e52af0bb366a008a324021285604b66715"
+    },
+    {
+      "path": "src/BizHawk.BizInvoke/BizInvokeUtilities.cs",
+      "mode": "100644",
+      "sha256": "d874009a14ff6eca53f27a4177befdc438596d5f0b7e6c607c3b8d238db32a11"
+    },
+    {
+      "path": "src/BizHawk.BizInvoke/BizInvoker.cs",
+      "mode": "100644",
+      "sha256": "d5499c19c3c5f1a1616c54b8ecc878ef51dc31ddb3f74a80002ab9ba75ea6aee"
+    },
+    {
+      "path": "src/BizHawk.BizInvoke/BizInvokerUtilities.cs",
+      "mode": "100644",
+      "sha256": "926f8cb9a2e0ec02aa5c017760dfd6d7a82a8fbe1b2d85560b84e8d250d8fe75"
+    },
+    {
+      "path": "src/BizHawk.BizInvoke/CallingConventionAdapter.cs",
+      "mode": "100644",
+      "sha256": "51e7506468f55c2bb5ab811d26e5fa7feec1209d851475c7ca58ac1fd00d71d4"
+    },
+    {
+      "path": "src/BizHawk.Common/BPSPatcher.cs",
+      "mode": "100644",
+      "sha256": "abf83c42bfce00cdf992b67c470242c6780c1faf966d8cec0bf23fad146cf2dd"
+    },
+    {
+      "path": "src/BizHawk.Common/Bit.cs",
+      "mode": "100644",
+      "sha256": "e84a5d4846bffa5ec6c10609daf3aa20ffc627badc9d85023c3260d5c4953a0f"
+    },
+    {
+      "path": "src/BizHawk.Common/BitReverse.cs",
+      "mode": "100644",
+      "sha256": "1373a2573ea59ccea12df9f6d93af2ed0a9347b4948e0aaf2365e194b88e343d"
+    },
+    {
+      "path": "src/BizHawk.Common/BizHawk.Common.csproj",
+      "mode": "100644",
+      "sha256": "f9edf8eb6bde8579f8be7824415945ebc6005d98bf7e124ee51a3ccdc587b2e8"
+    },
+    {
+      "path": "src/BizHawk.Common/Colors.cs",
+      "mode": "100644",
+      "sha256": "5979d29e0968e762c3c62d64b25825aab0df35f63f3aa5b54559994e7dd33f3e"
+    },
+    {
+      "path": "src/BizHawk.Common/CustomCollections.cs",
+      "mode": "100644",
+      "sha256": "3330ace5dc8fe10c8bf1d96b48872314965acf4fa05f9ce534fd1241097371e7"
+    },
+    {
+      "path": "src/BizHawk.Common/DeepEquality.cs",
+      "mode": "100644",
+      "sha256": "28684bd97cbe9beb6f01797629621dd8ade5e589ec1e463d6d541f28e78dce1d"
+    },
+    {
+      "path": "src/BizHawk.Common/DeltaSerializer.cs",
+      "mode": "100644",
+      "sha256": "9658d2d28930cec2ed341be8b23aaa41ca02b800482bd10591412e9390b6fbf5"
+    },
+    {
+      "path": "src/BizHawk.Common/EndiannessUtils.cs",
+      "mode": "100644",
+      "sha256": "bf8c40adc29b1db104732ed946d2c1feef0047787c6845830c70cd32337f67b6"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/BufferExtensions.cs",
+      "mode": "100644",
+      "sha256": "8ef8ca6df3ad6d7187c69cb6c8b2f6224442c0d09cfcc206e25dace188995fa4"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/CollectionExtensions.cs",
+      "mode": "100644",
+      "sha256": "b987d2d31c2381d39bd551ba60f70a99211ac602092d0ba2d4d67d0bd572148e"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/IOExtensions.cs",
+      "mode": "100644",
+      "sha256": "4c55ba81bcda7823fbf2f2959d49539d9817be310d62a39bea966aa21d35fc09"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/NumberExtensions.cs",
+      "mode": "100644",
+      "sha256": "8b5f9d9552aeec47482f1acb6f2047e7b732c0f7ef52be4e7d2fe563fdd1cf3d"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/NumericStringExtensions.cs",
+      "mode": "100644",
+      "sha256": "9f81bff63da6de7dfb7a9f4fc9509268ff9cb88529926f9d98d8b9b7698641e3"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/PathExtensions.cs",
+      "mode": "100644",
+      "sha256": "064260b2a8864dc8c8555244b3b4399f423a550d440229acfb7e40c3fcafed9f"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/ReflectionExtensions.cs",
+      "mode": "100644",
+      "sha256": "2ea56ad07d9d834b6e3f8c019da50d17362feeb6a967507414d0f0d84a927484"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/SpanSplit.cs",
+      "mode": "100644",
+      "sha256": "e1028d6bb25fcd0519e4e305c656897c3a569f167d68210c450707f6c03ed637"
+    },
+    {
+      "path": "src/BizHawk.Common/Extensions/StringExtensions.cs",
+      "mode": "100644",
+      "sha256": "927e2176e17c9150fa68a2656d9a553f436339dbe9971f210c6efa4cbf13b49e"
+    },
+    {
+      "path": "src/BizHawk.Common/FFmpegService.cs",
+      "mode": "100644",
+      "sha256": "5504697cc358f2fc155989d8950387186215c71c36bba1a82b51c76288d32879"
+    },
+    {
+      "path": "src/BizHawk.Common/FPCtrl.cs",
+      "mode": "100644",
+      "sha256": "f630b20db0b8a79d5d3faa412b23f74e9cfe89c9cf9f8dcba429d5fbec751d74"
+    },
+    {
+      "path": "src/BizHawk.Common/HawkFile/HawkArchiveFileItem.cs",
+      "mode": "100644",
+      "sha256": "e1802fc49fcb9753bb1b10081ed9df7c3d0e15c1e0873baf542205076a70d8f5"
+    },
+    {
+      "path": "src/BizHawk.Common/HawkFile/HawkFile.cs",
+      "mode": "100644",
+      "sha256": "df4e9958c08f46c34cceefeadfb69ec4cc1f77bb86417d8cd53f17d8f53d7947"
+    },
+    {
+      "path": "src/BizHawk.Common/HawkFile/HawkFilePathAttribute.cs",
+      "mode": "100644",
+      "sha256": "ed6e9d815d835b3ea9ba81d4b282d4c157373ba8214f9fe05808c8d734bc08e4"
+    },
+    {
+      "path": "src/BizHawk.Common/HawkFile/IFileDearchivalMethod.cs",
+      "mode": "100644",
+      "sha256": "d68021fad86495a894aa60989b66c19c26c284d10760f416969faae4b34e623e"
+    },
+    {
+      "path": "src/BizHawk.Common/HawkFile/IHawkArchiveFile.cs",
+      "mode": "100644",
+      "sha256": "4d620ecef5a7f8ac30fbe3490f0f5e807761b26bc363c685b84114d3fb70a5cc"
+    },
+    {
+      "path": "src/BizHawk.Common/IImportResolver.cs",
+      "mode": "100644",
+      "sha256": "d41f1731bc3b04132da8ac3d3bb48946b3e277ed48dbb5cedee8da20d99af51f"
+    },
+    {
+      "path": "src/BizHawk.Common/IMonitor.cs",
+      "mode": "100644",
+      "sha256": "d89d8015e73b9f9f8725f8ad13f1a7b336b022429afe03f1f25cf838a9cb94b7"
+    },
+    {
+      "path": "src/BizHawk.Common/LSB/DlfcnImports.cs",
+      "mode": "100644",
+      "sha256": "cd82d71046bd0b6f00c97dd5286ead1a163d850d88810ddec8598b34d4a218ba"
+    },
+    {
+      "path": "src/BizHawk.Common/LSB/XFixesImports.cs",
+      "mode": "100644",
+      "sha256": "d12f29168d45bfaa073b689581d8dcc4f7648ccaeb7ac7e35bb0c33ce1d975ef"
+    },
+    {
+      "path": "src/BizHawk.Common/LSB/XInput2Imports.cs",
+      "mode": "100644",
+      "sha256": "35bf7ed9c156ea0c58ece01d618096f8c47d63fb1a452c7bd4db400b79434dc7"
+    },
+    {
+      "path": "src/BizHawk.Common/LSB/XlibImports.cs",
+      "mode": "100644",
+      "sha256": "0570487125b1dc080829ba31bcebcc4f36a497cf798849d4fb0ebd8b9de3ab8d"
+    },
+    {
+      "path": "src/BizHawk.Common/LiteralExpectedAttribute.cs",
+      "mode": "100644",
+      "sha256": "81d923ce430f7c349abab0742498d4b27d028484d00d5ecbd5b8487899e7e8cd"
+    },
+    {
+      "path": "src/BizHawk.Common/Log.cs",
+      "mode": "100644",
+      "sha256": "735557b1738994300da1c51ba8221df80e5e1b038e0c1e19744e14d98a4b8436"
+    },
+    {
+      "path": "src/BizHawk.Common/MemoryBlock/IMemoryBlockPal.cs",
+      "mode": "100644",
+      "sha256": "f63cabc270e0991156fd417449e93490fd21553eb37c38f3052c75cf050347f9"
+    },
+    {
+      "path": "src/BizHawk.Common/MemoryBlock/MemoryBlock.cs",
+      "mode": "100644",
+      "sha256": "848d667e34f8c3e267d9df89a7763c587d9b7aebdd33fff7ac81fc62ab26506a"
+    },
+    {
+      "path": "src/BizHawk.Common/MemoryBlock/MemoryBlockLinuxPal.cs",
+      "mode": "100644",
+      "sha256": "ab588fc10791132806cee2a16200b88932aa601201d6433142fdffb5daae0c06"
+    },
+    {
+      "path": "src/BizHawk.Common/MemoryBlock/MemoryBlockUtils.cs",
+      "mode": "100644",
+      "sha256": "b20f41888fc53c12af10dbd23497db0367bbf494582630edad5138e1b8c2ebfe"
+    },
+    {
+      "path": "src/BizHawk.Common/MemoryBlock/MemoryBlockWindowsPal.cs",
+      "mode": "100644",
+      "sha256": "95e07c28792d590ad12aae305d62aa32425b920482b547385201e2335bd8b7f8"
+    },
+    {
+      "path": "src/BizHawk.Common/MemoryBlock/MemoryViewStream.cs",
+      "mode": "100644",
+      "sha256": "18c572fdf688dc3e6b47d0e4e6148b2a014ebf0be3091446e4c6ad3ae22f9a28"
+    },
+    {
+      "path": "src/BizHawk.Common/MultiPredicateSort.cs",
+      "mode": "100644",
+      "sha256": "d952ee6a9719997a3602d4a8130be93e1a1b0c2d59fcbef1bb8850a152fa53ae"
+    },
+    {
+      "path": "src/BizHawk.Common/OSTailoredCode.cs",
+      "mode": "100644",
+      "sha256": "542f97d383aaeaac6759931812f2f2fdd95628c6c79dcab0dcd9df95d4cac626"
+    },
+    {
+      "path": "src/BizHawk.Common/POSIX/DlfcnImports.cs",
+      "mode": "100644",
+      "sha256": "e9fe9124d7567e4bff3e8e197857794da3274ba312343213441e89636d89ed3b"
+    },
+    {
+      "path": "src/BizHawk.Common/POSIX/MmanImports.cs",
+      "mode": "100644",
+      "sha256": "1b8dabc12ecada3ddd6cd0ef5069225ba8fb7000989eb1e7f02947193da276fa"
+    },
+    {
+      "path": "src/BizHawk.Common/PropertyGridConverters/BizDateTimeConverter.cs",
+      "mode": "100644",
+      "sha256": "536a36bf9e28a9391e619680168137552278410d2b8c8665cfaecfe179957ba2"
+    },
+    {
+      "path": "src/BizHawk.Common/PropertyGridConverters/ConstrainedFloatConverter.cs",
+      "mode": "100644",
+      "sha256": "10c8d57d52556b1401ebb32e713ec51bbcf611fb8360518a248a1cdecf5216be"
+    },
+    {
+      "path": "src/BizHawk.Common/PropertyGridConverters/ConstrainedIntConverter.cs",
+      "mode": "100644",
+      "sha256": "135d51778dea9c46b326f608f3dbb882874cc50624375426f659ae41bd409004"
+    },
+    {
+      "path": "src/BizHawk.Common/PropertyGridConverters/ConstrainedStringConverter.cs",
+      "mode": "100644",
+      "sha256": "8444896610aebe2d88a9a8eb5181aa670b3671351a7bba019dbe29f20c781a79"
+    },
+    {
+      "path": "src/BizHawk.Common/PropertyGridConverters/DescribableEnumConverter.cs",
+      "mode": "100644",
+      "sha256": "60c89791bebcaac6452c5c3533c54cf04ed3a2fc59019d4011e2967c6a7ed6fc"
+    },
+    {
+      "path": "src/BizHawk.Common/PtrToStringUtf8.cs",
+      "mode": "100644",
+      "sha256": "367fdc2c3321c3f0309530f0f417e41a9b9415b98c884edaa24f63d1a32bb21d"
+    },
+    {
+      "path": "src/BizHawk.Common/Ranges.cs",
+      "mode": "100644",
+      "sha256": "8f34e03623c0f45949895987967daceb35fa55f8c80e75d8c8fdf043fb16b0cc"
+    },
+    {
+      "path": "src/BizHawk.Common/SecretStrings.cs",
+      "mode": "100644",
+      "sha256": "9204e1a93d817cc7298429947f3a5af1730df5aba886bcb809eacc5d4e5fd695"
+    },
+    {
+      "path": "src/BizHawk.Common/Serializer.cs",
+      "mode": "100644",
+      "sha256": "08b47668dfb454f0d121473ff3b17e554babf78bcddd2c9b4c3314b61b5a8fad"
+    },
+    {
+      "path": "src/BizHawk.Common/SimpleTime.cs",
+      "mode": "100644",
+      "sha256": "a877f681af7f4324b762d4ade38fe97978817bf3c74c3448b92a2c69897f3092"
+    },
+    {
+      "path": "src/BizHawk.Common/SpanStream.cs",
+      "mode": "100644",
+      "sha256": "0789d27ba94a8f1c984063da47a970626362d562897775d324bf7211bf1dc9a6"
+    },
+    {
+      "path": "src/BizHawk.Common/TempFileManager.cs",
+      "mode": "100644",
+      "sha256": "d797a271d4eeaed2c9a536dcee3fb647016533a894f4b00d24e5ecfb63be8e5d"
+    },
+    {
+      "path": "src/BizHawk.Common/UndoHistory.cs",
+      "mode": "100644",
+      "sha256": "f4d28ebef50835b1f24c1aa537f693b5e068700568012815e1bb32d895b25ed0"
+    },
+    {
+      "path": "src/BizHawk.Common/Util.cs",
+      "mode": "100644",
+      "sha256": "8a539f593a074a23f5e0cba73fc55ec3310e00c18921161d06880617857ea68a"
+    },
+    {
+      "path": "src/BizHawk.Common/VersionInfo.cs",
+      "mode": "100644",
+      "sha256": "f1f13875707a61cb9d34ed74751db30e4940cc03020e51dbec0a1f5bbb4cfd20"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/AVIWriterImports.cs",
+      "mode": "100644",
+      "sha256": "6cca13a00586f68d1cf43bad63c90b0ef5f2bb5560ab82e09505d8f9053f533c"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/CWDHacks.cs",
+      "mode": "100644",
+      "sha256": "2e75b09ea101a44cc6d8966658cd22570afc05dcfe53bdf5de4a3b2051ee3865"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/CommctrlImports.cs",
+      "mode": "100644",
+      "sha256": "bd5db785e52a2d3e433dccd8fd39fac331304747391df63bd774321cce392aab"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/HeapApiImports.cs",
+      "mode": "100644",
+      "sha256": "4321f6ad4c89a8bb2398569c2aa8c8ab98d85119606a1e8f5cc0219cf3f13c47"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/LoaderApiImports.cs",
+      "mode": "100644",
+      "sha256": "9e75b417889f182c9ba54fa8ea452a3d11dbd0de4d415ff5baaa26eb11289b11"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/MemoryApiImports.cs",
+      "mode": "100644",
+      "sha256": "e1131ccd63e64dc4f540283a6ab76fd4dbb5ad9397a7f178a007fa88ad9dbf88"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/MotWHack.cs",
+      "mode": "100644",
+      "sha256": "e7b9bbef734470445cc190b5ee3d31af9984623511b2d98d278073a9cd2d8aae"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/Ole32Imports.cs",
+      "mode": "100644",
+      "sha256": "0f89e06a08b40e2b5420713f45c87f9c55d241d1d0312e5f0f6a2710087d7e2c"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/RawInputImports.cs",
+      "mode": "100644",
+      "sha256": "16713fcb57793de902aaad76c43d59c740d39ea37adec8e4763c145ba76ddc5f"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/Shell32Imports.cs",
+      "mode": "100644",
+      "sha256": "b3247cd4a6ed6a9ac85cdf3970e923ab56237d2674a065c5cf72b25052fce41a"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/ShellLinkImports.cs",
+      "mode": "100644",
+      "sha256": "ef9354b20b4cef1117cace31b0d82f131636539fa873500ac0a808661a2e3c59"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/ThreadHacks.cs",
+      "mode": "100644",
+      "sha256": "48c3c231bc3c3cfda529ddbec2fd80c0048546967ed0c22c956c5f3784601a2b"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/Win32Imports.cs",
+      "mode": "100644",
+      "sha256": "5de7b9ec1953401a9e9c39813aca756bde5851ff17377434ab35a3e4b09a9500"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/Win32ShellContextMenu.cs",
+      "mode": "100644",
+      "sha256": "85e51aa56bad6829336598e5ca82586f26e9b49f579686a0148f49e0d6252a0b"
+    },
+    {
+      "path": "src/BizHawk.Common/Win32/WmImports.cs",
+      "mode": "100644",
+      "sha256": "c12351a9b6cb720f0459f6537c631092bceb685e486833c3ed37939f273f6d48"
+    },
+    {
+      "path": "src/BizHawk.Common/checksums/CRC32.cs",
+      "mode": "100644",
+      "sha256": "3b76c6ca83a27aea98a95723d6fe4c546f8ee8c3448923b828b4c6d46e3712c9"
+    },
+    {
+      "path": "src/BizHawk.Common/checksums/CRC32Checksum.cs",
+      "mode": "100644",
+      "sha256": "c4b483bb64da30c9853ffcbea9224ee52bb056c39a501aef5ad4a376b3ca734d"
+    },
+    {
+      "path": "src/BizHawk.Common/checksums/LibBizHash.cs",
+      "mode": "100644",
+      "sha256": "7a300670abc3de5c584b83a663c3d9ca0f34b86e3c1c26bf825301e31c92994d"
+    },
+    {
+      "path": "src/BizHawk.Common/checksums/MD5Checksum.cs",
+      "mode": "100644",
+      "sha256": "8f48e8581aeb6f01173506b5dc0205c0ee16aad8e76cdef108484612606c4338"
+    },
+    {
+      "path": "src/BizHawk.Common/checksums/SHA1Checksum.cs",
+      "mode": "100644",
+      "sha256": "8171a12e683b9638b0830b46671538b70aca2d4ebab8576ec9ef25c853174386"
+    },
+    {
+      "path": "src/BizHawk.Common/checksums/SHA256Checksum.cs",
+      "mode": "100644",
+      "sha256": "cfdf1701c61acde269f8d424aa88b2a6491cddb4ed4ead41be8745fb76d57a72"
+    },
+    {
+      "path": "src/BizHawk.Common/checksums/SHA512Checksum.cs",
+      "mode": "100644",
+      "sha256": "32edf555268d9141dc4fa45b7e5423cf3b98000561f805bdd1a1e4ccced44528"
+    },
+    {
+      "path": "src/BizHawk.Common/macOS/QuartzImports.cs",
+      "mode": "100644",
+      "sha256": "9005b2436c4f34141b92cfe99b275585841287246c9f33fca87502f17dbd4942"
+    },
+    {
+      "path": "src/BizHawk.Common/zstd/LibZstd.cs",
+      "mode": "100644",
+      "sha256": "75cbf76780d0d98cdd0bd55f7c32dfccc7cd92444da9af83c3ee9a8d9306a9dc"
+    },
+    {
+      "path": "src/BizHawk.Common/zstd/Zstd.cs",
+      "mode": "100644",
+      "sha256": "6c8bde03d8c07fc249f162606b937bbd778b28e4f1c46cb305044850c0023b1b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisConstraint.cs",
+      "mode": "100644",
+      "sha256": "a660d01593715367c8825d3d9d5f6d80d3abda47a9e57b8f3b61581b935ecd8c"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisDict.cs",
+      "mode": "100644",
+      "sha256": "e7906ef972cfa52426a4418d14fc6d7bcc82caab60b5dc33fa4fec92d880944b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisPairOrientation.cs",
+      "mode": "100644",
+      "sha256": "ebfa18c3c1e6331021174fa078edc33220ca2d8f8d962229fa9fa8863f93da96"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisSpec.cs",
+      "mode": "100644",
+      "sha256": "a5057c83b46acd46d8a21691a6fb19e0f18867fba5974d16f713e26381d90524"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/Axes/CircularAxisConstraint.cs",
+      "mode": "100644",
+      "sha256": "040d453f03482ca4731e564e8ec10532f986ae2c4a18d6693e3a33757dd8cb69"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/Axes/NoOpAxisConstraint.cs",
+      "mode": "100644",
+      "sha256": "a821d881016c24d98422d566ddac41b9af73fce7c5adb39bfdb9d60fa58bd78f"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/BasicServiceProvider.cs",
+      "mode": "100644",
+      "sha256": "c1a30be0ae2bee57886f3d26f478c3707551516df1c494648f0143834168cf3e"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/Bk2MnemonicLookup.cs",
+      "mode": "100644",
+      "sha256": "2c5e9e9ec47ead99b9e523bef48f8e7e70a2987a643c40d2c2253a3b4ed546d7"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/ControllerDefinition.cs",
+      "mode": "100644",
+      "sha256": "2a48289323b6502fa831bdaf4e102d0e335985263f4234145509e073655aa271"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/InputCallbackSystem.cs",
+      "mode": "100644",
+      "sha256": "94e6439119ba009281b2d5238efd118998d1924c9d538f34b6c854bb6593b807"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/MemoryDomain.cs",
+      "mode": "100644",
+      "sha256": "83491d1f1192b527a7ad07daa34aa27a3e2fe4a10c333d49a1bc3d21092d022e"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/MemoryDomainStream.cs",
+      "mode": "100644",
+      "sha256": "403c558ae1f0bb4d1905a05f0710a3c5d6da6ced5a4afed38606c401caeac7b5"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/NullController.cs",
+      "mode": "100644",
+      "sha256": "08a2250395b50b799a553488d141feabc033da3aade9f46a83228010d10bb2db"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Base Implementations/SnowyNullVideo.cs",
+      "mode": "100644",
+      "sha256": "0b5b7905854420e608aa4d44a63636fee0faaede9d056fcd13b4cb78c47cc682"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/ControllerDefinitionMerger.cs",
+      "mode": "100644",
+      "sha256": "846ca6c4f27315d5fdb4a5a98296621f04713044658ca2b1f371872410b8088d"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/CoreAttribute.cs",
+      "mode": "100644",
+      "sha256": "2c9c9a5c3a06f8dee9eac12204b53218a8632bd9fe1a6b2e65ef747691d4fa93"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/CoreComms.cs",
+      "mode": "100644",
+      "sha256": "6a482c27e378b01e163bb22adeae602efc35da76e433129875863a2b1377b116"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Database/FirmwareID.cs",
+      "mode": "100644",
+      "sha256": "af32bd0669ed802f677bde6b29bb3fb87fb2581769ac894fbf8ee4d49f865dcc"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/EmulationExceptions.cs",
+      "mode": "100644",
+      "sha256": "25a02bdac4e2c4c3d89fa0b2aa5f12c812f03a825e7b36a7bda88726f2ecc229"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Enums.cs",
+      "mode": "100644",
+      "sha256": "a6907672db4fb1179fe5e52d2a416a93a1c35623d7adee79bb3d9f5a7f422397"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/IController.cs",
+      "mode": "100644",
+      "sha256": "f1835f56f3119725a788af00fee4ab849aa1c1f71644ceafa9997934f945e363"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/ICoreFileProvider.cs",
+      "mode": "100644",
+      "sha256": "ef1ffdd11e2d81a35c406b0cd84d38845c7402bdebb2508e231f7d7621ff6229"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/IEmulator.cs",
+      "mode": "100644",
+      "sha256": "f81229e22d0a044f5f6afb8311477853f32f14954b63d1d1fc78bc1951681b59"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/IEmulatorService.cs",
+      "mode": "100644",
+      "sha256": "8c0b4c610312288af4b79f7e43743ad772692b5c62e91c4664be4ea439087cc4"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/IEmulatorServiceProvider.cs",
+      "mode": "100644",
+      "sha256": "32f38cef0e905e52f0fe0ae0fc71e6d1d5e0935b32d6106b9731c3799650edec"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/IInputCallbackSystem.cs",
+      "mode": "100644",
+      "sha256": "976d4e792cbd2ef3839297d230926fff29b59c95ea0b7897338c5f43b554a52a"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/IOpenGLProvider.cs",
+      "mode": "100644",
+      "sha256": "3a43da055ce66c54d71db955dbdb6b9e75d89406d8cc6c6431a62f38997f4a56"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IDriveLight.cs",
+      "mode": "100644",
+      "sha256": "4d9344069ddde34f6801cf7312ac9b6ca93eefa406f42c1708a5068090b56094"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IGLTextureProvider.cs",
+      "mode": "100644",
+      "sha256": "1759bd87897fa79c592988813c48e813ec1bbc0f08f16eb1f28967b6fd2a26cd"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IInputPollable.cs",
+      "mode": "100644",
+      "sha256": "1e0199bacccfc4bc6c29eb4d939811baa6e055146c7a327e5979ce3916c4533f"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IMemoryDomains.cs",
+      "mode": "100644",
+      "sha256": "f55f7bf75f5b62e6722d9b92233dc5c19a5545cc2d883d1ff8bc4a3f4bd160f3"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IRegionable.cs",
+      "mode": "100644",
+      "sha256": "de8ad325453f3ba35e5d4409704b10af7059578223642dda171bfb5dcc514e8e"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/ISaveRam.cs",
+      "mode": "100644",
+      "sha256": "09794c13a703ac24664da6ffa184cc38c12f20088cdfb3fba0b55950b36dbdce"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/ISettable.cs",
+      "mode": "100644",
+      "sha256": "9c96f35d1a76d0210063e9d65a1d593a780f295b7eba7afd1d6af97f2ef57a61"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/ISoundProvider.cs",
+      "mode": "100644",
+      "sha256": "db2511ea034bd9f530da9ee284e41ccfc3210d5fa4c877cb9fc61a3a91d541b4"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IStatable.cs",
+      "mode": "100644",
+      "sha256": "4d01b1da72d43a00abc64b135a764490e49c722eb0a350f1b3666f85503f7835"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IVideoProvider.cs",
+      "mode": "100644",
+      "sha256": "b3db8a7d7dc098628b293958d9d1b2e7d0b45acafa4fe1643df2c387719b0862"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/ServiceAttributes.cs",
+      "mode": "100644",
+      "sha256": "d2f22eff8d7440bb5c3d30ab6ed57551e7eef20b007eaf8f13c48866273eda48"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/VSystemID.cs",
+      "mode": "100644",
+      "sha256": "7af7c141163d727824b89d3a99fdaa18b244c02c0d98716bbe28f918fc069f8e"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/.editorconfig",
+      "mode": "100644",
+      "sha256": "9afb6f4d094d33c2c1d7a85370a2723a1ae9b97315015620b9f0e55237f32095"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/LibUAE.cs",
+      "mode": "100644",
+      "sha256": "f31feb7046ef92986ad814ab000c313b38edb9d61f79143f6bedc172945e68fd"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.Controllers.cs",
+      "mode": "100644",
+      "sha256": "ce4bc6578202a81e39b53b10b4ea270b20cb5fa06e6e8bad561eaa2f026e3ef3"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.IDriveLight.cs",
+      "mode": "100644",
+      "sha256": "390b10a66c5b15df4677cb3b77f110486089ea3f95cf2b0e427adb0c584d6be5"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.IRegionable.cs",
+      "mode": "100644",
+      "sha256": "3d98b9de3b1a895d9954a1fa90b953a7155d96f63603f604f5bc6e1fb905b172"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISaveRam.cs",
+      "mode": "100644",
+      "sha256": "0265867e086f84ad8791ad3bb18af3bab6f37983db527670332b334c2884dca4"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs",
+      "mode": "100644",
+      "sha256": "c410828c384760c65b8a7810af7fb1533447be81dc097437a021ef7fb0b9406b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.WHDLoad.cs",
+      "mode": "100644",
+      "sha256": "4a45a7844903bb0181e3ca430e76a5ab98a25cf2c054700eb7d49bed12ad83e3"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.cs",
+      "mode": "100644",
+      "sha256": "9841d32db56a6511bc6aa7685c88ebf0f65bd68799ae5262210a915ea6216a5b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/CoreLoadParameters.cs",
+      "mode": "100644",
+      "sha256": "c09b362a5088b6ad4b9401b665101a705675f1a5607ce6f81b4c669ef52e2da3"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/CoreNames.cs",
+      "mode": "100644",
+      "sha256": "d4ab85bb0950e46739e07c40ee09e2fc820af3665bf77fa434fa83e6f088455d"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/.editorconfig",
+      "mode": "100644",
+      "sha256": "66640d21c9374e0c477640d6ae7de54d392b6d047218938e890fbf2b3894708f"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/LibNymaCore.cs",
+      "mode": "100644",
+      "sha256": "77c064d4e56aae84059d0a3d04b7c9717291ab8400c8972caf229cb6cfeeb99a"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/LibWaterboxCore.cs",
+      "mode": "100644",
+      "sha256": "cd652b7f91f3a88b66ca61ac497fd77f8c134dfcd377ba899b915da55e0634fc"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/NymaCore.Cd.cs",
+      "mode": "100644",
+      "sha256": "2e4b3aa850b67120e2ab779c393f89c806322a449330fdf7744ef2378ace8140"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/NymaCore.Controller.ButtonNameOverrides.cs",
+      "mode": "100644",
+      "sha256": "e37438d3c896fa13b243f6c343aa69ff21bfb43c351d722d91743e912fde5636"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/NymaCore.Controller.cs",
+      "mode": "100644",
+      "sha256": "d6163e63f20a7b506bee2daedae72eada598ce35a6a8b941307a29c8de00839e"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/NymaCore.Settings.ComponentModel.cs",
+      "mode": "100644",
+      "sha256": "cc646cadd2ef22bd22f30dae32f924fd7de47ce5f128832b946472f21c4afc49"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/NymaCore.Settings.cs",
+      "mode": "100644",
+      "sha256": "da2b8b7d0de746561953028302ead76a1f2bfea643b23f15ad63d4bafa3a782a"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/NymaCore.cs",
+      "mode": "100644",
+      "sha256": "d33047cdf2a3ca7d33ce0bd7759ae4a0a011f38976eb810cbf4b7acc60d8ae87"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/ProxiedFile.cs",
+      "mode": "100644",
+      "sha256": "bc020eaaccc41f045a649e20dfaec8db406e890ccd9c01ba7a3ad4ec60890b16"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/WaterboxCore.cs",
+      "mode": "100644",
+      "sha256": "c01db2cba5492f340e6daf144f827727392d84af2e8daeb9a0eee8b962951de2"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/WaterboxHost.cs",
+      "mode": "100644",
+      "sha256": "2b5e1b35283ce2045b12dea2cc9594e27af5752510d86a1b876f92833399fca2"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/WaterboxHostNative.cs",
+      "mode": "100644",
+      "sha256": "98c63402e2d60ed138bd5d86079e97a9557f58bcc249f05c6a0f9fdb550f19a0"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/WaterboxHostPlatform.cs",
+      "mode": "100644",
+      "sha256": "623bc0f18f11917f425212f40ecb71f700f651bb18ff46b800baf7379f7b9155"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Cores/Waterbox/WaterboxMemoryDomain.cs",
+      "mode": "100644",
+      "sha256": "0b8ffe93102881bedf8b6aea3b499da15495f98d24f7c2d65e936ab50e513d4a"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/API_MednaDisc.cs",
+      "mode": "100644",
+      "sha256": "14e243a4a584f8c1526aabc18610f7b2f0c679fc83f375ebbd2a71675c2308ef"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/BizHawk.Emulation.DiscSystem.csproj",
+      "mode": "100644",
+      "sha256": "902b93f93d757beb683f3f3fffc8f1394058c77e2fa37728f4a7c803bdc50244"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Disc.cs",
+      "mode": "100644",
+      "sha256": "cfcbe18a6469659e1de9a65fb86b2638d1439efbb641a1acf232a3680bffd40f"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscDecoding.cs",
+      "mode": "100644",
+      "sha256": "fb6814c19b894a35ffdf69b2f0ee349695b8c7de97f22a7bf6f6476955a3b245"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscExceptions.cs",
+      "mode": "100644",
+      "sha256": "b5df01acdef53ac0f4977e32a7e62c338ac3fc0859e44611dab878e04fa7508d"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscExtensions.cs",
+      "mode": "100644",
+      "sha256": "2ec25c871e893d409ce993637992fd2947f8e6e7102f95c1035df2c9c8203573"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_CHD.cs",
+      "mode": "100644",
+      "sha256": "9365e3bebcb3f144495497ac1757da2fca1b330b48e5c3d85128700801750aee"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_ECM.cs",
+      "mode": "100644",
+      "sha256": "45190c2458026a3279673ef041ce2e177d53f6d252a100191fd9607c55011be2"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_RawFile.cs",
+      "mode": "100644",
+      "sha256": "ad9ddd6be0719fe629ad81eb97386bff8bdd8a0aeb4ff016e12c6b6375689e66"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_WaveFile.cs",
+      "mode": "100644",
+      "sha256": "6132b57c24ec39197f29faff02e1290c02c0adab7366a7fba68f7bdfa215ccd8"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_ZeroPadAdapter.cs",
+      "mode": "100644",
+      "sha256": "c121963ed593f3080b35f983b5a58c8453806139f85d227f74fc0bd5df4db80d"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/IBlob.cs",
+      "mode": "100644",
+      "sha256": "0f19bcc1f2191c26061e2082e5a8c98f714a315c2ac58f5bd6f06c66d125c54b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/RiffMaster.cs",
+      "mode": "100644",
+      "sha256": "08d4470b2ead73306ebab3a7529bcd6808fe99dd882400e587e88968f790dc97"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CCD_format.cs",
+      "mode": "100644",
+      "sha256": "7020a0464dec7101423a6a3e6f2cf80991390d533a261bad594aa75c97b54b71"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CDI_format.cs",
+      "mode": "100644",
+      "sha256": "d701a8aba5da6dd6e657b40bf47ffed837f28db141b1d2d93faf6e97c5a52b23"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs",
+      "mode": "100644",
+      "sha256": "22c8272c0408d59f384258be54165f4a391bbfd821a8b1a25b61a1f45dd6e4b1"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_Compile.cs",
+      "mode": "100644",
+      "sha256": "99b90975ebc93c2fd64940ffa93b9bdd080f1711dbc64608b2d3ce712395ac99"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_Context.cs",
+      "mode": "100644",
+      "sha256": "a017ee65d0761223fcb3239d29f7d5f3b915546bcca44ef95f56eb59d9f2a8d6"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_File.cs",
+      "mode": "100644",
+      "sha256": "bd3b78748c3d1c1bb86b2b315d3473a04f6e999ae3eb900db9359a704e5a850f"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_Load.cs",
+      "mode": "100644",
+      "sha256": "ac1b354e9ad2da500f82b6173e29b15199311f58ff7dda3bacf81cc567856a84"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_Parse.cs",
+      "mode": "100644",
+      "sha256": "bdd69d5f469e4e26be0d5f13bb84a46c964b48961212062692311eef19d5048d"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_SynthExtras.cs",
+      "mode": "100644",
+      "sha256": "6dd1c16d35169d14449caa35fa67e56942e0ec8348d828536ccae0afa95d02e7"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_Synths.cs",
+      "mode": "100644",
+      "sha256": "de22f7c92e4b95bc45bb4c76f26d8fe02b615a8031672c46ba038561e0e82086"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CUE_Types.cs",
+      "mode": "100644",
+      "sha256": "c3d89395291eb551cb3e2e286c653f02f4f3fc802f83a8f19dcaf21e66145e6b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/CUE/CueFileResolver.cs",
+      "mode": "100644",
+      "sha256": "98549a2d20cebddcd95cd1ad02f1f901bf1ad833056c582bde401b94519318f8"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/M3U_file.cs",
+      "mode": "100644",
+      "sha256": "1d6ee1629fb5212b852c974325219705c24c50e84e773009e1181bceaa5f6da3"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/MDS_Format.cs",
+      "mode": "100644",
+      "sha256": "2a56e154674a716c43514d814aec72717f4b40915f6d69d4da190e5fa6eb28df"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs",
+      "mode": "100644",
+      "sha256": "f872ff147a06d821012f254ba7fe0cc7d4dde40bc9777ecf5cf60ae4baf1704b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/SBI_format.cs",
+      "mode": "100644",
+      "sha256": "5bba4a4b5a5c944232b953939ade470f3ff74a95a01c007bd421ab45da49f67d"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscFormats/TOC_format.cs",
+      "mode": "100644",
+      "sha256": "d85aceab6781687d6f242597429f083e265dce7bccd3144ccd518cb958b8b887"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscHasher.cs",
+      "mode": "100644",
+      "sha256": "d9baefee5701509f2a8e342b65d36f426306e7c6937345e3e05ecbc8a94eddf7"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscIdentifier.cs",
+      "mode": "100644",
+      "sha256": "bf79e5ced5b00d87dccc854a1ec93a5d627862c5e2dde231e5f65abb9be1a7b6"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscJob.cs",
+      "mode": "100644",
+      "sha256": "e49943022c46fb4f07a0d9be1f5b9d77b2b3c31a59b6696beddfd30d26c4ffb5"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscMountJob.MednaDisc.cs",
+      "mode": "100644",
+      "sha256": "2246b86554a404e366cb7da0ae3db7a955d1046d0e7f3938ba368b8321d947a5"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs",
+      "mode": "100644",
+      "sha256": "c4dacd1a42cde050730d219af11a1491af2985f66afecea6af5cbffa6f3b998c"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscMountPolicy.cs",
+      "mode": "100644",
+      "sha256": "32f121a30d5756b11a6bdf515473b33b13e14d976ce6a868130c62d48b3b0d08"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscSectorReader.cs",
+      "mode": "100644",
+      "sha256": "10bc37558061d99c9d55fc8ba769803460f3bd2e27a592adf76a3284747d3353"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscSession.cs",
+      "mode": "100644",
+      "sha256": "0cc16e627d3d4063e549002e49661cc0d55eb304b3b04b3c4118ab58de740694"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscStream.cs",
+      "mode": "100644",
+      "sha256": "e8c2c193814f591c26e6233466e1cec40c26528b0c09a1fd4cad34f975c944b8"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscSubQ.cs",
+      "mode": "100644",
+      "sha256": "bf32fc8429bdad38e4fc3e9350f2acef64457aa9cce70113934f87f7d5451d03"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscTOC.cs",
+      "mode": "100644",
+      "sha256": "0ce98abbe1f0c11034fa0f031ff8a2d91975418ba81d09e3983abc2240387232"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscTrack.cs",
+      "mode": "100644",
+      "sha256": "85e721aabdb96b1b14398c26bb988f5c8dbe36ad21c1dd23cae586369ce04cb2"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscTypes.cs",
+      "mode": "100644",
+      "sha256": "a32587d1d7af8595b9c1486b2c9289f6f7a018c85acf74b2258056d75005259f"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscUtils.cs",
+      "mode": "100644",
+      "sha256": "ed122b481e6926f57c8cc40863f1fc8b0ed26d30247203b998ca05f93efa8d13"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscoHawkLogic/AudioExtractor.cs",
+      "mode": "100644",
+      "sha256": "749951b19a6fdaea97a755cb043448ed9fa1dcee0efe56e5f284d72f71d23e08"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscoHawkLogic/DiscoHawkLogic.cs",
+      "mode": "100644",
+      "sha256": "b8db5a09cd7d8ede5f7537cf1341af0621a137a1f836299c82c1560c2741d620"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/DiscoHawkLogic/ECMTest.cs",
+      "mode": "100644",
+      "sha256": "b26a5a439eebe2e5dbbbab53b0328686af2cc5b12d125ef5512b1410e342379a"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Algorithms/ECM.cs",
+      "mode": "100644",
+      "sha256": "5a8f82a8bf3362e8acbb04fd7eca6eda630cb36d77791c9505186b97a4f36f12"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Algorithms/GPL_ECM.cs",
+      "mode": "100644",
+      "sha256": "8bc9aed4d5976567437f1f9f9c92000dd668ae448d314fc3c8bcd470a4b87ae8"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Algorithms/SubQ_CRC.cs",
+      "mode": "100644",
+      "sha256": "b6cbeeb534b97e3bf65279066bc026d3322f8d896b8b0c00adccec9f6df7e160"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Jobs/ApplySBIJob.cs",
+      "mode": "100644",
+      "sha256": "6f9f04cf528f627dec9dfd5f76c458f8c96a65bc405c58b12717ad928d16477d"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Jobs/LoadSBIJob.cs",
+      "mode": "100644",
+      "sha256": "007ae1342bb0fb67027d06fe25e99d26d90e610aac8774cfacf171f91c1cb575"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Jobs/Synthesize_A0A1A2_Job.cs",
+      "mode": "100644",
+      "sha256": "e79940e4fe49519c574fe98bc38d269d1c4a7f8aeeba8d5840e7f9527c192e71"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Jobs/Synthesize_DiscTOC_From_RawTOCEntries_Job.cs",
+      "mode": "100644",
+      "sha256": "7a8bebe63d0f7f87d24b95eb52b1ecab26954f4f3f83409c8f23076d2203da44"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Jobs/Synthesize_DiscTracks_From_DiscTOC_Job.cs",
+      "mode": "100644",
+      "sha256": "a9b788cccdfcffa122182455d97d8c2befb7456392231b107bc5471113b9f5a6"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/Jobs/Synthesize_Leadout_Job.cs",
+      "mode": "100644",
+      "sha256": "9accfec93783018f481ed29fd0f5deb65024669059fcf82b2fca4edf50f1860b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/SectorSynth.cs",
+      "mode": "100644",
+      "sha256": "5e7d9798eb980349b631994a076768dac560d53628b399e71510bf08bbb46030"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/Internal/SynthUtils.cs",
+      "mode": "100644",
+      "sha256": "0f160953bcc328e733ad436b8b4e165757f2826da15f6d15f2d519ee60b734a7"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/LibChd.cs",
+      "mode": "100644",
+      "sha256": "2d73a75f46db3b69cc701d97ae4d2924146604cae56dd60ade554b99766a978b"
+    },
+    {
+      "path": "src/BizHawk.Emulation.DiscSystem/docs/notes.txt",
+      "mode": "100644",
+      "sha256": "2f98d35cf411a47f108f37b8c74cd77957c187ab9ec6c46b0be38909cb0c10ad"
+    },
+    {
+      "path": "src/MainSlnCommon.props",
+      "mode": "100644",
+      "sha256": "2af7fa1fe7e4a5d60c816e566264782e00dbcf03482ec3d1dfa8a420e1a3c288"
+    },
+    {
+      "path": "src/Menees.Analyzers.Settings.xml",
+      "mode": "100644",
+      "sha256": "c93ef391c8a83b1d5abcfb658538130473795bd727be2a66ee8d0d8203c2f9ab"
+    },
+    {
+      "path": "waterbox/common.mak",
+      "mode": "100644",
+      "sha256": "9f1938ad6ebb497607cd25c3f7a23ecc5ae3d0b37c3e0107fe3cc0852094bd34"
+    },
+    {
+      "path": "waterbox/emulibc/Makefile",
+      "mode": "100644",
+      "sha256": "0524d95e1e350a42ef8f3676b6d59b06d959a72574a18261edf9fa0c8d029a9a"
+    },
+    {
+      "path": "waterbox/emulibc/emulibc.c",
+      "mode": "100644",
+      "sha256": "4c1a91e4e35003305dd6cd2600646436589aa43575ea4d55bb3c922ca53eaf96"
+    },
+    {
+      "path": "waterbox/emulibc/emulibc.h",
+      "mode": "100644",
+      "sha256": "90eadc83d089550dfbbfe012839ba5804cbe46628c3264b0b7bbea1b0ccabb89"
+    },
+    {
+      "path": "waterbox/emulibc/waterboxcore.h",
+      "mode": "100644",
+      "sha256": "e7e8919e825fcc243af88d5ccfa127a10dae38a2aa3c7275524005048f27e2f9"
+    },
+    {
+      "path": "waterbox/libcxx/.gitignore",
+      "mode": "100644",
+      "sha256": "7be539702f65995ba77ccc7827d69aa5228ae911e80a7951db93c8f50dcc60cf"
+    },
+    {
+      "path": "waterbox/libcxx/configure-for-waterbox-phase--",
+      "mode": "100755",
+      "sha256": "cfc1735d0bfd61f36a08e3cf4a19d9011f3c60b9deaa62cb1837a0745430e334"
+    },
+    {
+      "path": "waterbox/libcxx/configure-for-waterbox-phase-0",
+      "mode": "100755",
+      "sha256": "c3ff5f8cd575cd84036d5e797e7dee19e1a72e84215f67383ec0157ec46dfc71"
+    },
+    {
+      "path": "waterbox/libcxx/configure-for-waterbox-phase-1",
+      "mode": "100755",
+      "sha256": "88f29040f0f0ae07809cebc804452a722a845a462ef955b3a839745cfc6ca06a"
+    },
+    {
+      "path": "waterbox/libcxx/configure-for-waterbox-phase-2",
+      "mode": "100755",
+      "sha256": "bfbc7e94150cb7662fab47929bfc631261e35e80eda137feed0c3a605809f014"
+    },
+    {
+      "path": "waterbox/libcxx/do-everything.sh",
+      "mode": "100755",
+      "sha256": "94825b378f7f09c1d3fc369ff72816e2dc2cd7e5159ef5b6fc51d73a5c9e4215"
+    },
+    {
+      "path": "waterbox/libcxx/readme.txt",
+      "mode": "100644",
+      "sha256": "6bd75e997aab5f0109000084477db5803134a186311e3dbd54b51677b3e2685a"
+    },
+    {
+      "path": "waterbox/libcxx/setup-llvm.sh",
+      "mode": "100755",
+      "sha256": "3fa6cb6b57b6ea42802ead4f8b01d0087296e33adb5ff4d7eb2855c32df9de90"
+    },
+    {
+      "path": "waterbox/linkscript.T",
+      "mode": "100644",
+      "sha256": "3a5f16e86596f0bb4b254b0fa0c4ba68effbf8a438ef34bbfbe7b179692cd536"
+    },
+    {
+      "path": "waterbox/linkscript_aarch64.T",
+      "mode": "100644",
+      "sha256": "a1ca92826e43c979efab02843874f33543c945a8fbd16c23034419ad4ba668df"
+    },
+    {
+      "path": "waterbox/musl-darwin-aarch64.patch",
+      "mode": "100644",
+      "sha256": "04456e5684015c00e7d55df577f34dba5e758bf39345ed1a73d9a2a3e787a24c"
+    },
+    {
+      "path": "waterbox/musl-waterbox-aarch64-auxv.patch",
+      "mode": "100644",
+      "sha256": "3c5d953728fc13ede03682bfc6561771b25968ccbcf2cae6b186d04a7428f3a3"
+    },
+    {
+      "path": "waterbox/musl-waterbox-getcwd.patch",
+      "mode": "100644",
+      "sha256": "3aedb9128a886521c81d3c98ee3f26c3151a1cd7daaf367cc673b35e8df6a7bd"
+    },
+    {
+      "path": "waterbox/musl-waterbox-x86_64-atomics.patch",
+      "mode": "100644",
+      "sha256": "140d5b22b88afb5ccb0cefb0c5ecede5e525c50940cc65146d77f9ed23ae3bf2"
+    },
+    {
+      "path": "waterbox/readme.txt",
+      "mode": "100644",
+      "sha256": "49b2cc06fae234f072246443d0acdffe8c4ab30b9433b36274943e036f8905d7"
+    },
+    {
+      "path": "waterbox/uae/CAPSIMG-LICENCE-NOTICE.md",
+      "mode": "100644",
+      "sha256": "1a8cfac55864ef604cc175f97a0e37219948f676a29f88cd362d3d88021faec4"
+    },
+    {
+      "path": "waterbox/uae/Makefile",
+      "mode": "100644",
+      "sha256": "27858f1b1d45ad3e36d16224f86603b3ab817339729bef458d0b877258980af1"
+    },
+    {
+      "path": "waterbox/uae/bizhawk-cd.h",
+      "mode": "100644",
+      "sha256": "e48a001fe2b665a6f11c2f8f89055fa6e711d9779d3336650cf715d69ee97b79"
+    },
+    {
+      "path": "waterbox/uae/bizhawk-hd.c",
+      "mode": "100644",
+      "sha256": "f2969ed744b498d3498ffcbf573a4ec7e37eef22d11e8a604f79f8048f3168d7"
+    },
+    {
+      "path": "waterbox/uae/bizhawk-hd.h",
+      "mode": "100644",
+      "sha256": "3ce91e77bef75132d2e686785e108e605912d606c5fe12f6730c98840f052bb0"
+    },
+    {
+      "path": "waterbox/uae/bizhawk-unzip.c",
+      "mode": "100644",
+      "sha256": "7543b666a143b3841403dab688801d49e5d0d7b08935be32e7709335186caaf5"
+    },
+    {
+      "path": "waterbox/uae/bizhawk-unzip.h",
+      "mode": "100644",
+      "sha256": "4c8c99a3b002ca3a3f500cc02e9471986cfcac28eafdc9a65ec1a5874938d789"
+    },
+    {
+      "path": "waterbox/uae/bizhawk.c",
+      "mode": "100644",
+      "sha256": "8d96fe94da200bb6a2a4035bfb7e7e181537c8e046a1548930b538623af5e6b5"
+    },
+    {
+      "path": "waterbox/uae/bizhawk.h",
+      "mode": "100644",
+      "sha256": "2d81905b176f943064c8c90ea606fbc29d9ee1594b3cf4bde0f7fa0fcda9672f"
+    },
+    {
+      "path": "waterbox/uae/capsimg-config/config.h",
+      "mode": "100644",
+      "sha256": "15804462404c809a0ccf7ee20e3ba74fc7c6042d597d6d08f29988525e8cd48f"
+    },
+    {
+      "path": "waterbox/uae/uae-waterbox.patch",
+      "mode": "100644",
+      "sha256": "0cd166e660f1bd3200bd7cbfc06deaeec4b2bd865f402b31e3cbedbb6a7a2630"
+    },
+    {
+      "path": "waterbox/waterboxhost/Cargo.lock",
+      "mode": "100644",
+      "sha256": "76821437d8a47e084e442c9d6fc4c85a3a05c3fe7c9713ae440dbcb6f16bf7bf"
+    },
+    {
+      "path": "waterbox/waterboxhost/Cargo.toml",
+      "mode": "100644",
+      "sha256": "2d8cbc02c4a6d86c28295a0e3de9161282ef1efc590cc53f9c91dc327399315f"
+    },
+    {
+      "path": "waterbox/waterboxhost/DARWIN_ARM64.md",
+      "mode": "100644",
+      "sha256": "88a32146df2a7da7452f5fd8ba2221749bc5887df2cf8d45509f4a9b53b2127f"
+    },
+    {
+      "path": "waterbox/waterboxhost/README.md",
+      "mode": "100644",
+      "sha256": "c9971a8ba194c012a0f4884ecb3c203291cd9dfc3dfef3207b6dc6d46ae61d8b"
+    },
+    {
+      "path": "waterbox/waterboxhost/build-debug-no-dirty-detection.sh",
+      "mode": "100755",
+      "sha256": "c37efe282ef54b8a3e563f8f621956a70d67fabb0c730efd611118ad8a35525b"
+    },
+    {
+      "path": "waterbox/waterboxhost/build-debug.sh",
+      "mode": "100755",
+      "sha256": "6b9eb576778f3eec0e0d369d12770199e625f9902c9883fedffbc4956aa76c19"
+    },
+    {
+      "path": "waterbox/waterboxhost/build-release.sh",
+      "mode": "100755",
+      "sha256": "5a733e7e9247c2a49cb26866ee84ba0a7d17a7c23554dae9df4447b41bd1a4d1"
+    },
+    {
+      "path": "waterbox/waterboxhost/csharp-smoke/.gitignore",
+      "mode": "100644",
+      "sha256": "6c5082c7e6de3e350189c67a1aacf757485ecc26e0a3cf96683528565f3e5f12"
+    },
+    {
+      "path": "waterbox/waterboxhost/csharp-smoke/Program.cs",
+      "mode": "100644",
+      "sha256": "2e7045271131399467b7daab13bb0bd2673d6b02f0bfed21774d081b097aca4c"
+    },
+    {
+      "path": "waterbox/waterboxhost/csharp-smoke/README.md",
+      "mode": "100644",
+      "sha256": "dbdb701744357ab815b80055ef25988c6095e4670cc1400460fca09e68c6579d"
+    },
+    {
+      "path": "waterbox/waterboxhost/csharp-smoke/Waterbox.CSharpSmoke.csproj",
+      "mode": "100644",
+      "sha256": "0224c8166f9bf7fa00eb8fe53617529e35c8e063786178fbdcf10fc462152e4f"
+    },
+    {
+      "path": "waterbox/waterboxhost/docker/Dockerfile.wbx-toolchain",
+      "mode": "100644",
+      "sha256": "2f4e80363938e2b3efd8dd5cec23a6a4933623e84fa3867ce04612b618164ca1"
+    },
+    {
+      "path": "waterbox/waterboxhost/rust-toolchain.toml",
+      "mode": "100644",
+      "sha256": "a7878e34b9c384cebeee054f9dce3d1290c78befa952a14e30dff43eae165d2e"
+    },
+    {
+      "path": "waterbox/waterboxhost/smoke/Makefile",
+      "mode": "100644",
+      "sha256": "6d257fee34ee069a4a4b6a9b1018f156c93fe2c7161f5bbc1c430843db7ff7a5"
+    },
+    {
+      "path": "waterbox/waterboxhost/smoke/README.md",
+      "mode": "100644",
+      "sha256": "e313c6dfaa9b2c1f903c60ea931eda04a3bb4cb4094263be68fbe0df71a9911e"
+    },
+    {
+      "path": "waterbox/waterboxhost/smoke/build-guest.sh",
+      "mode": "100644",
+      "sha256": "0aebe50f5465d5e14e5dd6718689ae709b8495ae00ea8a0e548fe1d27ea098a0"
+    },
+    {
+      "path": "waterbox/waterboxhost/smoke/linkscript_aarch64.ld",
+      "mode": "100644",
+      "sha256": "52751d18b0fd6e75fc62a4dd773e31832cf454f9b27509b0e45bb9ca30315d95"
+    },
+    {
+      "path": "waterbox/waterboxhost/smoke/smoke.c",
+      "mode": "100644",
+      "sha256": "e6bbf96e43b8d680445d2f4991a778970de991a34c7064b941fe35ba11a981f6"
+    },
+    {
+      "path": "waterbox/waterboxhost/smoke/waterbox-smoke.c",
+      "mode": "100644",
+      "sha256": "19e0b08f9131f379434a0e53195fd6e6b8bd42ccaf6c708abe4508abe210eddd"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/bin.rs",
+      "mode": "100644",
+      "sha256": "30f3f3c0bdd514fa1117cb4f5f34a3c0576b36205214420b499f0161a031332b"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/calling_convention_adapters.rs",
+      "mode": "100644",
+      "sha256": "0821de03dd2dc0317a047b1028754fab60bf966869307d82d370689bf288cd85"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/cinterface.rs",
+      "mode": "100644",
+      "sha256": "7e4f62c77ddeb5dec580999d4c1ec414f35375a70de5a0033a52a36d3851486c"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/Makefile",
+      "mode": "100644",
+      "sha256": "2eb25118928be1a96a48169c3457c703a667ef45b64749e1f5408a36de6116d8"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/interop.bin",
+      "mode": "100644",
+      "sha256": "c3bf57a7d8597ef2254b3e2c35f66caf21b2521bb82c53e9abee73843fd2d437"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/interop.s",
+      "mode": "100644",
+      "sha256": "56ae171775d91570168e5b774895ba6cc1b6e7600a58572c1bcbaf10fa3cc3a3"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/interop_aarch64.bin",
+      "mode": "100755",
+      "sha256": "7c2cc5d6ee1f04e7d2b57aa29f581da2b11a9a6699f2f51daf084c22ffd41e24"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/interop_aarch64.s",
+      "mode": "100644",
+      "sha256": "cef442a0ebbc59aa6f81d88cb8bdb6cd40eb77f5c85723495f4c47e2fb3b67ee"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/interop_aarch64_link.ld",
+      "mode": "100644",
+      "sha256": "9b33fd0ed57e2c359816301a226dfdd379436d99ccde86e0718c886d59313c09"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/mod.rs",
+      "mode": "100644",
+      "sha256": "4172af211acd78634f359de5571eee21a6f5d486d85b8744108c8a2b3fd307f0"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/context/thunks.rs",
+      "mode": "100644",
+      "sha256": "14f0abd831e9c16436e093f9459077748242461af38cfce2c1980edf5e7924cf"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/elf.rs",
+      "mode": "100644",
+      "sha256": "883c7f461f9abd301654d9b8ac2c84daf09fa1389cdc463b94d29f73098629a4"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/fs/empty_read.rs",
+      "mode": "100644",
+      "sha256": "0ce65efb8bd4cb46bdea438a92030e83bca6dbe1218d01e626196f0d6cd299ce"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/fs/mod.rs",
+      "mode": "100644",
+      "sha256": "9aca3ffbbf509b502e24187ccfeed65f6de68b4925d754730f7f2ad1b9265926"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/fs/regular_file.rs",
+      "mode": "100644",
+      "sha256": "e0eb54226d3f89c4b3f720565f1d84a9cc184e208bc2e00adc33cf26f1504ab1"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/fs/sys_out.rs",
+      "mode": "100644",
+      "sha256": "a363913a58dc5a05d0cfb8fbe5282730cea3b0c3ecf59268bfbfaa4f45bd83f1"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/gdb.rs",
+      "mode": "100644",
+      "sha256": "87d0c84506640ff48a955d76c80c5a89daa81871f6442754fdc3cc23121dac6c"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/host.rs",
+      "mode": "100644",
+      "sha256": "9b90b8e0e0ccb6b14ebb837716ca45f346e83997fd543eb645468b656fb64618"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/lib.rs",
+      "mode": "100644",
+      "sha256": "1cc1c3bb052c11a8659466b219d8bbb312e9af36a3242cd86ebb3b11a380c872"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/memory_block/mod.rs",
+      "mode": "100644",
+      "sha256": "2615fea0f5ae7d68e33ce65eb45f6bff229451a52f272dc57f84d85091ec7bb9"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/memory_block/pageblock.rs",
+      "mode": "100644",
+      "sha256": "e6be94a737e84c75b2e7b18c929469732e8a85cea7b8e07417dcb0d4049d02de"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/memory_block/pal.rs",
+      "mode": "100644",
+      "sha256": "88107f0379bd4d83c71b4ef82c7e61f3a6f039f65a34ebcf9b41cf0a1f91052f"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/memory_block/tests.rs",
+      "mode": "100644",
+      "sha256": "a567c24cd3a5d2bd7f636621035f9491197ae4b952c2bbec7f2bce46ff000ad8"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/memory_block/tripguard.rs",
+      "mode": "100644",
+      "sha256": "cdf2f323e352830a01624ebd0d99dae9571ad26b6b3f56af37b7c98e4c3d7e3f"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/syscall_defs.rs",
+      "mode": "100644",
+      "sha256": "f9632c7776705262f814fec1e67faa921ec03bbc62d9fb292d18001aa1f2cf3d"
+    },
+    {
+      "path": "waterbox/waterboxhost/src/threading.rs",
+      "mode": "100644",
+      "sha256": "d4b57b37ff0c81ae886d56a3fd8e6a6e80b5ab5a64b12a35cf2368ad0b6b100d"
+    },
+    {
+      "path": "waterbox/waterboxhost/uae-cd32-headless/Program.cs",
+      "mode": "100644",
+      "sha256": "20ad2640f743a5043e23ff1c92c20391ddd6d98fd4da4c5348b662b4700ee2aa"
+    },
+    {
+      "path": "waterbox/waterboxhost/uae-cd32-headless/Stubs/Resources.cs",
+      "mode": "100644",
+      "sha256": "f20e5b6b81daf7a4c82175834fc57d0b1dc31c6a4fb1caa5db6626f29e932b9a"
+    },
+    {
+      "path": "waterbox/waterboxhost/uae-cd32-headless/UaeCompileSupport.cs",
+      "mode": "100644",
+      "sha256": "9fe385af366a4ffd6f5a3b228157c0a0679c25b7fdde59bc920bbe0cfdbed843"
+    },
+    {
+      "path": "waterbox/waterboxhost/uae-cd32-headless/Waterbox.UaeCd32Headless.csproj",
+      "mode": "100644",
+      "sha256": "766131f418ae1fca0b694430faf56ce255b22adf7b22e0ee02155a2a1349c9b6"
+    },
+    {
+      "path": "waterbox/waterboxhost/uae-cd32-headless/whdload-regression.sh",
+      "mode": "100755",
+      "sha256": "e209df483f7322f6eee2f90d3e568fe90c880bbbe92323a61f77f5dfce390ff0"
+    }
+  ]
+}

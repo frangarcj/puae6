@@ -1,0 +1,20 @@
+diff --git a/arch/waterbox/atomic_arch.h b/arch/waterbox/atomic_arch.h
+index 05e4bfb9..e29b625b 100644
+--- a/arch/waterbox/atomic_arch.h
++++ b/arch/waterbox/atomic_arch.h
+@@ -63,13 +63,13 @@ static inline void a_or_64(volatile uint64_t *p, uint64_t v)
+ #define a_inc a_inc
+ static inline void a_inc(volatile int *p)
+ {
+-	*p++;
++	(*p)++;
+ }
+ 
+ #define a_dec a_dec
+ static inline void a_dec(volatile int *p)
+ {
+-	*p--;
++	(*p)--;
+ }
+ 
+ #define a_store a_store

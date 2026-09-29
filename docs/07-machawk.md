@@ -183,3 +183,31 @@ es fallo, no fallback.
 WB13-WB15 se añaden a WB01, WB03, WB04 y WB07, no los sustituyen. Que este codigo
 exista demuestra una ruta a probar, NO que PUAE6 este ya portado ni que estos tests
 hayan pasado. La primera prueba real sigue siendo una dependencia obligatoria.
+
+## Referencia adicional: alternativa futura a CAPSImg para IPF
+
+Indicada por el usuario: [frangarcj/BizHawk#1](https://github.com/frangarcj/BizHawk/issues/1),
+"UAE: replace capsimg (non-commercial SPS licence) with a port of MAME's BSD
+IPF reader". Leida mediante `gh issue view` el 2026-09-26: abierta, sin
+comentarios, actualizada el 2026-09-05. Se registra como propuesta del fork,
+no como implementacion ni prueba de compatibilidad.
+
+La incidencia propone el lector `src/lib/formats/ipf_dsk.cpp` / `ipf_dsk.h`
+de MAME, descrito alli como BSD-3-Clause. Antes de importarlo hay que fijar
+commit, verificar avisos/dependencias y desacoplar `floppy_image`. La adaptacion
+debe entregar MFM y timing a la capa de disquete; comprobar revisiones de
+encoder, gaps, weak bits y protecciones con corpus de procedencia autorizada.
+La equivalencia con CAPSImg no esta demostrada. No se han descargado imagenes
+de disco ni se ha verificado aqui la licencia del corpus sugerido por la issue.
+
+Aplicacion al plan: T02 mantiene CAPSImg fuera de la seleccion inicial y T12
+conserva su alcance de medios soportados. IPF necesita una tarea propia de
+backend/licencia/estado/corpus antes de habilitarse. El decoder y su estado
+causal deben vivir dentro del guest y del snapshot; no usar una DLL host como
+atajo. Probar save/load y restauracion en sandbox nuevo, ademas de lecturas.
+
+La observacion de la issue sobre retirar libc++ al eliminar CAPSImg se refiere
+al UAE antiguo de ese fork. PUAE6 parte de WinUAE6 en C++: T02/T09 deben derivar
+sus dependencias reales, sin eliminar libc++ por analogia. La referencia local
+CAPSImg ya capturada conserva sus avisos y su exclusion de los paquetes hasta
+la revision correspondiente; citar una alternativa no cambia sus condiciones.

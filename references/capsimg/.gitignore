@@ -1,0 +1,17 @@
+*~
+autom4te.cache
+/CAPSImg/configure
+/CAPSImg/Makefile
+config.h
+config.h.in
+config.log
+config.status
+/dist.fs
+*.dll
+*.dll.a
+*.dylib
+*.log
+*.o
+*.so
+*.so.*
+*.tar.xz

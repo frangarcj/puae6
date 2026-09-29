@@ -1,0 +1,65 @@
+#!/bin/sh
+cc="@CC@"
+libc="@PREFIX@"
+libc_inc="@INCDIR@"
+libc_lib="@LIBDIR@"
+thisdir="`cd "$(dirname "$0")"; pwd`"
+
+# note: there seems to be bug in clang that has ibuiltininc not work with nostdinc
+# despite clang's docs stating ibuiltininc should work if placed after nostdinc
+# nostdlibinc + nostdinc++ are used together as a substitute for nostdinc + ibuiltininc
+
+# we don't want to invoke some of these arguments when we aren't linking (otherwise clang gives annoying warnings)
+# so detect when the linker will not be used
+for x ; do
+    case "$x" in
+        -c|-S|-E) no_linker=1 ;;
+        *) no_linker= ;;
+    esac
+    if test "$no_linker" ; then
+        exec $cc \
+            -B"$thisdir" \
+            -nostdlibinc \
+            -nostdinc++ \
+            --sysroot "$libc" \
+            -isystem "$libc_inc" \
+            "$@"
+        exit 0
+    fi
+done
+
+# prevent clang from running the linker (and erroring) on no input.
+sflags=
+eflags=
+for x ; do
+    case "$x" in
+        -l*) input=1 ;;
+        *) input= ;;
+    esac
+    if test "$input" ; then
+        sflags="-l-user-start"
+        eflags="-l-user-end"
+        break
+    fi
+done
+
+# clang is annoying and has various Wunused-command-line-argument sort of false positives
+# In many of these cases, these come as the compiler doesn't care for the argument, but the linker will
+# Sometimes the inverse is true, such as when only .o files are present, which lead to compile only options to be unused
+# Due to this, -Wno-unused-command-line-argument will be sent to silence these warnings and prevent -Werror failures
+# A user can override this by simply providing -Wunused-command-line-argument, if they really want this warning
+
+exec $cc \
+    -B"$thisdir" \
+    -fuse-ld=musl-clang \
+    -nostdlibinc \
+    -nostdinc++ \
+    -Wno-unused-command-line-argument \
+    --sysroot "$libc" \
+    -isystem "$libc_inc" \
+    -L-user-start \
+    $sflags \
+    "$@" \
+    $eflags \
+    -L"$libc_lib" \
+    -L-user-end
