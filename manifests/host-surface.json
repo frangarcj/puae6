@@ -1,0 +1,1068 @@
+{
+  "schema_version": 1,
+  "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+  "status": "contracts-planned-not-implemented",
+  "coverage": "Union lexica de includes y tokens de todos los archivos alcanzados, incluidas declaraciones de APIs no usadas. No prueba reachability C++, aliases ni enlace. Las pruebas descritas son futuras; clasificar un header excluido no autoriza enlazarlo.",
+  "watch_pattern": "target_\\w+|my_\\w+|fetch_\\w+|gui_\\w+|notify_user\\w*|uae_(?:sem_\\w+|start_thread\\w*|end_thread|set_thread_priority|thread_get_id)|sleep_\\w+|read_processor_time|machdep_init|write_log\\w*|write_dlog|logging_init|flush_log|fopen|_tfopen|uae_tfopen|fclose|fread|fwrite|fseek|ftell|fgetws|fgets|fputws|fprintf|vfprintf|fputc|fputs|fflush|ferror|feof|fgetc|ungetc|fsetpos|fgetpos|_fseeki64|_ftelli64|time|localtime|gmtime|mktime|gettimeofday|getlocaltime|system|popen|LoadLibrary\\w*|GetProcAddress|VirtualAlloc|VirtualFree|CreateThread|CloseHandle",
+  "declaration_headers": [
+    "include/sysdeps.h",
+    "include/uae.h",
+    "include/xwin.h",
+    "include/gui.h",
+    "od-win32/sounddep/sound.h",
+    "od-win32/threaddep/thread.h"
+  ],
+  "contracts": {
+    "libc": {
+      "headers": [
+        "assert.h",
+        "cctype",
+        "climits",
+        "cstdio",
+        "cstdlib",
+        "cstring",
+        "ctype.h",
+        "errno.h",
+        "functional",
+        "limits.h",
+        "math.h",
+        "stdarg.h",
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string",
+        "string.h",
+        "strings.h",
+        "sys/types.h",
+        "vector"
+      ],
+      "semantics": "Tipos, strings, contenedores y aritmetica del runtime C/C++; incluir stdio no autoriza filesystem host. libm influye en filtros/tablas: sin fast-math ni locale variable.",
+      "native": "Runtime nativo fijado y tipos de ancho exacto; flags reproducibles.",
+      "waterbox": "musl/libc++ y builtins AArch64 fijados; reservar x18/x28 tambien en dependencias.",
+      "test": "T05 HOST01 anchos/layout, T09 WB13/WB14; AV01/DET01 PCM y pixeles identicos entre builds soportados."
+    },
+    "platform_types": {
+      "headers": [
+        "sysconfig.h",
+        "config.h",
+        "target.h",
+        "tchar.h",
+        "machdep/m68k.h",
+        "machdep/maccess.h",
+        "unistd.h",
+        "m68k.h",
+        "od-win32/machdep/m68k.h"
+      ],
+      "semantics": "Sustituir configuracion Windows por perfil preciso, reconocer __aarch64__, TCHAR acotado UTF-8 y accesos endian sin aliasing/alineacion indefinidos. CCR y RAM permanecen internos.",
+      "native": "ports/portable con tipos y helpers revisados; no HANDLE/Win32 general.",
+      "waterbox": "Mismos helpers; ELF AArch64, punteros64, paginas logicas4K/host16K; no NATMEM/JIT.",
+      "test": "T05 HOST01/BUILD01 tamaños, endian y accesos desalineados con sanitizers; WB13/WB14 en sandbox.",
+      "implemented_subsets": [
+        {
+          "task": "T05a",
+          "paths": [
+            "ports/portable/machdep/maccess.h"
+          ],
+          "check": "python3 -m unittest tests.host.test_maccess -v",
+          "scope": "Engine memory accessors only: 8/16/32/64 bit big-endian, native-endian word, byte swaps, alignment mask and direct call macros. C/C++ on macOS ARM64, O3 strict aliasing and ASan/UBSan.",
+          "remaining": "sysconfig/TCHAR/actual sysdeps integration and other host/ISA models remain T05b/T06; no engine link or Waterbox claim."
+        },
+        {
+          "task": "T05b1",
+          "paths": [
+            "ports/portable/sysconfig.h"
+          ],
+          "check": "python3 -m unittest tests.host.test_sysconfig -v",
+          "scope": "Narrow A500 compile profile: native C/C++ execution; compiler-target LP64 Linux ARM64 and LLP64 Windows x64 syntax only; exclusions fail even defined as zero. Atomic storage is signed32; no operations stubbed.",
+          "remaining": "Real sysdeps header integration T05b3; cross checks do not prove target execution."
+        },
+        {
+          "task": "T05b2",
+          "paths": [
+            "ports/portable/tchar.h"
+          ],
+          "check": "python3 -m unittest tests.host.test_tchar -v",
+          "scope": "TCHAR narrow UTF-8; bounded explicit-length copy rejects malformed scalars, embedded NUL and capacity failure without partial writes; overlap supported. No locale-dependent conversion or Win32 emulation.",
+          "remaining": "Upstream integration T05b3; legacy string utility call sites need explicit contracts before engine link."
+        },
+        {
+          "task": "T05b3",
+          "paths": [
+            "ports/portable/target.h",
+            "patches/winuae/0003-portable-sysdeps.patch"
+          ],
+          "check": "python3 -m unittest tests.host.test_sysdeps -v",
+          "scope": "Actual patched sysdeps with portable target/config/TCHAR/maccess compiles and executes in C/C++ with ASan/UBSan on macOS ARM64; depfiles verify include selection; pristine hashes unchanged.",
+          "remaining": "Full engine source/link proof and extern service implementations remain T05c/T06; no full Windows build claim."
+        },
+        {
+          "task": "T06b2a",
+          "paths": [
+            "ports/portable/machdep/m68k.h",
+            "od-win32/machdep/m68k.h",
+            "od-win32/machdep/m68k.cpp"
+          ],
+          "check": "python3 -m unittest tests.host.test_m68k_flags -v",
+          "scope": "Pinned CCR macros/layout and full cctrue unit reused intact, no host backend. Exhaustive CCR truth table, preservation and carry, whole-object imports and actual header depfiles. SAHF layout excluded.",
+          "remaining": "Full CPU instruction execution/dispatch, hardware timing and Waterbox snapshots remain T06b2b/T07/T09; no cross-build state ABI promise."
+        },
+        {
+          "task": "T06b2g",
+          "paths": [
+            "ports/portable/tchar.h"
+          ],
+          "check": "python3 -m unittest tests.host.test_tchar tests.host.test_readcpu -v",
+          "scope": "Bytewise strcmp/strncmp and single-evaluation ASCII whitespace classification only. Full readcpu runtime table compared by initialized semantic fields against HOST for all 65536 opcodes; selected decoding and lifecycle under ASan/UBSan.",
+          "remaining": "No locale-sensitive case folding, numeric conversion, formatting or filesystem aliases. Remaining callers and full engine linkage remain T06b2h/T06c."
+        },
+        {
+          "task": "T06b2aw",
+          "paths": [
+            "ports/portable/tchar.h"
+          ],
+          "check": "python3 -m unittest tests.host.test_tchar tests.host.test_rom_text tests.host.test_sysdeps tests.host.test_readcpu -v",
+          "scope": "Legacy NUL-terminated byte length/copy/concat/ncopy/search/span plus ASCII-only case folding, comparisons and digit/hex classifiers. Caller owns capacity and nonoverlap; strncpy retains padding/nontermination semantics. Bytes outside ASCII stay opaque, independent of process locale; public p6_tchar_copy remains validated/transactional. Real extracted rommgr metadata queries tested with synthetic metadata, not ROM bytes.",
+          "remaining": "Formatting, numeric conversion, filesystem aliases and full compilation/linkage of memory/rommgr/calc remain T06b2ax/T06c. No Unicode case folding or new feature support."
+        },
+        {
+          "task": "T06b2bi",
+          "paths": [
+            "rommgr.cpp"
+          ],
+          "check": "python3 -m unittest tests.host.test_rommgr_portable tests.host.test_rommgr_source -v",
+          "scope": "Portable getromname uses bounded integer-only ASCII scratch and legacy caller-owned output capacity; configure_rom rejects Arcadia/ALG before preference mutation and host filename derivation. Full rommgr object Debug/Release/O0/O2 plus imports/depfiles; observed synthetic metadata probes.",
+          "remaining": "No public firmware policy/content ID or full ROM-manager linkage/boot is certified. Other excluded device profiles and legacy scanning ownership retain later gates; no generic TCHAR formatter or filesystem alias."
+        }
+      ]
+    },
+    "excluded_platform": {
+      "headers": [
+        "windows.h",
+        "wininet.h",
+        "winsock.h",
+        "win32.h",
+        "D3dkmthk.h",
+        "d3d9.h",
+        "direct.h",
+        "io.h",
+        "crtdbg.h",
+        "immintrin.h",
+        "SDL.h",
+        "android/log.h",
+        "lauxlib.h",
+        "sunmath.h",
+        "values.h",
+        "setjmp.h",
+        "signal.h"
+      ],
+      "semantics": "Ramas Windows/SDL/Lua/Solaris/debug/MMU o intrinsics especificos, fuera del perfil. Los includes no guardados necesitan parche; no basta declarar feature off. connect en CIA es un parametro bool, no llamada de red; una llamada de red sigue excluida. SDL/Win32 solo aparecen en ramas a eliminar.",
+      "native": "Excluir rama host y sustituir solo operaciones requeridas por contratos locales.",
+      "waterbox": "No enlazar UI, señales, DLL ni longjmp a traves de C++.",
+      "test": "T06 HOST01 sobre preprocesado/depfiles y simbolos de enlace: cero dependencias excluidas.",
+      "symbols": [
+        "CloseHandle",
+        "SDL_INIT_AUDIO",
+        "SDL_INIT_JOYSTICK",
+        "SDL_INIT_NOPARACHUTE",
+        "SDL_INIT_TIMER",
+        "SDL_Init",
+        "SDL_Quit",
+        "connect"
+      ],
+      "expansion_implementation": {
+        "task": "T06b2bq",
+        "files": [
+          "patches/winuae/0040-expansion-portable-card-names.patch"
+        ],
+        "contract": "P6 A500 expansionroms is sentinel-only; cpuboards retains slot0/dummy_sub plus sentinel, no fake successful device init. Generic AutoConfig/RAM logic and memoryboards metadata retained. Unused thread header and FILESYS hooks excluded. Bounded numeric suffix retains legacy final-name capacity precondition (127 bytes). Indexed rommgr lookup stops at actual sentinel. cfgfile mount exporter diagnoses unsupported nonzero mount count without writing/indexing.",
+        "test": "tests.host.test_expansion_source (full objects/imports/depfiles and real catalog/lookup/exporter), tests.host.test_expansion_cards (real parser plus observed init edges, reference comparison O0/O2 ASan/UBSan). Debug/Release object compile, not machine link.",
+        "remaining": "Public p6 config must reject unsupported devices/RAM/mounts and enforce cpuboard type/subtype0 before direct indexing. Other expansion host imports, actual AutoConfig timing and native state/Waterbox remain pending."
+      }
+    },
+    "excluded_media": {
+      "headers": [
+        "7z/7zCrc.h",
+        "7z/Lzmadec.h",
+        "7z/Xz.h",
+        "zlib.h",
+        "caps/caps_win32.h"
+      ],
+      "semantics": "CAPS/IPF, archives y compresion fuera de M1. ZFD_NORMAL incluye ARCHIVE|UNPACK: acotar flags y rechazar formatos, no fingir descompresion exitosa.",
+      "native": "Solo ADF plano/ROM explicitos; error unsupported para otros formatos.",
+      "waterbox": "Igual; sin resolver plugins fuera del guest ni incorporar CAPSImg.",
+      "test": "T12 MED01 acepta ADF sintetico valido y rechaza ZIP/IPF/truncados; ninguna carga dinamica ni lectura host."
+    },
+    "excluded_av": {
+      "headers": [
+        "ahidsound.h",
+        "ahidsound_new.h",
+        "avioutput.h",
+        "picasso96_win.h",
+        "render.h",
+        "rp.h",
+        "linetoscr_aga_fm0_64.cpp",
+        "linetoscr_aga_fm1_64.cpp"
+      ],
+      "semantics": "AHI, captura, RTG, RetroPlatform y FMODE64_HACK=false no participan. Conservar renderizado OCS en drawing.cpp; las rutinas linetoscr se incluyen textualmente, no se enlazan dos veces.",
+      "native": "Guard/exclusion de ramas y errores de configuracion no soportada.",
+      "waterbox": "Igual; framebuffer software sin GPU ni host de audio.",
+      "test": "T03 GEN01 enumera productos; T06 HOST01 sin modulos excluidos; AV01 conserva raster OCS."
+    },
+    "rtc_and_seed": {
+      "headers": [
+        "time.h",
+        "sys/time.h",
+        "machdep/rpt.h"
+      ],
+      "symbols": [
+        "time",
+        "localtime",
+        "gettimeofday",
+        "getlocaltime",
+        "uae_time",
+        "uae_time_init",
+        "uae_time_calibrate"
+      ],
+      "semantics": "cia.cpp::clock_bget y rtc.cpp leen hora civil. CP_A500 con Slow RAM activa MSM6242B. Reemplazar por epoca sync-config + ciclos emulados y calendario/offset fijos; no quitar RTC. main::uaerandomizeseed exige seed explicita. TOD hack/autoswitch y cache temporal zfile se excluyen. Algunas ocurrencias time son variables, no llamadas.",
+      "native": "Reloj emulado en bridge/engine, sin zona horaria ni hora local del proceso.",
+      "waterbox": "Mismo reloj/PRNG causal dentro del snapshot; ningun callback host por acceso a RTC.",
+      "test": "T05 HOST01/T32 DET01 alterar TZ/hora host no cambia registros RTC/TOD/PRNG; avanzar segundo y restore reproduce fecha y siguiente valor.",
+      "implementation": {
+        "status": "rtc-engine-read-paths-tested-full-lifecycle-pending",
+        "files": [
+          "ports/portable/civil_time.h",
+          "ports/portable/civil_time.c",
+          "ports/portable/rtc_time.h",
+          "ports/portable/rtc_time.cpp",
+          "patches/winuae/0012-rtc-emulated-time.patch",
+          "patches/winuae/0039-main-library-and-explicit-seed.patch"
+        ],
+        "contract": "Proleptic Gregorian years1..9999, Unix whole seconds, integer subsecond/rate, explicit int32 adjustment. No leap seconds/DST/TZ/locale. init/load sets epoch and nonzero normalizedseed; restore validates all fields; failures do not mutate outputs. No soft-reset reinitialization. RTC provider owns ordinary guest state and anchors to get_cycles; explicit fixed session rate, no inferred wrap/backtrack. Read errors latch and return 0xff through byte handlers; bridge must reject the frame using p6_rtc_status. Init only load; normal RTC reset preserves clock. Save syncs remainder, restore validates civil fields/rate and scheduler anchor; counter rebase is explicit.",
+        "seed": "T06b2bo: main.cpp completo compila; P6 uaerandomizeseed pasa currprefs.seed a uaesetrandseed (0->1), sin getlocaltime. PRNG xorshift32 y globals randseed/xorshiftstate intactos; pruebas O0/O2 de secuencia/reanudacion frente a pristine con entrada normalizada. No snapshot real.",
+        "tests": [
+          "tests.host.test_civil_time",
+          "tests.host.test_rtc",
+          "tests.host.test_cia",
+          "tests.host.test_main_seed",
+          "tests.host.test_main_source"
+        ],
+        "remaining": [
+          "T06c/T07 wire rtc_time init/unload/status at public lifecycle boundaries: rate=CHIPSET_CLOCK_PAL/NTSC*CYCLE_UNIT fixed per session, no per-frame nominal increments. Native state restores scheduler and RTC anchor together; explicit rebase if resetting the counter. End-to-end p6_* not yet implemented.",
+          "T06c must pass explicit validated sync-config seed into currprefs.seed at load. No reseeding on restore/soft reset; 64-bit public field range/identity still requires validation.",
+          "TOD_HACK excluded by patch0011; CIA/RTC time/localtime replaced by patch0012. Battery file export remains rejected by immutable VFS, not a supported persistence backend.",
+          "T13/T15 validate sync config on load/restore and serialize live PRNG, RTC fields/anchor and chip registers; actual Waterbox snapshots and deterministic frame traces remain pending."
+        ]
+      }
+    },
+    "host_pacing": {
+      "symbols": [
+        "read_processor_time",
+        "sleep_millis",
+        "sleep_millis_main",
+        "target_get_display_scanline",
+        "target_spin",
+        "target_sleep_nanos",
+        "target_cpu_speed",
+        "target_adjust_vblank_hz",
+        "target_getcurrentvblankrate",
+        "vsync_clear",
+        "vsync_isdone",
+        "vsync_switchmode",
+        "getvsyncrate",
+        "isvsync",
+        "isvsync_chipset",
+        "isvsync_rtg",
+        "sleep_cpu_wakeup",
+        "sleep_millis_amiga",
+        "sleep_resolution"
+      ],
+      "semantics": "events.cpp::event_check_vsync y custom.cpp pacing fisico no avanzan hardware en deterministic. Separar espera/presentacion de hsync/vsync emulado; no sustituir espera por reloj constante que pueda bloquear un bucle.",
+      "native": "Frontend decide cadencia; bridge ejecuta scheduler hasta frontera emulada.",
+      "waterbox": "Misma primitive p6_run_frame, sin scanline fisica/sleep ni segundo scheduler.",
+      "test": "T07 STEP01/T32 DET01 misma traza/PCM con frontend rapido, lento y headless; frame termina sin reloj host.",
+      "implemented_subsets": [
+        {
+          "task": "T06b1",
+          "paths": [
+            "ports/portable/machdep/rpt.h",
+            "patches/winuae/0007-events-without-host-pacing.patch"
+          ],
+          "check": "python3 -m unittest tests.host.test_events -v",
+          "scope": "Complete portable events.cpp unit: excludes host scanline/clock wait and syncline CPU-only bypass. Preserves original primary/secondary queues, countdown, CCK dispatch and fractional cycle carry. Whole-object imports checked; ASan/UBSan probes use instrumented chipset hooks, not emulated hardware.",
+          "remaining": "custom.cpp still contains host pacing/slices/input synchronization; remove coherently in T06b2, preserving inputdevice_hsync and custom event/reset semantics. rpt.h exposes upstream declarations only: no uae_time implementation. T07/T32 frame traces/PCM and real Waterbox execution remain unproven."
+        }
+      ]
+    },
+    "threads": {
+      "headers": [
+        "threaddep/thread.h"
+      ],
+      "symbols": [
+        "uae_sem_t",
+        "gui_sem",
+        "uae_sem_destroy",
+        "uae_sem_init",
+        "uae_sem_post",
+        "uae_sem_trywait",
+        "uae_sem_trywait_delay",
+        "uae_sem_wait",
+        "uae_start_thread",
+        "uae_thread_get_id",
+        "is_mainthread",
+        "uae_end_thread",
+        "uae_sem_unpost",
+        "uae_set_thread_priority",
+        "uae_start_thread_fast",
+        "atomic_and",
+        "atomic_or"
+      ],
+      "semantics": "newcpu threads bajo WITH_THREADED_CPU; drawing_init arranca denise_thread incondicionalmente respecto a multithread_enabled. Adaptar inicio/cola/free a ejecucion sin hilo ni semaforos; conservar orden de RGA.",
+      "native": "Un hilo llamador, sin shims de semaforos que finjan exito.",
+      "waterbox": "Identico orden sin crear threads del SO; estado causal de renderer en guest.",
+      "test": "T05/T07 cero creaciones/esperas de hilo; hashes raster y orden RGA identicos; WB03 restore en sandbox nuevo.",
+      "implementation": {
+        "status": "cpu-owner-irq-tested-other-units-pending",
+        "files": [
+          "ports/portable/atomic.cpp",
+          "patches/winuae/0013-cpu-owner-interrupts.patch"
+        ],
+        "contract": "p6_* owner-thread/nonreentrant contract: P6 safe_interrupt_set retains upstream synchronous INTREQ path, no thread identity shim or worker queue producer. atomic_and/or use lock-free 32-bit seqcst compiler operations and return old value, matching InterlockedAnd/Or. No new thread API or semaphore backend.",
+        "test": "tests.host.test_cpu_irq executes extracted actual CPU IRQ functions/flags with instrumented chipset delivery, and checks full preprocessing/provider imports; not full CPU compilation or scheduler proof.",
+        "remaining": "T06b2p full newcpu dispatch/cache and remaining units; renderer and other thread lifecycle exclusions still pending. T06c/T07 enforce owner/reentry at public lifecycle and run real machine."
+      },
+      "drawing_implementation": {
+        "task": "T06b2bk",
+        "files": [
+          "patches/winuae/0037-denise-synchronous-portable-dispatch.patch"
+        ],
+        "test": "python3 -m unittest tests.host.test_drawing_sync tests.host.test_drawing_source -v",
+        "contract": "P6 compiles existing synchronous Denise queue arms and excludes worker, semaphore storage/calls and lifecycle waits. Preserve this_line metadata, RGA ordering and overlap updates; retain vidbuffer lock protocol. Actual dispatch/RGA bodies tested with observed rendering boundaries.",
+        "remaining": "T06b2bm compiles the full drawing object; host video imports, public frame/lifecycle and Waterbox remain pending. Review quick-strobe sync endpos versus worker vpos semantics in precision gate.",
+        "renderer_validation": {
+          "task": "T06b2bm",
+          "patch": "patches/winuae/0038-drawing-ocs-feature-guards.patch",
+          "test": "tests.host.test_drawing_source and tests.host.test_drawing_ocs; full Debug/Release objects, O0/O2 ASan/UBSan local probes",
+          "scope": "Exclude AGA dispatch/storage consumers and unused host HUD/debug references. Preserve OCS/ECS generated includes, color/HAM and six-plane copy. Compare separate pristine AGA-layout reference with aga_mode=false. One actual generated ECS routine validates pixels/collision/cursors/bounds. No full renderer or frame claim.",
+          "remaining": "No public unsupported-profile validation or raster precision proof. Common generated 7/8-plane helpers still warn but whole-TU preprocessed test proves no callers; future feature-aware generation gate remains."
+        }
+      }
+    },
+    "diagnostics": {
+      "symbols": [
+        "write_log",
+        "logging_init",
+        "console_out",
+        "console_out_f",
+        "gui_message",
+        "notify_user",
+        "notify_user_parms",
+        "gui_filename",
+        "gui_disk_image_change",
+        "gui_fps",
+        "gui_led",
+        "gui_flicker_led",
+        "gui_gameport_axis_change",
+        "gui_gameport_button_change",
+        "gui_data",
+        "gui_info",
+        "gui_info_drive",
+        "activate_console",
+        "buf_out",
+        "close_console",
+        "console_flush",
+        "console_get",
+        "console_getch",
+        "console_isch",
+        "deactivate_console",
+        "flush_log",
+        "gui_active",
+        "gui_ledstate",
+        "gui_lock",
+        "gui_message_multibutton",
+        "gui_restart",
+        "gui_unlock",
+        "is_console_open",
+        "is_interactive_console",
+        "isguiactive",
+        "log_close",
+        "log_open",
+        "notify_user_msg",
+        "open_console",
+        "read_log",
+        "reopen_console",
+        "set_console_input_mode",
+        "setconsolemode",
+        "write_dlog",
+        "write_log_err",
+        "write_log_get_ts",
+        "write_log_standard",
+        "write_logx",
+        "f_out"
+      ],
+      "semantics": "Errores de carga no se convierten en exito. Notificaciones acotadas diferidas a fin de frame. gui_data.powerled es estado CIA usado por filtro Paula: conservarlo, no tratar todo gui_data como UI prescindible.",
+      "native": "Registro bounded + estado LED causal; entregar eventos al caller sin reentrada.",
+      "waterbox": "Cola guest y lectura batch del wrapper; nada de callbacks C# por instruccion.",
+      "test": "T13 LIFE01 fallos de ROM/alloc devuelven error; T11 AV02 filtro sigue CIA; logger conectado/desconectado no cambia hashes.",
+      "implementation": {
+        "status": "portable-primitives-tested-engine-link-pending",
+        "files": [
+          "ports/portable/diagnostics.cpp",
+          "ports/portable/gui.cpp"
+        ],
+        "implemented": [
+          "write_log",
+          "write_logx",
+          "write_dlog",
+          "console_out",
+          "console_out_f",
+          "gui_message",
+          "gui_message_multibutton",
+          "notify_user",
+          "notify_user_parms",
+          "gui_led",
+          "gui_fps",
+          "logging_init",
+          "gui_data",
+          "gui_ledstate",
+          "gui_filename",
+          "gui_disk_image_change",
+          "gui_flicker_led",
+          "gui_gameport_axis_change",
+          "gui_gameport_button_change"
+        ],
+        "types_or_aliases": [
+          "gui_info",
+          "gui_info_drive",
+          "notify_user_msg",
+          "write_log_err"
+        ],
+        "excluded_pending_link": [
+          "activate_console",
+          "buf_out",
+          "close_console",
+          "console_flush",
+          "console_get",
+          "console_getch",
+          "console_isch",
+          "deactivate_console",
+          "flush_log",
+          "gui_active",
+          "gui_lock",
+          "gui_restart",
+          "gui_unlock",
+          "is_console_open",
+          "is_interactive_console",
+          "isguiactive",
+          "log_close",
+          "log_open",
+          "open_console",
+          "read_log",
+          "reopen_console",
+          "set_console_input_mode",
+          "setconsolemode",
+          "write_log_get_ts",
+          "write_log_standard",
+          "f_out"
+        ],
+        "exclusion_reason": "Sin ocurrencias en las unidades seleccionadas de 6030; console interactiva, I/O de logs y GUI Windows quedan sin implementar. No se aportan stubs. T06 debe comprobar tambien headers, macros, depfiles y simbolos del enlace real antes de aceptar la exclusion. write_log_standard solo aplica a UAE_CONSOLE no seleccionado.",
+        "observational_contract": "MAX_JPORTS=4; axes 0..3, buttons 0..10 del pin. Escala con int64 para evitar overflow de state*127. max<0 decae una unidad por llamada. Eventos filename/media se copian sin modificar gui_data.drives ni abrir rutas. Actividad replica gui_flicker_led2 sin RETROPLATFORM. Reset de presentacion conserva CIA, CPU, discos, sentinelas negativos y cola.",
+        "tests": [
+          "tests.host.test_diagnostics",
+          "tests/host/gui_probe.cpp"
+        ]
+      }
+    },
+    "framebuffer": {
+      "symbols": [
+        "graphics_setup",
+        "graphics_init",
+        "graphics_leave",
+        "graphics_reset",
+        "lockscr",
+        "unlockscr",
+        "flush_screen",
+        "render_screen",
+        "show_screen",
+        "show_screen_maybe",
+        "isnativevidbuf",
+        "target_graphics_buffer_update",
+        "updatedisplayarea",
+        "flush_block",
+        "flush_clear_screen",
+        "flush_line"
+      ],
+      "semantics": "drawing.cpp/custom.cpp necesitan buffer software con pitch/dimensiones/ciclo lock correctos. No copiar locks Win32/D3D. T07 decide frontera segura de frame; unlockscr por si solo no implementa retorno en 6030.",
+      "native": "Asignar framebuffer estable y entregar A/V al retorno del frame.",
+      "waterbox": "Buffer guest ordinario, ownership y punteros revalidados tras restore; no alloc_invisible por tamaño.",
+      "test": "T08 AV01 dimensiones/pitch/bounds/pixeles PAL y NTSC; WB03 restore nuevo sandbox y mismo frame siguiente."
+    },
+    "paula_output": {
+      "headers": [
+        "sounddep/sound.h"
+      ],
+      "symbols": [
+        "init_sound",
+        "setup_sound",
+        "close_sound",
+        "finish_sound_buffer",
+        "restart_sound_buffer",
+        "pause_sound_buffer",
+        "reset_sound",
+        "pause_sound",
+        "resume_sound",
+        "sound_mute",
+        "sound_volume",
+        "master_sound_volume",
+        "set_volume",
+        "sound_paused",
+        "sound_setadjust"
+      ],
+      "semantics": "audio.cpp sintetiza muestras; backend posee paula_sndbuffer/paula_sndbufpt/paula_sndbufsize y consumo parcial. Config de sonido causal explicita; controles de volumen/hotkeys de salida se separan de Paula.",
+      "native": "Buffer PCM bounded sin feedback del dispositivo ni worker; error real si no cabe.",
+      "waterbox": "Acumular PCM sincrono por frame en guest y entregar batch.",
+      "test": "T11 AV02/DET05 conteo exacto/PCM/partial buffer, reset y restore; variar frecuencia de drenaje host no altera sintesis."
+    },
+    "frontend_only": {
+      "symbols": [
+        "gui_init",
+        "gui_update",
+        "gui_exit",
+        "gui_display",
+        "gui_ask_disk",
+        "handle_events",
+        "handle_msgpump",
+        "desktop_coords",
+        "isfullscreen",
+        "toggle_fullscreen",
+        "toggle_mousegrab",
+        "toggle_rtg",
+        "screenshot",
+        "setup_brkhandler",
+        "debuggable",
+        "target_inputdevice_acquire",
+        "target_inputdevice_unacquire",
+        "target_checkcapslock",
+        "target_can_autoswitchdevice",
+        "target_osd_keyboard",
+        "target_osk_control",
+        "target_paste_to_keyboard",
+        "target_get_display",
+        "target_get_display_name",
+        "target_ethernet_enumerate",
+        "close_rtg",
+        "doflashscreen",
+        "enumerate_sound_devices",
+        "my_kbd_handler"
+      ],
+      "semantics": "Eliminar rutas de UI, poll idev[].read, clipboard/OSK, focus y enumeracion fisica del perfil. Input normalizado mediante setters internos antes del frame; keybuf ring sigue causal.",
+      "native": "Frontend recoge teclado/joystick/raton, bridge valida y aplica transiciones. Opciones excluidas devuelven unsupported.",
+      "waterbox": "FrameAdvance aplica entrada explicita; cero lectura del host dentro del scheduler.",
+      "test": "T10 IN01 replay y press/release/reset sin teclas atascadas; sin acceso a clipboard/event pump/autoswitch."
+    },
+    "configuration": {
+      "symbols": [
+        "target_default_options",
+        "target_fixup_options",
+        "target_parse_option",
+        "target_save_options",
+        "target_cfgfile_load",
+        "target_expand_environment",
+        "target_multipath_modified",
+        "target_isrelativemode",
+        "target_setdefaultstatefilename",
+        "target_addtorecent",
+        "fetch_configurationpath",
+        "fetch_nvrampath",
+        "fetch_ripperpath",
+        "fetch_rompath",
+        "fetch_saveimagepath",
+        "fetch_statefilepath",
+        "fetch_videopath",
+        "fetch_datapath",
+        "fetch_inputfilepath",
+        "fetch_luapath",
+        "fetch_path",
+        "fetch_screenshotpath",
+        "target_get_volume_name",
+        "target_getdate"
+      ],
+      "semantics": "main/cfgfile mezclan prefs con config persistida, entorno y rutas de usuario. Conservar preset exacto y fijar opciones sync via bridge; excluir cargar config implicita, expansion de entorno, busqueda de directorios/historial y persistencia.",
+      "native": "Config validada explicita; assets identificados, sin cwd/env como inputs ocultos.",
+      "waterbox": "Mismo esquema, referencias a assets VFS; NVRAM causal en guest cuando aplique.",
+      "test": "T08 config desconocida/no soportada falla; mismo config hash con distinto cwd/env; T12 traversal y host paths rechazados.",
+      "preset_implementation": {
+        "task": "T06b2bs",
+        "files": [
+          "patches/winuae/0041-preset-clear-all-ram-boards.patch"
+        ],
+        "contract": "Base preset clears each complete Fast/Z3 ramboard, including slots above zero, instead of retaining prior configuration. No change to supported RAM/profile or public validation.",
+        "test": "tests.host.test_cfgfile_preset: real base/A500/chipset bodies with observed ROM and target/config callbacks; pristine dirty-board reproducer and clean-reference comparison, O0/O2 ASan/UBSan.",
+        "remaining": "Whole cfgfile compile/parser/exporter and public configuration validation remain pending. Probe does not load ROM or boot a machine."
+      },
+      "library_implementation": {
+        "task": "T06b2bu",
+        "files": [
+          "patches/winuae/0042-cfgfile-library-profile.patch"
+        ],
+        "contract": "P6 excludes desktop text parser/exporter/CLI and host network migration. Keeps real preference builders, copy/discard, compatibility, config change tracking and diagnostic list. default_prefs omits only desktop default-export cache. error_log uses C99 required length and va_copy for long diagnostics.",
+        "test": "tests.host.test_cfgfile_source whole objects/imports/diagnostics; tests.host.test_cfgfile_defaults full default_prefs bodies with observed callbacks versus pristine; tests.host.test_cfgfile_preset A500 reference comparison; O0/O2 ASan/UBSan and CMake Debug/Release.",
+        "remaining": "Resolve surviving parser/exporter/path callers by feature in T06b2bv before linking; do not add successful stubs. Public p6 configuration, full default initialization/ROM loading, boot/frame and state remain separate gates."
+      },
+      "desktop_callers": {
+        "task": "T06b2bw",
+        "files": [
+          "patches/winuae/0043-remove-desktop-config-callers.patch",
+          "manifests/source-manifest.json"
+        ],
+        "contract": "Guard devices_free parameter-list cleanup and main.fixup_prefs export-cache creation because their private desktop state/producers are excluded. Remove calc/ini only from selected units after preprocessed API-use audit; keep pristine and audit_sources. No substitute successful parser/cleanup providers.",
+        "test": "tests.host.test_devices full lifecycle/imports; tests.host.test_main_source; tests.codegen.test_native_cmake graph and all selected preprocessed API references.",
+        "remaining": "Media path resolution, input commands/exporters and savestate callers remain pending before full link; configuration and machine state gates remain open."
+      }
+    },
+    "vfs": {
+      "headers": [
+        "dirent.h",
+        "fcntl.h",
+        "ndir.h",
+        "sys/dir.h",
+        "sys/ndir.h",
+        "sys/stat.h",
+        "sys/utime.h",
+        "utime.h"
+      ],
+      "symbols": [
+        "uae_tfopen",
+        "_tfopen",
+        "fopen",
+        "fclose",
+        "fread",
+        "fwrite",
+        "fprintf",
+        "fgetws",
+        "fputws",
+        "fgets",
+        "fgetc",
+        "_fseeki64",
+        "_ftelli64",
+        "my_chmod",
+        "my_closedir",
+        "my_existsdir",
+        "my_existsfile",
+        "my_isfilehidden",
+        "my_opendir",
+        "my_opendir_s",
+        "my_opentext",
+        "my_readdir",
+        "my_rename",
+        "my_resolvesoftlink",
+        "my_setfilehidden",
+        "my_stat",
+        "my_unlink",
+        "get_plugin_path",
+        "target_load_keyfile",
+        "closedir",
+        "dos_errno",
+        "fseek",
+        "ftell",
+        "mkdir",
+        "my_canonicalize_path",
+        "my_close",
+        "my_createshortcut",
+        "my_createsoftlink",
+        "my_fsize",
+        "my_getvolumeinfo",
+        "my_issamevolume",
+        "my_lseek",
+        "my_mkdir",
+        "my_open",
+        "my_openfile_s",
+        "my_read",
+        "my_readonlyfile",
+        "my_resolveshortcut",
+        "my_resolvessymboliclink",
+        "my_rmdir",
+        "my_setcurrentdir",
+        "my_truncate",
+        "my_utime",
+        "my_write",
+        "posixemu_access",
+        "posixemu_chmod",
+        "posixemu_close",
+        "posixemu_open",
+        "posixemu_opendir",
+        "posixemu_read",
+        "posixemu_rename",
+        "posixemu_rmdir",
+        "posixemu_seek",
+        "posixemu_stat",
+        "posixemu_tmpnam",
+        "posixemu_truncate",
+        "posixemu_unlink",
+        "posixemu_utime",
+        "posixemu_write",
+        "readdir",
+        "stdioemu_fclose",
+        "stdioemu_fopen",
+        "stdioemu_fread",
+        "stdioemu_fseek",
+        "stdioemu_ftell",
+        "stdioemu_fwrite"
+      ],
+      "semantics": "zfile directo y disco/ROM requieren read/seek/size/close, EOF y errores exactos. DISK_validate_filename P6 abre directamente rb desde un ID explícito ADF; la ruta legacy intenta r+b antes de rb. Denegar escritura sin mutación. Temporales ROM transformada admiten escritura RAM bounded. Quitar ABR XML/directory scan/history/host-state persist; no hacer passthrough de FILE host. Las declaraciones my_*/posixemu_*/stdioemu_* no usadas no obligan a implementar POSIX/Win32 completo; retirar su rama.",
+      "native": "Assets autorizados cargados antes de emular, VFS cerrado. Clave ROM solo como asset explicito; ausente/invalida falla.",
+      "waterbox": "VFS/handles/cursor en guest; snapshots incluyen estado; filesystem y librerias host inaccesibles.",
+      "test": "T12 MED01 read/seek/EOF/truncado/CRC, r+b denegado, host paths/XML no consultados; WB03 cursor restaurado.",
+      "implementation": {
+        "status": "portable-primitives-tested-engine-link-pending",
+        "files": [
+          "ports/portable/blob_io.c",
+          "ports/portable/zfile_port.inc"
+        ],
+        "implemented": [
+          "zfile_crc32",
+          "zfile_dup",
+          "zfile_exists",
+          "zfile_exit",
+          "zfile_fclose",
+          "zfile_ferror",
+          "zfile_fgets",
+          "zfile_fgetsa",
+          "zfile_fopen",
+          "zfile_fopen_data",
+          "zfile_fopen_empty",
+          "zfile_fopen_load_zfile",
+          "zfile_fopen_parent",
+          "zfile_fputs",
+          "zfile_fread",
+          "zfile_fread32",
+          "zfile_fseek",
+          "zfile_ftell",
+          "zfile_ftell32",
+          "zfile_fwrite",
+          "zfile_get_data_pointer",
+          "zfile_getc",
+          "zfile_getdata",
+          "zfile_getfilename",
+          "zfile_getname",
+          "zfile_getoriginalname",
+          "zfile_gettype",
+          "zfile_iscompressed",
+          "zfile_needwrite",
+          "zfile_putc",
+          "zfile_size",
+          "zfile_size32",
+          "zfile_truncate"
+        ],
+        "selected_callers": {
+          "zfile_crc32": [
+            "disk.cpp"
+          ],
+          "zfile_exists": [
+            "memory.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_exit": [
+            "main.cpp"
+          ],
+          "zfile_fclose": [
+            "cia.cpp",
+            "memory.cpp",
+            "audio.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "expansion.cpp",
+            "main.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_fgets": [
+            "cfgfile.cpp"
+          ],
+          "zfile_fgetsa": [
+            "cfgfile.cpp"
+          ],
+          "zfile_fopen": [
+            "cia.cpp",
+            "memory.cpp",
+            "audio.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "main.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_fopen_data": [
+            "memory.cpp",
+            "rommgr.cpp"
+          ],
+          "zfile_fopen_empty": [
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_fopen_load_zfile": [
+            "disk.cpp"
+          ],
+          "zfile_fputs": [
+            "cfgfile.cpp"
+          ],
+          "zfile_fread": [
+            "cia.cpp",
+            "memory.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "expansion.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_fread32": [
+            "memory.cpp"
+          ],
+          "zfile_fseek": [
+            "memory.cpp",
+            "audio.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "expansion.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_ftell": [
+            "disk.cpp",
+            "cfgfile.cpp"
+          ],
+          "zfile_ftell32": [
+            "memory.cpp",
+            "audio.cpp",
+            "disk.cpp",
+            "rommgr.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_fwrite": [
+            "cia.cpp",
+            "audio.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_get_data_pointer": [
+            "cfgfile.cpp"
+          ],
+          "zfile_getdata": [
+            "rommgr.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_getfilename": [
+            "disk.cpp"
+          ],
+          "zfile_getname": [
+            "disk.cpp",
+            "rommgr.cpp",
+            "main.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_getoriginalname": [
+            "disk.cpp"
+          ],
+          "zfile_gettype": [
+            "main.cpp"
+          ],
+          "zfile_gunzip": [
+            "memory.cpp"
+          ],
+          "zfile_iscompressed": [
+            "disk.cpp",
+            "rommgr.cpp"
+          ],
+          "zfile_size": [
+            "disk.cpp"
+          ],
+          "zfile_size32": [
+            "cia.cpp",
+            "memory.cpp",
+            "rommgr.cpp",
+            "savestate.cpp"
+          ],
+          "zfile_truncate": [
+            "cfgfile.cpp"
+          ],
+          "zfile_zcompress": [
+            "savestate.cpp"
+          ],
+          "zfile_zopen": [
+            "main.cpp"
+          ],
+          "zfile_zuncompress": [
+            "savestate.cpp"
+          ]
+        },
+        "excluded_pending_link": {
+          "zfile_gunzip": "memory.cpp AROS embedded fallback excluded by ADR; remove/guard branch in T06.",
+          "zfile_zopen": "main.cpp host disk-swapper scan/history; exclude branch in T06.",
+          "zfile_zcompress": "savestate.cpp legacy persistence; isolate from retained state globals/helpers in T06.",
+          "zfile_zuncompress": "savestate.cpp legacy persistence; isolate in T06."
+        },
+        "coverage": "Lexical calls in selected upstream/generated units, excluding legacy zfile.cpp body. Includes inactive branches. Does not prove preprocessing, headers/macros, caller error propagation or full engine link. All other zfile declarations remain undefined until required and audited.",
+        "tests": [
+          "tests.host.test_zfile",
+          "tests.host.test_blob_io",
+          "tests.host.test_zfile.ZfileTests.test_joint_portable_providers_and_full_hash_unit"
+        ],
+        "limits": "Registered raw assets only; geometry/content-ID validation T12. RAM/read-copy sizes <= INT_MAX; errors sticky. No host FILE. Tests now compile full crc32.cpp, including SHA/text, and jointly link all portable providers; native serialization and real Waterbox restore remain pending."
+      },
+      "disk_asset_implementation": {
+        "task": "T06b2ca",
+        "symbol": "DISK_validate_filename",
+        "patch": "patches/winuae/0046-disk-explicit-readonly-assets.patch",
+        "contract": "Explicit blob ID only, kind ADF, rb. Outputs reset on failure; CRC stream errors return0 and errno. Caller owns distinct MAX_DPATH output buffer. Transfer handle only when zf and leave_open; otherwise close. Always write-protected, even if legacy prefs request writes. Content with the Amiga executable header (missing bytes read as zero) is rejected with ENOTSUP: drive_insert would convert it using the host clock.",
+        "tests": "tests.host.test_disk_asset: actual extracted function with real zfile/blob/crc, O0/O2 ASan/UBSan; bytes, cursor, errors, capacity and allocation failure.",
+        "limits": "Does not validate ADF geometry/content or complete drive insertion/DMA. Desktop creation/overlay/catalogue services of disk.cpp are excluded by T06b2cc; inputdevice still needs closure before full link proof. Public status and MED01/WB03 remain separate gates."
+      },
+      "disk_readonly_media_services": {
+        "task": "T06b2cc",
+        "patch": "patches/winuae/0047-disk-readonly-media-host-services.patch",
+        "excluded": {
+          "adf_creation": "disk_date (gettimeofday/_timezone), createbootblock/rootblock/dir/file/bitmap helpers, createimagefromexe, floppy_get_bootblock/rootblock, disk_creatediskfile, convert_adf_to_ext2 and its NUMSG_NEEDEXT2 notice; the exe->ADF branch of drive_insert.",
+          "overlay_and_write_protect": "save-image path derivation, getexistingwritefile, iswritefileempty, openwritefile, diskfile_iswriteprotect, disk_getwriteprotect, diskfile_readonly (chmod), disk_setwriteprotect (unlink).",
+          "catalogues": "abrcheck plugin XML (tinyxml2, _tfopen, get_plugin_path); floppybridge_getsetprofile only under FLOPPYBRIDGE.",
+          "host_names": "disk_prevnext_name/disk_prevnext probe host file names; inputdevice callers remain in T06b2cb."
+        },
+        "invariants": "writediskfile is always NULL and wrprot always true (DISK_validate_filename); drive_write_data exits on its existing write-protect guard. Track read, DMA and register timing are unchanged.",
+        "pending_link": [
+          "target_addtorecent",
+          "fullpath",
+          "console_out",
+          "console_out_f",
+          "gui_ask_disk",
+          "au"
+        ],
+        "tests": [
+          "tests.host.test_disk_source: O0/O2 object, kept/excluded symbols, exact forbidden import names, depfile",
+          "tests.host.test_disk_asset: executable-content rejection with mutation evidence"
+        ],
+        "limits": "SAVESTATE stays undefined until T15, so save_disk/restore_disk are not in the object. header_error branch of the executable probe is untested. No geometry, DMA with real media, link or Waterbox claim."
+      }
+    },
+    "allocation": {
+      "symbols": [
+        "xmalloc",
+        "xcalloc",
+        "xrealloc",
+        "xfree",
+        "mapped_malloc",
+        "mapped_free",
+        "init_shm",
+        "uae_mman_info",
+        "uae_shmget",
+        "uae_shmat",
+        "uae_shmdt",
+        "uae_shmctl",
+        "mallocemu_free",
+        "mallocemu_malloc"
+      ],
+      "semantics": "memory.cpp bancos Chip/Slow/ROM, overlay/alias24bit y temporales; deshabilitar NATMEM/JIT. Fallo de asignacion aborta carga, no retorna objeto falso. Eliminar ruta mman host directa si no requerida.",
+      "native": "Alloc portable con tamaño/alineacion y limpieza; conservar mapa bancado y semantica upstream.",
+      "waterbox": "Heaps guest con permisos compatibles16K y memoria causal dentro del snapshot.",
+      "test": "T05 HOST01 bounds/alias/reset y fallo de alloc; WB03/WB14 mirrors y protecciones/grupos16K."
+    },
+    "text_helpers": {
+      "symbols": [
+        "au",
+        "au_copy",
+        "ua",
+        "uaestrlen",
+        "uaetcslen",
+        "utf8u",
+        "uutf8",
+        "to_lower",
+        "my_strdup",
+        "my_strdup_trim",
+        "my_trim",
+        "my_getfilepart",
+        "my_issamepath",
+        "fixtrailing",
+        "fullpath",
+        "getfilepart",
+        "getpathpart",
+        "au_fs",
+        "au_fs_copy",
+        "aucp",
+        "my_strdup_ansi",
+        "samepath",
+        "stripslashes",
+        "to_upper",
+        "ua_copy",
+        "ua_fs",
+        "ua_fs_copy",
+        "uacp",
+        "unicode_init"
+      ],
+      "semantics": "Conversion y normalizacion de strings/rutas virtuales; ownership malloc/free exacto, longitud en bytes/caracteres sin truncado silencioso ni locale host. my_trim/strdup_trim ya son helpers de main.",
+      "native": "Helpers locales UTF-8, sin resolver filesystem ni enlaces simbolicos.",
+      "waterbox": "Misma representacion y errores, memoria guest.",
+      "test": "T05 HOST01 UTF-8, vacio, limite y malformado; T12 ruta virtual no escapa del paquete."
+    },
+    "engine_internal": {
+      "symbols": [
+        "fetch_DISK_select",
+        "fetch_start",
+        "do_start_program",
+        "start_program",
+        "leave_program",
+        "real_main",
+        "usage",
+        "uae_quit",
+        "uae_reset",
+        "uae_restart",
+        "uaerand",
+        "uaerandgetseed",
+        "uaerandomizeseed",
+        "uaesetrandseed",
+        "fpu_reset",
+        "alloc_colors64k",
+        "alloc_colors_rgb",
+        "alloc_colors_picasso",
+        "bits_in_mask",
+        "mask_shift",
+        "doMask",
+        "doMask256",
+        "fpux_restore",
+        "fpux_save"
+      ],
+      "semantics": "Identificadores observados en headers/prefijos que son internos, no servicios host. main aporta prefs/PRNG/lifecycle; gfxutil colores. Rutas FPU/RTG excluidas; bridge reemplaza entrypoint CLI sin duplicar scheduler.",
+      "native": "Mantener implementaciones upstream requeridas, condicionar features fuera de perfil.",
+      "waterbox": "Misma semantica en guest, una instancia por sandbox.",
+      "test": "T13 LIFE01 carga/reset/unload; T07 STEP01 solo p6_run_frame; T08 AV01 colores/T11 AV02 filtro."
+    },
+    "lifecycle": {
+      "symbols": [
+        "machdep_init",
+        "target_run",
+        "target_reset",
+        "target_quit",
+        "target_restart"
+      ],
+      "semantics": "Entradas main/custom contienen lifecycle host. Mantener orden devices_reset/memory/CIA/DISK; aislar proceso/window/restart. El bridge devuelve estado/error y no ejecuta exit ni nuevo proceso.",
+      "native": "Implementacion neutral de carga/reset/unload con ownership verificado.",
+      "waterbox": "Igual, estado de sandbox reiniciable y sin punteros fuera del guest.",
+      "test": "T13 LIFE01 repetir carga/reset/fallo/unload sin fuga ni instancia residual; BUSY en segunda instancia nativa.",
+      "shared_state_implementation": {
+        "task": "T06b2by",
+        "files": [
+          "patches/winuae/0044-savestate-library-profile.patch",
+          "patches/winuae/0045-savestate-diagnostic-types.patch"
+        ],
+        "contract": "Keep shared state globals/writers/readers/free. P6 excludes desktop quick-slot and CD chunk export; bounded version formatting preserves header bytes. Diagnostic formats match size_t, uae_u32 and ptrdiff_t.",
+        "test": "tests.host.test_savestate_source whole objects O0/O2 -Werror=format and real header prefix/writers versus pristine with observed chunk boundary, ASan/UBSan; CMake Debug/Release.",
+        "remaining": "Legacy quick callers, restore CD/other devices, replay, configuration, path and screenshot imports require closure. Header descriptions remain legacy-bounded, public validation and native serializer/restore await T15; Waterbox snapshot is a separate gate."
+      }
+    }
+  }
+}

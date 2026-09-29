@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+  "flags": {
+    "c": [
+      "-std=c11",
+      "-O2"
+    ],
+    "c++": [
+      "-std=c++17",
+      "-O2"
+    ]
+  },
+  "environment": {
+    "LC_ALL": "C",
+    "TZ": "UTC"
+  },
+  "absent_inputs": [
+    "frequent.68k"
+  ],
+  "generators": [
+    {
+      "name": "gengenblitter",
+      "language": "c",
+      "sources": [
+        "upstream/gengenblitter.cpp"
+      ],
+      "outputs": [
+        "blitops.cpp"
+      ],
+      "runs": [
+        {
+          "args": [],
+          "stdout": "generated/blitops.cpp",
+          "cwd": "generated"
+        }
+      ]
+    },
+    {
+      "name": "build68k",
+      "language": "c++",
+      "sources": [
+        "upstream/build68k.cpp"
+      ],
+      "outputs": [
+        "cpudefs.cpp"
+      ],
+      "runs": [
+        {
+          "args": [],
+          "stdin": "upstream/table68k",
+          "stdout": "generated/cpudefs.cpp",
+          "cwd": "generated"
+        }
+      ]
+    },
+    {
+      "name": "gencpu",
+      "language": "c++",
+      "sources": [
+        "upstream/gencpu.cpp",
+        "upstream/readcpu.cpp",
+        "generated/cpudefs.cpp"
+      ],
+      "outputs": [
+        "cputbl.h",
+        "cpustbl.cpp",
+        "cpuemu_0.cpp",
+        "cpuemu_11.cpp",
+        "cpuemu_13.cpp",
+        "cpuemu_20.cpp",
+        "cpuemu_21.cpp",
+        "cpuemu_22.cpp",
+        "cpuemu_23.cpp",
+        "cpuemu_24.cpp",
+        "cpuemu_31.cpp",
+        "cpuemu_32.cpp",
+        "cpuemu_33.cpp",
+        "cpuemu_34.cpp",
+        "cpuemu_35.cpp",
+        "cpuemu_40.cpp",
+        "cpuemu_50.cpp"
+      ],
+      "runs": [
+        {
+          "args": [],
+          "cwd": "generated"
+        }
+      ]
+    },
+    {
+      "name": "genblitter",
+      "language": "c++",
+      "sources": [
+        "upstream/genblitter.cpp",
+        "generated/blitops.cpp"
+      ],
+      "outputs": [
+        "blit.h",
+        "blitfunc.cpp",
+        "blitfunc.h",
+        "blittable.cpp"
+      ],
+      "runs": [
+        {
+          "args": [
+            "i"
+          ],
+          "stdout": "generated/blit.h",
+          "cwd": "generated"
+        },
+        {
+          "args": [
+            "f"
+          ],
+          "stdout": "generated/blitfunc.cpp",
+          "cwd": "generated"
+        },
+        {
+          "args": [
+            "h"
+          ],
+          "stdout": "generated/blitfunc.h",
+          "cwd": "generated"
+        },
+        {
+          "args": [
+            "t"
+          ],
+          "stdout": "generated/blittable.cpp",
+          "cwd": "generated"
+        }
+      ]
+    },
+    {
+      "name": "genlinetoscr",
+      "language": "c++",
+      "sources": [
+        "upstream/genlinetoscr.cpp"
+      ],
+      "outputs": [
+        "linetoscr_common.cpp",
+        "linetoscr_ocs_ecs.cpp",
+        "linetoscr_ocs_ecs_genlock.cpp",
+        "linetoscr_ocs_ecs_ntsc.cpp",
+        "linetoscr_ocs_ecs_ntsc_genlock.cpp",
+        "linetoscr_aga_fm0.cpp",
+        "linetoscr_aga_fm1.cpp",
+        "linetoscr_aga_fm2.cpp",
+        "linetoscr_aga_fm0_genlock.cpp",
+        "linetoscr_aga_fm1_genlock.cpp",
+        "linetoscr_aga_fm2_genlock.cpp",
+        "linetoscr_ecs_shres.cpp",
+        "linetoscr_ecs_fast.cpp",
+        "linetoscr_aga_fast.cpp",
+        "linetoscr_ecs_genlock_fast.cpp",
+        "linetoscr_aga_genlock_fast.cpp"
+      ],
+      "runs": [
+        {
+          "args": [],
+          "cwd": "generated/work/deep"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "gengenblitter is C despite its .cpp suffix.",
+    "genlinetoscr cwd is two levels below generated; FMODE64_HACK=false upstream.",
+    "Fresh blitops/blit.h differ from pristine at minterms 0x3e,0x5e,0x76. tests/codegen/blitter_truth.c validates all 2048 cases for both. Historical origin of the expression difference is unproven.",
+    "Reproducible sources on this HOST only; not cross-host cache or binary reproducibility."
+  ]
+}

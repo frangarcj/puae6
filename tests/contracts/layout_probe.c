@@ -1,0 +1,62 @@
+/* HARNESS: layout of the native 64-bit ABI only; no emulated instructions. */
+#include <stddef.h>
+#include <stdint.h>
+#include "p6.h"
+#ifdef __cplusplus
+#define CHECK static_assert
+#define ALIGN alignof
+#else
+#define CHECK _Static_assert
+#define ALIGN _Alignof
+#endif
+#define LAYOUT(type, bytes, alignment) \
+    CHECK(sizeof(type) == (bytes), #type " size"); \
+    CHECK(ALIGN(type) == (alignment), #type " alignment")
+#define OFFSET(type, field, offset) CHECK(offsetof(type, field) == (offset), #type "." #field)
+CHECK(sizeof(void *) == 8, "This probe validates the native 64-bit ABI only");
+LAYOUT(p6_result, 4, 4);
+LAYOUT(p6_error, 264, 4);
+LAYOUT(p6_caps, 32, 8);
+LAYOUT(p6_config, 72, 8);
+LAYOUT(p6_buffer, 16, 8);
+LAYOUT(p6_media, 56, 8);
+LAYOUT(p6_port_input, 16, 4);
+LAYOUT(p6_input, 72, 4);
+LAYOUT(p6_rect, 16, 4);
+LAYOUT(p6_frame, 128, 8);
+LAYOUT(p6_memory_region, 24, 8);
+LAYOUT(p6_media_event, 48, 8);
+OFFSET(p6_error, message, 8);
+OFFSET(p6_caps, flags, 8);
+OFFSET(p6_config, random_seed, 24);
+OFFSET(p6_config, rtc_epoch_seconds, 32);
+OFFSET(p6_config, reserved, 40);
+OFFSET(p6_buffer, bytes, 8);
+OFFSET(p6_media, content_id, 8);
+OFFSET(p6_media, image, 40);
+OFFSET(p6_port_input, dx, 8);
+OFFSET(p6_port_input, dy, 10);
+OFFSET(p6_port_input, reserved, 12);
+OFFSET(p6_input, keys, 8);
+OFFSET(p6_input, ports, 24);
+OFFSET(p6_input, reserved, 56);
+OFFSET(p6_frame, video, 8);
+OFFSET(p6_frame, video_bytes, 16);
+OFFSET(p6_frame, video_format, 24);
+OFFSET(p6_frame, active, 40);
+OFFSET(p6_frame, aspect_num, 56);
+OFFSET(p6_frame, audio, 64);
+OFFSET(p6_frame, audio_frames, 72);
+OFFSET(p6_frame, master_ticks, 80);
+OFFSET(p6_frame, unit_index, 88);
+OFFSET(p6_frame, cadence_num, 96);
+OFFSET(p6_frame, field_parity, 104);
+OFFSET(p6_frame, flags, 108);
+OFFSET(p6_frame, reserved, 112);
+OFFSET(p6_memory_region, data, 8);
+OFFSET(p6_media_event, media_index, 16);
+OFFSET(p6_media_event, sequence, 24);
+OFFSET(p6_media_event, reserved, 32);
+CHECK(P6_OK == 0 && P6_ERROR_INTERNAL == 11, "result code numbering");
+CHECK(sizeof(((p6_port_input *)0)->dx) == 2, "signed mouse delta storage");
+int main(void) { return 0; }

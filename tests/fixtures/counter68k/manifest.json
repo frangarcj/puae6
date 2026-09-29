@@ -1,0 +1,19 @@
+{
+  "logical_id": "counter68k-v1",
+  "kind": "raw_program",
+  "load_address": "0x1000",
+  "entry_address": "0x1000",
+  "firmware_required": false,
+  "program_source": "program.s",
+  "source_license": "MIT",
+  "source_sha256": "1bc2f91e40b0f547cd293f54433ab11fca4571f0878959112b243a90415c9aea",
+  "assembler": "assemble.py",
+  "assembler_sha256": "36c4d709cfe5f0378de383399ce87e1c09a1d94bfd11cdbf03664c2c78083bf0",
+  "python": "3.8+; standard library only; no package dependencies",
+  "output": {
+    "format": "raw big-endian 68000 instruction bytes",
+    "size_bytes": 6,
+    "sha256": "f3804fbf95198daeda8ad2d1ca3eb72a8bfeca342d22685f1b80fbc88d6a6a62"
+  },
+  "purpose": "CPU microprogram for a future harness; not a bootable ROM and not an emulation result"
+}
