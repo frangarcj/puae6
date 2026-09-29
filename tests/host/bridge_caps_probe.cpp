@@ -30,7 +30,7 @@ int main()
         assert(p6_query_caps(&caps, &error) == P6_OK && error.message[0] == 0);
         assert(caps.abi_version == P6_ABI_VERSION && caps.struct_size == sizeof caps);
         assert(caps.flags == 0);              // capability bits describe implemented behaviour only
-        assert(caps.max_media == 0 && caps.max_video_width == 0 && caps.max_video_height == 0 &&
+        assert(caps.max_media == 0 && caps.max_video_width == 756 && caps.max_video_height == 576 &&
                caps.max_audio_frames == 0);
         caps = fresh_caps();
         assert(p6_query_caps(&caps, nullptr) == P6_OK);

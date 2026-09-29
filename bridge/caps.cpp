@@ -4,6 +4,7 @@
 // corresponding behaviour exists and has passed its gate.
 #include "p6.h"
 #include "error_util.h"
+#include "video_geometry.h"
 
 extern "C" uint32_t p6_abi_version(void)
 {
@@ -19,9 +20,9 @@ extern "C" p6_result p6_query_caps(p6_caps *caps, p6_error *error)
     if (caps->abi_version != P6_ABI_VERSION || caps->struct_size != sizeof *caps)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "caps has the wrong ABI version or size");
     caps->flags = 0;                       // state, memory regions, media events and lag flag: not implemented
-    caps->max_media = 0;                   // no media can be loaded before p6_load exists
-    caps->max_video_width = 0;             // no frame is produced yet
-    caps->max_video_height = 0;
+    caps->max_media = 0;                   // media are not supported yet (T12)
+    caps->max_video_width = p6_bridge::kBufferWidth;      // the delivered picture buffer, both standards
+    caps->max_video_height = p6_bridge::kBufferHeightPal;
     caps->max_audio_frames = 0;
     return P6_OK;
 }

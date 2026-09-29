@@ -307,49 +307,49 @@
     },
     {
       "name": "gfx_framerate",
-      "source": "upstream",
+      "source": "pin",
       "value": 1,
       "why": "1 = every video unit is drawn; frame skipping would hide units"
     },
     {
       "name": "gfx_resolution",
-      "source": "upstream",
+      "source": "pin",
       "value": 1,
-      "why": "drawing resolution (0 lores, 1 hires, 2 superhires); decided with the video output in T08b"
+      "why": "hires drawing: 756 columns for the PAL/NTSC beam area (docs/adr/0006-video-output.md)"
     },
     {
       "name": "gfx_vresolution",
-      "source": "upstream",
+      "source": "pin",
       "value": 1,
-      "why": "vertical line doubling (0 none, 1 doubled); decided in T08b"
+      "why": "rows are line-doubled TV lines: 574 PAL / 484 NTSC rows"
     },
     {
       "name": "gfx_iscanlines",
-      "source": "upstream",
+      "source": "pin",
       "value": 1,
-      "why": "interlace scanline mode; decided in T08b"
+      "why": "interlaced fields are woven into one buffer; the other field's rows keep their history"
     },
     {
       "name": "gfx_pscanlines",
-      "source": "upstream",
+      "source": "pin",
       "value": 0,
-      "why": "progressive scanline mode; decided in T08b"
+      "why": "no scanline blanking in progressive modes"
     },
     {
       "name": "gfx_scandoubler",
-      "source": "upstream",
+      "source": "pin",
       "value": 0,
       "why": "no VGA scandoubler"
     },
     {
       "name": "leds_on_screen",
-      "source": "upstream",
+      "source": "pin",
       "value": 0,
       "why": "no status line drawn into the picture"
     },
     {
       "name": "refresh_indicator",
-      "source": "upstream",
+      "source": "pin",
       "value": 0,
       "why": "no overlay on the picture"
     },
@@ -460,6 +460,84 @@
       "source": "override",
       "value": "p6-firmware.rom",
       "why": "the firmware is the buffer of p6_load, registered under this blob id"
+    },
+    {
+      "name": "gfx_lores_mode",
+      "source": "pin",
+      "value": 0,
+      "why": "no filtered lores line conversion"
+    },
+    {
+      "name": "gfx_overscanmode",
+      "source": "pin",
+      "value": 3,
+      "why": "overscan mode 3: modes 0..3 give the same raster, 4..6 change its size"
+    },
+    {
+      "name": "gfx_xcenter",
+      "source": "pin",
+      "value": 0,
+      "why": "0: the window does not follow DIWSTRT/DIWSTOP, so the raster is guest independent"
+    },
+    {
+      "name": "gfx_ycenter",
+      "source": "pin",
+      "value": 0,
+      "why": "0: same for the vertical position"
+    },
+    {
+      "name": "gfx_extrawidth",
+      "source": "pin",
+      "value": 0,
+      "why": "no extra width around the raster"
+    },
+    {
+      "name": "gfx_extraheight",
+      "source": "pin",
+      "value": 0,
+      "why": "no extra height around the raster"
+    },
+    {
+      "name": "gfx_threebitcolors",
+      "source": "pin",
+      "value": 0,
+      "why": "no 3-bit colour scaling (float math)"
+    },
+    {
+      "name": "gfx_blackerthanblack",
+      "source": "pin",
+      "value": 0,
+      "why": "no blacker-than-black level"
+    },
+    {
+      "name": "display_calibration",
+      "source": "pin",
+      "value": 0,
+      "why": "no black level calibration pass"
+    },
+    {
+      "name": "gfx_monitorblankdelay",
+      "source": "pin",
+      "value": 0,
+      "why": "no monitor blank delay (float division)"
+    },
+    {
+      "name": "lightpen_crosshair",
+      "source": "override",
+      "value": 0,
+      "why": "no lightpen cursor drawn into the picture; upstream default is on and would force the auxiliary buffer"
+    },
+    {
+      "name": "cs_optimizations",
+      "source": "pin",
+      "value": 0,
+      "why": "no chipset speed shortcuts"
+    },
+    {
+      "name": "cs_hvcsync",
+      "source": "pin",
+      "value": 0,
+      "why": "no HV sync output emulation"
     }
   ]
 }

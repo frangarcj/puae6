@@ -112,7 +112,23 @@ typedef struct p6_rect {
 } p6_rect;
 
 /* Frame pointers are borrowed until the next mutating p6_* call. Audio count
- * is stereo frames (interleaved int16 samples), not individual samples. */
+ * is stereo frames (interleaved int16 samples), not individual samples.
+ *
+ * Video. video_width x video_height is the delivered buffer and is constant for a
+ * loaded image (756x576 PAL, 756x486 NTSC, see p6_caps); video_stride_bytes is the
+ * row pitch, never width * 4. Rows and columns outside `active` are zero. `active`
+ * is the raster the renderer drew for this unit and can be smaller than the buffer
+ * (PAL 756x574 normally, 756x576 for a guest that leaves the long-field bit set).
+ * aspect_num/aspect_den is the PIXEL aspect ratio (width : height of one pixel of
+ * the buffer), PAL 26:25 and NTSC 43:50; the picture aspect is
+ * active.width * num : active.height * den. A unit is one video field. field_parity
+ * is P6_FIELD_PROGRESSIVE unless the monitor detected interlace; then EVEN when the
+ * unit drew rows 0,2,4.. of the buffer (the Amiga long field) and ODD for rows
+ * 1,3,5.. The buffer always holds both fields (a weave). cadence_num/cadence_den is
+ * the nominal number of such units per second for the unit's own mode, as integers;
+ * the exact spacing of units is master_ticks. When a unit has no picture to show
+ * (the renderer discarded it while changing mode, or P6_RENDER_VIDEO was not
+ * requested) video is NULL, video_bytes is zero and P6_FRAME_NO_VIDEO is set. */
 typedef struct p6_frame {
     uint32_t abi_version;
     uint32_t struct_size;
@@ -140,6 +156,7 @@ typedef struct p6_frame {
 #define P6_FIELD_EVEN        UINT32_C(1)
 #define P6_FIELD_ODD         UINT32_C(2)
 #define P6_FRAME_LAG         (UINT32_C(1) << 0)
+#define P6_FRAME_NO_VIDEO    (UINT32_C(1) << 1)
 #define P6_RENDER_VIDEO      (UINT32_C(1) << 0)
 #define P6_RENDER_AUDIO      (UINT32_C(1) << 1)
 

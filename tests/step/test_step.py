@@ -49,19 +49,20 @@ def make_rom(directory, name, source, defines):
     return path
 
 
-def configure_trace_tree():
-    subprocess.run(["cmake", "-S", str(ROOT), "-B", str(BUILD), "-G", "Ninja",
+def configure_trace_tree(directory=None, sanitizers=False):
+    directory = directory or BUILD
+    subprocess.run(["cmake", "-S", str(ROOT), "-B", str(directory), "-G", "Ninja",
                     "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++",
-                    "-DCMAKE_BUILD_TYPE=Debug", "-DP6_SANITIZERS=OFF", "-DP6_UNIT_TRACE=ON"],
+                    "-DCMAKE_BUILD_TYPE=Debug", f"-DP6_SANITIZERS={'ON' if sanitizers else 'OFF'}", "-DP6_UNIT_TRACE=ON"],
                    check=True, capture_output=True, text=True, timeout=120)
-    subprocess.run(["cmake", "--build", str(BUILD), "--target", "p6_step_probe"],
+    subprocess.run(["cmake", "--build", str(directory), "--target", "p6_step_probe"],
                    check=True, capture_output=True, text=True, timeout=1800)
-    return BUILD / "p6_step_probe"
+    return directory / "p6_step_probe"
 
 
-def run_probe(exe, rom, units, mode, seed=1, timeout=120):
+def run_probe(exe, rom, units, mode, seed=1, timeout=120, extra=()):
     try:
-        result = subprocess.run([str(exe), str(rom), str(units), mode, str(seed)], capture_output=True,
+        result = subprocess.run([str(exe), str(rom), str(units), mode, str(seed), *extra], capture_output=True,
                                 text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return None, "timeout"
@@ -149,6 +150,124 @@ class StepTests(unittest.TestCase):
         for name in [n for n in self.roms if n.startswith("copper")]:
             entered += sum(1 for r in parse(self.runs(name, 5, "steps")) if 0xF80100 <= int(r[1], 16) < 0xF80200)
         self.assertGreater(entered, 0, "no boundary coincided with the interrupt handler")
+
+
+FRAME = re.compile(r"^frame (\d+) ticks=(\d+) video=(\d) bytes=(\d+) format=(\d+) size=(\d+)x(\d+) stride=(\d+) "
+                   r"active=(\d+),(\d+),(\d+),(\d+) aspect=(\d+)/(\d+) cadence=(\d+)/(\d+) parity=(\d+) flags=(\d+) "
+                   r"outside=(zero|dirty) pixels=([0-9a-f]+)$")
+
+
+def frames_of(output):
+    return [tuple(int(v) if v.isdigit() else v for v in m.groups()) for m in map(FRAME.match, output.splitlines()) if m]
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class VideoMetadataTests(unittest.TestCase):
+    """What p6_run_frame reports about the picture, per video standard (AV01 metadata half)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.exe = configure_trace_tree()
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-video-")
+        cls.rom = make_rom(cls.tmp.name, "vsync", "vsync.s", {})
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def frames(self, units, standard, mode="frames"):
+        code, out = run_probe(self.exe, self.rom, units, mode, 1, timeout=180, extra=[standard])
+        self.assertEqual(code, 0, out[-400:])
+        return out, frames_of(out)
+
+    def test_geometry_aspect_and_cadence_per_standard(self):
+        expected = {"pal": (576, 574, (26, 25), (3546895, 70824)), "ntsc": (486, 484, (43, 50), (715909, 11921))}
+        for standard, (height, active_h, aspect, cadence) in expected.items():
+            _, rows = self.frames(4, standard)
+            self.assertEqual(len(rows), 4)
+            for row in rows:
+                with self.subTest(standard=standard, unit=row[0]):
+                    (_, _, video, nbytes, fmt, w, h, stride, ax, ay, aw, ah, an, ad, cn, cd, parity, flags, outside, _) = row
+                    self.assertEqual((video, fmt, w, h, stride), (1, 1, 756, height, 7296))
+                    self.assertEqual(nbytes, stride * h)
+                    self.assertEqual((ax, ay, aw, ah), (0, 0, 756, active_h))
+                    self.assertEqual((an, ad), aspect)
+                    self.assertEqual((cn, cd), cadence)
+                    self.assertEqual((parity, flags, outside), (0, 0, "zero"))
+            self.assertEqual([r[0] for r in rows], [1, 2, 3, 4])
+            ticks = [r[1] for r in rows]
+            self.assertTrue(all(b > a for a, b in zip(ticks, ticks[1:])))
+
+    def test_cadence_constants_are_the_clock_over_the_measured_unit_length(self):
+        from fractions import Fraction
+        pal, ntsc = 3546895, 3579545
+        table = {(3546895, 70824): Fraction(pal, 70824), (1418758, 28375): Fraction(pal, 1) / Fraction(141875, 2),
+                 (3546895, 71051): Fraction(pal, 71051), (715909, 11921): Fraction(ntsc, 59605),
+                 (1431818, 23933): Fraction(ntsc, 1) / Fraction(119665, 2), (2863636, 47775): Fraction(ntsc, 1) / Fraction(238875, 2) * 2}
+        for (num, den), exact in table.items():
+            with self.subTest(rate=f"{num}/{den}"):
+                self.assertEqual(Fraction(num, den), exact)
+
+    def test_render_off_delivers_no_picture_and_changes_nothing(self):
+        on, rows_on = self.frames(6, "pal")
+        off, rows_off = self.frames(6, "pal", "frames-norender")
+        self.assertEqual(on.splitlines()[-1], off.splitlines()[-1])   # same final state digest and ticks
+        for a, b in zip(rows_on, rows_off):
+            self.assertEqual((a[0], a[1]), (b[0], b[1]))               # same unit index and master ticks
+            self.assertEqual((b[2], b[3], b[19], b[17]), (0, 0, 0, 2))  # no pointer, no bytes, NO_VIDEO
+            self.assertEqual(a[5:17], b[5:17])                         # geometry is reported regardless
+
+    def guest(self, name, units, standard):
+        rom = make_rom(self.tmp.name, name, name + ".s", {})
+        code, out = run_probe(self.exe, rom, units, "frames", 1, timeout=300, extra=[standard])
+        self.assertEqual(code, 0, out[-400:])
+        return frames_of(out)
+
+    def test_a_guest_that_sticks_the_long_field_bit_grows_the_active_raster_inside_the_same_buffer(self):
+        for standard, (height, normal, long) in {"pal": (576, 574, 576), "ntsc": (486, 484, 486)}.items():
+            rows = self.guest("lof_stuck", 9, standard)
+            with self.subTest(standard=standard):
+                heights = [r[11] for r in rows]                       # active height
+                self.assertEqual(heights[0], normal)
+                self.assertEqual(heights[-1], long)
+                self.assertTrue(set(heights) <= {normal, long}, heights)
+                self.assertEqual({(r[5], r[6], r[7]) for r in rows}, {(756, height, 7296)})   # the buffer never changes
+                self.assertTrue(all(r[18] == "zero" for r in rows))
+                self.assertEqual(rows[-1][16], 0)                                             # still progressive
+                cadence = {"pal": (3546895, 71051), "ntsc": (1431818, 23933)}[standard]
+                self.assertEqual((rows[-1][14], rows[-1][15]), cadence)
+
+    def test_a_frame_longer_than_the_buffer_is_refused_without_stopping_or_overflowing(self):
+        rows = self.guest("long_frame", 16, "pal")
+        self.assertEqual(len(rows), 16)
+        refused = [r for r in rows if r[17] & 2]
+        self.assertTrue(refused, "the oversize mode was never refused")
+        self.assertTrue(all(r[2] == 0 and r[3] == 0 for r in refused))
+        self.assertTrue(all(r[18] == "zero" for r in rows))
+        ticks = [r[1] for r in rows]
+        self.assertTrue(all(b > a for a, b in zip(ticks, ticks[1:])))
+
+    def test_many_units_run_without_anyone_reading_the_audio(self):
+        _, rows = self.frames(40, "pal")
+        self.assertEqual(len(rows), 40)
+        self.assertEqual({r[3] for r in rows}, {7296 * 576})
+
+
+@unittest.skipUnless(TOOLS and os.environ.get("P6_TEST_SANITIZERS") == "1", "opt-in: full engine build with ASan/UBSan")
+class VideoGuestSanitizerTests(unittest.TestCase):
+    """The guests that push the renderer to its limits, under ASan and UBSan: no write outside the buffer."""
+
+    def test_adversarial_guests_are_clean(self):
+        exe = configure_trace_tree(ROOT / "build/step-trace-san", True)
+        with tempfile.TemporaryDirectory(prefix="p6-video-san-") as tmp:
+            for name in ("lof_stuck", "long_frame", "vsync"):
+                rom = make_rom(tmp, name, name + ".s", {})
+                for standard in ("pal", "ntsc"):
+                    with self.subTest(guest=name, standard=standard):
+                        code, out = run_probe(exe, rom, 14, "frames", 1, timeout=600, extra=[standard])
+                        self.assertEqual(code, 0, out[-600:])
+                        self.assertNotIn("runtime error", out)
+                        self.assertNotIn("AddressSanitizer", out)
 
 
 class BoundaryContractTests(unittest.TestCase):

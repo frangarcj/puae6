@@ -263,7 +263,7 @@ class MicroRomDecoderTests(unittest.TestCase):
     def test_every_rom_decodes_to_the_instructions_of_its_source(self):
         manifest = json.loads((MICROROM / "manifest.json").read_text(encoding="utf-8"))
         roms = [("boot.s", {})] + [(entry["program_source"], entry["defines"]) for entry in manifest["scenarios"].values()]
-        self.assertEqual(len(roms), 6)
+        self.assertEqual(len(roms), 8)
         for name, defines in roms:
             with self.subTest(source=name, defines=defines):
                 text = builder.substitute((MICROROM / name).read_text(encoding="utf-8"), defines)

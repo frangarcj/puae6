@@ -46,7 +46,10 @@ static p6_config make_config(uint32_t standard)
     X(input_mouse_speed) X(input_joymouse_speed) X(input_autofire_linecnt) X(input_autoswitch) \
     X(illegal_mem) X(turbo_emulation) X(turbo_boot) X(cachesize) X(cpu_thread) X(uaeboard) \
     X(socket_emu) X(win32_automount_drives) X(filesys_no_uaefsdb) X(parallel_demand) X(use_serial) X(serial_demand) \
-    X(nr_floppies) X(picasso96_nocustom)
+    X(nr_floppies) X(picasso96_nocustom) \
+    X(gfx_lores_mode) X(gfx_overscanmode) X(gfx_xcenter) X(gfx_ycenter) X(gfx_extrawidth) X(gfx_extraheight) \
+    X(gfx_threebitcolors) X(gfx_blackerthanblack) X(display_calibration) X(gfx_monitorblankdelay) \
+    X(lightpen_crosshair) X(cs_optimizations) X(cs_hvcsync)
 
 static void print_pinned(const char *standard, const uae_prefs &p)
 {

@@ -78,8 +78,29 @@ void build_preferences(const p6_config &c)
     currprefs.produce_sound = 3;
     currprefs.sound_auto = 0;
     currprefs.start_gui = false;
+    // Video: the canonical raster (docs/adr/0006-video-output.md) is decided by these preferences, not by
+    // what the guest programs. Hires, line doubled, overscan mode 3, no centering: 756 x 574 PAL / 484 NTSC.
     currprefs.gfx_autoresolution = 0;        // the presentation provider serves one fixed raster
     currprefs.gfx_autoresolution_vga = false;
+    currprefs.gfx_framerate = 1;             // every video unit is drawn
+    currprefs.gfx_resolution = RES_HIRES;
+    currprefs.gfx_vresolution = VRES_DOUBLE;
+    currprefs.gfx_iscanlines = 1;            // interlaced fields are woven into one buffer
+    currprefs.gfx_pscanlines = 0;
+    currprefs.gfx_scandoubler = false;
+    currprefs.gfx_lores_mode = 0;
+    currprefs.gfx_overscanmode = OVERSCANMODE_OVERSCAN;
+    currprefs.gfx_xcenter = currprefs.gfx_ycenter = 0;
+    currprefs.gfx_extrawidth = currprefs.gfx_extraheight = 0;
+    currprefs.gfx_threebitcolors = 0;
+    currprefs.gfx_blackerthanblack = false;
+    currprefs.display_calibration = false;
+    currprefs.gfx_monitorblankdelay = 0;
+    currprefs.lightpen_crosshair = false;    // no drawn cursor: upstream default is on
+    currprefs.leds_on_screen = 0;
+    currprefs.refresh_indicator = false;
+    currprefs.cs_optimizations = 0;
+    currprefs.cs_hvcsync = 0;
     currprefs.reset_delay = 0;        // config-invariants.json: the delayed-reset wait cannot poll
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
     _tcscpy(currprefs.romfile, kFirmwareId);
@@ -95,6 +116,11 @@ p6_result check_preset(p6_error *error)
     else if (p.chipmem.size != 0x80000 || p.bogomem.size != 0x80000 || p.fastmem[0].size || p.z3fastmem[0].size ||
              p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
+    else if (p.gfx_resolution != RES_HIRES || p.gfx_vresolution != VRES_DOUBLE || p.gfx_iscanlines != 1 ||
+             p.gfx_pscanlines || p.gfx_scandoubler || p.gfx_lores_mode || p.gfx_overscanmode != OVERSCANMODE_OVERSCAN ||
+             p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||
+             p.gfx_blackerthanblack || p.display_calibration || p.gfx_monitorblankdelay || p.lightpen_crosshair ||
+             p.leds_on_screen || p.cs_optimizations || p.cs_hvcsync) drifted = "video";
     if (drifted) {
         char text[64];
         snprintf(text, sizeof text, "the A500 preset drifted from the profile (%s)", drifted);

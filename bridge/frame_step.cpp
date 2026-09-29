@@ -9,6 +9,7 @@
 #include "p6.h"
 #include "error_util.h"
 #include "session.h"
+#include "video.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -58,6 +59,18 @@ p6_result fault(p6_error *error, p6_result code, const char *text)
     return p6_fail(error, code, text);
 }
 
+// Until T11 delivers audio, the PCM the chipset produced is dropped after every unit; left in the queue it
+// would fill up and stop the machine. Paula's filters and phases advance regardless (DET05).
+void discard_audio()
+{
+    int16_t scratch[2048];
+    size_t written;
+    do {
+        written = 0;
+        if (p6_pcm_read(scratch, sizeof scratch / (2 * sizeof scratch[0]), &written) != 0) break;
+    } while (written);
+}
+
 // Scheduler ticks are monotonic for the caller even though the engine counter restarts at a reset:
 // a smaller reading means a reset happened and the ticks since it are all new.
 void account_ticks()
@@ -98,21 +111,28 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
         return fault(error, P6_ERROR_NEED_FIRMWARE, "the firmware is no longer available");
 
     // 4. One video unit.
+    p6_bridge::begin_unit();
     if (m68k_go_unit(M68K_UNIT_RUN) != M68K_UNIT_DONE)
         return fault(error, P6_ERROR_BAD_STATE, "the CPU loop ended before the unit boundary");
     account_ticks();
+    // The picture is handed over whether or not the caller wants it: presentation bookkeeping must not
+    // depend on P6_RENDER_VIDEO, and the STEP01 observer may already have done it at the boundary.
+    p6_bridge::present_unit();
+    discard_audio();
     if (p6_rtc_status() != 0)
         return fault(error, P6_ERROR_INTERNAL, "the clock service failed during the unit");
     if (p6_sound_status() != P6_PCM_OK)
         return fault(error, P6_ERROR_UNSUPPORTED, "the audio transport failed during the unit");
 
-    // 5. Result. Delivery of video and audio belongs to T08 and T11; those fields stay empty.
+    // 5. Result. Audio delivery belongs to T11 and stays empty.
     p6_frame result;
     memset(&result, 0, sizeof result);
     result.abi_version = P6_ABI_VERSION;
     result.struct_size = sizeof result;
     result.master_ticks = session.master_ticks;
     result.unit_index = ++session.unit_index;
+    if (const p6_result described = p6_bridge::describe_video(result, render_flags & P6_RENDER_VIDEO, error))
+        return fault(error, described, "the video description failed");
     *frame = result;
     return P6_OK;
 }

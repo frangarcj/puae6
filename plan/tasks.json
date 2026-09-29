@@ -7141,7 +7141,7 @@
       "title": "Video entregado por p6_run_frame: raster canonico y metadatos",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T08a"
       ],
@@ -7164,12 +7164,15 @@
         "tests/test_plan.py",
         "docs/adr/0004-host-patch-budget.md",
         "docs/adr/0006-video-output.md",
-        "manifests/config-invariants.json"
+        "manifests/config-invariants.json",
+        "config/profiles/**",
+        "tests/fixtures/**"
       ],
       "steps": [
         "Fijar por escrito el raster de salida por estandar (PAL/NTSC), resolucion y entrelazado a partir del codigo de 6.0.3, y quien decide cada campo del p6_frame: ancho, alto, stride, region activa, aspecto, paridad de campo y cadencia como fraccion entera.",
         "Implementar bridge/video.cpp: presentar tras cada unidad, rellenar p6_frame solo cuando cabe en el limite demostrado, error controlado antes de escribir si un modo lo supera, y publicar las capacidades reales en p6_query_caps.",
-        "Que el observador de STEP01 use la misma ruta de presentacion que el bridge (sin duplicarla)."
+        "Que el observador de STEP01 use la misma ruta de presentacion que el bridge (sin duplicarla).",
+        "Ampliacion touch: config/profiles/** (las quince preferencias de video se fijan en el perfil) y tests/fixtures/** (invitados adversarios lof_stuck y long_frame)."
       ],
       "checks": [
         "BUILD01",
@@ -7181,7 +7184,7 @@
         "Ningun modo del invitado escribe fuera del buffer; el limite esta demostrado, no supuesto."
       ],
       "stop": "Si no se conoce el limite de salida o el significado campo/frame, resolverlo antes de reservar un buffer.",
-      "evidence": null
+      "evidence": "reports/tasks/T08b.md"
     },
     {
       "id": "T08c",

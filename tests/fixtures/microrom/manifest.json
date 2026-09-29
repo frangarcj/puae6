@@ -80,6 +80,30 @@
         "sha256": "68451c480170bee75f0b93c7cd53e69d246d0e672b1ec6fbaa6987379940c900"
       },
       "purpose": "STOP #$2000 in the main loop: the CPU sleeps until the VERTB interrupt"
+    },
+    "lof_stuck": {
+      "scenario": "V1",
+      "logical_id": "microrom-lof-stuck-v1",
+      "program_source": "lof_stuck.s",
+      "source_sha256": "892e3d4711229acfc0b25279c8f7e13d7f5e6b0d2732838fb298977f7b57d196",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "5aff72587af05a7ab146c9a4e95eb3cc675ca4bd66693e170fe2823a08f33ae0"
+      },
+      "purpose": "Long-field bit stuck without interlace: the raster becomes the long frame (576 rows PAL, 486 NTSC)"
+    },
+    "long_frame": {
+      "scenario": "V2",
+      "logical_id": "microrom-long-frame-v1",
+      "program_source": "long_frame.s",
+      "source_sha256": "7a850d7dc25f0dcdb1c0fb62d2d865162efbe6601f86a1bc5b4ac33451da7589",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "7ed565cf057ca92e695d15781e0368faf0c6efc8a1b90c965a2e0d385450f49a"
+      },
+      "purpose": "Frames longer than the raster buffer: the presentation refuses them while the machine keeps running"
     }
   }
 }

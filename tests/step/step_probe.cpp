@@ -14,6 +14,7 @@
 #include "custom.h"
 #include "newcpu.h"
 #include "video_present.h"
+#include "video.h"
 
 #include <cassert>
 #include <cinttypes>
@@ -79,7 +80,7 @@ extern "C++" void p6_unit_observe(void)
 {
     // What T08 will do after every unit: hand the finished raster over. It sits here, at the boundary itself,
     // so both modes present at the same moments and the picture becomes part of the compared state.
-    p6_video_present();
+    p6_bridge::present_unit();
     Record r{};
     r.pc = m68k_getpc();
     r.opcode = regs.opcode;
@@ -132,6 +133,44 @@ p6_input empty_input()
     return in;
 }
 
+// The canonical hash of a delivered picture: the active pixels only, row by row, without the padding of
+// the stride or anything outside the active rectangle.
+uint64_t picture_hash(const p6_frame &f)
+{
+    if (!f.video) return 0;
+    Hash h;
+    for (uint32_t y = f.active.y; y < f.active.y + f.active.height; ++y)
+        h.bytes(static_cast<const uint8_t *>(f.video) + size_t(y) * f.video_stride_bytes + size_t(f.active.x) * 4,
+                size_t(f.active.width) * 4);
+    return h.value;
+}
+
+// Every byte of the delivered buffer outside the active rectangle (padding of the stride included) is zero.
+bool outside_is_zero(const p6_frame &f)
+{
+    if (!f.video) return true;
+    const uint8_t *base = static_cast<const uint8_t *>(f.video);
+    for (uint32_t y = 0; y < f.video_height; ++y)
+        for (uint32_t x = 0; x < f.video_stride_bytes / 4; ++x) {
+            const bool inside = y >= f.active.y && y < f.active.y + f.active.height && x >= f.active.x &&
+                                x < f.active.x + f.active.width;
+            if (inside) continue;
+            const uint8_t *px = base + size_t(y) * f.video_stride_bytes + size_t(x) * 4;
+            if (px[0] | px[1] | px[2] | px[3]) return false;
+        }
+    return true;
+}
+
+void print_frame(const p6_frame &f)
+{
+    printf("frame %" PRIu64 " ticks=%" PRIu64 " video=%d bytes=%" PRIu64 " format=%u size=%ux%u stride=%u "
+           "active=%u,%u,%u,%u aspect=%u/%u cadence=%u/%u parity=%u flags=%u outside=%s pixels=%016" PRIx64 "\n",
+           f.unit_index, f.master_ticks, f.video != nullptr, f.video_bytes, f.video_format, f.video_width,
+           f.video_height, f.video_stride_bytes, f.active.x, f.active.y, f.active.width, f.active.height,
+           f.aspect_num, f.aspect_den, f.cadence_num, f.cadence_den, f.field_parity, f.flags,
+           outside_is_zero(f) ? "zero" : "dirty", picture_hash(f));
+}
+
 void check(p6_result r, const char *what)
 {
     if (r != P6_OK) { fprintf(stderr, "%s failed: %d\n", what, int(r)); exit(3); }
@@ -148,15 +187,21 @@ int64_t unit_limit_cycles()
 
 int main(int argc, char **argv)
 {
-    if (argc != 5) { fprintf(stderr, "usage: %s rom units steps|continuous seed\n", argv[0]); return 64; }
+    if (argc != 5 && argc != 6) {
+        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc]\n", argv[0]);
+        return 64;
+    }
     const std::vector<uint8_t> rom = read_file(argv[1]);
     const int units = atoi(argv[2]);
     const bool continuous = !strcmp(argv[3], "continuous");
-    if (!continuous && strcmp(argv[3], "steps")) return 64;
+    const bool frames = !strncmp(argv[3], "frames", 6);
+    const uint32_t render = !strcmp(argv[3], "frames-norender") ? P6_RENDER_AUDIO : (P6_RENDER_VIDEO | P6_RENDER_AUDIO);
+    if (!continuous && !frames && strcmp(argv[3], "steps")) return 64;
     if (units < 1) return 64;
+    const uint32_t standard = argc == 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
 
     p6_error error{P6_ABI_VERSION, sizeof(p6_error), {}};
-    const p6_config config = make_config(P6_VIDEO_PAL, strtoull(argv[4], nullptr, 10));
+    const p6_config config = make_config(standard, strtoull(argv[4], nullptr, 10));
     check(p6_init(&config, &error), "p6_init");
     check(p6_load(p6_buffer{rom.data(), rom.size()}, nullptr, 0, &error), "p6_load");
 
@@ -173,8 +218,9 @@ int main(int argc, char **argv)
     } else {
         for (int unit = 1; unit <= units; ++unit) {
             const int64_t before = trace.empty() ? 0 : trace.back().cycles;
-            check(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error), "p6_run_frame");
+            check(p6_run_frame(&input, render, &frame, &error), "p6_run_frame");
             if (frame.unit_index != uint64_t(unit) || frame.master_ticks <= last_ticks) return 4;
+            if (frames) print_frame(frame);
             if (int64_t(get_cycles()) - before > unit_limit_cycles()) { fprintf(stderr, "unit %d is too long\n", unit); return 5; }
             last_ticks = frame.master_ticks;
         }
@@ -194,7 +240,7 @@ int main(int argc, char **argv)
         return 6;
     }
 
-    for (size_t i = 0; i < trace.size(); ++i) {
+    for (size_t i = 0; !frames && i < trace.size(); ++i) {
         const Record &r = trace[i];
         printf("unit %zu pc=%06x op=%04x d0=%08x d1=%08x sr=%04x line=%d hpos=%d cycles=%" PRId64
                " halted=%d stopped=%d video=%" PRIu64 "/%" PRIu64 " size=%ux%u/%u digest=%016" PRIx64 "\n",
