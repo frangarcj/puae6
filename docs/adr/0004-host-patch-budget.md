@@ -182,3 +182,35 @@ alarma de 1500 lineas sigue vigente con 211 de margen.
 Limites: SAVESTATE sigue sin definirse (gate T15), imports target_addtorecent,
 fullpath, console_out y gui_ask_disk siguen abiertos en T06b2cb, y
 inputdevice.cpp aun llama a disk_prevnext. No se anuncia un disquete arrancable.
+
+Cola tras T06b2cc: 47 parches/27 archivos/1289 lineas de delta.
+
+T06b2cd incorpora inputdevice.cpp como archivo 28: 48 parches/28 archivos/1346
+lineas de delta (+57). Son 19 regiones P6_PORTABLE y tres ediciones locales.
+Excluye, con sus callers, el escritor/lector de configuracion textual, el
+lenguaje de macros de eventos custom (ShellExecute, parser cfgfile), el texto de
+scripts jport custom, y guarda RTG, el test del depurador, volumen/mute de
+escritorio, cambio de disco por nombre y el autoswitch con reloj de pared. La
+configuracion llega como estructura del bridge, no como texto. Un dato causal:
+al excluir solo definiciones, el compilador no detecta los callers de funciones
+declaradas en cabeceras; el enlace de prueba (dylib con -undefined error) si, y
+se uso para cerrarlos. No se usa alias silencioso: los callers se guardan.
+
+Frontera de texto. T06b2aw dejo abiertos _stprintf y _tstol/_tcstol (auditoria
+Luna). Aqui se cierra solo lo necesario y de forma acotada, en ports/portable y
+no en parches: _stprintf pasa a ser un snprintf C++ cuyo tamano sale del tipo
+del array (un destino puntero no compila, siempre termina la cadena, informa la
+truncacion por el retorno y elimina una secuencia UTF-8 incompleta), y las
+conversiones enteras son ASCII, sin locale, con saturacion definida y ERANGE,
+contrastadas con strtol de libc en locale C. Alternativa descartada: adaptar
+cada sitio de _stprintf con parches locales (8+ lineas en un archivo caliente
+que cambia en cada update) o excluir la asignacion de puertos por nombre (T10
+necesita decidirla). Quedan fuera scanf, %f/%g/%e (locale numerico) y _tstof.
+gethidvals2 usa el parseo acotado: mismo id para valores reales, y valores
+mayores que INT_MAX o negativos informan desconocido (-1) en vez de los bits sin
+signo (probado contra sscanf). La alarma de 1500 lineas sigue vigente con 154 de
+margen.
+Limites: los imports de dispositivos fisicos (inputdevicefunc_*, input_get_default_*)
+son T10; las acciones AKS de escritorio quedan compiladas y sin resolver para
+T06c; el aviso upstream de dst[i].custom (array probado como puntero) no se
+adapta aqui.

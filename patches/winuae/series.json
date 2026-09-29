@@ -1221,6 +1221,40 @@
           "after_sha256": "e997a4bca73a65965abee968b429f27a4fe19b7b47610421ac9857bd4eeaa5b1"
         }
       ]
+    },
+    {
+      "id": "0048-inputdevice-portable-input-profile",
+      "file": "patches/winuae/0048-inputdevice-portable-input-profile.patch",
+      "sha256": "e3c95cad049848d88b26a9fabc138d737a1937dcc417d8d19660c2c333616f0f",
+      "title": "Keep logical input devices; exclude textual configuration, macros and desktop actions",
+      "reason": "The bridge feeds normalized keys and ports through internal setters (docs/02-contracts). Configuration text readers/writers, custom-event macros (ShellExecute, cfgfile parser), joystick-port custom text and HID-name scanning belong to excluded desktop configuration. RTG, debugger and mixer-volume actions, and the wall-clock auto-switch, are guarded. No success stubs; device-to-port assignment stays for T10.",
+      "category": "host hooks",
+      "order": 48,
+      "symbols": [
+        "inputdevice_uaelib",
+        "write_inputdevice_config",
+        "read_inputdevice_config",
+        "handle_custom_event",
+        "inputdevice_generate_jport_custom",
+        "inputdevice_jportcustom_fixup",
+        "inputdevice_parse_jport_custom",
+        "gethidvals2",
+        "get_mouse_position",
+        "inputdevice_handle_inputcode2",
+        "setjoystickstate",
+        "inputdevice_fix_prefs",
+        "inputdevice_get_widget_type"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_input_source; tests.host.test_tchar_numeric",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "d1e7b0ec49a2edde4883a30fb836fe8cc5175119309600cd9fdbe3b5e2a02eba",
+          "after_sha256": "c5a086b3312855871f1ad328402cc303ad427ee671745bf5f01bf422e7cccd60"
+        }
+      ]
     }
   ]
 }

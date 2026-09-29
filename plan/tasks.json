@@ -4396,13 +4396,57 @@
       "evidence": "reports/tasks/T06b2cc.md"
     },
     {
+      "id": "T06b2cd",
+      "title": "Compilar inputdevice.cpp con texto acotado y sin configuracion textual ni UI",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T06b2cc"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "docs/07-machawk.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0004-host-patch-budget.md",
+        "reports/tasks/T06b2ca.md",
+        "reports/tasks/T06b2cc.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "ports/portable/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "manifests/host-surface.json",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Cerrar la frontera de texto abierta desde T06b2aw con un formato acotado solo para arrays (sin sprintf sobre punteros) y conversiones enteras ASCII sin locale, con overflow definido; probarlas en C++ con sanitizadores. No anadir alias de coma flotante, archivos ni scanf.",
+        "Excluir de inputdevice.cpp, con sus callers, el escritor/lector de configuracion textual, las macros de eventos custom (incluido ShellExecute y el parser cfgfile), el texto de mapeos jport custom y la coincidencia de nombres HID; guardar RTG, depurador, volumen de escritorio y el reloj de pared del autoswitch. Sin retornos de exito ficticios.",
+        "Comprobar unidad completa inputdevice.cpp en O0/O2: simbolos de entrada definidos, servicios excluidos ausentes y lista de imports pendientes clasificada. El mapeo de puertos y teclas del bridge sigue siendo T10."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "inputdevice.cpp compila como objeto p6_engine con teclado, raton y joystick logicos conservados y sin referenciar reloj, rutas, ShellExecute, parser de configuracion ni RTG. No certifica mapeo de puertos, lag, enlace ni Waterbox."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2cd.md"
+    },
+    {
       "id": "T06b2cb",
       "title": "Cerrar entrada, medios y dependencias de estado A500",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T06b2cc"
+        "T06b2cd"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -4469,7 +4513,7 @@
         "T06b2bu excluye parser/exporter/CLI de cfgfile. Resolver callers reales de custom/inputdevice/dispositivos/savestate segun feature y contrato; retirar calc/ini de seleccion solo con evidencia de ausencia de dependencias. No implementar parsers exitosos ficticios ni omitir estado requerido.",
         "T06b2by compila savestate y excluye quick/export CD. Cerrar sus callers e imports de persistencia, replay, modelos excluidos, configuracion y screenshot antes del enlace; serializer nativo/restore real conserva gate T15, Waterbox su propio gate.",
         "T06b2ca abre assets ADF explícitos en DISK_validate_filename; completar disk.cpp (creación/overlays/host paths/catálogos) y validar imagen/drive_insert/DMA sin confundir apertura con geometría válida.",
-        "T06b2cc compila disk.cpp (parche 0047). Quedan inputdevice.cpp (69 errores, _stprintf/_tstol/_tcstol y callers disk_prevnext) e imports de disk pendientes de enlace: target_addtorecent, fullpath en DISK_history_add, console_out(_f) de depuracion, gui_ask_disk y au; cerrarlos con sus callers sin proveedores exitosos ficticios."
+        "T06b2cc compila disk.cpp (parche 0047). Queda T06b2cd (inputdevice.cpp) y los imports de disk pendientes de enlace: target_addtorecent, fullpath en DISK_history_add, console_out(_f) de depuracion, gui_ask_disk y au; cerrarlos con sus callers sin proveedores exitosos ficticios."
       ],
       "checks": [
         "BUILD01",

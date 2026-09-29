@@ -134,6 +134,15 @@
           "check": "python3 -m unittest tests.host.test_rommgr_portable tests.host.test_rommgr_source -v",
           "scope": "Portable getromname uses bounded integer-only ASCII scratch and legacy caller-owned output capacity; configure_rom rejects Arcadia/ALG before preference mutation and host filename derivation. Full rommgr object Debug/Release/O0/O2 plus imports/depfiles; observed synthetic metadata probes.",
           "remaining": "No public firmware policy/content ID or full ROM-manager linkage/boot is certified. Other excluded device profiles and legacy scanning ownership retain later gates; no generic TCHAR formatter or filesystem alias."
+        },
+        {
+          "task": "T06b2cd",
+          "paths": [
+            "ports/portable/tchar.h"
+          ],
+          "check": "python3 -m unittest tests.host.test_tchar tests.host.test_tchar_numeric -v",
+          "scope": "Closes the text boundary left open by T06b2aw for the input unit only as far as needed: p6_tcstol/_tcstol/_tstol/_tstoi (ASCII whitespace, sign, base 0 or 2..36, defined saturation with ERANGE, no libc locale) checked against strtol in the C locale over a fixed 40000-string corpus; and _stprintf as C++ array-bounded snprintf (always terminated, truncation reported by the return value, partial UTF-8 tail removed, printf format checking). A pointer destination does not compile. Header still valid C.",
+          "remaining": "No scanf, %f/%g/%e (numeric locale), wide, filesystem or _tstof aliases. Callers with pointer destinations or unknown capacity must be adapted or excluded at their site. The vsnprintf failure branch (negative result) has no test."
         }
       ]
     },
@@ -948,6 +957,87 @@
           "tests.host.test_disk_asset: executable-content rejection with mutation evidence"
         ],
         "limits": "SAVESTATE stays undefined until T15, so save_disk/restore_disk are not in the object. header_error branch of the executable probe is untested. No geometry, DMA with real media, link or Waterbox claim."
+      },
+      "input_logical_devices": {
+        "task": "T06b2cd",
+        "patch": "patches/winuae/0048-inputdevice-portable-input-profile.patch",
+        "kept": "send_input_event, setjoystickstate/setmousestate, keyboard events and reset, inputdevice_hsync/vsync, default keyboard tables, inputdevice_fix_prefs/updateconfig and the joyport-by-name plumbing (unreferenced by the bridge but needed by T10 to decide).",
+        "excluded": {
+          "configuration_text": "out_config/write_* and read_slot/readevent/read_inputdevice_config, getqual/getnum/getstring, inputdevice_uaelib(text). Configuration arrives as a p6 config struct, not text.",
+          "custom_events": "handle_custom_event macro language (delay/shellexec/dbg/kbr/evt, cfgfile_parse_line fallback) and its four call sites; delayed_events and iq->custom are therefore always empty.",
+          "port_scripts": "generate_jport_custom_item, inputdevice_generate_jport_custom, inputdevice_jportcustom_fixup, inputdevice_parse_jport_custom and their callers; the legacy '#' conversion in inputdevice_fix_prefs. Public config must reject JSEM_CUSTOM ids.",
+          "desktop": "RTG mouse offset, debugger test in the CPU-tracer shortcut, master volume/mute actions, next/previous disk actions, wall-clock joystick auto-switch (public config must reject input_autoswitchleftright), widget-name hex suffix."
+        },
+        "changed": "gethidvals2: sscanf(%X) replaced by the bounded parse. Same result for real ids; values above INT_MAX or negative report unknown (-1) instead of the raw unsigned bits (tested).",
+        "pending_link": {
+          "device_backends_T10": [
+            "inputdevicefunc_keyboard",
+            "inputdevicefunc_mouse",
+            "inputdevicefunc_joystick",
+            "input_get_default_keyboard",
+            "input_get_default_mouse",
+            "input_get_default_joystick",
+            "input_get_default_joystick_analog",
+            "input_get_default_lightpen",
+            "target_inputdevice_acquire",
+            "target_inputdevice_unacquire",
+            "target_can_autoswitchdevice",
+            "target_checkcapslock",
+            "release_keys",
+            "is_tablet",
+            "is_touch_lightpen",
+            "tablet_log"
+          ],
+          "input_recording": [
+            "inprec_close",
+            "inprec_realtime",
+            "inprec_playevent",
+            "inprec_recordevent",
+            "inprec_playdiskchange",
+            "input_play",
+            "input_record"
+          ],
+          "desktop_actions": [
+            "screenshot",
+            "toggle_rtg",
+            "toggle_fullscreen",
+            "toggle_mousegrab",
+            "gui_display",
+            "savestate_quick",
+            "target_osk_control",
+            "target_osd_keyboard",
+            "target_paste_to_keyboard",
+            "pausevideograb",
+            "getsetpositionvideograb",
+            "handle_msgpump",
+            "desktop_coords",
+            "setmouseactive",
+            "setmouseactivexy",
+            "setsystime",
+            "sound_volume",
+            "pause_emulation"
+          ],
+          "rtg_traps_time": [
+            "trap_get_dreg",
+            "trap_get_long",
+            "trap_get_word",
+            "trap_is_indirect",
+            "rtarea_bank",
+            "getgfxoffset",
+            "uae_time"
+          ],
+          "common": [
+            "au",
+            "my_strdup",
+            "translate_message",
+            "statusline_add_message"
+          ]
+        },
+        "tests": [
+          "tests.host.test_input_source: O0/O2 object, kept/excluded symbols, exact forbidden imports, depfile, HID parse against the legacy sscanf",
+          "tests.host.test_tchar_numeric"
+        ],
+        "limits": "Device-to-port assignment, key/pointer mapping and lag are T10. AKS desktop actions stay compiled and unresolved for T06c. One upstream warning remains (dst[i].custom array tested as pointer in the port copy code); not adapted here."
       }
     },
     "allocation": {
