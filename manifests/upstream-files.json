@@ -1,0 +1,5683 @@
+{
+  "schema_version": 1,
+  "source": {
+    "id": "winuae",
+    "repository": "https://github.com/tonioni/WinUAE.git",
+    "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "tag": "6030",
+    "tag_object": "88e3c2c6eac57d6dfc2ed688455a35e2e3a86a59"
+  },
+  "destination": "upstream/winuae",
+  "files": [
+    {
+      "path": ".github/workflows/build-winuae-binary.yml",
+      "mode": "100644",
+      "sha256": "dce848b84a16aea3957196d7ceb1d73386effc5359a98e76cb85f770e958233c"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "sha256": "0553c468b29b746d331896339f4d6182535cd72f1be9b8f2dcb9e40e3e5ab2b5"
+    },
+    {
+      "path": "65c02core.cpp",
+      "mode": "100644",
+      "sha256": "7fe77f36c3c990eb331d8a6a8d6a184eddd60c76b22f4bac3b4e33a3d6ae8cea"
+    },
+    {
+      "path": "ChangeLog",
+      "mode": "100644",
+      "sha256": "d9b548ffca090a2076f77d40ff285a13ddbdece238923d4832250b96bdbdd6a0"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "sha256": "11d4d165d7eab9b8999cc6a6a4f7cc1466429c4014b16ea2ec42c44e35f2cfd3"
+    },
+    {
+      "path": "a2065.cpp",
+      "mode": "100644",
+      "sha256": "caa5e19679c73ad7c591279876ec78ea15ee58f4e1aa5bea9df19a97372267b6"
+    },
+    {
+      "path": "a2091.cpp",
+      "mode": "100644",
+      "sha256": "a9f2644640a6079161cf5dd284a63551d5f2dcead8ed86943740003b73a78ef4"
+    },
+    {
+      "path": "akiko.cpp",
+      "mode": "100644",
+      "sha256": "2e2317a6c9923e013bd6a378994f2dfef3949c7d7e17f643305ac3fa1d5ed9a1"
+    },
+    {
+      "path": "aks.def",
+      "mode": "100644",
+      "sha256": "a92390d6f86506f63f958754743213a1e7740fdde812ff9643aa3d793a6cbaa8"
+    },
+    {
+      "path": "amax.cpp",
+      "mode": "100644",
+      "sha256": "b2b7c8dc42372c9341ad315aaf7bef8648e77e55438616e065989791e1f14501"
+    },
+    {
+      "path": "ar.cpp",
+      "mode": "100644",
+      "sha256": "7b3d207f00da646ea239f9b393fd55b2eb72989d583b408d15b57b8e9d2e3cb6"
+    },
+    {
+      "path": "arcadia.cpp",
+      "mode": "100644",
+      "sha256": "f747db9aacd3a7a20007928feba06b274d31c3c2ea7c482d78c1c948b3a31bae"
+    },
+    {
+      "path": "archivers/chd/astring.cpp",
+      "mode": "100644",
+      "sha256": "efaafa8c9d3a7efe553fd75b939101da138ef51489c866fb63428655d9d6d866"
+    },
+    {
+      "path": "archivers/chd/astring.h",
+      "mode": "100644",
+      "sha256": "1ebe3504e083e124e7f208f1688ccf92306b74a3d1a332ff0df50b232a7c31f8"
+    },
+    {
+      "path": "archivers/chd/avhuff.h",
+      "mode": "100644",
+      "sha256": "09a3c3569ab0e840b4b2523307e439824350acb5a544997687e1874b02bf4485"
+    },
+    {
+      "path": "archivers/chd/bitmap.h",
+      "mode": "100644",
+      "sha256": "c3fe29a334e4aa70d0ebfce4e604a422aa9602f4d5ac7a6827ce67f05bf6b151"
+    },
+    {
+      "path": "archivers/chd/bitstream.h",
+      "mode": "100644",
+      "sha256": "dc10b3ff803937d54593cf0a5893bfb718a900a87752be566d376bbb428bb32c"
+    },
+    {
+      "path": "archivers/chd/chd.cpp",
+      "mode": "100644",
+      "sha256": "20a73c354d168ff762d2f634e72db020c2f554215e10f2aa9275d57ac8a07b6c"
+    },
+    {
+      "path": "archivers/chd/chd.h",
+      "mode": "100644",
+      "sha256": "9a628a6df0b3249ca3fae60e34727692be0328cc9bf3e680196467c6fb512f43"
+    },
+    {
+      "path": "archivers/chd/chdcd.cpp",
+      "mode": "100644",
+      "sha256": "183ff9e5ee8a20d9db03f4354c063ff11e8635f1855351b62caf0f844e19b153"
+    },
+    {
+      "path": "archivers/chd/chdcd.h",
+      "mode": "100644",
+      "sha256": "70a4712a2d59f8912ba7bcced455fe824a38a29ceab07c734319017a648f2107"
+    },
+    {
+      "path": "archivers/chd/chdcdrom.cpp",
+      "mode": "100644",
+      "sha256": "d15863afae62540eb00c48fd16c9a6fba139c5ead40fbabf7c0424a78ed050b1"
+    },
+    {
+      "path": "archivers/chd/chdcdrom.h",
+      "mode": "100644",
+      "sha256": "785cde12f20628b05d0dca94e67843bb88b18c66c1c6f038c8df8d5ff906ec36"
+    },
+    {
+      "path": "archivers/chd/chdcodec.cpp",
+      "mode": "100644",
+      "sha256": "164e09da7686e03c759baa9099429b6973740d0d8ef6ce697595aa2e37d789d2"
+    },
+    {
+      "path": "archivers/chd/chdcodec.h",
+      "mode": "100644",
+      "sha256": "b017351ee2d8f23990de3f7280c88217bd92028ac4156ff439eac4185ffac042"
+    },
+    {
+      "path": "archivers/chd/chdglue.cpp",
+      "mode": "100644",
+      "sha256": "83866841e56305d7becd051982fee054436c00ced6c9f1d536281558c5321f98"
+    },
+    {
+      "path": "archivers/chd/chdtypes.h",
+      "mode": "100644",
+      "sha256": "16bab15057b6e7ea66806af4c497889a4c81142827760a5e04f5580e81b61e0c"
+    },
+    {
+      "path": "archivers/chd/corealloc.cpp",
+      "mode": "100644",
+      "sha256": "d25b442fcc0832b72249bb33fb51d2b6581c664589d263eceb7e9d9e59c263f9"
+    },
+    {
+      "path": "archivers/chd/corealloc.h",
+      "mode": "100644",
+      "sha256": "0740d4ed780f69ef8894ffcc2a2cb02cc2004619487b9cbf0d70344d1a6f27b5"
+    },
+    {
+      "path": "archivers/chd/corefile.h",
+      "mode": "100644",
+      "sha256": "9801bc3f8899e331938cbe46959d3c87a690b1c849519419009266ede99974c4"
+    },
+    {
+      "path": "archivers/chd/coretmpl.h",
+      "mode": "100644",
+      "sha256": "cb2b87823c1bb90cb44a98ef2441b2731aefc72816484a925990cae3b6181134"
+    },
+    {
+      "path": "archivers/chd/delegate.h",
+      "mode": "100644",
+      "sha256": "f29241dd4af261e226f045d2ad42828be6fb7c7759e321d0c95226105f7a1f5d"
+    },
+    {
+      "path": "archivers/chd/eminline.h",
+      "mode": "100644",
+      "sha256": "fb66c3180637836e13e2252060a0d452e46a67a8b8fa1a88d83cdaaebfcb297b"
+    },
+    {
+      "path": "archivers/chd/flac.cpp",
+      "mode": "100644",
+      "sha256": "362e1f94324649c7bdce3bb2bcd4cae36b2d7ba3e6a3d4033cfbd94fb8f26185"
+    },
+    {
+      "path": "archivers/chd/flac.h",
+      "mode": "100644",
+      "sha256": "559acfc336a532abfba12b474834a7086f278f230399a049c93a4d74c4d6e7f0"
+    },
+    {
+      "path": "archivers/chd/harddisk.cpp",
+      "mode": "100644",
+      "sha256": "f07121f57efc403e29f281afa0a02385c6d1c5ecb5509cc390e968a88dc8afeb"
+    },
+    {
+      "path": "archivers/chd/harddisk.h",
+      "mode": "100644",
+      "sha256": "f0d50f2317140d76aa2389a3ff6c16127023f56079a739bc2a4e8a8d7d8cc5b9"
+    },
+    {
+      "path": "archivers/chd/hashing.cpp",
+      "mode": "100644",
+      "sha256": "d0fb3039d8a705aa1b795220616ca0e0d79bf1a313b38004b303b9b74f6c771e"
+    },
+    {
+      "path": "archivers/chd/hashing.h",
+      "mode": "100644",
+      "sha256": "fd939e29a11e8a213b55910597a70990e7684e4387b1d5cd8faad42256d644df"
+    },
+    {
+      "path": "archivers/chd/huffman.cpp",
+      "mode": "100644",
+      "sha256": "cb63512ebb2e39e9f6cf75c8a042aac67455cd749790d411e6fc72280f744de7"
+    },
+    {
+      "path": "archivers/chd/huffman.h",
+      "mode": "100644",
+      "sha256": "c23737b26d630c147880e45a5e0b7c5376e4ca292b2a2897a8e984c2dbbc2b50"
+    },
+    {
+      "path": "archivers/chd/md5.cpp",
+      "mode": "100644",
+      "sha256": "c6af3aa0cbab1c72eff7feea003f528a48263ef3bc6dbf83279a3560f6c87149"
+    },
+    {
+      "path": "archivers/chd/md5.h",
+      "mode": "100644",
+      "sha256": "e667b9f1406be6cd011ac3eff7aac800a19e65a7301caf5a55a0afb594cfdf59"
+    },
+    {
+      "path": "archivers/chd/osdcomm.h",
+      "mode": "100644",
+      "sha256": "1f97f210613a8b8926fd4c44dca7ea81d33416459fc6a74a8c2f75fb2f2c35e7"
+    },
+    {
+      "path": "archivers/chd/osdcore.h",
+      "mode": "100644",
+      "sha256": "6a221ce0d21969a0e1d4e440f15d9c6c7e1ba856bf3cd446abc0cdd24f5f3d9e"
+    },
+    {
+      "path": "archivers/chd/osinline.h",
+      "mode": "100644",
+      "sha256": "71b06060b32d406d326ef8d615373775711317cdb57821fbe6622f8c79c38579"
+    },
+    {
+      "path": "archivers/chd/palette.h",
+      "mode": "100644",
+      "sha256": "95eeaab200f89cea37894c0d31224718c4692c8a459afbbb74cbd308bd0d6d75"
+    },
+    {
+      "path": "archivers/chd/sha1.cpp",
+      "mode": "100644",
+      "sha256": "c4fe54cbb271a4302b90231126fdbf4ef9c6afbd6a5e45b660eac8c29d5c99a0"
+    },
+    {
+      "path": "archivers/chd/sha1.h",
+      "mode": "100644",
+      "sha256": "e5133eb8aaf9824b2a1977be4d4d1bd9b1c5477e99d62bf14be1c1fdb400e810"
+    },
+    {
+      "path": "archivers/chd/windows/eivc.h",
+      "mode": "100644",
+      "sha256": "70c5c40eea3a9ee39e8f72d406b1182dcff150f42d9386e5fa226412b247c127"
+    },
+    {
+      "path": "archivers/chd/windows/eivcx86.h",
+      "mode": "100644",
+      "sha256": "3208e2357191718a2d283d31cc8a76af02f28e263c1680179a2ef6d63da06d7d"
+    },
+    {
+      "path": "archivers/chd/windows/osinline.h",
+      "mode": "100644",
+      "sha256": "0890474dbc09aac795067cf89a41c82f203265f468bb382e0079f5696efec37b"
+    },
+    {
+      "path": "archivers/chd/windows/wintime.cpp",
+      "mode": "100644",
+      "sha256": "e02ca4e8400cc9f4e73e5e3da66dc3f375cfb82d2e6695c5e97d2eb2314038dc"
+    },
+    {
+      "path": "archivers/chd/windows/winwork.cpp",
+      "mode": "100644",
+      "sha256": "05555d1cec123e11878a689c3cb77c9254424577831f12f7a7b20abe878585b7"
+    },
+    {
+      "path": "archivers/dms/cdata.h",
+      "mode": "100644",
+      "sha256": "6c7867cbb40295bd74b80da81fdbecbc4ebd3ab4712450351c62f7b423b7a5ce"
+    },
+    {
+      "path": "archivers/dms/crc_csum.cpp",
+      "mode": "100644",
+      "sha256": "d1c1ae8755647884aadb45330d96d09387e8bb18cc131046c900ca87481b3528"
+    },
+    {
+      "path": "archivers/dms/crc_csum.h",
+      "mode": "100644",
+      "sha256": "a7eb407ec3f715f17f51568a75b4a698ef43fd3969bb1ec9c03fd6473bd10c16"
+    },
+    {
+      "path": "archivers/dms/getbits.cpp",
+      "mode": "100644",
+      "sha256": "55280cee525ac109b07092902157bab3c9001bc3c7a7bd012ddc42e87b1b0403"
+    },
+    {
+      "path": "archivers/dms/getbits.h",
+      "mode": "100644",
+      "sha256": "1609632146448b9e0c95170b39e38d356e288a79fa4b22dc7d8997a59cf90e16"
+    },
+    {
+      "path": "archivers/dms/maketbl.cpp",
+      "mode": "100644",
+      "sha256": "94e49f3bb9b85da1d85244f0258ed6b7ec21a9782bbf84140add91a568be8ac5"
+    },
+    {
+      "path": "archivers/dms/maketbl.h",
+      "mode": "100644",
+      "sha256": "6d33be67bb3eb16e21e1b7d2adccc7b1352d2f53054fcb39ead08a3e04f8863f"
+    },
+    {
+      "path": "archivers/dms/pfile.cpp",
+      "mode": "100644",
+      "sha256": "edbeff249e8a822c2f60d62f6fd49f3256965f861b4944daafe282183403ac6f"
+    },
+    {
+      "path": "archivers/dms/pfile.h",
+      "mode": "100644",
+      "sha256": "d2adef8acd668354bf803e11b7fcceae831f824196155f90a3fc55aadafd2867"
+    },
+    {
+      "path": "archivers/dms/tables.cpp",
+      "mode": "100644",
+      "sha256": "2780a31aba048b03660626092a49220d6092d40e4a858437d4fb1dae500b4dde"
+    },
+    {
+      "path": "archivers/dms/tables.h",
+      "mode": "100644",
+      "sha256": "e2ca2a90d0161779bf025280a2a66d06157db5f46c8873263c5652d9ccacb30b"
+    },
+    {
+      "path": "archivers/dms/u_deep.cpp",
+      "mode": "100644",
+      "sha256": "bfd96ae06f13965d1a60dc3f5e0cf12213369f0b14ee1c06fcea8a9d9c379def"
+    },
+    {
+      "path": "archivers/dms/u_deep.h",
+      "mode": "100644",
+      "sha256": "cf0b60945d09edecc324d081a896490616e9810b835eaa45b30ee32a0f203e42"
+    },
+    {
+      "path": "archivers/dms/u_heavy.cpp",
+      "mode": "100644",
+      "sha256": "2a63d3e6119c144d3cbfafecba93979135589c400e08195ace94547b9916058a"
+    },
+    {
+      "path": "archivers/dms/u_heavy.h",
+      "mode": "100644",
+      "sha256": "87722f42e8222098c008a8e45c5d691f72c91abfe93a6b9c4f6144752870a0c8"
+    },
+    {
+      "path": "archivers/dms/u_init.cpp",
+      "mode": "100644",
+      "sha256": "eb04ff60eefef10dfa721b2cdf9705ed4795026d9252f36dad820b83dd9df9c1"
+    },
+    {
+      "path": "archivers/dms/u_init.h",
+      "mode": "100644",
+      "sha256": "a0dd8db7b4912bc060445ecd957f00ebbe03fefb7293d92643fb03e05866bb77"
+    },
+    {
+      "path": "archivers/dms/u_medium.cpp",
+      "mode": "100644",
+      "sha256": "0421fc0ff6f28f22675e4576b756297e02784ae6e10b148a19ad240af3392ad0"
+    },
+    {
+      "path": "archivers/dms/u_medium.h",
+      "mode": "100644",
+      "sha256": "e9f72f44928a5418a09272e41b52c88ec4301616f38f8734caea58880c4ff53b"
+    },
+    {
+      "path": "archivers/dms/u_quick.cpp",
+      "mode": "100644",
+      "sha256": "c21030c164ee8e70580133cb73f87a9ceee537e8975b9c417a6f1fccbc1cccc8"
+    },
+    {
+      "path": "archivers/dms/u_quick.h",
+      "mode": "100644",
+      "sha256": "4805905df32bfa6bb58ba7ee4473045b980aab0d8f82443790c70f5135815354"
+    },
+    {
+      "path": "archivers/dms/u_rle.cpp",
+      "mode": "100644",
+      "sha256": "c4569b796bb648deedd0b1026d3b1496feee2de077b34bd2517d35878a626de0"
+    },
+    {
+      "path": "archivers/dms/u_rle.h",
+      "mode": "100644",
+      "sha256": "2c17380a961e0c0d6ac6b30adb4d9343b978b10a4acc6faae79000a610b1e638"
+    },
+    {
+      "path": "archivers/lha/crcio.cpp",
+      "mode": "100644",
+      "sha256": "da90581c0a0a0400940fb2c8338e2bbdc1d0174849d033569aea72ac7b5f4ca6"
+    },
+    {
+      "path": "archivers/lha/dhuf.cpp",
+      "mode": "100644",
+      "sha256": "669e5f137d12e92e41ce19ca5149eeb35d4c7542b1ace188727209e3072ef2a6"
+    },
+    {
+      "path": "archivers/lha/header.cpp",
+      "mode": "100644",
+      "sha256": "2de36117028aa1440421f826d1042a5eeed77a9f3cf685af9af45e256e183fd4"
+    },
+    {
+      "path": "archivers/lha/huf.cpp",
+      "mode": "100644",
+      "sha256": "c53b774b110475d6eebedd86a7f1d1fe127e5145b2ae0fc080c89e739a63a228"
+    },
+    {
+      "path": "archivers/lha/larc.cpp",
+      "mode": "100644",
+      "sha256": "e1652c28edc66599c3384a18da9905e981323007c085111db8c357c4829d272c"
+    },
+    {
+      "path": "archivers/lha/lha.h",
+      "mode": "100644",
+      "sha256": "c968de52e8dc3d48cfcbd37aa5fb92b4c2707cb69dbe00d43b443ebd9f09898f"
+    },
+    {
+      "path": "archivers/lha/lha_macro.h",
+      "mode": "100644",
+      "sha256": "c0562c09cccc21b51ffd54d84ae1c9c6436ccfafd2c671a614653b83f9016c6b"
+    },
+    {
+      "path": "archivers/lha/lhamaketbl.cpp",
+      "mode": "100644",
+      "sha256": "b75bfba315dd66fc1eccfc1b6135741a875a014b457a6aebc87fe32de7540079"
+    },
+    {
+      "path": "archivers/lha/lharc.cpp",
+      "mode": "100644",
+      "sha256": "ea50d0b73f63bada57e3df7305466219789f622f34930bdfde4372a1284d80ba"
+    },
+    {
+      "path": "archivers/lha/shuf.cpp",
+      "mode": "100644",
+      "sha256": "bf2ed606bb689feb09dc73b5a963dc69f543ef9fc55353a52cdf231ff2246218"
+    },
+    {
+      "path": "archivers/lha/slide.cpp",
+      "mode": "100644",
+      "sha256": "d6f679f56e121e224705cb997f7371c00bd6c9c3b772c7ed8510f922b61240a8"
+    },
+    {
+      "path": "archivers/lha/uae_lha.cpp",
+      "mode": "100644",
+      "sha256": "cb65b01d04c4f2fd7d7e012491354f93efd639e4839feec121adf58888d1a07f"
+    },
+    {
+      "path": "archivers/lha/util.cpp",
+      "mode": "100644",
+      "sha256": "efd67251da0b00cd929d72e78be9f9e7f976b6854ac3869340c0120ce742c86c"
+    },
+    {
+      "path": "archivers/lzx/unlzx.cpp",
+      "mode": "100644",
+      "sha256": "099e413432172b237e71e3a2a590459effb1d44da9c64ab518fec7a511fac2a6"
+    },
+    {
+      "path": "archivers/mp2/kjmp2.cpp",
+      "mode": "100644",
+      "sha256": "f697ba5295df8da38838d7e02ba04b4ad6180cf5682f88f314b0dbcb3e6829b0"
+    },
+    {
+      "path": "archivers/mp2/kjmp2.h",
+      "mode": "100644",
+      "sha256": "658afc9eb20f838f91c533b468e269f63926ca7ae54a973de7b80344a8e3f6de"
+    },
+    {
+      "path": "archivers/wrp/warp.cpp",
+      "mode": "100644",
+      "sha256": "cd8190d01a9c64357220d67e5e97088dcb25ef1a63055eb072f75644b761056f"
+    },
+    {
+      "path": "archivers/wrp/warp.h",
+      "mode": "100644",
+      "sha256": "f2187ad91a73e5c018beb976892c5e07a8b471f0ee92469832e59c9dc6cf694e"
+    },
+    {
+      "path": "archivers/xfd/main.cpp",
+      "mode": "100644",
+      "sha256": "26d0f6b6092d1ea20b3ba5d3ba9add52bdbd5cc70c102da34eb2130e97be6039"
+    },
+    {
+      "path": "archivers/xfd/xfd.cpp",
+      "mode": "100644",
+      "sha256": "cb121268e5517ac518be6a0362fff5002e32797bfa1f3343afd2d13063dcee98"
+    },
+    {
+      "path": "archivers/xfd/xfdmaster.h",
+      "mode": "100644",
+      "sha256": "2aff81ae6690ab462a94539a198c3a29e6f6f53ff1f4a8a375754da649d41b8f"
+    },
+    {
+      "path": "archivers/zip/ioapi.cpp",
+      "mode": "100644",
+      "sha256": "b7327fa5274596207b6782ec4a252d18404a29d49ea23608e2f0a5714b151301"
+    },
+    {
+      "path": "archivers/zip/ioapi.h",
+      "mode": "100644",
+      "sha256": "f39d5b14a5f50edb839411783c3276cefd8dd4bf36988c1dcc3e7124165b6276"
+    },
+    {
+      "path": "archivers/zip/unzip.cpp",
+      "mode": "100644",
+      "sha256": "f53e7040a27ce3875357e34aca88677dd98f1ec31d5be64d6d14aa343120cdc8"
+    },
+    {
+      "path": "archivers/zip/unzip.h",
+      "mode": "100644",
+      "sha256": "a5d6dce25bbff6ff4d2bce29a833d731c42d6c55338db4d24e7da28a247362cc"
+    },
+    {
+      "path": "archivers/zip/zip.cpp",
+      "mode": "100644",
+      "sha256": "1ce7a86c86731357114dbfe04ca23968b04ea83122edd720646cdad8a905c11f"
+    },
+    {
+      "path": "archivers/zip/zip.h",
+      "mode": "100644",
+      "sha256": "5f042ce1faf1ceda128f3bbcd4b3dedecc5fa0220d469606478a5cde3914cacd"
+    },
+    {
+      "path": "aros.rom.cpp",
+      "mode": "100644",
+      "sha256": "d25d6394593389a48946f7ed55454f93a2384e9eaafdb9882209b3ad7ec220b5"
+    },
+    {
+      "path": "assem.cpp",
+      "mode": "100644",
+      "sha256": "6d0789aae9ecda62bb2e1737a00a1b2f146a04bd72d72886592a2524bee31bae"
+    },
+    {
+      "path": "audio.cpp",
+      "mode": "100644",
+      "sha256": "2699601febc6d62c96a79018d0bbe94d47501621a9f7483309f86d3b3ee4ead7"
+    },
+    {
+      "path": "autoconf.cpp",
+      "mode": "100644",
+      "sha256": "2434deaf2217dba82b59292b6daf3ae91fcf3407c644491574d7a9e49fa3d87e"
+    },
+    {
+      "path": "blit.h",
+      "mode": "100644",
+      "sha256": "68945c8fb6a525f59396b21aeb511bb8fb02bb1f9875345189f18e96c006a95b"
+    },
+    {
+      "path": "blitfunc.cpp",
+      "mode": "100644",
+      "sha256": "61a19dc779c18ff2ba1c60f2b5b67c0c116d22dea8b64c0b07d0978bb71525b8"
+    },
+    {
+      "path": "blitfunc.h",
+      "mode": "100644",
+      "sha256": "a3edd35edc957355b7f78b454dddd53791acb77e89fcc4a5188b117f3e1fa00d"
+    },
+    {
+      "path": "blitops.cpp",
+      "mode": "100644",
+      "sha256": "085e9c05137c4f9bdbf12137dae4e2ea2b9da9ef011aaa365adc2fdbc42ab695"
+    },
+    {
+      "path": "blittable.cpp",
+      "mode": "100644",
+      "sha256": "9471c60bd8c25e1ee5a12bc1d75178c4b0aa02d038ff4552da8fca129541ba5d"
+    },
+    {
+      "path": "blitter.cpp",
+      "mode": "100644",
+      "sha256": "036618c29a3eb9829f1c32245116f21b826fa95e19f946a714214f0259fe088f"
+    },
+    {
+      "path": "blkdev.cpp",
+      "mode": "100644",
+      "sha256": "55a6236cd768ef6afd8ec7e12186c1c47831cc9f409ad7d2e01efecbaedf11e2"
+    },
+    {
+      "path": "blkdev_cdimage.cpp",
+      "mode": "100644",
+      "sha256": "008f85acdf39af64494236c20a7fcaeef885f31595d8183552d8d0235a01f59a"
+    },
+    {
+      "path": "bsdsocket.cpp",
+      "mode": "100644",
+      "sha256": "0a6ccd036d1228cfde77222424ceb94934928b8bad1e097c9e5fe1ac1382faca"
+    },
+    {
+      "path": "build68k.cpp",
+      "mode": "100644",
+      "sha256": "94af599bf8a1c61e5576d4c099d4dcd38ab70bfbd4e8612e1b964ed572a8d1f8"
+    },
+    {
+      "path": "calc.cpp",
+      "mode": "100644",
+      "sha256": "e7c576d39d433e1043b5a36805373259c9e15a54986c5b3367c4a2f5803354aa"
+    },
+    {
+      "path": "catweasel.cpp",
+      "mode": "100644",
+      "sha256": "f0e6b8ede5191909c37db159465e8c4391ff75b5ac5f0932e79cd4eed8e181cf"
+    },
+    {
+      "path": "cd32_fmv.cpp",
+      "mode": "100644",
+      "sha256": "6adf6612277bff79f2e3620870c895270e28c0fcf9659afd617c909db567a536"
+    },
+    {
+      "path": "cd32_fmv_genlock.cpp",
+      "mode": "100644",
+      "sha256": "8aa6f5c5e012c3c0f0a2948fea5ecc10ab3c8da966db74d46cdd095d6ffabab2"
+    },
+    {
+      "path": "cdrom.cpp",
+      "mode": "100644",
+      "sha256": "130625da79ef9676e4e3ad420d385bfe826fbe0c5618fdcc37a5d7eaad12e598"
+    },
+    {
+      "path": "cdtv.cpp",
+      "mode": "100644",
+      "sha256": "58f1b2a32fa00554bf26f39972e1a50d051ac8cd30622f497b810c3d1dd4c15c"
+    },
+    {
+      "path": "cdtvcr.cpp",
+      "mode": "100644",
+      "sha256": "913748cef119895afdc5aa0db33ab6f5dd3263163bb76b5e5ba28e76397c152e"
+    },
+    {
+      "path": "cfgfile.cpp",
+      "mode": "100644",
+      "sha256": "437824c86dd8d4f77e2b807f92ae971b52493a3f801e6944d4981207e6c9a42f"
+    },
+    {
+      "path": "cia.cpp",
+      "mode": "100644",
+      "sha256": "86d743e51d966ba1f0397a0bba319f21a58428856293e17b169e6ea24176c36b"
+    },
+    {
+      "path": "consolehook.cpp",
+      "mode": "100644",
+      "sha256": "e8b767dbaeed290cad03e7ffe24542c19a41bdabd9aac5f0b65859c84f216808"
+    },
+    {
+      "path": "core.cw4.cpp",
+      "mode": "100644",
+      "sha256": "cc4c74c0925c75875eb21076687ec26f27d08e19982be8b0f3e0d1a1a180de77"
+    },
+    {
+      "path": "cpuboard.cpp",
+      "mode": "100644",
+      "sha256": "f7e38ab2d4ba3afa66320bf1bc9190dde77983e8c9720a4d3de52ba31b8b9d6d"
+    },
+    {
+      "path": "cpudefs.cpp",
+      "mode": "100644",
+      "sha256": "dd7382f7fc37942d939e3c5dbfb01f7e2b32f6c0dc0fec163578bdc4602eac6b"
+    },
+    {
+      "path": "cpuemu_0.cpp",
+      "mode": "100644",
+      "sha256": "91f41be663fea12e20c013587cb308a4951870215ea277ba22cda05fa39eba54"
+    },
+    {
+      "path": "cpuemu_11.cpp",
+      "mode": "100644",
+      "sha256": "d79c4f1d83f5d1f9d84424f47d2c348614675bd342b0ab25e692613bf46c71b4"
+    },
+    {
+      "path": "cpuemu_13.cpp",
+      "mode": "100644",
+      "sha256": "5a8b757122f866c50882d0e01599fb8fa2133ef6e53ea35a323ad9dedec4e56e"
+    },
+    {
+      "path": "cpuemu_20.cpp",
+      "mode": "100644",
+      "sha256": "f52cd6c768bbc4431e98f84412907a65b8d8aa5450a2eba72617c9339053ccd7"
+    },
+    {
+      "path": "cpuemu_21.cpp",
+      "mode": "100644",
+      "sha256": "00e094a3d75523d222fcd25dd833c38deccd7f779290d8122bb6ff3330adec61"
+    },
+    {
+      "path": "cpuemu_22.cpp",
+      "mode": "100644",
+      "sha256": "67898bc1aa9aa3f76c6d89d069d63c74fb0786d421653026035ce121ea5946a4"
+    },
+    {
+      "path": "cpuemu_23.cpp",
+      "mode": "100644",
+      "sha256": "d95436c6d83410c34bac69021c945f353406d110c65d8a4c0b9c8fb1de498a77"
+    },
+    {
+      "path": "cpuemu_24.cpp",
+      "mode": "100644",
+      "sha256": "7943b9557c4c0fd49e72ec3be1478938314e353e694dae641d7b755fc15c758d"
+    },
+    {
+      "path": "cpuemu_31.cpp",
+      "mode": "100644",
+      "sha256": "b3d3bd86b849770906058c0f70b3835f16768a5dbd5ae9cc6ae45199e4e38dd5"
+    },
+    {
+      "path": "cpuemu_32.cpp",
+      "mode": "100644",
+      "sha256": "034a6afc7a86de9e5ee19470b3f9c0eeb0956ac85254171ffe830b9752d0eeeb"
+    },
+    {
+      "path": "cpuemu_33.cpp",
+      "mode": "100644",
+      "sha256": "62a0e6616ac81a61c74a986d93208bbf0efbfd1990ae65671d8425902e869b7b"
+    },
+    {
+      "path": "cpuemu_34.cpp",
+      "mode": "100644",
+      "sha256": "ceedb3d0732dd0b0dbebb89c90ebfeaac0dd6235a8aae2aad6d68733dbf5af97"
+    },
+    {
+      "path": "cpuemu_35.cpp",
+      "mode": "100644",
+      "sha256": "3e27fb0a74e041ac2dba28bca97b36060ac5ff6e22bcb454f7f9b093d694c388"
+    },
+    {
+      "path": "cpuemu_40.cpp",
+      "mode": "100644",
+      "sha256": "b02855cdaef859591f641c11357c4e525f558850d210bc836313d5bb5f3bca33"
+    },
+    {
+      "path": "cpuemu_50.cpp",
+      "mode": "100644",
+      "sha256": "aefc9e4dd8967366fd005bc0a74887c6797b56b46f297bb214812b5a2c6a1d4a"
+    },
+    {
+      "path": "cpummu.cpp",
+      "mode": "100644",
+      "sha256": "e551e19a1e5885becfd8bbe6a9e7e40cad3cfb3c6e3cdb62270d5f3114313b12"
+    },
+    {
+      "path": "cpummu30.cpp",
+      "mode": "100644",
+      "sha256": "569099a1a51f90e248033ac8f373fcebb24cbcba90ee00311316062406c4e500"
+    },
+    {
+      "path": "cpuopti.cpp",
+      "mode": "100644",
+      "sha256": "756e08215a55b42e220beddc0df590a28d7e17d4077952a30c61aa7838b07a99"
+    },
+    {
+      "path": "cpustbl.cpp",
+      "mode": "100644",
+      "sha256": "1a07dc22c2148f241be6437d302383e4e0811341fe8f61d8afc0cc0504df4e9f"
+    },
+    {
+      "path": "cputbl.h",
+      "mode": "100644",
+      "sha256": "b54fc1d27199cfceabec7deb0d39611411672448c766fda5aafb90c417c5502a"
+    },
+    {
+      "path": "cputest.cpp",
+      "mode": "100644",
+      "sha256": "26c1b1fbc2ba46735196da1c8de99909401719ef035129f3e971aa8caf1fb082"
+    },
+    {
+      "path": "cputest/adis/decode_ea.c",
+      "mode": "100644",
+      "sha256": "6b7975f2c99da5469eda1c630c0048ccce9b07e6e9f9be441477660d019eecee"
+    },
+    {
+      "path": "cputest/adis/defs.h",
+      "mode": "100644",
+      "sha256": "37efa5c3f86f584011d522a643a43ad51307c15a4b1d4939cbba76f89c7a5eb7"
+    },
+    {
+      "path": "cputest/adis/globals.c",
+      "mode": "100644",
+      "sha256": "60c039f4fd7d699a50427bcf9d6de376b6f2a1300af5cd7b8a81305423c033a2"
+    },
+    {
+      "path": "cputest/adis/opcode_handler_cpu.c",
+      "mode": "100644",
+      "sha256": "00dd853ab47eb4bc54ed9221483eead043b2664cb16f95fb10382cb8e67dcc65"
+    },
+    {
+      "path": "cputest/adis/opcode_handler_fpu.c",
+      "mode": "100644",
+      "sha256": "9c6221a6e101d551364d15ac708a3513642cf0472cf89b4d4a6ecb9aa6ff64c7"
+    },
+    {
+      "path": "cputest/adis/opcode_handler_mmu.c",
+      "mode": "100644",
+      "sha256": "7d72d9b2ab3de15fce84874d90de75ba0f25bfa8d5cb55f1b307e51335103ec2"
+    },
+    {
+      "path": "cputest/adis/opcodes_cpu.c",
+      "mode": "100644",
+      "sha256": "77f34ab23c51d8cbdf6b4d4dd0fe9bc9b6596b85a97f4248f37db2197f6ab5c2"
+    },
+    {
+      "path": "cputest/adis/opcodes_fpu.c",
+      "mode": "100644",
+      "sha256": "9c9b3b92c453ff8d2350767481a7e605724a65808c4fb1b88d5e5f00323ff6a8"
+    },
+    {
+      "path": "cputest/adis/opcodes_mmu.c",
+      "mode": "100644",
+      "sha256": "7079f5827fc7dac5a44539caf4d0be767e97579e38e670942043cdc380e48b35"
+    },
+    {
+      "path": "cputest/adis/string_recog.h",
+      "mode": "100644",
+      "sha256": "ed28199ef1798035b313740b3de1d7f515922ba97f82de64116fa2643b0b0196"
+    },
+    {
+      "path": "cputest/adis/util.c",
+      "mode": "100644",
+      "sha256": "fa0fdba5489e72a8abae9c8041b81da233a9b8efa0ca8bfe7ebd8e33ef4bf679"
+    },
+    {
+      "path": "cputest/amiga.S",
+      "mode": "100644",
+      "sha256": "bd7c5e88a676daf255f7c56bded3fe920f56e42db0a691974e34037775fec80e"
+    },
+    {
+      "path": "cputest/asm.S",
+      "mode": "100644",
+      "sha256": "443991db09b280b9163b8d075aa297b8c93adc150deda4f5ed40dc8448f7b676"
+    },
+    {
+      "path": "cputest/asm040.S",
+      "mode": "100644",
+      "sha256": "eff69c8ac0379b8ef24391545654305d79a5ea27fe02eb37d30a12727fbfdef7"
+    },
+    {
+      "path": "cputest/asm060.S",
+      "mode": "100644",
+      "sha256": "31458ac31d6ad0c8ead4da3d5f11d4ef2736e8eccf33cc3a5120ef2abda75f5a"
+    },
+    {
+      "path": "cputest/atari.S",
+      "mode": "100644",
+      "sha256": "20c6aa151ec6d8b143baef8382d02d4b0f2fa075301f7d24d5308a35f0bc99d9"
+    },
+    {
+      "path": "cputest/cputest_defines.h",
+      "mode": "100644",
+      "sha256": "254f408cb8bf10ba5325ab69c6bcbc2bae6c167d54287f013e0896435c0dc190"
+    },
+    {
+      "path": "cputest/cputestgen.ini",
+      "mode": "100644",
+      "sha256": "c993e38b6a3e2aa0b7c40712a0f8145e4e8d88fa99b06c6eb168b2ccbf192ea5"
+    },
+    {
+      "path": "cputest/dir.c",
+      "mode": "100644",
+      "sha256": "5710584d9dbb62cc7144f8af599247dcca28986526d49464c292ffef4e6b0069"
+    },
+    {
+      "path": "cputest/inflate.S",
+      "mode": "100644",
+      "sha256": "5a86ff2685b827a2c928cdd33685df4ffdc6a152b0e635671653d55d68684c10"
+    },
+    {
+      "path": "cputest/main.c",
+      "mode": "100644",
+      "sha256": "06329167fc18ffe8dd097c6d05fb6ae8dbde16376cd6523560c5b1006f25d9e6"
+    },
+    {
+      "path": "cputest/makefile",
+      "mode": "100644",
+      "sha256": "abeea9b7ba6248aefdf6da9fb66045357ded724bc70abef2568bed95818268a1"
+    },
+    {
+      "path": "cputest/makefile.st",
+      "mode": "100644",
+      "sha256": "f38eee21f7ba382e4808aa7348c36f304f3d4a332a156d702e1aa6238657e047"
+    },
+    {
+      "path": "cputest/msc_dirent.h",
+      "mode": "100644",
+      "sha256": "70676c386529e7d6e8551d045eaff46cc2a97c8d98fea05128cf36f0a856f133"
+    },
+    {
+      "path": "cputest/readme.txt",
+      "mode": "100644",
+      "sha256": "10dfbbd56a16a2e080c8b2f9f2d5e7089afd7eca89fbfe7c6227baf61f73a514"
+    },
+    {
+      "path": "cputest_support.cpp",
+      "mode": "100644",
+      "sha256": "288b9b3748d5a33ae4aaa31e2628c38747599fe53ddfa772665c3d37d38b245a"
+    },
+    {
+      "path": "crc32.cpp",
+      "mode": "100644",
+      "sha256": "13cd5256337f4781032759629e7cec4e0a46f376b9ba16e1350149e8f6c952d0"
+    },
+    {
+      "path": "custom.cpp",
+      "mode": "100644",
+      "sha256": "f005ca9b49e38bc9e721b5c51d50619de3b6a55b60bb5a394256b813bfde66e3"
+    },
+    {
+      "path": "debug.cpp",
+      "mode": "100644",
+      "sha256": "a56f8816e1aa39e07348bb6ef1b6ff8a8c4ff5b516d0c033e2dd8f87a7189291"
+    },
+    {
+      "path": "debugmem.cpp",
+      "mode": "100644",
+      "sha256": "8d30f27852d90398e39c79d9f14f2e92783bc71dec583b604b714e031626cc2a"
+    },
+    {
+      "path": "def_icons.cpp",
+      "mode": "100644",
+      "sha256": "ceca89ee333eb454a8cdffe1dbebf23100e6bc22c273cb8d2dc425d398cfa947"
+    },
+    {
+      "path": "devices.cpp",
+      "mode": "100644",
+      "sha256": "c2a05d684cb1fe363f59fe713ce41cc9fcd9d9e46649d7d7811c6ca1987bef3e"
+    },
+    {
+      "path": "disasm.cpp",
+      "mode": "100644",
+      "sha256": "890e9b4579de93f2dd21159e573b32867e655ec1af415c9f7d9a84ba799a18e4"
+    },
+    {
+      "path": "disk.cpp",
+      "mode": "100644",
+      "sha256": "1f77f55a021ad43c8248883c76f8b563a747afa20286b7a66086ee369e0978b5"
+    },
+    {
+      "path": "diskutil.cpp",
+      "mode": "100644",
+      "sha256": "caf0dfc350182ebd9c5bea31f73af03d0b1b032efdb3f977ef67f62f8464c59b"
+    },
+    {
+      "path": "dlopen.cpp",
+      "mode": "100644",
+      "sha256": "da90b64c244472111132b5d556aecbcac5b7c8d352f02c720f8931344941035c"
+    },
+    {
+      "path": "dongle.cpp",
+      "mode": "100644",
+      "sha256": "443ecb809d54b26b5139b461ecc036a8862efb0b5d547a62ebbdba254e7b918f"
+    },
+    {
+      "path": "draco.cpp",
+      "mode": "100644",
+      "sha256": "e9f9f6ed21706bd44ed1c2412b097258e3699c62d6c36260d467eae977c91ebe"
+    },
+    {
+      "path": "drawing.cpp",
+      "mode": "100644",
+      "sha256": "f66270d618b987d24fa44e83af2fb23276257077eb64286534b1b16dba6f28d3"
+    },
+    {
+      "path": "driveclick.cpp",
+      "mode": "100644",
+      "sha256": "c0fe8ddfe814a20049475f69285860104128cd789e1f5a57c5630199cf276c38"
+    },
+    {
+      "path": "dsp3210/DSP3210_emulation.cpp",
+      "mode": "100644",
+      "sha256": "d6dc263193af1a56772d78cca7da4372f6fda8f27cd4f0dc3b0298fde665db48"
+    },
+    {
+      "path": "dsp3210/DSP3210_emulation.h",
+      "mode": "100644",
+      "sha256": "021fa74517732250c639b18cbfaa1fd24dd232ab5eddb36b76787440f35faa8a"
+    },
+    {
+      "path": "dsp3210/dsp_glue.cpp",
+      "mode": "100644",
+      "sha256": "3e1d28cc6d0a4cf107da73f9f6881c807d80f9535625c78fbc49cf1c8faa5161"
+    },
+    {
+      "path": "dsp3210/dsp_glue.h",
+      "mode": "100644",
+      "sha256": "70f985c0584e21e320f5d1768cb6b6de4a573e6f6f49359e1fee60c9c21022cb"
+    },
+    {
+      "path": "enforcer.cpp",
+      "mode": "100644",
+      "sha256": "9d4fdb646752bb5dc56f921f2558e6e5dce5411f574bb2f4cbd0bb187922bd44"
+    },
+    {
+      "path": "epsonprinter.cpp",
+      "mode": "100644",
+      "sha256": "e4c39aacc45fd7070ac11c2a1d9474910983dc882a4f84c23a5bac0535fd218e"
+    },
+    {
+      "path": "ersatz.cpp",
+      "mode": "100644",
+      "sha256": "fc6d028c744d2bf1b6039704fa8f06f2f8d11b92b63a80eead410617c788bca4"
+    },
+    {
+      "path": "ethernet.cpp",
+      "mode": "100644",
+      "sha256": "233fb0bd5f0d21273e67619f19fda8dbf4545dd2e83dc4203bc75ab2236e2f05"
+    },
+    {
+      "path": "events.cpp",
+      "mode": "100644",
+      "sha256": "f3ae95b46af50cfd6f95d5b4379632fc4accd103c14ea954e8fc77b34acb60d1"
+    },
+    {
+      "path": "expansion.cpp",
+      "mode": "100644",
+      "sha256": "d2e00abe7d98cf20f584214d14d95fdfb86ece9ccbad9139f6e0bc24f516b051"
+    },
+    {
+      "path": "fdi2raw.cpp",
+      "mode": "100644",
+      "sha256": "7e885e90596e1295af90d408a1c6149d4eee7bf49d2033f4b5c072c01cfa399d"
+    },
+    {
+      "path": "filesys.asm",
+      "mode": "100644",
+      "sha256": "86eb2c8a464b994818b1bf5f058e9aa53c94bf396072cc1d2a446adab7b6095a"
+    },
+    {
+      "path": "filesys.cpp",
+      "mode": "100644",
+      "sha256": "cd64ae9658cc589d417703b5eeb2f4ffb2a30411723ebc3f69417c23656750a0"
+    },
+    {
+      "path": "filesys.sh",
+      "mode": "100644",
+      "sha256": "f446131a1cc2f3dbc4e3526d32617f4f9fedd780b7c7d882010f5b47d07f5f7c"
+    },
+    {
+      "path": "filesys_bootrom.cpp",
+      "mode": "100644",
+      "sha256": "726e28a86b31416d94401d6df5b104c267bf4dc570a881ae190c3f6b278635fd"
+    },
+    {
+      "path": "filesys_helpers.asm",
+      "mode": "100644",
+      "sha256": "f078e59e4ace683c5c89e24ac308900865a5fbaaf5c283f9a74eab2ad74babd5"
+    },
+    {
+      "path": "flashrom.cpp",
+      "mode": "100644",
+      "sha256": "e16efa76c0dac8f8d443f535e46de65376f8fc8c98259c1a78ddbb89f9e9f3df"
+    },
+    {
+      "path": "floppybridge/floppybridge_abstract.h",
+      "mode": "100644",
+      "sha256": "d14c4015ccfba66f511358a4eb71bee4a121ea4345ee3cff991ccd3608bc7fe0"
+    },
+    {
+      "path": "floppybridge/floppybridge_lib.cpp",
+      "mode": "100644",
+      "sha256": "990750f914cbada5fff1baa279cdb6658d3c41b4c32b2668539754c307f6be5c"
+    },
+    {
+      "path": "floppybridge/floppybridge_lib.h",
+      "mode": "100644",
+      "sha256": "04d99e6f4f244f426d1e4aeb1b57da79eca7343899f3da7e9c6874d423ba8ec1"
+    },
+    {
+      "path": "fpp.cpp",
+      "mode": "100644",
+      "sha256": "35972c15328da20aa9bf644e70f631b390a9f4e26d6598dc4c42765f082327a1"
+    },
+    {
+      "path": "fpp_native.cpp",
+      "mode": "100644",
+      "sha256": "e5bdf95c5cfb44fda7a3b3def4b6761709731bf477bb5fbef914f6a6194b4b6b"
+    },
+    {
+      "path": "fpp_softfloat.cpp",
+      "mode": "100644",
+      "sha256": "dc81324b9044328973a20c099aba31ac7f972df95b02130d798491bf444a832d"
+    },
+    {
+      "path": "framebufferboards.cpp",
+      "mode": "100644",
+      "sha256": "84299c15a9a9988f4ce8d6ab4d7ad21fc7b8c4c7ff881b3f8b9e16547a9126d6"
+    },
+    {
+      "path": "fsdb.cpp",
+      "mode": "100644",
+      "sha256": "fb2cfc2c82c278d624f5c924efdd11b3c36b49dc7cc0b2f37a0bdedfc7031270"
+    },
+    {
+      "path": "fsdb_unix.cpp",
+      "mode": "100644",
+      "sha256": "1da5fea778d448ed55ad9cbbbe2f51193c468697ac43e2ed44f6d7c36df594da"
+    },
+    {
+      "path": "fsusage.cpp",
+      "mode": "100644",
+      "sha256": "21f4025088de9220a43c66c0f5a3ad3f3b74e247f8c5cf6f55ac366392946f2c"
+    },
+    {
+      "path": "gayle.cpp",
+      "mode": "100644",
+      "sha256": "1cecbfad9737124720ff3f871acc5c209e01627b8a6530ecc2fd17de0460444d"
+    },
+    {
+      "path": "genblitter.cpp",
+      "mode": "100644",
+      "sha256": "089c12cf85456a1bd80f51a04be2ac8134dd9ac698b503b2aebc4c13681cecd4"
+    },
+    {
+      "path": "gencpu.cpp",
+      "mode": "100644",
+      "sha256": "70ee5f48ee52ea1b16e4e235e4ddb5b09cc9e4c78ae4e586df4b088f9e220344"
+    },
+    {
+      "path": "gencpu_mini.cpp",
+      "mode": "100644",
+      "sha256": "5a6acf0e20e879d6af7a4879eb529f8b9aa66a431a8350a14b86623033c40052"
+    },
+    {
+      "path": "gengenblitter.cpp",
+      "mode": "100644",
+      "sha256": "06de815f8f488d1de7716ea99b1b80358b412efe68a79ad230c0b6e0cf2cb17d"
+    },
+    {
+      "path": "genlinetoscr.cpp",
+      "mode": "100644",
+      "sha256": "394966abc2471c079d8d1e6d242748526077650a1bc38ca3b58b9d8425d8f732"
+    },
+    {
+      "path": "genp2c.cpp",
+      "mode": "100644",
+      "sha256": "29a097d28ce0fdb638b272bcd0f419228409f133f4b293157aaf9f170f12b4c6"
+    },
+    {
+      "path": "gfxboard.cpp",
+      "mode": "100644",
+      "sha256": "177303cfeea92a0947cba74ebac1dcf911373f27530ef85f652f899cee400f80"
+    },
+    {
+      "path": "gfxlib.cpp",
+      "mode": "100644",
+      "sha256": "00a60cd303aebee00fe147cc5b5db9e00d183c0aef454a6b31aa8eea258d2c59"
+    },
+    {
+      "path": "gfxutil.cpp",
+      "mode": "100644",
+      "sha256": "1def62fd4018c5119c58a93a0d80c036f1ebcf8727c187b64c790cf73184e723"
+    },
+    {
+      "path": "gtkui.cpp",
+      "mode": "100644",
+      "sha256": "3aac0cc1f42e16023e521118cd196fadf62dbd376525518cd36f2a92df2ffc06"
+    },
+    {
+      "path": "hardfile.cpp",
+      "mode": "100644",
+      "sha256": "6c96986158ad1ca1716dbbab0cd6e295414ebf05c55b1b86387fb5263f6657b3"
+    },
+    {
+      "path": "hrtmon.rom.cpp",
+      "mode": "100644",
+      "sha256": "f3cdc921cb33d9f7b16197d66a182dda63a107e331032fb30ffad96dc98b9367"
+    },
+    {
+      "path": "ide.cpp",
+      "mode": "100644",
+      "sha256": "f0cb5ff53e12258726acf4cf1c21dbe0bf8aa2a2a0dc6e6199bcf3a4588f9b7d"
+    },
+    {
+      "path": "idecontrollers.cpp",
+      "mode": "100644",
+      "sha256": "5d7c36b0ae3e72138c43f3a6a79c018cb274456998d22379d987aae255cd658f"
+    },
+    {
+      "path": "identify.cpp",
+      "mode": "100644",
+      "sha256": "7f85cf59c6ced8fa21a737c5f42f2f706472c74af617417df4285eb684a018dc"
+    },
+    {
+      "path": "include/a2065.h",
+      "mode": "100644",
+      "sha256": "6488a48209542f2cd47669eb4edf4fd7c35c8d1e0ada7570b21e87456081e2df"
+    },
+    {
+      "path": "include/a2091.h",
+      "mode": "100644",
+      "sha256": "fef8d84c60a0836dc3753cc521ebf2b2e93a0d3e103a34362de7da55dfbe16fd"
+    },
+    {
+      "path": "include/akiko.h",
+      "mode": "100644",
+      "sha256": "7fb7202db2b751e71ec418c50e7fc964534c69396005dbb13e7c76b4e064b1ab"
+    },
+    {
+      "path": "include/amax.h",
+      "mode": "100644",
+      "sha256": "18d1c9f5536ba312f67c5a90e42ce188e6786d1e682e97515de30bbc5a7583e8"
+    },
+    {
+      "path": "include/ar.h",
+      "mode": "100644",
+      "sha256": "78f637001d230bdc0163fb73e7a4f3f931d9d1f08f1ff27e81401dc391806703"
+    },
+    {
+      "path": "include/arcadia.h",
+      "mode": "100644",
+      "sha256": "5bae72cc730befb013ea0d504803660123a36de5cb6797820dce55a14a27c336"
+    },
+    {
+      "path": "include/audio.h",
+      "mode": "100644",
+      "sha256": "1744cd83f4bff41d29ac2f27814f68dc4149350886ee441f0ccaed4ee73ccedd"
+    },
+    {
+      "path": "include/autoconf.h",
+      "mode": "100644",
+      "sha256": "af9e375f6434237f062e77d8cd1a8269a4e4b545e01777722cf769cdb0832b96"
+    },
+    {
+      "path": "include/blitter.h",
+      "mode": "100644",
+      "sha256": "82aa4d7893b388588572fb68406efc2bc996876d4b653c9b2d5e3b5e48329086"
+    },
+    {
+      "path": "include/blkdev.h",
+      "mode": "100644",
+      "sha256": "34519c32d8cf198581fdbb6703773d8978426723b363b0604ac68d5a70ece395"
+    },
+    {
+      "path": "include/bsdsocket.h",
+      "mode": "100644",
+      "sha256": "ebdce7ff6a0aac73fe75e06f7d3d1e93e1de783548b9cf656ab869959d463fbf"
+    },
+    {
+      "path": "include/calc.h",
+      "mode": "100644",
+      "sha256": "c852621115a36a2394420876749b561c099b8facc6ecb8fe977e0dfbdbf0aa02"
+    },
+    {
+      "path": "include/catweasel.h",
+      "mode": "100644",
+      "sha256": "182c8d04d8e0addfbb38f6c3cc456a10ec36edd61c253d79c8f9c9745e1ee63a"
+    },
+    {
+      "path": "include/cd32_fmv.h",
+      "mode": "100644",
+      "sha256": "2d898bc6b01af2b4338ef85d796c5b576bc079c4a68f0923490d105636b155cb"
+    },
+    {
+      "path": "include/cdtv.h",
+      "mode": "100644",
+      "sha256": "369562813548955dbbd36636e30d4be7f222748e5d13712555e3b1981edc7dc1"
+    },
+    {
+      "path": "include/cdtvcr.h",
+      "mode": "100644",
+      "sha256": "feadb0c5d6e8d854fc83e98f18c43015c89c599bb7edf74605781936623a58fa"
+    },
+    {
+      "path": "include/cia.h",
+      "mode": "100644",
+      "sha256": "30f82a41d679ef278980616bf86886cfb1d0597f7530538125a3ef3224262d6b"
+    },
+    {
+      "path": "include/clipboard.h",
+      "mode": "100644",
+      "sha256": "24aece71a245d517dbeaebc9c0b2fa1d8d1e1698e4acc0f6510818036f8b6e7b"
+    },
+    {
+      "path": "include/commpipe.h",
+      "mode": "100644",
+      "sha256": "e6e80e495e18567b8b01ca64dc84593ebf992165495cff3660c59b1bf3adc615"
+    },
+    {
+      "path": "include/consolehook.h",
+      "mode": "100644",
+      "sha256": "b08858ed7ec48013f63e38d5cd4a6228920ff506384548de2750cb731a437e81"
+    },
+    {
+      "path": "include/cpu_prefetch.h",
+      "mode": "100644",
+      "sha256": "e91feed6c22c5be831dc6452efea7413ab00b1a604bb6a9ce647ef7011954d47"
+    },
+    {
+      "path": "include/cpuboard.h",
+      "mode": "100644",
+      "sha256": "54b99521298e1089a1447613a81a56384272512439027ce66a0f3459e4192bf6"
+    },
+    {
+      "path": "include/cpummu.h",
+      "mode": "100644",
+      "sha256": "53dec779506efa1229be2430daab140afc732c61235407d34e5e37b66f9ec123"
+    },
+    {
+      "path": "include/cpummu030.h",
+      "mode": "100644",
+      "sha256": "8d71a16a29168ebf47bb773fb01d3cc72a2eadc8b4cec578b5410956a3ee24f6"
+    },
+    {
+      "path": "include/cputest.h",
+      "mode": "100644",
+      "sha256": "5d961da6fd66ba7a1b974ff285d7cc8f9ebe7d51a9b03618260cc7c63c184c7b"
+    },
+    {
+      "path": "include/crc32.h",
+      "mode": "100644",
+      "sha256": "e639987f6148e77798e809c55bddde653ea9743d5f82bf1f0528e816057690d9"
+    },
+    {
+      "path": "include/custom.h",
+      "mode": "100644",
+      "sha256": "96c785f064933abd098a4b6729148a1b310613acc7c5bcae7532b0b4679435bf"
+    },
+    {
+      "path": "include/debug.h",
+      "mode": "100644",
+      "sha256": "4aa28218512c3d1663f60436447b1e94fc6778c7a0995daeb6271aecd7672711"
+    },
+    {
+      "path": "include/debugmem.h",
+      "mode": "100644",
+      "sha256": "4a878fc510bc050e120c6710d2a166b5b47f8fba50356f7bb66161af1b721fb8"
+    },
+    {
+      "path": "include/devices.h",
+      "mode": "100644",
+      "sha256": "ca5bcd45e9c03616f1310c63a370149788227b24580dfbefe8e156d1da3e9242"
+    },
+    {
+      "path": "include/disasm.h",
+      "mode": "100644",
+      "sha256": "443012dc9aa1b214cc63277cfc22d769e2806fa33c6ea34a788e1e4e72e38517"
+    },
+    {
+      "path": "include/disk.h",
+      "mode": "100644",
+      "sha256": "c704fcae44e2ac4274d640ded7182f0e5ed4ba75c683b64936b503e8e8e6182f"
+    },
+    {
+      "path": "include/diskutil.h",
+      "mode": "100644",
+      "sha256": "372826999ac108fa63c415fcb6e3fdc1f054f22609ceb1ded1443960b1d01296"
+    },
+    {
+      "path": "include/dongle.h",
+      "mode": "100644",
+      "sha256": "72daaecf04c04a375d9b374459d0481b751a2a25f733548d4e81a3e8bf2ee6b8"
+    },
+    {
+      "path": "include/draco.h",
+      "mode": "100644",
+      "sha256": "4056ecd231091b9956df512acdc38c71ebae545442591c458f4fb2cdba4b6948"
+    },
+    {
+      "path": "include/drawing.h",
+      "mode": "100644",
+      "sha256": "72da477dec00d63a6bc150ca48a9cd3d3cf5e27546440dafab42bf0dbf2327c6"
+    },
+    {
+      "path": "include/driveclick.h",
+      "mode": "100644",
+      "sha256": "dfc93e047f027dd60b8a43fca7e55930c2044d8a524cfb76d9b15ec165a616d0"
+    },
+    {
+      "path": "include/enforcer.h",
+      "mode": "100644",
+      "sha256": "14d606f71e9cfdedc21cd8ab02e2b6dd5965c58c47831e86388705dedbdf4655"
+    },
+    {
+      "path": "include/epsonprinter.h",
+      "mode": "100644",
+      "sha256": "e58e488551ae7d305a5b9d0b8ef4f74a25b9dbfd6c0dd8039b693aa21a9569aa"
+    },
+    {
+      "path": "include/ersatz.h",
+      "mode": "100644",
+      "sha256": "db9f1978efc659521234320107932b73b65a12780dc407b0f6c6f5ce47b009b7"
+    },
+    {
+      "path": "include/ethernet.h",
+      "mode": "100644",
+      "sha256": "a4c1d85996634caf4ab8028ad8614469173d0249ce26a1f1ff2babbdef2173ec"
+    },
+    {
+      "path": "include/events.h",
+      "mode": "100644",
+      "sha256": "f057cc97957beb1dee0375bf851cb4db9db7494fa000cac81100a6e2ba6d6478"
+    },
+    {
+      "path": "include/execio.h",
+      "mode": "100644",
+      "sha256": "bc4be6ec01f31f598e876a912d835a38b401c8f5e331dde23034a0441ef9590b"
+    },
+    {
+      "path": "include/execlib.h",
+      "mode": "100644",
+      "sha256": "a0092381b695b09ac1505ceec10fd8fbab80d12ccdc3fb7eb363a38c9ec46266"
+    },
+    {
+      "path": "include/fdi2raw.h",
+      "mode": "100644",
+      "sha256": "0e5a30ff1c86e3688f859b837a86c18b52675eb79cf8c9e52a840720dfc1bb18"
+    },
+    {
+      "path": "include/filesys.h",
+      "mode": "100644",
+      "sha256": "ded127018ffb18a9918f8289cb198644e47e485202a76c70dbb2ab88ba513e74"
+    },
+    {
+      "path": "include/flashrom.h",
+      "mode": "100644",
+      "sha256": "a5fad3ff4a93fb1f6f4486d6967db2ffcecf42a58b85056eb138421e7f6cb72a"
+    },
+    {
+      "path": "include/fpp.h",
+      "mode": "100644",
+      "sha256": "3b070c412566112bae25025b8f86ba43e2f400bf8e7dcf80fe43baeb8f6e00f1"
+    },
+    {
+      "path": "include/framebufferboards.h",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "include/fsdb.h",
+      "mode": "100644",
+      "sha256": "84f7627c0b8a05d7e408bdb3ab5a4668991d1c60cc28df2aeb296c43defa1345"
+    },
+    {
+      "path": "include/fsusage.h",
+      "mode": "100644",
+      "sha256": "204e9229797a061e678ed9e0b65257317c0f87268ad7fad2c9ac138e3b068d13"
+    },
+    {
+      "path": "include/gayle.h",
+      "mode": "100644",
+      "sha256": "590982bdd508db52948d32e239bc013855d319d4f3f695f18c6af9bbc8e01dd9"
+    },
+    {
+      "path": "include/genblitter.h",
+      "mode": "100644",
+      "sha256": "02601c72bb75ce3598ad4e54a90ad0b1196b664f20338c21562a214983ef391f"
+    },
+    {
+      "path": "include/gensound.h",
+      "mode": "100644",
+      "sha256": "5a6f8b99fd85a5730a7f9ac04874bebaf1ab14b02c9386c924e824ca76f97ac0"
+    },
+    {
+      "path": "include/gfxboard.h",
+      "mode": "100644",
+      "sha256": "92e768a67b4428ea3dfd52566fc6ba8a11c0326a9c7d67a931399501419d11fa"
+    },
+    {
+      "path": "include/gfxfilter.h",
+      "mode": "100644",
+      "sha256": "c6dcff0d1bc3b54456c9acf57b038a905b766bcada6befe43ad5cde0de03cc0b"
+    },
+    {
+      "path": "include/gui.h",
+      "mode": "100644",
+      "sha256": "ddc882326a292690b3632bddb9ec22d012a5b7d5385803c5f566b6abe33fc31d"
+    },
+    {
+      "path": "include/ide.h",
+      "mode": "100644",
+      "sha256": "fa957d37e4a3d6c306ff22e64839756dc9e9825286cfc8ebfd900dfa79cf7986"
+    },
+    {
+      "path": "include/idecontrollers.h",
+      "mode": "100644",
+      "sha256": "ff4026323b910a91a77d1562b265530b81a52f40822b57dc46e81066269d6035"
+    },
+    {
+      "path": "include/identify.h",
+      "mode": "100644",
+      "sha256": "f954d9f6d6dd67935a3f815fb79314e6e4fdf15af6e6dcfd66df0fbf7807bf88"
+    },
+    {
+      "path": "include/ini.h",
+      "mode": "100644",
+      "sha256": "d003e916d64fd57ca7870e8e9786d63024dd2b0fb39568d18ee1c052f0422698"
+    },
+    {
+      "path": "include/inputdevice.h",
+      "mode": "100644",
+      "sha256": "1ce91a66a87cc0e31d3b34b12e241c63331f9359822fd03d3e1508db47c52ab8"
+    },
+    {
+      "path": "include/inputrecord.h",
+      "mode": "100644",
+      "sha256": "30b077a69f7dc96995d1d618dae663900b46bc951db3bcda1bf5a24b25eb11a0"
+    },
+    {
+      "path": "include/isofs.h",
+      "mode": "100644",
+      "sha256": "af105f627d16c3a2087b0b8bdc9ba031b6a34698e3b109de8df6057d770e51df"
+    },
+    {
+      "path": "include/isofs_api.h",
+      "mode": "100644",
+      "sha256": "08cf1a84cc9618f5626544cdf436ed2dd78db9a7b733d141b3fbf9be773b95cc"
+    },
+    {
+      "path": "include/keyboard.h",
+      "mode": "100644",
+      "sha256": "4253049e6f582a488282f50bc56612f952947fbb1552e505f94b850d8e3e3da3"
+    },
+    {
+      "path": "include/keyboard_mcu.h",
+      "mode": "100644",
+      "sha256": "253d4f5a1bb066250340c91bb436539bc87d94da50b5f074b201d6ecf4dbe22e"
+    },
+    {
+      "path": "include/keybuf.h",
+      "mode": "100644",
+      "sha256": "1f057a6c4d8594281e03fbefdc0d48df09db4e5ba20b21f05132d11dab4be65d"
+    },
+    {
+      "path": "include/luascript.h",
+      "mode": "100644",
+      "sha256": "4ca54566e681985cf576c25e36538669a16e4dd5774b3b22529b08bb68138a3d"
+    },
+    {
+      "path": "include/mackbd.h",
+      "mode": "100644",
+      "sha256": "7bc06c7363f7f6eb8be1e1f761410643dd2fc657a89a4238bec877bd07c7d4b7"
+    },
+    {
+      "path": "include/memory.h",
+      "mode": "100644",
+      "sha256": "610da8217f1d95e185da01a02916416f285691c794ae3598694f43f52ac3d0a1"
+    },
+    {
+      "path": "include/midiemu.h",
+      "mode": "100644",
+      "sha256": "1afaeb20e8c8d0c42bbee84fa40352aa185401daeba5d490112a98b843f6fcf7"
+    },
+    {
+      "path": "include/mmu_common.h",
+      "mode": "100644",
+      "sha256": "9bf0262e1ac532ba47a7fb6060a5ad5619c4d0a37829b216c921e3e88c44d24e"
+    },
+    {
+      "path": "include/moduleripper.h",
+      "mode": "100644",
+      "sha256": "f4dff9797a8a7dc59d5818db3aaeb1eb4afd361780923f1d2b5d2545dd5a96fb"
+    },
+    {
+      "path": "include/mos6502.h",
+      "mode": "100644",
+      "sha256": "3c2a87ebd7f65b43e1eae7e633668cddedb75ab6261135f94f9121793afaeb49"
+    },
+    {
+      "path": "include/native2amiga.h",
+      "mode": "100644",
+      "sha256": "ee76514e42dfa98a23aeb9004812dbc24a46f4955409f21cf1ec9bc7c267947d"
+    },
+    {
+      "path": "include/native2amiga_api.h",
+      "mode": "100644",
+      "sha256": "5ced235a51950d2d3405404d471c90627e490eaead846df83ea99556e6912029"
+    },
+    {
+      "path": "include/ncr9x_scsi.h",
+      "mode": "100644",
+      "sha256": "bf92231a771490293fc53701aee592d4e0175a627e95a8b28bbab4fe9ce06b95"
+    },
+    {
+      "path": "include/ncr_scsi.h",
+      "mode": "100644",
+      "sha256": "8a2c4c9eee4030579733bf15789d287697a5198161e175ce004f3da568920615"
+    },
+    {
+      "path": "include/newcpu.h",
+      "mode": "100644",
+      "sha256": "d3074cc5d014ca3c032ddd3a81cff950c57790c33e595e14114d8a91ce0ebd5b"
+    },
+    {
+      "path": "include/options.h",
+      "mode": "100644",
+      "sha256": "b1abd5821ad0e32fee9a2cbb8214158234d9e04b0c031e62362aa81546f0622c"
+    },
+    {
+      "path": "include/osemu.h",
+      "mode": "100644",
+      "sha256": "8bc0a34a1e5a8243ef8b3943ca8d723047368b36f4a9671d3d0443d9ecbcc18e"
+    },
+    {
+      "path": "include/packed.h",
+      "mode": "100644",
+      "sha256": "59f4438d3bfff9e693f03e5c920ff82b0c864a44bbe3c636efd6b81e8c46cb9f"
+    },
+    {
+      "path": "include/parallel.h",
+      "mode": "100644",
+      "sha256": "3ae707d0fe59334ad87dbb30f0908714e1b5d78493bf5ec20a67190f791da471"
+    },
+    {
+      "path": "include/pci.h",
+      "mode": "100644",
+      "sha256": "b9ceb721bb173c55a9c4253795b70158c1b51ef8022acb95306428de80862704"
+    },
+    {
+      "path": "include/pci_hw.h",
+      "mode": "100644",
+      "sha256": "8e6005b739851dcf5f1050e60071d2d3cb8252388bf3151e560cded6a1fb27d0"
+    },
+    {
+      "path": "include/picasso96.h",
+      "mode": "100644",
+      "sha256": "c3b4a240dec21c18d9813c0c9c60ce52c03eddd98c3ebba1e29d563dc45f3252"
+    },
+    {
+      "path": "include/readcpu.h",
+      "mode": "100644",
+      "sha256": "12a449d995122630c4e117a76d343d6b40685f5b059d4801fdb3da0276469ee6"
+    },
+    {
+      "path": "include/rommgr.h",
+      "mode": "100644",
+      "sha256": "cb7d1de19eea752b40d337f3adf2ac0537786818be33f7cf8fe12dafbc6add23"
+    },
+    {
+      "path": "include/rtc.h",
+      "mode": "100644",
+      "sha256": "bda6f54d42487cc04f3b004c293137d3ba34a504726bf5695b5e0f59a7a7b982"
+    },
+    {
+      "path": "include/rtgmodes.h",
+      "mode": "100644",
+      "sha256": "9a1aa5fe7f9a4f19324de792f224467afa0847f39371ace7f9c0c7fc0188e35f"
+    },
+    {
+      "path": "include/sampler.h",
+      "mode": "100644",
+      "sha256": "3a3f618107bff7493f513b8d97d48beb06e35c96bd407fd2cf45b343efdbb01a"
+    },
+    {
+      "path": "include/sana2.h",
+      "mode": "100644",
+      "sha256": "1eb0949e2aee9230837fc90085b3ebe7c75c59abc7994535882148de5e238e0f"
+    },
+    {
+      "path": "include/savestate.h",
+      "mode": "100644",
+      "sha256": "efded3e668994574675fa3604a1637dbb79f3b1cad1a848634b818d4a90c2a08"
+    },
+    {
+      "path": "include/scp.h",
+      "mode": "100644",
+      "sha256": "58f734abb7d1d44f61553dde42eb5d3cb98bad1373c65a7a354f7176188b77cb"
+    },
+    {
+      "path": "include/scsi.h",
+      "mode": "100644",
+      "sha256": "58a7a606dd5c80c8c16e2cd2388bed6d83d0f23e0dfef3a7df1bbae17d283526"
+    },
+    {
+      "path": "include/scsidev.h",
+      "mode": "100644",
+      "sha256": "6e2fa77edd84b55f43c0ce41ef86e29538e08580108ddfd577cf929a20bc4487"
+    },
+    {
+      "path": "include/serial.h",
+      "mode": "100644",
+      "sha256": "3b0833996b152470f2b9c0422b7e35f17afcb9682276f9553775aec5e8f729c4"
+    },
+    {
+      "path": "include/sndboard.h",
+      "mode": "100644",
+      "sha256": "dfc0a71ba5cd7238981967cc3b87c8ae8c08ff02134e9017fe09cac0f0587fa9"
+    },
+    {
+      "path": "include/specialmonitors.h",
+      "mode": "100644",
+      "sha256": "51212ab0dccb60ee46bec6c199f6c8325a5bf48f98bd4ca23ce6970cdfabe701"
+    },
+    {
+      "path": "include/statusline.h",
+      "mode": "100644",
+      "sha256": "f03e8e349e15ac16499cc98477af6ad076e00476968fb75dd510721d9ae17239"
+    },
+    {
+      "path": "include/sysdeps.h",
+      "mode": "100644",
+      "sha256": "deaf4bf79a62ddf4ffe17bfc3fdcae957fbc3b769cbb0599276562b4e5cbabee"
+    },
+    {
+      "path": "include/tabletlibrary.h",
+      "mode": "100644",
+      "sha256": "b89a523aef56cc9424c67f741914d2d82578736309370a691e8a744c8f782aab"
+    },
+    {
+      "path": "include/tinyxml2.h",
+      "mode": "100644",
+      "sha256": "79923d1f8e56cc454c4edda228943d682c1581d2532219687c459ca2c8463070"
+    },
+    {
+      "path": "include/traps.h",
+      "mode": "100644",
+      "sha256": "8e15124290d158e4324c9853bd55b3c2ce4ccefd5d5c61fe40999052ddb41385"
+    },
+    {
+      "path": "include/uae.h",
+      "mode": "100644",
+      "sha256": "7efe42a8b196f453ab86f49985b985185d493e8c4dcaaad888003db70d6a78bc"
+    },
+    {
+      "path": "include/uae/api.h",
+      "mode": "100644",
+      "sha256": "d10c380338a3ef3b80d8d8dcb905d8419e28f38bc465d3e9f78ed8d9e97ce776"
+    },
+    {
+      "path": "include/uae/attributes.h",
+      "mode": "100644",
+      "sha256": "d880876e752fe0833edc907e4b7248dafc2f167f8fd93b79b287b8496edf2fa0"
+    },
+    {
+      "path": "include/uae/cdrom.h",
+      "mode": "100644",
+      "sha256": "b5f641611c123f3e38f944c59e66af975ac07f590e363e5b9ca751ec52e8b15e"
+    },
+    {
+      "path": "include/uae/dlopen.h",
+      "mode": "100644",
+      "sha256": "da00707180b8cdd80f73a8e1f27dcae371664967c7b81510bb232ad92d906c4b"
+    },
+    {
+      "path": "include/uae/endian.h",
+      "mode": "100644",
+      "sha256": "94fe381eaa934f25a0fa9167377be119da8e1f9a7aef9a65fcf533140ccbfbba"
+    },
+    {
+      "path": "include/uae/inline.h",
+      "mode": "100644",
+      "sha256": "a8233f1a7312eb278c4af4d6aefe33307f5f7b258ddba07e9bce89a45bcad36b"
+    },
+    {
+      "path": "include/uae/io.h",
+      "mode": "100644",
+      "sha256": "7065126ba94307f696a1daee823c4a46abcf5f3fc0f7693cb7393a5313c50c97"
+    },
+    {
+      "path": "include/uae/likely.h",
+      "mode": "100644",
+      "sha256": "58d46ff0cb5407e968be204f2fa8505f3212c8dc02535bb9bbf6ee97a5d3da1f"
+    },
+    {
+      "path": "include/uae/log.h",
+      "mode": "100644",
+      "sha256": "4933207efbd24b99f4bbfa4ff15161bbc31187b0c83ef11a8d69620bc15ae9d1"
+    },
+    {
+      "path": "include/uae/memory.h",
+      "mode": "100644",
+      "sha256": "eaf72d3ea4b39b567379c4b732aa42a93bf46a5308657b855927a2d0baf875a0"
+    },
+    {
+      "path": "include/uae/mman.h",
+      "mode": "100644",
+      "sha256": "52837e5d17c491a8bb13014ec770f5b83719fd82d54bcc102d73d3ddab5fcff4"
+    },
+    {
+      "path": "include/uae/ppc.h",
+      "mode": "100644",
+      "sha256": "256c96cf96b094505182eddb77292cf31217be1f1b3140026b64fe2a69cc0f94"
+    },
+    {
+      "path": "include/uae/qemu.h",
+      "mode": "100644",
+      "sha256": "445f4a617df8eda09a3a8634bdf36d1e8598f900a6862a7732d4ce5312767fc4"
+    },
+    {
+      "path": "include/uae/seh.h",
+      "mode": "100644",
+      "sha256": "a2b628406f7384b7171c254a4dfff80c7d5f632aa91b6c35919e4bde6fa1ab13"
+    },
+    {
+      "path": "include/uae/slirp.h",
+      "mode": "100644",
+      "sha256": "48a1754542979acfd93b3c6e7fcfd034cfe980db6b794d312b1bab6447d59ffc"
+    },
+    {
+      "path": "include/uae/string.h",
+      "mode": "100644",
+      "sha256": "9bb02656d967148185925196222eeb5f69fd4c930a568dd985aa7e2ffa24d259"
+    },
+    {
+      "path": "include/uae/time.h",
+      "mode": "100644",
+      "sha256": "25f9ebcba5fa4266c5d149ccda55949dd93ddafe559a0cf5f9c8d3ca1fa1fa0c"
+    },
+    {
+      "path": "include/uae/types.h",
+      "mode": "100644",
+      "sha256": "afb460fd0a5162f5a7489f4fae27f0e33e626f10f757c1f7a1acaad05885339b"
+    },
+    {
+      "path": "include/uae/vm.h",
+      "mode": "100644",
+      "sha256": "0d9131605403b6ea693ab80f31eb18ab824a3bb417e8d1aefa45c6e047bfd5ea"
+    },
+    {
+      "path": "include/uaeexe.h",
+      "mode": "100644",
+      "sha256": "76c4ae1f508b763fafea328719381c6329f1bd17f2b8339f53207abb90740db8"
+    },
+    {
+      "path": "include/uaeipc.h",
+      "mode": "100644",
+      "sha256": "2d30e567902a770e0bfc0e2163edd571614e6379ff4b28c76bace8363b74ccb2"
+    },
+    {
+      "path": "include/uaenative.h",
+      "mode": "100644",
+      "sha256": "37bb1352ac06238c3bbfae5a394173cbbcb7883a3a2cd717c8ac0e06fe6a5452"
+    },
+    {
+      "path": "include/uaeresource.h",
+      "mode": "100644",
+      "sha256": "8868bbbb53bbc7152eb328dd7e2bc31999701a0ff3563ccb2953d4ebe3131d5b"
+    },
+    {
+      "path": "include/uaeserial.h",
+      "mode": "100644",
+      "sha256": "5dfcddd1d969817b64c3cdd3b9ed6061413f3f3d1b160e0effca6ff9a829dc4b"
+    },
+    {
+      "path": "include/uni_common.h",
+      "mode": "100644",
+      "sha256": "1dc4e97368e8be74241554a875d67329c7f0728af44672e1293dc7e855a44c82"
+    },
+    {
+      "path": "include/unpacked.h",
+      "mode": "100644",
+      "sha256": "ceda60d9519e2469367db86b9f9b9ad69993ed3cb70a126b9f1391fa2d99a7d1"
+    },
+    {
+      "path": "include/videograb.h",
+      "mode": "100644",
+      "sha256": "bde10823d735347aa6a3c6d436257e79f5328b52e7ff1702013fefa216b4e6a8"
+    },
+    {
+      "path": "include/x86.h",
+      "mode": "100644",
+      "sha256": "9553370e7fbf9ca8b0d844ff8496598d93d3e4958a1df317a6545a8e35c56bb7"
+    },
+    {
+      "path": "include/xwin.h",
+      "mode": "100644",
+      "sha256": "457244343eb6364703e6e5ed872673b070c685d5e4c2603bdb2615817bc3d9a5"
+    },
+    {
+      "path": "include/zarchive.h",
+      "mode": "100644",
+      "sha256": "779a77621d86fd1794d65ef23d6fab725273815c2d9266277d891246cecbbac2"
+    },
+    {
+      "path": "include/zfile.h",
+      "mode": "100644",
+      "sha256": "e67d7b8fd047452002d350c0e61b146fe59cd96298165e7bc573fe80edcbad9c"
+    },
+    {
+      "path": "ini.cpp",
+      "mode": "100644",
+      "sha256": "c3cf74c0681d5d21f365a4748c0b3d6a75c0ef2c8109d5c71c17710aa31d6d02"
+    },
+    {
+      "path": "inprec.cpp",
+      "mode": "100644",
+      "sha256": "7830c0ba0476eeb1962c4d2de6120928b888b02ebccdd89064dab6c10f6e8697"
+    },
+    {
+      "path": "inputdevice.cpp",
+      "mode": "100644",
+      "sha256": "d1e7b0ec49a2edde4883a30fb836fe8cc5175119309600cd9fdbe3b5e2a02eba"
+    },
+    {
+      "path": "inputevents.def",
+      "mode": "100644",
+      "sha256": "f6d3579247b9dde242834d5320c3ac89df69b0a0cf08a7a7eed93186c6b2cd88"
+    },
+    {
+      "path": "inputrecord.cpp",
+      "mode": "100644",
+      "sha256": "e4bfc8dac8a3e38bb2cf83014b6a35d43ac571d67e60a3eb986b0438d8aa6dbc"
+    },
+    {
+      "path": "isofs.cpp",
+      "mode": "100644",
+      "sha256": "1f5d072ca2e4d8f674f7f4df8fe154446b17657e21dbff4b18da9035cf9270a2"
+    },
+    {
+      "path": "jit/codegen_arm.cpp",
+      "mode": "100644",
+      "sha256": "ae8378a0e86957a00020b0e4f0caa018225a9521d73a237a066be7a4afa76e34"
+    },
+    {
+      "path": "jit/codegen_arm.h",
+      "mode": "100644",
+      "sha256": "8b150801c7dbfccfbec1dcc6588c55afa254f44c10836e32585eefa5107ef8e4"
+    },
+    {
+      "path": "jit/codegen_x86.cpp",
+      "mode": "100644",
+      "sha256": "44aef98b764dd3dc7e368f36e3ba2b1bd12499efc815dd04a4a2c6666bb67a65"
+    },
+    {
+      "path": "jit/codegen_x86.h",
+      "mode": "100644",
+      "sha256": "4eed09889e86aba8737cb6d491642075a1d45bc7d6696668d77dd14b308cbf53"
+    },
+    {
+      "path": "jit/compemu.cpp",
+      "mode": "100644",
+      "sha256": "7dbfbe03c2b08a29b290000120413d6f00518fee6e8077cd75d536f10c2c0704"
+    },
+    {
+      "path": "jit/compemu.h",
+      "mode": "100644",
+      "sha256": "53a4ec4011c66cc7fe07eab070afe7dbdf5fe69d0640f7d502f06dcf9e07fe6b"
+    },
+    {
+      "path": "jit/compemu_fpp.cpp",
+      "mode": "100644",
+      "sha256": "a8bd0b02674a587f912300206ca9e6d30b2381a84810660cbd5fb9f582a4ae44"
+    },
+    {
+      "path": "jit/compemu_midfunc_arm.cpp",
+      "mode": "100644",
+      "sha256": "ce0218041b4114a26832ab07fa020f3528aa9eb3e4b6d5cacffa91139c7cb9b3"
+    },
+    {
+      "path": "jit/compemu_midfunc_arm.h",
+      "mode": "100644",
+      "sha256": "a24ed5dd702d7852355cb8c74cfb59c1b161e98143953160b08aa3c19874011a"
+    },
+    {
+      "path": "jit/compemu_midfunc_arm2.cpp",
+      "mode": "100644",
+      "sha256": "fe6e3a2eccc8a543cd12a073f0f58ce0d5ada1795d33c8603de64e2a1cb02182"
+    },
+    {
+      "path": "jit/compemu_midfunc_arm2.h",
+      "mode": "100644",
+      "sha256": "491e9e9fe2972c362c5a9eab8d480af5a60677e86d7f1e955d6fab446b616212"
+    },
+    {
+      "path": "jit/compemu_midfunc_x86.cpp",
+      "mode": "100644",
+      "sha256": "768b7f27116ebc97376b973f65be84172eb353ba2036ef7816c8a3f653a0dd24"
+    },
+    {
+      "path": "jit/compemu_midfunc_x86.h",
+      "mode": "100644",
+      "sha256": "a1dc95f9f0e5252f922a1d7cc113bc483ba4aecaaec4a4155d7725539c5fb50f"
+    },
+    {
+      "path": "jit/compemu_prefs.cpp",
+      "mode": "100644",
+      "sha256": "febe6152072269b88d9f89796d16782276060031bc71b78ca90dd5b39ef37cda"
+    },
+    {
+      "path": "jit/compemu_support.cpp",
+      "mode": "100644",
+      "sha256": "97874afb25ba971b46d0981639ee067808db8554ef5ed9bbdb976bbee541165d"
+    },
+    {
+      "path": "jit/compstbl.cpp",
+      "mode": "100644",
+      "sha256": "3dce9a3ed41f35ea1296fc4d99124dfbe371390532e7a86c88f8bd83f58a1c44"
+    },
+    {
+      "path": "jit/comptbl.h",
+      "mode": "100644",
+      "sha256": "8b4e2229b7237fa6c7d00d361c82d0d671e09fe0cfd072078306949bee236848"
+    },
+    {
+      "path": "jit/exception_handler.cpp",
+      "mode": "100644",
+      "sha256": "c0fd328f8242fd3230bc3591324d530fa475b892b61036c365db0e6dd0fe7a0e"
+    },
+    {
+      "path": "jit/flags_arm.h",
+      "mode": "100644",
+      "sha256": "3a42bf64cafcc43424a71c8ca3459c046e25f634ae7769c9e89b62e503b32fe3"
+    },
+    {
+      "path": "jit/flags_x86.h",
+      "mode": "100644",
+      "sha256": "1841446b9b0605b8fc3b6685cfbc9c0e6d00cad0c4eb051d1195637394c80c74"
+    },
+    {
+      "path": "jit/gencomp.cpp",
+      "mode": "100644",
+      "sha256": "b41d9aad9fff7ea153700b5e5b5bb0a9bda11f357e2711198488e05c0b3d38ad"
+    },
+    {
+      "path": "jit/gencomp_arm.c",
+      "mode": "100644",
+      "sha256": "3e5056f72de13331a21da8f62d0855c3f844a45d10a54184eec521b62f5959f8"
+    },
+    {
+      "path": "jit/memory-uae.h",
+      "mode": "100644",
+      "sha256": "150580362efd0b435b1fd56d437e81d068a5a229ab5461389c6b8e8729396945"
+    },
+    {
+      "path": "kbmcu/8048/co8048.cpp",
+      "mode": "100644",
+      "sha256": "d39937a26e415484d08a2aa49f3a795af46419da744e7070dffddfbdb8528e12"
+    },
+    {
+      "path": "kbmcu/8048/co8048.h",
+      "mode": "100644",
+      "sha256": "903f6aef5ca6cda482e01357da8a34ba6f32de4d54f5ca9b686e1d971739a213"
+    },
+    {
+      "path": "kbmcu/keyboard_mcu_6500_1.cpp",
+      "mode": "100644",
+      "sha256": "2ac9ba36df378a8e33d185ddb6e98783292a910100a34625a7f603f59caba020"
+    },
+    {
+      "path": "kbmcu/keyboard_mcu_6805.cpp",
+      "mode": "100644",
+      "sha256": "c83c1ddc77ed7f7dfd5ce15bc2ea73e6fd42cf2c40705defd0ce74a741627433"
+    },
+    {
+      "path": "kbmcu/keyboard_mcu_d8039hlc.cpp",
+      "mode": "100644",
+      "sha256": "db4578970428a1bdd015d5e940a2225186f076823ee479ec3859ba9e0533478d"
+    },
+    {
+      "path": "kbmcu/m6805/m68_internal.h",
+      "mode": "100644",
+      "sha256": "d5f73275fca1af511f09d45142a31469bb6e6ecaba0b54968ca4bb48de75f474"
+    },
+    {
+      "path": "kbmcu/m6805/m68_ops.cpp",
+      "mode": "100644",
+      "sha256": "7ad3e92fad17419664e937814644b260ac972fb5b5d1447616dbcdca58e35821"
+    },
+    {
+      "path": "kbmcu/m6805/m68_optab_hc05.h",
+      "mode": "100644",
+      "sha256": "ec5a7e119d36a71dd069eae5bef47eff9315b7be2c3054ce29f4045bf52cc527"
+    },
+    {
+      "path": "kbmcu/m6805/m68emu.cpp",
+      "mode": "100644",
+      "sha256": "decc73a1e41db89477f12a9781bcfd24a003b47890f63025fd7cfe5ecf5332d7"
+    },
+    {
+      "path": "kbmcu/m6805/m68emu.h",
+      "mode": "100644",
+      "sha256": "680915fdd90a8920f104a7efb1599292eb1147f9b44bd8e4127a2fcd60687dab"
+    },
+    {
+      "path": "keybuf.cpp",
+      "mode": "100644",
+      "sha256": "e31a87d6ab617360ad9426e7eba8ade725c5fba0c88fb0223598912114e69951"
+    },
+    {
+      "path": "linetoscr_aga_fast.cpp",
+      "mode": "100644",
+      "sha256": "b00abc157075a4b97fe40621121f8bfff07970f077c290028132b6cd3b8aeeea"
+    },
+    {
+      "path": "linetoscr_aga_fm0.cpp",
+      "mode": "100644",
+      "sha256": "853db456732ba4d96da5a7b79d7829641276dc26d7c966508f7e466c935a5a3c"
+    },
+    {
+      "path": "linetoscr_aga_fm0_genlock.cpp",
+      "mode": "100644",
+      "sha256": "cc20821f93beae460068e4721980f8ff83aabf5faba185cbed5368bb49d1fe8c"
+    },
+    {
+      "path": "linetoscr_aga_fm1.cpp",
+      "mode": "100644",
+      "sha256": "f698a400f7f6f6bd69219b8842ecdfecb4b43c48184777aebc4aff0e96807618"
+    },
+    {
+      "path": "linetoscr_aga_fm1_genlock.cpp",
+      "mode": "100644",
+      "sha256": "fce08fca56a679bdfe86894480f0d92c682e1223fd4f58479dc9d0c8238486e4"
+    },
+    {
+      "path": "linetoscr_aga_fm2.cpp",
+      "mode": "100644",
+      "sha256": "9744b71cfd6b39a25e453c5b355ed1244d8ee6c06b51bbfdfb999b3a06abb1ac"
+    },
+    {
+      "path": "linetoscr_aga_fm2_genlock.cpp",
+      "mode": "100644",
+      "sha256": "e7846cc3696007cb9e8c09f5215ce35ee09d8a6671a0647362fcf32c32b196de"
+    },
+    {
+      "path": "linetoscr_aga_genlock_fast.cpp",
+      "mode": "100644",
+      "sha256": "10c25f6bc916249918d80f02a55e85add21fe6748d112099d6b10be5dd3a1f64"
+    },
+    {
+      "path": "linetoscr_common.cpp",
+      "mode": "100644",
+      "sha256": "7396f18ec76afd9a7f8857a47f409628036aa5a7c12580c53e14fd6776915649"
+    },
+    {
+      "path": "linetoscr_ecs_fast.cpp",
+      "mode": "100644",
+      "sha256": "6812bb57c4dfe2a7b8b747ba785220ef7d83fa826cc087a47c9840bfff5b6cc1"
+    },
+    {
+      "path": "linetoscr_ecs_genlock_fast.cpp",
+      "mode": "100644",
+      "sha256": "a1801507cb6e74ad3b79705e096bfce424a0681ecbbcc8789a9b806e7f2449d5"
+    },
+    {
+      "path": "linetoscr_ecs_shres.cpp",
+      "mode": "100644",
+      "sha256": "d5fc5c16408a362b6d09ac73064efb38549d21db097504fc636ac39bca9b884b"
+    },
+    {
+      "path": "linetoscr_ocs_ecs.cpp",
+      "mode": "100644",
+      "sha256": "1645f1673cabd3e2df95c3f90edf1be38396d882132d8907534325353f6d3ab5"
+    },
+    {
+      "path": "linetoscr_ocs_ecs_genlock.cpp",
+      "mode": "100644",
+      "sha256": "4b4b1729af3448f0011ee89562704c11eef419cfe8bdcb1f41e52d48a3bb07a1"
+    },
+    {
+      "path": "linetoscr_ocs_ecs_ntsc.cpp",
+      "mode": "100644",
+      "sha256": "659d27e240839678a3660bfca26b756e0842b3d2e9c25f22127ca98d8d5cfd39"
+    },
+    {
+      "path": "linetoscr_ocs_ecs_ntsc_genlock.cpp",
+      "mode": "100644",
+      "sha256": "82d9dc0614364b853436a4824c044d715282ab765d01d4093b9a3f88bb657006"
+    },
+    {
+      "path": "logging.cpp",
+      "mode": "100644",
+      "sha256": "fd97bf7d0c5bad53165393f5f059958b6759d833e75180f35961f53ab8204ab8"
+    },
+    {
+      "path": "luascript.cpp",
+      "mode": "100644",
+      "sha256": "d5d6cf4d03619de8c3c1056da569507583b61157a6557794b54a46fb25347ffa"
+    },
+    {
+      "path": "main.cpp",
+      "mode": "100644",
+      "sha256": "8bb83bc6738985a4c91a4d47949d1b43d202b475b0dea3543b281b84c8eb3754"
+    },
+    {
+      "path": "mame/a2410.cpp",
+      "mode": "100644",
+      "sha256": "f4069998ef01540de82e85c13a1509df44ecba084d8580a3ec5da96b9dfcbd31"
+    },
+    {
+      "path": "mame/mameglue.h",
+      "mode": "100644",
+      "sha256": "1db25647162ac4da8797ef82cea170e0d1196b6de9f669fe53f9730da911abb6"
+    },
+    {
+      "path": "mame/tm34010/34010dsm.c",
+      "mode": "100644",
+      "sha256": "01cb4e7072d2fb2d61ca89d02915731aeda1a72ef4bd3a139106aac4bb5b81cc"
+    },
+    {
+      "path": "mame/tm34010/34010fld.c",
+      "mode": "100644",
+      "sha256": "b4240c41ff58255e9f4fc8788ea8f62ce700b8e421abe1d34e0503aecbef29b4"
+    },
+    {
+      "path": "mame/tm34010/34010gfx.c",
+      "mode": "100644",
+      "sha256": "89b6620a8a633734f4e2f5a69558ab89e1b53effcf77dc95efd3580578aa2e44"
+    },
+    {
+      "path": "mame/tm34010/34010ops.c",
+      "mode": "100644",
+      "sha256": "6f961bf26c243022a59f2b3d47a0d0a146687443be08bf443ad3b6735116c65d"
+    },
+    {
+      "path": "mame/tm34010/34010ops.h",
+      "mode": "100644",
+      "sha256": "7f327d9913c14dac13474e79873401167d74612081a507261d925d733be79b12"
+    },
+    {
+      "path": "mame/tm34010/34010tbl.c",
+      "mode": "100644",
+      "sha256": "6ed715bc3097a148d09e0e224569a2428ce0a40a09a5bea78950d27e4df12b77"
+    },
+    {
+      "path": "mame/tm34010/dis34010.c",
+      "mode": "100644",
+      "sha256": "a3f7aa0cc94553b3959ca70e2aab64c7d2ae474216ce39194fd29ef6c2180ee7"
+    },
+    {
+      "path": "mame/tm34010/tms34010.cpp",
+      "mode": "100644",
+      "sha256": "5f700e1b168bc11366050d690e6cda801fab86b910462da7c80401291cffed68"
+    },
+    {
+      "path": "mame/tm34010/tms34010.h",
+      "mode": "100644",
+      "sha256": "e0e826ca6e96c1e2937a43373a07c04a42a1b123f27b77bcfb670ebbc2a630ea"
+    },
+    {
+      "path": "memory.cpp",
+      "mode": "100644",
+      "sha256": "ac190d990f6898c3ac70e241316d13f8f0e2605846a1cf3fd1550fcad8b2a421"
+    },
+    {
+      "path": "midiemu.cpp",
+      "mode": "100644",
+      "sha256": "a096764846f1d3b2ff233d81b303ad2b72a8bfc4ceb774a6ba49ca5b7555d2d7"
+    },
+    {
+      "path": "missing.cpp",
+      "mode": "100644",
+      "sha256": "b10dd6660d0ff50be731c8e8b824b90215dea7e005aef7f266304c462296ceb3"
+    },
+    {
+      "path": "moduleripper.cpp",
+      "mode": "100644",
+      "sha256": "c8281f1b80f28ca1a636607ba19c80c2d1b1ac95a9e6af270ee2d9dc9734f3f7"
+    },
+    {
+      "path": "mos6502.cpp",
+      "mode": "100644",
+      "sha256": "c5738aabfcf427f59f4aeee89eb50775d13b1fb350b459859291a62a274c7b31"
+    },
+    {
+      "path": "native2amiga.cpp",
+      "mode": "100644",
+      "sha256": "002b67b9980ec24d9e2b0a6198aeb634eee6f5034ab20702f7e1ba82abdce860"
+    },
+    {
+      "path": "ncr9x_scsi.cpp",
+      "mode": "100644",
+      "sha256": "a22cbffb3e5dbc090e28e14a9f46afa4c0e7b742a15fe7293a98a615bfeb2345"
+    },
+    {
+      "path": "ncr_scsi.cpp",
+      "mode": "100644",
+      "sha256": "add2bc5cfa2b23a09650ceafb978beaafcd1183a9b075fc730d4ae9b431bf649"
+    },
+    {
+      "path": "newcpu.cpp",
+      "mode": "100644",
+      "sha256": "83eda9b8c0dd3f3b7237ed5b9707080d1552ff95adec019ec41201001177656d"
+    },
+    {
+      "path": "newcpu_common.cpp",
+      "mode": "100644",
+      "sha256": "8d8e9dd77f27dd3e66c7b8f9a29d020011bb4a9f934c4581ab0c027a295e867b"
+    },
+    {
+      "path": "nogui.cpp",
+      "mode": "100644",
+      "sha256": "f255ca2cf196f917951dd217a162d7cd9e1e32da9df0c82d44be3d4e80957aac"
+    },
+    {
+      "path": "od-win32/7zplugin.cpp",
+      "mode": "100644",
+      "sha256": "d5189f2f50cd51d86468b34bd7c96dec13abe4f8c0bc9c41fec46813a6263772"
+    },
+    {
+      "path": "od-win32/FX11/d3dx11effect.h",
+      "mode": "100644",
+      "sha256": "7c0abaebea9c0f4bb5dc0b195f105870a0493dccc18c587b09c22f952609c88a"
+    },
+    {
+      "path": "od-win32/IatHook.h",
+      "mode": "100644",
+      "sha256": "75c91d588a4f4b01ca2e105a3141bfce9696d542eda5a986ae3b8356427500a5"
+    },
+    {
+      "path": "od-win32/ahidsound.h",
+      "mode": "100644",
+      "sha256": "1a8cd0603385cbfe9e51ec7454b412e5d27261bba864d8cc23ace2e086f9ebfd"
+    },
+    {
+      "path": "od-win32/ahidsound_dsonly.cpp",
+      "mode": "100644",
+      "sha256": "069801c69b705fa95ebd8f8e96f2c96b5802cc791c5bd36f50fea0741d69f406"
+    },
+    {
+      "path": "od-win32/ahidsound_new.cpp",
+      "mode": "100644",
+      "sha256": "2f8e65e16ab88fec5d149b81e87dbd706bec8bf596468d071ab4b0396ca54efb"
+    },
+    {
+      "path": "od-win32/ahidsound_new.h",
+      "mode": "100644",
+      "sha256": "0573629d7fcd78c4c55cd39da49d710f3d24b6cfb865848b3e7b0cb33c199b7f"
+    },
+    {
+      "path": "od-win32/ahidsound_new2.cpp",
+      "mode": "100644",
+      "sha256": "a58e5922853e137927c730e6424161d3b14f5f5a56362b7c47e0c9a2304b3ef2"
+    },
+    {
+      "path": "od-win32/ahidsound_unified.cpp",
+      "mode": "100644",
+      "sha256": "3ad3711a634e59676f1cf0dc615fdc8a2a20d1ef8efb13207440336c47d21b0d"
+    },
+    {
+      "path": "od-win32/ahidsoundx_new.cpp",
+      "mode": "100644",
+      "sha256": "940eaeda660be5edb3cdbadab6233504798c7b3eccbef6813d37b31796a01393"
+    },
+    {
+      "path": "od-win32/avioutput.cpp",
+      "mode": "100644",
+      "sha256": "d9785f962cda74713e8549e09cb89e43f87c3fdeb5ed1a976b7f241e498dc26c"
+    },
+    {
+      "path": "od-win32/avioutput.h",
+      "mode": "100644",
+      "sha256": "530d922c5ce607d17d31abfd35ec017b9fef001904f313057a789bb8905373cd"
+    },
+    {
+      "path": "od-win32/blkdev_win32_aspi.cpp",
+      "mode": "100644",
+      "sha256": "8001500696e8ed22e72af24d4d5250e7f67e45e1aa1257a8441e89e422682759"
+    },
+    {
+      "path": "od-win32/blkdev_win32_ioctl.cpp",
+      "mode": "100644",
+      "sha256": "619d91030efeee154daf8c43c3f141bf3702bff620f98b5fefe800442317cc79"
+    },
+    {
+      "path": "od-win32/blkdev_win32_spti.cpp",
+      "mode": "100644",
+      "sha256": "285daa166b283498345668bcd7fe972c6631cf486969b9201a63c70f888af56e"
+    },
+    {
+      "path": "od-win32/bsdsock.cpp",
+      "mode": "100644",
+      "sha256": "92335135d5a7d34c320d07e9579319562bcf972e14b7bdddcff6a006e3e94c09"
+    },
+    {
+      "path": "od-win32/build68k_msvc/build68k_msvc.vcxproj",
+      "mode": "100644",
+      "sha256": "ce13c8eac0e8d921561ef26de3077f88f3b822e8b881c1db2f852b9dd960e2fd"
+    },
+    {
+      "path": "od-win32/build68k_msvc/build68k_msvc.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "e8e16d14818aac423b940a7842fe4d5205b11395d3b808721f5eccfc8da95d75"
+    },
+    {
+      "path": "od-win32/caps/CapsAPI.h",
+      "mode": "100644",
+      "sha256": "47454ef61dddc88330e60e24b83c653ce93fd2de70804b81e6f004f1c579acd9"
+    },
+    {
+      "path": "od-win32/caps/CapsLib.h",
+      "mode": "100644",
+      "sha256": "7be3232736f82a715d8138ab586ff131409091f9022930977275b860017d7b94"
+    },
+    {
+      "path": "od-win32/caps/Comlib.h",
+      "mode": "100644",
+      "sha256": "1b15cac90eb1388e64d3d28b3c0741cf32436d2825366cb854964a1c15ec6b31"
+    },
+    {
+      "path": "od-win32/caps/Comtype.h",
+      "mode": "100644",
+      "sha256": "ce7d8ebca830a4129cf85023dab5521ddabaa89cfe9b7a0e9a7cc98c69e4265c"
+    },
+    {
+      "path": "od-win32/caps/caps_win32.cpp",
+      "mode": "100644",
+      "sha256": "face4c76cceeba472c939fbc3af16b74b4d12ae3eb8cdc09ae3a9bdf613df547"
+    },
+    {
+      "path": "od-win32/caps/caps_win32.h",
+      "mode": "100644",
+      "sha256": "28ac54c14eaef6d85dc52394f94d548946ef43908963547bed0df4c79da4816d"
+    },
+    {
+      "path": "od-win32/cda_play.cpp",
+      "mode": "100644",
+      "sha256": "d81d87662d152608f33d92c9dd4d3982024f2dcf462330fe75d29662c02a851b"
+    },
+    {
+      "path": "od-win32/cda_play.h",
+      "mode": "100644",
+      "sha256": "e5cbaeac15508e8b04c2160bbe9be545c0d513ba02aaf90a6bf17d26ffc15980"
+    },
+    {
+      "path": "od-win32/clipboard_win32.cpp",
+      "mode": "100644",
+      "sha256": "72982f1987603c7faa5c57ffe99613fcb97035a093a7231b924188a8b620a2fe"
+    },
+    {
+      "path": "od-win32/clipboard_win32.h",
+      "mode": "100644",
+      "sha256": "0c317f85669874c049cd1325b0047fc1569eae19b5794713b567497393fe57a4"
+    },
+    {
+      "path": "od-win32/clirun.cpp",
+      "mode": "100644",
+      "sha256": "83ddb3594f7d4ae9020a19d3fdcb37a55abf06e7766e7d6d68f631fbc764d679"
+    },
+    {
+      "path": "od-win32/cloanto/RetroPlatformGuestIPC.cpp",
+      "mode": "100644",
+      "sha256": "794185ac7aa204b559df937005502854aca5fca0155066cd1b4517c9d39bafd9"
+    },
+    {
+      "path": "od-win32/cloanto/RetroPlatformGuestIPC.h",
+      "mode": "100644",
+      "sha256": "7672f74856280209bce19808ff806ec3080d2c7afb011c1e28f521f84366fcd1"
+    },
+    {
+      "path": "od-win32/cloanto/RetroPlatformIPC-doc.txt",
+      "mode": "100644",
+      "sha256": "1fd4146440df7e7c51ed43cf3179480d7c25de10fc9c4ae71e99c9db6c1ab66e"
+    },
+    {
+      "path": "od-win32/cloanto/RetroPlatformIPC.h",
+      "mode": "100644",
+      "sha256": "db97c64f8946f1c04f82c9d3e8b4d97ec72e5d5c5c47de473bb7120cd363486a"
+    },
+    {
+      "path": "od-win32/cputester/cputester.vcxproj",
+      "mode": "100644",
+      "sha256": "225c16fc4b24fd7bc29a8db6dea5723e5317fd51e81eefa45cf66c8d2e83049f"
+    },
+    {
+      "path": "od-win32/cputester/cputester.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "4a2792ca2b4b3726ccbb058095076a043056592b6838e989b7bb127703d4e262"
+    },
+    {
+      "path": "od-win32/cputester_m68k/cputester_m68k.vcxproj",
+      "mode": "100644",
+      "sha256": "32dce26a9324e451fa5ec9023b3a1c03d0438102520a554015871fe710d21896"
+    },
+    {
+      "path": "od-win32/cputester_m68k/cputester_m68k.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "8e6ba514a8037b136032faedb9d22871f006593771e49a53ef63ff47508caf3b"
+    },
+    {
+      "path": "od-win32/d3dx.h",
+      "mode": "100644",
+      "sha256": "65c0a59dc5055b00c6559cffb525910c21dfdcc33084da48ea1aa73137b3df87"
+    },
+    {
+      "path": "od-win32/darkmode.cpp",
+      "mode": "100644",
+      "sha256": "8638f38843dcb6aa1a5cdfd213557d2cbf1404480976cb1be18f61101c0e5fb0"
+    },
+    {
+      "path": "od-win32/darkmode.h",
+      "mode": "100644",
+      "sha256": "cf181b98bdabbcd5bf1720621d71cee545a932bfdc6b0710bd497cfffc9f3589"
+    },
+    {
+      "path": "od-win32/debug_win32.cpp",
+      "mode": "100644",
+      "sha256": "6ec193b294171cd0d170a50ff9de77e40dcbffd9da7ade80e3221c9bd0477d91"
+    },
+    {
+      "path": "od-win32/debug_win32.h",
+      "mode": "100644",
+      "sha256": "2ce72cbd2d6e6ef0bbfacf05b3e84151624b096bd1cd894cb6f4f80a16325cc8"
+    },
+    {
+      "path": "od-win32/dinput.cpp",
+      "mode": "100644",
+      "sha256": "6330ee79faf29c991ed239c4289084c6f4a14f52d3611cded70b92dca9d90d33"
+    },
+    {
+      "path": "od-win32/direct3d.cpp",
+      "mode": "100644",
+      "sha256": "7434a638c9160f26c41d0aac5d567c84b5d95e78bdf797dc574a460f27bcdc38"
+    },
+    {
+      "path": "od-win32/direct3d.h",
+      "mode": "100644",
+      "sha256": "59b8d06910ae2db051d8147eb8c8969b885c079bf39638e9921adc1bf417b1cc"
+    },
+    {
+      "path": "od-win32/direct3d11.cpp",
+      "mode": "100644",
+      "sha256": "414263e569d0039be82f1ae67fabc59e5935664bced249eb16f076313326ddb3"
+    },
+    {
+      "path": "od-win32/diskutil.cpp",
+      "mode": "100644",
+      "sha256": "116826b3ca6e40808477ea72cc0829176ca5593dcda3efb4b3df6ee712b3f72d"
+    },
+    {
+      "path": "od-win32/diskutil.h",
+      "mode": "100644",
+      "sha256": "d4344e4849c9f4c5290811bd73b2244dcdcabbe47eab0865faf880db25429f01"
+    },
+    {
+      "path": "od-win32/driveclick_win32.cpp",
+      "mode": "100644",
+      "sha256": "6dc448ade0cda8adf9430155c14020550c69d5970654c993603b29bbfd28691a"
+    },
+    {
+      "path": "od-win32/fdrawcmd.cpp",
+      "mode": "100644",
+      "sha256": "acb0b08f0504c4c0fce976ef2224283571e53fda0a4701b5b80ce421ace8d337"
+    },
+    {
+      "path": "od-win32/fpp_native_msvc_80bit.cpp",
+      "mode": "100644",
+      "sha256": "3128e3ace0925612182fb4f639ad4c2a19f0c64ff77a3401b5c7d6d98b99fa3e"
+    },
+    {
+      "path": "od-win32/fpux64_80.asm",
+      "mode": "100644",
+      "sha256": "9e751b5c926438a18306cf49a105d0191d99a0e7b6c75ca4603c517631b975e3"
+    },
+    {
+      "path": "od-win32/fpux86_80.asm",
+      "mode": "100644",
+      "sha256": "513e9c71e6d27a0e2c76740877db8d471d8f5dd230b809364722c9950703893f"
+    },
+    {
+      "path": "od-win32/fsdb_mywin32.cpp",
+      "mode": "100644",
+      "sha256": "12974ec13017d42df0c8fd216b3e67c438b08c0dc51b3a23a5b5ef0c453e3bb6"
+    },
+    {
+      "path": "od-win32/fsdb_win32.cpp",
+      "mode": "100644",
+      "sha256": "2881834fea26e1fd7bf534c79f936ee15ae3d52b0eefc570ec67c89f8d8bc8fc"
+    },
+    {
+      "path": "od-win32/gdirender.cpp",
+      "mode": "100644",
+      "sha256": "df089b070d0378f0027dcf21d50a1fbcd7d5f146772ff5dabae9497b90c9acfd"
+    },
+    {
+      "path": "od-win32/genblitter_msvc/genblitter_msvc.vcxproj",
+      "mode": "100644",
+      "sha256": "b08657cd00a874bbe210b88d85701edc2e9435f523b5b5544a209b9024873e4c"
+    },
+    {
+      "path": "od-win32/genblitter_msvc/genblitter_msvc.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "58abceca9a53f40368cf30a3fba6c342dec4149f9e406c6e9ad238c128f92c91"
+    },
+    {
+      "path": "od-win32/gencomp_msvc/gencomp_msvc.vcxproj",
+      "mode": "100644",
+      "sha256": "afd734ca88c60b6b12ebb04608d28be315d8d026da8c168a50017386c8ab0dcc"
+    },
+    {
+      "path": "od-win32/gencomp_msvc/gencomp_msvc.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "e66d690c915009a3857b761b6f2d4be4cbcfbb79519b48c6110b7c9d8a362cad"
+    },
+    {
+      "path": "od-win32/gencpu_msvc/gencpu_msvc.vcxproj",
+      "mode": "100644",
+      "sha256": "a33ae68055bafd704a985173e77581e8c0d6d45f69acf0321ffd8b9dc0ac1288"
+    },
+    {
+      "path": "od-win32/gencpu_msvc/gencpu_msvc.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "c4cf5e286acc5aca4a882df1da2ed0453b43520d82d6c3273589cf91190a05f8"
+    },
+    {
+      "path": "od-win32/genlinetoscr_msvc/genlinetoscr_msvc.vcxproj",
+      "mode": "100644",
+      "sha256": "a91930908a1860df94039c71bdd1e13819e5e3889937cb14d97d398426815355"
+    },
+    {
+      "path": "od-win32/genlinetoscr_msvc/genlinetoscr_msvc.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "c775506453c843654abd2f44d6d45276cd4a8e1442d50f8642ec2d5e3637d6e3"
+    },
+    {
+      "path": "od-win32/graphics/amiga_header.bmp",
+      "mode": "100644",
+      "sha256": "34469c3725e6373f569d3b7dbba31a179e002090594971ee4771d4248f709afa"
+    },
+    {
+      "path": "od-win32/graphics/amiga_header_2013.bmp",
+      "mode": "100644",
+      "sha256": "a7addd6fffb39d16c33d81cdecc52644cad55ed25cba593dbe9350b9f2290258"
+    },
+    {
+      "path": "od-win32/graphics/amiga_welcome.bmp",
+      "mode": "100644",
+      "sha256": "f8aefc1f15167f63230edf7b2d7c1fafe5ee46410d177e6d8b0358d488250188"
+    },
+    {
+      "path": "od-win32/graphics/amiga_welcome_2013.bmp",
+      "mode": "100644",
+      "sha256": "87977b051d9c637ce0eb910a6fe8b71d8ae422811c592ec2c2f86de44ae58b38"
+    },
+    {
+      "path": "od-win32/graphics/installer_icon.ico",
+      "mode": "100644",
+      "sha256": "266a2b98cad909881c22cc9a2e46897f3f1fc22ed518c2da1112f563b8aafcef"
+    },
+    {
+      "path": "od-win32/graphics/test_card.png",
+      "mode": "100644",
+      "sha256": "3c85bcfdde8c715aa5440e6b022ede4e3882a99a7e00a4099841c4f6c22a3df7"
+    },
+    {
+      "path": "od-win32/hardfile_win32.cpp",
+      "mode": "100644",
+      "sha256": "063178ac1d803123e2884935f9cdc4f5c22bffd5662dbf503636f399a60f3ac5"
+    },
+    {
+      "path": "od-win32/hq2x_d3d.cpp",
+      "mode": "100644",
+      "sha256": "13a6364552e4a7cc0df6762a6418172702b8508bdfbe354bc5eb1ed82ff6403e"
+    },
+    {
+      "path": "od-win32/hq2x_d3d.h",
+      "mode": "100644",
+      "sha256": "b1ec7efe574d38d765be828b43da862cd4cb9d18f7fdc137fe85095d0f268465"
+    },
+    {
+      "path": "od-win32/ioport.cpp",
+      "mode": "100644",
+      "sha256": "f7b69e33d4d6b27978deda934c22879cd58843c08e18c348f1d6cc66788e329a"
+    },
+    {
+      "path": "od-win32/ioport.h",
+      "mode": "100644",
+      "sha256": "8b2f74297daa38d91da36affcd26b26b4a051d095f50edab38be6c169bda945f"
+    },
+    {
+      "path": "od-win32/ipctester.cpp",
+      "mode": "100644",
+      "sha256": "d9d341abbc388fd71962301921938f41b58a9fd917eda42ac2c626cc9e89359b"
+    },
+    {
+      "path": "od-win32/keyboard_win32.cpp",
+      "mode": "100644",
+      "sha256": "20345779e5a68de91142de71474f13c8ca46cf610e96c51b57872011d74f6cd1"
+    },
+    {
+      "path": "od-win32/lcd.cpp",
+      "mode": "100644",
+      "sha256": "7501c1c28a10b4e49c38f39b71204358d18c5e784bea4141f5d04504d5aad2e1"
+    },
+    {
+      "path": "od-win32/lcd.h",
+      "mode": "100644",
+      "sha256": "77f7aee990066c2617fa53a60d8e651e6e36f1dbdac44c46348f84eabc103e59"
+    },
+    {
+      "path": "od-win32/machdep/m68k.cpp",
+      "mode": "100644",
+      "sha256": "9987eeb533cc6f08a902eeaf3376075de5c38cc8158aa417e93001b7a53a1811"
+    },
+    {
+      "path": "od-win32/machdep/m68k.h",
+      "mode": "100644",
+      "sha256": "51abf03b7904f191f2ac78d254600a27b0b162ea9e4a97a72223e2623c075b09"
+    },
+    {
+      "path": "od-win32/machdep/maccess.h",
+      "mode": "100644",
+      "sha256": "36c41d9f0c7dde2cc6a716fe8f3ce155d1d50906fb76e5d3bfdb8fdf6a3de3ea"
+    },
+    {
+      "path": "od-win32/machdep/rpt.h",
+      "mode": "100644",
+      "sha256": "4b4949e29bfa2206e1b148d326f7088a0b8c8743457df263828051faf4f792bd"
+    },
+    {
+      "path": "od-win32/makeexe.cmd",
+      "mode": "100644",
+      "sha256": "7c926015e2fe9c66d8b4b659e36aab143494e9b1d8a29bc5e2debba4cdfec0d3"
+    },
+    {
+      "path": "od-win32/makeres.cmd",
+      "mode": "100644",
+      "sha256": "1c3e0cf31af789d16cfef537392d2b56addd69984f1370488ec276a9df878d95"
+    },
+    {
+      "path": "od-win32/midi.cpp",
+      "mode": "100644",
+      "sha256": "b83594145fabc50d53d7e188574f83e601cf7fa9dd031a8706482c1939ab70a0"
+    },
+    {
+      "path": "od-win32/midi.h",
+      "mode": "100644",
+      "sha256": "31f83e804313363b8fa197e251023ccc1ce235f008a4556123e4ec2352ec254b"
+    },
+    {
+      "path": "od-win32/midiin.cpp",
+      "mode": "100644",
+      "sha256": "936d4787a2262c54e86fed5fcaf36e84f1cdcec555382b808804770ab321689b"
+    },
+    {
+      "path": "od-win32/mman.cpp",
+      "mode": "100644",
+      "sha256": "4604767e38ede390e8e46069e9edf6bdd09fad9d1ceedc51b8df0ba88d29da51"
+    },
+    {
+      "path": "od-win32/mp3decoder.cpp",
+      "mode": "100644",
+      "sha256": "5137ef9929365155259f64ee02b0c72bd3e9eba6255e147571dccb6b6445ba3b"
+    },
+    {
+      "path": "od-win32/mp3decoder.h",
+      "mode": "100644",
+      "sha256": "b868f2f4fdba9481708d250c5d1a3919576b5955262f67b107afbbe7864b23c0"
+    },
+    {
+      "path": "od-win32/opengl.cpp",
+      "mode": "100644",
+      "sha256": "a5cb12f66066f1b921230a92075a4fafe3a3210db1b1004df52a12d1bf9d3022"
+    },
+    {
+      "path": "od-win32/opengl.h",
+      "mode": "100644",
+      "sha256": "8233e646f3b510fc7bac2f1edd3047e0522ef2586817bd310bff4a04a6634f2e"
+    },
+    {
+      "path": "od-win32/parser.cpp",
+      "mode": "100644",
+      "sha256": "d736387b89cfd920ce47f9780352bba9d5a2778350e6bb71db06c301a674b2a8"
+    },
+    {
+      "path": "od-win32/parser.h",
+      "mode": "100644",
+      "sha256": "adf58cabe7c64c04072048a1406ee5b4f17feaaa8f66940bf366271cc5ffc9cc"
+    },
+    {
+      "path": "od-win32/picasso96_win.cpp",
+      "mode": "100644",
+      "sha256": "6743a9093a2fc6fbbcc841ffaec9acf0e5d517d2a6a2563c78c405aa67000f33"
+    },
+    {
+      "path": "od-win32/picasso96_win.h",
+      "mode": "100644",
+      "sha256": "99dc35af0d72a3a386454ee43caae7589725b5ca26469bc69ec7da42cf9779a7"
+    },
+    {
+      "path": "od-win32/posixemu.cpp",
+      "mode": "100644",
+      "sha256": "af3144b3b0b1eaabb24c1c2a2c522108bc681c938aba76d50234d67b33584a3f"
+    },
+    {
+      "path": "od-win32/posixemu.h",
+      "mode": "100644",
+      "sha256": "68d7faa53fdba2e0e75d046763425d8297551ec02ac5303c908399b859b150d5"
+    },
+    {
+      "path": "od-win32/prowizard/prowizard.vcxproj",
+      "mode": "100644",
+      "sha256": "04dccaf9ae90069383a26a742a337e4cde8f33caa9b98c942a86d0f73f88958b"
+    },
+    {
+      "path": "od-win32/prowizard/prowizard.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "a203bfbe39765d4163848f32e0bb6357e8984c28929bfa531eccbee9ac7886d5"
+    },
+    {
+      "path": "od-win32/registry.cpp",
+      "mode": "100644",
+      "sha256": "3dfc0916186d833fdc6c7be99f99cccf31a2cec7c73bc9cde151473032b4e7a1"
+    },
+    {
+      "path": "od-win32/registry.h",
+      "mode": "100644",
+      "sha256": "03eee0232fa2d3efa8c729bee3f2667d162deb4ee3a1986d9433587e2cd196fa"
+    },
+    {
+      "path": "od-win32/render.h",
+      "mode": "100644",
+      "sha256": "b923dba80073030b9f0f898fc16243b7e23fe0ae916c32d56a03b75ba198a08f"
+    },
+    {
+      "path": "od-win32/resources/35floppy.ico",
+      "mode": "100644",
+      "sha256": "a991bb090653079a43c5d4069e7f02901cb61d6f61e5d831ce9d59b8ee58fab8"
+    },
+    {
+      "path": "od-win32/resources/Mycomp.ico",
+      "mode": "100644",
+      "sha256": "4e8c833658bda4a3d8d8f6dcd0f535ca71a49cbfe47e5b135fefdc37d68288c5"
+    },
+    {
+      "path": "od-win32/resources/WinUAE_German.rc",
+      "mode": "100644",
+      "sha256": "6d86ff3409a49f23b98e348d149c1f6c505b30a3b07986ee3d27788fc75d7d0e"
+    },
+    {
+      "path": "od-win32/resources/amiga.png",
+      "mode": "100644",
+      "sha256": "451608d0e72e36cd288d213cf1c23dee3d5e6a636dbaf96eed55aab289a03368"
+    },
+    {
+      "path": "od-win32/resources/amigainfo.ico",
+      "mode": "100644",
+      "sha256": "d55c46e4fb927af7b469cd73f2593acf5ca1a7d52eeb338289e712710307c433"
+    },
+    {
+      "path": "od-win32/resources/avioutput.ico",
+      "mode": "100644",
+      "sha256": "d09e9817c888babc9292aab03d6bc515ba52cc30158ed9a61155a8aad3136326"
+    },
+    {
+      "path": "od-win32/resources/base floppy.png",
+      "mode": "100644",
+      "sha256": "96d4316fddbc372f55a2ad39d33f4527afbee7aac53b15d5001d83be89118a6f"
+    },
+    {
+      "path": "od-win32/resources/chip.ico",
+      "mode": "100644",
+      "sha256": "14506535cc36a9762f02b13eb8d628bc0dd5da5e26a75f9d0b7b449395b658df"
+    },
+    {
+      "path": "od-win32/resources/configfile.ico",
+      "mode": "100644",
+      "sha256": "bb94703bd64a84fb3cc5ac05c0e1f6a48b62cdab17e4158832c0c63a7a079344"
+    },
+    {
+      "path": "od-win32/resources/cpu.ico",
+      "mode": "100644",
+      "sha256": "c87ae87b21533aaa369727023150bd31ed0f0b35040b2ce2d02182c392972733"
+    },
+    {
+      "path": "od-win32/resources/diskimage.ico",
+      "mode": "100644",
+      "sha256": "1e9b0ae4741911515c39a434bc745a319df187401b561cf535b5e9f7d757406e"
+    },
+    {
+      "path": "od-win32/resources/drive.ico",
+      "mode": "100644",
+      "sha256": "ac9f19e5a5b3a8cd667baed7372bb8f2352e6e60082a8eb862b1ca0d5de8f2f7"
+    },
+    {
+      "path": "od-win32/resources/drive_click.wav",
+      "mode": "100644",
+      "sha256": "5af419a5d606a1f0c23205f1f0a3ae27718bf0c01ad8bcc77b539e186280bc5e"
+    },
+    {
+      "path": "od-win32/resources/drive_snatch.wav",
+      "mode": "100644",
+      "sha256": "d533bf4c79ddbc73d2c7a7eeb4be3107507b3160ad5b75ceaec87c00fe0f4de8"
+    },
+    {
+      "path": "od-win32/resources/drive_spin.wav",
+      "mode": "100644",
+      "sha256": "b53f0f063c418ba5eec19d5f7ab3fe97df146e951127631aee5765a1a441486b"
+    },
+    {
+      "path": "od-win32/resources/drive_spinnd.wav",
+      "mode": "100644",
+      "sha256": "b53f0f063c418ba5eec19d5f7ab3fe97df146e951127631aee5765a1a441486b"
+    },
+    {
+      "path": "od-win32/resources/drive_startup.wav",
+      "mode": "100644",
+      "sha256": "db98bbdea142379ed60466cd3a9d8d0160f91d9549cf155e8f320d7d1ddde29c"
+    },
+    {
+      "path": "od-win32/resources/expansion.ico",
+      "mode": "100644",
+      "sha256": "3eb273aff84a8bdaf563008a0d8a8a7dd627a196e173c0a189bb7a32822d3e7c"
+    },
+    {
+      "path": "od-win32/resources/file.ico",
+      "mode": "100644",
+      "sha256": "fa9a06c06e6d3663055f6ad127d0db1a3ba3912fc6178005db06f38a0f7081fd"
+    },
+    {
+      "path": "od-win32/resources/folder.ico",
+      "mode": "100644",
+      "sha256": "639a9bfd67cc326057492535d82650aea917b21bff187de8d8cc54b171bb17bf"
+    },
+    {
+      "path": "od-win32/resources/h_arrow.cur",
+      "mode": "100644",
+      "sha256": "9e11f56b443af6112c8c49bab41a237d3a2a1231a2e66f170e07ac8cc3d66474"
+    },
+    {
+      "path": "od-win32/resources/icon3.ico",
+      "mode": "100644",
+      "sha256": "6182a759e45fd0b299c3bfeb9decc71a18af3086eebf340345f8887792917a5d"
+    },
+    {
+      "path": "od-win32/resources/joystick.ico",
+      "mode": "100644",
+      "sha256": "61138b02e6cbb46dd50134f5c388ccc25f03bfe85ed1212f4e595add230af600"
+    },
+    {
+      "path": "od-win32/resources/lcd.bmp",
+      "mode": "100644",
+      "sha256": "8e3c05b15c67634befc4cc2d87dc2d12d1aa38d97e473c967b3f13e967cf2d03"
+    },
+    {
+      "path": "od-win32/resources/misc.ico",
+      "mode": "100644",
+      "sha256": "cb22ed52bbb861facdbb505b366b42a0a61a0a9aece01fc3585072cdc1b5a12a"
+    },
+    {
+      "path": "od-win32/resources/move_dow.ico",
+      "mode": "100644",
+      "sha256": "d40e98682d01a37694c1d7e76951f0e80eb17410ccb91d95d0cad09a94ecd4bc"
+    },
+    {
+      "path": "od-win32/resources/move_up.ico",
+      "mode": "100644",
+      "sha256": "a6fc3f1e9b614c97c61c7f9a2818c0c74ce6e5fa0c79d79c38ad3157d18f4b28"
+    },
+    {
+      "path": "od-win32/resources/paths.ico",
+      "mode": "100644",
+      "sha256": "ef75623d86be268e2eb83596009c14dd476cf247be8b0fc834c3bcbfb6cd13f2"
+    },
+    {
+      "path": "od-win32/resources/port.ico",
+      "mode": "100644",
+      "sha256": "88edb15c5b908e04f7a06ed512f6573d39599118e6413f6adeb86ade7cad59e0"
+    },
+    {
+      "path": "od-win32/resources/quickstart.ico",
+      "mode": "100644",
+      "sha256": "95f53853d8f34be512d851bd2fcce300b6d02ab7857b22a25678e2f426b9b41b"
+    },
+    {
+      "path": "od-win32/resources/resource.h",
+      "mode": "100644",
+      "sha256": "f298cb3dd3cfb96a5a752de3f1ca315f2ffce98e04f5492bc05122d03a38a774"
+    },
+    {
+      "path": "od-win32/resources/root.ico",
+      "mode": "100644",
+      "sha256": "388e78346b7d3bb26789e31b88e160807d9d9e0d1970204be84cb76f901c413b"
+    },
+    {
+      "path": "od-win32/resources/screen.ico",
+      "mode": "100644",
+      "sha256": "15237704b590f2b98cc398996f4248013850e8fd2bae8bcef5e0e7cc241ac252"
+    },
+    {
+      "path": "od-win32/resources/sound.ico",
+      "mode": "100644",
+      "sha256": "ed9d3f22b4e85928a5430bda3e512dc32c756c75762ab87e7d294877750744d7"
+    },
+    {
+      "path": "od-win32/resources/winuae.exe.manifest",
+      "mode": "100644",
+      "sha256": "304efb59f41428367a351174b71de68377742ff8b4f92ab9bdbbbc679db123ab"
+    },
+    {
+      "path": "od-win32/resources/winuae.ico",
+      "mode": "100644",
+      "sha256": "1eb333989264b0410c2d552a0fdfffd133de3f2169ce1acf969a646f4a001f23"
+    },
+    {
+      "path": "od-win32/resources/winuae.rc",
+      "mode": "100644",
+      "sha256": "a0f96b73f49a981363b4ec6ad4808f2e0a2dd43cf88353e2692c4357bbd8cfdc"
+    },
+    {
+      "path": "od-win32/resources/winuae64.exe.manifest",
+      "mode": "100644",
+      "sha256": "83bb30fe914c0e890d7e651a19dae5d30499bf2d8c67cfe93c9e79dc5e2632d4"
+    },
+    {
+      "path": "od-win32/resources/winuae9.exe.manifest",
+      "mode": "100644",
+      "sha256": "b2568978103630f825b841dc499b257e718ab86a47f0d9680c24b7c71df4622c"
+    },
+    {
+      "path": "od-win32/resources/winuae_minimal.rc",
+      "mode": "100644",
+      "sha256": "a79c789cd8f0f5af9b9b9db0f9615bd5fc014d27b672425f5058276fa54ee2b4"
+    },
+    {
+      "path": "od-win32/resources/winuae_old.rc",
+      "mode": "100644",
+      "sha256": "deab33f3a6761b253731726f57e03c791a0cf2035b4f703c76883d940eb79a5b"
+    },
+    {
+      "path": "od-win32/resources/xarcade-winuae.bmp",
+      "mode": "100644",
+      "sha256": "25e5ea515fa07adf2cd8fc99299f752e2ed3e891636833d280843e1078a44255"
+    },
+    {
+      "path": "od-win32/rp.cpp",
+      "mode": "100644",
+      "sha256": "f8eaf524955d3457582f87527203c6d605902d9e2ffd2322f396f45a80d969d3"
+    },
+    {
+      "path": "od-win32/rp.h",
+      "mode": "100644",
+      "sha256": "f77dc8511cb215cdf2fb551455e9c3147b0fdd7967f6a7e6f76d606d1c67a781"
+    },
+    {
+      "path": "od-win32/screenshot.cpp",
+      "mode": "100644",
+      "sha256": "3f7c506bd15fa84134a3e68e2b6357d02c4bd0f9918b34392e8e498f85a87d98"
+    },
+    {
+      "path": "od-win32/scsidef.h",
+      "mode": "100644",
+      "sha256": "bf53cfd77ad04bc656ba2f8b8c9424663259a20190f902badb17412747c87df0"
+    },
+    {
+      "path": "od-win32/serial_win32.cpp",
+      "mode": "100644",
+      "sha256": "591669e91cc40f898ee44553b4323dc0ed33d4b58f90956303c3b083213c961b"
+    },
+    {
+      "path": "od-win32/sfhelper.cpp",
+      "mode": "100644",
+      "sha256": "b8ce951d6e93697ca4fd32e8a124cf25a875aabdf8e09563ce88ec18b6cf4a9e"
+    },
+    {
+      "path": "od-win32/shaders/PixelShader.hlsl",
+      "mode": "100644",
+      "sha256": "69e42c8f8169f9dffb18dcd2a1684d24450e46f3b29c4ab235bbfc3dc8ceba12"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderAlpha.h",
+      "mode": "100644",
+      "sha256": "f67604548d4ea2d235f196adb2f8ca6c84ea5d01d3f7fd6a611e88ea05734cc0"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderAlpha.hlsl",
+      "mode": "100644",
+      "sha256": "cc766cfdd92154a2c77f65575affbd5b51b0ab1c531d9ead406bf933b77e9796"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderAlpha_HDR.h",
+      "mode": "100644",
+      "sha256": "12405877db2698a0c78603b209d36ed50c69749e1cf45c66d46bd1323df2a014"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderAlpha_HDR.hlsl",
+      "mode": "100644",
+      "sha256": "bfde9f18e6f13fb83579a76d98ab17150a770c587f8d3983d3ad6491d8143762"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderMask.h",
+      "mode": "100644",
+      "sha256": "d6cd8980f080916eb749eb275e9d4c5dbf3c1c6d8244509ba5b19f1e6732da25"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderMask.hlsl",
+      "mode": "100644",
+      "sha256": "90b44a5edd4db4e50a96b7487d1240fa298c6717f09fdd04994901d2a34250de"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderMask_HDR.h",
+      "mode": "100644",
+      "sha256": "ff3da52d3c2ba807b795f13055af0bbe015e3e2e2f460d486a742e92ddb52c10"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderMask_HDR.hlsl",
+      "mode": "100644",
+      "sha256": "c18c7e13522e9bfd0f837c540db4f3d68793bc71b233a4ac6724c9ac6387bc47"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderPlain.h",
+      "mode": "100644",
+      "sha256": "4262030eababb061326722f1bcc5f37dcf05615b6ddd671b4af1496928eeb0aa"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderPlain.hlsl",
+      "mode": "100644",
+      "sha256": "51016d4dc34e95394d38db764429225e1bff418f5f53241c2eb98b88244e7be6"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderPlain_HDR.h",
+      "mode": "100644",
+      "sha256": "86d1b3d9815b182359a880bef692d7934e190421486ea0d990c0a986667754e6"
+    },
+    {
+      "path": "od-win32/shaders/PixelShaderPlain_HDR.hlsl",
+      "mode": "100644",
+      "sha256": "23dff36ff1ea080a2604cfe7167992f8d6a6b1573c3a325a80713c63c811b4c6"
+    },
+    {
+      "path": "od-win32/shaders/PixelShader_HDR.hlsl",
+      "mode": "100644",
+      "sha256": "127d565b0de60df1e645f9768024e37bf64c2a21cceb41db4d0bd4ae9ce5f926"
+    },
+    {
+      "path": "od-win32/shaders/VertexShader.h",
+      "mode": "100644",
+      "sha256": "cc41bea6752cba54c026e57d9e40c167ce45e028b6b7f6ba9f1ec5f8e0377668"
+    },
+    {
+      "path": "od-win32/shaders/VertexShader.hlsl",
+      "mode": "100644",
+      "sha256": "df37dccb0a6483d79b33be9507e964602f425e0caac27a7d1bb8b9681f637c0c"
+    },
+    {
+      "path": "od-win32/soundcheck.cpp",
+      "mode": "100644",
+      "sha256": "3846888d7833dc90182a7135a5ee470f19a5ca1f8c1db6dc5aa38a72429397c1"
+    },
+    {
+      "path": "od-win32/sounddep/sound.cpp",
+      "mode": "100644",
+      "sha256": "e33f05f7585183c3706f7be1c0add7af391a45660077084c150a0d891e02e3f1"
+    },
+    {
+      "path": "od-win32/sounddep/sound.h",
+      "mode": "100644",
+      "sha256": "d5f581ea5b604330b8857a289c148bb2bd01855ea01441ea8fabf87f1721de69"
+    },
+    {
+      "path": "od-win32/srcrelease.cmd",
+      "mode": "100644",
+      "sha256": "06427b08c694ed973238538bb24f8d13b02edf49157aa9ac0729e018eebc9fad"
+    },
+    {
+      "path": "od-win32/statusline_win32.cpp",
+      "mode": "100644",
+      "sha256": "a201a896b36a74b50b04b6297b527c351f432fb9813daabca1f83613ecfcb9ee"
+    },
+    {
+      "path": "od-win32/support.cpp",
+      "mode": "100644",
+      "sha256": "b530195b1f0beba7562151030225bb9b100296aa8225126c52586fc0816795d2"
+    },
+    {
+      "path": "od-win32/sysconfig.h",
+      "mode": "100644",
+      "sha256": "8ce3d58bfceeb18d36fd06215ea0fcf035ed79a34c63f3973d1f4ae861cf3ab4"
+    },
+    {
+      "path": "od-win32/target.h",
+      "mode": "100644",
+      "sha256": "6e2530199b350e3dad81f000d90ac50b164ba0d841f248c4f0a73b4852e3b776"
+    },
+    {
+      "path": "od-win32/threaddep/thread.h",
+      "mode": "100644",
+      "sha256": "7b18121c9ca693f226f5ee2fa1c33e788e8c15bc813592d0c1922744861cc4f7"
+    },
+    {
+      "path": "od-win32/tun.cpp",
+      "mode": "100644",
+      "sha256": "a1589b65deca5a488da1b791151d251a04abf5ae6a1f79c29060618ff8fc7e5c"
+    },
+    {
+      "path": "od-win32/tun.h",
+      "mode": "100644",
+      "sha256": "1affd6dd97ce48237e6a3273d3ad92ed4516a8810836b3bd12956b2daa0c1194"
+    },
+    {
+      "path": "od-win32/tun_uae.h",
+      "mode": "100644",
+      "sha256": "2a641041ad72c46d4ac88f1ec1b0cd7c368a9833789cc398e0a7fcb58ca7d086"
+    },
+    {
+      "path": "od-win32/uaeunp/uaeunp.vcxproj",
+      "mode": "100644",
+      "sha256": "2de0fcbc0cb95c21e9a99a753388805957412cfb8af12881b537f0efcbdd622d"
+    },
+    {
+      "path": "od-win32/uaeunp/uaeunp.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "a2660f695ddbb1f7b0c04bf2ee067545a3db20f24c1bd93a5eabb347bbae3b90"
+    },
+    {
+      "path": "od-win32/uaeunp_win32.cpp",
+      "mode": "100644",
+      "sha256": "1f763b940c6541b342155301ba34ea96f29b4d6102ad37075bb19927718f133b"
+    },
+    {
+      "path": "od-win32/unicode.cpp",
+      "mode": "100644",
+      "sha256": "53fa469ffcfeddb1c730c542795322e08b18834a74267153e0bae435fcdc7090"
+    },
+    {
+      "path": "od-win32/unistd.h",
+      "mode": "100644",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "od-win32/unpackers/unpackers.vcxproj",
+      "mode": "100644",
+      "sha256": "3b3575c79cc92e8fef7677408797a0bacdf36a8f81378b875b5215619d03d1f7"
+    },
+    {
+      "path": "od-win32/unpackers/unpackers.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "7c6e564019ac0e72138435fce8e7cfca272df4be06391aab0ddd81e056593fcf"
+    },
+    {
+      "path": "od-win32/win32.cpp",
+      "mode": "100644",
+      "sha256": "eecc532525659f81c5a5c71915ed8a6d8cd48140bc40937015411fed412d040b"
+    },
+    {
+      "path": "od-win32/win32.h",
+      "mode": "100644",
+      "sha256": "fa706bd549310525902a760f156a6df01df432bb5d6d3d618fe5fecf4a0e07e3"
+    },
+    {
+      "path": "od-win32/win32_decompress.cpp",
+      "mode": "100644",
+      "sha256": "3e89cb0820716eedc4ca2929b5c2c6c07ec283d0f84fdf9036acad211966b827"
+    },
+    {
+      "path": "od-win32/win32_filesys.cpp",
+      "mode": "100644",
+      "sha256": "485e55cb89caccd8de78820880a1fd1a8a3141ef7031688671322993a8db22a1"
+    },
+    {
+      "path": "od-win32/win32_nogui.cpp",
+      "mode": "100644",
+      "sha256": "67f49c34b05d94c40ed3f24e1106d80ae37f8137d85fb585a05545985e89c6c0"
+    },
+    {
+      "path": "od-win32/win32_scaler.cpp",
+      "mode": "100644",
+      "sha256": "212b7a93a4a95127e31e2291c4bdf97f2e650c5b050cbb49e7f3873ba6a5f3dc"
+    },
+    {
+      "path": "od-win32/win32_uaenet.cpp",
+      "mode": "100644",
+      "sha256": "191f848b9694e0300e1700c3fce08f449eac17979312f9dd7fc0e5c7c8f20a98"
+    },
+    {
+      "path": "od-win32/win32_uaenet.h",
+      "mode": "100644",
+      "sha256": "3a7a3a1f09326d2433161fdc8694d6a90cbd9cffd1a8c1e123e2c09635df3858"
+    },
+    {
+      "path": "od-win32/win32_videograb.cpp",
+      "mode": "100644",
+      "sha256": "bbba7dfb01f81a87eb4fa72306e5743ac904b2212eb66430892123f9f0295744"
+    },
+    {
+      "path": "od-win32/win32gfx.cpp",
+      "mode": "100644",
+      "sha256": "0d598f72e5730ff93cde47f245938ad266eeef919e83e1611c62e16ea647650b"
+    },
+    {
+      "path": "od-win32/win32gfx.h",
+      "mode": "100644",
+      "sha256": "74a821a37738e300fcbd9fbd177189c7e34a4487957db6e7f2576c628b4212cd"
+    },
+    {
+      "path": "od-win32/win32gui.cpp",
+      "mode": "100644",
+      "sha256": "3ca94943d96a1b2cb0ed059928b625c951ffed2e89531de449111b9d8d49adab"
+    },
+    {
+      "path": "od-win32/win32gui.h",
+      "mode": "100644",
+      "sha256": "012722d38e6a41ed7035e8b396997a56038e963f346672964aec1a1ec201e1da"
+    },
+    {
+      "path": "od-win32/win32gui_extra.cpp",
+      "mode": "100644",
+      "sha256": "447cf063ab5b03abf5423ae4ad188797a507a7488c460a441e634b6323d551d2"
+    },
+    {
+      "path": "od-win32/wintablet.h",
+      "mode": "100644",
+      "sha256": "25b656d59d491d15809ae35fdd8f0ed3c4915493b618414ce752ec7ed4191c38"
+    },
+    {
+      "path": "od-win32/winuae_msvc15/winuae_msvc.sln",
+      "mode": "100644",
+      "sha256": "15a8bfe7116be447c2674366a39c3179317b55ecea786ab32d95f787e6bc1336"
+    },
+    {
+      "path": "od-win32/winuae_msvc15/winuae_msvc.vcxproj",
+      "mode": "100644",
+      "sha256": "43c9646d245141601bef6b2f693f8818461c3e8e57c7a275c319bc4f091dccde"
+    },
+    {
+      "path": "od-win32/winuae_msvc15/winuae_msvc.vcxproj.filters",
+      "mode": "100644",
+      "sha256": "ff8a8f8b1b7519cbbac16b5ee1fcb6521b57ac8450f3cf5ffe23a8540cd719fb"
+    },
+    {
+      "path": "od-win32/winuaechangelog.txt",
+      "mode": "100644",
+      "sha256": "1819934719e8d6fd813f69107c362a0da9aca3042d6b7330b43f125e5d12bc22"
+    },
+    {
+      "path": "od-win32/wix/Product.wxs",
+      "mode": "100644",
+      "sha256": "e8e2319d1f7793642c7d11ab8f2ec5b54dce98975f886c0c62de3c1e87a100cc"
+    },
+    {
+      "path": "od-win32/wix/WixUI_FeatureTree_NL.wxs",
+      "mode": "100644",
+      "sha256": "1e2f28d2b1a4f25acb9e52224bde7ec0a18b55f7cdba058f5a3e1ff6b9b4e528"
+    },
+    {
+      "path": "od-win32/wix/makemsi.cmd",
+      "mode": "100644",
+      "sha256": "5b96dd300faa40107ebc6ef2c7463625ccf015d20c84b79ef15fbf6d30468c35"
+    },
+    {
+      "path": "od-win32/wix/wix.wixproj",
+      "mode": "100644",
+      "sha256": "c8540199c2bf6eabed9ca14884ed7a9a8d14633cc758ed89f31593c9730555c7"
+    },
+    {
+      "path": "od-win32/writelog.cpp",
+      "mode": "100644",
+      "sha256": "50109ec7b6f93d961887c1e2576f9b6e367e7d10cb35cf3b8ee5d9825df6fe01"
+    },
+    {
+      "path": "p96_blit.cpp",
+      "mode": "100644",
+      "sha256": "3743f2993ca92d7c5edaf404be6d14892144bcb457c64e1426bd2c1fea038a1e"
+    },
+    {
+      "path": "pcem/386.cpp",
+      "mode": "100644",
+      "sha256": "8699e31432bc20b98df971a3c0b324f58f70525cac883854e6ff86cbdf5f076f"
+    },
+    {
+      "path": "pcem/386_common.cpp",
+      "mode": "100644",
+      "sha256": "3a0ebbf07605833e7db2428c140e1faaf2c92f0daaeab551f4f4275d65d2450d"
+    },
+    {
+      "path": "pcem/386_common.h",
+      "mode": "100644",
+      "sha256": "b5d30935f9f7a38dc137460915e84d18e6e4f5fe4087b9c2923a27fd28e3328d"
+    },
+    {
+      "path": "pcem/386_dynarec.cpp",
+      "mode": "100644",
+      "sha256": "b5f2429f6926564bf2628dc1c66e7159d3fa90e1cfcab74f2726d55f7359f944"
+    },
+    {
+      "path": "pcem/386_dynarec_ops.cpp",
+      "mode": "100644",
+      "sha256": "49c828a726c8fe4001a62ea4c20dc8bc5170707309e8c4f478e9c40c79b6b54e"
+    },
+    {
+      "path": "pcem/386_ops.h",
+      "mode": "100644",
+      "sha256": "ccebdbb7e4f4e377e2b0ed9677fbec403f2eb654ce6631561783529ce661af62"
+    },
+    {
+      "path": "pcem/8087.h",
+      "mode": "100644",
+      "sha256": "f100fa3d2ead2539ecc3e230fdaaae9da07f04e331c1bbe6a4b263aad459c656"
+    },
+    {
+      "path": "pcem/808x.cpp",
+      "mode": "100644",
+      "sha256": "8ad61fcece5609ea5024f2f614ce74bc3060c8fa96ccd234b21e102987be313a"
+    },
+    {
+      "path": "pcem/codegen.h",
+      "mode": "100644",
+      "sha256": "81a200559cd274aaa755df0460dd668958de3b5b67ac4ace342943688c8e2ecc"
+    },
+    {
+      "path": "pcem/codegen_backend.h",
+      "mode": "100644",
+      "sha256": "166ad660df15ea2534bb935b187afdf804ba9e8ed702e7ee84db13b1774950e9"
+    },
+    {
+      "path": "pcem/codegen_backend_x86-64.h",
+      "mode": "100644",
+      "sha256": "c6b7558b978587b2dbda83a890891748778e397028d545ecf0e4af429fa51c60"
+    },
+    {
+      "path": "pcem/codegen_backend_x86-64_defs.h",
+      "mode": "100644",
+      "sha256": "c3e7275bc7c690a8ae4243acba3e053b3e3e85583b795699f71a2910dd4e0d9e"
+    },
+    {
+      "path": "pcem/codegen_backend_x86.h",
+      "mode": "100644",
+      "sha256": "ced607074a16c86984fec114730ac3b0f7fbe06b98a7a511e1eb9bf2dc44678f"
+    },
+    {
+      "path": "pcem/codegen_backend_x86_defs.h",
+      "mode": "100644",
+      "sha256": "b37c7f331c6589888c5b0be1370d37d974220a138dd813331b5cb4cb6dd40c2f"
+    },
+    {
+      "path": "pcem/config.h",
+      "mode": "100644",
+      "sha256": "aea85585208a2110613b2ca1e131410d552a3e69125533ea9da700b738872984"
+    },
+    {
+      "path": "pcem/cpu.cpp",
+      "mode": "100644",
+      "sha256": "5101cde62bdf961cf9ae8d5ae62d0de6d16345944471f2c6689a40897be425e5"
+    },
+    {
+      "path": "pcem/cpu.h",
+      "mode": "100644",
+      "sha256": "ebaf7dc2725e1f461887f11c90bb75224da9c6365bfc22138214c2d154bc85a2"
+    },
+    {
+      "path": "pcem/device.h",
+      "mode": "100644",
+      "sha256": "c6ba4876d441625315a5111009e42e4ae94cb86cf5e388d74c62f035a69e71c6"
+    },
+    {
+      "path": "pcem/dma.cpp",
+      "mode": "100644",
+      "sha256": "a272c38f13d7eb57b205f797b5ca2fc57c232b64f8417702dc0e8c82fd45a664"
+    },
+    {
+      "path": "pcem/dma.h",
+      "mode": "100644",
+      "sha256": "69933de16a7880067f5c914b71543f3fc725bf366297b7333a014868bfa5593f"
+    },
+    {
+      "path": "pcem/dosbox/dbopl.cpp",
+      "mode": "100644",
+      "sha256": "8f476862e38820eb67c1ce32426019391f3baafbca1a7949d14e34a6ebe5cd13"
+    },
+    {
+      "path": "pcem/dosbox/dbopl.h",
+      "mode": "100644",
+      "sha256": "219343d60d5ecbc686b02abf5c5634e0d179d8023161fe64b6b9f846b8f205f8"
+    },
+    {
+      "path": "pcem/dosbox/nukedopl.cpp",
+      "mode": "100644",
+      "sha256": "6c1f51690f36d0f8097c0efe3c868ddd3b604db3bb07f230f3ea17d9fd6a79b0"
+    },
+    {
+      "path": "pcem/dosbox/nukedopl.h",
+      "mode": "100644",
+      "sha256": "5177e0cd2f1efa38c26964955f6cb2da368475a93e08169f9f921e14023c3ad4"
+    },
+    {
+      "path": "pcem/f82c710_upc.h",
+      "mode": "100644",
+      "sha256": "d33a2f0529b8f387234f1874b2588103ad7fa232f60295ed5414aa66ee8d5e98"
+    },
+    {
+      "path": "pcem/fdc.h",
+      "mode": "100644",
+      "sha256": "48bc5feb6bb017ec27dd815df5435fe811f007ecea8eba9949d59e94d7ba4e8d"
+    },
+    {
+      "path": "pcem/filters.h",
+      "mode": "100644",
+      "sha256": "4915cdbf50d966a456949e0f129c482e38333b1840f18ef4ef55c90435ed81df"
+    },
+    {
+      "path": "pcem/i440bx.h",
+      "mode": "100644",
+      "sha256": "c3eb58ca813ee6acff6e0c29e1fa66004c2e2349fba3d42082022d1e82e753a0"
+    },
+    {
+      "path": "pcem/ibm.h",
+      "mode": "100644",
+      "sha256": "4fb97c0a584ced9a79d963d18c9163793770e1cce1ef8664d48888188afb4a9d"
+    },
+    {
+      "path": "pcem/io.h",
+      "mode": "100644",
+      "sha256": "c05035bf7834481d939266700c4db27ad7d9e1ec892fa92b11eb8ca34553d206"
+    },
+    {
+      "path": "pcem/keyboard.cpp",
+      "mode": "100644",
+      "sha256": "86e19b67578fc30447dadbff06bee79a09b0584d2317bd5ab25c3ef8dbe90801"
+    },
+    {
+      "path": "pcem/keyboard.h",
+      "mode": "100644",
+      "sha256": "eff8ce26f9078158245a699ca8e97a021ec03031f2e3ca3f07c45794bfe60b73"
+    },
+    {
+      "path": "pcem/keyboard_at.cpp",
+      "mode": "100644",
+      "sha256": "9ec79a6037a5d09532aa53df2afd18a2132b50bcdfa9da42dcd72592f71ce66e"
+    },
+    {
+      "path": "pcem/keyboard_at.h",
+      "mode": "100644",
+      "sha256": "8205fb10363e1d90a609f0b28cf0fe012c043f874ee002dda428168afa588e8c"
+    },
+    {
+      "path": "pcem/keyboard_at_draco.cpp",
+      "mode": "100644",
+      "sha256": "12189e7bbc8b47867ca6b130302ae305d94b34cad82db0e434a14236ef9aa6ca"
+    },
+    {
+      "path": "pcem/mca.h",
+      "mode": "100644",
+      "sha256": "7ec50ea4861941c7305db9906a62f078ee8a326a9e7c03a79d56e5b5cebfe594"
+    },
+    {
+      "path": "pcem/mem.cpp",
+      "mode": "100644",
+      "sha256": "cb7e2bfc79bedeab4b6bd693c20b519df57c28b524550c8be710fe7df3cc1d15"
+    },
+    {
+      "path": "pcem/mem.h",
+      "mode": "100644",
+      "sha256": "351c81d37060e1bd7353f8c8a2243728587cf890d87ec6244b13a83cff76db1b"
+    },
+    {
+      "path": "pcem/model.h",
+      "mode": "100644",
+      "sha256": "3d87d8d2ec5d9f2ce0e198ac69cc74440b02853bb539c842bc4cc59c4897aa97"
+    },
+    {
+      "path": "pcem/mouse.h",
+      "mode": "100644",
+      "sha256": "1cb6a39d3642e03f186bc006857500be662002be6aa6aa8cf60b275dde49f29b"
+    },
+    {
+      "path": "pcem/mouse_ps2.cpp",
+      "mode": "100644",
+      "sha256": "21b5e4c7a2cd0f56147bbe5174b8ecdc6bfe629f843ccd9b00a4494ce4c9943c"
+    },
+    {
+      "path": "pcem/mouse_ps2.h",
+      "mode": "100644",
+      "sha256": "65e19887d637de911b92fef210bea2a2bb2d7f80cd256c00adb5816d344c36c2"
+    },
+    {
+      "path": "pcem/mouse_serial.cpp",
+      "mode": "100644",
+      "sha256": "481a7be705390e75e6a17844fa5054aa3feb5f896b04803a819f3dc8a09b69a3"
+    },
+    {
+      "path": "pcem/mouse_serial.h",
+      "mode": "100644",
+      "sha256": "d40f56713bf01e2dd63fa991beb1cc5ded51ee2fbcf2c886db7efd1d56b56d91"
+    },
+    {
+      "path": "pcem/nmi.h",
+      "mode": "100644",
+      "sha256": "069de338095ab3b1f20797db5fc2b06c2366cef43ad77f8cde2e7d855301d698"
+    },
+    {
+      "path": "pcem/nvr.cpp",
+      "mode": "100644",
+      "sha256": "2fd935ec5d64552d273386641a575a8e1dfa2099c3ae92bfbd8083972a0a8717"
+    },
+    {
+      "path": "pcem/nvr.h",
+      "mode": "100644",
+      "sha256": "f0d4010324e2a15d1514866185b5f484407f0f8a0e1a219e96f752d51ca39775"
+    },
+    {
+      "path": "pcem/nvr_tc8521.h",
+      "mode": "100644",
+      "sha256": "3dd70336ec3f38c5fd1196a5be184d52c40f6d0d3fc5ddaf3f9a6537278544d8"
+    },
+    {
+      "path": "pcem/paths.h",
+      "mode": "100644",
+      "sha256": "b321be5223ccfdf54e20df3a37c355c53aa98f8bcc70fb6288fb0e075279f599"
+    },
+    {
+      "path": "pcem/pcemglue.cpp",
+      "mode": "100644",
+      "sha256": "e9d6e0870d84adf799522a9add22c478e87eac8704d0a87caf779b023e180ae3"
+    },
+    {
+      "path": "pcem/pcemglue.h",
+      "mode": "100644",
+      "sha256": "a920baa50803cabb89a33064e4fc6892d47d7947ca0791f61a25bbad85d0ce5e"
+    },
+    {
+      "path": "pcem/pcemrtc.cpp",
+      "mode": "100644",
+      "sha256": "71294c68707c7acf7a1ad736d94a03a0c3dcf7a71028a63d79da10e1de578d4f"
+    },
+    {
+      "path": "pcem/pci.h",
+      "mode": "100644",
+      "sha256": "43feedeb99e08f2e5bc3086f3c39025185fa8bda38296a28acdd5162a8cfc3ee"
+    },
+    {
+      "path": "pcem/pic.cpp",
+      "mode": "100644",
+      "sha256": "323d8dc4672b40c88608b43d72e467cf817180b300e17ff89fd6b57c142f1952"
+    },
+    {
+      "path": "pcem/pic.h",
+      "mode": "100644",
+      "sha256": "598609fab9314a8bcd09a896e77a6ac6cde4259afef3d703d1d5a9b18c58156d"
+    },
+    {
+      "path": "pcem/pit.cpp",
+      "mode": "100644",
+      "sha256": "8de912b2e3c54e616b5e64790bd78d59ad10d2c0b4e75c091cb24db9b0fe5366"
+    },
+    {
+      "path": "pcem/pit.h",
+      "mode": "100644",
+      "sha256": "6d412cec65829de4dc0698ac58401335da3ba9f93c36eb6caed6c1c0e3d4faca"
+    },
+    {
+      "path": "pcem/plat-keyboard.h",
+      "mode": "100644",
+      "sha256": "39e0cfb1b8a2d313a9bddcffd9bb931227e233b31ea3086c8571d4c291e1a2a3"
+    },
+    {
+      "path": "pcem/plat-midi.h",
+      "mode": "100644",
+      "sha256": "179b3703d12cbf7cccfd483ee9f47065b62bb69bd9599282db76c40026185277"
+    },
+    {
+      "path": "pcem/plat-mouse.h",
+      "mode": "100644",
+      "sha256": "1168fb7eea0b0d44c54ec002491020c6a0bdb7c910e116250bf179fe529b18f9"
+    },
+    {
+      "path": "pcem/ps2_mca.h",
+      "mode": "100644",
+      "sha256": "7071c3c3a41660d43a3d97e813cad115c7b1b15bb0d19a6d1c3d78d25489a553"
+    },
+    {
+      "path": "pcem/rom.h",
+      "mode": "100644",
+      "sha256": "9367b954ce20266cc2006d67acb1be569391a12530258c189c62e16ee283951b"
+    },
+    {
+      "path": "pcem/rtc.h",
+      "mode": "100644",
+      "sha256": "a812db7077ee2d53eb9a2d3e482a451a4373384f88947f39a9dfc86a4171b507"
+    },
+    {
+      "path": "pcem/serial.cpp",
+      "mode": "100644",
+      "sha256": "d5c80bf9307565b98b42f3f821f29a01409e8658a47e2b3a2a761d58cb1a7289"
+    },
+    {
+      "path": "pcem/serial.h",
+      "mode": "100644",
+      "sha256": "8f0b1d887bb7142f9a793f30df0070aa85039e0c1d10f668004e6ae0084fdb93"
+    },
+    {
+      "path": "pcem/sound.h",
+      "mode": "100644",
+      "sha256": "b72131c7257b88b19f829c19d2e0b848a15e80846b2f78c256e8f507f0631366"
+    },
+    {
+      "path": "pcem/sound_cms.cpp",
+      "mode": "100644",
+      "sha256": "51f4514f8503e3e769125ab761ad9e5d7852ce3588166f8cc4d1cef4d15a9394"
+    },
+    {
+      "path": "pcem/sound_cms.h",
+      "mode": "100644",
+      "sha256": "3c51ea235cb8d6892988981183384757ccc9beb10ebfa6ceb0bc190ceb0d15d2"
+    },
+    {
+      "path": "pcem/sound_dbopl.cpp",
+      "mode": "100644",
+      "sha256": "6d57e1daa6ac7392b52ffcf4043de6b575087f1422c3fb022ce5e54788e7c62e"
+    },
+    {
+      "path": "pcem/sound_dbopl.h",
+      "mode": "100644",
+      "sha256": "01eb47fa081d01dc24989b0a2beead5fe96c1fe01870ca3f21a05dc18a342b93"
+    },
+    {
+      "path": "pcem/sound_emu8k.h",
+      "mode": "100644",
+      "sha256": "2c1c848a1b0573423daf15949d212361a96992e8582ebafe117a77e1ef3261b6"
+    },
+    {
+      "path": "pcem/sound_mpu401_uart.cpp",
+      "mode": "100644",
+      "sha256": "7ae5b95072b6a4dd152937c08c864d5b7f4f959b1e435d715b5e03c69209c16e"
+    },
+    {
+      "path": "pcem/sound_mpu401_uart.h",
+      "mode": "100644",
+      "sha256": "f953eb702a1e2c7badfce84f028399fedf3728b63ee97a9513785dd00ca70b9f"
+    },
+    {
+      "path": "pcem/sound_opl.cpp",
+      "mode": "100644",
+      "sha256": "f25512b085df92f66467cf43d398f4360adb6c46dfcfa8786fe1b1dcedf4a6e5"
+    },
+    {
+      "path": "pcem/sound_opl.h",
+      "mode": "100644",
+      "sha256": "39b735cf6424f45dbdbb9b49bf30d6d460c7afbf33b25142ae04ac00cd8b6290"
+    },
+    {
+      "path": "pcem/sound_sb.cpp",
+      "mode": "100644",
+      "sha256": "9467cbb2dbea563c016affd6507f5773b5a45d1a09a4de2c4ccc3b24354850c7"
+    },
+    {
+      "path": "pcem/sound_sb.h",
+      "mode": "100644",
+      "sha256": "d872bf3aeb47f140e84f7d8aaa476d45ad05c818227e159b73306c11b9be616b"
+    },
+    {
+      "path": "pcem/sound_sb_dsp.cpp",
+      "mode": "100644",
+      "sha256": "547d0eadd860d1831ae6ad6848aaa6239f7e37bcdbd164ac76002adba615546d"
+    },
+    {
+      "path": "pcem/sound_sb_dsp.h",
+      "mode": "100644",
+      "sha256": "d4b7a387f9d080a7a3eb29c57439a76c39ac4bc92670475a582ed1a42d138ceb"
+    },
+    {
+      "path": "pcem/sound_speaker.cpp",
+      "mode": "100644",
+      "sha256": "fd5cc43c9bb0d176b6e22d05a9f0d353b44e636645e4e35536b4a9ee633099c9"
+    },
+    {
+      "path": "pcem/sound_speaker.h",
+      "mode": "100644",
+      "sha256": "2c6c3fdbf4ca71cf18a96e5c0e4bf85cd65b55817690d71956364f35c47cca1d"
+    },
+    {
+      "path": "pcem/t1000.h",
+      "mode": "100644",
+      "sha256": "e70fc686035ab72ee10af3fd4495c8989259183cc818d9e5d38f089cf46d09eb"
+    },
+    {
+      "path": "pcem/t3100e.h",
+      "mode": "100644",
+      "sha256": "eeec7a009c659b529e0ea43f0e402ff6c66ccaa3d4636102fdd3fc41fa221c5e"
+    },
+    {
+      "path": "pcem/thread.h",
+      "mode": "100644",
+      "sha256": "fecdc05d86641f0f9befdd252c29cbd91b360197892bb4adf33c349e70f76d0f"
+    },
+    {
+      "path": "pcem/timer.cpp",
+      "mode": "100644",
+      "sha256": "79f39a30651ff79aa3fa532e689fbb097b099f0859e388ff1ca6576a60425a14"
+    },
+    {
+      "path": "pcem/timer.h",
+      "mode": "100644",
+      "sha256": "0668abcd54c915b7c631b5cd97daf96fe3e669e503cd8620f0531e9dc759730b"
+    },
+    {
+      "path": "pcem/vid_bt482_ramdac.cpp",
+      "mode": "100644",
+      "sha256": "7381ac6aa786b8ee8b33d0ebef721dc50af0b416be12d6fcdf4aba7719bb9078"
+    },
+    {
+      "path": "pcem/vid_cl5429.cpp",
+      "mode": "100644",
+      "sha256": "f46f13d05d261283894e6ce7eacbe5cfabaa894ed9f31a1d71ccd6eb97467c50"
+    },
+    {
+      "path": "pcem/vid_cl5429.h",
+      "mode": "100644",
+      "sha256": "3d65c30a5ef26f36b5734c0daeafd5d462033604cf21b13109daad997a344f55"
+    },
+    {
+      "path": "pcem/vid_ddc.h",
+      "mode": "100644",
+      "sha256": "52530a11e899e36bab19f6534f167aeb1671da5c80f624193a4ec5970077f905"
+    },
+    {
+      "path": "pcem/vid_et4000.cpp",
+      "mode": "100644",
+      "sha256": "b1a64597ff3ac4b37d4b7a2d20d6e61eb899107ee979b0daa59e8c76c4cc3779"
+    },
+    {
+      "path": "pcem/vid_et4000.h",
+      "mode": "100644",
+      "sha256": "055c1fff3a9d7f746211a1e55ddc893c3ef0c93cb2edc73a504c6e8f36eb52e6"
+    },
+    {
+      "path": "pcem/vid_et4000w32.cpp",
+      "mode": "100644",
+      "sha256": "692a73d38d9d62b440962c89093e74153d6855dfe672bbd0dee19d33191b904f"
+    },
+    {
+      "path": "pcem/vid_inmos.cpp",
+      "mode": "100644",
+      "sha256": "4b487e16c7584bb6e7a380310ee748a3febeb3e3b11b79644b0e9cf15be27a25"
+    },
+    {
+      "path": "pcem/vid_inmos.h",
+      "mode": "100644",
+      "sha256": "26414f902f788484b1b5816530ab89d753e6aa2b253928fe2953cd22c3f42dc8"
+    },
+    {
+      "path": "pcem/vid_mga.cpp",
+      "mode": "100644",
+      "sha256": "589d91ff40a306fae08fdedae9167e1248fc590710757fa036be38dbd0e04cd8"
+    },
+    {
+      "path": "pcem/vid_ncr.cpp",
+      "mode": "100644",
+      "sha256": "27d7de592bafbb9213255461cd3fd91385f78a8297379c957b886e25601a791f"
+    },
+    {
+      "path": "pcem/vid_ncr.h",
+      "mode": "100644",
+      "sha256": "29866f23f02da837f493b494698a8b65513e0517b47d93ad62d9f7f2e9c1148c"
+    },
+    {
+      "path": "pcem/vid_permedia2.cpp",
+      "mode": "100644",
+      "sha256": "a754a24ea0db39d916cb72d3e91ccdf87b89fc5f66281570398471b5b4a773c8"
+    },
+    {
+      "path": "pcem/vid_permedia2.h",
+      "mode": "100644",
+      "sha256": "4b502160e414630adbc094c11c571d205d4146ee20be05d457f7c9ac519c3429"
+    },
+    {
+      "path": "pcem/vid_s3.cpp",
+      "mode": "100644",
+      "sha256": "55ba25b426936d1c54f54f0ec0d3d5af46e528f5e78a4f1c24783710af551510"
+    },
+    {
+      "path": "pcem/vid_s3.h",
+      "mode": "100644",
+      "sha256": "323857a513f6395ee85095bb214a823668d2aa74952cf36bee4ed4042f540ebe"
+    },
+    {
+      "path": "pcem/vid_s3_virge.cpp",
+      "mode": "100644",
+      "sha256": "fee3bac713414e9bcf7fd1893543a55b7bf3d8f847a30628d777f81ed5db81ec"
+    },
+    {
+      "path": "pcem/vid_s3_virge.h",
+      "mode": "100644",
+      "sha256": "9a7642a3aef76456b38a1e53991c0448154acdaeb9f9a99f19fbc6d2ef909772"
+    },
+    {
+      "path": "pcem/vid_sc1502x_ramdac.cpp",
+      "mode": "100644",
+      "sha256": "96d063c37183b3b9ac7d24ad81cf0054ec1d16c5c2356bf4a3aabec2e005791f"
+    },
+    {
+      "path": "pcem/vid_sdac_ramdac.cpp",
+      "mode": "100644",
+      "sha256": "b26f977d61374f4ba1561bfa460110da2e2ab7d86faa7041c11f2150a9ca8a75"
+    },
+    {
+      "path": "pcem/vid_sdac_ramdac.h",
+      "mode": "100644",
+      "sha256": "f7c8bd360c0902697e404cfea3bb86038602e6193c47bf353813c5d48afcad1f"
+    },
+    {
+      "path": "pcem/vid_svga.cpp",
+      "mode": "100644",
+      "sha256": "c6d163816797dd248c77b5f674b35e1fb5bb4ecdffb31b32169ec1e3159d4043"
+    },
+    {
+      "path": "pcem/vid_svga.h",
+      "mode": "100644",
+      "sha256": "b852a763ace4d2b4fab63c4e62104c11031c3db1367de6ff670792a2ff3547c9"
+    },
+    {
+      "path": "pcem/vid_svga_render.cpp",
+      "mode": "100644",
+      "sha256": "e17a7438c2afdfea7b695ac99bd0fa9a1359f13be35b6e5a889be5d404a60779"
+    },
+    {
+      "path": "pcem/vid_svga_render.h",
+      "mode": "100644",
+      "sha256": "81542d416c4562fe406a417a98da8e4403da0b6f04e44079450043d195f50338"
+    },
+    {
+      "path": "pcem/vid_svga_render_remap.h",
+      "mode": "100644",
+      "sha256": "3dbc28ef885b21edec283ca4aefe67615a2e8cf3f5206d59a9a2cbcbb7826f41"
+    },
+    {
+      "path": "pcem/vid_tvp3026_ramdac.cpp",
+      "mode": "100644",
+      "sha256": "56228ea1e3c3b38740a8071a0744415359c00096510e572f5ed4a0c65e1ed8ca"
+    },
+    {
+      "path": "pcem/vid_unk_ramdac.h",
+      "mode": "100644",
+      "sha256": "d7c437165bf619fd67312456d5153550b4c3ed5bdbb93bf59468dfc7ea22509d"
+    },
+    {
+      "path": "pcem/vid_vga.h",
+      "mode": "100644",
+      "sha256": "b25dea24d441c5e4f19fd51a6f7858b0fc964deea457ff5776a877bf7657fb8c"
+    },
+    {
+      "path": "pcem/vid_voodoo.cpp",
+      "mode": "100644",
+      "sha256": "65afbdca7b89e23bc82af7d4430b21df7188b7c2d755afeede54b3656a401035"
+    },
+    {
+      "path": "pcem/vid_voodoo.h",
+      "mode": "100644",
+      "sha256": "0f70ec230f2977fdf0c26e0e246f9e15a948e773b1e0a5a29701560a3224a211"
+    },
+    {
+      "path": "pcem/vid_voodoo_banshee.cpp",
+      "mode": "100644",
+      "sha256": "d51e8b2245fbe44f8bd0b77d41222af8a8a49a9cd8d6af078e969806f4825e2f"
+    },
+    {
+      "path": "pcem/vid_voodoo_banshee.h",
+      "mode": "100644",
+      "sha256": "34c430a58c3ea8893a7a40c04eaa772f1b09a43e0d27475fee04c87a828b5bbe"
+    },
+    {
+      "path": "pcem/vid_voodoo_banshee_blitter.cpp",
+      "mode": "100644",
+      "sha256": "08d7f81ca276d351f79282e2c624e5829342b5008cb99c86e241e2879853e885"
+    },
+    {
+      "path": "pcem/vid_voodoo_banshee_blitter.h",
+      "mode": "100644",
+      "sha256": "9cd809c0cea3ada9a5d31566d61c6f92fa7918d723f7486f09d86dd4adf5128c"
+    },
+    {
+      "path": "pcem/vid_voodoo_blitter.cpp",
+      "mode": "100644",
+      "sha256": "17afe18c2abf48fcc929dfd4d418532f9fea991af19521ecdddec009f124506d"
+    },
+    {
+      "path": "pcem/vid_voodoo_blitter.h",
+      "mode": "100644",
+      "sha256": "d2bc43bfaa24d9f17aa9480d05bc4a3988611cddfec3b6d1800120aab26633f8"
+    },
+    {
+      "path": "pcem/vid_voodoo_codegen_x86-64.h",
+      "mode": "100644",
+      "sha256": "05a58034e6ea7cb2653cc6d0777669b47bc4e5daa758378738663b041616f588"
+    },
+    {
+      "path": "pcem/vid_voodoo_codegen_x86.h",
+      "mode": "100644",
+      "sha256": "c072e7e606f5a2ae234ac5fc0735bb442793999a3e8f851133a846b978a51429"
+    },
+    {
+      "path": "pcem/vid_voodoo_common.h",
+      "mode": "100644",
+      "sha256": "afb3d67957bf5efe1d905520e38e3939da2ced0626205a2012c9f370e0a932ff"
+    },
+    {
+      "path": "pcem/vid_voodoo_display.cpp",
+      "mode": "100644",
+      "sha256": "03f6db6f90d3522612fc46025355102a7d48036a8f287f2e6d7577a8da383afd"
+    },
+    {
+      "path": "pcem/vid_voodoo_display.h",
+      "mode": "100644",
+      "sha256": "1dab6f613f4156da12c63460eb6059d74769aed9e4cd5eac63f40f64b56f52b3"
+    },
+    {
+      "path": "pcem/vid_voodoo_dither.h",
+      "mode": "100644",
+      "sha256": "1dd43d4ff572d7b47e094b828254af5b03fe740285c7dc87cde119909f8df4c5"
+    },
+    {
+      "path": "pcem/vid_voodoo_fb.cpp",
+      "mode": "100644",
+      "sha256": "d67cc56a818a7883071fe16236b807a49eac7590750db60d1fc05ca855912006"
+    },
+    {
+      "path": "pcem/vid_voodoo_fb.h",
+      "mode": "100644",
+      "sha256": "c79fa844ccd4996c70bf7d633e345b29c7ce17462cf788c39b238f5abd69e09c"
+    },
+    {
+      "path": "pcem/vid_voodoo_fifo.cpp",
+      "mode": "100644",
+      "sha256": "71051920748d927d4d3c36e17938990104623c6198d776a91a162dff872c45d0"
+    },
+    {
+      "path": "pcem/vid_voodoo_fifo.h",
+      "mode": "100644",
+      "sha256": "2821fb9d67640c76d4ba99452e04783671a22bb35e904bbe570960e629a9125a"
+    },
+    {
+      "path": "pcem/vid_voodoo_reg.cpp",
+      "mode": "100644",
+      "sha256": "abb0fb59a7d24154dd80c7ff95d1eb719d7a215237f4c2680bff0931f9c766b2"
+    },
+    {
+      "path": "pcem/vid_voodoo_reg.h",
+      "mode": "100644",
+      "sha256": "3982e4d99217663b9b64f4e19cd86699a3239532ccfca11b95c981318ab88e47"
+    },
+    {
+      "path": "pcem/vid_voodoo_regs.h",
+      "mode": "100644",
+      "sha256": "8ee389847e94fd5d857e8076707cf5a86889e0717a8591ea647c13f41a30a893"
+    },
+    {
+      "path": "pcem/vid_voodoo_render.cpp",
+      "mode": "100644",
+      "sha256": "0d7faa0c2b061aec5ff493bd2983a47188070406a03986c2b20f3ff6230acc03"
+    },
+    {
+      "path": "pcem/vid_voodoo_render.h",
+      "mode": "100644",
+      "sha256": "3f1873a1967182c8a22fcb81a6b7109f66ee12d83d5c9d1e2f69b7a2999c3d31"
+    },
+    {
+      "path": "pcem/vid_voodoo_setup.cpp",
+      "mode": "100644",
+      "sha256": "f34d226ae9f2cfe7a4edfbcc1576fa548160d22056d25c5f04d81e97ec4b8f66"
+    },
+    {
+      "path": "pcem/vid_voodoo_setup.h",
+      "mode": "100644",
+      "sha256": "2afafb67bccb97af186b188f8925db66f20a2a6f36558ef1e290aace8f42d5fb"
+    },
+    {
+      "path": "pcem/vid_voodoo_texture.cpp",
+      "mode": "100644",
+      "sha256": "ac56c12bf4bc32389cdc0106b2b09a8b3d1d0817b644ce3948dd778ae2f436ae"
+    },
+    {
+      "path": "pcem/vid_voodoo_texture.h",
+      "mode": "100644",
+      "sha256": "70f30ed377b7955ea90471f4908e185f42763a611fcb703142e80af9cfb056f6"
+    },
+    {
+      "path": "pcem/video.h",
+      "mode": "100644",
+      "sha256": "a619ccc9f621ec1790e44da0494ff4bb9a796c84222f1744f67663f0eb7ec4d7"
+    },
+    {
+      "path": "pcem/x86.h",
+      "mode": "100644",
+      "sha256": "75caa060797cbc9ee0742aa9bd498b7af3f4a5c3ab2d13d1dfa41a77bf0befc8"
+    },
+    {
+      "path": "pcem/x86_flags.h",
+      "mode": "100644",
+      "sha256": "a98f1815bc848ff417b0572d9d5ed20f9f9acae4cfa971554f4493fe83b232ca"
+    },
+    {
+      "path": "pcem/x86_ops.h",
+      "mode": "100644",
+      "sha256": "f1d1f770f6b5efd5976f3f4c61893a3b84d6ab878bde72ab268f6d0ab7f9b5bb"
+    },
+    {
+      "path": "pcem/x86_ops_3dnow.h",
+      "mode": "100644",
+      "sha256": "9000b548b968c4161b9ce978f0c279f6e14c0551960dd55ca1e3dd19abb8a211"
+    },
+    {
+      "path": "pcem/x86_ops_arith.h",
+      "mode": "100644",
+      "sha256": "2bbf3e53e5ccff3345e67290b9e7db3af6810bbbd221910f810d8f07c30156fe"
+    },
+    {
+      "path": "pcem/x86_ops_atomic.h",
+      "mode": "100644",
+      "sha256": "478c1796ac5b21afc7440aa6d6faf45720fbb62fdaa53014d1366613f7f79291"
+    },
+    {
+      "path": "pcem/x86_ops_bcd.h",
+      "mode": "100644",
+      "sha256": "43329d46de07c70626d04eb06622fbe2d327581cd5a11218b9021fe648545593"
+    },
+    {
+      "path": "pcem/x86_ops_bit.h",
+      "mode": "100644",
+      "sha256": "22f1787d15531f4a9b4be95dfc6170853344974cf9fa6dddc7ee721a6777116e"
+    },
+    {
+      "path": "pcem/x86_ops_bitscan.h",
+      "mode": "100644",
+      "sha256": "33ddb0c68a4ad4528d773a3c620712b64b11d40d93e79c6dbe175e1d692ac3da"
+    },
+    {
+      "path": "pcem/x86_ops_call.h",
+      "mode": "100644",
+      "sha256": "f7eaf71468e8d7bf37eb310c825595f40029e361fd1ba4657ee8c68023ff0c01"
+    },
+    {
+      "path": "pcem/x86_ops_cyrix.h",
+      "mode": "100644",
+      "sha256": "c5c5779ca08b43198b9456a42d2456dcb70199fefefd1ad6322de5e501f87544"
+    },
+    {
+      "path": "pcem/x86_ops_flag.h",
+      "mode": "100644",
+      "sha256": "ecdccd1a6a21c9ea25a1c2743d628f2b63dd66611f919dac14d443031dfd1b21"
+    },
+    {
+      "path": "pcem/x86_ops_fpu.h",
+      "mode": "100644",
+      "sha256": "afcf4d35bd07f746aca3e6bfe053825ac3438eaf1a352e5bf0e17aa0129b7f8f"
+    },
+    {
+      "path": "pcem/x86_ops_inc_dec.h",
+      "mode": "100644",
+      "sha256": "4aab278ee841daed9303f6fb9d4c951158f8cfbb9338a4c11684af5721b42cab"
+    },
+    {
+      "path": "pcem/x86_ops_int.h",
+      "mode": "100644",
+      "sha256": "8f64a4f33df710ad3163305b7a9f0a1fabe833b76248abc42a31dc1818625a32"
+    },
+    {
+      "path": "pcem/x86_ops_io.h",
+      "mode": "100644",
+      "sha256": "e163a5ff43c7571066946ff48594422ea6616c92cbecb2a1cfdaf49aa450bf75"
+    },
+    {
+      "path": "pcem/x86_ops_jump.h",
+      "mode": "100644",
+      "sha256": "7656a64a142291dd77ce7b86d3b362e1a3839bb62dc678413c25f294bcd90250"
+    },
+    {
+      "path": "pcem/x86_ops_misc.h",
+      "mode": "100644",
+      "sha256": "f75339b755cedd95dd882c615801d1cd8b269dc28fd689397d50ff7e69438413"
+    },
+    {
+      "path": "pcem/x86_ops_mmx.h",
+      "mode": "100644",
+      "sha256": "137e48bf0546f8e8d9020c424a79d90344f4d4bd28aac1a9cc7dd64c764a8ff0"
+    },
+    {
+      "path": "pcem/x86_ops_mmx_arith.h",
+      "mode": "100644",
+      "sha256": "b93b3dc96d4b017b6228ffca508729f2cf4d1eabd75b8bc59f7d8dcc7ee2d42f"
+    },
+    {
+      "path": "pcem/x86_ops_mmx_cmp.h",
+      "mode": "100644",
+      "sha256": "58844073648ff88d30e6b0faebd9b6ad097556dbef4d9a0657f1cd8631302649"
+    },
+    {
+      "path": "pcem/x86_ops_mmx_logic.h",
+      "mode": "100644",
+      "sha256": "f12d050bc343d18fcf0f6788f46c62c8673058f932981751cda5ad8fdaaf0a4d"
+    },
+    {
+      "path": "pcem/x86_ops_mmx_mov.h",
+      "mode": "100644",
+      "sha256": "1a2488c755dbd7cfdccd66c93c46fa8f9a53651fe3d08290e553ddcae5f43c17"
+    },
+    {
+      "path": "pcem/x86_ops_mmx_pack.h",
+      "mode": "100644",
+      "sha256": "4a7e89560927b62d8cdbefbfcb8cc4adc7745bd079ee4bdca460e53be917d091"
+    },
+    {
+      "path": "pcem/x86_ops_mmx_shift.h",
+      "mode": "100644",
+      "sha256": "ed6ae1767e2672c59d154d20e175f0de58afc3a16c6ce695895b62e28132b96e"
+    },
+    {
+      "path": "pcem/x86_ops_mov.h",
+      "mode": "100644",
+      "sha256": "1b341816d6c74191191f407547071fcb4a77dd6b539d73c9b80d69922087de0b"
+    },
+    {
+      "path": "pcem/x86_ops_mov_ctrl.h",
+      "mode": "100644",
+      "sha256": "42d32125394dfd6f1a31dae65bf5c603d8c36a55d7fb170472674254773aa524"
+    },
+    {
+      "path": "pcem/x86_ops_mov_seg.h",
+      "mode": "100644",
+      "sha256": "2151b118f9cbcf35a2219da130b5ea03bff07adf5a16989b1430ec0ac91f0c21"
+    },
+    {
+      "path": "pcem/x86_ops_movx.h",
+      "mode": "100644",
+      "sha256": "90aa0e470fda5f602177fb7f482803e3f8a5c1332777f7c70785ba091198c8e8"
+    },
+    {
+      "path": "pcem/x86_ops_msr.h",
+      "mode": "100644",
+      "sha256": "9afc3986cbc96509950ce25d5453ba6004ef9d1ae187757eb85a91528317cb3d"
+    },
+    {
+      "path": "pcem/x86_ops_mul.h",
+      "mode": "100644",
+      "sha256": "f6d6ee9544a6ec14d22569b6b954d22f2f785ddc51f19f31de82d359bab8087a"
+    },
+    {
+      "path": "pcem/x86_ops_pmode.h",
+      "mode": "100644",
+      "sha256": "f06a82ff337ff1caef98397f48d89daeb701c4aeb1c2ed50ccf22fcc9cac4c49"
+    },
+    {
+      "path": "pcem/x86_ops_prefix.h",
+      "mode": "100644",
+      "sha256": "467cffda39fbe0049e763ce4eb363bb116fd863c618758ff94da807ee8c3ef29"
+    },
+    {
+      "path": "pcem/x86_ops_rep.h",
+      "mode": "100644",
+      "sha256": "b297037ffe8bde4884afec721e7084d76883a502e832fd0085c8d4cae4ea95f7"
+    },
+    {
+      "path": "pcem/x86_ops_ret.h",
+      "mode": "100644",
+      "sha256": "8ea68fa1c553df8924a4e1a4e67e1df59ebce8e98904c7ef730bb476864dc8ac"
+    },
+    {
+      "path": "pcem/x86_ops_set.h",
+      "mode": "100644",
+      "sha256": "67de98cd4e4a655d1c0d63e345e050f83228e85e92926b4325602dd701fa0feb"
+    },
+    {
+      "path": "pcem/x86_ops_shift.h",
+      "mode": "100644",
+      "sha256": "92fd7e76aeb2cb31735213711e4f2fea0895b505d51422e4e1c713bced444803"
+    },
+    {
+      "path": "pcem/x86_ops_stack.h",
+      "mode": "100644",
+      "sha256": "9beebb0d899bcf6186e9aa9ad470887a266c60dcab75884d697df4c2441b8196"
+    },
+    {
+      "path": "pcem/x86_ops_string.h",
+      "mode": "100644",
+      "sha256": "e16a25afee67ee7f36e51f1bafedca2a8eed9cc280fd6bed5d7d7b587e5c8f37"
+    },
+    {
+      "path": "pcem/x86_ops_xchg.h",
+      "mode": "100644",
+      "sha256": "d8003636ed3558b4932295e512cfbf89937b4d0e6435100b3ef0c9d15ee578d1"
+    },
+    {
+      "path": "pcem/x86seg.cpp",
+      "mode": "100644",
+      "sha256": "1f0649f851e25947f2ffb4ca41ccaef77779552c4337c48c031ad24f8dd171ed"
+    },
+    {
+      "path": "pcem/x87.cpp",
+      "mode": "100644",
+      "sha256": "b1bcdfec5a7bb600c69ad450815b396316218026630e11c94fe0f7f5c60fe1f1"
+    },
+    {
+      "path": "pcem/x87.h",
+      "mode": "100644",
+      "sha256": "d8aafe5b69fd94032f71b6dcba128e5d6750c937c4f7f1b6f883bf908e89bce5"
+    },
+    {
+      "path": "pcem/x87_ops.h",
+      "mode": "100644",
+      "sha256": "25e35db9f9ad2579012a81301deca156954f1ef4a3c7687baaec638c43715fdd"
+    },
+    {
+      "path": "pcem/x87_ops_arith.h",
+      "mode": "100644",
+      "sha256": "a274347c1f1a3821ca002f07c7ea02b2c207215bbd8c638af9b467030aebf379"
+    },
+    {
+      "path": "pcem/x87_ops_loadstore.h",
+      "mode": "100644",
+      "sha256": "0e74dc8a24e64e8325f742c1d22948b309e451b5a0f026946830ec4fa9845800"
+    },
+    {
+      "path": "pcem/x87_ops_misc.h",
+      "mode": "100644",
+      "sha256": "9813e3eb61b4e6157dc9c2c78ef5ec71e2ed032e84741ce9a3fe5139bd9280e3"
+    },
+    {
+      "path": "pcem/x87_timings.cpp",
+      "mode": "100644",
+      "sha256": "a883326b36d0ce0ad2721b554db72f2e53ba12854dfdf21b3a09bef9ad57443d"
+    },
+    {
+      "path": "pcem/x87_timings.h",
+      "mode": "100644",
+      "sha256": "ba4c66a7b9cf1eda2df48286c267f8ee9485a7214b6ac9dcda5d616a26dc7574"
+    },
+    {
+      "path": "pcem/xi8088.h",
+      "mode": "100644",
+      "sha256": "dcb2048c96e56ef67a681221a674dafedf934620bd849c71a1e7903921f1e707"
+    },
+    {
+      "path": "pci.cpp",
+      "mode": "100644",
+      "sha256": "34d978081f71c4b9cb6e1fe1bc4e6f592ff6a6961a69b9fae696103320964169"
+    },
+    {
+      "path": "picasso96.cpp",
+      "mode": "100644",
+      "sha256": "a0ac06b7f4f4b9334f4f1258ab6bc177c858c5dc009e28573f80857814e49abf"
+    },
+    {
+      "path": "ppc/pearpc/cpu/common.h",
+      "mode": "100644",
+      "sha256": "d1057d7b9bd51a73f0b68c85a2528bae4ab3689645e8011d6cba501a35f58949"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu.h",
+      "mode": "100644",
+      "sha256": "60c2693094c1fc2d54e6e3d6d27cc906a59235b3ae309f959518f7fff5d10aa1"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_alu.cpp",
+      "mode": "100644",
+      "sha256": "713c8b804d1ca500e8a989243ba7a54d900a142dd6ef3bea4d44d2290dc4bfdb"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_alu.h",
+      "mode": "100644",
+      "sha256": "ef0504bc3e328c43f34bca912ec8a773e7d601ed27e99916708ba3607b2f52d5"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_cpu.cpp",
+      "mode": "100644",
+      "sha256": "3c787ce77add6c44a6c55a7894b632cbe1fc6b53a713f71200d4f941a7b05ed9"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_cpu.h",
+      "mode": "100644",
+      "sha256": "49ed1ca783c186c77e11d8842fb9c7fda64934f1b59ba941fe3c5dc9b51e9836"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_dec.cpp",
+      "mode": "100644",
+      "sha256": "f76a2d678715f7a828a7388c8cfb920ad7bdcfad8989c2b77cc1a296d6ada2fa"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_dec.h",
+      "mode": "100644",
+      "sha256": "33cb80dad36f02c3e2a693d8056751b5311f455a4a2da5bd8bd84a9ee9aa125e"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_exc.cpp",
+      "mode": "100644",
+      "sha256": "f6931c4fc40e11ac72049f262bb8c4f293031af048b8525243883bb20a73e4cb"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_exc.h",
+      "mode": "100644",
+      "sha256": "fca3afbf6baece026bc3d78c4ac1ccc29eaca3172e7cb81064ef460b86e0fde5"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_fpu.cpp",
+      "mode": "100644",
+      "sha256": "ccc2164f7251773f4e79e56c573f111cebeac77b4de8913fb59d1ffa5d9a05b6"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_fpu.h",
+      "mode": "100644",
+      "sha256": "9859e5eafd41100da5136be272de99435c5666b4156ef16c71644044a28a6657"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_mmu.cpp",
+      "mode": "100644",
+      "sha256": "4fb1b7ef96bfbb4895c828054e3bdbf87aeda263da348c9552c5965a10a86d88"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_mmu.h",
+      "mode": "100644",
+      "sha256": "80876c367d84d825eaf30ece2bb8753093a5fd1ee657b3292c896d3f7369643f"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_opc.cpp",
+      "mode": "100644",
+      "sha256": "9ee122fc1e66b33b9098b02812bcd34f583a2af7ad83e4ecec543ef36e62f376"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_opc.h",
+      "mode": "100644",
+      "sha256": "8d8f840b2dcf61a1b9bd2e39ed539bdc5526dc115de7616aa545e833ebc1cedf"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_tools.h",
+      "mode": "100644",
+      "sha256": "32c4c276807c41ca58032a65962faed7eb6315956dc2b1558524c81b605e3331"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_vec.cpp",
+      "mode": "100644",
+      "sha256": "b957989be2f7daf44773599db64f1f77210d250092e4d04f2fc68cbfa54befc8"
+    },
+    {
+      "path": "ppc/pearpc/cpu/cpu_generic/ppc_vec.h",
+      "mode": "100644",
+      "sha256": "8b5ad8fa88ceae1d87c17d3757a5ce7c7dcf10a70b7ee81612eaaf05ab325ce8"
+    },
+    {
+      "path": "ppc/pearpc/cpu/debug.h",
+      "mode": "100644",
+      "sha256": "95e43509028c252688912ce94f83276af50229bee4db179cfd11a3eb0103edb8"
+    },
+    {
+      "path": "ppc/pearpc/cpu/mem.h",
+      "mode": "100644",
+      "sha256": "9522dc039ef69293356ebea33c3b2fb2f1cec65295fce2df324879b49c2e5952"
+    },
+    {
+      "path": "ppc/pearpc/info.h",
+      "mode": "100644",
+      "sha256": "2e577a03cf2ebb9d25f657b932521ef3c39086f0c8290cfd766cec2b92bc7f82"
+    },
+    {
+      "path": "ppc/pearpc/io/io.h",
+      "mode": "100644",
+      "sha256": "ad9f6c5cff4b96c370c44e94ba978f91eed86ba93405cd2cd1a46d2afdd3ed23"
+    },
+    {
+      "path": "ppc/pearpc/pearpc_config.h",
+      "mode": "100644",
+      "sha256": "bdb7902ec8bd233ed0e63b99c3c168df56919e53a530d87004a00368c0e3ca51"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/generic/sysendian.h",
+      "mode": "100644",
+      "sha256": "39cc5d88dc79cae37354c44dc0485967b021e25e47bba2649600f4743f329b3f"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/generic/sysfeatures.h",
+      "mode": "100644",
+      "sha256": "e99c6863dcb50364a6c4c5327bd724e9794d893e087b3afd64280ca023c1e225"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/sysendian.h",
+      "mode": "100644",
+      "sha256": "ad71d2cd57304d6835738352af480465cf24fb3cd07eb061fd483481cea573ca"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/sysfeatures.h",
+      "mode": "100644",
+      "sha256": "8eaa7f041d8bf76a4cd642da646e9a83702041fba598189e29d05509ab6b254f"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/x86/sysendian.h",
+      "mode": "100644",
+      "sha256": "941d032bd42a0c08e4dd5f586f60f899d6fc6532b687717cb8cf21468e339df4"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/x86/sysfeatures.h",
+      "mode": "100644",
+      "sha256": "013f025cb54ee722b565752d45885c52e464d33ba919433b5d6e1166107b8ca8"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/x86/sysvaccel.cc",
+      "mode": "100644",
+      "sha256": "2e6a94bf94655370159d92127ec267428df2c8dea71e2cc6227fe76872ac1d10"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/x86/vaccel.S",
+      "mode": "100644",
+      "sha256": "05fee2adeb00dddad1ea25ee136abdbe464db7101f0e09eb3a6ff6dd11e53a3a"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/x86_64/sysendian.h",
+      "mode": "100644",
+      "sha256": "4eab97c6fbb198d012867bfccdb83cae34897b5be06e7b68060cf27c66ad3230"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/x86_64/sysfeatures.h",
+      "mode": "100644",
+      "sha256": "013f025cb54ee722b565752d45885c52e464d33ba919433b5d6e1166107b8ca8"
+    },
+    {
+      "path": "ppc/pearpc/system/arch/x86_64/sysvaccel.cc",
+      "mode": "100644",
+      "sha256": "193cfbf078aaf967bc6f4a6af4d2ca678ef2238dc98ac9a7f539106df9202384"
+    },
+    {
+      "path": "ppc/pearpc/system/systhread.h",
+      "mode": "100644",
+      "sha256": "11df14fbee4fca5a9df7f6bcf8a84e77f7da81244d795fd5d5dde92a3b088b63"
+    },
+    {
+      "path": "ppc/pearpc/system/types.h",
+      "mode": "100644",
+      "sha256": "02ff1d5aa1b012cb34df9b5f8107d2d67ea681b57db667f8bc3c66467da9c897"
+    },
+    {
+      "path": "ppc/pearpc/tools/debug.h",
+      "mode": "100644",
+      "sha256": "2e53a6b1cc10a739295911addd2b186ba1aa75a485cb5c2acb2b0dd8c1f2577c"
+    },
+    {
+      "path": "ppc/pearpc/tools/endianess.h",
+      "mode": "100644",
+      "sha256": "d36f39f98c6ff5352c1e871b59bdb726ed676c5194befa1602fd98b538fcc262"
+    },
+    {
+      "path": "ppc/pearpc/tools/snprintf.h",
+      "mode": "100644",
+      "sha256": "17187f12f751ea43d8bd8f73910d5207a540db60c633b0588e10d75ab07f0307"
+    },
+    {
+      "path": "ppc/pearpc/tracers.h",
+      "mode": "100644",
+      "sha256": "3936fbbd5be3cbac4b5c1119714f9741fd001caa9d6a694471831dbfa0284ddf"
+    },
+    {
+      "path": "ppc/pearpc/uaeglue.cpp",
+      "mode": "100644",
+      "sha256": "b94f2ba0f4445ca4640c2eccb9f33eb254c96b7b38bfc027657372073b30c441"
+    },
+    {
+      "path": "ppc/ppc.cpp",
+      "mode": "100644",
+      "sha256": "eac46872d710d782cc16c6dea230b4185b632a75f7a3e2dae60691c9b235e301"
+    },
+    {
+      "path": "ppc/ppcd.cpp",
+      "mode": "100644",
+      "sha256": "3306f1b18fd781cda51544f54d88d4c1d9a15242dbdac1538e0c22040cb7d930"
+    },
+    {
+      "path": "ppc/ppcd.h",
+      "mode": "100644",
+      "sha256": "95f4b8862b8cd734b57947a5c9b372f9b1e7b6bcbe4caaa9c75b3731b8596229"
+    },
+    {
+      "path": "ppc/ppcglue.cpp",
+      "mode": "100644",
+      "sha256": "1e08ae7de688cf4919db93aa09142310eb134607c37184ab78817c7873e5e360"
+    },
+    {
+      "path": "prowizard/include/extern.h",
+      "mode": "100644",
+      "sha256": "010c9b6533a58a82c4b3391c3fb1fee06bdda1f58d69883ffce7ca4dd922b026"
+    },
+    {
+      "path": "prowizard/include/globals.h",
+      "mode": "100644",
+      "sha256": "8e360f097eb1ae280f036312c18f69b7ebe6a0ee4fb5a45961a1f7a0a7fe6732"
+    },
+    {
+      "path": "prowizard/include/ptktable.h",
+      "mode": "100644",
+      "sha256": "79e61f783effab21b532ea1bb856015fed4cbfc2baf1994cfb015a84e4dc6082"
+    },
+    {
+      "path": "prowizard/include/tuning.h",
+      "mode": "100644",
+      "sha256": "18f4de771675bf2845d1efbe2cdbdee166f3519be5bd53cc51c4b151d1a19fee"
+    },
+    {
+      "path": "prowizard/include/vars.h",
+      "mode": "100644",
+      "sha256": "822259164354af0d5164efe3c1bd446bd298541bc58f2152de71e8b4fe0936a2"
+    },
+    {
+      "path": "prowizard/misc/misc.c",
+      "mode": "100644",
+      "sha256": "5232aa8da1f527bee57672609db79aca2572f1f6d76568210bb48a03daa5904e"
+    },
+    {
+      "path": "prowizard/misc/testbag.c",
+      "mode": "100644",
+      "sha256": "5064a198c83659eb0752311494079ed6ff4e531909b9155819fb17077f1f44f9"
+    },
+    {
+      "path": "prowizard/prowiz.c",
+      "mode": "100644",
+      "sha256": "8c3de75098992251c87d6782042c0b356d9b98284bc09db2fa9bc76e5d9e016d"
+    },
+    {
+      "path": "prowizard/rippers/AC1D_packer.c",
+      "mode": "100644",
+      "sha256": "d695b8d9ed838f9879db7c179d93f39142579a15fc5cb6640bedfe6f366d96fe"
+    },
+    {
+      "path": "prowizard/rippers/AMOS-MusicBank.c",
+      "mode": "100644",
+      "sha256": "c8da78162c550220eaf546f6ac2e4a51d81376b7676078425de815d900783605"
+    },
+    {
+      "path": "prowizard/rippers/AMOS-PowerPackerBank.c",
+      "mode": "100644",
+      "sha256": "2de25ebfbd2b61c860e141ba48d9b05ec0964e7e98e3ba836161894c5d3c4f19"
+    },
+    {
+      "path": "prowizard/rippers/BP-Soundmonitor.c",
+      "mode": "100644",
+      "sha256": "f16b06d59d90f786a93d5fc6914840358bf61cff044eb2ddfa147f6965c20d94"
+    },
+    {
+      "path": "prowizard/rippers/BSI-FutureComposer.c",
+      "mode": "100644",
+      "sha256": "b5818b953f53b4ed2c015b2572feca129ced9d66d13a286e66700c251823a7fe"
+    },
+    {
+      "path": "prowizard/rippers/Bytekiller.c",
+      "mode": "100644",
+      "sha256": "fc20c98ef47b76b9ef7b956036de1975cbba4ab5f16a64cf2dfd024aac8a2292"
+    },
+    {
+      "path": "prowizard/rippers/ChipTracker.c",
+      "mode": "100644",
+      "sha256": "759e53cd4e56e302da1517989035f315982a60a874f79d3de8ae9e689ac3fe3b"
+    },
+    {
+      "path": "prowizard/rippers/Crunchmania-Address.c",
+      "mode": "100644",
+      "sha256": "bb5e3393ee44dd7b66e831fb5e1885269ce137dd9a2b1ed3765daf9386f2a210"
+    },
+    {
+      "path": "prowizard/rippers/Crunchmania-Simple.c",
+      "mode": "100644",
+      "sha256": "84df29069a32493659e98393d2fb949d2036efe5b16b7e5a2042848bf3b6439c"
+    },
+    {
+      "path": "prowizard/rippers/DefjamCruncher32-pro.c",
+      "mode": "100644",
+      "sha256": "5279758cfd268e11f3fcd5166a0a1e616d6541c4a2bda9e6a8e4c58ba432a880"
+    },
+    {
+      "path": "prowizard/rippers/DigiBooster17.c",
+      "mode": "100644",
+      "sha256": "384e589fbb260d6d6fd69fafa65dc821fab3956f3d33ff876cb72877c234fde5"
+    },
+    {
+      "path": "prowizard/rippers/DigitalIllusion.c",
+      "mode": "100644",
+      "sha256": "0e9085654bb7ad34287d419cb546e907c90f3203242ab281bf446751cd88e1e0"
+    },
+    {
+      "path": "prowizard/rippers/DoubleAction.c",
+      "mode": "100644",
+      "sha256": "a057d4a96ef6abb06300bdc84cd3ab541bbf67c955fa47089ef320960a8719ac"
+    },
+    {
+      "path": "prowizard/rippers/Dragpack100.c",
+      "mode": "100644",
+      "sha256": "5003006b53236a0b3e8e2c55bbdda2daab961181861a9bbbe5fc711d9952b932"
+    },
+    {
+      "path": "prowizard/rippers/Dragpack252.c",
+      "mode": "100644",
+      "sha256": "14828e8beda83f31f977b85849bb4614977c024bce872d9de1f50975b177b8dc"
+    },
+    {
+      "path": "prowizard/rippers/EurekaPacker.c",
+      "mode": "100644",
+      "sha256": "c2cdada16db9dba262617b856cee043f493a1723e5c5c1549ad31f7da69eb1a1"
+    },
+    {
+      "path": "prowizard/rippers/FC-M-Packer.c",
+      "mode": "100644",
+      "sha256": "42803326d29ff4a5014625cded402f81b2eaf24728813bb12e67e2ab37a47e20"
+    },
+    {
+      "path": "prowizard/rippers/FastTracker2.c",
+      "mode": "100644",
+      "sha256": "3a33aecdb806cc91dc0ac99332985b94935ba43609c90febf575d4afabe328f1"
+    },
+    {
+      "path": "prowizard/rippers/FuchsTracker.c",
+      "mode": "100644",
+      "sha256": "a6c605af1f7b6ff329d6e5078273caf201b3406b37804e506899d7be4f619494"
+    },
+    {
+      "path": "prowizard/rippers/FutureComposer13.c",
+      "mode": "100644",
+      "sha256": "27285050c6e2710caa5e3172e887c6df67ac1d5d112aed9bdf5de31aee0dae05"
+    },
+    {
+      "path": "prowizard/rippers/FutureComposer14.c",
+      "mode": "100644",
+      "sha256": "c6569bbe7a5973086fa375897b914574f964f7ce81947847b0f71704e0fd04f9"
+    },
+    {
+      "path": "prowizard/rippers/FuzzacPacker.c",
+      "mode": "100644",
+      "sha256": "f005ac24b105aae26b51d5c9c8088344a37bbc3e529e3a6c09903639d883da19"
+    },
+    {
+      "path": "prowizard/rippers/GMC.c",
+      "mode": "100644",
+      "sha256": "7cda842a315b1d578802925d24e75b454917e370501c52cffdeb15fc0a455f06"
+    },
+    {
+      "path": "prowizard/rippers/GNUPacker12.c",
+      "mode": "100644",
+      "sha256": "7b82b9059528f4fe567bc12c448ab5763a35f8ff54895904576a90386ed0495b"
+    },
+    {
+      "path": "prowizard/rippers/GPMO.c",
+      "mode": "100644",
+      "sha256": "13dba6484357646286fd7527028c38fd08aadb39ccabf884a8f443c334160452"
+    },
+    {
+      "path": "prowizard/rippers/GnuPlayer.c",
+      "mode": "100644",
+      "sha256": "ec55652fc6e42052da028b3fe321b55fd5a84cd916491a66504a33b7269133e0"
+    },
+    {
+      "path": "prowizard/rippers/HQC2.c",
+      "mode": "100644",
+      "sha256": "f65d55320feb31b89e6476be4cd0425f5e833e94c26c668ff0093b3778c0abc4"
+    },
+    {
+      "path": "prowizard/rippers/HeatseekerMC10.c",
+      "mode": "100644",
+      "sha256": "1599a0a17babac2b9b6996f6822ecf5215a85698bde0488f8b2cb2891f4b7155"
+    },
+    {
+      "path": "prowizard/rippers/HornetPacker.c",
+      "mode": "100644",
+      "sha256": "6ab391aa4a82cfbf8f77d63231515df3d25f187b670d75e54552dd62d03a1ef1"
+    },
+    {
+      "path": "prowizard/rippers/JamCracker.c",
+      "mode": "100644",
+      "sha256": "1584fdca908bf0920636592defa1189b475ab0dd626b04410423f977b619c597"
+    },
+    {
+      "path": "prowizard/rippers/KefrensSoundMachine.c",
+      "mode": "100644",
+      "sha256": "28c3124db159dbfa928720844bf17017a27fb2ad4e73eeba7cd4c5d2a711282c"
+    },
+    {
+      "path": "prowizard/rippers/MED-Octamed.c",
+      "mode": "100644",
+      "sha256": "00b342e7c3223ad62e850c512358a2597118c9fc930b2e287f46473c9dcf9465"
+    },
+    {
+      "path": "prowizard/rippers/MOD-compatible.c",
+      "mode": "100644",
+      "sha256": "8065d8ce0dc245ad682713b9899d4310412fdac76db38e33db1731fe2ae8e3b8"
+    },
+    {
+      "path": "prowizard/rippers/MasterCruncher30-Address.c",
+      "mode": "100644",
+      "sha256": "8a5ceb3e99b4713f5f6fbfce08c817b9676732e4969f09809b499a90b555c15d"
+    },
+    {
+      "path": "prowizard/rippers/MaxPacker12.c",
+      "mode": "100644",
+      "sha256": "7fa2211636b9f8fb25c92c11ee7813a1c9262e4547932c7a1e6c1bb9f17902ca"
+    },
+    {
+      "path": "prowizard/rippers/MegaCruncher-Object.c",
+      "mode": "100644",
+      "sha256": "066da06fe49e95efbccbe47407b6dbf7e6d8191d6116e8cdbbdd59450abcf138"
+    },
+    {
+      "path": "prowizard/rippers/MegaCruncher.c",
+      "mode": "100644",
+      "sha256": "eded52b5324411d8803cebcc093e2e59bee729b9bd130b36f5ef7f261e8bc452"
+    },
+    {
+      "path": "prowizard/rippers/ModuleProtector.c",
+      "mode": "100644",
+      "sha256": "b52e2f319faae0844fd67e6f4085b9f10cf27d9a66c1c257004c46303d1203f3"
+    },
+    {
+      "path": "prowizard/rippers/Mugician.c",
+      "mode": "100644",
+      "sha256": "b1496b09c143a7f108c7b7446adedef7c105abb656c2746e5a72bfa113bae5e2"
+    },
+    {
+      "path": "prowizard/rippers/NP3.c",
+      "mode": "100644",
+      "sha256": "2f89d752732fb574110c475ccf0b26600f7ec87a40e625fd377b6b4d5c4fec2d"
+    },
+    {
+      "path": "prowizard/rippers/Newtron.c",
+      "mode": "100644",
+      "sha256": "3c09b9ba79ec5569270834c583907970ebebdc7675f43bea7bb9daec2ddc097d"
+    },
+    {
+      "path": "prowizard/rippers/NewtronOld.c",
+      "mode": "100644",
+      "sha256": "c82baef8dc3486e88dd3e8292ab1fa7d80bd0251e9478d210df33d1da9e79824"
+    },
+    {
+      "path": "prowizard/rippers/NoiseFromHeaven.c",
+      "mode": "100644",
+      "sha256": "4ad66b17a5e8cbe198e648d0a6f302e02fcebae803a46288e5cd0d2ac3b3c4c4"
+    },
+    {
+      "path": "prowizard/rippers/NoisePacker1.c",
+      "mode": "100644",
+      "sha256": "b17d47998525f012ce9399c48baf50e697ff0f6cd9c61d780d6b92c2e9d084b1"
+    },
+    {
+      "path": "prowizard/rippers/NoisePacker2.c",
+      "mode": "100644",
+      "sha256": "99b2c5df4eddb646b620ef943b9b4dce211ec9b141987d5c48612359221bf957"
+    },
+    {
+      "path": "prowizard/rippers/NoiseRunner.c",
+      "mode": "100644",
+      "sha256": "34b6850adba1bcf7aa1ed3a64cf060ee820750ccfdd77fd00a0e30d658560632"
+    },
+    {
+      "path": "prowizard/rippers/NovoTrade.c",
+      "mode": "100644",
+      "sha256": "be95658593c06166236b9c8a4d73609c90319270d78dbff8cd62396ba9d91347"
+    },
+    {
+      "path": "prowizard/rippers/PhaPacker.c",
+      "mode": "100644",
+      "sha256": "43db5f36ab5d2b65ea2054a7bf85304c19f560b8cafb7f7dccac6b5f38088da3"
+    },
+    {
+      "path": "prowizard/rippers/PolkaPacker.c",
+      "mode": "100644",
+      "sha256": "c49dda1aaefaf409e0947f0c47dedafec22f696f5b7895b195b3b382013a45c0"
+    },
+    {
+      "path": "prowizard/rippers/PowerMusic.c",
+      "mode": "100644",
+      "sha256": "3f3b763e9d2f247295db6e502fe298bbbc8e3196b8128f771400370d3ca40b2d"
+    },
+    {
+      "path": "prowizard/rippers/PowerPacker23.c",
+      "mode": "100644",
+      "sha256": "c6c5198282979adef65702132567eab08f96d9313159ce332091fe617596a66f"
+    },
+    {
+      "path": "prowizard/rippers/PowerPacker30.c",
+      "mode": "100644",
+      "sha256": "af858ac1a4507e661739a5eec8bd855b9ce94d58d1b117a58576c357e4b65c45"
+    },
+    {
+      "path": "prowizard/rippers/PowerPacker40-library.c",
+      "mode": "100644",
+      "sha256": "7b8a15cc776194b4486c34ea4f4b673dd019c8f3b8597e034dcafbabe827b99a"
+    },
+    {
+      "path": "prowizard/rippers/PowerPacker40.c",
+      "mode": "100644",
+      "sha256": "6d2909ace3ac67e479f551fbd39e2780e66b34aa1c2653571675437b1d4265a1"
+    },
+    {
+      "path": "prowizard/rippers/ProPacker10.c",
+      "mode": "100644",
+      "sha256": "967ae3bd58d67dd81767739c4e63bb0c91be5c3a18791ced75a4b93b5b9fa549"
+    },
+    {
+      "path": "prowizard/rippers/ProPacker21.c",
+      "mode": "100644",
+      "sha256": "1fde7f419de0192fe508a463f1466a022aa3cd669bec22d951377dae9b4c6e23"
+    },
+    {
+      "path": "prowizard/rippers/ProPacker30.c",
+      "mode": "100644",
+      "sha256": "b5ffe37f78a3a4bbc613b5e636b478f0f0cf99c9af0e31abf936342acdbf5753"
+    },
+    {
+      "path": "prowizard/rippers/Promizer01.c",
+      "mode": "100644",
+      "sha256": "5a853fd294d95459a3bdec8c67600ef86d728a77a484e071168e1dde5e6fb050"
+    },
+    {
+      "path": "prowizard/rippers/Promizer10c.c",
+      "mode": "100644",
+      "sha256": "53652a0ef172037e2c59758375afbd4907217bfb82d3b3ebe23973b633bf170a"
+    },
+    {
+      "path": "prowizard/rippers/Promizer18a.c",
+      "mode": "100644",
+      "sha256": "75fe32b909fea34131955b10609da5aef08868f06ac64a80548e857baeaf5815"
+    },
+    {
+      "path": "prowizard/rippers/Promizer20.c",
+      "mode": "100644",
+      "sha256": "3a8466a4225c7b5da1b5e14a1d6c1f2a2c66127594884102db9cea1ca1403923"
+    },
+    {
+      "path": "prowizard/rippers/Promizer40.c",
+      "mode": "100644",
+      "sha256": "0110942c3499e37a25b70267a0246fc685a93a68e6adcebf377aeb8d01e94990"
+    },
+    {
+      "path": "prowizard/rippers/Prorunner10.c",
+      "mode": "100644",
+      "sha256": "0c8c201ab7da74acf09a75acb243dfa01eb72471d7b18f835e18b61752c68036"
+    },
+    {
+      "path": "prowizard/rippers/Prorunner20.c",
+      "mode": "100644",
+      "sha256": "c701ef46120063d1c80009a8dcfc0fc7bf4a76595d8eb92e19c18e32bf8f3d06"
+    },
+    {
+      "path": "prowizard/rippers/QuadraComposer.c",
+      "mode": "100644",
+      "sha256": "7d432af9f2de484e2eec9ede01b7d141655f2a3fe3bb0e4b1e81d25c54a254e8"
+    },
+    {
+      "path": "prowizard/rippers/RelokIt10.c",
+      "mode": "100644",
+      "sha256": "c07930ba87c6394de1c9b7c6054b38ddb2a11eb6fa134a8fd28fd69803b3c11c"
+    },
+    {
+      "path": "prowizard/rippers/SGT-Packer.c",
+      "mode": "100644",
+      "sha256": "732638864820d1f1758438277fa9743ab0f54ce5dce08abc991795b2a0940d0d"
+    },
+    {
+      "path": "prowizard/rippers/SkytPacker.c",
+      "mode": "100644",
+      "sha256": "9f211f6503427f729afb05e0f6cde0410e29df00c7f095e116c914e8abfb974d"
+    },
+    {
+      "path": "prowizard/rippers/SoundFX.c",
+      "mode": "100644",
+      "sha256": "8d3e1164f87983fab38d0ee225533b4516229e8551e910cd90e65b20abc84fc6"
+    },
+    {
+      "path": "prowizard/rippers/SoundTracker.c",
+      "mode": "100644",
+      "sha256": "bc8ab165a6ecf1ab106f70c4de0e68b77f5200d85a0e5a0792a97da236cc6ad8"
+    },
+    {
+      "path": "prowizard/rippers/SoundTracker26.c",
+      "mode": "100644",
+      "sha256": "234d3791027dcbd8a4d3df377a35497d15503124ad74709db9e556e6b554c4c0"
+    },
+    {
+      "path": "prowizard/rippers/SpikeCruncher.c",
+      "mode": "100644",
+      "sha256": "242db0bcff25661f30a9b37d6884578125f08132d5156536cfc62e4d41c4afe6"
+    },
+    {
+      "path": "prowizard/rippers/StartrekkerPack.c",
+      "mode": "100644",
+      "sha256": "3633c51426a54d48887d33f260308bf3aa1c88e39b3c7cea2e4b8aa96092f4f4"
+    },
+    {
+      "path": "prowizard/rippers/StimPacker.c",
+      "mode": "100644",
+      "sha256": "42d18146b2778454a12adbf60c209405d8c28088c115befb62742d53a19e5a9a"
+    },
+    {
+      "path": "prowizard/rippers/StoneArtsPlayer.c",
+      "mode": "100644",
+      "sha256": "3ee7bc218e89d89a20d06953bb5f18a8dd8ea1faa7ed3d18580f1705f0d84aa3"
+    },
+    {
+      "path": "prowizard/rippers/StoneCracker270.c",
+      "mode": "100644",
+      "sha256": "2b5baa19e3663cd78341ad98f0ea33244bebab8ac5cc69f30d9a0ff82751953b"
+    },
+    {
+      "path": "prowizard/rippers/StoneCracker299.c",
+      "mode": "100644",
+      "sha256": "0e647da8c1c80c103d3f268cd1e2d0c5fb693f4a770f7dd6211314a9f558ddf4"
+    },
+    {
+      "path": "prowizard/rippers/StoneCracker299b.c",
+      "mode": "100644",
+      "sha256": "4c4a3f43ceca12979baeea6da31f07348d558e6deb08d026e81316bdd80cc603"
+    },
+    {
+      "path": "prowizard/rippers/StoneCracker299d.c",
+      "mode": "100644",
+      "sha256": "726cec1a4ae398ff238c47c9ef4dbe759312569cd0fbbb18ae780ef194948ac4"
+    },
+    {
+      "path": "prowizard/rippers/StoneCracker300.c",
+      "mode": "100644",
+      "sha256": "5b9f209378b136ba004fd7fff06b2cb0925ad4f92da7935a7fa62545ef1fec3e"
+    },
+    {
+      "path": "prowizard/rippers/StoneCracker310.c",
+      "mode": "100644",
+      "sha256": "de1fb1a5782afae2657eb677e7bc58f340764e8ece5701ae032c1260525ef152"
+    },
+    {
+      "path": "prowizard/rippers/SuperCruncher27.c",
+      "mode": "100644",
+      "sha256": "b627336b4cc1bb8d9aa9cf4d83471458562cd88f999775afa91e4fb0b55a0274"
+    },
+    {
+      "path": "prowizard/rippers/SyncroPacker46.c",
+      "mode": "100644",
+      "sha256": "c01b7389787bfe33b7b4b5a42ee74e7512681783b635ffcf81c2f8a5f3cb3369"
+    },
+    {
+      "path": "prowizard/rippers/TMK.c",
+      "mode": "100644",
+      "sha256": "1635e10e00e6f0729f7dc18704e0e461c390f9aeb7fa20e273760929369842ec"
+    },
+    {
+      "path": "prowizard/rippers/TNMCruncher.c",
+      "mode": "100644",
+      "sha256": "8fa59036304e060d247b629b81c99fb4a305992e6ca507c31590e9274277be2a"
+    },
+    {
+      "path": "prowizard/rippers/TetraPack102.c",
+      "mode": "100644",
+      "sha256": "820ff78d41989db1cbf50ac2e709f38dd18d74720db30a3edaf75f3bbc13cc2e"
+    },
+    {
+      "path": "prowizard/rippers/TetraPack21.c",
+      "mode": "100644",
+      "sha256": "de093353728204bb7f9c291535929841262a865365c7b07fc7744bb220c45f5a"
+    },
+    {
+      "path": "prowizard/rippers/TetraPack22.c",
+      "mode": "100644",
+      "sha256": "34f054cbc7b4492cc1632c197364d1cad56cd66d32bc8baba1b1cae7a6d20c0e"
+    },
+    {
+      "path": "prowizard/rippers/TheDarkDemon.c",
+      "mode": "100644",
+      "sha256": "df494b2dc6c285ad411aba18551caed4a5ac674beb77dea213ad1be2bb79b698"
+    },
+    {
+      "path": "prowizard/rippers/ThePlayer22a.c",
+      "mode": "100644",
+      "sha256": "404139f938545ab843ebccbfe60d9f3c459b57a1bc6b081121b204728b1bea16"
+    },
+    {
+      "path": "prowizard/rippers/ThePlayer30a.c",
+      "mode": "100644",
+      "sha256": "edba5779f51bd95dd4b433aa7e387130a7dc3034e8e52890cdd72a8d9df89675"
+    },
+    {
+      "path": "prowizard/rippers/ThePlayer40.c",
+      "mode": "100644",
+      "sha256": "c64bfa4280076571c0b105785acb3bd6e7c23bcc66172d9a9bc060ca780c3f94"
+    },
+    {
+      "path": "prowizard/rippers/ThePlayer41a.c",
+      "mode": "100644",
+      "sha256": "796255d3ba0c56b2e07b295111648489628a61864c4f795f26a604fcc3003f54"
+    },
+    {
+      "path": "prowizard/rippers/ThePlayer50a.c",
+      "mode": "100644",
+      "sha256": "b8bbf1b8189ee626da8222cb4ecebba41f5e641d655192fe14d06a0f7b8bed15"
+    },
+    {
+      "path": "prowizard/rippers/ThePlayer60a.c",
+      "mode": "100644",
+      "sha256": "00fd566baf901d58f08c8366d8e6109b9753986076862254592c66da19a7c252"
+    },
+    {
+      "path": "prowizard/rippers/ThePlayer61a.c",
+      "mode": "100644",
+      "sha256": "ab216ddf0a103930394880f951be0ec0e5e0c1c0fa2546c7a565cffabde853fe"
+    },
+    {
+      "path": "prowizard/rippers/TimeCruncher17.c",
+      "mode": "100644",
+      "sha256": "dfd1a135bcb6bf726f0e4c9e0d824a585133e0fc1518284d9f9a182e527ebd12"
+    },
+    {
+      "path": "prowizard/rippers/TitanicsPlayer.c",
+      "mode": "100644",
+      "sha256": "509228e778ed109c19acdf988738de0fd2c8dfc1cb9b984b7d0e5d60bc72e4d3"
+    },
+    {
+      "path": "prowizard/rippers/TrackerPacker1.c",
+      "mode": "100644",
+      "sha256": "f4191a00c2efa57424a23e70ca879845be5bfbcfcc6b0383099b28f7afe5fd19"
+    },
+    {
+      "path": "prowizard/rippers/TrackerPacker2.c",
+      "mode": "100644",
+      "sha256": "c98e7a1927e86c11186ce663287d4b34317b7a77b1940bf2b49ba3cde364bf2b"
+    },
+    {
+      "path": "prowizard/rippers/TrackerPacker3.c",
+      "mode": "100644",
+      "sha256": "24b7d56df97c2903b5afe109c4f554b5c2e9c671c3e0356870bb114bc6ee9d51"
+    },
+    {
+      "path": "prowizard/rippers/TreasurePattern.c",
+      "mode": "100644",
+      "sha256": "20cad5eb803faa280e21df1baaffc963fdf2ecb33c8c839712da88b29ea77234"
+    },
+    {
+      "path": "prowizard/rippers/TryItCruncher101.c",
+      "mode": "100644",
+      "sha256": "4765d08c6011f3fbf13070c6d4904090d8f61060ceca648771bc7612e3e8c0a3"
+    },
+    {
+      "path": "prowizard/rippers/TurboSqueezer61.c",
+      "mode": "100644",
+      "sha256": "a630a6259a4f1a4e7c6b51e9953009bce886aa664e4f82d7a4812e6f253f0c53"
+    },
+    {
+      "path": "prowizard/rippers/UnicTracker.c",
+      "mode": "100644",
+      "sha256": "26904dd62e05dd77faeb8f6c452f136fd4a1571ad52c8deba7eefa19ed6a9fdc"
+    },
+    {
+      "path": "prowizard/rippers/UnicTracker2.c",
+      "mode": "100644",
+      "sha256": "2db02e4feae8c32fd8e3d8e363955609581678ac33ab2c62faee633890740033"
+    },
+    {
+      "path": "prowizard/rippers/Viruz2.c",
+      "mode": "100644",
+      "sha256": "b0753d4113ddb04ec8979301f7f77e4388b29f521800fa60b03b0cb49b7e322a"
+    },
+    {
+      "path": "prowizard/rippers/WantonPacker.c",
+      "mode": "100644",
+      "sha256": "e4bce15a3d1b13b62dc75b17f88129edb36e9c818190462665e38c5cb6c6288e"
+    },
+    {
+      "path": "prowizard/rippers/XannPlayer.c",
+      "mode": "100644",
+      "sha256": "4a258daf91d067175ce9a8e3edb468f56c54eb7f826e71bf6fb2de798000d096"
+    },
+    {
+      "path": "prowizard/rippers/ZenPacker.c",
+      "mode": "100644",
+      "sha256": "4e9d3405fd223bbee98af4cd0b15aa83ec853acb177762669ef2e6b5f6c75028"
+    },
+    {
+      "path": "prowizard/rippers/datacrunchers.c",
+      "mode": "100644",
+      "sha256": "b75ca6b20246808220a5f15d24a7d80c8ae9290e4f4bc242a6abda73143a06d4"
+    },
+    {
+      "path": "prowizard/rippers/skizzo.c",
+      "mode": "100644",
+      "sha256": "5017eedee3fe8c53744033455f923b083fd64d39d2bea8973234d0ce6c610021"
+    },
+    {
+      "path": "qemuvga/cirrus_vga.cpp",
+      "mode": "100644",
+      "sha256": "0c358914d2db9d59abf09bb07595d18eb13418b4bfbbff9b8876dcce65b38dba"
+    },
+    {
+      "path": "qemuvga/cirrus_vga_rop.h",
+      "mode": "100644",
+      "sha256": "004bf95e78b76b11fa5b5b1d3b82e64c8cb00f327dfd16303a25bee86a1d84d5"
+    },
+    {
+      "path": "qemuvga/cirrus_vga_rop2.h",
+      "mode": "100644",
+      "sha256": "36452466486e0b574d36fc62351579ed2185868c07637d55ea039afda74bd568"
+    },
+    {
+      "path": "qemuvga/cirrus_vga_template.h",
+      "mode": "100644",
+      "sha256": "ad9b9215f8888ae06b6d20084c26f7f364e40b151c4a95687f71ec7aabf6088d"
+    },
+    {
+      "path": "qemuvga/es1370.cpp",
+      "mode": "100644",
+      "sha256": "ba989d0abb4230a1f96a50217d6a8a3798fc7616b678647ebf71472ad5d29fcc"
+    },
+    {
+      "path": "qemuvga/esp.cpp",
+      "mode": "100644",
+      "sha256": "6ea0174102047bed0ec7367cd80758a2e0761be1793b79b8057bbf6ba51ccbd4"
+    },
+    {
+      "path": "qemuvga/lsi53c710.cpp",
+      "mode": "100644",
+      "sha256": "d829f8e94d564a627fc876b32bd63a0bdbe1bb74b4207f629060ffe74869b71c"
+    },
+    {
+      "path": "qemuvga/lsi53c895a.cpp",
+      "mode": "100644",
+      "sha256": "be88c1e1903d3f72fc4a91e857c83ca76f651dd1365624f6c6e9edbf1ae67de4"
+    },
+    {
+      "path": "qemuvga/ne2000.cpp",
+      "mode": "100644",
+      "sha256": "4408516f1b63b6f7391b9c5a0c135fd573b7979c030ea2a3082d4c89757ff39a"
+    },
+    {
+      "path": "qemuvga/ne2000.h",
+      "mode": "100644",
+      "sha256": "60be3fb01e66c008fe12464b6f8ade4871e4012595e87c6c5e955d42efc527d6"
+    },
+    {
+      "path": "qemuvga/pixel_ops.h",
+      "mode": "100644",
+      "sha256": "03f283d6a59f829ebab6201c666600a0eb314a8b8112106cd4f919aefd8393bb"
+    },
+    {
+      "path": "qemuvga/qemu.cpp",
+      "mode": "100644",
+      "sha256": "8e703065dc610629ca8373d4fe342293f73c3aecb1053465f9a5bfc64b209b31"
+    },
+    {
+      "path": "qemuvga/qemuaudio.h",
+      "mode": "100644",
+      "sha256": "c1af701385d52b12d5c6a1351b34e51b0fa1a137f8f24acfad5ff9e3664a0293"
+    },
+    {
+      "path": "qemuvga/qemumemory.h",
+      "mode": "100644",
+      "sha256": "ae14ead6a6ed974be9856a6ae3cbbd88d0c4b95b0d2ea8ad7950e3562a4d71eb"
+    },
+    {
+      "path": "qemuvga/qemuuaeglue.cpp",
+      "mode": "100644",
+      "sha256": "d372c6fb90741be03df671c1c26068c8e78a7ae047d90eb120655799630bd108"
+    },
+    {
+      "path": "qemuvga/qemuuaeglue.h",
+      "mode": "100644",
+      "sha256": "1c7ae51cb4627918bf23388e81c6d3012ddad435a677efdfea747bfb862b04c8"
+    },
+    {
+      "path": "qemuvga/queue.h",
+      "mode": "100644",
+      "sha256": "e3b8595ac6eb47f6c7cfb5f733038606c9442df9ca834b183ba226d8d505c839"
+    },
+    {
+      "path": "qemuvga/scsi/esp.h",
+      "mode": "100644",
+      "sha256": "b3d48479173cfb67575ae7af5428a7d54f6be876bf6811cb27c30b5c069d81ec"
+    },
+    {
+      "path": "qemuvga/scsi/scsi.h",
+      "mode": "100644",
+      "sha256": "021e8e51110a00c58e98345fa787f255eedc490de962ac9086ff846394f00516"
+    },
+    {
+      "path": "qemuvga/vga.cpp",
+      "mode": "100644",
+      "sha256": "62f49475f106da08aabe671808e4c5e323a73fd3d22bd17b686b1334aa78a822"
+    },
+    {
+      "path": "qemuvga/vga.h",
+      "mode": "100644",
+      "sha256": "a3f9a8abd5ccb9ca105fcc74436b029e7919cdec0b7d0f3678c0005810cbd247"
+    },
+    {
+      "path": "qemuvga/vga_int.h",
+      "mode": "100644",
+      "sha256": "88824b92a9547da60f251c83b6ae55d9ae4482fff699c588982f94c83f936438"
+    },
+    {
+      "path": "qemuvga/vga_template.h",
+      "mode": "100644",
+      "sha256": "7fdf6babfce9ea22ea780647b6d7bfee8a6f18564db59a0acdda95136561058a"
+    },
+    {
+      "path": "readcpu.cpp",
+      "mode": "100644",
+      "sha256": "394214e582c6dd3a3ba933e7916ab47b358202a8b125a9530cffc4a35ea7591d"
+    },
+    {
+      "path": "readdisk.cpp",
+      "mode": "100644",
+      "sha256": "89b371a129a3941308a1602d3400c8425bcaee0d8bacd07f8ac728e81833bf18"
+    },
+    {
+      "path": "rommgr.cpp",
+      "mode": "100644",
+      "sha256": "461002b0901974884c37a1a5a14e3e0f561afff5b862f1771ebf4ff270349431"
+    },
+    {
+      "path": "rpc.cpp",
+      "mode": "100644",
+      "sha256": "b206309fd72a5133a68e065d61b6e7e2d77b33fcbe43470a1a0459005b679f94"
+    },
+    {
+      "path": "rtc.cpp",
+      "mode": "100644",
+      "sha256": "c6339134fdcdcfe3ec9b35dca0ab5c6d6464277809e4f07b8b7a7e58b4718684"
+    },
+    {
+      "path": "sampler.cpp",
+      "mode": "100644",
+      "sha256": "beaecc08557c99ed423e0835d1cfb08a1a7d04644681497380a8b0da2f388252"
+    },
+    {
+      "path": "sana2.cpp",
+      "mode": "100644",
+      "sha256": "f7e3dc33bcae52579ae7b8d84586081035593225202e41ddd74af084c66462b4"
+    },
+    {
+      "path": "savestate.cpp",
+      "mode": "100644",
+      "sha256": "256b03cf074c406e854b1c14cd10f96a1b4acdfc425aa1c6b175721c2647054d"
+    },
+    {
+      "path": "scp.cpp",
+      "mode": "100644",
+      "sha256": "5eb085a62b25de6e1e58c1ca6d320f772bc14ecf83f59b76a0ad353e9ed5c2f1"
+    },
+    {
+      "path": "scsi.cpp",
+      "mode": "100644",
+      "sha256": "26411c9df3b3a967e0bb9e8d5a3ca711f853c31fdded7d0bb8b5c7442032e132"
+    },
+    {
+      "path": "scsidev.cpp",
+      "mode": "100644",
+      "sha256": "a85d2eec4f7557dedb585fd11f42ca532356d0b10329f83f1de617cc2d934c07"
+    },
+    {
+      "path": "scsiemul.cpp",
+      "mode": "100644",
+      "sha256": "31ce286e129b79a54bd2654bd178fd6c4114f9bb1ec05211999cf99142095874"
+    },
+    {
+      "path": "scsitape.cpp",
+      "mode": "100644",
+      "sha256": "469100c9487e481b82fe6ad684bfeb0556a62e181c69240f4105e60b0479dfbc"
+    },
+    {
+      "path": "serial.cpp",
+      "mode": "100644",
+      "sha256": "929589f947e6c94a16b9b0bf2997c691c32e6a97375495579714ace1bf019091"
+    },
+    {
+      "path": "sinctable.cpp",
+      "mode": "100644",
+      "sha256": "b357a6bafa173758487569d4f3d666eb5c78a04bf48f1f7e1f2dec53a7e800bd"
+    },
+    {
+      "path": "slirp/COPYRIGHT",
+      "mode": "100644",
+      "sha256": "0ce5b269ece6d7b066bc89c77932c491b26e97e49836a737ff44e3855ab92dd7"
+    },
+    {
+      "path": "slirp/bootp.cpp",
+      "mode": "100644",
+      "sha256": "f1ff1edba4b857e6497a8f961eb0a50190716600ff75baeb7f879df23151fea6"
+    },
+    {
+      "path": "slirp/bootp.h",
+      "mode": "100644",
+      "sha256": "cccd0279f2aed293e6646883d2c6ce2ef0b9cba04e84ee39f55d3930db2caca9"
+    },
+    {
+      "path": "slirp/cksum.cpp",
+      "mode": "100644",
+      "sha256": "4e570cc465b14e4618183ebd097c8b17fd921fa285dc5924cd5e21ae3e940ae1"
+    },
+    {
+      "path": "slirp/ctl.h",
+      "mode": "100644",
+      "sha256": "3981ca59aa44581f3cb7a82965252a3a803679747403fb04f96fdeb6b5f70f73"
+    },
+    {
+      "path": "slirp/debug.h",
+      "mode": "100644",
+      "sha256": "b2ad524ba196ee28506311c512c36a5e346ae8d0affa7802ef2077cdb43b783c"
+    },
+    {
+      "path": "slirp/icmp_var.h",
+      "mode": "100644",
+      "sha256": "8000ddd6c42deadd07ad1fd791b68011058acf81ae972e9c3446bb7f9f57d5a1"
+    },
+    {
+      "path": "slirp/if.cpp",
+      "mode": "100644",
+      "sha256": "87aff3bdc971e59aa120bb65614521117d8ce14f66b1a9fe283f682223368825"
+    },
+    {
+      "path": "slirp/if.h",
+      "mode": "100644",
+      "sha256": "8630a268f66475dc09f8145e53608483ed045abe527593613821a06ea5c6e4eb"
+    },
+    {
+      "path": "slirp/ip.h",
+      "mode": "100644",
+      "sha256": "fa5bfa572426ab8f5bc4a149e50f7312eb8acd5167cf08978651c09c622f5466"
+    },
+    {
+      "path": "slirp/ip_icmp.cpp",
+      "mode": "100644",
+      "sha256": "2142ef70669173b7593e8fded697cbf16b55309f37295447988b9b384d9b5a1a"
+    },
+    {
+      "path": "slirp/ip_icmp.h",
+      "mode": "100644",
+      "sha256": "a7106211b1afc3111c6d1d433912bee3956aa1ad501b1fc511532e38cd8c450f"
+    },
+    {
+      "path": "slirp/ip_input.cpp",
+      "mode": "100644",
+      "sha256": "52a94bde9241857897a5eec70fa55731998ccaf528824150f9fe0425eb2d4ffd"
+    },
+    {
+      "path": "slirp/ip_output.cpp",
+      "mode": "100644",
+      "sha256": "fe4a90c329bc2313fa55c6fd5a8efd2364ac45ba77fbb3e3b21870fec6c7bba3"
+    },
+    {
+      "path": "slirp/libslirp.h",
+      "mode": "100644",
+      "sha256": "5244db1a7512a9cae41e911b1612a42701560e47ac0278077c2f015ba34e351c"
+    },
+    {
+      "path": "slirp/main.h",
+      "mode": "100644",
+      "sha256": "a03c01b33ff76a3368ff8b7c05344ebcda05b48c92d5596a26fe33b1785c7069"
+    },
+    {
+      "path": "slirp/mbuf.cpp",
+      "mode": "100644",
+      "sha256": "f1c7ad509a30a80df42394e35d843e05cc170bd9337d99960442630dc9ad9b94"
+    },
+    {
+      "path": "slirp/mbuf.h",
+      "mode": "100644",
+      "sha256": "2ebeaa0f2aebde591d3bcea600a285882ff3f52e9cc1d4534bfa4c390077bc29"
+    },
+    {
+      "path": "slirp/misc.cpp",
+      "mode": "100644",
+      "sha256": "cbc246a1f76648216a09e0496b9b9bf8b6e772314819dee55caf1f7afdd92c7c"
+    },
+    {
+      "path": "slirp/misc.h",
+      "mode": "100644",
+      "sha256": "9c46f141f0b8ae9ecda764f0bf3a430ae2905fbe90e76faf00e657201367c446"
+    },
+    {
+      "path": "slirp/sbuf.cpp",
+      "mode": "100644",
+      "sha256": "7d8bfa20fb498fed212afffeb2974f1856f13aa48c1c790f0207fceccfc01afc"
+    },
+    {
+      "path": "slirp/sbuf.h",
+      "mode": "100644",
+      "sha256": "b451bdc5b51b2bc2bbd9020836e714198e89cb42328d40cedb1ff514c44a83c9"
+    },
+    {
+      "path": "slirp/slirp.cpp",
+      "mode": "100644",
+      "sha256": "89a8552430daf22be94ffe7eef6e1e098f574a1e05cd8c3fbaa92282d6cd3b1b"
+    },
+    {
+      "path": "slirp/slirp.h",
+      "mode": "100644",
+      "sha256": "ce145f3923473ac3eb94876ac5afffaa240692e62afe28e1f9e06d224bb0a984"
+    },
+    {
+      "path": "slirp/slirp_config.h",
+      "mode": "100644",
+      "sha256": "6892a985592d3c4b6f0cd443c80ee330e7342145b588d42a71cdcf9f37c6b9ad"
+    },
+    {
+      "path": "slirp/slirpdebug.cpp",
+      "mode": "100644",
+      "sha256": "b43990f939606b3ec32e7fae5303cc028feaf301ed7de5b420158a853d8f1093"
+    },
+    {
+      "path": "slirp/socket.cpp",
+      "mode": "100644",
+      "sha256": "c46f3566933a04c1cbc892f5ef6891b3fe7eaac08e4d9aaaefaecfe75778c1e1"
+    },
+    {
+      "path": "slirp/socket.h",
+      "mode": "100644",
+      "sha256": "df874e2cdefb3c77ecbcb9d241ac4c0d99ce863174e5f8b1788e0e71883d1388"
+    },
+    {
+      "path": "slirp/tcp.h",
+      "mode": "100644",
+      "sha256": "a29af3a8493ce90add283a0359cdf292042a8a10324dcf08566c87e398d27b32"
+    },
+    {
+      "path": "slirp/tcp_input.cpp",
+      "mode": "100644",
+      "sha256": "7fc102c6354ac43f57d650f7430b24003d4892e8bba73a7f99005a40f68acc69"
+    },
+    {
+      "path": "slirp/tcp_output.cpp",
+      "mode": "100644",
+      "sha256": "01cd087fa1971df32c2b6ad93b4468904244d533d127165f12c3f8686a7357df"
+    },
+    {
+      "path": "slirp/tcp_subr.cpp",
+      "mode": "100644",
+      "sha256": "1f492845d446e2f7d6af46da738cae95019ea1f20247ec48e5c867b1da6d9dad"
+    },
+    {
+      "path": "slirp/tcp_timer.cpp",
+      "mode": "100644",
+      "sha256": "f2e4c865de7a3b87d1c7eb4365bfdaef6436d734805639071af168f1d5de0c6c"
+    },
+    {
+      "path": "slirp/tcp_timer.h",
+      "mode": "100644",
+      "sha256": "01e3353015129a0ab27a6ccb463163e8dcd8b858842ee41a03047900f2d7e041"
+    },
+    {
+      "path": "slirp/tcp_var.h",
+      "mode": "100644",
+      "sha256": "0b7ea194be5261c433714e7bed87053e1e5c8262a9ee6023c91e366f9f0e59a5"
+    },
+    {
+      "path": "slirp/tcpip.h",
+      "mode": "100644",
+      "sha256": "1904c5b4c17710e6821f14b10b187832f867ef87e1f62a7ace2f99af4004d3e7"
+    },
+    {
+      "path": "slirp/tftp.cpp",
+      "mode": "100644",
+      "sha256": "c7f61f68cbbbae5eeffe1e7785804ccab2462aab5d819bca71689facc0a4062a"
+    },
+    {
+      "path": "slirp/tftp.h",
+      "mode": "100644",
+      "sha256": "32e5db013870fff6bead011da5808ed3734d55f52bc33bef466032209b51ac68"
+    },
+    {
+      "path": "slirp/udp.cpp",
+      "mode": "100644",
+      "sha256": "5b624c40c0c87cd2e3f8c8184c4e602ae01f40793fce9d905dfec06a96fc156b"
+    },
+    {
+      "path": "slirp/udp.h",
+      "mode": "100644",
+      "sha256": "6a67efff8a7fd77a8252182f53b8e4d44d1dce88661eccf7ddc4b4df1a139937"
+    },
+    {
+      "path": "slirp_uae.cpp",
+      "mode": "100644",
+      "sha256": "80d821caf18bb6ee4c52295d12eb86d16b147d2ed85d4af9edfd74ab5cc51c01"
+    },
+    {
+      "path": "sndboard.cpp",
+      "mode": "100644",
+      "sha256": "c97eeaf70f2e394d58ae461f90ccf32e0cd9bb26ac7c262400a5df9676d7cb97"
+    },
+    {
+      "path": "softfloat/SOFTFLOAT-MACROS.H",
+      "mode": "100644",
+      "sha256": "a3302fceb7b9084bb6b17203d14026b491154f8ee21797bb7dc6c111f93f4e08"
+    },
+    {
+      "path": "softfloat/softfloat-specialize.h",
+      "mode": "100644",
+      "sha256": "c0461bcf1d8ea1e32b503dbcc4eb173db56a3d6e5717a4f52074ef652edac51b"
+    },
+    {
+      "path": "softfloat/softfloat.cpp",
+      "mode": "100644",
+      "sha256": "59b23822f213f916df5f8525cad10ba9b369f3848b8f56fd719626849e2cd1e6"
+    },
+    {
+      "path": "softfloat/softfloat.h",
+      "mode": "100644",
+      "sha256": "32d7b643a9b58afc557db367e232a63e0af6de18d35b5143d3e5e0f81a45ffca"
+    },
+    {
+      "path": "softfloat/softfloat_decimal.cpp",
+      "mode": "100644",
+      "sha256": "f10fa5b257fc278dc98446e2a6b9d1e41a694c45ef2ef6277af0d553ff4fced2"
+    },
+    {
+      "path": "softfloat/softfloat_fpsp.cpp",
+      "mode": "100644",
+      "sha256": "1047b589a2307ee5d921357bc104f1749b9b6e4072494cea51a2e7b615f78ad2"
+    },
+    {
+      "path": "softfloat/softfloat_fpsp_tables.h",
+      "mode": "100644",
+      "sha256": "9670ce7c4c9e6ddc2e811ca2e703eebcff62de512a8a4289301d4f64ba9d72bf"
+    },
+    {
+      "path": "specialmonitors.cpp",
+      "mode": "100755",
+      "sha256": "5d444f65d5e053af594a40cc916ac4ae17a70ccb739faad3b5b38706239ad252"
+    },
+    {
+      "path": "statusline.cpp",
+      "mode": "100644",
+      "sha256": "fc18112aebf7bae6a1fdfa6ea795629f34a96c638c25c4fe21bffb2fe80e4c5b"
+    },
+    {
+      "path": "support/time.cpp",
+      "mode": "100644",
+      "sha256": "b02ddf89ea1f71041f562ef98a1ddcef1a98dcb1c32fb0050664c7386f50ddae"
+    },
+    {
+      "path": "table68k",
+      "mode": "100644",
+      "sha256": "c7d2df938a4c824e6201be12832bda88072918b0a69350ebc32187d028f5c549"
+    },
+    {
+      "path": "tabletlibrary.cpp",
+      "mode": "100644",
+      "sha256": "f1f689d3f0e673e372794506ff37c33d07a6f4725dd3bd9fa23bf1b9df81f836"
+    },
+    {
+      "path": "test_card.cpp",
+      "mode": "100644",
+      "sha256": "557603ae014e988409501ba7300fdeb1f62575b8804e18e2c7d51190374bfdfb"
+    },
+    {
+      "path": "tinyxml2.cpp",
+      "mode": "100644",
+      "sha256": "5a77be61c1d8ab72dd510658c7ad9ceaba1400045b1efa6e266b933067b428c9"
+    },
+    {
+      "path": "traps.cpp",
+      "mode": "100644",
+      "sha256": "9a83b5f02803aa587da018d36d968df9f33d2bf917ac314738ff27c24c5592c5"
+    },
+    {
+      "path": "uaeexe.cpp",
+      "mode": "100644",
+      "sha256": "e0ec94e957c8d43f332368d4ab9c9cefb419be29ebf025de73813379606f57f0"
+    },
+    {
+      "path": "uaeipc.cpp",
+      "mode": "100644",
+      "sha256": "9202454013d14e9508fe3f43ce6dae6c0a2f7c7490c1a894562994b081330977"
+    },
+    {
+      "path": "uaelib.cpp",
+      "mode": "100644",
+      "sha256": "1dd157fb5dc44902dad35c473028b29dd85d92176939731f608390de5d477f22"
+    },
+    {
+      "path": "uaenative.cpp",
+      "mode": "100644",
+      "sha256": "0f6a6ffb65a6d0ff875c95ca0426d342d1bda837cb757a67d89b8a10cfe5112f"
+    },
+    {
+      "path": "uaeresource.cpp",
+      "mode": "100644",
+      "sha256": "0d4fc1ee9582dfd830f703a4b942daefef60e6fda26a7c76fa8312419820bbf3"
+    },
+    {
+      "path": "uaeserial.cpp",
+      "mode": "100644",
+      "sha256": "e7dbca4a76abe7136fede9d84039f15016b9700574725e610891d6d1d924f183"
+    },
+    {
+      "path": "uaesnd_ahi.s",
+      "mode": "100644",
+      "sha256": "b5c67670ce40a76d2e7898be9ece6fc01eb50fa22068ee91e78fd9cf4ca584d2"
+    },
+    {
+      "path": "uaeunp.cpp",
+      "mode": "100644",
+      "sha256": "fa6153c17c205bac2910b2c762f73c2637c7cc29b95720e436d35befd653eaa3"
+    },
+    {
+      "path": "vm.cpp",
+      "mode": "100644",
+      "sha256": "73193f5aea0dc9ca43a54a4d7346cba0c334f697503e50e513474b2997f4871c"
+    },
+    {
+      "path": "writelog.cpp",
+      "mode": "100644",
+      "sha256": "74ae6fdbdc6a58cac0e885d2a25a8500bf61c0e32c39f1edb0701b96d8908295"
+    },
+    {
+      "path": "x86.cpp",
+      "mode": "100644",
+      "sha256": "d84ff82a99773b1e0c0dde6ed1f10c7bb913729fda9c0f46393c247940a4d1e9"
+    },
+    {
+      "path": "zfile.cpp",
+      "mode": "100644",
+      "sha256": "df3ef964bf07ba47a12038cb771b34d801524caa7b2579e9d2af2bc71143254c"
+    },
+    {
+      "path": "zfile_archive.cpp",
+      "mode": "100644",
+      "sha256": "4a345862418d77657aca0af3e0114466a724799fa35dcb27a6a95530268c9fcb"
+    }
+  ]
+}

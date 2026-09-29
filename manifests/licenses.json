@@ -1,0 +1,410 @@
+{
+  "schema_version": 1,
+  "scope": "Technical inventory of notices in pinned source snapshots; paths and hashes identify original evidence. Build eligibility describes the planned profile, not an already built or licensed release. Retained files preserve their own notices.",
+  "components": [
+    {
+      "id": "winuae-engine",
+      "source_id": "winuae",
+      "scope": "engine_snapshot",
+      "declared_license": "GPL declarations vary by file: include/uae/api.h says version 2; cpummu30.cpp says version 2 or later. Preserve these distinctions and embedded component notices.",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/fsusage.cpp",
+          "sha256": "21f4025088de9220a43c66c0f5a3ad3f3b74e247f8c5cf6f55ac366392946f2c"
+        },
+        {
+          "path": "upstream/winuae/include/uae/api.h",
+          "sha256": "d10c380338a3ef3b80d8d8dcb905d8419e28f38bc465d3e9f78ed8d9e97ce776"
+        },
+        {
+          "path": "upstream/winuae/cpummu30.cpp",
+          "sha256": "569099a1a51f90e248033ac8f373fcebb24cbcba90ee00311316062406c4e500"
+        }
+      ],
+      "handling": "Preserve per-file notices in imported files and include applicable license texts in source/binary distributions. This entry is an inventory, not a legal conclusion.",
+      "build_eligibility": "candidate_engine; selected files and platform surface remain for T02/T04"
+    },
+    {
+      "id": "winuae-slirp",
+      "source_id": "winuae",
+      "scope": "embedded_network_component",
+      "declared_license": "Slirp notice terms; source headers also contain BSD-style conditions",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/slirp/COPYRIGHT",
+          "sha256": "0ce5b269ece6d7b066bc89c77932c491b26e97e49836a737ff44e3855ab92dd7"
+        },
+        {
+          "path": "upstream/winuae/slirp/udp.h",
+          "sha256": "6a67efff8a7fd77a8252182f53b8e4d44d1dce88661eccf7ddc4b4df1a139937"
+        }
+      ],
+      "handling": "Exclude networking from the initial deterministic build; retain all notices in reference snapshots and any later distribution.",
+      "build_eligibility": "excluded_initial_deterministic_profile"
+    },
+    {
+      "id": "winuae-softfloat",
+      "source_id": "winuae",
+      "scope": "Paula audio tangent: integer arithmetic and FPSP; FPU emulation excluded",
+      "declared_license": "Mixed SoftFloat-2a, BSD and GPL-2.0-or-later portions as identified in retained source notices; FPSP extension attributed to Andreas Grabher for Previous",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/softfloat/softfloat.cpp",
+          "sha256": "59b23822f213f916df5f8525cad10ba9b369f3848b8f56fd719626849e2cd1e6"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat.h",
+          "sha256": "32d7b643a9b58afc557db367e232a63e0af6de18d35b5143d3e5e0f81a45ffca"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat_fpsp.cpp",
+          "sha256": "1047b589a2307ee5d921357bc104f1749b9b6e4072494cea51a2e7b615f78ad2"
+        },
+        {
+          "path": "upstream/winuae/softfloat/SOFTFLOAT-MACROS.H",
+          "sha256": "a3302fceb7b9084bb6b17203d14026b491154f8ee21797bb7dc6c111f93f4e08"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat-specialize.h",
+          "sha256": "c0461bcf1d8ea1e32b503dbcc4eb173db56a3d6e5717a4f52074ef652edac51b"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat_fpsp_tables.h",
+          "sha256": "9670ce7c4c9e6ddc2e811ca2e703eebcff62de512a8a4289301d4f64ba9d72bf"
+        }
+      ],
+      "handling": "Retain all mixed notices and attribution for these six files; do not relabel as BSD-only. Patch0021 identifies PUAE6 derivative changes. FPSP source and tables identify an extension to SoftFloat2a/FPSP; release packaging must reproduce the retained notices. No FPU enablement implied.",
+      "build_eligibility": "selected_audio_math_only; softfloat.cpp and softfloat_fpsp.cpp, four headers; decimal and FPU backends not selected"
+    },
+    {
+      "id": "winuae-tinyxml2",
+      "source_id": "winuae",
+      "scope": "embedded_xml_component",
+      "declared_license": "zlib-style license stated in source notice",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/tinyxml2.cpp",
+          "sha256": "5a77be61c1d8ab72dd510658c7ad9ceaba1400045b1efa6e266b933067b428c9"
+        },
+        {
+          "path": "upstream/winuae/include/tinyxml2.h",
+          "sha256": "79923d1f8e56cc454c4edda228943d682c1581d2532219687c459ca2c8463070"
+        }
+      ],
+      "handling": "Preserve embedded notices if the component is included.",
+      "build_eligibility": "candidate_dependency; confirm actual profile use at T02"
+    },
+    {
+      "id": "winuae-co8048",
+      "source_id": "winuae",
+      "scope": "embedded_keyboard_mcu_component",
+      "declared_license": "GPL-2.0-or-later notice is present; an alternate-license exception is referenced but cannot be established without COPYING.RMT.",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/kbmcu/8048/co8048.cpp",
+          "sha256": "d39937a26e415484d08a2aa49f3a795af46419da744e7070dffddfbdb8528e12"
+        },
+        {
+          "path": "upstream/winuae/kbmcu/8048/co8048.h",
+          "sha256": "903f6aef5ca6cda482e01357da8a34ba6f32de4d54f5ca9b686e1d971739a213"
+        }
+      ],
+      "handling": "The GPL notice is recorded as available. The missing COPYING.RMT means only that the alternate exception cannot be relied upon; it is not a blocker if the selected distribution path accepts the stated GPL terms.",
+      "build_eligibility": "eligible only under stated GPL terms if selected; do not rely on unverified alternate exception"
+    },
+    {
+      "id": "machawk-selected-runtime-managed-inputs",
+      "source_id": "machawk",
+      "scope": "selected_runtime_and_managed_reference_snapshot",
+      "declared_license": "Repository LICENSE identifies BizHawk original C# work as MIT, while explicitly warning that embedded projects have heterogeneous licenses and some embedded projects may lack their own notices; apply this only to the captured selected inputs and preserve their own notices.",
+      "notice_files": [
+        {
+          "path": "references/machawk/LICENSE",
+          "sha256": "6601cab56cb56875001906593a3adf94d52a0b82e6919fcbee81c31a48499121"
+        }
+      ],
+      "handling": "The snapshot contains selected runtime/managed recipe and source inputs; binary outputs, Assets, References DLLs, other cores, and untracked files were excluded. Crate/NuGet lock descriptors are captured, while provisioned packages and final toolchain binaries/sysroot are outside this inventory. Do not treat the repository-level MIT statement as a blanket license for all MacHawk content. The two committed interop .bin blobs required by include_bytes! are retained with their generator and assembly. Upstream csproj still reference excluded DLLs and need an isolated integration recipe.",
+      "build_eligibility": "selected_reference_inputs_for_initial_Waterbox_integration; final toolchain eligibility pending T09"
+    },
+    {
+      "id": "machawk-iso-parser",
+      "source_id": "machawk",
+      "scope": "selected_managed_dependency",
+      "declared_license": "MIT as stated by its project license file",
+      "notice_files": [
+        {
+          "path": "references/machawk/ExternalProjects/iso-parser/LICENSE.md",
+          "sha256": "85abaea0d5ef0eeed7cf385ed7d7f1c6c4eb7e542e7af3fe781abf96b8d17d02"
+        }
+      ],
+      "handling": "Preserve this project notice if the managed dependency is redistributed.",
+      "build_eligibility": "selected_managed_reference_dependency; package provisioning details remain governed by captured lock descriptors"
+    },
+    {
+      "id": "winuae-win32-resources",
+      "source_id": "winuae",
+      "scope": "platform_ui_resources",
+      "declared_license": "Per-file notices vary; not inventoried as distributable profile inputs here",
+      "notice_files": [],
+      "handling": "Windows UI/resource/plugin code is outside the initial deterministic profile. Audit each selected resource/plugin and its assets before any inclusion.",
+      "build_eligibility": "excluded_initial_deterministic_profile"
+    },
+    {
+      "id": "puae-reference",
+      "source_id": "puae_libretro_reference",
+      "scope": "reference_only",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "handling": "Reference source only; do not imply wholesale code reuse in PUAE6.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-libchdr",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "BSD-style terms in dependency notice",
+      "notice_files": [
+        {
+          "path": "references/puae/deps/libchdr/LICENSE.txt",
+          "sha256": "e3989a7aee74a91b8cdbdfe204a6b8d03288863ec7533a21c51f1a987ba73539"
+        }
+      ],
+      "handling": "Reference dependency; retain notice if any code is later reused.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-libmpeg2",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "GPL-2.0 per dependency COPYING",
+      "notice_files": [
+        {
+          "path": "references/puae/deps/libmpeg2/COPYING",
+          "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670"
+        }
+      ],
+      "handling": "Reference dependency; selection requires a separate compatibility/build decision.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-zstd",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "Header explicitly permits choice of BSD-style LICENSE or GPLv2 COPYING.",
+      "notice_files": [
+        {
+          "path": "references/puae/deps/zstd/LICENSE",
+          "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+        },
+        {
+          "path": "references/puae/deps/zstd/COPYING",
+          "sha256": "f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505"
+        },
+        {
+          "path": "references/puae/deps/zstd/lib/zstd.h",
+          "sha256": "41d0f43747d0dee56f60bd10aed262f193d725b7e11eb9e94aa4ad80183c7da8"
+        }
+      ],
+      "handling": "Preserve notices and the selected license text if reused; reference only in this snapshot.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-slirp",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_network_component_in_reference",
+      "declared_license": "Slirp notice terms; some source headers state BSD-style conditions",
+      "notice_files": [
+        {
+          "path": "references/puae/sources/src/slirp/COPYRIGHT",
+          "sha256": "0ce5b269ece6d7b066bc89c77932c491b26e97e49836a737ff44e3855ab92dd7"
+        }
+      ],
+      "handling": "Retain notice if reused; network code is excluded initially.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-reference",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "reference_only",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "handling": "Pinned BizHawk UAE source reference; not a PUAE6 implementation input by itself.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-libchdr",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "BSD-style terms in dependency notice",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/libchdr/LICENSE.txt",
+          "sha256": "e3989a7aee74a91b8cdbdfe204a6b8d03288863ec7533a21c51f1a987ba73539"
+        }
+      ],
+      "handling": "Retain notice if reused.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-libmpeg2",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "GPL-2.0 per dependency COPYING",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/libmpeg2/COPYING",
+          "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670"
+        }
+      ],
+      "handling": "Retain applicable source notices if reused.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-slirp",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_network_component_in_reference",
+      "declared_license": "Slirp notice terms; some source headers state BSD-style conditions",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/sources/src/slirp/COPYRIGHT",
+          "sha256": "0ce5b269ece6d7b066bc89c77932c491b26e97e49836a737ff44e3855ab92dd7"
+        }
+      ],
+      "handling": "Retain notice if reused; network code is excluded initially.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "libretro-api-header",
+      "source_id": "libretro_api",
+      "scope": "api_header",
+      "declared_license": "MIT as explicitly stated in header",
+      "notice_files": [
+        {
+          "path": "references/libretro-api/include/libretro.h",
+          "sha256": "c928d8f176b4e4bc45ee2a41ef236d25cc19e9bc2abc2e2e4c32cf08d6423801"
+        }
+      ],
+      "handling": "API header only; preserve its embedded notice when copied.",
+      "build_eligibility": "eligible_for_libretro_adapter_only"
+    },
+    {
+      "id": "waterbox-musl",
+      "source_id": "waterbox_musl",
+      "scope": "toolchain_dependency_snapshot",
+      "declared_license": "MIT stated for musl as a whole, with file-level exceptions/other notices possible",
+      "notice_files": [
+        {
+          "path": "references/musl/COPYRIGHT",
+          "sha256": "afe1df384787fce3577f3356b8b0d417381483f7c704eacb63f8050349fac77a"
+        }
+      ],
+      "handling": "This snapshot is a reference input, not the final Waterbox sysroot. Audit selected files and toolchain recipe in T09.",
+      "build_eligibility": "toolchain_reference; final build eligibility pending T09"
+    },
+    {
+      "id": "capsimg-reference",
+      "source_id": "machawk_capsimg",
+      "scope": "reference_only_excluded",
+      "declared_license": "SPS Decoder Library custom non-commercial license; LICENCE.txt forbids sale/commercial products or activities and restricts changes to the stated formats/purpose.",
+      "notice_files": [
+        {
+          "path": "references/capsimg/CAPSImg/LICENSE",
+          "sha256": "3e5b0d79618838cef124ef8c1d9f91608188bda30b57050ce8104b8872f0b0cb"
+        },
+        {
+          "path": "references/capsimg/LICENCE.txt",
+          "sha256": "fff9bc3bdd543212d8cf859afa6e4ae6b4d95e7845f94c907e3ec066f0b67439"
+        }
+      ],
+      "handling": "Reference snapshot only; IPF/CAPSImg support is not included in the initial profile. Do not distribute/use as a selected dependency without a separate review. Excluding the library from a binary does not authorize redistribution of this source snapshot. T40 must omit this local reference from release source/artifact packages unless its own terms are separately reviewed.",
+      "build_eligibility": "excluded_initial_profile"
+    },
+    {
+      "id": "waterbox-musl-darwin",
+      "source_id": "waterbox_musl_darwin",
+      "scope": "toolchain_dependency_snapshot",
+      "declared_license": "MIT stated for musl as a whole, with file-level exceptions/other notices possible",
+      "notice_files": [
+        {
+          "path": "references/musl-darwin/COPYRIGHT",
+          "sha256": "afe1df384787fce3577f3356b8b0d417381483f7c704eacb63f8050349fac77a"
+        }
+      ],
+      "handling": "Source associated with the pinned local Darwin sysroot; preserve per-file notices. Cached LLVM runtime provenance remains a release limitation.",
+      "build_eligibility": "local_T09_smoke_only; release_closure_pending"
+    },
+    {
+      "id": "compiler-rt-emutls",
+      "source_id": "compiler_rt_emutls",
+      "scope": "selected_guest_runtime_dependency",
+      "declared_license": "Apache-2.0 WITH LLVM-exception",
+      "notice_files": [
+        {
+          "path": "references/compiler-rt-emutls/compiler-rt/LICENSE.TXT",
+          "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+        }
+      ],
+      "handling": "Six pristine files only: emutls C runtime plus internal headers and full license. Preserve notices for source and binary distribution.",
+      "build_eligibility": "selected_for_waterbox_C++_TLS"
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "ipf-capsimg",
+      "source_id": "machawk_capsimg",
+      "reason": "CAPSImg is reference-only and IPF support is excluded from the initial PUAE6 profile."
+    },
+    {
+      "id": "win32-ui-and-plugins",
+      "source_id": "winuae",
+      "reason": "Win32 UI/resources and plugin surfaces are excluded from the initial deterministic profile pending per-input audit."
+    },
+    {
+      "id": "network",
+      "source_id": "winuae",
+      "reason": "Slirp/network code is excluded from the initial deterministic profile."
+    }
+  ],
+  "unresolved": [
+    {
+      "id": "co8048-alternate-license",
+      "source_id": "winuae",
+      "status": "alternate_exception_unverified",
+      "detail": "GPL-2.0-or-later notice exists in co8048 source. COPYING.RMT is absent, so the separate alternate-license exception is not relied upon; this absence alone does not block selection under GPL terms."
+    },
+    {
+      "id": "zlib-link-dependency",
+      "source_id": "winuae",
+      "status": "pending_build_graph",
+      "detail": "WinUAE calls zlib APIs, but the selected implementation/link input and its exact provenance/license are not established by this source snapshot; resolve in T02/T09."
+    },
+    {
+      "id": "softfloat-file-level-scope",
+      "source_id": "winuae",
+      "status": "audio_selection_reviewed_release_notices_pending",
+      "detail": "Six retained files inventoried with pristine hashes for audio tangent. Preserve mixed SoftFloat2a/BSD/GPL notices and FPSP attribution in release packaging; do not extend selection to decimal or FPU without a new review."
+    },
+    {
+      "id": "final-waterbox-sysroot",
+      "source_id": "waterbox_musl",
+      "status": "pending_T09",
+      "detail": "The final sysroot/toolchain components and exact versions/licensing are not established here; T09 owns them."
+    },
+    {
+      "id": "notice_completeness",
+      "source_id": "winuae",
+      "status": "profile_allowlist_pending",
+      "detail": "The manifest records known notice evidence and explicit exclusions. Compare against the final selected source allowlist before distribution; this inventory does not claim a complete legal review."
+    }
+  ]
+}

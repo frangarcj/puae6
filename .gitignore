@@ -2,21 +2,46 @@
 __pycache__/
 *.py[cod]
 
-# Derived build trees and native artifacts
-build/
-cmake-build-*/
-CMakeFiles/
-CMakeCache.txt
-Testing/
-*.o
-*.obj
-*.a
-*.so
-*.dylib
-*.dll
-*.wbx
-*.wbx.zst
+# Project-owned outputs. Anchor directories: imported dependencies can contain
+# tracked build/, dist/ and bin/ source inputs of their own.
+/build/
+/cmake-build-*/
+/out/
+/dist/
+/artifacts/
+/CMakeFiles/
+/CMakeCache.txt
+/Testing/
+/.venv/
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+/.coverage
+/htmlcov/
 
-# Editor-local files
-.vscode/
-.idea/
+# Stray outputs at the project root; real builds belong under build/.
+/*.o
+/*.obj
+/*.a
+/*.so
+/*.dylib
+/*.dll
+/*.exe
+/*.wbx
+/*.wbx.zst
+/*.pdb
+/*.dSYM/
+
+# Local editor configuration; upstream copies remain part of pristine snapshots.
+/.vscode/
+/.idea/
+
+# Snapshots are source inputs, not caches: do not blanket-ignore or recursively
+# unignore upstream/ or references/. Preserve their own .gitignore files.
+# Git-tracked upstream files hidden by those nested rules require git add -f.
+#
+# The only snapshot left out is re-obtainable from a public pinned commit and is
+# reference reading, not a build input: 113 MB / 2493 files. Its manifest stays
+# versioned, so a restored copy is verified byte for byte. Restore with
+# `python3 tools/import_sources.py fetch|import|verify --source puae_libretro_reference`.
+/references/puae/
