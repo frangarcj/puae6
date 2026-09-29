@@ -6955,7 +6955,7 @@
       "title": "Arranque del motor A500 desde el bridge hasta la primera unidad",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T07a"
       ],
@@ -6969,8 +6969,7 @@
         "bridge/include/p6.h"
       ],
       "touch": [
-        "bridge/lifecycle.cpp",
-        "bridge/include/**",
+        "bridge/**",
         "CMakeLists.txt",
         "adapters/headless/**",
         "tools/assemble.py",
@@ -6982,7 +6981,8 @@
       "steps": [
         "Reimplementar en bridge/lifecycle.cpp la secuencia de arranque de real_main2 que el perfil excluye (prefs A500 built-in, eventos, sonido, entrada, savestate, memoria/ROM, custom, DISK, init_m68k, video, audio) y m68k_go_unit(BEGIN); p6_unload hace LEAVE.",
         "Generar un micro-ROM con forma de Kickstart (256 KiB, checksum valido) desde una fuente ensamblable en el repositorio y probar que p6_load lo acepta y un ROM invalido devuelve NEED_FIRMWARE/WRONG_MEDIA.",
-        "Sin validacion publica de config (T08/T13): esta tarea fija un preset y lo dice; no anuncia arranque de Amiga."
+        "Sin validacion publica de config (T08/T13): esta tarea fija un preset y lo dice; no anuncia arranque de Amiga.",
+        "Ampliacion touch: bridge/** (helpers de error compartidos entre caps.cpp y lifecycle.cpp), igual que T06."
       ],
       "checks": [
         "BUILD01",
@@ -6994,7 +6994,7 @@
         "p6_run_frame todavia no existe o devuelve P6_ERROR_UNSUPPORTED."
       ],
       "stop": "Un stub que devuelva exito para un dispositivo soportado no pasa. Una ROM aceptada sin checksum valido no pasa.",
-      "evidence": null
+      "evidence": "reports/tasks/T07b.md"
     },
     {
       "id": "T07c",

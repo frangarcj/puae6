@@ -339,3 +339,11 @@ Queda sin sondeo el bucle de retardo de reset (m68k_reset_delay), que cuenta vsy
 se excluye con el invariante reset_delay == 0, y crash_auto_reset == 0 mantiene la CPU detenida
 en el bucle que si sondea (manifests/config-invariants.json, para T13). El presupuesto de 1500
 lineas sigue superado; se revisara en M2.
+
+T07b añade 0061: 61 parches/30 archivos/1994 lineas (+16), sin archivos nuevos. El primer
+fotograma dibuja lineas antes de que haya un buffer de linea bloqueado y expand_drga sumaba el
+desplazamiento de baja resolucion a punteros nulos (comportamiento indefinido que aborta bajo
+UBSan), y get_line desplazaba a la izquierda el centinela negativo de pixeles. La reescritura
+conserva los valores de los buffers validos (desplazamiento sin signo) y no toca punteros nulos.
+Candidato a upstream. La exploracion con UBSan en modo recover sobre el arranque completo dio solo
+estos cinco sitios; T08 volvera a explorar con mas lineas dibujadas.

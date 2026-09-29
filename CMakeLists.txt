@@ -88,8 +88,11 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/lifecycle.cpp)
+add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
+target_include_directories(p6_bridge PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
 add_executable(p6_headless adapters/headless/main.cpp $<TARGET_OBJECTS:p6_engine>)
 target_link_libraries(p6_headless PRIVATE p6_bridge p6_portable)
 target_compile_definitions(p6_headless PRIVATE
@@ -97,6 +100,13 @@ target_compile_definitions(p6_headless PRIVATE
     P6_UPSTREAM_COMMIT="${_upstream_commit}"
     P6_PATCH_COUNT="${_patch_count}"
     P6_PATCH_SERIES_SHA256="${_series_sha256}")
+# Engine-level probe of the bridge lifecycle (tests/host/test_bridge_lifecycle.py runs it with a ROM).
+add_executable(p6_lifecycle_probe tests/host/bridge_lifecycle_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_lifecycle_probe p6_codegen)
+target_include_directories(p6_lifecycle_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_lifecycle_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_lifecycle_probe PRIVATE p6_bridge p6_portable)
 add_test(NAME headless-identity COMMAND p6_headless --identity)
 set_tests_properties(headless-identity PROPERTIES LABELS "headless;link" TIMEOUT 30
     PASS_REGULAR_EXPRESSION "core: puae6-headless.*profile: ${P6_PROFILE}.*machines: A500.*abi: 1.*boot: not implemented")

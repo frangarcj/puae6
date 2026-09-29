@@ -1,0 +1,19 @@
+{
+  "logical_id": "microrom-boot-v1",
+  "kind": "kickstart_shaped_rom",
+  "rom_base": "0xF80000",
+  "entry_offset": "0xD2",
+  "firmware_required": false,
+  "program_source": "boot.s",
+  "source_license": "MIT",
+  "source_sha256": "f0887a9c72a16e3ab0ee6dedd1e3d385b6bbe8bcd6c01d4d6aad10411e53d78f",
+  "builder": "build_rom.py",
+  "builder_sha256": "13cfa764435ddf6f4a5038e03b52818d93b5b02c9688f161e5336baabe66db6a",
+  "python": "3.8+; standard library only; no package dependencies",
+  "output": {
+    "format": "256 KiB Kickstart-shaped image, big-endian, valid ones-complement checksum",
+    "size_bytes": 262144,
+    "sha256": "1b3759e19db1407faf9b9e6bf61246f7abb9cbd5be2288761b1717dbd1876de2"
+  },
+  "purpose": "Firmware for the bridge lifecycle and, later, unit-advance tests; not a real Kickstart and not an emulation result"
+}

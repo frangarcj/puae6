@@ -1743,6 +1743,29 @@
           "after_sha256": "ab0967118f63dca8ddbbf4d7a60737f61fdf3d7965a70da068425876b6adbbc0"
         }
       ]
+    },
+    {
+      "id": "0061-drawing-null-buffer-arithmetic",
+      "file": "patches/winuae/0061-drawing-null-buffer-arithmetic.patch",
+      "sha256": "2ae5f5e5572b28716f71a6349f788391bb717491249c7f8be14d62815e7c89bd",
+      "title": "Defined pointer arithmetic and shifts in the Denise line drawing",
+      "reason": "The first video unit runs the line drawing before any line buffer is locked; adding the low-res shift to NULL and shifting the negative pixel-count sentinel are undefined behaviour that ASan/UBSan builds abort on. Both rewrites keep the values of valid buffers.",
+      "category": "host hooks",
+      "order": 61,
+      "symbols": [
+        "expand_drga",
+        "get_line"
+      ],
+      "test": "BUILD01/HOST01; tests.host.test_drawing_source; tests.host.test_bridge_lifecycle (sanitizer scan)",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "4fec3f6e9a2639e06e643b24e9ee9a7de8ee1597b3436ef0833b1e1cb7b61f0a",
+          "after_sha256": "12fc3c8b59f5ab55e9f8483a10b4e055422046fcb1d9ca0edc51b956f60f44d7"
+        }
+      ]
     }
   ]
 }
