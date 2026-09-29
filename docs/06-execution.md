@@ -72,7 +72,22 @@ adapters/libretro ni llama retro_run.
 T33 crea `tools/bench.py --scenario ID --backend native|waterbox --output PATH`.
 T37 crea `tools/update_upstream.py --old OLD_SHA --new NEW_SHA --workdir PATH`.
 
-Secuencia de build nativo despues de T06:
+Estado del build nativo (verificado en T06c; existe, pero no arranca ninguna maquina):
+
+    cmake --preset native-debug          # ASan/UBSan
+    cmake --build --preset native-debug  # motor + capa portable + p6_headless
+    ctest --preset native-debug --output-on-failure
+    ./build/native-debug/p6_headless --identity
+    cmake --preset native-release && cmake --build --preset native-release && ctest --preset native-release
+
+    python3 tests/host/run_parallel.py                 # suite de host en paralelo (~2 min)
+    python3 -m unittest discover -s tests/codegen -t . # puertas de enlace, imports, avisos, includes
+    P6_TEST_COMPILERS=1 python3 -m unittest tests.codegen.test_compilers   # matriz Apple clang/LLVM/GCC
+
+`p6_headless --identity` imprime perfil, commit de WinUAE, serie de parches y capacidades;
+`boot: not implemented` es cierto hasta T07/T08.
+
+Secuencia de build nativo despues de T06 (contrato original):
 
     cmake --preset native-debug
     cmake --build --preset native-debug

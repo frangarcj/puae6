@@ -4,7 +4,7 @@
 #include <errno.h>
 
 /* Ordinary guest storage: snapshots must retain pending messages and counters. */
-static p6_diagnostic messages[P6_DIAG_CAPACITY];
+static p6_diagnostic queue_slots[P6_DIAG_CAPACITY];
 static uint32_t head, queued_count, dropped;
 
 static void enqueue(uint32_t kind, int32_t code, uint32_t flags,
@@ -27,7 +27,7 @@ static void enqueue(uint32_t kind, int32_t code, uint32_t flags,
  } else {
   record.length = (uint32_t)length;
  }
- messages[(head + queued_count) % P6_DIAG_CAPACITY] = record;
+ queue_slots[(head + queued_count) % P6_DIAG_CAPACITY] = record;
  ++queued_count;
  errno = saved_errno;
 }
@@ -44,8 +44,8 @@ int32_t p6_diag_read(p6_diagnostic *out, size_t capacity)
  if (!out && capacity) return -1;
  size_t n = capacity < queued_count ? capacity : queued_count;
  for (size_t i = 0; i < n; ++i) {
-  out[i] = messages[head];
-  messages[head] = {};
+  out[i] = queue_slots[head];
+  queue_slots[head] = {};
   head = (head + 1) % P6_DIAG_CAPACITY;
  }
  queued_count -= (uint32_t)n;
@@ -55,7 +55,7 @@ int32_t p6_diag_read(p6_diagnostic *out, size_t capacity)
 uint32_t p6_diag_dropped(void) { return dropped; }
 void p6_diag_reset(void)
 {
- memset(messages, 0, sizeof messages);
+ memset(queue_slots, 0, sizeof queue_slots);
  head = queued_count = dropped = 0;
 }
 void logging_init(void) { p6_diag_reset(); }

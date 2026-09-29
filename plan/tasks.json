@@ -6807,7 +6807,7 @@
       "title": "Enlace headless y puerta de imports/fuentes nativas",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b",
         "T06ca",
@@ -6830,7 +6830,15 @@
         "cmake/**",
         "adapters/headless/**",
         "manifests/source-manifest.json",
-        "bridge/**"
+        "bridge/**",
+        "ports/portable/**",
+        "tests/codegen/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "manifests/link-imports.json",
+        "docs/adr/0004-host-patch-budget.md",
+        "patches/winuae/**",
+        "docs/06-execution.md"
       ],
       "steps": [
         "Crear presets native-debug/native-release y target p6_headless usando manifiesto y salidas codegen.",

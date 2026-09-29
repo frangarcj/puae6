@@ -90,10 +90,16 @@ string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
 add_library(p6_bridge STATIC bridge/caps.cpp)
 target_include_directories(p6_bridge PUBLIC bridge/include)
-add_executable(p6_headless EXCLUDE_FROM_ALL adapters/headless/main.cpp $<TARGET_OBJECTS:p6_engine>)
+add_executable(p6_headless adapters/headless/main.cpp $<TARGET_OBJECTS:p6_engine>)
 target_link_libraries(p6_headless PRIVATE p6_bridge p6_portable)
 target_compile_definitions(p6_headless PRIVATE
     P6_PROFILE="${P6_PROFILE}"
     P6_UPSTREAM_COMMIT="${_upstream_commit}"
     P6_PATCH_COUNT="${_patch_count}"
     P6_PATCH_SERIES_SHA256="${_series_sha256}")
+add_test(NAME headless-identity COMMAND p6_headless --identity)
+set_tests_properties(headless-identity PROPERTIES LABELS "headless;link" TIMEOUT 30
+    PASS_REGULAR_EXPRESSION "core: puae6-headless.*profile: ${P6_PROFILE}.*machines: A500.*abi: 1.*boot: not implemented")
+add_test(NAME headless-rejects-arguments COMMAND p6_headless --boot)
+set_tests_properties(headless-rejects-arguments PROPERTIES LABELS "headless;link" TIMEOUT 30 WILL_FAIL FALSE
+    PASS_REGULAR_EXPRESSION "usage:")

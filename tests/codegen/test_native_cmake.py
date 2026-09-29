@@ -85,7 +85,7 @@ class NativeCMakeTests(unittest.TestCase):
                 listing = subprocess.run(["ctest", "--test-dir", tmp, "--show-only=json-v1"],
                                          capture_output=True, text=True, check=True)
                 self.assertEqual([t["name"] for t in json.loads(listing.stdout)["tests"]],
-                                 ["portable-services"])
+                                 ["portable-services", "headless-identity", "headless-rejects-arguments"])
 
     def test_unsupported_configurations_fail_explicitly(self):
         cases = (("-DP6_PROFILE=accelerated", "Unsupported P6_PROFILE"),
