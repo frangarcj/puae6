@@ -134,12 +134,9 @@
       "disposition": "provide",
       "reason": "Pure text services with no host dependency (charset conversion, string length and duplication) that the portable layer can implement.",
       "names": [
-        "au",
         "au_copy",
-        "my_strdup",
         "ua",
         "uaestrlen",
-        "uaetcslen",
         "utf8u",
         "uutf8"
       ]
@@ -151,7 +148,6 @@
       "reason": "Interrupt flag and time source owned by the emulation thread (T06b2o) and the deterministic clock.",
       "names": [
         "setsystime",
-        "uae_int_requested",
         "uae_time"
       ]
     }

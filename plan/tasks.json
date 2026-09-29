@@ -6627,6 +6627,182 @@
       "evidence": "reports/tasks/T06ca.md"
     },
     {
+      "id": "T06cb",
+      "title": "Excluir del enlace la maquinaria .uss y los servicios de escritorio",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T06ca"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0001-host-port.md",
+        "reports/tasks/T06b2cb.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "manifests/codegen.json",
+        "reports/tasks/T06ca.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/link-imports.json",
+        "tests/host/**",
+        "tests/codegen/**",
+        "tests/test_plan.py",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Guardar en savestate.cpp la maquinaria de ficheros .uss heredada (la reutilizacion del serializador upstream con E/S en memoria es T15) y en inputdevice, disk, rommgr, main, custom, newcpu y cfgfile los servicios de escritorio, rutas del host, mensajes y reloj de pared, sin proveedores ficticios.",
+        "Sacar de la puerta de imports solo lo que quede resuelto; adaptar los tests que asertaban lo eliminado."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "La puerta pierde las familias state_*, host_paths_files y desktop_actions; ninguna llamada de escritorio queda alcanzable desde el bridge. No certifica enlace."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06cb.md"
+    },
+    {
+      "id": "T06cc",
+      "title": "Proveedores portables de texto y de la bandera de interrupcion UAE",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T06ca"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0001-host-port.md",
+        "reports/tasks/T06b2cb.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "manifests/codegen.json",
+        "reports/tasks/T06ca.md"
+      ],
+      "touch": [
+        "ports/portable/**",
+        "CMakeLists.txt",
+        "manifests/link-imports.json",
+        "manifests/host-surface.json",
+        "tests/host/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Implementar en el port las funciones de texto que el motor sigue necesitando (au, my_strdup, uaetcslen, y las demas solo si quedan usuarios) con bytes acotados y sin locale, y definir uae_int_requested como estado del motor sin productores en el perfil.",
+        "Probar con sanitizadores y fallos de asignacion; sacarlas de la puerta."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "au/my_strdup/uaetcslen/uae_int_requested dejan de estar sin resolver con implementaciones reales y probadas."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06cc.md"
+    },
+    {
+      "id": "T06cd",
+      "title": "Dispositivos logicos de entrada del motor",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T06cb"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0001-host-port.md",
+        "reports/tasks/T06b2cb.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "manifests/codegen.json",
+        "reports/tasks/T06ca.md"
+      ],
+      "touch": [
+        "ports/portable/**",
+        "CMakeLists.txt",
+        "manifests/link-imports.json",
+        "manifests/host-surface.json",
+        "tests/host/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Implementar teclado, raton y dos joysticks logicos con sus mapeos por defecto, alimentados por los setters internos del motor; sin sondeo, foco ni reloj.",
+        "Probar la forma de las tablas y los mapeos con sondas y sacar la familia input_device_backends de la puerta; el mapeo bridge->puertos y el lag siguen siendo T10."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Los simbolos de dispositivos de entrada quedan definidos por implementaciones reales; la familia sale de la puerta. No certifica mapeo, lag ni arranque."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06cd.md"
+    },
+    {
+      "id": "T06ce",
+      "title": "Frontera de presentacion de video del motor",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T06cb"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0001-host-port.md",
+        "reports/tasks/T06b2cb.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "manifests/codegen.json",
+        "reports/tasks/T06ca.md"
+      ],
+      "touch": [
+        "ports/portable/**",
+        "CMakeLists.txt",
+        "manifests/link-imports.json",
+        "manifests/host-surface.json",
+        "tests/host/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Implementar el buffer XRGB8888 propio, el traspaso de fotograma y el resto de funciones de presentacion que el renderer llama, deterministas y sin estado del host.",
+        "Probar bloqueo/desbloqueo/traspaso con sondas y sacar la familia video_presentation de la puerta; recorte, aspecto y campos siguen siendo T08."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Los simbolos de presentacion quedan definidos por implementaciones reales; la familia sale de la puerta. No certifica video correcto."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06ce.md"
+    },
+    {
       "id": "T06c",
       "title": "Enlace headless y puerta de imports/fuentes nativas",
       "milestone": "M1",
@@ -6634,7 +6810,11 @@
       "status": "pending",
       "depends": [
         "T06b",
-        "T06ca"
+        "T06ca",
+        "T06cb",
+        "T06cc",
+        "T06cd",
+        "T06ce"
       ],
       "read": [
         "docs/01-architecture.md",

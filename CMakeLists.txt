@@ -47,6 +47,7 @@ p6_add_host_codegen(p6_codegen)
 add_library(p6_engine OBJECT ${P6_UPSTREAM_SOURCES} ${P6_GENERATED_SOURCES})
 add_library(p6_portable STATIC
     ports/portable/atomic.cpp
+    ports/portable/text_services.cpp
     ports/portable/blob_io.c
     ports/portable/civil_time.c
     ports/portable/rtc_time.cpp
