@@ -969,75 +969,22 @@
           "desktop": "RTG mouse offset, debugger test in the CPU-tracer shortcut, master volume/mute actions, next/previous disk actions, wall-clock joystick auto-switch (public config must reject input_autoswitchleftright), widget-name hex suffix."
         },
         "changed": "gethidvals2: sscanf(%X) replaced by the bounded parse. Same result for real ids; values above INT_MAX or negative report unknown (-1) instead of the raw unsigned bits (tested).",
-        "pending_link": {
-          "device_backends_T10": [
-            "inputdevicefunc_keyboard",
-            "inputdevicefunc_mouse",
-            "inputdevicefunc_joystick",
-            "input_get_default_keyboard",
-            "input_get_default_mouse",
-            "input_get_default_joystick",
-            "input_get_default_joystick_analog",
-            "input_get_default_lightpen",
-            "target_inputdevice_acquire",
-            "target_inputdevice_unacquire",
-            "target_can_autoswitchdevice",
-            "target_checkcapslock",
-            "release_keys",
-            "is_tablet",
-            "is_touch_lightpen",
-            "tablet_log"
-          ],
-          "input_recording": [
-            "inprec_close",
-            "inprec_realtime",
-            "inprec_playevent",
-            "inprec_recordevent",
-            "inprec_playdiskchange",
-            "input_play",
-            "input_record"
-          ],
-          "desktop_actions": [
-            "screenshot",
-            "toggle_rtg",
-            "toggle_fullscreen",
-            "toggle_mousegrab",
-            "gui_display",
-            "savestate_quick",
-            "target_osk_control",
-            "target_osd_keyboard",
-            "target_paste_to_keyboard",
-            "pausevideograb",
-            "getsetpositionvideograb",
-            "handle_msgpump",
-            "desktop_coords",
-            "setmouseactive",
-            "setmouseactivexy",
-            "setsystime",
-            "sound_volume",
-            "pause_emulation"
-          ],
-          "rtg_traps_time": [
-            "trap_get_dreg",
-            "trap_get_long",
-            "trap_get_word",
-            "trap_is_indirect",
-            "rtarea_bank",
-            "getgfxoffset",
-            "uae_time"
-          ],
-          "common": [
-            "au",
-            "my_strdup",
-            "translate_message",
-            "statusline_add_message"
-          ]
-        },
+        "pending_link": {},
         "tests": [
           "tests.host.test_input_source: O0/O2 object, kept/excluded symbols, exact forbidden imports, depfile, HID parse against the legacy sscanf",
           "tests.host.test_tchar_numeric"
         ],
-        "limits": "Device-to-port assignment, key/pointer mapping and lag are T10. AKS desktop actions stay compiled and unresolved for T06c. One upstream warning remains (dst[i].custom array tested as pointer in the port copy code); not adapted here."
+        "limits": "Providers are real but the bridge->port wiring, lag and key ordering are T10. Device-to-port assignment must follow config-invariants.json. One upstream warning remains (dst[i].custom).",
+        "providers": {
+          "task": "T06cd",
+          "file": "ports/portable/input_devices.cpp",
+          "devices": "1 keyboard (128 key widgets = Amiga raw scancodes), 1 mouse (X/Y relative axes, 3 buttons), 2 joysticks (X/Y digital axes, 3 buttons); joystick n serves Amiga port n. Fixed ASCII names, compile-time tables, no state, no allocation.",
+          "contract": "The bridge pushes state once per video unit through the engine setters (inputdevice_do_keyboard, setjoystickstate, setjoybuttonstate, setmousestate, setmousebuttonstate). read() has nothing to poll; acquire/unacquire succeed for existing devices because a logical device is always available. The keyboard init must call inputdevice_setkeytranslation (nothing else does). Caps Lock is a latch bit of the bridge bitmap (ID_FLAG_TOGGLE dropped, target_checkcapslock returns 0).",
+          "tests": [
+            "tests.host.test_input_devices: probe of tables and mappings under ASan/UBSan, and the real patched inputdevice.cpp/keybuf.cpp on top of the providers (default prefs, four port layouts, 128 keys direct and mapped, reset chord)"
+          ],
+          "for_T10": "Lag must be counted at guest reads (JOYxDAT, POTGOR, CIA fire lines, get_next_key), not at read(). Define per-frame key order (keybuf holds 256 entries and drops on overflow), Caps Lock latch ownership, keys held through a reset, and the state outside snapshots (static float fract in setmousestate, mouse_axis[], keybuf[256])."
+        }
       }
     },
     "allocation": {

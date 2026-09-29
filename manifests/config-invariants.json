@@ -194,6 +194,22 @@
         "0057"
       ],
       "why": "They are guarded at the AKS switch; the bridge feeds only keys and ports."
+    },
+    {
+      "option": "jports[0..1].jd[0].id",
+      "require": "JSEM_MICE (one mouse) or JSEM_JOYS + port; never JSEM_KBDLAYOUT",
+      "patches": [
+        "0056"
+      ],
+      "why": "The logical devices are 1 mouse and 2 joysticks (joystick n serves port n). Upstream defaults put kbd1 on port 1 and a second mouse would let both ports be mice, which the single logical mouse cannot serve."
+    },
+    {
+      "option": "jports[2..3], joystick mode CD32/CDTV/lightpen/analog",
+      "require": "unused / default mode",
+      "patches": [
+        "0056"
+      ],
+      "why": "input_get_default_* refuse those modes and ports with return 0; the engine ignores the return value, so the public config must reject them."
     }
   ]
 }

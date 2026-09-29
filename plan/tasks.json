@@ -6719,7 +6719,7 @@
       "title": "Dispositivos logicos de entrada del motor",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06cb"
       ],

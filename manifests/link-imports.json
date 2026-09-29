@@ -5,28 +5,6 @@
   "description": "Symbols still unresolved when every engine object and the portable library are linked into a probe dylib. tests.codegen.test_engine_imports fails on any unclassified symbol and on any listed name that no longer appears, so the list can only shrink deliberately.",
   "families": [
     {
-      "id": "input_device_backends",
-      "owner": "T10",
-      "disposition": "provide",
-      "reason": "Logical keyboard/mouse/joystick providers for inputdevice.cpp (the od-win32 dinput layer is not compiled). Their design is the input task.",
-      "names": [
-        "input_get_default_joystick",
-        "input_get_default_joystick_analog",
-        "input_get_default_keyboard",
-        "input_get_default_lightpen",
-        "input_get_default_mouse",
-        "inputdevicefunc_joystick",
-        "inputdevicefunc_keyboard",
-        "inputdevicefunc_mouse",
-        "is_tablet",
-        "release_keys",
-        "tablet_log",
-        "target_checkcapslock",
-        "target_inputdevice_acquire",
-        "target_inputdevice_unacquire"
-      ]
-    },
-    {
       "id": "video_presentation",
       "owner": "T08",
       "disposition": "provide",
