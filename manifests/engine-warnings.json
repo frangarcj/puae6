@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "profile": "deterministic-a500",
+  "description": "Compiler warnings of the selected engine units (clang -fsyntax-only with the build's own flags), counted per file and kind. tests.codegen.test_engine_warnings fails on a new kind, a higher count or a stale entry. Dispositions: dead_under_profile (code the profile cannot reach), harmless, revisit (upstream defect to re-check when the feature arrives).",
+  "warnings": [
+    {
+      "file": "audio.cpp",
+      "flag": "-Wconstant-conversion",
+      "count": 2,
+      "disposition": "harmless",
+      "note": "PERIOD_MAX (ULONG_MAX) is stored into an int period sentinel: -1 and -2 on this LP64 host, identical to the 32-bit long of the Windows build; compared back as unsigned long it recovers the sentinel. Reproduced by test_period_max_narrowing_is_the_same_as_a_32_bit_long."
+    },
+    {
+      "file": "custom.cpp",
+      "flag": "-Wconstant-logical-operand",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "Literal `if (0 || 1) return 1;` left by upstream in a helper that always succeeds."
+    },
+    {
+      "file": "custom.cpp",
+      "flag": "-Wnull-conversion",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "NULL passed as an address constant (zero) to a debug-hook parameter of type uaecptr."
+    },
+    {
+      "file": "custom.cpp",
+      "flag": "-Wswitch",
+      "count": 2,
+      "disposition": "harmless",
+      "note": "Copper state-transition switches (on the previous state) list only the states that need special handling and have no default arm; unlisted states take no special action. Upstream style."
+    },
+    {
+      "file": "custom.cpp",
+      "flag": "-Wtautological-pointer-compare",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "Debug log line tests an array member against NULL (always true); only chooses between the label and a placeholder."
+    },
+    {
+      "file": "disk.cpp",
+      "flag": "-Wformat",
+      "count": 2,
+      "disposition": "harmless",
+      "note": "Two log lines pass evt_t / a 64-bit size to %lu / %d; they only affect debug text on LP64. Not adapted to keep the file's delta small."
+    },
+    {
+      "file": "disk.cpp",
+      "flag": "-Wswitch",
+      "count": 3,
+      "disposition": "harmless",
+      "note": "drive_image_free, drive_write_data and the revolution handler switch on the image type and list only the types that need action (IPF, SCP, FDI, ADF variants, FloppyBridge); there is no default arm, so the rest do nothing."
+    },
+    {
+      "file": "drawing.cpp",
+      "flag": "-Wswitch",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "The line-doubling switch lists the black/doubled/normal-black cases it handles and has no default arm; unlisted modes take no action there."
+    },
+    {
+      "file": "drawing.cpp",
+      "flag": "-Wtautological-constant-out-of-range-compare",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "Genlock colour-key test compares an unsigned char with 256, always true; the mask lookup below it is unchanged."
+    },
+    {
+      "file": "expansion.cpp",
+      "flag": "-Wformat-extra-args",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "A failure log line passes an unused argument; text only."
+    },
+    {
+      "file": "expansion.cpp",
+      "flag": "-Wnull-conversion",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "bank->start = NULL assigns zero to an address field."
+    },
+    {
+      "file": "expansion.cpp",
+      "flag": "-Wpointer-bool-conversion",
+      "count": 2,
+      "disposition": "revisit",
+      "note": "The autoconfig_bytes/autoconfig_raw arrays of struct autoconfig_info are tested as pointers, so the else-if that reaches autoconfig_raw is unreachable upstream. Irrelevant while no card uses raw autoconfig (the A500 profile has none); re-evaluate when Fast RAM or cards arrive in M2."
+    },
+    {
+      "file": "inputdevice.cpp",
+      "flag": "-Wpointer-bool-conversion",
+      "count": 1,
+      "disposition": "revisit",
+      "note": "`if (dst[i].custom)` tests the address of an array member, always true, in the port-copy code; the copied custom strings are always empty in the profile (patch 0048). Upstream bug candidate."
+    },
+    {
+      "file": "linetoscr_common.cpp",
+      "flag": "-Warray-bounds",
+      "count": 33,
+      "disposition": "dead_under_profile",
+      "note": "Generated seven/eight-bitplane (AGA) helpers index arrays sized for six planes. T06b2bm showed by preprocessing that their thirty names appear only at their definitions: no caller or selection in the OCS/ECS unit. Do not enlarge the arrays; revisit with a raster reproducer when AGA arrives (M2)."
+    }
+  ]
+}

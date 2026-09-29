@@ -4579,7 +4579,7 @@
       "title": "Cerrar entrada, medios y dependencias de estado A500",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2cg"
       ],
@@ -4634,7 +4634,10 @@
         "manifests/host-surface.json",
         "tests/host/**",
         "tests/codegen/**",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "manifests/engine-warnings.json",
+        "manifests/link-imports.json",
+        "manifests/config-invariants.json"
       ],
       "steps": [
         "Cerrar drawing completo tras retirada de worker: HUD/debug y seleccion OCS/AGA (incluidos generados sin edicion manual). Revisar con reproducer raster la diferencia upstream quick_strobe sync(endpos) frente a worker(vpos) antes de certificar precision.",
@@ -4659,7 +4662,8 @@
       "acceptance": [
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
-      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia."
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2cb.md"
     },
     {
       "id": "T06b2bl",
