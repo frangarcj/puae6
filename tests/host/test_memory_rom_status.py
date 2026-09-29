@@ -6,13 +6,14 @@ import unittest
 
 from tests.host.test_cpu_rom_guard import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class MemoryRomStatusTests(unittest.TestCase):
     def test_load_errors_recovery_and_lifecycle(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "memory.cpp").read_text()
         rommgr = (tree / "rommgr.cpp").read_text()

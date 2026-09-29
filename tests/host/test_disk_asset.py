@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -21,8 +23,7 @@ def function(source, signature):
 
 class DiskAssetTests(unittest.TestCase):
     def test_disk_validation_uses_exact_immutable_blob(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         body = function((tree / "disk.cpp").read_text(), "int DISK_validate_filename (")
         self.assertIn("P6_PORTABLE", body)

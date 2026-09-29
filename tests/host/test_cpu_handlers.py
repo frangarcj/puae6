@@ -5,14 +5,15 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class CPUHandlerTests(unittest.TestCase):
     def test_generated_handlers_without_fpu_mmu(self):
         # The generator verifies the pristine snapshot and current patch/recipe.
-        subprocess.run(["python3", str(ROOT / "tools/generate_cpu.py")], cwd=ROOT,
-                       check=True, stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree, generated = ROOT / "build/upstream", ROOT / "build/generated"
         common = ["clang++", "-std=c++17", "-I" + str(ROOT / "ports/portable"),
                   "-I" + str(generated), "-I" + str(tree / "include"), "-I" + str(tree)]

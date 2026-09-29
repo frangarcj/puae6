@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -20,8 +22,7 @@ def function(source, signature):
 
 class RomChecksumTests(unittest.TestCase):
     def test_checksum_is_unsigned_and_rejects_corruption(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "rommgr.cpp").read_text()
         signature = "static int kickstart_checksum_do (uae_u8 *mem, int size)"

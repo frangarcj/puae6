@@ -5,13 +5,14 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class DrawingSourceTests(unittest.TestCase):
     def test_portable_translation_unit_excludes_worker_and_thread_headers(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = tree / "drawing.cpp"
         common = ["clang++", "-std=c++17", "-I" + str(ROOT / "ports/portable"),

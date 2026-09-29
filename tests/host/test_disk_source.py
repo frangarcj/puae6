@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 # Features excluded for read-only asset media (patch 0047), with their definitions
@@ -31,8 +33,7 @@ KEPT_DEFINITIONS = ("DISK_validate_filename", "DISK_init", "DISK_reset", "DISK_h
 class DiskSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         cls.tree = ROOT / "build/upstream"
 
     def test_pristine_source_defines_every_excluded_feature(self):

@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -35,8 +37,7 @@ def extract(source):
 
 class CfgfilePresetTests(unittest.TestCase):
     def test_all_fast_z3_slots_reset_and_a500_preset(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         original = (ROOT / "upstream/winuae/cfgfile.cpp").read_text()
         patched = (ROOT / "build/upstream/cfgfile.cpp").read_text()
         with tempfile.TemporaryDirectory(prefix="p6-cfgfile-preset-") as directory:

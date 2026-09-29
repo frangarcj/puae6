@@ -6,13 +6,14 @@ import unittest
 
 from tests.host.test_cpu_rom_guard import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class MainSourceTests(unittest.TestCase):
     def test_complete_object_and_disabled_autoconfig_preferences(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "main.cpp").read_text()
         original = (ROOT / "upstream/winuae/main.cpp").read_text()

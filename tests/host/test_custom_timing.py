@@ -5,13 +5,14 @@ import tempfile
 import unittest
 from tests.host.test_audio_math import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class CustomTimingTests(unittest.TestCase):
     def test_patched_framesync_keeps_physical_audio_clock_and_beam_geometry(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         source = (ROOT / "build/upstream/custom.cpp").read_text()
         vsync = function(source, "void compute_vsynctime(void)")
         framesync = function(source, "void compute_framesync(void)")

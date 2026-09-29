@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -13,8 +15,7 @@ class ReadCpuTests(unittest.TestCase):
     def setUpClass(cls):
         # Verify the entire recipe, patch series and generated input identity,
         # and support standalone execution from a tree without build caches.
-        subprocess.run(["python3", str(ROOT / "tools/generate_cpu.py")], cwd=ROOT,
-                       check=True, stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         cls.tree = ROOT / "build/upstream"
         cls.cpudefs = ROOT / "build/generated/cpudefs.cpp"
 

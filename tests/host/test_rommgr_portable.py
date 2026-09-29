@@ -7,6 +7,8 @@ import unittest
 
 from tests.host.test_cpu_rom_guard import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 PROBE = r'''
@@ -172,8 +174,7 @@ int main()
 
 class RommgrPortableTests(unittest.TestCase):
     def test_names_and_excluded_device_configuration(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         source = (ROOT / "build/upstream/rommgr.cpp").read_text()
         bodies = function(source, "void getromname") + function(source, "int configure_rom (")
         with tempfile.TemporaryDirectory(prefix="p6-rommgr-portable-") as directory:

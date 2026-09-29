@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -20,8 +22,7 @@ def function(source, signature):
 
 class RomInputTests(unittest.TestCase):
     def test_exact_rom_input_transforms_and_cloanto_key_lifecycle(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "rommgr.cpp").read_text()
         support = source[source.index("#define ROM_KEY_NUM 4"):source.index("void addkeyfile", source.index("#define ROM_KEY_NUM 4"))]

@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 PROBE = r'''#include "sysconfig.h"
@@ -127,8 +129,7 @@ def savestate_prefix(source):
 class SavestateSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         cls.tree = ROOT / "build/upstream"
 
     def test_complete_object_host_boundary(self):

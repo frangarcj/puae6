@@ -4,13 +4,14 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class CPUIRQTests(unittest.TestCase):
     def test_owner_irq_and_atomic_flags(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         common = ["clang++", "-std=c++17", "-UNDEBUG", "-I" + str(ROOT / "ports/portable"),
                   "-I" + str(ROOT / "build/generated"), "-I" + str(tree / "include"), "-I" + str(tree)]

@@ -6,13 +6,14 @@ import tempfile
 import unittest
 from tests.host.test_audio_math import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class CustomOCSTests(unittest.TestCase):
     def test_ocs_colors_without_aga_storage(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         original = (ROOT / "upstream/winuae/custom.cpp").read_text()
         patched = (tree / "custom.cpp").read_text()

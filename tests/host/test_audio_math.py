@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -21,8 +23,7 @@ def function(source, signature):
 
 class AudioMathTests(unittest.TestCase):
     def test_upstream_tangent_and_paula_coefficients(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         native = (ROOT / "upstream/winuae/fpp_native.cpp").read_text()
         audio = (ROOT / "upstream/winuae/audio.cpp").read_text()

@@ -5,13 +5,14 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class CIATests(unittest.TestCase):
     def test_portable_tod_and_timers(self):
-        subprocess.run(["python3", str(ROOT / "tools/generate_cpu.py")], cwd=ROOT,
-                       check=True, stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         common = ["clang++", "-std=c++17", "-UNDEBUG", "-Werror=format",
                   "-I" + str(ROOT / "ports/portable"), "-I" + str(ROOT / "build/generated"),

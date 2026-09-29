@@ -7,6 +7,8 @@ import unittest
 
 from tests.host.test_cpu_rom_guard import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -22,8 +24,7 @@ def braced(source, keyword):
 
 class DrawingSyncTests(unittest.TestCase):
     def test_real_sync_dispatch_rga_and_lifecycle(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "drawing.cpp").read_text()
         self.assertIn("#define ENABLE_MULTITHREADED_DENISE 0", source)

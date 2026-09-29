@@ -5,13 +5,14 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class MemoryRomSourceTests(unittest.TestCase):
     def test_explicit_rom_source_no_path_fallback(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         common = ["-UNDEBUG", "-I" + str(ROOT / "ports/portable"),
                   "-I" + str(ROOT / "build/generated"),

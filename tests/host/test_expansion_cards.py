@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -39,8 +41,7 @@ def extracted(source):
 
 class ExpansionCardsTests(unittest.TestCase):
     def test_real_card_names_callbacks_and_metadata(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         original = (ROOT / "upstream/winuae/expansion.cpp").read_text()
         patched = (ROOT / "build/upstream/expansion.cpp").read_text()
         sources = [extracted(original), extracted(patched)]

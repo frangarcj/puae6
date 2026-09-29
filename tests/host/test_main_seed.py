@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -17,8 +19,7 @@ def prng_block(source):
 
 class MainSeedTests(unittest.TestCase):
     def test_deterministic_seed_sequences_and_rng_restore(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         original = (ROOT / "upstream/winuae/main.cpp").read_text()
         patched = (ROOT / "build/upstream/main.cpp").read_text()
         self.assertIn("uaesetrandseed(t)", original)

@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from tests.host.test_audio_math import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 PROBE = r'''
 #include "sysconfig.h"
@@ -66,8 +68,7 @@ int main()
 
 class RomTextTests(unittest.TestCase):
     def test_real_metadata_queries(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "rommgr.cpp").read_text()
         header = ''.join(function(source, signature) for signature in (

@@ -8,13 +8,14 @@ import unittest
 
 from tests.host.test_cpu_rom_guard import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class DrawingOCSTests(unittest.TestCase):
     def test_ocs_colors_ham_and_generated_ecs_line(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         original = (ROOT / "upstream/winuae/drawing.cpp").read_text()
         patched = (ROOT / "build/upstream/drawing.cpp").read_text()
         generated = (ROOT / "build/generated/linetoscr_ecs_fast.cpp").read_text()

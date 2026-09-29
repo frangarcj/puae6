@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 ERROR_LOG_PROBE = r'''#include "sysconfig.h"
@@ -87,8 +89,7 @@ def error_log_source(source):
 class CfgfileSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         cls.tree = ROOT / "build/upstream"
 
     def test_real_error_log_long_format_order_and_clear(self):

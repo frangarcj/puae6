@@ -5,13 +5,14 @@ import tempfile
 import unittest
 from tests.host.test_cpu_rom_guard import function
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class ExpansionSourceTests(unittest.TestCase):
     def test_complete_object_without_thread_header_or_tchar_formatter(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         common = ["clang++", "-std=c++17", "-UNDEBUG",
                   "-I" + str(ROOT / "ports/portable"), "-I" + str(ROOT / "build/generated"),

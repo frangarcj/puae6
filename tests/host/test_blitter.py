@@ -5,13 +5,14 @@ import subprocess
 import unittest
 import tempfile
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class BlitterTests(unittest.TestCase):
     def test_without_debugger(self):
-        subprocess.run(["python3", str(ROOT / "tools/generate_cpu.py")], cwd=ROOT,
-                       check=True, stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree, generated = ROOT / "build/upstream", ROOT / "build/generated"
         common = ["clang++", "-std=c++17", "-UNDEBUG", "-I" + str(ROOT / "ports/portable"),
                   "-I" + str(generated), "-I" + str(tree / "include"), "-I" + str(tree)]

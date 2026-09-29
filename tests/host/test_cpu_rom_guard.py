@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.host import ensure_generated
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -21,8 +23,7 @@ def function(source, signature):
 
 class CPURomGuardTests(unittest.TestCase):
     def test_prior_and_reset_time_failures_never_reach_cpu(self):
-        subprocess.run(["python3", "tools/generate_cpu.py"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, timeout=120)
+        ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "newcpu.cpp").read_text()
         body = function(source, "void m68k_go (int may_quit)")
