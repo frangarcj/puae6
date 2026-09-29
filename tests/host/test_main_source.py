@@ -11,6 +11,35 @@ from tests.host import ensure_generated
 ROOT = Path(__file__).resolve().parents[2]
 
 
+
+def without_p6_guards(text):
+    """Text with P6_PORTABLE guard lines and comment-only lines removed.
+
+    `#ifndef P6_PORTABLE` regions keep their upstream lines; `#ifdef P6_PORTABLE ... #else`
+    keeps only the upstream branch. What is left must equal the pristine function.
+    """
+    out, stack = [], []          # stack entries: "ifndef", "ifdef" (in P6 branch), "else", "other"
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("#ifndef P6_PORTABLE"):
+            stack.append("ifndef")
+        elif s.startswith("#ifdef P6_PORTABLE"):
+            stack.append("ifdef")
+        elif s.startswith("#if"):
+            stack.append("other")
+            out.append(line)
+        elif s.startswith("#else") and stack and stack[-1] in ("ifdef", "else"):
+            stack[-1] = "else"
+        elif s.startswith("#endif"):
+            kind = stack.pop()
+            if kind == "other":
+                out.append(line)
+        elif not s or s.startswith("//") or "ifdef" in stack:
+            continue
+        else:
+            out.append(line)
+    return "\n".join(out)
+
 class MainSourceTests(unittest.TestCase):
     def test_complete_object_and_disabled_autoconfig_preferences(self):
         ensure_generated()
@@ -18,7 +47,8 @@ class MainSourceTests(unittest.TestCase):
         source = (tree / "main.cpp").read_text()
         original = (ROOT / "upstream/winuae/main.cpp").read_text()
         for signature in ("void uae_reset (", "void uae_quit (", "void uae_restart("):
-            self.assertEqual(function(source, signature), function(original, signature))
+            self.assertEqual(without_p6_guards(function(source, signature)),
+                             without_p6_guards(function(original, signature)))
         # Exercise the actual conditional block using the actual prefs layout.
         start = source.index("#ifndef AUTOCONFIG\n")
         end = source.index("#if !defined (BSDSOCKET)", start)

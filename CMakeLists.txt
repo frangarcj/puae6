@@ -75,3 +75,23 @@ target_link_libraries(p6_portable_probe PRIVATE p6_portable)
 target_compile_options(p6_portable_probe PRIVATE -UNDEBUG)
 add_test(NAME portable-services COMMAND p6_portable_probe)
 set_tests_properties(portable-services PROPERTIES LABELS "host;portable" TIMEOUT 30)
+
+# Headless runner: engine objects + portable services + the bridge. It proves the A500
+# profile links without windowing, audio or plugin libraries and reports the build identity
+# (upstream commit, patch series hash, profile); it does not boot a machine yet.
+string(JSON _upstream_commit GET "${_manifest}" commit)
+set(_series_file "${CMAKE_CURRENT_SOURCE_DIR}/patches/winuae/series.json")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_series_file}")
+file(READ "${_series_file}" _series)
+string(JSON _series_patches GET "${_series}" patches)
+string(JSON _patch_count LENGTH "${_series_patches}")
+file(SHA256 "${_series_file}" _series_sha256)
+add_library(p6_bridge STATIC bridge/caps.cpp)
+target_include_directories(p6_bridge PUBLIC bridge/include)
+add_executable(p6_headless EXCLUDE_FROM_ALL adapters/headless/main.cpp $<TARGET_OBJECTS:p6_engine>)
+target_link_libraries(p6_headless PRIVATE p6_bridge p6_portable)
+target_compile_definitions(p6_headless PRIVATE
+    P6_PROFILE="${P6_PROFILE}"
+    P6_UPSTREAM_COMMIT="${_upstream_commit}"
+    P6_PATCH_COUNT="${_patch_count}"
+    P6_PATCH_SERIES_SHA256="${_series_sha256}")

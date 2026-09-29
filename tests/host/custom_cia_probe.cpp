@@ -20,7 +20,7 @@ uae_u16 bplcon0, beamcon0, hsstop, hsstrt, vsstop, hcenter;
 bool lof_store;
 static bool genlockhtoggle, genlockvtoggle, linetoggle;
 static int cia_hsync;
-volatile uae_atomic uae_int_requested;
+extern volatile uae_atomic uae_int_requested;  // defined by ports/portable/atomic.cpp
 static unsigned irq_count[2], pending_count;
 static bool pending_levels[2];
 static unsigned trace;

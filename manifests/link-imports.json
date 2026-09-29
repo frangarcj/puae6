@@ -5,30 +5,6 @@
   "description": "Symbols still unresolved when every engine object and the portable library are linked into a probe dylib. tests.codegen.test_engine_imports fails on any unclassified symbol and on any listed name that no longer appears, so the list can only shrink deliberately.",
   "families": [
     {
-      "id": "state_serializer",
-      "owner": "T15",
-      "disposition": "state_gate",
-      "reason": "SAVESTATE is not defined in the profile, so per-device save/restore bodies are absent while savestate.cpp is compiled. Native serializer and restore keep the T15 gate.",
-      "regex": "^(save|restore)_",
-      "count": 73,
-      "names": [
-        "custom_prepare_savestate",
-        "devices_restore_start"
-      ]
-    },
-    {
-      "id": "state_host_paths",
-      "owner": "T15",
-      "disposition": "state_gate",
-      "reason": "Legacy state files: host path resolution, compression and screenshot helpers used by savestate.cpp only (host-surface excluded_pending_link).",
-      "names": [
-        "target_isrelativemode",
-        "write_wavheader",
-        "zfile_zcompress",
-        "zfile_zuncompress"
-      ]
-    },
-    {
       "id": "input_device_backends",
       "owner": "T10",
       "disposition": "provide",
@@ -43,48 +19,11 @@
         "inputdevicefunc_keyboard",
         "inputdevicefunc_mouse",
         "is_tablet",
-        "is_touch_lightpen",
-        "key_swap_hack",
         "release_keys",
         "tablet_log",
-        "target_can_autoswitchdevice",
         "target_checkcapslock",
         "target_inputdevice_acquire",
-        "target_inputdevice_unacquire",
-        "target_osd_keyboard",
-        "target_osk_control",
-        "target_paste_to_keyboard"
-      ]
-    },
-    {
-      "id": "desktop_actions",
-      "owner": "T06c",
-      "disposition": "decide",
-      "reason": "Desktop and target hooks reached from AKS actions, lifecycle and prefs: guard the caller or provide a bridge-owned effect. None is reachable from p6_input.",
-      "names": [
-        "consolehook_shutdown",
-        "desktop_coords",
-        "getsetpositionvideograb",
-        "gui_ask_disk",
-        "gui_display",
-        "handle_msgpump",
-        "pause_emulation",
-        "pausevideograb",
-        "savestate_quick",
-        "screenshot",
-        "setmouseactive",
-        "setmouseactivexy",
-        "sound_volume",
-        "statusline_add_message",
-        "target_addtorecent",
-        "target_cpu_speed",
-        "target_quit",
-        "target_reset",
-        "target_restart",
-        "toggle_fullscreen",
-        "toggle_mousegrab",
-        "toggle_rtg",
-        "translate_message"
+        "target_inputdevice_unacquire"
       ]
     },
     {
@@ -108,47 +47,6 @@
         "target_graphics_buffer_update",
         "unlockscr",
         "updatedisplayarea"
-      ]
-    },
-    {
-      "id": "host_paths_files",
-      "owner": "T06c",
-      "disposition": "guard_callers",
-      "reason": "Host filesystem path resolution; M1 media and firmware are logical asset ids.",
-      "names": [
-        "fetch_nvrampath",
-        "fetch_rompath",
-        "fixtrailing",
-        "fullpath",
-        "getfilepart",
-        "getpathpart",
-        "my_existsdir",
-        "my_existsfile",
-        "my_getfilepart",
-        "my_issamepath"
-      ]
-    },
-    {
-      "id": "text_charset",
-      "owner": "T06c",
-      "disposition": "provide",
-      "reason": "Pure text services with no host dependency (charset conversion, string length and duplication) that the portable layer can implement.",
-      "names": [
-        "au_copy",
-        "ua",
-        "uaestrlen",
-        "utf8u",
-        "uutf8"
-      ]
-    },
-    {
-      "id": "scheduler_time",
-      "owner": "T06c",
-      "disposition": "provide",
-      "reason": "Interrupt flag and time source owned by the emulation thread (T06b2o) and the deterministic clock.",
-      "names": [
-        "setsystime",
-        "uae_time"
       ]
     }
   ]

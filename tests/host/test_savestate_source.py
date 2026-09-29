@@ -152,9 +152,13 @@ class SavestateSourceTests(unittest.TestCase):
                 for required in ("savestate_state", "savestate_file"):
                     self.assertRegex(symbols, r"(?m)\b[BDS] _?" + required + r"$")
                 for required in ("save_u32_func(", "save_u64_func(", "restore_u32_func(",
-                                 "restore_u64_func(", "save_string_func(",
-                                 "savestate_free(", "save_state("):
+                                 "restore_u64_func(", "savestate_free(", "savestate_init(",
+                                 "savestate_check("):
                     self.assertRegex(symbols, r"(?m)\bT _?" + re.escape(required))
+                # Patch 0055 excludes the legacy .uss file machinery until the native serializer.
+                for excluded in ("save_state(", "restore_state(", "save_string_func(",
+                                 "save_path_func(", "savestate_initsave(", "savestate_rewind("):
+                    self.assertNotIn(excluded, symbols)
                 self.assertNotIn("savestate_quick", symbols)
                 self.assertNotIn("_stprintf", imports)
                 self.assertNotIn("save_cd", imports)

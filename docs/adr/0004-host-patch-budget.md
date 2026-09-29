@@ -281,3 +281,27 @@ dependencia que la puerta existe para mostrar. (3) Editar cpustbl.cpp o definir 
 manejadores: prohibido, la salida generada no se toca. Consecuencia para M2: el
 receta debera pedir tambien los modelos de 68020/AGA; es cambiar un argumento, no
 un parche. El delta de 1500 lineas sigue superado (ADR anterior).
+
+Cola tras T06ca: 54 parches/29 archivos/1664 lineas de delta.
+
+T06cb (parches 0055-0057) deja 57 parches/30 archivos/1868 lineas (+204); keybuf.cpp es
+el archivo 30. 0055 saca del enlace la maquinaria de ficheros .uss de savestate.cpp
+(dos lineas por region): T15 reutilizara las funciones por dispositivo de upstream con
+E/S en memoria y su propio envelope, asi que aqui se excluye en vez de fingir un
+serializador; las variables y primitivas que usan otras unidades se conservan y
+savestate_check devuelve false porque atender peticiones sin restaurador dejaria
+savestate_state atascado. 0056 guarda los servicios de escritorio (acciones AKS de
+GUI/pantalla/volumen/RTG/captura/estado, lista reciente y OSD, rutas del host, tabla
+de mensajes, reloj de pared) en ocho unidades; las acciones internas de la maquina
+(reset, eject, cambio de puertos, IRQ7, refresco, quit/restart) se conservan. 0057
+retira el teclado en pantalla, pegar, la pausa del escritorio y la correccion de
+distribucion de teclado de Windows.
+
+Decisiones a revisar. La identificacion de ROM por nombre de fichero queda excluida:
+aceptaba contenido sin hash, y la identidad del firmware pasa a depender solo de
+CRC/SHA-1. Los ids logicos de firmware se comparan con igualdad exacta. Alternativa
+descartada: variables constantes (pause_emulation = 0, key_swap_hack = 0) y no-ops de
+las acciones de escritorio; definirlas ocultaria que esas rutas no existen y dejaria a
+un cambio futuro de la config publica activarlas sin que nada lo notase. La puerta de
+imports pasa de 155 a 29 simbolos (solo entrada y video, con proveedores reales en
+T06cd/T06ce). El presupuesto de 1500 lineas sigue superado; se revisara en M2.

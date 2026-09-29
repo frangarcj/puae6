@@ -1,0 +1,792 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -170,7 +170,9 @@
+ 
+ static int bouncy;
+ static frame_time_t bouncy_cycles;
++#ifndef P6_PORTABLE
+ static int autopause;
++#endif
+ static int keyboard_reset_seq, keyboard_reset_seq_mode;
+ 
+ #define HANDLE_IE_FLAG_CANSTOPPLAYBACK 1
+@@ -2520,6 +2522,8 @@
+ 	return 0xffffffff;
+ }
+ 
++#ifndef P6_PORTABLE
++// Only the excluded magic mouse edge detector needs the Intuition base.
+ static uaecptr get_intuitionbase (void)
+ {
+ 	if (magicmouse_ibase == 0xffffffff)
+@@ -2535,6 +2539,7 @@
+ 		magicmouse_ibase = get_base("intuition.library");
+ 	return magicmouse_ibase;
+ }
++#endif
+ static uaecptr get_gfxbase (void)
+ {
+ 	if (magicmouse_gfxbase == 0xffffffff)
+@@ -2819,6 +2824,8 @@
+ #endif
+ }
+ 
++#ifndef P6_PORTABLE
++// Maps host desktop coordinates to the Amiga display (desktop_coords); the bridge feeds relative input only.
+ void tablet_lightpen(int tx, int ty, int tmaxx, int tmaxy, int touch, int buttonmask, bool touchmode, int devid, int lpnum)
+ {
+ 	int monid = 0;
+@@ -2906,14 +2913,19 @@
+ 	}
+ 
+ }
++#endif
+ 
+ void inputdevice_tablet (int x, int y, int z, int pressure, uae_u32 buttonbits, int inproximity, int ax, int ay, int az, int devid)
+ {
++#ifndef P6_PORTABLE
++	// Touch lightpen goes through tablet_lightpen.
+ 	if (is_touch_lightpen()) {
+ 
+ 		tablet_lightpen(x, y, tablet_maxx, tablet_maxy, inproximity ? 1 : -1, buttonbits, false, devid, -1);
+ 
+-	} else {
++	} else
++#endif
++	{
+ 		uae_u8 *p;
+ 		uae_u8 tmp[MH_END];
+ 
+@@ -3311,6 +3323,8 @@
+ #define MOUSEEDGE_RANGE 100
+ #define MOUSEEDGE_TIME 2
+ 
++#ifndef P6_PORTABLE
++// Releases the host pointer at the Amiga screen edge (magic mouse); needs a host pointer.
+ static int mouseedge(int monid)
+ {
+ 	struct amigadisplay *ad = &adisplays[monid];
+@@ -3426,6 +3440,7 @@
+ 	}
+ 	return 1;
+ }
++#endif
+ 
+ int magicmouse_alive (void)
+ {
+@@ -3700,6 +3715,8 @@
+ 
+ void inputdevice_read_msg(bool vblank)
+ {
++#ifndef P6_PORTABLE
++	// Win32 message pump; the bridge delivers input at the frame boundary.
+ 	int got2 = 0;
+ 	for (;;) {
+ 		int got = handle_msgpump(vblank);
+@@ -3707,6 +3724,7 @@
+ 			break;
+ 		got2 = 1;
+ 	}
++#endif
+ }
+ 
+ static void inputdevice_read(void)
+@@ -4800,6 +4818,8 @@
+ // these need cpu trace data
+ static bool needcputrace (int code)
+ {
++#ifndef P6_PORTABLE
++	// Every listed action (GUI, quick and dialog state saves) is excluded here.
+ 	switch (code)
+ 	{
+ 	case AKS_ENTERGUI:
+@@ -4817,6 +4837,7 @@
+ 	case AKS_STATESAVEDIALOG:
+ 		return true;
+ 	}
++#endif
+ 	return false;
+ }
+ 
+@@ -4958,6 +4979,7 @@
+ 	}
+ #endif
+ 	if (!state) {
++#ifndef P6_PORTABLE
+ 		switch(code)
+ 		{
+ 			case AKS_SCREENSHOT_FILE:
+@@ -4965,6 +4987,7 @@
+ 			screenshot(-1, 4, 1);
+ 			break;
+ 		}
++#endif
+ 		return false;
+ 	}
+ 
+@@ -4973,6 +4996,8 @@
+ 	case AKS_OSK:
+ 		osk_setup(0, -1);
+ 		break;
++#ifndef P6_PORTABLE
++	// Desktop GUI and screenshots; presentation belongs to the bridge.
+ 	case AKS_ENTERGUI:
+ 		gui_display (-1);
+ 		setsystime ();
+@@ -4987,6 +5012,7 @@
+ 	case AKS_SCREENSHOT_CLIPBOARD:
+ 		screenshot(-1, 0, 1);
+ 		break;
++#endif
+ #ifdef AVIOUTPUT
+ 	case AKS_VIDEORECORD:
+ 		AVIOutput_Toggle(newstate, true);
+@@ -5007,6 +5033,8 @@
+ 		action_replay_freeze ();
+ 		break;
+ #endif
++#ifndef P6_PORTABLE
++	// Disk selector by name or GUI; s only comes from the excluded uaelib and custom-event text.
+ 	case AKS_FLOPPY0:
+ 		if (s) {
+ 			_tcsncpy(changed_prefs.floppyslots[0].df, s, MAX_DPATH);
+@@ -5047,6 +5075,7 @@
+ 			setsystime ();
+ 		}
+ 		break;
++#endif
+ 	case AKS_EFLOPPY0:
+ 		disk_eject (0);
+ 		break;
+@@ -5059,6 +5088,8 @@
+ 	case AKS_EFLOPPY3:
+ 		disk_eject (3);
+ 		break;
++#ifndef P6_PORTABLE
++	// The A500 profile has no CD; the else arm opens the desktop GUI.
+ 	case AKS_CD0:
+ 		if (s) {
+ 			_tcsncpy(changed_prefs.cdslots[0].name, s, MAX_DPATH);
+@@ -5071,6 +5102,7 @@
+ 			setsystime();
+ 		}
+ 		break;
++#endif
+ 	case AKS_ECD0:
+ 		changed_prefs.cdslots[0].name[0] = 0;
+ 		changed_prefs.cdslots[0].inuse = false;
+@@ -5078,6 +5110,8 @@
+ 	case AKS_IRQ7:
+ 		IRQ_forced(7, -1);
+ 		break;
++#ifndef P6_PORTABLE
++	// Host pause flag; the bridge pauses by not calling p6_run_frame.
+ 	case AKS_PAUSE:
+ 		pausemode(newstate > 0 ? 1 : newstate);
+ 		break;
+@@ -5086,6 +5120,7 @@
+ 			pausemode(0);
+ 		autopause = 1;
+ 		break;
++#endif
+ 	case AKS_WARP:
+ 		warpmode (newstate);
+ 		break;
+@@ -5103,13 +5138,14 @@
+ 		savestate_capture (1);
+ 		break;
+ #endif
++#ifndef P6_PORTABLE
++	// Host mixer volume and mute.
+ 	case AKS_VOLDOWN:
+ 		sound_volume (newstate <= 0 ? -1 : 1);
+ 		break;
+ 	case AKS_VOLUP:
+ 		sound_volume (newstate <= 0 ? 1 : -1);
+ 		break;
+-#ifndef P6_PORTABLE
+ 	case AKS_VOLMUTE:
+ 		sound_mute (newstate);
+ 		break;
+@@ -5135,6 +5171,8 @@
+ 	case AKS_RESTART:
+ 		uae_restart(&currprefs, -1, NULL);
+ 		break;
++#ifndef P6_PORTABLE
++	// Quick slots need savestate_quick (excluded until the native serializer, T15); the rest is host window and pointer grab.
+ 	case AKS_STATESAVEQUICK:
+ 	case AKS_STATESAVEQUICK1:
+ 	case AKS_STATESAVEQUICK2:
+@@ -5174,6 +5212,7 @@
+ 	case AKS_TOGGLEMOUSEGRAB:
+ 		toggle_mousegrab();
+ 		break;
++#endif
+ 	case AKS_SWAPJOYPORTS:
+ 		if (state == 1)
+ 			inputdevice_swap_compa_ports(&changed_prefs, 0);
+@@ -5194,6 +5233,8 @@
+ 		activate_debugger ();
+ #endif
+ 		break;
++#ifndef P6_PORTABLE
++	// File and GUI state dialogs: the .uss handlers are excluded, and STATE_DORESTORE would never be served.
+ 	case AKS_STATESAVEDIALOG:
+ 		if (s) {
+ 			savestate_initsave (s, 1, true, true);
+@@ -5210,6 +5251,7 @@
+ 			gui_display (4);
+ 		}
+ 		break;
++#endif
+ 	case AKS_DECREASEREFRESHRATE:
+ 	case AKS_INCREASEREFRESHRATE:
+ 		{
+@@ -5271,6 +5313,8 @@
+ 		disk_prevnext (code - AKS_DISK_NEXT0, 1);
+ 		break;
+ #endif
++#ifndef P6_PORTABLE
++	// Graphics boards and the host video grabber are not part of the A500 profile.
+ 	case AKS_RTG_PREV:
+ 		toggle_rtg(0, -1);
+ 		break;
+@@ -5308,6 +5352,7 @@
+ 		getsetpositionvideograb(pos);
+ 		break;
+ 	}
++#endif
+ 
+ #ifdef CDTV
+ 	case AKS_CDTV_FRONT_PANEL_STOP:
+@@ -5469,7 +5514,10 @@
+ 				if (x <= 0 || x >= 65535 || y <= 0 || y >= 65535) {
+ 					x = y = -1;
+ 				}
++#ifndef P6_PORTABLE
++				// Absolute pointers need desktop geometry; the value is recorded but not applied.
+ 				tablet_lightpen(x, y, 65535, 65535, 0, 0, false, -1, lpnum);
++#endif
+ 			} else if (ie->type == 0) {
+ 				int delta = 0;
+ 				if (max == 0) {
+@@ -5909,16 +5957,20 @@
+ 
+ void inputdevice_vsync (void)
+ {
++#ifndef P6_PORTABLE
+ 	int monid = 0;
++#endif
+ 	if (inputdevice_logging & 32)
+ 		write_log (_T("*\n"));
+ 
++#ifndef P6_PORTABLE
+ 	if (autopause > 0 && pause_emulation == 0) {
+ 		autopause--;
+ 		if (!autopause) {
+ 			pausemode(1);
+ 		}
+ 	}
++#endif
+ 	if (keyboard_reset_seq_mode && keyboard_reset_seq > 0) {
+ 		keyboard_reset_seq++;
+ 	}
+@@ -5930,17 +5982,24 @@
+ 	inputdevice_handle_inputcode ();
+ 	if (mouseedge_alive > 0)
+ 		mouseedge_alive--;
++#ifndef P6_PORTABLE
+ 	if (mouseedge(monid))
+ 		mouseedge_alive = 10;
++#endif
+ 	if (mousehack_alive_cnt > 0) {
+ 		mousehack_alive_cnt--;
++#ifndef P6_PORTABLE
++		// Re-grabs the host pointer when the Amiga mouse driver stops; there is no host pointer.
+ 		if (mousehack_alive_cnt == 0)
+ 			setmouseactive(0, -1);
++#endif
+ 	} else if (mousehack_alive_cnt < 0) {
+ 		mousehack_alive_cnt++;
+ 		if (mousehack_alive_cnt == 0) {
+ 			mousehack_alive_cnt = 100;
++#ifndef P6_PORTABLE
+ 			setmouseactive(0, -1);
++#endif
+ 		}
+ 	}
+ 	inputdevice_checkconfig ();
+@@ -5985,6 +6044,8 @@
+ #endif
+ }
+ 
++#ifndef P6_PORTABLE
++// Host input-device autoswitch and its OSD messages; devices are logical here.
+ static int getoldport (struct uae_input_device *id)
+ {
+ 	int i, j;
+@@ -6287,6 +6348,8 @@
+ 	}
+ 	return 0;
+ }
++
++#endif
+ 
+ uae_u64 input_getqualifiers (void)
+ {
+@@ -6492,7 +6555,9 @@
+ 
+ static void setbuttonstateall (struct uae_input_device *id, struct uae_input_device2 *id2, int button, int buttonstate)
+ {
++#ifndef P6_PORTABLE
+ 	static frame_time_t switchdevice_timeout;
++#endif
+ 	int i;
+ 	uae_u32 mask = 1 << button;
+ 	uae_u32 omask = id2 ? id2->buttonmask & mask : 0;
+@@ -6513,6 +6578,8 @@
+ #endif
+ 
+ 	if (!id->enabled) {
++#ifndef P6_PORTABLE
++		// Wall-clock hold (1 s) picks the port of a host device; core time never advances from the host.
+ 		frame_time_t t = read_processor_time ();
+ 		if (!t)
+ 			t++;
+@@ -6528,6 +6595,7 @@
+ 			}
+ 			switchdevice_timeout = 0;
+ 		}
++#endif
+ 		return;
+ 	}
+ 	if (button >= ID_BUTTON_TOTAL)
+@@ -9097,7 +9165,11 @@
+ 	TCHAR *customp = NULL;
+ 
+ 	if (name)
++#ifdef P6_PORTABLE
++		name[0] = 0; // No resource table; an empty label matches no event name.
++#else
+ 		translate_message(NUMSG_INPUT_NONE, name);
++#endif
+ 	if (custom)
+ 		custom[0] = 0;
+ 	if (pflags)
+@@ -10027,9 +10099,13 @@
+ #endif
+ 	changed_prefs.turbo_emulation = currprefs.turbo_emulation;
+ 	set_config_changed ();
++#ifndef P6_PORTABLE
++	// Resyncs the host time-of-day (tod_hack), which the profile rejects.
+ 	setsystime ();
++#endif
+ }
+ 
++#ifndef P6_PORTABLE
+ void pausemode (int mode)
+ {
+ 	if (mode < 0)
+@@ -10039,6 +10115,7 @@
+ 	set_config_changed ();
+ 	setsystime ();
+ }
++#endif
+ 
+ int jsem_isjoy (int port, int sub, const struct uae_prefs *p)
+ {
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -1384,6 +1384,8 @@
+ 	return false;
+ }
+ 
++#ifndef P6_PORTABLE
++// OSD status line text; the profile has no OSD.
+ static void update_disk_statusline(int num)
+ {
+ 	drive *drv = &floppy[num];
+@@ -1408,6 +1410,7 @@
+ 	else
+ 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: %s"), num, my_getfilepart(fname));
+ }
++#endif
+ 
+ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR *fname_in, bool fake, bool forcedwriteprotect)
+ {
+@@ -1844,7 +1847,9 @@
+ 			driveclick_insert(drv->drvnum, 0);
+ #endif
+ 		update_drive_gui(drv->drvnum, false);
++#ifndef P6_PORTABLE
+ 		update_disk_statusline(drv->drvnum);
++#endif
+ 	}
+ 	return 1;
+ }
+@@ -3061,8 +3066,10 @@
+ 	if (isfloppysound (drv))
+ 		driveclick_insert(drv->drvnum, 1);
+ #endif
++#ifndef P6_PORTABLE
+ 	if (drv->diskfile || drv->filetype >= 0)
+ 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: -"), drv - floppy);
++#endif
+ 	drive_image_free(drv);
+ 	drv->dskeject = false;
+ 	drv->dskchange = true;
+@@ -3365,9 +3372,12 @@
+ 	if (name[0] == 0)
+ 		return 0;
+ 	_tcscpy(path, name);
++#ifndef P6_PORTABLE
++	// Host path normalisation; history entries are logical asset ids here.
+ 	if (!nopathfix) {
+ 		fullpath(path, sizeof(path) / sizeof(TCHAR));
+ 	}
++#endif
+ 	if (idx >= 0) {
+ 		if (idx >= MAX_PREVIOUS_IMAGES)
+ 			return 0;
+@@ -3435,14 +3445,19 @@
+ void disk_insert (int num, const TCHAR *name, bool forcedwriteprotect)
+ {
+ 	set_config_changed ();
++#ifndef P6_PORTABLE
++	// Desktop recent-documents list.
+ 	target_addtorecent (name, 0);
++#endif
+ 	disk_insert_2 (num, name, 0, forcedwriteprotect);
+ }
+ 
+ void disk_insert (int num, const TCHAR *name)
+ {
+ 	set_config_changed ();
++#ifndef P6_PORTABLE
+ 	target_addtorecent (name, 0);
++#endif
+ 	disk_insert_2 (num, name, 0, false);
+ }
+ void disk_insert_force (int num, const TCHAR *name, bool forcedwriteprotect)
+@@ -4722,6 +4737,8 @@
+ 			if (drv->dskchange_time == -1) {
+ 				drv->dskchange_time = -2;
+ 				write_log(_T("Accessing state restored non-existing disk '%s'!\n"), drv->newname);
++#ifndef P6_PORTABLE
++				// Interactive replacement-disk prompt; the drive stays in the faked-disk state.
+ 				if (gui_ask_disk(dr, drv->newname)) {
+ 					if (drive_insert(drv, &currprefs, dr, drv->newname, false, false)) {
+ 						write_log(_T("Replacement disk '%s' inserted.\n"), drv->newname);
+@@ -4729,6 +4746,7 @@
+ 						drv->dskchange_time = 0;
+ 					}
+ 				}
++#endif
+ 			}
+ 
+ 			if (dskdmaen == DSKDMA_WRITE) {
+@@ -4829,11 +4847,13 @@
+ 	DISK_update (maxhpos);
+ 	DISK_update_predict();
+ 
++#ifndef P6_PORTABLE
+ 	// show insert disk in df0: when booting
+ 	if (initial_disk_statusline) {
+ 		initial_disk_statusline = false;
+ 		update_disk_statusline(0);
+ 	}
++#endif
+ }
+ 
+ void DISK_update (int tohpos)
+diff --git a/rommgr.cpp b/rommgr.cpp
+--- a/rommgr.cpp
++++ b/rommgr.cpp
+@@ -91,7 +91,12 @@
+ 			if (!_tcscmp(path + 1, rd->configname))
+ 				return rd;
+ 		}
++#ifdef P6_PORTABLE
++		// ROM paths are logical asset ids: same id means the same string.
++		if (!_tcscmp(rl[i].path, path))
++#else
+ 		if (my_issamepath(rl[i].path, path))
++#endif
+ 			return rl[i].rd;
+ 	}
+ 	return NULL;
+@@ -1891,7 +1896,12 @@
+ 			for (int j = 0; j < romlist_cnt; j++) {
+ 				if (rl[j].rd->id == rd->id) {
+ 					if (romname) {
++#ifdef P6_PORTABLE
++						// Logical asset ids compare exactly.
++						if (!_tcscmp(rl[j].path, romname))
++#else
+ 						if (my_issamepath(rl[j].path, romname))
++#endif
+ 							return &rl[j];
+ 					} else {
+ 						return &rl[j];
+@@ -1916,7 +1926,12 @@
+ 			if (rd) {
+ 				for (j = 0; j < romlist_cnt; j++) {
+ 					if (rl[j].rd->id == rd->id) {
++#ifdef P6_PORTABLE
++						// Logical asset ids compare exactly.
++						if (!_tcscmp(rl[j].path, romname))
++#else
+ 						if (my_issamepath(rl[j].path, romname))
++#endif
+ 							return &rl[j];
+ 					}
+ 				}
+@@ -1976,7 +1991,12 @@
+ 		}
+ 		i++;
+ 	}
++#ifdef P6_PORTABLE
++	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
++	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
++#else
+ 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
++#endif
+ 	gui_message (tmp3, tmp2);
+ }
+ 
+@@ -2003,7 +2023,12 @@
+ 		}
+ 		i++;
+ 	}
++#ifdef P6_PORTABLE
++	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
++	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
++#else
+ 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
++#endif
+ 	gui_message (tmp3, tmp2);
+ }
+ 
+@@ -3047,7 +3072,9 @@
+ struct zfile *flashromfile_open(const TCHAR *name)
+ {
+ 	struct zfile *f;
++#ifndef P6_PORTABLE
+ 	TCHAR path[MAX_DPATH];
++#endif
+ 	bool rw = true;
+ 
+ 	if (name == NULL || !name[0])
+@@ -3067,6 +3094,8 @@
+ 		if (!f) {
+ 			rw = false;
+ 			f = zfile_fopen(name, _T("rb"), ZFD_NORMAL);
++#ifndef P6_PORTABLE
++			// Retry inside the host ROM directory; assets are found by logical id only.
+ 			if (!f) {
+ 				fetch_rompath(path, sizeof path / sizeof(TCHAR));
+ 				_tcscat(path, name);
+@@ -3077,6 +3106,7 @@
+ 					f = zfile_fopen(path, _T("rb"), ZFD_NORMAL);
+ 				}
+ 			}
++#endif
+ 		}
+ 	}
+ 	if (f) {
+@@ -3140,10 +3170,13 @@
+ 			}
+ 		}
+ 	}
++#ifndef P6_PORTABLE
++	// Name-only identification accepts unhashed content; only excluded boards rely on it.
+ 	if (!rd) {
+ 		const TCHAR *name = my_getfilepart(zfile_getname(f));
+ 		rd = getfrombydefaultname(name, size);
+ 	}
++#endif
+ 	if (!rd) {
+ 		write_log(_T("!: Name='%s':%d\nCRC32=%08X SHA1=%s\n"),
+ 			zfile_getname(f), size, get_crc32(rombuf, size), get_sha1_txt(rombuf, size));
+diff --git a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -877,7 +877,10 @@
+ 	currprefs.quitstatefile[0] = changed_prefs.quitstatefile[0] = 0;
+ 
+ 	if (quit_program == 0) {
++#ifndef P6_PORTABLE
++		// Amiga console hook is a host filesystem feature; the A500 profile has none.
+ 		consolehook_shutdown();
++#endif
+ 		quit_program = -UAE_RESET;
+ 		if (keyboardreset)
+ 			quit_program = -UAE_RESET_KEYBOARD;
+@@ -892,10 +895,15 @@
+ #ifdef DEBUGGER
+ 	deactivate_debugger ();
+ #endif
++#ifndef P6_PORTABLE
+ 	consolehook_shutdown();
++#endif
+ 	if (quit_program != -UAE_QUIT)
+ 		quit_program = -UAE_QUIT;
++#ifndef P6_PORTABLE
++	// Wakes the host UI thread; the bridge polls quit_program instead.
+ 	target_quit ();
++#endif
+ }
+ 
+ /* 0 = normal, 1 = nogui, -1 = disable nogui, -2 = autorestart */
+@@ -907,7 +915,10 @@
+ 	default_config = 0;
+ 	if (cfgfile)
+ 		_tcscpy (restart_config, cfgfile);
++#ifndef P6_PORTABLE
++	// Host relaunch request; the bridge owns lifecycle and sees quit_program.
+ 	target_restart ();
++#endif
+ }
+ 
+ #ifndef P6_PORTABLE
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -6817,7 +6817,10 @@
+ 		initial_frame = true;
+ 	}
+ 
++#ifndef P6_PORTABLE
++	// Host clipboard sharing reset; the A500 profile has no clipboard bridge.
+ 	target_reset();
++#endif
+ 	devices_reset(hardreset);
+ 	write_log(_T("Reset at %08X. Chipset mask = %08X\n"), M68K_GETPC, currprefs.chipset_mask);
+ #ifdef DEBUGGER
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -2148,7 +2148,10 @@
+ 	cpuipldelay4 = 4 * cpucycleunit;
+ 
+ 	set_cpu_caches (true);
++#ifndef P6_PORTABLE
++	// Restarts the host vblank-wait thread; timing is driven by p6_run_frame only.
+ 	target_cpu_speed();
++#endif
+ }
+ 
+ #define CYCLES_DIV 8192
+@@ -6847,7 +6850,9 @@
+ 				currprefs.m68k_speed = changed_prefs.m68k_speed;
+ 				currprefs.m68k_speed_throttle = changed_prefs.m68k_speed_throttle;
+ 				update_68k_cycles();
++#ifndef P6_PORTABLE
+ 				target_cpu_speed();
++#endif
+ 			}
+ 			cpu_prefs_changed_flag = 0;
+ 		}
+diff --git a/cfgfile.cpp b/cfgfile.cpp
+--- a/cfgfile.cpp
++++ b/cfgfile.cpp
+@@ -9258,8 +9258,11 @@
+ 	set_68000_compa (p, compa);
+ 	p->cs_compatible = CP_CDTVCR;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
++	// NVRAM files live in a host directory; only non-A500 presets name one.
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat (p->flashfile, _T("cdtv-cr.nvr"));
++#endif
+ 	roms[0] = 9;
+ 	roms[1] = 10;
+ 	roms[2] = -1;
+@@ -9296,8 +9299,10 @@
+ 	set_68000_compa (p, compa);
+ 	p->cs_compatible = CP_CDTV;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat (p->flashfile, _T("cdtv.nvr"));
++#endif
+ 	roms[0] = 6;
+ 	roms[1] = 32;
+ 	roms[2] = -1;
+@@ -9325,8 +9330,10 @@
+ 	set_68020_compa (p, compa, 1);
+ 	p->cs_compatible = CP_CD32;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat (p->flashfile, _T("cd32.nvr"));
++#endif
+ 	roms[0] = 64;
+ 	roms[1] = -1;
+ 	if (!configure_rom (p, roms, 0)) {
+@@ -9347,8 +9354,10 @@
+ 			return 0;
+ 	} else if (config > 1) {
+ 		addbcromtype(p, ROMTYPE_CUBO, true, NULL, 0);
++#ifndef P6_PORTABLE
+ 		fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
+ 		_tcscat(p->flashfile, _T("cd32cubo.nvr"));
++#endif
+ 	}
+ 	return 1;
+ }
+@@ -9582,8 +9591,10 @@
+ 	set_68000_compa (p, compa);
+ 	p->cs_compatible = CP_A500;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat(p->flashfile, _T("arcadia.nvr"));
++#endif
+ 	roms[0] = 5;
+ 	roms[1] = 4;
+ 	roms[2] = -1;
+@@ -9624,8 +9635,10 @@
+ 	set_68000_compa(p, compa);
+ 	p->cs_compatible = CP_A500;
+ 	built_in_chipset_prefs(p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
+ 	_tcscat(p->flashfile, _T("alg.nvr"));
++#endif
+ 	roms[0] = 5;
+ 	roms[1] = 4;
+ 	roms[2] = -1;
+@@ -9714,8 +9727,10 @@
+ 	p->rtgboards[0].rtgmem_type = GFXBOARD_ID_ALTAIS_Z3;
+ 	p->rtgboards[0].rtgmem_size = 4 * 1024 * 1024;
+ 	built_in_chipset_prefs(p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
+ 	_tcscat(p->flashfile, _T("draco.nvr"));
++#endif
+ 	roms[0] = 61;
+ 	roms[1] = -1;
+ 	if (!configure_rom(p, roms, romcheck)) {
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -2795,6 +2795,8 @@
+ 
+ 	allocate_memory_custombanks();
+ 
++#ifndef P6_PORTABLE
++	// RAM is restored by the native serializer (T15), not from .uss chunks.
+ 	if (savestate_state == STATE_RESTORE) {
+ #ifndef P6_PORTABLE
+ 		// The traps area (rtarea) is not built in the A500 profile: no boot ROM to restore.
+@@ -2823,6 +2825,7 @@
+ 		alg_flag = 0;
+ #endif
+ 	}
++#endif
+ #ifdef AGA
+ 	chipmem_bank_ce2.baseaddr = chipmem_bank.baseaddr;
+ #endif

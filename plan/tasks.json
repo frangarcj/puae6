@@ -6631,7 +6631,7 @@
       "title": "Excluir del enlace la maquinaria .uss y los servicios de escritorio",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06ca"
       ],

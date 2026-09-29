@@ -13,7 +13,7 @@
 uae_prefs currprefs{};
 regstruct regs{};
 uae_u16 intreq;
-volatile uae_atomic uae_int_requested;
+extern volatile uae_atomic uae_int_requested;  // defined by ports/portable/atomic.cpp
 int pissoff;
 static unsigned intreq_int_calls, intreq0_calls, intreqf_calls, doint_calls;
 static int last_num, last_delay;

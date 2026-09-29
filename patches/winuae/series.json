@@ -1503,6 +1503,168 @@
           "after_sha256": "9e6e8ae8d6434867207ea25b0acacaf0e1c601a5a0253d705f96977ae8744271"
         }
       ]
+    },
+    {
+      "id": "0055-savestate-legacy-uss-excluded",
+      "file": "patches/winuae/0055-savestate-legacy-uss-excluded.patch",
+      "sha256": "5f37732c30236b1d04223e8d797208142560ba92d6a73843d8c2583826ed0b93",
+      "title": "Exclude the legacy .uss file machinery of savestate.cpp until the native serializer",
+      "reason": "savestate.cpp writes and reads WinUAE .uss files: it calls every per-device save_*/restore_*, resolves host paths, compresses with zlib, saves screenshots and wav headers. The native serializer (T15) reuses the upstream per-device functions with in-memory I/O and its own envelope, so the file machinery is excluded rather than faked: save_state/restore_state and their helpers, the path and string savers, rewind and memorysave, and the save/restore/rewind branches of savestate_check (left as return false, since serving them without a restorer would leave savestate_state stuck). The state variables and byte primitives other units use stay. SAVESTATE is not defined in the profile, so the per-device functions do not exist yet.",
+      "category": "host hooks",
+      "order": 55,
+      "symbols": [
+        "bufcheck",
+        "restore_u8_func",
+        "save_path_full_func",
+        "save_state",
+        "save_u8_func",
+        "savestate_check",
+        "savestate_listrewind",
+        "savestate_memorysave",
+        "savestate_rewind"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_savestate_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "savestate.cpp",
+          "before_sha256": "9ab5ba9d84f58bf08a4eb59c4b79e911d3796c6bdc9b3a7e36139b01e1cfe4bd",
+          "after_sha256": "a965c50f833036c3528c8c38f7967adf4426ae01b8f1368672793af4bc55e01a"
+        }
+      ]
+    },
+    {
+      "id": "0056-desktop-host-services-excluded",
+      "file": "patches/winuae/0056-desktop-host-services-excluded.patch",
+      "sha256": "ed5c77530dbf1eda7d4894b9894d537b41037cf41b880dbd00047f984ccf877c",
+      "title": "Exclude desktop actions, host paths, wall-clock and message-table services from the engine units",
+      "reason": "inputdevice, disk, rommgr, main, custom, newcpu, cfgfile and memory still called services that only a desktop host provides: AKS actions for GUI, screen, volume, RTG, video grab and quick save, the recent-file list and OSD text, host ROM directories and path comparison, the message-resource table, quit/restart hooks, wall-clock helpers and the .uss restore. Each is guarded at its caller. Emulator-internal AKS actions stay (reset, eject, port swap, input config, IRQ7, disk swapper, refresh, quit/restart, rewind). Firmware paths are logical ids compared exactly; ROM identification by file name (which accepted unhashed content) is excluded, so identity rests on CRC/SHA-1; the missing-ROM text is a fixed English string on the diagnostics queue. setsystime is excluded (a no-op with tod_hack = 0, which the public config must require); tablet/lightpen and edge/switch helpers that need desktop coordinates are excluded.",
+      "category": "host hooks",
+      "order": 56,
+      "symbols": [
+        "DISK_history_add",
+        "DISK_hsync",
+        "DISK_start",
+        "allocate_memory",
+        "bip_alg",
+        "bip_arcadia",
+        "bip_cd32",
+        "bip_cdtv",
+        "bip_cdtvcr",
+        "bip_draco",
+        "build_cpufunctbl",
+        "custom_reset",
+        "disk_insert",
+        "drive_eject",
+        "drive_insert",
+        "flashromfile_open",
+        "get_base",
+        "get_intuitionbase",
+        "getromdatabypath",
+        "getromlistbyids",
+        "getromlistbyromtype",
+        "handle_input_event2",
+        "inputdevice_get_lightpen_id",
+        "inputdevice_get_mapping",
+        "inputdevice_handle_inputcode2",
+        "inputdevice_read_msg",
+        "inputdevice_reset",
+        "inputdevice_tablet",
+        "inputdevice_vsync",
+        "isrecognizedext",
+        "m68k_go",
+        "mouseedge",
+        "mousehack_helper",
+        "needcputrace",
+        "pausemode",
+        "romwarning",
+        "scan_single_rom_file",
+        "setbuttonstateall",
+        "switchdevice",
+        "tablet_lightpen",
+        "uae_quit",
+        "uae_reset",
+        "uae_restart",
+        "update_disk_statusline",
+        "warpmode"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_input_source; tests.host.test_rom_load_chain",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "77349128570f1f8d647d9edfec2074d48f0f94863fe2d8f8a260ccb9703eddf0",
+          "after_sha256": "2db400e5c0c192e6d447192eddb171f972c5952b0d511ed224fcc3d1d7e20d7f"
+        },
+        {
+          "path": "disk.cpp",
+          "before_sha256": "ee4a80ac0031210965d775ffeba3793617780f3183389f62324db49d2b57b91c",
+          "after_sha256": "e1d75850993655a5c9cad92d5eac7ca38ee76feda0faddc66213756d339ceb5f"
+        },
+        {
+          "path": "rommgr.cpp",
+          "before_sha256": "8084bbe19d79adcff9ec3e93b3ce234b8aeaab252c2c3a549eabe2d5e389b2db",
+          "after_sha256": "40a766a52bb614059726199d844286428f1dbce866d49c8f49c1cc89720aa80e"
+        },
+        {
+          "path": "main.cpp",
+          "before_sha256": "695ddab714c2c91b3d3816de442a067b4f297208af25543cc6bd201241a53e05",
+          "after_sha256": "e42295f3f7dbae1f52df428dfc0417b4484a5a09729139baf5fe65f249d6c866"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "3977bb65794f51b20f2daf1c8c53340a7526d7ddda0814c49f1a293f1717524c",
+          "after_sha256": "1cab895a8b92ea111bcc917aa20743658f18b3651b46f3832db8f79e321b2250"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "59303173dc3f03a910049b6dc09cb7d8b9bba1b9d818c0a24364e6d659529bc8",
+          "after_sha256": "879f868b854aa22d09cf549db7ac3943a7924313eaab26f77f3dfc6e9bfd214d"
+        },
+        {
+          "path": "cfgfile.cpp",
+          "before_sha256": "69d30b902d2f449ea50bab06b8285d7210a70f72c1907675c5751de33cd41d8a",
+          "after_sha256": "832b3b97fb1412727397c221dcd21b69f7ce605814f33c16636ba553cda800e5"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "123cd43bb25c0046c05e78ab587e843c7d990e41d99063a52c4154bba0478f32",
+          "after_sha256": "05cbabd6828ea921d8094ffb188c1ce6951d1d097c0ac7fdf2e13603527e953f"
+        }
+      ]
+    },
+    {
+      "id": "0057-osk-paste-pause-and-keyswap-excluded",
+      "file": "patches/winuae/0057-osk-paste-pause-and-keyswap-excluded.patch",
+      "sha256": "f6f6b8a9fa58e63cf15be5897dd5286d9abdb93c5801abeb28e73d9f5cfc66cd",
+      "title": "Exclude the on-screen keyboard, paste, the host pause flag and the host key-swap hack",
+      "reason": "The on-screen keyboard is a desktop overlay (osk_setup, target_osk_control, target_osd_keyboard) and paste reads the host clipboard: both are AKS actions the bridge cannot raise. keybuf.cpp read two host-owned variables: pause_emulation (the desktop pause; the bridge decides when frames run) and key_swap_hack (a Windows keyboard-layout correction; the bridge already sends Amiga raw scancodes). Guarded at the callers instead of defining constant variables.",
+      "category": "host hooks",
+      "order": 57,
+      "symbols": [
+        "inputdevice_handle_inputcode2",
+        "osk_control",
+        "osk_setup",
+        "record_key",
+        "record_key_direct"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_input_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "2db400e5c0c192e6d447192eddb171f972c5952b0d511ed224fcc3d1d7e20d7f",
+          "after_sha256": "8c55259de92d7ee876fefce1fefdc3779679a3ba805cab302f5ddef59d3fff2c"
+        },
+        {
+          "path": "keybuf.cpp",
+          "before_sha256": "e31a87d6ab617360ad9426e7eba8ade725c5fba0c88fb0223598912114e69951",
+          "after_sha256": "ccb6171241346e5d8a76a087c027a09c1ae662089d1a1b962117f5f542a7645c"
+        }
+      ]
     }
   ]
 }
