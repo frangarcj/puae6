@@ -63,7 +63,10 @@ static void field(bool initial, bool lace, bool lof, int scan, int resolution,
     if (redraw && !expected_count) expected += 'I';
     expected += 'G';
     expected += 'S';
+    regs.spcflags = 0;
     vsync_display_render();
+    // The video-unit request comes from this render alone, once per field, with or without a frame to draw.
+    assert(regs.spcflags == SPCFLAG_UNIT_END);
     assert(calls == expected && ad.framecnt == expected_count);
     assert(last_redraw_point == (redraw ? 0 : 1));
     assert(!initial_frame && vsync_display_rendered && !vsync_rendered);
@@ -78,8 +81,9 @@ static void field(bool initial, bool lace, bool lof, int scan, int resolution,
         assert(display_reset == reference::display_reset);
     }
     const int remaining = display_reset;
+    regs.spcflags = 0;
     vsync_display_render(); // Duplicate notification cannot drain/retire twice.
-    assert(calls == expected && display_reset == remaining);
+    assert(calls == expected && display_reset == remaining && regs.spcflags == 0);
 }
 
 int main()
@@ -112,7 +116,8 @@ int main()
     currcycle = 100; bplcon0 = beamcon0 = 0; nosignal_trigger = false;
     lineoptimizations_draw_always = true;
     for (int n = 0; n < 3; ++n) {
-        calls.clear(); vsync_handler_post();
+        calls.clear(); regs.spcflags = 0; vsync_handler_post();
+        assert(regs.spcflags == 0); // Only the render raises the unit request, never the vsync post.
         assert(calls == "DVCO" && vsync_cycles == currcycle && currcycle == 100);
         assert(vhposr_prev == 0xffffffff && !nosignal_trigger);
         assert(config_changed == (n == 0 ? 2 : 0));

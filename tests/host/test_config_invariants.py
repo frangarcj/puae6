@@ -12,7 +12,7 @@ class ConfigInvariantTests(unittest.TestCase):
         series = json.loads((ROOT / "patches/winuae/series.json").read_text())
         numbers = {p["id"].split("-", 1)[0] for p in series["patches"]}
         self.assertEqual(manifest["profile"], "deterministic-a500")
-        self.assertGreaterEqual(len(manifest["invariants"]), 27)
+        self.assertGreaterEqual(len(manifest["invariants"]), 29)
         for item in manifest["invariants"]:
             with self.subTest(option=item["option"]):
                 self.assertTrue(item["require"] and len(item["why"]) > 20)
@@ -23,7 +23,7 @@ class ConfigInvariantTests(unittest.TestCase):
         # Patches that make an option a silent no-op must be referenced by an invariant.
         manifest = json.loads((ROOT / "manifests/config-invariants.json").read_text())
         covered = {p for item in manifest["invariants"] for p in item["patches"]}
-        self.assertLessEqual({"0046", "0047", "0048", "0049", "0050", "0051", "0052", "0053", "0055", "0056"}, covered)
+        self.assertLessEqual({"0046", "0047", "0048", "0049", "0050", "0051", "0052", "0053", "0055", "0056", "0060"}, covered)
 
 
 if __name__ == "__main__":

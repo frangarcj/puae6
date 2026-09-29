@@ -1707,6 +1707,42 @@
           "after_sha256": "dc2cef4acf632e0fd70101b4359f4983743bf7bdefb49cad7039cf913839256c"
         }
       ]
+    },
+    {
+      "id": "0060-video-unit-return-m68k-go-unit",
+      "file": "patches/winuae/0060-video-unit-return-m68k-go-unit.patch",
+      "sha256": "76cd3cf06d023a9737e9dc2ea8cf6043c337eb3e9c00155ce246c069ded12b1c",
+      "title": "Return from the CPU loop at every rendered video unit",
+      "reason": "The CPU loop must hand control back to the bridge at a video boundary and resume there without a second scheduler, stack switch or thread: vsync_display_render raises SPCFLAG_UNIT_END, do_specialties/haltloop/CPUINRESET poll it and m68k_go becomes the resumable m68k_go_unit.",
+      "category": "host hooks",
+      "order": 60,
+      "symbols": [
+        "SPCFLAG_UNIT_END",
+        "do_specialties",
+        "haltloop",
+        "m68k_go_unit",
+        "vsync_display_render"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.codegen.test_engine_imports; tests.host.test_cpu_rom_guard; tests.host.test_unit_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "1cab895a8b92ea111bcc917aa20743658f18b3651b46f3832db8f79e321b2250",
+          "after_sha256": "14fd933248de9c48c46d113363b59290e482d433bb4fa4bfb7dce38f266f2994"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "879f868b854aa22d09cf549db7ac3943a7924313eaab26f77f3dfc6e9bfd214d",
+          "after_sha256": "e886087a54856dcaafcb5ceda6596df3298a8815ab2773d5ef7615044b309882"
+        },
+        {
+          "path": "include/newcpu.h",
+          "before_sha256": "aad39523d0e58f261459a09591d8d92f7120cad2193eeb149e7fbd44f5115876",
+          "after_sha256": "ab0967118f63dca8ddbbf4d7a60737f61fdf3d7965a70da068425876b6adbbc0"
+        }
+      ]
     }
   ]
 }

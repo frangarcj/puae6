@@ -6906,6 +6906,144 @@
       "evidence": "reports/tasks/T06.md"
     },
     {
+      "id": "T07a",
+      "title": "Retorno por unidad de video en el bucle de CPU (m68k_go_unit)",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T06",
+        "T04"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0002-cpu-owner-interrupts.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "reports/tasks/T06c.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "tests/host/**",
+        "tests/codegen/**",
+        "tests/test_plan.py",
+        "manifests/config-invariants.json",
+        "manifests/host-surface.json",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Comparar el m68k_go/frame_end/SPCFLAG_CHECK del PUAE fijado con el bucle CPU real de WinUAE 6.0.3 y dejar el delta, el estado de pila y el punto seguro escritos (informe).",
+        "Parche nuevo: SPCFLAG_UNIT_END levantado solo en vsync_display_render, sondeo en do_specialties/haltloop/CPUINRESET y m68k_go sustituido por m68k_go_unit(BEGIN/APPLY/RUN/LEAVE) con hardboot estatico, sin longjmp, hilo ni corutina.",
+        "Adaptar las sondas que extraen m68k_go, comprobar que el motor sigue enlazando cerrado y registrar los invariantes nuevos (reset_delay == 0) en config-invariants."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "El motor compila y enlaza con m68k_go_unit como unico punto de entrada del bucle de CPU; la peticion solo sale de vsync_display_render.",
+        "No prueba avance ni continuacion: eso es T07c."
+      ],
+      "stop": "Si la reanudacion exigiera conservar pila (estado en locales de m68k_go distinto de hardboot), parar y reabrir la decision de corutina con WB01.",
+      "evidence": "reports/tasks/T07a.md"
+    },
+    {
+      "id": "T07b",
+      "title": "Arranque del motor A500 desde el bridge hasta la primera unidad",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T07a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0002-cpu-owner-interrupts.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/lifecycle.cpp",
+        "bridge/include/**",
+        "CMakeLists.txt",
+        "adapters/headless/**",
+        "tools/assemble.py",
+        "tests/fixtures/**",
+        "tests/scenarios/**",
+        "tests/host/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Reimplementar en bridge/lifecycle.cpp la secuencia de arranque de real_main2 que el perfil excluye (prefs A500 built-in, eventos, sonido, entrada, savestate, memoria/ROM, custom, DISK, init_m68k, video, audio) y m68k_go_unit(BEGIN); p6_unload hace LEAVE.",
+        "Generar un micro-ROM con forma de Kickstart (256 KiB, checksum valido) desde una fuente ensamblable en el repositorio y probar que p6_load lo acepta y un ROM invalido devuelve NEED_FIRMWARE/WRONG_MEDIA.",
+        "Sin validacion publica de config (T08/T13): esta tarea fija un preset y lo dice; no anuncia arranque de Amiga."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "p6_init/p6_load/p6_unload llegan a un motor con el micro-ROM cargado y APPLY ejecuta la cabecera de reset sin abortar; unload y una segunda carga funcionan.",
+        "p6_run_frame todavia no existe o devuelve P6_ERROR_UNSUPPORTED."
+      ],
+      "stop": "Un stub que devuelva exito para un dispositivo soportado no pasa. Una ROM aceptada sin checksum valido no pasa.",
+      "evidence": null
+    },
+    {
+      "id": "T07c",
+      "title": "p6_run_frame y prueba de continuacion STEP01 en headless",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T07b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0002-cpu-owner-interrupts.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/frame_step.cpp",
+        "bridge/include/**",
+        "CMakeLists.txt",
+        "adapters/headless/**",
+        "patches/winuae/**",
+        "tests/step/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "docs/adr/0005-frame-boundary.md",
+        "manifests/host-surface.json"
+      ],
+      "steps": [
+        "Implementar p6_run_frame (reset, medios, entrada, una unidad, recogida de video/ticks) sobre m68k_go_unit; sin libretro.h ni scheduler propio.",
+        "Semilla solo-test P6_UNIT_TRACE y micro-ROM con interrupciones y operaciones largas que cruzan el borde; N llamadas frente a avance continuo (O1-O5), dos procesos (O2) y las cinco mutaciones que deben romper STEP01.",
+        "ADR 0005 (0002 esta ocupado por otra decision): mecanismo, delta con PUAE, pila, riesgos y pasos de validacion; corregir en el ADR el texto sobre SPCFLAG_CHECK."
+      ],
+      "checks": [
+        "STEP01",
+        "ADR01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Primer boundary y continuaciones son observables, repetibles y no pierden eventos ni estado local; las mutaciones fallan.",
+        "ADR demuestra el port minimo del mecanismo; sin longjmp, hilo del SO ni rewrite del scheduler."
+      ],
+      "stop": "Si una mutacion no rompe STEP01 la prueba no vale. STEP01 aprobado solo en headless no cubre libretro ni Waterbox (T16/T19).",
+      "evidence": null
+    },
+    {
       "id": "T07",
       "title": "Demostrar avance y continuacion segura por frame",
       "milestone": "M1",
@@ -6913,7 +7051,10 @@
       "status": "pending",
       "depends": [
         "T06",
-        "T04"
+        "T04",
+        "T07a",
+        "T07b",
+        "T07c"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -6932,7 +7073,8 @@
         "Comparar el m68k_go/frame_end/SPCFLAG_CHECK del PUAE fijado con el scheduler/bucle CPU real de WinUAE 6.0.3; listar el delta exacto, estado de pila, punto seguro y desfase de eventos.",
         "Portar primero esa semantica minima con nombres neutrales al frontend y exponerla mediante bridge/frame_step.cpp como p6_run_frame; no incluir libretro.h, no reiniciar la CPU y no implementar un scheduler alternativo.",
         "Ejecutar micro-ROM: N llamadas p6_run_frame versus avance equivalente, incluyendo interrupciones y operacion que cruza el borde; registrar tambien una regresion que fallaria si el boundary volviera a depender de retro_run.",
-        "Solo si una incompatibilidad concreta de 6.0.3 impide el mecanismo anterior, comparar una corutina cooperativa, justificar por que el delta de referencia no sirve y probar su pila/continuacion dentro del smoke Waterbox antes de aceptar el ADR."
+        "Solo si una incompatibilidad concreta de 6.0.3 impide el mecanismo anterior, comparar una corutina cooperativa, justificar por que el delta de referencia no sirve y probar su pila/continuacion dentro del smoke Waterbox antes de aceptar el ADR.",
+        "Division de alcance: T07a entrega el parche m68k_go_unit, T07b el arranque del motor y el micro-ROM, T07c p6_run_frame con STEP01/ADR. T07 conserva STEP01/ADR01 y toda su aceptacion original; tests/test_plan.py preserva esta puerta."
       ],
       "checks": [
         "STEP01",

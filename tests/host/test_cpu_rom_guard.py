@@ -1,4 +1,4 @@
-"""Exercise both production ROM-failure gates in the complete m68k_go body."""
+"""Exercise the production m68k_go_unit body: its ROM-failure gates and the unit sequencing."""
 from pathlib import Path
 import platform
 import os
@@ -26,8 +26,8 @@ class CPURomGuardTests(unittest.TestCase):
         ensure_generated()
         tree = ROOT / "build/upstream"
         source = (tree / "newcpu.cpp").read_text()
-        body = function(source, "void m68k_go (int may_quit)")
-        self.assertEqual(body.count("p6_memory_rom_status()"), 2)
+        body = function(source, "#ifdef P6_PORTABLE\nint m68k_go_unit (int mode)")
+        self.assertEqual(body.count("p6_memory_rom_status()"), 3)
         self.assertLess(body.index("if (p6_memory_rom_status()"), body.index("reset_frame_rate_hack"))
         self.assertLess(body.index("custom_reset"),
                         body.rindex("if (p6_memory_rom_status()"))

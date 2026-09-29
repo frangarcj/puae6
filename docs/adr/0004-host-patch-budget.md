@@ -320,3 +320,22 @@ son las que usan los servicios observacionales de la GUI.
 Con esto el motor A500 y la capa portable enlazan por completo (dylib con -undefined error,
 0 indefinidos y 0 duplicados). La puerta de imports pasa a exigir enlace limpio mientras su
 manifiesto este vacio. El presupuesto de 1500 lineas sigue superado; se revisara en M2.
+
+T07a añade 0060: 60 parches/30 archivos/1978 lineas (+103), sin archivos nuevos. El parche
+sustituye m68k_go por m68k_go_unit(BEGIN/APPLY/RUN/LEAVE) y añade SPCFLAG_UNIT_END (bit 0, libre
+en este WinUAE; vale 0 fuera del perfil). La peticion sale solo de vsync_display_render(), una
+vez por campo renderizado; do_specialties la devuelve tras atender interrupciones, y el bucle
+de CPU detenida y el de CPU retenida en reset la sondean. La cabecera de reset corre una vez
+por reset (hardboot pasa a estatico) y una reanudacion la salta. El retorno ocurre antes de
+custom_end_drawing() para que el fotograma en curso siga abierto.
+
+Alternativas descartadas. Levantar la peticion en unlockscr(), como hace PUAE: 6.0.3 lo llama
+desde custom_end_drawing() en cada reset y en cada salida de m68k_run, y daria bordes falsos.
+Una corutina o pila propia: en el borde la pila solo contiene m68k_go_unit, m68k_run,
+m68k_run_1_ce y do_specialties, y el unico estado causal en ella era hardboot. STOP no necesita
+sondeo: la instruccion se reejecuta en el bucle normal y do_specialties corre en cada una.
+
+Queda sin sondeo el bucle de retardo de reset (m68k_reset_delay), que cuenta vsyncs en la pila;
+se excluye con el invariante reset_delay == 0, y crash_auto_reset == 0 mantiene la CPU detenida
+en el bucle que si sondea (manifests/config-invariants.json, para T13). El presupuesto de 1500
+lineas sigue superado; se revisara en M2.

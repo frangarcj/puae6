@@ -234,6 +234,22 @@
         "0058"
       ],
       "why": "The presentation provider owns one 1824x626 XRGB8888 buffer and rejects modes and auxiliary buffers it cannot serve; colour math reaches libm pow()."
+    },
+    {
+      "option": "reset_delay",
+      "require": "0",
+      "patches": [
+        "0060"
+      ],
+      "why": "The wait for a delayed reset keeps a vsync counter on the stack of do_specialties and does not poll the unit request; a run call could never return."
+    },
+    {
+      "option": "crash_auto_reset",
+      "require": "0",
+      "patches": [
+        "0060"
+      ],
+      "why": "A halted CPU must stay in the halt wait loop, which polls the unit request; an automatic reset would replace the crash with a silent restart the guest cannot observe."
     }
   ]
 }

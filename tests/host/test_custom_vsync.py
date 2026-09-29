@@ -39,7 +39,7 @@ class CustomVSyncTests(unittest.TestCase):
                                 "-ffunction-sections", "-fdata-sections", strip,
                                 "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
                                 str(ROOT / "tests/host/custom_vsync_probe.cpp"),
-                                str(tree / "events.cpp"), str(ROOT / "ports/portable/diagnostics.cpp"),
+                                str(tree / "events.cpp"), str(ROOT / "ports/portable/diagnostics.cpp"), str(ROOT / "ports/portable/atomic.cpp"),
                                 "-o", str(exe)], check=True, timeout=60)
                 subprocess.run([str(exe)], check=True, timeout=30)
                 obj = tmp / "custom.o"
