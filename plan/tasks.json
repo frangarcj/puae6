@@ -4483,13 +4483,57 @@
       "evidence": "reports/tasks/T06b2ce.md"
     },
     {
+      "id": "T06b2cf",
+      "title": "Quitar del CIA A500 las referencias a CD32, SCSI paralelo, grabacion de entrada y ficheros de reloj",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T06b2ce"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "docs/07-machawk.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0004-host-patch-budget.md",
+        "reports/tasks/T06b2ca.md",
+        "reports/tasks/T06b2cc.md",
+        "reports/tasks/T06b2cd.md",
+        "reports/tasks/T06b2ce.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/link-imports.json",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Guardar en cia.cpp, con sus llamadores, Akiko, los adaptadores SCSI por puerto paralelo, el gancho de depuracion de grabacion de entrada y la lectura/escritura de la RAM del reloj en fichero del host; el puerto paralelo conserva sus lineas de joystick e impresora.",
+        "Sacar de manifests/link-imports.json solo los simbolos que la puerta confirme resueltos; probar el objeto cia.o con nm antes y despues."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "cia.o deja de importar akiko_mute, parallel_port_scsi(_read), cfgfile_resolve_path_out_load, inprec_*_cia, input_play/record e inputrecord_debug; la puerta baja de 12084 a 12078 simbolos. La config publica debe rechazar rtcfile: no se persiste la RAM del reloj en M1. No certifica enlace ni RTC completo."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2cf.md"
+    },
+    {
       "id": "T06b2cb",
       "title": "Cerrar entrada, medios y dependencias de estado A500",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T06b2ce"
+        "T06b2cf"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -4557,7 +4601,7 @@
         "T06b2by compila savestate y excluye quick/export CD. Cerrar sus callers e imports de persistencia, replay, modelos excluidos, configuracion y screenshot antes del enlace; serializer nativo/restore real conserva gate T15, Waterbox su propio gate.",
         "T06b2ca abre assets ADF explícitos en DISK_validate_filename; completar disk.cpp (creación/overlays/host paths/catálogos) y validar imagen/drive_insert/DMA sin confundir apertura con geometría válida.",
         "T06b2cc compila disk.cpp (parche 0047). Queda T06b2cd (inputdevice.cpp) y los imports de disk pendientes de enlace: target_addtorecent, fullpath en DISK_history_add, console_out(_f) de depuracion, gui_ask_disk y au; cerrarlos con sus callers sin proveedores exitosos ficticios.",
-        "T06b2ce fija la puerta de imports (manifests/link-imports.json): cerrar las familias con propietario T06b2cb (input_recording, cpuboard, rtg_hostfs_traps, non_a500_banks, cd32_parallel_cia, excluded_models_code, config_defaults_excluded_devices) guardando sus callers sin proveedores ficticios, y quitar cada nombre resuelto de la lista."
+        "T06b2ce fija la puerta de imports (manifests/link-imports.json): cerrar las familias con propietario T06b2cb (input_recording, cpuboard, rtg_hostfs_traps, non_a500_banks, excluded_models_code, config_defaults_excluded_devices; cd32_parallel_cia ya cerrada en T06b2cf) guardando sus callers sin proveedores ficticios, y quitar cada nombre resuelto de la lista."
       ],
       "checks": [
         "BUILD01",

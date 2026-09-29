@@ -1255,6 +1255,32 @@
           "after_sha256": "c5a086b3312855871f1ad328402cc303ad427ee671745bf5f01bf422e7cccd60"
         }
       ]
+    },
+    {
+      "id": "0049-cia-a500-only-references",
+      "file": "patches/winuae/0049-cia-a500-only-references.patch",
+      "sha256": "1b7e62af6433ec6e48deaf26c336300b94d013bb9b059fcef5f5605d63d0ee13",
+      "title": "Drop CD32, parallel-port SCSI, input-recording and clock-file references from the A500 CIA",
+      "reason": "The link-closure gate (T06b2ce) showed cia.o still naming hardware and host services the A500 profile does not have: Akiko audio mute, parallel-port SCSI adapters, input-record debugging and battery-clock files resolved through the host filesystem. Each branch is excluded with its callers; the parallel port keeps its joystick/printer lines. Clock RAM persistence is not offered in M1 and the public config must reject rtcfile.",
+      "category": "host hooks",
+      "order": 49,
+      "symbols": [
+        "ReadCIAA",
+        "ReadCIAB",
+        "bfe001_change",
+        "rtc_hardreset",
+        "write_battclock"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_cia; tests.codegen.test_engine_imports",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "d3c7443ad6a0ab59193135b21db1324ecc96258ea90b84ccced78504c1c7a9e9",
+          "after_sha256": "5f2e5686e4ef10f5153103c0cea19e8998ac1237af314a4599c8f90b93853acf"
+        }
+      ]
     }
   ]
 }

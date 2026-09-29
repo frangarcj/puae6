@@ -1,6 +1,7 @@
 """Complete CIA compilation and isolated emulated TOD/timer execution."""
 from pathlib import Path
 import platform
+import re
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +12,30 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CIATests(unittest.TestCase):
+    def test_a500_object_does_not_reference_excluded_hardware(self):
+        ensure_generated()
+        tree = ROOT / "build/upstream"
+        pristine = (ROOT / "upstream/winuae/cia.cpp").read_text(errors="replace")
+        excluded = ("akiko_mute", "parallel_port_scsi", "parallel_port_scsi_read",
+                    "cfgfile_resolve_path_out_load", "inprec_recorddebug_cia",
+                    "inprec_playdebug_cia", "input_play", "input_record", "inputrecord_debug")
+        for name in excluded:  # the test cannot pass vacuously
+            self.assertIn(name, pristine)
+        with tempfile.TemporaryDirectory(prefix="p6-cia-imports-") as tmp:
+            obj = Path(tmp) / "cia.o"
+            for optimization in ("-O0", "-O2"):
+                subprocess.run(["clang++", "-std=c++17", optimization,
+                                "-I" + str(ROOT / "ports/portable"),
+                                "-I" + str(ROOT / "build/generated"),
+                                "-I" + str(tree / "include"), "-I" + str(tree),
+                                "-c", str(tree / "cia.cpp"), "-o", str(obj)],
+                               check=True, timeout=60)
+                imports = subprocess.run(["nm", "-u", "-C", str(obj)], capture_output=True,
+                                         text=True, check=True).stdout
+                names = {re.sub(r"\(.*", "", line.strip()).lstrip("_")
+                         for line in imports.splitlines()}
+                self.assertFalse(names & set(excluded), (optimization, names & set(excluded)))
+
     def test_portable_tod_and_timers(self):
         ensure_generated()
         tree = ROOT / "build/upstream"

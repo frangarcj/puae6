@@ -42,7 +42,7 @@
       "disposition": "guard_callers",
       "reason": "Input record/playback is excluded; callers remain in cia, newcpu, disk, savestate and inputdevice and must be guarded like the other excluded features.",
       "regex": "^inprec_",
-      "count": 15,
+      "count": 13,
       "names": [
         "input_play",
         "input_record",
@@ -179,23 +179,11 @@
       ]
     },
     {
-      "id": "cd32_parallel_cia",
-      "owner": "T06b2cb",
-      "disposition": "guard_callers",
-      "reason": "CD32 Akiko and parallel-port SCSI references left in cia.cpp.",
-      "names": [
-        "akiko_mute",
-        "parallel_port_scsi",
-        "parallel_port_scsi_read"
-      ]
-    },
-    {
       "id": "host_paths_files",
       "owner": "T06c",
       "disposition": "guard_callers",
       "reason": "Host filesystem path resolution; M1 media and firmware are logical asset ids.",
       "names": [
-        "cfgfile_resolve_path_out_load",
         "fetch_nvrampath",
         "fetch_rompath",
         "fixtrailing",

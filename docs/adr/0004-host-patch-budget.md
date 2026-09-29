@@ -214,3 +214,18 @@ Limites: los imports de dispositivos fisicos (inputdevicefunc_*, input_get_defau
 son T10; las acciones AKS de escritorio quedan compiladas y sin resolver para
 T06c; el aviso upstream de dst[i].custom (array probado como puntero) no se
 adapta aqui.
+
+Cola tras T06b2cd: 48 parches/28 archivos/1346 lineas de delta.
+
+T06b2cf anade el parche 0049 sobre cia.cpp (archivo ya en la cola): 49 parches/28
+archivos/1367 lineas de delta (+21); margen de 133 sobre la alarma de 1500. Son
+siete regiones que excluyen del CIA A500 lo que la puerta de imports (T06b2ce)
+mostro que aun nombraba: Akiko (CD32), los adaptadores SCSI por puerto paralelo,
+el gancho de depuracion de grabacion de entrada y la lectura/escritura de la RAM
+del reloj en un fichero resuelto por el sistema de ficheros del host. El puerto
+paralelo conserva sus lineas de joystick e impresora. Alternativa descartada:
+definir `parallel_port_scsi = false` y un `parallel_port_scsi_read` que aborte en
+el port; el simbolo existiria solo para que el enlace pasase, ocultando que la
+rama no debe existir. Limite: la RAM del reloj no se persiste en M1 y la config
+publica debe rechazar `rtcfile`; sin ese rechazo la opcion se ignoraria en
+silencio.

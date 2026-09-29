@@ -1,0 +1,96 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -1445,7 +1445,9 @@
+ 			map_overlay(0);
+ 		}
+ 	}
++#ifndef P6_PORTABLE
+ 	akiko_mute((v & 1) == 0);
++#endif
+ }
+ 
+ static uae_u32 getciatod(uae_u32 tod)
+@@ -1902,12 +1904,14 @@
+ 			write_log(_T("BFE001 R %02X %s\n"), v, debuginfo(0));
+ #endif
+ 
++#ifndef P6_PORTABLE
+ 		if (flags && (inputrecord_debug & 2)) {
+ 			if (input_record > 0)
+ 				inprec_recorddebug_cia(v, 0, m68k_getpc ());
+ 			else if (input_play > 0)
+ 				inprec_playdebug_cia(v, 0, m68k_getpc ());
+ 		}
++#endif
+ 
+ 		return v;
+ 	}
+@@ -1931,13 +1935,16 @@
+ 			}
+ 		} else
+ #endif
++#ifndef P6_PORTABLE
+ 		if (parallel_port_scsi) {
+ 
+ 			if (flags) {
+ 				tmp = parallel_port_scsi_read(0, c->prb, c->drb);
+ 			}
+ 
+-		} else {
++		} else
++#endif
++		{
+ 			tmp = handle_parport_joystick (0, tmp);
+ 			tmp = dongle_cia_read (1, reg, c->drb, tmp);
+ #if DONGLE_DEBUG > 0
+@@ -2010,11 +2017,15 @@
+ 				parallel_direct_read_status(&v);
+ 			}
+ 			tmp |= v & 7;
+-		} else if (parallel_port_scsi) {
++		}
++#ifndef P6_PORTABLE
++		else if (parallel_port_scsi) {
+ 			if (flags) {
+ 				tmp = parallel_port_scsi_read(1, c->pra, c->dra);
+ 			}
+-		} else {
++		}
++#endif
++		else {
+ 			// serial port in output mode
+ 			if (c->t[0].cr & 0x40) {
+ 				tmp &= ~3;
+@@ -2922,6 +2933,7 @@
+ {
+ 	if (!currprefs.rtcfile[0] || currprefs.cs_rtc == 0)
+ 		return;
++#ifndef P6_PORTABLE
+ 	TCHAR path[MAX_DPATH];
+ 	cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
+ 	struct zfile *f = zfile_fopen(path, _T("wb"));
+@@ -2967,6 +2979,7 @@
+ 		}
+ 		zfile_fclose(f);
+ 	}
++#endif
+ }
+ 
+ void rtc_hardreset(void)
+@@ -2987,6 +3000,7 @@
+ 		rtc_ricoh.rtc_alarm[10] = 1; /* 24H mode */
+ 		rtc_ricoh.delayed_write = 0;
+ 	}
++#ifndef P6_PORTABLE
+ 	if (currprefs.rtcfile[0]) {
+ 		TCHAR path[MAX_DPATH];
+ 		cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
+@@ -3009,6 +3023,7 @@
+ 			zfile_fclose(f);
+ 		}
+ 	}
++#endif
+ }
+ 
+ static uae_u32 REGPARAM2 clock_lget(uaecptr addr)
