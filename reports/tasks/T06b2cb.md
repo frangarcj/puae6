@@ -34,3 +34,24 @@ configuracion que nadie impone todavia (`config-invariants.json`, T13).
 Tres puertas sin emulador: imports (`link-imports.json`), avisos
 (`engine-warnings.json`) e includes. Un update de WinUAE que añada una dependencia,
 un aviso o una cabecera fuera de los arboles permitidos falla en ellas.
+
+## Cierre en cascada de los nodos agregados
+
+Los 40 nodos abiertos de la cadena (T06b2, T06b2b…T06b2bz y T06b) son agregados
+creados al dividir una y otra vez la misma tarea: todos comparten aceptacion
+("todos los objetos A500 seleccionados compilan con contratos host comprobados;
+enlace y gate completo en T06c/T06") y checks BUILD01/HOST01/GEN01. Se cierran juntos
+porque esa aceptacion se cumple con la evidencia de esta tarea:
+
+- BUILD01: `cmake --build --target p6_engine`, 33 objetos, 0 errores.
+- HOST01: `test_engine_imports` (simbolos clasificados), `test_engine_includes`
+  (cierre de includes) y la suite de host (55 modulos, 88 tests).
+- GEN01: tests de codegen (dos generaciones limpias identicas).
+
+Se comparo paso a paso cada ficha con los pasos de las tareas ya cerradas: los
+textos "no cubiertos" son variantes historicas cuyo trabajo hicieron las hijas
+(FINISH_DATA y PERIOD_MAX en T06b2ac y en el reproducer de test_engine_warnings; dump
+de CPU sin depurador en T06b2u; callers MCU del CIA en T06b2y; audio en T06b2ae–ak;
+custom en T06b2am–au; devices en T06b2w). Lo que ninguna de ellas certifica sigue
+en las tareas duenas de la puerta: enlace (T06c/T06), semilla y rechazos en la API
+publica (T13), serializer (T15), entrada (T10) y video (T08).

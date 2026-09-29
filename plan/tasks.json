@@ -3343,7 +3343,7 @@
       "title": "Cerrar servicios A500, precision raster y validacion publica restantes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bo",
         "T06b2bp"
@@ -3412,7 +3412,7 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2bn.md"
     },
     {
       "id": "T06b2bo",
@@ -3486,7 +3486,7 @@
       "title": "Cerrar unidades A500, precision raster y lifecycle restantes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bq",
         "T06b2br"
@@ -3556,7 +3556,8 @@
       "acceptance": [
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
-      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia."
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2bp.md"
     },
     {
       "id": "T06b2bq",
@@ -3632,7 +3633,7 @@
       "title": "Cerrar unidades y contratos A500 restantes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bs",
         "T06b2bt"
@@ -3704,7 +3705,8 @@
       "acceptance": [
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
-      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia."
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2br.md"
     },
     {
       "id": "T06b2bs",
@@ -3778,7 +3780,7 @@
       "title": "Cerrar configuracion y unidades A500 restantes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bu",
         "T06b2bv"
@@ -3851,7 +3853,8 @@
       "acceptance": [
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
-      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia."
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2bt.md"
     },
     {
       "id": "T06b2bu",
@@ -3926,7 +3929,7 @@
       "title": "Cerrar callers de configuracion y unidades A500 restantes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bw",
         "T06b2bx"
@@ -4001,7 +4004,8 @@
       "acceptance": [
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
-      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia."
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2bv.md"
     },
     {
       "id": "T06b2bw",
@@ -4079,7 +4083,7 @@
       "title": "Cerrar medios, entrada y estados del perfil A500",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2by",
         "T06b2bz"
@@ -4155,7 +4159,8 @@
       "acceptance": [
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
-      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia."
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2bx.md"
     },
     {
       "id": "T06b2by",
@@ -4233,7 +4238,7 @@
       "title": "Cerrar entrada, medios y dependencias de estado A500",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ca",
         "T06b2cb"
@@ -4311,7 +4316,8 @@
       "acceptance": [
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
-      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia."
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2bz.md"
     },
     {
       "id": "T06b2ca",
@@ -4670,7 +4676,7 @@
       "title": "Cerrar render y servicios A500 restantes sin alterar las puertas publicas",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bm",
         "T06b2bn"
@@ -4738,14 +4744,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2bl.md"
     },
     {
       "id": "T06b2bj",
       "title": "Cerrar servicios A500 y perfil publico de firmware pendientes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bk",
         "T06b2bl"
@@ -4811,14 +4817,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2bj.md"
     },
     {
       "id": "T06b2bh",
       "title": "Cerrar perfil publico de firmware y servicios A500 restantes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bi",
         "T06b2bj"
@@ -4883,14 +4889,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2bh.md"
     },
     {
       "id": "T06b2bf",
       "title": "Cerrar contenedor y perfil ROM junto a servicios A500 restantes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bg",
         "T06b2bh"
@@ -4953,14 +4959,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2bf.md"
     },
     {
       "id": "T06b2bd",
       "title": "Validar contenedores ROM y cerrar servicios A500 tras lector estricto",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2be",
         "T06b2bf"
@@ -5022,14 +5028,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2bd.md"
     },
     {
       "id": "T06b2bb",
       "title": "Validar firmware y cerrar servicios A500 tras rechazo de fallos ROM",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2bc",
         "T06b2bd"
@@ -5090,14 +5096,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2bb.md"
     },
     {
       "id": "T06b2az",
       "title": "Cerrar carga ROM y servicios A500 restantes tras compilacion memory",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ba",
         "T06b2bb"
@@ -5157,14 +5163,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2az.md"
     },
     {
       "id": "T06b2ax",
       "title": "Cerrar servicios y compilacion A500 tras operaciones de texto legacy",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ay",
         "T06b2az"
@@ -5222,14 +5228,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2ax.md"
     },
     {
       "id": "T06b2av",
       "title": "Cerrar servicios custom y unidades restantes tras VSync sin reloj host",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2aw",
         "T06b2ax"
@@ -5286,14 +5292,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2av.md"
     },
     {
       "id": "T06b2at",
       "title": "Cerrar framewait/vsync y unidades restantes tras hsync sin esperas",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2au",
         "T06b2av"
@@ -5349,14 +5355,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2at.md"
     },
     {
       "id": "T06b2ar",
       "title": "Cerrar pacing custom y unidades restantes tras IRQ/TOD A500",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2as",
         "T06b2at"
@@ -5411,14 +5417,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2ar.md"
     },
     {
       "id": "T06b2ap",
       "title": "Cerrar imports custom y compilacion restante tras objeto OCS",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2aq",
         "T06b2ar"
@@ -5472,14 +5478,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2ap.md"
     },
     {
       "id": "T06b2an",
       "title": "Cerrar custom completo y unidades restantes tras reloj fisico",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ao",
         "T06b2ap"
@@ -5532,14 +5538,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2an.md"
     },
     {
       "id": "T06b2al",
       "title": "Cerrar reloj custom y compilacion restante tras CPU halt",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2am",
         "T06b2an"
@@ -5591,14 +5597,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2al.md"
     },
     {
       "id": "T06b2aj",
       "title": "Cerrar custom clock, halt y unidades restantes tras set_audio",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ak",
         "T06b2al"
@@ -5650,14 +5656,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2aj.md"
     },
     {
       "id": "T06b2ah",
       "title": "Cerrar set_audio y compilacion restante tras tangente SoftFloat",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ai",
         "T06b2aj"
@@ -5708,14 +5714,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2ah.md"
     },
     {
       "id": "T06b2af",
       "title": "Cerrar filtros/config audio y unidades restantes tras lifecycle PCM",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ag",
         "T06b2ah"
@@ -5765,14 +5771,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2af.md"
     },
     {
       "id": "T06b2ad",
       "title": "Cerrar lifecycle audio y compilacion restante tras escalado Paula",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ae",
         "T06b2af"
@@ -5820,14 +5826,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2ad.md"
     },
     {
       "id": "T06b2ab",
       "title": "Cerrar lifecycle audio y unidades restantes tras buffer PCM",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2ac",
         "T06b2ad"
@@ -5875,14 +5881,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2ab.md"
     },
     {
       "id": "T06b2z",
       "title": "Compilar unidades restantes tras cierre del teclado CIA",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2aa",
         "T06b2ab"
@@ -5928,14 +5934,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2z.md"
     },
     {
       "id": "T06b2x",
       "title": "Cerrar unidades restantes tras lifecycle A500",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2y",
         "T06b2z"
@@ -5983,14 +5989,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2x.md"
     },
     {
       "id": "T06b2v",
       "title": "Compilar unidades host y chipset pendientes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2w",
         "T06b2x"
@@ -6035,14 +6041,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2v.md"
     },
     {
       "id": "T06b2t",
       "title": "Compilar unidades host y chipset restantes tras cierre CPU",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2u",
         "T06b2v"
@@ -6088,14 +6094,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2t.md"
     },
     {
       "id": "T06b2r",
       "title": "Cerrar dependencias y unidades restantes tras CPU A500",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2s",
         "T06b2t"
@@ -6139,14 +6145,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2r.md"
     },
     {
       "id": "T06b2p",
       "title": "Cerrar seleccion CPU y unidades restantes tras IRQ portable",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2q",
         "T06b2r"
@@ -6188,14 +6194,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2p.md"
     },
     {
       "id": "T06b2l",
       "title": "Cerrar unidades restantes tras CIA portable",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2o",
         "T06b2p"
@@ -6236,14 +6242,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2l.md"
     },
     {
       "id": "T06b2j",
       "title": "Cerrar unidades restantes tras blitter sin debugger",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2k",
         "T06b2l"
@@ -6284,14 +6290,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2j.md"
     },
     {
       "id": "T06b2h",
       "title": "Cerrar unidades restantes tras tabla CPU runtime",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2i",
         "T06b2j"
@@ -6332,14 +6338,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2h.md"
     },
     {
       "id": "T06b2f",
       "title": "Cerrar unidades restantes tras helpers CPU comunes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2g",
         "T06b2h"
@@ -6380,14 +6386,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2f.md"
     },
     {
       "id": "T06b2d",
       "title": "Cerrar unidades restantes tras handlers 68000",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2e",
         "T06b2f"
@@ -6428,14 +6434,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2d.md"
     },
     {
       "id": "T06b2b",
       "title": "Cerrar unidades restantes tras contrato CCR",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2c",
         "T06b2d"
@@ -6476,14 +6482,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2b.md"
     },
     {
       "id": "T06b2",
       "title": "Cerrar las restantes unidades A500 y conexiones host",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b2a",
         "T06b2b"
@@ -6524,14 +6530,14 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b2.md"
     },
     {
       "id": "T06b",
       "title": "Cerrar compilacion de las unidades A500 seleccionadas",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06b1",
         "T06b2"
@@ -6572,7 +6578,7 @@
         "Todos los objetos A500 seleccionados compilan con contratos host comprobados; sin desactivar hardware requerido. Enlace y gate completo quedan en T06c/T06."
       ],
       "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
-      "evidence": null
+      "evidence": "reports/tasks/T06b.md"
     },
     {
       "id": "T06c",
