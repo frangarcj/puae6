@@ -4440,13 +4440,56 @@
       "evidence": "reports/tasks/T06b2cd.md"
     },
     {
+      "id": "T06b2ce",
+      "title": "Fijar la puerta de cierre de imports del motor A500",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T06b2cd"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md",
+        "docs/06-execution.md",
+        "docs/07-machawk.md",
+        "manifests/source-manifest.json",
+        "manifests/host-surface.json",
+        "docs/adr/0004-host-patch-budget.md",
+        "reports/tasks/T06b2ca.md",
+        "reports/tasks/T06b2cc.md",
+        "reports/tasks/T06b2cd.md"
+      ],
+      "touch": [
+        "manifests/link-imports.json",
+        "tests/codegen/**",
+        "tests/test_plan.py",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Enlazar todos los objetos del motor y la biblioteca portable en una dylib de prueba con simbolos indefinidos como error, en un directorio de build propio e incremental.",
+        "Clasificar cada simbolo restante en una familia con propietario, disposicion y razon en manifests/link-imports.json; el test falla ante un simbolo sin clasificar, ambiguo o ya resuelto y ante un cambio de recuento de las familias por patron.",
+        "Registrar el trabajo que la puerta descubre como lista de reduccion para T06b2cb, T06c, T08, T10 y T15; no resolver simbolos con proveedores ficticios."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Existe una puerta automatica y honesta del cierre de imports: 12084 simbolos sin resolver clasificados en 16 familias con dueño. No certifica enlace, arranque ni Waterbox; las familias guard_callers/provide/select/state_gate quedan como trabajo abierto."
+      ],
+      "stop": "Un enlace exitoso con dispositivos requeridos stubbeados no pasa. Si la seleccion de fuentes es incorrecta, corregir manifiesto con evidencia.",
+      "evidence": "reports/tasks/T06b2ce.md"
+    },
+    {
       "id": "T06b2cb",
       "title": "Cerrar entrada, medios y dependencias de estado A500",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T06b2cd"
+        "T06b2ce"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -4513,7 +4556,8 @@
         "T06b2bu excluye parser/exporter/CLI de cfgfile. Resolver callers reales de custom/inputdevice/dispositivos/savestate segun feature y contrato; retirar calc/ini de seleccion solo con evidencia de ausencia de dependencias. No implementar parsers exitosos ficticios ni omitir estado requerido.",
         "T06b2by compila savestate y excluye quick/export CD. Cerrar sus callers e imports de persistencia, replay, modelos excluidos, configuracion y screenshot antes del enlace; serializer nativo/restore real conserva gate T15, Waterbox su propio gate.",
         "T06b2ca abre assets ADF explícitos en DISK_validate_filename; completar disk.cpp (creación/overlays/host paths/catálogos) y validar imagen/drive_insert/DMA sin confundir apertura con geometría válida.",
-        "T06b2cc compila disk.cpp (parche 0047). Queda T06b2cd (inputdevice.cpp) y los imports de disk pendientes de enlace: target_addtorecent, fullpath en DISK_history_add, console_out(_f) de depuracion, gui_ask_disk y au; cerrarlos con sus callers sin proveedores exitosos ficticios."
+        "T06b2cc compila disk.cpp (parche 0047). Queda T06b2cd (inputdevice.cpp) y los imports de disk pendientes de enlace: target_addtorecent, fullpath en DISK_history_add, console_out(_f) de depuracion, gui_ask_disk y au; cerrarlos con sus callers sin proveedores exitosos ficticios.",
+        "T06b2ce fija la puerta de imports (manifests/link-imports.json): cerrar las familias con propietario T06b2cb (input_recording, cpuboard, rtg_hostfs_traps, non_a500_banks, cd32_parallel_cia, excluded_models_code, config_defaults_excluded_devices) guardando sus callers sin proveedores ficticios, y quitar cada nombre resuelto de la lista."
       ],
       "checks": [
         "BUILD01",

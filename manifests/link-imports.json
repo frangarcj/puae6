@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "profile": "deterministic-a500",
+  "triage": "first pass",
+  "description": "Symbols still unresolved when every engine object and the portable library are linked into a probe dylib. tests.codegen.test_engine_imports fails on any unclassified symbol and on any listed name that no longer appears, so the list can only shrink deliberately.",
+  "families": [
+    {
+      "id": "cpu_dispatch_other_models",
+      "owner": "T06c",
+      "disposition": "select",
+      "reason": "Generated cpustbl.cpp names the handlers of every CPU model; only CPUEMU_13 is compiled (patch 0014 narrows cputbls). Select the table without editing generated output.",
+      "regex": "^op_[0-9a-f]{4}_",
+      "count": 11859
+    },
+    {
+      "id": "state_serializer",
+      "owner": "T15",
+      "disposition": "state_gate",
+      "reason": "SAVESTATE is not defined in the profile, so per-device save/restore bodies are absent while savestate.cpp is compiled. Native serializer and restore keep the T15 gate.",
+      "regex": "^(save|restore)_",
+      "count": 73,
+      "names": [
+        "custom_prepare_savestate",
+        "devices_restore_start"
+      ]
+    },
+    {
+      "id": "state_host_paths",
+      "owner": "T15",
+      "disposition": "state_gate",
+      "reason": "Legacy state files: host path resolution, compression and screenshot helpers used by savestate.cpp only (host-surface excluded_pending_link).",
+      "names": [
+        "target_isrelativemode",
+        "write_wavheader",
+        "zfile_zcompress",
+        "zfile_zuncompress"
+      ]
+    },
+    {
+      "id": "input_recording",
+      "owner": "T06b2cb",
+      "disposition": "guard_callers",
+      "reason": "Input record/playback is excluded; callers remain in cia, newcpu, disk, savestate and inputdevice and must be guarded like the other excluded features.",
+      "regex": "^inprec_",
+      "count": 15,
+      "names": [
+        "input_play",
+        "input_record",
+        "inputrecord_debug"
+      ]
+    },
+    {
+      "id": "input_device_backends",
+      "owner": "T10",
+      "disposition": "provide",
+      "reason": "Logical keyboard/mouse/joystick providers for inputdevice.cpp (the od-win32 dinput layer is not compiled). Their design is the input task.",
+      "names": [
+        "input_get_default_joystick",
+        "input_get_default_joystick_analog",
+        "input_get_default_keyboard",
+        "input_get_default_lightpen",
+        "input_get_default_mouse",
+        "inputdevicefunc_joystick",
+        "inputdevicefunc_keyboard",
+        "inputdevicefunc_mouse",
+        "is_tablet",
+        "is_touch_lightpen",
+        "key_swap_hack",
+        "release_keys",
+        "tablet_log",
+        "target_can_autoswitchdevice",
+        "target_checkcapslock",
+        "target_inputdevice_acquire",
+        "target_inputdevice_unacquire",
+        "target_osd_keyboard",
+        "target_osk_control",
+        "target_paste_to_keyboard"
+      ]
+    },
+    {
+      "id": "desktop_actions",
+      "owner": "T06c",
+      "disposition": "decide",
+      "reason": "Desktop and target hooks reached from AKS actions, lifecycle and prefs: guard the caller or provide a bridge-owned effect. None is reachable from p6_input.",
+      "names": [
+        "consolehook_shutdown",
+        "desktop_coords",
+        "getsetpositionvideograb",
+        "gui_ask_disk",
+        "gui_display",
+        "handle_msgpump",
+        "isfullscreen",
+        "pause_emulation",
+        "pausevideograb",
+        "savestate_quick",
+        "screenshot",
+        "setmouseactive",
+        "setmouseactivexy",
+        "sound_volume",
+        "statusline_add_message",
+        "target_addtorecent",
+        "target_cpu_speed",
+        "target_quit",
+        "target_reset",
+        "target_restart",
+        "toggle_fullscreen",
+        "toggle_mousegrab",
+        "toggle_rtg",
+        "translate_message"
+      ]
+    },
+    {
+      "id": "video_presentation",
+      "owner": "T08",
+      "disposition": "provide",
+      "reason": "Presentation boundary called by the renderer and custom: buffers, lock/unlock and frame hand-over. The video contract defines the provider.",
+      "names": [
+        "check_prefs_changed_gfx",
+        "flashscreen",
+        "getgfxoffset",
+        "gfx_hdr",
+        "gfxboard_refresh",
+        "graphics_leave",
+        "graphics_reset",
+        "lockscr",
+        "max_uae_height",
+        "max_uae_width",
+        "render_screen",
+        "show_screen",
+        "target_graphics_buffer_update",
+        "unlockscr",
+        "updatedisplayarea"
+      ]
+    },
+    {
+      "id": "cpuboard",
+      "owner": "T06b2cb",
+      "disposition": "guard_callers",
+      "reason": "Accelerator boards are excluded (public config rejects cpuboard_type != 0), but memory, newcpu, expansion and main still reference the hooks.",
+      "regex": "^cpuboard_",
+      "count": 14
+    },
+    {
+      "id": "rtg_hostfs_traps",
+      "owner": "T06b2cb",
+      "disposition": "guard_callers",
+      "reason": "RTG, host filesystem units and trap helpers are excluded; expansion, memory, newcpu and inputdevice still reference their banks and accessors.",
+      "names": [
+        "filesys_bank",
+        "get_mem_bank_real",
+        "gfxboard_get_configtype",
+        "gfxboard_get_romtype",
+        "gfxboard_get_vram_max",
+        "gfxboard_get_vram_min",
+        "gfxmem_banks",
+        "max_z3fastmem",
+        "mman_set_barriers",
+        "nr_directory_units",
+        "rtarea_bank",
+        "rtarea_base",
+        "trap_get_dreg",
+        "trap_get_long",
+        "trap_get_word",
+        "trap_is_indirect"
+      ]
+    },
+    {
+      "id": "non_a500_banks",
+      "owner": "T06b2cb",
+      "disposition": "guard_callers",
+      "reason": "Gayle, Gary and motherboard-resource banks of A600/A1200/A3000 models are referenced by memory.cpp although the A500 profile does not map them.",
+      "names": [
+        "gary_timeout",
+        "gary_toenb",
+        "gayle2_bank",
+        "gayle_bank",
+        "mbres_bank",
+        "protect_roms"
+      ]
+    },
+    {
+      "id": "cd32_parallel_cia",
+      "owner": "T06b2cb",
+      "disposition": "guard_callers",
+      "reason": "CD32 Akiko and parallel-port SCSI references left in cia.cpp.",
+      "names": [
+        "akiko_mute",
+        "parallel_port_scsi",
+        "parallel_port_scsi_read"
+      ]
+    },
+    {
+      "id": "host_paths_files",
+      "owner": "T06c",
+      "disposition": "guard_callers",
+      "reason": "Host filesystem path resolution; M1 media and firmware are logical asset ids.",
+      "names": [
+        "cfgfile_resolve_path_out_load",
+        "fetch_nvrampath",
+        "fetch_rompath",
+        "fixtrailing",
+        "fullpath",
+        "getfilepart",
+        "getpathpart",
+        "my_existsdir",
+        "my_existsfile",
+        "my_getfilepart",
+        "my_issamepath"
+      ]
+    },
+    {
+      "id": "text_charset",
+      "owner": "T06c",
+      "disposition": "provide",
+      "reason": "Pure text services with no host dependency (charset conversion, string length and duplication) that the portable layer can implement.",
+      "names": [
+        "au",
+        "au_copy",
+        "my_strdup",
+        "ua",
+        "uaestrlen",
+        "uaetcslen",
+        "utf8u",
+        "uutf8"
+      ]
+    },
+    {
+      "id": "scheduler_time",
+      "owner": "T06c",
+      "disposition": "provide",
+      "reason": "Interrupt flag and time source owned by the emulation thread (T06b2o) and the deterministic clock.",
+      "names": [
+        "setsystime",
+        "uae_int_requested",
+        "uae_time"
+      ]
+    },
+    {
+      "id": "excluded_models_code",
+      "owner": "T06b2cb",
+      "disposition": "guard_callers",
+      "reason": "Code for excluded hardware still referenced: Nordic Power cartridge descrambling and 68040 cache fetch helpers.",
+      "names": [
+        "descramble_nordicpro",
+        "next_ilong_cache040",
+        "next_iword_cache040"
+      ]
+    },
+    {
+      "id": "config_defaults_excluded_devices",
+      "owner": "T06b2cb",
+      "disposition": "guard_callers",
+      "reason": "Preference hooks of excluded devices and of the desktop target called from cfgfile and main defaults.",
+      "names": [
+        "blkdev_default_prefs",
+        "blkdev_fix_prefs",
+        "target_default_options",
+        "target_fixup_options"
+      ]
+    }
+  ]
+}
