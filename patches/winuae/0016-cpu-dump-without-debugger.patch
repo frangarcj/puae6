@@ -1,0 +1,39 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -6992,12 +6992,11 @@
+ 			console_out_f(_T(" %08x %08x (%d)"),
+ 				regs.cacheholdingaddr020, regs.cacheholdingdata020, regs.cacheholdingdata_valid);
+ 		}
++#ifdef DEBUGGER
+ 		for (int i = 0; i < 3; i++) {
+ 			uae_u16 w;
+-#ifdef DEBUGGER
+ 			if (!debug_get_prefetch(i, &w))
+ 				break;
+-#endif
+ 			struct instr *dp;
+ 			struct mnemolookup *lookup;
+ 			dp = table68k + w;
+@@ -7005,16 +7004,21 @@
+ 				;
+ 			console_out_f(_T(" %04x (%s)"), w, lookup->name);
+ 		}
++#endif
+ 		console_out_f (_T(" Chip latch %08X\n"), regs.chipset_latch_rw);
+ 	}
++#ifdef DEBUGGER
+ 	if (prevpc != 0xffffffff && pc - prevpc < 100) {
+ 		while (prevpc < pc) {
+ 			m68k_disasm(prevpc, &prevpc, 0xffffffff, 1);
+ 		}
+ 	}
++#endif
+ 	m68k_disasm (pc, nextpc, pc, 1);
++#ifdef DEBUGGER
+ 	if (nextpc)
+ 		console_out_f (_T("Next PC: %08x\n"), *nextpc);
++#endif
+ }
+ 
+ void m68k_dumpcache (bool dc)

@@ -1,0 +1,70 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -1735,12 +1735,20 @@
+ 		return 0;
+ 	}
+ #endif
++#ifdef P6_PORTABLE
++	// Complete A500 payloads (or exact version prefixes), never repair truncation.
++	if (size <= 256 ? i != size :
++		((i != ROM_SIZE_256 && i != ROM_SIZE_512) ||
++		(i != size && (noalias || i != size / 2))))
++		return 0;
++#else
+ 	if (i < size - 20)
+ 		kickstart_fix_checksum(mem, size);
+ 	j = 1;
+ 	while (j < i)
+ 		j <<= 1;
+ 	i = j;
++#endif
+ 
+ 	if (!noalias && i == size / 2)
+ 		memcpy(mem + size / 2, mem, size / 2);
+@@ -1774,6 +1782,10 @@
+ 		}
+ 	}
+ 
++#ifdef P6_PORTABLE
++	if (dochecksum && !kickstart_checksum(mem, i))
++		return 0;
++#else
+ 	for (j = 0; j < 256 && i >= ROM_SIZE_256; j++) {
+ 		if (!memcmp(mem + j, kickstring, strlen(kickstring) + 1))
+ 			break;
+@@ -1783,6 +1795,7 @@
+ 		dochecksum = 0;
+ 	if (dochecksum)
+ 		kickstart_checksum(mem, size);
++#endif
+ 	return i;
+ }
+ 
+@@ -3098,7 +3111,14 @@
+ 	if (!z)
+ 		return false;
+ 	uae_u8 mem[32] = { 0 };
++#ifdef P6_PORTABLE
++	if (read_kickstart(z, mem, sizeof mem, 0, 0) != sizeof mem) {
++		zfile_fclose(z);
++		return false;
++	}
++#else
+ 	read_kickstart(z, mem, sizeof mem, 0, 0);
++#endif
+ 	zfile_fclose(z);
+ 	kickstart_version = (mem[12] << 8) | mem[13];
+ 	if (kickstart_version == 0xffff) {
+diff --git a/rommgr.cpp b/rommgr.cpp
+--- a/rommgr.cpp
++++ b/rommgr.cpp
+@@ -1329,7 +1329,7 @@
+ 	uae_u32 cksum = 0, prevck = 0;
+ 	int i;
+ 	for (i = 0; i < size; i += 4) {
+-		uae_u32 data = mem[i] * 65536 * 256 + mem[i + 1] * 65536 + mem[i + 2] * 256 + mem[i + 3];
++		uae_u32 data = (uae_u32)mem[i] * 65536 * 256 + mem[i + 1] * 65536 + mem[i + 2] * 256 + mem[i + 3];
+ 		cksum += data;
+ 		if (cksum < prevck)
+ 			cksum++;

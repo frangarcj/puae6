@@ -1,0 +1,76 @@
+cmake_minimum_required(VERSION 3.21)
+project(PUAE6 LANGUAGES C CXX)
+
+# This bootstrap exposes the real engine compilation graph. It does not yet
+# provide a headless emulator: T06b/T06c close compilation and linking.
+if(CMAKE_CROSSCOMPILING OR CMAKE_OSX_ARCHITECTURES)
+    message(FATAL_ERROR "Only the native host architecture is supported by this bootstrap")
+endif()
+if(NOT CMAKE_C_COMPILER_ID MATCHES "^(Clang|AppleClang|GNU)$" OR
+   NOT CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|AppleClang|GNU)$")
+    message(FATAL_ERROR "The native bootstrap requires Clang or GCC")
+endif()
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/manifests/source-manifest.json" _manifest)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/manifests/source-manifest.json")
+string(JSON _profile GET "${_manifest}" profile)
+set(P6_PROFILE "${_profile}" CACHE STRING "Fixed engine profile")
+if(NOT P6_PROFILE STREQUAL _profile)
+    message(FATAL_ERROR "Unsupported P6_PROFILE: ${P6_PROFILE}; expected ${_profile}")
+endif()
+string(JSON _count LENGTH "${_manifest}" selection features_off)
+math(EXPR _last "${_count} - 1")
+foreach(_index RANGE 0 ${_last})
+    string(JSON _feature GET "${_manifest}" selection features_off ${_index})
+    if(DEFINED ${_feature})
+        message(FATAL_ERROR "Excluded feature requested: ${_feature}; use the fixed profile")
+    endif()
+endforeach()
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+option(P6_SANITIZERS "Instrument native code with ASan and UBSan" OFF)
+add_compile_options(-fno-fast-math)
+if(P6_SANITIZERS)
+    add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all
+        -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined -fno-sanitize-recover=all)
+endif()
+
+include(cmake/HostTools.cmake)
+p6_add_host_codegen(p6_codegen)
+add_library(p6_engine OBJECT ${P6_UPSTREAM_SOURCES} ${P6_GENERATED_SOURCES})
+add_library(p6_portable STATIC
+    ports/portable/atomic.cpp
+    ports/portable/blob_io.c
+    ports/portable/civil_time.c
+    ports/portable/rtc_time.cpp
+    ports/portable/audio_math.cpp
+    ports/portable/pcm_output.cpp
+    ports/portable/sound_lifecycle.cpp
+    ports/portable/diagnostics.cpp
+    ports/portable/gui.cpp)
+foreach(_target IN ITEMS p6_engine p6_portable)
+    add_dependencies(${_target} p6_codegen)
+    target_include_directories(${_target} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+endforeach()
+
+enable_testing()
+add_executable(p6_portable_probe
+    tests/host/portable_services_probe.cpp
+    "${P6_UPSTREAM_DIR}/zfile.cpp"
+    "${P6_UPSTREAM_DIR}/crc32.cpp")
+add_dependencies(p6_portable_probe p6_codegen)
+target_include_directories(p6_portable_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+target_link_libraries(p6_portable_probe PRIVATE p6_portable)
+# The probe uses assertions for operations as well as checks, including Release.
+target_compile_options(p6_portable_probe PRIVATE -UNDEBUG)
+add_test(NAME portable-services COMMAND p6_portable_probe)
+set_tests_properties(portable-services PROPERTIES LABELS "host;portable" TIMEOUT 30)

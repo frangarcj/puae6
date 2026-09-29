@@ -1,0 +1,43 @@
+diff --git a/zfile.cpp b/zfile.cpp
+--- a/zfile.cpp
++++ b/zfile.cpp
+@@ -12,6 +12,10 @@
+ 
+ #include "sysconfig.h"
+ #include "sysdeps.h"
++
++#ifdef P6_PORTABLE
++#include <zfile_port.inc>
++#else
+ 
+ #include "options.h"
+ #include "zfile.h"
+@@ -3611,3 +3615,5 @@
+ {
+ }
+ #endif
++
++#endif /* P6_PORTABLE */
+diff --git a/include/zfile.h b/include/zfile.h
+--- a/include/zfile.h
++++ b/include/zfile.h
+@@ -98,11 +98,19 @@
+ #define ZFD_UNPACK 8 //gzip,dms
+ #define ZFD_RAWDISK 16  //fdi->adf,ipf->adf etc..
+ #define ZFD_CD 32 //cue/iso, cue has priority over iso
++#ifdef P6_PORTABLE
++#define ZFD_DISKHISTORY 0 // history is excluded from the portable profile
++#else
+ #define ZFD_DISKHISTORY 0x100 //allow diskhistory (if disk image)
++#endif
+ #define ZFD_CHECKONLY 0x200 //file exists checkc
+ #define ZFD_DELAYEDOPEN 0x400 //do not unpack, just get metadata
+ #define ZFD_NORECURSE 0x10000 // do not recurse archives
++#ifdef P6_PORTABLE
++#define ZFD_NORMAL 0 // registered raw assets only; no archive/unpack probing
++#else
+ #define ZFD_NORMAL (ZFD_ARCHIVE|ZFD_UNPACK)
++#endif
+ #define ZFD_ALL 0x0000ffff
+ 
+ #define ZFD_RAWDISK_AMIGA 0x10000

@@ -1,0 +1,354 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -342,9 +342,6 @@
+ /* AGA mode color lookup tables */
+ unsigned int xredcolors[256], xgreencolors[256], xbluecolors[256];
+ static int dblpf_ind1_aga[256], dblpf_ind2_aga[256];
+-#else
+-static uae_u8 spriteagadpfpixels[1];
+-static int dblpf_ind1_aga[1], dblpf_ind2_aga[1];
+ #endif
+ int xredcolor_s, xredcolor_b, xredcolor_m;
+ int xgreencolor_s, xgreencolor_b, xgreencolor_m;
+@@ -1792,6 +1789,7 @@
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE
+ static uae_u8 *status_line_ptr(int monid, int line)
+ {
+ 	struct vidbuf_description *vidinfo = &adisplays[monid].gfxvidinfo;
+@@ -1814,6 +1812,8 @@
+ 	else
+ 		draw_status_line_single(monid, buf, statusy, vidinfo->inbuffer->outwidth, xredcolors, xgreencolors, xbluecolors, NULL);
+ }
++
++#endif
+ 
+ static void draw_debug_status_line(int monid, int line)
+ {
+@@ -1957,7 +1957,11 @@
+ 		currprefs.cs_color_burst || currprefs.gfx_grayscale || currprefs.monitoremu) {
+ 		return false;
+ 	}
+-	if ((lightpen_active && currprefs.lightpen_crosshair) || debug_dma >= 2 || debug_heatmap >= 2) {
++	if ((lightpen_active && currprefs.lightpen_crosshair)
++#ifdef DEBUGGER
++		|| debug_dma >= 2 || debug_heatmap >= 2
++#endif
++	) {
+ 		return false;
+ 	}
+ 	if (video_recording_active) {
+@@ -3189,9 +3193,12 @@
+ 	plf_sprite_mask |= (0x0000FFFF << (4 * plf1pri)) & 0xFFFF;
+ 	bpldualpfpri = (bplcon2_denise & 0x40) == 0x40;
+ 
++#ifdef AGA
+ 	if (aga_mode) {
+ 		dpf_lookup = bpldualpfpri ? dblpf_ind2_aga : dblpf_ind1_aga;
+-	} else {
++	} else
++#endif
++	{
+ 		dpf_lookup = bpldualpfpri ? dblpf_ind2 : dblpf_ind1;
+ 	}
+ 	dpf_lookup_no = bpldualpfpri ? dblpf_2nd2 : dblpf_2nd1;
+@@ -3248,9 +3255,12 @@
+ 
+ static void setlasthamcolor(void)
+ {
++#ifdef AGA
+ 	if (aga_mode) {
+ 		ham_lastcolor = denise_colors.color_regs_aga[last_bpl_pix];
+-	} else {
++	} else
++#endif
++	{
+ 		ham_lastcolor = denise_colors.color_regs_ecs[last_bpl_pix];
+ 	}
+ }
+@@ -3508,16 +3518,22 @@
+ 
+ void denise_reset(bool hard)
+ {
++#ifdef DEBUGGER
+ 	static int dummyint = 0;
+ 	static struct dma_rec dummydrec = { 0 };
++#endif
+ 
+ 	custom_end_drawing();
++#ifdef DEBUGGER
+ 	dummyint = 0;
+ 	memset(&dummydrec, 0, sizeof(dummydrec));
++#endif
+ 	memset(chunky_out, 0, sizeof(chunky_out));
+ 	memset(dpf_chunky_out, 0, sizeof(dpf_chunky_out));
++#ifdef DEBUGGER
+ 	debug_dma_dhpos_odd = &dummyint;
+ 	debug_dma_ptr = &dummydrec;
++#endif
+ 	denise_cycle_half = 0;
+ 	denise_strlong = false;
+ 	denise_strlong_fast = false;
+@@ -3643,6 +3659,7 @@
+ // COLORxx write
+ static void update_color(int idx, uae_u16 v, uae_u16 con2, uae_u16 con3)
+ {
++#ifdef AGA
+ 	if (aga_mode) {
+ 
+ 		/* writing is disabled when RDRAM=1 */
+@@ -3679,7 +3696,9 @@
+ 			update_bordercolor();
+ 		}
+ 
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		if (!ecs_denise) {
+ 			v &= 0xfff;
+@@ -3687,7 +3706,9 @@
+ 		denise_colors.color_regs_ecs[idx] = v & 0xfff;
+ 		denise_colors.color_regs_genlock[idx] = v >> 15;
+ 		denise_colors.acolors[idx] = getxcolor(v);
++#ifdef AGA
+ 		denise_colors.color_regs_aga[idx] = denise_colors.acolors[idx];
++#endif
+ 
+ 		if (!idx) {
+ 			update_bordercolor();
+@@ -3787,6 +3808,7 @@
+ // is decreased mid line, old higher planes must be still shifted out)
+ static void bpldat_docopy(void)
+ {
++#ifdef AGA
+ 	if (aga_mode) {
+ 		if (denise_bplfmode64) {
+ 			bplxdat2_64[0] = bplxdat_64[0];
+@@ -3807,7 +3829,9 @@
+ 			bplxdat2[6] = bplxdat[6];
+ 			bplxdat2[7] = bplxdat[7];
+ 		}
+-	} else {
++	} else
++#endif
++	{
+ 		bplxdat2[0] = bplxdat[0];
+ 		bplxdat2[1] = bplxdat[1];
+ 		bplxdat2[2] = bplxdat[2];
+@@ -4232,6 +4256,7 @@
+ }
+ 
+ // AGA HAM
++#ifdef AGA
+ static uae_u32 decode_ham_pixel_aga_fast(uint8_t pw, int planes, uae_u8 bxor, uae_u32 *colors_aga)
+ {
+ 	if (planes >= 7) { /* AGA mode HAM8 */
+@@ -4257,6 +4282,7 @@
+ 	}
+ 	return CONVERT_RGB(ham_lastcolor);
+ }
++#endif
+ 
+ // OCS/ECS HAM
+ static uae_u32 decode_ham_pixel_fast(uint8_t pv, uae_u16 *colors_ocs)
+@@ -4273,6 +4299,7 @@
+ }
+ 
+ // AGA HAM
++#ifdef AGA
+ static uae_u32 decode_ham_pixel_aga(uint8_t pw)
+ {
+ 	if (denise_planes >= 7) { /* AGA mode HAM8 */
+@@ -4298,6 +4325,7 @@
+ 	}
+ 	return CONVERT_RGB(ham_lastcolor);
+ }
++#endif
+ 
+ // OCS/ECS HAM
+ static uae_u32 decode_ham_pixel(uint8_t pv)
+@@ -4351,6 +4379,7 @@
+ 	return pix;
+ }
+ 
++#ifdef AGA
+ static uae_u32 decode_pixel_aga(uint8_t pix)
+ {
+ 	switch (bplmode)
+@@ -4387,6 +4416,7 @@
+ 		}
+ 	}
+ }
++#endif
+ 
+ static uae_u32 decode_pixel(uint8_t pix)
+ {
+@@ -4458,7 +4488,9 @@
+ 	// behaviour in C)
+ 	plfmask = (plf_sprite_mask >> maskshift) >> maskshift;
+ 	v &= ~plfmask;
++#ifdef DEBUGGER
+ 	v &= debug_sprite_mask;
++#endif
+ 	if (v) {
+ 		int vlo, vhi, col;
+ 		int v1 = v & 255;
+@@ -5053,7 +5085,9 @@
+ }
+ 
+ static void lts_unaligned_ecs(int, int, int);
++#ifdef AGA
+ static void lts_unaligned_aga(int, int, int);
++#endif
+ static void matchsprites2(int cnt);
+ static void matchsprites2_aga(int cnt);
+ 
+@@ -5123,6 +5157,7 @@
+ 	return false;
+ }
+ 
++#ifdef AGA
+ static bool checkhorizontal1_aga(int cnt, int cnt_next, int h)
+ {
+ 	denise_cycle_half = h;
+@@ -5198,6 +5233,7 @@
+ 	}
+ 	return false;
+ }
++#endif
+ 
+ #define SPRITE_NEAREST_MIN -3
+ 
+@@ -5565,9 +5601,12 @@
+ 				denise_hcounter_next = denise_hcounter_new;
+ 			}
+ 
++#ifdef AGA
+ 			if (aga_mode) {
+ 				checkhorizontal1_aga(denise_hcounter, denise_hcounter_prev, h);
+-			} else {
++			} else
++#endif
++			{
+ 				int cnt = denise_hcounter << 2;
+ 				checkhorizontal1_ecs(cnt, denise_hcounter_next, h);
+ 			}
+@@ -5969,6 +6008,7 @@
+ 				if (lts_changed || !denise_vsync_bpl_detect) {
+ 					break;
+ 				}
++#ifdef AGA
+ 				if (aga_mode) {
+ 					for (int h = 0; h < 2 ;h++) {
+ 						denise_cycle_half = h;
+@@ -5988,7 +6028,9 @@
+ 						denise_hcounter_next &= 511;
+ 						denise_pixtotal++;
+ 					}
+-				} else {
++				} else
++#endif
++				{
+ 					for (int h = 0; h < 2 ;h++) {
+ 						denise_cycle_half = h;
+ 						if (h) {
+@@ -6154,6 +6196,7 @@
+ #include <linetoscr_ocs_ecs_genlock.cpp>
+ #include <linetoscr_ocs_ecs_ntsc.cpp>
+ #include <linetoscr_ocs_ecs_ntsc_genlock.cpp>
++#ifdef AGA
+ #include <linetoscr_aga_fm0.cpp>
+ #include <linetoscr_aga_fm1.cpp>
+ #include <linetoscr_aga_fm2.cpp>
+@@ -6164,11 +6207,16 @@
+ #include <linetoscr_aga_fm0_genlock.cpp>
+ #include <linetoscr_aga_fm1_genlock.cpp>
+ #include <linetoscr_aga_fm2_genlock.cpp>
++#endif
+ #include <linetoscr_ecs_shres.cpp>
+ #include <linetoscr_ecs_fast.cpp>
++#ifdef AGA
+ #include <linetoscr_aga_fast.cpp>
++#endif
+ #include <linetoscr_ecs_genlock_fast.cpp>
++#ifdef AGA
+ #include <linetoscr_aga_genlock_fast.cpp>
++#endif
+ 
+ // select linetoscr routine
+ static void select_lts(void)
+@@ -6212,6 +6260,7 @@
+ 		bm = CMODE_NORMAL;
+ 	}
+ 
++#ifdef AGA
+ 	if (aga_mode) {
+ 
+ 		int spr = 0;
+@@ -6250,7 +6299,9 @@
+ 			}
+ 		}
+ 
+-	} else if (ecs_denise && denise_res == RES_SUPERHIRES) {
++	} else
++#endif
++	if (ecs_denise && denise_res == RES_SUPERHIRES) {
+ 
+ 		sprite_lts_selected = 1;
+ 		if (hresolution == RES_LORES) {
+@@ -6328,6 +6379,7 @@
+ 	denise_hcounter_prev = denise_hcounter;
+ }
+ 
++#ifdef AGA
+ STATIC_INLINE uae_u8 getbpl(void)
+ {
+ 	uae_u8 pix;
+@@ -6340,6 +6392,7 @@
+ 	}
+ 	return pix;
+ }
++#endif
+ 
+ // Generic and unoptimized shres based (outputs 4xshres,2xhires or 1xlores pixels) display emulation,
+ // only used when subpixel support is needed
+@@ -6347,6 +6400,7 @@
+ // For example:
+ // HDIW or HB is not lores-aligned
+ // or BPLCON4 changes or AGA color register is modified.
++#ifdef AGA
+ static void lts_unaligned_aga(int cnt, int cnt_next, int h)
+ {
+ 	if (!denise_odd_even) {
+@@ -6587,6 +6641,7 @@
+ 		bplshiftcnt[1] = bplshiftcnt[0];
+ 	}
+ }
++#endif
+ 
+ 
+ static void lts_unaligned_ecs(int cnt, int cnt_next, int h)
+@@ -7221,6 +7276,7 @@
+ 	}
+ 
+ 	LINETOSRC_FUNCF ltsf;
++#ifdef AGA
+ 	if (aga_mode) {
+ 		if (need_genlock_data) {
+ 			ltsf = linetoscr_aga_genlock_fast_funcs[ltsidx];
+@@ -7233,7 +7289,9 @@
+ 				ltsf = linetoscr_aga_fast_funcs_filtered[ltsidx];
+ 			}
+ 		}
+-	} else {
++	} else
++#endif
++	{
+ 		if (need_genlock_data) {
+ 			ltsf = linetoscr_ecs_genlock_fast_funcs[ltsidx];
+ 			if (currprefs.gfx_lores_mode && linetoscr_ecs_genlock_fast_funcs_filtered[ltsidx]) {

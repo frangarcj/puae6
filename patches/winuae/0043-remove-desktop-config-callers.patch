@@ -1,0 +1,26 @@
+diff --git a/devices.cpp b/devices.cpp
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -408,8 +408,8 @@
+ 	memory_cleanup();
+ #ifndef P6_PORTABLE
+ 	free_shm();
+-#endif
+ 	cfgfile_addcfgparam(0);
++#endif
+ #ifdef DRIVESOUND
+ 	driveclick_free();
+ #endif
+diff --git a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -835,7 +835,9 @@
+ 	blkdev_fix_prefs (p);
+ 	inputdevice_fix_prefs(p, userconfig);
+ 	target_fixup_options (p);
++#ifndef P6_PORTABLE
+ 	cfgfile_createconfigstore(p);
++#endif
+ }
+ 
+ int quit_program = 0;

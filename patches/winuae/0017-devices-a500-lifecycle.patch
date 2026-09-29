@@ -1,0 +1,279 @@
+diff --git a/devices.cpp b/devices.cpp
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -4,7 +4,9 @@
+ #include "devices.h"
+ 
+ #include "options.h"
++#ifndef P6_PORTABLE
+ #include "threaddep/thread.h"
++#endif
+ #include "memory.h"
+ #include "audio.h"
+ #ifdef GFXBOARD
+@@ -18,7 +20,9 @@
+ #ifdef WITH_SNDBOARD
+ #include "sndboard.h"
+ #endif
++#ifndef P6_PORTABLE
+ #include "statusline.h"
++#endif
+ #ifdef WITH_PPC
+ #include "uae/ppc.h"
+ #endif
+@@ -40,7 +44,9 @@
+ #ifdef SERIAL_PORT
+ #include "serial.h"
+ #endif
++#ifdef BSDSOCKET
+ #include "bsdsocket.h"
++#endif
+ #include "uaeserial.h"
+ #include "uaeresource.h"
+ #include "native2amiga.h"
+@@ -184,11 +190,15 @@
+ {
+ 	execute_device_items(device_configs, device_configs_cnt);
+ 
++#ifndef P6_PORTABLE
+ 	check_prefs_changed_cd();
++#endif
+ 	check_prefs_changed_audio();
+ 	check_prefs_changed_custom();
+ 	check_prefs_changed_cpu();
++#ifndef P6_PORTABLE
+ 	check_prefs_picasso();
++#endif
+ }
+ 
+ void devices_reset_ext(int hardreset)
+@@ -206,7 +216,9 @@
+ 	memset(device_reset_done, 0, sizeof(device_reset_done));
+ 	// must be first
+ 	init_eventtab();
++#ifndef P6_PORTABLE
+ 	init_shm();
++#endif
+ 
+ #ifdef GFXBOARD
+ 	// must be before memory_reset()
+@@ -225,7 +237,9 @@
+ #ifdef WITH_PPC
+ 	uae_ppc_reset(is_hardreset());
+ #endif
++#ifndef P6_PORTABLE
+ 	native2amiga_reset();
++#endif
+ #ifdef SCSIEMU
+ 	scsi_reset();
+ 	scsidev_reset();
+@@ -234,8 +248,10 @@
+ #ifdef DRIVESOUND
+ 	driveclick_reset();
+ #endif
++#ifndef P6_PORTABLE
+ 	ethernet_reset();
+ 	reset_traps();
++#endif
+ #ifdef FILESYS
+ 	filesys_prepare_reset();
+ 	filesys_reset();
+@@ -255,27 +271,35 @@
+ 	initparallel();
+ #endif
+ 	dongle_reset();
++#ifndef P6_PORTABLE
+ 	sampler_init();
+ 	device_func_reset();
++#endif
+ #ifdef RETROPLATFORM
+ 	rp_reset();
+ #endif
++#ifndef P6_PORTABLE
+ 	keymcu_reset();
+ 	keymcu2_reset();
+ 	keymcu3_reset();
++#endif
+ 	uae_int_requested = 0;
+ }
+ 
+ void devices_vsync_pre(void)
+ {
+ 	audio_vsync();
++#ifndef P6_PORTABLE
+ 	blkdev_vsync();
++#endif
+ 	CIA_vsync_prehandler();
+ 	inputdevice_vsync();
++#ifndef P6_PORTABLE
+ 	filesys_vsync();
+ 	sampler_vsync();
+ 	clipboard_vsync();
+ 	statusline_vsync();
++#endif
+ 
+ 	execute_device_items(device_vsyncs_pre, device_vsync_pre_cnt);
+ }
+@@ -310,8 +334,10 @@
+ 	execute_device_items(device_rethinks, device_rethink_cnt);
+ 
+ 	rethink_uae_int();
++#ifndef P6_PORTABLE
+ 	/* cpuboard_rethink must be last */
+ 	cpuboard_rethink();
++#endif
+ }
+ 
+ void devices_update_sound(float clk, float syncadjust)
+@@ -320,7 +346,9 @@
+ #ifdef WITH_SNDBOARD
+ 	update_sndboard_sound (clk / syncadjust);
+ #endif
++#ifndef P6_PORTABLE
+ 	update_cda_sound(clk / syncadjust);
++#endif
+ #ifdef WITH_X86
+ 	x86_update_sound(clk / syncadjust);
+ #endif
+@@ -345,15 +373,19 @@
+ 
+ 	execute_device_items(device_leaves_early, device_leave_early_cnt);
+ 
++#ifndef P6_PORTABLE
+ 	reset_traps();
+ 	free_traps();
++#endif
+ #ifdef FILESYS
+ 	filesys_cleanup();
+ #endif
+ #ifdef BSDSOCKET
+ 	bsdlib_reset();
+ #endif
++#ifndef P6_PORTABLE
+ 	sampler_free();
++#endif
+ 	inputdevice_close();
+ 	DISK_free();
+ 	dump_counts();
+@@ -363,7 +395,9 @@
+ #ifdef AUTOCONFIG
+ 	expansion_cleanup();
+ #endif
++#ifndef P6_PORTABLE
+ 	device_func_free();
++#endif
+ #ifdef WITH_LUA
+ 	uae_lua_free();
+ #endif
+@@ -372,20 +406,26 @@
+ #endif
+ 	savestate_free();
+ 	memory_cleanup();
++#ifndef P6_PORTABLE
+ 	free_shm();
++#endif
+ 	cfgfile_addcfgparam(0);
+ #ifdef DRIVESOUND
+ 	driveclick_free();
+ #endif
++#ifndef P6_PORTABLE
+ 	ethernet_enumerate_free();
+ 	rtarea_free();
++#endif
+ 	drawing_free();
+ #ifdef WITH_DRACO
+ 	draco_free();
+ #endif
++#ifndef P6_PORTABLE
+ 	keymcu_free();
+ 	keymcu2_free();
+ 	keymcu3_free();
++#endif
+ 	execute_device_items(device_leaves, device_leave_cnt);
+ }
+ 
+@@ -394,12 +434,16 @@
+ 	virtualdevice_free();
+ 	graphics_leave();
+ 	close_sound();
++#ifndef P6_PORTABLE
+ 	if (! no_gui)
+ 		gui_exit();
++#endif
+ #ifdef USE_SDL
+ 	SDL_Quit();
+ #endif
++#ifndef P6_PORTABLE
+ 	machdep_free();
++#endif
+ }
+ 
+ void virtualdevice_init (void)
+@@ -447,11 +491,14 @@
+ #ifdef WITH_DRACO
+ 	draco_init();
+ #endif
++#ifndef P6_PORTABLE
+ 	keymcu_init();
+ 	keymcu2_init();
+ 	keymcu3_init();
+-}
+-
++#endif
++}
++
++#ifdef SAVESTATE
+ void devices_restore_start(void)
+ {
+ 	restore_audio_start();
+@@ -469,6 +516,8 @@
+ 	restore_expansion_boards(NULL);
+ }
+ 
++#endif
++
+ void devices_syncchange(void)
+ {
+ #ifdef WITH_X86
+@@ -484,19 +533,25 @@
+ #ifdef WITH_DSP
+ 	dsp_pause(1);
+ #endif
++#ifndef P6_PORTABLE
+ 	blkdev_entergui();
++#endif
+ #ifdef RETROPLATFORM
+ 	rp_pause(1);
+ #endif
+ #ifdef AVIOUTPUT
+ 	pausevideograb(1);
+ #endif
++#ifndef P6_PORTABLE
+ 	ethernet_pause(1);
++#endif
+ }
+ 
+ void devices_unpause(void)
+ {
++#ifndef P6_PORTABLE
+ 	blkdev_exitgui();
++#endif
+ #ifdef RETROPLATFORM
+ 	rp_pause(0);
+ #endif
+@@ -509,10 +564,14 @@
+ #ifdef AVIOUTPUT
+ 	pausevideograb(0);
+ #endif
++#ifndef P6_PORTABLE
+ 	ethernet_pause(0);
++#endif
+ }
+ 
+ void devices_unsafeperiod(void)
+ {
++#ifndef P6_PORTABLE
+ 	clipboard_unsafeperiod();
+-}
++#endif
++}

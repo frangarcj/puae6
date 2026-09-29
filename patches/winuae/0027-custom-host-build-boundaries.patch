@@ -1,0 +1,54 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -44,7 +44,9 @@
+ #if defined(ENFORCER)
+ #include "enforcer.h"
+ #endif
++#ifndef P6_PORTABLE
+ #include "threaddep/thread.h"
++#endif
+ #ifdef WITH_LUA
+ #include "luascript.h"
+ #endif
+@@ -358,13 +360,17 @@
+ 	TCHAR buffer[1000];
+ 
+ 	va_start (parms, format);
++#ifdef P6_PORTABLE
++	vsnprintf(buffer, sizeof(buffer), format, parms);
++#else
+ 	_vsntprintf (buffer, sizeof (buffer) / sizeof(TCHAR) - 1, format, parms );
++#endif
+ 	va_end (parms);
+ 	if (nomore) {
+ 		write_log (_T("%s\n"), buffer);
+ 		return;
+ 	}
+-	gui_message (buffer);
++	gui_message (_T("%s"), buffer);
+ 	nomore = 1;
+ }
+ 
+@@ -3403,7 +3409,9 @@
+ 
+ static void intreq_checks(uae_u16 oldreq, uae_u16 newreq)
+ {
++#ifdef SERIAL_PORT
+ 	serial_rbf_change((newreq & 0x0800) ? 1 : 0);
++#endif
+ }
+ 
+ static void event_doint_delay_do_ext_old(uae_u32 v)
+@@ -3893,9 +3901,11 @@
+ static void FMODE(uae_u16 v)
+ {
+ 	if (!aga_mode) {
++#ifdef WITH_SPECIALMONITORS
+ 		if (currprefs.monitoremu) {
+ 			specialmonitor_store_fmode(vpos, agnus_hpos, v);
+ 		}
++#endif
+ 		fmode_saved = v;
+ 		v = 0;
+ 	} else {

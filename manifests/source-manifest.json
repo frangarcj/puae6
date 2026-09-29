@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "status": "host-contracts-planned",
+  "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+  "profile": "deterministic-a500",
+  "preset": "cfgfile.cpp: built_in_prefs(model=0, config=0, compa=0); 68000 CE, OCS, Chip512K/Slow512K, RTC MSM6242B; PAL/NTSC explicito",
+  "audit_sources": [
+    "newcpu.cpp",
+    "newcpu_common.cpp",
+    "readcpu.cpp",
+    "events.cpp",
+    "cpuemu_13.cpp",
+    "cpustbl.cpp",
+    "cpudefs.cpp",
+    "blitfunc.cpp",
+    "blittable.cpp",
+    "custom.cpp",
+    "blitter.cpp",
+    "cia.cpp",
+    "memory.cpp",
+    "audio.cpp",
+    "disk.cpp",
+    "inputdevice.cpp",
+    "drawing.cpp",
+    "cfgfile.cpp",
+    "rommgr.cpp",
+    "zfile.cpp",
+    "crc32.cpp",
+    "keybuf.cpp",
+    "expansion.cpp",
+    "ersatz.cpp",
+    "diskutil.cpp",
+    "savestate.cpp",
+    "main.cpp",
+    "devices.cpp",
+    "rtc.cpp",
+    "gfxutil.cpp",
+    "calc.cpp",
+    "ini.cpp",
+    "dongle.cpp",
+    "od-win32/machdep/m68k.cpp",
+    "softfloat/softfloat.cpp",
+    "softfloat/softfloat_fpsp.cpp"
+  ],
+  "selection": {
+    "status": "requires-port-patches-and-link-proof",
+    "upstream_units": [
+      "newcpu.cpp",
+      "newcpu_common.cpp",
+      "readcpu.cpp",
+      "events.cpp",
+      "custom.cpp",
+      "blitter.cpp",
+      "cia.cpp",
+      "memory.cpp",
+      "audio.cpp",
+      "disk.cpp",
+      "inputdevice.cpp",
+      "drawing.cpp",
+      "cfgfile.cpp",
+      "rommgr.cpp",
+      "zfile.cpp",
+      "crc32.cpp",
+      "keybuf.cpp",
+      "expansion.cpp",
+      "diskutil.cpp",
+      "main.cpp",
+      "devices.cpp",
+      "rtc.cpp",
+      "gfxutil.cpp",
+      "savestate.cpp",
+      "dongle.cpp",
+      "od-win32/machdep/m68k.cpp",
+      "softfloat/softfloat.cpp",
+      "softfloat/softfloat_fpsp.cpp"
+    ],
+    "generated_units": [
+      "cpudefs.cpp",
+      "cpustbl.cpp",
+      "cpuemu_13.cpp",
+      "blitfunc.cpp",
+      "blittable.cpp"
+    ],
+    "textual_inputs": [
+      "aks.def",
+      "inputevents.def",
+      "sinctable.cpp"
+    ],
+    "cpu_dispatch": "CPUEMU_13 agrupa handlers13/14. Parche0014 limita cputbls P6 a [0][4]=op_smalltbl_14 y conserva bucle CE68000. Unidad completa y helpers probados; aun pendiente prueba de enlace del perfil y lifecycle. Generados intactos, sin CPU68010 anunciada.",
+    "features_on": [
+      "CPUEMU_13"
+    ],
+    "features_off": [
+      "JIT",
+      "CUSTOM_SIMPLE",
+      "WITH_THREADED_CPU",
+      "FILESYS",
+      "UAE_FILESYS_THREADS",
+      "NATMEM_OFFSET",
+      "CAPS",
+      "SCP",
+      "FDI2RAW",
+      "FLOPPYBRIDGE",
+      "WITH_PPC",
+      "FPUEMU",
+      "MMUEMU",
+      "PICASSO96",
+      "CD32",
+      "CDTV",
+      "DRIVESOUND",
+      "WITH_LUA",
+      "BSDSOCKET",
+      "WITH_SLIRP",
+      "AHI",
+      "AHI_v2",
+      "AVIOUTPUT",
+      "RETROPLATFORM",
+      "WITH_SPECIALMONITORS",
+      "WITH_BEAMRACER",
+      "SAHF_SETO_PROFITABLE",
+      "WITH_SOFTFLOAT",
+      "MSVC_LONG_DOUBLE",
+      "USE_LONG_DOUBLE",
+      "TOD_HACK"
+    ],
+    "runtime_constraints": "cpu_model=68000, cpu_cycle_exact=cpu_memory_cycle_exact=blitter_cycle_exact=true; cachesize=0; cpu_thread=false; keyboard_mode=0; dongle=0; tod_hack=false; input_autoswitchleftright=false; floppy_read_only=true; semilla/epocaRTC/PAL-NTSC explicitos. Deshabilitar host pacing y arranque Denise requiere parches, no solo prefs.",
+    "state_policy": "Retener inicialmente savestate.cpp por globals/helpers compartidos; aislar persistencia, rewind y formato legado del host. No exponer estados nativos hasta T15 ni prometer formato WinUAE. Waterbox captura memoria causal.",
+    "excluded_units": {
+      "ersatz.cpp": "Firmware del usuario obligatorio; quitar fallback AROS de memory.cpp y ruta Ersatz, error de carga explicito",
+      "kbmcu/keyboard_mcu_6500_1.cpp": "keyboard_mode=0 upstream. Guardar init/reset/free y llamadas CIA para todos los modelos MCU; rechazar modos >0. devices hoy los inicializa incondicionalmente.",
+      "kbmcu/keyboard_mcu_6805.cpp": "Misma exclusion MCU; no crear stubs que inicialicen con exito",
+      "kbmcu/keyboard_mcu_d8039hlc.cpp": "Misma exclusion MCU; conservar ruta serial de teclado modo0 y sus tiempos",
+      "inputrecord.cpp": "Replay legacy excluido: guardar inprec_* y flags input_record/input_play en inputdevice/disk/savestate/custom, no basta mantener flags runtime a cero. Replay PUAE6 se valida por bridge/estado, sin stubs de grabacion.",
+      "calc.cpp": "Legacy config formula evaluator; its only selected consumer cfgfile.calcformula is excluded in P6 by0042. No remaining references to its28 combined calc/ini API names across33 selected preprocessed units; retained in audit_sources. T06b2bw, tests.codegen.test_native_cmake.",
+      "ini.cpp": "Host INI file parser/exporter used by cfgfile hardfile geometry, outside FILESYS/P6. No remaining selected callers after0042; preserved pristine/audit_sources for future deterministic HDF backend. T06b2bw, tests.codegen.test_native_cmake."
+    },
+    "generated_directory": "build/generated",
+    "upstream_directory": "build/upstream",
+    "generated_textual_inputs": [
+      "cputbl.h",
+      "blit.h",
+      "blitfunc.h",
+      "linetoscr_common.cpp",
+      "linetoscr_ocs_ecs.cpp",
+      "linetoscr_ocs_ecs_genlock.cpp",
+      "linetoscr_ocs_ecs_ntsc.cpp",
+      "linetoscr_ocs_ecs_ntsc_genlock.cpp",
+      "linetoscr_aga_fm0.cpp",
+      "linetoscr_aga_fm1.cpp",
+      "linetoscr_aga_fm2.cpp",
+      "linetoscr_aga_fm0_genlock.cpp",
+      "linetoscr_aga_fm1_genlock.cpp",
+      "linetoscr_aga_fm2_genlock.cpp",
+      "linetoscr_ecs_shres.cpp",
+      "linetoscr_ecs_fast.cpp",
+      "linetoscr_aga_fast.cpp",
+      "linetoscr_ecs_genlock_fast.cpp",
+      "linetoscr_aga_genlock_fast.cpp"
+    ],
+    "include_directories": [
+      "build/generated",
+      "build/upstream/include",
+      "build/upstream"
+    ],
+    "audio_math": "Integer SoftFloat and FPSP for Paula softfloat_tan only, local status precision80/round_to_zero as initialized fpp_native. No FPUEMU/WITH_SOFTFLOAT or fpp_native backend. Headers/notices tracked in licenses.json; full filter/scheduler proof remains open."
+  },
+  "generators": [
+    {
+      "name": "gengenblitter",
+      "inputs": [
+        "gengenblitter.cpp"
+      ],
+      "outputs": [
+        "blitops.cpp"
+      ],
+      "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"
+    },
+    {
+      "name": "build68k",
+      "inputs": [
+        "build68k.cpp",
+        "table68k"
+      ],
+      "outputs": [
+        "cpudefs.cpp"
+      ],
+      "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"
+    },
+    {
+      "name": "gencpu",
+      "inputs": [
+        "gencpu.cpp",
+        "readcpu.cpp",
+        "cpudefs.cpp"
+      ],
+      "outputs": [
+        "cputbl.h",
+        "cpustbl.cpp",
+        "cpuemu_0.cpp",
+        "cpuemu_11.cpp",
+        "cpuemu_13.cpp",
+        "cpuemu_20.cpp",
+        "cpuemu_21.cpp",
+        "cpuemu_22.cpp",
+        "cpuemu_23.cpp",
+        "cpuemu_24.cpp",
+        "cpuemu_31.cpp",
+        "cpuemu_32.cpp",
+        "cpuemu_33.cpp",
+        "cpuemu_34.cpp",
+        "cpuemu_35.cpp",
+        "cpuemu_40.cpp",
+        "cpuemu_50.cpp"
+      ],
+      "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"
+    },
+    {
+      "name": "genblitter",
+      "inputs": [
+        "genblitter.cpp",
+        "blitops.cpp"
+      ],
+      "outputs": [
+        "blit.h",
+        "blitfunc.cpp",
+        "blitfunc.h",
+        "blittable.cpp"
+      ],
+      "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"
+    },
+    {
+      "name": "genlinetoscr",
+      "inputs": [
+        "genlinetoscr.cpp"
+      ],
+      "outputs": [
+        "linetoscr_common.cpp",
+        "linetoscr_ocs_ecs.cpp",
+        "linetoscr_ocs_ecs_genlock.cpp",
+        "linetoscr_ocs_ecs_ntsc.cpp",
+        "linetoscr_ocs_ecs_ntsc_genlock.cpp",
+        "linetoscr_aga_fm0.cpp",
+        "linetoscr_aga_fm1.cpp",
+        "linetoscr_aga_fm2.cpp",
+        "linetoscr_aga_fm0_genlock.cpp",
+        "linetoscr_aga_fm1_genlock.cpp",
+        "linetoscr_aga_fm2_genlock.cpp",
+        "linetoscr_ecs_shres.cpp",
+        "linetoscr_ecs_fast.cpp",
+        "linetoscr_aga_fast.cpp",
+        "linetoscr_ecs_genlock_fast.cpp",
+        "linetoscr_aga_genlock_fast.cpp"
+      ],
+      "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"
+    }
+  ],
+  "exclusions": {
+    "od-win32": "UI, tipos y servicios Windows excluidos. Unica excepcion auditada: machdep/m68k.h y m68k.cpp, logica CCR pura reutilizada intacta (portable_reuse); no autoriza otros archivos.",
+    "od-unix": "Ausente en 6030; revision posterior solo auditada, no input de build",
+    "libretro-core.c": "Referencia de frontend antiguo; reutilizar semantica de frame mediante bridge neutral",
+    "capsimg": "IPF fuera de M1; licencia y alternativa MAME pendientes de revision propia",
+    "genp2c/gencomp": "Sin invocacion genp2c hallada en proyectos actuales; gencomp es JIT excluido. No agregar por glob.",
+    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "Fuera de A500 M1; no enlazar por conveniencia",
+    "red/hostfs/dispositivos fisicos/plugins/archives": "Sin backend ni contrato determinista M1; rechazo explicito"
+  },
+  "unresolved": [
+    "T06: implementar contratos host-surface, guards y lifecycle; seleccion no enlaza pristine",
+    "T06: headers sysconfig/sysdeps, ARM64 __aarch64__, TCHAR y LLP64/LP64",
+    "T06: reconciliar seleccion con depfiles y enlace real; este inventario no lo prueba",
+    "T06c: profile link proof remains required for narrowed newcpu dispatch. T06b2s compiles the whole CPU without MMU/FPU backend imports and tests SR/reset with observed boundaries; other units and full machine linkage remain open. Public config validation before CPU entry remains mandatory."
+  ],
+  "portable_reuse": {
+    "od-win32/machdep/m68k.cpp": {
+      "reason": "Pure C/C++ cctrue implementation; no Windows services, assembly or runtime host calls. Compile intact as one selected unit. Narrow exception to od-win32 backend exclusion.",
+      "header": "od-win32/machdep/m68k.h",
+      "header_sha256": "51abf03b7904f191f2ac78d254600a27b0b162ea9e4a97a72223e2623c075b09",
+      "source_sha256": "9987eeb533cc6f08a902eeaf3376075de5c38cc8158aa417e93001b7a53a1811",
+      "profile": "Default FLAGBIT layout; SAHF_SETO_PROFITABLE rejected. Preserve upstream32-bit fields on ARM64 and64-bit fields on x86_64; states are not portable between builds.",
+      "test": "tests.host.test_m68k_flags; 32 CCR states x16 conditions, setters/preservation/carry, whole-object imports and depfiles."
+    }
+  }
+}

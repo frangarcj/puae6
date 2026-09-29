@@ -1,0 +1,170 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -1207,13 +1207,17 @@
+ 
+ static void update_mirrors(void)
+ {
+-	bool aga_mode_new = (currprefs.chipset_mask & CSMASK_AGA) != 0;
++	bool aga_mode_new = false;
++#ifdef AGA
++	aga_mode_new = (currprefs.chipset_mask & CSMASK_AGA) != 0;
+ 	if (aga_mode_new && !aga_mode) {
+ 		memcpy(denise_colors.color_regs_aga, saved_color_regs_aga, sizeof(saved_color_regs_aga));
+ 		memcpy(agnus_colors.color_regs_aga, saved_color_regs_aga, sizeof(saved_color_regs_aga));
+ 	} else if (!aga_mode_new && aga_mode) {
+ 		memcpy(saved_color_regs_aga, agnus_colors.color_regs_aga, sizeof(saved_color_regs_aga));
+ 	}
++
++#endif
+ 	aga_mode = aga_mode_new;
+ 	ecs_agnus = (currprefs.chipset_mask & CSMASK_ECS_AGNUS) != 0;
+ 	ecs_denise = (currprefs.chipset_mask & CSMASK_ECS_DENISE) != 0;
+@@ -1233,11 +1237,13 @@
+ 	} else {
+ 		sprite_sprctlmask = 0x01;
+ 	}
++#ifdef AGA
+ 	if (aga_mode) {
+ 		for (int i = 0; i < 256; i++) {
+ 			agnus_colors.acolors[i] = denise_colors.acolors[i] = getxcolor(denise_colors.color_regs_aga[i]);
+ 		}
+ 	}
++#endif
+ 	ddf_mask = ecs_agnus ? 0xfe : 0xfc;
+ 	set_chipset_mode(true);
+ 	struct vidbuf_description *vidinfo = &adisplays[0].gfxvidinfo;
+@@ -4327,8 +4333,11 @@
+ 	return cval;
+ }
+ 
++#endif
++
+ static void COLOR_WRITE(uae_u16 v, int num)
+ {
++#ifdef AGA
+ 	if (aga_mode) {
+ 		if (bplcon2 & 0x0100) {
+ 			return; // RDRAM=1
+@@ -4357,7 +4366,9 @@
+ 		agnus_colors.color_regs_aga[colreg] = cval;
+ 		agnus_colors.acolors[colreg] = getxcolor(cval);
+ 
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		if (!ecs_denise) {
+ 			v &= 0xfff;
+@@ -4365,14 +4376,14 @@
+ 		agnus_colors.color_regs_ecs[num] = v & 0xfff;
+ 		agnus_colors.color_regs_genlock[num] = v >> 15;
+ 		agnus_colors.acolors[num] = getxcolor(v);
++#ifdef AGA
+ 		agnus_colors.color_regs_aga[num] = agnus_colors.acolors[num];
++#endif
+ 
+ 	}
+ 
+ 	color_table_changed = true;
+ }
+-
+-#endif
+ 
+ bool get_custom_color_reg(int colreg, uae_u8 *r, uae_u8 *g, uae_u8 *b)
+ {
+@@ -4384,11 +4395,14 @@
+ 	if (colreg >= 256) {
+ 		return false;
+ 	}
++#ifdef AGA
+ 	if (aga_mode) {
+ 		*r = (agnus_colors.color_regs_aga[colreg] >> 16) & 0xFF;
+ 		*g = (agnus_colors.color_regs_aga[colreg] >> 8) & 0xFF;
+ 		*b = agnus_colors.color_regs_aga[colreg] & 0xFF;
+-	} else {
++	} else
++#endif
++	{
+ 		*r = (agnus_colors.color_regs_ecs[colreg] >> 8) & 15;
+ 		*r |= (*r) << 4;
+ 		*g = (agnus_colors.color_regs_ecs[colreg] >> 4) & 15;
+@@ -4598,12 +4612,15 @@
+ 	if (spr[0].dblscan) {
+ 		sprite_0_height /= 2;
+ 	}
++#ifdef AGA
+ 	if (aga_mode) {
+ 		int sbasecol = ((bplcon4 >> 4) & 15) << 4;
+ 		sprite_0_colors[1] = agnus_colors.color_regs_aga[sbasecol + 1] & 0xffffff;
+ 		sprite_0_colors[2] = agnus_colors.color_regs_aga[sbasecol + 2] & 0xffffff;
+ 		sprite_0_colors[3] = agnus_colors.color_regs_aga[sbasecol + 3] & 0xffffff;
+-	} else {
++	} else
++#endif
++	{
+ 		sprite_0_colors[1] = xcolors[agnus_colors.color_regs_ecs[17] & 0xfff];
+ 		sprite_0_colors[2] = xcolors[agnus_colors.color_regs_ecs[18] & 0xfff];
+ 		sprite_0_colors[3] = xcolors[agnus_colors.color_regs_ecs[19] & 0xfff];
+@@ -6889,8 +6906,10 @@
+ 					c |= uaerand();
+ 				}
+ 				c &= 0xffffff;
++#ifdef AGA
+ 				denise_colors.color_regs_aga[i] = c;
+ 				agnus_colors.color_regs_aga[i] = c;
++#endif
+ 			}
+ 			if (!aga_mode) {
+ 				for (int i = 0; i < 32; i++) {
+@@ -10822,7 +10841,7 @@
+ 	}
+ 	start_draw_denise();
+ 	bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
+-	l->color0 = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
++	l->color0 = color_reg_get(&agnus_colors, 0);
+ 	l->brdblank = brdblank;
+ 	int dvp = calculate_linetype(ldv);
+ 	draw_denise_border_line_fast_queue(dvp, false, nextline_how, l);
+@@ -10876,9 +10895,12 @@
+ 		uae_u8 *dpt = l->linecolorstate;
+ 		memcpy(dpt, agnus_colors.acolors, colors * sizeof(uae_u32));
+ 		dpt += 256 * sizeof(uae_u32);
++#ifdef AGA
+ 		if (aga_mode) {
+ 			memcpy(dpt, agnus_colors.color_regs_aga, colors * sizeof(uae_u32));
+-		} else {
++		} else
++#endif
++		{
+ 			memcpy(dpt, agnus_colors.color_regs_ecs, colors * sizeof(uae_u16));
+ 		}
+ 		color_table_changed = false;
+@@ -10886,7 +10908,7 @@
+ 		l->linecolorstate = color_tables + color_table_index * 512 * sizeof(uae_u32);
+ 	}
+ 
+-	l->color0 = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
++	l->color0 = color_reg_get(&agnus_colors, 0);
+ 	l->bplcon1 = bplcon1 & bc1mask;
+ 	l->fetchmode_size = fetchmode_size;
+ 	l->fetchstart_mask = fetchstart_mask;
+@@ -10950,7 +10972,7 @@
+ 	l->diwstrt = diwstrt;
+ 	l->diwstop = diwstop;
+ 	bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
+-	l->color0 = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
++	l->color0 = color_reg_get(&agnus_colors, 0);
+ 	l->brdblank = brdblank;
+ 
+ 	l->bplcon3 = bplcon3;
+@@ -10990,7 +11012,7 @@
+ 		} else if (type == LINETYPE_BORDER) {
+ 			if (1) {
+ 				bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
+-				uae_u32 c = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
++				uae_u32 c = color_reg_get(&agnus_colors, 0);
+ 				if (!always && c == l->color0 && brdblank == l->brdblank) {
+ 					ret = true;
+ 				} else if (always || currprefs.cs_optimizations == DISPLAY_OPTIMIZATIONS_FULL) {

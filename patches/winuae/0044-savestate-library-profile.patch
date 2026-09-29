@@ -1,0 +1,47 @@
+diff --git a/savestate.cpp b/savestate.cpp
+--- a/savestate.cpp
++++ b/savestate.cpp
+@@ -971,7 +971,11 @@
+ 	dst = header;
+ 	save_u32 (0);
+ 	save_string (_T("UAE"));
++#ifdef P6_PORTABLE
++	snprintf(tmp, sizeof(tmp), "%d.%d.%d", UAEMAJOR, UAEMINOR, UAESUBREV);
++#else
+ 	_stprintf (tmp, _T("%d.%d.%d"), UAEMAJOR, UAEMINOR, UAESUBREV);
++#endif
+ 	save_string (tmp);
+ 	save_string (description);
+ 	save_chunk (f, header, dst-header, _T("ASF "), 0);
+@@ -1220,6 +1224,7 @@
+ 		}
+ 	}
+ 
++#ifndef P6_PORTABLE
+ 	for (i = 0; i < MAX_TOTAL_SCSI_DEVICES; i++) {
+ 		dst = save_cd (i, &len);
+ 		if (dst) {
+@@ -1227,6 +1232,7 @@
+ 			save_chunk (f, dst, len, name, 0);
+ 		}
+ 	}
++#endif
+ 
+ #ifdef DEBUGGER
+ 	dst = save_debug_memwatch (&len, NULL);
+@@ -1319,6 +1325,7 @@
+ 	return v;
+ }
+ 
++#ifndef P6_PORTABLE
+ void savestate_quick(int slot, int save)
+ {
+ 	if (path_statefile[0]) {
+@@ -1360,6 +1367,7 @@
+ 		write_log (_T("staterestore starting '%s'\n"), savestate_fname);
+ 	}
+ }
++#endif
+ 
+ bool savestate_check(void)
+ {

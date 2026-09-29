@@ -1,0 +1,30 @@
+diff --git a/include/sysdeps.h b/include/sysdeps.h
+--- a/include/sysdeps.h
++++ b/include/sysdeps.h
+@@ -522,7 +522,9 @@
+  */
+ #define CPU_EMU_SIZE 0
+ 
+-#ifndef __cplusplus
++#ifdef P6_PORTABLE
++#include <alloc.h>
++#elif !defined(__cplusplus)
+ 
+ #define xmalloc(T, N) malloc(sizeof (T) * (N))
+ #define xcalloc(T, N) calloc(sizeof (T), N)
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -2188,7 +2188,12 @@
+ {
+ 	ab->startmask = ab->start;
+ 	ab->startaccessmask = ab->start & ab->mask;
++#ifdef P6_PORTABLE
++	/* reserved_size is uae_u32; widen before adding the four guard bytes. */
++	ab->baseaddr = xcalloc (uae_u8, (size_t)ab->reserved_size + 4);
++#else
+ 	ab->baseaddr = xcalloc (uae_u8, ab->reserved_size + 4);
++#endif
+ 	ab->allocated_size =  ab->baseaddr != NULL ? ab->reserved_size : 0;
+ 	ab->baseaddr_direct_r = NULL;
+ 	ab->baseaddr_direct_w = NULL;

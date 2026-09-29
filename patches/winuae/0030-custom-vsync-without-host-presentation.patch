@@ -1,0 +1,214 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -857,6 +857,7 @@
+ 
+ void reset_frame_rate_hack(void)
+ {
++#ifndef P6_PORTABLE
+ 	if (currprefs.m68k_speed >= 0) {
+ 		return;
+ 	}
+@@ -865,6 +866,7 @@
+ 	events_reset_syncline();
+ 	vsyncmintime = read_processor_time() + vsynctimebase;
+ 	write_log(_T("Resetting frame rate hack\n"));
++#endif
+ }
+ 
+ static void setclr(uae_u16 *p, uae_u16 val)
+@@ -4695,6 +4697,7 @@
+ 	return lineno;
+ }
+ 
++#ifndef P6_PORTABLE
+ static frame_time_t rpt_vsync(int adjust)
+ {
+ 	frame_time_t curr_time = read_processor_time();
+@@ -4705,6 +4708,7 @@
+ 	}
+ 	return v;
+ }
++#endif
+ 
+ static void rtg_vsync (void)
+ {
+@@ -4728,6 +4732,7 @@
+ }
+ 
+ 
++#ifndef P6_PORTABLE
+ static void maybe_process_pull_audio(void)
+ {
+ 	audio_finish_pull();
+@@ -4747,6 +4752,8 @@
+ 	}
+ 	return v;
+ }
++
++#endif
+ 
+ // moving average algorithm
+ #define MAVG_MAX_SIZE 128
+@@ -4786,6 +4793,7 @@
+ #ifdef DEBUGGER
+ extern int log_vsync, debug_vsync_min_delay, debug_vsync_forced_delay;
+ #endif
++#ifndef P6_PORTABLE
+ static bool framewait(void)
+ {
+ 	struct amigadisplay *ad = &adisplays[0];
+@@ -4990,6 +4998,7 @@
+ 	}
+ 	return status != 0;
+ }
++#endif
+ 
+ static void reset_cpu_idle(void)
+ {
+@@ -5008,10 +5017,13 @@
+ 	mavg_clear(&fps_mavg);
+ 	mavg_clear(&idle_mavg);
+ 	bogusframe = 2;
++#ifndef P6_PORTABLE
+ 	lastframetime = read_processor_time();
++#endif
+ 	idletime = 0;
+ }
+ 
++#ifndef P6_PORTABLE
+ static void fpscounter(bool frameok)
+ {
+ 	frame_time_t now, last;
+@@ -5060,6 +5072,7 @@
+ 		}
+ 	}
+ }
++#endif
+ 
+ // vsync functions that are not hardware timing related
+ // called when vsync starts which is not necessarily last line
+@@ -5110,15 +5123,30 @@
+ #endif
+ 
+ 	if (!vsync_rendered) {
++#ifdef P6_PORTABLE
++		// Always finish the buffer: host low-latency VSync cannot select drawing.
++		vsync_handle_redraw(lof_store, bplcon0, bplcon3, true, initial_frame);
++#else
+ 		frame_time_t start, end;
+ 		start = read_processor_time();
+ 		vsync_handle_redraw(lof_store, bplcon0, bplcon3, isvsync_chipset() >= 0, initial_frame);
++#endif
+ 		initial_frame = false;
+ 		vsync_rendered = true;
++#ifndef P6_PORTABLE
+ 		end = read_processor_time();
+ 		frameskiptime += end - start;
+-	}
+-
++#endif
++	}
++
++#ifdef P6_PORTABLE
++	// Denise has completed buffer work; retire one clear request per complete
++	// display frame, with the same interlace cadence as crender_screen.
++	if (display_reset > 0 && !(currprefs.gfx_vresolution && interlace_seen > 0
++		&& currprefs.gfx_iscanlines == 0 && !lof_display)) {
++		display_reset--;
++	}
++#else
+ 	bool frameok = framewait();
+ 	
+ 	if (!ad->picasso_on) {
+@@ -5150,13 +5178,18 @@
+ 		config_check_vsync();
+ 	}
+ 
++#endif
++
+ 	vsync_rendered = false;
+ 	frame_shown = false;
+ 	frame_rendered = false;
+ 
++#ifndef P6_PORTABLE
+ 	if (vblank_hz_mult > 0) {
+ 		vblank_hz_state ^= 1;
+-	} else {
++	} else
++#endif
++	{
+ 		vblank_hz_state = 1;
+ 	}
+ 
+@@ -5168,7 +5201,9 @@
+ static void vsync_display_render(void)
+ {
+ 	if (!vsync_display_rendered) {
++#ifndef P6_PORTABLE
+ 		vsyncmintimepre = read_processor_time();
++#endif
+ 
+ 		if (!custom_disabled) {
+ 			draw_denise_vsync_queue(display_redraw);
+@@ -5404,10 +5439,12 @@
+ static void vsync_handler_post(void)
+ {
+ 	int monid = 0;
++#ifndef P6_PORTABLE
+ 	static frame_time_t prevtime;
+ 
+ 	//write_log (_T("%d %d %d\n"), vsynctimebase, read_processor_time () - vsyncmintime, read_processor_time () - prevtime);
+ 	prevtime = read_processor_time();
++#endif
+ 
+ 	check_nocustom();
+ 
+@@ -5549,6 +5586,7 @@
+ 	lightpen_triggered = 1;
+ }
+ 
++#ifndef P6_PORTABLE
+ static bool do_render_slice(int mode, int slicecnt, int lastline)
+ {
+ 	draw_denise_line_queue_flush();
+@@ -5562,6 +5600,8 @@
+ 	inputdevice_hsync(true);
+ 	return true;
+ }
++
++#endif
+ 
+ static void reset_autoscale(void)
+ {
+@@ -5667,6 +5707,7 @@
+ #endif
+ }
+ 
++#ifndef P6_PORTABLE
+ // low latency vsync
+ 
+ #define LLV_DEBUG 0
+@@ -6329,9 +6370,14 @@
+ 	return input_read_done;
+ }
+ 
++#endif
++
+ // called when extra CPU wait is done
+ void vsync_event_done(void)
+ {
++#ifdef P6_PORTABLE
++	events_reset_syncline();
++#else
+ 	if (!isvsync_chipset()) {
+ 		events_reset_syncline();
+ 		return;
+@@ -6350,6 +6396,7 @@
+ 		else
+ 			linesync_beam_multi_single();
+ 	}
++#endif
+ #endif
+ }
+ 

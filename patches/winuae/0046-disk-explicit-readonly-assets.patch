@@ -1,0 +1,56 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -959,6 +959,44 @@
+ 
+ int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num, TCHAR *outfname, int leave_open, bool *wrprot, uae_u32 *crc32, struct zfile **zf)
+ {
++#ifdef P6_PORTABLE
++	// M1 takes explicit immutable ADF assets, never a host/configuration path.
++	(void)p;
++	(void)num;
++	if (zf) *zf = NULL;
++	if (crc32) *crc32 = 0;
++	if (wrprot) *wrprot = true;
++	if (outfname) outfname[0] = 0;
++	struct zfile *f = zfile_fopen(fname_in, _T("rb"), 0);
++	if (!f)
++		return 0;
++	if (zfile_gettype(f) != ZFILE_DISKIMAGE) {
++		zfile_fclose(f);
++		errno = ENOTSUP;
++		return 0;
++	}
++	// The legacy caller supplies a distinct MAX_DPATH output buffer.
++	const TCHAR *name = zfile_getname(f);
++	if (_tcslen(name) >= MAX_DPATH) {
++		zfile_fclose(f);
++		errno = ENAMETOOLONG;
++		return 0;
++	}
++	uae_u32 crc = crc32 ? zfile_crc32(f) : 0;
++	int error = zfile_ferror(f);
++	if (error) {
++		zfile_fclose(f);
++		errno = error;
++		return 0;
++	}
++	if (outfname) _tcscpy(outfname, name);
++	if (crc32) *crc32 = crc;
++	if (zf && leave_open)
++		*zf = f;
++	else
++		zfile_fclose(f);
++	return 1;
++#else
+ 	TCHAR outname[MAX_DPATH];
+ 
+ 	if (zf)
+@@ -1012,6 +1050,7 @@
+ 			return 0;
+ 		}
+ 	}
++#endif
+ }
+ 
+ static void updatemfmpos (drive *drv)

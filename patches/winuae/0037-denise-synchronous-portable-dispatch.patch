@@ -1,0 +1,317 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -18,7 +18,9 @@
+ #include <assert.h>
+ 
+ #include "options.h"
++#ifndef P6_PORTABLE
+ #include "threaddep/thread.h"
++#endif
+ #include "uae.h"
+ #include "memory.h"
+ #include "custom.h"
+@@ -39,7 +41,11 @@
+ #include "devices.h"
+ #include "gfxboard.h"
+ 
++#ifdef P6_PORTABLE
++#define ENABLE_MULTITHREADED_DENISE 0
++#else
+ #define ENABLE_MULTITHREADED_DENISE 1
++#endif
+ 
+ #define FMODE64_HACK 0
+ 
+@@ -80,7 +86,9 @@
+ static int max_drawn_amiga_line;
+ uae_u8 *row_map_color_burst_buffer;
+ 
++#if ENABLE_MULTITHREADED_DENISE
+ static uae_sem_t write_sem, read_sem;
++#endif
+ 
+ struct denise_rga_queue
+ {
+@@ -107,9 +115,11 @@
+ 	uae_u16 reg, val;
+ };
+ 
++#if ENABLE_MULTITHREADED_DENISE
+ static volatile uae_atomic rga_queue_read, rga_queue_write;
+ static volatile int denise_thread_state;
+ static struct denise_rga_queue rga_queue[DENISE_RGA_SLOT_CHUNKS];
++#endif
+ static struct denise_rga_queue temp_line;
+ static struct denise_rga_queue *this_line;
+ static volatile bool thread_debug_lock;
+@@ -149,6 +159,7 @@
+ 	}
+ }
+ 
++#if ENABLE_MULTITHREADED_DENISE
+ static void read_denise_line_queue(void)
+ {
+ 	bool nolock = false;
+@@ -232,6 +243,8 @@
+ 	denise_thread_state = -1;
+ }
+ 
++#endif
++
+ static bool denise_locked;
+ 
+ static bool denise_lock(void)
+@@ -389,7 +402,9 @@
+ static bool ecs_genlock_features_colorkey;
+ static bool aga_genlock_features_zdclken;
+ 
++#if ENABLE_MULTITHREADED_DENISE
+ uae_sem_t gui_sem;
++#endif
+ 
+ static volatile int rga_denise_fast_read, rga_denise_fast_write;
+ #define DENISE_RGA_SLOT_FAST_TOTAL 1024
+@@ -2411,6 +2426,7 @@
+ 
+ void drawing_free(void)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (denise_thread_state == 1) {
+ 		denise_thread_state = 2;
+ 		uae_sem_post(&write_sem);
+@@ -2422,6 +2438,7 @@
+ 		uae_sem_destroy(&read_sem);
+ 		uae_sem_destroy(&write_sem);
+ 	}
++#endif
+ }
+ 
+ void drawing_init(void)
+@@ -2430,12 +2447,14 @@
+ 	struct amigadisplay *ad = &adisplays[monid];
+ 	struct vidbuf_description *vidinfo = &ad->gfxvidinfo;
+ 
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (!denise_thread_state) {
+ 		uae_sem_init(&read_sem, 0, 1);
+ 		uae_sem_init(&write_sem, 0, 1);
+ 		denise_thread_state = 1;
+ 		uae_start_thread(_T("denise"), denise_thread, NULL, NULL);
+ 	}
++#endif
+ 
+ 	refresh_indicator_init();
+ 
+@@ -2443,7 +2462,9 @@
+ 
+ 	gen_direct_drawing_table();
+ 
++#if ENABLE_MULTITHREADED_DENISE
+ 	uae_sem_init(&gui_sem, 0, 1);
++#endif
+ #ifdef PICASSO96
+ 	if (!isrestore()) {
+ 		ad->picasso_on = 0;
+@@ -3501,7 +3522,9 @@
+ 	denise_strlong = false;
+ 	denise_strlong_fast = false;
+ 	rga_denise_fast_read = rga_denise_fast_write = 0;
++#if ENABLE_MULTITHREADED_DENISE
+ 	rga_queue_write = rga_queue_read = 0;
++#endif
+ 	denise_lol_shift_enable = false;
+ 	denise_lol_shift_prev = 0;
+ 	if (hard) {
+@@ -7617,6 +7640,7 @@
+ 	this_line->linear_vpos = linear_vpos;
+ }
+ 
++#if ENABLE_MULTITHREADED_DENISE
+ static bool waitqueue_nolock(void)
+ {
+ 	while (((rga_queue_write + 1) & DENISE_RGA_SLOT_CHUNKS_MASK) == (rga_queue_read & DENISE_RGA_SLOT_CHUNKS_MASK)) {
+@@ -7648,8 +7672,11 @@
+ 	return MULTITHREADED_DENISE && denise_thread_state == 1;
+ }
+ 
++#endif
++
+ void draw_denise_border_line_fast_queue(int gfx_ypos, bool blank, enum nln_how how, struct linestate *ls)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 		
+ 		if (!waitqueue(2)) {
+@@ -7667,7 +7694,9 @@
+ 
+ 		addtowritequeue();
+ 
+-	} else {
++	} else
++#endif
++	{
+ 	
+ 		updatelinedata();
+ 		draw_denise_border_line_fast(gfx_ypos, blank, how, ls);
+@@ -7677,6 +7706,7 @@
+ 
+ void draw_denise_bitplane_line_fast_queue(int gfx_ypos, enum nln_how how, struct linestate *ls)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 		
+ 		if (!waitqueue(1)) {
+@@ -7693,7 +7723,9 @@
+ 
+ 		addtowritequeue();
+ 
+-	} else {
++	} else
++#endif
++	{
+ 	
+ 		updatelinedata();
+ 		draw_denise_bitplane_line_fast(gfx_ypos, how, ls);
+@@ -7703,6 +7735,7 @@
+ 
+ void quick_denise_rga_queue(uae_u32 linecnt, int startpos, int endpos)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 
+ 		if (!waitqueue(3)) {
+@@ -7719,7 +7752,9 @@
+ 
+ 		addtowritequeue();
+ 	
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		updatelinedata();
+ 		quick_denise_rga(linecnt, startpos, endpos);
+@@ -7729,6 +7764,7 @@
+ 
+ void denise_handle_quick_strobe_queue(uae_u16 strobe, int strobe_pos, int endpos)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 
+ 		if (!waitqueue_nolock()) {
+@@ -7745,7 +7781,9 @@
+ 
+ 		addtowritequeue();
+ 
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		updatelinedata();
+ 		denise_handle_quick_strobe(strobe, strobe_pos, endpos);
+@@ -7756,6 +7794,7 @@
+ 
+ void draw_denise_line_queue(int gfx_ypos, nln_how how, uae_u32 linecnt, int startpos, int endpos, int startcycle, int endcycle, int skip, int skip2, int dtotal, int calib_start, int calib_len, bool lof, bool lol, int hdelay, bool blanked, bool finalseg, struct linestate *ls)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 
+ 		if (!waitqueue(0)) {
+@@ -7787,7 +7826,9 @@
+ 
+ 		addtowritequeue();
+ 
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		updatelinedata();
+ 		draw_denise_line(gfx_ypos, how, linecnt, startpos, startcycle, endcycle, skip, skip2, dtotal, calib_start, calib_len, lol, hdelay, blanked, finalseg, ls);
+@@ -7800,6 +7841,7 @@
+ 
+ void draw_denise_vsync_queue(int erase)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 
+ 		if (!waitqueue_nolock()) {
+@@ -7813,7 +7855,9 @@
+ 
+ 		addtowritequeue();
+ 
+-	} else {
++	} else
++#endif
++	{
+ 	
+ 		updatelinedata();
+ 		draw_denise_vsync(erase);
+@@ -7823,6 +7867,7 @@
+ 
+ void denise_update_reg_queue(uae_u16 reg, uae_u16 v, uae_u32 linecnt)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 
+ 		if (!waitqueue_nolock()) {
+@@ -7838,7 +7883,9 @@
+ 
+ 		addtowritequeue();
+ 
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		updatelinedata();
+ 		denise_update_reg(reg, v, linecnt);
+@@ -7848,6 +7895,7 @@
+ 
+ void denise_store_restore_registers_queue(bool store, uae_u32 linecnt)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 
+ 		if (!waitqueue(7)) {
+@@ -7862,7 +7910,9 @@
+ 
+ 		addtowritequeue();
+ 
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		updatelinedata();
+ 		if (store) {
+@@ -7875,6 +7925,7 @@
+ 
+ void draw_denise_line_queue_flush(void)
+ {
++#if ENABLE_MULTITHREADED_DENISE
+ 	if (multithread_denise_active()) {
+ 
+ 		for (;;) {
+@@ -7885,4 +7936,5 @@
+ 		}
+ 
+ 	}
+-}
++#endif
++}
+diff --git a/include/statusline.h b/include/statusline.h
+--- a/include/statusline.h
++++ b/include/statusline.h
+@@ -42,7 +42,9 @@
+ #define STATUSTYPE_CD 4
+ #define STATUSTYPE_OTHER 5
+ 
++#ifndef P6_PORTABLE
+ bool createstatusline(HWND, int);
++#endif
+ void deletestatusline(int);
+ void statusline_render(int, uae_u8 *buf, int pitch, int width, int height, uae_u32 *rc, uae_u32 *gc, uae_u32 *bc, uae_u32 *alpha);
+ void statusline_add_message(int statustype, const TCHAR *format, ...);

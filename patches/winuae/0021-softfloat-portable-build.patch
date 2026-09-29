@@ -1,0 +1,26 @@
+diff --git a/softfloat/softfloat.cpp b/softfloat/softfloat.cpp
+--- a/softfloat/softfloat.cpp
++++ b/softfloat/softfloat.cpp
+@@ -94,7 +94,8 @@
+ | division and square root approximations.  (Can be specialized to target if
+ | desired.)
+ *----------------------------------------------------------------------------*/
+-#include "softfloat-macros.h"
++/* PUAE6 derivative: use the case-exact upstream header on all hosts. */
++#include "SOFTFLOAT-MACROS.H"
+ 
+ /*----------------------------------------------------------------------------
+  | Variables for storing sign, exponent and significand of internal extended
+diff --git a/softfloat/softfloat-specialize.h b/softfloat/softfloat-specialize.h
+--- a/softfloat/softfloat-specialize.h
++++ b/softfloat/softfloat-specialize.h
+@@ -109,7 +109,8 @@
+ | should be simply `float_exception_flags |= flags;'.
+ *----------------------------------------------------------------------------*/
+ 
+-static inline void float_raise(uint8_t flags, float_status *status)
++/* PUAE6 derivative: match the external declaration in softfloat.h. */
++inline void float_raise(uint8_t flags, float_status *status)
+ {
+     status->float_exception_flags |= flags;
+ }

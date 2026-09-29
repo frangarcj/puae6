@@ -1,0 +1,1226 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+  "patches": [
+    {
+      "id": "0001-gengenblitter-host-includes",
+      "file": "patches/winuae/0001-gengenblitter-host-includes.patch",
+      "sha256": "ba827f104ef455b8e2b98091d7ada584bcbb2296a6ae02e887415405140d77cc",
+      "title": "Use libc for the standalone C minterm generator",
+      "reason": "Unused engine configuration headers prevent a standalone HOST build; preserve algorithm.",
+      "category": "build/portability",
+      "order": 1,
+      "symbols": [
+        "include resolution"
+      ],
+      "test": "GEN01; tests/codegen",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "gengenblitter.cpp",
+          "before_sha256": "06de815f8f488d1de7716ea99b1b80358b412efe68a79ad230c0b6e0cf2cb17d",
+          "after_sha256": "7b9c7063fec93f291b5f65bea0a78eca0cccd7be938d69353774dd462e41a209"
+        }
+      ]
+    },
+    {
+      "id": "0002-generated-includes",
+      "file": "patches/winuae/0002-generated-includes.patch",
+      "sha256": "60a3f8b9de612fa34ea6e786553298e4f47f20cefa7d945dfad2ff8d85099694",
+      "title": "Resolve generated includes through the build include path",
+      "reason": "Quoted includes prefer stale snapshot siblings over build/generated; the generated include directory must precede upstream.",
+      "category": "build/portability",
+      "order": 2,
+      "symbols": [
+        "include resolution"
+      ],
+      "test": "GEN01; tests/codegen",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "f66270d618b987d24fa44e83af2fb23276257077eb64286534b1b16dba6f28d3",
+          "after_sha256": "259067e59bd481ea44921dc3cbc84c0d71612b3a36e137204b12933b61aa903c"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "83eda9b8c0dd3f3b7237ed5b9707080d1552ff95adec019ec41201001177656d",
+          "after_sha256": "2141e15a211fce39428aecc689b8624473e7c9819ef5cae02f97f80300944359"
+        },
+        {
+          "path": "blitter.cpp",
+          "before_sha256": "036618c29a3eb9829f1c32245116f21b826fa95e19f946a714214f0259fe088f",
+          "after_sha256": "db6bfe0043b23b5c2fbe1e24750bfe0939e2f4895989b1b7727175c2cf98dd34"
+        }
+      ]
+    },
+    {
+      "id": "0003-portable-sysdeps",
+      "file": "patches/winuae/0003-portable-sysdeps.patch",
+      "sha256": "0b0ccb4d2a9c217f50d93c14e938d2c984a46184ed5dc31eb4eaff9f29acaec0",
+      "title": "Recognize compiler AArch64 and select the explicit portable host boundary",
+      "reason": "Clang/GCC AArch64 is not recognized by WinUAE 6030; portable profile must not inherit Win32 services or calling-convention macros.",
+      "category": "build/portability",
+      "order": 3,
+      "symbols": [
+        "CPU_arm",
+        "CPU_64_BIT",
+        "JITCALL",
+        "P6_PORTABLE"
+      ],
+      "test": "HOST01; tests.host.test_sysdeps",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "include/sysdeps.h",
+          "before_sha256": "deaf4bf79a62ddf4ffe17bfc3fdcae957fbc3b769cbb0599276562b4e5cbabee",
+          "after_sha256": "f9344e895e3582387a2891f3514267603ba7de94d502b4c2ecf2b0ce58141842"
+        }
+      ]
+    },
+    {
+      "id": "0004-portable-allocation",
+      "file": "patches/winuae/0004-portable-allocation.patch",
+      "sha256": "05b8856c6d5ae8d877fe2151dc9fd00fc1880fb364d19df45113dfd0f2e8a728",
+      "title": "Check portable allocation sizes before libc",
+      "reason": "Prevent wrapped array sizes and uae_u32 bank guard addition; retain libc ownership and the existing bank mapping.",
+      "category": "build/portability",
+      "order": 4,
+      "symbols": [
+        "xmalloc",
+        "xcalloc",
+        "xrealloc",
+        "xfree",
+        "mapped_malloc"
+      ],
+      "test": "HOST01; tests.host.test_alloc",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "include/sysdeps.h",
+          "before_sha256": "f9344e895e3582387a2891f3514267603ba7de94d502b4c2ecf2b0ce58141842",
+          "after_sha256": "67d5287b46c58f7701b4d089f9785e198c793c7c9ece926584943cbad1a5e722"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "ac190d990f6898c3ac70e241316d13f8f0e2605846a1cf3fd1550fcad8b2a421",
+          "after_sha256": "a1cb4f1bb9e78c6fea01cfa3279f1599a767584c231d396bf7d14db6b87ec43c"
+        }
+      ]
+    },
+    {
+      "id": "0005-portable-zfile-boundary",
+      "file": "patches/winuae/0005-portable-zfile-boundary.patch",
+      "sha256": "d85e9e37a65a0bb2f322cde269109b4e96a71d0b171b76ef23a76f3199c1d566",
+      "title": "Select the closed portable zfile backend and disable implicit format/history probing",
+      "reason": "zfile.cpp mixes host filesystem, archives and RAM streams. Portable profile retains the pinned API/layout and compiles only bounded guest I/O; legacy backend remains unchanged for other targets.",
+      "category": "build/portability",
+      "order": 5,
+      "symbols": [
+        "zfile_fopen",
+        "ZFD_NORMAL",
+        "ZFD_DISKHISTORY",
+        "P6_PORTABLE"
+      ],
+      "test": "HOST01; tests.host.test_zfile",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "zfile.cpp",
+          "before_sha256": "df3ef964bf07ba47a12038cb771b34d801524caa7b2579e9d2af2bc71143254c",
+          "after_sha256": "d2f6df1f3dbd8ee3f603e3f045ccf79967f88c3979cf9de53179eb3edb93a716"
+        },
+        {
+          "path": "include/zfile.h",
+          "before_sha256": "e67d7b8fd047452002d350c0e61b146fe59cd96298165e7bc573fe80edcbad9c",
+          "after_sha256": "a28286730a45dacb9467036942c252876356b07ac75ce5aadb6aa541b97f34be"
+        }
+      ]
+    },
+    {
+      "id": "0006-sha1-text-without-printf",
+      "file": "patches/winuae/0006-sha1-text-without-printf.patch",
+      "sha256": "489a328d4a2b196c40b87159d714910f1257d9833efefec31b9b554405c88c9f",
+      "title": "Format SHA1 hex bytes without TCHAR printf",
+      "reason": "Write exactly two uppercase hex digits per digest byte, retaining the final terminator; permits the full CRC/SHA unit in the portable profile without a variadic Windows alias. Algorithms unchanged.",
+      "category": "build/portability",
+      "order": 6,
+      "symbols": [
+        "get_sha1_txt"
+      ],
+      "test": "HOST01; tests.host.test_zfile",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "crc32.cpp",
+          "before_sha256": "13cd5256337f4781032759629e7cec4e0a46f376b9ba16e1350149e8f6c952d0",
+          "after_sha256": "846b4f7dbe297df8cdc6b07cb377f3d39437c7b2c0704862eb0935431aa3ffff"
+        }
+      ]
+    },
+    {
+      "id": "0007-events-without-host-pacing",
+      "file": "patches/winuae/0007-events-without-host-pacing.patch",
+      "sha256": "51461728f44f9f3a7657e347a6f0cd93d9e969a190be2bc34139a543c8b8ddd4",
+      "title": "Exclude host display and clock waits from portable event dispatch",
+      "reason": "Frontend pacing must not run CPU while chipset time is stopped. Retain original event tables, handlers, cycle carry and countdown; custom pacing and frame return remain separate gates.",
+      "category": "host hooks",
+      "order": 7,
+      "symbols": [
+        "event_check_vsync",
+        "do_cycles_slow",
+        "syncline_cnt"
+      ],
+      "test": "BUILD01/HOST01; tests.host.test_events; T07 frame gate remains pending",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "events.cpp",
+          "before_sha256": "f3ae95b46af50cfd6f95d5b4379632fc4accd103c14ea954e8fc77b34acb60d1",
+          "after_sha256": "fbe3eea8d01b1f0b703987fc68433f09d0ec9e7cc622b7a5b2c22f580b2166fd"
+        }
+      ]
+    },
+    {
+      "id": "0008-fpdata-without-fpu",
+      "file": "patches/winuae/0008-fpdata-without-fpu.patch",
+      "sha256": "4d368da3100e1bbe07ab6da13e5a3996a6d5f3c46912c6cd727b0b3d1c893ba4",
+      "title": "Declare passive fpdata scalar when FPU emulation is disabled",
+      "reason": "fpdata and fpp.h declarations exist unconditionally but fptype did not. Retain FPUEMU guards for regstruct storage and operations; no FPU implementation or callbacks added.",
+      "category": "build/portability",
+      "order": 8,
+      "symbols": [
+        "fptype",
+        "fpdata"
+      ],
+      "test": "BUILD01; tests.host.test_cpu_handlers; GEN01",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "include/newcpu.h",
+          "before_sha256": "d3074cc5d014ca3c032ddd3a81cff950c57790c33e595e14114d8a91ce0ebd5b",
+          "after_sha256": "aad39523d0e58f261459a09591d8d92f7120cad2193eeb149e7fbd44f5115876"
+        }
+      ]
+    },
+    {
+      "id": "0009-cpu-common-feature-guards",
+      "file": "patches/winuae/0009-cpu-common-feature-guards.patch",
+      "sha256": "4a7072aa7c5718f17b8fb7fb02eb512c9514954f71933576ddc859c47dff41c2",
+      "title": "Guard CPU common helpers with their backend features",
+      "reason": "Match CE020/CE030 prefetch guards and exclude FPU/MMU-dependent operations and frames when those backends are disabled; retain 68000 algorithms and passive control register storage.",
+      "category": "build/portability",
+      "order": 9,
+      "symbols": [
+        "x_get_disp_ea_ce020",
+        "x_get_disp_ea_ce030",
+        "m68k_move2c",
+        "Exception_build_stack_frame",
+        "Exception_build_stack_frame_common"
+      ],
+      "test": "BUILD01/HOST01; tests.host.test_cpu_common; GEN01",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu_common.cpp",
+          "before_sha256": "8d8e9dd77f27dd3e66c7b8f9a29d020011bb4a9f934c4581ab0c027a295e867b",
+          "after_sha256": "c050d9eabca25582fda9dae437c16ce3e228871dbf898991e57e49e8f4f35bc2"
+        }
+      ]
+    },
+    {
+      "id": "0010-dma-tags-without-debugger",
+      "file": "patches/winuae/0010-dma-tags-without-debugger.patch",
+      "sha256": "395d4e6682502eb0b8210b433ef53e13a6c5b93fe32f0916caed109b214211b3",
+      "title": "Expose DMA source tags independently of debugger support",
+      "reason": "Blitter memory writes pass access-source constants even when debug hooks are disabled. Move unchanged passive definitions outside DEBUGGER; retain all implementation guards.",
+      "category": "build/portability",
+      "order": 10,
+      "symbols": [
+        "MW_MASK_*"
+      ],
+      "test": "BUILD01/HOST01; tests.host.test_blitter; GEN01",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "include/debug.h",
+          "before_sha256": "4aa28218512c3d1663f60436447b1e94fc6778c7a0995daeb6271aecd7672711",
+          "after_sha256": "ea42e8e83152b12efa3f82526c47ea521bc250bce2cc2f80f761eeda1d16721f"
+        }
+      ]
+    },
+    {
+      "id": "0011-cia-portable-profile",
+      "file": "patches/winuae/0011-cia-portable-profile.patch",
+      "sha256": "a12fff03d7d1d396dfc46a60cb48a42250a227ebee86753abec04e339c610223",
+      "title": "Compile CIA with portable limits and excluded host features",
+      "reason": "Exclude wall-clock TOD_HACK only in P6; retain emulated TOD. Use standard INT_MAX, match evt_t diagnostic width, and keep ReadCIAA parallel branch syntactically valid without PARALLEL_PORT.",
+      "category": "build/portability",
+      "order": 11,
+      "symbols": [
+        "TOD_HACK",
+        "compute_passed_time",
+        "CIA_update_check",
+        "ReadCIAA",
+        "WriteCIAA"
+      ],
+      "test": "BUILD01/HOST01; tests.host.test_cia; GEN01",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "86d743e51d966ba1f0397a0bba319f21a58428856293e17b169e6ea24176c36b",
+          "after_sha256": "bee8051df584e244427b97862d5e32eab385ad19bda94f1ce24e8b954eddb0fa"
+        }
+      ]
+    },
+    {
+      "id": "0012-rtc-emulated-time",
+      "file": "patches/winuae/0012-rtc-emulated-time.patch",
+      "sha256": "900a092736ae61f34eecf19c4afa94c7a27e6c8c8e63078cd22211b994b01d01",
+      "title": "Read RTC calendar from emulated scheduler time",
+      "reason": "Replace CIA reads/battery writer and RTC null-tm fallback with explicit epoch/cycle clock; preserve chips and non-portable paths. Errors latch for bridge and never provide a successful default date.",
+      "category": "host hooks",
+      "order": 12,
+      "symbols": [
+        "clock_bget",
+        "write_battclock",
+        "get_clock_msm",
+        "get_clock_ricoh"
+      ],
+      "test": "BUILD01/HOST01; tests.host.test_rtc; tests.host.test_cia; GEN01",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "bee8051df584e244427b97862d5e32eab385ad19bda94f1ce24e8b954eddb0fa",
+          "after_sha256": "6f8d892b7dc97dc4929aa7ea1555dcaefe0ee0d1ec82465c3e02f03a2df56b49"
+        },
+        {
+          "path": "rtc.cpp",
+          "before_sha256": "c6339134fdcdcfe3ec9b35dca0ab5c6d6464277809e4f07b8b7a7e58b4718684",
+          "after_sha256": "5c00f1c3041aa72a04e84561ca2e3f0e90f527bf0b40689ee72a83e38cff23ef"
+        }
+      ]
+    },
+    {
+      "id": "0013-cpu-owner-interrupts",
+      "file": "patches/winuae/0013-cpu-owner-interrupts.patch",
+      "sha256": "ef3e202a4dd891374e078532763457cc320ba98f585f2582144c3c8b83813b08",
+      "title": "Keep CPU IRQ on the sole emulation thread",
+      "reason": "P6 owner-thread contract: retain synchronous IRQ branch; guard threaded and statusline includes and UI clear. No fake main-thread test or semaphore backend. ADR0002.",
+      "category": "host hooks",
+      "order": 13,
+      "symbols": [
+        "safe_interrupt_set",
+        "statusline_clear"
+      ],
+      "test": "tests.host.test_cpu_irq; HOST01/GEN01; CPU full compilation remains T06b2p",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "2141e15a211fce39428aecc689b8624473e7c9819ef5cae02f97f80300944359",
+          "after_sha256": "e1a665a6044ac1fd0d4ed99762af901e784cf5b9b0a9e84dfb29300763bd89d0"
+        }
+      ]
+    },
+    {
+      "id": "0014-cpu-a500-selection",
+      "file": "patches/winuae/0014-cpu-a500-selection.patch",
+      "sha256": "4bdba76828da053bdd22c6d69e0b23146211cd2270d5b01318f21b46db71baa2",
+      "title": "Compile A500 CPU selection without unavailable families",
+      "reason": "Keep CE68000 assignments/run loop, one profile dispatch cell, common trace/prefetch. Exclude other-model cache helpers only in P6; debugger-disabled disassembly reports unavailable. ADR0003; remaining MMU/FPU callers still need link closure.",
+      "category": "build/portability",
+      "order": 14,
+      "symbols": [
+        "set_x_funcs",
+        "cputbls",
+        "m68k_run",
+        "fill_prefetch",
+        "check_t0_trace",
+        "m68k_disasm"
+      ],
+      "test": "tests.host.test_cpu_prefetch; BUILD01/HOST01/GEN01; full machine link remains T06b2r/T06c",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "e1a665a6044ac1fd0d4ed99762af901e784cf5b9b0a9e84dfb29300763bd89d0",
+          "after_sha256": "8ae22585845b49309c270cd77c2937d0285cfbad0f7c63aefaab50e31336dad0"
+        }
+      ]
+    },
+    {
+      "id": "0015-cpu-a500-backends",
+      "file": "patches/winuae/0015-cpu-a500-backends.patch",
+      "sha256": "9b54f5bdc49e8719b7aad9c128cd887e731684cb26855c371b90b0ddc322e35f",
+      "title": "Exclude absent MMU/FPU CPU backends from A500",
+      "reason": "Guard backend callers and other-model cache/exception helpers, retaining A500 SR, bus-error signaling and non-MMU reset. No fake backend providers; ADR0003 configuration precondition remains.",
+      "category": "build/portability",
+      "order": 15,
+      "symbols": [
+        "set_x_cp_funcs",
+        "MakeFromSR_x",
+        "ExceptionX",
+        "Exception_normal",
+        "m68k_reset2",
+        "prefs_changed_cpu",
+        "hardware_exception2",
+        "m68k_dumpstate"
+      ],
+      "test": "tests.host.test_cpu_status; CPU regressions; BUILD01/HOST01/GEN01",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "8ae22585845b49309c270cd77c2937d0285cfbad0f7c63aefaab50e31336dad0",
+          "after_sha256": "07df5965e879e9f515c01a07a0be16de913926fd3b10b9b85f89354cd58e325d"
+        }
+      ]
+    },
+    {
+      "id": "0016-cpu-dump-without-debugger",
+      "file": "patches/winuae/0016-cpu-dump-without-debugger.patch",
+      "sha256": "6f01d415f8c848a9604a8794101d76c2053c062a1a41143207ca5d691c68fee6",
+      "title": "Keep CPU dump safe with debugger disabled",
+      "reason": "Guard unavailable prefetch decoding and disassembly walk: avoid uninitialized opcode, infinite prevpc loop and misleading Next PC output. Registers, latch and unsupported diagnostic remain.",
+      "category": "build/portability",
+      "order": 16,
+      "symbols": [
+        "m68k_dumpstate"
+      ],
+      "test": "tests.host.test_cpu_prefetch with Werror=uninitialized and real dump execution; BUILD01/HOST01/GEN01",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "07df5965e879e9f515c01a07a0be16de913926fd3b10b9b85f89354cd58e325d",
+          "after_sha256": "3492163724646ae9cf7d388a07366c067fe151d58169c93ea9aeff8bc0f37229"
+        }
+      ]
+    },
+    {
+      "id": "0017-devices-a500-lifecycle",
+      "file": "patches/winuae/0017-devices-a500-lifecycle.patch",
+      "sha256": "6f6e445c46ef2d0aecb5fa5637e7aafcae312659bab7d12b1d02b5ac3bf6d0b9",
+      "title": "Retain A500 device lifecycle without excluded host services",
+      "reason": "Preserve upstream registry and A500 hardware ordering; exclude host network/CD/MCU/UI/NATMEM/accelerator hooks. No provider stubs; ADR0004 reviews 16th touched upstream file and validated-config precondition.",
+      "category": "host hooks",
+      "order": 17,
+      "symbols": [
+        "devices_reset",
+        "devices_vsync_pre",
+        "devices_rethink",
+        "devices_update_sound",
+        "virtualdevice_init",
+        "virtualdevice_free",
+        "devices_restore_start"
+      ],
+      "test": "tests.host.test_devices; real lifecycle order and full-object import allowlist; BUILD01/HOST01/GEN01",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "c2a05d684cb1fe363f59fe713ce41cc9fcd9d9e46649d7d7811c6ca1987bef3e",
+          "after_sha256": "1d4e0999d8328cf42408b2be6b9331c2bce456140ba83e00ac5ab311347e94eb"
+        }
+      ]
+    },
+    {
+      "id": "0018-cia-software-keyboard",
+      "file": "patches/winuae/0018-cia-software-keyboard.patch",
+      "sha256": "9cc313b7158c80cc5a3e3e2266ed84b19647a9234119beb74194f6db92025635",
+      "title": "Keep mode0 CIA keyboard without MCU backends",
+      "reason": "Guard only MCU dispatch/callers in P6, preserving CIA software keyboard serial/handshake/resetwarning paths. Positive keyboard modes require rejection at public config gate; no MCU stubs.",
+      "category": "host hooks",
+      "order": 18,
+      "symbols": [
+        "keyboard_connected",
+        "CIA_hsync_posthandler",
+        "WriteCIAA",
+        "keymcu_execute"
+      ],
+      "test": "tests.host.test_cia_keyboard; CIA/RTC/CPU regressions; BUILD01/HOST01/GEN01",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "6f8d892b7dc97dc4929aa7ea1555dcaefe0ee0d1ec82465c3e02f03a2df56b49",
+          "after_sha256": "d3c7443ad6a0ab59193135b21db1324ecc96258ea90b84ccced78504c1c7a9e9"
+        }
+      ]
+    },
+    {
+      "id": "0019-audio-without-host-ripper",
+      "file": "patches/winuae/0019-audio-without-host-ripper.patch",
+      "sha256": "8311c507affd28c617d93d370c0d93d353603e55d82d647d600931a31a13c2f4",
+      "title": "Exclude host sample ripping from portable Paula",
+      "reason": "WAV export and host paths are outside A500 deterministic output; keep synthesis and DMA unchanged. ADR0004 reviews audio.cpp as touched file17.",
+      "category": "host hooks",
+      "order": 19,
+      "symbols": [
+        "audio_sampleripper",
+        "do_samplerip",
+        "write_wavheader"
+      ],
+      "test": "tests.host.test_pcm; BUILD01/HOST01/GEN01",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "2699601febc6d62c96a79018d0bbe94d47501621a9f7483309f86d3b3ee4ead7",
+          "after_sha256": "7da8f608bde13aa12a80a500fbf1778b3aec58bf2ae5b686e6d7124ab57b314f"
+        }
+      ]
+    },
+    {
+      "id": "0020-audio-signed-scaling",
+      "file": "patches/winuae/0020-audio-signed-scaling.patch",
+      "sha256": "3edadfe0ba61e3d094697215c785c600c4ebcf3cbf7c151b1bb1bb4a54dc9319",
+      "title": "Use defined multiplication for signed Paula amplitude scaling",
+      "reason": "Left shifts of negative PCM/sinc amplitudes are undefined in C++17. Multiplication preserves scale and fits the validated Paula sample/volume ranges; no changed rounding, clipping or timing.",
+      "category": "build/portability",
+      "order": 20,
+      "symbols": [
+        "FINISH_DATA",
+        "samplexx_sinc_handler"
+      ],
+      "test": "tests.host.test_pcm with audio_scale_probe; O0/O2 ASan/UBSan; BUILD01/HOST01/GEN01",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "7da8f608bde13aa12a80a500fbf1778b3aec58bf2ae5b686e6d7124ab57b314f",
+          "after_sha256": "a935d45bbbd792b76e0dbb66997f823a68203c826994a260c261167301859a7b"
+        }
+      ]
+    },
+    {
+      "id": "0021-softfloat-portable-build",
+      "file": "patches/winuae/0021-softfloat-portable-build.patch",
+      "sha256": "d3d539ee9e40d95ed0a140d52e367682dcdb5ae264042e2f75f8f22a0b57d4cc",
+      "title": "Compile SoftFloat with consistent linkage and case-exact includes",
+      "reason": "Audio tangent needs integer SoftFloat without FPU. Preserve arithmetic and notices; external inline float_raise matches its prior declaration and all callers include its definition.",
+      "category": "build/portability",
+      "order": 21,
+      "symbols": [
+        "float_raise",
+        "include resolution"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_audio_math",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "softfloat/softfloat.cpp",
+          "before_sha256": "59b23822f213f916df5f8525cad10ba9b369f3848b8f56fd719626849e2cd1e6",
+          "after_sha256": "813b24494c29f8a93e80f4fcb5a535a3d6012318b3e1a9ea2bc97bb0ecea881d"
+        },
+        {
+          "path": "softfloat/softfloat-specialize.h",
+          "before_sha256": "c0461bcf1d8ea1e32b503dbcc4eb173db56a3d6e5717a4f52074ef652edac51b",
+          "after_sha256": "ba2a56e0a05d3dfe150605832cf36b6d93e965a1f016a9f13b68df93f6afb856"
+        }
+      ]
+    },
+    {
+      "id": "0022-audio-configuration-boundary",
+      "file": "patches/winuae/0022-audio-configuration-boundary.patch",
+      "sha256": "a236a38121055c12a6ede76d6eff9941be6f035c43fe341fcb63988ab6afdf55",
+      "title": "Configure Paula independently of host pacing and backend negotiation",
+      "reason": "Validate before arithmetic/live preferences, stop on backend failure without produce_sound fallback, and retain the physical clock established by init_sound. Filters and interpolation unchanged; custom video pacing remains separate.",
+      "category": "host hooks",
+      "order": 22,
+      "symbols": [
+        "set_audio",
+        "check_prefs_changed_audio"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_audio_config",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "a935d45bbbd792b76e0dbb66997f823a68203c826994a260c261167301859a7b",
+          "after_sha256": "3b012a5f8f2c6f019bfcb5bbdfb58c654c9bb7fe49a3884c6bd660ae3aa4017a"
+        }
+      ]
+    },
+    {
+      "id": "0023-cpu-common-halt-requests",
+      "file": "patches/winuae/0023-cpu-common-halt-requests.patch",
+      "sha256": "5489db3326bf9e423370f5d9147deb423dcdd487a2df8dff3a00759eefecdde3",
+      "title": "Expose shared halt and reset requests independently of CPUEMU_0",
+      "reason": "A500 CPUEMU_13 calls these helpers but their definitions were nested inside CPUEMU_0. Close and reopen that guard only around shared functions; retain MMU and opcode-debug selection.",
+      "category": "build/portability",
+      "order": 23,
+      "symbols": [
+        "cpu_halt",
+        "cpu_inreset"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_cpu_halt_audio",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "3492163724646ae9cf7d388a07366c067fe151d58169c93ea9aeff8bc0f37229",
+          "after_sha256": "2968b688b27a4e655008a773965fd6ae8caa25f0bd509e504acfae726708a193"
+        }
+      ]
+    },
+    {
+      "id": "0024-cpu-halt-preserve-paula",
+      "file": "patches/winuae/0024-cpu-halt-preserve-paula.patch",
+      "sha256": "64c9a7f954a66d4014a09c91ee2cbd440fb3ad7a885579899b46307ce5f5641c",
+      "title": "Keep Paula running while the CPU is halted",
+      "reason": "audio_deactivate clears Paula state and phase although haltloop still advances chipset time. P6 retains hardware state and PCM delivery; frontend stop/pause must not masquerade as a device reset.",
+      "category": "host hooks",
+      "order": 24,
+      "symbols": [
+        "cpu_halt"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_cpu_halt_audio; ADR0002",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "2968b688b27a4e655008a773965fd6ae8caa25f0bd509e504acfae726708a193",
+          "after_sha256": "0dd583a0e777c8d7912a776d157f3a4a391cc758bac217ec3b1e9a8b2a569700"
+        }
+      ]
+    },
+    {
+      "id": "0025-custom-physical-clock",
+      "file": "patches/winuae/0025-custom-physical-clock.patch",
+      "sha256": "e28cfb5f5b3c6ec54984027ed57372e44b1284de1cbe48426d2f3c3e1699b72b",
+      "title": "Keep custom field and Paula clocks independent of host pacing",
+      "reason": "Monitor refresh and turbo must not alter CIA/TOD field rate or Paula clock; preserve nominal field selection and raster geometry.",
+      "category": "host hooks",
+      "order": 25,
+      "symbols": [
+        "compute_vsynctime",
+        "compute_framesync"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_custom_timing; ADR0004",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "f005ca9b49e38bc9e721b5c51d50619de3b6a55b60bb5a394256b813bfde66e3",
+          "after_sha256": "7410b90222935c7b411a49f786fcdc72dc16a6e568a912a1e4071db76a9b06e3"
+        }
+      ]
+    },
+    {
+      "id": "0026-custom-ocs-color-storage",
+      "file": "patches/winuae/0026-custom-ocs-color-storage.patch",
+      "sha256": "ac55a969d013f3560bf9000bcba5ed668058e1f7f7aea54ab0e37163b5614575",
+      "title": "Compile shared OCS color registers without AGA storage",
+      "reason": "Retain OCS writes and color lookup while guarding optional AGA arrays. Preserve PRNG consumption in reset.",
+      "category": "build/portability",
+      "order": 26,
+      "symbols": [
+        "COLOR_WRITE",
+        "update_mirrors",
+        "get_custom_color_reg",
+        "custom_reset",
+        "color_reg_get"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_custom_ocs",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "7410b90222935c7b411a49f786fcdc72dc16a6e568a912a1e4071db76a9b06e3",
+          "after_sha256": "36b84a897b8a9a0219afa7c2ef74407b421ee1cb2f8fbc2c73127aa8edf9e258"
+        }
+      ]
+    },
+    {
+      "id": "0027-custom-host-build-boundaries",
+      "file": "patches/winuae/0027-custom-host-build-boundaries.patch",
+      "sha256": "7131193c73428614a266fd709c58e21d628b504ebea14c59ada541534968b808",
+      "title": "Exclude inactive custom host includes and callers",
+      "reason": "Threads are unused here; serial and special monitor calls require their feature. Format portable diagnostics within the real buffer and deliver them as text.",
+      "category": "build/portability",
+      "order": 27,
+      "symbols": [
+        "uae_abort",
+        "intreq_checks",
+        "FMODE"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_custom_ocs",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "36b84a897b8a9a0219afa7c2ef74407b421ee1cb2f8fbc2c73127aa8edf9e258",
+          "after_sha256": "6faea5283989b7fe48132e8bd97f63836713197a8597ce0de296861a9d467f82"
+        }
+      ]
+    },
+    {
+      "id": "0028-custom-optional-irq-tod",
+      "file": "patches/winuae/0028-custom-optional-irq-tod.patch",
+      "sha256": "7a08b6c7bd561e16b5fd4e2519fb0f4aa794c87203071f57bf64f9cec571269f",
+      "title": "Guard optional BSDSOCKET IRQ and CD32 TOD callers",
+      "reason": "Excluded devices must not remain link requirements of A500 custom IRQ and CIA sync. Keep A500 pulse generation and IRQ order unchanged.",
+      "category": "build/portability",
+      "order": 28,
+      "symbols": [
+        "rethink_uae_int",
+        "cia_hsync_do"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_custom_cia",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "6faea5283989b7fe48132e8bd97f63836713197a8597ce0de296861a9d467f82",
+          "after_sha256": "981209d0dca5f44d8e5fcb1314a0f751227c8a991bc68f325c4f7717a3fcb113"
+        }
+      ]
+    },
+    {
+      "id": "0029-custom-hsync-without-host-waits",
+      "file": "patches/winuae/0029-custom-hsync-without-host-waits.patch",
+      "sha256": "3e196f0f613fe120de79f500b442fa7c4228a8143ae9d03b9ed218887cc7eb3a",
+      "title": "Keep HSync hardware work outside host waits",
+      "reason": "P6 advances hardware only by emulated cycles; remove per-line host wait and pull-audio policy while preserving CIA, input, IRQ, copper and reset ordering.",
+      "category": "host hooks",
+      "order": 29,
+      "symbols": [
+        "hsync_handler_post"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_custom_cia",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "981209d0dca5f44d8e5fcb1314a0f751227c8a991bc68f325c4f7717a3fcb113",
+          "after_sha256": "003288c0342f05636627dae1246536e2842f97d3091d029ab00d35828b843a2b"
+        }
+      ]
+    },
+    {
+      "id": "0030-custom-vsync-without-host-presentation",
+      "file": "patches/winuae/0030-custom-vsync-without-host-presentation.patch",
+      "sha256": "1f3f0ba30017c35809f3d5b6a80f0e74f3a26a689e34bdb0fbf78801ef777ca8",
+      "title": "Separate custom VSync buffer work from host presentation and clock",
+      "reason": "Keep Denise redraw/drain and hardware housekeeping; host wait/GPU/event pump/FPS must not drive portable frame advancement. Retire clear requests at the existing interlace cadence.",
+      "category": "host hooks",
+      "order": 30,
+      "symbols": [
+        "vsync_handler_render",
+        "vsync_display_render",
+        "vsync_handler_post",
+        "reset_frame_rate_hack",
+        "fpscounter_reset",
+        "vsync_event_done"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_custom_vsync",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "003288c0342f05636627dae1246536e2842f97d3091d029ab00d35828b843a2b",
+          "after_sha256": "ad1127b8ec622d1f84d9a30c48faec6f48bbcb97781f049999ce53a81d110594"
+        }
+      ]
+    },
+    {
+      "id": "0031-memory-kickstart-without-path-fallback",
+      "file": "patches/winuae/0031-memory-kickstart-without-path-fallback.patch",
+      "sha256": "68cf9ef1ac8d66fd9c4e251e21073ad7775f4af5e4b8eb73ceef69df7370e608",
+      "title": "Disable alternate Kickstart paths in portable memory loader",
+      "reason": "Preserve read_rom_name and its result; do not try host defaults or filename guesses after failure. ROM validation/fallback lifecycle remain separate gates.",
+      "category": "host hooks",
+      "order": 31,
+      "symbols": [
+        "get_kickstart_filehandle"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_memory_rom_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "a1cb4f1bb9e78c6fea01cfa3279f1599a767584c231d396bf7d14db6b87ec43c",
+          "after_sha256": "d4a112ae88111c7eb715d9fcb457cfcf06670666b457e2e1453597c910bf355a"
+        }
+      ]
+    },
+    {
+      "id": "0032-rom-load-status-without-aros-fallback",
+      "file": "patches/winuae/0032-rom-load-status-without-aros-fallback.patch",
+      "sha256": "f604db5f73a8f793f1e2bee15928fff4bac726efcf96675a668ddbfb1a574d59",
+      "title": "Expose ROM load failure and reject CPU entry without AROS fallback",
+      "reason": "Failed firmware load must remain causal state, not a diagnostic or implicit AROS substitution. Guard CPU before reset vectors; public firmware validation and bridge error propagation remain required.",
+      "category": "host hooks",
+      "order": 32,
+      "symbols": [
+        "p6_memory_rom_status",
+        "load_kickstart",
+        "restore_roms",
+        "memory_init",
+        "memory_cleanup",
+        "m68k_go"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_memory_rom_status; tests.host.test_cpu_rom_guard",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "d4a112ae88111c7eb715d9fcb457cfcf06670666b457e2e1453597c910bf355a",
+          "after_sha256": "95d88f2ee01c7980ae61b54c712985be9d5777816f5e98437868daa631b2abb5"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "0dd583a0e777c8d7912a776d157f3a4a391cc758bac217ec3b1e9a8b2a569700",
+          "after_sha256": "5dcc1d90cceafb31210c552d1f3a417f0b498cd52acefb0a573681dff30b0760"
+        }
+      ]
+    },
+    {
+      "id": "0033-rom-exact-reads-and-checksum",
+      "file": "patches/winuae/0033-rom-exact-reads-and-checksum.patch",
+      "sha256": "8bea72841988e3d6ec2ae69ff6f9975261bdeba86731b70cd03cde6cbefdb18c",
+      "title": "Reject short ROM reads and bad checksums without repair",
+      "reason": "P6 must reject truncated/corrupt payloads before CPU entry; checksum arithmetic must be unsigned (UBSan reproducer T06b2bc).",
+      "category": "host hooks",
+      "order": 33,
+      "symbols": [
+        "read_kickstart",
+        "read_kickstart_version",
+        "kickstart_checksum_do"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_memory_rom_status",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "95d88f2ee01c7980ae61b54c712985be9d5777816f5e98437868daa631b2abb5",
+          "after_sha256": "2c5219995fceb2b023d4e50c6bd0a07056ad9e3a40a0f8a16a47bba97f5e19d2"
+        },
+        {
+          "path": "rommgr.cpp",
+          "before_sha256": "461002b0901974884c37a1a5a14e3e0f561afff5b862f1771ebf4ff270349431",
+          "after_sha256": "22f9e50ea3c73ef489705229b1c0650938c68f097101feb4daf95cd26e13c070"
+        }
+      ]
+    },
+    {
+      "id": "0034-explicit-rom-key-normalization",
+      "file": "patches/winuae/0034-explicit-rom-key-normalization.patch",
+      "sha256": "80850038c1594ba58bc007bb998654c22ff80788bfa7d05810f6855b27cb6d92",
+      "title": "Normalize explicit ROM assets with explicit keys and checked publication",
+      "reason": "Do not resolve alternate ROM/key paths or publish failed decode/normalization. Preserve local transforms and exact ownership.",
+      "category": "host hooks",
+      "order": 34,
+      "symbols": [
+        "addkey",
+        "addkeyfile",
+        "addkeydir",
+        "load_keyring",
+        "decode_cloanto_rom_do",
+        "rom_fopen2",
+        "read_rom_name",
+        "read_rom_file",
+        "load_kickstart"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_rom_input; tests.host.test_memory_rom_status",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "rommgr.cpp",
+          "before_sha256": "22f9e50ea3c73ef489705229b1c0650938c68f097101feb4daf95cd26e13c070",
+          "after_sha256": "64122c2eaae2ecc6d20d13b6a3ae352140ff04b2cf5add681cc7e469f7d1e44f"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "2c5219995fceb2b023d4e50c6bd0a07056ad9e3a40a0f8a16a47bba97f5e19d2",
+          "after_sha256": "5f537e2e74cb1bfd1d9ab35c74887dd48e9f59752b0d9879993479a25c147e75"
+        }
+      ]
+    },
+    {
+      "id": "0035-a500-main-rom-envelope",
+      "file": "patches/winuae/0035-a500-main-rom-envelope.patch",
+      "sha256": "1c4431c8ac42394d33c4e97e721a004117b896d81eff621b3f4b692d87648479",
+      "title": "Validate complete A500 main firmware envelope before patching",
+      "reason": "Reject suffixes, malformed structures and unsupported executable/extended formats without adapting machine requirements.",
+      "category": "host hooks",
+      "order": 35,
+      "symbols": [
+        "load_kickstart",
+        "restore_roms"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_rom_load_chain; tests.host.test_memory_rom_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "5f537e2e74cb1bfd1d9ab35c74887dd48e9f59752b0d9879993479a25c147e75",
+          "after_sha256": "89ecd02e716d2732a097f939ee18e17c3e10ded89f63b0e12edc8f737cc0a065"
+        }
+      ]
+    },
+    {
+      "id": "0036-rommgr-portable-names-and-device-guards",
+      "file": "patches/winuae/0036-rommgr-portable-names-and-device-guards.patch",
+      "sha256": "2aba8a198495d481dca13e3a14906cc3d6e1a120139726399fb494c639475559",
+      "title": "Format portable ROM names and reject excluded Arcadia configuration",
+      "reason": "Keep metadata display without a general TCHAR formatter; exclude Arcadia scanner and host-derived device filenames in the A500 profile.",
+      "category": "host hooks",
+      "order": 36,
+      "symbols": [
+        "getromname",
+        "configure_rom",
+        "scan_single_rom"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_rommgr_portable",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "rommgr.cpp",
+          "before_sha256": "64122c2eaae2ecc6d20d13b6a3ae352140ff04b2cf5add681cc7e469f7d1e44f",
+          "after_sha256": "d81ef484ce85aaf7387749a1f7ee1c2f9515d47cf2c57fd51594ad46d423ebfd"
+        }
+      ]
+    },
+    {
+      "id": "0037-denise-synchronous-portable-dispatch",
+      "file": "patches/winuae/0037-denise-synchronous-portable-dispatch.patch",
+      "sha256": "c113f71d6fd59745fde3518cb5d4cee091ba9597c076db17241fc31fe3c2804f",
+      "title": "Select existing synchronous Denise dispatch without worker lifecycle",
+      "reason": "One emulation owner must execute RGA in caller order; exclude host thread/semaphore queue lifecycle and Windows-only statusline declaration.",
+      "category": "host hooks",
+      "order": 37,
+      "symbols": [
+        "drawing_init",
+        "drawing_free",
+        "draw_denise_line_queue",
+        "quick_denise_rga_queue",
+        "denise_handle_quick_strobe_queue",
+        "draw_denise_line_queue_flush",
+        "createstatusline"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_drawing_sync",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "259067e59bd481ea44921dc3cbc84c0d71612b3a36e137204b12933b61aa903c",
+          "after_sha256": "5576df8817c586c28ccc4c8b01a206fee5609a89bea3161d8aa2008c7d9caeb6"
+        },
+        {
+          "path": "include/statusline.h",
+          "before_sha256": "f03e8e349e15ac16499cc98477af6ad076e00476968fb75dd510721d9ae17239",
+          "after_sha256": "4eb51144382816906d2d31bdf69452a25dde48b2e06943adc56b755fa43463bd"
+        }
+      ]
+    },
+    {
+      "id": "0038-drawing-ocs-feature-guards",
+      "file": "patches/winuae/0038-drawing-ocs-feature-guards.patch",
+      "sha256": "cdab46e5eb72186a4578b4095a76e7c3e85f0eb685f00a655cf3a6fd7fa37508",
+      "title": "Compile OCS/ECS renderer with AGA and debugger disabled",
+      "reason": "Exclude disabled hardware decoders, generated AGA dispatch and unused host HUD; preserve OCS/ECS color, HAM and pixel implementations.",
+      "category": "host hooks",
+      "order": 38,
+      "symbols": [
+        "update_color",
+        "setlasthamcolor",
+        "select_lts",
+        "draw_denise_bitplane_line_fast",
+        "denise_reset"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_drawing_source, tests.host.test_drawing_ocs",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "5576df8817c586c28ccc4c8b01a206fee5609a89bea3161d8aa2008c7d9caeb6",
+          "after_sha256": "d80c0e168b368dfb43b52ac309532983117a29e2a7e2eb729fb70b50802e82f7"
+        }
+      ]
+    },
+    {
+      "id": "0039-main-library-and-explicit-seed",
+      "file": "patches/winuae/0039-main-library-and-explicit-seed.patch",
+      "sha256": "edd01c692d16ec49585249f3d0260c8e2503a72f28e17a333212e42dd7236b68",
+      "title": "Separate desktop launcher from engine globals and use explicit PRNG seed",
+      "reason": "P6 owns its public lifecycle and seed; do not compile desktop entrypoints or host-time fallback. Use actual board-array fields in disabled-autoconfig preference cleanup.",
+      "category": "host hooks",
+      "order": 39,
+      "symbols": [
+        "uaerandomizeseed",
+        "fixup_prefs",
+        "real_main",
+        "main",
+        "do_start_program"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_main_seed, tests.host.test_main_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "8bb83bc6738985a4c91a4d47949d1b43d202b475b0dea3543b281b84c8eb3754",
+          "after_sha256": "274f4dd7e5d0ed41fbfa921648b1c8be1b36c28af941a63ebf66d472865b2354"
+        }
+      ]
+    },
+    {
+      "id": "0040-expansion-portable-card-names",
+      "file": "patches/winuae/0040-expansion-portable-card-names.patch",
+      "sha256": "43fa150fdc18e33c1703a6d9d4eb519e62791485ccada1fa96092308f24b862e",
+      "title": "Compile A500 expansion with explicit device catalog and portable names",
+      "reason": "Keep real card parsing/metadata and format only numeric device suffix with a bounded temporary; no broad formatting aliases or device stubs. Exclude unsupported A500 device catalog/helpers and FILESYS hooks; range-check indexed ROM-device lookup against the actual catalog.",
+      "category": "host hooks",
+      "order": 40,
+      "symbols": [
+        "expansion_parse_cards",
+        "expansionroms",
+        "cpuboards",
+        "expamem_reset",
+        "expansion_map",
+        "get_unit_expansion_rom",
+        "write_filesys_config"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_expansion_cards, tests.host.test_expansion_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "d2e00abe7d98cf20f584214d14d95fdfb86ece9ccbad9139f6e0bc24f516b051",
+          "after_sha256": "8c0a28cf92587d9156af10aebc48f19f5eae7daaa3049f05888e9f6fb62e50ea"
+        },
+        {
+          "path": "rommgr.cpp",
+          "before_sha256": "d81ef484ce85aaf7387749a1f7ee1c2f9515d47cf2c57fd51594ad46d423ebfd",
+          "after_sha256": "b2b4b5d7322d803f25833559427d7f94e8d10a652e59eb527566c4795681700f"
+        },
+        {
+          "path": "cfgfile.cpp",
+          "before_sha256": "437824c86dd8d4f77e2b807f92ae971b52493a3f801e6944d4981207e6c9a42f",
+          "after_sha256": "fd72bdec7bf05e2e3aa873e183dfd251956711700b4deab7ad8e4c167d156ae5"
+        }
+      ]
+    },
+    {
+      "id": "0041-preset-clear-all-ram-boards",
+      "file": "patches/winuae/0041-preset-clear-all-ram-boards.patch",
+      "sha256": "042db2df6d47ec47daa22745b758fc30b071cad84d160abc31441433089c705c",
+      "title": "Clear each Fast and Z3 RAM board when applying base preset",
+      "reason": "The loop repeatedly clears slot0, retaining earlier configuration in all remaining slots. Index both arrays as the loop intends.",
+      "category": "state corrections",
+      "order": 41,
+      "symbols": [
+        "buildin_default_prefs"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_cfgfile_preset; dirty-board reproducer versus pristine",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cfgfile.cpp",
+          "before_sha256": "fd72bdec7bf05e2e3aa873e183dfd251956711700b4deab7ad8e4c167d156ae5",
+          "after_sha256": "e407c273be6d6bec3923af72d56c8ccebdba764b8da136dc02671b675002f5eb"
+        }
+      ]
+    },
+    {
+      "id": "0042-cfgfile-library-profile",
+      "file": "patches/winuae/0042-cfgfile-library-profile.patch",
+      "sha256": "3ba9441f493cfe06e52d958ff4bde4f57a13ab7336e7be2aae61d81525d48f01",
+      "title": "Separate desktop configuration from library presets",
+      "reason": "The fixed P6 profile uses explicit validated configuration, not legacy host parser/exporter/CLI or implicit export cache. Preserve real prefs and diagnostics with portable varargs formatting.",
+      "category": "host hooks",
+      "order": 42,
+      "symbols": [
+        "default_prefs",
+        "built_in_prefs",
+        "cfgfile_compatibility_romtype",
+        "error_log"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_cfgfile_source, tests.host.test_cfgfile_preset",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cfgfile.cpp",
+          "before_sha256": "e407c273be6d6bec3923af72d56c8ccebdba764b8da136dc02671b675002f5eb",
+          "after_sha256": "2103c477aa1fee2af58811c6b994e1b6645991271caccacfb28fc935b10a48c2"
+        }
+      ]
+    },
+    {
+      "id": "0043-remove-desktop-config-callers",
+      "file": "patches/winuae/0043-remove-desktop-config-callers.patch",
+      "sha256": "b8e813e22bfe4d615bb923131fd0ad13c4af78df0fa82a10cbb1570ce32a6ff7",
+      "title": "Exclude remaining desktop config cleanup and export callers",
+      "reason": "P6 has neither the private desktop parameter list nor configuration exporter after 0042. Remove their lifecycle calls, retaining actual hardware cleanup and preference fixups.",
+      "category": "host hooks",
+      "order": 43,
+      "symbols": [
+        "devices_free",
+        "fixup_prefs"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_devices, tests.host.test_main_source; preprocessed dependency audit",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "1d4e0999d8328cf42408b2be6b9331c2bce456140ba83e00ac5ab311347e94eb",
+          "after_sha256": "43fcaabd3dfc28ce8c4a15768ce3538f9b1f3dfbbc15d403dcfe8de4f64b87e9"
+        },
+        {
+          "path": "main.cpp",
+          "before_sha256": "274f4dd7e5d0ed41fbfa921648b1c8be1b36c28af941a63ebf66d472865b2354",
+          "after_sha256": "435424f66817752ba9d842e8b866791f70eef9e7237ab0f0ce75495d085c5572"
+        }
+      ]
+    },
+    {
+      "id": "0044-savestate-library-profile",
+      "file": "patches/winuae/0044-savestate-library-profile.patch",
+      "sha256": "3b50fad2115850dd06f4b15ab4bdca5b1cf09b8754999d5eb1470b00446cdf08",
+      "title": "Keep shared state support without desktop slots or CD export",
+      "reason": "P6 uses frontend-neutral state APIs; legacy quick-slot paths and CD are excluded. Preserve core state helpers and bound the version header formatter.",
+      "category": "host hooks",
+      "order": 44,
+      "symbols": [
+        "save_state_internal",
+        "savestate_quick"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_savestate_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "savestate.cpp",
+          "before_sha256": "256b03cf074c406e854b1c14cd10f96a1b4acdfc425aa1c6b175721c2647054d",
+          "after_sha256": "89549953985fe76b7403b328b2aae8667f97c1c259f41ca0afd4171d5e0fad1f"
+        }
+      ]
+    },
+    {
+      "id": "0045-savestate-diagnostic-types",
+      "file": "patches/winuae/0045-savestate-diagnostic-types.patch",
+      "sha256": "197809850daddb25a0971a19400f33d8e20fc3ae5fd09348fce1f94655056a85",
+      "title": "Match state diagnostic formats to actual integer types",
+      "reason": "size_t, uae_u32 and pointer differences require their own printf formats; long or unsigned int are not interchangeable on LP64/LLP64.",
+      "category": "build/portability",
+      "order": 45,
+      "symbols": [
+        "save_chunk",
+        "savestate_dorewind",
+        "savestate_rewind",
+        "savestate_capture"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_savestate_source",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "savestate.cpp",
+          "before_sha256": "89549953985fe76b7403b328b2aae8667f97c1c259f41ca0afd4171d5e0fad1f",
+          "after_sha256": "dcd067f8e97e26f03529bc8ee1880b5dbc54c981d2d56b235f349a0cb151b1df"
+        }
+      ]
+    },
+    {
+      "id": "0046-disk-explicit-readonly-assets",
+      "file": "patches/winuae/0046-disk-explicit-readonly-assets.patch",
+      "sha256": "9c9f3b19860f6f279333dc949f0da8919dece30f0c631c2274deb85bccbc2086",
+      "title": "Open explicit read-only disk assets without desktop path resolution",
+      "reason": "M1 media come from the bounded blob store. Keep ownership and CRC failures causal; never open host paths or accept ROM/key assets as floppy media.",
+      "category": "host hooks",
+      "order": 46,
+      "symbols": [
+        "DISK_validate_filename"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_disk_asset",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "1f77f55a021ad43c8248883c76f8b563a747afa20286b7a66086ee369e0978b5",
+          "after_sha256": "e75c9188af9ef02f09d7eda09dc616ad3422eb1d849778e36bf44dec905f92e3"
+        }
+      ]
+    },
+    {
+      "id": "0047-disk-readonly-media-host-services",
+      "file": "patches/winuae/0047-disk-readonly-media-host-services.patch",
+      "sha256": "68b777d7f9a242d1502c539a010e880f1711e1613828fd3146a62e014324e890",
+      "title": "Exclude host-clock, overlay, catalogue and filesystem services from read-only floppy media",
+      "reason": "M1 floppies are immutable blob assets. ADF creation stamps the host clock, save-image overlays and write-protect toggling use host paths/chmod/unlink, the bootblock catalogue reads plugin XML, and next/previous disk probes host names. Each feature is excluded with its callers; executable content is rejected at the asset boundary instead of being converted with a host date. No success stubs.",
+      "category": "host hooks",
+      "order": 47,
+      "symbols": [
+        "DISK_validate_filename",
+        "drive_insert",
+        "drive_write_data",
+        "disk_creatediskfile",
+        "disk_setwriteprotect",
+        "disk_getwriteprotect",
+        "DISK_get_saveimagepath",
+        "floppybridge_getsetprofile",
+        "abrcheck",
+        "disk_prevnext",
+        "disk_prevnext_name"
+      ],
+      "test": "BUILD01/HOST01/GEN01; tests.host.test_disk_source; tests.host.test_disk_asset",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "e75c9188af9ef02f09d7eda09dc616ad3422eb1d849778e36bf44dec905f92e3",
+          "after_sha256": "e997a4bca73a65965abee968b429f27a4fe19b7b47610421ac9857bd4eeaa5b1"
+        }
+      ]
+    }
+  ]
+}

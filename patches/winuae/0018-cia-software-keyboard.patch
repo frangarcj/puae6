@@ -1,0 +1,81 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -57,7 +57,9 @@
+ #include "rtc_time.h"
+ #endif
+ #include "devices.h"
++#ifndef P6_PORTABLE
+ #include "keyboard_mcu.h"
++#endif
+ 
+ #define CIAA_DEBUG_R 0
+ #define CIAA_DEBUG_W 0
+@@ -1179,11 +1181,13 @@
+ {
+ 	if (connect) {
+ 		write_log(_T("Keyboard connected\n"));
++#ifndef P6_PORTABLE
+ 		if (currprefs.keyboard_mode > 0) {
+ 			keymcu_reset();
+ 			keymcu2_reset();
+ 			keymcu3_reset();
+ 		}
++#endif
+ 	} else {
+ 		write_log(_T("Keyboard disconnected\n"));
+ 	}
+@@ -1192,6 +1196,7 @@
+ 	resetwarning_phase = 0;
+ }
+ 
++#ifndef P6_PORTABLE
+ static bool keymcu_execute(void)
+ {
+ 	bool handshake = (cia[0].t[0].cr & 0x40) != 0 && (cia[0].sdr_buf & 0x80) == 0;
+@@ -1236,6 +1241,7 @@
+ 	keymcu_event(0);
+ }
+ 
++#endif
+ static void check_keyboard(void)
+ {
+ 	if (currprefs.keyboard_mode >= 0) {
+@@ -1293,9 +1299,12 @@
+ 		}
+ #endif
+ 	} else {
++#ifndef P6_PORTABLE
+ 		if (currprefs.keyboard_mode > 0) {
+ 			keymcu_do();
+-		} else {
++		} else
++#endif
++		{
+ 			if (currprefs.keyboard_mode == 0) {
+ 				// custom hsync
+ 				if (resetwarning_phase) {
+@@ -2161,9 +2170,11 @@
+ 	case 13:
+ 	case 15:
+ 		CIA_update();
++#ifndef P6_PORTABLE
+ 		if (currprefs.keyboard_mode > 0 && reg == 12) {
+ 			keymcu_do();
+ 		}
++#endif
+ 		WriteCIAReg(0, reg, val);
+ 		CIA_calctimers();
+ 		break;
+@@ -2203,9 +2214,11 @@
+ 			}
+ 			WriteCIAReg(0, reg, val);
+ 			CIA_calctimers();
++#ifndef P6_PORTABLE
+ 			if (currprefs.keyboard_mode > 0 && handshake) {
+ 				keymcu_do();
+ 			}
++#endif
+ 		}
+ 		break;
+ 	}

@@ -1,0 +1,228 @@
+diff --git a/rommgr.cpp b/rommgr.cpp
+--- a/rommgr.cpp
++++ b/rommgr.cpp
+@@ -1369,7 +1369,7 @@
+ 	int i;
+ 
+ 	//write_log (_T("addkey(%08x,%d,'%s')\n"), key, size, name);
+-	if (key == NULL || size == 0) {
++	if (key == NULL || size <= 0) {
+ 		xfree (key);
+ 		return;
+ 	}
+@@ -1407,12 +1407,20 @@
+ 	if (keysize > 0) {
+ 		zfile_fseek (f, 0, SEEK_SET);
+ 		keybuf = xmalloc (uae_u8, keysize);
++#ifdef P6_PORTABLE
++		if (keybuf && zfile_fread(keybuf, 1, keysize, f) == keysize)
++			addkey(keybuf, keysize, path);
++		else
++			xfree(keybuf);
++#else
+ 		zfile_fread (keybuf, 1, keysize, f);
+ 		addkey (keybuf, keysize, path);
++#endif
+ 	}
+ 	zfile_fclose (f);
+ }
+ 
++#ifndef P6_PORTABLE
+ void addkeydir(const TCHAR *path)
+ {
+ 	TCHAR tmp[MAX_DPATH];
+@@ -1430,6 +1438,7 @@
+ 	_tcscat(tmp, _T("rom.key"));
+ 	addkeyfile(tmp);
+ }
++#endif
+ 
+ int get_keyring (void)
+ {
+@@ -1443,6 +1452,12 @@
+ 
+ int load_keyring (struct uae_prefs *p, const TCHAR *path)
+ {
++#ifdef P6_PORTABLE
++	free_keyring();
++	if (path && path[0])
++		addkeyfile(path);
++	return get_keyring();
++#else
+ 	uae_u8 *keybuf;
+ 	int keysize;
+ 	TCHAR tmp[MAX_DPATH], *d;
+@@ -1516,6 +1531,7 @@
+ 			continue;
+ 		addkeyfile (tmp);
+ 	}
++#endif
+ }
+ void free_keyring (void)
+ {
+@@ -1647,6 +1663,11 @@
+ 
+ int decode_cloanto_rom_do (uae_u8 *mem, int size, int real_size)
+ {
++#ifdef P6_PORTABLE
++	if ((size != ROM_SIZE_256 && size != ROM_SIZE_512) ||
++		(real_size != ROM_SIZE_256 && real_size != ROM_SIZE_512) || real_size > size)
++		return 0;
++#endif
+ 	int cnt, t, i;
+ 
+ 	for (i = ROM_KEY_NUM - 1; i >= 0; i--) {
+@@ -1654,26 +1675,39 @@
+ 		struct romdata *rd;
+ 		int keysize = keyring[i].size;
+ 		uae_u8 *key = keyring[i].key;
+-		if (!key)
++		if (!key || keysize <= 0)
+ 			continue;
+ 		for (t = cnt = 0; cnt < size; cnt++, t = (t + 1) % keysize)  {
+ 			mem[cnt] ^= key[t];
+ 			if (real_size == cnt + 1)
+ 				t = keysize - 1;
+ 		}
+-		if ((mem[2] == 0x4e && mem[3] == 0xf9) || (mem[0] == 0x11 && (mem[1] == 0x11 || mem[1] == 0x14))) {
++#ifdef P6_PORTABLE
++		bool valid_checksum = kickstart_checksum_do(mem, real_size) != 0;
++#endif
++		if (((mem[2] == 0x4e && mem[3] == 0xf9) || (mem[0] == 0x11 && (mem[1] == 0x11 || mem[1] == 0x14)))
++#ifdef P6_PORTABLE
++			&& valid_checksum
++#endif
++		) {
+ 			cloanto_rom = 1;
+ 			return 1;
+ 		}
+ 		get_sha1 (mem, size, sha1);
+ 		rd = checkromdata (sha1, size, -1);
+-		if (rd) {
++		if (rd
++#ifdef P6_PORTABLE
++			&& valid_checksum
++#endif
++		) {
+ 			if (rd->cloanto)
+ 				cloanto_rom = 1;
+ 			return 1;
+ 		}
++#ifndef P6_PORTABLE
+ 		if (i == 0)
+ 			break;
++#endif
+ 		for (t = cnt = 0; cnt < size; cnt++, t = (t + 1) % keysize)  {
+ 			mem[cnt] ^= key[t];
+ 			if (real_size == cnt + 1)
+@@ -2027,7 +2061,9 @@
+ 	zf = zfile_fopen (rl->path, rw ? _T("rb+") : _T("rb"), ZFD_NORMAL);
+ 	if (!zf)
+ 		return 0;
++#ifndef P6_PORTABLE
+ 	addkeydir (rl->path);
++#endif
+ 	zfile_fread (tmp, sizeof tmp, 1, zf);
+ 	if (!memcmp (tmp, "AMIROMTYPE1", sizeof tmp)) {
+ 		zfile_fread (buf, rd->size, 1, zf);
+@@ -2282,9 +2318,21 @@
+ 			uae_u8 *newrom = NULL;
+ 			uae_u8 *tmp1 = xcalloc(uae_u8, 524288 * 2);
+ 			uae_u8 *tmp2 = xcalloc(uae_u8, 524288 * 2);
++#ifdef P6_PORTABLE
++			if (!tmp1 || !tmp2) {
++				xfree(tmp2); xfree(tmp1); zfile_fclose(f);
++				return NULL;
++			}
++#endif
+ 			for (;;) {
+-				if (zfile_fread(tmp1, 1, size, f) != size)
++				if (zfile_fread(tmp1, 1, size, f) != size) {
++#ifdef P6_PORTABLE
++					xfree(tmp2); xfree(tmp1); zfile_fclose(f);
++					return NULL;
++#else
+ 					break;
++#endif
++				}
+ 				if (size == 524288 * 2) {
+ 					// Perhaps it is 1M interleaved ROM image?
+ 					mergecd32(tmp2, tmp1, 524288 * 2);
+@@ -2324,6 +2372,9 @@
+ 			}
+ 			if (newrom) {
+ 				f2 = zfile_fopen_data(zfile_getname(f), size, newrom);
++#ifdef P6_PORTABLE
++				if (!f2) { zfile_fclose(f); f = NULL; }
++#endif
+ 			}
+ 			xfree(tmp2);
+ 			xfree(tmp1);
+@@ -2343,6 +2394,7 @@
+ {
+ 	struct zfile *f;
+ 
++#ifndef P6_PORTABLE
+ 	for (int i = 0; i < romlist_cnt; i++) {
+ 		if (my_issamepath(filename, rl[i].path)) {
+ 			struct romdata *rd = rl[i].rd;
+@@ -2351,14 +2403,38 @@
+ 				return f;
+ 		}
+ 	}
++#endif
+ 	f = rom_fopen2(filename, rw ? _T("rb+") : _T("rb"), ZFD_NORMAL);
+ 	if (f) {
+ 		uae_u8 tmp[11] = { 0 };
++#ifdef P6_PORTABLE
++		if (zfile_fread(tmp, 1, sizeof tmp, f) != sizeof tmp) {
++			zfile_fclose(f);
++			return NULL;
++		}
++#else
+ 		zfile_fread(tmp, sizeof tmp, 1, f);
++#endif
+ 		if (!memcmp(tmp, "AMIROMTYPE1", sizeof tmp)) {
+ 			struct zfile *df;
+ 			int size;
+ 			uae_u8 *buf;
++#ifdef P6_PORTABLE
++			uae_s64 length = zfile_size(f);
++			if (length != ROM_SIZE_256 + 11 && length != ROM_SIZE_512 + 11) {
++				zfile_fclose(f);
++				return NULL;
++			}
++			size = (int)length - 11;
++			buf = xmalloc(uae_u8, size);
++			df = NULL;
++			if (buf && zfile_fread(buf, 1, size, f) == size &&
++				decode_cloanto_rom_do(buf, size, size) && kickstart_checksum_do(buf, size))
++				df = zfile_fopen_data(filename, size, buf);
++			xfree(buf);
++			zfile_fclose(f);
++			f = df;
++#else
+ 			addkeydir(filename);
+ 			zfile_fseek(f, 0, SEEK_END);
+ 			size = zfile_ftell32(f) - sizeof tmp;
+@@ -2372,6 +2448,7 @@
+ 			xfree(buf);
+ 			zfile_fseek(df, 0, SEEK_SET);
+ 			f = df;
++#endif
+ 		} else {
+ 			zfile_fseek (f, -((int)sizeof tmp), SEEK_CUR);
+ 		}
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -2080,7 +2080,9 @@
+ #endif
+ 	_tcscpy(tmprom, currprefs.romfile);
+ 	struct zfile *f = get_kickstart_filehandle(&currprefs);
++#ifndef P6_PORTABLE
+ 	addkeydir (currprefs.romfile);
++#endif
+ 	if (f == NULL) { /* still no luck */
+ #ifdef P6_PORTABLE
+ 		rom_load_status = P6_ROM_OPEN_ERROR;

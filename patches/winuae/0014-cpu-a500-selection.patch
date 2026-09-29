@@ -1,0 +1,243 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -410,8 +410,8 @@
+ 		return true;
+ 	if (!cputrace.readcounter && !cputrace.writecounter && !cputrace.cyclecounter) {
+ 		if (cpu_tracer != -2) {
+-			write_log (_T("CPU trace: dma_cycle() enabled. %08x %08x NOW=%08x\n"),
+-				cputrace.cyclecounter_pre, cputrace.cyclecounter_post, get_cycles ());
++			write_log (_T("CPU trace: dma_cycle() enabled. %08x %08x NOW=%08llx\n"),
++				cputrace.cyclecounter_pre, cputrace.cyclecounter_post, (unsigned long long)get_cycles ());
+ 			cpu_tracer = -2; // dma_cycle() allowed to work now
+ 		}
+ 	}
+@@ -447,10 +447,10 @@
+ 		struct cputracememory *ctm = &cputrace.ctm[i];
+ 		if (ctm->addr == addr && ctm->mode == mode) {
+ 			ctm->mode = 0;
+-			write_log(_T("CPU trace: GET %d: PC=%08x %08x=%08x %d %d %08x/%08x/%08x %d/%d (%08x)\n"),
++			write_log(_T("CPU trace: GET %d: PC=%08x %08x=%08x %d %d %08x/%08x/%08x %d/%d (%08llx)\n"),
+ 				i, cputrace.pc, addr, ctm->data, accessmode, size,
+ 				cputrace.cyclecounter, cputrace.cyclecounter_pre, cputrace.cyclecounter_post,
+-				cputrace.readcounter, cputrace.writecounter, get_cycles ());
++				cputrace.readcounter, cputrace.writecounter, (unsigned long long)get_cycles ());
+ 			if (accessmode == 1)
+ 				cputrace.writecounter--;
+ 			else
+@@ -934,6 +934,7 @@
+ // indirect memory access functions
+ static void set_x_funcs (void)
+ {
++#ifndef P6_PORTABLE
+ 	if (currprefs.cpu_model >= 68010) {
+ 		if (currprefs.mmu_model == 68030) {
+ 			is_super_access = mmu030_is_super_access;
+@@ -1026,6 +1027,10 @@
+ 			x_do_cycles_post = do_cycles_post;
+ 		}
+ 	} else if (currprefs.cpu_model < 68020) {
++#else
++	is_super_access = is_super_access_68000;
++	if (currprefs.cpu_model < 68020) {
++#endif
+ 		// 68000/010
+ 		if (currprefs.cpu_cycle_exact) {
+ 			x_prefetch = get_word_ce000_prefetch;
+@@ -1043,6 +1048,7 @@
+ 			x_do_cycles = do_cycles_ce;
+ 			x_do_cycles_pre = do_cycles_ce;
+ 			x_do_cycles_post = do_cycles_ce_post;
++#ifndef P6_PORTABLE
+ 		} else if (currprefs.cpu_memory_cycle_exact) {
+ 			// cpu_memory_cycle_exact + cpu_compatible
+ 			x_prefetch = get_word_000_prefetch;
+@@ -1333,6 +1339,10 @@
+ 		x_do_cycles_pre = do_cycles_ce020;
+ 		x_do_cycles_post = do_cycles_ce020_post;
+ 	}
++#else
++		}
++	}
++#endif
+ 	x2_prefetch = x_prefetch;
+ 	x2_get_ilong = x_get_ilong;
+ 	x2_get_iword = x_get_iword;
+@@ -1386,8 +1396,10 @@
+ 	}
+ 
+ 	set_x_cp_funcs();
++#ifdef MMUEMU
+ 	mmu_set_funcs();
+ 	mmu030_set_funcs();
++#endif
+ 
+ 	dcache_lput = put_long;
+ 	dcache_wput = put_word;
+@@ -1399,6 +1411,7 @@
+ 
+ 	icache_fetch = get_longi;
+ 	icache_fetch_word = NULL;
++#ifndef P6_PORTABLE
+ 	if (currprefs.cpu_cycle_exact) {
+ 		icache_fetch = mem_access_delay_longi_read_ce020;
+ 	}
+@@ -1495,6 +1508,9 @@
+ 		}
+ 	}
+ }
++#else
++}
++#endif
+ 
+ bool can_cpu_tracer (void)
+ {
+@@ -1859,6 +1875,11 @@
+ 
+ 
+ // generic+direct, generic+direct+jit, generic+indirect, more compatible, cycle-exact, mmu, mmu+more compatible, mmu+mc+ce
++#ifdef P6_PORTABLE
++static const struct cputbl *cputbls[6][8] = {
++	{ NULL, NULL, NULL, NULL, op_smalltbl_14, NULL, NULL, NULL }
++};
++#else
+ static const struct cputbl *cputbls[6][8] =
+ {
+ 	// 68000
+@@ -1875,6 +1896,7 @@
+ 	{ op_smalltbl_0, op_smalltbl_40, op_smalltbl_50, op_smalltbl_24, op_smalltbl_24, op_smalltbl_33, op_smalltbl_33, op_smalltbl_33 }
+ };
+ 
++#endif
+ #ifdef JIT
+ 
+ const struct cputbl *uaegetjitcputbl(void)
+@@ -1950,6 +1972,7 @@
+ 		cpudatatbl[opcode].branch = tbl[i].branch;
+ 	}
+ 
++#ifdef FPUEMU
+ 	/* hack fpu to 68000/68010 mode */
+ 	if (currprefs.fpu_model && currprefs.cpu_model < 68020) {
+ 		tbl = op_smalltbl_3;
+@@ -1965,6 +1988,7 @@
+ 		}
+ 	}
+ 
++#endif
+ 	opcnt = 0;
+ 	for (opcode = 0; opcode < 65536; opcode++) {
+ 		struct instr *table = &table68k[opcode];
+@@ -2061,7 +2085,11 @@
+ 	m68k_interrupt_delay = false;
+ 	m68k_accurate_ipl = false;
+ 	if (currprefs.cpu_cycle_exact) {
+-		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13 || tbl == op_smalltbl_21 || tbl == op_smalltbl_23)
++		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13
++#ifndef P6_PORTABLE
++			|| tbl == op_smalltbl_21 || tbl == op_smalltbl_23
++#endif
++		)
+ 			m68k_interrupt_delay = true;
+ 		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13)
+ 			m68k_accurate_ipl = true;
+@@ -6564,6 +6592,7 @@
+ {
+ 	void (*run_func)(void);
+ 
++#ifndef P6_PORTABLE
+ 	run_func = currprefs.cpu_cycle_exact && currprefs.cpu_model <= 68010 ? m68k_run_1_ce :
+ 		currprefs.cpu_compatible && currprefs.cpu_model <= 68010 ? m68k_run_1 :
+ #ifdef JIT
+@@ -6581,6 +6610,9 @@
+ 		currprefs.cpu_model >= 68040 && currprefs.cpu_compatible ? m68k_run_3p :
+ 
+ 		currprefs.cpu_model < 68020 ? m68k_run_2_000 : m68k_run_2_020;
++#else
++	run_func = m68k_run_1_ce;
++#endif
+ 
+ 	run_func();
+ }
+@@ -6808,6 +6840,7 @@
+ 
+ void m68k_disasm_ea (uaecptr addr, uaecptr *nextpc, int cnt, uae_u32 *seaddr, uae_u32 *deaddr, uaecptr lastpc)
+ {
++#ifdef DEBUGGER
+ 	TCHAR *buf;
+ 
+ 	if (!cnt)
+@@ -6820,9 +6853,13 @@
+ 	m68k_disasm_2(buf, MAX_LINEWIDTH * pcnt, addr, NULL, 0, nextpc, cnt, seaddr, deaddr, lastpc, 1);
+ #endif
+ 	xfree (buf);
++#else
++	write_log(_T("CPU disassembly requires DEBUGGER.\n"));
++#endif
+ }
+ void m68k_disasm (uaecptr addr, uaecptr *nextpc, uaecptr lastpc, int cnt)
+ {
++#ifdef DEBUGGER
+ 	TCHAR *buf;
+ 
+ 	if (!cnt)
+@@ -6836,6 +6873,9 @@
+ #endif
+ 	console_out_f (_T("%s"), buf);
+ 	xfree (buf);
++#else
++	write_log(_T("CPU disassembly requires DEBUGGER.\n"));
++#endif
+ }
+ 
+ void m68k_dumpstate(uaecptr *nextpc, uaecptr prevpc)
+@@ -8119,6 +8159,7 @@
+ 	put_word (addr, v);
+ }
+ 
++#ifndef P6_PORTABLE
+ static void start_020_cycle(void)
+ {
+ 	regs.ce020startcycle = get_cycles();
+@@ -9969,6 +10010,7 @@
+ }
+ #endif
+ 
++#endif
+ void check_t0_trace(void)
+ {
+ 	if (regs.t0 && !regs.t1 && currprefs.cpu_model >= 68020) {
+@@ -9986,6 +10028,7 @@
+ #endif
+ }
+ 
++#ifndef P6_PORTABLE
+ static int add_prefetch_030(int idx, uae_u16 w, uaecptr pc)
+ {
+ 	regs.prefetch020[0] = regs.prefetch020[1];
+@@ -10210,6 +10253,7 @@
+ }
+ 
+ 
++#endif
+ void fill_prefetch (void)
+ {
+ 	if (currprefs.cachesize)
+@@ -10217,6 +10261,7 @@
+ 	if (!currprefs.cpu_compatible)
+ 		return;
+ 	reset_pipeline_state();
++#ifndef P6_PORTABLE
+ 	if (currprefs.cpu_model >= 68040) {
+ 		if (currprefs.cpu_compatible || currprefs.cpu_memory_cycle_exact) {
+ 			fill_icache040(m68k_getpc() + 16);
+@@ -10227,6 +10272,9 @@
+ 	} else if (currprefs.cpu_model == 68030) {
+ 		fill_prefetch_030 ();
+ 	} else if (currprefs.cpu_model <= 68010) {
++#else
++	if (currprefs.cpu_model <= 68010) {
++#endif
+ 		uaecptr pc = m68k_getpc ();
+ 		regs.ir = x_get_word (pc);
+ 		regs.ird = regs.ir;

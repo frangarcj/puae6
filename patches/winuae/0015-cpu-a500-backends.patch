@@ -1,0 +1,284 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -288,6 +288,7 @@
+ 	x_cp_next_ilong = x_next_ilong;
+ 	x_cp_get_disp_ea_020 = x_get_disp_ea_020;
+ 
++#ifdef MMUEMU
+ 	if (currprefs.mmu_model == 68030) {
+ 		if (currprefs.cpu_compatible) {
+ 			x_cp_put_long = put_long_mmu030c_state;
+@@ -311,6 +312,8 @@
+ 			x_cp_get_disp_ea_020 = get_disp_ea_020_mmu030;
+ 		}
+ 	}
++#endif
++
+ }
+ 
+ static struct cputracestruct cputrace;
+@@ -1628,7 +1631,9 @@
+ 		}
+ 	} else if (currprefs.cpu_model >= 68040) {
+ 		if (doflush && force) {
++#ifdef MMUEMU
+ 			mmu_flush_cache();
++#endif
+ 			icachelinecnt = 0;
+ 			icachehalfline = 0;
+ 			for (int i = 0; i < CACHESETS060; i++) {
+@@ -1643,6 +1648,7 @@
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE
+ #if VALIDATE_68040_DATACACHE > 1
+ static void validate_dcache040(void)
+ {
+@@ -1786,6 +1792,7 @@
+ 	mmu_flush_cache();
+ }
+ 
++#endif
+ void cpu_invalidate_cache(uaecptr addr, int size)
+ {
+ 	if (!currprefs.cpu_data_cache)
+@@ -1797,13 +1804,16 @@
+ 			dcaches030[(addr >> 4) & (CACHELINES030 - 1)].valid[(addr >> 2) & 3] = 0;
+ 			addr += 4;
+ 		}
+-	} else if (currprefs.cpu_model >= 68040) {
++	}
++#ifndef P6_PORTABLE
++	else if (currprefs.cpu_model >= 68040) {
+ 		uaecptr end = addr + size;
+ 		while (addr < end) {
+ 			flush_cpu_caches_040_2(0, 1, addr, true, true);
+ 			addr += 16;
+ 		}
+ 	}
++#endif
+ }
+ 
+ 
+@@ -1811,7 +1821,9 @@
+ {
+ 	regs.prefetch020addr = 0xffffffff;
+ 	regs.cacheholdingaddr020 = 0xffffffff;
++#ifdef MMUEMU
+ 	cache_default_data &= ~CACHE_DISABLE_ALLOCATE;
++#endif
+ 
+ 	// 68060 FIC 1/2 instruction cache
+ 	cacheisets04060 = currprefs.cpu_model == 68060 && !(regs.cacr & 0x00002000) ? CACHESETS060 : CACHESETS040;
+@@ -2221,6 +2233,7 @@
+ 	currprefs.cpu_model = changed_prefs.cpu_model;
+ 	currprefs.fpu_model = changed_prefs.fpu_model;
+ 	currprefs.fpu_revision = changed_prefs.fpu_revision;
++#ifdef MMUEMU
+ 	if (currprefs.mmu_model != changed_prefs.mmu_model) {
+ 		int oldmmu = currprefs.mmu_model;
+ 		currprefs.mmu_model = changed_prefs.mmu_model;
+@@ -2247,6 +2260,7 @@
+ 			fake_crp_030 = crp_030;
+ 		}
+ 	}
++#endif
+ 	currprefs.mmu_ec = changed_prefs.mmu_ec;
+ 	if (currprefs.cpu_compatible != changed_prefs.cpu_compatible) {
+ 		currprefs.cpu_compatible = changed_prefs.cpu_compatible;
+@@ -2537,8 +2551,10 @@
+ 			}
+ 		}
+ 	}
++#ifdef MMUEMU
+ 	if (currprefs.mmu_model)
+ 		mmu_set_super (regs.s != 0);
++#endif
+ 
+ #ifdef JIT
+ 	// if JIT enabled and T1, T0 or M changes: end compile.
+@@ -2977,6 +2993,7 @@
+ #endif
+ 
+ // 68030 MMU
++#ifdef MMUEMU
+ static void Exception_mmu030 (int nr, uaecptr oldpc)
+ {
+ 	uae_u32 currpc = m68k_getpc (), newpc;
+@@ -3047,7 +3064,9 @@
+ 
+ 	// exception vector fetch and exception stack frame
+ 	// operations don't allocate new cachelines
++#ifdef MMUEMU
+ 	cache_default_data |= CACHE_DISABLE_ALLOCATE;
++#endif
+ 	
+ 	exception_debug (nr);
+ 	MakeSR ();
+@@ -3099,7 +3118,9 @@
+ 		return;
+ 	}
+ 
++#ifdef MMUEMU
+ 	cache_default_data &= ~CACHE_DISABLE_ALLOCATE;
++#endif
+ 
+ 	m68k_setpci (newpc);
+ 	if (interrupt)
+@@ -3108,6 +3129,7 @@
+ 	exception_check_trace (nr);
+ }
+ 
++#endif
+ static void add_approximate_exception_cycles(int nr)
+ {
+ 	int cycles;
+@@ -3180,7 +3202,9 @@
+ 	int vector_nr = nr;
+ 	bool g1 = false;
+ 
++#ifdef MMUEMU
+ 	cache_default_data |= CACHE_DISABLE_ALLOCATE;
++#endif
+ 
+ 	interrupt = nr >= 24 && nr < 24 + 8;
+ 	if (interrupt)
+@@ -3201,8 +3225,10 @@
+ 			m68k_areg (regs, 7) = regs.isp;
+ 		}
+ 		regs.s = 1;
++#ifdef MMUEMU
+ 		if (currprefs.mmu_model)
+ 			mmu_set_super (regs.s != 0);
++#endif
+ 	}
+ 
+ 	if ((m68k_areg(regs, 7) & 1) && currprefs.cpu_model < 68020) {
+@@ -3229,6 +3255,7 @@
+ 	
+ 	bool used_exception_build_stack_frame = false;
+ 
++#ifndef P6_PORTABLE
+ 	if (currprefs.cpu_model > 68000) {
+ 		uae_u32 oldpc = regs.instruction_pc;
+ 		nextpc = exception_pc (nr);
+@@ -3363,7 +3390,9 @@
+ 			Exception_build_stack_frame_common(oldpc, currpc, regs.mmu_ssw, nr, vector_nr);
+ 			used_exception_build_stack_frame = true;
+ 		}
+- 	} else {
++ 	} else
++#endif
++	{
+ 		nextpc = m68k_getpc ();
+ 		if (nr == 2 || nr == 3) {
+ 			// 68000 bus/address error
+@@ -3434,7 +3463,9 @@
+ 	}
+ 	add_approximate_exception_cycles(nr);
+ 	m68k_setpc (newpc);
++#ifdef MMUEMU
+ 	cache_default_data &= ~CACHE_DISABLE_ALLOCATE;
++#endif
+ #ifdef JIT
+ 	if (currprefs.cachesize) {
+ 		set_special(SPCFLAG_END_COMPILE);
+@@ -3485,12 +3516,15 @@
+ 			regs.buscr &= 0xa0000000;
+ 			regs.buscr |= regs.buscr >> 1;
+ 		}
++#ifdef MMUEMU
+ 		if (currprefs.mmu_model) {
+ 			if (currprefs.cpu_model == 68030)
+ 				Exception_mmu030(nr, m68k_getpc());
+ 			else
+ 				Exception_mmu(nr, m68k_getpc());
+-		} else {
++		} else
++#endif
++		{
+ 			Exception_normal(nr);
+ 		}
+ 	}
+@@ -3677,7 +3711,9 @@
+ 	regs.caar = regs.cacr = 0;
+ 	regs.itt0 = regs.itt1 = regs.dtt0 = regs.dtt1 = 0;
+ 	regs.tcr = regs.mmusr = regs.urp = regs.srp = regs.buscr = 0;
+-	mmu_tt_modified(); 
++#ifdef MMUEMU
++	mmu_tt_modified();
++#endif
+ 	if (currprefs.cpu_model == 68020) {
+ 		regs.cacr |= 8;
+ 		set_cpu_caches (false);
+@@ -3685,18 +3721,23 @@
+ 
+ 	mmufixup[0].reg = -1;
+ 	mmufixup[1].reg = -1;
++#ifdef MMUEMU
+ 	mmu030_cache_state = CACHE_ENABLE_ALL;
+ 	mmu_cache_state = CACHE_ENABLE_ALL;
++#endif
+ 	if (currprefs.cpu_model >= 68040) {
+ 		set_cpu_caches(false);
+ 	}
++#ifdef MMUEMU
+ 	if (currprefs.mmu_model >= 68040) {
+ 		mmu_reset();
+ 		mmu_set_tc(regs.tcr);
+ 		mmu_set_super(regs.s != 0);
+ 	} else if (currprefs.mmu_model == 68030) {
+ 		mmu030_reset(hardreset || regs.halted);
+-	} else {
++	} else
++#endif
++	{
+ 		a3000_fakekick (0);
+ 		/* only (E)nable bit is zeroed when CPU is reset, A3000 SuperKickstart expects this */
+ 		fake_tc_030 &= ~0x80000000;
+@@ -6750,7 +6791,9 @@
+ 			if (cpu_prefs_changed_flag & 1) {
+ 				uaecptr pc = m68k_getpc();
+ 				prefs_changed_cpu();
++#ifdef FPUEMU
+ 				fpu_modechange();
++#endif
+ 				custom_cpuchange();
+ 				build_cpufunctbl();
+ 				m68k_setpc_normal(pc);
+@@ -6937,10 +6980,12 @@
+ 			(fpsr & 0x1000000) != 0);
+ 	}
+ #endif
++#ifdef MMUEMU
+ 	if (currprefs.mmu_model == 68030) {
+ 		console_out_f (_T("SRP: %llX CRP: %llX\n"), srp_030, crp_030);
+ 		console_out_f (_T("TT0: %08X TT1: %08X TC: %08X\n"), tt0_030, tt1_030, tc_030);
+ 	}
++#endif
+ 	if (currprefs.cpu_compatible) {
+ 		console_out_f(_T("Prefetch"));
+ 		if (currprefs.cpu_model == 68020 || currprefs.cpu_model == 68030) {
+@@ -7880,14 +7925,18 @@
+ {
+ 	if (currprefs.cpu_model <= 68010 && currprefs.cpu_compatible && HARDWARE_BUS_ERROR_EMULATION) {
+ 		hardware_bus_error = 1;
+-	} else if (currprefs.mmu_model) {
++	}
++#ifdef MMUEMU
++	else if (currprefs.mmu_model) {
+ 		if (currprefs.mmu_model == 68030) {
+ 			 mmu030_hardware_bus_error(addr, v, read, ins, size);
+ 		} else {
+ 			mmu_hardware_bus_error(addr, v, read, ins, size);
+ 		}
+ 		return;
+-	} else {
++	}
++#endif
++	else {
+ 		int fc = (regs.s ? 4 : 0) | (ins ? 2 : 1);
+ 		if (ismoves_nommu) {
+ 			ismoves_nommu = false;
