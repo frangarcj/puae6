@@ -229,6 +229,13 @@ p6_result p6_load(p6_buffer firmware, const p6_media *media,
                   uint32_t media_count, p6_error *error);
 p6_result p6_run_frame(const p6_input *input, uint32_t render_flags,
                        p6_frame *frame, p6_error *error);
+/* Queues a hard reset for the next p6_run_frame, whose head runs it before media events
+ * and input (BAD_STATE unless loaded; a second call before that frame changes nothing,
+ * and before the first frame there is nothing to start over). The guest restarts with
+ * clean RAM and the keyboard powers up again; disks, configuration, the unit index and
+ * master_ticks are kept, and keys the host still holds are pressed again once after the
+ * keyboard's power-up stream. It is not unload + load: the random seed keeps advancing
+ * and drive mechanics (cylinder) are not reset. */
 p6_result p6_reset(p6_error *error);
 p6_result p6_unload(p6_error *error);
 p6_result p6_shutdown(p6_error *error);

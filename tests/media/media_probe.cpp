@@ -353,6 +353,38 @@ static void drives_follow_the_events(const std::vector<uint8_t> &rom, const std:
     assert(p6_unload(&e) == P6_OK);
 }
 
+// A reset started from the API keeps what is in the drives, also a swap that has not landed yet.
+static void reset_keeps_the_media(const std::vector<uint8_t> &rom, const std::vector<p6_media> &media,
+                                  const std::vector<std::vector<uint8_t>> &disks)
+{
+    const std::string a = id_of(media[0]), b = id_of(media[1]);
+    p6_error e = make_error();
+    assert(p6_reset(&e) == P6_ERROR_BAD_STATE && e.message[0]);          // nothing loaded
+    assert(load(rom, media.data(), 2, &e) == P6_OK);
+    assert(p6_reset(&e) == P6_OK && !p6_session::session.reset_queued);  // before the first frame the power-on reset is pending
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 0, 1), P6_OK, "a in df0"));
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 1, 1, 2), P6_OK, "b in df1"));
+    run_units(3);
+    assert(!disk_empty(0) && !disk_empty(1) && names(0, a) && names(1, b));
+    assert(p6_reset(&e) == P6_OK && p6_session::session.reset_queued);
+    run_units(1);
+    assert(!p6_session::session.reset_queued && !disk_empty(0) && !disk_empty(1) && names(0, a) && names(1, b));
+    // A swap that has not landed when the reset comes: the reset head inserts the disk the caller asked for, at once.
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 1, 3), P6_OK, "swap df0 to b"));
+    run_units(3);
+    assert(disk_empty(0) && names(0, b));
+    assert(p6_reset(&e) == P6_OK);
+    run_units(1);
+    assert(!disk_empty(0) && names(0, b) && p6_session::session.drive_media[0] == 1);
+    // Events queued with the reset run after its head, in order.
+    assert(enqueues(event_of(P6_MEDIA_EVENT_EJECT, 1, P6_MEDIA_INDEX_EJECT, 4), P6_OK, "eject df1"));
+    assert(p6_reset(&e) == P6_OK);
+    run_units(1);
+    assert(!disk_empty(0) && disk_empty(1) && names(1, ""));
+    assert(blob_holds(media[0], disks[0]) && blob_holds(media[1], disks[1]));
+    assert(p6_unload(&e) == P6_OK && p6_reset(&e) == P6_ERROR_BAD_STATE);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) { fprintf(stderr, "usage: %s boot.rom\n", argv[0]); return 64; }
@@ -370,6 +402,7 @@ int main(int argc, char **argv)
     std::vector<p6_media> media = {medium_of(disks[0]), medium_of(disks[1])};
     event_validation(rom, media);
     drives_follow_the_events(rom, media, disks);
+    reset_keeps_the_media(rom, media, disks);
     assert(disks == before);                           // no swap, eject or frame wrote to the caller's images
     assert(p6_shutdown(&e) == P6_OK);
     puts("media ok");

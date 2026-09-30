@@ -23,5 +23,9 @@ bool guest_polled_input();
 // Nothing is held any more (a load, a reset): the next packet applies every held key and button again.
 void forget_input();
 
+// The keyboard restarts with a reset requested through the API: the engine's key table and reset chord are cleared, and every key
+// the host still holds goes down again once, after the keyboard's power-up stream.
+void reset_keyboard();
+
 }  // namespace p6_bridge
 #endif

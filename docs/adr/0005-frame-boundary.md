@@ -76,3 +76,12 @@ diferencia del bit 0 de PUAE, que dejaba `do_specialties` activa en cada instruc
 `python3 -m unittest tests.step.test_step` (arbol `build/step-trace`); mutantes con `P6_TEST_MUTANTS=1`.
 `tests/host/test_cpu_rom_guard.py` ejecuta el cuerpo real de `m68k_go_unit` contra fakes. STEP01 solo esta
 aprobado en el adaptador headless: T16 lo amplia a libretro y T19 a Waterbox.
+
+## Adenda T13a: reset de API
+
+`p6_reset` solo levanta una marca; `p6_run_frame` la convierte en `quit_program = UAE_RESET_HARD` justo antes de `m68k_go_unit(APPLY)`, de modo que la
+cabecera del reset es la misma que la del arranque y consume su retardo aleatorio dentro de la llamada. Antes se descartan la tabla de teclas del motor
+y el estado de la secuencia de reset del teclado (parche 0066) y `cycles_seen` vuelve a cero, porque el contador del motor empieza de nuevo y todo lo
+que cuenta desde ahi es nuevo para el llamante. El borde que cruza la cabecera no es una unidad (se descarta `SPCFLAG_UNIT_END`); la unidad acaba en el
+primer borde tras el reset, siempre a la misma distancia del reset (un cuadro mas 4 lineas), asi que su longitud no depende del retardo.
+

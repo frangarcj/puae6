@@ -7663,6 +7663,103 @@
       "evidence": "reports/tasks/T12.md"
     },
     {
+      "id": "T13a",
+      "title": "Reset de API en el borde: conserva medios y configuracion, reinicia el invitado y suelta teclas",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T10",
+        "T11",
+        "T12"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/adr/0005-frame-boundary.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "tests/step/**",
+        "tests/lifecycle/**",
+        "tests/media/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "docs/adr/0005-frame-boundary.md",
+        "reports/**"
+      ],
+      "steps": [
+        "p6_reset encola un reset duro que corre en la cabecera del siguiente p6_run_frame, antes de los eventos de medios y de la entrada; antes del primer frame no cambia nada.",
+        "El reset conserva medios (incluido un cambio pendiente), configuracion y contadores de sesion monotonicos; el invitado arranca de nuevo con la RAM limpia.",
+        "Las teclas que el anfitrion mantiene se sueltan con el reset y se pulsan de nuevo una vez tras el arranque del teclado, como con Ctrl-Amiga-Amiga.",
+        "Ampliacion touch respecto a la ficha T13: bridge/**, tests/step (sonda con P6_RESET_AT), tests/media y docs."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "LIFE01"
+      ],
+      "acceptance": [
+        "Tras p6_reset el invitado reinicia, los medios base siguen montados y dos procesos con el mismo guion dan la misma salida.",
+        "Las teclas mantenidas no quedan atascadas ni se repiten mas de una vez."
+      ],
+      "stop": "Un reset que solo funciona recreando la instancia se corrige o queda como limitacion; no fingir equivalencia con load.",
+      "evidence": "reports/tasks/T13a.md"
+    },
+    {
+      "id": "T13b",
+      "title": "Ciclos de vida limpios: 100 load/run/unload, fallos a medias, instancia unica y globales heredados",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T13a",
+        "T26"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/adr/0005-frame-boundary.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "tests/lifecycle/**",
+        "tests/step/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "reports/**"
+      ],
+      "steps": [
+        "Listar los globales y recursos que se inicializan por sesion y los que sobreviven a unload (cyl de disquetera, modo de reset del teclado, historial).",
+        "100 ciclos load/run/unload con distintas configuraciones, error a mitad de load y doble shutdown, bajo sanitizers.",
+        "Segunda instancia nativa: BUSY sin contaminacion; una segunda carga en el mismo proceso da el mismo resultado que un proceso limpio.",
+        "Cerrar el hallazgo de T13a: dos p6_reset en unidades consecutivas dejan al teclado sin secuencia de arranque (test expectedFailure en tests/lifecycle/test_reset.py)."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "LIFE01",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "No quedan recursos, callbacks ni preferencias heredadas entre cargas; no hay nueva fuga ni OOB.",
+        "El contrato de instancia unica es explicito y no requiere convertir todos los globales en objetos."
+      ],
+      "stop": "Un estado heredado que no se pueda limpiar sin recrear la instancia queda como limitacion documentada del perfil.",
+      "evidence": null
+    },
+    {
       "id": "T13",
       "title": "Cerrar reset y limpieza de globales",
       "milestone": "M1",
@@ -7672,7 +7769,9 @@
         "T10",
         "T11",
         "T12",
-        "T26"
+        "T26",
+        "T13a",
+        "T13b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -7680,10 +7779,9 @@
       ],
       "touch": [
         "bridge/lifecycle.cpp",
-        "ports/portable/**",
         "tests/lifecycle/**",
         "manifests/state-inventory.json",
-        "patches/winuae/**"
+        "reports/**"
       ],
       "steps": [
         "Implementar init/load/run/reset/unload/shutdown y cleanup de load parcial; listar globales y recursos que se inicializan por sesion.",

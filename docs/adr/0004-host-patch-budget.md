@@ -369,3 +369,7 @@ que solo escribe el motor (siete lecturas de la CPU emulada: JOY0DAT, JOY1DAT, P
 y CIA-A SDR) y que el bridge limpia y lee por unidad. Alternativa descartada: un callback desde JOYxDAT, que seria reentrada en el motor y
 una llamada al host desde dentro de una instruccion (AGENTS.md); y filtrar por tipo de puerto (lag en BizHawk = "leido", no "leido algo
 enchufado"). El presupuesto de 1500 lineas sigue superado; se revisara en M2.
+
+T13a añade 0066 (`p6_input_reset_keys`, 11 lineas en inputdevice.cpp): 66 parches/32 archivos/2078 lineas. Un reset pedido por la API vacia la tabla de teclas del motor y el estado de la secuencia de reset del teclado, que solo la ruta Ctrl-Amiga-Amiga limpiaba (`keyboard_reset_seq_mode` no se borraba nunca por otra via). La funcion solo llama a `memset`, dos escrituras y `release_keys()`.
+
+T13a añade 0067 (10 lineas en newcpu.cpp, solo con P6_UNIT_TRACE): 67 parches/32 archivos/2088 lineas. El observador de STEP01 ignora un borde con el mismo contador de ciclos que el anterior; un reset reinicia el contador y, con dos resets en unidades seguidas, el borde de la segunda unidad caia en la misma cuenta y no se contaba (la maquina y la unidad eran correctas; medido con `P6_DEBUG_UNITS`). El reset de la cabecera olvida el ultimo borde comunicado.

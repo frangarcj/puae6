@@ -117,6 +117,7 @@ void forget_media()
     s.last_sequence = 0;
     s.have_sequence = false;
     s.started = false;
+    s.reset_queued = false;
 }
 
 namespace {

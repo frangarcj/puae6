@@ -20,6 +20,7 @@
 // Set by the port when the engine has cleared its own key state at the end of a keyboard reset sequence
 // (ports/portable/input_devices.cpp, release_keys()).
 extern int p6_input_engine_released_keys;
+void p6_input_reset_keys();     // patch 0066
 
 namespace p6_bridge {
 
@@ -172,6 +173,11 @@ void begin_input_unit()
 bool guest_polled_input()
 {
     return p6_input_poll_mask != 0;     // the bits are exactly the seven registers above
+}
+
+void reset_keyboard()
+{
+    p6_input_reset_keys();     // clears the engine's table and flags the loss, so that apply_input presses the held keys again
 }
 
 void forget_input()

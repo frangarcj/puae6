@@ -28,6 +28,7 @@ struct Session {
     int32_t drive_media[4] = {-1, -1, -1, -1};
     uint64_t last_sequence = 0;
     bool have_sequence = false;
+    bool reset_queued = false;    // p6_reset was called: the next p6_run_frame starts with a hard reset
     bool started = false;         // the first p6_run_frame got past validation: the power-on reset head has been reached
     uint8_t firmware_sha256[32] = {};                       // identity of what was loaded (docs/adr/0008-media-identity.md)
     uint32_t media_count = 0;

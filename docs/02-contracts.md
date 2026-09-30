@@ -39,6 +39,13 @@ ROMs/discos se copian a memoria propia o reciben un contrato inmutable de vida u
 hasta unload. El caller no puede liberar esos datos antes. Todo callback/config
 host tiene politica de rebinding tras restore y no se confunde con estado Amiga.
 
+Reset (T13a): `p6_reset` marca un reset duro que corre en la cabecera del siguiente `p6_run_frame`, antes de los eventos de medios y de la
+entrada (es la misma cabecera del arranque, con su retardo aleatorio sembrado). Conserva discos (tambien un cambio pendiente: la cabecera inserta
+el disco pedido de inmediato), configuracion y contadores del llamante (`unit_index`, `master_ticks` siguen creciendo aunque el contador del motor
+vuelva a cero); el invitado arranca con la RAM limpia y el teclado repite su secuencia de arranque. Las teclas que el anfitrion mantiene se pulsan
+una vez tras esa secuencia; las que solto en la unidad del reset no se pulsan. No equivale a unload/load: la semilla sigue avanzando y no se
+reinicia la mecanica de la unidad de disco. Abierto: dos resets en unidades consecutivas dejan al teclado sin su secuencia (T13b).
+
 Una instancia nativa activa por imagen. create/init concurrente devuelve BUSY.
 No API reentrante. Todos los callbacks documentan si son solo-init, por-frame o
 lecturas puras autorizadas. No invocar libretro fuera de su hilo de entrada.

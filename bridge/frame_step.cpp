@@ -17,6 +17,7 @@
 #include "sysdeps.h"
 #include "options.h"
 #include "events.h"
+#include "uae.h"
 #include "memory.h"
 #include "newcpu.h"
 #include "rom_status.h"
@@ -74,6 +75,15 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
     // in this unit are not mixed with the keyboard's power-up sequence.
     if (!session.started)
         p6_bridge::apply_boot_media();
+    if (session.reset_queued) {
+        // A hard reset started from the API: the same head as the power-on one, run by APPLY below. The engine's cycle
+        // counter restarts at zero, so everything it counts from here on is new to the caller.
+        session.reset_queued = false;
+        if (quit_program == 0)
+            quit_program = UAE_RESET_HARD;
+        p6_bridge::reset_keyboard();
+        session.cycles_seen = 0;
+    }
     const int applied = m68k_go_unit(M68K_UNIT_APPLY);
     if (applied != M68K_UNIT_APPLIED)
         return fault(error, P6_ERROR_BAD_STATE, "the CPU loop ended while applying the reset");

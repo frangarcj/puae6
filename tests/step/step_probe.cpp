@@ -25,12 +25,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <set>
 #include <vector>
 
 int p6_unit_skip;
 
 namespace {
 std::vector<p6_input> script;   // P6_INPUT_SCRIPT: one packet per unit
+std::set<int> reset_at;            // P6_RESET_AT: comma separated 1-based units that start with p6_reset
 bool observer_applies_input;    // continuous mode: the packet of the next unit is applied at the boundary
 int script_units;
 }  // namespace
@@ -309,6 +311,8 @@ int main(int argc, char **argv)
     if (units < 1) return 64;
     const uint32_t standard = argc == 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
     if (const char *path = getenv("P6_INPUT_SCRIPT")) load_script(path);
+    if (const char *list = getenv("P6_RESET_AT"))
+        for (const char *c = list; *c;) { reset_at.insert(atoi(c)); while (*c && *c != ',') ++c; if (*c) ++c; }
     script_units = units;
     observer_applies_input = continuous && !script.empty();
 
@@ -333,7 +337,9 @@ int main(int argc, char **argv)
             const p6_input input = input_for(unit);
             uint32_t render = base_render;
             if (pattern && *pattern && pattern[(unit - 1) % strlen(pattern)] == '0') render &= ~P6_RENDER_AUDIO;
+            if (reset_at.count(unit)) check(p6_reset(&error), "p6_reset");   // P6_RESET_AT: a hard reset starts this unit
             check(p6_run_frame(&input, render, &frame, &error), "p6_run_frame");
+            if (getenv("P6_DEBUG_UNITS")) fprintf(stderr, "dbg unit %d cycles=%lld vpos=%d hpos=%d ticks=%llu\n", unit, (long long)get_cycles(), vpos, agnus_hpos, (unsigned long long)frame.master_ticks);
             if (frame.unit_index != uint64_t(unit) || frame.master_ticks <= last_ticks) return 4;
             if (frames) print_frame(frame);
             if (int64_t(get_cycles()) - before > unit_limit_cycles()) { fprintf(stderr, "unit %d is too long\n", unit); return 5; }
