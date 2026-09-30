@@ -11,7 +11,7 @@ include $(SOURCES_MK)
 # Paula en una fraccion de las muestras. Los include son los de los objetivos nativos.
 FP := -fno-fast-math -ffp-contract=off
 INC := -I$(REPO)/ports/portable -I$(REPO)/ports/portable/media -I$(REPO)/build/generated -I$(REPO)/build/upstream/include \
-	-I$(REPO)/build/upstream -I$(REPO)/bridge/include
+	-I$(REPO)/build/upstream -I$(REPO)/bridge/include -I$(REPO)/adapters/waterbox
 CCFLAGS := -std=c11 $(FP) $(INC)
 CXXFLAGS := -std=c++17 $(FP) $(INC)
 

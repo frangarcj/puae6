@@ -83,24 +83,19 @@ internal sealed class Native : IDisposable
     public void Dispose() => NativeLibrary.Free(library);
 }
 
-internal sealed unsafe class Sandbox : IDisposable
+internal sealed unsafe class Sandbox : WaterboxSandbox
 {
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate ulong Value();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int Status();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int Frame(ulong input, nint output, nuint capacity);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int Poison(byte value);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int MemoryInfo(nint output, nuint capacity);
-    readonly Native api;
-    nuint host;
-    internal Sandbox(Native api, byte[] image)
+    internal delegate int Identity(nint output, nuint capacity);
+    internal delegate int AbiProbe(nint callback, nint output, nuint capacity);
+    internal delegate int Touch(ulong which, ulong page, ulong offset, ulong value);
+    internal delegate int Fill(ulong which, ulong seed);
+    internal Sandbox(Native api, byte[] image) : base(api, image, Layout.Smoke, "p6-smoke.wbx")
     {
-        this.api = api;
-        using var stream = new MemoryStream(image, writable: false);
-        var layout = Layout.Smoke;
-        Native.Read read = (_, data, size) => Read(stream, data, size);
-        api.CreateHost(ref layout, "p6-smoke.wbx", read, 0, out var result);
-        host = result.Checked();
-        GC.KeepAlive(read);
         try
         {
             In(() => {
@@ -112,15 +107,27 @@ internal sealed unsafe class Sandbox : IDisposable
         }
         catch { Dispose(); throw; }
     }
+}
+
+/// A Waterbox sandbox of a guest: creation from an image, activation, calls into the guest, snapshots and the page table.
+internal unsafe class WaterboxSandbox : IDisposable
+{
+    protected readonly Native api;
+    protected nuint host;
+    internal WaterboxSandbox(Native api, byte[] image, Layout layout, string name)
+    {
+        this.api = api;
+        using var stream = new MemoryStream(image, writable: false);
+        Native.Read read = (_, data, size) => Read(stream, data, size);
+        api.CreateHost(ref layout, name, read, 0, out var result);
+        host = result.Checked();
+        GC.KeepAlive(read);
+    }
     static nint Read(Stream stream, nint data, nuint size)
     {
         try { return stream.Read(new Span<byte>((void*)data, checked((int)size))); }
         catch { return -1; } // No managed exception crosses the native ABI.
     }
-    internal delegate int Identity(nint output, nuint capacity);
-    internal delegate int AbiProbe(nint callback, nint output, nuint capacity);
-    internal delegate int Touch(ulong which, ulong page, ulong offset, ulong value);
-    internal delegate int Fill(ulong which, ulong seed);
     /// Guest-callable thunk for a managed callback. Keep `callback` alive while the guest can call it.
     internal nint Callback(Native.HostCallback callback, int slot)
     {
@@ -162,7 +169,7 @@ internal sealed unsafe class Sandbox : IDisposable
         Program.Require(stream.Position == stream.Length, "snapshot fully consumed");
         return 0;
     });
-    public void Dispose()
+    public virtual void Dispose()
     {
         if (host == 0) return;
         api.Destroy(host, out var result); host = 0; result.Checked();

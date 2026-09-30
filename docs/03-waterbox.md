@@ -107,6 +107,44 @@ Reserva de heaps por perfil, no copiar sin medir los valores de UAE.cs. Mantener
 margen de capacidad y registrar peak de sbrk/mmap/plain/sealed/invisible. No asumir
 que RAM invitada = memoria total. El costo de snapshot se mide aparte del RSS.
 
+### Resultado de T19b: la clasificacion aplicada a puae6.wbx
+
+La tabla de arriba esta aplicada region por region en manifests/waterbox-memory.json, junto con
+los presupuestos de heap y lo medido (`python3 tools/build_waterbox.py --puae6-run FIRMWARE
+--units N [--record-memory]` ejecuta la maquina en Waterbox real y escribe las medidas; los
+tests de tests/waterbox-smoke/test_puae6.py fallan si las cifras del manifiesto dejan de ser las
+de una ejecucion o si una medida pasa de la mitad de su presupuesto). Lo que quedo decidido:
+
+- Nada se excluye del snapshot: invisible y plain estan vacios (nadie llama a alloc_invisible ni
+  alloc_plain) y todo lo demas es malloc o datos estaticos, que Waterbox captura. Las unicas
+  regiones que el runtime no guarda son las pilas de hilo, vacias en una frontera de unidad
+  porque p6_run_frame retorna por la pila (sin corutina).
+- El firmware y los ADF se copian a la heap sealed dentro de p6w_init, antes del seal; el bridge
+  registra esos punteros (p6_load guarda el puntero, no una copia). El arnes sobrescribe con 0xA5
+  los buffers del host tras la llamada y la maquina no lo nota: cinco programas de fixture y dos
+  ADF dan las mismas unidades que headless. Los medios aun no se montan en Waterbox (no hay
+  export de eventos de medios: T17/T22).
+- Presupuestos: sbrk 4 MiB (medido 16 KiB), mmap 16 MiB (medido 5,3 MiB: Chip/Slow RAM y tablas),
+  sealed 16 MiB (un Kickstart de 512 KiB mas P6_MAX_MEDIA ADF de 901120 bytes; el fixture usa 256
+  KiB), invisible y plain 16 KiB (el minimo que acepta el runtime).
+- Coste de snapshot medido con el micro-ROM: 55 KB justo tras el seal y 9,1 MB despues de la
+  primera unidad. Son paginas sucias desde el seal: 4 MB son el buffer de imagen `pixels` y 2,3
+  MB son tablas (cpufunctbl, mem_banks...) que la cabecera de reset construye DENTRO de la primera
+  unidad, no en p6_load. La imagen del guest pesa 40 MB (34 MB de datos escribibles, casi todo bss: currprefs
+  y changed_prefs, 11 MB cada uno, y el buffer de imagen); solo se guardan las paginas sucias. Ambas cosas estan en candidates_for_exclusion del manifiesto para
+  T36 (prueba poison, o ejecutar esa cabecera antes del seal sin consumir una unidad); ahora no se
+  toca nada.
+- Las excepciones C++ se desenrollan dentro del sandbox (p6w_probe_exception: lanzar a 40
+  marcos de profundidad, capturar y ejecutar los 41 destructores). El perfil A500 no alcanza el
+  throw del nucleo (hardware_exception2 activa hardware_bus_error en un 68000 compatible), asi que
+  eso es la evidencia de que el desenrollado funciona, no una ejecucion de la maquina.
+
+Guest ABI: adapters/waterbox/p6w.h y puae6_guest.cpp (`p6w_abi_version`, `p6w_layout`,
+`p6w_memory_info`, `p6w_init_machine`, `p6w_frame_advance`, `p6w_reset`, `p6w_shutdown`,
+`p6w_probe_exception`). `p6w_frame_advance` es exactamente una llamada a p6_run_frame. El arnes
+managed (integration/bizhawk/smoke/Puae6.cs) comprueba al crear el sandbox que las estructuras que
+conoce son las que el guest compilo (`p6w_layout`); no es el wrapper de BizHawk (T20).
+
 ## Estado C# y callbacks
 
 WaterboxCore guarda ciertos contadores/RTC/base pero no conoce los campos nuevos

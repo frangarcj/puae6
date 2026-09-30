@@ -8008,7 +8008,7 @@
       "title": "Adaptador guest Waterbox: clasificar memoria, init, seal y una unidad en sandbox real",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T19a"
       ],

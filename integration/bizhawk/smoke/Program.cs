@@ -272,6 +272,7 @@ internal static unsafe class Program
                 Marshal.OffsetOf<Result>(nameof(Result.Data)).ToInt64() == 1024, "native ABI layout");
             if (args.Length == 3 && args[0] == "--restore") return RestoreInFreshProcess(args[1], args[2]);
             if (args.Length == 3 && args[0] == "--probe-load") return ProbeLoad(args[1], args[2]);
+            if (args.Length >= 7 && args[0] == "--puae6") return Puae6.Run(args);
             Require(args.Length == 2, "usage: Smoke.dll build-receipt.json result.json");
             var (guestPath, dylibPath, image) = Artifacts(args[0]);
             using var api = new Native(dylibPath);

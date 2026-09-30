@@ -7,6 +7,7 @@ inputs. It never modifies the MacHawk checkout and does not run the WBX guest.
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import os
@@ -551,7 +552,7 @@ IMPORTS = ROOT / "ports/waterbox/imports.json"
 
 def allowed_imports() -> set[str]:
     inventory = json.loads(IMPORTS.read_text())
-    allowed = {name for group in (inventory["libc"], inventory["cxx_runtime"]) for names in group.values() for name in names}
+    allowed = {name for group in (inventory["libc"], inventory["cxx_runtime"], inventory["emulibc"]) for names in group.values() for name in names}
     overlap = allowed & set(inventory["forbidden"])
     if overlap:
         raise BuildError(f"imports.json autoriza nombres prohibidos: {sorted(overlap)}")
@@ -621,6 +622,7 @@ def build_puae6(tc: dict, jobs: int) -> dict:
         raise BuildError(f"la receta de puae6.wbx fallo ({result.returncode}); ultimas lineas de {log}:\n" + "\n".join(log.read_text().splitlines()[-25:]))
     guest = out / "release" / PUAE6_GUEST
     metadata = validate_elf(guest, PAGE_SIZE)
+    metadata["path"] = str(guest)
     metadata["compiler_tls"] = check_no_compiler_tls(guest)
     imports = audit_imports(tc, [out / "release" / f"{source}.o" for source in sources])
     receipt = {"schema_version": 1, "status": "BUILD01_PASS_GUEST_NOT_EXECUTED", "guest": metadata, "imports": imports,
@@ -633,12 +635,71 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     return receipt
 
 
+MEMORY_MANIFEST = ROOT / "manifests/waterbox-memory.json"
+MANAGED = ROOT / "integration/bizhawk/smoke"
+
+
+def managed_env() -> dict[str, str]:
+    return {**os.environ, "DOTNET_CLI_HOME": str(BUILD / "dotnet-home"), "NUGET_PACKAGES": str(BUILD / "nuget"),
+            "DOTNET_ROLL_FORWARD": "Major", "DOTNET_NOLOGO": "1", "DOTNET_CLI_TELEMETRY_OPTOUT": "1"}
+
+
+@functools.cache
+def build_managed() -> tuple[str, dict[str, str]]:
+    """Builds the managed harness once per process, however many runs follow."""
+    dotnet = shutil.which("dotnet")
+    if not dotnet:
+        raise BuildError("Falta dotnet para el harness managed")
+    env = managed_env()
+    run_logged([dotnet, "build", "Smoke.csproj", "--nologo"], env, MANAGED)
+    return dotnet, env
+
+
+def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None) -> tuple[list[str], dict]:
+    """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines it printed in the format of
+    p6_headless, plus the measurements. Needs the runtime (build/waterbox/receipt.json) and the guest (--puae6) to exist already."""
+    runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
+    for needed in (runtime_receipt, guest_receipt):
+        if not needed.is_file():
+            raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6-run")
+    dotnet, env = build_managed()
+    result_path = BUILD / "puae6-result.json"
+    result_path.unlink(missing_ok=True)
+    process = subprocess.run([dotnet, str(BUILD / "managed/bin/Debug/net8.0/Smoke.dll"), "--puae6", str(runtime_receipt), str(guest_receipt),
+                              str(MEMORY_MANIFEST), str(firmware), str(units), str(result_path), *map(str, media)],
+                             env=env, cwd=MANAGED, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (BUILD / "puae6-run.log").write_text(process.stdout + "\n--- stderr ---\n" + process.stderr)
+    if process.returncode or not result_path.is_file():
+        tail = "\n".join((process.stdout + process.stderr).splitlines()[-25:])
+        raise BuildError(f"puae6.wbx no corrio en Waterbox ({process.returncode}); log completo: {BUILD / 'puae6-run.log'}\n{tail}")
+    lines = [line for line in process.stdout.splitlines() if line.startswith("unit ")]
+    return lines, json.loads(result_path.read_text())
+
+
+def record_memory(firmware: Path, units: int, result: dict) -> dict:
+    """Stores what a run measured in the `measured` key of manifests/waterbox-memory.json; the budgets stay as written."""
+    manifest = json.loads(MEMORY_MANIFEST.read_text())
+    manifest["measured"] = {
+        "fixture": {"firmware_sha256": sha256(firmware), "firmware_bytes": firmware.stat().st_size, "units": units,
+                    "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"},
+        "guest_sha256": result["guest_sha256"], "runtime_sha256": result["runtime_sha256"],
+        "after_seal": result["after_seal"], "after_first_unit": result["after_first_unit"], "after_last_unit": result["after_last_unit"],
+        "snapshot_bytes": result["snapshot_bytes"]}
+    MEMORY_MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    return manifest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fetch", action="store_true",
                         help="hacer cargo fetch --locked para el target ARM64 antes del build")
     parser.add_argument("--puae6", action="store_true",
                         help="compilar y enlazar puae6.wbx (T19a) con la receta fijada; no ejecuta ninguna maquina")
+    parser.add_argument("--puae6-run", type=Path, metavar="FIRMWARE",
+                        help="compilar puae6.wbx y ejecutarlo en Waterbox real con ese firmware (T19b): init, seal y --units unidades")
+    parser.add_argument("--record-memory", action="store_true",
+                        help="con --puae6-run: guardar las medidas de la ejecucion en manifests/waterbox-memory.json")
+    parser.add_argument("--units", type=int, default=1, help="unidades que ejecuta --puae6-run")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4, help="trabajos paralelos de make para --puae6")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
@@ -653,20 +714,22 @@ def main() -> int:
             print(json.dumps(metadata, indent=2, sort_keys=True))
         elif args.puae6:
             build_puae6(toolchain(), args.jobs)
+        elif args.puae6_run:
+            build(args)
+            build_puae6(toolchain(), args.jobs)
+            lines, measured = run_puae6(args.puae6_run.resolve(), args.units)
+            print("\n".join(lines))
+            print(f"PUAE6 WBX RUNTIME PASS: {len(lines)} unidades; medidas en {BUILD / 'puae6-result.json'}")
+            if args.record_memory:
+                record_memory(args.puae6_run.resolve(), args.units, measured)
+                print(f"medidas guardadas en {MEMORY_MANIFEST}")
         else:
             receipt = build(args)
             if args.smoke:
-                managed = ROOT / "integration/bizhawk/smoke"
-                env = {**os.environ, "DOTNET_CLI_HOME": str(BUILD / "dotnet-home"),
-                       "NUGET_PACKAGES": str(BUILD / "nuget"), "DOTNET_ROLL_FORWARD": "Major",
-                       "DOTNET_NOLOGO": "1", "DOTNET_CLI_TELEMETRY_OPTOUT": "1"}
-                dotnet = shutil.which("dotnet")
-                if not dotnet:
-                    raise BuildError("Falta dotnet para el harness managed")
-                run_logged([dotnet, "build", "Smoke.csproj", "--nologo"], env, managed)
+                dotnet, env = build_managed()
                 result_path = BUILD / "smoke-result.json"
                 run_logged([dotnet, str(BUILD / "managed/bin/Debug/net8.0/Smoke.dll"),
-                            str(BUILD / "receipt.json"), str(result_path)], env, managed)
+                            str(BUILD / "receipt.json"), str(result_path)], env, MANAGED)
                 summary = verify_smoke(json.loads(result_path.read_text()), receipt, BUILD / "damaged")
                 print("SMOKE_RUNTIME PASS: WB01 WB13 WB14 WB15 (WB16 en el build). "
                       "Runtime ante cargas dañadas: "
