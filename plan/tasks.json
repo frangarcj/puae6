@@ -710,7 +710,7 @@
       "title": "Probar mini-core C++ y snapshots desde harness managed",
       "milestone": "M0",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T09a",
         "T09b1",
