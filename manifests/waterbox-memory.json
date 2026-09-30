@@ -95,7 +95,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "1c4a58dd834cc31398f63f0af27e2879e093f1d40e8aeb4cea0af879bfb2185f",
+    "guest_sha256": "1ec3362e0c4e75ef976646a5fefd44cf25e39c7c8c52731d87f9f98aa796b4c9",
     "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
@@ -142,7 +142,7 @@
     "after_first_unit": {
       "elf": {
         "committed_bytes": 39895040,
-        "dirty_bytes": 7966720,
+        "dirty_bytes": 7983104,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -184,7 +184,7 @@
     "after_last_unit": {
       "elf": {
         "committed_bytes": 39895040,
-        "dirty_bytes": 7966720,
+        "dirty_bytes": 7983104,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -225,7 +225,7 @@
     },
     "snapshot_bytes": {
       "after_seal": 39412,
-      "after_last_unit": 9099764
+      "after_last_unit": 9116148
     }
   }
 }

@@ -46,6 +46,7 @@ Session session;
 
 extern void (*p6_counter_restart_hook)(void);   // newcpu.cpp, patch 0073: called by the reset head as the cycle counter starts over
 extern void p6_cia_session_begin(void);          // cia.cpp, patch 0074: the CIA's per-frame state is a clean process's at the start of a load
+extern void p6_input_session_begin(void);        // inputdevice.cpp, patch 0075: the counters a session of mouse input leaves behind
 
 using p6_session::Guard;
 using p6_session::State;
@@ -117,6 +118,7 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     event_init();
     copy_prefs(&currprefs, &changed_prefs);
     setup_sound();
+    p6_input_session_begin();       // no input counter of a previous session reaches this one (before inputdevice_init sets up the ports)
     inputdevice_init();
     copy_prefs(&changed_prefs, &currprefs);
     inputdevice_updateconfig(&currprefs, &changed_prefs);

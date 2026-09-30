@@ -2078,6 +2078,28 @@
           "after_sha256": "90bab6bc262a610ac9f35df61a5ac8a25d0992ad2e486c7cf8ddeb49ef1f70b0"
         }
       ]
+    },
+    {
+      "id": "0075-input-session-begin",
+      "file": "patches/winuae/0075-input-session-begin.patch",
+      "sha256": "5a508e8bb5ae274bc5a26c89e89ef28fde24dd1c37edb316526bcabf67dc843e",
+      "title": "An input session leaves no counters behind",
+      "reason": "A session that moved the mouse left mouse_x/y, mouse_frame_x/y, the pending axes and the frame counters of getvelocity in the data segment; the next load started JOY0DAT from them ($0A10 instead of $0101 for input_all after a script that moves the mouse). A load now puts them back to the value of a process that has seen no input; a reset inside a session keeps them, as the hardware does.",
+      "category": "host hooks",
+      "order": 75,
+      "symbols": [
+        "p6_input_session_begin"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_reload",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "866ab6c2a6d1c2bbf99ed873caf27c31055175d38da44efdfde2b10457d7e22d",
+          "after_sha256": "fdc955c8c6c6a3a9adaa2bd7c604b6e4a74286d45e65f099b80e9ca569a56cc2"
+        }
+      ]
     }
   ]
 }

@@ -7893,7 +7893,7 @@
       "title": "Las entradas de una sesion no pasan a la siguiente: contadores de raton, joystick y memorias de flancos",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T13c"
       ],

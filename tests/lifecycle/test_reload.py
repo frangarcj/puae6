@@ -11,7 +11,7 @@ import re
 import tempfile
 import unittest
 
-from tests.input.test_input import CTRL, FIXTURES, KEY_Q, LAMI, RAMI, line, sdr
+from tests.input.test_input import CTRL, FIXTURES, JOYSTICK, KEY_Q, LAMI, MOUSE, RAMI, line, sdr
 from tests.step.test_step import TOOLS, builder, configure_trace_tree, run_probe
 
 READS, STEPS_IN, GAP = 12, 10, 100        # 100 NOPs are 200 colour clocks, more than the drive's minimum step interval (140)
@@ -144,6 +144,57 @@ class ReloadKeyboardTests(unittest.TestCase):
         # stack of the guest then held another PC ($F80118 instead of $F80116). The digest of unit 1 is compared whole.
         clean = self.execute([KEY_Q, CTRL])
         self.assertEqual(passes(self.execute([KEY_Q, CTRL], {"P6_RELOAD": "2"}))[1], clean)
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class ReloadInputSessionTests(unittest.TestCase):
+    """T13d: a session that used the inputs leaves nothing of them for the next load. The script is the same in every load of a P6_RELOAD
+    run, so what pass 2 shows beyond a clean process is what pass 1 left behind (the idle reload of ReloadFixtureTests could not show it)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.exe = configure_trace_tree()
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-reload-input-")
+        cls.roms = {}
+        for name in ("input_all", "input_rotate"):
+            cls.roms[name] = Path(cls.tmp.name) / f"{name}.rom"
+            cls.roms[name].write_bytes(builder.build((FIXTURES / f"{name}.s").read_text(encoding="utf-8")))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def execute(self, rom, lines, extra=None):
+        script = Path(self.tmp.name) / "script.txt"
+        script.write_text("\n".join(lines) + "\n")
+        env = {"P6_DUMP_LOG": "1", "P6_INPUT_SCRIPT": str(script), **(extra or {})}
+        code, out = run_probe(self.exe, self.roms[rom], len(lines), "steps", 1, timeout=600, extra=["pal"], env=env)
+        self.assertEqual(code, 0, out[-600:])
+        return out
+
+    def assert_reloads_like_a_clean_process(self, rom, lines):
+        clean = self.execute(rom, lines)
+        for number, text in enumerate(passes(self.execute(rom, lines, {"P6_RELOAD": "3"})), 1):
+            self.assertEqual(text, clean, f"{rom}: load {number} differs from a clean process")
+        return clean
+
+    def test_mouse_counters_and_movement_of_a_session_do_not_reach_the_next_load(self):
+        lines = [line(p0=(MOUSE, 3 if unit % 2 else 0, 7, -5)) for unit in range(1, 7)]
+        clean = self.assert_reloads_like_a_clean_process("input_all", lines)
+        idle = self.execute("input_all", [line() for _ in range(6)])
+        self.assertNotEqual(re.findall(r"^logu 1:.*$", clean, re.M), re.findall(r"^logu 1:.*$", idle, re.M),
+                            "the script moves the mouse: the guest sees JOY0DAT change, or the test proves nothing")
+
+    def test_a_joystick_with_directions_and_fire_and_held_keys_do_not_reach_the_next_load(self):
+        lines = [line(keys=[KEY_Q, CTRL] if unit >= 2 else [], p1=(JOYSTICK, 0x40 | (0x08 if unit % 2 else 0x10) | 1, 0, 0)) for unit in range(1, 7)]
+        self.assert_reloads_like_a_clean_process("input_all", lines)
+
+    def test_everything_at_once_reloads_like_a_clean_process_for_both_input_fixtures(self):
+        lines = [line(keys=[KEY_Q, CTRL] if unit >= 2 else [], p0=(MOUSE, 3 if unit % 2 else 0, 7, -5), p1=(JOYSTICK, 0x40 | (0x08 if unit % 2 else 0x10) | 1, 0, 0))
+                 for unit in range(1, 7)]
+        for rom in ("input_all", "input_rotate"):
+            with self.subTest(rom=rom):
+                self.assert_reloads_like_a_clean_process(rom, lines)
+
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
 class ReloadFixtureTests(unittest.TestCase):

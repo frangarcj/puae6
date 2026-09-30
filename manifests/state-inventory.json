@@ -300,6 +300,29 @@
         "patches/winuae/0074-cia-first-frame-state.patch",
         "tests/lifecycle/test_reload.py"
       ]
+    },
+    {
+      "id": "input-session-counters",
+      "subsystem": "input",
+      "symbols": [
+        "mouse_x",
+        "mouse_y",
+        "mouse_frame_x",
+        "mouse_axis",
+        "mouse_delta",
+        "input_frame",
+        "prev_input_frame",
+        "mouseedge_x",
+        "p6_input_session_begin"
+      ],
+      "owner": "inputdevice.cpp",
+      "at_load": "A session that moved the mouse left the quadrature counters behind (mouse_x/y, mouse_frame_x/y), the pending movement (mouse_axis, mouse_delta), the frame counters getvelocity() divides by and the host edge detector; the next load started JOY0DAT from them ($0A10 instead of $0101 for input_all after a script that moves the mouse). The idle reload of T13b could not show it. Patch 0075 puts them back from bridge/lifecycle.cpp at every load; a reset inside a session keeps them, as the hardware does. The bytes the data-segment diff still shows after a dirty session (mouseupdate's mxd/myd, stored_jports, the key ring, staterecords, can_inject's counter) only feed the host edge detector, a configuration log or code that is idle without text injection",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0075-input-session-begin.patch",
+        "tests/lifecycle/test_reload.py"
+      ]
     }
   ],
   "savestate": {
@@ -346,7 +369,7 @@
       {
         "id": "session-inputs-leak-between-loads",
         "finding": "A session in which the mouse moved leaves mouse_x/mouse_y, mouse_frame_x/y, mouse_axis and the mouse edge and delta statics of inputdevice.cpp behind: a reload of input_all after a script that moves the mouse reads JOY0DAT $0A10 where a clean process reads $0101. The idle reload of T13b did not show it, because nothing had moved in the first session.",
-        "consequence": "Same class as T13b/T13c and found by this audit: fixed in T13d with a dirty-session reload test.",
+        "consequence": "Same class as T13b/T13c and found by this audit: fixed in T13d (patch 0075, p6_input_session_begin, and a dirty-session reload test that fails without it).",
         "task": "T13d"
       },
       {
@@ -5334,7 +5357,7 @@
         "chunk": null,
         "save": "save_inputstate",
         "restore": "restore_inputstate",
-        "reset": "resetinput() from inputdevice_updateconfig_internal (clears joydir, joybutton, oleft/oright/otop/obot, mouse_delta*, keybuf); mouse_x/y and mouse_frame_x/y are NOT cleared by load or reset",
+        "reset": "resetinput() from inputdevice_updateconfig_internal (clears joydir, joybutton, oleft/oright/otop/obot, mouse_delta*, keybuf); mouse_x/y and mouse_frame_x/y are NOT cleared by load or reset; p6_input_session_begin (patch 0075) at every load, not at p6_reset",
         "in_profile": true,
         "upstream_compiled": true,
         "policy": "serialize_extended",
