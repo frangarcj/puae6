@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 /// Host memory with a guard band of 0xCD on both sides, for what the guest is handed a pointer to.
 internal sealed unsafe class Guarded : IDisposable
@@ -249,6 +250,62 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
         return result;
     }
 
+    internal (ulong[] Out, ulong[] Nested) Abi(bool reenter) => Program.AbiCall(this, reenter, "p6w_probe_abi", "p6w_identity");
+
+    /// Where Chip RAM is in this sandbox: the host finds it by the marker a fixture program stores at a known Chip RAM address (there is no
+    /// memory-region export yet). The marker must be preceded by zeros, which excludes the copy of the firmware that holds its immediate.
+    internal ulong LocateChipRam(ulong markerAt, byte[] marker)
+    {
+        var candidates = new List<ulong>();
+        In(() => {
+            ulong pages = (ulong)PageCount;
+            for (int range = 0; range < 8; ++range)
+            {
+                if (HeapNames[range] != "sbrk" && HeapNames[range] != "mmap") continue;
+                ulong first = (Ranges[2 * range] - Ranges[0]) / 4096, count = Ranges[2 * range + 1] / 4096;
+                for (ulong page = first; page < first + count && page < pages;)
+                {
+                    if ((PageInfo((int)page) & 1) == 0) { ++page; continue; }
+                    ulong run = page;
+                    while (run < first + count && run < pages && (PageInfo((int)run) & 1) != 0) ++run;
+                    ulong start = Ranges[0] + page * 4096, bytes = (run - page) * 4096;
+                    var span = new ReadOnlySpan<byte>((void*)start, (int)bytes);
+                    for (int from = 4; from <= span.Length - marker.Length;)
+                    {
+                        int found = span[from..].IndexOf(marker);
+                        if (found < 0) break;
+                        int position = from + found;
+                        if (span.Slice(position - 4, 4).IndexOfAnyExcept((byte)0) < 0 && start + (ulong)position >= markerAt)
+                            candidates.Add(start + (ulong)position - markerAt);
+                        from = position + 1;
+                    }
+                    page = run;
+                }
+            }
+            return 0;
+        });
+        Program.Require(candidates.Count == 1, $"Chip RAM is found by its marker exactly once (found {candidates.Count})");
+        return candidates[0];
+    }
+
+    internal bool[] DirtyMap()
+    {
+        var map = new bool[PageCount];
+        for (int i = 0; i < map.Length; ++i) map[i] = (PageInfo(i) & 0x80) != 0;
+        return map;
+    }
+    internal byte[] ReadGuest(ulong address, int bytes) => In(() => new ReadOnlySpan<byte>((void*)address, bytes).ToArray());
+    [DllImport("libSystem.B.dylib")] static extern nint memcpy(nint destination, nint source, nuint bytes);
+    /// A host write into the sandbox. It goes through the C library: a store made by managed code into a page that dirty tracking still has
+    /// write-protected is turned into a fatal AccessViolationException by the .NET runtime before the Waterbox handler sees it, while a store
+    /// made by native code is tracked like the guest's own.
+    internal void PokeGuest(ulong address, byte value)
+    {
+        nint source = Marshal.AllocHGlobal(1);
+        try { *(byte*)source = value; In(() => { memcpy((nint)address, source, 1); return 0; }); }
+        finally { Marshal.FreeHGlobal(source); }
+    }
+
     internal string Digest() => Convert.ToHexString(SHA256.HashData(Save())).ToLowerInvariant();
 
     /// Bytes of each range the page table reports as allocated, and as dirty, in the order of HeapNames.
@@ -328,6 +385,8 @@ internal static unsafe class Puae6
 
     // Smoke.dll --puae6 --runtime receipt.json --guest puae6-receipt.json --manifest waterbox-memory.json --firmware rom --units N --result out.json
     //   [--media disk.adf]... [--port N:type:buttons:dx:dy]... [--render 101-200:0,...] [--digest-every K] [--bad-calls-at U] [--limits] [--ntsc]
+    //   [--abi-at U,U...] (WB13 before those units)  [--pages-at U] (WB14 after unit U, needs the chipcell fixture)
+    //   [--save-at U --state file] (WB15: snapshot after unit U)  [--restore file --from U] (a new process: init, seal, load, continue from U+1)
     internal static int Run(string[] args)
     {
         var options = new Options(args);
@@ -373,15 +432,42 @@ internal static unsafe class Puae6
         var sealedSnapshot = machine.Save().Length;
         ulong digestEvery = ulong.Parse(options.Optional("digest-every") ?? "0");
         ulong badCallsAt = ulong.Parse(options.Optional("bad-calls-at") ?? "0");
+        ulong pagesAt = ulong.Parse(options.Optional("pages-at") ?? "0"), saveAt = ulong.Parse(options.Optional("save-at") ?? "0");
+        var abiAt = (options.Optional("abi-at") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(ulong.Parse).ToHashSet();
+        ulong from = 0;
+        if (options.Optional("restore") is string restore)
+        {
+            from = ulong.Parse(options.Get("from"));
+            machine.Load(File.ReadAllBytes(restore));          // a machine that was initialized and sealed like the one that saved, then given its state
+        }
         var digests = new Dictionary<string, string>();
-        object? afterFirst = null, refusals = null;
-        for (ulong unit = 1; unit <= units; ++unit)
+        var abi = new List<object>();
+        ulong machineContext = 0;
+        object? afterFirst = null, refusals = null, pages = null;
+        for (ulong unit = from + 1; unit <= units; ++unit)
         {
             if (unit == badCallsAt) refusals = machine.Refusals();
+            if (abiAt.Contains(unit))
+            {
+                var plain = machine.Abi(false); Program.CheckAbi(plain, false, $"puae6 before unit {unit}");
+                var nested = machine.Abi(true); Program.CheckAbi(nested, true, $"puae6 re-entered before unit {unit}");
+                Program.Require(machineContext == 0 || machineContext == plain.Out[1], "the sandbox keeps its x28 context for as long as it lives");
+                machineContext = plain.Out[1];
+                abi.Add(new { unit, x18 = plain.Out[0], x28 = plain.Out[1], nested_x28 = nested.Nested[0] });
+            }
             Console.WriteLine(machine.Unit(unit, RenderFlags(schedule, unit)));
             if (machine.LastPcm != null) Console.WriteLine($"pcm {unit} {machine.LastPcm}");
-            if (unit == 1) afterFirst = Usage(machine);
+            if (unit == from + 1) afterFirst = Usage(machine);
             if (digestEvery != 0 && unit % digestEvery == 0) digests[unit.ToString()] = machine.Digest();
+            if (unit == saveAt) File.WriteAllBytes(options.Get("state"), machine.Save());
+            if (unit == pagesAt) pages = PageTests(machine, unit);
+        }
+        if (abiAt.Count > 0)
+        {
+            using var other = new WaterboxSandbox(api, image, layout, "puae6-other.wbx");
+            var call = Program.AbiCall(other, true, "p6w_probe_abi", "p6w_identity");
+            Program.CheckAbi(call, true, "a second sandbox of the same guest");
+            Program.Require(call.Out[1] != machineContext, "a second sandbox has its own x28 context");
         }
         var afterLast = Usage(machine);
         var dirtyDump = Environment.GetEnvironmentVariable("P6W_DIRTY_DUMP");      // diagnostics: which pages a run writes
@@ -399,9 +485,109 @@ internal static unsafe class Puae6
         report["state_digests"] = digests;
         report["canary_checks"] = machine.Canaries;
         report["refusals"] = refusals;
+        report["abi"] = abi;
+        report["pages"] = pages;
+        report["restored_from"] = from;
         report["ports"] = machine.Ports.Select(p => $"{p.Type}:{p.Buttons}:{p.Dx}:{p.Dy}").ToArray();
         File.WriteAllText(options.Get("result"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         return 0;
+    }
+
+    /// WB14 on the real machine, alive: a group of 16 KiB host pages inside Chip RAM, which the fixture program does not use, takes writes at the
+    /// first and last byte of each of its four logical pages; a snapshot taken before brings the content back whole, the four logical pages agree
+    /// on their dirty state afterwards, and a second write after the restore is visible and restorable again. Then the word the fixture program
+    /// copies into COLOR00 is overwritten: the next unit must show a different picture (the writes reach the machine) and, after the restore, the
+    /// machine continues as if nothing had happened (the caller compares every unit with headless).
+    static object PageTests(Puae6Machine machine, ulong lastUnit)
+    {
+        const ulong MarkerAt = 0x10000, CellAt = 0x30000, GroupAt = 0x50000;
+        byte[] marker = [0x50, 0x36, 0x4D, 0x57];                      // "P6MW", stored by the fixture at $10000 as the 68000 has it: big endian
+        ulong chip = machine.LocateChipRam(MarkerAt, marker);
+        var state = machine.Save();
+        AudioMark mark = new(machine);
+
+        // 1. A group of the machine that nothing has written since the seal (the engine allocated it and never touched it): the first write
+        //    dirties the whole group, and a snapshot taken while it was clean restores it and lets the next write be seen again.
+        ulong clean = FindCleanGroup(machine, chip);
+        var cleanGroup = GroupTest(machine, clean, state, requireClean: true);
+        // 2. A group inside Chip RAM, which a hard reset has written (so it is dirty from the first unit): same writes, same restores.
+        ulong group = (chip + GroupAt + 16383) & ~16383UL;
+        Program.Require(group % 16384 == 0 && group + 16384 <= chip + 0x80000, "the group is 16 KiB aligned and inside Chip RAM");
+        var chipGroup = GroupTest(machine, group, state, requireClean: false);
+
+        // 3. The writes reach the machine: COLOR00 takes the word at $30000 from then on.
+        ulong cell = chip + CellAt;
+        string quiet = machine.Unit(lastUnit + 1, 3);
+        machine.Load(state);
+        machine.PokeGuest(cell, 0x0F); machine.PokeGuest(cell + 1, 0x00);
+        string poked = machine.Unit(lastUnit + 1, 3);
+        Program.Require(Regex.Match(quiet, "hash=(\\w+)").Value != Regex.Match(poked, "hash=(\\w+)").Value, "a write into Chip RAM changes the next picture");
+        machine.Load(state);
+        mark.Restore();
+        return new { chip_ram = chip, marker_at = MarkerAt, cell_at = CellAt, clean_group = clean, chip_group = group,
+                     clean_group_pages = cleanGroup, chip_group_pages = chipGroup };
+    }
+
+    /// A 16 KiB aligned group of four readable and writable logical pages in the mmap heap whose pages are all clean, away from Chip RAM.
+    static ulong FindCleanGroup(Puae6Machine machine, ulong chip)
+    {
+        int mmap = Array.IndexOf(machine.HeapNames, "mmap");
+        ulong first = (machine.Ranges[2 * mmap] - machine.Ranges[0]) / 4096, count = machine.Ranges[2 * mmap + 1] / 4096;
+        for (ulong page = first; page + 4 <= first + count; ++page)
+        {
+            ulong address = machine.Ranges[0] + page * 4096;
+            if (address % 16384 != 0 || (address + 16384 > chip && address < chip + 0x80000)) continue;
+            bool clean = true;
+            for (int i = 0; i < 4 && clean; ++i) clean = (machine.PageInfo((int)page + i) & 0xC3) == 3;   // allocated RW, visible, not dirty
+            if (clean) return address;
+        }
+        throw new InvalidOperationException("FAIL: no clean 16 KiB group in the mmap heap");
+    }
+
+    /// The smoke's WB14 sequence on any group of the real guest: write the first and last byte of each logical page, see the whole group dirty
+    /// and nothing else change, restore the snapshot taken before, see all four logical pages agree, write again, restore again.
+    static List<object> GroupTest(Puae6Machine machine, ulong group, byte[] state, bool requireClean)
+    {
+        int first = (int)((group - machine.Ranges[0]) / 4096);
+        bool[] Group(bool[] map) => map.Skip(first).Take(4).ToArray();
+        bool[] Outside(bool[] map) => map.Where((_, i) => i < first || i >= first + 4).ToArray();
+        var results = new List<object>();
+        var original = machine.ReadGuest(group, 16384);
+        for (int page = 0; page < 4; ++page)
+        {
+            var before = machine.DirtyMap();
+            if (requireClean) Program.Require(!Group(before).Any(x => x), $"page {page}: the group starts clean");
+            byte value = (byte)(0xE0 + page);
+            foreach (ulong offset in new ulong[] { 0, 4095 }) machine.PokeGuest(group + (ulong)page * 4096 + offset, value);
+            var written = machine.DirtyMap();
+            Program.Require(Group(written).All(x => x), $"page {page}: one write marks the whole 16 KiB group dirty");
+            Program.Require(Outside(before).SequenceEqual(Outside(written)), $"page {page}: no page outside the group changed state");
+            var mutated = machine.ReadGuest(group, 16384);
+            for (int i = 0; i < 16384; ++i)
+            {
+                bool touched = i / 4096 == page && (i % 4096 == 0 || i % 4096 == 4095);
+                Program.Require(mutated[i] == (touched ? value : original[i]), $"page {page}: only the two written bytes changed (offset {i})");
+            }
+            machine.Load(state);
+            Program.Require(machine.ReadGuest(group, 16384).SequenceEqual(original), $"page {page}: all four logical pages came back");
+            var restored = Group(machine.DirtyMap());
+            Program.Require(restored.All(x => x == restored[0]), $"page {page}: the four logical pages agree on their dirty state after a restore");
+            int next = (page + 1) % 4;
+            machine.PokeGuest(group + (ulong)next * 4096 + 17, 0x5A);
+            Program.Require(machine.ReadGuest(group, 16384)[next * 4096 + 17] == 0x5A, $"page {page}: a write after the restore is visible");
+            machine.Load(state);
+            Program.Require(machine.ReadGuest(group, 16384).SequenceEqual(original), $"page {page}: a second restore also brings all four back");
+            results.Add(new { page, dirty_before = Group(before), dirty_after_write = Group(written), dirty_after_restore = restored });
+        }
+        return results;
+    }
+
+    /// The running totals of the audio counters, which the control units of a test must not leave changed.
+    sealed class AudioMark
+    {
+        readonly Puae6Machine machine; readonly ulong frames, hash;
+        internal AudioMark(Puae6Machine m) { machine = m; frames = m.AudioFrames; hash = m.AudioHash; }
+        internal void Restore() { machine.AudioFrames = frames; machine.AudioHash = hash; }
     }
 
     /// C++ exceptions unwind inside the sandbox (the 68000 core throws m68k_exception for bus errors); a sandbox of its own, nothing initialized.

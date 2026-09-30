@@ -8088,7 +8088,7 @@
       "title": "WB13, WB14 y WB15 con el guest real de PUAE6",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T19c1"
       ],

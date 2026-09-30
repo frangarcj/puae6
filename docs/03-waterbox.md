@@ -127,7 +127,7 @@ de una ejecucion o si una medida pasa de la mitad de su presupuesto). Lo que que
 - Presupuestos: sbrk 4 MiB (medido 16 KiB), mmap 16 MiB (medido 5,3 MiB: Chip/Slow RAM y tablas),
   sealed 16 MiB (un Kickstart de 512 KiB mas P6_MAX_MEDIA ADF de 901120 bytes; el fixture usa 256
   KiB), invisible y plain 16 KiB (el minimo que acepta el runtime).
-- Coste de snapshot medido con el micro-ROM: 55 KB justo tras el seal y 9,1 MB despues de la
+- Coste de snapshot medido con el micro-ROM: 39 KB justo tras el seal y 9,1 MB despues de la
   primera unidad. Son paginas sucias desde el seal: 4 MB son el buffer de imagen `pixels` y 2,3
   MB son tablas (cpufunctbl, mem_banks...) que la cabecera de reset construye DENTRO de la primera
   unidad, no en p6_load. La imagen del guest pesa 40 MB (34 MB de datos escribibles, casi todo bss: currprefs
@@ -177,6 +177,35 @@ guest real y lo compara con los otros dos adaptadores sobre la misma p6_run_fram
 
 Lo que aun no cubre: no hay restauracion ni excepciones cruzando callbacks con el guest real
 (T19c2: WB13, WB14, WB15), ni Kickstart real ni medios montados.
+
+### Resultado de T19c2: WB13, WB14 y WB15 con el guest real
+
+`python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_wb.py`:
+
+- WB13: un callback del host cruza puae6.wbx (adapters/waterbox/abi_probe.cpp, el mismo codigo que el
+  guest del smoke) con canarios en x19-x29, d8-d15 y sp, antes de varias unidades de una maquina en
+  marcha, tambien entrando en el guest desde dentro del callback y tambien en un sandbox restaurado.
+  x18, x28, el dato especifico de hilo de musl y errno vuelven intactos, el sandbox conserva su
+  contexto x28 y otro sandbox del mismo guest tiene el suyo, y las unidades siguientes son las de
+  una ejecucion sin callbacks. Las tres funciones pthread_key_* de la sonda estan autorizadas en
+  ports/waterbox/imports.json solo para eso.
+- WB14: dos grupos de 16 KiB (cuatro paginas logicas de 4 KiB) de la maquina viva: uno que nada ha
+  escrito desde el seal y otro dentro de la Chip RAM, que se halla por una marca que el ROM
+  tests/waterbox-smoke/chipcell.s guarda en $10000 (aun no hay export de regiones de memoria).
+  Una escritura sucia el grupo entero, un restore trae las cuatro paginas y el grupo limpio vuelve a
+  estar limpio, una segunda escritura se ve y se deshace, y despues la maquina continua como en una
+  ejecucion sin nada de eso. Una escritura en la palabra que el ROM muestra como COLOR00 cambia la
+  imagen siguiente, asi que las escrituras llegan a la maquina.
+- WB15: un proceso nuevo que solo hizo init y seal del mismo guest con el mismo firmware carga el
+  snapshot de otro proceso y produce las mismas unidades, el mismo PCM por unidad y el mismo estado
+  completo final (con el ROM entrelazado y con botones sujetos). Un recibo cuyo hash no es el del
+  guest o del runtime se rechaza (T19b) y las variantes danadas del guest real (maquina x86-64, magic
+  roto, truncado, pagina RW dentro del ultimo grupo RX) las rechaza validate_elf.
+
+Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
+sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
+fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)
+queda registrada como la del guest. Los pokes y trucos del host deben pasar por codigo nativo.
 
 ## Estado C# y callbacks
 

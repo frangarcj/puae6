@@ -596,7 +596,8 @@ def puae6_sources() -> list[str]:
     selection = json.loads((ROOT / "manifests/source-manifest.json").read_text())["selection"]
     sources = ([f"build/upstream/{unit}" for unit in selection["upstream_units"]]
                + [f"build/generated/{unit}" for unit in selection["generated_units"]]
-               + cmake_sources("p6_portable") + cmake_sources("p6_bridge") + ["adapters/waterbox/puae6_guest.cpp"])
+               + cmake_sources("p6_portable") + cmake_sources("p6_bridge")
+               + ["adapters/waterbox/abi_probe.cpp", "adapters/waterbox/puae6_guest.cpp"])
     if len(sources) != len(set(sources)):
         raise BuildError("fuentes duplicadas en la lista de puae6.wbx")
     missing = [source for source in sources if not (ROOT / source).is_file()]
@@ -660,11 +661,15 @@ _RUNS = iter(range(1, 1 << 30))
 
 def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None, *, ports: tuple[str, ...] = (),
               render: str | None = None, digest_every: int = 0, bad_calls_at: int = 0, limits: bool = False, ntsc: bool = False,
-              timeout: int = 3600) -> tuple[list[str], dict]:
+              abi_at: tuple[int, ...] = (), pages_at: int = 0, save_at: int = 0, state: Path | None = None, restore: Path | None = None,
+              restore_from: int = 0, timeout: int = 3600) -> tuple[list[str], dict]:
     """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines
     it printed in the format of p6_headless, plus the measurements. `ports` are "N:type:buttons:dx:dy" held on every unit, `render` a
     schedule "101-200:0,201-300:2" of render flags (1 video, 2 audio) by unit range, `digest_every` the period of the snapshot digests and
-    `bad_calls_at` the unit before which the guest is handed calls it must refuse. Needs the runtime (build/waterbox/receipt.json) and the
+    `bad_calls_at` the unit before which the guest is handed calls it must refuse, `abi_at` the units before which a host callback crosses
+    the guest with canaries in the registers (WB13), `pages_at` the unit after which the 16 KiB page groups of Chip RAM are written and
+    restored (WB14, needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
+    initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15). Needs the runtime (build/waterbox/receipt.json) and the
     guest (--puae6) to exist already; several runs may go on at once."""
     runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
     for needed in (runtime_receipt, guest_receipt):
@@ -674,9 +679,9 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     tag = f"{os.getpid()}-{next(_RUNS)}"
     result_path, log_path = BUILD / f"puae6-result-{tag}.json", BUILD / f"puae6-run-{tag}.log"
     command = [dotnet, str(BUILD / "managed/bin/Debug/net8.0/Smoke.dll"), "--puae6", "--runtime", str(runtime_receipt), "--guest", str(guest_receipt),
-               "--manifest", str(MEMORY_MANIFEST), "--firmware", str(firmware), "--units", str(units), "--result", str(result_path)]
+               "--manifest", str(MEMORY_MANIFEST), "--firmware", str(Path(firmware).resolve()), "--units", str(units), "--result", str(result_path)]
     for disk in media:
-        command += ["--media", str(disk)]
+        command += ["--media", str(Path(disk).resolve())]
     for port in ports:
         command += ["--port", port]
     if render:
@@ -687,6 +692,14 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
         command += ["--bad-calls-at", str(bad_calls_at)]
     if limits:
         command.append("--limits")
+    if abi_at:
+        command += ["--abi-at", ",".join(map(str, abi_at))]
+    if pages_at:
+        command += ["--pages-at", str(pages_at)]
+    if save_at:
+        command += ["--save-at", str(save_at), "--state", str(Path(state).resolve())]
+    if restore:
+        command += ["--restore", str(Path(restore).resolve()), "--from", str(restore_from)]
     if ntsc:
         command.append("--ntsc")
     process = subprocess.run(command, env=env, cwd=MANAGED, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)

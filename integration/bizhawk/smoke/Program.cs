@@ -53,7 +53,7 @@ internal static unsafe class Program
     const int Checkpoint = 5, Count = 32;
 
     // WB13: one guest -> host callback with canaries in every callee-saved register.
-    static (ulong[] Out, ulong[] Nested) AbiCall(Sandbox sandbox, bool reenter)
+    internal static (ulong[] Out, ulong[] Nested) AbiCall(WaterboxSandbox sandbox, bool reenter, string probeName = "smoke_abi_probe", string identityName = "smoke_identity")
     {
         var output = new ulong[30];
         var nested = new ulong[3];
@@ -69,8 +69,8 @@ internal static unsafe class Program
             } catch (Exception error) { failure = error; return 0; }
         };
         sandbox.In(() => {
-            var probe = sandbox.Guest<Sandbox.AbiProbe>("smoke_abi_probe");
-            identity = sandbox.Guest<Sandbox.Identity>("smoke_identity");
+            var probe = sandbox.Guest<Sandbox.AbiProbe>(probeName);
+            identity = sandbox.Guest<Sandbox.Identity>(identityName);
             nint thunk = sandbox.Callback(callback, reenter ? 1 : 0);
             fixed (ulong* o = output) Require(probe(thunk, (nint)o, 30) == 0, "abi probe returned");
             return 0;
@@ -80,7 +80,7 @@ internal static unsafe class Program
         Require(calls == 1, "callback called exactly once");
         return (output, nested);
     }
-    static void CheckAbi((ulong[] Out, ulong[] Nested) call, bool reenter, string label)
+    internal static void CheckAbi((ulong[] Out, ulong[] Nested) call, bool reenter, string label)
     {
         var o = call.Out;
         Require(o[1] != 0 && o[1] == o[3], $"{label}: x28 (sandbox context) preserved through the callback");
