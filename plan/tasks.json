@@ -8090,7 +8090,7 @@
       "title": "Inventariar todo el estado causal antes de serializar",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T13",
         "T13c",
