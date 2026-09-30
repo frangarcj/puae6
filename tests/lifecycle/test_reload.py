@@ -125,46 +125,40 @@ class ReloadKeyboardTests(unittest.TestCase):
         self.assertEqual(code, 0, out[-600:])
         return out
 
-    @staticmethod
-    def masked(text):
-        """Without the digest of unit 1: after a reload the stack of the first frame differs by one byte (OPEN, see below)."""
-        return re.sub(r"^(unit 1 .*digest=)\w+$", r"\1-", text, flags=re.M)
-
     def test_keys_held_when_a_session_ends_are_pressed_again_in_the_next_load(self):
         clean = self.execute([KEY_Q, CTRL])
         logs = re.findall(r"^logu \d+:.*$", clean, re.M)
         self.assertIn(" %04x" % sdr(CTRL, True), " ".join(logs))                       # the script does press Ctrl
         for number, text in enumerate(passes(self.execute([KEY_Q, CTRL], {"P6_RELOAD": "3"})), 1):
-            self.assertEqual(self.masked(text), self.masked(clean), f"load {number} differs from a clean process")
+            self.assertEqual(text, clean, f"load {number} differs from a clean process")
 
     def test_a_reset_chord_held_when_a_session_ends_does_not_fire_in_the_next_load(self):
         chord = [CTRL, LAMI, RAMI]
         clean = self.execute(chord)
         for number, text in enumerate(passes(self.execute(chord, {"P6_RELOAD": "2"})), 1):
-            self.assertEqual(self.masked(text), self.masked(clean), f"load {number} differs from a clean process")
+            self.assertEqual(text, clean, f"load {number} differs from a clean process")
 
-    @unittest.expectedFailure
     def test_the_first_unit_of_a_keyboard_guest_is_identical_after_a_reload(self):
-        # OPEN (T13b): after a reload the whole machine of a keyboard guest matches a clean process except one byte of the stack of
-        # unit 1 (the PC stacked by the last interrupt of the first frame is $F80118 instead of $F80116); units 2 on match
-        # digest for digest. Eight of the ten micro-ROMs reload identically, only input_all and input_rotate show it, so it
-        # is timing state of the keyboard/CIA power-up stream. Tried without effect: kbcode, kbhandshakestart and the input
-        # frame counters.
+        # T13c: the keyboard interrupts of unit 1 used to come 8 to 11 colour clocks later after a reload, because cia_cycle_accurate
+        # (worked out at the end of every frame, false in a process that has not finished one) kept the last session's value. The
+        # stack of the guest then held another PC ($F80118 instead of $F80116). The digest of unit 1 is compared whole.
         clean = self.execute([KEY_Q, CTRL])
         self.assertEqual(passes(self.execute([KEY_Q, CTRL], {"P6_RELOAD": "2"}))[1], clean)
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
 class ReloadFixtureTests(unittest.TestCase):
-    """Every micro-ROM that does not drive the keyboard: three loads in a process, each a clean process, digests included."""
+    """Every micro-ROM, the ones that drive the keyboard included (T13c): three loads in a process, each a clean process, digests included."""
 
-    FIXTURES = ("boot", "halt", "lof_stuck", "long_frame", "stop", "vsync")
+    FIXTURES = {"boot": None, "copper_irq": {"HP": "2"}, "halt": None, "input_all": None, "input_rotate": None, "lof_stuck": None,
+                "long_frame": None, "long_ops": {"PAD": "3"}, "stop": None, "vsync": None}
 
     def test_the_micro_roms_reload_as_a_clean_process(self):
         exe = configure_trace_tree()
         with tempfile.TemporaryDirectory(prefix="p6-reload-fixtures-") as directory:
-            for name in self.FIXTURES:
+            for name, defines in self.FIXTURES.items():
                 rom = Path(directory) / f"{name}.rom"
-                rom.write_bytes(builder.build((FIXTURES / f"{name}.s").read_text(encoding="utf-8")))
+                source = (FIXTURES / f"{name}.s").read_text(encoding="utf-8")
+                rom.write_bytes(builder.build(source, defines) if defines else builder.build(source))
                 with self.subTest(rom=name):
                     code, clean = run_probe(exe, rom, UNITS, "steps", 1, timeout=600, extra=["pal"], env={"P6_DUMP_LOG": "1"})
                     self.assertEqual(code, 0, clean[-400:])

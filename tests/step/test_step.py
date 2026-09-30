@@ -288,9 +288,15 @@ class BoundaryContractTests(unittest.TestCase):
                     yield path, path.read_text(encoding="utf-8", errors="replace")
 
     def test_no_frontend_symbol_in_the_bridge_or_the_headless_adapter(self):
-        for path, text in self.sources("bridge", "adapters"):
+        for path, text in self.sources("bridge", "adapters/headless"):
             with self.subTest(file=str(path.relative_to(ROOT))):
                 self.assertNotRegex(text, r"libretro|retro_(run|get|set|init|load|unload)|RETRO_")
+
+    def test_the_waterbox_adapter_has_no_libretro_api_in_it(self):
+        # It may say in a comment that it is not the libretro adapter; it must not use or include any of it.
+        for path, text in self.sources("adapters/waterbox"):
+            with self.subTest(file=str(path.relative_to(ROOT))):
+                self.assertNotRegex(text, r"#\s*include\s*[<\"]libretro|retro_(run|get|set|init|load|unload)|RETRO_")
 
     def test_only_frame_step_advances_and_only_lifecycle_begins_and_leaves(self):
         callers = {"advance": set(), "begin_leave": set()}

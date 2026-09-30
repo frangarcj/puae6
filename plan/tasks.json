@@ -7847,6 +7847,48 @@
       "evidence": null
     },
     {
+      "id": "T13c",
+      "title": "Cerrar la limitacion abierta de T13b: la primera unidad de un guest de teclado tras una recarga",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T13b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/adr/0005-frame-boundary.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "tests/lifecycle/**",
+        "tests/step/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "reports/**",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Reproducir la diferencia de un byte de la pila de la unidad 1 en input_all/input_rotate tras una recarga y hallar el estado de sesion que la causa, comparando las interrupciones y sus instantes entre un proceso limpio y una recarga.",
+        "Arreglarlo (parche o bridge) y convertir el expectedFailure de tests/lifecycle/test_reload.py en una prueba que pase sin enmascarar el digest de la unidad 1; repasar otros estaticos calculados por frame con el volcado del segmento de datos."
+      ],
+      "checks": [
+        "LIFE01",
+        "STEP01"
+      ],
+      "acceptance": [
+        "Con input_all e input_rotate, cada carga de un proceso es el proceso limpio unidad a unidad, incluido el digest de la unidad 1 sin enmascarar; el inventario deja de tener la entrada abierta."
+      ],
+      "stop": "Un estado heredado que no se pueda limpiar sin recrear la instancia queda como limitacion documentada del perfil."
+    },
+    {
       "id": "T13",
       "title": "Cerrar reset y limpieza de globales",
       "milestone": "M1",
@@ -7935,7 +7977,8 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T13"
+        "T13",
+        "T13c"
       ],
       "read": [
         "docs/02-contracts.md",

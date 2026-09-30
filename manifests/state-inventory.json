@@ -286,18 +286,18 @@
       "evidence": []
     },
     {
-      "id": "keyboard-power-up-phase",
-      "subsystem": "input",
+      "id": "cia-cycle-accurate",
+      "subsystem": "cia",
       "symbols": [
-        "kbcode",
-        "kbstate",
-        "kbhandshakestart"
+        "cia_cycle_accurate",
+        "p6_cia_session_begin"
       ],
       "owner": "cia.cpp",
-      "at_load": "after a reload a guest that takes keyboard interrupts (input_all, input_rotate) differs from a clean process in one byte of the stack of unit 1, the PC stacked by the last interrupt of the first frame ($F80118 instead of $F80116); from unit 2 on every digest matches. Eight of the ten micro-ROMs reload identically. Clearing kbcode, kbhandshakestart and the input frame counters had no effect and is not patched",
-      "survives_unload": true,
-      "status": "open",
+      "at_load": "cia_cycle_accurate is worked out once per frame (end of CIA_vsync_prehandler), so a process that has not finished a frame has it false and runs its first frame with CIA interrupts that do not wait for the E clock. A reload kept the last session's true: the keyboard interrupts of unit 1 came 8 to 11 colour clocks later and the last one stacked another PC, one byte of the stack ($F80118 instead of $F80116), for input_all and input_rotate. Patch 0074 puts it back from bridge/lifecycle.cpp at every load; a p6_reset keeps it, as a reset in a running process does",
+      "survives_unload": false,
+      "status": "reset",
       "evidence": [
+        "patches/winuae/0074-cia-first-frame-state.patch",
         "tests/lifecycle/test_reload.py"
       ]
     }

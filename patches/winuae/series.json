@@ -2056,6 +2056,28 @@
           "after_sha256": "a7e306ae083f471e45eaabb1128a7ee8c9ebe97dd7859f2af96881f8a05662d3"
         }
       ]
+    },
+    {
+      "id": "0074-cia-first-frame-state",
+      "file": "patches/winuae/0074-cia-first-frame-state.patch",
+      "sha256": "00667df1c4c82a265f12db1a2b6a4d4725ee9e03036549c8a23ad50033750958",
+      "title": "The first CIA frame of a load is a process's first frame",
+      "reason": "cia_cycle_accurate is computed at the end of each frame and is false in a process that has not finished one; a reload kept the last session's true, so the keyboard interrupts of unit 1 came later than in a clean process and left a different PC on the stack. The bridge calls this at load.",
+      "category": "host hooks",
+      "order": 74,
+      "symbols": [
+        "p6_cia_session_begin"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_reload",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "df60447647652bc560e1a02ed7bdfa2f0f8248dda7b5980b5fbbff773e24d29c",
+          "after_sha256": "90bab6bc262a610ac9f35df61a5ac8a25d0992ad2e486c7cf8ddeb49ef1f70b0"
+        }
+      ]
     }
   ]
 }

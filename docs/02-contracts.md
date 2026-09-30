@@ -47,13 +47,12 @@ una vez tras esa secuencia; las que solto en la unidad del reset no se pulsan. N
 unidad de disco se queda donde estaba, como en una unidad real. El reloj de la placa sigue contando a traves de cualquier reset, tambien el del acorde de teclado (la cabecera de reset avisa al bridge justo antes de
 que el contador de ciclos del motor vuelva a cero: reancla el reloj y suma a `master_ticks` lo que corrio antes del reinicio). Dos resets en unidades consecutivas son validos y reinician la maquina cada vez.
 
-Sesion (T13b): cada `p6_load` empieza una sesion que se comporta como un proceso limpio. Los registros de la CPU, la posicion del haz, la cabeza
-del disquete, los potenciometros, el scheduler secundario, el instante de servicio de los CIA, las teclas y el acorde de reset, los nombres de
+Sesion (T13b, T13c): cada `p6_load` empieza una sesion que se comporta como un proceso limpio. Los registros de la CPU, la posicion del haz, la cabeza
+del disquete, los potenciometros, el scheduler secundario, el instante de servicio de los CIA, el estado por frame de los CIA (`cia_cycle_accurate`), las teclas y el acorde de reset, los nombres de
 dispositivos de entrada y el ancla del reloj vuelven a su valor inicial; manifests/state-inventory.json lista cada uno con su prueba y lo que
-sobrevive sin ser causal. Una recarga en el mismo proceso da, unidad a unidad y con el digest completo, lo mismo que un proceso limpio en ocho de
-los diez micro-ROM; un invitado que usa las interrupciones del teclado difiere en un byte de la pila de la unidad 1 (limitacion abierta,
-entrada `keyboard-power-up-phase`), asi que replays, pruebas de determinismo y Waterbox arrancan una instancia nueva y no se afirma una recarga determinista completa ni preparacion para TAS
-hasta cerrar esa limitacion. El heap no crece entre
+sobrevive sin ser causal. Una recarga en el mismo proceso da, unidad a unidad y con el digest completo desde la unidad 1, lo mismo que un proceso
+limpio en los diez micro-ROM, los que usan las interrupciones del teclado incluidos. Eso se ha comprobado con esos guests; no con un Kickstart real, cuyo arranque toca mas estado.
+Replays, pruebas de determinismo y Waterbox siguen arrancando una instancia nueva por imagen. El heap no crece entre
 ciclos: 0 fugas con `leaks` en 30 ciclos y 100 ciclos limpios bajo ASan/UBSan.
 
 Una instancia nativa activa por imagen. create/init concurrente devuelve BUSY.
