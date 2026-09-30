@@ -240,7 +240,13 @@ p6_result p6_state_load(const void *buffer, uint64_t bytes, p6_error *error);
 p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capacity,
                             uint32_t *count, p6_error *error);
 /* Enqueue for the next boundary. EJECT requires media_index to be
- * P6_MEDIA_INDEX_EJECT; MOUNT requires an index passed to p6_load. */
+ * P6_MEDIA_INDEX_EJECT; MOUNT requires an index passed to p6_load. Only DF0 and
+ * DF1 exist (drives 2 and 3 are UNSUPPORTED, above 3 BAD_ARGUMENT); at most 16
+ * events wait for a boundary (CAPACITY) and sequence must exceed the last accepted
+ * one for the whole session. A refused event queues nothing and uses no sequence.
+ * Events queued before the first p6_run_frame set the power-on disks (the last one
+ * per drive wins); later ones follow the engine's delayed swap: eject at the next
+ * vsync, insert about 100 (PAL) units later. */
 p6_result p6_media_event_enqueue(const p6_media_event *event, p6_error *error);
 
 #ifdef __cplusplus

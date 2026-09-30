@@ -38,8 +38,7 @@ static p6_config make_config(uint32_t standard)
     X(chipset_mask) X(cs_compatible) X(cs_rtc) X(cs_ide) X(cs_pcmcia) X(cs_cdtvcd) X(cs_cd32cd) \
     X(chipmem.size) X(bogomem.size) X(fastmem[0].size) X(z3fastmem[0].size) X(mbresmem_low.size) X(mbresmem_high.size) \
     X(nr_floppies) X(floppyslots[0].dfxtype) X(floppyslots[1].dfxtype) X(floppyslots[2].dfxtype) X(floppyslots[3].dfxtype) \
-    X(floppyslots[0].forcedwriteprotect) X(floppyslots[1].forcedwriteprotect) X(floppyslots[2].forcedwriteprotect) \
-    X(floppyslots[3].forcedwriteprotect) \
+    X(floppy_read_only) \
     X(floppy_speed) X(immediate_blits) X(waiting_blits) X(collision_level) \
     X(ntscmode) X(seed) X(sound_freq) X(sound_stereo) X(produce_sound) X(sound_auto) X(sound_interpol) \
     X(sound_filter) X(sound_filter_type) X(start_gui) X(reset_delay) X(crash_auto_reset) \

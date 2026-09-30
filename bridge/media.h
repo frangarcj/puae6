@@ -26,7 +26,14 @@ p6_result register_media(const p6_media *media, uint32_t count, p6_error *error)
 
 // Identity of what was loaded, kept for the state header (T14): SHA-256 of the firmware and the ordered content ids.
 void remember_identity(const p6_buffer &firmware, const p6_media *media, uint32_t count);
-void forget_identity();
+// Forgets identity, queued events and drive contents; the next load starts from nothing.
+void forget_media();
+
+// Media events. Those queued before the first p6_run_frame only set the power-on contents of the drives (the reset
+// head inserts them at once, /CHNG high); later ones start the engine's own delayed swap. Both are applied by
+// p6_run_frame right after the reset head and before input, in the order they were accepted.
+void apply_boot_media();
+void apply_media_events();
 
 }  // namespace p6_bridge
 #endif

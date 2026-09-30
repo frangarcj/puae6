@@ -7519,7 +7519,7 @@
       "title": "Eventos de medios en el borde: mount, eject y swap sobre lista precargada",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T12a"
       ],
@@ -7566,7 +7566,7 @@
         "El buffer del llamante y el blob no cambian tras montar, expulsar y escribir desde el invitado."
       ],
       "stop": "Si el motor necesita un parche para aplicar el evento, registrarlo en ADR 0004 antes de continuar.",
-      "evidence": null
+      "evidence": "reports/tasks/T12b.md"
     },
     {
       "id": "T12c",
@@ -7601,13 +7601,15 @@
         "docs/02-contracts.md",
         "docs/adr/0008-media-identity.md",
         "reports/**",
-        "patches/winuae/**"
+        "patches/winuae/**",
+        "tests/fuzz/**"
       ],
       "steps": [
         "Generar ADF y micro-ROM en tiempo de test (sin binarios en el repositorio) y un oraculo MFM independiente del motor.",
         "Escenario PAL/NTSC: disco de arranque, swap a otro disco durante actividad, paso de cabeza que limpia /CHNG, intento de escritura con write-protect.",
         "Replay en dos procesos con la misma semilla y eventos; ausencia, disco equivocado y unidad inexistente por la API.",
-        "Registrar en un informe el estado de pista/MFM/revolucion/motor/cache que T14 debe capturar."
+        "Registrar en un informe el estado de pista/MFM/revolucion/motor/cache que T14 debe capturar.",
+        "Ampliacion touch: tests/fuzz/** para mutar la lista de medios y los eventos en FUZZ01 (riesgo de imagenes hostiles)."
       ],
       "checks": [
         "MED01",

@@ -3,15 +3,15 @@
 // One call runs exactly one video unit, from one rendered field boundary to the next, through
 // m68k_go_unit(). The CPU loop returns at an instruction boundary right after the rendering of
 // the field, and the next call resumes it there; no stack is switched and no second scheduler
-// exists. Order inside a call: queued reset, media events, input, then the unit. Reset, media
-// and input are not implemented yet (T10-T13), so a non-empty input is refused instead of being
-// ignored. Video and audio come back exactly when requested (T08, T11).
+// exists. Order inside a call: queued reset, media events, input, then the unit. Reset is not
+// implemented yet (T13). Video and audio come back exactly when requested (T08, T11).
 #include "p6.h"
 #include "error_util.h"
 #include "session.h"
 #include "pcm_out.h"
 #include "video.h"
 #include "input.h"
+#include "media.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -68,14 +68,18 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
     if (const p6_result checked = p6_bridge::validate_input(*input, error))
         return checked;                       // before anything of the machine is touched
 
-    // 1. Reset and 2. media events: nothing is queued yet. The head of a hard reset runs inside this call, in
+    // 1. Reset and 2. media events. The first call also settles the power-on contents of the drives, which the reset head
+    // inserts; a queued reset does not exist yet (T13). The head of a hard reset runs inside this call, in
     // APPLY, because its random start-up delay consumes emulated time; input comes after it, so that keys pressed
     // in this unit are not mixed with the keyboard's power-up sequence.
+    if (!session.started)
+        p6_bridge::apply_boot_media();
     const int applied = m68k_go_unit(M68K_UNIT_APPLY);
     if (applied != M68K_UNIT_APPLIED)
         return fault(error, P6_ERROR_BAD_STATE, "the CPU loop ended while applying the reset");
     if (p6_memory_rom_status() != P6_ROM_LOAD_OK)
         return fault(error, P6_ERROR_NEED_FIRMWARE, "the firmware is no longer available");
+    p6_bridge::apply_media_events();
 
     // 3. Input.
     p6_bridge::apply_input(*input);

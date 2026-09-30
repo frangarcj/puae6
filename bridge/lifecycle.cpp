@@ -67,7 +67,7 @@ void release_engine()
     }
     p6_rtc_unload();
     p6_blob_clear();
-    p6_bridge::forget_identity();
+    p6_bridge::forget_media();
     quit_program = 0;
     stage = Stage::None;
 }

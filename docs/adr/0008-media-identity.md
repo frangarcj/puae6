@@ -24,15 +24,35 @@ disco. Mediciones y referencias de codigo: informe de investigacion de T12 (resu
    que el motor no puede tratar la imagen como PC/ST/IMG. `p6_blob_register` copia la imagen al almacen de blobs del
    motor (id valido: alfanumerico, `_`, `-`, un punto simple; nunca rutas ni URI). Nunca existe un path del host.
 4. **Sin nombres implicitos.** `build_preferences` vacia `floppyslots[0..3].df` (upstream pone `df0.adf`..`df3.adf`) y
-   fija `forcedwriteprotect` en las cuatro unidades; `check_preset` exige ambas cosas y el perfil las declara como
-   `override`. El motor ya fuerza proteccion contra escritura por tres vias (rama P6 de `DISK_validate_filename`, blob sin
-   `data/allocsize` que devuelve EROFS y `drive_write_data` que sale si la unidad esta protegida); la cuarta es defensa en
-   profundidad y hace visible la decision.
+   fija `floppy_read_only` (el interruptor general de `drive_writeprotected`); `check_preset` exige ambas cosas y el perfil las
+   declara como `override`. No se fija `forcedwriteprotect` por unidad: `reset_drive` reinserta los discos con ese parametro a
+   falso y borra el valor (medido), asi que no seria una garantia. La proteccion descansa en tres vias del motor
+   (`floppy_read_only`, la rama P6 de `DISK_validate_filename` y un blob sin `data/allocsize` que devuelve EROFS) y
+   `drive_write_data` sale sin escribir si la unidad esta protegida.
 5. **Vida util.** Los buffers del llamante deben vivir hasta `p6_unload` (contrato ya escrito), pero el bridge no guarda
    punteros: el motor trabaja sobre su copia (14,4 MB para 16 discos, que cuentan para heap y snapshot de Waterbox, T19).
    Una carga que falla libera lo registrado (`release_engine` limpia los blobs); un fallo de validacion no registra nada.
 6. **Capacidad.** `p6_caps.max_media = P6_MAX_MEDIA (16)`. El bit `P6_CAP_MEDIA_EVENTS` sigue apagado: los eventos de
    mount/eject son T12b. El almacen tiene 32 assets, de sobra para firmware + 16 discos.
+
+## Eventos de medios (T12b)
+
+7. **Cola acotada y validada al encolar.** `p6_media_event_enqueue` (16 eventos como mucho) rechaza sin dejar rastro, y sin
+   consumir la secuencia: estado distinto de Loaded (BAD_STATE), versiones o campos reservados (BAD_ARGUMENT), tipo desconocido,
+   unidad > 3 (BAD_ARGUMENT), unidad 2 o 3 (UNSUPPORTED: el A500 solo tiene DF0 y DF1), MOUNT con indice fuera de la lista o
+   con la marca de expulsion, EJECT con un indice, secuencia no mayor que la ultima aceptada (BAD_ARGUMENT; la primera puede
+   ser cualquiera) y cola llena (CAPACITY). Los errores del motor no llegan al llamante: la cola solo contiene medios ya
+   registrados, porque el motor ignora el resultado de una insercion fallida.
+8. **Aplicacion en el borde**, tras la cabecera del reset y antes de la entrada: MOUNT llama a `disk_insert` y EJECT a
+   `disk_eject`, y ambos reflejan el disco en `changed_prefs` para que un reset lo conserve. Un MOUNT del disco que ya esta en
+   la unidad no hace nada (el motor tampoco), un EJECT de una unidad vacia tampoco, y un MOUNT sobre una unidad ocupada usa el
+   cambio retardado nativo (el motor expulsa en el siguiente vsync e inserta 31200 hsync despues: unas 100 unidades PAL, ~119
+   NTSC, para que los programas detecten el cambio). Un EJECT cancela un cambio que aun no ha llegado.
+9. **Disco de arranque.** Los eventos encolados antes del primer `p6_run_frame` solo fijan las preferencias: gana el ultimo de
+   cada unidad y la cabecera del reset inserta el disco de inmediato, con /CHNG alto. Aplicarlos despues del reset costaria
+   120 unidades de unidad vacia. `disk_insert` antes de ese reset se perderia, por eso se escriben las preferencias.
+10. **Sin proteccion por unidad.** `forcedwriteprotect` de cada ranura no se puede fijar (ver 4); se pone en `changed_prefs`
+    solo porque el motor lo lee en su comprobacion de cambios.
 
 ## Limites
 

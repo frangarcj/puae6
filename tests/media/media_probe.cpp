@@ -1,6 +1,6 @@
-// Media of p6_load: identity, validation and registration against the real engine (tests/media/test_media.py).
+// Media of p6_load and the media events against the real engine (tests/media/test_media.py).
 //   usage: p6_media_probe boot.rom
-// Later tasks (T12b, T12c) extend this probe with the event queue and the guest-visible disk scenario.
+// The guest-visible disk scenario (registers, MFM, replay) is T12c's; here the drives are looked at from the engine.
 #include "p6.h"
 #include "media.h"
 #include "session.h"
@@ -10,6 +10,7 @@
 #include "sysdeps.h"
 #include "options.h"
 #include "uae.h"
+#include "disk.h"
 #include "events.h"
 #include "memory.h"
 #include "newcpu.h"
@@ -83,6 +84,19 @@ static std::string id_of(const p6_media &m)
     char id[p6_bridge::kMediaBlobIdBytes];
     p6_bridge::media_blob_id(m.content_id, id);
     return id;
+}
+
+static bool blob_holds(const p6_media &m, const std::vector<uint8_t> &bytes)
+{
+    p6_blob_handle h = 0;
+    p6_blob_info info{};
+    if (p6_blob_open(id_of(m).c_str(), "rb", &h) != P6_BLOB_OK || p6_blob_stat(h, &info) != P6_BLOB_OK) return false;
+    std::vector<uint8_t> copy(info.bytes);
+    size_t items = 0;
+    const bool ok = p6_blob_read(h, copy.data(), copy.size(), 1, copy.size(), &items) == P6_BLOB_OK && items == copy.size() &&
+                    copy == bytes;
+    p6_blob_close(h);
+    return ok;
 }
 
 static bool registered(const p6_media &m) { return p6_blob_exists(id_of(m).c_str()) == P6_BLOB_OK; }
@@ -182,7 +196,8 @@ static void loaded_lists(const std::vector<uint8_t> &rom)
         p6_error e = make_error();
         assert(load(rom, media.data(), count, &e) == P6_OK && e.message[0] == 0);
         // Nothing of the host filesystem or of upstream's default names is reachable.
-        for (int i = 0; i < 4; ++i) assert(currprefs.floppyslots[i].df[0] == 0 && currprefs.floppyslots[i].forcedwriteprotect);
+        for (int i = 0; i < 4; ++i) assert(currprefs.floppyslots[i].df[0] == 0);
+        assert(currprefs.floppy_read_only && changed_prefs.floppy_read_only);
         assert(p6_blob_exists("df0.adf") != P6_BLOB_OK && p6_blob_exists("df1.adf") != P6_BLOB_OK);
         for (uint32_t i = 0; i < P6_MAX_MEDIA; ++i) assert(registered(media[i]) == (i < count));
         // The registered copy is the caller's image, byte for byte, and its own cursor works.
@@ -211,6 +226,133 @@ static void loaded_lists(const std::vector<uint8_t> &rom)
     }
 }
 
+static p6_media_event event_of(uint32_t type, uint32_t drive, uint32_t index, uint64_t sequence)
+{
+    p6_media_event e{};
+    e.abi_version = P6_ABI_VERSION;
+    e.struct_size = sizeof e;
+    e.type = type;
+    e.drive = drive;
+    e.media_index = index;
+    e.sequence = sequence;
+    return e;
+}
+
+static void run_units(int count)
+{
+    p6_input in{};
+    in.abi_version = P6_ABI_VERSION;
+    in.struct_size = sizeof in;
+    for (int i = 0; i < count; ++i) {
+        p6_frame f{};
+        f.abi_version = P6_ABI_VERSION;
+        f.struct_size = sizeof f;
+        p6_error e = make_error();
+        const p6_result r = p6_run_frame(&in, 0, &f, &e);
+        if (r != P6_OK) fprintf(stderr, "p6_run_frame: %d %s\n", int(r), e.message);
+        assert(r == P6_OK);
+    }
+}
+
+static bool enqueues(const p6_media_event &ev, p6_result code, const char *what)
+{
+    p6_error e = make_error();
+    const uint32_t queued = p6_session::session.media_queued;
+    const p6_result got = p6_media_event_enqueue(&ev, &e);
+    if (got != code) fprintf(stderr, "%s: enqueue returned %d (%s), expected %d\n", what, int(got), e.message, int(code));
+    assert(got == code);
+    assert((got == P6_OK) == (e.message[0] == 0));
+    assert(p6_session::session.media_queued == queued + (got == P6_OK ? 1u : 0u));    // a refusal queues nothing
+    return got == P6_OK;
+}
+
+static bool names(int drive, const std::string &id)
+{
+    return id == currprefs.floppyslots[drive].df && id == changed_prefs.floppyslots[drive].df;
+}
+
+static void event_validation(const std::vector<uint8_t> &rom, const std::vector<p6_media> &media)
+{
+    p6_error e = make_error();
+    const p6_media_event mount = event_of(P6_MEDIA_EVENT_MOUNT, 0, 0, 1);
+    assert(p6_media_event_enqueue(&mount, &e) == P6_ERROR_BAD_STATE && e.message[0]);    // nothing loaded
+    assert(load(rom, media.data(), 2, &e) == P6_OK);
+    assert(p6_media_event_enqueue(nullptr, &e) == P6_ERROR_BAD_ARGUMENT);
+    p6_media_event bad = mount; bad.abi_version = 2;         enqueues(bad, P6_ERROR_BAD_ARGUMENT, "abi");
+    bad = mount; bad.struct_size = 8;                        enqueues(bad, P6_ERROR_BAD_ARGUMENT, "size");
+    bad = mount; bad.reserved0 = 1;                          enqueues(bad, P6_ERROR_BAD_ARGUMENT, "reserved0");
+    bad = mount; bad.reserved[0] = 1;                        enqueues(bad, P6_ERROR_BAD_ARGUMENT, "reserved[0]");
+    bad = mount; bad.reserved[1] = 1;                        enqueues(bad, P6_ERROR_BAD_ARGUMENT, "reserved[1]");
+    bad = mount; bad.type = 0;                               enqueues(bad, P6_ERROR_BAD_ARGUMENT, "type 0");
+    bad = mount; bad.type = 3;                               enqueues(bad, P6_ERROR_BAD_ARGUMENT, "type 3");
+    bad = mount; bad.drive = 4;                              enqueues(bad, P6_ERROR_BAD_ARGUMENT, "drive 4");
+    bad = mount; bad.drive = 2;                              enqueues(bad, P6_ERROR_UNSUPPORTED, "drive 2");
+    bad = mount; bad.drive = 3;                              enqueues(bad, P6_ERROR_UNSUPPORTED, "drive 3");
+    bad = mount; bad.media_index = 2;                        enqueues(bad, P6_ERROR_BAD_ARGUMENT, "index past the list");
+    bad = mount; bad.media_index = P6_MEDIA_INDEX_EJECT;     enqueues(bad, P6_ERROR_BAD_ARGUMENT, "mount of the eject marker");
+    bad = event_of(P6_MEDIA_EVENT_EJECT, 0, 0, 1);           enqueues(bad, P6_ERROR_BAD_ARGUMENT, "eject with an index");
+    // Sequences are session-wide and strictly increasing; a refused event consumes none.
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 0, 5), P6_OK, "first"));
+    enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 1, 5), P6_ERROR_BAD_ARGUMENT, "same sequence");
+    enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 1, 4), P6_ERROR_BAD_ARGUMENT, "lower sequence");
+    enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 4, 1, 6), P6_ERROR_BAD_ARGUMENT, "refused with a good sequence");
+    assert(enqueues(event_of(P6_MEDIA_EVENT_EJECT, 0, P6_MEDIA_INDEX_EJECT, 6), P6_OK, "6 after the refusals"));
+    for (uint64_t n = 7; p6_session::session.media_queued < 16; ++n) assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 1, 1, n), P6_OK, "fill"));
+    enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 1, 1, 1000), P6_ERROR_CAPACITY, "queue full");
+    // Nothing of it survives an unload: the next load starts with an empty queue and no sequence.
+    assert(p6_unload(&e) == P6_OK && p6_session::session.media_queued == 0 && !p6_session::session.have_sequence);
+    assert(p6_media_event_enqueue(&mount, &e) == P6_ERROR_BAD_STATE);
+}
+
+// Boot contents, the events after the first frame, and the drives seen from the engine.
+static void drives_follow_the_events(const std::vector<uint8_t> &rom, const std::vector<p6_media> &media,
+                                     const std::vector<std::vector<uint8_t>> &disks)
+{
+    const std::string a = id_of(media[0]), b = id_of(media[1]);
+    p6_error e = make_error();
+    assert(load(rom, media.data(), 2, &e) == P6_OK);
+    // Before the first frame only the power-on contents are set: the last event of a drive wins.
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 0, 1), P6_OK, "boot a"));
+    assert(enqueues(event_of(P6_MEDIA_EVENT_EJECT, 0, P6_MEDIA_INDEX_EJECT, 2), P6_OK, "boot eject"));
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 1, 3), P6_OK, "boot b"));
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 1, 0, 4), P6_OK, "boot a in df1"));
+    assert(disk_empty(0) && disk_empty(1));
+    run_units(1);
+    assert(p6_session::session.media_queued == 0 && !disk_empty(0) && !disk_empty(1));   // inserted by the reset head
+    assert(names(0, b) && names(1, a));
+    assert(currprefs.floppy_read_only && changed_prefs.floppy_read_only);
+
+    // The same disk again is a no-op; a different one takes the engine's delayed swap (eject at the next vsync, insert ~100
+    // units later), and a later mount before it lands wins.
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 1, 0, 5), P6_OK, "again"));
+    run_units(3);
+    assert(!disk_empty(1) && names(1, a));
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 0, 6), P6_OK, "swap df0 to a"));
+    run_units(3);
+    assert(disk_empty(0) && names(0, a));
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 1, 7), P6_OK, "and back to b before it landed"));
+    run_units(60);
+    assert(disk_empty(0) && names(0, b));
+    run_units(90);
+    assert(!disk_empty(0) && names(0, b) && !disk_empty(1) && names(1, a));
+    // Eject is immediate and a second one on an empty drive changes nothing.
+    assert(enqueues(event_of(P6_MEDIA_EVENT_EJECT, 1, P6_MEDIA_INDEX_EJECT, 8), P6_OK, "eject df1"));
+    run_units(1);
+    assert(disk_empty(1) && names(1, "") && p6_session::session.drive_media[1] == -1);
+    assert(enqueues(event_of(P6_MEDIA_EVENT_EJECT, 1, P6_MEDIA_INDEX_EJECT, 9), P6_OK, "eject an empty df1"));
+    run_units(1);
+    assert(disk_empty(1) && names(1, ""));
+    // An eject cancels a swap that has not landed.
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 1, 1, 10), P6_OK, "mount b in df1"));
+    run_units(5);
+    assert(enqueues(event_of(P6_MEDIA_EVENT_EJECT, 1, P6_MEDIA_INDEX_EJECT, 11), P6_OK, "eject before it landed"));
+    run_units(130);
+    assert(disk_empty(1) && names(1, ""));
+    // Mounting, swapping and ejecting never touched the registered images or the caller's.
+    assert(blob_holds(media[0], disks[0]) && blob_holds(media[1], disks[1]));
+    assert(p6_unload(&e) == P6_OK);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) { fprintf(stderr, "usage: %s boot.rom\n", argv[0]); return 64; }
@@ -223,7 +365,13 @@ int main(int argc, char **argv)
     assert(p6_init(&c, &e) == P6_OK);
     rejected_lists(rom);
     loaded_lists(rom);
+    std::vector<std::vector<uint8_t>> disks = {make_adf(7), make_adf(8)};
+    const std::vector<std::vector<uint8_t>> before = disks;
+    std::vector<p6_media> media = {medium_of(disks[0]), medium_of(disks[1])};
+    event_validation(rom, media);
+    drives_follow_the_events(rom, media, disks);
+    assert(disks == before);                           // no swap, eject or frame wrote to the caller's images
     assert(p6_shutdown(&e) == P6_OK);
-    puts("media load ok");
+    puts("media ok");
     return 0;
 }

@@ -142,11 +142,11 @@ void build_preferences(const p6_config &c)
     currprefs.cs_hvcsync = 0;
     pin_input();
     // Media are identified by content id and arrive through p6_load: upstream's default names df0.adf..df3.adf must never
-    // be looked up, and the drives are write protected whatever the image (docs/adr/0008-media-identity.md).
-    for (int i = 0; i < 4; ++i) {
+    // be looked up, and every disk is write protected (docs/adr/0008-media-identity.md). The per-slot forcedwriteprotect
+    // flag is not pinned: the reset head re-inserts disks with it cleared, so the master switch carries the guarantee.
+    for (int i = 0; i < 4; ++i)
         currprefs.floppyslots[i].df[0] = 0;
-        currprefs.floppyslots[i].forcedwriteprotect = true;
-    }
+    currprefs.floppy_read_only = true;
     currprefs.reset_delay = 0;        // config-invariants.json: the delayed-reset wait cannot poll
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
     _tcscpy(currprefs.romfile, kFirmwareId);
@@ -165,8 +165,7 @@ p6_result check_preset(p6_error *error)
     else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||
              p.input_mouse_speed != 100 || p.keyboard_mode || p.cs_resetwarning || p.input_contact_bounce) drifted = "input";
     else if (p.floppyslots[0].df[0] || p.floppyslots[1].df[0] || p.floppyslots[2].df[0] || p.floppyslots[3].df[0] ||
-             !p.floppyslots[0].forcedwriteprotect || !p.floppyslots[1].forcedwriteprotect ||
-             !p.floppyslots[2].forcedwriteprotect || !p.floppyslots[3].forcedwriteprotect) drifted = "floppy";
+             !p.floppy_read_only) drifted = "floppy";
     else if (p.gfx_resolution != RES_HIRES || p.gfx_vresolution != VRES_DOUBLE || p.gfx_iscanlines != 1 ||
              p.gfx_pscanlines || p.gfx_scandoubler || p.gfx_lores_mode || p.gfx_overscanmode != OVERSCANMODE_OVERSCAN ||
              p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||
