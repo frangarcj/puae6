@@ -8045,11 +8045,11 @@
       "stop": "Un .wbx que solo enlaza no pasa. Si requiere corutina no demostrada en WB01 o I/O mutable host, bloquear y resolver esa dependencia."
     },
     {
-      "id": "T19c",
-      "title": "Igualdad de 10000 fronteras con headless y libretro, render/audio off y canarios en puae6.wbx",
+      "id": "T19c1",
+      "title": "10000 fronteras dos veces en Waterbox igual que headless y libretro, render/audio off y canarios",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T19b"
       ],
@@ -8069,8 +8069,88 @@
         "tests/test_plan.py"
       ],
       "steps": [
+        "Ejecutar el fixture A500 en sandbox real y repetir 10000 boundaries dos veces con input fijo; comparar ticks, hash de imagen y audio contra headless y libretro con la misma config e input.",
+        "Probar render y audio desactivados durante tramos (ambos campos), canarios alrededor de los buffers de entrega del host, llamadas rechazadas que no avanzan la maquina, y un limite de memoria que falla sin abortar el sandbox."
+      ],
+      "checks": [
+        "STEP01",
+        "WB02",
+        "WB07",
+        "WB08"
+      ],
+      "acceptance": [
+        "10000 unidades dos veces dentro de Waterbox dan los mismos ticks, hash de imagen y audio que headless y libretro; apagar render y audio no cambia el futuro; los canarios y los limites pasan con el guest real."
+      ],
+      "stop": "Un .wbx que solo enlaza no pasa. Si requiere corutina no demostrada en WB01 o I/O mutable host, bloquear y resolver esa dependencia."
+    },
+    {
+      "id": "T19c2",
+      "title": "WB13, WB14 y WB15 con el guest real de PUAE6",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T19c1"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/smoke/**",
+        "tools/build_waterbox.py",
+        "tests/waterbox-smoke/**",
+        "manifests/waterbox-memory.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cruzar un callback host con canarios en los registros callee-saved desde puae6.wbx y despues de unidades reales (WB13).",
+        "Escribir en los cuatro offsets de un grupo de 16 KiB de la Chip RAM real, snapshot, mutar, restaurar y continuar (WB14); restaurar en un proceso nuevo con el mismo guest y continuar con las mismas unidades que el original (WB15)."
+      ],
+      "checks": [
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "Los callbacks preservan x18/x28 y el TLS de musl en el guest real; las paginas de 4/16 KiB se restauran con la maquina viva; un proceso nuevo restaura el estado y produce las mismas unidades."
+      ],
+      "stop": "Un .wbx que solo enlaza no pasa. Si requiere corutina no demostrada en WB01 o I/O mutable host, bloquear y resolver esa dependencia."
+    },
+    {
+      "id": "T19c",
+      "title": "Igualdad de 10000 fronteras con headless y libretro, render/audio off y canarios en puae6.wbx",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T19b",
+        "T19c1",
+        "T19c2"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/smoke/**",
+        "tools/build_waterbox.py",
+        "tests/waterbox-smoke/**",
+        "manifests/waterbox-memory.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
         "Ejecutar el fixture A500 en sandbox real y repetir 10000 boundaries dos veces; comparar hashes hardware/ticks contra headless/libretro con la misma config e input.",
-        "Probar render y audio desactivados, canarios en los buffers de entrega, y los gates WB13, WB14 y WB15 sobre el guest real de PUAE6."
+        "Probar render y audio desactivados, canarios en los buffers de entrega, y los gates WB13, WB14 y WB15 sobre el guest real de PUAE6.",
+        "Division: T19c1 (10000 fronteras dos veces, render/audio off, canarios y limites: STEP01, WB02, WB07, WB08) y T19c2 (WB13, WB14, WB15 con el guest real); T19c es el cierre y conserva la puerta original."
       ],
       "checks": [
         "STEP01",

@@ -655,25 +655,51 @@ def build_managed() -> tuple[str, dict[str, str]]:
     return dotnet, env
 
 
-def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None) -> tuple[list[str], dict]:
-    """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines it printed in the format of
-    p6_headless, plus the measurements. Needs the runtime (build/waterbox/receipt.json) and the guest (--puae6) to exist already."""
+_RUNS = iter(range(1, 1 << 30))
+
+
+def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None, *, ports: tuple[str, ...] = (),
+              render: str | None = None, digest_every: int = 0, bad_calls_at: int = 0, limits: bool = False, ntsc: bool = False,
+              timeout: int = 3600) -> tuple[list[str], dict]:
+    """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines
+    it printed in the format of p6_headless, plus the measurements. `ports` are "N:type:buttons:dx:dy" held on every unit, `render` a
+    schedule "101-200:0,201-300:2" of render flags (1 video, 2 audio) by unit range, `digest_every` the period of the snapshot digests and
+    `bad_calls_at` the unit before which the guest is handed calls it must refuse. Needs the runtime (build/waterbox/receipt.json) and the
+    guest (--puae6) to exist already; several runs may go on at once."""
     runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
     for needed in (runtime_receipt, guest_receipt):
         if not needed.is_file():
             raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6-run")
     dotnet, env = build_managed()
-    result_path = BUILD / "puae6-result.json"
-    result_path.unlink(missing_ok=True)
-    process = subprocess.run([dotnet, str(BUILD / "managed/bin/Debug/net8.0/Smoke.dll"), "--puae6", str(runtime_receipt), str(guest_receipt),
-                              str(MEMORY_MANIFEST), str(firmware), str(units), str(result_path), *map(str, media)],
-                             env=env, cwd=MANAGED, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (BUILD / "puae6-run.log").write_text(process.stdout + "\n--- stderr ---\n" + process.stderr)
+    tag = f"{os.getpid()}-{next(_RUNS)}"
+    result_path, log_path = BUILD / f"puae6-result-{tag}.json", BUILD / f"puae6-run-{tag}.log"
+    command = [dotnet, str(BUILD / "managed/bin/Debug/net8.0/Smoke.dll"), "--puae6", "--runtime", str(runtime_receipt), "--guest", str(guest_receipt),
+               "--manifest", str(MEMORY_MANIFEST), "--firmware", str(firmware), "--units", str(units), "--result", str(result_path)]
+    for disk in media:
+        command += ["--media", str(disk)]
+    for port in ports:
+        command += ["--port", port]
+    if render:
+        command += ["--render", render]
+    if digest_every:
+        command += ["--digest-every", str(digest_every)]
+    if bad_calls_at:
+        command += ["--bad-calls-at", str(bad_calls_at)]
+    if limits:
+        command.append("--limits")
+    if ntsc:
+        command.append("--ntsc")
+    process = subprocess.run(command, env=env, cwd=MANAGED, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+    log_path.write_text(process.stdout + "\n--- stderr ---\n" + process.stderr)
     if process.returncode or not result_path.is_file():
         tail = "\n".join((process.stdout + process.stderr).splitlines()[-25:])
-        raise BuildError(f"puae6.wbx no corrio en Waterbox ({process.returncode}); log completo: {BUILD / 'puae6-run.log'}\n{tail}")
+        raise BuildError(f"puae6.wbx no corrio en Waterbox ({process.returncode}); log completo: {log_path}\n{tail}")
+    result = json.loads(result_path.read_text())
+    result_path.unlink()
+    log_path.unlink()
     lines = [line for line in process.stdout.splitlines() if line.startswith("unit ")]
-    return lines, json.loads(result_path.read_text())
+    result["pcm"] = {int(fields[1]): fields[2] for fields in (line.split() for line in process.stdout.splitlines() if line.startswith("pcm "))}
+    return lines, result
 
 
 def record_memory(firmware: Path, units: int, result: dict) -> dict:
@@ -719,6 +745,7 @@ def main() -> int:
             build_puae6(toolchain(), args.jobs)
             lines, measured = run_puae6(args.puae6_run.resolve(), args.units)
             print("\n".join(lines))
+            (BUILD / "puae6-result.json").write_text(json.dumps(measured, indent=2) + "\n")
             print(f"PUAE6 WBX RUNTIME PASS: {len(lines)} unidades; medidas en {BUILD / 'puae6-result.json'}")
             if args.record_memory:
                 record_memory(args.puae6_run.resolve(), args.units, measured)

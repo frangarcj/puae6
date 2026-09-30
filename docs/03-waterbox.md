@@ -145,6 +145,39 @@ Guest ABI: adapters/waterbox/p6w.h y puae6_guest.cpp (`p6w_abi_version`, `p6w_la
 managed (integration/bizhawk/smoke/Puae6.cs) comprueba al crear el sandbox que las estructuras que
 conoce son las que el guest compilo (`p6w_layout`); no es el wrapper de BizHawk (T20).
 
+### Resultado de T19c1: unidad tras unidad dentro de Waterbox
+
+`python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_units.py` (varios minutos;
+`P6_TEST_WB_UNITS=N` acorta las dos comparaciones largas, la aceptacion es 10000) ejecuta el
+guest real y lo compara con los otros dos adaptadores sobre la misma p6_run_frame:
+
+- WB02 / STEP01: 10000 unidades dos veces, en dos procesos a la vez, de un ROM que dibuja ambos
+  campos entrelazados (la imagen cambia cada unidad), dan las mismas lineas que p6_headless
+  (ticks, hash de imagen, paridad, cadencia, frames de audio), los mismos ticks, imagen y audio
+  que el core libretro (incluido el hash FNV de todos los bytes PCM) y los mismos digest del
+  snapshot completo entre las dos ejecuciones (diez puntos y el final: es el estado de hardware,
+  que los otros adaptadores no muestran). Con un joystick fijo en los dos puertos el resultado es el
+  mismo entre ejecuciones y contra libretro (el core registra el paquete que entrego: se comprueba
+  que es el mismo) y el estado final difiere del de una ejecucion sin entrada, asi que la
+  entrada llega a la maquina.
+- WB08: con render y audio apagados por tramos (ambos, solo video, solo audio) los ticks de cada
+  unidad son los de una ejecucion que lo entrega todo, las unidades con imagen tienen su mismo hash
+  (el punto delicado: el entrelazado, dos campos), el PCM de cada unidad con audio es el mismo
+  hash (las fases del filtro avanzaron sin entregar nada) y el estado completo del snapshot antes
+  del primer tramo, cuatro unidades despues del ultimo y al final es el mismo. Sin render no se
+  entrega puntero ni flag de imagen (`P6_FRAME_NO_VIDEO`), y sin audio ni puntero ni frames.
+- WB07: bandas de 0xCD alrededor de p6_input, p6w_frame y p6w_init se comprueban en cada llamada;
+  el guest no cambia nada de lo que recibe salvo result y error; lo que entrega (imagen y audio)
+  cae dentro del sandbox y dentro de sus limites. Seis llamadas que debe rechazar (version o
+  tamano de p6w_frame, tamano de p6_input, flag de render desconocido, entrada o salida nula)
+  devuelven BAD_ARGUMENT con mensaje sin avanzar la maquina (la unidad siguiente es la de una
+  ejecucion sin ellas). Un firmware mayor que la heap sealed devuelve CAPACITY sin abortar ni
+  consumir heap, 17 medios, sin firmware, una unidad antes del init y un segundo init se rechazan
+  con su codigo, y despues el mismo sandbox acepta un init bueno y ejecuta.
+
+Lo que aun no cubre: no hay restauracion ni excepciones cruzando callbacks con el guest real
+(T19c2: WB13, WB14, WB15), ni Kickstart real ni medios montados.
+
 ## Estado C# y callbacks
 
 WaterboxCore guarda ciertos contadores/RTC/base pero no conoce los campos nuevos
