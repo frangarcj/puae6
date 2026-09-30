@@ -87,6 +87,26 @@ el punto correcto del hardware, no declarar sin lag cada retro_run. Definir en e
 corpus que lecturas cuentan (joystick, raton, teclado/CIA) para no dejarlo ambiguo.
 Los callbacks de debugger/input son opcionales y no cambian el resultado emulado.
 
+Semantica de p6_input (T10a). El paquete es el estado del host en esa unidad: el bridge guarda lo aplicado y envia
+solo las diferencias, porque una pulsacion de tecla no es idempotente en el motor y el movimiento del raton es aditivo.
+- Teclas: el bitmap es el estado; la tecla n es el codigo Amiga n (0x00..0x67). 0x68..0x7f son invalidos (BAD_ARGUMENT):
+  0x78 inyectaria un aviso de reset y 0x7f se confunde con Ctrl. El bit 0x62 (Caps Lock) es el pestillo: el frontend
+  convierte sus eventos en cambios de estado del bit, como el teclado del A500 (make al activar, break al desactivar).
+  Orden dentro de un paquete: primero las liberaciones y luego las pulsaciones, cada grupo en orden ascendente de codigo.
+  Un cambio que no cabe en el buffer de teclado del invitado (255 codigos) no se pierde: el bridge lo reintenta en las
+  unidades siguientes, y si la tecla vuelve a su estado anterior antes de enviarse, el par se cancela.
+- Ctrl-Amiga-Amiga reinicia dentro de la propia aplicacion del paquete; la unidad que lo contiene cubre el resto del
+  reinicio. Tras el reinicio toda tecla que el host siga manteniendo se pulsa de nuevo, una vez, despues de la secuencia de
+  arranque del teclado ($00, $FD, $FE), y su liberacion posterior llega como una liberacion normal.
+- Puerto 0: raton (botones izquierdo, derecho y central = P6_BUTTON_1..3; dx/dy relativos de esta unidad) o joystick;
+  puerto 1: joystick (tres botones y cuatro direcciones; izquierda+derecha o arriba+abajo dan eje neutro). Un raton en el
+  puerto 1 es UNSUPPORTED (haria falta un segundo raton logico). Un puerto NONE no lleva botones ni movimiento; un joystick no
+  lleva dx/dy; un raton no lleva bits de direccion (BAD_ARGUMENT). La validacion ocurre antes de tocar la maquina.
+- El motor entrega como mucho 120 cuentas por eje y por lectura de JOYxDAT y descarta el resto: dx/dy son exactos para
+  |d| <= 120 por unidad. Los joysticks son gamepads, de modo que sus botones 2 y 3 se ven en POTGOR.
+- Orden completo dentro de un boundary: reset (cabecera), eventos de medios, entrada (teclas, puerto 0, puerto 1), unidad.
+  La entrada va despues de la cabecera del reset para no mezclarse con la secuencia de arranque del teclado.
+
 Orden en boundary: aplicar reset/eventos pendientes en orden estable registrado,
 fijar input, ejecutar, recoger A/V y devolver. Eventos simultaneos tienen prioridad
 documentada. No cambiar el disco desde otro hilo. Entradas subframe quedan fuera

@@ -355,3 +355,11 @@ unidades con y sin volver. Alternativa descartada: medir desde fuera con un segu
 lo que STEP01 debe descartar. Como es codigo de prueba dentro del motor, su presencia se limita con una prueba
 (el objeto normal no referencia p6_unit_*) y no cuenta para el diseño de produccion. El presupuesto de 1500
 lineas sigue superado; se revisara en M2.
+
+T10a añade 0063 y 0064: 64 parches/31 archivos/2044 lineas (+20), con keybuf.cpp como archivo nuevo
+de la cola. 0063 expone el espacio libre del anillo del teclado (keybuf_free, 15 lineas con la declaracion): un anillo
+lleno descarta el codigo NUEVO y deja una tecla atascada en el invitado (medido: 28 de 123 teclas quedaban abajo tras un
+aluvion), asi que el bridge solo envia un cambio cuando cabe y reintenta el resto. Alternativa descartada: contar los
+desbordamientos despues del hecho, que no permite recuperar el orden. 0064 (5 lineas, solo en builds con P6_UNIT_TRACE)
+hace que el observador de STEP01 cuente una vez el borde que ven a la vez el bucle de espera de la CPU retenida en reset y la
+cola de do_specialties. El presupuesto de 1500 lineas sigue superado; se revisara en M2.

@@ -1,0 +1,15 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -4527,6 +4527,11 @@
+ extern void p6_unit_observe(void);
+ static bool p6_unit_swallowed(void)
+ {
++	// The wait loop of a CPU held in reset and the tail of do_specialties can both see the same boundary.
++	static evt_t last_reported = -1;
++	if (get_cycles() == last_reported)
++		return false;
++	last_reported = get_cycles();
+ 	p6_unit_observe();
+ 	if (p6_unit_skip <= 0)
+ 		return false;

@@ -12,6 +12,7 @@
 #include "error_util.h"
 #include "session.h"
 #include "config.h"
+#include "input.h"
 #include <stdio.h>
 
 #include "sysconfig.h"
@@ -168,6 +169,7 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
         release_engine();
         return result;
     }
+    p6_bridge::forget_input();
     session.unit_index = 0;
     session.master_ticks = 0;
     session.cycles_seen = get_cycles();

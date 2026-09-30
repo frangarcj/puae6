@@ -49,7 +49,11 @@ static p6_config make_config(uint32_t standard)
     X(nr_floppies) X(picasso96_nocustom) \
     X(gfx_lores_mode) X(gfx_overscanmode) X(gfx_xcenter) X(gfx_ycenter) X(gfx_extrawidth) X(gfx_extraheight) \
     X(gfx_threebitcolors) X(gfx_blackerthanblack) X(display_calibration) X(gfx_monitorblankdelay) \
-    X(lightpen_crosshair) X(cs_optimizations) X(cs_hvcsync)
+    X(lightpen_crosshair) X(cs_optimizations) X(cs_hvcsync) \
+    X(jports[0].jd[0].id) X(jports[0].jd[0].mode) X(jports[0].jd[1].id) X(jports[0].jd[1].mode) \
+    X(jports[1].jd[0].id) X(jports[1].jd[0].mode) X(jports[1].jd[1].id) X(jports[2].jd[0].id) X(jports[3].jd[0].id) \
+    X(input_contact_bounce) X(input_tablet) X(input_autoswitchleftright) X(input_keyboard_type) \
+    X(input_advancedmultiinput) X(keyboard_mode) X(cs_resetwarning) X(dongle)
 
 static void print_pinned(const char *standard, const uae_prefs &p)
 {

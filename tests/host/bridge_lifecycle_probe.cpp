@@ -117,6 +117,50 @@ static void rejects_bad_firmware(const std::vector<uint8_t> &good)
     expect_load_error(wrong_length, P6_ERROR_WRONG_MEDIA);
 }
 
+static void rejects_invalid_input_without_touching_the_machine(const std::vector<uint8_t> &rom)
+{
+    p6_error e = make_error();
+    p6_config c = make_config();
+    assert(p6_init(&c, &e) == P6_OK && load(rom, &e) == P6_OK);
+    p6_frame frame{};
+    frame.abi_version = P6_ABI_VERSION;
+    frame.struct_size = sizeof frame;
+    auto good = []() { p6_input in{}; in.abi_version = P6_ABI_VERSION; in.struct_size = sizeof in; return in; };
+    struct Case { const char *what; p6_input input; p6_result code; };
+    std::vector<Case> cases;
+    auto add = [&](const char *what, p6_result code, auto edit) { p6_input in = good(); edit(in); cases.push_back({what, in, code}); };
+    add("abi version", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.abi_version = 2; });
+    add("struct size", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.struct_size = 8; });
+    add("reserved", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.reserved[2] = 1; });
+    add("key 0x68", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.keys[3] |= 1u << (0x68 - 96); });
+    add("key 0x78 (reset warning)", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.keys[3] |= 1u << (0x78 - 96); });
+    add("key 0x7f", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.keys[3] |= 1u << 31; });
+    add("unknown port type", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[0].type = 9; });
+    add("port reserved", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[1].reserved = 1; });
+    add("none with buttons", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[0].buttons = P6_BUTTON_1; });
+    add("none with motion", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[1].dy = 3; });
+    add("joystick with motion", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[0].type = P6_PORT_JOYSTICK; in.ports[0].dx = 1; });
+    add("joystick unknown button", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[1].type = P6_PORT_JOYSTICK; in.ports[1].buttons = 0x80; });
+    add("mouse with a direction", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[0].type = P6_PORT_MOUSE; in.ports[0].buttons = P6_BUTTON_UP; });
+    add("mouse on port 1", P6_ERROR_UNSUPPORTED, [](p6_input &in) { in.ports[1].type = P6_PORT_MOUSE; });
+    const evt_t before = get_cycles();
+    const uint32_t pc_before = regs.pc;
+    for (const Case &k : cases) {
+        p6_error err = make_error();
+        assert(p6_run_frame(&k.input, P6_RENDER_VIDEO, &frame, &err) == k.code);
+        assert(err.message[0] != 0 && strlen(err.message) < P6_ERROR_TEXT_CAPACITY);
+        assert(get_cycles() == before && regs.pc == pc_before && in_m68k_go == 1);   // nothing ran, nothing was applied
+        (void)k.what;
+    }
+    assert(p6_run_frame(nullptr, P6_RENDER_VIDEO, &frame, &e) == P6_ERROR_BAD_ARGUMENT);
+    p6_input full = good();
+    full.ports[0].type = P6_PORT_MOUSE; full.ports[0].buttons = P6_BUTTON_1 | P6_BUTTON_3; full.ports[0].dx = -5;
+    full.ports[1].type = P6_PORT_JOYSTICK; full.ports[1].buttons = P6_BUTTON_LEFT | P6_BUTTON_RIGHT | P6_BUTTON_UP;  // left+right: neutral
+    full.keys[0] = 1u << 0x10;
+    assert(p6_run_frame(&full, P6_RENDER_VIDEO, &frame, &e) == P6_OK && frame.unit_index == 1);
+    assert(p6_unload(&e) == P6_OK && p6_shutdown(&e) == P6_OK);
+}
+
 struct Snapshot {
     uint32_t pc;
     evt_t cycles;
@@ -171,6 +215,7 @@ int main(int argc, char **argv)
     assert(rom.size() == 256 * 1024);
 
     rejects_bad_calls_before_load(rom);
+    rejects_invalid_input_without_touching_the_machine(rom);
 
     const Snapshot first = boot_once(rom, P6_VIDEO_PAL, 1);
     assert(first.pc == 0xF800D2);

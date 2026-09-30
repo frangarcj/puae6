@@ -1790,6 +1790,55 @@
           "after_sha256": "0d4ca102ee265168b0618a96b71d48c5bd1018d176c766bdbb237b5450f3aaae"
         }
       ]
+    },
+    {
+      "id": "0063-keyboard-ring-free-space",
+      "file": "patches/winuae/0063-keyboard-ring-free-space.patch",
+      "sha256": "77b2cf3f5abb173dbbaee1480333006460dd6992dafe3b3c1a0f26ec87184674",
+      "title": "Free space of the keyboard ring",
+      "reason": "A full ring drops the new code, which leaves a key stuck in the guest. The bridge needs the free space to send an edge only when it fits and to retry the rest at the next unit.",
+      "category": "host hooks",
+      "order": 63,
+      "symbols": [
+        "keybuf_free"
+      ],
+      "test": "IN01; tests.input.test_input; tests.host.test_input_source",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "keybuf.cpp",
+          "before_sha256": "ccb6171241346e5d8a76a087c027a09c1ae662089d1a1b962117f5f542a7645c",
+          "after_sha256": "21351e9aa1b0a0d7e9c768e38243b61f3cb109df5e8d606a524547905b2066a4"
+        },
+        {
+          "path": "include/keybuf.h",
+          "before_sha256": "1f057a6c4d8594281e03fbefdc0d48df09db4e5ba20b21f05132d11dab4be65d",
+          "after_sha256": "1b5d146b68dadf2105ab24fd718b7c5493653bc85dcdda2a0a011f90cef02ea1"
+        }
+      ]
+    },
+    {
+      "id": "0064-unit-trace-single-report",
+      "file": "patches/winuae/0064-unit-trace-single-report.patch",
+      "sha256": "5be61ff6aecc9e9fb286ab11c514db870414c716b68a1c02938e30b255214845",
+      "title": "Report each boundary once in trace builds",
+      "reason": "In a CPU held in reset the wait loop and the tail of do_specialties both see the boundary; the observer of a trace build must report it once or the N-calls comparison counts it twice.",
+      "category": "host hooks",
+      "order": 64,
+      "symbols": [
+        "p6_unit_swallowed"
+      ],
+      "test": "STEP01; tests.step.test_step; tests.input.test_input",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "0d4ca102ee265168b0618a96b71d48c5bd1018d176c766bdbb237b5450f3aaae",
+          "after_sha256": "e13f75ef8075e4b66a0d8935c4f83d5429395f24ef00bbe58e8124467721b3ef"
+        }
+      ]
     }
   ]
 }

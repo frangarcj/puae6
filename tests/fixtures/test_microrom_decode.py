@@ -64,6 +64,14 @@ start:
     MOVE.W D0,$10.L
     EXG D2,D3
     EXG D0,D7
+    MOVE.W $DFF00A.L,(A0)+
+    MOVE.W $DFF00C.L,(A3)+
+    MOVE.W #$AA55,(A0)+
+    MOVE.W D2,(A0)+
+    MOVE.W D7,(A5)+
+    MOVE.B $BFE001.L,D2
+    MOVEQ #0,D3
+    MOVEQ #-1,D7
     MOVE.L D0,(A0)+
     MOVE.L D7,(A3)+
     MOVE.L D1,(SP)+
@@ -116,6 +124,14 @@ def expect(line):
          lambda m: Want("MOVE", "L", 1, "Dreg", "Aipi", int(m[1]), register(m[2]))),
         (r"MOVE\.([WL])\s+D([0-7])\s*,.+\.L",
          lambda m: Want("MOVE", m[1].upper(), 3, "Dreg", "absl", int(m[2]), None)),
+        (r"MOVE\.W\s+.+\.L\s*,\s*\(" + AREG + r"\)\+",
+         lambda m: Want("MOVE", "W", 3, "absl", "Aipi", None, register(m[1]))),
+        (r"MOVE\.W\s+#.+,\s*\(" + AREG + r"\)\+",
+         lambda m: Want("MOVE", "W", 2, "imm", "Aipi", None, register(m[1]))),
+        (r"MOVE\.W\s+D([0-7])\s*,\s*\(" + AREG + r"\)\+",
+         lambda m: Want("MOVE", "W", 1, "Dreg", "Aipi", int(m[1]), register(m[2]))),
+        (r"MOVE\.B\s+.+\.L\s*,\s*D([0-7])", lambda m: Want("MOVE", "B", 3, "absl", "Dreg", None, int(m[1]))),
+        (r"MOVEQ\s+#.+,\s*D([0-7])", lambda m: Want("MOVE", "L", 1, "immi", "Dreg", None, int(m[1]))),
         (r"EXG\s+D([0-7])\s*,\s*D([0-7])", lambda m: Want("EXG", "L", 1, "Dreg", "Dreg", int(m[1]), int(m[2]))),
         (r"MOVE\.([BWL])\s+#.+,.+\.L",
          lambda m: Want("MOVE", m[1].upper(), 5 if m[1].upper() == "L" else 4, "imm", "absl", None, None)),
@@ -274,7 +290,7 @@ class MicroRomDecoderTests(unittest.TestCase):
     def test_every_rom_decodes_to_the_instructions_of_its_source(self):
         manifest = json.loads((MICROROM / "manifest.json").read_text(encoding="utf-8"))
         roms = [("boot.s", {})] + [(entry["program_source"], entry["defines"]) for entry in manifest["scenarios"].values()]
-        self.assertEqual(len(roms), 8)
+        self.assertEqual(len(roms), 9)
         for name, defines in roms:
             with self.subTest(source=name, defines=defines):
                 text = builder.substitute((MICROROM / name).read_text(encoding="utf-8"), defines)

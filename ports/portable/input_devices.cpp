@@ -576,14 +576,15 @@ int target_checkcapslock(int, int *)
 }
 
 /* Windows clears its record of which host keys are down and sends a release
- * for each. That record lives in the bridge bitmap here, and the engine has
- * already cleared its own Amiga-side key state before it calls this (the only
+ * for each. That record lives in the bridge (bridge/input.cpp) here, and the engine
+ * has already cleared its own Amiga-side key state before it calls this (the only
  * caller is the end of a keyboard reset sequence in inputdevice_do_keyboard).
- * This layer holds no key state, so there is nothing left to release. A key that
- * is still held when the reset ends stays held in the bitmap; the bridge sees no
- * change and sends no new press, as with DirectInput after release_keys(). */
+ * This layer holds no key state, so it only tells the bridge: it forgets what it
+ * had applied and presses again, after the reset, every key the host still holds. */
+int p6_input_engine_released_keys = 0;
 void release_keys(void)
 {
+    p6_input_engine_released_keys = 1;
 }
 
 /* No tablet behind the logical devices: inputdevice_is_tablet() is always 0

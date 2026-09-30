@@ -182,6 +182,24 @@ def _parts(line, line_number):
     if match:
         opcode = 0x33C0 if match[1].upper() == "W" else 0x23C0
         return [opcode | int(match[2]), _address(match[3], line_number)]
+    match = re.fullmatch(r"MOVE\.W\s+(.+?)\.L\s*,\s*\(" + _AREG + r"\)\+", line, re.I)
+    if match:
+        return [0x30F9 | (_areg(match[2]) << 9), _address(match[1], line_number)]
+    match = re.fullmatch(r"MOVE\.W\s+#(.+?)\s*,\s*\(" + _AREG + r"\)\+", line, re.I)
+    if match:
+        return [0x30FC | (_areg(match[2]) << 9), _immediate(match[1], 16, line_number)]
+    match = re.fullmatch(r"MOVE\.W\s+D([0-7])\s*,\s*\(" + _AREG + r"\)\+", line, re.I)
+    if match:
+        return [0x30C0 | (_areg(match[2]) << 9) | int(match[1])]
+    match = re.fullmatch(r"MOVE\.B\s+(.+?)\.L\s*,\s*D([0-7])", line, re.I)
+    if match:
+        return [0x1039 | (int(match[2]) << 9), _address(match[1], line_number)]
+    match = re.fullmatch(r"MOVEQ\s+#(\$[0-9A-Fa-f]+|-?\d+)\s*,\s*D([0-7])", line, re.I)
+    if match:
+        value = int(match[1][1:], 16) if match[1].startswith("$") else int(match[1])
+        if not -128 <= value <= 127:
+            raise ValueError("line %d: MOVEQ immediate out of range: %d" % (line_number, value))
+        return [0x7000 | (int(match[2]) << 9) | (value & 0xFF)]
     match = re.fullmatch(r"EXG\s+D([0-7])\s*,\s*D([0-7])", line, re.I)
     if match:
         return [0xC140 | (int(match[1]) << 9) | int(match[2])]

@@ -7277,13 +7277,114 @@
       "evidence": "reports/tasks/T08.md"
     },
     {
+      "id": "T10a",
+      "title": "Entrada de teclado, raton y joystick aplicada en el borde",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T08"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0005-frame-boundary.md",
+        "docs/adr/0006-video-output.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "config/profiles/**",
+        "manifests/config-invariants.json",
+        "CMakeLists.txt",
+        "tests/input/**",
+        "tests/scenarios/input/**",
+        "tests/fixtures/**",
+        "tests/host/**",
+        "tests/step/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "docs/adr/0004-host-patch-budget.md",
+        "tests/canaries/**"
+      ],
+      "steps": [
+        "Fijar los puertos en el preset (puerto 0 raton y joystick, puerto 1 joystick, modo gamepad) y las preferencias de entrada que deben quedar fijas.",
+        "bridge/input.cpp: validar el paquete antes de tocar el motor (teclas 0x68..0x7f, direcciones opuestas, tipos incoherentes) y aplicarlo por diferencias en un orden documentado: liberaciones, pulsaciones, puerto 0, puerto 1; las teclas que el anillo del teclado no admite se reintentan en la unidad siguiente.",
+        "Micro-ROM que registra JOYxDAT, POT, PRA y el teclado CIA por unidad; comparar el registro con los valores que da la documentacion de hardware para secuencias de teclas, raton y joystick, mas Ctrl-Amiga-Amiga, y la repeticion en dos procesos.",
+        "Ampliacion touch: tests/fixtures/** (ROM de entrada y cinco formas del ensamblador), docs/adr/0004 (parches 0063/0064)."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "IN01"
+      ],
+      "acceptance": [
+        "Teclas no quedan retenidas tras release/reset; raton y joystick reproducen la secuencia esperada.",
+        "Una entrada invalida se rechaza sin cambiar la maquina; el orden de eventos simultaneos esta documentado."
+      ],
+      "stop": "Si una lectura de CIA/puerto tiene efectos laterales desconocidos, investigar el punto exacto; no inyectar input por escritura directa arbitraria en registros.",
+      "evidence": "reports/tasks/T10a.md"
+    },
+    {
+      "id": "T10b",
+      "title": "Lag real: lecturas de entrada del invitado",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T10a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0005-frame-boundary.md",
+        "docs/adr/0006-video-output.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "patches/winuae/**",
+        "CMakeLists.txt",
+        "tests/input/**",
+        "tests/scenarios/input/**",
+        "tests/fixtures/**",
+        "tests/host/**",
+        "tests/step/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "Parche: registrar en una mascara las lecturas reales del invitado de JOY0DAT, JOY1DAT, POT0DAT, POT1DAT, POTGOR, CIA-A PRA y CIA-A SDR; el bridge la limpia al empezar la unidad y publica P6_FRAME_LAG y P6_CAP_LAG_FLAG.",
+        "Micro-ROM que lee un recurso distinto por unidad (y ninguno en alguna): el lag sigue exactamente esa secuencia; un callback post-unidad opcional no cambia ningun hash.",
+        "La mascara es estado derivado: no forma parte del estado ni cambia el resultado con o sin observador."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "IN01"
+      ],
+      "acceptance": [
+        "Lag cambia segun las lecturas invitadas definidas y el callback opcional no cambia hashes.",
+        "El parche no altera el estado de la maquina: digest identico con y sin el gancho."
+      ],
+      "stop": "No equiparar input_poll del frontend con una lectura del invitado.",
+      "evidence": null
+    },
+    {
       "id": "T10",
       "title": "Implementar entrada normalizada y lag real",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T08"
+        "T08",
+        "T10a",
+        "T10b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -7300,7 +7401,8 @@
         "Mapear scancodes, press/release y dos puertos; consumir deltas de raton sin autorepeat host.",
         "Aplicar eventos en orden estable en boundary y registrar cualquier estado latched o conversion previa.",
         "Instrumentar consultas reales de entrada del hardware para lag; no equiparar input_poll con lectura del invitado.",
-        "Crear microtest que alterna leer/no leer, mantiene teclas y cambia puertos; comparar replay."
+        "Crear microtest que alterna leer/no leer, mantiene teclas y cambia puertos; comparar replay.",
+        "Division de alcance: T10a entrada aplicada en el borde, T10b lag. T10 conserva IN01/STEP01 y toda su aceptacion original; tests/test_plan.py preserva esta puerta."
       ],
       "checks": [
         "IN01",

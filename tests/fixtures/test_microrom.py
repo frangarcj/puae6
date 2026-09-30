@@ -16,7 +16,7 @@ spec.loader.exec_module(builder)
 SOURCE = (HERE / "boot.s").read_text(encoding="utf-8")
 CODE = bytes.fromhex("46fc2700" "4ff80400" "13fc000300bfe201" "13fc000200bfe001" "5280" "60fc")
 HEADER = "; Original PUAE6 micro-ROM, licensed under MIT; see LICENSE."
-SCENARIO_NAMES = {"vsync", "copper_irq", "long_ops", "halt", "stop", "lof_stuck", "long_frame"}
+SCENARIO_NAMES = {"vsync", "copper_irq", "long_ops", "halt", "stop", "lof_stuck", "long_frame", "input_all"}
 
 
 def sha256(data):
@@ -190,7 +190,7 @@ class MicroRomTests(unittest.TestCase):
     def test_everything_outside_the_subset_is_rejected(self):
         for text in [
             "RTS", "MOVE.L D0,D1", "MOVE.W #1,D0", "MOVE.B #1,D0", "MOVEA.W #1,A0", "MOVEA.L #1,D0", "MOVE.L D0,(A8)+",
-            "MOVE.L A0,(A1)+", "MOVE.W D0,(A0)+", "MOVE.L #1,$10.W", "DIVU D2,D3", "DIVU.W #1,D0", "DIVU.W D0,A1",
+            "MOVE.L A0,(A1)+", "MOVE.W D0,D1", "MOVE.L #1,$10.W", "DIVU D2,D3", "DIVU.W #1,D0", "DIVU.W D0,A1",
             "DIVS.W D2,D3", "ADDQ.L #9,D0", "ADDQ.L #0,D0", "ADDQ.W #1,D0", "STOP D0", "STOP", "TRAP 0", "TRAP #-1",
             "BRA label", "BRA.L label", "BRA.S 5", "BNE.S l", "MOVEM.W D0,-(SP)", "MOVEM.L D0,(SP)", "MOVEM.L (SP),D0",
             "MOVEM.L -(SP),D0", "MOVEM.L D0-A3,-(SP)", "MOVEM.L D3-D0,-(SP)", "MOVEM.L D0-D8,-(SP)", "MOVEM.L D0/,-(SP)",
@@ -246,11 +246,11 @@ class MicroRomTests(unittest.TestCase):
         manifest = json.loads((HERE / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(set(manifest["scenarios"]), SCENARIO_NAMES)
         self.assertEqual(manifest["builder_sha256"], sha256((HERE / "build_rom.py").read_bytes()))
-        self.assertEqual({"vsync": "S2", "copper_irq": "S3", "long_ops": "S4", "halt": "S5", "stop": "S7", "lof_stuck": "V1", "long_frame": "V2"},
+        self.assertEqual({"vsync": "S2", "copper_irq": "S3", "long_ops": "S4", "halt": "S5", "stop": "S7", "lof_stuck": "V1", "long_frame": "V2", "input_all": "I1"},
                          {name: entry["scenario"] for name, entry in manifest["scenarios"].items()})
         self.assertEqual({name: entry["defines"] for name, entry in manifest["scenarios"].items()},
                          {"vsync": {}, "copper_irq": {"HP": "2"}, "long_ops": {"PAD": "3"}, "halt": {}, "stop": {},
-                          "lof_stuck": {}, "long_frame": {}})
+                          "lof_stuck": {}, "long_frame": {}, "input_all": {}})
         for name in sorted(SCENARIO_NAMES):
             with self.subTest(scenario=name):
                 entry, source, image = scenario(name)
@@ -277,6 +277,17 @@ class MicroRomTests(unittest.TestCase):
         self.assertEqual(builder.assemble("EXG D0,D7"), bytes.fromhex("c147"))
         with self.assertRaises(ValueError):
             builder.assemble("MOVE.B D0,$10.L")
+
+    def test_input_log_forms_are_the_documented_opcodes(self):
+        self.assertEqual(builder.assemble("MOVE.W $DFF00A.L,(A0)+"), bytes.fromhex("30f9" "00dff00a"))
+        self.assertEqual(builder.assemble("MOVE.W $DFF00C.L,(A1)+"), bytes.fromhex("32f9" "00dff00c"))
+        self.assertEqual(builder.assemble("MOVE.W #$AA55,(A0)+"), bytes.fromhex("30fc" "aa55"))
+        self.assertEqual(builder.assemble("MOVE.W D2,(A0)+"), bytes.fromhex("30c2"))
+        self.assertEqual(builder.assemble("MOVE.B $BFE001.L,D2"), bytes.fromhex("1439" "00bfe001"))
+        self.assertEqual(builder.assemble("MOVEQ #0,D3"), bytes.fromhex("7600"))
+        self.assertEqual(builder.assemble("MOVEQ #-1,D7"), bytes.fromhex("7eff"))
+        with self.assertRaises(ValueError):
+            builder.assemble("MOVEQ #128,D0")
 
     def test_the_boot_source_did_not_move_and_the_image_carries_the_iack_vectors(self):
         # boot.s is the contract of the earlier tasks. Its image changed once, when the interrupt-acknowledge

@@ -14,6 +14,7 @@
 #include "memory.h"
 #include "custom.h"
 #include "audio.h"
+#include "inputdevice.h"
 #include "gensound.h"
 #include "rommgr.h"
 #include "rom_status.h"
@@ -35,6 +36,40 @@ constexpr uint64_t kFirmwareMaxBytes = 1760u * 512u;
 uint32_t fold_seed(uint64_t seed)
 {
     return uint32_t(seed) ^ uint32_t(seed >> 32);
+}
+
+// Ports of the fixed A500: port 0 takes the logical mouse and joystick 0, port 1 joystick 1; the bridge decides at
+// each unit which of them the host is using (p6_input port type) and leaves the other neutral. Static on purpose:
+// changing the port assignment at run time (inputdevice_updateconfig) drops held buttons and the engine key table.
+// Joysticks are gamepads so that their second and third buttons are visible on POTGOR; without it they are no-ops.
+void pin_input()
+{
+    for (int p = 0; p < MAX_JPORTS; ++p) {
+        currprefs.jports[p].nokeyboardoverride = false;
+        currprefs.jports[p].changed = false;
+        for (int d = 0; d < MAX_JPORT_DEVS; ++d) {
+            jport_dev &jd = currprefs.jports[p].jd[d];
+            jd.id = JPORT_NONE;
+            jd.mode = JSEM_MODE_DEFAULT;
+            jd.submode = 0;
+            jd.autofire = 0;
+            jd.idc.name[0] = jd.idc.configname[0] = jd.idc.shortid[0] = 0;
+        }
+    }
+    currprefs.jports[0].jd[0].id = JSEM_MICE + 0;
+    currprefs.jports[0].jd[1].id = JSEM_JOYS + 0;
+    currprefs.jports[0].jd[1].mode = JSEM_MODE_GAMEPAD;
+    currprefs.jports[1].jd[0].id = JSEM_JOYS + 1;
+    currprefs.jports[1].jd[0].mode = JSEM_MODE_GAMEPAD;
+    currprefs.input_mouse_speed = 100;        // exact: no fractional carry between units
+    currprefs.input_contact_bounce = 0;       // no random contact bounce
+    currprefs.input_tablet = TABLET_OFF;
+    currprefs.input_autoswitchleftright = false;
+    currprefs.input_keyboard_type = KBTYPE_AMIGA;
+    currprefs.input_advancedmultiinput = false;
+    currprefs.keyboard_mode = 0;              // the CIA serial keyboard, with the guest's handshake
+    currprefs.cs_resetwarning = false;        // Ctrl-Amiga-Amiga resets at once, without the warning handshake
+    currprefs.dongle = 0;
 }
 
 }  // namespace
@@ -101,6 +136,7 @@ void build_preferences(const p6_config &c)
     currprefs.refresh_indicator = false;
     currprefs.cs_optimizations = 0;
     currprefs.cs_hvcsync = 0;
+    pin_input();
     currprefs.reset_delay = 0;        // config-invariants.json: the delayed-reset wait cannot poll
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
     _tcscpy(currprefs.romfile, kFirmwareId);
@@ -116,6 +152,8 @@ p6_result check_preset(p6_error *error)
     else if (p.chipmem.size != 0x80000 || p.bogomem.size != 0x80000 || p.fastmem[0].size || p.z3fastmem[0].size ||
              p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
+    else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||
+             p.input_mouse_speed != 100 || p.keyboard_mode || p.cs_resetwarning || p.input_contact_bounce) drifted = "input";
     else if (p.gfx_resolution != RES_HIRES || p.gfx_vresolution != VRES_DOUBLE || p.gfx_iscanlines != 1 ||
              p.gfx_pscanlines || p.gfx_scandoubler || p.gfx_lores_mode || p.gfx_overscanmode != OVERSCANMODE_OVERSCAN ||
              p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||

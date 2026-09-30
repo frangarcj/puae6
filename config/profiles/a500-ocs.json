@@ -355,9 +355,9 @@
     },
     {
       "name": "input_mouse_speed",
-      "source": "upstream",
+      "source": "pin",
       "value": 100,
-      "why": "mouse gain as upstream; input arrives with T10"
+      "why": "mouse gain 100 keeps deltas exact: no fractional carry between units"
     },
     {
       "name": "input_joymouse_speed",
@@ -538,6 +538,108 @@
       "source": "pin",
       "value": 0,
       "why": "no HV sync output emulation"
+    },
+    {
+      "name": "jports[0].jd[0].id",
+      "source": "override",
+      "value": 200,
+      "why": "port 0 takes the logical mouse (JSEM_MICE + 0); p6_input decides per unit whether it is used"
+    },
+    {
+      "name": "jports[0].jd[0].mode",
+      "source": "override",
+      "value": 0,
+      "why": "mouse in default mode"
+    },
+    {
+      "name": "jports[0].jd[1].id",
+      "source": "override",
+      "value": 100,
+      "why": "port 0 also takes joystick 0 (JSEM_JOYS + 0): mouse and joystick share the connector"
+    },
+    {
+      "name": "jports[0].jd[1].mode",
+      "source": "override",
+      "value": 4,
+      "why": "gamepad: its second and third buttons show on POTGOR (in default mode they are silent no-ops)"
+    },
+    {
+      "name": "jports[1].jd[0].id",
+      "source": "override",
+      "value": 101,
+      "why": "port 1 takes joystick 1; a mouse on port 1 is refused by the bridge"
+    },
+    {
+      "name": "jports[1].jd[0].mode",
+      "source": "override",
+      "value": 4,
+      "why": "gamepad mode, as joystick 0"
+    },
+    {
+      "name": "jports[1].jd[1].id",
+      "source": "override",
+      "value": -1,
+      "why": "no second device on port 1"
+    },
+    {
+      "name": "jports[2].jd[0].id",
+      "source": "override",
+      "value": -1,
+      "why": "ports 2 and 3 (parallel port joysticks) are not used"
+    },
+    {
+      "name": "jports[3].jd[0].id",
+      "source": "override",
+      "value": -1,
+      "why": "ports 2 and 3 (parallel port joysticks) are not used"
+    },
+    {
+      "name": "input_contact_bounce",
+      "source": "pin",
+      "value": 0,
+      "why": "no random contact bounce"
+    },
+    {
+      "name": "input_tablet",
+      "source": "pin",
+      "value": 0,
+      "why": "no tablet"
+    },
+    {
+      "name": "input_autoswitchleftright",
+      "source": "pin",
+      "value": 0,
+      "why": "no wall-clock port auto-switch (config-invariants.json)"
+    },
+    {
+      "name": "input_keyboard_type",
+      "source": "pin",
+      "value": 0,
+      "why": "Amiga keyboard layout of raw codes"
+    },
+    {
+      "name": "input_advancedmultiinput",
+      "source": "pin",
+      "value": 0,
+      "why": "one event slot per input"
+    },
+    {
+      "name": "keyboard_mode",
+      "source": "pin",
+      "value": 0,
+      "why": "CIA serial keyboard with the guest's handshake"
+    },
+    {
+      "name": "cs_resetwarning",
+      "source": "pin",
+      "value": 0,
+      "why": "Ctrl-Amiga-Amiga resets at once, without the reset warning handshake"
+    },
+    {
+      "name": "dongle",
+      "source": "pin",
+      "value": 0,
+      "why": "no dongle"
     }
   ]
 }

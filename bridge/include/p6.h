@@ -194,7 +194,12 @@ typedef struct p6_media_event {
  * until p6_unload returns; the API retains no pointer to the descriptor array.
  * Reset queues for the next frame boundary and does not advance emulation.
  * There, reset runs first, then queued media events in strictly increasing
- * sequence order, then input is applied and exactly one video unit is run.
+ * sequence order, then input is applied (after the reset head, so that it does not
+ * mix with the keyboard's power-up sequence) and exactly one video unit is run.
+ * Input semantics are in docs/02-contracts.md ("Entrada"): the packet is the host
+ * state of the unit, only differences reach the machine, keys 0x68..0x7f and
+ * inconsistent ports are rejected before anything is touched, and a mouse is on
+ * port 0 only.
  *
  * Version/size mismatches, nonzero reserved fields, unknown flags, and
  * unsupported settings are rejected. Optional p6_error must be initialized

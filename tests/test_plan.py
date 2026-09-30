@@ -73,8 +73,8 @@ class PlanTests(unittest.TestCase):
     def test_current_project_gate_and_machawk_priority(self):
         data = json.loads((ROOT / "plan/tasks.json").read_text())
         by_id = {task["id"]: task for task in data["tasks"]}
-        self.assertEqual(180, len(by_id))
-        self.assertEqual(174, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(182, len(by_id))
+        self.assertEqual(176, sum(task["required"] for task in by_id.values()))
         self.assertEqual(["T00"], by_id["T01a"]["depends"])
         self.assertEqual(["T01a"], by_id["T01b"]["depends"])
         self.assertEqual(["T01a", "T01b"], by_id["T01"]["depends"])
@@ -219,6 +219,10 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(["T08b"], by_id["T08c"]["depends"])
         self.assertIn("AV01", by_id["T08b"]["checks"] + by_id["T08c"]["checks"])
         self.assertTrue({"STEP01", "AV01"} <= set(by_id["T08c"]["checks"]))
+        self.assertEqual(["T08", "T10a", "T10b"], by_id["T10"]["depends"])
+        self.assertEqual(["T08"], by_id["T10a"]["depends"])
+        self.assertEqual(["T10a"], by_id["T10b"]["depends"])
+        self.assertIn("IN01", by_id["T10a"]["checks"] + by_id["T10b"]["checks"])
         required = {task_id for task_id, task in by_id.items() if task["required"]}
         ancestors = set()
         queue = list(by_id["T41"]["depends"])

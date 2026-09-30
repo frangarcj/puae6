@@ -31,7 +31,7 @@ spec.loader.exec_module(builder)
 
 LINE = re.compile(r"^unit (\d+) pc=([0-9a-f]+) op=([0-9a-f]+) d0=([0-9a-f]+) d1=([0-9a-f]+) sr=([0-9a-f]+) line=(-?\d+) "
                   r"hpos=(\d+) cycles=(-?\d+) halted=(-?\d+) stopped=(\d+) video=(\d+)/(\d+) size=(\d+)x(\d+)/(\d+) "
-                  r"digest=([0-9a-f]+)$")
+                  r"a0=([0-9a-f]+) digest=([0-9a-f]+)$")
 
 
 def scenarios():

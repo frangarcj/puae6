@@ -115,7 +115,8 @@ class A500ProfileTests(unittest.TestCase):
         for f in self.profile["fields"]:
             if f["source"] in ("override", "pin") and f["name"] not in ("romfile",):
                 with self.subTest(field=f["name"]):
-                    self.assertIn(f"currprefs.{f['name']} =", config)
+                    compound = top_level(f["name"]) != f["name"]
+                    self.assertTrue((f"currprefs.{top_level(f['name'])}" if compound else f"currprefs.{f['name']} =") in config)
 
 
 if __name__ == "__main__":

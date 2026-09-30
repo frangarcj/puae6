@@ -87,7 +87,7 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/audio_drain.cpp)
 add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
 target_include_directories(p6_bridge PRIVATE

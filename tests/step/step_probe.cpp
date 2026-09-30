@@ -15,15 +15,24 @@
 #include "newcpu.h"
 #include "video_present.h"
 #include "video.h"
+#include "input.h"
+#include "audio_drain.h"
 
 #include <cassert>
 #include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <vector>
 
 int p6_unit_skip;
+
+namespace {
+std::vector<p6_input> script;   // P6_INPUT_SCRIPT: one packet per unit
+bool observer_applies_input;    // continuous mode: the packet of the next unit is applied at the boundary
+int script_units;
+}  // namespace
 
 namespace {
 
@@ -42,6 +51,8 @@ struct Record {
     int64_t cycles;
     int line, unit_hpos;
     int halted, stopped;
+    uint32_t a0;
+    std::vector<uint16_t> logged;   // P6_DUMP_LOG: words the guest appended at (A0)+ since the previous boundary
     uint32_t vw, vh, vflags;
     uint64_t frames, passes;   // presentation provider: frame hand-overs and drawing passes so far
     uint64_t digest;
@@ -81,6 +92,7 @@ extern "C++" void p6_unit_observe(void)
     // What T08 will do after every unit: hand the finished raster over. It sits here, at the boundary itself,
     // so both modes present at the same moments and the picture becomes part of the compared state.
     p6_bridge::present_unit();
+    p6_bridge::discard_audio();   // what p6_run_frame does after every unit; here also for the boundaries it swallows
     Record r{};
     r.pc = m68k_getpc();
     r.opcode = regs.opcode;
@@ -93,10 +105,27 @@ extern "C++" void p6_unit_observe(void)
     r.unit_hpos = agnus_hpos;
     r.halted = regs.halted;
     r.stopped = regs.stopped;
+    r.a0 = regs.regs[8];
+    if (getenv("P6_DUMP_LOG")) {
+        static uint32_t previous = 0x1000;
+        // A guest that restarts its log (after a reset) starts again at $1000.
+        uint32_t from = r.a0 >= previous ? previous : 0x1000;
+        for (uint32_t a = from; a + 1 < r.a0 && a < 0x1000 + 2 * 4096; a += 2)
+            r.logged.push_back(uint16_t((chipmem_bank.baseaddr[a] << 8) | chipmem_bank.baseaddr[a + 1]));
+        previous = r.a0;
+    }
     p6_video_frame_info video{};
     if (p6_video_frame_get(&video) == 0) { r.frames = video.frame_counter; r.passes = video.pass_counter; r.vw = video.width; r.vh = video.height; r.vflags = video.flags; }
     r.digest = state_digest();
     trace.push_back(r);
+    if (observer_applies_input && int(trace.size()) < script_units) {
+        // What p6_run_frame does at the head of the next call, done at the boundary the swallowed call crosses.
+        const size_t next = std::min(trace.size(), script.size() - 1);
+        p6_input packet = script[next];
+        if (trace.size() >= script.size())
+            for (p6_port_input &port : packet.ports) port.dx = port.dy = 0;
+        p6_bridge::apply_input(packet);
+    }
 }
 
 namespace {
@@ -123,6 +152,47 @@ p6_config make_config(uint32_t standard, uint64_t seed)
     c.random_seed = seed;
     c.rtc_epoch_seconds = 946684800;
     return c;
+}
+
+// One line per unit: four hexadecimal key words, then per port: type buttons dx dy.
+void load_script(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) { perror(path); exit(2); }
+    char line[256];
+    while (fgets(line, sizeof line, f)) {
+        p6_input in{};
+        in.abi_version = P6_ABI_VERSION;
+        in.struct_size = sizeof in;
+        unsigned k[4], t[2], b[2];
+        int dx[2], dy[2];
+        if (sscanf(line, "%x %x %x %x %u %u %d %d %u %u %d %d", &k[0], &k[1], &k[2], &k[3], &t[0], &b[0], &dx[0], &dy[0],
+                   &t[1], &b[1], &dx[1], &dy[1]) != 12) { fprintf(stderr, "bad script line: %s", line); exit(2); }
+        for (int i = 0; i < 4; ++i) in.keys[i] = k[i];
+        for (int p = 0; p < 2; ++p) {
+            in.ports[p].type = t[p];
+            in.ports[p].buttons = b[p];
+            in.ports[p].dx = int16_t(dx[p]);
+            in.ports[p].dy = int16_t(dy[p]);
+        }
+        script.push_back(in);
+    }
+    fclose(f);
+    if (script.empty()) { fprintf(stderr, "empty script\n"); exit(2); }
+}
+
+p6_input input_for(int unit)
+{
+    if (script.empty()) {
+        p6_input in{};
+        in.abi_version = P6_ABI_VERSION;
+        in.struct_size = sizeof in;
+        return in;
+    }
+    p6_input packet = script[std::min(size_t(unit - 1), script.size() - 1)];
+    if (size_t(unit) > script.size())                 // beyond the script: buttons and keys stay, motion stops
+        for (p6_port_input &port : packet.ports) port.dx = port.dy = 0;
+    return packet;
 }
 
 p6_input empty_input()
@@ -218,6 +288,9 @@ int main(int argc, char **argv)
     if (!continuous && !frames && strcmp(argv[3], "steps")) return 64;
     if (units < 1) return 64;
     const uint32_t standard = argc == 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
+    if (const char *path = getenv("P6_INPUT_SCRIPT")) load_script(path);
+    script_units = units;
+    observer_applies_input = continuous && !script.empty();
 
     p6_error error{P6_ABI_VERSION, sizeof(p6_error), {}};
     const p6_config config = make_config(standard, strtoull(argv[4], nullptr, 10));
@@ -227,16 +300,17 @@ int main(int argc, char **argv)
     p6_frame frame{};
     frame.abi_version = P6_ABI_VERSION;
     frame.struct_size = sizeof frame;
-    const p6_input input = empty_input();
     uint64_t last_ticks = 0;
     if (continuous) {
         p6_unit_skip = units - 1;
-        check(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error), "p6_run_frame");
+        const p6_input first = input_for(1);
+        check(p6_run_frame(&first, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error), "p6_run_frame");
         if (frame.unit_index != 1) { fprintf(stderr, "unit_index %llu\n", (unsigned long long)frame.unit_index); return 4; }
         last_ticks = frame.master_ticks;
     } else {
         for (int unit = 1; unit <= units; ++unit) {
             const int64_t before = trace.empty() ? 0 : trace.back().cycles;
+            const p6_input input = input_for(unit);
             check(p6_run_frame(&input, render, &frame, &error), "p6_run_frame");
             if (frame.unit_index != uint64_t(unit) || frame.master_ticks <= last_ticks) return 4;
             if (frames) print_frame(frame);
@@ -245,6 +319,9 @@ int main(int argc, char **argv)
         }
     }
     if (trace.size() != size_t(units)) {
+        for (size_t i = 0; i < trace.size(); ++i)
+            fprintf(stderr, "  boundary %zu pc=%06x cycles=%lld line=%d halted=%d\n", i + 1, trace[i].pc, (long long)trace[i].cycles,
+                    trace[i].line, trace[i].halted);
         MakeSR();
         fprintf(stderr, "%zu boundaries observed, %d expected (pc=%06x sr=%04x spcflags=%x halted=%d stopped=%d cycles=%lld vpos=%d)\n",
                 trace.size(), units, m68k_getpc(), regs.sr, unsigned(regs.spcflags), regs.halted, regs.stopped,
@@ -262,11 +339,17 @@ int main(int argc, char **argv)
     for (size_t i = 0; !frames && i < trace.size(); ++i) {
         const Record &r = trace[i];
         printf("unit %zu pc=%06x op=%04x d0=%08x d1=%08x sr=%04x line=%d hpos=%d cycles=%" PRId64
-               " halted=%d stopped=%d video=%" PRIu64 "/%" PRIu64 " size=%ux%u/%u digest=%016" PRIx64 "\n",
+               " halted=%d stopped=%d video=%" PRIu64 "/%" PRIu64 " size=%ux%u/%u a0=%08x digest=%016" PRIx64 "\n",
                i + 1, r.pc, r.opcode, r.d0, r.d1, r.sr, r.line, r.unit_hpos, r.cycles, r.halted, r.stopped,
-               r.frames, r.passes, r.vw, r.vh, r.vflags, r.digest);
+               r.frames, r.passes, r.vw, r.vh, r.vflags, r.a0, r.digest);
     }
     printf("final digest=%016" PRIx64 " ticks=%" PRIu64 "\n", state_digest(), last_ticks);
+    if (getenv("P6_DUMP_LOG"))   // the words a micro-ROM logged during each unit
+        for (size_t i = 0; i < trace.size(); ++i) {
+            printf("logu %zu:", i + 1);
+            for (uint16_t w : trace[i].logged) printf(" %04x", w);
+            printf("\n");
+        }
     check(p6_unload(&error), "p6_unload");
     check(p6_shutdown(&error), "p6_shutdown");
     return 0;

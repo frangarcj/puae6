@@ -8,7 +8,7 @@
   "source_license": "MIT",
   "source_sha256": "f0887a9c72a16e3ab0ee6dedd1e3d385b6bbe8bcd6c01d4d6aad10411e53d78f",
   "builder": "build_rom.py",
-  "builder_sha256": "388a77772df95470416a81b2babefd6ec2cdc6dd89b8760f753341522b161b05",
+  "builder_sha256": "015ded63fc64a95d59ab122b86bf1c6f8f8023bd823130f8eeced0fd99dbba40",
   "python": "3.8+; standard library only; no package dependencies",
   "output": {
     "format": "256 KiB Kickstart-shaped image, big-endian, valid ones-complement checksum",
@@ -104,6 +104,18 @@
         "sha256": "7ed565cf057ca92e695d15781e0368faf0c6efc8a1b90c965a2e0d385450f49a"
       },
       "purpose": "Frames longer than the raster buffer: the presentation refuses them while the machine keeps running"
+    },
+    "input_all": {
+      "scenario": "I1",
+      "logical_id": "microrom-input-all-v1",
+      "program_source": "input_all.s",
+      "source_sha256": "325b2e0f813f9f38d773b86c9324cc342145ba87d315818a42489c718b706747",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "ab6fb5bb1d3d8b502214a8545125db27cfe39c97344d41ff281b5f383ceedb65"
+      },
+      "purpose": "Logs JOYxDAT, POTxDAT, POTGOR and CIA-A PRA every VERTB and every keyboard byte with its handshake"
     }
   }
 }
