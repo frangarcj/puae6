@@ -234,8 +234,9 @@ p6_result p6_run_frame(const p6_input *input, uint32_t render_flags,
  * and before the first frame there is nothing to start over). The guest restarts with
  * clean RAM and the keyboard powers up again; disks, configuration, the unit index and
  * master_ticks are kept, and keys the host still holds are pressed again once after the
- * keyboard's power-up stream. It is not unload + load: the random seed keeps advancing
- * and drive mechanics (cylinder) are not reset. */
+ * keyboard's power-up stream. It is not unload + load: the reset head reseeds the random
+ * generator from the configured seed (the start-up delay is the power-on one) and drive
+ * mechanics (cylinder) are not reset. */
 p6_result p6_reset(p6_error *error);
 p6_result p6_unload(p6_error *error);
 p6_result p6_shutdown(p6_error *error);

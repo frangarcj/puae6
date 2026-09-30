@@ -7889,6 +7889,47 @@
       "stop": "Un estado heredado que no se pueda limpiar sin recrear la instancia queda como limitacion documentada del perfil."
     },
     {
+      "id": "T13d",
+      "title": "Las entradas de una sesion no pasan a la siguiente: contadores de raton, joystick y memorias de flancos",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T13c"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/adr/0005-frame-boundary.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "tests/lifecycle/**",
+        "tests/step/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "reports/**",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Reproducir con una sesion sucia (raton, joystick, botones y teclas) que una recarga no es un proceso limpio: hoy JOY0DAT arranca con los contadores de la sesion anterior (volcado del segmento de datos: mouse_x/y, mouse_frame_x/y, mouse_axis, mouseupdate, mouseedge, keybuf).",
+        "Devolver al valor de un proceso limpio, al cargar, el estado de entrada del motor que una sesion deja atras y las memorias de flancos que deben coincidir con las del bridge; añadir al test de recarga una sesion sucia y al inventario lo que se cierre."
+      ],
+      "checks": [
+        "LIFE01"
+      ],
+      "acceptance": [
+        "Tras una sesion con actividad de entrada, una carga es el proceso limpio unidad a unidad, con el digest completo y los registros JOY0DAT/JOY1DAT/POT de la primera unidad incluidos."
+      ],
+      "stop": "Un estado heredado que no se pueda limpiar sin recrear la instancia queda como limitacion documentada del perfil."
+    },
+    {
       "id": "T13",
       "title": "Cerrar reset y limpieza de globales",
       "milestone": "M1",
@@ -7971,11 +8012,11 @@
       "evidence": "reports/tasks/T26.md"
     },
     {
-      "id": "T14",
-      "title": "Inventariar todo el estado causal antes de serializar",
+      "id": "T14a",
+      "title": "Auditar el estado causal y fijar la politica de restore por componente y el formato de envelope",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T13",
         "T13c"
@@ -7987,7 +8028,82 @@
       ],
       "touch": [
         "manifests/state-inventory.json",
-        "docs/adr/0003-state-format.md",
+        "docs/adr/0009-state-format.md",
+        "tests/state/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "bridge/include/p6.h"
+      ],
+      "steps": [
+        "Auditar el savestate upstream (savestate.cpp y los save_*/restore_* de cada modulo) y asignar cada componente causal del perfil A500 a propietario, save/restore, reset, politica (serializar, reconstruir, extension, no causal, fuera de perfil) y prueba, incluidos los que upstream no guarda.",
+        "Distinguir punteros internos, recursos del host, caches derivadas y estado que permanece en la pila; registrar como extension concreta lo que el serializador upstream omite y que el perfil necesita.",
+        "Definir en un ADR el envelope versionado, la identidad de config y medios, las comprobaciones de integridad y limites y la separacion entre estado nativo y snapshot Waterbox; no prometer lectura .uss.",
+        "Ampliacion touch: el ADR se llama 0009 porque el 0003 ya esta ocupado por la seleccion de CPU; tests/test_plan.py para los contadores de la division; docs/02-contracts.md y el comentario de bridge/include/p6.h porque la auditoria mostro que decian que la semilla sigue avanzando tras un reset y la cabecera la resiembra."
+      ],
+      "checks": [
+        "ADR01",
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "No hay componente causal sin propietario y politica de restore; las omisiones de caches tienen prueba pendiente identificada; el formato distingue estado nativo de snapshot Waterbox."
+      ],
+      "stop": "Si el serializador upstream omite algo requerido, registrar extension concreta; no asumir que guardar toda la RAM basta."
+    },
+    {
+      "id": "T14b",
+      "title": "Envelope de referencia ejecutable y probes canonicos de los subsistemas alcanzables",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T14a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/state_probe.cpp",
+        "CMakeLists.txt",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Escribir el envelope del ADR 0009 como codificador y validador de referencia con vectores de prueba (magic, version, identidad, longitud, checksum, limites, dominio distinto del snapshot Waterbox).",
+        "Crear bridge/state_probe.cpp y su objetivo CMake: digests canonicos por subsistema, campo a campo, sin padding ni direcciones del proceso, para lo que es alcanzable desde fuera del motor; anotar en el inventario el probe de cada subsistema y lo que espera a los accesores de T15.",
+        "Ampliacion touch: CMakeLists.txt para el objetivo del probe, manifests/state-inventory.json para anotar el probe de cada componente."
+      ],
+      "checks": [
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "El envelope rechaza cada defecto con su codigo; los probes dan el mismo digest en un proceso limpio y en una recarga, cambian cuando cambia un campo causal y no dependen de direcciones."
+      ],
+      "stop": "Si el serializador upstream omite algo requerido, registrar extension concreta; no asumir que guardar toda la RAM basta."
+    },
+    {
+      "id": "T14",
+      "title": "Inventariar todo el estado causal antes de serializar",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T13",
+        "T13c",
+        "T13d",
+        "T14a",
+        "T14b"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/state-inventory.json",
+        "docs/adr/0009-state-format.md",
         "tests/state/**",
         "bridge/state_probe.cpp"
       ],
@@ -7995,7 +8111,8 @@
         "Auditar savestate upstream y asignar cada componente a save/restore, reset y prueba: CPU, scheduler, chipset, CIA, RAM, disco, input, audio, video y bridge.",
         "Distinguir punteros internos, recursos host, caches derivadas y estado que permanece en pila/corutina.",
         "Definir envelope versionado, identidad de config/medios y checks de integridad/bounds; no prometer lectura .uss heredada.",
-        "Crear probes canonicos por subsistema sin hashear padding o direcciones del proceso."
+        "Crear probes canonicos por subsistema sin hashear padding o direcciones del proceso.",
+        "Division: T14a (auditoria, politica por componente y ADR del formato) y T14b (envelope de referencia y probes canonicos); T14 es el cierre y conserva la puerta original. El ADR se llama 0009: el 0003 ya esta ocupado."
       ],
       "checks": [
         "ADR01",
