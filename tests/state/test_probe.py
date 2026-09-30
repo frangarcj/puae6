@@ -1,0 +1,136 @@
+"""T14b: the canonical state probe (bridge/state_probe.cpp, target p6_state_probe).
+
+One digest per subsystem, field by field, for what can be reached from outside the engine. What it has to be: the same in every process and
+with the heap scribbled on (nothing hashed is an address, padding or uninitialized memory), the same after a reload as in a clean process from
+the first unit on, different when the machine is different, and honest in the inventory about what each digest sees.
+"""
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+from tests.host.test_bridge_lifecycle import TOOLS, build_probe, builder  # noqa: E402
+from tests.scenarios.a500.display import Display, rom_source as display_source  # noqa: E402
+from tests.scenarios.audio.audio import Tone, rom_source as tone_source  # noqa: E402
+
+BUILD = ROOT / "build/link-audit"
+FIXTURES = ROOT / "tests/fixtures/microrom"
+SOURCE = ROOT / "bridge/state_probe.cpp"
+INVENTORY = json.loads((ROOT / "manifests/state-inventory.json").read_text())["savestate"]
+DIGEST = re.compile(r"^digest (\d+) (\w+) ([0-9a-f]{64}) (\d+)$", re.M)
+PASS = re.compile(r"^pass (\d+)$")
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class ProbeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.exe = build_probe(BUILD, False, "p6_state_probe")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-probe-")
+        cls.roms = {}
+        sources = {name: ((FIXTURES / f"{name}.s").read_text(encoding="utf-8"), defines) for name, defines in
+                   (("boot", None), ("vsync", None), ("input_all", None), ("long_ops", {"PAD": "3"}))}
+        sources["lace"] = (display_source(Display("hires-lace-fields", mode="hires", lace=True, bg=0x008, cycle_fg=True)), None)
+        sources["tone"] = (tone_source(Tone("probe", channels=(0, 1), period=200, volume=64)), None)
+        for name, (text, defines) in sources.items():
+            path = Path(cls.tmp.name) / f"{name}.rom"
+            path.write_bytes(builder.build(text, defines) if defines else builder.build(text))
+            cls.roms[name] = path
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_probe(self, rom, *arguments, env=None):
+        result = subprocess.run([str(self.exe), str(self.roms[rom]), *arguments], capture_output=True, text=True, timeout=900,
+                                env={**os.environ, **(env or {})})
+        self.assertEqual(0, result.returncode, result.stderr[-400:])
+        passes, current = {}, 0
+        for line in result.stdout.splitlines():
+            if PASS.match(line):
+                current = int(PASS.match(line)[1])
+            elif DIGEST.match(line):
+                unit, subsystem, digest, size = DIGEST.match(line).groups()
+                passes.setdefault(current, {})[(int(unit), subsystem)] = digest
+        return passes
+
+    def test_the_probe_lists_the_subsystems_the_inventory_says_it_has(self):
+        listed = subprocess.run([str(self.exe), "--list"], capture_output=True, text=True, check=True).stdout.split()
+        self.assertEqual(INVENTORY["probes"]["subsystems"], listed)
+
+    def test_the_digests_do_not_depend_on_the_process_or_on_what_the_heap_held(self):
+        first = self.run_probe("input_all", "--units", "4")[0]
+        second = self.run_probe("input_all", "--units", "4")[0]
+        self.assertEqual(first, second)
+        self.assertEqual(9 * 5, len(first))
+        if sys.platform == "darwin":        # freshly allocated memory filled with 0xAA and freed memory with 0x55: no digest may care
+            scribbled = self.run_probe("input_all", "--units", "4", env={"MallocScribble": "1", "MallocPreScribble": "1"})[0]
+            self.assertEqual(first, scribbled, "a digest depends on memory the engine never initialized")
+
+    def test_the_probe_reads_no_memory_it_does_not_name(self):
+        text = SOURCE.read_text()
+        body = text[text.index("void cpu(Canon &c)"):text.index("const Probe kProbes")]
+        raws = re.findall(r"\.raw\(([^,]+),", body)
+        allowed = {"chipmem_bank.baseaddr", "bogomem_bank.baseaddr", "buffer", "info.pixels", "s.firmware_sha256", "s.media_content_id[i]"}
+        self.assertEqual([], [r for r in raws if r.strip() not in allowed], "raw() of something the audit did not name")
+        self.assertNotRegex(body, r"memcpy|sizeof\s*\(\s*regs\s*\)|sizeof\s*\(\s*eventtab|reinterpret_cast<const uint8_t \*>\(&")
+
+    def test_each_subsystem_with_a_probe_sees_the_machine_change(self):
+        runs = {name: self.run_probe(name, "--units", "6")[0] for name in self.roms}
+        runs["boot-ntsc"] = self.run_probe("boot", "--units", "6", "--ntsc")[0]
+        for subsystem in ("cpu", "scheduler", "ram", "rtc", "chipset", "audio", "video", "bridge"):
+            with self.subTest(subsystem=subsystem):
+                self.assertGreater(len({run[(6, subsystem)] for run in runs.values()}), 1, "the digest is the same for every fixture")
+        # The pot digest does not move with any fixture or port: the inventory says so instead of claiming a coverage it does not have.
+        self.assertEqual(1, len({run[(6, "input")] for run in runs.values()}))
+        self.assertIn("no fixture moves this digest", INVENTORY["components"][next(i for i, c in enumerate(INVENTORY["components"]) if c["id"] == "input-pot-state")]["probe"]["why"])
+
+    def test_a_reload_gives_the_digests_of_a_clean_process_from_the_first_unit_on(self):
+        # Unit 0 is the machine before the power-on reset head has run: a reload still holds what the last session left there (the audio
+        # registers, the chipset latches, the scheduler's dead events), which the head rebuilds; it is not compared (reports/tasks/T13b.md).
+        cases = (("boot", ()), ("vsync", ()), ("long_ops", ()), ("tone", ()), ("lace", ()),
+                 ("input_all", ("--port", "0:2:1:5:3", "--port", "1:1:65:0:0")))
+        for name, extra in cases:
+            with self.subTest(rom=name):
+                clean = self.run_probe(name, "--units", "5", *extra)[0]
+                loads = self.run_probe(name, "--units", "5", "--loads", "3", *extra)
+                for number in (1, 2, 3):
+                    different = sorted(key for key in clean if key[0] >= 1 and clean[key] != loads[number][key])
+                    self.assertEqual([], different, f"load {number} differs from a clean process at {different[:6]}")
+
+    def test_what_the_inventory_says_the_probe_covers_is_in_the_probe(self):
+        source = SOURCE.read_text()
+        listed = set(INVENTORY["probes"]["subsystems"])
+        seen = {"implemented": 0, "partial": 0, "pending": 0}
+        for c in INVENTORY["components"]:
+            probe = c["probe"]
+            if probe is None:
+                continue
+            seen[probe["status"]] += 1
+            with self.subTest(component=c["id"]):
+                if probe["status"] == "pending":
+                    self.assertIsNone(probe["probe"])
+                    self.assertEqual("T15", probe["task"])
+                    self.assertTrue(probe["why"].strip())
+                else:
+                    self.assertIn(probe["probe"], listed)
+                    self.assertEqual(c["subsystem"], probe["probe"], "a component is seen by the probe of its own subsystem")
+                if probe["status"] == "implemented":
+                    self.assertTrue(probe["covers"])
+                    for field in probe["covers"]:
+                        self.assertRegex(source, r"(?<!\w)" + re.escape(field).replace(r"\.", r"\s*\.\s*") + r"\b", f"{field} is not in the probe")
+                if probe["status"] == "partial":
+                    self.assertTrue(probe["why"].strip())
+        self.assertGreater(seen["implemented"], 15)
+        self.assertGreater(seen["partial"], 20)
+        self.assertGreater(seen["pending"], 10)
+
+
+if __name__ == "__main__":
+    unittest.main()

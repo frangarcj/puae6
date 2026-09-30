@@ -212,6 +212,8 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
     session.unit_index = 0;
     session.master_ticks = 0;
     session.cycles_seen = get_cycles();
+    session.audio_frames_total = 0;     // "since load": the previous session's count used to carry over (found by the state probe)
+    session.handed_over = false;
     session.state = State::Loaded;
     return P6_OK;
 }

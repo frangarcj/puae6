@@ -127,6 +127,7 @@ class StateComponentTests(unittest.TestCase):
                 self.assertTrue(proof["what"].strip())
                 self.assertIsNotNone(c["probe"], "a probe of the subsystem (T14b) or the task that will add its accessor")
                 self.assertIn(c["probe"]["task"], self.tasks)
+                self.assertIn(c["probe"]["status"], {"implemented", "partial", "pending"})
 
     def test_a_component_that_upstream_does_not_fully_save_names_what_it_leaves_out(self):
         for c in self.components:

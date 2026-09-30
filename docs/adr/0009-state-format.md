@@ -55,7 +55,7 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
    | 272 | 32 | payload_sha256 |
    | 304 | 32 | header_sha256 |
 
-   `header_sha256` es el SHA-256 con dominio de los primeros 304 bytes. El payload son `chunk_count` chunks seguidos, cada uno con
+   `header_sha256` = H("p6/native-header/v1" ‖ los primeros 304 bytes) y `payload_sha256` = H("p6/native-payload/v1" ‖ el payload). El payload son `chunk_count` chunks seguidos, cada uno con
    16 bytes de cabecera (`tag` de 4 caracteres, `chunk_version` u32, `body_length` u64) y su cuerpo. Un chunk por subsistema del
    inventario (cpu, scheduler, ram, rtc, chipset, video, audio, cia, disk, input, bridge), con etiquetas `P6xx`; un chunk repetido,
    desconocido, fuera de orden o ausente se rechaza.

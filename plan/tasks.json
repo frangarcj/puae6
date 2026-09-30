@@ -8054,7 +8054,7 @@
       "title": "Envelope de referencia ejecutable y probes canonicos de los subsistemas alcanzables",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T14a"
       ],
@@ -8068,12 +8068,14 @@
         "CMakeLists.txt",
         "tests/state/**",
         "manifests/state-inventory.json",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "bridge/lifecycle.cpp",
+        "docs/adr/0009-state-format.md"
       ],
       "steps": [
         "Escribir el envelope del ADR 0009 como codificador y validador de referencia con vectores de prueba (magic, version, identidad, longitud, checksum, limites, dominio distinto del snapshot Waterbox).",
         "Crear bridge/state_probe.cpp y su objetivo CMake: digests canonicos por subsistema, campo a campo, sin padding ni direcciones del proceso, para lo que es alcanzable desde fuera del motor; anotar en el inventario el probe de cada subsistema y lo que espera a los accesores de T15.",
-        "Ampliacion touch: CMakeLists.txt para el objetivo del probe, manifests/state-inventory.json para anotar el probe de cada componente."
+        "Ampliacion touch: CMakeLists.txt para el objetivo del probe, manifests/state-inventory.json para anotar el probe de cada componente, bridge/lifecycle.cpp porque el probe mostro dos campos de sesion que una carga no reponia, y el ADR para nombrar los dominios de hash de cabecera y payload."
       ],
       "checks": [
         "HARNESS01"

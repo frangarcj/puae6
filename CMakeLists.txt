@@ -148,6 +148,13 @@ target_include_directories(p6_profile_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_profile_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_profile_probe PRIVATE p6_bridge p6_portable)
+# State probe (T14b): one canonical digest per subsystem (tests/state/test_probe.py).
+add_executable(p6_state_probe bridge/state_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_state_probe p6_codegen)
+target_include_directories(p6_state_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_state_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_state_probe PRIVATE p6_bridge p6_portable)
 if(P6_UNIT_TRACE)
     # STEP01 harness (tests/step/test_step.py drives it). Only in trace builds: the profile never has the hook.
     add_executable(p6_step_probe tests/step/step_probe.cpp $<TARGET_OBJECTS:p6_engine>)
