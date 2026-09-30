@@ -1,0 +1,304 @@
+{
+  "schema_version": 1,
+  "purpose": "Session lifecycle of the engine's global state: what a load puts back, what survives an unload and why that is harmless. T14 extends it with the causal save/restore policy of every component.",
+  "method": "A clean process has every engine global at its static initial value and a second load in the same process does not. The step probe (tests/step/step_probe.cpp) loads the same image again in one process and compares it with a clean one: per-unit state digest (P6_RELOAD, P6_DIGEST_PARTS) and the writable data segment right after the reset head (P6_DATA_DUMP, diffed against nm). Heap growth is measured with Apple's leaks tool on p6_cycles_probe. Every entry that changes the engine has a test that failed before the change.",
+  "status_values": {
+    "reset": "put back to its clean-process value at load or reset; the test named in evidence compares a reload with a clean process",
+    "rebuilt": "derived again from other state before anything reads it; a reload's video and machine digests match a clean process from unit 1",
+    "noncausal": "a pointer, a counter that is only written, or a feature the A500 profile never reaches",
+    "open": "differs from a clean process and is not understood yet; limitation of the profile until closed"
+  },
+  "entries": [
+    {
+      "id": "cpu-registers",
+      "subsystem": "cpu",
+      "symbols": [
+        "regs"
+      ],
+      "owner": "newcpu.cpp",
+      "at_load": "bridge/lifecycle.cpp clears regs before init_m68k; m68k_reset2 sets only pc, sp and sr, so D0-D7/A0-A6 would carry the previous session",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "beam-position",
+      "subsystem": "agnus",
+      "symbols": [
+        "vpos"
+      ],
+      "owner": "custom.cpp",
+      "at_load": "bridge/lifecycle.cpp sets vpos to 0; custom_reset never resets it, so the first unit's length depended on how long the previous session ran (905 colour clocks in the measured case)",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "floppy-head",
+      "subsystem": "disk",
+      "symbols": [
+        "floppy",
+        "cyl"
+      ],
+      "owner": "disk.cpp",
+      "at_load": "patch 0068 puts the head on track 0 in DISK_init; a p6_reset keeps it where it was, like a real drive",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0068-disk-head-starts-on-track-0.patch",
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "pot-port",
+      "subsystem": "input",
+      "symbols": [
+        "potgo_value",
+        "pot_cap",
+        "pot_dat",
+        "pot_dat_act"
+      ],
+      "owner": "inputdevice.cpp",
+      "at_load": "patch 0069 clears them in inputdevice_reset; POTGOR read $5500 instead of $0000 in the first frame of a reload",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0069-input-pot-state-reset.patch",
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "secondary-scheduler",
+      "subsystem": "scheduler",
+      "symbols": [
+        "event2idx",
+        "event2cnt",
+        "event2restart"
+      ],
+      "owner": "events.cpp",
+      "at_load": "patch 0070 clears them in clear_events; event2idx decides where MISC_handler starts its round, so the order of two events due at the same instant",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0070-events-secondary-scheduler-reset.patch",
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "cia-service-instant",
+      "subsystem": "cia",
+      "symbols": [
+        "cia_now_evt"
+      ],
+      "owner": "cia.cpp",
+      "at_load": "patch 0071 clears it in CIA_reset; it is compared with regs.ipl_evt when an interrupt is recognised and the cycle counter restarts at every reset",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0071-cia-service-instant-reset.patch",
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "keyboard-engine-state",
+      "subsystem": "input",
+      "symbols": [
+        "keybuf",
+        "keyboard_reset_seq",
+        "keyboard_reset_seq_mode"
+      ],
+      "owner": "inputdevice.cpp",
+      "at_load": "p6_input_reset_keys (patch 0066) runs at every p6_reset and, from bridge/lifecycle.cpp, at every load: a reset chord held when a session ended made the first key event of the next load reset the machine",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0066-input-api-reset.patch",
+        "tests/lifecycle/test_reload.py",
+        "tests/lifecycle/test_reset.py"
+      ]
+    },
+    {
+      "id": "input-device-names",
+      "subsystem": "input",
+      "symbols": [
+        "name",
+        "configname",
+        "joystick_settings",
+        "mouse_settings",
+        "keyboard_settings"
+      ],
+      "owner": "inputdevice.cpp, cfgfile.cpp",
+      "at_load": "matchdevices allocates a name and a configuration name per device on every load; copy_prefs memcpy'd the pointers away. Patch 0072 gives each preference set its own strings and bridge/config.cpp frees both sets when the session ends: 2.3 KiB per cycle, 68 KB in 30 cycles, now 0 leaks",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0072-prefs-copy-owns-device-names.patch",
+        "tests/lifecycle/test_cycles.py"
+      ]
+    },
+    {
+      "id": "audio-session",
+      "subsystem": "paula",
+      "symbols": [],
+      "owner": "bridge/pcm_out.cpp",
+      "at_load": "see docs/adr/0007-audio-delivery.md",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "docs/adr/0007-audio-delivery.md",
+        "tests/audio"
+      ]
+    },
+    {
+      "id": "disk-media",
+      "subsystem": "disk",
+      "symbols": [],
+      "owner": "bridge/media.cpp",
+      "at_load": "see reports/tasks/T12c.md: the registered blobs, the drive contents, the event queue and the sequence number are forgotten at unload",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "reports/tasks/T12c.md",
+        "tests/media"
+      ]
+    },
+    {
+      "id": "emulated-clock-anchor",
+      "subsystem": "rtc",
+      "symbols": [
+        "state",
+        "cycle"
+      ],
+      "owner": "ports/portable/rtc_time.cpp",
+      "at_load": "bridge/lifecycle.cpp sets the engine's cycle counter to 0 before p6_rtc_init, so the clock is anchored to the counter the reset head uses; bridge/frame_step.cpp calls p6_rtc_rebase(0) when a reset is queued, because the counter restarts at 0 but the clock keeps time through a reset. Before this, any guest that read the clock after a p6_reset or a reload faulted the image (p6_run_frame failed: 11), and a Kickstart reads it at boot",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "host-services",
+      "subsystem": "bridge",
+      "symbols": [
+        "p6_rtc_unload",
+        "p6_video_clear",
+        "p6_blob_clear"
+      ],
+      "owner": "bridge/lifecycle.cpp",
+      "at_load": "release_engine undoes exactly the stages the load reached: clock, video presentation, blob store, media identity",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "tests/lifecycle/test_cycles.py"
+      ]
+    },
+    {
+      "id": "display-pipeline-caches",
+      "subsystem": "denise",
+      "symbols": [
+        "lines",
+        "denise_colors",
+        "agnus_colors",
+        "visible_right_border",
+        "scandoubled_bpl_ena",
+        "display_hstart_cyclewait_start",
+        "last_planes_vpos_old",
+        "diwlastword_total_old",
+        "displayresetcnt",
+        "agnus_trigger_cck",
+        "vhposr_prev",
+        "genlockhtoggle",
+        "rga_denise"
+      ],
+      "owner": "custom.cpp",
+      "at_load": "not cleared: per-line and per-frame drawing state that the drawing code overwrites before it reads it",
+      "survives_unload": true,
+      "status": "rebuilt",
+      "evidence": [
+        "tests/lifecycle/test_reload.py"
+      ]
+    },
+    {
+      "id": "diagnostic-counters",
+      "subsystem": "engine",
+      "symbols": [
+        "currcycle_cck",
+        "vsync_cycles"
+      ],
+      "owner": "custom.cpp, events.cpp",
+      "at_load": "not cleared: nothing reads them outside debugging (vsync_cycles is never read)",
+      "survives_unload": true,
+      "status": "noncausal",
+      "evidence": []
+    },
+    {
+      "id": "blob-handle-counter",
+      "subsystem": "bridge",
+      "symbols": [
+        "serial"
+      ],
+      "owner": "ports/portable/blob_io.c",
+      "at_load": "not cleared: the token of the next stream only has to be unique, p6_blob_clear closes every stream",
+      "survives_unload": true,
+      "status": "noncausal",
+      "evidence": []
+    },
+    {
+      "id": "heap-pointers",
+      "subsystem": "engine",
+      "symbols": [
+        "chipmem_bank",
+        "bogomem_bank",
+        "kickmem_bank",
+        "currprefs",
+        "assets",
+        "paula_sndbuffer"
+      ],
+      "owner": "memory.cpp, options.h",
+      "at_load": "allocated again at every load; their values are addresses of this process",
+      "survives_unload": true,
+      "status": "noncausal",
+      "evidence": [
+        "tests/lifecycle/test_cycles.py"
+      ]
+    },
+    {
+      "id": "unreached-features",
+      "subsystem": "input",
+      "symbols": [
+        "rtc_ricoh",
+        "stored_jports",
+        "joysubmodes",
+        "keyinject_offset",
+        "can_inject",
+        "input_frame"
+      ],
+      "owner": "cia.cpp, inputdevice.cpp, keybuf.cpp",
+      "at_load": "not cleared: the Ricoh clock, the joystick port configuration, text pasting and the mouse time base are not reached by the A500 profile or do not show in a reload",
+      "survives_unload": true,
+      "status": "noncausal",
+      "evidence": []
+    },
+    {
+      "id": "keyboard-power-up-phase",
+      "subsystem": "input",
+      "symbols": [
+        "kbcode",
+        "kbstate",
+        "kbhandshakestart"
+      ],
+      "owner": "cia.cpp",
+      "at_load": "after a reload a guest that takes keyboard interrupts (input_all, input_rotate) differs from a clean process in one byte of the stack of unit 1, the PC stacked by the last interrupt of the first frame ($F80118 instead of $F80116); from unit 2 on every digest matches. Eight of the ten micro-ROMs reload identically. Clearing kbcode, kbhandshakestart and the input frame counters had no effect and is not patched",
+      "survives_unload": true,
+      "status": "open",
+      "evidence": [
+        "tests/lifecycle/test_reload.py"
+      ]
+    }
+  ]
+}

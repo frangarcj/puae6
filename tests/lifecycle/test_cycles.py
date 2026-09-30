@@ -14,8 +14,8 @@ import unittest
 from tests.host.test_bridge_lifecycle import ROOT, TOOLS, build_probe, builder
 
 CYCLES = 100
-ALLOWANCE = 256 * 1024          # bytes; a leaked chip RAM alone would be 512 KiB per cycle. The measured drift is about 1.2 KiB
-                                # per cycle (117 KiB in 100): a small leak that T13b still has to find, kept under this bound.
+ALLOWANCE = 16 * 1024           # bytes of noise allowed between the early and the late plateau; the measured drift is 0 (it was
+                                # 1.2 KiB per cycle before the device names of the input matching were released)
 
 
 def run(exe):

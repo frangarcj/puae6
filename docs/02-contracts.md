@@ -43,11 +43,22 @@ Reset (T13a): `p6_reset` marca un reset duro que corre en la cabecera del siguie
 entrada (es la misma cabecera del arranque, con su retardo aleatorio sembrado). Conserva discos (tambien un cambio pendiente: la cabecera inserta
 el disco pedido de inmediato), configuracion y contadores del llamante (`unit_index`, `master_ticks` siguen creciendo aunque el contador del motor
 vuelva a cero); el invitado arranca con la RAM limpia y el teclado repite su secuencia de arranque. Las teclas que el anfitrion mantiene se pulsan
-una vez tras esa secuencia; las que solto en la unidad del reset no se pulsan. No equivale a unload/load: la semilla sigue avanzando y no se
-reinicia la mecanica de la unidad de disco. Abierto: dos resets en unidades consecutivas dejan al teclado sin su secuencia (T13b).
+una vez tras esa secuencia; las que solto en la unidad del reset no se pulsan. No equivale a unload/load: la semilla sigue avanzando y la cabeza de la
+unidad de disco se queda donde estaba, como en una unidad real. El reloj de la placa sigue contando a traves del reset (se reancla al contador
+de ciclos del motor, que vuelve a cero). Dos resets en unidades consecutivas son validos y reinician la maquina cada vez.
+
+Sesion (T13b): cada `p6_load` empieza una sesion que se comporta como un proceso limpio. Los registros de la CPU, la posicion del haz, la cabeza
+del disquete, los potenciometros, el scheduler secundario, el instante de servicio de los CIA, las teclas y el acorde de reset, los nombres de
+dispositivos de entrada y el ancla del reloj vuelven a su valor inicial; manifests/state-inventory.json lista cada uno con su prueba y lo que
+sobrevive sin ser causal. Una recarga en el mismo proceso da, unidad a unidad y con el digest completo, lo mismo que un proceso limpio en ocho de
+los diez micro-ROM; un invitado que usa las interrupciones del teclado difiere en un byte de la pila de la unidad 1 (limitacion abierta,
+entrada `keyboard-power-up-phase`), asi que replays, pruebas de determinismo y Waterbox arrancan una instancia nueva. El heap no crece entre
+ciclos: 0 fugas con `leaks` en 30 ciclos y 100 ciclos limpios bajo ASan/UBSan.
 
 Una instancia nativa activa por imagen. create/init concurrente devuelve BUSY.
-No API reentrante. Todos los callbacks documentan si son solo-init, por-frame o
+No API reentrante: sin hilos en el perfil, la unica llamada que puede encontrar otra en curso es la hecha desde dentro de una (un callback o el
+observador de fronteras); devuelve BUSY antes de mirar sus argumentos y no toca nada (tests.lifecycle.test_busy). Un segundo `p6_init` o
+`p6_load` con la imagen ya presente devuelve BAD_STATE. Todos los callbacks documentan si son solo-init, por-frame o
 lecturas puras autorizadas. No invocar libretro fuera de su hilo de entrada.
 
 ## Frame, campos y reloj

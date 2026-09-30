@@ -68,6 +68,7 @@ void release_engine()
     }
     p6_rtc_unload();
     p6_blob_clear();
+    p6_bridge::release_input_device_names();
     p6_bridge::forget_media();
     quit_program = 0;
     stage = Stage::None;
@@ -87,6 +88,9 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     if (const p6_result registered = p6_bridge::register_media(media, media_count, error))
         return registered;
 
+    // The reset head starts the engine's cycle counter at zero, as a clean process has it; the clock is anchored to that counter, so
+    // it must be anchored to the counter the head will use, not to where the previous session left it.
+    set_cycles(0);
     const uint64_t chipset_clock = config.video_standard == P6_VIDEO_NTSC ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL;
     if (p6_rtc_init(config.rtc_epoch_seconds, chipset_clock * CYCLE_UNIT, currprefs.seed) != 0)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the clock epoch was rejected");

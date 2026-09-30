@@ -7800,7 +7800,7 @@
       "title": "Ciclos de vida limpios: 100 load/run/unload, fallos a medias, instancia unica y globales heredados",
       "milestone": "M1",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T13a",
         "T26"
@@ -7830,8 +7830,8 @@
         "100 ciclos load/run/unload con distintas configuraciones, error a mitad de load y doble shutdown, bajo sanitizers.",
         "Segunda instancia nativa: BUSY sin contaminacion; una segunda carga en el mismo proceso da el mismo resultado que un proceso limpio.",
         "Cerrar el hallazgo de T13a: dos p6_reset en unidades consecutivas dejan al teclado sin secuencia de arranque (test expectedFailure en tests/lifecycle/test_reset.py).",
-        "Progreso parcial (reports/tasks/T13b.md): probe de 100 ciclos con fallo de load, doble unload/shutdown, segunda init y segunda carga rechazadas; pendiente lo demas de esta ficha.",
-        "Ampliacion touch: CMakeLists.txt para el objetivo p6_cycles_probe."
+        "Ampliacion touch: CMakeLists.txt para el objetivo p6_cycles_probe.",
+        "Cierre (reports/tasks/T13b.md): 100 ciclos sin fugas ni errores de sanitizers, una recarga es un proceso limpio salvo un byte de la pila de la unidad 1 en invitados con teclado (limitacion documentada), BUSY probado, inventario en manifests/state-inventory.json y hallazgo del reloj tras reset/recarga."
       ],
       "checks": [
         "BUILD01",

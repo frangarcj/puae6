@@ -121,6 +121,19 @@ uint64_t state_digest()
 
 extern "C++" void p6_unit_observe(void)
 {
+    if (getenv("P6_NESTED")) {
+        // P6_NESTED=1: every API call made from inside p6_run_frame (this observer runs in the middle of one) must be refused
+        // with BUSY before anything is looked at, and must leave the run exactly as it was.
+        p6_error e[6];
+        for (p6_error &each : e) each = p6_error{P6_ABI_VERSION, sizeof(p6_error), {}};
+        const int init = p6_init(nullptr, &e[0]);
+        const int load = p6_load(p6_buffer{nullptr, 0}, nullptr, 0, &e[1]);
+        const int unload = p6_unload(&e[2]);
+        const int shutdown = p6_shutdown(&e[3]);
+        const int reset = p6_reset(&e[4]);
+        const int run = p6_run_frame(nullptr, 0, nullptr, &e[5]);
+        printf("nested init=%d load=%d unload=%d shutdown=%d reset=%d run_frame=%d\n", init, load, unload, shutdown, reset, run);
+    }
     // What T08 will do after every unit: hand the finished raster over. It sits here, at the boundary itself,
     // so both modes present at the same moments and the picture becomes part of the compared state.
     p6_bridge::present_unit();

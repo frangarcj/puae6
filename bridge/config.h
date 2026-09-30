@@ -17,6 +17,11 @@ p6_result validate_firmware(const p6_buffer &firmware, p6_error *error);
 // overrides of the profile file, then upstream fixup_prefs). Touches only preference globals.
 void build_preferences(const p6_config &config);
 
+// Frees the device names and configuration names that the engine's input matching (matchdevices) gives to the preference
+// globals on every load and never releases. currprefs and changed_prefs share them (copy_prefs copies the pointers), so each
+// distinct string is freed once. Call after the engine has stopped using them, i.e. when a session ends.
+void release_input_device_names();
+
 // After build_preferences: the result is exactly the machine ABI v1 promises. A mismatch means the
 // preset drifted from the profile (an upstream change), and is reported as an internal error.
 p6_result check_preset(p6_error *error);

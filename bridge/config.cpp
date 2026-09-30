@@ -23,8 +23,28 @@
 #include "video_present.h"
 
 #include <stdio.h>
+#include <set>
 
 namespace p6_bridge {
+
+void release_input_device_names()
+{
+    std::set<TCHAR *> owned;
+    for (uae_prefs *prefs : {&currprefs, &changed_prefs}) {
+        for (int slot = 0; slot < MAX_INPUT_SETTINGS; ++slot) {
+            for (int device = 0; device < MAX_INPUT_DEVICES; ++device) {
+                for (uae_input_device *entry : {&prefs->joystick_settings[slot][device], &prefs->mouse_settings[slot][device],
+                                                &prefs->keyboard_settings[slot][device]}) {
+                    if (entry->name) owned.insert(entry->name);
+                    if (entry->configname) owned.insert(entry->configname);
+                    entry->name = entry->configname = nullptr;
+                }
+            }
+        }
+    }
+    for (TCHAR *text : owned)
+        xfree(text);
+}
 
 const char *const kFirmwareId = "p6-firmware.rom";
 

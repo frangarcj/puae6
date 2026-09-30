@@ -82,6 +82,10 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
         if (quit_program == 0)
             quit_program = UAE_RESET_HARD;
         p6_bridge::reset_keyboard();
+        // The counter restarts at zero in the head below. The clock of the board keeps time through a reset (it runs on its own
+        // battery): bring it up to now and anchor it to the new counter, or its next read would find the counter behind it.
+        if (p6_rtc_rebase(0) != P6_CLOCK_OK)
+            return fault(error, P6_ERROR_INTERNAL, "the clock service could not follow the reset");
         session.cycles_seen = 0;
     }
     const int applied = m68k_go_unit(M68K_UNIT_APPLY);

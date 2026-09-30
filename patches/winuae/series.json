@@ -2010,6 +2010,29 @@
           "after_sha256": "df60447647652bc560e1a02ed7bdfa2f0f8248dda7b5980b5fbbff773e24d29c"
         }
       ]
+    },
+    {
+      "id": "0072-prefs-copy-owns-device-names",
+      "file": "patches/winuae/0072-prefs-copy-owns-device-names.patch",
+      "sha256": "06c11b2eab313ad02854fb135c4d40fc6208b585b1de63400a39146112afafa0",
+      "title": "Give each preference set its own device names",
+      "reason": "copy_prefs and copy_inputdevice_prefs memcpy the input device settings, so the name and configname strings that matchdevices had allocated for the destination were dropped without being freed on every load (and the destination then shared the source's strings). Each set now frees what it owns before the copy and duplicates the source's strings after it.",
+      "category": "host hooks",
+      "order": 72,
+      "symbols": [
+        "copy_inputdevice_settings",
+        "copy_inputdevice_settings_free"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_cycles",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cfgfile.cpp",
+          "before_sha256": "832b3b97fb1412727397c221dcd21b69f7ce605814f33c16636ba553cda800e5",
+          "after_sha256": "761e63c950d10e023d74406f7cd0c6debec55386ccd69c977fa2e520221e105e"
+        }
+      ]
     }
   ]
 }
