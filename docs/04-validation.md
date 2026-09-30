@@ -94,6 +94,9 @@ perfil y assertion_set exacto. Por ejemplo T11 valida streaming de AV02, T15 añ
 restore de audio y T32 exige ambas partes; T29 valida HDF de MED03 y T30 añade
 WHDLoad. T02 prueba el scanner HOST01; T06 añade imports del binario real. El
 scope se fija antes de implementar y debe cubrir TODA la aceptacion de su ficha.
+T08 prueba AV01 con programas cuya imagen se predice desde el propio programa (nunca desde una captura del motor)
+y guarda el hash SHA-256 de los pixeles activos solo despues de esa comprobacion; el arranque con un Kickstart
+autorizado es un escenario aparte que queda BLOCKED sin imagen y no se extrapola del micro-ROM.
 T07 prueba STEP01 en bridge/headless; T16 lo amplia al adaptador libretro y T19
 al guest Waterbox. Ningun adaptador puede aprobarlo con un scheduler alternativo.
 No se puede presentar PASS de un subconjunto como PASS del conjunto completo.

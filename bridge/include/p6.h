@@ -115,7 +115,7 @@ typedef struct p6_rect {
  * is stereo frames (interleaved int16 samples), not individual samples.
  *
  * Video. video_width x video_height is the delivered buffer and is constant for a
- * loaded image (756x576 PAL, 756x486 NTSC, see p6_caps); video_stride_bytes is the
+ * loaded image (760x576 PAL, 760x486 NTSC, see p6_caps); video_stride_bytes is the
  * row pitch, never width * 4. Rows and columns outside `active` are zero. `active`
  * is the raster the renderer drew for this unit and can be smaller than the buffer
  * (PAL 756x574 normally, 756x576 for a guest that leaves the long-field bit set).

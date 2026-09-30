@@ -17,8 +17,9 @@ T08b (reports/tasks/T08b.md).
    un buffer), sin filtros ni scanlines. Resultado: 756 x 574 en PAL y 756 x 484 en NTSC para cualquier modo de
    video del invitado (lores, hires, planos, HAM, EHB, doble campo de juego, sprites, entrelazado). DIWSTRT,
    DIWSTOP y DDF solo mueven pixeles dentro del raster.
-2. **Buffer constante por estandar**: `video_width x video_height` es 756 x 576 (PAL) o 756 x 486 (NTSC), el raster
-   largo. `active` es el raster que el renderizador dibujo en esa unidad, normalmente {0,0,756,574} / {0,0,756,484}
+2. **Buffer constante por estandar**: `video_width x video_height` es 760 x 576 (PAL) o 760 x 486 (NTSC): el raster
+   largo y 4 columnas mas, porque un invitado que alterna el entrelazado en cada unidad hace que las lineas NTSC (227/228
+   relojes) se midan de 228 y el raster pase de 756 a 760. `active` es el raster que el renderizador dibujo en esa unidad, normalmente {0,0,756,574} / {0,0,756,484}
    y 576 / 486 filas si el invitado deja fijo el bit de campo largo sin entrelazar. Fuera de `active` todo byte, el
    relleno del stride incluido, es cero (lo garantiza el puerto; el probe lo comprueba en cada unidad).
 3. **Aspecto = aspecto de pixel**: PAL 26:25, NTSC 43:50. El motor no tiene aspecto de pantalla (vive en od-win32,
@@ -36,7 +37,7 @@ T08b (reports/tasks/T08b.md).
    presentacion (contadores, traspaso) ocurre siempre, con o sin el flag, para que apagar el video no cambie el futuro.
 7. **Un solo camino de presentacion**: `p6_bridge::present_unit()` es idempotente por unidad; lo llama `p6_run_frame`
    y el observador de STEP01 en el borde, asi que la traza compara la misma ruta que el bridge.
-8. `p6_query_caps` publica el buffer real (756 x 576); `caps.flags` sigue en 0.
+8. `p6_query_caps` publica el buffer real (760 x 576); `caps.flags` sigue en 0.
 
 ## Alternativas
 
@@ -57,6 +58,20 @@ cambia el estado final ni los ticks, 40 unidades sin que nadie lea el audio, un 
 (574 -> 576 filas dentro del mismo buffer) y un invitado cuyas tramas superan el buffer (se rechaza, la maquina
 sigue, sin escrituras fuera). El mismo conjunto bajo ASan/UBSan es opt-in (`P6_TEST_SANITIZERS=1`).
 `tests/host/test_a500_profile.py` ata cada preferencia de video al perfil.
+
+## Contenido de la imagen (T08c)
+
+Los programas de `tests/scenarios/a500/display.py` (un plano de bits con una sola fila repetida, barras de color
+del Copper, campos entrelazados, cambios de modo por unidad) producen imagenes que un modelo analitico, escrito solo a
+partir del programa, reproduce celda a celda en PAL y NTSC, lores y hires: la linea `26 + fila/2` (PAL) o `21 + fila/2`
+(NTSC), la columna `76` como inicio de la ventana de DIWSTRT `$81`, colores OCS de 4 bits por canal. Hallazgos:
+- Una fila del raster es mas ancha que la linea de haz en la que empieza: la columna 0 es el reloj de color 45,5 y cada
+  columna un cuarto de reloj, asi que desde la columna 742 (reloj 4 de la linea siguiente) la fila ya muestra la linea
+  siguiente. Un cambio de COLOR00 del Copper al inicio de la linea L+1 aparece en el extremo derecho de la fila de L.
+- El entrelazado se entreteje como se documento: la unidad EVEN reescribe las filas pares y la ODD las impares
+  (comprobado con un color de primer plano nuevo en cada unidad).
+- Un invitado que alterna el entrelazado en cada unidad hace que el renderizador vuelva a medir el cuadro: PAL pasa a
+  576 filas y NTSC a 760 x 486 (lineas de 228 relojes); de ahi el buffer de 760 columnas.
 
 ## Costo y riesgos
 

@@ -161,8 +161,27 @@ bool outside_is_zero(const p6_frame &f)
     return true;
 }
 
+// P6_FRAME_DUMP=<directory> writes each delivered picture as frame-<unit>.bin: four little-endian uint32
+// (active width, active height, field parity, flags) and then the active rows, width * 4 bytes each.
+void dump_frame(const p6_frame &f)
+{
+    const char *directory = getenv("P6_FRAME_DUMP");
+    if (!directory || !f.video) return;
+    char path[512];
+    snprintf(path, sizeof path, "%s/frame-%03llu.bin", directory, (unsigned long long)f.unit_index);
+    FILE *out = fopen(path, "wb");
+    if (!out) { perror(path); exit(2); }
+    const uint32_t header[4] = {f.active.width, f.active.height, f.field_parity, f.flags};
+    fwrite(header, sizeof header, 1, out);
+    for (uint32_t y = f.active.y; y < f.active.y + f.active.height; ++y)
+        fwrite(static_cast<const uint8_t *>(f.video) + size_t(y) * f.video_stride_bytes + size_t(f.active.x) * 4, 4,
+               f.active.width, out);
+    fclose(out);
+}
+
 void print_frame(const p6_frame &f)
 {
+    dump_frame(f);
     printf("frame %" PRIu64 " ticks=%" PRIu64 " video=%d bytes=%" PRIu64 " format=%u size=%ux%u stride=%u "
            "active=%u,%u,%u,%u aspect=%u/%u cadence=%u/%u parity=%u flags=%u outside=%s pixels=%016" PRIx64 "\n",
            f.unit_index, f.master_ticks, f.video != nullptr, f.video_bytes, f.video_format, f.video_width,

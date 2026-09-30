@@ -178,6 +178,13 @@ def _parts(line, line_number):
     match = re.fullmatch(r"MOVE\.L\s+#(.+?)\s*,\s*D([0-7])", line, re.I)
     if match:
         return [0x203C | (int(match[2]) << 9), _immediate(match[1], 32, line_number)]
+    match = re.fullmatch(r"MOVE\.([WL])\s+D([0-7])\s*,\s*(.+?)\.L", line, re.I)
+    if match:
+        opcode = 0x33C0 if match[1].upper() == "W" else 0x23C0
+        return [opcode | int(match[2]), _address(match[3], line_number)]
+    match = re.fullmatch(r"EXG\s+D([0-7])\s*,\s*D([0-7])", line, re.I)
+    if match:
+        return [0xC140 | (int(match[1]) << 9) | int(match[2])]
     match = re.fullmatch(r"MOVEA\.L\s+#(.+?)\s*,\s*" + _AREG, line, re.I)
     if match:
         return [0x207C | (_areg(match[2]) << 9), _immediate(match[1], 32, line_number)]

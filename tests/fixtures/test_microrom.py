@@ -270,6 +270,14 @@ class MicroRomTests(unittest.TestCase):
                 # Every scenario starts with the prologue of boot.s: SR, stack, then the CIA-A overlay switch.
                 self.assertEqual(code[:len(CODE) - 4], CODE[:-4])
 
+    def test_register_to_absolute_moves_and_exchange_are_the_documented_opcodes(self):
+        self.assertEqual(builder.assemble("MOVE.W D2,$DFF100.L"), bytes.fromhex("33c2" "00dff100"))
+        self.assertEqual(builder.assemble("MOVE.L D7,$DFF080.L"), bytes.fromhex("23c7" "00dff080"))
+        self.assertEqual(builder.assemble("EXG D2,D3"), bytes.fromhex("c543"))
+        self.assertEqual(builder.assemble("EXG D0,D7"), bytes.fromhex("c147"))
+        with self.assertRaises(ValueError):
+            builder.assemble("MOVE.B D0,$10.L")
+
     def test_the_boot_source_did_not_move_and_the_image_carries_the_iack_vectors(self):
         # boot.s is the contract of the earlier tasks. Its image changed once, when the interrupt-acknowledge
         # vector bytes were added at the end of every ROM (the engine reads them for each interrupt).

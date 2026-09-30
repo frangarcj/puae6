@@ -1,0 +1,24 @@
+{
+  "scenario_id": "kickstart-authorized",
+  "status": "BLOCKED",
+  "reason": "No authorized Kickstart image is available: none is committed (commercial ROMs are never downloaded or stored here) and P6_KICKSTART_ROM is not set in this environment.",
+  "run": "P6_KICKSTART_ROM=/path/to/kickstart-1.3.rom python3 -m unittest tests.step.test_kickstart",
+  "profile": "deterministic-a500",
+  "firmware": {
+    "identity": "by CRC32/SHA-1 of the decoded image (manifests/config-invariants.json); the digest is recorded here when the owner of a legal copy supplies one",
+    "expected_size_bytes": [262144, 524288]
+  },
+  "what_it_will_check": [
+    "p6_load accepts the image (checksum, size, header)",
+    "300 video units run without the CPU halting or the instance faulting",
+    "video is delivered every unit and the picture is not a single colour",
+    "two runs with the same seed produce identical unit reports"
+  ],
+  "unproven_until_it_runs": [
+    "Kickstart 1.2/1.3 boot to the insert-disk screen: not shown",
+    "the initial LOF state and whether the ROM leaves the long-field bit set (576-row episodes): not measured",
+    "the display window and overscan the ROM uses inside the 756x574 raster: not measured",
+    "PAL/NTSC detection by the ROM, and the CIA/keyboard/floppy paths it exercises before the boot screen: not exercised",
+    "any compatibility of the micro-ROM results with a real ROM, including timings of DMA-heavy code: not extrapolated"
+  ]
+}

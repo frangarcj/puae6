@@ -8,7 +8,7 @@
   "source_license": "MIT",
   "source_sha256": "f0887a9c72a16e3ab0ee6dedd1e3d385b6bbe8bcd6c01d4d6aad10411e53d78f",
   "builder": "build_rom.py",
-  "builder_sha256": "1d81084699b7518cd378a1d55e9160a7ec74cd10e88b03801e7e410bce00221e",
+  "builder_sha256": "388a77772df95470416a81b2babefd6ec2cdc6dd89b8760f753341522b161b05",
   "python": "3.8+; standard library only; no package dependencies",
   "output": {
     "format": "256 KiB Kickstart-shaped image, big-endian, valid ones-complement checksum",

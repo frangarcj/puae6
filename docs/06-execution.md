@@ -85,7 +85,7 @@ Estado del build nativo (verificado en T06c; existe, pero no arranca ninguna maq
     P6_TEST_COMPILERS=1 python3 -m unittest tests.codegen.test_compilers   # matriz Apple clang/LLVM/GCC
 
 `p6_headless --identity` imprime perfil, commit de WinUAE, serie de parches y capacidades;
-`boot: not implemented` es cierto hasta T08 (el bridge ya avanza unidades, T07, pero no entrega video ni audio).
+El bridge avanza unidades y entrega video (T07, T08); `boot:` dice que solo se han ejecutado micro-ROMs. Audio y entrada siguen sin entregarse (T10, T11).
 
 STEP01 (T07c) usa un arbol propio con el gancho de prueba del parche 0062, que ningun preset define:
 
@@ -93,6 +93,12 @@ STEP01 (T07c) usa un arbol propio con el gancho de prueba del parche 0062, que n
     P6_TEST_MUTANTS=1 python3 -m unittest tests.step.test_step.MutantTests   # cinco mutantes del mecanismo + control
     python3 -m unittest tests.host.test_bridge_lifecycle        # init/load/unload sobre el motor real (T07b)
     P6_TEST_SANITIZERS=1 python3 -m unittest tests.host.test_bridge_lifecycle   # lo mismo bajo ASan/UBSan
+
+El ejecutor headless ya corre un firmware unidad a unidad (solo micro-ROMs; sin compatibilidad Kickstart probada):
+
+    ./build/native-debug/p6_headless --run tests.rom --units 6 --dump /tmp/frames   # [--ntsc] [--seed S]
+    python3 -m unittest tests.step.test_display                                    # imagen PAL/NTSC contra el modelo del programa
+    P6_KICKSTART_ROM=/ruta/kick13.rom python3 -m unittest tests.step.test_kickstart  # solo con una imagen autorizada
 
 `tools/check.py --check STEP01` sigue respondiendo NOT_IMPLEMENTED: el dispatcher de T04 solo conoce HARNESS01 y
 sus tests lo fijan. La evidencia de STEP01 son los modulos anteriores.

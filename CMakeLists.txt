@@ -129,7 +129,7 @@ if(P6_UNIT_TRACE)
 endif()
 add_test(NAME headless-identity COMMAND p6_headless --identity)
 set_tests_properties(headless-identity PROPERTIES LABELS "headless;link" TIMEOUT 30
-    PASS_REGULAR_EXPRESSION "core: puae6-headless.*profile: ${P6_PROFILE}.*machines: A500.*abi: 1.*boot: not implemented")
+    PASS_REGULAR_EXPRESSION "core: puae6-headless.*profile: ${P6_PROFILE}.*machines: A500.*abi: 1.*boot: micro-ROM programs only")
 add_test(NAME headless-rejects-arguments COMMAND p6_headless --boot)
 set_tests_properties(headless-rejects-arguments PROPERTIES LABELS "headless;link" TIMEOUT 30 WILL_FAIL FALSE
     PASS_REGULAR_EXPRESSION "usage:")

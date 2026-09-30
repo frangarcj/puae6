@@ -59,6 +59,11 @@ start:
     MOVEA.L #$1001,A7
     MOVEA.L #$1001,A0
     MOVEA.L #near,A3
+    MOVE.W D2,$DFF100.L
+    MOVE.L D7,$DFF080.L
+    MOVE.W D0,$10.L
+    EXG D2,D3
+    EXG D0,D7
     MOVE.L D0,(A0)+
     MOVE.L D7,(A3)+
     MOVE.L D1,(SP)+
@@ -109,6 +114,9 @@ def expect(line):
         (r"MOVEA\.L\s+#.+,\s*" + AREG, lambda m: Want("MOVEA", "L", 3, "imm", "Areg", None, register(m[1]))),
         (r"MOVE\.L\s+D([0-7])\s*,\s*\(" + AREG + r"\)\+",
          lambda m: Want("MOVE", "L", 1, "Dreg", "Aipi", int(m[1]), register(m[2]))),
+        (r"MOVE\.([WL])\s+D([0-7])\s*,.+\.L",
+         lambda m: Want("MOVE", m[1].upper(), 3, "Dreg", "absl", int(m[2]), None)),
+        (r"EXG\s+D([0-7])\s*,\s*D([0-7])", lambda m: Want("EXG", "L", 1, "Dreg", "Dreg", int(m[1]), int(m[2]))),
         (r"MOVE\.([BWL])\s+#.+,.+\.L",
          lambda m: Want("MOVE", m[1].upper(), 5 if m[1].upper() == "L" else 4, "imm", "absl", None, None)),
         (r"DIVU\.W\s+D([0-7])\s*,\s*D([0-7])", lambda m: Want("DIVU", "W", 1, "Dreg", "Dreg", int(m[1]), int(m[2]))),
@@ -179,6 +187,9 @@ def operand_problems(text, at, code, offsets, labels):
         value = literal(match[2], offsets, labels)
         same("immediate", field(2, size), None if value is None else value & mask, size)
         same("address", field(2 + size, 4), literal(match[3], offsets, labels), 4)
+    match = re.fullmatch(r"MOVE\.[WL]\s+D[0-7]\s*,\s*(.+?)\.L", text, re.I)
+    if match:
+        same("address", field(2, 4), literal(match[1], offsets, labels), 4)
     match = re.fullmatch(r"MOVEA?\.L\s+#(.+?)\s*,\s*(?:D[0-7]|" + AREG + ")", text, re.I)
     if match:
         same("immediate", field(2, 4), literal(match[1], offsets, labels), 4)
@@ -289,7 +300,7 @@ class MicroRomDecoderTests(unittest.TestCase):
         returncode, rows, _ = self.decode(code)
         self.assertEqual(returncode, 0)
         self.assertEqual({row["mnemonic"] for row in rows},
-                         {"MOVE", "MOVEA", "LEA", "DIVU", "ADD", "NOP", "RTE", "STOP", "TRAP", "MOVEM", "BRA"})
+                         {"MOVE", "MOVEA", "LEA", "DIVU", "ADD", "NOP", "RTE", "STOP", "TRAP", "MOVEM", "BRA", "EXG"})
         self.assertEqual(sum(row["words"] for row in rows) * 2, len(code))
         # The privileged ones are seen as such by the decoder, and everything is plain 68000.
         privileged = {row["mnemonic"] for row in rows if row["plev"] == 2}

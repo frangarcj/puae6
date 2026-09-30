@@ -60,10 +60,10 @@ def configure_trace_tree(directory=None, sanitizers=False):
     return directory / "p6_step_probe"
 
 
-def run_probe(exe, rom, units, mode, seed=1, timeout=120, extra=()):
+def run_probe(exe, rom, units, mode, seed=1, timeout=120, extra=(), env=None):
     try:
         result = subprocess.run([str(exe), str(rom), str(units), mode, str(seed), *extra], capture_output=True,
-                                text=True, timeout=timeout)
+                                text=True, timeout=timeout, env=None if env is None else {**os.environ, **env})
     except subprocess.TimeoutExpired:
         return None, "timeout"
     return result.returncode, result.stdout + result.stderr
@@ -188,7 +188,7 @@ class VideoMetadataTests(unittest.TestCase):
             for row in rows:
                 with self.subTest(standard=standard, unit=row[0]):
                     (_, _, video, nbytes, fmt, w, h, stride, ax, ay, aw, ah, an, ad, cn, cd, parity, flags, outside, _) = row
-                    self.assertEqual((video, fmt, w, h, stride), (1, 1, 756, height, 7296))
+                    self.assertEqual((video, fmt, w, h, stride), (1, 1, 760, height, 7296))
                     self.assertEqual(nbytes, stride * h)
                     self.assertEqual((ax, ay, aw, ah), (0, 0, 756, active_h))
                     self.assertEqual((an, ad), aspect)
@@ -231,7 +231,7 @@ class VideoMetadataTests(unittest.TestCase):
                 self.assertEqual(heights[0], normal)
                 self.assertEqual(heights[-1], long)
                 self.assertTrue(set(heights) <= {normal, long}, heights)
-                self.assertEqual({(r[5], r[6], r[7]) for r in rows}, {(756, height, 7296)})   # the buffer never changes
+                self.assertEqual({(r[5], r[6], r[7]) for r in rows}, {(760, height, 7296)})   # the buffer never changes
                 self.assertTrue(all(r[18] == "zero" for r in rows))
                 self.assertEqual(rows[-1][16], 0)                                             # still progressive
                 cadence = {"pal": (3546895, 71051), "ntsc": (1431818, 23933)}[standard]
@@ -260,8 +260,15 @@ class VideoGuestSanitizerTests(unittest.TestCase):
     def test_adversarial_guests_are_clean(self):
         exe = configure_trace_tree(ROOT / "build/step-trace-san", True)
         with tempfile.TemporaryDirectory(prefix="p6-video-san-") as tmp:
-            for name in ("lof_stuck", "long_frame", "vsync"):
-                rom = make_rom(tmp, name, name + ".s", {})
+            from tests.scenarios.a500.display import Display, rom_source
+            roms = {name: make_rom(tmp, name, name + ".s", {}) for name in ("lof_stuck", "long_frame", "vsync")}
+            for name, display in {"flip-mode": Display("flip-mode", flip="mode", bg=8, bars=((64, 0xF),)),
+                                  "flip-lace": Display("flip-lace", mode="hires", flip="lace", bg=8),
+                                  "lace-fields": Display("lace-fields", mode="hires", lace=True, cycle_fg=True)}.items():
+                path = Path(tmp) / (name + ".rom")
+                path.write_bytes(builder.build(rom_source(display)))
+                roms[name] = path
+            for name, rom in roms.items():
                 for standard in ("pal", "ntsc"):
                     with self.subTest(guest=name, standard=standard):
                         code, out = run_probe(exe, rom, 14, "frames", 1, timeout=600, extra=[standard])

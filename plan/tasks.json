@@ -7191,7 +7191,7 @@
       "title": "Escenarios A500 PAL/NTSC con raster e interlace y hashes de video canonicos",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T08b"
       ],
@@ -7211,13 +7211,18 @@
         "adapters/headless/**",
         "bridge/**",
         "tools/scenario_schema.py",
-        "docs/04-validation.md"
+        "docs/04-validation.md",
+        "CMakeLists.txt",
+        "tests/codegen/test_headless_link.py",
+        "docs/adr/0006-video-output.md",
+        "docs/06-execution.md"
       ],
       "steps": [
         "Micro-ROMs que dibujen con bitplanes, copper y sprites en PAL y NTSC, lores y hires, con y sin entrelazado; el resultado esperado se deriva del programa (registros y colores), no de una captura del propio motor.",
         "Hash de video canonico sobre pixeles activos sin padding, y comprobar en cada escenario que los cambios de hardware (colores, paleta por copper, plano de bits) son visibles en la imagen y en el estado.",
         "Cambios de modo del invitado en medio de la ejecucion (lores<->hires, entrelazado on/off) sin desbordar el buffer; STEP01 sobre estos escenarios.",
-        "Escenario de Kickstart autorizado definido y separado: sin ROM presente queda BLOCKED y su compatibilidad se declara no probada."
+        "Escenario de Kickstart autorizado definido y separado: sin ROM presente queda BLOCKED y su compatibilidad se declara no probada.",
+        "Ampliacion touch: CMakeLists.txt y tests/codegen/test_headless_link.py (el ejecutor headless pasa a correr firmware), ADR 0006 y docs/06-execution.md (hallazgos y comandos)."
       ],
       "checks": [
         "STEP01",
@@ -7228,14 +7233,14 @@
         "Toda compatibilidad Kickstart no probada queda identificada, no extrapolada del fixture libre."
       ],
       "stop": "Un escenario cuyo resultado esperado se copia de la salida del motor no pasa: derivarlo del programa.",
-      "evidence": null
+      "evidence": "reports/tasks/T08c.md"
     },
     {
       "id": "T08",
       "title": "Arrancar A500 y entregar video correcto",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T07",
         "T08a",
@@ -7269,7 +7274,7 @@
         "Toda compatibilidad Kickstart no probada queda identificada, no extrapolada del fixture libre."
       ],
       "stop": "Si no se conoce el limite de salida o el significado campo/frame, resolverlo antes de reservar un buffer a ojo.",
-      "evidence": null
+      "evidence": "reports/tasks/T08.md"
     },
     {
       "id": "T10",
