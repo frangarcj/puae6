@@ -103,8 +103,8 @@ class ResetTests(unittest.TestCase):
 
     @unittest.expectedFailure
     def test_the_keyboard_powers_up_again_after_a_reset_in_the_unit_after_a_reset(self):
-        # OPEN (T13b): with p6_reset in two consecutive units the second reset restarts the guest but the keyboard never
-        # sends its power-up stream again (reproducer: P6_RESET_AT=5,6); with one unit between them it does.
+        # OPEN (T13b): with p6_reset in two consecutive units the guest runs nothing in the second unit and the keyboard never
+        # sends its power-up stream again (reproducer: P6_RESET_AT=5,6, all seeds); with one unit between them it does.
         run = self.execute([line()] * 10, 10, [5, 6])
         self.assertEqual(run.keyboard(6, 8), POWER_UP)
 
