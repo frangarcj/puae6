@@ -7851,7 +7851,7 @@
       "title": "Cerrar reset y limpieza de globales",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T10",
         "T11",
