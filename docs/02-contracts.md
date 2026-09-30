@@ -62,6 +62,14 @@ observador de fronteras); devuelve BUSY antes de mirar sus argumentos y no toca 
 `p6_load` con la imagen ya presente devuelve BAD_STATE. Todos los callbacks documentan si son solo-init, por-frame o
 lecturas puras autorizadas. No invocar libretro fuera de su hilo de entrada.
 
+Adaptador libretro (T16a): `adapters/libretro` exporta solo los `retro_*` (exports.txt / exports.map) sobre la ABI nativa y no incluye nada del motor. `retro_load_game`
+recibe el firmware (Kickstart o micro-ROM, extensiones `rom|bin`) y copia el buffer, porque `p6_load` lo toma prestado hasta el unload; los discos, los ficheros del
+directorio de sistema, las opciones (PAL/NTSC, semilla, epoca) y el teclado llegan con T17. Solo acepta XRGB8888: si el frontend lo rechaza el load falla con un mensaje, sin
+fallback. `retro_run` hace un poll de entrada, exactamente una llamada a `p6_run_frame` y entrega un solo cuadro: el raster activo recortado (con `SET_GEOMETRY` si el
+frontend lo acepta) o, si la unidad no tiene cuadro nuevo, el anterior (NULL si el frontend puede duplicar, una copia si no). El audio se ofrece en lotes y lo que el frontend
+no toma queda en una cola acotada de 16384 frames stereo que se ofrece primero en el run siguiente; al desbordarse se descartan los mas antiguos con un aviso. Una llamada
+libretro hecha desde dentro de un callback se ignora. `retro_serialize_size` es 0 hasta T18. Los mandos se asignan joypad B/A/X -> botones 1/2/3 y el raton solo en el puerto 0.
+
 ## Frame, campos y reloj
 
 Unidad de avance: una frontera vertical de video emulado, no una cantidad fija de

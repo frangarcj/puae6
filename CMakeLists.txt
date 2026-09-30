@@ -103,6 +103,8 @@ target_compile_definitions(p6_headless PRIVATE
     P6_UPSTREAM_COMMIT="${_upstream_commit}"
     P6_PATCH_COUNT="${_patch_count}"
     P6_PATCH_SERIES_SHA256="${_series_sha256}")
+# Libretro core and the minimal frontend that tests its contract (T16).
+include(cmake/Libretro.cmake)
 # Engine-level probe of the bridge lifecycle (tests/host/test_bridge_lifecycle.py runs it with a ROM).
 add_executable(p6_lifecycle_probe tests/host/bridge_lifecycle_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_lifecycle_probe p6_codegen)

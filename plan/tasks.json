@@ -8184,11 +8184,11 @@
       "evidence": null
     },
     {
-      "id": "T16",
-      "title": "Implementar el adaptador libretro minimo",
+      "id": "T16a",
+      "title": "Implementar el adaptador libretro minimo y probarlo con un frontend de referencia",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T13"
       ],
@@ -8201,13 +8201,16 @@
       "touch": [
         "adapters/libretro/**",
         "cmake/Libretro.cmake",
-        "tests/libretro-host/**"
+        "tests/libretro-host/**",
+        "CMakeLists.txt",
+        "docs/02-contracts.md",
+        "reports/**"
       ],
       "steps": [
-        "Exportar la API libretro usando header fijado como adaptador fino sobre p6_*; conectar lifecycle y negociar pixel format, entrada, logs y audio batch sin acceder directamente al scheduler ni a globals WinUAE.",
-        "retro_run hace input poll y exactamente una llamada p6_run_frame, luego entrega video/audio; no implementa un segundo boundary, no duerme ni sincroniza con reloj host.",
-        "Probar frontend minimo que rechaza capacidades opcionales y consumo parcial de audio, sin desbordes ni reentrada; comparar N boundaries con headless usando config/input normalizados y hashes hardware/ticks iguales.",
-        "Ejecutar core con frontend real y fixture A500; mientras no se complete T18 anunciar serialize_size=0."
+        "Exportar la API libretro usando header fijado como adaptador fino sobre p6_*: solo los retro_*, sin nada del motor; conectar lifecycle y negociar pixel format, entrada, logs y audio batch sin acceder al scheduler ni a globals WinUAE.",
+        "retro_run hace input poll y exactamente una llamada p6_run_frame, luego entrega un video y el audio; no implementa un segundo boundary, no duerme ni sincroniza con reloj host.",
+        "Frontend de referencia minimo (tests/libretro-host) que carga el core con dlopen, rechaza capacidades opcionales, consume el audio en trozos o lo retiene, y comprueba el contrato en cada run; comparar N boundaries con headless (ticks, imagen, audio por unidad). Mientras no se complete T18 anunciar serialize_size=0.",
+        "Division de T16: esta ficha hace el adaptador y su contrato con el frontend de referencia; T16 conserva la puerta original y exige ademas un frontend real."
       ],
       "checks": [
         "LR01",
@@ -8218,10 +8221,50 @@
       ],
       "acceptance": [
         "Se carga/descarga sin UI propia ni referencias a BizHawk, y devuelve control mediante la misma p6_run_frame que headless.",
-        "Los callbacks cumplen frecuencia, conteos, ownership y negociacion segun el contrato."
+        "Los callbacks cumplen frecuencia, conteos, ownership y negociacion segun el contrato, con el frontend de referencia."
+      ],
+      "stop": "Si libretro necesita tocar directamente el scheduler/globals de WinUAE fuera del bridge, corregir la API comun antes de duplicar logica. No usar un hilo del SO para hacer que retro_run parezca sincrono; un harness solo no sustituye el smoke del frontend real."
+    },
+    {
+      "id": "T16",
+      "title": "Implementar el adaptador libretro minimo",
+      "milestone": "M1",
+      "required": true,
+      "status": "blocked",
+      "depends": [
+        "T13",
+        "T16a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/00-evidence.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "cmake/Libretro.cmake",
+        "tests/libretro-host/**",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Ejecutar el core con un frontend libretro real (RetroArch u otro de uso general) y el fixture A500: carga, descarga, un video y un poll por run, audio a la cadencia del modo y serialize_size=0; lo que T16a prueba con el frontend de referencia, ahora con el real.",
+        "Division: T16a (hecha) implementa el adaptador y lo prueba con tests/libretro-host; T16 conserva la puerta de la ficha original. Sin un frontend real instalado queda blocked: no se instala software global sin autorizacion del usuario (reports/tasks/T16.md)."
+      ],
+      "checks": [
+        "LR01",
+        "LIFE01",
+        "STEP01",
+        "AV01",
+        "AV02"
+      ],
+      "acceptance": [
+        "Se carga/descarga sin UI propia ni referencias a BizHawk, y devuelve control mediante la misma p6_run_frame que headless.",
+        "Los callbacks cumplen frecuencia, conteos, ownership y negociacion segun el contrato.",
+        "Un frontend libretro real, no el harness de referencia, carga y descarga el core, ejecuta el fixture y le devuelve el control en cada run."
       ],
       "stop": "Si libretro necesita tocar directamente el scheduler/globals de WinUAE fuera del bridge, corregir la API comun antes de duplicar logica. No usar un hilo del SO para hacer que retro_run parezca sincrono; un harness solo no sustituye el smoke del frontend real.",
-      "evidence": null
+      "evidence": "reports/tasks/T16.md"
     },
     {
       "id": "T17",
