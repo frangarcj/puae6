@@ -143,14 +143,16 @@ static int run(int argc, char **argv)
         frame = {};
         frame.abi_version = P6_ABI_VERSION;
         frame.struct_size = sizeof frame;
-        result = p6_run_frame(&input, P6_RENDER_VIDEO, &frame, &error);
+        result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
         if (result != P6_OK) {
             status = fail("p6_run_frame", result, error);
             break;
         }
-        printf("unit %" PRIu64 " ticks=%" PRIu64 " video=%d active=%ux%u parity=%u aspect=%u/%u cadence=%u/%u hash=%016" PRIx64 "\n",
+        printf("unit %" PRIu64 " ticks=%" PRIu64 " video=%d active=%ux%u parity=%u aspect=%u/%u cadence=%u/%u hash=%016" PRIx64
+               " audio=%" PRIu64 "\n",
                frame.unit_index, frame.master_ticks, frame.video != nullptr, frame.active.width, frame.active.height,
-               frame.field_parity, frame.aspect_num, frame.aspect_den, frame.cadence_num, frame.cadence_den, picture_hash(frame));
+               frame.field_parity, frame.aspect_num, frame.aspect_den, frame.cadence_num, frame.cadence_den, picture_hash(frame),
+               frame.audio_frames);
         if (dump && frame.video && !dump_frame(dump, frame)) status = 1;
     }
     p6_unload(nullptr);

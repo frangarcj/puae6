@@ -85,7 +85,7 @@ Estado del build nativo (verificado en T06c; existe, pero no arranca ninguna maq
     P6_TEST_COMPILERS=1 python3 -m unittest tests.codegen.test_compilers   # matriz Apple clang/LLVM/GCC
 
 `p6_headless --identity` imprime perfil, commit de WinUAE, serie de parches y capacidades;
-El bridge avanza unidades y entrega video (T07, T08); `boot:` dice que solo se han ejecutado micro-ROMs. Audio y entrada siguen sin entregarse (T10, T11).
+El bridge avanza unidades y entrega video, entrada y audio (T07, T08, T10, T11); `boot:` dice que solo se han ejecutado micro-ROMs. Medios y reset de API siguen sin entregarse (T12, T13).
 
 STEP01 (T07c) usa un arbol propio con el gancho de prueba del parche 0062, que ningun preset define:
 
@@ -98,6 +98,7 @@ El ejecutor headless ya corre un firmware unidad a unidad (solo micro-ROMs; sin 
 
     ./build/native-debug/p6_headless --run tests.rom --units 6 --dump /tmp/frames   # [--ntsc] [--seed S]
     python3 -m unittest tests.step.test_display                                    # imagen PAL/NTSC contra el modelo del programa
+    python3 -m unittest tests.audio.test_audio                                     # AV02/DET05: conteo exacto, tonos por canal, entrega on/off (T11)
     P6_KICKSTART_ROM=/ruta/kick13.rom python3 -m unittest tests.step.test_kickstart  # solo con una imagen autorizada
 
 `tools/check.py --check STEP01` sigue respondiendo NOT_IMPLEMENTED: el dispatcher de T04 solo conoce HARNESS01 y

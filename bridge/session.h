@@ -16,6 +16,7 @@ struct Session {
     uint64_t unit_index = 0;      // video units returned since load
     uint64_t master_ticks = 0;    // scheduler ticks (CYCLE_UNIT) executed since load
     int64_t cycles_seen = 0;      // engine cycle counter at the end of the previous call
+    uint64_t audio_frames_total = 0;  // stereo frames Paula produced since load (delivered or not)
     bool handed_over = false;     // the renderer handed a new picture over during the current unit
 };
 

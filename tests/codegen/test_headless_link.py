@@ -88,7 +88,7 @@ class HeadlessLinkTests(unittest.TestCase):
             lines = run.stdout.splitlines()
             self.assertEqual(lines[-1], "done units=6")
             units = [re.fullmatch(r"unit (\d+) ticks=(\d+) video=1 active=756x574 parity=0 aspect=26/25 "
-                                  r"cadence=3546895/70824 hash=([0-9a-f]{16})", line) for line in lines[:-1]]
+                                  r"cadence=3546895/70824 hash=([0-9a-f]{16}) audio=(\d+)", line) for line in lines[:-1]]
             self.assertTrue(all(units), lines)
             self.assertEqual([int(u[1]) for u in units], [1, 2, 3, 4, 5, 6])
             ticks = [int(u[2]) for u in units]

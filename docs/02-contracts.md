@@ -150,6 +150,13 @@ comparaciones de hardware pueden ignorar solo la presentacion de salida.
 No adaptar los clocks Amiga al llenado del buffer. rendersound=false sigue
 avanzando filtros/fases y descarta solo la entrega; test alternando true/false.
 
+Implementado (T11, docs/adr/0007-audio-delivery.md): `p6_run_frame` devuelve en cada unidad los pares stereo que
+Paula produjo hasta el tick del borde, tras volcar Paula a ese tick. Frames acumulados en el tick T:
+`floor((256*(T-2048)+127)/m)`, `m = (2*clk*131072 + rate)//(2*rate)`, sin redondeo por frame. La cola se drena siempre;
+`P6_RENDER_AUDIO` solo decide si `audio` / `audio_frames` se rellenan. Puntero valido hasta la siguiente llamada mutante
+(`p6_state_save` no lo invalida); como mucho `max_audio_frames` por llamada, y un desbordamiento deja la imagen en fallo, no
+descarta muestras. Rates 44100 y 48000. La diferencia de floats entre hosts sigue abierta para DET04.
+
 Audio batch con capacidad verificada y retorno de consumo. Definir explicitamente
 la politica de cola si el frontend acepta menos muestras; no alimentar ese retorno
 a la velocidad de CPU. Distinguir cola de presentacion de estado de hardware.

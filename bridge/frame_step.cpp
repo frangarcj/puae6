@@ -5,11 +5,11 @@
 // the field, and the next call resumes it there; no stack is switched and no second scheduler
 // exists. Order inside a call: queued reset, media events, input, then the unit. Reset, media
 // and input are not implemented yet (T10-T13), so a non-empty input is refused instead of being
-// ignored, and video/audio delivery is not filled in (T08, T11): the caps stay clear.
+// ignored. Video and audio come back exactly when requested (T08, T11).
 #include "p6.h"
 #include "error_util.h"
 #include "session.h"
-#include "audio_drain.h"
+#include "pcm_out.h"
 #include "video.h"
 #include "input.h"
 
@@ -86,16 +86,21 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
     if (m68k_go_unit(M68K_UNIT_RUN) != M68K_UNIT_DONE)
         return fault(error, P6_ERROR_BAD_STATE, "the CPU loop ended before the unit boundary");
     account_ticks();
+    // Paula is brought up to the boundary first (the STEP01 observer does the same at every boundary), then the PCM is
+    // taken whether or not the caller wants it: delivering or dropping it never changes what Paula does.
+    p6_bridge::sync_audio_to_boundary();
+    uint64_t audio_frames = 0;
+    if (const p6_result taken = p6_bridge::take_audio(&audio_frames, error))
+        return fault(error, taken, "the PCM queue failed during the unit");
     // The picture is handed over whether or not the caller wants it: presentation bookkeeping must not
     // depend on P6_RENDER_VIDEO, and the STEP01 observer may already have done it at the boundary.
     p6_bridge::present_unit();
-    p6_bridge::discard_audio();
     if (p6_rtc_status() != 0)
         return fault(error, P6_ERROR_INTERNAL, "the clock service failed during the unit");
     if (p6_sound_status() != P6_PCM_OK)
         return fault(error, P6_ERROR_UNSUPPORTED, "the audio transport failed during the unit");
 
-    // 5. Result. Audio delivery belongs to T11 and stays empty.
+    // 5. Result. Audio is present (possibly with zero frames) exactly when it was requested.
     p6_frame result;
     memset(&result, 0, sizeof result);
     result.abi_version = P6_ABI_VERSION;
@@ -104,6 +109,10 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
     result.unit_index = ++session.unit_index;
     if (!p6_bridge::guest_polled_input())
         result.flags |= P6_FRAME_LAG;
+    if (render_flags & P6_RENDER_AUDIO) {
+        result.audio = p6_bridge::audio_samples();
+        result.audio_frames = audio_frames;
+    }
     if (const p6_result described = p6_bridge::describe_video(result, render_flags & P6_RENDER_VIDEO, error))
         return fault(error, described, "the video description failed");
     *frame = result;

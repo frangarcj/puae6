@@ -7420,7 +7420,7 @@
       "title": "Conectar audio sin deriva ni dependencia host",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T08"
       ],
@@ -7429,17 +7429,28 @@
         "docs/04-validation.md"
       ],
       "touch": [
-        "bridge/audio.cpp",
-        "ports/portable/audio/**",
+        "bridge/**",
+        "bridge/include/**",
+        "CMakeLists.txt",
+        "ports/portable/**",
         "tests/audio/**",
         "tests/scenarios/audio/**",
-        "patches/winuae/**"
+        "tests/step/**",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "config/profiles/**",
+        "manifests/config-invariants.json",
+        "docs/02-contracts.md",
+        "docs/06-execution.md",
+        "docs/adr/0007-audio-delivery.md",
+        "reports/**"
       ],
       "steps": [
         "Entregar Paula a buffer acotado de PCM stereo; documentar rate/filtro y distinguir frames stereo de int16 individuales.",
         "Conservar acumulador fraccionario, fases y filtros; no retroalimentar velocidad Amiga con buffer-fill del frontend.",
         "Medir muestras acumuladas frente a ticks durante PAL/NTSC y cambios permitidos, incluido DMA activo.",
-        "Comparar ejecucion continua con tramos de entrega de audio desactivada."
+        "Comparar ejecucion continua con tramos de entrega de audio desactivada.",
+        "Ampliacion touch: bridge/**, CMakeLists.txt (-ffp-contract=off), tests/step (sonda) y docs; la ficha solo nombraba bridge/audio.cpp y ports/portable/audio/**, que no es donde vive el transporte PCM."
       ],
       "checks": [
         "AV02",

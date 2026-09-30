@@ -5,6 +5,7 @@
 #include "p6.h"
 #include "error_util.h"
 #include "video_geometry.h"
+#include "pcm_out.h"
 
 extern "C" uint32_t p6_abi_version(void)
 {
@@ -23,6 +24,6 @@ extern "C" p6_result p6_query_caps(p6_caps *caps, p6_error *error)
     caps->max_media = 0;                   // media are not supported yet (T12)
     caps->max_video_width = p6_bridge::kBufferWidth;      // the delivered picture buffer, both standards
     caps->max_video_height = p6_bridge::kBufferHeightPal;
-    caps->max_audio_frames = 0;
+    caps->max_audio_frames = p6_bridge::kMaxAudioFrames;   // one call never returns more than the PCM queue holds
     return P6_OK;
 }

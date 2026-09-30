@@ -53,7 +53,8 @@ static p6_config make_config(uint32_t standard)
     X(jports[0].jd[0].id) X(jports[0].jd[0].mode) X(jports[0].jd[1].id) X(jports[0].jd[1].mode) \
     X(jports[1].jd[0].id) X(jports[1].jd[0].mode) X(jports[1].jd[1].id) X(jports[2].jd[0].id) X(jports[3].jd[0].id) \
     X(input_contact_bounce) X(input_tablet) X(input_autoswitchleftright) X(input_keyboard_type) \
-    X(input_advancedmultiinput) X(keyboard_mode) X(cs_resetwarning) X(dongle)
+    X(input_advancedmultiinput) X(keyboard_mode) X(cs_resetwarning) X(dongle) \
+    X(sound_stereo_separation) X(sound_mixed_stereo_delay) X(sound_volume_paula) X(sound_volume_master)
 
 static void print_pinned(const char *standard, const uae_prefs &p)
 {

@@ -640,6 +640,30 @@
       "source": "pin",
       "value": 0,
       "why": "no dongle"
+    },
+    {
+      "name": "sound_stereo_separation",
+      "source": "pin",
+      "value": 7,
+      "why": "each output keeps 26/32 of its own channels and takes 6/32 of the other pair (upstream default)"
+    },
+    {
+      "name": "sound_mixed_stereo_delay",
+      "source": "pin",
+      "value": 0,
+      "why": "no delayed crossfeed between the outputs"
+    },
+    {
+      "name": "sound_volume_paula",
+      "source": "pin",
+      "value": 0,
+      "why": "Paula volume at full scale"
+    },
+    {
+      "name": "sound_volume_master",
+      "source": "pin",
+      "value": 0,
+      "why": "master volume at full scale"
     }
   ]
 }

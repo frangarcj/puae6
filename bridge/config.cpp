@@ -112,6 +112,10 @@ void build_preferences(const p6_config &c)
     currprefs.sound_stereo = SND_STEREO;
     currprefs.produce_sound = 3;
     currprefs.sound_auto = 0;
+    currprefs.sound_stereo_separation = 7;    // upstream default: each side keeps 26/32 of its channels and takes 6/32 of the other
+    currprefs.sound_mixed_stereo_delay = 0;   // no delayed crossfeed
+    currprefs.sound_volume_paula = 0;         // Paula volume at full scale
+    currprefs.sound_volume_master = 0;
     currprefs.start_gui = false;
     // Video: the canonical raster (docs/adr/0006-video-output.md) is decided by these preferences, not by
     // what the guest programs. Hires, line doubled, overscan mode 3, no centering: 756 x 574 PAL / 484 NTSC.

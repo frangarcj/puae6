@@ -154,7 +154,7 @@ class StepTests(unittest.TestCase):
 
 FRAME = re.compile(r"^frame (\d+) ticks=(\d+) video=(\d) bytes=(\d+) format=(\d+) size=(\d+)x(\d+) stride=(\d+) "
                    r"active=(\d+),(\d+),(\d+),(\d+) aspect=(\d+)/(\d+) cadence=(\d+)/(\d+) parity=(\d+) flags=(\d+) "
-                   r"outside=(zero|dirty) pixels=([0-9a-f]+)$")
+                   r"outside=(zero|dirty) pixels=([0-9a-f]+) audio=(-?)(\d+)$")
 
 
 def frames_of(output):
@@ -187,7 +187,7 @@ class VideoMetadataTests(unittest.TestCase):
             self.assertEqual(len(rows), 4)
             for row in rows:
                 with self.subTest(standard=standard, unit=row[0]):
-                    (_, _, video, nbytes, fmt, w, h, stride, ax, ay, aw, ah, an, ad, cn, cd, parity, flags, outside, _) = row
+                    (_, _, video, nbytes, fmt, w, h, stride, ax, ay, aw, ah, an, ad, cn, cd, parity, flags, outside, *_) = row
                     self.assertEqual((video, fmt, w, h, stride), (1, 1, 760, height, 7296))
                     self.assertEqual(nbytes, stride * h)
                     self.assertEqual((ax, ay, aw, ah), (0, 0, 756, active_h))

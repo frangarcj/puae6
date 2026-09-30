@@ -114,6 +114,13 @@ typedef struct p6_rect {
 /* Frame pointers are borrowed until the next mutating p6_* call. Audio count
  * is stereo frames (interleaved int16 samples), not individual samples.
  *
+ * Audio. With P6_RENDER_AUDIO, `audio` points to audio_frames pairs [L0,R0,L1,R1,...]
+ * of what Paula produced from the previous unit boundary to this one (left = channels
+ * 0 and 3, right = 1 and 2; 44100 or 48000 Hz as configured), and is non-NULL even for
+ * zero frames; without the flag both are zero. A call never returns more than
+ * p6_caps.max_audio_frames. The count follows the emulated clock alone (no per-frame
+ * rounding); p6_state_save does not invalidate the pointer.
+ *
  * Video. video_width x video_height is the delivered buffer and is constant for a
  * loaded image (760x576 PAL, 760x486 NTSC, see p6_caps); video_stride_bytes is the
  * row pitch, never width * 4. Rows and columns outside `active` are zero. `active`

@@ -36,7 +36,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(cmake/Sanitizers.cmake)
 option(P6_UNIT_TRACE "Test-only: engine reports and can swallow video boundaries (STEP01)" OFF)
-add_compile_options(-fno-fast-math)
+# No fused multiply-add: Paula's RC filter and the sample interval are float math, and a contracted build differs from
+# an uncontracted one by one least significant bit in a fraction of the samples (measured). Contraction is a compiler and ISA
+# choice that must not reach the machine.
+add_compile_options(-fno-fast-math -ffp-contract=off)
 
 include(cmake/HostTools.cmake)
 p6_add_host_codegen(p6_codegen)
@@ -87,7 +90,7 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/audio_drain.cpp)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/pcm_out.cpp)
 add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
 target_include_directories(p6_bridge PRIVATE

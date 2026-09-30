@@ -17,7 +17,7 @@
 #include "video.h"
 #include "input.h"
 #include "inputdevice.h"
-#include "audio_drain.h"
+#include "pcm_out.h"
 
 #include <cassert>
 #include <cinttypes>
@@ -94,7 +94,10 @@ extern "C++" void p6_unit_observe(void)
     // so both modes present at the same moments and the picture becomes part of the compared state.
     p6_bridge::present_unit();
     if (getenv("P6_POLL_NOISE")) p6_input_poll_mask ^= 0x5a5a5a5au;   // the mask is write-only for the machine
-    p6_bridge::discard_audio();   // what p6_run_frame does after every unit; here also for the boundaries it swallows
+    // What p6_run_frame does after every unit, here also for the boundaries it swallows: bring Paula up to the boundary and take
+    // (and drop) the samples, so that stepped and continuous runs flush at the same ticks and the queue never fills.
+    p6_bridge::sync_audio_to_boundary();
+    if (p6_unit_skip > 0) { uint64_t taken; p6_bridge::take_audio(&taken, nullptr); }   // this boundary is swallowed
     Record r{};
     r.pc = m68k_getpc();
     r.opcode = regs.opcode;
@@ -150,7 +153,7 @@ p6_config make_config(uint32_t standard, uint64_t seed)
     c.struct_size = sizeof c;
     c.machine = P6_MACHINE_A500;
     c.video_standard = standard;
-    c.audio_rate_hz = 48000;
+    c.audio_rate_hz = getenv("P6_AUDIO_RATE") ? uint32_t(atoi(getenv("P6_AUDIO_RATE"))) : 48000;
     c.random_seed = seed;
     c.rtc_epoch_seconds = 946684800;
     return c;
@@ -251,15 +254,29 @@ void dump_frame(const p6_frame &f)
     fclose(out);
 }
 
+// P6_AUDIO_DUMP=<directory> writes each unit's delivered PCM as audio-<unit>.bin (int16 little endian, left then right).
+void dump_audio(const p6_frame &f)
+{
+    const char *directory = getenv("P6_AUDIO_DUMP");
+    if (!directory || !f.audio) return;
+    char path[512];
+    snprintf(path, sizeof path, "%s/audio-%03llu.bin", directory, (unsigned long long)f.unit_index);
+    FILE *out = fopen(path, "wb");
+    if (!out) { perror(path); exit(2); }
+    fwrite(f.audio, 4, size_t(f.audio_frames), out);
+    fclose(out);
+}
+
 void print_frame(const p6_frame &f)
 {
     dump_frame(f);
+    dump_audio(f);
     printf("frame %" PRIu64 " ticks=%" PRIu64 " video=%d bytes=%" PRIu64 " format=%u size=%ux%u stride=%u "
-           "active=%u,%u,%u,%u aspect=%u/%u cadence=%u/%u parity=%u flags=%u outside=%s pixels=%016" PRIx64 "\n",
+           "active=%u,%u,%u,%u aspect=%u/%u cadence=%u/%u parity=%u flags=%u outside=%s pixels=%016" PRIx64 " audio=%s%" PRIu64 "\n",
            f.unit_index, f.master_ticks, f.video != nullptr, f.video_bytes, f.video_format, f.video_width,
            f.video_height, f.video_stride_bytes, f.active.x, f.active.y, f.active.width, f.active.height,
            f.aspect_num, f.aspect_den, f.cadence_num, f.cadence_den, f.field_parity, f.flags,
-           outside_is_zero(f) ? "zero" : "dirty", picture_hash(f));
+           outside_is_zero(f) ? "zero" : "dirty", picture_hash(f), f.audio ? "" : "-", f.audio_frames);
 }
 
 void check(p6_result r, const char *what)
@@ -286,7 +303,8 @@ int main(int argc, char **argv)
     const int units = atoi(argv[2]);
     const bool continuous = !strcmp(argv[3], "continuous");
     const bool frames = !strncmp(argv[3], "frames", 6);
-    const uint32_t render = !strcmp(argv[3], "frames-norender") ? P6_RENDER_AUDIO : (P6_RENDER_VIDEO | P6_RENDER_AUDIO);
+    const char *pattern = getenv("P6_AUDIO_PATTERN");   // frames modes: '1' delivers audio in that unit, '0' does not; cycles
+    const uint32_t base_render = !strcmp(argv[3], "frames-norender") ? P6_RENDER_AUDIO : (P6_RENDER_VIDEO | P6_RENDER_AUDIO);
     if (!continuous && !frames && strcmp(argv[3], "steps")) return 64;
     if (units < 1) return 64;
     const uint32_t standard = argc == 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
@@ -306,13 +324,15 @@ int main(int argc, char **argv)
     if (continuous) {
         p6_unit_skip = units - 1;
         const p6_input first = input_for(1);
-        check(p6_run_frame(&first, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error), "p6_run_frame");
+        check(p6_run_frame(&first, base_render, &frame, &error), "p6_run_frame");
         if (frame.unit_index != 1) { fprintf(stderr, "unit_index %llu\n", (unsigned long long)frame.unit_index); return 4; }
         last_ticks = frame.master_ticks;
     } else {
         for (int unit = 1; unit <= units; ++unit) {
             const int64_t before = trace.empty() ? 0 : trace.back().cycles;
             const p6_input input = input_for(unit);
+            uint32_t render = base_render;
+            if (pattern && *pattern && pattern[(unit - 1) % strlen(pattern)] == '0') render &= ~P6_RENDER_AUDIO;
             check(p6_run_frame(&input, render, &frame, &error), "p6_run_frame");
             if (frame.unit_index != uint64_t(unit) || frame.master_ticks <= last_ticks) return 4;
             if (frames) print_frame(frame);
