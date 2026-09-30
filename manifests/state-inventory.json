@@ -174,10 +174,11 @@
         "cycle"
       ],
       "owner": "ports/portable/rtc_time.cpp",
-      "at_load": "bridge/lifecycle.cpp sets the engine's cycle counter to 0 before p6_rtc_init, so the clock is anchored to the counter the reset head uses; bridge/frame_step.cpp calls p6_rtc_rebase(0) when a reset is queued, because the counter restarts at 0 but the clock keeps time through a reset. Before this, any guest that read the clock after a p6_reset or a reload faulted the image (p6_run_frame failed: 11), and a Kickstart reads it at boot",
+      "at_load": "bridge/lifecycle.cpp sets the engine's cycle counter to 0 before p6_rtc_init and installs counter_restarts in p6_counter_restart_hook (patch 0073), which the reset head calls just before the counter starts over for EVERY kind of reset (p6_reset, the Ctrl-Amiga-Amiga chord, the reset warning): it adds the part of the unit that ran before the restart to the caller's ticks and rebases the clock, which keeps time through a reset. Before this, any guest that read the clock after a p6_reset or a reload faulted the image (p6_run_frame failed: 11), a Kickstart reads it at boot, and a first version that rebased only for p6_reset left the keyboard chord faulting",
       "survives_unload": false,
       "status": "reset",
       "evidence": [
+        "patches/winuae/0073-counter-restart-hook.patch",
         "tests/lifecycle/test_reload.py"
       ]
     },

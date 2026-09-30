@@ -44,15 +44,16 @@ entrada (es la misma cabecera del arranque, con su retardo aleatorio sembrado). 
 el disco pedido de inmediato), configuracion y contadores del llamante (`unit_index`, `master_ticks` siguen creciendo aunque el contador del motor
 vuelva a cero); el invitado arranca con la RAM limpia y el teclado repite su secuencia de arranque. Las teclas que el anfitrion mantiene se pulsan
 una vez tras esa secuencia; las que solto en la unidad del reset no se pulsan. No equivale a unload/load: la semilla sigue avanzando y la cabeza de la
-unidad de disco se queda donde estaba, como en una unidad real. El reloj de la placa sigue contando a traves del reset (se reancla al contador
-de ciclos del motor, que vuelve a cero). Dos resets en unidades consecutivas son validos y reinician la maquina cada vez.
+unidad de disco se queda donde estaba, como en una unidad real. El reloj de la placa sigue contando a traves de cualquier reset, tambien el del acorde de teclado (la cabecera de reset avisa al bridge justo antes de
+que el contador de ciclos del motor vuelva a cero: reancla el reloj y suma a `master_ticks` lo que corrio antes del reinicio). Dos resets en unidades consecutivas son validos y reinician la maquina cada vez.
 
 Sesion (T13b): cada `p6_load` empieza una sesion que se comporta como un proceso limpio. Los registros de la CPU, la posicion del haz, la cabeza
 del disquete, los potenciometros, el scheduler secundario, el instante de servicio de los CIA, las teclas y el acorde de reset, los nombres de
 dispositivos de entrada y el ancla del reloj vuelven a su valor inicial; manifests/state-inventory.json lista cada uno con su prueba y lo que
 sobrevive sin ser causal. Una recarga en el mismo proceso da, unidad a unidad y con el digest completo, lo mismo que un proceso limpio en ocho de
 los diez micro-ROM; un invitado que usa las interrupciones del teclado difiere en un byte de la pila de la unidad 1 (limitacion abierta,
-entrada `keyboard-power-up-phase`), asi que replays, pruebas de determinismo y Waterbox arrancan una instancia nueva. El heap no crece entre
+entrada `keyboard-power-up-phase`), asi que replays, pruebas de determinismo y Waterbox arrancan una instancia nueva y no se afirma una recarga determinista completa ni preparacion para TAS
+hasta cerrar esa limitacion. El heap no crece entre
 ciclos: 0 fugas con `leaks` en 30 ciclos y 100 ciclos limpios bajo ASan/UBSan.
 
 Una instancia nativa activa por imagen. create/init concurrente devuelve BUSY.

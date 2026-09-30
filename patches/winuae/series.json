@@ -2033,6 +2033,29 @@
           "after_sha256": "761e63c950d10e023d74406f7cd0c6debec55386ccd69c977fa2e520221e105e"
         }
       ]
+    },
+    {
+      "id": "0073-counter-restart-hook",
+      "file": "patches/winuae/0073-counter-restart-hook.patch",
+      "sha256": "63376ab58cbabba1908fa8129a1adc199c704a2622ed7707374fd80c0f0f41a0",
+      "title": "Tell the bridge when the cycle counter starts over",
+      "reason": "The reset head restarts the engine's cycle counter for every kind of reset, but only a reset asked for through p6_reset told the bridge: the emulated clock kept the old cycle and faulted the image on its next read, and the caller's tick count dropped the part of the unit before the restart, after a keyboard reset chord. A function pointer, set by the bridge while an image is loaded, is called from the one place where the counter restarts.",
+      "category": "host hooks",
+      "order": 73,
+      "symbols": [
+        "m68k_go_unit",
+        "p6_counter_restart_hook"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_reload",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "90c075a63bbdccf3b336b5fb8ed3cf9c72a1f5c565a3857f73e34c71cc15bc4f",
+          "after_sha256": "a7e306ae083f471e45eaabb1128a7ee8c9ebe97dd7859f2af96881f8a05662d3"
+        }
+      ]
     }
   ]
 }

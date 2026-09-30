@@ -44,6 +44,8 @@ namespace p6_session {
 Session session;
 }
 
+extern void (*p6_counter_restart_hook)(void);   // newcpu.cpp, patch 0073: called by the reset head as the cycle counter starts over
+
 using p6_session::Guard;
 using p6_session::State;
 using p6_session::session;
@@ -51,6 +53,19 @@ using p6_session::session;
 namespace {
 
 p6_config &config = session.config;
+
+// The reset head restarts the engine's cycle counter whatever asked for the reset (p6_reset, the Ctrl-Amiga-Amiga chord, the reset
+// warning). Everything the bridge anchors to that counter follows it here: the ticks of the part of the unit that ran before the
+// restart are added to the caller's count, and the clock of the board, which keeps time through a reset, is anchored to the new
+// counter. A failure of the clock is recorded by the clock and reported by the status check at the end of the unit.
+void counter_restarts()
+{
+    const int64_t now = int64_t(get_cycles());
+    if (now > session.cycles_seen)
+        session.master_ticks += uint64_t(now - session.cycles_seen);
+    session.cycles_seen = 0;
+    p6_rtc_rebase(0);
+}
 
 // How far the engine start-up got, so that a failed or finished load undoes exactly that.
 enum class Stage { None, Blob, Devices, CpuBegun };
@@ -66,6 +81,7 @@ void release_engine()
         do_leave_program();
         p6_video_clear();
     }
+    p6_counter_restart_hook = nullptr;
     p6_rtc_unload();
     p6_blob_clear();
     p6_bridge::release_input_device_names();
@@ -114,6 +130,7 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
                                     // ended would make the first key event of this load reset the machine
 
     stage = Stage::Devices;
+    p6_counter_restart_hook = counter_restarts;
     memory_hardreset(2);
     memory_reset();
     if (const p6_result loaded = p6_bridge::check_loaded_firmware(error))

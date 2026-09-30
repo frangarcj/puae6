@@ -38,8 +38,9 @@ p6_result fault(p6_error *error, p6_result code, const char *text)
     return p6_fail(error, code, text);
 }
 
-// Scheduler ticks are monotonic for the caller even though the engine counter restarts at a reset:
-// a smaller reading means a reset happened and the ticks since it are all new.
+// Scheduler ticks are monotonic for the caller even though the engine counter restarts at a reset. The reset head reports every
+// restart (counter_restarts in lifecycle.cpp), which adds what ran before it and zeroes cycles_seen, so the reading only goes
+// backwards here for a restart nobody reported; then the ticks since it are all that can be counted.
 void account_ticks()
 {
     const int64_t now = int64_t(get_cycles());
@@ -77,16 +78,11 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
         p6_bridge::apply_boot_media();
     if (session.reset_queued) {
         // A hard reset started from the API: the same head as the power-on one, run by APPLY below. The engine's cycle
-        // counter restarts at zero, so everything it counts from here on is new to the caller.
+        // counter restarts at zero there and the head tells counter_restarts() (lifecycle.cpp).
         session.reset_queued = false;
         if (quit_program == 0)
             quit_program = UAE_RESET_HARD;
         p6_bridge::reset_keyboard();
-        // The counter restarts at zero in the head below. The clock of the board keeps time through a reset (it runs on its own
-        // battery): bring it up to now and anchor it to the new counter, or its next read would find the counter behind it.
-        if (p6_rtc_rebase(0) != P6_CLOCK_OK)
-            return fault(error, P6_ERROR_INTERNAL, "the clock service could not follow the reset");
-        session.cycles_seen = 0;
     }
     const int applied = m68k_go_unit(M68K_UNIT_APPLY);
     if (applied != M68K_UNIT_APPLIED)

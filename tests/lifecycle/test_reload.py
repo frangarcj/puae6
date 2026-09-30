@@ -184,7 +184,8 @@ def clock_rom_source():
          "    LEA $1000.W,A0"]
     for _ in range(8):
         a += ["    MOVEQ #0,D2", "    MOVE.B $DC0001.L,D2          ; clock: seconds, units digit", "    MOVE.W D2,(A0)+", "    .nops 50"]
-    a += ["loop:", "    ADDQ.L #1,D0", "    BRA.S loop"]
+    a += ["loop:", "    MOVE.B $DC0001.L,D2          ; keeps reading the clock: a stale anchor is found by the next read", "    ADDQ.L #1,D0",
+          "    BRA.S loop"]
     return "\n".join(a) + "\n"
 
 
@@ -214,6 +215,28 @@ class ReloadClockTests(unittest.TestCase):
     def test_reading_the_clock_after_a_reset_does_not_fault_the_image(self):
         text = self.execute({"P6_RESET_AT": "3"})                      # run() asserts that every p6_run_frame succeeded
         self.assertEqual(len(logged(text, 3)), 8)                      # the guest started over and read the clock again
+
+    def chord_run(self, held_units, units=40):
+        """`units` units with Ctrl-Amiga-Amiga held in the given units: the keyboard reset, which no p6_reset asked for."""
+        script = Path(self.tmp.name) / "chord.txt"
+        script.write_text("\n".join(line(keys=[CTRL, LAMI, RAMI] if unit in held_units else []) for unit in range(1, units + 1)) + "\n")
+        code, out = run_probe(self.exe, self.rom, units, "steps", 1, timeout=600, extra=["pal"], env={"P6_INPUT_SCRIPT": str(script)})
+        self.assertEqual(code, 0, out[-400:])
+        cycles = {int(m[1]): int(m[2]) for m in re.finditer(r"^unit (\d+) .* cycles=(\d+) ", out, re.M)}
+        return cycles, int(re.search(r"final digest=\w+ ticks=(\d+)", out)[1])
+
+    def test_reading_the_clock_after_a_keyboard_reset_does_not_fault_the_image(self):
+        # The chord restarts the engine's cycle counter by a path no p6_reset took; the clock must follow it all the same.
+        cycles, _ = self.chord_run(set(range(3, 7)))
+        restarts = [unit for unit in range(2, 41) if cycles[unit] < cycles[unit - 1]]
+        self.assertEqual(len(restarts), 1, cycles)                     # the machine did start over, once
+
+    def test_the_callers_ticks_count_what_ran_before_a_keyboard_reset_restarted_the_counter(self):
+        cycles, ticks = self.chord_run(set(range(3, 7)))
+        restart = next(unit for unit in range(2, 41) if cycles[unit] < cycles[unit - 1])
+        boundaries = cycles[restart - 1] + cycles[40]                 # what the boundary readings alone account for
+        self.assertGreater(ticks, boundaries)                          # the chord's reset took effect 4 colour clocks into the unit
+        self.assertLess(ticks - boundaries, cycles[restart - 1] - cycles[restart - 2], "at most the part of one unit before the restart")
 
     def test_a_reload_reads_the_clock_like_a_clean_process(self):
         clean = self.execute()

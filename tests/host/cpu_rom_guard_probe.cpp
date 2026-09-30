@@ -35,6 +35,7 @@ int quit_program, in_m68k_go;
 bool cpu_hardreset, cpu_keyboardreset;
 int cpu_prefs_changed_flag;
 evt_t start_cycles;
+void (*p6_counter_restart_hook)(void);   // patch 0073: the reset head tells the bridge; the bridge is not part of this probe
 int input_play, input_record;
 struct cputracestruct cputrace{};
 evt_t currcycle;
