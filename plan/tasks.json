@@ -756,7 +756,7 @@
       "title": "Verificar callbacks ARM64 y paginas logicas/fisicas",
       "milestone": "M0",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T09b"
       ],
@@ -785,7 +785,7 @@
         "Preservacion x18/x28/TLS a traves de callback y restore; cuatro paginas logicas restauradas y protecciones incompatibles rechazadas; identidad runtime/guest registrada."
       ],
       "stop": "Sin runner real o sysroot valido queda blocked. No sustituir por cross-compile o mock ni posponer la incertidumbre hasta el final del proyecto.",
-      "evidence": null
+      "evidence": "reports/tasks/T09c.md"
     },
     {
       "id": "T09",

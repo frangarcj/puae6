@@ -267,6 +267,50 @@ def check_no_compiler_tls(path: str | Path, limit: int = 4) -> dict:
             "symbol_tables_checked": symbol_tables, "tls_sections": tls_sections}
 
 
+# Assertions the managed harness must report for the whole T09 runtime gate, per check.
+REQUIRED_ASSERTIONS = {
+    "WB01": ["constructor_cpp", "musl_tls_key", "heap_limits", "frame_oracle", "buffer_bounds",
+             "restore_same", "restore_new", "alternate_sandboxes", "invisible_poison"],
+    "WB13": ["abi_callback_registers", "abi_callback_reentrant", "abi_across_restore", "abi_new_sandbox"],
+    "WB14": ["page_first_write_group", "page_restore_clean_snapshot", "page_restore_rearm",
+             "page_write_bounds", "ram_group_restore", "damaged_loads_classified"],
+    "WB15": ["artifact_identity", "restore_fresh_process", "identity_mismatch_rejected"],
+}
+DAMAGED_IMAGES = ("wrong-machine", "bad-magic", "truncated", "mixed-rw-rx-group")
+LAYOUT_PROBES = DAMAGED_IMAGES + ("unaligned-layout",)
+
+
+def verify_smoke(result: dict, receipt: dict, damaged_dir: Path) -> dict:
+    """Require the whole T09 runtime coverage; a missing or failing part is never a PASS."""
+    if (result.get("status") != "PASS" or result.get("evidence") != "SMOKE_RUNTIME"
+            or result.get("amiga_emulation") is not False):
+        raise BuildError("el harness no informa un SMOKE_RUNTIME PASS sin emulacion Amiga")
+    reported = result.get("checks", {})
+    for check, names in REQUIRED_ASSERTIONS.items():
+        missing = [name for name in names if name not in reported.get(check, [])]
+        if missing:
+            raise BuildError(f"{check}: el harness no cubre {', '.join(missing)}")
+    if (result.get("guest_sha256") != receipt["guest"]["sha256"]
+            or result.get("runtime_sha256") != receipt["runtime_dylib"]["sha256"]):
+        raise BuildError("el harness ejecuto un guest o runtime distinto del recibo de build")
+    probes = {probe["kind"]: probe for probe in result.get("load_probes", [])}
+    if set(probes) != set(LAYOUT_PROBES):
+        raise BuildError(f"cargas dañadas sondeadas {sorted(probes)}, se esperaban {sorted(LAYOUT_PROBES)}")
+    if probes["mixed-rw-rx-group"]["outcome"] == "accepted":
+        raise BuildError("el runtime acepto un grupo de 16 KiB con RW dentro de RX")
+    build_gate = {}
+    for kind in DAMAGED_IMAGES:
+        try:
+            validate_elf(damaged_dir / f"{kind}.wbx")
+        except BuildError as error:
+            build_gate[kind] = str(error).split(": ", 1)[-1]
+        else:
+            raise BuildError(f"validate_elf acepta la imagen dañada {kind}")
+    return {"checks": sorted(REQUIRED_ASSERTIONS),
+            "runtime_outcomes": {kind: probe["outcome"] for kind, probe in probes.items()},
+            "build_gate_rejections": build_gate}
+
+
 def install_wrappers(sysroot: Path, clang: Path, lld: Path, musl_root: Path) -> tuple[Path, Path]:
     wrapper_dir = BUILD / "toolchain/bin"
     wrapper_dir.mkdir(parents=True, exist_ok=True)
@@ -490,8 +534,9 @@ def main() -> int:
                         help="hacer cargo fetch --locked para el target ARM64 antes del build")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
-    parser.add_argument("--snapshot-smoke", action="store_true",
-                        help="construir y ejecutar la puerta T09b1 real (fallos no se convierten en PASS)")
+    parser.add_argument("--smoke", "--snapshot-smoke", dest="smoke", action="store_true",
+                        help="construir y ejecutar toda la puerta T09 en Waterbox real (WB01, WB13-WB15) "
+                             "y exigir su cobertura completa; fallos no se convierten en PASS")
     args = parser.parse_args()
     try:
         if args.check_artifact:
@@ -499,8 +544,8 @@ def main() -> int:
             metadata["compiler_tls"] = check_no_compiler_tls(args.check_artifact)
             print(json.dumps(metadata, indent=2, sort_keys=True))
         else:
-            build(args)
-            if args.snapshot_smoke:
+            receipt = build(args)
+            if args.smoke:
                 managed = ROOT / "integration/bizhawk/smoke"
                 env = {**os.environ, "DOTNET_CLI_HOME": str(BUILD / "dotnet-home"),
                        "NUGET_PACKAGES": str(BUILD / "nuget"), "DOTNET_ROLL_FORWARD": "Major",
@@ -509,8 +554,13 @@ def main() -> int:
                 if not dotnet:
                     raise BuildError("Falta dotnet para el harness managed")
                 run_logged([dotnet, "build", "Smoke.csproj", "--nologo"], env, managed)
+                result_path = BUILD / "smoke-result.json"
                 run_logged([dotnet, str(BUILD / "managed/bin/Debug/net8.0/Smoke.dll"),
-                            str(BUILD / "receipt.json"), str(BUILD / "smoke-result.json")], env, managed)
+                            str(BUILD / "receipt.json"), str(result_path)], env, managed)
+                summary = verify_smoke(json.loads(result_path.read_text()), receipt, BUILD / "damaged")
+                print("SMOKE_RUNTIME PASS: WB01 WB13 WB14 WB15 (WB16 en el build). "
+                      "Runtime ante cargas dañadas: "
+                      + ", ".join(f"{k}={v}" for k, v in summary["runtime_outcomes"].items()))
     except (BuildError, OSError, KeyError, subprocess.CalledProcessError,
             json.JSONDecodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)

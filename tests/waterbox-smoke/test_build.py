@@ -75,6 +75,73 @@ class BuildElfTests(unittest.TestCase):
             self.assertIn("missing", (result.stdout + result.stderr).lower())
 
 
+class SmokeCoverageTests(unittest.TestCase):
+    """--smoke must require the whole T09 coverage, never accept a partial harness."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.damaged = Path(self.directory.name)
+        good = elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)])
+        for kind, data in {
+            "wrong-machine": elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)], machine=62),
+            "bad-magic": b"\0" + bytes(good[1:]),
+            "truncated": bytes(good[:100]),
+            "mixed-rw-rx-group": elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5),
+                                        (0x8000, 0x4000, 0x4000, 0x4000, 6)]),
+        }.items():
+            (self.damaged / f"{kind}.wbx").write_bytes(bytes(data))
+        self.receipt = {"guest": {"sha256": "a" * 64}, "runtime_dylib": {"sha256": "b" * 64}}
+        self.result = {
+            "status": "PASS", "evidence": "SMOKE_RUNTIME", "amiga_emulation": False,
+            "guest_sha256": "a" * 64, "runtime_sha256": "b" * 64,
+            "checks": {check: list(names) for check, names in build_waterbox.REQUIRED_ASSERTIONS.items()},
+            "load_probes": [{"kind": kind, "outcome": "rejected"} for kind in build_waterbox.LAYOUT_PROBES],
+        }
+
+    def verify(self):
+        return build_waterbox.verify_smoke(self.result, self.receipt, self.damaged)
+
+    def test_accepts_complete_coverage_and_reports_build_gate_reasons(self):
+        summary = self.verify()
+        self.assertEqual(["WB01", "WB13", "WB14", "WB15"], summary["checks"])
+        self.assertEqual(set(build_waterbox.DAMAGED_IMAGES), set(summary["build_gate_rejections"]))
+
+    def test_rejects_missing_assertions_and_wrong_artifacts(self):
+        self.result["checks"]["WB13"].remove("abi_callback_reentrant")
+        with self.assertRaisesRegex(build_waterbox.BuildError, "WB13.*abi_callback_reentrant"):
+            self.verify()
+        self.setUp()
+        del self.result["checks"]["WB14"]
+        with self.assertRaisesRegex(build_waterbox.BuildError, "WB14"):
+            self.verify()
+        self.setUp()
+        self.result["guest_sha256"] = "c" * 64
+        with self.assertRaisesRegex(build_waterbox.BuildError, "distinto del recibo"):
+            self.verify()
+        self.setUp()
+        self.result["status"] = "FAIL"
+        with self.assertRaises(build_waterbox.BuildError):
+            self.verify()
+
+    def test_never_accepts_a_mixed_group_and_needs_the_build_gate_to_reject_damage(self):
+        for probe in self.result["load_probes"]:
+            if probe["kind"] == "mixed-rw-rx-group":
+                probe["outcome"] = "accepted"
+        with self.assertRaisesRegex(build_waterbox.BuildError, "RW dentro de RX"):
+            self.verify()
+        self.setUp()
+        (self.damaged / "wrong-machine.wbx").write_bytes(bytes(elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)])))
+        with self.assertRaisesRegex(build_waterbox.BuildError, "acepta la imagen dañada wrong-machine"):
+            self.verify()
+
+    def test_runtime_aborting_on_a_mixed_group_is_fail_closed_and_recorded(self):
+        for probe in self.result["load_probes"]:
+            if probe["kind"] == "mixed-rw-rx-group":
+                probe["outcome"] = "aborted"
+        self.assertEqual("aborted", self.verify()["runtime_outcomes"]["mixed-rw-rx-group"])
+
+
 def lint_elf(code=(0xD503201F,), phdr_types=(), tls_section=False, tls_symbol=False):
     """ELF64 with one R+X PT_LOAD holding `code`, optional extra program headers and sections."""
     text = b"".join(struct.pack("<I", word) for word in code)

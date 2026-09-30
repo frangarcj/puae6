@@ -44,6 +44,14 @@ internal sealed class Native : IDisposable
     internal delegate void Save(nuint host, Write write, nuint user, out Result result);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void Load(nuint host, Read read, nuint user, out Result result);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate nuint HostCallback(nuint a, nuint b, nuint c, nuint d, nuint e, nuint f);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void CallbackAddr(nuint host, nint callback, nuint slot, out Result result);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void PageLen(nuint host, out Result result);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void PageData(nuint host, nuint index, out Result result);
 
     readonly nint library;
     internal readonly Create CreateHost;
@@ -51,6 +59,9 @@ internal sealed class Native : IDisposable
     internal readonly Proc GetProc;
     internal readonly Save SaveState;
     internal readonly Load LoadState;
+    internal readonly CallbackAddr GetCallback;
+    internal readonly PageLen GetPageLen;
+    internal readonly PageData GetPageData;
     T Bind<T>(string name) where T : Delegate =>
         Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(library, name));
     internal Native(string absolutePath)
@@ -65,6 +76,9 @@ internal sealed class Native : IDisposable
         GetProc = Bind<Proc>("wbx_get_proc_addr");
         SaveState = Bind<Save>("wbx_save_state");
         LoadState = Bind<Load>("wbx_load_state");
+        GetCallback = Bind<CallbackAddr>("wbx_get_callback_addr");
+        GetPageLen = Bind<PageLen>("wbx_get_page_len");
+        GetPageData = Bind<PageData>("wbx_get_page_data");
     }
     public void Dispose() => NativeLibrary.Free(library);
 }
@@ -102,6 +116,22 @@ internal sealed unsafe class Sandbox : IDisposable
     {
         try { return stream.Read(new Span<byte>((void*)data, checked((int)size))); }
         catch { return -1; } // No managed exception crosses the native ABI.
+    }
+    internal delegate int Identity(nint output, nuint capacity);
+    internal delegate int AbiProbe(nint callback, nint output, nuint capacity);
+    internal delegate int Touch(ulong which, ulong page, ulong offset, ulong value);
+    internal delegate int Fill(ulong which, ulong seed);
+    /// Guest-callable thunk for a managed callback. Keep `callback` alive while the guest can call it.
+    internal nint Callback(Native.HostCallback callback, int slot)
+    {
+        api.GetCallback(host, Marshal.GetFunctionPointerForDelegate(callback), (nuint)slot, out var result);
+        return (nint)result.Checked();
+    }
+    internal int PageCount { get { api.GetPageLen(host, out var result); return (int)result.Checked(); } }
+    internal byte PageInfo(int index)
+    {
+        api.GetPageData(host, (nuint)index, out var result);
+        return (byte)(result.Checked() & 0xff); // Return<u8>: only the low byte is defined.
     }
     internal T Guest<T>(string name) where T : Delegate
     {
