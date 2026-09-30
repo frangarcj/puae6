@@ -8230,7 +8230,7 @@
       "title": "Implementar el adaptador libretro minimo",
       "milestone": "M1",
       "required": true,
-      "status": "blocked",
+      "status": "done",
       "depends": [
         "T13",
         "T16a"
@@ -8245,11 +8245,12 @@
         "adapters/libretro/**",
         "cmake/Libretro.cmake",
         "tests/libretro-host/**",
-        "CMakeLists.txt"
+        "CMakeLists.txt",
+        "reports/**"
       ],
       "steps": [
-        "Ejecutar el core con un frontend libretro real (RetroArch u otro de uso general) y el fixture A500: carga, descarga, un video y un poll por run, audio a la cadencia del modo y serialize_size=0; lo que T16a prueba con el frontend de referencia, ahora con el real.",
-        "Division: T16a (hecha) implementa el adaptador y lo prueba con tests/libretro-host; T16 conserva la puerta de la ficha original. Sin un frontend real instalado queda blocked: no se instala software global sin autorizacion del usuario (reports/tasks/T16.md)."
+        "Ejecutar el core con un frontend libretro real y el fixture A500: carga, descarga, un video y un poll por run, audio a la cadencia del modo y serialize_size=0; lo que T16a prueba con el frontend de referencia, ahora con el real.",
+        "Division: T16a implementa el adaptador y lo prueba con tests/libretro-host. El frontend real es RetroArch 1.18.0 para Linux en un contenedor Docker (tests/libretro-host/docker), con video y audio nulos: RetroArch de macOS solo avanza con su ventana en primer plano (reports/tasks/T16.md), asi que no sirve para una prueba desatendida. El mismo codigo se compila para Linux arm64 en build/linux/arm64."
       ],
       "checks": [
         "LR01",
