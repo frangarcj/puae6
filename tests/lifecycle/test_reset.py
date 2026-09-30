@@ -98,15 +98,12 @@ class ResetTests(unittest.TestCase):
     def test_resets_in_consecutive_units_restart_the_machine_each_time(self):
         run = self.execute([line()] * 10, 10, [5, 6])
         self.assertEqual(run.keyboard(5, 5), POWER_UP)
-        self.assertEqual(run.cycles[5], run.cycles[6])                # both units are the first frame after a reset
+        self.assertEqual(run.keyboard(6, 6), POWER_UP)                # the second reset powers the keyboard up again
+        self.assertEqual(run.keyboard(7, 10), [])
+        self.assertEqual(run.logged[6], run.logged[5])                # both units are the same first frame of a new machine
+        self.assertEqual(run.cycles[5], run.cycles[6])
+        self.assertEqual(run.pc[5], run.pc[6])
         self.assertEqual(run.ticks, run.cycles[4] + run.cycles[5] + run.cycles[6] + (run.cycles[10] - run.cycles[6]))
-
-    @unittest.expectedFailure
-    def test_the_keyboard_powers_up_again_after_a_reset_in_the_unit_after_a_reset(self):
-        # OPEN (T13b): with p6_reset in two consecutive units the guest runs nothing in the second unit and the keyboard never
-        # sends its power-up stream again (reproducer: P6_RESET_AT=5,6, all seeds); with one unit between them it does.
-        run = self.execute([line()] * 10, 10, [5, 6])
-        self.assertEqual(run.keyboard(6, 8), POWER_UP)
 
     def test_two_processes_replay_a_reset_exactly_and_the_seed_matters(self):
         script = [line(keys=[KEY_Q] if u >= 3 else []) for u in range(1, 16)]

@@ -33,6 +33,7 @@ int p6_unit_skip;
 namespace {
 std::vector<p6_input> script;   // P6_INPUT_SCRIPT: one packet per unit
 std::set<int> reset_at;            // P6_RESET_AT: comma separated 1-based units that start with p6_reset
+bool log_restarts;                 // set when the probe reset the machine: the next boundary's log window starts at $1000
 bool observer_applies_input;    // continuous mode: the packet of the next unit is applied at the boundary
 int script_units;
 }  // namespace
@@ -115,8 +116,10 @@ extern "C++" void p6_unit_observe(void)
     r.a0 = regs.regs[8];
     if (getenv("P6_DUMP_LOG")) {
         static uint32_t previous = 0x1000;
-        // A guest that restarts its log (after a reset) starts again at $1000.
-        uint32_t from = r.a0 >= previous ? previous : 0x1000;
+        // A guest that restarts its log (after a reset) starts again at $1000. The end pointer alone cannot say so when two
+        // consecutive units are both the first frame after a reset (they end at the same pointer), so the caller says it.
+        uint32_t from = r.a0 >= previous && !log_restarts ? previous : 0x1000;
+        log_restarts = false;
         for (uint32_t a = from; a + 1 < r.a0 && a < 0x1000 + 2 * 4096; a += 2)
             r.logged.push_back(uint16_t((chipmem_bank.baseaddr[a] << 8) | chipmem_bank.baseaddr[a + 1]));
         previous = r.a0;
@@ -337,7 +340,10 @@ int main(int argc, char **argv)
             const p6_input input = input_for(unit);
             uint32_t render = base_render;
             if (pattern && *pattern && pattern[(unit - 1) % strlen(pattern)] == '0') render &= ~P6_RENDER_AUDIO;
-            if (reset_at.count(unit)) check(p6_reset(&error), "p6_reset");   // P6_RESET_AT: a hard reset starts this unit
+            if (reset_at.count(unit)) {   // P6_RESET_AT: a hard reset starts this unit, and so does the guest's log
+                check(p6_reset(&error), "p6_reset");
+                log_restarts = unit > 1;   // before the first frame the power-on reset is still pending: nothing restarts
+            }
             check(p6_run_frame(&input, render, &frame, &error), "p6_run_frame");
             if (getenv("P6_DEBUG_UNITS")) fprintf(stderr, "dbg unit %d cycles=%lld vpos=%d hpos=%d ticks=%llu\n", unit, (long long)get_cycles(), vpos, agnus_hpos, (unsigned long long)frame.master_ticks);
             if (frame.unit_index != uint64_t(unit) || frame.master_ticks <= last_ticks) return 4;
