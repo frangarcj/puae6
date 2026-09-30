@@ -49,7 +49,8 @@
     "WB12",
     "WB13",
     "WB14",
-    "WB15"
+    "WB15",
+    "WB16"
   ],
   "tasks": [
     {
@@ -628,13 +629,92 @@
       "evidence": "reports/tasks/T09a.md"
     },
     {
+      "id": "T09b1",
+      "title": "Probar mini-core C++ y snapshots desde harness managed sin TLS de compilador",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T09a"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "plan/upstream.lock.json",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-compiler-tls.md"
+      ],
+      "touch": [
+        "tests/waterbox-smoke/**",
+        "integration/bizhawk/smoke/**",
+        "tools/build_waterbox.py"
+      ],
+      "steps": [
+        "Sustituir el thread_local del smoke por pthread_key (TLS de musl via x28) y retirar -femulated-tls/emutls del build por defecto; el oraculo del contador thread-specific se sigue comprobando tras snapshot, restore y sandbox nuevo.",
+        "Ejecutar init, seal, avanzar, snapshot, continuar, restaurar y repetir DENTRO de Waterbox; repetir en sandbox nuevo.",
+        "Probar layout, C++ usado, canarios y lifetime de buffers host; registrar heaps y fallo controlado por capacidad.",
+        "Etiquetar resultados SMOKE_RUNTIME: aun no prueban Amiga. Si T07 elige corutina, ampliar esta prueba antes de integrar esa solucion.",
+        "Division de T09b: T09b1 conserva la ejecucion real y sus checks; el invariante TLS pasa a T09b2 y la puerta original se cierra en T09b."
+      ],
+      "checks": [
+        "WB01",
+        "WB15"
+      ],
+      "acceptance": [
+        "Harness managed carga dylib y guest nuevos por rutas/hashes explicitos, comprueba avance/restauracion en nueva instancia/alternancia, buffers y limite controlado; retorna no cero ante mismatch.",
+        "El guest no usa TLS del compilador: el contador thread-specific pasa por pthread_key y sobrevive a snapshot/restore y a un sandbox nuevo."
+      ],
+      "stop": "Sin runner real o sysroot valido queda blocked. No sustituir por cross-compile o mock ni posponer la incertidumbre hasta el final del proyecto."
+    },
+    {
+      "id": "T09b2",
+      "title": "Fijar el invariante sin TLS de compilador en el guest con lint del ELF final",
+      "milestone": "M0",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T09b1"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "plan/upstream.lock.json",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-compiler-tls.md"
+      ],
+      "touch": [
+        "tools/build_waterbox.py",
+        "tests/waterbox-smoke/**",
+        "docs/adr/waterbox-compiler-tls.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "steps": [
+        "Reescribir docs/adr/waterbox-compiler-tls.md como invariante: XNU sobrescribe TPIDR_EL0 en cada cambio de contexto, asi que ningun TLS local-exec del compilador puede funcionar en Darwin ARM64; emutls queda como fallback documentado, no enlazado.",
+        "WB16: validar el ELF final del guest y fallar ante PT_TLS, .tdata/.tbss, simbolos STT_TLS o accesos mrs/msr a TPIDR_EL0/TPIDRRO_EL0 en segmentos ejecutables.",
+        "Conservar el caso directo fallido: tests/waterbox-smoke/tls-negative con thread_local, construido (no ejecutado) por la receta y rechazado por el lint. Registrar que libc++abi trae TLS solo en cxa_thread_atexit.",
+        "Definir WB16 en docs/07-machawk.md, corregir docs/04-validation.md y aclarar que el TLS de WB13 es el de musl via x28."
+      ],
+      "checks": [
+        "WB16",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "El guest smoke pasa el lint WB16 y el caso tls-negative se construye y es rechazado; un ELF sintetico con PT_TLS o mrs TPIDR_EL0 tambien.",
+        "El ADR declara el invariante con su evidencia y la hipotesis del flag LTO queda registrada sin dar por valida la ruta emutls."
+      ],
+      "stop": "Sin runner real o sysroot valido queda blocked. No sustituir por cross-compile o mock ni posponer la incertidumbre hasta el final del proyecto."
+    },
+    {
       "id": "T09b",
       "title": "Probar mini-core C++ y snapshots desde harness managed",
       "milestone": "M0",
       "required": true,
-      "status": "blocked",
+      "status": "pending",
       "depends": [
-        "T09a"
+        "T09a",
+        "T09b1",
+        "T09b2"
       ],
       "read": [
         "docs/03-waterbox.md",
@@ -656,14 +736,17 @@
         "Ejecutar init, seal, avanzar, snapshot, continuar, restaurar y repetir DENTRO de Waterbox; repetir en sandbox nuevo.",
         "Probar layout, C++ usado, canarios y lifetime de buffers host; registrar heaps y fallo controlado por capacidad.",
         "Etiquetar resultados SMOKE_RUNTIME: aun no prueban Amiga. Si T07 elige corutina, ampliar esta prueba antes de integrar esa solucion.",
-        "Ampliacion explicita por fallo ABI reproducido: capturar compiler-rt emutls LLVM 18.1.8 y decision de TLS C++ mediante musl x28; conservar el caso directo fallido sin eliminar thread_local del smoke."
+        "Ampliacion explicita por fallo ABI reproducido: capturar compiler-rt emutls LLVM 18.1.8. Superada por T09b2: la decision de TLS es el invariante sin TLS de compilador (WB16) y emutls queda fijado solo como fallback no enlazado.",
+        "Division tras el bloqueo TLS: T09b1 ejecuta el smoke sin thread_local, T09b2 fija el invariante y el lint. T09b es el cierre y conserva la puerta original mas WB16."
       ],
       "checks": [
         "WB01",
-        "WB15"
+        "WB15",
+        "WB16"
       ],
       "acceptance": [
-        "Harness managed carga dylib y guest nuevos por rutas/hashes explicitos, comprueba avance/restauracion en nueva instancia/alternancia, buffers y limite controlado; retorna no cero ante mismatch."
+        "Harness managed carga dylib y guest nuevos por rutas/hashes explicitos, comprueba avance/restauracion en nueva instancia/alternancia, buffers y limite controlado; retorna no cero ante mismatch.",
+        "T09b1 y T09b2 terminadas; el bloqueo de reports/tasks/T09b.md queda resuelto con su hallazgo registrado."
       ],
       "stop": "Sin runner real o sysroot valido queda blocked. No sustituir por cross-compile o mock ni posponer la incertidumbre hasta el final del proyecto.",
       "evidence": "reports/tasks/T09b.md"
@@ -735,7 +818,8 @@
         "WB01",
         "WB13",
         "WB14",
-        "WB15"
+        "WB15",
+        "WB16"
       ],
       "acceptance": [
         "Logs identifican el runner y runtime reales; restore en una nueva instancia reproduce el contador/RAM sin punteros host obsoletos.",
