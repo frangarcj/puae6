@@ -8126,7 +8126,7 @@
       "title": "Igualdad de 10000 fronteras con headless y libretro, render/audio off y canarios en puae6.wbx",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T19b",
         "T19c1",
@@ -8171,7 +8171,7 @@
       "title": "Arrancar WinUAE6 real dentro de Waterbox MacHawk ARM64",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T09",
         "T13",
