@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "purpose": "HOST01 for puae6.wbx: what the objects of the engine, the portable host port, the bridge and the guest adapter import from libc and from the C++ runtime. The deterministic profile has no clock, file, process, thread, network or dynamic loading, so none of those may appear; tools/build_waterbox.py audit_imports fails the build on any name outside this list. Measured with llvm-nm on the 55 objects of the first link: 37 names.",
+  "libc": {
+    "memory": ["malloc", "calloc", "realloc", "free", "memcpy", "memmove", "memset", "bcmp"],
+    "string": ["strlen", "strcmp", "strncmp", "strcpy", "strncpy", "strcat", "strchr", "strrchr", "strstr", "strcspn", "wcslen"],
+    "format": ["snprintf", "vsnprintf"],
+    "math": ["sinf", "cosf", "powf"],
+    "process": ["abort", "__assert_fail"],
+    "errno": ["__errno_location"]
+  },
+  "cxx_runtime": {
+    "allocation": ["_Znwm", "_ZdlPvm"],
+    "exceptions": ["__cxa_allocate_exception", "__cxa_throw", "__cxa_begin_catch", "__cxa_end_catch", "__gxx_personality_v0", "_Unwind_Resume", "_ZSt9terminatev"],
+    "rtti": ["_ZTVN10__cxxabiv117__class_type_infoE"]
+  },
+  "notes": {
+    "exceptions": "Only build/upstream/newcpu.cpp throws and catches (the 68000 core models its exceptions with C++ exceptions). Unwinding inside Waterbox has to be shown to work by a guest that takes one: T19b/T19c.",
+    "math": "sinf, cosf and powf are Paula's filter math (audio_math.cpp). Their results come from the musl and compiler-rt of the pinned sysroot, not from the host libm; T19c compares the PCM with headless."
+  },
+  "forbidden": ["time", "clock", "clock_gettime", "gettimeofday", "localtime", "mktime", "sleep", "usleep", "nanosleep", "sched_yield",
+                "fopen", "freopen", "open", "openat", "read", "write", "fread", "fwrite", "popen", "system", "fork", "execve", "getenv", "setenv",
+                "pthread_create", "pthread_mutex_lock", "socket", "connect", "bind", "dlopen", "dlsym", "getpid", "rand", "srand", "random"]
+}

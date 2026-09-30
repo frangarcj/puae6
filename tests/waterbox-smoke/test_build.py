@@ -148,6 +148,55 @@ class SmokeCoverageTests(unittest.TestCase):
         self.assertEqual("aborted", self.verify()["runtime_outcomes"]["mixed-rw-rx-group"])
 
 
+class Puae6RecipeTests(unittest.TestCase):
+    """T19a: what goes into puae6.wbx and how it is built."""
+
+    def test_the_source_list_is_the_one_of_the_native_build(self):
+        sources = build_waterbox.puae6_sources()
+        import json
+        selection = json.loads((ROOT / "manifests/source-manifest.json").read_text())["selection"]
+        self.assertTrue(set(f"build/upstream/{u}" for u in selection["upstream_units"]) <= set(sources))
+        self.assertTrue(set(f"build/generated/{u}" for u in selection["generated_units"]) <= set(sources))
+        self.assertTrue(set(build_waterbox.cmake_sources("p6_portable")) <= set(sources))
+        self.assertTrue(set(build_waterbox.cmake_sources("p6_bridge")) <= set(sources))
+        self.assertEqual("adapters/waterbox/puae6_guest.cpp", sources[-1])
+        self.assertFalse([source for source in sources if "libretro" in source], "the libretro adapter is never linked into the guest")
+        self.assertEqual(len(sources), len(set(sources)))
+
+    def test_the_makefile_uses_the_pinned_macHawk_recipe_and_adds_no_linker_script_or_target_flags_of_its_own(self):
+        text = "\n".join(line for line in (ROOT / "ports/waterbox/Makefile").read_text().splitlines() if not line.lstrip().startswith("#"))
+        self.assertIn("include $(REPO)/references/machawk/waterbox/common.mak", text)
+        self.assertRegex(text, r"(?m)^WBX_TARGET_ARCH := aarch64$")
+        self.assertRegex(text, r"(?m)^WBX_HOST_PAGE_SIZE := 16384$")
+        for forbidden in ("LINKSCRIPT", "TARGET_FLAGS", "-ffixed", "-T "):
+            self.assertNotIn(forbidden, text, "the register reservation, the page size and the linker script come from common.mak")
+        self.assertIn("-ffp-contract=off", text)       # as the native build: no fused multiply-add reaches Paula's filter
+
+    def test_the_import_inventory_authorizes_no_host_facing_name(self):
+        allowed = build_waterbox.allowed_imports()
+        self.assertTrue({"malloc", "memcpy", "snprintf", "sinf", "abort", "_Znwm", "__cxa_throw"} <= allowed)
+        for name in ("clock_gettime", "time", "fopen", "open", "pthread_create", "socket", "dlopen", "usleep", "getenv", "rand"):
+            self.assertNotIn(name, allowed)
+
+    def test_classify_imports_reports_what_is_not_authorized(self):
+        allowed = {"malloc", "memcpy"}
+        report = build_waterbox.classify_imports({"malloc", "clock_gettime", "p6_load"}, {"p6_load"}, allowed)
+        self.assertEqual(["clock_gettime", "malloc"], report["imports"])       # p6_load is defined by our own objects
+        self.assertEqual(["clock_gettime"], report["unexpected"])
+        self.assertEqual(["memcpy"], report["unused_allowances"])
+
+    @unittest.skipUnless((ROOT / "build/waterbox/puae6/puae6-receipt.json").is_file(), "puae6.wbx has not been built (tools/build_waterbox.py --puae6)")
+    def test_the_built_guest_passes_the_contract_checks_and_imports_only_what_is_authorized(self):
+        import json
+        receipt = json.loads((ROOT / "build/waterbox/puae6/puae6-receipt.json").read_text())
+        guest = ROOT / "build/waterbox/puae6/release/puae6.wbx"
+        self.assertEqual(receipt["guest"]["sha256"], build_waterbox.sha256(guest))
+        self.assertEqual("PASS", build_waterbox.check_no_compiler_tls(guest)["wb16"])
+        self.assertEqual("EM_AARCH64", build_waterbox.validate_elf(guest)["machine"])
+        self.assertEqual([], receipt["imports"]["unexpected"])
+        self.assertEqual(set(build_waterbox.puae6_sources()), set(receipt["sources"]))
+
+
 def lint_elf(code=(0xD503201F,), phdr_types=(), tls_section=False, tls_symbol=False):
     """ELF64 with one R+X PT_LOAD holding `code`, optional extra program headers and sections."""
     text = b"".join(struct.pack("<I", word) for word in code)

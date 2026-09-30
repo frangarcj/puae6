@@ -7970,7 +7970,7 @@
       "title": "Compilar y enlazar puae6.wbx AArch64 con el contrato MacHawk",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T09",
         "T13",

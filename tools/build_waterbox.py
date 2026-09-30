@@ -376,7 +376,8 @@ def run_logged(command: list[str], env: dict[str, str], cwd: Path,
     return result.stdout
 
 
-def build(args: argparse.Namespace) -> dict:
+def toolchain() -> dict:
+    """The pinned toolchain, the verified sysroot and the musl wrappers: what every WBX guest of this project is built with."""
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise BuildError("Este perfil requiere runner real Darwin ARM64")
     import import_sources
@@ -422,6 +423,20 @@ def build(args: argparse.Namespace) -> dict:
         "CARGO_HOME": str(BUILD / "cargo-home"),
         "CARGO_TARGET_DIR": str(BUILD / "cargo"),
     })
+    return {"lock": lock, "paths": paths, "versions": versions, "machawk": machawk, "musl": musl,
+            "machawk_manifest": machawk_manifest, "source_manifest_hashes": source_manifest_hashes,
+            "sysroot_copy": sysroot_copy, "sysroot_inventory": sysroot_inventory, "musl_root": musl_root,
+            "cc_wrapper": cc_wrapper, "ld_wrapper": ld_wrapper, "runtime_copy": runtime_copy,
+            "runtime_inventory": runtime_inventory, "env": env}
+
+
+def build(args: argparse.Namespace) -> dict:
+    tc = toolchain()
+    lock, paths, versions, machawk, musl = tc["lock"], tc["paths"], tc["versions"], tc["machawk"], tc["musl"]
+    machawk_manifest, source_manifest_hashes = tc["machawk_manifest"], tc["source_manifest_hashes"]
+    sysroot_copy, sysroot_inventory, musl_root = tc["sysroot_copy"], tc["sysroot_inventory"], tc["musl_root"]
+    cc_wrapper, ld_wrapper, runtime_copy, runtime_inventory, env = (
+        tc["cc_wrapper"], tc["ld_wrapper"], tc["runtime_copy"], tc["runtime_inventory"], tc["env"])
     BUILD.mkdir(parents=True, exist_ok=True)
 
     if args.fetch:
@@ -531,10 +546,100 @@ def build(args: argparse.Namespace) -> dict:
     return receipt
 
 
+IMPORTS = ROOT / "ports/waterbox/imports.json"
+
+
+def allowed_imports() -> set[str]:
+    inventory = json.loads(IMPORTS.read_text())
+    allowed = {name for group in (inventory["libc"], inventory["cxx_runtime"]) for names in group.values() for name in names}
+    overlap = allowed & set(inventory["forbidden"])
+    if overlap:
+        raise BuildError(f"imports.json autoriza nombres prohibidos: {sorted(overlap)}")
+    return allowed
+
+
+def classify_imports(undefined: set[str], defined: set[str], allowed: set[str]) -> dict:
+    """What our objects ask the libc and the C++ runtime for: everything they reference and do not define themselves."""
+    imports = undefined - defined
+    return {"imports": sorted(imports), "unexpected": sorted(imports - allowed), "unused_allowances": sorted(allowed - imports)}
+
+
+def audit_imports(tc: dict, objects: list[Path]) -> dict:
+    """HOST01 for the guest: the libc names its objects import are exactly the authorized ones."""
+    nm = tc["paths"]["clang"].parent / "llvm-nm"
+    if not nm.is_file():
+        raise BuildError(f"falta llvm-nm junto a clang: {nm}")
+    def symbols(flag: str, columns: int) -> set[str]:
+        result = subprocess.run([str(nm), flag, "--no-weak", *map(str, objects)], check=True, text=True, stdout=subprocess.PIPE)
+        return {line.split()[-1] for line in result.stdout.splitlines() if len(line.split()) == columns and not line.endswith(":")}
+    report = classify_imports(symbols("--undefined-only", 2), symbols("--defined-only", 3), allowed_imports())
+    if report["unexpected"]:
+        raise BuildError(f"HOST01: puae6.wbx importa nombres no autorizados por ports/waterbox/imports.json: {report['unexpected']}")
+    return report
+
+
+PUAE6_GUEST = "puae6.wbx"
+
+
+def cmake_sources(target: str) -> list[str]:
+    """The source files of a static library of CMakeLists.txt: the native build stays the single list of what is compiled."""
+    text = (ROOT / "CMakeLists.txt").read_text()
+    match = re.search(r"add_library\(%s\s+STATIC\s+(.*?)\)" % re.escape(target), text, re.S)
+    if not match:
+        raise BuildError(f"CMakeLists.txt no define la biblioteca {target}")
+    return [token for token in match.group(1).split() if token.endswith((".c", ".cpp"))]
+
+
+def puae6_sources() -> list[str]:
+    """Everything that is linked into puae6.wbx, relative to the repository: engine, generated, portable host port, bridge, adapter."""
+    selection = json.loads((ROOT / "manifests/source-manifest.json").read_text())["selection"]
+    sources = ([f"build/upstream/{unit}" for unit in selection["upstream_units"]]
+               + [f"build/generated/{unit}" for unit in selection["generated_units"]]
+               + cmake_sources("p6_portable") + cmake_sources("p6_bridge") + ["adapters/waterbox/puae6_guest.cpp"])
+    if len(sources) != len(set(sources)):
+        raise BuildError("fuentes duplicadas en la lista de puae6.wbx")
+    missing = [source for source in sources if not (ROOT / source).is_file()]
+    if missing:
+        raise BuildError(f"faltan fuentes (materializar y generar primero): {missing[:5]}")
+    return sources
+
+
+def build_puae6(tc: dict, jobs: int) -> dict:
+    """Compile and link puae6.wbx with the pinned recipe and check the result; it does not run a machine."""
+    out = BUILD / "puae6"
+    out.mkdir(parents=True, exist_ok=True)
+    sources = puae6_sources()
+    sources_mk = out / "sources.mk"
+    sources_mk.write_text("SRCS := " + " \\\n  ".join(sources) + "\n")
+    command = [str(tc["paths"]["make"]), "-C", str(ROOT), "-f", "ports/waterbox/Makefile", f"-j{jobs}", "release",
+               f"REPO={ROOT}", f"ROOT_DIR={ROOT}", f"OUT_DIR={out}", f"SOURCES_MK={sources_mk}", f"SYSROOT={tc['sysroot_copy']}",
+               f"CC={tc['cc_wrapper']}", f"CXX={tc['cc_wrapper']}", "WBX_TARGET_ARCH=aarch64", f"WBX_HOST_PAGE_SIZE={PAGE_SIZE}",
+               "CCFLAGS_RELEASE=-O2", "CXXFLAGS_RELEASE=-O2"]
+    log = out / "build.log"
+    result = subprocess.run(command, cwd=ROOT, env=tc["env"], text=True, stdout=log.open("w"), stderr=subprocess.STDOUT)
+    if result.returncode:
+        raise BuildError(f"la receta de puae6.wbx fallo ({result.returncode}); ultimas lineas de {log}:\n" + "\n".join(log.read_text().splitlines()[-25:]))
+    guest = out / "release" / PUAE6_GUEST
+    metadata = validate_elf(guest, PAGE_SIZE)
+    metadata["compiler_tls"] = check_no_compiler_tls(guest)
+    imports = audit_imports(tc, [out / "release" / f"{source}.o" for source in sources])
+    receipt = {"schema_version": 1, "status": "BUILD01_PASS_GUEST_NOT_EXECUTED", "guest": metadata, "imports": imports,
+               "sources": {source: sha256(ROOT / source) for source in sources},
+               "recipe": {"makefile": sha256(ROOT / "ports/waterbox/Makefile"), "common_mak": sha256(ROOT / "references/machawk/waterbox/common.mak"),
+                          "linkscript_aarch64": sha256(ROOT / "references/machawk/waterbox/linkscript_aarch64.T"), "build_recipe": sha256(Path(__file__))},
+               "tool_versions": tc["versions"], "flags": {"optimization": "-O2", "target": "aarch64", "host_page_size": PAGE_SIZE}}
+    (out / "puae6-receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+    print(f"PUAE6 BUILD PASS: {guest} ({metadata['size']} bytes, sha256 {metadata['sha256'][:16]}...)")
+    return receipt
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fetch", action="store_true",
                         help="hacer cargo fetch --locked para el target ARM64 antes del build")
+    parser.add_argument("--puae6", action="store_true",
+                        help="compilar y enlazar puae6.wbx (T19a) con la receta fijada; no ejecuta ninguna maquina")
+    parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4, help="trabajos paralelos de make para --puae6")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
     parser.add_argument("--smoke", "--snapshot-smoke", dest="smoke", action="store_true",
@@ -546,6 +651,8 @@ def main() -> int:
             metadata = validate_elf(args.check_artifact)
             metadata["compiler_tls"] = check_no_compiler_tls(args.check_artifact)
             print(json.dumps(metadata, indent=2, sort_keys=True))
+        elif args.puae6:
+            build_puae6(toolchain(), args.jobs)
         else:
             receipt = build(args)
             if args.smoke:
