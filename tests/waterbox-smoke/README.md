@@ -15,16 +15,20 @@ en `build/waterbox/`. La referencia MacHawk se lee, nunca se compila en ella.
 Si faltan dependencias Cargo, `--fetch` permite descargar exclusivamente las del
 Cargo.lock capturado a esa cache local; el build posterior sigue siendo offline.
 
-El guest usa constructor global, asignacion C++, TLS y heaps plain/sealed/invisible.
-En T09a son entradas compiladas: todavia no se certifica su ejecucion ni snapshot.
+El guest usa constructor global, asignacion C++, datos por hilo con pthread_key
+(el TLS de musl, que llega al hilo del sandbox por x28) y heaps
+plain/sealed/invisible. No usa TLS del compilador (`thread_local`): XNU
+sobrescribe TPIDR_EL0 en cada cambio de contexto, ver
+`docs/adr/waterbox-compiler-tls.md`.
 Los tests Rust habilitados en ARM64 no incluyen toda la suite de snapshots x86.
-T09b ejecutara el mini-core desde .NET y restaurara en una instancia nueva;
+T09b1 ejecuta el mini-core desde .NET y restaura en una instancia nueva;
 T09c cubrira callbacks/registros, protecciones y paginas logicas/fisicas.
 
-El harness de T09b se construye/ejecuta con
+El harness de T09b1 se construye/ejecuta con
 `python3 tools/build_waterbox.py --snapshot-smoke`: net8.0, SDK10 fijado y
-RollForward=Major. Actualmente falla en el lowering TLS del ELF LTO; ver
-`reports/tasks/T09b.md`. No interpretar la existencia del harness como PASS.
+RollForward=Major. Escribe `build/waterbox/smoke-result.json` con el guest y la
+dylib realmente cargados. Es evidencia SMOKE_RUNTIME: prueba el runtime
+Waterbox, no Amiga.
 
 El sysroot es una cache binaria local fijada por inventario, no una reconstruccion
 de libc/libc++ desde fuentes. Su musl Darwin procede de `22440a4` con siete

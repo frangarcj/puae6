@@ -276,7 +276,6 @@ def build(args: argparse.Namespace) -> dict:
 
     machawk, _ = source_spec("machawk")
     musl, _ = source_spec(lock["sysroot"]["associated_source"])
-    emutls, _ = source_spec("compiler_rt_emutls")
     machawk_manifest = ROOT / machawk["snapshot"]["manifest"]
     source_manifest_hashes = {
         "machawk": sha256(machawk_manifest),
@@ -360,7 +359,6 @@ def build(args: argparse.Namespace) -> dict:
         "build_recipe": sha256(Path(__file__)),
         "machawk_manifest": source_manifest_hashes["machawk"],
         "musl_manifest": source_manifest_hashes["waterbox_musl_darwin"],
-        "emutls_manifest": sha256(ROOT / emutls["snapshot"]["manifest"]),
         "cargo_lock": sha256(cargo_lock),
         "common_mak": sha256(common_mak),
         "linkscript_aarch64": sha256(linkscript),
@@ -376,7 +374,7 @@ def build(args: argparse.Namespace) -> dict:
         "schema_version": 1,
         "status": "BUILD01_PASS_GUEST_NOT_EXECUTED",
         "profile": lock["profile"],
-        "source_commits": {"machawk": machawk["commit"], "waterbox_musl_darwin": musl["commit"], "compiler_rt_emutls": emutls["commit"]},
+        "source_commits": {"machawk": machawk["commit"], "waterbox_musl_darwin": musl["commit"]},
         "tool_versions": versions,
         "tool_hashes": {name: entry["sha256"] for name, entry in lock["tools"].items()},
         "sysroot": {"source_path": lock["sysroot"]["source_path"],
@@ -403,7 +401,7 @@ def main() -> int:
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente sin preparar ni compilar inputs")
     parser.add_argument("--snapshot-smoke", action="store_true",
-                        help="construir y ejecutar la puerta T09b real (fallos no se convierten en PASS)")
+                        help="construir y ejecutar la puerta T09b1 real (fallos no se convierten en PASS)")
     args = parser.parse_args()
     try:
         if args.check_artifact:

@@ -633,7 +633,7 @@
       "title": "Probar mini-core C++ y snapshots desde harness managed sin TLS de compilador",
       "milestone": "M0",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T09a"
       ],

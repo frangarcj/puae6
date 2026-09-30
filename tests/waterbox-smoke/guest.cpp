@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <pthread.h>
 #include "emulibc.h"
 
 struct WbxRange { uint64_t start, size; };
@@ -17,7 +18,15 @@ struct Counter {
 	Counter() noexcept : value(constructor_seed + 40) {}
 };
 static Counter counter;
-static thread_local uint64_t tls_counter = 7;
+// Thread-specific data goes through musl's pthread_key, which reaches the sandbox
+// thread via x28. Compiler TLS (thread_local) is forbidden in guests: XNU
+// overwrites TPIDR_EL0 at every context switch, see docs/adr/waterbox-compiler-tls.md.
+static pthread_key_t tls_key;
+static uint64_t tls_get() { return reinterpret_cast<uintptr_t>(pthread_getspecific(tls_key)); }
+static void tls_set(uint64_t value)
+{
+	pthread_setspecific(tls_key, reinterpret_cast<void *>(static_cast<uintptr_t>(value)));
+}
 static uint8_t *ram, *rom, *output;
 static uint64_t *allocated;
 
@@ -26,6 +35,7 @@ ECL_EXPORT uint64_t smoke_constructor() { return counter.value; }
 ECL_EXPORT int smoke_init()
 {
 	if (ram) return -1;
+	if (pthread_key_create(&tls_key, nullptr) != 0) return -3;
 	ram = alloc_plain<uint8_t>(16384);
 	rom = alloc_sealed<uint8_t>(16384);
 	output = alloc_invisible<uint8_t>(16384);
@@ -37,7 +47,7 @@ ECL_EXPORT int smoke_init()
 		output[i] = 0;
 	}
 	counter.value = 0;
-	tls_counter = 7;
+	tls_set(7);
 	return 0;
 }
 
@@ -45,11 +55,11 @@ ECL_EXPORT uint64_t smoke_step(uint64_t input)
 {
 	if (!ram || !allocated) return UINT64_MAX;
 	counter.value += input + 1;
-	++tls_counter;
+	tls_set(tls_get() + 1);
 	for (unsigned i = 0; i < 4; ++i)
 		ram[i * 4096] = static_cast<uint8_t>(counter.value + i);
 	output[0] = static_cast<uint8_t>(counter.value);
-	return counter.value + tls_counter + *allocated + rom[13];
+	return counter.value + tls_get() + *allocated + rom[13];
 }
 
 ECL_EXPORT int smoke_frame(uint64_t input, uint64_t *result, size_t capacity)
@@ -62,7 +72,7 @@ ECL_EXPORT int smoke_frame(uint64_t input, uint64_t *result, size_t capacity)
 		packed |= static_cast<uint64_t>(ram[i * 4096]) << (i * 8);
 	result[0] = value;
 	result[1] = counter.value;
-	result[2] = tls_counter;
+	result[2] = tls_get();
 	result[3] = packed;
 	result[4] = 0;
 	for (unsigned i = 0; i < 16384; ++i) result[4] += rom[i];

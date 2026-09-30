@@ -88,15 +88,15 @@ internal static unsafe class Program
             }
             string corelib = typeof(object).Assembly.Location;
             File.WriteAllText(args[1], JsonSerializer.Serialize(new {
-                status = "PASS", evidence = "SMOKE_RUNTIME", task = "T09b", amiga_emulation = false,
-                assertion_set = new[] { "constructor_cpp", "heap_limits", "frame_oracle", "buffer_bounds", "restore_same", "restore_new", "alternate_sandboxes", "invisible_poison" },
+                status = "PASS", evidence = "SMOKE_RUNTIME", task = "T09b1", amiga_emulation = false,
+                assertion_set = new[] { "constructor_cpp", "musl_tls_key", "heap_limits", "frame_oracle", "buffer_bounds", "restore_same", "restore_new", "alternate_sandboxes", "invisible_poison" },
                 guest_sha256 = Hash(guestPath), runtime_sha256 = Hash(dylibPath),
                 managed_runtime = RuntimeInformation.FrameworkDescription, corelib, corelib_sha256 = Hash(corelib),
                 harness_sha256 = Hash(typeof(Program).Assembly.Location), snapshot_bytes = state.Length,
                 checkpoint, continuation_frames = count, heap_ranges = heaps,
                 native_tests_do_not_prove_amiga = true
             }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-            Console.WriteLine("T09b SMOKE_RUNTIME PASS: snapshot restored into a new Waterbox sandbox");
+            Console.WriteLine("T09b1 SMOKE_RUNTIME PASS: snapshot restored into a new Waterbox sandbox");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
