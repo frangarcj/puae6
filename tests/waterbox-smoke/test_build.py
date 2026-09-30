@@ -95,6 +95,7 @@ class SmokeCoverageTests(unittest.TestCase):
         self.result = {
             "status": "PASS", "evidence": "SMOKE_RUNTIME", "amiga_emulation": False,
             "guest_sha256": "a" * 64, "runtime_sha256": "b" * 64,
+            "runner": {"os": "Darwin 25.6.0", "architecture": "Arm64"},
             "checks": {check: list(names) for check, names in build_waterbox.REQUIRED_ASSERTIONS.items()},
             "load_probes": [{"kind": kind, "outcome": "rejected"} for kind in build_waterbox.LAYOUT_PROBES],
         }
@@ -103,6 +104,7 @@ class SmokeCoverageTests(unittest.TestCase):
         return build_waterbox.verify_smoke(self.result, self.receipt, self.damaged)
 
     def test_accepts_complete_coverage_and_reports_build_gate_reasons(self):
+        self.result["runner"] = {"os": "macOS 26.7.0", "architecture": "Arm64"}
         summary = self.verify()
         self.assertEqual(["WB01", "WB13", "WB14", "WB15"], summary["checks"])
         self.assertEqual(set(build_waterbox.DAMAGED_IMAGES), set(summary["build_gate_rejections"]))
@@ -118,6 +120,10 @@ class SmokeCoverageTests(unittest.TestCase):
         self.setUp()
         self.result["guest_sha256"] = "c" * 64
         with self.assertRaisesRegex(build_waterbox.BuildError, "distinto del recibo"):
+            self.verify()
+        self.setUp()
+        self.result["runner"] = {"os": "Linux 6.1", "architecture": "X64"}
+        with self.assertRaisesRegex(build_waterbox.BuildError, "runner Darwin ARM64"):
             self.verify()
         self.setUp()
         self.result["status"] = "FAIL"

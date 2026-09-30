@@ -290,6 +290,9 @@ def verify_smoke(result: dict, receipt: dict, damaged_dir: Path) -> dict:
         missing = [name for name in names if name not in reported.get(check, [])]
         if missing:
             raise BuildError(f"{check}: el harness no cubre {', '.join(missing)}")
+    runner = result.get("runner", {})
+    if runner.get("architecture") != "Arm64" or not any(name in runner.get("os", "") for name in ("macOS", "Darwin")):
+        raise BuildError(f"el harness no identifica un runner Darwin ARM64: {runner}")
     if (result.get("guest_sha256") != receipt["guest"]["sha256"]
             or result.get("runtime_sha256") != receipt["runtime_dylib"]["sha256"]):
         raise BuildError("el harness ejecuto un guest o runtime distinto del recibo de build")

@@ -362,6 +362,8 @@ internal static unsafe class Program
                     ["WB15"] = ["artifact_identity", "restore_fresh_process", "identity_mismatch_rejected"],
                 },
                 guest_sha256 = Hash(guestPath), runtime_sha256 = Hash(dylibPath),
+                runner = new { os = RuntimeInformation.OSDescription, architecture = RuntimeInformation.OSArchitecture.ToString(),
+                    process_architecture = RuntimeInformation.ProcessArchitecture.ToString(), machine = Environment.MachineName },
                 managed_runtime = RuntimeInformation.FrameworkDescription, corelib, corelib_sha256 = Hash(corelib),
                 harness_sha256 = Hash(typeof(Program).Assembly.Location), snapshot_bytes = state.Length,
                 checkpoint, continuation_frames = count, heap_ranges = heaps,
