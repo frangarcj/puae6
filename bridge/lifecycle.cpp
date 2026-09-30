@@ -13,6 +13,7 @@
 #include "session.h"
 #include "config.h"
 #include "input.h"
+#include "media.h"
 #include <stdio.h>
 
 #include "sysconfig.h"
@@ -66,6 +67,7 @@ void release_engine()
     }
     p6_rtc_unload();
     p6_blob_clear();
+    p6_bridge::forget_identity();
     quit_program = 0;
     stage = Stage::None;
 }
@@ -73,7 +75,7 @@ void release_engine()
 // The steps of real_main2() that the profile keeps, in their original order. Left out on purpose:
 // graphics_setup/machdep_init/target_run/gui_update (no desktop), native2amiga_install (AUTOCONFIG off)
 // and init_audio (see below).
-p6_result start_engine(p6_buffer firmware, p6_error *error)
+p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media_count, p6_error *error)
 {
     p6_bridge::build_preferences(config);
     if (const p6_result preset = p6_bridge::check_preset(error))
@@ -81,6 +83,8 @@ p6_result start_engine(p6_buffer firmware, p6_error *error)
     if (p6_blob_register(p6_bridge::kFirmwareId, P6_BLOB_ROM, firmware.data, size_t(firmware.bytes)) != P6_BLOB_OK)
         return p6_fail(error, P6_ERROR_CAPACITY, "firmware could not be registered");
     stage = Stage::Blob;
+    if (const p6_result registered = p6_bridge::register_media(media, media_count, error))
+        return registered;
 
     const uint64_t chipset_clock = config.video_standard == P6_VIDEO_NTSC ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL;
     if (p6_rtc_init(config.rtc_epoch_seconds, chipset_clock * CYCLE_UNIT, currprefs.seed) != 0)
@@ -159,16 +163,17 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
     if (session.state != State::Initialized)
         return p6_fail(error, P6_ERROR_BAD_STATE,
                        session.state == State::Uninitialized ? "p6_init has not been called" : "an image is already loaded");
-    if (media_count != 0)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "media are not supported yet");
     if (const p6_result checked = p6_bridge::validate_firmware(firmware, error))
         return checked;
+    if (const p6_result checked = p6_bridge::validate_media(media, media_count, error))
+        return checked;
 
-    const p6_result result = start_engine(firmware, error);
+    const p6_result result = start_engine(firmware, media, media_count, error);
     if (result != P6_OK) {
         release_engine();
         return result;
     }
+    p6_bridge::remember_identity(firmware, media, media_count);
     p6_bridge::forget_input();
     session.unit_index = 0;
     session.master_ticks = 0;

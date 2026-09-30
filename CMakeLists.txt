@@ -50,6 +50,7 @@ add_library(p6_portable STATIC
     ports/portable/input_devices.cpp
     ports/portable/video_present.cpp
     ports/portable/blob_io.c
+    ports/portable/media/sha256.c
     ports/portable/civil_time.c
     ports/portable/rtc_time.cpp
     ports/portable/audio_math.cpp
@@ -90,11 +91,11 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/pcm_out.cpp)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/pcm_out.cpp bridge/media.cpp)
 add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
 target_include_directories(p6_bridge PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
 add_executable(p6_headless adapters/headless/main.cpp $<TARGET_OBJECTS:p6_engine>)
 target_link_libraries(p6_headless PRIVATE p6_bridge p6_portable)
 target_compile_definitions(p6_headless PRIVATE
@@ -109,6 +110,14 @@ target_include_directories(p6_lifecycle_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_lifecycle_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_lifecycle_probe PRIVATE p6_bridge p6_portable)
+# Identity, validation and registration of the media of p6_load (tests/media/test_media.py runs it with a ROM).
+add_executable(p6_media_probe tests/media/media_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_media_probe p6_codegen)
+target_include_directories(p6_media_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media"
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_media_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_media_probe PRIVATE p6_bridge p6_portable)
 # Deterministic mutation fuzzing of config, firmware and the logical-name store (tests/fuzz/test_fuzz.py).
 add_executable(p6_fuzz_probe tests/fuzz/fuzz_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_fuzz_probe p6_codegen)

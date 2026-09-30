@@ -7464,13 +7464,173 @@
       "evidence": null
     },
     {
+      "id": "T12a",
+      "title": "Identidad de firmware y discos: SHA-256, validacion y registro en p6_load",
+      "milestone": "M1",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T08"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0005-frame-boundary.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/media/**",
+        "CMakeLists.txt",
+        "config/profiles/**",
+        "manifests/config-invariants.json",
+        "tests/media/**",
+        "tests/scenarios/disk/**",
+        "tests/fixtures/**",
+        "tests/host/**",
+        "tests/step/**",
+        "tests/codegen/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "docs/adr/0008-media-identity.md",
+        "reports/**"
+      ],
+      "steps": [
+        "SHA-256 propio (sin libc) con vectores NIST; content_id de cada medio verificado contra los bytes antes de tocar el motor.",
+        "Lista de medios validada (tipo, flags, tamano exacto de ADF, cabeceras extendidas o ejecutables, duplicados, capacidad) y registrada como blob `media-<hex>`; ningun path host.",
+        "Los nombres df0..df3.adf de default_prefs se vacian, las cuatro unidades quedan protegidas y check_preset lo exige (el disco de arranque llega con T12b).",
+        "Ampliacion touch respecto a la ficha T12: bridge/lifecycle.cpp, config.cpp, caps.cpp, session.h, CMakeLists.txt, perfiles y sondas de tests/host, porque la ficha solo nombraba bridge/media.cpp y ports/portable/media/**."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01"
+      ],
+      "acceptance": [
+        "Un medio con id que no es el SHA-256 de sus bytes, con tamano o cabecera no soportados o duplicado se rechaza sin cambiar la instancia; los medios validos quedan registrados por identidad.",
+        "Ningun acceso implicito al filesystem host: los df del perfil son vacios y el disco de arranque se identifica solo por content_id."
+      ],
+      "stop": "Un formato que necesite biblioteca nueva se excluye del MVP; ADF extendido queda fuera hasta acotar read_header_ext2.",
+      "evidence": "reports/tasks/T12a.md"
+    },
+    {
+      "id": "T12b",
+      "title": "Eventos de medios en el borde: mount, eject y swap sobre lista precargada",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T12a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0005-frame-boundary.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/media/**",
+        "CMakeLists.txt",
+        "config/profiles/**",
+        "manifests/config-invariants.json",
+        "tests/media/**",
+        "tests/scenarios/disk/**",
+        "tests/fixtures/**",
+        "tests/host/**",
+        "tests/step/**",
+        "tests/codegen/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "docs/adr/0008-media-identity.md",
+        "reports/**",
+        "patches/winuae/**",
+        "docs/adr/0004-host-patch-budget.md"
+      ],
+      "steps": [
+        "p6_media_event_enqueue con cola acotada (16), validacion y secuencia estrictamente creciente; caps max_media/P6_CAP_MEDIA_EVENTS.",
+        "p6_run_frame aplica la cola despues del reset y antes de la entrada, con disk_insert/disk_eject y prefs espejo para que un reset conserve el medio.",
+        "Un MOUNT encolado antes del primer p6_run_frame monta el disco en el arranque (solo preferencias, /CHNG alto); uno posterior usa el cambio retardado nativo.",
+        "Errores claros: unidad inexistente o no soportada, medio fuera de la lista, expulsar con indice de medio, cola llena, estado incorrecto."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "MED01"
+      ],
+      "acceptance": [
+        "Un evento rechazado no consume secuencia ni deja nada en cola; un mount sobre unidad ocupada usa el cambio retardado nativo del motor.",
+        "El buffer del llamante y el blob no cambian tras montar, expulsar y escribir desde el invitado."
+      ],
+      "stop": "Si el motor necesita un parche para aplicar el evento, registrarlo en ADR 0004 antes de continuar.",
+      "evidence": null
+    },
+    {
+      "id": "T12c",
+      "title": "MED01: el invitado lee, cambia y no escribe discos por DMA",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T12b"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0005-frame-boundary.md",
+        "bridge/include/p6.h"
+      ],
+      "touch": [
+        "bridge/**",
+        "bridge/include/**",
+        "ports/portable/media/**",
+        "CMakeLists.txt",
+        "config/profiles/**",
+        "manifests/config-invariants.json",
+        "tests/media/**",
+        "tests/scenarios/disk/**",
+        "tests/fixtures/**",
+        "tests/host/**",
+        "tests/step/**",
+        "tests/codegen/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "docs/adr/0008-media-identity.md",
+        "reports/**",
+        "patches/winuae/**"
+      ],
+      "steps": [
+        "Generar ADF y micro-ROM en tiempo de test (sin binarios en el repositorio) y un oraculo MFM independiente del motor.",
+        "Escenario PAL/NTSC: disco de arranque, swap a otro disco durante actividad, paso de cabeza que limpia /CHNG, intento de escritura con write-protect.",
+        "Replay en dos procesos con la misma semilla y eventos; ausencia, disco equivocado y unidad inexistente por la API.",
+        "Registrar en un informe el estado de pista/MFM/revolucion/motor/cache que T14 debe capturar."
+      ],
+      "checks": [
+        "MED01",
+        "STEP01"
+      ],
+      "acceptance": [
+        "Los medios base permanecen identicos y el replay de swaps es estable en dos procesos.",
+        "El invitado ve /CHNG, /RDY, /WPRO y los sectores del disco montado, decodificados por el oraculo."
+      ],
+      "stop": "Sin Kickstart real no se afirma compatibilidad con trackdisk; una diferencia no explicada entre el oraculo y el motor se investiga, no se relaja.",
+      "evidence": null
+    },
+    {
       "id": "T12",
       "title": "Cargar firmware y discos readonly por identidad",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T08"
+        "T08",
+        "T12a",
+        "T12b",
+        "T12c"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -7479,9 +7639,10 @@
       ],
       "touch": [
         "bridge/media.cpp",
-        "ports/portable/media/**",
+        "bridge/include/p6.h",
         "tests/media/**",
-        "tests/scenarios/disk/**"
+        "tests/scenarios/disk/**",
+        "reports/**"
       ],
       "steps": [
         "Asignar content IDs a firmware/discos y cargar floppies readonly antes de iniciar; separar path host de nombre logico.",

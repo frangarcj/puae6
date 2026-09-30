@@ -18,6 +18,9 @@ struct Session {
     int64_t cycles_seen = 0;      // engine cycle counter at the end of the previous call
     uint64_t audio_frames_total = 0;  // stereo frames Paula produced since load (delivered or not)
     bool handed_over = false;     // the renderer handed a new picture over during the current unit
+    uint8_t firmware_sha256[32] = {};                       // identity of what was loaded (docs/adr/0008-media-identity.md)
+    uint32_t media_count = 0;
+    uint8_t media_content_id[P6_MAX_MEDIA][P6_CONTENT_ID_SIZE] = {};   // in the order of the p6_load array
 };
 
 extern Session session;

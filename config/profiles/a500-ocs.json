@@ -168,7 +168,7 @@
       "name": "nr_floppies",
       "source": "upstream",
       "value": 2,
-      "why": "two internal drives; media arrive with T12"
+      "why": "two internal drives; disks arrive by content id (T12)"
     },
     {
       "name": "floppyslots[0].dfxtype",
@@ -193,6 +193,54 @@
       "source": "upstream",
       "value": -1,
       "why": "DF3 absent (-1)"
+    },
+    {
+      "name": "floppyslots[0].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df0.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppyslots[1].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df1.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppyslots[2].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df2.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppyslots[3].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df3.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppyslots[0].forcedwriteprotect",
+      "source": "override",
+      "value": 1,
+      "why": "every drive is write protected whatever the image"
+    },
+    {
+      "name": "floppyslots[1].forcedwriteprotect",
+      "source": "override",
+      "value": 1,
+      "why": "every drive is write protected whatever the image"
+    },
+    {
+      "name": "floppyslots[2].forcedwriteprotect",
+      "source": "override",
+      "value": 1,
+      "why": "every drive is write protected whatever the image"
+    },
+    {
+      "name": "floppyslots[3].forcedwriteprotect",
+      "source": "override",
+      "value": 1,
+      "why": "every drive is write protected whatever the image"
     },
     {
       "name": "floppy_speed",

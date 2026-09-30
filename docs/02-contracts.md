@@ -181,6 +181,11 @@ formato), nombre logico y licencia/procedencia para fixtures. Los paths del SO n
 son identidad ni parte del estado. Medios ausentes o distintos provocan error.
 El motor no enumera home, no descarga BIOS y no carga plugins de forma implicita.
 
+Implementado (T12a, docs/adr/0008-media-identity.md): `p6_load` acepta hasta 16 ADF de 901120 bytes cuyo `content_id` es el
+SHA-256 de sus bytes; cualquier otra lista se rechaza antes de tocar el motor (tamaño o formato: WRONG_MEDIA; tipo: UNSUPPORTED;
+duplicado o campos reservados: BAD_ARGUMENT; mas de 16: CAPACITY). Cada imagen se registra como `media-<hex>` y el perfil vacia
+los nombres `dfN.adf` de upstream y protege contra escritura las cuatro unidades. Mount/eject y disco de arranque: T12b.
+
 ADF MVP: buffer inmutable de solo lectura, cargado antes de iniciar/sellar. Mount,
 eject y swap operan sobre IDs precargados. Inventariar los metadatos de floppy
 que tambien afectan al futuro: posicion, track buffers, cambio, motor, bits/MFM,
