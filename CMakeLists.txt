@@ -126,6 +126,13 @@ target_include_directories(p6_med01_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_med01_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_med01_probe PRIVATE p6_bridge p6_portable)
+# LIFE01: many init/load/run/unload/shutdown cycles in one process (tests/lifecycle/test_cycles.py).
+add_executable(p6_cycles_probe tests/lifecycle/cycles_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_cycles_probe p6_codegen)
+target_include_directories(p6_cycles_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_cycles_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_cycles_probe PRIVATE p6_bridge p6_portable)
 # Deterministic mutation fuzzing of config, firmware and the logical-name store (tests/fuzz/test_fuzz.py).
 add_executable(p6_fuzz_probe tests/fuzz/fuzz_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_fuzz_probe p6_codegen)
