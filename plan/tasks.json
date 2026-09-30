@@ -792,7 +792,7 @@
       "title": "Probar Waterbox real de MacHawk Darwin ARM64 antes del port",
       "milestone": "M0",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T09a",
         "T09b",
