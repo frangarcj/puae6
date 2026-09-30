@@ -1922,6 +1922,28 @@
           "after_sha256": "90c075a63bbdccf3b336b5fb8ed3cf9c72a1f5c565a3857f73e34c71cc15bc4f"
         }
       ]
+    },
+    {
+      "id": "0068-disk-head-starts-on-track-0",
+      "file": "patches/winuae/0068-disk-head-starts-on-track-0.patch",
+      "sha256": "1871202ceac473a14ada744eb4ba545864e1263f473d8ff613f9c8fd0191d117",
+      "title": "Start every session with the floppy head on track 0",
+      "reason": "floppy[].cyl lives in a static array that DISK_init never touched, so a second p6_load in the same process began with the head where the previous session left it and did not match a clean process. A reset keeps the head, as a real drive does; only a load starts over.",
+      "category": "host hooks",
+      "order": 68,
+      "symbols": [
+        "DISK_init"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_reload",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "e1d75850993655a5c9cad92d5eac7ca38ee76feda0faddc66213756d339ceb5f",
+          "after_sha256": "7fcbfed8e8cf998bd75c3e9f0da69c76771a4c46e12fb17aaff9ea4aab5ac4d0"
+        }
+      ]
     }
   ]
 }

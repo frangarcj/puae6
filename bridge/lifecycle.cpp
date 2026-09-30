@@ -15,6 +15,7 @@
 #include "input.h"
 #include "media.h"
 #include <stdio.h>
+#include <string.h>
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -112,8 +113,14 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     if (const p6_result loaded = p6_bridge::check_loaded_firmware(error))
         return loaded;
     custom_init();
+    // A load is a new power-on. A clean process starts with the CPU registers and the beam at zero, but the reset head keeps
+    // D0-D7/A0-A6 and lets the beam run on, so whatever the previous session left there would decide how the new one begins
+    // (its first unit would depend on how long the last one ran). memset(&regs) comes before init_m68k(), where a clean
+    // process also has it zero.
+    vpos = 0;
     DISK_init();
     reset_frame_rate_hack();
+    memset(&regs, 0, sizeof regs);
     init_m68k();
     if (p6_video_init() != P6_VIDEO_CFG_OK)
         return p6_fail(error, P6_ERROR_INTERNAL, "video presentation could not start");

@@ -19,6 +19,10 @@
 #include "inputdevice.h"
 #include "pcm_out.h"
 
+#ifdef __APPLE__
+#include <mach-o/getsect.h>
+#include <mach-o/dyld.h>
+#endif
 #include <cassert>
 #include <cinttypes>
 #include <cstdio>
@@ -139,6 +143,25 @@ extern "C++" void p6_unit_observe(void)
 }
 
 namespace {
+
+// P6_DATA_DUMP=prefix (macOS): writes the writable data segment of this process right after the reset head of each load to prefix.<pass>.bin
+// with its load address in prefix.<pass>.addr, so that a second load can be diffed against a clean one and each difference
+// mapped to a symbol with nm: the globals that survive an unload.
+void dump_data_segment(const char *prefix, int pass)
+{
+#ifdef __APPLE__
+    const segment_command_64 *segment = getsegbyname("__DATA");
+    if (!segment) return;
+    const uintptr_t at = uintptr_t(segment->vmaddr) + uintptr_t(_dyld_get_image_vmaddr_slide(0));
+    char path[512];
+    snprintf(path, sizeof path, "%s.%d.bin", prefix, pass);
+    if (FILE *f = fopen(path, "wb")) { fwrite(reinterpret_cast<const void *>(at), 1, size_t(segment->vmsize), f); fclose(f); }
+    snprintf(path, sizeof path, "%s.%d.addr", prefix, pass);
+    if (FILE *f = fopen(path, "w")) { fprintf(f, "%llx %llx %llx\n", (unsigned long long)segment->vmaddr, (unsigned long long)segment->vmsize, (unsigned long long)at); fclose(f); }
+#else
+    (void)prefix; (void)pass;
+#endif
+}
 
 std::vector<uint8_t> read_file(const char *path)
 {
@@ -322,7 +345,21 @@ int main(int argc, char **argv)
     p6_error error{P6_ABI_VERSION, sizeof(p6_error), {}};
     const p6_config config = make_config(standard, strtoull(argv[4], nullptr, 10));
     check(p6_init(&config, &error), "p6_init");
+    // P6_RELOAD=N (steps mode, N>=1): the same image is unloaded and loaded again in this process, N loads in all (at least 2),
+    // and the run repeats each time, printed after a "pass K" line, so that a later load can be compared with the first one
+    // and with a run in a clean process.
+    const int reload = getenv("P6_RELOAD") ? atoi(getenv("P6_RELOAD")) : 0;   // total loads, at least 2 when set
+    const int passes = reload > 0 && !continuous && !frames ? (reload < 2 ? 2 : reload > 5 ? 5 : reload) : 1;
+    for (int pass = 1; pass <= passes; ++pass) {
+    if (passes > 1) printf("pass %d\n", pass);
+    if (pass > 1) { trace.clear(); log_restarts = true; }
     check(p6_load(p6_buffer{rom.data(), rom.size()}, nullptr, 0, &error), "p6_load");
+    if (const char *prefix = getenv("P6_DATA_DUMP")) {
+        // Run the reset head here (p6_run_frame's own APPLY then finds it done) and dump what it leaves: the difference between
+        // two loads is then what the head does not reinitialize.
+        if (m68k_go_unit(M68K_UNIT_APPLY) != M68K_UNIT_APPLIED) { fprintf(stderr, "reset head did not run\n"); return 7; }
+        dump_data_segment(prefix, pass);
+    }
 
     p6_frame frame{};
     frame.abi_version = P6_ABI_VERSION;
@@ -385,6 +422,7 @@ int main(int argc, char **argv)
             printf("\n");
         }
     check(p6_unload(&error), "p6_unload");
+    }
     check(p6_shutdown(&error), "p6_shutdown");
     return 0;
 }
