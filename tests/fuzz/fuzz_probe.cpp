@@ -4,9 +4,11 @@
 //   fuzz_probe config SEED N             p6_init on mutated p6_config structs, against an independent oracle
 //   fuzz_probe firmware ROM SEED N       p6_load on mutated images; accepted ones run two units and unload
 //   fuzz_probe blob SEED N               random operations on the blob store
+//   fuzz_probe media ROM SEED N          p6_load on mutated disk lists and p6_media_event_enqueue on mutated events, against an oracle
 // Output is a histogram of result codes; nothing else varies between runs.
 #include "p6.h"
 #include "blob_io.h"
+#include "sha256.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -217,6 +219,141 @@ int fuzz_firmware(const char *path, uint64_t seed, uint64_t iterations)
     return 0;
 }
 
+// --- media ---------------------------------------------------------------------------------------------------------
+
+constexpr uint64_t kAdfBytes = 1760u * 512u;
+
+std::vector<uint8_t> random_adf(Random &rng)
+{
+    std::vector<uint8_t> adf(kAdfBytes);
+    uint64_t x = rng.next() | 1;
+    for (uint8_t &b : adf) { x ^= x << 13; x ^= x >> 7; x ^= x << 17; b = uint8_t(x >> 24); }
+    adf[0] = 'D'; adf[1] = 'O'; adf[2] = 'S'; adf[3] = 0;
+    return adf;
+}
+
+bool special_header(const uint8_t *d)
+{
+    return !memcmp(d, "UAE--ADF", 8) || !memcmp(d, "UAE-1ADF", 8) || !memcmp(d, "\x00\x00\x03\xf3\x00\x00\x00\x00", 8);
+}
+
+// The rules of p6_load's media list, written again from docs/adr/0008-media-identity.md: the oracle.
+bool oracle_accepts_media(const std::vector<p6_media> &list)
+{
+    if (list.size() > P6_MAX_MEDIA) return false;
+    for (size_t i = 0; i < list.size(); ++i) {
+        const p6_media &m = list[i];
+        if (m.type != P6_MEDIA_ADF || m.flags != 0 || !m.image.data || m.image.bytes != kAdfBytes) return false;
+        if (special_header(static_cast<const uint8_t *>(m.image.data))) return false;
+        for (size_t j = 0; j < i; ++j) if (!memcmp(list[j].content_id, m.content_id, P6_CONTENT_ID_SIZE)) return false;
+    }
+    for (const p6_media &m : list) {
+        uint8_t digest[32];
+        p6_sha256_hash(m.image.data, m.image.bytes, digest);
+        if (memcmp(digest, m.content_id, 32)) return false;
+    }
+    return true;
+}
+
+int fuzz_media(const char *path, uint64_t seed, uint64_t iterations)
+{
+    Random rng(seed);
+    const std::vector<uint8_t> rom = read_file(path);
+    // A small pool of images: two good ones, two that carry an extended header and one that is a byte short.
+    std::vector<std::vector<uint8_t>> pool = {random_adf(rng), random_adf(rng), random_adf(rng), random_adf(rng)};
+    memcpy(pool[2].data(), "UAE-1ADF", 8);
+    memcpy(pool[3].data(), rng.coin() ? "UAE--ADF" : "\x00\x00\x03\xf3\x00\x00\x00\x00", 8);
+    const std::vector<uint8_t> short_image(kAdfBytes - 1, 7);
+    p6_config config = valid_config();
+    p6_error error = fresh_error();
+    if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
+    std::map<int, unsigned> histogram;
+    unsigned ran = 0, events_accepted = 0, events_refused = 0;
+    for (uint64_t i = 0; i < iterations; ++i) {
+        std::vector<p6_media> list(rng.below(4) == 0 ? rng.below(20) : rng.below(4));
+        std::vector<std::vector<uint8_t>> mutated;     // owns the mutated copies for this iteration
+        mutated.reserve(list.size());
+        for (p6_media &m : list) {
+            const std::vector<uint8_t> *image = &pool[rng.below(2) ? rng.below(2) : rng.below(4)];
+            if (rng.below(8) == 0) image = &short_image;
+            if (rng.below(6) == 0) {                   // a flipped byte somewhere: still 901120 bytes, another identity
+                mutated.push_back(*image);
+                mutated.back()[4 + rng.below(uint32_t(kAdfBytes - 4))] ^= uint8_t(1 + rng.below(255));
+                image = &mutated.back();
+            }
+            m = p6_media{};
+            m.type = rng.below(10) == 0 ? uint32_t(rng.below(4)) : P6_MEDIA_ADF;
+            m.flags = rng.below(12) == 0 ? uint32_t(rng.next()) : 0;
+            m.image = p6_buffer{image->data(), image->size()};
+            if (rng.below(16) == 0) m.image.data = nullptr;
+            if (rng.below(16) == 0 && image->size() >= 4096) m.image.bytes = kBoundary[rng.below(8)] % 4096;   // never above the real size
+            p6_sha256_hash(image->data(), image->size(), m.content_id);
+            switch (rng.below(10)) {
+            case 0: m.content_id[rng.below(32)] ^= uint8_t(1u << rng.below(8)); break;
+            case 1: for (uint8_t &b : m.content_id) b = uint8_t(rng.next()); break;
+            case 2: memset(m.content_id, 0, sizeof m.content_id); break;
+            default: break;
+            }
+        }
+        const bool expected = oracle_accepts_media(list);
+        error = fresh_error();
+        const p6_result r = p6_load(p6_buffer{rom.data(), rom.size()}, list.empty() && rng.coin() ? nullptr : list.data(),
+                                    uint32_t(list.size()), &error);
+        ++histogram[int(r)];
+        if (!message_is_bounded(error)) bug("unbounded message", i);
+        if ((r == P6_OK) != expected) bug(r == P6_OK ? "an invalid media list was accepted" : "a valid media list was refused", i);
+        if (r != P6_OK) {
+            if (r != P6_ERROR_CAPACITY && r != P6_ERROR_BAD_ARGUMENT && r != P6_ERROR_UNSUPPORTED && r != P6_ERROR_WRONG_MEDIA)
+                bug("a media result outside the documented set", i);
+            if (!error.message[0]) bug("error without a message", i);
+            continue;
+        }
+        ++ran;
+        // Events against a model of the queue rules.
+        unsigned queued = 0;
+        bool have = false;
+        uint64_t last = 0, sequence = rng.next() % 100;
+        for (unsigned n = rng.below(24); n--;) {
+            p6_media_event e{};
+            e.abi_version = P6_ABI_VERSION;
+            e.struct_size = sizeof e;
+            e.type = rng.below(8) == 0 ? uint32_t(rng.below(5)) : (rng.coin() ? P6_MEDIA_EVENT_MOUNT : P6_MEDIA_EVENT_EJECT);
+            e.drive = rng.below(8) == 0 ? uint32_t(rng.below(6)) : uint32_t(rng.below(2));
+            e.media_index = e.type == P6_MEDIA_EVENT_EJECT && rng.below(6) ? P6_MEDIA_INDEX_EJECT : uint32_t(rng.below(list.size() + 2));
+            sequence += rng.below(6) == 0 ? 0 : 1 + rng.below(3);
+            e.sequence = rng.below(10) == 0 ? rng.next() % 50 : sequence;
+            if (rng.below(20) == 0) e.reserved[rng.below(2)] = 1;
+            const bool valid = !e.reserved0 && !e.reserved[0] && !e.reserved[1] &&
+                (e.type == P6_MEDIA_EVENT_MOUNT || e.type == P6_MEDIA_EVENT_EJECT) && e.drive <= 1 &&
+                (e.type == P6_MEDIA_EVENT_MOUNT ? e.media_index < list.size() : e.media_index == P6_MEDIA_INDEX_EJECT) &&
+                (!have || e.sequence > last) && queued < 16;
+            error = fresh_error();
+            const p6_result q = p6_media_event_enqueue(&e, &error);
+            if ((q == P6_OK) != valid) bug(q == P6_OK ? "an invalid event was queued" : "a valid event was refused", i);
+            if (q == P6_OK) { ++queued; have = true; last = e.sequence; ++events_accepted; }
+            else if (!error.message[0]) bug("event error without a message", i);
+            else ++events_refused;
+            ++histogram[2000 + int(q)];
+        }
+        p6_input input{};
+        input.abi_version = P6_ABI_VERSION;
+        input.struct_size = sizeof input;
+        p6_frame frame{};
+        frame.abi_version = P6_ABI_VERSION;
+        frame.struct_size = sizeof frame;
+        for (unsigned unit = rng.below(4); unit--;) {
+            const p6_result run = p6_run_frame(&input, 0, &frame, &error);
+            ++histogram[1000 + int(run)];
+            if (run != P6_OK) bug("a unit failed with media mounted", i);
+        }
+        if (p6_unload(&error) != P6_OK) bug("unload", i);
+    }
+    p6_shutdown(nullptr);
+    for (const auto &entry : histogram) printf("media result %d: %u\n", entry.first, entry.second);
+    printf("media lists that loaded: %u, events accepted %u refused %u\n", ran, events_accepted, events_refused);
+    return 0;
+}
+
 int fuzz_blob(uint64_t seed, uint64_t iterations)
 {
     Random rng(seed);
@@ -282,7 +419,8 @@ int main(int argc, char **argv)
 {
     if (argc == 4 && !strcmp(argv[1], "config")) return fuzz_config(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "firmware")) return fuzz_firmware(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
+    if (argc == 5 && !strcmp(argv[1], "media")) return fuzz_media(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | blob SEED N\n", argv[0]);
     return 64;
 }

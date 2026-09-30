@@ -99,6 +99,8 @@ El ejecutor headless ya corre un firmware unidad a unidad (solo micro-ROMs; sin 
     ./build/native-debug/p6_headless --run tests.rom --units 6 --dump /tmp/frames   # [--ntsc] [--seed S]
     python3 -m unittest tests.step.test_display                                    # imagen PAL/NTSC contra el modelo del programa
     python3 -m unittest tests.audio.test_audio                                     # AV02/DET05: conteo exacto, tonos por canal, entrega on/off (T11)
+    python3 -m unittest tests.media.test_media tests.media.test_sha256              # MED01: identidad, validacion y eventos de medios (T12a, T12b)
+    python3 -m unittest tests.media.test_med01                                     # MED01: el invitado lee, ve el cambio y no escribe (T12c; PAL y NTSC)
     P6_KICKSTART_ROM=/ruta/kick13.rom python3 -m unittest tests.step.test_kickstart  # solo con una imagen autorizada
 
 `tools/check.py --check STEP01` sigue respondiendo NOT_IMPLEMENTED: el dispatcher de T04 solo conoce HARNESS01 y

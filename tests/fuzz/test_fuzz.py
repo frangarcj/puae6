@@ -43,7 +43,7 @@ class NativeFuzzTests(unittest.TestCase):
         cls.tmp.cleanup()
 
     def run_target(self, target, seed, iterations, extra_env=None):
-        args = [target] + ([str(self.rom)] if target == "firmware" else []) + [str(seed), str(iterations)]
+        args = [target] + ([str(self.rom)] if target in ("firmware", "media") else []) + [str(seed), str(iterations)]
         return subprocess.run([str(self.exe), *args], capture_output=True, text=True, timeout=900,
                               env={**ENV, **(extra_env or {})})
 
@@ -71,6 +71,15 @@ class NativeFuzzTests(unittest.TestCase):
         text = result.stdout
         self.assertIn("firmware result 0:", text)
         self.assertIn("firmware result 6:", text)
+
+    def test_the_media_fuzzer_loads_valid_lists_and_refuses_the_rest_like_the_oracle(self):
+        result = self.run_target("media", 3, 40)
+        self.assertTrue(clean(result), result.stderr[-600:])
+        text = result.stdout
+        self.assertIn("media result 0:", text)           # some lists load
+        self.assertIn("media result 6:", text)           # WRONG_MEDIA: size, header or identity
+        self.assertIn("media result 2000:", text)        # some events are queued
+        self.assertRegex(text, r"media result 200[1-9]")  # and some refused
 
     def test_the_harness_can_fail(self):
         # With the oracle inverted on purpose the same run must be reported as a failure.

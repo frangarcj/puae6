@@ -5,7 +5,9 @@
     {"target": "config", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
     {"target": "blob", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
     {"target": "blob", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "firmware", "seed": 1, "iterations": 120, "note": "baseline; no defect found"}
+    {"target": "firmware", "seed": 1, "iterations": 120, "note": "baseline; no defect found"},
+    {"target": "media", "seed": 1, "iterations": 80, "note": "baseline; no defect found"},
+    {"target": "media", "seed": 2, "iterations": 80, "note": "baseline; no defect found"}
   ],
   "scenario_runs": [
     {"seed": 1, "iterations": 4000, "note": "baseline; no defect found"}

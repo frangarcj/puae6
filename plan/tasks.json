@@ -7573,7 +7573,7 @@
       "title": "MED01: el invitado lee, cambia y no escribe discos por DMA",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T12b"
       ],
@@ -7620,14 +7620,14 @@
         "El invitado ve /CHNG, /RDY, /WPRO y los sectores del disco montado, decodificados por el oraculo."
       ],
       "stop": "Sin Kickstart real no se afirma compatibilidad con trackdisk; una diferencia no explicada entre el oraculo y el motor se investiga, no se relaja.",
-      "evidence": null
+      "evidence": "reports/tasks/T12c.md"
     },
     {
       "id": "T12",
       "title": "Cargar firmware y discos readonly por identidad",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T08",
         "T12a",
@@ -7660,7 +7660,7 @@
         "Ningun acceso implicito al filesystem host, plugin o BIOS descargada forma parte del perfil."
       ],
       "stop": "Un formato que necesite biblioteca nueva se excluye explicitamente del MVP; no convertir datos sin preservar semantica de pista.",
-      "evidence": null
+      "evidence": "reports/tasks/T12.md"
     },
     {
       "id": "T13",

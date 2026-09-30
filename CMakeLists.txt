@@ -118,10 +118,18 @@ target_include_directories(p6_media_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_media_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_media_probe PRIVATE p6_bridge p6_portable)
+# MED01: the guest reads, sees the swap of and cannot write to a disk (tests/media/test_med01.py).
+add_executable(p6_med01_probe tests/media/med01_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_med01_probe p6_codegen)
+target_include_directories(p6_med01_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media"
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_med01_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_med01_probe PRIVATE p6_bridge p6_portable)
 # Deterministic mutation fuzzing of config, firmware and the logical-name store (tests/fuzz/test_fuzz.py).
 add_executable(p6_fuzz_probe tests/fuzz/fuzz_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_fuzz_probe p6_codegen)
-target_include_directories(p6_fuzz_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+target_include_directories(p6_fuzz_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_fuzz_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_fuzz_probe PRIVATE p6_bridge p6_portable)
 # Reports how the bridge's A500 preferences differ from upstream's own (tests/host/test_a500_profile.py).
