@@ -1,0 +1,13 @@
+{
+  "purpose": "Seeds replayed by tests/fuzz/test_fuzz.py. Every bug a fuzz run finds and fixes adds its target, seed and iteration count here with the fix it belongs to; the runs are deterministic, so a seed is a reproducer.",
+  "runs": [
+    {"target": "config", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
+    {"target": "config", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
+    {"target": "blob", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
+    {"target": "blob", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
+    {"target": "firmware", "seed": 1, "iterations": 120, "note": "baseline; no defect found"}
+  ],
+  "scenario_runs": [
+    {"seed": 1, "iterations": 4000, "note": "baseline; no defect found"}
+  ]
+}

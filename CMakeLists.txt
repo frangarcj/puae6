@@ -34,14 +34,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-option(P6_SANITIZERS "Instrument native code with ASan and UBSan" OFF)
+include(cmake/Sanitizers.cmake)
 option(P6_UNIT_TRACE "Test-only: engine reports and can swallow video boundaries (STEP01)" OFF)
 add_compile_options(-fno-fast-math)
-if(P6_SANITIZERS)
-    add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all
-        -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=address,undefined -fno-sanitize-recover=all)
-endif()
 
 include(cmake/HostTools.cmake)
 p6_add_host_codegen(p6_codegen)
@@ -111,6 +106,12 @@ target_include_directories(p6_lifecycle_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_lifecycle_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_lifecycle_probe PRIVATE p6_bridge p6_portable)
+# Deterministic mutation fuzzing of config, firmware and the logical-name store (tests/fuzz/test_fuzz.py).
+add_executable(p6_fuzz_probe tests/fuzz/fuzz_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_fuzz_probe p6_codegen)
+target_include_directories(p6_fuzz_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_fuzz_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_fuzz_probe PRIVATE p6_bridge p6_portable)
 # Reports how the bridge's A500 preferences differ from upstream's own (tests/host/test_a500_profile.py).
 add_executable(p6_profile_probe tests/host/a500_profile_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_profile_probe p6_codegen)

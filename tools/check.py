@@ -2,6 +2,7 @@
 """Run explicit assertion sets; an unavailable emulator check never passes."""
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,6 +20,22 @@ SUITES = {
     'fixture_rebuild': 'tests.fixtures.test_counter',
     'dispatcher_contract': 'tests.contracts.test_dispatcher',
 }
+# Checks whose assertion sets are real suites for one task (T26). The dispatcher still knows nothing about the
+# emulator itself: these suites build and run the sanitizer canaries, the sanitizer builds of the bridge and the
+# deterministic fuzz targets. A required assertion that has no suite (for example the state fuzz target, which needs
+# T15) is NOT_IMPLEMENTED, and so is any check/task/profile combination that is not listed.
+TASK_SUITES = {
+    ('SAFE01', 'T26'): {
+        'canary_self_test': 'tests.canaries.test_canaries',
+        'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
+        'sanitized_video_guests': 'tests.step.test_step.VideoGuestSanitizerTests',
+    },
+    ('FUZZ01', 'T26'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+    },
+}
+TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}
 DRIVER = '''import json, sys, unittest
 suite = unittest.defaultTestLoader.loadTestsFromName(sys.argv[1])
 result = unittest.TextTestRunner(verbosity=2).run(suite)
@@ -31,19 +48,47 @@ sys.exit(0 if result.wasSuccessful() else 1)
 '''
 
 
-def _run_suite(module):
-    return subprocess.run([sys.executable, '-c', DRIVER, module], cwd=ROOT,
-                          capture_output=True, text=True, timeout=120)
+def _run_suite(module, env=None, timeout=120):
+    environment = None if env is None else {**os.environ, **env}
+    return subprocess.run([sys.executable, '-c', DRIVER, module], cwd=ROOT, env=environment,
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def _dispatch_task_suites(check_id, task, required, finish, executed):
+    suites = TASK_SUITES[(check_id, task)]
+    wanted = sorted(set(suites) | set(required))
+    missing = [name for name in wanted if name not in suites]
+    if missing:
+        return finish('NOT_IMPLEMENTED', 'Falta cobertura requerida: ' + ', '.join(missing), wanted)
+    if not all(shutil.which(tool) for tool in ('clang', 'clang++', 'cmake')):
+        return finish('BLOCKED', 'Faltan compiladores HOST clang/clang++/cmake', wanted, 'HARNESS')
+    for name in wanted:
+        result = _run_suite(suites[name], TASK_SUITE_ENV, 3600)
+        try:
+            counts = json.loads(result.stdout.strip().splitlines()[-1])
+            if type(counts) is not dict or any(type(n) is not int or n < 0 for n in counts.values()):
+                raise ValueError('Contadores de suite invalidos')
+        except (ValueError, TypeError, IndexError) as error:
+            return finish('FAIL', f'{name}: salida invalida/truncada: {error}\n{result.stderr[-4000:]}', wanted, 'HARNESS')
+        if result.returncode or counts['failures'] or counts['errors'] or counts['unexpected_successes']:
+            return finish('FAIL', f'{name}: fallo de suite\n{result.stderr[-4000:]}', wanted, 'HARNESS')
+        if not counts['tests']:
+            return finish('FAIL', f'{name}: suite vacia; no hay prueba', wanted, 'HARNESS')
+        if counts['skipped'] or counts['expected_failures']:
+            return finish('BLOCKED', f'{name}: assertions omitidas o pendientes', wanted, 'HARNESS')
+        executed.append(name)
+    return finish('PASS', 'Suites nativas de sanitizers/fuzzing ejecutadas; no es un resultado de emulacion', wanted, 'HARNESS')
 
 
 def dispatch(check_id, task='T04', profile='deterministic-a500', scenario=None, required=()):
     assertions = list(REQUIRED_ASSERTIONS) + sorted(set(required) - set(REQUIRED_ASSERTIONS))
     executed = []
-    def finish(status, diagnostic, evidence='NONE'):
+    def finish(status, diagnostic, evidence='NONE', set_override=None):
         return dict(schema_version=1, check_id=check_id, task=task, profile=profile,
                     status=status, exit_code=EXIT[status], evidence=evidence,
                     core_build_id=None, scenario_executed=False,
-                    assertion_set=assertions if check_id == 'HARNESS01' else [],
+                    assertion_set=(set_override if set_override is not None else
+                                   assertions if check_id == 'HARNESS01' else []),
                     assertions_executed=executed, diagnostic=diagnostic)
     try:
         plan = load_json(ROOT / 'plan/tasks.json')
@@ -54,6 +99,10 @@ def dispatch(check_id, task='T04', profile='deterministic-a500', scenario=None, 
         if scenario is not None:
             validate_scenario(load_json(scenario))
             return finish('NOT_IMPLEMENTED', 'Escenario valido, pero no hay runner de emulacion conectado')
+        if (check_id, task) in TASK_SUITES and profile == 'deterministic-a500':
+            def task_finish(status, diagnostic, wanted, evidence='NONE'):
+                return finish(status, diagnostic, evidence, wanted)
+            return _dispatch_task_suites(check_id, task, required, task_finish, executed)
         if check_id != 'HARNESS01' or task != 'T04' or profile != 'deterministic-a500':
             return finish('NOT_IMPLEMENTED', 'No hay assertions implementadas para este check/tarea/perfil')
         missing = set(assertions) - set(SUITES)

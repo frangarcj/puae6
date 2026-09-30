@@ -7431,7 +7431,7 @@
       "title": "Introducir sanitizers y fuzzing temprano",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T06",
         "T04"
@@ -7445,13 +7445,16 @@
         "tests/fuzz/**",
         "tests/canaries/**",
         "tools/check.py",
-        "reports/sanitizer-baseline.md"
+        "reports/sanitizer-baseline.md",
+        "CMakeLists.txt",
+        "tests/contracts/**"
       ],
       "steps": [
         "Añadir build nativo ASan/UBSan y leaks donde sea compatible; inventariar problemas upstream sin esconderlos con -w o desactivar todo el check.",
         "Fuzzear config, rutas logicas, escenarios y medios con fixtures libres y asignaciones acotadas.",
         "Preparar el target de estados para activarlo al existir T15; marcarlo NOT_IMPLEMENTED hasta entonces.",
-        "Guardar seeds de cada bug corregido y documentar limites del sandbox para instrumentacion."
+        "Guardar seeds de cada bug corregido y documentar limites del sandbox para instrumentacion.",
+        "Ampliacion touch: CMakeLists.txt (incluye el modulo de sanitizers y el objetivo p6_fuzz_probe)."
       ],
       "checks": [
         "SAFE01",
@@ -7462,7 +7465,7 @@
         "El informe enumera superficies aun no implementadas; no declara fuzzing de estados completado antes de T15."
       ],
       "stop": "Errores heredados necesitan reproducer y priorizacion; no suprimir una familia entera de UB para aprobar.",
-      "evidence": null
+      "evidence": "reports/tasks/T26.md"
     },
     {
       "id": "T14",
