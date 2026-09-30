@@ -7966,6 +7966,127 @@
       "evidence": null
     },
     {
+      "id": "T19a",
+      "title": "Compilar y enlazar puae6.wbx AArch64 con el contrato MacHawk",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T09",
+        "T13",
+        "T16"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "tools/build_waterbox.py",
+        "tests/waterbox-smoke/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Generar la lista de fuentes de la receta WBX desde el mismo source manifest, generated y CMakeLists (una sola fuente de verdad), y aplicar el contrato MacHawk de x18/x28 y paginas 4/16 KiB a todas las unidades target con common.mak y linkscript_aarch64.T fijados, sin modificar el runtime.",
+        "Enlazar WinUAE + host port + bridge + un adaptador minimo: no enlazar adapters/libretro ni llamar retro_run. El ELF pasa validate_elf y WB16, no importa nada inesperado y no deja simbolos sin resolver.",
+        "Division de T19: T19a compila y enlaza; T19b hace el adaptador guest, la clasificacion de memoria y init/seal/una unidad; T19c compara 10000 fronteras con headless/libretro y cierra WB02/WB07/WB08/WB13-WB15; T19 es el cierre."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01"
+      ],
+      "acceptance": [
+        "puae6.wbx AArch64 enlaza con el sysroot y el linkscript fijados, pasa validate_elf y WB16, y su lista de fuentes coincide con la de CMake; un .wbx que solo enlaza todavia no pasa T19."
+      ],
+      "stop": "Un .wbx que solo enlaza no pasa. Si requiere corutina no demostrada en WB01 o I/O mutable host, bloquear y resolver esa dependencia."
+    },
+    {
+      "id": "T19b",
+      "title": "Adaptador guest Waterbox: clasificar memoria, init, seal y una unidad en sandbox real",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T19a"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/build/**",
+        "integration/bizhawk/smoke/**",
+        "tools/build_waterbox.py",
+        "manifests/waterbox-memory.json",
+        "tests/waterbox-smoke/**",
+        "docs/03-waterbox.md",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Implementar la capa host Waterbox y el adaptador guest (exports de init, avance de una unidad y lectura de resultados) sobre p6_*, sin retirar punteros del host: el firmware y los medios se copian a memoria sealed antes del seal.",
+        "Clasificar cada region antes de seal (tabla de docs/03-waterbox.md) y capturar todo lo mutable por defecto; reservar heaps desde medidas y registrarlas en manifests/waterbox-memory.json.",
+        "Cargar firmware y A500 antes de PostInit y ejecutar init, seal y una unidad del fixture en un sandbox real del runtime fijado, comparando esa unidad con headless."
+      ],
+      "checks": [
+        "BUILD01",
+        "HOST01",
+        "WB15"
+      ],
+      "acceptance": [
+        "El guest inicializa el A500 y corre una unidad dentro del runtime Waterbox real con el mismo hash de imagen y los mismos ticks que headless; heaps y clasificacion estan documentados y no quedan punteros del host retenidos."
+      ],
+      "stop": "Un .wbx que solo enlaza no pasa. Si requiere corutina no demostrada en WB01 o I/O mutable host, bloquear y resolver esa dependencia."
+    },
+    {
+      "id": "T19c",
+      "title": "Igualdad de 10000 fronteras con headless y libretro, render/audio off y canarios en puae6.wbx",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T19b"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/smoke/**",
+        "tools/build_waterbox.py",
+        "tests/waterbox-smoke/**",
+        "manifests/waterbox-memory.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Ejecutar el fixture A500 en sandbox real y repetir 10000 boundaries dos veces; comparar hashes hardware/ticks contra headless/libretro con la misma config e input.",
+        "Probar render y audio desactivados, canarios en los buffers de entrega, y los gates WB13, WB14 y WB15 sobre el guest real de PUAE6."
+      ],
+      "checks": [
+        "STEP01",
+        "WB02",
+        "WB07",
+        "WB08",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "10000 unidades dos veces dentro de Waterbox dan los mismos ticks, hash de imagen y audio que headless y libretro; apagar render y audio no cambia el futuro; los canarios y las paginas 4/16 KiB pasan con el guest real."
+      ],
+      "stop": "Un .wbx que solo enlaza no pasa. Si requiere corutina no demostrada en WB01 o I/O mutable host, bloquear y resolver esa dependencia."
+    },
+    {
       "id": "T19",
       "title": "Arrancar WinUAE6 real dentro de Waterbox MacHawk ARM64",
       "milestone": "M1",
@@ -7974,7 +8095,10 @@
       "depends": [
         "T09",
         "T13",
-        "T16"
+        "T16",
+        "T19a",
+        "T19b",
+        "T19c"
       ],
       "read": [
         "docs/03-waterbox.md",
@@ -7994,7 +8118,8 @@
         "Enlazar WinUAE + host port + bridge + adapter/waterbox; no enlazar adapters/libretro ni llamar retro_run. Reutilizar la semantica p6_run_frame ya validada por T07/T16, no mantener una segunda ruta de scheduler.",
         "Implementar host layer Waterbox y clasificar cada region antes de seal; capturar todo mutable como default.",
         "Cargar firmware/medios e inicializar A500 antes de PostInit; reservar heaps desde medidas, no copiar numeros del port viejo.",
-        "Ejecutar el fixture A500 en sandbox real y repetir 10000 boundaries; comparar hashes hardware/ticks contra headless/libretro con la misma config/input, y probar render/audio off y canarios."
+        "Ejecutar el fixture A500 en sandbox real y repetir 10000 boundaries; comparar hashes hardware/ticks contra headless/libretro con la misma config/input, y probar render/audio off y canarios.",
+        "Division: T19a (compilar y enlazar), T19b (adaptador guest, clasificacion de memoria, una unidad) y T19c (10000 fronteras y gates); T19 es el cierre y conserva la puerta original."
       ],
       "checks": [
         "BUILD01",
