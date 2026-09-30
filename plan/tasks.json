@@ -8039,17 +8039,20 @@
         "Crear binding/wrapper contra los archivos reales del MacHawk fijado, no APIs supuestas de master publico; usar core ID nuevo y puae6.wbx sin sustituir UAE/uae.wbx. El wrapper habla solo la ABI Waterbox de PUAE6: no retro_* ni globals directos del motor.",
         "Implementar entrada, video/audio sincronico, sync settings, region y drive light necesarios.",
         "Exponer Chip/Slow/Fast RAM validas con flags y byte order correctos; no crear System Bus falso con efectos laterales.",
-        "Probar sizeof/offsetof/C# layout en ambos sentidos, capacidades A/V y aislamiento al alternar dos sandboxes."
+        "Probar sizeof/offsetof/C# layout en ambos sentidos, capacidades A/V y aislamiento al alternar dos sandboxes.",
+        "Antes de crear el host, el wrapper comprueba que el guest es un ELF AArch64 (e_machine 183) y que su hash coincide con el fijado: el runtime de MacHawk no lo hace (T09c: acepta un x86_64 y no valida el layout). Prueba negativa con un ELF x86_64 y con otro hash, sin fallback al uae.wbx antiguo."
       ],
       "checks": [
         "ABI01",
         "IN01",
         "WB04",
-        "WB07"
+        "WB07",
+        "WB15"
       ],
       "acceptance": [
         "BizHawk carga PUAE6 de forma explicita, mantiene UAE y sus peliculas sin sustituirlo.",
-        "Dominios no tienen punteros temporales ni regiones vacias; buffers no se escriben fuera del contrato."
+        "Dominios no tienen punteros temporales ni regiones vacias; buffers no se escriben fuera del contrato.",
+        "Un guest con e_machine distinto de AArch64 o con hash distinto se rechaza antes de wbx_create_host, sin cargarlo ni caer al UAE antiguo."
       ],
       "stop": "No aplicar cambios al BizHawk instalado ni al proyecto hermano MacHawk; mantener patch/receta revisables dentro del marco autorizado.",
       "evidence": null
