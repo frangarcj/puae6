@@ -16,7 +16,7 @@ spec.loader.exec_module(builder)
 SOURCE = (HERE / "boot.s").read_text(encoding="utf-8")
 CODE = bytes.fromhex("46fc2700" "4ff80400" "13fc000300bfe201" "13fc000200bfe001" "5280" "60fc")
 HEADER = "; Original PUAE6 micro-ROM, licensed under MIT; see LICENSE."
-SCENARIO_NAMES = {"vsync", "copper_irq", "long_ops", "halt", "stop", "lof_stuck", "long_frame", "input_all"}
+SCENARIO_NAMES = {"vsync", "copper_irq", "long_ops", "halt", "stop", "lof_stuck", "long_frame", "input_all", "input_rotate"}
 
 
 def sha256(data):
@@ -246,11 +246,11 @@ class MicroRomTests(unittest.TestCase):
         manifest = json.loads((HERE / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(set(manifest["scenarios"]), SCENARIO_NAMES)
         self.assertEqual(manifest["builder_sha256"], sha256((HERE / "build_rom.py").read_bytes()))
-        self.assertEqual({"vsync": "S2", "copper_irq": "S3", "long_ops": "S4", "halt": "S5", "stop": "S7", "lof_stuck": "V1", "long_frame": "V2", "input_all": "I1"},
+        self.assertEqual({"vsync": "S2", "copper_irq": "S3", "long_ops": "S4", "halt": "S5", "stop": "S7", "lof_stuck": "V1", "long_frame": "V2", "input_all": "I1", "input_rotate": "I2"},
                          {name: entry["scenario"] for name, entry in manifest["scenarios"].items()})
         self.assertEqual({name: entry["defines"] for name, entry in manifest["scenarios"].items()},
                          {"vsync": {}, "copper_irq": {"HP": "2"}, "long_ops": {"PAD": "3"}, "halt": {}, "stop": {},
-                          "lof_stuck": {}, "long_frame": {}, "input_all": {}})
+                          "lof_stuck": {}, "long_frame": {}, "input_all": {}, "input_rotate": {}})
         for name in sorted(SCENARIO_NAMES):
             with self.subTest(scenario=name):
                 entry, source, image = scenario(name)

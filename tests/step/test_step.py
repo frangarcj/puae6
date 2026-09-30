@@ -193,7 +193,7 @@ class VideoMetadataTests(unittest.TestCase):
                     self.assertEqual((ax, ay, aw, ah), (0, 0, 756, active_h))
                     self.assertEqual((an, ad), aspect)
                     self.assertEqual((cn, cd), cadence)
-                    self.assertEqual((parity, flags, outside), (0, 0, "zero"))
+                    self.assertEqual((parity, flags & ~1, outside), (0, 0, "zero"))   # bit 0 is the lag flag (T10b)
             self.assertEqual([r[0] for r in rows], [1, 2, 3, 4])
             ticks = [r[1] for r in rows]
             self.assertTrue(all(b > a for a, b in zip(ticks, ticks[1:])))
@@ -214,7 +214,7 @@ class VideoMetadataTests(unittest.TestCase):
         self.assertEqual(on.splitlines()[-1], off.splitlines()[-1])   # same final state digest and ticks
         for a, b in zip(rows_on, rows_off):
             self.assertEqual((a[0], a[1]), (b[0], b[1]))               # same unit index and master ticks
-            self.assertEqual((b[2], b[3], b[19], b[17]), (0, 0, 0, 2))  # no pointer, no bytes, NO_VIDEO
+            self.assertEqual((b[2], b[3], b[19], b[17] & ~1), (0, 0, 0, 2))  # no pointer, no bytes, NO_VIDEO
             self.assertEqual(a[5:17], b[5:17])                         # geometry is reported regardless
 
     def guest(self, name, units, standard):

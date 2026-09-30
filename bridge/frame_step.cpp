@@ -82,6 +82,7 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
 
     // 4. One video unit.
     p6_bridge::begin_unit();
+    p6_bridge::begin_input_unit();
     if (m68k_go_unit(M68K_UNIT_RUN) != M68K_UNIT_DONE)
         return fault(error, P6_ERROR_BAD_STATE, "the CPU loop ended before the unit boundary");
     account_ticks();
@@ -101,6 +102,8 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
     result.struct_size = sizeof result;
     result.master_ticks = session.master_ticks;
     result.unit_index = ++session.unit_index;
+    if (!p6_bridge::guest_polled_input())
+        result.flags |= P6_FRAME_LAG;
     if (const p6_result described = p6_bridge::describe_video(result, render_flags & P6_RENDER_VIDEO, error))
         return fault(error, described, "the video description failed");
     *frame = result;

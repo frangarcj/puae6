@@ -16,6 +16,7 @@
 #include "video_present.h"
 #include "video.h"
 #include "input.h"
+#include "inputdevice.h"
 #include "audio_drain.h"
 
 #include <cassert>
@@ -92,6 +93,7 @@ extern "C++" void p6_unit_observe(void)
     // What T08 will do after every unit: hand the finished raster over. It sits here, at the boundary itself,
     // so both modes present at the same moments and the picture becomes part of the compared state.
     p6_bridge::present_unit();
+    if (getenv("P6_POLL_NOISE")) p6_input_poll_mask ^= 0x5a5a5a5au;   // the mask is write-only for the machine
     p6_bridge::discard_audio();   // what p6_run_frame does after every unit; here also for the boundaries it swallows
     Record r{};
     r.pc = m68k_getpc();

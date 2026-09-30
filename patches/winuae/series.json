@@ -1839,6 +1839,44 @@
           "after_sha256": "e13f75ef8075e4b66a0d8935c4f83d5429395f24ef00bbe58e8124467721b3ef"
         }
       ]
+    },
+    {
+      "id": "0065-input-poll-mask",
+      "file": "patches/winuae/0065-input-poll-mask.patch",
+      "sha256": "465f0fdfdae7a2aa578975978eaa8be7de1ee4514e05a9ffac582cf3bae53b21",
+      "title": "Record the guest's reads of input registers",
+      "reason": "P6_FRAME_LAG must follow what the emulated CPU reads (JOYxDAT, POTxDAT, POTGOR, CIA-A PRA and SDR), not the frontend's poll. A write-only bit mask that the bridge clears at the start of a unit and reads at the end records it without a callback from inside the engine.",
+      "category": "host hooks",
+      "order": 65,
+      "symbols": [
+        "JOY0DAT",
+        "JOY1DAT",
+        "POT0DAT",
+        "POT1DAT",
+        "POTGOR",
+        "ReadCIAA",
+        "p6_input_poll_mask"
+      ],
+      "test": "IN01; tests.input.test_lag",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "8c55259de92d7ee876fefce1fefdc3779679a3ba805cab302f5ddef59d3fff2c",
+          "after_sha256": "5f029f9edfb9da0b826a1207e85a1af10dcee8c68aa0361d5c1b5375947e2910"
+        },
+        {
+          "path": "cia.cpp",
+          "before_sha256": "5f2e5686e4ef10f5153103c0cea19e8998ac1237af314a4599c8f90b93853acf",
+          "after_sha256": "ed5292545b0e20dd40724d1e31259fd7f71993e691dae35f43926af5d475e324"
+        },
+        {
+          "path": "include/inputdevice.h",
+          "before_sha256": "1ce91a66a87cc0e31d3b34b12e241c63331f9359822fd03d3e1508db47c52ab8",
+          "after_sha256": "06c11a339f81020915f81ec2b7c327fae6619f0b911cc14ed5e200a724813c9b"
+        }
+      ]
     }
   ]
 }

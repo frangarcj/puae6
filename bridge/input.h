@@ -14,6 +14,12 @@ p6_result validate_input(const p6_input &input, p6_error *error);
 // buffer; they are sent at the next unit.
 unsigned apply_input(const p6_input &input);
 
+// The lag of a unit (docs/02-contracts.md): the emulated CPU read none of JOY0DAT, JOY1DAT, POT0DAT, POT1DAT, POTGOR,
+// CIA-A PRA (fire buttons and disk lines share it) or CIA-A SDR (the keyboard byte) since begin_input_unit(). A poll by the
+// frontend says nothing: only the guest's reads count.
+void begin_input_unit();
+bool guest_polled_input();
+
 // Nothing is held any more (a load, a reset): the next packet applies every held key and button again.
 void forget_input();
 

@@ -107,6 +107,13 @@ solo las diferencias, porque una pulsacion de tecla no es idempotente en el moto
 - Orden completo dentro de un boundary: reset (cabecera), eventos de medios, entrada (teclas, puerto 0, puerto 1), unidad.
   La entrada va despues de la cabecera del reset para no mezclarse con la secuencia de arranque del teclado.
 
+Lag (T10b). `P6_FRAME_LAG` de una unidad significa que la CPU emulada no leyo ninguno de JOY0DAT, JOY1DAT, POT0DAT,
+POT1DAT, POTGOR, CIA-A PRA (botones de fuego; comparte registro con lineas de disco) ni CIA-A SDR (el byte del teclado)
+durante ella. Una mascara de escritura unica para el motor (parche 0065) la registra y el bridge la limpia al empezar la
+unidad y la lee al terminar; no hay callback desde dentro del motor. Lo que el frontend consulta o envia no cuenta. Un
+programa que solo usa el teclado da lag casi siempre (el SDR solo se lee al llegar un byte); uno que lee el disco por PRA
+no da lag. La mascara es estado derivado: no forma parte del estado ni cambia ningun hash. Capacidad: `P6_CAP_LAG_FLAG`.
+
 Orden en boundary: aplicar reset/eventos pendientes en orden estable registrado,
 fijar input, ejecutar, recoger A/V y devolver. Eventos simultaneos tienen prioridad
 documentada. No cambiar el disco desde otro hilo. Entradas subframe quedan fuera

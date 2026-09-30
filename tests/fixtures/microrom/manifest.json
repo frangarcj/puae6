@@ -116,6 +116,18 @@
         "sha256": "ab6fb5bb1d3d8b502214a8545125db27cfe39c97344d41ff281b5f383ceedb65"
       },
       "purpose": "Logs JOYxDAT, POTxDAT, POTGOR and CIA-A PRA every VERTB and every keyboard byte with its handshake"
+    },
+    "input_rotate": {
+      "scenario": "I2",
+      "logical_id": "microrom-input-rotate-v1",
+      "program_source": "input_rotate.s",
+      "source_sha256": "cb6ccdde25894e3c3129e808aed484f8437466cd74fb42ab4fe1ba1534cfd83e",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "b3e4b8aba3d04d1acb9f04f37940db03e5ed831a49f7225e8b3e52973cd1cb3d"
+      },
+      "purpose": "One input resource (or none) read per VERTB, tagged in the log: the lag of each unit is known from the program"
     }
   }
 }

@@ -49,8 +49,8 @@ class HeadlessLinkTests(unittest.TestCase):
         self.assertEqual(info["abi"], abi)
         self.assertEqual(info["upstream"], f"WinUAE {manifest['commit']}")
         self.assertEqual(info["patches"], f"{count} ({digest})")
-        # Capability bits describe implemented behaviour: nothing is implemented yet.
-        self.assertEqual(info["caps"], "0x0")
+        # Capability bits describe implemented behaviour: only the lag flag exists so far.
+        self.assertEqual(info["caps"], "0x8")            # P6_CAP_LAG_FLAG
         self.assertEqual(info["boot"], "micro-ROM programs only; Kickstart compatibility is not proven")
         self.assertEqual(info["video"], "up to 760x576")
 

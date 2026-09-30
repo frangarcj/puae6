@@ -155,6 +155,7 @@ typedef struct p6_frame {
 #define P6_FIELD_PROGRESSIVE UINT32_C(0)
 #define P6_FIELD_EVEN        UINT32_C(1)
 #define P6_FIELD_ODD         UINT32_C(2)
+/* Lag: the emulated CPU read no input register (joystick/mouse counters, POT, CIA-A PRA, CIA-A SDR) during the unit. */
 #define P6_FRAME_LAG         (UINT32_C(1) << 0)
 #define P6_FRAME_NO_VIDEO    (UINT32_C(1) << 1)
 #define P6_RENDER_VIDEO      (UINT32_C(1) << 0)

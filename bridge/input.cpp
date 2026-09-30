@@ -164,6 +164,16 @@ unsigned apply_input(const p6_input &in)
     return deferred;
 }
 
+void begin_input_unit()
+{
+    p6_input_poll_mask = 0;
+}
+
+bool guest_polled_input()
+{
+    return p6_input_poll_mask != 0;     // the bits are exactly the seven registers above
+}
+
 void forget_input()
 {
     memset(&applied, 0, sizeof applied);

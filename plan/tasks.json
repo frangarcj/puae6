@@ -7333,7 +7333,7 @@
       "title": "Lag real: lecturas de entrada del invitado",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T10a"
       ],
@@ -7373,14 +7373,14 @@
         "El parche no altera el estado de la maquina: digest identico con y sin el gancho."
       ],
       "stop": "No equiparar input_poll del frontend con una lectura del invitado.",
-      "evidence": null
+      "evidence": "reports/tasks/T10b.md"
     },
     {
       "id": "T10",
       "title": "Implementar entrada normalizada y lag real",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T08",
         "T10a",
@@ -7413,7 +7413,7 @@
         "Lag cambia segun lecturas invitadas definidas y el callback opcional no cambia hashes."
       ],
       "stop": "Si una lectura de CIA/puerto tiene efectos laterales desconocidos, investigar el punto exacto; no inyectar input por escritura directa arbitraria en registros.",
-      "evidence": null
+      "evidence": "reports/tasks/T10.md"
     },
     {
       "id": "T11",

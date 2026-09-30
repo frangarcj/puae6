@@ -363,3 +363,9 @@ aluvion), asi que el bridge solo envia un cambio cuando cabe y reintenta el rest
 desbordamientos despues del hecho, que no permite recuperar el orden. 0064 (5 lineas, solo en builds con P6_UNIT_TRACE)
 hace que el observador de STEP01 cuente una vez el borde que ven a la vez el bucle de espera de la CPU retenida en reset y la
 cola de do_specialties. El presupuesto de 1500 lineas sigue superado; se revisara en M2.
+
+T10b añade 0065: 65 parches/32 archivos/2067 lineas (+23), sobre inputdevice.cpp, cia.cpp e include/inputdevice.h. Una mascara de bits
+que solo escribe el motor (siete lecturas de la CPU emulada: JOY0DAT, JOY1DAT, POT0DAT, POT1DAT, POTGOR, CIA-A PRA con acceso real de la CPU
+y CIA-A SDR) y que el bridge limpia y lee por unidad. Alternativa descartada: un callback desde JOYxDAT, que seria reentrada en el motor y
+una llamada al host desde dentro de una instruccion (AGENTS.md); y filtrar por tipo de puerto (lag en BizHawk = "leido", no "leido algo
+enchufado"). El presupuesto de 1500 lineas sigue superado; se revisara en M2.
