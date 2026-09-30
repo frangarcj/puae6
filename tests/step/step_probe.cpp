@@ -82,9 +82,33 @@ uint64_t state_digest()
     h.add(hsync_counter); h.add(vsync_counter);
     h.add(dmacon); h.add(intena); h.add(intreq); h.add(maxvpos); h.add(maxhpos);
     h.add(lof_store); h.add(lof_display);
-    for (const ev &e : eventtab) { h.add(e.active); h.add(e.evtime); h.add(e.oldcycles); }
-    for (int i = 0; i < ev2_max; ++i) { h.add(eventtab2[i].active); h.add(eventtab2[i].evtime); h.add(eventtab2[i].data); }
+    const bool parts = getenv("P6_DIGEST_PARTS") != nullptr;   // prints the running hash after each group, to find what differs
+    if (parts) fprintf(stderr, "part cpu+beam %016" PRIx64 "\n", h.value);
+    // Only what is scheduled is state: the times and data of an event that is not active are what its last firing left behind.
+    for (const ev &e : eventtab) { h.add(e.active); if (e.active) { h.add(e.evtime); h.add(e.oldcycles); } }
+    for (int i = 0; i < ev2_max; ++i) { h.add(eventtab2[i].active); if (eventtab2[i].active) { h.add(eventtab2[i].evtime); h.add(eventtab2[i].data); } }
+    if (parts) fprintf(stderr, "part events %016" PRIx64 "\n", h.value);
+    if (parts && getenv("P6_DIGEST_PARTS")[0] == '2') {   // the values themselves, one line per event
+        for (size_t i = 0; i < sizeof eventtab / sizeof eventtab[0]; ++i)
+            fprintf(stderr, "event %zu active=%d evtime=%" PRId64 " old=%" PRId64 "\n", i, int(eventtab[i].active), int64_t(eventtab[i].evtime), int64_t(eventtab[i].oldcycles));
+        for (int i = 0; i < ev2_max; ++i)
+            fprintf(stderr, "event2 %d active=%d evtime=%" PRId64 " data=%" PRIu64 "\n", i, int(eventtab2[i].active), int64_t(eventtab2[i].evtime), (uint64_t)eventtab2[i].data);
+    }
+    if (parts && getenv("P6_DIGEST_PARTS")[0] == '3') {   // Chip RAM hashed per 4 KiB block
+        for (size_t at = 0; at < chipmem_bank.allocated_size; at += 4096) {
+            Hash block; block.bytes(chipmem_bank.baseaddr + at, std::min<size_t>(4096, chipmem_bank.allocated_size - at));
+            fprintf(stderr, "chipblock %05zx %016" PRIx64 "\n", at, block.value);
+        }
+    }
+    if (parts && getenv("P6_DIGEST_PARTS")[0] == '4') {   // the first 4 KiB of Chip RAM as it is
+        for (size_t at = 0; at < 4096; at += 32) {
+            fprintf(stderr, "chiplow %04zx", at);
+            for (size_t i = 0; i < 32; ++i) fprintf(stderr, " %02x", chipmem_bank.baseaddr[at + i]);
+            fprintf(stderr, "\n");
+        }
+    }
     h.bytes(chipmem_bank.baseaddr, chipmem_bank.allocated_size);
+    if (parts) fprintf(stderr, "part chipram %016" PRIx64 "\n", h.value);
     // The presentation state is part of the machine's future: a drawing pass closed too early shows here.
     p6_video_frame_info video{};
     const int have = p6_video_frame_get(&video);

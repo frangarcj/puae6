@@ -106,6 +106,8 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     currprefs.produce_sound = 0;    // forces the first audio setup in the reset head
     savestate_init();
     keybuf_init();
+    p6_bridge::reset_keyboard();    // the key table and the reset-chord state belong to a session: a chord held when the last one
+                                    // ended would make the first key event of this load reset the machine
 
     stage = Stage::Devices;
     memory_hardreset(2);

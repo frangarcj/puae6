@@ -11,6 +11,7 @@ import re
 import tempfile
 import unittest
 
+from tests.input.test_input import CTRL, FIXTURES, KEY_Q, LAMI, RAMI, line, sdr
 from tests.step.test_step import TOOLS, builder, configure_trace_tree, run_probe
 
 READS, STEPS_IN, GAP = 12, 10, 100        # 100 NOPs are 200 colour clocks, more than the drive's minimum step interval (140)
@@ -99,6 +100,81 @@ class ReloadTests(unittest.TestCase):
         self.assertEqual(on_track_0(logged(text, 1)), [True] * READS)
         after = on_track_0(logged(text, 3))                            # the reset restarted the guest, the drive kept its head
         self.assertEqual(after, [False] * (STEPS_IN - BOOT_STEP) + [True] * (READS - STEPS_IN + BOOT_STEP))
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class ReloadKeyboardTests(unittest.TestCase):
+    """The keys of the engine and its reset-chord state belong to a session too."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.exe = configure_trace_tree()
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-reload-keys-")
+        cls.rom = Path(cls.tmp.name) / "input_all.rom"
+        cls.rom.write_bytes(builder.build((FIXTURES / "input_all.s").read_text(encoding="utf-8")))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def execute(self, keys, extra=None):
+        """Six units; `keys` are held from unit 3 to the end, so they are still held when the session ends."""
+        script = Path(self.tmp.name) / "script.txt"
+        script.write_text("\n".join(line(keys=keys if unit >= 3 else []) for unit in range(1, 7)) + "\n")
+        env = {"P6_DUMP_LOG": "1", "P6_INPUT_SCRIPT": str(script), **(extra or {})}
+        code, out = run_probe(self.exe, self.rom, 6, "steps", 1, timeout=600, extra=["pal"], env=env)
+        self.assertEqual(code, 0, out[-600:])
+        return out
+
+    @staticmethod
+    def masked(text):
+        """Without the digest of unit 1: after a reload the stack of the first frame differs by one byte (OPEN, see below)."""
+        return re.sub(r"^(unit 1 .*digest=)\w+$", r"\1-", text, flags=re.M)
+
+    def test_keys_held_when_a_session_ends_are_pressed_again_in_the_next_load(self):
+        clean = self.execute([KEY_Q, CTRL])
+        logs = re.findall(r"^logu \d+:.*$", clean, re.M)
+        self.assertIn(" %04x" % sdr(CTRL, True), " ".join(logs))                       # the script does press Ctrl
+        for number, text in enumerate(passes(self.execute([KEY_Q, CTRL], {"P6_RELOAD": "3"})), 1):
+            self.assertEqual(self.masked(text), self.masked(clean), f"load {number} differs from a clean process")
+
+    def test_a_reset_chord_held_when_a_session_ends_does_not_fire_in_the_next_load(self):
+        chord = [CTRL, LAMI, RAMI]
+        clean = self.execute(chord)
+        for number, text in enumerate(passes(self.execute(chord, {"P6_RELOAD": "2"})), 1):
+            self.assertEqual(self.masked(text), self.masked(clean), f"load {number} differs from a clean process")
+
+    @unittest.expectedFailure
+    def test_the_first_unit_of_a_keyboard_guest_is_identical_after_a_reload(self):
+        # OPEN (T13b): after a reload the whole machine of a keyboard guest matches a clean process except one byte of the stack of
+        # unit 1 (the PC stacked by the last interrupt of the first frame is $F80118 instead of $F80116); units 2 on match
+        # digest for digest. Eight of the ten micro-ROMs reload identically, only input_all and input_rotate show it, so it
+        # is timing state of the keyboard/CIA power-up stream. Tried without effect: kbcode, kbhandshakestart and the input
+        # frame counters.
+        clean = self.execute([KEY_Q, CTRL])
+        self.assertEqual(passes(self.execute([KEY_Q, CTRL], {"P6_RELOAD": "2"}))[1], clean)
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class ReloadFixtureTests(unittest.TestCase):
+    """Every micro-ROM that does not drive the keyboard: three loads in a process, each a clean process, digests included."""
+
+    FIXTURES = ("boot", "halt", "lof_stuck", "long_frame", "stop", "vsync")
+
+    def test_the_micro_roms_reload_as_a_clean_process(self):
+        exe = configure_trace_tree()
+        with tempfile.TemporaryDirectory(prefix="p6-reload-fixtures-") as directory:
+            for name in self.FIXTURES:
+                rom = Path(directory) / f"{name}.rom"
+                rom.write_bytes(builder.build((FIXTURES / f"{name}.s").read_text(encoding="utf-8")))
+                with self.subTest(rom=name):
+                    code, clean = run_probe(exe, rom, UNITS, "steps", 1, timeout=600, extra=["pal"], env={"P6_DUMP_LOG": "1"})
+                    self.assertEqual(code, 0, clean[-400:])
+                    code, text = run_probe(exe, rom, UNITS, "steps", 1, timeout=600, extra=["pal"],
+                                           env={"P6_DUMP_LOG": "1", "P6_RELOAD": "3"})
+                    self.assertEqual(code, 0, text[-400:])
+                    loads = passes(text)
+                    self.assertEqual(len(loads), 3)
+                    for number, load in enumerate(loads, 1):
+                        self.assertEqual(load, clean, f"{name}: load {number} differs from a clean process")
 
 if __name__ == "__main__":
     unittest.main()

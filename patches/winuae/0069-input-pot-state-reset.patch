@@ -1,0 +1,18 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -6065,6 +6065,14 @@
+ 	}
+ 	lightpen_trigger2 = 0;
+ 	cubo_flag = 0;
++#ifdef P6_PORTABLE
++	// POTGO's data and direction bits and the charge model of the pot lines are chip state that only a cold process has at zero;
++	// a reset (and so a new load) must put them back or POTGOR and the pot counters would depend on the previous session.
++	potgo_value = 0;
++	memset(pot_cap, 0, sizeof pot_cap);
++	memset(pot_dat, 0, sizeof pot_dat);
++	memset(pot_dat_act, 0, sizeof pot_dat_act);
++#endif
+ #ifdef ARCADIA
+ 	alg_flag &= 1;
+ #endif

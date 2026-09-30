@@ -1,0 +1,15 @@
+diff --git a/events.cpp b/events.cpp
+--- a/events.cpp
++++ b/events.cpp
+@@ -528,4 +528,11 @@
+ 	for (int i = 0; i < ev2_max; i++) {
+ 		eventtab2[i].active = 0;
+ 	}
++#ifdef P6_PORTABLE
++	// Where MISC_handler starts its round of the secondary events, and its re-entry counters, are scheduler state: only a cold
++	// process has them at zero, and the order of two events due at the same instant follows event2idx.
++	event2idx = 0;
++	event2cnt = 0;
++	event2restart = 0;
++#endif
+ }

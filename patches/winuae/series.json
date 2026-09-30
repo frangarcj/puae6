@@ -1944,6 +1944,72 @@
           "after_sha256": "7fcbfed8e8cf998bd75c3e9f0da69c76771a4c46e12fb17aaff9ea4aab5ac4d0"
         }
       ]
+    },
+    {
+      "id": "0069-input-pot-state-reset",
+      "file": "patches/winuae/0069-input-pot-state-reset.patch",
+      "sha256": "8fef40500504369f79d23bbb7b86c0fc3b1f5cfb4c5ef31ac7e4fc2d7422cf86",
+      "title": "Put the pot port state back at every reset",
+      "reason": "potgo_value, pot_cap, pot_dat and pot_dat_act are chip state that inputdevice_reset never touched: only a cold process has them at zero, so POTGOR and the pot counters of a new load depended on what the previous session did with POTGO.",
+      "category": "host hooks",
+      "order": 69,
+      "symbols": [
+        "inputdevice_reset"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_reload",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "46cccddd49fe4e5b35ad61e61900d3c3b2ff293495c073c32d4d8b810534f1b8",
+          "after_sha256": "866ab6c2a6d1c2bbf99ed873caf27c31055175d38da44efdfde2b10457d7e22d"
+        }
+      ]
+    },
+    {
+      "id": "0070-events-secondary-scheduler-reset",
+      "file": "patches/winuae/0070-events-secondary-scheduler-reset.patch",
+      "sha256": "c5d5cb031886bde904c37afa5679c617cda02884f98ac89f2f39a18d3c44512d",
+      "title": "Reset the secondary event scheduler with the events",
+      "reason": "event2idx (where MISC_handler starts its round) and the re-entry counters are static and survived clear_events, so the order of two secondary events due at the same instant, and the slot the next one takes, depended on the previous session.",
+      "category": "host hooks",
+      "order": 70,
+      "symbols": [
+        "clear_events"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_reload",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "events.cpp",
+          "before_sha256": "fbe3eea8d01b1f0b703987fc68433f09d0ec9e7cc622b7a5b2c22f580b2166fd",
+          "after_sha256": "0a8b9748a45463e7cb1f8be1e00d3868cb85fe74180aa26a72db5d3c2413e691"
+        }
+      ]
+    },
+    {
+      "id": "0071-cia-service-instant-reset",
+      "file": "patches/winuae/0071-cia-service-instant-reset.patch",
+      "sha256": "9512e919f81b1a6e7d4f62f73c8c8b7dfc61b3b8ee4dc714b7a266de95522a35",
+      "title": "Forget the instant of the last CIA service at a reset",
+      "reason": "cia_now_evt is compared with regs.ipl_evt when an interrupt is recognised, but the cycle counter restarts at a reset and nothing put it back, so the IPL timing of the first CIA interrupts of a load depended on the previous session; a clean process has both at zero.",
+      "category": "host hooks",
+      "order": 71,
+      "symbols": [
+        "CIA_reset"
+      ],
+      "test": "LIFE01; tests.lifecycle.test_reload",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "ed5292545b0e20dd40724d1e31259fd7f71993e691dae35f43926af5d475e324",
+          "after_sha256": "df60447647652bc560e1a02ed7bdfa2f0f8248dda7b5980b5fbbff773e24d29c"
+        }
+      ]
     }
   ]
 }
