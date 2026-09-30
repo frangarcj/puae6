@@ -94,7 +94,9 @@ codigo generado compilado para target. Los generadores ejecutados en el host no
 heredan estos flags por accidente. Auditar assembly, intrinsics y posibles
 corutinas por separado: un archivo ensamblador no respeta -ffixed-x28 magicamente.
 TPIDR_EL0 es un espejo de compatibilidad; no introducir dependencias nuevas que
-omitan el contexto x28.
+omitan el contexto x28. XNU lo reescribe en cada cambio de contexto (medido en
+T09b2), asi que el guest NO puede contener TLS del compilador (`thread_local`,
+`__thread`): usar `pthread_key`, que pasa por x28. Ver docs/adr/waterbox-compiler-tls.md.
 
 Waterbox conserva paginas logicas de 4 KiB y su formato; Darwin agrupa cuatro en
 paginas fisicas de 16 KiB segun el contrato local. Build guest de esta ruta:
@@ -173,15 +175,22 @@ T46: queda para OTROS runtimes/futuros forks, no para aplazar MacHawk ARM64.
 
 ## Gates adicionales ARM64
 
-WB13: compilar y ejecutar probe que cruza callbacks preservando x18/x28/TLS;
-verificar tambien las unidades assembly y dependencias del guest.
+WB13: compilar y ejecutar probe que cruza callbacks preservando x18/x28 y el TLS de
+musl (pthread_key via x28, no TLS del compilador); verificar tambien las unidades
+assembly y dependencias del guest.
 WB14: escrituras en los cuatro offsets de un grupo 16 KiB, snapshot, mutacion,
 restore y comparacion; caso negativo de protecciones incompatibles y limites.
 WB15: cargar el guest ARM64 correcto con dylib/managed runtime registrados y
 restaurar en sandbox/proceso nuevo; una carga accidental x86_64 o del UAE anterior
 es fallo, no fallback.
+WB16: el ELF final del guest no contiene TLS del compilador. La receta falla ante
+PT_TLS, secciones SHF_TLS, simbolos STT_TLS o `mrs/msr TPIDR_EL0` / `mrs TPIDRRO_EL0`
+en segmentos ejecutables, incluidas dependencias precompiladas, y demuestra que
+rechaza el caso conservado tests/waterbox-smoke/tls-negative (`thread_local`).
+Implementado en tools/build_waterbox.py (check_no_compiler_tls) y aplicado por
+`--check-artifact`.
 
-WB13-WB15 se añaden a WB01, WB03, WB04 y WB07, no los sustituyen. Que este codigo
+WB13-WB16 se añaden a WB01, WB03, WB04 y WB07, no los sustituyen. Que este codigo
 exista demuestra una ruta a probar, NO que PUAE6 este ya portado ni que estos tests
 hayan pasado. La primera prueba real sigue siendo una dependencia obligatoria.
 

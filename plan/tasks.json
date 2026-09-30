@@ -671,7 +671,7 @@
       "title": "Fijar el invariante sin TLS de compilador en el guest con lint del ELF final",
       "milestone": "M0",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T09b1"
       ],

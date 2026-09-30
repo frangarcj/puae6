@@ -86,8 +86,9 @@ no ocultar una categoria ausente. Juegos/demos son complemento, no el unico test
 WB01-WB12 estan definidos exactamente en docs/03-waterbox.md. Son checks de
 runtime Waterbox, no aliases de tests nativos. Todo check futuro empieza como
 NOT_IMPLEMENTED y falla si lo selecciona una puerta obligatoria.
-WB13-WB15, definidos en docs/07-machawk.md, añaden preservacion x18/x28/TLS,
-granularidad de memoria 4/16 KiB y carga/restauracion del guest MacHawk ARM64.
+WB13-WB16, definidos en docs/07-machawk.md, añaden preservacion x18/x28 y del TLS de
+musl, granularidad de memoria 4/16 KiB, carga/restauracion del guest MacHawk ARM64
+y ausencia de TLS del compilador en el ELF final.
 
 Los IDs agrupan suites que crecen por etapas. Cada ejecucion identifica tarea,
 perfil y assertion_set exacto. Por ejemplo T11 valida streaming de AV02, T15 añade
@@ -134,7 +135,7 @@ Native/headless y contrato libretro en cada plataforma publicada. El primer gate
 puede usar Linux x86_64 + macOS ARM64; no anunciar el resto hasta probarlo.
 
 Tier 1 Waterbox inicial: guest AArch64 en MacHawk Darwin ARM64 con sysroot/runtime
-locales fijados, pruebas WB13-WB15 y contrato de paginas 4/16 KiB. Añadir build y
+locales fijados, pruebas WB13-WB16 y contrato de paginas 4/16 KiB. Añadir build y
 ejecucion Linux x86_64 y Windows x86_64 como filas independientes antes de
 anunciarlas. La toolchain guest puede ejecutarse en contenedor; el runtime y su
 rendimiento se validan en el host real, no se deducen del cross-build.

@@ -200,6 +200,73 @@ def validate_elf(path: str | Path, host_page_size: int = PAGE_SIZE) -> dict:
             "load_segments": loads}
 
 
+PT_LOAD, PT_TLS, PF_X = 1, 7, 1
+SHF_TLS, STT_TLS, SHT_SYMTAB, SHT_DYNSYM = 0x400, 6, 2, 11
+# MRS/MSR encodings; the low five bits carry Xt. XNU rewrites TPIDR_EL0 at every
+# context switch, so guest code that reads or writes it cannot be correct.
+THREAD_REGISTER_ACCESS = {
+    0xD53BD040: "mrs TPIDR_EL0", 0xD51BD040: "msr TPIDR_EL0",
+    0xD53BD060: "mrs TPIDRRO_EL0",
+}
+
+
+def check_no_compiler_tls(path: str | Path, limit: int = 4) -> dict:
+    """WB16: the final guest ELF has no compiler-generated TLS (docs/adr/waterbox-compiler-tls.md).
+
+    Rejects PT_TLS, SHF_TLS sections, STT_TLS symbols and any executable word that
+    is an MRS/MSR of TPIDR_EL0 or MRS of TPIDRRO_EL0. Scanning executable words
+    can only false-positive on data embedded in code, which fails safe.
+    """
+    elf_path = Path(path)
+    raw = elf_path.read_bytes()
+    if len(raw) < 64 or raw[:4] != b"\x7fELF" or raw[4] != 2 or raw[5] != 1:
+        raise BuildError(f"{elf_path}: WB16 requiere un ELF64 little-endian")
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    phoff, shoff = header[5], header[6]
+    phentsize, phnum, shentsize, shnum, shstrndx = header[9], header[10], header[11], header[12], header[13]
+    if phentsize < 56 or phoff + phentsize * phnum > len(raw):
+        raise BuildError(f"{elf_path}: tabla de program headers inválida")
+    found: list[str] = []
+    words = 0
+    for index in range(phnum):
+        p_type, flags, offset, vaddr, _paddr, filesz, _memsz, _align = struct.unpack_from(
+            "<IIQQQQQQ", raw, phoff + index * phentsize)
+        if p_type == PT_TLS:
+            found.append(f"PT_TLS en el program header {index}")
+        if p_type != PT_LOAD or not flags & PF_X:
+            continue
+        if offset + filesz > len(raw):
+            raise BuildError(f"{elf_path}: PT_LOAD {index} excede el archivo")
+        count = filesz // 4
+        for position, word in enumerate(struct.unpack_from(f"<{count}I", raw, offset)):
+            words += 1
+            access = THREAD_REGISTER_ACCESS.get(word & ~0x1F)
+            if access and len(found) < 64:
+                found.append(f"{access} en {vaddr + position * 4:#x}")
+    tls_sections = symbol_tables = 0
+    if shoff and shnum and shentsize >= 64 and shoff + shentsize * shnum <= len(raw):
+        sections = [struct.unpack_from("<IIQQQQIIQQ", raw, shoff + i * shentsize) for i in range(shnum)]
+        names = sections[shstrndx] if shstrndx < shnum else None
+        for name, sh_type, sh_flags, _addr, sh_offset, sh_size, sh_link, _info, _align, sh_entsize in sections:
+            if sh_flags & SHF_TLS:
+                label = ""
+                if names:
+                    start = names[4] + name
+                    label = raw[start:raw.find(b"\0", start)].decode("ascii", "replace")
+                found.append(f"seccion TLS {label or '?'}")
+                tls_sections += 1
+            if sh_type in (SHT_SYMTAB, SHT_DYNSYM) and sh_entsize == 24:
+                symbol_tables += 1
+                for at in range(sh_offset, sh_offset + sh_size - 23, 24):
+                    if raw[at + 4] & 0xF == STT_TLS:
+                        found.append(f"simbolo STT_TLS en la entrada {(at - sh_offset) // 24}")
+    if found:
+        shown = "; ".join(found[:limit]) + (f"; y {len(found) - limit} mas" if len(found) > limit else "")
+        raise BuildError(f"WB16 {elf_path}: TLS del compilador en el guest: {shown}")
+    return {"wb16": "PASS", "executable_words_scanned": words,
+            "symbol_tables_checked": symbol_tables, "tls_sections": tls_sections}
+
+
 def install_wrappers(sysroot: Path, clang: Path, lld: Path, musl_root: Path) -> tuple[Path, Path]:
     wrapper_dir = BUILD / "toolchain/bin"
     wrapper_dir.mkdir(parents=True, exist_ok=True)
@@ -352,6 +419,26 @@ def build(args: argparse.Namespace) -> dict:
     ], env, ROOT)
     guest = BUILD / "guest/release/p6-smoke.wbx"
     guest_metadata = validate_elf(guest, PAGE_SIZE)
+    guest_metadata["compiler_tls"] = check_no_compiler_tls(guest)
+
+    # The direct thread_local case that failed inside Waterbox stays as a fixture:
+    # it must build like any guest and be rejected by WB16, never executed.
+    negative_dir = ROOT / "tests/waterbox-smoke/tls-negative"
+    run_logged([
+        str(paths["make"]), "-B", "-C", str(negative_dir), "release",
+        f"SYSROOT={sysroot_copy}", f"CC={cc_wrapper}", f"CXX={cc_wrapper}",
+        f"OUT_DIR={BUILD / 'tls-negative'}", "WBX_TARGET_ARCH=aarch64",
+        f"WBX_HOST_PAGE_SIZE={PAGE_SIZE}",
+    ], env, ROOT)
+    negative = BUILD / "tls-negative/release/p6-tls-negative.wbx"
+    validate_elf(negative, PAGE_SIZE)
+    try:
+        check_no_compiler_tls(negative)
+    except BuildError as error:
+        tls_negative = {"path": str(negative), "sha256": sha256(negative),
+                        "rejected": True, "reason": str(error)}
+    else:
+        raise BuildError("WB16 no rechaza el caso tls-negative con thread_local")
     dylib_metadata = {"path": str(dylib), "size": dylib.stat().st_size,
                       "sha256": sha256(dylib)}
     input_hashes = {
@@ -364,6 +451,8 @@ def build(args: argparse.Namespace) -> dict:
         "linkscript_aarch64": sha256(linkscript),
         "smoke_makefile": sha256(smoke_makefile),
         "guest_cpp": sha256(guest_source),
+        "tls_negative_guest_cpp": sha256(negative_dir / "guest.cpp"),
+        "tls_negative_makefile": sha256(negative_dir / "Makefile"),
         "musl_clang_template": sha256(musl_root / "tools/musl-clang.in"),
         "musl_ld_template": sha256(musl_root / "tools/ld.musl-clang.in"),
         "guest_wrapper": sha256(cc_wrapper),
@@ -385,6 +474,7 @@ def build(args: argparse.Namespace) -> dict:
         "cargo_test_nonignored_output_sha256": hashlib.sha256(cargo_test_output.encode()).hexdigest(),
         "cargo_tests": {"passed": 8, "failed": 0, "ignored": 0},
         "guest": guest_metadata,
+        "tls_negative": tls_negative,
         "runtime_dylib": dylib_metadata,
     }
     receipt_path = BUILD / "receipt.json"
@@ -399,13 +489,15 @@ def main() -> int:
     parser.add_argument("--fetch", action="store_true",
                         help="hacer cargo fetch --locked para el target ARM64 antes del build")
     parser.add_argument("--check-artifact", type=Path,
-                        help="validar ELF WBX existente sin preparar ni compilar inputs")
+                        help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
     parser.add_argument("--snapshot-smoke", action="store_true",
                         help="construir y ejecutar la puerta T09b1 real (fallos no se convierten en PASS)")
     args = parser.parse_args()
     try:
         if args.check_artifact:
-            print(json.dumps(validate_elf(args.check_artifact), indent=2, sort_keys=True))
+            metadata = validate_elf(args.check_artifact)
+            metadata["compiler_tls"] = check_no_compiler_tls(args.check_artifact)
+            print(json.dumps(metadata, indent=2, sort_keys=True))
         else:
             build(args)
             if args.snapshot_smoke:
