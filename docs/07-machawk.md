@@ -101,14 +101,24 @@ T09b2), asi que el guest NO puede contener TLS del compilador (`thread_local`,
 Waterbox conserva paginas logicas de 4 KiB y su formato; Darwin agrupa cuatro en
 paginas fisicas de 16 KiB segun el contrato local. Build guest de esta ruta:
 WBX_HOST_PAGE_SIZE=16384, layout compatible y protecciones coherentes por grupo.
-No usar el default 4096 de common.mak sin fijarlo. El runtime debe consultar/validar
-el tamaño real del host y fallar ante un caso no soportado, no asumir silenciosamente.
+No usar el default 4096 de common.mak sin fijarlo.
+
+Lo que el runtime de MacHawk valida y lo que NO (medido en T09c, cada carga en un
+proceso hijo; ver reports/tasks/T09c.md): rechaza con error un ELF sin magic o
+truncado, pero ACEPTA un ELF con e_machine x86_64 y un heap que no es multiplo de
+16 KiB, y ABORTA el proceso (SIGABRT) ante una pagina RW dentro de un grupo RX.
+waterboxhost/DARWIN_ARM64.md, que es de MacHawk y no se toca, dice que las
+protecciones incompatibles "son un error": en la practica es un aborto. Arquitectura,
+alineacion de heaps y grupos de permisos los garantizan validate_elf en el build y el
+harness, no el runtime; un wrapper que cargue guests debe repetir la comprobacion de
+identidad (hash del guest) antes de crear el host.
 
 No mezclar dentro del mismo grupo fisico datos sealed/invisible/mutables con
 permisos incompatibles. Revisar alineacion de heaps, ELF, mmap y protecciones.
-El costo de dirty tracking no es necesariamente de una sola pagina logica: una
-escritura puede afectar el grupo completo de cuatro. Medir costo por pagina fisica
-y logica de forma separada o dejar claro cual se esta contando.
+El costo de dirty tracking no es de una sola pagina logica: una escritura en un grupo
+limpio marca las cuatro paginas del grupo como dirty (medido en T09c) y nada fuera de
+el. Medir costo por pagina fisica y logica de forma separada o dejar claro cual se esta
+contando. El bit dirty es respecto a la linea base del seal, no al ultimo restore.
 
 El runtime documenta thunks ejecutables con MAP_JIT, alternancia de proteccion
 mediante pthread_jit_write_protect_np e invalidacion de icache. Estos thunks de
@@ -179,10 +189,13 @@ WB13: compilar y ejecutar probe que cruza callbacks preservando x18/x28 y el TLS
 musl (pthread_key via x28, no TLS del compilador); verificar tambien las unidades
 assembly y dependencias del guest.
 WB14: escrituras en los cuatro offsets de un grupo 16 KiB, snapshot, mutacion,
-restore y comparacion; caso negativo de protecciones incompatibles y limites.
+restore y comparacion; caso negativo de protecciones incompatibles y limites. El caso
+negativo son imagenes dañadas del guest real: validate_elf las rechaza en el build y,
+para el grupo RW dentro de RX, el runtime aborta en vez de devolver un error.
 WB15: cargar el guest ARM64 correcto con dylib/managed runtime registrados y
 restaurar en sandbox/proceso nuevo; una carga accidental x86_64 o del UAE anterior
-es fallo, no fallback.
+es fallo, no fallback. La barrera es la identidad por hash del recibo y validate_elf
+(EM_AARCH64): el runtime no detecta la arquitectura equivocada.
 WB16: el ELF final del guest no contiene TLS del compilador. La receta falla ante
 PT_TLS, secciones SHF_TLS, simbolos STT_TLS o `mrs/msr TPIDR_EL0` / `mrs TPIDRRO_EL0`
 en segmentos ejecutables, incluidas dependencias precompiladas, y demuestra que
