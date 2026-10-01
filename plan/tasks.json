@@ -8989,6 +8989,140 @@
       "evidence": null
     },
     {
+      "id": "T15c1",
+      "title": "Estado nativo del RTC (chunk P6RT) y el ancla del reloj tras restaurar",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15b"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_devices.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "ports/portable/p6_state_access.h",
+        "tests/state/**",
+        "tests/fixtures/microrom/**",
+        "manifests/state-inventory.json",
+        "docs/adr/0009-state-format.md",
+        "tests/test_plan.py",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Escribir visit_rtc (P6RT v1): segundos, ticks por segundo, subsegundo, semilla y los registros D/E/F del MSM6242B; el ancla de ciclos no se guarda: Apply usa el contador que P6SC ya puso y llama a p6_rtc_restore, que limpia el fallo pegajoso. Parche de cia.cpp con el accesor de los registros del MSM (estaticos de fichero).",
+        "Probar la regla de epoca que T15b no pudo: guardar en una unidad y cargar en una anterior y en una posterior sin que la unidad siguiente falle con 'the clock service failed', en el mismo proceso y en uno nuevo; el digest rtc del probe ve tambien D/E/F.",
+        "Pruebas: ida y vuelta del digest y del cuerpo, cada campo aplicado, 12/24 h con una micro-ROM nueva que escribe los registros del reloj, cuerpos mal formados (otra frecuencia, semilla distinta, D con un bit que el chip no guarda), mutaciones de bytes y mutaciones sembradas.",
+        "Ampliacion touch: bridge/state_devices.cpp (visitantes de RTC, CIA y entrada), bridge/state_probe.cpp, ports/portable/p6_state_access.h, tests/fixtures/microrom/** (micro-ROM del reloj) y el ADR."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "El digest rtc y los bytes del chunk vuelven a los de la unidad guardada, el reloj sigue avanzando tras cargar en una unidad anterior o posterior, y un cuerpo que Validate acepta no puede fallar al aplicar."
+      ],
+      "stop": "No llamar a p6_rtc_save/p6_rtc_read al aplicar (con el contador de ciclos hacia atras dejan el fallo pegajoso) ni guardar el ancla.",
+      "evidence": null
+    },
+    {
+      "id": "T15c2",
+      "title": "Estado nativo de las CIA y del teclado (chunk P6CI), con la reconstruccion del overlay",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15c1"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_devices.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "ports/portable/p6_state_access.h",
+        "tests/state/**",
+        "tests/fixtures/microrom/**",
+        "manifests/state-inventory.json",
+        "docs/adr/0009-state-format.md",
+        "tests/test_plan.py",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Parches de cia.cpp con accesores de copia (los dos CIA, el resto de estado de fichero, el LED y la comprobacion de frontera) y el arreglo aparte de la fuga del LED de encendido que una recarga conserva; escribir visit_cia (P6CI v1): registros, timers crudos (no timer - passed), pipeline de interrupcion, TOD con latch y alarma, SDR, handshake de teclado, fase E, LED como edad contra el contador de ciclos. Apply solo copia campos: nada que programe o dispare (CIA_update, CIA_calctimers, RethinkICR, event2_newevent_*); el unico rebuild es map_overlay desde PRA y DDRA.",
+        "Save comprueba que los eventos del scheduler que la CIA necesita estan presentes (el del TOD pendiente y el de la interrupcion sincronizada); Validate acota lo que haria abort() en el motor (inputpipe) y las relaciones del ICR; el error del serializador upstream que asigna el latch del timer B al TOD no se hereda.",
+        "Nueva sonda cia con cada campo del chunk, micro-ROM de timers, TOD con alarma y LED, y pokes para lo que un programa no deja en una frontera; pruebas de ida y vuelta, campos aplicados, cuerpos mal formados, mutaciones y recarga sucia con el LED encendido.",
+        "Ampliacion touch: la misma que T15c1."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Cada campo de las dos CIA y del teclado vuelve a su valor, el overlay se reconstruye desde PRA/DDRA, una recarga con el LED encendido es igual a un proceso limpio, y nada de lo aplicado programa ni dispara eventos."
+      ],
+      "stop": "No heredar el serializador upstream de CIA tal cual: modifica la CIA viva. No escribir eventtab ni eventtab2: son del scheduler.",
+      "evidence": null
+    },
+    {
+      "id": "T15c3",
+      "title": "Estado nativo de la entrada (chunk P6IN): POT, raton, joystick, memoria de flancos, anillo y tabla de teclas",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15c2"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_devices.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "ports/portable/p6_state_access.h",
+        "tests/state/**",
+        "tests/fixtures/microrom/**",
+        "manifests/state-inventory.json",
+        "docs/adr/0009-state-format.md",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/input.cpp",
+        "bridge/input.h"
+      ],
+      "steps": [
+        "Parches de keybuf.cpp (anillo de teclas) e inputdevice.cpp (POT, matrices de puerto, memoria de flancos, tabla de teclas, cadena de reset y la comprobacion de frontera) con accesores de copia; visit_input (P6IN v1) con el anillo como lista canonica y lo que el bridge cree aplicado (Applied), para que un solo visitante valide que motor y bridge coinciden y no queden teclas pegadas.",
+        "El probe aprende a pulsar teclas (--key) y a cambiar un puerto en una unidad (--port-at) para tener teclado a medio handshake y raton en vuelo; micro-ROM de POTGO.",
+        "Pruebas: ida y vuelta, campos aplicados, acorde de reset en vuelo, anillo con varias teclas, cuerpos mal formados, mutaciones; guardados rechazados fuera de perfil.",
+        "Ampliacion touch: bridge/input.cpp y bridge/input.h (el estado Applied del bridge) ademas de la de T15c1."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Teclas pulsadas, raton en vuelo y POT midiendo vuelven a su estado, la memoria de flancos del motor y la del bridge coinciden tras restaurar, y el anillo de teclas se reindexa sin perder orden."
+      ],
+      "stop": "No llamar a inputdevice_do_keyboard, resetinput ni inputdevice_updateconfig al aplicar: emitirian teclas o borrarian la configuracion.",
+      "evidence": null
+    },
+    {
       "id": "T15c",
       "title": "Estado nativo de RTC, CIA, teclado y entrada (chunks RTC, CIA, INPT)",
       "milestone": "M2",
@@ -8996,7 +9130,10 @@
       "status": "pending",
       "depends": [
         "T15a",
-        "T15b"
+        "T15b",
+        "T15c1",
+        "T15c2",
+        "T15c3"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9017,7 +9154,8 @@
       "steps": [
         "Serializar rtc (ancla y registros del MSM6242B), las dos CIA (registros, timers, pipeline de interrupcion, TOD pendiente, handshake de teclado, fase E, eventos programados, LED de energia) y entrada (POT, contadores de raton/joystick, memoria de flancos, anillo de teclas, tabla de teclas y cadena de reset).",
         "Parches por fichero (cia.cpp, rtc, keybuf.cpp, inputdevice.cpp) que añaden guardar/cargar junto al estado; el error de asignacion del latch del TOD de CIA-B del serializador upstream no se hereda.",
-        "Prueba por chunk con teclas y raton en vuelo y una CIA con un TOD pendiente, y prueba de que cada campo omitido cambia el futuro al alterarlo."
+        "Prueba por chunk con teclas y raton en vuelo y una CIA con un TOD pendiente, y prueba de que cada campo omitido cambia el futuro al alterarlo.",
+        "Division: T15c1 (RTC y ancla del reloj), T15c2 (CIA y teclado) y T15c3 (entrada); T15c es el cierre y conserva la puerta original: DET02 con teclas y raton en vuelo y un TOD pendiente, y la Kickstart del propietario en tres fronteras. Avisos para los chunks siguientes: el audio llama a led_filter_audio en su rebuild (no en su Apply) y el disco llama a DISK_select_set tras P6CI."
       ],
       "checks": [
         "DET02"
@@ -9036,7 +9174,8 @@
       "status": "pending",
       "depends": [
         "T15a",
-        "T15b"
+        "T15b",
+        "T15c"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9076,7 +9215,8 @@
       "status": "pending",
       "depends": [
         "T15a",
-        "T15b"
+        "T15b",
+        "T15c"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9115,7 +9255,8 @@
       "status": "pending",
       "depends": [
         "T15a",
-        "T15b"
+        "T15b",
+        "T15c"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9155,7 +9296,8 @@
       "status": "pending",
       "depends": [
         "T15a",
-        "T15b"
+        "T15b",
+        "T15c"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9194,7 +9336,8 @@
       "status": "pending",
       "depends": [
         "T15a",
-        "T15b"
+        "T15b",
+        "T15c"
       ],
       "read": [
         "docs/02-contracts.md",
