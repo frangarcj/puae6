@@ -12,10 +12,19 @@
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
 //   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
+//                      [--seed S] [--adf FILE]... [--save-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--public-at UNIT]...
+// --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
+// chunks that do not exist yet, so a state made here restores only what the registry implements. They print "save UNIT BYTES SHA256",
+// "load UNIT CODE MESSAGE" and, after a load, the digests again as "digest UNIT SUBSYSTEM HEX BYTES" under a line "after-load UNIT".
+// --load-fault-at loads with a failure injected into the apply pass (the Faulted path): prints "load", "run-after-fault CODE MESSAGE", "unload CODE",
+// "reload CODE" and the digests of the reloaded image under "after-load UNIT".
+// --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
+// --public-at calls the public p6_state_* functions and prints "public UNIT cap_state=B bound=C save=C load=C written=N MESSAGE".
 // Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. --dump also prints the
 // first 4 KiB of the canonical bytes of one subsystem ("bytes UNIT SUBSYSTEM HEX"), to find what differs between two digests.
 #include "p6.h"
 #include "session.h"
+#include "state.h"
 #include "sha256.h"
 #include "rtc_time.h"
 #include "sysconfig.h"
@@ -193,6 +202,84 @@ void print_digests(uint64_t unit)
     }
 }
 
+bool read_file(const char *path, std::vector<uint8_t> *data);
+
+std::vector<uint8_t> g_rom;          // what p6_load was given, for the operations that load again
+std::vector<p6_media> g_media;
+
+enum class OpKind { Save, Load, LoadFault, Public };
+
+struct StateOp {
+    uint64_t unit;
+    OpKind kind;
+    const char *path;
+};
+
+void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
+{
+    for (const StateOp &op : ops) {
+        if (op.unit != unit) continue;
+        p6_error error{P6_ABI_VERSION, sizeof error, {}};
+        p6_state::Options options;
+        options.allow_placeholders = true;
+        if (op.kind == OpKind::Public) {
+            // The public functions of p6.h: until every chunk exists they must say UNSUPPORTED and the capability must stay clear.
+            p6_caps caps = {P6_ABI_VERSION, sizeof caps, 0, 0, 0, 0, 0};
+            p6_query_caps(&caps, &error);
+            uint64_t bytes = 0, written = 0;
+            uint8_t scratch[16] = {};
+            const p6_result b = p6_state_bound(&bytes, &error);
+            char message[P6_ERROR_TEXT_CAPACITY];
+            memcpy(message, error.message, sizeof message);
+            const p6_result s = p6_state_save(scratch, sizeof scratch, &written, &error);
+            const p6_result l = p6_state_load(scratch, sizeof scratch, &error);
+            printf("public %" PRIu64 " cap_state=%d bound=%d save=%d load=%d written=%" PRIu64 " %s\n", unit, (caps.flags & P6_CAP_STATE) ? 1 : 0,
+                   int(b), int(s), int(l), written, message);
+        } else if (op.kind == OpKind::Save) {
+            uint64_t bound = 0, written = 0;
+            p6_result result = p6_state::bound(&bound, options, &error);
+            std::vector<uint8_t> state(result == P6_OK ? bound : 0);
+            if (result == P6_OK) result = p6_state::save(state.data(), state.size(), &written, options, &error);
+            if (result != P6_OK) { printf("save %" PRIu64 " error %d %s\n", unit, int(result), error.message); continue; }
+            uint8_t digest[32];
+            p6_sha256_hash(state.data(), written, digest);
+            FILE *f = fopen(op.path, "wb");
+            if (!f || fwrite(state.data(), 1, size_t(written), f) != written) { perror(op.path); if (f) fclose(f); continue; }
+            fclose(f);
+            printf("save %" PRIu64 " %" PRIu64 " %s bound=%" PRIu64 "\n", unit, written, hex(digest, 32).c_str(), bound);
+        } else if (op.kind == OpKind::LoadFault) {
+            // A load whose apply pass fails after validation: the image is Faulted, a frame is refused, p6_unload recovers it and the
+            // image loaded again is the one of a clean process.
+            std::vector<uint8_t> state;
+            if (!read_file(op.path, &state)) continue;
+            options.fail_apply = true;
+            p6_result result = p6_state::load(state.data(), state.size(), options, &error);
+            printf("load %" PRIu64 " %d %s\n", unit, int(result), error.message);
+            p6_input input = {};
+            input.abi_version = P6_ABI_VERSION;
+            input.struct_size = sizeof input;
+            p6_frame frame = {};
+            frame.abi_version = P6_ABI_VERSION;
+            frame.struct_size = sizeof frame;
+            result = p6_run_frame(&input, 0, &frame, &error);
+            printf("run-after-fault %d %s\n", int(result), error.message);
+            result = p6_unload(&error);
+            printf("unload %d\n", int(result));
+            result = p6_load(p6_buffer{g_rom.data(), g_rom.size()}, g_media.empty() ? nullptr : g_media.data(), uint32_t(g_media.size()), &error);
+            printf("reload %d %s\n", int(result), error.message);
+            printf("after-load %" PRIu64 "\n", unit);
+            print_digests(unit);
+        } else {
+            std::vector<uint8_t> state;
+            if (!read_file(op.path, &state)) continue;
+            const p6_result result = p6_state::load(state.data(), state.size(), options, &error);
+            printf("load %" PRIu64 " %d %s\n", unit, int(result), error.message);
+            printf("after-load %" PRIu64 "\n", unit);
+            print_digests(unit);
+        }
+    }
+}
+
 bool read_file(const char *path, std::vector<uint8_t> *data)
 {
     FILE *f = fopen(path, "rb");
@@ -220,6 +307,9 @@ int main(int argc, char **argv)
     const char *rom_path = nullptr;
     uint64_t units = 3, every = 1, loads = 1;
     uint32_t standard = P6_VIDEO_PAL;
+    uint64_t seed = 1;
+    std::vector<StateOp> state_ops;
+    std::vector<const char *> adf_paths;
     p6_port_input ports[2] = {{P6_PORT_JOYSTICK, 0, 0, 0, 0}, {P6_PORT_JOYSTICK, 0, 0, 0, 0}};
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = strtoull(argv[++i], nullptr, 10);
@@ -227,17 +317,34 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--loads") && i + 1 < argc) loads = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
+        else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--load-at") || !strcmp(argv[i], "--load-fault-at")) && i + 2 < argc) {
+            const OpKind kind = !strcmp(argv[i], "--save-at") ? OpKind::Save : !strcmp(argv[i], "--load-at") ? OpKind::Load : OpKind::LoadFault;
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), kind, argv[i + 2]});
+            i += 2;
+        } else if (!strcmp(argv[i], "--public-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Public, nullptr});
+        else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
+        else if (!strcmp(argv[i], "--adf") && i + 1 < argc) adf_paths.push_back(argv[++i]);
         else if (!strcmp(argv[i], "--port") && i + 1 < argc) {
             unsigned port, type, buttons;
             int dx, dy;
             if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
             ports[port] = {type, buttons, int16_t(dx), int16_t(dy), 0};
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--save-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
-    std::vector<uint8_t> rom;
+    std::vector<uint8_t> &rom = g_rom;
     if (!read_file(rom_path, &rom)) return 1;
+    std::vector<std::vector<uint8_t>> adfs(adf_paths.size());
+    std::vector<p6_media> &media = g_media;
+    for (size_t k = 0; k < adf_paths.size(); ++k) {
+        if (!read_file(adf_paths[k], &adfs[k])) return 1;
+        p6_media m = {};
+        m.type = P6_MEDIA_ADF;
+        p6_sha256_hash(adfs[k].data(), adfs[k].size(), m.content_id);
+        m.image = p6_buffer{adfs[k].data(), adfs[k].size()};
+        media.push_back(m);
+    }
 
     p6_config config = {};
     config.abi_version = P6_ABI_VERSION;
@@ -245,16 +352,17 @@ int main(int argc, char **argv)
     config.machine = P6_MACHINE_A500;
     config.video_standard = standard;
     config.audio_rate_hz = 48000;
-    config.random_seed = 1;
+    config.random_seed = seed;
     config.rtc_epoch_seconds = 946684800;
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
     for (uint64_t pass = 1; pass <= loads; ++pass) {
         if (loads > 1) printf("pass %" PRIu64 "\n", pass);
-        result = p6_load(p6_buffer{rom.data(), rom.size()}, nullptr, 0, &error);
+        result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
         if (result != P6_OK) return fail("p6_load", result, error);
         print_digests(0);
+        run_state_ops(state_ops, 0);
         p6_input input = {};
         input.abi_version = P6_ABI_VERSION;
         input.struct_size = sizeof input;
@@ -267,6 +375,7 @@ int main(int argc, char **argv)
             result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
             if (result != P6_OK) return fail("p6_run_frame", result, error);
             if (unit % every == 0 || unit == units) print_digests(unit);
+            run_state_ops(state_ops, unit);
         }
         result = p6_unload(&error);
         if (result != P6_OK) return fail("p6_unload", result, error);

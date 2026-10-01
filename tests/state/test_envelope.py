@@ -123,6 +123,9 @@ class RefusalTests(unittest.TestCase):
     def test_an_altered_payload_with_a_right_checksum_is_refused_by_its_structure(self):
         payload = self.blob[e.HEADER_SIZE:]
         first = e.CHUNK_HEADER.size + len(self.chunks[e.TAGS[0]][1])
+        last_body = self.chunks[e.TAGS[-1]][1]
+        last_at = len(payload) - len(last_body) - e.CHUNK_HEADER.size
+        longer = payload[:last_at + 8] + struct.pack("<Q", len(last_body) + 1) + payload[last_at + 16:]
         cases = {
             "a chunk repeated": (payload[:first] + payload[:first] + payload[first:], e.CORRUPT_STATE, "chunk"),
             "an unknown tag": (b"XXXX" + payload[4:], e.CORRUPT_STATE, "chunk"),
@@ -130,6 +133,7 @@ class RefusalTests(unittest.TestCase):
                                     payload[first + e.CHUNK_HEADER.size + len(self.chunks[e.TAGS[1]][1]):], e.CORRUPT_STATE, "chunk"),
             "the last chunk missing": (payload[:-(e.CHUNK_HEADER.size + len(self.chunks[e.TAGS[-1]][1]))], e.CORRUPT_STATE, "chunk"),
             "a chunk longer than the payload": (payload[:8] + struct.pack("<Q", 1 << 40) + payload[16:], e.CORRUPT_STATE, "chunk_length"),
+            "the last chunk claims one byte more than is left (within the bound)": (longer, e.CORRUPT_STATE, "chunk_length"),
             "a chunk version this build does not know": (payload[:4] + struct.pack("<I", 2) + payload[8:], e.INCOMPATIBLE, "chunk_version"),
             "bytes after the last chunk": (payload + b"\0\0", e.CORRUPT_STATE, "payload"),
         }

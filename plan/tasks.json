@@ -8813,7 +8813,7 @@
       "title": "Contenedor nativo: lector/escritor acotado, envelope, identidades, cota y chunk de RAM",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T14",
         "T26"
@@ -8835,13 +8835,17 @@
         "tests/state/**",
         "manifests/state-inventory.json",
         "docs/adr/0009-state-format.md",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "bridge/state_probe.cpp",
+        "tests/step/test_kickstart.py",
+        "tests/scenarios/a500/kickstart-authorized.json"
       ],
       "steps": [
         "Escribir el escritor/lector por campos (u8..u64 LE, cuentas y limites, error pegajoso) y el envelope del ADR 0009 sobre ellos, con la validacion de p6_state_load en el orden del ADR (1-7) y la aplicacion transaccional (8) que deja la imagen Faulted si falla.",
         "Crear la unidad de identidad de build (core_build_id, patch_series_hash, codegen_hash) y las identidades de config, medios y firmware; el chunk de RAM (chip, slow) como primer chunk del registro; p6_state_bound/save/load definidas pero UNSUPPORTED hasta el cierre de T15 (no se anuncia P6_CAP_STATE con un conjunto parcial de chunks).",
-        "Herramienta de prueba p6_state_tool (guarda y carga por el registro interno, sin pasar por la ABI publica) y pruebas de rechazo: cada defecto del envelope, otro build, otra ROM, otra config, truncado y manipulado, con la maquina usable despues.",
-        "Ampliacion touch: bridge/build_identity.cpp para la identidad de build que hoy solo define p6_headless, lifecycle.cpp/session.h para el estado de sesion que el envelope necesita, y el ADR para fijar lo que la implementacion precise."
+        "Pruebas con la maquina real: en lugar de un p6_state_tool nuevo, las operaciones de estado (--save-at, --load-at, --load-fault-at, --public-at, --adf, --seed) viven en p6_state_probe, que ya tiene los digests canonicos de T14b; pruebas de rechazo de cada defecto del envelope, otro build, otra ROM, otra config, otros medios, truncado y manipulado, con la maquina usable despues y el futuro igual al de una ejecucion sin el intento; mutaciones sembradas en el envelope, el registro y Archive.",
+        "Ampliacion touch: bridge/build_identity.cpp para la identidad de build que hoy solo define p6_headless, lifecycle.cpp/session.h para el estado de sesion que el envelope necesita, y el ADR para fijar lo que la implementacion precise.",
+        "Ampliacion touch: bridge/state_probe.cpp para las operaciones de estado en lugar de una herramienta nueva; los dos ficheros de kickstart-authorized solo para el seguimiento de T08c que ya se cometio aparte (la Kickstart 1.3 del usuario ya arranca)."
       ],
       "checks": [
         "STATE02"

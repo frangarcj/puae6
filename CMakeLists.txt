@@ -103,6 +103,45 @@ target_compile_definitions(p6_headless PRIVATE
     P6_UPSTREAM_COMMIT="${_upstream_commit}"
     P6_PATCH_COUNT="${_patch_count}"
     P6_PATCH_SERIES_SHA256="${_series_sha256}")
+# Native state (T15a). The container (ports/portable/state_io) is pure and has no engine in it; p6_state adds the chunk registry and the
+# p6_state_* entry points over the bridge. It is a library apart from p6_bridge on purpose: a Waterbox guest takes its sources from
+# p6_bridge, and a Waterbox snapshot is not this format (docs/adr/0009-state-format.md, point 7), so the guest does not carry it.
+add_library(p6_state_io STATIC ports/portable/state_io/envelope.cpp)
+target_include_directories(p6_state_io PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/state_io"
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" "${CMAKE_CURRENT_SOURCE_DIR}/bridge/include")
+add_executable(p6_envelope_probe tests/state/envelope_probe.cpp)
+target_link_libraries(p6_envelope_probe PRIVATE p6_state_io p6_portable)
+add_executable(p6_archive_probe tests/state/archive_probe.cpp)
+target_include_directories(p6_archive_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/state_io")
+target_compile_options(p6_archive_probe PRIVATE -UNDEBUG)
+# The identity of a build, as the state envelope binds it (core_build_id): the upstream commit, the patch series, the recipe of the
+# generated sources (manifests/codegen.json: GEN01 makes their bytes a function of it, the upstream files and the patches) and the
+# bridge and portable sources. The compiler and its flags are not part of it until a determinism test across compilers needs them.
+set(_codegen_file "${CMAKE_CURRENT_SOURCE_DIR}/manifests/codegen.json")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_codegen_file}")
+file(SHA256 "${_codegen_file}" _codegen_sha256)
+file(GLOB_RECURSE _core_files CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/bridge/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.inc")
+list(FILTER _core_files EXCLUDE REGEX "/bridge/state_probe\\.cpp$")      # a test tool that lives in the bridge directory
+list(SORT _core_files)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_core_files})
+set(_core_lines "")
+foreach(_file IN LISTS _core_files)
+    file(RELATIVE_PATH _relative "${CMAKE_CURRENT_SOURCE_DIR}" "${_file}")
+    file(SHA256 "${_file}" _file_sha256)
+    string(APPEND _core_lines "${_relative}:${_file_sha256}\n")
+endforeach()
+string(SHA256 _sources_sha256 "${_core_lines}")
+add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp)
+add_dependencies(p6_state p6_codegen)
+target_include_directories(p6_state PUBLIC bridge)
+target_include_directories(p6_state PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_link_libraries(p6_state PUBLIC p6_state_io p6_bridge)
+set_source_files_properties(bridge/build_identity.cpp PROPERTIES COMPILE_DEFINITIONS
+    "P6_PROFILE=\"${P6_PROFILE}\";P6_UPSTREAM_COMMIT=\"${_upstream_commit}\";P6_PATCH_SERIES_SHA256=\"${_series_sha256}\";P6_CODEGEN_SHA256=\"${_codegen_sha256}\";P6_SOURCES_SHA256=\"${_sources_sha256}\"")
 # Libretro core and the minimal frontend that tests its contract (T16).
 include(cmake/Libretro.cmake)
 # Engine-level probe of the bridge lifecycle (tests/host/test_bridge_lifecycle.py runs it with a ROM).
@@ -161,7 +200,7 @@ add_dependencies(p6_state_probe p6_codegen)
 target_include_directories(p6_state_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_state_probe PRIVATE -UNDEBUG)
-target_link_libraries(p6_state_probe PRIVATE p6_bridge p6_portable)
+target_link_libraries(p6_state_probe PRIVATE p6_state p6_bridge p6_portable)
 if(P6_UNIT_TRACE)
     # STEP01 harness (tests/step/test_step.py drives it). Only in trace builds: the profile never has the hook.
     add_executable(p6_step_probe tests/step/step_probe.cpp $<TARGET_OBJECTS:p6_engine>)

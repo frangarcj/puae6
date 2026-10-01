@@ -1855,7 +1855,14 @@
             "chipmem_bank"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15a",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/state/test_state_container.py: RAM goes back to the saved unit in the same and in a new process (Chip and Slow); the future of the whole machine waits for the other chunks (DET02, T15)"
+        }
       },
       {
         "id": "ram-slow-bogo",
@@ -1902,7 +1909,14 @@
             "bogomem_bank"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15a",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/state/test_state_container.py: RAM goes back to the saved unit in the same and in a new process (Chip and Slow); the future of the whole machine waits for the other chunks (DET02, T15)"
+        }
       },
       {
         "id": "ram-kickstart-rom",
@@ -6830,6 +6844,9 @@
         "partial": "the subsystem's probe covers the part of the component that can be reached from outside the engine; `why` says what waits for an accessor",
         "pending": "no probe can see this state until T15 adds an accessor"
       }
+    },
+    "native_state": {
+      "purpose": "Components whose native state is written: `native_state` names the task that wrote the visitor, the chunk, the file and the visitor function (bridge/state*.cpp registry kChunks). The proof of a component stays `pending` until every chunk exists and DET02 shows equal futures (T15)."
     }
   },
   "wrapper": {
