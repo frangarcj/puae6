@@ -34,7 +34,7 @@ class KickstartScenarioDescriptorTests(unittest.TestCase):
 
 @unittest.skipUnless(ROM and Path(ROM).is_file(), "BLOCKED: set P6_KICKSTART_ROM to an authorized Kickstart image")
 class KickstartBootTests(unittest.TestCase):
-    """Never executed in the environment that wrote it (no image): it checks running, not compatibility."""
+    """It checks running, not compatibility. Run once with a Kickstart 1.3 supplied by the owner (2026-10-01): see local_run in the descriptor."""
 
     def run_rom(self, units, seed=1):
         return subprocess.run([str(HEADLESS), "--run", ROM, "--units", str(units), "--seed", str(seed)],
@@ -43,7 +43,7 @@ class KickstartBootTests(unittest.TestCase):
     def test_the_image_runs_for_300_units_and_shows_a_picture(self):
         first = self.run_rom(300)
         self.assertEqual(first.returncode, 0, first.stderr)
-        rows = [re.fullmatch(r"unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=([0-9a-f]{16})", line)
+        rows = [re.fullmatch(r"unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=([0-9a-f]{16})(?: audio=\d+)?", line)
                 for line in first.stdout.splitlines()[:-1]]
         self.assertTrue(all(rows))
         self.assertEqual(len(rows), 300)
