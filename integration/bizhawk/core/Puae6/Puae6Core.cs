@@ -444,6 +444,16 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	public bool AvoidRewind => false;
 
+	/// <summary>How many bytes the wrapper's own fields take at the start of a state's payload; the snapshot of the sandbox follows. (A test compares the machine alone, without them.)</summary>
+	public static readonly int WrapperStateBytes = MeasureWrapperState();
+
+	static int MeasureWrapperState()
+	{
+		using var stream = new MemoryStream();
+		using (var writer = new BinaryWriter(stream, Encoding.UTF8, true)) Write(writer, new WrapperState());
+		return (int)stream.Length;
+	}
+
 	sealed class WrapperState
 	{
 		public int Frame, LagCount, BufferWidth, BufferHeight, VsyncNumerator, VsyncDenominator, AspectNum, AspectDen, MouseX, MouseY, Disk0, Disk1, CurrentDrive, CurrentSlot;

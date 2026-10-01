@@ -8731,7 +8731,7 @@
       "title": "Reproduccion, seeks y ramas de peliculas del A500 con el core real, render y audio alternados y entorno distinto",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T22a"
       ],
@@ -8745,13 +8745,14 @@
         "integration/bizhawk/tests/**",
         "tests/ffi/**",
         "tools/check.py",
+        "integration/bizhawk/core/**",
         "tests/test_plan.py"
       ],
       "steps": [
         "Crear la pelicula fixture (teclado, raton, joystick, reset, expulsar e insertar) y otra con un ROM entrelazado, con sync settings, firmware, discos y build fijados en su cabecera, y reproducirlas dos veces en dos procesos a la vez (10000 unidades): mismas unidades, mismo hash de imagen, audio y estado.",
         "Seeks y ramas repetidos con estados intermedios (cargar el estado anterior, rejugar hasta el destino, volver a la linea principal) en un orden que mezcla saltos hacia delante y hacia atras, con los campos de video y audio activos; cada seek converge al estado de la reproduccion continua.",
         "Alternar render y sonido por tramos y comparar los futuros; los contadores de lag y de ciclos son los del fixture; el entorno del anfitrion (zona horaria, locale, directorio de trabajo, TMPDIR, HOME) no cambia ningun resultado; y falla con codigo distinto de cero ante cualquier desacuerdo.",
-        "Documentar que M1 Waterbox cubre el A500 con los firmware y discos probados y que las peliculas del core UAE se rechazan."
+        "Documentar que M1 Waterbox cubre el A500 con los firmware y discos probados y que las peliculas del core UAE se rechazan. Los seeks y las ramas usan el lenguaje de sesion de tests/ffi y el digest de la maquina (sin los campos del wrapper que solo existen con imagen); integration/bizhawk/core se amplio para exponer WrapperStateBytes. No se toco tools/check.py: las pruebas fallan por si mismas con codigo distinto de cero."
       ],
       "checks": [
         "WB02",

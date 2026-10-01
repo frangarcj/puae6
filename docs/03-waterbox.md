@@ -338,6 +338,26 @@ core (el UAE de BizHawk), otro sistema, otro guest, otros sync settings, otro fi
 se rechaza con su motivo antes de que corra una unidad, y no hay conversion de las peliculas de UAE. Mutaciones sembradas (no comprobar el firmware, no comprobar el core, un
 `ClockRate` equivocado) hacen fallar su prueba. El `CycleCount` de la cabecera es el de la ultima unidad.
 
+### Resultado de T22b: reproduccion, seeks y ramas de peliculas con el core real
+
+`python3 -m unittest discover -s tests/bizhawk-movies -p test_movie_playback.py` (unos veinte minutos: la pelicula larga son 10000 unidades grabadas y reproducidas dos veces).
+Las peliculas se graban con el core (entrada pseudoaleatoria con semilla fija: teclas, raton, joysticks, resets y cambios de disco periodicos) y se reproducen desde su `.bk2`.
+
+- WB02: una pelicula de 10000 unidades grabada por un proceso y reproducida por dos procesos nuevos a la vez da las mismas unidades (ticks, hash de imagen, audio y su hash, lag, luz y
+  eventos de medios) y la misma maquina al final; el `CycleCount` y la cuenta de lag de la cabecera son los del final de la reproduccion (`moviefinish` falla con codigo distinto de
+  cero y dice que difiere: probado con un `CycleCount` doblado) y una pelicula que acaba antes que el core es un error.
+- WB09: en dos peliculas (una con disquete y otra con un ROM entrelazado, de 720 unidades) se guardan estados cada 60 unidades y se hacen 40 seeks a fotogramas distintos, hacia
+  delante y hacia atras, cargando el estado anterior y reproduciendo hasta el destino: las unidades vueltas a jugar son las de la primera reproduccion y la maquina es la de la
+  reproduccion continua. Seis ramas desde el mismo estado (otras entradas) van cada una por su lado, y volver al estado y a la pelicula converge a la reproduccion continua.
+- WB08: apagar imagen y sonido en cuatro tramos (uno de una sola unidad) no cambia ticks, lag ni eventos de ninguna unidad, las unidades que siguen entregando imagen y sonido
+  dan los mismos hashes y el estado de la maquina (el snapshot del sandbox, sin los campos del wrapper que solo existen con imagen) es el mismo al final.
+- DET06: la misma reproduccion con otra zona horaria, locale, idioma, globalizacion invariante, directorio de trabajo, `HOME` y `TMPDIR` es la misma reproduccion y la grabada.
+  (El directorio de trabajo es el de la biblioteca del runtime, porque BizHawk pide a dlopen su nombre sin ruta: se probaron cuatro copias en cuatro directorios.)
+
+Alcance: M1 Waterbox cubre el perfil A500 (PAL y NTSC) con las micro-ROM y los discos de las pruebas; no hay Kickstart real probado ni ninguna otra maquina. Las peliculas del core UAE de BizHawk se
+rechazan por su cabecera y no se convierten. Los contadores de lag y de ciclos son los de la propia grabacion (el golden es la grabacion: si una reproduccion difiere, se corrige el
+motor o el core, nunca la pelicula).
+
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
 fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)

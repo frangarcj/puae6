@@ -14,6 +14,8 @@ using BizHawk.Client.Common;
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
 ///       "record" keeps each unit's input as BizHawk's own BK2 log entry
 ///   run NAME UNITS movie=FILE [silent=A-B]                       the input of each unit is read from a .bk2 by the core's frame number (after a load, from the frame of the state)
+///   moviefinish NAME FILE                                         the play ended where the movie does and its CycleCount and lag count are the header's, or the program fails ("desync: ...")
+///   digest NAME [LABEL [machine]]                                 SHA-256 of the whole state; with "machine", of the sandbox's snapshot alone
 ///   endmovie NAME FILE                                            writes what "record" kept, with the header of this core, as a .bk2
 ///   movieverify NAME FILE UNITS [script=FILE] [press=SPEC]      decodes the .bk2 with BizHawk's Bk2Controller and compares every button and axis of every frame with the scripted input that was recorded
 ///   moviecheck NAME FILE                                          validates the header of a .bk2 against this core ("movie accepted" or "movie rejected reason=...")
@@ -100,10 +102,13 @@ internal static unsafe partial class Program
 				{
 					var m = machines[words[1]];
 					var bytes = Save(m.Core);
+					// "machine": the sandbox's snapshot alone, without the wrapper's own fields (some of them, like the size of the last picture, only exist when a picture was asked for)
+					if (words.Length > 3 && words[3] == "machine") bytes = bytes[(HeaderBytes + Puae6Core.WrapperStateBytes)..];
 					Console.WriteLine($"digest {words[1]} {(words.Length > 2 ? words[2] : "")} sha={Hex(SHA256.HashData(bytes))} frame={m.Core.Frame} lag={m.Core.LagCount} " +
 						$"events={m.Core.MediaEventsSent} pcm={m.Pcm:x16}");
 					break;
 				}
+				case "moviefinish": MovieFinish(machines[words[1]], words[2]); break;
 				case "peek":
 				{
 					var domain = machines[words[1]].Core.ServiceProvider.GetService<IMemoryDomains>()![words[2].Replace('_', ' ')]!;
@@ -172,6 +177,19 @@ internal static unsafe partial class Program
 		return presses;
 	}
 
+	/// <summary>What EmuHawk checks when a movie ends, and what a test of a movie must fail on: the frame, the cycle count and the lag count. Anything else is the unit lines.</summary>
+	static void MovieFinish(Machine machine, string path)
+	{
+		var core = machine.Core;
+		var movie = MovieFile.Read(path);
+		if (core.Frame != movie.Entries.Count) throw new InvalidOperationException($"desync: the play is at frame {core.Frame} and the movie has {movie.Entries.Count}");
+		long cycles = long.Parse(movie.Header["CycleCount"], System.Globalization.CultureInfo.InvariantCulture);
+		int lag = int.Parse(movie.Header["PUAE6LagCount"], System.Globalization.CultureInfo.InvariantCulture);
+		if (core.CycleCount != cycles) throw new InvalidOperationException($"desync: CycleCount is {core.CycleCount} and the movie says {cycles}");
+		if (core.LagCount != lag) throw new InvalidOperationException($"desync: the lag count is {core.LagCount} and the movie says {lag}");
+		Console.WriteLine($"movie finished ok frames={core.Frame} cycles={core.CycleCount} lag={core.LagCount}");
+	}
+
 	static void EndMovie(Machine machine, string path)
 	{
 		var core = machine.Core;
@@ -182,6 +200,7 @@ internal static unsafe partial class Program
 			["rerecordCount"] = "0", ["Core"] = header["Core"], [Puae6Movie.GuestKey] = header[Puae6Movie.GuestKey], [Puae6Movie.ConfigKey] = header[Puae6Movie.ConfigKey],
 			[Puae6Movie.FirmwareKey] = header[Puae6Movie.FirmwareKey], [Puae6Movie.MediaKey] = header[Puae6Movie.MediaKey],
 			["SyncSettings"] = System.Text.Json.JsonSerializer.Serialize(core.GetSyncSettings()),
+			["PUAE6LagCount"] = core.LagCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
 			["CycleCount"] = core.CycleCount.ToString(System.Globalization.CultureInfo.InvariantCulture), ["ClockRate"] = core.ClockRate.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
 		};
 		MovieFile.Write(path, head, Bk2LogEntryGenerator.GenerateLogKey(core.ControllerDefinition), machine.Recorded);
