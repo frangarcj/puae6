@@ -8809,6 +8809,324 @@
       "evidence": null
     },
     {
+      "id": "T15a",
+      "title": "Contenedor nativo: lector/escritor acotado, envelope, identidades, cota y chunk de RAM",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T14",
+        "T26"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/build_identity.cpp",
+        "bridge/session.h",
+        "bridge/lifecycle.cpp",
+        "ports/portable/state_io/**",
+        "CMakeLists.txt",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "docs/adr/0009-state-format.md",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Escribir el escritor/lector por campos (u8..u64 LE, cuentas y limites, error pegajoso) y el envelope del ADR 0009 sobre ellos, con la validacion de p6_state_load en el orden del ADR (1-7) y la aplicacion transaccional (8) que deja la imagen Faulted si falla.",
+        "Crear la unidad de identidad de build (core_build_id, patch_series_hash, codegen_hash) y las identidades de config, medios y firmware; el chunk de RAM (chip, slow) como primer chunk del registro; p6_state_bound/save/load definidas pero UNSUPPORTED hasta el cierre de T15 (no se anuncia P6_CAP_STATE con un conjunto parcial de chunks).",
+        "Herramienta de prueba p6_state_tool (guarda y carga por el registro interno, sin pasar por la ABI publica) y pruebas de rechazo: cada defecto del envelope, otro build, otra ROM, otra config, truncado y manipulado, con la maquina usable despues.",
+        "Ampliacion touch: bridge/build_identity.cpp para la identidad de build que hoy solo define p6_headless, lifecycle.cpp/session.h para el estado de sesion que el envelope necesita, y el ADR para fijar lo que la implementacion precise."
+      ],
+      "checks": [
+        "STATE02"
+      ],
+      "acceptance": [
+        "El envelope rechaza cada defecto con su codigo antes de tocar la maquina; un estado de otro build, ROM o config es INCOMPATIBLE y dice cual campo; tras un rechazo la maquina sigue ejecutando igual que sin el intento."
+      ],
+      "stop": "No declarar P6_CAP_STATE ni devolver un buffer parcial: hasta T15 las funciones publicas devuelven UNSUPPORTED.",
+      "evidence": null
+    },
+    {
+      "id": "T15b",
+      "title": "Estado nativo de CPU y scheduler (chunks CPU y SCHD)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_cpu.cpp"
+      ],
+      "steps": [
+        "Serializar los componentes causales de cpu y scheduler del inventario: registros, SR/pila, PC, prefetch, pipeline de IPL, halted, spcflags, estado estatico de m68k_go_unit (suspended, hardboot), PRNG, contador de ciclos, residuo fraccional, ranuras y turno del scheduler secundario, contadores de hsync/vsync. Los componentes rebuild se reconstruyen tras la carga.",
+        "Los accesores a estado local de fichero son parches de patches/winuae que añaden la pareja guardar/cargar junto al estado; un parche por fichero, sin cambiar comportamiento.",
+        "Prueba por chunk: guardar en la unidad N, avanzar, cargar solo el chunk y comprobar que el probe del subsistema vuelve a su digest de N; cada campo extension cambiado antes de guardar cambia el futuro."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Cada componente causal de cpu y scheduler tiene su serializador y su prueba; los rebuild reconstruyen el mismo estado; ningun puntero ni direccion entra en el chunk."
+      ],
+      "stop": "Una omision upstream exige extension y regresion; no sustituirla por copiar el segmento de datos.",
+      "evidence": null
+    },
+    {
+      "id": "T15c",
+      "title": "Estado nativo de RTC, CIA, teclado y entrada (chunks RTC, CIA, INPT)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_devices.cpp"
+      ],
+      "steps": [
+        "Serializar rtc (ancla y registros del MSM6242B), las dos CIA (registros, timers, pipeline de interrupcion, TOD pendiente, handshake de teclado, fase E, eventos programados, LED de energia) y entrada (POT, contadores de raton/joystick, memoria de flancos, anillo de teclas, tabla de teclas y cadena de reset).",
+        "Parches por fichero (cia.cpp, rtc, keybuf.cpp, inputdevice.cpp) que añaden guardar/cargar junto al estado; el error de asignacion del latch del TOD de CIA-B del serializador upstream no se hereda.",
+        "Prueba por chunk con teclas y raton en vuelo y una CIA con un TOD pendiente, y prueba de que cada campo omitido cambia el futuro al alterarlo."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Cada componente causal de rtc, cia e input tiene serializador y prueba; el estado del teclado a medio handshake continua igual tras restaurar."
+      ],
+      "stop": "No heredar el serializador upstream de CIA tal cual: modifica la CIA viva.",
+      "evidence": null
+    },
+    {
+      "id": "T15d",
+      "title": "Estado nativo del disco (chunk DISK)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_disk.cpp"
+      ],
+      "steps": [
+        "Serializar la mecanica de DF0/DF1, el motor DMA de disco (dsklen, dsklen2, palabra de sincronia), el cambio de medio pendiente, los eventos predichos y el PRNG de disco; reconstruir el buffer de pista, las lineas del controlador, la proteccion de escritura y el enlace a la imagen desde el manifest de medios.",
+        "El estado no guarda bytes de imagen: la identidad de medios del envelope decide si el estado vale para los discos montados; la capa de escritura (COW) sigue las reglas de T12.",
+        "Prueba por chunk con una transferencia DMA de disco en curso, un cambio de disco retardado y un motor en marcha."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Un estado guardado a mitad de una lectura de pista o de un cambio de disco continua con el mismo futuro; un manifest de medios distinto se rechaza como INCOMPATIBLE."
+      ],
+      "stop": "No guardar el contenido de las imagenes en el estado; si el COW necesita persistirse, es otra tarea.",
+      "evidence": null
+    },
+    {
+      "id": "T15e",
+      "title": "Estado nativo del audio (chunk AUDI)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_audio.cpp"
+      ],
+      "steps": [
+        "Serializar los cuatro canales de Paula (DMA, periodos, volumen, estado de la maquina de cada canal), los acumuladores del DAC, las fases del filtro y del resampler por patron de bits y la posicion dentro de la unidad de audio; el transporte PCM no es estado.",
+        "Prueba por chunk con DMA de audio activo y volumen modulado, y de que el audio que sale tras restaurar es identico muestra a muestra."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Las muestras tras restaurar son las mismas que sin restaurar; las fases de filtro y resampler no se pierden."
+      ],
+      "stop": "No redondear ni reiniciar las fases del filtro para que el chunk sea mas pequeño.",
+      "evidence": null
+    },
+    {
+      "id": "T15f",
+      "title": "Estado nativo de Agnus, copper, blitter y haz (chunk CHIP)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_chipset.cpp"
+      ],
+      "steps": [
+        "Serializar los componentes causales de chipset: registros custom, paleta, posicion del haz, latches de sincronismo, registros programados, pipeline RGA, DMAL, escrituras de registro retardadas, retardos de eventos, interrupciones, copper, secuenciador de bitplanes, refresco, DMA de sprites, lapiz optico, contadores de linea y marcas de ciclo, y el blitter completo; reconstruir tiempos derivados y tablas.",
+        "Si el inventario no cabe en 400 lineas logicas por cambio, dividir esta ficha en T15f1 (Agnus, copper, haz) y T15f2 (blitter) con las mismas puertas.",
+        "Prueba por chunk con copper en marcha, blitter a medias y DMA de bitplanes y sprites activos."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "La linea en vuelo (anillo de Denise, latches del haz) y el blitter a medias continuan con el mismo futuro tras restaurar."
+      ],
+      "stop": "No drenar el anillo ni rehacer parte del reset para tener una linea limpia: cambiaria el futuro.",
+      "evidence": null
+    },
+    {
+      "id": "T15g",
+      "title": "Estado nativo de Denise y dibujo (chunk VIDE)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_video.cpp"
+      ],
+      "steps": [
+        "Serializar el anillo de entrada rga_denise, las copias de registros y su temporizacion, el shifter de bitplanes, los sprites, la colision, el historial de dibujo y el buffer de pixeles; reconstruir punteros y tablas derivadas.",
+        "Prueba por chunk con una linea de dibujo a medias, sprites reutilizados y el buffer de pixeles a mitad de cuadro; la imagen que sale tras restaurar es identica pixel a pixel."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "La imagen del cuadro restaurado coincide pixel a pixel con la del cuadro continuo."
+      ],
+      "stop": "No guardar punteros al buffer de dibujo; se reconstruyen desde las coordenadas.",
+      "evidence": null
+    },
+    {
+      "id": "T15h",
+      "title": "Estado nativo de la sesion del bridge (chunk BRDG)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/session.h",
+        "bridge/lifecycle.cpp",
+        "bridge/media.cpp",
+        "bridge/input.cpp"
+      ],
+      "steps": [
+        "Serializar los contadores de unidad y ticks, la identidad de firmware, los indices de medios montados, la cola de eventos de medios pendientes, los bordes de entrada aplicados, la bandera de teclas liberadas, el ancla del reloj y las banderas de reset/arranque; reconstruir registro de medios, copia de config y maquina de estados de la sesion.",
+        "Ampliacion touch: media.cpp e input.cpp porque parte del estado de sesion vive alli.",
+        "Prueba por chunk con una cola de eventos de medios a medias, una tecla mantenida y un reset pendiente."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "La sesion restaurada continua con la misma cuenta de unidades y ticks, los mismos eventos de medios pendientes y la misma entrada aplicada."
+      ],
+      "stop": "Lo que es identidad (config, firmware, medios) se valida, no se carga: un estado de otra config no se adapta.",
+      "evidence": null
+    },
+    {
       "id": "T15",
       "title": "Implementar estados nativos semanticos y acotados",
       "milestone": "M2",
@@ -8816,7 +9134,15 @@
       "status": "pending",
       "depends": [
         "T14",
-        "T26"
+        "T26",
+        "T15a",
+        "T15b",
+        "T15c",
+        "T15d",
+        "T15e",
+        "T15f",
+        "T15g",
+        "T15h"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -8828,13 +9154,19 @@
         "patches/winuae/**",
         "ports/portable/state_io/**",
         "tests/state/**",
-        "tests/fuzz/state/**"
+        "tests/fuzz/state/**",
+        "bridge/include/p6.h",
+        "bridge/caps.cpp",
+        "tests/fuzz/**",
+        "tests/test_plan.py"
       ],
       "steps": [
         "Adaptar I/O semantico upstream a memoria y añadir envelope/extensiones identificadas, con encoding por campos y limites.",
         "Calcular state_bound por perfil y medios al load; validar longitud/config/identidad antes de restaurar y hacer fallo transaccional.",
         "Ejecutar roundtrip, continuacion en proceso nuevo y estados cerca de DMA/audio/disco/teclas.",
-        "Activar fuzzer de estados truncados, manipulados y de otro build/ROM; garantizar que el estado anterior sigue utilizable tras rechazo."
+        "Activar fuzzer de estados truncados, manipulados y de otro build/ROM; garantizar que el estado anterior sigue utilizable tras rechazo.",
+        "Division: T15a (contenedor, envelope, identidades y RAM), T15b (CPU y scheduler), T15c (RTC, CIA y entrada), T15d (disco), T15e (audio), T15f (Agnus, copper y blitter), T15g (Denise y dibujo) y T15h (sesion del bridge); T15 es el cierre: conecta p6_state_bound/save/load a la ABI y a P6_CAP_STATE, calcula state_bound sobre todos los chunks y conserva las puertas originales.",
+        "Ampliacion touch: p6.h y caps.cpp para anunciar la capacidad solo al cerrar, tests/fuzz/** para el fuzzer de estados."
       ],
       "checks": [
         "STATE01",
