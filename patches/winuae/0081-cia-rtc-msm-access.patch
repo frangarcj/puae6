@@ -1,0 +1,25 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -3365,3 +3365,21 @@
+ }
+ 
+ #endif /* SAVESTATE */
++
++#ifdef P6_PORTABLE
++// Native state (bridge/state_devices.cpp): the control registers D, E and F of the MSM6242B, which are file-static here. A copy in and a copy out,
++// nothing else: delayed_write only schedules a write to a battery-clock file that the profile does not have.
++void p6_rtc_msm_get(uae_u8 out[3])
++{
++	out[0] = rtc_msm.clock_control_d;
++	out[1] = rtc_msm.clock_control_e;
++	out[2] = rtc_msm.clock_control_f;
++}
++
++void p6_rtc_msm_set(const uae_u8 in[3])
++{
++	rtc_msm.clock_control_d = in[0];
++	rtc_msm.clock_control_e = in[1];
++	rtc_msm.clock_control_f = in[2];
++}
++#endif

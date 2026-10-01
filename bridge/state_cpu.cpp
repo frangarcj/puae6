@@ -47,13 +47,6 @@ constexpr int kEvent2Slots = ev2_max;       // 16
 constexpr uint8_t kEv2Blitter = 1;          // ids of the secondary-event handlers a state can name (scheduler_handler_id)
 constexpr uint8_t kEv2Last = 11;
 
-// A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value).
-template <class W> W get(Archive &a, long long live, long long lo, long long hi, const char *name)
-{
-    if (a.mode() == Mode::Save) a.require(live >= lo && live <= hi, "a live value of the machine is outside the range of its field");
-    return a.val<W>(W(live), W(lo), W(hi), name);
-}
-
 // SR as MakeSR() builds it (newcpu.cpp), without writing the cache field regs.sr: a save must not touch the machine.
 uint16_t current_sr()
 {

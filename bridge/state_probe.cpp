@@ -27,6 +27,9 @@
 // --load-fault-head-at does the same for the reset head that a load into an image that has not started runs first (use it at unit 0).
 // --load-fault-at loads with a failure injected into the apply pass (the Faulted path): prints "load", "run-after-fault CODE MESSAGE", "unload CODE",
 // "reload CODE" and the digests of the reloaded image under "after-load UNIT".
+// --digest-at UNIT prints the digests of the machine as it is then (under "after-load UNIT", like a load does), for after a poke. --rtc-at UNIT prints
+// the clock in the open, "rtc UNIT STATUS SECONDS TICKS SUBSECOND CYCLE D E F" (p6_rtc_save brings it up to the cycle counter); --poke-at UNIT
+// rtc-fault latches the clock's sticky fault, as a failed read would, and cs-rtc names another clock chip than the profile's.
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
 // --public-at calls the public p6_state_* functions and prints "public UNIT cap_state=B bound=C save=C load=C written=N MESSAGE".
 // Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. --dump also prints the
@@ -59,6 +62,7 @@
 extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);   // events.cpp, patch 0078: the secondary scheduler's statics
 extern int p6_custom_extra_cycle_get(void);                            // custom.cpp, patch 0079: the half-CCK remainder of the CPU
+extern void p6_rtc_msm_get(uae_u8 out[3]);                             // cia.cpp, patch 0081: the MSM6242B's control registers D, E and F
 namespace p6_state { uint8_t scheduler_handler_id(evfunc2 f); evfunc2 scheduler_handler(uint8_t id); }    // bridge/state_cpu.cpp: the ids a state gives the handlers
 extern evfunc2 p6_custom_event2_handler(int which);                    // custom.cpp, patch 0079
 extern evfunc2 p6_disk_motordelay_handler(void);                       // disk.cpp, patch 0080
@@ -140,6 +144,9 @@ void rtc(Canon &c)
     if (status == 0)
         c.put(s.clock.seconds).put(s.clock.ticks_per_second).put(s.clock.subsecond).put(s.clock.seed).put(s.clock.version).put(s.cycle);
     c.put(int32_t(p6_rtc_status()));
+    uae_u8 msm[3];
+    p6_rtc_msm_get(msm);                                    // T15c1: what the chunk carries and the digest did not see
+    c.put(msm[0]).put(msm[1]).put(msm[2]);
 }
 
 void chipset(Canon &c)
@@ -233,7 +240,7 @@ bool read_file(const char *path, std::vector<uint8_t> *data);
 std::vector<uint8_t> g_rom;          // what p6_load was given, for the operations that load again
 std::vector<p6_media> g_media;
 
-enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Public };
+enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Public };
 
 struct StateOp {
     uint64_t unit;
@@ -367,6 +374,15 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                    int(b), int(s), int(l), written, message);
         } else if (op.kind == OpKind::HandlerTable) {
             print_handler_table();
+        } else if (op.kind == OpKind::Rtc) {
+            // The clock in the open, for a test that compares it with what a state said: "rtc UNIT STATUS SECONDS TICKS SUBSECOND CYCLE D E F".
+            p6_rtc_state clock{};
+            const int status = p6_rtc_save(&clock);
+            uae_u8 msm[3];
+            p6_rtc_msm_get(msm);
+            printf("rtc %" PRIu64 " %d %" PRId64 " %" PRIu64 " %" PRIu64 " %" PRId64 " %u %u %u\n", unit, status, int64_t(clock.clock.seconds),
+                   uint64_t(clock.clock.ticks_per_second), uint64_t(clock.clock.subsecond), int64_t(clock.cycle), unsigned(msm[0]), unsigned(msm[1]),
+                   unsigned(msm[2]));
         } else if (op.kind == OpKind::Digest) {
             printf("after-load %" PRIu64 "\n", unit);
             print_digests(unit);
@@ -382,7 +398,9 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 const int id = atoi(op.chunk + 4);
                 const evfunc2 handler = p6_state::scheduler_handler(uint8_t(id));
                 if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(2000 + 100 * id) * CYCLE_UNIT, uae_u32(0x1000 + id), handler);
-            } else if (!strcmp(op.chunk, "ev2-foreign")) event2_newevent_xx(-1, evt_t(3000) * CYCLE_UNIT, 0, foreign_handler);
+            } else if (!strcmp(op.chunk, "rtc-fault")) p6_rtc_read(nullptr, 0);       // latches the clock's sticky fault, as a failed read would
+            else if (!strcmp(op.chunk, "cs-rtc")) currprefs.cs_rtc = 2;               // another clock chip than the profile's MSM6242B
+            else if (!strcmp(op.chunk, "ev2-foreign")) event2_newevent_xx(-1, evt_t(3000) * CYCLE_UNIT, 0, foreign_handler);
             else if (!strcmp(op.chunk, "ev2-stale")) {
                 // What a fired event leaves in its slot: inactive, with the time, the data and the handler it had. A save writes zeros for it.
                 eventtab2[7].active = 0;
@@ -400,6 +418,7 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 regs.lastipl = 0;
                 start_cycles = 0;
                 pissoff = 0;
+                currprefs.cs_rtc = 1;
             }
             printf("poke %" PRIu64 " %s\n", unit, op.chunk);
         } else if (op.kind == OpKind::Save || op.kind == OpKind::SaveFields) {
@@ -498,6 +517,8 @@ int main(int argc, char **argv)
         } else if (!strcmp(argv[i], "--mutate-at") && i + 3 < argc) {
             state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Mutate, argv[i + 3], argv[i + 2]});
             i += 3;
+        } else if (!strcmp(argv[i], "--rtc-at") && i + 1 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Rtc, nullptr, nullptr});
         } else if (!strcmp(argv[i], "--digest-at") && i + 1 < argc) {
             state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Digest, nullptr, nullptr});
         } else if (!strcmp(argv[i], "--handler-table")) {
@@ -521,7 +542,7 @@ int main(int argc, char **argv)
             if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
             ports[port] = {type, buttons, int16_t(dx), int16_t(dy), 0};
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|clear]... [--handler-table] [--digest-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;

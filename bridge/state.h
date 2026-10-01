@@ -24,10 +24,19 @@ struct Chunk {
 constexpr uint32_t kChunkCount = 11;
 extern const Chunk kChunks[kChunkCount];
 
-// The chunk visitors that live outside state.cpp (state_cpu.cpp).
+// The chunk visitors that live outside state.cpp (state_cpu.cpp, state_devices.cpp).
 void visit_cpu(Archive &a);
 void visit_scheduler(Archive &a);
 void rebuild_scheduler();
+void visit_rtc(Archive &a);
+
+// A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value), which is the only thing a
+// cross-check may use: Validate stores nothing, so the live variable it came from belongs to another machine.
+template <class W> W get(Archive &a, long long live, long long lo, long long hi, const char *name)
+{
+    if (a.mode() == Mode::Save) a.require(live >= lo && live <= hi, "a live value of the machine is outside the range of its field");
+    return a.val<W>(W(live), W(lo), W(hi), name);
+}
 
 // Test-only knobs; the public functions use the defaults.
 struct Options {

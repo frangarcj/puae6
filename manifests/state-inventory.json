@@ -2345,7 +2345,15 @@
             "p6_rtc_status"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c1",
+          "chunk": "P6RT",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_rtc",
+          "proves": "tests/state/test_state_rtc.py: the clock and the registers come back to the unit the state was taken in (five programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; a state loaded into an earlier or a later unit leaves a clock that goes on exactly by the cycles that elapse; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "seconds (i64, Gregorian years 1..9999), ticks_per_second (u64, must be the session's chipset clock times CYCLE_UNIT), subsecond (u64 < ticks_per_second) and the seed (u32, must be the session's): the last two constants are written and checked so that a state from another configuration is refused even if the identity hash let it through. The anchor (the cycle count the clock was last brought up to) is NOT saved: a save brings the clock up to the cycle counter (p6_rtc_save, the same lazy advance the probe does every unit) and Apply anchors it to the counter that the scheduler's chunk has just restored (chunk order: scheduler before rtc), so the clock goes on from the instant it was saved whatever the machine's counter said before. Apply calls p6_rtc_restore, which is transactional and clears the sticky fault; p6_rtc_save and p6_rtc_read are never called while applying (with the counter put back they would latch the fault)."
+        }
       },
       {
         "id": "rtc-msm6242b-registers",
@@ -2395,11 +2403,21 @@
         },
         "probe": {
           "probe": "rtc",
-          "status": "partial",
-          "task": "T15",
-          "why": "the emulated clock anchor is hashed; the control registers of the MSM6242B live in a file-local struct of cia.cpp"
+          "status": "implemented",
+          "task": "T15c1",
+          "covers": [
+            "p6_rtc_msm_get"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c1",
+          "chunk": "P6RT",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_rtc",
+          "proves": "tests/state/test_state_rtc.py: the clock and the registers come back to the unit the state was taken in (five programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; a state loaded into an earlier or a later unit leaves a clock that goes on exactly by the cycles that elapse; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "The control registers D (0, 1, 8 or 9: the chip keeps 1|8), E and F (0..15) through p6_rtc_msm_get/set (patch 0081, file statics of cia.cpp). The calendar digits are read from the clock above, not stored; delayed_write only schedules a write to a battery-clock file the profile does not have and is not state."
+        }
       },
       {
         "id": "rtc-ricoh-rf5c01a-registers",
@@ -2480,7 +2498,7 @@
         "saved_fields": "Custom-chip extra chunk stores cs_rtc and cs_rtc_adjust upstream (custom.cpp, inside #ifdef SAVESTATE); not compiled and not needed.",
         "omitted": null,
         "pointers": null,
-        "rebuild": "All derived from the fixed preset and p6_config (rtc_epoch_seconds, random_seed, video_standard). The snapshot identity must include epoch, seed and PAL/NTSC because the anchor is meaningless under another rate.",
+        "rebuild": "All derived from the fixed preset and p6_config (rtc_epoch_seconds, random_seed, video_standard). The snapshot identity must include epoch, seed and PAL/NTSC because the anchor is meaningless under another rate. T15c1: nothing is rebuilt: ticks_per_second and the seed are written and Validate requires them equal to the session's, which also guards a state whose identity hash was skipped.",
         "evidence": [
           "build/upstream/memory.cpp:3371",
           "build/upstream/memory.cpp:3373",

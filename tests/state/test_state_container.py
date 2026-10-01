@@ -17,6 +17,7 @@ CHIP = SLOW = 0x80000
 RAM_BODY = 8 + CHIP + SLOW
 CPU_BODY = 155          # P6CP (T15b1)
 SCHED_BODY = 314        # P6SC (T15b2)
+RTC_BODY = 31           # P6RT (T15c1)
 
 
 class StateContainerTests(ProbeCase):
@@ -57,8 +58,9 @@ class StateContainerTests(ProbeCase):
         self.assertEqual(struct.pack("<II", CHIP, SLOW), chunks[b"P6RM"][1][:8])
         self.assertEqual((1, CPU_BODY), (chunks[b"P6CP"][0], len(chunks[b"P6CP"][1])))
         self.assertEqual((1, SCHED_BODY), (chunks[b"P6SC"][0], len(chunks[b"P6SC"][1])))
+        self.assertEqual((1, RTC_BODY), (chunks[b"P6RT"][0], len(chunks[b"P6RT"][1])))
         for tag in e.TAGS:
-            if tag not in (b"P6RM", b"P6CP", b"P6SC"):
+            if tag not in (b"P6RM", b"P6CP", b"P6SC", b"P6RT"):
                 self.assertEqual((0, b""), chunks[tag], "a chunk that is not written yet is an empty placeholder of version 0")
 
     def test_the_state_carries_the_ram_of_the_unit_it_was_taken_in_and_nothing_else_of_the_machine(self):
@@ -143,8 +145,8 @@ class StateContainerTests(ProbeCase):
         run = self.probe("vsync", "--units", "2", "--public-at", "1")
         (unit, cap, bound, save, load, written, message), = run.public
         self.assertEqual(("1", "0", "4", "4", "4", "0"), (unit, cap, bound, save, load, written))     # P6_ERROR_UNSUPPORTED = 4
-        self.assertIn("rtc, chipset", message)
-        for written in ("cpu", "scheduler", "ram"):
+        self.assertIn("chipset, video", message)
+        for written in ("cpu", "scheduler", "ram", "rtc"):
             self.assertNotIn(written, message.split(":")[-1].split(", "), f"{written} is a chunk that exists")
 
     # -- STATE02 -----------------------------------------------------------------------------------------------------------------------
@@ -204,16 +206,17 @@ class StateContainerTests(ProbeCase):
             ("another Chip RAM size", reforge(good, ram(lambda b: struct.pack("<I", CHIP // 2) + b[4:])), 9, "chunk ram: a field is out of its range"),
             ("another Slow RAM size", reforge(good, ram(lambda b: b[:4] + struct.pack("<I", 0) + b[8:])), 9, "chunk ram: a field is out of its range"),
             ("a RAM chunk of version 2", reforge(good, chunk(2, version=2)), 10, "chunk_version"),
-            ("a placeholder with a body", reforge(good, chunk(3, body=b"\1\2\3\4")), 9, "payload_length"),
-            ("a placeholder of version 1", reforge(good, chunk(3, version=1)), 10, "chunk_version"),
+            ("a placeholder with a body", reforge(good, chunk(4, body=b"\1\2\3\4")), 9, "payload_length"),
+            ("a placeholder of version 1", reforge(good, chunk(4, version=1)), 10, "chunk_version"),
+            ("the rtc chunk of version 2", reforge(good, chunk(3, version=2)), 10, "chunk_version"),
             ("the cpu chunk of version 2", reforge(good, chunk(0, version=2)), 10, "chunk_version"),
             ("the scheduler chunk of version 2", reforge(good, chunk(1, version=2)), 10, "chunk_version"),
             ("an unknown chunk", reforge(good, chunk(4, tag=b"P6XX")), 9, "chunk"),
             ("chunks out of order", reforge(good, lambda c: c.insert(0, c.pop(2))), 9, "chunk"),
             ("the last chunk missing and the count kept", reforge(good, lambda c: c.pop(), count=len(e.TAGS)), 9, "chunk: a chunk has no header"),
             ("the last chunk missing", reforge(good, lambda c: c.pop()), 9, "chunk_count"),
-            ("a chunk repeated in the place of another", reforge(good, lambda c: c.__setitem__(3, list(c[4]))), 9, "chunk: unknown, repeated or out of order"),
-            ("a chunk more than the payload may hold", reforge(good, lambda c: c.insert(3, list(c[4]))), 9, "payload_length"),
+            ("a chunk repeated in the place of another", reforge(good, lambda c: c.__setitem__(3, list(c[5]))), 9, "chunk: unknown, repeated or out of order"),
+            ("a chunk more than the payload may hold", reforge(good, lambda c: c.insert(3, list(c[5]))), 9, "payload_length"),
             ("more chunks declared than there are", reforge(good, count=len(e.TAGS) + 1), 9, "chunk_count"),
             ("fewer chunks declared than there are", reforge(good, count=len(e.TAGS) - 1), 9, "chunk_count"),
         ]

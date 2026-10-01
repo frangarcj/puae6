@@ -2216,6 +2216,29 @@
           "after_sha256": "3567ce93bc998c605c9ac795cd7a01cb5c3c7e870a4696f41688421cc8b4da6b"
         }
       ]
+    },
+    {
+      "id": "0081-cia-rtc-msm-access",
+      "file": "patches/winuae/0081-cia-rtc-msm-access.patch",
+      "sha256": "e23ca072712972163cbbca50f9a23fd498d067c52549f5a62ff6207e3d8cd1c8",
+      "title": "The native state can read and write the MSM6242B's control registers",
+      "reason": "The control registers D, E and F of the clock chip are a file-static struct of cia.cpp, so a state cannot see them; p6_rtc_msm_get/set copy them out and in and nothing else. They are the only part of the clock the CPU can change and that is not in the bridge's civil clock (ports/portable/rtc_time.cpp).",
+      "category": "host hooks",
+      "order": 81,
+      "symbols": [
+        "p6_rtc_msm_get",
+        "p6_rtc_msm_set"
+      ],
+      "test": "STATE02; tests.state.test_state_rtc",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "90bab6bc262a610ac9f35df61a5ac8a25d0992ad2e486c7cf8ddeb49ef1f70b0",
+          "after_sha256": "a8d5098af8261772a7629311604b55c63b8d2336ece5c7990d465e74f80be893"
+        }
+      ]
     }
   ]
 }

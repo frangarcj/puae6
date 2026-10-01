@@ -8993,7 +8993,7 @@
       "title": "Estado nativo del RTC (chunk P6RT) y el ancla del reloj tras restaurar",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15b"
       ],
@@ -9020,8 +9020,8 @@
       "steps": [
         "Escribir visit_rtc (P6RT v1): segundos, ticks por segundo, subsegundo, semilla y los registros D/E/F del MSM6242B; el ancla de ciclos no se guarda: Apply usa el contador que P6SC ya puso y llama a p6_rtc_restore, que limpia el fallo pegajoso. Parche de cia.cpp con el accesor de los registros del MSM (estaticos de fichero).",
         "Probar la regla de epoca que T15b no pudo: guardar en una unidad y cargar en una anterior y en una posterior sin que la unidad siguiente falle con 'the clock service failed', en el mismo proceso y en uno nuevo; el digest rtc del probe ve tambien D/E/F.",
-        "Pruebas: ida y vuelta del digest y del cuerpo, cada campo aplicado, 12/24 h con una micro-ROM nueva que escribe los registros del reloj, cuerpos mal formados (otra frecuencia, semilla distinta, D con un bit que el chip no guarda), mutaciones de bytes y mutaciones sembradas.",
-        "Ampliacion touch: bridge/state_devices.cpp (visitantes de RTC, CIA y entrada), bridge/state_probe.cpp, ports/portable/p6_state_access.h, tests/fixtures/microrom/** (micro-ROM del reloj) y el ADR."
+        "Pruebas: ida y vuelta del digest y del cuerpo, cada campo aplicado, 12/24 h con un programa que escribe los registros del reloj, cuerpos mal formados (otra frecuencia, semilla distinta, D con un bit que el chip no guarda), mutaciones de bytes y mutaciones sembradas.",
+        "Ampliacion touch: bridge/state_devices.cpp (visitantes de RTC, CIA y entrada), bridge/state_probe.cpp, ports/portable/p6_state_access.h (aun no hace falta para el RTC) y el ADR; el programa del reloj va dentro del test, no en tests/fixtures, para no tocar la lista de escenarios de las micro-ROM."
       ],
       "checks": [
         "DET02"

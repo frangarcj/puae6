@@ -286,3 +286,39 @@ explicitamente que el cuerpo bueno no sea rechazado por la maquina destino.
 Lo que NO demuestra: que el futuro de la maquina restaurada sea igual (DET02, cierre de T15); que un evento secundario restaurado se ejecute despues como lo habria hecho el
 original (ningun programa lo deja pendiente en una frontera y los forzados no se ejecutan tras la carga); ni la coherencia de epoca con las instantaneas de Agnus, el reloj RTC (su
 digest hashea el contador de ciclos al que esta anclado) y los contadores de la sesion, que son de T15f, T15c y T15h.
+
+## Resultado de T15c1 (2026-10-01): chunk del RTC y el ancla del reloj
+
+Escrito: `visit_rtc` en `bridge/state_devices.cpp` (chunk `P6RT` v1, 31 bytes), el parche 0081 (`cia.cpp`: `p6_rtc_msm_get/set`, los registros D/E/F del MSM6242B, que son estaticos de
+fichero) y las operaciones `--rtc-at` y `--poke-at rtc-fault` del probe, cuyo digest `rtc` ve ahora los tres registros. El ayudante `get<>` de los visitantes pasa a `state.h`.
+
+Decisiones:
+
+1. **El ancla no se guarda.** El reloj civil (`p6_rtc_state`) lleva, ademas de segundos y subsegundo, el ciclo al que se le dio la ultima vez cuerda; un guardado le da cuerda hasta el
+   contador de ciclos (`p6_rtc_save`, el mismo avance perezoso que hace el probe en cada unidad) y Apply lo ancla al contador que el chunk del scheduler acaba de restaurar (el
+   scheduler va antes en el payload), de modo que el reloj sigue desde el instante guardado digan lo que digan el contador y el ancla de la maquina de destino. Esa es la regla de
+   epoca que T15b dejo anotada: sin P6RT, una carga completa en una maquina que ya corria hacia fallar `p6_run_frame` con "the clock service failed", porque el ancla vivo seguia en la epoca
+   vieja. Apply usa `p6_rtc_restore` (transaccional, limpia el fallo pegajoso) y nunca `p6_rtc_save` ni `p6_rtc_read`, que con el contador hacia atras lo dejarian latcheado.
+2. **`ticks_per_second` y la semilla viajan y se exigen iguales a las de la sesion** (la frecuencia del chipset por `CYCLE_UNIT` del estandar de video, y la semilla plegada de la
+   configuracion): el hash de identidad ya impide cargar un estado de otra configuracion, y esto lo repite dentro del cuerpo por si se saltara. Un estado de NTSC en una maquina PAL, o con otra
+   semilla, se rechaza antes de tocar nada.
+3. **Registros del MSM6242B**: D vale 0, 1, 8 o 9 (el chip guarda los bits 1 y 8), E y F entre 0 y 15 (`clock_bput` enmascara a cuatro bits); los tres se aplican con una copia, sin llamar a nada del
+   motor. `delayed_write` no es estado (solo programa una escritura a un fichero de bateria que el perfil no tiene).
+4. **Hallazgo de la verificacion en la Kickstart**: cargar un estado mas reciente en una maquina anterior desborda la cola PCM en la unidad siguiente (`P6_ERROR_CAPACITY`: Paula tiene
+   que ponerse al dia con un reloj de muestras que solo restaurara el chunk de audio, T15e). No es del reloj, que sigue correcto; la prueba comprueba el reloj justo despues de la carga en ese
+   caso y sigue ejecutando solo cuando el estado es mas antiguo que la maquina.
+
+Lo que demuestra (`tests/state/test_state_rtc.py`, 11 tests): para cuatro programas, uno que escribe los registros del chip, y la Kickstart del propietario, el reloj y los registros vuelven a los
+de la unidad guardada, en el mismo proceso y en uno nuevo tras la cabecera de reset; un estado cargado en una unidad anterior y en una posterior deja un reloj que avanza exactamente los ciclos que
+transcurren y sin fallo; cada campo del cuerpo se aplica; 107 mutaciones de un byte no dejan la imagen en fallo ni cambian la maquina tras un rechazo, con el mismo veredicto en dos maquinas; once
+cuerpos mal formados se rechazan con su motivo; un reloj que ha fallado o un chip que no es el MSM6242B no se guarda; y una maquina NTSC tiene los ticks de su estandar y carga su propio estado.
+
+Mutaciones: 24 defectos sembrados en `state_devices.cpp` (omitir cada campo y cada registro en Apply, anclar el reloj a otro ciclo, no restaurarlo, validar contra el reloj vivo, quitar cada rango
+y la mascara de D, no comprobar el chip ni el fallo del reloj al guardar, usar siempre la frecuencia PAL...): 23 hacen fallar un test y uno es equivalente (leer el reloj antes de aplicar no cambia
+nada, porque `p6_rtc_restore` limpia el fallo y lo sobrescribe todo). La primera pasada dejo vivos dos huecos reales (la comprobacion del chip, que no se podia forzar, y la frecuencia NTSC, que ningun
+test usaba) y ahora hay un `--poke-at cs-rtc` y una prueba NTSC.
+
+Otro efecto, para quien escriba los tests de los chunks siguientes: un guardado tras restaurar el scheduler sin el reloj falla ("the clock service failed") porque el ancla del reloj sigue en un
+contador posterior; las pruebas que restauran `scheduler` y vuelven a guardar tienen que incluir `rtc`.
+
+Lo que NO demuestra: el futuro de la maquina restaurada (DET02, cierre de T15) ni el comportamiento del reloj visto por el programa tras restaurar la CIA (el TOD de la CIA es otro estado, T15c2).

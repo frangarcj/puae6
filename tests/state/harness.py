@@ -29,6 +29,7 @@ SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")
 SAVE_ERROR = re.compile(r"^save (\d+) error (-?\d+) ?(.*)$")
 PUBLIC = re.compile(r"^public (\d+) cap_state=(\d) bound=(\d+) save=(\d+) load=(\d+) written=(\d+) ?(.*)$")
 FIELD = re.compile(r"^field (\d+) (\S+) (\d+) (\d+)$")
+RTC = re.compile(r"^rtc (\d+) (-?\d+) (-?\d+) (\d+) (\d+) (-?\d+) (\d+) (\d+) (\d+)$")
 MUTATE_ERROR = re.compile(r"^mutate (\d+) error (.*)$")
 MUTATE = re.compile(r"^mutate (\d+) (\w+) bytes=(\d+) attempts=(\d+) accepted=(\d+) refused=(\d+) faulted=(\d+) changed=(\d+) verdicts=([0-9a-f]{64})$")
 _BUILT = {}
@@ -98,6 +99,7 @@ class Run:
         self.fault = []             # (event, code, message) of run-after-fault, unload and reload
         self.fields = []            # (chunk index, name, offset in the state, size)
         self.mutate = []            # dicts of the "mutate" lines
+        self.rtc = []               # dicts of the "rtc" lines: the clock in the open at that moment
         self.mutate_errors = []     # (unit, reason) of a mutate that could not start, for instance a good state that was refused
         current = None
         for line in text.splitlines():
@@ -132,6 +134,10 @@ class Run:
             elif FIELD.match(line):
                 chunk, name, offset, size = FIELD.match(line).groups()
                 self.fields.append((int(chunk), name, int(offset), int(size)))
+            elif RTC.match(line):
+                g = RTC.match(line).groups()
+                self.rtc.append({"unit": int(g[0]), "status": int(g[1]), "seconds": int(g[2]), "ticks": int(g[3]), "subsecond": int(g[4]),
+                                 "cycle": int(g[5]), "d": int(g[6]), "e": int(g[7]), "f": int(g[8])})
             elif MUTATE_ERROR.match(line):
                 self.mutate_errors.append((int(MUTATE_ERROR.match(line)[1]), MUTATE_ERROR.match(line)[2]))
             elif MUTATE.match(line):
