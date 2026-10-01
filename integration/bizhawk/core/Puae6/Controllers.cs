@@ -1,3 +1,6 @@
+#nullable enable
+
+using System.Linq;
 using BizHawk.Common;
 using BizHawk.Common.CollectionExtensions;
 using BizHawk.Emulation.Common;
@@ -13,8 +16,8 @@ public static class Controllers
 	/// <summary>The mouse axes are absolute positions in a field of this size; the wrapper turns them into the deltas the machine takes.</summary>
 	public const int MouseFieldWidth = 760, MouseFieldHeight = 576;
 
-	public static readonly string[] JoystickNames = ["Up", "Down", "Left", "Right", "Button 1", "Button 2", "Button 3"];
-	public static readonly uint[] JoystickBits = [P6.ButtonUp, P6.ButtonDown, P6.ButtonLeft, P6.ButtonRight, P6.Button1, P6.Button2, P6.Button3];
+	public static readonly string[] JoystickNames = [ "Up", "Down", "Left", "Right", "Button 1", "Button 2", "Button 3" ];
+	public static readonly uint[] JoystickBits = [ P6.ButtonUp, P6.ButtonDown, P6.ButtonLeft, P6.ButtonRight, P6.Button1, P6.Button2, P6.Button3 ];
 
 	/// <summary>The Amiga keyboard, by raw key code 0x00..0x67 (Amiga Hardware Reference Manual, Appendix G); null where the code is not a key. Codes
 	/// 0x68..0x7F are not keys and the bridge refuses them.</summary>
@@ -29,7 +32,7 @@ public static class Controllers
 		var names = new string?[0x68];
 		void Set(int code, string name) => names[code] = name;
 		Set(0x00, "Grave");
-		string[] digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+		string[] digits = [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0" ];
 		for (int i = 0; i < 10; ++i) Set(0x01 + i, digits[i]);
 		Set(0x0B, "Minus"); Set(0x0C, "Equals"); Set(0x0D, "Backslash"); Set(0x0F, "Keypad 0");
 		string row1 = "QWERTYUIOP";
@@ -58,7 +61,7 @@ public static class Controllers
 		var controller = new ControllerDefinition("Amiga Controller");
 		if (settings.ControllerPort1 == Puae6Port1.Mouse)
 		{
-			controller.BoolButtons.AddRange([$"P1 {MouseLeft}", $"P1 {MouseMiddle}", $"P1 {MouseRight}"]);
+			controller.BoolButtons.AddRange([ $"P1 {MouseLeft}", $"P1 {MouseMiddle}", $"P1 {MouseRight}" ]);
 			controller
 				.AddAxis($"P1 {MouseX}", 0.RangeTo(MouseFieldWidth), MouseFieldWidth / 2)
 				.AddAxis($"P1 {MouseY}", 0.RangeTo(MouseFieldHeight), MouseFieldHeight / 2);

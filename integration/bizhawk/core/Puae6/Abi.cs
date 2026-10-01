@@ -1,4 +1,5 @@
-using System.Runtime.CompilerServices;
+#nullable enable
+
 using System.Runtime.InteropServices;
 
 namespace Puae6;
@@ -101,8 +102,18 @@ public unsafe struct P6wMedia
 	public ulong Bytes;
 }
 
-[InlineArray(P6.MaxMedia)]
-public struct P6wMediaList { P6wMedia _first; }
+/// <summary>The sixteen p6w_media of p6w_init, as a fixed buffer (InlineArray does not exist for the net48 BizHawk builds on).</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6wMediaList
+{
+	public const int Bytes = P6.MaxMedia * 56;
+	public fixed byte Data[Bytes];
+
+	public P6wMedia* At(int index)
+	{
+		fixed (byte* p = Data) return (P6wMedia*)p + index;
+	}
+}
 
 /// <summary>The argument of p6w_init_machine. Result and Error are outputs; the rest is read and left alone.</summary>
 [StructLayout(LayoutKind.Sequential)]

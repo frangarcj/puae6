@@ -1,3 +1,8 @@
+#nullable enable
+
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 using BizHawk.Common;
@@ -15,7 +20,7 @@ public sealed class Puae6Parameters
 	/// <summary>The SHA-256 the guest must have; null means the one recorded in the build (<see cref="Puae6Guest.BuiltWithSha256"/>).</summary>
 	public string? PinnedGuestSha256 { get; set; }
 	/// <summary>The Kickstart (or the micro-ROM of a test): copied by the guest into its sealed heap.</summary>
-	public byte[] Firmware { get; set; } = [];
+	public byte[] Firmware { get; set; } = [ ];
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
 }
 
@@ -25,7 +30,7 @@ public sealed class Puae6Parameters
 /// state) and speaks only the ABI of adapters/waterbox/p6w.h.
 /// </summary>
 [PortedCore(name: Puae6Names.Core, author: "WinUAE team and the PUAE6 project", portedVersion: "WinUAE 6.0.3", portedUrl: "https://github.com/tonioni/WinUAE", isReleased: false)]
-public sealed unsafe class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ISettable<object, Puae6SyncSettings>
+public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ISettable<object, Puae6SyncSettings>
 {
 	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
 	public const int MaxWidth = 760, MaxHeight = 576, MaxAudioFrames = 8192;
@@ -101,7 +106,7 @@ public sealed unsafe class Puae6Core : IEmulator, IVideoProvider, ISoundProvider
 			using var _ = _guest.Host.EnterExit();
 			int result = _guest.Lib.p6w_init_machine((IntPtr)(&init));
 			if (result != P6.Ok)
-				throw new InvalidOperationException($"the PUAE6 guest refused the machine ({P6.ResultName(result)}): {Marshal.PtrToStringUTF8((IntPtr)init.Error)}");
+				throw new InvalidOperationException($"the PUAE6 guest refused the machine ({P6.ResultName(result)}): {Mershul.PtrToStringUtf8((IntPtr)init.Error)}");
 		}
 	}
 
@@ -156,7 +161,7 @@ public sealed unsafe class Puae6Core : IEmulator, IVideoProvider, ISoundProvider
 			}
 			int result = _guest.Lib.p6w_frame_advance((IntPtr)(&input), flags, (IntPtr)(&frame));
 			if (result != P6.Ok)
-				throw new InvalidOperationException($"unit {Frame + 1}: {P6.ResultName(result)}: {Marshal.PtrToStringUTF8((IntPtr)frame.Error)}");
+				throw new InvalidOperationException($"unit {Frame + 1}: {P6.ResultName(result)}: {Mershul.PtrToStringUtf8((IntPtr)frame.Error)}");
 			CopyOut(in frame.Frame, render, renderSound);
 		}
 
@@ -202,6 +207,8 @@ public sealed unsafe class Puae6Core : IEmulator, IVideoProvider, ISoundProvider
 
 	// The mouse of BizHawk is a position; the machine takes movement. The first frame only learns where the pointer is. At most 120 counts per axis and
 	// unit reach the guest (docs/02-contracts.md): what does not fit is not lost, the reference moves only by what was sent and the rest follows.
+	static int Clamp(int value, int low, int high) => value < low ? low : value > high ? high : value;
+
 	P6PortInput MousePacket(IController controller)
 	{
 		var packet = new P6PortInput { Type = P6.PortMouse };
@@ -215,7 +222,7 @@ public sealed unsafe class Puae6Core : IEmulator, IVideoProvider, ISoundProvider
 			_mouseReferenceX = x;
 			_mouseReferenceY = y;
 		}
-		int dx = Math.Clamp(x - _mouseReferenceX, -120, 120), dy = Math.Clamp(y - _mouseReferenceY, -120, 120);
+		int dx = Clamp(x - _mouseReferenceX, -120, 120), dy = Clamp(y - _mouseReferenceY, -120, 120);
 		_mouseReferenceX += dx;
 		_mouseReferenceY += dy;
 		packet.Dx = (short)dx;
@@ -302,9 +309,9 @@ public sealed unsafe class Puae6Core : IEmulator, IVideoProvider, ISoundProvider
 	public string DriveLightIconDescription => "Floppy drive activity";
 
 	// ISettable: no presentation settings yet; the sync settings are the ones the machine was built with
-	public object? GetSettings() => null;
+	public object GetSettings() => null!;
 	public Puae6SyncSettings GetSyncSettings() => _syncSettings.Clone();
-	public PutSettingsDirtyBits PutSettings(object? settings) => PutSettingsDirtyBits.None;
+	public PutSettingsDirtyBits PutSettings(object settings) => PutSettingsDirtyBits.None;
 	public PutSettingsDirtyBits PutSyncSettings(Puae6SyncSettings settings) => Puae6SyncSettings.NeedsReboot(_syncSettings, settings) ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
 
 	// ----- IStatable: the snapshot of the sandbox and what the wrapper holds that the sandbox does not (T21 inventories and proves it) -------

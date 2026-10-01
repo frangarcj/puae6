@@ -8510,7 +8510,7 @@
       "title": "Integrar PUAE6 como core C# independiente",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T19",
         "T20a",
@@ -8535,7 +8535,7 @@
         "Exponer Chip/Slow/Fast RAM validas con flags y byte order correctos; no crear System Bus falso con efectos laterales.",
         "Probar sizeof/offsetof/C# layout en ambos sentidos, capacidades A/V y aislamiento al alternar dos sandboxes.",
         "Antes de crear el host, el wrapper comprueba que el guest es un ELF AArch64 (e_machine 183) y que su hash coincide con el fijado: el runtime de MacHawk no lo hace (T09c: acepta un x86_64 y no valida el layout). Prueba negativa con un ELF x86_64 y con otro hash, sin fallback al uae.wbx antiguo.",
-        "Division: T20a (regiones de memoria, luz de unidad y accesos del guest), T20b (proyecto C# contra MacHawk, identidad del guest, layout) y T20c (el core: entrada, A/V, settings, dominios, dos sandboxes); T20 es el cierre, conserva la puerta original y añade el registro explicito del core en BizHawk como parche revisable."
+        "Division: T20a (regiones de memoria, luz de unidad y accesos del guest), T20b (proyecto C# contra MacHawk, identidad del guest, layout) y T20c (el core: entrada, A/V, settings, dominios, dos sandboxes); T20 es el cierre, conserva la puerta original y añade el registro explicito del core en BizHawk como parche revisable. Registro: parche 0001-register-puae6.patch (CoreNames, selector del Amiga, hash del guest) aplicado a una copia de build/ por integration/bizhawk/patches/build_tree.py y comprobado contra el CoreInventory real; no se ejecuto EmuHawk."
       ],
       "checks": [
         "ABI01",

@@ -263,6 +263,27 @@ exactamente una llamada a `p6w_frame_advance` y el reset, si lo hay, se encola j
 Lo que T20c no hace: medios (el guest no exporta eventos de medios todavia, T22/T27), estados con inventario completo del wrapper (T21), registro en
 EmuHawk (T20) ni el firmware por la base de datos de BizHawk.
 
+### Resultado de T20: PUAE6 en el BizHawk real, junto a UAE
+
+`python3 -m unittest discover -s tests/ffi -p test_bizhawk_tree.py` (diez segundos tras la primera vez). `integration/bizhawk/patches/build_tree.py` saca los
+fuentes de MacHawk con `git archive` del commit fijado (nada se escribe en ../MacHawk; los parches se comprueban con `git apply --check` contra su arbol),
+los copia a `build/bizhawk-tree/<clave de las entradas>`, aplica `0001-register-puae6.patch`, instala los fuentes del core (`integration/bizhawk/core/Puae6` y
+`EmuHawk`) en `BizHawk.Emulation.Cores/Computers/Amiga/PUAE6` y compila ese proyecto real (net48, los analizadores de BizHawk, paquetes de la cache local).
+El parche toca tres ficheros: `CoreNames.PUAE6`, el selector de cores del Amiga en `Config.CorePickerUIData` (UAE primero, es el predeterminado) y el
+`AssemblyMetadata` con el hash del guest (el del recibo de la receta). `tests/ffi/inventory` carga el ensamblado tal como se compilo y pregunta al
+`CoreInventory` de BizHawk: UAE (prioridad normal) y PUAE6 (`CorePriority.Low`, constructor con `CoreLoadParameters`) estan registrados, y con el orden que
+usa `RomLoader` (preferido de la configuracion, luego prioridad) un juego de Amiga sigue abriendose con UAE y PUAE6 se elige de forma explicita. Las peliculas
+nombran el core que las grabo, asi que las de UAE siguen nombrando UAE.
+
+Hallazgos: `git apply` ejecutado dentro de un subdirectorio de otro repositorio (build/ lo es) omite EN SILENCIO todo fichero fuera de ese subdirectorio y sale
+con exito: la receta usa GNU patch y comprueba que cada parche queda aplicado. El net48 de BizHawk no tiene `InlineArray`, `Math.Clamp`, `SHA256.HashData`,
+`Convert.ToHexString` ni `Marshal.PtrToStringUTF8`: los fuentes del core se escribieron para compilar en los dos (net8 del arnes y net48 de BizHawk).
+
+Lo que NO queda demostrado: no se ejecuto EmuHawk (no hay Mono; el ensamblado se carga por reflexion), el cambio de `Config.cs` pertenece a un proyecto
+(Client.Common) que no se compila aqui (se comprueba que el parche se aplica y que el texto esta), no hay entrada de menu ni icono, y con la API de medios
+del guest todavia sin exportar el constructor de EmuHawk rechaza un juego con disco (`NotSupportedException`: PUAE6 no carga discos todavia; el cargador de
+BizHawk probaria entonces el siguiente core, UAE).
+
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
 fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)

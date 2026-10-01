@@ -1,3 +1,5 @@
+#nullable enable
+
 using BizHawk.Common;
 
 namespace Puae6;

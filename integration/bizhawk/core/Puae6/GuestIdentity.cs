@@ -1,3 +1,7 @@
+#nullable enable
+
+using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 
 namespace Puae6;
@@ -56,11 +60,18 @@ public static class GuestIdentity
 			throw new GuestRejectedException(GuestRejection.Missing, $"the PUAE6 guest {path} does not exist");
 		}
 		CheckElf(bytes, path);
-		string actual = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+		string actual = Sha256Hex(bytes);
 		if (!string.Equals(actual, pinnedSha256, StringComparison.OrdinalIgnoreCase))
 			throw new GuestRejectedException(GuestRejection.WrongHash,
 				$"{path} is an AArch64 ELF but not the guest this wrapper was built with (sha256 {actual}, expected {pinnedSha256.ToLowerInvariant()})");
 		return new VerifiedGuest(path, actual, bytes.LongLength);
+	}
+
+	/// <summary>Lowercase hex SHA-256 (written for net48 as well: Convert.ToHexString and SHA256.HashData are newer than that).</summary>
+	public static string Sha256Hex(byte[] bytes)
+	{
+		using var sha = SHA256.Create();
+		return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
 	}
 
 	/// <summary>The header checks alone: ELF magic, 64-bit, little endian, e_machine AArch64.</summary>

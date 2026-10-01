@@ -1,3 +1,7 @@
+#nullable enable
+
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 using System.Reflection;
@@ -80,7 +84,7 @@ public sealed class Puae6Guest : IDisposable
 			LibPuae6 lib;
 			using (host.EnterExit())
 			{
-				var adapter = CallingConventionAdapters.MakeWaterbox([], host);
+				var adapter = CallingConventionAdapters.MakeWaterbox([ ], host);
 				lib = BizInvoker.GetInvoker<LibPuae6>(host, host, adapter);
 			}
 			var guest = new Puae6Guest(host, lib, identity);

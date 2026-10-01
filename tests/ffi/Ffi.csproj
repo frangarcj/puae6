@@ -10,6 +10,7 @@
 		<RollForward>Major</RollForward>
 	</PropertyGroup>
 	<ItemGroup>
+		<Compile Remove="inventory/**" />
 		<ProjectReference Include="../../integration/bizhawk/core/Puae6.Core.csproj" />
 	</ItemGroup>
 </Project>
