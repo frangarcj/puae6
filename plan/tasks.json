@@ -8431,7 +8431,7 @@
       "title": "Proyecto C# del core compilado contra los archivos reales de MacHawk, identidad del guest y layout en ambos sentidos",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T19"
       ],
@@ -8452,7 +8452,7 @@
         "Crear integration/bizhawk/core con un proyecto net8.0 osx-arm64 que compile, como los arneses de MacHawk, los fuentes reales de BizHawk.Common, BizInvoke, Emulation.Common y Waterbox por rutas de solo lectura al checkout fijado, sin copiarlos ni modificarlos; no APIs supuestas de master.",
         "Escribir el chequeo de identidad del guest que se ejecuta ANTES de crear el host: ELF de 64 bits, little endian, e_machine 183 (AArch64) y SHA-256 igual al fijado (de la receta, no de una variable de entorno), sin fallback a uae.wbx ni a otro fichero. Probar con un ELF x86_64, un hash distinto, un fichero truncado y un fichero ausente: el error es explicito y wbx_create_host no se llega a llamar.",
         "Cargar puae6.wbx con el WaterboxHost real de BizHawk, comprobar el layout de p6w_init/p6w_frame/p6_frame/p6_input/p6_config en C# (tamaños y offsets) contra lo que el guest informa con p6w_layout y contra bridge/include/p6.h, en los dos sentidos, y un canario de capacidad.",
-        "Ampliacion touch: tools/build_waterbox.py para emitir el hash del guest que la receta fija y que el proyecto lee."
+        "Ampliacion touch: tools/build_waterbox.py para emitir el hash del guest que la receta fija y que el proyecto lee. Los fuentes de BizHawk salen de references/machawk (capturados y fijados por T01), no del checkout hermano; un tipo (GameInfo) y una extension (AddAxis) que esos fuentes mencionan estan en integration/bizhawk/core/Support/StandaloneStubs.cs porque Extensions.cs arrastra una docena de interfaces de servicio. Ademas de lo pedido, se rechaza un hermano .zst del guest (el host cargaria ese)."
       ],
       "checks": [
         "ABI01",

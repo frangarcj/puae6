@@ -211,6 +211,29 @@ peligroso para un poke managed es el de antes de la primera unidad (un cheat o u
 caen en paginas que nadie ha escrito y el runtime las registra como del guest (al menos 12 paginas sucias nuevas); un restore las deshace. La luz de
 unidad (`P6_FRAME_DRIVE_LIGHT`) llega en el `flags` de `p6w_frame`.
 
+### Resultado de T20b: el core C# abre el guest con el WaterboxHost real de BizHawk
+
+`python3 -m unittest discover -s tests/ffi -p test_ffi.py` (construye con dotnet, sin red: los paquetes salen de la cache local de NuGet).
+`integration/bizhawk/core/Puae6.Core.csproj` compila contra los fuentes de MacHawk capturados en references/machawk (los fija
+references/machawk.manifest.json) como los arneses del propio MacHawk, sin tocar ningun checkout: BizHawk.Common (salvo VersionInfo.cs, cuya mitad
+generada viene de un analizador que la captura no trae), BizInvoke, Emulation.Common y el host Waterbox. Dos tipos que esos fuentes mencionan y
+el build independiente no necesita de verdad (GameInfo y la extension AddAxis, copiada tal cual; Extensions.cs arrastra una docena de interfaces de
+servicio) estan en `Support/StandaloneStubs.cs`. `tools/build_waterbox.py` (`build_core`, `run_ffi`) pasa al build el SHA-256 del guest del
+recibo, que queda en el ensamblado (`Puae6Guest.BuiltWithSha256`): el wrapper abre solo el guest con el que se construyo.
+
+- Identidad (`GuestIdentity`), antes de `wbx_create_host`: ELF64 little endian, `e_machine` 183 y SHA-256 igual al fijado. Diez casos se rechazan sin
+  llegar al host (otra maquina con el hash correcto, 32 bits, big endian, un byte cambiado, otro pin, cabecera truncada, fichero vacio, no ELF,
+  ausente) y un `uae.wbx` en el mismo directorio no es una salida. Ademas se rechaza un hermano `.zst`: `WaterboxHost` carga `nombre.zst` en
+  lugar de `nombre` si existe, y entonces el fichero verificado no seria el que corre. Limite: entre la verificacion y la lectura del host el
+  fichero se lee dos veces; un atacante con escritura en el directorio del guest tambien podria cambiar el ensamblado, asi que no se cierra esa
+  carrera. Un guest comprimido (`.zst`) no se acepta todavia: necesitaria descomprimirlo para verificarlo y libzstd no esta en macOS.
+- Layout (ABI01): los 18 valores de `p6w_layout` y cada campo de cada estructura (offsets de C# frente a `offsetof` de un compilador C sobre las
+  cabeceras) coinciden, y `Puae6Guest.Open` falla si el guest abierto informa otra cosa. Un `p6w_init` con bandas de guarda al que el guest rechaza de
+  cuatro maneras vuelve sin cambios salvo result y error.
+- Con el host de BizHawk la maquina avanza con los mismos ticks por unidad que headless. BizHawk pide a dlopen el nombre `libwaterboxhost.dylib`
+  sin ruta; en macOS solo lo encuentra en el directorio de trabajo, asi que el arnes copia la biblioteca junto al ejecutable y lo ejecuta desde alli
+  (como los arneses de MacHawk). EmuHawk la tiene junto al ejecutable.
+
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
 fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)

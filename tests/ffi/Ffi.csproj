@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<!-- T20b: the host of the FFI tests. It runs the C# side of the PUAE6 ABI (layout, identity gate, canaries) with BizHawk's own WaterboxHost. -->
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<UseAppHost>false</UseAppHost>
+		<RollForward>Major</RollForward>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="../../integration/bizhawk/core/Puae6.Core.csproj" />
+	</ItemGroup>
+</Project>

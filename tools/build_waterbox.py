@@ -656,6 +656,41 @@ def build_managed() -> tuple[str, dict[str, str]]:
     return dotnet, env
 
 
+FFI_PROJECT = ROOT / "tests/ffi/Ffi.csproj"
+FFI_OUTPUT = ROOT / "build/ffi/bin/Debug/net8.0"
+
+
+@functools.cache
+def build_core() -> tuple[str, dict[str, str], Path]:
+    """Builds the C# core (integration/bizhawk/core, compiled against the pinned MacHawk sources) and the host of its FFI tests (tests/ffi) once
+    per process. The core is built together with the guest it belongs with: the SHA-256 in the receipt of the recipe is passed to the build and
+    recorded in the assembly, and that is the only guest the wrapper will open. The runtime library is copied next to the test host, because
+    BizHawk asks dlopen for the bare name libwaterboxhost.dylib and macOS looks for it in the working directory the host is run from.
+    Packages are restored from the local package cache, never from the network."""
+    dotnet = shutil.which("dotnet")
+    if not dotnet:
+        raise BuildError("Falta dotnet para el core de BizHawk")
+    receipt, runtime_receipt = BUILD / "puae6/puae6-receipt.json", BUILD / "receipt.json"
+    for needed in (receipt, runtime_receipt):
+        if not needed.is_file():
+            raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6")
+    guest_sha = json.loads(receipt.read_text())["guest"]["sha256"]
+    runtime = json.loads(runtime_receipt.read_text())["runtime_dylib"]
+    if sha256(Path(runtime["path"])) != runtime["sha256"]:
+        raise BuildError("la biblioteca del runtime no es la del recibo")
+    cache = Path.home() / ".nuget/packages"
+    env = {**managed_env(), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget")}
+    run_logged([dotnet, "build", str(FFI_PROJECT), "--nologo", f"-p:Puae6GuestSha256={guest_sha}", f"-p:RestoreSources={cache}"], env, ROOT)
+    shutil.copy2(runtime["path"], FFI_OUTPUT / "libwaterboxhost.dylib")
+    return dotnet, env, FFI_OUTPUT
+
+
+def run_ffi(*args: str, timeout: int = 1800) -> subprocess.CompletedProcess:
+    """Runs the FFI test host (tests/ffi/Program.cs) with `args` from the directory that holds the runtime library; returns the finished process."""
+    dotnet, env, output = build_core()
+    return subprocess.run([dotnet, str(output / "Ffi.dll"), *args], cwd=output, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+
+
 _RUNS = iter(range(1, 1 << 30))
 
 
