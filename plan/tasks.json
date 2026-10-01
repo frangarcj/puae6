@@ -8382,13 +8382,138 @@
       "evidence": null
     },
     {
+      "id": "T20a",
+      "title": "Regiones de memoria, luz de unidad y accesos nativos del guest que el wrapper necesita",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T19"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/memory.cpp",
+        "bridge/frame_step.cpp",
+        "bridge/caps.cpp",
+        "bridge/include/p6.h",
+        "CMakeLists.txt",
+        "adapters/waterbox/**",
+        "integration/bizhawk/smoke/**",
+        "tests/host/**",
+        "tests/waterbox-smoke/**",
+        "tests/test_plan.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Implementar p6_memory_regions (Chip RAM, Slow RAM y ROM tal como las ve la CPU emulada, orden de bytes del 68000, flag de escritura solo en RAM) con su capacidad P6_CAP_MEMORY_REGIONS, y P6_FRAME_DRIVE_LIGHT en p6_frame derivado de los LED de unidad, sin tocar el estado de la maquina.",
+        "Exportar desde el guest las areas de memoria con la estructura que BizHawk conoce (LibWaterboxCore.MemoryArea) como funciones de acceso que escriben desde dentro del sandbox, porque una escritura managed en una pagina que el seguimiento de paginas sucias aun protege es fatal (T19c2); el puntero se resuelve en cada acceso, asi un reset que reubique la RAM no deja dominios colgando.",
+        "Probar en nativo (regiones, limites, errores, la escritura del host llega a la maquina) y en el guest dentro de Waterbox (lectura, escritura en un grupo limpio de 16 KiB, ROM rechazada, limites).",
+        "Ampliacion touch: la ficha original de T20 no incluia bridge/ ni el arnes de integration/bizhawk/smoke, y p6_memory_regions estaba declarada y sin implementar (T14/T15 no la tocaron)."
+      ],
+      "checks": [
+        "ABI01",
+        "WB07"
+      ],
+      "acceptance": [
+        "Las regiones coinciden con la memoria del motor, ninguna es de tamano cero ni un puntero temporal, una escritura del host cambia lo que ve la CPU y la ROM no es escribible; el flag de luz sigue al LED del disquete y no cambia ningun hash."
+      ],
+      "stop": "No exponer un System Bus lineal ni un puntero a la RAM que un reset pueda reubicar; si el motor no distingue el LED del disquete, registrar la fuente exacta antes de inventar una.",
+      "evidence": null
+    },
+    {
+      "id": "T20b",
+      "title": "Proyecto C# del core compilado contra los archivos reales de MacHawk, identidad del guest y layout en ambos sentidos",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T19"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/00-evidence.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/patches/**",
+        "tests/ffi/**",
+        "tools/build_waterbox.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Crear integration/bizhawk/core con un proyecto net8.0 osx-arm64 que compile, como los arneses de MacHawk, los fuentes reales de BizHawk.Common, BizInvoke, Emulation.Common y Waterbox por rutas de solo lectura al checkout fijado, sin copiarlos ni modificarlos; no APIs supuestas de master.",
+        "Escribir el chequeo de identidad del guest que se ejecuta ANTES de crear el host: ELF de 64 bits, little endian, e_machine 183 (AArch64) y SHA-256 igual al fijado (de la receta, no de una variable de entorno), sin fallback a uae.wbx ni a otro fichero. Probar con un ELF x86_64, un hash distinto, un fichero truncado y un fichero ausente: el error es explicito y wbx_create_host no se llega a llamar.",
+        "Cargar puae6.wbx con el WaterboxHost real de BizHawk, comprobar el layout de p6w_init/p6w_frame/p6_frame/p6_input/p6_config en C# (tamaños y offsets) contra lo que el guest informa con p6w_layout y contra bridge/include/p6.h, en los dos sentidos, y un canario de capacidad.",
+        "Ampliacion touch: tools/build_waterbox.py para emitir el hash del guest que la receta fija y que el proyecto lee."
+      ],
+      "checks": [
+        "ABI01",
+        "WB15"
+      ],
+      "acceptance": [
+        "El proyecto compila contra los fuentes de MacHawk sin modificarlos, el layout C# coincide con el del guest y con p6.h, y un guest con e_machine distinto de AArch64 o con hash distinto se rechaza antes de wbx_create_host."
+      ],
+      "stop": "No aplicar cambios al BizHawk instalado ni a MacHawk; si compilar sus fuentes en net8 exige cambiarlos, registrar el parche en integration/bizhawk/patches y aplicarlo a una copia.",
+      "evidence": null
+    },
+    {
+      "id": "T20c",
+      "title": "Core PUAE6: entrada, video y audio sincronos, sync settings, region, luz de unidad, dominios de memoria y dos sandboxes",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T20a",
+        "T20b"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/00-evidence.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/patches/**",
+        "adapters/waterbox/**",
+        "tests/ffi/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Implementar la clase del core con core ID nuevo (no el de UAE) sobre el ABI p6w: IEmulator, IVideoProvider (XRGB8888, ancho, alto y stride del contrato), ISoundProvider sincrono (frames stereo, tasa fija), IInputPollable con el lag de la unidad, IDriveLight, IRegionable y sync settings (PAL/NTSC, semilla, epoca) que entran en la config del guest. No retro_* ni globales del motor.",
+        "Traducir la entrada de BizHawk al paquete p6_input (teclas Amiga, dos puertos, deltas de raton) con las reglas de docs/02-contracts.md y probar press/release, el raton relativo y los puertos.",
+        "Exponer Chip/Slow/Fast RAM y ROM como MemoryDomain con flags y orden de bytes correctos usando las funciones de acceso de T20a; probar lecturas de varios bytes, limites, y que los pokes pasan por el guest.",
+        "Probar las capacidades A/V, los buffers (canarios) y el aislamiento al alternar dos sandboxes del mismo guest."
+      ],
+      "checks": [
+        "ABI01",
+        "IN01",
+        "WB04",
+        "WB07"
+      ],
+      "acceptance": [
+        "La maquina avanza por FrameAdvance con la misma secuencia de unidades que el arnes de T19; los dominios no tienen punteros temporales ni regiones vacias; dos sandboxes alternados no se contaminan."
+      ],
+      "stop": "No heredar de UAE ni de su estado; el wrapper habla solo la ABI p6w.",
+      "evidence": null
+    },
+    {
       "id": "T20",
       "title": "Integrar PUAE6 como core C# independiente",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T19"
+        "T19",
+        "T20a",
+        "T20b",
+        "T20c"
       ],
       "read": [
         "docs/03-waterbox.md",
@@ -8407,7 +8532,8 @@
         "Implementar entrada, video/audio sincronico, sync settings, region y drive light necesarios.",
         "Exponer Chip/Slow/Fast RAM validas con flags y byte order correctos; no crear System Bus falso con efectos laterales.",
         "Probar sizeof/offsetof/C# layout en ambos sentidos, capacidades A/V y aislamiento al alternar dos sandboxes.",
-        "Antes de crear el host, el wrapper comprueba que el guest es un ELF AArch64 (e_machine 183) y que su hash coincide con el fijado: el runtime de MacHawk no lo hace (T09c: acepta un x86_64 y no valida el layout). Prueba negativa con un ELF x86_64 y con otro hash, sin fallback al uae.wbx antiguo."
+        "Antes de crear el host, el wrapper comprueba que el guest es un ELF AArch64 (e_machine 183) y que su hash coincide con el fijado: el runtime de MacHawk no lo hace (T09c: acepta un x86_64 y no valida el layout). Prueba negativa con un ELF x86_64 y con otro hash, sin fallback al uae.wbx antiguo.",
+        "Division: T20a (regiones de memoria, luz de unidad y accesos del guest), T20b (proyecto C# contra MacHawk, identidad del guest, layout) y T20c (el core: entrada, A/V, settings, dominios, dos sandboxes); T20 es el cierre, conserva la puerta original y añade el registro explicito del core en BizHawk como parche revisable."
       ],
       "checks": [
         "ABI01",
