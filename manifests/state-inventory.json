@@ -1552,11 +1552,22 @@
         },
         "probe": {
           "probe": "scheduler",
-          "status": "partial",
-          "task": "T15",
-          "why": "the main event table and the secondary slots are hashed; the allocation pointer, the cycle remainder and the fractional residue are file-local"
+          "status": "implemented",
+          "task": "T15b2",
+          "covers": [
+            "get_cycles",
+            "p6_custom_extra_cycle_get"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b2",
+          "chunk": "P6SC",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_scheduler",
+          "proves": "tests/state/test_state_scheduler.py: the scheduler digest and the bytes of the chunk come back to the unit the state was taken in (nine programs and the owner's Kickstart 1.3, with and without a disk), in the same process and in a new one after the reset head; secondary events that a program never leaves pending at a boundary are scheduled through the engine's own call, one for each handler id, and come back by slot; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "currcycle (i64, >= 0) and extra_cycle (u16 0..511, the half-CCK remainder of the cycle-exact CPU, through patch 0079). start_cycles is NOT saved: it is 0 since m68k_go_unit BEGIN and the next reset head restarts the counter from it; upstream's restore_cycles puts the saved count there and a later reset would start from the wrong epoch. currcycle_cck is not saved either: the engine only reads it to take snapshots (agnus_*_cck) and subtract them, so it is the origin of a clock that only differences are taken on, and a load does not reset it (a reload keeps the previous session's, which the extended scheduler digest showed): the chipset chunk (T15f) saves those snapshots as ages against it and restores them against the live value."
+        }
       },
       {
         "id": "sched-fractional-residue-unsaved",
@@ -1600,11 +1611,21 @@
         },
         "probe": {
           "probe": "scheduler",
-          "status": "partial",
-          "task": "T15",
-          "why": "the main event table and the secondary slots are hashed; the allocation pointer, the cycle remainder and the fractional residue are file-local"
+          "status": "implemented",
+          "task": "T15b2",
+          "covers": [
+            "p6_events_get"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b2",
+          "chunk": "P6SC",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_scheduler",
+          "proves": "tests/state/test_state_scheduler.py: the scheduler digest and the bytes of the chunk come back to the unit the state was taken in (nine programs and the owner's Kickstart 1.3, with and without a disk), in the same process and in a new one after the reset head; secondary events that a program never leaves pending at a boundary are scheduled through the engine's own call, one for each handler id, and come back by slot; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "cycles_to_add_remain (u16 0..511) through p6_events_get/p6_events_set (patch 0078); it is non-zero only together with a non-zero extra_cycle, and both are 0 in every boundary seen, but nothing enforces it."
+        }
       },
       {
         "id": "sched-eventtab-main",
@@ -1617,7 +1638,7 @@
         "reset": "init_eventtab() -> clear_events() from devices_reset() (first call) in custom_reset; handlers reassigned by init_eventtab",
         "in_profile": true,
         "upstream_compiled": false,
-        "policy": "rebuild",
+        "policy": "extension",
         "saved_fields": "No scheduler chunk stores it: each owner re-arms its own entry on restore (CIA via restore_cia_finish/CIA_calctimers, Paula via its channel state, ev_misc via MISC_handler from eventtab2).",
         "omitted": "ev_sync is never active in the profile (every path that starts it requires !cpu_memory_cycle_exact), so the entries that matter are ev_cia, ev_misc, ev_audio and their evtime/oldcycles. oldcycles is causal for ev_cia (elapsed CIA cycles are derived from it in cia.cpp); it is reset to get_cycles() by restore_cia_finish.",
         "pointers": "handler is an evfunc pointer (CIA_handler, MISC_handler, audio_evhandler2; ev_sync would be sync_equalline_handler/sync_imm_evhandler): never serialize; init_eventtab assigns them. nextevent is derived.",
@@ -1662,7 +1683,15 @@
             "oldcycles"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b2",
+          "chunk": "P6SC",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_scheduler",
+          "proves": "tests/state/test_state_scheduler.py: the scheduler digest and the bytes of the chunk come back to the unit the state was taken in (nine programs and the owner's Kickstart 1.3, with and without a disk), in the same process and in a new one after the reset head; secondary events that a program never leaves pending at a boundary are scheduled through the engine's own call, one for each handler id, and come back by slot; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "Moved from rebuild to serialized: ev_misc.oldcycles is not derivable from eventtab2 and ev_cia.oldcycles is read while ev_cia is inactive (cia.cpp), so all four entries travel: active (u8), evtime (i64, written as 0 when inactive so that two saves of one machine are the same bytes) and oldcycles. The handlers are never saved: the reset head's init_eventtab assigns them. Validate: ev_sync is never active in the profile, an active entry is not in the past, oldcycles <= currcycle. No other chunk may write eventtab, eventtab2 or event2idx while it applies (no CIA_calctimers, no event2_newevent_*)."
+        }
       },
       {
         "id": "sched-event2-slots",
@@ -1719,15 +1748,22 @@
         },
         "probe": {
           "probe": "scheduler",
-          "status": "partial",
-          "task": "T15",
+          "status": "implemented",
+          "task": "T15b2",
           "covers": [
             "eventtab2",
-            "ev2_max"
-          ],
-          "why": "the slot index, active flag, time and data are hashed; which handler each slot runs is a function pointer and the allocation pointer is file-local"
+            "scheduler_handler_id"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b2",
+          "chunk": "P6SC",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_scheduler",
+          "proves": "tests/state/test_state_scheduler.py: the scheduler digest and the bytes of the chunk come back to the unit the state was taken in (nine programs and the owner's Kickstart 1.3, with and without a disk), in the same process and in a new one after the reset head; secondary events that a program never leaves pending at a boundary are scheduled through the engine's own call, one for each handler id, and come back by slot; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "All 16 slots by index (the slot decides which of two events due together runs first): active, handler id, evtime and data, the last three written as 0 when inactive. Handlers travel as ids of the state's own, 11 of them (bridge/state_cpu.cpp, scheduler_handler_id; the table is checked against the engine's functions by --handler-table): upstream's list lacks motordelay_func and fakehsync_handler and carries four the profile cannot reach. An active event with another handler makes the save fail instead of dropping it. Apply writes the slots directly, never through event2_newevent_xx or MISC_handler (a slot due at the restore instant would fire during it). Validate ties slot 0 to the blitter's id and requires ev_misc armed for the earliest event."
+        }
       },
       {
         "id": "sched-event2-round-robin-state",
@@ -1771,11 +1807,21 @@
         },
         "probe": {
           "probe": "scheduler",
-          "status": "partial",
-          "task": "T15",
-          "why": "the main event table and the secondary slots are hashed; the allocation pointer, the cycle remainder and the fractional residue are file-local"
+          "status": "implemented",
+          "task": "T15b2",
+          "covers": [
+            "p6_events_get"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b2",
+          "chunk": "P6SC",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_scheduler",
+          "proves": "tests/state/test_state_scheduler.py: the scheduler digest and the bytes of the chunk come back to the unit the state was taken in (nine programs and the owner's Kickstart 1.3, with and without a disk), in the same process and in a new one after the reset head; secondary events that a program never leaves pending at a boundary are scheduled through the engine's own call, one for each handler id, and come back by slot; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "event2idx (0..16, which slot MISC_handler scans from) and event2next (1..15, the cursor of event2_newevent_xx, a function static promoted to a file static by patch 0078); event2cnt and event2restart are 0 at a boundary (a save refuses otherwise) and Apply zeroes them."
+        }
       },
       {
         "id": "sched-nextevent-derived",
@@ -1792,7 +1838,7 @@
         "saved_fields": "Nothing.",
         "omitted": null,
         "pointers": null,
-        "rebuild": "events_schedule() after every entry is restored; restore_cpu_finish() already ends with events_schedule(). ev_misc is re-armed by MISC_handler from the secondary slots (mintime scan).",
+        "rebuild": "events_schedule() after every entry is restored; restore_cpu_finish() already ends with events_schedule(). ev_misc is re-armed by MISC_handler from the secondary slots (mintime scan). T15b2: rebuild_scheduler() calls events_schedule() after every chunk is applied; the probe hashes nextevent, so a body whose events and nextevent disagreed would show.",
         "evidence": [
           "build/upstream/events.cpp:56",
           "build/upstream/events.cpp:67",
@@ -1814,9 +1860,11 @@
         },
         "probe": {
           "probe": "scheduler",
-          "status": "partial",
-          "task": "T15",
-          "why": "the main event table and the secondary slots are hashed; the allocation pointer, the cycle remainder and the fractional residue are file-local"
+          "status": "implemented",
+          "task": "T15b2",
+          "covers": [
+            "nextevent"
+          ]
         },
         "waterbox": "captured by the snapshot"
       },
@@ -1858,11 +1906,22 @@
         },
         "probe": {
           "probe": "scheduler",
-          "status": "partial",
-          "task": "T15",
-          "why": "the main event table and the secondary slots are hashed; the allocation pointer, the cycle remainder and the fractional residue are file-local"
+          "status": "implemented",
+          "task": "T15b2",
+          "covers": [
+            "hsync_counter",
+            "vsync_counter"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b2",
+          "chunk": "P6SC",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_scheduler",
+          "proves": "tests/state/test_state_scheduler.py: the scheduler digest and the bytes of the chunk come back to the unit the state was taken in (nine programs and the owner's Kickstart 1.3, with and without a disk), in the same process and in a new one after the reset head; secondary events that a program never leaves pending at a boundary are scheduled through the engine's own call, one for each handler id, and come back by slot; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "hsync_counter and vsync_counter (u32): hsync_counter & 15 phases the keyboard poll (cia.cpp). The T14b chipset digest hashes them as well, so a scheduler-only load moves that digest; the chipset chunk (T15f) must not restore them a second time."
+        }
       },
       {
         "id": "sched-pacing-and-diagnostics",
@@ -3283,7 +3342,7 @@
         "upstream_compiled": false,
         "policy": "extension",
         "saved_fields": "None.",
-        "omitted": "hsync_counter (custom.cpp:787; incremented at every line, 5704): (hsync_counter & 15) == 0 gates check_keyboard() in the CIA hsync handler (cia.cpp:1316, keyboard_mode 0 is pinned by check_preset), so the phase of the keyboard poll is causal; custom_reset zeroes it (6882) and no chunk stores it. display_hsync_counter (lines since the last display render; a render is forced when it exceeds maxvpos, custom.cpp:6765-6769; 0 at the boundary), display_vsync_counter, maxvpos_display_vsync_next (true at the boundary, set at 6756), vsync_counter and timeframes (statistics only).",
+        "omitted": "hsync_counter (custom.cpp:787; incremented at every line, 5704): (hsync_counter & 15) == 0 gates check_keyboard() in the CIA hsync handler (cia.cpp:1316, keyboard_mode 0 is pinned by check_preset), so the phase of the keyboard poll is causal; custom_reset zeroes it (6882) and no chunk stores it. display_hsync_counter (lines since the last display render; a render is forced when it exceeds maxvpos, custom.cpp:6765-6769; 0 at the boundary), display_vsync_counter, maxvpos_display_vsync_next (true at the boundary, set at 6756), vsync_counter and timeframes (statistics only). T15b2: hsync_counter and vsync_counter are carried by the scheduler chunk (P6SC); the chipset chunk must not restore them again.",
         "pointers": null,
         "rebuild": null,
         "evidence": [

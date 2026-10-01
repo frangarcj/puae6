@@ -5,6 +5,7 @@ Every chunk of the state is tested the same way (docs/adr/0009-state-format.md):
 unit the state was taken in, in the same process and in a new one; a body that Validate accepts must never fail to apply; and a bad body is
 refused with its code before anything of the machine is touched.
 """
+import collections
 from pathlib import Path
 import os
 import re
@@ -28,8 +29,60 @@ SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")
 SAVE_ERROR = re.compile(r"^save (\d+) error (-?\d+) ?(.*)$")
 PUBLIC = re.compile(r"^public (\d+) cap_state=(\d) bound=(\d+) save=(\d+) load=(\d+) written=(\d+) ?(.*)$")
 FIELD = re.compile(r"^field (\d+) (\S+) (\d+) (\d+)$")
+MUTATE_ERROR = re.compile(r"^mutate (\d+) error (.*)$")
 MUTATE = re.compile(r"^mutate (\d+) (\w+) bytes=(\d+) attempts=(\d+) accepted=(\d+) refused=(\d+) faulted=(\d+) changed=(\d+) verdicts=([0-9a-f]{64})$")
 _BUILT = {}
+
+# Programs for the chunks that describe a running machine: one micro-ROM per way the CPU can be at a unit boundary: running with interrupts, in STOP, halted, tracing (T1), in user mode with a stale ISP.
+TRACE = """; PUAE6 test program: the vertical-blank setup of vsync.s with T1 set, so that every instruction takes a trace exception.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.L #trace,$24.L         ; vector 9 (trace)
+    MOVE.L #handler,$6C.L       ; level-3 autovector (vector 27)
+    LEA $1000.W,A0              ; log pointer
+    MOVE.W #$C020,$DFF09A.L     ; INTENA: SET|INTEN|VERTB
+    MOVE.W #$A000,SR            ; T1, supervisor, interrupts on
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+trace:
+    ADDQ.L #1,D2
+    RTE
+handler:
+    MOVE.W #$0020,$DFF09C.L     ; INTREQ: clear VERTB
+    ADDQ.L #1,D1
+    MOVE.L D0,(A0)+
+    RTE
+"""
+USER = """; PUAE6 test program: the vertical-blank setup of vsync.s, but the main loop runs in user mode (S = 0) and the interrupt handler in supervisor mode.
+; The supervisor stack pointer is left stale at $400 while the program uses the user one.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.L #handler,$6C.L
+    LEA $1000.W,A0
+    MOVE.W #$C020,$DFF09A.L
+    MOVE.W #$0000,SR            ; user mode, interrupts on
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+handler:
+    MOVE.W #$0020,$DFF09C.L
+    ADDQ.L #1,D1
+    MOVE.L D0,(A0)+
+    RTE
+"""
+# name -> (unit the state is taken in, units that run before it is loaded back)
+SCENARIOS = {"vsync": (3, 4), "stop": (3, 4), "halt": (2, 3), "input_all": (3, 4), "long_ops": (3, 4), "copper_irq": (3, 4), "trace": (3, 4),
+             "user": (3, 4)}
+
+
+
 
 
 class Run:
@@ -45,6 +98,7 @@ class Run:
         self.fault = []             # (event, code, message) of run-after-fault, unload and reload
         self.fields = []            # (chunk index, name, offset in the state, size)
         self.mutate = []            # dicts of the "mutate" lines
+        self.mutate_errors = []     # (unit, reason) of a mutate that could not start, for instance a good state that was refused
         current = None
         for line in text.splitlines():
             if line.startswith("after-load "):
@@ -78,6 +132,8 @@ class Run:
             elif FIELD.match(line):
                 chunk, name, offset, size = FIELD.match(line).groups()
                 self.fields.append((int(chunk), name, int(offset), int(size)))
+            elif MUTATE_ERROR.match(line):
+                self.mutate_errors.append((int(MUTATE_ERROR.match(line)[1]), MUTATE_ERROR.match(line)[2]))
             elif MUTATE.match(line):
                 groups = MUTATE.match(line).groups()
                 self.mutate.append({"unit": int(groups[0]), "chunk": groups[1], "bytes": int(groups[2]), "attempts": int(groups[3]),
@@ -128,6 +184,38 @@ def with_bytes(blob, chunk_index, offset, value):
         body[start:start + len(value)] = value
         chunks[chunk_index][2] = bytes(body)
     return reforge(blob, edit)
+
+
+class FieldTable:
+    """The fields of one chunk of a saved state, by label ("name", or "name[k]" when the name repeats, as the slots of a table do), with their
+    offsets, so that a test can read a field or write several of them and get a state with right checksums."""
+
+    def __init__(self, blob, chunk, run_fields):
+        self.blob, self.chunk = blob, chunk
+        named = [(name, offset, size) for index, name, offset, size in run_fields if index == chunk]
+        total = collections.Counter(name for name, _, _ in named)
+        seen = collections.Counter()
+        self.where, self.order = {}, []
+        for name, offset, size in named:
+            label = name if total[name] == 1 else f"{name}[{seen[name]}]"
+            seen[name] += 1
+            self.where[label] = (offset, size)
+            self.order.append(label)
+
+    def get(self, label, signed=False):
+        offset, size = self.where[label]
+        return int.from_bytes(self.blob[offset:offset + size], "little", signed=signed)
+
+    def size(self, label):
+        return self.where[label][1]
+
+    def with_values(self, values):
+        """The state with the given fields (label -> integer) replaced."""
+        blob = self.blob
+        for label, value in values.items():
+            offset, size = self.where[label]
+            blob = with_bytes(blob, self.chunk, offset, int(value).to_bytes(size, "little", signed=value < 0))
+        return blob
 
 
 def built(target):

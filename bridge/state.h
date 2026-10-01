@@ -26,6 +26,8 @@ extern const Chunk kChunks[kChunkCount];
 
 // The chunk visitors that live outside state.cpp (state_cpu.cpp).
 void visit_cpu(Archive &a);
+void visit_scheduler(Archive &a);
+void rebuild_scheduler();
 
 // Test-only knobs; the public functions use the defaults.
 struct Options {

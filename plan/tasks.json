@@ -8906,7 +8906,7 @@
       "title": "Estado nativo del scheduler (chunk P6SC): contador de ciclos, eventos principales y secundarios",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15b1"
       ],
@@ -8929,10 +8929,10 @@
         "CMakeLists.txt"
       ],
       "steps": [
-        "Parches de acceso de events.cpp (estado local del scheduler secundario, `next` subido a fichero), custom.cpp (resto de medio CCK y ids de los manejadores estaticos) y disk.cpp (manejador del retardo del motor), sin cambiar comportamiento.",
-        "Escribir visit_scheduler (P6SC v1): currcycle, currcycle_cck, resto fraccional, contadores de hsync/vsync, las cuatro entradas de eventtab, el turno del scheduler secundario y sus 16 ranuras por indice con ids de manejador propios del estado; nextevent se deriva con events_schedule() en el rebuild. Nadie mas escribe eventtab, eventtab2 ni event2idx al restaurar.",
-        "Pruebas: el digest del subsistema scheduler y el cuerpo re-guardado vuelven a los de la unidad guardada, estados con eventos secundarios pendientes (interrupciones retardadas, CIA, disco, audio), cada campo cambiado cambia el futuro, mutaciones de bytes y guardado rechazado con un evento de manejador desconocido.",
-        "Ampliacion touch: la misma que T15b1 (los visitantes de CPU y scheduler comparten bridge/state_cpu.cpp)."
+        "Parches de acceso al estado local del motor, sin cambiar comportamiento salvo uno declarado: events.cpp (cursor de asignacion de eventos secundarios y resto fraccional; clear_events repone el cursor, que una recarga conservaba), custom.cpp (resto de medio CCK y ids de los manejadores estaticos) y disk.cpp (manejador del retardo del motor).",
+        "Escribir visit_scheduler (P6SC v1): currcycle, resto de medio CCK, resto fraccional, contadores de hsync/vsync, las cuatro entradas de eventtab, el turno del scheduler secundario y sus 16 ranuras por indice con ids de manejador propios del estado; nextevent se deriva con events_schedule() en el rebuild; start_cycles y currcycle_cck no se guardan. Nadie mas escribe eventtab, eventtab2 ni event2idx al restaurar.",
+        "Pruebas: el digest del subsistema scheduler y el cuerpo re-guardado vuelven a los de la unidad guardada, eventos secundarios reales programados por la llamada del motor (ningun programa los deja pendientes en una frontera), cada campo cambiado cambia el digest, mutaciones de bytes, cuerpos mal formados y guardado rechazado con un evento de manejador desconocido o un contador fuera de frontera.",
+        "Ampliacion touch: la misma que T15b1; ademas, el digest del scheduler del probe se amplia (lo que destapo que una recarga conservaba el cursor de los eventos secundarios, corregido en el parche 0078)."
       ],
       "checks": [
         "DET02"

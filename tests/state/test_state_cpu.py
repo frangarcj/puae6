@@ -10,59 +10,10 @@ import struct
 import unittest
 
 from tests.state import envelope as e
-from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, with_bytes
+from tests.state.harness import ProbeCase, SCENARIOS, SUBSYSTEMS, TRACE, USER, parse_chunks, reforge, with_bytes
 
 CPU = 0                 # index of the chunk in the state
 SIGNED = {"go.quit_program"}
-# One micro-ROM per way the CPU can be at a unit boundary: running with interrupts, in STOP, halted, tracing (T1), in user mode with a stale ISP.
-TRACE = """; PUAE6 test program: the vertical-blank setup of vsync.s with T1 set, so that every instruction takes a trace exception.
-entry:
-    MOVE.W #$2700,SR
-    LEA $400.W,A7
-    MOVE.B #3,$BFE201.L
-    MOVE.B #2,$BFE001.L
-    MOVE.L #trace,$24.L         ; vector 9 (trace)
-    MOVE.L #handler,$6C.L       ; level-3 autovector (vector 27)
-    LEA $1000.W,A0              ; log pointer
-    MOVE.W #$C020,$DFF09A.L     ; INTENA: SET|INTEN|VERTB
-    MOVE.W #$A000,SR            ; T1, supervisor, interrupts on
-loop:
-    ADDQ.L #1,D0
-    BRA.S loop
-trace:
-    ADDQ.L #1,D2
-    RTE
-handler:
-    MOVE.W #$0020,$DFF09C.L     ; INTREQ: clear VERTB
-    ADDQ.L #1,D1
-    MOVE.L D0,(A0)+
-    RTE
-"""
-USER = """; PUAE6 test program: the vertical-blank setup of vsync.s, but the main loop runs in user mode (S = 0) and the interrupt handler in supervisor mode.
-; The supervisor stack pointer is left stale at $400 while the program uses the user one.
-entry:
-    MOVE.W #$2700,SR
-    LEA $400.W,A7
-    MOVE.B #3,$BFE201.L
-    MOVE.B #2,$BFE001.L
-    MOVE.L #handler,$6C.L
-    LEA $1000.W,A0
-    MOVE.W #$C020,$DFF09A.L
-    MOVE.W #$0000,SR            ; user mode, interrupts on
-loop:
-    ADDQ.L #1,D0
-    BRA.S loop
-handler:
-    MOVE.W #$0020,$DFF09C.L
-    ADDQ.L #1,D1
-    MOVE.L D0,(A0)+
-    RTE
-"""
-# name -> (unit the state is taken in, units that run before it is loaded back)
-SCENARIOS = {"vsync": (3, 4), "stop": (3, 4), "halt": (2, 3), "input_all": (3, 4), "long_ops": (3, 4), "copper_irq": (3, 4), "trace": (3, 4),
-             "user": (3, 4)}
-
-
 def alter(name, original):
     """The bytes that can replace a field of the body so that the body is still valid and the field is different: (label, bytes) for each change
     worth trying. The status register is a set of independent bits that are applied one by one, so each bit is tried on its own."""
@@ -146,8 +97,8 @@ class CpuChunkTests(ProbeCase):
                 self.assertEqual([(0, 0, "")], fresh.loads)
                 self.assertEqual(source.digests[(n, "cpu")], fresh.after[0]["cpu"])
                 self.assertEqual(source.digests[(n, "ram")], fresh.after[0]["ram"])
-                self.assertEqual(path.read_bytes()[e.HEADER_SIZE:], again.read_bytes()[e.HEADER_SIZE:],
-                                 "the state taken again after the restore has the bytes of the one that was loaded")
+                a, b = parse_chunks(path.read_bytes()), parse_chunks(again.read_bytes())
+                self.assertEqual((a[CPU], a[2]), (b[CPU], b[2]), "the state taken again after the restore has the bytes of the one that was loaded")
 
     def test_a_reset_head_that_fails_before_the_state_is_applied_faults_the_image_and_unload_recovers_it(self):
         path = self.dir / "head.state"
@@ -215,7 +166,9 @@ class CpuChunkTests(ProbeCase):
         self.probe("vsync", "--units", "3", "--save-at", "3", str(path))
         verdicts = set()
         for units in (4, 9):                    # two machines, two different moments: the verdict is about the body alone
-            (mutated,) = self.probe("vsync", "--units", str(units), "--only", "cpu", "--mutate-at", str(units), "cpu", str(path)).mutate
+            run = self.probe("vsync", "--units", str(units), "--only", "cpu", "--mutate-at", str(units), "cpu", str(path))
+            self.assertEqual([], run.mutate_errors, "the good body was refused by the machine it was loaded into")
+            (mutated,) = run.mutate
             self.assertEqual(155, mutated["bytes"])
             self.assertEqual(0, mutated["faulted"], "Validate accepted a body that Apply could not apply")
             self.assertEqual(0, mutated["changed"], "a refused state changed the machine")

@@ -20,6 +20,8 @@
 // --only CHUNK limits what a load applies to the named chunks (T15b1). --save-fields-at is --save-at and also prints "field CHUNK NAME OFFSET SIZE"
 // for every field written (offsets in the whole state). --mutate-at UNIT CHUNK FILE loads FILE, then every one-byte change of that chunk's body with
 // its checksums made right, and prints "mutate UNIT CHUNK bytes=N attempts=A accepted=B refused=C faulted=D changed=E verdicts=SHA256".
+// --poke-at UNIT ev2:ID schedules a real secondary event with the handler a state calls ID (events a program rarely leaves pending at a boundary) and
+// ev2-foreign one with a handler outside the table. --handler-table prints "handler ID OK|BAD" for every id against the engine's own functions.
 // --poke-at UNIT exception|spc-int|lastipl|clear changes a live CPU variable that is never set at a unit boundary (and clear puts them back), so that
 // a save made right after it must be refused.
 // --load-fault-head-at does the same for the reset head that a load into an image that has not started runs first (use it at unit 0).
@@ -41,6 +43,7 @@
 #include "events.h"
 #include "memory.h"
 #include "custom.h"
+#include "blitter.h"
 #include "newcpu.h"
 #include "video_present.h"
 #include "inputdevice.h"
@@ -54,6 +57,11 @@
 #include <vector>
 
 extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
+extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);   // events.cpp, patch 0078: the secondary scheduler's statics
+extern int p6_custom_extra_cycle_get(void);                            // custom.cpp, patch 0079: the half-CCK remainder of the CPU
+namespace p6_state { uint8_t scheduler_handler_id(evfunc2 f); evfunc2 scheduler_handler(uint8_t id); }    // bridge/state_cpu.cpp: the ids a state gives the handlers
+extern evfunc2 p6_custom_event2_handler(int which);                    // custom.cpp, patch 0079
+extern evfunc2 p6_disk_motordelay_handler(void);                       // disk.cpp, patch 0080
 extern uae_u8 *save_audio(int nr, size_t *len, uae_u8 *dstptr);       // audio.cpp: compiled in the profile, reads only
 extern uae_u8 *save_input(size_t *len, uae_u8 *dstptr);               // inputdevice.cpp: the same, it saves pot_cap
 
@@ -98,15 +106,23 @@ void cpu(Canon &c)
 void scheduler(Canon &c)
 {
     c.put(int64_t(get_cycles()));
-    // Only what is scheduled is state: the times of an event that is not active are what its last firing left behind.
+    // Only what is scheduled is state: the time of an event that is not active is what its last firing left behind. oldcycles is read even while
+    // an entry is inactive (cia.cpp), so it counts always.
     for (const ev &e : eventtab) {
         c.put(uint8_t(e.active != 0));
-        if (e.active) c.put(int64_t(e.evtime)).put(int64_t(e.oldcycles));
+        if (e.active) c.put(int64_t(e.evtime));
+        c.put(int64_t(e.oldcycles));
     }
     for (int i = 0; i < ev2_max; ++i) {
         c.put(uint8_t(eventtab2[i].active != 0));
-        if (eventtab2[i].active) c.put(int64_t(eventtab2[i].evtime)).put(uint64_t(eventtab2[i].data));
+        if (eventtab2[i].active) c.put(int64_t(eventtab2[i].evtime)).put(uint64_t(eventtab2[i].data)).put(p6_state::scheduler_handler_id(eventtab2[i].handler));
     }
+    // T15b2: what the scheduler's chunk carries and the digest did not see. nextevent is derived from the table and must come back with it.
+    int idx = 0, next = 0, cnt = 0, restart = 0, remain = 0;
+    p6_events_get(&idx, &next, &cnt, &restart, &remain);
+    c.put(int64_t(nextevent)).put(int32_t(p6_custom_extra_cycle_get()));
+    c.put(int32_t(idx)).put(int32_t(next)).put(int32_t(cnt)).put(int32_t(restart)).put(int32_t(remain));
+    c.put(uint32_t(hsync_counter)).put(uint32_t(vsync_counter));
 }
 
 void ram(Canon &c)
@@ -217,7 +233,7 @@ bool read_file(const char *path, std::vector<uint8_t> *data);
 std::vector<uint8_t> g_rom;          // what p6_load was given, for the operations that load again
 std::vector<p6_media> g_media;
 
-enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, Public };
+enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Public };
 
 struct StateOp {
     uint64_t unit;
@@ -311,6 +327,24 @@ void mutate_chunk(const StateOp &op, uint64_t unit, p6_state::Options options)
            attempts, accepted, refused, faulted, changed, hex(summary, 32).c_str());
 }
 
+void foreign_handler(uae_u32) {}        // not in the scheduler's table: a save must refuse a secondary event that has it
+
+// The table of handler ids against the engine's own functions, named here independently of bridge/state_cpu.cpp: "handler ID OK|BAD".
+void print_handler_table()
+{
+    struct Expected { uint8_t id; evfunc2 handler; };
+    const Expected table[] = {{1, blitter_handler}, {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
+                              {5, event_audxdat_func}, {6, event_setdsr}, {7, event_CIA_synced_interrupt}, {8, event_CIA_tod_inc_event},
+                              {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}};
+    for (const Expected &e : table) {
+        const bool ok = e.handler && p6_state::scheduler_handler(e.id) == e.handler && p6_state::scheduler_handler_id(e.handler) == e.id;
+        printf("handler %u %s\n", unsigned(e.id), ok ? "OK" : "BAD");
+    }
+    printf("handler 0 %s\n", !p6_state::scheduler_handler(0) && p6_state::scheduler_handler_id(nullptr) == 0 ? "OK" : "BAD");
+    printf("handler 12 %s\n", !p6_state::scheduler_handler(12) ? "OK" : "BAD");
+    printf("handler foreign %s\n", p6_state::scheduler_handler_id(foreign_handler) == 0 ? "OK" : "BAD");
+}
+
 void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
 {
     for (const StateOp &op : ops) {
@@ -331,6 +365,11 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             const p6_result l = p6_state_load(scratch, sizeof scratch, &error);
             printf("public %" PRIu64 " cap_state=%d bound=%d save=%d load=%d written=%" PRIu64 " %s\n", unit, (caps.flags & P6_CAP_STATE) ? 1 : 0,
                    int(b), int(s), int(l), written, message);
+        } else if (op.kind == OpKind::HandlerTable) {
+            print_handler_table();
+        } else if (op.kind == OpKind::Digest) {
+            printf("after-load %" PRIu64 "\n", unit);
+            print_digests(unit);
         } else if (op.kind == OpKind::Mutate) {
             mutate_chunk(op, unit, options);
         } else if (op.kind == OpKind::Poke) {
@@ -338,6 +377,20 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             if (!strcmp(op.chunk, "exception")) regs.exception = 3;
             else if (!strcmp(op.chunk, "spc-int")) regs.spcflags |= SPCFLAG_INT;
             else if (!strcmp(op.chunk, "lastipl")) regs.lastipl = 5;
+            else if (!strncmp(op.chunk, "ev2:", 4)) {
+                // A real secondary event, scheduled through the engine's own call (slot 0 is the blitter's): ev2:ID, ID of scheduler_handler.
+                const int id = atoi(op.chunk + 4);
+                const evfunc2 handler = p6_state::scheduler_handler(uint8_t(id));
+                if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(2000 + 100 * id) * CYCLE_UNIT, uae_u32(0x1000 + id), handler);
+            } else if (!strcmp(op.chunk, "ev2-foreign")) event2_newevent_xx(-1, evt_t(3000) * CYCLE_UNIT, 0, foreign_handler);
+            else if (!strcmp(op.chunk, "ev2-stale")) {
+                // What a fired event leaves in its slot: inactive, with the time, the data and the handler it had. A save writes zeros for it.
+                eventtab2[7].active = 0;
+                eventtab2[7].evtime = 99999;
+                eventtab2[7].data = 0xBEEF;
+                eventtab2[7].handler = foreign_handler;
+            } else if (!strcmp(op.chunk, "start-cycles")) start_cycles = 100;
+            else if (!strcmp(op.chunk, "pissoff")) pissoff = 1;
             else if (!strcmp(op.chunk, "bltnasty")) regs.spcflags |= SPCFLAG_BLTNASTY;      // flags a state may carry: they are valid, only not set now
             else if (!strcmp(op.chunk, "trace")) regs.spcflags |= SPCFLAG_TRACE;
             else if (!strcmp(op.chunk, "dotrace")) regs.spcflags |= SPCFLAG_DOTRACE;
@@ -345,6 +398,8 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 regs.exception = 0;
                 regs.spcflags &= ~(SPCFLAG_INT | SPCFLAG_BLTNASTY | SPCFLAG_TRACE | SPCFLAG_DOTRACE);
                 regs.lastipl = 0;
+                start_cycles = 0;
+                pissoff = 0;
             }
             printf("poke %" PRIu64 " %s\n", unit, op.chunk);
         } else if (op.kind == OpKind::Save || op.kind == OpKind::SaveFields) {
@@ -443,6 +498,10 @@ int main(int argc, char **argv)
         } else if (!strcmp(argv[i], "--mutate-at") && i + 3 < argc) {
             state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Mutate, argv[i + 3], argv[i + 2]});
             i += 3;
+        } else if (!strcmp(argv[i], "--digest-at") && i + 1 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Digest, nullptr, nullptr});
+        } else if (!strcmp(argv[i], "--handler-table")) {
+            state_ops.push_back(StateOp{0, OpKind::HandlerTable, nullptr, nullptr});
         } else if (!strcmp(argv[i], "--poke-at") && i + 2 < argc) {
             state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Poke, nullptr, argv[i + 2]});
             i += 2;
@@ -462,7 +521,7 @@ int main(int argc, char **argv)
             if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
             ports[port] = {type, buttons, int16_t(dx), int16_t(dy), 0};
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|clear]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|clear]... [--handler-table] [--digest-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;

@@ -2145,6 +2145,77 @@
           "after_sha256": "31472b7fca1df21496f3f447899971a911f5fcfab0051625943fcdad40e6b0b1"
         }
       ]
+    },
+    {
+      "id": "0078-events-state-access",
+      "file": "patches/winuae/0078-events-state-access.patch",
+      "sha256": "95272a4d1955e41f210e14a59cacd28ed10d08c0d2fffe0c7adbc4eda4db300f",
+      "title": "The native state can read and write the secondary scheduler's file-local state, and a load puts its cursor back",
+      "reason": "event2idx (which of two events due together runs first) and the allocation cursor of event2_newevent_xx (a function-local static, promoted to a file static under the same value) decide the order of events, and cycles_to_add_remain is the sub-CYCLE_UNIT remainder of do_cycles_slow; none can be seen from outside. p6_events_get/p6_events_set read them and, for a restore, write them and leave the re-entry counters of MISC_handler at zero. clear_events() also puts the cursor back to ev2_misc, next to the index patch 0070 already reset: a reload kept the cursor of the last session, so the same events landed in other slots than in a clean process and the slot decides ties (found by the extended scheduler digest of the state probe). A clean process starts at ev2_misc and its first reset head calls clear_events, so nothing changes there.",
+      "category": "host hooks",
+      "order": 78,
+      "symbols": [
+        "clear_events",
+        "event2_newevent_xx",
+        "p6_events_get",
+        "p6_events_set"
+      ],
+      "test": "STATE02; LIFE01; tests.state.test_state_scheduler; tests.state.test_probe",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "events.cpp",
+          "before_sha256": "0a8b9748a45463e7cb1f8be1e00d3868cb85fe74180aa26a72db5d3c2413e691",
+          "after_sha256": "6166507629d5d7f8a9ffcbb724348a50b1f97e1841ab22fe073336d13c9f43a4"
+        }
+      ]
+    },
+    {
+      "id": "0079-custom-state-access",
+      "file": "patches/winuae/0079-custom-state-access.patch",
+      "sha256": "5a793c09b7e96786ca6e7f499b057ce066f5d7e7391b31a5a6acb5037d2e4583",
+      "title": "The native state can read the half-CCK remainder of the CPU and name the static event handlers",
+      "reason": "extra_cycle (a file static) is the half-CCK remainder of the cycle-exact CPU, consumed by the next chip-bus access, and three secondary-event handlers (event_doint_delay_do_intreq, event_doint_delay_do_intena, fakehsync_handler) are static, so a state cannot name them; p6_custom_extra_cycle_get/set and p6_custom_event2_handler expose them. Pure accessors.",
+      "category": "host hooks",
+      "order": 79,
+      "symbols": [
+        "p6_custom_event2_handler",
+        "p6_custom_extra_cycle_get",
+        "p6_custom_extra_cycle_set"
+      ],
+      "test": "STATE02; tests.state.test_state_scheduler",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "14fd933248de9c48c46d113363b59290e482d433bb4fa4bfb7dce38f266f2994",
+          "after_sha256": "554ff7ba8feeea5dbf670a50fc238fb2b8a1a661051630e23ab359cd06eb5a9c"
+        }
+      ]
+    },
+    {
+      "id": "0080-disk-motordelay-handler-export",
+      "file": "patches/winuae/0080-disk-motordelay-handler-export.patch",
+      "sha256": "220ee828fb1633a64350868b07325d79fe2fb0f48bc801aa009951bf6213c2c9",
+      "title": "The native state can name the floppy motor-off delay handler",
+      "reason": "motordelay_func is the static handler of the secondary event that ends the motor-off delay; a state names events by ids of its own, so the handler is exported through p6_disk_motordelay_handler. Pure accessor.",
+      "category": "host hooks",
+      "order": 80,
+      "symbols": [
+        "p6_disk_motordelay_handler"
+      ],
+      "test": "STATE02; tests.state.test_state_scheduler",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "7fcbfed8e8cf998bd75c3e9f0da69c76771a4c46e12fb17aaff9ea4aab5ac4d0",
+          "after_sha256": "3567ce93bc998c605c9ac795cd7a01cb5c3c7e870a4696f41688421cc8b4da6b"
+        }
+      ]
     }
   ]
 }

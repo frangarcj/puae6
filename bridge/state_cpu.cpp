@@ -1,4 +1,5 @@
-// Chunk P6CP: the state of the 68000 (docs/adr/0009-state-format.md, manifests/state-inventory.json components cpu-*).
+// Chunks P6CP (the state of the 68000) and P6SC (the scheduler), docs/adr/0009-state-format.md, manifests/state-inventory.json components cpu-*
+// and sched-*.
 //
 // A state is a unit boundary of a machine that has run its reset head, so a restore is "run the head if it has not run, then overwrite": the
 // dispatch tables, the pointers into the engine and the host mirrors come from the head, and this chunk puts back only what is causal. Rules
@@ -20,12 +21,19 @@
 #include "uae.h"
 #include "memory.h"
 #include "custom.h"
+#include "blitter.h"
 #include "newcpu.h"
 
-// What the engine patches add (patches/winuae/0076, 0077), declared here as lifecycle.cpp declares p6_cia_session_begin.
-extern uae_u32 p6_rng_get(void);
+// What the engine patches add (patches/winuae/0076-0080), declared here as lifecycle.cpp declares p6_cia_session_begin.
+extern uae_u32 p6_rng_get(void);                                                           // main.cpp 0076
 extern void p6_rng_set(uae_u32 state);
-extern bool p6_cpu_boundary(const char **why);
+extern bool p6_cpu_boundary(const char **why);                                             // newcpu.cpp 0077
+extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);       // events.cpp 0078
+extern void p6_events_set(int idx, int next, int remain);
+extern int p6_custom_extra_cycle_get(void);                                                // custom.cpp 0079
+extern void p6_custom_extra_cycle_set(int v);
+extern evfunc2 p6_custom_event2_handler(int which);                                        // 0 intreq, 1 intena, 2 fakehsync
+extern evfunc2 p6_disk_motordelay_handler(void);                                           // disk.cpp 0080
 
 namespace p6_state {
 
@@ -35,6 +43,9 @@ static_assert(sizeof(int) == 4 && sizeof(evt_t) == 8, "the widths of the engine'
 
 constexpr uint32_t kSpcSaved = SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY;
 constexpr uint16_t kSr68000 = 0xA71F;       // T1, S, the interrupt mask, X N Z V C: a 68000 has no T0 and no M
+constexpr int kEvent2Slots = ev2_max;       // 16
+constexpr uint8_t kEv2Blitter = 1;          // ids of the secondary-event handlers a state can name (scheduler_handler_id)
+constexpr uint8_t kEv2Last = 11;
 
 // A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value).
 template <class W> W get(Archive &a, long long live, long long lo, long long hi, const char *name)
@@ -51,6 +62,47 @@ uint16_t current_sr()
 }
 
 }  // namespace
+
+// The handler a state's id stands for (nullptr for 0 and for an id that is not in the table): scheduler_handler_id's inverse.
+evfunc2 scheduler_handler(uint8_t id)
+{
+    switch (id) {
+    case 1: return blitter_handler;
+    case 2: return event_doint_delay_do_ext;
+    case 3: return p6_custom_event2_handler(0);
+    case 4: return p6_custom_event2_handler(1);
+    case 5: return event_audxdat_func;
+    case 6: return event_setdsr;
+    case 7: return event_CIA_synced_interrupt;
+    case 8: return event_CIA_tod_inc_event;
+    case 9: return event_DISK_handler;
+    case 10: return p6_disk_motordelay_handler();
+    case 11: return p6_custom_event2_handler(2);
+    default: return nullptr;
+    }
+}
+
+// Stable ids of the secondary-event handlers: the vocabulary of the state, not of the engine. Reachable in the A500 profile (read from the callers
+// of event2_newevent* in the compiled units): 1 blitter_handler (slot 0 only, assigned by init_eventtab; never active with a cycle-exact blitter),
+// 2 event_doint_delay_do_ext, 3 event_doint_delay_do_intreq, 4 event_doint_delay_do_intena (m68k_interrupt_delay is true), 5 event_audxdat_func,
+// 6 event_setdsr, 7 event_CIA_synced_interrupt, 8 event_CIA_tod_inc_event, 9 event_DISK_handler, 10 motordelay_func, 11 fakehsync_handler. Not
+// reachable: doint_delayed (needs cs_ipldelay), setup_fmodes_delayed (AGA), lightpen_trigger_func (no lightpen port), keymcu_event and
+// cputester_event (keyboard_mode 0). 0 is "no handler that a state can name": a save refuses an active event that has one.
+uint8_t scheduler_handler_id(evfunc2 f)
+{
+    if (f == blitter_handler) return 1;
+    if (f == event_doint_delay_do_ext) return 2;
+    if (f == p6_custom_event2_handler(0)) return 3;
+    if (f == p6_custom_event2_handler(1)) return 4;
+    if (f == event_audxdat_func) return 5;
+    if (f == event_setdsr) return 6;
+    if (f == event_CIA_synced_interrupt) return 7;
+    if (f == event_CIA_tod_inc_event) return 8;
+    if (f == event_DISK_handler) return 9;
+    if (f == p6_disk_motordelay_handler()) return 10;
+    if (f == p6_custom_event2_handler(2)) return 11;
+    return 0;
+}
 
 // Body, little endian, in this order:
 //   i32 go.quit_program (-4..0, not -1)
@@ -155,6 +207,110 @@ void visit_cpu(Archive &a)
         // what memory holds now, which can differ from the prefetch queue), doint() is not called (it would recompute ipl_pin from the chipset,
         // whose delayed events are still pending), and lastipl, vbr, sfc, dfc, msp, t0 and m are 0 in the profile (a save refuses otherwise).
     }
+}
+
+// P6SC body, little endian, in this order:
+//   i64 currcycle (>= 0)  u16 extra_cycle (0..511)  u16 cycles_to_add_remain (0..511)  u32 hsync_counter  u32 vsync_counter
+//   4 x { u8 active, i64 evtime (0 when inactive), i64 oldcycles }                      eventtab[ev_sync, ev_cia, ev_misc, ev_audio]
+//   u8 event2idx (0..16)  u8 event2next (1..15)
+//   16 x { u8 active, u8 handler id (0 when inactive), i64 evtime (0 when inactive), u32 data (0 when inactive) }        eventtab2[0..15]
+// start_cycles is NOT written: it is 0 (m68k_go_unit BEGIN) and the next reset head restarts the counter from it; upstream's restore_cycles() would
+// put the saved cycle count there and a later reset would start from the wrong epoch. nextevent is derived by rebuild_scheduler. currcycle_cck is not
+// written either: the engine only reads it to take snapshots (agnus_*_cck) and to subtract them, so it is the origin of a clock that only differences
+// are taken on, and it is not reset by a load (a reload keeps the previous session's). The chipset chunk saves those snapshots as ages against it.
+void visit_scheduler(Archive &a)
+{
+    const bool checks = a.mode() != Mode::Measure;
+    int idx = 0, nxt = 1, cnt = 0, restart = 0, remain = 0;
+    p6_events_get(&idx, &nxt, &cnt, &restart, &remain);
+    if (a.mode() == Mode::Save) {
+        a.require(cnt == 0 && restart == 0, "the secondary scheduler is inside a handler");
+        a.require(start_cycles == 0 && pissoff == 0, "the cycle counter is not in the state of an instruction boundary");
+    }
+
+    // 1. The counters.
+    const int64_t now = get<int64_t>(a, currcycle, 0, INT64_MAX, "sched.currcycle");
+    const uint16_t extra = get<uint16_t>(a, p6_custom_extra_cycle_get(), 0, CYCLE_UNIT - 1, "sched.extra_cycle");
+    const uint16_t pending = get<uint16_t>(a, remain, 0, CYCLE_UNIT - 1, "sched.cycles_to_add_remain");
+    const uint32_t hs = a.val<uint32_t>(hsync_counter, "sched.hsync_counter");        // (hsync_counter & 15) phases the keyboard poll (cia.cpp)
+    const uint32_t vs = a.val<uint32_t>(vsync_counter, "sched.vsync_counter");
+
+    // 2. eventtab[]: all four, active or not (oldcycles of ev_cia is read while it is inactive). The dead time of an inactive entry is written as 0
+    //    so that two saves of the same machine are the same bytes. The handlers are not saved: they are fixed by the slot and the reset head's
+    //    init_eventtab() assigned them. Every check uses what val() returned, never the live variable.
+    bool main_active[ev_max];
+    int64_t main_time[ev_max], main_old[ev_max];
+    for (int i = 0; i < ev_max; ++i) {
+        const ev &e = eventtab[i];
+        main_active[i] = get<uint8_t>(a, e.active ? 1 : 0, 0, 1, "ev.active") != 0;
+        main_time[i] = get<int64_t>(a, e.active ? e.evtime : 0, 0, INT64_MAX, "ev.evtime");
+        main_old[i] = get<int64_t>(a, e.oldcycles, 0, INT64_MAX, "ev.oldcycles");
+        if (checks) {
+            a.require(main_active[i] ? main_time[i] >= now : main_time[i] == 0, "an event is in the past, or an inactive one has a time");
+            a.require(main_old[i] <= now, "ev.oldcycles: later than the cycle counter");
+            a.require(i != ev_sync || !main_active[i], "the sync event is never scheduled in the A500 profile (cpu_memory_cycle_exact)");
+        }
+    }
+
+    // 3. The secondary scheduler: its round (event2idx decides which of two events due together runs first; event2next where the next one goes) and
+    //    all 16 slots by index, because the slot decides that order too.
+    const uint8_t round = get<uint8_t>(a, idx, 0, ev2_max, "ev2.idx");                // set to slot+1: 16 is valid, MISC_handler masks it
+    const uint8_t next = get<uint8_t>(a, nxt, ev2_misc, ev2_max - 1, "ev2.next");
+    bool sec_active[kEvent2Slots];
+    uint8_t sec_id[kEvent2Slots];
+    int64_t sec_time[kEvent2Slots];
+    uint32_t sec_data[kEvent2Slots];
+    bool any = false;
+    int64_t earliest = INT64_MAX;
+    for (int i = 0; i < kEvent2Slots; ++i) {
+        const ev2 &e = eventtab2[i];
+        const uint8_t live_id = e.active ? scheduler_handler_id(e.handler) : 0;
+        if (a.mode() == Mode::Save && e.active && live_id == 0) a.fail("a secondary event has a handler that a state cannot name");
+        sec_active[i] = get<uint8_t>(a, e.active ? 1 : 0, 0, 1, "ev2.active") != 0;
+        sec_id[i] = get<uint8_t>(a, live_id, 0, kEv2Last, "ev2.handler");
+        sec_time[i] = get<int64_t>(a, e.active ? e.evtime : 0, 0, INT64_MAX, "ev2.evtime");
+        sec_data[i] = a.val<uint32_t>(e.active ? e.data : 0, "ev2.data");
+        if (checks) {
+            if (sec_active[i]) {
+                a.require(sec_id[i] != 0 && sec_time[i] >= now, "a secondary event has no handler or is in the past");
+                a.require((i == ev2_blitter) == (sec_id[i] == kEv2Blitter), "slot 0 holds the blitter's event and nothing else does");
+                any = true;
+                if (sec_time[i] < earliest) earliest = sec_time[i];
+            } else {
+                a.require(sec_id[i] == 0 && sec_time[i] == 0 && sec_data[i] == 0, "an inactive secondary event has data");
+            }
+        }
+    }
+    // ev_misc is armed for the earliest of the slots (MISC_handler), or earlier when a slot was removed without re-arming it.
+    if (checks) a.require(!any || (main_active[ev_misc] && main_time[ev_misc] <= earliest), "secondary events are pending but ev_misc is not armed for them");
+
+    if (a.applying() && a.ok()) {
+        set_cycles(now);
+        p6_custom_extra_cycle_set(extra);
+        hsync_counter = hs;
+        vsync_counter = vs;
+        for (int i = 0; i < ev_max; ++i) {
+            eventtab[i].active = main_active[i];
+            eventtab[i].evtime = main_time[i];
+            eventtab[i].oldcycles = main_old[i];
+        }
+        for (int i = 0; i < kEvent2Slots; ++i) {
+            eventtab2[i].active = sec_active[i];
+            if (sec_active[i]) {
+                eventtab2[i].evtime = sec_time[i];
+                eventtab2[i].data = sec_data[i];
+                eventtab2[i].handler = scheduler_handler(sec_id[i]);
+            }
+        }
+        p6_events_set(round, next, pending);       // also zeroes event2cnt and event2restart
+    }
+}
+
+// After every chunk is applied: nextevent is derived from the table (events_schedule()). No other chunk may touch eventtab, eventtab2 or event2idx
+// while it applies (no CIA_calctimers, no event2_newevent_*): this chunk owns them.
+void rebuild_scheduler()
+{
+    events_schedule();
 }
 
 }  // namespace p6_state
