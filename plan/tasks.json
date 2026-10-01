@@ -8553,6 +8553,92 @@
       "evidence": null
     },
     {
+      "id": "T21a",
+      "title": "Medios en el guest y en el core: eventos de medios, ADF de arranque y expulsar/insertar con su estado",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T20"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/waterbox/**",
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/patches/**",
+        "integration/bizhawk/smoke/**",
+        "tests/ffi/**",
+        "tests/waterbox-smoke/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Exportar desde el guest los eventos de medios (p6_media_event_enqueue) con la misma disciplina de p6w (version, tamano, resultado y mensaje) y añadir su estructura al layout que el guest informa y que el wrapper comprueba.",
+        "El core acepta ADF en su construccion (identidad SHA-256 por contenido, los dos primeros en DF0 y DF1 al arrancar, el resto como slots), y traduce los botones Eject/Insert/Next Slot/Next Drive (con deteccion de flanco) a eventos de medios al principio de la unidad, con una secuencia estrictamente creciente que no se reinicia con ResetCounters. Los campos de C# que esto añade (drive y slot actuales, disco de cada unidad, flancos, secuencia) son estado causal.",
+        "Probar contra el escenario MED01 nativo: el mismo guest de disquete, el mismo ADF A al arrancar y B insertado en la unidad 80 a traves de los botones del core dejan la Chip RAM final igual byte a byte que el probe nativo; y probar expulsar, insertar y cambiar de slot con el log de las lineas de la unidad.",
+        "El constructor de EmuHawk acepta ADF y rechaza lo demas con un mensaje (HDF, LHA, discos opticos)."
+      ],
+      "checks": [
+        "MED01",
+        "ABI01"
+      ],
+      "acceptance": [
+        "Con los botones del core un cambio de disco deja la maquina como el mismo cambio hecho por p6_media_event en el probe nativo; un flanco no se repite mientras el boton sigue pulsado; el core sigue sin escribir en los medios."
+      ],
+      "stop": "No cambiar de disco desde un callback ni inventar un estado fuera del motor para los medios; los indices y la secuencia son del core y se guardan con el estado.",
+      "evidence": null
+    },
+    {
+      "id": "T21b",
+      "title": "Estado del wrapper con sobre y rechazo transaccional, y las pruebas de snapshot con el core real",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T21a",
+        "T14"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/**",
+        "adapters/waterbox/**",
+        "manifests/state-inventory.json",
+        "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Inventariar en manifests/state-inventory.json cada campo de C# del core con su politica (guardado, derivable o no causal) y la prueba que lo cubre; guardar con el snapshot todo el estado causal que el sandbox no contiene.",
+        "Dar al estado un sobre propio antes del snapshot de Waterbox (magic, version, SHA-256 del guest, heaps, config, firmware, medios, longitud y checksum) y validarlo ENTERO antes de tocar el sandbox: un estado de otro build, otro ROM, otra configuracion, truncado, manipulado o del core UAE se rechaza con un error y la instancia sigue donde estaba.",
+        "Probar WB03 (guardar N, avanzar M, restaurar, repetir M: mismo hash de hardware, video y audio), WB05 (motor de disco, DMA y audio, tecla retenida y un cambio de disco pendiente) y WB06 (cada campo de C# con efecto causal cambia entre guardar y cargar y recupera su efecto).",
+        "Probar WB04 con el core: restaurar un estado hecho en A en un sandbox B nuevo, con direcciones de buffers distintas, y dos sandboxes alternados; y WB11, WB14 y WB15 con el core real."
+      ],
+      "checks": [
+        "WB03",
+        "WB04",
+        "WB05",
+        "WB06",
+        "WB07",
+        "WB11",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "La continuacion de hardware, video y audio es identica en la instancia original y en la nueva; un estado incompatible se rechaza antes de modificar nada y la instancia sigue funcionando.",
+        "No se uso el serializador nativo para sustituir la prueba del snapshot real."
+      ],
+      "stop": "Si una cache externa o un puntero anterior explica que solo funcione en A, corregir ownership/rebinding; no limitar la prueba a esa instancia.",
+      "evidence": null
+    },
+    {
       "id": "T21",
       "title": "Cerrar snapshots Waterbox y estado del wrapper",
       "milestone": "M1",
@@ -8560,7 +8646,9 @@
       "status": "pending",
       "depends": [
         "T20",
-        "T14"
+        "T14",
+        "T21a",
+        "T21b"
       ],
       "read": [
         "docs/03-waterbox.md",
@@ -8578,7 +8666,8 @@
         "Guardar con snapshot todo estado causal del sandbox; inventariar cada campo C# y añadir hooks de estado donde no sea derivable.",
         "Tras load, reponer delegates y limpiar referencias de buffers host; validar identidad/build/medios sin dejar instancia medio restaurada.",
         "Probar save N, avanzar M, restore, repetir con DMA/disco/input y eventos pendientes.",
-        "Restaurar en sandbox B nuevo, variar direcciones de buffers y comprobar todos los campos causales C#."
+        "Restaurar en sandbox B nuevo, variar direcciones de buffers y comprobar todos los campos causales C#.",
+        "Division: T21a (medios en el guest y en el core: sin ellos no hay eventos de disco ni indices de medio que guardar) y T21b (el sobre del estado y las pruebas de snapshot con el core real); T21 es el cierre y conserva la puerta original."
       ],
       "checks": [
         "WB03",
