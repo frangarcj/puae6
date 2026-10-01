@@ -8857,13 +8857,100 @@
       "evidence": null
     },
     {
+      "id": "T15b1",
+      "title": "Estado nativo de la CPU (chunk P6CP) y carga de un estado sobre una imagen que aun no ha arrancado",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_cpu.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "docs/adr/0009-state-format.md",
+        "tests/test_plan.py",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Parches de acceso al estado local de newcpu.cpp (suspended/hardboot de m68k_go_unit subidos a fichero, solo lectura, y la comprobacion de frontera de instruccion) y de main.cpp (estado vivo del PRNG), sin cambiar comportamiento.",
+        "Escribir visit_cpu (P6CP v1): registros D0-A7 con USP e ISP en bruto, PC, SR desde sus campos sin MakeFromSR, prefetch y latches del bus, stopped/halted, spcflags (TRACE y DOTRACE tal cual), el pipeline de IPL, quit_program y el PRNG; Validate con los rangos del analisis y sin tocar la maquina; guardar solo desde una imagen arrancada y en frontera de instruccion.",
+        "Cargar un estado sobre una imagen que aun no ha arrancado ejecuta antes la cabecera de reset (la misma que p6_run_frame) para que existan las tablas de despacho y los manejadores; Options::only_chunks para probar un chunk solo; un fallo de un visitante al guardar no es CAPACITY.",
+        "Pruebas: ida y vuelta guardar-avanzar-cargar-guardar con el mismo cuerpo, el digest del subsistema cpu vuelve al de la unidad guardada en el mismo proceso y en uno nuevo, cada campo cambiado cambia el futuro, mutaciones de bytes del cuerpo que Validate acepta y Apply no puede rechazar, y guardado rechazado fuera de frontera. El probe se amplia con lo que no veia (suspended, hardboot, quit_program, xorshift).",
+        "Ampliacion touch: bridge/state_cpu.cpp (visitantes de CPU y scheduler en un fichero propio), bridge/state_probe.cpp (digests de lo que el probe no veia) y el ADR (la carga ejecuta la cabecera si la imagen no ha arrancado, y solo se guarda desde una imagen arrancada)."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "El digest del subsistema cpu y el cuerpo re-guardado vuelven a los de la unidad guardada, en el mismo proceso y en uno nuevo; un cuerpo que Validate acepta no puede fallar al aplicar; un estado tomado de una imagen sin arrancar o fuera de frontera se rechaza al guardar."
+      ],
+      "stop": "No parchear suspended/hardboot para ponerlos a mano ni llamar a restore_cpu_finish/doint: restaurar sobre una imagen arrancada y sobrescribir.",
+      "evidence": null
+    },
+    {
+      "id": "T15b2",
+      "title": "Estado nativo del scheduler (chunk P6SC): contador de ciclos, eventos principales y secundarios",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15b1"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_cpu.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "docs/adr/0009-state-format.md",
+        "tests/test_plan.py",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Parches de acceso de events.cpp (estado local del scheduler secundario, `next` subido a fichero), custom.cpp (resto de medio CCK y ids de los manejadores estaticos) y disk.cpp (manejador del retardo del motor), sin cambiar comportamiento.",
+        "Escribir visit_scheduler (P6SC v1): currcycle, currcycle_cck, resto fraccional, contadores de hsync/vsync, las cuatro entradas de eventtab, el turno del scheduler secundario y sus 16 ranuras por indice con ids de manejador propios del estado; nextevent se deriva con events_schedule() en el rebuild. Nadie mas escribe eventtab, eventtab2 ni event2idx al restaurar.",
+        "Pruebas: el digest del subsistema scheduler y el cuerpo re-guardado vuelven a los de la unidad guardada, estados con eventos secundarios pendientes (interrupciones retardadas, CIA, disco, audio), cada campo cambiado cambia el futuro, mutaciones de bytes y guardado rechazado con un evento de manejador desconocido.",
+        "Ampliacion touch: la misma que T15b1 (los visitantes de CPU y scheduler comparten bridge/state_cpu.cpp)."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "El digest del subsistema scheduler y el cuerpo re-guardado vuelven a los de la unidad guardada; el orden de dos eventos del mismo instante se conserva por la ranura; start_cycles no se toca."
+      ],
+      "stop": "No restaurar los eventos secundarios con event2_newevent_xx ni copiar restore_cycles de upstream: escribir las tablas tal cual y derivar nextevent.",
+      "evidence": null
+    },
+    {
       "id": "T15b",
       "title": "Estado nativo de CPU y scheduler (chunks CPU y SCHD)",
       "milestone": "M2",
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a"
+        "T15a",
+        "T15b1",
+        "T15b2"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -8884,7 +8971,8 @@
       "steps": [
         "Serializar los componentes causales de cpu y scheduler del inventario: registros, SR/pila, PC, prefetch, pipeline de IPL, halted, spcflags, estado estatico de m68k_go_unit (suspended, hardboot), PRNG, contador de ciclos, residuo fraccional, ranuras y turno del scheduler secundario, contadores de hsync/vsync. Los componentes rebuild se reconstruyen tras la carga.",
         "Los accesores a estado local de fichero son parches de patches/winuae que añaden la pareja guardar/cargar junto al estado; un parche por fichero, sin cambiar comportamiento.",
-        "Prueba por chunk: guardar en la unidad N, avanzar, cargar solo el chunk y comprobar que el probe del subsistema vuelve a su digest de N; cada campo extension cambiado antes de guardar cambia el futuro."
+        "Prueba por chunk: guardar en la unidad N, avanzar, cargar solo el chunk y comprobar que el probe del subsistema vuelve a su digest de N; cada campo extension cambiado antes de guardar cambia el futuro.",
+        "Division: T15b1 (CPU, chunk P6CP, parches de newcpu.cpp y main.cpp, carga sobre una imagen sin arrancar) y T15b2 (scheduler, chunk P6SC, parches de events.cpp, custom.cpp y disk.cpp); T15b es el cierre y conserva la puerta original."
       ],
       "checks": [
         "DET02"
@@ -8902,7 +8990,8 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a"
+        "T15a",
+        "T15b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -8941,7 +9030,8 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a"
+        "T15a",
+        "T15b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -8980,7 +9070,8 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a"
+        "T15a",
+        "T15b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9018,7 +9109,8 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a"
+        "T15a",
+        "T15b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9057,7 +9149,8 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a"
+        "T15a",
+        "T15b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9095,7 +9188,8 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a"
+        "T15a",
+        "T15b"
       ],
       "read": [
         "docs/02-contracts.md",
