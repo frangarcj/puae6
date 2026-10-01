@@ -10,6 +10,7 @@
 
 #include "error_util.h"
 #include "session.h"
+#include "frame_step.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -44,7 +45,7 @@ void visit_ram(Archive &a)
 }  // namespace
 
 const Chunk kChunks[kChunkCount] = {
-    {"P6CP", "cpu", 1, nullptr, nullptr},
+    {"P6CP", "cpu", 1, visit_cpu, nullptr},
     {"P6SC", "scheduler", 1, nullptr, nullptr},
     {"P6RM", "ram", 1, visit_ram, nullptr},
     {"P6RT", "rtc", 1, nullptr, nullptr},
@@ -141,6 +142,19 @@ p6_result gate(const Options &options, p6_error *error)
 void put32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; ++i) p[i] = uint8_t(v >> (8 * i)); }
 void put64(uint8_t *p, uint64_t v) { for (int i = 0; i < 8; ++i) p[i] = uint8_t(v >> (8 * i)); }
 
+// Hands the offset of a field in the chunk body to Options::on_field as an offset in the whole state.
+struct FieldRelay {
+    const Options *options;
+    uint32_t chunk;
+    uint64_t body_at;
+};
+
+void relay_field(void *context, uint64_t offset, uint64_t size, const char *name)
+{
+    const FieldRelay *relay = static_cast<const FieldRelay *>(context);
+    relay->options->on_field(relay->options->on_field_context, relay->chunk, relay->body_at + offset, size, name);
+}
+
 p6_result refused(p6_error *error, const char *chunk, const char *why)
 {
     char text[P6_ERROR_TEXT_CAPACITY];
@@ -163,6 +177,12 @@ p6_result save(void *buffer, uint64_t capacity, uint64_t *written, const Options
     if (written) *written = 0;
     if (const p6_result gated = gate(options, error)) return gated;
     if (!buffer || !written) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "buffer or written is null");
+    // A state is a unit boundary of a machine that has run its reset head. Before the first unit the machine is a configuration, a
+    // firmware and some media: the reset head has not built the CPU's tables or the scheduler's handlers, and the chipset, the audio and the
+    // input are not those of a power-on yet (docs/adr/0009-state-format.md, point 6).
+    if (!session.started)
+        return p6_fail(error, P6_ERROR_BAD_STATE, "no state before the first unit: run p6_run_frame once");
+    const Plan plan = make_plan();
     uint8_t *out = static_cast<uint8_t *>(buffer);
     if (capacity < kHeaderSize + kChunkHeaderSize)
         return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than a state");
@@ -177,11 +197,16 @@ p6_result save(void *buffer, uint64_t capacity, uint64_t *written, const Options
         uint64_t body = 0;
         if (chunk.visit) {
             Archive archive = Archive::saver(out + at + kChunkHeaderSize, capacity - at - kChunkHeaderSize);
+            FieldRelay relay = {&options, i, at + kChunkHeaderSize};
+            if (options.on_field) archive.on_field(relay_field, &relay);
             chunk.visit(archive);
             if (!archive.ok()) {
+                // A buffer that could have held the chunk is not the problem: the machine is in a state that cannot be saved (an exception in
+                // flight, an event that a state cannot name).
+                const bool fits = capacity - at - kChunkHeaderSize >= plan.bounds[i];
                 char text[P6_ERROR_TEXT_CAPACITY];
                 snprintf(text, sizeof text, "chunk %s could not be saved: %s", chunk.name, archive.why());
-                return p6_fail(error, P6_ERROR_CAPACITY, text);
+                return p6_fail(error, fits ? P6_ERROR_BAD_STATE : P6_ERROR_CAPACITY, text);
             }
             body = archive.position();
         }
@@ -221,10 +246,21 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         if (!archive.ok()) return refused(error, chunk.name, archive.why());
     }
 
-    // (8) Nothing can refuse any more. A failure here is a defect of a visitor, not of the state: say so and stop the image.
+    // (8) Nothing can refuse any more. An image that has not started has not run its reset head, which is what builds the CPU's dispatch
+    // tables and the scheduler's handlers (build_cpufunctbl, init_eventtab): the head runs first, exactly as p6_run_frame runs it, and every
+    // chunk then overwrites what it left. A failure of the head, like a failure of a visitor below, is a defect and not of the state: say so and
+    // stop the image.
+    if (!session.started) {
+        const bool head_ran = p6_bridge::run_reset_head();
+        if (!head_ran || options.fail_head) {
+            session.state = State::Faulted;
+            return p6_fail(error, P6_ERROR_INTERNAL, "the reset head did not run before the state was applied; the image is faulted");
+        }
+    }
+    const auto chosen = [&options](uint32_t i) { return !options.only_chunks || (options.only_chunks >> i & 1); };
     for (uint32_t i = 0; i < kChunkCount; ++i) {
         const Chunk &chunk = kChunks[i];
-        if (!chunk.visit) continue;
+        if (!chunk.visit || !chosen(i)) continue;
         Archive archive = Archive::applier(views[i].body, views[i].length);
         chunk.visit(archive);
         archive.finish();
@@ -234,8 +270,8 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
             return p6_fail(error, P6_ERROR_INTERNAL, "a chunk failed to apply after it was validated; the image is faulted");
         }
     }
-    for (const Chunk &chunk : kChunks)
-        if (chunk.visit && chunk.rebuild) chunk.rebuild();
+    for (uint32_t i = 0; i < kChunkCount; ++i)
+        if (kChunks[i].visit && kChunks[i].rebuild && chosen(i)) kChunks[i].rebuild();
     return P6_OK;
 }
 

@@ -134,7 +134,7 @@ foreach(_file IN LISTS _core_files)
     string(APPEND _core_lines "${_relative}:${_file_sha256}\n")
 endforeach()
 string(SHA256 _sources_sha256 "${_core_lines}")
-add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp)
+add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp bridge/state_cpu.cpp)
 add_dependencies(p6_state p6_codegen)
 target_include_directories(p6_state PUBLIC bridge)
 target_include_directories(p6_state PRIVATE

@@ -8861,7 +8861,7 @@
       "title": "Estado nativo de la CPU (chunk P6CP) y carga de un estado sobre una imagen que aun no ha arrancado",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15a"
       ],
@@ -8881,14 +8881,16 @@
         "manifests/state-inventory.json",
         "docs/adr/0009-state-format.md",
         "tests/test_plan.py",
-        "CMakeLists.txt"
+        "CMakeLists.txt",
+        "bridge/frame_step.cpp",
+        "bridge/frame_step.h"
       ],
       "steps": [
-        "Parches de acceso al estado local de newcpu.cpp (suspended/hardboot de m68k_go_unit subidos a fichero, solo lectura, y la comprobacion de frontera de instruccion) y de main.cpp (estado vivo del PRNG), sin cambiar comportamiento.",
+        "Parches de acceso al estado local del motor, sin cambiar comportamiento: main.cpp (estado vivo del PRNG) y newcpu.cpp (comprobacion de frontera de instruccion, añadida al final del fichero: m68k_go_unit no se toca).",
         "Escribir visit_cpu (P6CP v1): registros D0-A7 con USP e ISP en bruto, PC, SR desde sus campos sin MakeFromSR, prefetch y latches del bus, stopped/halted, spcflags (TRACE y DOTRACE tal cual), el pipeline de IPL, quit_program y el PRNG; Validate con los rangos del analisis y sin tocar la maquina; guardar solo desde una imagen arrancada y en frontera de instruccion.",
-        "Cargar un estado sobre una imagen que aun no ha arrancado ejecuta antes la cabecera de reset (la misma que p6_run_frame) para que existan las tablas de despacho y los manejadores; Options::only_chunks para probar un chunk solo; un fallo de un visitante al guardar no es CAPACITY.",
-        "Pruebas: ida y vuelta guardar-avanzar-cargar-guardar con el mismo cuerpo, el digest del subsistema cpu vuelve al de la unidad guardada en el mismo proceso y en uno nuevo, cada campo cambiado cambia el futuro, mutaciones de bytes del cuerpo que Validate acepta y Apply no puede rechazar, y guardado rechazado fuera de frontera. El probe se amplia con lo que no veia (suspended, hardboot, quit_program, xorshift).",
-        "Ampliacion touch: bridge/state_cpu.cpp (visitantes de CPU y scheduler en un fichero propio), bridge/state_probe.cpp (digests de lo que el probe no veia) y el ADR (la carga ejecuta la cabecera si la imagen no ha arrancado, y solo se guarda desde una imagen arrancada)."
+        "Cargar un estado sobre una imagen que aun no ha arrancado ejecuta antes la cabecera de reset, desde bridge/frame_step.cpp (unico sitio que avanza el motor, tests/step) para que existan las tablas de despacho y los manejadores; Options::only_chunks para probar un chunk solo; un fallo de un visitante al guardar no es CAPACITY.",
+        "Pruebas: ida y vuelta guardar-avanzar-cargar-guardar con el mismo cuerpo, el digest del subsistema cpu vuelve al de la unidad guardada en el mismo proceso y en uno nuevo, cada campo cambiado (y cada bit del SR) cambia el digest, mutaciones de bytes del cuerpo que Validate acepta y Apply no puede rechazar, y guardado rechazado fuera de frontera. El probe se amplia con lo que no veia (quit_program, xorshift, los latches del bus).",
+        "Ampliacion touch: bridge/state_cpu.cpp (visitantes de CPU y scheduler en un fichero propio), bridge/state_probe.cpp (digests de lo que el probe no veia y operaciones de prueba), el ADR (la carga ejecuta la cabecera si la imagen no ha arrancado, y solo se guarda desde una imagen arrancada) y bridge/frame_step.cpp y .h (la cabecera de reset solo puede ejecutarse desde alli: tests/step lo exige)."
       ],
       "checks": [
         "DET02"
@@ -8896,7 +8898,7 @@
       "acceptance": [
         "El digest del subsistema cpu y el cuerpo re-guardado vuelven a los de la unidad guardada, en el mismo proceso y en uno nuevo; un cuerpo que Validate acepta no puede fallar al aplicar; un estado tomado de una imagen sin arrancar o fuera de frontera se rechaza al guardar."
       ],
-      "stop": "No parchear suspended/hardboot para ponerlos a mano ni llamar a restore_cpu_finish/doint: restaurar sobre una imagen arrancada y sobrescribir.",
+      "stop": "No llamar a restore_cpu_finish/doint ni ejecutar el motor desde fuera de frame_step.cpp: restaurar sobre una imagen arrancada y sobrescribir.",
       "evidence": null
     },
     {

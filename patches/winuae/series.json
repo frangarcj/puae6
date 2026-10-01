@@ -2100,6 +2100,51 @@
           "after_sha256": "fdc955c8c6c6a3a9adaa2bd7c604b6e4a74286d45e65f099b80e9ca569a56cc2"
         }
       ]
+    },
+    {
+      "id": "0076-main-rng-state-access",
+      "file": "patches/winuae/0076-main-rng-state-access.patch",
+      "sha256": "533c6f092fcb9bd2c0ef8b4f5f898b7b40dd8c3ba516ee73dbee32789bdd51f6",
+      "title": "The native state can read and write the live random generator",
+      "reason": "xorshiftstate is a file static of main.cpp that decides the floppy jitter, the start-up delay and the chip-colour power-up; p6_rng_get/p6_rng_set expose only the generator state (randseed is the configuration's seed, bound by config_hash). Pure accessors.",
+      "category": "host hooks",
+      "order": 76,
+      "symbols": [
+        "p6_rng_get",
+        "p6_rng_set"
+      ],
+      "test": "STATE02; tests.state.test_state_cpu",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "dc2cef4acf632e0fd70101b4359f4983743bf7bdefb49cad7039cf913839256c",
+          "after_sha256": "16c63072d9c4df767a262287cc9f9f98431f6ae862b0aa273ccf04f732fd1db0"
+        }
+      ]
+    },
+    {
+      "id": "0077-newcpu-state-boundary",
+      "file": "patches/winuae/0077-newcpu-state-boundary.patch",
+      "sha256": "fcbc9511e52d2df0c0eba206c343c4789658eb73dc47c17f052b6e9852ddbdbf",
+      "title": "The native state can check that the CPU is at a unit boundary",
+      "reason": "p6_cpu_boundary names the first reason an instruction boundary is not a state: the CPU loop not started, an exception in flight, a register or mode only a 68010 has, a flag the profile never leaves pending, or a file-local counter off its boundary value. These are file statics of newcpu.cpp that a state cannot see; the function only reads them and is added at the end of the file, so m68k_go_unit is untouched.",
+      "category": "host hooks",
+      "order": 77,
+      "symbols": [
+        "p6_cpu_boundary"
+      ],
+      "test": "STATE02; tests.state.test_state_cpu",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "a7e306ae083f471e45eaabb1128a7ee8c9ebe97dd7859f2af96881f8a05662d3",
+          "after_sha256": "31472b7fca1df21496f3f447899971a911f5fcfab0051625943fcdad40e6b0b1"
+        }
+      ]
     }
   ]
 }

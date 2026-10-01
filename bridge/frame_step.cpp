@@ -9,6 +9,7 @@
 #include "error_util.h"
 #include "session.h"
 #include "pcm_out.h"
+#include "frame_step.h"
 #include "video.h"
 #include "input.h"
 #include "media.h"
@@ -50,6 +51,13 @@ void account_ticks()
 }
 
 }  // namespace
+
+bool p6_bridge::run_reset_head()
+{
+    if (!session.started)
+        p6_bridge::apply_boot_media();
+    return m68k_go_unit(M68K_UNIT_APPLY) == M68K_UNIT_APPLIED && p6_memory_rom_status() == P6_ROM_LOAD_OK;
+}
 
 extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, p6_frame *frame, p6_error *error)
 {

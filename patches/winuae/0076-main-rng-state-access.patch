@@ -1,0 +1,25 @@
+diff --git a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -134,7 +134,21 @@
+ 	randseed = seed;
+ 	xorshiftstate = seed;
+ 	return randseed;
++}
++
++#ifdef P6_PORTABLE
++// Native state (bridge/state_cpu.cpp): the live generator. randseed is the configuration's seed (uaerandomizeseed() sets it at load and at
++// every hard boot) and is bound by the envelope's config_hash, so only the state of the generator travels.
++uae_u32 p6_rng_get(void)
++{
++	return xorshiftstate;
++}
++
++void p6_rng_set(uae_u32 state)
++{
++	xorshiftstate = state;
+ }
++#endif
+ 
+ void my_trim(TCHAR *s)
+ {

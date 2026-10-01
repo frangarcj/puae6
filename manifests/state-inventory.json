@@ -466,7 +466,15 @@
             "regs.isp"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "D0-D7 and A0-A7 are saved as they are (A7 raw: the active stack pointer) and USP and ISP raw, not folded as upstream does: the inactive slot is stale in the engine and becomes live after a reset (m68k_reset2 clears neither), and the T14b digest hashes both. 72 bytes."
+        }
       },
       {
         "id": "cpu-sr-ccr-mode-bits",
@@ -521,7 +529,15 @@
             "regs.intmask"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "SR travels as the fields build it (not through MakeSR, which writes regs.sr) and is taken apart in Apply with the SET_*FLG macros, without MakeFromSR (it swaps A7, usp and isp and sets TRACE) and without m68k_reset_sr (it loads A7 from the slot of the mode). Validate: sr & ~0xA71F == 0."
+        }
       },
       {
         "id": "cpu-program-counter",
@@ -565,7 +581,15 @@
             "m68k_getpc"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "m68k_getpc() on save, m68k_setpc_normal() on apply (pc_p and pc_oldp are zero with m68k_pc_indirect, which the reset head sets)."
+        }
       },
       {
         "id": "cpu-pc-host-pointers-and-scratch",
@@ -582,7 +606,7 @@
         "saved_fields": "None: upstream stores the PC only as a 68k address.",
         "omitted": "opcode, instruction_pc, instruction_pc_user_exception and trace_pc are not saved. On the 68000 CE core they are rewritten before any read (r->opcode = r->ir and r->instruction_pc = m68k_getpc() every iteration); trace_pc is read only by Exception_build_stack_frame_common (020+/MMU path), instruction_pc_user_exception only by debugmem. Noncausal at a boundary.",
         "pointers": "pc_p and pc_oldp are host uae_u8* (get_real_address of the PC) and must never be serialized. With m68k_pc_indirect = 1 (cycle-exact, set by build_cpufunctbl) m68k_setpc_normal zeroes both; Exception_ce000 still calls the direct m68k_setpc, so they may hold a host pointer, but pc_p - pc_oldp is always 0 and m68k_getpc() equals regs.pc.",
-        "rebuild": "m68k_setpc_normal(saved PC) after build_cpufunctbl() has set m68k_pc_indirect.",
+        "rebuild": "m68k_setpc_normal(saved PC) after build_cpufunctbl() has set m68k_pc_indirect. T15b1: Apply calls m68k_setpc_normal(pc), which zeroes pc_p and pc_oldp and sets regs.pc and instruction_pc; nothing of the host pointers is in the body.",
         "evidence": [
           "build/upstream/include/newcpu.h:194",
           "build/upstream/include/newcpu.h:195",
@@ -675,7 +699,15 @@
             "regs.opcode"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "ir, irc, ird, read_buffer, write_buffer, db and opcode are all saved: ird, the buffers, db and opcode are not read by the 68000 cycle-exact core before they are written, but the T14b digest hashes them. No fill_prefetch_quick on apply: it would overwrite ir and irc with what memory holds now."
+        }
       },
       {
         "id": "cpu-ipl-pipeline",
@@ -736,7 +768,15 @@
             "regs.lastipl"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "ipl[0..1], ipl_pin, ipl_pin_p (0..7), ipl_evt_pre_mode (0..1, the field upstream drops) and the four evt_t times (>= 0, no upper bound: stale times from before a counter restart are valid). lastipl is 0 in the profile and p6_cpu_boundary refuses a save otherwise. No doint() on apply."
+        }
       },
       {
         "id": "cpu-stopped-state",
@@ -785,7 +825,15 @@
             "regs.stopped"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "u8 0..1 (2 is the 68060's LPSTOP)."
+        }
       },
       {
         "id": "cpu-halted-state",
@@ -833,7 +881,15 @@
             "regs.halted"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "u8 0..13 and not CPU_HALT_ACCELERATOR_CPU_FALLBACK; m68k_go_unit re-enters the wait loop and sets SPCFLAG_CHECK again from it."
+        }
       },
       {
         "id": "cpu-spcflags",
@@ -892,7 +948,15 @@
             "regs.spcflags"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "Only CPUINRESET, TRACE, DOTRACE and BLTNASTY travel, verbatim: TRACE is not derivable from T1|T0 because activate_trace() clears it while T1 stays set. BLTNASTY is behaviourally inert in the cycle-exact profile and is saved because the digest hashes it. Apply REPLACES the word. Any other flag pending makes p6_cpu_boundary refuse the save."
+        }
       },
       {
         "id": "cpu-exception-statics",
@@ -1020,11 +1084,21 @@
         },
         "probe": {
           "probe": "cpu",
-          "status": "partial",
-          "task": "T15",
-          "why": "the registers and pipeline state of the CPU are hashed; what is local to a function or a file (m68k_go_unit's statics, the exception state, the caches) waits for T15's accessors"
+          "status": "implemented",
+          "task": "T15b1",
+          "covers": [
+            "quit_program"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "suspended and hardboot (function statics of m68k_go_unit) are not in the body: a state exists only for an image that has run its reset head (bridge/state.cpp refuses to save before the first unit), where they are always (true, 0), and a load into an image that has not started runs the head first (p6_bridge::run_reset_head in bridge/frame_step.cpp, the only place that advances the engine), so nothing has to set them and the function is not patched. quit_program is saved (-4..0, not -1): a keyboard reset can leave it negative at a boundary."
+        }
       },
       {
         "id": "cpu-dispatch-tables-and-mode-flags",
@@ -1041,7 +1115,7 @@
         "saved_fields": "None. CPUX stores only cpu_cycle_exact/compatible/m68k_speed/cpu_frequency/clock multiplier, not the tables.",
         "omitted": null,
         "pointers": "cpufunctbl[65536], cpufunctbl_noret[65536] and loop_mode_table hold generated-handler function pointers; cpudatatbl is a static copy of cputbl lengths; table68k is an xmalloc'ed struct instr[65536]; x_prefetch/x_get_*/x_put_*/x_do_cycles* (set_x_funcs), is_super_access and x_cp_* are function pointers. m68k_pc_indirect, m68k_interrupt_delay, m68k_accurate_ipl, cpucycleunit, cpuipldelay2/4, cycles_mult and baseclock are derived from currprefs. None may be serialized.",
-        "rebuild": "Run build_cpufunctbl and set_x_funcs before the first instruction after a restore: both are static and only the reset head calls them (set_cpu_tracer re-runs set_x_funcs only if a tracer was on), so a patch must export a wrapper. init_m68k already ran prefs_changed_cpu, update_68k_cycles and init_table68k at load. With the preset fixed (cpu_model 68000, CE) the result is identical on every load.",
+        "rebuild": "Run build_cpufunctbl and set_x_funcs before the first instruction after a restore: both are static and only the reset head calls them (set_cpu_tracer re-runs set_x_funcs only if a tracer was on), so a patch must export a wrapper. init_m68k already ran prefs_changed_cpu, update_68k_cycles and init_table68k at load. With the preset fixed (cpu_model 68000, CE) the result is identical on every load. T15b1: The tables and regs.address_space_mask come from the reset head (build_cpufunctbl and set_x_funcs run only there, not at p6_load); a load into an image that has not started runs the head first, so a fresh process has them (tests/state/test_state_cpu.py loads into one). Never memcpy regs.",
         "evidence": [
           "build/upstream/newcpu.cpp:130",
           "build/upstream/newcpu.cpp:132",
@@ -1121,11 +1195,23 @@
         },
         "probe": {
           "probe": "cpu",
-          "status": "partial",
-          "task": "T15",
-          "why": "the registers and pipeline state of the CPU are hashed; what is local to a function or a file (m68k_go_unit's statics, the exception state, the caches) waits for T15's accessors"
+          "status": "implemented",
+          "task": "T15b1",
+          "covers": [
+            "regs.chipset_latch_rw",
+            "regs.chipset_latch_read",
+            "regs.chipset_latch_write"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "chipset_latch_rw, chipset_latch_read and chipset_latch_write, u32 each."
+        }
       },
       {
         "id": "cpu-cpuT-tracer",
@@ -1176,7 +1262,7 @@
         "saved_fields": "version, flags (cycle_exact, compatible, speed<0, cachesize, speed>0, memory_cycle_exact, speed/CYCLE_UNIT), cpu_frequency, cpu_clock_multiplier, cpu060_revision, fpu_revision.",
         "omitted": null,
         "pointers": null,
-        "rebuild": "All of it is configuration pinned by the A500 preset (cpu_cycle_exact=1, cpu_compatible=1, m68k_speed=0, cpu_frequency=0, multiplier 512). The native envelope should carry a profile identity and refuse a mismatch; restore_cpu_extra and restore_cpu overwrite currprefs/changed_prefs and must not be called.",
+        "rebuild": "All of it is configuration pinned by the A500 preset (cpu_cycle_exact=1, cpu_compatible=1, m68k_speed=0, cpu_frequency=0, multiplier 512). The native envelope should carry a profile identity and refuse a mismatch; restore_cpu_extra and restore_cpu overwrite currprefs/changed_prefs and must not be called. T15b1: The CPUX settings are pinned by the preset and bound by config_hash; restore_cpu_extra is not used.",
         "evidence": [
           "build/upstream/newcpu.cpp:7704",
           "build/upstream/newcpu.cpp:7731",
@@ -1360,11 +1446,21 @@
         },
         "probe": {
           "probe": "cpu",
-          "status": "partial",
-          "task": "T15",
-          "why": "the registers and pipeline state of the CPU are hashed; what is local to a function or a file (m68k_go_unit's statics, the exception state, the caches) waits for T15's accessors"
+          "status": "implemented",
+          "task": "T15b1",
+          "covers": [
+            "p6_rng_get"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b1",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
+          "notes": "xorshiftstate only (>= 1), through p6_rng_get/p6_rng_set (patch 0077); randseed is the configuration's seed and is bound by config_hash."
+        }
       },
       {
         "id": "cpu-counters-and-dead-paths",

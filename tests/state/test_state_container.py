@@ -7,124 +7,27 @@ new one, and above all STATE02: every bad state is refused with its code and the
 machine goes on exactly as a run that never saw the attempt.
 """
 import hashlib
-from pathlib import Path
-import re
 import struct
-import subprocess
-import sys
-import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-from tests.host.test_bridge_lifecycle import TOOLS, build_probe, builder  # noqa: E402
-from tests.state import envelope as e  # noqa: E402
+from tests.state import envelope as e
+from tests.state.harness import ProbeCase, Run, SUBSYSTEMS, TOOLS, parse_chunks, reforge
 
-BUILD = ROOT / "build/link-audit"
-FIXTURES = ROOT / "tests/fixtures/microrom"
 CHIP = SLOW = 0x80000
-DIGEST = re.compile(r"^digest (\d+) (\w+) ([0-9a-f]{64}) (\d+)$")
-LOAD = re.compile(r"^load (\d+) (-?\d+) ?(.*)$")
-SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")
-PUBLIC = re.compile(r"^public (\d+) cap_state=(\d) bound=(\d+) save=(\d+) load=(\d+) written=(\d+) ?(.*)$")
-SUBSYSTEMS = ("cpu", "scheduler", "ram", "rtc", "chipset", "audio", "input", "video", "bridge")
 RAM_BODY = 8 + CHIP + SLOW
+CPU_BODY = 155          # P6CP (T15b1)
 
 
-class Run:
-    """What one p6_state_probe process printed, in order."""
+class StateContainerTests(ProbeCase):
+    ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None),
+            "vsync_slow": ("vsync", None, {"LEA $1000.W,A0": "MOVEA.L #$C00000,A0"})}      # the log in Slow RAM ($C00000), so that it is not constant
 
-    def __init__(self, text):
-        self.digests = {}           # (unit, subsystem) -> hex, outside a load
-        self.after = []             # one dict subsystem -> hex per load
-        self.loads = []             # (unit, code, message)
-        self.saves = []             # (unit, bytes, sha256, bound)
-        self.public = []
-        self.fault = []             # (event, code, message) of run-after-fault, unload and reload
-        current = None
-        for line in text.splitlines():
-            if line.startswith("after-load "):
-                current = {}
-                self.after.append(current)
-            elif DIGEST.match(line):
-                unit, subsystem, digest, _ = DIGEST.match(line).groups()
-                if current is None:
-                    self.digests[(int(unit), subsystem)] = digest
-                else:
-                    current[subsystem] = digest
-                    if len(current) == len(SUBSYSTEMS):         # the block that follows a load is one set of digests, not the rest of the run
-                        current = None
-            elif LOAD.match(line):
-                current = None
-                unit, code, message = LOAD.match(line).groups()
-                self.loads.append((int(unit), int(code), message))
-            elif SAVE.match(line):
-                current = None
-                unit, size, digest, bound = SAVE.match(line).groups()
-                self.saves.append((int(unit), int(size), digest, int(bound)))
-            elif line.startswith(("run-after-fault ", "unload ", "reload ")):
-                event, code, *message = line.split(" ", 2)
-                self.fault.append((event, int(code), message[0] if message else ""))
-            elif PUBLIC.match(line):
-                current = None
-                self.public.append(PUBLIC.match(line).groups())
-
-    def unit(self, number):
-        return {s: self.digests[(number, s)] for s in SUBSYSTEMS}
-
-
-def reforge(blob, edit=None, header=None, count=None, keep_length=False):
-    """The state with its chunk list edited (`edit` gets a list of [tag, version, body]) and every checksum made right again: a defect that
-    only the structure, and not a checksum, can find. `header` replaces header bytes by offset after the lengths are set."""
-    chunks, at = [], e.HEADER_SIZE
-    while at < len(blob):
-        tag, version, length = e.CHUNK_HEADER.unpack_from(blob, at)
-        chunks.append([tag, version, blob[at + 16:at + 16 + length]])
-        at += 16 + length
-    if edit:
-        edit(chunks)
-    payload = b"".join(e.CHUNK_HEADER.pack(tag, version, len(body)) + body for tag, version, body in chunks)
-    data = bytearray(blob[:e.HEADER_SIZE])
-    if not keep_length:
-        struct.pack_into("<Q", data, 40, len(payload))
-    struct.pack_into("<I", data, 48, len(chunks) if count is None else count)
-    for offset, value in (header or {}).items():
-        data[offset:offset + len(value)] = value
-    data[272:304] = e.domain_hash("p6/native-payload/v1", payload)
-    data[304:336] = e.domain_hash("p6/native-header/v1", bytes(data[:304]))
-    return bytes(data) + payload
-
-
-@unittest.skipUnless(TOOLS, "toolchain unavailable")
-class StateContainerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.exe = build_probe(BUILD, False, "p6_state_probe")
-        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-state-")
-        cls.dir = Path(cls.tmp.name)
-        cls.roms = {}
-        for name in ("vsync", "input_all"):
-            path = cls.dir / f"{name}.rom"
-            path.write_bytes(builder.build((FIXTURES / f"{name}.s").read_text(encoding="utf-8")))
-            cls.roms[name] = path
-        # The same program with its log in Slow RAM ($C00000), so that the Slow RAM of the state is not a block of constant bytes.
-        source = (FIXTURES / "vsync.s").read_text(encoding="utf-8")
-        assert "LEA $1000.W,A0" in source
-        cls.roms["vsync_slow"] = cls.dir / "vsync_slow.rom"
-        cls.roms["vsync_slow"].write_bytes(builder.build(source.replace("LEA $1000.W,A0", "MOVEA.L #$C00000,A0")))
+        super().setUpClass()
         cls.good_path = cls.dir / "good.state"
         cls.reference = cls.probe("vsync", "--units", "12", "--every", "1", "--save-at", "3", str(cls.good_path))
         cls.good = cls.good_path.read_bytes()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.tmp.cleanup()
-
-    @classmethod
-    def probe(cls, rom, *arguments):
-        result = subprocess.run([str(cls.exe), str(cls.roms[rom]), *arguments], capture_output=True, text=True, timeout=900)
-        assert result.returncode == 0, result.stderr[-400:]
-        return Run(result.stdout)
 
     def other_state(self, name, rom, *arguments):
         path = self.dir / name
@@ -151,8 +54,9 @@ class StateContainerTests(unittest.TestCase):
         self.assertEqual(len(blob), at)
         self.assertEqual((1, RAM_BODY), (chunks[b"P6RM"][0], len(chunks[b"P6RM"][1])))
         self.assertEqual(struct.pack("<II", CHIP, SLOW), chunks[b"P6RM"][1][:8])
+        self.assertEqual((1, CPU_BODY), (chunks[b"P6CP"][0], len(chunks[b"P6CP"][1])))
         for tag in e.TAGS:
-            if tag != b"P6RM":
+            if tag not in (b"P6RM", b"P6CP"):
                 self.assertEqual((0, b""), chunks[tag], "a chunk that is not written yet is an empty placeholder of version 0")
 
     def test_the_state_carries_the_ram_of_the_unit_it_was_taken_in_and_nothing_else_of_the_machine(self):
@@ -162,7 +66,7 @@ class StateContainerTests(unittest.TestCase):
         self.assertEqual(len(self.good), saved[1])
 
     def test_the_bound_is_fixed_by_the_image_and_covers_every_state(self):
-        run = self.probe("vsync", "--units", "9", "--save-at", "0", str(self.dir / "b0"), "--save-at", "1", str(self.dir / "b1"),
+        run = self.probe("vsync", "--units", "9", "--save-at", "2", str(self.dir / "b0"), "--save-at", "1", str(self.dir / "b1"),
                          "--save-at", "5", str(self.dir / "b5"), "--save-at", "9", str(self.dir / "b9"))
         bounds = {bound for _, _, _, bound in run.saves}
         self.assertEqual(1, len(bounds), run.saves)
@@ -174,7 +78,7 @@ class StateContainerTests(unittest.TestCase):
     # -- restoring ---------------------------------------------------------------------------------------------------------------------
 
     def restore(self, rom, state_path):
-        run = self.probe(rom, "--units", "8", "--every", "1", "--load-at", "8", str(state_path))
+        run = self.probe(rom, "--units", "8", "--every", "1", "--load-at", "8", str(state_path), "--only", "ram")
         self.assertEqual([(8, 0, "")], run.loads)
         return run
 
@@ -184,9 +88,9 @@ class StateContainerTests(unittest.TestCase):
         new = self.restore("vsync", self.good_path)
         self.assertEqual(saved_ram, new.after[0]["ram"])
         self.assertEqual({s: new.digests[(8, s)] for s in SUBSYSTEMS if s != "ram"}, {s: new.after[0][s] for s in SUBSYSTEMS if s != "ram"},
-                         "only RAM is in the state: no other subsystem may move")
+                         "only the RAM chunk was applied: no other subsystem may move")
         same = self.probe("vsync", "--units", "8", "--every", "1", "--save-at", "3", str(self.dir / "same.state"), "--load-at", "8",
-                          str(self.dir / "same.state"))
+                          str(self.dir / "same.state"), "--only", "ram")
         self.assertEqual(saved_ram, same.after[0]["ram"])
         self.assertEqual(same.digests[(3, "ram")], same.after[0]["ram"])
 
@@ -197,7 +101,7 @@ class StateContainerTests(unittest.TestCase):
         self.assertEqual(run.digests[(3, "ram")], run.after[0]["ram"])
         chip_only = self.probe("vsync", "--units", "8", "--every", "1", "--save-at", "3", str(self.dir / "chip.state"))
         self.assertNotEqual(chip_only.digests[(3, "ram")], run.digests[(3, "ram")], "the two programs must differ in Slow RAM for this test to see it")
-        body = path.read_bytes()[e.HEADER_SIZE + 2 * 16 + 16:][8 + CHIP:8 + CHIP + SLOW]
+        body = parse_chunks(path.read_bytes())[2][2][8 + CHIP:8 + CHIP + SLOW]
         self.assertNotEqual(set(body), {body[0]}, "Slow RAM of this state must not be constant")
 
     def test_a_state_restores_the_ram_of_a_machine_that_ran_another_number_of_units(self):
@@ -237,40 +141,15 @@ class StateContainerTests(unittest.TestCase):
         run = self.probe("vsync", "--units", "2", "--public-at", "1")
         (unit, cap, bound, save, load, written, message), = run.public
         self.assertEqual(("1", "0", "4", "4", "4", "0"), (unit, cap, bound, save, load, written))     # P6_ERROR_UNSUPPORTED = 4
-        self.assertIn("cpu, scheduler", message)
-        self.assertNotIn("ram", message.split(":")[-1], "ram is the one chunk that exists")
+        self.assertIn("scheduler, rtc", message)
+        for written in ("cpu", "ram"):
+            self.assertNotIn(written, message.split(":")[-1].split(", "), f"{written} is a chunk that exists")
 
     # -- STATE02 -----------------------------------------------------------------------------------------------------------------------
 
-    def refusals(self, attempts, rom="vsync", extra=()):
-        """Runs every attempt as a load at unit 6 of one process, and checks that each is refused as expected and that the process then goes
-        on exactly as a control run that never saw them. `attempts` is a list of (name, bytes, code, text that the message must contain)."""
-        control = self.probe(rom, "--units", "12", "--every", "1", *extra)
-        files = []
-        arguments = ["--units", "12", "--every", "1", *extra]
-        for index, (name, data, code, text) in enumerate(attempts):
-            path = self.dir / f"attempt{index}.state"
-            path.write_bytes(data)
-            files.append(path)
-            arguments += ["--load-at", "6", str(path)]
-        try:
-            run = self.probe(rom, *arguments)
-        finally:
-            for path in files:
-                path.unlink()
-        self.assertEqual(len(attempts), len(run.loads))
-        before = control.unit(6)
-        for (name, _, code, text), (unit, got, message), after in zip(attempts, run.loads, run.after):
-            self.assertEqual((6, code), (unit, got), f"{name}: {message}")
-            self.assertIn(text, message, name)
-            self.assertEqual(before, after, f"{name}: a refused state changed the machine")
-        for unit in range(7, 13):
-            self.assertEqual(control.unit(unit), run.unit(unit), f"unit {unit}: the machine did not go on as if nothing had happened")
-        return run
-
     def test_every_truncation_and_every_flipped_byte_that_matters_is_refused_and_leaves_the_machine_alone(self):
         good = self.good
-        ram_at = e.HEADER_SIZE + 2 * 16         # the chunk header of RAM follows those of cpu and scheduler, which have no body
+        ram_at = e.HEADER_SIZE + 16 + CPU_BODY + 16     # the chunk header of RAM follows the cpu chunk and the empty scheduler one
         cuts = [0, 1, 7, 8, 100, 335, 336, 337, 351, 352, 353, ram_at, ram_at + 15, ram_at + 16, ram_at + 17, ram_at + 24, ram_at + 25,
                 ram_at + 16 + RAM_BODY // 2, ram_at + 16 + RAM_BODY - 1, ram_at + 16 + RAM_BODY, len(good) - 17, len(good) - 16, len(good) - 1]
         attempts = [(f"truncated to {n}", good[:n], 9, "state refused") for n in cuts]
@@ -323,14 +202,15 @@ class StateContainerTests(unittest.TestCase):
             ("another Chip RAM size", reforge(good, ram(lambda b: struct.pack("<I", CHIP // 2) + b[4:])), 9, "chunk ram: a field is out of its range"),
             ("another Slow RAM size", reforge(good, ram(lambda b: b[:4] + struct.pack("<I", 0) + b[8:])), 9, "chunk ram: a field is out of its range"),
             ("a RAM chunk of version 2", reforge(good, chunk(2, version=2)), 10, "chunk_version"),
-            ("a placeholder with a body", reforge(good, chunk(0, body=b"\1\2\3\4")), 9, "payload_length"),
+            ("a placeholder with a body", reforge(good, chunk(1, body=b"\1\2\3\4")), 9, "payload_length"),
             ("a placeholder of version 1", reforge(good, chunk(1, version=1)), 10, "chunk_version"),
+            ("the cpu chunk of version 2", reforge(good, chunk(0, version=2)), 10, "chunk_version"),
             ("an unknown chunk", reforge(good, chunk(4, tag=b"P6XX")), 9, "chunk"),
             ("chunks out of order", reforge(good, lambda c: c.insert(0, c.pop(2))), 9, "chunk"),
             ("the last chunk missing and the count kept", reforge(good, lambda c: c.pop(), count=len(e.TAGS)), 9, "chunk: a chunk has no header"),
             ("the last chunk missing", reforge(good, lambda c: c.pop()), 9, "chunk_count"),
-            ("a chunk repeated in the place of another", reforge(good, lambda c: c.__setitem__(3, list(c[0]))), 9, "chunk: unknown, repeated or out of order"),
-            ("a chunk more than the payload may hold", reforge(good, lambda c: c.insert(3, list(c[0]))), 9, "payload_length"),
+            ("a chunk repeated in the place of another", reforge(good, lambda c: c.__setitem__(3, list(c[1]))), 9, "chunk: unknown, repeated or out of order"),
+            ("a chunk more than the payload may hold", reforge(good, lambda c: c.insert(3, list(c[1]))), 9, "payload_length"),
             ("more chunks declared than there are", reforge(good, count=len(e.TAGS) + 1), 9, "chunk_count"),
             ("fewer chunks declared than there are", reforge(good, count=len(e.TAGS) - 1), 9, "chunk_count"),
         ]

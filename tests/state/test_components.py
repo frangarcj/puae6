@@ -109,23 +109,25 @@ class StateComponentTests(unittest.TestCase):
 
     def test_a_component_that_says_where_its_native_state_is_written_names_a_visitor_that_exists_in_the_registry(self):
         registry = {}
-        for source in sorted((ROOT / "bridge").glob("state*.cpp")):
-            text = source.read_text(encoding="utf-8")
-            for tag, name in re.findall(r'\{"(P6[A-Z]{2})", "(\w+)", \d+, (?:nullptr|\w+), (?:nullptr|\w+)\}', text):
-                registry[tag] = (name, source)
+        text = (ROOT / "bridge/state.cpp").read_text(encoding="utf-8")
+        for tag, name, visitor in re.findall(r'\{"(P6[A-Z]{2})", "(\w+)", \d+, (nullptr|\w+), (?:nullptr|\w+)\}', text):
+            registry[tag] = (name, visitor)
         self.assertEqual(11, len(registry), "the registry of bridge/state.cpp has one entry per subsystem chunk")
         written = [c for c in self.components if "native_state" in c]
         self.assertTrue(written)
         for c in written:
             with self.subTest(component=c["id"]):
                 native = c["native_state"]
-                self.assertEqual({"task", "chunk", "file", "visitor", "proves"}, set(native))
+                self.assertLessEqual({"task", "chunk", "file", "visitor", "proves"}, set(native))
+                self.assertLessEqual(set(native), {"task", "chunk", "file", "visitor", "proves", "notes"})
                 self.assertIn(native["task"], self.tasks)
                 self.assertIn(c["policy"], {"serialize", "serialize_extended", "extension"}, "only state that is serialized has a visitor")
                 self.assertTrue(c["in_profile"])
-                name, source = registry[native["chunk"]]
-                self.assertEqual(native["file"], source.relative_to(ROOT).as_posix(), "the visitor is in the file that holds the registry entry of its chunk")
-                self.assertRegex(source.read_text(encoding="utf-8"), r"\bvoid %s\(Archive &" % re.escape(native["visitor"]))
+                self.assertIn(native["chunk"], registry)
+                self.assertEqual(native["visitor"], registry[native["chunk"]][1], "the registry entry of the chunk names this visitor")
+                source = ROOT / native["file"]
+                self.assertRegex(native["file"], r"^bridge/state\w*\.cpp$")
+                self.assertRegex(source.read_text(encoding="utf-8"), r"\bvoid %s\(Archive &" % re.escape(native["visitor"]), "the visitor is defined in its file")
 
     def test_every_subsystem_of_the_plan_has_components_in_the_profile(self):
         present = {c["subsystem"] for c in self.components if c["in_profile"]}

@@ -12,10 +12,17 @@
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
 //   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
-//                      [--seed S] [--adf FILE]... [--save-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--public-at UNIT]...
+//                      [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
+//                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]...
 // --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
 // chunks that do not exist yet, so a state made here restores only what the registry implements. They print "save UNIT BYTES SHA256",
 // "load UNIT CODE MESSAGE" and, after a load, the digests again as "digest UNIT SUBSYSTEM HEX BYTES" under a line "after-load UNIT".
+// --only CHUNK limits what a load applies to the named chunks (T15b1). --save-fields-at is --save-at and also prints "field CHUNK NAME OFFSET SIZE"
+// for every field written (offsets in the whole state). --mutate-at UNIT CHUNK FILE loads FILE, then every one-byte change of that chunk's body with
+// its checksums made right, and prints "mutate UNIT CHUNK bytes=N attempts=A accepted=B refused=C faulted=D changed=E verdicts=SHA256".
+// --poke-at UNIT exception|spc-int|lastipl|clear changes a live CPU variable that is never set at a unit boundary (and clear puts them back), so that
+// a save made right after it must be refused.
+// --load-fault-head-at does the same for the reset head that a load into an image that has not started runs first (use it at unit 0).
 // --load-fault-at loads with a failure injected into the apply pass (the Faulted path): prints "load", "run-after-fault CODE MESSAGE", "unload CODE",
 // "reload CODE" and the digests of the reloaded image under "after-load UNIT".
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
@@ -46,6 +53,7 @@
 #include <string>
 #include <vector>
 
+extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
 extern uae_u8 *save_audio(int nr, size_t *len, uae_u8 *dstptr);       // audio.cpp: compiled in the profile, reads only
 extern uae_u8 *save_input(size_t *len, uae_u8 *dstptr);               // inputdevice.cpp: the same, it saves pot_cap
 
@@ -83,6 +91,8 @@ void cpu(Canon &c)
     c.put(int64_t(regs.ipl_evt)).put(int64_t(regs.ipl_evt_pre)).put(regs.ipl_evt_pre_mode);
     c.put(int64_t(regs.ipl_pin_change_evt)).put(int64_t(regs.ipl_pin_change_evt_p));
     c.put(uae_u32(regs.spcflags & ~SPCFLAG_UNIT_END));     // the unit-end request is how the boundary is reached, not machine state
+    c.put(int32_t(quit_program)).put(uint32_t(p6_rng_get()));      // T15b1: what the chunk carries and the digest did not see
+    c.put(regs.chipset_latch_rw).put(regs.chipset_latch_read).put(regs.chipset_latch_write);
 }
 
 void scheduler(Canon &c)
@@ -207,13 +217,99 @@ bool read_file(const char *path, std::vector<uint8_t> *data);
 std::vector<uint8_t> g_rom;          // what p6_load was given, for the operations that load again
 std::vector<p6_media> g_media;
 
-enum class OpKind { Save, Load, LoadFault, Public };
+enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, Public };
 
 struct StateOp {
     uint64_t unit;
     OpKind kind;
     const char *path;
+    const char *chunk;      // Mutate: the name of the chunk whose body is changed
 };
+
+uint32_t g_only = 0;        // --only: the chunks a load applies (bit i = chunk i); 0 = all
+
+// One digest of the whole machine, to see whether a refused state changed anything.
+void combined_digest(uint8_t out[32])
+{
+    p6_sha256 context;
+    p6_sha256_init(&context);
+    for (const Probe &probe : kProbes) {
+        Canon canon;
+        probe.collect(canon);
+        p6_sha256_update(&context, canon.bytes.data(), canon.bytes.size());
+    }
+    p6_sha256_final(&context, out);
+}
+
+uint64_t le64(const uint8_t *p)
+{
+    uint64_t v = 0;
+    for (int i = 7; i >= 0; --i) v = v << 8 | p[i];
+    return v;
+}
+
+void print_field(void *, uint32_t chunk, uint64_t offset, uint64_t size, const char *name)
+{
+    printf("field %u %s %" PRIu64 " %" PRIu64 "\n", chunk, name, offset, size);
+}
+
+// Every change of one byte of a chunk's body (four values per byte) loaded into the machine with its checksums made right again. Nothing may
+// fault the image, a refused state may not change the machine, and what is accepted is put back by loading the good state again. The verdicts
+// are hashed so that two runs, from different machines, can be compared: the verdict must not depend on the machine.
+void mutate_chunk(const StateOp &op, uint64_t unit, p6_state::Options options)
+{
+    p6_error error{P6_ABI_VERSION, sizeof error, {}};
+    uint32_t index = p6_state::kChunkCount;
+    for (uint32_t i = 0; i < p6_state::kChunkCount; ++i)
+        if (!strcmp(p6_state::kChunks[i].name, op.chunk)) index = i;
+    std::vector<uint8_t> good;
+    if (index == p6_state::kChunkCount || !read_file(op.path, &good)) { printf("mutate %" PRIu64 " error no chunk or file\n", unit); return; }
+    uint64_t at = p6_state::kHeaderSize, body_at = 0, body_length = 0;
+    for (uint32_t i = 0; i < p6_state::kChunkCount; ++i) {
+        const uint64_t length = le64(&good[at + 8]);
+        if (i == index) { body_at = at + p6_state::kChunkHeaderSize; body_length = length; }
+        at += p6_state::kChunkHeaderSize + length;
+    }
+    const uint64_t state_unit = le64(&good[24]), state_ticks = le64(&good[32]);
+    const p6_state::Identity identity = p6_state::current_identity();
+    options.only_chunks = g_only;
+    p6_result result = p6_state::load(good.data(), good.size(), options, &error);
+    if (result != P6_OK) { printf("mutate %" PRIu64 " error the good state was refused: %s\n", unit, error.message); return; }
+    uint8_t baseline[32];
+    combined_digest(baseline);
+    unsigned attempts = 0, accepted = 0, refused = 0, faulted = 0, changed = 0;
+    p6_sha256 verdicts;
+    p6_sha256_init(&verdicts);
+    for (uint64_t k = 0; k < body_length && !faulted; ++k) {
+        for (int variant = 0; variant < 4 && !faulted; ++variant) {
+            std::vector<uint8_t> bad = good;
+            const uint8_t was = bad[body_at + k];
+            const uint8_t now = variant == 0 ? uint8_t(was ^ 0x01) : variant == 1 ? uint8_t(was ^ 0x80) : variant == 2 ? 0 : 0xFF;
+            if (now == was) continue;
+            bad[body_at + k] = now;
+            p6_state::seal(bad.data(), bad.size() - p6_state::kHeaderSize, p6_state::kChunkCount, identity, state_unit, state_ticks);
+            ++attempts;
+            result = p6_state::load(bad.data(), bad.size(), options, &error);
+            const uint8_t code = uint8_t(result);
+            p6_sha256_update(&verdicts, &code, 1);
+            if (result == P6_OK) {
+                ++accepted;
+                if (p6_state::load(good.data(), good.size(), options, &error) != P6_OK) { ++faulted; break; }
+            } else if (result == P6_ERROR_INTERNAL) {
+                ++faulted;
+            } else {
+                ++refused;
+                uint8_t digest[32];
+                combined_digest(digest);
+                if (memcmp(digest, baseline, 32)) ++changed;
+            }
+        }
+    }
+    uint8_t summary[32];
+    p6_sha256_final(&verdicts, summary);
+    printf("mutate %" PRIu64 " %s bytes=%" PRIu64 " attempts=%u accepted=%u refused=%u faulted=%u changed=%u verdicts=%s\n", unit, op.chunk, body_length,
+           attempts, accepted, refused, faulted, changed, hex(summary, 32).c_str());
+}
 
 void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
 {
@@ -235,7 +331,24 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             const p6_result l = p6_state_load(scratch, sizeof scratch, &error);
             printf("public %" PRIu64 " cap_state=%d bound=%d save=%d load=%d written=%" PRIu64 " %s\n", unit, (caps.flags & P6_CAP_STATE) ? 1 : 0,
                    int(b), int(s), int(l), written, message);
-        } else if (op.kind == OpKind::Save) {
+        } else if (op.kind == OpKind::Mutate) {
+            mutate_chunk(op, unit, options);
+        } else if (op.kind == OpKind::Poke) {
+            // Puts the live CPU in a state that is not a unit boundary, to see that a save refuses it. Test only.
+            if (!strcmp(op.chunk, "exception")) regs.exception = 3;
+            else if (!strcmp(op.chunk, "spc-int")) regs.spcflags |= SPCFLAG_INT;
+            else if (!strcmp(op.chunk, "lastipl")) regs.lastipl = 5;
+            else if (!strcmp(op.chunk, "bltnasty")) regs.spcflags |= SPCFLAG_BLTNASTY;      // flags a state may carry: they are valid, only not set now
+            else if (!strcmp(op.chunk, "trace")) regs.spcflags |= SPCFLAG_TRACE;
+            else if (!strcmp(op.chunk, "dotrace")) regs.spcflags |= SPCFLAG_DOTRACE;
+            else if (!strcmp(op.chunk, "clear")) {
+                regs.exception = 0;
+                regs.spcflags &= ~(SPCFLAG_INT | SPCFLAG_BLTNASTY | SPCFLAG_TRACE | SPCFLAG_DOTRACE);
+                regs.lastipl = 0;
+            }
+            printf("poke %" PRIu64 " %s\n", unit, op.chunk);
+        } else if (op.kind == OpKind::Save || op.kind == OpKind::SaveFields) {
+            if (op.kind == OpKind::SaveFields) options.on_field = print_field;
             uint64_t bound = 0, written = 0;
             p6_result result = p6_state::bound(&bound, options, &error);
             std::vector<uint8_t> state(result == P6_OK ? bound : 0);
@@ -247,12 +360,14 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             if (!f || fwrite(state.data(), 1, size_t(written), f) != written) { perror(op.path); if (f) fclose(f); continue; }
             fclose(f);
             printf("save %" PRIu64 " %" PRIu64 " %s bound=%" PRIu64 "\n", unit, written, hex(digest, 32).c_str(), bound);
-        } else if (op.kind == OpKind::LoadFault) {
+        } else if (op.kind == OpKind::LoadFault || op.kind == OpKind::LoadFaultHead) {
             // A load whose apply pass fails after validation: the image is Faulted, a frame is refused, p6_unload recovers it and the
             // image loaded again is the one of a clean process.
             std::vector<uint8_t> state;
             if (!read_file(op.path, &state)) continue;
-            options.fail_apply = true;
+            options.fail_apply = op.kind == OpKind::LoadFault;
+            options.fail_head = op.kind == OpKind::LoadFaultHead;
+            options.only_chunks = g_only;
             p6_result result = p6_state::load(state.data(), state.size(), options, &error);
             printf("load %" PRIu64 " %d %s\n", unit, int(result), error.message);
             p6_input input = {};
@@ -272,6 +387,7 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
         } else {
             std::vector<uint8_t> state;
             if (!read_file(op.path, &state)) continue;
+            options.only_chunks = g_only;
             const p6_result result = p6_state::load(state.data(), state.size(), options, &error);
             printf("load %" PRIu64 " %d %s\n", unit, int(result), error.message);
             printf("after-load %" PRIu64 "\n", unit);
@@ -317,11 +433,27 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--loads") && i + 1 < argc) loads = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
-        else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--load-at") || !strcmp(argv[i], "--load-fault-at")) && i + 2 < argc) {
-            const OpKind kind = !strcmp(argv[i], "--save-at") ? OpKind::Save : !strcmp(argv[i], "--load-at") ? OpKind::Load : OpKind::LoadFault;
-            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), kind, argv[i + 2]});
+        else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--save-fields-at") || !strcmp(argv[i], "--load-at") ||
+                  !strcmp(argv[i], "--load-fault-at") || !strcmp(argv[i], "--load-fault-head-at")) && i + 2 < argc) {
+            const OpKind kind = !strcmp(argv[i], "--save-at") ? OpKind::Save : !strcmp(argv[i], "--save-fields-at") ? OpKind::SaveFields
+                              : !strcmp(argv[i], "--load-at") ? OpKind::Load : !strcmp(argv[i], "--load-fault-at") ? OpKind::LoadFault
+                              : OpKind::LoadFaultHead;
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), kind, argv[i + 2], nullptr});
             i += 2;
-        } else if (!strcmp(argv[i], "--public-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Public, nullptr});
+        } else if (!strcmp(argv[i], "--mutate-at") && i + 3 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Mutate, argv[i + 3], argv[i + 2]});
+            i += 3;
+        } else if (!strcmp(argv[i], "--poke-at") && i + 2 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Poke, nullptr, argv[i + 2]});
+            i += 2;
+        } else if (!strcmp(argv[i], "--only") && i + 1 < argc) {
+            const char *name = argv[++i];
+            uint32_t found = p6_state::kChunkCount;
+            for (uint32_t k = 0; k < p6_state::kChunkCount; ++k)
+                if (!strcmp(p6_state::kChunks[k].name, name)) found = k;
+            if (found == p6_state::kChunkCount) { fprintf(stderr, "no chunk named %s\n", name); return 64; }
+            g_only |= 1u << found;
+        } else if (!strcmp(argv[i], "--public-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Public, nullptr, nullptr});
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--adf") && i + 1 < argc) adf_paths.push_back(argv[++i]);
         else if (!strcmp(argv[i], "--port") && i + 1 < argc) {
@@ -330,7 +462,7 @@ int main(int argc, char **argv)
             if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
             ports[port] = {type, buttons, int16_t(dx), int16_t(dy), 0};
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--save-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|clear]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;

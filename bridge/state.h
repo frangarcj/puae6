@@ -24,6 +24,9 @@ struct Chunk {
 constexpr uint32_t kChunkCount = 11;
 extern const Chunk kChunks[kChunkCount];
 
+// The chunk visitors that live outside state.cpp (state_cpu.cpp).
+void visit_cpu(Archive &a);
+
 // Test-only knobs; the public functions use the defaults.
 struct Options {
     // Write and accept a chunk that is not implemented as an empty body of version 0, so that the container and the chunks that
@@ -32,6 +35,15 @@ struct Options {
     // Make the apply pass of the first chunk fail after every body has been validated, as a defect of a visitor would: the image must end
     // Faulted (only p6_unload recovers it) and the error must say so.
     bool fail_apply = false;
+    // The same for the reset head that a load into an image that has not started runs first: it reports a failure after it ran.
+    bool fail_head = false;
+    // Apply and rebuild only the chunks whose bit is set (bit i = kChunks[i]); 0 means all of them. Every chunk is still validated. A test
+    // asks a chunk alone to put its subsystem back, to compare it with what it was when the state was taken.
+    uint32_t only_chunks = 0;
+    // Called by save() for every field written: the chunk index, the offset of the field in the whole state, its size and its name. For
+    // the tests that change one field of a saved body.
+    void (*on_field)(void *context, uint32_t chunk, uint64_t offset, uint64_t size, const char *name) = nullptr;
+    void *on_field_context = nullptr;
 };
 
 // The build as the envelope binds it (build_identity.cpp).
