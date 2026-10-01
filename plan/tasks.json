@@ -8771,7 +8771,7 @@
       "title": "Validar peliculas, ramas y seek de A500 en BizHawk",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T21",
         "T22a",
