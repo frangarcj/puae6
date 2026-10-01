@@ -141,7 +141,7 @@ de una ejecucion o si una medida pasa de la mitad de su presupuesto). Lo que que
 
 Guest ABI: adapters/waterbox/p6w.h y puae6_guest.cpp (`p6w_abi_version`, `p6w_layout`,
 `p6w_memory_info`, `p6w_init_machine`, `p6w_frame_advance`, `p6w_reset`, `p6w_shutdown`,
-`p6w_probe_exception`). `p6w_frame_advance` es exactamente una llamada a p6_run_frame. El arnes
+`p6w_probe_exception`, y desde T20a `p6w_memory_areas`, `p6w_memory_access` y `p6w_memory_refused`). `p6w_frame_advance` es exactamente una llamada a p6_run_frame. El arnes
 managed (integration/bizhawk/smoke/Puae6.cs) comprueba al crear el sandbox que las estructuras que
 conoce son las que el guest compilo (`p6w_layout`); no es el wrapper de BizHawk (T20).
 
@@ -201,6 +201,15 @@ Lo que aun no cubre: no hay restauracion ni excepciones cruzando callbacks con e
   completo final (con el ROM entrelazado y con botones sujetos). Un recibo cuyo hash no es el del
   guest o del runtime se rechaza (T19b) y las variantes danadas del guest real (maquina x86-64, magic
   roto, truncado, pagina RW dentro del ultimo grupo RX) las rechaza validate_elf.
+
+### Resultado de T20a: la memoria de la maquina vista desde el host
+
+`python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_memory.py` y `tests/host/test_bridge_memory.py`. El guest informa Chip RAM
+(primaria), Slow RAM y la ROM como funciones de acceso (flags de `MemoryDomainFlags`: big endian, palabra de 2 bytes, `FunctionHook`, escribible la
+RAM). Medido: a la unidad 15 Chip y Slow RAM ya estan sucias (2733 paginas, y escribir en Slow RAM no cambia la cuenta), de modo que el caso
+peligroso para un poke managed es el de antes de la primera unidad (un cheat o un valor inicial): justo despues del seal las escrituras de la prueba
+caen en paginas que nadie ha escrito y el runtime las registra como del guest (al menos 12 paginas sucias nuevas); un restore las deshace. La luz de
+unidad (`P6_FRAME_DRIVE_LIGHT`) llega en el `flags` de `p6w_frame`.
 
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException

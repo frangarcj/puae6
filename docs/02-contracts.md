@@ -140,6 +140,10 @@ unidad y la lee al terminar; no hay callback desde dentro del motor. Lo que el f
 programa que solo usa el teclado da lag casi siempre (el SDR solo se lee al llegar un byte); uno que lee el disco por PRA
 no da lag. La mascara es estado derivado: no forma parte del estado ni cambia ningun hash. Capacidad: `P6_CAP_LAG_FLAG`.
 
+Luz de unidad (T20a). `P6_FRAME_DRIVE_LIGHT` indica que al final de la unidad el LED de algun disquete esta encendido (motor en marcha o
+escribiendo, los bits `LED_DF0..DF3` que el motor mantiene en el puerto gui del host). Es una salida derivada del estado de la unidad: no
+llega a la maquina ni cambia ningun hash, y sirve a `IDriveLight` del wrapper.
+
 Orden en boundary: aplicar reset/eventos pendientes en orden estable registrado,
 fijar input, ejecutar, recoger A/V y devolver. Eventos simultaneos tienen prioridad
 documentada. No cambiar el disco desde otro hilo. Entradas subframe quedan fuera
@@ -237,6 +241,22 @@ Medios grandes pueden usar lecturas inmutables por content ID+offset en un backe
 aprobado; el cursor o cache mutable no puede ocultar estado fuera del sandbox.
 Cualquier caching externo debe ser semantica de funcion pura y probado tras reset
 arbitrario de la cache. MVP prefiere precargar floppies para reducir esa superficie.
+
+## Regiones de memoria
+
+Implementado (T20a): `p6_memory_regions` (capacidad `P6_CAP_MEMORY_REGIONS`) devuelve vistas de la memoria que el motor asigno, no copias: Chip RAM,
+Slow RAM y la ROM con su tamano real (el perfil A500 no tiene Fast RAM y una RAM que la maquina no tiene no se informa), con los bytes en el orden
+del 68000 (big endian) y el offset n de una region es el byte n de esa memoria. Solo la RAM lleva `P6_REGION_WRITABLE`. Una escritura del host es una
+accion externa que la maquina no hizo: quien graba una pelicula la trata como entrada. Los punteros valen hasta la siguiente llamada que cambie la
+maquina (una unidad, un reset, un unload); el motor libera y reasigna su RAM en `memory_reset`, asi que un puntero guardado puede quedar colgando.
+Solo se pide en LOADED (BAD_STATE si no), `count` es obligatorio y con `regions` nulo y capacidad cero devuelve el numero necesario; una capacidad
+insuficiente devuelve CAPACITY con el numero necesario y sin salida parcial.
+
+El guest de Waterbox las ofrece al wrapper como `p6w_memory_areas` (adapters/waterbox/p6w.h): la estructura es la de `LibWaterboxCore.MemoryArea` de
+BizHawk y cada area es una funcion de acceso que se ejecuta dentro del sandbox y resuelve el puntero del motor en cada llamada. Es necesario por
+dos razones medidas: una escritura managed en una pagina que el seguimiento de paginas sucias aun protege es un `AccessViolationException` fatal
+(T19c2), y justo despues del seal ninguna pagina de la maquina ha sido escrita. Lo fuera de rango, una escritura en la ROM o un acceso sin maquina
+no hacen nada (una lectura da ceros) y los cuenta `p6w_memory_refused`.
 
 ## Estados nativos (libretro/headless)
 

@@ -661,14 +661,15 @@ _RUNS = iter(range(1, 1 << 30))
 
 def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None, *, ports: tuple[str, ...] = (),
               render: str | None = None, digest_every: int = 0, bad_calls_at: int = 0, limits: bool = False, ntsc: bool = False,
-              abi_at: tuple[int, ...] = (), pages_at: int = 0, save_at: int = 0, state: Path | None = None, restore: Path | None = None,
+              abi_at: tuple[int, ...] = (), pages_at: int = 0, memory_at: int | None = None, save_at: int = 0, state: Path | None = None, restore: Path | None = None,
               restore_from: int = 0, timeout: int = 3600) -> tuple[list[str], dict]:
     """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines
     it printed in the format of p6_headless, plus the measurements. `ports` are "N:type:buttons:dx:dy" held on every unit, `render` a
     schedule "101-200:0,201-300:2" of render flags (1 video, 2 audio) by unit range, `digest_every` the period of the snapshot digests and
     `bad_calls_at` the unit before which the guest is handed calls it must refuse, `abi_at` the units before which a host callback crosses
     the guest with canaries in the registers (WB13), `pages_at` the unit after which the 16 KiB page groups of Chip RAM are written and
-    restored (WB14, needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
+    restored (WB14, needs the chipcell fixture), `memory_at` the unit after which (0: right after the seal) the memory areas the guest reports are read, written,
+    refused and restored through the guest (T20a; after a unit it needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
     initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15). Needs the runtime (build/waterbox/receipt.json) and the
     guest (--puae6) to exist already; several runs may go on at once."""
     runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
@@ -696,6 +697,8 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
         command += ["--abi-at", ",".join(map(str, abi_at))]
     if pages_at:
         command += ["--pages-at", str(pages_at)]
+    if memory_at is not None:
+        command += ["--memory-at", str(memory_at)]
     if save_at:
         command += ["--save-at", str(save_at), "--state", str(Path(state).resolve())]
     if restore:

@@ -37,12 +37,15 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int Init(nint args);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int Advance(nint input, uint renderFlags, nint output);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int ProbeException(int depth, nint destroyed);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void MemoryAccess(uint type, nint buffer, long address, long count, uint write);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate ulong Counter();
 
     // adapters/waterbox/p6w.h and bridge/include/p6.h, checked against what the guest was compiled with (p6w_layout).
     internal static readonly ulong[] ExpectedLayout = [
         1264, 1000, 1008, 104, 56,          // p6w_init: size, result, error, media, sizeof(p6w_media)
         400, 8, 136, 144,                   // p6w_frame: size, frame, result, error
-        128, 72, 72, 64, 80];               // p6_frame size, p6_input size, p6_config size, p6_frame.audio, p6_frame.master_ticks
+        128, 72, 72, 64, 80,                // p6_frame size, p6_input size, p6_config size, p6_frame.audio, p6_frame.master_ticks
+        32, 8, 16, 24];                     // p6w_memory_area: size, name, size, flags (the layout of LibWaterboxCore.MemoryArea)
     const int InitSize = 1264, InitFirmware = 80, InitMediaCount = 96, InitMedia = 104, MediaSize = 56, InitResult = 1000, InitError = 1008;
     const int FrameSize = 400, FrameInner = 8, FrameResult = 136, FrameError = 144, InputSize = 72;
     const uint FrameNoVideo = 2;
@@ -337,6 +340,44 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
         return dirty;
     }
 
+    internal const uint ChipRam = 1, SlowRam = 2, Rom = 3;      // P6_REGION_*
+
+    /// The areas the guest reports (p6w_memory_areas): data (a guest function), name, size and flags of each, in the order it gives them.
+    internal (ulong Data, string Name, long Size, long Flags)[] Areas()
+    {
+        nint buffer = Marshal.AllocHGlobal(4 * 32);
+        try
+        {
+            new Span<byte>((void*)buffer, 4 * 32).Fill(0xCD);
+            nuint count = In(() => Guest<Values>("p6w_memory_areas")(buffer, 4));
+            Program.Require(count <= 4, "the guest reports at most four areas");
+            var areas = new (ulong, string, long, long)[(int)count];
+            for (int i = 0; i < areas.Length; ++i)
+            {
+                byte* a = (byte*)buffer + 32 * i;
+                nint name = *(nint*)(a + 8);                                  // a pointer into the guest: read it while the sandbox is active
+                areas[i] = (*(ulong*)a, In(() => Marshal.PtrToStringUTF8(name)) ?? "", *(long*)(a + 16), *(long*)(a + 24));
+            }
+            Program.Require(new ReadOnlySpan<byte>((void*)(buffer + 32 * (int)count), (4 - (int)count) * 32).IndexOfAnyExcept((byte)0xCD) < 0,
+                "the guest wrote nothing past the areas it reported");
+            return areas;
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
+    /// One access to the machine's memory by area type, through the guest (the code a BizHawk memory domain runs). A read returns the bytes the
+    /// guest gave; a write sends `data`. The host buffer has guard bands, which the guest must leave alone.
+    internal byte[] Access(uint type, long address, long count, byte[]? write = null, bool nullBuffer = false)
+    {
+        using var buffer = new Guarded((int)Math.Max(count, 1));
+        buffer.Payload.Fill(0x77);
+        if (write != null) write.CopyTo(buffer.Payload);
+        In(() => { Guest<MemoryAccess>("p6w_memory_access")(type, nullBuffer ? 0 : buffer.Address, address, count, write != null ? 1u : 0u); return 0; });
+        buffer.Check("a memory access buffer"); Canaries++;
+        return buffer.Payload.ToArray();
+    }
+    internal ulong Refused() => In(() => Guest<Counter>("p6w_memory_refused")());
+
     public override void Dispose()
     {
         base.Dispose();
@@ -386,6 +427,8 @@ internal static unsafe class Puae6
     // Smoke.dll --puae6 --runtime receipt.json --guest puae6-receipt.json --manifest waterbox-memory.json --firmware rom --units N --result out.json
     //   [--media disk.adf]... [--port N:type:buttons:dx:dy]... [--render 101-200:0,...] [--digest-every K] [--bad-calls-at U] [--limits] [--ntsc]
     //   [--abi-at U,U...] (WB13 before those units)  [--pages-at U] (WB14 after unit U, needs the chipcell fixture)
+    //   [--memory-at U] (T20a: the memory areas and the accesses through the guest; U = 0 right after the seal, U > 0 after that unit and
+    //   needs the chipcell fixture)
     //   [--save-at U --state file] (WB15: snapshot after unit U)  [--restore file --from U] (a new process: init, seal, load, continue from U+1)
     internal static int Run(string[] args)
     {
@@ -433,8 +476,11 @@ internal static unsafe class Puae6
         ulong digestEvery = ulong.Parse(options.Optional("digest-every") ?? "0");
         ulong badCallsAt = ulong.Parse(options.Optional("bad-calls-at") ?? "0");
         ulong pagesAt = ulong.Parse(options.Optional("pages-at") ?? "0"), saveAt = ulong.Parse(options.Optional("save-at") ?? "0");
+        ulong? memoryAt = options.Optional("memory-at") is string memoryUnit ? ulong.Parse(memoryUnit) : null;
         var abiAt = (options.Optional("abi-at") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(ulong.Parse).ToHashSet();
         ulong from = 0;
+        object? areas = null;
+        if (memoryAt == 0) areas = MemoryTests(machine, 0);               // sealed and not yet advanced: every page of the machine is still clean
         if (options.Optional("restore") is string restore)
         {
             from = ulong.Parse(options.Get("from"));
@@ -461,6 +507,7 @@ internal static unsafe class Puae6
             if (digestEvery != 0 && unit % digestEvery == 0) digests[unit.ToString()] = machine.Digest();
             if (unit == saveAt) File.WriteAllBytes(options.Get("state"), machine.Save());
             if (unit == pagesAt) pages = PageTests(machine, unit);
+            if (unit == memoryAt) areas = MemoryTests(machine, unit);
         }
         if (abiAt.Count > 0)
         {
@@ -487,6 +534,7 @@ internal static unsafe class Puae6
         report["refusals"] = refusals;
         report["abi"] = abi;
         report["pages"] = pages;
+        report["memory"] = areas;
         report["restored_from"] = from;
         report["ports"] = machine.Ports.Select(p => $"{p.Type}:{p.Buttons}:{p.Dx}:{p.Dy}").ToArray();
         File.WriteAllText(options.Get("result"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + "\n");
@@ -526,6 +574,97 @@ internal static unsafe class Puae6
         mark.Restore();
         return new { chip_ram = chip, marker_at = MarkerAt, cell_at = CellAt, clean_group = clean, chip_group = group,
                      clean_group_pages = cleanGroup, chip_group_pages = chipGroup };
+    }
+
+    /// T20a: what a BizHawk memory domain needs from the guest. The areas are the machine's (Chip RAM primary, Slow RAM, the ROM: big endian,
+    /// 16-bit words, function hooks that point into the sandbox); reads give what the 68000 stored; writes go through the guest, also into
+    /// pages that nothing has written since the seal (a managed store there would be fatal); the ROM and everything out of range is refused
+    /// and counted; a restore undoes the writes; and the word the fixture copies into COLOR00 changes the next picture.
+    static object MemoryTests(Puae6Machine machine, ulong lastUnit)
+    {
+        const long MarkerAt = 0x10000, CellAt = 0x30000;
+        AudioMark mark = new(machine);
+        var areas = machine.Areas();
+        Program.Require(areas.Length == 3, $"the A500 reports Chip RAM, Slow RAM and the ROM (got {areas.Length})");
+        string[] names = ["Chip RAM", "Slow RAM", "ROM"];
+        long[] writable = [1, 1, 0];
+        for (int i = 0; i < 3; ++i)
+        {
+            var area = areas[i];
+            Program.Require(area.Name == names[i], $"area {i} is {names[i]} (got {area.Name})");
+            Program.Require(area.Size >= 262144 && area.Size <= 524288, $"{area.Name}: a real size ({area.Size})");
+            long expected = 16L | 64 | 1024 | writable[i] | (i == 0 ? 8L : 0L);            // big endian, 16-bit words, function hook, writable, primary
+            Program.Require(area.Flags == expected, $"{area.Name}: flags {expected} (got {area.Flags})");
+            Program.Require(area.Data >= machine.Ranges[0] && area.Data < machine.Ranges[14] + machine.Ranges[15], $"{area.Name}: the hook is a function of the sandbox");
+        }
+        Program.Require(areas.Count(a => (a.Flags & 8) != 0) == 1, "exactly one primary area");
+        Program.Require(areas[0].Size == 524288 && areas[1].Size == 524288, "512 KiB of Chip RAM and of Slow RAM");
+
+        // Reads are the 68000's bytes: the fixture stored the long $50364D57 at $10000 (once it has run).
+        if (lastUnit > 0)
+            Program.Require(machine.Access(Puae6Machine.ChipRam, MarkerAt, 4).SequenceEqual(new byte[] { 0x50, 0x36, 0x4D, 0x57 }), "the marker reads big endian");
+        var state = machine.Save();
+        ulong refused = machine.Refused();
+        var report = new List<object>();
+
+        // Writes into every area: Slow RAM is untouched by the fixture (its pages are clean since the seal); the ROM refuses. What was there
+        // before is kept for the restore below.
+        long[] offsets = [0, 4095, 4096, areas[1].Size - 1];
+        var wide = Enumerable.Range(0, 8192).Select(i => (byte)(i * 7)).ToArray();
+        var wideBefore = machine.Access(Puae6Machine.SlowRam, 0x10000, wide.Length);
+        int dirtyBefore = machine.DirtyMap().Count(dirty => dirty);
+        var bytesBefore = offsets.Select(offset => machine.Access(Puae6Machine.SlowRam, offset, 1)[0]).ToArray();
+        foreach (long offset in offsets)
+        {
+            machine.Access(Puae6Machine.SlowRam, offset, 1, [(byte)(0xE0 + offset % 16)]);
+            Program.Require(machine.Access(Puae6Machine.SlowRam, offset, 1)[0] == (byte)(0xE0 + offset % 16), $"a write to Slow RAM at {offset} reads back");
+        }
+        machine.Access(Puae6Machine.SlowRam, 0x10000, wide.Length, wide);
+        Program.Require(machine.Access(Puae6Machine.SlowRam, 0x10000, wide.Length).SequenceEqual(wide), "a bulk write to Slow RAM reads back");
+        Program.Require(!wide.SequenceEqual(wideBefore), "and it changed what was there");
+        int dirtyAfter = machine.DirtyMap().Count(dirty => dirty);
+        // Right after the seal nothing has written Slow RAM: the stores land in pages the runtime still protects, and a store from managed code
+        // there would kill the process; these went through the guest and were recorded as its own (three 16 KiB groups at least).
+        if (lastUnit == 0)
+            Program.Require(dirtyAfter >= dirtyBefore + 12, $"the writes reached pages that were clean and the runtime tracked them ({dirtyBefore} -> {dirtyAfter} dirty pages)");
+        Program.Require(machine.Refused() == refused, "valid accesses are not counted as refused");
+        var rom = machine.Access(Puae6Machine.Rom, 0, 16);
+        machine.Access(Puae6Machine.Rom, 0, 16, new byte[16]);
+        Program.Require(machine.Access(Puae6Machine.Rom, 0, 16).SequenceEqual(rom), "a write to the ROM changes nothing");
+        Program.Require(machine.Refused() == refused + 1, "and is counted as refused");
+        refused = machine.Refused();
+
+        // Everything out of range or malformed is refused, never partial: a read gives zeros, a write changes nothing.
+        long slowSize = areas[1].Size;
+        var before = machine.Access(Puae6Machine.SlowRam, slowSize - 8, 8);
+        machine.Access(Puae6Machine.SlowRam, slowSize - 4, 8, new byte[8]);                        // runs past the end
+        Program.Require(machine.Access(Puae6Machine.SlowRam, slowSize - 8, 8).SequenceEqual(before), "a write past the end changed nothing, not even the part inside");
+        Program.Require(machine.Access(Puae6Machine.SlowRam, slowSize - 4, 8).All(b => b == 0), "a read past the end gives zeros");
+        Program.Require(machine.Access(Puae6Machine.SlowRam, slowSize, 1).All(b => b == 0), "a read at the end gives zeros");
+        Program.Require(machine.Access(Puae6Machine.SlowRam, -1, 1).All(b => b == 0), "a negative address is refused");
+        machine.Access(Puae6Machine.SlowRam, 0, -1);
+        machine.Access(Puae6Machine.SlowRam, 0, 1, nullBuffer: true);
+        machine.Access(99, 0, 1);
+        Program.Require(machine.Refused() == refused + 7, $"seven refusals were counted (got {machine.Refused() - refused})");
+
+        // A restore takes the writes back.
+        machine.Load(state);
+        Program.Require(machine.Access(Puae6Machine.SlowRam, 0x10000, wide.Length).SequenceEqual(wideBefore), "a restore brought Slow RAM back");
+        Program.Require(offsets.Select(offset => machine.Access(Puae6Machine.SlowRam, offset, 1)[0]).SequenceEqual(bytesBefore), "and the single bytes");
+
+        // The write reaches the machine: COLOR00 takes the word at $30000 (big endian, $0F00 is red) and the next picture changes.
+        if (lastUnit > 0)
+        {
+            string quiet = machine.Unit(lastUnit + 1, 3);
+            machine.Load(state);
+            machine.Access(Puae6Machine.ChipRam, CellAt, 2, [0x0F, 0x00]);
+            string poked = machine.Unit(lastUnit + 1, 3);
+            Program.Require(Regex.Match(quiet, "hash=(\\w+)").Value != Regex.Match(poked, "hash=(\\w+)").Value, "a write through the guest into Chip RAM changes the next picture");
+            machine.Load(state);
+        }
+        mark.Restore();
+        report.Add(new { areas = areas.Select(a => new { a.Name, a.Size, a.Flags }).ToArray(), dirty_pages_before_writes = dirtyBefore, dirty_pages_after_writes = dirtyAfter });
+        return report;
     }
 
     /// A 16 KiB aligned group of four readable and writable logical pages in the mmap heap whose pages are all clean, away from Chip RAM.

@@ -165,12 +165,22 @@ typedef struct p6_frame {
 /* Lag: the emulated CPU read no input register (joystick/mouse counters, POT, CIA-A PRA, CIA-A SDR) during the unit. */
 #define P6_FRAME_LAG         (UINT32_C(1) << 0)
 #define P6_FRAME_NO_VIDEO    (UINT32_C(1) << 1)
+/* Drive light: at the end of the unit a floppy drive's LED is lit (motor on or writing). An output derived from the
+ * drive state, it never feeds back into the machine. */
+#define P6_FRAME_DRIVE_LIGHT (UINT32_C(1) << 2)
 #define P6_RENDER_VIDEO      (UINT32_C(1) << 0)
 #define P6_RENDER_AUDIO      (UINT32_C(1) << 1)
 
 /* Extensions use caller-owned bounded buffers. State format is native to the
  * exact compatible build/config/media; it is not a Waterbox snapshot or a
- * cross-build interchange format. Region data is borrowed until next mutation. */
+ * cross-build interchange format. Region data is borrowed until next mutation.
+ *
+ * Memory regions (T20a) are the memory as the emulated CPU sees it, in the order of the 68000: bytes are in big-endian
+ * order and offset n of a region is byte n of that memory. The profile reports Chip RAM, Slow RAM and the ROM, each
+ * with its real size; a RAM that the machine does not have is not reported. Only RAM carries P6_REGION_WRITABLE: the
+ * ROM is read-only. A host write is an external action that the emulated machine did not do, so a caller that records
+ * a replay has to treat it as input. The pointers are valid until the next call that changes the machine (a
+ * p6_run_frame, a reset, an unload); a caller that keeps a region across those has to ask again. */
 typedef struct p6_memory_region {
     uint32_t type;
     uint32_t flags;
@@ -179,6 +189,8 @@ typedef struct p6_memory_region {
 } p6_memory_region;
 #define P6_REGION_CHIP_RAM UINT32_C(1)
 #define P6_REGION_SLOW_RAM UINT32_C(2)
+#define P6_REGION_ROM      UINT32_C(3)
+#define P6_REGION_WRITABLE (UINT32_C(1) << 0)
 
 typedef struct p6_media_event {
     uint32_t abi_version;

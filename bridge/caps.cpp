@@ -20,7 +20,7 @@ extern "C" p6_result p6_query_caps(p6_caps *caps, p6_error *error)
     if (!caps) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "caps is null");
     if (caps->abi_version != P6_ABI_VERSION || caps->struct_size != sizeof *caps)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "caps has the wrong ABI version or size");
-    caps->flags = P6_CAP_LAG_FLAG | P6_CAP_MEDIA_EVENTS;   // state and memory regions: not implemented
+    caps->flags = P6_CAP_LAG_FLAG | P6_CAP_MEDIA_EVENTS | P6_CAP_MEMORY_REGIONS;   // state: not implemented (T15)
     caps->max_media = P6_MAX_MEDIA;        // p6_load takes this many disk images (mount events: T12b)
     caps->max_video_width = p6_bridge::kBufferWidth;      // the delivered picture buffer, both standards
     caps->max_video_height = p6_bridge::kBufferHeightPal;

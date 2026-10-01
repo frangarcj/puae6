@@ -8386,7 +8386,7 @@
       "title": "Regiones de memoria, luz de unidad y accesos nativos del guest que el wrapper necesita",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T19"
       ],
@@ -8405,6 +8405,8 @@
         "integration/bizhawk/smoke/**",
         "tests/host/**",
         "tests/waterbox-smoke/**",
+        "tools/build_waterbox.py",
+        "tests/codegen/**",
         "tests/test_plan.py",
         "docs/02-contracts.md"
       ],
@@ -8412,7 +8414,7 @@
         "Implementar p6_memory_regions (Chip RAM, Slow RAM y ROM tal como las ve la CPU emulada, orden de bytes del 68000, flag de escritura solo en RAM) con su capacidad P6_CAP_MEMORY_REGIONS, y P6_FRAME_DRIVE_LIGHT en p6_frame derivado de los LED de unidad, sin tocar el estado de la maquina.",
         "Exportar desde el guest las areas de memoria con la estructura que BizHawk conoce (LibWaterboxCore.MemoryArea) como funciones de acceso que escriben desde dentro del sandbox, porque una escritura managed en una pagina que el seguimiento de paginas sucias aun protege es fatal (T19c2); el puntero se resuelve en cada acceso, asi un reset que reubique la RAM no deja dominios colgando.",
         "Probar en nativo (regiones, limites, errores, la escritura del host llega a la maquina) y en el guest dentro de Waterbox (lectura, escritura en un grupo limpio de 16 KiB, ROM rechazada, limites).",
-        "Ampliacion touch: la ficha original de T20 no incluia bridge/ ni el arnes de integration/bizhawk/smoke, y p6_memory_regions estaba declarada y sin implementar (T14/T15 no la tocaron)."
+        "Ampliacion touch: la ficha original de T20 no incluia bridge/ ni el arnes de integration/bizhawk/smoke, y p6_memory_regions estaba declarada y sin implementar (T14/T15 no la tocaron). Tambien tools/build_waterbox.py: run_puae6 pasa la opcion del arnes que prueba las areas. Y tests/codegen: una prueba de identidad de headless fijaba las capacidades en 0xc y ahora incluye P6_CAP_MEMORY_REGIONS (0xe)."
       ],
       "checks": [
         "ABI01",

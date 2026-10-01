@@ -91,7 +91,7 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/pcm_out.cpp bridge/media.cpp)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/pcm_out.cpp bridge/media.cpp bridge/memory.cpp)
 add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
 target_include_directories(p6_bridge PRIVATE
@@ -120,6 +120,13 @@ target_include_directories(p6_media_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_media_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_media_probe PRIVATE p6_bridge p6_portable)
+# p6_memory_regions and the drive light of a unit (tests/host/test_bridge_memory.py runs it with two ROMs and a disk).
+add_executable(p6_memory_probe tests/host/bridge_memory_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_memory_probe p6_codegen)
+target_include_directories(p6_memory_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_memory_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_memory_probe PRIVATE p6_bridge p6_portable)
 # MED01: the guest reads, sees the swap of and cannot write to a disk (tests/media/test_med01.py).
 add_executable(p6_med01_probe tests/media/med01_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_med01_probe p6_codegen)

@@ -62,11 +62,86 @@ ECL_EXPORT size_t p6w_layout(uint64_t *out, size_t capacity)
     const uint64_t values[P6W_LAYOUT_VALUES] = {
         sizeof(p6w_init), offsetof(p6w_init, result), offsetof(p6w_init, error), offsetof(p6w_init, media), sizeof(p6w_media),
         sizeof(p6w_frame), offsetof(p6w_frame, frame), offsetof(p6w_frame, result), offsetof(p6w_frame, error),
-        sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config), offsetof(p6_frame, audio), offsetof(p6_frame, master_ticks)};
+        sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config), offsetof(p6_frame, audio), offsetof(p6_frame, master_ticks),
+        sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags)};
     if (!out || capacity < P6W_LAYOUT_VALUES) return 0;
     memcpy(out, values, sizeof values);
     return P6W_LAYOUT_VALUES;
 }
+
+namespace {
+
+uint64_t memory_refused;       // accesses to the machine's memory that p6w_memory_access did not do (diagnostic: the access hooks cannot report)
+
+// The one place where the host reaches the machine's memory. The region is asked for at every call: the engine owns its RAM and a pointer
+// kept across a unit could dangle.
+void memory_access(uint32_t type, void *buffer, int64_t address, int64_t count, bool write)
+{
+    p6_memory_region regions[P6W_MAX_AREAS];
+    uint32_t n = 0;
+    const p6_memory_region *region = nullptr;
+    if (p6_memory_regions(regions, P6W_MAX_AREAS, &n, nullptr) == P6_OK)
+        for (uint32_t i = 0; i < n; ++i)
+            if (regions[i].type == type) region = &regions[i];
+    const bool usable = buffer && count >= 0;       // a buffer of `count` bytes is the host's side of the contract
+    const bool inside = region && usable && address >= 0 && uint64_t(address) <= region->bytes && uint64_t(count) <= region->bytes - uint64_t(address);
+    if (!inside || (write && !(region->flags & P6_REGION_WRITABLE))) {
+        ++memory_refused;
+        if (!write && usable) memset(buffer, 0, size_t(count));
+        return;
+    }
+    uint8_t *bytes = static_cast<uint8_t *>(const_cast<void *>(region->data)) + address;
+    if (write) memcpy(bytes, buffer, size_t(count));
+    else memcpy(buffer, bytes, size_t(count));
+}
+
+// One function per area, because BizHawk's hook has no area argument.
+void access_chip_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_CHIP_RAM, buffer, address, count, write); }
+void access_slow_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_SLOW_RAM, buffer, address, count, write); }
+void access_rom(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_ROM, buffer, address, count, write); }
+
+struct AreaSpec {
+    uint32_t type;
+    const char *name;
+    int64_t flags;
+    void (*access)(void *, int64_t, int64_t, bool);
+};
+const AreaSpec area_specs[] = {
+    {P6_REGION_CHIP_RAM, "Chip RAM", P6W_AREA_PRIMARY, access_chip_ram},     // the one BizHawk treats as main memory
+    {P6_REGION_SLOW_RAM, "Slow RAM", 0, access_slow_ram},
+    {P6_REGION_ROM, "ROM", 0, access_rom},
+};
+
+}  // namespace
+
+// The memory areas of the loaded machine (see p6w_memory_area): Chip RAM first and primary, Slow RAM and the ROM when the machine has
+// them, all big endian with 16-bit words. Returns how many were written; zero (and nothing written) when no machine is loaded or
+// `capacity` is too small. Call it after p6w_init_machine and before the seal: the areas are function hooks and stay valid for the life of the sandbox.
+ECL_EXPORT size_t p6w_memory_areas(p6w_memory_area *out, size_t capacity)
+{
+    if (!out || capacity < P6W_MAX_AREAS) return 0;
+    p6_memory_region regions[P6W_MAX_AREAS];
+    uint32_t n = 0;
+    if (p6_memory_regions(regions, P6W_MAX_AREAS, &n, nullptr) != P6_OK) return 0;
+    size_t written = 0;
+    for (const AreaSpec &spec : area_specs)
+        for (uint32_t i = 0; i < n; ++i)
+            if (regions[i].type == spec.type) {
+                const int64_t writable = (regions[i].flags & P6_REGION_WRITABLE) ? P6W_AREA_WRITABLE : 0;
+                out[written++] = p6w_memory_area{reinterpret_cast<const void *>(spec.access), spec.name, int64_t(regions[i].bytes),
+                                                 spec.flags | writable | P6W_AREA_BIG_ENDIAN | P6W_AREA_WORD_SIZE_2 | P6W_AREA_FUNCTION_HOOK};
+            }
+    return written;
+}
+
+// The same access the hooks do, by area type (P6_REGION_*), for hosts that cannot call a function pointer of the guest.
+ECL_EXPORT void p6w_memory_access(uint32_t type, void *buffer, int64_t address, int64_t count, uint32_t write)
+{
+    memory_access(type, buffer, address, count, write != 0);
+}
+
+// How many accesses were refused (out of range, a write to the ROM or to nothing, no machine) since the sandbox was created.
+ECL_EXPORT uint64_t p6w_memory_refused(void) { return memory_refused; }
 
 // The ranges the runtime gave this sandbox, as (start, size) pairs: elf, main stack, alternate stack, sbrk, sealed, invisible, plain,
 // mmap. The host uses them to measure what the machine really allocates.

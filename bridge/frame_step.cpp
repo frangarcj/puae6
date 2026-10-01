@@ -20,6 +20,7 @@
 #include "uae.h"
 #include "memory.h"
 #include "newcpu.h"
+#include "gui.h"
 #include "rom_status.h"
 #include "rtc_time.h"
 #include "sounddep/sound.h"
@@ -123,6 +124,8 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
     result.unit_index = ++session.unit_index;
     if (!p6_bridge::guest_polled_input())
         result.flags |= P6_FRAME_LAG;
+    if (gui_ledstate & (0xFu << LED_DF0))      // motor on or writing in any floppy drive; the host gui port keeps the engine's own LED bits
+        result.flags |= P6_FRAME_DRIVE_LIGHT;
     if (render_flags & P6_RENDER_AUDIO) {
         result.audio = p6_bridge::audio_samples();
         result.audio_frames = audio_frames;
