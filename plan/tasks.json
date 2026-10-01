@@ -8687,13 +8687,92 @@
       "evidence": null
     },
     {
+      "id": "T22a",
+      "title": "Formato de pelicula con el codigo BK2 real de BizHawk: ampliar la captura y grabar y reproducir el input log del core",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T21"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "plan/upstream.lock.json",
+        "references/machawk/**",
+        "references/machawk.manifest.json",
+        "tests/ffi/**",
+        "tests/bizhawk-movies/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Ampliar la captura de MacHawk (references/machawk, pinned) con los tres ficheros pequeños de BK2 que faltan (Bk2LogEntryGenerator, Bk2Controller, IMovieController), con el procedimiento de tools/import_sources.py y sin tocar el checkout: la captura anterior se aparta a build/stale y el import reproduce los mismos bytes mas los nuevos.",
+        "Compilar esas clases en el arnes de pruebas y grabar una sesion del core con ellas: el log de entrada es el de BizHawk (grupos separados por |, un caracter por boton, ejes con coma), la clave del log sale de la ControllerDefinition del core y la cabecera fija el core, el guest, el firmware, los discos y los sync settings.",
+        "Reproducir el log: lo decodificado es, boton a boton y eje a eje, lo grabado, tambien para el raton absoluto, los puertos y los botones de disco; y una pelicula de otro core (UAE), de otro guest, firmware, discos o sync settings se rechaza con su motivo antes de crear nada, sin conversion automatica.",
+        "Ampliacion de la ficha: T22 solo podia editar pruebas, y la captura (referencias y lock) esta fuera de sus zonas."
+      ],
+      "checks": [
+        "IN01",
+        "WB09"
+      ],
+      "acceptance": [
+        "Un input log grabado con el codigo de BizHawk y reproducido con el suyo da, en cada unidad, el mismo estado del controlador; una cabecera que no es la de este core, guest, firmware, discos y settings se rechaza antes de crear el core."
+      ],
+      "stop": "No reimplementar el formato BK2 por comodidad: si el codigo real no compila en el arnes, registrar por que y dividir.",
+      "evidence": null
+    },
+    {
+      "id": "T22b",
+      "title": "Reproduccion, seeks y ramas de peliculas del A500 con el core real, render y audio alternados y entorno distinto",
+      "milestone": "M1",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T22a"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tests/bizhawk-movies/**",
+        "integration/bizhawk/tests/**",
+        "tests/ffi/**",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Crear la pelicula fixture (teclado, raton, joystick, reset, expulsar e insertar) y otra con un ROM entrelazado, con sync settings, firmware, discos y build fijados en su cabecera, y reproducirlas dos veces en dos procesos a la vez (10000 unidades): mismas unidades, mismo hash de imagen, audio y estado.",
+        "Seeks y ramas repetidos con estados intermedios (cargar el estado anterior, rejugar hasta el destino, volver a la linea principal) en un orden que mezcla saltos hacia delante y hacia atras, con los campos de video y audio activos; cada seek converge al estado de la reproduccion continua.",
+        "Alternar render y sonido por tramos y comparar los futuros; los contadores de lag y de ciclos son los del fixture; el entorno del anfitrion (zona horaria, locale, directorio de trabajo, TMPDIR, HOME) no cambia ningun resultado; y falla con codigo distinto de cero ante cualquier desacuerdo.",
+        "Documentar que M1 Waterbox cubre el A500 con los firmware y discos probados y que las peliculas del core UAE se rechazan."
+      ],
+      "checks": [
+        "WB02",
+        "WB08",
+        "WB09",
+        "DET06"
+      ],
+      "acceptance": [
+        "Pelicula, seek y rama convergen en el runtime real sin efectos persistentes de entrada o de medio; el resultado no depende del entorno del anfitrion; M1 Waterbox solo se declara para lo probado."
+      ],
+      "stop": "Un desacuerdo se minimiza hasta la primera unidad y el primer campo que difiere; no se actualiza el golden para esconderlo.",
+      "evidence": null
+    },
+    {
       "id": "T22",
       "title": "Validar peliculas, ramas y seek de A500 en BizHawk",
       "milestone": "M1",
       "required": true,
       "status": "pending",
       "depends": [
-        "T21"
+        "T21",
+        "T22a",
+        "T22b"
       ],
       "read": [
         "docs/03-waterbox.md",
@@ -8710,7 +8789,8 @@
         "Reproducir en dos procesos y realizar seeks/ramas repetidos con estados intermedios, incluidos campos de video y audio activos.",
         "Alternar render/sound y comparar futuros; comprobar lag/cycle counters contra el fixture.",
         "Documentar alcance A500 y rechazo de peliculas del core UAE anterior; no prometer conversion automatica.",
-        "Reutilizar solo partes auditadas de uae-cd32-headless/whdload-regression de MacHawk; ampliar firmas de video a PCM y estado causal y devolver fallo explicito ante mismatch. Las pruebas del port antiguo no prueban PUAE6."
+        "Reutilizar solo partes auditadas de uae-cd32-headless/whdload-regression de MacHawk; ampliar firmas de video a PCM y estado causal y devolver fallo explicito ante mismatch. Las pruebas del port antiguo no prueban PUAE6.",
+        "Division: T22a (formato de pelicula con el codigo BK2 real de BizHawk, para lo que hay que ampliar la captura) y T22b (reproduccion, seeks, ramas, render/audio y entorno); T22 es el cierre y conserva la puerta original."
       ],
       "checks": [
         "WB02",
