@@ -18,7 +18,7 @@ internal static unsafe partial class Program
 		public ScriptedController(ControllerDefinition definition) => Definition = definition;
 		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => [];
 		public bool IsPressed(string button) => pressed.Contains(button);
-		public int AxisValue(string name) => axes.TryGetValue(name, out int value) ? value : 0;
+		public int AxisValue(string name) => axes.TryGetValue(name, out int value) ? value : Definition.Axes.TryGetValue(name, out var spec) ? spec.Neutral : 0;
 		public void SetHapticChannelStrength(string name, int strength) { }
 		internal void Press(string name) => pressed.Add(name);
 		internal void Axis(string name, int value) => axes[name] = value;

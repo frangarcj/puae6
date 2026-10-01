@@ -35,7 +35,7 @@ public sealed class Puae6Parameters
 /// state) and speaks only the ABI of adapters/waterbox/p6w.h.
 /// </summary>
 [PortedCore(name: Puae6Names.Core, author: "WinUAE team and the PUAE6 project", portedVersion: "WinUAE 6.0.3", portedUrl: "https://github.com/tonioni/WinUAE", isReleased: false)]
-public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ISettable<object, Puae6SyncSettings>
+public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISettable<object, Puae6SyncSettings>
 {
 	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
 	public const int MaxWidth = 760, MaxHeight = 576, MaxAudioFrames = 8192;
@@ -247,8 +247,17 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public string SystemId => VSystemID.Raw.Amiga;
 	public bool DeterministicEmulation => true;
 	public int Frame { get; private set; }
-	/// <summary>Scheduler ticks of the machine, as p6_frame.master_ticks reports them.</summary>
+	/// <summary>Scheduler ticks of the machine, as p6_frame.master_ticks reports them: total elapsed emulation time in units of 1 / <see cref="ClockRate"/> seconds.</summary>
 	public long CycleCount { get; private set; }
+
+	/// <summary>
+	/// Master ticks per second: the engine counts 512 ticks per colour clock (a PAL unit of 70825 colour clocks is 36262400 ticks) and the colour clock is the chipset
+	/// clock, 3546895 Hz PAL and 28.63636 MHz / 8 NTSC. A movie records <see cref="CycleCount"/> at its end with this rate and EmuHawk checks it when the movie finishes.
+	/// </summary>
+	public double ClockRate => 512.0 * (_syncSettings.Region == Puae6Region.NTSC ? 3579545.4545454545 : 3546895.0);
+
+	/// <summary>What a state or a movie of this core is valid for: guest build, heaps, settings, firmware and disks.</summary>
+	public StateIdentity Identity => _identity;
 
 	public void ResetCounters()
 	{

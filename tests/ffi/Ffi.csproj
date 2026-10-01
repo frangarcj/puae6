@@ -11,6 +11,10 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Remove="inventory/**" />
+		<!-- BizHawk's own movie input log (T22a): the generator that writes a frame of input, the controller that reads it back and its interface, from the pinned capture -->
+		<Compile Include="../../references/machawk/src/BizHawk.Client.Common/movie/bk2/Bk2Controller.cs" Link="Bk2/Bk2Controller.cs" />
+		<Compile Include="../../references/machawk/src/BizHawk.Client.Common/movie/bk2/Bk2LogEntryGenerator.cs" Link="Bk2/Bk2LogEntryGenerator.cs" />
+		<Compile Include="../../references/machawk/src/BizHawk.Client.Common/movie/interfaces/IMovieController.cs" Link="Bk2/IMovieController.cs" />
 		<ProjectReference Include="../../integration/bizhawk/core/Puae6.Core.csproj" />
 	</ItemGroup>
 </Project>

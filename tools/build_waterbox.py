@@ -685,10 +685,13 @@ def build_core() -> tuple[str, dict[str, str], Path]:
     return dotnet, env, FFI_OUTPUT
 
 
-def run_ffi(*args: str, timeout: int = 1800) -> subprocess.CompletedProcess:
-    """Runs the FFI test host (tests/ffi/Program.cs) with `args` from the directory that holds the runtime library; returns the finished process."""
-    dotnet, env, output = build_core()
-    return subprocess.run([dotnet, str(output / "Ffi.dll"), *args], cwd=output, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+def run_ffi(*args: str, timeout: int = 1800, env: dict[str, str] | None = None, cwd: Path | None = None) -> subprocess.CompletedProcess:
+    """Runs the FFI test host (tests/ffi/Program.cs) with `args`; returns the finished process. By default it runs from the directory that holds the runtime library;
+    `env` adds to the environment (tests of the host's locale, time zone and the like) and `cwd` runs it from elsewhere: the runtime library is then found through
+    the arguments (`--runtime`), which tests/ffi loads by its absolute path first."""
+    dotnet, benv, output = build_core()
+    return subprocess.run([dotnet, str(output / "Ffi.dll"), *args], cwd=cwd or output, env={**benv, **(env or {})}, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          timeout=timeout)
 
 
 _RUNS = iter(range(1, 1 << 30))

@@ -29,6 +29,9 @@
         "src/BizHawk.BizInvoke/BizInvoker.cs",
         "src/BizHawk.BizInvoke/BizInvokerUtilities.cs",
         "src/BizHawk.BizInvoke/CallingConventionAdapter.cs",
+        "src/BizHawk.Client.Common/movie/bk2/Bk2Controller.cs",
+        "src/BizHawk.Client.Common/movie/bk2/Bk2LogEntryGenerator.cs",
+        "src/BizHawk.Client.Common/movie/interfaces/IMovieController.cs",
         "src/BizHawk.Common",
         "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisConstraint.cs",
         "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisDict.cs",
@@ -57,6 +60,7 @@
         "src/BizHawk.Emulation.Common/Interfaces/IEmulatorServiceProvider.cs",
         "src/BizHawk.Emulation.Common/Interfaces/IInputCallbackSystem.cs",
         "src/BizHawk.Emulation.Common/Interfaces/IOpenGLProvider.cs",
+        "src/BizHawk.Emulation.Common/Interfaces/Services/ICycleTiming.cs",
         "src/BizHawk.Emulation.Common/Interfaces/Services/IDriveLight.cs",
         "src/BizHawk.Emulation.Common/Interfaces/Services/IGLTextureProvider.cs",
         "src/BizHawk.Emulation.Common/Interfaces/Services/IInputPollable.cs",
@@ -465,6 +469,21 @@
       "path": "src/BizHawk.BizInvoke/CallingConventionAdapter.cs",
       "mode": "100644",
       "sha256": "51e7506468f55c2bb5ab811d26e5fa7feec1209d851475c7ca58ac1fd00d71d4"
+    },
+    {
+      "path": "src/BizHawk.Client.Common/movie/bk2/Bk2Controller.cs",
+      "mode": "100755",
+      "sha256": "ec1028a9803bf7cc10f67aca631911f80775a4f154818a853b207ae09f5d7c00"
+    },
+    {
+      "path": "src/BizHawk.Client.Common/movie/bk2/Bk2LogEntryGenerator.cs",
+      "mode": "100644",
+      "sha256": "ed1f981fdd165ef903c54744b3d581a622c558e285930c5991b5785303b5bdd9"
+    },
+    {
+      "path": "src/BizHawk.Client.Common/movie/interfaces/IMovieController.cs",
+      "mode": "100644",
+      "sha256": "dd5f82d58e31fe297638a5347dc6d1b6912a35573ca4d741a0843666e375f1ec"
     },
     {
       "path": "src/BizHawk.Common/BPSPatcher.cs",
@@ -1015,6 +1034,11 @@
       "path": "src/BizHawk.Emulation.Common/Interfaces/IOpenGLProvider.cs",
       "mode": "100644",
       "sha256": "3a43da055ce66c54d71db955dbdb6b9e75d89406d8cc6c6431a62f38997f4a56"
+    },
+    {
+      "path": "src/BizHawk.Emulation.Common/Interfaces/Services/ICycleTiming.cs",
+      "mode": "100644",
+      "sha256": "fdbdf3b49fae890d368a4c14390254656b079462deafa162ca35aab23583cf02"
     },
     {
       "path": "src/BizHawk.Emulation.Common/Interfaces/Services/IDriveLight.cs",

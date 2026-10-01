@@ -1,0 +1,78 @@
+#nullable enable
+
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Puae6;
+
+/// <summary>Why a movie was refused. Nothing is created or played before this is decided.</summary>
+public enum MovieRejection
+{
+	/// <summary>Not recorded with this core (the UAE core of BizHawk, another core, no core at all). There is no conversion between the two.</summary>
+	WrongCore,
+	/// <summary>Not an Amiga movie.</summary>
+	WrongSystem,
+	/// <summary>A key that the header of a PUAE6 movie always has is missing.</summary>
+	MissingKey,
+	/// <summary>Recorded with another build of the guest.</summary>
+	OtherGuest,
+	/// <summary>Recorded with other sync settings (machine, standard, seed, clock, ports, drives).</summary>
+	OtherConfig,
+	/// <summary>Recorded with another Kickstart.</summary>
+	OtherFirmware,
+	/// <summary>Recorded with other disks.</summary>
+	OtherMedia,
+}
+
+public sealed class MovieRejectedException : Exception
+{
+	public MovieRejection Reason { get; }
+	public MovieRejectedException(MovieRejection reason, string message) : base(message) => Reason = reason;
+}
+
+/// <summary>
+/// The part of a BizHawk movie header that belongs to PUAE6 (the keys of a BK2 header are free text and BizHawk keeps the ones it does not know), and the rule that decides
+/// whether a movie may be played by a core. A movie of the UAE core of BizHawk is refused: it was recorded with other buttons, another machine and another guest, and
+/// nothing converts it. docs/03-waterbox.md ("Peliculas") has the scope: the A500 profile with the firmware and disks that were tested.
+/// </summary>
+public static class Puae6Movie
+{
+	public const string Platform = "Amiga";
+	public const string GuestKey = "PUAE6Guest", ConfigKey = "PUAE6Config", FirmwareKey = "PUAE6Firmware", MediaKey = "PUAE6Media";
+
+	static string Hex(byte[] bytes) => BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
+
+	/// <summary>The keys that tie a movie to this core: BizHawk's own Core and Platform, and what the core was built and configured with.</summary>
+	public static Dictionary<string, string> Header(Puae6Core core)
+	{
+		var identity = core.Identity;
+		return new Dictionary<string, string>
+		{
+			["Core"] = Puae6Names.Core,
+			["Platform"] = Platform,
+			[GuestKey] = Hex(identity.GuestSha256),
+			[ConfigKey] = Hex(identity.ConfigHash),
+			[FirmwareKey] = Hex(identity.FirmwareSha256),
+			[MediaKey] = Hex(identity.MediaHash),
+		};
+	}
+
+	/// <summary>Throws <see cref="MovieRejectedException"/> unless the header is the one of a movie recorded with exactly this core setup.</summary>
+	public static void Validate(IReadOnlyDictionary<string, string> header, Puae6Core core)
+	{
+		string Get(string key) => header.TryGetValue(key, out var value) ? value : throw new MovieRejectedException(MovieRejection.MissingKey, $"the movie has no {key}");
+		string recorded = Get("Core");
+		if (recorded != Puae6Names.Core)
+			throw new MovieRejectedException(MovieRejection.WrongCore, $"this movie was recorded with the core {recorded}; {Puae6Names.Core} plays only its own movies (there is no conversion)");
+		if (Get("Platform") != Platform) throw new MovieRejectedException(MovieRejection.WrongSystem, $"this is a movie for {Get("Platform")}, not for the Amiga");
+		var expected = Header(core);
+		void Same(string key, MovieRejection reason, string what)
+		{
+			if (!string.Equals(Get(key), expected[key], StringComparison.OrdinalIgnoreCase)) throw new MovieRejectedException(reason, $"the movie was recorded with {what}");
+		}
+		Same(GuestKey, MovieRejection.OtherGuest, "another build of the guest");
+		Same(ConfigKey, MovieRejection.OtherConfig, "other sync settings");
+		Same(FirmwareKey, MovieRejection.OtherFirmware, "another firmware");
+		Same(MediaKey, MovieRejection.OtherMedia, "other disks");
+	}
+}

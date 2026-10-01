@@ -8691,7 +8691,7 @@
       "title": "Formato de pelicula con el codigo BK2 real de BizHawk: ampliar la captura y grabar y reproducir el input log del core",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T21"
       ],
@@ -8706,13 +8706,15 @@
         "references/machawk.manifest.json",
         "tests/ffi/**",
         "tests/bizhawk-movies/**",
+        "integration/bizhawk/core/**",
+        "tools/build_waterbox.py",
         "tests/test_plan.py"
       ],
       "steps": [
         "Ampliar la captura de MacHawk (references/machawk, pinned) con los tres ficheros pequeños de BK2 que faltan (Bk2LogEntryGenerator, Bk2Controller, IMovieController), con el procedimiento de tools/import_sources.py y sin tocar el checkout: la captura anterior se aparta a build/stale y el import reproduce los mismos bytes mas los nuevos.",
         "Compilar esas clases en el arnes de pruebas y grabar una sesion del core con ellas: el log de entrada es el de BizHawk (grupos separados por |, un caracter por boton, ejes con coma), la clave del log sale de la ControllerDefinition del core y la cabecera fija el core, el guest, el firmware, los discos y los sync settings.",
         "Reproducir el log: lo decodificado es, boton a boton y eje a eje, lo grabado, tambien para el raton absoluto, los puertos y los botones de disco; y una pelicula de otro core (UAE), de otro guest, firmware, discos o sync settings se rechaza con su motivo antes de crear nada, sin conversion automatica.",
-        "Ampliacion de la ficha: T22 solo podia editar pruebas, y la captura (referencias y lock) esta fuera de sus zonas."
+        "Ampliacion de la ficha: T22 solo podia editar pruebas, y la captura (referencias y lock) esta fuera de sus zonas. Tambien integration/bizhawk/core (el core implementa ICycleTiming, que BizHawk guarda en la cabecera de una pelicula, y las reglas de cabecera) y tools/build_waterbox.py (run_ffi acepta entorno y directorio). La captura gano ICycleTiming ademas de las tres clases de BK2."
       ],
       "checks": [
         "IN01",

@@ -48,6 +48,9 @@
           "src/BizHawk.BizInvoke/BizInvoker.cs",
           "src/BizHawk.BizInvoke/BizInvokerUtilities.cs",
           "src/BizHawk.BizInvoke/CallingConventionAdapter.cs",
+          "src/BizHawk.Client.Common/movie/bk2/Bk2Controller.cs",
+          "src/BizHawk.Client.Common/movie/bk2/Bk2LogEntryGenerator.cs",
+          "src/BizHawk.Client.Common/movie/interfaces/IMovieController.cs",
           "src/BizHawk.Common",
           "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisConstraint.cs",
           "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisDict.cs",
@@ -76,6 +79,7 @@
           "src/BizHawk.Emulation.Common/Interfaces/IEmulatorServiceProvider.cs",
           "src/BizHawk.Emulation.Common/Interfaces/IInputCallbackSystem.cs",
           "src/BizHawk.Emulation.Common/Interfaces/IOpenGLProvider.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/ICycleTiming.cs",
           "src/BizHawk.Emulation.Common/Interfaces/Services/IDriveLight.cs",
           "src/BizHawk.Emulation.Common/Interfaces/Services/IGLTextureProvider.cs",
           "src/BizHawk.Emulation.Common/Interfaces/Services/IInputPollable.cs",
@@ -129,7 +133,8 @@
       },
       "capture_notes": [
         "Managed files and upstream csproj are reference inputs: isolated integration must regenerate or replace excluded References DLL dependencies and provision pinned NuGet packages. They are not a ready-to-build closure.",
-        "The two tracked interop .bin files are retained as exact runtime inputs along with assembly/generator; other outputs and private assets are excluded."
+        "The two tracked interop .bin files are retained as exact runtime inputs along with assembly/generator; other outputs and private assets are excluded.",
+        "T22a: four small files that the movie tests need, added to the capture after the first one: the BK2 input log generator, its controller and the interface (src/BizHawk.Client.Common/movie), and ICycleTiming, whose CycleCount a movie records and checks at its end; the existing files are byte-identical."
       ]
     },
     {

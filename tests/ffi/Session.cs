@@ -6,11 +6,17 @@ using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 using Puae6;
+using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
 ///   core NAME [firmware=PATH] [adf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick]
-///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based)
+///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
+///       "record" keeps each unit's input as BizHawk's own BK2 log entry
+///   run NAME UNITS movie=FILE [silent=A-B]                       the input of each unit is read from a .bk2 by the core's frame number (after a load, from the frame of the state)
+///   endmovie NAME FILE                                            writes what "record" kept, with the header of this core, as a .bk2
+///   movieverify NAME FILE UNITS [script=FILE] [press=SPEC]      decodes the .bk2 with BizHawk's Bk2Controller and compares every button and axis of every frame with the scripted input that was recorded
+///   moviecheck NAME FILE                                          validates the header of a .bk2 against this core ("movie accepted" or "movie rejected reason=...")
 ///   save NAME TAG | load NAME TAG | savefile NAME PATH | loadfile NAME PATH   (a refused load prints "rejected NAME TAG reason=... message=...")
 ///   mutate TAG NEW truncate:N | flip:OFFSET | magic | version:N | length:N | grow:N      garbage NEW BYTES      (states made up from other states or from nothing)
 ///   repack TAG NEW offset=N bytes=HEX [length=N]     the payload of a state with some bytes replaced (and cut to `length`), under an envelope whose length and checksum are right
@@ -26,6 +32,9 @@ internal static unsafe partial class Program
 		internal ScriptedController Controller = null!;
 		internal Script? Script;
 		internal bool Mouse = true;
+		internal List<string> Recorded = [];
+		internal Dictionary<string, MovieFile.Movie> Movies = [];
+		internal Dictionary<string, Bk2Controller> MovieControllers = [];
 	}
 
 	static void RunSession(Dictionary<string, string> options)
@@ -58,12 +67,22 @@ internal static unsafe partial class Program
 					var adfs = arguments.TryGetValue("adf", out var list) ? list.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
 					var machine = new Machine { Mouse = settings.ControllerPort1 == Puae6Port1.Mouse, Options = arguments };
 					machine.Core = MakeCore(make, settings, adfs);
+					machine.Core.ControllerDefinition.BuildMnemonicsCache("Amiga");        // what EmuHawk does when it records
 					machine.Controller = new ScriptedController(machine.Core.ControllerDefinition);
 					machines[words[1]] = machine;
 					Console.WriteLine($"core {words[1]} ready");
 					break;
 				}
 				case "run": Run(words[1], machines[words[1]], int.Parse(words[2]), arguments); break;
+				case "endmovie": EndMovie(machines[words[1]], words[2]); Console.WriteLine($"movie {words[2]} frames={machines[words[1]].Recorded.Count}"); break;
+				case "movieverify": MovieVerify(machines[words[1]], words[2], int.Parse(words[3]), arguments); break;
+				case "moviecheck":
+				{
+					var machine = machines[words[1]];
+					try { Puae6Movie.Validate(MovieFile.Read(words[2]).Header, machine.Core); Console.WriteLine($"movie accepted {words[1]}"); }
+					catch (MovieRejectedException e) { Console.WriteLine($"movie rejected {words[1]} reason={e.Reason} message={e.Message}"); }
+					break;
+				}
 				case "save":
 				{
 					var bytes = Save(machines[words[1]].Core);
@@ -109,6 +128,63 @@ internal static unsafe partial class Program
 			}
 		}
 		foreach (var machine in machines.Values) machine.Core.Dispose();
+	}
+
+	static void MovieVerify(Machine machine, string path, int units, Dictionary<string, string> arguments)
+	{
+		var core = machine.Core;
+		var movie = MovieFile.Read(path);
+		var decoded = new Bk2Controller(core.ControllerDefinition, movie.LogKey);
+		Script? script = arguments.TryGetValue("script", out var scriptPath) ? new Script(scriptPath) : null;
+		var presses = ParsePresses(arguments.GetValueOrDefault("press", ""));
+		var live = machine.Controller;
+		if (movie.LogKey != Bk2LogEntryGenerator.GenerateLogKey(core.ControllerDefinition)) throw new InvalidOperationException("the log key of the movie is not the one of this core's buttons");
+		int compared = 0, buttons = core.ControllerDefinition.BoolButtons.Count, axes = core.ControllerDefinition.Axes.Count;
+		for (int frame = 0; frame < units; ++frame)
+		{
+			live.Clear();
+			script?.Fill(live, frame, machine.Mouse);
+			foreach (var (from, to, button) in presses) if (frame + 1 >= from && frame + 1 <= to) live.Press(button);
+			decoded.SetFromMnemonic(movie.Entries[frame]);
+			foreach (var button in core.ControllerDefinition.BoolButtons)
+			{
+				if (live.IsPressed(button) != decoded.IsPressed(button)) throw new InvalidOperationException($"frame {frame}: {button} is {live.IsPressed(button)} in the input and {decoded.IsPressed(button)} in the movie");
+				++compared;
+			}
+			foreach (var axis in core.ControllerDefinition.Axes.Keys)
+			{
+				if (live.AxisValue(axis) != decoded.AxisValue(axis)) throw new InvalidOperationException($"frame {frame}: {axis} is {live.AxisValue(axis)} in the input and {decoded.AxisValue(axis)} in the movie");
+				++compared;
+			}
+		}
+		Console.WriteLine($"movie verified frames={units} buttons={buttons} axes={axes} compared={compared} entries={movie.Entries.Count}");
+	}
+
+	static List<(int From, int To, string Button)> ParsePresses(string spec)
+	{
+		var presses = new List<(int, int, string)>();
+		foreach (var item in spec.Replace('_', ' ').Split(';', StringSplitOptions.RemoveEmptyEntries))
+		{
+			var parts = item.Split(':');
+			var range = parts[0].Split('-');
+			presses.Add((int.Parse(range[0]), int.Parse(range[^1]), parts[1]));
+		}
+		return presses;
+	}
+
+	static void EndMovie(Machine machine, string path)
+	{
+		var core = machine.Core;
+		var header = Puae6Movie.Header(core);
+		var head = new Dictionary<string, string>
+		{
+			["MovieVersion"] = "BizHawk v2.0.0", ["emuVersion"] = "PUAE6 test host", ["Platform"] = header["Platform"], ["GameName"] = "PUAE6 fixture", ["Author"] = "tests/bizhawk-movies",
+			["rerecordCount"] = "0", ["Core"] = header["Core"], [Puae6Movie.GuestKey] = header[Puae6Movie.GuestKey], [Puae6Movie.ConfigKey] = header[Puae6Movie.ConfigKey],
+			[Puae6Movie.FirmwareKey] = header[Puae6Movie.FirmwareKey], [Puae6Movie.MediaKey] = header[Puae6Movie.MediaKey],
+			["SyncSettings"] = System.Text.Json.JsonSerializer.Serialize(core.GetSyncSettings()),
+			["CycleCount"] = core.CycleCount.ToString(System.Globalization.CultureInfo.InvariantCulture), ["ClockRate"] = core.ClockRate.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+		};
+		MovieFile.Write(path, head, Bk2LogEntryGenerator.GenerateLogKey(core.ControllerDefinition), machine.Recorded);
 	}
 
 	static string[] Tokens(string line) => line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -202,18 +278,46 @@ internal static unsafe partial class Program
 			var range = parts[0].Split('-');
 			presses.Add((int.Parse(range[0]), int.Parse(range[^1]), parts[1]));
 		}
+		MovieFile.Movie? movie = null;
+		Bk2Controller? movieController = null;
+		if (arguments.TryGetValue("movie", out var moviePath))
+		{
+			if (!machine.Movies.TryGetValue(moviePath, out movie))
+			{
+				movie = MovieFile.Read(moviePath);
+				Puae6Movie.Validate(movie.Header, core);                  // a movie that is not this core's is refused before anything runs
+				machine.Movies[moviePath] = movie;
+				machine.MovieControllers[moviePath] = new Bk2Controller(core.ControllerDefinition, movie.LogKey);
+			}
+			movieController = machine.MovieControllers[moviePath];
+		}
 		(int From, int To)? silent = arguments.TryGetValue("silent", out var range2) ? (int.Parse(range2.Split('-')[0]), int.Parse(range2.Split('-')[1])) : null;
 		var pixel = new byte[4];
 		var two = new byte[2];
 		for (int i = 0; i < units; ++i)
 		{
 			int frame = core.Frame;                                   // 0-based number of the unit about to run
-			machine.Controller.Clear();
-			if (script is not null) { machine.Script ??= script; script.Fill(machine.Controller, frame, machine.Mouse); }
-			foreach (var (from, to, button) in presses)
-				if (frame + 1 >= from && frame + 1 <= to) machine.Controller.Press(button);
+			IController input = machine.Controller;
+			if (movie is not null)
+			{
+				if (frame >= movie.Entries.Count) throw new InvalidOperationException($"the movie ends at frame {movie.Entries.Count} and the core is at {frame}");
+				movieController!.SetFromMnemonic(movie.Entries[frame]);
+				input = movieController;
+			}
+			else
+			{
+				machine.Controller.Clear();
+				if (script is not null) { machine.Script ??= script; script.Fill(machine.Controller, frame, machine.Mouse); }
+				foreach (var (from, to, button) in presses)
+					if (frame + 1 >= from && frame + 1 <= to) machine.Controller.Press(button);
+				if (arguments.ContainsKey("record"))
+				{
+					while (machine.Recorded.Count > frame) machine.Recorded.RemoveAt(machine.Recorded.Count - 1);      // recording over a branch: the log is the one that was played
+					machine.Recorded.Add(Bk2LogEntryGenerator.GenerateLogEntry(machine.Controller));
+				}
+			}
 			bool off = silent is { } s && frame + 1 >= s.From && frame + 1 <= s.To;
-			core.FrameAdvance(machine.Controller, !off, !off);
+			core.FrameAdvance(input, !off, !off);
 			var video = core.GetVideoBuffer();
 			ulong hash = FnvBasis;
 			for (int p = 0; p < core.BufferWidth * core.BufferHeight; ++p) { BitConverter.TryWriteBytes(pixel, video[p] & 0x00FFFFFF); hash = Fnv(hash, pixel); }

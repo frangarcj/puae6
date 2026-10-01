@@ -321,6 +321,23 @@ Mutaciones sembradas en el core y el sobre (no restaurar cada campo del wrapper,
 Limites: la semilla forma parte de lo que un estado vale (como en el contrato: mismos medios y configuracion), el payload se arma en memoria (decenas de MB por estado y su
 checksum: el coste de snapshot es de T33/T36) y `_driveDisk` se guarda solo para los mensajes de pantalla.
 
+### Resultado de T22a: la pelicula del core con el codigo BK2 de BizHawk
+
+`python3 -m unittest discover -s tests/bizhawk-movies -p test_movie_format.py`. La captura de MacHawk (references/machawk, 366 ficheros) gano cuatro ficheros pequenos con
+`tools/import_sources.py` (la captura anterior se aparto a build/stale y el import reprodujo los mismos bytes): `Bk2LogEntryGenerator`, `Bk2Controller`, `IMovieController` y
+`ICycleTiming`. Las tres primeras clases se compilan en el arnes y graban y leen el input log: un `.bk2` (zip con `Header.txt` e `Input Log.txt`) con una linea `|...|` por
+unidad, un grupo por jugador (botones de consola —Power, el teclado, los botones de disco—, despues los del puerto 1 y los del puerto 2) y un caracter por boton (el
+formato es posicional, asi que los mnemonicos repetidos del teclado Amiga no confunden nada), los ejes con su valor (el raton absoluto), el `LogKey` sale de la
+`ControllerDefinition` del core y la cabecera lleva `Core PUAE6`, `Platform Amiga`, el SHA-256 del guest, el hash de los sync settings, el del firmware y el de los discos (claves
+`PUAE6*`, que BizHawk conserva sin conocerlas) y al final `CycleCount` y `ClockRate`. El core implementa `ICycleTiming`: sus ticks maestros y 512 ticks por colour clock
+(3546895 Hz en PAL, el reloj del chipset en NTSC).
+
+Probado: cada boton y cada eje de cada una de las 240 unidades de la pelicula fixture (teclado con puntuacion, raton, dos joysticks, Power, Next Slot, Insert y Eject) se
+decodifica a lo que se grabo; una pelicula reproducida desde su fichero deja la maquina como la sesion en vivo, unidad a unidad y en el estado final; la cabecera de otro
+core (el UAE de BizHawk), otro sistema, otro guest, otros sync settings, otro firmware u otros discos —o un core con otra region, semilla, unidades, puertos, discos o firmware—
+se rechaza con su motivo antes de que corra una unidad, y no hay conversion de las peliculas de UAE. Mutaciones sembradas (no comprobar el firmware, no comprobar el core, un
+`ClockRate` equivocado) hacen fallar su prueba. El `CycleCount` de la cabecera es el de la ultima unidad.
+
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
 fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)
