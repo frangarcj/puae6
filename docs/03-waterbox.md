@@ -296,6 +296,31 @@ expulsar y reinsertar (las cuatro fases de `swap_timeline`); una segunda unidad 
 901120 bytes se rechaza. Cuatro defectos sembrados (insertar o expulsar sin flanco, `Next Drive` sin vuelta, seleccionar despues de actuar) hacen fallar su prueba.
 El constructor de EmuHawk acepta ADF y rechaza HDF, LHA y discos opticos con un mensaje.
 
+### Resultado de T21b: el estado del wrapper, su sobre y las pruebas de snapshot con el core real
+
+`python3 -m unittest discover -s tests/waterbox-state -p "test_*.py"` (unos ocho minutos). Un estado del core es un sobre alrededor de un payload: el sobre dice para que
+vale (SHA-256 del guest, tamanos de heap, hash de la configuracion de sincronizacion, SHA-256 del firmware y hash de los discos), la longitud y un checksum del
+payload; el payload son los campos del wrapper (`WrapperState`, inventariados en manifests/state-inventory.json, clave `wrapper`) y despues el snapshot del sandbox.
+El Kickstart y los ADF viven en el heap sealed, que un snapshot no restaura: sin la comprobacion del sobre un estado de otro firmware se cargaria sobre una maquina con
+otra ROM sin protestar (el runtime solo avisa por la salida de error). Un load valida TODO antes de tocar el sandbox: magic, version, identidad, longitud (hasta 256 MiB),
+checksum y los campos (una unidad que no existe, un tamano fuera de los buffers); un estado que se rechaza no cambia nada y la instancia sigue donde estaba. Si el
+`LoadStateBinary` del host falla despues de empezar (no deberia ocurrir con un estado que paso el checksum), la instancia queda `_faulted` y se niega a avanzar o guardar
+hasta que un estado se cargue entero.
+
+Lo probado, con el snapshot real del sandbox y nunca con el serializador nativo (WB03/WB05: guardar en 10, 40, 55, 85, 130 y 185 unidades de un escenario de disquete con
+DMA, motor, cambio de disco pendiente y una tecla retenida, avanzar 100, cargar y repetir: las mismas unidades —ticks, hash de imagen, audio y su hash, lag, luz y
+eventos— y el mismo SHA-256 del estado completo; y cien alternancias de guardar/cargar; WB04: un estado de A cargado en un sandbox B nuevo y en un C que ya habia corrido,
+y los tres por turnos; WB06: cada campo del wrapper con efecto causal —referencia del raton, pestillo de Caps Lock, boton retenido, unidad y slot elegidos, los cuatro
+botones de disco retenidos, secuencia de medios— cambia entre guardar y cargar y recupera su efecto; WB11: otro build, otros heaps, otra region, semilla, unidades, puertos,
+discos, menos discos, sin discos y otro firmware, y estados vacios, de tres bytes, con el magic o la version cambiados, de basura, cortados en la cabecera y en el payload,
+con la longitud cambiada, con un bit del payload o del checksum alterado se rechazan con su motivo y la instancia sigue exactamente como un gemelo al que nunca se
+le pidio nada; los bytes despues del final de un estado no se leen; WB14: pokes por los dominios a paginas limpias (justo despues del seal) y sucias se deshacen al restaurar;
+WB15: un estado escrito por un proceso lo carga otro proceso nuevo y las unidades siguientes son las del que lo escribio).
+
+Mutaciones sembradas en el core y el sobre (no restaurar cada campo del wrapper, no comprobar el firmware, no comprobar el checksum) hacen fallar su prueba.
+Limites: la semilla forma parte de lo que un estado vale (como en el contrato: mismos medios y configuracion), el payload se arma en memoria (decenas de MB por estado y su
+checksum: el coste de snapshot es de T33/T36) y `_driveDisk` se guarda solo para los mensajes de pantalla.
+
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
 fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)

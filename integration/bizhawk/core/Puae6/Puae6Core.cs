@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 
 using BizHawk.Common;
 using BizHawk.Emulation.Common;
@@ -46,8 +47,6 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	};
 
 
-	const uint StateFormat = 2;
-
 	readonly Puae6Guest _guest;
 	readonly Puae6SyncSettings _syncSettings;
 	readonly BasicServiceProvider _serviceProvider;
@@ -70,6 +69,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	int _currentDrive, _currentSlot;
 	bool _ejectHeld, _insertHeld, _slotHeld, _driveHeld;
 	ulong _mediaSequence;
+	readonly StateIdentity _identity;           // what a state is valid for: this guest build, these heaps, these settings, this firmware, these disks
+	bool _faulted;                              // a state load failed after the sandbox was touched: the machine is undefined until a state loads whole
 
 	public Puae6Core(CoreComm comm, Puae6Parameters parameters)
 	{
@@ -96,6 +97,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		{
 			InitializeMachine(parameters.Firmware);
 			MountBootDisks();
+			_identity = MakeIdentity(parameters.Firmware);
 			_domains = CreateMemoryDomains();
 			_guest.Host.Seal();
 			_serviceProvider = new BasicServiceProvider(this);
@@ -138,8 +140,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			init.Firmware = rom;
 			init.FirmwareBytes = (ulong)firmware.Length;
 			using var _ = _guest.Host.EnterExit();
-			int result = _guest.Lib.p6w_init_machine((IntPtr)(&init));
-			foreach (var pin in pins) pin.Free();
+			int result;
+			try { result = _guest.Lib.p6w_init_machine((IntPtr)(&init)); }
+			finally { foreach (var pin in pins) pin.Free(); }
 			if (result != P6.Ok)
 				throw new InvalidOperationException($"the PUAE6 guest refused the machine ({P6.ResultName(result)}): {Mershul.PtrToStringUtf8((IntPtr)init.Error)}");
 		}
@@ -208,6 +211,17 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_driveHeld = drive; _slotHeld = slot; _ejectHeld = eject; _insertHeld = insert;
 	}
 
+	StateIdentity MakeIdentity(byte[] firmware)
+	{
+		var heaps = Heaps();
+		var config = $"puae6-config-1;machine=A500;region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
+			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000";
+		var media = new List<byte[]> { BitConverter.GetBytes(_media.Count) };
+		foreach (var disk in _media) media.Add(StateEnvelope.Sha256(disk));
+		return new StateIdentity(_guest.Identity.Sha256, [ heaps.SbrkHeapSizeKB, heaps.SealedHeapSizeKB, heaps.InvisibleHeapSizeKB, heaps.PlainHeapSizeKB, heaps.MmapHeapSizeKB ],
+			StateEnvelope.Sha256(Encoding.UTF8.GetBytes(config)), StateEnvelope.Sha256(firmware), StateEnvelope.Sha256(media.ToArray()));
+	}
+
 	// The areas of the machine (Chip RAM primary, Slow RAM, the ROM), as function hooks that run in the sandbox: the same objects BizHawk makes for
 	// its own cores, over the guest's accesses, so a poke is made by the guest and never by managed code.
 	MemoryDomainList CreateMemoryDomains()
@@ -246,6 +260,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	public bool FrameAdvance(IController controller, bool render, bool renderSound = true)
 	{
+		if (_faulted) throw new InvalidOperationException("a state load failed halfway and the machine is undefined; load a state that is whole, or create the core again");
 		var input = BuildInput(controller, out bool power);
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
 		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0);
@@ -413,38 +428,112 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public PutSettingsDirtyBits PutSettings(object settings) => PutSettingsDirtyBits.None;
 	public PutSettingsDirtyBits PutSyncSettings(Puae6SyncSettings settings) => Puae6SyncSettings.NeedsReboot(_syncSettings, settings) ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
 
-	// ----- IStatable: the snapshot of the sandbox and what the wrapper holds that the sandbox does not (T21 inventories and proves it) -------
+	// ----- IStatable -----------------------------------------------------------------------------------------------------------------
+	// A state is an envelope (StateEnvelope: what it is valid for, its length and its checksum) around a payload: what the wrapper holds that the sandbox does not
+	// (WrapperState, inventoried in manifests/state-inventory.json) and then the snapshot of the sandbox. A load validates all of it, the fields included, before
+	// the sandbox is touched, so a state that is refused changes nothing.
 
 	public bool AvoidRewind => false;
 
+	sealed class WrapperState
+	{
+		public int Frame, LagCount, BufferWidth, BufferHeight, VsyncNumerator, VsyncDenominator, AspectNum, AspectDen, MouseX, MouseY, Disk0, Disk1, CurrentDrive, CurrentSlot;
+		public bool IsLagFrame, DriveLightOn, MouseKnown, CapsLatched, CapsHeld, EjectHeld, InsertHeld, SlotHeld, DriveHeld;
+		public long CycleCount;
+		public ulong MediaSequence;
+	}
+
+	WrapperState Capture() => new()
+	{
+		Frame = Frame, LagCount = LagCount, IsLagFrame = IsLagFrame, CycleCount = CycleCount, BufferWidth = BufferWidth, BufferHeight = BufferHeight,
+		VsyncNumerator = VsyncNumerator, VsyncDenominator = VsyncDenominator, AspectNum = _aspectNum, AspectDen = _aspectDen, DriveLightOn = DriveLightOn,
+		MouseKnown = _mouseKnown, MouseX = _mouseReferenceX, MouseY = _mouseReferenceY, CapsLatched = _capsLatched, CapsHeld = _capsHeld,
+		Disk0 = _driveDisk[0], Disk1 = _driveDisk[1], CurrentDrive = _currentDrive, CurrentSlot = _currentSlot,
+		EjectHeld = _ejectHeld, InsertHeld = _insertHeld, SlotHeld = _slotHeld, DriveHeld = _driveHeld, MediaSequence = _mediaSequence,
+	};
+
+	static void Write(BinaryWriter w, WrapperState s)
+	{
+		w.Write(s.Frame); w.Write(s.LagCount); w.Write(s.IsLagFrame); w.Write(s.CycleCount);
+		w.Write(s.BufferWidth); w.Write(s.BufferHeight); w.Write(s.VsyncNumerator); w.Write(s.VsyncDenominator); w.Write(s.AspectNum); w.Write(s.AspectDen); w.Write(s.DriveLightOn);
+		w.Write(s.MouseKnown); w.Write(s.MouseX); w.Write(s.MouseY); w.Write(s.CapsLatched); w.Write(s.CapsHeld);
+		w.Write(s.Disk0); w.Write(s.Disk1); w.Write(s.CurrentDrive); w.Write(s.CurrentSlot);
+		w.Write(s.EjectHeld); w.Write(s.InsertHeld); w.Write(s.SlotHeld); w.Write(s.DriveHeld); w.Write(s.MediaSequence);
+	}
+
+	WrapperState Parse(BinaryReader r)
+	{
+		WrapperState s;
+		try
+		{
+			s = new WrapperState
+			{
+				Frame = r.ReadInt32(), LagCount = r.ReadInt32(), IsLagFrame = r.ReadBoolean(), CycleCount = r.ReadInt64(),
+				BufferWidth = r.ReadInt32(), BufferHeight = r.ReadInt32(), VsyncNumerator = r.ReadInt32(), VsyncDenominator = r.ReadInt32(), AspectNum = r.ReadInt32(),
+				AspectDen = r.ReadInt32(), DriveLightOn = r.ReadBoolean(), MouseKnown = r.ReadBoolean(), MouseX = r.ReadInt32(), MouseY = r.ReadInt32(),
+				CapsLatched = r.ReadBoolean(), CapsHeld = r.ReadBoolean(), Disk0 = r.ReadInt32(), Disk1 = r.ReadInt32(), CurrentDrive = r.ReadInt32(), CurrentSlot = r.ReadInt32(),
+				EjectHeld = r.ReadBoolean(), InsertHeld = r.ReadBoolean(), SlotHeld = r.ReadBoolean(), DriveHeld = r.ReadBoolean(), MediaSequence = r.ReadUInt64(),
+			};
+		}
+		catch (EndOfStreamException)
+		{
+			throw new StateRejectedException(StateRejection.BadFields, "the payload ends inside the wrapper's fields");
+		}
+		bool ok = s.Frame >= 0 && s.LagCount >= 0 && s.BufferWidth is >= 0 and <= MaxWidth && s.BufferHeight is >= 0 and <= MaxHeight && s.VsyncNumerator > 0 && s.VsyncDenominator > 0
+			&& s.AspectNum > 0 && s.AspectDen > 0 && s.Disk0 >= -1 && s.Disk0 < _media.Count && s.Disk1 >= -1 && s.Disk1 < _media.Count
+			&& s.CurrentDrive >= 0 && s.CurrentDrive < _syncSettings.FloppyDrives && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count);
+		if (!ok) throw new StateRejectedException(StateRejection.BadFields, "the state has a field that this machine cannot have");
+		return s;
+	}
+
+	void Apply(WrapperState s)
+	{
+		Frame = s.Frame; LagCount = s.LagCount; IsLagFrame = s.IsLagFrame; CycleCount = s.CycleCount;
+		BufferWidth = s.BufferWidth; BufferHeight = s.BufferHeight; VsyncNumerator = s.VsyncNumerator; VsyncDenominator = s.VsyncDenominator;
+		_aspectNum = s.AspectNum; _aspectDen = s.AspectDen; DriveLightOn = s.DriveLightOn;
+		_mouseKnown = s.MouseKnown; _mouseReferenceX = s.MouseX; _mouseReferenceY = s.MouseY; _capsLatched = s.CapsLatched; _capsHeld = s.CapsHeld;
+		_driveDisk[0] = s.Disk0; _driveDisk[1] = s.Disk1; _currentDrive = s.CurrentDrive; _currentSlot = s.CurrentSlot;
+		_ejectHeld = s.EjectHeld; _insertHeld = s.InsertHeld; _slotHeld = s.SlotHeld; _driveHeld = s.DriveHeld; _mediaSequence = s.MediaSequence;
+		_soundFrames = 0;                          // pending output of the timeline that was left is not part of this one
+	}
+
 	public void SaveStateBinary(BinaryWriter writer)
 	{
+		if (_faulted) throw new InvalidOperationException("the machine is undefined after a failed state load; there is nothing to save");
 		using var _ = _guest.Host.EnterExit();
-		_guest.Host.SaveStateBinary(writer);
-		writer.Write(StateFormat);
-		writer.Write(Frame); writer.Write(LagCount); writer.Write(IsLagFrame); writer.Write(CycleCount);
-		writer.Write(BufferWidth); writer.Write(BufferHeight); writer.Write(VsyncNumerator); writer.Write(VsyncDenominator);
-		writer.Write(_aspectNum); writer.Write(_aspectDen); writer.Write(DriveLightOn);
-		writer.Write(_mouseKnown); writer.Write(_mouseReferenceX); writer.Write(_mouseReferenceY);
-		writer.Write(_capsLatched); writer.Write(_capsHeld);
-		writer.Write(_driveDisk[0]); writer.Write(_driveDisk[1]); writer.Write(_currentDrive); writer.Write(_currentSlot);
-		writer.Write(_ejectHeld); writer.Write(_insertHeld); writer.Write(_slotHeld); writer.Write(_driveHeld); writer.Write(_mediaSequence);
+		byte[] payload;
+		using (var memory = new MemoryStream())
+		{
+			using (var inner = new BinaryWriter(memory, Encoding.UTF8, true))
+			{
+				Write(inner, Capture());
+				inner.Flush();
+				_guest.Host.SaveStateBinary(inner);                  // writes into the stream behind the writer
+				inner.Flush();
+			}
+			payload = memory.ToArray();
+		}
+		StateEnvelope.Write(writer, _identity, payload);
 	}
 
 	public void LoadStateBinary(BinaryReader reader)
 	{
+		var payload = StateEnvelope.Read(reader, _identity);          // refuses, before anything is touched, a state that is not this machine's, whole and unaltered
+		using var stream = new MemoryStream(payload, false);
+		using var inner = new BinaryReader(stream);
+		var fields = Parse(inner);                                    // and one whose fields cannot be
 		using var _ = _guest.Host.EnterExit();
-		_guest.Host.LoadStateBinary(reader);
-		if (reader.ReadUInt32() != StateFormat) throw new InvalidOperationException("the state was written by another version of the wrapper");
-		Frame = reader.ReadInt32(); LagCount = reader.ReadInt32(); IsLagFrame = reader.ReadBoolean(); CycleCount = reader.ReadInt64();
-		BufferWidth = reader.ReadInt32(); BufferHeight = reader.ReadInt32(); VsyncNumerator = reader.ReadInt32(); VsyncDenominator = reader.ReadInt32();
-		_aspectNum = reader.ReadInt32(); _aspectDen = reader.ReadInt32(); DriveLightOn = reader.ReadBoolean();
-		_mouseKnown = reader.ReadBoolean(); _mouseReferenceX = reader.ReadInt32(); _mouseReferenceY = reader.ReadInt32();
-		_capsLatched = reader.ReadBoolean(); _capsHeld = reader.ReadBoolean();
-		_driveDisk[0] = reader.ReadInt32(); _driveDisk[1] = reader.ReadInt32(); _currentDrive = reader.ReadInt32(); _currentSlot = reader.ReadInt32();
-		_ejectHeld = reader.ReadBoolean(); _insertHeld = reader.ReadBoolean(); _slotHeld = reader.ReadBoolean(); _driveHeld = reader.ReadBoolean();
-		_mediaSequence = reader.ReadUInt64();
-		_soundFrames = 0;                          // pending output of the previous unit belongs to the timeline that was left
+		try
+		{
+			_guest.Host.LoadStateBinary(inner);
+		}
+		catch
+		{
+			_faulted = true;                                          // the sandbox may be half restored: no unit and no save until a state loads whole
+			throw;
+		}
+		Apply(fields);
+		_faulted = false;
 	}
 
 	public void Dispose()

@@ -6831,5 +6831,270 @@
         "pending": "no probe can see this state until T15 adds an accessor"
       }
     }
+  },
+  "wrapper": {
+    "purpose": "State of the PUAE6 core (integration/bizhawk/core/Puae6/Puae6Core.cs) that the sandbox snapshot does not contain, or that the wrapper must not leave behind (T21b). Every instance field of the class is listed, with what it is and why it is or is not in a state; tests/waterbox-state/test_wrapper_inventory.py compares this list with the fields the compiled class has (by reflection), so a field that is added without being classified fails the test.",
+    "policy_values": {
+      "saved": "A field of WrapperState: written in the state, validated before the sandbox is touched and put back by a load. It has a causal effect on a later unit, or is a counter that BizHawk shows or a movie depends on, or is the output that the state's own frame has to show.",
+      "construction": "Fixed when the core is created and never changes afterwards; what a state is valid for is checked against it by the envelope (guest, heaps, config, firmware, media), so a state never needs to carry it.",
+      "output": "A buffer that every unit rewrites completely before BizHawk reads it; stale after a load until the next unit, which is what BizHawk expects of a core (the picture shown after a load is the last one drawn).",
+      "cleared": "Reset by a load: it belongs to the timeline that was left.",
+      "lifecycle": "Not a property of the emulated machine: object lifetime and error state."
+    },
+    "fields": {
+      "_guest": {
+        "policy": "construction",
+        "what": "the loaded guest: host, BizInvoke bindings and the identity that was verified"
+      },
+      "_syncSettings": {
+        "policy": "construction",
+        "what": "the sync settings; the config hash of the envelope covers every one of them"
+      },
+      "_serviceProvider": {
+        "policy": "construction",
+        "what": "services of the core (memory domains)"
+      },
+      "_domains": {
+        "policy": "construction",
+        "what": "BizHawk's wrappers of the guest's memory areas; function hooks, they hold no address of the machine's memory"
+      },
+      "_media": {
+        "policy": "construction",
+        "what": "the disks the core was given; the media hash of the envelope covers their contents and order"
+      },
+      "_mediaNames": {
+        "policy": "construction",
+        "what": "names for on-screen messages only"
+      },
+      "_identity": {
+        "policy": "construction",
+        "what": "what a state is valid for"
+      },
+      "_videoBuffer": {
+        "policy": "output",
+        "what": "the last picture, converted to ARGB"
+      },
+      "_soundBuffer": {
+        "policy": "output",
+        "what": "the last unit's PCM"
+      },
+      "_soundFrames": {
+        "policy": "cleared",
+        "what": "how many frames of _soundBuffer BizHawk has not taken yet"
+      },
+      "_disposed": {
+        "policy": "lifecycle",
+        "what": "Dispose was called"
+      },
+      "_faulted": {
+        "policy": "lifecycle",
+        "what": "a state load failed after the sandbox was touched: no unit and no save until a state loads whole"
+      },
+      "CoreComm": {
+        "policy": "construction",
+        "what": "BizHawk's messages and firmware provider"
+      },
+      "Frame": {
+        "policy": "saved",
+        "proof": "WB06 counters",
+        "what": "units run since ResetCounters or since the movie's origin",
+        "state": [
+          "Frame"
+        ]
+      },
+      "LagCount": {
+        "policy": "saved",
+        "proof": "WB06 counters",
+        "what": "lag frames counted",
+        "state": [
+          "LagCount"
+        ]
+      },
+      "IsLagFrame": {
+        "policy": "saved",
+        "proof": "WB06 counters",
+        "what": "the last unit read no input register",
+        "state": [
+          "IsLagFrame"
+        ]
+      },
+      "CycleCount": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "master ticks of the last unit",
+        "state": [
+          "CycleCount"
+        ]
+      },
+      "BufferWidth": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "size of the last picture",
+        "state": [
+          "BufferWidth"
+        ]
+      },
+      "BufferHeight": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "size of the last picture",
+        "state": [
+          "BufferHeight"
+        ]
+      },
+      "VsyncNumerator": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "cadence of the last unit",
+        "state": [
+          "VsyncNumerator"
+        ]
+      },
+      "VsyncDenominator": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "cadence of the last unit",
+        "state": [
+          "VsyncDenominator"
+        ]
+      },
+      "_aspectNum": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "pixel aspect of the last picture",
+        "state": [
+          "AspectNum"
+        ]
+      },
+      "_aspectDen": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "pixel aspect of the last picture",
+        "state": [
+          "AspectDen"
+        ]
+      },
+      "DriveLightOn": {
+        "policy": "saved",
+        "proof": "WB03",
+        "what": "drive light of the last unit",
+        "state": [
+          "DriveLightOn"
+        ]
+      },
+      "_mouseKnown": {
+        "policy": "saved",
+        "proof": "WB06 mouse",
+        "what": "the pointer position is known, so the first unit does not jump",
+        "state": [
+          "MouseKnown"
+        ]
+      },
+      "_mouseReferenceX": {
+        "policy": "saved",
+        "proof": "WB06 mouse",
+        "what": "where the machine was last told the pointer was: the next delta is measured from here",
+        "state": [
+          "MouseX"
+        ]
+      },
+      "_mouseReferenceY": {
+        "policy": "saved",
+        "proof": "WB06 mouse",
+        "what": "same, vertical",
+        "state": [
+          "MouseY"
+        ]
+      },
+      "_capsLatched": {
+        "policy": "saved",
+        "proof": "WB06 caps",
+        "what": "the Caps Lock latch",
+        "state": [
+          "CapsLatched"
+        ]
+      },
+      "_capsHeld": {
+        "policy": "saved",
+        "proof": "WB06 caps",
+        "what": "the Caps Lock button was down in the previous unit: a held button does not toggle again",
+        "state": [
+          "CapsHeld"
+        ]
+      },
+      "_driveDisk": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "the disk in each drive, for the on-screen messages only (not causal: the machine's own drive state is in the snapshot)",
+        "state": [
+          "Disk0",
+          "Disk1"
+        ]
+      },
+      "_currentDrive": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "the drive that Eject and Insert act on",
+        "state": [
+          "CurrentDrive"
+        ]
+      },
+      "_currentSlot": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "the disk that Insert puts in",
+        "state": [
+          "CurrentSlot"
+        ]
+      },
+      "_ejectHeld": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "button edge",
+        "state": [
+          "EjectHeld"
+        ]
+      },
+      "_insertHeld": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "button edge",
+        "state": [
+          "InsertHeld"
+        ]
+      },
+      "_slotHeld": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "button edge",
+        "state": [
+          "SlotHeld"
+        ]
+      },
+      "_driveHeld": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "button edge",
+        "state": [
+          "DriveHeld"
+        ]
+      },
+      "_mediaSequence": {
+        "policy": "saved",
+        "proof": "WB06 media",
+        "what": "the last sequence number given to the machine, which only grows",
+        "state": [
+          "MediaSequence"
+        ]
+      },
+      "ControllerDefinition": {
+        "policy": "construction",
+        "what": "the buttons and axes; they depend on the sync settings and on whether there are disks"
+      },
+      "InputCallbacks": {
+        "policy": "construction",
+        "what": "BizHawk's input callback list; the machine has no callback per input read, so nothing ever calls it"
+      }
+    }
   }
 }

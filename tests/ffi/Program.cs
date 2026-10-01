@@ -35,6 +35,8 @@ internal static unsafe partial class Program
 				case "open": Open(options, int.Parse(options["units"])); break;
 				case "heaps": { var h = Puae6Core.Heaps(); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break; }
 				case "play": Play(options); break;
+				case "session": RunSession(options); break;
+				case "inventory": Inventory(); break;
 				case "media": Media(options); break;
 				case "av": Av(options); break;
 				case "domains": Domains(options); break;
@@ -48,6 +50,16 @@ internal static unsafe partial class Program
 			Console.Error.WriteLine(e is GuestRejectedException or InvalidOperationException ? e.Message : e.ToString());
 			return 1;
 		}
+	}
+
+	/// <summary>Every instance field of the core and every field of its saved state, by reflection: tests/waterbox-state compares them with manifests/state-inventory.json.</summary>
+	static void Inventory()
+	{
+		var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly;
+		foreach (var field in typeof(Puae6Core).GetFields(flags))
+			Console.WriteLine($"field {(field.Name.StartsWith('<') ? field.Name[1..field.Name.IndexOf('>')] : field.Name)}");
+		var state = typeof(Puae6Core).GetNestedType("WrapperState", System.Reflection.BindingFlags.NonPublic) ?? throw new InvalidOperationException("WrapperState is gone");
+		foreach (var field in state.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)) Console.WriteLine($"saved {field.Name}");
 	}
 
 	static void Layout()

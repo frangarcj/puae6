@@ -8596,7 +8596,7 @@
       "title": "Estado del wrapper con sobre y rechazo transaccional, y las pruebas de snapshot con el core real",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T21a",
         "T14"
@@ -8619,7 +8619,7 @@
         "Inventariar en manifests/state-inventory.json cada campo de C# del core con su politica (guardado, derivable o no causal) y la prueba que lo cubre; guardar con el snapshot todo el estado causal que el sandbox no contiene.",
         "Dar al estado un sobre propio antes del snapshot de Waterbox (magic, version, SHA-256 del guest, heaps, config, firmware, medios, longitud y checksum) y validarlo ENTERO antes de tocar el sandbox: un estado de otro build, otro ROM, otra configuracion, truncado, manipulado o del core UAE se rechaza con un error y la instancia sigue donde estaba.",
         "Probar WB03 (guardar N, avanzar M, restaurar, repetir M: mismo hash de hardware, video y audio), WB05 (motor de disco, DMA y audio, tecla retenida y un cambio de disco pendiente) y WB06 (cada campo de C# con efecto causal cambia entre guardar y cargar y recupera su efecto).",
-        "Probar WB04 con el core: restaurar un estado hecho en A en un sandbox B nuevo, con direcciones de buffers distintas, y dos sandboxes alternados; y WB11, WB14 y WB15 con el core real."
+        "Probar WB04 con el core: restaurar un estado hecho en A en un sandbox B nuevo, con direcciones de buffers distintas, y dos sandboxes alternados; y WB11, WB14 y WB15 con el core real. El sobre incluye la configuracion de sincronizacion completa (semilla incluida) y los discos; el estado del wrapper esta inventariado en manifests/state-inventory.json (clave wrapper) y una prueba por reflexion exige que cada campo del core tenga decision."
       ],
       "checks": [
         "WB03",
