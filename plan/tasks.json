@@ -8948,7 +8948,7 @@
       "title": "Estado nativo de CPU y scheduler (chunks CPU y SCHD)",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15a",
         "T15b1",
@@ -8968,13 +8968,16 @@
         "manifests/state-inventory.json",
         "tests/test_plan.py",
         "CMakeLists.txt",
-        "bridge/state_cpu.cpp"
+        "bridge/state_cpu.cpp",
+        "manifests/waterbox-memory.json",
+        "reports/tasks/T15b.md"
       ],
       "steps": [
         "Serializar los componentes causales de cpu y scheduler del inventario: registros, SR/pila, PC, prefetch, pipeline de IPL, halted, spcflags, estado estatico de m68k_go_unit (suspended, hardboot), PRNG, contador de ciclos, residuo fraccional, ranuras y turno del scheduler secundario, contadores de hsync/vsync. Los componentes rebuild se reconstruyen tras la carga.",
         "Los accesores a estado local de fichero son parches de patches/winuae que añaden la pareja guardar/cargar junto al estado; un parche por fichero, sin cambiar comportamiento.",
         "Prueba por chunk: guardar en la unidad N, avanzar, cargar solo el chunk y comprobar que el probe del subsistema vuelve a su digest de N; cada campo extension cambiado antes de guardar cambia el futuro.",
-        "Division: T15b1 (CPU, chunk P6CP, parches de newcpu.cpp y main.cpp, carga sobre una imagen sin arrancar) y T15b2 (scheduler, chunk P6SC, parches de events.cpp, custom.cpp y disk.cpp); T15b es el cierre y conserva la puerta original."
+        "Division: T15b1 (CPU, chunk P6CP, parches de newcpu.cpp y main.cpp, carga sobre una imagen sin arrancar) y T15b2 (scheduler, chunk P6SC, parches de events.cpp, custom.cpp y disk.cpp); T15b es el cierre y conserva la puerta original.",
+        "Ampliacion touch: manifests/waterbox-memory.json, que se vuelve a registrar porque los parches del motor añaden codigo al guest de Waterbox (+16 KiB comprometidos, mismo hash de imagen y presupuestos), y el informe reports/tasks/T15b.md, que dice por que DET02 y el efecto sobre el futuro de cada campo se cierran en T15."
       ],
       "checks": [
         "DET02"
