@@ -2,6 +2,7 @@
 //   Ffi.dll layout
 //   Ffi.dll pin
 //   Ffi.dll identity --guest puae6.wbx --sha HASH
+//   Ffi.dll play --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --firmware input_all.rom --script script.txt --units N [--port1 joystick] [--ntsc] [--power-at U,U]
 //   Ffi.dll open --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --manifest waterbox-memory.json --firmware boot.rom --units N
 // Every check prints a line "ok ..." and any failure ends the process with a nonzero exit code and the reason on stderr.
 using System.Runtime.InteropServices;
@@ -13,7 +14,7 @@ using BizHawk.Emulation.Cores.Waterbox;
 
 using Puae6;
 
-internal static unsafe class Program
+internal static unsafe partial class Program
 {
 	static void Require(bool ok, string what)
 	{
@@ -32,6 +33,11 @@ internal static unsafe class Program
 				case "pin": Console.WriteLine("pin " + Puae6Guest.BuiltWithSha256); break;
 				case "identity": Identity(options["guest"], options["sha"]); break;
 				case "open": Open(options, int.Parse(options["units"])); break;
+				case "heaps": { var h = Puae6Core.Heaps(); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break; }
+				case "play": Play(options); break;
+				case "av": Av(options); break;
+				case "domains": Domains(options); break;
+				case "two": Two(options); break;
 				default: throw new ArgumentException("usage: layout | identity | open");
 			}
 			return 0;

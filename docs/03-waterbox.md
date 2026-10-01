@@ -234,6 +234,35 @@ recibo, que queda en el ensamblado (`Puae6Guest.BuiltWithSha256`): el wrapper ab
   sin ruta; en macOS solo lo encuentra en el directorio de trabajo, asi que el arnes copia la biblioteca junto al ejecutable y lo ejecuta desde alli
   (como los arneses de MacHawk). EmuHawk la tiene junto al ejecutable.
 
+### Resultado de T20c: el core PUAE6 con la interfaz de BizHawk
+
+`python3 -m unittest discover -s tests/ffi -p test_core.py` (once pruebas, unos dos minutos). `Puae6Core` (integration/bizhawk/core/Puae6) es
+independiente del core UAE de BizHawk: ID propio (`PUAE6`), guest propio y ninguno de sus estados; no hereda de `WaterboxCore` porque su ABI de
+`FrameAdvance` (`FrameInfo`) no es la p6w, y usa solo `WaterboxHost`, `WaterboxMemoryDomain` y `BasicServiceProvider` de BizHawk. Una unidad es
+exactamente una llamada a `p6w_frame_advance` y el reset, si lo hay, se encola justo antes (el orden de docs/02-contracts.md).
+
+- Entrada (IN01): los mismos guiones que tests/input pasan por `p6_run_frame` se juegan aqui a traves de `IController` (teclas, botones, ejes absolutos
+  del raton) y lo que el fixture input_all deja en la Chip RAM es, palabra a palabra, lo mismo, en PAL y NTSC, con dos joysticks, con teclas y con
+  Caps Lock. El raton de BizHawk es una posicion y la maquina toma movimiento: el wrapper manda la diferencia con un maximo de 120 cuentas por eje y
+  unidad y el resto no se pierde, se manda despues (probado contra un guion nativo 120, 120, 60); la primera unidad solo aprende donde esta el
+  puntero. Caps Lock es un pestillo que una pulsacion conmuta. `Power` es el reset duro (no hay un Reset aparte: nadie lo implemento) y los
+  ticks y el contador de unidades siguen creciendo. Todo esto (referencia del raton, pestillo) es estado causal del wrapper y se guarda en el estado.
+- A/V: tamano activo, aspecto, cadencia, hash de la imagen y frames de audio por unidad son los de p6_headless en las dos normas; el PCM entero es
+  el del arnes de Waterbox; pedir nada de imagen y sonido durante un tramo no cambia lo que sigue; el alfa de cada pixel es opaco. La cadencia que
+  informa `VsyncNumerator/Denominator` es la de la unidad (cambia con los campos entrelazados). El audio es sincrono, 48000 Hz, estereo intercalado.
+  Lag y luz de unidad salen de la maquina (`P6_FRAME_LAG`, `P6_FRAME_DRIVE_LIGHT`): con el motor encendido y sin disco la luz esta encendida.
+  `InputCallbacks` existe y nunca se dispara: el motor no llama al host en cada lectura de entrada.
+- Dominios (WB07): Chip RAM (principal), Slow RAM y ROM (512 KiB: lo que el motor asigna, la imagen de 256 KiB espejada), big endian, palabras de
+  16 bits, funciones del guest; ningun puntero temporal ni region vacia. Un poke antes de la primera unidad (paginas que nadie ha escrito desde
+  el seal) lo hace el guest, la ROM no lo acepta y fuera de rango lanza.
+- Dos sandboxes (WB04): dos maquinas del mismo guest con semilla y entrada distintas, por turnos en un proceso, hacen cada una lo que haria sola, y una
+  sigue tras liberar la otra.
+- Mutaciones sembradas en el core (botones del raton cambiados, sin pestillo, sin limite de 120, Power sin reset, luz ignorada, lag invertido,
+  sin alfa): cada una hace fallar su prueba.
+
+Lo que T20c no hace: medios (el guest no exporta eventos de medios todavia, T22/T27), estados con inventario completo del wrapper (T21), registro en
+EmuHawk (T20) ni el firmware por la base de datos de BizHawk.
+
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
 fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)

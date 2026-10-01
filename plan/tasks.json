@@ -8469,7 +8469,7 @@
       "title": "Core PUAE6: entrada, video y audio sincronos, sync settings, region, luz de unidad, dominios de memoria y dos sandboxes",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T20a",
         "T20b"
@@ -8491,7 +8491,7 @@
         "Implementar la clase del core con core ID nuevo (no el de UAE) sobre el ABI p6w: IEmulator, IVideoProvider (XRGB8888, ancho, alto y stride del contrato), ISoundProvider sincrono (frames stereo, tasa fija), IInputPollable con el lag de la unidad, IDriveLight, IRegionable y sync settings (PAL/NTSC, semilla, epoca) que entran en la config del guest. No retro_* ni globales del motor.",
         "Traducir la entrada de BizHawk al paquete p6_input (teclas Amiga, dos puertos, deltas de raton) con las reglas de docs/02-contracts.md y probar press/release, el raton relativo y los puertos.",
         "Exponer Chip/Slow/Fast RAM y ROM como MemoryDomain con flags y orden de bytes correctos usando las funciones de acceso de T20a; probar lecturas de varios bytes, limites, y que los pokes pasan por el guest.",
-        "Probar las capacidades A/V, los buffers (canarios) y el aislamiento al alternar dos sandboxes del mismo guest."
+        "Probar las capacidades A/V, los buffers (canarios) y el aislamiento al alternar dos sandboxes del mismo guest. El core se escribio sin heredar de WaterboxCore (su FrameInfo no es la ABI p6w). Dos tipos de BizHawk que la captura no trae (MemoryDomainList y la extension AddAxis, ademas de GameInfo) estan en Support/StandaloneStubs.cs."
       ],
       "checks": [
         "ABI01",
