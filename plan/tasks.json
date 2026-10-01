@@ -8643,7 +8643,7 @@
       "title": "Cerrar snapshots Waterbox y estado del wrapper",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T20",
         "T14",
