@@ -43,6 +43,8 @@ STRUCTS = {
     "P6wInit": ("p6w_init", ["AbiVersion", "StructSize", "Config", "Firmware", "FirmwareBytes", "MediaCount", "Reserved0", "Media", "Result", "Reserved1", "Error"]),
     "P6wFrame": ("p6w_frame", ["AbiVersion", "StructSize", "Frame", "Result", "Reserved", "Error"]),
     "P6wMemoryArea": ("p6w_memory_area", ["Data", "Name", "Size", "Flags"]),
+    "P6MediaEvent": ("p6_media_event", ["AbiVersion", "StructSize", "Type", "Drive", "MediaIndex", "Reserved0", "Sequence", "Reserved"]),
+    "P6wMediaEvent": ("p6w_media_event", ["AbiVersion", "StructSize", "Event", "Result", "Reserved", "Error"]),
 }
 SPECIAL = {("P6Input", "Port0"): "offsetof(p6_input, ports) + 0 * sizeof(p6_port_input)", ("P6Input", "Port1"): "offsetof(p6_input, ports) + 1 * sizeof(p6_port_input)"}
 
@@ -82,7 +84,8 @@ class FfiTests(unittest.TestCase):
         lines.append("  const unsigned long long layout[] = {sizeof(p6w_init), offsetof(p6w_init, result), offsetof(p6w_init, error), offsetof(p6w_init, media),"
                      " sizeof(p6w_media), sizeof(p6w_frame), offsetof(p6w_frame, frame), offsetof(p6w_frame, result), offsetof(p6w_frame, error),"
                      " sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config), offsetof(p6_frame, audio), offsetof(p6_frame, master_ticks),"
-                     " sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags)};")
+                     " sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags),"
+                     " sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error)};")
         lines.append("  printf(\"layout\"); for (unsigned long long v : layout) printf(\" %llu\", v); printf(\"\\n\");")
         for struct, (c_name, fields) in STRUCTS.items():
             lines.append(f"  printf(\"size {struct} %zu\\n\", sizeof({c_name}));")

@@ -22,6 +22,10 @@ public sealed class Puae6Parameters
 	/// <summary>The Kickstart (or the micro-ROM of a test): copied by the guest into its sealed heap.</summary>
 	public byte[] Firmware { get; set; } = [ ];
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
+	/// <summary>The ADF images the machine may use (880 KiB each, at most 16): the first <see cref="Puae6SyncSettings.FloppyDrives"/> are in a drive at power-on.</summary>
+	public IReadOnlyList<byte[]> Media { get; set; } = new List<byte[]>();
+	/// <summary>Names to show when a disk is selected or inserted; "disk N" where missing.</summary>
+	public IReadOnlyList<string> MediaNames { get; set; } = new List<string>();
 }
 
 /// <summary>
@@ -41,7 +45,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = 16384,
 	};
 
-	const uint StateFormat = 1;
+
+	const uint StateFormat = 2;
 
 	readonly Puae6Guest _guest;
 	readonly Puae6SyncSettings _syncSettings;
@@ -56,13 +61,28 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	bool _mouseKnown;
 	int _mouseReferenceX, _mouseReferenceY;     // the position the machine was last told about
 	bool _capsLatched, _capsHeld;               // the Caps Lock latch, and whether the button was down in the previous frame
+	// Media: the disk in each drive (an index into the media, -1 empty), what Next Drive and Next Slot selected, whether each disk button was down in the
+	// previous frame (a press is an edge: a held button does not repeat) and the last sequence number given to the machine, which only ever grows.
+	const int Drives = 2;
+	readonly List<byte[]> _media;
+	readonly IReadOnlyList<string> _mediaNames;
+	readonly int[] _driveDisk = [ -1, -1 ];
+	int _currentDrive, _currentSlot;
+	bool _ejectHeld, _insertHeld, _slotHeld, _driveHeld;
+	ulong _mediaSequence;
 
 	public Puae6Core(CoreComm comm, Puae6Parameters parameters)
 	{
 		CoreComm = comm;
 		_syncSettings = parameters.SyncSettings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
-		ControllerDefinition = Controllers.Define(_syncSettings);
+		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the A500 has {Drives} floppy drives at most", nameof(parameters));
+		if (parameters.Media.Count > P6.MaxMedia) throw new ArgumentException($"at most {P6.MaxMedia} disks are supported", nameof(parameters));
+		foreach (var disk in parameters.Media)
+			if (disk.Length != P6.AdfBytes) throw new ArgumentException($"an ADF has {P6.AdfBytes} bytes, this one {disk.Length}", nameof(parameters));
+		_media = parameters.Media.Select(disk => (byte[])disk.Clone()).ToList();
+		_mediaNames = parameters.MediaNames;
+		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
 		BufferWidth = MaxWidth;
 		BufferHeight = _syncSettings.Region == Puae6Region.NTSC ? 486 : MaxHeight;
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
@@ -75,6 +95,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		try
 		{
 			InitializeMachine(parameters.Firmware);
+			MountBootDisks();
 			_domains = CreateMemoryDomains();
 			_guest.Host.Seal();
 			_serviceProvider = new BasicServiceProvider(this);
@@ -92,6 +113,19 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	void InitializeMachine(byte[] firmware)
 	{
 		var init = new P6wInit { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wInit) };
+		var pins = new List<GCHandle>();
+		init.MediaCount = (uint)_media.Count;
+		for (int i = 0; i < _media.Count; ++i)
+		{
+			pins.Add(GCHandle.Alloc(_media[i], GCHandleType.Pinned));
+			var entry = init.Media.At(i);
+			entry->Type = P6.MediaAdf;
+			byte[] id;
+			using (var sha = System.Security.Cryptography.SHA256.Create()) id = sha.ComputeHash(_media[i]);
+			for (int b = 0; b < P6.ContentIdSize; ++b) entry->ContentId[b] = id[b];
+			entry->Data = (byte*)pins[i].AddrOfPinnedObject();
+			entry->Bytes = (ulong)_media[i].Length;
+		}
 		init.Config.AbiVersion = P6.AbiVersion;
 		init.Config.StructSize = (uint)sizeof(P6Config);
 		init.Config.Machine = P6.MachineA500;
@@ -105,9 +139,73 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			init.FirmwareBytes = (ulong)firmware.Length;
 			using var _ = _guest.Host.EnterExit();
 			int result = _guest.Lib.p6w_init_machine((IntPtr)(&init));
+			foreach (var pin in pins) pin.Free();
 			if (result != P6.Ok)
 				throw new InvalidOperationException($"the PUAE6 guest refused the machine ({P6.ResultName(result)}): {Mershul.PtrToStringUtf8((IntPtr)init.Error)}");
 		}
+	}
+
+	// Disks that are in a drive at power-on: events queued before the first unit set the boot disks (docs/02-contracts.md).
+	void MountBootDisks()
+	{
+		using var _ = _guest.Host.EnterExit();
+		for (int drive = 0; drive < Math.Min(_syncSettings.FloppyDrives, _media.Count); ++drive)
+		{
+			EnqueueMedia(P6.MediaEventMount, (uint)drive, (uint)drive);
+			_driveDisk[drive] = drive;
+		}
+	}
+
+	/// <summary>How many media events the machine has been given: the last sequence number. A held button does not make more than one.</summary>
+	public ulong MediaEventsSent => _mediaSequence;
+
+	// The sequence number only grows, also across ResetCounters, because the machine accepts a strictly increasing one for the whole session; it moves when the
+	// machine accepted the event, and is part of the state.
+	void EnqueueMedia(uint type, uint drive, uint mediaIndex)
+	{
+		var call = new P6wMediaEvent { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wMediaEvent) };
+		call.Event.AbiVersion = P6.AbiVersion;
+		call.Event.StructSize = (uint)sizeof(P6MediaEvent);
+		call.Event.Type = type;
+		call.Event.Drive = drive;
+		call.Event.MediaIndex = mediaIndex;
+		call.Event.Sequence = _mediaSequence + 1;
+		int result = _guest.Lib.p6w_media_event_enqueue((IntPtr)(&call));
+		if (result != P6.Ok) throw new InvalidOperationException($"the machine refused a media event ({P6.ResultName(result)}): {Mershul.PtrToStringUtf8((IntPtr)call.Error)}");
+		_mediaSequence = call.Event.Sequence;
+	}
+
+	string DiskName(int slot) => slot < _mediaNames.Count && !string.IsNullOrEmpty(_mediaNames[slot]) ? _mediaNames[slot] : $"disk {slot + 1}";
+
+	// The disk buttons, by edge. Selection first (Next Drive, Next Slot), then the action on what is selected (Eject, else Insert), at the head of the unit.
+	void ApplyDiskButtons(IController controller)
+	{
+		if (_media.Count == 0) return;
+		bool drive = controller.IsPressed(Controllers.NextDrive), slot = controller.IsPressed(Controllers.NextSlot);
+		bool eject = controller.IsPressed(Controllers.EjectDisk), insert = controller.IsPressed(Controllers.InsertDisk);
+		if (drive && !_driveHeld)
+		{
+			_currentDrive = (_currentDrive + 1) % _syncSettings.FloppyDrives;
+			CoreComm.Notify($"Selected drive DF{_currentDrive}: {(_driveDisk[_currentDrive] < 0 ? "empty" : DiskName(_driveDisk[_currentDrive]))}", 4);
+		}
+		if (slot && !_slotHeld)
+		{
+			_currentSlot = (_currentSlot + 1) % _media.Count;
+			CoreComm.Notify($"Selected slot {_currentSlot}: {DiskName(_currentSlot)}", 4);
+		}
+		if (eject && !_ejectHeld)
+		{
+			EnqueueMedia(P6.MediaEventEject, (uint)_currentDrive, P6.MediaIndexEject);
+			_driveDisk[_currentDrive] = -1;
+			CoreComm.Notify($"Ejected drive DF{_currentDrive}", 4);
+		}
+		else if (insert && !_insertHeld)
+		{
+			EnqueueMedia(P6.MediaEventMount, (uint)_currentDrive, (uint)_currentSlot);
+			_driveDisk[_currentDrive] = _currentSlot;
+			CoreComm.Notify($"Inserted drive DF{_currentDrive}: {DiskName(_currentSlot)}", 4);
+		}
+		_driveHeld = drive; _slotHeld = slot; _ejectHeld = eject; _insertHeld = insert;
 	}
 
 	// The areas of the machine (Chip RAM primary, Slow RAM, the ROM), as function hooks that run in the sandbox: the same objects BizHawk makes for
@@ -153,7 +251,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0);
 		using (_guest.Host.EnterExit())
 		{
-			// Order inside a boundary (docs/02-contracts.md): reset, then input, then the unit; the reset is queued here and runs at its head.
+			ApplyDiskButtons(controller);
+			// Order inside a boundary (docs/02-contracts.md): reset, media events, input, then the unit; both are queued here and run at its head.
 			if (power)
 			{
 				int reset = _guest.Lib.p6w_reset();
@@ -328,6 +427,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		writer.Write(_aspectNum); writer.Write(_aspectDen); writer.Write(DriveLightOn);
 		writer.Write(_mouseKnown); writer.Write(_mouseReferenceX); writer.Write(_mouseReferenceY);
 		writer.Write(_capsLatched); writer.Write(_capsHeld);
+		writer.Write(_driveDisk[0]); writer.Write(_driveDisk[1]); writer.Write(_currentDrive); writer.Write(_currentSlot);
+		writer.Write(_ejectHeld); writer.Write(_insertHeld); writer.Write(_slotHeld); writer.Write(_driveHeld); writer.Write(_mediaSequence);
 	}
 
 	public void LoadStateBinary(BinaryReader reader)
@@ -340,6 +441,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_aspectNum = reader.ReadInt32(); _aspectDen = reader.ReadInt32(); DriveLightOn = reader.ReadBoolean();
 		_mouseKnown = reader.ReadBoolean(); _mouseReferenceX = reader.ReadInt32(); _mouseReferenceY = reader.ReadInt32();
 		_capsLatched = reader.ReadBoolean(); _capsHeld = reader.ReadBoolean();
+		_driveDisk[0] = reader.ReadInt32(); _driveDisk[1] = reader.ReadInt32(); _currentDrive = reader.ReadInt32(); _currentSlot = reader.ReadInt32();
+		_ejectHeld = reader.ReadBoolean(); _insertHeld = reader.ReadBoolean(); _slotHeld = reader.ReadBoolean(); _driveHeld = reader.ReadBoolean();
+		_mediaSequence = reader.ReadUInt64();
 		_soundFrames = 0;                          // pending output of the previous unit belongs to the timeline that was left
 	}
 

@@ -45,7 +45,8 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
         1264, 1000, 1008, 104, 56,          // p6w_init: size, result, error, media, sizeof(p6w_media)
         400, 8, 136, 144,                   // p6w_frame: size, frame, result, error
         128, 72, 72, 64, 80,                // p6_frame size, p6_input size, p6_config size, p6_frame.audio, p6_frame.master_ticks
-        32, 8, 16, 24];                     // p6w_memory_area: size, name, size, flags (the layout of LibWaterboxCore.MemoryArea)
+        32, 8, 16, 24,                      // p6w_memory_area: size, name, size, flags (the layout of LibWaterboxCore.MemoryArea)
+        320, 8, 56, 64];                    // p6w_media_event: size, event, result, error
     const int InitSize = 1264, InitFirmware = 80, InitMediaCount = 96, InitMedia = 104, MediaSize = 56, InitResult = 1000, InitError = 1008;
     const int FrameSize = 400, FrameInner = 8, FrameResult = 136, FrameError = 144, InputSize = 72;
     const uint FrameNoVideo = 2;

@@ -48,6 +48,16 @@ typedef struct p6w_frame {
     char error[P6_ERROR_TEXT_CAPACITY];
 } p6w_frame;
 
+/* One media event for the next boundary (T21a): p6_media_event_enqueue. Result and error are outputs, as in p6w_frame. */
+typedef struct p6w_media_event {
+    uint32_t abi_version;
+    uint32_t struct_size;
+    p6_media_event event;
+    int32_t result;                     /* out: p6_result. */
+    uint32_t reserved;
+    char error[P6_ERROR_TEXT_CAPACITY]; /* out: empty on success. */
+} p6w_media_event;
+
 /* A memory area of the machine (T20a), in the layout BizHawk's LibWaterboxCore.MemoryArea has, so that the managed side can hand it to
  * WaterboxMemoryDomain as it is. The area is always a function hook: `data` is the address of a guest function
  *     void access(void *buffer, int64_t address, int64_t count, bool write)
@@ -70,9 +80,10 @@ typedef struct p6w_memory_area {
 
 /* Sizes and offsets the guest was compiled with, for the host to check its own layout against: {sizeof(p6w_init), offsetof(result),
  * offsetof(error), sizeof(p6w_frame), offsetof(frame), offsetof(result), sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config),
- * sizeof(p6w_media), offsetof(media), ..., sizeof(p6w_memory_area), offsetof(name), offsetof(size), offsetof(flags)}; see puae6_guest.cpp
+ * sizeof(p6w_media), offsetof(media), ..., sizeof(p6w_memory_area), offsetof(name), offsetof(size), offsetof(flags), sizeof(p6w_media_event), offsetof(event), offsetof(result),
+ * offsetof(error)}; see puae6_guest.cpp
  * for the order. Returns the number of values written. */
-#define P6W_LAYOUT_VALUES 18
+#define P6W_LAYOUT_VALUES 22
 
 #ifdef __cplusplus
 } /* extern "C" */

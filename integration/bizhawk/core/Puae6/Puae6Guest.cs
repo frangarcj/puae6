@@ -22,6 +22,7 @@ public abstract class LibPuae6
 	[BizImport(CC)] public abstract ulong p6w_layout(IntPtr output, ulong capacity);
 	[BizImport(CC)] public abstract int p6w_init_machine(IntPtr args);
 	[BizImport(CC)] public abstract int p6w_frame_advance(IntPtr input, uint renderFlags, IntPtr output);
+	[BizImport(CC)] public abstract int p6w_media_event_enqueue(IntPtr call);
 	[BizImport(CC)] public abstract int p6w_reset();
 	[BizImport(CC)] public abstract int p6w_shutdown();
 	/// <summary>The memory areas of the loaded machine (P6wMemoryArea), up to <paramref name="capacity"/>; zero before p6w_init_machine succeeded.</summary>

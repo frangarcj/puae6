@@ -63,7 +63,8 @@ ECL_EXPORT size_t p6w_layout(uint64_t *out, size_t capacity)
         sizeof(p6w_init), offsetof(p6w_init, result), offsetof(p6w_init, error), offsetof(p6w_init, media), sizeof(p6w_media),
         sizeof(p6w_frame), offsetof(p6w_frame, frame), offsetof(p6w_frame, result), offsetof(p6w_frame, error),
         sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config), offsetof(p6_frame, audio), offsetof(p6_frame, master_ticks),
-        sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags)};
+        sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags),
+        sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error)};
     if (!out || capacity < P6W_LAYOUT_VALUES) return 0;
     memcpy(out, values, sizeof values);
     return P6W_LAYOUT_VALUES;
@@ -229,6 +230,23 @@ ECL_EXPORT int32_t p6w_frame_advance(const p6_input *input, uint32_t render_flag
     out->result = p6_run_frame(input, render_flags, &out->frame, &error);
     if (out->result != P6_OK) set_error(out->error, error.message);
     return out->result;
+}
+
+// A media event for the next boundary (docs/02-contracts.md): mount a disk that p6w_init was given, or eject one. The bridge validates it and keeps the
+// queue and the last sequence number in the sandbox, so they are part of a snapshot.
+ECL_EXPORT int32_t p6w_media_event_enqueue(p6w_media_event *call)
+{
+    if (!call) return P6_ERROR_BAD_ARGUMENT;
+    call->error[0] = 0;
+    call->result = P6_OK;
+    if (call->abi_version != P6W_ABI_VERSION || call->struct_size != sizeof *call) {
+        set_error(call->error, "p6w_media_event has the wrong ABI version or size");
+        return call->result = P6_ERROR_BAD_ARGUMENT;
+    }
+    p6_error error = {P6_ABI_VERSION, sizeof error, {}};
+    call->result = p6_media_event_enqueue(&call->event, &error);
+    if (call->result != P6_OK) set_error(call->error, error.message);
+    return call->result;
 }
 
 ECL_EXPORT int32_t p6w_reset(void)

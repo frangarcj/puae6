@@ -1,5 +1,8 @@
 #nullable enable
 
+using System.IO;
+using System.Linq;
+
 using BizHawk.Common.PathExtensions;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores;
@@ -23,14 +26,19 @@ public sealed partial class Puae6Core
 
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<object, Puae6SyncSettings> lp)
 	{
-		// The guest has no media events yet (T22/T27): a disk cannot be put in a drive, and booting without it would hide that it was asked for.
-		if (lp.Roms.Count != 0 || lp.Discs.Count != 0)
-			throw new NotSupportedException("PUAE6 does not load disks yet; open the game with the UAE core");
+		// ADF disks only: hard disks, WHDLoad archives and optical discs are not supported by the guest, and booting without them would hide that they were asked for.
+		if (lp.Discs.Count != 0)
+			throw new NotSupportedException("PUAE6 does not load optical discs; open the game with the UAE core");
+		foreach (var rom in lp.Roms)
+			if (!rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase))
+				throw new NotSupportedException($"PUAE6 loads ADF disks only ({rom.Extension} is not one); open the game with the UAE core");
 		return new Puae6Parameters
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
 			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new FirmwareID(VSystemID.Raw.Amiga, "A500"), "A Kickstart for the Amiga 500 is required"),
 			SyncSettings = lp.SyncSettings ?? new Puae6SyncSettings(),
+			Media = lp.Roms.Select(rom => rom.FileData).ToList(),
+			MediaNames = lp.Roms.Select(rom => Path.GetFileName(rom.RomPath.Split('|').Last())).ToList(),
 		};
 	}
 }

@@ -8557,7 +8557,7 @@
       "title": "Medios en el guest y en el core: eventos de medios, ADF de arranque y expulsar/insertar con su estado",
       "milestone": "M1",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T20"
       ],
@@ -8579,7 +8579,7 @@
         "Exportar desde el guest los eventos de medios (p6_media_event_enqueue) con la misma disciplina de p6w (version, tamano, resultado y mensaje) y añadir su estructura al layout que el guest informa y que el wrapper comprueba.",
         "El core acepta ADF en su construccion (identidad SHA-256 por contenido, los dos primeros en DF0 y DF1 al arrancar, el resto como slots), y traduce los botones Eject/Insert/Next Slot/Next Drive (con deteccion de flanco) a eventos de medios al principio de la unidad, con una secuencia estrictamente creciente que no se reinicia con ResetCounters. Los campos de C# que esto añade (drive y slot actuales, disco de cada unidad, flancos, secuencia) son estado causal.",
         "Probar contra el escenario MED01 nativo: el mismo guest de disquete, el mismo ADF A al arrancar y B insertado en la unidad 80 a traves de los botones del core dejan la Chip RAM final igual byte a byte que el probe nativo; y probar expulsar, insertar y cambiar de slot con el log de las lineas de la unidad.",
-        "El constructor de EmuHawk acepta ADF y rechaza lo demas con un mensaje (HDF, LHA, discos opticos)."
+        "El constructor de EmuHawk acepta ADF y rechaza lo demas con un mensaje (HDF, LHA, discos opticos). Los botones del core eligen unidad y slot antes de actuar (Eject, si no Insert); los FloppyDrives primeros discos estan en una unidad al arrancar (uno por defecto)."
       ],
       "checks": [
         "MED01",

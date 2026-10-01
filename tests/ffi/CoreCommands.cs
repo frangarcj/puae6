@@ -25,51 +25,53 @@ internal static unsafe partial class Program
 		internal void Clear() => pressed.Clear();
 	}
 
-	/// <summary>The player of a script: "k0 k1 k2 k3 p0type p0buttons p0dx p0dy p1type p1buttons p1dx p1dy" per unit (P6_INPUT_SCRIPT), as BizHawk controller states.</summary>
+	/// <summary>The player of a script: "k0 k1 k2 k3 p0type p0buttons p0dx p0dy p1type p1buttons p1dx p1dy" per unit (P6_INPUT_SCRIPT), as BizHawk controller states. What a
+	/// unit presses depends on the unit's number only (the mouse position is the sum of the movements before it, a Caps Lock press the change of the latch), so a core that
+	/// goes back to an earlier unit by loading a state is played the same input again.</summary>
 	sealed class Script
 	{
 		readonly List<uint[]> keys = [];
 		readonly List<(uint Type, uint Buttons, int Dx, int Dy)[]> ports = [];
-		int mouseX = Controllers.MouseFieldWidth / 2, mouseY = Controllers.MouseFieldHeight / 2;
-		bool capsDesired;
+		readonly List<int> mouseX = [], mouseY = [];
 
 		internal Script(string path)
 		{
+			int x = Controllers.MouseFieldWidth / 2, y = Controllers.MouseFieldHeight / 2;
 			foreach (var line in File.ReadAllLines(path).Where(l => l.Trim().Length > 0))
 			{
 				var f = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-				keys.Add(f[..4].Select(x => uint.Parse(x, NumberStyles.HexNumber)).ToArray());
-				ports.Add([(uint.Parse(f[4]), uint.Parse(f[5]), int.Parse(f[6]), int.Parse(f[7])), (uint.Parse(f[8]), uint.Parse(f[9]), int.Parse(f[10]), int.Parse(f[11]))]);
+				keys.Add(f[..4].Select(v => uint.Parse(v, NumberStyles.HexNumber)).ToArray());
+				var p0 = (uint.Parse(f[4]), uint.Parse(f[5]), int.Parse(f[6]), int.Parse(f[7]));
+				ports.Add([p0, (uint.Parse(f[8]), uint.Parse(f[9]), int.Parse(f[10]), int.Parse(f[11]))]);
+				if (p0.Item1 == P6.PortMouse) { x += p0.Item3; y += p0.Item4; }
+				mouseX.Add(x); mouseY.Add(y);
 			}
 		}
 
 		internal int Units => keys.Count;
 
+		bool Caps(int unit) => (keys[Math.Min(unit, keys.Count - 1)][Controllers.CapsLockCode / 32] & (1u << (Controllers.CapsLockCode % 32))) != 0;
+
 		/// <summary>Controller state of 0-based unit <paramref name="unit"/>. After the script ends the last line goes on with no movement, as the native probe does.</summary>
 		internal void Fill(ScriptedController controller, int unit, bool mousePort0)
 		{
-			controller.Clear();
 			int at = Math.Min(unit, keys.Count - 1);
-			bool tail = unit >= keys.Count;
 			for (int code = 0; code < 0x68; ++code)
 			{
 				if (Controllers.KeyNames[code] is null || (keys[at][code / 32] & (1u << (code % 32))) == 0) continue;
 				if (code == Controllers.CapsLockCode) continue;          // a latch in the script, a press that toggles it in the controller (below)
 				controller.Press(Controllers.KeyButton(code));
 			}
-			bool caps = (keys[at][Controllers.CapsLockCode / 32] & (1u << (Controllers.CapsLockCode % 32))) != 0;
-			if (caps != capsDesired) controller.Press(Controllers.KeyButton(Controllers.CapsLockCode));
-			capsDesired = caps;
+			if (Caps(unit) != (unit > 0 && Caps(unit - 1))) controller.Press(Controllers.KeyButton(Controllers.CapsLockCode));
 
 			var p0 = ports[at][0];
 			if (mousePort0)
 			{
-				if (p0.Type == P6.PortMouse && !tail) { mouseX += p0.Dx; mouseY += p0.Dy; }
 				if ((p0.Buttons & P6.Button1) != 0) controller.Press($"P1 {Controllers.MouseLeft}");
 				if ((p0.Buttons & P6.Button2) != 0) controller.Press($"P1 {Controllers.MouseRight}");
 				if ((p0.Buttons & P6.Button3) != 0) controller.Press($"P1 {Controllers.MouseMiddle}");
-				controller.Axis($"P1 {Controllers.MouseX}", Math.Clamp(mouseX, 0, Controllers.MouseFieldWidth));
-				controller.Axis($"P1 {Controllers.MouseY}", Math.Clamp(mouseY, 0, Controllers.MouseFieldHeight));
+				controller.Axis($"P1 {Controllers.MouseX}", Math.Clamp(mouseX[at], 0, Controllers.MouseFieldWidth));
+				controller.Axis($"P1 {Controllers.MouseY}", Math.Clamp(mouseY[at], 0, Controllers.MouseFieldHeight));
 			}
 			else PressJoystick(controller, 1, p0.Buttons);
 			PressJoystick(controller, 2, ports[at][1].Buttons);
@@ -82,7 +84,7 @@ internal static unsafe partial class Program
 		}
 	}
 
-	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null)
+	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null, IReadOnlyList<byte[]>? media = null)
 	{
 		string guest = Path.GetFullPath(options["guest"]);
 		var comm = new CoreComm(_ => { }, (_, _) => { }, null!, CoreComm.CorePreferencesFlags.None, null!);
@@ -91,7 +93,7 @@ internal static unsafe partial class Program
 		return new Puae6Core(comm, new Puae6Parameters
 		{
 			GuestDirectory = Path.GetDirectoryName(guest)!, GuestFileName = Path.GetFileName(guest), PinnedGuestSha256 = options["sha"],
-			Firmware = File.ReadAllBytes(options["firmware"]), SyncSettings = settings,
+			Firmware = File.ReadAllBytes(options["firmware"]), SyncSettings = settings, Media = media ?? new List<byte[]>(),
 		});
 	}
 
@@ -118,6 +120,7 @@ internal static unsafe partial class Program
 		var powerAt = options.TryGetValue("power-at", out var at) ? at.Split(',').Select(int.Parse).ToHashSet() : [];
 		for (int unit = 0; unit < units; ++unit)
 		{
+			controller.Clear();
 			script.Fill(controller, unit, mouse);
 			if (powerAt.Contains(unit)) controller.Press(Controllers.Power);          // the Power button, held for this unit only
 			Require(core.FrameAdvance(controller, true, true), $"unit {unit + 1} advanced");
@@ -236,6 +239,7 @@ internal static unsafe partial class Program
 		int units = int.Parse(options["units"]);
 		for (int unit = 0; unit < units; ++unit)
 		{
+			ca.Clear();
 			script.Fill(ca, unit, true);                     // A plays the script and B plays nothing: B must not see A's input
 			a.FrameAdvance(ca, true, true);
 			b.FrameAdvance(cb, true, true);
@@ -246,5 +250,44 @@ internal static unsafe partial class Program
 		a.Dispose();                                         // B goes on after A is gone
 		for (int unit = units; unit < units + 3; ++unit) { b.FrameAdvance(cb, true, true); Console.WriteLine($"two {unit + 1} b={b.CycleCount}"); }
 		Console.WriteLine("log-b-after " + Words(b, 0x1000, 512));
+	}
+
+	/// <summary>Disks in a core: the ADF images are given on the command line, the disk buttons are pressed by a schedule ("79:Next Slot;80-85:Insert Disk", 1-based
+	/// units) and Chip RAM is written to --dump after the last unit, to be compared with the native media probe's.</summary>
+	static void Media(Dictionary<string, string> options)
+	{
+		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		var adfs = options.TryGetValue("adf", out var list) ? list.Split(',').Select(File.ReadAllBytes).ToList() : [];
+		var settings = new Puae6SyncSettings
+		{
+			Region = options.ContainsKey("ntsc") ? Puae6Region.NTSC : Puae6Region.PAL,
+			FloppyDrives = int.Parse(options.GetValueOrDefault("drives", "1")),
+		};
+		var presses = new List<(int From, int To, string Button)>();
+		foreach (var item in options.GetValueOrDefault("press", "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+		{
+			var parts = item.Split(':');
+			var range = parts[0].Split('-');
+			presses.Add((int.Parse(range[0]), int.Parse(range[^1]), parts[1]));
+		}
+		using var core = MakeCore(options, settings, adfs);
+		var controller = new ScriptedController(core.ControllerDefinition);
+		int units = int.Parse(options["units"]);
+		for (int unit = 1; unit <= units; ++unit)
+		{
+			controller.Clear();
+			foreach (var (from, to, button) in presses)
+				if (unit >= from && unit <= to) controller.Press(button);
+			core.FrameAdvance(controller, true, true);
+			Console.WriteLine($"unit {core.Frame} ticks={core.CycleCount} events={core.MediaEventsSent} light={(core.DriveLightOn ? 1 : 0)}");
+		}
+		if (options.TryGetValue("dump", out var dump))
+		{
+			var chip = core.ServiceProvider.GetService<IMemoryDomains>()!["Chip RAM"]!;
+			var bytes = new byte[chip.Size];
+			chip.BulkPeekByte(0L.RangeToExclusive(chip.Size), bytes);
+			File.WriteAllBytes(dump, bytes);
+		}
+		Console.WriteLine($"events {core.MediaEventsSent}");
 	}
 }

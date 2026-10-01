@@ -29,6 +29,8 @@ public static class P6
 	public const uint FrameLag = 1u << 0, FrameNoVideo = 1u << 1, FrameDriveLight = 1u << 2;
 	public const uint RenderVideo = 1u << 0, RenderAudio = 1u << 1;
 	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3;
+	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
+	public const int AdfBytes = 901120;                          // the only medium of ABI v1: an 880 KiB ADF
 
 	// p6w_memory_area.flags: the values of LibWaterboxCore.MemoryDomainFlags.
 	public const long AreaWritable = 1, AreaPrimary = 8, AreaBigEndian = 16, AreaWordSize2 = 64, AreaFunctionHook = 1024;
@@ -141,6 +143,27 @@ public unsafe struct P6wFrame
 	public fixed byte Error[P6.ErrorTextCapacity];
 }
 
+/// <summary>A media event for the next boundary (p6_media_event_enqueue).</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6MediaEvent
+{
+	public uint AbiVersion, StructSize;
+	public uint Type, Drive, MediaIndex, Reserved0;
+	public ulong Sequence;                                       // strictly increasing for the whole session
+	public fixed ulong Reserved[2];
+}
+
+/// <summary>The argument of p6w_media_event_enqueue. Result and Error are outputs.</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6wMediaEvent
+{
+	public uint AbiVersion, StructSize;
+	public P6MediaEvent Event;
+	public int Result;
+	public uint Reserved;
+	public fixed byte Error[P6.ErrorTextCapacity];
+}
+
 /// <summary>The layout of LibWaterboxCore.MemoryArea, which is what p6w_memory_areas writes.</summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct P6wMemoryArea
@@ -154,19 +177,21 @@ public struct P6wMemoryArea
 /// <summary>The sizes and offsets this wrapper was written for, in the order of the guest's p6w_layout (P6W_LAYOUT_VALUES values).</summary>
 public static unsafe class AbiLayout
 {
-	public const int Values = 18;
+	public const int Values = 22;
 
 	public static ulong[] Compute()
 	{
 		P6wInit init = default;
 		P6wFrame frame = default;
 		P6wMemoryArea area = default;
+		P6wMediaEvent call = default;
 		ulong Offset<T, F>(T* owner, F* field) where T : unmanaged where F : unmanaged => (ulong)((byte*)field - (byte*)owner);
 		return [
 			(ulong)sizeof(P6wInit), Offset(&init, &init.Result), Offset(&init, init.Error), Offset(&init, (byte*)&init.Media), (ulong)sizeof(P6wMedia),
 			(ulong)sizeof(P6wFrame), Offset(&frame, &frame.Frame), Offset(&frame, &frame.Result), Offset(&frame, frame.Error),
 			(ulong)sizeof(P6Frame), (ulong)sizeof(P6Input), (ulong)sizeof(P6Config), Offset(&frame.Frame, (byte*)&frame.Frame.Audio), Offset(&frame.Frame, (byte*)&frame.Frame.MasterTicks),
 			(ulong)sizeof(P6wMemoryArea), Offset(&area, (byte*)&area.Name), Offset(&area, (byte*)&area.Size), Offset(&area, (byte*)&area.Flags),
+			(ulong)sizeof(P6wMediaEvent), Offset(&call, (byte*)&call.Event), Offset(&call, &call.Result), Offset(&call, call.Error),
 		];
 	}
 
@@ -176,5 +201,6 @@ public static unsafe class AbiLayout
 		"sizeof(p6w_frame)", "offsetof(p6w_frame, frame)", "offsetof(p6w_frame, result)", "offsetof(p6w_frame, error)",
 		"sizeof(p6_frame)", "sizeof(p6_input)", "sizeof(p6_config)", "offsetof(p6_frame, audio)", "offsetof(p6_frame, master_ticks)",
 		"sizeof(p6w_memory_area)", "offsetof(p6w_memory_area, name)", "offsetof(p6w_memory_area, size)", "offsetof(p6w_memory_area, flags)",
+		"sizeof(p6w_media_event)", "offsetof(p6w_media_event, event)", "offsetof(p6w_media_event, result)", "offsetof(p6w_media_event, error)",
 	];
 }

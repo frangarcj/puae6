@@ -284,6 +284,18 @@ Lo que NO queda demostrado: no se ejecuto EmuHawk (no hay Mono; el ensamblado se
 del guest todavia sin exportar el constructor de EmuHawk rechaza un juego con disco (`NotSupportedException`: PUAE6 no carga discos todavia; el cargador de
 BizHawk probaria entonces el siguiente core, UAE).
 
+### Resultado de T21a: discos en el guest y en el core
+
+`python3 -m unittest discover -s tests/ffi -p test_media.py`. El guest exporta `p6w_media_event_enqueue` (el layout que informa pasa de 18 a 22 valores) y el
+core acepta ADF al crearlo (880 KiB cada uno, hasta 16, con su SHA-256 como identidad; los `FloppyDrives` primeros, uno por defecto, estan en una unidad al
+arrancar y el resto son slots). Los botones `Next Drive`, `Next Slot`, `Eject Disk` e `Insert Disk` existen cuando hay discos: la seleccion se hace primero y
+despues Eject (o, si no, Insert) actua sobre ella, por flanco, al principio de la unidad, con una secuencia que solo crece y que no se reinicia con
+`ResetCounters`. Lo medido: con los botones, el disco A de arranque y B insertado en la unidad 80, la Chip RAM final es byte a byte la que deja el probe nativo
+de MED01 con `p6_media_event_enqueue` (PAL y NTSC, dos semillas); `Next Drive` da la vuelta con una unidad; un boton mantenido es un solo evento; el guest ve
+expulsar y reinsertar (las cuatro fases de `swap_timeline`); una segunda unidad toma un disco sin cambiar lo que ve la primera; un disco que no es un ADF de
+901120 bytes se rechaza. Cuatro defectos sembrados (insertar o expulsar sin flanco, `Next Drive` sin vuelta, seleccionar despues de actuar) hacen fallar su prueba.
+El constructor de EmuHawk acepta ADF y rechaza HDF, LHA y discos opticos con un mensaje.
+
 Hallazgo para el wrapper (T20): una escritura del host en una pagina que el seguimiento de paginas
 sucias aun tiene protegida, hecha por codigo managed, la convierte .NET en un AccessViolationException
 fatal antes de que el manejador de Waterbox la vea; hecha por codigo nativo (memcpy de libSystem)

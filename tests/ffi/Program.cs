@@ -35,6 +35,7 @@ internal static unsafe partial class Program
 				case "open": Open(options, int.Parse(options["units"])); break;
 				case "heaps": { var h = Puae6Core.Heaps(); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break; }
 				case "play": Play(options); break;
+				case "media": Media(options); break;
 				case "av": Av(options); break;
 				case "domains": Domains(options); break;
 				case "two": Two(options); break;
@@ -68,6 +69,8 @@ internal static unsafe partial class Program
 		Dump<P6wInit>("P6wInit", "AbiVersion", "StructSize", "Config", "Firmware", "FirmwareBytes", "MediaCount", "Reserved0", "Media", "Result", "Reserved1", "Error");
 		Dump<P6wFrame>("P6wFrame", "AbiVersion", "StructSize", "Frame", "Result", "Reserved", "Error");
 		Dump<P6wMemoryArea>("P6wMemoryArea", "Data", "Name", "Size", "Flags");
+		Dump<P6MediaEvent>("P6MediaEvent", "AbiVersion", "StructSize", "Type", "Drive", "MediaIndex", "Reserved0", "Sequence", "Reserved");
+		Dump<P6wMediaEvent>("P6wMediaEvent", "AbiVersion", "StructSize", "Event", "Result", "Reserved", "Error");
 	}
 
 	/// <summary>Host memory with a guard band on both sides, which the guest must leave as it finds it.</summary>

@@ -31,6 +31,9 @@ public sealed class Puae6SyncSettings
 
 	public Puae6Port2 ControllerPort2 { get; set; } = Puae6Port2.Joystick;
 
+	/// <summary>How many of the disks the core was given are in a drive at power-on (1 or 2, DF0 and DF1); the rest are slots for the Insert button.</summary>
+	public int FloppyDrives { get; set; } = 1;
+
 	public Puae6SyncSettings Clone() => (Puae6SyncSettings)MemberwiseClone();
 
 	public static bool NeedsReboot(Puae6SyncSettings x, Puae6SyncSettings y) => !DeepEquality.DeepEquals(x, y);

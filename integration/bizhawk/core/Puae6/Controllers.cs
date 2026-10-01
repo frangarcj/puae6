@@ -11,6 +11,7 @@ namespace Puae6;
 public static class Controllers
 {
 	public const string Power = "Power";
+	public const string EjectDisk = "Eject Disk", InsertDisk = "Insert Disk", NextSlot = "Next Slot", NextDrive = "Next Drive";
 	public const string MouseLeft = "Mouse Left Button", MouseMiddle = "Mouse Middle Button", MouseRight = "Mouse Right Button";
 	public const string MouseX = "Mouse X", MouseY = "Mouse Y";
 	/// <summary>The mouse axes are absolute positions in a field of this size; the wrapper turns them into the deltas the machine takes.</summary>
@@ -56,7 +57,7 @@ public static class Controllers
 
 	public static string Joystick(int port, string name) => $"P{port} Joystick {name}";
 
-	public static ControllerDefinition Define(Puae6SyncSettings settings)
+	public static ControllerDefinition Define(Puae6SyncSettings settings, int mediaCount)
 	{
 		var controller = new ControllerDefinition("Amiga Controller");
 		if (settings.ControllerPort1 == Puae6Port1.Mouse)
@@ -72,6 +73,8 @@ public static class Controllers
 		}
 		if (settings.ControllerPort2 == Puae6Port2.Joystick)
 			foreach (var name in JoystickNames) controller.BoolButtons.Add(Joystick(2, name));
+		// The disk controls exist when there is something to put in a drive: drive and slot are selected first, then Eject or Insert acts on them.
+		if (mediaCount > 0) controller.BoolButtons.AddRange([ NextDrive, NextSlot, EjectDisk, InsertDisk ]);
 		// Hard reset only: the machine has one (p6_reset); a Reset button would be a different thing that nobody implemented.
 		controller.BoolButtons.Add(Power);
 		foreach (var name in KeyNames)
