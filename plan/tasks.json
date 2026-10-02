@@ -9081,7 +9081,7 @@
       "title": "Estado nativo de la entrada (chunk P6IN): POT, raton, joystick, memoria de flancos, anillo y tabla de teclas",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15c2"
       ],
@@ -9105,13 +9105,14 @@
         "tests/test_plan.py",
         "CMakeLists.txt",
         "bridge/input.cpp",
-        "bridge/input.h"
+        "bridge/input.h",
+        "manifests/waterbox-memory.json"
       ],
       "steps": [
         "Parches de keybuf.cpp (anillo de teclas) e inputdevice.cpp (POT, matrices de puerto, memoria de flancos, tabla de teclas, cadena de reset y la comprobacion de frontera) con accesores de copia; visit_input (P6IN v1) con el anillo como lista canonica y lo que el bridge cree aplicado (Applied), para que un solo visitante valide que motor y bridge coinciden y no queden teclas pegadas.",
         "El probe aprende a pulsar teclas (--key) y a cambiar un puerto en una unidad (--port-at) para tener teclado a medio handshake y raton en vuelo; micro-ROM de POTGO.",
         "Pruebas: ida y vuelta, campos aplicados, acorde de reset en vuelo, anillo con varias teclas, cuerpos mal formados, mutaciones; guardados rechazados fuera de perfil.",
-        "Ampliacion touch: bridge/input.cpp y bridge/input.h (el estado Applied del bridge) ademas de la de T15c1."
+        "Ampliacion touch: bridge/input.cpp y bridge/input.h (el estado Applied del bridge) ademas de la de T15c1. Tambien manifests/waterbox-memory.json: los parches 0084 y 0085 hacen crecer el guest y el test de Waterbox compara las medidas del manifiesto con una ejecucion, de modo que se vuelven a medir (--record-memory) y se revisan; los programas de las pruebas van dentro del test, no en tests/fixtures."
       ],
       "checks": [
         "DET02"

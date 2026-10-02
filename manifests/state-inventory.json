@@ -5962,11 +5962,24 @@
         },
         "probe": {
           "probe": "input",
-          "status": "partial",
-          "task": "T15",
-          "why": "potgo_value and the pot_cap that save_input writes are hashed; the quadrature counters and the edge memories are file-local and no fixture moves this digest"
+          "status": "implemented",
+          "task": "T15c3",
+          "covers": [
+            "r.potgo_value",
+            "r.pot_cap",
+            "r.pot_dat",
+            "r.pot_dat_act"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c3",
+          "chunk": "P6IN",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_input",
+          "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
+          "notes": "potgo_value (u16, bits 8..15: POTGO keeps only direction and data bits), per pot line cap (0..511), dat (u8, wraps) and dat_act (0..2: 0 stopped, 1 discharging, 2 counting). analog_port, digital_port and mouse_port are configuration, fixed at p6_load."
+        }
       },
       {
         "id": "input-mouse-joystick-counters",
@@ -6015,11 +6028,35 @@
         },
         "probe": {
           "probe": "input",
-          "status": "partial",
-          "task": "T15",
-          "why": "potgo_value and the pot_cap that save_input writes are hashed; the quadrature counters and the edge memories are file-local and no fixture moves this digest"
+          "status": "implemented",
+          "task": "T15c3",
+          "covers": [
+            "g.joybutton",
+            "g.joydir",
+            "g.oleft",
+            "g.oright",
+            "g.otop",
+            "g.obot",
+            "g.mouse_delta",
+            "g.mouse_deltanoreset",
+            "g.mouse_x",
+            "g.mouse_y",
+            "g.mouse_frame_x",
+            "g.mouse_frame_y",
+            "r.input_frame",
+            "r.prev_input_frame",
+            "r.prev_input_vpos"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c3",
+          "chunk": "P6IN",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_input",
+          "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
+          "notes": "Per gameport (0 and 1; the other two are refused by Save if they have anything): joybutton (<= 7), joydir (<= 15), the four direction memories, the four pending motions and their no-reset flags, and mouse_x/y and mouse_frame_x/y as shorts (JOYxDAT is the low byte of x and y; the high bits decide the clipping of one unit's motion). input_frame, prev_input_frame and prev_input_vpos travel as they are although readinput only uses their difference, so that the digest of a restored machine is the original's. horizclear, vertclear, relativecount, joydirpot, mouse_axis, oldm_axis, mxd and myd are not state in the profile: the bridge drives each axis through setjoystickstate with max 1, which writes the direction memories directly."
+        }
       },
       {
         "id": "input-edge-memory",
@@ -6063,11 +6100,23 @@
         },
         "probe": {
           "probe": "input",
-          "status": "partial",
-          "task": "T15",
-          "why": "potgo_value and the pot_cap that save_input writes are hashed; the quadrature counters and the edge memories are file-local and no fixture moves this digest"
+          "status": "implemented",
+          "task": "T15c3",
+          "covers": [
+            "r.joy_buttonmask",
+            "r.joy_states",
+            "r.mouse_buttonmask"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c3",
+          "chunk": "P6IN",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_input",
+          "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
+          "notes": "joysticks2[0..1]: buttonmask (<= 7) and the nine states (-1..1) of the two axes the bridge drives, index 8 being the last raw value; mice2[0].buttonmask. Save refuses a joystick, mouse or axis that the profile does not have if it holds anything. They must equal the bridge's Applied (checked in the visitor): without that a restored pressed button is never released."
+        }
       },
       {
         "id": "input-keyboard-ring",
@@ -6109,11 +6158,21 @@
         },
         "probe": {
           "probe": "input",
-          "status": "partial",
-          "task": "T15",
-          "why": "potgo_value and the pot_cap that save_input writes are hashed; the quadrature counters and the edge memories are file-local and no fixture moves this digest"
+          "status": "implemented",
+          "task": "T15c3",
+          "covers": [
+            "p6_keybuf_get"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c3",
+          "chunk": "P6IN",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_input",
+          "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
+          "notes": "The ring as a count (<= 255) and the codes from the oldest to the newest: where it starts in the array is not state (patch 0084). Apply puts it back from index 0. A save refuses text typed into the ring, a key release to swallow and a release held back (turbo emulation)."
+        }
       },
       {
         "id": "input-key-table-and-reset-chord",
@@ -6156,11 +6215,23 @@
         },
         "probe": {
           "probe": "input",
-          "status": "partial",
-          "task": "T15",
-          "why": "potgo_value and the pot_cap that save_input writes are hashed; the quadrature counters and the edge memories are file-local and no fixture moves this digest"
+          "status": "implemented",
+          "task": "T15c3",
+          "covers": [
+            "r.keys",
+            "r.reset_seq_mode",
+            "r.reset_seq"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c3",
+          "chunk": "P6IN",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_input",
+          "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
+          "notes": "The 128-bit key table (bits 0x68 and above must be clear: the bridge refuses those keys), reset_seq_mode (0..4) and reset_seq (>= 0). The CPU held in reset by the chord is P6CP's SPCFLAG_CPUINRESET; When the engine has cleared its key table and the bridge has not been told yet (p6_input_engine_released_keys: a reset of the keyboard, or the start of a session) the state says that no key is applied, which is what the bridge's next packet starts from, and Apply clears the flag."
+        }
       },
       {
         "id": "input-port-mapping-derived",
@@ -6177,7 +6248,7 @@
         "saved_fields": "Not saved, and must not be.",
         "omitted": null,
         "pointers": "Pure functions of the configured ports (pin_input: port 0 = mouse + gamepad joystick 0, port 1 = gamepad joystick 1, autofire 0, mouse speed 100): scanevents (inputdevice.cpp:6866-6990) recomputes them; the device name/configname strings are heap allocated by matchdevices and freed by release_input_device_names.",
-        "rebuild": "Do not serialize; they come back with p6_load. NOTE: calling inputdevice_updateconfig after restoring dynamic input state would wipe it (resetinput), so restore dynamic input last. Pending test: STATE02 with a state from a build whose pin_input differs (config_hash mismatch).",
+        "rebuild": "Do not serialize; they come back with p6_load. NOTE: calling inputdevice_updateconfig after restoring dynamic input state would wipe it (resetinput), so restore dynamic input last. Pending test: STATE02 with a state from a build whose pin_input differs (config_hash mismatch). T15c3: nothing is rebuilt: these are fixed by the configuration at p6_load (the config hash binds it) and a restore never calls inputdevice_updateconfig.",
         "evidence": [
           "build/upstream/inputdevice.cpp:476",
           "build/upstream/inputdevice.cpp:488",
@@ -6888,10 +6959,18 @@
         "probe": {
           "probe": "bridge",
           "status": "partial",
-          "task": "T15",
-          "why": "the session (counters, media queue, drive indexes, identities, configuration) is hashed; the copy of the preferences, the applied-input edges and the lag machinery are file-local to the bridge units"
+          "task": "T15c3",
+          "why": "Applied is hashed in the input digest (p6_bridge::applied_get): the bridge probe keeps the session counters"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c3",
+          "chunk": "P6IN",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_input",
+          "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
+          "notes": "keys (4 x u32, the same bits as the engine's table), type, buttons and the two axes of each port. Checked against the engine's edge memory when the state is written or read; setting it sends nothing to the engine. forget_input() (a load, a reset) is what zeroes it in a clean process."
+        }
       },
       {
         "id": "bridge-input-released-keys-flag",

@@ -1,0 +1,150 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -10844,4 +10844,146 @@
+ 		}
+ 	}
+ #endif
++}
++
++#ifdef P6_PORTABLE
++#include "p6_state_access.h"
++// Native state of the input (bridge/state_devices.cpp). Everything here is a plain copy in or out: nothing calls inputdevice_do_keyboard, resetinput or
++// inputdevice_updateconfig (a key press would reach the keyboard ring, and the other two erase the configuration), setmousestate or any setter that
++// handles an event, because the events of a restored machine are not sent again: the host's edge memory (joysticks2, mice2 and the bridge's Applied) comes back
++// with the rest, so that the next packet sends only what differs.
++void p6_input_get(p6_input_raw *out)
++{
++	memset(out, 0, sizeof *out);
++	out->potgo_value = potgo_value;
++	for (int p = 0; p < 2; p++) {
++		for (int i = 0; i < 2; i++) {
++			out->pot_cap[p][i] = pot_cap[p][i];
++			out->pot_dat[p][i] = pot_dat[p][i];
++			out->pot_dat_act[p][i] = pot_dat_act[p][i];
++		}
++		p6_input_port_raw &r = out->port[p];
++		r.joybutton = joybutton[p];
++		r.joydir = joydir[p];
++		r.oleft = oleft[p];
++		r.oright = oright[p];
++		r.otop = otop[p];
++		r.obot = obot[p];
++		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++) {
++			r.mouse_delta[k] = mouse_delta[p][k];
++			r.mouse_deltanoreset[k] = mouse_deltanoreset[p][k];
++		}
++		r.mouse_x = mouse_x[p];
++		r.mouse_y = mouse_y[p];
++		r.mouse_frame_x = mouse_frame_x[p];
++		r.mouse_frame_y = mouse_frame_y[p];
++	}
++	out->input_frame = input_frame;
++	out->prev_input_frame = prev_input_frame;
++	out->prev_input_vpos = prev_input_vpos;
++	for (int j = 0; j < 2; j++) {
++		out->joy_buttonmask[j] = joysticks2[j].buttonmask;
++		for (int a = 0; a < 2; a++)
++			for (int i = 0; i <= MAX_INPUT_SUB_EVENT; i++)
++				out->joy_states[j][a][i] = joysticks2[j].states[a][i];
++	}
++	out->mouse_buttonmask = mice2[0].buttonmask;
++	for (int k = 0; k < 128; k++)
++		if (keybuf[k])
++			out->keys[k >> 3] |= 1 << (k & 7);
++	out->reset_seq = keyboard_reset_seq;
++	out->reset_seq_mode = keyboard_reset_seq_mode;
++}
++
++void p6_input_set(const p6_input_raw *in)
++{
++	potgo_value = in->potgo_value;
++	for (int p = 0; p < 2; p++) {
++		for (int i = 0; i < 2; i++) {
++			pot_cap[p][i] = in->pot_cap[p][i];
++			pot_dat[p][i] = in->pot_dat[p][i];
++			pot_dat_act[p][i] = in->pot_dat_act[p][i];
++		}
++		const p6_input_port_raw &r = in->port[p];
++		joybutton[p] = r.joybutton;
++		joydir[p] = r.joydir;
++		oleft[p] = r.oleft;
++		oright[p] = r.oright;
++		otop[p] = r.otop;
++		obot[p] = r.obot;
++		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++) {
++			mouse_delta[p][k] = (uae_s16)r.mouse_delta[k];
++			mouse_deltanoreset[p][k] = (uae_s16)r.mouse_deltanoreset[k];
++		}
++		mouse_x[p] = (uae_s16)r.mouse_x;
++		mouse_y[p] = (uae_s16)r.mouse_y;
++		mouse_frame_x[p] = (uae_s16)r.mouse_frame_x;
++		mouse_frame_y[p] = (uae_s16)r.mouse_frame_y;
++	}
++	input_frame = in->input_frame;
++	prev_input_frame = in->prev_input_frame;
++	prev_input_vpos = in->prev_input_vpos;
++	for (int j = 0; j < 2; j++) {
++		joysticks2[j].buttonmask = in->joy_buttonmask[j];
++		for (int a = 0; a < 2; a++)
++			for (int i = 0; i <= MAX_INPUT_SUB_EVENT; i++)
++				joysticks2[j].states[a][i] = in->joy_states[j][a][i];
++	}
++	mice2[0].buttonmask = in->mouse_buttonmask;
++	memset(keybuf, 0, sizeof keybuf);
++	for (int k = 0; k < 128; k++)
++		keybuf[k] = (in->keys[k >> 3] >> (k & 7)) & 1;
++	keyboard_reset_seq = in->reset_seq;
++	keyboard_reset_seq_mode = in->reset_seq_mode;
+ }
++
++// True when the input is in a state that the fields of p6_input_raw describe completely: nothing queued, delayed or latched that they do not hold, and
++// nothing outside the profile (the A500's keyboard, two gameports with a mouse or a joystick, no CD32 pad, light pen, on screen keyboard or key injection).
++bool p6_input_boundary(const char **why)
++{
++	const char *w = NULL;
++	for (int i = 0; i < INPUT_QUEUE_SIZE && !w; i++)
++		if (input_queue[i].linecnt >= 0)
++			w = "an input event is queued with a delay";
++	for (int i = 0; i < MAX_PENDING_EVENTS && !w; i++)
++		if (inputcode_pending[i].code)
++			w = "an input code is pending";
++	if (!w && (bouncy || delayed_events))
++		w = "an input event is delayed";
++	if (!w && (qualifiers || qualifiers_r))
++		w = "an input qualifier is held";
++	if (!w && (osk_state || lightpen_enabled2))
++		w = "the on screen keyboard or a light pen is active";
++	if (!w && (cd32_pad_enabled[0] || cd32_pad_enabled[1]))
++		w = "a CD32 pad is configured";
++	if (!w && (currprefs.keyboard_mode || currprefs.cs_resetwarning))
++		w = "a keyboard mode or a reset warning that is not the A500's";
++	if (!w && (currprefs.turbo_emulation || currprefs.input_mouse_speed != 100))
++		w = "turbo emulation or a mouse speed other than 100";
++	if (!w && keyboard_reset_seq_mode > 4)
++		w = "the keyboard reset chord is in a state the profile does not have";
++	for (int p = 2; p < MAX_JPORTS && !w; p++) {
++		if (joybutton[p] || joydir[p] || oleft[p] || oright[p] || otop[p] || obot[p] || mouse_x[p] || mouse_y[p] || mouse_frame_x[p] || mouse_frame_y[p])
++			w = "a gameport that the profile does not have has input";
++		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++)
++			if (mouse_delta[p][k] || mouse_deltanoreset[p][k])
++				w = "a gameport that the profile does not have has input";
++	}
++	for (int d = 0; d < MAX_INPUT_DEVICES && !w; d++) {
++		if (d >= 2 && joysticks2[d].buttonmask)
++			w = "a joystick that the profile does not have has a button down";
++		if (d >= 1 && mice2[d].buttonmask)
++			w = "a mouse that the profile does not have has a button down";
++		for (int a = 0; a < MAX_INPUT_DEVICE_EVENTS / 2 && !w; a++)
++			for (int i = 0; i <= MAX_INPUT_SUB_EVENT; i++) {
++				if ((d >= 2 || a >= 2) && joysticks2[d].states[a][i])
++					w = "an axis that the profile does not have has a state";
++				if (mice2[d].states[a][i])
++					w = "a mouse axis has a state";
++			}
++	}
++	if (why)
++		*why = w;
++	return w == NULL;
++}
++#endif

@@ -87,9 +87,14 @@ class ProbeTests(unittest.TestCase):
         for subsystem in ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "video", "bridge"):
             with self.subTest(subsystem=subsystem):
                 self.assertGreater(len({run[(6, subsystem)] for run in runs.values()}), 1, "the digest is the same for every fixture")
-        # The pot digest does not move with any fixture or port: the inventory says so instead of claiming a coverage it does not have.
-        self.assertEqual(1, len({run[(6, "input")] for run in runs.values()}))
-        self.assertIn("no fixture moves this digest", INVENTORY["components"][next(i for i, c in enumerate(INVENTORY["components"]) if c["id"] == "input-pot-state")]["probe"]["why"])
+        # T15c3: the input digest moves with what the host sends (a port with a mouse in motion, a key held), and with nothing else: the fixtures alone do not move it.
+        moved = self.run_probe("input_all", "--units", "6", "--port", "0:2:1:5:3", "--port", "1:1:65:0:0")[0]
+        held = self.run_probe("vsync", "--units", "6", "--key", "2", "0x21", "down")[0]
+        # A program that reads the input registers (input_all) moves it by itself: readinput brings prev_input_frame and prev_input_vpos up to the reading.
+        self.assertEqual(1, len({run[(6, "input")] for name, run in runs.items() if name != "input_all"}), "a fixture moved the input digest without reading the input")
+        self.assertNotEqual(runs["input_all"][(6, "input")], runs["vsync"][(6, "input")])
+        self.assertNotEqual(runs["input_all"][(6, "input")], moved[(6, "input")])
+        self.assertNotEqual(runs["vsync"][(6, "input")], held[(6, "input")])
 
     def test_a_reload_gives_the_digests_of_a_clean_process_from_the_first_unit_on(self):
         # Unit 0 is the machine before the power-on reset head has run: a reload still holds what the last session left there (the audio

@@ -2288,6 +2288,54 @@
           "after_sha256": "61c7ccd3714cd4203a7293406cff4bb62e6b3bc23edc8b7c387d00c497221b26"
         }
       ]
+    },
+    {
+      "id": "0084-keybuf-state-access",
+      "file": "patches/winuae/0084-keybuf-state-access.patch",
+      "sha256": "0f41d6deb960b1f3ad1153291f86b794f280d6f9a3b3758c0730ece5a2dbd418",
+      "title": "The native state can read and write the keyboard ring",
+      "reason": "The ring of key codes that feeds the CIA serial line is a pair of indexes and an array in file statics of keybuf.cpp. p6_keybuf_get/set copy it as a list from the oldest code to the newest, so a state does not depend on where in the array it starts, and p6_keybuf_boundary refuses text being typed into it, a release held back or one to swallow. Nothing is called: record_key would add to the ring.",
+      "category": "host hooks",
+      "order": 84,
+      "symbols": [
+        "p6_keybuf_boundary",
+        "p6_keybuf_get",
+        "p6_keybuf_set"
+      ],
+      "test": "STATE02; tests.state.test_state_input",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "keybuf.cpp",
+          "before_sha256": "21351e9aa1b0a0d7e9c768e38243b61f3cb109df5e8d606a524547905b2066a4",
+          "after_sha256": "acef61f7bb9e8454d33432e177b7d32e33dab4374dbc3fa3ebaf6dcbe1862105"
+        }
+      ]
+    },
+    {
+      "id": "0085-inputdevice-state-access",
+      "file": "patches/winuae/0085-inputdevice-state-access.patch",
+      "sha256": "eee16ebd01ef8e256d629d4979da12c7a77c4bc1e1c135c43a47f62790ee3ce2",
+      "title": "The native state can read and write the input of the two gameports, the pot lines and the host's edge memory",
+      "reason": "inputdevice.cpp keeps the quadrature counters, the pending motion, the direction memory, the pot lines and the key table of the engine, and the host's edge memory (joysticks2, mice2), in file statics. p6_input_get/set copy them into and out of plain structs and call no setter: inputdevice_do_keyboard would put keys in the ring, resetinput and inputdevice_updateconfig erase the configuration, and handle_input_event would run events again. p6_input_boundary refuses what the profile does not have and what the fields do not hold.",
+      "category": "host hooks",
+      "order": 85,
+      "symbols": [
+        "p6_input_boundary",
+        "p6_input_get",
+        "p6_input_set"
+      ],
+      "test": "STATE02; tests.state.test_state_input",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "fdc955c8c6c6a3a9adaa2bd7c604b6e4a74286d45e65f099b80e9ca569a56cc2",
+          "after_sha256": "d470ff4525baf4e96ad792dd8cc31abf16106c285c12e472454fdef1815c3817"
+        }
+      ]
     }
   ]
 }

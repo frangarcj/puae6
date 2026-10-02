@@ -14,8 +14,9 @@
 #include "custom.h"
 #include "rtc_time.h"
 #include "p6_state_access.h"
+#include "input.h"
 
-// What the engine patches add (patches/winuae/0081, 0082), declared here as lifecycle.cpp declares p6_cia_session_begin.
+// What the engine patches add (patches/winuae/0081, 0082, 0084, 0085), declared here as lifecycle.cpp declares p6_cia_session_begin.
 extern void p6_rtc_msm_get(uae_u8 out[3]);
 extern void p6_rtc_msm_set(const uae_u8 in[3]);
 extern void p6_cia_get(int num, p6_cia_raw *out);
@@ -24,6 +25,13 @@ extern void p6_cia_misc_get(p6_cia_misc_raw *out);
 extern void p6_cia_misc_set(const p6_cia_misc_raw *in);
 extern void p6_cia_overlay_rebuild(void);
 extern bool p6_cia_boundary(const char **why);
+extern void p6_input_get(p6_input_raw *out);
+extern void p6_input_set(const p6_input_raw *in);
+extern bool p6_input_boundary(const char **why);
+extern int p6_keybuf_get(uae_u8 *codes, int max);
+extern void p6_keybuf_set(const uae_u8 *codes, int n);
+extern bool p6_keybuf_boundary(const char **why);
+extern int p6_input_engine_released_keys;       // ports/portable/input_devices.cpp: set when the engine cleared its key table, consumed by the next packet
 
 namespace p6_state {
 
@@ -176,6 +184,119 @@ void visit_cia(Archive &a)
 void rebuild_cia()
 {
     p6_cia_overlay_rebuild();
+}
+
+// P6IN body, little endian, in this order:
+//   pot lines: u16 potgo_value (bits 8..15 only)  per line (port 0 x, y, port 1 x, y): i16 cap (0..511)  u8 dat  u8 dat_act (0..2)                          (2 + 4 x 4)
+//   per gameport: u8 joybutton (<= 7) joydir (<= 15) oleft oright otop obot (0..1)  4 x i16 mouse_delta  4 x u8 mouse_deltanoreset (0..1)  i16 mouse_x mouse_y
+//     mouse_frame_x mouse_frame_y                                                                                                                       (2 x 26)
+//   u32 input_frame prev_input_frame  u32 prev_input_vpos (<= 4095)                                                                                    (12)
+//   the engine's edge memory: per joystick u8 buttonmask (<= 7) and 2 axes x 9 x i8 state (-1..1); u8 mouse buttonmask (<= 7)                           (2 x 19 + 1)
+//   the keyboard: 16 bytes of key table (bit n = Amiga key n; 0x68 and above are never down)  u8 reset_seq_mode (0..4)  i32 reset_seq (>= 0)
+//     u32 ring_count (<= 255)  ring_count x u8 code, oldest first                                                                                 (25 + ring)
+//   the bridge's edge memory (Applied): 4 x u32 keys (same bits)  2 x u8 type (0..2)  2 x u8 buttons (<= 7)  2 x 2 x i8 axis (-1..1)                      (24)
+// The engine's table of the keys it has seen and the bridge's say the same thing, and the two port memories the same as the engine's per device: they are checked
+// against each other here (with the values read, never the live variables), because a state in which they differ leaves a key or a button stuck or lost
+// after the load. When the engine has just cleared its key table and the bridge has not been told (p6_input_engine_released_keys), the state says that no key is applied, which is
+// what the bridge's next packet starts from; Apply clears the flag that p6_load left set. Apply copies fields: no key goes through inputdevice_do_keyboard (it would reach the ring and the chord), no event is handled again, and
+// resetinput and inputdevice_updateconfig, which erase the configuration, are not called.
+void visit_input(Archive &a)
+{
+    const bool checks = a.mode() != Mode::Measure;
+    p6_input_raw r = {};
+    p6_applied_raw ap = {};
+    uae_u8 ring[255] = {};
+    uint32_t ring_n = 0;
+    if (a.mode() == Mode::Save) {
+        const char *why = nullptr;
+        if (!p6_input_boundary(&why) || !p6_keybuf_boundary(&why)) a.fail(why);
+        p6_input_get(&r);
+        p6_bridge::applied_get(&ap);
+        // The engine cleared its key table (a reset requested through the API, or the start of a session) and the bridge has not been told yet: its next packet forgets
+        // what it had applied and presses every key the host holds. The state says what that leaves: no key applied, which must be what the engine's table says too.
+        if (p6_input_engine_released_keys) memset(ap.keys, 0, sizeof ap.keys);
+        const int n = p6_keybuf_get(ring, 255);
+        if (n < 0) a.fail("the keyboard ring does not fit a state");
+        else ring_n = uint32_t(n);
+    }
+    const uint16_t potgo = get<uint16_t>(a, r.potgo_value, 0, 0xFFFF, "pot.potgo");
+    if (checks) a.require((potgo & 0x00FF) == 0, "pot.potgo: a bit POTGO does not keep");
+    if (a.applying() && a.ok()) r.potgo_value = potgo;
+    for (int p = 0; p < 2; ++p)
+        for (int i = 0; i < 2; ++i) {
+            field<int16_t>(a, r.pot_cap[p][i], 0, 511, "pot.cap");
+            field<uint8_t>(a, r.pot_dat[p][i], 0, 255, "pot.dat");
+            field<uint8_t>(a, r.pot_dat_act[p][i], 0, 2, "pot.dat_act");
+        }
+    for (int p = 0; p < 2; ++p) {
+        p6_input_port_raw &g = r.port[p];
+        field<uint8_t>(a, g.joybutton, 0, 7, "joy.button");
+        field<uint8_t>(a, g.joydir, 0, 15, "joy.dir");
+        field<uint8_t>(a, g.oleft, 0, 1, "joy.left");
+        field<uint8_t>(a, g.oright, 0, 1, "joy.right");
+        field<uint8_t>(a, g.otop, 0, 1, "joy.top");
+        field<uint8_t>(a, g.obot, 0, 1, "joy.bottom");
+        for (int k = 0; k < 4; ++k) field<int16_t>(a, g.mouse_delta[k], -32768, 32767, "mouse.delta");
+        for (int k = 0; k < 4; ++k) field<uint8_t>(a, g.mouse_deltanoreset[k], 0, 1, "mouse.noreset");
+        field<int16_t>(a, g.mouse_x, -32768, 32767, "mouse.x");
+        field<int16_t>(a, g.mouse_y, -32768, 32767, "mouse.y");
+        field<int16_t>(a, g.mouse_frame_x, -32768, 32767, "mouse.frame_x");
+        field<int16_t>(a, g.mouse_frame_y, -32768, 32767, "mouse.frame_y");
+    }
+    field<uint32_t>(a, r.input_frame, 0, 0xFFFFFFFFll, "input.frame");
+    field<uint32_t>(a, r.prev_input_frame, 0, 0xFFFFFFFFll, "input.prev_frame");
+    field<uint32_t>(a, r.prev_input_vpos, 0, 4095, "input.prev_vpos");
+    uint8_t joy_buttons[2] = {};
+    int8_t joy_axis[2][2] = {};
+    for (int j = 0; j < 2; ++j) {
+        joy_buttons[j] = field<uint8_t>(a, r.joy_buttonmask[j], 0, 7, "edge.joy_buttons");
+        for (int ax = 0; ax < 2; ++ax) {
+            for (int i = 0; i < 9; ++i) {
+                const int8_t s = field<int8_t>(a, r.joy_states[j][ax][i], -1, 1, "edge.joy_state");
+                if (i == 8) joy_axis[j][ax] = s;
+            }
+        }
+    }
+    const uint8_t mouse_buttons = field<uint8_t>(a, r.mouse_buttonmask, 0, 7, "edge.mouse_buttons");
+    uint8_t keys[16] = {};
+    for (int k = 0; k < 16; ++k) keys[k] = field<uint8_t>(a, r.keys[k], 0, 255, "kb.keys");
+    field<uint8_t>(a, r.reset_seq_mode, 0, 4, "kb.reset_mode");
+    field<int32_t>(a, r.reset_seq, 0, INT32_MAX, "kb.reset_seq");
+    const uint32_t ring_count = a.count(ring_n, 255, "kb.ring_count");
+    a.bytes(ring, ring_count, "kb.ring");
+    uint32_t applied_keys[4] = {};
+    uint8_t applied_type[2] = {}, applied_buttons[2] = {};
+    int8_t applied_axis[2][2] = {};
+    for (int k = 0; k < 4; ++k) applied_keys[k] = field<uint32_t>(a, ap.keys[k], 0, 0xFFFFFFFFll, "applied.keys");
+    for (int p = 0; p < 2; ++p) applied_type[p] = field<uint8_t>(a, ap.type[p], 0, 2, "applied.type");
+    for (int p = 0; p < 2; ++p) applied_buttons[p] = field<uint8_t>(a, ap.buttons[p], 0, 7, "applied.buttons");
+    for (int p = 0; p < 2; ++p)
+        for (int ax = 0; ax < 2; ++ax) applied_axis[p][ax] = field<int8_t>(a, ap.axis[p][ax], -1, 1, "applied.axis");
+    if (checks) {
+        a.require((keys[13] | keys[14] | keys[15]) == 0, "kb.keys: a key above 0x67 is down");
+        a.require((applied_keys[3] >> 8) == 0, "applied.keys: a key above 0x67 is down");
+        a.require(applied_type[1] != P6_PORT_MOUSE, "applied.type: the mouse is on port 0 only");
+        for (int k = 0; k < 4; ++k) {
+            uint32_t engine = 0;
+            for (int b = 0; b < 4; ++b) engine |= uint32_t(keys[k * 4 + b]) << (8 * b);
+            a.require(engine == applied_keys[k], "the engine's key table and the bridge's disagree");
+        }
+        for (int p = 0; p < 2; ++p) {
+            const bool joystick = applied_type[p] == P6_PORT_JOYSTICK, mouse = applied_type[p] == P6_PORT_MOUSE;
+            if (!joystick && !mouse) a.require(applied_buttons[p] == 0 && applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "applied: a port without a device has buttons or a direction down");
+            if (mouse) a.require(applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "applied: a mouse has a direction down");
+            a.require(joy_buttons[p] == (joystick ? applied_buttons[p] : 0), "the engine's joystick buttons and the bridge's disagree");
+            a.require(joy_axis[p][0] == (joystick ? applied_axis[p][0] : 0) && joy_axis[p][1] == (joystick ? applied_axis[p][1] : 0),
+                      "the engine's joystick directions and the bridge's disagree");
+        }
+        a.require(mouse_buttons == (applied_type[0] == P6_PORT_MOUSE ? applied_buttons[0] : 0), "the engine's mouse buttons and the bridge's disagree");
+    }
+    if (a.applying() && a.ok()) {
+        p6_input_set(&r);
+        p6_keybuf_set(ring, int(ring_count));
+        p6_bridge::applied_set(ap);
+        p6_input_engine_released_keys = 0;      // p6_load left it set for the first unit; a state is only taken with it clear, and Applied is what the engine's table says
+    }
 }
 
 }  // namespace p6_state

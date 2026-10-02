@@ -185,4 +185,26 @@ void forget_input()
     memset(&applied, 0, sizeof applied);
 }
 
+void applied_get(p6_applied_raw *out)
+{
+    memcpy(out->keys, applied.keys, sizeof out->keys);
+    for (int p = 0; p < 2; ++p) {
+        out->type[p] = applied.type[p];
+        out->buttons[p] = applied.buttons[p];
+        out->axis[p][0] = applied.axis[p][0];
+        out->axis[p][1] = applied.axis[p][1];
+    }
+}
+
+void applied_set(const p6_applied_raw &in)
+{
+    memcpy(applied.keys, in.keys, sizeof applied.keys);
+    for (int p = 0; p < 2; ++p) {
+        applied.type[p] = in.type[p];
+        applied.buttons[p] = in.buttons[p];
+        applied.axis[p][0] = in.axis[p][0];
+        applied.axis[p][1] = in.axis[p][1];
+    }
+}
+
 }  // namespace p6_bridge

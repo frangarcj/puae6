@@ -327,7 +327,7 @@ class CiaChunkTests(ProbeCase):
         attempts.append(("a loaddelay bit that no writer sets", table.with_values({"cia.loaddelay[0]": 0x00000008}), 9, "cia.loaddelay: a bit no writer sets"))
         attempts.append(("the high bit of a loaddelay", table.with_values({"cia.loaddelay[3]": 0x80000000}), 9, "cia.loaddelay: a bit no writer sets"))
         attempts.append(("the body one byte short", reforge(table.blob, lambda c: c[CIA].__setitem__(2, c[CIA][2][:-1])), 9, "chunk cia: the body ends before its last field"))
-        attempts.append(("the body one byte long (refused by the envelope)", reforge(table.blob, lambda c: c[CIA].__setitem__(2, c[CIA][2] + b"\0")), 9, "payload_length: does not fit"))     # the envelope's bound, before the visitor
+        attempts.append(("the body one byte long (refused by the envelope)", reforge(table.blob, lambda c: c[CIA].__setitem__(2, c[CIA][2] + b"\0")), 9, "chunk_length: a chunk claims more bytes"))     # the chunk's own bound
         self.assertGreater(len(attempts), 45)
         run = self.refusals(attempts, rom="cias-led", extra=FULL, unit=6, units=9)
         self.assertEqual(len(attempts), len(run.after))

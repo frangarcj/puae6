@@ -2,6 +2,7 @@
 #ifndef P6_BRIDGE_INPUT_H
 #define P6_BRIDGE_INPUT_H
 #include "p6.h"
+#include "p6_state_access.h"
 
 namespace p6_bridge {
 
@@ -22,6 +23,11 @@ bool guest_polled_input();
 
 // Nothing is held any more (a load, a reset): the next packet applies every held key and button again.
 void forget_input();
+
+// The edge memory of the host (what was applied), as plain integers for the native state (bridge/state_devices.cpp). Setting it sends nothing to the engine: the
+// engine's own edge memory comes back with the same state, and the two are checked against each other when it is written.
+void applied_get(p6_applied_raw *out);
+void applied_set(const p6_applied_raw &in);
 
 // The keyboard restarts with a reset requested through the API: the engine's key table and reset chord are cleared, and every key
 // the host still holds goes down again once, after the keyboard's power-up stream.

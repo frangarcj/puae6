@@ -32,6 +32,12 @@
 // rtc-fault latches the clock's sticky fault, as a failed read would, and cs-rtc names another clock chip than the profile's.
 // --poke-at UNIT cia-tod2 puts CIA-A in the state of a TOD increment pending, without the event that carries it (a save must refuse it) and cia-tod2-event
 // with the event; cia-ovl flips the overlay latch against PRA/DDRA and kbmode names a keyboard other than the A500's (clear puts the CIAs and the mode back).
+// --poke-at UNIT keyinject|ignorerelease|turbo|mousespeed|resetwarning|released put the input in a state outside the profile (a text typed into the ring, a release to
+// swallow, turbo emulation, another mouse speed, a reset warning), and released clears the engine's key table as a reset of the keyboard does, without telling the bridge (a save is
+// then valid and says that no key is applied), and engine-key|engine-button|engine-axis|engine-mouse
+// make one entry of the engine's edge memory differ from the bridge's; a save made then must be refused.
+// --key UNIT CODE down|up and --port-at UNIT N:type:buttons:dx:dy (T15c3) change the packet the probe sends from that unit on (a key held, a mouse that moves only in some
+// units), so that a boundary can find the keyboard in the middle of a handshake or the mouse in flight; both are applied right before the unit they name.
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
 // --public-at calls the public p6_state_* functions and prints "public UNIT cap_state=B bound=C save=C load=C written=N MESSAGE".
 // Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. --dump also prints the
@@ -53,6 +59,8 @@
 #include "newcpu.h"
 #include "video_present.h"
 #include "inputdevice.h"
+#include "input.h"
+#include "keybuf.h"
 
 #include <algorithm>
 #include <cinttypes>
@@ -74,7 +82,10 @@ namespace p6_state { uint8_t scheduler_handler_id(evfunc2 f); evfunc2 scheduler_
 extern evfunc2 p6_custom_event2_handler(int which);                    // custom.cpp, patch 0079
 extern evfunc2 p6_disk_motordelay_handler(void);                       // disk.cpp, patch 0080
 extern uae_u8 *save_audio(int nr, size_t *len, uae_u8 *dstptr);       // audio.cpp: compiled in the profile, reads only
-extern uae_u8 *save_input(size_t *len, uae_u8 *dstptr);               // inputdevice.cpp: the same, it saves pot_cap
+extern void p6_input_get(p6_input_raw *out);                           // inputdevice.cpp, patch 0085: the gameports, the pot lines, the host's edge memory, the key table
+extern int p6_keybuf_get(uae_u8 *codes, int max);                      // keybuf.cpp, patch 0084: the keyboard ring from the oldest code to the newest
+extern void p6_input_set(const p6_input_raw *in);
+extern int p6_input_engine_released_keys;
 
 namespace {
 
@@ -196,14 +207,39 @@ void audio(Canon &c)
     }
 }
 
+// T15c3: every field of the input that the chunk carries: the pot lines, both gameports, the engine's edge memory and key table, the keyboard ring as a list,
+// and what the bridge remembers it applied. The counters of JOYxDAT are the low bytes of mouse_x and mouse_y.
 void input(Canon &c)
 {
-    c.put(potgo_value);
-    // pot_cap, the charge model of the pot lines, is all that save_input writes in the profile.
-    uae_u8 buffer[64] = {};
-    size_t length = 0;
-    save_input(&length, buffer);
-    c.put(uint32_t(length)).raw(buffer, length);
+    p6_input_raw r{};
+    p6_input_get(&r);
+    c.put(r.potgo_value);
+    for (int p = 0; p < 2; ++p)
+        for (int i = 0; i < 2; ++i) c.put(r.pot_cap[p][i]).put(r.pot_dat[p][i]).put(r.pot_dat_act[p][i]);
+    for (const p6_input_port_raw &g : r.port) {
+        c.put(g.joybutton).put(g.joydir).put(g.oleft).put(g.oright).put(g.otop).put(g.obot);
+        for (int k = 0; k < 4; ++k) c.put(g.mouse_delta[k]).put(g.mouse_deltanoreset[k]);
+        c.put(g.mouse_x).put(g.mouse_y).put(g.mouse_frame_x).put(g.mouse_frame_y);
+    }
+    c.put(r.input_frame).put(r.prev_input_frame).put(r.prev_input_vpos);
+    for (int j = 0; j < 2; ++j) {
+        c.put(r.joy_buttonmask[j]);
+        for (int a = 0; a < 2; ++a)
+            for (int i = 0; i < 9; ++i) c.put(r.joy_states[j][a][i]);
+    }
+    c.put(r.mouse_buttonmask);
+    for (int k = 0; k < 16; ++k) c.put(r.keys[k]);
+    c.put(r.reset_seq_mode).put(r.reset_seq);
+    uae_u8 ring[255] = {};
+    const int n = p6_keybuf_get(ring, 255);
+    c.put(int32_t(n));
+    for (int i = 0; i < n; ++i) c.put(ring[i]);
+    p6_applied_raw ap{};
+    p6_bridge::applied_get(&ap);
+    for (int k = 0; k < 4; ++k) c.put(ap.keys[k]);
+    for (int p = 0; p < 2; ++p) {
+        c.put(ap.type[p]).put(ap.buttons[p]).put(ap.axis[p][0]).put(ap.axis[p][1]);
+    }
 }
 
 void video(Canon &c)
@@ -378,6 +414,26 @@ void print_handler_table()
     printf("handler foreign %s\n", p6_state::scheduler_handler_id(foreign_handler) == 0 ? "OK" : "BAD");
 }
 
+// A change of the packet that the probe sends, applied right before the unit it names (0 means before the first one).
+struct InputEvent {
+    uint64_t unit;
+    unsigned kind;          // 0 key down, 1 key up, 2 port
+    unsigned code;
+    unsigned port;
+    p6_port_input value;
+};
+
+// The input as a poke found it, for "clear".
+p6_input_raw g_input_before;
+bool g_input_poked = false;
+
+void input_poke_begin()
+{
+    if (g_input_poked) return;
+    p6_input_get(&g_input_before);
+    g_input_poked = true;
+}
+
 // The CIAs as a poke found them, for "clear".
 p6_cia_raw g_cia_before[2];
 p6_cia_misc_raw g_misc_before;
@@ -455,6 +511,30 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 m.oldovl ^= 1;
                 p6_cia_misc_set(&m);
             } else if (!strcmp(op.chunk, "kbmode")) currprefs.keyboard_mode = 1;      // another keyboard than the A500's
+            else if (!strcmp(op.chunk, "keyinject")) keybuf_inject("a");              // a text typed into the keyboard ring
+            else if (!strcmp(op.chunk, "ignorerelease")) keybuf_ignore_next_release();
+            else if (!strcmp(op.chunk, "turbo")) currprefs.turbo_emulation = 1;
+            else if (!strcmp(op.chunk, "mousespeed")) currprefs.input_mouse_speed = 50;
+            else if (!strcmp(op.chunk, "resetwarning")) currprefs.cs_resetwarning = true;
+            else if (!strcmp(op.chunk, "released")) {                                // the engine cleared its key table and the bridge was not told
+                input_poke_begin();
+                p6_input_raw r{};
+                p6_input_get(&r);
+                memset(r.keys, 0, sizeof r.keys);
+                p6_input_set(&r);
+                p6_input_engine_released_keys = 1;
+            }
+            else if (!strcmp(op.chunk, "engine-key") || !strcmp(op.chunk, "engine-button") || !strcmp(op.chunk, "engine-axis") || !strcmp(op.chunk, "engine-mouse")) {
+                // The engine's edge memory against the bridge's: one bit of the key table, a button of joystick 1, a direction of joystick 1 or a mouse button differs.
+                input_poke_begin();
+                p6_input_raw r{};
+                p6_input_get(&r);
+                if (!strcmp(op.chunk, "engine-key")) r.keys[1] ^= 1;
+                else if (!strcmp(op.chunk, "engine-button")) r.joy_buttonmask[1] ^= 1;
+                else if (!strcmp(op.chunk, "engine-axis")) r.joy_states[1][0][8] = r.joy_states[1][0][8] == 1 ? 0 : 1;
+                else r.mouse_buttonmask ^= 1;
+                p6_input_set(&r);
+            }
             else if (!strcmp(op.chunk, "ev2-foreign")) event2_newevent_xx(-1, evt_t(3000) * CYCLE_UNIT, 0, foreign_handler);
             else if (!strcmp(op.chunk, "ev2-stale")) {
                 // What a fired event leaves in its slot: inactive, with the time, the data and the handler it had. A save writes zeros for it.
@@ -475,6 +555,14 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 pissoff = 0;
                 currprefs.cs_rtc = 1;
                 currprefs.keyboard_mode = 0;
+                currprefs.turbo_emulation = 0;
+                currprefs.input_mouse_speed = 100;
+                currprefs.cs_resetwarning = false;
+                p6_input_engine_released_keys = 0;
+                if (g_input_poked) {
+                    p6_input_set(&g_input_before);
+                    g_input_poked = false;
+                }
                 if (g_cia_poked) {                                                      // the CIAs as they were before the first poke (an event it scheduled stays)
                     p6_cia_set(0, &g_cia_before[0]);
                     p6_cia_set(1, &g_cia_before[1]);
@@ -563,6 +651,7 @@ int main(int argc, char **argv)
     std::vector<StateOp> state_ops;
     std::vector<const char *> adf_paths;
     p6_port_input ports[2] = {{P6_PORT_JOYSTICK, 0, 0, 0, 0}, {P6_PORT_JOYSTICK, 0, 0, 0, 0}};
+    std::vector<InputEvent> input_events;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = strtoull(argv[++i], nullptr, 10);
@@ -603,8 +692,21 @@ int main(int argc, char **argv)
             int dx, dy;
             if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
             ports[port] = {type, buttons, int16_t(dx), int16_t(dy), 0};
+        } else if (!strcmp(argv[i], "--key") && i + 3 < argc) {
+            // --key UNIT CODE down|up: from UNIT on the packet holds (or no longer holds) the Amiga key CODE (0..0x67)
+            InputEvent e{strtoull(argv[i + 1], nullptr, 10), !strcmp(argv[i + 3], "up") ? 1u : 0u, unsigned(strtoul(argv[i + 2], nullptr, 0)), 0, {}};
+            if (e.code > 0x7f || (strcmp(argv[i + 3], "up") && strcmp(argv[i + 3], "down"))) return 64;
+            input_events.push_back(e);
+            i += 3;
+        } else if (!strcmp(argv[i], "--port-at") && i + 2 < argc) {
+            // --port-at UNIT N:type:buttons:dx:dy: from UNIT on the packet carries this for port N (the motion is repeated every unit)
+            unsigned port, type, buttons;
+            int dx, dy;
+            if (sscanf(argv[i + 2], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
+            input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
+            i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -643,6 +745,12 @@ int main(int argc, char **argv)
         input.ports[0] = ports[0];
         input.ports[1] = ports[1];
         for (uint64_t unit = 1; unit <= units; ++unit) {
+            for (const InputEvent &e : input_events) {
+                if (e.unit != unit && !(e.unit == 0 && unit == 1)) continue;
+                if (e.kind == 2) input.ports[e.port] = e.value;
+                else if (e.kind == 0) input.keys[e.code / 32] |= 1u << (e.code % 32);
+                else input.keys[e.code / 32] &= ~(1u << (e.code % 32));
+            }
             p6_frame frame = {};
             frame.abi_version = P6_ABI_VERSION;
             frame.struct_size = sizeof frame;
