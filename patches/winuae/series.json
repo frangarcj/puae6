@@ -2239,6 +2239,55 @@
           "after_sha256": "a8d5098af8261772a7629311604b55c63b8d2336ece5c7990d465e74f80be893"
         }
       ]
+    },
+    {
+      "id": "0082-cia-state-access",
+      "file": "patches/winuae/0082-cia-state-access.patch",
+      "sha256": "777800644b17ad7c1240894a31a9b387f70a4f132d69fbbe9a140ed8f701e8fe",
+      "title": "The native state can read and write the two CIAs and what cia.cpp keeps beside them",
+      "reason": "cia.cpp keeps both CIAs, the keyboard handshake, the E-clock phase and the LED in file statics, so a state cannot see them. p6_cia_get/set and p6_cia_misc_get/set copy fields into and out of plain structs (ports/portable/p6_state_access.h) and call nothing: CIA_update, CIA_calctimers, CIA_check_ICR and compute_passed_time change the live CIA or schedule events that the scheduler's chunk owns. p6_cia_overlay_rebuild makes the ROM-at-zero map again from PRA and DDRA, and p6_cia_boundary refuses a CIA that fields alone cannot describe.",
+      "category": "host hooks",
+      "order": 82,
+      "symbols": [
+        "p6_cia_boundary",
+        "p6_cia_get",
+        "p6_cia_misc_get",
+        "p6_cia_misc_set",
+        "p6_cia_overlay_rebuild",
+        "p6_cia_set"
+      ],
+      "test": "STATE02; tests.state.test_state_cia",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "a8d5098af8261772a7629311604b55c63b8d2336ece5c7990d465e74f80be893",
+          "after_sha256": "d334313660a1a705d98a181325e0121f1e9e6948b4c707a10008e36699434606"
+        }
+      ]
+    },
+    {
+      "id": "0083-cia-led-session-begin",
+      "file": "patches/winuae/0083-cia-led-session-begin.patch",
+      "sha256": "7ebd650199ce8254dd1408feca9b66d26639e5167095bac173e02aef0637abd8",
+      "title": "A load starts with the power LED as a clean process has it",
+      "reason": "led_old_brightness (a static of cia.cpp) and gui_data.powerled/powerled_brightness (ports/portable/gui.cpp) are not put back by CIA_reset or p6_gui_reset. After a session that ended with the LED lit, a reload began with powerled set, and led_filter_audio() in the reset head read it, so the audio filter of the first unit differed from a clean process until the first led_vsync. p6_cia_session_begin now zeroes the three, the value of a clean process; a reset inside a session keeps them, as the hardware keeps the LED.",
+      "category": "state corrections",
+      "order": 83,
+      "symbols": [
+        "p6_cia_session_begin"
+      ],
+      "test": "LIFE01; tests.state.test_probe; tests.state.test_state_cia",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "d334313660a1a705d98a181325e0121f1e9e6948b4c707a10008e36699434606",
+          "after_sha256": "61c7ccd3714cd4203a7293406cff4bb62e6b3bc23edc8b7c387d00c497221b26"
+        }
+      ]
     }
   ]
 }

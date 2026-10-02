@@ -52,7 +52,7 @@ const Chunk kChunks[kChunkCount] = {
     {"P6CH", "chipset", 1, nullptr, nullptr},
     {"P6VD", "video", 1, nullptr, nullptr},
     {"P6AU", "audio", 1, nullptr, nullptr},
-    {"P6CI", "cia", 1, nullptr, nullptr},
+    {"P6CI", "cia", 1, visit_cia, rebuild_cia},
     {"P6DK", "disk", 1, nullptr, nullptr},
     {"P6IN", "input", 1, nullptr, nullptr},
     {"P6BR", "bridge", 1, nullptr, nullptr},

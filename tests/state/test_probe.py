@@ -68,7 +68,7 @@ class ProbeTests(unittest.TestCase):
         first = self.run_probe("input_all", "--units", "4")[0]
         second = self.run_probe("input_all", "--units", "4")[0]
         self.assertEqual(first, second)
-        self.assertEqual(9 * 5, len(first))
+        self.assertEqual(10 * 5, len(first))
         if sys.platform == "darwin":        # freshly allocated memory filled with 0xAA and freed memory with 0x55: no digest may care
             scribbled = self.run_probe("input_all", "--units", "4", env={"MallocScribble": "1", "MallocPreScribble": "1"})[0]
             self.assertEqual(first, scribbled, "a digest depends on memory the engine never initialized")
@@ -84,7 +84,7 @@ class ProbeTests(unittest.TestCase):
     def test_each_subsystem_with_a_probe_sees_the_machine_change(self):
         runs = {name: self.run_probe(name, "--units", "6")[0] for name in self.roms}
         runs["boot-ntsc"] = self.run_probe("boot", "--units", "6", "--ntsc")[0]
-        for subsystem in ("cpu", "scheduler", "ram", "rtc", "chipset", "audio", "video", "bridge"):
+        for subsystem in ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "video", "bridge"):
             with self.subTest(subsystem=subsystem):
                 self.assertGreater(len({run[(6, subsystem)] for run in runs.values()}), 1, "the digest is the same for every fixture")
         # The pot digest does not move with any fixture or port: the inventory says so instead of claiming a coverage it does not have.
@@ -129,7 +129,7 @@ class ProbeTests(unittest.TestCase):
                     self.assertTrue(probe["why"].strip())
         self.assertGreater(seen["implemented"], 15)
         self.assertGreater(seen["partial"], 20)
-        self.assertGreater(seen["pending"], 10)
+        self.assertGreater(seen["pending"], 5)
 
 
 if __name__ == "__main__":

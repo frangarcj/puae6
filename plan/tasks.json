@@ -9037,7 +9037,7 @@
       "title": "Estado nativo de las CIA y del teclado (chunk P6CI), con la reconstruccion del overlay",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15c1"
       ],
@@ -9063,9 +9063,9 @@
       ],
       "steps": [
         "Parches de cia.cpp con accesores de copia (los dos CIA, el resto de estado de fichero, el LED y la comprobacion de frontera) y el arreglo aparte de la fuga del LED de encendido que una recarga conserva; escribir visit_cia (P6CI v1): registros, timers crudos (no timer - passed), pipeline de interrupcion, TOD con latch y alarma, SDR, handshake de teclado, fase E, LED como edad contra el contador de ciclos. Apply solo copia campos: nada que programe o dispare (CIA_update, CIA_calctimers, RethinkICR, event2_newevent_*); el unico rebuild es map_overlay desde PRA y DDRA.",
-        "Save comprueba que los eventos del scheduler que la CIA necesita estan presentes (el del TOD pendiente y el de la interrupcion sincronizada); Validate acota lo que haria abort() en el motor (inputpipe) y las relaciones del ICR; el error del serializador upstream que asigna el latch del timer B al TOD no se hereda.",
-        "Nueva sonda cia con cada campo del chunk, micro-ROM de timers, TOD con alarma y LED, y pokes para lo que un programa no deja en una frontera; pruebas de ida y vuelta, campos aplicados, cuerpos mal formados, mutaciones y recarga sucia con el LED encendido.",
-        "Ampliacion touch: la misma que T15c1."
+        "Save rechaza lo que los campos no pueden describir (aviso de reset, modo de teclado ajeno, latch del overlay que no concuerda con PRA/DDRA, TOD pendiente sin su evento); no comprueba el evento de la interrupcion sincronizada porque la tabla del scheduler se lleva tal cual y la condicion no es un invariante (ADR 0009, T15c2). Validate acota lo que haria abort() en el motor (inputpipe) y las relaciones del ICR que se cumplen por construccion; el error del serializador upstream que asigna el latch del timer B al TOD no se hereda.",
+        "Nueva sonda cia con cada campo del chunk y lo que el overlay selecciona, programas de timers, TOD con alarma, handshake de teclado y LED, y pokes para lo que un programa no deja en una frontera; pruebas de ida y vuelta, campos aplicados y vueltos a guardar, cuerpos mal formados, mutaciones y recarga sucia con el LED encendido.",
+        "Ampliacion touch: la misma que T15c1; los programas van dentro del test, no en tests/fixtures, para no tocar la lista de escenarios de las micro-ROM."
       ],
       "checks": [
         "DET02"

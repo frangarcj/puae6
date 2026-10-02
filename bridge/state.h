@@ -29,6 +29,8 @@ void visit_cpu(Archive &a);
 void visit_scheduler(Archive &a);
 void rebuild_scheduler();
 void visit_rtc(Archive &a);
+void visit_cia(Archive &a);
+void rebuild_cia();
 
 // A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value), which is the only thing a
 // cross-check may use: Validate stores nothing, so the live variable it came from belongs to another machine.

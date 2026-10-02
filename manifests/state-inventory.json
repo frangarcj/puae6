@@ -4554,7 +4554,7 @@
         "saved_fields": "save_cia(0) writes pra, prb, dra, drb, TA and TB as (timer - passed) u16, TOD 24 bit, sdr, icr2 (as 'ICR information'), CRA, CRB, imask, latches A/B, tol, alarm, flag byte (tlatch, todon, sdr_load), sdr_cnt, sdr_buf, then the 4.9.2+ block: icr1, inputpipe[2] u16, loaddelay[2] u32, cs_eclockphase u16, internaleclockphase u16. restore_cia_finish then sets eventtab[ev_cia].oldcycles = now, runs CIA_update() + CIA_calctimers() + compute_passed_time() and DISK_select_set(cia[1].prb). SAVESTATE is not defined by ports/portable/sysconfig.h (its defines end at line 48), and DEBUGGER is not defined either, so every save_*/restore_* under '#ifdef SAVESTATE' is compiled out (cia.cpp:3157-3367).",
         "omitted": "Causal and not saved: t[].preovfl (uae_u8; only the !acc_mode() branches of CIA_thi_write/CIA_cr_write set it, i.e. before the first CIA_vsync_prehandler; cleared by the next CIA_update_check); the sub-E-clock remainder of get_cycles() - eventtab[ev_cia].oldcycles (restore_cia_finish sets oldcycles = now and drops it); cia_cycle_accurate (own record). Defects of the upstream chunk: restore_cia assigns 'c->tol = w' (the timer-B latch) instead of 'l' (cia.cpp:3222), so a latched TOD reads back as the timer-B latch; save_cia_prepare() runs CIA_update_check() + CIA_calctimers() + compute_passed_time() on the LIVE CIA (icr2 flushed to icr1, ev_cia rescheduled, oldcycles moved), so calling save_cia is not a pure observation and can change the following run (observer effect).",
         "pointers": "CIATimer.passed (derived, recomputed by compute_passed_time at every ReadCIAA/ReadCIAB and in save/restore), CIATimer.timerval_prev (cache read only when cachesize != 0 or m68k_speed < 0: never in the profile), cia_bank addrbank (function pointers, rebuilt by memory_reset), e_clock_sync/start/end/tod (derived from cs_eclocksync). struct CIA holds no pointers. Nothing persists on the C++ stack: CIA_update_check/process_pipe work on locals within one call and the unit boundary is an instruction boundary.",
-        "rebuild": "Write the fields back, then eventtab[ev_cia].oldcycles = get_cycles(); CIA_update_check(); CIA_calctimers() (reschedules ev_cia); compute_passed_time(); cia_set_eclockphase(); bfe001_change() (PRA/DDRA -> led, overlay). A pure native serializer should read timer - passed without calling save_cia_prepare, or call it on every unit so runs with and without saves agree. Pending test: DET02 with a save while timers A/B are counting in both one-shot and continuous mode.",
+        "rebuild": "Write the fields back, then eventtab[ev_cia].oldcycles = get_cycles(); CIA_update_check(); CIA_calctimers() (reschedules ev_cia); compute_passed_time(); cia_set_eclockphase(); bfe001_change() (PRA/DDRA -> led, overlay). A pure native serializer should read timer - passed without calling save_cia_prepare, or call it on every unit so runs with and without saves agree. Pending test: DET02 with a save while timers A/B are counting in both one-shot and continuous mode. T15c2: none of that is called: the fields are copied and ev_cia comes back with the scheduler's chunk (P6SC); the raw counters are what make that exact.",
         "evidence": [
           "build/upstream/cia.cpp:138",
           "build/upstream/cia.cpp:150",
@@ -4581,12 +4581,34 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "p6_cia_get",
+            "r.pra",
+            "r.prb",
+            "r.dra",
+            "r.drb",
+            "x.timer",
+            "x.latch",
+            "x.cr",
+            "x.preovfl",
+            "r.sdr",
+            "r.sdr_buf",
+            "r.sdr_load",
+            "r.sdr_cnt"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "Per CIA: pra prb dra drb (u8), per timer the RAW counter (u16, in the epoch of eventtab[ev_cia].oldcycles that the scheduler's chunk restores), latch (u16), inputpipe (0..3: bitstodelay abort()s on anything else), loaddelay (u32 without the bits no writer sets), preovfl (0..1) and cr; then sdr, sdr_buf, sdr_load (0..1), sdr_cnt (0..16). The visible timer value (timer minus passed) is not stored: passed is a cache that every read recomputes, so Apply zeroes it. Nothing is called that runs CIA_update, CIA_calctimers or compute_passed_time (upstream's save_cia_prepare does, on the LIVE CIA: the observer effect that the native save does not have)."
+        }
       },
       {
         "id": "cia-b-registers-timers",
@@ -4603,7 +4625,7 @@
         "saved_fields": "Same layout as CIAA (save_cia(1)): registers, timers as timer - passed, TOD, sdr, icr2, CRs, imask, latches, tol, alarm, flags, sdr_cnt, sdr_buf, icr1, inputpipe, loaddelay, cs_eclockphase, internaleclockphase. CIA-B raises INT6 (0x2000); its PRB drives DISK_select, so restore_cia_finish re-derives the disk controller lines from the saved PRB.",
         "omitted": "Same omissions as CIAA (preovfl, sub-E-clock remainder, cia_cycle_accurate, tol defect, save side effects). Extra: WriteCIAB passes CIA_PBON(c, val) (timer outputs forced onto PB6/PB7 when CR_PBON is set) to DISK_select, but restore uses the raw prb, so the controller lines differ if a guest ever enables PBON on CIA-B. CIA-B sdr_cnt/sdr_buf are driven by CNT toggles on PRA (write_ciab_serial) and are saved. Serial and parallel ports do not exist: SERIAL_PORT and PARALLEL_PORT are defined only by upstream od-win32/sysconfig.h, not by ports/portable/sysconfig.h, so those branches are compiled out.",
         "pointers": "Same as CIAA. The PRB byte is also mirrored into drive-controller statics (selected, side, direction, prev_data, prev_step) that are derived, see disk-controller-lines.",
-        "rebuild": "As CIAA, plus DISK_select_set(cia[1].prb) after the fields are back. Pending test: DET02 with a save right after a guest write to PRB (motor on, DF0 selected, step pulse).",
+        "rebuild": "As CIAA, plus DISK_select_set(cia[1].prb) after the fields are back. Pending test: DET02 with a save right after a guest write to PRB (motor on, DF0 selected, step pulse). T15c2: none of that is called: the fields are copied and ev_cia comes back with the scheduler's chunk (P6SC); the raw counters are what make that exact.",
         "evidence": [
           "build/upstream/cia.cpp:2268",
           "build/upstream/cia.cpp:2241",
@@ -4625,12 +4647,34 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "p6_cia_get",
+            "r.pra",
+            "r.prb",
+            "r.dra",
+            "r.drb",
+            "x.timer",
+            "x.latch",
+            "x.cr",
+            "x.preovfl",
+            "r.sdr",
+            "r.sdr_buf",
+            "r.sdr_load",
+            "r.sdr_cnt"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "Per CIA: pra prb dra drb (u8), per timer the RAW counter (u16, in the epoch of eventtab[ev_cia].oldcycles that the scheduler's chunk restores), latch (u16), inputpipe (0..3: bitstodelay abort()s on anything else), loaddelay (u32 without the bits no writer sets), preovfl (0..1) and cr; then sdr, sdr_buf, sdr_load (0..1), sdr_cnt (0..16). The visible timer value (timer minus passed) is not stored: passed is a cache that every read recomputes, so Apply zeroes it. Nothing is called that runs CIA_update, CIA_calctimers or compute_passed_time (upstream's save_cia_prepare does, on the LIVE CIA: the observer effect that the native save does not have)."
+        }
       },
       {
         "id": "cia-a-interrupt-pipeline",
@@ -4672,12 +4716,27 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "r.icr1",
+            "r.icr2",
+            "r.icr_change",
+            "r.imask",
+            "x.inputpipe",
+            "x.loaddelay"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "icr1 (u8), icr2 (<= 0x1F), imask (<= 0x7F), icr_change (0..1: the flush of icr2 into icr1 that CIA_calctimers forces is not lost), inputpipe and loaddelay as above. The event2 entry of a synchronised interrupt is the scheduler's (handler id, P6SC); the INT2/INT6 request lives in the chipset's chunk (intreq)."
+        }
       },
       {
         "id": "cia-b-interrupt-pipeline",
@@ -4719,12 +4778,27 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "r.icr1",
+            "r.icr2",
+            "r.icr_change",
+            "r.imask",
+            "x.inputpipe",
+            "x.loaddelay"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "icr1 (u8), icr2 (<= 0x1F), imask (<= 0x7F), icr_change (0..1: the flush of icr2 into icr1 that CIA_calctimers forces is not lost), inputpipe and loaddelay as above. The event2 entry of a synchronised interrupt is the scheduler's (handler id, P6SC); the INT2/INT6 request lives in the chipset's chunk (intreq)."
+        }
       },
       {
         "id": "cia-a-tod",
@@ -4766,12 +4840,28 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "r.tod",
+            "r.tol",
+            "r.alarm",
+            "r.tlatch",
+            "r.todon",
+            "r.tod_event_state",
+            "r.tod_offset"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "tod, tol (the TOD latch; upstream's restore wrote the timer B latch here), alarm (<= 0xFFFFFF), tlatch, todon (0..1), tod_event_state (0..4) and tod_offset (-1..4095). A save refuses (BAD_STATE) a CIA whose tod_event_state is 2 (an alarm increment pending) without its event2 entry in the scheduler's table: the event is restored with the scheduler, never created again here."
+        }
       },
       {
         "id": "cia-b-tod",
@@ -4812,12 +4902,28 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "r.tod",
+            "r.tol",
+            "r.alarm",
+            "r.tlatch",
+            "r.todon",
+            "r.tod_event_state",
+            "r.tod_offset"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "tod, tol (the TOD latch; upstream's restore wrote the timer B latch here), alarm (<= 0xFFFFFF), tlatch, todon (0..1), tod_event_state (0..4) and tod_offset (-1..4095). A save refuses (BAD_STATE) a CIA whose tod_event_state is 2 (an alarm increment pending) without its event2 entry in the scheduler's table: the event is restored with the scheduler, never created again here."
+        }
       },
       {
         "id": "cia-keyboard-handshake",
@@ -4859,12 +4965,23 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "m.kbstate",
+            "m.kblostsynccnt"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "kbstate (0..3) and kblostsynccnt (0..1<<20). kbcode is written before every read (cia.cpp:990, 1252, 1264, 1405) and kbhandshakestart only feeds a log line: neither is state. hsync_counter, the poll phase, is the scheduler's (P6SC); the SDR is in the CIA fields; the pending key ring is the input chunk's (T15c3). A save refuses a keyboard mode other than the A500's own and a reset warning in progress."
+        }
       },
       {
         "id": "cia-e-clock-phase",
@@ -4904,12 +5021,22 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "m.internaleclockphase"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "internaleclockphase (0..19). cs_eclockphase is configuration (config hash): it is neither written nor applied, which upstream's restore did into currprefs and changed_prefs."
+        }
       },
       {
         "id": "cia-cycle-accurate",
@@ -4947,12 +5074,22 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "m.cia_cycle_accurate"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "cia_cycle_accurate (0..1): false until the first CIA_vsync_prehandler of the image, true afterwards. A state taken before that frame gets the inexact paths back for its first frame, as the machine it was taken from would have run it."
+        }
       },
       {
         "id": "cia-power-led",
@@ -4992,12 +5129,28 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "m.led",
+            "m.led_old_brightness",
+            "m.led_cycle",
+            "m.led_cycles_on",
+            "m.led_cycles_off",
+            "m.powerled",
+            "m.powerled_brightness"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c2",
+          "chunk": "P6CI",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_cia",
+          "proves": "tests/state/test_state_cia.py: every field of the body comes back to the unit the state was taken in (six programs, three of them driving both CIAs' timers, TOD, keyboard handshake and LED, an NTSC machine and the owner's Kickstart 1.3 at four boundaries), and every field is applied and saved again unchanged, in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15c)",
+          "notes": "led (0..1), led_old_brightness (-1..255), led_age (>= 0: led_cycle is an instant of the cycle counter, so it travels as the age against it and Apply puts it back against the counter that the scheduler's chunk has restored), led_cycles_on/off (>= 0), gui_data.powerled and powerled_brightness. led_filter_on of the audio filter is derived from powerled and belongs to the audio chunk's rebuild (T15e). Patch 0083 closes a leak this chunk found: p6_cia_session_begin left powerled, its brightness and led_old_brightness of the last session, so a Kickstart that ended with the LED lit started the next load with it set."
+        }
       },
       {
         "id": "cia-overlay-bit",
@@ -5014,7 +5167,7 @@
         "saved_fields": "Not saved by the CIA chunks; custom.cpp's chunk saves the overlay flag and calls cia_set_overlay (custom.cpp:8433, also compiled out).",
         "omitted": null,
         "pointers": "oldovl (static bool) is always (PRA | ~DDRA) & 1 after the first write; the address-bank mapping it selects belongs to the memory slice (map_overlay).",
-        "rebuild": "After restoring pra/dra, call bfe001_change() (as CIA_reset does when restoring, cia.cpp:2425-2433) and let the memory slice restore its own banks; verify oldovl == (pra | ~dra) & 1. Pending test: DET02 with a save before the guest clears the overlay bit.",
+        "rebuild": "After restoring pra/dra, call bfe001_change() (as CIA_reset does when restoring, cia.cpp:2425-2433) and let the memory slice restore its own banks; verify oldovl == (pra | ~dra) & 1. Pending test: DET02 with a save before the guest clears the overlay bit. T15c2: rebuild_cia (p6_cia_overlay_rebuild, after every chunk is applied) sets oldovl = (PRA | ~DDRA) & 1 and maps the overlay again, because bfe001_change maps it only when the bit changes; a save refuses a live latch that disagrees with CIA-A.",
         "evidence": [
           "build/upstream/cia.cpp:173",
           "build/upstream/cia.cpp:1435",
@@ -5033,10 +5186,13 @@
           "what": "the derived state is rebuilt after a restore and the futures are equal from the next unit; a rebuild that cannot be shown equal is serialized instead"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "implemented",
+          "task": "T15c2",
+          "covers": [
+            "m.oldovl",
+            "get_mem_bank"
+          ]
         },
         "waterbox": "captured by the snapshot"
       },
@@ -5077,12 +5233,20 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "partial",
+          "task": "T15c2",
+          "why": "the event tables are the scheduler digest's (eventtab[ev_cia], the event2 entries by handler id); this digest has what the CIAs keep beside them (tod_event_state, icr_change, loaddelay)"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15b2",
+          "chunk": "P6SC",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_scheduler",
+          "proves": "tests/state/test_state_scheduler.py: the table with eventtab[ev_cia] and the event2 entries by handler id comes back; DET02 for the CIAs' events waits for T15c",
+          "notes": "The CIAs create no event of their own at a restore: ev_cia (evtime, active, oldcycles) and the TOD/synchronised-interrupt entries are the scheduler's, and the CIA chunk refuses a save whose tod_event_state says an entry exists that the table lacks (T15c2). cia_now_evt is transient inside one access."
+        }
       },
       {
         "id": "cia-rtc-msm-registers",
@@ -5119,12 +5283,20 @@
           "what": "save at a boundary, continue in the same process and in a new one: the same digests, picture and audio; the omitted fields also need a test in which changing them before the save changes the future"
         },
         "probe": {
-          "probe": null,
-          "status": "pending",
-          "task": "T15",
-          "why": "the state is file-local to cia.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
+          "probe": "cia",
+          "status": "partial",
+          "task": "T15c1",
+          "why": "the registers are in the rtc digest (p6_rtc_msm_get): they live in cia.cpp, but the clock is where they are hashed and saved"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15c1",
+          "chunk": "P6RT",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_rtc",
+          "proves": "tests/state/test_state_rtc.py: the registers D, E and F come back with the clock",
+          "notes": "Carried by the clock's chunk (see rtc-msm6242b-registers); delayed_write is not state."
+        }
       },
       {
         "id": "cia-resetwarning",
@@ -7006,6 +7178,7 @@
         "scheduler",
         "ram",
         "rtc",
+        "cia",
         "chipset",
         "audio",
         "input",

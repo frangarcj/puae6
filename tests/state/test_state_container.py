@@ -18,6 +18,7 @@ RAM_BODY = 8 + CHIP + SLOW
 CPU_BODY = 155          # P6CP (T15b1)
 SCHED_BODY = 314        # P6SC (T15b2)
 RTC_BODY = 31           # P6RT (T15c1)
+CIA_BODY = 143          # P6CI (T15c2)
 
 
 class StateContainerTests(ProbeCase):
@@ -59,8 +60,9 @@ class StateContainerTests(ProbeCase):
         self.assertEqual((1, CPU_BODY), (chunks[b"P6CP"][0], len(chunks[b"P6CP"][1])))
         self.assertEqual((1, SCHED_BODY), (chunks[b"P6SC"][0], len(chunks[b"P6SC"][1])))
         self.assertEqual((1, RTC_BODY), (chunks[b"P6RT"][0], len(chunks[b"P6RT"][1])))
+        self.assertEqual((1, CIA_BODY), (chunks[b"P6CI"][0], len(chunks[b"P6CI"][1])))
         for tag in e.TAGS:
-            if tag not in (b"P6RM", b"P6CP", b"P6SC", b"P6RT"):
+            if tag not in (b"P6RM", b"P6CP", b"P6SC", b"P6RT", b"P6CI"):
                 self.assertEqual((0, b""), chunks[tag], "a chunk that is not written yet is an empty placeholder of version 0")
 
     def test_the_state_carries_the_ram_of_the_unit_it_was_taken_in_and_nothing_else_of_the_machine(self):

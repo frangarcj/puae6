@@ -22,7 +22,7 @@ from tests.state import envelope as e  # noqa: E402
 
 BUILD = ROOT / "build/link-audit"
 FIXTURES = ROOT / "tests/fixtures/microrom"
-SUBSYSTEMS = ("cpu", "scheduler", "ram", "rtc", "chipset", "audio", "input", "video", "bridge")
+SUBSYSTEMS = ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "input", "video", "bridge")
 DIGEST = re.compile(r"^digest (\d+) (\w+) ([0-9a-f]{64}) (\d+)$")
 LOAD = re.compile(r"^load (\d+) (-?\d+) ?(.*)$")
 SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")

@@ -30,6 +30,8 @@
 // --digest-at UNIT prints the digests of the machine as it is then (under "after-load UNIT", like a load does), for after a poke. --rtc-at UNIT prints
 // the clock in the open, "rtc UNIT STATUS SECONDS TICKS SUBSECOND CYCLE D E F" (p6_rtc_save brings it up to the cycle counter); --poke-at UNIT
 // rtc-fault latches the clock's sticky fault, as a failed read would, and cs-rtc names another clock chip than the profile's.
+// --poke-at UNIT cia-tod2 puts CIA-A in the state of a TOD increment pending, without the event that carries it (a save must refuse it) and cia-tod2-event
+// with the event; cia-ovl flips the overlay latch against PRA/DDRA and kbmode names a keyboard other than the A500's (clear puts the CIAs and the mode back).
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
 // --public-at calls the public p6_state_* functions and prints "public UNIT cap_state=B bound=C save=C load=C written=N MESSAGE".
 // Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. --dump also prints the
@@ -37,6 +39,7 @@
 #include "p6.h"
 #include "session.h"
 #include "state.h"
+#include "p6_state_access.h"
 #include "sha256.h"
 #include "rtc_time.h"
 #include "sysconfig.h"
@@ -63,6 +66,10 @@ extern uae_u32 p6_rng_get(void);                                       // main.c
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);   // events.cpp, patch 0078: the secondary scheduler's statics
 extern int p6_custom_extra_cycle_get(void);                            // custom.cpp, patch 0079: the half-CCK remainder of the CPU
 extern void p6_rtc_msm_get(uae_u8 out[3]);                             // cia.cpp, patch 0081: the MSM6242B's control registers D, E and F
+extern void p6_cia_get(int num, p6_cia_raw *out);                      // cia.cpp, patch 0082: both CIAs and what cia.cpp keeps beside them
+extern void p6_cia_set(int num, const p6_cia_raw *in);
+extern void p6_cia_misc_get(p6_cia_misc_raw *out);
+extern void p6_cia_misc_set(const p6_cia_misc_raw *in);
 namespace p6_state { uint8_t scheduler_handler_id(evfunc2 f); evfunc2 scheduler_handler(uint8_t id); }    // bridge/state_cpu.cpp: the ids a state gives the handlers
 extern evfunc2 p6_custom_event2_handler(int which);                    // custom.cpp, patch 0079
 extern evfunc2 p6_disk_motordelay_handler(void);                       // disk.cpp, patch 0080
@@ -149,6 +156,25 @@ void rtc(Canon &c)
     c.put(msm[0]).put(msm[1]).put(msm[2]);
 }
 
+// T15c2: every field of both CIAs and of what cia.cpp keeps beside them that the chunk carries. The timers are the raw counters, in the epoch of
+// eventtab[ev_cia].oldcycles; passed, timerval_prev, kbcode and the rest that are written before they are read are not state and are not hashed.
+void cias(Canon &c)
+{
+    for (int n = 0; n < 2; ++n) {
+        p6_cia_raw r{};
+        p6_cia_get(n, &r);
+        c.put(r.pra).put(r.prb).put(r.dra).put(r.drb);
+        for (const p6_cia_timer_raw &x : r.t) c.put(x.timer).put(x.latch).put(x.inputpipe).put(x.loaddelay).put(x.preovfl).put(x.cr);
+        c.put(r.tod).put(r.tol).put(r.alarm).put(r.tlatch).put(r.todon).put(r.tod_event_state).put(r.tod_offset);
+        c.put(r.icr1).put(r.icr2).put(r.icr_change).put(r.imask).put(r.sdr).put(r.sdr_buf).put(r.sdr_load).put(r.sdr_cnt);
+    }
+    p6_cia_misc_raw m{};
+    p6_cia_misc_get(&m);
+    c.put(m.cia_cycle_accurate).put(m.kbstate).put(m.kblostsynccnt).put(m.internaleclockphase).put(m.led).put(m.led_old_brightness).put(m.led_cycle);
+    c.put(m.led_cycles_on).put(m.led_cycles_off).put(m.powerled).put(m.powerled_brightness).put(m.oldovl);
+    c.put(uint8_t(&get_mem_bank(0) == &chipmem_bank));    // what the overlay latch selects at address 0: Chip RAM, or the ROM while the latch is set
+}
+
 void chipset(Canon &c)
 {
     // The beam and the registers a CPU or a DMA slot can read back; Denise's input ring is left out until its cursors have an accessor.
@@ -205,7 +231,7 @@ void bridge(Canon &c)
         .put(s.config.rtc_epoch_seconds);
 }
 
-const Probe kProbes[] = {{"cpu", cpu}, {"scheduler", scheduler}, {"ram", ram}, {"rtc", rtc}, {"chipset", chipset},
+const Probe kProbes[] = {{"cpu", cpu}, {"scheduler", scheduler}, {"ram", ram}, {"rtc", rtc}, {"cia", cias}, {"chipset", chipset},
                          {"audio", audio}, {"input", input}, {"video", video}, {"bridge", bridge}};
 
 std::string hex(const uint8_t *data, size_t size)
@@ -352,6 +378,20 @@ void print_handler_table()
     printf("handler foreign %s\n", p6_state::scheduler_handler_id(foreign_handler) == 0 ? "OK" : "BAD");
 }
 
+// The CIAs as a poke found them, for "clear".
+p6_cia_raw g_cia_before[2];
+p6_cia_misc_raw g_misc_before;
+bool g_cia_poked = false;
+
+void cia_poke_begin()
+{
+    if (g_cia_poked) return;
+    p6_cia_get(0, &g_cia_before[0]);
+    p6_cia_get(1, &g_cia_before[1]);
+    p6_cia_misc_get(&g_misc_before);
+    g_cia_poked = true;
+}
+
 void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
 {
     for (const StateOp &op : ops) {
@@ -400,6 +440,21 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(2000 + 100 * id) * CYCLE_UNIT, uae_u32(0x1000 + id), handler);
             } else if (!strcmp(op.chunk, "rtc-fault")) p6_rtc_read(nullptr, 0);       // latches the clock's sticky fault, as a failed read would
             else if (!strcmp(op.chunk, "cs-rtc")) currprefs.cs_rtc = 2;               // another clock chip than the profile's MSM6242B
+            else if (!strcmp(op.chunk, "cia-tod2") || !strcmp(op.chunk, "cia-tod2-event")) {
+                // A TOD increment pending in CIA-A (state 2), without the event that carries it or with it (the engine's own call, data = the CIA's number).
+                cia_poke_begin();
+                p6_cia_raw r{};
+                p6_cia_get(0, &r);
+                r.tod_event_state = 2;
+                p6_cia_set(0, &r);
+                if (!strcmp(op.chunk, "cia-tod2-event")) event2_newevent_xx(-1, evt_t(2000) * CYCLE_UNIT, 0, event_CIA_tod_inc_event);
+            } else if (!strcmp(op.chunk, "cia-ovl")) {                                // the overlay latch against PRA/DDRA
+                cia_poke_begin();
+                p6_cia_misc_raw m{};
+                p6_cia_misc_get(&m);
+                m.oldovl ^= 1;
+                p6_cia_misc_set(&m);
+            } else if (!strcmp(op.chunk, "kbmode")) currprefs.keyboard_mode = 1;      // another keyboard than the A500's
             else if (!strcmp(op.chunk, "ev2-foreign")) event2_newevent_xx(-1, evt_t(3000) * CYCLE_UNIT, 0, foreign_handler);
             else if (!strcmp(op.chunk, "ev2-stale")) {
                 // What a fired event leaves in its slot: inactive, with the time, the data and the handler it had. A save writes zeros for it.
@@ -419,6 +474,13 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 start_cycles = 0;
                 pissoff = 0;
                 currprefs.cs_rtc = 1;
+                currprefs.keyboard_mode = 0;
+                if (g_cia_poked) {                                                      // the CIAs as they were before the first poke (an event it scheduled stays)
+                    p6_cia_set(0, &g_cia_before[0]);
+                    p6_cia_set(1, &g_cia_before[1]);
+                    p6_cia_misc_set(&g_misc_before);
+                    g_cia_poked = false;
+                }
             }
             printf("poke %" PRIu64 " %s\n", unit, op.chunk);
         } else if (op.kind == OpKind::Save || op.kind == OpKind::SaveFields) {
@@ -542,7 +604,7 @@ int main(int argc, char **argv)
             if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
             ports[port] = {type, buttons, int16_t(dx), int16_t(dy), 0};
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--seed S] [--adf FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
