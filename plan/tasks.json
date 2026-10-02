@@ -9128,7 +9128,7 @@
       "title": "Estado nativo de RTC, CIA, teclado y entrada (chunks RTC, CIA, INPT)",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15a",
         "T15b",
