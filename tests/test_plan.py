@@ -73,8 +73,8 @@ class PlanTests(unittest.TestCase):
     def test_current_project_gate_and_machawk_priority(self):
         data = json.loads((ROOT / "plan/tasks.json").read_text())
         by_id = {task["id"]: task for task in data["tasks"]}
-        self.assertEqual(224, len(by_id))
-        self.assertEqual(218, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(227, len(by_id))
+        self.assertEqual(221, sum(task["required"] for task in by_id.values()))
         self.assertEqual(["T03", "T26"], by_id["T48a"]["depends"])
         self.assertEqual(["T03", "T26"], by_id["T48b"]["depends"])
         self.assertEqual(["T22", "T26"], by_id["T48c"]["depends"])
@@ -250,8 +250,11 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(["T15c2"], by_id["T15c3"]["depends"])
         self.assertEqual(["T15a", "T15b", "T15c1", "T15c2", "T15c3"], by_id["T15c"]["depends"])
         self.assertEqual(["T15a", "T15b", "T15c"], by_id["T15h"]["depends"])
-        # Revision 2026-10-06: the remaining chunks build on WinUAE's own bodies (P6UP) behind one vertical.
-        self.assertEqual(["T15a", "T15b", "T15c", "T15h"], by_id["T15i"]["depends"])
+        # Revision 2026-10-06: the remaining chunks build on WinUAE's own bodies, each in its subsystem's chunk, behind one vertical (T15i1-T15i3).
+        self.assertEqual(["T15a", "T15b", "T15c", "T15h"], by_id["T15i1"]["depends"])
+        self.assertEqual(["T15i1"], by_id["T15i2"]["depends"])
+        self.assertEqual(["T15i2"], by_id["T15i3"]["depends"])
+        self.assertEqual(["T15a", "T15b", "T15c", "T15h", "T15i1", "T15i2", "T15i3"], by_id["T15i"]["depends"])
         for part in ("T15d", "T15e", "T15f", "T15g"):
             self.assertEqual(["T15i"], by_id[part]["depends"])
             self.assertEqual(["DET02"], by_id[part]["checks"])

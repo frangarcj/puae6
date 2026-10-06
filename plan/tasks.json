@@ -9194,7 +9194,7 @@
         "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Extender P6UP con lo que DISK/DSKn no guardan y DET02 demuestre necesario: dsklen2, cambio de medio retardado, eventos predichos, PRNG de disco y pista en vuelo (reconstruida o guardada). El enlace a la imagen sale del manifest de medios; el estado no guarda bytes de imagen.",
+        "Extender su chunk con lo que DISK/DSKn no guardan y DET02 demuestre necesario: dsklen2, cambio de medio retardado, eventos predichos, PRNG de disco y pista en vuelo (reconstruida o guardada). El enlace a la imagen sale del manifest de medios; el estado no guarda bytes de imagen.",
         "Escenarios: transferencia DMA de disco en curso, cambio de disco retardado y motor en marcha.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
         "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
@@ -9235,7 +9235,7 @@
         "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Extender P6UP con lo que AUDn no guarda y DET02 demuestre necesario: maquina de estado por canal, acumuladores, fases del filtro y del resampler por patron de bits y posicion en la unidad de audio. El transporte PCM no es estado.",
+        "Extender su chunk con lo que AUDn no guarda y DET02 demuestre necesario: maquina de estado por canal, acumuladores, fases del filtro y del resampler por patron de bits y posicion en la unidad de audio. El transporte PCM no es estado.",
         "Escenarios: DMA de audio activo con volumen modulado; el PCM tras restaurar es identico muestra a muestra.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
         "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
@@ -9276,7 +9276,7 @@
         "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Extender P6UP con lo que los cuerpos upstream no guardan y DET02 demuestre necesario: slots RGA, trabajo pendiente del copper, DMAL/refresh, callbacks diferidos, holds y fases del blitter, latches del haz y contadores lineales. Sustituir solo la reconstruccion de *_finish que DET02 muestre incorrecta.",
+        "Extender su chunk con lo que los cuerpos upstream no guardan y DET02 demuestre necesario: slots RGA, trabajo pendiente del copper, DMAL/refresh, callbacks diferidos, holds y fases del blitter, latches del haz y contadores lineales. Sustituir solo la reconstruccion de *_finish que DET02 muestre incorrecta.",
         "Escenarios: copper en marcha, blitter a medias y DMA de bitplanes y sprites activos, en PAL y NTSC.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
         "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
@@ -9317,7 +9317,7 @@
         "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Extender P6UP con lo que BPLX/SPRX no guardan y DET02 demuestre necesario: anillo de entrada rga_denise, cursores, historiales de dibujo, colision y pixeles de la linea en curso; reconstruir punteros y tablas derivadas.",
+        "Extender su chunk con lo que BPLX/SPRX no guardan y DET02 demuestre necesario: anillo de entrada rga_denise, cursores, historiales de dibujo, colision y pixeles de la linea en curso; reconstruir punteros y tablas derivadas.",
         "Escenarios: linea de dibujo a medias, sprites reutilizados y buffer de pixeles a mitad de cuadro; la imagen tras restaurar es identica pixel a pixel.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
         "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
@@ -9379,8 +9379,8 @@
       "evidence": null
     },
     {
-      "id": "T15i",
-      "title": "Vertical de cuerpos upstream: chunk P6UP, Apply sin reset y DET02 de punta a punta",
+      "id": "T15i1",
+      "title": "Compilar los cuerpos upstream A500 y guardarlos sin mutar la maquina",
       "milestone": "M2",
       "required": true,
       "status": "pending",
@@ -9405,22 +9405,152 @@
         "manifests/state-inventory.json",
         "tests/test_plan.py",
         "CMakeLists.txt",
-        "bridge/state_probe.cpp",
-        "bridge/frame_step.cpp"
+        "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Compilar en el perfil, con parches de guarda y sin definir SAVESTATE globalmente, los save_*/restore_*/*_finish A500 de disk.cpp (DISK, DSKn), audio.cpp (AUDn), custom.cpp (CHIP, CHPX, CHPD, CHSL, SPRn), blitter.cpp (BLIT, BLTX) y drawing.cpp (BPLX, SPRX). Los sitios SAVESTATE que cambian comportamiento (m68k_go en newcpu.cpp, quitstatefile en custom.cpp, savestate_init en main.cpp) quedan fuera.",
-        "Chunk P6UP: secuencia fija de subcuerpos (tag de 4 caracteres, longitud u32, bytes de save_*), sin contenedor ASF ni zfile. No duplicar lo que ya poseen P6CP, P6SC, P6RT, P6CI, P6IN y P6BR (CPU, CYCS, CIAA/B, KEYB, INPT); el inventario asigna un unico dueño a cada componente.",
-        "Apply sin cabecera de reset: restore_* y *_finish sobre la maquina viva, sin custom_reset, m68k_reset2 ni memory_clear. Antes de Apply, tabla de subcuerpos y longitud exacta de cada uno (la que produce save_* de este build para la config y los medios cargados). Save no puede mutar la maquina: corregir con un parche pequeño los handlers que CHPD ejecuta al guardar.",
-        "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
-        "Probar con el probe (--save-at/--load-at) en los micro-ROM: save→load→save reemite P6UP byte a byte en el mismo proceso y en uno nuevo, y DET02 corre de punta a punta. Cada divergencia queda como fallo esperado visible y atribuida a un subsistema por digest; la API publica sigue UNSUPPORTED hasta T15.",
-        "Ampliacion touch: bridge/state_upstream.cpp aloja P6UP; bridge/frame_step.cpp solo si Apply necesita su unico punto de avance del motor."
+        "Parche de guarda `#if defined SAVESTATE || defined P6_STATE_BODIES` solo alrededor de las definiciones save_*/restore_*/*_finish de disk.cpp, custom.cpp y blitter.cpp; AGAC, CHPX, CHPD y CYCS siguen bajo SAVESTATE. Los sitios que cambian comportamiento (quitstatefile en custom.cpp, newcpu.cpp, main.cpp) no se tocan. audio.cpp y drawing.cpp ya compilan sus cuerpos.",
+        "Parche al disco: save_disk/restore_disk sin rutas ni drive_insert (el medio lo identifica el envelope), con el flag que restore_disk lee siempre escrito.",
+        "Save puro: STATE_DOSAVE mientras corren los save_* (maybe_read_input no lee), y ni dmacon (DMACONR) ni p6_input_poll_mask cambian por guardar (parche pequeño a save_custom o guardar y reponer).",
+        "Cada cuerpo upstream va en el chunk de su subsistema, que hoy es un hueco del formato: P6DK (DISK, DSKn, DSDn), P6AU (AUDn), P6CH (CHIP, CHSL, BLIT, BLTX, SPRn) y P6VD (BPLX). Quedan fuera CYCS y CHPD (P6SC), CHPX (P6CI), CINP (P6IN), CIAA/B, KEYB, CPU*, las RAM y AGAC. En esta tarea los visitores de esos chunks guardan y miden; Validate y Apply llegan en T15i2. Un chunk parcial no cuenta para complete(): la API publica sigue UNSUPPORTED.",
+        "Pruebas: guardar no cambia ningun digest ni el futuro (mismo futuro con y sin save en medio); las longitudes fijas (CHIP 424, DISK 17, AUDn 25, SPRn 25, BPLX 292, BLIT 63, BLTX 226, CHSL 191, a confirmar) quedan en una tabla comprobada contra un save real; DSKn/DSDn variables con su presencia por unidad."
       ],
       "checks": [
         "DET02"
       ],
       "acceptance": [
-        "P6UP se reemite byte a byte tras cargarlo, en el mismo proceso y en uno nuevo.",
+        "Los cuerpos upstream elegidos se guardan dentro de P6DK, P6AU, P6CH y P6VD y guardar no cambia el estado ni el futuro de la maquina."
+      ],
+      "stop": "No definir SAVESTATE globalmente ni compilar el contenedor ASF; no reescribir un save_* que solo necesite no mutar.",
+      "evidence": null
+    },
+    {
+      "id": "T15i2",
+      "title": "Validar y aplicar los cuerpos upstream sobre la maquina viva",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15i1"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_probe.cpp"
+      ],
+      "steps": [
+        "Validate antes de Apply, por subcuerpo: longitud exacta, presencia, centinelas y los valores que acaban indexando (cyl, tracklen y mfmpos del disco, state de AUDn, blit_ch y state de BLTX, regidx y rga_slot_first_offset de CHSL, chipset_mask OCS, flags de BLIT). Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
+        "Apply sin cabecera de reset: restore_* y *_finish con savestate_state=STATE_RESTORE fijado por RAII solo durante Apply; ni restore_*_start, ni init_hz, ni audio_activate. Parche 'apply vivo' a restore_custom para que no haga audio_reset ni blitter_reset ni escriba prefs; si un *_finish pisa eventtab, el rebuild de P6SC, que corre despues, manda.",
+        "Pruebas: save→load→save reemite cada chunk byte a byte en el mismo proceso y en uno nuevo; cada subcuerpo truncado, alargado o con un indice fuera de rango se rechaza antes de Apply y deja la maquina usable."
+      ],
+      "checks": [
+        "DET02",
+        "STATE02"
+      ],
+      "acceptance": [
+        "Cada cuerpo upstream se valida antes de Apply y se reemite byte a byte tras cargarlo, en el mismo proceso y en uno nuevo."
+      ],
+      "stop": "No ejecutar custom_reset, m68k_reset2 ni memory_clear en Apply; no adaptar un estado de otra configuracion.",
+      "evidence": null
+    },
+    {
+      "id": "T15i3",
+      "title": "DET02 de punta a punta con los cuerpos upstream y atribucion de divergencias",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15i2"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_probe.cpp"
+      ],
+      "steps": [
+        "DET02 en los micro-ROM (rewind en la misma imagen y, donde el audio lo permita, proceso nuevo) con todos los chunks; cada divergencia queda como fallo esperado visible, atribuida a un subsistema por digest y apuntada a T15d, T15e, T15f o T15g.",
+        "Lista de partida a comprobar (investigacion de T15i): posicion del haz (VPOSR/VHPOSR se leen y se descartan), anillo rga_denise, Copper en espera, DMA de bitplanes, spr[].dmastate, dsklen2, linecounter, cambio de disco retardado, filtro y resampler de audio, last_cycles y el centinela PERIOD_MAX-1.",
+        "Los parches de acceso archivados (0100 haz, 0111 RGA, 0112 Copper y siguientes) se pueden reutilizar como accesos de las extensiones, no como codec completo."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "DET02 corre de punta a punta en los micro-ROM; cada divergencia restante esta atribuida a un subsistema y abierta en T15d-T15g, sin ocultarla."
+      ],
+      "stop": "No corregir una divergencia aqui: se registra y se resuelve en la ficha de su subsistema.",
+      "evidence": null
+    },
+    {
+      "id": "T15i",
+      "title": "Cuerpos upstream de disco, Paula, chipset y Denise en sus chunks y DET02 de punta a punta",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a",
+        "T15b",
+        "T15c",
+        "T15h",
+        "T15i1",
+        "T15i2",
+        "T15i3"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_probe.cpp",
+        "bridge/frame_step.cpp"
+      ],
+      "steps": [
+        "Compilar en el perfil, con parches de guarda y sin definir SAVESTATE globalmente, los save_*/restore_*/*_finish A500 de disk.cpp (DISK, DSKn), audio.cpp (AUDn), custom.cpp (CHIP, CHPX, CHPD, CHSL, SPRn), blitter.cpp (BLIT, BLTX) y drawing.cpp (BPLX, SPRX). Los sitios SAVESTATE que cambian comportamiento (m68k_go en newcpu.cpp, quitstatefile en custom.cpp, savestate_init en main.cpp) quedan fuera.",
+        "Subcuerpos con tag y longitud dentro de P6DK, P6AU, P6CH y P6VD (tag de 4 caracteres, longitud u32, bytes de save_*), sin contenedor ASF ni zfile. No duplicar lo que ya poseen P6CP, P6SC, P6RT, P6CI, P6IN y P6BR (CPU, CYCS, CIAA/B, KEYB, INPT); el inventario asigna un unico dueño a cada componente.",
+        "Apply sin cabecera de reset: restore_* y *_finish sobre la maquina viva, sin custom_reset, m68k_reset2 ni memory_clear. Antes de Apply, tabla de subcuerpos y longitud exacta de cada uno (la que produce save_* de este build para la config y los medios cargados). Save no puede mutar la maquina: corregir con un parche pequeño los handlers que CHPD ejecuta al guardar.",
+        "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
+        "Probar con el probe (--save-at/--load-at) en los micro-ROM: save→load→save reemite cada chunk byte a byte en el mismo proceso y en uno nuevo, y DET02 corre de punta a punta. Cada divergencia queda como fallo esperado visible y atribuida a un subsistema por digest; la API publica sigue UNSUPPORTED hasta T15.",
+        "Ampliacion touch: bridge/state_upstream.cpp aloja los cuerpos upstream; bridge/frame_step.cpp solo si Apply necesita su unico punto de avance del motor.",
+        "Division: T15i1 (compilar y guardar sin mutar), T15i2 (Validate y Apply vivo) y T15i3 (DET02 y atribucion); T15i es su cierre y conserva su aceptacion."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Cada chunk con cuerpos upstream se reemite byte a byte tras cargarlo, en el mismo proceso y en uno nuevo.",
         "DET02 se ejecuta de punta a punta en los micro-ROM; cada divergencia restante esta atribuida a un subsistema y abierta en T15d-T15g, sin ocultarla."
       ],
       "stop": "No reimplementar campo a campo un cuerpo upstream ni ejecutar la cabecera de reset en Apply. Lo que un cuerpo upstream pierde se extiende en T15d-T15g, guiado por DET02.",
@@ -9466,7 +9596,7 @@
         "Calcular state_bound por perfil y medios al load; validar longitud/config/identidad antes de restaurar y hacer fallo transaccional.",
         "Ejecutar roundtrip, continuacion en proceso nuevo y estados cerca de DMA/audio/disco/teclas.",
         "Activar fuzzer de estados truncados, manipulados y de otro build/ROM; garantizar que el estado anterior sigue utilizable tras rechazo.",
-        "Division: T15a (contenedor, envelope, identidades y RAM), T15b (CPU y scheduler), T15c (RTC, CIA y entrada), T15h (sesion del bridge), T15i (vertical P6UP de cuerpos upstream y Apply sin reset), T15d (disco), T15e (audio), T15f (Agnus, copper y blitter) y T15g (Denise); T15 es el cierre: conecta p6_state_bound/save/load a la ABI y a P6_CAP_STATE, calcula state_bound sobre todos los chunks y conserva las puertas originales.",
+        "Division: T15a (contenedor, envelope, identidades y RAM), T15b (CPU y scheduler), T15c (RTC, CIA y entrada), T15h (sesion del bridge), T15i (vertical de cuerpos upstream en sus chunks y Apply sin reset), T15d (disco), T15e (audio), T15f (Agnus, copper y blitter) y T15g (Denise); T15 es el cierre: conecta p6_state_bound/save/load a la ABI y a P6_CAP_STATE, calcula state_bound sobre todos los chunks y conserva las puertas originales.",
         "Ampliacion touch: p6.h y caps.cpp para anunciar la capacidad solo al cerrar, tests/fuzz/** para el fuzzer de estados."
       ],
       "checks": [

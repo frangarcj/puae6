@@ -97,12 +97,15 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
    (T15d1-T15f1b4h2b2b2a, parches 0086-0137) llevo cinco dias y unas 85 subtareas sin una carga publica ni un DET02 de punta a punta,
    y su coste crecia con cada campo (y creceria otra vez con ECS/AGA). Queda en la rama `archivo/t15-codec-por-campos` (c5c137a)
    como oraculo y fuente de escenarios. Nueva regla:
-   - WinUAE 6.0.3 ya serializa casi todo el estado en vuelo: CHIP, CHPX, CHPD (retardos de eventos), CHSL (slots), SPRn, BLIT/BLTX,
+   - WinUAE 6.0.3 serializa los registros y parte del estado en vuelo, pero no la posicion del haz (lee VPOSR/VHPOSR y los descarta),
+     el anillo rga_denise ni el Copper en espera: su restore lo rehace con `custom_reset`. Esas piezas son extensiones nuestras.
+     Cuerpos: CHIP, CHPX, CHPD (retardos de eventos), CHSL (slots), SPRn, BLIT/BLTX,
      BPLX/SPRX, AUDn, DISK/DSKn. Esos `save_*`/`restore_*`/`*_finish` se compilan en el perfil con parches de guarda, sin definir
      `SAVESTATE` globalmente: en los ficheros A500 casi todos los `#ifdef SAVESTATE` solo envuelven esas funciones; los tres sitios
      que cambian comportamiento (`m68k_go`, `quitstatefile`, `savestate_init`) quedan fuera.
-   - Sus bytes van en un chunk `P6UP` (subcuerpos con tag y longitud, sin contenedor ASF ni zfile) dentro del mismo envelope. No se
-     promete compatibilidad `.uss`. Lo que ya poseen P6CP/P6SC/P6RT/P6CI/P6IN/P6BR no se duplica.
+   - Sus bytes van, como subcuerpos con tag y longitud (sin contenedor ASF ni zfile), en el chunk de su subsistema: P6DK (DISK, DSKn,
+     DSDn), P6AU (AUDn), P6CH (CHIP, CHSL, BLIT, BLTX, SPRn) y P6VD (BPLX); las extensiones van en el mismo chunk. No se promete
+     compatibilidad `.uss`. Lo que ya poseen P6CP/P6SC/P6RT/P6CI/P6IN/P6BR no se duplica.
    - Apply restaura sobre la maquina viva sin `custom_reset`, `m68k_reset2` ni `memory_clear` (el camino upstream de `m68k_go` si los
      ejecuta, y eso no continua bit a bit). DET02 decide que falta: cada perdida se cubre con una extension pequeña o un parche al
      cuerpo upstream, no con un serializador paralelo.
@@ -110,7 +113,7 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
      un subcuerpo upstream debe tener la longitud que produce `save_*` de este build para la config y los medios cargados. No se exige
      una continuacion segura para valores que este build no produce: no se amplia ni se blinda la aritmetica del motor frente a
      magnitudes construidas. Los limites naturales (por ejemplo, contadores i32 tras decenas de horas emuladas) se documentan.
-   - Orden: T15h (sesion), T15i (vertical P6UP + Apply sin reset + DET02 de punta a punta en los micro-ROM), T15d/T15e/T15f/T15g
+   - Orden: T15h (sesion), T15i (cuerpos upstream en sus chunks + Apply sin reset + DET02 de punta a punta en los micro-ROM; T15i1-T15i3), T15d/T15e/T15f/T15g
      (extensiones guiadas por DET02) y el cierre T15.
 
 ## Evidencia
