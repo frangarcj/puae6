@@ -17,16 +17,16 @@ SCENARIOS = {
 
 # Where DET02 diverges on the Kickstart (the causes are those of tests/state/test_det02.py).
 DIVERGENCES = {
-    "kickstart@60/same-image": d.row("beam", 0, "chipset.beam"),
+    "kickstart@60/same-image": d.row("audio-phase", 1, "bridge pcm"),
     "kickstart@60/same-image-beam-set": d.row("audio-phase", 1, "bridge pcm"),
-    "kickstart@60/new-process": d.row("beam", 0, "chipset.beam"),
-    "kickstart@60/new-process-beam-set": d.row("frame-phase", 1, "cpu scheduler rtc cia input video bridge chipset.beam chipset.counters pcm"),
+    "kickstart@60/new-process": d.row("palette", 1, "video bridge pcm"),
+    "kickstart@60/new-process-beam-set": d.row("palette", 1, "video bridge pcm"),
     "kickstart-handshake@107/same-image-beam-set": d.row("kickstart-mixed", 1, "video bridge pcm"),
     "kickstart-handshake@107/reset-image-beam-set": d.row("kickstart-mixed", 1, "cpu scheduler ram rtc video bridge chipset.beam chipset.clxdat"),
-    "kickstart-handshake@107/new-process": d.row("beam", 0, "chipset.beam"),
+    "kickstart-handshake@107/new-process": d.row("kickstart-mixed", 1, "cpu scheduler ram rtc video bridge chipset.beam chipset.clxdat pcm"),
     "kickstart-steady@140/same-image-beam-set": d.row("kickstart-mixed", 1, "ram bridge pcm"),
     "kickstart-steady@140/reset-image-beam-set": d.row("kickstart-mixed", 1, "ram video bridge pcm"),
-    "kickstart-steady@140/new-process": d.row("beam", 0, "chipset.beam"),
+    "kickstart-steady@140/new-process": d.row("kickstart-mixed", 1, "ram video bridge pcm"),
 }
 
 

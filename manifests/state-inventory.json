@@ -2583,7 +2583,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2700,7 +2700,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2757,7 +2757,15 @@
           ],
           "why": "vpos, linear_vpos and agnus_hpos are hashed; the previous-line copies, hhpos, the linear_* family and the long/short line state are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15f1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: BEAM (patch 0094, the last sub-body of P6CH, 244 bytes) is saved without changing the machine, validated by structure before anything is applied (the line against the standard of the configuration, the flags, the latches, the strobe) and applied as values, and save, load, save re-emits it byte for byte with the rest of the state, in the same process and in a new one; tests/state/test_det02.py: a fresh image that loads a state is on the original's line and in its frame, and the first unit that differs is attributed to its own cause",
+          "notes": "vpos, vpos_prev, agnus_hpos(+_prev,_next), agnus_vpos_next, agnus_pos_change, hhpos, the linear_* history and the sync latches of Agnus travel as 32-bit words in BEAM; the line length is derived by setmaxhpos from the lol of CHIP and the linetoggle of BEAM. Not saved: current_linear_*, agnus_trigger_cck and the other timestamps of the display (T15g), currcycle_cck (debug)."
+        }
       },
       {
         "id": "chipset-interlace-lof-lol",
@@ -2808,7 +2816,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2906,7 +2914,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2962,7 +2970,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3012,7 +3020,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15f1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: BEAM (patch 0094, the last sub-body of P6CH, 244 bytes) is saved without changing the machine, validated by structure before anything is applied (the line against the standard of the configuration, the flags, the latches, the strobe) and applied as values, and save, load, save re-emits it byte for byte with the rest of the state, in the same process and in a new one; tests/state/test_det02.py: a fresh image that loads a state is on the original's line and in its frame, and the first unit that differs is attributed to its own cause",
+          "notes": "dmal_shifter, dmal and dmal_next travel in BEAM (the DMA list of the line in flight: it also paces the input's per-line tick, so a pot counter loses a line without it). The channel flags that audio_dmal consumes are the audio chunk's."
+        }
       },
       {
         "id": "chipset-delayed-register-writes",
@@ -3165,7 +3181,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3220,7 +3236,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3274,7 +3290,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3326,8 +3342,8 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
-          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it. prev_strobe travels in BEAM (T15f1): the vertical blank is raised when it goes from STRHOR to another strobe, and a fresh image has the reset value, which raised one before its first line."
         }
       },
       {
@@ -3381,7 +3397,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3471,7 +3487,15 @@
           ],
           "why": "hsync_counter and vsync_counter are hashed; display_hsync_counter and the derived line counters are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15f1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: BEAM (patch 0094, the last sub-body of P6CH, 244 bytes) is saved without changing the machine, validated by structure before anything is applied (the line against the standard of the configuration, the flags, the latches, the strobe) and applied as values, and save, load, save re-emits it byte for byte with the rest of the state, in the same process and in a new one; tests/state/test_det02.py: a fresh image that loads a state is on the original's line and in its frame, and the first unit that differs is attributed to its own cause",
+          "notes": "display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next, linetoggle, the field detection (lof_display, lof_detect, lof_pdetect, lof_detect_vsync, prevlofs) and display_last_hsync/vsync (absolute, like the cycle counter P6SC restores first) travel in BEAM; hsync_counter and vsync_counter stay in P6SC."
+        }
       },
       {
         "id": "chipset-derived-video-timing",
@@ -3682,7 +3706,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3737,7 +3761,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3963,7 +3987,7 @@
           "chunk": "P6VD",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_video",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4017,7 +4041,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4070,7 +4094,7 @@
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4338,7 +4362,7 @@
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4389,7 +4413,7 @@
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4438,7 +4462,7 @@
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4487,7 +4511,7 @@
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -5574,7 +5598,7 @@
           "chunk": "P6DK",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_disk",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -5631,7 +5655,7 @@
           "chunk": "P6DK",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_disk",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -5803,7 +5827,7 @@
           "chunk": "P6DK",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_disk",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },

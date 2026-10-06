@@ -2564,6 +2564,29 @@
           "after_sha256": "feda6facc129e1715292ef8d4a00226417ea76c7ff5d2b615167e776429e04a4"
         }
       ]
+    },
+    {
+      "id": "0094-custom-beam-state-access",
+      "file": "patches/winuae/0094-custom-beam-state-access.patch",
+      "sha256": "8fc6c25f9093fa048539eaabee3b9281ec76b26e2e249b310d0d2e77c5b2fbf4",
+      "title": "The beam, the frame phase and the DMA list of the line, as values",
+      "reason": "WinUAE's bodies throw the beam away (restore_custom reads VPOSR and VHPOSR and discards them) and keep the line history, the counters of the frame (display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next), prev_strobe (the strobe edge that raises the vertical blank: a restored machine had the reset value and raised a spurious one), dmal_shifter, dmal and dmal_next (the DMA list of the line in flight, which also paces the input's per-line tick) and the sync latches of Agnus in file statics no body names. p6_custom_beam_get and p6_custom_beam_set copy them as 61 32-bit words and derive only the line length (setmaxhpos). Without them a loaded machine keeps its own beam and a new image ends its first unit on another line and takes a vertical blank the original did not (DET02, T15f1).",
+      "category": "host hooks",
+      "order": 94,
+      "symbols": [
+        "p6_custom_beam_get",
+        "p6_custom_beam_set"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "a491f30f92fb04b5ba02bc21b3b97c02810cf1cb1f169bd8cd148ee19cec71e5",
+          "after_sha256": "a670a9606708019a48f3aa484cca4b26bcee323b8e5e93bb00a4e4311b18ee76"
+        }
+      ]
     }
   ]
 }

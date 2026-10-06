@@ -9256,7 +9256,7 @@
       "title": "Haz, fase de cuadro y temporizacion: una maquina cargada esta en la misma linea y el mismo cuadro",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15i"
       ],
@@ -9281,7 +9281,8 @@
         "Extension de P6CH: posicion del haz (vpos, linear_vpos, agnus_hpos y lo que VPOSR/VHPOSR derivan), contadores de fase de cuadro de custom.cpp (display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next y los que DET02 senale) y la temporizacion de una imagen nueva (lo que init_hz deja: maxvpos, maxhpos, beamcon0 en NTSC) aplicada sin ejecutar la cabecera de reset.",
         "Borrar la excepcion de T15i2: test_only_the_beam_registers_of_the_chipset_body_are_not_put_back y harness.without_beam; CHIP se reemite byte a byte.",
         "Los parches de acceso archivados (0100 haz y siguientes, rama archivo/t15-codec-por-campos) son oraculo y fuente de accesos, no codec a portar.",
-        "Quitar el expectedFailure de cada clave de tests/state/test_det02.py (DIVERGENCES) que se resuelva; una clave que siga divergiendo por otra causa se reatribuye con su primera unidad y subsistema, sin ocultarla."
+        "Quitar el expectedFailure de cada clave de tests/state/test_det02.py (DIVERGENCES) que se resuelva; una clave que siga divergiendo por otra causa se reatribuye con su primera unidad y subsistema, sin ocultarla.",
+        "Ampliacion registrada: prev_strobe (VERTB espurio en la primera linea de una imagen nueva) y la lista DMAL de la linea en vuelo (dmal_shifter, dmal, dmal_next: pot_dat perdia un tick por linea) entran en el subcuerpo BEAM porque DET02 los señalo; el DMAL/refresh del cierre T15f queda cubierto por ellos."
       ],
       "checks": [
         "DET02"

@@ -175,23 +175,6 @@ def parse_chunks(blob):
     return chunks
 
 
-# What restore_custom does with VPOSR and VHPOSR (bytes 8-11 of CHIP, which is the first sub-body of P6CH after its 8 bytes of tag and length): it reads them and
-# throws them away, and the beam of a loaded machine is where the machine already was, so a state taken again has the beam of the moment it is taken in and not
-# the saved one. Putting the beam back is an extension of the chipset (T15f): until then a comparison of what a load put back leaves these four bytes out.
-BEAM = slice(8 + 8, 8 + 12)
-
-
-def without_beam(blob):
-    """The payload of a state with the beam registers of the chipset body zeroed."""
-    out = []
-    for tag, version, body in parse_chunks(blob):
-        if tag == b"P6CH":
-            body = bytearray(body)
-            body[BEAM] = bytes(4)
-        out.append(e.CHUNK_HEADER.pack(tag, version, len(body)) + bytes(body))
-    return b"".join(out)
-
-
 def reforge(blob, edit=None, header=None, count=None, keep_length=False):
     """The state with its chunk list edited (`edit` gets a list of [tag, version, body]) and every checksum made right again: a defect that
     only the structure, and not a checksum, can find. `header` replaces header bytes by offset after the lengths are set."""

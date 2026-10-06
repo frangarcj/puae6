@@ -14,7 +14,7 @@ import unittest
 
 from tests.scenarios.audio.audio import Tone, rom_source as tone_source
 from tests.state import envelope as e
-from tests.state.harness import FieldTable, ProbeCase, SCENARIOS, SUBSYSTEMS, TRACE, USER, parse_chunks, reforge, without_beam
+from tests.state.harness import FieldTable, ProbeCase, SCENARIOS, SUBSYSTEMS, TRACE, USER, parse_chunks, reforge
 
 SCHEDULER = 1           # index of the chunk in the state
 IDS = tuple(range(1, 12))
@@ -89,8 +89,7 @@ class SchedulerChunkTests(ProbeCase):
                 fresh = self.probe(rom, "--units", "0", "--load-at", "0", str(path), "--save-at", "0", str(again))
                 self.assertEqual([(0, 0, "")], fresh.loads)
                 self.assertEqual(source.digests[(n, "scheduler")], fresh.after[0]["scheduler"])
-                self.assertEqual(without_beam(path.read_bytes()), without_beam(again.read_bytes()),
-                                 "the state taken again after the restore has the bytes of the one that was loaded")
+                self.assertEqual(path.read_bytes(), again.read_bytes(), "the state taken again after the restore has the bytes of the one that was loaded")
 
     def test_the_state_taken_again_after_a_restore_in_the_same_process_is_the_same_bytes(self):
         for rom, (n, k) in self.scenarios().items():
@@ -115,11 +114,11 @@ class SchedulerChunkTests(ProbeCase):
         self.assertEqual([(9, 0, "")], same.loads)
         self.assertNotEqual(then["scheduler"], same.digests[(9, "scheduler")])
         self.assertEqual(then["scheduler"], same.after[0]["scheduler"])
-        self.assertEqual(without_beam(path.read_bytes()), without_beam(again.read_bytes()))
+        self.assertEqual(path.read_bytes(), again.read_bytes())
         fresh = self.probe("vsync", "--units", "0", "--load-at", "0", str(path), "--save-at", "0", str(again))
         self.assertEqual([(0, 0, "")], fresh.loads)
         self.assertEqual(then["scheduler"], fresh.after[0]["scheduler"])
-        self.assertEqual(without_beam(path.read_bytes()), without_beam(again.read_bytes()))
+        self.assertEqual(path.read_bytes(), again.read_bytes())
 
     def test_a_secondary_event_with_a_handler_a_state_cannot_name_is_refused_when_saving_and_nothing_is_written(self):
         run = self.probe("vsync", "--units", "4", "--poke-at", "4", "ev2-foreign", "--save-at", "4", str(self.dir / "foreign.state"))
@@ -333,7 +332,7 @@ class SchedulerChunkTests(ProbeCase):
                     fresh = self.probe("kickstart", "--units", "0", *extra, "--load-at", "0", str(path), "--save-at", "0", str(again))
                     self.assertEqual([(0, 0, "")], fresh.loads)
                     self.assertEqual(run.digests[(n, "scheduler")], fresh.after[0]["scheduler"])
-                    self.assertEqual(without_beam(path.read_bytes()), without_beam(again.read_bytes()))
+                    self.assertEqual(path.read_bytes(), again.read_bytes())
 
 
 if __name__ == "__main__":

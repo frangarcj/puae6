@@ -17,7 +17,7 @@ What is proven here:
     DF0 or DF1, a flag that is not 0 or 1) is refused before anything is applied and leaves the machine as it was.
 
 What is NOT covered here: the physical state of the drives and Paula, which the upstream bodies carry (T15i2: tests/state/test_state_upstream.py), and the beam, which
-they lose (T15f). The scenario is chosen so that no disk event has been applied between the boot and the saved unit: the drive is in the same state in the original and in
+BEAM carries (T15f1: the same file; DET02 compares the chipset by group). The scenario is chosen so that no disk event has been applied between the boot and the saved unit: the drive is in the same state in the original and in
 the machine the state is loaded into, and the events that are still queued are the first ones the engine sees. A new process is checked by exact re-emission (load, then
 save: the same bytes), not by running.
 """
@@ -29,8 +29,8 @@ import subprocess
 from tests.state.harness import FieldTable, ProbeCase, Run, SUBSYSTEMS, parse_chunks, reforge
 
 BRIDGE, INPUT = 10, 9
-# The video digest is the picture, which no chunk restores. The chipset digest hashes the beam, which the upstream bodies do not carry (restore_custom reads VPOSR and
-# VHPOSR and throws them away), so a loaded machine is not the original in it until T15f puts the beam back; this module is about the session, which is in the others.
+# The video digest is the picture, which no chunk restores. The chipset digest also hashes custom_storage, the last value written to each register, which the engine only
+# writes for its debugger and a restored machine never saw (tests/state/test_det02.py compares the chipset by group, without it); this module is about the session.
 COMPARED = tuple(s for s in SUBSYSTEMS if s not in ("video", "chipset"))
 N = 4                   # the unit the state is taken in
 UNITS_AFTER = 5

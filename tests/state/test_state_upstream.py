@@ -1,6 +1,6 @@
-"""T15i1 and T15i2: the bodies of WinUAE's own save_* and restore_* functions inside P6DK, P6AU, P6CH and P6VD.
+"""T15i1, T15i2 and T15f1: the bodies of WinUAE's own save_* and restore_* functions, and the beam, inside P6DK, P6AU, P6CH and P6VD.
 
-The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
+The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined; patch 0094 adds the accessors of BEAM) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
 characters, a u32 length (little endian, like the container) and the bytes the engine wrote (big endian, upstream's own encoding).
 
 T15i1, what is saved:
@@ -12,10 +12,12 @@ T15i1, what is saved:
     (save_custom reads JOY0DAT and JOY1DAT; STATE_DOSAVE keeps getjoystate from polling the host's input, which in this profile has nothing to poll, so this scenario
     cannot tell the guard from its absence: it pins that nothing visible moves) and DMACONR's derived bits set (the live dmacon must not take them).
 
+T15f1, the body that is not WinUAE's: BEAM (244 bytes, the last of P6CH; patch 0094) holds what restore_custom throws away (VPOSR and VHPOSR) and what no body names: the beam and the
+line history, the counters of the frame phase, the strobe that raises the vertical blank, the DMA list of the line in flight and the sync latches of Agnus, as 61 words of 32 bits.
+
 T15i2, what is loaded:
   - a load applies the bodies on the live machine (no custom_reset, no memory_clear, no *_start): the state taken again afterwards re-emits every upstream chunk byte for byte,
-    in the same process, k units later, and in a new one (a fresh image runs its reset head first). The only bytes that differ are VPOSR and VHPOSR, which restore_custom
-    reads and throws away: the beam of a loaded machine is where the machine was (T15f puts it back), and the tests say so by name;
+    in the same process, k units later, and in a new one (a fresh image runs its reset head first), the beam included: the whole state is the same bytes;
   - the scheduler keeps what P6SC applied although restore_audio_finish and the register setters schedule events (the digest of the unit comes back);
   - every sub-body, truncated, lengthened, with another tag, out of its place or with a value that would index out of range, is refused before anything is applied (a corrupt
     state, code 9) and the machine goes on as a control run that never saw the attempt; a state taken with another medium in a drive is refused once the machine exists (code 10).
@@ -25,20 +27,29 @@ import struct
 import zlib
 
 from tests.state import envelope as e
-from tests.state.harness import BEAM, ProbeCase, SUBSYSTEMS, parse_chunks, reforge, with_bytes, without_beam
+from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, with_bytes
 
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 191, "BPLX": 292, "DISK": 17,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 191, "BPLX": 292, "DISK": 17, "BEAM": 244,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
-    b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)],
+    b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM"],
     b"P6VD": ["BPLX"],
     b"P6AU": [f"AUD{i}" for i in range(4)],
     b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK"],
 }
 DSD_FIXED = 4 + 2 + 4 + 2 + 4 + 4 + 2       # mode, bit counter, track length, speed, skip offset, index offset, revolutions
+
+# The words of BEAM, in the order of p6_custom_beam_get (custom.cpp, patch 0094) and of the enum of bridge/state_upstream.cpp: 41 words and the twenty sync latches of Agnus.
+BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_next", "agnus_vpos_next", "agnus_pos_change", "hhpos",
+              "linear_vpos", "linear_hpos", "linear_vpos_prev0", "linear_vpos_prev1", "linear_vpos_prev2", "linear_hpos_prev0", "linear_hpos_prev1", "linear_hpos_prev2",
+              "linear_vpos_vsync", "linear_display_vpos", "linear_vpos_visible", "current_linear_vpos_visible",
+              "display_hsync_counter", "display_vsync_counter", "maxvpos_display_vsync_next", "linetoggle", "lof_display",
+              "lof_detect", "lof_pdetect", "lof_detect_vsync", "prevlof0", "prevlof1", "prevlof2",
+              "display_last_hsync_low", "display_last_hsync_high", "display_last_vsync_low", "display_last_vsync_high",
+              "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)]
 
 # Bitplane, sprite, audio, copper, blitter and disk DMA on; the motor on and a step pulse every frame, so that the medium (mounted by an event) is stepped and its track is
 # read into the buffer; a blit of 1024 lines of 64 words that lasts more than a frame, and a result of zeros, so that DMACONR's zero bit is set when it ends. The wait of
@@ -279,11 +290,8 @@ class UpstreamBodiesTests(ProbeCase):
         return rom, n, load, self.args(args) if isinstance(args, str) else args
 
     def upstream_payload(self, blob):
-        """The four chunks of the upstream bodies, with the beam registers left out."""
-        keep = {tag: (version, body) for tag, version, body in parse_chunks(blob) if tag in ORDER}
-        body = bytearray(keep[b"P6CH"][1])
-        body[BEAM] = bytes(4)
-        return {tag: (version, bytes(body) if tag == b"P6CH" else bytes(b)) for tag, (version, b) in keep.items()}
+        """The four chunks of the upstream bodies, with the sub-bodies of P6CH, BEAM included."""
+        return {tag: (version, bytes(body)) for tag, version, body in parse_chunks(blob) if tag in ORDER}
 
     def test_the_state_taken_again_after_a_load_re_emits_every_upstream_body_in_the_same_process(self):
         for name in self.ROUND_TRIPS:
@@ -295,7 +303,7 @@ class UpstreamBodiesTests(ProbeCase):
                 self.assertEqual([(load, 0, "")], run.loads)
                 a, b = first.read_bytes(), second.read_bytes()
                 self.assertEqual(self.upstream_payload(a), self.upstream_payload(b), "an upstream body was not put back as it was saved")
-                self.assertEqual(without_beam(a), without_beam(b), "and neither was any other chunk")
+                self.assertEqual(a, b, "and neither was any other chunk: the whole state is the same bytes, the beam included")
                 # What the digests of the unit say: Paula is where she was, and the scheduler is P6SC's although restore_audio_finish and the register setters scheduled.
                 for subsystem in ("audio", "scheduler"):
                     self.assertEqual(run.digests[(n, subsystem)], run.after[0][subsystem], subsystem)
@@ -311,21 +319,35 @@ class UpstreamBodiesTests(ProbeCase):
                     fresh = self.probe(rom, "--units", str(skip), *args, "--load-at", str(skip), str(source), "--save-at", str(skip), str(again))
                     self.assertEqual([(skip, 0, "")], fresh.loads)
                     self.assertEqual(self.upstream_payload(source.read_bytes()), self.upstream_payload(again.read_bytes()))
-                    self.assertEqual(without_beam(source.read_bytes()), without_beam(again.read_bytes()))
+                    self.assertEqual(source.read_bytes(), again.read_bytes(), "the whole state is the same bytes, the beam included")
                     for subsystem in ("audio", "scheduler"):
                         self.assertEqual(saved.digests[(n, subsystem)], fresh.after[0][subsystem], subsystem)
 
-    def test_only_the_beam_registers_of_the_chipset_body_are_not_put_back(self):
-        # restore_custom reads VPOSR and VHPOSR and throws them away: the beam is where the loaded machine already was. A unit ends after the instruction that crosses the
-        # end of the frame, so the beam at the boundary moves from one unit to the next, and the four bytes are the whole difference. When T15f restores the beam this test
-        # is the one to delete, together with without_beam.
-        first, second = self.dir / "beam.first", self.dir / "beam.second"
-        self.probe("vsync", "--units", "7", "--save-at", "3", str(first), "--load-at", "7", str(first), "--save-at", "7", str(second))
-        a, b = first.read_bytes(), second.read_bytes()
-        self.assertNotEqual(a, b)
-        self.assertEqual(without_beam(a), without_beam(b))
-        chip = lambda blob: [body for tag, _, body in parse_chunks(blob) if tag == b"P6CH"][0][BEAM]
-        self.assertNotEqual(chip(a), chip(b))
+    def beam_of(self, blob):
+        """{word name: signed value} of the BEAM body of a state."""
+        body = upstream_bodies(blob)[b"P6CH"]["BEAM"]
+        self.assertEqual(4 * len(BEAM_WORDS), len(body))
+        return dict(zip(BEAM_WORDS, struct.unpack(">%di" % len(BEAM_WORDS), body)))
+
+    def test_the_beam_and_the_frame_phase_are_put_back_where_the_state_had_them(self):
+        # VPOSR and VHPOSR are what restore_custom throws away. The beam at a boundary moves from one unit to the next (the unit ends after the instruction that crosses the
+        # vertical blank), and so do the counters of the frame, so a machine that kept its own beam would give another BEAM body when the state is taken again.
+        first, second, again = self.dir / "beam.first", self.dir / "beam.second", self.dir / "beam.again"
+        self.probe("vsync", "--units", "7", "--save-at", "3", str(first), "--save-at", "7", str(second), "--load-at", "7", str(first), "--save-at", "7", str(again))
+        a, b, c = (self.beam_of(path.read_bytes()) for path in (first, second, again))
+        self.assertEqual((4, 4), (a["vpos"], b["vpos"]), "the unit ends in the vertical blank")
+        moved = [name for name in BEAM_WORDS if a[name] != b[name]]
+        self.assertIn("agnus_hpos", moved, "the beam is not where it was at unit 3: putting it back is something")
+        self.assertIn("display_vsync_counter", moved, "nor are the counters of the frame")
+        self.assertEqual(a, c, "the BEAM body taken again after the load is the one that was loaded")
+
+    def test_the_beam_of_a_new_image_in_ntsc_is_the_line_the_state_had(self):
+        # NTSC lines alternate between 227 and 228 colour clocks (lol and linetoggle): the loaded machine takes the line length from them, and a state taken again says the same.
+        first, again = self.dir / "ntsc.first", self.dir / "ntsc.again"
+        self.probe("busy", "--ntsc", "--units", "2", "--save-at", "2", str(first))
+        self.probe("busy", "--ntsc", "--units", "0", "--load-at", "0", str(first), "--save-at", "0", str(again))
+        self.assertEqual(first.read_bytes(), again.read_bytes())
+        self.assertEqual(1, self.beam_of(first.read_bytes())["linetoggle"], "an NTSC machine has the line toggle on")
 
     def test_a_fresh_image_runs_units_after_a_load(self):
         # Until T15i2 the audio chunk was a placeholder and a fresh image could not run on after a load. It can now; that the future is the same bit for bit is DET02 (T15i3).
@@ -430,6 +452,21 @@ class UpstreamBodiesTests(ProbeCase):
         ("AUD3 without the marker bit", b"P6AU", "AUD3", 3, b"\0", "the flags of the channel are not the ones save_audio writes"),
         ("AUD0 with an unknown flag", b"P6AU", "AUD0", 3, b"\x84", "the flags of the channel are not the ones save_audio writes"),
         ("BPLX of version 2", b"P6VD", "BPLX", 0, struct.pack(">I", 2), "the version of the body is not 1"),
+        ("BEAM on a line beyond the frame", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("vpos"), struct.pack(">i", 313), "the line of the beam is beyond the last one of the standard"),
+        ("BEAM on a negative line", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("vpos_prev"), struct.pack(">i", -1), "the line of the beam is beyond the last one of the standard"),
+        ("BEAM at a colour clock beyond the longest line", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("agnus_hpos"), struct.pack(">i", 228), "the colour clock of the beam is beyond the longest line"),
+        ("BEAM with a pending write of line 2048", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("agnus_vpos_next"), struct.pack(">i", 2048), "a pending beam write is out of range"),
+        ("BEAM with a countdown of 3", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("agnus_pos_change"), struct.pack(">i", 3), "a pending beam write is out of range"),
+        ("BEAM with a horizontal counter of 17 bits", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("hhpos"), struct.pack(">i", 0x10000), "the horizontal counter is not 16 bits"),
+        ("BEAM with a negative linear counter", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("linear_vpos"), struct.pack(">i", -1), "a linear counter is negative"),
+        ("BEAM with a display line counter beyond the frame", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("display_hsync_counter"), struct.pack(">i", 314),
+         "the display line counter is beyond the frame"),
+        ("BEAM with a flag of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("maxvpos_display_vsync_next"), struct.pack(">i", 2), "a flag of the frame phase is not a flag"),
+        ("BEAM with a vertical blank latch of 3", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("agnus_vb"), struct.pack(">i", 3), "the vertical blank latch is not off, on or starting"),
+        ("BEAM with a strobe that is none of the four", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("prev_strobe"), struct.pack(">i", 0x3d), "the strobe of the last line is not one of the four"),
+        ("BEAM with a DMA list of 17 bits", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("dmal"), struct.pack(">i", 0x10000), "the DMA list of the line is not 16 bits"),
+        ("BEAM with a sync latch of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("latch7"), struct.pack(">i", 2), "a sync latch is not a flag"),
+        ("BEAM with a negative time stamp", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("display_last_vsync_high"), struct.pack(">i", -1), "a time stamp of the display is negative"),
     ]
 
     def test_every_value_that_ends_up_indexing_or_names_another_configuration_is_refused(self):

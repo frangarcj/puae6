@@ -4,9 +4,15 @@
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17)
-//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (191), SPR0..SPR7 (25 each)
+//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (191), SPR0..SPR7 (25 each), BEAM (244: ours, not upstream's)
 //   P6AU  AUD0..AUD3 (25 each)
 //   P6VD  BPLX (292)
+//
+// BEAM is the one body that is not WinUAE's: its restore_custom reads VPOSR and VHPOSR and throws them away, and the counters of the frame, the line history and the
+// sync latches of Agnus live in file statics that no body names. It is 61 words of 32 bits, big endian like the others, copied by p6_custom_beam_get and
+// p6_custom_beam_set (patch 0094; the list is in custom.cpp): the beam and the line history, the frame phase (display_hsync_counter, display_vsync_counter,
+// maxvpos_display_vsync_next, the field detection), the strobe that raises the vertical blank, the DMA list of the line in flight and the sync latches. The line length is the
+// only value derived (setmaxhpos), from the lol that CHIP restores and the linetoggle it carries, which is why BEAM is the last body of the chunk and no init_hz or reset head runs.
 //
 // Save writes every body with the engine's save_* and changes nothing: STATE_DOSAVE keeps getjoystate from reading the host's input (maybe_read_input),
 // the poll mask that POT0DAT and POT1DAT set is put back, and patch 0088 keeps DMACONR from writing dmacon.
@@ -44,6 +50,8 @@
 
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);       // events.cpp 0078
 extern void p6_events_set(int idx, int next, int remain);
+extern bool p6_custom_beam_get(int32_t *out, unsigned n);       // custom.cpp 0094
+extern bool p6_custom_beam_set(const int32_t *in, unsigned n);
 
 namespace p6_state {
 
@@ -94,6 +102,7 @@ uint8_t *produce_blit(int, size_t *len, uint8_t *w) { return save_blitter(len, w
 uint8_t *produce_chsl(int, size_t *len, uint8_t *w) { return save_custom_slots(len, w); }
 uint8_t *produce_spr(int n, size_t *len, uint8_t *w) { return save_custom_sprite(n, len, w); }
 uint8_t *produce_aud(int n, size_t *len, uint8_t *w) { return save_audio(n, len, w); }
+uint8_t *produce_beam(int, size_t *len, uint8_t *w);
 uint8_t *produce_bplx(int, size_t *len, uint8_t *w) { return save_custom_bpl(len, w); }
 
 uint8_t *apply_dsk(int n, uint8_t *b) { return restore_disk(n, b); }
@@ -105,7 +114,40 @@ uint8_t *apply_blit(int, uint8_t *b) { return restore_blitter(b); }
 uint8_t *apply_chsl(int, uint8_t *b) { return restore_custom_slots(b); }
 uint8_t *apply_spr(int n, uint8_t *b) { return restore_custom_sprite(n, b); }
 uint8_t *apply_aud(int n, uint8_t *b) { return restore_audio(n, b); }
+uint8_t *apply_beam(int, uint8_t *b);
 uint8_t *apply_bplx(int, uint8_t *b) { return restore_custom_bpl(b); }
+
+// -- BEAM: the position of the beam and the phase of the frame (patch 0094) ---------------------------------------------------------------------------
+
+// The words of the body, in the order of p6_custom_beam_get.
+enum BeamWord : unsigned {
+    kVpos, kVposPrev, kAgnusHpos, kAgnusHposPrev, kAgnusHposNext, kAgnusVposNext, kAgnusPosChange, kHhpos,
+    kLinearVpos, kLinearHpos, kLinearVposPrev0, kLinearVposPrev1, kLinearVposPrev2, kLinearHposPrev0, kLinearHposPrev1, kLinearHposPrev2,
+    kLinearVposVsync, kLinearDisplayVpos, kLinearVposVisible, kCurrentLinearVposVisible,
+    kDisplayHsyncCounter, kDisplayVsyncCounter, kVsyncNext, kLinetoggle, kLofDisplay,
+    kLofDetect, kLofPdetect, kLofDetectVsync, kPrevLof0, kPrevLof1, kPrevLof2,
+    kLastHsyncLow, kLastHsyncHigh, kLastVsyncLow, kLastVsyncHigh,
+    kAgnusVb, kAgnusPvb, kPrevStrobe, kDmalShifter, kDmal, kDmalNext, kLatches,      // 20 flags from here: phsync, phblank, pvsync, pcsync, csync, vb_active, ... bsvb_prev, equdis
+    kBeamWords = kLatches + 20
+};
+constexpr uint32_t kBeamBytes = kBeamWords * 4;
+
+uint8_t *produce_beam(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kBeamWords];
+    if (!p6_custom_beam_get(words, kBeamWords)) return nullptr;
+    for (unsigned i = 0; i < kBeamWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kBeamBytes;
+    return w;
+}
+
+uint8_t *apply_beam(int, uint8_t *body)
+{
+    int32_t words[kBeamWords];
+    for (unsigned i = 0; i < kBeamWords; ++i) words[i] = int32_t(Body{body, kBeamBytes}.u32(i * 4));
+    return p6_custom_beam_set(words, kBeamWords) ? body + kBeamBytes : nullptr;
+}
 
 // -- what each body must be before it is applied ----------------------------------------------------------------------------------------------------
 
@@ -228,6 +270,33 @@ const char *check_bplx(const Sub &, const Body &b, Seen &)
     return nullptr;
 }
 
+// BEAM: where the beam is and where the frame is. The standard is the configuration's (PAL 312 lines, NTSC 262; no ECS programmable beam in the profile), so the beam
+// and what the line start tests are bounded by it; a counter that only counts (display_vsync_counter, of which the parity is used; the linear counters of the display)
+// has no bound but its sign, and wraps like the engine's.
+const char *check_beam(const Sub &, const Body &b, Seen &)
+{
+    const int lines = currprefs.ntscmode ? 262 : 312, positions = 228;      // MAXVPOS_NTSC / MAXVPOS_PAL; the longest line (NTSC with lol) has 228 colour clocks
+    const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
+    const auto within = [&at](unsigned word, int low, int high) { return at(word) >= low && at(word) <= high; };
+    if (!within(kVpos, 0, lines) || !within(kVposPrev, 0, lines)) return "the line of the beam is beyond the last one of the standard";
+    if (!within(kAgnusHpos, 0, positions - 1) || !within(kAgnusHposPrev, 0, positions - 1)) return "the colour clock of the beam is beyond the longest line";
+    if (!within(kAgnusHposNext, -1, 255) || !within(kAgnusVposNext, -1, 2047) || !within(kAgnusPosChange, -2, 2)) return "a pending beam write is out of range";
+    if (!within(kHhpos, 0, 0xffff)) return "the horizontal counter is not 16 bits";
+    for (unsigned w : {kLinearVpos, kLinearVposPrev0, kLinearVposPrev1, kLinearVposPrev2, kLinearVposVsync, kLinearDisplayVpos, kLinearVposVisible, kCurrentLinearVposVisible,
+                       kLinearHpos, kLinearHposPrev0, kLinearHposPrev1, kLinearHposPrev2})
+        if (!within(w, 0, INT32_MAX)) return "a linear counter is negative";       // they count lines and colour clocks of the display: nothing indexes with them unchecked
+    if (!within(kDisplayHsyncCounter, 0, lines + 1)) return "the display line counter is beyond the frame";
+    for (unsigned w : {kVsyncNext, kLinetoggle, kLofDisplay, kLofDetect, kLofPdetect, kLofDetectVsync, kPrevLof0, kPrevLof1, kPrevLof2, kAgnusPvb})
+        if (!within(w, 0, 1)) return "a flag of the frame phase is not a flag";
+    if (!within(kDmal, 0, 0xffff) || !within(kDmalNext, 0, 1)) return "the DMA list of the line is not 16 bits, or its flag is not a flag";       // kDmalShifter is a bit register
+    if (!within(kAgnusVb, 0, 2)) return "the vertical blank latch is not off, on or starting";
+    if (at(kPrevStrobe) < 0x38 || at(kPrevStrobe) > 0x3e || (at(kPrevStrobe) & 1)) return "the strobe of the last line is not one of the four";
+    for (unsigned w = kLatches; w < kBeamWords; ++w)
+        if (!within(w, 0, 1)) return "a sync latch is not a flag";
+    if (at(kLastHsyncHigh) < 0 || at(kLastVsyncHigh) < 0) return "a time stamp of the display is negative";
+    return nullptr;
+}
+
 // The lengths of this build: tests/state/test_state_upstream.py checks them against a real save, and a save that writes another length fails.
 constexpr Sub kDiskBodies[] = {
     {"DSK0", 24, 24, produce_dsk, apply_dsk, check_dsk, 0, true}, {"DSK1", 24, 24, produce_dsk, apply_dsk, check_dsk, 1, true},
@@ -243,6 +312,7 @@ constexpr Sub kChipsetBodies[] = {
     {"SPR2", 25, 25, produce_spr, apply_spr, check_spr, 2, true}, {"SPR3", 25, 25, produce_spr, apply_spr, check_spr, 3, true},
     {"SPR4", 25, 25, produce_spr, apply_spr, check_spr, 4, true}, {"SPR5", 25, 25, produce_spr, apply_spr, check_spr, 5, true},
     {"SPR6", 25, 25, produce_spr, apply_spr, check_spr, 6, true}, {"SPR7", 25, 25, produce_spr, apply_spr, check_spr, 7, true},
+    {"BEAM", kBeamBytes, kBeamBytes, produce_beam, apply_beam, check_beam, 0, true},
 };
 constexpr Sub kAudioBodies[] = {
     {"AUD0", 25, 25, produce_aud, apply_aud, check_aud, 0, true}, {"AUD1", 25, 25, produce_aud, apply_aud, check_aud, 1, true},
