@@ -9252,8 +9252,8 @@
       "evidence": null
     },
     {
-      "id": "T15f",
-      "title": "Continuacion de Agnus, copper y blitter sobre CHIP/CHPX/CHPD/CHSL/BLIT/BLTX",
+      "id": "T15f1",
+      "title": "Haz, fase de cuadro y temporizacion: una maquina cargada esta en la misma linea y el mismo cuadro",
       "milestone": "M2",
       "required": true,
       "status": "pending",
@@ -9278,12 +9278,137 @@
         "bridge/state_probe.cpp"
       ],
       "steps": [
+        "Extension de P6CH: posicion del haz (vpos, linear_vpos, agnus_hpos y lo que VPOSR/VHPOSR derivan), contadores de fase de cuadro de custom.cpp (display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next y los que DET02 senale) y la temporizacion de una imagen nueva (lo que init_hz deja: maxvpos, maxhpos, beamcon0 en NTSC) aplicada sin ejecutar la cabecera de reset.",
+        "Borrar la excepcion de T15i2: test_only_the_beam_registers_of_the_chipset_body_are_not_put_back y harness.without_beam; CHIP se reemite byte a byte.",
+        "Los parches de acceso archivados (0100 haz y siguientes, rama archivo/t15-codec-por-campos) son oraculo y fuente de accesos, no codec a portar.",
+        "Quitar el expectedFailure de cada clave de tests/state/test_det02.py (DIVERGENCES) que se resuelva; una clave que siga divergiendo por otra causa se reatribuye con su primera unidad y subsistema, sin ocultarla."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Las claves beam, beam-timing y frame-phase de DET02 dejan de divergir (misma imagen y proceso nuevo); CHIP se reemite byte a byte."
+      ],
+      "stop": "No rehacer parte del reset (init_hz completo, custom_reset) para tener una linea limpia: aplicar valores, no reinicializar.",
+      "evidence": null
+    },
+    {
+      "id": "T15f2",
+      "title": "Copper en espera tras restaurar",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15f1"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_probe.cpp"
+      ],
+      "steps": [
+        "Extension de P6CH con el estado del Copper que el cuerpo CHIP no guarda (state_prev, vcmp, hcmp, strobe y lo que DET02 senale), validado por estructura.",
+        "Escenario copper_irq en PAL y NTSC, misma imagen y proceso nuevo.",
+        "Quitar el expectedFailure de cada clave de tests/state/test_det02.py (DIVERGENCES) que se resuelva; una clave que siga divergiendo por otra causa se reatribuye con su primera unidad y subsistema, sin ocultarla."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Las claves copper de DET02 dejan de divergir."
+      ],
+      "stop": "No adelantar ni drenar el Copper al cargar.",
+      "evidence": null
+    },
+    {
+      "id": "T15f3",
+      "title": "Blitter a medias bajo contencion de DMA",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15f1"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_probe.cpp"
+      ],
+      "steps": [
+        "Extension de P6CH/BLTX con las fases que BLIT/BLTX no guardan (blit_dmacount, blit_cyclecount, blt_change_cycles, blit_queued, blit_count_done y lo que DET02 senale); un blit vivo de la imagen destino no sobrevive a la carga.",
+        "Escenarios busy-blitter, blit+disk, blit+bitplanes, blit+sprites; las claves blitter-audio se reatribuyen a T15e si solo queda la parte de audio.",
+        "Quitar el expectedFailure de cada clave de tests/state/test_det02.py (DIVERGENCES) que se resuelva; una clave que siga divergiendo por otra causa se reatribuye con su primera unidad y subsistema, sin ocultarla."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Las claves blitter de DET02 dejan de divergir."
+      ],
+      "stop": "No terminar ni cancelar artificialmente el blit del estado al cargar.",
+      "evidence": null
+    },
+    {
+      "id": "T15f",
+      "title": "Continuacion de Agnus, copper y blitter sobre CHIP/CHPX/CHPD/CHSL/BLIT/BLTX",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15i",
+        "T15f1",
+        "T15f2",
+        "T15f3"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_probe.cpp"
+      ],
+      "steps": [
         "Extender su chunk con lo que los cuerpos upstream no guardan y DET02 demuestre necesario: slots RGA, trabajo pendiente del copper, DMAL/refresh, callbacks diferidos, holds y fases del blitter, latches del haz y contadores lineales. Sustituir solo la reconstruccion de *_finish que DET02 muestre incorrecta.",
         "Escenarios: copper en marcha, blitter a medias y DMA de bitplanes y sprites activos, en PAL y NTSC.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
         "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo.",
         "Restaurar la posicion del haz (VPOSR/VHPOSR, que upstream descarta al restaurar) y borrar entonces la excepcion de T15i2: test_only_the_beam_registers_of_the_chipset_body_are_not_put_back y el helper without_beam; el chunk CHIP vuelve a reemitirse byte a byte.",
-        "DET02 de T15i3 (tests/state/test_det02.py, tabla DIVERGENCES; quitar el expectedFailure de cada clave que se resuelva): haz en la unidad 0 en todos los escenarios same-image/new-process (28 claves); temporizacion NTSC de una imagen nueva sin init_hz (chipset.timing); fase de cuadro de custom.cpp no guardada (display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next: new-process-beam-set diverge en la unidad 1 en todo, 7 claves); Copper en espera vuelve parado y su interrupcion no llega (copper_irq, 8 claves: state_prev, vcmp, hcmp, strobe); blitter en vuelo bajo contencion de DMA y blit vivo no cancelado al cargar (blit_dmacount, blit_cyclecount, blt_change_cycles; busy-blitter, blit+disk, blit+bitplanes, blit+sprites, 5 claves); Kickstart@107/@140 con causas mezcladas (con T15g). Va primero: hasta resolver haz y fase de cuadro, una imagen nueva no detecta lo de T15d, T15e y T15g."
+        "DET02 de T15i3 (tests/state/test_det02.py, tabla DIVERGENCES; quitar el expectedFailure de cada clave que se resuelva): haz en la unidad 0 en todos los escenarios same-image/new-process (28 claves); temporizacion NTSC de una imagen nueva sin init_hz (chipset.timing); fase de cuadro de custom.cpp no guardada (display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next: new-process-beam-set diverge en la unidad 1 en todo, 7 claves); Copper en espera vuelve parado y su interrupcion no llega (copper_irq, 8 claves: state_prev, vcmp, hcmp, strobe); blitter en vuelo bajo contencion de DMA y blit vivo no cancelado al cargar (blit_dmacount, blit_cyclecount, blt_change_cycles; busy-blitter, blit+disk, blit+bitplanes, blit+sprites, 5 claves); Kickstart@107/@140 con causas mezcladas (con T15g). Va primero: hasta resolver haz y fase de cuadro, una imagen nueva no detecta lo de T15d, T15e y T15g.",
+        "Division: T15f1 (haz, fase de cuadro, temporizacion), T15f2 (Copper en espera) y T15f3 (blitter a medias); T15f es su cierre y conserva su aceptacion y los escenarios Kickstart."
       ],
       "checks": [
         "DET02"
