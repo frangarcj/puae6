@@ -18,6 +18,7 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "options.h"
+#include "events.h"
 #include "memory.h"
 
 using p6_session::Guard;
@@ -27,6 +28,71 @@ using p6_session::session;
 namespace p6_state {
 
 namespace {
+
+// What the chunks of one payload share besides their own bytes: the counters of its validated header. They come from the state being loaded, never
+// from the destination image, so load() sets the pointer around its validate and apply passes and clears it after.
+struct VisitContext {
+    uint64_t unit_index, master_ticks;
+};
+const VisitContext *g_context = nullptr;
+struct ContextScope {
+    explicit ContextScope(const VisitContext *context) { g_context = context; }
+    ~ContextScope() { g_context = nullptr; }
+    ContextScope(const ContextScope &) = delete;
+    ContextScope &operator=(const ContextScope &) = delete;
+};
+
+// P6BR: the bookkeeping of the API session (bridge/session.h) that no engine chunk holds: the audio frame count, the delivery flag of the unit,
+// the pending reset, the start flag, the media-event sequence guard, the drive contents the caller asked for and the ordered queue of media
+// events not yet applied. 40 bytes without events, at most 136 with 16. Not here: the unit and tick counters (they travel in the header; cycles_seen
+// is derived from the scheduler's counter and load() sets it to currcycle), the identity of the firmware, the configuration and the media (the envelope validates it, a state of
+// another one is refused and never adapted), the edge memory of the input (P6IN), the clock's anchor (P6RT) and the names of the floppies in
+// the preferences (the engine's own disk body, when it exists). Applying neither consumes a queued event nor touches the engine: the events
+// are applied by the next p6_run_frame, as they would have been.
+void visit_bridge(Archive &a)
+{
+    auto &s = session;
+    const uint64_t audio = a.val<uint64_t>(s.audio_frames_total, "bridge.audio_frames_total");
+    const uint8_t handed = get<uint8_t>(a, s.handed_over, 0, 1, "bridge.handed_over");
+    const uint8_t reset = get<uint8_t>(a, s.reset_queued, 0, 1, "bridge.reset_queued");
+    get<uint8_t>(a, s.started, 1, 1, "bridge.started");            // a state exists only for an image that ran its reset head
+    const uint8_t have = get<uint8_t>(a, s.have_sequence, 0, 1, "bridge.have_sequence");
+    const uint64_t sequence = a.val<uint64_t>(s.last_sequence, "bridge.last_sequence");
+    int32_t drives[4];
+    for (uint32_t i = 0; i < 4; ++i)       // the A500 has DF0 and DF1: the others are never mounted
+        drives[i] = get<int32_t>(a, s.drive_media[i], -1, i < 2 ? int32_t(s.media_count) - 1 : -1, "bridge.drive_media");
+    uint32_t queued = s.media_queued;
+    const uint32_t count = a.count(queued, s.kMediaQueue, "bridge.media_queued");
+    p6_session::Session::MediaEvent events[p6_session::Session::kMediaQueue] = {};
+    for (uint32_t i = 0; i < count && a.ok(); ++i) {
+        const auto &live = s.media_queue[i];
+        const uint32_t type = get<uint8_t>(a, live.type, P6_MEDIA_EVENT_MOUNT, P6_MEDIA_EVENT_EJECT, "bridge.event_type");
+        const uint32_t drive = get<uint8_t>(a, live.drive, 0, 1, "bridge.event_drive");
+        const uint32_t index = a.val<uint32_t>(live.media_index, "bridge.event_index");
+        if (a.mode() != Mode::Measure)
+            a.require(type == P6_MEDIA_EVENT_MOUNT ? index < s.media_count : index == P6_MEDIA_INDEX_EJECT, "bridge event: invalid media index for its type");
+        events[i] = {type, drive, index};
+    }
+    if (a.mode() == Mode::Save)            // cycles_seen is not saved: a load sets it to currcycle, which is where a boundary has it
+        a.require(s.cycles_seen == int64_t(currcycle), "the unit's tick accounting is not at the cycle counter");
+    if (a.mode() != Mode::Measure)
+        a.require(have || (!sequence && !count), "bridge: events or sequence without an accepted event");
+    if (a.applying() && a.ok()) {
+        a.require(g_context != nullptr, "bridge: no payload context");
+        if (!a.ok()) return;
+        s.unit_index = g_context->unit_index;
+        s.master_ticks = g_context->master_ticks;
+        s.audio_frames_total = audio;
+        s.handed_over = handed != 0;
+        s.reset_queued = reset != 0;
+        s.started = true;
+        s.have_sequence = have != 0;
+        s.last_sequence = sequence;
+        memcpy(s.drive_media, drives, sizeof drives);
+        s.media_queued = count;
+        memcpy(s.media_queue, events, sizeof events);
+    }
+}
 
 // P6RM: Chip RAM and Slow RAM, byte for byte in the engine's own order. The sizes are written so that a state of another memory
 // configuration is refused by the chunk even if the identity let it through; they are checked, not loaded, because the memory is
@@ -55,7 +121,7 @@ const Chunk kChunks[kChunkCount] = {
     {"P6CI", "cia", 1, visit_cia, rebuild_cia},
     {"P6DK", "disk", 1, nullptr, nullptr},
     {"P6IN", "input", 1, visit_input, nullptr},
-    {"P6BR", "bridge", 1, nullptr, nullptr},
+    {"P6BR", "bridge", 1, visit_bridge, nullptr},
 };
 
 Identity current_identity()
@@ -230,13 +296,17 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     const Plan plan = make_plan();
     ChunkView views[kChunkCount];
     Refusal refusal = {};
-    if (!validate(data, bytes, current_identity(), plan.total - kHeaderSize, plan.specs, kChunkCount, plan.bounds, views, nullptr, nullptr, &refusal)) {
+    uint64_t unit_index = 0, master_ticks = 0;
+    if (!validate(data, bytes, current_identity(), plan.total - kHeaderSize, plan.specs, kChunkCount, plan.bounds, views, &unit_index, &master_ticks, &refusal)) {
         char text[P6_ERROR_TEXT_CAPACITY];
         snprintf(text, sizeof text, "state refused: %s: %s", refusal.field, refusal.message);
         return p6_fail(error, refusal.code, text);
     }
 
+    const VisitContext context = {unit_index, master_ticks};
+
     // (7) Every body, read exactly as it will be applied and not stored anywhere.
+    const ContextScope scope(&context);
     for (uint32_t i = 0; i < kChunkCount; ++i) {
         const Chunk &chunk = kChunks[i];
         if (!chunk.visit) continue;         // a placeholder has bound 0, so the envelope has already refused a body
@@ -272,6 +342,9 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     }
     for (uint32_t i = 0; i < kChunkCount; ++i)
         if (kChunks[i].visit && kChunks[i].rebuild && chosen(i)) kChunks[i].rebuild();
+    // cycles_seen follows the scheduler's counter, which is where a boundary has it: P6SC may have put currcycle back and the reset head of an image
+    // that had not started restarted it. The ticks of that head are not the caller's: the header's counters replace them when P6BR is applied.
+    session.cycles_seen = int64_t(currcycle);
     return P6_OK;
 }
 

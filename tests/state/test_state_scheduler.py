@@ -87,7 +87,7 @@ class SchedulerChunkTests(ProbeCase):
                 path, again = self.dir / f"{rom}.state", self.dir / f"{rom}.again"
                 source = self.probe(rom, "--units", str(n), "--every", "1", "--save-at", str(n), str(path))
                 fresh = self.probe(rom, "--units", "0", "--load-at", "0", str(path), "--save-at", "0", str(again), "--only", "cpu", "--only", "scheduler",
-                                   "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input")
+                                   "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input", "--only", "bridge")
                 self.assertEqual([(0, 0, "")], fresh.loads)
                 self.assertEqual(source.digests[(n, "scheduler")], fresh.after[0]["scheduler"])
                 self.assertEqual(path.read_bytes()[e.HEADER_SIZE:], again.read_bytes()[e.HEADER_SIZE:],
@@ -98,7 +98,7 @@ class SchedulerChunkTests(ProbeCase):
             with self.subTest(rom=rom):
                 first, second = self.dir / f"{rom}.first", self.dir / f"{rom}.second"
                 self.probe(rom, "--units", str(n + k), "--save-at", str(n), str(first), "--load-at", str(n + k), str(first), "--save-at", str(n + k),
-                           str(second), "--only", "cpu", "--only", "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input")
+                           str(second), "--only", "cpu", "--only", "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input", "--only", "bridge")
                 a, b = parse_chunks(first.read_bytes()), parse_chunks(second.read_bytes())
                 self.assertEqual(a[SCHEDULER], b[SCHEDULER])
 
@@ -113,13 +113,13 @@ class SchedulerChunkTests(ProbeCase):
         again = self.dir / "events.again"
         # The same program, four units later and with no events: the chunk puts the table back, handlers included (the digest names them by id).
         same = self.probe("vsync", "--units", "9", "--every", "1", "--load-at", "9", str(path), "--save-at", "9", str(again), "--only", "cpu", "--only",
-                          "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input")
+                          "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input", "--only", "bridge")
         self.assertEqual([(9, 0, "")], same.loads)
         self.assertNotEqual(then["scheduler"], same.digests[(9, "scheduler")])
         self.assertEqual(then["scheduler"], same.after[0]["scheduler"])
         self.assertEqual(path.read_bytes()[e.HEADER_SIZE:], again.read_bytes()[e.HEADER_SIZE:])
         fresh = self.probe("vsync", "--units", "0", "--load-at", "0", str(path), "--save-at", "0", str(again), "--only", "cpu", "--only", "scheduler",
-                           "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input")
+                           "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input", "--only", "bridge")
         self.assertEqual([(0, 0, "")], fresh.loads)
         self.assertEqual(then["scheduler"], fresh.after[0]["scheduler"])
         self.assertEqual(path.read_bytes()[e.HEADER_SIZE:], again.read_bytes()[e.HEADER_SIZE:])
@@ -334,7 +334,7 @@ class SchedulerChunkTests(ProbeCase):
                     self.assertEqual(run.digests[(n, "scheduler")], run.after[0]["scheduler"])
                     again = self.dir / f"kickstart-{n}-{len(extra)}.again"
                     fresh = self.probe("kickstart", "--units", "0", *extra, "--load-at", "0", str(path), "--save-at", "0", str(again), "--only", "cpu",
-                                       "--only", "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input")
+                                       "--only", "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input", "--only", "bridge")
                     self.assertEqual([(0, 0, "")], fresh.loads)
                     self.assertEqual(run.digests[(n, "scheduler")], fresh.after[0]["scheduler"])
                     self.assertEqual(path.read_bytes()[e.HEADER_SIZE:], again.read_bytes()[e.HEADER_SIZE:])

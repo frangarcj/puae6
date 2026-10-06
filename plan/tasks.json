@@ -9336,7 +9336,7 @@
       "title": "Estado nativo de la sesion del bridge (chunk BRDG)",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15a",
         "T15b",
@@ -9359,13 +9359,15 @@
         "bridge/session.h",
         "bridge/lifecycle.cpp",
         "bridge/media.cpp",
-        "bridge/input.cpp"
+        "bridge/input.cpp",
+        "bridge/state_probe.cpp"
       ],
       "steps": [
         "Serializar los contadores de unidad y ticks, la identidad de firmware, los indices de medios montados, la cola de eventos de medios pendientes, los bordes de entrada aplicados, la bandera de teclas liberadas, el ancla del reloj y las banderas de reset/arranque; reconstruir registro de medios, copia de config y maquina de estados de la sesion.",
         "Ampliacion touch: media.cpp e input.cpp porque parte del estado de sesion vive alli.",
         "Prueba por chunk con una cola de eventos de medios a medias, una tecla mantenida y un reset pendiente.",
-        "La rama archivo/t15-codec-por-campos tiene una implementacion P6BR (40-136 bytes) cuya prueba dependia de P6DK: portarla dejando el disco al cuerpo upstream."
+        "La rama archivo/t15-codec-por-campos tiene una implementacion P6BR (40-136 bytes) cuya prueba dependia de P6DK: portarla dejando el disco al cuerpo upstream.",
+        "Ampliacion touch: bridge/state_probe.cpp para las opciones --event-at y --reset-at, que encolan eventos de medios y un reset por la API publica."
       ],
       "checks": [
         "DET02"

@@ -6432,7 +6432,15 @@
             "audio_frames_total"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15h",
+          "chunk": "P6BR",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_bridge",
+          "proves": "tests/state/test_state_bridge.py: three ordered media events queued, a reset pending and a key held at the saved unit come back in the same image (a machine rewound to the state, with none of those calls, goes on as the original in every subsystem the probe digests except the picture, for PAL and NTSC) and in a new process (saved again: the same bytes); the chunk alone puts the session back with the cycle of the payload; changing a field changes the future; seventeen bad bodies are refused before anything is applied; the disk and audio chunks are not there yet, so the drives and Paula are outside the future it compares",
+          "notes": "reset_queued and started are in the body (started must be 1: a state exists only for an image that ran its reset head; a load puts it true). unit_index and master_ticks are the header's validated values and are applied by this chunk; cycles_seen is not saved: it follows the scheduler's counter, so load() sets it to currcycle when P6SC was applied (a load that did not apply P6SC leaves both alone), and a save refuses a session whose cycles_seen is not the cycle counter."
+        }
       },
       {
         "id": "bridge-firmware-identity",
@@ -6691,11 +6699,25 @@
         },
         "probe": {
           "probe": "bridge",
-          "status": "partial",
-          "task": "T15",
-          "why": "the session (counters, media queue, drive indexes, identities, configuration) is hashed; the copy of the preferences, the applied-input edges and the lag machinery are file-local to the bridge units"
+          "status": "implemented",
+          "task": "T15h",
+          "covers": [
+            "unit_index",
+            "master_ticks",
+            "cycles_seen",
+            "audio_frames_total",
+            "handed_over"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15h",
+          "chunk": "P6BR",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_bridge",
+          "proves": "tests/state/test_state_bridge.py: three ordered media events queued, a reset pending and a key held at the saved unit come back in the same image (a machine rewound to the state, with none of those calls, goes on as the original in every subsystem the probe digests except the picture, for PAL and NTSC) and in a new process (saved again: the same bytes); the chunk alone puts the session back with the cycle of the payload; changing a field changes the future; seventeen bad bodies are refused before anything is applied; the disk and audio chunks are not there yet, so the drives and Paula are outside the future it compares",
+          "notes": "unit_index and master_ticks travel in the header (the envelope validates them) and are applied by P6BR; cycles_seen is set by load() to the currcycle P6SC restores; audio_frames_total (u64) and handed_over (0 or 1) are in the body."
+        }
       },
       {
         "id": "bridge-reset-and-start-flags",
@@ -6735,11 +6757,22 @@
         },
         "probe": {
           "probe": "bridge",
-          "status": "partial",
-          "task": "T15",
-          "why": "the session (counters, media queue, drive indexes, identities, configuration) is hashed; the copy of the preferences, the applied-input edges and the lag machinery are file-local to the bridge units"
+          "status": "implemented",
+          "task": "T15h",
+          "covers": [
+            "reset_queued",
+            "started"
+          ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15h",
+          "chunk": "P6BR",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_bridge",
+          "proves": "tests/state/test_state_bridge.py: three ordered media events queued, a reset pending and a key held at the saved unit come back in the same image (a machine rewound to the state, with none of those calls, goes on as the original in every subsystem the probe digests except the picture, for PAL and NTSC) and in a new process (saved again: the same bytes); the chunk alone puts the session back with the cycle of the payload; changing a field changes the future; seventeen bad bodies are refused before anything is applied; the disk and audio chunks are not there yet, so the drives and Paula are outside the future it compares",
+          "notes": "reset_queued (0 or 1) and started (must be 1) as u8. A restored pending reset runs at the head of the next p6_run_frame, which hard-resets the machine as the original would; quit_program is not set here because nothing sets it before that head."
+        }
       },
       {
         "id": "bridge-media-registry",
@@ -6827,7 +6860,15 @@
             "drive_media"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15h",
+          "chunk": "P6BR",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_bridge",
+          "proves": "tests/state/test_state_bridge.py: three ordered media events queued, a reset pending and a key held at the saved unit come back in the same image (a machine rewound to the state, with none of those calls, goes on as the original in every subsystem the probe digests except the picture, for PAL and NTSC) and in a new process (saved again: the same bytes); the chunk alone puts the session back with the cycle of the payload; changing a field changes the future; seventeen bad bodies are refused before anything is applied; the disk and audio chunks are not there yet, so the drives and Paula are outside the future it compares",
+          "notes": "drive_media[4] as i32: DF0 and DF1 in -1..media_count-1, the other two must be -1. Applying does not touch the engine's floppy slots or the drive mechanics: those belong to the disk body, which does not exist yet, so the test keeps the drives in the same state before and after the load."
+        }
       },
       {
         "id": "bridge-pending-media-events",
@@ -6874,7 +6915,15 @@
             "media_queued"
           ]
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15h",
+          "chunk": "P6BR",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_bridge",
+          "proves": "tests/state/test_state_bridge.py: three ordered media events queued, a reset pending and a key held at the saved unit come back in the same image (a machine rewound to the state, with none of those calls, goes on as the original in every subsystem the probe digests except the picture, for PAL and NTSC) and in a new process (saved again: the same bytes); the chunk alone puts the session back with the cycle of the payload; changing a field changes the future; seventeen bad bodies are refused before anything is applied; the disk and audio chunks are not there yet, so the drives and Paula are outside the future it compares",
+          "notes": "count (max 16), then per event type (1 mount, 2 eject), drive (0 or 1) and media_index (u32; mount: below media_count, eject: P6_MEDIA_INDEX_EJECT), then have_sequence and last_sequence (a sequence or events without have_sequence is refused). 40 bytes without events, 136 with 16. Applying queues nothing and consumes nothing: the next p6_run_frame applies the events in order."
+        }
       },
       {
         "id": "bridge-config-copy-and-prefs",

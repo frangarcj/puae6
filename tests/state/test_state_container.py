@@ -19,6 +19,7 @@ CPU_BODY = 155          # P6CP (T15b1)
 SCHED_BODY = 314        # P6SC (T15b2)
 RTC_BODY = 31           # P6RT (T15c1)
 CIA_BODY = 143          # P6CI (T15c2)
+BRIDGE_BODY = 40        # P6BR (T15h) with no media event queued: 40 bytes plus 6 per queued event
 INPUT_BODY = 170        # P6IN (T15c3) with an empty keyboard ring: 145 + 25 bytes of ring count and key table, plus the ring
 
 
@@ -63,8 +64,9 @@ class StateContainerTests(ProbeCase):
         self.assertEqual((1, RTC_BODY), (chunks[b"P6RT"][0], len(chunks[b"P6RT"][1])))
         self.assertEqual((1, CIA_BODY), (chunks[b"P6CI"][0], len(chunks[b"P6CI"][1])))
         self.assertEqual((1, INPUT_BODY), (chunks[b"P6IN"][0], len(chunks[b"P6IN"][1])))
+        self.assertEqual((1, BRIDGE_BODY), (chunks[b"P6BR"][0], len(chunks[b"P6BR"][1])))
         for tag in e.TAGS:
-            if tag not in (b"P6RM", b"P6CP", b"P6SC", b"P6RT", b"P6CI", b"P6IN"):
+            if tag not in (b"P6RM", b"P6CP", b"P6SC", b"P6RT", b"P6CI", b"P6IN", b"P6BR"):
                 self.assertEqual((0, b""), chunks[tag], "a chunk that is not written yet is an empty placeholder of version 0")
 
     def test_the_state_carries_the_ram_of_the_unit_it_was_taken_in_and_nothing_else_of_the_machine(self):
