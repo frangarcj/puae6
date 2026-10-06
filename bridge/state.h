@@ -1,7 +1,7 @@
 // The native state of a loaded image (docs/adr/0009-state-format.md): a registry of chunks, one visitor function each, over the pure
 // container of ports/portable/state_io. The public p6_state_* functions of p6.h are defined in state.cpp; they refuse (UNSUPPORTED) until
-// every chunk of the registry is implemented, because a state with chunks missing would restore only part of a machine and nothing
-// may advertise that as rewind (docs/02-contracts.md). The tests reach the registry through the Options below.
+// the native state is released (kReleased), because a state that restores part of a machine, or one whose future has not been proven bit for bit,
+// must not be advertised as rewind (docs/02-contracts.md). The tests reach the registry through the Options below.
 #ifndef P6_BRIDGE_STATE_H
 #define P6_BRIDGE_STATE_H
 #include "p6.h"
@@ -11,18 +11,22 @@
 namespace p6_state {
 
 // One chunk of the payload. `visit` describes the chunk's state once, for saving, measuring, validating and applying (archive.h);
-// null means the chunk is not written yet. `rebuild` runs after every chunk has been applied, to derive what is not saved.
-// `save_only` marks a chunk whose visitor writes and measures but cannot yet read (the upstream bodies of state_upstream.cpp until T15i2): it is
-// written to every state, a load carries it without validating or applying it, and it does not count for complete(), so the public API stays
-// UNSUPPORTED while one exists.
+// null means the chunk is not written yet. `rebuild` runs after every chunk has been applied, to derive what is not saved. `machine` checks the body
+// against the machine it is about to be applied to (what Validate cannot see: a load into an image that has not started has no drive, no medium and
+// no scheduler yet): load() calls it after the reset head and before the first chunk is applied, and a reason refuses the state as INCOMPATIBLE.
 struct Chunk {
     const char *tag;
     const char *name;
     uint32_t version;
     void (*visit)(Archive &);
     void (*rebuild)();
-    bool save_only = false;
+    const char *(*machine)(const uint8_t *body, uint64_t length) = nullptr;
 };
+
+// The public p6_state_* functions say UNSUPPORTED while this is false, and p6_query_caps leaves P6_CAP_STATE clear. Every chunk has a visitor that
+// validates and applies since T15i2, but the bodies of WinUAE lose state that DET02 has to find first (the beam position, the Denise ring, the
+// Copper wait, the sprite DMA state, the audio filter...: T15i3 and T15d-T15g), and the closure of T15 turns it on with STATE01, DET02 and FUZZ01.
+constexpr bool kReleased = false;
 
 // The payload order of the ADR: cpu, scheduler, ram, rtc, chipset, video, audio, cia, disk, input, bridge.
 constexpr uint32_t kChunkCount = 11;
@@ -41,6 +45,8 @@ void visit_disk(Archive &a);
 void visit_chipset(Archive &a);
 void visit_audio(Archive &a);
 void visit_video(Archive &a);
+// The disk body against the engine's drives (state_upstream.cpp): nullptr, or why the state was taken with another medium in a drive.
+const char *disk_matches_machine(const uint8_t *body, uint64_t length);
 
 // A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value), which is the only thing a
 // cross-check may use: Validate stores nothing, so the live variable it came from belongs to another machine.

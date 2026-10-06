@@ -2579,11 +2579,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2696,11 +2696,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2804,11 +2804,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2902,11 +2902,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2958,11 +2958,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3161,11 +3161,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3216,11 +3216,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3270,11 +3270,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3322,11 +3322,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3377,11 +3377,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3678,11 +3678,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3733,11 +3733,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -3959,11 +3959,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6VD",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_video",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4013,11 +4013,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4066,11 +4066,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4334,11 +4334,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4385,11 +4385,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4434,11 +4434,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4483,11 +4483,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -5570,11 +5570,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6DK",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_disk",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -5627,11 +5627,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6DK",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_disk",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -5799,11 +5799,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i1",
+          "task": "T15i2",
           "chunk": "P6DK",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_disk",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam registers of the chipset body, which restore_custom discards, excepted: T15i3)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },

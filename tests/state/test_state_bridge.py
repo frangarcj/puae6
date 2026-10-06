@@ -16,10 +16,10 @@ What is proven here:
   - a body that does not describe an image (a queue above its bound, an index that does not fit its event type, events with no accepted sequence, a drive that is not
     DF0 or DF1, a flag that is not 0 or 1) is refused before anything is applied and leaves the machine as it was.
 
-What is NOT covered (the disk and audio chunks do not exist yet; docs/adr/0009-state-format.md, point 8): the physical state of the drives and Paula. The scenario is
-therefore chosen so that no disk event has been applied between the boot and the saved unit: the drive is in the same state in the original and in the machine the state is
-loaded into, and the events that are still queued are the first ones the engine sees. A fresh image cannot run units after a load yet (the audio chunk is a placeholder), so
-a new process is checked by exact re-emission (load, then save: the same bytes), not by running.
+What is NOT covered here: the physical state of the drives and Paula, which the upstream bodies carry (T15i2: tests/state/test_state_upstream.py), and the beam, which
+they lose (T15f). The scenario is chosen so that no disk event has been applied between the boot and the saved unit: the drive is in the same state in the original and in
+the machine the state is loaded into, and the events that are still queued are the first ones the engine sees. A new process is checked by exact re-emission (load, then
+save: the same bytes), not by running.
 """
 import hashlib
 import re
@@ -29,7 +29,9 @@ import subprocess
 from tests.state.harness import FieldTable, ProbeCase, Run, SUBSYSTEMS, parse_chunks, reforge
 
 BRIDGE, INPUT = 10, 9
-COMPARED = tuple(s for s in SUBSYSTEMS if s != "video")
+# The video digest is the picture, which no chunk restores. The chipset digest hashes the beam, which the upstream bodies do not carry (restore_custom reads VPOSR and
+# VHPOSR and throws them away), so a loaded machine is not the original in it until T15f puts the beam back; this module is about the session, which is in the others.
+COMPARED = tuple(s for s in SUBSYSTEMS if s not in ("video", "chipset"))
 N = 4                   # the unit the state is taken in
 UNITS_AFTER = 5
 STALE = "event sequence numbers must increase"
@@ -152,13 +154,12 @@ class BridgeStateTests(ProbeCase):
             different = [s for s in COMPARED if control.digests[(N + j, s)] != run.digests[(N + k + j, s)]]
             self.assertEqual([], different, f"{j} units after the load the machine is not the original's in {different}")
 
-        # A new process: the image has not run its reset head, so the load runs it and then applies the chunks. Saved again at once, the session is the same bytes. (It cannot
-        # run units yet: the audio chunk does not exist.) The sequence guard is the state's here too.
+        # A new process: the image has not run its reset head, so the load runs it and then applies the chunks. Saved again at once, the session is the same bytes. The sequence guard is the state's here too.
         fresh = self.dir / "fresh.state"
-        run = self.probe("vsync", "--units", "0", "--every", "1", *self.media, *standard, "--load-at", "0", str(source), "--event-at", "0", "0", "1", "12",
-                         "--save-at", "0", str(fresh))
+        run = self.probe("vsync", "--units", "0", "--every", "1", *self.media, *standard, "--event-at", "0", "0", "0", "1", "--load-at", "0", str(source),
+                         "--event-at", "0", "0", "1", "12", "--save-at", "0", str(fresh))
         self.assertEqual([(0, 0, "")], run.loads)
-        self.assertEqual([(0, 1, STALE)], run.events)
+        self.assertEqual([(0, 0, ""), (0, 1, STALE)], run.events, "DF0 is mounted at boot, as in the state: a state taken with a disk in a drive is refused by an image that has none there")
         for tag in (b"P6BR", b"P6IN", b"P6SC", b"P6CP", b"P6RT", b"P6CI"):
             self.assertEqual(self.bodies(source)[tag], self.bodies(fresh)[tag], tag)
         self.assertEqual(self.header(source), self.header(fresh))

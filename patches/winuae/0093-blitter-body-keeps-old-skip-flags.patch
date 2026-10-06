@@ -1,0 +1,21 @@
+diff --git a/blitter.cpp b/blitter.cpp
+--- a/blitter.cpp
++++ b/blitter.cpp
+@@ -2544,8 +2544,17 @@
+ 				blit_bltset(0);
+ 			}
+ 		}
++#ifdef P6_PORTABLE
++		/* A type 2 body carries the old skip flags (restored above) and blit_bltset has just derived the current ones from BLTCON: deriving the old
++		 * ones from the current would replace what the body said with what the registers say. */
++		if (blt_statefile_type < 2) {
++			shifter_skip_b_old = shifter_skip_b;
++			shifter_skip_y_old = shifter_skip_y;
++		}
++#else
+ 		shifter_skip_b_old = shifter_skip_b;
+ 		shifter_skip_y_old = shifter_skip_y;
++#endif
+ 		blitfill_old = blitfill;
+ 	}
+ 

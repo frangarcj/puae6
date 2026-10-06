@@ -2463,6 +2463,107 @@
           "after_sha256": "72d426f5f23c957a0a30575dcfe1f9a785569e99577f4ab471eac3c25c2a917d"
         }
       ]
+    },
+    {
+      "id": "0090-custom-restore-on-live-machine",
+      "file": "patches/winuae/0090-custom-restore-on-live-machine.patch",
+      "sha256": "ca770be68649af2d3f60e9b28c48b4f33fa803e3befed3ba030336ab71366a1a",
+      "title": "restore_custom applies on a live machine: no audio_reset, no blitter_reset, no preference writes",
+      "reason": "restore_custom is a mini reset: it calls audio_reset (channels, filter state and pending PCM dropped), restore_blitter_start (blitter_reset) and writes chipset_mask and ntscmode into currprefs and changed_prefs. The native state applies the body on a running machine whose configuration is part of the identity: the bridge validates that the body names the configuration it has, and the patch removes the three effects that would otherwise discard live state or adapt the configuration to the body.",
+      "category": "host hooks",
+      "order": 90,
+      "symbols": [
+        "restore_custom"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "a51c06f9f13fb2d622e40bb127eaa5137453dfc9db627a812a022a34ae4b7d7b",
+          "after_sha256": "23eef71778333f8b43c0a9d67a468832da88b36f2d26391b9e7b59a080a0cb77"
+        }
+      ]
+    },
+    {
+      "id": "0091-disk-restore-writes-no-preferences",
+      "file": "patches/winuae/0091-disk-restore-writes-no-preferences.patch",
+      "sha256": "ff8aa0f05a32d09a5151f1fba1c1afe40a2f2bc330cb74f8b7e505578c7e03e5",
+      "title": "restore_disk no longer writes the drive type or the number of floppies into the preferences",
+      "reason": "The portable restore_disk of patch 0087 still copied the type of the drive (dfxtype) and, for a disabled drive, nr_floppies into currprefs and changed_prefs, as upstream does to adapt the machine to a statefile. A native state never adapts the configuration: it is part of the identity, and the bridge refuses a DSKn body whose drive id or disabled bit is not the one of the configuration. With that check the writes would be no-ops, and without it they would be an adaptation, so they go.",
+      "category": "host hooks",
+      "order": 91,
+      "symbols": [
+        "restore_disk"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "43fe99e3d20a1c8c0091c37ed566088072b7fbf7b6f4098730bb2458ce9cbbfe",
+          "after_sha256": "b0e75cc5cc0e8c1b0dbd6aa7ab27d60f66ebcb1e6b6ae4fedb7169062adc4b1f"
+        }
+      ]
+    },
+    {
+      "id": "0092-rga-slot-pointers-named",
+      "file": "patches/winuae/0092-rga-slot-pointers-named.patch",
+      "sha256": "f54309fc03a1bcb508a08ab9d1568048d348d5208513c2d5c27fc3a0ca34d670",
+      "title": "The CHSL body names the refresh, audio and disk pointers of an RGA slot",
+      "reason": "save_custom_slots stores each slot's pointer as the register getregfrompt maps it to, and restore_custom_slots maps it back with getptfromreg. Only the blitter, bitplane, sprite and copper pointers had a code: the pointers of the refresh and strobe slots (refptr) and of the audio and disk DMA slots came back as null, and handle_rga_out dereferences r->p for them, so a state taken with one of those slots in the pipeline crashed the first unit after a load. They get codes above the register file (0x200 refresh, 0x201-0x204 audio channels, 0x205 disk), and two accessors return the audio and disk pointers without audio_getpt's and disk_getpt's side effects, which a save may not have.",
+      "category": "host hooks",
+      "order": 92,
+      "symbols": [
+        "getptfromreg",
+        "getregfrompt",
+        "p6_audio_pt",
+        "p6_disk_pt"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "23eef71778333f8b43c0a9d67a468832da88b36f2d26391b9e7b59a080a0cb77",
+          "after_sha256": "a491f30f92fb04b5ba02bc21b3b97c02810cf1cb1f169bd8cd148ee19cec71e5"
+        },
+        {
+          "path": "audio.cpp",
+          "before_sha256": "3b012a5f8f2c6f019bfcb5bbdfb58c654c9bb7fe49a3884c6bd660ae3aa4017a",
+          "after_sha256": "cb6061d4e3fd89eb9d42aa48f77fe852be1bd77711ac46176a79fbe168f88f4e"
+        },
+        {
+          "path": "disk.cpp",
+          "before_sha256": "b0e75cc5cc0e8c1b0dbd6aa7ab27d60f66ebcb1e6b6ae4fedb7169062adc4b1f",
+          "after_sha256": "3773cf473fbd6c8b929eb0d797e01bda72a037fcd2e2d3cf0a402092e9b61f35"
+        }
+      ]
+    },
+    {
+      "id": "0093-blitter-body-keeps-old-skip-flags",
+      "file": "patches/winuae/0093-blitter-body-keeps-old-skip-flags.patch",
+      "sha256": "b44dd91adc4bc5f540369bbce539d9668d21bb231f30339fd7f50d198146ba21",
+      "title": "restore_blitter_new keeps the old skip flags a type 2 body carries",
+      "reason": "A body of type 2 stores shifter_skip_b_old and shifter_skip_y_old and restore_blitter_new reads them into the variables, but the cycle-exact branch then overwrites both with the current skip flags, which blit_bltset has just derived from BLTCON0 and BLTCON1 and which do not say what the previous blit left. A state saved with the flags set came back with them cleared (and the reverse), so save, load, save did not give the same BLTX and BLIT bodies. Only a body older than type 2, which carries no flags, derives them.",
+      "category": "host hooks",
+      "order": 93,
+      "symbols": [
+        "restore_blitter_new"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blitter.cpp",
+          "before_sha256": "e1f4a111e0d7deaa908901f10f5871628621175729959cb8cec1e2dcfe6050a0",
+          "after_sha256": "feda6facc129e1715292ef8d4a00226417ea76c7ff5d2b615167e776429e04a4"
+        }
+      ]
     }
   ]
 }

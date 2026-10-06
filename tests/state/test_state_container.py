@@ -1,7 +1,6 @@
 """T15a: the native state container on the real engine (target p6_state_probe, --save-at / --load-at / --public-at).
 
-Only the RAM chunk is read by a load of this module (the chunks of the upstream bodies, T15i1, are written but a load does not read them yet,
-and the public p6_state_* functions refuse until every chunk can be read and applied). What this proves is the
+Every chunk is read and applied by a load (the upstream bodies since T15i2), and the public p6_state_* functions refuse until the native state is released. What this proves is the
 container: that the state is what the ADR says, that its bound is fixed, that RAM goes back to the saved unit in the same process and in a
 new one, and above all STATE02: every bad state is refused with its code and the field it names, before the machine is touched, and the
 machine goes on exactly as a run that never saw the attempt.
@@ -150,13 +149,14 @@ class StateContainerTests(ProbeCase):
         run = self.probe("vsync", "--units", "8", "--adf", str(a), "--load-at", "8", str(none))
         self.assertIn("media_manifest_hash", run.loads[0][2], "a state taken with no disk does not fit a machine that has one")
 
-    def test_the_public_functions_refuse_until_every_chunk_exists_and_the_capability_stays_clear(self):
+    def test_the_public_functions_refuse_until_the_native_state_is_released_and_the_capability_stays_clear(self):
+        # Every chunk validates and applies since T15i2, so the refusal no longer lists chunks that are missing: it says that the state is not released, because the
+        # bodies of WinUAE lose state that DET02 has to find first (T15i3 and the extensions that follow). The closure of T15 turns it on with P6_CAP_STATE.
         run = self.probe("vsync", "--units", "2", "--public-at", "1")
         (unit, cap, bound, save, load, written, message), = run.public
         self.assertEqual(("1", "0", "4", "4", "4", "0"), (unit, cap, bound, save, load, written))     # P6_ERROR_UNSUPPORTED = 4
-        self.assertEqual(["chipset", "video", "audio", "disk"], message.split(": ")[-1].split(", "), "the chunks whose bodies are saved but not yet read or applied")
-        for written in ("cpu", "scheduler", "ram", "rtc", "cia", "input", "bridge"):
-            self.assertNotIn(written, message.split(":")[-1].split(", "), f"{written} is a chunk that exists")
+        self.assertIn("native state is not released", message)
+        self.assertNotIn("not implemented for", message, "no chunk is missing")
 
     # -- STATE02 -----------------------------------------------------------------------------------------------------------------------
 

@@ -160,14 +160,21 @@ def parse_chunks(blob):
     return chunks
 
 
-# The chunks that carry WinUAE's own bodies (T15i1). A load does not validate or apply them until T15i2, so a state taken after a load holds the live machine's bodies
-# and not the loaded ones: a test that compares what a load put back compares the payload without them.
-UPSTREAM_TAGS = (b"P6CH", b"P6VD", b"P6AU", b"P6DK")
+# What restore_custom does with VPOSR and VHPOSR (bytes 8-11 of CHIP, which is the first sub-body of P6CH after its 8 bytes of tag and length): it reads them and
+# throws them away, and the beam of a loaded machine is where the machine already was, so a state taken again has the beam of the moment it is taken in and not
+# the saved one. Putting the beam back is an extension of the chipset (T15f): until then a comparison of what a load put back leaves these four bytes out.
+BEAM = slice(8 + 8, 8 + 12)
 
 
-def applied_payload(blob):
-    """The payload of a state without the chunks of UPSTREAM_TAGS."""
-    return b"".join(e.CHUNK_HEADER.pack(tag, version, len(body)) + bytes(body) for tag, version, body in parse_chunks(blob) if tag not in UPSTREAM_TAGS)
+def without_beam(blob):
+    """The payload of a state with the beam registers of the chipset body zeroed."""
+    out = []
+    for tag, version, body in parse_chunks(blob):
+        if tag == b"P6CH":
+            body = bytearray(body)
+            body[BEAM] = bytes(4)
+        out.append(e.CHUNK_HEADER.pack(tag, version, len(body)) + bytes(body))
+    return b"".join(out)
 
 
 def reforge(blob, edit=None, header=None, count=None, keep_length=False):

@@ -110,7 +110,7 @@ class StateComponentTests(unittest.TestCase):
     def test_a_component_that_says_where_its_native_state_is_written_names_a_visitor_that_exists_in_the_registry(self):
         registry = {}
         text = (ROOT / "bridge/state.cpp").read_text(encoding="utf-8")
-        for tag, name, visitor in re.findall(r'\{"(P6[A-Z]{2})", "(\w+)", \d+, (nullptr|\w+), (?:nullptr|\w+)(?:, (?:true|false))?\}', text):
+        for tag, name, visitor in re.findall(r'\{"(P6[A-Z]{2})", "(\w+)", \d+, (nullptr|\w+), (?:nullptr|\w+)(?:, \w+)?\}', text):
             registry[tag] = (name, visitor)
         self.assertEqual(11, len(registry), "the registry of bridge/state.cpp has one entry per subsystem chunk")
         written = [c for c in self.components if "native_state" in c]

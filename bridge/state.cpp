@@ -115,11 +115,11 @@ const Chunk kChunks[kChunkCount] = {
     {"P6SC", "scheduler", 1, visit_scheduler, rebuild_scheduler},
     {"P6RM", "ram", 1, visit_ram, nullptr},
     {"P6RT", "rtc", 1, visit_rtc, nullptr},
-    {"P6CH", "chipset", 1, visit_chipset, nullptr, true},
-    {"P6VD", "video", 1, visit_video, nullptr, true},
-    {"P6AU", "audio", 1, visit_audio, nullptr, true},
+    {"P6CH", "chipset", 1, visit_chipset, nullptr},
+    {"P6VD", "video", 1, visit_video, nullptr},
+    {"P6AU", "audio", 1, visit_audio, nullptr},
     {"P6CI", "cia", 1, visit_cia, rebuild_cia},
-    {"P6DK", "disk", 1, visit_disk, nullptr, true},
+    {"P6DK", "disk", 1, visit_disk, nullptr, disk_matches_machine},
     {"P6IN", "input", 1, visit_input, nullptr},
     {"P6BR", "bridge", 1, visit_bridge, nullptr},
 };
@@ -153,7 +153,7 @@ bool complete(char *missing, size_t capacity)
     size_t used = 0;
     if (missing && capacity) missing[0] = 0;
     for (const Chunk &chunk : kChunks) {
-        if (chunk.visit && !chunk.save_only) continue;
+        if (chunk.visit) continue;
         all = false;
         if (missing && capacity > used + 1) {
             const int n = snprintf(missing + used, capacity - used, "%s%s", used ? ", " : "", chunk.name);
@@ -202,6 +202,8 @@ p6_result gate(const Options &options, p6_error *error)
         snprintf(text, sizeof text, "native state is not implemented for: %s", missing);
         return p6_fail(error, P6_ERROR_UNSUPPORTED, text);
     }
+    if (!options.allow_placeholders && !kReleased)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "native state is not released: the future of the bodies of WinUAE is not yet proven bit for bit (DET02)");
     return P6_OK;
 }
 
@@ -309,7 +311,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     const ContextScope scope(&context);
     for (uint32_t i = 0; i < kChunkCount; ++i) {
         const Chunk &chunk = kChunks[i];
-        if (!chunk.visit || chunk.save_only) continue;      // a placeholder has bound 0, so the envelope has already refused a body; a save-only chunk is carried, not read
+        if (!chunk.visit) continue;      // a placeholder has bound 0, so the envelope has already refused a body
         Archive archive = Archive::validator(views[i].body, views[i].length);
         chunk.visit(archive);
         archive.finish();
@@ -328,9 +330,20 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         }
     }
     const auto chosen = [&options](uint32_t i) { return !options.only_chunks || (options.only_chunks >> i & 1); };
+    // What a body says about the machine it is applied to, which exists only now (see Chunk::machine). Nothing has been applied yet, so a refusal here
+    // leaves the image as it was; for an image that had not started it is the image after its reset head, the same one the first unit would have run.
     for (uint32_t i = 0; i < kChunkCount; ++i) {
         const Chunk &chunk = kChunks[i];
-        if (!chunk.visit || chunk.save_only || !chosen(i)) continue;
+        if (!chunk.visit || !chunk.machine || !chosen(i)) continue;
+        if (const char *why = chunk.machine(views[i].body, views[i].length)) {
+            char text[P6_ERROR_TEXT_CAPACITY];
+            snprintf(text, sizeof text, "state refused: chunk %s: %s", chunk.name, why);
+            return p6_fail(error, P6_ERROR_INCOMPATIBLE, text);
+        }
+    }
+    for (uint32_t i = 0; i < kChunkCount; ++i) {
+        const Chunk &chunk = kChunks[i];
+        if (!chunk.visit || !chosen(i)) continue;
         Archive archive = Archive::applier(views[i].body, views[i].length);
         chunk.visit(archive);
         archive.finish();
@@ -341,7 +354,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         }
     }
     for (uint32_t i = 0; i < kChunkCount; ++i)
-        if (kChunks[i].visit && !kChunks[i].save_only && kChunks[i].rebuild && chosen(i)) kChunks[i].rebuild();
+        if (kChunks[i].visit && kChunks[i].rebuild && chosen(i)) kChunks[i].rebuild();
     // cycles_seen follows the scheduler's counter, which is where a boundary has it: P6SC may have put currcycle back and the reset head of an image
     // that had not started restarted it. The ticks of that head are not the caller's: the header's counters replace them when P6BR is applied.
     session.cycles_seen = int64_t(currcycle);
