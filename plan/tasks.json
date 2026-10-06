@@ -9383,7 +9383,7 @@
       "title": "Compilar los cuerpos upstream A500 y guardarlos sin mutar la maquina",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15a",
         "T15b",

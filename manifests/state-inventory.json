@@ -2577,7 +2577,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-config-flags",
@@ -2686,7 +2694,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-beam-position",
@@ -2786,7 +2802,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-sync-blank-latches",
@@ -2876,7 +2900,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-rga-slot-pipeline",
@@ -2924,7 +2956,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-dmal-shifter-and-latch",
@@ -3119,7 +3159,15 @@
           ],
           "why": "intena and intreq are hashed; the CPU-visible delayed copies (intreq2/intena2) and the pending delayed-write events are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-copper",
@@ -3166,7 +3214,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-bitplane-fetch-sequencer",
@@ -3212,7 +3268,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-refresh-strobe",
@@ -3256,7 +3320,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-sprite-dma-agnus",
@@ -3303,7 +3375,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "chipset-lightpen-latch",
@@ -3596,7 +3676,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "blitter-cycle-machine",
@@ -3643,7 +3731,15 @@
           "task": "T15",
           "why": "the beam, the interrupt and DMA registers and the last value written to each custom register are hashed; Denise's input ring and its cursors, the copper, the bitplane pipeline and the delayed writes are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "blitter-derived-tables",
@@ -3861,7 +3957,15 @@
           "task": "T15",
           "why": "only the presentation of the last unit (frame counters and the raster) is hashed: an output, not the drawing history"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6VD",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_video",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "video-denise-sprites",
@@ -3907,7 +4011,15 @@
           "task": "T15",
           "why": "only the presentation of the last unit (frame counters and the raster) is hashed: an output, not the drawing history"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "video-collision-state",
@@ -3952,7 +4064,15 @@
           "task": "T15",
           "why": "only the presentation of the last unit (frame counters and the raster) is hashed: an output, not the drawing history"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "video-drawing-pointers-and-scratch",
@@ -4212,7 +4332,15 @@
           "task": "T15",
           "why": "what the compiled save_audio writes for each channel (a subset of Paula's state) is hashed; the filter, the DAC and the resampler phase are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6AU",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_audio",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "audio-channel-1",
@@ -4255,7 +4383,15 @@
           "task": "T15",
           "why": "what the compiled save_audio writes for each channel (a subset of Paula's state) is hashed; the filter, the DAC and the resampler phase are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6AU",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_audio",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "audio-channel-2",
@@ -4296,7 +4432,15 @@
           "task": "T15",
           "why": "what the compiled save_audio writes for each channel (a subset of Paula's state) is hashed; the filter, the DAC and the resampler phase are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6AU",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_audio",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "audio-channel-3",
@@ -4337,7 +4481,15 @@
           "task": "T15",
           "why": "what the compiled save_audio writes for each channel (a subset of Paula's state) is hashed; the filter, the DAC and the resampler phase are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6AU",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_audio",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "audio-output-dac-and-accumulators",
@@ -5416,7 +5568,15 @@
           "task": "T15",
           "why": "the state is file-local to disk.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "disk-df1-mechanics",
@@ -5465,7 +5625,15 @@
           "task": "T15",
           "why": "the state is file-local to disk.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "disk-df2-unused",
@@ -5629,7 +5797,15 @@
           "task": "T15",
           "why": "the state is file-local to disk.cpp and no compiled function or extern exposes it: T15 adds an accessor next to it"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15i1",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save, and saving changes neither the machine nor its future; Validate and Apply are T15i2",
+          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+        }
       },
       {
         "id": "disk-controller-lines",

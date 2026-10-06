@@ -160,6 +160,16 @@ def parse_chunks(blob):
     return chunks
 
 
+# The chunks that carry WinUAE's own bodies (T15i1). A load does not validate or apply them until T15i2, so a state taken after a load holds the live machine's bodies
+# and not the loaded ones: a test that compares what a load put back compares the payload without them.
+UPSTREAM_TAGS = (b"P6CH", b"P6VD", b"P6AU", b"P6DK")
+
+
+def applied_payload(blob):
+    """The payload of a state without the chunks of UPSTREAM_TAGS."""
+    return b"".join(e.CHUNK_HEADER.pack(tag, version, len(body)) + bytes(body) for tag, version, body in parse_chunks(blob) if tag not in UPSTREAM_TAGS)
+
+
 def reforge(blob, edit=None, header=None, count=None, keep_length=False):
     """The state with its chunk list edited (`edit` gets a list of [tag, version, body]) and every checksum made right again: a defect that
     only the structure, and not a checksum, can find. `header` replaces header bytes by offset after the lengths are set."""

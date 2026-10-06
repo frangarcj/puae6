@@ -1,7 +1,7 @@
 """T15a: the native state container on the real engine (target p6_state_probe, --save-at / --load-at / --public-at).
 
-Only the RAM chunk exists, so a state restores Chip and Slow RAM and nothing else (the other chunks are placeholders of version 0 that the
-probe is allowed to write and read, and the public p6_state_* functions refuse until every chunk exists). What this proves is the
+Only the RAM chunk is read by a load of this module (the chunks of the upstream bodies, T15i1, are written but a load does not read them yet,
+and the public p6_state_* functions refuse until every chunk can be read and applied). What this proves is the
 container: that the state is what the ADR says, that its bound is fixed, that RAM goes back to the saved unit in the same process and in a
 new one, and above all STATE02: every bad state is refused with its code and the field it names, before the machine is touched, and the
 machine goes on exactly as a run that never saw the attempt.
@@ -21,6 +21,10 @@ RTC_BODY = 31           # P6RT (T15c1)
 CIA_BODY = 143          # P6CI (T15c2)
 BRIDGE_BODY = 40        # P6BR (T15h) with no media event queued: 40 bytes plus 6 per queued event
 INPUT_BODY = 170        # P6IN (T15c3) with an empty keyboard ring: 145 + 25 bytes of ring count and key table, plus the ring
+CHIPSET_BODY = 1136     # P6CH (T15i1): CHIP 360, BLTX 226, BLIT 63, CHSL 191 and eight sprites of 25, each with 8 bytes of tag and length
+VIDEO_BODY = 300        # P6VD: BPLX 292
+AUDIO_BODY = 132        # P6AU: four channels of 25
+DISK_BODY = 185         # P6DK with no medium: four DSKn of 24, four absent DSDn, DISK 17
 
 
 class StateContainerTests(ProbeCase):
@@ -65,9 +69,8 @@ class StateContainerTests(ProbeCase):
         self.assertEqual((1, CIA_BODY), (chunks[b"P6CI"][0], len(chunks[b"P6CI"][1])))
         self.assertEqual((1, INPUT_BODY), (chunks[b"P6IN"][0], len(chunks[b"P6IN"][1])))
         self.assertEqual((1, BRIDGE_BODY), (chunks[b"P6BR"][0], len(chunks[b"P6BR"][1])))
-        for tag in e.TAGS:
-            if tag not in (b"P6RM", b"P6CP", b"P6SC", b"P6RT", b"P6CI", b"P6IN", b"P6BR"):
-                self.assertEqual((0, b""), chunks[tag], "a chunk that is not written yet is an empty placeholder of version 0")
+        for tag, length in ((b"P6CH", CHIPSET_BODY), (b"P6VD", VIDEO_BODY), (b"P6AU", AUDIO_BODY), (b"P6DK", DISK_BODY)):
+            self.assertEqual((1, length), (chunks[tag][0], len(chunks[tag][1])), tag)
 
     def test_the_state_carries_the_ram_of_the_unit_it_was_taken_in_and_nothing_else_of_the_machine(self):
         saved = self.reference.saves[0]
@@ -151,8 +154,8 @@ class StateContainerTests(ProbeCase):
         run = self.probe("vsync", "--units", "2", "--public-at", "1")
         (unit, cap, bound, save, load, written, message), = run.public
         self.assertEqual(("1", "0", "4", "4", "4", "0"), (unit, cap, bound, save, load, written))     # P6_ERROR_UNSUPPORTED = 4
-        self.assertIn("chipset, video", message)
-        for written in ("cpu", "scheduler", "ram", "rtc"):
+        self.assertEqual(["chipset", "video", "audio", "disk"], message.split(": ")[-1].split(", "), "the chunks whose bodies are saved but not yet read or applied")
+        for written in ("cpu", "scheduler", "ram", "rtc", "cia", "input", "bridge"):
             self.assertNotIn(written, message.split(":")[-1].split(", "), f"{written} is a chunk that exists")
 
     # -- STATE02 -----------------------------------------------------------------------------------------------------------------------
@@ -212,8 +215,9 @@ class StateContainerTests(ProbeCase):
             ("another Chip RAM size", reforge(good, ram(lambda b: struct.pack("<I", CHIP // 2) + b[4:])), 9, "chunk ram: a field is out of its range"),
             ("another Slow RAM size", reforge(good, ram(lambda b: b[:4] + struct.pack("<I", 0) + b[8:])), 9, "chunk ram: a field is out of its range"),
             ("a RAM chunk of version 2", reforge(good, chunk(2, version=2)), 10, "chunk_version"),
-            ("a placeholder with a body", reforge(good, chunk(4, body=b"\1\2\3\4")), 9, "chunk_length"),
-            ("a placeholder of version 1", reforge(good, chunk(4, version=1)), 10, "chunk_version"),
+            ("a chipset chunk of version 2", reforge(good, chunk(4, version=2)), 10, "chunk_version"),
+            ("a chipset chunk of version 0, as when it was a placeholder", reforge(good, chunk(4, version=0)), 10, "chunk_version"),
+            ("a chipset chunk longer than its largest body", reforge(good, chunk(4, body=bytes(CHIPSET_BODY + 1))), 9, "chunk_length"),
             ("the rtc chunk of version 2", reforge(good, chunk(3, version=2)), 10, "chunk_version"),
             ("the cpu chunk of version 2", reforge(good, chunk(0, version=2)), 10, "chunk_version"),
             ("the scheduler chunk of version 2", reforge(good, chunk(1, version=2)), 10, "chunk_version"),

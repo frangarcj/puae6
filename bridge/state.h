@@ -12,12 +12,16 @@ namespace p6_state {
 
 // One chunk of the payload. `visit` describes the chunk's state once, for saving, measuring, validating and applying (archive.h);
 // null means the chunk is not written yet. `rebuild` runs after every chunk has been applied, to derive what is not saved.
+// `save_only` marks a chunk whose visitor writes and measures but cannot yet read (the upstream bodies of state_upstream.cpp until T15i2): it is
+// written to every state, a load carries it without validating or applying it, and it does not count for complete(), so the public API stays
+// UNSUPPORTED while one exists.
 struct Chunk {
     const char *tag;
     const char *name;
     uint32_t version;
     void (*visit)(Archive &);
     void (*rebuild)();
+    bool save_only = false;
 };
 
 // The payload order of the ADR: cpu, scheduler, ram, rtc, chipset, video, audio, cia, disk, input, bridge.
@@ -32,6 +36,11 @@ void visit_rtc(Archive &a);
 void visit_cia(Archive &a);
 void rebuild_cia();
 void visit_input(Archive &a);
+// The bodies of WinUAE's own save_* functions, as sub-bodies (state_upstream.cpp): P6DK, P6CH, P6AU and P6VD.
+void visit_disk(Archive &a);
+void visit_chipset(Archive &a);
+void visit_audio(Archive &a);
+void visit_video(Archive &a);
 
 // A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value), which is the only thing a
 // cross-check may use: Validate stores nothing, so the live variable it came from belongs to another machine.

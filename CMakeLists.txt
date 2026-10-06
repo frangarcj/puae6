@@ -61,6 +61,10 @@ add_library(p6_portable STATIC
 if(P6_UNIT_TRACE)
     target_compile_definitions(p6_engine PRIVATE P6_UNIT_TRACE)
 endif()
+# The save_*/restore_* bodies of disk, chipset and blitter that bridge/state_upstream.cpp reuses (patches 0086-0089). They are guarded by
+# `SAVESTATE || P6_STATE_BODIES`, and SAVESTATE stays undefined: it would also compile the ASF container and the sites that run a restore (m68k_go,
+# savestate_init, quitstatefile). The Waterbox guest takes its engine from the manifest and does not define this, nor does it carry the state.
+target_compile_definitions(p6_engine PRIVATE P6_STATE_BODIES)
 foreach(_target IN ITEMS p6_engine p6_portable)
     add_dependencies(${_target} p6_codegen)
     target_include_directories(${_target} PRIVATE
@@ -134,7 +138,7 @@ foreach(_file IN LISTS _core_files)
     string(APPEND _core_lines "${_relative}:${_file_sha256}\n")
 endforeach()
 string(SHA256 _sources_sha256 "${_core_lines}")
-add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp bridge/state_cpu.cpp bridge/state_devices.cpp)
+add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp bridge/state_cpu.cpp bridge/state_devices.cpp bridge/state_upstream.cpp)
 add_dependencies(p6_state p6_codegen)
 target_include_directories(p6_state PUBLIC bridge)
 target_include_directories(p6_state PRIVATE

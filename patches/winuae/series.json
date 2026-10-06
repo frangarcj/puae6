@@ -2336,6 +2336,133 @@
           "after_sha256": "d470ff4525baf4e96ad792dd8cc31abf16106c285c12e472454fdef1815c3817"
         }
       ]
+    },
+    {
+      "id": "0086-state-bodies-guard",
+      "file": "patches/winuae/0086-state-bodies-guard.patch",
+      "sha256": "ceb67e4a61df085799a2a171a585cdf4e95130cfc4495c758c494dc8eabd8dbe",
+      "title": "The save_*/restore_*/*_finish bodies of disk, chipset and blitter compile with P6_STATE_BODIES, without SAVESTATE",
+      "reason": "disk.cpp, custom.cpp and blitter.cpp keep the serializers of the floppy, the chipset registers, the copper and RGA slots, the sprites and the blitter under SAVESTATE, together with sites that change behaviour. The native state (bridge/state_upstream.cpp) reuses those bodies, so the guard of the functions alone also admits P6_STATE_BODIES; AGAC, CHPX, CHPD and CYCS, custom_prepare_savestate and the quit-state site stay under SAVESTATE alone. Defining SAVESTATE would also pull the ASF container and the m68k_go, savestate_init and quitstatefile sites, and nothing here does.",
+      "category": "host hooks",
+      "order": 86,
+      "symbols": [
+        "DISK_restore_custom",
+        "DISK_save_custom",
+        "restore_blitter",
+        "restore_blitter_finish",
+        "restore_blitter_new",
+        "restore_blitter_start",
+        "restore_custom",
+        "restore_custom_finish",
+        "restore_custom_slots",
+        "restore_custom_sprite",
+        "restore_custom_start",
+        "restore_disk",
+        "restore_disk2",
+        "restore_disk_finish",
+        "restore_floppy",
+        "save_blitter",
+        "save_blitter_new",
+        "save_custom",
+        "save_custom_slots",
+        "save_custom_sprite",
+        "save_disk",
+        "save_disk2",
+        "save_floppy"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "3567ce93bc998c605c9ac795cd7a01cb5c3c7e870a4696f41688421cc8b4da6b",
+          "after_sha256": "3d5af5ec1ae4f6871ab93dec676fbedba846ddf6795ea297eca70ee253eac0be"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "554ff7ba8feeea5dbf670a50fc238fb2b8a1a661051630e23ab359cd06eb5a9c",
+          "after_sha256": "f8524f892f37af737980b2bb4caeee483dace31910ddaea4329ed7b2744e03f2"
+        },
+        {
+          "path": "blitter.cpp",
+          "before_sha256": "db6bfe0043b23b5c2fbe1e24750bfe0939e2f4895989b1b7727175c2cf98dd34",
+          "after_sha256": "e1f4a111e0d7deaa908901f10f5871628621175729959cb8cec1e2dcfe6050a0"
+        }
+      ]
+    },
+    {
+      "id": "0087-disk-state-body-without-paths",
+      "file": "patches/winuae/0087-disk-state-body-without-paths.patch",
+      "sha256": "b5e6b0b948ee461135ba3cb23f78b7ad2c541bfb14cc5ca2fd8d18a7ce4f005b",
+      "title": "save_disk and restore_disk write and read the drive without an image path and never insert or eject a medium",
+      "reason": "The upstream floppy body saves the image name and, for a full path, the host's idea of it, and restores by inserting the file again with drive_insert (zfile_exists, the delayed-change fake). save_path and restore_path do not exist in the portable build, the medium of a native state is the one the envelope's media manifest names, and restore_disk reads a flag that save_disk only writes when it was asked for a path. The portable body is 24 bytes: the CRC drive_insert measured replaces getadfcrc, which read the whole image through the zfile on every save, and the flag is always written, as zero.",
+      "category": "host hooks",
+      "order": 87,
+      "symbols": [
+        "restore_disk",
+        "save_disk"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "3d5af5ec1ae4f6871ab93dec676fbedba846ddf6795ea297eca70ee253eac0be",
+          "after_sha256": "43fe99e3d20a1c8c0091c37ed566088072b7fbf7b6f4098730bb2458ce9cbbfe"
+        }
+      ]
+    },
+    {
+      "id": "0088-custom-state-body-ocs-and-pure",
+      "file": "patches/winuae/0088-custom-state-body-ocs-and-pure.patch",
+      "sha256": "244608c46aa494fb81e478f49e271261457db00737dc7288c1faab0dd612b7b0",
+      "title": "save_custom and restore_custom compile without AGA, keep to the six bitplane pointers of the profile, and a save does not store DMACONR into dmacon",
+      "reason": "The chipset body names the 32-bit AGA colour registers and writes eight BPLxPT: without AGA color_entry has no color_regs_aga and bplpt has MAX_PLANES (6) entries, so the body does not compile and restore would write two pointers past the array (the slot pipeline names BPL7PT and BPL8PT the same way). BPL7PT and BPL8PT travel as zero and are not stored. save_custom also stores the derived busy and zero bits of DMACONR into the live dmacon, and a state save must not change the machine, so the register image is computed without the store. The pot poll mask and the joystick reads of the same function are handled by the caller (STATE_DOSAVE, the mask put back).",
+      "category": "host hooks",
+      "order": 88,
+      "symbols": [
+        "restore_custom",
+        "save_custom",
+        "getregfrompt",
+        "getptfromreg"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "f8524f892f37af737980b2bb4caeee483dace31910ddaea4329ed7b2744e03f2",
+          "after_sha256": "a51c06f9f13fb2d622e40bb127eaa5137453dfc9db627a812a022a34ae4b7d7b"
+        }
+      ]
+    },
+    {
+      "id": "0089-drawing-state-body-six-planes",
+      "file": "patches/winuae/0089-drawing-state-body-six-planes.patch",
+      "sha256": "633dbd9e6004d5b41be5519753084c6b5a352f3e361a380e94fe54eeef864587",
+      "title": "The Denise bitplane body reads and writes the six BPLxDAT of the profile, not eight",
+      "reason": "save_custom_bpl, restore_custom_bpl, save_custom_bpl_dat and restore_custom_bpl_dat index bplxdat, bplxdat2, bplxdat3 and their 64-bit twins for eight planes, and without AGA the arrays have MAX_PLANES (6) entries: a save would read the neighbouring statics, whose bytes depend on the layout of the build, and a restore would write over them. The planes the profile does not have travel as zero, so the body keeps its 292 bytes, and are not stored.",
+      "category": "host hooks",
+      "order": 89,
+      "symbols": [
+        "restore_custom_bpl",
+        "restore_custom_bpl_dat",
+        "save_custom_bpl",
+        "save_custom_bpl_dat"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "12fc3c8b59f5ab55e9f8483a10b4e055422046fcb1d9ca0edc51b956f60f44d7",
+          "after_sha256": "72d426f5f23c957a0a30575dcfe1f9a785569e99577f4ab471eac3c25c2a917d"
+        }
+      ]
     }
   ]
 }
