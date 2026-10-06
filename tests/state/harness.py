@@ -24,6 +24,8 @@ BUILD = ROOT / "build/link-audit"
 FIXTURES = ROOT / "tests/fixtures/microrom"
 SUBSYSTEMS = ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "input", "video", "bridge")
 DIGEST = re.compile(r"^digest (\d+) (\w+) ([0-9a-f]{64}) (\d+)$")
+PCM = re.compile(r"^pcm (\d+) ([0-9a-f]{64}) (\d+)$")
+CHIP = re.compile(r"^chip (\d+) (\w+) ([0-9a-f]{64})$")
 LOAD = re.compile(r"^load (\d+) (-?\d+) ?(.*)$")
 SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")
 SAVE_ERROR = re.compile(r"^save (\d+) error (-?\d+) ?(.*)$")
@@ -91,6 +93,10 @@ class Run:
 
     def __init__(self, text):
         self.digests = {}           # (unit, subsystem) -> hex, outside a load
+        self.pcm = {}               # unit -> hex of the stereo samples that unit handed over (T15i3)
+        self.chip = {}              # (unit, group) -> hex of one group of what the chipset digest hashes, outside a load (T15i3)
+        self.chip_after = []        # one dict group -> hex per load
+        self.dumps = {}             # (unit, subsystem) -> the canonical bytes --dump printed (first 4 KiB), outside a load
         self.after = []             # one dict subsystem -> hex per load
         self.loads = []             # (unit, code, message)
         self.saves = []             # (unit, bytes, sha256, bound)
@@ -106,6 +112,7 @@ class Run:
             if line.startswith("after-load "):
                 current = {}
                 self.after.append(current)
+                self.chip_after.append({})
             elif DIGEST.match(line):
                 unit, subsystem, digest, _ = DIGEST.match(line).groups()
                 if current is None:
@@ -114,6 +121,14 @@ class Run:
                     current[subsystem] = digest
                     if len(current) == len(SUBSYSTEMS):         # the block that follows a load is one set of digests, not the rest of the run
                         current = None
+            elif CHIP.match(line):
+                unit, group, digest = CHIP.match(line).groups()
+                (self.chip if current is None else self.chip_after[-1])[(int(unit), group) if current is None else group] = digest
+            elif line.startswith("bytes ") and current is None:
+                _, unit, subsystem, data = line.split(" ", 3)
+                self.dumps[(int(unit), subsystem)] = bytes.fromhex(data)
+            elif PCM.match(line):
+                self.pcm[int(PCM.match(line)[1])] = PCM.match(line)[2]
             elif LOAD.match(line):
                 current = None
                 unit, code, message = LOAD.match(line).groups()

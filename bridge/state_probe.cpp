@@ -42,7 +42,9 @@
 // --event-at UNIT DRIVE INDEX SEQUENCE (T15h) calls p6_media_event_enqueue after UNIT (INDEX -1 ejects; at UNIT 0 the event is a boot medium) and prints "event UNIT CODE MESSAGE";
 // --reset-at UNIT calls p6_reset and prints "reset UNIT CODE MESSAGE". Both only queue: the next unit applies them, as a host's call would.
 // --public-at calls the public p6_state_* functions and prints "public UNIT cap_state=B bound=C save=C load=C written=N MESSAGE".
-// Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. --dump also prints the
+// Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. Every unit also prints
+// "pcm UNIT HEX FRAMES" (T15i3), the SHA-256 of the stereo samples that unit handed over, which no digest sees, and every chipset digest is followed by
+// "chip UNIT GROUP HEX" for each group of what it hashes (beam, counters, irq_dma, clxdat, lof, timing, registers). --poke-at UNIT beam:VPOS:LINEAR:HPOS sets the beam counters. --dump also prints the
 // first 4 KiB of the canonical bytes of one subsystem ("bytes UNIT SUBSYSTEM HEX"), to find what differs between two digests.
 #include "p6.h"
 #include "session.h"
@@ -189,14 +191,24 @@ void cias(Canon &c)
     c.put(uint8_t(&get_mem_bank(0) == &chipmem_bank));    // what the overlay latch selects at address 0: Chip RAM, or the ROM while the latch is set
 }
 
+// The chipset digest in contiguous groups, so that a divergence can be told apart by what it is (T15i3): the groups are written one after the other in the order the
+// digest has always had, and each is also digested alone under "chip UNIT GROUP HEX".
+void chip_beam(Canon &c) { c.put(int32_t(vpos)).put(int32_t(linear_vpos)).put(agnus_hpos); }
+void chip_counters(Canon &c) { c.put(hsync_counter).put(vsync_counter); }
+void chip_irq_dma(Canon &c) { c.put(dmacon).put(intena).put(intreq).put(adkcon); }
+// Bit 15 is not state: a read of CLXDAT is (clxdat | 0x8000) and restore_custom stores the saved image, bit included, so a restored machine has it set where a live one does not.
+void chip_clxdat(Canon &c) { c.put(uint16_t(clxdat & 0x7FFF)); }
+void chip_lof(Canon &c) { c.put(uint8_t(lof_store)).put(uint8_t(lof_display)); }
+void chip_timing(Canon &c) { c.put(int32_t(maxvpos)).put(int32_t(maxhpos)).put(beamcon0).put(new_beamcon0).put(htotal).put(vtotal); }
+void chip_registers(Canon &c) { for (int i = 0; i < 256; ++i) c.put(custom_storage[i].value); }        // the last value written to each register (not its writer's pc)
+
+const Probe kChipGroups[] = {{"beam", chip_beam}, {"counters", chip_counters}, {"irq_dma", chip_irq_dma}, {"clxdat", chip_clxdat}, {"lof", chip_lof},
+                             {"timing", chip_timing}, {"registers", chip_registers}};
+
 void chipset(Canon &c)
 {
     // The beam and the registers a CPU or a DMA slot can read back; Denise's input ring is left out until its cursors have an accessor.
-    c.put(int32_t(vpos)).put(int32_t(linear_vpos)).put(agnus_hpos).put(hsync_counter).put(vsync_counter);
-    c.put(dmacon).put(intena).put(intreq).put(adkcon).put(clxdat);
-    c.put(uint8_t(lof_store)).put(uint8_t(lof_display));
-    c.put(int32_t(maxvpos)).put(int32_t(maxhpos)).put(beamcon0).put(new_beamcon0).put(htotal).put(vtotal);
-    for (int i = 0; i < 256; ++i) c.put(custom_storage[i].value);        // the last value written to each register (not its writer's pc)
+    for (const Probe &group : kChipGroups) group.collect(c);
 }
 
 void audio(Canon &c)
@@ -250,8 +262,9 @@ void video(Canon &c)
     // The presentation of the last unit: an output, but a picture that differs shows here.
     p6_video_frame_info info{};
     const int have = p6_video_frame_get(&info);
-    // pass_counter counts drawing passes of the process's bookkeeping (one more after a reload of an interlaced guest, same pictures): not state.
-    c.put(int32_t(have)).put(info.frame_counter).put(info.width).put(info.height).put(info.flags);
+    // pass_counter counts drawing passes of the process's bookkeeping (one more after a reload of an interlaced guest, same pictures): not state. Neither is frame_counter, the
+    // hand-overs since this process began (T15i3): an image that is rewound has handed over more than the original had at the same unit.
+    c.put(int32_t(have)).put(info.width).put(info.height).put(info.flags);
     if (have == 0) c.raw(info.pixels, size_t(info.bytes));
 }
 
@@ -295,6 +308,14 @@ void print_digests(uint64_t unit)
         uint8_t digest[32];
         p6_sha256_hash(canon.bytes.data(), canon.bytes.size(), digest);
         printf("digest %" PRIu64 " %s %s %zu\n", unit, probe.subsystem, hex(digest, 32).c_str(), canon.bytes.size() - header);
+        if (!strcmp(probe.subsystem, "chipset")) {
+            for (const Probe &group : kChipGroups) {
+                Canon part;
+                group.collect(part);
+                p6_sha256_hash(part.bytes.data(), part.bytes.size(), digest);
+                printf("chip %" PRIu64 " %s %s\n", unit, group.subsystem, hex(digest, 32).c_str());
+            }
+        }
         if (g_dump && !strcmp(g_dump, probe.subsystem))        // the first 4 KiB: enough for every field, not for RAM or the raster
             printf("bytes %" PRIu64 " %s %s\n", unit, probe.subsystem, hex(canon.bytes.data() + header, std::min<size_t>(canon.bytes.size() - header, 4096)).c_str());
     }
@@ -516,6 +537,10 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 const int id = atoi(op.chunk + 4);
                 const evfunc2 handler = p6_state::scheduler_handler(uint8_t(id));
                 if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(2000 + 100 * id) * CYCLE_UNIT, uae_u32(0x1000 + id), handler);
+            } else if (!strncmp(op.chunk, "beam:", 5)) {
+                // beam:VPOS:LINEAR:HPOS puts the beam counters where a state had them (diagnosis only: what DET02 shows once the beam is out of the way).
+                int v = 0, l = 0, h = 0;
+                if (sscanf(op.chunk + 5, "%d:%d:%d", &v, &l, &h) == 3) { vpos = v; linear_vpos = l; agnus_hpos = uae_u8(h); }
             } else if (!strcmp(op.chunk, "rtc-fault")) p6_rtc_read(nullptr, 0);       // latches the clock's sticky fault, as a failed read would
             else if (!strcmp(op.chunk, "cs-rtc")) currprefs.cs_rtc = 2;               // another clock chip than the profile's MSM6242B
             else if (!strcmp(op.chunk, "cia-tod2") || !strcmp(op.chunk, "cia-tod2-event")) {
@@ -784,6 +809,12 @@ int main(int argc, char **argv)
             frame.struct_size = sizeof frame;
             result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
             if (result != P6_OK) return fail("p6_run_frame", result, error);
+            // The PCM that the unit produced, hashed as it was handed over (T15i3): Paula's filter and resampler are in no digest above, and a lost phase shows only here.
+            if (frame.audio && frame.audio_frames) {
+                uint8_t pcm[32];
+                p6_sha256_hash(frame.audio, size_t(frame.audio_frames) * 2 * sizeof(int16_t), pcm);
+                printf("pcm %" PRIu64 " %s %" PRIu64 "\n", unit, hex(pcm, 32).c_str(), frame.audio_frames);
+            }
             if (unit % every == 0 || unit == units) print_digests(unit);
             run_state_ops(state_ops, unit);
         }

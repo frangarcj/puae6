@@ -9197,7 +9197,8 @@
         "Extender su chunk con lo que DISK/DSKn no guardan y DET02 demuestre necesario: dsklen2, cambio de medio retardado, eventos predichos, PRNG de disco y pista en vuelo (reconstruida o guardada). El enlace a la imagen sale del manifest de medios; el estado no guarda bytes de imagen.",
         "Escenarios: transferencia DMA de disco en curso, cambio de disco retardado y motor en marcha.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
-        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
+        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo.",
+        "DET02 de T15i3 (tests/state/test_det02.py, tabla DIVERGENCES; quitar el expectedFailure de cada clave que se resuelva): disk-change@10 (cambio de disco en vuelo) diverge en cpu en la unidad 1, causa probable el pestillo del bus de datos y dskchange_time puesto a 0 por restore_disk, no aislada; @12 y @13 coinciden en disco. Falta un micro-ROM cuya transferencia DMA de disco complete con una frontera a mitad (dsklen2, linecounter, PRNG de disco): busy-disk-dma queda armado con WORDSYNC sin escribir RAM. Un estado tomado antes de un cambio de disco se rechaza hoy como INCOMPATIBLE (Chunk::machine): reconciliarlo con el cambio retardado."
       ],
       "checks": [
         "DET02"
@@ -9238,7 +9239,8 @@
         "Extender su chunk con lo que AUDn no guarda y DET02 demuestre necesario: maquina de estado por canal, acumuladores, fases del filtro y del resampler por patron de bits y posicion en la unidad de audio. El transporte PCM no es estado.",
         "Escenarios: DMA de audio activo con volumen modulado; el PCM tras restaurar es identico muestra a muestra.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
-        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
+        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo.",
+        "DET02 de T15i3 (tests/state/test_det02.py, tabla DIVERGENCES; quitar el expectedFailure de cada clave que se resuelva): fase del resampler y del filtro de Paula (33 claves audio-phase: bridge.audio_frames_total y pcm difieren de la unidad 1 a la 5 incluso en programas silenciosos; next_sample_evtime, samplecnt, extrasamples, filtro rc); estado por canal con DMA que AUDn no guarda (7 claves audio-channels: busy, busy-audio, busy-ntsc, blit+audio, disk-change@12); last_cycles y el centinela PERIOD_MAX-1 no se separan aun de la fase. Diagnostico util antes de T15f: modo same-image-beam-set."
       ],
       "checks": [
         "DET02"
@@ -9280,7 +9282,8 @@
         "Escenarios: copper en marcha, blitter a medias y DMA de bitplanes y sprites activos, en PAL y NTSC.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
         "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo.",
-        "Restaurar la posicion del haz (VPOSR/VHPOSR, que upstream descarta al restaurar) y borrar entonces la excepcion de T15i2: test_only_the_beam_registers_of_the_chipset_body_are_not_put_back y el helper without_beam; el chunk CHIP vuelve a reemitirse byte a byte."
+        "Restaurar la posicion del haz (VPOSR/VHPOSR, que upstream descarta al restaurar) y borrar entonces la excepcion de T15i2: test_only_the_beam_registers_of_the_chipset_body_are_not_put_back y el helper without_beam; el chunk CHIP vuelve a reemitirse byte a byte.",
+        "DET02 de T15i3 (tests/state/test_det02.py, tabla DIVERGENCES; quitar el expectedFailure de cada clave que se resuelva): haz en la unidad 0 en todos los escenarios same-image/new-process (28 claves); temporizacion NTSC de una imagen nueva sin init_hz (chipset.timing); fase de cuadro de custom.cpp no guardada (display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next: new-process-beam-set diverge en la unidad 1 en todo, 7 claves); Copper en espera vuelve parado y su interrupcion no llega (copper_irq, 8 claves: state_prev, vcmp, hcmp, strobe); blitter en vuelo bajo contencion de DMA y blit vivo no cancelado al cargar (blit_dmacount, blit_cyclecount, blt_change_cycles; busy-blitter, blit+disk, blit+bitplanes, blit+sprites, 5 claves); Kickstart@107/@140 con causas mezcladas (con T15g). Va primero: hasta resolver haz y fase de cuadro, una imagen nueva no detecta lo de T15d, T15e y T15g."
       ],
       "checks": [
         "DET02"
@@ -9321,7 +9324,8 @@
         "Extender su chunk con lo que BPLX/SPRX no guardan y DET02 demuestre necesario: anillo de entrada rga_denise, cursores, historiales de dibujo, colision y pixeles de la linea en curso; reconstruir punteros y tablas derivadas.",
         "Escenarios: linea de dibujo a medias, sprites reutilizados y buffer de pixeles a mitad de cuadro; la imagen tras restaurar es identica pixel a pixel.",
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
-        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
+        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo.",
+        "DET02 de T15i3 (tests/state/test_det02.py, tabla DIVERGENCES; quitar el expectedFailure de cada clave que se resuelva): la tabla de colores derivada de Denise no se reconstruye al cargar (busy-disk-dma@8/reset: borde negro donde COLOR00 del estado es rojo); clxdat e imagen en Kickstart@107 y @140 (con T15f). No demostrables con micro-ROMs en una frontera de unidad: anillo rga_denise, DMA de bitplanes y spr[].dmastate (la frontera cae en el borrado vertical); busy-bitplanes, busy-sprites y busy-copper ya coinciden en reset-image-beam-set y son su puerta de regresion."
       ],
       "checks": [
         "DET02"
@@ -9471,7 +9475,7 @@
       "title": "DET02 de punta a punta con los cuerpos upstream y atribucion de divergencias",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15i2"
       ],
@@ -9511,7 +9515,7 @@
       "title": "Cuerpos upstream de disco, Paula, chipset y Denise en sus chunks y DET02 de punta a punta",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15a",
         "T15b",
@@ -9546,13 +9550,14 @@
         "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
         "Probar con el probe (--save-at/--load-at) en los micro-ROM: save→load→save reemite cada chunk byte a byte en el mismo proceso y en uno nuevo, y DET02 corre de punta a punta. Cada divergencia queda como fallo esperado visible y atribuida a un subsistema por digest; la API publica sigue UNSUPPORTED hasta T15.",
         "Ampliacion touch: bridge/state_upstream.cpp aloja los cuerpos upstream; bridge/frame_step.cpp solo si Apply necesita su unico punto de avance del motor.",
-        "Division: T15i1 (compilar y guardar sin mutar), T15i2 (Validate y Apply vivo) y T15i3 (DET02 y atribucion); T15i es su cierre y conserva su aceptacion."
+        "Division: T15i1 (compilar y guardar sin mutar), T15i2 (Validate y Apply vivo) y T15i3 (DET02 y atribucion); T15i es su cierre y conserva su aceptacion.",
+        "Excepcion conocida: VPOSR/VHPOSR de CHIP (el haz) no se reemiten hasta T15f (ver T15i2)."
       ],
       "checks": [
         "DET02"
       ],
       "acceptance": [
-        "Cada chunk con cuerpos upstream se reemite byte a byte tras cargarlo, en el mismo proceso y en uno nuevo.",
+        "Cada chunk con cuerpos upstream se reemite byte a byte tras cargarlo, en el mismo proceso y en uno nuevo, salvo VPOSR/VHPOSR de CHIP (el haz), excepcion fijada por un test y asignada a T15f.",
         "DET02 se ejecuta de punta a punta en los micro-ROM; cada divergencia restante esta atribuida a un subsistema y abierta en T15d-T15g, sin ocultarla."
       ],
       "stop": "No reimplementar campo a campo un cuerpo upstream ni ejecutar la cabecera de reset en Apply. Lo que un cuerpo upstream pierde se extiende en T15d-T15g, guiado por DET02.",
