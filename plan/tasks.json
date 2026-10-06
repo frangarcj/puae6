@@ -8854,7 +8854,7 @@
         "El envelope rechaza cada defecto con su codigo antes de tocar la maquina; un estado de otro build, ROM o config es INCOMPATIBLE y dice cual campo; tras un rechazo la maquina sigue ejecutando igual que sin el intento."
       ],
       "stop": "No declarar P6_CAP_STATE ni devolver un buffer parcial: hasta T15 las funciones publicas devuelven UNSUPPORTED.",
-      "evidence": null
+      "evidence": "reports/tasks/T15a.md"
     },
     {
       "id": "T15b1",
@@ -8899,7 +8899,7 @@
         "El digest del subsistema cpu y el cuerpo re-guardado vuelven a los de la unidad guardada, en el mismo proceso y en uno nuevo; un cuerpo que Validate acepta no puede fallar al aplicar; un estado tomado de una imagen sin arrancar o fuera de frontera se rechaza al guardar."
       ],
       "stop": "No llamar a restore_cpu_finish/doint ni ejecutar el motor desde fuera de frame_step.cpp: restaurar sobre una imagen arrancada y sobrescribir.",
-      "evidence": null
+      "evidence": "reports/tasks/T15b1.md"
     },
     {
       "id": "T15b2",
@@ -8941,7 +8941,7 @@
         "El digest del subsistema scheduler y el cuerpo re-guardado vuelven a los de la unidad guardada; el orden de dos eventos del mismo instante se conserva por la ranura; start_cycles no se toca."
       ],
       "stop": "No restaurar los eventos secundarios con event2_newevent_xx ni copiar restore_cycles de upstream: escribir las tablas tal cual y derivar nextevent.",
-      "evidence": null
+      "evidence": "reports/tasks/T15b2.md"
     },
     {
       "id": "T15b",
@@ -9030,7 +9030,7 @@
         "El digest rtc y los bytes del chunk vuelven a los de la unidad guardada, el reloj sigue avanzando tras cargar en una unidad anterior o posterior, y un cuerpo que Validate acepta no puede fallar al aplicar."
       ],
       "stop": "No llamar a p6_rtc_save/p6_rtc_read al aplicar (con el contador de ciclos hacia atras dejan el fallo pegajoso) ni guardar el ancla.",
-      "evidence": null
+      "evidence": "reports/tasks/T15c1.md"
     },
     {
       "id": "T15c2",
@@ -9074,7 +9074,7 @@
         "Cada campo de las dos CIA y del teclado vuelve a su valor, el overlay se reconstruye desde PRA/DDRA, una recarga con el LED encendido es igual a un proceso limpio, y nada de lo aplicado programa ni dispara eventos."
       ],
       "stop": "No heredar el serializador upstream de CIA tal cual: modifica la CIA viva. No escribir eventtab ni eventtab2: son del scheduler.",
-      "evidence": null
+      "evidence": "reports/tasks/T15c2.md"
     },
     {
       "id": "T15c3",
@@ -9121,7 +9121,7 @@
         "Teclas pulsadas, raton en vuelo y POT midiendo vuelven a su estado, la memoria de flancos del motor y la del bridge coinciden tras restaurar, y el anillo de teclas se reindexa sin perder orden."
       ],
       "stop": "No llamar a inputdevice_do_keyboard, resetinput ni inputdevice_updateconfig al aplicar: emitirian teclas o borrarian la configuracion.",
-      "evidence": null
+      "evidence": "reports/tasks/T15c3.md"
     },
     {
       "id": "T15c",
@@ -9649,7 +9649,7 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T18",
+        "T15",
         "T22"
       ],
       "read": [
@@ -9942,6 +9942,7 @@
       "status": "pending",
       "depends": [
         "T17",
+        "T18",
         "T24"
       ],
       "read": [

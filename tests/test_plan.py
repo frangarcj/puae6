@@ -79,6 +79,10 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(["T03", "T26"], by_id["T48b"]["depends"])
         self.assertEqual(["T22", "T26"], by_id["T48c"]["depends"])
         self.assertEqual(["T48b", "T15c"], by_id["T48d"]["depends"])
+        # ECS needs the native state (DET02) and the basic libretro contract, not libretro rewind/runahead (T18).
+        self.assertEqual(["T15", "T22"], by_id["T23"]["depends"])
+        # T18 still gates the release through the libretro UX task.
+        self.assertEqual(["T17", "T18", "T24"], by_id["T31"]["depends"])
         self.assertEqual(["T00"], by_id["T01a"]["depends"])
         self.assertEqual(["T01a"], by_id["T01b"]["depends"])
         self.assertEqual(["T01a", "T01b"], by_id["T01"]["depends"])
