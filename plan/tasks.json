@@ -9169,14 +9169,12 @@
     },
     {
       "id": "T15d",
-      "title": "Estado nativo del disco (chunk DISK)",
+      "title": "Continuacion del disco sobre los cuerpos upstream DISK/DSKn",
       "milestone": "M2",
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a",
-        "T15b",
-        "T15c"
+        "T15i"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9187,17 +9185,19 @@
       "touch": [
         "bridge/state.cpp",
         "bridge/state.h",
+        "bridge/state_upstream.cpp",
         "patches/winuae/**",
         "tests/state/**",
         "manifests/state-inventory.json",
         "tests/test_plan.py",
         "CMakeLists.txt",
-        "bridge/state_disk.cpp"
+        "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Serializar la mecanica de DF0/DF1, el motor DMA de disco (dsklen, dsklen2, palabra de sincronia), el cambio de medio pendiente, los eventos predichos y el PRNG de disco; reconstruir el buffer de pista, las lineas del controlador, la proteccion de escritura y el enlace a la imagen desde el manifest de medios.",
-        "El estado no guarda bytes de imagen: la identidad de medios del envelope decide si el estado vale para los discos montados; la capa de escritura (COW) sigue las reglas de T12.",
-        "Prueba por chunk con una transferencia DMA de disco en curso, un cambio de disco retardado y un motor en marcha."
+        "Extender P6UP con lo que DISK/DSKn no guardan y DET02 demuestre necesario: dsklen2, cambio de medio retardado, eventos predichos, PRNG de disco y pista en vuelo (reconstruida o guardada). El enlace a la imagen sale del manifest de medios; el estado no guarda bytes de imagen.",
+        "Escenarios: transferencia DMA de disco en curso, cambio de disco retardado y motor en marcha.",
+        "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
+        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
       ],
       "checks": [
         "DET02"
@@ -9210,14 +9210,12 @@
     },
     {
       "id": "T15e",
-      "title": "Estado nativo del audio (chunk AUDI)",
+      "title": "Continuacion de Paula sobre los cuerpos upstream AUDn",
       "milestone": "M2",
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a",
-        "T15b",
-        "T15c"
+        "T15i"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9228,16 +9226,19 @@
       "touch": [
         "bridge/state.cpp",
         "bridge/state.h",
+        "bridge/state_upstream.cpp",
         "patches/winuae/**",
         "tests/state/**",
         "manifests/state-inventory.json",
         "tests/test_plan.py",
         "CMakeLists.txt",
-        "bridge/state_audio.cpp"
+        "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Serializar los cuatro canales de Paula (DMA, periodos, volumen, estado de la maquina de cada canal), los acumuladores del DAC, las fases del filtro y del resampler por patron de bits y la posicion dentro de la unidad de audio; el transporte PCM no es estado.",
-        "Prueba por chunk con DMA de audio activo y volumen modulado, y de que el audio que sale tras restaurar es identico muestra a muestra."
+        "Extender P6UP con lo que AUDn no guarda y DET02 demuestre necesario: maquina de estado por canal, acumuladores, fases del filtro y del resampler por patron de bits y posicion en la unidad de audio. El transporte PCM no es estado.",
+        "Escenarios: DMA de audio activo con volumen modulado; el PCM tras restaurar es identico muestra a muestra.",
+        "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
+        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
       ],
       "checks": [
         "DET02"
@@ -9245,19 +9246,17 @@
       "acceptance": [
         "Las muestras tras restaurar son las mismas que sin restaurar; las fases de filtro y resampler no se pierden."
       ],
-      "stop": "No redondear ni reiniciar las fases del filtro para que el chunk sea mas pequeño.",
+      "stop": "No redondear ni reiniciar las fases del filtro para que el subcuerpo sea mas pequeño.",
       "evidence": null
     },
     {
       "id": "T15f",
-      "title": "Estado nativo de Agnus, copper, blitter y haz (chunk CHIP)",
+      "title": "Continuacion de Agnus, copper y blitter sobre CHIP/CHPX/CHPD/CHSL/BLIT/BLTX",
       "milestone": "M2",
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a",
-        "T15b",
-        "T15c"
+        "T15i"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9268,37 +9267,37 @@
       "touch": [
         "bridge/state.cpp",
         "bridge/state.h",
+        "bridge/state_upstream.cpp",
         "patches/winuae/**",
         "tests/state/**",
         "manifests/state-inventory.json",
         "tests/test_plan.py",
         "CMakeLists.txt",
-        "bridge/state_chipset.cpp"
+        "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Serializar los componentes causales de chipset: registros custom, paleta, posicion del haz, latches de sincronismo, registros programados, pipeline RGA, DMAL, escrituras de registro retardadas, retardos de eventos, interrupciones, copper, secuenciador de bitplanes, refresco, DMA de sprites, lapiz optico, contadores de linea y marcas de ciclo, y el blitter completo; reconstruir tiempos derivados y tablas.",
-        "Si el inventario no cabe en 400 lineas logicas por cambio, dividir esta ficha en T15f1 (Agnus, copper, haz) y T15f2 (blitter) con las mismas puertas.",
-        "Prueba por chunk con copper en marcha, blitter a medias y DMA de bitplanes y sprites activos."
+        "Extender P6UP con lo que los cuerpos upstream no guardan y DET02 demuestre necesario: slots RGA, trabajo pendiente del copper, DMAL/refresh, callbacks diferidos, holds y fases del blitter, latches del haz y contadores lineales. Sustituir solo la reconstruccion de *_finish que DET02 muestre incorrecta.",
+        "Escenarios: copper en marcha, blitter a medias y DMA de bitplanes y sprites activos, en PAL y NTSC.",
+        "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
+        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
       ],
       "checks": [
         "DET02"
       ],
       "acceptance": [
-        "La linea en vuelo (anillo de Denise, latches del haz) y el blitter a medias continuan con el mismo futuro tras restaurar."
+        "La linea en vuelo y el blitter a medias continuan con el mismo futuro tras restaurar."
       ],
       "stop": "No drenar el anillo ni rehacer parte del reset para tener una linea limpia: cambiaria el futuro.",
       "evidence": null
     },
     {
       "id": "T15g",
-      "title": "Estado nativo de Denise y dibujo (chunk VIDE)",
+      "title": "Continuacion de Denise y dibujo sobre BPLX/SPRX y el anillo rga_denise",
       "milestone": "M2",
       "required": true,
       "status": "pending",
       "depends": [
-        "T15a",
-        "T15b",
-        "T15c"
+        "T15i"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9309,16 +9308,19 @@
       "touch": [
         "bridge/state.cpp",
         "bridge/state.h",
+        "bridge/state_upstream.cpp",
         "patches/winuae/**",
         "tests/state/**",
         "manifests/state-inventory.json",
         "tests/test_plan.py",
         "CMakeLists.txt",
-        "bridge/state_video.cpp"
+        "bridge/state_probe.cpp"
       ],
       "steps": [
-        "Serializar el anillo de entrada rga_denise, las copias de registros y su temporizacion, el shifter de bitplanes, los sprites, la colision, el historial de dibujo y el buffer de pixeles; reconstruir punteros y tablas derivadas.",
-        "Prueba por chunk con una linea de dibujo a medias, sprites reutilizados y el buffer de pixeles a mitad de cuadro; la imagen que sale tras restaurar es identica pixel a pixel."
+        "Extender P6UP con lo que BPLX/SPRX no guardan y DET02 demuestre necesario: anillo de entrada rga_denise, cursores, historiales de dibujo, colision y pixeles de la linea en curso; reconstruir punteros y tablas derivadas.",
+        "Escenarios: linea de dibujo a medias, sprites reutilizados y buffer de pixeles a mitad de cuadro; la imagen tras restaurar es identica pixel a pixel.",
+        "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
+        "La rama archivo/t15-codec-por-campos (c5c137a) conserva el codec por campos de este subsistema, sus probes y sus escenarios: usarlos como oraculo y fuente de escenarios, no como codigo a portar campo a campo."
       ],
       "checks": [
         "DET02"
@@ -9362,7 +9364,8 @@
       "steps": [
         "Serializar los contadores de unidad y ticks, la identidad de firmware, los indices de medios montados, la cola de eventos de medios pendientes, los bordes de entrada aplicados, la bandera de teclas liberadas, el ancla del reloj y las banderas de reset/arranque; reconstruir registro de medios, copia de config y maquina de estados de la sesion.",
         "Ampliacion touch: media.cpp e input.cpp porque parte del estado de sesion vive alli.",
-        "Prueba por chunk con una cola de eventos de medios a medias, una tecla mantenida y un reset pendiente."
+        "Prueba por chunk con una cola de eventos de medios a medias, una tecla mantenida y un reset pendiente.",
+        "La rama archivo/t15-codec-por-campos tiene una implementacion P6BR (40-136 bytes) cuya prueba dependia de P6DK: portarla dejando el disco al cuerpo upstream."
       ],
       "checks": [
         "DET02"
@@ -9371,6 +9374,54 @@
         "La sesion restaurada continua con la misma cuenta de unidades y ticks, los mismos eventos de medios pendientes y la misma entrada aplicada."
       ],
       "stop": "Lo que es identidad (config, firmware, medios) se valida, no se carga: un estado de otra config no se adapta.",
+      "evidence": null
+    },
+    {
+      "id": "T15i",
+      "title": "Vertical de cuerpos upstream: chunk P6UP, Apply sin reset y DET02 de punta a punta",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15a",
+        "T15b",
+        "T15c",
+        "T15h"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "CMakeLists.txt",
+        "bridge/state_probe.cpp",
+        "bridge/frame_step.cpp"
+      ],
+      "steps": [
+        "Compilar en el perfil, con parches de guarda y sin definir SAVESTATE globalmente, los save_*/restore_*/*_finish A500 de disk.cpp (DISK, DSKn), audio.cpp (AUDn), custom.cpp (CHIP, CHPX, CHPD, CHSL, SPRn), blitter.cpp (BLIT, BLTX) y drawing.cpp (BPLX, SPRX). Los sitios SAVESTATE que cambian comportamiento (m68k_go en newcpu.cpp, quitstatefile en custom.cpp, savestate_init en main.cpp) quedan fuera.",
+        "Chunk P6UP: secuencia fija de subcuerpos (tag de 4 caracteres, longitud u32, bytes de save_*), sin contenedor ASF ni zfile. No duplicar lo que ya poseen P6CP, P6SC, P6RT, P6CI, P6IN y P6BR (CPU, CYCS, CIAA/B, KEYB, INPT); el inventario asigna un unico dueño a cada componente.",
+        "Apply sin cabecera de reset: restore_* y *_finish sobre la maquina viva, sin custom_reset, m68k_reset2 ni memory_clear. Antes de Apply, tabla de subcuerpos y longitud exacta de cada uno (la que produce save_* de este build para la config y los medios cargados). Save no puede mutar la maquina: corregir con un parche pequeño los handlers que CHPD ejecuta al guardar.",
+        "Validacion (ADR 0009, revision 2026-10-06): hash, identidad y estructura (longitudes, cuentas, indices y enums que indexan) antes de Apply. No se exige una continuacion segura para valores que este build no produce; no ampliar ni blindar aritmetica del motor por magnitudes construidas.",
+        "Probar con el probe (--save-at/--load-at) en los micro-ROM: save→load→save reemite P6UP byte a byte en el mismo proceso y en uno nuevo, y DET02 corre de punta a punta. Cada divergencia queda como fallo esperado visible y atribuida a un subsistema por digest; la API publica sigue UNSUPPORTED hasta T15.",
+        "Ampliacion touch: bridge/state_upstream.cpp aloja P6UP; bridge/frame_step.cpp solo si Apply necesita su unico punto de avance del motor."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "P6UP se reemite byte a byte tras cargarlo, en el mismo proceso y en uno nuevo.",
+        "DET02 se ejecuta de punta a punta en los micro-ROM; cada divergencia restante esta atribuida a un subsistema y abierta en T15d-T15g, sin ocultarla."
+      ],
+      "stop": "No reimplementar campo a campo un cuerpo upstream ni ejecutar la cabecera de reset en Apply. Lo que un cuerpo upstream pierde se extiende en T15d-T15g, guiado por DET02.",
       "evidence": null
     },
     {
@@ -9385,11 +9436,12 @@
         "T15a",
         "T15b",
         "T15c",
+        "T15h",
+        "T15i",
         "T15d",
         "T15e",
         "T15f",
-        "T15g",
-        "T15h"
+        "T15g"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9408,11 +9460,11 @@
         "tests/test_plan.py"
       ],
       "steps": [
-        "Adaptar I/O semantico upstream a memoria y añadir envelope/extensiones identificadas, con encoding por campos y limites.",
+        "Cuerpos upstream (save_*/restore_*) en memoria dentro del envelope P6 con extensiones identificadas y limites; chunks propios solo donde upstream falla (CPU, scheduler, RTC, CIA, entrada, sesion).",
         "Calcular state_bound por perfil y medios al load; validar longitud/config/identidad antes de restaurar y hacer fallo transaccional.",
         "Ejecutar roundtrip, continuacion en proceso nuevo y estados cerca de DMA/audio/disco/teclas.",
         "Activar fuzzer de estados truncados, manipulados y de otro build/ROM; garantizar que el estado anterior sigue utilizable tras rechazo.",
-        "Division: T15a (contenedor, envelope, identidades y RAM), T15b (CPU y scheduler), T15c (RTC, CIA y entrada), T15d (disco), T15e (audio), T15f (Agnus, copper y blitter), T15g (Denise y dibujo) y T15h (sesion del bridge); T15 es el cierre: conecta p6_state_bound/save/load a la ABI y a P6_CAP_STATE, calcula state_bound sobre todos los chunks y conserva las puertas originales.",
+        "Division: T15a (contenedor, envelope, identidades y RAM), T15b (CPU y scheduler), T15c (RTC, CIA y entrada), T15h (sesion del bridge), T15i (vertical P6UP de cuerpos upstream y Apply sin reset), T15d (disco), T15e (audio), T15f (Agnus, copper y blitter) y T15g (Denise); T15 es el cierre: conecta p6_state_bound/save/load a la ABI y a P6_CAP_STATE, calcula state_bound sobre todos los chunks y conserva las puertas originales.",
         "Ampliacion touch: p6.h y caps.cpp para anunciar la capacidad solo al cerrar, tests/fuzz/** para el fuzzer de estados."
       ],
       "checks": [
@@ -10312,7 +10364,11 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T40"
+        "T40",
+        "T48a",
+        "T48b",
+        "T48c",
+        "T48d"
       ],
       "read": [
         "README.md",
@@ -10545,6 +10601,166 @@
       ],
       "stop": "No reescribir toda la arquitectura por elegancia si aislamiento existente resuelve el caso.",
       "evidence": null
+    },
+    {
+      "id": "T48a",
+      "title": "Reutilizar materializacion y codegen verificados sin debilitar los checks limpios",
+      "milestone": "M2",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T03",
+        "T26"
+      ],
+      "read": [
+        "tools/materialize_upstream.py",
+        "tools/generate_cpu.py",
+        "tests/codegen/test_materialize.py",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tools/materialize_upstream.py",
+        "tools/generate_cpu.py",
+        "tests/codegen/test_cache.py",
+        "tests/test_plan.py",
+        "reports/tasks/T48a.md"
+      ],
+      "steps": [
+        "Medir el codegen repetido antes de editar; registrar tiempos reales sin estimar aceleraciones. Ampliacion touch: tests/test_plan.py fija el numero de tareas y debe registrar las tres fichas nuevas.",
+        "Reutilizar solo inputs y outputs verificados por contenido; rechazar corrupcion, entradas distintas y salidas parciales sin sobrescribirlas.",
+        "Mantener un recorrido limpio explicito que vuelva a aplicar los parches y ejecute los generadores; probar cache e invalidacion."
+      ],
+      "checks": [
+        "GEN01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Una repeticion verificada no aplica parches ni compila generadores; cambiar un input o corromper un output no reutiliza el resultado.",
+        "La prueba limpia sigue ejecutando dos generaciones independientes y sus salidas coinciden con la cache."
+      ],
+      "stop": "No aceptar una cache solo porque exista ni borrar salidas distintas para que pase; no cambiar fuentes del motor ni hashes esperados.",
+      "evidence": "reports/tasks/T48a.md"
+    },
+    {
+      "id": "T48b",
+      "title": "Preparar los ejecutables de tests una vez antes de ejecutar workers",
+      "milestone": "M2",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T03",
+        "T26"
+      ],
+      "read": [
+        "tests/host/run_parallel.py",
+        "tests/host/test_bridge_lifecycle.py",
+        "tests/step/test_step.py",
+        "tests/state/harness.py"
+      ],
+      "touch": [
+        "tests/build_support.py",
+        "tests/test_build_support.py",
+        "tests/host/run_parallel.py",
+        "tests/host/test_bridge_lifecycle.py",
+        "tests/step/test_step.py",
+        "reports/tasks/T48b.md",
+        "docs/testing.md"
+      ],
+      "steps": [
+        "Ampliacion touch: docs/testing.md debe indicar los SKIP visibles del runner y enlazar las medidas ya terminadas de T48a.",
+        "Centralizar la preparacion por proceso, configuracion y target con exclusion mutua para arboles compartidos. Es independiente de T48a: se puede preparar mientras termina su verificacion limpia, sin marcar aquella done anticipadamente.",
+        "Preparar los targets compartidos del runner host antes de los workers y validar la identidad del recibo de preparacion.",
+        "Probar reuso, errores y configuraciones separadas; ejecutar una regresion real sin compartir estado emulado."
+      ],
+      "checks": [
+        "BUILD01",
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "Las clases que usan el mismo probe no repiten configure/build en una ejecucion; los workers no compilan simultaneamente el mismo arbol.",
+        "La preparacion fallida no queda cacheada; cada caso conserva sus procesos y maquinas independientes."
+      ],
+      "stop": "No sustituir pruebas de proceso limpio por reutilizacion del emulador; no suponer que otro worker termino el build.",
+      "evidence": "reports/tasks/T48b.md"
+    },
+    {
+      "id": "T48c",
+      "title": "Separar los fixtures largos de peliculas de la seleccion de tests cortos",
+      "milestone": "M2",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T22",
+        "T26"
+      ],
+      "read": [
+        "tests/bizhawk-movies/test_movie_playback.py",
+        "tests/bizhawk-movies/harness.py",
+        "reports/tasks/T22.md"
+      ],
+      "touch": [
+        "tests/bizhawk-movies/test_movie_playback.py",
+        "tests/test_movie_setup.py",
+        "docs/testing.md",
+        "reports/tasks/T48c.md"
+      ],
+      "steps": [
+        "Separar preparacion larga y corta para que un test corto no grabe una pelicula de 10000 unidades. Es independiente del build helper de T48b y conserva los mismos binarios y escenarios.",
+        "Conservar numero de pruebas, assertions y cobertura larga en la suite completa; anadir una regresion de la preparacion.",
+        "Documentar comandos existentes de validacion focalizada y completa, mediciones y limites."
+      ],
+      "checks": [
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "Seleccionar un test corto no ejecuta la preparacion larga; la suite completa conserva la prueba de 10000 unidades sin reducir sus criterios.",
+        "Hay medidas antes/despues de preparacion y regresiones de la infraestructura, sin prometer equivalencia de una suite abreviada con el cierre completo."
+      ],
+      "stop": "No acortar la prueba larga, cambiar goldens o ocultar SKIP; no ejecutar una suite completa innecesaria para medir su setup.",
+      "evidence": "reports/tasks/T48c.md"
+    },
+    {
+      "id": "T48d",
+      "title": "Ejecutar suites de estado en workers aislados con build previo",
+      "milestone": "M2",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T48b",
+        "T15c"
+      ],
+      "read": [
+        "tests/host/run_parallel.py",
+        "tests/build_support.py",
+        "tests/test_build_support.py",
+        "tests/state/harness.py",
+        "tests/state/test_probe.py",
+        "tests/state/test_envelope_native.py",
+        "docs/testing.md"
+      ],
+      "touch": [
+        "tests/host/run_parallel.py",
+        "tests/test_parallel_runner.py",
+        "tests/test_plan.py",
+        "docs/testing.md",
+        "reports/benchmarks/T48d/**"
+      ],
+      "steps": [
+        "Ampliacion de alcance por la peticion del usuario de acelerar y revisar en paralelo. El runner host no admite tests/state. Preparar p6_state_probe y los probes de envelope/archive que pidan los modulos, una vez antes de workers; usar el recibo verificado existente. No cambiar build_support ni el motor.",
+        "Agregar seleccion explicita host/state. Conservar el CLI host y las suites/matrices/assertions originales. Rechazar nombres de otro namespace o desconocidos antes de generar/compilar. No lanzar el mismo modulo dos veces.",
+        "Workers en procesos separados reciben solo ejecutables preparados. No compilan ni comparten maquina/ROM temporal mutable. Conservar errores, timeouts, counts, SKIP y expected failures visibles. Probar seleccion, preparacion/recepcion y errores con mocks identificados; regresion de build_support.",
+        "Medir serial y paralelo sobre los mismos tres modulos nativos de d1: programmed_access, palette_access, probe. Comparar conteos/veredictos sin bajar unidades ni omitir casos; separar preparacion y ejecucion. Conservar logs de benchmark. Registrar limites, sin afirmar cobertura de todo T15."
+      ],
+      "checks": [
+        "BUILD01",
+        "HARNESS01"
+      ],
+      "acceptance": [
+        "Una invocacion seleccionada de suites state prepara cada target compartido una vez antes de workers; cada worker valida el recibo y no ejecuta configure/build. Los errores de seleccion/preparacion/worker fallan y la suite host conserva su CLI.",
+        "La misma regresion real conserva sus 10 pruebas y veredictos en serial y en paralelo. La medida muestra wall/preparacion/suma de workers; no sustituye puertas del motor ni anuncia compatibilidad de estados."
+      ],
+      "stop": "No sustituir pruebas de proceso limpio por reutilizacion del emulador; no suponer que otro worker termino el build.",
+      "evidence": "reports/tasks/T48d.md"
     }
   ]
 }

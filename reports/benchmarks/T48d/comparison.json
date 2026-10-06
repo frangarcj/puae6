@@ -1,0 +1,50 @@
+{
+  "serial": {
+    "wall_seconds_rounded": 546,
+    "preparation_seconds_rounded": 7,
+    "sum_modules_seconds_rounded": 539,
+    "jobs": 1,
+    "modules": {
+      "tests.state.test_custom_programmed_access": {
+        "seconds": 272.4,
+        "tests": 2
+      },
+      "tests.state.test_custom_palette_access": {
+        "seconds": 239.6,
+        "tests": 2
+      },
+      "tests.state.test_probe": {
+        "seconds": 27.1,
+        "tests": 6
+      }
+    }
+  },
+  "parallel": {
+    "wall_seconds_rounded": 288,
+    "preparation_seconds_rounded": 7,
+    "sum_modules_seconds_rounded": 556,
+    "jobs": 3,
+    "modules": {
+      "tests.state.test_probe": {
+        "seconds": 28.7,
+        "tests": 6
+      },
+      "tests.state.test_custom_palette_access": {
+        "seconds": 247.3,
+        "tests": 2
+      },
+      "tests.state.test_custom_programmed_access": {
+        "seconds": 280.5,
+        "tests": 2
+      }
+    }
+  },
+  "wall_reduction_percent": 47.25274725274725,
+  "sha256": {
+    "build/link-audit/p6_state_probe": "aaabda3cd676a43b3f123d2dde6e65d92baf617b8b13b2555ed291b4a8291434",
+    "tests/host/run_parallel.py": "d7121958f301b8d33c453f7539c0f7e1efba035116c346652bc8bd5155ebb7b6",
+    "tests/state/test_custom_programmed_access.py": "9b04cb588daac298e71c00691188e6014e8690625a24687a00f3691088e99093",
+    "tests/state/test_custom_palette_access.py": "ebe9c66bcd8b306942a761d5bac6bfa5308170d1268b284dca07c58d85d28f1f",
+    "tests/state/test_probe.py": "685d2ea0669fa357730bd307dd68e1d116bce1089ec9929d5a8b1c4b94f4179f"
+  }
+}

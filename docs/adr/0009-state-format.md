@@ -29,7 +29,8 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
 1. **Contenedor propio, cuerpos propios.** T15 escribe el envelope y un serializador por subsistema, campo a campo (u8/u16/u32/u64 little
    endian, sin padding, sin punteros, con cuentas y limites explicitos). Los `save_*` upstream se leen como catalogo de lo que cada
    modulo considera estado; no se habilita `SAVESTATE` para reutilizarlos tal cual. Donde un serializador upstream sirva, se copia su
-   codificacion de campos, no su llamada.
+   codificacion de campos, no su llamada. **Revisado el 2026-10-06 (punto 8):** se mantiene para los chunks ya hechos (CPU,
+   scheduler, RTC, CIA, entrada) y la sesion del bridge; disco, audio, chipset y Denise pasan a cuerpos upstream.
 2. **Cabecera de 336 bytes, little endian:**
 
    | offset | tamaño | campo |
@@ -91,6 +92,26 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
    canonicos de los probes (T14b) usan el dominio `p6/probe/v1/<subsistema>` y se calculan de campos, no de paginas; el digest de un
    snapshot Waterbox es el SHA-256 de los bytes del runtime. Los dos no son comparables entre si ni entre builds, y ninguno promete
    compatibilidad cruzada ni con los `.uss` de WinUAE.
+
+8. **Revision 2026-10-06: cuerpos upstream para disco, audio, chipset y Denise.** El codec campo a campo de esos subsistemas
+   (T15d1-T15f1b4h2b2b2a, parches 0086-0137) llevo cinco dias y unas 85 subtareas sin una carga publica ni un DET02 de punta a punta,
+   y su coste crecia con cada campo (y creceria otra vez con ECS/AGA). Queda en la rama `archivo/t15-codec-por-campos` (c5c137a)
+   como oraculo y fuente de escenarios. Nueva regla:
+   - WinUAE 6.0.3 ya serializa casi todo el estado en vuelo: CHIP, CHPX, CHPD (retardos de eventos), CHSL (slots), SPRn, BLIT/BLTX,
+     BPLX/SPRX, AUDn, DISK/DSKn. Esos `save_*`/`restore_*`/`*_finish` se compilan en el perfil con parches de guarda, sin definir
+     `SAVESTATE` globalmente: en los ficheros A500 casi todos los `#ifdef SAVESTATE` solo envuelven esas funciones; los tres sitios
+     que cambian comportamiento (`m68k_go`, `quitstatefile`, `savestate_init`) quedan fuera.
+   - Sus bytes van en un chunk `P6UP` (subcuerpos con tag y longitud, sin contenedor ASF ni zfile) dentro del mismo envelope. No se
+     promete compatibilidad `.uss`. Lo que ya poseen P6CP/P6SC/P6RT/P6CI/P6IN/P6BR no se duplica.
+   - Apply restaura sobre la maquina viva sin `custom_reset`, `m68k_reset2` ni `memory_clear` (el camino upstream de `m68k_go` si los
+     ejecuta, y eso no continua bit a bit). DET02 decide que falta: cada perdida se cubre con una extension pequeña o un parche al
+     cuerpo upstream, no con un serializador paralelo.
+   - **Validacion**: hash, identidad y estructura (longitudes, cuentas, indices y enumeraciones que acaben indexando) antes de Apply;
+     un subcuerpo upstream debe tener la longitud que produce `save_*` de este build para la config y los medios cargados. No se exige
+     una continuacion segura para valores que este build no produce: no se amplia ni se blinda la aritmetica del motor frente a
+     magnitudes construidas. Los limites naturales (por ejemplo, contadores i32 tras decenas de horas emuladas) se documentan.
+   - Orden: T15h (sesion), T15i (vertical P6UP + Apply sin reset + DET02 de punta a punta en los micro-ROM), T15d/T15e/T15f/T15g
+     (extensiones guiadas por DET02) y el cierre T15.
 
 ## Evidencia
 

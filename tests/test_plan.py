@@ -73,8 +73,12 @@ class PlanTests(unittest.TestCase):
     def test_current_project_gate_and_machawk_priority(self):
         data = json.loads((ROOT / "plan/tasks.json").read_text())
         by_id = {task["id"]: task for task in data["tasks"]}
-        self.assertEqual(219, len(by_id))
-        self.assertEqual(213, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(224, len(by_id))
+        self.assertEqual(218, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(["T03", "T26"], by_id["T48a"]["depends"])
+        self.assertEqual(["T03", "T26"], by_id["T48b"]["depends"])
+        self.assertEqual(["T22", "T26"], by_id["T48c"]["depends"])
+        self.assertEqual(["T48b", "T15c"], by_id["T48d"]["depends"])
         self.assertEqual(["T00"], by_id["T01a"]["depends"])
         self.assertEqual(["T01a"], by_id["T01b"]["depends"])
         self.assertEqual(["T01a", "T01b"], by_id["T01"]["depends"])
@@ -241,9 +245,15 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(["T15c1"], by_id["T15c2"]["depends"])
         self.assertEqual(["T15c2"], by_id["T15c3"]["depends"])
         self.assertEqual(["T15a", "T15b", "T15c1", "T15c2", "T15c3"], by_id["T15c"]["depends"])
-        for part in ("T15d", "T15e", "T15f", "T15g", "T15h"):
-            self.assertEqual(["T15a", "T15b", "T15c"], by_id[part]["depends"])
-        self.assertEqual(["T14", "T26", "T15a", "T15b", "T15c", "T15d", "T15e", "T15f", "T15g", "T15h"], by_id["T15"]["depends"])
+        self.assertEqual(["T15a", "T15b", "T15c"], by_id["T15h"]["depends"])
+        # Revision 2026-10-06: the remaining chunks build on WinUAE's own bodies (P6UP) behind one vertical.
+        self.assertEqual(["T15a", "T15b", "T15c", "T15h"], by_id["T15i"]["depends"])
+        for part in ("T15d", "T15e", "T15f", "T15g"):
+            self.assertEqual(["T15i"], by_id[part]["depends"])
+            self.assertEqual(["DET02"], by_id[part]["checks"])
+            self.assertIn("bridge/state_upstream.cpp", by_id[part]["touch"])
+        self.assertEqual(["T14", "T26", "T15a", "T15b", "T15c", "T15h", "T15i", "T15d", "T15e", "T15f", "T15g"],
+                         by_id["T15"]["depends"])
         self.assertEqual({"STATE01", "STATE02", "DET02", "DET03", "FUZZ01"}, set(by_id["T15"]["checks"]))
         self.assertIn("e_machine", " ".join(by_id["T20"]["steps"] + by_id["T20b"]["steps"]))
         self.assertIn("STEP01", by_id["T19"]["checks"])

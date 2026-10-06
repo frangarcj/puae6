@@ -161,7 +161,42 @@ def _destination(root: Path, value: str) -> Path:
     return path
 
 
-def materialize(root: Path = ROOT, destination: str = "build/upstream") -> tuple[dict, Path]:
+def _atomic_json(path: Path, value: dict) -> None:
+    """Publish a receipt only after its complete output has been verified."""
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, prefix=".receipt-",
+                                     encoding="utf-8", delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            json.dump(value, stream, indent=2)
+            stream.write("\n")
+            stream.flush()
+            stream.close()
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def _expected_receipt(root: Path, pristine: dict, series: dict, series_sha: str) -> dict:
+    # Check every patch byte and the whole hash chain even on a cache hit. The
+    # sidecar proves exact application happened before; it is not an output manifest.
+    files = {item["path"]: dict(item) for item in pristine["files"]}
+    for patch in series["patches"]:
+        path = _regular_file(root, root, patch["file"])
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != patch["sha256"]:
+            raise ValueError(f"Hash de parche incorrecto: {patch['id']}")
+        if _patch_paths(data) != {item["path"] for item in patch["files"]}:
+            raise ValueError(f"Archivos tocados no coinciden con el manifiesto: {patch['id']}")
+        for item in patch["files"]:
+            old = files.get(item["path"])
+            if not old or old["sha256"] != item["before_sha256"]:
+                raise ValueError(f"Hash previo incorrecto: {patch['id']}/{item['path']}")
+            old["sha256"] = item["after_sha256"]
+    return dict(files=sorted(files.values(), key=lambda item: item["path"]),
+                upstream_commit=pristine["source"]["commit"], series_sha256=series_sha)
+
+
+def materialize(root: Path = ROOT, destination: str = "build/upstream", *, force: bool = False) -> tuple[dict, Path]:
     """Return (receipt, output_path); never modify the verified pristine snapshot."""
     root = Path(root).absolute()
     pristine_manifest = import_sources.verify_source(root)
@@ -173,6 +208,21 @@ def materialize(root: Path = ROOT, destination: str = "build/upstream") -> tuple
     build.mkdir(parents=True, exist_ok=True)
     source = root / pristine_manifest["destination"]
     _no_symlinks(root, source)
+
+    expected_receipt = _expected_receipt(root, pristine_manifest, series, series_sha)
+    proof_path = target.with_name(f".{target.name}-materialize.json")
+    _no_symlinks(root, proof_path)
+    identity = dict(pristine=pristine_manifest, series=series_sha,
+                    implementation=[_sha(Path(__file__)), _sha(Path(import_sources.__file__))])
+    proof = {"identity": hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()}
+    try:
+        previous = json.loads(proof_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        previous = None
+    if not force and previous == proof and target.exists():
+        if import_sources.inventory(target) != expected_receipt["files"]:
+            raise ValueError(f"Destino existente distinto; no se sobrescribe: {target}")
+        return expected_receipt, target
 
     with tempfile.TemporaryDirectory(prefix=".materialize-", dir=build) as tmp:
         stage = Path(tmp) / "tree"
@@ -214,6 +264,9 @@ def materialize(root: Path = ROOT, destination: str = "build/upstream") -> tuple
             _no_symlinks(root, target.parent)
             target.parent.mkdir(parents=True, exist_ok=True)
             os.rename(stage, target)
+    if receipt != expected_receipt:
+        raise ValueError("La materializacion no coincide con la cadena de hashes")
+    _atomic_json(proof_path, proof)
     return receipt, target
 
 

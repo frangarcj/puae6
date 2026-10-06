@@ -1,0 +1,6 @@
+ok     28.7s  tests.state.test_probe  (6 tests, 0 skipped, 0 expected failures)
+ok    247.3s  tests.state.test_custom_palette_access  (2 tests, 0 skipped, 0 expected failures)
+ok    280.5s  tests.state.test_custom_programmed_access  (2 tests, 0 skipped, 0 expected failures)
+
+3 modules, 10 tests, 0 skipped, 0 expected failures, 0 failed; wall 288s (preparation 7s, sum of modules 556s, 3 jobs)
+slowest: tests.state.test_custom_programmed_access 281s, tests.state.test_custom_palette_access 247s, tests.state.test_probe 29s

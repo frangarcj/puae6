@@ -19,6 +19,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.build_support import build_targets
+
 ROOT = Path(__file__).resolve().parents[2]
 BUILD = ROOT / "build/step-trace"
 FIXTURES = ROOT / "tests/fixtures/microrom"
@@ -51,13 +53,7 @@ def make_rom(directory, name, source, defines):
 
 def configure_trace_tree(directory=None, sanitizers=False):
     directory = directory or BUILD
-    subprocess.run(["cmake", "-S", str(ROOT), "-B", str(directory), "-G", "Ninja",
-                    "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++",
-                    "-DCMAKE_BUILD_TYPE=Debug", f"-DP6_SANITIZERS={'ON' if sanitizers else 'OFF'}", "-DP6_UNIT_TRACE=ON"],
-                   check=True, capture_output=True, text=True, timeout=120)
-    subprocess.run(["cmake", "--build", str(directory), "--target", "p6_step_probe"],
-                   check=True, capture_output=True, text=True, timeout=1800)
-    return directory / "p6_step_probe"
+    return build_targets(directory, ["p6_step_probe"], sanitizers=sanitizers, trace=True)["p6_step_probe"]
 
 
 def run_probe(exe, rom, units, mode, seed=1, timeout=120, extra=(), env=None):

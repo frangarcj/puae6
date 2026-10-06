@@ -1,0 +1,5 @@
+ok      2.4s  tests.state.test_components  (13 tests, 0 skipped, 0 expected failures)
+ok      3.4s  tests.state.test_envelope_native  (15 tests, 0 skipped, 0 expected failures)
+
+2 modules, 28 tests, 0 skipped, 0 expected failures, 0 failed; wall 6s (preparation 3s, sum of modules 6s, 2 jobs)
+slowest: tests.state.test_envelope_native 3s, tests.state.test_components 2s

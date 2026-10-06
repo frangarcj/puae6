@@ -58,10 +58,11 @@ def press_schedule(units, spacing=1500):
 
 
 @unittest.skipUnless(AVAILABLE, "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")
-class MoviePlaybackTests(unittest.TestCase):
+class LongMoviePlaybackTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.h = Harness("p6-movie-play-")
+        cls.addClassCleanup(cls.h.close)
         h = cls.h
         cls.long_script = random_inputs(h, "long", LONG_UNITS, seed=22)
         cls.long_press = press_schedule(LONG_UNITS)
@@ -69,17 +70,6 @@ class MoviePlaybackTests(unittest.TestCase):
         record = h.session([h.core("R"), f"run R {LONG_UNITS} script={cls.long_script} press={cls.long_press} record", f"endmovie R {cls.long_movie}", "digest R end machine"]).stdout
         cls.long_units = h.units(record, "R")
         cls.long_digest = h.digests(record, "R")["end"]
-        cls.short = {}
-        for name, firmware, adf in (("disk", "disk", "A,B"), ("lace", "lace", "")):
-            script = random_inputs(h, f"short-{name}", SHORT_UNITS, seed=7 if name == "disk" else 9)
-            press = press_schedule(SHORT_UNITS, spacing=250) if name == "disk" else ""
-            movie = h.dir / f"short-{name}.bk2"
-            out = h.session([h.core("R", firmware=firmware, adf=adf), f"run R {SHORT_UNITS} script={script} press={press} record", f"endmovie R {movie}"]).stdout
-            cls.short[name] = dict(firmware=firmware, adf=adf, script=script, press=press, movie=movie, units=h.units(out, "R"))
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.h.close()
 
     # --- WB02 -----------------------------------------------------------------------------------------------------------------------
 
@@ -107,6 +97,24 @@ class MoviePlaybackTests(unittest.TestCase):
         result = self.h.session([self.h.core("D"), f"run D {LONG_UNITS} movie={bent}", f"moviefinish D {bent}"], expect=1)
         self.assertIn("CycleCount", result.stderr)
         self.assertIn("12345", result.stderr)
+
+
+@unittest.skipUnless(AVAILABLE, "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")
+class MoviePlaybackTests(unittest.TestCase):
+    """Short replay/seek cases do not record the unrelated 10000-unit fixture."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.h = Harness("p6-movie-short-")
+        cls.addClassCleanup(cls.h.close)
+        h = cls.h
+        cls.short = {}
+        for name, firmware, adf in (("disk", "disk", "A,B"), ("lace", "lace", "")):
+            script = random_inputs(h, f"short-{name}", SHORT_UNITS, seed=7 if name == "disk" else 9)
+            press = press_schedule(SHORT_UNITS, spacing=250) if name == "disk" else ""
+            movie = h.dir / f"short-{name}.bk2"
+            out = h.session([h.core("R", firmware=firmware, adf=adf), f"run R {SHORT_UNITS} script={script} press={press} record", f"endmovie R {movie}"]).stdout
+            cls.short[name] = dict(firmware=firmware, adf=adf, script=script, press=press, movie=movie, units=h.units(out, "R"))
 
     def test_a_movie_that_ends_before_the_core_does_is_an_error(self):
         result = self.h.session([self.h.core("D"), f"run D {SHORT_UNITS + 5} movie={self.short['disk']['movie']}"], expect=1)
