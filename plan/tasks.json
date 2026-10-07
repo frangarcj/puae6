@@ -9883,7 +9883,7 @@
       "title": "Unificar opciones, VFS y control de discos libretro",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T16",
         "T17a",

@@ -25,7 +25,9 @@ SUITES = {
 # deterministic fuzz targets. A required assertion that has no suite (the state fuzz target, for T26, which predates the native state) is
 # NOT_IMPLEMENTED, and so is any check/task/profile combination that is not listed. T15 closes the gap: FUZZ01 for T15 is the T26 targets plus
 # `state`, the seeded mutation of states loaded through the public p6_state_load (truncated, tampered, other build/ROM/config/media), which
-# also checks that a refusal leaves the machine bit for bit as it was.
+# also checks that a refusal leaves the machine bit for bit as it was. T17 adds what the libretro adapter takes from the frontend: `libretro_content`
+# (M3U playlists, a VFS that lies and option values, through the adapter's own headers built with the sanitizers) and `normalize_config` (the option
+# schema's normalization with random keys, values and types).
 TASK_SUITES = {
     ('SAFE01', 'T26'): {
         'canary_self_test': 'tests.canaries.test_canaries',
@@ -40,6 +42,13 @@ TASK_SUITES = {
         'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
         'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
         'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+    },
+    ('FUZZ01', 'T17'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
     },
 }
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}

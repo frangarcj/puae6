@@ -196,6 +196,18 @@ class NormalizationTests(unittest.TestCase):
         self.refuses({"kickstart_rom_file": "/etc/passwd"}, "never chosen by a path")
         self.refuses({"uae_config_file": "a.uae"}, "only the keys of this schema are accepted")
 
+    def test_a_digit_string_too_long_for_int_is_a_refusal_that_names_the_key_not_a_bare_value_error(self):
+        # FUZZ01 (T17): int() raises ValueError past 4300 digits, which escaped without the option; the text is capped before it is converted.
+        self.refuses({"random_seed": "9" * 5000}, "option random_seed")
+        self.refuses({"random_seed": "0" * 65 + "1"}, "option random_seed")
+        self.assertEqual(gen.normalize_config(schema(), {"random_seed": "0" * 63 + "7"})["random_seed"], 7)
+
+    def test_a_request_that_is_not_a_mapping_is_refused(self):
+        for requested in (None, [], ["video_standard"], "video_standard", 5):
+            with self.subTest(requested=requested), self.assertRaises(gen.ConfigError) as caught:
+                gen.normalize_config(schema(), requested)
+            self.assertIn("must be a mapping", str(caught.exception))
+
     def test_unknown_and_reserved_keys_are_refused_and_every_problem_is_listed(self):
         self.refuses({"turbo": "yes"}, "option turbo is unknown (supported: video_standard")
         self.refuses({"controller_port1": "Mouse"}, "option controller_port1 is not available yet")

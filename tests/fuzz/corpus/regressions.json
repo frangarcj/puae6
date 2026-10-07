@@ -13,6 +13,17 @@
     {"seed": 1, "iterations": 300, "note": "baseline; 300 mutated states per session, with and without a disk. The only finding: DISK_update shifted the -1 of DSKSYNC(-1, v) left in every state load (UBSan), patch 0102"},
     {"seed": 2, "iterations": 300, "note": "baseline; no defect found"}
   ],
+  "content_runs": [
+    {"target": "m3u", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
+    {"target": "m3u", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
+    {"target": "vfs", "seed": 1, "iterations": 3000, "note": "baseline; no defect found"},
+    {"target": "options", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
+    {"target": "options", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"}
+  ],
+  "config_runs": [
+    {"seed": 1, "iterations": 20000, "note": "found before the fix: a digit string of more than 4300 characters escaped normalize_config as a bare ValueError that named no option, and a request that was not a dict escaped as TypeError (an empty list was accepted as nothing requested); fixed in tools/generate_options.py"},
+    {"seed": 2, "iterations": 20000, "note": "baseline after the fix; no defect found"}
+  ],
   "scenario_runs": [
     {"seed": 1, "iterations": 4000, "note": "baseline; no defect found"}
   ]

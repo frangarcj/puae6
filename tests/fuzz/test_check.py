@@ -1,4 +1,4 @@
-"""tools/check.py for SAFE01 and FUZZ01 (T26, and FUZZ01 for T15): suites are real, anything not covered is NOT_IMPLEMENTED."""
+"""tools/check.py for SAFE01 and FUZZ01 (T26, and FUZZ01 for T15 and T17): suites are real, anything not covered is NOT_IMPLEMENTED."""
 import json
 from pathlib import Path
 import subprocess
@@ -37,6 +37,25 @@ class TaskSuiteDispatchTests(unittest.TestCase):
         self.assertEqual(runner.call_args.args[1], check.TASK_SUITE_ENV)
         # An assertion nobody implemented is still a gap for T15.
         gap = check.dispatch("FUZZ01", task="T15", required=("netplay",))
+        self.assertEqual((gap["status"], gap["assertions_executed"]), ("NOT_IMPLEMENTED", []))
+
+    def test_the_libretro_content_and_option_fuzzers_are_covered_for_t17(self):
+        suites = check.TASK_SUITES[("FUZZ01", "T17")]
+        self.assertEqual(suites["libretro_content"], "tests.fuzz.test_fuzz.ContentFuzzTests")
+        self.assertEqual(suites["normalize_config"], "tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests")
+        self.assertTrue(set(check.TASK_SUITES[("FUZZ01", "T15")]) <= set(suites))      # the earlier targets stay in the check
+        # T15 and T26 predate the adapter's content: asking them for it is a gap, reported as such.
+        for task in ("T15", "T26"):
+            gap = check.dispatch("FUZZ01", task=task, required=("libretro_content",))
+            self.assertEqual((gap["status"], gap["assertions_executed"]), ("NOT_IMPLEMENTED", []))
+        with mock.patch.object(check.shutil, "which", return_value="/usr/bin/tool"), \
+             mock.patch.object(check, "_run_suite", return_value=completed(COUNTS)) as runner:
+            result = check.dispatch("FUZZ01", task="T17", required=("libretro_content", "normalize_config"))
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["assertions_executed"], sorted(suites))
+        self.assertEqual(runner.call_count, len(suites))
+        self.assertEqual(runner.call_args.args[1], check.TASK_SUITE_ENV)
+        gap = check.dispatch("FUZZ01", task="T17", required=("netplay",))
         self.assertEqual((gap["status"], gap["assertions_executed"]), ("NOT_IMPLEMENTED", []))
 
     def test_other_tasks_and_profiles_are_not_covered(self):

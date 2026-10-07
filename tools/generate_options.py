@@ -282,7 +282,8 @@ def normalize_value(option: dict, raw) -> object:
         if not isinstance(raw, str) or raw not in names:
             raise ConfigError(f"option {name}: the value {raw!r} is not supported (allowed: {', '.join(names)})")
         return raw
-    if isinstance(raw, str) and re.fullmatch(r"-?[0-9]+", raw):
+    # At most 64 digits: int() refuses a longer text with a bare ValueError (a limit that depends on the Python version) that does not name the option.
+    if isinstance(raw, str) and re.fullmatch(r"-?[0-9]{1,64}", raw):
         raw = int(raw)
     if not isinstance(raw, int) or isinstance(raw, bool) or not option["min"] <= raw <= option["max"]:
         raise ConfigError(f"option {name}: the value {raw!r} is not an integer from {option['min']} to {option['max']}")
@@ -292,6 +293,8 @@ def normalize_value(option: dict, raw) -> object:
 def normalize_config(schema: dict, requested: dict) -> dict:
     """Every option with a value: the requested one, normalized, or the schema's default. A key that is not in the schema is refused with the
     reason when it is a known-unsupported one (CPU, RAM, ROM, other machines) and as unknown otherwise; nothing is half-accepted."""
+    if not isinstance(requested, dict):
+        raise ConfigError(f"the requested configuration must be a mapping of option names to values, not {type(requested).__name__}")
     options = _option_index(schema)
     unsupported = {entry["key"]: entry["why"] for entry in schema["unsupported"]}
     reserved = {entry["id"]: entry for entry in schema["reserved"]}

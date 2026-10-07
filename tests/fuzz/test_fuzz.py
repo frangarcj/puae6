@@ -3,7 +3,9 @@
 The native targets run in the sanitizer build (build/native-debug, ASan + UBSan, no recover), so a memory error
 or undefined behaviour ends the run. Runs are deterministic: same seed and count, same result. The state target (T15: StateFuzzTests) loads mutated states of a
 running image through the public p6_state_load, with the allocator capped so that an allocation sized by a forged length is a report, and checks that every refusal leaves the machine bit for
-bit as it was and that the image then runs like a control that never saw the attempt.
+bit as it was and that the image then runs like a control that never saw the attempt. T17 adds what the libretro adapter takes from the frontend:
+ContentFuzzTests (M3U playlists, a lying VFS and option values through the adapter's own headers, built here with the sanitizers and no engine) and
+ConfigNormalizeFuzzTests (tools/generate_options.py normalize_config with random keys, values and types).
 """
 import copy
 import json
@@ -20,6 +22,7 @@ from tests.host.test_bridge_lifecycle import ROOT, TOOLS, build_probe
 from tests.step.test_step import builder
 
 sys.path.insert(0, str(ROOT / "tools"))
+import generate_options  # noqa: E402
 from scenario_schema import load_json, validate_scenario  # noqa: E402
 
 CORPUS = json.loads((ROOT / "tests/fuzz/corpus/regressions.json").read_text())
@@ -152,6 +155,164 @@ class StateFuzzTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("FUZZ FAILURE", result.stderr)
         self.assertIn("a refused state changed the machine", result.stderr)
+
+
+CONTENT_KINDS = ("random-bytes", "valid-flipped", "long-line", "path-length-boundary", "nul", "bom-middle", "cr-only", "bar", "savedisk", "many-entries",
+                 "huge-path", "path-forms", "utf8-invalid", "whitespace", "huge-file")
+OPTION_KINDS = ("exact", "empty", "padded", "case", "suffix", "prefix", "zeros", "other-value", "non-ascii", "long", "random-bytes", "control",
+                "other-options-value", "number-forms", "no-value")
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class ContentFuzzTests(unittest.TestCase):
+    """FUZZ01 for the libretro content (T17): the M3U parser, the file reader over a VFS that lies, and the option values, with the adapter's headers
+    compiled with ASan and UBSan next to no engine. Any single allocation above 4 MB is a report: a playlist is at most 64 KB."""
+
+    ENV = {**ENV, "ASAN_OPTIONS": "detect_leaks=0:max_allocation_size_mb=4"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-fuzz-content-")
+        cls.exe = Path(cls.tmp.name) / "fuzz_content"
+        command = ["clang++", "-std=c++17", "-O1", "-g", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
+                   "-I" + str(ROOT / "adapters/libretro"), "-I" + str(ROOT / "bridge/include"), "-I" + str(ROOT / "references/libretro-api/include"),
+                   str(ROOT / "tests/fuzz/fuzz_content.cpp"), "-o", str(cls.exe)]
+        built = subprocess.run(command, capture_output=True, text=True, timeout=600)
+        if built.returncode:
+            raise RuntimeError(built.stderr[-2000:])
+        cls.schema = generate_options.load_schema()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_target(self, target, seed, iterations, extra_env=None):
+        return subprocess.run([str(self.exe), target, str(seed), str(iterations)], capture_output=True, text=True, timeout=900,
+                              env={**self.ENV, **(extra_env or {})})
+
+    @staticmethod
+    def histogram(text, prefix):
+        found = {}
+        for line in text.splitlines():
+            match = re.match(rf"^{prefix} kind (\S+): accepted (\d+) refused (\d+)$", line)
+            if match:
+                found[match[1]] = (int(match[2]), int(match[3]))
+        return found
+
+    def test_the_recorded_seeds_run_clean_and_reach_every_mutation_and_outcome(self):
+        for run in CORPUS["content_runs"]:
+            with self.subTest(**run):
+                result = self.run_target(run["target"], run["seed"], run["iterations"])
+                self.assertTrue(clean(result), result.stderr[-1200:])
+                text = result.stdout
+                if run["target"] == "m3u":
+                    kinds = self.histogram(text, "m3u")
+                    self.assertEqual(sorted(CONTENT_KINDS), sorted(kinds))
+                    self.assertGreater(sum(a for a, _ in kinds.values()), 0)
+                    self.assertGreater(sum(r for _, r in kinds.values()), 0)
+                    for reason in ("a NUL byte is not text", "more than the cap", "the entry has no file name", "the path is too long"):
+                        self.assertIn(f'm3u refusal "{reason}"', text)
+                elif run["target"] == "vfs":
+                    for outcome in ("Ok", "CannotOpen", "TooLarge", "ReadFailed"):
+                        self.assertIn(f"vfs result {outcome}:", text)
+                    self.assertNotIn("OutOfMemory", text)
+                else:
+                    kinds = self.histogram(text, "options")
+                    self.assertEqual(sorted(OPTION_KINDS), sorted(kinds))
+                    self.assertGreater(kinds["exact"][0], 0)
+                    self.assertEqual(kinds["exact"][1], 0)          # an exact name is never refused
+                    for kind, (accepted, _) in kinds.items():
+                        if kind not in ("exact", "no-value", "other-options-value"):
+                            self.assertEqual(accepted, 0, kind)      # everything else is refused, whatever the mutation
+                    # Only the value names of the schema were ever accepted, and each of them was.
+                    allowed = {f"{option['libretro']['key']}={value['value']}" for option in self.schema["options"] if option["libretro"]
+                               for value in option["values"]}
+                    accepted = {m[1] for m in re.finditer(r"^options accepted (\S+): \d+$", text, re.M)}
+                    self.assertEqual(accepted, allowed)
+
+    def test_a_run_is_reproducible(self):
+        for target in ("m3u", "options"):
+            first = self.run_target(target, 7, 500)
+            self.assertTrue(clean(first), first.stderr[-400:])
+            self.assertEqual(first.stdout, self.run_target(target, 7, 500).stdout)
+
+    def test_the_content_harness_can_fail(self):
+        # With each oracle spoiled on purpose the same run has to be reported as a failure.
+        for target in ("m3u", "vfs", "options"):
+            with self.subTest(target=target):
+                result = self.run_target(target, 1, 200, {"P6_FUZZ_SELFTEST": "1"})
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("FUZZ FAILURE", result.stderr)
+
+
+class ConfigNormalizeFuzzTests(unittest.TestCase):
+    """FUZZ01 for tools/generate_options.py normalize_config (T17): random keys, values and types are normalized exactly or refused with a ConfigError that
+    names every offending key; a partial configuration is never returned and the request is never modified."""
+
+    HOSTILE = [None, True, False, 0, 1, -1, 2, 44100, 48000, 2**32, 2**63, 2**64 - 1, 2**64, -2**63, -2**63 - 1, 253402300799, 253402300800, -62135596800,
+               1.0, 1.5, float("nan"), float("inf"), "", " ", "PAL", "pal", "PAL ", " PAL", "NTSC", "pixel", "4:3", "44100", "48000", "048000", "48000x",
+               "22050", "-1", "-0", "+5", "5 ", " 5", "5\n", "5_0", "0x10", "1e3", "\u0663", "\uff11\uff12", "9" * 20, "9" * 64, "9" * 65, "9" * 5000,
+               "-" + "9" * 70, "0" * 70 + "1", "\x00", "PAL\x00", "\u00e9", [], {}, [1], ["PAL"], ("PAL",), {"a": 1}, b"PAL", b"", object]
+    KEYS_OTHER = ["", " ", "video_standard ", "Video_Standard", "machine", "cpu_model", "chipmem_size", "kickstart_rom_file", "uae_config_file", "controller_port1",
+                  "turbo", "puae6_video_standard", "\u00e9", "a" * 300, 1, 2.5, None, True, (1, 2), b"video_standard", frozenset()]
+
+    @staticmethod
+    def expected(option, raw):
+        """The normalized value of `raw`, or None for a refusal, from the schema alone (not from the function under test)."""
+        if option["type"] == "enum":
+            return raw if type(raw) is str and raw in [v["value"] for v in option["values"]] else None
+        if type(raw) is str and 1 <= len(raw.lstrip("-")) <= 64 and len(raw) - len(raw.lstrip("-")) <= 1 and all(c in "0123456789" for c in raw.lstrip("-")):
+            raw = int(raw)
+        if type(raw) is int and option["min"] <= raw <= option["max"]:
+            return raw
+        return None
+
+    def test_random_requests_are_normalized_exactly_or_refused_naming_every_bad_key(self):
+        schema = generate_options.load_schema()
+        options = {o["id"]: o for o in schema["options"]}
+        known = list(options) + [u["key"] for u in schema["unsupported"]] + [r["id"] for r in schema["reserved"]]
+        for run in CORPUS["config_runs"]:
+            rng = random.Random(run["seed"])
+            accepted = refused = 0
+            for iteration in range(run["iterations"]):
+                requested = {}
+                for _ in range(rng.randrange(0, 6)):
+                    pool = rng.random()
+                    key = rng.choice(list(options)) if pool < 0.6 else rng.choice(known) if pool < 0.8 else rng.choice(self.KEYS_OTHER)
+                    if isinstance(key, str) and key in options and rng.random() < 0.55:
+                        valid = options[key]["values"][rng.randrange(len(options[key]["values"]))]["value"] if options[key]["type"] == "enum" \
+                            else rng.choice([options[key]["min"], options[key]["max"], options[key]["default"], str(options[key]["default"]), 42])
+                        requested[key] = valid
+                    else:
+                        requested[key] = rng.choice(self.HOSTILE)
+                before = copy.deepcopy(requested)
+                bad = [key for key in requested if not (isinstance(key, str) and key in options) or
+                       self.expected(options[key], requested[key]) is None]
+                try:
+                    result = generate_options.normalize_config(schema, requested)
+                except generate_options.ConfigError as error:
+                    refused += 1
+                    self.assertTrue(bad, f"seed {run['seed']} iteration {iteration}: a valid request was refused: {requested!r}: {error}")
+                    for key in bad:
+                        self.assertIn(f"option {key}", str(error), f"seed {run['seed']} iteration {iteration}: the refusal does not name {key!r}")
+                except Exception as error:      # anything but a ConfigError is a defect: it names nothing and may escape a caller that handles ValueError
+                    self.fail(f"seed {run['seed']} iteration {iteration}: {type(error).__name__}: {error!s:.200} for {requested!r:.200}")
+                else:
+                    accepted += 1
+                    self.assertFalse(bad, f"seed {run['seed']} iteration {iteration}: accepted {requested!r}")
+                    self.assertEqual(list(result), list(options))            # every option, in schema order, never a partial configuration
+                    for name, option in options.items():
+                        self.assertEqual(result[name], self.expected(option, requested[name]) if name in requested else option["default"])
+                    generate_options.to_p6_config(schema, result)            # and the ABI numbers can always be derived
+                self.assertEqual(requested, before)
+            self.assertGreater(accepted, run["iterations"] // 50)
+            self.assertGreater(refused, run["iterations"] // 2)
+
+    def test_a_request_that_is_not_a_dict_is_a_config_error(self):
+        schema = generate_options.load_schema()
+        for requested in (None, [], ["video_standard"], "video_standard", 7, 1.5, (("video_standard", "PAL"),), object()):
+            with self.subTest(requested=type(requested).__name__), self.assertRaises(generate_options.ConfigError):
+                generate_options.normalize_config(schema, requested)
 
 
 def mutate(value, rng, depth=0):

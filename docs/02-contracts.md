@@ -61,13 +61,28 @@ observador de fronteras); devuelve BUSY antes de mirar sus argumentos y no toca 
 `p6_load` con la imagen ya presente devuelve BAD_STATE. Todos los callbacks documentan si son solo-init, por-frame o
 lecturas puras autorizadas. No invocar libretro fuera de su hilo de entrada.
 
-Adaptador libretro (T16a): `adapters/libretro` exporta solo los `retro_*` (exports.txt / exports.map) sobre la ABI nativa y no incluye nada del motor. `retro_load_game`
-recibe el firmware (Kickstart o micro-ROM, extensiones `rom|bin`) y copia el buffer, porque `p6_load` lo toma prestado hasta el unload; los discos, los ficheros del
-directorio de sistema, las opciones (PAL/NTSC, semilla, epoca) y el teclado llegan con T17. Solo acepta XRGB8888: si el frontend lo rechaza el load falla con un mensaje, sin
+Adaptador libretro (T16a, T17): `adapters/libretro` exporta solo los `retro_*` (exports.txt / exports.map) sobre la ABI nativa y no incluye nada del motor. El contenido
+de `retro_load_game` NO es el firmware: es un `.adf`, una playlist `.m3u` de ADF o ninguno (SET_SUPPORT_NO_GAME: el Kickstart arranca solo); `need_fullpath` es true y las
+extensiones son `adf|m3u`. El Kickstart 1.3 se busca en el directorio de sistema del frontend por una lista fija de nombres conocidos (`kick34005.A500`,
+`amiga-os-130.rom` y tres nombres de coleccion); `p6_load` acepta o rechaza el fichero por su contenido (tamaño y SHA-256), no por el nombre, y un fichero presente pero
+rechazado no oculta uno bueno bajo el nombre siguiente. El core copia el buffer porque `p6_load` lo toma prestado hasta el unload. Los ficheros se leen enteros a traves del VFS
+del frontend (version 1: open, size, read, close) y con stdio POSIX si no lo ofrece, siempre con cota y nunca con el tamaño que el fichero dice tener: playlist 64 KiB, una ruta
+4096 bytes, un ADF exactamente 901120 bytes, un Kickstart 512 KiB. Las rutas son bytes UTF-8 que se pasan tal cual y nunca son identidad: los medios se nombran por el SHA-256 de sus
+bytes (ADR 0008), y dos discos con los mismos bytes comparten un medio del manifiesto. Una playlist M3U tiene una entrada `fichero|etiqueta` por linea (la etiqueta es opcional y por
+defecto es el nombre sin extension), las lineas `#` son comentarios (`#SAVEDISK:` avisa y se ignora: el core no escribe discos), las rutas relativas lo son al directorio de la
+playlist (una ruta con raiz, letra de unidad o `esquema://` se usa tal cual) y se aceptan un BOM UTF-8 inicial y los finales de linea CR, LF y CRLF. Como mucho 16 discos
+(`P6_MAX_MEDIA`) y cada entrada ha de ser un `.adf`; un NUL, una entrada sin nombre, una ruta de mas de 4096 bytes, mas de 16 entradas, una playlist vacia o un disco que no es un
+ADF hacen fallar toda la carga con un mensaje que nombra la linea o el disco; nada se carga a medias. Disk Control: la interfaz EXT si el frontend la ofrece y la clasica si no. Las
+llamadas del frontend solo registran la peticion (no leen ficheros ni tocan el bridge); al empezar el `retro_run` siguiente se convierten en
+`p6_media_event_enqueue` (expulsar y/o montar), asi que un cambio cae siempre en una frontera de unidad y las mismas llamadas en los mismos runs dan los mismos eventos.
+`set_initial_image` solo se usa si el contenido tiene esa imagen en ese indice; quitar una imagen (`replace_image_index` con NULL) se admite con la bandeja abierta, pero
+`add_image_index` y `replace_image_index` con un disco nuevo se rechazan hasta T17e (manifiesto de medios append-only), porque el manifiesto se registra en `p6_load` y es parte de la
+identidad del estado. Las opciones del core se describen en Configuracion. Solo acepta XRGB8888: si el frontend lo rechaza el load falla con un mensaje, sin
 fallback. `retro_run` hace un poll de entrada, exactamente una llamada a `p6_run_frame` y entrega un solo cuadro: el raster activo recortado (con `SET_GEOMETRY` si el
 frontend lo acepta) o, si la unidad no tiene cuadro nuevo, el anterior (NULL si el frontend puede duplicar, una copia si no). El audio se ofrece en lotes y lo que el frontend
 no toma queda en una cola acotada de 16384 frames stereo que se ofrece primero en el run siguiente; al desbordarse se descartan los mas antiguos con un aviso. Una llamada
-libretro hecha desde dentro de un callback se ignora. `retro_serialize_size` es 0 hasta T18. Los mandos se asignan joypad B/A/X -> botones 1/2/3 y el raton solo en el puerto 0.
+libretro hecha desde dentro de un callback se ignora. `retro_serialize_size` es 0 hasta T18. Los mandos se asignan joypad B/A/X -> botones 1/2/3 y el raton solo en el puerto 0;
+el teclado, los dispositivos por puerto y los formatos ADZ/ZIP/DMS llegan con T17c y T17d.
 
 ## Frame, campos y reloj
 
@@ -203,6 +218,18 @@ que requieran recargar no se aplican en caliente ni cambian serialize_size.
 Config .uae heredada pasa por un importador allowlist con diagnosticos; no da
 acceso a rutas arbitrarias, plugins o shell. No se ejecuta un comando contenido
 en una playlist/configuracion de juego.
+
+Modelo implementado (T17b): `config/schema/options.json` es el esquema unico de lo que la ABI v1 deja elegir, y `tools/generate_options.py` lo valida, normaliza una configuracion
+pedida y genera las tablas del core libretro (`adapters/libretro/options_generated.h` y `config/schema/options_table.generated.json`; `--check` falla si estan obsoletas).
+Normalizar da a cada opcion el valor pedido o el defecto del esquema; una clave desconocida, una no soportada (CPU, RAM, ROM, maquina distinta de A500, `.uae`; con su razon)
+o un valor fuera del esquema levanta ConfigError, que nombra la clave y todos los problemas, y nunca devuelve una configuracion parcial. Headless y el wrapper BizHawk no se
+generan: `tests/config` comprueba contra el esquema sus defaults, valores y mapeo a `p6_config`, de modo que no hay defaults divergentes. Cada opcion es `reboot` (un campo de
+`p6_config`: entra en config_hash y en la identidad del estado) o `presentation` (sin efecto sobre la emulacion). El core libretro lee las opciones antes de cargar y un valor que
+no sea exactamente un nombre del esquema (sin recortar, sin cambiar mayusculas y sin sustituirlo por el defecto) hace fallar la carga con un mensaje que nombra la clave y el
+valor; semilla y epoca RTC no se ofrecen en libretro y quedan en su defecto. Con la maquina en marcha, un cambio de una opcion `reboot` solo se avisa y se aplica al volver a
+cargar el contenido (no cambia el config, la identidad ni el bound de estado), uno de presentacion se aplica en el acto y un valor no valido se avisa y se ignora.
+`retro_serialize_size` sigue en 0 hasta T18: hasta entonces la regla de que un cambio que afecta al tamaño del estado exige recarga se cumple por construccion (todo lo que
+entra en el config es `reboot`) y se comprobara contra el bound real cuando el core serialice.
 
 ## ROMs, discos y persistencia
 
