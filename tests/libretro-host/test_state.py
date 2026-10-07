@@ -6,10 +6,10 @@ loads blobs that were cut, extended, flipped or taken from another configuration
 Everything is compared with a plain run of the same script: the pictures, ticks and audio of each unit, and the hash of the whole state at the end,
 which is the machine, the media queue and the adapter's side together. Run: python3 -m unittest discover -s tests/libretro-host -p "test_state.py"
 
-Three gaps of the native state (T15, not of this adapter) show up here and are pinned by expectedFailure tests at the end of StateTests, with the reproducer:
-the picture of the first unit after a load can come from the abandoned timeline (or from a fresh process) when the guest set its palette once and never again,
-a unit that had no new picture is drawn after a load, and one byte of the chipset body (DIWHIGH) differs after a load from a machine that never loaded.
-The other tests therefore compare the pictures only with ROMs that refresh their palette, and the machine as ticks, audio and the adapter's own section.
+Three gaps of the native state showed up here first and are pinned by the test_GAP_* tests at the end of StateTests: the picture of a unit without drawn
+lines after a load came from the abandoned timeline (or a fresh process), a unit that had no new picture was drawn after a load, and one byte of the
+chipset body (DIWHIGH) differed after save-load-save. T15j closed them in the native state (patch 0103: PIXL, GEOM and BEAM), and the tests now pass.
+The blob variants that cut a state are relative to the bytes it uses (usedsize): serialize_size is mostly zero padding since PIXL's worst case is in the bound.
 
 With P6_KICKSTART_ROM and P6_GAME_ADF set (the paths of a Kickstart 1.3 and a game disk), one test also boots that disk for a few hundred units and saves
 and loads in the middle of it; it never copies, hashes or prints those files, and it is skipped without the variables.
@@ -127,8 +127,8 @@ class StateTests(lr.LibretroHarness):
     # --- STATE02: what is refused, and that nothing changes -----------------------------------------------------------------------------------
 
     ACCEPTED = ("", "size=-1", "usedsize=0", "size=4096", "size=65536", "size=100,fill=0x00")
-    REFUSED = ("size=-1000000", "usedsize=-1", "usedsize=-100000", "xor=-1", "xor=100000", "xor=0", "xor=8", "xor=12", "xor=20", "xor=26", "xor=40",
-               "xor=70", "xorend=0", "size=4096,fill=0x33", "size=1,fill=0x01", "size=-1381000")
+    REFUSED = ("usedsize=-1000000", "usedsize=-1", "usedsize=-100000", "xor=-1", "xor=100000", "xor=0", "xor=8", "xor=12", "xor=20", "xor=26", "xor=40",
+               "xor=70", "xorend=0", "size=4096,fill=0x33", "size=1,fill=0x01", "usedsize=-1000")
 
     def test_a_blob_with_the_right_length_or_zero_padding_loads_and_replays(self):
         for variant in self.ACCEPTED:
@@ -330,9 +330,8 @@ class StateTests(lr.LibretroHarness):
         out = self.frontend("boot", "--runs", 3, "--cycles", 3).stdout
         self.assertEqual(len(set(re.findall(r"state size=(\d+)", out))), 1)
 
-    # --- the gaps of the native state (T15) that a replay shows; each is a reproducer, and each passes the day the engine closes it --------------
+    # --- the gaps of the native state a replay showed first (closed by T15j); each keeps its reproducer -------------------------------------------
 
-    @unittest.expectedFailure
     def test_GAP_the_picture_of_a_unit_drawn_after_a_load_comes_from_the_timeline_that_was_left(self):
         # long_frame sets its palette in the middle of the run and never again. Run ahead 2 units from unit 1 and come back: unit 2 is drawn with the
         # colour of unit 3. The probe shows the same without any adapter: p6_state_probe long_frame --units 6 --public-save-at 1 F --public-load-at 3 F.
@@ -340,21 +339,18 @@ class StateTests(lr.LibretroHarness):
         out = self.frontend("long_frame", "--runs", 6, "--ahead", "1:2").stdout
         self.assertEqual(self.views(out), self.views(plain))
 
-    @unittest.expectedFailure
     def test_GAP_a_state_file_loaded_in_a_new_process_draws_the_palette_of_a_machine_that_just_started(self):
         path = self.work() / "p.state"
         first = self.frontend("long_frame", "--runs", 14, "--do", f"12:savefile:{path}").stdout
         second = self.frontend("long_frame", "--runs", 2, "--do", f"0:loadfile:{path}:pos=12").stdout
         self.assertEqual(self.views(second), self.views(first)[12:])
 
-    @unittest.expectedFailure
     def test_GAP_a_unit_without_a_new_picture_is_drawn_after_a_load(self):
         # long_frame has no picture from unit 10 on (the core repeats the last, or hands over a copy); after a load the renderer draws one.
         plain = self.frontend("long_frame", "--runs", 15, "--no-dupe").stdout
         out = self.frontend("long_frame", "--runs", 15, "--no-dupe", "--ahead-every", 1).stdout
         self.assertEqual(self.views(out), self.views(plain))
 
-    @unittest.expectedFailure
     def test_GAP_the_whole_state_after_a_load_and_some_units_is_the_state_of_a_machine_that_never_loaded(self):
         # One byte of the chipset body differs (offset 329 of CHIP, the low byte of DIWHIGH). p6_state_probe boot.rom --units 4 --public-save-at 1 F
         # --public-load-at 1 F --public-save-at 4 G, against a probe without the first two: G differs from the plain state by that byte (and the checksums).

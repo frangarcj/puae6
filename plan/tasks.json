@@ -10160,7 +10160,7 @@
       "title": "Habilitar estados y replay especulativo libretro",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15",
         "T17",
