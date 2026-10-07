@@ -9885,7 +9885,9 @@
       "required": true,
       "status": "pending",
       "depends": [
-        "T16"
+        "T16",
+        "T17a",
+        "T17b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -9902,7 +9904,8 @@
         "Crear esquema unico para presets/opciones/sync settings; clasificar cambios reboot frente a presentacion y producir config_hash canonico.",
         "Adaptar VFS/path fallback de manera explicita y probar rutas UTF-8, largas e invalidas; no usar paths como identidad de contenido.",
         "Implementar playlist readonly y disk control sobre eventos de medios; no cambiar disco desde callback concurrente.",
-        "Rechazar opciones de CPU/RAM/ROM no soportadas en vez de aceptar parcialmente la config."
+        "Rechazar opciones de CPU/RAM/ROM no soportadas en vez de aceptar parcialmente la config.",
+        "Division (2026-10-07): T17a (contenido, VFS y Disk Control) y T17b (esquema de opciones); T17 es el cierre: conserva los checks LR01, MED01 y FUZZ01 y la aceptacion original."
       ],
       "checks": [
         "LR01",
@@ -9914,6 +9917,75 @@
         "Cambio que afecta tamaño de estado necesita recarga y no modifica bound en caliente."
       ],
       "stop": "No importar .uae entero ni plugins por compatibilidad historica; añadir solo claves allowlist con diagnosticos.",
+      "evidence": null
+    },
+    {
+      "id": "T17a",
+      "title": "Contenido libretro: Kickstart del directorio de sistema, ADF/M3U por VFS y Disk Control sobre eventos de medios",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T16"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/01-architecture.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "tests/libretro-host/**",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "El contenido pasa a ser un ADF o una playlist M3U de ADFs (solo lectura); el Kickstart se busca en el directorio de sistema del frontend por nombre conocido y se identifica por su contenido (SHA-256/tamaño), nunca por la ruta. Sin Kickstart valido: error claro, sin cargar a medias.",
+        "VFS: usar RETRO_ENVIRONMENT_GET_VFS_INTERFACE cuando el frontend lo da y un fallback stdio explicito si no; probar rutas UTF-8, largas e invalidas. Los medios se registran en p6_load con su content id; la ruta no entra en la identidad.",
+        "Disk Control (RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE): expulsar, elegir indice e insertar se traducen en p6_media_event_enqueue y se aplican en la frontera del siguiente retro_run; nada cambia desde un callback concurrente; etiquetas desde el M3U o el nombre de fichero.",
+        "Division de T17 (2026-10-07): la ficha original mezclaba contenido/discos y esquema de opciones y no cabia en un cambio; T17a es la parte de contenido, T17b la de opciones y T17 queda como cierre con LR01, MED01 y FUZZ01."
+      ],
+      "checks": [
+        "LR01",
+        "MED01"
+      ],
+      "acceptance": [
+        "RetroArch (el host de tests y el frontend real en Docker) arranca un ADF con el Kickstart del directorio de sistema, cambia de disco por Disk Control y la identidad de medios no depende de rutas."
+      ],
+      "stop": "No importar .uae ni plugins; no escribir en los ADF (COW es T27).",
+      "evidence": null
+    },
+    {
+      "id": "T17b",
+      "title": "Esquema unico de opciones (reinicio frente a presentacion) para headless, libretro y wrapper",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/01-architecture.md"
+      ],
+      "touch": [
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "tests/config/**",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "Esquema unico (config/schema) de lo que la ABI v1 deja elegir: estandar de video, frecuencia de audio, politica de semilla y epoca del RTC, y opciones de presentacion si las hay; cada clave clasificada como reinicio (entra en config_hash y en el bound) o presentacion.",
+        "tools/generate_options.py genera las definiciones de core options de libretro y una tabla que headless y el wrapper BizHawk deben respetar; un test compara sus defaults con el esquema sin editarlos (si divergen, tarea propia para cada adaptador).",
+        "Rechazar claves o valores no soportados (CPU, RAM, ROM, otros modelos) con diagnostico claro en vez de aceptar la configuracion a medias; un cambio de opcion de reinicio exige recarga y no modifica el bound en caliente."
+      ],
+      "checks": [
+        "LR01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "La misma configuracion normalizada alimenta headless, libretro y wrapper, sin defaults divergentes; un cambio de reinicio necesita recarga."
+      ],
+      "stop": "No importar .uae entero; solo claves allowlist con diagnostico.",
       "evidence": null
     },
     {
