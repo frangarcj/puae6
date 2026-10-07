@@ -210,7 +210,7 @@ class NormalizationTests(unittest.TestCase):
 
     def test_unknown_and_reserved_keys_are_refused_and_every_problem_is_listed(self):
         self.refuses({"turbo": "yes"}, "option turbo is unknown (supported: video_standard")
-        self.refuses({"controller_port1": "Mouse"}, "option controller_port1 is not available yet")
+        self.refuses({"controller_port1": "Mouse"}, "option controller_port1 is not supported")
         self.refuses({"cpu_model": "68020", "video_standard": "SECAM", "turbo": 1}, "cpu_model", "SECAM", "turbo")
 
 

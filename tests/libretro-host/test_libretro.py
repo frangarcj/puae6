@@ -63,7 +63,7 @@ EXPORTS = [line[1:] for line in (ROOT / "adapters/libretro/exports.txt").read_te
 RUN = re.compile(r"^run (\d+) video=(\d+)x(\d+) pitch=(\d+) dupe=(\d) hash=(\w+) px=(\w+) audio=(\d+) polls=(\d+) states=(\d+) ahash=(\w+) unit=(\d+) ticks=(\d+)$",
                  re.M)
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
-TICKS = re.compile(r"^log \d+ \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+)$", re.M)
+TICKS = re.compile(r"^log \d+ \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+) keys=(\w+)$", re.M)
 CYCLE = re.compile(r"^cycle (\d+) end runs=(\d+) audio_frames=(\d+) audio_hash=(\w+)$", re.M)
 
 
@@ -166,7 +166,8 @@ class LibretroTests(LibretroHarness):
         out = self.frontend("boot", "--runs", 12).stdout
         runs = self.runs(out)
         self.assertEqual([r["n"] for r in runs], list(range(1, 13)))
-        self.assertTrue(all(r["polls"] == 1 and r["states"] == 14 for r in runs))             # 7 buttons on each of the 2 ports
+        # One poll, and the same few reads in every run (the keyboard table, the buttons and sticks of two ports): a bounded cost, no loop on the frontend.
+        self.assertTrue(all(r["polls"] == 1 and r["states"] == runs[0]["states"] and 14 <= r["states"] <= 256 for r in runs))
         self.assertTrue(all(r["size"] == (756, 574) and r["pitch"] >= 756 * 4 for r in runs))
         av = re.search(r"^av base=(\d+)x(\d+) max=(\d+)x(\d+) aspect=([\d.]+) fps=([\d.]+) rate=(\d+) region=(\d+)$", out, re.M)
         self.assertEqual((av[1], av[2], av[3], av[4], av[7], av[8]), ("756", "574", "760", "576", "48000", "1"))   # region 1 is PAL
@@ -179,9 +180,13 @@ class LibretroTests(LibretroHarness):
         # libretro joypad ids: B 0, A 8, X 9, UP 4, RIGHT 7 -> button 1, button 2, button 3, up, right.
         joy = self.frontend("boot", "--runs", 2, "--joy", "0:391", "--joy", "1:40").stdout
         ports = TICKS.search(joy)[3]
-        self.assertEqual(ports, "1:4f:0:0,1:20:0:0")              # BUTTON_1|2|3|UP|RIGHT = 0x4f; port 1 has LEFT (id 6) = 0x20
+        # Player 1 drives the joystick port (the second packet port): BUTTON_1|2|3|UP|RIGHT = 0x4f. By default it also owns the mouse port (an idle mouse), so
+        # player 2's pad (LEFT, id 6, 0x20) has no port; "Joystick only" (device 257) gives it the mouse port.
+        self.assertEqual(ports, "2:0:0:0,1:4f:0:0")
+        alone = self.frontend("boot", "--runs", 2, "--joy", "0:391", "--joy", "1:40", "--device", "0:257").stdout
+        self.assertEqual(TICKS.search(alone)[3], "1:20:0:0,1:4f:0:0")
         mouse = self.frontend("boot", "--runs", 2, "--mouse", "5,-3,5").stdout
-        self.assertEqual(TICKS.search(mouse)[3], "2:5:5:-3,1:0:0:0")   # left + middle = BUTTON_1|BUTTON_3; port 1 stays a joystick
+        self.assertEqual(TICKS.search(mouse)[3], "2:5:5:-3,1:0:0:0")   # left + middle = BUTTON_1|BUTTON_3; the mouse and player 1's pad work at once
 
     def test_a_frontend_that_refuses_every_optional_capability_still_gets_the_same_machine(self):
         normal = self.runs(self.frontend("boot", "--runs", 8).stdout)

@@ -18,12 +18,18 @@
 // unload. The frame (state_frame.h) carries what the adapter keeps between two runs, so that rewind, runahead and state files leave nothing of an
 // abandoned future behind. Without P6_CAP_STATE in the image the size is 0 and no state is offered.
 //
-// What this adapter does not do yet (see docs/02-contracts.md and the plan): the keyboard and the other port devices
-// (T17c), the other floppy formats (T17d), and any memory region.
+// Input (T17c): the keyboard, the mouse and the joystick are mapped in input_map.h, polled once per run like the rest. The ports offer a joystick, a
+// mouse (port 0), "keyboard only" and nothing through SET_CONTROLLER_INFO; the Amiga keyboard is attached whatever they hold. Player 1's joystick
+// drives the Amiga joystick port and, by default, the mouse the mouse port at the same time; player 2's joystick takes the mouse port when player 1 is set to
+// "Joystick only" (the mouse wins otherwise: see input_map.h). What the adapter keeps
+// between two runs for the input (the Caps Lock latch, mouse movement that did not fit a unit) is part of the saved adapter section.
+//
+// What this adapter does not do yet (see docs/02-contracts.md and the plan): the other floppy formats (T17d), and any memory region.
 #include "libretro.h"
 #include "p6.h"
 #include "content.h"
 #include "disk_control.h"
+#include "input_map.h"
 #include "options.h"
 #include "sha256.h"
 #include "state_frame.h"
@@ -78,7 +84,8 @@ struct Core {
     bool announced_size = false;
     p6_options::Settings settings;        // the options of the running machine (the schema's defaults while nothing is loaded)
     p6_options::Settings requested;       // what the frontend last asked for: a reboot option that differs from `settings` was reported once, not at every change
-    uint32_t device[2] = {RETRO_DEVICE_JOYPAD, RETRO_DEVICE_JOYPAD};
+    unsigned device[p6_libretro::kPortCount] = {RETRO_DEVICE_JOYPAD, RETRO_DEVICE_JOYPAD};     // the frontend's choice per port; it outlives an image
+    p6_libretro::InputMemory input;       // what the input keeps between two runs (state_frame.h carries it)
     std::vector<uint8_t> firmware;        // p6_load borrows it until p6_unload
     std::vector<Medium> media;            // the manifest: one entry per distinct disk of the content
     p6_libretro::DiskTray tray;           // the images of the playlist and the virtual tray (what the frontend asks for)
@@ -92,7 +99,7 @@ struct Core {
     uint32_t announced_width = 0, announced_height = 0;
     std::vector<uint8_t> blank;           // what a run shows before the first picture exists
     std::vector<int16_t> pending;         // interleaved stereo int16 the frontend has not taken yet
-    bool warned_overflow = false, warned_port = false;
+    bool warned_overflow = false;
     bool state_ready = false;             // the image carries P6_CAP_STATE (and the quirks were announced)
     size_t state_bytes = 0;               // the serialization size once asked for: header + adapter section + native bound, constant until unload
     uint32_t max_width = 0, max_height = 0;
@@ -155,44 +162,12 @@ void stop_image()
     core.last_picture.clear();
     core.pending.clear();
     core.warned_overflow = false;
+    core.input = p6_libretro::InputMemory();
     core.state_ready = false;
     core.state_bytes = 0;
     core.max_width = core.max_height = 0;
     core.section.clear();
     core.section.shrink_to_fit();
-}
-
-p6_input read_input()
-{
-    p6_input input = {};
-    input.abi_version = P6_ABI_VERSION;
-    input.struct_size = sizeof input;
-    for (unsigned port = 0; port < 2; ++port) {
-        p6_port_input &out = input.ports[port];
-        if (core.device[port] == RETRO_DEVICE_JOYPAD) {
-            auto pressed = [&](unsigned id) { return input_state_cb(port, RETRO_DEVICE_JOYPAD, 0, id) != 0; };
-            out.type = P6_PORT_JOYSTICK;
-            if (pressed(RETRO_DEVICE_ID_JOYPAD_B)) out.buttons |= P6_BUTTON_1;
-            if (pressed(RETRO_DEVICE_ID_JOYPAD_A)) out.buttons |= P6_BUTTON_2;
-            if (pressed(RETRO_DEVICE_ID_JOYPAD_X)) out.buttons |= P6_BUTTON_3;
-            if (pressed(RETRO_DEVICE_ID_JOYPAD_UP)) out.buttons |= P6_BUTTON_UP;
-            if (pressed(RETRO_DEVICE_ID_JOYPAD_DOWN)) out.buttons |= P6_BUTTON_DOWN;
-            if (pressed(RETRO_DEVICE_ID_JOYPAD_LEFT)) out.buttons |= P6_BUTTON_LEFT;
-            if (pressed(RETRO_DEVICE_ID_JOYPAD_RIGHT)) out.buttons |= P6_BUTTON_RIGHT;
-        } else if (core.device[port] == RETRO_DEVICE_MOUSE && port == 0) {
-            auto state = [&](unsigned id) { return int(input_state_cb(0, RETRO_DEVICE_MOUSE, 0, id)); };
-            out.type = P6_PORT_MOUSE;
-            out.dx = int16_t(std::clamp(state(RETRO_DEVICE_ID_MOUSE_X), -32768, 32767));
-            out.dy = int16_t(std::clamp(state(RETRO_DEVICE_ID_MOUSE_Y), -32768, 32767));
-            if (state(RETRO_DEVICE_ID_MOUSE_LEFT)) out.buttons |= P6_BUTTON_1;
-            if (state(RETRO_DEVICE_ID_MOUSE_RIGHT)) out.buttons |= P6_BUTTON_2;
-            if (state(RETRO_DEVICE_ID_MOUSE_MIDDLE)) out.buttons |= P6_BUTTON_3;
-        } else if (core.device[port] == RETRO_DEVICE_MOUSE && !core.warned_port) {
-            core.warned_port = true;
-            log(RETRO_LOG_WARN, "a mouse is only supported on port 0; port %u is left empty", port);
-        }
-    }
-    return input;
 }
 
 // The aspect ratio announced for a picture of width x height pixels whose pixel aspect is num:den: the machine's own, or a plain 4:3 when the
@@ -667,6 +642,7 @@ p6_libretro::Section capture_section()
     section.pending = core.pending;
     section.last_width = core.last_width;
     section.last_height = core.last_height;
+    section.input = core.input;
     if (!core.can_dupe && core.last_width) section.picture = core.last_picture;
     return section;
 }
@@ -680,11 +656,19 @@ void apply_section(p6_libretro::Section &&section)
     core.pending = std::move(section.pending);
     core.last_width = section.last_width;
     core.last_height = section.last_height;
+    core.input = section.input;
     core.last_picture.clear();
     if (!core.can_dupe) {
         if (section.picture.empty()) core.last_width = core.last_height = 0;       // saved by a frontend that repeats pictures: nothing to show again
         else core.last_picture = std::move(section.picture);
     }
+}
+
+// Player 2's joystick has no Amiga port while player 1 has the mouse: say so, since the default devices make it so.
+void note_shadowed_joystick()
+{
+    if (p6_libretro::joystick_shadowed_by_mouse(core.device))
+        log(RETRO_LOG_INFO, "player 2's joystick is not sent: the mouse holds its Amiga port (set player 1 to Joystick only to free it)");
 }
 
 }  // namespace
@@ -700,6 +684,7 @@ RETRO_API void retro_set_environment(retro_environment_t callback)
     if (environment_cb) {
         environment_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);   // optional
         p6_libretro::offer_options(environment_cb);                         // the richest interface the frontend has; none is not an error
+        p6_libretro::offer_controllers(environment_cb);
     }
 }
 
@@ -759,10 +744,15 @@ RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)
     info->timing.sample_rate = core.settings.audio_rate_hz;
 }
 
+// The device of a port is the frontend's choice, not part of the machine: the next retro_run reads the port as it is then. A type the port was not
+// offered (a mouse in port 1, which the contract does not have) is refused and the port keeps what it had.
 RETRO_API void retro_set_controller_port_device(unsigned port, unsigned device)
 {
-    if (port < 2 && (device == RETRO_DEVICE_NONE || device == RETRO_DEVICE_JOYPAD || device == RETRO_DEVICE_MOUSE))
+    if (p6_libretro::device_allowed(port, device)) {
+        const bool changed = core.device[port] != device;
         core.device[port] = device;
+        if (changed) note_shadowed_joystick();
+    } else log(RETRO_LOG_WARN, "device %u is not available in port %u; the port keeps device %u", device, port, port < p6_libretro::kPortCount ? core.device[port] : 0);
 }
 
 RETRO_API void retro_reset(void)
@@ -788,16 +778,17 @@ RETRO_API void retro_run(void)
     if (!core.faulted) {
         apply_disk_requests();      // what the frontend asked of the tray since the last unit lands on this boundary
         input_poll_cb();
-        const p6_input input = read_input();
+        const p6_input input = p6_libretro::read_input(input_state_cb, core.device, &core.input);
         frame.abi_version = P6_ABI_VERSION;
         frame.struct_size = sizeof frame;
         p6_error error = make_error();
         const p6_result result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
         if (result == P6_OK) {
             have_frame = true;
-            log(RETRO_LOG_DEBUG, "unit=%llu ticks=%llu ports=%u:%x:%d:%d,%u:%x:%d:%d", (unsigned long long)frame.unit_index,
+            log(RETRO_LOG_DEBUG, "unit=%llu ticks=%llu ports=%u:%x:%d:%d,%u:%x:%d:%d keys=%08x%08x%08x%08x", (unsigned long long)frame.unit_index,
                 (unsigned long long)frame.master_ticks, input.ports[0].type, input.ports[0].buttons, input.ports[0].dx,
-                input.ports[0].dy, input.ports[1].type, input.ports[1].buttons, input.ports[1].dx, input.ports[1].dy);
+                input.ports[0].dy, input.ports[1].type, input.ports[1].buttons, input.ports[1].dx, input.ports[1].dy, input.keys[3], input.keys[2],
+                input.keys[1], input.keys[0]);
         } else {
             report("p6_run_frame", result, error);
             core.faulted = true;
@@ -906,6 +897,8 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         log(RETRO_LOG_ERROR, "the frontend does not accept XRGB8888, the only pixel format of this core");
         return false;
     }
+    p6_libretro::offer_input_descriptors(environment_cb);
+    note_shadowed_joystick();
     bool can_dupe = false;
     core.can_dupe = environment_cb(RETRO_ENVIRONMENT_GET_CAN_DUPE, &can_dupe) && can_dupe;
     // The options are read before anything is loaded: a value the schema does not allow stops here, and these are the values the machine runs with.

@@ -18,6 +18,10 @@
 // run n is at position n, a load puts the position back where its state was saved, and a speculative run after run n is at position n+1, n+2, ... Scripted input
 // (--joy-at) and disk commands (--disk, --disk-during) belong to a position, so a branch that runs ahead sees the future input and a replay after a load sees it again.
 //   [--do RUN:ACTION]... [--ahead RUN:K]... [--ahead-every K] [--joy-at POSITION:PORT:MASK]...
+// Input (T17c): the host plays a keyboard, a mouse and an analog stick as well. --key-at POSITION:RETROK:1|0 puts a key (a RETROK_* number) down or up from POSITION on;
+// --mouse-at POSITION:DX,DY,BUTTONS moves the mouse by DX,DY in that position only and holds BUTTONS (bit 0 left, 1 right, 2 middle) from there on (like --mouse it only scripts what the
+// mouse reports: the device of port 0 stays the core's default, "Joystick + Mouse", unless --device says otherwise); --analog PORT:X,Y holds the left stick; --device PORT:ID is retro_set_controller_port_device before the load, and the action device:PORT:ID
+// is the same call between two runs, as a menu does. The core's debug log shows the packet each run sent, "ports=... keys=...".
 // ACTION, executed after visible run RUN (0 is before the first run): save:SLOT, load:SLOT[:VARIANT], savefile:PATH, loadfile:PATH[:VARIANT], reset,
 // images (print the Disk Control view: count, index, eject), disk:COMMAND (a Disk Control call between two runs, see COMMAND below).
 // A saved blob is the whole serialize_size bytes, prefilled with 0xA5 so that bytes the core does not write are noticed. VARIANT is a list of edits made to a
@@ -94,6 +98,22 @@ struct Options {
         unsigned port, mask;
     };
     std::vector<JoyStep> joy_steps;
+    struct KeyStep {
+        int position;
+        unsigned code;
+        bool down;
+    };
+    std::vector<KeyStep> key_steps;
+    struct MouseStep {
+        int position, dx, dy;
+        unsigned buttons;
+    };
+    std::vector<MouseStep> mouse_steps;
+    int analog[2][2] = {{0, 0}, {0, 0}};
+    struct DeviceSetting {
+        unsigned port, device;
+    };
+    std::vector<DeviceSetting> devices;                         // before the load
 } options;
 
 // The core's entry points.
@@ -419,6 +439,27 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         *static_cast<bool *>(data) = variable_update;
         variable_update = false;
         return true;
+    case RETRO_ENVIRONMENT_SET_CONTROLLER_INFO: {
+        if (options.reject_optional) return false;
+        int port = 0;
+        for (const retro_controller_info *info = static_cast<const retro_controller_info *>(data); info && info->types; ++info, ++port) {
+            printf("controller port %d:", port);
+            for (unsigned i = 0; i < info->num_types; ++i) {
+                if (!info->types[i].desc) violation("controller port %d: a type without a description", port);
+                printf(" %s=%u", info->types[i].desc ? info->types[i].desc : "?", info->types[i].id);
+            }
+            printf("\n");
+        }
+        return true;
+    }
+    case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS: {
+        if (options.reject_optional) return false;
+        int count = 0, ports_seen = 0;
+        for (const retro_input_descriptor *d = static_cast<const retro_input_descriptor *>(data); d && d->description; ++d, ++count)
+            ports_seen |= 1 << d->port;
+        printf("input descriptors count=%d ports=%d\n", count, ports_seen);
+        return true;
+    }
     case RETRO_ENVIRONMENT_SHUTDOWN:
         shutdown_requested = true;
         return true;
@@ -485,20 +526,38 @@ void RETRO_CALLCONV input_poll(void) { ++run.polls; }
 int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned index, unsigned id)
 {
     ++run.states;
-    if (index != 0 || port > 1) return 0;
+    if (port > 1) return 0;
+    if (device == RETRO_DEVICE_KEYBOARD) {
+        bool down = false;
+        for (const Options::KeyStep &step : options.key_steps)            // the last change of this key at or before this position holds
+            if (step.code == id && step.position <= position) down = step.down;
+        return down ? 1 : 0;
+    }
+    if (device == RETRO_DEVICE_ANALOG && index == RETRO_DEVICE_INDEX_ANALOG_LEFT) {
+        if (id == RETRO_DEVICE_ID_ANALOG_X) return int16_t(options.analog[port][0]);
+        if (id == RETRO_DEVICE_ID_ANALOG_Y) return int16_t(options.analog[port][1]);
+        return 0;
+    }
+    if (index != 0) return 0;
     if (device == RETRO_DEVICE_JOYPAD) {
         unsigned mask = options.joy[port];
         for (const Options::JoyStep &step : options.joy_steps)            // the last change at or before this position holds
             if (step.port == port && step.position <= position) mask = step.mask;
         return int16_t((mask >> id) & 1);
     }
-    if (device == RETRO_DEVICE_MOUSE && port == 0 && options.mouse) {
+    if (device == RETRO_DEVICE_MOUSE && port == 0 && (options.mouse || !options.mouse_steps.empty())) {
+        int dx = options.mouse ? options.mouse_dx : 0, dy = options.mouse ? options.mouse_dy : 0;
+        unsigned buttons = options.mouse ? options.mouse_buttons : 0;
+        for (const Options::MouseStep &step : options.mouse_steps) {
+            if (step.position == position) dx = step.dx, dy = step.dy;     // movement belongs to one position only
+            if (step.position <= position) buttons = step.buttons;
+        }
         switch (id) {
-        case RETRO_DEVICE_ID_MOUSE_X: return int16_t(options.mouse_dx);
-        case RETRO_DEVICE_ID_MOUSE_Y: return int16_t(options.mouse_dy);
-        case RETRO_DEVICE_ID_MOUSE_LEFT: return int16_t(options.mouse_buttons & 1);
-        case RETRO_DEVICE_ID_MOUSE_RIGHT: return int16_t((options.mouse_buttons >> 1) & 1);
-        case RETRO_DEVICE_ID_MOUSE_MIDDLE: return int16_t((options.mouse_buttons >> 2) & 1);
+        case RETRO_DEVICE_ID_MOUSE_X: return int16_t(dx);
+        case RETRO_DEVICE_ID_MOUSE_Y: return int16_t(dy);
+        case RETRO_DEVICE_ID_MOUSE_LEFT: return int16_t(buttons & 1);
+        case RETRO_DEVICE_ID_MOUSE_RIGHT: return int16_t((buttons >> 1) & 1);
+        case RETRO_DEVICE_ID_MOUSE_MIDDLE: return int16_t((buttons >> 2) & 1);
         default: return 0;
         }
     }
@@ -648,6 +707,10 @@ void do_action(const std::string &text)
     } else if (command == "reset") {
         core.reset();
         printf("state reset\n");
+    } else if (command == "device") {
+        const unsigned port = unsigned(atoi(argument.c_str())), device = unsigned(atoi(variant.c_str()));
+        core.set_controller_port_device(port, device);
+        printf("state device port=%u device=%u\n", port, device);
     } else if (command == "images") {
         printf("state images count=%u index=%u eject=%d\n", disk_registered ? disk.get_num_images() : 0, disk_registered ? disk.get_image_index() : 0,
                int(disk_registered && disk.get_eject_state()));
@@ -803,6 +866,27 @@ bool parse(int argc, char **argv)
             if (sscanf(next(), "%d:%u:%x", &step.position, &step.port, &step.mask) != 3 || step.port > 1) return false;
             options.joy_steps.push_back(step);
         }
+        else if (!strcmp(a, "--key-at")) {
+            Options::KeyStep step = {};
+            int down = 0;
+            if (sscanf(next(), "%d:%u:%d", &step.position, &step.code, &down) != 3) return false;
+            step.down = down != 0;
+            options.key_steps.push_back(step);
+        } else if (!strcmp(a, "--mouse-at")) {
+            Options::MouseStep step = {};
+            if (sscanf(next(), "%d:%d,%d,%u", &step.position, &step.dx, &step.dy, &step.buttons) != 4) return false;
+            options.mouse_steps.push_back(step);
+        } else if (!strcmp(a, "--analog")) {
+            unsigned port = 0;
+            int x = 0, y = 0;
+            if (sscanf(next(), "%u:%d,%d", &port, &x, &y) != 3 || port > 1) return false;
+            options.analog[port][0] = x;
+            options.analog[port][1] = y;
+        } else if (!strcmp(a, "--device")) {
+            Options::DeviceSetting setting = {};
+            if (sscanf(next(), "%u:%u", &setting.port, &setting.device) != 2) return false;
+            options.devices.push_back(setting);
+        }
         else if (!strcmp(a, "--audio-partial")) options.audio_partial = size_t(atol(next()));
         else if (!strcmp(a, "--audio-stall")) sscanf(next(), "%d:%d", &options.stall_first, &options.stall_last);
         else if (!strcmp(a, "--joy")) {
@@ -847,7 +931,7 @@ int main(int argc, char **argv)
     core.get_system_info(&info);
     printf("core name=%s version=%s extensions=%s need_fullpath=%d\n", info.library_name, info.library_version, info.valid_extensions,
            int(info.need_fullpath));
-    if (options.mouse) core.set_controller_port_device(0, RETRO_DEVICE_MOUSE);
+    for (const Options::DeviceSetting &setting : options.devices) core.set_controller_port_device(setting.port, setting.device);
 
     int status = 0;
     for (int cycle = 1; cycle <= options.cycles && !status; ++cycle) {

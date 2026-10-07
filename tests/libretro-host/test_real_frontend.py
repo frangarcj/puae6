@@ -30,7 +30,7 @@ IMAGE = "puae6-libretro-test"
 DOCKER_DIR = ROOT / "tests/libretro-host/docker"
 LINUX_BUILD = "build/arm64"            # inside the container; on the host it is build/linux/arm64
 FRAMES = 120
-UNIT = re.compile(r"^\[libretro DEBUG\] \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+)$", re.M)
+UNIT = re.compile(r"^\[libretro DEBUG\] \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+) keys=(\w+)$", re.M)
 HEADLESS = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
 
 
@@ -135,13 +135,31 @@ class RealFrontendTests(unittest.TestCase):
         self.assertGreaterEqual(len(units), FRAMES)
         self.assertEqual([u[0] for u in units], list(range(1, len(units) + 1)))                   # one unit per frame, none skipped or repeated
         self.assertTrue(all(b[1] > a[1] for a, b in zip(units, units[1:])))
-        self.assertEqual(set(m[3] for m in UNIT.finditer(text)), {"1:0:0:0,1:0:0:0"})              # its input polls reach the bridge: nothing pressed
+        self.assertEqual(set(m[3] for m in UNIT.finditer(text)), {"2:0:0:0,1:0:0:0"})              # its input polls reach the bridge: nothing pressed
         self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")                               # nothing the core itself complained about
         frontend_errors = [line for line in text.splitlines() if line.startswith("[ERROR]")]
         # What RetroArch reports about its own null audio driver, menu and MIDI in a container is not about the core.
         self.assertEqual([line for line in frontend_errors if not re.search(r"audio driver|menu driver|MIDI", line)], [])
         self.assertIn("Unloading game", text)
         self.assertIn("Unloading core", text)
+
+    def test_the_frontend_accepts_the_controller_info_and_input_descriptors_and_the_core_polls_a_keyboard_that_nobody_presses(self):
+        # T17c. RetroArch is started with input_driver "null": there is no device to press, so no key, mouse movement or button can be injected from
+        # outside (its network commands carry no input), and what the real frontend can show is that it takes the declared types (mouse in port 1 only,
+        # joystick-only in port 1 and keyboard-only in both, besides the RetroPad and None it adds itself) and the descriptors, and that the core polls every unit without anything
+        # arriving. The mapping itself is tested with the minimal frontend (tests/libretro-host/test_input.py).
+        text = self.retroarch("input", frames=20)
+        info = text[text.index("SET_CONTROLLER_INFO."):text.index("SET_INPUT_DESCRIPTORS")]
+        first, second = info.split("Port 2:")
+        self.assertIn('"Mouse only (Amiga port 1)" (2)', first)
+        self.assertIn('"Joystick only (Amiga port 2)" (257)', first)                                  # the subclass of the RetroPad that frees the mouse port
+        self.assertIn('"Keyboard only (port empty)" (3)', first)
+        self.assertIn('"Keyboard only (port empty)" (3)', second)
+        self.assertNotIn("(2)", second)                                                            # the contract has no mouse in player 2
+        self.assertIn("SET_INPUT_DESCRIPTORS", text)
+        self.assertEqual(set(m[3] for m in UNIT.finditer(text)), {"2:0:0:0,1:0:0:0"})
+        self.assertEqual(set(m[4] for m in UNIT.finditer(text)), {"0" * 32})                      # the 128-bit keyboard bitmap: nothing pressed
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
 
     def test_the_frontend_sees_the_same_ticks_as_the_headless_adapter_on_both_systems_and_in_every_process(self):
         native = subprocess.run([str(self.macos_headless), "--run", str(self.rom), "--units", str(FRAMES)], capture_output=True, text=True, timeout=600)

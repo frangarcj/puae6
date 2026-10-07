@@ -114,9 +114,17 @@ class WrapperParity(Schema):
         body = re.search(r"class Puae6SyncSettings\s*\{(.*?)public Puae6SyncSettings Clone", cls.settings, re.S)
         cls.properties = {m[2]: (m[1], m[3]) for m in re.finditer(r"public (\w+) (\w+) \{ get; set; \} = ([^;]+);", body[1])}
 
+    # Settings of the wrapper that are input, not configuration (T17c): the schema lists them as unsupported options, with the reason, and each one is
+    # accounted for here by the key that refuses it.
+    INPUT_SETTINGS = {"ControllerPort1": "controller_port1", "ControllerPort2": "controller_port2"}
+
     def test_every_sync_setting_is_a_schema_option_or_reserved_in_it(self):
         known = {o["wrapper"]["setting"] for o in self.reboot.values() if o["wrapper"]["how"] == "setting"}
         known |= {entry["wrapper_setting"] for entry in self.schema["reserved"]}
+        unsupported = {entry["key"] for entry in self.schema["unsupported"]}
+        for setting, key in self.INPUT_SETTINGS.items():
+            self.assertIn(key, unsupported, f"{setting} is input; the schema must say why {key} is not an option")
+        known |= set(self.INPUT_SETTINGS)
         self.assertEqual(set(self.properties), known, "the wrapper has a sync setting the schema does not know, or lacks one it lists")
 
     def test_the_settings_have_the_schema_defaults_and_the_enum_has_the_schema_values(self):

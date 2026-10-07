@@ -99,8 +99,6 @@
     }
   ],
   "reserved": [
-    {"id": "controller_port1", "for": "T17c", "wrapper_setting": "ControllerPort1", "why": "The port devices of libretro are decided with the input work (keyboard, mouse, joystick); the wrapper's value is a per-session choice that is not a p6_config field."},
-    {"id": "controller_port2", "for": "T17c", "wrapper_setting": "ControllerPort2", "why": "As controller_port1."},
     {"id": "floppy_drives", "for": "a later media task", "wrapper_setting": "FloppyDrives", "why": "How many of the given disks start in a drive is a media placement made with media events (DF0 and DF1 exist in the bridge); libretro drives DF0 alone from Disk Control, so there is nothing to offer yet."}
   ],
   "unsupported": [
@@ -113,6 +111,8 @@
     {"key": "floppy_speed", "why": "Turbo floppy would change the timing of the machine; the profile fixes the real drive speed."},
     {"key": "cpu_speed", "why": "The machine runs at its real clock; the host speed never changes the emulation."},
     {"key": "jit", "why": "The deterministic profile has no JIT."},
-    {"key": "uae_config_file", "why": "A whole .uae file is not imported; only the keys of this schema are accepted."}
+    {"key": "uae_config_file", "why": "A whole .uae file is not imported; only the keys of this schema are accepted."},
+    {"key": "controller_port1", "why": "The device of a port is input, not configuration: the libretro core offers its types with SET_CONTROLLER_INFO and reads the one chosen with retro_set_controller_port_device at every run (T17c), and the wrapper's ControllerPort1 is a per-session choice; it is not a p6_config field and never enters config_hash."},
+    {"key": "controller_port2", "why": "As controller_port1 (the wrapper's ControllerPort2)."}
   ]
 }

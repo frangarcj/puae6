@@ -10042,7 +10042,7 @@
       "title": "Teclado, raton y dispositivos de puerto en el adaptador libretro (paridad con PUAE5)",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17a"
       ],
@@ -10052,12 +10052,15 @@
       ],
       "touch": [
         "adapters/libretro/**",
-        "tests/libretro-host/**"
+        "tests/libretro-host/**",
+        "config/schema/**",
+        "docs/02-contracts.md"
       ],
       "steps": [
         "El adaptador libretro solo mapea joypad (T16). Mapear RETRO_DEVICE_KEYBOARD al teclado Amiga (p6_input keys, mismo mapa que el contrato y que el wrapper BizHawk), RETRO_DEVICE_MOUSE al raton del puerto 0 (delta relativo por unidad) y ofrecer los tipos de dispositivo por puerto (joystick, raton, ninguno) con SET_CONTROLLER_INFO.",
         "El input se lee una vez por retro_run y entra por p6_run_frame como cualquier otro: ningun callback de teclado cambia la maquina fuera de la frontera.",
-        "Paridad con PUAE5 (libretro-uae de MacHawk): inventariar sus dispositivos y su mapa por defecto y cubrir al menos lo mismo; lo que no se cubra se documenta con motivo."
+        "Paridad con PUAE5 (libretro-uae de MacHawk): inventariar sus dispositivos y su mapa por defecto y cubrir al menos lo mismo; lo que no se cubra se documenta con motivo.",
+        "Ampliacion touch (2026-10-08): config/schema/** (controller_port1/2 dejan de estar reservados: el dispositivo de puerto es entrada, no configuracion) y docs/02-contracts.md (parrafo de entrada libretro). Reparto de puertos por defecto como PUAE5 y el wrapper BizHawk: el RetroPad 1 maneja el joystick del puerto Amiga 1 y el raton va al puerto Amiga 0."
       ],
       "checks": [
         "LR01",

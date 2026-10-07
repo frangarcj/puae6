@@ -13,13 +13,15 @@
 //
 // The adapter section carries what the adapter keeps between two runs and the frontend has not seen the effect of yet: the disk tray (selection, open
 // tray, requests not applied, the medium the drive holds, the media-event counter), the audio the frontend has not taken, and the geometry (and, for
-// a frontend that cannot repeat a picture, the pixels) of the last picture. All of it belongs to the saved timeline, so a rewind or a runahead branch
-// leaves no input, audio or disk request of the abandoned future behind. Input is not carried: the adapter reads it afresh in every retro_run and the
-// bridge's own edge state is in the native state. Every number is little-endian, whatever the host is.
+// a frontend that cannot repeat a picture, the pixels) of the last picture, and the input memory (T17c: the Caps Lock latch and the mouse movement that did
+// not fit a unit). All of it belongs to the saved timeline, so a rewind or a runahead branch leaves no input, audio or disk request of the abandoned
+// future behind. What the frontend holds down is not carried: the adapter reads it afresh in every retro_run and the bridge's own edge state is in the
+// native state. Every number is little-endian, whatever the host is.
 #ifndef P6_LIBRETRO_STATE_FRAME_H
 #define P6_LIBRETRO_STATE_FRAME_H
 
 #include "disk_control.h"
+#include "input_map.h"
 #include "sha256.h"
 
 #include <stddef.h>
@@ -30,7 +32,7 @@
 namespace p6_libretro {
 
 constexpr size_t kStateHeaderBytes = 64;
-constexpr uint32_t kStateVersion = 1;
+constexpr uint32_t kStateVersion = 2;       // 2: the input memory joined the section (T17c)
 constexpr size_t kSectionAlign = 16;
 constexpr size_t kMaxImages = 16;                                   // P6_MAX_MEDIA: a playlist cannot name more
 
@@ -63,6 +65,7 @@ struct Section {
     std::vector<int16_t> pending;           // interleaved stereo
     uint32_t last_width = 0, last_height = 0;
     std::vector<uint8_t> picture;           // last_width * last_height * 4 bytes, or empty
+    InputMemory input;
 };
 
 // The most a section can take for the given limits; the serialization size is built from it, so it must hold for every Section the adapter can make.
@@ -89,6 +92,9 @@ inline void encode_section(const Section &section, std::vector<uint8_t> *out)
     u32(section.last_height);
     u32(uint32_t(section.picture.size()));
     out->insert(out->end(), section.picture.begin(), section.picture.end());
+    u32((section.input.caps_latched ? 1u : 0u) | (section.input.caps_held ? 2u : 0u));
+    u32(uint32_t(section.input.mouse_rx));
+    u32(uint32_t(section.input.mouse_ry));
     out->resize(align_up(out->size(), kSectionAlign), 0);
 }
 
@@ -134,6 +140,16 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     if (!room(picture)) return fail("the section is cut short");
     out->picture.assign(data + at, data + at + picture);
     at += picture;
+    if (!room(12)) return fail("the section is cut short");
+    const uint32_t input_flags = get32(data + at);
+    const int32_t rx = int32_t(get32(data + at + 4)), ry = int32_t(get32(data + at + 8));
+    at += 12;
+    if (input_flags & ~3u) return fail("unknown input flags");
+    if (rx < -kMouseBacklog || rx > kMouseBacklog || ry < -kMouseBacklog || ry > kMouseBacklog) return fail("the mouse movement owed is beyond the backlog");
+    out->input.caps_latched = input_flags & 1;
+    out->input.caps_held = input_flags & 2;
+    out->input.mouse_rx = rx;
+    out->input.mouse_ry = ry;
     if (align_up(at, kSectionAlign) != size) return fail("the section has bytes it does not describe");
     for (; at < size; ++at)
         if (data[at]) return fail("the section padding is not zero");
