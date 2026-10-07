@@ -60,14 +60,17 @@ def adf(seed):
 BUILD = ROOT / "build/link-audit"
 FIXTURES = ROOT / "tests/fixtures/microrom"
 EXPORTS = [line[1:] for line in (ROOT / "adapters/libretro/exports.txt").read_text().split()]
-RUN = re.compile(r"^run (\d+) video=(\d+)x(\d+) pitch=(\d+) dupe=(\d) hash=(\w+) px=(\w+) audio=(\d+) polls=(\d+) states=(\d+)$", re.M)
+RUN = re.compile(r"^run (\d+) video=(\d+)x(\d+) pitch=(\d+) dupe=(\d) hash=(\w+) px=(\w+) audio=(\d+) polls=(\d+) states=(\d+) ahash=(\w+) unit=(\d+) ticks=(\d+)$",
+                 re.M)
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
 TICKS = re.compile(r"^log \d+ \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+)$", re.M)
 CYCLE = re.compile(r"^cycle (\d+) end runs=(\d+) audio_frames=(\d+) audio_hash=(\w+)$", re.M)
 
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
-class LibretroTests(unittest.TestCase):
+class LibretroHarness(unittest.TestCase):
+    """The build, the micro-ROMs and one process of the minimal frontend; the tests of LibretroTests and tests/libretro-host/test_state.py stand on it."""
+
     @classmethod
     def setUpClass(cls):
         cls.host = build_probe(BUILD, False, "p6_libretro_host")
@@ -127,10 +130,24 @@ class LibretroTests(unittest.TestCase):
         return {int(m[1]): {"ticks": int(m[2]), "video": int(m[3]), "size": (int(m[4]), int(m[5])), "hash": m[6], "audio": int(m[7])}
                 for m in UNIT.finditer(result.stdout)}
 
+    def playlist(self, text, files=("a.adf", "b.adf"), name="list.m3u", encoding="utf-8", prefix=b""):
+        directory = self.work()
+        for file in files:
+            path = directory / file
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(adf(file))
+        (directory / name).write_bytes(prefix + text.encode(encoding))
+        return directory / name
+
     @staticmethod
     def runs(text):
         return [{"n": int(m[1]), "size": (int(m[2]), int(m[3])), "pitch": int(m[4]), "dupe": int(m[5]), "hash": m[6], "audio": int(m[8]),
-                 "px": m[7], "polls": int(m[9]), "states": int(m[10])} for m in RUN.finditer(text)]
+                 "px": m[7], "polls": int(m[9]), "states": int(m[10]), "ahash": m[11], "unit": int(m[12]), "ticks": int(m[13])}
+                for m in RUN.finditer(text)]
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class LibretroTests(LibretroHarness):
 
     # --- the library -----------------------------------------------------------------------------------------------------------------
 
@@ -243,8 +260,13 @@ class LibretroTests(unittest.TestCase):
         self.assertEqual(len(cycles), 6)
         self.assertEqual(len({c[1:] for c in cycles}), 1, cycles)                               # runs, audio frames and the PCM stream are identical
 
-    def test_the_serialization_size_is_zero_because_no_state_is_implemented(self):
-        self.assertNotIn("VIOLATION", self.frontend("boot", "--runs", 3).stdout)                # host.cpp checks size == 0 after every run
+    def test_the_serialization_size_is_announced_once_and_never_changes(self):
+        # T18: the host checks after every run that retro_serialize_size is what it was after the load; tests/libretro-host/test_state.py does the states.
+        out = self.frontend("boot", "--runs", 3, "--cycles", 2).stdout
+        sizes = re.findall(r"(?m)^state size=(\d+)$", out)
+        self.assertEqual(len(sizes), 2)
+        self.assertGreater(int(sizes[0]), 1_000_000)
+        self.assertEqual(sizes[0], sizes[1])
 
     # --- T17a: the Kickstart is found in the system directory, by name, and recognized by its bytes -----------------------------------
 
@@ -317,15 +339,6 @@ class LibretroTests(unittest.TestCase):
         self.assertIn("images count=0 index=0 eject=0", out)
         self.assertNotIn("DF0:", out)
         self.assertEqual(len(self.runs(out)), 4)
-
-    def playlist(self, text, files=("a.adf", "b.adf"), name="list.m3u", encoding="utf-8", prefix=b""):
-        directory = self.work()
-        for file in files:
-            path = directory / file
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(adf(file))
-        (directory / name).write_bytes(prefix + text.encode(encoding))
-        return directory / name
 
     def test_an_m3u_names_the_disks_with_relative_paths_labels_comments_and_any_line_end(self):
         for label, text, prefix in (("lf", "#EXTM3U\n# a comment\n\na.adf|Disk A\nb.adf|\n", b""),
@@ -662,7 +675,7 @@ class LibretroTests(unittest.TestCase):
         base = self.frontend("boot", "--runs", 14).stdout
         changed = self.frontend("boot", "--runs", 14, "--set-at", "6:puae6_video_standard=NTSC", "--set-at", "7:puae6_audio_rate=44100").stdout
         # The run, the announced av info and the region are those of the machine that is running; the host also checks after every run that
-        # the serialization size did not move (it is 0 until T18 gives states, and the state bound hangs from the same identity).
+        # the serialization size did not move (the state bound hangs from the same identity).
         self.assertEqual(self.machine(changed), self.machine(base))
         self.assertEqual(CYCLE.search(changed).groups(), CYCLE.search(base).groups())
         self.assertEqual(self.av(changed), self.av(base) * 3)                                    # the line at load and the one after each change

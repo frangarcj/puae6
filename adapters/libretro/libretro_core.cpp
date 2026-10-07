@@ -14,14 +14,19 @@
 // are read when the content is loaded and become the p6_config; a change made while the machine runs is reported and only applies after a reload. The
 // presentation option (aspect) is applied at once. A value outside the schema fails the load, naming the key and the value.
 //
+// Save states (T18): retro_serialize_size is the frame header, the adapter section and the native state bound (p6_state_bound), and stays the same until
+// unload. The frame (state_frame.h) carries what the adapter keeps between two runs, so that rewind, runahead and state files leave nothing of an
+// abandoned future behind. Without P6_CAP_STATE in the image the size is 0 and no state is offered.
+//
 // What this adapter does not do yet (see docs/02-contracts.md and the plan): the keyboard and the other port devices
-// (T17c), the other floppy formats (T17d), save states (T18: serialize_size is 0, which is the honest answer until then), and any memory region.
+// (T17c), the other floppy formats (T17d), and any memory region.
 #include "libretro.h"
 #include "p6.h"
 #include "content.h"
 #include "disk_control.h"
 #include "options.h"
 #include "sha256.h"
+#include "state_frame.h"
 
 #include <algorithm>
 #include <stdarg.h>
@@ -88,6 +93,10 @@ struct Core {
     std::vector<uint8_t> blank;           // what a run shows before the first picture exists
     std::vector<int16_t> pending;         // interleaved stereo int16 the frontend has not taken yet
     bool warned_overflow = false, warned_port = false;
+    bool state_ready = false;             // the image carries P6_CAP_STATE (and the quirks were announced)
+    size_t state_bytes = 0;               // the serialization size once asked for: header + adapter section + native bound, constant until unload
+    uint32_t max_width = 0, max_height = 0;
+    std::vector<uint8_t> section;         // scratch for the encoded adapter section
 } core;
 
 struct CallGuard {
@@ -146,6 +155,11 @@ void stop_image()
     core.last_picture.clear();
     core.pending.clear();
     core.warned_overflow = false;
+    core.state_ready = false;
+    core.state_bytes = 0;
+    core.max_width = core.max_height = 0;
+    core.section.clear();
+    core.section.shrink_to_fit();
 }
 
 p6_input read_input()
@@ -594,6 +608,85 @@ void register_disk_control()
     environment_cb(RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE, &legacy);
 }
 
+// A state is offered only by an image that links the native state (P6_CAP_STATE). The quirks say what is true of it: the native state is valid in the
+// same build, firmware, configuration and media only (so it is not portable across platforms). The state is complete and its size fixed, so neither
+// INCOMPLETE nor CORE_VARIABLE_SIZE is set. MUST_INITIALIZE is not set either although retro_serialize fails until the first unit has run: it would mean the
+// size is not known after the load, which it is, and RetroArch turns run-ahead off for a core that says so; a frontend that serializes before the first
+// run is told no (false), as the contract has it.
+void announce_state_support()
+{
+    p6_caps caps = {};
+    caps.abi_version = P6_ABI_VERSION;
+    caps.struct_size = sizeof caps;
+    p6_query_caps(&caps, nullptr);
+    core.max_width = caps.max_video_width;
+    core.max_height = caps.max_video_height;
+    core.state_ready = (caps.flags & P6_CAP_STATE) != 0 && core.max_width && core.max_height;
+    if (!core.state_ready) return;
+    uint64_t quirks = RETRO_SERIALIZATION_QUIRK_ENDIAN_DEPENDENT | RETRO_SERIALIZATION_QUIRK_PLATFORM_DEPENDENT;       // the frontend reads 64 bits
+    environment_cb(RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS, &quirks);       // optional: a frontend that ignores it only loses its hint
+}
+
+// --- Save states: the native state inside the adapter's frame (state_frame.h) -------------------------------------------------------------------
+
+// The audio the frontend has not taken is bounded by the queue limit; the picture is carried only for a frontend that cannot repeat one, and that is what
+// the serialization size makes room for. A state may come from a frontend of the other kind: loading accepts the larger section (the picture is then
+// dropped or used), saving never writes more than the size announced.
+size_t section_limit(bool any_frontend = false)
+{
+    return p6_libretro::section_bound(kPendingAudioFrames * 2, core.can_dupe && !any_frontend ? 0 : size_t(core.max_width) * core.max_height * 4);
+}
+
+// The one size the frontend allocates for every state of this load. Asked for after the load, it is computed once and kept: the native bound is a
+// fact of the configuration and the media, not of time, and the adapter's part has a ceiling of its own. 0 when no state can be offered.
+size_t state_size()
+{
+    if (!core.loaded || core.faulted || !core.state_ready) return 0;
+    if (core.state_bytes) return core.state_bytes;
+    uint64_t bound = 0;
+    p6_error error = make_error();
+    const p6_result result = p6_state_bound(&bound, &error);
+    if (result != P6_OK) {
+        report("p6_state_bound", result, error);
+        return 0;
+    }
+    const size_t head = p6_libretro::kStateHeaderBytes + section_limit();
+    if (bound == 0 || bound > SIZE_MAX / 2 - head) {
+        log(RETRO_LOG_ERROR, "the native state bound (%llu bytes) does not fit a serialization size", (unsigned long long)bound);
+        return 0;
+    }
+    core.state_bytes = head + size_t(bound);
+    return core.state_bytes;
+}
+
+p6_libretro::Section capture_section()
+{
+    p6_libretro::Section section;
+    section.tray = core.tray.snapshot();
+    section.event_sequence = core.event_sequence;
+    section.pending = core.pending;
+    section.last_width = core.last_width;
+    section.last_height = core.last_height;
+    if (!core.can_dupe && core.last_width) section.picture = core.last_picture;
+    return section;
+}
+
+// What a load makes of the adapter's side once the machine has accepted the state: the saved timeline's tray, event counter, pending audio and last
+// picture replace those of the timeline being abandoned. The geometry already announced is the frontend's knowledge and stays.
+void apply_section(p6_libretro::Section &&section)
+{
+    core.tray.restore(section.tray);
+    core.event_sequence = section.event_sequence;
+    core.pending = std::move(section.pending);
+    core.last_width = section.last_width;
+    core.last_height = section.last_height;
+    core.last_picture.clear();
+    if (!core.can_dupe) {
+        if (section.picture.empty()) core.last_width = core.last_height = 0;       // saved by a frontend that repeats pictures: nothing to show again
+        else core.last_picture = std::move(section.picture);
+    }
+}
+
 }  // namespace
 
 extern "C" {
@@ -717,9 +810,86 @@ RETRO_API void retro_run(void)
     deliver_audio(frame, have_frame);
 }
 
-RETRO_API size_t retro_serialize_size(void) { return 0; }                       // no state is implemented yet (T18)
-RETRO_API bool retro_serialize(void *, size_t) { return false; }
-RETRO_API bool retro_unserialize(const void *, size_t) { return false; }
+RETRO_API size_t retro_serialize_size(void)
+{
+    CallGuard guard;
+    return guard.ok ? state_size() : 0;
+}
+
+// Writes the frame into exactly state_size() bytes: header, adapter section, native state, zeros. A buffer smaller than that is refused; a larger one
+// keeps its tail untouched. What a refused call leaves in the buffer is not defined, and the machine is never changed by a save.
+RETRO_API bool retro_serialize(void *data, size_t size)
+{
+    CallGuard guard;
+    if (!guard.ok) return false;
+    const size_t total = state_size();
+    if (!total || !data) return false;
+    if (size < total) {
+        log(RETRO_LOG_WARN, "the state needs %zu bytes and the buffer has %zu", total, size);
+        return false;
+    }
+    try {
+        p6_libretro::encode_section(capture_section(), &core.section);
+    } catch (const std::bad_alloc &) {
+        log(RETRO_LOG_ERROR, "not enough memory to save the state");
+        return false;
+    }
+    uint8_t *out = static_cast<uint8_t *>(data);
+    const size_t at = p6_libretro::kStateHeaderBytes + core.section.size();
+    if (core.section.size() > section_limit() || at >= total) {
+        log(RETRO_LOG_ERROR, "the adapter section (%zu bytes) does not fit the serialization size", core.section.size());
+        return false;
+    }
+    uint64_t written = 0;
+    p6_error error = make_error();
+    const p6_result result = p6_state_save(out + at, total - at, &written, &error);
+    if (result != P6_OK) {
+        if (result != P6_ERROR_BAD_STATE) report("p6_state_save", result, error);       // before the first run there is no machine to describe: not a fault
+        return false;
+    }
+    memcpy(out + p6_libretro::kStateHeaderBytes, core.section.data(), core.section.size());
+    p6_libretro::write_header(out, written, core.section.data(), core.section.size());
+    memset(out + at + written, 0, total - at - size_t(written));
+    return true;
+}
+
+// The frame is checked in full, and the adapter section decoded and fitted to this load, before p6_state_load is asked to touch the machine; the
+// adapter's side changes only after the machine accepted the state. A refused load therefore leaves everything as it was.
+RETRO_API bool retro_unserialize(const void *data, size_t size)
+{
+    CallGuard guard;
+    if (!guard.ok) return false;
+    const size_t total = state_size();
+    if (!total || !data) return false;
+    p6_libretro::Frame frame;
+    const p6_libretro::FrameError refused = p6_libretro::parse_frame(static_cast<const uint8_t *>(data), size, section_limit(true), &frame);
+    if (refused != p6_libretro::FrameError::None) {
+        log(RETRO_LOG_WARN, "the state is refused: %s", p6_libretro::describe(refused));
+        return false;
+    }
+    p6_libretro::Section section;
+    const char *why = nullptr;
+    if (!p6_libretro::decode_section(frame.section, frame.section_bytes, kPendingAudioFrames * 2, core.max_width, core.max_height, &section, &why)) {
+        log(RETRO_LOG_WARN, "the state is refused: %s", why);
+        return false;
+    }
+    if (!core.tray.fits(section.tray, uint32_t(core.media.size()))) {
+        log(RETRO_LOG_WARN, "the state is refused: its disk tray is not that of this playlist");
+        return false;
+    }
+    p6_error error = make_error();
+    const p6_result result = p6_state_load(frame.native, frame.native_bytes, &error);
+    if (result != P6_OK) {
+        report("p6_state_load", result, error);
+        if (result == P6_ERROR_INTERNAL) {
+            core.faulted = true;                   // the bridge stopped the image: only an unload recovers, as for a failed run
+            environment_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
+        }
+        return false;
+    }
+    apply_section(std::move(section));
+    return true;
+}
 RETRO_API void retro_cheat_reset(void) {}
 RETRO_API void retro_cheat_set(unsigned, bool, const char *) {}
 
@@ -780,6 +950,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             return false;
         }
         core.loaded = true;
+        announce_state_support();
         // The image the frontend remembers from its last session, if the content still has it at that index; else the first.
         unsigned initial = 0;
         if (core.have_initial) {

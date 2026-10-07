@@ -86,33 +86,38 @@ class RealFrontendTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def retroarch(self, name, content="a.adf", drive=False, options=None):
+    def retroarch(self, name, content="a.adf", drive=False, options=None, settings=(), frames=FRAMES, features="deterministic"):
         """One RetroArch process: loads the core with the micro-ROM as the Kickstart of its system directory and `content` (a file of the scratch
         directory) as the game, runs FRAMES frames and exits, or runs until tests/libretro-host/drive_retroarch.py has changed the disk and
-        stops it. `options` are core option values (key -> value) that RetroArch's own options file holds, as a person's menu choices do.
+        stops it (`drive` True drives the disk, a string names another scenario of that script: "state", "rewind"). `options` are core option values
+        (key -> value) that RetroArch's own options file holds, as a person's menu choices do; `settings` are lines of RetroArch's own configuration. RetroArch
+        only offers run-ahead for a core whose .info file says the save states are deterministic, so the test writes one (`features` is its savestate_features).
         Returns the log text."""
         work = Path(self.tmp.name)
-        for folder in ("saves", "states", "system", "playlists", "cache"):
+        for folder in ("saves", "states", "system", "playlists", "cache", "info", "cores"):
             (work / name / folder).mkdir(parents=True)
+        (work / name / "info" / "puae6_libretro.info").write_text('display_name = "PUAE6 (test)"\ncorename = "PUAE6"\nsavestate = "true"\n'
+                                                                  f'savestate_features = "{features}"\n', encoding="utf-8")
         shutil.copyfile(self.rom, work / name / "system" / "kick34005.A500")
         (work / name / "retroarch.cfg").write_text("\n".join([
             'video_driver = "null"', 'audio_driver = "null"', 'input_driver = "null"', 'menu_driver = "null"', 'libretro_log_level = "0"',
             'frontend_log_level = "0"', 'config_save_on_exit = "false"', f'savefile_directory = "/work/{name}/saves"',
             f'savestate_directory = "/work/{name}/states"', f'system_directory = "/work/{name}/system"',
-            f'playlist_directory = "/work/{name}/playlists"', f'cache_directory = "/work/{name}/cache"', 'history_list_enable = "false"',
+            f'playlist_directory = "/work/{name}/playlists"', f'cache_directory = "/work/{name}/cache"', f'libretro_info_path = "/work/{name}/info"', f'libretro_directory = "/work/{name}/cores"', 'history_list_enable = "false"',
             'video_vsync = "false"', 'audio_sync = "false"', 'pause_nonactive = "false"', 'savestate_auto_save = "false"',
             'savestate_auto_load = "false"', 'network_cmd_enable = "true"', 'network_cmd_port = "55355"',
-            'quit_press_twice = "false"', 'global_core_options = "true"']) + "\n")
+            'quit_press_twice = "false"', 'global_core_options = "true"', 'savestate_file_compression = "false"', *settings]) + "\n")
         # RetroArch keeps the values of the options in a file next to its configuration; the core only ever sees them through GET_VARIABLE.
         (work / name / "retroarch-core-options.cfg").write_text("".join(f'{key} = "{value}"\n' for key, value in (options or {}).items()))
-        start = (f"retroarch -c /work/{name}/retroarch.cfg -L /src/{LINUX_BUILD}/puae6_libretro.so /work/{content} --verbose "
-                 f"--log-file /work/{name}/log.txt")
+        # RetroArch knows what a core promises from the .info file that sits for a core of its cores directory.
+        link = f"ln -s /src/{LINUX_BUILD}/puae6_libretro.so /work/{name}/cores/puae6_libretro.so; "
+        start = f"retroarch -c /work/{name}/retroarch.cfg -L /work/{name}/cores/puae6_libretro.so /work/{content} --verbose --log-file /work/{name}/log.txt"
         if drive:
             # The script stops RetroArch when it is done; the timeout keeps a script that failed from leaving the container running.
-            command = (f"timeout 200 {start} --max-frames 200000 & player=$!; python3 /work/drive_retroarch.py /work/{name}/log.txt; "
+            command = (f"{link}timeout 200 {start} --max-frames 200000 & player=$!; python3 /work/drive_retroarch.py /work/{name}/log.txt {drive if isinstance(drive, str) else 'disk'}; "
                        "wait $player; echo retroarch-exit=$?")
         else:
-            command = f"{start} --max-frames {FRAMES}; echo retroarch-exit=$?"
+            command = f"{link}{start} --max-frames {frames}; echo retroarch-exit=$?"
         result = container(command, work=work, timeout=300)
         self.assertIn("retroarch-exit=0", result.stdout, result.stdout[-600:] + result.stderr[-600:])
         if drive:
@@ -172,6 +177,72 @@ class RealFrontendTests(unittest.TestCase):
         self.assertRegex(text, r"(?m)^\[libretro INFO\] \[PUAE6\] disk 2: medium 1, label \"Disk B\"$")
         events = re.findall(r"(?m)^\[libretro INFO\] \[PUAE6\] (DF0: .*)$", text)
         self.assertEqual(events, ["DF0: medium 0 inserted", "DF0: ejected", "DF0: medium 1 inserted"])
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+
+    # --- T18: states, rewind and runahead in the real frontend -------------------------------------------------------------------------------------
+
+    def expected_ticks(self, units):
+        native = subprocess.run([str(self.macos_headless), "--run", str(self.rom), "--units", str(units)], capture_output=True, text=True, timeout=600)
+        expected = {int(m[1]): int(m[2]) for m in HEADLESS.finditer(native.stdout)}
+        self.assertEqual(len(expected), units)
+        return expected
+
+    def assert_converges(self, text, expected):
+        """Every unit the core made, in whatever order and however often (speculative runs, replays after a load), has the ticks of the plain run."""
+        units = [(int(m[1]), int(m[2])) for m in UNIT.finditer(text)]
+        self.assertGreater(len(units), 20)
+        for unit, ticks in units:
+            self.assertEqual(ticks, expected[unit], f"unit {unit}")
+        return [u for u, _ in units]
+
+    def test_runahead_in_the_real_frontend_runs_speculative_units_and_converges_with_the_plain_run(self):
+        expected = self.expected_ticks(200)
+        for frames in (1, 2, 3):
+            with self.subTest(frames=frames):
+                text = self.retroarch(f"ahead{frames}", frames=60, settings=['run_ahead_enabled = "true"', f"run_ahead_frames = \"{frames}\"",
+                                                                              'run_ahead_secondary_instance = "false"', 'run_ahead_hide_warnings = "true"'])
+                order = self.assert_converges(text, expected)
+                self.assertGreater(len(order), 60 * (frames + 1) - 1)                    # RetroArch ran the core frames + 1 times per frame
+                self.assertTrue(any(b <= a for a, b in zip(order, order[1:])))            # and went back after the speculative runs: a load, not a run
+                self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+                self.assertNotIn("not supported", text.lower().replace("not supported by", ""))
+
+    def test_asking_for_the_second_instance_of_runahead_changes_nothing_that_converges(self):
+        # The profile has one native instance per loaded image and this adapter does nothing to be loaded twice. RetroArch 1.18 ran this core with a
+        # single instance when the second was asked for (the same units in the same order, no message), so nothing is claimed about a second instance:
+        # the run must only converge with the plain one.
+        expected = self.expected_ticks(200)
+        text = self.retroarch("ahead-secondary", frames=60, settings=['run_ahead_enabled = "true"', 'run_ahead_frames = "1"', 'run_ahead_secondary_instance = "true"',
+                                                                       'run_ahead_hide_warnings = "true"'])
+        self.assert_converges(text, expected)
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+
+    def test_a_state_saved_and_loaded_through_the_frontend_continues_where_it_was_saved(self):
+        expected = self.expected_ticks(400)
+        text = self.retroarch("state", drive="state")
+        self.assert_converges(text, expected)
+        lines = text.splitlines()
+        saving = next(i for i, line in enumerate(lines) if re.search(r'\[State\]: Saving state ".*\.state", \d+ bytes', line))
+        loading = next(i for i, line in enumerate(lines) if re.search(r'\[State\]: Loading state ".*\.state", \d+ bytes', line))
+        before = [int(m[1]) for m in UNIT.finditer("\n".join(lines[:saving]))]
+        after = [int(m[1]) for m in UNIT.finditer("\n".join(lines[loading:]))]
+        self.assertGreater(max(before), before[-1] - 1)
+        self.assertGreater(len([u for u in UNIT.finditer("\n".join(lines[saving:loading]))]), 40)       # it ran on for a while after the save
+        self.assertEqual(after[0], before[-1] + 1)                                                     # and the load put it back right after the saved unit
+        size = int(re.search(r'Saving state ".*\.state", (\d+) bytes', text)[1])
+        states = list((Path(self.tmp.name) / "state" / "states" / "PUAE6").glob("*.state"))
+        self.assertEqual([s.stat().st_size for s in states], [size])                                   # the file is exactly the announced size
+        self.assertGreater(size, 1_000_000)
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+
+    def test_rewind_in_the_real_frontend_loads_states_and_the_units_it_runs_again_are_the_plain_ones(self):
+        expected = self.expected_ticks(400)
+        text = self.retroarch("rewind", drive="rewind", settings=['rewind_enable = "true"', 'rewind_buffer_size = "40"', 'rewind_granularity = "1"'])
+        order = self.assert_converges(text, expected)                       # every unit, whenever it was made, has the ticks of the plain run
+        # RetroArch 1.18 with the network command REWIND (a press per command, sent faster than it rewinds) steps back by loading the previous state and
+        # running the unit again: a unit made twice in a row. Each of those loads converged, which is what the ticks above say.
+        again = sum(1 for a, b in zip(order, order[1:]) if b <= a)
+        self.assertGreaterEqual(again, 10, "the rewind never loaded a state")
         self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
 
 

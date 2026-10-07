@@ -81,7 +81,7 @@ identidad del estado. Las opciones del core se describen en Configuracion. Solo 
 fallback. `retro_run` hace un poll de entrada, exactamente una llamada a `p6_run_frame` y entrega un solo cuadro: el raster activo recortado (con `SET_GEOMETRY` si el
 frontend lo acepta) o, si la unidad no tiene cuadro nuevo, el anterior (NULL si el frontend puede duplicar, una copia si no). El audio se ofrece en lotes y lo que el frontend
 no toma queda en una cola acotada de 16384 frames stereo que se ofrece primero en el run siguiente; al desbordarse se descartan los mas antiguos con un aviso. Una llamada
-libretro hecha desde dentro de un callback se ignora. `retro_serialize_size` es 0 hasta T18. Los mandos se asignan joypad B/A/X -> botones 1/2/3 y el raton solo en el puerto 0;
+libretro hecha desde dentro de un callback se ignora. Los estados (`retro_serialize*`) se describen en Estados nativos. Los mandos se asignan joypad B/A/X -> botones 1/2/3 y el raton solo en el puerto 0;
 el teclado, los dispositivos por puerto y los formatos ADZ/ZIP/DMS llegan con T17c y T17d.
 
 ## Frame, campos y reloj
@@ -228,8 +228,8 @@ generan: `tests/config` comprueba contra el esquema sus defaults, valores y mape
 no sea exactamente un nombre del esquema (sin recortar, sin cambiar mayusculas y sin sustituirlo por el defecto) hace fallar la carga con un mensaje que nombra la clave y el
 valor; semilla y epoca RTC no se ofrecen en libretro y quedan en su defecto. Con la maquina en marcha, un cambio de una opcion `reboot` solo se avisa y se aplica al volver a
 cargar el contenido (no cambia el config, la identidad ni el bound de estado), uno de presentacion se aplica en el acto y un valor no valido se avisa y se ignora.
-`retro_serialize_size` sigue en 0 hasta T18: hasta entonces la regla de que un cambio que afecta al tamaño del estado exige recarga se cumple por construccion (todo lo que
-entra en el config es `reboot`) y se comprobara contra el bound real cuando el core serialice.
+La regla de que un cambio que afecta al tamaño del estado exige recarga se cumple por construccion (todo lo que entra en el config es `reboot`) y T18 la comprueba contra el bound
+real: `retro_serialize_size` no se mueve con una opcion de presentacion cambiada en marcha ni con una `reboot` solo avisada, y es el mismo en cada carga del mismo contenido y configuracion.
 
 ## ROMs, discos y persistencia
 
@@ -310,8 +310,62 @@ o se usa rollback a un estado anterior. Una corrupcion tardia tambien se prueba.
 
 retro_serialize_size anuncia al terminar load un bound que no crece hasta unload.
 Reservar maximo de perfil/medios/overlay, no medir solo el estado actual. Si la
-feature todavia no es correcta, devolver 0 y no declarar rewind. Un buffer mayor
-se ignora o se rellena de forma definida; no se escriben bytes fuera de capacidad.
+feature todavia no es correcta, devolver 0 y no declarar rewind. No se escriben
+bytes fuera de capacidad.
+
+Estados libretro (T18). El core enlaza `p6_state` y solo ofrece estados si `p6_query_caps`
+anuncia `P6_CAP_STATE`; si no, el tamaño es 0. `p6_state_load` exige la longitud exacta que
+escribio `p6_state_save` y libretro entrega blobs de `serialize_size` (rewind, runahead) o
+del tamaño de un fichero, asi que el adaptador enmarca el estado nativo, sin adivinar:
+`[cabecera de 64 bytes][seccion del adaptador][estado nativo][ceros hasta serialize_size]`.
+La cabecera (little-endian) lleva el magic `P6LRSTAT`, la version del marco (1), las longitudes
+exactas de la seccion y del estado nativo y el SHA-256 de la seccion. `serialize_size` =
+cabecera + cota de la seccion + `p6_state_bound`, calculado una vez tras la carga; la cota de la
+seccion es fija (cola de audio acotada, hasta 16 imagenes, y la ultima imagen solo si el
+frontend no puede repetir cuadros). `retro_serialize` exige un buffer de al menos ese tamaño,
+escribe exactamente `serialize_size` bytes (rellena con ceros el espacio que el estado nativo no
+usa y no toca lo que haya mas alla) y devuelve false, sin tocar la maquina, antes de la primera
+unidad (no hay maquina que describir). `retro_unserialize` valida todo antes de tocar nada:
+magic, version, longitudes sin desbordamiento contra el tamaño recibido, checksum de la seccion,
+seccion decodificada y encajada en esta carga (la lista de imagenes de la bandeja debe ser la
+misma) y todos los bytes tras el estado nativo EN CERO; despues pasa exactamente su longitud a
+`p6_state_load`, que valida identidad, firmware, configuracion y manifiesto de medios, y solo
+cuando la maquina lo ha aceptado se aplica la parte del adaptador. Un blob mas corto que
+`serialize_size` es valido si lo que falta eran ceros de relleno (un fichero sin relleno carga);
+uno mas largo es valido si lo añadido es cero; basura en el relleno, un corte dentro del estado,
+una cabecera o seccion alteradas o un estado de otra configuracion, firmware o medios se
+rechazan con false y dejan la maquina bit a bit como estaba.
+
+La seccion del adaptador lleva lo que el adaptador guarda entre dos runs y el frontend aun no ha
+visto: la bandeja de discos (seleccion, bandeja abierta, peticiones registradas y no aplicadas, el
+medio que tiene la unidad, contador de eventos de medios), el audio que el frontend no ha tomado y
+la geometria (y los pixeles, solo sin GET_CAN_DUPE) del ultimo cuadro. Un load los sustituye por
+los del instante guardado: una rama de rewind o runahead no deja ni peticiones de disco, ni audio
+pendiente, ni entrada de su futuro abandonado. La entrada no se guarda: el adaptador la lee de nuevo
+en cada `retro_run` y su memoria de flancos esta en el estado nativo. La geometria ya anunciada es
+conocimiento del frontend y no se toca. Un estado de un frontend de otro tipo (con o sin
+GET_CAN_DUPE) carga igual: la imagen se descarta o no se pide.
+
+Quirks: el core anuncia `ENDIAN_DEPENDENT` y `PLATFORM_DEPENDENT` (el estado es de este build,
+firmware, configuracion y medios, como dice la compatibilidad inicial) y no `INCOMPLETE` ni
+`CORE_VARIABLE_SIZE`. No anuncia `MUST_INITIALIZE`: el tamaño se conoce tras la carga, y RetroArch
+desactiva el runahead de un core que lo declara. RetroArch 1.18 no conoce la llamada de quirks de
+la cabecera fijada (responde UNSUPPORTED). Netplay NO se declara ni se prueba: sigue
+deshabilitado hasta su propia prueba. Runahead de segunda instancia tampoco: hay una instancia nativa
+por imagen cargada y RetroArch 1.18 corre con una sola instancia aunque se la pida. El runahead
+de instancia unica y el rewind se prueban en RetroArch real (ticks de cada unidad iguales a la
+ejecucion normal, incluidas las repeticiones tras un load); RetroArch solo ofrece runahead si el
+`.info` del core dice `savestate_features = "deterministic"`, y ese `.info` no se publica
+mientras las limitaciones siguientes no esten cerradas.
+
+Limitaciones conocidas del estado nativo (T15, no del adaptador; los tests
+`test_GAP_*` de `tests/libretro-host/test_state.py` son su reproductor y pasan el dia que se cierren):
+el cuadro dibujado en la primera unidad tras un load puede salir con la paleta de la linea
+temporal abandonada (o la de una maquina recien arrancada, al cargar un fichero en otro proceso)
+si el invitado puso la paleta una vez y no la reescribe; una unidad que no tenia cuadro nuevo
+puede dibujarse tras un load; y tras un load y algunas unidades un byte del cuerpo CHIP (DIWHIGH)
+difiere del de una maquina que nunca cargo. CPU, RAM, audio, ticks y la parte del adaptador
+convergen; con un juego real (Speedball 2, pistas en carga y en juego) los cuadros tambien.
 
 Compatibilidad inicial: mismo formato/build compatible declarado, mismos medios
 y configuracion. Cross-build/cross-ISA/cross-version se habilita solo con evidencia;

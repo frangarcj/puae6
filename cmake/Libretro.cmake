@@ -12,14 +12,15 @@ add_library(puae6_libretro SHARED adapters/libretro/libretro_core.cpp $<TARGET_O
 add_dependencies(puae6_libretro p6_codegen)
 # The portable SHA-256 is included as "sha256.h", like the bridge does; options_generated.h (tools/generate_options.py) sits next to the sources.
 target_include_directories(puae6_libretro PRIVATE "${_libretro_include}" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media")
-target_link_libraries(puae6_libretro PRIVATE p6_bridge p6_portable)
+# p6_state is what makes the image announce P6_CAP_STATE (T15, T18): the core links it, offers states, and falls back to serialize_size 0 without it.
+target_link_libraries(puae6_libretro PRIVATE p6_state p6_bridge p6_portable)
 target_compile_definitions(puae6_libretro PRIVATE P6_LIBRETRO_VERSION="${_libretro_version}")
 set_target_properties(puae6_libretro PROPERTIES PREFIX "" CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 if(APPLE)
     target_link_options(puae6_libretro PRIVATE "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/adapters/libretro/exports.txt" "-Wl,-dead_strip")
 else()
     # A shared object needs position independent objects; the static libraries and the engine objects are built without them.
-    set_target_properties(p6_engine p6_bridge p6_portable PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    set_target_properties(p6_engine p6_bridge p6_portable p6_state p6_state_io PROPERTIES POSITION_INDEPENDENT_CODE ON)
     target_link_options(puae6_libretro PRIVATE "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/adapters/libretro/exports.map")
 endif()
 

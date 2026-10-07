@@ -91,6 +91,44 @@ public:
     void applied(const Change &change) { in_drive_ = change.mount ? int64_t(change.medium) : -1; }
     void settled() { eject_seen_ = false; dirty_ = false; }
 
+    // --- save states (T18): the tray is part of the state, so that a load puts the frontend's notion of the drive where the loaded machine has it ---
+    // Everything that decides what the next boundary does: the list (by medium, paths are the session's business), the selection, the open tray, the
+    // requests not looked at yet and the medium the bridge's drive holds. A request recorded after the state was taken is not in it, so a load drops it.
+    static constexpr uint32_t kNoMedium = UINT32_MAX;
+    struct Snapshot {
+        std::vector<uint32_t> media;
+        uint32_t selected = 0;
+        bool ejected = false, eject_seen = false, dirty = false;
+        uint32_t in_drive = kNoMedium;
+    };
+    Snapshot snapshot() const
+    {
+        Snapshot out;
+        for (const Image &image : images_) out.media.push_back(image.medium);
+        out.selected = selected_;
+        out.ejected = ejected_;
+        out.eject_seen = eject_seen_;
+        out.dirty = dirty_;
+        out.in_drive = in_drive_ < 0 ? kNoMedium : uint32_t(in_drive_);
+        return out;
+    }
+    // A snapshot fits this tray when it was taken over the same list of images and says nothing impossible about it. `media` is the size of the manifest.
+    bool fits(const Snapshot &snap, uint32_t media) const
+    {
+        if (snap.media.size() != images_.size() || snap.selected > images_.size()) return false;
+        for (size_t i = 0; i < images_.size(); ++i)
+            if (snap.media[i] != images_[i].medium) return false;
+        return snap.in_drive == kNoMedium || snap.in_drive < media;
+    }
+    void restore(const Snapshot &snap)
+    {
+        selected_ = snap.selected;
+        ejected_ = snap.ejected;
+        eject_seen_ = snap.eject_seen;
+        dirty_ = snap.dirty;
+        in_drive_ = snap.in_drive == kNoMedium ? -1 : int64_t(snap.in_drive);
+    }
+
 private:
     std::vector<Image> images_;
     unsigned selected_ = 0;

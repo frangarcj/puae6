@@ -14,8 +14,23 @@
 // only) or none at all (--no-options). --set gives the value the frontend holds for a key from the start (a stale value included: the host does not
 // check it, as a frontend with an old configuration does not); --set-at changes it before run RUN, as a person does in the menu, and raises
 // GET_VARIABLE_UPDATE once. A key the core did not register is not held.
+// Save states (T18): the host plays a frontend that saves, loads and speculates. A "position" is the frame of the emulated timeline a run belongs to: the visible
+// run n is at position n, a load puts the position back where its state was saved, and a speculative run after run n is at position n+1, n+2, ... Scripted input
+// (--joy-at) and disk commands (--disk, --disk-during) belong to a position, so a branch that runs ahead sees the future input and a replay after a load sees it again.
+//   [--do RUN:ACTION]... [--ahead RUN:K]... [--ahead-every K] [--joy-at POSITION:PORT:MASK]...
+// ACTION, executed after visible run RUN (0 is before the first run): save:SLOT, load:SLOT[:VARIANT], savefile:PATH, loadfile:PATH[:VARIANT], reset,
+// images (print the Disk Control view: count, index, eject), disk:COMMAND (a Disk Control call between two runs, see COMMAND below).
+// A saved blob is the whole serialize_size bytes, prefilled with 0xA5 so that bytes the core does not write are noticed. VARIANT is a list of edits made to a
+// copy of the blob before it is handed to retro_unserialize: size=D (blob size = serialize_size + D, a longer one is filled with fill=), usedsize=D (relative to
+// the end of the frame: header + section + native state, read from the header), fill=0xHH (for appended bytes, 0 by default), xor=OFFSET (flip a byte; a negative
+// offset counts from the end of the frame), xorend=K (flip the byte K from the end of the buffer), pos=N (the position a state loaded from a file belongs to).
+// --ahead RUN:K is runahead after visible run RUN: save, K speculative runs (picture and audio ignored, as RetroArch's runahead does), load the saved state.
+// --ahead-every K does it after every visible run.
 // Output, one line per event, parsed by tests/libretro-host/test_libretro.py:
-//   run N video=WxH pitch=P dupe=D hash=H px=P audio=F polls=K states=S      (px: the pixel in the middle of the picture, XRGB8888)
+//   run N video=WxH pitch=P dupe=D hash=H px=P audio=F polls=K states=S ahash=A unit=U ticks=T   (px: the pixel in the middle of the picture, XRGB8888;
+//                                                          ahash: the audio of that run alone; unit, ticks: from the core's debug log)
+//   spec P video=WxH dupe=D hash=H px=P audio=F ahash=A unit=U ticks=T       (a speculative run at position P)
+//   state size=S / state save NAME ok=R size=S used=U hash=H section=H / state load NAME VARIANT ok=R size=S / state final ok=R size=S hash=H / state reset
 //   log LEVEL TEXT         (only when the log interface is offered)
 //   message TEXT           (SET_MESSAGE or SET_MESSAGE_EXT)
 //   vfs open PATH / initial result=R / disk-control ext=E / images count=N index=I eject=E / image I path=P label=L / disk RUN COMMAND ...
@@ -67,6 +82,18 @@ struct Options {
         std::string command;
     };
     std::vector<DiskStep> disk_steps;
+    struct Action {
+        int run;
+        std::string text;
+    };
+    std::vector<Action> actions;
+    std::vector<std::pair<int, int>> aheads;                    // run, k
+    int ahead_every = 0;
+    struct JoyStep {
+        int position;
+        unsigned port, mask;
+    };
+    std::vector<JoyStep> joy_steps;
 } options;
 
 // The core's entry points.
@@ -108,11 +135,16 @@ struct Run {
     uint64_t picture_hash = 0;
     uint32_t first_pixel = 0;       // the middle of the picture
     uint64_t audio_frames = 0;
+    uint64_t audio_hash = UINT64_C(1469598103934665603);
+    uint64_t unit = 0, ticks = 0;       // from the core's debug log line of the run
 } run;
 
 std::set<unsigned> environment_commands;
 bool shutdown_requested = false;
 int run_number = 0, violations = 0;
+int position = 0;               // the frame of the emulated timeline the run being made belongs to (see the header)
+bool muted = false;             // a speculative run: the picture and the audio are not shown
+size_t state_size = 0;          // what retro_serialize_size said after the load: it must not change
 uint64_t audio_hash = UINT64_C(1469598103934665603), audio_total = 0;
 retro_game_info game_info;
 bool in_video_callback = false;
@@ -172,6 +204,11 @@ void RETRO_CALLCONV log_printf(enum retro_log_level level, const char *format, .
     va_end(arguments);
     size_t length = strlen(text);
     while (length && text[length - 1] == '\n') text[--length] = 0;
+    unsigned long long unit = 0, ticks = 0;
+    if (sscanf(text, "[PUAE6] unit=%llu ticks=%llu", &unit, &ticks) == 2) {
+        run.unit = unit;
+        run.ticks = ticks;
+    }
     printf("log %d %s\n", int(level), text);
 }
 
@@ -227,8 +264,9 @@ retro_vfs_interface vfs_interface = {vfs_get_path, vfs_open, vfs_close, vfs_size
 
 void disk_command(int run_at, const std::string &command)
 {
+    const char *prefix = muted ? "spec-disk" : "disk";
     if (!disk_registered) {
-        printf("disk %d %s no-interface\n", run_at, command.c_str());
+        printf("%s %d %s no-interface\n", prefix, run_at, command.c_str());
         return;
     }
     bool result = false;
@@ -243,7 +281,7 @@ void disk_command(int run_at, const std::string &command)
         result = disk.replace_image_index(number, &info);
     } else if (command == "add") result = disk.add_image_index();
     else violation("unknown disk command %s", command.c_str());
-    printf("disk %d %s result=%d eject=%d index=%u count=%u\n", run_at, command.c_str(), int(result), int(disk.get_eject_state()),
+    printf("%s %d %s result=%d eject=%d index=%u count=%u\n", prefix, run_at, command.c_str(), int(result), int(disk.get_eject_state()),
            disk.get_image_index(), disk.get_num_images());
 }
 
@@ -406,7 +444,7 @@ void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned hei
     }
     if (run.videos == 1)
         for (const Options::DiskStep &step : options.disk_steps)
-            if (step.during && step.run == run_number) disk_command(run_number, step.command);
+            if (step.during && step.run == position) disk_command(position, step.command);
     if (options.reenter && !in_video_callback && run.videos == 1) {
         // A core must not run, reset, unload or load from inside one of its own callbacks.
         in_video_callback = true;
@@ -421,20 +459,24 @@ void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned hei
 void RETRO_CALLCONV audio_sample(int16_t left, int16_t right)
 {
     const int16_t pair[2] = {left, right};
+    run.audio_hash = fnv(run.audio_hash, pair, sizeof pair);
+    ++run.audio_frames;
+    if (muted) return;
     audio_hash = fnv(audio_hash, pair, sizeof pair);
     ++audio_total;
-    ++run.audio_frames;
 }
 
 size_t RETRO_CALLCONV audio_batch(const int16_t *data, size_t frames)
 {
     if (!data && frames) violation("audio batch without data for %zu frames", frames);
-    if (run_number >= options.stall_first && run_number <= options.stall_last) return 0;      // a frontend that cannot take audio now
+    if (!muted && position >= options.stall_first && position <= options.stall_last) return 0;      // a frontend that cannot take audio now
     size_t taken = frames;
     if (options.audio_partial && taken > options.audio_partial) taken = options.audio_partial;
+    if (taken) run.audio_hash = fnv(run.audio_hash, data, taken * 2 * sizeof(int16_t));
+    run.audio_frames += taken;
+    if (muted) return taken;                  // a runahead frontend swallows the audio of a speculative run
     if (taken) audio_hash = fnv(audio_hash, data, taken * 2 * sizeof(int16_t));
     audio_total += taken;
-    run.audio_frames += taken;
     return taken;
 }
 
@@ -444,7 +486,12 @@ int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned inde
 {
     ++run.states;
     if (index != 0 || port > 1) return 0;
-    if (device == RETRO_DEVICE_JOYPAD) return int16_t((options.joy[port] >> id) & 1);
+    if (device == RETRO_DEVICE_JOYPAD) {
+        unsigned mask = options.joy[port];
+        for (const Options::JoyStep &step : options.joy_steps)            // the last change at or before this position holds
+            if (step.port == port && step.position <= position) mask = step.mask;
+        return int16_t((mask >> id) & 1);
+    }
     if (device == RETRO_DEVICE_MOUSE && port == 0 && options.mouse) {
         switch (id) {
         case RETRO_DEVICE_ID_MOUSE_X: return int16_t(options.mouse_dx);
@@ -456,6 +503,213 @@ int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned inde
         }
     }
     return 0;
+}
+
+// --- save states as a frontend uses them ---
+
+struct Slot {
+    std::vector<uint8_t> bytes;
+    int done;                       // the position the state was saved at
+};
+std::map<std::string, Slot> slots;
+int done = 0;                       // the position of the last run on the timeline (a load puts it back)
+const uint64_t kFnvBasis = UINT64_C(1469598103934665603);
+
+std::vector<std::string> split(const std::string &text, char separator)
+{
+    std::vector<std::string> parts;
+    size_t from = 0;
+    for (;;) {
+        const size_t at = text.find(separator, from);
+        parts.push_back(text.substr(from, at == std::string::npos ? std::string::npos : at - from));
+        if (at == std::string::npos) return parts;
+        from = at + 1;
+    }
+}
+
+bool save_blob(std::vector<uint8_t> *out)
+{
+    const size_t size = core.serialize_size();
+    if (size != state_size) violation("the serialization size changed from %zu to %zu", state_size, size);
+    out->assign(size, 0xA5);                                // what the core does not write stays 0xA5, so a missing padding is noticed
+    return size && core.serialize(out->data(), size);
+}
+
+// The length of header + adapter section + native state, read from the header the adapter writes (frame version 1, adapters/libretro/state_frame.h):
+// this is what a test needs to cut a state exactly at the end of its content. A blob that is not a frame is all content.
+size_t frame_length(const std::vector<uint8_t> &blob)
+{
+    if (blob.size() < 64 || memcmp(blob.data(), "P6LRSTAT", 8) != 0) return blob.size();
+    auto le = [&](size_t at, int bytes) { uint64_t value = 0; for (int i = bytes - 1; i >= 0; --i) value = value << 8 | blob[at + i]; return value; };
+    const uint64_t length = 64 + le(24, 4) + le(16, 8);
+    return length <= blob.size() ? size_t(length) : blob.size();
+}
+
+// A hash of the adapter section alone (what lies between the 64-byte header and the native state): the adapter's side of a state, apart from the engine's.
+uint64_t section_hash(const std::vector<uint8_t> &blob)
+{
+    if (blob.size() < 64) return 0;
+    uint32_t length = 0;
+    for (int i = 3; i >= 0; --i) length = length << 8 | blob[24 + i];
+    return length <= blob.size() - 64 ? fnv(kFnvBasis, blob.data() + 64, length) : 0;
+}
+
+// Edits a copy of a blob as the VARIANT says (see the header); returns false for a variant it does not understand.
+bool edit_blob(std::vector<uint8_t> *blob, const std::string &variant, int *position_out)
+{
+    uint8_t fill = 0;
+    const size_t frame = frame_length(*blob);
+    std::vector<std::string> tokens = split(variant, ',');
+    for (const std::string &token : tokens)
+        if (!token.compare(0, 5, "fill=")) fill = uint8_t(strtoul(token.c_str() + 5, nullptr, 0));
+    for (const std::string &token : tokens) {
+        if (token.empty() || !token.compare(0, 5, "fill=")) continue;
+        const size_t equals = token.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = token.substr(0, equals);
+        const long value = strtol(token.c_str() + equals + 1, nullptr, 0);
+        if (key == "xor") {
+            const long at = value < 0 ? long(frame) + value : value;
+            if (at < 0 || size_t(at) >= blob->size()) return false;
+            (*blob)[size_t(at)] ^= 0x5a;
+        } else if (key == "xorend") {
+            if (value < 0 || size_t(value) >= blob->size()) return false;
+            (*blob)[blob->size() - 1 - size_t(value)] ^= 0x5a;
+        } else if (key == "pos") {
+            *position_out = int(value);
+        } else if (key == "size" || key == "usedsize") {
+            const long base = key == "size" ? long(blob->size()) : long(frame);
+            if (base + value < 0) return false;
+            blob->resize(size_t(base + value), fill);
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool load_blob(const std::string &name, std::vector<uint8_t> blob, const std::string &variant, int blob_position)
+{
+    int target = blob_position;
+    if (!edit_blob(&blob, variant, &target)) {
+        violation("state variant %s is not understood", variant.c_str());
+        return false;
+    }
+    std::vector<uint8_t> exact(blob.begin(), blob.end());       // an allocation of exactly the size handed over: an overread is the sanitizer's to see
+    static uint8_t nothing;
+    const bool ok = core.unserialize(exact.empty() ? &nothing : exact.data(), exact.size());
+    printf("state load %s %s ok=%d size=%zu\n", name.c_str(), variant.empty() ? "exact" : variant.c_str(), int(ok), exact.size());
+    if (ok) done = target;
+    return ok;
+}
+
+void do_action(const std::string &text)
+{
+    const std::vector<std::string> parts = split(text, ':');
+    const std::string &command = parts[0];
+    const std::string argument = parts.size() > 1 ? parts[1] : "";
+    const std::string variant = parts.size() > 2 ? parts[2] : "";
+    if (command == "save" && (variant == "short" || variant == "long")) {
+        // A buffer that is not exactly serialize_size: a smaller one must be refused, a larger one is written up to serialize_size and no further.
+        const size_t size = core.serialize_size(), given = variant == "short" ? size - 1 : size + 64;
+        std::vector<uint8_t> buffer(given, 0xA5);
+        const bool ok = core.serialize(buffer.data(), given);
+        bool tail_intact = true;
+        for (size_t i = size; i < given; ++i) tail_intact = tail_intact && buffer[i] == 0xA5;
+        printf("state save %s %s ok=%d tail=%s\n", argument.c_str(), variant.c_str(), int(ok), tail_intact ? "intact" : "written");
+    } else if (command == "save" || command == "savefile") {
+        std::vector<uint8_t> blob;
+        const bool ok = save_blob(&blob);
+        printf("state save %s ok=%d size=%zu used=%zu hash=%016" PRIx64 " section=%016" PRIx64 "\n", argument.c_str(), int(ok), blob.size(),
+               ok ? frame_length(blob) : size_t(0), fnv(kFnvBasis, blob.data(), blob.size()), ok ? section_hash(blob) : uint64_t(0));
+        if (!ok) return;
+        if (command == "save") {
+            slots[argument] = {blob, done};
+        } else if (FILE *file = fopen(argument.c_str(), "wb")) {
+            fwrite(blob.data(), 1, blob.size(), file);
+            fclose(file);
+        } else {
+            violation("cannot write %s", argument.c_str());
+        }
+    } else if (command == "load") {
+        const auto slot = slots.find(argument);
+        if (slot == slots.end()) violation("no state saved in slot %s", argument.c_str());
+        else load_blob(argument, slot->second.bytes, variant, slot->second.done);
+    } else if (command == "loadfile") {
+        std::vector<uint8_t> blob;
+        if (FILE *file = fopen(argument.c_str(), "rb")) {
+            uint8_t chunk[65536];
+            for (size_t got; (got = fread(chunk, 1, sizeof chunk, file)) > 0;) blob.insert(blob.end(), chunk, chunk + got);
+            fclose(file);
+            load_blob(argument, blob, variant, done);
+        } else {
+            violation("cannot read %s", argument.c_str());
+        }
+    } else if (command == "reset") {
+        core.reset();
+        printf("state reset\n");
+    } else if (command == "images") {
+        printf("state images count=%u index=%u eject=%d\n", disk_registered ? disk.get_num_images() : 0, disk_registered ? disk.get_image_index() : 0,
+               int(disk_registered && disk.get_eject_state()));
+    } else if (command == "disk") {
+        disk_command(done, text.substr(5));
+    } else {
+        violation("unknown action %s", text.c_str());
+    }
+}
+
+// One retro_run of the script: at `at` on the emulated timeline, visible or speculative.
+void make_run(int at, bool speculative)
+{
+    position = at;
+    muted = speculative;
+    run = Run{};
+    for (const Options::DiskStep &step : options.disk_steps)
+        if (!step.during && step.run == at) disk_command(at, step.command);
+    bool changed_options = false;
+    if (!speculative)
+        for (const Options::SetStep &step : options.set_steps)
+            if (step.run == run_number) {
+                options.held[step.key] = step.value;
+                variable_update = changed_options = true;
+                printf("set %d %s=%s\n", run_number, step.key.c_str(), step.value.c_str());
+            }
+    core.run();
+    muted = false;
+    if (speculative) {
+        printf("spec %d video=%ux%u dupe=%d hash=%016" PRIx64 " px=%08x audio=%" PRIu64 " ahash=%016" PRIx64 " unit=%" PRIu64 " ticks=%" PRIu64 "\n", at,
+               run.width, run.height, int(run.dupe), run.picture_hash, run.first_pixel, run.audio_frames, run.audio_hash, run.unit, run.ticks);
+    } else {
+        printf("run %d video=%ux%u pitch=%zu dupe=%d hash=%016" PRIx64 " px=%08x audio=%" PRIu64 " polls=%d states=%d ahash=%016" PRIx64 " unit=%" PRIu64
+               " ticks=%" PRIu64 "\n", run_number, run.width, run.height, run.pitch, int(run.dupe), run.picture_hash, run.first_pixel, run.audio_frames,
+               run.polls, run.states, run.audio_hash, run.unit, run.ticks);
+        done = at;
+    }
+    if (changed_options) {
+        // What the core announces after a change made while it runs: a reboot option must leave all of this as it was.
+        retro_system_av_info after = {};
+        core.get_system_av_info(&after);
+        printf("av-after %d base=%ux%u max=%ux%u aspect=%.6f fps=%.6f rate=%.0f region=%u\n", run_number, after.geometry.base_width, after.geometry.base_height,
+               after.geometry.max_width, after.geometry.max_height, double(after.geometry.aspect_ratio), after.timing.fps, after.timing.sample_rate, core.get_region());
+    }
+    if (run.videos != 1) violation("%d pictures were shown (exactly one is required)", run.videos);
+    if (run.polls != 1) violation("the input was polled %d times (once is required)", run.polls);
+    if (core.serialize_size() != state_size) violation("the serialization size changed from %zu to %zu", state_size, core.serialize_size());
+}
+
+// Runahead as a frontend does it: take a state, run k frames nobody sees, and go back to the state.
+void run_ahead(int k)
+{
+    std::vector<uint8_t> blob;
+    if (!save_blob(&blob)) {
+        violation("runahead: the state could not be saved");
+        return;
+    }
+    const int base = done;
+    for (int j = 1; j <= k && !shutdown_requested; ++j) make_run(base + j, true);
+    std::vector<uint8_t> exact(blob.begin(), blob.end());
+    if (!core.unserialize(exact.data(), exact.size())) violation("runahead: the state could not be loaded");
+    done = position = base;
 }
 
 template <class T> bool bind(T &slot, const char *name)
@@ -534,6 +788,21 @@ bool parse(int argc, char **argv)
             if (!strcmp(a, "--set")) options.held[spec.substr(0, equals)] = spec.substr(equals + 1);
             else options.set_steps.push_back({run_at, spec.substr(0, equals), spec.substr(equals + 1)});
         }
+        else if (!strcmp(a, "--do")) {
+            const std::string spec = next();
+            const size_t colon = spec.find(':');
+            if (colon == std::string::npos) return false;
+            options.actions.push_back({atoi(spec.substr(0, colon).c_str()), spec.substr(colon + 1)});
+        } else if (!strcmp(a, "--ahead")) {
+            int at = 0, k = 0;
+            if (sscanf(next(), "%d:%d", &at, &k) != 2 || k < 1) return false;
+            options.aheads.push_back({at, k});
+        } else if (!strcmp(a, "--ahead-every")) options.ahead_every = atoi(next());
+        else if (!strcmp(a, "--joy-at")) {
+            Options::JoyStep step = {};
+            if (sscanf(next(), "%d:%u:%x", &step.position, &step.port, &step.mask) != 3 || step.port > 1) return false;
+            options.joy_steps.push_back(step);
+        }
         else if (!strcmp(a, "--audio-partial")) options.audio_partial = size_t(atol(next()));
         else if (!strcmp(a, "--audio-stall")) sscanf(next(), "%d:%d", &options.stall_first, &options.stall_last);
         else if (!strcmp(a, "--joy")) {
@@ -607,35 +876,29 @@ int main(int argc, char **argv)
         printf("av base=%ux%u max=%ux%u aspect=%.6f fps=%.6f rate=%.0f region=%u\n", av.geometry.base_width, av.geometry.base_height,
                av.geometry.max_width, av.geometry.max_height, double(av.geometry.aspect_ratio), av.timing.fps, av.timing.sample_rate,
                core.get_region());
-        const size_t serialize_size = core.serialize_size();
-        audio_hash = UINT64_C(1469598103934665603);
+        state_size = core.serialize_size();
+        printf("state size=%zu\n", state_size);
+        audio_hash = kFnvBasis;
         audio_total = 0;
+        done = position = 0;
+        slots.clear();
+        auto act = [&](int after) {
+            for (const Options::Action &action : options.actions)
+                if (action.run == after) do_action(action.text);
+        };
+        act(0);
         for (int n = 1; n <= options.runs && !shutdown_requested; ++n) {
             run_number = n;
-            run = Run{};
-            for (const Options::DiskStep &step : options.disk_steps)
-                if (!step.during && step.run == n) disk_command(n, step.command);
-            bool changed_options = false;
-            for (const Options::SetStep &step : options.set_steps)
-                if (step.run == n) {
-                    options.held[step.key] = step.value;
-                    variable_update = changed_options = true;
-                    printf("set %d %s=%s\n", n, step.key.c_str(), step.value.c_str());
-                }
-            core.run();
-            printf("run %d video=%ux%u pitch=%zu dupe=%d hash=%016" PRIx64 " px=%08x audio=%" PRIu64 " polls=%d states=%d\n", n, run.width,
-                   run.height, run.pitch, int(run.dupe), run.picture_hash, run.first_pixel, run.audio_frames, run.polls, run.states);
-            if (changed_options) {
-                // What the core announces after a change made while it runs: a reboot option must leave all of this as it was.
-                retro_system_av_info after = {};
-                core.get_system_av_info(&after);
-                printf("av-after %d base=%ux%u max=%ux%u aspect=%.6f fps=%.6f rate=%.0f region=%u\n", n, after.geometry.base_width, after.geometry.base_height,
-                       after.geometry.max_width, after.geometry.max_height, double(after.geometry.aspect_ratio), after.timing.fps, after.timing.sample_rate, core.get_region());
-            }
-            if (run.videos != 1) violation("%d pictures were shown (exactly one is required)", run.videos);
-            if (run.polls != 1) violation("the input was polled %d times (once is required)", run.polls);
-            if (core.serialize_size() != serialize_size) violation("the serialization size changed");
-            if (core.serialize_size() != 0) violation("a size of %zu was announced for a state nothing can write", core.serialize_size());
+            make_run(done + 1, false);
+            act(n);
+            for (const auto &ahead : options.aheads)
+                if (ahead.first == n) run_ahead(ahead.second);
+            if (options.ahead_every > 0) run_ahead(options.ahead_every);
+        }
+        if (state_size) {
+            std::vector<uint8_t> blob;
+            const bool ok = save_blob(&blob);
+            printf("state final ok=%d size=%zu hash=%016" PRIx64 "\n", int(ok), blob.size(), fnv(kFnvBasis, blob.data(), blob.size()));
         }
         core.unload_game();
         printf("cycle %d end runs=%d audio_frames=%" PRIu64 " audio_hash=%016" PRIx64 "\n", cycle, run_number, audio_total, audio_hash);
