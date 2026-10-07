@@ -6,10 +6,13 @@ an editor for instance, has the focus. Nothing can be done about that without a 
 
 So the real frontend is RetroArch for Linux inside a container (tests/libretro-host/docker/Dockerfile), with null video and audio:
 no window, no display, no foreground. The same sources are built there for Linux arm64 (build/linux/arm64 on the host) and RetroArch loads
-that core and the firmware, which also checks that the core builds and behaves the same outside macOS. Skipped when Docker is not
+that core, an ADF (or an M3U of two) as content and a micro-ROM under a Kickstart file name in its system directory (T17a), which also
+checks that the core builds and behaves the same outside macOS. The disks are changed with RetroArch's own network commands
+(DISK_EJECT_TOGGLE, DISK_NEXT), sent by tests/libretro-host/drive_retroarch.py while it runs. Skipped when Docker is not
 running or when P6_TEST_REAL_FRONTEND=0. The first run builds the image (a few minutes of downloads) and the Linux core (minutes).
     python3 -m unittest discover -s tests/libretro-host -p "test_real_frontend.py"
 """
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -72,31 +75,52 @@ class RealFrontendTests(unittest.TestCase):
         (Path(cls.tmp.name) / "home").mkdir()
         cls.rom = Path(cls.tmp.name) / "boot.rom"
         cls.rom.write_bytes(builder.build((ROOT / "tests/fixtures/microrom/boot.s").read_text(encoding="utf-8")))
+        # Disks built from a hash pattern, as tests/state/test_det02.py does; the content is the first of them or a playlist of both.
+        for name in ("a", "b"):
+            (Path(cls.tmp.name) / f"{name}.adf").write_bytes(hashlib.sha256(f"disk {name}".encode()).digest() * (901120 // 32))
+        (Path(cls.tmp.name) / "list.m3u").write_text("a.adf|Disk A\nb.adf|Disk B\n", encoding="utf-8")
+        shutil.copyfile(ROOT / "tests/libretro-host/drive_retroarch.py", Path(cls.tmp.name) / "drive_retroarch.py")
         cls.macos_headless = build_probe(ROOT / "build/link-audit", False, "p6_headless")
 
     @classmethod
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def retroarch(self, name):
-        """One RetroArch process: loads the core and the ROM, runs FRAMES frames, exits. Returns (log text, version line)."""
+    def retroarch(self, name, content="a.adf", drive=False):
+        """One RetroArch process: loads the core with the micro-ROM as the Kickstart of its system directory and `content` (a file of the scratch
+        directory) as the game, runs FRAMES frames and exits, or runs until tests/libretro-host/drive_retroarch.py has changed the disk and
+        stops it. Returns the log text."""
         work = Path(self.tmp.name)
         for folder in ("saves", "states", "system", "playlists", "cache"):
             (work / name / folder).mkdir(parents=True)
+        shutil.copyfile(self.rom, work / name / "system" / "kick34005.A500")
         (work / name / "retroarch.cfg").write_text("\n".join([
             'video_driver = "null"', 'audio_driver = "null"', 'input_driver = "null"', 'menu_driver = "null"', 'libretro_log_level = "0"',
             'frontend_log_level = "0"', 'config_save_on_exit = "false"', f'savefile_directory = "/work/{name}/saves"',
             f'savestate_directory = "/work/{name}/states"', f'system_directory = "/work/{name}/system"',
             f'playlist_directory = "/work/{name}/playlists"', f'cache_directory = "/work/{name}/cache"', 'history_list_enable = "false"',
             'video_vsync = "false"', 'audio_sync = "false"', 'pause_nonactive = "false"', 'savestate_auto_save = "false"',
-            'savestate_auto_load = "false"']) + "\n")
-        result = container(f"retroarch -c /work/{name}/retroarch.cfg -L /src/{LINUX_BUILD}/puae6_libretro.so /work/boot.rom "
-                           f"--max-frames {FRAMES} --verbose --log-file /work/{name}/log.txt; echo retroarch-exit=$?", work=work, timeout=300)
+            'savestate_auto_load = "false"', 'network_cmd_enable = "true"', 'network_cmd_port = "55355"',
+            'quit_press_twice = "false"']) + "\n")
+        start = (f"retroarch -c /work/{name}/retroarch.cfg -L /src/{LINUX_BUILD}/puae6_libretro.so /work/{content} --verbose "
+                 f"--log-file /work/{name}/log.txt")
+        if drive:
+            # The script stops RetroArch when it is done; the timeout keeps a script that failed from leaving the container running.
+            command = (f"timeout 200 {start} --max-frames 200000 & player=$!; python3 /work/drive_retroarch.py /work/{name}/log.txt; "
+                       "wait $player; echo retroarch-exit=$?")
+        else:
+            command = f"{start} --max-frames {FRAMES}; echo retroarch-exit=$?"
+        result = container(command, work=work, timeout=300)
         self.assertIn("retroarch-exit=0", result.stdout, result.stdout[-600:] + result.stderr[-600:])
+        if drive:
+            self.assertIn("drive-ok", result.stdout, result.stdout[-800:] + result.stderr[-800:])
         return (work / name / "log.txt").read_text(encoding="utf-8", errors="replace")
 
     def test_a_real_frontend_loads_runs_and_unloads_the_core_one_unit_per_frame(self):
         text = self.retroarch("first")
+        self.assertIn("Kickstart kick34005.A500, read through the frontend VFS", text)             # RetroArch offers a VFS and the core used it
+        self.assertIn(f"medium 0 sha256={hashlib.sha256(hashlib.sha256(b'disk a').digest() * (901120 // 32)).hexdigest()}", text)
+        self.assertIn("DF0: medium 0 inserted", text)
         self.assertIn("SET_PIXEL_FORMAT: XRGB8888", text)                                          # negotiated with the real frontend
         self.assertRegex(text, r"Geometry: 756x574, Aspect: 1\.370, FPS: 50\.08, Sample rate: 48000\.00 Hz")
         units = [(int(m[1]), int(m[2])) for m in UNIT.finditer(text)]
@@ -124,6 +148,14 @@ class RealFrontendTests(unittest.TestCase):
         for unit, ticks in expected.items():
             self.assertEqual(first[unit], ticks, f"unit {unit}")
             self.assertEqual(second[unit], ticks, f"unit {unit} in a second process")
+
+    def test_retroarch_changes_the_disk_through_disk_control_and_the_playlist_is_read_by_the_frontend_vfs(self):
+        text = self.retroarch("disks", content="list.m3u", drive=True)
+        self.assertRegex(text, r"(?m)^\[libretro INFO\] \[PUAE6\] disk 1: medium 0, label \"Disk A\"$")
+        self.assertRegex(text, r"(?m)^\[libretro INFO\] \[PUAE6\] disk 2: medium 1, label \"Disk B\"$")
+        events = re.findall(r"(?m)^\[libretro INFO\] \[PUAE6\] (DF0: .*)$", text)
+        self.assertEqual(events, ["DF0: medium 0 inserted", "DF0: ejected", "DF0: medium 1 inserted"])
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
 
 
 if __name__ == "__main__":

@@ -1,19 +1,29 @@
 // PUAE6 libretro core: a thin adapter over the native ABI (bridge/include/p6.h), T16.
 //
 // retro_run polls the input once, makes exactly one p6_run_frame call, and hands over one picture and the audio of that unit. The
-// core has no scheduler of its own, never sleeps and never reads the host clock: the frontend paces it. It includes libretro.h and
-// p6.h only; nothing of the engine is visible here.
+// core has no scheduler of its own, never sleeps and never reads the host clock: the frontend paces it. It includes libretro.h, p6.h and
+// its own headers (and the portable SHA-256) only; nothing of the engine is visible here.
 //
-// What this minimal adapter does not do yet (see docs/02-contracts.md and the plan): core options, the content and system-directory
-// file handling of Kickstart and disks (T17), save states (T18: serialize_size is 0, which is the honest answer until then), the
-// keyboard, and any memory region. The content given to retro_load_game is the firmware image itself.
+// Content (T17a): the Kickstart is looked up by known file names in the frontend's system directory and identified by the bridge from its bytes
+// (never by its name); the content is an ADF, an M3U playlist of ADFs, or nothing (the Kickstart boots alone). Files are read through the
+// frontend's VFS when it offers one and through stdio otherwise. Disks are read-only. Every image of the playlist is registered with p6_load,
+// and the Disk Control interface only records what the frontend asks: the next retro_run turns it into p6_media_event_enqueue calls, so a
+// change lands on one unit boundary (see disk_control.h).
+//
+// What this adapter does not do yet (see docs/02-contracts.md and the plan): core options (T17b), the keyboard and the other port devices
+// (T17c), the other floppy formats (T17d), save states (T18: serialize_size is 0, which is the honest answer until then), and any memory region.
 #include "libretro.h"
 #include "p6.h"
+#include "content.h"
+#include "disk_control.h"
+#include "../../ports/portable/media/sha256.h"
 
 #include <algorithm>
 #include <stdarg.h>
+#include <new>
 #include <stdio.h>
 #include <string.h>
+#include <string>
 #include <vector>
 
 #ifndef P6_LIBRETRO_VERSION
@@ -26,6 +36,18 @@ constexpr uint32_t kAudioRateHz = 48000;
 constexpr int64_t kRtcEpoch = 946684800;          // 2000-01-01T00:00:00Z, the contract's default, as the headless runner uses
 constexpr uint64_t kSeed = 1;
 constexpr size_t kPendingAudioFrames = 16384;     // a stalled frontend may hold this many stereo frames back; older ones are dropped
+constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500 family; what the file claims never decides an allocation
+constexpr size_t kAdfBytes = 901120;              // 80 cylinders x 2 sides x 11 sectors x 512 bytes: what the bridge accepts as an ADF
+
+// The Kickstart 1.3 of the A500, by the names the community and PUAE5 give it in a system directory. A name only finds the file: what it is,
+// is decided by p6_load from the bytes.
+const char *const kKickstartNames[] = {
+    "kick34005.A500",
+    "amiga-os-130.rom",
+    "Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom",
+    "Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV).rom",
+    "Kickstart v1.3 r34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom",
+};
 
 retro_environment_t environment_cb;
 retro_video_refresh_t video_cb;
@@ -34,6 +56,11 @@ retro_audio_sample_batch_t audio_batch_cb;
 retro_input_poll_t input_poll_cb;
 retro_input_state_t input_state_cb;
 retro_log_printf_t log_cb;
+
+struct Medium {
+    std::vector<uint8_t> bytes;           // p6_load borrows it until p6_unload
+    uint8_t id[P6_CONTENT_ID_SIZE];       // SHA-256 of the bytes: the identity of the disk, whatever it is called or wherever it is
+};
 
 struct Core {
     bool initialized = false;             // p6_init succeeded and p6_shutdown has not been called
@@ -44,7 +71,14 @@ struct Core {
     bool announced_size = false;
     uint32_t standard = P6_VIDEO_PAL;
     uint32_t device[2] = {RETRO_DEVICE_JOYPAD, RETRO_DEVICE_JOYPAD};
-    std::vector<uint8_t> firmware;        // p6_load borrows it until p6_unload; libretro's buffer lives only during retro_load_game
+    std::vector<uint8_t> firmware;        // p6_load borrows it until p6_unload
+    std::vector<Medium> media;            // the manifest: one entry per distinct disk of the content
+    p6_libretro::DiskTray tray;           // the images of the playlist and the virtual tray (what the frontend asks for)
+    p6_libretro::FileReader files;
+    uint64_t event_sequence = 0;          // of the media events handed to the bridge (it asks for strictly increasing numbers per image)
+    bool have_initial = false;            // set_initial_image was called before this load
+    unsigned initial_index = 0;
+    std::string initial_path;
     std::vector<uint8_t> last_picture;    // a copy, kept only when the frontend cannot repeat a picture by itself
     uint32_t last_width = 0, last_height = 0;
     uint32_t announced_width = 0, announced_height = 0;
@@ -97,6 +131,12 @@ void stop_image()
     }
     if (core.initialized) p6_shutdown(nullptr);
     core.loaded = core.initialized = core.faulted = false;
+    core.firmware.clear();                  // only now: p6_unload was the last user of what it borrowed
+    core.media.clear();
+    core.tray.clear();
+    core.event_sequence = 0;
+    core.have_initial = false;
+    core.initial_path.clear();
     core.announced_size = false;
     core.last_width = core.last_height = 0;
     core.last_picture.clear();
@@ -205,6 +245,301 @@ void deliver_audio(const p6_frame &frame, bool have_frame)
     core.pending.erase(core.pending.begin(), core.pending.begin() + std::ptrdiff_t(offered * 2));
 }
 
+// A failure the person at the frontend has to see, not only the log: the log line and an on-screen message.
+void notify_error(const char *format, ...)
+{
+    char text[512];
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(text, sizeof text, format, arguments);
+    va_end(arguments);
+    log(RETRO_LOG_ERROR, "%s", text);
+    if (!environment_cb) return;
+    char shown[540];
+    snprintf(shown, sizeof shown, "PUAE6: %s", text);
+    unsigned version = 0;
+    if (environment_cb(RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION, &version) && version >= 1) {
+        retro_message_ext message = {};
+        message.msg = shown;
+        message.duration = 8000;
+        message.priority = 3;
+        message.level = RETRO_LOG_ERROR;
+        message.target = RETRO_MESSAGE_TARGET_ALL;
+        message.type = RETRO_MESSAGE_TYPE_NOTIFICATION;
+        message.progress = -1;
+        environment_cb(RETRO_ENVIRONMENT_SET_MESSAGE_EXT, &message);
+    } else {
+        retro_message message = {shown, 480};
+        environment_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &message);
+    }
+}
+
+const char *describe(p6_libretro::ReadResult result)
+{
+    switch (result) {
+    case p6_libretro::ReadResult::CannotOpen: return "it cannot be opened";
+    case p6_libretro::ReadResult::TooLarge: return "it is too large";
+    case p6_libretro::ReadResult::ReadFailed: return "it cannot be read";
+    case p6_libretro::ReadResult::OutOfMemory: return "there is not enough memory to read it";
+    default: return "";
+    }
+}
+
+std::string to_hex(const uint8_t *bytes, size_t count)
+{
+    static const char digits[] = "0123456789abcdef";
+    std::string text;
+    for (size_t i = 0; i < count; ++i) {
+        text += digits[bytes[i] >> 4];
+        text += digits[bytes[i] & 15];
+    }
+    return text;
+}
+
+// The disks the content names, read through the VFS or stdio, with the distinct ones in `media` (the manifest) and one image per playlist
+// entry. Returns false after saying why (nothing is half-loaded: the caller drops what was filled).
+bool load_disks(const retro_game_info *game, std::vector<Medium> *media, std::vector<p6_libretro::Image> *images)
+{
+    using namespace p6_libretro;
+    if (!game) return true;                       // no content: the Kickstart boots alone (SET_SUPPORT_NO_GAME)
+    if (!game->path || !*game->path) {
+        notify_error("the content has no path; this core reads the file itself");
+        return false;
+    }
+    const std::string content = game->path;
+    std::vector<PlaylistEntry> entries;
+    if (has_extension(content, "m3u")) {
+        std::vector<uint8_t> text;
+        const ReadResult read = core.files.read(content, kMaxPlaylistBytes, &text);
+        if (read != ReadResult::Ok) {
+            notify_error("the playlist %s cannot be loaded: %s", content.c_str(), describe(read));
+            return false;
+        }
+        Playlist playlist;
+        std::string why;
+        if (!parse_m3u(text, directory_of(content), P6_MAX_MEDIA, &playlist, &why)) {
+            notify_error("the playlist %s is not usable: %s", content.c_str(), why.c_str());
+            return false;
+        }
+        if (playlist.entries.empty()) {
+            notify_error("the playlist %s lists no disks", content.c_str());
+            return false;
+        }
+        if (playlist.save_disks_ignored)
+            log(RETRO_LOG_WARN, "%u #SAVEDISK line(s) of the playlist are ignored: the disks are read-only", playlist.save_disks_ignored);
+        entries = std::move(playlist.entries);
+    } else if (has_extension(content, "adf")) {
+        entries.push_back({content, without_extension(file_name(content))});
+    } else {
+        notify_error("%s is not content this core loads (an .adf disk or an .m3u playlist of them)", content.c_str());
+        return false;
+    }
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const PlaylistEntry &entry = entries[i];
+        if (!has_extension(entry.path, "adf")) {
+            notify_error("disk %zu (%s) is not an .adf image", i + 1, entry.path.c_str());
+            return false;
+        }
+        Medium medium;
+        const ReadResult read = core.files.read(entry.path, kAdfBytes, &medium.bytes);
+        if (read == ReadResult::TooLarge) {
+            notify_error("disk %zu (%s) is larger than an ADF (%zu bytes)", i + 1, entry.path.c_str(), kAdfBytes);
+            return false;
+        }
+        if (read != ReadResult::Ok) {
+            notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), describe(read));
+            return false;
+        }
+        if (medium.bytes.size() != kAdfBytes) {
+            notify_error("disk %zu (%s) is %zu bytes, not an ADF of %zu", i + 1, entry.path.c_str(), medium.bytes.size(), kAdfBytes);
+            return false;
+        }
+        p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
+        size_t known = 0;
+        while (known < media->size() && memcmp((*media)[known].id, medium.id, sizeof medium.id) != 0) ++known;
+        if (known == media->size()) {
+            log(RETRO_LOG_INFO, "medium %zu sha256=%s", known, to_hex(medium.id, sizeof medium.id).c_str());
+            media->push_back(std::move(medium));
+        }
+        images->push_back({entry.path, entry.label, uint32_t(known)});
+        log(RETRO_LOG_INFO, "disk %zu: medium %zu, label \"%s\"", i + 1, known, entry.label.c_str());
+    }
+    return true;
+}
+
+// The Kickstart: the first file of the system directory under a known name that the bridge accepts. A name that is there but refused (a damaged
+// copy, another machine's ROM) does not hide a good one under the next name. Returns false after saying why.
+bool load_firmware(const std::vector<p6_media> &manifest)
+{
+    using namespace p6_libretro;
+    const char *directory = nullptr;
+    if (!environment_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &directory) || !directory || !*directory) {
+        notify_error("the frontend has no system directory, where the Kickstart ROM is looked for");
+        return false;
+    }
+    if (strlen(directory) > kMaxPathBytes) {
+        notify_error("the system directory path is too long");
+        return false;
+    }
+    std::string refusals;
+    for (const char *name : kKickstartNames) {
+        const std::string path = join_path(directory, name);
+        const ReadResult read = core.files.read(path, kMaxFirmwareBytes, &core.firmware);
+        if (read == ReadResult::CannotOpen) continue;
+        if (read != ReadResult::Ok) {
+            log(RETRO_LOG_WARN, "%s is not used: %s", name, describe(read));
+            refusals += refusals.empty() ? "" : "; ";
+            refusals += std::string(name) + " " + describe(read);
+            continue;
+        }
+        p6_error error = make_error();
+        const p6_result result = p6_load(p6_buffer{core.firmware.data(), core.firmware.size()}, manifest.data(), uint32_t(manifest.size()), &error);
+        if (result == P6_OK) {
+            log(RETRO_LOG_INFO, "Kickstart %s, %s", name, core.files.uses_vfs() ? "read through the frontend VFS" : "read with stdio");
+            return true;
+        }
+        report("p6_load", result, error);
+        refusals += refusals.empty() ? "" : "; ";
+        refusals += std::string(name) + " refused (" + error.message + ")";
+    }
+    core.firmware.clear();
+    if (refusals.empty())
+        notify_error("no Kickstart 1.3 ROM in the system directory %s (looked for %s, ...)", directory, kKickstartNames[0]);
+    else
+        notify_error("the Kickstart ROM in the system directory %s is not usable: %s", directory, refusals.c_str());
+    return false;
+}
+
+// What the frontend asked of the tray since the last unit becomes media events for this boundary, in order.
+void apply_disk_requests()
+{
+    p6_libretro::DiskTray::Change changes[2];
+    const unsigned count = core.tray.due(changes);
+    for (unsigned i = 0; i < count; ++i) {
+        p6_media_event event = {};
+        event.abi_version = P6_ABI_VERSION;
+        event.struct_size = sizeof event;
+        event.type = changes[i].mount ? P6_MEDIA_EVENT_MOUNT : P6_MEDIA_EVENT_EJECT;
+        event.drive = 0;
+        event.media_index = changes[i].mount ? changes[i].medium : P6_MEDIA_INDEX_EJECT;
+        event.sequence = ++core.event_sequence;
+        p6_error error = make_error();
+        const p6_result result = p6_media_event_enqueue(&event, &error);
+        if (result != P6_OK) {
+            --core.event_sequence;
+            report("p6_media_event_enqueue", result, error);
+            break;
+        }
+        core.tray.applied(changes[i]);
+        if (changes[i].mount) log(RETRO_LOG_INFO, "DF0: medium %u inserted", changes[i].medium);
+        else log(RETRO_LOG_INFO, "DF0: ejected");
+    }
+    core.tray.settled();
+}
+
+// --- Disk Control: the frontend's calls record a request; apply_disk_requests turns them into events at the next retro_run ---------------------
+
+bool RETRO_CALLCONV disk_set_eject_state(bool ejected)
+{
+    if (!core.loaded) return false;
+    return core.tray.set_ejected(ejected);
+}
+
+bool RETRO_CALLCONV disk_get_eject_state(void) { return core.loaded && core.tray.ejected(); }
+unsigned RETRO_CALLCONV disk_get_image_index(void) { return core.tray.selected(); }
+
+bool RETRO_CALLCONV disk_set_image_index(unsigned index)
+{
+    if (!core.loaded) return false;
+    if (!core.tray.select(index)) {
+        log(RETRO_LOG_WARN, "the image can only be chosen while the tray is open");
+        return false;
+    }
+    return true;
+}
+
+unsigned RETRO_CALLCONV disk_get_num_images(void) { return core.tray.count(); }
+
+// A disk that is not in the media manifest cannot be added: the manifest is registered with p6_load and is part of the state identity.
+bool RETRO_CALLCONV disk_replace_image_index(unsigned index, const retro_game_info *info)
+{
+    if (!core.loaded) return false;
+    if (info) {
+        log(RETRO_LOG_WARN, "image %u cannot be replaced by %s: only the disks the content named at load can be inserted", index,
+            info->path ? info->path : "a new disk");
+        return false;
+    }
+    if (!core.tray.remove(index)) {
+        log(RETRO_LOG_WARN, "image %u cannot be removed (the tray must be open and the image must exist)", index);
+        return false;
+    }
+    return true;
+}
+
+bool RETRO_CALLCONV disk_add_image_index(void)
+{
+    log(RETRO_LOG_WARN, "no image can be added: only the disks the content named at load can be inserted");
+    return false;
+}
+
+// Called before retro_load_game: the image that was in the drive when the frontend last closed this content. It is used only if the content
+// still has that image at that index.
+bool RETRO_CALLCONV disk_set_initial_image(unsigned index, const char *path)
+{
+    if (core.loaded || !path || !*path || strlen(path) > p6_libretro::kMaxPathBytes) return false;
+    core.have_initial = true;
+    core.initial_index = index;
+    core.initial_path = path;
+    return true;
+}
+
+bool copy_text(const std::string &text, char *out, size_t length)
+{
+    if (!out || text.size() >= length) return false;
+    memcpy(out, text.c_str(), text.size() + 1);
+    return true;
+}
+
+bool RETRO_CALLCONV disk_get_image_path(unsigned index, char *out, size_t length)
+{
+    const p6_libretro::Image *image = core.tray.image(index);
+    return image && copy_text(image->path, out, length);
+}
+
+bool RETRO_CALLCONV disk_get_image_label(unsigned index, char *out, size_t length)
+{
+    const p6_libretro::Image *image = core.tray.image(index);
+    return image && copy_text(image->label, out, length);
+}
+
+void register_disk_control()
+{
+    unsigned version = 0;
+    if (environment_cb(RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION, &version) && version >= 1) {
+        retro_disk_control_ext_callback callbacks = {};
+        callbacks.set_eject_state = disk_set_eject_state;
+        callbacks.get_eject_state = disk_get_eject_state;
+        callbacks.get_image_index = disk_get_image_index;
+        callbacks.set_image_index = disk_set_image_index;
+        callbacks.get_num_images = disk_get_num_images;
+        callbacks.replace_image_index = disk_replace_image_index;
+        callbacks.add_image_index = disk_add_image_index;
+        callbacks.set_initial_image = disk_set_initial_image;
+        callbacks.get_image_path = disk_get_image_path;
+        callbacks.get_image_label = disk_get_image_label;
+        if (environment_cb(RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE, &callbacks)) return;
+    }
+    retro_disk_control_callback legacy = {};         // an older frontend: the same without the initial image, paths and labels
+    legacy.set_eject_state = disk_set_eject_state;
+    legacy.get_eject_state = disk_get_eject_state;
+    legacy.get_image_index = disk_get_image_index;
+    legacy.set_image_index = disk_set_image_index;
+    legacy.get_num_images = disk_get_num_images;
+    legacy.replace_image_index = disk_replace_image_index;
+    legacy.add_image_index = disk_add_image_index;
+    environment_cb(RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE, &legacy);
+}
+
 }  // namespace
 
 extern "C" {
@@ -214,8 +549,8 @@ RETRO_API unsigned retro_api_version(void) { return RETRO_API_VERSION; }
 RETRO_API void retro_set_environment(retro_environment_t callback)
 {
     environment_cb = callback;
-    bool no_game = false;
-    if (environment_cb) environment_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);   // optional; the core needs content
+    bool no_game = true;                // the Kickstart boots without a disk
+    if (environment_cb) environment_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);   // optional
 }
 
 RETRO_API void retro_set_video_refresh(retro_video_refresh_t callback) { video_cb = callback; }
@@ -229,11 +564,19 @@ RETRO_API void retro_init(void)
     retro_log_callback logging = {};
     if (environment_cb && environment_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging) && logging.log)
         log_cb = logging.log;
+    if (!environment_cb) return;
+    // The frontend's file system, asked for as early as the API recommends; version 1 (open, size, read, close) is all the core uses.
+    retro_vfs_interface_info vfs = {};
+    vfs.required_interface_version = 1;
+    if (environment_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs) && vfs.iface && vfs.iface->open && vfs.iface->read && vfs.iface->close)
+        core.files.use_vfs(vfs.iface);
+    register_disk_control();
 }
 
 RETRO_API void retro_deinit(void)
 {
     stop_image();
+    core.files.use_vfs(nullptr);
     log_cb = nullptr;
 }
 
@@ -242,8 +585,8 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "rom|bin";
-    info->need_fullpath = false;
+    info->valid_extensions = "adf|m3u";
+    info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
     info->block_extract = false;
 }
 
@@ -292,6 +635,7 @@ RETRO_API void retro_run(void)
     p6_frame frame = {};
     bool have_frame = false;
     if (!core.faulted) {
+        apply_disk_requests();      // what the frontend asked of the tray since the last unit lands on this boundary
         input_poll_cb();
         const p6_input input = read_input();
         frame.abi_version = P6_ABI_VERSION;
@@ -325,10 +669,6 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
 {
     CallGuard guard;
     if (!guard.ok) return false;
-    if (!game || !game->data || game->size == 0) {
-        log(RETRO_LOG_ERROR, "no firmware content was given");
-        return false;
-    }
     if (core.loaded) {
         log(RETRO_LOG_ERROR, "a game is already loaded");
         return false;
@@ -341,33 +681,53 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     bool can_dupe = false;
     core.can_dupe = environment_cb(RETRO_ENVIRONMENT_GET_CAN_DUPE, &can_dupe) && can_dupe;
     try {
-        core.firmware.assign(static_cast<const uint8_t *>(game->data), static_cast<const uint8_t *>(game->data) + game->size);
-    } catch (...) {
-        log(RETRO_LOG_ERROR, "not enough memory for the firmware");
-        return false;
-    }
-    p6_config config = {};
-    config.abi_version = P6_ABI_VERSION;
-    config.struct_size = sizeof config;
-    config.machine = P6_MACHINE_A500;
-    config.video_standard = core.standard;
-    config.audio_rate_hz = kAudioRateHz;
-    config.random_seed = kSeed;
-    config.rtc_epoch_seconds = kRtcEpoch;
-    p6_error error = make_error();
-    p6_result result = p6_init(&config, &error);
-    if (result != P6_OK) {
-        report("p6_init", result, error);
-        return false;
-    }
-    core.initialized = true;
-    result = p6_load(p6_buffer{core.firmware.data(), core.firmware.size()}, nullptr, 0, &error);
-    if (result != P6_OK) {
-        report("p6_load", result, error);
+        std::vector<p6_libretro::Image> images;
+        if (!load_disks(game, &core.media, &images)) {
+            stop_image();
+            return false;
+        }
+        std::vector<p6_media> manifest;
+        for (const Medium &medium : core.media) {
+            p6_media entry = {};
+            entry.type = P6_MEDIA_ADF;
+            memcpy(entry.content_id, medium.id, sizeof medium.id);
+            entry.image = p6_buffer{medium.bytes.data(), medium.bytes.size()};
+            manifest.push_back(entry);
+        }
+        p6_config config = {};
+        config.abi_version = P6_ABI_VERSION;
+        config.struct_size = sizeof config;
+        config.machine = P6_MACHINE_A500;
+        config.video_standard = core.standard;
+        config.audio_rate_hz = kAudioRateHz;
+        config.random_seed = kSeed;
+        config.rtc_epoch_seconds = kRtcEpoch;
+        p6_error error = make_error();
+        const p6_result result = p6_init(&config, &error);
+        if (result != P6_OK) {
+            report("p6_init", result, error);
+            stop_image();
+            return false;
+        }
+        core.initialized = true;
+        if (!load_firmware(manifest)) {
+            stop_image();
+            return false;
+        }
+        core.loaded = true;
+        // The image the frontend remembers from its last session, if the content still has it at that index; else the first.
+        unsigned initial = 0;
+        if (core.have_initial) {
+            const bool matches = core.initial_index < images.size() && images[core.initial_index].path == core.initial_path;
+            if (matches) initial = core.initial_index;
+            else log(RETRO_LOG_WARN, "the remembered disk %u (%s) is not in the content: starting with the first", core.initial_index, core.initial_path.c_str());
+        }
+        core.tray.start(std::move(images), initial);      // the first boundary mounts it: events before the first unit are the power-on disks
+    } catch (const std::bad_alloc &) {
+        notify_error("not enough memory to load the content");
         stop_image();
         return false;
     }
-    core.loaded = true;
     return true;
 }
 

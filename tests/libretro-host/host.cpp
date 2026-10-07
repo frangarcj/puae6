@@ -1,11 +1,19 @@
 // Minimal libretro frontend for the contract tests (T16, LR01). It loads a core with dlopen, like a real frontend, and enforces what
 // the libretro contract asks of a core on every retro_run: the input is polled once, exactly one picture is shown, audio arrives as
 // whole stereo frames, and the serialization size does not grow. Everything optional can be refused.
-//   p6_libretro_host CORE FIRMWARE [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--bad-format]
+//   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--bad-format]
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
+//                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
+//                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
+// The core gets the Kickstart from the system directory DIR (the frontend's GET_SYSTEM_DIRECTORY) and the content PATH by name (need_fullpath),
+// read through a VFS the host offers (unless --no-vfs) that wraps stdio and prints every open. No --content is a load without content.
+// COMMAND is a Disk Control call: eject, insert, index=N, remove=N, replace=N:PATH, add. --disk makes it before run RUN (after run RUN-1),
+// --disk-during from inside the video callback of run RUN, where a core must only record it.
 // Output, one line per event, parsed by tests/libretro-host/test_libretro.py:
-//   run N video=WxH pitch=P dupe=D hash=H audio=F polls=K
+//   run N video=WxH pitch=P dupe=D hash=H px=P audio=F polls=K states=S      (px: the pixel in the middle of the picture, XRGB8888)
 //   log LEVEL TEXT         (only when the log interface is offered)
+//   message TEXT           (SET_MESSAGE or SET_MESSAGE_EXT)
+//   vfs open PATH / initial result=R / disk-control ext=E / images count=N index=I eject=E / image I path=P label=L / disk RUN COMMAND ...
 //   cycle C end ... / final ...
 // Exit code: 0 ok, 1 a contract violation (printed as VIOLATION), 2 the core could not be loaded, 3 retro_load_game refused.
 #include "libretro.h"
@@ -17,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <set>
+#include <string>
 #include <vector>
 
 namespace {
@@ -30,6 +39,17 @@ struct Options {
     bool mouse = false;
     int mouse_dx = 0, mouse_dy = 0;
     unsigned mouse_buttons = 0;
+    std::string system_dir, content, retry_system;
+    bool has_system = false, has_content = false, no_vfs = false, legacy_disk = false, legacy_message = false, has_initial = false;
+    int64_t vfs_claim = -1;
+    unsigned initial_index = 0;
+    std::string initial_path;
+    struct DiskStep {
+        int run;
+        bool during;
+        std::string command;
+    };
+    std::vector<DiskStep> disk_steps;
 } options;
 
 // The core's entry points.
@@ -69,6 +89,7 @@ struct Run {
     unsigned width = 0, height = 0;
     size_t pitch = 0;
     uint64_t picture_hash = 0;
+    uint32_t first_pixel = 0;       // the middle of the picture
     uint64_t audio_frames = 0;
 } run;
 
@@ -78,6 +99,10 @@ int run_number = 0, violations = 0;
 uint64_t audio_hash = UINT64_C(1469598103934665603), audio_total = 0;
 retro_game_info game_info;
 bool in_video_callback = false;
+bool has_game = false;
+retro_disk_control_ext_callback disk = {};      // what the core registered (the legacy interface fills its first seven members)
+bool disk_registered = false, disk_is_ext = false;
+int vfs_opens = 0;
 
 void violation(const char *format, ...)
 {
@@ -112,6 +137,90 @@ void RETRO_CALLCONV log_printf(enum retro_log_level level, const char *format, .
     printf("log %d %s\n", int(level), text);
 }
 
+
+// --- the frontend's VFS: stdio behind libretro's interface, printing every open so that a test can tell which path the core read a file by ---
+
+}  // namespace
+struct retro_vfs_file_handle {          // libretro's opaque handle names a global type
+    FILE *file;
+    std::string path;
+};
+namespace {
+
+retro_vfs_file_handle *RETRO_CALLCONV vfs_open(const char *path, unsigned mode, unsigned)
+{
+    if (mode != RETRO_VFS_FILE_ACCESS_READ) return nullptr;        // the core only reads
+    FILE *file = fopen(path, "rb");
+    printf("vfs open %s%s\n", path, file ? "" : " (failed)");
+    ++vfs_opens;
+    return file ? new retro_vfs_file_handle{file, path} : nullptr;
+}
+int RETRO_CALLCONV vfs_close(retro_vfs_file_handle *handle)
+{
+    fclose(handle->file);
+    delete handle;
+    return 0;
+}
+int64_t RETRO_CALLCONV vfs_size(retro_vfs_file_handle *handle)
+{
+    if (options.vfs_claim >= 0) return options.vfs_claim;        // a frontend that says a file is huge: the core must not believe it
+    const long here = ftell(handle->file);
+    fseek(handle->file, 0, SEEK_END);
+    const long end = ftell(handle->file);
+    fseek(handle->file, here, SEEK_SET);
+    return end;
+}
+int64_t RETRO_CALLCONV vfs_read(retro_vfs_file_handle *handle, void *buffer, uint64_t length)
+{
+    const size_t got = fread(buffer, 1, size_t(length), handle->file);
+    return got == 0 && ferror(handle->file) ? -1 : int64_t(got);
+}
+const char *RETRO_CALLCONV vfs_get_path(retro_vfs_file_handle *handle) { return handle->path.c_str(); }
+int64_t RETRO_CALLCONV vfs_tell(retro_vfs_file_handle *handle) { return ftell(handle->file); }
+int64_t RETRO_CALLCONV vfs_seek(retro_vfs_file_handle *handle, int64_t offset, int position)
+{
+    const int whence = position == RETRO_VFS_SEEK_POSITION_START ? SEEK_SET : position == RETRO_VFS_SEEK_POSITION_CURRENT ? SEEK_CUR : SEEK_END;
+    return fseek(handle->file, long(offset), whence) ? -1 : ftell(handle->file);
+}
+
+retro_vfs_interface vfs_interface = {vfs_get_path, vfs_open, vfs_close, vfs_size, vfs_tell, vfs_seek, vfs_read};
+
+// --- Disk Control as a frontend drives it ---
+
+void disk_command(int run_at, const std::string &command)
+{
+    if (!disk_registered) {
+        printf("disk %d %s no-interface\n", run_at, command.c_str());
+        return;
+    }
+    bool result = false;
+    unsigned number = 0;
+    char path[1024];
+    if (command == "eject") result = disk.set_eject_state(true);
+    else if (command == "insert") result = disk.set_eject_state(false);
+    else if (sscanf(command.c_str(), "index=%u", &number) == 1) result = disk.set_image_index(number);
+    else if (sscanf(command.c_str(), "remove=%u", &number) == 1) result = disk.replace_image_index && disk.replace_image_index(number, nullptr);
+    else if (sscanf(command.c_str(), "replace=%u:%1023s", &number, path) == 2) {
+        const retro_game_info info = {path, nullptr, 0, nullptr};
+        result = disk.replace_image_index(number, &info);
+    } else if (command == "add") result = disk.add_image_index();
+    else violation("unknown disk command %s", command.c_str());
+    printf("disk %d %s result=%d eject=%d index=%u count=%u\n", run_at, command.c_str(), int(result), int(disk.get_eject_state()),
+           disk.get_image_index(), disk.get_num_images());
+}
+
+void print_images()
+{
+    if (!disk_registered) return;
+    printf("images count=%u index=%u eject=%d\n", disk.get_num_images(), disk.get_image_index(), int(disk.get_eject_state()));
+    if (!disk_is_ext) return;
+    for (unsigned i = 0; i < disk.get_num_images(); ++i) {
+        char path[4096] = "", label[1024] = "";
+        const bool have_path = disk.get_image_path(i, path, sizeof path), have_label = disk.get_image_label(i, label, sizeof label);
+        printf("image %u path=%s label=%s%s\n", i, path, label, have_path && have_label ? "" : " (missing)");
+    }
+}
+
 bool RETRO_CALLCONV environment(unsigned command, void *data)
 {
     environment_commands.insert(command & 0xFFFF);
@@ -129,6 +238,44 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         return true;
     case RETRO_ENVIRONMENT_SET_GEOMETRY:
         return !options.reject_optional;
+    case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
+        if (!options.has_system) return false;
+        *static_cast<const char **>(data) = options.system_dir.c_str();
+        return true;
+    case RETRO_ENVIRONMENT_GET_VFS_INTERFACE: {
+        retro_vfs_interface_info *info = static_cast<retro_vfs_interface_info *>(data);
+        if (options.no_vfs || options.reject_optional || info->required_interface_version > 3) return false;
+        info->required_interface_version = 3;
+        info->iface = &vfs_interface;
+        return true;
+    }
+    case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION:
+        if (options.legacy_disk || options.reject_optional) return false;
+        *static_cast<unsigned *>(data) = 1;
+        return true;
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE:
+        if (options.legacy_disk) return false;
+        disk = *static_cast<retro_disk_control_ext_callback *>(data);
+        disk_registered = disk_is_ext = true;
+        return true;
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE:
+        disk = {};
+        memcpy(&disk, data, sizeof(retro_disk_control_callback));
+        disk_registered = true;
+        disk_is_ext = false;
+        return true;
+    case RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION:
+        if (options.legacy_message || options.reject_optional) return false;
+        *static_cast<unsigned *>(data) = 1;
+        return true;
+    case RETRO_ENVIRONMENT_SET_MESSAGE_EXT:
+        printf("message %s\n", static_cast<retro_message_ext *>(data)->msg);
+        return true;
+    case RETRO_ENVIRONMENT_SET_MESSAGE:
+        printf("message %s\n", static_cast<retro_message *>(data)->msg);
+        return true;
+    case RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME:
+        return true;
     case RETRO_ENVIRONMENT_SHUTDOWN:
         shutdown_requested = true;
         return true;
@@ -149,15 +296,19 @@ void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned hei
         uint64_t hash = UINT64_C(1469598103934665603);
         for (unsigned y = 0; y < height; ++y) hash = fnv(hash, static_cast<const uint8_t *>(data) + size_t(y) * pitch, size_t(width) * 4);
         run.picture_hash = hash;
+        run.first_pixel = *reinterpret_cast<const uint32_t *>(static_cast<const uint8_t *>(data) + size_t(height / 2) * pitch + size_t(width / 2) * 4);
         if (pitch < size_t(width) * 4) violation("pitch %zu is smaller than a row of %u pixels", pitch, width);
     }
+    if (run.videos == 1)
+        for (const Options::DiskStep &step : options.disk_steps)
+            if (step.during && step.run == run_number) disk_command(run_number, step.command);
     if (options.reenter && !in_video_callback && run.videos == 1) {
         // A core must not run, reset, unload or load from inside one of its own callbacks.
         in_video_callback = true;
         core.run();
         core.reset();
         core.unload_game();
-        if (core.load_game(&game_info)) violation("retro_load_game succeeded from inside a callback");
+        if (core.load_game(has_game ? &game_info : nullptr)) violation("retro_load_game succeeded from inside a callback");
         in_video_callback = false;
     }
 }
@@ -230,22 +381,9 @@ bool load_core(const char *path)
            bind(core.get_memory_size, "retro_get_memory_size");
 }
 
-bool read_file(const char *path, std::vector<uint8_t> *data)
-{
-    FILE *file = fopen(path, "rb");
-    if (!file) {
-        perror(path);
-        return false;
-    }
-    uint8_t buffer[65536];
-    for (size_t n; (n = fread(buffer, 1, sizeof buffer, file)) > 0;) data->insert(data->end(), buffer, buffer + n);
-    fclose(file);
-    return true;
-}
-
 bool parse(int argc, char **argv)
 {
-    for (int i = 3; i < argc; ++i) {
+    for (int i = 2; i < argc; ++i) {
         const char *a = argv[i];
         auto next = [&]() -> const char * { return i + 1 < argc ? argv[++i] : ""; };
         if (!strcmp(a, "--runs")) options.runs = atoi(next());
@@ -255,6 +393,26 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--no-dupe")) options.no_dupe = true;
         else if (!strcmp(a, "--bad-format")) options.bad_format = true;
         else if (!strcmp(a, "--reenter")) options.reenter = true;
+        else if (!strcmp(a, "--system")) options.system_dir = next(), options.has_system = true;
+        else if (!strcmp(a, "--content")) options.content = next(), options.has_content = true;
+        else if (!strcmp(a, "--no-vfs")) options.no_vfs = true;
+        else if (!strcmp(a, "--vfs-claim")) options.vfs_claim = atoll(next());
+        else if (!strcmp(a, "--retry-system")) options.retry_system = next();
+        else if (!strcmp(a, "--legacy-disk-control")) options.legacy_disk = true;
+        else if (!strcmp(a, "--legacy-message")) options.legacy_message = true;
+        else if (!strcmp(a, "--initial")) {
+            const std::string spec = next();
+            const size_t colon = spec.find(':');
+            if (colon == std::string::npos) return false;
+            options.has_initial = true;
+            options.initial_index = unsigned(atoi(spec.substr(0, colon).c_str()));
+            options.initial_path = spec.substr(colon + 1);
+        } else if (!strcmp(a, "--disk") || !strcmp(a, "--disk-during")) {
+            const std::string spec = next();
+            const size_t colon = spec.find(':');
+            if (colon == std::string::npos) return false;
+            options.disk_steps.push_back({atoi(spec.substr(0, colon).c_str()), !strcmp(a, "--disk-during"), spec.substr(colon + 1)});
+        }
         else if (!strcmp(a, "--audio-partial")) options.audio_partial = size_t(atol(next()));
         else if (!strcmp(a, "--audio-stall")) sscanf(next(), "%d:%d", &options.stall_first, &options.stall_last);
         else if (!strcmp(a, "--joy")) {
@@ -276,8 +434,8 @@ bool parse(int argc, char **argv)
 int main(int argc, char **argv)
 {
     setvbuf(stdout, nullptr, _IOLBF, 0);
-    if (argc < 3 || !parse(argc, argv)) {
-        fprintf(stderr, "usage: %s CORE FIRMWARE [--runs N] [--cycles C] [options]\n", argv[0]);
+    if (argc < 2 || !parse(argc, argv)) {
+        fprintf(stderr, "usage: %s CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [options]\n", argv[0]);
         return 64;
     }
     if (!load_core(argv[1])) return 2;
@@ -285,9 +443,8 @@ int main(int argc, char **argv)
         printf("VIOLATION api version %u\n", core.api_version());
         return 1;
     }
-    std::vector<uint8_t> firmware;
-    if (!read_file(argv[2], &firmware)) return 2;
-    game_info = {argv[2], firmware.data(), firmware.size(), nullptr};
+    has_game = options.has_content;
+    game_info = {options.content.c_str(), nullptr, 0, nullptr};      // need_fullpath: the frontend hands over the path only
 
     core.set_environment(environment);
     core.set_video_refresh(video_refresh);
@@ -305,11 +462,25 @@ int main(int argc, char **argv)
     int status = 0;
     for (int cycle = 1; cycle <= options.cycles && !status; ++cycle) {
         run_number = 0;
-        if (!core.load_game(&game_info)) {
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            if (options.has_initial && core.load_game) {
+                if (disk_registered && disk_is_ext && disk.set_initial_image)
+                    printf("initial result=%d\n", int(disk.set_initial_image(options.initial_index, options.initial_path.c_str())));
+                else
+                    printf("initial unsupported\n");
+            }
+            if (core.load_game(has_game ? &game_info : nullptr)) break;
             printf("load refused\n");
+            if (attempt == 0 && !options.retry_system.empty()) {
+                options.system_dir = options.retry_system;
+                options.has_system = true;       // a person fixes the system directory and loads again, in the same process
+                continue;
+            }
             status = 3;
             break;
         }
+        if (status) break;
+        print_images();
         retro_system_av_info av = {};
         core.get_system_av_info(&av);
         printf("av base=%ux%u max=%ux%u aspect=%.6f fps=%.6f rate=%.0f region=%u\n", av.geometry.base_width, av.geometry.base_height,
@@ -321,9 +492,11 @@ int main(int argc, char **argv)
         for (int n = 1; n <= options.runs && !shutdown_requested; ++n) {
             run_number = n;
             run = Run{};
+            for (const Options::DiskStep &step : options.disk_steps)
+                if (!step.during && step.run == n) disk_command(n, step.command);
             core.run();
-            printf("run %d video=%ux%u pitch=%zu dupe=%d hash=%016" PRIx64 " audio=%" PRIu64 " polls=%d states=%d\n", n, run.width, run.height,
-                   run.pitch, int(run.dupe), run.picture_hash, run.audio_frames, run.polls, run.states);
+            printf("run %d video=%ux%u pitch=%zu dupe=%d hash=%016" PRIx64 " px=%08x audio=%" PRIu64 " polls=%d states=%d\n", n, run.width,
+                   run.height, run.pitch, int(run.dupe), run.picture_hash, run.first_pixel, run.audio_frames, run.polls, run.states);
             if (run.videos != 1) violation("%d pictures were shown (exactly one is required)", run.videos);
             if (run.polls != 1) violation("the input was polled %d times (once is required)", run.polls);
             if (core.serialize_size() != serialize_size) violation("the serialization size changed");
@@ -334,7 +507,7 @@ int main(int argc, char **argv)
         if (shutdown_requested) status = 1;
     }
     core.deinit();
-    printf("final violations=%d environment=", violations);
+    printf("final violations=%d vfs_opens=%d environment=", violations, vfs_opens);
     bool first = true;
     for (unsigned command : environment_commands) {
         printf("%s%u", first ? "" : ",", command);
