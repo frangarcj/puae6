@@ -22,8 +22,10 @@ SUITES = {
 }
 # Checks whose assertion sets are real suites for one task (T26). The dispatcher still knows nothing about the
 # emulator itself: these suites build and run the sanitizer canaries, the sanitizer builds of the bridge and the
-# deterministic fuzz targets. A required assertion that has no suite (for example the state fuzz target, which needs
-# T15) is NOT_IMPLEMENTED, and so is any check/task/profile combination that is not listed.
+# deterministic fuzz targets. A required assertion that has no suite (the state fuzz target, for T26, which predates the native state) is
+# NOT_IMPLEMENTED, and so is any check/task/profile combination that is not listed. T15 closes the gap: FUZZ01 for T15 is the T26 targets plus
+# `state`, the seeded mutation of states loaded through the public p6_state_load (truncated, tampered, other build/ROM/config/media), which
+# also checks that a refusal leaves the machine bit for bit as it was.
 TASK_SUITES = {
     ('SAFE01', 'T26'): {
         'canary_self_test': 'tests.canaries.test_canaries',
@@ -33,6 +35,11 @@ TASK_SUITES = {
     ('FUZZ01', 'T26'): {
         'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
         'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+    },
+    ('FUZZ01', 'T15'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
     },
 }
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}

@@ -279,6 +279,10 @@ class Det02Case(ProbeCase):
 
     ROMS = {}
     cache = {}
+    # The probe operations that save the state of the original and load it into the other machine: the registry's (with the test options) here, the public p6_state_* functions in
+    # DET03 (tests/state/test_det03.py), which runs the same scenarios through the ABI a host uses.
+    SAVE_OP = "--save-at"
+    LOAD_OP = "--load-at"
 
     @classmethod
     def setUpClass(cls):
@@ -308,7 +312,7 @@ class Det02Case(ProbeCase):
         key = ("original", rom, tuple(map(str, self.arguments(extra))), n, self.after(extra))
         if key not in self.cache:
             path = self.dir / f"det02-{len(self.cache)}.state"
-            run = self.probe(rom, "--units", str(n + self.after(extra)), "--every", "1", "--dump", "chipset", *self.arguments(extra), "--save-at", str(n), str(path))
+            run = self.probe(rom, "--units", str(n + self.after(extra)), "--every", "1", "--dump", "chipset", *self.arguments(extra), self.SAVE_OP, str(n), str(path))
             self.cache[key] = (run, path)
         return self.cache[key]
 
@@ -326,7 +330,7 @@ class Det02Case(ProbeCase):
             original, path = self.original(rom, extra, n)
             fresh = mode.startswith("new-process")
             offset = 0 if fresh else n + {LATER_BEAM: LANDED, SWAPPED_BEAM: SWAPPED}.get(mode, REWIND)
-            ops = ["--load-at", str(offset), str(path)]
+            ops = [self.LOAD_OP, str(offset), str(path)]
             if mode.startswith("reset-image"):
                 ops = ["--reset-at", str(offset - 1)] + ops          # the image restarts its program one unit before the load: its history is not the state's
             if mode.endswith("beam-set"):

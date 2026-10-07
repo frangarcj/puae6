@@ -1,0 +1,12 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -4866,7 +4866,7 @@
+ 		return;
+ 	}
+ 
+-	cycles = (tohpos << 8) - disk_hpos;
++	cycles = (tohpos * 256) - disk_hpos;
+ 	if (cycles <= 0) {
+ 		return;
+ 	}

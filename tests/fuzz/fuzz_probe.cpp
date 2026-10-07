@@ -5,11 +5,15 @@
 //   fuzz_probe firmware ROM SEED N       p6_load on mutated images; accepted ones run two units and unload
 //   fuzz_probe blob SEED N               random operations on the blob store
 //   fuzz_probe media ROM SEED N          p6_load on mutated disk lists and p6_media_event_enqueue on mutated events, against an oracle
+//   fuzz_probe state ROM SEED N          p6_state_load on N mutated states of a running image (truncated, extended, bit flips, byte runs, extreme values, chunk table edits, swapped and
+//                                        spliced chunks, other build/ROM/config/media identities), with and without a disk, resealed or not
 // Output is a histogram of result codes; nothing else varies between runs.
 #include "p6.h"
 #include "blob_io.h"
 #include "sha256.h"
+#include "envelope.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -413,6 +417,362 @@ int fuzz_blob(uint64_t seed, uint64_t iterations)
     return 0;
 }
 
+
+// --- state ---------------------------------------------------------------------------------------------------------
+//
+// p6_state_load takes a buffer from outside, so it is the surface of the native state that an attacker or a corrupt file reaches. A valid state is made in-process (a micro-ROM that ran a few
+// units, with and without a disk) and then loaded back thousands of times with a mutation applied. Half of the mutations leave the checksums alone (the cheap refusals); the other half
+// recompute the payload and header checksums, so that the structure checks, the identity, the chunk table and every chunk visitor in Validate mode see bytes that are well formed
+// as a container and wrong as a machine. What must hold, for every candidate:
+//   - the result is OK, CORRUPT_STATE or INCOMPATIBLE (BAD_ARGUMENT for a null buffer with a length), never INTERNAL, which is a faulted image;
+//   - there is no sanitizer report (the run is in the ASan + UBSan build) and no allocation proportional to a forged length (the test caps the allocator, ASAN_OPTIONS
+//     max_allocation_size_mb);
+//   - a refusal leaves the machine exactly as it was: saving it again gives the bytes of the good state, byte for byte;
+//   - the image stays usable after a refusal: a unit runs and the state after it is the one of a control run that never saw the attempt (the reference, taken before the loop);
+//   - an accepted candidate (a flipped byte in RAM is a valid machine) leaves an image that runs a unit; loading the good state afterwards is always accepted and gives the good state back.
+
+constexpr uint64_t kStateUnits = 3;                    // units the image runs before the good state is taken
+constexpr uint32_t kStateChunks = 11;
+
+uint64_t le64(const uint8_t *p) { uint64_t v = 0; for (int i = 7; i >= 0; --i) v = v << 8 | p[i]; return v; }
+void put_le(uint8_t *p, uint64_t v, unsigned bytes) { for (unsigned i = 0; i < bytes; ++i) p[i] = uint8_t(v >> (8 * i)); }
+
+// The checksums of a state whose bytes were edited: the payload's (offset 272) and the header's (offset 304), as seal() writes them.
+void rehash(std::vector<uint8_t> &s, bool fix_length)
+{
+    if (s.size() < p6_state::kHeaderSize) return;
+    if (fix_length) put_le(&s[40], s.size() - p6_state::kHeaderSize, 8);
+    const uint8_t *part = s.data() + p6_state::kHeaderSize;
+    uint64_t length = s.size() - p6_state::kHeaderSize;
+    p6_state::domain_hash("p6/native-payload/v1", &part, &length, 1, &s[272]);
+    part = s.data();
+    length = 304;
+    p6_state::domain_hash("p6/native-header/v1", &part, &length, 1, &s[304]);
+}
+
+struct StateImage {
+    std::vector<uint8_t> good;                         // the state the loop loads mutated copies of
+    std::vector<uint8_t> reference;                    // the state one unit after it, in a machine that never saw an attempt
+    std::vector<uint8_t> reference_pcm;                // the audio of that unit
+    std::vector<uint8_t> foreign;                      // a valid state of the other session (another media manifest)
+    uint64_t chunk_at[kStateChunks], chunk_length[kStateChunks];
+    uint64_t bound = 0;
+};
+
+p6_input state_input()
+{
+    p6_input input{};
+    input.abi_version = P6_ABI_VERSION;
+    input.struct_size = sizeof input;
+    input.ports[0] = {P6_PORT_MOUSE, 1, 3, -2, 0};      // something for the input chunk to carry
+    input.keys[1] = 1u << 0;                            // key 0x20 held
+    return input;
+}
+
+// One unit; the PCM it handed over is returned in `pcm`.
+p6_result state_unit(std::vector<uint8_t> *pcm, p6_error *error)
+{
+    const p6_input input = state_input();
+    p6_frame frame{};
+    frame.abi_version = P6_ABI_VERSION;
+    frame.struct_size = sizeof frame;
+    const p6_result r = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, error);
+    if (pcm) {
+        pcm->clear();
+        if (r == P6_OK && frame.audio && frame.audio_frames) {
+            const uint8_t *data = reinterpret_cast<const uint8_t *>(frame.audio);
+            pcm->assign(data, data + size_t(frame.audio_frames) * 2 * sizeof(int16_t));
+        }
+    }
+    return r;
+}
+
+bool state_save(std::vector<uint8_t> &out, uint64_t *bound_seen)
+{
+    p6_error error = fresh_error();
+    uint64_t bound = 0, written = 0;
+    if (p6_state_bound(&bound, &error) != P6_OK) return false;
+    if (bound_seen) *bound_seen = bound;
+    out.assign(bound, 0);
+    if (p6_state_save(out.data(), out.size(), &written, &error) != P6_OK || written > bound) return false;
+    out.resize(written);
+    return true;
+}
+
+// Loads the image of one session (`media`: a disk mounted at boot or none), runs it and takes the good state, the reference and, where asked, leaves the image loaded.
+bool state_session(const std::vector<uint8_t> &rom, const std::vector<uint8_t> *adf, StateImage &image, bool keep_loaded)
+{
+    p6_error error = fresh_error();
+    p6_media media{};
+    if (adf) {
+        media.type = P6_MEDIA_ADF;
+        media.image = p6_buffer{adf->data(), adf->size()};
+        p6_sha256_hash(adf->data(), adf->size(), media.content_id);
+    }
+    if (p6_load(p6_buffer{rom.data(), rom.size()}, adf ? &media : nullptr, adf ? 1 : 0, &error) != P6_OK) return false;
+    if (adf) {
+        p6_media_event event{};
+        event.abi_version = P6_ABI_VERSION;
+        event.struct_size = sizeof event;
+        event.type = P6_MEDIA_EVENT_MOUNT;
+        event.drive = 0;
+        event.media_index = 0;
+        event.sequence = 1;
+        if (p6_media_event_enqueue(&event, &error) != P6_OK) return false;
+    }
+    for (uint64_t unit = 0; unit < kStateUnits; ++unit)
+        if (state_unit(nullptr, &error) != P6_OK) return false;
+    if (!state_save(image.good, &image.bound)) return false;
+    if (state_unit(&image.reference_pcm, &error) != P6_OK || !state_save(image.reference, nullptr)) return false;
+    // The chunk table of the good state, for the edits that name a chunk.
+    uint64_t at = p6_state::kHeaderSize;
+    for (uint32_t i = 0; i < kStateChunks; ++i) {
+        if (at + p6_state::kChunkHeaderSize > image.good.size()) return false;
+        image.chunk_at[i] = at;
+        image.chunk_length[i] = le64(&image.good[at + 8]);
+        at += p6_state::kChunkHeaderSize + image.chunk_length[i];
+    }
+    if (at != image.good.size()) return false;
+    if (p6_state_load(image.good.data(), image.good.size(), &error) != P6_OK) return false;     // back to the good state
+    if (!keep_loaded && p6_unload(&error) != P6_OK) return false;
+    return true;
+}
+
+struct Candidate {
+    std::vector<uint8_t> bytes;
+    const char *kind;
+    bool null_buffer = false;
+    uint64_t length = ~uint64_t(0);        // the length handed to the call when it is not the size of the buffer
+};
+
+const char *const kStateKinds[] = {"truncate", "extend", "flip", "flip-resealed", "run", "extreme", "chunk-header", "header-field", "identity", "swap-chunks", "drop-dup-chunk",
+                                   "foreign", "null-buffer", "length-forged"};
+constexpr unsigned kStateKindCount = sizeof kStateKinds / sizeof kStateKinds[0];
+
+Candidate mutate_state(const StateImage &image, Random &rng, unsigned kind)
+{
+    Candidate c{image.good, kStateKinds[kind], false};
+    std::vector<uint8_t> &s = c.bytes;
+    const uint64_t header = p6_state::kHeaderSize;
+    const auto payload_byte = [&]() { return header + rng.below(uint32_t(s.size() - header)); };
+    const auto boundary = [&]() { return kBoundary[rng.below(sizeof kBoundary / sizeof kBoundary[0])]; };
+    switch (kind) {
+    case 0: {           // truncated, at the places where the parser changes its mind and anywhere
+        static const uint64_t cuts[] = {0, 1, 7, 8, 12, 335, 336, 337, 351, 352, 353};
+        size_t to = rng.below(3) == 0 ? size_t(cuts[rng.below(sizeof cuts / sizeof cuts[0])]) : rng.below(uint32_t(s.size()));
+        if (rng.below(4) == 0) {                  // at a chunk boundary or inside a chunk header
+            const unsigned chunk = rng.below(kStateChunks);
+            to = size_t(image.chunk_at[chunk] + rng.below(p6_state::kChunkHeaderSize + 2));
+        }
+        s.resize(std::min(to, s.size()));
+        if (rng.coin()) rehash(s, rng.coin());
+        break;
+    }
+    case 1: {           // extended: some bytes, or the bound plus one
+        const size_t extra = rng.below(4) == 0 ? size_t(image.bound - s.size() + 1) : 1 + rng.below(4096);
+        for (size_t i = 0; i < extra; ++i) s.push_back(uint8_t(rng.next()));
+        if (rng.coin()) rehash(s, rng.coin());
+        break;
+    }
+    case 2:             // bits flipped anywhere: the checksums refuse it
+        for (unsigned n = 1 + rng.below(4); n--;) s[rng.below(uint32_t(s.size()))] ^= uint8_t(1u << rng.below(8));
+        break;
+    case 3:             // bits flipped in the payload with the checksums made right again: every visitor sees them
+        for (unsigned n = 1 + rng.below(4); n--;) s[payload_byte()] ^= uint8_t(1u << rng.below(8));
+        rehash(s, false);
+        break;
+    case 4: {           // a run of bytes in the payload: noise, zeros, ones or a copy of other bytes of the same state
+        const size_t length = 1 + rng.below(64), at = payload_byte();
+        const unsigned fill = rng.below(4);
+        const size_t from = payload_byte();
+        for (size_t i = 0; i < length && at + i < s.size(); ++i)
+            s[at + i] = fill == 0 ? uint8_t(rng.next()) : fill == 1 ? 0 : fill == 2 ? 0xFF : s[std::min(from + i, s.size() - 1)];
+        rehash(s, false);
+        break;
+    }
+    case 5: {           // a count, length, index or value of the body set to an extreme, at the width a field has
+        const unsigned width = 1u << rng.below(4);
+        const size_t at = payload_byte() & ~size_t(width - 1);
+        if (at + width <= s.size() && at >= header) put_le(&s[at], boundary(), width);
+        rehash(s, false);
+        break;
+    }
+    case 6: {           // the header of one chunk: tag, version or body length
+        const unsigned chunk = rng.below(kStateChunks);
+        const uint64_t at = image.chunk_at[chunk];
+        switch (rng.below(3)) {
+        case 0: s[at + rng.below(4)] ^= uint8_t(1 + rng.below(255)); break;
+        case 1: put_le(&s[at + 4], rng.coin() ? boundary() : rng.below(8), 4); break;
+        default: put_le(&s[at + 8], rng.coin() ? boundary() : image.chunk_length[chunk] + rng.below(5) - 2, 8); break;
+        }
+        rehash(s, false);
+        break;
+    }
+    case 7: {           // a field of the header: format, size, profile, flags, unit, ticks, payload length, chunk count, reserved
+        static const struct { unsigned at, width; } fields[] = {{8, 4}, {12, 4}, {16, 4}, {20, 4}, {24, 8}, {32, 8}, {40, 8}, {48, 4}, {52, 4}, {108, 4}};
+        const auto &f = fields[rng.below(sizeof fields / sizeof fields[0])];
+        put_le(&s[f.at], rng.coin() ? boundary() : rng.next(), f.width);
+        rehash(s, false);
+        break;
+    }
+    case 8: {           // another build, firmware, configuration or media: one byte of an identity hash of the header differs
+        static const unsigned starts[] = {56, 88, 112, 144, 176, 208, 240};
+        static const unsigned widths[] = {32, 20, 32, 32, 32, 32, 32};
+        const unsigned which = rng.below(7);
+        s[starts[which] + rng.below(widths[which])] ^= uint8_t(1 + rng.below(255));
+        rehash(s, false);
+        break;
+    }
+    case 9: {           // two chunks exchanged (header and body), or one body replaced by the bytes of another
+        const unsigned a = rng.below(kStateChunks), b = rng.below(kStateChunks);
+        std::vector<uint8_t> out(s.begin(), s.begin() + header);
+        std::vector<unsigned> order(kStateChunks);
+        for (unsigned i = 0; i < kStateChunks; ++i) order[i] = i;
+        std::swap(order[a], order[b]);
+        for (unsigned i : order)
+            out.insert(out.end(), image.good.begin() + image.chunk_at[i], image.good.begin() + image.chunk_at[i] + p6_state::kChunkHeaderSize + image.chunk_length[i]);
+        s = out;
+        rehash(s, true);
+        break;
+    }
+    case 10: {          // a chunk dropped or repeated, with the chunk count fixed or not
+        const unsigned chunk = rng.below(kStateChunks);
+        std::vector<uint8_t> out(s.begin(), s.begin() + header);
+        for (unsigned i = 0; i < kStateChunks; ++i) {
+            const auto first = image.good.begin() + image.chunk_at[i];
+            const auto last = first + p6_state::kChunkHeaderSize + image.chunk_length[i];
+            if (i != chunk || rng.coin()) out.insert(out.end(), first, last);       // dropped when the coin is tails
+            if (i == chunk && rng.coin()) out.insert(out.end(), first, last);
+        }
+        s = out;
+        if (rng.coin()) put_le(&s[48], kStateChunks + rng.below(3) - 1, 4);
+        rehash(s, true);
+        break;
+    }
+    case 11: {          // the state of another machine (another media manifest), whole or with one of its chunks spliced into this one
+        if (rng.coin()) { s = image.foreign; break; }
+        const unsigned chunk = rng.below(kStateChunks);
+        uint64_t at = p6_state::kHeaderSize, length = 0;
+        for (unsigned i = 0; i <= chunk; ++i) {
+            length = le64(&image.foreign[at + 8]);
+            if (i < chunk) at += p6_state::kChunkHeaderSize + length;
+        }
+        std::vector<uint8_t> out(s.begin(), s.begin() + header);
+        for (unsigned i = 0; i < kStateChunks; ++i) {
+            const auto &source = i == chunk ? image.foreign : image.good;
+            const uint64_t from = i == chunk ? at : image.chunk_at[i];
+            const uint64_t size = p6_state::kChunkHeaderSize + (i == chunk ? length : image.chunk_length[i]);
+            out.insert(out.end(), source.begin() + from, source.begin() + from + size);
+        }
+        s = out;
+        rehash(s, true);
+        break;
+    }
+    case 12:            // no buffer at all
+        c.null_buffer = true;
+        break;
+    default:            // the buffer holds the whole good state and the length given to the call is shorter: the parser must read no further than it was told
+        c.length = rng.below(3) == 0 ? s.size() - 1 - rng.below(8) : rng.below(uint32_t(s.size()));
+        break;
+    }
+    if (kind != 2 && kind != 12 && kind != 13 && s.size() > header && rng.below(4) == 0) {        // a second edit on top, with the checksums right again
+        s[payload_byte()] ^= uint8_t(1u << rng.below(8));
+        rehash(s, false);
+    }
+    return c;
+}
+
+int fuzz_state(const char *path, uint64_t seed, uint64_t iterations)
+{
+    Random rng(seed);
+    const std::vector<uint8_t> rom = read_file(path);
+    const std::vector<uint8_t> adf = random_adf(rng);
+    p6_config config = valid_config();
+    p6_error error = fresh_error();
+    if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
+    StateImage images[2];
+    if (!state_session(rom, nullptr, images[0], false)) bug("the good state of the session without media could not be made", 0);
+    if (!state_session(rom, &adf, images[1], false)) bug("the good state of the session with a disk could not be made", 0);
+    images[0].foreign = images[1].good;
+    images[1].foreign = images[0].good;
+
+    std::map<int, unsigned> histogram;
+    unsigned accepted_by_kind[kStateKindCount] = {}, refused_by_kind[kStateKindCount] = {};
+    unsigned unit_checks = 0, accepted_runs = 0, resyncs = 0;
+    for (unsigned session = 0; session < 2; ++session) {
+        StateImage &image = images[session];
+        if (!state_session(rom, session ? &adf : nullptr, image, true)) bug("a session could not be started again", 0);
+        // The machine is the good state's at the top of every iteration; the loop puts it back whenever an attempt or a unit changed it.
+        for (uint64_t i = 0; i < iterations; ++i) {
+            const uint64_t tag = session * iterations + i;
+            const unsigned kind = rng.below(kStateKindCount);
+            Candidate c = mutate_state(image, rng, kind);
+            const uint64_t length = c.null_buffer ? 1 + rng.below(1000) : c.length != ~uint64_t(0) ? c.length : c.bytes.size();
+            error = fresh_error();
+            const p6_result r = p6_state_load(c.null_buffer ? nullptr : c.bytes.data(), length, &error);
+            ++histogram[int(r)];
+            if (!message_is_bounded(error)) bug("unbounded message", tag);
+            if (r == P6_ERROR_INTERNAL) bug("an attempt faulted the image", tag);
+            if (c.null_buffer) {
+                if (r != P6_ERROR_BAD_ARGUMENT) bug("a null buffer with a length was not BAD_ARGUMENT", tag);
+                ++refused_by_kind[kind];
+                continue;
+            }
+            if (r != P6_OK && r != P6_ERROR_CORRUPT_STATE && r != P6_ERROR_INCOMPATIBLE) {
+                char text[96];
+                snprintf(text, sizeof text, "a load result outside the documented set: %d (%s)", int(r), c.kind);
+                bug(text, tag);
+            }
+            if (r != P6_OK) {
+                ++refused_by_kind[kind];
+                if (!error.message[0]) bug("a refusal without a message", tag);
+                // A refusal left the machine alone: saving it again gives the good state, byte for byte.
+                std::vector<uint8_t> again;
+                uint64_t bound = 0;
+                if (!state_save(again, &bound)) bug("the image could not be saved after a refusal", tag);
+                if (getenv("P6_FUZZ_SELFTEST")) again[again.size() / 2] ^= 1;      // self-test of the harness: the comparison below has to fail
+                if (again != image.good) bug("a refused state changed the machine", tag);
+                if (bound != image.bound) bug("the bound moved after a refusal", tag);
+                if (rng.below(8) == 0) {
+                    // And it runs on as a machine that never saw the attempt: one unit, and the state and the samples after it are the reference's.
+                    std::vector<uint8_t> pcm, after;
+                    if (state_unit(&pcm, &error) != P6_OK) bug("a unit failed after a refusal", tag);
+                    if (!state_save(after, nullptr)) bug("the image could not be saved after a unit that followed a refusal", tag);
+                    if (after != image.reference || pcm != image.reference_pcm) bug("the unit after a refusal is not the control's", tag);
+                    ++unit_checks;
+                    error = fresh_error();
+                    if (p6_state_load(image.good.data(), image.good.size(), &error) != P6_OK) bug("the good state was refused after a unit", tag);
+                    ++resyncs;
+                }
+                continue;
+            }
+            if (kind == 2) bug("a state with flipped bits and its old checksums was accepted", tag);
+            ++accepted_by_kind[kind];
+            // An accepted state is a machine, however odd (a flipped byte of RAM): it has to run, and the good state has to bring the image back.
+            if (rng.below(3) == 0) {
+                if (state_unit(nullptr, &error) != P6_OK) {
+                    char text[200];
+                    snprintf(text, sizeof text, "an accepted state (%s) left an image that cannot run a unit: %s", c.kind, error.message);
+                    bug(text, tag);
+                }
+                ++accepted_runs;
+            }
+            error = fresh_error();
+            if (p6_state_load(image.good.data(), image.good.size(), &error) != P6_OK) bug("the good state was refused after an accepted attempt", tag);
+            ++resyncs;
+            std::vector<uint8_t> back;
+            if (!state_save(back, nullptr) || back != image.good) bug("the good state did not give itself back", tag);
+        }
+        if (p6_unload(&error) != P6_OK) bug("unload", 0);
+    }
+    p6_shutdown(nullptr);
+    for (const auto &entry : histogram) printf("state result %d: %u\n", entry.first, entry.second);
+    for (unsigned k = 0; k < kStateKindCount; ++k) printf("state kind %s: accepted %u refused %u\n", kStateKinds[k], accepted_by_kind[k], refused_by_kind[k]);
+    printf("state unit checks %u, accepted states that ran %u, resyncs %u, bound %llu/%llu\n", unit_checks, accepted_runs, resyncs,
+           (unsigned long long)images[0].bound, (unsigned long long)images[1].bound);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -420,7 +780,8 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "config")) return fuzz_config(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "firmware")) return fuzz_firmware(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "media")) return fuzz_media(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
+    if (argc == 5 && !strcmp(argv[1], "state")) return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N | blob SEED N\n", argv[0]);
     return 64;
 }

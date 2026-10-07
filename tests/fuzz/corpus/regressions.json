@@ -9,6 +9,10 @@
     {"target": "media", "seed": 1, "iterations": 80, "note": "baseline; no defect found"},
     {"target": "media", "seed": 2, "iterations": 80, "note": "baseline; no defect found"}
   ],
+  "state_runs": [
+    {"seed": 1, "iterations": 300, "note": "baseline; 300 mutated states per session, with and without a disk. The only finding: DISK_update shifted the -1 of DSKSYNC(-1, v) left in every state load (UBSan), patch 0102"},
+    {"seed": 2, "iterations": 300, "note": "baseline; no defect found"}
+  ],
   "scenario_runs": [
     {"seed": 1, "iterations": 4000, "note": "baseline; no defect found"}
   ]

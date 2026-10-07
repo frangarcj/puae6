@@ -149,14 +149,27 @@ class StateContainerTests(ProbeCase):
         run = self.probe("vsync", "--units", "8", "--adf", str(a), "--load-at", "8", str(none))
         self.assertIn("media_manifest_hash", run.loads[0][2], "a state taken with no disk does not fit a machine that has one")
 
-    def test_the_public_functions_refuse_until_the_native_state_is_released_and_the_capability_stays_clear(self):
-        # Every chunk validates and applies since T15i2, so the refusal no longer lists chunks that are missing: it says that the state is not released, because the
-        # bodies of WinUAE lose state that DET02 has to find first (T15i3 and the extensions that follow). The closure of T15 turns it on with P6_CAP_STATE.
-        run = self.probe("vsync", "--units", "2", "--public-at", "1")
-        (unit, cap, bound, save, load, written, message), = run.public
-        self.assertEqual(("1", "0", "4", "4", "4", "0"), (unit, cap, bound, save, load, written))     # P6_ERROR_UNSUPPORTED = 4
-        self.assertIn("native state is not released", message)
-        self.assertNotIn("not implemented for", message, "no chunk is missing")
+    def test_the_public_functions_work_and_the_capability_is_set_once_the_native_state_is_released(self):
+        # The closure of T15 turned the release on: the public bound, save and load succeed, the state they make is the one the registry makes at the same unit (byte for byte),
+        # a buffer that is too small and a state that is garbage are refused with their own codes, and the capability is announced by this image (it links bridge/state.cpp).
+        internal = self.dir / "public-internal.state"
+        run = self.probe("vsync", "--units", "3", "--save-at", "2", str(internal), "--public-at", "2")
+        (unit, cap, bound, save, load, written, junk, small, message), = run.public
+        # P6_OK = 0, P6_ERROR_CAPACITY = 7, P6_ERROR_CORRUPT_STATE = 9
+        self.assertEqual(("2", "1", "0", "0", "0", "7", "9"), (unit, cap, bound, save, load, small, junk), message)
+        self.assertEqual("", message)
+        (size_unit, size_bound, size_written, digest), = run.public_size
+        self.assertEqual((2, int(written)), (size_unit, size_written))
+        self.assertLessEqual(size_written, size_bound)
+        (_, internal_size, internal_digest, internal_bound), = [s for s in run.saves if s[0] == 2]
+        self.assertEqual((internal_size, internal_digest, internal_bound), (size_written, digest, size_bound), "the public save is the state the registry makes")
+        saved = self.dir / "public-saved.state"
+        again = self.probe("vsync", "--units", "3", "--public-save-at", "2", str(saved))
+        self.assertEqual(internal.read_bytes(), saved.read_bytes(), "the public save is byte for byte the internal one at the same unit")
+        self.assertEqual(again.saves[0][2:], (digest, size_bound))
+        loaded = self.probe("vsync", "--units", "3", "--public-load-at", "2", str(saved))
+        self.assertEqual([(2, 0, "")], loaded.loads, "the public load accepts it")
+        self.assertEqual(self.probe("vsync", "--units", "3", "--every", "1").unit(3), loaded.unit(3), "and the machine goes on as the original")
 
     # -- STATE02 -----------------------------------------------------------------------------------------------------------------------
 

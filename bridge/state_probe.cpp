@@ -11,9 +11,9 @@
 // mechanics, Denise's input ring and its cursors, the copper, the audio filter, the event allocator...): manifests/state-inventory.json
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
-//   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
+//   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
 //                      [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
-//                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]...
+//                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]...
 // --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
 // chunks that do not exist yet, so a state made here restores only what the registry implements. They print "save UNIT BYTES SHA256",
 // "load UNIT CODE MESSAGE" and, after a load, the digests again as "digest UNIT SUBSYSTEM HEX BYTES" under a line "after-load UNIT".
@@ -41,7 +41,10 @@
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
 // --event-at UNIT DRIVE INDEX SEQUENCE (T15h) calls p6_media_event_enqueue after UNIT (INDEX -1 ejects; at UNIT 0 the event is a boot medium) and prints "event UNIT CODE MESSAGE";
 // --reset-at UNIT calls p6_reset and prints "reset UNIT CODE MESSAGE". Both only queue: the next unit applies them, as a host's call would.
-// --public-at calls the public p6_state_* functions and prints "public UNIT cap_state=B bound=C save=C load=C written=N MESSAGE".
+// --public-at calls the public p6_state_* functions (T15 released them) and prints "public UNIT cap_state=B bound=C save=C load=C written=N junk=C small=C MESSAGE":
+// the bound, a save into a buffer of exactly that size, a save into a buffer of 16 bytes (small: CAPACITY), a load of 16 bytes of zeros (junk: refused) and a load of the state just saved,
+// and then "public-size UNIT BOUND WRITTEN SHA256". --public-save-at UNIT FILE and --public-load-at UNIT FILE are --save-at and --load-at through the public ABI and print the same lines
+// ("save UNIT BYTES SHA256 bound=B", "load UNIT CODE MESSAGE" and the digests under "after-load UNIT"), so that the state of a process can be loaded into another one (DET03).
 // Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. Every unit also prints
 // "pcm UNIT HEX FRAMES" (T15i3), the SHA-256 of the stereo samples that unit handed over, which no digest sees, and every chipset digest is followed by
 // "chip UNIT GROUP HEX" for each group of what it hashes (beam, counters, irq_dma, clxdat, lof, timing, registers). --poke-at UNIT beam:VPOS:LINEAR:HPOS sets the beam counters. --dump also prints the
@@ -334,7 +337,7 @@ bool read_file(const char *path, std::vector<uint8_t> *data);
 std::vector<uint8_t> g_rom;          // what p6_load was given, for the operations that load again
 std::vector<p6_media> g_media;
 
-enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Public };
+enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Public, PublicSave, PublicLoad };
 
 struct StateOp {
     uint64_t unit;
@@ -507,18 +510,25 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             const p6_result result = p6_media_event_enqueue(&event, &error);
             printf("event %" PRIu64 " %d %s\n", unit, int(result), error.message);
         } else if (op.kind == OpKind::Public) {
-            // The public functions of p6.h: until every chunk exists they must say UNSUPPORTED and the capability must stay clear.
+            // The public functions of p6.h, in one process: the bound, a save into a buffer of exactly that size, one into a buffer that is too small, a load of
+            // garbage and the load of the state just saved. Only the last one changes the machine (to the one it was).
             p6_caps caps = {P6_ABI_VERSION, sizeof caps, 0, 0, 0, 0, 0};
             p6_query_caps(&caps, &error);
-            uint64_t bytes = 0, written = 0;
-            uint8_t scratch[16] = {};
+            uint64_t bytes = 0, written = 0, unused = 0;
             const p6_result b = p6_state_bound(&bytes, &error);
             char message[P6_ERROR_TEXT_CAPACITY];
             memcpy(message, error.message, sizeof message);
-            const p6_result s = p6_state_save(scratch, sizeof scratch, &written, &error);
-            const p6_result l = p6_state_load(scratch, sizeof scratch, &error);
-            printf("public %" PRIu64 " cap_state=%d bound=%d save=%d load=%d written=%" PRIu64 " %s\n", unit, (caps.flags & P6_CAP_STATE) ? 1 : 0,
-                   int(b), int(s), int(l), written, message);
+            std::vector<uint8_t> state(b == P6_OK ? bytes : 0);
+            const p6_result s = b == P6_OK ? p6_state_save(state.data(), state.size(), &written, &error) : b;
+            uint8_t scratch[16] = {};
+            const p6_result small = p6_state_save(scratch, sizeof scratch, &unused, &error);
+            const p6_result junk = p6_state_load(scratch, sizeof scratch, &error);
+            const p6_result l = s == P6_OK ? p6_state_load(state.data(), written, &error) : s;
+            printf("public %" PRIu64 " cap_state=%d bound=%d save=%d load=%d written=%" PRIu64 " junk=%d small=%d %s\n", unit, (caps.flags & P6_CAP_STATE) ? 1 : 0,
+                   int(b), int(s), int(l), written, int(junk), int(small), message);
+            uint8_t digest[32];
+            p6_sha256_hash(state.data(), size_t(written), digest);
+            printf("public-size %" PRIu64 " %" PRIu64 " %" PRIu64 " %s\n", unit, bytes, written, hex(digest, 32).c_str());
         } else if (op.kind == OpKind::HandlerTable) {
             print_handler_table();
         } else if (op.kind == OpKind::Rtc) {
@@ -626,12 +636,14 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 }
             }
             printf("poke %" PRIu64 " %s\n", unit, op.chunk);
-        } else if (op.kind == OpKind::Save || op.kind == OpKind::SaveFields) {
+        } else if (op.kind == OpKind::Save || op.kind == OpKind::SaveFields || op.kind == OpKind::PublicSave) {
+            // PublicSave goes through p6_state_bound and p6_state_save as a host does; the others through the registry with the test options.
+            const bool pub = op.kind == OpKind::PublicSave;
             if (op.kind == OpKind::SaveFields) options.on_field = print_field;
             uint64_t bound = 0, written = 0;
-            p6_result result = p6_state::bound(&bound, options, &error);
+            p6_result result = pub ? p6_state_bound(&bound, &error) : p6_state::bound(&bound, options, &error);
             std::vector<uint8_t> state(result == P6_OK ? bound : 0);
-            if (result == P6_OK) result = p6_state::save(state.data(), state.size(), &written, options, &error);
+            if (result == P6_OK) result = pub ? p6_state_save(state.data(), state.size(), &written, &error) : p6_state::save(state.data(), state.size(), &written, options, &error);
             if (result != P6_OK) { printf("save %" PRIu64 " error %d %s\n", unit, int(result), error.message); continue; }
             uint8_t digest[32];
             p6_sha256_hash(state.data(), written, digest);
@@ -667,7 +679,8 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             std::vector<uint8_t> state;
             if (!read_file(op.path, &state)) continue;
             options.only_chunks = g_only;
-            const p6_result result = p6_state::load(state.data(), state.size(), options, &error);
+            const p6_result result = op.kind == OpKind::PublicLoad ? p6_state_load(state.data(), state.size(), &error)
+                                                                   : p6_state::load(state.data(), state.size(), options, &error);
             printf("load %" PRIu64 " %d %s\n", unit, int(result), error.message);
             printf("after-load %" PRIu64 "\n", unit);
             print_digests(unit);
@@ -702,6 +715,7 @@ int main(int argc, char **argv)
     const char *rom_path = nullptr;
     uint64_t units = 3, every = 1, loads = 1;
     uint32_t standard = P6_VIDEO_PAL;
+    uint32_t rate = 48000;
     uint64_t seed = 1;
     std::vector<StateOp> state_ops;
     std::vector<const char *> adf_paths;
@@ -712,11 +726,14 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--loads") && i + 1 < argc) loads = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
+        else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
         else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--save-fields-at") || !strcmp(argv[i], "--load-at") ||
-                  !strcmp(argv[i], "--load-fault-at") || !strcmp(argv[i], "--load-fault-head-at")) && i + 2 < argc) {
+                  !strcmp(argv[i], "--load-fault-at") || !strcmp(argv[i], "--load-fault-head-at") || !strcmp(argv[i], "--public-save-at") ||
+                  !strcmp(argv[i], "--public-load-at")) && i + 2 < argc) {
             const OpKind kind = !strcmp(argv[i], "--save-at") ? OpKind::Save : !strcmp(argv[i], "--save-fields-at") ? OpKind::SaveFields
                               : !strcmp(argv[i], "--load-at") ? OpKind::Load : !strcmp(argv[i], "--load-fault-at") ? OpKind::LoadFault
+                              : !strcmp(argv[i], "--public-save-at") ? OpKind::PublicSave : !strcmp(argv[i], "--public-load-at") ? OpKind::PublicLoad
                               : OpKind::LoadFaultHead;
             state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), kind, argv[i + 2], nullptr});
             i += 2;
@@ -767,7 +784,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -788,7 +805,7 @@ int main(int argc, char **argv)
     config.struct_size = sizeof config;
     config.machine = P6_MACHINE_A500;
     config.video_standard = standard;
-    config.audio_rate_hz = 48000;
+    config.audio_rate_hz = rate;
     config.random_seed = seed;
     config.rtc_epoch_seconds = 946684800;
     p6_error error{P6_ABI_VERSION, sizeof error, {}};

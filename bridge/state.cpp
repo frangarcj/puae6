@@ -208,7 +208,7 @@ p6_result gate(const Options &options, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, text);
     }
     if (!options.allow_placeholders && !kReleased)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "native state is not released: the future of the bodies of WinUAE is not yet proven bit for bit (DET02)");
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "native state is not released");
     return P6_OK;
 }
 
@@ -375,6 +375,9 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
 }
 
 }  // namespace p6_state
+
+// The capability is a fact about the image, not a promise: this initialiser exists only where this file is linked, which is where the functions below are.
+namespace { [[maybe_unused]] const bool g_announced = (p6_bridge::state_linked = p6_state::kReleased, true); }
 
 extern "C" p6_result p6_state_bound(uint64_t *bytes, p6_error *error)
 {

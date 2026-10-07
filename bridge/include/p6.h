@@ -253,6 +253,15 @@ p6_result p6_reset(p6_error *error);
 p6_result p6_unload(p6_error *error);
 p6_result p6_shutdown(p6_error *error);
 
+/* Native state (P6_CAP_STATE, announced by the images that carry it; the others do not define these functions). A state is the machine at a unit
+ * boundary of a loaded image: p6_state_save needs one that has run p6_run_frame once (BAD_STATE before: there is no machine to describe yet),
+ * and p6_state_load also accepts one that has not started (it runs the reset head first).
+ * p6_state_bound is an upper bound of any state of this image, computed from the configuration and the registered media and never changing
+ * until p6_unload: it does not grow with time, held keys or the media queue. p6_state_save writes at most `capacity` bytes and sets `written`
+ * (CAPACITY if the buffer is too small, nothing written beyond it). p6_state_load validates the whole state (length, checksums, build, firmware,
+ * configuration, media manifest, every chunk) before it touches the machine, so a refused state (CORRUPT_STATE or INCOMPATIBLE) leaves the image
+ * running exactly as it was; the loaded machine then continues bit for bit as the saved one did. A state is valid only in an image of the same
+ * build, firmware, configuration and media manifest; the media the drives hold need not be the same, the state names them. */
 p6_result p6_state_bound(uint64_t *bytes, p6_error *error);
 p6_result p6_state_save(void *buffer, uint64_t capacity, uint64_t *written,
                         p6_error *error);

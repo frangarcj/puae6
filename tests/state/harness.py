@@ -29,7 +29,8 @@ CHIP = re.compile(r"^chip (\d+) (\w+) ([0-9a-f]{64})$")
 LOAD = re.compile(r"^load (\d+) (-?\d+) ?(.*)$")
 SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")
 SAVE_ERROR = re.compile(r"^save (\d+) error (-?\d+) ?(.*)$")
-PUBLIC = re.compile(r"^public (\d+) cap_state=(\d) bound=(\d+) save=(\d+) load=(\d+) written=(\d+) ?(.*)$")
+PUBLIC = re.compile(r"^public (\d+) cap_state=(\d) bound=(\d+) save=(\d+) load=(\d+) written=(\d+) junk=(\d+) small=(\d+) ?(.*)$")
+PUBLIC_SIZE = re.compile(r"^public-size (\d+) (\d+) (\d+) ([0-9a-f]{64})$")
 FIELD = re.compile(r"^field (\d+) (\S+) (\d+) (\d+)$")
 RTC = re.compile(r"^rtc (\d+) (-?\d+) (-?\d+) (\d+) (\d+) (-?\d+) (\d+) (\d+) (\d+)$")
 MUTATE_ERROR = re.compile(r"^mutate (\d+) error (.*)$")
@@ -101,7 +102,8 @@ class Run:
         self.loads = []             # (unit, code, message)
         self.saves = []             # (unit, bytes, sha256, bound)
         self.save_errors = []       # (unit, code, message)
-        self.public = []
+        self.public = []            # (unit, cap_state, bound, save, load, written, junk, small, message) of --public-at, as strings
+        self.public_size = []       # (unit, bound, written, sha256) of --public-at
         self.fault = []             # (event, code, message) of run-after-fault, unload and reload
         self.fields = []            # (chunk index, name, offset in the state, size)
         self.mutate = []            # dicts of the "mutate" lines
@@ -146,6 +148,9 @@ class Run:
                 self.fault.append((event, int(code), message[0] if message else ""))
             elif PUBLIC.match(line):
                 self.public.append(PUBLIC.match(line).groups())
+            elif PUBLIC_SIZE.match(line):
+                unit, bound, written, digest = PUBLIC_SIZE.match(line).groups()
+                self.public_size.append((int(unit), int(bound), int(written), digest))
             elif FIELD.match(line):
                 chunk, name, offset, size = FIELD.match(line).groups()
                 self.fields.append((int(chunk), name, int(offset), int(size)))

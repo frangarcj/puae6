@@ -9735,7 +9735,7 @@
       "title": "Implementar estados nativos semanticos y acotados",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T14",
         "T26",
@@ -9764,7 +9764,12 @@
         "bridge/include/p6.h",
         "bridge/caps.cpp",
         "tests/fuzz/**",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "bridge/state.h",
+        "bridge/state_probe.cpp",
+        "tools/check.py",
+        "manifests/waterbox-memory.json",
+        "CMakeLists.txt"
       ],
       "steps": [
         "Cuerpos upstream (save_*/restore_*) en memoria dentro del envelope P6 con extensiones identificadas y limites; chunks propios solo donde upstream falla (CPU, scheduler, RTC, CIA, entrada, sesion).",
@@ -9772,7 +9777,8 @@
         "Ejecutar roundtrip, continuacion en proceso nuevo y estados cerca de DMA/audio/disco/teclas.",
         "Activar fuzzer de estados truncados, manipulados y de otro build/ROM; garantizar que el estado anterior sigue utilizable tras rechazo.",
         "Division: T15a (contenedor, envelope, identidades y RAM), T15b (CPU y scheduler), T15c (RTC, CIA y entrada), T15h (sesion del bridge), T15i (vertical de cuerpos upstream en sus chunks y Apply sin reset), T15d (disco), T15e (audio), T15f (Agnus, copper y blitter) y T15g (Denise); T15 es el cierre: conecta p6_state_bound/save/load a la ABI y a P6_CAP_STATE, calcula state_bound sobre todos los chunks y conserva las puertas originales.",
-        "Ampliacion touch: p6.h y caps.cpp para anunciar la capacidad solo al cerrar, tests/fuzz/** para el fuzzer de estados."
+        "Ampliacion touch: p6.h y caps.cpp para anunciar la capacidad solo al cerrar, tests/fuzz/** para el fuzzer de estados.",
+        "Ampliacion touch del cierre (2026-10-07): bridge/state.h (kReleased vive ahi), bridge/state_probe.cpp (operaciones que guardan y cargan por la ABI publica en procesos distintos para DET03), tools/check.py (registrar el objetivo de fuzzing de estados de FUZZ01 para T15), CMakeLists.txt (si el fuzzer necesita enlazar el estado) y manifests/waterbox-memory.json (los parches 0094-0101 hacen crecer el guest: volver a medir sus presupuestos con la puerta Waterbox)."
       ],
       "checks": [
         "STATE01",

@@ -1,4 +1,4 @@
-"""tools/check.py for SAFE01 and FUZZ01 (T26): suites are real, anything not covered is NOT_IMPLEMENTED."""
+"""tools/check.py for SAFE01 and FUZZ01 (T26, and FUZZ01 for T15): suites are real, anything not covered is NOT_IMPLEMENTED."""
 import json
 from pathlib import Path
 import subprocess
@@ -18,12 +18,26 @@ def completed(counts, code=0):
 
 
 class TaskSuiteDispatchTests(unittest.TestCase):
-    def test_the_state_fuzz_target_is_not_implemented_until_t15(self):
+    def test_the_state_fuzz_target_is_not_implemented_for_t26_and_covered_for_t15(self):
+        # T26 predates the native state: asking it for the state target is a gap, reported as such. T15 owns the target.
         result = check.dispatch("FUZZ01", task="T26", required=("state",))
         self.assertEqual(result["status"], "NOT_IMPLEMENTED")
         self.assertIn("state", result["diagnostic"])
         self.assertEqual(result["assertions_executed"], [])
         self.assertNotEqual(result["exit_code"], 0)
+        self.assertIn("state", check.TASK_SUITES[("FUZZ01", "T15")])
+        self.assertEqual(check.TASK_SUITES[("FUZZ01", "T15")]["state"], "tests.fuzz.test_fuzz.StateFuzzTests")
+        with mock.patch.object(check.shutil, "which", return_value="/usr/bin/tool"), \
+             mock.patch.object(check, "_run_suite", return_value=completed(COUNTS)) as runner:
+            result = check.dispatch("FUZZ01", task="T15", required=("state",))
+        self.assertEqual(result["status"], "PASS")
+        self.assertIn("state", result["assertions_executed"])
+        self.assertEqual(result["assertions_executed"], sorted(check.TASK_SUITES[("FUZZ01", "T15")]))
+        self.assertEqual(runner.call_count, 3)
+        self.assertEqual(runner.call_args.args[1], check.TASK_SUITE_ENV)
+        # An assertion nobody implemented is still a gap for T15.
+        gap = check.dispatch("FUZZ01", task="T15", required=("netplay",))
+        self.assertEqual((gap["status"], gap["assertions_executed"]), ("NOT_IMPLEMENTED", []))
 
     def test_other_tasks_and_profiles_are_not_covered(self):
         for kwargs in ({"task": "T27"}, {"task": "T26", "profile": "other"}):

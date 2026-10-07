@@ -185,12 +185,12 @@ target_include_directories(p6_cycles_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_cycles_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_cycles_probe PRIVATE p6_bridge p6_portable)
-# Deterministic mutation fuzzing of config, firmware and the logical-name store (tests/fuzz/test_fuzz.py).
+# Deterministic mutation fuzzing of config, firmware, media, the logical-name store and native states (tests/fuzz/test_fuzz.py).
 add_executable(p6_fuzz_probe tests/fuzz/fuzz_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_fuzz_probe p6_codegen)
 target_include_directories(p6_fuzz_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_fuzz_probe PRIVATE -UNDEBUG)
-target_link_libraries(p6_fuzz_probe PRIVATE p6_bridge p6_portable)
+target_link_libraries(p6_fuzz_probe PRIVATE p6_state p6_bridge p6_portable)     # p6_state: the state fuzz target calls the public p6_state_* functions
 # Reports how the bridge's A500 preferences differ from upstream's own (tests/host/test_a500_profile.py).
 add_executable(p6_profile_probe tests/host/a500_profile_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_profile_probe p6_codegen)

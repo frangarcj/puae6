@@ -2759,6 +2759,28 @@
           "after_sha256": "d5b1d1bbbb46414d8389d468e6450e4e30816c86cf7ee6f9f98f7a04a9576fb6"
         }
       ]
+    },
+    {
+      "id": "0102-disk-update-defined-shift",
+      "file": "patches/winuae/0102-disk-update-defined-shift.patch",
+      "sha256": "c6163282cb601398af7ab3e10b516c0083085eefb55c4e47709210e5c7c87b68",
+      "title": "Defined arithmetic for the position DISK_update is brought up to",
+      "reason": "FUZZ01: a state load runs restore_custom, whose DSKSYNC(-1, value) calls DISK_update(-1) (the register image is written without moving the drives); the engine then shifts the negative position left, which is undefined in C++17 (UBSan, left shift of negative value -1) in every load. Multiplication by 256 is the same value for every position the drives are brought up to and defines the -1 of a register restore.",
+      "category": "build/portability",
+      "order": 102,
+      "symbols": [
+        "DISK_update"
+      ],
+      "test": "FUZZ01; tests.fuzz.test_fuzz.StateFuzzTests (UBSan); STATE02; tests.state.test_state_upstream",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "d5b1d1bbbb46414d8389d468e6450e4e30816c86cf7ee6f9f98f7a04a9576fb6",
+          "after_sha256": "52df24ef568a85c949a1904f4c73cd6fabf1548491c105c57a275db5a52f3f8d"
+        }
+      ]
     }
   ]
 }

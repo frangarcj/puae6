@@ -1,7 +1,9 @@
 // The native state of a loaded image (docs/adr/0009-state-format.md): a registry of chunks, one visitor function each, over the pure
-// container of ports/portable/state_io. The public p6_state_* functions of p6.h are defined in state.cpp; they refuse (UNSUPPORTED) until
-// the native state is released (kReleased), because a state that restores part of a machine, or one whose future has not been proven bit for bit,
-// must not be advertised as rewind (docs/02-contracts.md). The tests reach the registry through the Options below.
+// container of ports/portable/state_io. The public p6_state_* functions of p6.h are defined in state.cpp and, since the closure of T15, work:
+// every chunk validates and applies, and DET02 (the future of a loaded state, bit for bit), STATE01 (the bound), DET03 (through the public ABI,
+// across instances) and FUZZ01 (hostile states) hold. A build that links this library announces P6_CAP_STATE (state_linked, below); one that does
+// not (headless, libretro and the Waterbox guest take p6_bridge only) neither defines the functions nor claims the capability. The tests reach the
+// registry through the Options below.
 #ifndef P6_BRIDGE_STATE_H
 #define P6_BRIDGE_STATE_H
 #include "p6.h"
@@ -31,10 +33,18 @@ struct Chunk {
     const char *(*manifest)(const uint8_t *body, uint64_t length, MediaPlan &plan) = nullptr;
 };
 
-// The public p6_state_* functions say UNSUPPORTED while this is false, and p6_query_caps leaves P6_CAP_STATE clear. Every chunk has a visitor that
-// validates and applies since T15i2, but the bodies of WinUAE lose state that DET02 has to find first (the beam position, the Denise ring, the
-// Copper wait, the sprite DMA state, the audio filter...: T15i3 and T15d-T15g), and the closure of T15 turns it on with STATE01, DET02 and FUZZ01.
-constexpr bool kReleased = false;
+// The kill switch of the release. While it is false the public p6_state_* functions say UNSUPPORTED (the tests still reach the registry through
+// Options::allow_placeholders) and p6_query_caps leaves P6_CAP_STATE clear, which is what a state that restores part of a machine, or one whose
+// future has not been proven bit for bit, must do (docs/02-contracts.md). T15i2 gave every chunk a visitor that validates and applies, T15d-T15g
+// found and closed what the bodies of WinUAE lose (the beam, the Denise ring, the Copper wait, the sprite DMA state, the audio filter, the drives),
+// and the closure of T15 turned it on with STATE01, DET02, DET03 and FUZZ01.
+constexpr bool kReleased = true;
+
+// Defined in bridge/caps.cpp (p6_bridge, which every build has) and set by the static initialisation of state.cpp, which only an image that links
+// this library runs: p6_query_caps announces P6_CAP_STATE exactly in the images that carry the functions.
+}  // namespace p6_state
+namespace p6_bridge { extern bool state_linked; }
+namespace p6_state {
 
 // The payload order of the ADR: cpu, scheduler, ram, rtc, chipset, video, audio, cia, disk, input, bridge.
 constexpr uint32_t kChunkCount = 11;

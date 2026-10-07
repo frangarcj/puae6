@@ -1,14 +1,16 @@
 """FUZZ01 for the surfaces that exist today: config struct, firmware image, logical names and scenario JSON.
 
 The native targets run in the sanitizer build (build/native-debug, ASan + UBSan, no recover), so a memory error
-or undefined behaviour ends the run. Runs are deterministic: same seed and count, same result. The states target
-does not exist before T15 and is reported as NOT_IMPLEMENTED by tools/check.py, not skipped here.
+or undefined behaviour ends the run. Runs are deterministic: same seed and count, same result. The state target (T15: StateFuzzTests) loads mutated states of a
+running image through the public p6_state_load, with the allocator capped so that an allocation sized by a forged length is a report, and checks that every refusal leaves the machine bit for
+bit as it was and that the image then runs like a control that never saw the attempt.
 """
 import copy
 import json
 import os
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -86,6 +88,70 @@ class NativeFuzzTests(unittest.TestCase):
         result = self.run_target("config", 1, 200, {"P6_FUZZ_SELFTEST": "1"})
         self.assertEqual(result.returncode, 1)
         self.assertIn("FUZZ FAILURE", result.stderr)
+
+
+STATE_KINDS = ("truncate", "extend", "flip", "flip-resealed", "run", "extreme", "chunk-header", "header-field", "identity", "swap-chunks", "drop-dup-chunk", "foreign", "null-buffer",
+               "length-forged")
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class StateFuzzTests(unittest.TestCase):
+    """FUZZ01 for the native state: truncated, tampered, extended, spliced and other-build/ROM/config/media states, loaded into a running image with and without a disk."""
+
+    # Any single allocation above this is a report: the engine's biggest buffers are well under it, and a state of at most ~1.3 MB cannot ask for more honestly.
+    ENV = {**ENV, "ASAN_OPTIONS": "detect_leaks=0:max_allocation_size_mb=24"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.exe = build_probe(ROOT / "build/native-debug", True, "p6_fuzz_probe")
+        source = (ROOT / "tests/fixtures/microrom/vsync.s").read_text(encoding="utf-8")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-fuzz-state-")
+        cls.rom = Path(cls.tmp.name) / "vsync.rom"
+        cls.rom.write_bytes(builder.build(source))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_state(self, seed, iterations, extra_env=None):
+        return subprocess.run([str(self.exe), "state", str(self.rom), str(seed), str(iterations)], capture_output=True, text=True, timeout=3600,
+                              env={**self.ENV, **(extra_env or {})})
+
+    @staticmethod
+    def kinds(text):
+        found = {}
+        for line in text.splitlines():
+            match = re.match(r"^state kind (\S+): accepted (\d+) refused (\d+)$", line)
+            if match:
+                found[match[1]] = (int(match[2]), int(match[3]))
+        return found
+
+    def test_the_recorded_state_seeds_run_clean_and_reach_every_mutation_and_every_outcome(self):
+        for run in CORPUS["state_runs"]:
+            with self.subTest(seed=run["seed"], iterations=run["iterations"]):
+                result = self.run_state(run["seed"], run["iterations"])
+                self.assertTrue(clean(result), result.stderr[-1200:])
+                text = result.stdout
+                kinds = self.kinds(text)
+                self.assertEqual(sorted(STATE_KINDS), sorted(kinds))
+                for kind, (accepted, refused) in kinds.items():
+                    self.assertGreater(accepted + refused, 0, kind)
+                results = {int(m[1]): int(m[2]) for m in re.finditer(r"^state result (\d+): (\d+)$", text, re.M)}
+                self.assertLessEqual({0, 1, 9, 10}, set(results), results)         # accepted, null buffer, corrupt, incompatible
+                self.assertFalse(set(results) - {0, 1, 9, 10}, f"a result outside the documented set: {results}")
+                self.assertRegex(text, r"state unit checks [1-9]\d*, accepted states that ran [1-9]\d*, resyncs [1-9]\d*")
+
+    def test_a_state_run_is_reproducible(self):
+        first = self.run_state(5, 30)
+        self.assertTrue(clean(first), first.stderr[-600:])
+        self.assertEqual(first.stdout, self.run_state(5, 30).stdout)
+
+    def test_the_state_harness_can_fail(self):
+        # With the comparison of the machine after a refusal spoiled on purpose, the same run has to be reported as a failure.
+        result = self.run_state(1, 60, {"P6_FUZZ_SELFTEST": "1"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FUZZ FAILURE", result.stderr)
+        self.assertIn("a refused state changed the machine", result.stderr)
 
 
 def mutate(value, rng, depth=0):
