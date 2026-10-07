@@ -10058,6 +10058,55 @@
       "evidence": null
     },
     {
+      "id": "T17e",
+      "title": "Manifest de medios ampliable solo por el final: añadir o reemplazar discos tras p6_load sin romper estados ni rewind",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17a",
+        "T18"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/adr/0009-state-format.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/media.cpp",
+        "bridge/media.h",
+        "bridge/state.cpp",
+        "bridge/state_upstream.cpp",
+        "bridge/caps.cpp",
+        "adapters/libretro/**",
+        "tests/state/**",
+        "tests/libretro-host/**",
+        "tests/media/**",
+        "tests/fuzz/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Hoy el manifest de medios se fija en p6_load y su hash entra en la identidad del estado, asi que el add_image_index/replace_image_index de libretro (\"Añadir disco\" de RetroArch, que PUAE5 soporta por ruta) se rechaza. Nueva funcion de la ABI que registra un ADF despues de cargar, siempre al final del manifest (indice nuevo, content id SHA-256, imagen prestada hasta p6_unload), con su capacidad anunciada.",
+        "Identidad: cada estado guarda cuantos medios tenia el manifest al guardarse y el hash de ese prefijo; cargarlo exige que el manifest vivo empiece por ese mismo prefijo (append-only), de modo que los estados anteriores a una adicion siguen siendo validos. Un rewind a antes de la adicion restaura la unidad como estaba; el disco añadido sigue registrado y basta con volver a insertarlo. Validar todo antes de mutar; un manifest con otro prefijo sigue siendo INCOMPATIBLE.",
+        "libretro: add_image_index/replace_image_index leen el fichero por VFS con cota de tamaño y lo registran por la nueva funcion; replace = añadir + seleccionar; nada cambia la maquina fuera de la frontera de retro_run. STATE01: el bound cubre P6_MAX_MEDIA medios y no crece al añadir.",
+        "BizHawk (peliculas y estados del wrapper): decidir y documentar si el wrapper adopta la misma regla o rechaza la adicion; si hace falta codigo en integration/bizhawk, tarea propia."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "STATE02",
+        "LR01",
+        "MED01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un disco añadido en caliente se puede insertar; los estados tomados antes y despues de añadirlo cargan y continuan con el mismo futuro, y un manifest con otro prefijo se rechaza antes de tocar la maquina."
+      ],
+      "stop": "No identificar medios por ruta; no quitar medios del manifest durante la sesion.",
+      "evidence": null
+    },
+    {
       "id": "T18",
       "title": "Habilitar estados y replay especulativo libretro",
       "milestone": "M2",
@@ -10399,7 +10448,8 @@
         "T18",
         "T24",
         "T17c",
-        "T17d"
+        "T17d",
+        "T17e"
       ],
       "read": [
         "docs/01-architecture.md",
