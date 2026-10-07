@@ -1,4 +1,4 @@
-"""T48d: selección y preparación del runner paralelo sin builds nativos."""
+"""T48d y T48e: selección, preparación, reparto por clase y nivel con nombre del runner paralelo, sin builds nativos."""
 from contextlib import nullcontext
 import io
 import os
@@ -67,15 +67,78 @@ class ParallelRunnerTests(unittest.TestCase):
                 runner.select_modules("state", [invalid])
 
     def test_shared_targets_union_host_and_state_requirements(self):
-        host = runner.shared_targets("host", ["test_bridge_lifecycle", "test_bridge_memory",
-                                               "test_bridge_lifecycle"])
+        host = runner.shared_targets(["test_bridge_lifecycle", "test_bridge_memory", "test_bridge_lifecycle"])
         self.assertEqual({"p6_lifecycle_probe", "p6_memory_probe"}, set(host))
-        state = runner.shared_targets("state", ["test_components", "test_envelope", "test_alpha",
-                                                 "test_probe", "test_envelope_native"])
-        self.assertEqual({"p6_state_probe", "p6_envelope_probe", "p6_archive_probe"}, set(state))
-        self.assertEqual(len(state), len(set(state)))
+        self.assertEqual([(self.root / "build/link-audit", host, False)],
+                         runner.preparations("host", ["test_bridge_lifecycle", "test_bridge_memory"]))
+        self.assertEqual([], runner.preparations("host", ["test_alpha"]))
 
-    def _main_mocks(self, worker_result):
+    def prepared(self, modules, variant=None):
+        with patch.dict(os.environ, {"P6_STATE_PROBE_BUILD": variant} if variant else {}):
+            if not variant:
+                os.environ.pop("P6_STATE_PROBE_BUILD", None)
+            return {directory.name: (targets, optimized) for directory, targets, optimized in runner.preparations("state", modules)}
+
+    def test_state_probe_goes_to_the_optimized_tree_unless_the_environment_says_debug(self):
+        with patch("tests.build_support.ROOT", self.root):
+            self.assertEqual({"state-opt": (["p6_state_probe"], True)}, self.prepared(["test_alpha", "test_components"]))
+            self.assertEqual({"link-audit": (["p6_state_probe"], False)}, self.prepared(["test_alpha"], "debug"))
+            with self.assertRaisesRegex(ValueError, "P6_STATE_PROBE_BUILD"):
+                self.prepared(["test_alpha"], "release")
+
+    def test_state_modules_that_name_their_own_tree_and_the_parity_test_get_theirs(self):
+        with patch("tests.build_support.ROOT", self.root):
+            self.assertEqual({}, self.prepared(["test_components", "test_envelope"]))
+            self.assertEqual({"link-audit": (["p6_state_probe"], False)}, self.prepared(["test_probe"]))
+            self.assertEqual({"state-opt": (["p6_state_probe"], True), "link-audit": (["p6_state_probe"], False)},
+                             self.prepared(["test_alpha", "test_probe"]))
+            self.assertEqual({"link-audit": (["p6_envelope_probe", "p6_archive_probe"], False)}, self.prepared(["test_envelope_native"]))
+            both = self.prepared(["test_build_parity", "test_envelope_native"])
+            self.assertEqual((["p6_state_probe"], True), both["state-opt"])
+            self.assertEqual((["p6_state_probe", "p6_envelope_probe", "p6_archive_probe"], False), both["link-audit"])
+            # Alone, the parity test asks for both builds, and in debug mode they are the same tree (nothing is built twice).
+            self.assertEqual({"state-opt": (["p6_state_probe"], True), "link-audit": (["p6_state_probe"], False)}, self.prepared(["test_build_parity"]))
+
+    def test_default_jobs_come_from_cpus_and_memory(self):
+        gib = 1 << 30
+        self.assertEqual(6, runner.default_jobs("host", cpus=8))
+        self.assertEqual(7, runner.default_jobs("state", cpus=8, memory=16 * gib))
+        self.assertEqual(3, runner.default_jobs("state", cpus=8, memory=3 * gib))
+        self.assertEqual(1, runner.default_jobs("state", cpus=1, memory=16 * gib))
+        self.assertEqual(1, runner.default_jobs("state", cpus=8, memory=gib // 4))
+        with patch.object(runner.os, "sysconf", side_effect=ValueError):
+            self.assertEqual(3, runner.default_jobs("state", cpus=4))
+
+    def test_split_jobs_splits_only_modules_with_several_classes(self):
+        classes = {"test_alpha": {"One": 3, "Two": 4}, "test_beta": {"Only": 5}}
+        self.assertEqual([("test_alpha", "test_alpha.One", 3), ("test_alpha", "test_alpha.Two", 4), ("test_beta", "test_beta", 5),
+                          ("test_components", "test_components", None)],
+                         runner.split_jobs(["test_alpha", "test_beta", "test_components"], classes))
+
+    def test_discovery_keeps_module_names_and_gives_up_quietly(self):
+        found = Mock(stdout='{"tests.state.test_alpha": {"One": 1, "Two": 2}}')
+        with patch.object(runner.subprocess, "run", return_value=found) as command:
+            self.assertEqual({"test_alpha": {"One": 1, "Two": 2}}, runner.discover_classes(["tests.state.test_alpha"]))
+        self.assertEqual("tests.state.test_alpha", command.call_args.args[0][-1])
+        for broken in (Mock(stdout="not json"), OSError("no python")):
+            with patch.object(runner.subprocess, "run", **({"side_effect": broken} if isinstance(broken, OSError) else {"return_value": broken})):
+                self.assertEqual({}, runner.discover_classes(["tests.state.test_alpha"]))
+
+    def test_the_iteration_tier_is_a_named_selection_of_the_state_suite(self):
+        self.assertEqual(("test_state_container", "test_state_upstream", "test_det02", "test_det02_kickstart", "test_state_bridge"),
+                         runner.TIERS["iter"])
+        events, stack = self._main_mocks((0, 0.01, "Ran 1 test in 0.01s\nOK\n"))
+        stack[0] = patch.object(sys, "argv", ["runner", "--suite", "state", "--tier", "iter", "-j", "1"])
+        with stack[0], stack[1], stack[2], stack[3], stack[4], stack[5], stack[6], stack[7], stack[8], \
+                patch.object(runner, "TIERS", {"iter": ("test_alpha", "test_beta")}), patch("sys.stdout", new=io.StringIO()):
+            self.assertEqual(0, runner.main())
+        self.assertEqual(["tests.state.test_alpha", "tests.state.test_beta"], sorted(event[1][0] for event in events if event[0] == "worker"))
+        events, stack = self._main_mocks((0, 0.01, "Ran 1 test in 0.01s\nOK\n"))
+        stack[0] = patch.object(sys, "argv", ["runner", "--tier", "iter"])
+        with stack[0], patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit):
+            runner.main()
+
+    def _main_mocks(self, worker_result, classes=None):
         events = []
         InlinePool.events = events
         prepared = type("Prepared", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -103,6 +166,8 @@ class ParallelRunnerTests(unittest.TestCase):
                  patch.object(runner, "ThreadPoolExecutor", InlinePool),
                  patch.object(runner, "as_completed", side_effect=lambda futures: futures),
                  patch.dict(os.environ, {"P6_TEST_BUILD_RECEIPT": "stale"})]
+        discovery = patch.object(runner, "discover_classes", return_value=classes or {})
+        discovery.start(); self.addCleanup(discovery.stop)
         return events, stack
 
     def test_state_main_prepares_once_before_workers_and_passes_qualified_name(self):
@@ -161,7 +226,7 @@ class ParallelRunnerTests(unittest.TestCase):
         with stack[0], stack[1], stack[2], stack[3], stack[4], stack[5], stack[6], stack[7], stack[8], \
                 patch("sys.stdout", new=io.StringIO()):
             self.assertEqual(0, runner.main())
-        self.assertEqual(2, InlinePool.last_jobs)
+        self.assertEqual(runner.default_jobs("state"), InlinePool.last_jobs)
         self.assertEqual(7200, events[-1][1][1])
 
         events, stack = self._main_mocks((0, 0.01, "Ran 1 test in 0.01s\nOK\n"))
@@ -170,6 +235,61 @@ class ParallelRunnerTests(unittest.TestCase):
                 patch("sys.stderr", new=io.StringIO()):
             self.assertEqual(1, runner.main())
         self.assertNotIn("worker", [event[0] for event in events])
+
+    def test_discovery_is_asked_for_the_qualified_names_of_the_selected_modules(self):
+        events, stack = self._main_mocks((0, 0.01, "Ran 1 test in 0.01s\nOK\n"))
+        with stack[0], stack[1], stack[2], stack[3], stack[4], stack[5], stack[6], stack[7], stack[8], patch("sys.stdout", new=io.StringIO()):
+            runner.main()
+            runner.discover_classes.assert_called_once_with(["tests.state.test_alpha"])
+
+    def run_split(self, outputs, classes):
+        """main() over test_alpha and test_beta with `classes` discovered; `outputs` maps the unit a worker runs to (code, seconds, text)."""
+        events, stack = self._main_mocks((0, 0, ""), classes)
+        stack[0] = patch.object(sys, "argv", ["runner", "--suite", "state", "-j", "2", "test_alpha", "test_beta"])
+        stack[5] = patch.object(runner, "run_module", side_effect=lambda name, timeout, path: (name, *outputs[name]))
+        printed = io.StringIO()
+        with stack[0], stack[1], stack[2], stack[3], stack[4], stack[5], stack[6], stack[7], stack[8], patch("sys.stdout", new=printed):
+            code = runner.main()
+        return code, events, printed.getvalue()
+
+    def test_state_modules_with_several_classes_run_per_class_and_are_reported_per_module(self):
+        done = lambda tests, extra="": (0, 1.5, f"Ran {tests} tests in 1s\nOK{extra}\n")
+        code, events, text = self.run_split({
+            "tests.state.test_alpha.One": done(3), "tests.state.test_alpha.Two": done(4, " (skipped=1, expected failures=2)"),
+            "tests.state.test_beta": done(5, " (expected failures=1)")}, {"test_alpha": {"One": 3, "Two": 4}, "test_beta": {"Only": 5}})
+        self.assertEqual(0, code)
+        self.assertEqual(["tests.state.test_alpha.One", "tests.state.test_alpha.Two", "tests.state.test_beta"],
+                         sorted(event[1][0] for event in events if event[0] == "worker"))
+        self.assertIn("2 modules, 12 tests, 1 skipped, 3 expected failures, 0 failed", text)
+        self.assertIn("3.0s  test_alpha  (7 tests, 1 skipped, 2 expected failures, 2 classes)", text)
+        self.assertIn("1.5s  test_beta  (5 tests, 0 skipped, 1 expected failures)", text)
+
+    def test_a_split_that_runs_other_tests_than_the_loader_found_fails(self):
+        code, _, text = self.run_split({"tests.state.test_alpha.One": (0, 1, "Ran 3 tests in 1s\nOK\n"),
+                                        "tests.state.test_alpha.Two": (0, 1, "Ran 3 tests in 1s\nOK\n"),
+                                        "tests.state.test_beta": (0, 1, "Ran 5 tests in 1s\nOK\n")},
+                                       {"test_alpha": {"One": 3, "Two": 4}, "test_beta": {"Only": 5}})
+        self.assertEqual(1, code)
+        self.assertIn("Ran 3 tests where the loader found 4", text)
+
+    def test_a_failed_class_fails_its_module_and_a_timeout_is_counted(self):
+        code, _, text = self.run_split({"tests.state.test_alpha.One": (0, 1, "Ran 3 tests in 1s\nOK\n"),
+                                        "tests.state.test_alpha.Two": (124, 9, "timeout after 9s\nRan 4 tests in 9s\n"),
+                                        "tests.state.test_beta": (0, 1, "Ran 5 tests in 1s\nOK\n")},
+                                       {"test_alpha": {"One": 3, "Two": 4}, "test_beta": {"Only": 5}})
+        self.assertEqual(1, code)
+        self.assertIn("1 failed (1 timeouts)", text)
+        self.assertRegex(text, r"FAIL\s+10\.0s  test_alpha")
+
+    def test_the_slowest_unit_of_the_last_run_starts_first(self):
+        (self.build / ".test-durations.json").write_text('{"test_beta": 90, "test_alpha.Two": 5}')
+        code, events, _ = self.run_split({"tests.state.test_alpha.One": (0, 1, "Ran 3 tests in 1s\nOK\n"),
+                                          "tests.state.test_alpha.Two": (0, 1, "Ran 4 tests in 1s\nOK\n"),
+                                          "tests.state.test_beta": (0, 1, "Ran 5 tests in 1s\nOK\n")},
+                                         {"test_alpha": {"One": 3, "Two": 4}, "test_beta": {"Only": 5}})
+        self.assertEqual(["tests.state.test_beta", "tests.state.test_alpha.Two", "tests.state.test_alpha.One"],
+                         [event[1][0] for event in events if event[0] == "worker"])
+        self.assertEqual(1.0, runner.load_history(self.root)["test_beta"])       # and the run leaves its own times for the next one
 
     @unittest.skipIf(os.name == "nt", "la limpieza del grupo se prueba aquí en POSIX")
     def test_worker_timeout_kills_process_group_and_drains_output(self):

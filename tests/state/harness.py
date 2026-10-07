@@ -17,10 +17,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tests.host.test_bridge_lifecycle import TOOLS, build_probe, builder  # noqa: E402
+from tests.build_support import build_targets, state_probe_tree  # noqa: E402
+from tests.host.test_bridge_lifecycle import TOOLS, builder  # noqa: E402
 from tests.state import envelope as e  # noqa: E402
 
-BUILD = ROOT / "build/link-audit"
 FIXTURES = ROOT / "tests/fixtures/microrom"
 SUBSYSTEMS = ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "input", "video", "bridge")
 DIGEST = re.compile(r"^digest (\d+) (\w+) ([0-9a-f]{64}) (\d+)$")
@@ -239,11 +239,13 @@ class FieldTable:
         return blob
 
 
-def built(target):
-    """The executable of `target`, configured and built once per process (the code generator runs at every build)."""
-    if target not in _BUILT:
-        _BUILT[target] = build_probe(BUILD, False, target)
-    return _BUILT[target]
+def built(target, variant=None):
+    """The executable of `target`, configured and built once per process (the code generator runs at every build). `variant` is "optimized" (-O2 with
+    asserts, build/state-opt) or "debug" (-O0, build/link-audit); by default the one P6_STATE_PROBE_BUILD selects (optimized when unset)."""
+    directory, optimized = state_probe_tree(variant)
+    if (directory, target) not in _BUILT:
+        _BUILT[directory, target] = build_targets(directory, [target], optimized=optimized)[target]
+    return _BUILT[directory, target]
 
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")

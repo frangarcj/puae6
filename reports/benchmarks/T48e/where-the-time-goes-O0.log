@@ -1,0 +1,8 @@
+MEASURE targets=['tests.state.test_state_container', 'tests.state.test_state_upstream'] wall=225.7s probe=215.3s other_children=9.0s python=1.3s calls=122 tests=33 children_max_rss_mb=353
+MEASURE targets=['tests.state.test_det02'] wall=90.8s probe=67.8s other_children=21.6s python=1.5s calls=134 tests=185 children_max_rss_mb=699
+MEASURE targets=['tests.state.test_state_rtc'] wall=39.9s probe=36.7s other_children=2.4s python=0.8s calls=45 tests=11 children_max_rss_mb=55
+# Probe alone, 200 units on build/waterbox/boot.rom, same stdout (md5 05302b9b1755519693b86d508183eea9) from both builds:
+#   build/link-audit/p6_state_probe (Debug -O0)            32.8 s  (164 ms per unit)
+#   build/state-opt/p6_state_probe  (RelWithDebInfo -O2 -g, asserts on)   7.2 s  (36 ms per unit)  -> 4.6x
+# measure.py wraps subprocess.run: "probe" is time inside p6_state_probe, "other_children" is the rest of the child processes (the micro-ROM assembler, cmake's up-to-date check), "python" is the remainder.
+# children_max_rss_mb is the largest resident size of one child (a probe): det02 699 MB, container+upstream 353 MB, rtc 55 MB; a state worker is budgeted 1 GiB.

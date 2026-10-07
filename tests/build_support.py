@@ -17,6 +17,12 @@ ROOT = Path(__file__).resolve().parents[1]
 _BUILDS = {}
 _THREAD_LOCK = threading.RLock()
 RECEIPT_ENV = "P6_TEST_BUILD_RECEIPT"
+# The tree the native-state tests run p6_state_probe from (T48e). The probe costs ~165 ms per unit at -O0, so by default it is an -O2 build with the
+# assertions on (no NDEBUG) and no sanitizers; P6_STATE_PROBE_BUILD=debug goes back to the -O0 tree that the other native tests share. The two are
+# kept equal byte for byte by tests/state/test_build_parity.py, which is what makes the faster one a valid substitute.
+STATE_PROBE_ENV = "P6_STATE_PROBE_BUILD"
+STATE_TREES = {"optimized": "build/state-opt", "debug": "build/link-audit"}
+OPTIMIZED_FLAGS = "-O2 -g"
 
 
 def digest(path):
@@ -91,13 +97,29 @@ def _command(args, timeout):
         raise RuntimeError(f"Build command failed ({result.returncode}): {args}\n{result.stdout[-4000:]}\n{result.stderr[-4000:]}")
 
 
-def build_targets(directory, targets, *, sanitizers=False, trace=False):
+def state_probe_variant():
+    """"optimized" (default) or "debug": which tree the native-state tests take p6_state_probe from."""
+    variant = os.environ.get(STATE_PROBE_ENV, "optimized")
+    if variant not in STATE_TREES:
+        raise ValueError(f"{STATE_PROBE_ENV} must be one of {', '.join(STATE_TREES)}, not {variant!r}")
+    return variant
+
+
+def state_probe_tree(variant=None):
+    """(directory, optimized) of a variant of the state-probe tree; the default variant is the one the environment selects."""
+    variant = variant or state_probe_variant()
+    return ROOT / STATE_TREES[variant], variant == "optimized"
+
+
+def build_targets(directory, targets, *, sanitizers=False, trace=False, optimized=False):
     directory = Path(directory).resolve()
     directory.relative_to((ROOT / "build").resolve())
     targets = tuple(dict.fromkeys(targets))
     if not targets or any(not name.replace("_", "").isalnum() for name in targets):
         raise ValueError("explicit CMake target names are required")
-    config = dict(sanitizers=bool(sanitizers), trace=bool(trace), build_type="Debug")
+    # The recipe is part of the receipt: an -O0 build never stands for an -O2 one, whatever directory it was configured in.
+    config = dict(sanitizers=bool(sanitizers), trace=bool(trace),
+                  build_type="RelWithDebInfo" if optimized else "Debug", flags=OPTIMIZED_FLAGS if optimized else "")
     with build_lock():
         source = source_identity()
         receipt = os.environ.get(RECEIPT_ENV)
@@ -128,7 +150,9 @@ def build_targets(directory, targets, *, sanitizers=False, trace=False):
         _BUILDS.pop(str(directory), None)
         if record is None:
             _command(["cmake", "-S", str(ROOT), "-B", str(directory), "-G", "Ninja",
-                      "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_BUILD_TYPE=Debug",
+                      "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++", f"-DCMAKE_BUILD_TYPE={config['build_type']}",
+                      # RelWithDebInfo's default is "-O2 -g -DNDEBUG": the flags are replaced, not extended, so that the asserts stay.
+                      *([f"-DCMAKE_C_FLAGS_RELWITHDEBINFO={OPTIMIZED_FLAGS}", f"-DCMAKE_CXX_FLAGS_RELWITHDEBINFO={OPTIMIZED_FLAGS}"] if optimized else []),
                       f"-DP6_SANITIZERS={'ON' if sanitizers else 'OFF'}", f"-DP6_UNIT_TRACE={'ON' if trace else 'OFF'}"], 120)
         _command(["cmake", "--build", str(directory), "--target", *missing], 1800)
         if source_identity() != source:

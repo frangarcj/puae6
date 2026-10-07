@@ -11034,7 +11034,7 @@
       "title": "Iteracion rapida de las suites de estado: probe optimizado con paridad, reparto por clase y nivel de iteracion",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T48d",
         "T15f2"

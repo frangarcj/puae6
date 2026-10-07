@@ -61,6 +61,41 @@ class BuildSupportTests(unittest.TestCase):
         self.assertEqual(len(self.commands), 6)
         self.assertIn("-DP6_SANITIZERS=ON", self.commands[-2])
 
+    def test_an_optimized_build_is_a_different_recipe_with_asserts_kept(self):
+        self.build()
+        optimized = self.build(optimized=True)
+        self.assertEqual(4, len(self.commands), "the Debug result does not stand for the optimized one, even in the same directory")
+        configure = self.commands[2]
+        self.assertIn("-DCMAKE_BUILD_TYPE=RelWithDebInfo", configure)
+        self.assertIn("-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g", configure)
+        self.assertIn("-DCMAKE_C_FLAGS_RELWITHDEBINFO=-O2 -g", configure)
+        self.assertFalse([a for a in configure if "NDEBUG" in a], "the flags replace RelWithDebInfo's -DNDEBUG")
+        self.assertIn("-DP6_SANITIZERS=OFF", configure)
+        self.assertIn("-DCMAKE_BUILD_TYPE=Debug", self.commands[0])
+        self.assertFalse([a for a in self.commands[0] if "RELWITHDEBINFO" in a])
+        self.assertEqual(optimized, self.build(optimized=True))
+        self.assertEqual(4, len(self.commands))
+
+    def test_worker_receipt_of_one_build_type_does_not_validate_the_other(self):
+        self.build(optimized=True)
+        receipt = self.root / "prepared.json"
+        b.write_receipt(receipt)
+        with patch.dict(os.environ, {b.RECEIPT_ENV: str(receipt)}), patch.dict(b._BUILDS, {}, clear=True):
+            self.build(optimized=True)
+            with self.assertRaisesRegex(RuntimeError, "receipt"):
+                self.build()
+
+    def test_state_probe_tree_follows_the_environment(self):
+        with patch.dict(os.environ):
+            os.environ.pop(b.STATE_PROBE_ENV, None)
+            self.assertEqual((self.root / "build/state-opt", True), b.state_probe_tree())
+            os.environ[b.STATE_PROBE_ENV] = "debug"
+            self.assertEqual((self.root / "build/link-audit", False), b.state_probe_tree())
+            self.assertEqual((self.root / "build/state-opt", True), b.state_probe_tree("optimized"))
+            os.environ[b.STATE_PROBE_ENV] = "O2"
+            with self.assertRaisesRegex(ValueError, b.STATE_PROBE_ENV):
+                b.state_probe_tree()
+
     def test_shared_library_target_resolves_its_real_artifact(self):
         result = self.build(["puae6_libretro"])
         self.assertTrue(result["puae6_libretro"].is_file())

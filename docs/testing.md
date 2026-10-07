@@ -66,15 +66,17 @@ El resumen muestra pruebas omitidas y fallos esperados.
 Un modulo sin tests devuelve un error.
 Un resultado con pruebas omitidas no cierra su puerta completa.
 
-`--suite state` ejecuta un proceso por modulo de `tests/state`. Prepara
+`--suite state` ejecuta un proceso por modulo de `tests/state` (por clase de
+test cuando el modulo tiene varias, ver mas abajo). Prepara
 `p6_state_probe` y, si se selecciona `test_envelope_native`, los probes de
 envelope y archivo. Los modulos Python puros no requieren un probe.
 Cada proceso conserva sus ROMs temporales y cada prueba conserva sus casos.
 La seleccion acepta nombres cortos o nombres completos de la suite elegida.
 Un nombre desconocido falla antes de compilar. Los nombres repetidos se ejecutan una vez.
 
-La suite state usa dos workers y un limite de 7200 segundos por modulo.
-La suite host conserva su limite de 900 segundos y su numero de workers.
+La suite state usa CPUs menos una workers, sin pasar de un worker por GiB de
+memoria, y un limite de 7200 segundos por modulo o clase. La suite host conserva
+su limite de 900 segundos y CPUs menos dos workers.
 `-j` y `--timeout` permiten cambiar estos valores. Un timeout devuelve un error
 y detiene tambien los probes hijos del worker. La limpieza del grupo se prueba
 con procesos reales en POSIX. La ruta Windows usa `taskkill /T /F`; requiere
@@ -101,6 +103,47 @@ python3 tests/host/run_parallel.py --suite state
 # Ejemplos de seleccion focalizada del motor: conservan sus casos y assertions.
 python3 -m unittest tests.lifecycle.test_reload.ReloadClockTests
 python3 -m unittest tests.state.test_state_rtc
+```
+
+## Suites de estado rapidas (T48e)
+
+El coste de una suite de estado es el probe: `p6_state_probe` en Debug -O0 tarda
+~165 ms por unidad y es el 95 % del reloj de un test (Python, ROMs y parseo, menos
+del 1 %; medidas en `reports/benchmarks/T48e`). Por eso:
+
+- **Probe optimizado por defecto.** Los modulos que usan `tests/state/harness.py`
+  (`ProbeCase`) ejecutan el probe de `build/state-opt`: RelWithDebInfo con
+  `-O2 -g`, sin `-DNDEBUG` (las assertions siguen), sin sanitizers, con el mismo
+  recibo verificado que los demas arboles. El recibo incluye el tipo de build y los
+  flags: un build -O0 nunca valida uno -O2. `P6_STATE_PROBE_BUILD=debug` vuelve al
+  probe -O0 de `build/link-audit` (el valor por defecto es `optimized`; otro valor
+  es un error). `test_probe` y `test_envelope_native` eligen su propio arbol
+  `build/link-audit` y no cambian.
+- **Paridad.** `tests/state/test_build_parity.py` construye los dos probes, y para
+  varias ROMs de los fixtures ejecuta las mismas lineas de comando en ambos
+  (`--every 1`, estado guardado y cargado en la misma imagen, cargado en un
+  proceso nuevo, y escenarios DET02 en sus cinco modos) y exige el mismo stdout y los
+  mismos bytes en cada fichero `--save-at`. Una diferencia es UB o lectura sin
+  inicializar del motor: un fallo de determinismo, no se relaja la prueba ni se
+  vuelve a -O0 para ocultarla. Con `P6_KICKSTART_ROM` suma un escenario Kickstart.
+- **Reparto por clase.** `--suite state` descubre con el cargador de unittest las
+  clases de cada modulo y lanza `python -m unittest tests.state.modulo.Clase` por
+  clase cuando hay mas de una. Cada clase prepara sus propias ROMs (`setUpClass`),
+  asi que repartir no duplica trabajo; no se reparte por metodo (los escenarios
+  DET02 comparten la ejecucion original dentro de la clase). Los conteos de cada
+  modulo se suman en el informe y se comparan con los del cargador: si un reparto
+  ejecuta otros tests, falla. Las unidades mas lentas de la ultima ejecucion
+  (`build/.test-durations.json`) empiezan primero.
+- **Nivel de iteracion.** `--tier iter` ejecuta `test_state_container`,
+  `test_state_upstream`, `test_det02`, `test_det02_kickstart` y `test_state_bridge`:
+  lo que valida cada iteracion de T15d-T15g. La suite completa sigue siendo la
+  puerta de cierre de una tarea. Se pueden anadir modulos a un nivel.
+
+```sh
+python3 tests/host/run_parallel.py --suite state --tier iter       # iteracion
+python3 tests/host/run_parallel.py --suite state                   # cierre
+P6_STATE_PROBE_BUILD=debug python3 tests/host/run_parallel.py --suite state   # probe -O0
+python3 tests/host/run_parallel.py --suite state test_build_parity # paridad -O0/-O2
 ```
 
 La reutilizacion es del ejecutable, nunca del estado de un proceso emulado. Se
@@ -146,7 +189,8 @@ python3 -m unittest discover -s tests/libretro-host
 ```
 
 Medidas y limites: `reports/tasks/T48a.md`, `reports/tasks/T48b.md`,
-`reports/tasks/T48c.md` y `reports/tasks/T48d.md`.
+`reports/tasks/T48c.md`, `reports/tasks/T48d.md` y `reports/tasks/T48e.md`
+(con `reports/benchmarks/T48e`).
 Separar siempre preparacion, compilacion y ejecucion.
 Una cache caliente no mide el coste de un build limpio.
 Una suite focalizada no comprueba el emulador completo.
