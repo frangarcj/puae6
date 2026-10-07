@@ -34,6 +34,15 @@ T15g, what Denise and the presentation keep outside every body (patch 0100). Two
     buffer): a machine that had adopted another frame kept it, and a new image adopted the saved one units later with a blank picture, 576 lines where the original showed 574;
   - the border colour (bordercolor, derived from COLOR00 and BPLCON3) is recomputed after CHIP: restore_custom flushes its register writes before it rebuilds the colour table.
 
+T15j, what the first picture after a load and the next state need (patch 0103):
+  - PIXL (the last of P6VD, 4 + 4 + the groups of pixels that the rows of the drawing buffer take) is the buffer itself: a unit in which the engine draws no line hands over the rows as
+    the units before left them, so a load that did not put them back showed the picture of the abandoned history, or the black of a machine that had not drawn; it is tagged and measured like
+    the others and decoded here, with the format of the C++ and not its code, against the picture the unit handed over;
+  - GEOM (104 bytes) also says whether the presentation refused the mode as larger than its buffer and the allocation of the last mode it accepted (the sizes it clamped to look like a mode that
+    fits): a machine that had not refused it handed over pictures that the original never did; and the flags of the drawing (the three requests to clear the buffer that wait for the first line of the next frame, and whether the frame being drawn holds the buffer);
+  - BEAM (260 bytes) also carries the interlace the display has seen, the first and last line of the vertical display window and the flag that tests them: custom_reset leaves the lines at 0 and 0 and calcvdiw, which the
+    load runs, derives 0 and 256 from the same zero registers, so a state saved, loaded and saved again differed from one saved without the load in the vertical window bit of DIWHIGH.
+
 T15i2, what is loaded:
   - a load applies the bodies on the live machine (no custom_reset, no memory_clear, no *_start): the state taken again afterwards re-emits every upstream chunk byte for byte,
     in the same process, k units later, and in a new one (a fresh image runs its reset head first), the beam included: the whole state is the same bytes;
@@ -52,24 +61,25 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 76, "DSKX": 160,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 260, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 104, "DSKX": 160,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
-    b"P6VD": ["BPLX", "DNSP", "GEOM"],
+    b"P6VD": ["BPLX", "DNSP", "GEOM", "PIXL"],
     b"P6AU": [f"AUD{i}" for i in range(4)] + ["AUDP"],
     b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK", "DSKX"],
 }
 DSD_FIXED = 4 + 2 + 4 + 2 + 4 + 4 + 2       # mode, bit counter, track length, speed, skip offset, index offset, revolutions
 
-# The words of BEAM, in the order of p6_custom_beam_get (custom.cpp, patch 0094) and of the enum of bridge/state_upstream.cpp: 41 words and the twenty sync latches of Agnus.
+# The words of BEAM, in the order of p6_custom_beam_get (custom.cpp, patch 0094, four words more in patch 0103) and of the enum of bridge/state_upstream.cpp: 41 words, the twenty sync
+# latches of Agnus, the first and last line of the vertical display window with the flag that tests them, and the interlace the display has seen.
 BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_next", "agnus_vpos_next", "agnus_pos_change", "hhpos",
               "linear_vpos", "linear_hpos", "linear_vpos_prev0", "linear_vpos_prev1", "linear_vpos_prev2", "linear_hpos_prev0", "linear_hpos_prev1", "linear_hpos_prev2",
               "linear_vpos_vsync", "linear_display_vpos", "linear_vpos_visible", "current_linear_vpos_visible",
               "display_hsync_counter", "display_vsync_counter", "maxvpos_display_vsync_next", "linetoggle", "lof_display",
               "lof_detect", "lof_pdetect", "lof_detect_vsync", "prevlof0", "prevlof1", "prevlof2",
               "display_last_hsync_low", "display_last_hsync_high", "display_last_vsync_low", "display_last_vsync_high",
-              "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)]
+              "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)] + ["plffirstline", "plflastline", "need_vdiw_check", "interlace_seen"]
 
 # The words of COPR, in the order of p6_custom_copper_get (custom.cpp, patch 0095) and of the enum of bridge/state_upstream.cpp.
 COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ignore_next", "vcmp", "hcmp", "strobe", "strobetype", "enabled_thisline",
@@ -81,9 +91,9 @@ BLTP_WORDS = ["queued", "count_done", "change_cycles_low", "change_cycles_high",
 AUDP_GLOBAL = ["next_sample_evtime", "pending_cycles_low", "pending_cycles_high", "work_to_do", "led_filter"] + [f"filter{i}_rc{j}" for i in range(4) for j in range(1, 6)]
 AUDP_CHANNEL = ["flags", "irqcheck", "per", "dat2", "ptx", "dmaoff_active", "dmaoff_cpu_count", "dmaoff_pc", "minperloop", "current_sample", "last_sample", "new_sample",
                 "sample_accum", "sample_accum_time", "adk_mask"]
-# The words of GEOM, in the order of p6_frame_geometry_get (custom.cpp, patch 0100) and of the enum of bridge/state_upstream.cpp.
+# The words of GEOM, in the order of p6_frame_geometry_get (custom.cpp, patch 0100, three words more in patch 0103) and of the enum of bridge/state_upstream.cpp.
 GEOM_WORDS = ["hpos", "vpos", "hpos_short", "vpos_nom", "hpos_temp", "vpos_temp", "temp_change", "in_width", "in_height", "in_width2", "in_height2", "out_width", "out_height",
-              "extra_width", "extra_height", "x_offset", "y_offset", "in_x_offset", "in_y_offset"]
+              "extra_width", "extra_height", "x_offset", "y_offset", "in_x_offset", "in_y_offset", "refused", "alloc_width", "alloc_height", "display_redraw", "erase_next_draw", "center_y_erase", "locked"]
 PERIOD_SENTINEL = -2            # PERIOD_MAX - 1 as an int: the period of a channel audio_reset leaves and nothing has written since
 
 
@@ -267,7 +277,7 @@ def upstream_bodies(blob):
 
 class UpstreamBodiesTests(ProbeCase):
     ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None), "disk-dma": (DISK_DMA, None, None), "copper_irq": ("copper_irq", {"HP": "2"}, None),
-            "lof_stuck": ("lof_stuck", None, None)}
+            "lof_stuck": ("lof_stuck", None, None), "long_frame": ("long_frame", None, None), "boot": ("boot", None, None)}
 
     @classmethod
     def setUpClass(cls):
@@ -306,8 +316,10 @@ class UpstreamBodiesTests(ProbeCase):
     def test_the_fixed_lengths_add_up_to_the_chunks_of_a_machine_with_no_medium(self):
         blob = self.state_of("vsync.state", "vsync", 3)
         sizes = {tag: len(body) for tag, _, body in parse_chunks(blob)}
+        bodies = upstream_bodies(blob)
         for tag, names in ORDER.items():
-            self.assertEqual(sum(8 + FIXED.get(n, 0) for n in names), sizes[tag], tag)       # DSDn is absent: its length is 0
+            # DSDn is absent: its length is 0. PIXL, the rows of the picture, is the one body of no fixed length.
+            self.assertEqual(sum(8 + (len(bodies[tag][n]) if n == "PIXL" else FIXED.get(n, 0)) for n in names), sizes[tag], tag)
 
     def test_a_disk_in_the_drive_fills_dsk0_and_dsd0_and_only_those(self):
         bodies = self.layout(self.state_of("busy-disk.state", "busy", 8, *self.disk))[b"P6DK"]
@@ -515,10 +527,98 @@ class UpstreamBodiesTests(ProbeCase):
                 saved = self.probe("busy", "--units", str(unit + 1), "--every", "1", "--dump", "video", *args, "--save-at", str(unit), str(state))
                 run = self.probe("busy", "--units", "1", "--every", "1", "--dump", "video", *args, "--load-at", "0", str(state))
                 self.assertEqual([(0, 0, "")], run.loads)
+                self.assertEqual(saved.pictures[unit + 1], run.pictures[1], "and so is the whole picture")
                 original, loaded = saved.dumps[(unit + 1, "video")], run.dumps[(1, "video")]
-                pixels = lambda dump: struct.unpack_from("<%dI" % 64, dump, 16)       # after have, width, height and flags
+                pixels = lambda dump: struct.unpack_from("<%dI" % 64, dump, 9)        # the rows of the buffer, after the flag and the allocation
                 self.assertEqual(0x112233, pixels(original)[10], "the border of the original is COLOR00 = $0123")
                 self.assertEqual(pixels(original), pixels(loaded), "the first line is the same, pixel for pixel")
+
+    # -- T15j: the rows of the picture, the mode the presentation refused and the vertical window (patch 0103) -----------------------------------------------
+
+    @staticmethod
+    def raster_of(blob, width, height):
+        """The rows of the PIXL body of a state as the renderer wrote them (width x height XRGB pixels), decoded here from the format of bridge/state_upstream.cpp."""
+        body = upstream_bodies(blob)[b"P6VD"]["PIXL"]
+        out, at = bytearray(), 0
+
+        def pixel():
+            nonlocal at
+            (code,) = struct.unpack_from("<H", body, at)
+            at += 2
+            if code == 0xffff:
+                (word,) = struct.unpack_from("<I", body, at)
+                at += 4
+                return word
+            assert code < 0x1000, code
+            return ((code >> 8) * 17) << 16 | (((code >> 4) & 15) * 17) << 8 | (code & 15) * 17
+
+        for _ in range(height):
+            x = 0
+            while x < width:
+                token = body[at]
+                at += 1
+                count = (token & 0x7f) + 1
+                if token & 0x80:
+                    out += struct.pack("<I", pixel()) * count
+                else:
+                    for _ in range(count):
+                        out += struct.pack("<I", pixel())
+                x += count
+            assert x == width
+        assert at == len(body), "the rows use all the bytes of the body"
+        return bytes(out)
+
+    def test_the_rows_a_state_carries_are_the_picture_the_unit_handed_over(self):
+        # The state is taken in the boundary where the unit's picture is handed over, so the rows of the body are that picture: its SHA-256 is the one the probe printed (the active raster
+        # is the allocation in this profile). Checked on a program that draws (busy: bitplanes, sprites, Copper) and on the long frame, whose odd units draw no line.
+        for rom, unit in (("busy", 4), ("long_frame", 1), ("long_frame", 2)):
+            with self.subTest(rom=rom, unit=unit):
+                path = self.dir / f"pixl.{rom}.{unit}"
+                run = self.probe(rom, "--units", str(unit), "--save-at", str(unit), str(path))
+                blob = path.read_bytes()
+                geometry = self.geometry_of(blob)
+                width, height = geometry["alloc_width"], geometry["alloc_height"]
+                picture = run.pictures[unit].split()
+                self.assertEqual(f"{width}x{height}", picture[0])
+                self.assertEqual(picture[-1], hashlib.sha256(self.raster_of(blob, width, height)).hexdigest())
+
+    def test_a_unit_without_lines_hands_over_the_rows_of_the_state_it_was_loaded_from(self):
+        # long_frame draws a frame every other unit: the units in between hand over the buffer as it was. Run ahead from unit 1 to 3 and come back: the first unit after the load is the one
+        # the original made from unit 1 (the picture of the unit before, not the one of the unit 3 it was abandoned in), and so in a new image, which has drawn nothing yet.
+        state = self.dir / "long_frame.1"
+        original = self.probe("long_frame", "--units", "6", "--save-at", "1", str(state))
+        self.assertNotEqual(original.pictures[1], original.pictures[3], "the picture changes between the unit saved and the one the machine is abandoned in")
+        rewound = self.probe("long_frame", "--units", "7", "--save-at", "1", str(self.dir / "long_frame.again"), "--load-at", "3", str(state))
+        self.assertEqual([(3, 0, "")], rewound.loads)
+        fresh = self.probe("long_frame", "--units", "5", "--load-at", "0", str(state))
+        for unit in (2, 3, 4, 5):
+            self.assertEqual(original.pictures[unit], rewound.pictures[unit + 2], f"unit {unit} after the rewind")
+            self.assertEqual(original.pictures[unit], fresh.pictures[unit - 1], f"unit {unit} in a new image")
+
+    def test_a_raster_the_presentation_refused_is_refused_again_after_the_load(self):
+        # From unit 10 the long frame asks for more rows than the presentation buffer has: no unit has a picture, and compute_framesync clamps the sizes afterwards, so GEOM alone looks like a
+        # mode that fits. A state taken there says so, and a machine that loads it hands over no picture either, in the same image (that was drawing) and in a new one.
+        state, early = self.dir / "long_frame.12", self.dir / "long_frame.3"
+        original = self.probe("long_frame", "--units", "16", "--save-at", "12", str(state))
+        self.probe("long_frame", "--units", "3", "--save-at", "3", str(early))
+        self.assertEqual(1, self.geometry_of(state.read_bytes())["refused"])
+        self.assertEqual(0, self.geometry_of(early.read_bytes())["refused"])
+        self.assertEqual(["none"] * 4, [original.pictures[unit] for unit in (13, 14, 15, 16)])
+        rewound = self.probe("long_frame", "--units", "9", "--save-at", "3", str(self.dir / "long_frame.x"), "--load-at", "5", str(state))      # drawing at 5
+        fresh = self.probe("long_frame", "--units", "4", "--load-at", "0", str(state))
+        self.assertEqual(["none"] * 4, [rewound.pictures[unit] for unit in (6, 7, 8, 9)])
+        self.assertEqual(["none"] * 4, [fresh.pictures[unit] for unit in (1, 2, 3, 4)])
+
+    def test_the_vertical_window_a_program_never_set_is_the_one_the_state_had(self):
+        # boot never writes DIWSTRT or DIWSTOP: custom_reset leaves the first and last line of the window at 0 and 0 and the window closed, where calcvdiw (the load runs it) derives 0 and 256
+        # from the same registers and opens it in line 0. The state saved in unit 1, loaded and saved again in unit 4 is the one saved in unit 4 without the load, and so is the BEAM body.
+        first, rewound, plain = self.dir / "boot.1", self.dir / "boot.4.loaded", self.dir / "boot.4"
+        self.probe("boot", "--units", "4", "--save-at", "1", str(first), "--load-at", "1", str(first), "--save-at", "4", str(rewound))
+        self.probe("boot", "--units", "4", "--save-at", "4", str(plain))
+        beam = self.beam_of(plain.read_bytes())
+        self.assertEqual((0, 0), (beam["plffirstline"], beam["plflastline"]), "the lines the reset leaves, which no register derives")
+        self.assertEqual(self.beam_of(plain.read_bytes()), self.beam_of(rewound.read_bytes()))
+        self.assertEqual(plain.read_bytes(), rewound.read_bytes(), "the whole state after a load and three units is the one of a machine that never loaded")
 
     def floppy_of(self, blob):
         """({DSKX word: signed value}, [{DSKX drive word: signed value}] * 4, {DISK field: value}, [DSKn CRC] * 4) of a state."""
@@ -696,9 +796,10 @@ class UpstreamBodiesTests(ProbeCase):
                 longer = lambda subs, name=name: [s.__setitem__(1, s[1] + b"\0") for s in subs if s[0] == name]
                 data = dict(sub_bodies([body for t, _, body in parse_chunks(good) if t == tag][0]))[name]
                 if data:
-                    attempts.append((f"{name} one byte shorter", with_subs(good, tag, shorter), f"chunk {chunk}: {name}: "))
+                    attempts.append((f"{name} one byte shorter", with_subs(good, tag, shorter), f"chunk {chunk}: " if name == "PIXL" else f"chunk {chunk}: {name}: "))
                 # The chunk of a longer body is longer than the largest the envelope allows when the chunk has no absent track buffer to spare it.
-                attempts.append((f"{name} one byte longer", with_subs(good, tag, longer), "chunk_length" if tag != b"P6DK" else f"chunk {chunk}: {name}: "))
+                # PIXL is the end of P6VD, which has the room of the largest picture: its chunk takes the byte and the body itself says the rows do not use it.
+                attempts.append((f"{name} one byte longer", with_subs(good, tag, longer), "chunk_length" if tag not in (b"P6DK", b"P6VD") else f"chunk {chunk}: {name}: "))
                 # The length of the sub-body says more than the chunk holds, or less than the bytes that follow it.
                 for delta in (1, -1):
                     if len(data) + delta >= 0 and name != "BPLX":
@@ -822,6 +923,18 @@ class UpstreamBodiesTests(ProbeCase):
         ("GEOM with a negative input width", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("in_width"), struct.pack(">i", -756), "a width of the picture is negative or wider than the drawing buffer"),
         ("GEOM with an offset beyond 16 bits", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("y_offset"), struct.pack(">i", 0x10000), "an offset of the raster is beyond 16 bits"),
         ("GEOM with a countdown of 3", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("temp_change"), struct.pack(">i", 3), "the countdown of the candidate raster is not between 0 and 2"),
+        ("GEOM with a flag of the refused mode of 2", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("refused"), struct.pack(">i", 2), "a flag of the presentation is not a flag"),
+        ("GEOM with a request to erase of 2", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("erase_next_draw"), struct.pack(">i", 2), "a flag of the presentation is not a flag"),
+        ("GEOM with an empty allocation", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("alloc_width"), struct.pack(">i", 0),
+         "the allocation of the drawing buffer is empty or larger than the presentation buffer"),
+        ("GEOM with an allocation taller than the buffer", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("alloc_height"), struct.pack(">i", 627),
+         "the allocation of the drawing buffer is empty or larger than the presentation buffer"),
+        ("BEAM with a line of the vertical window beyond 12 bits", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("plflastline"), struct.pack(">i", 0x1000),
+         "a line of the vertical display window is beyond what DIWSTRT, DIWSTOP and DIWHIGH can name"),
+        ("BEAM with a negative first line of the vertical window", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("plffirstline"), struct.pack(">i", -1),
+         "a line of the vertical display window is beyond what DIWSTRT, DIWSTOP and DIWHIGH can name"),
+        ("BEAM with an interlace of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("interlace_seen"), struct.pack(">i", 2), "the interlace the display has seen is not a flag"),
+        ("BEAM with a test of the vertical window of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("need_vdiw_check"), struct.pack(">i", 2), "the flag that tests the vertical display window is not a flag"),
         ("DSKX with a position beyond a line", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", 256 << 8), "the position of the floppy controller in its line is not inside a line"),
         ("DSKX with a negative position", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", -1), "the position of the floppy controller in its line is not inside a line"),
         ("DSKX with a fraction of a colour clock that DISK does not carry", b"P6DK", "DSKX", dskx_at("hpos") + 3, b"\xff", "not the fraction DISK carries"),

@@ -2,7 +2,7 @@
 // container of ports/portable/state_io. The public p6_state_* functions of p6.h are defined in state.cpp and, since the closure of T15, work:
 // every chunk validates and applies, and DET02 (the future of a loaded state, bit for bit), STATE01 (the bound), DET03 (through the public ABI,
 // across instances) and FUZZ01 (hostile states) hold. A build that links this library announces P6_CAP_STATE (state_linked, below); one that does
-// not (headless, libretro and the Waterbox guest take p6_bridge only) neither defines the functions nor claims the capability. The tests reach the
+// not (the headless runner, the frontend adapters and the Waterbox guest take p6_bridge only) neither defines the functions nor claims the capability. The tests reach the
 // registry through the Options below.
 #ifndef P6_BRIDGE_STATE_H
 #define P6_BRIDGE_STATE_H

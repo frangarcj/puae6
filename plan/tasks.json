@@ -9255,7 +9255,7 @@
       "title": "Cerrar los huecos del estado nativo que destapa T18: paleta y cuadro tras un load, DIWHIGH",
       "milestone": "M2",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T15"
       ],
@@ -9272,12 +9272,14 @@
         "patches/winuae/**",
         "tests/state/**",
         "manifests/state-inventory.json",
-        "CMakeLists.txt"
+        "CMakeLists.txt",
+        "bridge/caps.cpp"
       ],
       "steps": [
         "Huecos hallados por los tests de T18 (tests/libretro-host/test_state.py, test_GAP_*), reproducibles sin adaptador con p6_state_probe y la ABI publica: (1) el primer cuadro tras un load sale con la paleta de la linea temporal abandonada (mismo proceso) o de una maquina recien arrancada (proceso nuevo) cuando el invitado escribe la paleta una vez y no la repite: p6_state_probe long_frame --units 6 --public-save-at 1 F --public-load-at 3 F; (2) una unidad que no tenia cuadro nuevo se dibuja tras un load (long_frame, desde la unidad 10); (3) guardar en 1, cargar en 1 y guardar en 4 difiere de guardar en 4 sin cargar en un byte del cuerpo CHIP (offset 329, byte bajo de DIWHIGH) y el checksum: boot.rom.",
         "DET02 no los veia: la imagen de la unidad 0 no se compara, ningun escenario escribe la paleta una sola vez y el digest del chipset no cubre el registro de DIWHIGH. Añadir escenarios DET02/DET03 que los fijen (long_frame en los modos same-image y new-process comparando la imagen desde la primera unidad que dibuja, y una comparacion save-load-save del estado completo) y arreglar la causa en el motor/bridge como en T15e-T15g (valores, sin ejecutar la maquina).",
-        "Cuando pasen, los test_GAP_* de tests/libretro-host dejan de ser expectedFailure (lo hace el cierre de T18)."
+        "Cuando pasen, los test_GAP_* de tests/libretro-host dejan de ser expectedFailure (lo hace el cierre de T18).",
+        "Ampliacion touch (2026-10-08): bridge/caps.cpp, para quitar la palabra libretro de dos comentarios que el commit de T15 introdujo en el bridge (tests.step.test_step prohibe simbolos de frontend en el bridge)."
       ],
       "checks": [
         "DET02",

@@ -7,7 +7,8 @@ configured the same way (the same ROM, media manifest, standard and seed) loads 
 are those of DET02 that matter for a transport between instances: a program that waits for the vertical blank, a tone, the busy chipset, a disk read in flight, a swap of media counting down
 (loaded into machines that booted with either medium), the mouse, held keys, the CIAs, NTSC and, when P6_KICKSTART_ROM names an authorized Kickstart (never copied or hashed here), the real firmware.
 
-Also here: the state the public save writes is, byte for byte, the one the registry writes at the same unit; an instance that is not equivalent (another standard, other media) refuses the state through
+Also here: a state saved, loaded and saved again is the state of a machine that never loaded (ResaveTests: in the same image, rewound or not, and in a new one), which is what a comparison of digests
+of the units that follow cannot see when the difference is in the registers a unit boundary does not show (the vertical window bit of DIWHIGH, T15j); the state the public save writes is, byte for byte, the one the registry writes at the same unit; an instance that is not equivalent (another standard, other media) refuses the state through
 the public load as INCOMPATIBLE and goes on as if it had not been asked; and the capability is announced.
 """
 import os
@@ -15,6 +16,7 @@ import unittest
 
 from tests.state import test_det02 as d
 from tests.state import test_state_input as input_tests
+from tests.state.harness import ProbeCase
 
 # name -> (rom name, extra probe arguments, units N at which the state is taken, modes). The machinery and the names of the modes are DET02's: NEW is a fresh instance that ran its
 # reset head, BOOT_A and BOOT_B fresh instances that booted with the first or the second medium.
@@ -34,6 +36,8 @@ SCENARIOS = {
     "cias": ("cias", [], (8,), (d.NEW,)),
     "clock": ("clock", [], (4,), (d.NEW,)),
     "busy-ntsc": ("busy", ["--ntsc"], (2,), (d.NEW,)),
+    # The rows of the drawing buffer and the mode the presentation refused (T15j): the long frame draws every other unit until unit 10, from which no unit has a picture.
+    "long_frame": ("long_frame", [], (1, 3, 12), (d.NEW,)),
 }
 KICKSTART = {
     "kickstart": ("kickstart", input_tests.KICKSTART_INPUT, (60,), (d.NEW,)),
@@ -74,6 +78,40 @@ class Det03Tests(Det03Case):
     def test_the_capability_is_announced_by_the_image_that_carries_the_functions(self):
         run = self.probe("vsync", "--units", "1", "--public-at", "1")
         self.assertEqual("1", run.public[0][1])
+
+
+class ResaveTests(ProbeCase):
+    """A state taken after a load is the state of a machine that never loaded, byte for byte (the header counters and the checksums included)."""
+
+    ROMS = {**d.Det02Tests.ROMS, "boot": ("boot", None, None)}
+    # rom, units the state is taken at, units to run before it is saved again
+    CASES = (("boot", 1, 4), ("vsync", 3, 7), ("long_frame", 1, 6), ("long_frame", 3, 9), ("long_frame", 12, 16), ("busy", 2, 6), ("copper_irq", 2, 6), ("lof_stuck", 4, 8),
+             ("tone", 3, 7), ("input_all", 3, 7), ("late-bpl", 8, 11))
+
+    def test_a_state_saved_after_a_load_in_place_is_the_state_of_a_machine_that_never_loaded(self):
+        for rom, n, k in self.CASES:
+            with self.subTest(rom=rom, saved=n, again=k):
+                plain, loaded, saved = self.dir / f"{rom}.{k}.plain", self.dir / f"{rom}.{k}.loaded", self.dir / f"{rom}.{n}"
+                self.probe(rom, "--units", str(k), "--public-save-at", str(k), str(plain))
+                self.probe(rom, "--units", str(k), "--public-save-at", str(n), str(saved), "--public-load-at", str(n), str(saved), "--public-save-at", str(k), str(loaded))
+                self.assertEqual(plain.read_bytes(), loaded.read_bytes())
+
+    def test_a_state_saved_after_a_rewind_is_the_state_of_a_machine_that_never_loaded(self):
+        # The machine runs two units past the state and goes back to it: whatever the abandoned units left in the engine that no body carries is what this finds.
+        for rom, n, k in self.CASES:
+            with self.subTest(rom=rom, saved=n, again=k):
+                plain, loaded, saved = self.dir / f"{rom}.{k}.plain2", self.dir / f"{rom}.{k}.rewound", self.dir / f"{rom}.{n}.rw"
+                self.probe(rom, "--units", str(k), "--public-save-at", str(k), str(plain))
+                self.probe(rom, "--units", str(k + 2), "--public-save-at", str(n), str(saved), "--public-load-at", str(n + 2), str(saved), "--public-save-at", str(k + 2), str(loaded))
+                self.assertEqual(plain.read_bytes(), loaded.read_bytes())
+
+    def test_a_state_saved_right_after_a_load_in_a_new_image_is_the_state_that_was_loaded(self):
+        for rom, n, _ in self.CASES:
+            with self.subTest(rom=rom, saved=n):
+                saved, again = self.dir / f"{rom}.{n}.new", self.dir / f"{rom}.{n}.new.again"
+                self.probe(rom, "--units", str(n), "--public-save-at", str(n), str(saved))
+                self.probe(rom, "--units", "0", "--public-load-at", "0", str(saved), "--public-save-at", "0", str(again))
+                self.assertEqual(saved.read_bytes(), again.read_bytes())
 
 
 d.populate(Det03Tests, SCENARIOS, {})

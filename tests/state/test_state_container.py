@@ -20,8 +20,8 @@ RTC_BODY = 31           # P6RT (T15c1)
 CIA_BODY = 143          # P6CI (T15c2)
 BRIDGE_BODY = 40        # P6BR (T15h) with no media event queued: 40 bytes plus 6 per queued event
 INPUT_BODY = 170        # P6IN (T15c3) with an empty keyboard ring: 145 + 25 bytes of ring count and key table, plus the ring
-CHIPSET_BODY = 1590     # P6CH (T15i1, T15f1-T15f3): CHIP 360, BLTX 226, BLIT 63, CHSL 245, eight sprites of 25, BEAM 244, COPR 60 and BLTP 72, each with 8 bytes of tag and length
-VIDEO_BODY = 456        # P6VD: BPLX 292, DNSP (64) and GEOM (76), each with its tag and length
+CHIPSET_BODY = 1606     # P6CH (T15i1, T15f1-T15f3, T15j): CHIP 360, BLTX 226, BLIT 63, CHSL 245, eight sprites of 25, BEAM 260, COPR 60 and BLTP 72, each with 8 bytes of tag and length
+VIDEO_FIXED = 484       # P6VD (T15j): BPLX 292, DNSP (64) and GEOM (104), each with its tag and length, and then PIXL, the rows of the picture, whose length is the picture's
 AUDIO_BODY = 480        # P6AU: four channels of 25 and AUDP (340), each with its tag and length
 DISK_BODY = 353         # P6DK with no medium: four DSKn of 24, four absent DSDn, DISK 17 and DSKX 160, each with its tag and length
 
@@ -68,8 +68,12 @@ class StateContainerTests(ProbeCase):
         self.assertEqual((1, CIA_BODY), (chunks[b"P6CI"][0], len(chunks[b"P6CI"][1])))
         self.assertEqual((1, INPUT_BODY), (chunks[b"P6IN"][0], len(chunks[b"P6IN"][1])))
         self.assertEqual((1, BRIDGE_BODY), (chunks[b"P6BR"][0], len(chunks[b"P6BR"][1])))
-        for tag, length in ((b"P6CH", CHIPSET_BODY), (b"P6VD", VIDEO_BODY), (b"P6AU", AUDIO_BODY), (b"P6DK", DISK_BODY)):
+        for tag, length in ((b"P6CH", CHIPSET_BODY), (b"P6AU", AUDIO_BODY), (b"P6DK", DISK_BODY)):
             self.assertEqual((1, length), (chunks[tag][0], len(chunks[tag][1])), tag)
+        video = chunks[b"P6VD"][1]
+        self.assertEqual(1, chunks[b"P6VD"][0])
+        self.assertEqual(b"PIXL", video[VIDEO_FIXED:VIDEO_FIXED + 4], "the rows of the picture follow the fixed bodies of the video chunk")
+        self.assertEqual(VIDEO_FIXED + 8 + struct.unpack_from("<I", video, VIDEO_FIXED + 4)[0], len(video), "and end it")
 
     def test_the_state_carries_the_ram_of_the_unit_it_was_taken_in_and_nothing_else_of_the_machine(self):
         saved = self.reference.saves[0]

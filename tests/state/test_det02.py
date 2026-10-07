@@ -1,10 +1,12 @@
-"""T15i3, T15f (T15f1, T15f2, T15f3 and its closure), T15e, T15g and T15d2: DET02 end to end with every chunk of the state, and where it still diverges.
+"""T15i3, T15f (T15f1, T15f2, T15f3 and its closure), T15e, T15g, T15d2 and T15j: DET02 end to end with every chunk of the state, and where it still diverges.
 
 DET02 (docs/04-validation.md): a state saved at unit N, the machine run on, the state loaded, and the units after it run again must give the machine of the original run, subsystem by
 subsystem. The probe digests cpu, scheduler, ram, rtc, cia, chipset (by group: beam, counters, irq_dma, clxdat, lof, timing), audio, input, video and bridge, and hashes the PCM of
 every unit; all of them are compared, unit by unit, with the original run. "Unit 0" is the machine right after the load (the picture and the PCM are the output of the unit that ran
-before, so they are compared from unit 1 on); "unit j" is the j-th unit that ran after the load. Left out: the chipset's custom_storage (the engine only writes it, for its debugger),
-bit 15 of clxdat (a read ORs it in; restore_custom stores the saved image with it) and the picture's frame counter (hand-overs of this process): none of them is state.
+before, so they are compared from unit 1 on); "unit j" is the j-th unit that ran after the load. Since T15j the picture is compared twice: the "video" digest is the rows of the drawing
+buffer as they are (state: a unit in which the engine draws no line hands over what the units before left there), and the picture each unit hands over, or none, is compared as the host
+sees it (size, field parity, cadence and the SHA-256 of the pixels). Left out: the chipset's custom_storage (the engine only writes it, for its debugger), bit 15 of clxdat (a read ORs it in;
+restore_custom stores the saved image with it) and the hand-over bookkeeping of the presentation port (frame and pass counters, the last frame it captured): none of them is state.
 
 The machine that loads the state is one of (the "mode" of a test):
   same-image            the image of the original, REWIND units past N: its history is not the state's;
@@ -66,6 +68,12 @@ the card, item by item:
                                       no body. A fresh image loaded a state of the long frame at the 574 rows of its own reset and switched to 576 units later with a blank picture; a same
                                       image that had run on kept the 576 where the original, still at 574, showed 574 (the Kickstart at 107, where it changes). The "presentation memory"
                                       the card names is engine state (current_linear_* and the geometry of the drawing buffer), not bookkeeping of the bridge or the port
+  picture rows, refused mode          fixed by T15j (PIXL and GEOM, patch 0103): DET02 missed three differences because the picture of unit 0 is not compared, no scenario wrote its palette once and let the
+                                      frame be drawn every other unit, and the digest of the video was the last frame captured, not the rows of the buffer. long_frame does all of it (it draws every other
+                                      unit until unit 10, then asks for more rows than the buffer has and hands over none): a load that did not put the rows back handed over the picture of the abandoned
+                                      history (the same image) or the black of a machine that had not drawn (a new one); a load that did not put back the refusal of the mode handed over pictures that
+                                      the original never made. The vertical window (plffirstline and plflastline, which custom_reset and calcvdiw leave different) shows in no unit, only in the
+                                      state saved again: tests/state/test_det03.py ResaveTests compares the whole state saved after a load with the one of a machine that never loaded
 Not testable at a boundary: a machine mid-line.
 
 DIVERGENCES: "scenario@N/mode" -> (first unit after the load, subsystems that differ there, owner, cause).
@@ -133,6 +141,12 @@ SCENARIOS = {
     "keys": ("vsync", input_tests.SCENARIOS["keys"][3], (6,), SHAPES),
     "pot": ("potgo", input_tests.SCENARIOS["pot-measuring"][3], (6,), SHAPES),
     "lof": ("lof_stuck", [], (4,), SHAPES),
+    # The pictures a unit hands over are compared from the first unit after the load (T15j). long_frame writes its palette and its bitplane pointer once and stretches every frame, so that
+    # the engine draws a frame every other unit (the others hand over the buffer as it was) until unit 10, from which on the raster is refused as too large and no unit has a picture: a load
+    # at any of them that did not put back the rows of the buffer, or the refusal, handed over the picture of the abandoned history, or of a machine that had not drawn, or one that the original never made.
+    "long_frame": ("long_frame", [], (1, 2, 3, 12), CORE),
+    # The rows of the field that a unit does not draw (the weave of an interlaced picture) are the units before's: the state at 8 and 9 is in the interlace, one field of each parity.
+    "interlaced": ("interlaced", [], (4, 8, 9), CORE),
     # The same program with one DMA channel at a time (the blit is always started, and runs only when BLTEN is on): which of them a divergence belongs to.
     "busy-blitter": ("busy-blt", [], (2, 5), CHANNELS),
     "busy-bitplanes": ("busy-bpl", [], (5,), CHANNELS),
@@ -190,6 +204,58 @@ loop:
     MOVE.B $4000.L,D2
     ADDQ.L #1,D0
     BRA.S loop
+"""
+
+# An interlaced picture: one bitplane with LACE set, and a vertical-blank handler that alternates the long-frame bit (VPOSW) and the bitplane pointer, so that the two fields have other
+# content. From unit 5 the engine sees the interlace and draws one field a unit into the rows of that field, black in between (gfx_iscanlines = 1); the picture a unit hands over is the
+# weave of both fields, and the rows of the field it does not draw are what the units before left in the buffer.
+INTERLACED = """; PUAE6 test program: an interlaced picture whose two fields differ.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.L #$C0000000,$20000.L
+    MOVE.L #$FFFF0000,$20004.L
+    MOVE.L #$0F0F0F0F,$20008.L
+    MOVE.L #$0F0F0F0F,$2000C.L
+    MOVE.L #$0F0F0F0F,$20010.L
+    MOVE.L #$0F0F0F0F,$20100.L
+    MOVE.L #$AAAAAAAA,$20104.L
+    MOVE.L #$00FF00FF,$20108.L
+    MOVE.L #$0F0F0F0F,$2010C.L
+    MOVE.W #$0F00,$DFF180.L
+    MOVE.W #$00F0,$DFF182.L
+    MOVE.W #$2C81,$DFF08E.L
+    MOVE.W #$2CC1,$DFF090.L
+    MOVE.W #$0038,$DFF092.L
+    MOVE.W #$00D0,$DFF094.L
+    MOVE.W #$0000,$DFF108.L
+    MOVE.W #$0000,$DFF10A.L
+    MOVE.W #$0002,$DFF0E0.L
+    MOVE.W #$0000,$DFF0E2.L
+    MOVE.W #$1204,$DFF100.L
+    MOVE.W #$8300,$DFF096.L
+    MOVE.L #handler,$6C.L
+    MOVE.W #$C020,$DFF09A.L
+    MOVE.W #$2000,SR
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+handler:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.L #handler2,$6C.L
+    MOVE.W #$8000,$DFF02A.L
+    MOVE.W #$0002,$DFF0E0.L
+    MOVE.W #$0000,$DFF0E2.L
+    RTE
+handler2:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.L #handler,$6C.L
+    MOVE.W #$0000,$DFF02A.L
+    MOVE.W #$0002,$DFF0E0.L
+    MOVE.W #$0100,$DFF0E2.L
+    RTE
 """
 
 TONE_MODULATED = """; PUAE6 test program: channel 0 modulates the volume of channel 1 (ADKCON USE0V1), with the power LED on (the LED filter on).
@@ -353,6 +419,8 @@ class Det02Case(ProbeCase):
         different += [f"chipset.{g}" for g in CHIP_GROUPS if run.chip[(offset + j, g)] != original.chip[(n + j, g)]]
         if run.pcm.get(offset + j) != original.pcm.get(n + j):
             different.append("pcm")
+        if run.pictures.get(offset + j) != original.pictures.get(n + j):
+            different.append("picture")
         return different
 
     def first_divergence(self, rom, extra, n, mode):
@@ -403,7 +471,7 @@ class Det02Tests(Det02Case):
     ROMS = {
         "vsync": ("vsync", None, None), "stop": ("stop", None, None), "halt": ("halt", None, None), "trace": (TRACE, None, None), "user": (USER, None, None),
         "long_ops": ("long_ops", {"PAD": "3"}, None), "copper_irq": ("copper_irq", {"HP": "2"}, None), "input_all": ("input_all", None, None),
-        "lof_stuck": ("lof_stuck", None, None), "clock": (rtc_tests.CLOCK, None, None), "cias": (cia_tests.CIAS, {"PRA": "2", "KBD": "$41"}, None),
+        "lof_stuck": ("lof_stuck", None, None), "long_frame": ("long_frame", None, None), "clock": (rtc_tests.CLOCK, None, None), "cias": (cia_tests.CIAS, {"PRA": "2", "KBD": "$41"}, None),
         "potgo": (input_tests.POTGO, {"NEXT": "again"}, None), "busy": (upstream.BUSY, None, None),
         "busy-blt": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8240,$DFF096.L"}), "busy-bpl": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8300,$DFF096.L"}),
         "busy-spr": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8220,$DFF096.L"}), "busy-cop": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8280,$DFF096.L"}),
@@ -411,7 +479,7 @@ class Det02Tests(Det02Case):
         "blt-bpl": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8340,$DFF096.L"}), "blt-spr": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8260,$DFF096.L"}),
         "blt-cop": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$82C0,$DFF096.L"}), "blt-aud": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$824F,$DFF096.L"}),
         "blt-dsk": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8250,$DFF096.L"}),
-        "late-bpl": (LATE_BITPLANES, None, None),
+        "late-bpl": (LATE_BITPLANES, None, None), "interlaced": (INTERLACED, None, None),
         "tone": (tone_source(Tone("det02", channels=(0, 1), period=200, volume=64)), None, None),
         "tone-mod": (TONE_MODULATED, None, None), "disk-dma": (upstream.DISK_DMA, None, None),
         "disk-dma-single": (upstream.DISK_DMA, None, {"    MOVE.W #$8800,$DFF024.L     ; DSKLEN twice: the next transfer, $800 words\n    MOVE.W #$8800,$DFF024.L\n": "    MOVE.W #$8800,$DFF024.L     ; DSKLEN once\n"}),

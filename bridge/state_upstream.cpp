@@ -4,9 +4,13 @@
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (160), the last ours and not upstream's
-//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (244), COPR (60) and BLTP (72), the last three ours and not upstream's
+//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (260), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each) and AUDP (340), ours and not upstream's
-//   P6VD  BPLX (292), DNSP (64) and GEOM (76), the last two ours and not upstream's
+//   P6VD  BPLX (292), DNSP (64), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last three ours and not upstream's
+//
+// BEAM (patch 0103 added four words) also carries the first and last line of the vertical display window and the flag that tests them: calcvdiw derives the lines from the registers and
+// restore_custom runs it, but custom_reset does not, so a machine that never wrote DIWSTRT has other lines than the one that loaded its state, and the vertical window bit that DIWHIGH
+// saves one frame later differs. The fourth is interlace_seen: a machine that had not seen the interlace found it at the next vertical blank and restarted the display.
 //
 // BEAM is the one body that is not WinUAE's: its restore_custom reads VPOSR and VHPOSR and throws them away, and the counters of the frame, the line history and the
 // sync latches of Agnus live in file statics that no body names. It is 61 words of 32 bits, big endian like the others, copied by p6_custom_beam_get and
@@ -44,7 +48,15 @@
 // (the lines and colour clocks of the last frames, which BEAM carries) and adopts a new size only after the same measure has held for a few frames; the size of the picture
 // (in and out width and height, extras and sync offsets of the drawing buffer) is derived from what it adopted and is in no body, so a machine that had adopted another frame kept
 // it and a new image adopted the saved one units after the load, with a blank picture in the unit it switched. 19 words: the adopted counts, the candidate and its countdown, and the
-// geometry of the drawing buffer. Applied as values after BPLX and DNSP; the presentation publishes the allocation as compute_framesync does.
+// geometry of the drawing buffer. Applied as values after BPLX and DNSP; the presentation publishes the allocation as compute_framesync does. Patch 0103 adds three words: whether the
+// presentation refused the mode as larger than its buffer (compute_framesync clamps the sizes afterwards, so the words above look like a mode that fits, and a machine that had not
+// refused it handed over pictures the original never did), the allocation of the last mode it accepted and the flags of the drawing: the three requests to clear the buffer that wait
+// for the first line of the next frame (display_redraw, erase_next_draw, center_y_erase) and whether the frame being drawn holds the buffer (thread_debug_lock): a machine that loaded a
+// state without them wiped the other field of an interlaced weave that the original kept, kept it where a restart of its own had left a request, or drew lines in a refused mode.
+//
+// PIXL (the eighth) (patch 0103, p6_frame_raster): the rows of the drawing buffer, which the renderer writes only where it draws, so that a unit without drawing, or the other field of an
+// interlaced picture, hands over what the history before the state left there. It has no length of its own: its width and height are the allocation GEOM names, the pixels travel as the
+// 12 bits of the chipset colour in groups of literals and repeats (see visit_raster), and the bound is the one of the largest buffer the presentation can hold.
 //
 // DSKX (the seventh) (patch 0101, p6_disk_phase_get, p6_disk_phase_set and p6_disk_newname_set): what the floppy controller keeps that DISK, DSKn and DSDn do not. DISK carries only
 // the low byte of disk_hpos, so a machine that a CPU access to DSKBYTR had brought up to the middle of a line was brought up from the start of it after a load and read
@@ -111,6 +123,7 @@ extern bool p6_denise_pipe_get(int32_t *out, unsigned n);
 extern bool p6_denise_pipe_set(const int32_t *in, unsigned n);
 extern bool p6_frame_geometry_get(int32_t *out, unsigned n);    // custom.cpp 0100
 extern bool p6_frame_geometry_set(const int32_t *in, unsigned n);
+extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first);     // custom.cpp 0103
 extern bool p6_audio_phase_get(int32_t *out, unsigned n);       // audio.cpp 0099
 extern bool p6_audio_phase_set(const int32_t *in, unsigned n);
 extern uae_u32 p6_rng_get(void);                                // main.cpp 0076
@@ -212,7 +225,8 @@ enum BeamWord : unsigned {
     kLofDetect, kLofPdetect, kLofDetectVsync, kPrevLof0, kPrevLof1, kPrevLof2,
     kLastHsyncLow, kLastHsyncHigh, kLastVsyncLow, kLastVsyncHigh,
     kAgnusVb, kAgnusPvb, kPrevStrobe, kDmalShifter, kDmal, kDmalNext, kLatches,      // 20 flags from here: phsync, phblank, pvsync, pcsync, csync, vb_active, ... bsvb_prev, equdis
-    kBeamWords = kLatches + 20
+    kPlfFirstLine = kLatches + 20, kPlfLastLine, kNeedVdiwCheck, kInterlaceSeen,      // patch 0103: the vertical display window, which calcvdiw derives and custom_reset does not, and the interlace
+    kBeamWords
 };
 constexpr uint32_t kBeamBytes = kBeamWords * 4;
 
@@ -350,6 +364,8 @@ uint8_t *apply_dnsp(int, uint8_t *body)
 enum GeometryWord : unsigned {
     kGeoHpos, kGeoVpos, kGeoHposShort, kGeoVposNom, kGeoHposTemp, kGeoVposTemp, kGeoTempChange,
     kGeoInWidth, kGeoInHeight, kGeoInWidth2, kGeoInHeight2, kGeoOutWidth, kGeoOutHeight, kGeoExtraWidth, kGeoExtraHeight, kGeoXOffset, kGeoYOffset, kGeoInXOffset, kGeoInYOffset,
+    kGeoRefused, kGeoAllocWidth, kGeoAllocHeight,        // patch 0103: the mode the presentation refused as too large and the allocation of the last one it accepted
+    kGeoDisplayRedraw, kGeoEraseNext, kGeoCenterErase, kGeoLocked,      // and the flags of the drawing: the requests to clear the buffer, and whether the frame being drawn holds it
     kGeometryWords
 };
 constexpr uint32_t kGeometryBytes = kGeometryWords * 4;
@@ -369,6 +385,164 @@ uint8_t *apply_geom(int, uint8_t *body)
     int32_t words[kGeometryWords];
     for (unsigned i = 0; i < kGeometryWords; ++i) words[i] = int32_t(Body{body, kGeometryBytes}.u32(i * 4));
     return p6_frame_geometry_set(words, kGeometryWords) ? body + kGeometryBytes : nullptr;
+}
+
+// -- PIXL: the rows of the drawing buffer (patch 0103) -----------------------------------------------------------------------------------------------
+
+// The size of the allocation the raster of the state has, which GEOM names (check_geom keeps it while it validates, applies or saves the body): the rows of PIXL are that many
+// pixels wide and that many rows tall, so the state does not say it twice and cannot disagree with itself.
+struct RasterSize {
+    uint32_t width = 0, height = 0;
+};
+RasterSize g_raster;
+
+// Pixel storage belongs to the presentation port (ports/portable/video_present.cpp); the engine only names it (p6_frame_raster). The renderer writes the rows it draws, so a unit in
+// which it draws none (a frame that spans two units, as the long frame does; the field of an interlaced picture that is not the one drawn) hands over what the units before left in
+// the buffer, and a load that did not put the rows back showed the picture of the abandoned history or the black of a machine that had not drawn yet.
+//
+// Every pixel the profile draws is one of the 4096 colours of the chipset in the identity gamma (alloc_colors64k: a nibble n is the byte 17 * n, the byte above them is zero), so a
+// pixel travels as 16 bits, the 12 of the colour; any other word (a profile that gamma-corrects or blends would have them) travels whole after the marker 0xffff and costs 6 bytes
+// instead of 2, which is what makes the bound below a bound of the profile and not of every pixel. A row is a list of groups until it has its width: a byte below 0x80 says that
+// that many pixels plus one follow (at most 128), one from 0x80 says that the next pixel repeats that many times plus one (at most 128). Rows run in order, the width is fixed, and
+// nothing counts bytes, so a state cannot lie about its own length.
+constexpr uint32_t kRasterGroup = 128;
+constexpr uint64_t kRasterBound = uint64_t(P6_VIDEO_MAX_HEIGHT) * (uint64_t(P6_VIDEO_MAX_WIDTH) * 2 + (P6_VIDEO_MAX_WIDTH + kRasterGroup - 1) / kRasterGroup);
+constexpr uint16_t kRasterRaw = 0xffff;
+
+bool colour_code(uint32_t pixel, uint16_t *code)
+{
+    const uint32_t r = pixel >> 16 & 0xff, g = pixel >> 8 & 0xff, b = pixel & 0xff;
+    if (pixel >> 24 || r % 17 || g % 17 || b % 17) return false;
+    *code = uint16_t(r / 17 << 8 | g / 17 << 4 | b / 17);
+    return true;
+}
+
+uint32_t colour_pixel(uint16_t code)
+{
+    return uint32_t(code >> 8) * 17 << 16 | uint32_t(code >> 4 & 15) * 17 << 8 | uint32_t(code & 15) * 17;
+}
+
+void fail_in(Archive &a, const char *tag, const char *why);
+
+// The bytes the encoder writes, to the archive or to a count: one function describes the groups, so the length the body announces is the one it has.
+struct CountSink {
+    uint64_t bytes = 0;
+    void put8(uint8_t) { bytes += 1; }
+    void put16(uint16_t) { bytes += 2; }
+    void put32(uint32_t) { bytes += 4; }
+};
+struct ArchiveSink {
+    Archive &a;
+    void put8(uint8_t v) { a.val<uint8_t>(v, "video.group"); }
+    void put16(uint16_t v) { a.val<uint16_t>(v, "video.pixel"); }
+    void put32(uint32_t v) { a.val<uint32_t>(v, "video.pixel_word"); }
+};
+
+template <class Sink> void put_pixel(Sink &sink, uint32_t pixel)
+{
+    uint16_t code;
+    if (colour_code(pixel, &code)) {
+        sink.put16(code);
+    } else {
+        sink.put16(kRasterRaw);
+        sink.put32(pixel);
+    }
+}
+
+template <class Sink> void encode_raster(Sink &sink, const uint8_t *first, int stride, uint32_t width, uint32_t height)
+{
+    for (uint32_t y = 0; y < height; ++y) {
+        const uint32_t *pixels = reinterpret_cast<const uint32_t *>(first + size_t(y) * size_t(stride));
+        uint32_t x = 0;
+        while (x < width) {
+            uint32_t run = 1;
+            while (x + run < width && run < kRasterGroup && pixels[x + run] == pixels[x]) ++run;
+            if (run >= 3) {
+                sink.put8(uint8_t(0x80 | (run - 1)));
+                put_pixel(sink, pixels[x]);
+                x += run;
+                continue;
+            }
+            uint32_t count = 0;      // literals up to the next run of three, which is at least this pixel: a run shorter than three would cost more than the literals
+            while (x + count < width && count < kRasterGroup &&
+                   !(x + count + 2 < width && pixels[x + count] == pixels[x + count + 1] && pixels[x + count] == pixels[x + count + 2]))
+                ++count;
+            sink.put8(uint8_t(count - 1));
+            for (uint32_t i = 0; i < count; ++i) put_pixel(sink, pixels[x + i]);
+            x += count;
+        }
+    }
+}
+
+uint32_t get_pixel(Archive &a)
+{
+    const uint16_t code = a.val<uint16_t>(0, "video.pixel");
+    if (code < 0x1000) return colour_pixel(code);
+    if (code == kRasterRaw) return a.val<uint32_t>(0, "video.pixel_word");
+    a.fail("a pixel of the picture is neither one of the 4096 colours nor a whole word");
+    return 0;
+}
+
+// The body is tagged and measured like the others (tag, length, bytes), and the length is checked against what the groups use.
+void visit_raster(Archive &a)
+{
+    static const char kTag[4] = {'P', 'I', 'X', 'L'};
+    if (a.mode() == Mode::Measure) {
+        a.bytes(const_cast<char *>(kTag), 4, "PIXL");
+        a.val<uint32_t>(0, "video.raster_length");
+        a.bytes(nullptr, kRasterBound, "video.raster");
+        return;
+    }
+    int live_width = 0, live_height = 0, stride = 0;
+    uint8_t *first = nullptr;
+    const bool have = a.mode() != Mode::Validate;
+    if (have && !p6_frame_raster(&live_width, &live_height, &stride, &first)) {
+        a.fail("PIXL: the engine draws into a buffer that is not the presentation's, or has none");
+        return;
+    }
+    const uint32_t width = g_raster.width, height = g_raster.height;
+    if (have) a.require(uint32_t(live_width) == width && uint32_t(live_height) == height, "PIXL: the picture is not the size of the buffer the machine has");
+    if (!a.ok()) return;
+    if (a.mode() == Mode::Save) {
+        CountSink count;
+        encode_raster(count, first, stride, width, height);
+        a.bytes(const_cast<char *>(kTag), 4, "PIXL");
+        a.val<uint32_t>(uint32_t(count.bytes), "video.raster_length");
+        ArchiveSink sink{a};
+        encode_raster(sink, first, stride, width, height);
+        return;
+    }
+    char tag[4];
+    for (char &c : tag) c = char(a.val<uint8_t>(0, "video.raster_tag"));
+    if (a.ok() && memcmp(tag, kTag, 4)) fail_in(a, "PIXL", "another body, or this one out of its place");
+    const uint32_t length = a.val<uint32_t>(0, "video.raster_length");
+    if (a.ok() && length > kRasterBound) fail_in(a, "PIXL", "the length is beyond the largest picture the presentation can hold");
+    if (!a.ok()) return;
+    const uint64_t start = a.position();
+    const auto row = [&](uint32_t y) { return reinterpret_cast<uint32_t *>(first + size_t(y) * size_t(stride)); };
+    for (uint32_t y = 0; y < height && a.ok(); ++y) {
+        uint32_t x = 0;
+        while (x < width && a.ok()) {
+            const uint8_t token = a.val<uint8_t>(0, "video.group");
+            const uint32_t count = (token & 0x7fu) + 1;
+            if (count > width - x) {
+                fail_in(a, "PIXL", "a group of pixels runs past the end of its row");
+                return;
+            }
+            if (token & 0x80) {
+                const uint32_t pixel = get_pixel(a);
+                if (a.applying() && a.ok())
+                    for (uint32_t i = 0; i < count; ++i) row(y)[x + i] = pixel;
+            } else {
+                for (uint32_t i = 0; i < count && a.ok(); ++i) {
+                    const uint32_t pixel = get_pixel(a);
+                    if (a.applying() && a.ok()) row(y)[x + i] = pixel;
+                }
+            }
+            x += count;
+        }
+    }
+    if (a.ok() && a.position() - start != length) fail_in(a, "PIXL", "the rows do not use the bytes the length says");
 }
 
 // -- DSKX: the floppy controller that DISK, DSKn and DSDn do not carry (patch 0101) ------------------------------------------------------------------------
@@ -613,6 +787,11 @@ const char *check_geom(const Sub &, const Body &b, Seen &)
         if (at(w) < 0 || at(w) > P6_VIDEO_MAX_HEIGHT) return "a height of the picture is negative or taller than the drawing buffer";
     for (unsigned w : {kGeoExtraWidth, kGeoExtraHeight, kGeoXOffset, kGeoYOffset, kGeoInXOffset, kGeoInYOffset})
         if (at(w) < -0xffff || at(w) > 0xffff) return "an offset of the raster is beyond 16 bits";
+    for (unsigned w : {kGeoRefused, kGeoDisplayRedraw, kGeoEraseNext, kGeoCenterErase, kGeoLocked})
+        if (at(w) < 0 || at(w) > 1) return "a flag of the presentation is not a flag";
+    if (at(kGeoAllocWidth) < 1 || at(kGeoAllocWidth) > P6_VIDEO_MAX_WIDTH || at(kGeoAllocHeight) < 1 || at(kGeoAllocHeight) > P6_VIDEO_MAX_HEIGHT)
+        return "the allocation of the drawing buffer is empty or larger than the presentation buffer";
+    g_raster = {uint32_t(at(kGeoAllocWidth)), uint32_t(at(kGeoAllocHeight))};
     if (at(kGeoTempChange) < 0 || at(kGeoTempChange) > 2) return "the countdown of the candidate raster is not between 0 and 2";
     return nullptr;
 }
@@ -638,8 +817,11 @@ const char *check_beam(const Sub &, const Body &b, Seen &)
     if (!within(kDmal, 0, 0xffff) || !within(kDmalNext, 0, 1)) return "the DMA list of the line is not 16 bits, or its flag is not a flag";       // kDmalShifter is a bit register
     if (!within(kAgnusVb, 0, 2)) return "the vertical blank latch is not off, on or starting";
     if (at(kPrevStrobe) < 0x38 || at(kPrevStrobe) > 0x3e || (at(kPrevStrobe) & 1)) return "the strobe of the last line is not one of the four";
-    for (unsigned w = kLatches; w < kBeamWords; ++w)
+    for (unsigned w = kLatches; w < kPlfFirstLine; ++w)
         if (!within(w, 0, 1)) return "a sync latch is not a flag";
+    if (!within(kPlfFirstLine, 0, 0xfff) || !within(kPlfLastLine, 0, 0xfff)) return "a line of the vertical display window is beyond what DIWSTRT, DIWSTOP and DIWHIGH can name";
+    if (!within(kNeedVdiwCheck, 0, 1)) return "the flag that tests the vertical display window is not a flag";
+    if (!within(kInterlaceSeen, 0, 1)) return "the interlace the display has seen is not a flag";
     if (at(kLastHsyncHigh) < 0 || at(kLastVsyncHigh) < 0) return "a time stamp of the display is negative";
     return nullptr;
 }
@@ -893,7 +1075,11 @@ void rebuild_disk()
 }
 void visit_chipset(Archive &a) { visit_bodies(a, kChipsetBodies, finish_chipset); }
 void visit_audio(Archive &a) { visit_bodies(a, kAudioBodies, finish_audio); }
-void visit_video(Archive &a) { visit_bodies(a, kVideoBodies, nullptr); }
+void visit_video(Archive &a)
+{
+    visit_bodies(a, kVideoBodies, nullptr);
+    if (a.ok()) visit_raster(a);
+}
 
 // The media the state's drives hold are the ones its manifest names. P6BR says which manifest medium each drive holds (drive_media) and DSKn carries the CRC of the image
 // that was in the drive: the one drive_insert measured, which is what media_crc32 measures over the registered blob. A drive that counts down a delayed change (DSKX) has

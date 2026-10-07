@@ -2781,6 +2781,39 @@
           "after_sha256": "52df24ef568a85c949a1904f4c73cd6fabf1548491c105c57a275db5a52f3f8d"
         }
       ]
+    },
+    {
+      "id": "0103-picture-state",
+      "file": "patches/winuae/0103-picture-state.patch",
+      "sha256": "cd540777d83dbcce99b50600bceda0a81f08becd5b74c06d690ce1c13ceb8e59",
+      "title": "The vertical window lines, the refused raster mode and the rows of the picture come back with the state",
+      "reason": "T15j: a state saved, loaded and saved again differed from one saved without the load in the vertical window bit of DIWHIGH (plffirstline and plflastline are file statics that custom_reset leaves at 0 and 0 and restore_custom derives with calcvdiw); the first picture after a load was the history of the abandoned timeline or of a fresh machine whenever the engine draws no line in a unit (the pixel rows are engine state in practice); and a raster refused as larger than the presentation buffer (compute_framesync clamps the sizes afterwards, so GEOM looked like a mode that fits) drew pictures after the load that the original never handed over.",
+      "category": "host hooks",
+      "order": 103,
+      "symbols": [
+        "p6_custom_beam_get",
+        "p6_custom_beam_set",
+        "p6_draw_flags_get",
+        "p6_draw_flags_set",
+        "p6_frame_geometry_get",
+        "p6_frame_geometry_set",
+        "p6_frame_raster"
+      ],
+      "test": "STATE02; tests.state.test_det02; tests.state.test_det03",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "a3b3cd23f0ba06379bd37abd7e05abb7a1a241bb33d78bfea27159c140bff8de",
+          "after_sha256": "f364bbfbee23d1381a3c73198b55b72c525b914c897f2e3d5803090953ee3138"
+        },
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "4b59f13d05d322b8a5f1c319c2f1780d7e4bbf9bcc0bae11899489c8fd9b37de",
+          "after_sha256": "e0b182ac27ecf07f5629167448c474622cf448013a24187c18cfd89d5172596d"
+        }
+      ]
     }
   ]
 }

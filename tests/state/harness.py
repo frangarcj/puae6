@@ -25,6 +25,7 @@ FIXTURES = ROOT / "tests/fixtures/microrom"
 SUBSYSTEMS = ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "input", "video", "bridge")
 DIGEST = re.compile(r"^digest (\d+) (\w+) ([0-9a-f]{64}) (\d+)$")
 PCM = re.compile(r"^pcm (\d+) ([0-9a-f]{64}) (\d+)$")
+PICTURE = re.compile(r"^picture (\d+) (none|\d+x\d+ p\d+ \d+/\d+ [0-9a-f]{64})$")
 CHIP = re.compile(r"^chip (\d+) (\w+) ([0-9a-f]{64})$")
 LOAD = re.compile(r"^load (\d+) (-?\d+) ?(.*)$")
 SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")
@@ -95,6 +96,7 @@ class Run:
     def __init__(self, text):
         self.digests = {}           # (unit, subsystem) -> hex, outside a load
         self.pcm = {}               # unit -> hex of the stereo samples that unit handed over (T15i3)
+        self.pictures = {}          # unit -> "none" or "WxH pFIELD CADENCE HEX": the picture that unit handed over, as the host sees it (T15j); the "video" digest is the rows of the buffer, not that
         self.chip = {}              # (unit, group) -> hex of one group of what the chipset digest hashes, outside a load (T15i3)
         self.chip_after = []        # one dict group -> hex per load
         self.dumps = {}             # (unit, subsystem) -> the canonical bytes --dump printed (first 4 KiB), outside a load
@@ -131,6 +133,8 @@ class Run:
                 self.dumps[(int(unit), subsystem)] = bytes.fromhex(data)
             elif PCM.match(line):
                 self.pcm[int(PCM.match(line)[1])] = PCM.match(line)[2]
+            elif PICTURE.match(line):
+                self.pictures[int(PICTURE.match(line)[1])] = PICTURE.match(line)[2]
             elif LOAD.match(line):
                 current = None
                 unit, code, message = LOAD.match(line).groups()

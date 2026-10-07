@@ -9,7 +9,7 @@
 #include "pcm_out.h"
 
 namespace p6_bridge {
-// Set by the static initialisation of bridge/state.cpp (p6_state), which headless, libretro and the Waterbox guest do not link.
+// Set by the static initialisation of bridge/state.cpp (p6_state), which the headless runner, the frontend adapters and the Waterbox guest do not link.
 bool state_linked = false;
 }
 

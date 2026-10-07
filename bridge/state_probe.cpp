@@ -46,7 +46,8 @@
 // and then "public-size UNIT BOUND WRITTEN SHA256". --public-save-at UNIT FILE and --public-load-at UNIT FILE are --save-at and --load-at through the public ABI and print the same lines
 // ("save UNIT BYTES SHA256 bound=B", "load UNIT CODE MESSAGE" and the digests under "after-load UNIT"), so that the state of a process can be loaded into another one (DET03).
 // Output, one line per digest: "digest UNIT SUBSYSTEM HEX BYTES", after "pass K" when there is more than one load. Every unit also prints
-// "pcm UNIT HEX FRAMES" (T15i3), the SHA-256 of the stereo samples that unit handed over, which no digest sees, and every chipset digest is followed by
+// "pcm UNIT HEX FRAMES" (T15i3), the SHA-256 of the stereo samples that unit handed over, which no digest sees, "picture UNIT none" or "picture UNIT WxH pFIELD CADENCE HEX" (T15j), the
+// picture the unit handed over (none when it had no new one) with its field parity and cadence, and every chipset digest is followed by
 // "chip UNIT GROUP HEX" for each group of what it hashes (beam, counters, irq_dma, clxdat, lof, timing, registers). --poke-at UNIT beam:VPOS:LINEAR:HPOS sets the beam counters. --dump also prints the
 // first 4 KiB of the canonical bytes of one subsystem ("bytes UNIT SUBSYSTEM HEX"), to find what differs between two digests.
 #include "p6.h"
@@ -77,6 +78,8 @@
 #include <cstring>
 #include <string>
 #include <vector>
+
+extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first);     // custom.cpp, patch 0103
 
 extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);   // events.cpp, patch 0078: the secondary scheduler's statics
@@ -263,13 +266,16 @@ void input(Canon &c)
 
 void video(Canon &c)
 {
-    // The presentation of the last unit: an output, but a picture that differs shows here.
-    p6_video_frame_info info{};
-    const int have = p6_video_frame_get(&info);
-    // pass_counter counts drawing passes of the process's bookkeeping (one more after a reload of an interlaced guest, same pictures): not state. Neither is frame_counter, the
-    // hand-overs since this process began (T15i3): an image that is rewound has handed over more than the original had at the same unit.
-    c.put(int32_t(have)).put(info.width).put(info.height).put(info.flags);
-    if (have == 0) c.raw(info.pixels, size_t(info.bytes));
+    // The rows of the drawing buffer as they are: the renderer writes only the ones it draws, so they are state (PIXL of P6VD), and a unit that draws none hands over what they hold.
+    // Not the hand-over bookkeeping of the port (the last frame it captured, its pass and frame counters): that is not state, and what a unit hands over is the "picture" line
+    // the probe prints (T15j). Before T15j this digest was the last captured frame, which a new image that loaded a state taken in a unit without a picture did not have.
+    int width = 0, height = 0, stride = 0;
+    uint8_t *first = nullptr;
+    const bool have = p6_frame_raster(&width, &height, &stride, &first);
+    c.put(uint8_t(have));
+    if (!have) return;
+    c.put(int32_t(width)).put(int32_t(height));
+    for (int y = 0; y < height; ++y) c.raw(first + size_t(y) * size_t(stride), size_t(width) * 4);
 }
 
 void bridge(Canon &c)
@@ -839,6 +845,21 @@ int main(int argc, char **argv)
                 uint8_t pcm[32];
                 p6_sha256_hash(frame.audio, size_t(frame.audio_frames) * 2 * sizeof(int16_t), pcm);
                 printf("pcm %" PRIu64 " %s %" PRIu64 "\n", unit, hex(pcm, 32).c_str(), frame.audio_frames);
+            }
+            // The picture that unit handed over, which the "video" digest cannot tell from the one before it (it hashes the last one captured): none when the unit had no
+            // new picture, else the size and the SHA-256 of the pixels of the active raster, row by row (T15j).
+            if (frame.flags & P6_FRAME_NO_VIDEO) {
+                printf("picture %" PRIu64 " none\n", unit);
+            } else if (frame.video) {
+                std::vector<uint8_t> raster;
+                for (uint32_t y = 0; y < frame.active.height; ++y) {
+                    const uint8_t *row = static_cast<const uint8_t *>(frame.video) + size_t(y) * frame.video_stride_bytes;
+                    raster.insert(raster.end(), row, row + size_t(frame.active.width) * 4);
+                }
+                uint8_t picture[32];
+                p6_sha256_hash(raster.data(), raster.size(), picture);
+                printf("picture %" PRIu64 " %ux%u p%d %u/%u %s\n", unit, frame.active.width, frame.active.height, int(frame.field_parity), frame.cadence_num, frame.cadence_den,
+                       hex(picture, 32).c_str());
             }
             if (unit % every == 0 || unit == units) print_digests(unit);
             run_state_ops(state_ops, unit);
