@@ -2666,7 +2666,7 @@
         "saved_fields": "agnus_colors.color_regs_ecs[32] (12 bit) plus color_regs_genlock as COLORxx words inside CHIP (custom.cpp:8285-8300); restore copies each word into BOTH agnus_colors and denise_colors (custom.cpp:8046-8048) and recomputes acolors with docols (8129-8130).",
         "omitted": "denise_colors may differ from agnus_colors: a COLORxx write goes to Agnus at once (COLOR_WRITE, custom.cpp:4352) but reaches Denise through the rga_denise ring (custom_wput_1, custom.cpp:7835) and is applied only when the line is drawn, so a write made in the current line is pending in the ring (see video-denise-rga-ring); restore makes both copies equal. Power-on values of COLOR01-31 are pseudo-random (uaerand, custom.cpp:6971-6981): deterministic from prefs.seed, but the RNG state itself lives in another slice. saved_color_regs_aga is AGA only (AGA undefined).",
         "pointers": "acolors[32] hold host pixel values (xcolnr) produced by getxcolor()/xcolors[] (drawing.h:43-52); they depend on p6_video_init/alloc_colors64k and must never be serialized. color_tables[]/color_table_index/color_table_changed (custom.cpp:655-658) are only read by draw_line_fast (custom.cpp:10963), unreachable in the CE profile.",
-        "rebuild": "docols(&agnus_colors) and docols(&denise_colors) after the 12-bit values are back; xcolors is rebuilt by p6_video_init (video_present.cpp:182-209).",
+        "rebuild": "docols(&agnus_colors) and docols(&denise_colors) after the 12-bit values are back; xcolors is rebuilt by p6_video_init (video_present.cpp:182-209). T15g (patch 0100, p6_denise_rebuild_derived, run after the bodies of CHIP): bordercolor and bordercolor_ecs_shres (drawing.cpp) are derived from COLOR00 and BPLCON3 and recomputed from the restored table: restore_custom flushes its BPLCON writes (which run update_bordercolor) before docols rebuilds acolors, so a new image drew its first border with the COLOR00 of its reset.",
         "evidence": [
           "build/upstream/custom.cpp:4352",
           "build/upstream/custom.cpp:8046",
@@ -2696,11 +2696,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15g",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1); T15g: tests/state/test_state_upstream.py pins that the first pixels of the first picture after a load are the original's (border colour $0123 in PAL and NTSC), and tests/state/test_det02.py and tests/state/test_det02_kickstart.py: the picture after the load is the original's, pixel for pixel, in every scenario and mode (no divergence is left)",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -2764,7 +2764,7 @@
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
           "proves": "tests/state/test_state_upstream.py: BEAM (patch 0094, the last sub-body of P6CH, 244 bytes) is saved without changing the machine, validated by structure before anything is applied (the line against the standard of the configuration, the flags, the latches, the strobe) and applied as values, and save, load, save re-emits it byte for byte with the rest of the state, in the same process and in a new one; tests/state/test_det02.py: a fresh image that loads a state is on the original's line and in its frame, and the first unit that differs is attributed to its own cause",
-          "notes": "vpos, vpos_prev, agnus_hpos(+_prev,_next), agnus_vpos_next, agnus_pos_change, hhpos, the linear_* history and the sync latches of Agnus travel as 32-bit words in BEAM; the line length is derived by setmaxhpos from the lol of CHIP and the linetoggle of BEAM. Not saved: current_linear_*, agnus_trigger_cck and the other timestamps of the display (T15g), currcycle_cck (debug)."
+          "notes": "vpos, vpos_prev, agnus_hpos(+_prev,_next), agnus_vpos_next, agnus_pos_change, hhpos, the linear_* history and the sync latches of Agnus travel as 32-bit words in BEAM; the line length is derived by setmaxhpos from the lol of CHIP and the linetoggle of BEAM. current_linear_* and the geometry derived from it travel in GEOM (T15g). Not saved: agnus_trigger_cck and the other timestamps of the display (T15g), currcycle_cck (debug)."
         }
       },
       {
@@ -3902,7 +3902,7 @@
         "in_profile": true,
         "upstream_compiled": true,
         "policy": "extension",
-        "saved_fields": "No chunk. denise_store_registers/denise_restore_registers (drawing.cpp:5357-5377) keep bplcon0-4, fmode and denise_hcounter for the flicker fixer only (unreachable here). restore_custom re-seeds BPLCON0-4, DIWSTRT/STOP/DIWHIGH, FMODE, CLXCON(2), HBSTRT/HBSTOP from the Agnus copies after denise_reset(true) (custom.cpp:8112-8127), so Denise restarts from reset values, not from the values in effect.",
+        "saved_fields": "No chunk. denise_store_registers/denise_restore_registers (drawing.cpp:5357-5377) keep bplcon0-4, fmode and denise_hcounter for the flicker fixer only (unreachable here). restore_custom re-seeds BPLCON0-4, DIWSTRT/STOP/DIWHIGH, FMODE, CLXCON(2), HBSTRT/HBSTOP from the Agnus copies after denise_reset(true) (custom.cpp:8112-8127), so Denise restarts from reset values, not from the values in effect. DNSP (patch 0100, P6VD, 64 bytes): the four-pixel output pipeline dtbuf[2][4] and dtgbuf[2][4], from which the first pixels of a line leave.",
         "omitted": "Raw Denise copies bplcon0_denise..bplcon4_denise, fmode_denise, denise_diwstrt/diwstop/diwhigh(2), hbstrt_denise_reg/hbstop_denise_reg (drawing.cpp:419-440); the horizontal counter and compare latches denise_hcounter/_next/_new/_prev/_cmp, denise_cck/denise_endcycle/denise_pixtotal*, denise_hdiw, denise_hblank, denise_phblank, denise_vblank, denise_blank_active*, denise_hblank_active, denise_vblank_active, denise_csync/vsync/hsync, denise_strlong*, strlong_emulation, denise_lol_shift_prev/enable, lol/lol_fast, borderblank/bordertrans/bordersprite, sprites_hidden*, clxcon_*; decoded playfield state bplmode/bplmode_new, bplham, bplehb, bpldualpf, bplres, plf1pri/plf2pri, bpland, denise_res, denise_planes/_max, denise_odd_even, bplcon1_shift*, bplshiftcnt (drawing.cpp:388-495). Denise is not restartable at an arbitrary line: it keeps running state between lines.",
         "pointers": "lts (LINETOSRC_FUNC function pointer, drawing.cpp:411), lts_changed/lts_request, dpf_lookup/dpf_lookup_no (int* into static tables, 472), p_acolors/p_xcolors (353-354), this_line (124) point to code or static tables: never serialize.",
         "rebuild": "Serialize raw bplcon*_denise, fmode_denise, diw*/hb* registers, denise_hcounter* and the blank/sync latches; rebuild every decoded field with expand_bplcon0..4, expand_fmode, expand_colmask, sethresolution and select_lts (denise_reset ends with exactly these calls, drawing.cpp:3651-3659).",
@@ -3935,7 +3935,15 @@
           "task": "T15",
           "why": "only the presentation of the last unit (frame counters and the raster) is hashed: an output, not the drawing history"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15g",
+          "chunk": "P6VD",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_video",
+          "proves": "tests/state/test_state_upstream.py: DNSP (patch 0100, p6_denise_pipe_get and p6_denise_pipe_set) is saved without changing the machine, validated by structure (the pixel numbers are bytes) before anything is applied and applied as values after BPLX, and a new image saves again the pipeline it loaded; the first pixels of the first picture are the original's in PAL and NTSC. tests/state/test_det02.py and tests/state/test_det02_kickstart.py: the picture after the load is the original's, pixel for pixel, in every scenario and mode (no divergence is left)",
+          "notes": "Only the output pipeline of this row: the raw Denise register copies, the horizontal counter and the blank/sync latches are not in DNSP (DET02 shows nothing of them at a boundary, which is in the vertical blank)."
+        }
       },
       {
         "id": "video-denise-bitplane-shifter",
@@ -4203,7 +4211,7 @@
         "in_profile": true,
         "upstream_compiled": false,
         "policy": "extension",
-        "saved_fields": "None upstream. The port's own inventory (video_present.cpp:77-91) already lists the pixel buffer and the drawbuffer geometry as causal.",
+        "saved_fields": "None upstream. The port's own inventory (video_present.cpp:77-91) already lists the pixel buffer and the drawbuffer geometry as causal. T15g: GEOM (patch 0100, P6VD, 76 bytes) carries the drawbuffer geometry (inwidth, inheight and their doublescan twins, outwidth, outheight, extrawidth, extraheight, xoffset, yoffset, inxoffset, inyoffset) and the raster the engine has measured and adopted (current_linear_hpos/vpos, _short, _nom, the candidate _temp and its countdown). The pixel rows themselves are still not carried.",
         "omitted": "static uae_u32 pixels[1824*626] (video_present.cpp:67, 4567296 bytes with the 7296-byte stride). No emulated hardware reads it, so for machine equality it is disposable; it is causal for FUTURE FRAMES: the renderer only writes the rows it draws, interlaced fields are woven into one buffer (gfx_iscanlines = 1, bridge/config.cpp:147): calculate_linetype returns nln_lower_black/nln_upper_black (custom.cpp:4672-4682) and get_line touches only that row of each pair (drawing.cpp:5681-5714), so the other field's rows stay; erase_next_draw clears only on mode/centre changes (drawing.cpp:5661-5671). Byte-identical frames after a restore need rows [0, height_allocated) x [0, width_allocated) restored; everything outside is zero by the invariant kept by clear_rows (video_present.cpp:129-135, 380). Also causal: vidbuffer width_allocated/height_allocated, inwidth/outwidth/inheight/outheight, xoffset/yoffset, extrawidth, locked (adisplays[0].gfxvidinfo.drawbuffer) and the State fields mode_valid/mode_w/mode_h/mode_too_large (video_present.cpp:92-104).",
         "pointers": "drawbuffer.bufmem, bufmemend, rowbytes, pixbytes are absolute pointers into pixels (bind(), video_present.cpp:118-127); vram_buffer = true stops freevidbuffer from freeing static storage; inbuffer/outbuffer point at &drawbuffer/&tempbuffer.",
         "rebuild": "p6_video_rebind() re-derives bufmem and drops the hand-over bookkeeping (video_present.cpp:223-229); geometry and locked flag must be serialized; xcolors (alloc_colors64k) is rebuilt by p6_video_init.",
@@ -4238,7 +4246,15 @@
             "info.pixels"
           ]
         },
-        "waterbox": "captured by the snapshot; candidate to leave out of it, which needs the poison test of T36"
+        "waterbox": "captured by the snapshot; candidate to leave out of it, which needs the poison test of T36",
+        "native_state": {
+          "task": "T15g",
+          "chunk": "P6VD",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_video",
+          "proves": "tests/state/test_state_upstream.py: GEOM (patch 0100, p6_frame_geometry_get and p6_frame_geometry_set) is saved without changing the machine, validated by structure (sizes and offsets in 16 bits, the countdown between 0 and 2) before anything is applied and applied as values after BPLX and DNSP (target_graphics_buffer_update publishes the allocation, as compute_framesync does, and a change of size resets the line state and asks for a full redraw); a fresh image that loads the long frame of lof_stuck draws 576 rows from its first unit, like the original. tests/state/test_det02.py and tests/state/test_det02_kickstart.py: the picture after the load is the original's, pixel for pixel, in every scenario and mode (no divergence is left)",
+          "notes": "Limit: the pixel rows (an interlaced weave keeps the other field's lines in the buffer) and the presentation bookkeeping (mode_w/mode_h, have_pass) are not state; a mode change clears the buffer and the next picture is drawn in full. No DET02 scenario is interlaced."
+        }
       },
       {
         "id": "video-present-bookkeeping",

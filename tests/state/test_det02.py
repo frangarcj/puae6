@@ -1,4 +1,4 @@
-"""T15i3, T15f (T15f1, T15f2, T15f3 and its closure) and T15e: DET02 end to end with every chunk of the state, and where it still diverges.
+"""T15i3, T15f (T15f1, T15f2, T15f3 and its closure), T15e and T15g: DET02 end to end with every chunk of the state, and where it still diverges.
 
 DET02 (docs/04-validation.md): a state saved at unit N, the machine run on, the state loaded, and the units after it run again must give the machine of the original run, subsystem by
 subsystem. The probe digests cpu, scheduler, ram, rtc, cia, chipset (by group: beam, counters, irq_dma, clxdat, lof, timing), audio, input, video and bridge, and hashes the PCM of
@@ -20,7 +20,7 @@ A scenario that diverges is a test that EXPECTS to fail (unittest.expectedFailur
 where the first divergence is (DIVERGENCES: first unit and every subsystem that differs in it), so that a divergence that moves is seen. A scenario that matches is an ordinary test:
 the regression gate of T15d, T15e, T15f and T15g. When a task makes a scenario match, its entry leaves DIVERGENCES and nothing else changes (the expected failure would otherwise
 be an unexpected success, which unittest reports as a failure). Anything that does not match is attributed by the subsystem digest: disk to T15d, audio and PCM to T15e,
-chipset and RAM written by the blitter to T15f, the picture to T15g; CAUSES says what is known of each.
+chipset and RAM written by the blitter to T15f, the picture to T15g; CAUSES says what is known of each (none is left: every scenario matches).
 
 What a unit boundary can show: a unit ends in the vertical blank (vpos 4), so bitplane DMA, sprite DMA, the line being drawn and Denise's input ring are idle there. The starting list of
 the card, item by item:
@@ -33,8 +33,8 @@ the card, item by item:
                                       and the sprite registers (the plane count, the fetch sequence, the first and last line of each sprite) is in no body, and WinUAE's own load gets it from
                                       custom_reset, which the bridge never runs on a live machine. An image that had not written the same registers itself (restarted before the load, or a new
                                       process) fetched its bitplanes from the planes of its reset: the Kickstart at 107 (keyboard handshake) lost bus slots differently and its CPU, scheduler, RAM
-                                      and clock differed a unit after the load. late-bitplanes (planes set up late, the CPU reading Chip RAM under them) pins the planes through the picture; the Kickstart rows are now
-                                      the palette and the audio phase like every other program
+                                      and clock differed a unit after the load. late-bitplanes (planes set up late, the CPU reading Chip RAM under them) pins the planes through the picture; the Kickstart rows were
+                                      then the palette and the audio phase like every other program, and now match
   rga_denise ring                     not shown: the boundary is in the blank, nothing of Denise is pending there
   bitplane DMA, spr[].dmastate        not shown: busy-bitplanes and busy-sprites match in an image restarted one unit before the load (idle at the boundary)
   dsklen2, linecounter                not shown: the DMA of busy-disk-dma stays armed (WORDSYNC): in 14 units it writes nothing to RAM and never raises DSKBLK, so what matters
@@ -46,6 +46,16 @@ the card, item by item:
                                       the ADKCON masks). The PCM of every unit after the load is the original's sample for sample, in every mode, silent programs, tone and
                                       tone-modulated (channel 0 modulating the volume of channel 1 with the LED filter on) included. A new process also handed over, in its
                                       first unit, the samples its own reset head had queued before the load: load() now drops them (the PCM transport is not state)
+  border colour                      fixed by T15g (patch 0100, p6_denise_rebuild_derived): restore_custom puts the colour registers into denise_colors and rebuilds acolors, but only after its
+                                      queue of BPLCON writes has run update_bordercolor on the old table, so a new image (or one restarted before the load) drew the border of its first
+                                      picture black where the state's COLOR00 was red: bordercolor is derived and is recomputed after CHIP. denise_colors needs no body of its own: the
+                                      registers are restored into both copies of the table, and a boundary has Denise's equal to Agnus's
+  Denise output pipeline              fixed by T15g (DNSP, patch 0100): the four-pixel pipeline (dtbuf, dtgbuf) leaves the first pixels of a line from what the previous colour clock
+                                      left; a new image had zeros where the original had the border colour (two pixels at the start of the first line and two at the end of the third in NTSC)
+  adopted raster                      fixed by T15g (GEOM, patch 0100): the size of the picture follows the frame the engine measures and adopts after a few frames, and the measure was in
+                                      no body. A fresh image loaded a state of the long frame at the 574 rows of its own reset and switched to 576 units later with a blank picture; a same
+                                      image that had run on kept the 576 where the original, still at 574, showed 574 (the Kickstart at 107, where it changes). The "presentation memory"
+                                      the card names is engine state (current_linear_* and the geometry of the drawing buffer), not bookkeeping of the bridge or the port
 Not testable at a boundary: a machine mid-line.
 
 DIVERGENCES: "scenario@N/mode" -> (first unit after the load, subsystems that differ there, owner, cause).
@@ -175,13 +185,8 @@ loop:
 """
 
 # cause id -> (owner, what is known). The owner is the task whose card has to make the scenarios of that cause match; the text is where the attribution came from.
-CAUSES = {
-    "palette": ("T15g", "the colour registers are put back (the register image and agnus_colors) but Denise's derived colour table is not rebuilt: in the first picture "
-                        "after the load the border is black where the state's COLOR00 is red. Only a machine that has not already written the same colours shows it "
-                        "(a new image, or one restarted before the load): with the beam and the frame phase restored it is the first thing a new image shows in "
-                        "every program that sets a colour). Denise's presentation memory is the same owner: a same image that has run on to 576 lines shows 576 where the original, "
-                        "still at 574, shows 574, for the units after the load (the Kickstart at 107, where it changes)"),
-}
+# None is left: T15g closed the last one (the palette).
+CAUSES = {}
 
 
 def row(cause, unit, subsystems):
@@ -190,16 +195,7 @@ def row(cause, unit, subsystems):
 
 
 # Where DET02 diverges, from a run of this module: scenario@N/mode -> (first unit after the load, what differs there, owner, cause).
-DIVERGENCES = {
-    "busy@2/new-process": row("palette", 1, "video"),
-    "busy@2/new-process-beam-set": row("palette", 1, "video"),
-    "busy@5/new-process": row("palette", 1, "video"),
-    "busy@5/new-process-beam-set": row("palette", 1, "video"),
-    "busy-disk@8/new-process": row("palette", 1, "video"),
-    "busy-disk@8/new-process-beam-set": row("palette", 1, "video"),
-    "lof@4/new-process": row("palette", 1, "video"),
-    "busy-ntsc@2/new-process": row("palette", 1, "video"),
-}
+DIVERGENCES = {}
 
 
 def shifted(args, n, offset, fresh):

@@ -6,7 +6,7 @@
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17)
 //   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (244), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each) and AUDP (340), ours and not upstream's
-//   P6VD  BPLX (292)
+//   P6VD  BPLX (292), DNSP (64) and GEOM (76), the last two ours and not upstream's
 //
 // BEAM is the one body that is not WinUAE's: its restore_custom reads VPOSR and VHPOSR and throws them away, and the counters of the frame, the line history and the
 // sync latches of Agnus live in file statics that no body names. It is 61 words of 32 bits, big endian like the others, copied by p6_custom_beam_get and
@@ -35,6 +35,19 @@
 // What the engine derives from the registers and stores nowhere (the plane count and the fetch sequence of setup_fmodes, the first and last line of each sprite, the sprite
 // width) is recomputed once the bodies of CHIP are in, by p6_custom_rebuild_derived (patch 0098): WinUAE's own load gets it from custom_reset, which is never run here. It
 // writes no register, schedules nothing and runs nothing.
+//
+// DNSP (the fifth body of ours) (patch 0100, p6_denise_pipe_get and p6_denise_pipe_set): the four-pixel output pipeline of Denise, dtbuf and dtgbuf, two halves of four pixels each. Every colour
+// clock draws into one half and copies out the other, so the first pixels of a line leave from what the previous clock left, which no body carries (BPLX has the shift registers).
+// 16 words: the eight 32-bit pixels, then the eight 8-bit pixel numbers of the genlock buffer. Applied as values after BPLX; nothing is drawn.
+//
+// GEOM (the sixth) (patch 0100, p6_frame_geometry_get and p6_frame_geometry_set): the size of the raster the machine has settled on. The engine follows the frame it measures
+// (the lines and colour clocks of the last frames, which BEAM carries) and adopts a new size only after the same measure has held for a few frames; the size of the picture
+// (in and out width and height, extras and sync offsets of the drawing buffer) is derived from what it adopted and is in no body, so a machine that had adopted another frame kept
+// it and a new image adopted the saved one units after the load, with a blank picture in the unit it switched. 19 words: the adopted counts, the candidate and its countdown, and the
+// geometry of the drawing buffer. Applied as values after BPLX and DNSP; the presentation publishes the allocation as compute_framesync does.
+//
+// The border colour of Denise (bordercolor, bordercolor_ecs_shres) is derived the same way and is rebuilt by p6_denise_rebuild_derived (patch 0100) after CHIP: restore_custom
+// puts the colour registers into both copies of the table, but runs its queue of BPLCON writes (which compute the border colour) before it rebuilds acolors.
 //
 // Save writes every body with the engine's save_* and changes nothing: STATE_DOSAVE keeps getjoystate from reading the host's input (maybe_read_input),
 // the poll mask that POT0DAT and POT1DAT set is put back, and patch 0088 keeps DMACONR from writing dmacon.
@@ -70,6 +83,7 @@
 #include "custom.h"
 #include "inputdevice.h"
 #include "savestate.h"
+#include "video_present.h"
 
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);       // events.cpp 0078
 extern void p6_events_set(int idx, int next, int remain);
@@ -80,6 +94,11 @@ extern bool p6_custom_copper_set(const int32_t *in, unsigned n);
 extern bool p6_blitter_phase_get(int32_t *out, unsigned n);     // blitter.cpp 0097
 extern bool p6_blitter_phase_set(const int32_t *in, unsigned n);
 extern void p6_custom_rebuild_derived(void);                    // custom.cpp 0098
+extern void p6_denise_rebuild_derived(void);                    // drawing.cpp 0100
+extern bool p6_denise_pipe_get(int32_t *out, unsigned n);
+extern bool p6_denise_pipe_set(const int32_t *in, unsigned n);
+extern bool p6_frame_geometry_get(int32_t *out, unsigned n);    // custom.cpp 0100
+extern bool p6_frame_geometry_set(const int32_t *in, unsigned n);
 extern bool p6_audio_phase_get(int32_t *out, unsigned n);       // audio.cpp 0099
 extern bool p6_audio_phase_set(const int32_t *in, unsigned n);
 
@@ -139,6 +158,8 @@ uint8_t *produce_beam(int, size_t *len, uint8_t *w);
 uint8_t *produce_copr(int, size_t *len, uint8_t *w);
 uint8_t *produce_bltp(int, size_t *len, uint8_t *w);
 uint8_t *produce_audp(int, size_t *len, uint8_t *w);
+uint8_t *produce_dnsp(int, size_t *len, uint8_t *w);
+uint8_t *produce_geom(int, size_t *len, uint8_t *w);
 uint8_t *produce_bplx(int, size_t *len, uint8_t *w) { return save_custom_bpl(len, w); }
 
 uint8_t *apply_dsk(int n, uint8_t *b) { return restore_disk(n, b); }
@@ -154,6 +175,8 @@ uint8_t *apply_beam(int, uint8_t *b);
 uint8_t *apply_copr(int, uint8_t *b);
 uint8_t *apply_bltp(int, uint8_t *b);
 uint8_t *apply_audp(int, uint8_t *b);
+uint8_t *apply_dnsp(int, uint8_t *b);
+uint8_t *apply_geom(int, uint8_t *b);
 uint8_t *apply_bplx(int, uint8_t *b) { return restore_custom_bpl(b); }
 
 // -- BEAM: the position of the beam and the phase of the frame (patch 0094) ---------------------------------------------------------------------------
@@ -274,6 +297,56 @@ uint8_t *apply_audp(int, uint8_t *body)
 {
     for (unsigned i = 0; i < kAudioWords; ++i) g_audio_phase[i] = int32_t(Body{body, kAudioBytes}.u32(i * 4));
     return body + kAudioBytes;
+}
+
+// -- DNSP: Denise's output pipeline (patch 0100) ---------------------------------------------------------------------------------------------------------
+
+// The words of the body, in the order of p6_denise_pipe_get: dtbuf[2][4], then dtgbuf[2][4].
+constexpr unsigned kDenisePipeWords = 16, kDenisePixels = 8;
+constexpr uint32_t kDenisePipeBytes = kDenisePipeWords * 4;
+
+uint8_t *produce_dnsp(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kDenisePipeWords];
+    if (!p6_denise_pipe_get(words, kDenisePipeWords)) return nullptr;
+    for (unsigned i = 0; i < kDenisePipeWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kDenisePipeBytes;
+    return w;
+}
+
+uint8_t *apply_dnsp(int, uint8_t *body)
+{
+    int32_t words[kDenisePipeWords];
+    for (unsigned i = 0; i < kDenisePipeWords; ++i) words[i] = int32_t(Body{body, kDenisePipeBytes}.u32(i * 4));
+    return p6_denise_pipe_set(words, kDenisePipeWords) ? body + kDenisePipeBytes : nullptr;
+}
+
+// -- GEOM: the raster the machine has settled on (patch 0100) ------------------------------------------------------------------------------------------
+
+// The words of the body, in the order of p6_frame_geometry_get.
+enum GeometryWord : unsigned {
+    kGeoHpos, kGeoVpos, kGeoHposShort, kGeoVposNom, kGeoHposTemp, kGeoVposTemp, kGeoTempChange,
+    kGeoInWidth, kGeoInHeight, kGeoInWidth2, kGeoInHeight2, kGeoOutWidth, kGeoOutHeight, kGeoExtraWidth, kGeoExtraHeight, kGeoXOffset, kGeoYOffset, kGeoInXOffset, kGeoInYOffset,
+    kGeometryWords
+};
+constexpr uint32_t kGeometryBytes = kGeometryWords * 4;
+
+uint8_t *produce_geom(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kGeometryWords];
+    if (!p6_frame_geometry_get(words, kGeometryWords)) return nullptr;
+    for (unsigned i = 0; i < kGeometryWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kGeometryBytes;
+    return w;
+}
+
+uint8_t *apply_geom(int, uint8_t *body)
+{
+    int32_t words[kGeometryWords];
+    for (unsigned i = 0; i < kGeometryWords; ++i) words[i] = int32_t(Body{body, kGeometryBytes}.u32(i * 4));
+    return p6_frame_geometry_set(words, kGeometryWords) ? body + kGeometryBytes : nullptr;
 }
 
 // -- what each body must be before it is applied ----------------------------------------------------------------------------------------------------
@@ -431,6 +504,33 @@ const char *check_bplx(const Sub &, const Body &b, Seen &)
     return nullptr;
 }
 
+// DNSP: the pixels are colours of the engine's own table (any 32 bits), and the pixel numbers of the genlock buffer are bytes.
+const char *check_dnsp(const Sub &, const Body &b, Seen &)
+{
+    for (unsigned w = kDenisePixels; w < kDenisePipeWords; ++w)
+        if (b.u32(w * 4) > 0xff) return "a pixel number of the genlock buffer is wider than a byte";
+    return nullptr;
+}
+
+// GEOM: the adopted counts are lengths of a raster, not negative and within 16 bits. The sizes of the picture index the drawing buffer (inwidth is the length of the line the
+// engine clears, inheight the last row it writes; the presentation refuses only an out size that does not fit), so they are bounded by the buffer the port allocates,
+// P6_VIDEO_MAX_WIDTH x P6_VIDEO_MAX_HEIGHT. The offsets and the extra width and height are signed distances the engine range-checks where it uses them, and the countdown of
+// the candidate is the two frames the engine gives it.
+const char *check_geom(const Sub &, const Body &b, Seen &)
+{
+    const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
+    for (unsigned w : {kGeoHpos, kGeoVpos, kGeoHposShort, kGeoVposNom, kGeoHposTemp, kGeoVposTemp})
+        if (at(w) < 0 || at(w) > 0xffff) return "a size of the raster is negative or beyond 16 bits";
+    for (unsigned w : {kGeoInWidth, kGeoInWidth2, kGeoOutWidth})
+        if (at(w) < 0 || at(w) > P6_VIDEO_MAX_WIDTH) return "a width of the picture is negative or wider than the drawing buffer";
+    for (unsigned w : {kGeoInHeight, kGeoInHeight2, kGeoOutHeight})
+        if (at(w) < 0 || at(w) > P6_VIDEO_MAX_HEIGHT) return "a height of the picture is negative or taller than the drawing buffer";
+    for (unsigned w : {kGeoExtraWidth, kGeoExtraHeight, kGeoXOffset, kGeoYOffset, kGeoInXOffset, kGeoInYOffset})
+        if (at(w) < -0xffff || at(w) > 0xffff) return "an offset of the raster is beyond 16 bits";
+    if (at(kGeoTempChange) < 0 || at(kGeoTempChange) > 2) return "the countdown of the candidate raster is not between 0 and 2";
+    return nullptr;
+}
+
 // BEAM: where the beam is and where the frame is. The standard is the configuration's (PAL 312 lines, NTSC 262; no ECS programmable beam in the profile), so the beam
 // and what the line start tests are bounded by it; a counter that only counts (display_vsync_counter, of which the parity is used; the linear counters of the display)
 // has no bound but its sign, and wraps like the engine's.
@@ -523,7 +623,11 @@ constexpr Sub kAudioBodies[] = {
     {"AUD2", 25, 25, produce_aud, apply_aud, check_aud, 2, true}, {"AUD3", 25, 25, produce_aud, apply_aud, check_aud, 3, true},
     {"AUDP", kAudioBytes, kAudioBytes, produce_audp, apply_audp, check_audp, 0, true},
 };
-constexpr Sub kVideoBodies[] = {{"BPLX", 292, 292, produce_bplx, apply_bplx, check_bplx, 0, true}};
+constexpr Sub kVideoBodies[] = {
+    {"BPLX", 292, 292, produce_bplx, apply_bplx, check_bplx, 0, true},
+    {"DNSP", kDenisePipeBytes, kDenisePipeBytes, produce_dnsp, apply_dnsp, check_dnsp, 0, true},
+    {"GEOM", kGeometryBytes, kGeometryBytes, produce_geom, apply_geom, check_geom, 0, true},
+};
 
 // What a save_* call may change besides the bytes it returns, put back when the call is done.
 struct PureSave {
@@ -639,6 +743,7 @@ void finish_chipset()
     restore_blitter_finish();
     p6_blitter_phase_set(g_blitter_phase, kBlitterWords);
     p6_custom_rebuild_derived();
+    p6_denise_rebuild_derived();      // after CHIP, whose restore_custom has rebuilt acolors: the border colour is derived from COLOR00
 }
 void finish_audio()
 {

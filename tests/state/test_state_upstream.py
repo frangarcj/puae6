@@ -1,6 +1,6 @@
-"""T15i1, T15i2, T15f1, T15f2 and T15f3: the bodies of WinUAE's own save_* and restore_* functions, the beam, the Copper and the blitter's phase, inside P6DK, P6AU, P6CH and P6VD.
+"""T15i1, T15i2, T15f1, T15f2, T15f3, T15e and T15g: the bodies of WinUAE's own save_* and restore_* functions, the beam, the Copper, the blitter's and Paula's phase and Denise's picture state, inside P6DK, P6AU, P6CH and P6VD.
 
-The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined; patches 0094, 0095 and 0097 add the accessors of BEAM, COPR and BLTP) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
+The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined; patches 0094, 0095, 0097, 0099 and 0100 add the accessors of BEAM, COPR, BLTP, AUDP, DNSP and GEOM) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
 characters, a u32 length (little endian, like the container) and the bytes the engine wrote (big endian, upstream's own encoding).
 
 T15i1, what is saved:
@@ -27,6 +27,13 @@ restore_blitter_finish. A blit that the live image has in flight is replaced by 
 The fourth RGA slot goes with it (CHSL, 245 bytes, patch 0096): rga_pipe has RGA_SLOT_TOTAL + 1 slots and upstream saves three, which three are live depends on the first offset, and the
 slot left out holds a blit D write in flight: a loaded machine kept the one of the live image (its pointer) and wrote the rest of the blit somewhere else.
 
+T15g, what Denise and the presentation keep outside every body (patch 0100). Two bodies of P6VD that are not WinUAE's, plus one derived value rebuilt after CHIP:
+  - DNSP (64 bytes) is the four-pixel output pipeline (dtbuf and dtgbuf): the first pixels of a line leave from what the previous colour clock left, so a new image put zero
+    where the original put the colour of its border;
+  - GEOM (76 bytes) is the raster size the engine has measured and adopted (current_linear_* with its candidate and countdown, and the in and out geometry of the drawing
+    buffer): a machine that had adopted another frame kept it, and a new image adopted the saved one units later with a blank picture, 576 lines where the original showed 574;
+  - the border colour (bordercolor, derived from COLOR00 and BPLCON3) is recomputed after CHIP: restore_custom flushes its register writes before it rebuilds the colour table.
+
 T15i2, what is loaded:
   - a load applies the bodies on the live machine (no custom_reset, no memory_clear, no *_start): the state taken again afterwards re-emits every upstream chunk byte for byte,
     in the same process, k units later, and in a new one (a fresh image runs its reset head first), the beam included: the whole state is the same bytes;
@@ -44,11 +51,11 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72, "AUDP": 340,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 76,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
-    b"P6VD": ["BPLX"],
+    b"P6VD": ["BPLX", "DNSP", "GEOM"],
     b"P6AU": [f"AUD{i}" for i in range(4)] + ["AUDP"],
     b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK"],
 }
@@ -73,6 +80,9 @@ BLTP_WORDS = ["queued", "count_done", "change_cycles_low", "change_cycles_high",
 AUDP_GLOBAL = ["next_sample_evtime", "pending_cycles_low", "pending_cycles_high", "work_to_do", "led_filter"] + [f"filter{i}_rc{j}" for i in range(4) for j in range(1, 6)]
 AUDP_CHANNEL = ["flags", "irqcheck", "per", "dat2", "ptx", "dmaoff_active", "dmaoff_cpu_count", "dmaoff_pc", "minperloop", "current_sample", "last_sample", "new_sample",
                 "sample_accum", "sample_accum_time", "adk_mask"]
+# The words of GEOM, in the order of p6_frame_geometry_get (custom.cpp, patch 0100) and of the enum of bridge/state_upstream.cpp.
+GEOM_WORDS = ["hpos", "vpos", "hpos_short", "vpos_nom", "hpos_temp", "vpos_temp", "temp_change", "in_width", "in_height", "in_width2", "in_height2", "out_width", "out_height",
+              "extra_width", "extra_height", "x_offset", "y_offset", "in_x_offset", "in_y_offset"]
 PERIOD_SENTINEL = -2            # PERIOD_MAX - 1 as an int: the period of a channel audio_reset leaves and nothing has written since
 
 
@@ -200,7 +210,8 @@ def upstream_bodies(blob):
 
 
 class UpstreamBodiesTests(ProbeCase):
-    ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None), "copper_irq": ("copper_irq", {"HP": "2"}, None)}
+    ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None), "copper_irq": ("copper_irq", {"HP": "2"}, None),
+            "lof_stuck": ("lof_stuck", None, None)}
 
     @classmethod
     def setUpClass(cls):
@@ -417,6 +428,42 @@ class UpstreamBodiesTests(ProbeCase):
         self.assertEqual([(0, 0, "")], run.loads)
         self.assertEqual(upstream_bodies(first.read_bytes())[b"P6AU"], upstream_bodies(again.read_bytes())[b"P6AU"], "a fresh image has the Paula of the state")
 
+    def geometry_of(self, blob):
+        """{GEOM word name: signed value} of a state."""
+        body = upstream_bodies(blob)[b"P6VD"]["GEOM"]
+        self.assertEqual(4 * len(GEOM_WORDS), len(body))
+        return dict(zip(GEOM_WORDS, struct.unpack(">%di" % len(GEOM_WORDS), body)))
+
+    def test_the_raster_a_machine_has_adopted_is_the_one_a_new_image_loads_and_draws(self):
+        # The long frame of lof_stuck (313 lines, 576 rows of picture) is adopted by the engine after a few frames and nothing but GEOM carries it: a fresh image that loads the
+        # state used to keep the size of its own reset (574) and switch units later with a blank picture. Now the state it saves right after the load is the one it loaded, and
+        # the pictures of the units that follow are the original's, the size and the pixels.
+        first, again = self.dir / "geom.first", self.dir / "geom.again"
+        saved = self.probe("lof_stuck", "--units", "7", "--every", "1", "--save-at", "4", str(first))
+        geometry = self.geometry_of(first.read_bytes())
+        self.assertEqual((313, 576, 756), (geometry["vpos"], geometry["out_height"], geometry["out_width"]), "the long frame has been adopted at unit 4")
+        self.assertEqual(geometry["out_height"], geometry["in_height"])
+        run = self.probe("lof_stuck", "--units", "3", "--every", "1", "--load-at", "0", str(first), "--save-at", "0", str(again))
+        self.assertEqual([(0, 0, "")], run.loads)
+        self.assertEqual(upstream_bodies(first.read_bytes())[b"P6VD"], upstream_bodies(again.read_bytes())[b"P6VD"], "a fresh image has the raster of the state")
+        for unit in (1, 2, 3):
+            self.assertEqual(saved.digests[(4 + unit, "video")], run.digests[(unit, "video")], f"the picture of unit {unit} after the load")
+
+    def test_the_border_and_the_pipeline_of_the_first_picture_after_a_load_are_the_originals(self):
+        # busy draws a border of COLOR00 = $0123 (written by its Copper list). A new image has the colour table of the state (restore_custom rebuilds it) but drew its first border
+        # with the colour its own reset left in bordercolor: black. In NTSC (a long first line) the first pixels also leave from the pipeline of the previous colour clock, which
+        # held the border colour in the original and zeros in a new image. The first pixels of the picture, dumped by the probe, are the original's.
+        for name, args, unit in (("pal", (), 2), ("ntsc", ("--ntsc",), 2)):
+            with self.subTest(name):
+                state = self.dir / f"border.{name}"
+                saved = self.probe("busy", "--units", str(unit + 1), "--every", "1", "--dump", "video", *args, "--save-at", str(unit), str(state))
+                run = self.probe("busy", "--units", "1", "--every", "1", "--dump", "video", *args, "--load-at", "0", str(state))
+                self.assertEqual([(0, 0, "")], run.loads)
+                original, loaded = saved.dumps[(unit + 1, "video")], run.dumps[(1, "video")]
+                pixels = lambda dump: struct.unpack_from("<%dI" % 64, dump, 16)       # after have, width, height and flags
+                self.assertEqual(0x112233, pixels(original)[10], "the border of the original is COLOR00 = $0123")
+                self.assertEqual(pixels(original), pixels(loaded), "the first line is the same, pixel for pixel")
+
     def blitter_of(self, blob):
         """({BLTP word name: signed value}, BLTX state byte) of a state."""
         subs = upstream_bodies(blob)[b"P6CH"]
@@ -625,6 +672,18 @@ class UpstreamBodiesTests(ProbeCase):
         ("AUDP channel 1 with a partial modulation mask", b"P6AU", "AUDP", audp_at("adk_mask", 1), struct.pack(">i", 0xFF), "the modulation mask of a channel is neither all nor nothing"),
         ("AUDP channel 2 with a period AUDn does not round to", b"P6AU", "AUDP", audp_at("per", 2), struct.pack(">i", 12345 * 512),
          "the exact period of a channel is not the one AUDn rounds"),
+        ("DNSP with a genlock pixel number of 9 bits", b"P6VD", "DNSP", 4 * 9, struct.pack(">i", 0x100), "a pixel number of the genlock buffer is wider than a byte"),
+        ("DNSP with a negative genlock pixel number", b"P6VD", "DNSP", 4 * 15, struct.pack(">i", -1), "a pixel number of the genlock buffer is wider than a byte"),
+        ("GEOM with a negative adopted height", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("vpos"), struct.pack(">i", -1), "a size of the raster is negative or beyond 16 bits"),
+        ("GEOM with an output height taller than the buffer", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("out_height"), struct.pack(">i", 627),
+         "a height of the picture is negative or taller than the drawing buffer"),
+        ("GEOM with an input height taller than the buffer", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("in_height"), struct.pack(">i", 627),
+         "a height of the picture is negative or taller than the drawing buffer"),
+        ("GEOM with an input width wider than the buffer", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("in_width"), struct.pack(">i", 1825),
+         "a width of the picture is negative or wider than the drawing buffer"),
+        ("GEOM with a negative input width", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("in_width"), struct.pack(">i", -756), "a width of the picture is negative or wider than the drawing buffer"),
+        ("GEOM with an offset beyond 16 bits", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("y_offset"), struct.pack(">i", 0x10000), "an offset of the raster is beyond 16 bits"),
+        ("GEOM with a countdown of 3", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("temp_change"), struct.pack(">i", 3), "the countdown of the candidate raster is not between 0 and 2"),
         ("BLTX running while BLTP says the blit is done", b"P6CH", "BLTX", 1, b"\2", "BLTX says a blit is running and BLTP says it is done or has nothing queued"),
     ]
 

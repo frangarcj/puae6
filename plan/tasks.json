@@ -9425,7 +9425,7 @@
       "title": "Continuacion de Denise y dibujo sobre BPLX/SPRX y el anillo rga_denise",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15i"
       ],

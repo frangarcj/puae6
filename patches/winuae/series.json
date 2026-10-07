@@ -2704,6 +2704,37 @@
           "after_sha256": "47849cd5292c7c8620817e36c0aad587336bcc9108e17ea63c6fc56b89f4c45a"
         }
       ]
+    },
+    {
+      "id": "0100-denise-presentation-state",
+      "file": "patches/winuae/0100-denise-presentation-state.patch",
+      "sha256": "ca37d5e1c6b0a575b5bdd12b705c2aae06252be1c12ba968fe1e1dc3f2ef8605",
+      "title": "What Denise and the presentation keep outside every body: border colour, output pipeline, measured raster size",
+      "reason": "STATE02/DET02: three things a picture depends on are in no body and WinUAE's own load gets them from custom_reset/init_hz, which the bridge never runs on a live machine. (1) bordercolor and bordercolor_ecs_shres are derived from COLOR00 and BPLCON3, but restore_custom flushes its BPLCON writes (which recompute them) before docols rebuilds acolors, so a new image drew its first border black where the state's COLOR00 was red (p6_denise_rebuild_derived). (2) The four-pixel output pipeline dtbuf/dtgbuf feeds the first pixels of a line, and a machine that had not drawn the same lines put zero where the original put the border colour (p6_denise_pipe_get/set). (3) The raster size the engine measures and adopts after a few frames (current_linear_*, its candidate and countdown, the in/out geometry of the drawing buffer) was kept by the loading image or adopted units later with a blank picture, so the same program showed 576 lines where the original showed 574 (p6_frame_geometry_get/set). Values only; nothing runs or is scheduled (T15g).",
+      "category": "host hooks",
+      "order": 100,
+      "symbols": [
+        "p6_denise_rebuild_derived",
+        "p6_denise_pipe_get",
+        "p6_denise_pipe_set",
+        "p6_frame_geometry_get",
+        "p6_frame_geometry_set"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "72d426f5f23c957a0a30575dcfe1f9a785569e99577f4ab471eac3c25c2a917d",
+          "after_sha256": "4b59f13d05d322b8a5f1c319c2f1780d7e4bbf9bcc0bae11899489c8fd9b37de"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "88a543edbbe05e076cf8e2e849eb1e617c2527c48fb825a1e1acfb38644d028b",
+          "after_sha256": "a3b3cd23f0ba06379bd37abd7e05abb7a1a241bb33d78bfea27159c140bff8de"
+        }
+      ]
     }
   ]
 }
