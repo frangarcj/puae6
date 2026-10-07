@@ -9378,7 +9378,7 @@
       "title": "Continuacion de Agnus, copper y blitter sobre CHIP/CHPX/CHPD/CHSL/BLIT/BLTX",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15i",
         "T15f1",

@@ -25,6 +25,10 @@
 // carries but its reader discards. 18 words, applied as values after restore_blitter_finish (which sets the pending flag); the blitter does not run, drain or finish on load,
 // and a blit that the live machine had in flight is replaced by the state's, not cancelled.
 //
+// What the engine derives from the registers and stores nowhere (the plane count and the fetch sequence of setup_fmodes, the first and last line of each sprite, the sprite
+// width) is recomputed once the bodies of CHIP are in, by p6_custom_rebuild_derived (patch 0098): WinUAE's own load gets it from custom_reset, which is never run here. It
+// writes no register, schedules nothing and runs nothing.
+//
 // Save writes every body with the engine's save_* and changes nothing: STATE_DOSAVE keeps getjoystate from reading the host's input (maybe_read_input),
 // the poll mask that POT0DAT and POT1DAT set is put back, and patch 0088 keeps DMACONR from writing dmacon.
 //
@@ -67,6 +71,7 @@ extern bool p6_custom_copper_get(int32_t *out, unsigned n);     // custom.cpp 00
 extern bool p6_custom_copper_set(const int32_t *in, unsigned n);
 extern bool p6_blitter_phase_get(int32_t *out, unsigned n);     // blitter.cpp 0097
 extern bool p6_blitter_phase_set(const int32_t *in, unsigned n);
+extern void p6_custom_rebuild_derived(void);                    // custom.cpp 0098
 
 namespace p6_state {
 
@@ -557,6 +562,7 @@ void finish_chipset()
 {
     restore_blitter_finish();
     p6_blitter_phase_set(g_blitter_phase, kBlitterWords);
+    p6_custom_rebuild_derived();
 }
 void finish_audio() { restore_audio_finish(); }
 

@@ -2656,6 +2656,28 @@
           "after_sha256": "a92506251b1334ded6cee889cc52718c2e42d5a06518ab79361981d6b3171bc1"
         }
       ]
+    },
+    {
+      "id": "0098-custom-derived-state-rebuild",
+      "file": "patches/winuae/0098-custom-derived-state-rebuild.patch",
+      "sha256": "7dcff937b747ace2ef60f5f27a0043fcbfb4cc61e986a3b6bd5048dbcfc28eff",
+      "title": "Agnus values derived from the restored registers",
+      "reason": "STATE02/DET02: custom_reset's isrestore branch rebuilds what the engine derives from the registers (setup_fmodes: bplcon0_planes, bplcon0_planes_limit, bpl_sequence, curr_diagram, fetch unit, fmode_inuse; the sprite width; SPRxCTLPOS: vstart, vstop, dblscan of every sprite) and the bridge never runs custom_reset on a live machine, so an image that had not written the same registers itself (restarted before the load, or a new process) fetched its bitplanes from the planes of its reset and its CPU lost bus slots differently on the Kickstart keyboard handshake. p6_custom_rebuild_derived recomputes them from the registers without writing any, scheduling or running anything (T15f).",
+      "category": "host hooks",
+      "order": 98,
+      "symbols": [
+        "p6_custom_rebuild_derived"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "0e4c4bae82a1a9d69a137cc64e60d04abf08b0da99ca34fd8fb12b756dc717e7",
+          "after_sha256": "88a543edbbe05e076cf8e2e849eb1e617c2527c48fb825a1e1acfb38644d028b"
+        }
+      ]
     }
   ]
 }

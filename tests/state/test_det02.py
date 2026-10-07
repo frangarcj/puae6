@@ -1,4 +1,4 @@
-"""T15i3, T15f1, T15f2 and T15f3: DET02 end to end with every chunk of the state, and where it still diverges.
+"""T15i3 and T15f (T15f1, T15f2, T15f3 and its closure): DET02 end to end with every chunk of the state, and where it still diverges.
 
 DET02 (docs/04-validation.md): a state saved at unit N, the machine run on, the state loaded, and the units after it run again must give the machine of the original run, subsystem by
 subsystem. The probe digests cpu, scheduler, ram, rtc, cia, chipset (by group: beam, counters, irq_dma, clxdat, lof, timing), audio, input, video and bridge, and hashes the PCM of
@@ -29,6 +29,12 @@ the card, item by item:
                                       those rows is the audio phase
   blitter in flight                   fixed by T15f3 (BLTP, patch 0097, and the fourth RGA slot of CHSL, patch 0096): busy, busy-blitter, blit+bitplanes, blit+sprites, blit+audio, blit+disk and busy-ntsc no
                                       longer diverge in RAM, DMACON, INTREQ or the DMA slots, in an image restarted before the load or not; what is left of those rows is the audio phase
+  derived Agnus values                fixed by the closure of T15f (patch 0098, p6_custom_rebuild_derived, run after the bodies of CHIP): what setup_fmodes and SPRxCTLPOS derive from BPLCON0, FMODE
+                                      and the sprite registers (the plane count, the fetch sequence, the first and last line of each sprite) is in no body, and WinUAE's own load gets it from
+                                      custom_reset, which the bridge never runs on a live machine. An image that had not written the same registers itself (restarted before the load, or a new
+                                      process) fetched its bitplanes from the planes of its reset: the Kickstart at 107 (keyboard handshake) lost bus slots differently and its CPU, scheduler, RAM
+                                      and clock differed a unit after the load. late-bitplanes (planes set up late, the CPU reading Chip RAM under them) pins the planes through the picture; the Kickstart rows are now
+                                      the palette and the audio phase like every other program
   rga_denise ring                     not shown: the boundary is in the blank, nothing of Denise is pending there
   bitplane DMA, spr[].dmastate        not shown: busy-bitplanes and busy-sprites match in an image restarted one unit before the load (idle at the boundary)
   dsklen2, linecounter                not shown: the DMA of busy-disk-dma stays armed (WORDSYNC): in 14 units it writes nothing to RAM and never raises DSKBLK, so what matters
@@ -104,12 +110,36 @@ SCENARIOS = {
     "blit+copper": ("blt-cop", [], (2,), CHANNELS),
     "blit+audio": ("blt-aud", [], (2,), CHANNELS),
     "blit+disk": ("blt-dsk", "disk", (2,), CHANNELS),
+    "late-bitplanes": ("late-bpl", [], (8,), (SAME_BEAM, RESET_BEAM, NEW)),
     "busy-ntsc": ("busy", ["--ntsc"], (2,), (SAME, RESET_BEAM, NEW)),
     "copper_irq-ntsc": ("copper_irq", ["--ntsc"], (2,), (SAME, RESET_BEAM, NEW)),
     # The medium out of DF0 (unit 9, applied in 10) and in again (unit 11, applied in 12): the state is taken before, in the middle of and after the change.
     "disk-change": ("busy", "change", (10, 12, 13), (SAME_BEAM,)),
     "disk-change-reset": ("busy", "change", (10,), (RESET_BEAM,)),
 }
+
+# A program that sets its bitplanes up late: after about two and a half frames of NOPs, so that an image restarted one unit before the load has not got there (and its Agnus has the
+# planes of its reset), with the CPU reading Chip RAM in a loop under the DMA of four planes. What Agnus derives from BPLCON0 (the plane count, the fetch sequence) is in no body.
+LATE_BITPLANES = """; PUAE6 test program: four bitplanes set up after a long wait, and a loop that reads Chip RAM while they are fetched.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    .nops 100000
+    MOVE.W #$4200,$DFF100.L     ; BPLCON0: 4 planes
+    MOVE.W #$0038,$DFF092.L     ; DDFSTRT
+    MOVE.W #$00D0,$DFF094.L     ; DDFSTOP
+    MOVE.W #$2C81,$DFF08E.L     ; DIWSTRT
+    MOVE.W #$2CC1,$DFF090.L     ; DIWSTOP
+    MOVE.L #$4000,$DFF0E0.L     ; BPL1PT .. BPL4PT
+    MOVE.L #$5000,$DFF0E4.L
+    MOVE.L #$6000,$DFF0E8.L
+    MOVE.L #$7000,$DFF0EC.L
+    MOVE.W #$8300,$DFF096.L     ; DMACON: SET, master and bitplanes
+loop:
+    MOVE.B $4000.L,D2
+    ADDQ.L #1,D0
+    BRA.S loop
+"""
 
 # cause id -> (owner, what is known). The owner is the task whose card has to make the scenarios of that cause match; the text is where the attribution came from.
 CAUSES = {
@@ -124,11 +154,8 @@ CAUSES = {
     "palette": ("T15g", "the colour registers are put back (the register image and agnus_colors) but Denise's derived colour table is not rebuilt: in the first picture "
                         "after the load the border is black where the state's COLOR00 is red. Only a machine that has not already written the same colours shows it "
                         "(a new image, or one restarted before the load): with the beam and the frame phase restored it is the first thing a new image shows in "
-                        "every program that sets a colour"),
-    "kickstart-mixed": ("T15f", "not isolated: several of the causes above are at work at once in the Kickstart (the palette and the audio phase, and whatever else the handshake at 107 "
-                                "has: it differs in the beam and CLXDAT a unit after the load, and its first divergence did not move when T15f3 put the blitter back). The byte of Slow RAM that the steady state at 140 differed in was the Copper "
-                                "waiting (T15f2): with COPR that row is the audio phase or the palette, like the other programs; the first cause a card removes will show "
-                                "which are left"),
+                        "every program that sets a colour). Denise's presentation memory is the same owner: a same image that has run on to 576 lines shows 576 where the original, "
+                        "still at 574, shows 574, for the units after the load (the Kickstart at 107, where it changes)"),
 }
 
 
@@ -219,6 +246,9 @@ DIVERGENCES = {
     "blit+audio@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
     "blit+disk@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
     "blit+disk@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
+    "late-bitplanes@8/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
+    "late-bitplanes@8/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
+    "late-bitplanes@8/new-process": row("audio-phase", 1, "bridge pcm"),
     "busy-ntsc@2/same-image": row("audio-phase", 1, "pcm"),
     "busy-ntsc@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
     "busy-ntsc@2/new-process": row("palette", 1, "video bridge pcm"),
@@ -372,6 +402,7 @@ class Det02Tests(Det02Case):
         "blt-bpl": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8340,$DFF096.L"}), "blt-spr": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8260,$DFF096.L"}),
         "blt-cop": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$82C0,$DFF096.L"}), "blt-aud": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$824F,$DFF096.L"}),
         "blt-dsk": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8250,$DFF096.L"}),
+        "late-bpl": (LATE_BITPLANES, None, None),
         "tone": (tone_source(Tone("det02", channels=(0, 1), period=200, volume=64)), None, None),
     }
 
