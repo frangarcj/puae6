@@ -4,7 +4,7 @@
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17)
-//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (191), SPR0..SPR7 (25 each), BEAM (244) and COPR (60), the last two ours and not upstream's
+//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (244), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each)
 //   P6VD  BPLX (292)
 //
@@ -18,6 +18,12 @@
 // beam, skipping or half way through a strobe came back stopped. It is 15 words (patch 0095, p6_custom_copper_get and p6_custom_copper_set): the state and its two companions,
 // the compare values of the wait, the strobe in flight, the latched COP1LC, the flag that lets the Copper run this line and the two cycle stamps that the strobe and the DMA enable
 // are compared with. Values only: the Copper does not run, advance or drain when it is applied, and COPR comes after CHSL, which it overrides.
+//
+// BLTP is the third: restore_blitter_new puts back the registers, the shifters, the counters and the pipeline of the cycle-exact blitter and drops what keeps a blit in flight
+// on the same cycles as the saved one (patch 0097, p6_blitter_phase_get and p6_blitter_phase_set): blit_queued, blit_count_done, blt_change_cycles, the held data words, the
+// line's D latch, the pointers a copper write of the same cycle restores, the flag of a pending BLTCON or modulo write, and blit_dmacount and blit_cyclecount, which BLTX
+// carries but its reader discards. 18 words, applied as values after restore_blitter_finish (which sets the pending flag); the blitter does not run, drain or finish on load,
+// and a blit that the live machine had in flight is replaced by the state's, not cancelled.
 //
 // Save writes every body with the engine's save_* and changes nothing: STATE_DOSAVE keeps getjoystate from reading the host's input (maybe_read_input),
 // the poll mask that POT0DAT and POT1DAT set is put back, and patch 0088 keeps DMACONR from writing dmacon.
@@ -59,6 +65,8 @@ extern bool p6_custom_beam_get(int32_t *out, unsigned n);       // custom.cpp 00
 extern bool p6_custom_beam_set(const int32_t *in, unsigned n);
 extern bool p6_custom_copper_get(int32_t *out, unsigned n);     // custom.cpp 0095
 extern bool p6_custom_copper_set(const int32_t *in, unsigned n);
+extern bool p6_blitter_phase_get(int32_t *out, unsigned n);     // blitter.cpp 0097
+extern bool p6_blitter_phase_set(const int32_t *in, unsigned n);
 
 namespace p6_state {
 
@@ -88,6 +96,7 @@ struct Seen {
     uint8_t drive_state[4];
     uint32_t head_position[4];
     uint32_t chsl_flags;
+    uint8_t bltx_state, bltx_dmacount, bltx_cyclecount;     // BLTX: idle, pending or running, and the channel counts of the blit
 };
 
 struct Sub {
@@ -112,6 +121,7 @@ uint8_t *produce_spr(int n, size_t *len, uint8_t *w) { return save_custom_sprite
 uint8_t *produce_aud(int n, size_t *len, uint8_t *w) { return save_audio(n, len, w); }
 uint8_t *produce_beam(int, size_t *len, uint8_t *w);
 uint8_t *produce_copr(int, size_t *len, uint8_t *w);
+uint8_t *produce_bltp(int, size_t *len, uint8_t *w);
 uint8_t *produce_bplx(int, size_t *len, uint8_t *w) { return save_custom_bpl(len, w); }
 
 uint8_t *apply_dsk(int n, uint8_t *b) { return restore_disk(n, b); }
@@ -125,6 +135,7 @@ uint8_t *apply_spr(int n, uint8_t *b) { return restore_custom_sprite(n, b); }
 uint8_t *apply_aud(int n, uint8_t *b) { return restore_audio(n, b); }
 uint8_t *apply_beam(int, uint8_t *b);
 uint8_t *apply_copr(int, uint8_t *b);
+uint8_t *apply_bltp(int, uint8_t *b);
 uint8_t *apply_bplx(int, uint8_t *b) { return restore_custom_bpl(b); }
 
 // -- BEAM: the position of the beam and the phase of the frame (patch 0094) ---------------------------------------------------------------------------
@@ -187,6 +198,34 @@ uint8_t *apply_copr(int, uint8_t *body)
     return p6_custom_copper_set(words, kCopperWords) ? body + kCopperBytes : nullptr;
 }
 
+// -- BLTP: the phase of the blitter that BLTX does not carry (patch 0097) -----------------------------------------------------------------------------
+
+// The words of the body, in the order of p6_blitter_phase_get.
+enum BlitterWord : unsigned {
+    kBltQueued, kBltCountDone, kBltChangeLow, kBltChangeHigh, kBltDelayedUpdate, kBltDmaCount, kBltCycleCount,
+    kBltAHold2, kBltBHold2, kBltCHold2, kBltBHold, kBltDDatL, kBltDPtL, kBltLinePixel2, kBltAPtPrev, kBltBPtPrev, kBltCPtPrev, kBltDPtPrev, kBlitterWords
+};
+constexpr uint32_t kBlitterBytes = kBlitterWords * 4;
+int32_t g_blitter_phase[kBlitterWords];     // read by apply_bltp, put in the engine by finish_chipset once restore_blitter_finish has run
+
+uint8_t *produce_bltp(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kBlitterWords];
+    if (!p6_blitter_phase_get(words, kBlitterWords)) return nullptr;
+    for (unsigned i = 0; i < kBlitterWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kBlitterBytes;
+    return w;
+}
+
+// Nothing reaches the engine here: restore_blitter_finish, which runs after the last body of the chunk, sets blitter_delayed_update and would overwrite it, so the words wait
+// in g_blitter_phase and finish_chipset puts them in.
+uint8_t *apply_bltp(int, uint8_t *body)
+{
+    for (unsigned i = 0; i < kBlitterWords; ++i) g_blitter_phase[i] = int32_t(Body{body, kBlitterBytes}.u32(i * 4));
+    return body + kBlitterBytes;
+}
+
 // -- what each body must be before it is applied ----------------------------------------------------------------------------------------------------
 
 // DSKn: id u32, state u8 (1 motor, 2 disabled, 4 id bit, 8 disk change, 16 side, 32 write protect), cylinder u8, ready u8, id counter u8, head position u32,
@@ -246,13 +285,16 @@ const char *check_chip(const Sub &, const Body &b, Seen &)
 
 // BLTX: the cycle-exact byte, the state, ... the channel mask blit_ch at 46 (BLTCON0's USEA..USED), blitfc and blitife at 51 and 52 (they index blit_filltable),
 // the sentinel 0x1234 at 84 and 0x1235 at 130 (restore_blitter_new carries on past a wrong one).
-const char *check_bltx(const Sub &, const Body &b, Seen &)
+const char *check_bltx(const Sub &, const Body &b, Seen &seen)
 {
     if (b.u8(0) != (currprefs.blitter_cycle_exact ? 3u : 0u)) return "the blitter is not the one of this configuration";
     if (b.u8(1) > 2) return "the state of the blitter is not idle, pending or running";
     if (b.u8(46) > 15) return "the channel mask of the blit is beyond four bits";
     if (b.u8(51) > 1 || b.u8(52) > 1) return "a fill flag of the blit is not a flag";
     if (b.u16(84) != 0x1234 || b.u16(130) != 0x1235) return "a sentinel of the body is not where it must be";
+    seen.bltx_state = uint8_t(b.u8(1));
+    seen.bltx_dmacount = uint8_t(b.u8(47));
+    seen.bltx_cyclecount = uint8_t(b.u8(48));
     return nullptr;
 }
 
@@ -264,14 +306,14 @@ const char *check_blit(const Sub &, const Body &b, Seen &)
     return nullptr;
 }
 
-// CHSL: flags u32 (1|8, plus 2 or 4 for a copper in its last move), the copper's pointer and two words, 8 zero words, 3 slots of 54 bytes, the first offset u8.
+// CHSL: flags u32 (1|8, plus 2 or 4 for a copper in its last move), the copper's pointer and two words, 8 zero words, 4 slots of 54 bytes (patch 0096: upstream saves the three it counts and the pipeline has four), the first offset u8.
 const char *check_chsl(const Sub &, const Body &b, Seen &seen)
 {
     const uint32_t flags = b.u32(0);
     if (flags != 9 && flags != 11 && flags != 13) return "the flags are not the ones save_custom_slots writes";
     for (uint32_t at = 12; at < 28; at += 2)
         if (b.u16(at)) return "a word that is always zero is not";
-    for (uint32_t slot = 0; slot < 3; ++slot) {
+    for (uint32_t slot = 0; slot < 4; ++slot) {
         const uint32_t base = 28 + slot * 54;
         if (b.u16(base + 4) > 0x1fe) return "a slot names a register beyond 0x1FE";
         for (uint32_t at = base + 50; at <= base + 52; at += 2) {       // the registers of the pointers: getptfromreg takes anything else for a dummy
@@ -281,7 +323,7 @@ const char *check_chsl(const Sub &, const Body &b, Seen &seen)
             if (!pointer) return "a slot points at a register the engine has no pointer for";
         }
     }
-    if (b.u8(190) > 3) return "the first slot offset is beyond 3";
+    if (b.u8(244) > 3) return "the first slot offset is beyond 3";
     seen.chsl_flags = flags;
     return nullptr;
 }
@@ -358,6 +400,25 @@ const char *check_copr(const Sub &, const Body &b, Seen &seen)
     return nullptr;
 }
 
+// BLTP: the queue holds at most the pipeline depth (BLITTER_MAX_PIPELINED_CYCLES, 4) and the counts of channels are what blit_bltset makes of four channels and two skips; the
+// held words are 16 bits and the pending flag is a flag. BLTX says whether a blit is running, and BLTP has to agree: a running blit has not counted itself done and has its
+// pipeline queued (the OCS blitter clears the running flag in the cycle that counts it done), and the two channel counts BLTX carries are the ones BLTP carries. The count of
+// the cycles after the end is incremented while a bit is still in the four-stage shifter and has no other bound.
+const char *check_bltp(const Sub &, const Body &b, Seen &seen)
+{
+    const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
+    const auto within = [&at](unsigned word, int low, int high) { return at(word) >= low && at(word) <= high; };
+    if (!within(kBltQueued, 0, 4)) return "the blitter queue is deeper than its pipeline";
+    if (!within(kBltCountDone, 0, 15)) return "the count of cycles after the end of a blit is beyond what the shifter can hold";
+    if (seen.bltx_state == 2 && (at(kBltCountDone) != 0 || at(kBltQueued) == 0)) return "BLTX says a blit is running and BLTP says it is done or has nothing queued";
+    if (!within(kBltDelayedUpdate, 0, 1) || !within(kBltLinePixel2, 0, 1)) return "a flag of the blitter is not a flag";
+    if (!within(kBltDmaCount, 0, 4) || !within(kBltCycleCount, 2, 4)) return "the channel counts of the blit are beyond four channels or two skips";
+    if (uint32_t(at(kBltDmaCount)) != seen.bltx_dmacount || uint32_t(at(kBltCycleCount)) != seen.bltx_cyclecount) return "the channel counts are not the ones BLTX carries";
+    for (unsigned word : {kBltAHold2, kBltBHold2, kBltCHold2, kBltBHold, kBltDDatL})
+        if (!within(word, 0, 0xffff)) return "a held word of the blitter is wider than 16 bits";
+    return nullptr;
+}
+
 // The lengths of this build: tests/state/test_state_upstream.py checks them against a real save, and a save that writes another length fails.
 constexpr Sub kDiskBodies[] = {
     {"DSK0", 24, 24, produce_dsk, apply_dsk, check_dsk, 0, true}, {"DSK1", 24, 24, produce_dsk, apply_dsk, check_dsk, 1, true},
@@ -368,13 +429,14 @@ constexpr Sub kDiskBodies[] = {
 };
 constexpr Sub kChipsetBodies[] = {
     {"CHIP", 360, 360, produce_chip, apply_chip, check_chip, 0, true}, {"BLTX", 226, 226, produce_bltx, apply_bltx, check_bltx, 0, true},
-    {"BLIT", 63, 63, produce_blit, apply_blit, check_blit, 0, false}, {"CHSL", 191, 191, produce_chsl, apply_chsl, check_chsl, 0, true},
+    {"BLIT", 63, 63, produce_blit, apply_blit, check_blit, 0, false}, {"CHSL", 245, 245, produce_chsl, apply_chsl, check_chsl, 0, true},
     {"SPR0", 25, 25, produce_spr, apply_spr, check_spr, 0, true}, {"SPR1", 25, 25, produce_spr, apply_spr, check_spr, 1, true},
     {"SPR2", 25, 25, produce_spr, apply_spr, check_spr, 2, true}, {"SPR3", 25, 25, produce_spr, apply_spr, check_spr, 3, true},
     {"SPR4", 25, 25, produce_spr, apply_spr, check_spr, 4, true}, {"SPR5", 25, 25, produce_spr, apply_spr, check_spr, 5, true},
     {"SPR6", 25, 25, produce_spr, apply_spr, check_spr, 6, true}, {"SPR7", 25, 25, produce_spr, apply_spr, check_spr, 7, true},
     {"BEAM", kBeamBytes, kBeamBytes, produce_beam, apply_beam, check_beam, 0, true},
     {"COPR", kCopperBytes, kCopperBytes, produce_copr, apply_copr, check_copr, 0, true},
+    {"BLTP", kBlitterBytes, kBlitterBytes, produce_bltp, apply_bltp, check_bltp, 0, true},
 };
 constexpr Sub kAudioBodies[] = {
     {"AUD0", 25, 25, produce_aud, apply_aud, check_aud, 0, true}, {"AUD1", 25, 25, produce_aud, apply_aud, check_aud, 1, true},
@@ -491,7 +553,11 @@ template <size_t N> void visit_bodies(Archive &a, const Sub (&subs)[N], void (*f
     if (a.applying() && a.ok() && finish) finish();
 }
 
-void finish_chipset() { restore_blitter_finish(); }
+void finish_chipset()
+{
+    restore_blitter_finish();
+    p6_blitter_phase_set(g_blitter_phase, kBlitterWords);
+}
 void finish_audio() { restore_audio_finish(); }
 
 }  // namespace

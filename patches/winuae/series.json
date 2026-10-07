@@ -2610,6 +2610,52 @@
           "after_sha256": "da4c63bc4aceda1a0d96c4e72dedaa0092cc7ce8e279253ea7d41ceaa95c589a"
         }
       ]
+    },
+    {
+      "id": "0096-custom-rga-fourth-slot-state",
+      "file": "patches/winuae/0096-custom-rga-fourth-slot-state.patch",
+      "sha256": "021b909c3d5f8fd24791b1004ff9759ab5202ef333e8d86ad12db6743584230b",
+      "title": "The fourth slot of the RGA pipeline in CHSL",
+      "reason": "rga_pipe has RGA_SLOT_TOTAL + 1 entries (custom_reset clears all four) and the three live ones are first+1..first+3, but save_custom_slots and restore_custom_slots walk only RGA_SLOT_TOTAL: with rga_slot_first_offset 0 a blit D write in flight sits in the fourth slot, is not saved, and a load keeps the live machine's (a restarted image ended a blit with BLTDPT 0x51728 instead of 0x60000 and left ~10 KiB unwritten). Both loops cover the whole pipeline; CHSL grows from 191 to 245 bytes (DET02, T15f3).",
+      "category": "state corrections",
+      "order": 96,
+      "symbols": [
+        "save_custom_slots",
+        "restore_custom_slots"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "da4c63bc4aceda1a0d96c4e72dedaa0092cc7ce8e279253ea7d41ceaa95c589a",
+          "after_sha256": "0e4c4bae82a1a9d69a137cc64e60d04abf08b0da99ca34fd8fb12b756dc717e7"
+        }
+      ]
+    },
+    {
+      "id": "0097-blitter-phase-state-access",
+      "file": "patches/winuae/0097-blitter-phase-state-access.patch",
+      "sha256": "e9959a407897e811bb3260d723a2d449bc9adb183f9df749b1b133b7e147a002",
+      "title": "Blitter phase state access",
+      "reason": "STATE02/DET02: a blit in flight under DMA contention comes back with its phase: blit_queued, blit_count_done, blt_change_cycles, the data path latches, the pending BLTCON/modulo flag and blit_dmacount/blit_cyclecount, which restore_blitter_new drops or derives. p6_blitter_phase_get/set copy them as 18 32-bit words without running the blitter (T15f3).",
+      "category": "host hooks",
+      "order": 97,
+      "symbols": [
+        "p6_blitter_phase_get",
+        "p6_blitter_phase_set"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blitter.cpp",
+          "before_sha256": "feda6facc129e1715292ef8d4a00226417ea76c7ff5d2b615167e776429e04a4",
+          "after_sha256": "a92506251b1334ded6cee889cc52718c2e42d5a06518ab79361981d6b3171bc1"
+        }
+      ]
     }
   ]
 }

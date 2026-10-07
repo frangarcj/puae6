@@ -1,4 +1,4 @@
-"""T15i3, T15f1 and T15f2: DET02 end to end with every chunk of the state, and where it still diverges.
+"""T15i3, T15f1, T15f2 and T15f3: DET02 end to end with every chunk of the state, and where it still diverges.
 
 DET02 (docs/04-validation.md): a state saved at unit N, the machine run on, the state loaded, and the units after it run again must give the machine of the original run, subsystem by
 subsystem. The probe digests cpu, scheduler, ram, rtc, cia, chipset (by group: beam, counters, irq_dma, clxdat, lof, timing), audio, input, video and bridge, and hashes the PCM of
@@ -27,6 +27,8 @@ the card, item by item:
   beam position (VPOSR/VHPOSR)       fixed by T15f1 (BEAM, patch 0094): chipset.beam matches at unit 0 in every scenario, with the frame phase, the strobe that raises VERTB and the DMAL
   Copper waiting                      fixed by T15f2 (COPR, patch 0095): copper_irq (WAIT for line 4) in PAL and NTSC, in every mode, no longer diverges by the Copper; what is left of
                                       those rows is the audio phase
+  blitter in flight                   fixed by T15f3 (BLTP, patch 0097, and the fourth RGA slot of CHSL, patch 0096): busy, busy-blitter, blit+bitplanes, blit+sprites, blit+audio, blit+disk and busy-ntsc no
+                                      longer diverge in RAM, DMACON, INTREQ or the DMA slots, in an image restarted before the load or not; what is left of those rows is the audio phase
   rga_denise ring                     not shown: the boundary is in the blank, nothing of Denise is pending there
   bitplane DMA, spr[].dmastate        not shown: busy-bitplanes and busy-sprites match in an image restarted one unit before the load (idle at the boundary)
   dsklen2, linecounter                not shown: the DMA of busy-disk-dma stays armed (WORDSYNC): in 14 units it writes nothing to RAM and never raises DSKBLK, so what matters
@@ -118,17 +120,13 @@ CAUSES = {
     "audio-channels": ("T15e", "as audio-phase, and one unit after the load the audio digest (state, evtime, drhpos, pointers of AUDn) of a channel with DMA running is "
                                "not the original's: per-channel state that AUDn does not carry (dat2, pbufldl, ptx*, dmaofftime_*, irqcheck, the PERIOD_MAX-1 sentinel). T15f1 "
                                "removed most of it (the DMA list of the line in flight, dmal_shifter, was what the busy scenarios lacked): what is left is a disk change "
-                               "in the same unit"),
-    "blitter": ("T15f3", "a blit in flight does not end as in the original, or one that the live image has in flight is not cancelled by the load: blit_dmacount, "
-                         "blit_cyclecount, blt_change_cycles and the ev2_blitter bookkeeping are not saved (RAM, DMACON's busy bit and INTREQ move). It needs the slots a "
-                         "bitplane, sprite or audio DMA takes; alone, copper or disk DMA do not move it. A pcm in the same row is audio-phase"),
-    "blitter-audio": ("T15f3", "blitter (blit in flight under audio DMA) and audio-channels, in the same scenario"),
+                               "in the same unit; the audio digest that busy-ntsc (a blit under audio DMA) differed in was the blit's slots, and T15f3 removed it"),
     "palette": ("T15g", "the colour registers are put back (the register image and agnus_colors) but Denise's derived colour table is not rebuilt: in the first picture "
                         "after the load the border is black where the state's COLOR00 is red. Only a machine that has not already written the same colours shows it "
                         "(a new image, or one restarted before the load): with the beam and the frame phase restored it is the first thing a new image shows in "
                         "every program that sets a colour"),
-    "kickstart-mixed": ("T15f", "not isolated: several of the causes above are at work at once in the Kickstart (the blitter, the palette and the audio phase; the handshake "
-                                "at 107 differs in the beam and CLXDAT a unit after the load). The byte of Slow RAM that the steady state at 140 differed in was the Copper "
+    "kickstart-mixed": ("T15f", "not isolated: several of the causes above are at work at once in the Kickstart (the palette and the audio phase, and whatever else the handshake at 107 "
+                                "has: it differs in the beam and CLXDAT a unit after the load, and its first divergence did not move when T15f3 put the blitter back). The byte of Slow RAM that the steady state at 140 differed in was the Copper "
                                 "waiting (T15f2): with COPR that row is the audio phase or the palette, like the other programs; the first cause a card removes will show "
                                 "which are left"),
 }
@@ -156,9 +154,9 @@ DIVERGENCES = {
     "tone@3/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
     "tone@3/new-process": row("audio-phase", 1, "bridge pcm"),
     "tone@3/new-process-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy@2/same-image": row("blitter", 1, "ram chipset.irq_dma pcm"),
-    "busy@2/same-image-beam-set": row("blitter", 1, "ram chipset.irq_dma pcm"),
-    "busy@2/reset-image-beam-set": row("blitter", 1, "ram pcm"),
+    "busy@2/same-image": row("audio-phase", 1, "pcm"),
+    "busy@2/same-image-beam-set": row("audio-phase", 1, "pcm"),
+    "busy@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
     "busy@2/new-process": row("palette", 1, "video bridge pcm"),
     "busy@2/new-process-beam-set": row("palette", 1, "video bridge pcm"),
     "busy@5/same-image": row("audio-phase", 1, "bridge pcm"),
@@ -168,7 +166,7 @@ DIVERGENCES = {
     "busy@5/new-process-beam-set": row("palette", 1, "video bridge pcm"),
     "busy-disk@8/same-image": row("audio-phase", 1, "bridge pcm"),
     "busy-disk@8/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-disk@8/reset-image-beam-set": row("blitter", 1, "ram bridge pcm"),
+    "busy-disk@8/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
     "busy-disk@8/new-process": row("palette", 1, "video bridge pcm"),
     "busy-disk@8/new-process-beam-set": row("palette", 1, "video bridge pcm"),
     "copper_irq-wait@1/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
@@ -202,9 +200,8 @@ DIVERGENCES = {
     "lof@4/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
     "lof@4/new-process": row("palette", 1, "video bridge pcm"),
     "busy-blitter@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "busy-blitter@2/reset-image-beam-set": row("blitter", 1, "ram"),
+    "busy-blitter@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
     "busy-blitter@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-blitter@5/reset-image-beam-set": row("blitter", 1, "ram"),
     "busy-bitplanes@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
     "busy-sprites@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
     "busy-copper@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
@@ -212,17 +209,17 @@ DIVERGENCES = {
     "busy-audio@5/reset-image-beam-set": row("audio-phase", 1, "pcm"),
     "busy-disk-dma@8/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
     "busy-disk-dma@8/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "blit+bitplanes@2/same-image-beam-set": row("blitter", 1, "ram chipset.irq_dma"),
+    "blit+bitplanes@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
     "blit+bitplanes@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+sprites@2/same-image-beam-set": row("blitter", 1, "chipset.irq_dma"),
+    "blit+sprites@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
     "blit+sprites@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
     "blit+copper@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
     "blit+copper@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+audio@2/same-image-beam-set": row("blitter", 1, "ram chipset.irq_dma pcm"),
+    "blit+audio@2/same-image-beam-set": row("audio-phase", 1, "pcm"),
     "blit+audio@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
     "blit+disk@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+disk@2/reset-image-beam-set": row("blitter", 1, "ram"),
-    "busy-ntsc@2/same-image": row("blitter-audio", 1, "ram audio chipset.irq_dma pcm"),
+    "blit+disk@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
+    "busy-ntsc@2/same-image": row("audio-phase", 1, "pcm"),
     "busy-ntsc@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
     "busy-ntsc@2/new-process": row("palette", 1, "video bridge pcm"),
     "copper_irq-ntsc@2/same-image": row("audio-phase", 5, "bridge pcm"),

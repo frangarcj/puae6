@@ -1,10 +1,10 @@
-"""T15i1, T15i2, T15f1 and T15f2: the bodies of WinUAE's own save_* and restore_* functions, the beam and the Copper, inside P6DK, P6AU, P6CH and P6VD.
+"""T15i1, T15i2, T15f1, T15f2 and T15f3: the bodies of WinUAE's own save_* and restore_* functions, the beam, the Copper and the blitter's phase, inside P6DK, P6AU, P6CH and P6VD.
 
-The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined; patches 0094 and 0095 add the accessors of BEAM and COPR) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
+The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined; patches 0094, 0095 and 0097 add the accessors of BEAM, COPR and BLTP) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
 characters, a u32 length (little endian, like the container) and the bytes the engine wrote (big endian, upstream's own encoding).
 
 T15i1, what is saved:
-  - the sub-bodies of each chunk, in order, with the lengths of a real save of this build, pinned in a table: CHIP 360, BLTX 226, BLIT 63, CHSL 191, SPRn 25, AUDn 25, BPLX 292,
+  - the sub-bodies of each chunk, in order, with the lengths of a real save of this build, pinned in a table: CHIP 360, BLTX 226, BLIT 63, CHSL 245, SPRn 25, AUDn 25, BPLX 292,
     DISK 17 and DSKn 24 are fixed; DSDn is absent (length 0) or the engine's track buffer, whose length follows from its own header;
   - the disk body carries no path: 24 bytes, the CRC of the mounted image (the one drive_insert measured) and a flag that is always written, as zero;
   - a save does not change the machine or its future: every probe digest of every unit is the same with saves in the middle as without, and the state taken at the end,
@@ -19,6 +19,13 @@ T15f2, the other body that is not WinUAE's: COPR (60 bytes, after BEAM; patch 00
 instruction words and puts the state back as stopped, or as the last cycle of a MOVE): the state and state_prev, the strobe in flight, the compare values of a WAIT or SKIP, the
 latched COP1LC, the flag that lets the Copper run this line and the two cycle stamps, as 15 words of 32 bits. It is applied as values: the Copper does not run on load. The
 refusals include the one that makes CHSL and COPR one machine (a Copper in the last cycles of a MOVE has to be so in both).
+
+T15f3, the third: BLTP (72 bytes, after COPR; patch 0097) holds the phase of the blitter that BLTX does not carry (restore_blitter_new sets blit_queued to a constant, derives
+blt_change_cycles from the cycle of the load and drops blit_dmacount and blit_cyclecount): blit_queued, blit_count_done, blt_change_cycles, the pending BLTCON/modulo flag, the held
+A, B and C words, the line's D latch, the pointers a copper write of the same cycle restores and the two channel counts, as 18 words of 32 bits. It is applied as values after
+restore_blitter_finish. A blit that the live image has in flight is replaced by the state's: a state with no blit leaves none running, and BLTP says the same as BLTX.
+The fourth RGA slot goes with it (CHSL, 245 bytes, patch 0096): rga_pipe has RGA_SLOT_TOTAL + 1 slots and upstream saves three, which three are live depends on the first offset, and the
+slot left out holds a blit D write in flight: a loaded machine kept the one of the live image (its pointer) and wrote the rest of the blit somewhere else.
 
 T15i2, what is loaded:
   - a load applies the bodies on the live machine (no custom_reset, no memory_clear, no *_start): the state taken again afterwards re-emits every upstream chunk byte for byte,
@@ -37,10 +44,10 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 191, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
-    b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR"],
+    b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
     b"P6VD": ["BPLX"],
     b"P6AU": [f"AUD{i}" for i in range(4)],
     b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK"],
@@ -59,6 +66,10 @@ BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_
 # The words of COPR, in the order of p6_custom_copper_get (custom.cpp, patch 0095) and of the enum of bridge/state_upstream.cpp.
 COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ignore_next", "vcmp", "hcmp", "strobe", "strobetype", "enabled_thisline",
               "strobe_cycles_low", "strobe_cycles_high", "dma_change_cycle_low", "dma_change_cycle_high"]
+# The words of BLTP, in the order of p6_blitter_phase_get (blitter.cpp, patch 0097) and of the enum of bridge/state_upstream.cpp.
+BLTP_WORDS = ["queued", "count_done", "change_cycles_low", "change_cycles_high", "delayed_update", "dmacount", "cyclecount", "ahold2", "bhold2", "chold2", "bhold",
+              "ddatl", "dptl", "linepixel2", "apt_prev", "bpt_prev", "cpt_prev", "dpt_prev"]
+BLT_RUNNING = 2                 # BLTX byte 1: idle, pending, running
 COP_WAIT1 = 8                   # COP_wait1 of custom.cpp: the Copper waits for the beam to reach the position of its WAIT
 
 # Bitplane, sprite, audio, copper, blitter and disk DMA on; the motor on and a step pulse every frame, so that the medium (mounted by an event) is stepped and its track is
@@ -370,6 +381,45 @@ class UpstreamBodiesTests(ProbeCase):
         self.assertEqual([(0, 0, "")], run.loads)
         self.assertEqual(waiting, self.copper_of(again.read_bytes()), "a fresh image has the Copper of the state, not a stopped one")
 
+    def blitter_of(self, blob):
+        """({BLTP word name: signed value}, BLTX state byte) of a state."""
+        subs = upstream_bodies(blob)[b"P6CH"]
+        self.assertEqual(4 * len(BLTP_WORDS), len(subs["BLTP"]))
+        return dict(zip(BLTP_WORDS, struct.unpack(">%di" % len(BLTP_WORDS), subs["BLTP"]))), subs["BLTX"][1]
+
+    def test_a_blit_in_flight_comes_back_in_flight_with_its_phase(self):
+        # restore_blitter_new restores a running blit with blit_queued = 4, and the engine keeps 3 while a cycle goes through the pipeline: a machine that had only BLTX would
+        # be one cycle ahead in the queue. count_done, the held A word (all ones: the blit's source) and the pointers of a copper write of the same cycle are not in BLTX either.
+        flight, again = self.dir / "flight.first", self.dir / "flight.again"
+        self.probe("busy", "--units", "2", "--save-at", "2", str(flight))
+        phase, state = self.blitter_of(flight.read_bytes())
+        self.assertEqual(BLT_RUNNING, state, "BLTX: a blit in flight")
+        self.assertEqual((3, 0, 0xffff), (phase["queued"], phase["count_done"], phase["ahold2"]), "the blit is mid-pipeline: one cycle taken from the queue, not counted done, A held")
+        self.assertEqual((2, 2), (phase["dmacount"], phase["cyclecount"]), "A and D")
+        self.assertNotEqual(0, phase["change_cycles_low"], "the cycle of the last BLTCON write, a time stamp of the saved machine")
+        for skip in (0, 3):
+            with self.subTest(units_before_the_load=skip):
+                run = self.probe("busy", "--units", str(skip), "--load-at", str(skip), str(flight), "--save-at", str(skip), str(again))
+                self.assertEqual([(skip, 0, "")], run.loads)
+                self.assertEqual(phase, self.blitter_of(again.read_bytes())[0], "a blit in flight comes back with the phase it was saved with")
+                self.assertEqual(flight.read_bytes(), again.read_bytes())
+
+    def test_a_blit_the_live_image_has_in_flight_does_not_survive_a_state_without_one(self):
+        # The state of unit 4 has the blit done (the blit lasts two units); the image is at unit 2 with its blit in flight. The load does not finish that blit and does not leave it
+        # running (it does not drain the pipeline either): the state taken right after is the state loaded, BLTP included, which has the queue empty and the count that says the
+        # blit is done.
+        idle, live, again = self.dir / "idle.state", self.dir / "live.state", self.dir / "live.again"
+        self.probe("busy", "--units", "4", "--save-at", "4", str(idle))
+        run = self.probe("busy", "--units", "2", "--save-at", "2", str(live), "--load-at", "2", str(idle), "--save-at", "2", str(again))
+        self.assertEqual([(2, 0, "")], run.loads)
+        before, was = self.blitter_of(idle.read_bytes())
+        in_flight, running = self.blitter_of(live.read_bytes())
+        self.assertEqual((0, BLT_RUNNING), (was, running), "the saved machine has no blit and the live one has it running")
+        self.assertNotEqual((before["queued"], before["count_done"]), (in_flight["queued"], in_flight["count_done"]), "the two phases differ, or nothing is proven")
+        after, now = self.blitter_of(again.read_bytes())
+        self.assertEqual((0, before), (now, after), "the blit of the live image is gone and the phase is the one of the state")
+        self.assertEqual(idle.read_bytes(), again.read_bytes())
+
     def test_the_beam_of_a_new_image_in_ntsc_is_the_line_the_state_had(self):
         # NTSC lines alternate between 227 and 228 colour clocks (lol and linetoggle): the loaded machine takes the line length from them, and a state taken again says the same.
         first, again = self.dir / "ntsc.first", self.dir / "ntsc.again"
@@ -474,7 +524,8 @@ class UpstreamBodiesTests(ProbeCase):
         ("CHSL slot 0 with a register beyond 0x1FE", b"P6CH", "CHSL", 28 + 4, struct.pack(">H", 0x200), "a slot names a register beyond 0x1FE"),
         ("CHSL slot 1 with a pointer of no register", b"P6CH", "CHSL", 28 + 54 + 50, struct.pack(">H", 0x123), "a slot points at a register the engine has no pointer for"),
         ("CHSL slot 2 with a conflict pointer of no register", b"P6CH", "CHSL", 28 + 108 + 52, struct.pack(">H", 0x206), "a slot points at a register the engine has no pointer for"),
-        ("CHSL with a first offset of 4", b"P6CH", "CHSL", 190, b"\4", "the first slot offset is beyond 3"),
+        ("CHSL slot 3 with a pointer of no register", b"P6CH", "CHSL", 28 + 162 + 50, struct.pack(">H", 0x123), "a slot points at a register the engine has no pointer for"),
+        ("CHSL with a first offset of 4", b"P6CH", "CHSL", 244, b"\4", "the first slot offset is beyond 3"),
         ("SPR3 with flag bits it never writes", b"P6CH", "SPR3", 24, b"\x08", "unknown bits in the sprite flags"),
         ("AUD2 in state 6", b"P6AU", "AUD2", 0, b"\6", "the state of the channel is beyond 5"),
         ("AUD1 with an interrupt flag of 2", b"P6AU", "AUD1", 2, b"\2", "the interrupt flag is not a flag"),
@@ -511,6 +562,17 @@ class UpstreamBodiesTests(ProbeCase):
         ("COPR with a strobe of 4", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobe"), struct.pack(">i", 4), "the strobe of the Copper is out of range"),
         ("COPR with a strobe type of 3", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobetype"), struct.pack(">i", 3), "the strobe of the Copper is out of range"),
         ("COPR with a line flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("enabled_thisline"), struct.pack(">i", 2), "the flag that lets the Copper run this line is not a flag"),
+        ("BLTP with a queue of 5", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("queued"), struct.pack(">i", 5), "the blitter queue is deeper than its pipeline"),
+        ("BLTP with a negative queue", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("queued"), struct.pack(">i", -1), "the blitter queue is deeper than its pipeline"),
+        ("BLTP with a count of cycles after the end of 16", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("count_done"), struct.pack(">i", 16), "the count of cycles after the end of a blit"),
+        ("BLTP with a pending flag of 2", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("delayed_update"), struct.pack(">i", 2), "a flag of the blitter is not a flag"),
+        ("BLTP with a line pixel flag of 2", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("linepixel2"), struct.pack(">i", 2), "a flag of the blitter is not a flag"),
+        ("BLTP with five channels", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("dmacount"), struct.pack(">i", 5), "the channel counts of the blit are beyond"),
+        ("BLTP with a blit of one cycle per word", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("cyclecount"), struct.pack(">i", 1), "the channel counts of the blit are beyond"),
+        ("BLTP with the channel count of another blit than BLTX's", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("dmacount"), struct.pack(">i", 3), "the channel counts are not the ones BLTX carries"),
+        ("BLTP with a held word of 17 bits", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("ahold2"), struct.pack(">i", 0x10000), "a held word of the blitter is wider than 16 bits"),
+        ("BLTP with a negative held word", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("ddatl"), struct.pack(">i", -1), "a held word of the blitter is wider than 16 bits"),
+        ("BLTX running while BLTP says the blit is done", b"P6CH", "BLTX", 1, b"\2", "BLTX says a blit is running and BLTP says it is done or has nothing queued"),
     ]
 
     def test_every_value_that_ends_up_indexing_or_names_another_configuration_is_refused(self):

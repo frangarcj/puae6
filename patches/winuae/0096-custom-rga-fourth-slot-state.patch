@@ -1,0 +1,24 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -8749,8 +8749,9 @@
+ 		save_u16(0);//save_u16(cycle_line_slot[i]);
+ 	}
+ 
+-	// RGA pipeline
+-	for (int i = 0; i < RGA_SLOT_TOTAL; i++) {
++	// RGA pipeline: rga_pipe has RGA_SLOT_TOTAL + 1 slots (custom_reset clears them all) and which three are live depends on rga_slot_first_offset, so the
++	// fourth one has to travel too: a blit D write in flight sits in it and a load would leave the one of the live machine.
++	for (int i = 0; i < RGA_SLOT_TOTAL + 1; i++) {
+ 		struct rgabuf *r = &rga_pipe[i];
+ 		int regidx;
+ 		save_u32(r->type);
+@@ -8804,7 +8805,7 @@
+ 
+ 	// RGA pipeline
+ 	if (v & 8) {
+-		for (int i = 0; i < RGA_SLOT_TOTAL; i++) {
++		for (int i = 0; i < RGA_SLOT_TOTAL + 1; i++) {
+ 			struct rgabuf *r = &rga_pipe[i];
+ 			int regidx;
+ 			r->type = restore_u32();

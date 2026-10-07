@@ -2931,7 +2931,7 @@
         "upstream_compiled": false,
         "policy": "serialize_extended",
         "saved_fields": "save_custom_slots (custom.cpp:8658-8712, SAVESTATE block): per slot type, reg, pv, alloc, write, bpldat, sprdat, bltdat, auddat, refdat, dskdat, copdat, bplmod, bltmod, p and conflict encoded as a register index (getregfrompt), then rga_slot_first_offset (8708); in/out offsets are derived (8762-8763). The copper part (state read1/read2 flag, ip, ir[2]) is in the same chunk.",
-        "omitted": "struct rgabuf also has value and mwmask (never assigned: dead), conflictaddr (copper-vs-blitter pointer conflict, custom.cpp:9318) and bltadd (+2/-2 pointer step of a blitter slot, blitter.cpp:1897; restored as 0, so an in-flight blitter DMA word would not advance its pointer). The pointer map getregfrompt (custom.cpp:8559-8603) knows only BLTxPT, BPLxPT, SPRxPT and cop_state.ip; slots whose p is &refptr (strobe/refresh, custom.cpp:10444-10460), an audio channel pt (audio_getpt), the disk pointer (disk_getpt), &dummyrgaaddr (9319) or hhspr/hhbpl are saved as 0xffff and restored as NULL (8610-8611). handle_rga_out then dereferences r->p for refresh (custom.cpp:12181) and for audio/disk/UHRES (12373-12412): a restore with a refresh slot pending faults (static reading; needs a reproducer). The 4th entry rga_pipe[3] is covered (RGA_SLOT_TOTAL+1 = 4 entries, custom.cpp:115). last_rga_cycle (186) is an absolute stamp.",
+        "omitted": "struct rgabuf also has value and mwmask (never assigned: dead), conflictaddr (copper-vs-blitter pointer conflict, custom.cpp:9318) and bltadd (+2/-2 pointer step of a blitter slot, blitter.cpp:1897; restored as 0, so an in-flight blitter DMA word would not advance its pointer). The pointer map getregfrompt (custom.cpp:8559-8603) knows only BLTxPT, BPLxPT, SPRxPT and cop_state.ip; slots whose p is &refptr (strobe/refresh, custom.cpp:10444-10460), an audio channel pt (audio_getpt), the disk pointer (disk_getpt), &dummyrgaaddr (9319) or hhspr/hhbpl are saved as 0xffff and restored as NULL (8610-8611). handle_rga_out then dereferences r->p for refresh (custom.cpp:12181) and for audio/disk/UHRES (12373-12412): a restore with a refresh slot pending faults (static reading; needs a reproducer). The 4th entry rga_pipe[3] (RGA_SLOT_TOTAL+1 = 4 entries, custom.cpp:115) was NOT covered: save_custom_slots and restore_custom_slots loop to RGA_SLOT_TOTAL (3) and the three live slots are first+1..first+3, so with first_offset 0 the one in flight sat in the slot left out (a blit D write kept the pointer of the live machine); patch 0096 saves four, and CHSL is 245 bytes. last_rga_cycle (186) is an absolute stamp.",
         "pointers": "rgabuf::p and ::conflict are raw pointers to other globals (bplpt[], spr[].pt, blt_info.bltxpt, cop_state.ip, refptr, hhspr, hhbpl, audio_channel[].pt, the disk pointer, dummyrgaaddr). Serialize as (object, index), never as an address, and cover every object that can appear, not only the four upstream knows. The ring itself is addressed through rga_slot_first/in/out_offset (custom.cpp:185).",
         "rebuild": "rga_slot_in_offset = (first+1)&3 and rga_slot_out_offset = (first+2)&3; p/conflict re-resolved from the object table after every owner object is restored.",
         "evidence": [
@@ -2966,12 +2966,12 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15f3",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
-          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+          "proves": "tests/state/test_state_upstream.py: CHSL is the four slots of the pipeline (245 bytes, patch 0096) and the fourth is validated like the others; tests/state/test_det02.py: busy, busy-blitter, blit+disk and busy-disk in an image restarted before the load no longer differ in RAM (the blit wrote its last words at the pointer of the live machine)",
+          "notes": "Upstream saved rga_pipe[0..2] only; custom_reset clears all four. The slot pointers p and conflict are saved as register numbers (getregfrompt) and only the four BLTxPT, six BPLxPT, SPRxPT and cop_state.ip plus patch 0092's audio/disk/refresh ones are mapped: see check_chsl. CHSL itself (WinUAE's body) is proven by the same file since T15i2."
         }
       },
       {
@@ -3702,12 +3702,12 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15f3",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
-          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+          "proves": "tests/state/test_state_upstream.py: BLTP (patch 0097, the last sub-body of P6CH, 72 bytes) is saved without changing the machine, validated by structure (queue depth, counts, flags, 16-bit holds) and against BLTX (running implies not done and queued; the channel counts are BLTX's) before anything is applied, and applied after restore_blitter_finish as values; a blit in flight comes back in flight with its phase and a blit the live image has in flight does not survive a state without one; tests/state/test_det02.py: the busy-blitter, blit+bitplanes, blit+sprites, blit+audio, blit+disk and busy-ntsc rows no longer diverge by the blitter",
+          "notes": "BLTP carries blit_queued, blit_count_done, blt_change_cycles, blitter_delayed_update, blit_dmacount, blit_cyclecount, bltahold2, bltbhold2, bltchold2, bltbhold, bltddatl, bltdptl, blitlinepixel2 and bltapt_prev..bltdpt_prev as 18 32-bit words. Not saved: bltahold (unused), blitline_started (warnings only), blitline_c/blitfill_c (debugger records), blit_totalcyclecounter (statistics), blitfill_old (written, never read) and blitdesc, blit_dof, blit_modadd*, blit_add (rebuilt by restore_blitter_finish through maybe_load_mods from bltcon1_next and the modulo registers). BLIT itself (WinUAE's body) is proven by the same file since T15i2."
         }
       },
       {
@@ -3757,12 +3757,12 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15f3",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
-          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+          "proves": "as blitter-registers-and-shifter: BLTP carries what BLTX omits (blit_queued, whose true value is 3 in a pipeline that has taken a cycle and not the constant 4 restore_blitter_new sets, blit_count_done, the held words)",
+          "notes": "BLTX is WinUAE's body; its reader drops blit_dmacount and blit_cyclecount, which BLTP puts back. BLTX itself (WinUAE's body) is proven by the same file since T15i2."
         }
       },
       {

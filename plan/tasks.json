@@ -9338,7 +9338,7 @@
       "title": "Blitter a medias bajo contencion de DMA",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15f1"
       ],
