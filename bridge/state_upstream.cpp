@@ -3,7 +3,7 @@
 // length and the bytes the engine wrote, with no ASF container and no zfile. The engine is compiled with P6_STATE_BODIES (patches 0086-0091), SAVESTATE
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
-//   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17)
+//   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (160), the last ours and not upstream's
 //   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (244), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each) and AUDP (340), ours and not upstream's
 //   P6VD  BPLX (292), DNSP (64) and GEOM (76), the last two ours and not upstream's
@@ -46,6 +46,15 @@
 // it and a new image adopted the saved one units after the load, with a blank picture in the unit it switched. 19 words: the adopted counts, the candidate and its countdown, and the
 // geometry of the drawing buffer. Applied as values after BPLX and DNSP; the presentation publishes the allocation as compute_framesync does.
 //
+// DSKX (the seventh) (patch 0101, p6_disk_phase_get, p6_disk_phase_set and p6_disk_newname_set): what the floppy controller keeps that DISK, DSKn and DSDn do not. DISK carries only
+// the low byte of disk_hpos, so a machine that a CPU access to DSKBYTR had brought up to the middle of a line was brought up from the start of it after a load and read
+// another word of the track; dsklen2 (the previous DSKLEN, which decides whether one write or two start a transfer) is in no body; restore_disk zeroes dskchange_time, so a
+// delayed insert that was counting down never landed; the motor-off latch, the step limiter, the index decay and the wordsync edge flag are not carried either, and the geometry and bit counter of
+// the track under the head are in DSDn only while a track is buffered (a drive that spins empty after an eject advances its head from the ones it kept). 40 words: disk_hpos, dsklen2,
+// dsksync_on and indexdecay, then for each drive dskchange_time, motordelay, steplimit, the age of the last step, floppybitcounter, tracklen, trackspeed, skipoffset and indexoffset. Applied as values after DISK; nothing
+// is inserted, ejected or scheduled. The image a countdown is waiting for is not a word: the bridge knows it from the medium the state says the drive holds (P6BR), and
+// rebuild_disk, which runs after every chunk is applied, names it in the preferences and in the drive, which is also what makes a later mount of that medium count as a change.
+//
 // The border colour of Denise (bordercolor, bordercolor_ecs_shres) is derived the same way and is rebuilt by p6_denise_rebuild_derived (patch 0100) after CHIP: restore_custom
 // puts the colour registers into both copies of the table, but runs its queue of BPLCON writes (which compute the border colour) before it rebuilds acolors.
 //
@@ -84,6 +93,8 @@
 #include "inputdevice.h"
 #include "savestate.h"
 #include "video_present.h"
+#include "media.h"
+#include "session.h"
 
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);       // events.cpp 0078
 extern void p6_events_set(int idx, int next, int remain);
@@ -101,6 +112,11 @@ extern bool p6_frame_geometry_get(int32_t *out, unsigned n);    // custom.cpp 01
 extern bool p6_frame_geometry_set(const int32_t *in, unsigned n);
 extern bool p6_audio_phase_get(int32_t *out, unsigned n);       // audio.cpp 0099
 extern bool p6_audio_phase_set(const int32_t *in, unsigned n);
+extern uae_u32 p6_rng_get(void);                                // main.cpp 0076
+extern void p6_rng_set(uae_u32 state);
+extern bool p6_disk_phase_get(int32_t *out, unsigned n);        // disk.cpp 0101
+extern bool p6_disk_phase_set(const int32_t *in, unsigned n);
+extern bool p6_disk_newname_set(int num, const TCHAR *name);
 
 namespace p6_state {
 
@@ -132,6 +148,9 @@ struct Seen {
     uint32_t chsl_flags;
     uint8_t bltx_state, bltx_dmacount, bltx_cyclecount;     // BLTX: idle, pending or running, and the channel counts of the blit
     uint16_t aud_period[4];                                 // AUDn: the period in colour clocks, 0 for PERIOD_MAX
+    uint32_t drive_crc[4];                                  // DSKn: the CRC of the image in the drive, 0 for none
+    struct { bool present; uint32_t bit_counter, track_length, speed, skip_offset, index_offset; } track[4];     // DSDn: the buffered track of a drive, if any
+    uint8_t disk_hpos;                                      // DISK: the fraction of a colour clock disk_hpos had
 };
 
 struct Sub {
@@ -160,6 +179,7 @@ uint8_t *produce_bltp(int, size_t *len, uint8_t *w);
 uint8_t *produce_audp(int, size_t *len, uint8_t *w);
 uint8_t *produce_dnsp(int, size_t *len, uint8_t *w);
 uint8_t *produce_geom(int, size_t *len, uint8_t *w);
+uint8_t *produce_dskx(int, size_t *len, uint8_t *w);
 uint8_t *produce_bplx(int, size_t *len, uint8_t *w) { return save_custom_bpl(len, w); }
 
 uint8_t *apply_dsk(int n, uint8_t *b) { return restore_disk(n, b); }
@@ -177,6 +197,7 @@ uint8_t *apply_bltp(int, uint8_t *b);
 uint8_t *apply_audp(int, uint8_t *b);
 uint8_t *apply_dnsp(int, uint8_t *b);
 uint8_t *apply_geom(int, uint8_t *b);
+uint8_t *apply_dskx(int, uint8_t *b);
 uint8_t *apply_bplx(int, uint8_t *b) { return restore_custom_bpl(b); }
 
 // -- BEAM: the position of the beam and the phase of the frame (patch 0094) ---------------------------------------------------------------------------
@@ -349,6 +370,37 @@ uint8_t *apply_geom(int, uint8_t *body)
     return p6_frame_geometry_set(words, kGeometryWords) ? body + kGeometryBytes : nullptr;
 }
 
+// -- DSKX: the floppy controller that DISK, DSKn and DSDn do not carry (patch 0101) ------------------------------------------------------------------------
+
+// The words of the body, in the order of p6_disk_phase_get: the global ones, then kDiskDriveWords per drive.
+enum DiskWord : unsigned { kDkHpos, kDkLen2, kDkSyncOn, kDkIndexDecay, kDkDrives, kDkDriveWords = 9 };
+enum DiskDriveWord : unsigned { kDkChangeTime, kDkMotorDelay, kDkStepLimit, kDkStepAge, kDkBitCounter, kDkTrackLen, kDkTrackSpeed, kDkSkipOffset, kDkIndexOffset };
+constexpr unsigned kDiskWords = kDkDrives + 4 * kDkDriveWords;
+constexpr uint32_t kDiskPhaseBytes = kDiskWords * 4;
+// The longest delay disk_insert_2 and DISK_check_change arm (2 * 50 * 312 lines), and one more line for each drive that setdskchangetime staggers it behind; the longest line
+// the beam draws is 256 colour clocks of 256 units; the step limiter counts four lines.
+constexpr int32_t kDiskChangeMax = 2 * 50 * 312 + 4, kDiskLineUnits = 256 << 8, kDiskStepLimitMax = 4;
+bool g_disk_pending[4];     // set by apply_dskx, read by rebuild_disk once P6BR has said which medium each drive holds
+
+uint8_t *produce_dskx(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kDiskWords];
+    if (!p6_disk_phase_get(words, kDiskWords)) return nullptr;
+    for (unsigned i = 0; i < kDiskWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kDiskPhaseBytes;
+    return w;
+}
+
+uint8_t *apply_dskx(int, uint8_t *body)
+{
+    int32_t words[kDiskWords];
+    for (unsigned i = 0; i < kDiskWords; ++i) words[i] = int32_t(Body{body, kDiskPhaseBytes}.u32(i * 4));
+    if (!p6_disk_phase_set(words, kDiskWords)) return nullptr;
+    for (unsigned n = 0; n < 4; ++n) g_disk_pending[n] = words[kDkDrives + n * kDkDriveWords + kDkChangeTime] > 0;
+    return body + kDiskPhaseBytes;
+}
+
 // -- what each body must be before it is applied ----------------------------------------------------------------------------------------------------
 
 // DSKn: id u32, state u8 (1 motor, 2 disabled, 4 id bit, 8 disk change, 16 side, 32 write protect), cylinder u8, ready u8, id counter u8, head position u32,
@@ -368,6 +420,7 @@ const char *check_dsk(const Sub &sub, const Body &b, Seen &seen)
     if (b.u32(20) != 0) return "the path flag is set: this state carries no path";
     seen.drive_state[n] = uint8_t(b.u8(4));
     seen.head_position[n] = b.u32(8);
+    seen.drive_crc[n] = b.u32(12);
     return nullptr;
 }
 
@@ -383,17 +436,49 @@ const char *check_dsd(const Sub &sub, const Body &b, Seen &seen)
     if (!length || length > kMfmBitsMax) return "the track length is outside the buffer";
     if (b.n != kDsdFixed + (length + 15) / 16 * (mode == 3 ? 4 : 2)) return "the length does not follow from the track length in its header";
     if (seen.head_position[n] >= length) return "the head position of the drive is beyond the end of the track";
+    seen.track[n] = {true, b.u16(4), length, b.u16(10), b.u32(12), b.u32(16)};
     return nullptr;
 }
 
 // DISK: word u16, bit offset u8, sync found u8, hpos u8, DMA state u8, 3 x (word u16, in use u8), length u16.
-const char *check_disk(const Sub &, const Body &b, Seen &)
+const char *check_disk(const Sub &, const Body &b, Seen &seen)
 {
+    seen.disk_hpos = uint8_t(b.u8(4));
     if (b.u8(2) > 15) return "the bit offset is beyond 15";
     if (b.u8(3) > 1) return "the sync flag is not a flag";
     if (b.u8(5) != 0 && b.u8(5) != 2 && b.u8(5) != 3) return "the DMA state is not off, read or write";
     if (b.u8(8) > 2 || b.u8(11) > 2 || b.u8(14) > 2) return "a FIFO slot is in use in a way the controller never leaves it";
     if (b.u16(15) > 0x3fff) return "the DMA length is beyond 16383 words";
+    return nullptr;
+}
+
+// DSKX: the words are counters and flags of the controller. The position within the line has the fraction DISK carries as its low byte and is less than a line; DSKLEN2 is a
+// 16-bit register; the countdown of a delayed insert runs only in a drive that exists and holds no medium (disk_insert_2 ejects first), and the step limiter has an age
+// only while it counts.
+const char *check_dskx(const Sub &, const Body &b, Seen &seen)
+{
+    const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
+    if (at(kDkHpos) < 0 || at(kDkHpos) >= kDiskLineUnits) return "the position of the floppy controller in its line is not inside a line";
+    if (uint8_t(at(kDkHpos)) != seen.disk_hpos) return "the position of the floppy controller in its line is not the fraction DISK carries";
+    if (at(kDkLen2) < 0 || at(kDkLen2) > 0xffff) return "the previous DSKLEN is wider than the register";
+    if (at(kDkSyncOn) < 0 || at(kDkSyncOn) > 1) return "the wordsync flag is not a flag";
+    if (at(kDkIndexDecay) < 0 || at(kDkIndexDecay) > 2) return "the index pulse decay is beyond 2 lines";
+    for (unsigned n = 0; n < 4; ++n) {
+        const auto dk = [&at, n](unsigned word) { return at(kDkDrives + n * kDkDriveWords + word); };
+        if (dk(kDkChangeTime) < 0 || dk(kDkChangeTime) > kDiskChangeMax) return "the delay of a disk change is beyond the longest one the engine arms";
+        if (dk(kDkChangeTime) && ((seen.drive_state[n] & 2) || seen.drive_crc[n])) return "a disk change is counting down in a drive that is absent or holds a disk";
+        if (dk(kDkMotorDelay) < 0 || dk(kDkMotorDelay) > 1) return "the motor delay of a drive is not a flag";
+        if (dk(kDkStepLimit) < 0 || dk(kDkStepLimit) > kDiskStepLimitMax) return "the step limiter of a drive is beyond four lines";
+        if (dk(kDkStepAge) < 0 || (!dk(kDkStepLimit) && dk(kDkStepAge))) return "a drive has the age of a step it is not limiting";
+        if (dk(kDkBitCounter) < 0 || dk(kDkBitCounter) > 0xffff || dk(kDkTrackSpeed) < 0 || dk(kDkTrackSpeed) > 0xffff) return "the bit counter or the speed of a track is wider than DSDn writes it";
+        if (dk(kDkTrackLen) < 0 || uint32_t(dk(kDkTrackLen)) > kMfmBitsMax) return "the track length is outside the buffer";
+        if (dk(kDkSkipOffset) < -1 || dk(kDkSkipOffset) > int32_t(kMfmBitsMax) || dk(kDkIndexOffset) < 0 || dk(kDkIndexOffset) > int32_t(kMfmBitsMax))      // -1: no skip position
+            return "an offset in the track is outside the buffer";
+        const auto &track = seen.track[n];      // a drive that has a track buffered has these from DSDn: the two bodies describe one track
+        if (track.present && (uint32_t(dk(kDkBitCounter)) != track.bit_counter || uint32_t(dk(kDkTrackLen)) != track.track_length || uint32_t(dk(kDkTrackSpeed)) != track.speed ||
+                              uint32_t(dk(kDkSkipOffset)) != track.skip_offset || uint32_t(dk(kDkIndexOffset)) != track.index_offset))
+            return "the track of a drive is not the one its buffer describes";
+    }
     return nullptr;
 }
 
@@ -606,6 +691,7 @@ constexpr Sub kDiskBodies[] = {
     {"DSD0", 0, kDsdMax, produce_dsd, apply_dsd, check_dsd, 0, true}, {"DSD1", 0, kDsdMax, produce_dsd, apply_dsd, check_dsd, 1, true},
     {"DSD2", 0, kDsdMax, produce_dsd, apply_dsd, check_dsd, 2, true}, {"DSD3", 0, kDsdMax, produce_dsd, apply_dsd, check_dsd, 3, true},
     {"DISK", 17, 17, produce_disk, apply_disk, check_disk, 0, true},
+    {"DSKX", kDiskPhaseBytes, kDiskPhaseBytes, produce_dskx, apply_dskx, check_dskx, 0, true},
 };
 constexpr Sub kChipsetBodies[] = {
     {"CHIP", 360, 360, produce_chip, apply_chip, check_chip, 0, true}, {"BLTX", 226, 226, produce_bltx, apply_bltx, check_bltx, 0, true},
@@ -645,10 +731,12 @@ struct PureSave {
 
 // The machine while the engine's restore_* write into it: savestate_state says "restoring" (a register setter then acts at once instead of being
 // pipelined, the audio and the disk keep their hands off what is being put back), and the scheduler, which P6SC has just applied and owns, is put back when
-// the body is done, whatever a restore_* or a *_finish scheduled.
+// the body is done, whatever a restore_* or a *_finish scheduled. The generator is P6CP's, applied before any of these bodies, and is put back the same way: restore_custom's
+// write of DSKSYNC predicts the next disk event, and the prediction draws one random bit per bit of the line for a drive that reads an unformatted track.
 struct ApplyScope {
     bool on;
     int state = 0, idx = 0, next = 1, count = 0, restart = 0, remain = 0;
+    uae_u32 rng = 0;
     evt_t nextevent_before = 0;
     ev main[ev_max];
     ev2 secondary[ev2_max];
@@ -661,6 +749,7 @@ struct ApplyScope {
         memcpy(secondary, eventtab2, sizeof secondary);
         p6_events_get(&idx, &next, &count, &restart, &remain);
         nextevent_before = nextevent;
+        rng = p6_rng_get();
     }
     ~ApplyScope()
     {
@@ -669,6 +758,7 @@ struct ApplyScope {
         memcpy(eventtab2, secondary, sizeof secondary);
         p6_events_set(idx, next, remain);
         nextevent = nextevent_before;
+        p6_rng_set(rng);
         savestate_state = state;
     }
     ApplyScope(const ApplyScope &) = delete;
@@ -754,6 +844,21 @@ void finish_audio()
 }  // namespace
 
 void visit_disk(Archive &a) { visit_bodies(a, kDiskBodies, nullptr); }
+
+// The preferences and the drive name the medium the state says each drive holds, or is waiting for: the engine's own names (what disk_insert_2 and disk_eject set) are the
+// live machine's history, and a mount of the medium the live machine was waiting for would otherwise be taken for the one already in the drive. Values only.
+void rebuild_disk()
+{
+    const p6_session::Session &s = p6_session::session;
+    for (uint32_t n = 0; n < 2; ++n) {
+        char id[p6_bridge::kMediaBlobIdBytes] = "";
+        if (s.drive_media[n] >= 0) p6_bridge::media_blob_id(s.media_content_id[s.drive_media[n]], id);
+        _tcscpy(changed_prefs.floppyslots[n].df, id);
+        _tcscpy(currprefs.floppyslots[n].df, id);
+        changed_prefs.floppyslots[n].forcedwriteprotect = currprefs.floppyslots[n].forcedwriteprotect = true;
+        if (g_disk_pending[n]) p6_disk_newname_set(int(n), id);
+    }
+}
 void visit_chipset(Archive &a) { visit_bodies(a, kChipsetBodies, finish_chipset); }
 void visit_audio(Archive &a) { visit_bodies(a, kAudioBodies, finish_audio); }
 void visit_video(Archive &a) { visit_bodies(a, kVideoBodies, nullptr); }

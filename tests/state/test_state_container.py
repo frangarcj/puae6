@@ -23,7 +23,7 @@ INPUT_BODY = 170        # P6IN (T15c3) with an empty keyboard ring: 145 + 25 byt
 CHIPSET_BODY = 1590     # P6CH (T15i1, T15f1-T15f3): CHIP 360, BLTX 226, BLIT 63, CHSL 245, eight sprites of 25, BEAM 244, COPR 60 and BLTP 72, each with 8 bytes of tag and length
 VIDEO_BODY = 456        # P6VD: BPLX 292, DNSP (64) and GEOM (76), each with its tag and length
 AUDIO_BODY = 480        # P6AU: four channels of 25 and AUDP (340), each with its tag and length
-DISK_BODY = 185         # P6DK with no medium: four DSKn of 24, four absent DSDn, DISK 17
+DISK_BODY = 353         # P6DK with no medium: four DSKn of 24, four absent DSDn, DISK 17 and DSKX 160, each with its tag and length
 
 
 class StateContainerTests(ProbeCase):

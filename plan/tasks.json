@@ -9172,7 +9172,7 @@
       "title": "Continuacion del disco sobre los cuerpos upstream DISK/DSKn",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15i"
       ],

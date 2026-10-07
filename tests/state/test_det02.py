@@ -37,8 +37,15 @@ the card, item by item:
                                       then the palette and the audio phase like every other program, and now match
   rga_denise ring                     not shown: the boundary is in the blank, nothing of Denise is pending there
   bitplane DMA, spr[].dmastate        not shown: busy-bitplanes and busy-sprites match in an image restarted one unit before the load (idle at the boundary)
-  dsklen2, linecounter                not shown: the DMA of busy-disk-dma stays armed (WORDSYNC): in 14 units it writes nothing to RAM and never raises DSKBLK, so what matters
-                                      when a transfer ends is not exercised; T15d needs a micro-ROM whose transfer completes, with a boundary in the middle of it
+  floppy controller                   fixed by T15d (DSKX, patch 0101): disk-dma (a read of $1900 words that completes, with boundaries in the middle of it, in the unit of its last word and right after the DSKBLK
+                                      interrupt that starts the next) showed the previous DSKLEN (dsklen2: a program that writes DSKLEN once after a completed transfer started none in a new image,
+                                      disk-dma-single), the position inside the line that DISK keeps only the fraction of (a CPU that reads DSKBYTR as fast as it goes brings the drive up mid-line,
+                                      disk-dma-bytr), the step limiter (disk-steps: a loop of step pulses), the bit counter and geometry of a drive that spins empty, and the countdown of a delayed
+                                      disk change, which restore_disk zeroed so that the medium never landed (disk-change-lands: the units after the load run until it has, 110 of them). The generator
+                                      is the engine's: restore_custom writes DSKSYNC and the prediction draws from it on a track the image does not format, so ApplyScope puts it back after the bodies.
+                                      linecounter (the turbo path), dsklength2 and the rest of what DSKX leaves out are dead in the profile, see patch 0101. A state taken in the window of a delayed
+                                      change loads only into a machine whose drive is in the state's condition (any other drive contents are INCOMPATIBLE, test_state_upstream), so the change
+                                      scenarios have no new-process mode: a media event before the saved unit cannot be replayed in one
   delayed disk change                 not shown any more: the cpu digest that differed at unit 10 was the DMAL in flight, which T15f1 saves, and the audio
                                       rows that followed were T15e's: disk-change matches now
   audio filter and resampler          fixed by T15e (AUDP, patch 0099): the resampler phase, the cycles not yet integrated, the output and LED filters, the interpolation
@@ -75,6 +82,8 @@ from tests.scenarios.audio.audio import Tone, rom_source as tone_source
 # and a restored machine, which never saw the writes, cannot have it; nothing that runs reads it.
 CHIP_GROUPS = ("beam", "counters", "irq_dma", "clxdat", "lof", "timing")
 UNITS_AFTER = 6         # M: units that run after the load
+LONG_AFTER = 110        # the units after the load of the scenarios whose extra arguments are named in HORIZONS: a delayed disk change lands 2 * 50 * 312 lines (100 frames) after the swap
+HORIZONS = {"change-long": LONG_AFTER}
 REWIND = 3              # k: units the same image has run past N when it loads the state
 
 # Ways the machine that loads the state differs from the one that saved it (the modes of a scenario):
@@ -119,6 +128,16 @@ SCENARIOS = {
     "busy-copper": ("busy-cop", [], (5,), CHANNELS),
     "busy-audio": ("busy-aud", [], (5,), CHANNELS),
     "busy-disk-dma": ("busy-dsk", "disk", (8,), CHANNELS),
+    # A read that completes: $1900 words from unit 2 to the DSKBLK interrupt in unit 12, then one of $800 words every three units, so that a boundary falls in the middle of a
+    # transfer, in the unit of its last word and right after the interrupt that starts the next one.
+    "disk-dma": ("disk-dma", "disk", (3, 7, 11, 12, 13, 16), CORE),
+    "disk-dma-single": ("disk-dma-single", "disk", (11, 12, 13, 16), CORE),
+    "disk-dma-bytr": ("disk-dma-bytr", "disk", (3, 11, 12, 13), CORE),
+    "disk-dma-sync": ("disk-dma-sync", "disk", (2, 3, 12), CORE),
+    "disk-steps": ("disk-steps", "disk", (4, 7, 12), CORE),
+    # The delayed insert of the change (2 * 50 * 312 lines after the swap) is in flight in every unit from 10 to 110: the states are taken before the insert, in its middle and
+    # at its end, and the units after the load run until it has landed.
+    "disk-change-lands": ("busy", "change-long", (12, 60), (SAME_BEAM,)),
     # The blit in flight (unit 2) with each of the other channels stealing slots from it.
     "blit+bitplanes": ("blt-bpl", [], (2,), CHANNELS),
     "blit+sprites": ("blt-spr", [], (2,), CHANNELS),
@@ -233,19 +252,24 @@ class Det02Case(ProbeCase):
         cls.adf.write_bytes(hashlib.sha256(b"disk a").digest() * (901120 // 32))
         cls.cache = {}
 
+    @staticmethod
+    def after(extra):
+        """The units that run after the load in a scenario."""
+        return HORIZONS.get(extra, UNITS_AFTER) if isinstance(extra, str) else UNITS_AFTER
+
     def arguments(self, extra):
         """The probe arguments of a scenario: the disk is mounted at unit 0 as a boot medium; "change" ejects it at unit 9 and mounts it again at unit 11."""
         if extra == "disk":
             return ["--adf", str(self.adf), "--event-at", "0", "0", "0", "1"]
-        if extra == "change":
+        if extra in ("change", "change-long"):
             return ["--adf", str(self.adf), "--event-at", "0", "0", "0", "1", "--event-at", "9", "0", "-1", "2", "--event-at", "11", "0", "0", "3"]
         return list(extra)
 
     def original(self, rom, extra, n):
-        key = ("original", rom, tuple(map(str, self.arguments(extra))), n)
+        key = ("original", rom, tuple(map(str, self.arguments(extra))), n, self.after(extra))
         if key not in self.cache:
             path = self.dir / f"det02-{len(self.cache)}.state"
-            run = self.probe(rom, "--units", str(n + UNITS_AFTER), "--every", "1", "--dump", "chipset", *self.arguments(extra), "--save-at", str(n), str(path))
+            run = self.probe(rom, "--units", str(n + self.after(extra)), "--every", "1", "--dump", "chipset", *self.arguments(extra), "--save-at", str(n), str(path))
             self.cache[key] = (run, path)
         return self.cache[key]
 
@@ -258,7 +282,7 @@ class Det02Case(ProbeCase):
     def other(self, rom, extra, n, mode):
         """The run of the machine that loads the state, and the index of its digests after the load: `mode` says whether it is the same image, N + REWIND units on, or a
         fresh image, and whether the beam counters are set where the state had them right after the load."""
-        key = ("other", rom, tuple(map(str, self.arguments(extra))), n, mode)
+        key = ("other", rom, tuple(map(str, self.arguments(extra))), n, mode, self.after(extra))
         if key not in self.cache:
             original, path = self.original(rom, extra, n)
             fresh = mode.startswith("new-process")
@@ -269,7 +293,7 @@ class Det02Case(ProbeCase):
             if mode.endswith("beam-set"):
                 v, l, h = self.beam_of(original, n)
                 ops += ["--poke-at", str(offset), f"beam:{v}:{l}:{h}", "--digest-at", str(offset)]
-            run = self.probe(rom, "--units", str(offset + UNITS_AFTER), "--every", "1", *shifted(self.arguments(extra), n, offset, fresh), *ops)
+            run = self.probe(rom, "--units", str(offset + self.after(extra)), "--every", "1", *shifted(self.arguments(extra), n, offset, fresh), *ops)
             self.assertEqual([(offset, 0, "")], run.loads[:1], "the state is refused")
             self.cache[key] = (run, offset, len(run.after) - 1)
         return self.cache[key]
@@ -290,10 +314,10 @@ class Det02Case(ProbeCase):
         loaded = run.after[at]
         different = [s for s in SUBSYSTEMS if s not in ("video", "chipset") and loaded[s] != original.digests[(n, s)]]
         different += [f"chipset.{g}" for g in CHIP_GROUPS if run.chip_after[at][g] != original.chip[(n, g)]]
-        last = self.differing(original, run, n, offset, UNITS_AFTER)
+        last = self.differing(original, run, n, offset, self.after(extra))
         if different:
             return 0, different, last
-        for j in range(1, UNITS_AFTER + 1):
+        for j in range(1, self.after(extra) + 1):
             different = self.differing(original, run, n, offset, j)
             if different:
                 return j, different, last
@@ -312,7 +336,7 @@ def populate(cls, scenarios, divergences, gate=lambda test: test):
                     found = self.first_divergence(rom, extra, n, mode)
                     if found is not None:
                         owner = divergences.get(key, (0, (), "unowned", "not attributed"))
-                        self.fail(f"{key}: not the original {found[0]} units after the load, in {found[1]} ({owner[2]}: {owner[3]}); still different {UNITS_AFTER} units on: {found[2]}")
+                        self.fail(f"{key}: not the original {found[0]} units after the load, in {found[1]} ({owner[2]}: {owner[3]}); still different {Det02Case.after(extra)} units on: {found[2]}")
 
                 def pin(self, rom=rom, extra=extra, n=n, mode=mode, key=key):
                     found = self.first_divergence(rom, extra, n, mode)
@@ -340,7 +364,12 @@ class Det02Tests(Det02Case):
         "blt-dsk": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8250,$DFF096.L"}),
         "late-bpl": (LATE_BITPLANES, None, None),
         "tone": (tone_source(Tone("det02", channels=(0, 1), period=200, volume=64)), None, None),
-        "tone-mod": (TONE_MODULATED, None, None),
+        "tone-mod": (TONE_MODULATED, None, None), "disk-dma": (upstream.DISK_DMA, None, None),
+        "disk-dma-single": (upstream.DISK_DMA, None, {"    MOVE.W #$8800,$DFF024.L     ; DSKLEN twice: the next transfer, $800 words\n    MOVE.W #$8800,$DFF024.L\n": "    MOVE.W #$8800,$DFF024.L     ; DSKLEN once\n"}),
+        "disk-dma-sync": (upstream.DISK_DMA, None, {"    MOVE.W #$7F00,$DFF09E.L     ; ADKCON: clear WORDSYNC and the rest\n    MOVE.W #$9100,$DFF09E.L     ; ADKCON: SET | MFMPREC | FAST, as trackdisk\n":
+                                           "    MOVE.W #$4489,$DFF07E.L     ; DSKSYNC\n    MOVE.W #$9500,$DFF09E.L     ; ADKCON: SET | MFMPREC | WORDSYNC | FAST: the transfer waits for the sync word\n"}),
+        "disk-steps": (upstream.DISK_DMA, None, {"loop:\n    ADDQ.L #1,D0\n    BRA.S loop\n": "loop:\n    MOVE.B #$74,$BFD100.L       ; inward step pulse\n    MOVE.B #$75,$BFD100.L\n    MOVE.B #$76,$BFD100.L       ; outward step pulse\n    MOVE.B #$77,$BFD100.L\n    MOVE.B $BFE001.L,D3         ; TRK0\n    BRA.S loop\n"}),
+        "disk-dma-bytr": (upstream.DISK_DMA, None, {"loop:\n    ADDQ.L #1,D0\n": "loop:\n    MOVE.W $DFF01A.L,(A0)+       ; DSKBYTR sampled as fast as the CPU goes\n"}),
     }
 
 

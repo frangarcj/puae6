@@ -42,6 +42,7 @@ void rebuild_cia();
 void visit_input(Archive &a);
 // The bodies of WinUAE's own save_* functions, as sub-bodies (state_upstream.cpp): P6DK, P6CH, P6AU and P6VD.
 void visit_disk(Archive &a);
+void rebuild_disk();
 void visit_chipset(Archive &a);
 void visit_audio(Archive &a);
 void visit_video(Archive &a);

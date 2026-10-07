@@ -51,13 +51,13 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 76,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 76, "DSKX": 160,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
     b"P6VD": ["BPLX", "DNSP", "GEOM"],
     b"P6AU": [f"AUD{i}" for i in range(4)] + ["AUDP"],
-    b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK"],
+    b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK", "DSKX"],
 }
 DSD_FIXED = 4 + 2 + 4 + 2 + 4 + 4 + 2       # mode, bit counter, track length, speed, skip offset, index offset, revolutions
 
@@ -89,6 +89,17 @@ PERIOD_SENTINEL = -2            # PERIOD_MAX - 1 as an int: the period of a chan
 def audp_at(word, channel=None):
     """Byte offset of a word of AUDP: of Paula, or of a channel."""
     return 4 * (AUDP_GLOBAL.index(word) if channel is None else len(AUDP_GLOBAL) + channel * len(AUDP_CHANNEL) + AUDP_CHANNEL.index(word))
+
+
+# The words of DSKX, in the order of p6_disk_phase_get (disk.cpp, patch 0101) and of the enums of bridge/state_upstream.cpp: 4 of the controller, then 9 per drive.
+DSKX_GLOBAL = ["hpos", "dsklen2", "dsksync_on", "indexdecay"]
+DSKX_DRIVE = ["change_time", "motor_delay", "step_limit", "step_age", "bit_counter", "track_length", "track_speed", "skip_offset", "index_offset"]
+CHANGE_MAX = 2 * 50 * 312 + 4   # the longest countdown of a delayed disk change, in lines
+
+
+def dskx_at(word, drive=None):
+    """Byte offset of a word of DSKX: of the controller, or of a drive."""
+    return 4 * (DSKX_GLOBAL.index(word) if drive is None else len(DSKX_GLOBAL) + drive * len(DSKX_DRIVE) + DSKX_DRIVE.index(word))
 
 
 BLT_RUNNING = 2                 # BLTX byte 1: idle, pending, running
@@ -166,6 +177,50 @@ handler:
 """
 
 
+# A read that completes: $1900 words of DF0 from unit 2 to the DSKBLK interrupt in unit 12, and from there one of $800 words every three units (the interrupt starts it). ADKCON has
+# WORDSYNC cleared and MFMPREC and FAST set, as trackdisk leaves it; the program samples nothing and steps nothing, and the variants of tests/state/test_det02.py replace its loop.
+DISK_DMA = """; PUAE6 test program: a disk DMA read that completes, and goes on with another from its DSKBLK interrupt.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.B #$FF,$BFD300.L       ; CIAB DDRB: all outputs
+    MOVE.B #$FF,$BFD100.L       ; deselect every drive
+    MOVE.B #$7F,$BFD100.L       ; motor on
+    MOVE.B #$77,$BFD100.L       ; select DF0: the motor latches on
+    MOVE.L #dskblk,$64.L
+    MOVE.L #vblank,$6C.L
+    MOVE.W #$C022,$DFF09A.L     ; INTENA: vertical blank and disk block
+    MOVE.W #$2200,$DFF100.L
+    MOVE.W #$2C81,$DFF08E.L
+    MOVE.W #$2CC1,$DFF090.L
+    MOVEA.L #$30000,A0
+    MOVE.W #$2000,SR
+    .nops 40000                 ; the medium is in the drive by now
+    MOVE.W #$7F00,$DFF09E.L     ; ADKCON: clear WORDSYNC and the rest
+    MOVE.W #$9100,$DFF09E.L     ; ADKCON: SET | MFMPREC | FAST, as trackdisk
+    MOVE.L #$8000,$DFF020.L     ; DSKPT
+    MOVE.W #$9900,$DFF024.L     ; DSKLEN twice: DMA on, a read of $1900 words
+    MOVE.W #$9900,$DFF024.L
+    MOVE.W #$8210,$DFF096.L     ; DMACON: SET, master and disk
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+dskblk:
+    MOVE.W #$0002,$DFF09C.L     ; INTREQ: clear DSKBLK
+    ADDQ.L #1,D2
+    MOVE.L #$20000,$DFF020.L    ; DSKPT
+    MOVE.W #$8800,$DFF024.L     ; DSKLEN twice: the next transfer, $800 words
+    MOVE.W #$8800,$DFF024.L
+    RTE
+vblank:
+    MOVE.W #$0020,$DFF09C.L
+    ADDQ.L #1,D1
+    MOVEA.L #$30000,A0          ; the window of DSKBYTR samples starts again
+    RTE
+"""
+
 def sub_bodies(body):
     """[(tag, bytes)] of the body of one chunk, checking that the sub-bodies are laid end to end."""
     out, at = [], 0
@@ -210,7 +265,7 @@ def upstream_bodies(blob):
 
 
 class UpstreamBodiesTests(ProbeCase):
-    ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None), "copper_irq": ("copper_irq", {"HP": "2"}, None),
+    ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None), "disk-dma": (DISK_DMA, None, None), "copper_irq": ("copper_irq", {"HP": "2"}, None),
             "lof_stuck": ("lof_stuck", None, None)}
 
     @classmethod
@@ -327,7 +382,7 @@ class UpstreamBodiesTests(ProbeCase):
     # name -> (rom, units before the save, units run before the load, extra arguments). The disk is mounted at the first unit as a boot medium, so that a fresh image has it
     # after its reset head. The scenarios have the blit in flight, the DMA of the disk, the audio and the sprites running and a mouse moving.
     ROUND_TRIPS = {"idle": ("vsync", 3, 7, ()), "dma-no-disk": ("busy", 5, 9, ()), "blit-in-flight": ("busy", 2, 6, ()), "disk": ("busy", 8, 12, "disk"),
-                   "disk-early": ("busy", 2, 6, "disk"), "mouse": ("input_all", 4, 8, "mouse"), "copper-wait": ("copper_irq", 2, 6, ())}
+                   "disk-early": ("busy", 2, 6, "disk"), "disk-dma-mid": ("disk-dma", 5, 9, "disk"), "disk-dma-end": ("disk-dma", 12, 16, "disk"), "mouse": ("input_all", 4, 8, "mouse"), "copper-wait": ("copper_irq", 2, 6, ())}
 
     def scenario(self, name):
         rom, n, load, args = self.ROUND_TRIPS[name]
@@ -463,6 +518,65 @@ class UpstreamBodiesTests(ProbeCase):
                 pixels = lambda dump: struct.unpack_from("<%dI" % 64, dump, 16)       # after have, width, height and flags
                 self.assertEqual(0x112233, pixels(original)[10], "the border of the original is COLOR00 = $0123")
                 self.assertEqual(pixels(original), pixels(loaded), "the first line is the same, pixel for pixel")
+
+    def floppy_of(self, blob):
+        """({DSKX word: signed value}, [{DSKX drive word: signed value}] * 4, {DISK field: value}, [DSKn CRC] * 4) of a state."""
+        subs = upstream_bodies(blob)[b"P6DK"]
+        words = struct.unpack(">%di" % (len(subs["DSKX"]) // 4), subs["DSKX"])
+        self.assertEqual(len(DSKX_GLOBAL) + 4 * len(DSKX_DRIVE), len(words))
+        drives = [dict(zip(DSKX_DRIVE, words[len(DSKX_GLOBAL) + n * len(DSKX_DRIVE):])) for n in range(4)]
+        word, bit_offset, sync, hpos, dma, *_ = struct.unpack_from(">HBBBB", subs["DISK"])
+        (length,) = struct.unpack_from(">H", subs["DISK"], 15)
+        return dict(zip(DSKX_GLOBAL, words)), drives, dict(word=word, bit_offset=bit_offset, sync=sync, hpos=hpos, dma=dma, length=length), \
+            [struct.unpack_from(">I", subs[f"DSK{n}"], 12)[0] for n in range(4)]
+
+    def test_a_transfer_in_flight_comes_back_with_the_registers_of_its_controller(self):
+        # DISK keeps the length left and the low byte of disk_hpos; the previous DSKLEN (which decides whether one write or two start the next transfer) and the rest of the
+        # position in the line are in DSKX, and a new image takes them from there: the state it saves right after the load is the one it loaded.
+        first, again = self.dir / "floppy.first", self.dir / "floppy.again"
+        self.probe("disk-dma", "--units", "5", *self.disk, "--save-at", "5", str(first))
+        controller, drives, disk, crcs = self.floppy_of(first.read_bytes())
+        self.assertEqual((2, True), (disk["dma"], 0 < disk["length"] < 0x1900), "a read in flight: DMA state 2 and some of its $1900 words left")
+        self.assertEqual(0x9900, controller["dsklen2"], "the last write to DSKLEN, the one that started the transfer")
+        self.assertEqual(disk["hpos"], controller["hpos"] & 0xff, "DISK carries the fraction of a colour clock of the position in the line")
+        self.assertTrue(0 <= controller["hpos"] < 256 << 8)
+        self.assertEqual([0] * 4, [d["change_time"] for d in drives], "no medium is changing")
+        self.assertEqual([zlib.crc32(self.adf.read_bytes()), 0, 0, 0], crcs)
+        track = upstream_bodies(first.read_bytes())[b"P6DK"]["DSD0"]
+        _, bit_counter, track_length, speed, skip, index = struct.unpack_from(">IHIHII", track)
+        self.assertEqual((bit_counter, track_length, speed, skip, index), tuple(drives[0][w] for w in DSKX_DRIVE[4:]), "the track under the head is the one DSD0 buffers")
+        run = self.probe("disk-dma", "--units", "0", *self.disk, "--load-at", "0", str(first), "--save-at", "0", str(again))
+        self.assertEqual([(0, 0, "")], run.loads)
+        self.assertEqual(upstream_bodies(first.read_bytes())[b"P6DK"], upstream_bodies(again.read_bytes())[b"P6DK"], "a fresh image has the controller of the state")
+
+    def test_the_transfer_that_ends_leaves_the_previous_dsklen_it_started_with(self):
+        # disk_dmafinished clears dsklen and not dsklen2: after the DSKBLK interrupt of unit 12 (which writes $8800 twice) the state says $8800, not the $9900 of the first transfer.
+        before = self.floppy_of(self.state_of("floppy-11.state", "disk-dma", 11, *self.disk))
+        after = self.floppy_of(self.state_of("floppy-13.state", "disk-dma", 13, *self.disk))
+        self.assertEqual((0x9900, 0x8800), (before[0]["dsklen2"], after[0]["dsklen2"]))
+        self.assertEqual((2, 2), (before[2]["dma"], after[2]["dma"]), "a transfer is in flight at both boundaries")
+        self.assertTrue(0 < before[2]["length"] < 0x1900 and 0 < after[2]["length"] <= 0x800, "the first has a few words left at unit 11 and the second is one of $800 words")
+
+    def test_a_delayed_disk_change_is_a_countdown_in_a_drive_that_holds_nothing(self):
+        # The medium goes out in unit 9 and the mount of unit 11 starts the 2 * 50 * 312 lines of the delay (disk_insert_2 -> DISK_check_change): restore_disk zeroes it, DSKX has it.
+        change = ("--adf", str(self.adf), "--event-at", "0", "0", "0", "1", "--event-at", "9", "0", "-1", "2", "--event-at", "11", "0", "0", "3")
+        states = {n: self.floppy_of(self.state_of(f"change-{n}.state", "busy", n, *change)) for n in (8, 10, 12, 13)}
+        self.assertEqual([0, 0], [states[n][1][0]["change_time"] for n in (8, 10)], "before the mount of unit 11 nothing counts down")
+        self.assertEqual(0, states[10][3][0], "the medium is out in unit 10")
+        t12, t13 = states[12][1][0]["change_time"], states[13][1][0]["change_time"]
+        self.assertTrue(0 < t13 < t12 <= CHANGE_MAX, (t12, t13))
+        self.assertIn(t12 - t13, (312, 313), "a PAL unit is a frame of 312 or 313 lines, and the countdown loses one per line")
+        self.assertEqual([0, 0, 0], [d["change_time"] for d in states[12][1][1:]], "only DF0")
+
+    def test_a_state_taken_in_a_delayed_change_is_refused_by_a_machine_that_has_the_medium_in_the_drive(self):
+        # The machine is one of the manifest of the state, but its drive is not in the state's: no load puts a medium in or takes it out (docs/05-maintenance.md), it is refused.
+        change = ("--adf", str(self.adf), "--event-at", "0", "0", "0", "1", "--event-at", "9", "0", "-1", "2", "--event-at", "11", "0", "0", "3")
+        waiting = self.dir / "waiting.state"
+        self.probe("busy", "--units", "12", *change, "--save-at", "12", str(waiting))
+        run = self.probe("busy", "--units", "13", *self.disk, "--load-at", "12", str(waiting))
+        (unit, code, message), = run.loads
+        self.assertEqual((12, 10), (unit, code), message)
+        self.assertIn("DSK0: the disk in the drive is not the one the state was taken with", message)
 
     def blitter_of(self, blob):
         """({BLTP word name: signed value}, BLTX state byte) of a state."""
@@ -684,6 +798,23 @@ class UpstreamBodiesTests(ProbeCase):
         ("GEOM with a negative input width", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("in_width"), struct.pack(">i", -756), "a width of the picture is negative or wider than the drawing buffer"),
         ("GEOM with an offset beyond 16 bits", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("y_offset"), struct.pack(">i", 0x10000), "an offset of the raster is beyond 16 bits"),
         ("GEOM with a countdown of 3", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("temp_change"), struct.pack(">i", 3), "the countdown of the candidate raster is not between 0 and 2"),
+        ("DSKX with a position beyond a line", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", 256 << 8), "the position of the floppy controller in its line is not inside a line"),
+        ("DSKX with a negative position", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", -1), "the position of the floppy controller in its line is not inside a line"),
+        ("DSKX with a fraction of a colour clock that DISK does not carry", b"P6DK", "DSKX", dskx_at("hpos") + 3, b"\xff", "not the fraction DISK carries"),
+        ("DSKX with a previous DSKLEN of 17 bits", b"P6DK", "DSKX", dskx_at("dsklen2"), struct.pack(">i", 0x10000), "the previous DSKLEN is wider than the register"),
+        ("DSKX with a wordsync flag of 2", b"P6DK", "DSKX", dskx_at("dsksync_on"), struct.pack(">i", 2), "the wordsync flag is not a flag"),
+        ("DSKX with an index decay of 3", b"P6DK", "DSKX", dskx_at("indexdecay"), struct.pack(">i", 3), "the index pulse decay is beyond 2 lines"),
+        ("DSKX with a disk change longer than the engine arms", b"P6DK", "DSKX", dskx_at("change_time", 1), struct.pack(">i", CHANGE_MAX + 1), "the delay of a disk change is beyond"),
+        ("DSKX with a disk change counting down in a drive that holds a disk", b"P6DK", "DSKX", dskx_at("change_time", 0), struct.pack(">i", 5), "counting down in a drive that is absent or holds a disk"),
+        ("DSKX with a disk change counting down in a drive that is not there", b"P6DK", "DSKX", dskx_at("change_time", 2), struct.pack(">i", 5), "counting down in a drive that is absent or holds a disk"),
+        ("DSKX with a motor delay of 2", b"P6DK", "DSKX", dskx_at("motor_delay", 1), struct.pack(">i", 2), "the motor delay of a drive is not a flag"),
+        ("DSKX with a step limiter of 5 lines", b"P6DK", "DSKX", dskx_at("step_limit", 0), struct.pack(">i", 5), "the step limiter of a drive is beyond four lines"),
+        ("DSKX with the age of a step that is not limiting", b"P6DK", "DSKX", dskx_at("step_age", 1), struct.pack(">i", 10), "a drive has the age of a step it is not limiting"),
+        ("DSKX with a bit counter of 17 bits", b"P6DK", "DSKX", dskx_at("bit_counter", 1), struct.pack(">i", 0x10000), "the bit counter or the speed of a track is wider"),
+        ("DSKX with a track longer than the buffer", b"P6DK", "DSKX", dskx_at("track_length", 1), struct.pack(">i", 0x40001), "the track length is outside the buffer"),
+        ("DSKX with a skip position below -1", b"P6DK", "DSKX", dskx_at("skip_offset", 1), struct.pack(">i", -2), "an offset in the track is outside the buffer"),
+        ("DSKX with a bit counter that DSD0 does not have", b"P6DK", "DSKX", dskx_at("bit_counter", 0), struct.pack(">i", 0xffff), "the track of a drive is not the one its buffer describes"),
+        ("DSKX with the speed of another track than DSD0's", b"P6DK", "DSKX", dskx_at("track_speed", 0), struct.pack(">i", 1), "the track of a drive is not the one its buffer describes"),
         ("BLTX running while BLTP says the blit is done", b"P6CH", "BLTX", 1, b"\2", "BLTX says a blit is running and BLTP says it is done or has nothing queued"),
     ]
 

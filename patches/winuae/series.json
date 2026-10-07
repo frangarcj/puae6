@@ -2735,6 +2735,30 @@
           "after_sha256": "a3b3cd23f0ba06379bd37abd7e05abb7a1a241bb33d78bfea27159c140bff8de"
         }
       ]
+    },
+    {
+      "id": "0101-disk-phase-state-access",
+      "file": "patches/winuae/0101-disk-phase-state-access.patch",
+      "sha256": "d7ff3c13d873ca31c7336464abd9d19e83ac46cc0ec759353b41f65a54289e6d",
+      "title": "Floppy controller state that DSKn, DSDn and DISK do not carry",
+      "reason": "STATE02/DET02: save_floppy keeps only the low byte of disk_hpos (a machine that a CPU read of DSKBYTR had brought up to the middle of a line was brought up from the start of it after a load and read another word of the track), dsklen2 (one DSKLEN write or two start a transfer) is in no body, restore_disk zeroes dskchange_time (a delayed insert never lands) and no body carries the step limiter, the index decay, the wordsync edge flag, the motor-off latch or the geometry and bit counter of a drive with no buffered track (an empty drive that keeps spinning). p6_disk_phase_get/set copy them as values without running the drives or scheduling anything, and p6_disk_newname_set names the image a delayed insert is waiting for (T15d).",
+      "category": "host hooks",
+      "order": 101,
+      "symbols": [
+        "p6_disk_phase_get",
+        "p6_disk_phase_set",
+        "p6_disk_newname_set"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "3773cf473fbd6c8b929eb0d797e01bda72a037fcd2e2d3cf0a402092e9b61f35",
+          "after_sha256": "d5b1d1bbbb46414d8389d468e6450e4e30816c86cf7ee6f9f98f7a04a9576fb6"
+        }
+      ]
     }
   ]
 }
