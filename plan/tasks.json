@@ -10634,7 +10634,8 @@
         "T48a",
         "T48b",
         "T48c",
-        "T48d"
+        "T48d",
+        "T48e"
       ],
       "read": [
         "README.md",
@@ -11027,6 +11028,57 @@
       ],
       "stop": "No sustituir pruebas de proceso limpio por reutilizacion del emulador; no suponer que otro worker termino el build.",
       "evidence": "reports/tasks/T48d.md"
+    },
+    {
+      "id": "T48e",
+      "title": "Iteracion rapida de las suites de estado: probe optimizado con paridad, reparto por clase y nivel de iteracion",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T48d",
+        "T15f2"
+      ],
+      "read": [
+        "tests/host/run_parallel.py",
+        "tests/build_support.py",
+        "tests/test_build_support.py",
+        "tests/test_parallel_runner.py",
+        "tests/state/harness.py",
+        "tests/state/test_det02.py",
+        "docs/testing.md",
+        "reports/tasks/T48d.md"
+      ],
+      "touch": [
+        "tests/host/run_parallel.py",
+        "tests/build_support.py",
+        "tests/test_build_support.py",
+        "tests/test_parallel_runner.py",
+        "tests/state/harness.py",
+        "tests/state/test_build_parity.py",
+        "tests/test_plan.py",
+        "docs/testing.md",
+        "reports/benchmarks/T48e/**",
+        "reports/tasks/T48e.md"
+      ],
+      "steps": [
+        "Peticion del usuario (2026-10-07): la suite de estado tarda ~15 min de reloj (2500 s de suma, test_state_scheduler 737 s solo) y el probe Debug -O0 de build/link-audit cuesta ~165 ms por unidad. Medir primero donde va el tiempo (probe, digests, Python) en dos o tres modulos y guardar la medida.",
+        "Arbol de build optimizado propio para p6_state_probe (y los probes de envelope/archive si lo piden los modulos): -O2 con asserts (sin NDEBUG), sin sanitizers, recibo verificado de build_support como los demas arboles. tests/state lo usa por defecto; una variable de entorno documentada vuelve al probe Debug de build/link-audit. No tocar CMakeLists.txt ni el motor: los flags van en la configuracion del arbol.",
+        "tests/state/test_build_parity.py: las mismas lineas de comando del probe (varias ROMs, --every 1, save/load en la misma imagen y en proceso nuevo, un escenario DET02 por modo) dan stdout y ficheros de estado byte a byte iguales en el build -O0 y en el -O2. Una diferencia es un fallo de determinismo (UB, lectura no inicializada): no se oculta ni se relaja.",
+        "run_parallel.py --suite state reparte por clase de test (unittest module.Class) en vez de por modulo cuando un modulo tiene varias clases, y -j por defecto se deriva de CPUs y memoria. Conservar conteos de tests, skips, expected failures, timeouts y errores identicos a la ejecucion por modulos; el informe final sigue sumando por modulo.",
+        "Nivel de iteracion: una seleccion con nombre (p.ej. --tier iter) para validar cada iteracion de T15d-g (container, upstream, det02, det02_kickstart, bridge); la suite completa sigue siendo la puerta de cierre. Documentar ambos en docs/testing.md.",
+        "Benchmark antes/despues en reports/benchmarks/T48e: suite de estado completa y nivel de iteracion, wall/preparacion/suma, mismos 366 tests, 101 expected failures y 0 fallos."
+      ],
+      "checks": [
+        "BUILD01",
+        "HARNESS01",
+        "DET02"
+      ],
+      "acceptance": [
+        "La suite de estado completa da los mismos conteos y veredictos (366 tests, 101 expected failures, 0 fallos en este commit) con el probe optimizado y repartida por clase, y su tiempo de reloj baja de forma medible (objetivo orientativo: menos de 5 min; nivel de iteracion menos de 2 min). La medida queda en reports/benchmarks/T48e.",
+        "test_build_parity demuestra igualdad byte a byte entre -O0 y -O2 en los escenarios listados y falla si se siembra una diferencia; el build Debug sigue disponible por variable de entorno y los tests de build_support y del runner cubren la seleccion de arbol, el reparto por clase y el nivel con nombre."
+      ],
+      "stop": "No bajar unidades, quitar escenarios, cachear salidas del probe entre tests ni sustituir procesos limpios por reutilizacion del emulador. Si -O0 y -O2 difieren, es un fallo de determinismo: guardar reproducer y marcar blocked, no quitar la prueba de paridad."
     }
   ]
 }
