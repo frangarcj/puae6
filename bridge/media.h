@@ -35,5 +35,15 @@ void forget_media();
 void apply_boot_media();
 void apply_media_events();
 
+// The CRC-32 that drive_insert measures for manifest medium `index` (DISK_validate_filename: zfile_crc32 over the registered blob), which is what DSKn of a state
+// carries for a drive that holds it. Measured once per medium and kept until the next load. False for an index outside the manifest, a blob that cannot be read and
+// an image whose CRC is 0: DSKn says 0 for an empty drive, so such a medium could not be told from no medium.
+bool media_crc32(uint32_t index, uint32_t *crc);
+
+// Puts manifest medium `index` (-1: none) in a drive at once and write protected: the forced insert the reset head uses, not the delayed change of
+// apply_media_events. It names the medium in the preferences, which the engine reads, and changes nothing in the session or the scheduler; a state load uses it
+// and its caller runs it inside the scope that puts the scheduler and the generator back (the insert draws random bits for the position of the disk).
+void put_media_now(uint32_t drive, int32_t index);
+
 }  // namespace p6_bridge
 #endif

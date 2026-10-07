@@ -13,6 +13,7 @@
 #include "sysdeps.h"
 #include "options.h"
 #include "disk.h"
+#include "zfile.h"
 
 #include <string.h>
 
@@ -97,9 +98,19 @@ p6_result register_media(const p6_media *media, uint32_t count, p6_error *error)
     return P6_OK;
 }
 
+namespace {
+
+struct MeasuredCrc {
+    bool known;
+    uint32_t crc;
+} g_crc[P6_MAX_MEDIA];       // by manifest index; cleared with the identity
+
+}  // namespace
+
 void remember_identity(const p6_buffer &firmware, const p6_media *media, uint32_t count)
 {
     p6_session::Session &s = p6_session::session;
+    memset(g_crc, 0, sizeof g_crc);
     p6_sha256_hash(firmware.data, firmware.bytes, s.firmware_sha256);
     s.media_count = count;
     for (uint32_t i = 0; i < count; ++i)
@@ -111,6 +122,7 @@ void forget_media()
     p6_session::Session &s = p6_session::session;
     memset(s.firmware_sha256, 0, sizeof s.firmware_sha256);
     memset(s.media_content_id, 0, sizeof s.media_content_id);
+    memset(g_crc, 0, sizeof g_crc);
     s.media_count = 0;
     s.media_queued = 0;
     for (int32_t &m : s.drive_media) m = -1;
@@ -172,6 +184,38 @@ void apply_media_events()
         }
     }
     s.media_queued = 0;
+}
+
+bool media_crc32(uint32_t index, uint32_t *crc)
+{
+    const p6_session::Session &s = p6_session::session;
+    if (index >= s.media_count || index >= P6_MAX_MEDIA) return false;
+    MeasuredCrc &m = g_crc[index];
+    if (!m.known) {
+        char id[kMediaBlobIdBytes];
+        media_blob_id(s.media_content_id[index], id);
+        struct zfile *f = zfile_fopen(id, _T("rb"), 0);       // as DISK_validate_filename opens it
+        if (!f) return false;
+        m.crc = zfile_crc32(f);
+        m.known = true;
+        zfile_fclose(f);
+    }
+    if (!m.crc) return false;
+    *crc = m.crc;
+    return true;
+}
+
+void put_media_now(uint32_t drive, int32_t index)
+{
+    p6_session::Session &s = p6_session::session;
+    if (index < 0) {
+        disk_eject(int(drive));                  // also clears the names in the preferences and forgets a change that had not landed
+        return;
+    }
+    char id[kMediaBlobIdBytes];
+    media_blob_id(s.media_content_id[index], id);
+    set_prefs_media(drive, id);                  // drive_insert examines the image the preferences name before it reads the one it is given
+    disk_insert_force(int(drive), id, true);
 }
 
 }  // namespace p6_bridge

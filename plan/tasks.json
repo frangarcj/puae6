@@ -9214,7 +9214,7 @@
       "title": "Cargar un estado con el medio que nombra aunque la unidad viva tenga otro (rewind a traves de cambios de disco)",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15d"
       ],

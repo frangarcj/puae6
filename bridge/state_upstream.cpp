@@ -66,8 +66,9 @@
 // a head position, the state of a channel, the channel count of a blit, the register of a slot...). It does not harden the engine's arithmetic against
 // magnitudes this build never produces (ADR point 8). What belongs to the configuration is not adapted: the drive id and the disabled bit of a DSKn, the
 // chipset mask and the video standard of CHIP are compared with the configuration of the image and a body that names others is refused; patches 0090 and
-// 0091 remove the writes of restore_custom and restore_disk into the preferences, and the medium that sits in a drive is compared with the engine's once the
-// machine exists (disk_matches_machine, called by load() after the reset head).
+// 0091 remove the writes of restore_custom and restore_disk into the preferences. The medium that sits in a drive is not compared with the live drive's: the state
+// names it (P6BR's drive_media indexes the manifest, which the identity compares, and DSKn carries the CRC of that image), disk_matches_manifest checks that the two agree
+// before anything is applied, and the apply of P6DK puts into each drive the medium the state says it holds (see visit_disk).
 //
 // Apply runs the engine's restore_* on the live machine in upstream's file order, with savestate_state = STATE_RESTORE for exactly that long. It never calls
 // custom_reset, m68k_reset2, memory_clear, restore_*_start, init_hz or audio_activate. The *_finish that put back what is not saved are restore_audio_finish
@@ -843,7 +844,38 @@ void finish_audio()
 
 }  // namespace
 
-void visit_disk(Archive &a) { visit_bodies(a, kDiskBodies, nullptr); }
+// The drives hold the media the state says before the bodies of DSKn, DSDn and DSKX overwrite the head, the track and the timing: restore_disk neither inserts nor
+// ejects, so a drive that holds another medium (or none) than the state's would keep a disk the state knows nothing about, and a rewind across a disk change, or a
+// state taken while a change counted down, could not be loaded. A drive whose content already is the state's (the same CRC, and the manifest index the bridge believes
+// is in it) is left alone; any other is emptied and, if the state's holds a medium, receives it at once and write protected, the way the reset head inserts the boot
+// media: no delayed change, nothing scheduled. The insert draws random bits for the position of the disk and the engine may schedule from a drive that moves; the scope
+// puts the scheduler and the generator back, as it does for the bodies. Nothing here can refuse: disk_matches_manifest has already measured every medium it uses.
+void put_media_in_drives()
+{
+    const MediaPlan *plan = loading_media();
+    if (!plan) return;
+    const ApplyScope scope(true);
+    for (int n = 0; n < 2; ++n) {       // DF0 and DF1: the others are never mounted (P6BR)
+        uint8_t live[64];
+        size_t produced = 0;
+        {
+            const PureSave pure;
+            if (!save_disk(n, &produced, live, false) || produced != 24) return;
+        }
+        const uint32_t held = Body{live, 24}.u32(12);       // the CRC drive_insert measured, 0 for an empty drive
+        uint32_t wanted = 0;
+        if (plan->held[n] >= 0) p6_bridge::media_crc32(uint32_t(plan->held[n]), &wanted);
+        if (held == wanted && (!wanted || p6_session::session.drive_media[n] == plan->held[n])) continue;
+        if (held) p6_bridge::put_media_now(uint32_t(n), -1);
+        if (wanted) p6_bridge::put_media_now(uint32_t(n), plan->held[n]);
+    }
+}
+
+void visit_disk(Archive &a)
+{
+    if (a.applying()) put_media_in_drives();
+    visit_bodies(a, kDiskBodies, nullptr);
+}
 
 // The preferences and the drive name the medium the state says each drive holds, or is waiting for: the engine's own names (what disk_insert_2 and disk_eject set) are the
 // live machine's history, and a mount of the medium the live machine was waiting for would otherwise be taken for the one already in the drive. Values only.
@@ -863,23 +895,40 @@ void visit_chipset(Archive &a) { visit_bodies(a, kChipsetBodies, finish_chipset)
 void visit_audio(Archive &a) { visit_bodies(a, kAudioBodies, finish_audio); }
 void visit_video(Archive &a) { visit_bodies(a, kVideoBodies, nullptr); }
 
-// The medium that sits in each drive is the one the state's body names: restore_disk neither inserts nor ejects, so a state taken with another disk in the
-// drive (or none) would leave the engine with a disk the state knows nothing about. The CRC of the image is what drive_insert measured, and the DSKn bodies
-// are the first four sub-bodies of the chunk (24 bytes each, after their tag and length).
-const char *disk_matches_machine(const uint8_t *body, uint64_t length)
+// The media the state's drives hold are the ones its manifest names. P6BR says which manifest medium each drive holds (drive_media) and DSKn carries the CRC of the image
+// that was in the drive: the one drive_insert measured, which is what media_crc32 measures over the registered blob. A drive that counts down a delayed change (DSKX) has
+// no disk in it and DSKn says 0, whatever medium P6BR names as the one it waits for; so does a drive that holds none. Anything else is a state that no machine
+// of this manifest could have written, and nothing has been touched when it is refused. The DSKn bodies are the first four sub-bodies of the chunk and DSKX the last
+// (a u32 length after the tag, little endian, like every field of the archive); Validate has already checked their order and lengths. The plan says which medium each
+// engine drive has to hold, for the apply.
+const char *disk_matches_manifest(const uint8_t *body, uint64_t length, MediaPlan &plan)
 {
-    static char text[96];
-    if (length < 4 * (8 + 24)) return "the disk chunk is too short for its drive bodies";
+    static char text[112];
+    const uint8_t *dsk[4] = {}, *dskx = nullptr;
+    uint64_t at = 0;
+    for (size_t i = 0; i < sizeof kDiskBodies / sizeof kDiskBodies[0]; ++i) {
+        if (length - at < 8) return "the disk chunk ends inside the header of a body";
+        const uint64_t size = uint64_t(body[at + 4]) | uint64_t(body[at + 5]) << 8 | uint64_t(body[at + 6]) << 16 | uint64_t(body[at + 7]) << 24;
+        if (length - at - 8 < size) return "the disk chunk ends inside a body";
+        if (i < 4) dsk[i] = body + at + 8;
+        if (i == sizeof kDiskBodies / sizeof kDiskBodies[0] - 1) dskx = body + at + 8;
+        at += 8 + size;
+    }
     for (int n = 0; n < 4; ++n) {
-        uint8_t live[64];
-        size_t produced = 0;
-        {
-            const PureSave pure;
-            if (!save_disk(n, &produced, live, false) || produced != 24) return "the engine's drive body is not 24 bytes";
+        const bool countdown = int32_t(Body{dskx, kDiskPhaseBytes}.u32((kDkDrives + n * kDkDriveWords + kDkChangeTime) * 4)) > 0;
+        const int32_t medium = plan.drive_media[n];
+        plan.held[n] = countdown ? -1 : medium;
+        uint32_t expected = 0;
+        if (medium < 0 && countdown) {
+            snprintf(text, sizeof text, "DSK%d: a disk change counts down in a drive that the manifest says is empty", n);
+            return text;
         }
-        const Body state{body + n * 32 + 8, 24}, now{live, 24};
-        if (state.u32(12) != now.u32(12)) {
-            snprintf(text, sizeof text, "DSK%d: the disk in the drive is not the one the state was taken with", n);
+        if (plan.held[n] >= 0 && !p6_bridge::media_crc32(uint32_t(plan.held[n]), &expected)) {
+            snprintf(text, sizeof text, "DSK%d: the CRC of medium %d of the manifest cannot be measured", n, int(medium));
+            return text;
+        }
+        if (Body{dsk[n], 24}.u32(12) != expected) {
+            snprintf(text, sizeof text, "DSK%d: the CRC of the disk in the drive is not the one of the medium the manifest gives it", n);
             return text;
         }
     }

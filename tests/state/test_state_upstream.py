@@ -39,7 +39,8 @@ T15i2, what is loaded:
     in the same process, k units later, and in a new one (a fresh image runs its reset head first), the beam included: the whole state is the same bytes;
   - the scheduler keeps what P6SC applied although restore_audio_finish and the register setters schedule events (the digest of the unit comes back);
   - every sub-body, truncated, lengthened, with another tag, out of its place or with a value that would index out of range, is refused before anything is applied (a corrupt
-    state, code 9) and the machine goes on as a control run that never saw the attempt; a state taken with another medium in a drive is refused once the machine exists (code 10).
+    state, code 9) and the machine goes on as a control run that never saw the attempt; a state whose drives do not hold the media its manifest names (DSKn against P6BR's drive_media) is refused before anything is applied (code 10),
+    and one whose drives hold other media than the machine's is loaded: the load puts into each drive the medium the state names (T15d2).
 """
 import hashlib
 import struct
@@ -568,15 +569,38 @@ class UpstreamBodiesTests(ProbeCase):
         self.assertIn(t12 - t13, (312, 313), "a PAL unit is a frame of 312 or 313 lines, and the countdown loses one per line")
         self.assertEqual([0, 0, 0], [d["change_time"] for d in states[12][1][1:]], "only DF0")
 
-    def test_a_state_taken_in_a_delayed_change_is_refused_by_a_machine_that_has_the_medium_in_the_drive(self):
-        # The machine is one of the manifest of the state, but its drive is not in the state's: no load puts a medium in or takes it out (docs/05-maintenance.md), it is refused.
+    @staticmethod
+    def chunk_bodies(blob):
+        return {tag: body for tag, _, body in parse_chunks(blob)}
+
+    @classmethod
+    def drive_media_at(cls, blob):
+        """The offset in the whole state of bridge.drive_media[0]: after the 8 bytes of the audio frame count, four flags and the 8 of the sequence in P6BR."""
+        chunks = parse_chunks(blob)
+        before = e.HEADER_SIZE + sum(16 + len(body) for _, _, body in chunks[:e.TAGS.index(b"P6BR")])
+        assert struct.unpack_from("<i", chunks[e.TAGS.index(b"P6BR")][2], 20)[0] in range(-1, 2)
+        return before + 16 + 20
+
+    def assert_loaded_as_saved(self, saved, again, crcs):
+        """A save right after a load re-emits the disk chunk (DSKn with the CRC of the medium each drive holds, DSDn, DISK and DSKX) and the bridge chunk (which medium the drives hold)
+        byte for byte: the drives of the machine are the state's. `crcs` is what DSKn says for DF0 and DF1."""
+        before, after = self.chunk_bodies(saved.read_bytes()), self.chunk_bodies(again.read_bytes())
+        for tag in (b"P6DK", b"P6BR"):
+            self.assertEqual(before[tag], after[tag], f"{tag.decode()} comes back as it was saved")
+        self.assertEqual(list(crcs), self.floppy_of(again.read_bytes())[3][:2], "the drives hold the media the state says")
+
+    def test_a_state_taken_in_a_delayed_change_is_loaded_by_a_machine_that_has_the_medium_in_the_drive(self):
+        # The machine is one of the manifest of the state and its DF0 holds the medium the state is waiting for: the load takes it out (the state's drive is empty and counts down) and the
+        # countdown goes on from the state's. The state taken right after is the state loaded, and the next units are the original's.
         change = ("--adf", str(self.adf), "--event-at", "0", "0", "0", "1", "--event-at", "9", "0", "-1", "2", "--event-at", "11", "0", "0", "3")
-        waiting = self.dir / "waiting.state"
-        self.probe("busy", "--units", "12", *change, "--save-at", "12", str(waiting))
-        run = self.probe("busy", "--units", "13", *self.disk, "--load-at", "12", str(waiting))
-        (unit, code, message), = run.loads
-        self.assertEqual((12, 10), (unit, code), message)
-        self.assertIn("DSK0: the disk in the drive is not the one the state was taken with", message)
+        waiting, again = self.dir / "waiting.state", self.dir / "waiting.again"
+        original = self.probe("busy", "--units", "14", "--every", "1", *change, "--save-at", "12", str(waiting))
+        run = self.probe("busy", "--units", "14", "--every", "1", *self.disk, "--load-at", "12", str(waiting), "--save-at", "12", str(again))
+        self.assertEqual([(12, 0, "")], run.loads)
+        self.assert_loaded_as_saved(waiting, again, (0, 0))
+        self.assertGreater(self.floppy_of(again.read_bytes())[1][0]["change_time"], 0, "the countdown of the state goes on")
+        for later in (13, 14):
+            self.assertEqual(original.unit(later), run.unit(later), f"unit {later}: the machine is not the original")
 
     def blitter_of(self, blob):
         """({BLTP word name: signed value}, BLTX state byte) of a state."""
@@ -847,29 +871,68 @@ class UpstreamBodiesTests(ProbeCase):
 
     # -- the medium of a drive is the machine's --------------------------------------------------------------------------------------------------
 
-    def test_a_state_taken_with_another_medium_in_a_drive_is_refused_once_the_machine_exists_and_the_machine_is_untouched(self):
+    def test_a_state_taken_with_another_medium_in_a_drive_is_loaded_into_a_machine_that_holds_another(self):
+        # The manifest has two media; the state was taken with A in DF0. Whatever the machine holds (B, or A not mounted and DF0 empty) the load puts A in, and the machine goes on
+        # as the original did.
         other = self.dir / "b.adf"
         other.write_bytes(hashlib.sha256(b"disk b").digest() * (901120 // 32))
-        with_a = self.state_of("a-in-df0.state", "busy", 8, "--adf", str(self.adf), "--adf", str(other), "--event-at", "0", "0", "0", "1")
-        for name, args in (("the other disk in the drive", ("--adf", str(self.adf), "--adf", str(other), "--event-at", "0", "0", "1", "1")),
-                           ("the disk loaded but not in the drive", ("--adf", str(self.adf), "--adf", str(other)))):
+        both = ("--adf", str(self.adf), "--adf", str(other))
+        with_a = self.dir / "a-in-df0.state"
+        original = self.probe("busy", "--units", "11", "--every", "1", *both, "--event-at", "0", "0", "0", "1", "--save-at", "8", str(with_a))
+        for name, args in (("the other disk in the drive", ("--event-at", "0", "0", "1", "1")), ("the disk loaded but not in the drive", ())):
             with self.subTest(name):
-                control = self.probe("busy", "--units", "11", "--every", "1", *args)
-                path = self.dir / "refused.state"
-                path.write_bytes(with_a)
-                run = self.probe("busy", "--units", "11", "--every", "1", *args, "--load-at", "8", str(path))
-                (unit, code, message), = run.loads
-                self.assertEqual((8, 10), (unit, code), message)          # P6_ERROR_INCOMPATIBLE: a state of this build and these media, taken with another disk in the drive
-                self.assertIn("chunk disk: DSK0: the disk in the drive is not the one the state was taken with", message)
-                self.assertEqual(control.unit(8), run.after[0], "a refused state changed the machine")
+                again = self.dir / "a-in-df0.again"
+                run = self.probe("busy", "--units", "11", "--every", "1", *both, *args, "--load-at", "8", str(with_a), "--save-at", "8", str(again))
+                self.assertEqual([(8, 0, "")], run.loads)
+                self.assert_loaded_as_saved(with_a, again, (zlib.crc32(self.adf.read_bytes()), 0))
                 for later in range(9, 12):
-                    self.assertEqual(control.unit(later), run.unit(later), f"unit {later}: the machine did not go on as if nothing had happened")
+                    self.assertEqual(original.unit(later), run.unit(later), f"unit {later}: the machine is not the original")
 
-    def test_a_state_taken_with_no_disk_in_a_drive_is_refused_by_a_machine_that_has_one_in_it(self):
-        none = self.state_of("df0-empty.state", "busy", 8, "--adf", str(self.adf))
-        path = self.dir / "refused-empty.state"
-        path.write_bytes(none)
-        run = self.probe("busy", "--units", "9", "--adf", str(self.adf), "--event-at", "0", "0", "0", "1", "--load-at", "8", str(path))
-        (unit, code, message), = run.loads
-        self.assertEqual((8, 10), (unit, code), message)
-        self.assertIn("DSK0: the disk in the drive", message)
+    def test_a_state_taken_with_no_disk_in_a_drive_is_loaded_into_a_machine_that_has_one_in_it(self):
+        none, again = self.dir / "df0-empty.state", self.dir / "df0-empty.again"
+        original = self.probe("busy", "--units", "11", "--every", "1", "--adf", str(self.adf), "--save-at", "8", str(none))
+        run = self.probe("busy", "--units", "11", "--every", "1", *self.disk, "--load-at", "8", str(none), "--save-at", "8", str(again))
+        self.assertEqual([(8, 0, "")], run.loads)
+        self.assert_loaded_as_saved(none, again, (0, 0))
+        for later in range(9, 12):
+            self.assertEqual(original.unit(later), run.unit(later), f"unit {later}: the machine is not the original")
+
+    def test_a_state_whose_disk_is_not_the_one_its_manifest_names_is_refused_and_the_machine_is_untouched(self):
+        # The identity is the manifest; inside it DSKn carries the CRC of the image in the drive and P6BR says which medium that is. A state in which they disagree was written by no
+        # machine of this manifest: it is refused before any drive is touched, whatever the live drives hold.
+        other = self.dir / "b.adf"
+        other.write_bytes(hashlib.sha256(b"disk b").digest() * (901120 // 32))
+        both = ("--adf", str(self.adf), "--adf", str(other), "--event-at", "0", "0", "0", "1")
+        good = self.state_of("two-media.state", "busy", 8, *both)
+        located = locate(good)
+        self.assertEqual(zlib.crc32(self.adf.read_bytes()), struct.unpack_from(">I", upstream_bodies(good)[b"P6DK"]["DSK0"], 12)[0])
+        drive_media_at = self.drive_media_at(good)
+        self.assertEqual(0, struct.unpack_from("<i", self.chunk_bodies(good)[b"P6BR"], 20)[0], "DF0 holds medium 0")
+        wrong = "the CRC of the disk in the drive is not the one of the medium the manifest gives it"
+        attempts = [
+            ("the CRC of another image in DF0", with_bytes(good, DISK, located["DSK0"] + 8 + 12, struct.pack(">I", zlib.crc32(other.read_bytes()))), wrong),
+            ("an empty DF0 in a state whose manifest puts a medium in it", with_bytes(good, DISK, located["DSK0"] + 8 + 12, struct.pack(">I", 0)), wrong),
+            ("a medium in DF0 that is not the one P6BR names (B)", with_bytes(good, e.TAGS.index(b"P6BR"), drive_media_at, struct.pack("<i", 1)), wrong),
+            ("a medium in DF0 that P6BR says is empty", with_bytes(good, e.TAGS.index(b"P6BR"), drive_media_at, struct.pack("<i", -1)), wrong),
+            ("a medium in DF1 that no DSK1 holds", with_bytes(good, e.TAGS.index(b"P6BR"), drive_media_at + 4, struct.pack("<i", 1)), "DSK1: the CRC of the disk in the drive"),
+        ]
+        # The machine that loads them holds the same medium in DF0 or the other one: nothing is compared with it, and it goes on as if nothing had happened.
+        for name, extra in (("the same", both), ("the other", (*both[:4], "--event-at", "0", "0", "1", "1"))):
+            with self.subTest(live_df0=name):
+                self.refusals([(name, data, 10, text) for name, data, text in attempts], rom="busy", extra=extra, unit=8, units=11)
+
+    def test_a_countdown_in_a_drive_that_the_manifest_says_is_empty_is_refused(self):
+        change = ("--adf", str(self.adf), "--event-at", "0", "0", "0", "1", "--event-at", "9", "0", "-1", "2", "--event-at", "11", "0", "0", "3")
+        waiting = self.state_of("waiting-forged.state", "busy", 12, *change)
+        drive_media_at = self.drive_media_at(waiting)
+        self.assertEqual(0, struct.unpack_from("<i", self.chunk_bodies(waiting)[b"P6BR"], 20)[0], "DF0 waits for medium 0")
+        self.refusals([("a countdown towards no medium", with_bytes(waiting, e.TAGS.index(b"P6BR"), drive_media_at, struct.pack("<i", -1)), 10,
+                        "DSK0: a disk change counts down in a drive that the manifest says is empty")], rom="busy", extra=self.disk, unit=12, units=13)
+
+    def test_a_state_of_another_manifest_is_refused_whatever_the_drives_hold(self):
+        other = self.dir / "b.adf"
+        other.write_bytes(hashlib.sha256(b"disk b").digest() * (901120 // 32))
+        a_only = self.state_of("manifest-a.state", "busy", 8, *self.disk)
+        self.refusals([("a state of a manifest with one medium, in a machine that has two", a_only, 10, "media_manifest_hash")], rom="busy",
+                      extra=["--adf", str(self.adf), "--adf", str(other), "--event-at", "0", "0", "0", "1"], unit=8, units=11)
+

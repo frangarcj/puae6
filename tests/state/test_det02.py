@@ -1,4 +1,4 @@
-"""T15i3, T15f (T15f1, T15f2, T15f3 and its closure), T15e and T15g: DET02 end to end with every chunk of the state, and where it still diverges.
+"""T15i3, T15f (T15f1, T15f2, T15f3 and its closure), T15e, T15g and T15d2: DET02 end to end with every chunk of the state, and where it still diverges.
 
 DET02 (docs/04-validation.md): a state saved at unit N, the machine run on, the state loaded, and the units after it run again must give the machine of the original run, subsystem by
 subsystem. The probe digests cpu, scheduler, ram, rtc, cia, chipset (by group: beam, counters, irq_dma, clxdat, lof, timing), audio, input, video and bridge, and hashes the PCM of
@@ -16,6 +16,10 @@ The machine that loads the state is one of (the "mode" of a test):
   new-process           a fresh image that ran its reset head: since T15f1 it is on the original's line, in its frame phase and with its line length, and it is the detector
                         of what the other chunks still lack (the picture, the audio phase);
   new-process-beam-set  the same, with the beam set.
+Modes of T15d2, with the same manifest and drives that hold other media than the state's (the scenarios with the "swap" or "change-long" arguments):
+  landed-image-beam-set    the same image LANDED units on: the change that was counting down in the state has landed in its drive;
+  swapped-image-beam-set   the same image SWAPPED units on, whose own history (eject in unit 6, mount of B in 7) put B in the drive that the state has A in: a rewind across a disk change;
+  new-process-boot-a/b     a fresh image booted with medium A or B, whatever the original held at the state: the media events at or before the saved unit are left out, since they cannot be replayed.
 A scenario that diverges is a test that EXPECTS to fail (unittest.expectedFailure, counted by tests/host/run_parallel.py as an "expected failure") and next to it a test that pins
 where the first divergence is (DIVERGENCES: first unit and every subsystem that differs in it), so that a divergence that moves is seen. A scenario that matches is an ordinary test:
 the regression gate of T15d, T15e, T15f and T15g. When a task makes a scenario match, its entry leaves DIVERGENCES and nothing else changes (the expected failure would otherwise
@@ -43,9 +47,8 @@ the card, item by item:
                                       disk-dma-bytr), the step limiter (disk-steps: a loop of step pulses), the bit counter and geometry of a drive that spins empty, and the countdown of a delayed
                                       disk change, which restore_disk zeroed so that the medium never landed (disk-change-lands: the units after the load run until it has, 110 of them). The generator
                                       is the engine's: restore_custom writes DSKSYNC and the prediction draws from it on a track the image does not format, so ApplyScope puts it back after the bodies.
-                                      linecounter (the turbo path), dsklength2 and the rest of what DSKX leaves out are dead in the profile, see patch 0101. A state taken in the window of a delayed
-                                      change loads only into a machine whose drive is in the state's condition (any other drive contents are INCOMPATIBLE, test_state_upstream), so the change
-                                      scenarios have no new-process mode: a media event before the saved unit cannot be replayed in one
+                                      linecounter (the turbo path), dsklength2 and the rest of what DSKX leaves out are dead in the profile, see patch 0101. Since T15d2 a state is loaded whatever the drives of the machine hold (the media are the
+                                      manifest, and the load puts into each drive the medium the state names): see the modes below that differ in the media
   delayed disk change                 not shown any more: the cpu digest that differed at unit 10 was the DMAL in flight, which T15f1 saves, and the audio
                                       rows that followed were T15e's: disk-change matches now
   audio filter and resampler          fixed by T15e (AUDP, patch 0099): the resampler phase, the cycles not yet integrated, the output and LED filters, the interpolation
@@ -83,8 +86,10 @@ from tests.scenarios.audio.audio import Tone, rom_source as tone_source
 CHIP_GROUPS = ("beam", "counters", "irq_dma", "clxdat", "lof", "timing")
 UNITS_AFTER = 6         # M: units that run after the load
 LONG_AFTER = 110        # the units after the load of the scenarios whose extra arguments are named in HORIZONS: a delayed disk change lands 2 * 50 * 312 lines (100 frames) after the swap
-HORIZONS = {"change-long": LONG_AFTER}
+HORIZONS = {"change-long": LONG_AFTER, "swap": LONG_AFTER}
 REWIND = 3              # k: units the same image has run past N when it loads the state
+LANDED = 105            # k of the machines that load a state taken in the countdown of a delayed change after it has landed: 100 frames and a few lines after unit 11 is unit 112
+SWAPPED = 135           # k of the machine that swapped the media itself, in its history, and holds the other one when it loads: the history (eject in 6, mount in 7) lands in 107
 
 # Ways the machine that loads the state differs from the one that saved it (the modes of a scenario):
 SAME = "same-image"                    # the same image, REWIND units past N: the beam of the loaded machine is where the machine already was
@@ -93,6 +98,13 @@ RESET_BEAM = "reset-image-beam-set"    # the image restarted its program (p6_res
                                        # state that a state does not carry and that the same program, run for more units, writes again to the same values; beam set
 NEW = "new-process"                    # a fresh image that ran its reset head
 NEW_BEAM = "new-process-beam-set"
+# The media of the drives of the machine that loads the state differ from the state's, with the same manifest (T15d2; the media are the two ADF of the "swap" arguments, A is index 0
+# and B index 1, and a swap ejects A in unit 9 and mounts B in unit 11, which lands 100 frames later):
+LATER_BEAM = "landed-image-beam-set"   # the same image, LANDED units on, with the change that was counting down at the state landed in the drive
+SWAPPED_BEAM = "swapped-image-beam-set"  # the same image, SWAPPED units on, whose history swapped the medium of the drive before the state was taken: it holds B and the state has A
+BOOT_A = "new-process-boot-a"          # a fresh image whose boot medium is A (the media events of the history of the original cannot be replayed in it, so they are left out)
+BOOT_B = "new-process-boot-b"          # the same, booted with B
+BOOTS = {BOOT_A: 0, BOOT_B: 1}
 
 # name -> (rom name, extra probe arguments, units N at which the state is taken, modes). Arguments name absolute units: a unit above N is shifted to the unit the loaded image is at
 # (by REWIND in the same image, by -N in a new process: the host sends in the unit after the load what it sent in the unit after the saved one). Arguments at or below N are the
@@ -137,7 +149,12 @@ SCENARIOS = {
     "disk-steps": ("disk-steps", "disk", (4, 7, 12), CORE),
     # The delayed insert of the change (2 * 50 * 312 lines after the swap) is in flight in every unit from 10 to 110: the states are taken before the insert, in its middle and
     # at its end, and the units after the load run until it has landed.
-    "disk-change-lands": ("busy", "change-long", (12, 60), (SAME_BEAM,)),
+    "disk-change-lands": ("busy", "change-long", (12, 60), (SAME_BEAM, LATER_BEAM, BOOT_A)),
+    # Two media in the manifest: A is in DF0 from the start, the swap ejects it in unit 9 and mounts B in unit 11. The state of unit 5 holds A, the ones of units 12 and 60 are in the
+    # countdown of the change (the drive is empty and waits for B) and the one of unit 130 holds B; each is loaded into machines whose drive holds the other medium, or the same one.
+    "swap-rewind": ("busy", "swap", (5,), (SWAPPED_BEAM, BOOT_B)),
+    "swap-countdown": ("busy", "swap", (12, 60), (LATER_BEAM, BOOT_A, BOOT_B)),
+    "swap-landed": ("busy", "swap", (130,), (BOOT_A,)),
     # The blit in flight (unit 2) with each of the other channels stealing slots from it.
     "blit+bitplanes": ("blt-bpl", [], (2,), CHANNELS),
     "blit+sprites": ("blt-spr", [], (2,), CHANNELS),
@@ -217,6 +234,24 @@ def row(cause, unit, subsystems):
 DIVERGENCES = {}
 
 
+def replayed(args, n, boot):
+    """The arguments of a new process whose boot medium is `boot`: its history cannot be the original's, so the media events at or before the saved unit are left out (the boot mount stays)."""
+    out, i = [], 0
+    while i < len(args):
+        if args[i] == "--event-at":
+            unit = int(args[i + 1])
+            if 0 < unit <= n:
+                i += 5
+                continue
+            if unit == 0:
+                out += [args[i], "0", args[i + 2], str(boot), args[i + 4]]
+                i += 5
+                continue
+        out.append(args[i])
+        i += 1
+    return out
+
+
 def shifted(args, n, offset, fresh):
     """The packet arguments of the machine that loads the state at its unit `offset` (a unit past N, or 0 for a new process)."""
     widths = {"--key": 4, "--port-at": 3, "--event-at": 5, "--reset-at": 2}
@@ -250,6 +285,8 @@ class Det02Case(ProbeCase):
         super().setUpClass()
         cls.adf = cls.dir / "a.adf"
         cls.adf.write_bytes(hashlib.sha256(b"disk a").digest() * (901120 // 32))
+        cls.adf_b = cls.dir / "b.adf"
+        cls.adf_b.write_bytes(hashlib.sha256(b"disk b").digest() * (901120 // 32))
         cls.cache = {}
 
     @staticmethod
@@ -263,6 +300,8 @@ class Det02Case(ProbeCase):
             return ["--adf", str(self.adf), "--event-at", "0", "0", "0", "1"]
         if extra in ("change", "change-long"):
             return ["--adf", str(self.adf), "--event-at", "0", "0", "0", "1", "--event-at", "9", "0", "-1", "2", "--event-at", "11", "0", "0", "3"]
+        if extra == "swap":
+            return ["--adf", str(self.adf), "--adf", str(self.adf_b), "--event-at", "0", "0", "0", "1", "--event-at", "9", "0", "-1", "2", "--event-at", "11", "0", "1", "3"]
         return list(extra)
 
     def original(self, rom, extra, n):
@@ -286,14 +325,20 @@ class Det02Case(ProbeCase):
         if key not in self.cache:
             original, path = self.original(rom, extra, n)
             fresh = mode.startswith("new-process")
-            offset = 0 if fresh else n + REWIND
+            offset = 0 if fresh else n + {LATER_BEAM: LANDED, SWAPPED_BEAM: SWAPPED}.get(mode, REWIND)
             ops = ["--load-at", str(offset), str(path)]
             if mode.startswith("reset-image"):
                 ops = ["--reset-at", str(offset - 1)] + ops          # the image restarts its program one unit before the load: its history is not the state's
             if mode.endswith("beam-set"):
                 v, l, h = self.beam_of(original, n)
                 ops += ["--poke-at", str(offset), f"beam:{v}:{l}:{h}", "--digest-at", str(offset)]
-            run = self.probe(rom, "--units", str(offset + self.after(extra)), "--every", "1", *shifted(self.arguments(extra), n, offset, fresh), *ops)
+            args = self.arguments(extra)
+            if mode in BOOTS:
+                args = replayed(args, n, BOOTS[mode])
+            args = shifted(args, n, offset, fresh)
+            if mode == SWAPPED_BEAM:
+                args += ["--event-at", "6", "0", "-1", "2", "--event-at", "7", "0", "1", "3"]      # its own history: A out and B in, landed long before the load
+            run = self.probe(rom, "--units", str(offset + self.after(extra)), "--every", "1", *args, *ops)
             self.assertEqual([(offset, 0, "")], run.loads[:1], "the state is refused")
             self.cache[key] = (run, offset, len(run.after) - 1)
         return self.cache[key]

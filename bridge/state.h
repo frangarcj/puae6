@@ -10,17 +10,25 @@
 
 namespace p6_state {
 
+// What the state being loaded says about the media of the drives. `drive_media` is the manifest index each drive holds (P6BR; -1: none), read while P6BR validates;
+// `held` is the medium the engine's drive has to hold once the disk chunk is applied, which differs only for a drive that counts down a delayed change (its bodies say
+// it is empty while P6BR names the medium it waits for). Both come from the state alone: the media are the ones of the manifest, which the identity has already compared.
+struct MediaPlan {
+    int32_t drive_media[4];
+    int32_t held[4];
+};
+
 // One chunk of the payload. `visit` describes the chunk's state once, for saving, measuring, validating and applying (archive.h);
-// null means the chunk is not written yet. `rebuild` runs after every chunk has been applied, to derive what is not saved. `machine` checks the body
-// against the machine it is about to be applied to (what Validate cannot see: a load into an image that has not started has no drive, no medium and
-// no scheduler yet): load() calls it after the reset head and before the first chunk is applied, and a reason refuses the state as INCOMPATIBLE.
+// null means the chunk is not written yet. `rebuild` runs after every chunk has been applied, to derive what is not saved. `manifest` checks the body
+// against the media manifest of the state (the registered media, which every loaded image has, not the drives of the live machine) once every chunk has been
+// validated and before the machine is touched: a reason refuses the state as INCOMPATIBLE, and it fills in the plan the chunk's apply follows.
 struct Chunk {
     const char *tag;
     const char *name;
     uint32_t version;
     void (*visit)(Archive &);
     void (*rebuild)();
-    const char *(*machine)(const uint8_t *body, uint64_t length) = nullptr;
+    const char *(*manifest)(const uint8_t *body, uint64_t length, MediaPlan &plan) = nullptr;
 };
 
 // The public p6_state_* functions say UNSUPPORTED while this is false, and p6_query_caps leaves P6_CAP_STATE clear. Every chunk has a visitor that
@@ -46,8 +54,10 @@ void rebuild_disk();
 void visit_chipset(Archive &a);
 void visit_audio(Archive &a);
 void visit_video(Archive &a);
-// The disk body against the engine's drives (state_upstream.cpp): nullptr, or why the state was taken with another medium in a drive.
-const char *disk_matches_machine(const uint8_t *body, uint64_t length);
+// The disk body against the manifest (state_upstream.cpp): nullptr, or why the media the drives of the state hold are not the ones P6BR names.
+const char *disk_matches_manifest(const uint8_t *body, uint64_t length, MediaPlan &plan);
+// The plan of the load in progress (state.cpp), or null outside a load: the apply of P6DK puts the media the state names into the drives.
+const MediaPlan *loading_media();
 
 // A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value), which is the only thing a
 // cross-check may use: Validate stores nothing, so the live variable it came from belongs to another machine.

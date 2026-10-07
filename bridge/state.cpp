@@ -34,10 +34,11 @@ namespace {
 // from the destination image, so load() sets the pointer around its validate and apply passes and clears it after.
 struct VisitContext {
     uint64_t unit_index, master_ticks;
+    MediaPlan media;
 };
-const VisitContext *g_context = nullptr;
+VisitContext *g_context = nullptr;
 struct ContextScope {
-    explicit ContextScope(const VisitContext *context) { g_context = context; }
+    explicit ContextScope(VisitContext *context) { g_context = context; }
     ~ContextScope() { g_context = nullptr; }
     ContextScope(const ContextScope &) = delete;
     ContextScope &operator=(const ContextScope &) = delete;
@@ -62,6 +63,7 @@ void visit_bridge(Archive &a)
     int32_t drives[4];
     for (uint32_t i = 0; i < 4; ++i)       // the A500 has DF0 and DF1: the others are never mounted
         drives[i] = get<int32_t>(a, s.drive_media[i], -1, i < 2 ? int32_t(s.media_count) - 1 : -1, "bridge.drive_media");
+    if (a.reading() && a.ok() && g_context) memcpy(g_context->media.drive_media, drives, sizeof drives);     // the disk chunk is checked against it before anything is applied
     uint32_t queued = s.media_queued;
     const uint32_t count = a.count(queued, s.kMediaQueue, "bridge.media_queued");
     p6_session::Session::MediaEvent events[p6_session::Session::kMediaQueue] = {};
@@ -111,6 +113,8 @@ void visit_ram(Archive &a)
 
 }  // namespace
 
+const MediaPlan *loading_media() { return g_context ? &g_context->media : nullptr; }
+
 const Chunk kChunks[kChunkCount] = {
     {"P6CP", "cpu", 1, visit_cpu, nullptr},
     {"P6SC", "scheduler", 1, visit_scheduler, rebuild_scheduler},
@@ -120,7 +124,7 @@ const Chunk kChunks[kChunkCount] = {
     {"P6VD", "video", 1, visit_video, nullptr},
     {"P6AU", "audio", 1, visit_audio, nullptr},
     {"P6CI", "cia", 1, visit_cia, rebuild_cia},
-    {"P6DK", "disk", 1, visit_disk, rebuild_disk, disk_matches_machine},
+    {"P6DK", "disk", 1, visit_disk, rebuild_disk, disk_matches_manifest},
     {"P6IN", "input", 1, visit_input, nullptr},
     {"P6BR", "bridge", 1, visit_bridge, nullptr},
 };
@@ -306,7 +310,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         return p6_fail(error, refusal.code, text);
     }
 
-    const VisitContext context = {unit_index, master_ticks};
+    VisitContext context = {unit_index, master_ticks, {}};
 
     // (7) Every body, read exactly as it will be applied and not stored anywhere.
     const ContextScope scope(&context);
@@ -319,7 +323,21 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         if (!archive.ok()) return refused(error, chunk.name, archive.why());
     }
 
-    // (8) Nothing can refuse any more. An image that has not started has not run its reset head, which is what builds the CPU's dispatch
+    // (8) What the bodies say about the media, against the manifest the identity has already compared (the registered media, which the image has whether or not it
+    // has started): the drives of the live machine are not consulted, so a state is loaded whatever they hold now. Last of the refusals: the next step starts to
+    // mutate the image.
+    const auto chosen = [&options](uint32_t i) { return !options.only_chunks || (options.only_chunks >> i & 1); };
+    for (uint32_t i = 0; i < kChunkCount; ++i) {
+        const Chunk &chunk = kChunks[i];
+        if (!chunk.visit || !chunk.manifest || !chosen(i)) continue;
+        if (const char *why = chunk.manifest(views[i].body, views[i].length, context.media)) {
+            char text[P6_ERROR_TEXT_CAPACITY];
+            snprintf(text, sizeof text, "state refused: chunk %s: %s", chunk.name, why);
+            return p6_fail(error, P6_ERROR_INCOMPATIBLE, text);
+        }
+    }
+
+    // (9) Nothing can refuse any more. An image that has not started has not run its reset head, which is what builds the CPU's dispatch
     // tables and the scheduler's handlers (build_cpufunctbl, init_eventtab): the head runs first, exactly as p6_run_frame runs it, and every
     // chunk then overwrites what it left. A failure of the head, like a failure of a visitor below, is a defect and not of the state: say so and
     // stop the image.
@@ -328,18 +346,6 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         if (!head_ran || options.fail_head) {
             session.state = State::Faulted;
             return p6_fail(error, P6_ERROR_INTERNAL, "the reset head did not run before the state was applied; the image is faulted");
-        }
-    }
-    const auto chosen = [&options](uint32_t i) { return !options.only_chunks || (options.only_chunks >> i & 1); };
-    // What a body says about the machine it is applied to, which exists only now (see Chunk::machine). Nothing has been applied yet, so a refusal here
-    // leaves the image as it was; for an image that had not started it is the image after its reset head, the same one the first unit would have run.
-    for (uint32_t i = 0; i < kChunkCount; ++i) {
-        const Chunk &chunk = kChunks[i];
-        if (!chunk.visit || !chunk.machine || !chosen(i)) continue;
-        if (const char *why = chunk.machine(views[i].body, views[i].length)) {
-            char text[P6_ERROR_TEXT_CAPACITY];
-            snprintf(text, sizeof text, "state refused: chunk %s: %s", chunk.name, why);
-            return p6_fail(error, P6_ERROR_INCOMPATIBLE, text);
         }
     }
     for (uint32_t i = 0; i < kChunkCount; ++i) {

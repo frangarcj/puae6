@@ -65,6 +65,7 @@
 #include "inputdevice.h"
 #include "input.h"
 #include "keybuf.h"
+#include "savestate.h"
 
 #include <algorithm>
 #include <cinttypes>
@@ -277,6 +278,13 @@ void bridge(Canon &c)
     for (uint32_t i = 0; i < s.media_queued && i < p6_session::Session::kMediaQueue; ++i)
         c.put(s.media_queue[i].type).put(s.media_queue[i].drive).put(s.media_queue[i].media_index);
     for (int32_t index : s.drive_media) c.put(index);
+    // The medium each drive of the engine holds, which is not what the session believes it holds (a change in flight, or a state loaded into a drive with another disk): the CRC
+    // drive_insert measured, the one save_disk puts in DSKn (T15d2). The rest of the drive mechanics is not here.
+    for (int n = 0; n < 2; ++n) {
+        uint8_t body[64];
+        size_t length = 0;
+        c.put(save_disk(n, &length, body, false) && length == 24 ? uint32_t(body[12]) << 24 | uint32_t(body[13]) << 16 | uint32_t(body[14]) << 8 | body[15] : 0u);
+    }
     c.put(s.media_count).raw(s.firmware_sha256, sizeof s.firmware_sha256);
     for (uint32_t i = 0; i < s.media_count && i < P6_MAX_MEDIA; ++i) c.raw(s.media_content_id[i], P6_CONTENT_ID_SIZE);
     c.put(s.config.machine).put(s.config.video_standard).put(s.config.audio_rate_hz).put(s.config.flags).put(s.config.random_seed)
