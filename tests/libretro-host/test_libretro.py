@@ -1,5 +1,5 @@
-"""LR01 (and LIFE01, STEP01, AV01, AV02 through the core), T17a (content, Kickstart lookup, VFS, Disk Control): the libretro adapter, run by a minimal
-frontend that loads it like a real one.
+"""LR01 (and LIFE01, STEP01, AV01, AV02 through the core), T17a (content, Kickstart lookup, VFS, Disk Control), T17b (core options from the one schema):
+the libretro adapter, run by a minimal frontend that loads it like a real one.
 
 tests/libretro-host/host.cpp dlopens build/link-audit/puae6_libretro and enforces the contract on every retro_run (one input poll,
 exactly one picture, whole stereo audio frames, a serialization size that does not grow). The p6_headless runner is the other
@@ -20,7 +20,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools"))
 from tests.host.test_bridge_lifecycle import TOOLS, build_probe, builder  # noqa: E402
+import generate_options  # noqa: E402
 
 KICKSTART_NAMES = [
     "kick34005.A500",
@@ -118,8 +120,9 @@ class LibretroTests(unittest.TestCase):
             self.assertNotIn("VIOLATION", result.stdout)
         return result
 
-    def headless_units(self, rom, units):
-        result = subprocess.run([str(self.headless), "--run", str(self.roms[rom]), "--units", str(units)], capture_output=True, text=True, timeout=600)
+    def headless_units(self, rom, units, *flags):
+        result = subprocess.run([str(self.headless), "--run", str(self.roms[rom]), "--units", str(units), *flags], capture_output=True, text=True,
+                                timeout=600)
         self.assertEqual(result.returncode, 0, result.stderr)
         return {int(m[1]): {"ticks": int(m[2]), "video": int(m[3]), "size": (int(m[4]), int(m[5])), "hash": m[6], "audio": int(m[7])}
                 for m in UNIT.finditer(result.stdout)}
@@ -560,6 +563,161 @@ class LibretroTests(unittest.TestCase):
         self.assertEqual(len({c[1:] for c in cycles}), 1, cycles)
         again = [m.groups() for m in CYCLE.finditer(self.disk_run(*steps, runs=130, m3u=m3u))]
         self.assertEqual(again, cycles)
+
+
+    # --- T17b: the core options come from the schema; a reboot option needs a reload, a presentation option does not -------------------
+
+    OPTION = re.compile(r"^option (\S+) default=(\S*) values=(\S*) category=(\S*) desc=(.*)$", re.M)
+    AV = re.compile(r"^av(?:-after \d+)? base=.*$", re.M)
+
+    @staticmethod
+    def schema_options():
+        schema = generate_options.load_schema()
+        return schema, [o for o in schema["options"] if o["libretro"]]
+
+    def av(self, out):
+        """The av line (or the lines, one per load) without the after-run prefix, so that two of them can be compared."""
+        return [re.sub(r"^av(-after \d+)?", "av", line) for line in self.AV.findall(out)]
+
+    def machine(self, out):
+        """What a session did, whatever the options said: the units' ticks, pictures and audio."""
+        return ([m[2] for m in TICKS.finditer(out)], [(r["hash"], r["px"], r["audio"]) for r in self.runs(out)])
+
+    def test_the_options_are_offered_through_v2_v1_and_the_legacy_interface_as_the_schema_says(self):
+        schema, exposed = self.schema_options()
+        reference = None
+        for api in (2, 1, 0):
+            with self.subTest(api=api):
+                out = self.frontend("boot", "--runs", 3, "--options-api", api).stdout
+                offered = self.OPTION.findall(out)
+                self.assertEqual([o[0] for o in offered], [o["libretro"]["key"] for o in exposed])
+                for (key, default, values, category, desc), option in zip(offered, exposed):
+                    self.assertEqual(default, option["default"], key)
+                    self.assertEqual(sorted(values.split("|")), sorted(v["value"] for v in option["values"]), key)
+                    self.assertEqual(desc.endswith("(Restart)"), option["class"] == "reboot", desc)      # a reboot option says so in the menu
+                    if api == 2:
+                        self.assertEqual(category, option["libretro"]["category"], key)
+                self.assertIn(f"options api={api} count={len(exposed)} categories={len(schema['categories']) if api == 2 else 0}", out)
+                if api == 2:
+                    self.assertEqual(re.findall(r"(?m)^category (\S+)$", out), [c["id"] for c in schema["categories"]])
+                # The frontend holds the defaults: the same machine whichever way the options were offered.
+                self.assertEqual(self.machine(out)[1], self.machine(self.frontend("boot", "--runs", 3).stdout)[1])
+                reference = reference or out
+        self.assertIn("rate=48000 region=1", reference)
+
+    def test_a_frontend_without_core_options_gets_the_defaults_of_the_schema(self):
+        out = self.frontend("boot", "--runs", 6, "--no-options").stdout
+        self.assertNotIn("option puae6_", out)
+        self.assertRegex(out, r"(?m)^av base=756x574 .* fps=50\.08\d* rate=48000 region=1$")
+        self.assertEqual(self.machine(out), self.machine(self.frontend("boot", "--runs", 6).stdout))
+
+    def test_ntsc_selected_by_option_is_the_machine_headless_runs_with_ntsc(self):
+        for rom, units in (("boot", 20), ("long_frame", 14)):
+            with self.subTest(rom=rom):
+                out = self.frontend(rom, "--runs", units, "--set", "puae6_video_standard=NTSC").stdout
+                headless = self.headless_units(rom, units, "--ntsc")
+                ticks = {int(m[1]): int(m[2]) for m in TICKS.finditer(out)}
+                runs = {r["n"]: r for r in self.runs(out)}
+                self.assertEqual(sorted(runs), sorted(headless))
+                for n, expected in headless.items():
+                    self.assertEqual((ticks[n], runs[n]["audio"]), (expected["ticks"], expected["audio"]), f"unit {n}")
+                    if expected["video"]:
+                        self.assertEqual((runs[n]["size"], runs[n]["hash"]), (expected["size"], expected["hash"]), f"unit {n}")
+                    else:
+                        self.assertTrue(runs[n]["dupe"], f"unit {n}")
+                self.assertEqual(runs[1]["size"], (756, 484))
+        av = re.search(r"^av base=(\d+)x(\d+) max=\d+x\d+ aspect=([\d.]+) fps=([\d.]+) rate=(\d+) region=(\d+)$", out, re.M)
+        self.assertEqual((av[1], av[2], av[5], av[6]), ("756", "484", "48000", "0"))          # RETRO_REGION_NTSC is 0
+        self.assertAlmostEqual(float(av[4]), 715909 / 11921, places=4)
+        self.assertAlmostEqual(float(av[3]), 756 * 43 / (484 * 50), places=4)
+        pal = self.frontend("long_frame", "--runs", 14).stdout
+        self.assertNotEqual(self.machine(out), self.machine(pal))                                  # the option really changed the machine
+
+    def probe_frames(self, rom, units, *flags):
+        result = subprocess.run([str(self.probe), str(self.roms[rom]), "--units", str(units), "--every", "1", *flags], capture_output=True, text=True,
+                                timeout=600)
+        self.assertEqual(result.returncode, 0, result.stderr[-400:])
+        return {int(m[1]): int(m[2]) for m in re.finditer(r"(?m)^pcm (\d+) \w+ (\d+)$", result.stdout)}
+
+    def test_44100_selected_by_option_is_the_audio_the_state_probe_makes_at_that_rate_and_changes_nothing_else(self):
+        # p6_headless has no way to select the audio rate (it is fixed at 48000, which tests/config/test_parity.py checks against the schema), so the
+        # reference for the sample count is p6_state_probe --rate, which drives the same p6_run_frame; ticks and pictures do not depend on the rate.
+        out = self.frontend("boot", "--runs", 20, "--set", "puae6_audio_rate=44100").stdout
+        default = self.frontend("boot", "--runs", 20).stdout
+        frames = self.probe_frames("boot", 20, "--rate", "44100")
+        self.assertEqual({r["n"]: r["audio"] for r in self.runs(out)}, frames)
+        self.assertNotEqual([r["audio"] for r in self.runs(out)], [r["audio"] for r in self.runs(default)])
+        self.assertEqual(self.machine(out)[0], self.machine(default)[0])
+        self.assertEqual([(r["hash"], r["px"]) for r in self.runs(out)], [(r["hash"], r["px"]) for r in self.runs(default)])
+        self.assertIn("rate=44100 region=1", out)
+        # Both options together: NTSC is the headless picture and ticks, 44100 the probe's audio.
+        both = self.frontend("boot", "--runs", 20, "--set", "puae6_video_standard=NTSC", "--set", "puae6_audio_rate=44100").stdout
+        self.assertEqual({r["n"]: r["audio"] for r in self.runs(both)}, self.probe_frames("boot", 20, "--ntsc", "--rate", "44100"))
+        headless = self.headless_units("boot", 20, "--ntsc")
+        self.assertEqual({int(m[1]): int(m[2]) for m in TICKS.finditer(both)}, {n: u["ticks"] for n, u in headless.items()})
+        self.assertEqual({r["n"]: r["hash"] for r in self.runs(both)}, {n: u["hash"] for n, u in headless.items()})
+        self.assertIn("rate=44100 region=0", both)
+
+    def test_a_reboot_option_changed_while_the_machine_runs_is_reported_and_changes_nothing(self):
+        base = self.frontend("boot", "--runs", 14).stdout
+        changed = self.frontend("boot", "--runs", 14, "--set-at", "6:puae6_video_standard=NTSC", "--set-at", "7:puae6_audio_rate=44100").stdout
+        # The run, the announced av info and the region are those of the machine that is running; the host also checks after every run that
+        # the serialization size did not move (it is 0 until T18 gives states, and the state bound hangs from the same identity).
+        self.assertEqual(self.machine(changed), self.machine(base))
+        self.assertEqual(CYCLE.search(changed).groups(), CYCLE.search(base).groups())
+        self.assertEqual(self.av(changed), self.av(base) * 3)                                    # the line at load and the one after each change
+        notes = self.messages(changed)
+        self.assertEqual(notes, ["PUAE6: puae6_video_standard is now NTSC but the machine runs with PAL: reload the content to apply it",
+                                 "PUAE6: puae6_audio_rate is now 44100 but the machine runs with 48000: reload the content to apply it"])
+        self.assertRegex(changed, r"(?m)^log 2 \[PUAE6\] puae6_video_standard is now NTSC")
+        self.assertEqual(self.messages(base), [])
+
+    def test_a_reboot_option_takes_effect_with_the_next_load_and_then_is_the_machine_a_fresh_process_would_have(self):
+        steps = ("--set-at", "6:puae6_video_standard=NTSC", "--set-at", "7:puae6_audio_rate=44100")
+        out = self.frontend("boot", "--runs", 14, *steps, "--cycles", 2).stdout
+        cycles = [m.groups() for m in CYCLE.finditer(out)]
+        self.assertEqual(len(cycles), 2)
+        self.assertNotEqual(cycles[0][1:], cycles[1][1:])
+        avs = re.findall(r"(?m)^av base=.*$", out)
+        self.assertEqual(len(avs), 2)
+        self.assertTrue(avs[0].endswith("rate=48000 region=1") and avs[1].endswith("rate=44100 region=0"), avs)
+        fresh = self.frontend("boot", "--runs", 14, "--set", "puae6_video_standard=NTSC", "--set", "puae6_audio_rate=44100").stdout
+        self.assertEqual(CYCLE.search(fresh).groups()[1:], cycles[1][1:])                        # same runs, audio frames and PCM stream
+        self.assertEqual(len(self.messages(out)), 2)                                             # the second load had nothing left to report
+
+    def test_a_presentation_option_applies_at_once_and_does_not_touch_the_machine(self):
+        base = self.frontend("boot", "--runs", 12).stdout
+        out = self.frontend("boot", "--runs", 12, "--set-at", "5:puae6_video_aspect=4:3").stdout
+        self.assertEqual(self.machine(out), self.machine(base))
+        self.assertEqual(CYCLE.search(out).groups(), CYCLE.search(base).groups())
+        geometry = re.findall(r"(?m)^geometry (\d+x\d+) aspect=([\d.]+)$", out)
+        self.assertEqual(geometry, [("756x574", "1.369756"), ("756x574", "1.333333")])           # announced again with the first picture after the change
+        self.assertLess(out.index("set 5 "), out.index("geometry 756x574 aspect=1.333333"))
+        self.assertIn("aspect=1.333333 fps=50.080411 rate=48000 region=1", out)                  # av-after: the new ratio, the same timing
+        self.assertEqual(self.messages(out), [])                                                 # nothing to reload
+        chosen = self.frontend("boot", "--runs", 3, "--set", "puae6_video_aspect=4:3").stdout
+        self.assertRegex(chosen, r"(?m)^av base=756x574 .* aspect=1\.333333 fps=50\.08")
+        self.assertEqual(self.machine(chosen)[1], self.machine(base)[1][:3])
+
+    def test_a_value_the_schema_does_not_allow_fails_the_load_naming_the_key_and_the_value(self):
+        for key, value, allowed in (("puae6_video_standard", "SECAM", "PAL, NTSC"), ("puae6_video_standard", "pal", "PAL, NTSC"),
+                                    ("puae6_video_standard", "", "PAL, NTSC"), ("puae6_audio_rate", "22050", "44100, 48000"),
+                                    ("puae6_video_aspect", "wide", "pixel, 4:3")):
+            with self.subTest(key=key, value=value):
+                result = self.frontend("boot", "--set", f"{key}={value}", expect=3)
+                text = f'the option {key} has the value "{value}", which this core does not support (allowed: {allowed})'
+                self.assertIn(f"message PUAE6: {text}", result.stdout)
+                self.assertIn(f"log 3 [PUAE6] {text}", result.stdout)
+                self.assertIn("load refused", result.stdout)
+                self.assertNotIn("run 1 ", result.stdout)
+                self.assertNotIn("vfs open", result.stdout)                                      # refused before the Kickstart was looked at
+
+    def test_a_stale_value_that_arrives_while_the_machine_runs_is_ignored_with_a_message(self):
+        base = self.frontend("boot", "--runs", 10).stdout
+        out = self.frontend("boot", "--runs", 10, "--set-at", "5:puae6_audio_rate=22050").stdout
+        self.assertEqual(self.machine(out), self.machine(base))
+        self.assertEqual(self.messages(out), ['PUAE6: the option puae6_audio_rate has the value "22050", which this core does not support (allowed: '
+                                              '44100, 48000); it is ignored while the machine runs, and loading the content with it would fail'])
 
 
 if __name__ == "__main__":

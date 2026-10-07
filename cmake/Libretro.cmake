@@ -10,7 +10,8 @@ set(_libretro_version "0.1.0-winuae-${_upstream_short}-p${_patch_count}")
 
 add_library(puae6_libretro SHARED adapters/libretro/libretro_core.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(puae6_libretro p6_codegen)
-target_include_directories(puae6_libretro PRIVATE "${_libretro_include}")
+# The portable SHA-256 is included as "sha256.h", like the bridge does; options_generated.h (tools/generate_options.py) sits next to the sources.
+target_include_directories(puae6_libretro PRIVATE "${_libretro_include}" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media")
 target_link_libraries(puae6_libretro PRIVATE p6_bridge p6_portable)
 target_compile_definitions(puae6_libretro PRIVATE P6_LIBRETRO_VERSION="${_libretro_version}")
 set_target_properties(puae6_libretro PROPERTIES PREFIX "" CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)

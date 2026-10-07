@@ -5,25 +5,34 @@
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
 //                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
+//                    [--options-api 0|1|2] [--no-options] [--set KEY=VALUE]... [--set-at RUN:KEY=VALUE]...
 // The core gets the Kickstart from the system directory DIR (the frontend's GET_SYSTEM_DIRECTORY) and the content PATH by name (need_fullpath),
 // read through a VFS the host offers (unless --no-vfs) that wraps stdio and prints every open. No --content is a load without content.
 // COMMAND is a Disk Control call: eject, insert, index=N, remove=N, replace=N:PATH, add. --disk makes it before run RUN (after run RUN-1),
 // --disk-during from inside the video callback of run RUN, where a core must only record it.
+// Core options (T17b): the host offers the interface of --options-api (2 by default: v2 with categories; 1: v1 only; 0: the legacy SET_VARIABLES
+// only) or none at all (--no-options). --set gives the value the frontend holds for a key from the start (a stale value included: the host does not
+// check it, as a frontend with an old configuration does not); --set-at changes it before run RUN, as a person does in the menu, and raises
+// GET_VARIABLE_UPDATE once. A key the core did not register is not held.
 // Output, one line per event, parsed by tests/libretro-host/test_libretro.py:
 //   run N video=WxH pitch=P dupe=D hash=H px=P audio=F polls=K states=S      (px: the pixel in the middle of the picture, XRGB8888)
 //   log LEVEL TEXT         (only when the log interface is offered)
 //   message TEXT           (SET_MESSAGE or SET_MESSAGE_EXT)
 //   vfs open PATH / initial result=R / disk-control ext=E / images count=N index=I eject=E / image I path=P label=L / disk RUN COMMAND ...
+//   options api=A count=N categories=C / category KEY / option KEY default=D values=A|B|... [category=C] desc=TEXT
+//   set RUN KEY=VALUE / geometry WxH aspect=A / av-after RUN base=... (the av line again, after the run that followed a --set-at)
 //   cycle C end ... / final ...
 // Exit code: 0 ok, 1 a contract violation (printed as VIOLATION), 2 the core could not be loaded, 3 retro_load_game refused.
 #include "libretro.h"
 
+#include <algorithm>
 #include <dlfcn.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -44,6 +53,14 @@ struct Options {
     int64_t vfs_claim = -1;
     unsigned initial_index = 0;
     std::string initial_path;
+    int options_api = 2;
+    bool no_options = false;
+    std::map<std::string, std::string> held;                    // the value the frontend holds for a key
+    struct SetStep {
+        int run;
+        std::string key, value;
+    };
+    std::vector<SetStep> set_steps;
     struct DiskStep {
         int run;
         bool during;
@@ -104,6 +121,14 @@ retro_disk_control_ext_callback disk = {};      // what the core registered (the
 bool disk_registered = false, disk_is_ext = false;
 int vfs_opens = 0;
 
+// What the core registered: key -> default and value names, in the order it gave them.
+struct Registered {
+    std::string default_value;
+    std::vector<std::string> values;
+};
+std::map<std::string, Registered> registered;
+bool variable_update = false;
+
 void violation(const char *format, ...)
 {
     printf("VIOLATION run %d: ", run_number);
@@ -113,6 +138,19 @@ void violation(const char *format, ...)
     va_end(arguments);
     printf("\n");
     ++violations;
+}
+
+void register_option(const char *key, const char *default_value, std::vector<std::string> values, const char *category, const char *desc)
+{
+    // What a frontend would silently ignore, or confuse with another option, is a contract violation of the core.
+    if (!key || strncmp(key, "puae6_", 6) != 0) violation("an option key without the core's prefix");
+    if (!default_value || std::find(values.begin(), values.end(), default_value) == values.end()) violation("option %s: the default is not among the values", key ? key : "?");
+    if (key && registered.count(key)) violation("duplicate option key %s", key);
+    if (!key) return;
+    printf("option %s default=%s values=", key, default_value ? default_value : "");
+    for (size_t i = 0; i < values.size(); ++i) printf("%s%s", i ? "|" : "", values[i].c_str());
+    printf(" category=%s desc=%s\n", category ? category : "", desc ? desc : "");
+    registered[key] = {default_value ? default_value : "", std::move(values)};
 }
 
 uint64_t fnv(uint64_t hash, const void *data, size_t bytes)
@@ -236,8 +274,12 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         if (options.no_dupe || options.reject_optional) return false;
         *static_cast<bool *>(data) = true;
         return true;
-    case RETRO_ENVIRONMENT_SET_GEOMETRY:
-        return !options.reject_optional;
+    case RETRO_ENVIRONMENT_SET_GEOMETRY: {
+        if (options.reject_optional) return false;
+        const retro_game_geometry *geometry = static_cast<const retro_game_geometry *>(data);
+        printf("geometry %ux%u aspect=%.6f\n", geometry->base_width, geometry->base_height, double(geometry->aspect_ratio));
+        return true;
+    }
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
         if (!options.has_system) return false;
         *static_cast<const char **>(data) = options.system_dir.c_str();
@@ -275,6 +317,69 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         printf("message %s\n", static_cast<retro_message *>(data)->msg);
         return true;
     case RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME:
+        return true;
+    case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION:
+        if (options.no_options || options.reject_optional || options.options_api == 0) return false;
+        *static_cast<unsigned *>(data) = unsigned(options.options_api);
+        return true;
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2: {
+        if (options.no_options || options.reject_optional || options.options_api < 2) return false;
+        const retro_core_options_v2 *set = static_cast<const retro_core_options_v2 *>(data);
+        int categories = 0, count = 0;
+        for (const retro_core_option_v2_category *c = set->categories; c && c->key; ++c, ++categories) printf("category %s\n", c->key);
+        for (const retro_core_option_v2_definition *d = set->definitions; d->key; ++d, ++count) {
+            std::vector<std::string> values;
+            for (const retro_core_option_value *v = d->values; v->value; ++v) values.push_back(v->value);
+            register_option(d->key, d->default_value, values, d->category_key, d->desc_categorized);
+        }
+        printf("options api=2 count=%d categories=%d\n", count, categories);
+        return true;
+    }
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS: {
+        if (options.no_options || options.reject_optional || options.options_api < 1) return false;
+        int count = 0;
+        for (const retro_core_option_definition *d = static_cast<const retro_core_option_definition *>(data); d->key; ++d, ++count) {
+            std::vector<std::string> values;
+            for (const retro_core_option_value *v = d->values; v->value; ++v) values.push_back(v->value);
+            register_option(d->key, d->default_value, values, "", d->desc);
+        }
+        printf("options api=1 count=%d categories=0\n", count);
+        return true;
+    }
+    case RETRO_ENVIRONMENT_SET_VARIABLES: {
+        if (options.no_options || options.reject_optional) return false;
+        int count = 0;
+        for (const retro_variable *v = static_cast<const retro_variable *>(data); v->key; ++v, ++count) {
+            // "Description; first|second|...": the first value is the default.
+            const std::string text = v->value;
+            const size_t semicolon = text.find("; ");
+            std::vector<std::string> values;
+            for (size_t at = semicolon + 2; semicolon != std::string::npos && at <= text.size();) {
+                const size_t bar = text.find('|', at);
+                values.push_back(text.substr(at, bar == std::string::npos ? std::string::npos : bar - at));
+                if (bar == std::string::npos) break;
+                at = bar + 1;
+            }
+            if (values.empty()) violation("option %s: the legacy string has no values", v->key);
+            else register_option(v->key, values[0].c_str(), values, "", text.substr(0, semicolon).c_str());
+        }
+        printf("options api=0 count=%d categories=0\n", count);
+        return true;
+    }
+    case RETRO_ENVIRONMENT_GET_VARIABLE: {
+        retro_variable *variable = static_cast<retro_variable *>(data);
+        const auto known = registered.find(variable->key ? variable->key : "");
+        if (known == registered.end()) {
+            variable->value = nullptr;
+            return false;
+        }
+        const auto held = options.held.find(known->first);
+        variable->value = (held == options.held.end() ? known->second.default_value : held->second).c_str();
+        return true;
+    }
+    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
+        *static_cast<bool *>(data) = variable_update;
+        variable_update = false;
         return true;
     case RETRO_ENVIRONMENT_SHUTDOWN:
         shutdown_requested = true;
@@ -413,6 +518,22 @@ bool parse(int argc, char **argv)
             if (colon == std::string::npos) return false;
             options.disk_steps.push_back({atoi(spec.substr(0, colon).c_str()), !strcmp(a, "--disk-during"), spec.substr(colon + 1)});
         }
+        else if (!strcmp(a, "--options-api")) options.options_api = atoi(next());
+        else if (!strcmp(a, "--no-options")) options.no_options = true;
+        else if (!strcmp(a, "--set") || !strcmp(a, "--set-at")) {
+            std::string spec = next();
+            int run_at = 0;
+            if (!strcmp(a, "--set-at")) {
+                const size_t colon = spec.find(':');
+                if (colon == std::string::npos) return false;
+                run_at = atoi(spec.substr(0, colon).c_str());
+                spec = spec.substr(colon + 1);
+            }
+            const size_t equals = spec.find('=');
+            if (equals == std::string::npos) return false;
+            if (!strcmp(a, "--set")) options.held[spec.substr(0, equals)] = spec.substr(equals + 1);
+            else options.set_steps.push_back({run_at, spec.substr(0, equals), spec.substr(equals + 1)});
+        }
         else if (!strcmp(a, "--audio-partial")) options.audio_partial = size_t(atol(next()));
         else if (!strcmp(a, "--audio-stall")) sscanf(next(), "%d:%d", &options.stall_first, &options.stall_last);
         else if (!strcmp(a, "--joy")) {
@@ -494,9 +615,23 @@ int main(int argc, char **argv)
             run = Run{};
             for (const Options::DiskStep &step : options.disk_steps)
                 if (!step.during && step.run == n) disk_command(n, step.command);
+            bool changed_options = false;
+            for (const Options::SetStep &step : options.set_steps)
+                if (step.run == n) {
+                    options.held[step.key] = step.value;
+                    variable_update = changed_options = true;
+                    printf("set %d %s=%s\n", n, step.key.c_str(), step.value.c_str());
+                }
             core.run();
             printf("run %d video=%ux%u pitch=%zu dupe=%d hash=%016" PRIx64 " px=%08x audio=%" PRIu64 " polls=%d states=%d\n", n, run.width,
                    run.height, run.pitch, int(run.dupe), run.picture_hash, run.first_pixel, run.audio_frames, run.polls, run.states);
+            if (changed_options) {
+                // What the core announces after a change made while it runs: a reboot option must leave all of this as it was.
+                retro_system_av_info after = {};
+                core.get_system_av_info(&after);
+                printf("av-after %d base=%ux%u max=%ux%u aspect=%.6f fps=%.6f rate=%.0f region=%u\n", n, after.geometry.base_width, after.geometry.base_height,
+                       after.geometry.max_width, after.geometry.max_height, double(after.geometry.aspect_ratio), after.timing.fps, after.timing.sample_rate, core.get_region());
+            }
             if (run.videos != 1) violation("%d pictures were shown (exactly one is required)", run.videos);
             if (run.polls != 1) violation("the input was polled %d times (once is required)", run.polls);
             if (core.serialize_size() != serialize_size) violation("the serialization size changed");

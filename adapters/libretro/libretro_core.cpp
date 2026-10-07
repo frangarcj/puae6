@@ -10,13 +10,18 @@
 // and the Disk Control interface only records what the frontend asks: the next retro_run turns it into p6_media_event_enqueue calls, so a
 // change lands on one unit boundary (see disk_control.h).
 //
-// What this adapter does not do yet (see docs/02-contracts.md and the plan): core options (T17b), the keyboard and the other port devices
+// Options (T17b): the core options come from the one schema (config/schema/options.json, options.h). The reboot options (video standard, audio rate)
+// are read when the content is loaded and become the p6_config; a change made while the machine runs is reported and only applies after a reload. The
+// presentation option (aspect) is applied at once. A value outside the schema fails the load, naming the key and the value.
+//
+// What this adapter does not do yet (see docs/02-contracts.md and the plan): the keyboard and the other port devices
 // (T17c), the other floppy formats (T17d), save states (T18: serialize_size is 0, which is the honest answer until then), and any memory region.
 #include "libretro.h"
 #include "p6.h"
 #include "content.h"
 #include "disk_control.h"
-#include "../../ports/portable/media/sha256.h"
+#include "options.h"
+#include "sha256.h"
 
 #include <algorithm>
 #include <stdarg.h>
@@ -32,9 +37,6 @@
 
 namespace {
 
-constexpr uint32_t kAudioRateHz = 48000;
-constexpr int64_t kRtcEpoch = 946684800;          // 2000-01-01T00:00:00Z, the contract's default, as the headless runner uses
-constexpr uint64_t kSeed = 1;
 constexpr size_t kPendingAudioFrames = 16384;     // a stalled frontend may hold this many stereo frames back; older ones are dropped
 constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500 family; what the file claims never decides an allocation
 constexpr size_t kAdfBytes = 901120;              // 80 cylinders x 2 sides x 11 sectors x 512 bytes: what the bridge accepts as an ADF
@@ -69,7 +71,8 @@ struct Core {
     bool running = false;                 // a retro_* call is in progress (they are not reentrant)
     bool can_dupe = false;
     bool announced_size = false;
-    uint32_t standard = P6_VIDEO_PAL;
+    p6_options::Settings settings;        // the options of the running machine (the schema's defaults while nothing is loaded)
+    p6_options::Settings requested;       // what the frontend last asked for: a reboot option that differs from `settings` was reported once, not at every change
     uint32_t device[2] = {RETRO_DEVICE_JOYPAD, RETRO_DEVICE_JOYPAD};
     std::vector<uint8_t> firmware;        // p6_load borrows it until p6_unload
     std::vector<Medium> media;            // the manifest: one entry per distinct disk of the content
@@ -131,6 +134,7 @@ void stop_image()
     }
     if (core.initialized) p6_shutdown(nullptr);
     core.loaded = core.initialized = core.faulted = false;
+    core.settings = core.requested = p6_options::Settings();
     core.firmware.clear();                  // only now: p6_unload was the last user of what it borrowed
     core.media.clear();
     core.tray.clear();
@@ -177,6 +181,14 @@ p6_input read_input()
     return input;
 }
 
+// The aspect ratio announced for a picture of width x height pixels whose pixel aspect is num:den: the machine's own, or a plain 4:3 when the
+// presentation option asks for it. It never changes a pixel of the picture.
+float aspect_ratio(uint32_t width, uint32_t height, uint32_t num, uint32_t den)
+{
+    if (core.settings.video_aspect == 1) return 4.0f / 3.0f;
+    return float(double(width) * num / (double(height) * den));
+}
+
 // One picture per run. The active raster is what the renderer drew, so that is what the frontend gets, not the padded buffer.
 void deliver_video(const p6_frame &frame, bool have_frame)
 {
@@ -188,7 +200,7 @@ void deliver_video(const p6_frame &frame, bool have_frame)
             retro_game_geometry geometry = {};
             geometry.base_width = geometry.max_width = width;
             geometry.base_height = geometry.max_height = height;
-            geometry.aspect_ratio = float(double(width) * frame.aspect_num / (double(height) * frame.aspect_den));
+            geometry.aspect_ratio = aspect_ratio(width, height, frame.aspect_num, frame.aspect_den);
             environment_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &geometry);      // optional: a refusal only costs the frontend's hint
             core.announced_size = true;
             core.announced_width = width;
@@ -245,15 +257,12 @@ void deliver_audio(const p6_frame &frame, bool have_frame)
     core.pending.erase(core.pending.begin(), core.pending.begin() + std::ptrdiff_t(offered * 2));
 }
 
-// A failure the person at the frontend has to see, not only the log: the log line and an on-screen message.
-void notify_error(const char *format, ...)
+// Something the person at the frontend has to see, not only the log: the log line and an on-screen message.
+void vnotify(retro_log_level level, const char *format, va_list arguments)
 {
     char text[512];
-    va_list arguments;
-    va_start(arguments, format);
     vsnprintf(text, sizeof text, format, arguments);
-    va_end(arguments);
-    log(RETRO_LOG_ERROR, "%s", text);
+    log(level, "%s", text);
     if (!environment_cb) return;
     char shown[540];
     snprintf(shown, sizeof shown, "PUAE6: %s", text);
@@ -262,8 +271,8 @@ void notify_error(const char *format, ...)
         retro_message_ext message = {};
         message.msg = shown;
         message.duration = 8000;
-        message.priority = 3;
-        message.level = RETRO_LOG_ERROR;
+        message.priority = level == RETRO_LOG_ERROR ? 3 : 2;
+        message.level = level;
         message.target = RETRO_MESSAGE_TARGET_ALL;
         message.type = RETRO_MESSAGE_TYPE_NOTIFICATION;
         message.progress = -1;
@@ -272,6 +281,22 @@ void notify_error(const char *format, ...)
         retro_message message = {shown, 480};
         environment_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &message);
     }
+}
+
+void notify_error(const char *format, ...)
+{
+    va_list arguments;
+    va_start(arguments, format);
+    vnotify(RETRO_LOG_ERROR, format, arguments);
+    va_end(arguments);
+}
+
+void notify_warning(const char *format, ...)
+{
+    va_list arguments;
+    va_start(arguments, format);
+    vnotify(RETRO_LOG_WARN, format, arguments);
+    va_end(arguments);
 }
 
 const char *describe(p6_libretro::ReadResult result)
@@ -437,6 +462,35 @@ void apply_disk_requests()
     core.tray.settled();
 }
 
+// The options may have changed in the frontend's menu since the last unit. A presentation option is applied at once. A reboot option is part of the
+// machine, so the running one keeps its value: the change is reported and applies when the content is loaded again. Nothing the state identity or the
+// serialization size depend on moves, because nothing of the machine changed. A value the schema does not allow is reported and ignored.
+void refresh_options()
+{
+    bool updated = false;
+    if (!environment_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) || !updated) return;
+    p6_options::Settings chosen = core.settings;
+    std::string why;
+    if (!p6_libretro::read_options(environment_cb, &chosen, &why)) {
+        notify_warning("%s; it is ignored while the machine runs, and loading the content with it would fail", why.c_str());
+        return;
+    }
+    for (const p6_options::Option &option : p6_options::kOptions) {
+        const uint32_t running = core.settings.*option.field, wanted = chosen.*option.field;
+        if (option.reboot) {
+            if (wanted == core.requested.*option.field) continue;        // nothing new: it was reported when it changed
+            core.requested.*option.field = wanted;
+            if (wanted == running) continue;                              // back to what the machine runs with
+            notify_warning("%s is now %s but the machine runs with %s: reload the content to apply it", option.key,
+                           p6_libretro::option_value_name(option, wanted), p6_libretro::option_value_name(option, running));
+        } else if (wanted != running) {
+            core.settings.*option.field = wanted;
+            core.announced_size = false;        // the presentation options are about the announced geometry: say it again with the next picture
+            log(RETRO_LOG_INFO, "%s is now %s", option.key, p6_libretro::option_value_name(option, wanted));
+        }
+    }
+}
+
 // --- Disk Control: the frontend's calls record a request; apply_disk_requests turns them into events at the next retro_run ---------------------
 
 bool RETRO_CALLCONV disk_set_eject_state(bool ejected)
@@ -550,7 +604,10 @@ RETRO_API void retro_set_environment(retro_environment_t callback)
 {
     environment_cb = callback;
     bool no_game = true;                // the Kickstart boots without a disk
-    if (environment_cb) environment_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);   // optional
+    if (environment_cb) {
+        environment_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);   // optional
+        p6_libretro::offer_options(environment_cb);                         // the richest interface the frontend has; none is not an error
+    }
 }
 
 RETRO_API void retro_set_video_refresh(retro_video_refresh_t callback) { video_cb = callback; }
@@ -597,16 +654,16 @@ RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)
     caps.abi_version = P6_ABI_VERSION;
     caps.struct_size = sizeof caps;
     p6_query_caps(&caps, nullptr);
-    const bool ntsc = core.standard == P6_VIDEO_NTSC;
+    const bool ntsc = core.settings.video_standard == P6_VIDEO_NTSC;
     // The nominal active raster of each standard; a unit can draw less, and the geometry is updated when it does.
     const uint32_t width = 756, height = ntsc ? 484 : 574;
     info->geometry.base_width = width;
     info->geometry.base_height = height;
     info->geometry.max_width = caps.max_video_width ? caps.max_video_width : 760;
     info->geometry.max_height = caps.max_video_height ? caps.max_video_height : 576;
-    info->geometry.aspect_ratio = float(double(width) * (ntsc ? 43 : 26) / (double(height) * (ntsc ? 50 : 25)));
+    info->geometry.aspect_ratio = aspect_ratio(width, height, ntsc ? 43 : 26, ntsc ? 50 : 25);
     info->timing.fps = ntsc ? 715909.0 / 11921.0 : 3546895.0 / 70824.0;    // the bridge's rate for a progressive short field
-    info->timing.sample_rate = kAudioRateHz;
+    info->timing.sample_rate = core.settings.audio_rate_hz;
 }
 
 RETRO_API void retro_set_controller_port_device(unsigned port, unsigned device)
@@ -632,6 +689,7 @@ RETRO_API void retro_run(void)
         return;
     }
     if (!core.loaded) return;
+    refresh_options();
     p6_frame frame = {};
     bool have_frame = false;
     if (!core.faulted) {
@@ -680,6 +738,16 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     }
     bool can_dupe = false;
     core.can_dupe = environment_cb(RETRO_ENVIRONMENT_GET_CAN_DUPE, &can_dupe) && can_dupe;
+    // The options are read before anything is loaded: a value the schema does not allow stops here, and these are the values the machine runs with.
+    p6_options::Settings chosen;
+    std::string why;
+    if (!p6_libretro::read_options(environment_cb, &chosen, &why)) {
+        notify_error("%s", why.c_str());
+        return false;
+    }
+    bool updated = false;
+    environment_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated);       // clears the flag: what was just read is what is in force
+    core.settings = core.requested = chosen;
     try {
         std::vector<p6_libretro::Image> images;
         if (!load_disks(game, &core.media, &images)) {
@@ -698,10 +766,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         config.abi_version = P6_ABI_VERSION;
         config.struct_size = sizeof config;
         config.machine = P6_MACHINE_A500;
-        config.video_standard = core.standard;
-        config.audio_rate_hz = kAudioRateHz;
-        config.random_seed = kSeed;
-        config.rtc_epoch_seconds = kRtcEpoch;
+        p6_options::to_config(core.settings, &config);       // standard, audio rate, seed and clock epoch: the schema's values, none of them typed here
         p6_error error = make_error();
         const p6_result result = p6_init(&config, &error);
         if (result != P6_OK) {
@@ -739,7 +804,7 @@ RETRO_API void retro_unload_game(void)
     if (guard.ok) stop_image();
 }
 
-RETRO_API unsigned retro_get_region(void) { return core.standard == P6_VIDEO_NTSC ? RETRO_REGION_NTSC : RETRO_REGION_PAL; }
+RETRO_API unsigned retro_get_region(void) { return core.settings.video_standard == P6_VIDEO_NTSC ? RETRO_REGION_NTSC : RETRO_REGION_PAL; }
 RETRO_API void *retro_get_memory_data(unsigned) { return nullptr; }
 RETRO_API size_t retro_get_memory_size(unsigned) { return 0; }
 

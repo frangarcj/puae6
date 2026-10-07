@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "about": [
+    "The one schema of what ABI v1 lets a person choose (T17b). tools/generate_options.py validates it and generates adapters/libretro/options_generated.h",
+    "and config/schema/options_table.generated.json; tests/config compares what headless, the libretro core and the BizHawk wrapper use with it.",
+    "Never edit the generated files by hand: change this file and run python3 tools/generate_options.py.",
+    "class 'reboot': part of the machine. It maps to a p6_config field, so it enters config_hash and the state identity; a change needs a reload and",
+    "never moves the running machine or the state bound. class 'presentation': no effect on emulation; it is applied in place.",
+    "Only what the ABI honours is here (bridge/config.cpp validate_config). The A500 machine, the CPU, the RAM and the ROM are not choices: they are",
+    "listed under 'unsupported' with the reason, which is the diagnostic a request for them gets."
+  ],
+  "categories": [
+    {"id": "machine", "label": "Machine", "info": "What the emulated A500 is. These options take effect when the content is loaded."},
+    {"id": "video", "label": "Video", "info": "How the picture is presented. These options apply at once."}
+  ],
+  "options": [
+    {
+      "id": "video_standard",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.video_standard",
+      "default": "PAL",
+      "values": [
+        {"value": "PAL", "abi": 1, "abi_name": "P6_VIDEO_PAL", "label": "PAL (50 Hz)"},
+        {"value": "NTSC", "abi": 2, "abi_name": "P6_VIDEO_NTSC", "label": "NTSC (60 Hz)"}
+      ],
+      "libretro": {
+        "key": "puae6_video_standard",
+        "category": "machine",
+        "label": "Video Standard",
+        "info": "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine."
+      },
+      "headless": {"how": "flag", "flag": "--ntsc", "sets": "NTSC"},
+      "wrapper": {"how": "setting", "setting": "Region", "type": "Puae6Region"}
+    },
+    {
+      "id": "audio_rate_hz",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.audio_rate_hz",
+      "default": "48000",
+      "values": [
+        {"value": "44100", "abi": 44100, "label": "44100 Hz"},
+        {"value": "48000", "abi": 48000, "label": "48000 Hz"}
+      ],
+      "libretro": {
+        "key": "puae6_audio_rate",
+        "category": "machine",
+        "label": "Audio Sample Rate",
+        "info": "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate."
+      },
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "fixed", "where": "audio"}
+    },
+    {
+      "id": "random_seed",
+      "class": "reboot",
+      "type": "u64",
+      "maps_to": "p6_config.random_seed",
+      "default": 1,
+      "min": 0,
+      "max": 18446744073709551615,
+      "libretro": null,
+      "libretro_policy": "Fixed at the default. A seed picked from a menu is a way to make two sessions of the same content differ for no reason a person can see; the seed belongs to whoever records or replays (headless --seed, the wrapper's sync settings).",
+      "headless": {"how": "value", "flag": "--seed"},
+      "wrapper": {"how": "setting", "setting": "RandomSeed", "type": "ulong"}
+    },
+    {
+      "id": "rtc_epoch_seconds",
+      "class": "reboot",
+      "type": "i64",
+      "maps_to": "p6_config.rtc_epoch_seconds",
+      "default": 946684800,
+      "min": -62135596800,
+      "max": 253402300799,
+      "libretro": null,
+      "libretro_policy": "Fixed at the default (2000-01-01T00:00:00Z). The clock never follows the host, and a date typed into a menu is the same hazard as a seed; the wrapper keeps it in the movie's sync settings.",
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "setting", "setting": "RtcEpochSeconds", "type": "long"}
+    },
+    {
+      "id": "video_aspect",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_aspect",
+      "default": "pixel",
+      "values": [
+        {"value": "pixel", "abi": 0, "label": "Pixel aspect of the machine"},
+        {"value": "4:3", "abi": 1, "label": "4:3"}
+      ],
+      "libretro": {
+        "key": "puae6_video_aspect",
+        "category": "video",
+        "label": "Aspect Ratio",
+        "info": "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    }
+  ],
+  "reserved": [
+    {"id": "controller_port1", "for": "T17c", "wrapper_setting": "ControllerPort1", "why": "The port devices of libretro are decided with the input work (keyboard, mouse, joystick); the wrapper's value is a per-session choice that is not a p6_config field."},
+    {"id": "controller_port2", "for": "T17c", "wrapper_setting": "ControllerPort2", "why": "As controller_port1."},
+    {"id": "floppy_drives", "for": "a later media task", "wrapper_setting": "FloppyDrives", "why": "How many of the given disks start in a drive is a media placement made with media events (DF0 and DF1 exist in the bridge); libretro drives DF0 alone from Disk Control, so there is nothing to offer yet."}
+  ],
+  "unsupported": [
+    {"key": "machine", "why": "ABI v1 emulates the A500 only (P6_MACHINE_A500)."},
+    {"key": "cpu_model", "why": "The 68000 at the A500 clock is the only CPU the generated tables cover."},
+    {"key": "chipmem_size", "why": "ABI v1 fixes 512 KiB of Chip RAM."},
+    {"key": "bogomem_size", "why": "ABI v1 fixes 512 KiB of Slow RAM."},
+    {"key": "fastmem_size", "why": "The A500 profile has no Fast RAM."},
+    {"key": "kickstart_rom_file", "why": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration."},
+    {"key": "floppy_speed", "why": "Turbo floppy would change the timing of the machine; the profile fixes the real drive speed."},
+    {"key": "cpu_speed", "why": "The machine runs at its real clock; the host speed never changes the emulation."},
+    {"key": "jit", "why": "The deterministic profile has no JIT."},
+    {"key": "uae_config_file", "why": "A whole .uae file is not imported; only the keys of this schema are accepted."}
+  ]
+}

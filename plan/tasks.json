@@ -9899,7 +9899,9 @@
         "adapters/libretro/**",
         "tests/config/**",
         "tests/libretro-host/**",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tests/fuzz/**",
+        "tools/check.py"
       ],
       "steps": [
         "Crear esquema unico para presets/opciones/sync settings; clasificar cambios reboot frente a presentacion y producir config_hash canonico.",
@@ -9907,7 +9909,8 @@
         "Implementar playlist readonly y disk control sobre eventos de medios; no cambiar disco desde callback concurrente.",
         "Rechazar opciones de CPU/RAM/ROM no soportadas en vez de aceptar parcialmente la config.",
         "Division (2026-10-07): T17a (contenido, VFS y Disk Control) y T17b (esquema de opciones); T17 es el cierre: conserva los checks LR01, MED01 y FUZZ01 y la aceptacion original.",
-        "Fleco de T17a: docs/02-contracts.md sigue diciendo que el contenido libretro es el firmware (rom|bin); actualizarlo al modelo de T17a (Kickstart del directorio de sistema por nombre conocido, contenido ADF/M3U o ninguno, Disk Control en la frontera de retro_run, add/replace pendientes de T17e)."
+        "Fleco de T17a: docs/02-contracts.md sigue diciendo que el contenido libretro es el firmware (rom|bin); actualizarlo al modelo de T17a (Kickstart del directorio de sistema por nombre conocido, contenido ADF/M3U o ninguno, Disk Control en la frontera de retro_run, add/replace pendientes de T17e).",
+        "Fleco de T17a/T17b: FUZZ01 del contenido libretro: el parser M3U (content.h) y los valores de opciones del frontend (options.h, normalize_config) con entradas hostiles, deterministas y bajo sanitizers; ninguna lectura sin cota ni aceptacion parcial."
       ],
       "checks": [
         "LR01",
@@ -9960,7 +9963,7 @@
       "title": "Esquema unico de opciones (reinicio frente a presentacion) para headless, libretro y wrapper",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17a"
       ],

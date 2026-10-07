@@ -86,10 +86,11 @@ class RealFrontendTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def retroarch(self, name, content="a.adf", drive=False):
+    def retroarch(self, name, content="a.adf", drive=False, options=None):
         """One RetroArch process: loads the core with the micro-ROM as the Kickstart of its system directory and `content` (a file of the scratch
         directory) as the game, runs FRAMES frames and exits, or runs until tests/libretro-host/drive_retroarch.py has changed the disk and
-        stops it. Returns the log text."""
+        stops it. `options` are core option values (key -> value) that RetroArch's own options file holds, as a person's menu choices do.
+        Returns the log text."""
         work = Path(self.tmp.name)
         for folder in ("saves", "states", "system", "playlists", "cache"):
             (work / name / folder).mkdir(parents=True)
@@ -101,7 +102,9 @@ class RealFrontendTests(unittest.TestCase):
             f'playlist_directory = "/work/{name}/playlists"', f'cache_directory = "/work/{name}/cache"', 'history_list_enable = "false"',
             'video_vsync = "false"', 'audio_sync = "false"', 'pause_nonactive = "false"', 'savestate_auto_save = "false"',
             'savestate_auto_load = "false"', 'network_cmd_enable = "true"', 'network_cmd_port = "55355"',
-            'quit_press_twice = "false"']) + "\n")
+            'quit_press_twice = "false"', 'global_core_options = "true"']) + "\n")
+        # RetroArch keeps the values of the options in a file next to its configuration; the core only ever sees them through GET_VARIABLE.
+        (work / name / "retroarch-core-options.cfg").write_text("".join(f'{key} = "{value}"\n' for key, value in (options or {}).items()))
         start = (f"retroarch -c /work/{name}/retroarch.cfg -L /src/{LINUX_BUILD}/puae6_libretro.so /work/{content} --verbose "
                  f"--log-file /work/{name}/log.txt")
         if drive:
@@ -148,6 +151,20 @@ class RealFrontendTests(unittest.TestCase):
         for unit, ticks in expected.items():
             self.assertEqual(first[unit], ticks, f"unit {unit}")
             self.assertEqual(second[unit], ticks, f"unit {unit} in a second process")
+
+    def test_the_options_retroarch_stores_select_the_machine_headless_runs_with_the_same_settings(self):
+        # T17b: RetroArch gets the options from the core (v2, with categories), keeps them in its options file and hands them back at load.
+        text = self.retroarch("ntsc", options={"puae6_video_standard": "NTSC", "puae6_audio_rate": "44100"})
+        self.assertRegex(text, r"Geometry: 756x484, Aspect: 1\.343, FPS: 60\.05, Sample rate: 44100\.00 Hz")
+        native = subprocess.run([str(self.macos_headless), "--run", str(self.rom), "--units", str(FRAMES), "--ntsc"], capture_output=True, text=True,
+                                timeout=600)
+        expected = {int(m[1]): int(m[2]) for m in HEADLESS.finditer(native.stdout)}
+        ticks = {int(m[1]): int(m[2]) for m in UNIT.finditer(text)}
+        for unit, value in expected.items():
+            self.assertEqual(ticks[unit], value, f"unit {unit}")
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+        default = self.retroarch("pal")
+        self.assertRegex(default, r"Geometry: 756x574, Aspect: 1\.370, FPS: 50\.08, Sample rate: 48000\.00 Hz")
 
     def test_retroarch_changes_the_disk_through_disk_control_and_the_playlist_is_read_by_the_frontend_vfs(self):
         text = self.retroarch("disks", content="list.m3u", drive=True)
