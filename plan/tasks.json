@@ -9210,6 +9210,47 @@
       "evidence": null
     },
     {
+      "id": "T15d2",
+      "title": "Cargar un estado con el medio que nombra aunque la unidad viva tenga otro (rewind a traves de cambios de disco)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15d"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "bridge/media.cpp",
+        "bridge/media.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "tests/test_plan.py",
+        "bridge/state_probe.cpp"
+      ],
+      "steps": [
+        "Hoy disk_matches_machine (Chunk::machine de P6DK) rechaza como INCOMPATIBLE un estado cuya unidad tenia otro contenido que la maquina viva, aunque el manifest de medios (y por tanto la identidad) sea el mismo: un rewind a un punto anterior a un cambio de disco, o un estado tomado durante el cambio retardado, no se puede cargar. Con el mismo manifest el medio de cada unidad esta identificado por drive_media de P6BR (indice del manifest, contenido por SHA-256), asi que la carga debe poner en la unidad el medio que nombra el estado.",
+        "Validacion antes de mutar nada: para cada unidad, el CRC de DSKn del estado coincide con el crc32 del blob que nombra drive_media (el que drive_insert mediria), o es 0 si la unidad esta vacia o en la cuenta atras de un cambio retardado (DSKX). Un estado incoherente con su manifest se rechaza sin tocar la maquina; un manifest distinto sigue siendo INCOMPATIBLE por la identidad.",
+        "Apply (ya nada puede rechazar): antes de restore_disk, cada unidad cuyo contenido vivo difiere del del estado se expulsa o recibe el blob del estado de forma inmediata y protegida contra escritura, sin retardo de cambio, sin programar eventos y sin consumir el PRNG (ApplyScope); luego los cuerpos DSKn/DSDn/DSKX sobrescriben pista, cabeza y temporizacion. session.drive_media sale de P6BR como hoy.",
+        "Escenarios DET02: rewind a traves de un cambio (dos ADF en el manifest; estado con el disco A, la maquina ya con B, y tras expulsar), estado tomado durante la cuenta atras cargado en una maquina con el disco puesto, y proceso nuevo cuyo medio de arranque difiere del del estado con el mismo manifest. Reescribir los tests que hoy fijan el rechazo para que fijen la continuacion; un manifest distinto sigue rechazado."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Con el mismo manifest, un estado se carga y continua con el mismo futuro sea cual sea el contenido actual de las unidades; un estado incoherente con su manifest o un manifest distinto se rechazan antes de tocar la maquina."
+      ],
+      "stop": "No guardar bytes de imagen ni rutas en el estado; si hace falta persistir escrituras (COW), es otra tarea.",
+      "evidence": null
+    },
+    {
       "id": "T15e",
       "title": "Continuacion de Paula sobre los cuerpos upstream AUDn",
       "milestone": "M2",
@@ -9704,6 +9745,7 @@
         "T15h",
         "T15i",
         "T15d",
+        "T15d2",
         "T15e",
         "T15f",
         "T15g"
