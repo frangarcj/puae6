@@ -9298,7 +9298,7 @@
       "title": "Copper en espera tras restaurar",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15f1"
       ],

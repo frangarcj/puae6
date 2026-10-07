@@ -1,6 +1,6 @@
-"""T15i1, T15i2 and T15f1: the bodies of WinUAE's own save_* and restore_* functions, and the beam, inside P6DK, P6AU, P6CH and P6VD.
+"""T15i1, T15i2, T15f1 and T15f2: the bodies of WinUAE's own save_* and restore_* functions, the beam and the Copper, inside P6DK, P6AU, P6CH and P6VD.
 
-The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined; patch 0094 adds the accessors of BEAM) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
+The engine is compiled with P6_STATE_BODIES (patches 0086-0093; SAVESTATE stays undefined; patches 0094 and 0095 add the accessors of BEAM and COPR) and bridge/state_upstream.cpp writes each body as a sub-body: its tag of 4
 characters, a u32 length (little endian, like the container) and the bytes the engine wrote (big endian, upstream's own encoding).
 
 T15i1, what is saved:
@@ -14,6 +14,11 @@ T15i1, what is saved:
 
 T15f1, the body that is not WinUAE's: BEAM (244 bytes, the last of P6CH; patch 0094) holds what restore_custom throws away (VPOSR and VHPOSR) and what no body names: the beam and the
 line history, the counters of the frame phase, the strobe that raises the vertical blank, the DMA list of the line in flight and the sync latches of Agnus, as 61 words of 32 bits.
+
+T15f2, the other body that is not WinUAE's: COPR (60 bytes, after BEAM; patch 0095) holds the Copper between two of its cycles, which CHSL does not carry (it keeps ip and the two
+instruction words and puts the state back as stopped, or as the last cycle of a MOVE): the state and state_prev, the strobe in flight, the compare values of a WAIT or SKIP, the
+latched COP1LC, the flag that lets the Copper run this line and the two cycle stamps, as 15 words of 32 bits. It is applied as values: the Copper does not run on load. The
+refusals include the one that makes CHSL and COPR one machine (a Copper in the last cycles of a MOVE has to be so in both).
 
 T15i2, what is loaded:
   - a load applies the bodies on the live machine (no custom_reset, no memory_clear, no *_start): the state taken again afterwards re-emits every upstream chunk byte for byte,
@@ -32,10 +37,10 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 191, "BPLX": 292, "DISK": 17, "BEAM": 244,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 191, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
-    b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM"],
+    b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR"],
     b"P6VD": ["BPLX"],
     b"P6AU": [f"AUD{i}" for i in range(4)],
     b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK"],
@@ -50,6 +55,11 @@ BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_
               "lof_detect", "lof_pdetect", "lof_detect_vsync", "prevlof0", "prevlof1", "prevlof2",
               "display_last_hsync_low", "display_last_hsync_high", "display_last_vsync_low", "display_last_vsync_high",
               "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)]
+
+# The words of COPR, in the order of p6_custom_copper_get (custom.cpp, patch 0095) and of the enum of bridge/state_upstream.cpp.
+COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ignore_next", "vcmp", "hcmp", "strobe", "strobetype", "enabled_thisline",
+              "strobe_cycles_low", "strobe_cycles_high", "dma_change_cycle_low", "dma_change_cycle_high"]
+COP_WAIT1 = 8                   # COP_wait1 of custom.cpp: the Copper waits for the beam to reach the position of its WAIT
 
 # Bitplane, sprite, audio, copper, blitter and disk DMA on; the motor on and a step pulse every frame, so that the medium (mounted by an event) is stepped and its track is
 # read into the buffer; a blit of 1024 lines of 64 words that lasts more than a frame, and a result of zeros, so that DMACONR's zero bit is set when it ends. The wait of
@@ -167,7 +177,7 @@ def upstream_bodies(blob):
 
 
 class UpstreamBodiesTests(ProbeCase):
-    ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None)}
+    ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None), "copper_irq": ("copper_irq", {"HP": "2"}, None)}
 
     @classmethod
     def setUpClass(cls):
@@ -283,7 +293,7 @@ class UpstreamBodiesTests(ProbeCase):
     # name -> (rom, units before the save, units run before the load, extra arguments). The disk is mounted at the first unit as a boot medium, so that a fresh image has it
     # after its reset head. The scenarios have the blit in flight, the DMA of the disk, the audio and the sprites running and a mouse moving.
     ROUND_TRIPS = {"idle": ("vsync", 3, 7, ()), "dma-no-disk": ("busy", 5, 9, ()), "blit-in-flight": ("busy", 2, 6, ()), "disk": ("busy", 8, 12, "disk"),
-                   "disk-early": ("busy", 2, 6, "disk"), "mouse": ("input_all", 4, 8, "mouse")}
+                   "disk-early": ("busy", 2, 6, "disk"), "mouse": ("input_all", 4, 8, "mouse"), "copper-wait": ("copper_irq", 2, 6, ())}
 
     def scenario(self, name):
         rom, n, load, args = self.ROUND_TRIPS[name]
@@ -340,6 +350,25 @@ class UpstreamBodiesTests(ProbeCase):
         self.assertIn("agnus_hpos", moved, "the beam is not where it was at unit 3: putting it back is something")
         self.assertIn("display_vsync_counter", moved, "nor are the counters of the frame")
         self.assertEqual(a, c, "the BEAM body taken again after the load is the one that was loaded")
+
+    def copper_of(self, blob):
+        """{word name: signed value} of the COPR body of a state."""
+        body = upstream_bodies(blob)[b"P6CH"]["COPR"]
+        self.assertEqual(4 * len(COPR_WORDS), len(body))
+        return dict(zip(COPR_WORDS, struct.unpack(">%di" % len(COPR_WORDS), body)))
+
+    def test_a_copper_that_waits_for_the_beam_comes_back_waiting(self):
+        # CHSL says "stopped" for every state but the last cycles of a MOVE (its flags are 9 here), so a machine that had only CHSL would have a stopped Copper and never raise
+        # the interrupt of the list. COPR is what says the Copper is in COP_wait1 with the compare values of its WAIT, and a new image takes it from the state.
+        first, again = self.dir / "copper.first", self.dir / "copper.again"
+        self.probe("copper_irq", "--units", "2", "--save-at", "2", str(first))
+        waiting = self.copper_of(first.read_bytes())
+        self.assertEqual(9, struct.unpack_from(">I", upstream_bodies(first.read_bytes())[b"P6CH"]["CHSL"])[0], "CHSL has no way to say what the Copper waits for")
+        self.assertEqual((COP_WAIT1, 4), (waiting["state"], waiting["vcmp"]), "the list of the program waits for line 4")
+        self.assertEqual(1, waiting["enabled_thisline"])
+        run = self.probe("copper_irq", "--units", "0", "--load-at", "0", str(first), "--save-at", "0", str(again))
+        self.assertEqual([(0, 0, "")], run.loads)
+        self.assertEqual(waiting, self.copper_of(again.read_bytes()), "a fresh image has the Copper of the state, not a stopped one")
 
     def test_the_beam_of_a_new_image_in_ntsc_is_the_line_the_state_had(self):
         # NTSC lines alternate between 227 and 228 colour clocks (lol and linetoggle): the loaded machine takes the line length from them, and a state taken again says the same.
@@ -467,6 +496,21 @@ class UpstreamBodiesTests(ProbeCase):
         ("BEAM with a DMA list of 17 bits", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("dmal"), struct.pack(">i", 0x10000), "the DMA list of the line is not 16 bits"),
         ("BEAM with a sync latch of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("latch7"), struct.pack(">i", 2), "a sync latch is not a flag"),
         ("BEAM with a negative time stamp", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("display_last_vsync_high"), struct.pack(">i", -1), "a time stamp of the display is negative"),
+        ("COPR in state 24", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", 24), "a state of the Copper is not one of its states"),
+        ("COPR in a negative state", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", -1), "a state of the Copper is not one of its states"),
+        ("COPR with a previous state of 24", b"P6CH", "COPR", 4 * COPR_WORDS.index("state_prev"), struct.pack(">i", 24), "a state of the Copper is not one of its states"),
+        ("COPR with a next strobe state that the strobe never sets", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobe_next"), struct.pack(">i", 9),
+         "the state after the strobe is not one the strobe leads to"),
+        ("COPR in the last cycles of a MOVE that CHSL does not know", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", 2),
+         "the state of the Copper is not the one CHSL says"),
+        ("COPR with an odd strobe pointer", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobeip"), struct.pack(">i", 0x2001), "the strobe pointer is odd"),
+        ("COPR with an odd vertical blank pointer", b"P6CH", "COPR", 4 * COPR_WORDS.index("vblankip"), struct.pack(">i", 0x2001), "the pointer latched at the vertical blank is odd"),
+        ("COPR with a skip flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("ignore_next"), struct.pack(">i", 2), "the flag that skips the next register write"),
+        ("COPR with a line to wait for beyond 255", b"P6CH", "COPR", 4 * COPR_WORDS.index("vcmp"), struct.pack(">i", 256), "a compare value of the Copper is beyond what a WAIT writes"),
+        ("COPR with an odd colour clock to wait for", b"P6CH", "COPR", 4 * COPR_WORDS.index("hcmp"), struct.pack(">i", 5), "a compare value of the Copper is beyond what a WAIT writes"),
+        ("COPR with a strobe of 4", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobe"), struct.pack(">i", 4), "the strobe of the Copper is out of range"),
+        ("COPR with a strobe type of 3", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobetype"), struct.pack(">i", 3), "the strobe of the Copper is out of range"),
+        ("COPR with a line flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("enabled_thisline"), struct.pack(">i", 2), "the flag that lets the Copper run this line is not a flag"),
     ]
 
     def test_every_value_that_ends_up_indexing_or_names_another_configuration_is_refused(self):

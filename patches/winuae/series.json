@@ -2587,6 +2587,29 @@
           "after_sha256": "a670a9606708019a48f3aa484cca4b26bcee323b8e5e93bb00a4e4311b18ee76"
         }
       ]
+    },
+    {
+      "id": "0095-custom-copper-state-access",
+      "file": "patches/winuae/0095-custom-copper-state-access.patch",
+      "sha256": "7e357b04219befb90dd4654e505e9900111f680cc753f57ed1232b80b849b043",
+      "title": "The Copper's waiting state and strobe, as values",
+      "reason": "WinUAE's CHSL keeps the Copper's ip and instruction words and puts its state back as stopped (or as the last cycle of a MOVE), so a Copper that was waiting for a beam position, skipping, or in the middle of a strobe comes back stopped and the interrupt it was going to raise never happens. p6_custom_copper_get and p6_custom_copper_set copy the rest of cop_state (state, state_prev, strobe_next, strobeip, vblankip, ignore_next, vcmp, hcmp, strobe, strobetype), the line flag copper_enabled_thisline and the time stamps strobe_cycles and copper_dma_change_cycle as 15 32-bit words, without running the Copper or recomputing the flag (DET02, T15f2).",
+      "category": "host hooks",
+      "order": 95,
+      "symbols": [
+        "p6_custom_copper_get",
+        "p6_custom_copper_set"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "a670a9606708019a48f3aa484cca4b26bcee323b8e5e93bb00a4e4311b18ee76",
+          "after_sha256": "da4c63bc4aceda1a0d96c4e72dedaa0092cc7ce8e279253ea7d41ceaa95c589a"
+        }
+      ]
     }
   ]
 }

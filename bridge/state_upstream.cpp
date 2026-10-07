@@ -4,7 +4,7 @@
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17)
-//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (191), SPR0..SPR7 (25 each), BEAM (244: ours, not upstream's)
+//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (191), SPR0..SPR7 (25 each), BEAM (244) and COPR (60), the last two ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each)
 //   P6VD  BPLX (292)
 //
@@ -12,7 +12,12 @@
 // sync latches of Agnus live in file statics that no body names. It is 61 words of 32 bits, big endian like the others, copied by p6_custom_beam_get and
 // p6_custom_beam_set (patch 0094; the list is in custom.cpp): the beam and the line history, the frame phase (display_hsync_counter, display_vsync_counter,
 // maxvpos_display_vsync_next, the field detection), the strobe that raises the vertical blank, the DMA list of the line in flight and the sync latches. The line length is the
-// only value derived (setmaxhpos), from the lol that CHIP restores and the linetoggle it carries, which is why BEAM is the last body of the chunk and no init_hz or reset head runs.
+// only value derived (setmaxhpos), from the lol that CHIP restores and the linetoggle it carries, which is why BEAM comes after CHIP and no init_hz or reset head runs.
+//
+// COPR is the other: CHSL keeps the Copper's ip and instruction words and restores its state as stopped (or as the last cycle of a MOVE), so a Copper that was waiting for the
+// beam, skipping or half way through a strobe came back stopped. It is 15 words (patch 0095, p6_custom_copper_get and p6_custom_copper_set): the state and its two companions,
+// the compare values of the wait, the strobe in flight, the latched COP1LC, the flag that lets the Copper run this line and the two cycle stamps that the strobe and the DMA enable
+// are compared with. Values only: the Copper does not run, advance or drain when it is applied, and COPR comes after CHSL, which it overrides.
 //
 // Save writes every body with the engine's save_* and changes nothing: STATE_DOSAVE keeps getjoystate from reading the host's input (maybe_read_input),
 // the poll mask that POT0DAT and POT1DAT set is put back, and patch 0088 keeps DMACONR from writing dmacon.
@@ -52,6 +57,8 @@ extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *rema
 extern void p6_events_set(int idx, int next, int remain);
 extern bool p6_custom_beam_get(int32_t *out, unsigned n);       // custom.cpp 0094
 extern bool p6_custom_beam_set(const int32_t *in, unsigned n);
+extern bool p6_custom_copper_get(int32_t *out, unsigned n);     // custom.cpp 0095
+extern bool p6_custom_copper_set(const int32_t *in, unsigned n);
 
 namespace p6_state {
 
@@ -80,6 +87,7 @@ struct Body {
 struct Seen {
     uint8_t drive_state[4];
     uint32_t head_position[4];
+    uint32_t chsl_flags;
 };
 
 struct Sub {
@@ -103,6 +111,7 @@ uint8_t *produce_chsl(int, size_t *len, uint8_t *w) { return save_custom_slots(l
 uint8_t *produce_spr(int n, size_t *len, uint8_t *w) { return save_custom_sprite(n, len, w); }
 uint8_t *produce_aud(int n, size_t *len, uint8_t *w) { return save_audio(n, len, w); }
 uint8_t *produce_beam(int, size_t *len, uint8_t *w);
+uint8_t *produce_copr(int, size_t *len, uint8_t *w);
 uint8_t *produce_bplx(int, size_t *len, uint8_t *w) { return save_custom_bpl(len, w); }
 
 uint8_t *apply_dsk(int n, uint8_t *b) { return restore_disk(n, b); }
@@ -115,6 +124,7 @@ uint8_t *apply_chsl(int, uint8_t *b) { return restore_custom_slots(b); }
 uint8_t *apply_spr(int n, uint8_t *b) { return restore_custom_sprite(n, b); }
 uint8_t *apply_aud(int n, uint8_t *b) { return restore_audio(n, b); }
 uint8_t *apply_beam(int, uint8_t *b);
+uint8_t *apply_copr(int, uint8_t *b);
 uint8_t *apply_bplx(int, uint8_t *b) { return restore_custom_bpl(b); }
 
 // -- BEAM: the position of the beam and the phase of the frame (patch 0094) ---------------------------------------------------------------------------
@@ -147,6 +157,34 @@ uint8_t *apply_beam(int, uint8_t *body)
     int32_t words[kBeamWords];
     for (unsigned i = 0; i < kBeamWords; ++i) words[i] = int32_t(Body{body, kBeamBytes}.u32(i * 4));
     return p6_custom_beam_set(words, kBeamWords) ? body + kBeamBytes : nullptr;
+}
+
+// -- COPR: the Copper between two of its cycles (patch 0095) -------------------------------------------------------------------------------------
+
+// The words of the body, in the order of p6_custom_copper_get.
+enum CopperWord : unsigned {
+    kCopState, kCopStatePrev, kCopStrobeNext, kCopStrobeIp, kCopVblankIp, kCopIgnoreNext, kCopVcmp, kCopHcmp, kCopStrobe, kCopStrobeType, kCopEnabledThisLine,
+    kCopStrobeCyclesLow, kCopStrobeCyclesHigh, kCopDmaChangeLow, kCopDmaChangeHigh, kCopperWords
+};
+constexpr uint32_t kCopperBytes = kCopperWords * 4;
+constexpr int32_t kCopStates = 24;             // COP_stop .. COP_strobe_extra of custom.cpp (the patch asserts it)
+constexpr int32_t kCopRead1 = 2, kCopRead2 = 3, kCopStrobeDelayStartOdd = 19, kCopStrobeDelay1 = 20;       // the only states strobe_next takes besides COP_stop (0)
+
+uint8_t *produce_copr(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kCopperWords];
+    if (!p6_custom_copper_get(words, kCopperWords)) return nullptr;
+    for (unsigned i = 0; i < kCopperWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kCopperBytes;
+    return w;
+}
+
+uint8_t *apply_copr(int, uint8_t *body)
+{
+    int32_t words[kCopperWords];
+    for (unsigned i = 0; i < kCopperWords; ++i) words[i] = int32_t(Body{body, kCopperBytes}.u32(i * 4));
+    return p6_custom_copper_set(words, kCopperWords) ? body + kCopperBytes : nullptr;
 }
 
 // -- what each body must be before it is applied ----------------------------------------------------------------------------------------------------
@@ -227,7 +265,7 @@ const char *check_blit(const Sub &, const Body &b, Seen &)
 }
 
 // CHSL: flags u32 (1|8, plus 2 or 4 for a copper in its last move), the copper's pointer and two words, 8 zero words, 3 slots of 54 bytes, the first offset u8.
-const char *check_chsl(const Sub &, const Body &b, Seen &)
+const char *check_chsl(const Sub &, const Body &b, Seen &seen)
 {
     const uint32_t flags = b.u32(0);
     if (flags != 9 && flags != 11 && flags != 13) return "the flags are not the ones save_custom_slots writes";
@@ -244,6 +282,7 @@ const char *check_chsl(const Sub &, const Body &b, Seen &)
         }
     }
     if (b.u8(190) > 3) return "the first slot offset is beyond 3";
+    seen.chsl_flags = flags;
     return nullptr;
 }
 
@@ -297,6 +336,28 @@ const char *check_beam(const Sub &, const Body &b, Seen &)
     return nullptr;
 }
 
+// COPR: the state numbers index the Copper's switch and the compare values are what a WAIT or SKIP makes of its two words (vcmp is the line of the first word masked by the
+// second, hcmp the colour clock, even), so they have the range of those words; the pointers are the even addresses the registers latch (the strobe pointer is also 0xffffffff
+// while none is armed) and the engine masks them to the chip RAM it reads; the stamps are cycle counts and have no bound. CHSL says whether the Copper is in the last cycles of
+// a MOVE, and COPR has to say the same: the two bodies are one machine.
+const char *check_copr(const Sub &, const Body &b, Seen &seen)
+{
+    const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
+    const auto within = [&at](unsigned word, int low, int high) { return at(word) >= low && at(word) <= high; };
+    if (!within(kCopState, 0, kCopStates - 1) || !within(kCopStatePrev, 0, kCopStates - 1)) return "a state of the Copper is not one of its states";
+    const int32_t next = at(kCopStrobeNext);
+    if (next != 0 && next != kCopStrobeDelayStartOdd && next != kCopStrobeDelay1) return "the state after the strobe is not one the strobe leads to";
+    if (((seen.chsl_flags & 2) != 0) != (at(kCopState) == kCopRead1) || ((seen.chsl_flags & 4) != 0) != (at(kCopState) == kCopRead2))
+        return "the state of the Copper is not the one CHSL says (last cycles of a MOVE)";
+    if ((b.u32(kCopStrobeIp * 4) & 1) && b.u32(kCopStrobeIp * 4) != 0xffffffffu) return "the strobe pointer is odd";
+    if (b.u32(kCopVblankIp * 4) & 1) return "the pointer latched at the vertical blank is odd";
+    if (!within(kCopIgnoreNext, -1, 1)) return "the flag that skips the next register write is not -1, 0 or 1";
+    if (!within(kCopVcmp, 0, 255) || !within(kCopHcmp, 0, 254) || (at(kCopHcmp) & 1)) return "a compare value of the Copper is beyond what a WAIT writes";
+    if (!within(kCopStrobe, 0, 3) || !within(kCopStrobeType, -1, 2)) return "the strobe of the Copper is out of range";
+    if (!within(kCopEnabledThisLine, 0, 1)) return "the flag that lets the Copper run this line is not a flag";
+    return nullptr;
+}
+
 // The lengths of this build: tests/state/test_state_upstream.py checks them against a real save, and a save that writes another length fails.
 constexpr Sub kDiskBodies[] = {
     {"DSK0", 24, 24, produce_dsk, apply_dsk, check_dsk, 0, true}, {"DSK1", 24, 24, produce_dsk, apply_dsk, check_dsk, 1, true},
@@ -313,6 +374,7 @@ constexpr Sub kChipsetBodies[] = {
     {"SPR4", 25, 25, produce_spr, apply_spr, check_spr, 4, true}, {"SPR5", 25, 25, produce_spr, apply_spr, check_spr, 5, true},
     {"SPR6", 25, 25, produce_spr, apply_spr, check_spr, 6, true}, {"SPR7", 25, 25, produce_spr, apply_spr, check_spr, 7, true},
     {"BEAM", kBeamBytes, kBeamBytes, produce_beam, apply_beam, check_beam, 0, true},
+    {"COPR", kCopperBytes, kCopperBytes, produce_copr, apply_copr, check_copr, 0, true},
 };
 constexpr Sub kAudioBodies[] = {
     {"AUD0", 25, 25, produce_aud, apply_aud, check_aud, 0, true}, {"AUD1", 25, 25, produce_aud, apply_aud, check_aud, 1, true},

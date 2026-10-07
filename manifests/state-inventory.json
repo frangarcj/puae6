@@ -3232,12 +3232,12 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15f2",
           "chunk": "P6CH",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
-          "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
+          "proves": "tests/state/test_state_upstream.py: COPR (patch 0095, the last sub-body of P6CH, 60 bytes) is saved without changing the machine, validated by structure before anything is applied (the state numbers, the strobe states, the WAIT compare ranges, the even pointers, the flags, and agreement with the flags of CHSL) and applied as values, a Copper that waits for the beam comes back waiting, and save, load, save re-emits it byte for byte in the same process and in a new one; tests/state/test_det02.py: copper_irq in PAL and NTSC no longer diverges by the Copper, and the rows that still differ are attributed to the audio phase",
+          "notes": "CHSL keeps ip, ir and the last cycles of a MOVE; COPR adds state, state_prev, strobe_next, strobeip, vblankip, ignore_next, vcmp, hcmp, strobe, strobetype, copper_enabled_thisline and the stamps strobe_cycles and copper_dma_change_cycle as 15 32-bit words, applied as values: the Copper does not run, advance or drain on load. moveaddr, movedata, movedelay and moveptr are written only inside an #if 0 and are not saved; copper_access is transient. CHSL itself (WinUAE's body) is proven by the same file since T15i2."
         }
       },
       {
