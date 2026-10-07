@@ -9251,6 +9251,46 @@
       "evidence": null
     },
     {
+      "id": "T15j",
+      "title": "Cerrar los huecos del estado nativo que destapa T18: paleta y cuadro tras un load, DIWHIGH",
+      "milestone": "M2",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T15"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_upstream.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "Huecos hallados por los tests de T18 (tests/libretro-host/test_state.py, test_GAP_*), reproducibles sin adaptador con p6_state_probe y la ABI publica: (1) el primer cuadro tras un load sale con la paleta de la linea temporal abandonada (mismo proceso) o de una maquina recien arrancada (proceso nuevo) cuando el invitado escribe la paleta una vez y no la repite: p6_state_probe long_frame --units 6 --public-save-at 1 F --public-load-at 3 F; (2) una unidad que no tenia cuadro nuevo se dibuja tras un load (long_frame, desde la unidad 10); (3) guardar en 1, cargar en 1 y guardar en 4 difiere de guardar en 4 sin cargar en un byte del cuerpo CHIP (offset 329, byte bajo de DIWHIGH) y el checksum: boot.rom.",
+        "DET02 no los veia: la imagen de la unidad 0 no se compara, ningun escenario escribe la paleta una sola vez y el digest del chipset no cubre el registro de DIWHIGH. Añadir escenarios DET02/DET03 que los fijen (long_frame en los modos same-image y new-process comparando la imagen desde la primera unidad que dibuja, y una comparacion save-load-save del estado completo) y arreglar la causa en el motor/bridge como en T15e-T15g (valores, sin ejecutar la maquina).",
+        "Cuando pasen, los test_GAP_* de tests/libretro-host dejan de ser expectedFailure (lo hace el cierre de T18)."
+      ],
+      "checks": [
+        "DET02",
+        "DET03",
+        "STATE02"
+      ],
+      "acceptance": [
+        "Tras un load, en el mismo proceso o en uno nuevo, cada cuadro y el estado completo re-guardado coinciden con los de una maquina que nunca cargo."
+      ],
+      "stop": "No ocultar diferencias excluyendo campos del digest ni del estado; no tocar hashes golden.",
+      "evidence": null
+    },
+    {
       "id": "T15e",
       "title": "Continuacion de Paula sobre los cuerpos upstream AUDn",
       "milestone": "M2",
@@ -10121,7 +10161,8 @@
       "status": "pending",
       "depends": [
         "T15",
-        "T17"
+        "T17",
+        "T15j"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -10130,13 +10171,18 @@
       "touch": [
         "adapters/libretro/state.cpp",
         "tests/libretro-host/**",
-        "tests/scenarios/rewind/**"
+        "tests/scenarios/rewind/**",
+        "adapters/libretro/**",
+        "cmake/Libretro.cmake",
+        "docs/02-contracts.md"
       ],
       "steps": [
         "Conectar serialize_size/save/load al bound y formato nativos, sin truncar ni anunciar mas capacidad que la real.",
         "Probar buffers exactos, menores, mayores y estados incompatibles con rechazo sin corrupcion.",
         "Ejecutar rewind y runahead en frontend real; las ramas no dejan input, audio pendiente ni eventos de disco en el futuro correcto.",
-        "Probar render/sound off y reset alrededor del save/load; documentar que netplay sigue sin habilitar hasta su propia prueba."
+        "Probar render/sound off y reset alrededor del save/load; documentar que netplay sigue sin habilitar hasta su propia prueba.",
+        "Ampliacion touch (2026-10-07): adapters/libretro/** (los retro_serialize* viven en libretro_core.cpp), cmake/Libretro.cmake (el core debe enlazar p6_state para anunciar P6_CAP_STATE) y docs/02-contracts.md (regla del buffer mayor: p6_state_load exige la longitud exacta, el adaptador enmarca el estado con su longitud y rellena con ceros hasta serialize_size).",
+        "Comprobacion con un juego real (autorizada por el usuario, opcional): con P6_KICKSTART_ROM y P6_GAME_ADF definidas, el host de tests arranca el ADF, guarda a mitad de la carga de pistas y en juego, sigue, carga y continua identico; se salta si faltan. Nunca copiar, hashear ni commitear esos ficheros."
       ],
       "checks": [
         "STATE01",
