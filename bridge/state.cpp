@@ -20,6 +20,7 @@
 #include "options.h"
 #include "events.h"
 #include "memory.h"
+#include "sounddep/sound.h"
 
 using p6_session::Guard;
 using p6_session::State;
@@ -355,6 +356,12 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     }
     for (uint32_t i = 0; i < kChunkCount; ++i)
         if (kChunks[i].visit && kChunks[i].rebuild && chosen(i)) kChunks[i].rebuild();
+    // The samples this image produced and has not handed over are its own history, not the state's: the first unit after the load hands over what the saved
+    // machine's next unit did. At a boundary the queue is empty (every unit drains it) except in an image that had not started, where the reset head that has just
+    // run left its samples. The PCM transport is not state (docs/02-contracts.md); a sticky transport error stays for the next unit to report.
+    static int16_t discarded[P6_PCM_STAGE_FRAMES * 2];
+    for (size_t frames = 1; frames;)
+        if (p6_pcm_read(discarded, P6_PCM_STAGE_FRAMES, &frames) != P6_PCM_OK) break;
     // cycles_seen follows the scheduler's counter, which is where a boundary has it: P6SC may have put currcycle back and the reset head of an image
     // that had not started restarted it. The ticks of that head are not the caller's: the header's counters replace them when P6BR is applied.
     session.cycles_seen = int64_t(currcycle);

@@ -2678,6 +2678,32 @@
           "after_sha256": "88a543edbbe05e076cf8e2e849eb1e617c2527c48fb825a1e1acfb38644d028b"
         }
       ]
+    },
+    {
+      "id": "0099-audio-phase-state-access",
+      "file": "patches/winuae/0099-audio-phase-state-access.patch",
+      "sha256": "52dfd0856db0b941922501ad824cbd6616f69c95241be70193699ef2469a5be4",
+      "title": "Paula state that AUDn does not carry",
+      "reason": "STATE02/DET02: restore_audio puts back the registers of a channel and zeroes the rest, and restore_audio_finish sets last_cycles to the cycle of the load, so a restored machine started its resampler phase (next_sample_evtime) from zero, handed over 958 instead of 959 samples, lost the state of the output filters, the LED filter, the interpolation integrator, the DMA latches of every channel (pbufldl, dat_written, dat2, irqcheck, dmaenstore) and the period sentinel PERIOD_MAX - 1, and kept the ADKCON masks of the live machine. p6_audio_phase_get/set copy them as values without running Paula or scheduling anything (T15e).",
+      "category": "host hooks",
+      "order": 99,
+      "symbols": [
+        "p6_audio_phase_supported",
+        "p6_float_bits",
+        "p6_bits_float",
+        "p6_audio_phase_get",
+        "p6_audio_phase_set"
+      ],
+      "test": "STATE02; tests.state.test_state_upstream; tests.state.test_det02",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "cb6061d4e3fd89eb9d42aa48f77fe852be1bd77711ac46176a79fbe168f88f4e",
+          "after_sha256": "47849cd5292c7c8620817e36c0aad587336bcc9108e17ea63c6fc56b89f4c45a"
+        }
+      ]
     }
   ]
 }

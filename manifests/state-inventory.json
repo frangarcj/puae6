@@ -4358,11 +4358,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15e",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1) What AUDn omits (dat2, the exact period, pbufldl, dat_written, irqcheck, dmaenstore, ptx, dmaofftime_*, minperloop) is carried by AUDP (T15e, patch 0099).",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4409,11 +4409,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15e",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1) What AUDn omits (dat2, the exact period, pbufldl, dat_written, irqcheck, dmaenstore, ptx, dmaofftime_*, minperloop) is carried by AUDP (T15e, patch 0099).",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4458,11 +4458,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15e",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1) What AUDn omits (dat2, the exact period, pbufldl, dat_written, irqcheck, dmaenstore, ptx, dmaofftime_*, minperloop) is carried by AUDP (T15e, patch 0099).",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4507,11 +4507,11 @@
         },
         "waterbox": "captured by the snapshot",
         "native_state": {
-          "task": "T15i2",
+          "task": "T15e",
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1)",
+          "proves": "tests/state/test_state_upstream.py: the body WinUAE's own save_* writes is saved as a tagged sub-body with the length of a real save without changing the machine, a load validates it (tag, length, indexing values, configuration) before anything is applied and applies it on the live machine, and save, load, save re-emits it byte for byte in the same process and in a new one (the beam included, now that BEAM carries it: T15f1) What AUDn omits (dat2, the exact period, pbufldl, dat_written, irqcheck, dmaenstore, ptx, dmaofftime_*, minperloop) is carried by AUDP (T15e, patch 0099).",
           "notes": "The upstream body only: what the inventory lists as lost or extended in saved_fields (T15d-T15g) is not in it."
         }
       },
@@ -4527,7 +4527,7 @@
         "in_profile": true,
         "upstream_compiled": false,
         "policy": "extension",
-        "saved_fields": "None: AUDx chunks do not contain any member of struct audio_channel_data2 (audio.cpp:95-107 in the struct, save_audio 2900-2924).",
+        "saved_fields": "AUDP (patch 0099, p6_audio_phase_get/set): per channel data.current_sample, last_sample, new_sample, sample_accum, sample_accum_time and adk_mask; mixvol is derived from audvol by restore_audio (sound_volcnt is off).",
         "omitted": "data.current_sample and last_sample (held output level, written by newsample, audio.cpp:1580-1595), data.sample_accum and sample_accum_time (integrals since the last output sample, added by anti_prehandler at every update_audio slice, audio.cpp:589-599, read and cleared by samplexx_anti_handler, 601-615), data.mixvol, data.adk_mask. The profile uses sound_interpol = 1 (cfgfile.cpp:8565) with stereo, i.e. sample16si_anti_handler (audio.cpp:1151), which reads datas[] from these accumulators. At the boundary the accumulators hold a partial sample interval (the next output is up to ~80 CCK away); bridge sync_audio_to_boundary only runs update_audio to the boundary (bridge/pcm_out.cpp:20-23), it does not flush the interval. zerostate does not clear current_sample, so after a restore the held level is whatever the process had (0 in a fresh one) until the next byte is loaded.",
         "pointers": "audio_data[] and sample_prehandler are pointers/function pointers (see audio-resampler-phase).",
         "rebuild": "None: integers, serialize verbatim.",
@@ -4556,7 +4556,14 @@
           "task": "T15",
           "why": "what the compiled save_audio writes for each channel (a subset of Paula's state) is hashed; the filter, the DAC and the resampler phase are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15e",
+          "chunk": "P6AU",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_audio",
+          "proves": "tests/state/test_state_upstream.py: AUDP (patch 0099, the last sub-body of P6AU, 340 bytes: the resampler phase, the cycles not yet integrated, the activation counter, the LED filter, the five RC stages of the four output filters and 15 words per channel: DMA latches, the exact period with its PERIOD_MAX - 1 sentinel, dat2, the fast-CPU latches, the interpolation integrator and the ADKCON mask) is saved without changing the machine, validated by structure before anything is applied (finite floats, the phase between two samples, flags, latch widths, the period AUDn rounds) and applied as values after restore_audio_finish; a new image saves again the Paula it loaded. tests/state/test_det02.py: the PCM after the load is the original's sample for sample in every scenario and mode, tone-modulated (ADKCON USE0V1 with the LED filter on) included"
+        }
       },
       {
         "id": "audio-filter-state",
@@ -4570,7 +4577,7 @@
         "in_profile": true,
         "upstream_compiled": false,
         "policy": "extension",
-        "saved_fields": "None.",
+        "saved_fields": "AUDP (patch 0099): sound_filter_state[0..3] rc1..rc5 as float bits and led_filter_on.",
         "omitted": "sound_filter_state[4] {rc1..rc5} floats (audio.cpp:432-434) updated by filter() for every output sample (463-519); the stereo anti handler uses only [0] and [1] (do_filter(&data1, 0), do_filter(&data2, 1), audio.cpp:1151-1166); audio_reset zeroes the array even on a restore (2076), so the IIR history is always lost. led_filter_on (static int, derived from gui_data.powerled and led_filter_forced, led_filter_audio 2806-2810; FILTER_SOUND_EMUL means forced = 0 so it follows the power LED, audio.cpp:2269-2278, cfgfile.cpp:8566). The filter model is A500 (filter_type 0, cfgfile.cpp:8567).",
         "pointers": null,
         "rebuild": "a500e_filter1_a0, a500e_filter2_a0 and filter_a0 (audio.cpp:436-438) are recomputed per sample rate by rc_calculate_a0 (2135-2153, 2283-2285, uses softfloat_tan); sound_use_filter/led_filter_forced by set_audio. The rc1..rc5 floats must be copied bit-exact (memcpy); float results are reproducible because the build uses -ffp-contract=off (CMakeLists.txt:42). led_filter_on must be rebuilt after the CIA state is restored.",
@@ -4601,7 +4608,14 @@
           "task": "T15",
           "why": "what the compiled save_audio writes for each channel (a subset of Paula's state) is hashed; the filter, the DAC and the resampler phase are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15e",
+          "chunk": "P6AU",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_audio",
+          "proves": "tests/state/test_state_upstream.py: AUDP (patch 0099, the last sub-body of P6AU, 340 bytes: the resampler phase, the cycles not yet integrated, the activation counter, the LED filter, the five RC stages of the four output filters and 15 words per channel: DMA latches, the exact period with its PERIOD_MAX - 1 sentinel, dat2, the fast-CPU latches, the interpolation integrator and the ADKCON mask) is saved without changing the machine, validated by structure before anything is applied (finite floats, the phase between two samples, flags, latch widths, the period AUDn rounds) and applied as values after restore_audio_finish; a new image saves again the Paula it loaded. tests/state/test_det02.py: the PCM after the load is the original's sample for sample in every scenario and mode, tone-modulated (ADKCON USE0V1 with the LED filter on) included"
+        }
       },
       {
         "id": "audio-resampler-phase",
@@ -4615,7 +4629,7 @@
         "in_profile": true,
         "upstream_compiled": false,
         "policy": "extension",
-        "saved_fields": "None. restore_audio_finish only sets last_cycles = get_cycles() and reschedules (audio.cpp:2854-2858); audio_reset and audio_event_reset set next_sample_evtime = scaled_sample_evtime (2094, 1478), so the sample phase restarts from zero.",
+        "saved_fields": "AUDP (patch 0099): next_sample_evtime as float bits, get_cycles () - last_cycles in 64 bits (applied after restore_audio_finish, which would set it to the cycle of the load) and audio_work_to_do. samplecnt, extrasamples, outputsample and doublesample are only read under SOUNDSTUFF > 1 (the port defines 1).",
         "omitted": "next_sample_evtime (float, audio.cpp:373: decremented by the slice length in update_audio and incremented by scaled_sample_evtime at every output sample, 2403-2470), last_cycles (absolute cycle stamp up to which Paula has been integrated, 372), audio_work_to_do (activation counter: sound_auto = 0 means it never counts down, bridge/config.cpp:134, so it is a constant flag), sample_evtime (366, legacy). After a restore the number and alignment of the samples inside the unit differ from an uninterrupted run even with identical channel state.",
         "pointers": "sample_handler (audio.cpp:362), sample_prehandler, extra_sample_prehandler are function pointers chosen by set_audio (2295-2330): rebuild, never store.",
         "rebuild": "scaled_sample_evtime = chipset_clock * CYCLE_UNIT / rate is a constant recomputed by init_sound/update_sound (sound_lifecycle.cpp:82, 100); handlers by set_audio; next_sample_evtime and last_cycles are state and must be serialized (bit-exact float, rebased together with the cycle counter).",
@@ -4646,7 +4660,14 @@
           "task": "T15",
           "why": "what the compiled save_audio writes for each channel (a subset of Paula's state) is hashed; the filter, the DAC and the resampler phase are file-local"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T15e",
+          "chunk": "P6AU",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_audio",
+          "proves": "tests/state/test_state_upstream.py: AUDP (patch 0099, the last sub-body of P6AU, 340 bytes: the resampler phase, the cycles not yet integrated, the activation counter, the LED filter, the five RC stages of the four output filters and 15 words per channel: DMA latches, the exact period with its PERIOD_MAX - 1 sentinel, dat2, the fast-CPU latches, the interpolation integrator and the ADKCON mask) is saved without changing the machine, validated by structure before anything is applied (finite floats, the phase between two samples, flags, latch widths, the period AUDn rounds) and applied as values after restore_audio_finish; a new image saves again the Paula it loaded. tests/state/test_det02.py: the PCM after the load is the original's sample for sample in every scenario and mode, tone-modulated (ADKCON USE0V1 with the LED filter on) included"
+        }
       },
       {
         "id": "audio-unused-mixers-and-streams",
@@ -4699,7 +4720,7 @@
         "saved_fields": "None.",
         "omitted": null,
         "pointers": "paula_sndbufpt is a host pointer into paula_sndbuffer (pcm_output.cpp:8); after any restore it must be re-pointed at paula_sndbuffer.",
-        "rebuild": "paula_sndbuffer[512 frames], pcm[8192 frames] and queued_frames are empty at every unit boundary: take_audio reads up to the full capacity (bridge/pcm_out.cpp:28) and p6_pcm_read drains the queue and then the staging buffer, leaving paula_sndbufpt == paula_sndbuffer (pcm_output.cpp:66-96). Only the sticky output_error, delivery_enabled (pcm_output.cpp:13-14) and the lifecycle statics opened/paused/buffer_paused/ntsc/rate/lifecycle_error (sound_lifecycle.cpp:10-12) survive; they are derived from prefs at init_sound (sound_lifecycle.cpp:64-86) and reported by p6_sound_status (53). A snapshot taken after take_audio has nothing to save; a restore only needs p6_pcm_reset() + init state consistent (opened, no error). No host clock or thread is used.",
+        "rebuild": "paula_sndbuffer[512 frames], pcm[8192 frames] and queued_frames are empty at every unit boundary: take_audio reads up to the full capacity (bridge/pcm_out.cpp:28) and p6_pcm_read drains the queue and then the staging buffer, leaving paula_sndbufpt == paula_sndbuffer (pcm_output.cpp:66-96). Only the sticky output_error, delivery_enabled (pcm_output.cpp:13-14) and the lifecycle statics opened/paused/buffer_paused/ntsc/rate/lifecycle_error (sound_lifecycle.cpp:10-12) survive; they are derived from prefs at init_sound (sound_lifecycle.cpp:64-86) and reported by p6_sound_status (53). A snapshot taken after take_audio has nothing to save; a restore only needs p6_pcm_reset() + init state consistent (opened, no error). No host clock or thread is used. An accepted load drains the queue (bridge/state.cpp load()): an image that had not started still holds the samples of the reset head that ran before the chunks were applied, and they are its history, not the state's (T15e).",
         "evidence": [
           "ports/portable/pcm_output.cpp:8",
           "ports/portable/pcm_output.cpp:11",

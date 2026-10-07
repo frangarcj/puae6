@@ -1,4 +1,4 @@
-"""T15i3 and T15f (T15f1, T15f2, T15f3 and its closure): DET02 end to end with every chunk of the state, and where it still diverges.
+"""T15i3, T15f (T15f1, T15f2, T15f3 and its closure) and T15e: DET02 end to end with every chunk of the state, and where it still diverges.
 
 DET02 (docs/04-validation.md): a state saved at unit N, the machine run on, the state loaded, and the units after it run again must give the machine of the original run, subsystem by
 subsystem. The probe digests cpu, scheduler, ram, rtc, cia, chipset (by group: beam, counters, irq_dma, clxdat, lof, timing), audio, input, video and bridge, and hashes the PCM of
@@ -39,9 +39,13 @@ the card, item by item:
   bitplane DMA, spr[].dmastate        not shown: busy-bitplanes and busy-sprites match in an image restarted one unit before the load (idle at the boundary)
   dsklen2, linecounter                not shown: the DMA of busy-disk-dma stays armed (WORDSYNC): in 14 units it writes nothing to RAM and never raises DSKBLK, so what matters
                                       when a transfer ends is not exercised; T15d needs a micro-ROM whose transfer completes, with a boundary in the middle of it
-  delayed disk change                 not shown any more: the cpu digest that differed at unit 10 was the DMAL in flight, which T15f1 saves; the rows are audio-phase and audio-channels
-  audio filter and resampler          shown through the number of samples per unit and the PCM (cause "audio-phase"), also on silent programs
-  last_cycles, PERIOD_MAX-1 sentinel  not separable: always behind the audio phase; the sentinel needs a channel programmed for the first time after the load (audio-channels)
+  delayed disk change                 not shown any more: the cpu digest that differed at unit 10 was the DMAL in flight, which T15f1 saves, and the audio
+                                      rows that followed were T15e's: disk-change matches now
+  audio filter and resampler          fixed by T15e (AUDP, patch 0099): the resampler phase, the cycles not yet integrated, the output and LED filters, the interpolation
+                                      integrator and the per-channel latches AUDn does not carry (dat2, pbufldl, irqcheck, the exact period with its PERIOD_MAX - 1 sentinel,
+                                      the ADKCON masks). The PCM of every unit after the load is the original's sample for sample, in every mode, silent programs, tone and
+                                      tone-modulated (channel 0 modulating the volume of channel 1 with the LED filter on) included. A new process also handed over, in its
+                                      first unit, the samples its own reset head had queued before the load: load() now drops them (the PCM transport is not state)
 Not testable at a boundary: a machine mid-line.
 
 DIVERGENCES: "scenario@N/mode" -> (first unit after the load, subsystems that differ there, owner, cause).
@@ -82,6 +86,7 @@ SCENARIOS = {
     "vsync": ("vsync", [], (3,), CORE),
     "copper_irq": ("copper_irq", [], (2,), CORE),
     "tone": ("tone", [], (3,), CORE),
+    "tone-modulated": ("tone-mod", [], (3, 4), CORE),
     "busy": ("busy", [], (2, 5), CORE),
     "busy-disk": ("busy", "disk", (8,), CORE),
     "copper_irq-wait": ("copper_irq", [], (1, 3), (SAME_BEAM, RESET_BEAM)),
@@ -141,16 +146,36 @@ loop:
     BRA.S loop
 """
 
+TONE_MODULATED = """; PUAE6 test program: channel 0 modulates the volume of channel 1 (ADKCON USE0V1), with the power LED on (the LED filter on).
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #0,$BFE001.L         ; power LED on: the LED filter is on
+    MOVE.W #$000F,$DFF096.L     ; audio DMA off
+    MOVE.L #$64646464,$20000.L  ; a square wave of 16 bytes for channel 1
+    MOVE.L #$64646464,$20004.L
+    MOVE.L #$9C9C9C9C,$20008.L
+    MOVE.L #$9C9C9C9C,$2000C.L
+    MOVE.L #$00100040,$20100.L  ; four volumes for channel 0 to write into AUD1VOL
+    MOVE.L #$00200008,$20104.L
+    MOVE.L #$20100,$DFF0A0.L    ; AUD0LC
+    MOVE.W #4,$DFF0A4.L         ; AUD0LEN: 4 words
+    MOVE.W #1500,$DFF0A6.L      ; AUD0PER: a new volume every 1500 colour clocks
+    MOVE.W #64,$DFF0A8.L
+    MOVE.L #$20000,$DFF0B0.L    ; AUD1LC
+    MOVE.W #8,$DFF0B4.L         ; AUD1LEN: 8 words
+    MOVE.W #200,$DFF0B6.L       ; AUD1PER
+    MOVE.W #32,$DFF0B8.L
+    MOVE.W #$8001,$DFF09E.L     ; ADKCON: SET | USE0V1
+    MOVE.W #$8203,$DFF096.L     ; DMACON: SET | DMAEN | AUD0EN | AUD1EN
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+"""
+
 # cause id -> (owner, what is known). The owner is the task whose card has to make the scenarios of that cause match; the text is where the attribution came from.
 CAUSES = {
-    "audio-phase": ("T15e", "the samples a unit hands over (PCM and audio_frames_total, the only byte of the bridge digest that differs) are 958 or 959 depending on Paula's "
-                            "resampler phase, which restarts from zero: next_sample_evtime, samplecnt, extrasamples, the filter's rc state and last_cycles are in no body. "
-                            "Silent programs show it too, so it is the sampler and not the channels. Every scenario that has no other cause ends here, and it hides what "
-                            "comes after it in the same unit: the first row of a scenario is the first thing to fix, not the only one"),
-    "audio-channels": ("T15e", "as audio-phase, and one unit after the load the audio digest (state, evtime, drhpos, pointers of AUDn) of a channel with DMA running is "
-                               "not the original's: per-channel state that AUDn does not carry (dat2, pbufldl, ptx*, dmaofftime_*, irqcheck, the PERIOD_MAX-1 sentinel). T15f1 "
-                               "removed most of it (the DMA list of the line in flight, dmal_shifter, was what the busy scenarios lacked): what is left is a disk change "
-                               "in the same unit; the audio digest that busy-ntsc (a blit under audio DMA) differed in was the blit's slots, and T15f3 removed it"),
     "palette": ("T15g", "the colour registers are put back (the register image and agnus_colors) but Denise's derived colour table is not rebuilt: in the first picture "
                         "after the load the border is black where the state's COLOR00 is red. Only a machine that has not already written the same colours shows it "
                         "(a new image, or one restarted before the load): with the beam and the frame phase restored it is the first thing a new image shows in "
@@ -166,99 +191,14 @@ def row(cause, unit, subsystems):
 
 # Where DET02 diverges, from a run of this module: scenario@N/mode -> (first unit after the load, what differs there, owner, cause).
 DIVERGENCES = {
-    "vsync@3/same-image": row("audio-phase", 3, "bridge pcm"),
-    "vsync@3/same-image-beam-set": row("audio-phase", 3, "bridge pcm"),
-    "vsync@3/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "vsync@3/new-process": row("audio-phase", 1, "bridge pcm"),
-    "vsync@3/new-process-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "copper_irq@2/same-image": row("audio-phase", 4, "bridge pcm"),
-    "copper_irq@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "copper_irq@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "copper_irq@2/new-process": row("audio-phase", 1, "bridge pcm"),
-    "copper_irq@2/new-process-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "tone@3/same-image": row("audio-phase", 1, "pcm"),
-    "tone@3/same-image-beam-set": row("audio-phase", 1, "pcm"),
-    "tone@3/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "tone@3/new-process": row("audio-phase", 1, "bridge pcm"),
-    "tone@3/new-process-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy@2/same-image": row("audio-phase", 1, "pcm"),
-    "busy@2/same-image-beam-set": row("audio-phase", 1, "pcm"),
-    "busy@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
-    "busy@2/new-process": row("palette", 1, "video bridge pcm"),
-    "busy@2/new-process-beam-set": row("palette", 1, "video bridge pcm"),
-    "busy@5/same-image": row("audio-phase", 1, "bridge pcm"),
-    "busy@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy@5/reset-image-beam-set": row("audio-phase", 1, "pcm"),
-    "busy@5/new-process": row("palette", 1, "video bridge pcm"),
-    "busy@5/new-process-beam-set": row("palette", 1, "video bridge pcm"),
-    "busy-disk@8/same-image": row("audio-phase", 1, "bridge pcm"),
-    "busy-disk@8/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-disk@8/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-disk@8/new-process": row("palette", 1, "video bridge pcm"),
-    "busy-disk@8/new-process-beam-set": row("palette", 1, "video bridge pcm"),
-    "copper_irq-wait@1/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "copper_irq-wait@1/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "copper_irq-wait@3/same-image-beam-set": row("audio-phase", 3, "bridge pcm"),
-    "copper_irq-wait@3/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "vsync-late@6/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "vsync-late@6/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "stop@3/same-image-beam-set": row("audio-phase", 3, "bridge pcm"),
-    "stop@3/new-process": row("audio-phase", 1, "bridge pcm"),
-    "halt@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "halt@2/new-process": row("audio-phase", 1, "bridge pcm"),
-    "trace@3/same-image-beam-set": row("audio-phase", 3, "bridge pcm"),
-    "trace@3/new-process": row("audio-phase", 1, "bridge pcm"),
-    "user@3/same-image-beam-set": row("audio-phase", 3, "bridge pcm"),
-    "user@3/new-process": row("audio-phase", 1, "bridge pcm"),
-    "long_ops@3/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "long_ops@3/new-process": row("audio-phase", 1, "bridge pcm"),
-    "long_ops@4/same-image-beam-set": row("audio-phase", 5, "bridge pcm"),
-    "long_ops@4/new-process": row("audio-phase", 1, "bridge pcm"),
-    "clock@4/same-image-beam-set": row("audio-phase", 2, "bridge pcm"),
-    "clock@4/new-process": row("audio-phase", 1, "bridge pcm"),
-    "cias@8/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "cias@8/new-process": row("audio-phase", 1, "bridge pcm"),
-    "mouse@4/same-image-beam-set": row("audio-phase", 2, "bridge pcm"),
-    "mouse@4/new-process": row("audio-phase", 1, "bridge pcm"),
-    "keys@6/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "keys@6/new-process": row("audio-phase", 1, "bridge pcm"),
-    "pot@6/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "pot@6/new-process": row("audio-phase", 1, "bridge pcm"),
-    "lof@4/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "lof@4/new-process": row("palette", 1, "video bridge pcm"),
-    "busy-blitter@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "busy-blitter@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "busy-blitter@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-bitplanes@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-sprites@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-copper@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-audio@5/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-audio@5/reset-image-beam-set": row("audio-phase", 1, "pcm"),
-    "busy-disk-dma@8/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "busy-disk-dma@8/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "blit+bitplanes@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+bitplanes@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+sprites@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+sprites@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+copper@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+copper@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+audio@2/same-image-beam-set": row("audio-phase", 1, "pcm"),
-    "blit+audio@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
-    "blit+disk@2/same-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "blit+disk@2/reset-image-beam-set": row("audio-phase", 4, "bridge pcm"),
-    "late-bitplanes@8/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "late-bitplanes@8/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "late-bitplanes@8/new-process": row("audio-phase", 1, "bridge pcm"),
-    "busy-ntsc@2/same-image": row("audio-phase", 1, "pcm"),
-    "busy-ntsc@2/reset-image-beam-set": row("audio-phase", 1, "pcm"),
-    "busy-ntsc@2/new-process": row("palette", 1, "video bridge pcm"),
-    "copper_irq-ntsc@2/same-image": row("audio-phase", 5, "bridge pcm"),
-    "copper_irq-ntsc@2/reset-image-beam-set": row("audio-phase", 2, "bridge pcm"),
-    "copper_irq-ntsc@2/new-process": row("audio-phase", 1, "bridge pcm"),
-    "disk-change@10/same-image-beam-set": row("audio-phase", 1, "bridge pcm"),
-    "disk-change@12/same-image-beam-set": row("audio-channels", 1, "audio bridge pcm"),
-    "disk-change@13/same-image-beam-set": row("audio-phase", 1, "pcm"),
-    "disk-change-reset@10/reset-image-beam-set": row("audio-phase", 1, "bridge pcm"),
+    "busy@2/new-process": row("palette", 1, "video"),
+    "busy@2/new-process-beam-set": row("palette", 1, "video"),
+    "busy@5/new-process": row("palette", 1, "video"),
+    "busy@5/new-process-beam-set": row("palette", 1, "video"),
+    "busy-disk@8/new-process": row("palette", 1, "video"),
+    "busy-disk@8/new-process-beam-set": row("palette", 1, "video"),
+    "lof@4/new-process": row("palette", 1, "video"),
+    "busy-ntsc@2/new-process": row("palette", 1, "video"),
 }
 
 
@@ -404,6 +344,7 @@ class Det02Tests(Det02Case):
         "blt-dsk": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8250,$DFF096.L"}),
         "late-bpl": (LATE_BITPLANES, None, None),
         "tone": (tone_source(Tone("det02", channels=(0, 1), period=200, volume=64)), None, None),
+        "tone-mod": (TONE_MODULATED, None, None),
     }
 
 

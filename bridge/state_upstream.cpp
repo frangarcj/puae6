@@ -5,7 +5,7 @@
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17)
 //   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (244), COPR (60) and BLTP (72), the last three ours and not upstream's
-//   P6AU  AUD0..AUD3 (25 each)
+//   P6AU  AUD0..AUD3 (25 each) and AUDP (340), ours and not upstream's
 //   P6VD  BPLX (292)
 //
 // BEAM is the one body that is not WinUAE's: its restore_custom reads VPOSR and VHPOSR and throws them away, and the counters of the frame, the line history and the
@@ -18,6 +18,13 @@
 // beam, skipping or half way through a strobe came back stopped. It is 15 words (patch 0095, p6_custom_copper_get and p6_custom_copper_set): the state and its two companions,
 // the compare values of the wait, the strobe in flight, the latched COP1LC, the flag that lets the Copper run this line and the two cycle stamps that the strobe and the DMA enable
 // are compared with. Values only: the Copper does not run, advance or drain when it is applied, and COPR comes after CHSL, which it overrides.
+//
+// AUDP is the fourth (patch 0099, p6_audio_phase_get and p6_audio_phase_set): restore_audio rounds the period, copies dat into dat2 and zeroes what AUDn does not carry, and
+// restore_audio_finish sets last_cycles to the cycle of the load, so a restored Paula restarted its resampler phase, its filters and its interpolation from zero and lost
+// the DMA latches of its channels. 85 words: the resampler phase (next_sample_evtime and the cycles not yet integrated, 64 bits), whether audio was activated, the LED filter and
+// the five RC stages of the four output filters, and 15 words per channel (the DMA latches, the exact period, dat2, the fast-CPU latches, the interpolation integrator
+// and the ADKCON mask). Applied as values after restore_audio_finish; Paula does not run on load. The profiles that would need more (sinc interpolation, volume counters,
+// delayed crossfeed) make both calls refuse, and the save fails with the body's length.
 //
 // BLTP is the third: restore_blitter_new puts back the registers, the shifters, the counters and the pipeline of the cycle-exact blitter and drops what keeps a blit in flight
 // on the same cycles as the saved one (patch 0097, p6_blitter_phase_get and p6_blitter_phase_set): blit_queued, blit_count_done, blt_change_cycles, the held data words, the
@@ -51,6 +58,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -72,6 +80,8 @@ extern bool p6_custom_copper_set(const int32_t *in, unsigned n);
 extern bool p6_blitter_phase_get(int32_t *out, unsigned n);     // blitter.cpp 0097
 extern bool p6_blitter_phase_set(const int32_t *in, unsigned n);
 extern void p6_custom_rebuild_derived(void);                    // custom.cpp 0098
+extern bool p6_audio_phase_get(int32_t *out, unsigned n);       // audio.cpp 0099
+extern bool p6_audio_phase_set(const int32_t *in, unsigned n);
 
 namespace p6_state {
 
@@ -102,6 +112,7 @@ struct Seen {
     uint32_t head_position[4];
     uint32_t chsl_flags;
     uint8_t bltx_state, bltx_dmacount, bltx_cyclecount;     // BLTX: idle, pending or running, and the channel counts of the blit
+    uint16_t aud_period[4];                                 // AUDn: the period in colour clocks, 0 for PERIOD_MAX
 };
 
 struct Sub {
@@ -127,6 +138,7 @@ uint8_t *produce_aud(int n, size_t *len, uint8_t *w) { return save_audio(n, len,
 uint8_t *produce_beam(int, size_t *len, uint8_t *w);
 uint8_t *produce_copr(int, size_t *len, uint8_t *w);
 uint8_t *produce_bltp(int, size_t *len, uint8_t *w);
+uint8_t *produce_audp(int, size_t *len, uint8_t *w);
 uint8_t *produce_bplx(int, size_t *len, uint8_t *w) { return save_custom_bpl(len, w); }
 
 uint8_t *apply_dsk(int n, uint8_t *b) { return restore_disk(n, b); }
@@ -141,6 +153,7 @@ uint8_t *apply_aud(int n, uint8_t *b) { return restore_audio(n, b); }
 uint8_t *apply_beam(int, uint8_t *b);
 uint8_t *apply_copr(int, uint8_t *b);
 uint8_t *apply_bltp(int, uint8_t *b);
+uint8_t *apply_audp(int, uint8_t *b);
 uint8_t *apply_bplx(int, uint8_t *b) { return restore_custom_bpl(b); }
 
 // -- BEAM: the position of the beam and the phase of the frame (patch 0094) ---------------------------------------------------------------------------
@@ -229,6 +242,38 @@ uint8_t *apply_bltp(int, uint8_t *body)
 {
     for (unsigned i = 0; i < kBlitterWords; ++i) g_blitter_phase[i] = int32_t(Body{body, kBlitterBytes}.u32(i * 4));
     return body + kBlitterBytes;
+}
+
+// -- AUDP: the Paula that AUDn does not carry (patch 0099) -----------------------------------------------------------------------------------------
+
+// The words of the body, in the order of p6_audio_phase_get: the global ones, then kAudChannelWords per channel.
+enum AudioWord : unsigned { kAudNextSample, kAudPendingLow, kAudPendingHigh, kAudWorkToDo, kAudLedFilter, kAudFilters, kAudChannels = kAudFilters + 4 * 5 };
+enum AudioChannelWord : unsigned {
+    kAudFlags, kAudIrqCheck, kAudPeriod, kAudDat2, kAudPtx, kAudDmaOffActive, kAudDmaOffCpuCount, kAudDmaOffPc, kAudMinPerLoop,
+    kAudCurrentSample, kAudLastSample, kAudNewSample, kAudSampleAccum, kAudSampleAccumTime, kAudAdkMask, kAudChannelWords
+};
+constexpr unsigned kAudioWords = kAudChannels + 4 * kAudChannelWords;
+// The longest sample period of the profile, in the engine's cycle units: the faster colour clock (NTSC, 3579545 Hz) at the slower rate (44100 Hz). A bound of the
+// configuration, not of the live machine: a new image validates before its audio exists.
+constexpr float kAudSamplePeriodMax = 3579545.0f * CYCLE_UNIT / 44100.0f;
+constexpr uint32_t kAudioBytes = kAudioWords * 4;
+int32_t g_audio_phase[kAudioWords];     // read by apply_audp, put in the engine by finish_audio once restore_audio_finish has run
+
+uint8_t *produce_audp(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kAudioWords];
+    if (!p6_audio_phase_get(words, kAudioWords)) return nullptr;
+    for (unsigned i = 0; i < kAudioWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kAudioBytes;
+    return w;
+}
+
+// restore_audio_finish sets last_cycles, so the words wait in g_audio_phase and finish_audio puts them in, as BLTP does.
+uint8_t *apply_audp(int, uint8_t *body)
+{
+    for (unsigned i = 0; i < kAudioWords; ++i) g_audio_phase[i] = int32_t(Body{body, kAudioBytes}.u32(i * 4));
+    return body + kAudioBytes;
 }
 
 // -- what each body must be before it is applied ----------------------------------------------------------------------------------------------------
@@ -341,11 +386,41 @@ const char *check_spr(const Sub &, const Body &b, Seen &)
 }
 
 // AUDn: state u8, volume u8, interrupt flag u8, flags u8 (1 request, 2 request pending, 0x80 always), length, wlength, period, data u16, lc, pt, evtime u32, hpos u8.
-const char *check_aud(const Sub &, const Body &b, Seen &)
+const char *check_aud(const Sub &sub, const Body &b, Seen &seen)
 {
     if (b.u8(0) > 5) return "the state of the channel is beyond 5";
     if (b.u8(2) > 1) return "the interrupt flag is not a flag";
     if ((b.u8(3) & 0xFC) != 0x80) return "the flags of the channel are not the ones save_audio writes";
+    seen.aud_period[sub.index] = uint16_t(b.u16(8));
+    return nullptr;
+}
+
+// AUDP: the floats are what the engine casts to integers (the resampler phase goes through floorf into an unsigned, the filters into the output sample), so they are
+// finite, and the phase is in the range update_audio leaves it in between two calls: never below -0.5 and never more than the longest sample period ahead. The cycles not yet
+// integrated are not negative. The flags, the interrupt check (-1, 0, 1), the masks (all or nothing) and the 16 and 8-bit latches have the range of their variables, and
+// the exact period has to be the one AUDn rounds (PERIOD_MAX and PERIOD_MAX - 1, -1 and -2 as words, both save as 0): the two bodies are one channel.
+const char *check_audp(const Sub &, const Body &b, Seen &seen)
+{
+    const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
+    const auto real = [&b](unsigned word) { const uint32_t bits = b.u32(word * 4); float f; memcpy(&f, &bits, sizeof f); return f; };
+    const float phase = real(kAudNextSample);
+    if (!isfinite(phase) || phase < -0.5f || phase > kAudSamplePeriodMax + 1.0f) return "the resampler phase is not between two samples";
+    if (at(kAudPendingHigh) < 0) return "the cycles Paula has not integrated are negative";      // 64 bits: a boundary has 0, a partial load (--only) a long stretch
+    if (at(kAudWorkToDo) < 0) return "the activity counter of the audio is negative";
+    if (at(kAudLedFilter) < 0 || at(kAudLedFilter) > 1) return "the LED filter is not a flag";
+    for (unsigned w = kAudFilters; w < kAudChannels; ++w)
+        if (!isfinite(real(w))) return "a filter stage is not a finite number";
+    for (unsigned n = 0; n < 4; ++n) {
+        const auto ch = [&at, n](unsigned word) { return at(kAudChannels + n * kAudChannelWords + word); };
+        if (ch(kAudFlags) & ~31) return "unknown bits in the flags of a channel";
+        if (ch(kAudIrqCheck) < -1 || ch(kAudIrqCheck) > 1) return "the interrupt check of a channel is not -1, 0 or 1";
+        if (ch(kAudDmaOffActive) < 0 || ch(kAudDmaOffActive) > 1) return "the DMA-off latch of a channel is not a flag";
+        if (ch(kAudDat2) < 0 || ch(kAudDat2) > 0xffff || ch(kAudNewSample) < 0 || ch(kAudNewSample) > 0xff) return "a data latch of a channel is wider than its register";
+        if (ch(kAudAdkMask) != 0 && ch(kAudAdkMask) != -1) return "the modulation mask of a channel is neither all nor nothing";
+        const int32_t period = ch(kAudPeriod);
+        const uint16_t rounded = period == -1 ? 0 : uint16_t(period / CYCLE_UNIT);       // save_audio's own arithmetic: int division
+        if (rounded != seen.aud_period[n]) return "the exact period of a channel is not the one AUDn rounds";
+    }
     return nullptr;
 }
 
@@ -446,6 +521,7 @@ constexpr Sub kChipsetBodies[] = {
 constexpr Sub kAudioBodies[] = {
     {"AUD0", 25, 25, produce_aud, apply_aud, check_aud, 0, true}, {"AUD1", 25, 25, produce_aud, apply_aud, check_aud, 1, true},
     {"AUD2", 25, 25, produce_aud, apply_aud, check_aud, 2, true}, {"AUD3", 25, 25, produce_aud, apply_aud, check_aud, 3, true},
+    {"AUDP", kAudioBytes, kAudioBytes, produce_audp, apply_audp, check_audp, 0, true},
 };
 constexpr Sub kVideoBodies[] = {{"BPLX", 292, 292, produce_bplx, apply_bplx, check_bplx, 0, true}};
 
@@ -564,7 +640,11 @@ void finish_chipset()
     p6_blitter_phase_set(g_blitter_phase, kBlitterWords);
     p6_custom_rebuild_derived();
 }
-void finish_audio() { restore_audio_finish(); }
+void finish_audio()
+{
+    restore_audio_finish();
+    p6_audio_phase_set(g_audio_phase, kAudioWords);
+}
 
 }  // namespace
 

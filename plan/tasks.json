@@ -9214,7 +9214,7 @@
       "title": "Continuacion de Paula sobre los cuerpos upstream AUDn",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15i"
       ],

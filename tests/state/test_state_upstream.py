@@ -44,12 +44,12 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 244, "COPR": 60, "BLTP": 72, "AUDP": 340,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
     b"P6VD": ["BPLX"],
-    b"P6AU": [f"AUD{i}" for i in range(4)],
+    b"P6AU": [f"AUD{i}" for i in range(4)] + ["AUDP"],
     b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK"],
 }
 DSD_FIXED = 4 + 2 + 4 + 2 + 4 + 4 + 2       # mode, bit counter, track length, speed, skip offset, index offset, revolutions
@@ -69,6 +69,18 @@ COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ign
 # The words of BLTP, in the order of p6_blitter_phase_get (blitter.cpp, patch 0097) and of the enum of bridge/state_upstream.cpp.
 BLTP_WORDS = ["queued", "count_done", "change_cycles_low", "change_cycles_high", "delayed_update", "dmacount", "cyclecount", "ahold2", "bhold2", "chold2", "bhold",
               "ddatl", "dptl", "linepixel2", "apt_prev", "bpt_prev", "cpt_prev", "dpt_prev"]
+# The words of AUDP, in the order of p6_audio_phase_get (audio.cpp, patch 0099) and of the enums of bridge/state_upstream.cpp: 25 of Paula, then 15 per channel.
+AUDP_GLOBAL = ["next_sample_evtime", "pending_cycles_low", "pending_cycles_high", "work_to_do", "led_filter"] + [f"filter{i}_rc{j}" for i in range(4) for j in range(1, 6)]
+AUDP_CHANNEL = ["flags", "irqcheck", "per", "dat2", "ptx", "dmaoff_active", "dmaoff_cpu_count", "dmaoff_pc", "minperloop", "current_sample", "last_sample", "new_sample",
+                "sample_accum", "sample_accum_time", "adk_mask"]
+PERIOD_SENTINEL = -2            # PERIOD_MAX - 1 as an int: the period of a channel audio_reset leaves and nothing has written since
+
+
+def audp_at(word, channel=None):
+    """Byte offset of a word of AUDP: of Paula, or of a channel."""
+    return 4 * (AUDP_GLOBAL.index(word) if channel is None else len(AUDP_GLOBAL) + channel * len(AUDP_CHANNEL) + AUDP_CHANNEL.index(word))
+
+
 BLT_RUNNING = 2                 # BLTX byte 1: idle, pending, running
 COP_WAIT1 = 8                   # COP_wait1 of custom.cpp: the Copper waits for the beam to reach the position of its WAIT
 
@@ -381,6 +393,30 @@ class UpstreamBodiesTests(ProbeCase):
         self.assertEqual([(0, 0, "")], run.loads)
         self.assertEqual(waiting, self.copper_of(again.read_bytes()), "a fresh image has the Copper of the state, not a stopped one")
 
+    def paula_of(self, blob):
+        """({AUDP word: signed value}, [{AUDP channel word: signed value}] * 4, [AUDn period] * 4) of a state."""
+        subs = upstream_bodies(blob)[b"P6AU"]
+        words = struct.unpack(">%di" % (len(subs["AUDP"]) // 4), subs["AUDP"])
+        self.assertEqual(len(AUDP_GLOBAL) + 4 * len(AUDP_CHANNEL), len(words))
+        channels = [dict(zip(AUDP_CHANNEL, words[len(AUDP_GLOBAL) + n * len(AUDP_CHANNEL):])) for n in range(4)]
+        return dict(zip(AUDP_GLOBAL, words)), channels, [struct.unpack_from(">H", subs[f"AUD{n}"], 8)[0] for n in range(4)]
+
+    def test_paula_comes_back_with_its_resampler_phase_and_the_period_sentinel_of_a_channel_never_programmed(self):
+        # restore_audio rounds the period to colour clocks (PERIOD_MAX - 1 comes back as PERIOD_MAX) and restore_audio_finish restarts last_cycles at the load; the phase of the
+        # resampler is in no upstream body. A new image takes all of it from AUDP: the state it saves right after the load is the one it loaded.
+        first, again = self.dir / "paula.first", self.dir / "paula.again"
+        self.probe("vsync", "--units", "3", "--save-at", "3", str(first))
+        paula, channels, periods = self.paula_of(first.read_bytes())
+        self.assertEqual([PERIOD_SENTINEL] * 4, [c["per"] for c in channels], "vsync never writes a period")
+        self.assertEqual([0] * 4, periods, "AUDn cannot tell the sentinel from PERIOD_MAX")
+        phase = struct.unpack(">f", struct.pack(">i", paula["next_sample_evtime"]))[0]
+        self.assertTrue(0 < phase <= 3546895 * 512 / 44100 + 1, phase)
+        self.assertEqual((0, 0), (paula["pending_cycles_low"], paula["pending_cycles_high"]), "a boundary has integrated Paula up to its tick")
+        self.assertNotEqual(0, paula["work_to_do"], "audio was activated in the reset head")
+        run = self.probe("vsync", "--units", "0", "--load-at", "0", str(first), "--save-at", "0", str(again))
+        self.assertEqual([(0, 0, "")], run.loads)
+        self.assertEqual(upstream_bodies(first.read_bytes())[b"P6AU"], upstream_bodies(again.read_bytes())[b"P6AU"], "a fresh image has the Paula of the state")
+
     def blitter_of(self, blob):
         """({BLTP word name: signed value}, BLTX state byte) of a state."""
         subs = upstream_bodies(blob)[b"P6CH"]
@@ -572,6 +608,23 @@ class UpstreamBodiesTests(ProbeCase):
         ("BLTP with the channel count of another blit than BLTX's", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("dmacount"), struct.pack(">i", 3), "the channel counts are not the ones BLTX carries"),
         ("BLTP with a held word of 17 bits", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("ahold2"), struct.pack(">i", 0x10000), "a held word of the blitter is wider than 16 bits"),
         ("BLTP with a negative held word", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("ddatl"), struct.pack(">i", -1), "a held word of the blitter is wider than 16 bits"),
+        ("AUDP with a resampler phase that is not a number", b"P6AU", "AUDP", audp_at("next_sample_evtime"), struct.pack(">f", float("nan")),
+         "the resampler phase is not between two samples"),
+        ("AUDP with a resampler phase below -0.5", b"P6AU", "AUDP", audp_at("next_sample_evtime"), struct.pack(">f", -1.0), "the resampler phase is not between two samples"),
+        ("AUDP with a resampler phase two samples ahead", b"P6AU", "AUDP", audp_at("next_sample_evtime"), struct.pack(">f", 90000.0),
+         "the resampler phase is not between two samples"),
+        ("AUDP with negative cycles not integrated", b"P6AU", "AUDP", audp_at("pending_cycles_high"), struct.pack(">i", -1), "the cycles Paula has not integrated are negative"),
+        ("AUDP with a negative activity counter", b"P6AU", "AUDP", audp_at("work_to_do"), struct.pack(">i", -1), "the activity counter of the audio is negative"),
+        ("AUDP with an LED filter of 2", b"P6AU", "AUDP", audp_at("led_filter"), struct.pack(">i", 2), "the LED filter is not a flag"),
+        ("AUDP with an infinite filter stage", b"P6AU", "AUDP", audp_at("filter1_rc3"), struct.pack(">f", float("inf")), "a filter stage is not a finite number"),
+        ("AUDP channel 2 with an unknown flag", b"P6AU", "AUDP", audp_at("flags", 2), struct.pack(">i", 32), "unknown bits in the flags of a channel"),
+        ("AUDP channel 0 with an interrupt check of 2", b"P6AU", "AUDP", audp_at("irqcheck", 0), struct.pack(">i", 2), "the interrupt check of a channel is not -1, 0 or 1"),
+        ("AUDP channel 1 with a DMA-off latch of 2", b"P6AU", "AUDP", audp_at("dmaoff_active", 1), struct.pack(">i", 2), "the DMA-off latch of a channel is not a flag"),
+        ("AUDP channel 3 with a dat2 of 17 bits", b"P6AU", "AUDP", audp_at("dat2", 3), struct.pack(">i", 0x10000), "a data latch of a channel is wider than its register"),
+        ("AUDP channel 3 with a new sample of 9 bits", b"P6AU", "AUDP", audp_at("new_sample", 3), struct.pack(">i", 0x100), "a data latch of a channel is wider than its register"),
+        ("AUDP channel 1 with a partial modulation mask", b"P6AU", "AUDP", audp_at("adk_mask", 1), struct.pack(">i", 0xFF), "the modulation mask of a channel is neither all nor nothing"),
+        ("AUDP channel 2 with a period AUDn does not round to", b"P6AU", "AUDP", audp_at("per", 2), struct.pack(">i", 12345 * 512),
+         "the exact period of a channel is not the one AUDn rounds"),
         ("BLTX running while BLTP says the blit is done", b"P6CH", "BLTX", 1, b"\2", "BLTX says a blit is running and BLTP says it is done or has nothing queued"),
     ]
 

@@ -17,16 +17,13 @@ SCENARIOS = {
 
 # Where DET02 diverges on the Kickstart (the causes are those of tests/state/test_det02.py).
 DIVERGENCES = {
-    "kickstart@60/same-image": d.row("audio-phase", 1, "bridge pcm"),
-    "kickstart@60/same-image-beam-set": d.row("audio-phase", 1, "bridge pcm"),
-    "kickstart@60/new-process": d.row("palette", 1, "video bridge pcm"),
-    "kickstart@60/new-process-beam-set": d.row("palette", 1, "video bridge pcm"),
-    "kickstart-handshake@107/same-image-beam-set": d.row("palette", 1, "video bridge pcm"),
-    "kickstart-handshake@107/reset-image-beam-set": d.row("palette", 1, "video bridge pcm"),
-    "kickstart-handshake@107/new-process": d.row("palette", 1, "video bridge pcm"),
-    "kickstart-steady@140/same-image-beam-set": d.row("audio-phase", 1, "bridge pcm"),
-    "kickstart-steady@140/reset-image-beam-set": d.row("palette", 1, "video bridge pcm"),
-    "kickstart-steady@140/new-process": d.row("palette", 1, "video bridge pcm"),
+    "kickstart@60/new-process": d.row("palette", 1, "video"),
+    "kickstart@60/new-process-beam-set": d.row("palette", 1, "video"),
+    "kickstart-handshake@107/same-image-beam-set": d.row("palette", 1, "video"),
+    "kickstart-handshake@107/reset-image-beam-set": d.row("palette", 1, "video"),
+    "kickstart-handshake@107/new-process": d.row("palette", 1, "video"),
+    "kickstart-steady@140/reset-image-beam-set": d.row("palette", 1, "video"),
+    "kickstart-steady@140/new-process": d.row("palette", 1, "video"),
 }
 
 
