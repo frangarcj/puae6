@@ -9924,7 +9924,7 @@
       "title": "Contenido libretro: Kickstart del directorio de sistema, ADF/M3U por VFS y Disk Control sobre eventos de medios",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T16"
       ],
@@ -9986,6 +9986,75 @@
         "La misma configuracion normalizada alimenta headless, libretro y wrapper, sin defaults divergentes; un cambio de reinicio necesita recarga."
       ],
       "stop": "No importar .uae entero; solo claves allowlist con diagnostico.",
+      "evidence": null
+    },
+    {
+      "id": "T17c",
+      "title": "Teclado, raton y dispositivos de puerto en el adaptador libretro (paridad con PUAE5)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/01-architecture.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "El adaptador libretro solo mapea joypad (T16). Mapear RETRO_DEVICE_KEYBOARD al teclado Amiga (p6_input keys, mismo mapa que el contrato y que el wrapper BizHawk), RETRO_DEVICE_MOUSE al raton del puerto 0 (delta relativo por unidad) y ofrecer los tipos de dispositivo por puerto (joystick, raton, ninguno) con SET_CONTROLLER_INFO.",
+        "El input se lee una vez por retro_run y entra por p6_run_frame como cualquier otro: ningun callback de teclado cambia la maquina fuera de la frontera.",
+        "Paridad con PUAE5 (libretro-uae de MacHawk): inventariar sus dispositivos y su mapa por defecto y cubrir al menos lo mismo; lo que no se cubra se documenta con motivo."
+      ],
+      "checks": [
+        "LR01",
+        "IN01"
+      ],
+      "acceptance": [
+        "Teclado, raton y joystick llegan a la maquina desde el host de tests y desde el frontend real con la misma secuencia que el headless."
+      ],
+      "stop": "No teclado virtual ni overlays (T31).",
+      "evidence": null
+    },
+    {
+      "id": "T17d",
+      "title": "Formatos de disquete mas alla del ADF plano (ADZ, ZIP, DMS; IPF solo si la licencia lo permite)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/01-architecture.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "bridge/media.cpp",
+        "bridge/media.h",
+        "tests/libretro-host/**",
+        "tests/media/**",
+        "patches/winuae/**"
+      ],
+      "steps": [
+        "PUAE5 acepta adz, dms, fdi, ipf, raw y zip/7z. La ABI v1 registra ADF exactos de 901120 bytes identificados por SHA-256: los contenedores se descomprimen en memoria (sin directorio temporal ni escrituras) a la imagen ADF, cuyo SHA-256 sigue siendo la identidad; usar los decodificadores que WinUAE ya trae (archivers: dms, zip/gzip) mediante parches pequeños si hace falta, no copiar el motor antiguo.",
+        "IPF necesita capsimg (licencia propia): evaluar y, si no es redistribuible, rechazarlo con un error claro y documentarlo.",
+        "Entradas hostiles (archivos truncados, bombas de descompresion, tamaños falsos) con cota de memoria: FUZZ01."
+      ],
+      "checks": [
+        "MED01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un juego en ADZ, ZIP o DMS arranca igual que su ADF plano (mismo content id y mismo futuro); los formatos no soportados se rechazan con mensaje claro."
+      ],
+      "stop": "No escribir en disco ni extraer a directorios temporales.",
       "evidence": null
     },
     {
@@ -10328,7 +10397,9 @@
       "depends": [
         "T17",
         "T18",
-        "T24"
+        "T24",
+        "T17c",
+        "T17d"
       ],
       "read": [
         "docs/01-architecture.md",
