@@ -11126,7 +11126,8 @@
         "Inventariar UX util del PUAE fijado y seleccionar teclado virtual, crop, indicadores y mapping sin copiar motor antiguo.",
         "Implementar presentacion fuera del hash hardware y convertir acciones UI a inputs/eventos normales serializables.",
         "Crear importador .uae allowlist con errores por claves peligrosas/no soportadas, sin plugins ni shell.",
-        "Probar que toggles de overlay/crop/volumen no cambian hardware; opciones semanticas van a sync config."
+        "Probar que toggles de overlay/crop/volumen no cambian hardware; opciones semanticas van a sync config.",
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): T31 cubre vkbd, statusbar/LED/OSD, crop/zoom/posicion/aspecto/gamma/RGB565 y la entrada del adaptador (mapper de RetroPad, turbo fire, analog-stick-mouse, D-Pad mouse). Dividir al ejecutar en T31a vkbd, T31b OSD/statusbar, T31c presentacion de video, T31d mapper/turbo/raton analogico; nada de eso cambia la maquina."
       ],
       "checks": [
         "LR01",
@@ -11524,6 +11525,1109 @@
       "evidence": null
     },
     {
+      "id": "T49",
+      "title": "Memoria configurable: Chip, Slow y Fast Zorro II (8 MiB para A600/A1200 como PUAE5), con region, estado y presupuesto Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "config/profiles/**",
+        "tests/host/**",
+        "bridge/state.cpp",
+        "bridge/state_upstream.cpp",
+        "bridge/memory.cpp",
+        "patches/winuae/**",
+        "manifests/state-inventory.json",
+        "tests/state/**",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "integration/bizhawk/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "manifests/waterbox-memory.json"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece A600/A1200/A4000 con 2M Chip + 8M Fast y chipmem/bogomem/fastmem configurables. Fast Z2 (autoconfig) como region de p6_memory_regions, chunk de RAM, state bound por configuracion y presupuesto mmap de Waterbox medido (hoy 16 MiB).",
+        "Presets PUAE5-like: A600 (KS 3.1, 2M Chip + 8M Fast) y A1200 + 8M Fast como configuraciones publicadas junto a las de serie; opcion libretro/sync setting de memoria (reinicio)."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "WB03",
+        "LR01"
+      ],
+      "acceptance": [
+        "Un A1200 con 8 MiB de Fast arranca, guarda y restaura (nativo y Waterbox); las configuraciones de serie no cambian."
+      ],
+      "stop": "No reutilizar el presupuesto Waterbox sin medir; Z3 queda para T55.",
+      "evidence": null
+    },
+    {
+      "id": "T50",
+      "title": "Presets A500OG (sin Slow), A500+ (KS 2.04, 1M Chip), A1000, A2000OG y A2000 (ECS, KS 3.1)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "config/profiles/**",
+        "tests/host/**",
+        "tests/scenarios/**",
+        "tools/scenario_schema.py",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "integration/bizhawk/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Cada preset sale de built_in_prefs de upstream con overrides declarados y su perfil verificado campo a campo, como T23a; arranque opt-in con el Kickstart que el usuario autorice para cada uno; tabla de capacidades."
+      ],
+      "checks": [
+        "AV01",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Los presets nuevos arrancan por los tres adaptadores; los existentes no cambian."
+      ],
+      "stop": "Si un preset necesita hardware no emulado (Gayle, SCSI), declararlo sin el dispositivo o parar.",
+      "evidence": null
+    },
+    {
+      "id": "T51",
+      "title": "Selector de Kickstart por maquina, tabla de nombres/hashes de PUAE5 y rom.key (ROMs cifradas de Amiga Forever)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "bridge/media.cpp",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "adapters/libretro/**",
+        "config/schema/**",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "integration/bizhawk/**",
+        "tests/ffi/**",
+        "tests/host/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 deja elegir Kickstart por modelo (puae_kickstart) y descifra ROMs de Amiga Forever con rom.key. Elegir firmware alternativo valido para la maquina (p.ej. 3.1 en A600) con la identidad del firmware en estados/peliculas; descifrado rom.key determinista en el adaptador; AROS opcional si su licencia lo permite."
+      ],
+      "checks": [
+        "LR01",
+        "MED01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un Kickstart alternativo o cifrado con rom.key arranca; uno de otra CPU se rechaza con mensaje claro."
+      ],
+      "stop": "No registrar hashes de ROMs comerciales en el repo salvo los publicados por PUAE5.",
+      "evidence": null
+    },
+    {
+      "id": "T52",
+      "title": "CPU 68010 y multiplicador de reloj cycle-exact (opcion de reinicio)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/sysconfig.h",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/codegen/**",
+        "tests/host/**",
+        "bridge/config.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_cpu_model 68010 y puae_cpu_multiplier. Generar/seleccionar la 68010 CE (fila cputbls) y exponer el multiplicador como opcion de reinicio determinista."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "LR01"
+      ],
+      "acceptance": [
+        "La 68010 ejecuta su probe; el multiplicador cambia la velocidad sin romper DET02."
+      ],
+      "stop": "No usar velocidad maxima ligada al reloj del host.",
+      "evidence": null
+    },
+    {
+      "id": "T53",
+      "title": "Modos de CPU rapidos (compatible / normal, sin cycle-exact) como opcion, deterministas",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/sysconfig.h",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/codegen/**",
+        "tests/host/**",
+        "bridge/config.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "tests/libretro-host/**",
+        "integration/bizhawk/**",
+        "tests/ffi/**",
+        "tests/state/**",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: anadir los niveles de PUAE5 (puae_cpu_compatibility normal/compatible/exact). Generar cpuemu sin CE (0/11/20...) y seleccionarlos por opcion de reinicio; m68k_speed nunca ligado al reloj del host; DET02 y estados en cada nivel; ADR que fija que la identidad del estado incluye el nivel."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "STATE01",
+        "LR01",
+        "PERF01"
+      ],
+      "acceptance": [
+        "Cada nivel es determinista y restaura; el modo exacto no cambia."
+      ],
+      "stop": "No declarar netplay/runahead en un nivel hasta probarlo.",
+      "evidence": null
+    },
+    {
+      "id": "T54",
+      "title": "FPU 68881/68882 e interna con softfloat (identica en x86_64 y ARM64)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/codegen/**",
+        "tests/host/**",
+        "bridge/**",
+        "manifests/state-inventory.json",
+        "tests/state/**",
+        "config/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece FPU (puae_cpu_model con FPU y modelos 030/040). Compilar fpp con softfloat (nunca la FPU del host), generar las tablas con FPUEMU, probe de instrucciones FPU con esperados de softfloat, estado de la FPU."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "DET04",
+        "STATE01"
+      ],
+      "acceptance": [
+        "Los resultados FPU son bit a bit iguales en x86_64 y ARM64 y restauran."
+      ],
+      "stop": "No usar fast-math ni la FPU nativa.",
+      "evidence": null
+    },
+    {
+      "id": "T55",
+      "title": "68030/68040/68060, A4000/030 y A4000/040 (KS 3.1, 2M Chip + 8M Fast) y Zorro III",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T54",
+        "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/**",
+        "bridge/**",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "manifests/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece A4030 y A4040. CPUs 030/040/060 sin MMU (la MMU es T44, opcional), presets A4000, Fast Z3 medido contra el presupuesto Waterbox."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "WB03",
+        "LR01"
+      ],
+      "acceptance": [
+        "Los presets A4000 arrancan y restauran; sin MMU se declara el limite."
+      ],
+      "stop": "Sin MMU: no fingirla.",
+      "evidence": null
+    },
+    {
+      "id": "T56",
+      "title": "Gayle con IDE (y PCMCIA si se usa) en A600/A1200 para HDF, como PUAE5 con chipset_compatible A600/A1200",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T29"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "ports/portable/**",
+        "bridge/**",
+        "config/profiles/**",
+        "tests/**",
+        "manifests/state-inventory.json"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 compila gayle.c/ide.c y sus A600/A1200 llevan Gayle. Compilar gayle/ide, estado de la controladora, HDF en IDE determinista sobre el backend de bloques de T29; decidir si el A600/A1200 de serie lo enciende (cambia su identidad)."
+      ],
+      "checks": [
+        "DET02",
+        "MED02",
+        "STATE01"
+      ],
+      "acceptance": [
+        "Un HDF arranca por IDE en A600/A1200 y restaura."
+      ],
+      "stop": "No dejar Gayle encendido sin el dispositivo detras.",
+      "evidence": null
+    },
+    {
+      "id": "T57",
+      "title": "ADF extendido (pistas MFM crudas) y FDI",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T27"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "ports/portable/media/**",
+        "bridge/media.cpp",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "adapters/libretro/**",
+        "tests/media/**",
+        "tests/state/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 lee FDI y ADF extendidos. Leer ambos en memoria con identidad por contenido y estado de pista; base para IPF (T58)."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un ADF extendido y un FDI arrancan y restauran."
+      ],
+      "stop": "No escribir ficheros temporales del host.",
+      "evidence": null
+    },
+    {
+      "id": "T58",
+      "title": "IPF con un decodificador de licencia libre (no capsimg), dentro del motor y de Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T57"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "ports/portable/media/**",
+        "third_party/**",
+        "manifests/licenses.json",
+        "manifests/source-manifest.json",
+        "bridge/media.cpp",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "tests/media/**",
+        "tests/state/**",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk enlaza capsimg (licencia SPS no comercial) estatico en el guest; el usuario pide una version libre. Candidata: el lector IPF de MAME (lib/formats, BSD-3, verificar licencia y procedencia antes de importar), integrado en memoria con estado serializable; si no es viable, reimplementar desde la especificacion publica del formato. ADR de licencia."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "FUZZ01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Un IPF libre de pruebas y uno autorizado por el usuario arrancan y restauran en libretro y BizHawk."
+      ],
+      "stop": "No enlazar capsimg ni codigo de licencia no libre.",
+      "evidence": null
+    },
+    {
+      "id": "T59",
+      "title": "Contenedores: ZIP multi-disco, zip#miembro, 7z y rp9 en memoria",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17d"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "third_party/**",
+        "manifests/licenses.json",
+        "tests/libretro-host/**",
+        "tests/fuzz/**",
+        "integration/bizhawk/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 abre ZIP con varios discos, 7z y rp9. Decodificar en memoria sin directorio temporal, con cota de tamano y FUZZ01."
+      ],
+      "checks": [
+        "MED01",
+        "FUZZ01",
+        "LR01"
+      ],
+      "acceptance": [
+        "Cada contenedor carga sus discos en orden determinista."
+      ],
+      "stop": "Sin descompresion a disco del host.",
+      "evidence": null
+    },
+    {
+      "id": "T60",
+      "title": "Discos de guardado y persistencia de escrituras en libretro (#SAVEDISK, redireccion de escritura)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T28"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "bridge/media.cpp",
+        "tests/libretro-host/**",
+        "tests/media-cow/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 crea discos de guardado y redirige escrituras. Sobre el overlay de T27: exportacion explicita y atomica (SAVE_RAM acotado o VFS), nunca durante runahead/rewind."
+      ],
+      "checks": [
+        "MED02",
+        "LR02"
+      ],
+      "acceptance": [
+        "Las escrituras sobreviven a cerrar y abrir sin tocar la base; el rewind las revierte."
+      ],
+      "stop": "Ningun flush oculto en run/save/load.",
+      "evidence": null
+    },
+    {
+      "id": "T61",
+      "title": "Cuatro unidades de disquete y MultiDrive (tag (MD))",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "tests/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece hasta DF3 y el tag (MD). Unidades DF2/DF3 como configuracion de reinicio y carga de varios discos a la vez."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "LR01"
+      ],
+      "acceptance": [
+        "Cuatro unidades funcionan y restauran."
+      ],
+      "stop": "Sin cambiar la identidad de los presets de serie.",
+      "evidence": null
+    },
+    {
+      "id": "T62",
+      "title": "Velocidad de disquete (turbo) como opcion de reinicio determinista",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "tests/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_floppy_speed. floppy_speed como opcion de reinicio con la identidad del estado; DET02."
+      ],
+      "checks": [
+        "DET02",
+        "LR01"
+      ],
+      "acceptance": [
+        "El turbo acelera la carga y sigue siendo determinista."
+      ],
+      "stop": "Nunca ligado al reloj del host.",
+      "evidence": null
+    },
+    {
+      "id": "T63",
+      "title": "HDF/HDZ, RDB y arranque desde disco duro en libretro y BizHawk (controladora uae0/uaehf de PUAE5)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T29"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "bridge/**",
+        "ports/portable/block/**",
+        "patches/winuae/**",
+        "tests/**",
+        "config/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 monta HDF con su controladora uae0 (filesys/uaehf); MacHawk usa un backend de hardfile en memoria con bitmap de paginas sucias exportado como SaveRAM. Contenido HDF/HDZ en ambos adaptadores, RDB, boot priority."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Un HDF con Workbench arranca y restaura; sus escrituras se exportan explicitamente."
+      ],
+      "stop": "Sin acceso al FS del host.",
+      "evidence": null
+    },
+    {
+      "id": "T64",
+      "title": "Directorios, LHA y ZIP como volumenes de solo lectura desde memoria (como MacHawk), con escrituras a un overlay",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T63"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "bridge/**",
+        "patches/winuae/**",
+        "ports/portable/**",
+        "tests/**",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk monta los .lha/.zip como volumenes de archivo de UAE desde memoria (filesys archive, AddReadonlyFile), sin montar el host. Mismo camino aqui; un directorio se empaqueta en memoria por el adaptador (VFS, orden y fechas fijos) y entra igual; las escrituras van a un HDF/overlay exportable. Lanzar directorios como contenido (extension |/ de references/puae)."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "FUZZ01",
+        "LR01"
+      ],
+      "acceptance": [
+        "Un directorio y un LHA arrancan como volumen, deterministas y con estados."
+      ],
+      "stop": "El montaje vivo del FS del host queda fuera.",
+      "evidence": null
+    },
+    {
+      "id": "T65",
+      "title": "WHDLoad completo en libretro y BizHawk: WHDLoad.hdf, volumen RASystem (Kickstarts + prefs), WHDSaves, buttonwait, A1200 forzado",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T30",
+        "T64",
+        "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "config/whdload/**",
+        "tests/whdload/**",
+        "tools/**",
+        "manifests/licenses.json",
+        "docs/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk/PUAE5: el pack .lha/.zip se monta de solo lectura, arranca de WHDLoad.hdf, guarda en WHDSaves.hdf (paginas sucias como SaveRAM), RASystem: con Kickstarts y WHDLoad.prefs, WHDLoad fuerza A1200; puae_use_whdload_buttonwait. Licencia de WHDLoad (gratuito desde v18) en manifests/licenses.json."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Un pack WHDLoad autorizado arranca, guarda partida y restaura en ambos adaptadores."
+      ],
+      "stop": "No distribuir Kickstarts; los aporta el usuario.",
+      "evidence": null
+    },
+    {
+      "id": "T66",
+      "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24",
+        "T70",
+        "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "ports/portable/**",
+        "bridge/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "tests/**",
+        "config/**",
+        "manifests/**",
+        "docs/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 y CD32FR (con 8M Fast) y lee CUE/CCD/ISO/CHD/NRG; MacHawk tiene bizhawk-cd.h. Un CD de 650 MB no cabe en el heap: backend de lecturas puras por offset desde el host, determinista; Akiko, NVRAM, audio CD."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "AV02",
+        "WB03",
+        "LR01"
+      ],
+      "acceptance": [
+        "Un CD32 autorizado arranca y restaura en ambos adaptadores."
+      ],
+      "stop": "No cargar el CD entero en memoria del guest.",
+      "evidence": null
+    },
+    {
+      "id": "T67",
+      "title": "CDTV",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66",
+        "T50"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "ports/portable/**",
+        "bridge/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "tests/**",
+        "config/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CDTV (1M Chip, ROM extendida). Preset CDTV sobre el backend de CD de T66, con la ROM extendida aportada por el usuario."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "LR01"
+      ],
+      "acceptance": [
+        "Un CDTV arranca y restaura."
+      ],
+      "stop": "Sin firmware no autorizado.",
+      "evidence": null
+    },
+    {
+      "id": "T70",
+      "title": "ABI de puertos ampliada: CD32 pad, raton analogico, lightgun/lightpen, segundo raton, 4 jugadores (adaptador paralelo)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/input.cpp",
+        "patches/winuae/**",
+        "adapters/**",
+        "integration/bizhawk/**",
+        "tests/input/**",
+        "tests/libretro-host/**",
+        "tests/ffi/**",
+        "tests/state/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 pad, analogico, lightpen, 4 jugadores y multimouse. Extender p6_input sin romper la ABI v1 (version/size), aplicado en el borde de unidad, en estados y peliculas."
+      ],
+      "checks": [
+        "IN01",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Cada dispositivo nuevo se aplica en el borde, se graba en peliculas y restaura."
+      ],
+      "stop": "Sin callbacks host por acceso.",
+      "evidence": null
+    },
+    {
+      "id": "T72",
+      "title": "Resolucion (lores/hires/superhires) y line mode como opciones de reinicio",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24d"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/video.cpp",
+        "bridge/video_geometry.h",
+        "bridge/config.cpp",
+        "ports/portable/video_present.cpp",
+        "docs/adr/0006-video-output.md",
+        "config/**",
+        "adapters/libretro/**",
+        "tests/step/**",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_video_resolution y line mode. Rasters canonicos adicionales anunciados en el load, cada uno con sus hashes; el canonico actual no cambia."
+      ],
+      "checks": [
+        "AV01",
+        "LR01"
+      ],
+      "acceptance": [
+        "Cada resolucion entrega su raster sin desbordar; la por defecto no cambia."
+      ],
+      "stop": "El buffer maximo se anuncia en el load.",
+      "evidence": null
+    },
+    {
+      "id": "T73",
+      "title": "Opciones de audio de Paula: separacion estereo, interpolacion y filtro, como opciones de reinicio",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24d"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "ports/portable/sound*",
+        "config/**",
+        "adapters/libretro/**",
+        "tests/audio/**",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_sound_stereo_separation, interpol y filter. Opciones de reinicio deterministas con la identidad del estado."
+      ],
+      "checks": [
+        "AV02",
+        "LR01"
+      ],
+      "acceptance": [
+        "Cada opcion cambia el audio de forma determinista; el defecto no cambia."
+      ],
+      "stop": "Sin float del host que diverja (DET04).",
+      "evidence": null
+    },
+    {
+      "id": "T74",
+      "title": "Sonido de disquetera (driveclick) determinista",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T73"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "ports/portable/**",
+        "adapters/libretro/**",
+        "config/**",
+        "tests/audio/**",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_floppy_sound. Compilar driveclick con muestras de licencia compatible, sin rand ni reloj; opcion de presentacion que no cambia la emulacion."
+      ],
+      "checks": [
+        "AV02"
+      ],
+      "acceptance": [
+        "El sonido sigue a la disquetera y es identico entre ejecuciones."
+      ],
+      "stop": "No alterar el futuro de la maquina.",
+      "evidence": null
+    },
+    {
+      "id": "T75",
+      "title": "Memory maps, RETRO_MEMORY_SYSTEM_RAM y SUPPORT_ACHIEVEMENTS (RetroAchievements)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "bridge/include/p6.h",
+        "bridge/memory.cpp",
+        "tests/libretro-host/**",
+        "integration/bizhawk/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 expone la RAM para logros. Memory descriptors estables (memory_reset realoca: punteros estables o republicar), en libretro y como memory domains en BizHawk."
+      ],
+      "checks": [
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "RetroArch ve la RAM y los descriptores no cambian entre unidades."
+      ],
+      "stop": "Sin callbacks por acceso.",
+      "evidence": null
+    },
+    {
+      "id": "T76",
+      "title": "Modelo automatico, tags en el nombre de fichero y configuracion por contenido",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T50",
+        "T63"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/**",
+        "tests/libretro-host/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5: puae_model=auto (A500 con disquete, A1200 con HD, CD32 con CD) y tags como (A1200OG), (NTSC), (MD). Resolucion determinista de la config antes del load, sin cambiar nada en marcha."
+      ],
+      "checks": [
+        "LR01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El mismo contenido elige siempre la misma maquina."
+      ],
+      "stop": "Una config resuelta entra en la identidad del estado.",
+      "evidence": null
+    },
+    {
+      "id": "T80",
+      "title": "Cierre de paridad con PUAE5: cada capacidad del inventario hecha, o fuera con justificacion registrada",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T49",
+        "T50",
+        "T51",
+        "T52",
+        "T53",
+        "T54",
+        "T55",
+        "T56",
+        "T57",
+        "T58",
+        "T59",
+        "T60",
+        "T61",
+        "T62",
+        "T63",
+        "T64",
+        "T65",
+        "T66",
+        "T67",
+        "T70",
+        "T72",
+        "T73",
+        "T74",
+        "T75",
+        "T76",
+        "T31"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "docs/02-contracts.md",
+        "docs/parity-puae5.md",
+        "reports/tasks/T80.md"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Recorrer el inventario completo y marcar cada fila con su tarea/commit y check; lo que quede fuera (JIT, red, RTG que PUAE5 tampoco compila; montaje vivo del FS del host; cheats vacios en PUAE5) con su justificacion."
+      ],
+      "checks": [
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Ninguna capacidad de PUAE5 queda sin estado ni justificacion."
+      ],
+      "stop": "No marcar hecho sin check.",
+      "evidence": null
+    },
+    {
+      "id": "T69",
+      "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "bridge/**",
+        "adapters/libretro/**",
+        "tests/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece cartuchos y freeze. Opcional, con ROM aportada por el usuario."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "El cartucho se activa de forma determinista."
+      ],
+      "stop": "Sin ROMs no autorizadas.",
+      "evidence": null
+    },
+    {
+      "id": "T77",
+      "title": "Opciones de compatibilidad collision_level y waiting_blits (opcional)",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "tests/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_collision_level; waiting_blits es un atajo de upstream para 020+. Opciones de reinicio apagadas por defecto."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Cada opcion es determinista."
+      ],
+      "stop": "No cambiar el defecto.",
+      "evidence": null
+    },
+    {
       "id": "T41",
       "title": "Auditar y decidir la primera release",
       "milestone": "M4",
@@ -11535,7 +12639,8 @@
         "T48b",
         "T48c",
         "T48d",
-        "T48e"
+        "T48e",
+        "T80"
       ],
       "read": [
         "README.md",
@@ -11605,12 +12710,12 @@
     },
     {
       "id": "T43",
-      "title": "Estudio posterior CD32/CDTV y formatos opticos",
+      "title": "CD32 FMV (MPEG-2) y cartuchos CD32 (opcional)",
       "milestone": "FUTURE",
       "required": false,
       "status": "pending",
       "depends": [
-        "T41"
+        "T66"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -11623,12 +12728,11 @@
         "reports/research/cd/**"
       ],
       "steps": [
-        "Inventariar controladores/Akiko/CD audio y dependencias de formatos por separado, con licencias y medios de prueba legales.",
-        "Definir identidad, TOC, latencia/seek emulado, audio y caches/estado de lecturas reproducibles.",
-        "Dividir en importacion/backend/controller/input/snapshot/corpus; no confundir joystick CD32 con emulacion completa de la maquina."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Lo obligatorio de CD32/CDTV paso a T66/T67; queda el modulo FMV opcional."
       ],
       "checks": [
-        "ADR01"
+        "AV01",
+        "DET02"
       ],
       "acceptance": [
         "Subplan cierra contratos de medios y snapshots antes de ampliar perfiles; compatibilidad sigue no anunciada."
@@ -11638,12 +12742,12 @@
     },
     {
       "id": "T44",
-      "title": "Estudio posterior FPU/MMU y CPUs avanzadas",
+      "title": "MMU 68030/040/060 (opcional, al final)",
       "milestone": "FUTURE",
       "required": false,
       "status": "pending",
       "depends": [
-        "T41"
+        "T55"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -11656,12 +12760,11 @@
         "reports/research/fpu-mmu/**"
       ],
       "steps": [
-        "Auditar implementacion upstream, softfloat/hostfloat, precision extendida, NaN, rounding y modelos CPU.",
-        "Definir corpus de excepciones, TLB/ATC, prefetch, faults y estado; separar soporte MMU de habilitar todos los modelos.",
-        "Planificar comparacion x86_64/ARM64 y politicas de perfil/estado sin prometer bit-exactitud no medida."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: la MMU es opcional y al final (la FPU y las CPUs 030/040/060 pasaron a T54/T55)."
       ],
       "checks": [
-        "ADR01"
+        "GEN01",
+        "DET02"
       ],
       "acceptance": [
         "Hay matriz y subbacklog por CPU/FPU/MMU; los perfiles actuales permanecen sin cambiar."
