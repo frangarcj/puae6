@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -31,6 +32,16 @@ KICKSTART_NAMES = [
     "Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV).rom",
     "Kickstart v1.3 r34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom",
 ]
+# The Kickstart 2.05 of the A600 (T23d): PUAE5's names (libretro-core.h uae_kickstarts[]) and the file names of the collections. The A500 and the A600
+# look for their own names only.
+KICKSTART_NAMES_A600 = [
+    "kick37350.A600",
+    "amiga-os-205-a600.rom",
+    "Kickstart v2.05 rev 37.350 (1992)(Commodore)(A600HD)[!].rom",
+    "Kickstart v2.05 rev 37.350 (1992)(Commodore)(A600HD).rom",
+    "Kickstart v2.05 r37.350 (1992-04)(Commodore)(A600HD)[!].rom",
+]
+A600 = ("--set", "puae6_machine=A600")
 ADF_BYTES = 901120
 
 # A program that shows what DF0 reports: it selects the drive with the motor on, pulses STEP (which clears the disk-change latch) and puts the
@@ -48,6 +59,22 @@ loop:
     MOVE.B #$77,$BFD100.L
     MOVEQ #0,D2
     MOVE.B $BFE001.L,D2         ; PRA: bits 2-5 are the drive's status lines
+    MOVE.W D2,$DFF180.L         ; COLOR00
+    BRA.S loop
+"""
+
+
+# A program that tells the machines apart: the ECS Denise answers DENISEID ($DFF07C) with $FFFC, the OCS one leaves the bus value there. The register goes to
+# COLOR00, so the colour of the whole screen is the Denise of the machine.
+IDENTIFY = """; PUAE6 test program: the colour of the screen is what DENISEID reads.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L         ; DDRA: OVL and the power LED are outputs
+    MOVE.B #2,$BFE001.L         ; OVL off
+loop:
+    .word $3439                 ; MOVE.W $DFF07C.L,D2 (the assembler of the micro-ROMs has no absolute source)
+    .long $DFF07C
     MOVE.W D2,$DFF180.L         ; COLOR00
     BRA.S loop
 """
@@ -88,6 +115,9 @@ class LibretroHarness(unittest.TestCase):
         observer = Path(cls.tmp.name) / "observer.rom"
         observer.write_bytes(builder.build(OBSERVER))
         cls.roms["observer"] = observer
+        identify = Path(cls.tmp.name) / "identify.rom"
+        identify.write_bytes(builder.build(IDENTIFY))
+        cls.roms["identify"] = identify
         cls.probe = build_probe(BUILD, False, "p6_state_probe")
         cls.counter = 0
 
@@ -122,6 +152,13 @@ class LibretroHarness(unittest.TestCase):
         if expect == 0:
             self.assertNotIn("VIOLATION", result.stdout)
         return result
+
+    def system_for(self, rom, *names):
+        """A system directory that holds the ROM under each of the names (a person's directory with a Kickstart for each machine)."""
+        path = self.work()
+        for name in names:
+            shutil.copyfile(self.roms[rom], path / name)
+        return path
 
     def headless_units(self, rom, units, *flags):
         result = subprocess.run([str(self.headless), "--run", str(self.roms[rom]), "--units", str(units), *flags], capture_output=True, text=True,
@@ -323,6 +360,116 @@ class LibretroTests(LibretroHarness):
         (directory / KICKSTART_NAMES[0]).write_bytes(bytes(600 * 1024))
         out = self.frontend("boot", system=directory, expect=3).stdout
         self.assertIn("is not usable: kick34005.A500 it is too large", " ".join(self.messages(out)))
+
+    # --- T23d: the A600 as a restart option, with the Kickstart 2.05 of its own -------------------------------------------------------------
+
+    def compare_with_headless(self, out, rom, units, *flags):
+        """Every unit of a session of the core has the ticks, audio and picture that p6_headless gives the same ROM with the same machine."""
+        headless = self.headless_units(rom, units, *flags)
+        ticks = {int(m[1]): int(m[2]) for m in TICKS.finditer(out)}
+        runs = {r["n"]: r for r in self.runs(out)}
+        self.assertEqual(sorted(runs), sorted(headless))
+        for n, expected in headless.items():
+            self.assertEqual((ticks[n], runs[n]["audio"]), (expected["ticks"], expected["audio"]), f"unit {n}")
+            if expected["video"]:
+                self.assertEqual((runs[n]["size"], runs[n]["hash"]), (expected["size"], expected["hash"]), f"unit {n}")
+            else:
+                self.assertTrue(runs[n]["dupe"], f"unit {n}")
+        return runs
+
+    def test_the_a600_selected_by_option_is_the_machine_headless_runs_with_machine_a600(self):
+        for rom, units in (("boot", 20), ("long_frame", 14), ("identify", 8)):
+            for standard in ((), ("--set", "puae6_video_standard=NTSC")):
+                with self.subTest(rom=rom, standard=standard):
+                    out = self.frontend(rom, "--runs", units, *A600, *standard, name=KICKSTART_NAMES_A600[0]).stdout
+                    self.assertIn("machine A600 (puae6_machine)", out)
+                    self.compare_with_headless(out, rom, units, "--machine", "a600", *(["--ntsc"] if standard else []))
+
+    def test_the_option_really_changes_the_machine_the_a500_and_the_a600_differ_in_what_a_program_reads(self):
+        a500 = self.frontend("identify", "--runs", 8).stdout
+        a600 = self.frontend("identify", "--runs", 8, *A600, name=KICKSTART_NAMES_A600[0]).stdout
+        self.assertIn("machine A500 (puae6_machine)", a500)
+        self.assertNotEqual([(r["hash"], r["px"]) for r in self.runs(a500)], [(r["hash"], r["px"]) for r in self.runs(a600)])
+        # Choosing the A500 by name is the default machine, bit for bit.
+        named = self.frontend("identify", "--runs", 8, "--set", "puae6_machine=A500").stdout
+        self.assertEqual(self.machine(named), self.machine(a500))
+
+    def test_the_a600_kickstart_is_found_under_each_known_file_name(self):
+        reference = None
+        for name in KICKSTART_NAMES_A600:
+            for options in ((), ("--no-vfs",)):
+                with self.subTest(name=name, options=options):
+                    out = self.frontend("boot", "--runs", 6, *A600, *options, name=name).stdout
+                    self.assertIn(f"Kickstart {name}, read " + ("with stdio" if options else "through the frontend VFS"), out)
+                    runs = [(r["hash"], r["audio"]) for r in self.runs(out)]
+                    reference = reference or runs
+                    self.assertEqual(runs, reference)
+
+    def test_each_machine_looks_for_the_kickstart_of_its_own_and_never_boots_with_the_one_of_the_other(self):
+        for machine, options, present, wanted, first in (("A500", (), KICKSTART_NAMES_A600, "1.3", KICKSTART_NAMES[0]),
+                                                         ("A600", A600, KICKSTART_NAMES, "2.05", KICKSTART_NAMES_A600[0])):
+            for name in present:
+                with self.subTest(machine=machine, name=name):
+                    out = self.frontend("boot", *options, name=name, expect=3).stdout
+                    self.assertIn("load refused", out)
+                    text = " ".join(self.messages(out))
+                    self.assertIn(f"no Kickstart {wanted} ROM in the system directory ", text)
+                    self.assertIn(f"(looked for {first}, ...) for the {machine} chosen by puae6_machine", text)
+                    self.assertNotIn("run 1 ", out)
+        # A directory that holds both boots whichever machine is chosen, each with its own.
+        both = self.system_for("boot", KICKSTART_NAMES[0], KICKSTART_NAMES_A600[0])
+        self.assertIn(f"Kickstart {KICKSTART_NAMES[0]},", self.frontend("boot", "--runs", 3, system=both).stdout)
+        self.assertIn(f"Kickstart {KICKSTART_NAMES_A600[0]},", self.frontend("boot", "--runs", 3, *A600, system=both).stdout)
+
+    def test_a_refused_a600_kickstart_is_a_clear_failure_and_does_not_fall_back_to_the_a500_names(self):
+        directory = self.system_for("garbage", KICKSTART_NAMES_A600[0])
+        shutil.copyfile(self.roms["boot"], directory / KICKSTART_NAMES[0])         # a usable ROM, but under the name of the other machine
+        out = self.frontend("boot", *A600, system=directory, expect=3).stdout
+        self.assertIn("is not usable: kick37350.A600 refused", " ".join(self.messages(out)))
+        self.assertNotIn(f"Kickstart {KICKSTART_NAMES[0]},", out)
+        self.assertNotIn("run 1 ", out)
+        # And the next name of the A600 does serve after a refused one, as it does for the A500.
+        shutil.copyfile(self.roms["boot"], directory / KICKSTART_NAMES_A600[1])
+        good = self.frontend("boot", "--runs", 3, *A600, system=directory).stdout
+        self.assertIn(f"Kickstart {KICKSTART_NAMES_A600[1]},", good)
+
+    def test_a_machine_value_the_schema_does_not_allow_fails_the_load_naming_the_key_and_the_value(self):
+        for value in ("A1200", "a600", "A500+", "", "A600 "):
+            with self.subTest(value=value):
+                result = self.frontend("boot", "--set", f"puae6_machine={value}", expect=3)
+                text = f'the option puae6_machine has the value "{value}", which this core does not support (allowed: A500, A600)'
+                self.assertIn(f"message PUAE6: {text}", result.stdout)
+                self.assertIn("load refused", result.stdout)
+                self.assertNotIn("run 1 ", result.stdout)
+                self.assertNotIn("vfs open", result.stdout)                      # refused before any Kickstart was looked at, and no machine was chosen by default
+
+    def test_a_machine_changed_while_the_machine_runs_is_reported_and_the_next_load_is_the_other_machine(self):
+        both = self.system_for("identify", KICKSTART_NAMES[0], KICKSTART_NAMES_A600[0])
+        base = self.frontend("identify", "--runs", 14, system=both).stdout
+        changed = self.frontend("identify", "--runs", 14, "--set-at", "6:puae6_machine=A600", system=both).stdout
+        self.assertEqual(self.machine(changed), self.machine(base))                           # the running machine is not touched
+        self.assertEqual(self.messages(changed), ["PUAE6: puae6_machine is now A600 but the machine runs with A500: reload the content to apply it"])
+        self.assertEqual(self.messages(base), [])
+        # After a reload it is the A600, and it is the one a fresh process would have.
+        cycles = self.frontend("identify", "--runs", 14, "--set-at", "6:puae6_machine=A600", "--cycles", 2, system=both).stdout
+        self.assertRegex(cycles, r"machine A500 \(puae6_machine\)(?s:.*)machine A600 \(puae6_machine\)")
+        fresh = self.frontend("identify", "--runs", 14, *A600, system=both).stdout
+        found = [m.groups() for m in CYCLE.finditer(cycles)]
+        self.assertEqual(len(found), 2)
+        self.assertEqual(CYCLE.search(fresh).groups()[1:], found[1][1:])
+        pictures = [(r["hash"], r["px"]) for r in self.runs(cycles)]
+        self.assertEqual(len(pictures), 28)
+        self.assertEqual(pictures[:14], [(r["hash"], r["px"]) for r in self.runs(base)])                    # the first load is the A500 ...
+        self.assertEqual(pictures[14:], [(r["hash"], r["px"]) for r in self.runs(fresh)])                   # ... and the second the A600 of a fresh process
+        self.assertNotEqual(pictures[:14], pictures[14:])
+
+    def test_the_same_configuration_loads_the_same_machine_every_time(self):
+        out = self.frontend("boot", "--runs", 4, *A600, "--cycles", 4, name=KICKSTART_NAMES_A600[0]).stdout
+        cycles = [m.groups() for m in CYCLE.finditer(out)]
+        self.assertEqual(len(cycles), 4)
+        self.assertEqual(len({c[1:] for c in cycles}), 1, cycles)
+        sizes = re.findall(r"(?m)^state size=(\d+)$", out)
+        self.assertEqual(len(set(sizes)), 1, sizes)
 
     # --- T17a: ADF and M3U content, through the VFS or stdio ------------------------------------------------------------------------
 
@@ -737,6 +884,86 @@ class LibretroTests(LibretroHarness):
         self.assertEqual(self.machine(out), self.machine(base))
         self.assertEqual(self.messages(out), ['PUAE6: the option puae6_audio_rate has the value "22050", which this core does not support (allowed: '
                                               '44100, 48000); it is ignored while the machine runs, and loading the content with it would fail'])
+
+
+# --- the A600 with the Kickstart 2.05 and the Workbench 2.05 the owner supplies (opt-in) ---------------------------------------------------------------
+
+KICKSTART_A600_ZIP = os.environ.get("P6_KICKSTART_A600_ZIP")
+WORKBENCH_205_ZIP = os.environ.get("P6_WB205_ZIP")
+
+
+def zip_member(path, suffix, size):
+    with zipfile.ZipFile(path) as archive:
+        names = [n for n in archive.namelist() if n.lower().endswith(suffix)]
+        if len(names) != 1 or archive.getinfo(names[0]).file_size != size:
+            raise unittest.SkipTest(f"{path}: expected one {suffix} of {size} bytes")
+        return archive.read(names[0])
+
+
+@unittest.skipUnless(TOOLS and KICKSTART_A600_ZIP and WORKBENCH_205_ZIP,
+                     "BLOCKED: set P6_KICKSTART_A600_ZIP and P6_WB205_ZIP (zips with the Kickstart 2.05 .rom and the Workbench 2.05 .adf) to run the A600 with real firmware")
+class RealA600Tests(LibretroHarness):
+    """LR01 on the A600 with the real Kickstart 2.05: the core finds it under the name PUAE5 gives it, takes the Workbench disk as the content (the zip itself, as a
+    frontend hands it over) and every unit is the one p6_headless makes with the same ROM and disk. The firmware is read in memory and written to a temporary
+    directory outside the repository that is removed at the end; nothing of it is copied into the repository, hashed or printed."""
+
+    UNITS = int(os.environ.get("P6_A600_UNITS", "1800"))      # the Workbench shell is up by unit ~1550 (tests/step/test_kickstart_a600.py)
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.rom_bytes = zip_member(KICKSTART_A600_ZIP, ".rom", 524288)
+        cls.adf_bytes = zip_member(WORKBENCH_205_ZIP, ".adf", ADF_BYTES)
+        cls.rom_file = Path(cls.tmp.name) / "a600-kickstart.rom"
+        cls.rom_file.write_bytes(cls.rom_bytes)
+        cls.adf_file = Path(cls.tmp.name) / "a600-workbench.adf"
+        cls.adf_file.write_bytes(cls.adf_bytes)
+
+    def a600_system(self, name=KICKSTART_NAMES_A600[0]):
+        path = self.work()
+        (path / name).write_bytes(self.rom_bytes)
+        return path
+
+    def headless_real(self, units, with_disk):
+        arguments = [str(self.headless), "--run", str(self.rom_file), "--machine", "a600", "--units", str(units)]
+        if with_disk:
+            arguments += ["--disk", str(self.adf_file)]
+        result = subprocess.run(arguments, capture_output=True, text=True, timeout=1800)
+        self.assertEqual(result.returncode, 0, result.stderr[-400:])
+        return {int(m[1]): (int(m[2]), int(m[3]), m[6], int(m[7])) for m in UNIT.finditer(result.stdout)}
+
+    def test_the_real_kickstart_2_05_is_found_by_the_name_of_puae5_and_every_unit_is_the_one_headless_makes(self):
+        out = self.frontend("boot", "--runs", self.UNITS, *A600, system=self.a600_system(), content=Path(WORKBENCH_205_ZIP)).stdout
+        self.assertIn("machine A600 (puae6_machine)", out)
+        self.assertIn(f"Kickstart {KICKSTART_NAMES_A600[0]}, read through the frontend VFS", out)
+        expected = self.headless_real(self.UNITS, True)
+        ticks = {int(m[1]): int(m[2]) for m in TICKS.finditer(out)}
+        runs = {r["n"]: r for r in self.runs(out)}
+        self.assertEqual(sorted(runs), sorted(expected))
+        for unit, (expected_ticks, video, picture, audio) in expected.items():
+            self.assertEqual((ticks[unit], runs[unit]["audio"]), (expected_ticks, audio), f"unit {unit}")
+            if video:
+                self.assertEqual(runs[unit]["hash"], picture, f"unit {unit}")
+        self.assertGreater(len({r["hash"] for r in runs.values()}), 4, "the picture hardly changed")
+
+    def test_without_content_the_a600_waits_for_a_disk_and_the_collection_name_of_puae5_serves_too(self):
+        out = self.frontend("boot", "--runs", 60, *A600, system=self.a600_system(KICKSTART_NAMES_A600[1])).stdout
+        self.assertIn(f"Kickstart {KICKSTART_NAMES_A600[1]},", out)
+        expected = self.headless_real(60, False)
+        ticks = {int(m[1]): int(m[2]) for m in TICKS.finditer(out)}
+        self.assertEqual(ticks, {unit: value[0] for unit, value in expected.items()})
+
+    def test_a_state_taken_while_the_real_kickstart_loads_the_disk_replays_the_same_units(self):
+        content = Path(WORKBENCH_205_ZIP)
+        first = self.frontend("boot", "--runs", 360, *A600, "--do", "200:save:real", "--do", "280:load:real", system=self.a600_system(),
+                              content=content).stdout
+        runs = [(r["unit"], r["ticks"], r["audio"], r["ahash"], r["hash"]) for r in self.runs(first)]
+        seen = {}
+        for run in runs:
+            seen.setdefault(run[0], []).append(run)
+        for unit in range(201, 281):
+            self.assertEqual(len(seen[unit]), 2, unit)
+            self.assertEqual(seen[unit][0], seen[unit][1], f"unit {unit} after the load")
 
 
 if __name__ == "__main__":

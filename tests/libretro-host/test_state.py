@@ -169,7 +169,8 @@ class StateTests(lr.LibretroHarness):
         self.frontend("boot", "--runs", 8, "--do", f"5:savefile:{path}", content=disks)                       # PAL, 48 kHz, boot ROM, disks a and b
         same = self.frontend("boot", "--runs", 9, "--do", f"5:loadfile:{path}:pos=5", content=disks, system=self.system("boot")).stdout
         self.assertEqual(LOAD.search(same)[3], "1")                                                      # control: the very same machine accepts it
-        cases = (("ntsc", dict(options=("--set", "puae6_video_standard=NTSC"))), ("rate", dict(options=("--set", "puae6_audio_rate=44100"))),
+        cases = (("a600", dict(options=lr.A600, name=lr.KICKSTART_NAMES_A600[0])),
+                 ("ntsc", dict(options=("--set", "puae6_video_standard=NTSC"))), ("rate", dict(options=("--set", "puae6_audio_rate=44100"))),
                  ("firmware", dict(rom="input_all")), ("media", dict(content=self.playlist("a.adf\nc.adf\n", files))),
                  ("no media", dict(content=None)), ("media in another order", dict(content=self.playlist("b.adf\na.adf\n", files))),
                  ("another disk first", dict(content=self.playlist("c.adf\na.adf\nb.adf\n", files))))
@@ -177,12 +178,33 @@ class StateTests(lr.LibretroHarness):
             with self.subTest(case=label):
                 arguments = ("--runs", 9, *case.get("options", ()))
                 kwargs = {"content": case["content"] if "content" in case else disks}
+                if "name" in case:
+                    kwargs["name"] = case["name"]
                 target = case.get("rom", "boot")
                 control = self.frontend(target, *arguments, **kwargs).stdout
                 out = self.frontend(target, *arguments, "--do", f"5:loadfile:{path}", **kwargs).stdout
                 self.assertEqual(LOAD.search(out)[3], "0", label)
                 self.assertEqual(self.views(out), self.views(control))
                 self.assertEqual(self.final(out), self.final(control))
+
+    def test_a_state_of_the_a600_loads_in_the_a600_and_is_refused_by_the_a500_and_the_other_way_round(self):
+        # T23d: the machine is in the configuration the state identity carries, so the adapter hands the native load a state of another machine and gets a
+        # refusal that leaves the target running as if nothing had been tried.
+        both = self.system_for("boot", lr.KICKSTART_NAMES[0], lr.KICKSTART_NAMES_A600[0])
+        files = {}
+        for machine, options in (("A500", ()), ("A600", lr.A600)):
+            files[machine] = self.work() / f"{machine}.state"
+            saved = self.frontend("boot", "--runs", 8, *options, "--do", f"5:savefile:{files[machine]}", system=both).stdout
+            self.assertEqual(self.saved(saved)[str(files[machine])]["ok"], True)
+        for machine, options in (("A500", ()), ("A600", lr.A600)):
+            other = "A600" if machine == "A500" else "A500"
+            control = self.frontend("boot", "--runs", 9, *options, system=both).stdout
+            same = self.frontend("boot", "--runs", 9, *options, "--do", f"5:loadfile:{files[machine]}:pos=5", system=both).stdout
+            self.assertEqual(LOAD.search(same)[3], "1", f"the {machine} state in the {machine}")
+            refused = self.frontend("boot", "--runs", 9, *options, "--do", f"5:loadfile:{files[other]}", system=both).stdout
+            self.assertEqual(LOAD.search(refused)[3], "0", f"the {other} state in the {machine}")
+            self.assertEqual(self.views(refused), self.views(control))
+            self.assertEqual(self.final(refused), self.final(control))
 
     def test_a_state_loads_in_a_machine_whose_media_start_with_the_ones_it_was_taken_with(self):
         # T17e: the manifest only grows, so the state of the disks a and b is a state of a machine that has a, b and c (the playlist lists one more at the end).

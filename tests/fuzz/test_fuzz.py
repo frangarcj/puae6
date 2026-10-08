@@ -251,9 +251,9 @@ class ConfigNormalizeFuzzTests(unittest.TestCase):
 
     HOSTILE = [None, True, False, 0, 1, -1, 2, 44100, 48000, 2**32, 2**63, 2**64 - 1, 2**64, -2**63, -2**63 - 1, 253402300799, 253402300800, -62135596800,
                1.0, 1.5, float("nan"), float("inf"), "", " ", "PAL", "pal", "PAL ", " PAL", "NTSC", "pixel", "4:3", "44100", "48000", "048000", "48000x",
-               "22050", "-1", "-0", "+5", "5 ", " 5", "5\n", "5_0", "0x10", "1e3", "\u0663", "\uff11\uff12", "9" * 20, "9" * 64, "9" * 65, "9" * 5000,
+               "22050", "A500", "A600", "a500", "a600", "A600 ", " A600", "A1200", "A500+", "A500PLUS", "A600HD", "CD32", "1", "-1", "-0", "+5", "5 ", " 5", "5\n", "5_0", "0x10", "1e3", "\u0663", "\uff11\uff12", "9" * 20, "9" * 64, "9" * 65, "9" * 5000,
                "-" + "9" * 70, "0" * 70 + "1", "\x00", "PAL\x00", "\u00e9", [], {}, [1], ["PAL"], ("PAL",), {"a": 1}, b"PAL", b"", object]
-    KEYS_OTHER = ["", " ", "video_standard ", "Video_Standard", "machine", "cpu_model", "chipmem_size", "kickstart_rom_file", "uae_config_file", "controller_port1",
+    KEYS_OTHER = ["", " ", "video_standard ", "Video_Standard", "machine ", "Machine", "puae_model", "puae6_machine", "cpu_model", "chipmem_size", "kickstart_rom_file", "uae_config_file", "controller_port1",
                   "turbo", "puae6_video_standard", "\u00e9", "a" * 300, 1, 2.5, None, True, (1, 2), b"video_standard", frozenset()]
 
     @staticmethod

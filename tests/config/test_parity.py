@@ -19,11 +19,13 @@ import generate_options as gen  # noqa: E402
 HEADLESS = ROOT / "adapters/headless/main.cpp"
 LIBRETRO = ROOT / "adapters/libretro/libretro_core.cpp"
 GENERATED = ROOT / "adapters/libretro/options_generated.h"
+FIRMWARE = ROOT / "adapters/libretro/firmware.h"
+PUAE5 = ROOT / "references/machawk-uae/libretro/libretro-core.h"
 SETTINGS_CS = ROOT / "integration/bizhawk/core/Puae6/Settings.cs"
 CORE_CS = ROOT / "integration/bizhawk/core/Puae6/Puae6Core.cs"
 ABI_CS = ROOT / "integration/bizhawk/core/Puae6/Abi.cs"
 # The members of p6_config that an adapter sets because every config needs them, not because a person chooses them.
-FIXED_ASSIGNMENTS = {"abi_version", "struct_size", "machine"}
+FIXED_ASSIGNMENTS = {"abi_version", "struct_size"}
 
 
 def read(path):
@@ -52,7 +54,7 @@ class Schema(unittest.TestCase):
 
 
 class HeadlessParity(Schema):
-    """adapters/headless/main.cpp: --ntsc, --seed S, audio 48000, epoch 2000-01-01."""
+    """adapters/headless/main.cpp: --machine a500|a600, --ntsc, --seed S, audio 48000, epoch 2000-01-01."""
 
     @classmethod
     def setUpClass(cls):
@@ -74,15 +76,25 @@ class HeadlessParity(Schema):
                     found = re.search(rf"config\.{field} = (\d+);", self.source)
                     self.assertIsNotNone(found, f"headless does not set config.{field} to a literal")
                     self.assertEqual(int(found[1]), default, f"headless fixes {field} at {found[1]}, the schema default is {default}")
+                elif how["how"] == "choice":
+                    # A flag that names one value of an enum by a spelling of its own (--machine a600); the local starts at the schema default.
+                    start = re.search(rf"\b{field} = (P6_\w+)[,;]", self.source)
+                    self.assertIsNotNone(start, f"headless has no local {field} with the default of the option")
+                    self.assertEqual(self.constants[start[1]], default, f"headless starts with {start[1]}, the schema default is {default}")
+                    self.assertRegex(self.source, rf'strcmp\(argv\[i\], "{re.escape(how["flag"])}"\)')
+                    spellings = {m[1]: self.constants[m[2]] for m in re.finditer(rf'strcmp\(name, "(\w+)"\)\) {field} = (P6_\w+);', self.source)}
+                    self.assertEqual(spellings, {spelling: self.number(option, value) for value, spelling in how["names"].items()},
+                                     f"{how['flag']} does not take the spellings of the schema, or maps one to another value")
+                    self.assertIn(f"config.{field} = {field};", self.source)
                 elif how["how"] == "value":
-                    local = re.search(rf"uint64_t seed = (\d+);", self.source)
+                    local = re.search(rf"uint64_t seed = (\d+)[,;]", self.source)
                     self.assertIsNotNone(local, "headless has no local with the default of the value")
                     self.assertEqual(int(local[1]), default, f"headless defaults {name} to {local[1]}, the schema says {default}")
                     self.assertRegex(self.source, rf'strcmp\(argv\[i\], "{re.escape(how["flag"])}"\)')
                     self.assertIn(f"config.{field} = seed;", self.source)
                 else:
                     # A flag that selects one value of an enum; the local starts at the schema default.
-                    start = re.search(r"uint32_t units = 1, standard = (P6_\w+);", self.source)
+                    start = re.search(r"uint32_t units = 1, standard = (P6_\w+)[,;]", self.source)
                     self.assertEqual(self.constants[start[1]], default, f"headless starts with {start[1]}, the schema default is {default}")
                     flagged = re.search(rf'strcmp\(argv\[i\], "{re.escape(how["flag"])}"\)\) standard = (P6_\w+);', self.source)
                     self.assertIsNotNone(flagged, f"headless has no {how['flag']} that sets the standard")
@@ -93,7 +105,8 @@ class HeadlessParity(Schema):
     def test_headless_has_no_flag_for_a_key_the_schema_fixes(self):
         flags = set(re.findall(r'strcmp\(argv\[i\], "(--[\w-]+)"\)', self.source))
         flagged = {o["headless"]["flag"] for o in self.reboot.values() if "flag" in o["headless"]}
-        self.assertEqual(flags - {"--units", "--dump"}, flagged, "headless takes a flag for a key the schema does not give it, or lacks one")
+        # --units, --dump, --dump-from and --disk are about the run (how long, what to write, what disk), not about the machine.
+        self.assertEqual(flags - {"--units", "--dump", "--dump-from", "--disk"}, flagged, "headless takes a flag for a key the schema does not give it, or lacks one")
 
     def test_the_audio_rate_headless_cannot_select_is_still_the_schema_default(self):
         # --rate belongs to p6_state_probe (bridge/state_probe.cpp); the schema says headless fixes the audio rate, so a change of the schema
@@ -148,6 +161,13 @@ class WrapperParity(Schema):
         self.assertIn(f"const uint VideoPal = {pal}, VideoNtsc = {ntsc};", self.abi)
         self.assertIn("init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;", self.core)
         self.assertIn(f"const uint MachineA500 = {self.constants['P6_MACHINE_A500']}", self.abi.replace("public ", "").replace("static ", ""))
+
+    def test_the_wrapper_still_fixes_the_machine_at_the_schema_default_until_it_gets_its_own_setting(self):
+        # T23d made the machine an option; the wrapper's Machine setting is T23e's. Until then the schema says "fixed", and what it fixes must be the default.
+        machine = self.reboot["machine"]
+        self.assertEqual(machine["wrapper"], {"how": "fixed", "where": "machine"})
+        self.assertEqual(machine["default"], "A500")
+        self.assertIn("init.Config.Machine = P6.MachineA500;", self.core)
 
     def test_the_wrapper_fixes_the_audio_rate_at_the_schema_default_in_the_machine_and_in_the_identity(self):
         default = self.default_of("audio_rate_hz")
@@ -221,6 +241,45 @@ class LibretroParity(Schema):
         self.assertIn("info->timing.sample_rate = core.settings.audio_rate_hz;", self.core_source)
 
 
+class LibretroFirmware(Schema):
+    """T23d: every machine of the schema has its own Kickstart names in the core, and the core takes them from that table only."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.firmware = read(FIRMWARE)
+        cls.core_source = read(LIBRETRO)
+
+    def names(self, array):
+        return re.findall(r'"([^"]+)"', re.search(rf"{array}\[\] = \{{(.*?)\}};", self.firmware, re.S)[1])
+
+    def test_each_machine_of_the_schema_has_a_row_with_its_own_names_and_no_other_machine_has_one(self):
+        rows = re.findall(r'\{(P6_MACHINE_\w+), "(\w+)", "([\d.]+)", (k\w+KickstartNames), ', self.firmware)
+        machines = self.options["machine"]["values"]
+        self.assertEqual([(r[0], r[1]) for r in rows], [(v["abi_name"], v["value"]) for v in machines])
+        a500, a600 = (self.names(r[3]) for r in rows)
+        self.assertEqual((rows[0][2], rows[1][2]), ("1.3", "2.05"))
+        self.assertFalse(set(a500) & set(a600), "a name that serves two machines would let one boot with the other's ROM")
+        self.assertEqual(a500[:2], ["kick34005.A500", "amiga-os-130.rom"])
+        self.assertEqual(a600[:2], ["kick37350.A600", "amiga-os-205-a600.rom"])
+
+    def test_the_first_two_names_of_each_machine_are_the_ones_puae5_reads(self):
+        if not PUAE5.is_file():
+            self.skipTest("references/machawk-uae is not there")
+        header = read(PUAE5)
+        for ids, array in (("A500_KS13_ROM", "kA500KickstartNames"), ("A600_KS205_ROM", "kA600KickstartNames")):
+            entry = re.search(rf'\{{{ids},\s*"([^"]+)",\s*"([^"]+)"', header)
+            self.assertIsNotNone(entry, ids)
+            self.assertEqual(self.names(array)[:2], [entry[1], entry[2]], ids)
+
+    def test_the_core_looks_only_for_the_names_of_the_machine_it_was_given(self):
+        self.assertIn("firmware_for(config.machine)", self.core_source)
+        self.assertNotIn("kKickstartNames", self.core_source)
+        self.assertIn("for (size_t n = 0; n < firmware.count; ++n)", self.core_source)
+        # The message of a missing ROM names the Kickstart version and the machine, so the person knows what to put in the system directory.
+        self.assertIn("no Kickstart %s ROM in the system directory", self.core_source)
+
+
 class AdaptersAgree(Schema):
     def test_all_three_adapters_default_to_the_same_normalized_p6_config(self):
         """The one statement the card asks for, in one place: whatever each adapter defaults to, it is the table's p6_config."""
@@ -228,10 +287,11 @@ class AdaptersAgree(Schema):
         headless = read(HEADLESS)
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
-        self.assertEqual(defaults, {"video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
+        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
         for field, value in defaults.items():
             self.assertEqual(int(libretro[field]), value, f"libretro {field}")
-        self.assertIn("standard = P6_VIDEO_PAL;", headless)
+        self.assertRegex(headless, r"\bstandard = P6_VIDEO_PAL[,;]")
+        self.assertRegex(headless, r"\bmachine = P6_MACHINE_A500[,;]")
         self.assertIn("public Puae6Region Region { get; set; } = Puae6Region.PAL;", wrapper)
         self.assertIn(f"RandomSeed {{ get; set; }} = {defaults['random_seed']};", wrapper)
         self.assertIn(f"RtcEpochSeconds {{ get; set; }} = {defaults['rtc_epoch_seconds']};", wrapper)

@@ -6,14 +6,36 @@
     "Never edit the generated files by hand: change this file and run python3 tools/generate_options.py.",
     "class 'reboot': part of the machine. It maps to a p6_config field, so it enters config_hash and the state identity; a change needs a reload and",
     "never moves the running machine or the state bound. class 'presentation': no effect on emulation; it is applied in place.",
-    "Only what the ABI honours is here (bridge/config.cpp validate_config). The A500 machine, the CPU, the RAM and the ROM are not choices: they are",
-    "listed under 'unsupported' with the reason, which is the diagnostic a request for them gets."
+    "Only what the ABI honours is here (bridge/config.cpp validate_config). The CPU, the RAM and the ROM are not choices: they are listed under",
+    "'unsupported' with the reason, which is the diagnostic a request for them gets. The machine is a choice between the two presets the ABI has (T23d):",
+    "the A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3) and the A600 (ECS, 1 MiB Chip, no Slow RAM, Kickstart 2.05, without Gayle: no IDE and no PCMCIA).",
+    "PUAE5 (libretro-uae) calls it puae_model: its A500 is this A500, but its A600 is a Kickstart 3.1 machine with 2 MiB Chip + 8 MiB Fast, which this one is not;",
+    "so the key is puae6_machine, with the values A500 and A600 of the ABI, and no PUAE5 key is read."
   ],
   "categories": [
-    {"id": "machine", "label": "Machine", "info": "What the emulated A500 is. These options take effect when the content is loaded."},
+    {"id": "machine", "label": "Machine", "info": "What the emulated Amiga is. These options take effect when the content is loaded."},
     {"id": "video", "label": "Video", "info": "How the picture is presented. These options apply at once."}
   ],
   "options": [
+    {
+      "id": "machine",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.machine",
+      "default": "A500",
+      "values": [
+        {"value": "A500", "abi": 1, "abi_name": "P6_MACHINE_A500", "label": "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"},
+        {"value": "A600", "abi": 2, "abi_name": "P6_MACHINE_A600", "label": "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}
+      ],
+      "libretro": {
+        "key": "puae6_machine",
+        "category": "machine",
+        "label": "Model",
+        "info": "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600)."
+      },
+      "headless": {"how": "choice", "flag": "--machine", "names": {"A500": "a500", "A600": "a600"}},
+      "wrapper": {"how": "fixed", "where": "machine"}
+    },
     {
       "id": "video_standard",
       "class": "reboot",
@@ -102,7 +124,6 @@
     {"id": "floppy_drives", "for": "a later media task", "wrapper_setting": "FloppyDrives", "why": "How many of the given disks start in a drive is a media placement made with media events (DF0 and DF1 exist in the bridge); libretro drives DF0 alone from Disk Control, so there is nothing to offer yet."}
   ],
   "unsupported": [
-    {"key": "machine", "why": "ABI v1 emulates the A500 only (P6_MACHINE_A500)."},
     {"key": "cpu_model", "why": "The 68000 at the A500 clock is the only CPU the generated tables cover."},
     {"key": "chipmem_size", "why": "ABI v1 fixes 512 KiB of Chip RAM."},
     {"key": "bogomem_size", "why": "ABI v1 fixes 512 KiB of Slow RAM."},

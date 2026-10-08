@@ -13,7 +13,7 @@
 // and registers it with p6_media_append at the END of the manifest) are registered inside the callback: registering a medium changes nothing of the machine (no drive, no event,
 // no state), so it needs no unit boundary, and the bridge refuses it while a unit runs. Mounting it is still the tray's business, at the next boundary.
 //
-// Options (T17b): the core options come from the one schema (config/schema/options.json, options.h). The reboot options (video standard, audio rate)
+// Options (T17b): the core options come from the one schema (config/schema/options.json, options.h). The reboot options (machine, video standard, audio rate)
 // are read when the content is loaded and become the p6_config; a change made while the machine runs is reported and only applies after a reload. The
 // presentation option (aspect) is applied at once. A value outside the schema fails the load, naming the key and the value.
 //
@@ -33,6 +33,7 @@
 #include "container.h"
 #include "content.h"
 #include "disk_control.h"
+#include "firmware.h"
 #include "input_map.h"
 #include "options.h"
 #include "sha256.h"
@@ -53,17 +54,7 @@
 namespace {
 
 constexpr size_t kPendingAudioFrames = 16384;     // a stalled frontend may hold this many stereo frames back; older ones are dropped
-constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500 family; what the file claims never decides an allocation
-
-// The Kickstart 1.3 of the A500, by the names the community and PUAE5 give it in a system directory. A name only finds the file: what it is,
-// is decided by p6_load from the bytes.
-const char *const kKickstartNames[] = {
-    "kick34005.A500",
-    "amiga-os-130.rom",
-    "Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom",
-    "Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV).rom",
-    "Kickstart v1.3 r34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom",
-};
+constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500 and A600 (2.05); what the file claims never decides an allocation
 
 retro_environment_t environment_cb;
 retro_video_refresh_t video_cb;
@@ -392,9 +383,10 @@ bool load_disks(const retro_game_info *game, std::vector<Medium> *media, std::ve
     return true;
 }
 
-// The Kickstart: the first file of the system directory under a known name that the bridge accepts. A name that is there but refused (a damaged
-// copy, another machine's ROM) does not hide a good one under the next name. Returns false after saying why.
-bool load_firmware(const std::vector<p6_media> &manifest)
+// The Kickstart of the machine the options chose (T23d): the first file of the system directory under one of that machine's known names that the
+// bridge accepts. A name that is there but refused (a damaged copy, another machine's ROM) does not hide a good one under the next name; the names of
+// the other machine are not tried, so a missing Kickstart is a clear failure and never another machine's ROM in silence. Returns false after saying why.
+bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::FirmwareNames &firmware)
 {
     using namespace p6_libretro;
     const char *directory = nullptr;
@@ -407,7 +399,8 @@ bool load_firmware(const std::vector<p6_media> &manifest)
         return false;
     }
     std::string refusals;
-    for (const char *name : kKickstartNames) {
+    for (size_t n = 0; n < firmware.count; ++n) {
+        const char *const name = firmware.names[n];
         const std::string path = join_path(directory, name);
         const ReadResult read = core.files.read(path, kMaxFirmwareBytes, &core.firmware);
         if (read == ReadResult::CannotOpen) continue;
@@ -429,7 +422,8 @@ bool load_firmware(const std::vector<p6_media> &manifest)
     }
     core.firmware.clear();
     if (refusals.empty())
-        notify_error("no Kickstart 1.3 ROM in the system directory %s (looked for %s, ...)", directory, kKickstartNames[0]);
+        notify_error("no Kickstart %s ROM in the system directory %s (looked for %s, ...) for the %s chosen by puae6_machine", firmware.kickstart, directory,
+                     firmware.names[0], firmware.model);
     else
         notify_error("the Kickstart ROM in the system directory %s is not usable: %s", directory, refusals.c_str());
     return false;
@@ -1034,8 +1028,14 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         p6_config config = {};
         config.abi_version = P6_ABI_VERSION;
         config.struct_size = sizeof config;
-        config.machine = P6_MACHINE_A500;
-        p6_options::to_config(core.settings, &config);       // standard, audio rate, seed and clock epoch: the schema's values, none of them typed here
+        p6_options::to_config(core.settings, &config);       // machine, standard, audio rate, seed and clock epoch: the schema's values, none of them typed here
+        const p6_libretro::FirmwareNames *firmware = p6_libretro::firmware_for(config.machine);
+        if (!firmware) {            // the schema only produces the machines the table has: a mismatch is a build defect, not a configuration to run
+            notify_error("the machine %u has no Kickstart names in this core", unsigned(config.machine));
+            stop_image();
+            return false;
+        }
+        log(RETRO_LOG_INFO, "machine %s (puae6_machine)", firmware->model);
         p6_error error = make_error();
         const p6_result result = p6_init(&config, &error);
         if (result != P6_OK) {
@@ -1044,7 +1044,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             return false;
         }
         core.initialized = true;
-        if (!load_firmware(manifest)) {
+        if (!load_firmware(manifest, *firmware)) {
             stop_image();
             return false;
         }

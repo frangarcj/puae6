@@ -13,8 +13,10 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 import generate_options as gen  # noqa: E402
+from tests.state import envelope  # noqa: E402
 
 GENERATOR = ROOT / "tools/generate_options.py"
 
@@ -82,8 +84,8 @@ class SchemaValidationTests(unittest.TestCase):
         option(document, "video_standard")["maps_to"] = "p6_config.cpu_model"
         self.refuses(document, "p6_config has no field 'cpu_model'")
         document = schema()
-        option(document, "video_standard")["maps_to"] = "p6_config.machine"
-        self.refuses(document, "p6_config.machine has one valid value in ABI v1")
+        option(document, "video_standard")["maps_to"] = "p6_config.flags"
+        self.refuses(document, "p6_config.flags has one valid value in ABI v1")
         document = schema()
         option(document, "video_standard")["maps_to"] = "video_standard"
         self.refuses(document, "maps_to must be 'p6_config.FIELD'")
@@ -152,6 +154,16 @@ class SchemaValidationTests(unittest.TestCase):
         document["reserved"].append({"id": "random_seed", "for": "T99", "wrapper_setting": "X", "why": "contradiction."})
         self.refuses(document, "id must be new")
 
+    def test_a_headless_choice_names_every_value_of_the_enum_once(self):
+        for names in ({"A500": "a500"}, {"A500": "a500", "A600": "a500"}, {"A500": "a500", "A600": "A600"}, {"A500": "a500", "A600": "a600", "A1200": "a1200"}, []):
+            with self.subTest(names=names):
+                document = schema()
+                option(document, "machine")["headless"]["names"] = names
+                self.refuses(document, "headless 'choice' names every value of an enum once")
+        document = schema()
+        del option(document, "machine")["headless"]["names"]
+        self.refuses(document, "headless 'choice' takes exactly the fields")
+
     def test_every_problem_is_reported_not_only_the_first(self):
         document = schema()
         option(document, "video_standard")["default"] = "SECAM"
@@ -165,10 +177,10 @@ class NormalizationTests(unittest.TestCase):
     def test_nothing_requested_gives_the_defaults(self):
         document = schema()
         normalized = gen.normalize_config(document, {})
-        self.assertEqual(normalized, {"video_standard": "PAL", "audio_rate_hz": "48000", "random_seed": 1, "rtc_epoch_seconds": 946684800,
+        self.assertEqual(normalized, {"machine": "A500", "video_standard": "PAL", "audio_rate_hz": "48000", "random_seed": 1, "rtc_epoch_seconds": 946684800,
                                       "video_aspect": "pixel"})
         self.assertEqual(gen.to_p6_config(document, normalized),
-                         {"video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
+                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
 
     def test_values_are_normalized_and_numbers_accept_text(self):
         document = schema()
@@ -183,6 +195,39 @@ class NormalizationTests(unittest.TestCase):
         for text in texts:
             self.assertIn(text, str(caught.exception))
 
+    def test_the_machine_is_a_restart_option_with_the_two_machines_of_the_abi_and_the_a500_by_default(self):
+        document = schema()
+        machine = option(document, "machine")
+        self.assertEqual((machine["class"], machine["maps_to"], machine["default"]), ("reboot", "p6_config.machine", "A500"))
+        self.assertEqual([(v["value"], v["abi"], v["abi_name"]) for v in machine["values"]],
+                         [("A500", 1, "P6_MACHINE_A500"), ("A600", 2, "P6_MACHINE_A600")])
+        self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A600"}))["machine"], 2)
+        self.assertIn("no IDE or PCMCIA", machine["libretro"]["info"])      # the description says what the A600 does not have
+        self.assertNotIn("machine", {entry["key"] for entry in document["unsupported"]})
+
+    def test_the_same_configuration_gives_the_same_config_hash_and_only_another_machine_changes_it(self):
+        # The hash the state identity carries (bridge/state.cpp, reproduced by tests/state/envelope.py) over the p6_config the schema produces.
+        document = schema()
+
+        def digest(requested):
+            fields = gen.to_p6_config(document, gen.normalize_config(document, requested))
+            return envelope.config_hash(fields["machine"], fields["video_standard"], fields["audio_rate_hz"], 0, fields["random_seed"],
+                                        fields["rtc_epoch_seconds"])
+
+        a500 = digest({})
+        self.assertEqual(a500, digest({"machine": "A500"}))                                  # naming the default is the same configuration
+        self.assertEqual(a500, digest({"machine": "A500", "video_standard": "PAL", "audio_rate_hz": "48000", "random_seed": "1"}))
+        self.assertEqual(a500, envelope.config_hash(1, 1, 48000, 0, 1, 946684800))           # and it is the hash the A500 had before the option existed
+        a600 = digest({"machine": "A600"})
+        self.assertEqual(a600, digest({"machine": "A600"}))
+        self.assertNotEqual(a500, a600)
+        self.assertEqual(a600, envelope.config_hash(2, 1, 48000, 0, 1, 946684800))
+        # Nothing but the machine differs between those two: the same other choices, on either machine, are distinct from each other and shared across runs.
+        for other in ({"video_standard": "NTSC"}, {"audio_rate_hz": "44100"}, {"random_seed": 7}):
+            self.assertNotEqual(digest(other), a500)
+            self.assertNotEqual(digest({**other, "machine": "A600"}), a600)
+            self.assertNotEqual(digest({**other, "machine": "A600"}), digest(other))
+
     def test_a_value_outside_the_schema_names_the_key_and_the_value(self):
         self.refuses({"video_standard": "SECAM"}, "option video_standard", "'SECAM'", "allowed: PAL, NTSC")
         self.refuses({"audio_rate_hz": "22050"}, "option audio_rate_hz", "'22050'", "allowed: 44100, 48000")
@@ -190,7 +235,10 @@ class NormalizationTests(unittest.TestCase):
         self.refuses({"rtc_epoch_seconds": 10 ** 12}, "option rtc_epoch_seconds")
 
     def test_cpu_ram_rom_and_other_machines_are_refused_with_their_reason(self):
-        self.refuses({"machine": "A1200"}, "option machine is not supported: ABI v1 emulates the A500 only")
+        # T23d: the machine is an option of two values; any other model is refused as a value, naming the key and the choices.
+        self.refuses({"machine": "A1200"}, "option machine", "'A1200'", "allowed: A500, A600")
+        self.refuses({"machine": "a600"}, "option machine", "'a600'", "allowed: A500, A600")
+        self.refuses({"machine": 2}, "option machine", "allowed: A500, A600")
         self.refuses({"cpu_model": "68020"}, "option cpu_model is not supported: The 68000")
         self.refuses({"chipmem_size": 2048}, "option chipmem_size is not supported")
         self.refuses({"kickstart_rom_file": "/etc/passwd"}, "never chosen by a path")
@@ -209,7 +257,7 @@ class NormalizationTests(unittest.TestCase):
             self.assertIn("must be a mapping", str(caught.exception))
 
     def test_unknown_and_reserved_keys_are_refused_and_every_problem_is_listed(self):
-        self.refuses({"turbo": "yes"}, "option turbo is unknown (supported: video_standard")
+        self.refuses({"turbo": "yes"}, "option turbo is unknown (supported: machine, video_standard")
         self.refuses({"controller_port1": "Mouse"}, "option controller_port1 is not supported")
         self.refuses({"cpu_model": "68020", "video_standard": "SECAM", "turbo": 1}, "cpu_model", "SECAM", "turbo")
 
@@ -224,13 +272,15 @@ class AbiTests(unittest.TestCase):
             for value in entry.get("values", []):
                 if "abi_name" in value:
                     self.assertEqual(constants[value["abi_name"]], value["abi"], f"{entry['id']} {value['value']}")
-        self.assertEqual(constants["P6_MACHINE_A500"], 1)
+        self.assertEqual((constants["P6_MACHINE_A500"], constants["P6_MACHINE_A600"]), (1, 2))
 
     def test_the_bridge_accepts_exactly_the_values_of_the_schema(self):
         source = (ROOT / "bridge/config.cpp").read_text()
         rates = sorted(int(n) for n in re.findall(r"audio_rate_hz != (\d+)", source))
         self.assertEqual(rates, sorted(v["abi"] for v in option(schema(), "audio_rate_hz")["values"]))
         self.assertIn("c.video_standard != P6_VIDEO_PAL && c.video_standard != P6_VIDEO_NTSC", source)
+        self.assertIn("c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600", source)
+        self.assertEqual([v["abi_name"] for v in option(schema(), "machine")["values"]], ["P6_MACHINE_A500", "P6_MACHINE_A600"])
         self.assertEqual([v["abi_name"] for v in option(schema(), "video_standard")["values"]], ["P6_VIDEO_PAL", "P6_VIDEO_NTSC"])
 
     def test_the_clock_range_is_the_one_the_bridge_enforces(self):
@@ -295,7 +345,9 @@ class GeneratorTests(unittest.TestCase):
     def test_the_table_has_the_normalized_p6_config_that_adapters_must_use(self):
         table = json.loads(gen.TABLE.read_text())
         self.assertEqual({name: entry["default"] for name, entry in table["p6_config"].items()},
-                         {"video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
+                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
+        self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2])
+        self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2})
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
         self.assertEqual(list(table["presentation"]), ["video_aspect"])

@@ -10379,7 +10379,7 @@
       "title": "Maquina A600 en libretro: opcion de reinicio, Kickstart por nombre conocido y LR01",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T23a"
       ],

@@ -86,7 +86,8 @@ class RealFrontendTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def retroarch(self, name, content="a.adf", drive=False, options=None, settings=(), frames=FRAMES, features="deterministic"):
+    def retroarch(self, name, content="a.adf", drive=False, options=None, settings=(), frames=FRAMES, features="deterministic",
+                  kickstarts=("kick34005.A500",)):
         """One RetroArch process: loads the core with the micro-ROM as the Kickstart of its system directory and `content` (a file of the scratch
         directory) as the game, runs FRAMES frames and exits, or runs until tests/libretro-host/drive_retroarch.py has changed the disk and
         stops it (`drive` True drives the disk, a string names another scenario of that script: "state", "rewind"). `options` are core option values
@@ -98,7 +99,8 @@ class RealFrontendTests(unittest.TestCase):
             (work / name / folder).mkdir(parents=True)
         (work / name / "info" / "puae6_libretro.info").write_text('display_name = "PUAE6 (test)"\ncorename = "PUAE6"\nsavestate = "true"\n'
                                                                   f'savestate_features = "{features}"\n', encoding="utf-8")
-        shutil.copyfile(self.rom, work / name / "system" / "kick34005.A500")
+        for kickstart in kickstarts:             # the micro-ROM under the Kickstart name of each machine the process may be asked for
+            shutil.copyfile(self.rom, work / name / "system" / kickstart)
         (work / name / "retroarch.cfg").write_text("\n".join([
             'video_driver = "null"', 'audio_driver = "null"', 'input_driver = "null"', 'menu_driver = "null"', 'libretro_log_level = "0"',
             'frontend_log_level = "0"', 'config_save_on_exit = "false"', f'savefile_directory = "/work/{name}/saves"',
@@ -188,6 +190,23 @@ class RealFrontendTests(unittest.TestCase):
         self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
         default = self.retroarch("pal")
         self.assertRegex(default, r"Geometry: 756x574, Aspect: 1\.370, FPS: 50\.08, Sample rate: 48000\.00 Hz")
+
+    def test_the_model_retroarch_stores_selects_the_a600_headless_runs_and_finds_its_kickstart_by_its_own_name(self):
+        # T23d: the machine is a restart option like the others. The system directory has the Kickstart of the A600 only under the A600's name.
+        text = self.retroarch("a600", options={"puae6_machine": "A600"}, kickstarts=("kick37350.A600",))
+        self.assertIn("machine A600 (puae6_machine)", text)
+        self.assertIn("Kickstart kick37350.A600, read through the frontend VFS", text)
+        native = subprocess.run([str(self.macos_headless), "--run", str(self.rom), "--machine", "a600", "--units", str(FRAMES)], capture_output=True, text=True,
+                                timeout=600)
+        expected = {int(m[1]): int(m[2]) for m in HEADLESS.finditer(native.stdout)}
+        ticks = {int(m[1]): int(m[2]) for m in UNIT.finditer(text)}
+        self.assertEqual(len(expected), FRAMES)
+        for unit, value in expected.items():
+            self.assertEqual(ticks[unit], value, f"unit {unit}")
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+        default = self.retroarch("a500", kickstarts=("kick34005.A500", "kick37350.A600"))
+        self.assertIn("machine A500 (puae6_machine)", default)
+        self.assertIn("Kickstart kick34005.A500,", default)
 
     def test_retroarch_changes_the_disk_through_disk_control_and_the_playlist_is_read_by_the_frontend_vfs(self):
         text = self.retroarch("disks", content="list.m3u", drive=True)

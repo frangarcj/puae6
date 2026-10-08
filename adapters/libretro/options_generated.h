@@ -12,6 +12,7 @@ namespace p6_options {
 // Every key of the schema with its default. The reboot keys are p6_config fields (to_config); the presentation keys never reach the
 // machine. A key libretro does not offer keeps its default here, which is the only value the core ever uses for it.
 struct Settings {
+    uint32_t machine = 1u;  // reboot, p6_config.machine = A500
     uint32_t video_standard = 1u;  // reboot, p6_config.video_standard = PAL
     uint32_t audio_rate_hz = 48000u;  // reboot, p6_config.audio_rate_hz = 48000
     uint64_t random_seed = UINT64_C(1);  // reboot, p6_config.random_seed
@@ -21,6 +22,7 @@ struct Settings {
 
 inline void to_config(const Settings &settings, p6_config *config)
 {
+    config->machine = settings.machine;
     config->video_standard = settings.video_standard;
     config->audio_rate_hz = settings.audio_rate_hz;
     config->random_seed = settings.random_seed;
@@ -42,6 +44,10 @@ struct Option {
     unsigned default_index;
 };
 
+constexpr Value kMachineValues[] = {
+    {"A500", 1u},
+    {"A600", 2u},
+};
 constexpr Value kVideoStandardValues[] = {
     {"PAL", 1u},
     {"NTSC", 2u},
@@ -56,6 +62,7 @@ constexpr Value kVideoAspectValues[] = {
 };
 
 constexpr Option kOptions[] = {
+    {"puae6_machine", true, &Settings::machine, kMachineValues, 2, 0},
     {"puae6_video_standard", true, &Settings::video_standard, kVideoStandardValues, 2, 0},
     {"puae6_audio_rate", true, &Settings::audio_rate_hz, kAudioRateHzValues, 2, 1},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 2, 0},
@@ -65,12 +72,16 @@ constexpr unsigned kOptionCount = sizeof kOptions / sizeof kOptions[0];
 // retro_core_option_v2: categories and definitions, each array ends with an empty element.
 // Not const: libretro's structs take non-const pointers. The frontend only reads them.
 inline retro_core_option_v2_category kCategoriesV2[] = {
-    {"machine", "Machine", "What the emulated A500 is. These options take effect when the content is loaded."},
+    {"machine", "Machine", "What the emulated Amiga is. These options take effect when the content is loaded."},
     {"video", "Video", "How the picture is presented. These options apply at once."},
     {nullptr, nullptr, nullptr},
 };
 
 inline retro_core_option_v2_definition kDefinitionsV2[] = {
+    {"puae6_machine", "Model (Restart)", "Model (Restart)",
+     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}}, "A500"},
     {"puae6_video_standard", "Video Standard (Restart)", "Video Standard (Restart)",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -89,6 +100,7 @@ inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};
 
 // retro_core_option (version 1): no categories.
 constexpr retro_core_option_definition kDefinitionsV1[] = {
+    {"puae6_machine", "Model (Restart)", "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600). It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}}, "A500"},
     {"puae6_video_standard", "Video Standard (Restart)", "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.", {{"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}}, "pixel"},
@@ -97,6 +109,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
 
 // Legacy SET_VARIABLES: "Description; default|other|..." (the default comes first).
 constexpr retro_variable kVariables[] = {
+    {"puae6_machine", "Model (Restart); A500|A600"},
     {"puae6_video_standard", "Video Standard (Restart); PAL|NTSC"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart); 48000|44100"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3"},
