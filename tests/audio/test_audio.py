@@ -1,7 +1,9 @@
 """AV02 and DET05 for Paula's audio through p6_run_frame.
 
 Counts come from the clock alone (integers); content comes from micro-ROMs whose output follows from the hardware
-documentation; delivery on/off must leave the machine and the delivered samples unchanged.
+documentation; delivery on/off must leave the machine and the delivered samples unchanged. The whole set runs on both machines
+of the bridge: AudioTests on the A500 and AudioA600Tests (same tests, same expectations) on the A600 preset, whose Paula and
+clock are those of the A500 (T23c).
 """
 import os
 from pathlib import Path
@@ -10,6 +12,7 @@ import struct
 import tempfile
 import unittest
 
+from tests.scenarios.ecs import ecs
 from tests.scenarios.audio.audio import HIGH_WEIGHT, LOW_WEIGHT, NTSC_CLOCK, PAL_CLOCK, CYCLE_UNIT, Tone, frames_bound, rom_source
 from tests.step.test_step import BUILD, FIXTURES, ROOT, TOOLS, builder, configure_trace_tree, frames_of, make_rom, run_probe
 
@@ -23,6 +26,8 @@ def audio_of(row):
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
 class AudioTests(unittest.TestCase):
+    MACHINE = "a500"
+
     @classmethod
     def setUpClass(cls):
         cls.exe = configure_trace_tree()
@@ -47,7 +52,7 @@ class AudioTests(unittest.TestCase):
             env["P6_AUDIO_DUMP"] = str(pcm)
         if pattern:
             env["P6_AUDIO_PATTERN"] = pattern
-        code, out = run_probe(self.exe, self.roms[rom], units, mode, 1, timeout=900, extra=[standard], env=env)
+        code, out = run_probe(self.exe, self.roms[rom], units, mode, 1, timeout=900, extra=[standard, self.MACHINE], env=env)
         self.assertEqual(code, 0, out[-500:])
         return frames_of(out), out
 
@@ -69,6 +74,27 @@ class AudioTests(unittest.TestCase):
                         with self.subTest(standard=standard, rate=rate, rom=rom, unit=row[0]):
                             self.assertEqual(total, exact)
                             self.assertTrue(low <= total <= high, (low, total, high))
+
+    def test_cumulative_frames_hold_when_the_guest_programs_the_beam(self):
+        # The A600 chipset lets the guest change the length of the unit (BEAMCON0, HTOTAL, VTOTAL). Paula counts in colour clocks of
+        # the configured standard, so the cumulative frame count still follows the clock at every boundary, whatever the unit length.
+        if self.MACHINE != "a600":
+            self.skipTest("ECS only")
+        for name in ("to-ntsc", "to-pal", "var-less", "var-tall", "toggle"):
+            for standard in ("pal", "ntsc"):
+                rom = Path(self.tmp.name) / f"beam-{name}-{standard}.rom"
+                rom.write_bytes(builder.build(ecs.rom_source(ecs.beam_display_for(name, standard))))
+                code, out = run_probe(self.exe, rom, 60, "frames", 1, timeout=900, extra=[standard, self.MACHINE],
+                                      env={"P6_AUDIO_RATE": "48000", "P6_UNIT_LIMIT_LINES": "6000"})
+                self.assertEqual(code, 0, out[-500:])
+                total = 0
+                for row in frames_of(out):
+                    delivered, frames = audio_of(row)
+                    total += frames
+                    exact, low, high = frames_bound(row[1], 48000, CLOCK[standard])
+                    with self.subTest(program=name, standard=standard, unit=row[0]):
+                        self.assertTrue(delivered)
+                        self.assertEqual(total, exact)
 
     def test_a_square_wave_has_the_pitch_the_registers_ask_for_on_the_side_of_its_channel(self):
         with tempfile.TemporaryDirectory(prefix="p6-pcm-") as pcm:
@@ -126,9 +152,15 @@ class AudioTests(unittest.TestCase):
 
     def test_n_calls_and_continuous_advance_flush_paula_alike(self):
         for rom in ("tone_all", "long_ops"):
-            steps = run_probe(self.exe, self.roms[rom], 7, "steps", 1, timeout=300, extra=["pal"])
-            continuous = run_probe(self.exe, self.roms[rom], 7, "continuous", 1, timeout=300, extra=["pal"])
+            steps = run_probe(self.exe, self.roms[rom], 7, "steps", 1, timeout=300, extra=["pal", self.MACHINE])
+            continuous = run_probe(self.exe, self.roms[rom], 7, "continuous", 1, timeout=300, extra=["pal", self.MACHINE])
             self.assertEqual(steps, continuous)
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class AudioA600Tests(AudioTests):
+    """The same counts, phases, pitch, channel sides and delivery on/off on the A600 preset."""
+    MACHINE = "a600"
 
 
 if __name__ == "__main__":

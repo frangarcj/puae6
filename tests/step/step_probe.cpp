@@ -211,12 +211,12 @@ std::vector<uint8_t> read_file(const char *path)
     return data;
 }
 
-p6_config make_config(uint32_t standard, uint64_t seed)
+p6_config make_config(uint32_t standard, uint64_t seed, uint32_t machine)
 {
     p6_config c{};
     c.abi_version = P6_ABI_VERSION;
     c.struct_size = sizeof c;
-    c.machine = P6_MACHINE_A500;
+    c.machine = machine;
     c.video_standard = standard;
     c.audio_rate_hz = getenv("P6_AUDIO_RATE") ? uint32_t(atoi(getenv("P6_AUDIO_RATE"))) : 48000;
     c.random_seed = seed;
@@ -319,6 +319,23 @@ void dump_frame(const p6_frame &f)
     fclose(out);
 }
 
+// P6_BUFFER_DUMP=<directory> writes the whole delivered buffer of each unit, padding of the stride included, as buffer-<unit>.bin: four
+// little-endian uint32 (width, height, stride in bytes, active.x) and then height * stride bytes. For looking at what lies outside the
+// active rectangle, which print_frame reduces to one word (outside=zero|dirty).
+void dump_buffer(const p6_frame &f)
+{
+    const char *directory = getenv("P6_BUFFER_DUMP");
+    if (!directory || !f.video) return;
+    char path[512];
+    snprintf(path, sizeof path, "%s/buffer-%03llu.bin", directory, (unsigned long long)f.unit_index);
+    FILE *out = fopen(path, "wb");
+    if (!out) { perror(path); exit(2); }
+    const uint32_t header[4] = {f.video_width, f.video_height, f.video_stride_bytes, f.active.x};
+    fwrite(header, sizeof header, 1, out);
+    fwrite(f.video, 1, size_t(f.video_height) * f.video_stride_bytes, out);
+    fclose(out);
+}
+
 // P6_AUDIO_DUMP=<directory> writes each unit's delivered PCM as audio-<unit>.bin (int16 little endian, left then right).
 void dump_audio(const p6_frame &f)
 {
@@ -335,6 +352,7 @@ void dump_audio(const p6_frame &f)
 void print_frame(const p6_frame &f)
 {
     dump_frame(f);
+    dump_buffer(f);
     dump_audio(f);
     printf("frame %" PRIu64 " ticks=%" PRIu64 " video=%d bytes=%" PRIu64 " format=%u size=%ux%u stride=%u "
            "active=%u,%u,%u,%u aspect=%u/%u cadence=%u/%u parity=%u flags=%u outside=%s pixels=%016" PRIx64 " audio=%s%" PRIu64 "\n",
@@ -351,17 +369,19 @@ void check(p6_result r, const char *what)
 
 // Every unit must be shorter than two whole frames of the running video standard: a unit that is not
 // is a boundary that was lost (the watchdog in emulated time, not wall-clock time).
+// P6_UNIT_LIMIT_LINES=N raises the bound to N lines of 227 clocks for guests that program a longer frame (BEAMCON0 and VTOTAL).
 int64_t unit_limit_cycles()
 {
-    return int64_t(2) * 313 * 227 * CYCLE_UNIT;
+    const long lines = getenv("P6_UNIT_LIMIT_LINES") ? atol(getenv("P6_UNIT_LIMIT_LINES")) : 2 * 313;
+    return int64_t(lines) * 227 * CYCLE_UNIT;
 }
 
 }  // namespace
 
 int main(int argc, char **argv)
 {
-    if (argc != 5 && argc != 6) {
-        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc]\n", argv[0]);
+    if (argc < 5 || argc > 7) {
+        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc [a500|a600]]\n", argv[0]);
         return 64;
     }
     const std::vector<uint8_t> rom = read_file(argv[1]);
@@ -372,7 +392,9 @@ int main(int argc, char **argv)
     const uint32_t base_render = !strcmp(argv[3], "frames-norender") ? P6_RENDER_AUDIO : (P6_RENDER_VIDEO | P6_RENDER_AUDIO);
     if (!continuous && !frames && strcmp(argv[3], "steps")) return 64;
     if (units < 1) return 64;
-    const uint32_t standard = argc == 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
+    const uint32_t standard = argc >= 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
+    if (argc == 7 && strcmp(argv[6], "a500") && strcmp(argv[6], "a600")) return 64;
+    const uint32_t machine = argc == 7 && !strcmp(argv[6], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A500;
     if (const char *path = getenv("P6_INPUT_SCRIPT")) load_script(path);
     if (const char *list = getenv("P6_RESET_AT"))
         for (const char *c = list; *c;) { reset_at.insert(atoi(c)); while (*c && *c != ',') ++c; if (*c) ++c; }
@@ -380,7 +402,7 @@ int main(int argc, char **argv)
     observer_applies_input = continuous && !script.empty();
 
     p6_error error{P6_ABI_VERSION, sizeof(p6_error), {}};
-    const p6_config config = make_config(standard, strtoull(argv[4], nullptr, 10));
+    const p6_config config = make_config(standard, strtoull(argv[4], nullptr, 10), machine);
     check(p6_init(&config, &error), "p6_init");
     // P6_RELOAD=N (steps mode, N>=1): the same image is unloaded and loaded again in this process, N loads in all (at least 2),
     // and the run repeats each time, printed after a "pass K" line, so that a later load can be compared with the first one

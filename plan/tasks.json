@@ -10344,7 +10344,7 @@
       "title": "Escenarios ECS de video y audio (AV01/AV02) en PAL y NTSC",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T23a"
       ],
@@ -10450,6 +10450,79 @@
       "evidence": null
     },
     {
+      "id": "T23f",
+      "title": "Cadencia, aspecto y alto del frame desde el haz programado (BEAMCON0) y no desde la config",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23c"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0006-video-output.md"
+      ],
+      "touch": [
+        "bridge/video.cpp",
+        "bridge/frame_step.cpp",
+        "ports/portable/video_present.cpp",
+        "tests/step/**",
+        "tests/scenarios/ecs/**",
+        "docs/adr/0006-video-output.md",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Medido en T23c (tests/step/test_ecs.py *_KNOWN_LIMIT): con ECS, un programa que pasa a NTSC por BEAMCON0 en una config PAL da unidades de 59.8 Hz anunciadas con la cadencia y el aspecto PAL; uno que pasa a PAL en una config NTSC entrega NO_VIDEO desde la unidad 3 con cadencia NTSC. cadence(), kBufferHeight* y el aspecto salen de session.config.video_standard.",
+        "Derivar cadencia/aspecto/alto activo de lo que la unidad realmente fue (isntsc por BEAMCON0, maxvpos) y decidir si el buffer de una config NTSC crece a 576 filas para no perder la imagen PAL programada; el buffer maximo se anuncia al load y no cambia en marcha.",
+        "Los dos tests KNOWN_LIMIT se invierten; ningun hash ni metadato A500 cambia."
+      ],
+      "checks": [
+        "AV01",
+        "AV02",
+        "LR01"
+      ],
+      "acceptance": [
+        "Un juego ECS que conmuta PAL/NTSC se anuncia con la cadencia real de sus unidades y no pierde imagen; el A500 no cambia."
+      ],
+      "stop": "No calcular la cadencia con reloj de pared ni con promedios del host: sale de los ticks de la unidad.",
+      "evidence": null
+    },
+    {
+      "id": "T23g",
+      "title": "Cero fuera de active en la transicion a un modo de haz programado (productividad + SuperHires)",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23c"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0006-video-output.md"
+      ],
+      "touch": [
+        "ports/portable/video_present.cpp",
+        "bridge/video.cpp",
+        "tests/step/**",
+        "tests/scenarios/ecs/**"
+      ],
+      "steps": [
+        "Medido en T23c: productivity-shres en NTSC entrega en las unidades 1 y 2 una imagen 756x484 con 30 pixeles escritos en la fila 1, columnas 756..785 (fuera de active y del ancho entregado, dentro del stride del array del puerto; ASan limpio). Desde la unidad 3 es NO_VIDEO.",
+        "Hacer que active cubra el raster realmente dibujado o limpiar lo que quede fuera antes de entregar, sin escribir fuera del array.",
+        "Invertir test_productivity_with_superhires_on_ntsc_leaves_stray_pixels_for_two_units_KNOWN_LIMIT."
+      ],
+      "checks": [
+        "AV01"
+      ],
+      "acceptance": [
+        "Todos los programas ECS de T23c cumplen 'cero fuera de active' en todas sus unidades."
+      ],
+      "stop": "No ampliar el buffer canonico para tapar el sintoma.",
+      "evidence": null
+    },
+    {
       "id": "T23",
       "title": "Añadir ECS/A600 sin relajar el gate A500",
       "milestone": "M2",
@@ -10463,7 +10536,9 @@
         "T23c",
         "T23d",
         "T23e",
-        "T15k"
+        "T15k",
+        "T23f",
+        "T23g"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -10476,14 +10551,17 @@
         "tests/scenarios/ecs/**",
         "bridge/config.cpp",
         "docs/02-contracts.md",
-        "docs/01-architecture.md"
+        "docs/01-architecture.md",
+        "tools/scenario_schema.py",
+        "tests/scenarios/**"
       ],
       "steps": [
         "Derivar preset A600/ECS del upstream fijado, con memoria/ROM/clock explicitamente validados; no añadir FPU/MMU.",
         "Añadir escenarios de modos ECS y variaciones PAL/NTSC con capacidades y audio correctos.",
         "Ejecutar estado nativo y snapshot Waterbox en el perfil nuevo, y repetir todo gate A500.",
         "Actualizar tabla de capacidades y config schema; etiquetar firmware pendiente como no probado.",
-        "Division (2026-10-08): T23a (preset + arranque 2.05), T23b (estado), T23c (escenarios AV), T23d (libretro), T23e (BizHawk/Waterbox); T23 es el cierre: conserva los checks y la aceptacion, actualiza tabla de capacidades y contratos y repite todo el gate A500."
+        "Division (2026-10-08): T23a (preset + arranque 2.05), T23b (estado), T23c (escenarios AV), T23d (libretro), T23e (BizHawk/Waterbox); T23 es el cierre: conserva los checks y la aceptacion, actualiza tabla de capacidades y contratos y repite todo el gate A500.",
+        "Fleco de T23c (2026-10-08): tools/scenario_schema.py solo acepta machine A500; extenderlo a A600 (1 MiB Chip, sin Slow) y escribir los JSON ecs-* de tests/scenarios/ecs con sus tests de esquema. Anotar como medido, no como hardware, el borde negro de SuperHires y el desplazamiento de las lineas impares NTSC, y que la tabla upstream identifica el A600 como 8372A ($20/$30)."
       ],
       "checks": [
         "AV01",
