@@ -34,6 +34,10 @@ extern int p6_custom_extra_cycle_get(void);                                     
 extern void p6_custom_extra_cycle_set(int v);
 extern evfunc2 p6_custom_event2_handler(int which);                                        // 0 intreq, 1 intena, 2 fakehsync
 extern evfunc2 p6_disk_motordelay_handler(void);                                           // disk.cpp 0080
+extern int p6_custom_ce020_extra_get(void);                                                // custom.cpp 0108
+extern void p6_custom_ce020_extra_set(int v);
+extern bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigned n);      // newcpu.cpp 0108
+extern bool p6_caches020_set(const uae_u32 *data, const uae_u32 *tag, const uae_u8 *valid, unsigned n);
 
 namespace p6_state {
 
@@ -43,9 +47,10 @@ static_assert(sizeof(int) == 4 && sizeof(evt_t) == 8, "the widths of the engine'
 
 constexpr uint32_t kSpcSaved = SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY;
 constexpr uint16_t kSr68000 = 0xA71F;       // T1, S, the interrupt mask, X N Z V C: a 68000 has no T0 and no M
+constexpr uint16_t kSr68020 = 0xF71F;       // T1, T0, S, M, the interrupt mask, X N Z V C
 constexpr int kEvent2Slots = ev2_max;       // 16
 constexpr uint8_t kEv2Blitter = 1;          // ids of the secondary-event handlers a state can name (scheduler_handler_id)
-constexpr uint8_t kEv2Last = 11;
+constexpr uint8_t kEv2Last = 12;
 
 // SR as MakeSR() builds it (newcpu.cpp), without writing the cache field regs.sr: a save must not touch the machine.
 uint16_t current_sr()
@@ -71,6 +76,7 @@ evfunc2 scheduler_handler(uint8_t id)
     case 9: return event_DISK_handler;
     case 10: return p6_disk_motordelay_handler();
     case 11: return p6_custom_event2_handler(2);
+    case 12: return p6_custom_event2_handler(3);
     default: return nullptr;
     }
 }
@@ -78,8 +84,9 @@ evfunc2 scheduler_handler(uint8_t id)
 // Stable ids of the secondary-event handlers: the vocabulary of the state, not of the engine. Reachable in the A500 profile (read from the callers
 // of event2_newevent* in the compiled units): 1 blitter_handler (slot 0 only, assigned by init_eventtab; never active with a cycle-exact blitter),
 // 2 event_doint_delay_do_ext, 3 event_doint_delay_do_intreq, 4 event_doint_delay_do_intena (m68k_interrupt_delay is true), 5 event_audxdat_func,
-// 6 event_setdsr, 7 event_CIA_synced_interrupt, 8 event_CIA_tod_inc_event, 9 event_DISK_handler, 10 motordelay_func, 11 fakehsync_handler. Not
-// reachable: doint_delayed (needs cs_ipldelay), setup_fmodes_delayed (AGA), lightpen_trigger_func (no lightpen port), keymcu_event and
+// 6 event_setdsr, 7 event_CIA_synced_interrupt, 8 event_CIA_tod_inc_event, 9 event_DISK_handler, 10 motordelay_func, 11 fakehsync_handler. 12 is
+// setup_fmodes_delayed, reachable only with AGA (setup_fmodes queues it two colour clocks after a write that changes FMODE; T24c). Not
+// reachable: doint_delayed (needs cs_ipldelay), lightpen_trigger_func (no lightpen port), keymcu_event and
 // cputester_event (keyboard_mode 0). 0 is "no handler that a state can name": a save refuses an active event that has one.
 uint8_t scheduler_handler_id(evfunc2 f)
 {
@@ -94,8 +101,115 @@ uint8_t scheduler_handler_id(evfunc2 f)
     if (f == event_DISK_handler) return 9;
     if (f == p6_disk_motordelay_handler()) return 10;
     if (f == p6_custom_event2_handler(2)) return 11;
+    if (f == p6_custom_event2_handler(3)) return 12;
     return 0;
 }
+
+namespace {
+
+// -- The 68020 block of P6CP (T24c) -------------------------------------------------------------------------------------------------------------------------------
+// Appended to the body of a machine whose CPU is a 68020, in this order (little endian, 662 bytes):
+//   u32 vbr  u32 msp  u32 caar  u8 sfc dfc (0..7)  u8 cacr (0..15)
+//   u32 prefetch020addr  u32 cacheholdingaddr020  u32 cacheholdingdata020  u16 prefetch020[4]  u8 prefetch020_valid[4] (0..1)
+//   i32 pipeline_pos (-1..255)  i32 pipeline_r8[2] (0..255)  i32 pipeline_stop (-1..1)
+//   64 x { u32 data  u32 tag (bit 0 the supervisor bit, bits 1..7 zero)  u8 valid (0..1) }          caches020, the instruction cache of the 68020
+//   i32 instruction_cnt  u8 ce020extracycles (0..16)  i64 ce020prefetchendcycle  i64 ce020startcycle  i64 ce020endcycle (each >= 0, in the epoch of P6SC)
+//   u16 ce020_extra (the remainder below a colour clock of do_cycles_ce020, 0..CYCLE_UNIT-1)
+// The registers, the cache and the prefetch queue with its pipeline are what WinUAE's own save_cpu carries for a 68020 (that body is under SAVESTATE and is not compiled): they are
+// read from `regs` and from the one file-local table (patch 0108, p6_caches020_get/set). The last five fields are what the cycle-exact core keeps between two instructions and
+// that DET02 showed to decide the future, one by one (docs/adr/0009-state-format.md point 9 and the comments in visit_020).
+constexpr unsigned kCaches020 = CACHELINES020;
+
+struct Cpu020 {
+    uint32_t vbr = 0, msp = 0, caar = 0;
+    uint8_t sfc = 0, dfc = 0, cacr = 0;
+    uint32_t prefetch_addr = 0, holding_addr = 0, holding_data = 0;
+    uint16_t prefetch[CPU_PIPELINE_MAX] = {};
+    uint8_t prefetch_valid[CPU_PIPELINE_MAX] = {};
+    int32_t pipeline_pos = 0, pipeline_r8[2] = {}, pipeline_stop = 0;
+    int32_t instruction_cnt = 0;
+    uint8_t extracycles = 0;
+    int64_t prefetch_end = 0, start_cycle = 0, end_cycle = 0;
+    uint16_t sub_cck = 0;
+    uae_u32 cache_data[kCaches020] = {}, cache_tag[kCaches020] = {};
+    uae_u8 cache_valid[kCaches020] = {};
+};
+
+void visit_020(Archive &a, Cpu020 &c)
+{
+    const bool checks = a.mode() != Mode::Measure;
+    c.vbr = a.val<uint32_t>(regs.vbr, "cpu.vbr");
+    c.msp = a.val<uint32_t>(regs.msp, "cpu.msp");
+    c.caar = a.val<uint32_t>(regs.caar, "cpu.caar");
+    c.sfc = get<uint8_t>(a, regs.sfc, 0, 7, "cpu.sfc");
+    c.dfc = get<uint8_t>(a, regs.dfc, 0, 7, "cpu.dfc");
+    c.cacr = get<uint8_t>(a, regs.cacr, 0, 15, "cpu.cacr");
+    c.prefetch_addr = a.val<uint32_t>(regs.prefetch020addr, "cpu.prefetch020addr");
+    c.holding_addr = a.val<uint32_t>(regs.cacheholdingaddr020, "cpu.cacheholdingaddr020");
+    c.holding_data = a.val<uint32_t>(regs.cacheholdingdata020, "cpu.cacheholdingdata020");
+    for (unsigned i = 0; i < CPU_PIPELINE_MAX; ++i) c.prefetch[i] = a.val<uint16_t>(regs.prefetch020[i], "cpu.prefetch020");
+    for (unsigned i = 0; i < CPU_PIPELINE_MAX; ++i) c.prefetch_valid[i] = get<uint8_t>(a, regs.prefetch020_valid[i], 0, 1, "cpu.prefetch020_valid");
+    c.pipeline_pos = get<int32_t>(a, regs.pipeline_pos, -1, 255, "cpu.pipeline_pos");
+    for (unsigned i = 0; i < 2; ++i) c.pipeline_r8[i] = get<int32_t>(a, regs.pipeline_r8[i], 0, 255, "cpu.pipeline_r8");
+    c.pipeline_stop = get<int32_t>(a, regs.pipeline_stop, -1, 1, "cpu.pipeline_stop");
+
+    uae_u32 live_data[kCaches020] = {}, live_tag[kCaches020] = {};
+    uae_u8 live_valid[kCaches020] = {};
+    if (a.mode() == Mode::Save && !p6_caches020_get(live_data, live_tag, live_valid, kCaches020)) a.fail("cpu: the instruction cache of the 68020 is not the size of this build");
+    for (unsigned i = 0; i < kCaches020; ++i) {
+        c.cache_data[i] = a.val<uint32_t>(live_data[i], "cpu.icache.data");
+        c.cache_tag[i] = a.val<uint32_t>(live_tag[i], "cpu.icache.tag");
+        c.cache_valid[i] = get<uint8_t>(a, live_valid[i], 0, 1, "cpu.icache.valid");
+        if (checks) a.require((c.cache_tag[i] & 0xfe) == 0, "cpu.icache.tag: bits that the tag of a line never has");
+    }
+    // The count of instructions executed: the audio hacks that a 68020 enables (usehacks) compare it with the count at which a channel's DMA went off (dmaofftime_cpu_cnt, which AUDP
+    // carries as it was), so a machine with another count judged a channel differently (DET02 tone, same-image: the history of the loaded image is not the state's). It wraps; no range.
+    c.instruction_cnt = a.val<int32_t>(regs.instruction_cnt, "cpu.instruction_cnt");
+    // One instruction in sixteen the cycle-exact core pays two more cycles (wait_memory_cycles): the count of the instructions since the last one is state (DET02 vsync, new
+    // process: a loaded machine paid them 14 instructions off the original's and the interrupt reached the CPU four cycles apart).
+    c.extracycles = get<uint8_t>(a, regs.ce020extracycles, 0, 16, "cpu.ce020extracycles");
+    // The cycle at which the last opcode prefetch ended: an opcode prefetch that starts in the very same cycle pays two more (start_020_cycle_prefetch), and the cycle counter only
+    // moves by whole colour clocks, so two prefetches of the same clock are common. A new image has 0 there and paid nothing (DET02 master, new-process: the interrupt reached the CPU 4 cycles
+    // early one unit after the load). Absolute, like the times of P6CP's interrupt pipeline.
+    c.prefetch_end = get<int64_t>(a, regs.ce020prefetchendcycle, 0, INT64_MAX, "cpu.ce020prefetchendcycle");
+    // The span of the last memory cycle: do_cycles_ce020_internal (cpu_prefetch.h) pays an internal cycle only for what outlasts endcycle - startcycle, so the next instruction's internal
+    // cycles overlap the memory cycle that was in flight. A same image kept its own pair and its first instruction after the load took 4 cycles more or less (DET02 tone, same-image).
+    c.start_cycle = get<int64_t>(a, regs.ce020startcycle, 0, INT64_MAX, "cpu.ce020startcycle");
+    c.end_cycle = get<int64_t>(a, regs.ce020endcycle, 0, INT64_MAX, "cpu.ce020endcycle");
+    // do_cycles_ce020 keeps the part of a colour clock it has not paid in a function-local static (patch 0108): the same kind of state as extra_cycle of P6SC, which the 68000 core
+    // keeps the same way. A same image carried its own remainder into the loaded machine's first instruction (DET02 same-image: the registers differed one unit later).
+    c.sub_cck = get<uint16_t>(a, p6_custom_ce020_extra_get(), 0, CYCLE_UNIT - 1, "cpu.ce020_extra");
+}
+
+void apply_020(const Cpu020 &c)
+{
+    regs.vbr = c.vbr;
+    regs.msp = c.msp;
+    regs.caar = c.caar;
+    regs.sfc = c.sfc;
+    regs.dfc = c.dfc;
+    regs.cacr = c.cacr;
+    regs.prefetch020addr = c.prefetch_addr;
+    regs.cacheholdingaddr020 = c.holding_addr;
+    regs.cacheholdingdata020 = c.holding_data;
+    for (unsigned i = 0; i < CPU_PIPELINE_MAX; ++i) {
+        regs.prefetch020[i] = c.prefetch[i];
+        regs.prefetch020_valid[i] = c.prefetch_valid[i];
+    }
+    regs.pipeline_pos = c.pipeline_pos;
+    regs.pipeline_r8[0] = c.pipeline_r8[0];
+    regs.pipeline_r8[1] = c.pipeline_r8[1];
+    regs.pipeline_stop = c.pipeline_stop;
+    regs.instruction_cnt = c.instruction_cnt;
+    regs.ce020extracycles = c.extracycles;
+    regs.ce020prefetchendcycle = c.prefetch_end;
+    regs.ce020startcycle = c.start_cycle;
+    regs.ce020endcycle = c.end_cycle;
+    p6_custom_ce020_extra_set(c.sub_cck);
+    p6_caches020_set(c.cache_data, c.cache_tag, c.cache_valid, kCaches020);
+}
+
+}  // namespace
 
 // Body, little endian, in this order:
 //   i32 go.quit_program (-4..0, not -1)
@@ -104,9 +218,12 @@ uint8_t scheduler_handler_id(evfunc2 f)
 //   u8 stopped (0..1)  u8 halted (0..13, not 4)  u32 spcflags (CPUINRESET|TRACE|DOTRACE|BLTNASTY)
 //   u8 ipl0 ipl1 ipl_pin ipl_pin_p (0..7)  u8 ipl_evt_pre_mode (0..1)  i64 ipl_evt ipl_evt_pre ipl_pin_change_evt ipl_pin_change_evt_p (>= 0)
 //   u32 xorshiftstate (>= 1)
+// A 68020 machine (the A1200, T24c) appends the block of the 68020 (visit_020 above); the chunk version stays 1 because the body follows the machine, as
+// P6RT's does, and the machine is part of the identity. SR then keeps T0 and M (mask 0xF71F instead of 0xA71F).
 void visit_cpu(Archive &a)
 {
     const bool checks = a.mode() != Mode::Measure;
+    const bool m68020 = currprefs.cpu_model == 68020;
     if (a.mode() == Mode::Save) {
         const char *why = nullptr;
         if (!p6_cpu_boundary(&why)) a.fail(why);            // an exception in flight, a flag the profile never leaves pending, a head that has not run...
@@ -123,7 +240,7 @@ void visit_cpu(Archive &a)
     //    TRACE) and without m68k_reset_sr (it loads A7 from the slot of the mode, and A7 is saved raw).
     const uint32_t pc = a.val<uint32_t>(m68k_getpc(), "cpu.pc");
     const uint16_t sr = a.val<uint16_t>(current_sr(), "cpu.sr");
-    if (checks) a.require((sr & ~kSr68000) == 0, "cpu.sr: a bit a 68000 does not have");
+    if (checks) a.require((sr & ~(m68020 ? kSr68020 : kSr68000)) == 0, m68020 ? "cpu.sr: a bit a 68020 does not have" : "cpu.sr: a bit a 68000 does not have");
 
     // 3. D0-D7 and A0-A7 as they are, USP and ISP raw: the slot of the current mode is stale in the engine and can become the live one after a
     //    reset (m68k_reset2 clears neither), and the T14b digest hashes both.
@@ -169,13 +286,17 @@ void visit_cpu(Archive &a)
     // 7. The live generator (floppy jitter, the start-up delay, the chip-colour power-up). xorshift32 never reaches 0 from a nonzero state.
     const uint32_t rng = get<uint32_t>(a, p6_rng_get(), 1, 0xffffffffll, "rng.xorshift");
 
+    // 8. The 68020: its control registers and what its cycle-exact core keeps between two instructions.
+    Cpu020 c020;
+    if (m68020) visit_020(a, c020);
+
     if (a.applying() && a.ok()) {
         quit_program = quit;
         regs.sr = sr;
         regs.t1 = (sr >> 15) & 1;
-        regs.t0 = 0;
+        regs.t0 = (sr >> 14) & 1;       // 0 on a 68000: the mask above refused it
         regs.s = (sr >> 13) & 1;
-        regs.m = 0;
+        regs.m = (sr >> 12) & 1;
         regs.intmask = (sr >> 8) & 7;
         SET_XFLG((sr >> 4) & 1);
         SET_NFLG((sr >> 3) & 1);
@@ -196,9 +317,10 @@ void visit_cpu(Archive &a)
         regs.ipl_pin_change_evt = chg;
         regs.ipl_pin_change_evt_p = chg_p;
         p6_rng_set(rng);
+        if (m68020) apply_020(c020);
         // Not touched, on purpose: ir, ird and irc are not refilled from memory (restore_cpu_finish's fill_prefetch_quick would overwrite them with
         // what memory holds now, which can differ from the prefetch queue), doint() is not called (it would recompute ipl_pin from the chipset,
-        // whose delayed events are still pending), and lastipl, vbr, sfc, dfc, msp, t0 and m are 0 in the profile (a save refuses otherwise).
+        // whose delayed events are still pending), and lastipl is 0 in the profile (a save refuses otherwise); vbr, sfc, dfc, msp and the rest of the 020 are the block's.
     }
 }
 

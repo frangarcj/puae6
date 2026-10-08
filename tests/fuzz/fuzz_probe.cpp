@@ -812,9 +812,10 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "config")) return fuzz_config(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "firmware")) return fuzz_firmware(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "media")) return fuzz_media(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
-    if ((argc == 5 || (argc == 6 && !strcmp(argv[5], "a600"))) && !strcmp(argv[1], "state"))
-        return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc == 6 ? P6_MACHINE_A600 : P6_MACHINE_A500);
+    if ((argc == 5 || (argc == 6 && (!strcmp(argv[5], "a600") || !strcmp(argv[5], "a1200")))) && !strcmp(argv[1], "state"))
+        return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10),
+                          argc == 5 ? P6_MACHINE_A500 : !strcmp(argv[5], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A1200);
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600] | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200] | blob SEED N\n", argv[0]);
     return 64;
 }

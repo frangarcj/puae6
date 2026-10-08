@@ -10689,7 +10689,7 @@
       "title": "Estado nativo del A1200: CPU 020 (VBR/CACR/CAAR/MSP, cache y prefetch 020), paleta AGA de 24 bits y PIXL de 24 bits; DET02/STATE01",
       "milestone": "M2",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24b"
       ],
@@ -10708,11 +10708,13 @@
         "manifests/state-inventory.json",
         "tests/state/**",
         "tests/fuzz/**",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "docs/adr/0009-state-format.md"
       ],
       "steps": [
         "P6CP v2 con el estado del 020 (cuerpos upstream donde existan, accesores pequenos para caches020/prefetch020/ce020 donde no); subcuerpo de paleta AGA; PIXL a 24 bits; eventos que pasan a alcanzables (setup_fmodes_delayed).",
-        "DET02 en micro-ROMs A1200 y opt-in con KS 3.1 + demo AGA; STATE01 con la cota por maquina; estados de otra maquina INCOMPATIBLE."
+        "DET02 en micro-ROMs A1200 y opt-in con KS 3.1 + demo AGA; STATE01 con la cota por maquina; estados de otra maquina INCOMPATIBLE.",
+        "Ampliacion de touch (2026-10-09): la cota de estado por maquina (A500 3 608 513, A600 3 608 482, A1200 5 890 716 bytes) se documenta en el ADR 0009, punto 9."
       ],
       "checks": [
         "DET02",
@@ -10872,7 +10874,8 @@
         "Documentar configuracion de caches/prefetch/clock que usa el preset y añadir su estado al inventario.",
         "Probar bitplanes/paleta/copper/blitter/CPU y modos de video con fixtures y referencia.",
         "Repetir restore nativo y Waterbox, load/unload y audio en todas las configuraciones publicadas.",
-        "Division (2026-10-08): T24a (68020 CE generado y seleccionado), T24b (maquina A1200/AGA + KS 3.1), T24c (estado), T24d (escenarios AV), T24e (libretro), T24f (BizHawk/Waterbox); T24 es el cierre: tabla de capacidades, SAFE01 para T24 en tools/check.py y el gate completo en A500+A600+A1200."
+        "Division (2026-10-08): T24a (68020 CE generado y seleccionado), T24b (maquina A1200/AGA + KS 3.1), T24c (estado), T24d (escenarios AV), T24e (libretro), T24f (BizHawk/Waterbox); T24 es el cierre: tabla de capacidades, SAFE01 para T24 en tools/check.py y el gate completo en A500+A600+A1200.",
+        "Hallazgo de T24c (2026-10-09): tras cargar un estado, fetchmode_fmode_spr y fmode_denise quedan unos CCK por detras hasta que dispara la cola (converge en menos de una linea; ningun escenario DET02 lo ve). Antes de cerrar, buscar un escenario que lo haga visible (sprite al principio de linea justo tras la carga con FMODE pendiente); si diverge, corregirlo; si no, documentar por que es inocuo."
       ],
       "checks": [
         "GEN01",
@@ -11175,7 +11178,8 @@
         "Construir referencia del mismo WinUAE SHA con instrumentacion minima separada; normalizar clocks/config/assets y output.",
         "Completar al menos 20 escenarios con las categorias OCS/ECS/AGA, PAL/NTSC, audio, input, medios y restore definidas.",
         "Comparar ticks/eventos/CPU/chipset y A/V canonicos; emitir primer boundary y subsistema divergente con inputs previos.",
-        "Repetir procesos, instancia nueva, entorno distinto, sanitizers y fuzz de todos los parsers ya implementados."
+        "Repetir procesos, instancia nueva, entorno distinto, sanitizers y fuzz de todos los parsers ya implementados.",
+        "Hallazgo de T24c (2026-10-09): el anillo rga_denise viaja en el estado solo en AGA (DRNG); en A500/A600 el ADR 0009 supone el anillo ocioso en la frontera de unidad. El corpus diferencial debe incluir programas que lo mantengan lleno en OCS/ECS (bucles que reescriben BPLCON0/colores) y comprobar DET02."
       ],
       "checks": [
         "REF01",

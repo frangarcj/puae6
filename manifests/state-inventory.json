@@ -1365,19 +1365,19 @@
       {
         "id": "cpu-020plus-caches-and-fallback",
         "subsystem": "cpu",
-        "component": "68020+ state: CACR/CAAR/MSP/VBR-SFC-DFC, I/D caches, pipeline, ce020 cycles, fallback_regs, mmu_backup_regs",
+        "component": "68020 state (the A1200, T24c): CACR/CAAR/MSP/VBR/SFC/DFC and T0/M, the instruction cache, the prefetch queue and its pipeline, the cycle-exact core's counters and spans; and the 68030/040/060 and fallback state that no profile reaches",
         "owner": "build/upstream/newcpu.cpp (regstruct tail, static caches, cpu_do_fallback)",
         "chunk": "CPU ",
         "save": "save_cpu (model >= 68010/68020/68030/68040 blocks)",
         "restore": "restore_cpu",
         "reset": "memset(&regs) at load; set_cpu_caches in build_cpufunctbl",
-        "in_profile": false,
+        "in_profile": true,
         "upstream_compiled": false,
-        "policy": "out_of_profile",
-        "saved_fields": "Model-conditional blocks: DFC/SFC/VBR (>=68010), CAAR/CACR/MSP (>=68020), 030 MMU regs, 040/060 MMU regs, cache arrays, prefetch020/040, pipeline_*, ce020 placeholders. All guarded by currprefs.cpu_model in save_cpu, never taken for 68000.",
-        "omitted": "The profile never reaches cpu_change/cpu_do_fallback (accelerator boards excluded) or the cache code; fallback_regs, fallback_* and mmu_backup_regs are static storage only.",
+        "policy": "extension",
+        "saved_fields": "The block of the 68020 appended to P6CP on a machine whose CPU is a 68020 (662 bytes, bridge/state_cpu.cpp): VBR, MSP, CAAR, SFC, DFC, CACR; prefetch020addr, cacheholdingaddr020/data020, prefetch020[4] and its valid bits, pipeline_pos/r8/stop and the 64 lines of caches020 (data, tag, valid), which is what upstream's save_cpu carries for a 68020 (save_cpu itself is under SAVESTATE and is not compiled); T0 and M travel in the status register (mask 0xF71F). Added because DET02 found each of them to decide the future (reports in the tests of tests/state/test_det02_a1200.py and tests/state/test_state_a1200.py): ce020extracycles (the 16-instruction count that pays two more cycles), ce020prefetchendcycle (a prefetch that starts in the cycle the last one ended pays two), ce020startcycle/ce020endcycle (the span cpu_prefetch.h overlaps internal cycles with), the sub-colour-clock remainder of do_cycles_ce020 (a function-local static, patch 0108) and instruction_cnt (read by the audio hacks a 68020 enables).",
+        "omitted": "Not carried, and why: cacheholdingdata_valid and fc030 (read only by the 68030 prefetch code, which the profile does not compile), memory_waitstate_cycles (written only by the CPU boards), ce020memcycle_data and ce020_tail/ce020_tail_cycles (written before they are read, or in code under #if 0), pipeline_opcode (debug). Not reachable: the 68030/040/060 caches and MMU registers, fallback_regs and mmu_backup_regs (no accelerator boards). The 68000 machines have none of it: p6_cpu_boundary refuses a save with T0, M, VBR, SFC, DFC or MSP set on a 68000, and lets them through on a 68020.",
         "pointers": "cache020/030/040 arrays are static host structs.",
-        "rebuild": null,
+        "rebuild": "Extension: patch 0108 exposes caches020 (a file-local table) and the remainder of do_cycles_ce020; the rest is read from regs. Apply writes the registers and the pipeline back as values and never refills the prefetch queue from memory.",
         "evidence": [
           "build/upstream/include/newcpu.h:244",
           "build/upstream/include/newcpu.h:261",
@@ -1385,21 +1385,51 @@
           "build/upstream/include/newcpu.h:274",
           "build/upstream/newcpu.cpp:152",
           "build/upstream/newcpu.cpp:163",
-          "build/upstream/newcpu.cpp:7781",
-          "build/upstream/newcpu.cpp:7786",
           "build/upstream/newcpu.cpp:3792",
-          "build/upstream/newcpu.cpp:3823"
+          "build/upstream/newcpu.cpp:3823",
+          "build/upstream/include/cpu_prefetch.h:50",
+          "build/upstream/audio.cpp:1782"
         ],
         "proof": {
-          "task": "T15",
+          "task": "T24c",
           "checks": [
+            "DET02",
+            "STATE01",
             "FUZZ01"
           ],
-          "status": "pending",
-          "what": "a state that carries this chunk is rejected, never restored in part"
+          "status": "done",
+          "what": "DET02 on the A1200 (tests/state/test_det02_a1200.py): the 68020 programs (cache, master stack and T0, exceptions, 020 instructions and unaligned Chip accesses, audio hacks) and the Kickstart 3.1 give the same digests, picture and audio after a load in the same image, in a restarted one and in a new process; every field of the block has a poke that changes the future (A1200NecessityTests)"
         },
-        "probe": null,
-        "waterbox": "not reached by the profile"
+        "probe": {
+          "probe": "cpu",
+          "status": "implemented",
+          "task": "T24c",
+          "covers": [
+            "regs.msp",
+            "regs.vbr",
+            "regs.sfc",
+            "regs.dfc",
+            "regs.caar",
+            "regs.cacr",
+            "p6_caches020_get",
+            "regs.prefetch020",
+            "regs.pipeline_pos",
+            "regs.ce020extracycles",
+            "regs.ce020prefetchendcycle",
+            "regs.ce020startcycle",
+            "regs.ce020endcycle",
+            "regs.instruction_cnt"
+          ]
+        },
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T24c",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_a1200.py: the chunk of a 68020 machine is the body of the 68000 and the 662-byte block, each field is validated against its range before anything is applied, and the future of the machine is the original's (the futures: tests/state/test_det02_a1200.py)",
+          "notes": "The chunk version stays 1: the body follows the machine, as P6RT's does on the A600, and the machine is part of the identity."
+        }
       },
       {
         "id": "cpu-rng-xorshift-state",
@@ -1475,7 +1505,7 @@
         "upstream_compiled": false,
         "policy": "noncausal",
         "saved_fields": "None.",
-        "omitted": "regs.instruction_cnt is read only by audio.cpp's DMA-wait hack behind usehacks(), false for a 68000 at m68k_speed 0 with cs_hacks 0; regs.loop_mode is set non-zero only by the 68010 op_*_13 handlers (the profile uses op_smalltbl_14); cpu_cycles is a JIT-loop scratch; slow_cpu_access is never written (always 0); pissoff is 0 after every do_cycles_slow; uae_interrupt/uae_interrupts2/6 and uae_int_requested are written only by the excluded host-thread branch of safe_interrupt_set, which P6 runs synchronously.",
+        "omitted": "regs.instruction_cnt is read only by audio.cpp's DMA-wait hack behind usehacks(), false for a 68000 at m68k_speed 0 with cs_hacks 0 and true for a 68020, where it is state and P6CP carries it (see cpu-020plus-caches-and-fallback); regs.loop_mode is set non-zero only by the 68010 op_*_13 handlers (the profile uses op_smalltbl_14); cpu_cycles is a JIT-loop scratch; slow_cpu_access is never written (always 0); pissoff is 0 after every do_cycles_slow; uae_interrupt/uae_interrupts2/6 and uae_int_requested are written only by the excluded host-thread branch of safe_interrupt_set, which P6 runs synchronously.",
         "pointers": null,
         "rebuild": null,
         "evidence": [
@@ -1706,7 +1736,7 @@
         "upstream_compiled": false,
         "policy": "serialize_extended",
         "saved_fields": "Slots ev2_misc..15 only (loop starts at index 1): u32 version=1, u8 count, then per active slot u8 handler type 1..11, u64 (evtime - get_cycles()) and u32 data. Restore re-arms each through event2_newevent_xx(-1, rel, data, handler).",
-        "omitted": "(1) Slot index and order: restore allocates slots through the round-robin pointer and every insert calls MISC_handler, so the tie-break order of events due at the same instant (see sched-event2-round-robin-state) differs from the live machine. (2) A handler outside the 11-entry list is executed immediately and dropped. Reachable in the profile: motordelay_func (30 CCK after a drive motor-off write); fakehsync_handler (rescheduled every line while BPLCON0 bit 1 (ERSY) stops the syncs). setup_fmodes_delayed is AGA-only; doint_delayed needs cs_ipldelay (false); ev2_blitter (slot 0) is not saved and, with blitter_cycle_exact, is unused. (3) An event due exactly at the restore instant fires during restore via MISC_handler.",
+        "omitted": "(1) Slot index and order: restore allocates slots through the round-robin pointer and every insert calls MISC_handler, so the tie-break order of events due at the same instant (see sched-event2-round-robin-state) differs from the live machine. (2) A handler outside the 11-entry list is executed immediately and dropped. Reachable in the profile: motordelay_func (30 CCK after a drive motor-off write); fakehsync_handler (rescheduled every line while BPLCON0 bit 1 (ERSY) stops the syncs). setup_fmodes_delayed is AGA-only (id 12 of the state's own table since T24c: the A1200 can have it pending at a boundary, tests/state/test_state_a1200.py A1200EventTests); doint_delayed needs cs_ipldelay (false); ev2_blitter (slot 0) is not saved and, with blitter_cycle_exact, is unused. (3) An event due exactly at the restore instant fires during restore via MISC_handler.",
         "pointers": "evfunc2 handler and the unused 'next' link of struct ev2 are host pointers: serialize a stable handler id, never the pointer. The 11 ids of the upstream table are a starting vocabulary; add ids for motordelay_func and fakehsync_handler.",
         "rebuild": "Extension: dump all 16 slots by index (active, evtime-currcycle, data, handler id) and restore them directly into eventtab2 without calling event2_newevent_xx; then set event2idx/next (see sched-event2-round-robin-state) and re-arm ev_misc with MISC_handler's scheduling code (events_schedule afterwards).",
         "evidence": [
@@ -2625,11 +2655,11 @@
         "chunk": "AGAC",
         "save": "save_custom_agacolors",
         "restore": "restore_custom_agacolors",
-        "reset": "custom_reset",
-        "in_profile": false,
+        "reset": "custom_reset; update_mirrors copies saved_color_regs_aga when the chipset mode changes",
+        "in_profile": true,
         "upstream_compiled": false,
-        "policy": "out_of_profile",
-        "saved_fields": "256 x (24-bit XRGB + genlock bit 31); chunk emitted only when aga_mode or any AGA colour is non-zero (custom.cpp:8370-8380). Compiled out (SAVESTATE block 8341-8924).",
+        "policy": "serialize",
+        "saved_fields": "256 x (24-bit XRGB + genlock bit 31), 1024 bytes, as the sub-body CAGA of P6CH on an AGA machine right after CHIP (save_custom_agacolors/restore_custom_agacolors, compiled under P6_STATE_BODIES since patch 0108); the other machines have no such body. CHIP carries 12 bits of the first 32 colours in AGA mode (custom.cpp:8308-8317) and restore_custom_agacolors overwrites all of them.",
         "omitted": null,
         "pointers": null,
         "rebuild": null,
@@ -2641,15 +2671,32 @@
           "ports/portable/sysconfig.h:34"
         ],
         "proof": {
-          "task": "T15",
+          "task": "T24c",
           "checks": [
+            "DET02",
+            "STATE01",
             "FUZZ01"
           ],
-          "status": "pending",
-          "what": "a state that carries this chunk is rejected, never restored in part"
+          "status": "done",
+          "what": "DET02 aga-8planes, aga-copper-palette, aga-ham8 and the Kickstart 3.1 / Catabasis runs: the palette of 24 bits comes back, in the picture and in the chipset digest group `aga`"
         },
-        "probe": null,
-        "waterbox": "not reached by the profile"
+        "probe": {
+          "probe": "chipset",
+          "status": "implemented",
+          "task": "T24c",
+          "covers": [
+            "save_custom_agacolors"
+          ]
+        },
+        "waterbox": "not reached by the profile on the A500 and the A600; captured by the snapshot on the A1200",
+        "native_state": {
+          "task": "T24c",
+          "chunk": "P6CH",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_chipset",
+          "proves": "tests/state/test_state_a1200.py: CAGA is 1024 bytes right after CHIP on the A1200 and on no other machine and holds the 24-bit colours the program wrote; bits between the colour and the genlock bit are refused (the futures: tests/state/test_det02_a1200.py)",
+          "notes": "Validate refuses a colour with bits 24-30."
+        }
       },
       {
         "id": "chipset-color-registers",
@@ -3854,8 +3901,8 @@
         "in_profile": true,
         "upstream_compiled": false,
         "policy": "extension",
-        "saved_fields": "None. restore_custom_start calls denise_reset(true) (custom.cpp:7925-7934) and restore_custom re-queues a fixed set of registers with denise_update_reg_queue (custom.cpp:8112-8127): it pretends Denise already drew everything. custom_reset zeroes the ring and sets rga_denise_cycle_line = 1 (6846).",
-        "omitted": "rga_denise[4096] (DENISE_RGA_SLOT_TOTAL = 512*8, custom.h:285-289; struct denise_rga v/v64, rga, line, flags, pt) plus rga_denise_cycle, rga_denise_cycle_start, rga_denise_cycle_count_start, rga_denise_cycle_count_end and rga_denise_cycle_line (custom.cpp:119-121). Agnus writes one entry per CCK (write_drga*, custom.cpp:188-262); CPU writes to Denise registers and every bitplane/sprite data word go only into this ring (custom_wput_1 7835, handle_rga_out 12254-12321). Denise consumes entries tagged with the current line only when do_draw_line runs (decide_hsync 11254 -> do_draw_line 11216 -> draw_line 11160 -> draw_denise_line), after the next HSSTRT plus display_hstart_cyclewait (check_hsyncs_hardwired 11836-11843). At the boundary (hpos near 1) the ring therefore still holds almost a whole line of unprocessed Denise input, plus about 6 consumed entries kept for look-behind (update_overlapped_cycles, drawing.cpp:154-160; do_denise_cck reads idx-3..idx+1, drawing.cpp:5009-5070). It feeds the picture AND CLXDAT, so it is causal for the machine.",
+        "saved_fields": "OCS and ECS machines: None (the ring is idle at a unit boundary of every DET02 scenario: restore_custom_start calls denise_reset(true) and restore_custom re-queues a fixed set of registers). AGA machines (T24c): the sub-body DRNG of P6VD, the five cursors and all 4096 slots (data word, register, line tag, flags, pointer: 90132 bytes), patch 0109 for the cursors, which are file-local; custom_reset zeroes the ring and sets rga_denise_cycle_line = 1 (6846).",
+        "omitted": "rga_denise[4096] (DENISE_RGA_SLOT_TOTAL = 512*8, custom.h:285-289; struct denise_rga v/v64, rga, line, flags, pt) plus rga_denise_cycle, rga_denise_cycle_start, rga_denise_cycle_count_start, rga_denise_cycle_count_end and rga_denise_cycle_line (custom.cpp:119-121). Agnus writes one entry per CCK (write_drga*, custom.cpp:188-262); CPU writes to Denise registers and every bitplane/sprite data word go only into this ring (custom_wput_1 7835, handle_rga_out 12254-12321). Denise consumes entries tagged with the current line only when do_draw_line runs (decide_hsync 11254 -> do_draw_line 11216 -> draw_line 11160 -> draw_denise_line), after the next HSSTRT plus display_hstart_cyclewait (check_hsyncs_hardwired 11836-11843). At the boundary (hpos near 1) the ring therefore still holds almost a whole line of unprocessed Denise input, plus about 6 consumed entries kept for look-behind (update_overlapped_cycles, drawing.cpp:154-160; do_denise_cck reads idx-3..idx+1, drawing.cpp:5009-5070). It feeds the picture AND CLXDAT, so it is causal for the machine. T24c: on the A1200 a program that writes FMODE all the time keeps the ring full at the boundary and the first pixels of a line depend on the slots a revolution of the ring left behind and on where the write cursor is (DET02 aga-fmode-toggle, restarted image: the 20 pixels at the left of the first line of the display differed three frames after the load, and setting only rga_denise_cycle in the loaded machine to the original's made the picture the original's); the A1200 carries the whole ring.",
         "pointers": "denise_rga::pt is a chip RAM address (integer), not a host pointer; the DEBUGGER-only dr pointer is compiled out. Ring indices are masked with DENISE_RGA_SLOT_MASK.",
         "rebuild": "Serialize the five cursors and the entries in the window [rga_denise_cycle_start-6, rga_denise_cycle] together with their .line tags; the other ~4000 entries carry stale .line values and are never matched again because rga_denise_cycle_line only increases.",
         "evidence": [
@@ -3885,10 +3932,18 @@
         "probe": {
           "probe": "video",
           "status": "partial",
-          "task": "T15",
-          "why": "only the presentation of the last unit (frame counters and the raster) is hashed: an output, not the drawing history"
+          "task": "T24c",
+          "why": "the rows of the picture are hashed (an output): the ring is checked through the pictures it makes"
         },
-        "waterbox": "captured by the snapshot"
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T24c",
+          "chunk": "P6VD",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_video",
+          "proves": "tests/state/test_state_a1200.py: the ring and its cursors travel on the A1200 (not on the other machines) and the pictures after a load are the original's in every mode of aga-fmode-toggle (the futures: tests/state/test_det02_a1200.py)",
+          "notes": "AGA machines only: the other machines' layout is untouched."
+        }
       },
       {
         "id": "video-denise-register-copies-and-timing",

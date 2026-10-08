@@ -17,7 +17,7 @@ from tests.state import envelope as e
 from tests.state.harness import FieldTable, ProbeCase, SCENARIOS, SUBSYSTEMS, TRACE, USER, parse_chunks, reforge
 
 SCHEDULER = 1           # index of the chunk in the state
-IDS = tuple(range(1, 12))
+IDS = tuple(range(1, 13))
 MISC, SYNC = 2, 0       # indexes of ev_misc and ev_sync in eventtab
 POKES = [f"ev2:{i}" for i in IDS]
 EVENTS_AT = 5           # the unit in which the events are scheduled
@@ -47,7 +47,7 @@ class SchedulerChunkTests(ProbeCase):
         return FieldTable(path.read_bytes(), SCHEDULER, run.fields), run
 
     def events_state(self):
-        """The state of vsync after eleven real secondary events were scheduled (one for each id), and what the machine's digests were then."""
+        """The state of vsync after twelve real secondary events were scheduled (one for each id), and what the machine's digests were then."""
         path = self.dir / "events.state"
         run = self.probe("vsync", "--units", str(EVENTS_AT), "--every", "1", *self.poke_arguments(), "--digest-at", str(EVENTS_AT), "--save-fields-at",
                          str(EVENTS_AT), str(path))
@@ -62,7 +62,7 @@ class SchedulerChunkTests(ProbeCase):
             if line.startswith("handler "):
                 _, ident, verdict = line.split()
                 lines[ident] = verdict
-        self.assertEqual({str(i) for i in IDS} | {"0", "12", "foreign"}, set(lines))
+        self.assertEqual({str(i) for i in IDS} | {"0", "13", "foreign"}, set(lines))
         self.assertEqual({"OK"}, set(lines.values()), lines)
 
     # -- the chunk puts the scheduler back ---------------------------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ class SchedulerChunkTests(ProbeCase):
 
     def test_secondary_events_of_every_handler_are_restored_by_slot_with_their_handler_in_the_same_process_and_in_a_new_one(self):
         table, then, run = self.events_state()
-        self.assertEqual(11, sum(table.get(f"ev2.active[{i}]") for i in range(16)))
+        self.assertEqual(12, sum(table.get(f"ev2.active[{i}]") for i in range(16)))
         self.assertEqual(sorted(IDS), sorted(table.get(f"ev2.handler[{i}]") for i in range(16) if table.get(f"ev2.active[{i}]")))
         self.assertEqual(1, table.get("ev2.handler[0]"), "slot 0 is the blitter's")
         path = self.dir / "events.state"
@@ -292,7 +292,7 @@ class SchedulerChunkTests(ProbeCase):
             ("a secondary round of 17", forge({"ev2.idx": 17}), 9, rng_range),
             ("a next slot of 0", forge({"ev2.next": 0}), 9, rng_range),
             ("a next slot of 16", forge({"ev2.next": 16}), 9, rng_range),
-            ("a handler id of 12", forge({"ev2.handler[1]": 12}), 9, rng_range),
+            ("a handler id of 13", forge({"ev2.handler[1]": 13}), 9, rng_range),
             ("an active slot with no handler", forge({"ev2.handler[1]": 0}), 9, "has no handler or is in the past"),
             ("an active slot in the past", forge({"ev2.evtime[1]": now - 1}), 9, "has no handler or is in the past"),
             ("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),

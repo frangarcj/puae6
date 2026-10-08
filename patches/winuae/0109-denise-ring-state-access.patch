@@ -1,0 +1,42 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13107,8 +13107,38 @@
+ void p6_custom_extra_cycle_set(int v)
+ {
+ 	extra_cycle = v;
++}
++
++/* Native state (bridge/state_upstream.cpp, sub-body DRNG of P6VD, AGA machines): the cursors of the ring rga_denise (the slots are public, custom.h) through which Agnus hands Denise
++ * the registers and the bitplane and sprite data of the line. The ring is not empty at a boundary when the program writes a Denise register all the time, and what a slot of it still
++ * holds from the revolution before is read by the line being drawn (the writers leave the upper half of the data word, the pointer and the flags of a slot as they were), so the
++ * state of Denise is the ring and where its cursors are: the write cursor, the first slot of the line, the line counter that tags the slots and the two slot counts of the line.
++ * Values only. 0 cycle, 1 cycle_start, 2 cycle_line, 3 cycle_count_start, 4 cycle_count_end. */
++#define P6_DENISE_RING_CURSORS 5
++bool p6_denise_ring_cursors_get(int32_t *out, unsigned n)
++{
++	if (!out || n != P6_DENISE_RING_CURSORS)
++		return false;
++	out[0] = rga_denise_cycle;
++	out[1] = rga_denise_cycle_start;
++	out[2] = int32_t(rga_denise_cycle_line);
++	out[3] = rga_denise_cycle_count_start;
++	out[4] = rga_denise_cycle_count_end;
++	return true;
+ }
+ 
++bool p6_denise_ring_cursors_set(const int32_t *in, unsigned n)
++{
++	if (!in || n != P6_DENISE_RING_CURSORS || in[0] < 0 || in[0] >= DENISE_RGA_SLOT_TOTAL || in[1] < 0 || in[1] >= DENISE_RGA_SLOT_TOTAL)
++		return false;
++	rga_denise_cycle = in[0];
++	rga_denise_cycle_start = in[1];
++	rga_denise_cycle_line = uae_u32(in[2]);
++	rga_denise_cycle_count_start = in[3];
++	rga_denise_cycle_count_end = in[4];
++	return true;
++}
++
+ /* The same for the 68020 cycle-exact core (patch 0108). */
+ int p6_custom_ce020_extra_get(void)
+ {

@@ -11,7 +11,7 @@
 // mechanics, Denise's input ring and its cursors, the copper, the audio filter, the event allocator...): manifests/state-inventory.json
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
-//   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
+//   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
 //                      [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
 //                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]...
 // --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
@@ -30,6 +30,7 @@
 // --digest-at UNIT prints the digests of the machine as it is then (under "after-load UNIT", like a load does), for after a poke. --rtc-at UNIT prints
 // the clock in the open, "rtc UNIT STATUS SECONDS TICKS SUBSECOND CYCLE D E F" (p6_rtc_save brings it up to the cycle counter); --poke-at UNIT
 // rtc-fault latches the clock's sticky fault, as a failed read would, and cs-rtc names another clock chip than the profile's.
+// --poke-at UNIT ce020-extracycles|extra|prefetchend|span|instruction-cnt|vbr|cacr|cache-line changes one field of the 68020 that the CPU chunk carries (T24c), for the tests that show that each one decides the future.
 // --poke-at UNIT cia-tod2 puts CIA-A in the state of a TOD increment pending, without the event that carries it (a save must refuse it) and cia-tod2-event
 // with the event; cia-ovl flips the overlay latch against PRA/DDRA and kbmode names a keyboard other than the A500's (clear puts the CIAs and the mode back).
 // --poke-at UNIT keyinject|ignorerelease|turbo|mousespeed|resetwarning|released put the input in a state outside the profile (a text typed into the ring, a release to
@@ -85,6 +86,10 @@ extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **firs
 extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);   // events.cpp, patch 0078: the secondary scheduler's statics
 extern int p6_custom_extra_cycle_get(void);                            // custom.cpp, patch 0079: the half-CCK remainder of the CPU
+extern int p6_custom_ce020_extra_get(void);                            // custom.cpp, patch 0108: the same for the cycle-exact 68020
+extern bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigned n);      // newcpu.cpp, patch 0108: the instruction cache of the 68020
+extern bool p6_caches020_set(const uae_u32 *data, const uae_u32 *tag, const uae_u8 *valid, unsigned n);
+extern void p6_custom_ce020_extra_set(int v);
 extern void p6_rtc_msm_get(uae_u8 out[3]);                             // cia.cpp, patch 0081: the MSM6242B's control registers D, E and F
 extern void p6_cia_get(int num, p6_cia_raw *out);                      // cia.cpp, patch 0082: both CIAs and what cia.cpp keeps beside them
 extern void p6_cia_set(int num, const p6_cia_raw *in);
@@ -135,6 +140,25 @@ void cpu(Canon &c)
     c.put(uae_u32(regs.spcflags & ~SPCFLAG_UNIT_END));     // the unit-end request is how the boundary is reached, not machine state
     c.put(int32_t(quit_program)).put(uint32_t(p6_rng_get()));      // T15b1: what the chunk carries and the digest did not see
     c.put(regs.chipset_latch_rw).put(regs.chipset_latch_read).put(regs.chipset_latch_write);
+    if (currprefs.cpu_model == 68020) {
+        // T24c: the 68020 appends to the digest what the CPU chunk carries (its control registers, the prefetch queue with its pipeline and the instruction cache). The 68000
+        // machines' digest is unchanged byte for byte. P6_PROBE_020X=1 adds what the chunk does NOT carry and the cycle-exact core keeps, to attribute a divergence to a field
+        // (it is a diagnostic: the DET02 tests run without it, and a field goes into the chunk only when its absence changed the future).
+        c.put(regs.msp).put(regs.vbr).put(regs.sfc).put(regs.dfc).put(regs.caar).put(regs.cacr);
+        c.put(int32_t(regs.instruction_cnt)).put(int64_t(regs.ce020extracycles));
+        c.put(int64_t(regs.ce020prefetchendcycle)).put(int64_t(regs.ce020startcycle)).put(int64_t(regs.ce020endcycle)).put(int32_t(p6_custom_ce020_extra_get()));
+        c.put(regs.prefetch020addr).put(regs.cacheholdingaddr020).put(regs.cacheholdingdata020);
+        for (int i = 0; i < CPU_PIPELINE_MAX; ++i) c.put(regs.prefetch020[i]).put(regs.prefetch020_valid[i]);
+        c.put(int32_t(regs.pipeline_pos)).put(int32_t(regs.pipeline_r8[0])).put(int32_t(regs.pipeline_r8[1])).put(int32_t(regs.pipeline_stop));
+        uae_u32 data[CACHELINES020], tag[CACHELINES020];
+        uae_u8 valid[CACHELINES020];
+        p6_caches020_get(data, tag, valid, CACHELINES020);
+        for (int i = 0; i < CACHELINES020; ++i) c.put(data[i]).put(tag[i]).put(valid[i]);
+        if (getenv("P6_PROBE_020X")) {
+            c.put(regs.cacheholdingdata_valid).put(regs.fc030).put(int32_t(regs.memory_waitstate_cycles));
+            c.put(uint8_t(regs.ce020memcycle_data)).put(int32_t(regs.ce020_tail)).put(int64_t(regs.ce020_tail_cycles));
+        }
+    }
 }
 
 void scheduler(Canon &c)
@@ -216,9 +240,17 @@ void chip_clxdat(Canon &c) { c.put(uint16_t(clxdat & 0x7FFF)); }
 void chip_lof(Canon &c) { c.put(uint8_t(lof_store)).put(uint8_t(lof_display)); }
 void chip_timing(Canon &c) { c.put(int32_t(maxvpos)).put(int32_t(maxhpos)).put(beamcon0).put(new_beamcon0).put(htotal).put(vtotal); }
 void chip_registers(Canon &c) { for (int i = 0; i < 256; ++i) c.put(custom_storage[i].value); }        // the last value written to each register (not its writer's pc)
+// T24c: the AGA palette as Agnus holds it (the body CAGA, which reads without side effects; Denise's copy and the registers that select the bank show in the picture and in CHIP). Nothing for a machine without AGA, so the chipset digest of the A500 and the A600 is the one it was.
+void chip_aga(Canon &c)
+{
+    if (!(currprefs.chipset_mask & CSMASK_AGA)) return;
+    uae_u8 buffer[1024 + 64];
+    size_t length = 0;
+    if (save_custom_agacolors(&length, buffer)) c.put(uint32_t(length)).raw(buffer, length);
+}
 
 const Probe kChipGroups[] = {{"beam", chip_beam}, {"counters", chip_counters}, {"irq_dma", chip_irq_dma}, {"clxdat", chip_clxdat}, {"lof", chip_lof},
-                             {"timing", chip_timing}, {"registers", chip_registers}};
+                             {"timing", chip_timing}, {"registers", chip_registers}, {"aga", chip_aga}};
 
 void chipset(Canon &c)
 {
@@ -455,13 +487,13 @@ void print_handler_table()
     struct Expected { uint8_t id; evfunc2 handler; };
     const Expected table[] = {{1, blitter_handler}, {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
                               {5, event_audxdat_func}, {6, event_setdsr}, {7, event_CIA_synced_interrupt}, {8, event_CIA_tod_inc_event},
-                              {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}};
+                              {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}, {12, p6_custom_event2_handler(3)}};
     for (const Expected &e : table) {
         const bool ok = e.handler && p6_state::scheduler_handler(e.id) == e.handler && p6_state::scheduler_handler_id(e.handler) == e.id;
         printf("handler %u %s\n", unsigned(e.id), ok ? "OK" : "BAD");
     }
     printf("handler 0 %s\n", !p6_state::scheduler_handler(0) && p6_state::scheduler_handler_id(nullptr) == 0 ? "OK" : "BAD");
-    printf("handler 12 %s\n", !p6_state::scheduler_handler(12) ? "OK" : "BAD");
+    printf("handler 13 %s\n", !p6_state::scheduler_handler(13) ? "OK" : "BAD");
     printf("handler foreign %s\n", p6_state::scheduler_handler_id(foreign_handler) == 0 ? "OK" : "BAD");
 }
 
@@ -628,6 +660,28 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 else if (!strcmp(op.chunk, "engine-axis")) r.joy_states[1][0][8] = r.joy_states[1][0][8] == 1 ? 0 : 1;
                 else r.mouse_buttonmask ^= 1;
                 p6_input_set(&r);
+            }
+            else if (!strncmp(op.chunk, "ce020-", 6)) {
+                // T24c: change one field of the cycle-exact 68020 that the CPU chunk carries, to show that it decides the future (a field that no program can notice would not need to travel).
+                // ce020-FIELD[:N]: the counter of extra cycles moves by N (9) modulo 16, the remainder below a colour clock by N units (half a colour clock) modulo a colour clock, the end
+                // of the last prefetch to N units before the present cycle (0), the span of the last memory cycle becomes N units (a colour clock) ending now, the count of
+                // instructions moves by N (1000), VBR by N (0x100), CACR flips its enable bit and a line of the instruction cache is invalidated and another one changed.
+                char what[32];
+                snprintf(what, sizeof what, "%s", op.chunk + 6);
+                long n = -1;
+                if (char *colon = strchr(what, ':')) {
+                    *colon = 0;
+                    n = strtol(colon + 1, nullptr, 0);
+                }
+                if (!strcmp(what, "extracycles")) regs.ce020extracycles = (regs.ce020extracycles + (n < 0 ? 9 : n)) % 16;
+                else if (!strcmp(what, "extra")) p6_custom_ce020_extra_set((p6_custom_ce020_extra_get() + (n < 0 ? CYCLE_UNIT / 2 : n)) % CYCLE_UNIT);
+                else if (!strcmp(what, "prefetchend")) regs.ce020prefetchendcycle = get_cycles() - (n < 0 ? 0 : n);
+                else if (!strcmp(what, "span")) { regs.ce020endcycle = get_cycles(); regs.ce020startcycle = regs.ce020endcycle - (n < 0 ? CYCLE_UNIT : n); }
+                else if (!strcmp(what, "instruction-cnt")) regs.instruction_cnt += n < 0 ? 1000 : int(n);
+                else if (!strcmp(what, "vbr")) regs.vbr += n < 0 ? 0x100 : uae_u32(n);
+                else if (!strcmp(what, "cacr")) regs.cacr ^= 1;
+                else if (!strcmp(what, "cache-line")) { uae_u32 d[CACHELINES020], t[CACHELINES020]; uae_u8 v[CACHELINES020]; p6_caches020_get(d, t, v, CACHELINES020); v[0] ^= 1; d[1] ^= 0xff; p6_caches020_set(d, t, v, CACHELINES020); }
+                else { fprintf(stderr, "unknown poke %s\n", op.chunk); exit(64); }
             }
             else if (!strcmp(op.chunk, "ev2-foreign")) event2_newevent_xx(-1, evt_t(3000) * CYCLE_UNIT, 0, foreign_handler);
             else if (!strcmp(op.chunk, "ev2-stale")) {
@@ -825,7 +879,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;

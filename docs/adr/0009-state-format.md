@@ -120,6 +120,36 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
    - Orden: T15h (sesion), T15i (cuerpos upstream en sus chunks + Apply sin reset + DET02 de punta a punta en los micro-ROM; T15i1-T15i3), T15d/T15e/T15f/T15g
      (extensiones guiadas por DET02) y el cierre T15.
 
+9. **Revision 2026-10-08 (T24c): el A1200 (68EC020 cycle exact, AGA, 2 MiB de Chip, sin reloj).** Misma regla del punto 8 (cuerpos upstream donde existen, extensiones minimas guiadas
+   por DET02, sin codec por campos paralelo), y el mismo contenedor: once chunks, mismas etiquetas, orden y version 1. El cuerpo de dos chunks sigue a la maquina, como el de P6RT en el
+   A600 (la maquina forma parte de la identidad, `config_hash`); el layout del A500 y del A600 no cambia en un solo byte con respecto a T23b.
+   - **P6CP**: tras el cuerpo del 68000 (sin cambios; la mascara de SR pasa de 0xA71F a 0xF71F, T0 y M) un bloque de 662 bytes: VBR, MSP, CAAR, SFC, DFC, CACR; la cola de prefetch
+     con su pipeline y la cache de instrucciones de 64 lineas (lo que el `save_cpu` de upstream guarda para un 68020; ese cuerpo esta bajo SAVESTATE, asi que se lee de `regs` y de
+     `caches020`, estatica del fichero, mediante el parche 0108); y lo que el nucleo cycle exact guarda entre dos instrucciones y que DET02 demostro decisivo, campo a campo:
+     `ce020extracycles` (un contador de 16 instrucciones que paga dos ciclos mas; una carga en proceso nuevo desplazaba la interrupcion cuatro ciclos), `ce020prefetchendcycle`
+     (un prefetch que empieza en el ciclo en que acabo el anterior paga dos; `master`, proceso nuevo), `ce020startcycle`/`ce020endcycle` (el tramo que `do_cycles_ce020_internal`
+     solapa con el ciclo de memoria en vuelo; `tone`, misma imagen), el resto sub-CCK de `do_cycles_ce020` (una estatica local de funcion, parche 0108; misma imagen) e
+     `instruction_cnt` (lo leen los hacks de audio que un 68020 activa, comparado con el `dmaofftime_cpu_cnt` absoluto que AUDP ya guarda; escenario `audio-dma-wait`, con los
+     limites dentro del hueco). No viajan, con su razon en el inventario: `cacheholdingdata_valid` y `fc030` (solo el prefetch del 68030, no compilado), `memory_waitstate_cycles`
+     (solo las placas de CPU), `ce020memcycle_data` y `ce020_tail*` (se escriben antes de leerse o estan bajo `#if 0`). `p6_cpu_boundary` deja pasar T0, M, VBR, SFC, DFC y MSP en un
+     68020 y los sigue rechazando en un 68000. Cada campo del bloque tiene un poke del probe que lo cambia en la maquina viva y cambia el futuro (`A1200NecessityTests`).
+   - **P6CH**: el sub-cuerpo CAGA, la paleta AGA de 256 entradas de 24 bits mas el bit de genlock (1024 bytes, `save_custom_agacolors`/`restore_custom_agacolors`, compilados bajo
+     `P6_STATE_BODIES` desde el parche 0108), justo despues de CHIP y solo en una maquina AGA (CHIP guarda 12 bits de las 32 primeras). BPLCON3, BPLCON4 y FMODE ya viajan en CHIP;
+     FMODE se valida con la mascara del registro (0xC00F). El id 12 del vocabulario de eventos es `setup_fmodes_delayed`, alcanzable solo con AGA. `p6_custom_rebuild_derived`
+     recalcula tambien `fetchmode_size`/`fetchmode_mask`, que `setup_fmodes` omite una vez que `fmode_inuse` iguala a FMODE.
+   - **P6VD**: PIXL viaja a **3 bytes por pixel** (R, G, B, en los mismos grupos de literales y repeticiones) en una maquina AGA, porque el codigo de 12 bits no puede nombrar un color de
+     24 bits y la imagen iria casi toda en crudo; un pixel con bits sobre los 24 hace fallar el guardado con un mensaje claro (el perfil no los produce). El A500 y el A600 conservan
+     el codigo de 12 bits. Ademas, en una maquina AGA, DRNG: el anillo por el que Agnus entrega sus datos a Denise (4096 ranuras de 22 bytes y sus cinco cursores, 90132 bytes, los
+     cursores por el parche 0109). El punto 6 supuso el anillo ocioso en la frontera; un programa que reescribe FMODE sin parar lo mantiene lleno y las primeras posiciones de una
+     linea dependen de lo que las ranuras guardan de la vuelta anterior del anillo y de donde esta el cursor (DET02 `aga-fmode-toggle`, imagen reiniciada: veinte pixeles a la izquierda
+     de la primera linea del display distintos tres cuadros despues de la carga; poniendo solo `rga_denise_cycle` al valor del original, la imagen era la del original).
+   - **P6AU**: el estado de un canal acepta tambien 0x13 (un canal en estado 3 al que se apaga el DMA sigue con un periodo manual y marca el estado con 0x10); la validacion lo rechazaba
+     y el guardado fallaba. Es una correccion de la validacion, comun a las tres maquinas; el layout no cambia.
+   - **Cota por maquina** (`retro_serialize_size`/`state_bound`, medidos en el probe): A500 3 608 513 bytes, A600 3 608 482 (31 menos: sin cuerpo de reloj), A1200 5 890 716. La del A1200 es
+     la del A600 mas 1 MiB de Chip (2 MiB frente a 1), 8 + 1024 (CAGA), 8 + 90132 (DRNG), 662 (bloque del 68020) y el raster a tres bytes por pixel en lugar de dos
+     (1824 x 626 = 1 141 824 bytes mas); `tests/state/test_state_a1200.py` lo comprueba al byte. Un estado de un A1200 con un programa de dos colores ocupa unos 2,2 MB; con una imagen AGA
+     llena de colores, algo mas; no hay compatibilidad entre maquinas: un estado de una es INCOMPATIBLE en otra por `config_hash`, antes de tocar nada.
+
 ## Evidencia
 
 - Inventario: 142 componentes; dentro del perfil: 41 `extension`, 34 `serialize_extended`, 23 `rebuild`, 11 `serialize`, 17 `noncausal`.

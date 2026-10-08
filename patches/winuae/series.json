@@ -2921,6 +2921,65 @@
           "after_sha256": "97def62b8141f0a2904e932ac78dae2b2ba42391a5c4d3edb707ffca0e0c5167"
         }
       ]
+    },
+    {
+      "id": "0108-cpu-020-aga-state-access",
+      "file": "patches/winuae/0108-cpu-020-aga-state-access.patch",
+      "sha256": "f2ea496b34a87bcfbbec55352a81c2909808a5e1c0bdaa4700316c36cc6cb78e",
+      "title": "State access for the 68020 and AGA: the instruction cache, the CE020 remainder, the AGA palette body and the fetch size",
+      "reason": "T24c: the native state of the A1200 needs what the 68020 keeps in file-local variables (caches020, the sub-CCK remainder of do_cycles_ce020), the AGA palette body (save_custom_agacolors/restore_custom_agacolors were only under SAVESTATE), the handler id of setup_fmodes_delayed, the size of a fetch that p6_custom_rebuild_derived left to setup_fmodes (which skips it once fmode_inuse equals FMODE) and a boundary check that no longer refuses the registers a 68020 has.",
+      "category": "host hooks",
+      "order": 108,
+      "symbols": [
+        "do_cycles_ce020",
+        "p6_cpu_boundary",
+        "p6_caches020_get",
+        "p6_caches020_set",
+        "p6_custom_ce020_extra_get",
+        "p6_custom_ce020_extra_set",
+        "p6_custom_event2_handler",
+        "p6_custom_rebuild_derived",
+        "restore_custom_agacolors",
+        "save_custom_agacolors"
+      ],
+      "test": "tests/state/test_det02_a1200.py; tests/state/test_state_a1200.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "fabf05e86f27cddbaafb45af69233008e42d094ace81dedf37ec4bf3ad64870b",
+          "after_sha256": "45fa44df81157d4b1bb42b0d4f4a1ee70e6d5e27019e669c63890cef7adfcb85"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "8df4adf79bc25d7a81610536c3d6d8b1f4aa79dd776bab07432fcba1d4d7265c",
+          "after_sha256": "aad0b18349106f4d7fad69de0fd0a070574232edc2dfb6c4806be4335baf88ee"
+        }
+      ]
+    },
+    {
+      "id": "0109-denise-ring-state-access",
+      "file": "patches/winuae/0109-denise-ring-state-access.patch",
+      "sha256": "47d59200422e9416ec50f2e108f210ca01e18d29c3c2e8ef7a1fcffcb1a2cdd3",
+      "title": "State access for the Agnus-to-Denise ring cursors",
+      "reason": "T24c: DET02 on the A1200 (the program rewrites FMODE all the time) shows that the first pixels of a line depend on what the slots of rga_denise held from an earlier revolution, which the position of the write cursor selects; the slots are public but the cursors are file-local statics of custom.cpp.",
+      "category": "host hooks",
+      "order": 109,
+      "symbols": [
+        "p6_denise_ring_cursors_get",
+        "p6_denise_ring_cursors_set"
+      ],
+      "test": "tests/state/test_det02_a1200.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "aad0b18349106f4d7fad69de0fd0a070574232edc2dfb6c4806be4335baf88ee",
+          "after_sha256": "bb1355847b44bf87d5d741262ec827c2de9f19e4bef64504643ae9ed9e4d7c56"
+        }
+      ]
     }
   ]
 }

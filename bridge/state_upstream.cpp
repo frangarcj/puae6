@@ -4,9 +4,9 @@
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (164), the last ours and not upstream's
-//   P6CH  CHIP (360), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (268), COPR (60) and BLTP (72), the last three ours and not upstream's
+//   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (268), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each) and AUDP (340), ours and not upstream's
-//   P6VD  BPLX (292), DNSP (64), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last three ours and not upstream's
+//   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
 //
 // BEAM (patch 0103 added four words) also carries the first and last line of the vertical display window and the flag that tests them: calcvdiw derives the lines from the registers and
 // restore_custom runs it, but custom_reset does not, so a machine that never wrote DIWSTRT has other lines than the one that loaded its state, and the vertical window bit that DIWHIGH
@@ -58,7 +58,9 @@
 //
 // PIXL (the eighth) (patch 0103, p6_frame_raster): the rows of the drawing buffer, which the renderer writes only where it draws, so that a unit without drawing, or the other field of an
 // interlaced picture, hands over what the history before the state left there. It has no length of its own: its width and height are the allocation GEOM names, the pixels travel as the
-// 12 bits of the chipset colour in groups of literals and repeats (see visit_raster), and the bound is the one of the largest buffer the presentation can hold.
+// 12 bits of the chipset colour in groups of literals and repeats (see visit_raster), and the bound is the one of the largest buffer the presentation can hold. On an AGA machine
+// (T24c) the colours have 24 bits and a pixel travels as three bytes (R, G, B) in the same groups, with its own bound; DRNG (patch 0109), also AGA only, is the ring through which
+// Agnus hands Denise its data, 4096 slots and five cursors, because a program that rewrites FMODE all the time keeps it full at the boundary.
 //
 // DSKX (the seventh) (patch 0101, p6_disk_phase_get, p6_disk_phase_set and p6_disk_newname_set): what the floppy controller keeps that DISK, DSKn and DSDn do not. DISK carries only
 // the low byte of disk_hpos, so a machine that a CPU access to DSKBYTR had brought up to the middle of a line was brought up from the start of it after a load and read
@@ -125,6 +127,8 @@ extern void p6_custom_rebuild_derived(void);                    // custom.cpp 00
 extern void p6_denise_rebuild_derived(void);                    // drawing.cpp 0100
 extern bool p6_denise_pipe_get(int32_t *out, unsigned n);
 extern bool p6_denise_pipe_set(const int32_t *in, unsigned n);
+extern bool p6_denise_ring_cursors_get(int32_t *out, unsigned n);       // custom.cpp 0109
+extern bool p6_denise_ring_cursors_set(const int32_t *in, unsigned n);
 extern bool p6_frame_geometry_get(int32_t *out, unsigned n);    // custom.cpp 0100
 extern bool p6_frame_geometry_set(const int32_t *in, unsigned n);
 extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first);     // custom.cpp 0103
@@ -146,7 +150,9 @@ constexpr uint32_t kMfmWordsMax = 0x4000;
 constexpr uint32_t kMfmBitsMax = kMfmWordsMax * 16;
 constexpr uint32_t kDsdFixed = 4 + 2 + 4 + 2 + 4 + 4 + 2;
 constexpr uint32_t kDsdMax = kDsdFixed + kMfmWordsMax * 4;
-constexpr size_t kWork = kDsdMax + 64;
+constexpr uint32_t kRingSlots = DENISE_RGA_SLOT_TOTAL, kRingSlotBytes = 22, kRingCursors = 5;
+constexpr uint32_t kRingBytes = kRingCursors * 4 + kRingSlots * kRingSlotBytes;
+constexpr size_t kWork = (kDsdMax > kRingBytes ? kDsdMax : kRingBytes) + 64;
 constexpr unsigned kCylinderMax = 80 + 3;       // hard_num_cyls of a 3.5" drive and the three steps drive_step allows beyond it
 constexpr uint32_t kDriveId35DD = 0xFFFFFFFFu;  // DRIVE_ID_35DD of disk.cpp; DRIVE_ID_NONE is 0
 
@@ -180,6 +186,7 @@ struct Sub {
     const char *(*check)(const Sub &sub, const Body &body, Seen &seen); // nullptr: acceptable, otherwise why not
     int index;
     bool whole;                     // restore_* reads every byte of the body (restore_blitter reads 4 of the 63)
+    bool aga_only = false;          // a body of the AGA machines alone (T24c): the other machines have no such body, not an empty one
 };
 
 uint8_t *produce_dsk(int n, size_t *len, uint8_t *w) { return save_disk(n, len, w, false); }
@@ -197,8 +204,10 @@ uint8_t *produce_bltp(int, size_t *len, uint8_t *w);
 uint8_t *produce_audp(int, size_t *len, uint8_t *w);
 uint8_t *produce_dnsp(int, size_t *len, uint8_t *w);
 uint8_t *produce_geom(int, size_t *len, uint8_t *w);
+uint8_t *produce_drng(int, size_t *len, uint8_t *w);
 uint8_t *produce_dskx(int, size_t *len, uint8_t *w);
 uint8_t *produce_bplx(int, size_t *len, uint8_t *w) { return save_custom_bpl(len, w); }
+uint8_t *produce_caga(int, size_t *len, uint8_t *w) { return save_custom_agacolors(len, w); }
 
 uint8_t *apply_dsk(int n, uint8_t *b) { return restore_disk(n, b); }
 uint8_t *apply_dsd(int n, uint8_t *b) { return restore_disk2(n, b); }
@@ -215,8 +224,10 @@ uint8_t *apply_bltp(int, uint8_t *b);
 uint8_t *apply_audp(int, uint8_t *b);
 uint8_t *apply_dnsp(int, uint8_t *b);
 uint8_t *apply_geom(int, uint8_t *b);
+uint8_t *apply_drng(int, uint8_t *b);
 uint8_t *apply_dskx(int, uint8_t *b);
 uint8_t *apply_bplx(int, uint8_t *b) { return restore_custom_bpl(b); }
+uint8_t *apply_caga(int, uint8_t *b) { return restore_custom_agacolors(b); }
 
 // -- BEAM: the position of the beam and the phase of the frame (patch 0094) ---------------------------------------------------------------------------
 
@@ -363,6 +374,62 @@ uint8_t *apply_dnsp(int, uint8_t *body)
     return p6_denise_pipe_set(words, kDenisePipeWords) ? body + kDenisePipeBytes : nullptr;
 }
 
+// -- DRNG: the ring through which Agnus hands Denise its data, on an AGA machine (patch 0109) -----------------------------------------------------------------
+
+// 5 words of cursors (the write cursor, the first slot of the line, the line counter that tags the slots, the two slot counts of the line), then the 4096 slots of 22 bytes: the data
+// word (64 bits, of which the writers of a 16 or 32-bit access leave the upper half as it was), the register, the line it was written in, the flags and the pointer. The ring is
+// not empty at a boundary when the program writes a Denise register all the time (DET02 aga-fmode-toggle), and the line being drawn reads what a slot still holds from the revolution
+// before, which the position of the cursor selects: so the ring and its cursors are state. Not on the OCS and ECS machines, whose ring is idle there (their layout did not change).
+uint8_t *produce_drng(int, size_t *len, uint8_t *w)
+{
+    int32_t cursors[kRingCursors];
+    if (!p6_denise_ring_cursors_get(cursors, kRingCursors)) return nullptr;
+    uint8_t *p = w;
+    const auto put = [&p](uint64_t v, unsigned bytes) { for (unsigned b = 0; b < bytes; ++b) *p++ = uint8_t(v >> (8 * (bytes - 1 - b))); };
+    for (int32_t c : cursors) put(uint32_t(c), 4);
+    for (uint32_t i = 0; i < kRingSlots; ++i) {
+        const denise_rga &r = rga_denise[i];
+        put(r.v64, 8);
+        put(r.rga, 2);
+        put(r.line, 4);
+        put(r.flags, 4);
+        put(r.pt, 4);
+    }
+    *len = size_t(p - w);
+    return w;
+}
+
+uint8_t *apply_drng(int, uint8_t *body)
+{
+    const Body b{body, kRingBytes};
+    int32_t cursors[kRingCursors];
+    for (uint32_t i = 0; i < kRingCursors; ++i) cursors[i] = int32_t(b.u32(i * 4));
+    if (!p6_denise_ring_cursors_set(cursors, kRingCursors)) return nullptr;
+    uint32_t at = kRingCursors * 4;
+    for (uint32_t i = 0; i < kRingSlots; ++i, at += kRingSlotBytes) {
+        denise_rga &r = rga_denise[i];
+        r.v64 = uint64_t(b.u32(at)) << 32 | b.u32(at + 4);
+        r.rga = uint16_t(b.u16(at + 8));
+        r.line = b.u32(at + 10);
+        r.flags = b.u32(at + 14);
+        r.pt = b.u32(at + 18);
+    }
+    return body + kRingBytes;
+}
+
+// The cursors are indexes into the ring; a slot names a register of the chipset (even, up to 0x1FE, which also marks an empty slot) and the flags are the eight bits of the sync and
+// line-length latches (DENISE_RGA_FLAG_*).
+const char *check_drng(const Sub &, const Body &b, Seen &)
+{
+    if (b.u32(0) >= kRingSlots || b.u32(4) >= kRingSlots) return "a cursor of the Denise ring is beyond its last slot";
+    if (int32_t(b.u32(12)) < 0 || int32_t(b.u32(16)) < 0) return "a slot count of the Denise ring is negative";
+    for (uint32_t i = 0, at = kRingCursors * 4; i < kRingSlots; ++i, at += kRingSlotBytes) {
+        if (b.u16(at + 8) > 0x1fe || (b.u16(at + 8) & 1)) return "a slot of the Denise ring names a register the chipset does not have";
+        if (b.u32(at + 14) > 0xff) return "a slot of the Denise ring has flags the latches do not have";
+    }
+    return nullptr;
+}
+
 // -- GEOM: the raster the machine has settled on (patch 0100) ------------------------------------------------------------------------------------------
 
 // The words of the body, in the order of p6_frame_geometry_get.
@@ -411,8 +478,14 @@ RasterSize g_raster;
 // that many pixels plus one follow (at most 128), one from 0x80 says that the next pixel repeats that many times plus one (at most 128). Rows run in order, the width is fixed, and
 // nothing counts bytes, so a state cannot lie about its own length.
 constexpr uint32_t kRasterGroup = 128;
-constexpr uint64_t kRasterBound = uint64_t(P6_VIDEO_MAX_HEIGHT) * (uint64_t(P6_VIDEO_MAX_WIDTH) * 2 + (P6_VIDEO_MAX_WIDTH + kRasterGroup - 1) / kRasterGroup);
+constexpr uint64_t kRasterBoundOcsEcs = uint64_t(P6_VIDEO_MAX_HEIGHT) * (uint64_t(P6_VIDEO_MAX_WIDTH) * 2 + (P6_VIDEO_MAX_WIDTH + kRasterGroup - 1) / kRasterGroup);
+// With AGA (T24c) the colours are 24 bits and almost none is one of the 4096 of the 12-bit code, so the picture travels as 3 bytes per pixel (R, G, B) in the same groups.
+constexpr uint64_t kRasterBoundAga = uint64_t(P6_VIDEO_MAX_HEIGHT) * (uint64_t(P6_VIDEO_MAX_WIDTH) * 3 + (P6_VIDEO_MAX_WIDTH + kRasterGroup - 1) / kRasterGroup);
 constexpr uint16_t kRasterRaw = 0xffff;
+
+// The machine decides the code of the pixels (the identity carries the machine, so the code is never a choice of the state): AGA machines use the 24-bit one.
+bool aga_machine() { return (currprefs.chipset_mask & CSMASK_AGA) != 0; }
+uint64_t raster_bound() { return aga_machine() ? kRasterBoundAga : kRasterBoundOcsEcs; }
 
 bool colour_code(uint32_t pixel, uint16_t *code)
 {
@@ -432,21 +505,35 @@ void fail_in(Archive &a, const char *tag, const char *why);
 // The bytes the encoder writes, to the archive or to a count: one function describes the groups, so the length the body announces is the one it has.
 struct CountSink {
     uint64_t bytes = 0;
+    bool unencodable = false;       // a pixel with bits above the 24 of the colour on an AGA machine
     void put8(uint8_t) { bytes += 1; }
     void put16(uint16_t) { bytes += 2; }
     void put32(uint32_t) { bytes += 4; }
+    void put_rgb(uint32_t pixel)
+    {
+        bytes += 3;
+        if (pixel >> 24) unencodable = true;
+    }
 };
 struct ArchiveSink {
     Archive &a;
     void put8(uint8_t v) { a.val<uint8_t>(v, "video.group"); }
     void put16(uint16_t v) { a.val<uint16_t>(v, "video.pixel"); }
     void put32(uint32_t v) { a.val<uint32_t>(v, "video.pixel_word"); }
+    void put_rgb(uint32_t pixel)
+    {
+        a.val<uint8_t>(uint8_t(pixel >> 16), "video.pixel_r");
+        a.val<uint8_t>(uint8_t(pixel >> 8), "video.pixel_g");
+        a.val<uint8_t>(uint8_t(pixel), "video.pixel_b");
+    }
 };
 
-template <class Sink> void put_pixel(Sink &sink, uint32_t pixel)
+template <class Sink> void put_pixel(Sink &sink, uint32_t pixel, bool wide)
 {
     uint16_t code;
-    if (colour_code(pixel, &code)) {
+    if (wide) {
+        sink.put_rgb(pixel);
+    } else if (colour_code(pixel, &code)) {
         sink.put16(code);
     } else {
         sink.put16(kRasterRaw);
@@ -454,7 +541,7 @@ template <class Sink> void put_pixel(Sink &sink, uint32_t pixel)
     }
 }
 
-template <class Sink> void encode_raster(Sink &sink, const uint8_t *first, int stride, uint32_t width, uint32_t height)
+template <class Sink> void encode_raster(Sink &sink, const uint8_t *first, int stride, uint32_t width, uint32_t height, bool wide)
 {
     for (uint32_t y = 0; y < height; ++y) {
         const uint32_t *pixels = reinterpret_cast<const uint32_t *>(first + size_t(y) * size_t(stride));
@@ -464,7 +551,7 @@ template <class Sink> void encode_raster(Sink &sink, const uint8_t *first, int s
             while (x + run < width && run < kRasterGroup && pixels[x + run] == pixels[x]) ++run;
             if (run >= 3) {
                 sink.put8(uint8_t(0x80 | (run - 1)));
-                put_pixel(sink, pixels[x]);
+                put_pixel(sink, pixels[x], wide);
                 x += run;
                 continue;
             }
@@ -473,14 +560,18 @@ template <class Sink> void encode_raster(Sink &sink, const uint8_t *first, int s
                    !(x + count + 2 < width && pixels[x + count] == pixels[x + count + 1] && pixels[x + count] == pixels[x + count + 2]))
                 ++count;
             sink.put8(uint8_t(count - 1));
-            for (uint32_t i = 0; i < count; ++i) put_pixel(sink, pixels[x + i]);
+            for (uint32_t i = 0; i < count; ++i) put_pixel(sink, pixels[x + i], wide);
             x += count;
         }
     }
 }
 
-uint32_t get_pixel(Archive &a)
+uint32_t get_pixel(Archive &a, bool wide)
 {
+    if (wide) {
+        const uint32_t r = a.val<uint8_t>(0, "video.pixel_r"), g = a.val<uint8_t>(0, "video.pixel_g"), b = a.val<uint8_t>(0, "video.pixel_b");
+        return r << 16 | g << 8 | b;
+    }
     const uint16_t code = a.val<uint16_t>(0, "video.pixel");
     if (code < 0x1000) return colour_pixel(code);
     if (code == kRasterRaw) return a.val<uint32_t>(0, "video.pixel_word");
@@ -495,7 +586,7 @@ void visit_raster(Archive &a)
     if (a.mode() == Mode::Measure) {
         a.bytes(const_cast<char *>(kTag), 4, "PIXL");
         a.val<uint32_t>(0, "video.raster_length");
-        a.bytes(nullptr, kRasterBound, "video.raster");
+        a.bytes(nullptr, raster_bound(), "video.raster");
         return;
     }
     int live_width = 0, live_height = 0, stride = 0;
@@ -508,20 +599,25 @@ void visit_raster(Archive &a)
     const uint32_t width = g_raster.width, height = g_raster.height;
     if (have) a.require(uint32_t(live_width) == width && uint32_t(live_height) == height, "PIXL: the picture is not the size of the buffer the machine has");
     if (!a.ok()) return;
+    const bool wide = aga_machine();
     if (a.mode() == Mode::Save) {
         CountSink count;
-        encode_raster(count, first, stride, width, height);
+        encode_raster(count, first, stride, width, height, wide);
+        if (count.unencodable) {
+            a.fail("PIXL: a pixel of the picture has bits above the 24 of the colour, which no AGA state carries");
+            return;
+        }
         a.bytes(const_cast<char *>(kTag), 4, "PIXL");
         a.val<uint32_t>(uint32_t(count.bytes), "video.raster_length");
         ArchiveSink sink{a};
-        encode_raster(sink, first, stride, width, height);
+        encode_raster(sink, first, stride, width, height, wide);
         return;
     }
     char tag[4];
     for (char &c : tag) c = char(a.val<uint8_t>(0, "video.raster_tag"));
     if (a.ok() && memcmp(tag, kTag, 4)) fail_in(a, "PIXL", "another body, or this one out of its place");
     const uint32_t length = a.val<uint32_t>(0, "video.raster_length");
-    if (a.ok() && length > kRasterBound) fail_in(a, "PIXL", "the length is beyond the largest picture the presentation can hold");
+    if (a.ok() && length > raster_bound()) fail_in(a, "PIXL", "the length is beyond the largest picture the presentation can hold");
     if (!a.ok()) return;
     const uint64_t start = a.position();
     const auto row = [&](uint32_t y) { return reinterpret_cast<uint32_t *>(first + size_t(y) * size_t(stride)); };
@@ -535,12 +631,12 @@ void visit_raster(Archive &a)
                 return;
             }
             if (token & 0x80) {
-                const uint32_t pixel = get_pixel(a);
+                const uint32_t pixel = get_pixel(a, wide);
                 if (a.applying() && a.ok())
                     for (uint32_t i = 0; i < count; ++i) row(y)[x + i] = pixel;
             } else {
                 for (uint32_t i = 0; i < count && a.ok(); ++i) {
-                    const uint32_t pixel = get_pixel(a);
+                    const uint32_t pixel = get_pixel(a, wide);
                     if (a.applying() && a.ok()) row(y)[x + i] = pixel;
                 }
             }
@@ -665,12 +761,21 @@ const char *check_dskx(const Sub &, const Body &b, Seen &seen)
     return nullptr;
 }
 
-// CHIP: the chipset flags u32, then the register image. The chipset and the video standard are the configuration; FMODE is zero without AGA.
+// CHIP: the chipset flags u32, then the register image. The chipset and the video standard are the configuration; FMODE is zero without AGA and, with it, the bits the register
+// has (the two fetch modes and the two scan-doubling flags: FMODE() masks the write with 0xC00F).
 const char *check_chip(const Sub &, const Body &b, Seen &)
 {
     if (b.u32(0) != (uint32_t(currprefs.chipset_mask) | 0x100)) return "the chipset is not the one of this configuration";
     if (b.u16(350) != (0x8000u | (currprefs.ntscmode ? 1u : 0u))) return "the video standard is not the one of this configuration";
-    if (b.u16(352) != 0) return "FMODE is set in a chipset that has none";
+    if (b.u16(352) & ~(aga_machine() ? 0xC00Fu : 0u)) return aga_machine() ? "FMODE has a bit the register does not" : "FMODE is set in a chipset that has none";
+    return nullptr;
+}
+
+// CAGA: 256 colours, each 24 bits and the genlock bit in bit 31 (save_custom_agacolors).
+const char *check_caga(const Sub &, const Body &b, Seen &)
+{
+    for (uint32_t at = 0; at < 256 * 4; at += 4)
+        if (b.u32(at) & 0x7f000000) return "a colour of the AGA palette has bits between the 24 of the colour and the genlock bit";
     return nullptr;
 }
 
@@ -727,9 +832,11 @@ const char *check_spr(const Sub &, const Body &b, Seen &)
 }
 
 // AUDn: state u8, volume u8, interrupt flag u8, flags u8 (1 request, 2 request pending, 0x80 always), length, wlength, period, data u16, lc, pt, evtime u32, hpos u8.
+// The state is 0 to 5, or 0x13: a channel in state 3 whose DMA has been switched off (loadperm1) goes on with a "manual period" and marks the state with 0x10 until it reaches 2 (T24c: the
+// tracker-style loop of DET02 audio-dma-wait switches the DMA off while a sample plays, which the 68000 scenarios never did; the engine's own restore_audio takes the byte as it is).
 const char *check_aud(const Sub &sub, const Body &b, Seen &seen)
 {
-    if (b.u8(0) > 5) return "the state of the channel is beyond 5";
+    if (b.u8(0) > 5 && b.u8(0) != 0x13) return "the state of the channel is beyond 5 and is not the 0x13 of a channel whose DMA was switched off";
     if (b.u8(2) > 1) return "the interrupt flag is not a flag";
     if ((b.u8(3) & 0xFC) != 0x80) return "the flags of the channel are not the ones save_audio writes";
     seen.aud_period[sub.index] = uint16_t(b.u16(8));
@@ -886,7 +993,8 @@ constexpr Sub kDiskBodies[] = {
     {"DSKX", kDiskPhaseBytes, kDiskPhaseBytes, produce_dskx, apply_dskx, check_dskx, 0, true},
 };
 constexpr Sub kChipsetBodies[] = {
-    {"CHIP", 360, 360, produce_chip, apply_chip, check_chip, 0, true}, {"BLTX", 226, 226, produce_bltx, apply_bltx, check_bltx, 0, true},
+    {"CHIP", 360, 360, produce_chip, apply_chip, check_chip, 0, true}, {"CAGA", 1024, 1024, produce_caga, apply_caga, check_caga, 0, true, true},
+    {"BLTX", 226, 226, produce_bltx, apply_bltx, check_bltx, 0, true},
     {"BLIT", 63, 63, produce_blit, apply_blit, check_blit, 0, false}, {"CHSL", 245, 245, produce_chsl, apply_chsl, check_chsl, 0, true},
     {"SPR0", 25, 25, produce_spr, apply_spr, check_spr, 0, true}, {"SPR1", 25, 25, produce_spr, apply_spr, check_spr, 1, true},
     {"SPR2", 25, 25, produce_spr, apply_spr, check_spr, 2, true}, {"SPR3", 25, 25, produce_spr, apply_spr, check_spr, 3, true},
@@ -904,6 +1012,7 @@ constexpr Sub kAudioBodies[] = {
 constexpr Sub kVideoBodies[] = {
     {"BPLX", 292, 292, produce_bplx, apply_bplx, check_bplx, 0, true},
     {"DNSP", kDenisePipeBytes, kDenisePipeBytes, produce_dnsp, apply_dnsp, check_dnsp, 0, true},
+    {"DRNG", kRingBytes, kRingBytes, produce_drng, apply_drng, check_drng, 0, true, true},
     {"GEOM", kGeometryBytes, kGeometryBytes, produce_geom, apply_geom, check_geom, 0, true},
 };
 
@@ -970,6 +1079,7 @@ template <size_t N> void visit_bodies(Archive &a, const Sub (&subs)[N], void (*f
     Seen seen = {};
     const ApplyScope scope(a.applying());
     for (const Sub &sub : subs) {
+        if (sub.aga_only && !aga_machine()) continue;
         uint32_t length = sub.maximum;      // Measure: the largest body, whatever the machine holds
         if (a.mode() == Mode::Save) {
             size_t produced = 0;

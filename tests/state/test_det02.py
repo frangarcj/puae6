@@ -93,7 +93,7 @@ from tests.scenarios.audio.audio import Tone, rom_source as tone_source
 
 # What of the chipset digest is compared, by group. "registers" (custom_storage, the last value written to each register) is left out: the engine only writes it, for its debugger,
 # and a restored machine, which never saw the writes, cannot have it; nothing that runs reads it.
-CHIP_GROUPS = ("beam", "counters", "irq_dma", "clxdat", "lof", "timing")
+CHIP_GROUPS = ("beam", "counters", "irq_dma", "clxdat", "lof", "timing", "aga")       # "aga" (T24c) is the AGA palette: empty, so always equal, on a machine without AGA
 UNITS_AFTER = 6         # M: units that run after the load
 LONG_AFTER = 110        # the units after the load of the scenarios whose extra arguments are named in HORIZONS: a delayed disk change lands 2 * 50 * 312 lines (100 frames) after the swap
 HORIZONS = {"change-long": LONG_AFTER, "swap": LONG_AFTER}

@@ -18,6 +18,7 @@ from tests.state.harness import ProbeCase, SCENARIOS, TRACE, USER  # noqa: E402
 
 INVENTORY = json.loads((ROOT / "manifests/state-inventory.json").read_text())["savestate"]
 CLOSED = {"cpu": {"P6CP": "T15b1"}, "scheduler": {"P6SC": "T15b2"}}      # subsystem -> chunk and the task that wrote it
+EXTENDED = {"cpu-020plus-caches-and-fallback": "T24c"}                     # components a later task added to the chunk (the block of the 68020 in P6CP)
 CAUSAL = {"serialize", "serialize_extended", "extension"}
 
 
@@ -32,7 +33,8 @@ class InventoryClosureTests(unittest.TestCase):
                 if component["policy"] in CAUSAL:
                     native = component.get("native_state")
                     self.assertIsNotNone(native, "a causal component without the chunk that carries it")
-                    self.assertEqual(CLOSED[component["subsystem"]], {native["chunk"]: native["task"]})
+                    (chunk, task), = CLOSED[component["subsystem"]].items()
+                    self.assertEqual({chunk: EXTENDED.get(component["id"], task)}, {native["chunk"]: native["task"]})
                     path = native["proves"].split(":")[0]
                     self.assertTrue((ROOT / path).is_file(), f"the test {path} does not exist")
                     self.assertEqual("implemented", component["probe"]["status"], "a probe digest that sees what the chunk carries")
@@ -40,7 +42,7 @@ class InventoryClosureTests(unittest.TestCase):
                     self.assertIn("T15b", component["rebuild"], "a derived component says what rebuilds it after a restore")
                 else:
                     self.assertEqual("noncausal", component["policy"])
-        self.assertEqual(25, found)
+        self.assertEqual(26, found)         # 25 and, since T24c, the 68020 state of the A1200
 
 
 class ClosureTests(ProbeCase):

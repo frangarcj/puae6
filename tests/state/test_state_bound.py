@@ -10,6 +10,7 @@ the sum of the chunks' maxima, and the load that follows is accepted.
 import hashlib
 import unittest
 
+from tests.host.test_bridge_lifecycle import builder
 from tests.state.harness import ProbeCase
 
 MAX_MEDIA = 16          # P6_MAX_MEDIA
@@ -18,6 +19,7 @@ UNITS = 30
 
 class BoundTests(ProbeCase):
     ROMS = {"vsync": ("vsync", None, None)}
+    BOUND_LIMIT = 4 << 20          # what the bound of any configuration of the machine stays under: its RAM, its devices and the largest picture the presentation can hold
 
     @classmethod
     def setUpClass(cls):
@@ -99,7 +101,7 @@ class BoundTests(ProbeCase):
                         seen[(standard, rate, count)] = size_bound
         self.assertEqual(2 * 2 * (MAX_MEDIA + 1), len(seen))
         # The bound is a function of the configuration and the registered media, and it never exceeds the largest of them: nothing in it scales with the media beyond the manifest.
-        self.assertLess(max(seen.values()), 4 << 20, "the A500 profile is its RAM (about 1 MiB) and some tens of KiB of devices, not the media")
+        self.assertLess(max(seen.values()), self.BOUND_LIMIT, "the profile is its RAM, some tens of KiB of devices and the largest picture, not the media")
 
 
 class A600BoundTests(BoundTests):
@@ -119,6 +121,27 @@ class A600BoundTests(BoundTests):
             self.assertEqual(len(path.read_bytes()), written)
             bounds[machine] = bound
         self.assertEqual(31, bounds["a500"] - bounds["a600"], "the two bounds differ by the clock body and nothing else (the video chunk's maximum is the same)")
+
+
+class A1200BoundTests(BoundTests):
+    """T24c: the same four tests on the A1200 (2 MiB Chip, AGA). Its bound is the largest of the three machines: the Chip RAM, the picture at three bytes a pixel, the palette and the ring of Denise.
+    The arithmetic of each machine's bound to the byte is in tests/state/test_state_a1200.py."""
+
+    MACHINE = "a1200"
+    BOUND_LIMIT = 6 << 20
+
+    def test_the_bound_of_the_a1200_covers_a_state_of_a_picture_full_of_colours(self):
+        # The picture of an AGA program whose colours are not those of the 12-bit code (tests/state/test_det02_a1200.py aga-8planes): three bytes a pixel in the worst case, and the state
+        # is far from the bound of the largest picture the presentation holds.
+        from tests.state import test_det02_a1200 as a1200
+        self.roms["aga"] = self.dir / "aga.rom"
+        self.roms["aga"].write_bytes(builder.build(a1200.ROMS["aga-8planes"][0]))
+        path = self.dir / "aga.state"
+        run = self.probe("aga", "--units", "6", "--public-at", "6", "--public-save-at", "6", str(path))
+        (_, bound, written, _), = run.public_size
+        self.assertLessEqual(written, bound)
+        self.assertGreater(written, 2 << 20)
+        self.assertGreater(bound, 4 << 20)
 
 
 if __name__ == "__main__":
