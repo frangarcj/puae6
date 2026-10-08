@@ -5,7 +5,8 @@
 // its own headers (and the portable SHA-256) only; nothing of the engine is visible here.
 //
 // Content (T17a): the Kickstart is looked up by known file names in the frontend's system directory and identified by the bridge from its bytes
-// (never by its name); the content is an ADF, an M3U playlist of ADFs, or nothing (the Kickstart boots alone). Files are read through the
+// (never by its name); the content is a disk, an M3U playlist of disks, or nothing (the Kickstart boots alone). A disk is an ADF, an ADZ, a DMS or a ZIP of one
+// of them, decoded in memory to its ADF by container.h; the SHA-256 of the ADF is the medium's identity, whatever the container (T17d). Files are read through the
 // frontend's VFS when it offers one and through stdio otherwise. Disks are read-only. Every image of the playlist is registered with p6_load,
 // and the Disk Control interface only records what the frontend asks: the next retro_run turns it into p6_media_event_enqueue calls, so a
 // change lands on one unit boundary (see disk_control.h).
@@ -24,9 +25,10 @@
 // "Joystick only" (the mouse wins otherwise: see input_map.h). What the adapter keeps
 // between two runs for the input (the Caps Lock latch, mouse movement that did not fit a unit) is part of the saved adapter section.
 //
-// What this adapter does not do yet (see docs/02-contracts.md and the plan): the other floppy formats (T17d), and any memory region.
+// What this adapter does not do yet (see docs/02-contracts.md and the plan): any memory region. IPF, FDI and the other floppy formats are refused with a message (container.h).
 #include "libretro.h"
 #include "p6.h"
+#include "container.h"
 #include "content.h"
 #include "disk_control.h"
 #include "input_map.h"
@@ -50,7 +52,6 @@ namespace {
 
 constexpr size_t kPendingAudioFrames = 16384;     // a stalled frontend may hold this many stereo frames back; older ones are dropped
 constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500 family; what the file claims never decides an allocation
-constexpr size_t kAdfBytes = 901120;              // 80 cylinders x 2 sides x 11 sectors x 512 bytes: what the bridge accepts as an ADF
 
 // The Kickstart 1.3 of the A500, by the names the community and PUAE5 give it in a system directory. A name only finds the file: what it is,
 // is decided by p6_load from the bytes.
@@ -342,30 +343,36 @@ bool load_disks(const retro_game_info *game, std::vector<Medium> *media, std::ve
         if (playlist.save_disks_ignored)
             log(RETRO_LOG_WARN, "%u #SAVEDISK line(s) of the playlist are ignored: the disks are read-only", playlist.save_disks_ignored);
         entries = std::move(playlist.entries);
-    } else if (has_extension(content, "adf")) {
+    } else if (is_disk_extension(content)) {
         entries.push_back({content, without_extension(file_name(content))});
+    } else if (const char *reason = unsupported_format_reason(content)) {
+        notify_error("%s cannot be loaded: %s", content.c_str(), reason);
+        return false;
     } else {
-        notify_error("%s is not content this core loads (an .adf disk or an .m3u playlist of them)", content.c_str());
+        notify_error("%s is not content this core loads (an .adf, .adz, .dms or .zip disk or an .m3u playlist of them)", content.c_str());
         return false;
     }
     for (size_t i = 0; i < entries.size(); ++i) {
         const PlaylistEntry &entry = entries[i];
-        if (!has_extension(entry.path, "adf")) {
-            notify_error("disk %zu (%s) is not an .adf image", i + 1, entry.path.c_str());
+        if (!is_disk_extension(entry.path)) {
+            const char *reason = unsupported_format_reason(entry.path);
+            notify_error("disk %zu (%s) is not an .adf, .adz, .dms or .zip disk%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
             return false;
         }
         Medium medium;
-        const ReadResult read = core.files.read(entry.path, kAdfBytes, &medium.bytes);
+        // The file may be a container, so the cap is the largest container; what it holds is bounded by decode_disk.
+        const ReadResult read = core.files.read(entry.path, kMaxDiskFileBytes, &medium.bytes);
         if (read == ReadResult::TooLarge) {
-            notify_error("disk %zu (%s) is larger than an ADF (%zu bytes)", i + 1, entry.path.c_str(), kAdfBytes);
+            notify_error("disk %zu (%s) is larger than any disk file this core reads (%zu bytes)", i + 1, entry.path.c_str(), kMaxDiskFileBytes);
             return false;
         }
         if (read != ReadResult::Ok) {
             notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), describe(read));
             return false;
         }
-        if (medium.bytes.size() != kAdfBytes) {
-            notify_error("disk %zu (%s) is %zu bytes, not an ADF of %zu", i + 1, entry.path.c_str(), medium.bytes.size(), kAdfBytes);
+        std::string why;
+        if (!decode_disk(&medium.bytes, entry.path, &why)) {      // in memory: the ADF is what is hashed, so the container is no part of the identity
+            notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), why.c_str());
             return false;
         }
         p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
@@ -720,9 +727,9 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "adf|m3u";
+    info->valid_extensions = "adf|adz|dms|zip|m3u";
     info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
-    info->block_extract = false;
+    info->block_extract = true;           // a zip is read by the core, in memory: the frontend must not extract it to a temporary directory
 }
 
 RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)

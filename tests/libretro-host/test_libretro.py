@@ -173,7 +173,7 @@ class LibretroTests(LibretroHarness):
         self.assertEqual((av[1], av[2], av[3], av[4], av[7], av[8]), ("756", "574", "760", "576", "48000", "1"))   # region 1 is PAL
         self.assertAlmostEqual(float(av[6]), 3546895 / 70824, places=4)
         self.assertAlmostEqual(float(av[5]), 756 * 26 / (574 * 25), places=4)
-        self.assertRegex(out, r"(?m)^core name=PUAE6 version=0\.1\.0-winuae-[0-9a-f]{12}-p\d+ extensions=adf\|m3u need_fullpath=1$")
+        self.assertRegex(out, r"(?m)^core name=PUAE6 version=0\.1\.0-winuae-[0-9a-f]{12}-p\d+ extensions=adf\|adz\|dms\|zip\|m3u need_fullpath=1$")
         self.assertIn("10", re.search(r"environment=([\d,]+)", out)[1].split(","))            # the pixel format was negotiated
 
     def test_the_input_of_the_frontend_reaches_the_bridge_as_the_contract_maps_it(self):
@@ -377,12 +377,13 @@ class LibretroTests(LibretroHarness):
             ("an empty playlist", self.playlist("# nothing\n\n"), "lists no disks"),
             ("an entry without a file", self.playlist("a.adf\n|label\n"), "line 2: the entry has no file name"),
             ("a NUL byte", self.playlist("a.adf\nb\0.adf\n"), "line 2: a NUL byte is not text"),
-            ("another format", self.playlist("a.adf\nb.dms\n", ["a.adf", "b.dms"]), "disk 2 ("),
+            ("another format", self.playlist("a.adf\nb.d64\n", ["a.adf", "b.d64"]), "disk 2 ("),
+            ("an IPF", self.playlist("a.adf\nb.ipf\n", ["a.adf", "b.ipf"]), "IPF images are not supported"),
             ("a path that is too long", self.playlist("a.adf\n" + "x" * 5000 + ".adf\n"), "line 2: the path is too long"),
             ("a huge playlist", self.playlist("#" * (70 * 1024) + "\na.adf\n"), "cannot be loaded: it is too large"),
             ("a short ADF", files / "short.adf", "is 901119 bytes, not an ADF of 901120"),
-            ("a long ADF", files / "long.adf", "is larger than an ADF"),
-            ("a huge ADF", files / "huge.adf", "is larger than an ADF"),
+            ("a long ADF", files / "long.adf", "is 901121 bytes, not an ADF of 901120"),
+            ("a huge ADF", files / "huge.adf", "is larger than any disk file this core reads"),
             ("a text file", files / "notes.txt", "is not content this core loads"),
             ("no such file", files / "nothing.adf", "cannot be opened"),
         ]

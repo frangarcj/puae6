@@ -10077,7 +10077,7 @@
       "title": "Formatos de disquete mas alla del ADF plano (ADZ, ZIP, DMS; IPF solo si la licencia lo permite)",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17a"
       ],
@@ -10092,12 +10092,14 @@
         "bridge/media.h",
         "tests/libretro-host/**",
         "tests/media/**",
-        "patches/winuae/**"
+        "patches/winuae/**",
+        "docs/02-contracts.md"
       ],
       "steps": [
         "PUAE5 acepta adz, dms, fdi, ipf, raw y zip/7z. La ABI v1 registra ADF exactos de 901120 bytes identificados por SHA-256: los contenedores se descomprimen en memoria (sin directorio temporal ni escrituras) a la imagen ADF, cuyo SHA-256 sigue siendo la identidad; usar los decodificadores que WinUAE ya trae (archivers: dms, zip/gzip) mediante parches pequeños si hace falta, no copiar el motor antiguo.",
         "IPF necesita capsimg (licencia propia): evaluar y, si no es redistribuible, rechazarlo con un error claro y documentarlo.",
-        "Entradas hostiles (archivos truncados, bombas de descompresion, tamaños falsos) con cota de memoria: FUZZ01."
+        "Entradas hostiles (archivos truncados, bombas de descompresion, tamaños falsos) con cota de memoria: FUZZ01.",
+        "Ampliacion touch (2026-10-08): docs/02-contracts.md, para describir los contenedores aceptados y rechazados (licencia de capsimg para IPF)."
       ],
       "checks": [
         "MED01",
