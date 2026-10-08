@@ -10501,7 +10501,7 @@
       "title": "Cero fuera de active en la transicion a un modo de haz programado (productividad + SuperHires)",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T23c"
       ],

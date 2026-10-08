@@ -9,8 +9,8 @@ Two kinds of statement are kept apart on purpose:
   * deduced   the program writes it, the hardware documentation says what it does (identity, RAM, the window, the SHRES colours).
   * measured  what the bridge reports for a programmed beam (BEAMCON0, HTOTAL, VTOTAL) is checked as safety (never a byte outside
               the delivered buffer, a refused picture is announced) and, where the bridge is known to be wrong about the standard it
-              is running, the current behaviour is pinned as a KNOWN LIMIT so that its correction is a visible change. (The standard of a programmed beam
-              is no longer one: T23f announces cadence and aspect of the beam the unit really ran.)
+              is running, the current behaviour is pinned as a KNOWN LIMIT so that its correction is a visible change. (None is left: T23f
+              announces cadence and aspect of the beam the unit really ran and T23g keeps everything outside `active` at zero.)
 """
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
@@ -34,8 +34,6 @@ NOMINAL_CADENCE = {"pal": (3546895, 70824), "ntsc": (715909, 11921)}
 CHIPSET_CLOCK = {"pal": 3546895, "ntsc": 3579545}          # the clock of the configuration, whatever beam the guest programs
 CLOCK_TICKS_PER_CCK = 512
 FLAG_NO_VIDEO = 2
-# KNOWN LIMIT (T23c): units after which the delivered buffer still holds pixels outside `active` (see BeamTests).
-STRAY_UNITS = {("productivity-shres", "ntsc"): (1, 2)}
 LOG_LINE = re.compile(r"^logu (\d+):((?: [0-9a-f]{4})*)$")
 
 
@@ -271,8 +269,7 @@ class BeamTests(EcsCase):
                         (_, _, video, nbytes, fmt, w, h, stride, ax, ay, aw, ah, *_rest) = row
                         flags, outside, audio = row[17], row[18], row[21]
                         self.assertEqual((w, h, stride), (*BUFFER[standard], 7296))       # the buffer never changes with the beam
-                        if row[0] not in STRAY_UNITS.get((name, standard), ()):
-                            self.assertEqual(outside, "zero")                             # every byte outside `active` is zero
+                        self.assertEqual(outside, "zero")                                 # every byte outside `active` is zero
                         self.assertTrue(0 < audio <= 8192, audio)                         # the PCM of a long frame still fits the queue
                         if video:
                             self.assertEqual(nbytes, stride * h)
@@ -358,27 +355,44 @@ class BeamTests(EcsCase):
                     expected = clocks * CLOCK_TICKS_PER_CCK
                     self.assertTrue(all(abs(t - expected) <= 2 * 229 * CLOCK_TICKS_PER_CCK for t in ticks), (ticks, expected))
 
-    def test_productivity_with_superhires_on_ntsc_leaves_stray_pixels_for_two_units_KNOWN_LIMIT(self):
-        # KNOWN LIMIT (T23c). While the renderer still holds the frame it measured before the guest programmed the 524-line SHRES beam
-        # (units 1 and 2; from unit 3 the mode is refused with NO_VIDEO), the delivered NTSC buffer carries 30 pixels in row 1 beyond
-        # the active width (columns 756..785, so partly beyond the delivered width of 760, inside the 1824-pixel stride of the port's
-        # array): the invariant "everything outside `active` is zero" does not hold in those two units. Memory stays inside the port's
-        # array (the ASan/UBSan run, P6_TEST_SANITIZERS=1, is clean); the cause is in the port or in describe_video, outside this task.
+    def test_productivity_with_superhires_leaves_nothing_outside_active_in_the_transition_units(self):
+        # T23c measured 30 pixels of row 1, columns 756..785, in units 1 and 2 of the NTSC configuration: the renderer drew the first
+        # lines of the 150-clock SuperHires beam while it still held the 756-pixel width of the previous mode (T23g). The port now
+        # zeroes the tail of every row at the end of the pass. The two units are still delivered with the old raster, and the buffer
+        # itself (stride padding included, read from the dump rather than from the probe's one-word summary) is zero outside `active`.
         import struct
         name = "productivity-shres"
-        rows, _, _, _ = self.run_rom("beam-" + name, ecs.rom_source(ecs.beam_display_for(name, "ntsc")), "ntsc", "a600", 6, buffer=True)
-        self.assertEqual([r[0] for r in rows if r[18] == "dirty"], [1, 2])
-        directory = Path(self.tmp.name) / "-".join(map(str, ("beam-" + name, "ntsc", "a600", 6, "frames", False, True)))
-        for unit in (1, 2):
-            data = (directory / f"buffer-{unit:03d}.bin").read_bytes()
-            width, height, stride, _ = struct.unpack("<4I", data[:16])
-            pixels = struct.unpack("<%dI" % (height * stride // 4), data[16:16 + height * stride])
-            columns = stride // 4
-            active = rows[unit - 1]
-            stray = [(y, x) for y in range(height) for x in range(columns) if pixels[y * columns + x]
-                     and not (y < active[11] and x < active[10])]
-            self.assertEqual({y for y, _ in stray}, {1})
-            self.assertEqual((min(x for _, x in stray), max(x for _, x in stray)), (756, 785))
+        for standard, active_h in (("ntsc", 484), ("pal", 574)):
+            rows, _, _, _ = self.run_rom("beam-" + name, ecs.rom_source(ecs.beam_display_for(name, standard)), standard, "a600", 6, buffer=True)
+            directory = Path(self.tmp.name) / "-".join(map(str, ("beam-" + name, standard, "a600", 6, "frames", False, True)))
+            self.assertEqual([r[18] for r in rows], ["zero"] * 6)
+            for unit in (1, 2):
+                with self.subTest(standard=standard, unit=unit):
+                    active = rows[unit - 1]
+                    self.assertEqual((active[2], active[10], active[11]), (1, 756, active_h))
+                    data = (directory / f"buffer-{unit:03d}.bin").read_bytes()
+                    width, height, stride, _ = struct.unpack("<4I", data[:16])
+                    pixels = struct.unpack("<%dI" % (height * stride // 4), data[16:16 + height * stride])
+                    columns = stride // 4
+                    stray = [(y, x) for y in range(height) for x in range(columns) if pixels[y * columns + x]
+                             and not (y < active[11] and x < active[10])]
+                    self.assertEqual(stray, [])
+
+    def test_every_unit_of_every_ecs_program_is_zero_outside_active_in_both_standards(self):
+        # The contract of ADR 0006 decision 2 for the A600: displays and programmed beams, PAL and NTSC, every unit that carries a
+        # picture (a unit without one has no buffer to inspect).
+        programs = {"display-" + n: d for n, d in ecs.DISPLAYS.items()}
+        programs.update({"beam-" + n: None for n in ecs.BEAM})
+        delivered = 0
+        for name, display in programs.items():
+            for standard in STANDARDS:
+                source = ecs.rom_source(display or ecs.beam_display_for(name[5:], standard))
+                rows, _, _, _ = self.run_rom(name, source, standard, "a600", 8)
+                for row in rows:
+                    with self.subTest(program=name, standard=standard, unit=row[0]):
+                        self.assertEqual(row[18], "zero")
+                        delivered += bool(row[2])
+        self.assertGreater(delivered, 100)
 
     def test_toggling_the_standard_every_unit_keeps_the_machine_and_the_buffer_consistent(self):
         for standard in STANDARDS:

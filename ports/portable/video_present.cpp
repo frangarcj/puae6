@@ -133,6 +133,26 @@ void clear_rows(int width, int height)
          (size_t)width * P6_VIDEO_PIXEL_BYTES);
 }
 
+/* Zero everything of the allocation outside the raster the pass reports: the columns
+ * [w, stride) of the rows [0, h) and every column of the rows [h, allocated). The renderer
+ * checks only that the width it was told fits the allocation (drawing.cpp get_row), not that
+ * the line it is drawing does: while the guest has just reprogrammed the beam (HTOTAL, BEAMCON0)
+ * the first lines of the new geometry are longer than the outwidth the engine still holds
+ * (T23g measured 30 pixels of row 1, columns 756..785, on an NTSC A600 programmed for 150
+ * clocks of SuperHires). They land inside the row of the array, never outside it, and the
+ * contract says everything outside `active` is zero. Cost: one memset of the tail of each row,
+ * (stride - w) * 4 bytes, about 4 KiB per row of a 756 pixel raster. */
+void clear_outside(int width, int height, int allocated_height)
+{
+ uae_u8 *base = reinterpret_cast<uae_u8 *>(pixels);
+ for (int y = 0; y < height; ++y)
+  memset(base + (size_t)y * P6_VIDEO_STRIDE_BYTES + (size_t)width * P6_VIDEO_PIXEL_BYTES, 0,
+         (size_t)(P6_VIDEO_MAX_WIDTH - width) * P6_VIDEO_PIXEL_BYTES);
+ if (allocated_height > height)
+  memset(base + (size_t)height * P6_VIDEO_STRIDE_BYTES, 0,
+         (size_t)(allocated_height - height) * P6_VIDEO_STRIDE_BYTES);
+}
+
 /* A supported raster whose drawing pass ended after the last hand-over. */
 bool presentable()
 {
@@ -315,6 +335,10 @@ void unlockscr(struct vidbuffer *vb, int y_start, int y_end)
  int h = src.outheight < vb->height_allocated ? src.outheight : vb->height_allocated;
  if (w < 0) w = 0;
  if (h < 0) h = 0;
+ if (!g.aux_buffer && !g.mode_too_large) {
+  const int allocated = vb->height_allocated < P6_VIDEO_MAX_HEIGHT ? vb->height_allocated : P6_VIDEO_MAX_HEIGHT;
+  clear_outside(w < P6_VIDEO_MAX_WIDTH ? w : P6_VIDEO_MAX_WIDTH, h, allocated);
+ }
 
  ++g.passes;
  g.pass.width = (uint32_t)w;
