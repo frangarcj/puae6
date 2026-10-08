@@ -10730,7 +10730,7 @@
       "title": "Escenarios AGA de video y audio (AV01/AV02): 8 planos, paleta de 256x24 bits, HAM8, FMODE, sprites anchos, filtro A1200",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24b"
       ],
