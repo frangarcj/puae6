@@ -54,7 +54,7 @@
 namespace {
 
 constexpr size_t kPendingAudioFrames = 16384;     // a stalled frontend may hold this many stereo frames back; older ones are dropped
-constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500 and A600 (2.05); what the file claims never decides an allocation
+constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500, A600 and A1200 (all 512 KiB); what the file claims never decides an allocation
 
 retro_environment_t environment_cb;
 retro_video_refresh_t video_cb;

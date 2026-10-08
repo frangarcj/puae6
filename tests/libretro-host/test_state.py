@@ -169,7 +169,7 @@ class StateTests(lr.LibretroHarness):
         self.frontend("boot", "--runs", 8, "--do", f"5:savefile:{path}", content=disks)                       # PAL, 48 kHz, boot ROM, disks a and b
         same = self.frontend("boot", "--runs", 9, "--do", f"5:loadfile:{path}:pos=5", content=disks, system=self.system("boot")).stdout
         self.assertEqual(LOAD.search(same)[3], "1")                                                      # control: the very same machine accepts it
-        cases = (("a600", dict(options=lr.A600, name=lr.KICKSTART_NAMES_A600[0])),
+        cases = (("a600", dict(options=lr.A600, name=lr.KICKSTART_NAMES_A600[0])), ("a1200", dict(options=lr.A1200, name=lr.KICKSTART_NAMES_A1200[0])),
                  ("ntsc", dict(options=("--set", "puae6_video_standard=NTSC"))), ("rate", dict(options=("--set", "puae6_audio_rate=44100"))),
                  ("firmware", dict(rom="input_all")), ("media", dict(content=self.playlist("a.adf\nc.adf\n", files))),
                  ("no media", dict(content=None)), ("media in another order", dict(content=self.playlist("b.adf\na.adf\n", files))),
@@ -205,6 +205,29 @@ class StateTests(lr.LibretroHarness):
             self.assertEqual(LOAD.search(refused)[3], "0", f"the {other} state in the {machine}")
             self.assertEqual(self.views(refused), self.views(control))
             self.assertEqual(self.final(refused), self.final(control))
+
+    def test_a_state_of_another_machine_is_refused_by_the_a1200_and_the_a500_and_a600_refuse_the_one_of_the_a1200(self):
+        # T24e: the machine is in the state identity for the three machines. The refusal is the adapter's: the A500 and A600 states are real states that the A1200
+        # must hand to the native load and get refused, and what the A1200 itself saves is only identity here (its complete native state is T24c).
+        both = self.system_for("boot", *(names[0] for _, names, _, _ in lr.MACHINES.values()))
+        files = {}
+        for machine, (options, _, _, _) in lr.MACHINES.items():
+            files[machine] = self.work() / f"{machine}.state"
+            saved = self.frontend("boot", "--runs", 8, *options, "--do", f"5:savefile:{files[machine]}", system=both).stdout
+            if not self.saved(saved)[str(files[machine])]["ok"]:
+                self.assertEqual(machine, "A1200")
+                self.skipTest("T24c: the A1200 has no native state yet (020 CPU state, AGA palette), so its state cannot be saved")
+        for machine, (options, _, _, _) in lr.MACHINES.items():
+            control = self.frontend("boot", "--runs", 9, *options, system=both).stdout
+            same = self.frontend("boot", "--runs", 9, *options, "--do", f"5:loadfile:{files[machine]}:pos=5", system=both).stdout
+            self.assertEqual(LOAD.search(same)[3], "1", f"the {machine} state in the {machine}")
+            for other in lr.MACHINES:
+                if other == machine:
+                    continue
+                refused = self.frontend("boot", "--runs", 9, *options, "--do", f"5:loadfile:{files[other]}", system=both).stdout
+                self.assertEqual(LOAD.search(refused)[3], "0", f"the {other} state in the {machine}")
+                self.assertEqual(self.views(refused), self.views(control))
+                self.assertEqual(self.final(refused), self.final(control))
 
     def test_a_state_loads_in_a_machine_whose_media_start_with_the_ones_it_was_taken_with(self):
         # T17e: the manifest only grows, so the state of the disks a and b is a state of a machine that has a, b and c (the playlist lists one more at the end).

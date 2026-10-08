@@ -155,7 +155,7 @@ class SchemaValidationTests(unittest.TestCase):
         self.refuses(document, "id must be new")
 
     def test_a_headless_choice_names_every_value_of_the_enum_once(self):
-        for names in ({"A500": "a500"}, {"A500": "a500", "A600": "a500"}, {"A500": "a500", "A600": "A600"}, {"A500": "a500", "A600": "a600", "A1200": "a1200"}, []):
+        for names in ({"A500": "a500"}, {"A500": "a500", "A600": "a500"}, {"A500": "a500", "A600": "A600"}, {"A500": "a500", "A600": "a600"}, {"A500": "a500", "A600": "a600", "A1200": "a1200", "A4000": "a4000"}, []):
             with self.subTest(names=names):
                 document = schema()
                 option(document, "machine")["headless"]["names"] = names
@@ -163,6 +163,17 @@ class SchemaValidationTests(unittest.TestCase):
         document = schema()
         del option(document, "machine")["headless"]["names"]
         self.refuses(document, "headless 'choice' takes exactly the fields")
+
+    def test_a_value_the_wrapper_does_not_offer_is_marked_false_and_only_on_an_option_the_wrapper_takes_as_a_setting(self):
+        for mark in (True, "no", 0, None):
+            with self.subTest(mark=mark):
+                document = schema()
+                option(document, "machine")["values"][1]["wrapper"] = mark
+                self.refuses(document, "wrapper may only be false")
+        document = schema()
+        option(document, "video_standard")["wrapper"] = {"how": "fixed", "where": "audio"}
+        option(document, "video_standard")["values"][1]["wrapper"] = False
+        self.refuses(document, "wrapper may only be false")
 
     def test_every_problem_is_reported_not_only_the_first(self):
         document = schema()
@@ -195,14 +206,20 @@ class NormalizationTests(unittest.TestCase):
         for text in texts:
             self.assertIn(text, str(caught.exception))
 
-    def test_the_machine_is_a_restart_option_with_the_two_machines_of_the_abi_and_the_a500_by_default(self):
+    def test_the_machine_is_a_restart_option_with_the_three_machines_of_the_abi_and_the_a500_by_default(self):
         document = schema()
         machine = option(document, "machine")
         self.assertEqual((machine["class"], machine["maps_to"], machine["default"]), ("reboot", "p6_config.machine", "A500"))
         self.assertEqual([(v["value"], v["abi"], v["abi_name"]) for v in machine["values"]],
-                         [("A500", 1, "P6_MACHINE_A500"), ("A600", 2, "P6_MACHINE_A600")])
+                         [("A500", 1, "P6_MACHINE_A500"), ("A600", 2, "P6_MACHINE_A600"), ("A1200", 3, "P6_MACHINE_A1200")])
         self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A600"}))["machine"], 2)
+        self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A1200"}))["machine"], 3)
         self.assertIn("no IDE or PCMCIA", machine["libretro"]["info"])      # the description says what the A600 does not have
+        # T24e: the A1200 is described as what it is (PUAE5's A1200OG, not its A1200 with 8 MiB of Fast RAM), and only the BizHawk wrapper lacks it (T24f).
+        self.assertEqual({v["value"]: v["label"] for v in machine["values"]}["A1200"], "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)")
+        self.assertIn("A1200OG", machine["libretro"]["info"])
+        self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], ["A1200"])
+        self.assertEqual(json.loads(gen.generate_table(document))["adapters"]["machine"]["wrapper_not_offered"], ["A1200"])
         self.assertNotIn("machine", {entry["key"] for entry in document["unsupported"]})
 
     def test_the_same_configuration_gives_the_same_config_hash_and_only_another_machine_changes_it(self):
@@ -221,6 +238,9 @@ class NormalizationTests(unittest.TestCase):
         a600 = digest({"machine": "A600"})
         self.assertEqual(a600, digest({"machine": "A600"}))
         self.assertNotEqual(a500, a600)
+        a1200 = digest({"machine": "A1200"})
+        self.assertEqual(a1200, envelope.config_hash(3, 1, 48000, 0, 1, 946684800))
+        self.assertNotIn(a1200, (a500, a600))
         self.assertEqual(a600, envelope.config_hash(2, 1, 48000, 0, 1, 946684800))
         # Nothing but the machine differs between those two: the same other choices, on either machine, are distinct from each other and shared across runs.
         for other in ({"video_standard": "NTSC"}, {"audio_rate_hz": "44100"}, {"random_seed": 7}):
@@ -235,10 +255,13 @@ class NormalizationTests(unittest.TestCase):
         self.refuses({"rtc_epoch_seconds": 10 ** 12}, "option rtc_epoch_seconds")
 
     def test_cpu_ram_rom_and_other_machines_are_refused_with_their_reason(self):
-        # T23d: the machine is an option of two values; any other model is refused as a value, naming the key and the choices.
-        self.refuses({"machine": "A1200"}, "option machine", "'A1200'", "allowed: A500, A600")
-        self.refuses({"machine": "a600"}, "option machine", "'a600'", "allowed: A500, A600")
-        self.refuses({"machine": 2}, "option machine", "allowed: A500, A600")
+        # T23d, T24e: the machine is an option of three values; any other model (or another spelling) is refused as a value, naming the key and the choices.
+        self.refuses({"machine": "A4000"}, "option machine", "'A4000'", "allowed: A500, A600, A1200")
+        self.refuses({"machine": "a600"}, "option machine", "'a600'", "allowed: A500, A600, A1200")
+        self.refuses({"machine": "a1200"}, "option machine", "'a1200'", "allowed: A500, A600, A1200")
+        self.refuses({"machine": "A1200OG"}, "option machine", "'A1200OG'", "allowed: A500, A600, A1200")
+        self.refuses({"machine": 3}, "option machine", "allowed: A500, A600, A1200")
+        self.refuses({"machine": 2}, "option machine", "allowed: A500, A600, A1200")
         self.refuses({"cpu_model": "68020"}, "option cpu_model is not supported: The 68000")
         self.refuses({"chipmem_size": 2048}, "option chipmem_size is not supported")
         self.refuses({"kickstart_rom_file": "/etc/passwd"}, "never chosen by a path")
@@ -272,7 +295,7 @@ class AbiTests(unittest.TestCase):
             for value in entry.get("values", []):
                 if "abi_name" in value:
                     self.assertEqual(constants[value["abi_name"]], value["abi"], f"{entry['id']} {value['value']}")
-        self.assertEqual((constants["P6_MACHINE_A500"], constants["P6_MACHINE_A600"]), (1, 2))
+        self.assertEqual((constants["P6_MACHINE_A500"], constants["P6_MACHINE_A600"], constants["P6_MACHINE_A1200"]), (1, 2, 3))
 
     def test_the_bridge_accepts_exactly_the_values_of_the_schema(self):
         source = (ROOT / "bridge/config.cpp").read_text()
@@ -280,8 +303,7 @@ class AbiTests(unittest.TestCase):
         self.assertEqual(rates, sorted(v["abi"] for v in option(schema(), "audio_rate_hz")["values"]))
         self.assertIn("c.video_standard != P6_VIDEO_PAL && c.video_standard != P6_VIDEO_NTSC", source)
         self.assertIn("c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600 && c.machine != P6_MACHINE_A1200", source)
-        # The bridge accepts the A1200 (T24b) before the option schema offers it (T24e): the schema lists the machines a frontend can choose.
-        self.assertEqual([v["abi_name"] for v in option(schema(), "machine")["values"]], ["P6_MACHINE_A500", "P6_MACHINE_A600"])
+        self.assertEqual([v["abi_name"] for v in option(schema(), "machine")["values"]], ["P6_MACHINE_A500", "P6_MACHINE_A600", "P6_MACHINE_A1200"])
         self.assertEqual([v["abi_name"] for v in option(schema(), "video_standard")["values"]], ["P6_VIDEO_PAL", "P6_VIDEO_NTSC"])
 
     def test_the_clock_range_is_the_one_the_bridge_enforces(self):
@@ -347,8 +369,9 @@ class GeneratorTests(unittest.TestCase):
         table = json.loads(gen.TABLE.read_text())
         self.assertEqual({name: entry["default"] for name, entry in table["p6_config"].items()},
                          {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
-        self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2])
-        self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2})
+        self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3])
+        self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3})
+        self.assertEqual(table["adapters"]["machine"]["wrapper_not_offered"], ["A1200"])
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
         self.assertEqual(list(table["presentation"]), ["video_aspect"])

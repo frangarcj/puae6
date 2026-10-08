@@ -54,7 +54,7 @@ class Schema(unittest.TestCase):
 
 
 class HeadlessParity(Schema):
-    """adapters/headless/main.cpp: --machine a500|a600, --ntsc, --seed S, audio 48000, epoch 2000-01-01."""
+    """adapters/headless/main.cpp: --machine a500|a600|a1200, --ntsc, --seed S, audio 48000, epoch 2000-01-01."""
 
     @classmethod
     def setUpClass(cls):
@@ -82,8 +82,7 @@ class HeadlessParity(Schema):
                     self.assertIsNotNone(start, f"headless has no local {field} with the default of the option")
                     self.assertEqual(self.constants[start[1]], default, f"headless starts with {start[1]}, the schema default is {default}")
                     self.assertRegex(self.source, rf'strcmp\(argv\[i\], "{re.escape(how["flag"])}"\)')
-                    # headless takes --machine a1200 (T24b) before the schema offers the A1200 (T24e).
-                    spellings = {m[1]: self.constants[m[2]] for m in re.finditer(rf'strcmp\(name, "(\w+)"\)\) {field} = (P6_\w+);', self.source) if m[1] != "a1200"}
+                    spellings = {m[1]: self.constants[m[2]] for m in re.finditer(rf'strcmp\(name, "(\w+)"\)\) {field} = (P6_\w+);', self.source)}
                     self.assertEqual(spellings, {spelling: self.number(option, value) for value, spelling in how["names"].items()},
                                      f"{how['flag']} does not take the spellings of the schema, or maps one to another value")
                     self.assertIn(f"config.{field} = {field};", self.source)
@@ -151,8 +150,10 @@ class WrapperParity(Schema):
                 self.assertEqual(kind, how["type"], f"{how['setting']} is a {kind}, the schema says {how['type']}")
                 if option["type"] == "enum":
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
-                    self.assertEqual([m.strip() for m in members[1].split(",")], [v["value"] for v in option["values"]],
-                                     f"enum {kind} does not list the schema's values in order")
+                    # A value the schema marks "wrapper": false is one the wrapper does not offer yet (the A1200 until T24f): the enum lists the others, in order.
+                    offered = [v["value"] for v in option["values"] if v.get("wrapper") is not False]
+                    self.assertEqual([m.strip() for m in members[1].split(",")], offered,
+                                     f"enum {kind} does not list the schema's values in order, less the ones marked wrapper false")
                     self.assertEqual(default, f"{kind}.{option['default']}", f"{how['setting']} defaults to {default}, the schema to {option['default']}")
                 else:
                     self.assertEqual(int(default), option["default"], f"{how['setting']} defaults to {default}, the schema to {option['default']}")
@@ -262,17 +263,22 @@ class LibretroFirmware(Schema):
         rows = re.findall(r'\{(P6_MACHINE_\w+), "(\w+)", "([\d.]+)", (k\w+KickstartNames), ', self.firmware)
         machines = self.options["machine"]["values"]
         self.assertEqual([(r[0], r[1]) for r in rows], [(v["abi_name"], v["value"]) for v in machines])
-        a500, a600 = (self.names(r[3]) for r in rows)
-        self.assertEqual((rows[0][2], rows[1][2]), ("1.3", "2.05"))
-        self.assertFalse(set(a500) & set(a600), "a name that serves two machines would let one boot with the other's ROM")
+        a500, a600, a1200 = (self.names(r[3]) for r in rows)
+        self.assertEqual((rows[0][2], rows[1][2], rows[2][2]), ("1.3", "2.05", "3.1"))
+        for left, right in ((a500, a600), (a500, a1200), (a600, a1200)):
+            self.assertFalse(set(left) & set(right), "a name that serves two machines would let one boot with the other's ROM")
         self.assertEqual(a500[:2], ["kick34005.A500", "amiga-os-130.rom"])
         self.assertEqual(a600[:2], ["kick37350.A600", "amiga-os-205-a600.rom"])
+        self.assertEqual(a1200[:2], ["kick40068.A1200", "amiga-os-310-a1200.rom"])
+        self.assertIn("Kickstart v3.1 r40.68 (1993)(Commodore)(A1200)[!].rom", a1200)      # the name of the project's authorized copy
+        self.assertNotIn("kick39106.A1200", a1200)                                          # the 3.0 is PUAE5's, but this A1200 boots the 3.1
 
     def test_the_first_two_names_of_each_machine_are_the_ones_puae5_reads(self):
         if not PUAE5.is_file():
             self.skipTest("references/machawk-uae is not there")
         header = read(PUAE5)
-        for ids, array in (("A500_KS13_ROM", "kA500KickstartNames"), ("A600_KS205_ROM", "kA600KickstartNames")):
+        for ids, array in (("A500_KS13_ROM", "kA500KickstartNames"), ("A600_KS205_ROM", "kA600KickstartNames"),
+                           ("A1200_KS31_ROM", "kA1200KickstartNames")):
             entry = re.search(rf'\{{{ids},\s*"([^"]+)",\s*"([^"]+)"', header)
             self.assertIsNotNone(entry, ids)
             self.assertEqual(self.names(array)[:2], [entry[1], entry[2]], ids)

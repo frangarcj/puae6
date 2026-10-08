@@ -374,7 +374,7 @@ std::string hostile_value(Random &rng, const p6_options::Option &option, std::st
     if (*kind == "prefix") { static const char *const s[] = {"x", "+", "-", "0", "\xEF\xBB\xBF", "="}; return rng.pick(s) + valid; }
     if (*kind == "zeros") return "0" + valid;
     if (*kind == "other-value") { static const char *const s[] = {"SECAM", "PAL-M", "PAL60", "22050", "96000", "0", "-1", "1", "true", "auto", "default", "16:9", "4:3 ",
-                                                           "A1200", "A500+", "A500PLUS", "A500OG", "A600HD", "A2000", "A4000", "CD32", "CDTV", "A500,A600"}; return rng.pick(s); }
+                                                           "a1200", "A1200 ", "A1200OG", "A12000", "A500+", "A500PLUS", "A500OG", "A600HD", "A2000", "A4000", "CD32", "CDTV", "A500,A600", "A600,A1200"}; return rng.pick(s); }
     if (*kind == "non-ascii") { static const char *const s[] = {"\xD0\xA0\xD0\x90L", "\xEF\xBC\x90", "\xDB\xB4\xDB\xB8", "\xFF", "\xC3", "\xE2\x82\xAC", "\xC0\x80"}; return rng.pick(s); }
     if (*kind == "long") return std::string(1 + rng.below(70000), rng.coin() ? '9' : 'P') + (rng.coin() ? valid : "");
     if (*kind == "random-bytes") {

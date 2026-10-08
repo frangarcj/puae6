@@ -208,6 +208,23 @@ class RealFrontendTests(unittest.TestCase):
         self.assertIn("machine A500 (puae6_machine)", default)
         self.assertIn("Kickstart kick34005.A500,", default)
 
+    def test_the_model_retroarch_stores_selects_the_a1200_headless_runs_and_finds_its_kickstart_by_its_own_name(self):
+        # T24e: the A1200 (68EC020, AGA, 2 MiB Chip) is a restart option like the other two. The system directory has its Kickstart only under the name of PUAE5.
+        text = self.retroarch("a1200", options={"puae6_machine": "A1200"}, kickstarts=("kick40068.A1200",))
+        self.assertIn("machine A1200 (puae6_machine)", text)
+        self.assertIn("Kickstart kick40068.A1200, read through the frontend VFS", text)
+        native = subprocess.run([str(self.macos_headless), "--run", str(self.rom), "--machine", "a1200", "--units", str(FRAMES)], capture_output=True, text=True,
+                                timeout=600)
+        expected = {int(m[1]): int(m[2]) for m in HEADLESS.finditer(native.stdout)}
+        ticks = {int(m[1]): int(m[2]) for m in UNIT.finditer(text)}
+        self.assertEqual(len(expected), FRAMES)
+        for unit, value in expected.items():
+            self.assertEqual(ticks[unit], value, f"unit {unit}")
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+        default = self.retroarch("a1200-a500", kickstarts=("kick34005.A500", "kick37350.A600", "kick40068.A1200"))      # the machine is the option, not the directory
+        self.assertIn("machine A500 (puae6_machine)", default)
+        self.assertIn("Kickstart kick34005.A500,", default)
+
     def test_retroarch_follows_the_rate_of_an_a600_guest_that_programs_ntsc_timing_on_a_pal_machine(self):
         # T23f: the program of tests/scenarios/ecs writes BEAMCON0 with the PAL bit clear. The core announces the machine's nominal rate at the load and
         # SET_SYSTEM_AV_INFO with the rate of the NTSC beam on the PAL clock (3546895 / 59605 Hz) once the units run at it; RetroArch applies it and says so.

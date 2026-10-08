@@ -42,7 +42,20 @@ KICKSTART_NAMES_A600 = [
     "Kickstart v2.05 rev 37.350 (1992)(Commodore)(A600HD).rom",
     "Kickstart v2.05 r37.350 (1992-04)(Commodore)(A600HD)[!].rom",
 ]
+# The Kickstart 3.1 r40.68 of the A1200 (T24e): PUAE5's names (libretro-core.h uae_kickstarts[A1200_KS31_ROM]: the "normal", the Amiga Forever and the two TOSEC
+# ones) and the TOSEC spelling "r40.68" of the file the project's authorized copy comes in. Each machine looks for its own names only.
+KICKSTART_NAMES_A1200 = [
+    "kick40068.A1200",
+    "amiga-os-310-a1200.rom",
+    "Kickstart v3.1 rev 40.68 (1993)(Commodore)(A1200)[!].rom",
+    "Kickstart v3.1 rev 40.68 (1993)(Commodore)(A1200).rom",
+    "Kickstart v3.1 r40.68 (1993)(Commodore)(A1200)[!].rom",
+]
 A600 = ("--set", "puae6_machine=A600")
+A1200 = ("--set", "puae6_machine=A1200")
+# Every machine of puae6_machine: the option, the names of its Kickstart, the Kickstart version the message names and p6_headless's --machine.
+MACHINES = {"A500": ((), KICKSTART_NAMES, "1.3", "a500"), "A600": (A600, KICKSTART_NAMES_A600, "2.05", "a600"),
+            "A1200": (A1200, KICKSTART_NAMES_A1200, "3.1", "a1200")}
 ADF_BYTES = 901120
 
 # A program that shows what DF0 reports: it selects the drive with the motor on, pulses STEP (which clears the disk-change latch) and puts the
@@ -394,6 +407,15 @@ class LibretroTests(LibretroHarness):
                     self.assertIn("machine A600 (puae6_machine)", out)
                     self.compare_with_headless(out, rom, units, "--machine", "a600", *(["--ntsc"] if standard else []))
 
+    def test_the_a1200_selected_by_option_is_the_machine_headless_runs_with_machine_a1200(self):
+        # T24e: PAL and NTSC, the three micro-ROMs, unit by unit (ticks, audio, picture hash).
+        for rom, units in (("boot", 20), ("long_frame", 14), ("identify", 8)):
+            for standard in ((), ("--set", "puae6_video_standard=NTSC")):
+                with self.subTest(rom=rom, standard=standard):
+                    out = self.frontend(rom, "--runs", units, *A1200, *standard, name=KICKSTART_NAMES_A1200[0]).stdout
+                    self.assertIn("machine A1200 (puae6_machine)", out)
+                    self.compare_with_headless(out, rom, units, "--machine", "a1200", *(["--ntsc"] if standard else []))
+
     # --- T23f: the frontend is told the rate of the beam the unit really ran --------------------------------------------------------------
 
     def beam_rom(self, name, standard):
@@ -406,12 +428,12 @@ class LibretroTests(LibretroHarness):
 
     def test_a_guest_that_programs_the_other_standard_makes_the_core_announce_the_new_rate_once_at_the_unit_it_changes(self):
         nominal = {"pal": (3546895, 70824), "ntsc": (715909, 11921)}
-        for name, standard in (("to-ntsc", "pal"), ("to-pal", "ntsc")):
+        for machine, name, standard in (("A600", "to-ntsc", "pal"), ("A600", "to-pal", "ntsc"), ("A1200", "to-ntsc", "pal"), ("A1200", "to-pal", "ntsc")):
             key = self.beam_rom(name, standard)
             options = ("--set", "puae6_video_standard=NTSC") if standard == "ntsc" else ()
-            flags = ("--machine", "a600", *(["--ntsc"] if standard == "ntsc" else []))
-            with self.subTest(program=name, standard=standard):
-                out = self.frontend(key, "--runs", 12, *A600, *options, name=KICKSTART_NAMES_A600[0]).stdout
+            flags = ("--machine", MACHINES[machine][3], *(["--ntsc"] if standard == "ntsc" else []))
+            with self.subTest(machine=machine, program=name, standard=standard):
+                out = self.frontend(key, "--runs", 12, *MACHINES[machine][0], *options, name=MACHINES[machine][1][0]).stdout
                 self.compare_with_headless(out, key, 12, *flags)
                 cadence = {int(m[1]): (int(m[2]), int(m[3])) for m in CADENCE.finditer(self.headless_text(key, 12, *flags))}
                 n, d = nominal[standard]
@@ -447,6 +469,17 @@ class LibretroTests(LibretroHarness):
         named = self.frontend("identify", "--runs", 8, "--set", "puae6_machine=A500").stdout
         self.assertEqual(self.machine(named), self.machine(a500))
 
+    def test_the_a1200_is_a_third_machine_what_the_program_reads_from_denise_is_the_aga_one(self):
+        # T24e: DENISEID is $FFFC on the ECS Denise of the A600 and $00F8 on the AGA Lisa of the A1200 (tests/step/test_a1200.py), and the A500 leaves the bus value.
+        pictures = {}
+        for machine, (options, names, _, _) in MACHINES.items():
+            out = self.frontend("identify", "--runs", 8, *options, name=names[0]).stdout
+            self.assertIn(f"machine {machine} (puae6_machine)", out)
+            pictures[machine] = [(r["hash"], r["px"]) for r in self.runs(out)]
+        self.assertEqual(len({str(p) for p in pictures.values()}), 3, "two machines drew the same picture for a program that reads Denise's ID")
+        named = self.frontend("identify", "--runs", 8, "--set", "puae6_machine=A1200", name=KICKSTART_NAMES_A1200[0]).stdout
+        self.assertEqual([(r["hash"], r["px"]) for r in self.runs(named)], pictures["A1200"])
+
     def test_the_a600_kickstart_is_found_under_each_known_file_name(self):
         reference = None
         for name in KICKSTART_NAMES_A600:
@@ -458,21 +491,47 @@ class LibretroTests(LibretroHarness):
                     reference = reference or runs
                     self.assertEqual(runs, reference)
 
+    def test_the_a1200_kickstart_is_found_under_each_known_file_name_and_the_3_0_of_puae5_is_not_one_of_them(self):
+        reference = None
+        for name in KICKSTART_NAMES_A1200:
+            for options in ((), ("--no-vfs",)):
+                with self.subTest(name=name, options=options):
+                    out = self.frontend("boot", "--runs", 6, *A1200, *options, name=name).stdout
+                    self.assertIn(f"Kickstart {name}, read " + ("with stdio" if options else "through the frontend VFS"), out)
+                    runs = [(r["hash"], r["audio"]) for r in self.runs(out)]
+                    reference = reference or runs
+                    self.assertEqual(runs, reference)
+        # PUAE5 also reads kick39106.A1200 (Kickstart 3.0) for its A1200; this machine boots the 3.1, so that name is not looked for.
+        out = self.frontend("boot", *A1200, name="kick39106.A1200", expect=3).stdout
+        self.assertIn("no Kickstart 3.1 ROM in the system directory ", " ".join(self.messages(out)))
+
     def test_each_machine_looks_for_the_kickstart_of_its_own_and_never_boots_with_the_one_of_the_other(self):
-        for machine, options, present, wanted, first in (("A500", (), KICKSTART_NAMES_A600, "1.3", KICKSTART_NAMES[0]),
-                                                         ("A600", A600, KICKSTART_NAMES, "2.05", KICKSTART_NAMES_A600[0])):
-            for name in present:
-                with self.subTest(machine=machine, name=name):
-                    out = self.frontend("boot", *options, name=name, expect=3).stdout
-                    self.assertIn("load refused", out)
-                    text = " ".join(self.messages(out))
-                    self.assertIn(f"no Kickstart {wanted} ROM in the system directory ", text)
-                    self.assertIn(f"(looked for {first}, ...) for the {machine} chosen by puae6_machine", text)
-                    self.assertNotIn("run 1 ", out)
-        # A directory that holds both boots whichever machine is chosen, each with its own.
-        both = self.system_for("boot", KICKSTART_NAMES[0], KICKSTART_NAMES_A600[0])
-        self.assertIn(f"Kickstart {KICKSTART_NAMES[0]},", self.frontend("boot", "--runs", 3, system=both).stdout)
-        self.assertIn(f"Kickstart {KICKSTART_NAMES_A600[0]},", self.frontend("boot", "--runs", 3, *A600, system=both).stdout)
+        for machine, (options, names, wanted, _) in MACHINES.items():
+            for other, (_, present, _, _) in MACHINES.items():
+                if other == machine:
+                    continue
+                for name in present:
+                    with self.subTest(machine=machine, other=other, name=name):
+                        out = self.frontend("boot", *options, name=name, expect=3).stdout
+                        self.assertIn("load refused", out)
+                        text = " ".join(self.messages(out))
+                        self.assertIn(f"no Kickstart {wanted} ROM in the system directory ", text)
+                        self.assertIn(f"(looked for {names[0]}, ...) for the {machine} chosen by puae6_machine", text)
+                        self.assertNotIn("run 1 ", out)
+        # A directory that holds all of them boots whichever machine is chosen, each with its own.
+        everything = self.system_for("boot", *(names[0] for _, names, _, _ in MACHINES.values()))
+        for options, names, _, _ in MACHINES.values():
+            self.assertIn(f"Kickstart {names[0]},", self.frontend("boot", "--runs", 3, *options, system=everything).stdout)
+
+    def test_a_refused_a1200_kickstart_is_a_clear_failure_and_does_not_fall_back_to_another_machines_names(self):
+        directory = self.system_for("garbage", KICKSTART_NAMES_A1200[0])
+        for name in (KICKSTART_NAMES[0], KICKSTART_NAMES_A600[0]):
+            shutil.copyfile(self.roms["boot"], directory / name)                    # usable ROMs, but under the names of the other machines
+        out = self.frontend("boot", *A1200, system=directory, expect=3).stdout
+        self.assertIn("is not usable: kick40068.A1200 refused", " ".join(self.messages(out)))
+        self.assertNotIn("run 1 ", out)
+        shutil.copyfile(self.roms["boot"], directory / KICKSTART_NAMES_A1200[1])
+        self.assertIn(f"Kickstart {KICKSTART_NAMES_A1200[1]},", self.frontend("boot", "--runs", 3, *A1200, system=directory).stdout)
 
     def test_a_refused_a600_kickstart_is_a_clear_failure_and_does_not_fall_back_to_the_a500_names(self):
         directory = self.system_for("garbage", KICKSTART_NAMES_A600[0])
@@ -487,10 +546,10 @@ class LibretroTests(LibretroHarness):
         self.assertIn(f"Kickstart {KICKSTART_NAMES_A600[1]},", good)
 
     def test_a_machine_value_the_schema_does_not_allow_fails_the_load_naming_the_key_and_the_value(self):
-        for value in ("A1200", "a600", "A500+", "", "A600 "):
+        for value in ("a1200", "A1200OG", "A4000", "a600", "A500+", "", "A600 ", "A1200 "):
             with self.subTest(value=value):
                 result = self.frontend("boot", "--set", f"puae6_machine={value}", expect=3)
-                text = f'the option puae6_machine has the value "{value}", which this core does not support (allowed: A500, A600)'
+                text = f'the option puae6_machine has the value "{value}", which this core does not support (allowed: A500, A600, A1200)'
                 self.assertIn(f"message PUAE6: {text}", result.stdout)
                 self.assertIn("load refused", result.stdout)
                 self.assertNotIn("run 1 ", result.stdout)
@@ -515,6 +574,21 @@ class LibretroTests(LibretroHarness):
         self.assertEqual(pictures[:14], [(r["hash"], r["px"]) for r in self.runs(base)])                    # the first load is the A500 ...
         self.assertEqual(pictures[14:], [(r["hash"], r["px"]) for r in self.runs(fresh)])                   # ... and the second the A600 of a fresh process
         self.assertNotEqual(pictures[:14], pictures[14:])
+
+    def test_a_machine_changed_to_the_a1200_while_the_machine_runs_is_reported_and_the_next_load_is_the_a1200(self):
+        both = self.system_for("identify", KICKSTART_NAMES[0], KICKSTART_NAMES_A1200[0])
+        base = self.frontend("identify", "--runs", 14, system=both).stdout
+        changed = self.frontend("identify", "--runs", 14, "--set-at", "6:puae6_machine=A1200", system=both).stdout
+        self.assertEqual(self.machine(changed), self.machine(base))
+        self.assertEqual(self.messages(changed), ["PUAE6: puae6_machine is now A1200 but the machine runs with A500: reload the content to apply it"])
+        cycles = self.frontend("identify", "--runs", 14, "--set-at", "6:puae6_machine=A1200", "--cycles", 2, system=both).stdout
+        self.assertRegex(cycles, r"machine A500 \(puae6_machine\)(?s:.*)machine A1200 \(puae6_machine\)")
+        fresh = self.frontend("identify", "--runs", 14, *A1200, system=both).stdout
+        found = [m.groups() for m in CYCLE.finditer(cycles)]
+        self.assertEqual(len(found), 2)
+        self.assertEqual(CYCLE.search(fresh).groups()[1:], found[1][1:])
+        pictures = [(r["hash"], r["px"]) for r in self.runs(cycles)]
+        self.assertEqual(pictures[14:], [(r["hash"], r["px"]) for r in self.runs(fresh)])
 
     def test_the_same_configuration_loads_the_same_machine_every_time(self):
         out = self.frontend("boot", "--runs", 4, *A600, "--cycles", 4, name=KICKSTART_NAMES_A600[0]).stdout
@@ -1017,6 +1091,92 @@ class RealA600Tests(LibretroHarness):
         for unit in range(201, 281):
             self.assertEqual(len(seen[unit]), 2, unit)
             self.assertEqual(seen[unit][0], seen[unit][1], f"unit {unit} after the load")
+
+
+# --- the A1200 with the Kickstart 3.1 and an AGA demo the owner supplies (opt-in, T24e) ------------------------------------------------------------------
+
+KICKSTART_A1200_ROM = os.environ.get("P6_KICKSTART_A1200_ROM")
+AGA_ADF = os.environ.get("P6_AGA_ADF")
+AGA_DMS = os.environ.get("P6_AGA_DMS")
+
+
+@unittest.skipUnless(TOOLS and KICKSTART_A1200_ROM and AGA_ADF,
+                     "BLOCKED: set P6_KICKSTART_A1200_ROM (the raw 512 KiB Kickstart 3.1 r40.68 of the A1200) and P6_AGA_ADF (an ADF of a free AGA demo) to run the A1200 with real firmware")
+class RealA1200Tests(LibretroHarness):
+    """LR01 on the A1200 with the real Kickstart 3.1: the core finds it under the TOSEC name of the project's authorized copy, takes the AGA demo as the content and
+    every unit is the one p6_headless --machine a1200 makes with the same ROM and disk (tests/step/test_kickstart_a1200.py is what the machine itself shows). The
+    firmware is read where it is and written, under its known name, to a temporary directory outside the repository that is removed at the end; nothing of it is
+    copied into the repository, hashed or printed."""
+
+    UNITS = int(os.environ.get("P6_A1200_UNITS", "2200"))          # the first AGA scenes of Catabasis are on the screen by unit ~2000 (tests/step/test_kickstart_a1200.py)
+    DMS_UNITS = int(os.environ.get("P6_A1200_DMS_UNITS", "1500"))
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if os.path.getsize(KICKSTART_A1200_ROM) != 524288:
+            raise unittest.SkipTest("P6_KICKSTART_A1200_ROM is not a 512 KiB image")
+        if os.path.getsize(AGA_ADF) != ADF_BYTES:
+            raise unittest.SkipTest("P6_AGA_ADF is not a 901120-byte ADF")
+        cls.rom_bytes = Path(KICKSTART_A1200_ROM).read_bytes()
+        cls.rom_file = Path(cls.tmp.name) / "a1200-kickstart.rom"
+        cls.rom_file.write_bytes(cls.rom_bytes)
+
+    def a1200_system(self, name=KICKSTART_NAMES_A1200[4]):
+        path = self.work()
+        (path / name).write_bytes(self.rom_bytes)
+        return path
+
+    def headless_real(self, units, disk):
+        arguments = [str(self.headless), "--run", str(self.rom_file), "--machine", "a1200", "--units", str(units)]
+        if disk:
+            arguments += ["--disk", disk]
+        result = subprocess.run(arguments, capture_output=True, text=True, timeout=3600)
+        self.assertEqual(result.returncode, 0, result.stderr[-400:])
+        return {int(m[1]): (int(m[2]), int(m[3]), m[6], int(m[7])) for m in UNIT.finditer(result.stdout)}
+
+    def assert_same_units(self, out, expected):
+        ticks = {int(m[1]): int(m[2]) for m in TICKS.finditer(out)}
+        runs = {r["n"]: r for r in self.runs(out)}
+        self.assertEqual(sorted(runs), sorted(expected))
+        for unit, (expected_ticks, video, picture, audio) in expected.items():
+            self.assertEqual((ticks[unit], runs[unit]["audio"]), (expected_ticks, audio), f"unit {unit}")
+            if video:
+                self.assertEqual(runs[unit]["hash"], picture, f"unit {unit}")
+        return runs
+
+    def test_the_real_kickstart_3_1_is_found_by_its_collection_name_and_every_unit_with_the_aga_demo_is_the_one_headless_makes(self):
+        out = self.frontend("boot", "--runs", self.UNITS, *A1200, system=self.a1200_system(), content=Path(AGA_ADF)).stdout
+        self.assertIn("machine A1200 (puae6_machine)", out)
+        self.assertIn(f"Kickstart {KICKSTART_NAMES_A1200[4]}, read through the frontend VFS", out)
+        self.assertIn("DF0: medium 0 inserted", out)
+        runs = self.assert_same_units(out, self.headless_real(self.UNITS, AGA_ADF))
+        self.assertGreater(len({r["hash"] for r in runs.values()}), 4, "the picture hardly changed")
+
+    def test_without_content_the_a1200_waits_for_a_disk_and_the_name_of_puae5_serves_too(self):
+        out = self.frontend("boot", "--runs", 120, *A1200, system=self.a1200_system(KICKSTART_NAMES_A1200[0])).stdout
+        self.assertIn(f"Kickstart {KICKSTART_NAMES_A1200[0]},", out)
+        self.assert_same_units(out, self.headless_real(120, None))
+
+    def test_the_other_machines_do_not_boot_with_the_a1200_kickstart_and_the_a1200_does_not_boot_with_theirs(self):
+        # A system directory with only the 3.1 of the A1200 (under its own name) leaves the A500 and the A600 without a Kickstart, and the other way round.
+        directory = self.a1200_system(KICKSTART_NAMES_A1200[0])
+        for options, wanted in (((), "1.3"), (A600, "2.05")):
+            out = self.frontend("boot", *options, system=directory, expect=3).stdout
+            self.assertIn(f"no Kickstart {wanted} ROM in the system directory ", " ".join(LibretroTests.messages(out)))
+        wrong = self.system_for("boot", KICKSTART_NAMES[0], KICKSTART_NAMES_A600[0])
+        out = self.frontend("boot", *A1200, system=wrong, expect=3).stdout
+        self.assertIn("no Kickstart 3.1 ROM in the system directory ", " ".join(LibretroTests.messages(out)))
+
+    @unittest.skipUnless(AGA_DMS, "BLOCKED: set P6_AGA_DMS to run the DMS of a free demo on the A1200")
+    def test_a_dms_disk_is_opened_by_the_core_and_the_a1200_leaves_the_insert_disk_screen(self):
+        system = self.a1200_system()
+        out = self.frontend("boot", "--runs", self.DMS_UNITS, *A1200, system=system, content=Path(AGA_DMS)).stdout
+        self.assertIn("DF0: medium 0 inserted", out)
+        empty = self.frontend("boot", "--runs", self.DMS_UNITS, *A1200, system=system).stdout
+        shown = {r["hash"] for r in self.runs(empty)[200:]}
+        self.assertFalse({r["hash"] for r in self.runs(out)[-100:]} & shown, "the machine still shows a picture of the insert-disk screen")
+        self.assertGreater(len({r["hash"] for r in self.runs(out)[-100:]}), 1, "the last 100 units show one frozen picture")
 
 
 if __name__ == "__main__":

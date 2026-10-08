@@ -188,8 +188,10 @@ def _validate_values(option, kind, where, errors):
             return
         names, abis = set(), set()
         for j, value in enumerate(values):
-            if not _only(value, {"value", "abi", "abi_name", "label"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
+            if not _only(value, {"value", "abi", "abi_name", "label", "wrapper"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
                 continue
+            if "wrapper" in value and (value["wrapper"] is not False or not (isinstance(option.get("wrapper"), dict) and option["wrapper"].get("how") == "setting")):
+                errors.append(f"{where} values[{j}]: wrapper may only be false (the BizHawk wrapper does not offer this value), on an option the wrapper takes as a setting")
             if not _text(value["value"]) or not _text(value["label"]):
                 errors.append(f"{where} values[{j}]: value and label must be non-empty ASCII text")
             if value["value"] in names:
@@ -485,6 +487,9 @@ def generate_table(schema: dict) -> str:
         (config if option["class"] == "reboot" else presentation)[option["maps_to"].partition(".")[2]] = entry
         adapters[option["id"]] = {"headless": option["headless"], "wrapper": option["wrapper"],
                                   "libretro": option["libretro"]["key"] if option["libretro"] else None}
+        withheld = [value["value"] for value in option.get("values", []) if value.get("wrapper") is False]
+        if withheld:
+            adapters[option["id"]]["wrapper_not_offered"] = withheld
     document = {"generated_by": PREAMBLE, "p6_config": config, "presentation": presentation, "adapters": adapters,
                 "reserved": {entry["id"]: entry["wrapper_setting"] for entry in schema["reserved"]},
                 "unsupported": {entry["key"]: entry["why"] for entry in schema["unsupported"]}}

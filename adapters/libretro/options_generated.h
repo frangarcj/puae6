@@ -47,6 +47,7 @@ struct Option {
 constexpr Value kMachineValues[] = {
     {"A500", 1u},
     {"A600", 2u},
+    {"A1200", 3u},
 };
 constexpr Value kVideoStandardValues[] = {
     {"PAL", 1u},
@@ -62,7 +63,7 @@ constexpr Value kVideoAspectValues[] = {
 };
 
 constexpr Option kOptions[] = {
-    {"puae6_machine", true, &Settings::machine, kMachineValues, 2, 0},
+    {"puae6_machine", true, &Settings::machine, kMachineValues, 3, 0},
     {"puae6_video_standard", true, &Settings::video_standard, kVideoStandardValues, 2, 0},
     {"puae6_audio_rate", true, &Settings::audio_rate_hz, kAudioRateHzValues, 2, 1},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 2, 0},
@@ -79,9 +80,9 @@ inline retro_core_option_v2_category kCategoriesV2[] = {
 
 inline retro_core_option_v2_definition kDefinitionsV2[] = {
     {"puae6_machine", "Model (Restart)", "Model (Restart)",
-     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600). It takes effect the next time the content is loaded; the running machine is not changed.",
-     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600). It takes effect the next time the content is loaded; the running machine is not changed.",
-     "machine", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}}, "A500"},
+     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}}, "A500"},
     {"puae6_video_standard", "Video Standard (Restart)", "Video Standard (Restart)",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -100,7 +101,7 @@ inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};
 
 // retro_core_option (version 1): no categories.
 constexpr retro_core_option_definition kDefinitionsV1[] = {
-    {"puae6_machine", "Model (Restart)", "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600). It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}}, "A500"},
+    {"puae6_machine", "Model (Restart)", "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}}, "A500"},
     {"puae6_video_standard", "Video Standard (Restart)", "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.", {{"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}}, "pixel"},
@@ -109,7 +110,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
 
 // Legacy SET_VARIABLES: "Description; default|other|..." (the default comes first).
 constexpr retro_variable kVariables[] = {
-    {"puae6_machine", "Model (Restart); A500|A600"},
+    {"puae6_machine", "Model (Restart); A500|A600|A1200"},
     {"puae6_video_standard", "Video Standard (Restart); PAL|NTSC"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart); 48000|44100"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3"},

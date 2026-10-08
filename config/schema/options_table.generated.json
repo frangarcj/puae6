@@ -5,11 +5,13 @@
       "default": 1,
       "allowed": [
         1,
-        2
+        2,
+        3
       ],
       "names": {
         "A500": 1,
-        "A600": 2
+        "A600": 2,
+        "A1200": 3
       },
       "option": "machine",
       "class": "reboot"
@@ -77,7 +79,8 @@
         "flag": "--machine",
         "names": {
           "A500": "a500",
-          "A600": "a600"
+          "A600": "a600",
+          "A1200": "a1200"
         }
       },
       "wrapper": {
@@ -85,7 +88,10 @@
         "setting": "Machine",
         "type": "Puae6Machine"
       },
-      "libretro": "puae6_machine"
+      "libretro": "puae6_machine",
+      "wrapper_not_offered": [
+        "A1200"
+      ]
     },
     "video_standard": {
       "headless": {
