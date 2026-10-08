@@ -8,6 +8,7 @@ A/V   picture size, aspect, cadence, picture hash and audio frames per unit are 
       silencing picture and sound for a stretch does not change what follows; lag and drive light follow the machine.
 WB04  two machines of the same guest in one process, taking turns with different input, each do what they do alone; one can go on after the other
       is disposed.
+T24f  the same lines on the A1200 (Machine = A1200, --machine a1200) and its domains: 2 MiB of Chip RAM and the ROM.
 T23e  the same lines on the A600 (Machine = A600, --machine a600): the picture, ticks and PCM of p6_headless --machine a600; the domains are 1 MiB of Chip RAM and the ROM.
 WB07  the memory domains are the machine's (big endian, 16-bit words, function hooks): pokes before the first unit go through the guest into pages nothing
       has written, the ROM takes none, out-of-range accesses throw, and nothing is a temporary pointer or an empty region.
@@ -195,6 +196,18 @@ class CoreTests(unittest.TestCase):
                     self.assertEqual((unit, ticks, f"{w}x{h}", f"{cn}/{cd}", picture, audio), (row["unit"], row["ticks"], row["size"], row["vsync"], row["hash"], row["audio"]), f"unit {unit}")
                 self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
 
+    def test_picture_audio_and_timing_per_unit_are_those_of_headless_on_the_a1200_in_both_standards(self):
+        # T24f: the A1200 (68EC020, AGA, 2 MiB of Chip RAM): the core with Machine = A1200 is p6_headless --machine a1200.
+        for standard, flag in (("pal", []), ("ntsc", ["--ntsc"])):
+            with self.subTest(standard=standard):
+                units = 40
+                rows, out = self.av("lace", units, "--machine", "a1200", *flag)
+                native = self.headless_lines("lace", units, "--machine", "a1200", *flag)
+                self.assertEqual(units, len(rows))
+                for row, (unit, ticks, video, w, h, parity, an, ad, cn, cd, picture, audio) in zip(rows, native):
+                    self.assertEqual((unit, ticks, f"{w}x{h}", f"{cn}/{cd}", picture, audio), (row["unit"], row["ticks"], row["size"], row["vsync"], row["hash"], row["audio"]), f"unit {unit}")
+                self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
+
     def test_a_guest_that_programs_ntsc_timing_on_a_pal_a600_changes_the_vsync_the_core_reports(self):
         # T23f: BizHawk takes the frame rate from every unit that carries a picture, so the rate of the beam the guest programs (262 lines of 227.5 clocks
         # on the PAL clock, 3546895 / 59605 Hz) reaches VsyncNumerator / VsyncDenominator, unit for unit as p6_headless reports it.
@@ -274,6 +287,16 @@ class CoreTests(unittest.TestCase):
         self.assertIn("domain Chip RAM size=1048576 writable=True", out)
         self.assertIn("domain ROM size=524288 writable=False", out)
         self.assertIn("scratch Chip RAM base=524288", out, "the pokes before the first unit went to the half of Chip RAM above 512 KiB, which the fixture leaves alone")
+        self.assertIn("chip-marker 50364d57", out)
+        self.assertEqual(4, out.count("ok an out-of-range access throws"))
+
+    def test_the_a1200_has_two_mebibytes_of_chip_ram_and_the_rom_and_no_slow_ram_domain_at_all(self):
+        out = self.core("domains", "--firmware", str(self.dir / "chipcell.rom"), "--machine", "a1200")
+        self.assertIn("domains Chip RAM,ROM,Waterbox PageData", out)
+        self.assertNotIn("Slow RAM size=", out)
+        self.assertIn("domain Chip RAM size=2097152 writable=True", out)
+        self.assertIn("domain ROM size=524288 writable=False", out)
+        self.assertIn("scratch Chip RAM base=524288", out)
         self.assertIn("chip-marker 50364d57", out)
         self.assertEqual(4, out.count("ok an out-of-range access throws"))
 

@@ -12,7 +12,7 @@
     "and the A1200 (68EC020, AGA, 2 MiB Chip, no Slow or Fast RAM, Kickstart 3.1, without Gayle).",
     "PUAE5 (libretro-uae) calls it puae_model: its A500 is this A500, but its A600 is a Kickstart 3.1 machine with 2 MiB Chip + 8 MiB Fast, which this one is not;",
     "its A1200OG (2 MiB Chip) is this A1200, while its A1200 carries 8 MiB of Fast RAM (task T49). So the key is puae6_machine, with the values of the ABI, and no PUAE5 key is read.",
-    "A value may carry \"wrapper\": false: the libretro core and headless offer it but the BizHawk wrapper does not yet (its sync setting enum lacks it); the A1200 until T24f."
+    "A value may carry \"wrapper\": false: the libretro core and headless offer it but the BizHawk wrapper does not yet (its sync setting enum lacks it). None is marked since T24f: the wrapper's Machine setting offers the three machines."
   ],
   "categories": [
     {"id": "machine", "label": "Machine", "info": "What the emulated Amiga is. These options take effect when the content is loaded."},
@@ -28,7 +28,7 @@
       "values": [
         {"value": "A500", "abi": 1, "abi_name": "P6_MACHINE_A500", "label": "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"},
         {"value": "A600", "abi": 2, "abi_name": "P6_MACHINE_A600", "label": "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"},
-        {"value": "A1200", "abi": 3, "abi_name": "P6_MACHINE_A1200", "label": "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)", "wrapper": false}
+        {"value": "A1200", "abi": 3, "abi_name": "P6_MACHINE_A1200", "label": "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}
       ],
       "libretro": {
         "key": "puae6_machine",

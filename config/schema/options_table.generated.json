@@ -88,10 +88,7 @@
         "setting": "Machine",
         "type": "Puae6Machine"
       },
-      "libretro": "puae6_machine",
-      "wrapper_not_offered": [
-        "A1200"
-      ]
+      "libretro": "puae6_machine"
     },
     "video_standard": {
       "headless": {

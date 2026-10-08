@@ -28,7 +28,7 @@ GUEST_RECEIPT = ROOT / "build/waterbox/puae6/puae6-receipt.json"
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
 ADF_BYTES = 901120
 KICKSTART_BYTES = 512 * 1024
-MEASURED = (("A500", "measured"), ("A600", "measured_a600"))     # one set of budgets for both machines (T23e)
+MEASURED = (("A500", "measured"), ("A600", "measured_a600"), ("A1200", "measured_a1200"))     # one set of budgets for the three machines (T23e, T24f)
 
 
 def runtime_available():
@@ -77,11 +77,11 @@ class MemoryManifestTests(unittest.TestCase):
         for entry in self.manifest["candidates_for_exclusion"]:
             self.assertIn("T36", entry["needed"])
 
-    def test_what_was_measured_fits_in_half_of_its_budget_on_both_machines(self):
+    def test_what_was_measured_fits_in_half_of_its_budget_on_the_three_machines(self):
         layout = self.manifest["layout"]
         for machine, key in MEASURED:
             measured = self.manifest[key]
-            self.assertTrue(measured, f"run tools/build_waterbox.py --puae6-run ... --record-memory{' --machine A600' if machine == 'A600' else ''}")
+            self.assertTrue(measured, f"run tools/build_waterbox.py --puae6-run ... --record-memory{'' if machine == 'A500' else ' --machine ' + machine}")
             self.assertEqual(machine, measured["fixture"]["machine"])
             for phase in ("after_seal", "after_first_unit", "after_last_unit"):
                 for heap in ("sbrk", "mmap"):
@@ -161,7 +161,7 @@ class WaterboxRuntimeTests(unittest.TestCase):
         return path
 
     def native(self, rom, units, machine="A500"):
-        result = subprocess.run([str(self.headless), "--run", str(rom), "--units", str(units), *(["--machine", "a600"] if machine == "A600" else [])],
+        result = subprocess.run([str(self.headless), "--run", str(rom), "--units", str(units), *(["--machine", machine.lower()] if machine != "A500" else [])],
                                 capture_output=True, text=True, timeout=600)
         self.assertEqual(0, result.returncode, result.stderr)
         return UNIT.findall(result.stdout)
@@ -195,6 +195,21 @@ class WaterboxRuntimeTests(unittest.TestCase):
                 self.assertEqual("A600", result["machine"])
                 self.assertEqual(60, len(inside))
                 self.assertEqual(self.native(rom, 60, "A600"), inside)
+
+    def test_the_a1200_inside_waterbox_equals_headless_on_the_a1200_and_is_neither_of_the_others(self):
+        # T24f: the A1200 (68EC020, AGA, 2 MiB of Chip RAM, no Slow RAM) in the sandbox: the same fixture programs are p6_headless --machine a1200 unit by unit, and the guest
+        # reports the machine it was given. The AGA code made the guest bigger (the ELF region is not a budgeted heap); the heaps are the ones of the other machines.
+        runs = {}
+        for name, defines in (("boot", None), ("vsync", None), ("copper_irq", {"HP": "2"})):
+            with self.subTest(name):
+                rom = self.firmware(name, defines)
+                inside, result = self.waterbox(rom, 60, machine="A1200")
+                self.assertEqual("A1200", result["machine"])
+                self.assertEqual(60, len(inside))
+                self.assertEqual(self.native(rom, 60, "A1200"), inside)
+                runs[name] = inside
+        self.assertNotEqual(runs["boot"], self.native(self.firmware("boot"), 60, "A600"))
+        self.assertNotEqual(runs["boot"], self.native(self.firmware("boot"), 60, "A500"))
 
     def test_the_machine_does_not_notice_that_the_host_buffers_were_overwritten_after_init_and_after_every_call(self):
         # The harness fills the firmware copy, p6w_init and p6_input with 0xA5 right after each call. Equality with headless above is the proof;

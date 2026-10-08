@@ -84,8 +84,14 @@ internal static unsafe partial class Program
 		}
 	}
 
-	/// <summary>The machine a command asks for: "a500" (the default) or "a600".</summary>
-	static Puae6Machine MachineOf(string? name) => (name ?? "a500").ToLowerInvariant() == "a600" ? Puae6Machine.A600 : Puae6Machine.A500;
+	/// <summary>The machine a command asks for: "a500" (the default), "a600" or "a1200".</summary>
+	static Puae6Machine MachineOf(string? name) => (name ?? "a500").ToLowerInvariant() switch
+	{
+		"a500" => Puae6Machine.A500,
+		"a600" => Puae6Machine.A600,
+		"a1200" => Puae6Machine.A1200,
+		var other => throw new ArgumentException($"machine is a500, a600 or a1200 (got {other})"),
+	};
 
 	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null, IReadOnlyList<byte[]>? media = null)
 	{
@@ -207,10 +213,10 @@ internal static unsafe partial class Program
 			Console.WriteLine($"domain {d.Name} size={d.Size} writable={d.Writable}");
 		}
 		var chip = domains["Chip RAM"]!;
-		// The A500 has Slow RAM, which nothing writes; the A600 has none and the half of Chip RAM above 512 KiB, which the fixtures leave alone, takes its place.
+		// The A500 has Slow RAM, which nothing writes; the A600 and the A1200 have none and the part of Chip RAM above 512 KiB, which the fixtures leave alone, takes its place.
 		var slow = domains["Slow RAM"] ?? chip;
 		long scratch = ReferenceEquals(slow, chip) ? 0x80000 : 0;
-		Require(ReferenceEquals(slow, chip) == (machine == Puae6Machine.A600), "Slow RAM exists on the A500 and only there");
+		Require(ReferenceEquals(slow, chip) == (machine != Puae6Machine.A500), "Slow RAM exists on the A500 and only there");
 		Console.WriteLine($"scratch {slow.Name} base={scratch}");
 		var rom = domains["ROM"]!;
 		// Before the first unit, right after the seal: nothing has written the machine, so a poke from managed code would be fatal; these go through the guest.

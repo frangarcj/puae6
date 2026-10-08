@@ -77,5 +77,21 @@ class GuestMemoryTests(unittest.TestCase):
     def test_on_the_a600_after_a_unit_the_marker_reads_big_endian_and_a_write_changes_the_next_picture(self):
         self.check_a600_areas(self.run_and_compare(30, 15, "A600"))
 
+    def check_a1200_areas(self, memory):
+        areas = memory["areas"]
+        # T24f: the A1200 has 2 MiB of Chip RAM and the ROM; like the A600 it has no Slow RAM area at all (not an empty one).
+        self.assertEqual(["Chip RAM", "ROM"], [area["Name"] for area in areas])
+        self.assertEqual(2097152, areas[0]["Size"])
+        self.assertEqual([1024 | 64 | 16 | 8 | 1, 1024 | 64 | 16], [area["Flags"] for area in areas])
+
+    def test_on_the_a1200_the_areas_are_two_mebibytes_of_chip_ram_and_the_rom_and_writes_land_in_clean_pages(self):
+        memory = self.run_and_compare(30, 0, "A1200")
+        self.check_a1200_areas(memory)
+        self.assertGreaterEqual(memory["dirty_pages_after_writes"], memory["dirty_pages_before_writes"] + 12)
+
+    def test_on_the_a1200_after_a_unit_the_marker_reads_big_endian_and_a_write_changes_the_next_picture(self):
+        self.check_a1200_areas(self.run_and_compare(30, 15, "A1200"))
+
+
 if __name__ == "__main__":
     unittest.main()

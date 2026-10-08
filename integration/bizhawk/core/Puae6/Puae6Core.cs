@@ -85,7 +85,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
 		BufferWidth = MaxWidth;
-		// The buffer the machine announces at the load: 576 rows, except an A500 in NTSC (it cannot leave its standard); an A600 keeps the PAL height in
+		// The buffer the machine announces at the load: 576 rows, except an A500 in NTSC (it cannot leave its standard); the A600 and the A1200 keep the PAL height in
 		// NTSC too so that a programmed PAL beam fits (ADR 0006). The first picture replaces it with the size that was really drawn.
 		BufferHeight = _syncSettings.Region == Puae6Region.NTSC && _syncSettings.Machine == Puae6Machine.A500 ? 486 : MaxHeight;
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
@@ -132,7 +132,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		}
 		init.Config.AbiVersion = P6.AbiVersion;
 		init.Config.StructSize = (uint)sizeof(P6Config);
-		init.Config.Machine = _syncSettings.Machine == Puae6Machine.A600 ? P6.MachineA600 : P6.MachineA500;
+		init.Config.Machine = _syncSettings.Machine switch { Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, _ => P6.MachineA500 };
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
 		init.Config.AudioRateHz = 48000;
 		init.Config.RandomSeed = _syncSettings.RandomSeed;

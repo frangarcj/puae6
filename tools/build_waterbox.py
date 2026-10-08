@@ -708,7 +708,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     the guest with canaries in the registers (WB13), `pages_at` the unit after which the 16 KiB page groups of Chip RAM are written and
     restored (WB14, needs the chipcell fixture), `memory_at` the unit after which (0: right after the seal) the memory areas the guest reports are read, written,
     refused and restored through the guest (T20a; after a unit it needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
-    initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15), `machine` "A500" or "A600" the p6_config.machine the guest is given (T23e). Needs the runtime (build/waterbox/receipt.json) and the
+    initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15), `machine` "A500", "A600" or "A1200" the p6_config.machine the guest is given (T23e, T24f). Needs the runtime (build/waterbox/receipt.json) and the
     guest (--puae6) to exist already; several runs may go on at once."""
     runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
     for needed in (runtime_receipt, guest_receipt):
@@ -758,10 +758,13 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     return lines, result
 
 
+MEASURED_KEYS = {"A500": "measured", "A600": "measured_a600", "A1200": "measured_a1200"}
+
+
 def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500") -> dict:
-    """Stores what a run measured in the `measured` key (A500) or `measured_a600` (A600) of manifests/waterbox-memory.json; the budgets, one set for both machines, stay as written."""
+    """Stores what a run measured in the `measured` key (A500), `measured_a600` (A600) or `measured_a1200` (A1200) of manifests/waterbox-memory.json; the budgets, one set for the three machines, stay as written."""
     manifest = json.loads(MEMORY_MANIFEST.read_text())
-    manifest["measured" if machine.upper() == "A500" else "measured_a600"] = {
+    manifest[MEASURED_KEYS[machine.upper()]] = {
         "fixture": {"machine": machine.upper(), "firmware_sha256": sha256(firmware), "firmware_bytes": firmware.stat().st_size, "units": units,
                     "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"},
         "guest_sha256": result["guest_sha256"], "runtime_sha256": result["runtime_sha256"],
@@ -782,7 +785,7 @@ def main() -> int:
     parser.add_argument("--record-memory", action="store_true",
                         help="con --puae6-run: guardar las medidas de la ejecucion en manifests/waterbox-memory.json")
     parser.add_argument("--units", type=int, default=1, help="unidades que ejecuta --puae6-run")
-    parser.add_argument("--machine", choices=("A500", "A600"), default="A500", help="maquina con la que --puae6-run configura el guest (T23e); con --record-memory decide la clave medida")
+    parser.add_argument("--machine", choices=("A500", "A600", "A1200"), default="A500", help="maquina con la que --puae6-run configura el guest (T23e, T24f); con --record-memory decide la clave medida")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4, help="trabajos paralelos de make para --puae6")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")

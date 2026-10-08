@@ -10802,7 +10802,7 @@
       "title": "A1200 en BizHawk/Waterbox: sync setting, FirmwareID Amiga/A1200, waterbox-memory y WB03",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24c"
       ],
@@ -10841,7 +10841,7 @@
       "title": "Añadir A1200/AGA y 68020 interpretado",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T23",
         "T24a",

@@ -175,6 +175,14 @@ class SchemaValidationTests(unittest.TestCase):
         option(document, "video_standard")["values"][1]["wrapper"] = False
         self.refuses(document, "wrapper may only be false")
 
+    def test_a_value_marked_false_is_listed_in_the_table_as_not_offered_by_the_wrapper_and_the_real_schema_marks_none(self):
+        # T24f: the wrapper's Machine setting offers the three machines, so no value of the real schema carries the mark; the mechanism stays for a future machine.
+        document = schema()
+        self.assertEqual([v["value"] for v in option(document, "machine")["values"] if "wrapper" in v], [])
+        self.assertNotIn("wrapper_not_offered", json.loads(gen.generate_table(document))["adapters"]["machine"])
+        option(document, "machine")["values"][2]["wrapper"] = False
+        self.assertEqual(json.loads(gen.generate_table(document))["adapters"]["machine"]["wrapper_not_offered"], ["A1200"])
+
     def test_every_problem_is_reported_not_only_the_first(self):
         document = schema()
         option(document, "video_standard")["default"] = "SECAM"
@@ -215,11 +223,11 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A600"}))["machine"], 2)
         self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A1200"}))["machine"], 3)
         self.assertIn("no IDE or PCMCIA", machine["libretro"]["info"])      # the description says what the A600 does not have
-        # T24e: the A1200 is described as what it is (PUAE5's A1200OG, not its A1200 with 8 MiB of Fast RAM), and only the BizHawk wrapper lacks it (T24f).
+        # T24e: the A1200 is described as what it is (PUAE5's A1200OG, not its A1200 with 8 MiB of Fast RAM), and since T24f the BizHawk wrapper offers it as well.
         self.assertEqual({v["value"]: v["label"] for v in machine["values"]}["A1200"], "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)")
         self.assertIn("A1200OG", machine["libretro"]["info"])
-        self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], ["A1200"])
-        self.assertEqual(json.loads(gen.generate_table(document))["adapters"]["machine"]["wrapper_not_offered"], ["A1200"])
+        self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], [])
+        self.assertNotIn("wrapper_not_offered", json.loads(gen.generate_table(document))["adapters"]["machine"])
         self.assertNotIn("machine", {entry["key"] for entry in document["unsupported"]})
 
     def test_the_same_configuration_gives_the_same_config_hash_and_only_another_machine_changes_it(self):
@@ -371,7 +379,7 @@ class GeneratorTests(unittest.TestCase):
                          {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
         self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3])
         self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3})
-        self.assertEqual(table["adapters"]["machine"]["wrapper_not_offered"], ["A1200"])
+        self.assertNotIn("wrapper_not_offered", table["adapters"]["machine"])
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
         self.assertEqual(list(table["presentation"]), ["video_aspect"])

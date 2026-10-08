@@ -43,6 +43,6 @@ public sealed partial class Puae6Core
 		};
 	}
 
-	/// <summary>The entry of BizHawk's firmware database for each machine (FirmwareDatabase.cs, Amiga): "A500" is Kickstart 1.3 and "A600" Kickstart 2.05, the ideal option of each.</summary>
+	/// <summary>The entry of BizHawk's firmware database for each machine (FirmwareDatabase.cs, Amiga): "A500" is Kickstart 1.3, "A600" Kickstart 2.05 and "A1200" Kickstart 3.1 r40.68, the ideal option of each.</summary>
 	public static FirmwareID FirmwareOf(Puae6Machine machine) => new(VSystemID.Raw.Amiga, machine.ToString());
 }
