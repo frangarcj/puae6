@@ -1,10 +1,11 @@
-// Headless PUAE6 runner. It links the A500 profile without any windowing, audio or plugin
+// Headless PUAE6 runner. It links the A500 and A600 profiles without any windowing, audio or plugin
 // dependency, reports the identity of the build and what the native ABI implements, and runs a
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
-//   p6_headless --run ROM [--units N] [--ntsc] [--seed S] [--dump DIR]
+//   p6_headless --run ROM [--machine a500|a600] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
 #include "p6.h"
+#include "sha256.h"
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -28,7 +29,7 @@ static int identity(void)
 {
     printf("core: puae6-headless\n");
     printf("profile: %s\n", P6_PROFILE);
-    printf("machines: A500\n");
+    printf("machines: A500 A600\n");
     printf("abi: %u\n", (unsigned)p6_abi_version());
     printf("upstream: WinUAE %s\n", P6_UPSTREAM_COMMIT);
     printf("patches: %s (%s)\n", P6_PATCH_COUNT, P6_PATCH_SERIES_SHA256);
@@ -100,13 +101,21 @@ static int fail(const char *what, p6_result result, const p6_error &error)
 
 static int run(int argc, char **argv)
 {
-    const char *rom_path = nullptr, *dump = nullptr;
-    uint32_t units = 1, standard = P6_VIDEO_PAL;
-    uint64_t seed = 1;
+    const char *rom_path = nullptr, *dump = nullptr, *disk_path = nullptr;
+    uint32_t units = 1, standard = P6_VIDEO_PAL, machine = P6_MACHINE_A500;
+    uint64_t seed = 1, dump_from = 1;
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
+        else if (!strcmp(argv[i], "--dump-from") && i + 1 < argc) dump_from = strtoull(argv[++i], nullptr, 10);
+        else if (!strcmp(argv[i], "--disk") && i + 1 < argc) disk_path = argv[++i];
+        else if (!strcmp(argv[i], "--machine") && i + 1 < argc) {
+            const char *name = argv[++i];
+            if (!strcmp(name, "a500")) machine = P6_MACHINE_A500;
+            else if (!strcmp(name, "a600")) machine = P6_MACHINE_A600;
+            else return -1;
+        }
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
         else return -1;
@@ -115,11 +124,13 @@ static int run(int argc, char **argv)
 
     std::vector<uint8_t> rom;
     if (!read_file(rom_path, &rom)) return 1;
+    std::vector<uint8_t> disk;
+    if (disk_path && !read_file(disk_path, &disk)) return 1;
 
     p6_config config = {};
     config.abi_version = P6_ABI_VERSION;
     config.struct_size = sizeof config;
-    config.machine = P6_MACHINE_A500;
+    config.machine = machine;
     config.video_standard = standard;
     config.audio_rate_hz = 48000;
     config.random_seed = seed;
@@ -127,11 +138,32 @@ static int run(int argc, char **argv)
     p6_error error = make_error();
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
-    result = p6_load(p6_buffer{rom.data(), rom.size()}, nullptr, 0, &error);
+    p6_media media = {};
+    media.type = P6_MEDIA_ADF;
+    media.image = p6_buffer{disk.data(), disk.size()};
+    p6_sha256_hash(disk.data(), disk.size(), media.content_id);   // the media identity is the SHA-256 of the image
+    result = p6_load(p6_buffer{rom.data(), rom.size()}, disk_path ? &media : nullptr, disk_path ? 1 : 0, &error);
     if (result != P6_OK) {
         const int code = fail("p6_load", result, error);
         p6_shutdown(nullptr);
         return code;
+    }
+
+    if (disk_path) {   // p6_load only registers the disk: DF0 holds it from the first unit through a mount queued before it
+        p6_media_event mount = {};
+        mount.abi_version = P6_ABI_VERSION;
+        mount.struct_size = sizeof mount;
+        mount.type = P6_MEDIA_EVENT_MOUNT;
+        mount.drive = 0;
+        mount.media_index = 0;
+        mount.sequence = 1;
+        result = p6_media_event_enqueue(&mount, &error);
+        if (result != P6_OK) {
+            const int code = fail("p6_media_event_enqueue", result, error);
+            p6_unload(nullptr);
+            p6_shutdown(nullptr);
+            return code;
+        }
     }
 
     p6_input input = {};
@@ -153,7 +185,7 @@ static int run(int argc, char **argv)
                frame.unit_index, frame.master_ticks, frame.video != nullptr, frame.active.width, frame.active.height,
                frame.field_parity, frame.aspect_num, frame.aspect_den, frame.cadence_num, frame.cadence_den, picture_hash(frame),
                frame.audio_frames);
-        if (dump && frame.video && !dump_frame(dump, frame)) status = 1;
+        if (dump && frame.video && frame.unit_index >= dump_from && !dump_frame(dump, frame)) status = 1;
     }
     p6_unload(nullptr);
     p6_shutdown(nullptr);
@@ -169,7 +201,7 @@ int main(int argc, char **argv)
         const int code = run(argc, argv);
         if (code >= 0) return code;
     }
-    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--units N] [--ntsc] [--seed S] [--dump DIR]\n",
+    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
             argv[0], argv[0]);
     return 64;
 }

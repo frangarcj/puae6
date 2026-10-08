@@ -10216,7 +10216,7 @@
       "title": "Preset A600/ECS en el bridge, perfil verificado campo a campo y arranque headless con Kickstart 2.05",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15",
         "T22"
@@ -10236,14 +10236,16 @@
         "adapters/headless/**",
         "CMakeLists.txt",
         "tests/step/**",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "tests/codegen/test_headless_link.py"
       ],
       "steps": [
         "Decision 2026-10-08 (investigacion en scratch/t23-research.md): A600 = built_in_prefs model 2 (bip_a600, ECS Agnus+Denise, 1 MiB Chip, sin Slow RAM, sin RTC de serie) SIN Gayle: gayle.cpp/ide.cpp no se compilan (P6_PORTABLE), asi que cs_ide=0, cs_pcmcia=0 y cs_compatible=0 son overrides declarados (con CP_A600 fixup_prefs reimpone Gayle) y cs_ciaoverlay=1 (sin Gayle el OVL lo lleva el CIA). P6_MACHINE_A600=2 es aditivo: no sube P6_ABI_VERSION; config_hash ya incluye machine.",
         "validate_config acepta P6_MACHINE_A600; build_preferences/check_preset por maquina; el A500 sigue saliendo del mismo codigo con los mismos valores.",
         "config/profiles/a600-ecs.json con fuente (upstream/pin/override/config) y motivo por campo; el probe del perfil se parametriza por maquina y test_a600_profile lo compara campo a campo como test_a500_profile.",
         "Oraculos que asumian solo A500 (bridge_lifecycle_probe machine=2, fuzz_probe, regex de CMake del headless) pasan a A500|A600; una maquina desconocida sigue siendo UNSUPPORTED.",
-        "headless --machine a600; test opt-in que lee Kickstart 2.05 y Workbench 2.05 desde sus zips en memoria (variables de entorno, temporal fuera del repo, sin hash ni copia) y comprueba la pantalla de insertar disco y el arranque del Workbench; se salta sin ellos. Si el 2.05 no arranca sin Gayle, registrar reproducer y reabrir la decision."
+        "headless --machine a600; test opt-in que lee Kickstart 2.05 y Workbench 2.05 desde sus zips en memoria (variables de entorno, temporal fuera del repo, sin hash ni copia) y comprueba la pantalla de insertar disco y el arranque del Workbench; se salta sin ellos. Si el 2.05 no arranca sin Gayle, registrar reproducer y reabrir la decision.",
+        "Ampliacion de touch (2026-10-08): tests/codegen/test_headless_link.py fija la linea 'machines: A500' de la identidad del headless, que ahora anuncia A500 A600."
       ],
       "checks": [
         "AV01",

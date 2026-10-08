@@ -40,6 +40,7 @@ SHARED_TARGETS = {
     "test_bridge_lifecycle": "p6_lifecycle_probe",
     "test_bridge_memory": "p6_memory_probe",
     "test_a500_profile": "p6_profile_probe",
+    "test_a600_profile": "p6_profile_probe",
 }
 
 

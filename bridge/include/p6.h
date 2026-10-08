@@ -52,7 +52,7 @@ typedef struct p6_caps {
 typedef struct p6_config {
     uint32_t abi_version;
     uint32_t struct_size;
-    uint32_t machine;           /* P6_MACHINE_A500 only in ABI v1. */
+    uint32_t machine;           /* P6_MACHINE_A500 or P6_MACHINE_A600; any other value is P6_ERROR_UNSUPPORTED. */
     uint32_t video_standard;    /* P6_VIDEO_PAL or P6_VIDEO_NTSC. */
     uint32_t audio_rate_hz;
     uint32_t flags;             /* Must be zero in ABI v1. */
@@ -61,10 +61,11 @@ typedef struct p6_config {
     uint64_t reserved[4];
 } p6_config;
 #define P6_MACHINE_A500 UINT32_C(1)
+#define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no IDE/PCMCIA (Gayle is not emulated). */
 #define P6_VIDEO_PAL    UINT32_C(1)
 #define P6_VIDEO_NTSC   UINT32_C(2)
 
-/* ABI v1 fixes A500 memory at 512 KiB Chip RAM and 512 KiB Slow RAM. */
+/* Memory is fixed per machine: A500 512 KiB Chip + 512 KiB Slow; A600 1 MiB Chip, no Slow. */
 typedef struct p6_buffer {
     const void *data;
     uint64_t bytes;

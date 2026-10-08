@@ -1,5 +1,7 @@
 """config/profiles/a500-ocs.json against the preferences the bridge really builds.
 
+(test_a600_profile.py runs the same checks, with the probe told to build the A600, against a600-ecs.json.)
+
 The probe builds the A500 twice in one process: the way upstream does (default_prefs + built_in_prefs
 model 0 + fixup_prefs) and the way the bridge does. Every field the profile pins must have the stated
 value for PAL and NTSC, and every byte of struct uae_prefs that differs from upstream must belong to a
@@ -50,13 +52,17 @@ def layout_fields(build_dir):
     return fields, size
 
 
-@unittest.skipUnless(TOOLS, "toolchain unavailable")
-class A500ProfileTests(unittest.TestCase):
+class ProfileChecks:
+    """The checks of one machine's profile; a subclass names the machine, the file and the argument of the probe."""
+    MACHINE = "A500"
+    PROBE_ARG = "a500"
+    PROFILE = PROFILE
+
     @classmethod
     def setUpClass(cls):
         cls.build_dir = ROOT / "build/link-audit"
         exe = build_probe(cls.build_dir, False, "p6_profile_probe")
-        out = subprocess.run([str(exe)], capture_output=True, text=True, timeout=120, check=True).stdout
+        out = subprocess.run([str(exe), cls.PROBE_ARG], capture_output=True, text=True, timeout=120, check=True).stdout
         cls.pinned = {"pal": {}, "ntsc": {}}
         cls.diffs = {"pal": [], "ntsc": []}
         for line in out.splitlines():
@@ -67,7 +73,7 @@ class A500ProfileTests(unittest.TestCase):
                 cls.pinned[parts[1]][parts[2]] = " ".join(parts[3:])
             elif parts[0] == "diff":
                 cls.diffs[parts[1]].append((int(parts[2]), int(parts[3])))
-        cls.profile = json.loads(PROFILE.read_text(encoding="utf-8"))
+        cls.profile = json.loads(cls.PROFILE.read_text(encoding="utf-8"))
         cls.layout, cls.layout_size = layout_fields(cls.build_dir)
 
     def test_profile_file_is_well_formed(self):
@@ -75,6 +81,7 @@ class A500ProfileTests(unittest.TestCase):
         names = [f["name"] for f in fields]
         self.assertEqual(len(names), len(set(names)))
         self.assertEqual(self.profile["profile"], "deterministic-a500")
+        self.assertEqual(self.profile["machine"], self.MACHINE)
         for f in fields:
             with self.subTest(field=f["name"]):
                 self.assertIn(f["source"], SOURCES)
@@ -117,6 +124,11 @@ class A500ProfileTests(unittest.TestCase):
                 with self.subTest(field=f["name"]):
                     compound = top_level(f["name"]) != f["name"]
                     self.assertTrue((f"currprefs.{top_level(f['name'])}" if compound else f"currprefs.{f['name']} =") in config)
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class A500ProfileTests(ProfileChecks, unittest.TestCase):
+    pass
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
-// Builds the A500 preferences twice in one process, the way upstream does and the way the bridge does,
-// and reports what differs. tests/host/test_a500_profile.py compares the report with
-// config/profiles/a500-ocs.json.
+// Builds the preferences of a machine twice in one process, the way upstream does and the way the bridge does,
+// and reports what differs. tests/host/test_a500_profile.py and test_a600_profile.py compare the report with
+// config/profiles/a500-ocs.json and a600-ecs.json.
+//   usage: p6_profile_probe [a500|a600]      (a500 when absent)
 //   line "pinned <video standard> <name> <value>" : selected facts of the bridge preset
 //   line "diff <video standard> <offset> <length>"  : byte ranges of struct uae_prefs where the two differ
 //   line "size <bytes>"                              : sizeof(uae_prefs), to bound the ranges
@@ -18,12 +19,12 @@
 
 static uae_prefs upstream_prefs, bridge_prefs;
 
-static p6_config make_config(uint32_t standard)
+static p6_config make_config(uint32_t machine, uint32_t standard)
 {
     p6_config c{};
     c.abi_version = P6_ABI_VERSION;
     c.struct_size = sizeof c;
-    c.machine = P6_MACHINE_A500;
+    c.machine = machine;
     c.video_standard = standard;
     c.audio_rate_hz = 48000;
     c.random_seed = 0x0123456789abcdefull;
@@ -57,10 +58,18 @@ static p6_config make_config(uint32_t standard)
     X(input_advancedmultiinput) X(keyboard_mode) X(cs_resetwarning) X(dongle) \
     X(sound_stereo_separation) X(sound_mixed_stereo_delay) X(sound_volume_paula) X(sound_volume_master)
 
-static void print_pinned(const char *standard, const uae_prefs &p)
+// The chipset facts upstream's A600 table sets and the A500 profile does not name.
+#define PINNED_A600(X) \
+    X(cs_ksmirror_a8) X(cs_ciaoverlay) X(cs_ciatype[0]) X(cs_ciatype[1]) X(cs_eclocksync) X(cs_df0idhw) X(cs_ciatodbug) \
+    X(cs_1mchipjumper)
+
+static void print_pinned(const char *standard, const uae_prefs &p, bool a600)
 {
 #define X(field) printf("pinned %s %s %lld\n", standard, #field, (long long)(p.field));
     PINNED(X)
+    if (a600) {
+        PINNED_A600(X)
+    }
 #undef X
     printf("pinned %s romfile %s\n", standard, p.romfile);
     for (int i = 0; i < 4; ++i) printf("pinned %s floppyslots[%d].df %s\n", standard, i, p.floppyslots[i].df);
@@ -79,20 +88,22 @@ static void print_diff(const char *standard)
     }
 }
 
-int main()
+int main(int argc, char **argv)
 {
+    const bool a600 = argc > 1 && !strcmp(argv[1], "a600");
+    if (argc > 1 && !a600 && strcmp(argv[1], "a500")) return 64;
     printf("size %zu\n", sizeof(uae_prefs));
     for (uint32_t standard : {P6_VIDEO_PAL, P6_VIDEO_NTSC}) {
         const char *name = standard == P6_VIDEO_PAL ? "pal" : "ntsc";
-        const p6_config config = make_config(standard);
-        // What upstream itself builds for an A500 (cfgfile default_prefs, model 0 / config 0, fixup).
+        const p6_config config = make_config(a600 ? P6_MACHINE_A600 : P6_MACHINE_A500, standard);
+        // What upstream itself builds (cfgfile default_prefs, model 0 = A500 or 2 = A600, config 0, fixup).
         default_prefs(&currprefs, true, 0);
-        built_in_prefs(&currprefs, 0, 0, 0, 0);
+        built_in_prefs(&currprefs, a600 ? 2 : 0, 0, 0, 0);
         fixup_prefs(&currprefs, true);
         memcpy(&upstream_prefs, &currprefs, sizeof currprefs);
         p6_bridge::build_preferences(config);
         memcpy(&bridge_prefs, &currprefs, sizeof currprefs);
-        print_pinned(name, bridge_prefs);
+        print_pinned(name, bridge_prefs, a600);
         print_diff(name);
     }
     return 0;
