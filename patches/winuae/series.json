@@ -2837,6 +2837,29 @@
           "after_sha256": "8df4adf79bc25d7a81610536c3d6d8b1f4aa79dd776bab07432fcba1d4d7265c"
         }
       ]
+    },
+    {
+      "id": "0105-disk-select-state",
+      "file": "patches/winuae/0105-disk-select-state.patch",
+      "sha256": "cb4b9241d23630be6902cbcea6a2c0d1c31d2879358e679497cd6920ecf7e4db",
+      "title": "The drive-select latch of the floppy controller comes back with the state",
+      "reason": "T15k: DISK_select keeps the drive-select mask, the step line and the direction in file statics derived from the last write to CIA-B port B (prev_data); upstream rebuilds them with DISK_select_set from restore_cia_finish, which the native load does not run. A loaded machine had every drive deselected and the step line low, so the first port B write after the load did not step the drive the original stepped (nor draw the random shifter bits), and the generator and the head diverged during a DOS load. DSKX carries prev_data (40 to 41 words) and the apply calls DISK_select_set.",
+      "category": "host hooks",
+      "order": 105,
+      "symbols": [
+        "p6_disk_phase_get",
+        "p6_disk_phase_set"
+      ],
+      "test": "STATE02; tests.state.test_det02; tests.state.test_det02_a600",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "52df24ef568a85c949a1904f4c73cd6fabf1548491c105c57a275db5a52f3f8d",
+          "after_sha256": "8b57fff5c29acae2379deb9894e26c20aaa605daa397c073972b632c6acb7458"
+        }
+      ]
     }
   ]
 }

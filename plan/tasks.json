@@ -10216,7 +10216,7 @@
       "title": "DET02 a mitad de una carga de disco real: estado oculto de la unidad (PRNG, pista bufferizada, seeks) que P6DK no lleva",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15"
       ],

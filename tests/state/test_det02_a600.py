@@ -76,7 +76,7 @@ KICKSTART_SCENARIOS = {
     "kickstart-insert-disk": ("kickstart", [], (700,), (d.SAME_BEAM, d.NEW)),       # no disk: the animation of the disk entering the drive, long after the boot
 }
 WORKBENCH_SCENARIOS = {
-    "workbench-boot": ("kickstart", "workbench", (400, 700), (d.SAME_BEAM, d.NEW)),
+    "workbench-boot": ("kickstart", "workbench", (200, 300, 400, 700), (d.SAME_BEAM, d.NEW)),
 }
 
 
@@ -111,18 +111,21 @@ class Det02Workbench205Tests(Kickstart205Case):
     pass
 
 
-# Where DET02 diverges with the real Workbench in DF0: a finding of T23b that is NOT the A600's (the same 2.05 image on `--machine a500` diverges too, and so does the A500 with the
-# 1.3 and a disk of filler at unit 200): the PRNG word of the CPU digest is the only thing that differs in the first unit, the consumption of values that something in the disk path
-# makes depend on state P6DK does not carry. Reproducer and hypotheses: the T23b report of the session (scratch/t23b-divergence.md); the owner is a disk task (continuation of T15d).
-DISK_PRNG = "the PRNG of the first unit after the load (cpu digest) differs: the disk path draws values that the loaded machine does not draw like the original"
-WORKBENCH_DIVERGENCES = {
-    "workbench-boot@400/new-process": (3, ("cpu", "scheduler", "ram", "cia", "bridge", "chipset.beam", "chipset.irq_dma"), "disk (T15d continuation)", DISK_PRNG),
-    "workbench-boot@400/same-image-beam-set": (1, ("cpu", "ram"), "disk (T15d continuation)", DISK_PRNG),
-    "workbench-boot@700/new-process": (1, ("cpu",), "disk (T15d continuation)", DISK_PRNG),
-}
+# The Workbench in DF0 at boundaries inside the load of the system. The states taken here used to diverge (T23b found it, T15k fixed it): the floppy controller keeps the last value
+# written to CIA-B port B (the drives selected, the step line, the direction, the side) in file statics that no body of upstream's carries, and the first write after a load was judged
+# against the ones of the machine that loaded it: a head step lost or made up, shifter bits drawn or not, so the generator of the first unit after the load was not the original's
+# (patch 0105, the select word of DSKX). The same 2.05 image on the A500 and the 1.3 with a game disk on the A500 (tests/state/test_det02_kickstart.py) were the same case.
+WORKBENCH_DIVERGENCES = {}
+
+
+@unittest.skipUnless(KICKSTART_ZIP and WORKBENCH_ZIP, "BLOCKED: set P6_KICKSTART_A600_ZIP and P6_WB205_ZIP to run the Workbench 2.05 boot on the A500")
+class Det02Workbench205A500Tests(Kickstart205Case):
+    MACHINE = "a500"
+
 
 d.populate(Det02Kickstart205Tests, KICKSTART_SCENARIOS, {})
 d.populate(Det02Workbench205Tests, WORKBENCH_SCENARIOS, WORKBENCH_DIVERGENCES)
+d.populate(Det02Workbench205A500Tests, WORKBENCH_SCENARIOS, WORKBENCH_DIVERGENCES)
 
 
 if __name__ == "__main__":

@@ -208,7 +208,9 @@ void cias(Canon &c)
 // digest has always had, and each is also digested alone under "chip UNIT GROUP HEX".
 void chip_beam(Canon &c) { c.put(int32_t(vpos)).put(int32_t(linear_vpos)).put(agnus_hpos); }
 void chip_counters(Canon &c) { c.put(hsync_counter).put(vsync_counter); }
-void chip_irq_dma(Canon &c) { c.put(dmacon).put(intena).put(intreq).put(adkcon); }
+// Bits 14 and 13 of dmacon are not state: a CPU read of DMACONR stores the derived blitter busy and zero flags into the live variable (DMACONR) and the next write of DMACON clears
+// them, so a machine whose program reads DMACONR has them where one that loaded the state, which holds the register image without them, does not (T15k: the Kickstart 2.05 does it on the A500).
+void chip_irq_dma(Canon &c) { c.put(uint16_t(dmacon & ~0x6000)).put(intena).put(intreq).put(adkcon); }
 // Bit 15 is not state: a read of CLXDAT is (clxdat | 0x8000) and restore_custom stores the saved image, bit included, so a restored machine has it set where a live one does not.
 void chip_clxdat(Canon &c) { c.put(uint16_t(clxdat & 0x7FFF)); }
 void chip_lof(Canon &c) { c.put(uint8_t(lof_store)).put(uint8_t(lof_display)); }

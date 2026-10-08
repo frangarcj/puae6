@@ -49,7 +49,9 @@ the card, item by item:
                                       disk-dma-bytr), the step limiter (disk-steps: a loop of step pulses), the bit counter and geometry of a drive that spins empty, and the countdown of a delayed
                                       disk change, which restore_disk zeroed so that the medium never landed (disk-change-lands: the units after the load run until it has, 110 of them). The generator
                                       is the engine's: restore_custom writes DSKSYNC and the prediction draws from it on a track the image does not format, so ApplyScope puts it back after the bodies.
-                                      linecounter (the turbo path), dsklength2 and the rest of what DSKX leaves out are dead in the profile, see patch 0101. Since T15d2 a state is loaded whatever the drives of the machine hold (the media are the
+                                      linecounter (the turbo path), dsklength2 and the rest of what DSKX leaves out are dead in the profile, see patch 0101. The drive-select latch (the last write to
+                                      CIA-B port B: drives selected, step line, direction, side) is DSKX's since T15k (patch 0105): the first write after a load was judged against the machine's own history,
+                                      which no micro-ROM above noticed (none writes port B again at the unit the state is taken in) and a Kickstart loading a DOS disk does all the time; disk-seek is the one that does. Since T15d2 a state is loaded whatever the drives of the machine hold (the media are the
                                       manifest, and the load puts into each drive the medium the state names): see the modes below that differ in the media
   delayed disk change                 not shown any more: the cpu digest that differed at unit 10 was the DMAL in flight, which T15f1 saves, and the audio
                                       rows that followed were T15e's: disk-change matches now
@@ -161,6 +163,8 @@ SCENARIOS = {
     "disk-dma-bytr": ("disk-dma-bytr", "disk", (3, 11, 12, 13), CORE),
     "disk-dma-sync": ("disk-dma-sync", "disk", (2, 3, 12), CORE),
     "disk-steps": ("disk-steps", "disk", (4, 7, 12), CORE),
+    # Seeks and sync-aligned reads in a ring of nine units (T15k): the write of CIA-B port B that follows the load is judged against the drive-select latch of the controller.
+    "disk-seek": ("disk-seek", "disk", (4, 5, 6, 7, 9, 12), CORE),
     # The delayed insert of the change (2 * 50 * 312 lines after the swap) is in flight in every unit from 10 to 110: the states are taken before the insert, in its middle and
     # at its end, and the units after the load run until it has landed.
     "disk-change-lands": ("busy", "change-long", (12, 60), (SAME_BEAM, LATER_BEAM, BOOT_A)),
@@ -204,6 +208,96 @@ loop:
     MOVE.B $4000.L,D2
     ADDQ.L #1,D0
     BRA.S loop
+"""
+
+# A program that seeks and reads like a trackdisk: a ring of nine vertical-blank handlers, each of which writes CIA-B port B once (select, motor, side, direction and the step line) and the
+# ring comes back to the first, so that the head goes in, in, out through cylinders 0 to 2 on both sides while sync-aligned reads (DSKSYNC $4489, WORDSYNC) bring a track into Chip RAM
+# from the head's own cylinder and side. The floppy controller keeps the last port B value (the drives selected, the step line, the direction, the side) in file statics that no
+# body of WinUAE's own carries: the first write after a load is judged against them, so a state taken while the step line is high, or in the middle of a pulse, makes the next write
+# step or not step and draw the shifter bits of the step (T15k: the Kickstart that loads a DOS disk is the same thing at a larger scale). The medium is the ADF of the "disk" scenarios.
+DISK_SEEK = """; PUAE6 test program: seeks in, in and out, with a sync-aligned track read at two of the nine steps of the ring.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.B #$FF,$BFD300.L       ; CIAB DDRB: all outputs
+    MOVE.B #$FF,$BFD100.L       ; deselect every drive
+    MOVE.B #$7F,$BFD100.L       ; motor on
+    MOVE.B #$77,$BFD100.L       ; select DF0: the motor latches on
+    MOVE.L #dskblk,$64.L
+    MOVE.L #h0,$6C.L
+    MOVE.W #$C022,$DFF09A.L     ; INTENA: vertical blank and disk block
+    MOVE.W #$2200,$DFF100.L
+    MOVE.W #$2C81,$DFF08E.L
+    MOVE.W #$2CC1,$DFF090.L
+    MOVE.W #$8210,$DFF096.L     ; DMACON: SET, master and disk
+    .nops 40000                 ; the medium is in the drive by now
+    MOVE.W #$2000,SR
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+dskblk:
+    MOVE.W #$0002,$DFF09C.L     ; INTREQ: clear DSKBLK
+    ADDQ.L #1,D2
+    RTE
+h0:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$75,$BFD100.L       ; DF0, motor on, inward, side 0, step line high (no edge)
+    MOVE.L #h1,$6C.L
+    MOVE.W #$7F00,$DFF09E.L     ; ADKCON: clear WORDSYNC and the rest
+    MOVE.W #$9500,$DFF09E.L     ; ADKCON: SET | MFMPREC | WORDSYNC | FAST
+    MOVE.W #$4489,$DFF07E.L     ; DSKSYNC
+    MOVE.L #$30000,$DFF020.L    ; DSKPT
+    MOVE.W #$8400,$DFF024.L     ; DSKLEN twice: a read of $400 words from the sync word
+    MOVE.W #$8400,$DFF024.L
+    RTE
+h1:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$74,$BFD100.L       ; step line low
+    MOVE.L #h2,$6C.L
+    RTE
+h2:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$75,$BFD100.L       ; step line high: one step inward
+    MOVE.L #h3,$6C.L
+    RTE
+h3:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$71,$BFD100.L       ; side 1, step line high (no edge)
+    MOVE.L #h4,$6C.L
+    MOVE.W #$7F00,$DFF09E.L
+    MOVE.W #$9500,$DFF09E.L
+    MOVE.W #$4489,$DFF07E.L
+    MOVE.L #$34000,$DFF020.L
+    MOVE.W #$8400,$DFF024.L
+    MOVE.W #$8400,$DFF024.L
+    RTE
+h4:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$70,$BFD100.L       ; step line low
+    MOVE.L #h5,$6C.L
+    RTE
+h5:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$71,$BFD100.L       ; step line high: one step inward
+    MOVE.L #h6,$6C.L
+    RTE
+h6:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$73,$BFD100.L       ; outward, step line high (no edge)
+    MOVE.L #h7,$6C.L
+    RTE
+h7:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$72,$BFD100.L       ; step line low
+    MOVE.L #h8,$6C.L
+    RTE
+h8:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.B #$73,$BFD100.L       ; step line high: one step outward
+    MOVE.L #h0,$6C.L
+    RTE
 """
 
 # An interlaced picture: one bitplane with LACE set, and a vertical-blank handler that alternates the long-frame bit (VPOSW) and the bitplane pointer, so that the two fields have other
@@ -481,7 +575,7 @@ class Det02Tests(Det02Case):
         "blt-dsk": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8250,$DFF096.L"}),
         "late-bpl": (LATE_BITPLANES, None, None), "interlaced": (INTERLACED, None, None),
         "tone": (tone_source(Tone("det02", channels=(0, 1), period=200, volume=64)), None, None),
-        "tone-mod": (TONE_MODULATED, None, None), "disk-dma": (upstream.DISK_DMA, None, None),
+        "tone-mod": (TONE_MODULATED, None, None), "disk-dma": (upstream.DISK_DMA, None, None), "disk-seek": (DISK_SEEK, None, None),
         "disk-dma-single": (upstream.DISK_DMA, None, {"    MOVE.W #$8800,$DFF024.L     ; DSKLEN twice: the next transfer, $800 words\n    MOVE.W #$8800,$DFF024.L\n": "    MOVE.W #$8800,$DFF024.L     ; DSKLEN once\n"}),
         "disk-dma-sync": (upstream.DISK_DMA, None, {"    MOVE.W #$7F00,$DFF09E.L     ; ADKCON: clear WORDSYNC and the rest\n    MOVE.W #$9100,$DFF09E.L     ; ADKCON: SET | MFMPREC | FAST, as trackdisk\n":
                                            "    MOVE.W #$4489,$DFF07E.L     ; DSKSYNC\n    MOVE.W #$9500,$DFF09E.L     ; ADKCON: SET | MFMPREC | WORDSYNC | FAST: the transfer waits for the sync word\n"}),
