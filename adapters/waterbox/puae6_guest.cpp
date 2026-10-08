@@ -2,7 +2,7 @@
 // no scheduler here: p6w_frame_advance makes exactly one p6_run_frame call. See p6w.h for who owns which pointer.
 //
 // Lifecycle (docs/03-waterbox.md): the sandbox is created and the constructors run; the host calls p6w_init, which copies the firmware
-// and the media into the sealed heap and initializes the A500 (p6_init + p6_load); the host seals; every unit is p6w_frame_advance.
+// and the media into the sealed heap and initializes the configured machine, A500 or A600 (p6_init + p6_load); the host seals; every unit is p6w_frame_advance.
 #include "emulibc.h"
 #include "p6.h"
 #include "p6w.h"

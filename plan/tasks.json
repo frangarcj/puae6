@@ -10535,7 +10535,7 @@
       "title": "Añadir ECS/A600 sin relajar el gate A500",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15",
         "T22",
@@ -10561,7 +10561,11 @@
         "docs/02-contracts.md",
         "docs/01-architecture.md",
         "tools/scenario_schema.py",
-        "tests/scenarios/**"
+        "tests/scenarios/**",
+        "docs/03-waterbox.md",
+        "docs/adr/0006-video-output.md",
+        "adapters/waterbox/puae6_guest.cpp",
+        "docs/04-validation.md"
       ],
       "steps": [
         "Derivar preset A600/ECS del upstream fijado, con memoria/ROM/clock explicitamente validados; no añadir FPU/MMU.",
@@ -10569,7 +10573,8 @@
         "Ejecutar estado nativo y snapshot Waterbox en el perfil nuevo, y repetir todo gate A500.",
         "Actualizar tabla de capacidades y config schema; etiquetar firmware pendiente como no probado.",
         "Division (2026-10-08): T23a (preset + arranque 2.05), T23b (estado), T23c (escenarios AV), T23d (libretro), T23e (BizHawk/Waterbox); T23 es el cierre: conserva los checks y la aceptacion, actualiza tabla de capacidades y contratos y repite todo el gate A500.",
-        "Fleco de T23c (2026-10-08): tools/scenario_schema.py solo acepta machine A500; extenderlo a A600 (1 MiB Chip, sin Slow) y escribir los JSON ecs-* de tests/scenarios/ecs con sus tests de esquema. Anotar como medido, no como hardware, el borde negro de SuperHires y el desplazamiento de las lineas impares NTSC, y que la tabla upstream identifica el A600 como 8372A ($20/$30)."
+        "Fleco de T23c (2026-10-08): tools/scenario_schema.py solo acepta machine A500; extenderlo a A600 (1 MiB Chip, sin Slow) y escribir los JSON ecs-* de tests/scenarios/ecs con sus tests de esquema. Anotar como medido, no como hardware, el borde negro de SuperHires y el desplazamiento de las lineas impares NTSC, y que la tabla upstream identifica el A600 como 8372A ($20/$30).",
+        "Ampliacion de touch (2026-10-08): flecos de documentacion de las subtareas: docs/03-waterbox.md (peliculas solo A500), el comentario de cabecera de adapters/waterbox/puae6_guest.cpp ('initializes the A500'), la garantia de cero fuera de active en la transicion de haz (ADR 0006, T23g) y los escenarios ECS en docs/04-validation.md."
       ],
       "checks": [
         "AV01",

@@ -274,3 +274,37 @@ def beam_display_for(name, standard):
     if name == "same":
         spec["registers"] = ((BEAMCON0, BEAM_PAL if standard == "pal" else 0),)
     return EcsDisplay("beam-" + name, bars=BARS, **spec)
+
+
+# --- the scenario files (tests/scenarios/ecs/ecs-*.json) -----------------------------------------------------------------------------
+
+SCENARIO_UNITS = {"display": 6, "beam": 10, "ident": 6}      # the units of tests/step/test_ecs.py: PictureTests, BeamTests.UNITS, ident
+
+
+def scenario_programs():
+    """{scenario id: (assembly of the program, units, video standard)} for every program of this module in PAL and NTSC.
+
+    One file per program and standard, like tests/scenarios/a500/display-*.json: the id is `ecs-<program>-<standard>`, the
+    firmware is the SHA-256 of the micro-ROM the assembler makes from the source (a program of this repository, not a Kickstart).
+    """
+    programs = {}
+    for standard in ("pal", "ntsc"):
+        for name, display in DISPLAYS.items():
+            programs["ecs-%s-%s" % (name, standard)] = (rom_source(display), SCENARIO_UNITS["display"], standard)
+        for name in BEAM:
+            programs["ecs-beam-%s-%s" % (name, standard)] = (rom_source(beam_display_for(name, standard)), SCENARIO_UNITS["beam"], standard)
+        programs["ecs-ident-%s" % standard] = (ident_source(), SCENARIO_UNITS["ident"], standard)
+    return programs
+
+
+def scenario_document(scenario_id, rom_sha256, units, standard):
+    """The strict-v1 scenario (tools/scenario_schema.py) of an ECS program on the A600 preset of the deterministic-a500 profile."""
+    idle = {"type": "none", "buttons": 0, "dx": 0, "dy": 0}
+    return {
+        "schema_version": 1, "scenario_id": scenario_id, "profile": "deterministic-a500",
+        "config": {"machine": "A600", "video_standard": standard.upper(), "audio_rate_hz": 48000, "random_seed": 1,
+                   "rtc_epoch_seconds": 946684800, "chip_ram_bytes": 1048576, "slow_ram_bytes": 0},
+        "firmware": [rom_sha256], "media": [], "program": None, "units": units,
+        "inputs": [{"unit": 0, "keys": "0" * 32, "ports": [dict(idle), dict(idle)]}],
+        "events": [], "checkpoints": list(range(1, units + 1)), "probes": [], "render": True, "audio": True,
+    }

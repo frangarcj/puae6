@@ -270,7 +270,7 @@ en una playlist/configuracion de juego.
 
 Modelo implementado (T17b): `config/schema/options.json` es el esquema unico de lo que la ABI v1 deja elegir, y `tools/generate_options.py` lo valida, normaliza una configuracion
 pedida y genera las tablas del core libretro (`adapters/libretro/options_generated.h` y `config/schema/options_table.generated.json`; `--check` falla si estan obsoletas).
-Normalizar da a cada opcion el valor pedido o el defecto del esquema; una clave desconocida, una no soportada (CPU, RAM, ROM, maquina distinta de A500, `.uae`; con su razon)
+Normalizar da a cada opcion el valor pedido o el defecto del esquema; una clave desconocida, una no soportada (CPU, RAM, ROM, una maquina que no sea A500 ni A600, `.uae`; con su razon)
 o un valor fuera del esquema levanta ConfigError, que nombra la clave y todos los problemas, y nunca devuelve una configuracion parcial. Headless y el wrapper BizHawk no se
 generan: `tests/config` comprueba contra el esquema sus defaults, valores y mapeo a `p6_config`, de modo que no hay defaults divergentes. Cada opcion es `reboot` (un campo de
 `p6_config`: entra en config_hash y en la identidad del estado) o `presentation` (sin efecto sobre la emulacion). El core libretro lee las opciones antes de cargar y un valor que
@@ -279,6 +279,44 @@ valor; semilla y epoca RTC no se ofrecen en libretro y quedan en su defecto. Con
 cargar el contenido (no cambia el config, la identidad ni el bound de estado), uno de presentacion se aplica en el acto y un valor no valido se avisa y se ignora.
 La regla de que un cambio que afecta al tamaño del estado exige recarga se cumple por construccion (todo lo que entra en el config es `reboot`) y T18 la comprueba contra el bound
 real: `retro_serialize_size` no se mueve con una opcion de presentacion cambiada en marcha ni con una `reboot` solo avisada, y es el mismo en cada carga del mismo contenido y configuracion.
+
+### Maquinas y capacidades (T23)
+
+`p6_config.machine` elige entre dos presets del MISMO perfil de build `deterministic-a500` (no hay un segundo perfil: mismo motor, mismo interprete 68000 ciclo
+exacto, mismo scheduler `p6_run_frame`, sin ifdefs de frontend). Cada preset sale de `built_in_prefs` del upstream fijado (`config/profiles/a500-ocs.json`,
+`config/profiles/a600-ecs.json`; `tests/host` compara cada perfil con las preferencias que construye `bridge/config.cpp`, campo a campo).
+
+| | A500 | A600 |
+| --- | --- | --- |
+| Chipset | OCS (Agnus + Denise OCS) | ECS (Agnus + Denise ECS: SuperHires, DIWHIGH, BEAMCON0/VARBEAMEN, productividad) |
+| CPU | 68000 ciclo exacto, 24 bits, sin FPU/MMU | igual |
+| Chip RAM | 512 KiB | 1 MiB (sin alias del primer medio MiB) |
+| Slow (Bogo) RAM | 512 KiB | ninguna |
+| Fast RAM | ninguna | ninguna |
+| RTC | MSM6242B (epoca de la config) | ninguno de serie (el cuerpo `P6RT` del estado va vacio) |
+| Gayle / IDE / PCMCIA | no existe | NO emulado: `cs_ide = cs_pcmcia = cs_compatible = 0`, `gayle.cpp`/`ide.cpp` no se compilan; un `.hdf`/PCMCIA no se acepta |
+| Kickstart probado | 1.3 (r34.5) | 2.05 (r37.350), con Workbench 2.05 r37.71 de disco |
+| Selector | libretro `puae6_machine` = `A500` (defecto) / `A600` (reinicio); headless `--machine`; BizHawk sync setting `Machine` | igual |
+| FirmwareID BizHawk | Amiga/A500 | Amiga/A600 |
+| Estados y peliculas | propios del A500 | propios del A600: se rechazan antes de tocar nada (`config_hash` lleva la maquina) |
+| Chipset de VPOSR | familia 0 (OCS) | familia 2 en la tabla upstream = 8372A (`$2xxx` PAL, `$3xxx` NTSC), DENISEID `$FFFC` |
+
+Probado con firmware autorizado (opt-in por variables de entorno, nunca copiado ni registrado): Kickstart 1.3 en el A500 y Kickstart 2.05 en el A600 arrancan hasta
+la pantalla de insertar disco y hasta el shell del Workbench 2.05, y DET02 restaura un estado tomado durante la carga real de un disco (parche 0105). Probado sin firmware
+comercial: micro-ROM de identificacion, 1 MiB de Chip, SuperHires, DIWHIGH, BEAMCON0/VARBEAMEN y productividad en PAL y NTSC (AV01, AV02), estados nativos y de Waterbox,
+libretro con RetroArch real y el nucleo BizHawk dentro de Waterbox (WB03).
+
+NO probado (no afirmar compatibilidad): otros Kickstart que el motor acepta por contenido (2.04 o 3.1 en el A600, 2.05 en el A500); configuraciones de 2 MiB de Chip o con Fast
+RAM; la interfaz de EmuHawk (el wrapper se probo por FFI y en el arnes, no con la UI); A1200/AGA/68020, IDE, PCMCIA, CD32/CDTV.
+
+Medido (lo que hace el motor, no una afirmacion de lo que hace un chip real): la tabla upstream identifica el A600 como 8372A (VPOSR `$20`/`$30`); en SuperHires el motor
+pinta el borde negro en lugar de COLOR00; en NTSC la imagen SHRES de las lineas impares aparece 2 columnas a la izquierda (el propio comentario de upstream llama a
+esa alineacion un hack).
+
+Limites documentados: la unidad en la que el invitado escribe BEAMCON0 se describe entera con el haz nuevo aunque parte corriera con el anterior (un error de una unidad,
+determinista; ADR 0006 "Haz programado"); el aviso de cambio de cadencia de libretro (`SET_SYSTEM_AV_INFO`) solo salta cuando la tasa se aleja mas de un 1 % de la anunciada,
+de modo que el campo largo y el entrelazado (0,3 %) no lo disparan y un cambio real PAL<->NTSC (19 %) si; los rasters de mas de 576 filas o 760 columnas no se entregan
+(`P6_FRAME_NO_VIDEO`); fuera de `active` todo byte vale cero en cada unidad, tambien en la transicion de haz (T23g).
 
 ## ROMs, discos y persistencia
 

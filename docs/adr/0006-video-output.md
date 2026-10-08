@@ -99,6 +99,11 @@ el pase del renderizador y el retorno; `init_beamcon0` se aplica en vpos 0, ante
   rompe "el maximo se anuncia al load"). Los rasters de mas de 576 filas o 760 columnas siguen sin entregarse.
 - **Unidad de transicion**: la unidad en la que cambia BEAMCON0 se describe con el haz nuevo aunque en parte corrio con el
   anterior (el cambio se aplica antes del render): un error de una unidad, determinista.
+- **Cero fuera de `active` tambien en la transicion** (T23g). Las primeras lineas de la geometria nueva (p. ej. productividad + SuperHires,
+  HTOTAL 150) se dibujan mientras el motor aun tiene el ancho del modo anterior y podian pasar de la anchura entregada dentro de la fila de
+  1824 pixeles del array del puerto. `unlockscr()` limpia al final de cada pase la cola `[w, 1824)` de las filas `[0, h)` y las filas
+  `[h, asignadas)` del buffer canonico (no del auxiliar): unos 74 us por unidad (0,2 %), sin ensanchar el buffer ni escribir fuera del array.
+  La garantia (todo byte fuera de `active` vale cero) vale en cada unidad de cada programa ECS de haz, PAL y NTSC; los hashes del A500 y ECS no cambian.
 - **Adaptadores**. libretro anuncia en el load la tasa nominal del estandar configurado (`retro_get_system_av_info`, buffer
   maximo 760 x 576 de `caps`) y, en la frontera de `retro_run` en que una unidad llega con otra tasa, llama una vez a
   `RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO` (fps nuevo, con la geometria y el aspecto de esa misma unidad); un cambio solo de

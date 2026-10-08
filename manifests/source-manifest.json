@@ -3,7 +3,7 @@
   "status": "host-contracts-planned",
   "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
   "profile": "deterministic-a500",
-  "preset": "cfgfile.cpp: built_in_prefs(model=0, config=0, compa=0); 68000 CE, OCS, Chip512K/Slow512K, RTC MSM6242B; PAL/NTSC explicito",
+  "preset": "cfgfile.cpp: built_in_prefs(model=0, config=0, compa=0) = A500: 68000 CE, OCS, Chip512K/Slow512K, RTC MSM6242B; built_in_prefs(model=2, config=0, compa=0) = A600: 68000 CE, ECS Agnus+Denise, Chip1M, sin Slow, sin RTC, sin Gayle (cs_ide=cs_pcmcia=cs_compatible=0, cs_ciaoverlay=1; config/profiles/a600-ecs.json); PAL/NTSC explicito",
   "audit_sources": [
     "newcpu.cpp",
     "newcpu_common.cpp",
@@ -246,6 +246,7 @@
     "libretro-core.c": "Referencia de frontend antiguo; reutilizar semantica de frame mediante bridge neutral",
     "capsimg": "IPF fuera de M1; licencia y alternativa MAME pendientes de revision propia",
     "genp2c/gencomp": "Sin invocacion genp2c hallada en proyectos actuales; gencomp es JIT excluido. No agregar por glob.",
+    "gayle.cpp/ide.cpp": "El A600 real tiene Gayle (IDE, PCMCIA); el preset A600 de PUAE6 no: cs_ide=cs_pcmcia=cs_compatible=0 y gayle.cpp/ide.cpp no se compilan (T23a). Un dispositivo soportado nunca se simula con stubs de exito.",
     "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "Fuera de A500 M1; no enlazar por conveniencia",
     "red/hostfs/dispositivos fisicos/plugins/archives": "Sin backend ni contrato determinista M1; rechazo explicito"
   },

@@ -98,6 +98,16 @@ scope se fija antes de implementar y debe cubrir TODA la aceptacion de su ficha.
 T08 prueba AV01 con programas cuya imagen se predice desde el propio programa (nunca desde una captura del motor)
 y guarda el hash SHA-256 de los pixeles activos solo despues de esa comprobacion; el arranque con un Kickstart
 autorizado es un escenario aparte que queda BLOCKED sin imagen y no se extrapola del micro-ROM.
+T23 repite AV01 en el A600/ECS (preset dentro del perfil deterministic-a500) con los mismos metodos: los programas y la imagen que cada uno
+debe producir estan en `tests/scenarios/ecs/ecs.py` (identificacion VPOSR/DENISEID, 1 MiB de Chip, SuperHires, DIWHIGH, BEAMCON0, VARBEAMEN y
+productividad, PAL y NTSC; los hashes de repetibilidad en `ecs-baselines.json`), los ejecuta `tests/step/test_ecs.py`
+(`python3 -m unittest tests.step.test_step tests.step.test_display tests.step.test_ecs`) y `tests/step/test_kickstart_a600.py` es el arranque
+opt-in con el Kickstart 2.05 autorizado (`P6_KICKSTART_A600_ZIP` + `P6_WB205_ZIP`, leidos en memoria, sin copia ni hash). Cada programa y estandar
+tiene su escenario `tests/scenarios/ecs/ecs-<programa>-<pal|ntsc>.json` (38 ficheros, `machine` A600, 1 MiB Chip, sin Slow; el firmware es el SHA-256
+del micro-ROM que ensambla ecs.py, no un Kickstart) que `tests/scenarios/test_schema.py` valida y compara con lo que el generador produce. AV02 repite
+la suite de audio en el A600 (`AudioA600Tests`); DET02/STATE01 corren la tabla A500 mas 14 escenarios A600 con punteros DMA sobre 512 KiB y el
+Kickstart 2.05 opt-in; WB03 y LR01 se ejecutan con ambas maquinas. Medido, no afirmado de un hardware: en SuperHires el motor pinta el borde en negro
+en lugar de COLOR00 (el modelo no describe lo que cae fuera de la ventana) y en NTSC la imagen SHRES de las lineas impares queda 2 columnas a la izquierda.
 T07 prueba STEP01 en bridge/headless; T16 lo amplia al adaptador libretro y T19
 al guest Waterbox. Ningun adaptador puede aprobarlo con un scheduler alternativo.
 No se puede presentar PASS de un subconjunto como PASS del conjunto completo.

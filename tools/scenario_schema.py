@@ -6,6 +6,8 @@ At a boundary reset precedes media events (sequence order), then input. Input
 keys/buttons hold until replaced; mouse deltas default to zero on later units.
 Keys is a 128-bit hexadecimal integer: bit n maps to Amiga key n (not text).
 Program describes a raw CPU-test payload, not a firmware ROM or a boot claim.
+Machines: A500 (OCS, 512 KiB Chip + 512 KiB Slow) and A600 (ECS, 1 MiB Chip, no Slow); the profile stays deterministic-a500.
+A 'slow' probe is invalid on a machine without Slow RAM.
 """
 import hashlib
 import json
@@ -14,6 +16,9 @@ import re
 
 U64 = (1 << 64) - 1
 HASH = re.compile(r'[0-9a-f]{64}\Z')
+# machine -> (chip_ram_bytes, slow_ram_bytes). Both machines are presets inside the build profile deterministic-a500
+# (docs/01-architecture.md): the A500 is OCS with 512 KiB Chip + 512 KiB Slow, the A600 is ECS with 1 MiB Chip and no Slow.
+MACHINES = {'A500': (524288, 524288), 'A600': (1048576, 0)}
 
 
 def require(condition, message):
@@ -64,12 +69,12 @@ def validate_scenario(s):
     require(s['profile'] == 'deterministic-a500', 'Perfil no soportado')
     c = s['config']
     obj(c, 'machine video_standard audio_rate_hz random_seed rtc_epoch_seconds chip_ram_bytes slow_ram_bytes')
-    require(c['machine'] == 'A500' and c['video_standard'] in ('PAL', 'NTSC'), 'Maquina invalida')
+    require(type(c['machine']) is str and c['machine'] in MACHINES and c['video_standard'] in ('PAL', 'NTSC'), 'Maquina invalida')
     integer(c['audio_rate_hz'], 8000, 192000)
     integer(c['random_seed'])
     integer(c['rtc_epoch_seconds'], -(1 << 63), (1 << 63) - 1)
-    for ram in ('chip_ram_bytes', 'slow_ram_bytes'):
-        integer(c[ram], 524288, 524288)
+    for ram, size in zip(('chip_ram_bytes', 'slow_ram_bytes'), MACHINES[c['machine']]):
+        integer(c[ram], size, size)
     integer(s['units'], 1, 100000)
     for flag in ('render', 'audio'):
         require(type(s[flag]) is bool, 'Flag de presentacion invalido')

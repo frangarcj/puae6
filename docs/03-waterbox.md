@@ -354,7 +354,11 @@ Las peliculas se graban con el core (entrada pseudoaleatoria con semilla fija: t
 - DET06: la misma reproduccion con otra zona horaria, locale, idioma, globalizacion invariante, directorio de trabajo, `HOME` y `TMPDIR` es la misma reproduccion y la grabada.
   (El directorio de trabajo es el de la biblioteca del runtime, porque BizHawk pide a dlopen su nombre sin ruta: se probaron cuatro copias en cuatro directorios.)
 
-Alcance: M1 Waterbox cubre el perfil A500 (PAL y NTSC) con las micro-ROM y los discos de las pruebas; no hay Kickstart real probado ni ninguna otra maquina. Las peliculas del core UAE de BizHawk se
+Alcance: Waterbox cubre dos maquinas, el A500 (OCS) y el A600 (ECS, 1 MiB Chip, sin Slow ni Gayle), ambas PAL y NTSC, como sync setting `Machine` (T23e); no hay otra (A1200/AGA, Fast, 68020 siguen sin probar). Una pelicula
+es de una maquina: la cabecera BK2 lleva el hash de configuracion (`machine=` forma parte de la cadena que se hashea), de modo que una pelicula grabada en el A500 se rechaza en el A600 y al reves, antes de tocar el
+sandbox y con un mensaje que nombra ambas maquinas (igual que un estado); las peliculas y estados del A500 anteriores a T23e conservan su hash y siguen cargando. Probado con las micro-ROM y los discos de las pruebas en las dos
+maquinas (WB03, `tests/waterbox-state/test_wrapper_machine.py`, y la reproduccion de una pelicula en el A600) y, con las variables de entorno de firmware, con Kickstart 1.3 en el A500 y Kickstart 2.05 en el A600; no probado:
+la interfaz de EmuHawk (no se ha ejecutado), otros Kickstart. Las peliculas del core UAE de BizHawk se
 rechazan por su cabecera y no se convierten. Los contadores de lag y de ciclos son los de la propia grabacion (el golden es la grabacion: si una reproduccion difiere, se corrige el
 motor o el core, nunca la pelicula).
 
