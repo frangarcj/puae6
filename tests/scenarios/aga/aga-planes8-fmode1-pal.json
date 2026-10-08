@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "scenario_id": "aga-planes8-fmode1-pal",
+  "profile": "deterministic-a500",
+  "config": {
+    "machine": "A1200",
+    "video_standard": "PAL",
+    "audio_rate_hz": 48000,
+    "random_seed": 1,
+    "rtc_epoch_seconds": 946684800,
+    "chip_ram_bytes": 2097152,
+    "slow_ram_bytes": 0
+  },
+  "firmware": [
+    "3775e40963a0e9dbb3643b143c0926be86a78812dab0c5ed7ad5d63bbe02a43c"
+  ],
+  "media": [],
+  "program": null,
+  "units": 6,
+  "inputs": [
+    {
+      "unit": 0,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "checkpoints": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "probes": [],
+  "render": true,
+  "audio": true
+}

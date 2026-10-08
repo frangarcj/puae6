@@ -2,8 +2,10 @@
 
 Counts come from the clock alone (integers); content comes from micro-ROMs whose output follows from the hardware
 documentation; delivery on/off must leave the machine and the delivered samples unchanged. The whole set runs on both machines
-of the bridge: AudioTests on the A500 and AudioA600Tests (same tests, same expectations) on the A600 preset, whose Paula and
-clock are those of the A500 (T23c).
+of the bridge: AudioTests on the A500, AudioA600Tests (same tests, same expectations) on the A600 preset, whose Paula and clock
+are those of the A500 (T23c), and AudioA1200Tests on the A1200 preset (T24d): the same Paula and clock, with the A1200 output filter
+model (sound_filter_type, config/profiles/a1200-aga.json) instead of the A500 one, which changes the shape of the edges but neither the
+count of frames nor their phase, so the counts and the sides of the channels keep the expectations of the other machines.
 """
 import os
 from pathlib import Path
@@ -78,8 +80,8 @@ class AudioTests(unittest.TestCase):
     def test_cumulative_frames_hold_when_the_guest_programs_the_beam(self):
         # The A600 chipset lets the guest change the length of the unit (BEAMCON0, HTOTAL, VTOTAL). Paula counts in colour clocks of
         # the configured standard, so the cumulative frame count still follows the clock at every boundary, whatever the unit length.
-        if self.MACHINE != "a600":
-            self.skipTest("ECS only")
+        if self.MACHINE == "a500":
+            self.skipTest("ECS and AGA only (BEAMCON0)")
         for name in ("to-ntsc", "to-pal", "var-less", "var-tall", "toggle"):
             for standard in ("pal", "ntsc"):
                 rom = Path(self.tmp.name) / f"beam-{name}-{standard}.rom"
@@ -161,6 +163,28 @@ class AudioTests(unittest.TestCase):
 class AudioA600Tests(AudioTests):
     """The same counts, phases, pitch, channel sides and delivery on/off on the A600 preset."""
     MACHINE = "a600"
+
+
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class AudioA1200Tests(AudioTests):
+    """The same counts, phases, pitch, channel sides and delivery on/off on the A1200 preset (A1200 filter model)."""
+    MACHINE = "a1200"
+
+    def test_the_a1200_filter_changes_the_edges_of_the_wave_and_not_its_cadence(self):
+        # Same program, same clock: the frames per unit are those of the A500 (the tests above pin them against the clock), while the
+        # samples differ because the filter model is another one. A flat wave (silence) is the same on both.
+        a500, a1200 = {}, {}
+        for machine, store in (("a500", a500), ("a1200", a1200)):
+            with tempfile.TemporaryDirectory(prefix="p6-pcm-") as pcm:
+                code, out = run_probe(self.exe, self.roms["tone0"], 24, "frames", 1, timeout=900, extra=["pal", machine],
+                                      env={"P6_AUDIO_RATE": "48000", "P6_AUDIO_DUMP": pcm})
+                self.assertEqual(code, 0, out[-500:])
+                store["rows"] = frames_of(out)
+                store["pcm"] = [v for unit in range(8, 25) for v in self.pcm(pcm, unit)]
+        self.assertEqual([audio_of(r)[1] for r in a500["rows"]], [audio_of(r)[1] for r in a1200["rows"]])
+        # (The ticks of the boundaries differ by a few colour clocks: the unit ends inside an instruction and the 68020 core is not
+        # the 68000 one. The frames per unit are those of the clock, not of the instruction, and are equal.)
+        self.assertNotEqual(a500["pcm"], a1200["pcm"])
 
 
 if __name__ == "__main__":

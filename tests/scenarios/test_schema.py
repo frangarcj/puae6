@@ -10,9 +10,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 import scenario_schema as schema
+from tests.scenarios.aga import aga
 from tests.scenarios.ecs import ecs
 
 ECS_DIR = ROOT / 'tests/scenarios/ecs'
+AGA_DIR = ROOT / 'tests/scenarios/aga'
 
 
 class ScenarioSchemaTests(unittest.TestCase):
@@ -75,7 +77,7 @@ class ScenarioSchemaTests(unittest.TestCase):
             lambda s: s['config'].update(chip_ram_bytes=524288),                    # and 1 MiB of Chip
             lambda s: s['config'].update(chip_ram_bytes=2097152),
             lambda s: s['config'].update(machine='A500'),                           # A500 with the A600 memory
-            lambda s: s['config'].update(machine='A1200'),
+            lambda s: s['config'].update(machine='A1200'),                          # A1200 with the A600 memory
             lambda s: s['config'].update(machine=['A600']),
             lambda s: s.update(probes=[dict(region='slow', offset=0, length=1)]),   # no Slow region to probe
             lambda s: s.update(probes=[dict(region='chip', offset=1048575, length=2)]),
@@ -113,6 +115,58 @@ class ScenarioSchemaTests(unittest.TestCase):
                 self.assertEqual((scenario['units'], scenario['render'], scenario['program'], scenario['media']),
                                  (units, True, None, []))
                 self.assertEqual(text, json.dumps(ecs.scenario_document(scenario_id, hashlib.sha256(rom).hexdigest(), units, standard),
+                                                  indent=2) + '\n')
+
+    def a1200(self):
+        return schema.load_json(AGA_DIR / 'aga-planes8-pal.json')
+
+    def test_a1200_is_a_preset_of_the_same_profile_with_two_mebibytes_of_chip(self):
+        scenario = self.a1200()
+        self.assertEqual((scenario['profile'], scenario['config']['machine']), ('deterministic-a500', 'A1200'))
+        self.assertEqual((scenario['config']['chip_ram_bytes'], scenario['config']['slow_ram_bytes']), (2097152, 0))
+        schema.validate_scenario(scenario)
+        good = copy.deepcopy(scenario)
+        good['probes'] = [dict(region='chip', offset=2097150, length=2)]       # above the 1 MiB of the A600
+        good['program'] = dict(sha256='c' * 64, load_address=0x100000, entry_address=0x100000, size_bytes=64)
+        schema.validate_scenario(good)
+
+    def test_the_a1200_rejects_the_memory_of_the_other_machines(self):
+        mutations = [
+            lambda s: s['config'].update(slow_ram_bytes=524288),                    # no Slow RAM
+            lambda s: s['config'].update(chip_ram_bytes=524288),
+            lambda s: s['config'].update(chip_ram_bytes=1048576),
+            lambda s: s['config'].update(machine='A600'),                           # A600 with the A1200 memory
+            lambda s: s['config'].update(machine='A500'),
+            lambda s: s['config'].update(machine='A4000'),
+            lambda s: s.update(probes=[dict(region='slow', offset=0, length=1)]),
+            lambda s: s.update(probes=[dict(region='chip', offset=2097151, length=2)]),
+            lambda s: s.update(profile='deterministic-a1200'),
+        ]
+        for mutate in mutations:
+            with self.subTest(mutation=mutate):
+                bad = copy.deepcopy(self.a1200())
+                mutate(bad)
+                with self.assertRaises(ValueError):
+                    schema.validate_scenario(bad)
+
+    def test_aga_scenario_files_are_valid_and_name_the_program_they_run(self):
+        from tests.step.test_step import builder
+        programs = aga.scenario_programs()
+        files = {path.stem: path for path in AGA_DIR.glob('aga-*.json') if path.stem != 'aga-baselines'}
+        self.assertEqual(set(files), set(programs))
+        self.assertEqual(len(files), 2 * len(aga.DISPLAYS))
+        for scenario_id, (source, units, standard) in programs.items():
+            with self.subTest(scenario=scenario_id):
+                text = files[scenario_id].read_text(encoding='utf-8')
+                scenario = schema.validate_scenario(schema.load_json(files[scenario_id]))
+                self.assertEqual(scenario['scenario_id'], scenario_id)
+                rom = builder.build(source)
+                self.assertEqual(scenario['firmware'], [hashlib.sha256(rom).hexdigest()])
+                self.assertEqual(scenario['config']['machine'], 'A1200')
+                self.assertEqual(scenario['config']['video_standard'], standard.upper())
+                self.assertEqual((scenario['units'], scenario['render'], scenario['program'], scenario['media']),
+                                 (units, True, None, []))
+                self.assertEqual(text, json.dumps(aga.scenario_document(scenario_id, hashlib.sha256(rom).hexdigest(), units, standard),
                                                   indent=2) + '\n')
 
     def result(self):
