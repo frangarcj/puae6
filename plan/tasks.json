@@ -10212,8 +10212,8 @@
       "evidence": null
     },
     {
-      "id": "T23",
-      "title": "Añadir ECS/A600 sin relajar el gate A500",
+      "id": "T23a",
+      "title": "Preset A600/ECS en el bridge, perfil verificado campo a campo y arranque headless con Kickstart 2.05",
       "milestone": "M2",
       "required": true,
       "status": "pending",
@@ -10227,16 +10227,216 @@
         "docs/04-validation.md"
       ],
       "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "config/profiles/**",
+        "tests/host/**",
+        "tests/fuzz/**",
+        "adapters/headless/**",
+        "CMakeLists.txt",
+        "tests/step/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Decision 2026-10-08 (investigacion en scratch/t23-research.md): A600 = built_in_prefs model 2 (bip_a600, ECS Agnus+Denise, 1 MiB Chip, sin Slow RAM, sin RTC de serie) SIN Gayle: gayle.cpp/ide.cpp no se compilan (P6_PORTABLE), asi que cs_ide=0, cs_pcmcia=0 y cs_compatible=0 son overrides declarados (con CP_A600 fixup_prefs reimpone Gayle) y cs_ciaoverlay=1 (sin Gayle el OVL lo lleva el CIA). P6_MACHINE_A600=2 es aditivo: no sube P6_ABI_VERSION; config_hash ya incluye machine.",
+        "validate_config acepta P6_MACHINE_A600; build_preferences/check_preset por maquina; el A500 sigue saliendo del mismo codigo con los mismos valores.",
+        "config/profiles/a600-ecs.json con fuente (upstream/pin/override/config) y motivo por campo; el probe del perfil se parametriza por maquina y test_a600_profile lo compara campo a campo como test_a500_profile.",
+        "Oraculos que asumian solo A500 (bridge_lifecycle_probe machine=2, fuzz_probe, regex de CMake del headless) pasan a A500|A600; una maquina desconocida sigue siendo UNSUPPORTED.",
+        "headless --machine a600; test opt-in que lee Kickstart 2.05 y Workbench 2.05 desde sus zips en memoria (variables de entorno, temporal fuera del repo, sin hash ni copia) y comprueba la pantalla de insertar disco y el arranque del Workbench; se salta sin ellos. Si el 2.05 no arranca sin Gayle, registrar reproducer y reabrir la decision."
+      ],
+      "checks": [
+        "AV01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "test_a500_profile y los hashes A500 no cambian; test_a600_profile pasa sin campos no declarados.",
+        "Con la ROM autorizada el A600 llega a la pantalla de insertar disco del 2.05 y arranca el Workbench 2.05 de forma determinista con la misma semilla."
+      ],
+      "stop": "Si el Kickstart 2.05 exige Gayle, no fingir el dispositivo: parar, guardar el caso y decidir entre compilar Gayle o declarar el A600 no soportado.",
+      "evidence": null
+    },
+    {
+      "id": "T23b",
+      "title": "Estado nativo en el perfil A600: RTC ausente, probe por maquina y DET02/STATE01",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/state_devices.cpp",
+        "bridge/state.cpp",
+        "bridge/state_probe.cpp",
+        "tests/state/**",
+        "tests/fuzz/**"
+      ],
+      "steps": [
+        "P6RT acepta una maquina sin reloj (cs_rtc=0) sin inventar estado; el resto de chunks valida igual en A500 y A600.",
+        "state_probe --machine; DET02 en micro-ROMs con el A600 (1 MiB Chip, sin Slow) y opt-in con Kickstart 2.05; STATE01: el bound cubre la maquina mas grande.",
+        "Un estado de A500 cargado en un A600 (o al reves) es INCOMPATIBLE antes de mutar."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "DET02 sin divergencias en A600; la suite de estado A500 sigue intacta."
+      ],
+      "stop": "Una divergencia nueva solo en A600 requiere reproducer y atribucion, no relajar el digest.",
+      "evidence": null
+    },
+    {
+      "id": "T23c",
+      "title": "Escenarios ECS de video y audio (AV01/AV02) en PAL y NTSC",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "tests/scenarios/ecs/**",
+        "tests/scenarios/test_schema.py",
+        "tests/step/**",
+        "tests/audio/**"
+      ],
+      "steps": [
+        "Micro-ROMs ECS cuyo resultado se deduce del programa: identificacion de Agnus (VPOSR) y Denise (DENISEID), Chip RAM de 1 MiB, SuperHires, DIWHIGH, BEAMCON0 PAL/NTSC y modo productividad.",
+        "Los modos cuyo raster no cabe en el buffer canonico (productividad/doblescan) entregan P6_FRAME_NO_VIDEO sin escribir fuera del buffer; un cambio PAL<->NTSC por BEAMCON0 contra la config queda medido y documentado como limite o corregido en otra ficha.",
+        "Audio con el mismo conteo/fase en A600 PAL/NTSC."
+      ],
+      "checks": [
+        "AV01",
+        "AV02"
+      ],
+      "acceptance": [
+        "Ningun modo ECS desborda; los hashes de los escenarios A500 no cambian."
+      ],
+      "stop": "No ampliar el buffer canonico ni retocar el chipset para que un modo encaje: documentar o abrir ficha.",
+      "evidence": null
+    },
+    {
+      "id": "T23d",
+      "title": "Maquina A600 en libretro: opcion de reinicio, Kickstart por nombre conocido y LR01",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/fuzz/**"
+      ],
+      "steps": [
+        "machine pasa de campo fijo a opcion de reinicio (A500|A600) en el esquema unico; regenerar la tabla.",
+        "El core libretro busca el Kickstart del A600 por los nombres conocidos de PUAE5 (kick37350.A600, ...) y p6_load decide por contenido; sin firmware, error claro.",
+        "LR01 en A600 y el mismo LR01 del A500 sin cambios."
+      ],
+      "checks": [
+        "LR01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "La misma configuracion produce el mismo config_hash; una opcion de maquina invalida se rechaza."
+      ],
+      "stop": "No aceptar parcialmente una configuracion de maquina.",
+      "evidence": null
+    },
+    {
+      "id": "T23e",
+      "title": "Maquina A600 en BizHawk/Waterbox: sync setting, firmware A600 y WB03",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23a",
+        "T23b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "ports/waterbox/**",
+        "manifests/waterbox-memory.json",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "tools/build_waterbox.py"
+      ],
+      "steps": [
+        "Sync setting de maquina (reinicio), identidad del estado y de la pelicula con la maquina, FirmwareID Amiga A600 de la base de BizHawk sin modificar MacHawk.",
+        "Snapshot Waterbox en sandbox nuevo con el perfil A600 (WB03); re-registrar waterbox-memory si el guest crece."
+      ],
+      "checks": [
+        "WB03"
+      ],
+      "acceptance": [
+        "Un estado o pelicula de otra maquina se rechaza; WB03 pasa en A600 y en A500."
+      ],
+      "stop": "Sin runner Waterbox la puerta queda BLOCKED.",
+      "evidence": null
+    },
+    {
+      "id": "T23",
+      "title": "Añadir ECS/A600 sin relajar el gate A500",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15",
+        "T22",
+        "T23a",
+        "T23b",
+        "T23c",
+        "T23d",
+        "T23e"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
         "config/profiles/**",
         "manifests/source-manifest.json",
         "tests/scenarios/ecs/**",
-        "bridge/config.cpp"
+        "bridge/config.cpp",
+        "docs/02-contracts.md",
+        "docs/01-architecture.md"
       ],
       "steps": [
         "Derivar preset A600/ECS del upstream fijado, con memoria/ROM/clock explicitamente validados; no añadir FPU/MMU.",
         "Añadir escenarios de modos ECS y variaciones PAL/NTSC con capacidades y audio correctos.",
         "Ejecutar estado nativo y snapshot Waterbox en el perfil nuevo, y repetir todo gate A500.",
-        "Actualizar tabla de capacidades y config schema; etiquetar firmware pendiente como no probado."
+        "Actualizar tabla de capacidades y config schema; etiquetar firmware pendiente como no probado.",
+        "Division (2026-10-08): T23a (preset + arranque 2.05), T23b (estado), T23c (escenarios AV), T23d (libretro), T23e (BizHawk/Waterbox); T23 es el cierre: conserva los checks y la aceptacion, actualiza tabla de capacidades y contratos y repite todo el gate A500."
       ],
       "checks": [
         "AV01",
