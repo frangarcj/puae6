@@ -116,8 +116,8 @@ class StateFuzzTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def run_state(self, seed, iterations, extra_env=None):
-        return subprocess.run([str(self.exe), "state", str(self.rom), str(seed), str(iterations)], capture_output=True, text=True, timeout=3600,
+    def run_state(self, seed, iterations, extra_env=None, machine=None):
+        return subprocess.run([str(self.exe), "state", str(self.rom), str(seed), str(iterations), *([machine] if machine else [])], capture_output=True, text=True, timeout=3600,
                               env={**self.ENV, **(extra_env or {})})
 
     @staticmethod
@@ -131,8 +131,8 @@ class StateFuzzTests(unittest.TestCase):
 
     def test_the_recorded_state_seeds_run_clean_and_reach_every_mutation_and_every_outcome(self):
         for run in CORPUS["state_runs"]:
-            with self.subTest(seed=run["seed"], iterations=run["iterations"]):
-                result = self.run_state(run["seed"], run["iterations"])
+            with self.subTest(seed=run["seed"], iterations=run["iterations"], machine=run.get("machine")):
+                result = self.run_state(run["seed"], run["iterations"], machine=run.get("machine"))      # T23b: the A600 has its own states (1 MiB Chip, an empty clock chunk)
                 self.assertTrue(clean(result), result.stderr[-1200:])
                 text = result.stdout
                 kinds = self.kinds(text)

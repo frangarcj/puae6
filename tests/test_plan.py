@@ -73,8 +73,8 @@ class PlanTests(unittest.TestCase):
     def test_current_project_gate_and_machawk_priority(self):
         data = json.loads((ROOT / "plan/tasks.json").read_text())
         by_id = {task["id"]: task for task in data["tasks"]}
-        self.assertEqual(243, len(by_id))
-        self.assertEqual(237, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(244, len(by_id))
+        self.assertEqual(238, sum(task["required"] for task in by_id.values()))
         self.assertEqual(["T03", "T26"], by_id["T48a"]["depends"])
         self.assertEqual(["T03", "T26"], by_id["T48b"]["depends"])
         self.assertEqual(["T22", "T26"], by_id["T48c"]["depends"])
@@ -82,7 +82,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(["T48d", "T15f2"], by_id["T48e"]["depends"])
         # ECS needs the native state (DET02) and the basic libretro contract, not libretro rewind/runahead (T18).
         self.assertEqual(["T15", "T22"], by_id["T23a"]["depends"])
-        self.assertEqual(["T15", "T22", "T23a", "T23b", "T23c", "T23d", "T23e"], by_id["T23"]["depends"])
+        self.assertEqual(["T15", "T22", "T23a", "T23b", "T23c", "T23d", "T23e", "T15k"], by_id["T23"]["depends"])
         # T18 still gates the release through the libretro UX task.
         self.assertEqual(["T17", "T18", "T24", "T17c", "T17d", "T17e"], by_id["T31"]["depends"])
         self.assertEqual(["T00"], by_id["T01a"]["depends"])

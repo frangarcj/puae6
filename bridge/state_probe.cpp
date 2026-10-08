@@ -11,7 +11,7 @@
 // mechanics, Denise's input ring and its cursors, the copper, the audio filter, the event allocator...): manifests/state-inventory.json
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
-//   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
+//   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
 //                      [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
 //                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]...
 // --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
@@ -169,6 +169,11 @@ void ram(Canon &c)
 
 void rtc(Canon &c)
 {
+    // A machine without the clock chip (the A600 of the profile) has no clock state: its chunk is empty (T23b), and nothing reads the service, so its anchor is not compared.
+    if (currprefs.cs_rtc == 0) {
+        c.put(int32_t(-1));
+        return;
+    }
     p6_rtc_state s{};
     const int status = p6_rtc_save(&s);
     c.put(int32_t(status));
@@ -468,6 +473,7 @@ struct InputEvent {
 };
 
 // The input as a poke found it, for "clear".
+int g_profile_rtc = 1;      // the clock chip of the machine after p6_load, which the poke "clear" puts back
 p6_input_raw g_input_before;
 bool g_input_poked = false;
 
@@ -639,7 +645,7 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 regs.lastipl = 0;
                 start_cycles = 0;
                 pissoff = 0;
-                currprefs.cs_rtc = 1;
+                currprefs.cs_rtc = g_profile_rtc;
                 currprefs.keyboard_mode = 0;
                 currprefs.turbo_emulation = 0;
                 currprefs.input_mouse_speed = 100;
@@ -736,6 +742,7 @@ int main(int argc, char **argv)
     const char *rom_path = nullptr;
     uint64_t units = 3, every = 1, loads = 1;
     uint32_t standard = P6_VIDEO_PAL;
+    uint32_t machine = P6_MACHINE_A500;
     uint32_t rate = 48000;
     uint64_t seed = 1;
     std::vector<StateOp> state_ops;
@@ -747,6 +754,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--loads") && i + 1 < argc) loads = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
+        else if (!strcmp(argv[i], "--machine") && i + 1 < argc) {
+            const char *name = argv[++i];
+            if (!strcmp(name, "a500")) machine = P6_MACHINE_A500;
+            else if (!strcmp(name, "a600")) machine = P6_MACHINE_A600;
+            else return 64;
+        }
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
         else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--save-fields-at") || !strcmp(argv[i], "--load-at") ||
@@ -809,7 +822,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -828,7 +841,7 @@ int main(int argc, char **argv)
     p6_config config = {};
     config.abi_version = P6_ABI_VERSION;
     config.struct_size = sizeof config;
-    config.machine = P6_MACHINE_A500;
+    config.machine = machine;
     config.video_standard = standard;
     config.audio_rate_hz = rate;
     config.random_seed = seed;
@@ -840,6 +853,7 @@ int main(int argc, char **argv)
         if (loads > 1) printf("pass %" PRIu64 "\n", pass);
         result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
         if (result != P6_OK) return fail("p6_load", result, error);
+        g_profile_rtc = currprefs.cs_rtc;
         print_digests(0);
         run_state_ops(state_ops, 0);
         p6_input input = {};

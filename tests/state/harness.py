@@ -273,6 +273,13 @@ class ProbeCase(unittest.TestCase):
 
     ROMS = {}
     exe = None
+    MACHINE = "a500"        # the --machine of the probe (T23b): a500 is the probe's default and adds no argument
+
+    @classmethod
+    def firmware(cls):
+        """The Kickstart image of the "kickstart" scenarios, or None: P6_KICKSTART_ROM names a raw .rom (the A600 classes read theirs from a zip, see tests/state/test_det02_a600.py)."""
+        kickstart = os.environ.get("P6_KICKSTART_ROM")
+        return Path(kickstart) if kickstart and Path(kickstart).is_file() else None
 
     @classmethod
     def setUpClass(cls):
@@ -288,9 +295,9 @@ class ProbeCase(unittest.TestCase):
             path = cls.dir / f"{name}.rom"
             path.write_bytes(builder.build(text, defines) if defines else builder.build(text))
             cls.roms[name] = path
-        kickstart = os.environ.get("P6_KICKSTART_ROM")
-        if kickstart and Path(kickstart).is_file():
-            cls.roms["kickstart"] = Path(kickstart)
+        kickstart = cls.firmware()
+        if kickstart:
+            cls.roms["kickstart"] = kickstart
 
     @classmethod
     def tearDownClass(cls):
@@ -298,7 +305,13 @@ class ProbeCase(unittest.TestCase):
 
     @classmethod
     def probe(cls, rom, *arguments):
-        result = subprocess.run([str(cls.exe), str(cls.roms[rom]), *arguments], capture_output=True, text=True, timeout=1800)
+        return cls.probe_on(cls.MACHINE, rom, *arguments)
+
+    @classmethod
+    def probe_on(cls, machine, rom, *arguments):
+        """A run of the probe on `machine` (a state of another machine comes from here)."""
+        flag = ["--machine", machine] if machine != "a500" else []
+        result = subprocess.run([str(cls.exe), str(cls.roms[rom]), *flag, *arguments], capture_output=True, text=True, timeout=1800)
         assert result.returncode == 0, result.stderr[-400:]
         return Run(result.stdout)
 

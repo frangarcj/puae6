@@ -10212,6 +10212,46 @@
       "evidence": null
     },
     {
+      "id": "T15k",
+      "title": "DET02 a mitad de una carga de disco real: estado oculto de la unidad (PRNG, pista bufferizada, seeks) que P6DK no lleva",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/adr/0009-state-format.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/state.cpp",
+        "bridge/state_upstream.cpp",
+        "bridge/state_probe.cpp",
+        "tests/state/**",
+        "manifests/state-inventory.json",
+        "manifests/waterbox-memory.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Hallazgo de T23b (2026-10-08, reproducer y dos hipotesis en scratch/t23b-divergence.md): un estado guardado mientras un Kickstart real carga un disco DOS (KS 1.3 A500 con ADF, KS 2.05 A500/A600 con Workbench 2.05) diverge al cargarlo en un proceso nuevo; desde la unidad 1 solo difiere el PRNG (p6_rng_get) y luego cpu/ram/cia. Los micro-ROMs de disco de DET02 igualan porque sus ADF no tienen pistas MFM reales.",
+        "Atribuir con el probe: contar consumos de uaerand() por unidad y volcar el estado de cada drive (buffered_cyl/side, mfmpos, trackspeed, dskready_*, step/direction, eventos de disco) en el original y tras la carga; corregir con el cuerpo upstream o una extension pequena del chunk de disco, no con un codec por campos.",
+        "Escenario DET02 nuevo con un disco MFM valido sin firmware comercial (micro-ROM que hace seeks a varios cilindros y lee con sync 4489 sobre un ADF generado), y quitar los expectedFailure de WORKBENCH_DIVERGENCES (tests/state/test_det02_a600.py) y del caso A500 con Kickstart 1.3."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un estado tomado a mitad de la carga del Workbench (A500 y A600) restaura identico en la misma imagen y en un proceso nuevo; ningun pin de divergencia queda."
+      ],
+      "stop": "No ocultar el PRNG ni sacarlo del digest; si la causa es upstream, parche pequeno marcado upstream_candidate.",
+      "evidence": null
+    },
+    {
       "id": "T23a",
       "title": "Preset A600/ECS en el bridge, perfil verificado campo a campo y arranque headless con Kickstart 2.05",
       "milestone": "M2",
@@ -10263,7 +10303,7 @@
       "title": "Estado nativo en el perfil A600: RTC ausente, probe por maquina y DET02/STATE01",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T23a"
       ],
@@ -10277,12 +10317,16 @@
         "bridge/state.cpp",
         "bridge/state_probe.cpp",
         "tests/state/**",
-        "tests/fuzz/**"
+        "tests/fuzz/**",
+        "patches/winuae/**",
+        "bridge/state_upstream.cpp",
+        "manifests/state-inventory.json"
       ],
       "steps": [
         "P6RT acepta una maquina sin reloj (cs_rtc=0) sin inventar estado; el resto de chunks valida igual en A500 y A600.",
         "state_probe --machine; DET02 en micro-ROMs con el A600 (1 MiB Chip, sin Slow) y opt-in con Kickstart 2.05; STATE01: el bound cubre la maquina mas grande.",
-        "Un estado de A500 cargado en un A600 (o al reves) es INCOMPATIBLE antes de mutar."
+        "Un estado de A500 cargado en un A600 (o al reves) es INCOMPATIBLE antes de mutar.",
+        "Ampliacion de touch (2026-10-08): FUZZ01 encontro una divergencia solo A600 tras rebobinar (P6CH/BEAM current_linear_vpos_visible 287 frente a 288, reproducer en scratch/t23b-divergence.md); su atribucion puede necesitar un parche de acceso o el cuerpo upstream del vblank ECS. La divergencia con disco real (no especifica del A600) pasa a T15k."
       ],
       "checks": [
         "DET02",
@@ -10418,7 +10462,8 @@
         "T23b",
         "T23c",
         "T23d",
-        "T23e"
+        "T23e",
+        "T15k"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -10549,7 +10594,8 @@
       "status": "pending",
       "depends": [
         "T15",
-        "T12"
+        "T12",
+        "T15k"
       ],
       "read": [
         "docs/02-contracts.md",

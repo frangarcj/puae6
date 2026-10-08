@@ -102,5 +102,24 @@ class BoundTests(ProbeCase):
         self.assertLess(max(seen.values()), 4 << 20, "the A500 profile is its RAM (about 1 MiB) and some tens of KiB of devices, not the media")
 
 
+class A600BoundTests(BoundTests):
+    """T23b: the same four tests on the A600 profile (1 MiB Chip, no Slow RAM, no clock chip), whose bound is measured on the live machine and has to cover its own states."""
+
+    MACHINE = "a600"
+
+    def test_the_bound_of_each_machine_covers_its_own_memory_and_the_largest_is_the_one_a_host_sizes_with(self):
+        # The A600 is the larger of the two in Chip RAM (1 MiB against 512 KiB) and the smaller in devices (no clock body); each bound holds a state of its own machine whole.
+        bounds = {}
+        for machine in ("a500", "a600"):
+            path = self.dir / f"{machine}-bound.state"
+            run = self.probe_on(machine, "vsync", "--units", "3", "--public-at", "3", "--public-save-at", "3", str(path))
+            (_, bound, written, _), = run.public_size
+            self.assertLessEqual(written, bound, machine)
+            self.assertGreaterEqual(bound, 1 << 20, f"{machine}: the bound does not even cover the RAM")
+            self.assertEqual(len(path.read_bytes()), written)
+            bounds[machine] = bound
+        self.assertEqual(31, bounds["a500"] - bounds["a600"], "the two bounds differ by the clock body and nothing else (the video chunk's maximum is the same)")
+
+
 if __name__ == "__main__":
     unittest.main()

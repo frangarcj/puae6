@@ -67,8 +67,12 @@ template <class W, class L> W field(Archive &a, L &live, long long lo, long long
 // The anchor of the clock (the cycle count it was last brought up to) is NOT written. A save brings the clock up to the cycle counter, and Apply anchors
 // it to the counter that the scheduler's chunk has just restored, so the clock goes on from the instant it was saved whatever the machine's counter said
 // before. p6_rtc_save and p6_rtc_read are never called while applying: with the counter put back they would latch the clock's sticky fault.
+// A machine with no clock chip (cs_rtc == 0: the A600 of the profile) has nothing to carry: the chunk stays in the table, as for every machine, and its body is empty. Nothing
+// of the machine reads the clock service then (only the chip does), so its position is not machine state; the live machine decides whether the body is empty, and a body of
+// the other kind is refused by its length. The A500 body below is unchanged.
 void visit_rtc(Archive &a)
 {
+    if (currprefs.cs_rtc == 0) return;
     const bool checks = a.mode() != Mode::Measure;
     p6_rtc_state s = {};
     uint8_t msm[3] = {};

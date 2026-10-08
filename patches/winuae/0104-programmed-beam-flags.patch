@@ -1,0 +1,35 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13142,7 +13142,12 @@
+ //  differed from one saved without the load. interlace_seen is what vsync_handle_lof made of the last fields (prevlofs, which this carries too, only say what the next one will make of
+ //  them): a machine that had not seen the interlace found it at the next vertical blank, restarted the display (init_hz, a redraw that clears the buffer) and drew the first pictures of
+ //  an interlaced program without the rows of the other field.
+-#define P6_BEAM_WORDS 65
++//  65 programmed_register_accessed_h  66 programmed_register_accessed_v: whether a program has written any of the ECS registers that program the beam. They are not derived from the
++//  registers: restore_custom runs SPRHSTRT, BPLHSTRT and the others of the 1D0-1EE block on an ECS Agnus, and each of them sets the horizontal flag, so a machine that loaded a state
++//  (and had written none of them) ran check_hsyncs_programmed in every line from then on, with its extra update_agnus_vb calls: the call at line 0 still found the vertical blank start
++//  line set and copied linear_vpos_visible into current_linear_vpos_visible one line late (288 where the machine that never loaded had 287). On an OCS Agnus the writes are ignored and
++//  the flags stay as they were.
++#define P6_BEAM_WORDS 67
+ bool p6_custom_beam_get(int32_t *out, unsigned n)
+ {
+ 	if (!out || n != P6_BEAM_WORDS) return false;
+@@ -13157,7 +13162,8 @@
+ 		agnus_phsync, agnus_phblank, agnus_pvsync, agnus_pcsync, agnus_csync, agnus_vb_active, agnus_vb_start_line, agnus_pvb_start_line,
+ 		agnus_vb_active_start_line, agnus_vb_end_line, agnus_pvb_end_line, agnus_vb_active_end_line, agnus_equzone, agnus_hsync, agnus_vsync, agnus_ve,
+ 		agnus_p_ve, agnus_bsvb, agnus_bsvb_prev, agnus_equdis,
+-		plffirstline, plflastline, need_vdiw_check, interlace_seen
++		plffirstline, plflastline, need_vdiw_check, interlace_seen,
++		programmed_register_accessed_h, programmed_register_accessed_v
+ 	};
+ 	static_assert(sizeof head / sizeof head[0] == P6_BEAM_WORDS, "review the beam word list");
+ 	memcpy(out, head, sizeof head);
+@@ -13188,6 +13194,7 @@
+ 	};
+ 	for (unsigned i = 0; i < sizeof latches / sizeof latches[0]; ++i) *latches[i] = in[41 + i] != 0;
+ 	plffirstline = in[61]; plflastline = in[62]; need_vdiw_check = in[63] != 0; interlace_seen = in[64];
++	programmed_register_accessed_h = in[65] != 0; programmed_register_accessed_v = in[66] != 0;
+ 	setmaxhpos();
+ 	return true;
+ }

@@ -46,12 +46,12 @@ p6_error fresh_error()
     return e;
 }
 
-p6_config valid_config()
+p6_config valid_config(uint32_t machine = P6_MACHINE_A500)
 {
     p6_config c{};
     c.abi_version = P6_ABI_VERSION;
     c.struct_size = sizeof c;
-    c.machine = P6_MACHINE_A500;
+    c.machine = machine;
     c.video_standard = P6_VIDEO_PAL;
     c.audio_rate_hz = 48000;
     c.random_seed = 1;
@@ -699,12 +699,12 @@ Candidate mutate_state(const StateImage &image, Random &rng, unsigned kind)
     return c;
 }
 
-int fuzz_state(const char *path, uint64_t seed, uint64_t iterations)
+int fuzz_state(const char *path, uint64_t seed, uint64_t iterations, uint32_t machine)
 {
     Random rng(seed);
     const std::vector<uint8_t> rom = read_file(path);
     const std::vector<uint8_t> adf = random_adf(rng);
-    p6_config config = valid_config();
+    p6_config config = valid_config(machine);
     p6_error error = fresh_error();
     if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
     uint8_t adf_id[P6_CONTENT_ID_SIZE];
@@ -762,7 +762,15 @@ int fuzz_state(const char *path, uint64_t seed, uint64_t iterations)
                     std::vector<uint8_t> pcm, after;
                     if (state_unit(&pcm, &error) != P6_OK) bug("a unit failed after a refusal", tag);
                     if (!state_save(after, nullptr)) bug("the image could not be saved after a unit that followed a refusal", tag);
-                    if (after != image.reference || pcm != image.reference_pcm) bug("the unit after a refusal is not the control's", tag);
+                    if (pcm != image.reference_pcm) bug("the samples of the unit after a refusal are not the control's", tag);
+                    if (after != image.reference) {
+                        size_t at = p6_state::kHeaderSize;      // the header holds the payload checksum, which differs whenever anything does
+                        while (at < after.size() && at < image.reference.size() && after[at] == image.reference[at]) ++at;
+                        unsigned chunk = 0;
+                        while (chunk + 1 < kStateChunks && at >= image.chunk_at[chunk + 1]) ++chunk;
+                        fprintf(stderr, "first differing payload byte of the state: %zu in chunk %u (sizes %zu and %zu)\n", at, chunk, after.size(), image.reference.size());
+                        bug("the unit after a refusal is not the control's", tag);
+                    }
                     ++unit_checks;
                     error = fresh_error();
                     if (p6_state_load(image.good.data(), image.good.size(), &error) != P6_OK) bug("the good state was refused after a unit", tag);
@@ -804,8 +812,9 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "config")) return fuzz_config(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "firmware")) return fuzz_firmware(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "media")) return fuzz_media(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
-    if (argc == 5 && !strcmp(argv[1], "state")) return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
+    if ((argc == 5 || (argc == 6 && !strcmp(argv[5], "a600"))) && !strcmp(argv[1], "state"))
+        return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc == 6 ? P6_MACHINE_A600 : P6_MACHINE_A500);
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600] | blob SEED N\n", argv[0]);
     return 64;
 }

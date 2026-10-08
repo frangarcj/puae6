@@ -40,7 +40,7 @@ T15j, what the first picture after a load and the next state need (patch 0103):
     the others and decoded here, with the format of the C++ and not its code, against the picture the unit handed over;
   - GEOM (104 bytes) also says whether the presentation refused the mode as larger than its buffer and the allocation of the last mode it accepted (the sizes it clamped to look like a mode that
     fits): a machine that had not refused it handed over pictures that the original never did; and the flags of the drawing (the three requests to clear the buffer that wait for the first line of the next frame, and whether the frame being drawn holds the buffer);
-  - BEAM (260 bytes) also carries the interlace the display has seen, the first and last line of the vertical display window and the flag that tests them: custom_reset leaves the lines at 0 and 0 and calcvdiw, which the
+  - BEAM (268 bytes; 260 before patch 0104, which added the two programmed-beam flags) also carries the interlace the display has seen, the first and last line of the vertical display window and the flag that tests them: custom_reset leaves the lines at 0 and 0 and calcvdiw, which the
     load runs, derives 0 and 256 from the same zero registers, so a state saved, loaded and saved again differed from one saved without the load in the vertical window bit of DIWHIGH.
 
 T15i2, what is loaded:
@@ -61,7 +61,7 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 260, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 104, "DSKX": 160,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 268, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 104, "DSKX": 160,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
@@ -79,7 +79,8 @@ BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_
               "display_hsync_counter", "display_vsync_counter", "maxvpos_display_vsync_next", "linetoggle", "lof_display",
               "lof_detect", "lof_pdetect", "lof_detect_vsync", "prevlof0", "prevlof1", "prevlof2",
               "display_last_hsync_low", "display_last_hsync_high", "display_last_vsync_low", "display_last_vsync_high",
-              "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)] + ["plffirstline", "plflastline", "need_vdiw_check", "interlace_seen"]
+              "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)] + ["plffirstline", "plflastline", "need_vdiw_check", "interlace_seen",
+              "programmed_register_accessed_h", "programmed_register_accessed_v"]
 
 # The words of COPR, in the order of p6_custom_copper_get (custom.cpp, patch 0095) and of the enum of bridge/state_upstream.cpp.
 COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ignore_next", "vcmp", "hcmp", "strobe", "strobetype", "enabled_thisline",
@@ -934,6 +935,8 @@ class UpstreamBodiesTests(ProbeCase):
         ("BEAM with a negative first line of the vertical window", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("plffirstline"), struct.pack(">i", -1),
          "a line of the vertical display window is beyond what DIWSTRT, DIWSTOP and DIWHIGH can name"),
         ("BEAM with an interlace of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("interlace_seen"), struct.pack(">i", 2), "the interlace the display has seen is not a flag"),
+        ("BEAM with a programmed-beam flag of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("programmed_register_accessed_h"), struct.pack(">i", 2), "a flag of the programmed beam registers is not a flag"),
+        ("BEAM with a vertical programmed-beam flag of -1", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("programmed_register_accessed_v"), struct.pack(">i", -1), "a flag of the programmed beam registers is not a flag"),
         ("BEAM with a test of the vertical window of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("need_vdiw_check"), struct.pack(">i", 2), "the flag that tests the vertical display window is not a flag"),
         ("DSKX with a position beyond a line", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", 256 << 8), "the position of the floppy controller in its line is not inside a line"),
         ("DSKX with a negative position", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", -1), "the position of the floppy controller in its line is not inside a line"),

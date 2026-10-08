@@ -2814,6 +2814,29 @@
           "after_sha256": "e0b182ac27ecf07f5629167448c474622cf448013a24187c18cfd89d5172596d"
         }
       ]
+    },
+    {
+      "id": "0104-programmed-beam-flags",
+      "file": "patches/winuae/0104-programmed-beam-flags.patch",
+      "sha256": "e9d3f0a8adaca897fb372bef08808092efba03d47b66b114b057e5383753e017",
+      "title": "The flags that say the beam registers were programmed come back with the state",
+      "reason": "T23b: on an ECS Agnus restore_custom sets programmed_register_accessed_h (SPRHSTRT, BPLHSTRT and the rest of the 1D0-1EE block) whatever the registers hold, so a machine that loaded a state ran check_hsyncs_programmed in every line, and its extra update_agnus_vb call at line 0 copied linear_vpos_visible into current_linear_vpos_visible a line late (288 against 287). The two flags are not derived from the registers; the BEAM body carries them (65 to 67 words).",
+      "category": "host hooks",
+      "order": 104,
+      "symbols": [
+        "p6_custom_beam_get",
+        "p6_custom_beam_set"
+      ],
+      "test": "STATE02; tests.state.test_state_a600; tests.state.test_det02_a600",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "f364bbfbee23d1381a3c73198b55b72c525b914c897f2e3d5803090953ee3138",
+          "after_sha256": "8df4adf79bc25d7a81610536c3d6d8b1f4aa79dd776bab07432fcba1d4d7265c"
+        }
+      ]
     }
   ]
 }

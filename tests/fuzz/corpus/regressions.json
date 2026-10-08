@@ -11,7 +11,8 @@
   ],
   "state_runs": [
     {"seed": 1, "iterations": 300, "note": "baseline; 300 mutated states per session, with and without a disk. The only finding: DISK_update shifted the -1 of DSKSYNC(-1, v) left in every state load (UBSan), patch 0102"},
-    {"seed": 2, "iterations": 300, "note": "baseline; no defect found"}
+    {"seed": 2, "iterations": 300, "note": "baseline; no defect found"},
+    {"seed": 1, "iterations": 150, "machine": "a600", "note": "T23b: the A600 profile (1 MiB Chip, empty clock chunk). The first run found that a state loaded into an ECS Agnus left programmed_register_accessed_h set (patch 0104)"}
   ],
   "content_runs": [
     {"target": "m3u", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
