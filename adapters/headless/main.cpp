@@ -1,8 +1,8 @@
-// Headless PUAE6 runner. It links the A500 and A600 profiles without any windowing, audio or plugin
+// Headless PUAE6 runner. It links the A500, A600 and A1200 profiles without any windowing, audio or plugin
 // dependency, reports the identity of the build and what the native ABI implements, and runs a
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
-//   p6_headless --run ROM [--machine a500|a600] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
+//   p6_headless --run ROM [--machine a500|a600|a1200] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
 #include "p6.h"
 #include "sha256.h"
@@ -29,7 +29,7 @@ static int identity(void)
 {
     printf("core: puae6-headless\n");
     printf("profile: %s\n", P6_PROFILE);
-    printf("machines: A500 A600\n");
+    printf("machines: A500 A600 A1200\n");
     printf("abi: %u\n", (unsigned)p6_abi_version());
     printf("upstream: WinUAE %s\n", P6_UPSTREAM_COMMIT);
     printf("patches: %s (%s)\n", P6_PATCH_COUNT, P6_PATCH_SERIES_SHA256);
@@ -114,6 +114,7 @@ static int run(int argc, char **argv)
             const char *name = argv[++i];
             if (!strcmp(name, "a500")) machine = P6_MACHINE_A500;
             else if (!strcmp(name, "a600")) machine = P6_MACHINE_A600;
+            else if (!strcmp(name, "a1200")) machine = P6_MACHINE_A1200;
             else return -1;
         }
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
@@ -201,7 +202,7 @@ int main(int argc, char **argv)
         const int code = run(argc, argv);
         if (code >= 0) return code;
     }
-    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
+    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
             argv[0], argv[0]);
     return 64;
 }

@@ -760,6 +760,7 @@ int main(int argc, char **argv)
             const char *name = argv[++i];
             if (!strcmp(name, "a500")) machine = P6_MACHINE_A500;
             else if (!strcmp(name, "a600")) machine = P6_MACHINE_A600;
+            else if (!strcmp(name, "a1200")) machine = P6_MACHINE_A1200;
             else return 64;
         }
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));

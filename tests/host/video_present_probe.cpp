@@ -20,6 +20,7 @@ uae_prefs currprefs{}, changed_prefs{};
 static const uae_prefs zero_prefs{};   // uae_prefs is far too large for a stack temporary
 amigadisplay adisplays[MAX_AMIGADISPLAYS]{};
 xcolnr xcolors[4096], fullblack;
+unsigned int xredcolors[256], xgreencolors[256], xbluecolors[256];   // the 24-bit AGA guns: gfxutil.cpp fills them under AGA
 int xredcolor_s, xredcolor_b, xredcolor_m, xgreencolor_s, xgreencolor_b, xgreencolor_m;
 int xbluecolor_s, xbluecolor_b, xbluecolor_m;
 int interlace_seen;
@@ -219,6 +220,8 @@ int main()
     assert(xcolors[0xf00] == 0x00ff0000u && xcolors[0x0f0] == 0x0000ff00u && xcolors[0x00f] == 0x000000ffu);
     assert(xcolors[0x123] == 0x00112233u);
     for (int i = 0; i < 4096; ++i) assert((xcolors[i] >> 24) == 0);   // X byte is always zero
+    // AGA: one 8-bit gun per table, already in its place of the XRGB8888 word (CONVERT_RGB ORs the three).
+    for (unsigned i = 0; i < 256; ++i) assert(xredcolors[i] == i << 16 && xgreencolors[i] == i << 8 && xbluecolors[i] == i);
     assert(xredcolor_s == 16 && xgreencolor_s == 8 && xbluecolor_s == 0 && xredcolor_b == 8);
     assert(p6_video_frame_get(&info) == -1);                          // nothing handed over yet
 

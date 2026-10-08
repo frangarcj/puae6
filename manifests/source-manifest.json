@@ -91,7 +91,8 @@
     "cpu_dispatch": "CPUEMU_13 agrupa handlers13/14; CPUEMU_21 es el 68020 cycle exact (T24a, ADR 0010), sin FPU ni MMU. Parche0014 limita cputbls P6 a [0][4]=op_smalltbl_14 y la ampliacion T24a anade [2][4]=op_smalltbl_21; m68k_run elige el bucle CE por modelo. Generados intactos, sin CPU68010 anunciada.",
     "features_on": [
       "CPUEMU_13",
-      "CPUEMU_21"
+      "CPUEMU_21",
+      "AGA"
     ],
     "features_off": [
       "JIT",

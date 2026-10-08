@@ -82,7 +82,8 @@ class HeadlessParity(Schema):
                     self.assertIsNotNone(start, f"headless has no local {field} with the default of the option")
                     self.assertEqual(self.constants[start[1]], default, f"headless starts with {start[1]}, the schema default is {default}")
                     self.assertRegex(self.source, rf'strcmp\(argv\[i\], "{re.escape(how["flag"])}"\)')
-                    spellings = {m[1]: self.constants[m[2]] for m in re.finditer(rf'strcmp\(name, "(\w+)"\)\) {field} = (P6_\w+);', self.source)}
+                    # headless takes --machine a1200 (T24b) before the schema offers the A1200 (T24e).
+                    spellings = {m[1]: self.constants[m[2]] for m in re.finditer(rf'strcmp\(name, "(\w+)"\)\) {field} = (P6_\w+);', self.source) if m[1] != "a1200"}
                     self.assertEqual(spellings, {spelling: self.number(option, value) for value, spelling in how["names"].items()},
                                      f"{how['flag']} does not take the spellings of the schema, or maps one to another value")
                     self.assertIn(f"config.{field} = {field};", self.source)

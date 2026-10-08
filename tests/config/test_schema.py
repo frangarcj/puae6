@@ -279,7 +279,8 @@ class AbiTests(unittest.TestCase):
         rates = sorted(int(n) for n in re.findall(r"audio_rate_hz != (\d+)", source))
         self.assertEqual(rates, sorted(v["abi"] for v in option(schema(), "audio_rate_hz")["values"]))
         self.assertIn("c.video_standard != P6_VIDEO_PAL && c.video_standard != P6_VIDEO_NTSC", source)
-        self.assertIn("c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600", source)
+        self.assertIn("c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600 && c.machine != P6_MACHINE_A1200", source)
+        # The bridge accepts the A1200 (T24b) before the option schema offers it (T24e): the schema lists the machines a frontend can choose.
         self.assertEqual([v["abi_name"] for v in option(schema(), "machine")["values"]], ["P6_MACHINE_A500", "P6_MACHINE_A600"])
         self.assertEqual([v["abi_name"] for v in option(schema(), "video_standard")["values"]], ["P6_VIDEO_PAL", "P6_VIDEO_NTSC"])
 

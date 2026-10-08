@@ -381,7 +381,7 @@ int64_t unit_limit_cycles()
 int main(int argc, char **argv)
 {
     if (argc < 5 || argc > 7) {
-        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc [a500|a600]]\n", argv[0]);
+        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc [a500|a600|a1200]]\n", argv[0]);
         return 64;
     }
     const std::vector<uint8_t> rom = read_file(argv[1]);
@@ -393,8 +393,8 @@ int main(int argc, char **argv)
     if (!continuous && !frames && strcmp(argv[3], "steps")) return 64;
     if (units < 1) return 64;
     const uint32_t standard = argc >= 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
-    if (argc == 7 && strcmp(argv[6], "a500") && strcmp(argv[6], "a600")) return 64;
-    const uint32_t machine = argc == 7 && !strcmp(argv[6], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A500;
+    if (argc == 7 && strcmp(argv[6], "a500") && strcmp(argv[6], "a600") && strcmp(argv[6], "a1200")) return 64;
+    const uint32_t machine = argc == 7 && !strcmp(argv[6], "a1200") ? P6_MACHINE_A1200 : argc == 7 && !strcmp(argv[6], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A500;
     if (const char *path = getenv("P6_INPUT_SCRIPT")) load_script(path);
     if (const char *list = getenv("P6_RESET_AT"))
         for (const char *c = list; *c;) { reset_at.insert(atoi(c)); while (*c && *c != ',') ++c; if (*c) ++c; }

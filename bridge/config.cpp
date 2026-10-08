@@ -1,10 +1,10 @@
-// Configuration of the A500 and A600 profiles: validation of p6_config and firmware, and the preset.
+// Configuration of the A500, A600 and A1200 profiles: validation of p6_config and firmware, and the preset.
 //
 // The preset is not a copy of upstream defaults. It starts from what WinUAE itself builds for the machine
 // (default_prefs, then built_in_prefs: model 0 = A500, OCS Agnus, 0.5M Chip + 0.5M Slow; model 2 = A600, ECS
-// Agnus + Denise, 1M Chip, no Slow; both 68000 cycle exact), applies the overrides listed in
-// config/profiles/a500-ocs.json or a600-ecs.json and finishes with upstream fixup_prefs. tests/host/test_a500_profile.py
-// and test_a600_profile.py compare the profile files with the resulting preferences field by field, so a value that is
+// Agnus + Denise, 1M Chip, no Slow; both 68000 cycle exact; model 4 = A1200, 68EC020 cycle exact, AGA, 2M Chip, no Slow), applies the
+// overrides listed in config/profiles/a500-ocs.json, a600-ecs.json or a1200-aga.json and finishes with upstream fixup_prefs.
+// tests/host/test_a500_profile.py, test_a600_profile.py and test_a1200_profile.py compare the profile files with the resulting preferences field by field, so a value that is
 // neither inherited nor declared cannot appear silently.
 #include "config.h"
 #include "error_util.h"
@@ -102,8 +102,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
 {
     if (c.abi_version != P6_ABI_VERSION || c.struct_size != sizeof c)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "config has the wrong ABI version or size");
-    if (c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "only the A500 and the A600 are supported");
+    if (c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600 && c.machine != P6_MACHINE_A1200)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "only the A500, the A600 and the A1200 are supported");
     if (c.video_standard != P6_VIDEO_PAL && c.video_standard != P6_VIDEO_NTSC)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
@@ -130,9 +130,9 @@ void build_preferences(const p6_config &c)
     // The preset names its Kickstart by id through the ROM list, which has no entries here; the
     // firmware is the buffer given to p6_load, so the result of configure_rom() is not needed.
     preset_machine = c.machine;
-    built_in_prefs(&currprefs, c.machine == P6_MACHINE_A600 ? 2 : 0, 0, 0, 0);
-    if (c.machine == P6_MACHINE_A600) {
-        // The A600 table (CP_A600) has just been applied once. Gayle, its IDE and its PCMCIA slot are not compiled (P6_PORTABLE),
+    built_in_prefs(&currprefs, c.machine == P6_MACHINE_A1200 ? 4 : c.machine == P6_MACHINE_A600 ? 2 : 0, 0, 0, 0);
+    if (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) {
+        // The A600 or A1200 table (CP_A600, CP_A1200) has just been applied once. Gayle, its IDE and its PCMCIA slot are not compiled (P6_PORTABLE),
         // so they are switched off here instead of being declared and missing; with cs_compatible = 0 the fixup_prefs calls of
         // the lifecycle leave the rest of the table (ECS mirrors, CIA type, E clock phase, no RTC) as built_in_prefs left it.
         currprefs.cs_ide = 0;
@@ -140,6 +140,11 @@ void build_preferences(const p6_config &c)
         currprefs.cs_compatible = 0;
         currprefs.cs_ciaoverlay = 1;     // without Gayle the CIA drives the ROM overlay (the state bridge only knows this mode)
         currprefs.cs_1mchipjumper = true;   // what fixup_prefs sets for 1 MiB Chip; upstream's trailing CP_A600 table would clear it again
+    }
+    if (c.machine == P6_MACHINE_A1200) {
+        // built_in_prefs sets waiting_blits = 1 for every CPU from the 68020 up: the blitter wait then runs inside the write that starts
+        // the blit, as an emulation shortcut that no hardware has. The CPU runs its own polling loops instead, as on the 68000 machines.
+        currprefs.waiting_blits = 0;
     }
     currprefs.ntscmode = c.video_standard == P6_VIDEO_NTSC;
     currprefs.seed = fold_seed(c.random_seed);
@@ -191,13 +196,17 @@ void build_preferences(const p6_config &c)
 p6_result check_preset(p6_error *error)
 {
     const uae_prefs &p = currprefs;
+    const bool a1200 = preset_machine == P6_MACHINE_A1200;
     const bool a600 = preset_machine == P6_MACHINE_A600;
+    const bool no_gayle = a600 || a1200;
     const char *drifted = nullptr;
-    if (p.cpu_model != 68000 || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact) drifted = "cpu";
-    else if (p.chipset_mask != (a600 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE : CSMASK_OCS) || !p.blitter_cycle_exact) drifted = "chipset";
-    else if (p.chipmem.size != (a600 ? 0x100000 : 0x80000) || p.bogomem.size != (a600 ? 0 : 0x80000) || p.fastmem[0].size ||
-             p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
-    else if (a600 && (p.cs_ide || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
+    if (p.cpu_model != (a1200 ? 68020 : 68000) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model || p.mmu_model ||
+        !p.address_space_24 || (a1200 && p.waiting_blits)) drifted = "cpu";
+    else if (p.chipset_mask != (a1200 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA
+                                      : a600 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE : CSMASK_OCS) || !p.blitter_cycle_exact) drifted = "chipset";
+    else if (p.chipmem.size != (a1200 ? 0x200000 : a600 ? 0x100000 : 0x80000) || p.bogomem.size != (no_gayle ? 0 : 0x80000) ||
+             p.fastmem[0].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
+    else if (no_gayle && (p.cs_ide || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
     else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||
              p.input_mouse_speed != 100 || p.keyboard_mode || p.cs_resetwarning || p.input_contact_bounce) drifted = "input";
@@ -210,7 +219,7 @@ p6_result check_preset(p6_error *error)
              p.leds_on_screen || p.cs_optimizations || p.cs_hvcsync) drifted = "video";
     if (drifted) {
         char text[64];
-        snprintf(text, sizeof text, "the %s preset drifted from the profile (%s)", a600 ? "A600" : "A500", drifted);
+        snprintf(text, sizeof text, "the %s preset drifted from the profile (%s)", a1200 ? "A1200" : a600 ? "A600" : "A500", drifted);
         return p6_fail(error, P6_ERROR_INTERNAL, text);
     }
     if (!p6_sound_validate_config(p))

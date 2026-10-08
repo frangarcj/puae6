@@ -93,13 +93,6 @@
       "count": 1,
       "disposition": "revisit",
       "note": "`if (dst[i].custom)` tests the address of an array member, always true, in the port-copy code; the copied custom strings are always empty in the profile (patch 0048). Upstream bug candidate."
-    },
-    {
-      "file": "linetoscr_common.cpp",
-      "flag": "-Warray-bounds",
-      "count": 33,
-      "disposition": "dead_under_profile",
-      "note": "Generated seven/eight-bitplane (AGA) helpers index arrays sized for six planes. T06b2bm showed by preprocessing that their thirty names appear only at their definitions: no caller or selection in the OCS/ECS unit. Do not enlarge the arrays; revisit with a raster reproducer when AGA arrives (M2)."
     }
   ]
 }

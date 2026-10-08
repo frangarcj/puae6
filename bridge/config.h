@@ -1,5 +1,5 @@
-// The fixed A500 and A600 configurations: what p6_config may say, what the preset pins, and the
-// checks done before the engine is touched. See config/profiles/a500-ocs.json and a600-ecs.json for the field lists.
+// The fixed A500, A600 and A1200 configurations: what p6_config may say, what the preset pins, and the
+// checks done before the engine is touched. See config/profiles/a500-ocs.json, a600-ecs.json and a1200-aga.json for the field lists.
 #ifndef P6_BRIDGE_CONFIG_H
 #define P6_BRIDGE_CONFIG_H
 #include "p6.h"
@@ -13,7 +13,7 @@ extern const char *const kFirmwareId;
 p6_result validate_config(const p6_config &config, p6_error *error);
 p6_result validate_firmware(const p6_buffer &firmware, p6_error *error);
 
-// Fills currprefs with the preset for `config` (upstream built_in_prefs config 0 of model 0 = A500 or model 2 = A600, the
+// Fills currprefs with the preset for `config` (upstream built_in_prefs config 0 of model 0 = A500, 2 = A600 or 4 = A1200, the
 // overrides of the profile file, then upstream fixup_prefs). Touches only preference globals.
 void build_preferences(const p6_config &config);
 

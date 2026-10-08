@@ -64,7 +64,7 @@ bool oracle_accepts(const p6_config &c)
 {
     // Self-test of the harness: with this variable set the oracle is wrong on purpose, and the run has to fail.
     static const bool inverted = getenv("P6_FUZZ_SELFTEST") != nullptr;
-    return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && (c.machine == P6_MACHINE_A500 || c.machine == P6_MACHINE_A600) &&
+    return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && (c.machine == P6_MACHINE_A500 || c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
            (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && c.flags == 0 && !c.reserved[0] &&
            !c.reserved[1] && !c.reserved[2] && !c.reserved[3] && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&

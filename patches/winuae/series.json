@@ -2899,6 +2899,28 @@
           "after_sha256": "96601a4ded9f9e54a0589738b289f20f16f3bd5ad61ee0b06ac9b006bfbd5670"
         }
       ]
+    },
+    {
+      "id": "0107-rom-requirements-by-preset-cpu",
+      "file": "patches/winuae/0107-rom-requirements-by-preset-cpu.patch",
+      "sha256": "040315bc0d8f38ca4bfce893fdb751a5d977231127e6c73a0975954945cf1866",
+      "title": "Accept a Kickstart whose CPU requirement the preset meets",
+      "reason": "T24b: patch 0035 refused every ROM with a CPU requirement in rommgr (cpu & 15). The A1200 Kickstart 3.1 (cpu = 1, 68EC020 minimum) is the firmware of the first 68020 machine; the loader now compares the ROM requirement with the CPU of the preset as upstream load_kickstart does (68030+ and the A4000 ROMs stay refused, a 68000 preset still refuses a 68EC020 ROM).",
+      "category": "host hooks",
+      "order": 107,
+      "symbols": [
+        "restore_roms"
+      ],
+      "test": "tests/host/test_a1200_profile.py; tests/step/test_kickstart_a1200.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "05cbabd6828ea921d8094ffb188c1ce6951d1d097c0ac7fdf2e13603527e953f",
+          "after_sha256": "97def62b8141f0a2904e932ac78dae2b2ba42391a5c4d3edb707ffca0e0c5167"
+        }
+      ]
     }
   ]
 }

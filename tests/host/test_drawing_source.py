@@ -1,4 +1,4 @@
-"""Compile complete OCS/ECS drawing and inspect its disabled host features."""
+"""Compile complete OCS/ECS/AGA drawing and inspect its disabled host features."""
 from pathlib import Path
 import re
 import subprocess
@@ -20,11 +20,10 @@ class DrawingSourceTests(unittest.TestCase):
                   "-I" + str(tree / "include"), "-I" + str(tree)]
         preprocessed = subprocess.run([*common, "-E", str(source)], check=True,
                                       capture_output=True, text=True, timeout=60).stdout
-        # Common generator still emits AGA helpers, but every 7/8-plane name
-        # occurs only at its definition: none is called or selected in this TU.
+        # AGA is compiled in (T24b): the 7/8-plane helpers are defined and now also called and selected by the fetch code.
         helpers = re.findall(r'\b(?:shiftbpl|getbpl|copybpl)[78]\w*\b', preprocessed)
         self.assertEqual(len(set(helpers)), 30)
-        self.assertEqual(len(helpers), len(set(helpers)))
+        self.assertGreater(len(helpers), len(set(helpers)))
         # Keep only drawing's own preprocessed tokens, not unused host declarations
         # inherited from general upstream headers. Do not remove any function bodies.
         active, lines = False, []
@@ -41,7 +40,6 @@ class DrawingSourceTests(unittest.TestCase):
         for forbidden in ("uae_sem_", "uae_start_thread", "sleep_millis",
                           "denise_thread", "read_denise_line_queue", "waitqueue",
                           "addtowritequeue", "rga_queue_read", "rga_queue_write", "gui_sem",
-                          "color_regs_aga", "linetoscr_aga", "decode_pixel_aga",
                           "debug_sprite_mask", "statusline_render", "draw_status_line_single"):
             self.assertNotIn(forbidden, drawing)
         deps = subprocess.run([*common, "-M", str(source)], check=True,
@@ -53,7 +51,9 @@ class DrawingSourceTests(unittest.TestCase):
         for name in ("common", "ocs_ecs", "ocs_ecs_genlock", "ocs_ecs_ntsc",
                      "ocs_ecs_ntsc_genlock", "ecs_shres", "ecs_fast", "ecs_genlock_fast"):
             self.assertIn("linetoscr_" + name + ".cpp", deps)
-        self.assertNotIn("linetoscr_aga", deps)
+        for name in ("aga_fm0", "aga_fm0_genlock", "aga_fm1", "aga_fm1_genlock", "aga_fm2", "aga_fm2_genlock",
+                     "aga_fast", "aga_genlock_fast"):
+            self.assertIn("linetoscr_" + name + ".cpp", deps)
         with tempfile.TemporaryDirectory(prefix="p6-drawing-source-") as directory:
             obj = Path(directory) / "drawing.o"
             for optimization in ("-O0", "-O2"):

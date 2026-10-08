@@ -101,7 +101,8 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
 {
     (void)error;
     // The buffer is the one promised at load (it never changes while running); aspect and cadence are those of the beam the unit ran on.
-    const uint32_t height = buffer_height(session.config.video_standard == P6_VIDEO_NTSC, session.config.machine == P6_MACHINE_A600);
+    const bool has_beamcon0 = session.config.machine != P6_MACHINE_A500;   // ECS and AGA Agnus (A600, A1200); the OCS A500 has no BEAMCON0
+    const uint32_t height = buffer_height(session.config.video_standard == P6_VIDEO_NTSC, has_beamcon0);
     const bool ntsc = beam_is_ntsc();
 
     frame.video = nullptr;

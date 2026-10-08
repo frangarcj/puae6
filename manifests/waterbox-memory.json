@@ -96,11 +96,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "3d6c8613b8e1b35717c7a030588fbe5282215876b4e53e28e60ba4eacc4eb269",
+    "guest_sha256": "57451dc62a4339df351ef3523d87db0e79fb207be851861f12aa0a95f62c64d8",
     "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
-        "committed_bytes": 40468480,
+        "committed_bytes": 50282496,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -142,8 +142,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 40468480,
-        "dirty_bytes": 7983104,
+        "committed_bytes": 50282496,
+        "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -184,8 +184,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 40468480,
-        "dirty_bytes": 7983104,
+        "committed_bytes": 50282496,
+        "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -225,8 +225,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 39700,
-      "after_last_unit": 9116436
+      "after_seal": 44500,
+      "after_last_unit": 9154004
     }
   },
   "measured_a600": {
@@ -237,11 +237,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "3d6c8613b8e1b35717c7a030588fbe5282215876b4e53e28e60ba4eacc4eb269",
+    "guest_sha256": "57451dc62a4339df351ef3523d87db0e79fb207be851861f12aa0a95f62c64d8",
     "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
-        "committed_bytes": 40468480,
+        "committed_bytes": 50282496,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -283,8 +283,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 40468480,
-        "dirty_bytes": 7983104,
+        "committed_bytes": 50282496,
+        "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -325,8 +325,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 40468480,
-        "dirty_bytes": 7983104,
+        "committed_bytes": 50282496,
+        "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -366,8 +366,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 39700,
-      "after_last_unit": 9100052
+      "after_seal": 44500,
+      "after_last_unit": 9137620
     }
   }
 }

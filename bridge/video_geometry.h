@@ -15,11 +15,11 @@ constexpr uint32_t kBufferHeightPal = 576;
 constexpr uint32_t kBufferHeightNtsc = 486;
 
 // Rows of the buffer a loaded machine delivers; announced at load and constant afterwards. An OCS machine cannot leave the standard of
-// its configuration, so NTSC keeps the short buffer. An ECS Agnus can be programmed into the other standard (BEAMCON0), so its NTSC
+// its configuration, so NTSC keeps the short buffer. An ECS or AGA Agnus (A600, A1200) can be programmed into the other standard (BEAMCON0), so its NTSC
 // configuration reserves the PAL height: the raster of a programmed PAL beam still fits.
-constexpr uint32_t buffer_height(bool ntsc, bool ecs)
+constexpr uint32_t buffer_height(bool ntsc, bool beamcon0)
 {
-    return ntsc && !ecs ? kBufferHeightNtsc : kBufferHeightPal;
+    return ntsc && !beamcon0 ? kBufferHeightNtsc : kBufferHeightPal;
 }
 
 }  // namespace p6_bridge

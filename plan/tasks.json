@@ -10637,7 +10637,7 @@
       "title": "Maquina A1200/AGA en el bridge: preset campo a campo, AGA activado y arranque headless con Kickstart 3.1",
       "milestone": "M2",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24a"
       ],
@@ -10664,12 +10664,15 @@
         "adapters/headless/**",
         "CMakeLists.txt",
         "tests/config/**",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "manifests/engine-warnings.json",
+        "manifests/waterbox-memory.json"
       ],
       "steps": [
         "Activar AGA (sin el define fixup_prefs borra el bit en silencio) midiendo tamano/tiempo de drawing.cpp; aceptar el ROM id 15 (KS 3.1 A1200, cpu=1) segun la CPU del preset (parche 0035).",
         "config/profiles/a1200-aga.json + test_a1200_profile; check_preset por maquina; headless --machine a1200.",
-        "Micro-ROM: VPOSR (Alice) y DENISEID (Lisa) del A1200 y instrucciones 020; opt-in P6_KICKSTART_A1200_ROM hasta la pantalla de insertar disco y P6_AGA_ADF (Catabasis) arrancando. Si el 3.1 exige Gayle: parar, reproducer, no fingir el dispositivo."
+        "Micro-ROM: VPOSR (Alice) y DENISEID (Lisa) del A1200 y instrucciones 020; opt-in P6_KICKSTART_A1200_ROM hasta la pantalla de insertar disco y P6_AGA_ADF (Catabasis) arrancando. Si el 3.1 exige Gayle: parar, reproducer, no fingir el dispositivo.",
+        "Ampliacion de touch (2026-10-08): con AGA compilado desaparecen los 33 -Warray-bounds de linetoscr_common.cpp (arrays de 8 planos), y el guest crece +9,8 MB, asi que waterbox-memory se vuelve a registrar para A500/A600 (measured_a1200 es T24f)."
       ],
       "checks": [
         "AV01",

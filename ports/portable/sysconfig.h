@@ -34,6 +34,7 @@
 #define P6_PORTABLE 1
 #define CPUEMU_13 1
 #define CPUEMU_21 1 /* 68020 cycle exact, no FPU/MMU (ADR 0010); chosen only by a 68020 preset */
+#define AGA 1 /* Alice/Lisa: without it fixup_prefs clears the AGA bit of chipset_mask; A500/A600 never set it */
 #define SIZEOF_SHORT __SIZEOF_SHORT__
 #define SIZEOF_INT __SIZEOF_INT__
 #define SIZEOF_LONG __SIZEOF_LONG__

@@ -82,9 +82,10 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c.abi_version = 2;       assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.struct_size = 8;                assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.machine = 0;                    assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
-    c = make_config(); c.machine = 3;                    assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.machine = 4;                    assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.machine = 0xffffffffu;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.machine = P6_MACHINE_A600;      assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);   // accepted, not UNSUPPORTED
+    c = make_config(); c.machine = P6_MACHINE_A1200;     assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(3);                                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.flags = 1;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);

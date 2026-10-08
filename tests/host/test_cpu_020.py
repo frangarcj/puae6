@@ -7,8 +7,8 @@ non-snooped instruction cache). Nothing is copied from the engine's output. The 
 assembler of the fixtures only encodes the 68000 subset, so the 68020 instructions are `.word` lines whose comments are checked
 against Capstone, an independent disassembler, when it is installed.
 
-The probe links the engine objects of the shared build tree (the ones p6_lifecycle_probe uses) and sets the CPU preferences by
-hand after p6_load, the way the A1200 preset will (T24b): 68EC020, cycle exact, 14 MHz, no FPU, no MMU.
+The probe links the engine objects of the shared build tree (the ones p6_lifecycle_probe uses) and loads the A1200 preset (T24b):
+68EC020, cycle exact, 14 MHz, no FPU, no MMU.
 """
 import importlib.util
 from pathlib import Path

@@ -1,9 +1,9 @@
 // Runs a micro-ROM on the 68020 cycle-exact core (cpuemu_21) of the real engine and prints what the program left in Chip RAM.
 //   usage: p6_cpu020_probe rom max_units [68000]
-//   With 68000 the preferences stay the A600's: the same program must then fail (the 68000 has none of its instructions).
-// There is no 68020 machine yet (T24b): the probe loads the A600 (ECS, 1 MiB Chip, no Gayle) and, before the first unit, sets the
-// CPU preferences by hand the way the A1200 preset will: 68EC020 (24 bit address space), cycle exact, 14 MHz, no FPU, no MMU, no
-// JIT. The reset head (prefs_changed_cpu / build_cpufunctbl / set_x_funcs) then selects op_smalltbl_21 and the CE020 accessors.
+//   With 68000 the machine is the A600: the same program must then fail (the 68000 has none of its instructions).
+// The probe loads the A1200 preset (T24b: 68EC020 with a 24 bit address space, cycle exact, 14 MHz, no FPU, no MMU, no JIT, AGA,
+// 2 MiB Chip, no Gayle) and the reset head (prefs_changed_cpu / build_cpufunctbl / set_x_funcs) selects op_smalltbl_21 and the CE020
+// accessors. With 68000 it loads the A600 instead, whose own 68000 stays.
 //
 //   line "cpu <model> ..."              : what the engine settled on
 //   line "units <n> sentinel <hex>"     : units run and the longword at $1FFC (the program writes $600DF00D when it is done)
@@ -57,27 +57,13 @@ int main(int argc, char **argv)
     p6_config config{};
     config.abi_version = P6_ABI_VERSION;
     config.struct_size = sizeof config;
-    config.machine = P6_MACHINE_A600;
+    config.machine = argc == 3 ? P6_MACHINE_A1200 : P6_MACHINE_A600;
     config.video_standard = P6_VIDEO_PAL;
     config.audio_rate_hz = 48000;
     config.random_seed = 1;
     config.rtc_epoch_seconds = 946684800;
     check(p6_init(&config, &error), error, "p6_init");
     check(p6_load(p6_buffer{rom.data(), rom.size()}, nullptr, 0, &error), error, "p6_load");
-
-    // The 68EC020 of the A1200 preset (T24b): upstream's set_68020_compa(0) plus buildin_default_prefs_68020.
-    if (argc == 3) {
-        changed_prefs.cpu_model = 68020;
-        changed_prefs.address_space_24 = true;
-        changed_prefs.fpu_model = 0;
-        changed_prefs.mmu_model = 0;
-        changed_prefs.cpu_compatible = true;
-        changed_prefs.cpu_cycle_exact = true;
-        changed_prefs.cpu_memory_cycle_exact = true;
-        changed_prefs.blitter_cycle_exact = true;
-        changed_prefs.m68k_speed = 0;
-        changed_prefs.cpu_clock_multiplier = 4 << 8;
-    }
 
     p6_input input{};
     input.abi_version = P6_ABI_VERSION;
