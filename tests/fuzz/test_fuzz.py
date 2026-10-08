@@ -94,12 +94,12 @@ class NativeFuzzTests(unittest.TestCase):
 
 
 STATE_KINDS = ("truncate", "extend", "flip", "flip-resealed", "run", "extreme", "chunk-header", "header-field", "identity", "swap-chunks", "drop-dup-chunk", "foreign", "null-buffer",
-               "length-forged")
+               "length-forged", "manifest-prefix")
 
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
 class StateFuzzTests(unittest.TestCase):
-    """FUZZ01 for the native state: truncated, tampered, extended, spliced and other-build/ROM/config/media states, loaded into a running image with and without a disk."""
+    """FUZZ01 for the native state: truncated, tampered, extended, spliced and other-build/ROM/config/media states and forged manifest prefixes, loaded into a running image with a disk passed to p6_load, with one appended after it and without one."""
 
     # Any single allocation above this is a report: the engine's biggest buffers are well under it, and a state of at most ~1.3 MB cannot ask for more honestly.
     ENV = {**ENV, "ASAN_OPTIONS": "detect_leaks=0:max_allocation_size_mb=24"}

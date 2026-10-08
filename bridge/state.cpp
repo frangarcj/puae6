@@ -35,6 +35,7 @@ namespace {
 struct VisitContext {
     uint64_t unit_index, master_ticks;
     MediaPlan media;
+    uint32_t media_count;       // how many media the manifest of the state had: every medium its bodies name is below it (the live manifest may have grown since)
 };
 VisitContext *g_context = nullptr;
 struct ContextScope {
@@ -44,11 +45,18 @@ struct ContextScope {
     ContextScope &operator=(const ContextScope &) = delete;
 };
 
+// The size of the manifest the state in hand was taken with: the loading state's (a prefix of the live manifest, recognised from its identity by load()) while a payload
+// is validated or applied, the live one when the machine is saved or measured. Every medium index a body carries has to be below it.
+uint32_t manifest_count()
+{
+    return g_context ? g_context->media_count : session.media_count;
+}
+
 // P6BR: the bookkeeping of the API session (bridge/session.h) that no engine chunk holds: the audio frame count, the delivery flag of the unit,
 // the pending reset, the start flag, the media-event sequence guard, the drive contents the caller asked for and the ordered queue of media
 // events not yet applied. 40 bytes without events, at most 136 with 16. Not here: the unit and tick counters (they travel in the header; cycles_seen
 // is derived from the scheduler's counter and load() sets it to currcycle), the identity of the firmware, the configuration and the media (the envelope validates it, a state of
-// another one is refused and never adapted), the edge memory of the input (P6IN), the clock's anchor (P6RT) and the names of the floppies in
+// another one is refused and never adapted; the media manifest only needs to START with the state's: every index here is below the count it had), the edge memory of the input (P6IN), the clock's anchor (P6RT) and the names of the floppies in
 // the preferences (the engine's own disk body, when it exists). Applying neither consumes a queued event nor touches the engine: the events
 // are applied by the next p6_run_frame, as they would have been.
 void visit_bridge(Archive &a)
@@ -62,7 +70,7 @@ void visit_bridge(Archive &a)
     const uint64_t sequence = a.val<uint64_t>(s.last_sequence, "bridge.last_sequence");
     int32_t drives[4];
     for (uint32_t i = 0; i < 4; ++i)       // the A500 has DF0 and DF1: the others are never mounted
-        drives[i] = get<int32_t>(a, s.drive_media[i], -1, i < 2 ? int32_t(s.media_count) - 1 : -1, "bridge.drive_media");
+        drives[i] = get<int32_t>(a, s.drive_media[i], -1, i < 2 ? int32_t(manifest_count()) - 1 : -1, "bridge.drive_media");
     if (a.reading() && a.ok() && g_context) memcpy(g_context->media.drive_media, drives, sizeof drives);     // the disk chunk is checked against it before anything is applied
     uint32_t queued = s.media_queued;
     const uint32_t count = a.count(queued, s.kMediaQueue, "bridge.media_queued");
@@ -73,7 +81,7 @@ void visit_bridge(Archive &a)
         const uint32_t drive = get<uint8_t>(a, live.drive, 0, 1, "bridge.event_drive");
         const uint32_t index = a.val<uint32_t>(live.media_index, "bridge.event_index");
         if (a.mode() != Mode::Measure)
-            a.require(type == P6_MEDIA_EVENT_MOUNT ? index < s.media_count : index == P6_MEDIA_INDEX_EJECT, "bridge event: invalid media index for its type");
+            a.require(type == P6_MEDIA_EVENT_MOUNT ? index < manifest_count() : index == P6_MEDIA_INDEX_EJECT, "bridge event: invalid media index for its type");
         events[i] = {type, drive, index};
     }
     if (a.mode() == Mode::Save)            // cycles_seen is not saved: a load sets it to currcycle, which is where a boundary has it
@@ -129,6 +137,45 @@ const Chunk kChunks[kChunkCount] = {
     {"P6BR", "bridge", 1, visit_bridge, nullptr},
 };
 
+namespace {
+
+// The hash of the first `count` media of the live manifest, as media_manifest_hash defines it. current_identity() is the whole manifest (count == media_count).
+void manifest_prefix_hash(uint32_t count, uint8_t out[32])
+{
+    // ABI v1 accepts only ADF images (validate_media), so every medium has the same type.
+    uint32_t types[P6_MAX_MEDIA];
+    const uint8_t *ids[P6_MAX_MEDIA];
+    if (count > P6_MAX_MEDIA) count = P6_MAX_MEDIA;
+    for (uint32_t i = 0; i < count; ++i) {
+        types[i] = P6_MEDIA_ADF;
+        ids[i] = session.media_content_id[i];
+    }
+    media_manifest_hash(count, types, ids, out);
+}
+
+// The manifest is append-only (p6_media_append), so a state taken before a medium was added is still a state of this image. The header already stores what is needed to say
+// which prefix it was taken with: media_manifest_hash is the hash of the manifest the state had, and that hash includes the count (docs/adr/0009-state-format.md), so the
+// count is the one live prefix, if any, that hashes to the stored value. Nothing is trusted from the header here: the field only chooses which prefix the envelope compares
+// against, and the envelope then checks the header checksum and, for the identity, the same hash, so a header whose bytes were damaged is refused as before, and one that
+// matches no prefix of this manifest is compared with the whole live manifest and refused as INCOMPATIBLE by name. Returns false when no prefix matches (or the header is
+// too short to have the field).
+bool recognise_manifest_prefix(const uint8_t *data, uint64_t bytes, uint32_t *count)
+{
+    constexpr uint64_t kManifestHashAt = 208;      // media_manifest_hash in the header (docs/adr/0009-state-format.md)
+    if (!data || bytes < kHeaderSize) return false;
+    for (uint32_t n = 0; n <= session.media_count && n <= P6_MAX_MEDIA; ++n) {
+        uint8_t prefix[32];
+        manifest_prefix_hash(n, prefix);
+        if (!memcmp(prefix, data + kManifestHashAt, 32)) {
+            *count = n;
+            return true;
+        }
+    }
+    return false;
+}
+
+}  // namespace
+
 Identity current_identity()
 {
     const BuildIdentity &build = build_identity();
@@ -140,14 +187,7 @@ Identity current_identity()
     memcpy(identity.codegen_hash, build.codegen_hash, 32);
     const p6_config &c = session.config;
     config_hash(c.machine, c.video_standard, c.audio_rate_hz, c.flags, c.random_seed, c.rtc_epoch_seconds, identity.config_hash);
-    // ABI v1 accepts only ADF images (validate_media), so every medium has the same type.
-    uint32_t types[P6_MAX_MEDIA];
-    const uint8_t *ids[P6_MAX_MEDIA];
-    for (uint32_t i = 0; i < session.media_count && i < P6_MAX_MEDIA; ++i) {
-        types[i] = P6_MEDIA_ADF;
-        ids[i] = session.media_content_id[i];
-    }
-    media_manifest_hash(session.media_count, types, ids, identity.media_manifest_hash);
+    manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;
 }
@@ -304,13 +344,21 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     ChunkView views[kChunkCount];
     Refusal refusal = {};
     uint64_t unit_index = 0, master_ticks = 0;
-    if (!validate(data, bytes, current_identity(), plan.total - kHeaderSize, plan.specs, kChunkCount, plan.bounds, views, &unit_index, &master_ticks, &refusal)) {
+    // The identity the state has to match: this image, except that its manifest may have grown since the state was taken (append-only: a state names only media
+    // inside the prefix it was taken with, and the prefix has to be the one this image starts with).
+    Identity expected = current_identity();
+    uint32_t state_media = session.media_count;
+    if (uint32_t prefix = 0; recognise_manifest_prefix(data, bytes, &prefix)) {
+        manifest_prefix_hash(prefix, expected.media_manifest_hash);
+        state_media = prefix;
+    }
+    if (!validate(data, bytes, expected, plan.total - kHeaderSize, plan.specs, kChunkCount, plan.bounds, views, &unit_index, &master_ticks, &refusal)) {
         char text[P6_ERROR_TEXT_CAPACITY];
         snprintf(text, sizeof text, "state refused: %s: %s", refusal.field, refusal.message);
         return p6_fail(error, refusal.code, text);
     }
 
-    VisitContext context = {unit_index, master_ticks, {}};
+    VisitContext context = {unit_index, master_ticks, {}, state_media};
 
     // (7) Every body, read exactly as it will be applied and not stored anywhere.
     const ContextScope scope(&context);

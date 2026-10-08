@@ -117,6 +117,31 @@ void remember_identity(const p6_buffer &firmware, const p6_media *media, uint32_
         memcpy(s.media_content_id[i], media[i].content_id, P6_CONTENT_ID_SIZE);
 }
 
+p6_result append_media(const p6_media &medium, uint32_t *index, p6_error *error)
+{
+    p6_session::Session &s = p6_session::session;
+    if (const p6_result checked = validate_media(&medium, 1, error))
+        return checked;
+    // A disk is its content: the same bytes under another name are the medium that is already registered, and the manifest (and the identity of every state)
+    // does not grow for it.
+    for (uint32_t i = 0; i < s.media_count; ++i) {
+        if (!memcmp(s.media_content_id[i], medium.content_id, P6_CONTENT_ID_SIZE)) {
+            *index = i;
+            return P6_OK;
+        }
+    }
+    if (s.media_count >= P6_MAX_MEDIA)
+        return p6_fail(error, P6_ERROR_CAPACITY, "the media manifest is full");
+    if (const p6_result registered = register_media(&medium, 1, error))
+        return registered;               // register_media adds nothing when it fails
+    const uint32_t at = s.media_count;
+    memcpy(s.media_content_id[at], medium.content_id, P6_CONTENT_ID_SIZE);
+    g_crc[at] = MeasuredCrc{};           // measured when a state needs it, as for the media of p6_load
+    s.media_count = at + 1;
+    *index = at;
+    return P6_OK;
+}
+
 void forget_media()
 {
     p6_session::Session &s = p6_session::session;
@@ -252,4 +277,19 @@ extern "C" p6_result p6_media_event_enqueue(const p6_media_event *event, p6_erro
     session.last_sequence = event->sequence;
     session.have_sequence = true;
     return P6_OK;
+}
+
+extern "C" p6_result p6_media_append(const p6_media *medium, uint32_t *index, p6_error *error)
+{
+    if (!p6_error_usable(error))
+        return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    Guard guard;
+    if (!guard.ok)
+        return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");      // p6_run_frame holds the guard: a medium is never registered in the middle of a unit
+    if (session.state != State::Loaded)
+        return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    if (!medium || !index)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium or the index is null");
+    return p6_bridge::append_media(*medium, index, error);
 }

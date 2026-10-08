@@ -6,7 +6,7 @@
 //   fuzz_probe blob SEED N               random operations on the blob store
 //   fuzz_probe media ROM SEED N          p6_load on mutated disk lists and p6_media_event_enqueue on mutated events, against an oracle
 //   fuzz_probe state ROM SEED N          p6_state_load on N mutated states of a running image (truncated, extended, bit flips, byte runs, extreme values, chunk table edits, swapped and
-//                                        spliced chunks, other build/ROM/config/media identities), with and without a disk, resealed or not
+//                                        spliced chunks, other build/ROM/config/media identities and manifest prefixes), with, without and with an appended disk, resealed or not
 // Output is a histogram of result codes; nothing else varies between runs.
 #include "p6.h"
 #include "blob_io.h"
@@ -457,6 +457,7 @@ struct StateImage {
     std::vector<uint8_t> foreign;                      // a valid state of the other session (another media manifest)
     uint64_t chunk_at[kStateChunks], chunk_length[kStateChunks];
     uint64_t bound = 0;
+    const uint8_t *adf_id = nullptr;                   // the content id of the disk of the session (null: none), for the header edits that name a manifest
 };
 
 p6_input state_input()
@@ -500,7 +501,8 @@ bool state_save(std::vector<uint8_t> &out, uint64_t *bound_seen)
 }
 
 // Loads the image of one session (`media`: a disk mounted at boot or none), runs it and takes the good state, the reference and, where asked, leaves the image loaded.
-bool state_session(const std::vector<uint8_t> &rom, const std::vector<uint8_t> *adf, StateImage &image, bool keep_loaded)
+// `append` registers the disk with p6_media_append after a load of no media instead of passing it to p6_load (T17e): the manifest, and so the state, is the same.
+bool state_session(const std::vector<uint8_t> &rom, const std::vector<uint8_t> *adf, StateImage &image, bool keep_loaded, bool append = false)
 {
     p6_error error = fresh_error();
     p6_media media{};
@@ -509,7 +511,12 @@ bool state_session(const std::vector<uint8_t> &rom, const std::vector<uint8_t> *
         media.image = p6_buffer{adf->data(), adf->size()};
         p6_sha256_hash(adf->data(), adf->size(), media.content_id);
     }
-    if (p6_load(p6_buffer{rom.data(), rom.size()}, adf ? &media : nullptr, adf ? 1 : 0, &error) != P6_OK) return false;
+    const bool at_load = adf && !append;
+    if (p6_load(p6_buffer{rom.data(), rom.size()}, at_load ? &media : nullptr, at_load ? 1 : 0, &error) != P6_OK) return false;
+    if (adf && append) {
+        uint32_t index = UINT32_MAX;
+        if (p6_media_append(&media, &index, &error) != P6_OK || index != 0) return false;
+    }
     if (adf) {
         p6_media_event event{};
         event.abi_version = P6_ABI_VERSION;
@@ -546,7 +553,7 @@ struct Candidate {
 };
 
 const char *const kStateKinds[] = {"truncate", "extend", "flip", "flip-resealed", "run", "extreme", "chunk-header", "header-field", "identity", "swap-chunks", "drop-dup-chunk",
-                                   "foreign", "null-buffer", "length-forged"};
+                                   "foreign", "null-buffer", "length-forged", "manifest-prefix"};
 constexpr unsigned kStateKindCount = sizeof kStateKinds / sizeof kStateKinds[0];
 
 Candidate mutate_state(const StateImage &image, Random &rng, unsigned kind)
@@ -671,6 +678,16 @@ Candidate mutate_state(const StateImage &image, Random &rng, unsigned kind)
     case 12:            // no buffer at all
         c.null_buffer = true;
         break;
+    case 14: {          // the manifest the header names (T17e): the hash of no media, of the disk, of another one or of two, resealed. The state loads only where that list is a prefix of the live
+                        // manifest, and then only if every medium its bodies name is inside it
+        uint8_t other[32];
+        for (uint8_t &byte : other) byte = uint8_t(rng.next());
+        const uint8_t *ids[2] = {image.adf_id && rng.coin() ? image.adf_id : other, rng.coin() ? other : image.adf_id ? image.adf_id : other};
+        const uint32_t types[2] = {P6_MEDIA_ADF, P6_MEDIA_ADF};
+        p6_state::media_manifest_hash(rng.below(3), types, ids, &s[208]);
+        rehash(s, false);
+        break;
+    }
     default:            // the buffer holds the whole good state and the length given to the call is shorter: the parser must read no further than it was told
         c.length = rng.below(3) == 0 ? s.size() - 1 - rng.below(8) : rng.below(uint32_t(s.size()));
         break;
@@ -690,18 +707,25 @@ int fuzz_state(const char *path, uint64_t seed, uint64_t iterations)
     p6_config config = valid_config();
     p6_error error = fresh_error();
     if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
-    StateImage images[2];
+    uint8_t adf_id[P6_CONTENT_ID_SIZE];
+    p6_sha256_hash(adf.data(), adf.size(), adf_id);
+    StateImage images[3];
+    images[1].adf_id = images[2].adf_id = adf_id;
     if (!state_session(rom, nullptr, images[0], false)) bug("the good state of the session without media could not be made", 0);
     if (!state_session(rom, &adf, images[1], false)) bug("the good state of the session with a disk could not be made", 0);
+    if (!state_session(rom, &adf, images[2], false, true)) bug("the good state of the session with an appended disk could not be made", 0);
+    // The disk registered after the load and the one passed to p6_load are the same manifest: the machine, and so its state, is the same byte for byte.
+    if (images[2].good != images[1].good || images[2].bound != images[1].bound) bug("a disk appended after p6_load made another state than the same disk passed to it", 0);
     images[0].foreign = images[1].good;
     images[1].foreign = images[0].good;
+    images[2].foreign = images[0].good;
 
     std::map<int, unsigned> histogram;
     unsigned accepted_by_kind[kStateKindCount] = {}, refused_by_kind[kStateKindCount] = {};
     unsigned unit_checks = 0, accepted_runs = 0, resyncs = 0;
-    for (unsigned session = 0; session < 2; ++session) {
+    for (unsigned session = 0; session < 3; ++session) {
         StateImage &image = images[session];
-        if (!state_session(rom, session ? &adf : nullptr, image, true)) bug("a session could not be started again", 0);
+        if (!state_session(rom, session ? &adf : nullptr, image, true, session == 2)) bug("a session could not be started again", 0);
         // The machine is the good state's at the top of every iteration; the loop puts it back whenever an attempt or a unit changed it.
         for (uint64_t i = 0; i < iterations; ++i) {
             const uint64_t tag = session * iterations + i;

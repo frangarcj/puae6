@@ -10116,7 +10116,7 @@
       "title": "Manifest de medios ampliable solo por el final: añadir o reemplazar discos tras p6_load sin romper estados ni rewind",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17a",
         "T18"
@@ -10138,13 +10138,19 @@
         "tests/libretro-host/**",
         "tests/media/**",
         "tests/fuzz/**",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "bridge/state_probe.cpp",
+        "tests/host/bridge_caps_probe.cpp",
+        "tests/codegen/test_headless_link.py",
+        "docs/02-contracts.md",
+        "docs/adr/0009-state-format.md"
       ],
       "steps": [
         "Hoy el manifest de medios se fija en p6_load y su hash entra en la identidad del estado, asi que el add_image_index/replace_image_index de libretro (\"Añadir disco\" de RetroArch, que PUAE5 soporta por ruta) se rechaza. Nueva funcion de la ABI que registra un ADF despues de cargar, siempre al final del manifest (indice nuevo, content id SHA-256, imagen prestada hasta p6_unload), con su capacidad anunciada.",
         "Identidad: cada estado guarda cuantos medios tenia el manifest al guardarse y el hash de ese prefijo; cargarlo exige que el manifest vivo empiece por ese mismo prefijo (append-only), de modo que los estados anteriores a una adicion siguen siendo validos. Un rewind a antes de la adicion restaura la unidad como estaba; el disco añadido sigue registrado y basta con volver a insertarlo. Validar todo antes de mutar; un manifest con otro prefijo sigue siendo INCOMPATIBLE.",
         "libretro: add_image_index/replace_image_index leen el fichero por VFS con cota de tamaño y lo registran por la nueva funcion; replace = añadir + seleccionar; nada cambia la maquina fuera de la frontera de retro_run. STATE01: el bound cubre P6_MAX_MEDIA medios y no crece al añadir.",
-        "BizHawk (decidido 2026-10-07): el wrapper mantiene los medios fijos por instancia, como todo BizHawk (IEmulator no tiene alta de medios, ControllerDefinition se lee una vez y los botones de disco van en el log de la pelicula): los juegos de varios discos se dan en la lista de la construccion o en un multi-disk bundle, una adicion en caliente se rechaza con mensaje claro, y las peliculas siguen exigiendo el MediaHash exacto. El prefijo append-only vale solo para estados de libretro/headless. No hace falta codigo en integration/bizhawk."
+        "BizHawk (decidido 2026-10-07): el wrapper mantiene los medios fijos por instancia, como todo BizHawk (IEmulator no tiene alta de medios, ControllerDefinition se lee una vez y los botones de disco van en el log de la pelicula): los juegos de varios discos se dan en la lista de la construccion o en un multi-disk bundle, una adicion en caliente se rechaza con mensaje claro, y las peliculas siguen exigiendo el MediaHash exacto. El prefijo append-only vale solo para estados de libretro/headless. No hace falta codigo en integration/bizhawk.",
+        "Ampliacion touch (2026-10-08, revisor): bridge/state_probe.cpp (opcion --append-at), tests/host/bridge_caps_probe.cpp y tests/codegen/test_headless_link.py (las capacidades incluyen P6_CAP_MEDIA_APPEND: 0xe -> 0x1e), docs/02-contracts.md y docs/adr/0009-state-format.md (regla de prefijo). replace_image_index no selecciona el hueco: sigue la semantica de libretro."
       ],
       "checks": [
         "DET02",

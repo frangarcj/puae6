@@ -714,6 +714,12 @@ void do_action(const std::string &text)
     } else if (command == "images") {
         printf("state images count=%u index=%u eject=%d\n", disk_registered ? disk.get_num_images() : 0, disk_registered ? disk.get_image_index() : 0,
                int(disk_registered && disk.get_eject_state()));
+        if (disk_registered && disk_is_ext)
+            for (unsigned i = 0; i < disk.get_num_images(); ++i) {       // T17e: the list changes after the load, so the paths and labels are looked at as well
+                char path[4096] = "", label[1024] = "";
+                const bool have_path = disk.get_image_path(i, path, sizeof path), have_label = disk.get_image_label(i, label, sizeof label);
+                printf("state image %u path=%s label=%s%s\n", i, path, label, have_path && have_label ? "" : " (missing)");
+            }
     } else if (command == "disk") {
         disk_command(done, text.substr(5));
     } else {

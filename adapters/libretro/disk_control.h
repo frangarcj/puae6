@@ -14,10 +14,13 @@
 
 namespace p6_libretro {
 
+// The slot that add_image_index makes has no disk until replace_image_index gives it one (T17e): libretro says an index cannot be used before that.
+constexpr uint32_t kEmptySlot = UINT32_MAX;
+
 struct Image {
     std::string path;
     std::string label;
-    uint32_t medium;               // index in the media manifest given to p6_load: images with the same bytes share one
+    uint32_t medium;               // index in the media manifest (p6_load's list, then whatever p6_media_append added): images with the same bytes share one; kEmptySlot: none yet
 };
 
 class DiskTray {
@@ -48,11 +51,27 @@ public:
         dirty_ = true;
         return true;
     }
-    // Only while the tray is open; an index past the last image is the frontend taking the disk out and putting none in.
+    // Only while the tray is open; an index past the last image is the frontend taking the disk out and putting none in. A slot that has no disk yet cannot be chosen.
     bool select(unsigned index)
     {
         if (!ejected_) return false;
+        if (index < images_.size() && images_[index].medium == kEmptySlot) return false;
         selected_ = index < images_.size() ? index : unsigned(images_.size());
+        dirty_ = true;
+        return true;
+    }
+    // A new slot at the end of the list with no disk (add_image_index); the selection and the drive are not touched. Returns its index.
+    unsigned add_empty()
+    {
+        images_.push_back({std::string(), std::string(), kEmptySlot});
+        return unsigned(images_.size() - 1);
+    }
+    // Gives a slot its disk (replace_image_index with a file), only while the tray is open. If the slot is the selected one the next boundary mounts the new disk once the
+    // tray is closed, like any other selection.
+    bool assign(unsigned index, Image image)
+    {
+        if (!ejected_ || index >= images_.size()) return false;
+        images_[index] = std::move(image);
         dirty_ = true;
         return true;
     }
@@ -84,7 +103,7 @@ public:
             out[n++] = {false, 0};
             drive = -1;
         }
-        const int64_t wanted = ejected_ || selected_ >= images_.size() ? -1 : int64_t(images_[selected_].medium);
+        const int64_t wanted = ejected_ || selected_ >= images_.size() || images_[selected_].medium == kEmptySlot ? -1 : int64_t(images_[selected_].medium);
         if (wanted >= 0 && wanted != drive) out[n++] = {true, uint32_t(wanted)};
         return n;
     }
@@ -94,7 +113,7 @@ public:
     // --- save states (T18): the tray is part of the state, so that a load puts the frontend's notion of the drive where the loaded machine has it ---
     // Everything that decides what the next boundary does: the list (by medium, paths are the session's business), the selection, the open tray, the
     // requests not looked at yet and the medium the bridge's drive holds. A request recorded after the state was taken is not in it, so a load drops it.
-    static constexpr uint32_t kNoMedium = UINT32_MAX;
+    static constexpr uint32_t kNoMedium = kEmptySlot;      // in the list: a slot with no disk; in `in_drive`: an empty drive
     struct Snapshot {
         std::vector<uint32_t> media;
         uint32_t selected = 0;
@@ -112,17 +131,20 @@ public:
         out.in_drive = in_drive_ < 0 ? kNoMedium : uint32_t(in_drive_);
         return out;
     }
-    // A snapshot fits this tray when it was taken over the same list of images and says nothing impossible about it. `media` is the size of the manifest.
+    // A snapshot fits this tray when the list it was taken over is the start of this one (T17e: slots are only added at the end, so a state taken before a disk was added
+    // is still a state of this tray, and a state taken after is not until the disk is added again) and it says nothing impossible about it. A slot that had no disk yet
+    // at the time fits whatever it holds now. `media` is the size of the manifest.
     bool fits(const Snapshot &snap, uint32_t media) const
     {
-        if (snap.media.size() != images_.size() || snap.selected > images_.size()) return false;
-        for (size_t i = 0; i < images_.size(); ++i)
-            if (snap.media[i] != images_[i].medium) return false;
+        if (snap.media.size() > images_.size() || snap.selected > snap.media.size()) return false;
+        for (size_t i = 0; i < snap.media.size(); ++i)
+            if (snap.media[i] != kEmptySlot && snap.media[i] != images_[i].medium) return false;
         return snap.in_drive == kNoMedium || snap.in_drive < media;
     }
+    // What the saved timeline had: the slots added since stay in the list (and selectable); "no image selected" in the snapshot stays so, it is not the first slot added since.
     void restore(const Snapshot &snap)
     {
-        selected_ = snap.selected;
+        selected_ = snap.selected < snap.media.size() ? snap.selected : unsigned(images_.size());
         ejected_ = snap.ejected;
         eject_seen_ = snap.eject_seen;
         dirty_ = snap.dirty;

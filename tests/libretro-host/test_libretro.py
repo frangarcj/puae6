@@ -538,18 +538,18 @@ class LibretroTests(LibretroHarness):
         self.assertEqual(self.events(out), [(1, "DF0: medium 0 inserted"), (5, "DF0: ejected")])        # and the drive stays empty
         self.assertIn("log 2 [PUAE6] the image can only be chosen while the tray is open", out)
 
-    def test_images_can_leave_the_list_but_a_disk_that_was_not_loaded_cannot_be_added(self):
+    def test_images_can_leave_the_list_and_new_ones_come_in_at_the_end_with_the_tray_open(self):
+        # Adding and replacing with a file are T17e's (tests/libretro-host/test_media_append.py); here, what the list does around them.
         elsewhere = self.work() / "new.adf"
         elsewhere.write_bytes(adf("new"))
         out = self.disk_run("--disk", "3:remove=1", "--disk", "4:eject", "--disk", "5:remove=1", "--disk", "5:replace=0:" + str(elsewhere),
                             "--disk", "5:add", "--disk", "6:remove=9", runs=8)
         self.assertIn("disk 3 remove=1 result=0 eject=0 index=0 count=3", out)             # the tray must be open
         self.assertIn("disk 5 remove=1 result=1 eject=1 index=0 count=2", out)             # c.adf is image 1 now
-        self.assertIn(f"disk 5 replace=0:{elsewhere} result=0 eject=1 index=0 count=2", out)
-        self.assertIn("disk 5 add result=0 eject=1 index=0 count=2", out)
-        self.assertIn("disk 6 remove=9 result=0 eject=1 index=0 count=2", out)
-        self.assertIn(f"log 2 [PUAE6] image 0 cannot be replaced by {elsewhere}: only the disks the content named at load can be inserted", out)
-        self.assertIn("log 2 [PUAE6] no image can be added: only the disks the content named at load can be inserted", out)
+        self.assertIn(f"disk 5 replace=0:{elsewhere} result=1 eject=1 index=0 count=2", out)      # image 0 is now the new disk
+        self.assertIn("disk 5 add result=1 eject=1 index=0 count=3", out)                  # an empty slot at the end
+        self.assertIn("disk 6 remove=9 result=0 eject=1 index=0 count=3", out)
+        self.assertIn("log 1 [PUAE6] image 0: medium 3, \"new\"", out)                      # registered at the end of the manifest (a, b and c came first)
 
     def test_the_image_the_frontend_remembers_is_the_one_that_boots(self):
         m3u = self.playlist("a.adf|A\nb.adf|B\nc.adf|C\n", ["a.adf", "b.adf", "c.adf"])

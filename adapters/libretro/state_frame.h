@@ -11,8 +11,8 @@
 // extended, or taken from the wrong place is never half-accepted. A blob larger than the frame needs is accepted only if what follows the native state
 // is zero. Nothing here calls the engine; the adapter decides what the section holds and whether it fits the running image.
 //
-// The adapter section carries what the adapter keeps between two runs and the frontend has not seen the effect of yet: the disk tray (selection, open
-// tray, requests not applied, the medium the drive holds, the media-event counter), the audio the frontend has not taken, and the geometry (and, for
+// The adapter section carries what the adapter keeps between two runs and the frontend has not seen the effect of yet: the disk tray (the list by medium, selection, open
+// tray, requests not applied, the medium the drive holds, the media-event counter; since T17e the list may be shorter than the live one, see DiskTray::fits), the audio the frontend has not taken, and the geometry (and, for
 // a frontend that cannot repeat a picture, the pixels) of the last picture, and the input memory (T17c: the Caps Lock latch and the mouse movement that did
 // not fit a unit). All of it belongs to the saved timeline, so a rewind or a runahead branch leaves no input, audio or disk request of the abandoned
 // future behind. What the frontend holds down is not carried: the adapter reads it afresh in every retro_run and the bridge's own edge state is in the
@@ -32,7 +32,7 @@
 namespace p6_libretro {
 
 constexpr size_t kStateHeaderBytes = 64;
-constexpr uint32_t kStateVersion = 2;       // 2: the input memory joined the section (T17c)
+constexpr uint32_t kStateVersion = 3;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e)
 constexpr size_t kSectionAlign = 16;
 constexpr size_t kMaxImages = 16;                                   // P6_MAX_MEDIA: a playlist cannot name more
 

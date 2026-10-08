@@ -24,6 +24,11 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
 // them all fails with CAPACITY; the caller unloads what was registered.
 p6_result register_media(const p6_media *media, uint32_t count, p6_error *error);
 
+// p6_media_append (the manifest only grows at its end): after validate_media(medium, 1), the index of the medium whose content id this is, or a new one that is
+// registered as p6_load registers its media. CAPACITY when the manifest is full and the medium is new; nothing changes in that case or on any other failure.
+// Nothing of the machine is touched: no preference, no drive, no queued event.
+p6_result append_media(const p6_media &medium, uint32_t *index, p6_error *error);
+
 // Identity of what was loaded, kept for the state header (T14): SHA-256 of the firmware and the ordered content ids.
 void remember_identity(const p6_buffer &firmware, const p6_media *media, uint32_t count);
 // Forgets identity, queued events and drive contents; the next load starts from nothing.

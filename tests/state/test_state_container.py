@@ -138,7 +138,8 @@ class StateContainerTests(ProbeCase):
         again = self.probe("vsync", "--units", "8", "--every", "1", "--adf", str(a), "--load-at", "8", str(with_a))
         self.assertEqual([(8, 0, "")], again.loads, "the same image in a new process")
         self.assertEqual(saved.digests[(3, "ram")], again.after[0]["ram"])
-        for name, arguments in (("no disk", ()), ("another disk", ("--adf", str(b))), ("two disks", ("--adf", str(a), "--adf", str(b)))):
+        # The manifest only grows (T17e): the state of a manifest [a] is a state of every manifest that starts with [a], and of no other (see test_state_media_append.py).
+        for name, arguments in (("no disk", ()), ("another disk", ("--adf", str(b))), ("a disk first and another one", ("--adf", str(b), "--adf", str(a)))):
             with self.subTest(name):
                 run = self.probe("vsync", "--units", "8", "--every", "1", *arguments, "--load-at", "8", str(with_a))
                 self.assertEqual(1, len(run.loads))
@@ -151,7 +152,9 @@ class StateContainerTests(ProbeCase):
         none = self.dir / "none.state"
         self.probe("vsync", "--units", "3", "--save-at", "3", str(none))
         run = self.probe("vsync", "--units", "8", "--adf", str(a), "--load-at", "8", str(none))
-        self.assertIn("media_manifest_hash", run.loads[0][2], "a state taken with no disk does not fit a machine that has one")
+        self.assertEqual([(8, 0, "")], run.loads, "a state taken with no disk is the prefix of every manifest: it fits a machine that has one")
+        run = self.probe("vsync", "--units", "8", "--adf", str(a), "--adf", str(b), "--load-at", "8", str(with_a))
+        self.assertEqual([(8, 0, "")], run.loads, "the manifest [a, b] starts with [a]")
 
     def test_the_public_functions_work_and_the_capability_is_set_once_the_native_state_is_released(self):
         # The closure of T15 turned the release on: the public bound, save and load succeed, the state they make is the one the registry makes at the same unit (byte for byte),

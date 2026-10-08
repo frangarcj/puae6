@@ -47,6 +47,7 @@ typedef struct p6_caps {
 #define P6_CAP_MEMORY_REGIONS   (UINT64_C(1) << 1)
 #define P6_CAP_MEDIA_EVENTS     (UINT64_C(1) << 2)
 #define P6_CAP_LAG_FLAG         (UINT64_C(1) << 3)
+#define P6_CAP_MEDIA_APPEND     (UINT64_C(1) << 4)
 
 typedef struct p6_config {
     uint32_t abi_version;
@@ -261,7 +262,8 @@ p6_result p6_shutdown(p6_error *error);
  * (CAPACITY if the buffer is too small, nothing written beyond it). p6_state_load validates the whole state (length, checksums, build, firmware,
  * configuration, media manifest, every chunk) before it touches the machine, so a refused state (CORRUPT_STATE or INCOMPATIBLE) leaves the image
  * running exactly as it was; the loaded machine then continues bit for bit as the saved one did. A state is valid only in an image of the same
- * build, firmware, configuration and media manifest; the media the drives hold need not be the same, the state names them. */
+ * build, firmware and configuration whose media manifest starts with the one the state was taken with (the manifest only grows: p6_media_append); the
+ * media the drives hold need not be the same, the state names them. */
 p6_result p6_state_bound(uint64_t *bytes, p6_error *error);
 p6_result p6_state_save(void *buffer, uint64_t capacity, uint64_t *written,
                         p6_error *error);
@@ -269,7 +271,7 @@ p6_result p6_state_load(const void *buffer, uint64_t bytes, p6_error *error);
 p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capacity,
                             uint32_t *count, p6_error *error);
 /* Enqueue for the next boundary. EJECT requires media_index to be
- * P6_MEDIA_INDEX_EJECT; MOUNT requires an index passed to p6_load. Only DF0 and
+ * P6_MEDIA_INDEX_EJECT; MOUNT requires an index of the manifest (passed to p6_load or returned by p6_media_append). Only DF0 and
  * DF1 exist (drives 2 and 3 are UNSUPPORTED, above 3 BAD_ARGUMENT); at most 16
  * events wait for a boundary (CAPACITY) and sequence must exceed the last accepted
  * one for the whole session. A refused event queues nothing and uses no sequence.
@@ -277,6 +279,18 @@ p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capacity,
  * per drive wins); later ones follow the engine's delayed swap: eject at the next
  * vsync, insert about 100 (PAL) units later. */
 p6_result p6_media_event_enqueue(const p6_media_event *event, p6_error *error);
+
+/* Registers one more disk after p6_load (P6_CAP_MEDIA_APPEND), always at the END of the media manifest: the new medium gets the next index, the ones
+ * before it keep theirs, and a medium is never removed during a session. The medium is validated exactly as p6_load validates its array (type ADF,
+ * flags 0, 901120 bytes, a content_id that is the SHA-256 of the image: UNSUPPORTED, BAD_ARGUMENT, WRONG_MEDIA); one whose content_id is already in
+ * the manifest is not registered twice and *index is the index it already has (a disk is its content, never its path). A manifest that already holds
+ * P6_MAX_MEDIA media answers CAPACITY for a new medium. *index is written only on success, which changes nothing else: no machine state, no queued event, no
+ * drive; mounting the medium is a p6_media_event_enqueue of the returned index. The image is borrowed until p6_unload like those of p6_load. Callable
+ * between units on a loaded image (BAD_STATE otherwise); a call made while another is in progress is BUSY.
+ *
+ * A native state records how many media the manifest had and the hash of that prefix: it loads in an image whose manifest starts with the same media
+ * (the image may have appended more since), and it is INCOMPATIBLE in one whose manifest does not. Every medium a state names is inside its own prefix. */
+p6_result p6_media_append(const p6_media *medium, uint32_t *index, p6_error *error);
 
 #ifdef __cplusplus
 } /* extern "C" */

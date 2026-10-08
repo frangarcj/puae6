@@ -9,7 +9,9 @@
 // of them, decoded in memory to its ADF by container.h; the SHA-256 of the ADF is the medium's identity, whatever the container (T17d). Files are read through the
 // frontend's VFS when it offers one and through stdio otherwise. Disks are read-only. Every image of the playlist is registered with p6_load,
 // and the Disk Control interface only records what the frontend asks: the next retro_run turns it into p6_media_event_enqueue calls, so a
-// change lands on one unit boundary (see disk_control.h).
+// change lands on one unit boundary (see disk_control.h). Disks added later (T17e: add_image_index makes an empty slot, replace_image_index reads a file, decodes it as at load
+// and registers it with p6_media_append at the END of the manifest) are registered inside the callback: registering a medium changes nothing of the machine (no drive, no event,
+// no state), so it needs no unit boundary, and the bridge refuses it while a unit runs. Mounting it is still the tray's business, at the next boundary.
 //
 // Options (T17b): the core options come from the one schema (config/schema/options.json, options.h). The reboot options (video standard, audio rate)
 // are read when the content is loaded and become the p6_config; a change made while the machine runs is reported and only applies after a reload. The
@@ -102,6 +104,7 @@ struct Core {
     std::vector<int16_t> pending;         // interleaved stereo int16 the frontend has not taken yet
     bool warned_overflow = false;
     bool state_ready = false;             // the image carries P6_CAP_STATE (and the quirks were announced)
+    bool can_append = false;              // the image carries P6_CAP_MEDIA_APPEND: add_image_index / replace_image_index can register a disk after the load (T17e)
     size_t state_bytes = 0;               // the serialization size once asked for: header + adapter section + native bound, constant until unload
     uint32_t max_width = 0, max_height = 0;
     std::vector<uint8_t> section;         // scratch for the encoded adapter section
@@ -165,6 +168,7 @@ void stop_image()
     core.warned_overflow = false;
     core.input = p6_libretro::InputMemory();
     core.state_ready = false;
+    core.can_append = false;
     core.state_bytes = 0;
     core.max_width = core.max_height = 0;
     core.section.clear();
@@ -502,7 +506,7 @@ bool RETRO_CALLCONV disk_set_image_index(unsigned index)
 {
     if (!core.loaded) return false;
     if (!core.tray.select(index)) {
-        log(RETRO_LOG_WARN, "the image can only be chosen while the tray is open");
+        log(RETRO_LOG_WARN, "the image can only be chosen while the tray is open, and it must hold a disk");
         return false;
     }
     return true;
@@ -510,26 +514,120 @@ bool RETRO_CALLCONV disk_set_image_index(unsigned index)
 
 unsigned RETRO_CALLCONV disk_get_num_images(void) { return core.tray.count(); }
 
-// A disk that is not in the media manifest cannot be added: the manifest is registered with p6_load and is part of the state identity.
-bool RETRO_CALLCONV disk_replace_image_index(unsigned index, const retro_game_info *info)
+// Reads the disk at `path` as the load does (VFS or stdio, size caps, containers decoded in memory) into `medium`, naming the reason in `why` when it cannot.
+bool read_added_disk(const std::string &path, Medium *medium, std::string *why)
 {
-    if (!core.loaded) return false;
-    if (info) {
-        log(RETRO_LOG_WARN, "image %u cannot be replaced by %s: only the disks the content named at load can be inserted", index,
-            info->path ? info->path : "a new disk");
+    using namespace p6_libretro;
+    if (path.empty() || path.size() > kMaxPathBytes) {
+        *why = "the disk has no path (or a path that is too long); this core reads the file itself";
         return false;
     }
-    if (!core.tray.remove(index)) {
-        log(RETRO_LOG_WARN, "image %u cannot be removed (the tray must be open and the image must exist)", index);
+    if (!is_disk_extension(path)) {
+        const char *reason = unsupported_format_reason(path);
+        *why = "it is not an .adf, .adz, .dms or .zip disk";
+        if (reason) *why += std::string(": ") + reason;
         return false;
     }
+    const ReadResult read = core.files.read(path, kMaxDiskFileBytes, &medium->bytes);
+    if (read == ReadResult::TooLarge) {
+        *why = "it is larger than any disk file this core reads";
+        return false;
+    }
+    if (read != ReadResult::Ok) {
+        *why = describe(read);
+        return false;
+    }
+    if (!decode_disk(&medium->bytes, path, why)) return false;
+    p6_sha256_hash(medium->bytes.data(), medium->bytes.size(), medium->id);
     return true;
 }
 
+// The manifest index of a disk that was read: the one it already has (a disk is its content, never its path), or a new one at the end of the manifest, registered with the bridge.
+// Nothing is changed when it fails. Returns UINT32_MAX after saying why.
+uint32_t register_added_disk(Medium &&medium)
+{
+    for (size_t known = 0; known < core.media.size(); ++known)
+        if (memcmp(core.media[known].id, medium.id, sizeof medium.id) == 0) return uint32_t(known);
+    core.media.reserve(core.media.size() + 1);        // so that the push below cannot fail once the bridge holds the medium
+    p6_media entry = {};
+    entry.type = P6_MEDIA_ADF;
+    memcpy(entry.content_id, medium.id, sizeof medium.id);
+    entry.image = p6_buffer{medium.bytes.data(), medium.bytes.size()};
+    uint32_t index = UINT32_MAX;
+    p6_error error = make_error();
+    const p6_result result = p6_media_append(&entry, &index, &error);
+    if (result != P6_OK) {
+        notify_error("the disk cannot be added: %s", error.message);
+        return UINT32_MAX;
+    }
+    if (index != core.media.size()) {                 // the manifest the adapter mirrors and the bridge's disagree: a defect, and nothing the person can fix
+        log(RETRO_LOG_ERROR, "the bridge gave the new disk index %u but the adapter's list has %zu", index, core.media.size());
+        return UINT32_MAX;
+    }
+    log(RETRO_LOG_INFO, "medium %u sha256=%s", index, to_hex(medium.id, sizeof medium.id).c_str());
+    core.media.push_back(std::move(medium));
+    return index;
+}
+
+// replace_image_index (T17e): NULL takes the slot out of the list; a file gives the slot a disk, which is registered at the end of the media manifest (a disk with the bytes of one
+// the manifest holds uses that one). Only with the tray open, like the removal. The image stays registered for the rest of the session; nothing here touches the machine.
+bool RETRO_CALLCONV disk_replace_image_index(unsigned index, const retro_game_info *info)
+{
+    if (!core.loaded) return false;
+    if (!info) {
+        if (!core.tray.remove(index)) {
+            log(RETRO_LOG_WARN, "image %u cannot be removed (the tray must be open and the image must exist)", index);
+            return false;
+        }
+        return true;
+    }
+    if (core.faulted) return false;
+    if (!core.tray.ejected() || index >= core.tray.count()) {
+        log(RETRO_LOG_WARN, "image %u cannot be replaced (the tray must be open and the image must exist)", index);
+        return false;
+    }
+    if (!core.can_append) {
+        notify_error("this build of the core cannot add disks after the load");
+        return false;
+    }
+    const std::string path = info->path ? info->path : "";
+    try {
+        Medium medium;
+        std::string why;
+        if (!read_added_disk(path, &medium, &why)) {
+            notify_error("image %u (%s) cannot be replaced: %s", index, path.c_str(), why.c_str());
+            return false;
+        }
+        const uint32_t manifest = register_added_disk(std::move(medium));
+        if (manifest == UINT32_MAX) return false;
+        const bool assigned = core.tray.assign(index, {path, p6_libretro::without_extension(p6_libretro::file_name(path)), manifest});
+        if (assigned) log(RETRO_LOG_INFO, "image %u: medium %u, \"%s\"", index, manifest, core.tray.image(index)->label.c_str());
+        return assigned;
+    } catch (const std::bad_alloc &) {
+        notify_error("not enough memory to add the disk");
+        return false;
+    }
+}
+
+// add_image_index (T17e): a new slot at the end of the list with no disk; replace_image_index gives it one. The list cannot outgrow what the adapter section of a state can name.
 bool RETRO_CALLCONV disk_add_image_index(void)
 {
-    log(RETRO_LOG_WARN, "no image can be added: only the disks the content named at load can be inserted");
-    return false;
+    if (!core.loaded || core.faulted) return false;
+    if (!core.can_append) {
+        notify_error("this build of the core cannot add disks after the load");
+        return false;
+    }
+    if (core.tray.count() >= p6_libretro::kMaxImages) {
+        log(RETRO_LOG_WARN, "no image can be added: the list holds %zu, the most this core keeps", p6_libretro::kMaxImages);
+        return false;
+    }
+    try {
+        core.tray.add_empty();
+    } catch (const std::bad_alloc &) {
+        notify_error("not enough memory to add the disk");
+        return false;
+    }
+    return true;
 }
 
 // Called before retro_load_game: the image that was in the drive when the frontend last closed this content. It is used only if the content
@@ -553,13 +651,13 @@ bool copy_text(const std::string &text, char *out, size_t length)
 bool RETRO_CALLCONV disk_get_image_path(unsigned index, char *out, size_t length)
 {
     const p6_libretro::Image *image = core.tray.image(index);
-    return image && copy_text(image->path, out, length);
+    return image && !image->path.empty() && copy_text(image->path, out, length);       // a slot with no disk yet has no path
 }
 
 bool RETRO_CALLCONV disk_get_image_label(unsigned index, char *out, size_t length)
 {
     const p6_libretro::Image *image = core.tray.image(index);
-    return image && copy_text(image->label, out, length);
+    return image && !image->path.empty() && copy_text(image->label, out, length);
 }
 
 void register_disk_control()
@@ -601,6 +699,7 @@ void announce_state_support()
     caps.abi_version = P6_ABI_VERSION;
     caps.struct_size = sizeof caps;
     p6_query_caps(&caps, nullptr);
+    core.can_append = (caps.flags & P6_CAP_MEDIA_APPEND) != 0;
     core.max_width = caps.max_video_width;
     core.max_height = caps.max_video_height;
     core.state_ready = (caps.flags & P6_CAP_STATE) != 0 && core.max_width && core.max_height;
@@ -872,7 +971,7 @@ RETRO_API bool retro_unserialize(const void *data, size_t size)
         return false;
     }
     if (!core.tray.fits(section.tray, uint32_t(core.media.size()))) {
-        log(RETRO_LOG_WARN, "the state is refused: its disk tray is not that of this playlist");
+        log(RETRO_LOG_WARN, "the state is refused: its disk list does not start with the list of this session (a disk that was added after the load has to be added again, in the same order)");
         return false;
     }
     p6_error error = make_error();

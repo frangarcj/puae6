@@ -171,7 +171,8 @@ class StateTests(lr.LibretroHarness):
         self.assertEqual(LOAD.search(same)[3], "1")                                                      # control: the very same machine accepts it
         cases = (("ntsc", dict(options=("--set", "puae6_video_standard=NTSC"))), ("rate", dict(options=("--set", "puae6_audio_rate=44100"))),
                  ("firmware", dict(rom="input_all")), ("media", dict(content=self.playlist("a.adf\nc.adf\n", files))),
-                 ("no media", dict(content=None)), ("more media", dict(content=self.playlist("a.adf\nb.adf\nc.adf\n", files))))
+                 ("no media", dict(content=None)), ("media in another order", dict(content=self.playlist("b.adf\na.adf\n", files))),
+                 ("another disk first", dict(content=self.playlist("c.adf\na.adf\nb.adf\n", files))))
         for label, case in cases:
             with self.subTest(case=label):
                 arguments = ("--runs", 9, *case.get("options", ()))
@@ -182,6 +183,17 @@ class StateTests(lr.LibretroHarness):
                 self.assertEqual(LOAD.search(out)[3], "0", label)
                 self.assertEqual(self.views(out), self.views(control))
                 self.assertEqual(self.final(out), self.final(control))
+
+    def test_a_state_loads_in_a_machine_whose_media_start_with_the_ones_it_was_taken_with(self):
+        # T17e: the manifest only grows, so the state of the disks a and b is a state of a machine that has a, b and c (the playlist lists one more at the end).
+        path = self.work() / "ab.state"
+        files = ["a.adf", "b.adf", "c.adf"]
+        disks = self.playlist("a.adf\nb.adf\n", files)
+        more = self.playlist("a.adf\nb.adf\nc.adf\n", files)
+        same = self.frontend("boot", "--runs", 9, "--do", f"5:savefile:{path}", "--do", f"5:loadfile:{path}", content=disks).stdout
+        out = self.frontend("boot", "--runs", 9, "--do", f"5:loadfile:{path}", content=more, system=self.system("boot")).stdout
+        self.assertEqual(LOAD.search(out)[3], "1")
+        self.assertEqual(self.views(out)[5:], self.views(same)[5:])
 
     # --- the adapter's side of a state: the disk tray ----------------------------------------------------------------------------------------
 

@@ -64,6 +64,10 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
    - `config_hash` = H("p6/config/v1" ‖ machine, video_standard, audio_rate_hz, flags, random_seed, rtc_epoch_seconds), cada campo en su
      ancho fijo LE. La semilla y la epoca del reloj forman parte de la identidad porque cambian el futuro.
    - `media_manifest_hash` = H("p6/media-manifest/v1" ‖ cuenta u32 ‖ por cada medio: tipo u32, content_id de 32 bytes), en el orden del array.
+     Es el hash del prefijo del manifiesto con el que se guardo el estado (T17e): el manifiesto solo crece por el final (`p6_media_append`), la
+     cuenta forma parte del hash y la carga la recupera buscando el unico prefijo del manifiesto vivo que da ese hash; cargar exige que el
+     manifiesto vivo empiece por ese prefijo y que todo indice de medio del estado (P6BR: unidades y cola de eventos) sea menor que su cuenta.
+     La comparacion de identidad del paso (5) usa ese prefijo; si ninguno coincide el estado es INCOMPATIBLE como antes.
    - `firmware_sha256` = SHA-256 de los bytes del firmware (ya lo guarda `Session`).
    - `core_build_id` = H("p6/core-build/v1" ‖ format_version ‖ upstream_commit ‖ patch_series_hash ‖ codegen_hash ‖ hash de los fuentes del
      bridge y de ports/portable ‖ profile_id). El compilador y sus flags de coma flotante no entran hasta que una prueba de determinismo

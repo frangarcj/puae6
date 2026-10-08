@@ -1046,6 +1046,7 @@ class UpstreamBodiesTests(ProbeCase):
         other = self.dir / "b.adf"
         other.write_bytes(hashlib.sha256(b"disk b").digest() * (901120 // 32))
         a_only = self.state_of("manifest-a.state", "busy", 8, *self.disk)
-        self.refusals([("a state of a manifest with one medium, in a machine that has two", a_only, 10, "media_manifest_hash")], rom="busy",
-                      extra=["--adf", str(self.adf), "--adf", str(other), "--event-at", "0", "0", "0", "1"], unit=8, units=11)
+        # A manifest only grows (T17e): the state of [a] fits [a, b] (tests/state/test_state_media_append.py), not [b, a].
+        self.refusals([("a state of a manifest with one medium, in a machine whose manifest does not start with it", a_only, 10, "media_manifest_hash")], rom="busy",
+                      extra=["--adf", str(other), "--adf", str(self.adf), "--event-at", "0", "0", "1", "1"], unit=8, units=11)
 

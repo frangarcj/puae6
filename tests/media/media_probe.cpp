@@ -385,6 +385,91 @@ static void reset_keeps_the_media(const std::vector<uint8_t> &rom, const std::ve
     assert(p6_unload(&e) == P6_OK && p6_reset(&e) == P6_ERROR_BAD_STATE);
 }
 
+static p6_result appends(const p6_media *medium, uint32_t *index, p6_result code, const char *what)
+{
+    p6_error e = make_error();
+    const uint32_t count = p6_session::session.media_count;
+    uint32_t got_index = 0xfeedu;
+    const p6_result got = p6_media_append(medium, index ? &got_index : nullptr, &e);
+    if (got != code) fprintf(stderr, "%s: append returned %d (%s), expected %d\n", what, int(got), e.message, int(code));
+    assert(got == code);
+    assert((got == P6_OK) == (e.message[0] == 0) && strlen(e.message) < P6_ERROR_TEXT_CAPACITY);
+    if (got != P6_OK) assert(got_index == 0xfeedu && p6_session::session.media_count == count);    // a refusal changes nothing, not even *index
+    if (index) *index = got_index;
+    return got;
+}
+
+// T17e: the manifest grows at its end after p6_load, validated as p6_load validates, and a refused or repeated medium changes nothing.
+static void media_append(const std::vector<uint8_t> &rom)
+{
+    const std::vector<uint8_t> a = make_adf(40), b = make_adf(41), c = make_adf(42);
+    const p6_media ma = medium_of(a), mb = medium_of(b), mc = medium_of(c);
+    p6_error e = make_error();
+    uint32_t index = 0;
+    p6_caps caps{P6_ABI_VERSION, sizeof caps, 0, 0, 0, 0, 0};
+    assert(p6_query_caps(&caps, &e) == P6_OK && (caps.flags & P6_CAP_MEDIA_APPEND));
+    appends(&mb, &index, P6_ERROR_BAD_STATE, "nothing loaded");
+    assert(load(rom, &ma, 1, &e) == P6_OK);
+    appends(nullptr, &index, P6_ERROR_BAD_ARGUMENT, "no medium");
+    appends(&mb, nullptr, P6_ERROR_BAD_ARGUMENT, "no index");
+    p6_media m = mb; m.type = 2;                               appends(&m, &index, P6_ERROR_UNSUPPORTED, "type");
+    m = mb; m.flags = 1;                                       appends(&m, &index, P6_ERROR_BAD_ARGUMENT, "flags");
+    m = mb; m.image.data = nullptr;                            appends(&m, &index, P6_ERROR_BAD_ARGUMENT, "no data");
+    for (uint64_t bytes : {uint64_t(0), p6_bridge::kAdfBytes - 1, p6_bridge::kAdfBytes + 1}) {
+        m = mb; m.image.bytes = bytes;                         appends(&m, &index, P6_ERROR_WRONG_MEDIA, "size");
+    }
+    std::vector<uint8_t> special = b;
+    memcpy(special.data(), "UAE-1ADF", 8);
+    m = medium_of(special);                                    appends(&m, &index, P6_ERROR_WRONG_MEDIA, "special header");
+    m = mb; m.content_id[0] ^= 1;                              appends(&m, &index, P6_ERROR_WRONG_MEDIA, "id is not the SHA-256 of the image");
+    assert(!registered(mb) && p6_session::session.media_count == 1);
+
+    // A medium goes to the end of the manifest; the one that was there keeps its index; the image is the caller's, byte for byte.
+    assert(appends(&mb, &index, P6_OK, "append b") == P6_OK && index == 1);
+    const p6_session::Session &s = p6_session::session;
+    assert(s.media_count == 2 && !memcmp(s.media_content_id[0], ma.content_id, 32) && !memcmp(s.media_content_id[1], mb.content_id, 32));
+    assert(registered(mb) && blob_holds(mb, b) && blob_holds(ma, a));
+    // The same content again, or one that p6_load registered, is the index it already has: a disk is its content.
+    assert(appends(&mb, &index, P6_OK, "b again") == P6_OK && index == 1 && s.media_count == 2);
+    assert(appends(&ma, &index, P6_OK, "a, which p6_load registered") == P6_OK && index == 0 && s.media_count == 2);
+    // The new index is a medium like the others: an event can mount it (an index past the manifest was refused before), and the drive then holds it.
+    enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 2, 1), P6_ERROR_BAD_ARGUMENT, "index 2 does not exist yet");
+    assert(appends(&mc, &index, P6_OK, "append c") == P6_OK && index == 2);
+    assert(enqueues(event_of(P6_MEDIA_EVENT_MOUNT, 0, 2, 1), P6_OK, "mount c, appended"));
+    run_units(1);
+    assert(!disk_empty(0) && names(0, id_of(mc)) && s.drive_media[0] == 2);
+    // A medium is never registered in the middle of a call (p6_run_frame holds the guard).
+    {
+        p6_session::Guard busy;
+        assert(busy.ok);
+        const std::vector<uint8_t> d = make_adf(43);
+        const p6_media md = medium_of(d);
+        appends(&md, &index, P6_ERROR_BUSY, "inside another call");
+        assert(!registered(md));
+    }
+    // The manifest fills up at P6_MAX_MEDIA and then refuses a new medium, still answering for one it holds.
+    std::vector<std::vector<uint8_t>> more;
+    for (uint32_t i = 3; i < P6_MAX_MEDIA; ++i) {
+        more.push_back(make_adf(100 + i));
+        const p6_media mi = medium_of(more.back());
+        assert(appends(&mi, &index, P6_OK, "fill") == P6_OK && index == i);
+    }
+    assert(s.media_count == P6_MAX_MEDIA);
+    const std::vector<uint8_t> last = make_adf(999);
+    const p6_media ml = medium_of(last);
+    appends(&ml, &index, P6_ERROR_CAPACITY, "full");
+    assert(!registered(ml));
+    assert(appends(&mc, &index, P6_OK, "a medium it holds, when full") == P6_OK && index == 2);
+    assert(appends(&ma, &index, P6_OK, "the first one, when full") == P6_OK && index == 0);
+    // The state bound does not depend on the manifest size: unload leaves nothing registered and the next load starts from its own list.
+    assert(p6_unload(&e) == P6_OK);
+    assert(!registered(mb) && !registered(mc) && s.media_count == 0 && !s.media_content_id[1][0]);
+    appends(&mb, &index, P6_ERROR_BAD_STATE, "after unload");
+    assert(load(rom, &mb, 1, &e) == P6_OK && s.media_count == 1 && registered(mb) && !registered(mc));
+    assert(appends(&mb, &index, P6_OK, "b, which is now index 0") == P6_OK && index == 0);
+    assert(p6_unload(&e) == P6_OK);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) { fprintf(stderr, "usage: %s boot.rom\n", argv[0]); return 64; }
@@ -403,6 +488,7 @@ int main(int argc, char **argv)
     event_validation(rom, media);
     drives_follow_the_events(rom, media, disks);
     reset_keeps_the_media(rom, media, disks);
+    media_append(rom);
     assert(disks == before);                           // no swap, eject or frame wrote to the caller's images
     assert(p6_shutdown(&e) == P6_OK);
     puts("media ok");

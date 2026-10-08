@@ -12,7 +12,7 @@
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
 //   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
-//                      [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
+//                      [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
 //                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]...
 // --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
 // chunks that do not exist yet, so a state made here restores only what the registry implements. They print "save UNIT BYTES SHA256",
@@ -40,6 +40,7 @@
 // units), so that a boundary can find the keyboard in the middle of a handshake or the mouse in flight; both are applied right before the unit they name.
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
 // --event-at UNIT DRIVE INDEX SEQUENCE (T15h) calls p6_media_event_enqueue after UNIT (INDEX -1 ejects; at UNIT 0 the event is a boot medium) and prints "event UNIT CODE MESSAGE";
+// --append-at UNIT FILE (T17e) calls p6_media_append with the image in FILE and prints "append UNIT CODE INDEX MESSAGE"; the medium is not mounted (use --event-at with the index).
 // --reset-at UNIT calls p6_reset and prints "reset UNIT CODE MESSAGE". Both only queue: the next unit applies them, as a host's call would.
 // --public-at calls the public p6_state_* functions (T15 released them) and prints "public UNIT cap_state=B bound=C save=C load=C written=N junk=C small=C MESSAGE":
 // the bound, a save into a buffer of exactly that size, a save into a buffer of 16 bytes (small: CAPACITY), a load of 16 bytes of zeros (junk: refused) and a load of the state just saved,
@@ -342,8 +343,9 @@ bool read_file(const char *path, std::vector<uint8_t> *data);
 
 std::vector<uint8_t> g_rom;          // what p6_load was given, for the operations that load again
 std::vector<p6_media> g_media;
+std::vector<std::vector<uint8_t>> g_appended;      // the images --append-at registered: borrowed by the bridge until p6_unload
 
-enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Public, PublicSave, PublicLoad };
+enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Append, Public, PublicSave, PublicLoad };
 
 struct StateOp {
     uint64_t unit;
@@ -515,6 +517,19 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             event.sequence = strtoull(op.extra, nullptr, 10);
             const p6_result result = p6_media_event_enqueue(&event, &error);
             printf("event %" PRIu64 " %d %s\n", unit, int(result), error.message);
+        } else if (op.kind == OpKind::Append) {
+            // The public p6_media_append (T17e) of the image in the file; prints the index the manifest gave it.
+            std::vector<uint8_t> image;
+            if (!read_file(op.path, &image)) { printf("append %" PRIu64 " error cannot read the file\n", unit); continue; }
+            g_appended.push_back(std::move(image));
+            const std::vector<uint8_t> &kept = g_appended.back();
+            p6_media medium = {};
+            medium.type = P6_MEDIA_ADF;
+            p6_sha256_hash(kept.data(), kept.size(), medium.content_id);
+            medium.image = p6_buffer{kept.data(), kept.size()};
+            uint32_t index = UINT32_MAX;
+            const p6_result result = p6_media_append(&medium, &index, &error);
+            printf("append %" PRIu64 " %d %u %s\n", unit, int(result), index, error.message);
         } else if (op.kind == OpKind::Public) {
             // The public functions of p6.h, in one process: the bound, a save into a buffer of exactly that size, one into a buffer that is too small, a load of
             // garbage and the load of the state just saved. Only the last one changes the machine (to the one it was).
@@ -754,6 +769,10 @@ int main(int argc, char **argv)
             // --event-at UNIT DRIVE INDEX SEQUENCE (T15h): the API as a host calls it, with its own sequence number
             state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Event, argv[i + 3], argv[i + 2], argv[i + 4]});
             i += 4;
+        } else if (!strcmp(argv[i], "--append-at") && i + 2 < argc) {
+            // --append-at UNIT FILE (T17e): registers the image after UNIT, at the end of the manifest (prints "append UNIT CODE INDEX MESSAGE")
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Append, argv[i + 2], nullptr});
+            i += 2;
         } else if (!strcmp(argv[i], "--digest-at") && i + 1 < argc) {
             state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Digest, nullptr, nullptr});
         } else if (!strcmp(argv[i], "--handler-table")) {
@@ -790,7 +809,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;

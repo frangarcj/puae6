@@ -66,7 +66,10 @@ class Det03Tests(Det03Case):
         self.probe("vsync", "--units", "3", "--save-at", "3", str(path))
         control = self.probe("vsync", "--units", "8", "--every", "1", "--ntsc")
         other_standard = self.probe("vsync", "--units", "8", "--every", "1", "--ntsc", "--public-load-at", "5", str(path))
-        other_media = self.probe("vsync", "--units", "8", "--every", "1", "--adf", str(self.adf), "--public-load-at", "5", str(path))
+        # The manifest only grows (T17e): the state of no media is a state of a machine that has a disk, so "other media" is a state of disk a in a machine whose disk is b.
+        with_a = self.dir / "det03-with-a.state"
+        self.probe("vsync", "--units", "3", "--adf", str(self.adf), "--save-at", "3", str(with_a))
+        other_media = self.probe("vsync", "--units", "8", "--every", "1", "--adf", str(self.adf_b), "--public-load-at", "5", str(with_a))
         for run, text in ((other_standard, "config_hash"), (other_media, "media_manifest_hash")):
             (unit, code, message), = run.loads
             self.assertEqual((5, 10), (unit, code), message)          # P6_ERROR_INCOMPATIBLE

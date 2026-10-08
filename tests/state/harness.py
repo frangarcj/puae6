@@ -28,6 +28,8 @@ PCM = re.compile(r"^pcm (\d+) ([0-9a-f]{64}) (\d+)$")
 PICTURE = re.compile(r"^picture (\d+) (none|\d+x\d+ p\d+ \d+/\d+ [0-9a-f]{64})$")
 CHIP = re.compile(r"^chip (\d+) (\w+) ([0-9a-f]{64})$")
 LOAD = re.compile(r"^load (\d+) (-?\d+) ?(.*)$")
+APPEND = re.compile(r"^append (\d+) (-?\d+) (\d+) ?(.*)$")
+EVENT = re.compile(r"^event (\d+) (-?\d+) ?(.*)$")
 SAVE = re.compile(r"^save (\d+) (\d+) ([0-9a-f]{64}) bound=(\d+)$")
 SAVE_ERROR = re.compile(r"^save (\d+) error (-?\d+) ?(.*)$")
 PUBLIC = re.compile(r"^public (\d+) cap_state=(\d) bound=(\d+) save=(\d+) load=(\d+) written=(\d+) junk=(\d+) small=(\d+) ?(.*)$")
@@ -111,6 +113,8 @@ class Run:
         self.mutate = []            # dicts of the "mutate" lines
         self.rtc = []               # dicts of the "rtc" lines: the clock in the open at that moment
         self.mutate_errors = []     # (unit, reason) of a mutate that could not start, for instance a good state that was refused
+        self.appends = []           # (unit, code, index, message) of --append-at (T17e): the index the manifest gave the medium
+        self.events = []            # (unit, code, message) of --event-at
         current = None
         for line in text.splitlines():
             if line.startswith("after-load "):
@@ -139,6 +143,12 @@ class Run:
                 current = None
                 unit, code, message = LOAD.match(line).groups()
                 self.loads.append((int(unit), int(code), message))
+            elif APPEND.match(line):
+                unit, code, index, message = APPEND.match(line).groups()
+                self.appends.append((int(unit), int(code), int(index), message))
+            elif EVENT.match(line):
+                unit, code, message = EVENT.match(line).groups()
+                self.events.append((int(unit), int(code), message))
             elif SAVE.match(line):
                 current = None
                 unit, size, digest, bound = SAVE.match(line).groups()
