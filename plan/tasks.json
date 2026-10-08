@@ -10637,7 +10637,7 @@
       "title": "Maquina A1200/AGA en el bridge: preset campo a campo, AGA activado y arranque headless con Kickstart 3.1",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24a"
       ],
@@ -11127,7 +11127,8 @@
         "Implementar presentacion fuera del hash hardware y convertir acciones UI a inputs/eventos normales serializables.",
         "Crear importador .uae allowlist con errores por claves peligrosas/no soportadas, sin plugins ni shell.",
         "Probar que toggles de overlay/crop/volumen no cambian hardware; opciones semanticas van a sync config.",
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): T31 cubre vkbd, statusbar/LED/OSD, crop/zoom/posicion/aspecto/gamma/RGB565 y la entrada del adaptador (mapper de RetroPad, turbo fire, analog-stick-mouse, D-Pad mouse). Dividir al ejecutar en T31a vkbd, T31b OSD/statusbar, T31c presentacion de video, T31d mapper/turbo/raton analogico; nada de eso cambia la maquina."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): T31 cubre vkbd, statusbar/LED/OSD, crop/zoom/posicion/aspecto/gamma/RGB565 y la entrada del adaptador (mapper de RetroPad, turbo fire, analog-stick-mouse, D-Pad mouse). Dividir al ejecutar en T31a vkbd, T31b OSD/statusbar, T31c presentacion de video, T31d mapper/turbo/raton analogico; nada de eso cambia la maquina.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: LEDCallback de bizhawk.c y UAE.IDriveLight.cs para el LED de disquetera; la correccion del raton por stick analogico de libretro-uae (commits 106b98d5, 237ca4a9)."
       ],
       "checks": [
         "LR01",
@@ -11562,7 +11563,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece A600/A1200/A4000 con 2M Chip + 8M Fast y chipmem/bogomem/fastmem configurables. Fast Z2 (autoconfig) como region de p6_memory_regions, chunk de RAM, state bound por configuracion y presupuesto mmap de Waterbox medido (hoy 16 MiB).",
-        "Presets PUAE5-like: A600 (KS 3.1, 2M Chip + 8M Fast) y A1200 + 8M Fast como configuraciones publicadas junto a las de serie; opcion libretro/sync setting de memoria (reinicio)."
+        "Presets PUAE5-like: A600 (KS 3.1, 2M Chip + 8M Fast) y A1200 + 8M Fast como configuraciones publicadas junto a las de serie; opcion libretro/sync setting de memoria (reinicio).",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: expansion.c de uae-waterbox.patch y la configuracion de memoria de UAE.ISettable.cs/LibUAE.cs."
       ],
       "checks": [
         "DET02",
@@ -11939,7 +11941,8 @@
         "docs/adr/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk enlaza capsimg (licencia SPS no comercial) estatico en el guest; el usuario pide una version libre. Candidata: el lector IPF de MAME (lib/formats, BSD-3, verificar licencia y procedencia antes de importar), integrado en memoria con estado serializable; si no es viable, reimplementar desde la especificacion publica del formato. ADR de licencia."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk enlaza capsimg (licencia SPS no comercial) estatico en el guest; el usuario pide una version libre. Candidata: el lector IPF de MAME (lib/formats, BSD-3, verificar licencia y procedencia antes de importar), integrado en memoria con estado serializable; si no es viable, reimplementar desde la especificacion publica del formato. ADR de licencia.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/capsimg-config y CAPSIMG-LICENCE-NOTICE.md solo como referencia de integracion en el guest (capsimg NO se reutiliza: licencia no comercial)."
       ],
       "checks": [
         "MED01",
@@ -11976,7 +11979,8 @@
         "integration/bizhawk/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 abre ZIP con varios discos, 7z y rp9. Decodificar en memoria sin directorio temporal, con cota de tamano y FUZZ01."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 abre ZIP con varios discos, 7z y rp9. Decodificar en memoria sin directorio temporal, con cota de tamano y FUZZ01.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk-unzip.c y zfile_archive.c de uae-waterbox.patch."
       ],
       "checks": [
         "MED01",
@@ -12010,7 +12014,8 @@
         "tests/media-cow/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 crea discos de guardado y redirige escrituras. Sobre el overlay de T27: exportacion explicita y atomica (SAVE_RAM acotado o VFS), nunca durante runahead/rewind."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 crea discos de guardado y redirige escrituras. Sobre el overlay de T27: exportacion explicita y atomica (SAVE_RAM acotado o VFS), nunca durante runahead/rewind.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: el bitmap de paginas sucias de bizhawk-hd.c y UAE.ISaveRam.cs como modelo de exportacion explicita de escrituras."
       ],
       "checks": [
         "MED02",
@@ -12115,7 +12120,8 @@
         "config/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 monta HDF con su controladora uae0 (filesys/uaehf); MacHawk usa un backend de hardfile en memoria con bitmap de paginas sucias exportado como SaveRAM. Contenido HDF/HDZ en ambos adaptadores, RDB, boot priority."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 monta HDF con su controladora uae0 (filesys/uaehf); MacHawk usa un backend de hardfile en memoria con bitmap de paginas sucias exportado como SaveRAM. Contenido HDF/HDZ en ambos adaptadores, RDB, boot priority.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: hardfile.c de uae-waterbox.patch y bizhawk-hd.c/.h (hardfile en memoria del guest con bitmap de paginas sucias de 4 KiB que el host usa como SaveRAM dispersa), UAE.ISaveRam.cs y UAE.cs (MountHardDisk)."
       ],
       "checks": [
         "MED02",
@@ -12153,7 +12159,8 @@
         "docs/adr/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk monta los .lha/.zip como volumenes de archivo de UAE desde memoria (filesys archive, AddReadonlyFile), sin montar el host. Mismo camino aqui; un directorio se empaqueta en memoria por el adaptador (VFS, orden y fechas fijos) y entra igual; las escrituras van a un HDF/overlay exportable. Lanzar directorios como contenido (extension |/ de references/puae)."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk monta los .lha/.zip como volumenes de archivo de UAE desde memoria (filesys archive, AddReadonlyFile), sin montar el host. Mismo camino aqui; un directorio se empaqueta en memoria por el adaptador (VFS, orden y fechas fijos) y entra igual; las escrituras van a un HDF/overlay exportable. Lanzar directorios como contenido (extension |/ de references/puae).",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: filesys.c y zfile_archive.c de uae-waterbox.patch, bizhawk-unzip.c/.h (minizip sobre un zfile en memoria) y AddReadonlyFile de UAE.WHDLoad.cs."
       ],
       "checks": [
         "MED02",
@@ -12193,7 +12200,8 @@
         "docs/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk/PUAE5: el pack .lha/.zip se monta de solo lectura, arranca de WHDLoad.hdf, guarda en WHDSaves.hdf (paginas sucias como SaveRAM), RASystem: con Kickstarts y WHDLoad.prefs, WHDLoad fuerza A1200; puae_use_whdload_buttonwait. Licencia de WHDLoad (gratuito desde v18) en manifests/licenses.json."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk/PUAE5: el pack .lha/.zip se monta de solo lectura, arranca de WHDLoad.hdf, guarda en WHDSaves.hdf (paginas sucias como SaveRAM), RASystem: con Kickstarts y WHDLoad.prefs, WHDLoad fuerza A1200; puae_use_whdload_buttonwait. Licencia de WHDLoad (gratuito desde v18) en manifests/licenses.json.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.WHDLoad.cs (WHDLoad.hdf, WHDSaves.hdf, volumen RASystem con Kickstarts por SHA1 y WHDLoad.prefs, heap por tamano del pack, WHDLoad fuerza A1200) y la regla de UAE.ISettable.cs:328."
       ],
       "checks": [
         "MED02",
@@ -12236,7 +12244,8 @@
         "docs/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 y CD32FR (con 8M Fast) y lee CUE/CCD/ISO/CHD/NRG; MacHawk tiene bizhawk-cd.h. Un CD de 650 MB no cabe en el heap: backend de lecturas puras por offset desde el host, determinista; Akiko, NVRAM, audio CD."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 y CD32FR (con 8M Fast) y lee CUE/CCD/ISO/CHD/NRG; MacHawk tiene bizhawk-cd.h. Un CD de 650 MB no cabe en el heap: backend de lecturas puras por offset desde el host, determinista; Akiko, NVRAM, audio CD.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/uae-waterbox.patch y el submodulo libretro-uae (akiko.c, blkdev_cdimage.c, cd32_fmv.c), bizhawk-cd.h (CD por lecturas desde el host) y waterboxhost/uae-cd32-smoke."
       ],
       "checks": [
         "MED01",
@@ -12277,7 +12286,8 @@
         "config/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CDTV (1M Chip, ROM extendida). Preset CDTV sobre el backend de CD de T66, con la ROM extendida aportada por el usuario."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CDTV (1M Chip, ROM extendida). Preset CDTV sobre el backend de CD de T66, con la ROM extendida aportada por el usuario.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: blkdev_cdimage.c/bizhawk-cd.h de MacHawk para el backend de CD, y el preset CDTV de src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs."
       ],
       "checks": [
         "MED01",
@@ -12316,7 +12326,8 @@
         "tests/state/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 pad, analogico, lightpen, 4 jugadores y multimouse. Extender p6_input sin romper la ABI v1 (version/size), aplicado en el borde de unidad, en estados y peliculas."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 pad, analogico, lightpen, 4 jugadores y multimouse. Extender p6_input sin romper la ABI v1 (version/size), aplicado en el borde de unidad, en estados y peliculas.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk.c (raton por stick analogico, SetJoyDirectionRaw, LEDCallback) y UAE.Controllers.cs."
       ],
       "checks": [
         "IN01",
@@ -12460,7 +12471,8 @@
         "integration/bizhawk/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 expone la RAM para logros. Memory descriptors estables (memory_reset realoca: punteros estables o republicar), en libretro y como memory domains en BizHawk."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 expone la RAM para logros. Memory descriptors estables (memory_reset realoca: punteros estables o republicar), en libretro y como memory domains en BizHawk.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: los memory domains de UAE.cs/LibUAE.cs."
       ],
       "checks": [
         "LR01",
@@ -12493,7 +12505,8 @@
         "tests/libretro-host/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5: puae_model=auto (A500 con disquete, A1200 con HD, CD32 con CD) y tags como (A1200OG), (NTSC), (MD). Resolucion determinista de la config antes del load, sin cambiar nada en marcha."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5: puae_model=auto (A500 con disquete, A1200 con HD, CD32 con CD) y tags como (A1200OG), (NTSC), (MD). Resolucion determinista de la config antes del load, sin cambiar nada en marcha.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: la deteccion de tags y modelo de UAE.ISettable.cs."
       ],
       "checks": [
         "LR01",
@@ -12728,7 +12741,8 @@
         "reports/research/cd/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Lo obligatorio de CD32/CDTV paso a T66/T67; queda el modulo FMV opcional."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Lo obligatorio de CD32/CDTV paso a T66/T67; queda el modulo FMV opcional.",
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: cd32_fmv.c/.h de uae-waterbox.patch."
       ],
       "checks": [
         "AV01",
