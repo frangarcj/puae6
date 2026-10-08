@@ -87,7 +87,7 @@ class RealFrontendTests(unittest.TestCase):
         cls.tmp.cleanup()
 
     def retroarch(self, name, content="a.adf", drive=False, options=None, settings=(), frames=FRAMES, features="deterministic",
-                  kickstarts=("kick34005.A500",)):
+                  kickstarts=("kick34005.A500",), rom=None):
         """One RetroArch process: loads the core with the micro-ROM as the Kickstart of its system directory and `content` (a file of the scratch
         directory) as the game, runs FRAMES frames and exits, or runs until tests/libretro-host/drive_retroarch.py has changed the disk and
         stops it (`drive` True drives the disk, a string names another scenario of that script: "state", "rewind"). `options` are core option values
@@ -100,7 +100,7 @@ class RealFrontendTests(unittest.TestCase):
         (work / name / "info" / "puae6_libretro.info").write_text('display_name = "PUAE6 (test)"\ncorename = "PUAE6"\nsavestate = "true"\n'
                                                                   f'savestate_features = "{features}"\n', encoding="utf-8")
         for kickstart in kickstarts:             # the micro-ROM under the Kickstart name of each machine the process may be asked for
-            shutil.copyfile(self.rom, work / name / "system" / kickstart)
+            shutil.copyfile(rom or self.rom, work / name / "system" / kickstart)
         (work / name / "retroarch.cfg").write_text("\n".join([
             'video_driver = "null"', 'audio_driver = "null"', 'input_driver = "null"', 'menu_driver = "null"', 'libretro_log_level = "0"',
             'frontend_log_level = "0"', 'config_save_on_exit = "false"', f'savefile_directory = "/work/{name}/saves"',
@@ -207,6 +207,18 @@ class RealFrontendTests(unittest.TestCase):
         default = self.retroarch("a500", kickstarts=("kick34005.A500", "kick37350.A600"))
         self.assertIn("machine A500 (puae6_machine)", default)
         self.assertIn("Kickstart kick34005.A500,", default)
+
+    def test_retroarch_follows_the_rate_of_an_a600_guest_that_programs_ntsc_timing_on_a_pal_machine(self):
+        # T23f: the program of tests/scenarios/ecs writes BEAMCON0 with the PAL bit clear. The core announces the machine's nominal rate at the load and
+        # SET_SYSTEM_AV_INFO with the rate of the NTSC beam on the PAL clock (3546895 / 59605 Hz) once the units run at it; RetroArch applies it and says so.
+        from tests.scenarios.ecs import ecs
+        rom = Path(self.tmp.name) / "to-ntsc.rom"
+        rom.write_bytes(builder.build(ecs.rom_source(ecs.beam_display_for("to-ntsc", "pal"))))
+        text = self.retroarch("beam", options={"puae6_machine": "A600"}, kickstarts=("kick37350.A600",), rom=rom)
+        self.assertRegex(text, r"Core\]: Geometry: 756x574, Aspect: 1\.370, FPS: 50\.08, Sample rate: 48000\.00 Hz")           # the load: the nominal PAL rate
+        changes = re.findall(r"SET_SYSTEM_AV_INFO: (\d+x\d+), Aspect: ([\d.]+), FPS: ([\d.]+), Sample rate: ([\d.]+) Hz", text)
+        self.assertEqual([(c[2], c[3]) for c in changes], [("59.51", "48000.00")], changes)         # exactly once, the rate of 262 lines of 227.5 clocks
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
 
     def test_retroarch_changes_the_disk_through_disk_control_and_the_playlist_is_read_by_the_frontend_vfs(self):
         text = self.retroarch("disks", content="list.m3u", drive=True)

@@ -9,9 +9,11 @@ Two kinds of statement are kept apart on purpose:
   * deduced   the program writes it, the hardware documentation says what it does (identity, RAM, the window, the SHRES colours).
   * measured  what the bridge reports for a programmed beam (BEAMCON0, HTOTAL, VTOTAL) is checked as safety (never a byte outside
               the delivered buffer, a refused picture is announced) and, where the bridge is known to be wrong about the standard it
-              is running, the current behaviour is pinned as a KNOWN LIMIT so that its correction is a visible change.
+              is running, the current behaviour is pinned as a KNOWN LIMIT so that its correction is a visible change. (The standard of a programmed beam
+              is no longer one: T23f announces cadence and aspect of the beam the unit really ran.)
 """
 from concurrent.futures import ThreadPoolExecutor
+from fractions import Fraction
 import hashlib
 import json
 import os
@@ -27,8 +29,9 @@ from tests.step.test_step import FIXTURES, ROOT, TOOLS, builder, configure_trace
 
 BASELINES = ROOT / "tests/scenarios/ecs/ecs-baselines.json"
 STANDARDS = ("pal", "ntsc")
-BUFFER = {"pal": (760, 576), "ntsc": (760, 486)}
+BUFFER = {"pal": (760, 576), "ntsc": (760, 576)}          # an ECS machine reserves the PAL height in both configurations (ADR 0006)
 NOMINAL_CADENCE = {"pal": (3546895, 70824), "ntsc": (715909, 11921)}
+CHIPSET_CLOCK = {"pal": 3546895, "ntsc": 3579545}          # the clock of the configuration, whatever beam the guest programs
 CLOCK_TICKS_PER_CCK = 512
 FLAG_NO_VIDEO = 2
 # KNOWN LIMIT (T23c): units after which the delivered buffer still holds pixels outside `active` (see BeamTests).
@@ -230,8 +233,9 @@ class PictureTests(EcsCase):
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
 class MetadataTests(EcsCase):
     def test_geometry_aspect_and_cadence_are_those_of_the_a500_for_each_standard(self):
-        # The A600 preset has the same canonical raster: 760 x 576 PAL / 760 x 486 NTSC buffer, 756 x 574 / 484 active.
-        expected = {"pal": (576, 574, (26, 25), (3546895, 70824)), "ntsc": (486, 484, (43, 50), (715909, 11921))}
+        # The A600 preset has the same canonical raster: 756 x 574 / 484 active, in a 760 x 576 buffer for both standards (the NTSC
+        # configuration keeps the PAL height so that a programmed PAL beam still fits; the A500 NTSC buffer is 486 rows).
+        expected = {"pal": (576, 574, (26, 25), (3546895, 70824)), "ntsc": (576, 484, (43, 50), (715909, 11921))}
         source = (FIXTURES / "vsync.s").read_text(encoding="utf-8")
         for standard, (height, active_h, aspect, cadence) in expected.items():
             rows, _, _, _ = self.run_rom("vsync", source, standard, "a600", 4)
@@ -296,43 +300,63 @@ class BeamTests(EcsCase):
                 with self.subTest(standard=standard, unit=unit):
                     self.assertEqual(mismatches(pictures[unit], ecs.predict(plain, standard)), [])
 
-    def test_productivity_is_refused_by_the_ntsc_buffer_and_fits_the_pal_one(self):
-        # MEASURED, not a hardware statement: doublescan draws one row per line, 504 of them, 616 columns wide.
-        rows, pictures, _, _ = self.beam("productivity", "pal")
-        self.assertEqual({(r[10], r[11]) for r in steady(rows)}, {(616, 504)})
-        self.assertEqual({(p["width"], p["height"]) for n, p in pictures.items() if n >= 4}, {(616, 504)})
-        rows, pictures, _, _ = self.beam("productivity", "ntsc")
-        self.assertEqual({(r[2], r[3], r[10], r[11]) for r in steady(rows)}, {(0, 0, 0, 0)})
-        self.assertEqual({n for n in pictures if n >= 3}, set())
+    def test_productivity_fits_the_buffer_of_both_standards(self):
+        # MEASURED, not a hardware statement: doublescan draws one row per line, 504 of them, 616 columns wide. The buffer of an ECS
+        # machine is 576 rows in both configurations, so the NTSC one no longer refuses it.
+        for standard in STANDARDS:
+            rows, pictures, _, _ = self.beam("productivity", standard)
+            with self.subTest(standard=standard):
+                self.assertEqual({(r[10], r[11]) for r in steady(rows)}, {(616, 504)})
+                self.assertEqual({(p["width"], p["height"]) for n, p in pictures.items() if n >= 4}, {(616, 504)})
 
-    def test_pal_timing_programmed_on_an_ntsc_configuration_KNOWN_LIMIT(self):
-        # KNOWN LIMIT (T23c). The standard of the delivered picture comes from the configuration, not from BEAMCON0: cadence
-        # (bridge/video.cpp cadence()), the buffer height and the aspect are chosen by session.config.video_standard. A guest that
-        # sets the PAL bit on an NTSC machine (a Kickstart 2.05 monitor driver can) runs 312-line units while the report says
-        # NTSC: the 574 rows of the PAL raster do not fit the 486 of the NTSC buffer, so the units carry NO_VIDEO, and the cadence is
-        # still the NTSC one although each unit lasts a PAL frame. If bridge/video.cpp derives these from the beam this test
-        # has to change with it.
+    def announced_unit_ticks(self, row, standard):
+        """The ticks of one unit that the cadence of `row` promises: the configuration's clock over the announced rate."""
+        return CLOCK_TICKS_PER_CCK * CHIPSET_CLOCK[standard] * row[15] / row[14]
+
+    def test_pal_timing_programmed_on_an_ntsc_configuration_is_announced_with_the_pal_beam(self):
+        # A guest that sets the PAL bit on an NTSC machine (a Kickstart 2.05 monitor driver can) runs 312-line units. They are
+        # reported as such: PAL aspect, cadence of 312 lines of 227 clocks on the clock of the configuration, and the picture
+        # (574 rows) is delivered, because the buffer of an ECS machine has the PAL height.
         rows, _, _, _ = self.beam("to-pal", "ntsc")
         late = steady(rows)
-        self.assertEqual({(r[2], r[17] & FLAG_NO_VIDEO) for r in late}, {(0, FLAG_NO_VIDEO)})
-        self.assertEqual({(r[14], r[15]) for r in late}, {NOMINAL_CADENCE["ntsc"]})            # reported: NTSC
-        self.assertEqual({(r[12], r[13]) for r in late}, {(43, 50)})
+        self.assertEqual({(r[2], r[6], r[10], r[11], r[17] & FLAG_NO_VIDEO) for r in late}, {(1, 576, 756, 574, 0)})
+        self.assertEqual({(r[12], r[13]) for r in late}, {(26, 25)})
+        self.assertEqual({Fraction(r[14], r[15]) for r in late}, {Fraction(CHIPSET_CLOCK["ntsc"], 312 * 227)})
         ticks = [b[1] - a[1] for a, b in zip(rows, rows[1:])][3:]
         pal_frame = 312 * 227 * CLOCK_TICKS_PER_CCK
-        self.assertTrue(all(abs(t - pal_frame) <= 2 * 227 * CLOCK_TICKS_PER_CCK for t in ticks), ticks)   # actual: a PAL frame
+        self.assertTrue(all(abs(t - pal_frame) <= 2 * 227 * CLOCK_TICKS_PER_CCK for t in ticks), ticks)
+        for r in late:
+            self.assertEqual(self.announced_unit_ticks(r, "ntsc"), pal_frame)          # the rate is exactly that length
 
-    def test_ntsc_timing_programmed_on_a_pal_configuration_KNOWN_LIMIT(self):
-        # KNOWN LIMIT (T23c), the other direction: the NTSC raster (760 x 484) fits the PAL buffer and is delivered, but the cadence and
-        # the aspect still say PAL (50 Hz, 26:25) while each unit lasts an NTSC frame (262 lines of 227.5 clocks).
+    def test_ntsc_timing_programmed_on_a_pal_configuration_is_announced_with_the_ntsc_beam(self):
+        # The other direction: 262 lines of 227.5 clocks on the PAL clock, NTSC aspect, the 760 x 484 raster delivered.
         rows, pictures, _, _ = self.beam("to-ntsc", "pal")
         late = steady(rows)
-        self.assertEqual({(r[2], r[10], r[11]) for r in late}, {(1, 760, 484)})
-        self.assertEqual({(r[14], r[15]) for r in late}, {NOMINAL_CADENCE["pal"]})              # reported: PAL
-        self.assertEqual({(r[12], r[13]) for r in late}, {(26, 25)})
+        self.assertEqual({(r[2], r[6], r[10], r[11]) for r in late}, {(1, 576, 760, 484)})
+        self.assertEqual({(r[12], r[13]) for r in late}, {(43, 50)})
+        self.assertEqual({Fraction(r[14], r[15]) for r in late}, {Fraction(CHIPSET_CLOCK["pal"], 59605)})   # 262 lines of 227.5 clocks
         ticks = [b[1] - a[1] for a, b in zip(rows, rows[1:])][3:]
         ntsc_frame = 262 * 2275 * CLOCK_TICKS_PER_CCK // 10
-        self.assertTrue(all(abs(t - ntsc_frame) <= 2 * 228 * CLOCK_TICKS_PER_CCK for t in ticks), ticks)    # actual: an NTSC frame
+        self.assertTrue(all(abs(t - ntsc_frame) <= 2 * 228 * CLOCK_TICKS_PER_CCK for t in ticks), ticks)
+        for r in late:
+            self.assertEqual(self.announced_unit_ticks(r, "pal"), ntsc_frame)
         self.assertEqual({(p["width"], p["height"]) for n, p in pictures.items() if n >= 4}, {(760, 484)})
+
+    def test_a_programmed_beam_is_announced_with_its_own_lines_and_clocks(self):
+        # VARBEAMEN with HTOTAL/VTOTAL: lines x clocks per unit on the clock of the configuration. The PAL bit decides the aspect and
+        # whether a line is half a clock longer (NTSC timing): "var-less" is 260 lines of 227 clocks with the PAL bit; "productivity" is
+        # 524 lines of 114 clocks without it (114.5 on average). The announced length is the real spacing of the units.
+        cases = {"var-less": (Fraction(260 * 227), (26, 25)), "productivity": (Fraction(524 * 229, 2), (43, 50))}
+        for name, (clocks, aspect) in cases.items():
+            for standard in STANDARDS:
+                rows, _, _, _ = self.beam(name, standard)
+                late = steady(rows)
+                with self.subTest(program=name, standard=standard):
+                    self.assertEqual({Fraction(r[14], r[15]) for r in late}, {CHIPSET_CLOCK[standard] / clocks})
+                    self.assertEqual({(r[12], r[13]) for r in late}, {aspect})
+                    ticks = [b[1] - a[1] for a, b in zip(rows, rows[1:])][3:]
+                    expected = clocks * CLOCK_TICKS_PER_CCK
+                    self.assertTrue(all(abs(t - expected) <= 2 * 229 * CLOCK_TICKS_PER_CCK for t in ticks), (ticks, expected))
 
     def test_productivity_with_superhires_on_ntsc_leaves_stray_pixels_for_two_units_KNOWN_LIMIT(self):
         # KNOWN LIMIT (T23c). While the renderer still holds the frame it measured before the guest programmed the 524-line SHRES beam

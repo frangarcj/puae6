@@ -33,6 +33,7 @@ from tests.host.test_bridge_lifecycle import build_probe, builder  # noqa: E402
 from tests.input.test_input import B1, B2, B3, CAPS, DOWN, ESC, FIXTURES, JOYSTICK, KEY_Q, KEY_W, LEFT, MOUSE, RIGHT, UP, line  # noqa: E402
 from tests.lifecycle.test_reset import Run  # noqa: E402
 from tests.scenarios.a500.display import Display, rom_source  # noqa: E402
+from tests.scenarios.ecs import ecs  # noqa: E402
 from tests.step.test_step import TOOLS, configure_trace_tree  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
 
@@ -83,7 +84,8 @@ class CoreTests(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory(prefix="p6-core-")
         cls.dir = Path(cls.tmp.name)
         for name, source in (("input_all", (FIXTURES / "input_all.s").read_text(encoding="utf-8")), ("chipcell", (Path(__file__).parents[1] / "waterbox-smoke/chipcell.s").read_text(encoding="utf-8")),
-                             ("lace", rom_source(LACE)), ("disk", disk.rom_source())):
+                             ("lace", rom_source(LACE)), ("disk", disk.rom_source()),
+                             ("to-ntsc", ecs.rom_source(ecs.beam_display_for("to-ntsc", "pal")))):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
 
     @classmethod
@@ -192,6 +194,18 @@ class CoreTests(unittest.TestCase):
                 for row, (unit, ticks, video, w, h, parity, an, ad, cn, cd, picture, audio) in zip(rows, native):
                     self.assertEqual((unit, ticks, f"{w}x{h}", f"{cn}/{cd}", picture, audio), (row["unit"], row["ticks"], row["size"], row["vsync"], row["hash"], row["audio"]), f"unit {unit}")
                 self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
+
+    def test_a_guest_that_programs_ntsc_timing_on_a_pal_a600_changes_the_vsync_the_core_reports(self):
+        # T23f: BizHawk takes the frame rate from every unit that carries a picture, so the rate of the beam the guest programs (262 lines of 227.5 clocks
+        # on the PAL clock, 3546895 / 59605 Hz) reaches VsyncNumerator / VsyncDenominator, unit for unit as p6_headless reports it.
+        units = 14
+        rows, _ = self.av("to-ntsc", units, "--machine", "a600")
+        native = self.headless_lines("to-ntsc", units, "--machine", "a600")
+        self.assertEqual(units, len(rows))
+        self.assertEqual([f"{cn}/{cd}" for (_, _, _, _, _, _, _, _, cn, cd, _, _) in native], [row["vsync"] for row in rows])
+        # The program writes BEAMCON0 before the first picture, so every unit is already at the NTSC beam: 59.51 Hz, not the 50.08 Hz of the PAL configuration.
+        self.assertEqual({row["vsync"] for row in rows}, {"709379/11921"})
+        self.assertNotEqual(rows[0]["vsync"], "3546895/70824")
 
     def test_the_pcm_is_the_one_the_waterbox_harness_delivers(self):
         units = 40

@@ -1,7 +1,7 @@
 // Minimal libretro frontend for the contract tests (T16, LR01). It loads a core with dlopen, like a real frontend, and enforces what
 // the libretro contract asks of a core on every retro_run: the input is polled once, exactly one picture is shown, audio arrives as
 // whole stereo frames, and the serialization size does not grow. Everything optional can be refused.
-//   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--bad-format]
+//   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--refuse-av-info] [--bad-format]
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
 //                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
@@ -39,6 +39,7 @@
 //   message TEXT           (SET_MESSAGE or SET_MESSAGE_EXT)
 //   vfs open PATH / initial result=R / disk-control ext=E / images count=N index=I eject=E / image I path=P label=L / disk RUN COMMAND ...
 //   options api=A count=N categories=C / category KEY / option KEY default=D values=A|B|... [category=C] desc=TEXT
+//   av-set RUN base=WxH max=WxH aspect=A fps=F rate=R   (SET_SYSTEM_AV_INFO: the core announced another rate during run RUN, T23f)
 //   set RUN KEY=VALUE / geometry WxH aspect=A / av-after RUN base=... (the av line again, after the run that followed a --set-at)
 //   cycle C end ... / final ...
 // Exit code: 0 ok, 1 a contract violation (printed as VIOLATION), 2 the core could not be loaded, 3 retro_load_game refused.
@@ -60,7 +61,7 @@ namespace {
 
 struct Options {
     int runs = 10, cycles = 1;
-    bool reject_optional = false, no_log = false, no_dupe = false, bad_format = false, reenter = false;
+    bool reject_optional = false, no_log = false, no_dupe = false, bad_format = false, reenter = false, refuse_av_info = false;
     size_t audio_partial = 0;
     int stall_first = -1, stall_last = -1;
     unsigned joy[2] = {0, 0};
@@ -337,6 +338,12 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         const retro_game_geometry *geometry = static_cast<const retro_game_geometry *>(data);
         printf("geometry %ux%u aspect=%.6f\n", geometry->base_width, geometry->base_height, double(geometry->aspect_ratio));
         return true;
+    }
+    case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO: {
+        const retro_system_av_info *av = static_cast<const retro_system_av_info *>(data);
+        printf("av-set %d base=%ux%u max=%ux%u aspect=%.6f fps=%.6f rate=%.0f\n", run_number, av->geometry.base_width, av->geometry.base_height,
+               av->geometry.max_width, av->geometry.max_height, double(av->geometry.aspect_ratio), av->timing.fps, av->timing.sample_rate);
+        return !options.reject_optional && !options.refuse_av_info;      // counted even when refused: the core must not ask again for the same rate
     }
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
         if (!options.has_system) return false;
@@ -819,6 +826,7 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--reject-optional")) options.reject_optional = true;
         else if (!strcmp(a, "--no-log")) options.no_log = true;
         else if (!strcmp(a, "--no-dupe")) options.no_dupe = true;
+        else if (!strcmp(a, "--refuse-av-info")) options.refuse_av_info = true;
         else if (!strcmp(a, "--bad-format")) options.bad_format = true;
         else if (!strcmp(a, "--reenter")) options.reenter = true;
         else if (!strcmp(a, "--system")) options.system_dir = next(), options.has_system = true;

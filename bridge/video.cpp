@@ -4,9 +4,12 @@
 // fixed A500 preset (hires, line doubled, overscan mode 3, no centering) the drawn raster is
 // 756 x 574 for PAL and 756 x 484 for NTSC, and does not depend on what the guest programs; a guest
 // that leaves the long-field bit set makes it 576 / 486 rows. The bridge therefore reports a constant
-// buffer per standard (the long-frame raster) and the raster actually drawn as `active`. Everything
-// below is derived from the flags the port captured when the renderer finished the pass, never from
-// live engine variables, which already describe the next field when the unit returns.
+// buffer (the long-frame raster of the largest standard the machine can run) and the raster actually
+// drawn as `active`. Field parity and the lengthening of the unit come from the flags the port captured
+// when the renderer finished the pass, never from live variables, which already describe the next field
+// when the unit returns. The standard, line count and line length of the beam (aspect, cadence) are
+// the integers of the engine's beam registers, which nothing changes between that pass and the return
+// of the unit: an ECS guest that programs BEAMCON0 is reported with the beam it really runs.
 // Measurements and code references: reports/tasks/T08b.md and docs/adr/0006-video-output.md.
 #include "video.h"
 #include "video_geometry.h"
@@ -15,6 +18,7 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "options.h"
+#include "custom.h"
 #include "video_present.h"
 
 namespace p6_bridge {
@@ -28,23 +32,55 @@ using p6_session::session;
 constexpr uint32_t kAspectPal[2] = {26, 25};
 constexpr uint32_t kAspectNtsc[2] = {43, 50};
 
-// Units per second as integers: CHIPSET_CLOCK / colour clocks in the unit, reduced. PAL lines are 227 CCK.
-// NTSC lines alternate 227 and 228 CCK. Measured lengths in CCK: PAL 70824 (312 lines), 71051 (313 lines),
-// interlaced pair 141875; NTSC 59605, non-interlaced long 119665 per two units, interlaced pair 119437.5.
+// The standard of the beam the unit ran on, as init_beamcon0() decides it: an ECS Agnus follows the PAL bit of BEAMCON0, which a guest
+// may program against the configuration; an OCS Agnus has no such register and keeps the configured standard. Read at the boundary the
+// unit ended on: nothing that sets the beam runs between the renderer's pass and the return of the unit.
+bool beam_is_ntsc()
+{
+    if (ecs_agnus) return (beamcon0 & BEAMCON0_PAL) == 0;
+    return session.config.video_standard == P6_VIDEO_NTSC;
+}
+
+// Units per second as integers: the chipset clock over the colour clocks in the unit, reduced. The unit length comes from the integers
+// of the beam, never from the engine's float vblank_hz or from a measurement: lines per unit are maxvpos, plus half a line when the
+// guest interlaces and a whole one for the long field (VARBEAMEN has no long field: maxvpos_long is -1); a line is maxhpos_short
+// clocks, plus half a clock on every line when the beam alternates 227/228 (NTSC timing without LOLDIS: custom.cpp linetoggle). The
+// clock is that of the configuration, the one the engine and the RTC anchor their time to. Standard beams give the measured lengths:
+// PAL 70824 CCK (312 lines), 71051 (313), interlaced pair 141875; NTSC 59605 (262 lines), 119665 per two long units, 119437.5
+// interlaced pair.
 struct Rate {
     uint32_t num, den;
 };
 
-Rate cadence(bool ntsc, uint32_t frame_flags)
+uint64_t gcd(uint64_t a, uint64_t b)
 {
+    while (b) {
+        const uint64_t t = a % b;
+        a = b;
+        b = t;
+    }
+    return a;
+}
+
+Rate cadence(uint32_t frame_flags)
+{
+    const bool ntsc = beam_is_ntsc();
+    const uint16_t bc = ecs_agnus ? beamcon0 : 0;                   // an OCS Agnus has no BEAMCON0
+    const bool free_beam = (bc & BEAMCON0_VARBEAMEN) != 0;
     const bool interlaced = frame_flags & P6_VIDEO_FRAME_INTERLACED;
     const bool long_field = frame_flags & P6_VIDEO_FRAME_LONG_FIELD;
-    if (!ntsc) {
-        if (interlaced) return {1418758, 28375};
-        return long_field ? Rate{3546895, 71051} : Rate{3546895, 70824};
-    }
-    if (interlaced) return {2863636, 47775};
-    return long_field ? Rate{1431818, 23933} : Rate{715909, 11921};
+    const bool toggle = ntsc && !(bc & BEAMCON0_LOLDIS);
+    // maxhpos_short / maxvpos are the nominal beam of the standard when the guest programmed nothing (init_beamcon0).
+    const uint64_t clocks = uint64_t(maxhpos_short > 0 ? maxhpos_short : (ntsc ? MAXHPOS_NTSC : MAXHPOS_PAL));
+    const uint64_t lines = uint64_t(maxvpos > 0 ? maxvpos : (ntsc ? MAXVPOS_NTSC : MAXVPOS_PAL));
+    const uint64_t half_lines = 2 * lines + (free_beam ? 0 : interlaced ? 1 : long_field ? 2 : 0);
+    const uint64_t half_clocks = 2 * clocks + (toggle ? 1 : 0);
+    const uint64_t clock = session.config.video_standard == P6_VIDEO_NTSC ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL;
+    uint64_t num = 4 * clock, den = half_lines * half_clocks;      // clock / (half_lines * half_clocks / 4)
+    const uint64_t g = gcd(num, den);
+    num /= g;
+    den /= g;
+    return {uint32_t(num), uint32_t(den)};
 }
 
 }  // namespace
@@ -64,8 +100,9 @@ void present_unit()
 p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
 {
     (void)error;
-    const bool ntsc = session.config.video_standard == P6_VIDEO_NTSC;
-    const uint32_t height = ntsc ? kBufferHeightNtsc : kBufferHeightPal;
+    // The buffer is the one promised at load (it never changes while running); aspect and cadence are those of the beam the unit ran on.
+    const uint32_t height = buffer_height(session.config.video_standard == P6_VIDEO_NTSC, session.config.machine == P6_MACHINE_A600);
+    const bool ntsc = beam_is_ntsc();
 
     frame.video = nullptr;
     frame.video_bytes = 0;
@@ -81,7 +118,7 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
     p6_video_frame_info info;
     const bool have = p6_video_frame_get(&info) == 0;
     const uint32_t flags = have ? info.flags : 0;
-    const Rate rate = cadence(ntsc, flags);
+    const Rate rate = cadence(flags);
     frame.cadence_num = rate.num;
     frame.cadence_den = rate.den;
     if (flags & P6_VIDEO_FRAME_INTERLACED)

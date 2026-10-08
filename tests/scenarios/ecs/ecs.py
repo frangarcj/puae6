@@ -249,21 +249,21 @@ BEAM = {
                                registers=((HTOTAL, 150), (VTOTAL, 523), (BEAMCON0, BEAM_VARBEAMEN))),
 }
 
-# Does the picture of the programmed mode fit the delivered buffer (760 x 576 PAL, 760 x 486 NTSC)? From the program: the raster is
+# Does the picture of the programmed mode fit the delivered buffer (760 x 576 in both configurations of an ECS machine)? From the program: the raster is
 # two rows per line from the first drawn line to the end of the frame (a doublescan mode draws one row per line, 2 x 252 lines),
 # and one column per quarter clock. 'video' = the unit carries a picture, 'none' = P6_FRAME_NO_VIDEO.
 BEAM_OUTCOME = {
     #                      PAL config  NTSC config
     "same":               ("video", "video"),
     "to-ntsc":            ("video", "video"),    # 484 rows fit both buffers
-    "to-pal":             ("video", "none"),     # 574 rows do not fit the 486 of an NTSC buffer
+    "to-pal":             ("video", "video"),    # 574 rows fit the 576 of the NTSC configuration too (T23f)
     "toggle":             None,                  # the length of the unit changes every unit: only the safety rules apply
     "var-more":           ("none", "none"),      # 660 rows
     "var-less":           ("video", "video"),    # 470 rows
     "var-tall":           ("none", "none"),
     "var-tallest":        ("none", "none"),
     "var-wide":           ("none", "none"),      # 256 clocks = 1024 columns > 760
-    "productivity":       ("video", "none"),     # doublescan: 504 rows
+    "productivity":       ("video", "video"),    # doublescan: 504 rows
     "productivity-shres": ("none", "none"),      # 1048 rows
 }
 

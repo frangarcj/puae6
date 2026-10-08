@@ -85,7 +85,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
 		BufferWidth = MaxWidth;
-		BufferHeight = _syncSettings.Region == Puae6Region.NTSC ? 486 : MaxHeight;
+		// The buffer the machine announces at the load: 576 rows, except an A500 in NTSC (it cannot leave its standard); an A600 keeps the PAL height in
+		// NTSC too so that a programmed PAL beam fits (ADR 0006). The first picture replaces it with the size that was really drawn.
+		BufferHeight = _syncSettings.Region == Puae6Region.NTSC && _syncSettings.Machine == Puae6Machine.A500 ? 486 : MaxHeight;
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
 		_aspectNum = 1; _aspectDen = 1;
 

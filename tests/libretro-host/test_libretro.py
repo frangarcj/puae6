@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 from tests.host.test_bridge_lifecycle import TOOLS, build_probe, builder  # noqa: E402
+from tests.scenarios.ecs import ecs  # noqa: E402
 import generate_options  # noqa: E402
 
 KICKSTART_NAMES = [
@@ -90,6 +91,8 @@ EXPORTS = [line[1:] for line in (ROOT / "adapters/libretro/exports.txt").read_te
 RUN = re.compile(r"^run (\d+) video=(\d+)x(\d+) pitch=(\d+) dupe=(\d) hash=(\w+) px=(\w+) audio=(\d+) polls=(\d+) states=(\d+) ahash=(\w+) unit=(\d+) ticks=(\d+)$",
                  re.M)
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
+CADENCE = re.compile(r"^unit (\d+) .* cadence=(\d+)/(\d+) ", re.M)
+AV_SET = re.compile(r"^av-set (\d+) base=(\d+)x(\d+) max=(\d+)x(\d+) aspect=([\d.]+) fps=([\d.]+) rate=(\d+)$", re.M)
 TICKS = re.compile(r"^log \d+ \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+) keys=(\w+)$", re.M)
 CYCLE = re.compile(r"^cycle (\d+) end runs=(\d+) audio_frames=(\d+) audio_hash=(\w+)$", re.M)
 
@@ -159,6 +162,12 @@ class LibretroHarness(unittest.TestCase):
         for name in names:
             shutil.copyfile(self.roms[rom], path / name)
         return path
+
+    def headless_text(self, rom, units, *flags):
+        result = subprocess.run([str(self.headless), "--run", str(self.roms[rom]), "--units", str(units), *flags], capture_output=True, text=True,
+                                timeout=600)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout
 
     def headless_units(self, rom, units, *flags):
         result = subprocess.run([str(self.headless), "--run", str(self.roms[rom]), "--units", str(units), *flags], capture_output=True, text=True,
@@ -384,6 +393,50 @@ class LibretroTests(LibretroHarness):
                     out = self.frontend(rom, "--runs", units, *A600, *standard, name=KICKSTART_NAMES_A600[0]).stdout
                     self.assertIn("machine A600 (puae6_machine)", out)
                     self.compare_with_headless(out, rom, units, "--machine", "a600", *(["--ntsc"] if standard else []))
+
+    # --- T23f: the frontend is told the rate of the beam the unit really ran --------------------------------------------------------------
+
+    def beam_rom(self, name, standard):
+        key = f"beam-{name}-{standard}"
+        if key not in self.roms:
+            path = Path(self.tmp.name) / f"{key}.rom"
+            path.write_bytes(builder.build(ecs.rom_source(ecs.beam_display_for(name, standard))))
+            self.roms[key] = path
+        return key
+
+    def test_a_guest_that_programs_the_other_standard_makes_the_core_announce_the_new_rate_once_at_the_unit_it_changes(self):
+        nominal = {"pal": (3546895, 70824), "ntsc": (715909, 11921)}
+        for name, standard in (("to-ntsc", "pal"), ("to-pal", "ntsc")):
+            key = self.beam_rom(name, standard)
+            options = ("--set", "puae6_video_standard=NTSC") if standard == "ntsc" else ()
+            flags = ("--machine", "a600", *(["--ntsc"] if standard == "ntsc" else []))
+            with self.subTest(program=name, standard=standard):
+                out = self.frontend(key, "--runs", 12, *A600, *options, name=KICKSTART_NAMES_A600[0]).stdout
+                self.compare_with_headless(out, key, 12, *flags)
+                cadence = {int(m[1]): (int(m[2]), int(m[3])) for m in CADENCE.finditer(self.headless_text(key, 12, *flags))}
+                n, d = nominal[standard]
+                moved = [u for u, (cn, cd) in sorted(cadence.items()) if abs(cn * d - n * cd) * 100 > n * cd]     # more than 1 % from the announced rate
+                self.assertTrue(moved, cadence)
+                announced = [(int(m[1]), m) for m in AV_SET.finditer(out)]
+                self.assertEqual([run for run, _ in announced], [moved[0]])                                      # exactly one, at the unit it changed
+                cn, cd = cadence[moved[0]]
+                m = announced[0][1]
+                self.assertAlmostEqual(float(m[7]), cn / cd, places=5)
+                self.assertEqual((int(m[4]), int(m[5]), int(m[8])), (760, 576, 48000))                           # the buffer announced at the load
+                self.assertEqual({cadence[u] for u in moved}, {cadence[moved[0]]})                                # and it stayed there
+                self.assertEqual(self.messages(out), [])
+
+    def test_an_a500_never_has_a_rate_to_announce_whatever_the_field_does(self):
+        for rom in ("boot", "long_frame", "input_all"):
+            for options in ((), ("--set", "puae6_video_standard=NTSC")):
+                with self.subTest(rom=rom, options=options):
+                    out = self.frontend(rom, "--runs", 16, *options).stdout
+                    self.assertEqual(AV_SET.findall(out), [])
+
+    def test_a_frontend_that_refuses_the_new_rate_is_not_asked_again_for_the_same_one(self):
+        key = self.beam_rom("to-ntsc", "pal")
+        out = self.frontend(key, "--runs", 12, *A600, "--refuse-av-info", name=KICKSTART_NAMES_A600[0]).stdout
+        self.assertEqual(len(AV_SET.findall(out)), 1)
 
     def test_the_option_really_changes_the_machine_the_a500_and_the_a600_differ_in_what_a_program_reads(self):
         a500 = self.frontend("identify", "--runs", 8).stdout

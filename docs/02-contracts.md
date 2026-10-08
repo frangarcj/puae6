@@ -98,6 +98,19 @@ instrucciones ni una espera de 20 ms. En entrelazado, distinguir campo y frame
 compuesto. run_frame entrega metadatos de field parity y no oculta dos avances
 para dibujar una sola imagen. La cadencia frontend se documenta para cada modo.
 
+Cadencia, aspecto y buffer por unidad (T23f). `cadence_num/cadence_den` y `aspect_num/aspect_den`
+describen el haz que la unidad realmente ejecuto, no la configuracion: el estandar sale de
+BEAMCON0 (bit PAL) en una maquina ECS y de la configuracion en OCS; las lineas por unidad son
+maxvpos (+1 con campo largo, +1/2 entrelazado, sin extension con haz programable); el reloj de
+linea es maxhpos_short (+1/2 con la alternancia 227/228 del haz NTSC); el reloj del chipset es el
+de la configuracion, el mismo al que se ancla el RTC. Todo son enteros del haz, nunca el
+`vblank_hz` float ni una medida. Un invitado ECS que pase de PAL a NTSC (o al reves) cambia la
+cadencia y el aspecto de las unidades siguientes; un adaptador que anuncie un unico valor al
+cargar debe releerlos por unidad (libretro: SET_SYSTEM_AV_INFO una vez por cambio de mas de un 1 %
+en la tasa, ver ADR 0006; BizHawk: VsyncNumerator/Denominator por unidad con imagen). El buffer (`video_width/height`, `caps.max_video_*`) es constante
+desde el load: 760 x 576, salvo un A500 NTSC (760 x 486; no puede salir de su estandar). Una
+configuracion NTSC de la maquina ECS reserva las 576 filas para no perder la imagen de un haz PAL.
+
 p6_run_frame es la unica primitive publica que hace avanzar el scheduler. Los
 adaptadores pueden traducir input/eventos antes y presentar A/V despues, pero no
 llaman m68k_go ni inventan otro boundary. retro_run hace exactamente una llamada

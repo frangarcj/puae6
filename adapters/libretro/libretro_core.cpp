@@ -91,6 +91,8 @@ struct Core {
     std::vector<uint8_t> last_picture;    // a copy, kept only when the frontend cannot repeat a picture by itself
     uint32_t last_width = 0, last_height = 0;
     uint32_t announced_width = 0, announced_height = 0;
+    uint32_t announced_rate_num = 0, announced_rate_den = 0;      // the units per second and the pixel aspect the frontend was last told (the load announces the nominal ones)
+    uint32_t announced_aspect_num = 0, announced_aspect_den = 0;
     std::vector<uint8_t> blank;           // what a run shows before the first picture exists
     std::vector<int16_t> pending;         // interleaved stereo int16 the frontend has not taken yet
     bool warned_overflow = false;
@@ -153,6 +155,7 @@ void stop_image()
     core.have_initial = false;
     core.initial_path.clear();
     core.announced_size = false;
+    core.announced_rate_num = core.announced_rate_den = core.announced_aspect_num = core.announced_aspect_den = 0;
     core.last_width = core.last_height = 0;
     core.last_picture.clear();
     core.pending.clear();
@@ -174,6 +177,63 @@ float aspect_ratio(uint32_t width, uint32_t height, uint32_t num, uint32_t den)
     return float(double(width) * num / (double(height) * den));
 }
 
+// What retro_get_system_av_info announces from the load, before any unit has run: the nominal rate of the configured standard (a progressive
+// short field) and its pixel aspect. The bridge reports the real ones with every unit.
+struct Nominal {
+    uint32_t rate_num, rate_den, aspect_num, aspect_den;
+};
+
+Nominal nominal_av()
+{
+    const bool ntsc = core.settings.video_standard == P6_VIDEO_NTSC;
+    return ntsc ? Nominal{715909, 11921, 43, 50} : Nominal{3546895, 70824, 26, 25};
+}
+
+// A unit that runs at another rate than the one announced is a change of beam (an ECS guest that programs BEAMCON0, T23f). The long field and the
+// interlace move the rate of a standard beam by 0.3 % (50.08, 49.92 and 50.00 Hz): a frontend that reinitialises its audio and video for that would
+// do so every time a guest toggles the interlace, so a difference up to kRateBandPercent is not announced. A PAL/NTSC change is 19 %.
+constexpr uint64_t kRateBandPercent = 1;
+
+bool rate_moved(uint32_t num, uint32_t den)
+{
+    const uint64_t now = uint64_t(num) * core.announced_rate_den, was = uint64_t(core.announced_rate_num) * den;
+    return (now > was ? now - was : was - now) * 100 > was * kRateBandPercent;
+}
+
+// Called at the boundary of each run, before the picture is handed over: tells the frontend when the unit that came back does not run at the
+// announced rate (SET_SYSTEM_AV_INFO, with the geometry of the same unit so that the timing and the picture change together) or has another pixel
+// aspect (SET_GEOMETRY, announced by deliver_video). Once per change, never per unit; the frontend may refuse, and is not asked again for the same value.
+void announce_av_change(const p6_frame &frame, bool picture)
+{
+    if (core.announced_rate_num == 0) {
+        const Nominal nominal = nominal_av();
+        core.announced_rate_num = nominal.rate_num;
+        core.announced_rate_den = nominal.rate_den;
+        core.announced_aspect_num = nominal.aspect_num;
+        core.announced_aspect_den = nominal.aspect_den;
+    }
+    if (!frame.cadence_num || !frame.cadence_den || !rate_moved(frame.cadence_num, frame.cadence_den)) return;
+    const uint32_t width = picture ? frame.active.width : (core.announced_width ? core.announced_width : 756);
+    const uint32_t height = picture ? frame.active.height : (core.announced_height ? core.announced_height : 574);
+    retro_system_av_info info = {};
+    info.geometry.base_width = width;
+    info.geometry.base_height = height;
+    info.geometry.max_width = core.max_width ? core.max_width : 760;
+    info.geometry.max_height = core.max_height ? core.max_height : 576;
+    info.geometry.aspect_ratio = aspect_ratio(width, height, frame.aspect_num, frame.aspect_den);
+    info.timing.fps = double(frame.cadence_num) / double(frame.cadence_den);
+    info.timing.sample_rate = core.settings.audio_rate_hz;
+    if (!environment_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &info))
+        log(RETRO_LOG_INFO, "the frontend did not apply the new rate %u/%u", frame.cadence_num, frame.cadence_den);
+    core.announced_rate_num = frame.cadence_num;
+    core.announced_rate_den = frame.cadence_den;
+    core.announced_aspect_num = frame.aspect_num;
+    core.announced_aspect_den = frame.aspect_den;
+    core.announced_size = true;
+    core.announced_width = width;
+    core.announced_height = height;
+}
+
 // One picture per run. The active raster is what the renderer drew, so that is what the frontend gets, not the padded buffer.
 void deliver_video(const p6_frame &frame, bool have_frame)
 {
@@ -181,7 +241,8 @@ void deliver_video(const p6_frame &frame, bool have_frame)
         const uint8_t *origin = static_cast<const uint8_t *>(frame.video) + size_t(frame.active.y) * frame.video_stride_bytes +
                                 size_t(frame.active.x) * 4;
         const uint32_t width = frame.active.width, height = frame.active.height;
-        if (!core.announced_size || width != core.announced_width || height != core.announced_height) {
+        if (!core.announced_size || width != core.announced_width || height != core.announced_height ||
+            frame.aspect_num != core.announced_aspect_num || frame.aspect_den != core.announced_aspect_den) {
             retro_game_geometry geometry = {};
             geometry.base_width = geometry.max_width = width;
             geometry.base_height = geometry.max_height = height;
@@ -190,6 +251,8 @@ void deliver_video(const p6_frame &frame, bool have_frame)
             core.announced_size = true;
             core.announced_width = width;
             core.announced_height = height;
+            core.announced_aspect_num = frame.aspect_num;
+            core.announced_aspect_den = frame.aspect_den;
         }
         if (!core.can_dupe) {
             core.last_picture.resize(size_t(width) * height * 4);
@@ -897,6 +960,7 @@ RETRO_API void retro_run(void)
     } else {
         input_poll_cb();        // a run still polls once and shows one picture, so a stalled image never starves the frontend
     }
+    if (have_frame) announce_av_change(frame, frame.video && frame.active.width && frame.active.height);
     deliver_video(frame, have_frame);
     deliver_audio(frame, have_frame);
 }

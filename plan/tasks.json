@@ -10457,7 +10457,7 @@
       "title": "Cadencia, aspecto y alto del frame desde el haz programado (BEAMCON0) y no desde la config",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T23c"
       ],
@@ -10473,12 +10473,17 @@
         "tests/step/**",
         "tests/scenarios/ecs/**",
         "docs/adr/0006-video-output.md",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "bridge/video_geometry.h",
+        "adapters/libretro/**",
+        "tests/libretro-host/**",
+        "integration/bizhawk/core/**"
       ],
       "steps": [
         "Medido en T23c (tests/step/test_ecs.py *_KNOWN_LIMIT): con ECS, un programa que pasa a NTSC por BEAMCON0 en una config PAL da unidades de 59.8 Hz anunciadas con la cadencia y el aspecto PAL; uno que pasa a PAL en una config NTSC entrega NO_VIDEO desde la unidad 3 con cadencia NTSC. cadence(), kBufferHeight* y el aspecto salen de session.config.video_standard.",
         "Derivar cadencia/aspecto/alto activo de lo que la unidad realmente fue (isntsc por BEAMCON0, maxvpos) y decidir si el buffer de una config NTSC crece a 576 filas para no perder la imagen PAL programada; el buffer maximo se anuncia al load y no cambia en marcha.",
-        "Los dos tests KNOWN_LIMIT se invierten; ningun hash ni metadato A500 cambia."
+        "Los dos tests KNOWN_LIMIT se invierten; ningun hash ni metadato A500 cambia.",
+        "Ampliacion de touch (2026-10-08): bridge/video_geometry.h (buffer_height por maquina); el adaptador libretro fija fps/aspecto al cargar y solo llama SET_GEOMETRY si cambia el tamano, asi que un cambio de cadencia/aspecto en marcha no llegaba al frontend (SET_SYSTEM_AV_INFO / SET_GEOMETRY); el wrapper BizHawk inicializa BufferHeight a 486 en NTSC aunque una maquina ECS reserve 576."
       ],
       "checks": [
         "AV01",
