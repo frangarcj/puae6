@@ -6,6 +6,12 @@ namespace Puae6;
 
 public enum Puae6Region { PAL, NTSC }
 
+/// <summary>
+/// The Amiga the core emulates: the A500 (OCS, 512 KiB Chip + 512 KiB Slow RAM, Kickstart 1.3) or the A600 (ECS, 1 MiB Chip RAM, Kickstart 2.05, no IDE or PCMCIA).
+/// The names are the ones of the schema (config/schema/options.json) and of the BizHawk firmware database (FirmwareID "A500" / "A600").
+/// </summary>
+public enum Puae6Machine { A500, A600 }
+
 /// <summary>What is plugged into the first controller port of the Amiga (the one the mouse normally uses).</summary>
 public enum Puae6Port1 { Mouse, Joystick, None }
 
@@ -18,6 +24,9 @@ public enum Puae6Port2 { Joystick, None }
 /// </summary>
 public sealed class Puae6SyncSettings
 {
+	/// <summary>Which Amiga it is. A state or a movie of one machine is refused by the other; the Kickstart asked of BizHawk's firmware database follows it (FirmwareID Amiga "A500" or "A600", the name of the member).</summary>
+	public Puae6Machine Machine { get; set; } = Puae6Machine.A500;
+
 	/// <summary>The video standard of the machine. It is not detected from anything.</summary>
 	public Puae6Region Region { get; set; } = Puae6Region.PAL;
 

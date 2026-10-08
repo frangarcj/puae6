@@ -162,12 +162,16 @@ class WrapperParity(Schema):
         self.assertIn("init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;", self.core)
         self.assertIn(f"const uint MachineA500 = {self.constants['P6_MACHINE_A500']}", self.abi.replace("public ", "").replace("static ", ""))
 
-    def test_the_wrapper_still_fixes_the_machine_at_the_schema_default_until_it_gets_its_own_setting(self):
-        # T23d made the machine an option; the wrapper's Machine setting is T23e's. Until then the schema says "fixed", and what it fixes must be the default.
+    def test_the_wrapper_machine_is_a_setting_that_reaches_the_machine_and_the_identity_as_the_abi_numbers_of_the_schema(self):
+        # T23e: the machine is the wrapper's Machine sync setting (a restart setting): the enum has the schema's values, the default is the schema's, the ABI constants are the
+        # schema's numbers, the config of the guest takes it from the setting and the config of a state and of a movie names it (so one machine refuses the other's).
         machine = self.reboot["machine"]
-        self.assertEqual(machine["wrapper"], {"how": "fixed", "where": "machine"})
+        self.assertEqual(machine["wrapper"], {"how": "setting", "setting": "Machine", "type": "Puae6Machine"})
         self.assertEqual(machine["default"], "A500")
-        self.assertIn("init.Config.Machine = P6.MachineA500;", self.core)
+        numbers = {v["value"]: v["abi"] for v in machine["values"]}
+        self.assertIn(f"const uint MachineA500 = {numbers['A500']}, MachineA600 = {numbers['A600']};", self.abi)
+        self.assertIn("init.Config.Machine = _syncSettings.Machine == Puae6Machine.A600 ? P6.MachineA600 : P6.MachineA500;", self.core)
+        self.assertIn("puae6-config-1;machine={machine};", self.core)
 
     def test_the_wrapper_fixes_the_audio_rate_at_the_schema_default_in_the_machine_and_in_the_identity(self):
         default = self.default_of("audio_rate_hz")

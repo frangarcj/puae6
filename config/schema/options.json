@@ -34,7 +34,7 @@
         "info": "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05. The A600 has no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600)."
       },
       "headless": {"how": "choice", "flag": "--machine", "names": {"A500": "a500", "A600": "a600"}},
-      "wrapper": {"how": "fixed", "where": "machine"}
+      "wrapper": {"how": "setting", "setting": "Machine", "type": "Puae6Machine"}
     },
     {
       "id": "video_standard",

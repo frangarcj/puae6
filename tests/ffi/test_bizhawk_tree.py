@@ -84,6 +84,21 @@ class BizHawkTreeTests(unittest.TestCase):
         installed = {p.name for p in (tree / build_tree.INSTALL_AT).glob("*.cs")}
         self.assertTrue({"Puae6Core.cs", "Puae6Core.EmuHawk.cs", "Puae6Guest.cs", "GuestIdentity.cs", "Abi.cs"} <= installed)
 
+    def test_each_machine_asks_the_firmware_database_of_bizhawk_for_its_own_kickstart_and_the_database_has_both(self):
+        # T23e: Machine.A500 / Machine.A600 are the FirmwareIDs (Amiga, "A500" / "A600") of BizHawk's database, which MacHawk already has: nothing is added to it.
+        settings = (ROOT / "integration/bizhawk/core/Puae6/Settings.cs").read_text()
+        machines = re.search(r"enum Puae6Machine \{ ([^}]*) \}", settings)[1].replace(" ", "").split(",")
+        self.assertEqual(["A500", "A600"], machines)
+        launcher = (ROOT / "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs").read_text()
+        self.assertIn("new(VSystemID.Raw.Amiga, machine.ToString())", launcher)
+        self.assertIn("FirmwareOf(settings.Machine)", launcher)
+        database = (build_tree.TREE / "src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs").read_text(encoding="utf-8-sig")
+        for machine in machines:
+            self.assertRegex(database, rf'Firmware\("Amiga", "{machine}", ', machine)
+            self.assertRegex(database, rf'Option\("Amiga", "{machine}", File\([^\n]*FirmwareOptionStatus\.Ideal\)', f"{machine} has an ideal option")
+        self.assertIn("Kickstart v1.3", re.search(r'Option\("Amiga", "A500", [^\n]*Ideal\)', database)[0])
+        self.assertIn("Kickstart v2.05", re.search(r'Option\("Amiga", "A600", [^\n]*Ideal\)', database)[0])
+
     def test_macHawk_was_not_touched(self):
         self.assertEqual(self.before, tracked_state())
         self.assertEqual(build_tree.pinned_commit(), self.before[0])

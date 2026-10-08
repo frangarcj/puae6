@@ -39,9 +39,9 @@ class GuestMemoryTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def run_and_compare(self, units, memory_at):
-        lines, result = build_waterbox.run_puae6(self.rom, units, memory_at=memory_at)
-        native = subprocess.run([str(self.headless), "--run", str(self.rom), "--units", str(units)], capture_output=True, text=True, timeout=3600)
+    def run_and_compare(self, units, memory_at, machine="A500"):
+        lines, result = build_waterbox.run_puae6(self.rom, units, memory_at=memory_at, machine=machine)
+        native = subprocess.run([str(self.headless), "--run", str(self.rom), "--units", str(units), "--machine", machine.lower()], capture_output=True, text=True, timeout=3600)
         self.assertEqual(0, native.returncode, native.stderr)
         self.assertEqual([line for line in native.stdout.splitlines() if line.startswith("unit ")], lines,
                          "reads, writes, refusals and restores left the machine exactly where the snapshot was")
@@ -61,6 +61,21 @@ class GuestMemoryTests(unittest.TestCase):
 
     def test_after_a_unit_the_marker_reads_big_endian_and_a_write_changes_the_next_picture(self):
         self.check_areas(self.run_and_compare(30, 15))
+
+    def check_a600_areas(self, memory):
+        areas = memory["areas"]
+        # The A600 has 1 MiB of Chip RAM and the ROM; there is no Slow RAM area at all (not an empty one).
+        self.assertEqual(["Chip RAM", "ROM"], [area["Name"] for area in areas])
+        self.assertEqual(1048576, areas[0]["Size"])
+        self.assertEqual([1024 | 64 | 16 | 8 | 1, 1024 | 64 | 16], [area["Flags"] for area in areas])
+
+    def test_on_the_a600_the_areas_are_one_mebibyte_of_chip_ram_and_the_rom_and_writes_land_in_clean_pages(self):
+        memory = self.run_and_compare(30, 0, "A600")
+        self.check_a600_areas(memory)
+        self.assertGreaterEqual(memory["dirty_pages_after_writes"], memory["dirty_pages_before_writes"] + 12)
+
+    def test_on_the_a600_after_a_unit_the_marker_reads_big_endian_and_a_write_changes_the_next_picture(self):
+        self.check_a600_areas(self.run_and_compare(30, 15, "A600"))
 
 if __name__ == "__main__":
     unittest.main()

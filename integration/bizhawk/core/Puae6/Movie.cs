@@ -33,7 +33,7 @@ public sealed class MovieRejectedException : Exception
 /// <summary>
 /// The part of a BizHawk movie header that belongs to PUAE6 (the keys of a BK2 header are free text and BizHawk keeps the ones it does not know), and the rule that decides
 /// whether a movie may be played by a core. A movie of the UAE core of BizHawk is refused: it was recorded with other buttons, another machine and another guest, and
-/// nothing converts it. docs/03-waterbox.md ("Peliculas") has the scope: the A500 profile with the firmware and disks that were tested.
+/// nothing converts it. docs/03-waterbox.md ("Peliculas") has the scope: the A500 and A600 profiles with the firmware and disks that were tested.
 /// </summary>
 public static class Puae6Movie
 {
@@ -71,7 +71,13 @@ public static class Puae6Movie
 			if (!string.Equals(Get(key), expected[key], StringComparison.OrdinalIgnoreCase)) throw new MovieRejectedException(reason, $"the movie was recorded with {what}");
 		}
 		Same(GuestKey, MovieRejection.OtherGuest, "another build of the guest");
-		Same(ConfigKey, MovieRejection.OtherConfig, "other sync settings");
+		if (!string.Equals(Get(ConfigKey), expected[ConfigKey], StringComparison.OrdinalIgnoreCase))
+		{
+			// The same settings on the other machine have a hash of their own: a movie that carries it was recorded on that Amiga, and the message says so.
+			var written = Get(ConfigKey);
+			var other = core.Identity.ConfigHashOfOtherMachines.Where(x => string.Equals(Hex(x.Value), written, StringComparison.OrdinalIgnoreCase)).Select(x => x.Value).FirstOrDefault();
+			throw new MovieRejectedException(MovieRejection.OtherConfig, core.Identity.ConfigMismatch(other ?? new byte[0], "movie"));
+		}
 		Same(FirmwareKey, MovieRejection.OtherFirmware, "another firmware");
 		Same(MediaKey, MovieRejection.OtherMedia, "other disks");
 	}

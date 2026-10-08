@@ -10416,7 +10416,7 @@
       "title": "Maquina A600 en BizHawk/Waterbox: sync setting, firmware A600 y WB03",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T23a",
         "T23b"
@@ -10434,11 +10434,14 @@
         "tests/waterbox-smoke/**",
         "tests/waterbox-state/**",
         "tests/ffi/**",
-        "tools/build_waterbox.py"
+        "tools/build_waterbox.py",
+        "config/schema/**",
+        "tests/config/**"
       ],
       "steps": [
         "Sync setting de maquina (reinicio), identidad del estado y de la pelicula con la maquina, FirmwareID Amiga A600 de la base de BizHawk sin modificar MacHawk.",
-        "Snapshot Waterbox en sandbox nuevo con el perfil A600 (WB03); re-registrar waterbox-memory si el guest crece."
+        "Snapshot Waterbox en sandbox nuevo con el perfil A600 (WB03); re-registrar waterbox-memory si el guest crece.",
+        "Ampliacion de touch (2026-10-08): el esquema declaraba machine como wrapper fixed (T23d) y tests/config/test_parity lo fijaba hasta T23e; con el ajuste Machine del wrapper ambos pasan a {how: setting, setting: Machine}."
       ],
       "checks": [
         "WB03"

@@ -32,13 +32,17 @@ public sealed partial class Puae6Core
 		foreach (var rom in lp.Roms)
 			if (!rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase))
 				throw new NotSupportedException($"PUAE6 loads ADF disks only ({rom.Extension} is not one); open the game with the UAE core");
+		var settings = lp.SyncSettings ?? new Puae6SyncSettings();
 		return new Puae6Parameters
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
-			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new FirmwareID(VSystemID.Raw.Amiga, "A500"), "A Kickstart for the Amiga 500 is required"),
-			SyncSettings = lp.SyncSettings ?? new Puae6SyncSettings(),
+			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(settings.Machine), $"A Kickstart for the Amiga {settings.Machine.ToString().Substring(1)} is required"),
+			SyncSettings = settings,
 			Media = lp.Roms.Select(rom => rom.FileData).ToList(),
 			MediaNames = lp.Roms.Select(rom => Path.GetFileName(rom.RomPath.Split('|').Last())).ToList(),
 		};
 	}
+
+	/// <summary>The entry of BizHawk's firmware database for each machine (FirmwareDatabase.cs, Amiga): "A500" is Kickstart 1.3 and "A600" Kickstart 2.05, the ideal option of each.</summary>
+	public static FirmwareID FirmwareOf(Puae6Machine machine) => new(VSystemID.Raw.Amiga, machine.ToString());
 }

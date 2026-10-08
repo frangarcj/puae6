@@ -19,7 +19,7 @@ public static class P6
 	public const int Ok = 0, BadArgument = 1, BadState = 2, Busy = 3, Unsupported = 4, NeedFirmware = 5, WrongMedia = 6, Capacity = 7, Io = 8,
 		CorruptState = 9, Incompatible = 10, Internal = 11;
 
-	public const uint MachineA500 = 1;
+	public const uint MachineA500 = 1, MachineA600 = 2;
 	public const uint VideoPal = 1, VideoNtsc = 2;
 	public const uint MediaAdf = 1;
 	public const uint PortNone = 0, PortJoystick = 1, PortMouse = 2;

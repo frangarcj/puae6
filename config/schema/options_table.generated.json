@@ -81,8 +81,9 @@
         }
       },
       "wrapper": {
-        "how": "fixed",
-        "where": "machine"
+        "how": "setting",
+        "setting": "Machine",
+        "type": "Puae6Machine"
       },
       "libretro": "puae6_machine"
     },

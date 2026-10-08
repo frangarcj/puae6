@@ -58,8 +58,8 @@ class RealGuestTests(unittest.TestCase):
     def wb(self, rom, units, **options):
         return build_waterbox.run_puae6(self.roms[rom], units, **options)
 
-    def native(self, rom, units):
-        result = subprocess.run([str(self.headless), "--run", str(self.roms[rom]), "--units", str(units)], capture_output=True, text=True, timeout=3600)
+    def native(self, rom, units, machine="A500"):
+        result = subprocess.run([str(self.headless), "--run", str(self.roms[rom]), "--units", str(units), "--machine", machine.lower()], capture_output=True, text=True, timeout=3600)
         self.assertEqual(0, result.returncode, result.stderr)
         return [line for line in result.stdout.splitlines() if line.startswith("unit ")]
 
@@ -93,6 +93,16 @@ class RealGuestTests(unittest.TestCase):
                     self.assertEqual([False] * 4, entry["dirty_before"], "a group nothing wrote since the seal starts clean")
                     self.assertEqual([False] * 4, entry["dirty_after_restore"], "and is clean again after restoring a snapshot taken while it was")
 
+    def test_the_groups_of_the_a600_one_mebibyte_of_chip_ram_dirty_and_restore_as_a_whole_too(self):
+        lines, result = self.wb("chipcell", 30, pages_at=15, machine="A600")
+        self.assertEqual(self.native("chipcell", 30, "A600"), lines)
+        pages = result["pages"]
+        self.assertEqual(0, pages["chip_group"] % 16384)
+        for name in ("clean_group_pages", "chip_group_pages"):
+            for entry in pages[name]:
+                self.assertEqual([True] * 4, entry["dirty_after_write"], name)
+                self.assertEqual(1, len(set(entry["dirty_after_restore"])), name)
+
     # --- WB15 ---------------------------------------------------------------------------------------------------------------------------
 
     def restore_case(self, rom, units, at, **options):
@@ -113,6 +123,10 @@ class RealGuestTests(unittest.TestCase):
     def test_a_new_process_restores_a_snapshot_of_the_interlaced_machine_and_continues_exactly(self):
         lines = self.restore_case("lace", 90, 45)
         self.assertEqual(self.native("lace", 90), lines)
+
+    def test_a_new_process_restores_a_snapshot_of_the_a600_and_continues_exactly(self):
+        lines = self.restore_case("lace", 90, 45, machine="A600")
+        self.assertEqual(self.native("lace", 90, "A600"), lines)
 
     def test_a_new_process_restores_a_snapshot_taken_with_buttons_held_and_continues_exactly(self):
         self.restore_case("input_all", 70, 30, ports=("0:1:1:0:0", "1:1:73:0:0"))

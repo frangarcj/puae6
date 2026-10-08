@@ -8,6 +8,7 @@ A/V   picture size, aspect, cadence, picture hash and audio frames per unit are 
       silencing picture and sound for a stretch does not change what follows; lag and drive light follow the machine.
 WB04  two machines of the same guest in one process, taking turns with different input, each do what they do alone; one can go on after the other
       is disposed.
+T23e  the same lines on the A600 (Machine = A600, --machine a600): the picture, ticks and PCM of p6_headless --machine a600; the domains are 1 MiB of Chip RAM and the ROM.
 WB07  the memory domains are the machine's (big endian, 16-bit words, function hooks): pokes before the first unit go through the guest into pages nothing
       has written, the ROM takes none, out-of-range accesses throw, and nothing is a temporary pointer or an empty region.
 
@@ -180,6 +181,18 @@ class CoreTests(unittest.TestCase):
                 self.assertTrue(all(row["opaque"] == "1" for row in rows), "every pixel of the picture is opaque ARGB")
                 self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
 
+    def test_picture_audio_and_timing_per_unit_are_those_of_headless_on_the_a600_in_both_standards(self):
+        # T23e: the same lines on the other machine (ECS, 1 MiB of Chip RAM): the core with Machine = A600 is p6_headless --machine a600.
+        for standard, flag in (("pal", []), ("ntsc", ["--ntsc"])):
+            with self.subTest(standard=standard):
+                units = 40
+                rows, out = self.av("lace", units, "--machine", "a600", *flag)
+                native = self.headless_lines("lace", units, "--machine", "a600", *flag)
+                self.assertEqual(units, len(rows))
+                for row, (unit, ticks, video, w, h, parity, an, ad, cn, cd, picture, audio) in zip(rows, native):
+                    self.assertEqual((unit, ticks, f"{w}x{h}", f"{cn}/{cd}", picture, audio), (row["unit"], row["ticks"], row["size"], row["vsync"], row["hash"], row["audio"]), f"unit {unit}")
+                self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
+
     def test_the_pcm_is_the_one_the_waterbox_harness_delivers(self):
         units = 40
         _, out = self.av("lace", units)
@@ -237,6 +250,16 @@ class CoreTests(unittest.TestCase):
         self.assertIn("domain Chip RAM size=524288 writable=True", out)
         self.assertIn("domain Slow RAM size=524288 writable=True", out)
         self.assertIn("domain ROM size=524288 writable=False", out)
+        self.assertIn("chip-marker 50364d57", out)
+        self.assertEqual(4, out.count("ok an out-of-range access throws"))
+
+    def test_the_a600_has_one_mebibyte_of_chip_ram_and_the_rom_and_no_slow_ram_domain_at_all(self):
+        out = self.core("domains", "--firmware", str(self.dir / "chipcell.rom"), "--machine", "a600")
+        self.assertIn("domains Chip RAM,ROM,Waterbox PageData", out)
+        self.assertNotIn("Slow RAM size=", out)
+        self.assertIn("domain Chip RAM size=1048576 writable=True", out)
+        self.assertIn("domain ROM size=524288 writable=False", out)
+        self.assertIn("scratch Chip RAM base=524288", out, "the pokes before the first unit went to the half of Chip RAM above 512 KiB, which the fixture leaves alone")
         self.assertIn("chip-marker 50364d57", out)
         self.assertEqual(4, out.count("ok an out-of-range access throws"))
 

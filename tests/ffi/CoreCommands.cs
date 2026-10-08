@@ -84,6 +84,9 @@ internal static unsafe partial class Program
 		}
 	}
 
+	/// <summary>The machine a command asks for: "a500" (the default) or "a600".</summary>
+	static Puae6Machine MachineOf(string? name) => (name ?? "a500").ToLowerInvariant() == "a600" ? Puae6Machine.A600 : Puae6Machine.A500;
+
 	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null, IReadOnlyList<byte[]>? media = null)
 	{
 		string guest = Path.GetFullPath(options["guest"]);
@@ -142,7 +145,11 @@ internal static unsafe partial class Program
 	static void Av(Dictionary<string, string> options)
 	{
 		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
-		var settings = new Puae6SyncSettings { Region = options.ContainsKey("ntsc") ? Puae6Region.NTSC : Puae6Region.PAL };
+		var settings = new Puae6SyncSettings
+		{
+			Machine = MachineOf(options.GetValueOrDefault("machine")),
+			Region = options.ContainsKey("ntsc") ? Puae6Region.NTSC : Puae6Region.PAL,
+		};
 		using var core = MakeCore(options, settings);
 		var controller = new ScriptedController(core.ControllerDefinition);
 		(int From, int To)? silent = options.TryGetValue("silent", out var range) ? (int.Parse(range.Split('-')[0]), int.Parse(range.Split('-')[1])) : null;
@@ -186,7 +193,8 @@ internal static unsafe partial class Program
 	static void Domains(Dictionary<string, string> options)
 	{
 		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
-		using var core = MakeCore(options);
+		var machine = MachineOf(options.GetValueOrDefault("machine"));
+		using var core = MakeCore(options, new Puae6SyncSettings { Machine = machine });
 		var domains = core.ServiceProvider.GetService<IMemoryDomains>()!;
 		var names = domains.Select(d => d.Name).ToList();
 		Console.WriteLine("domains " + string.Join(',', names));
@@ -199,16 +207,20 @@ internal static unsafe partial class Program
 			Console.WriteLine($"domain {d.Name} size={d.Size} writable={d.Writable}");
 		}
 		var chip = domains["Chip RAM"]!;
-		var slow = domains["Slow RAM"]!;
+		// The A500 has Slow RAM, which nothing writes; the A600 has none and the half of Chip RAM above 512 KiB, which the fixtures leave alone, takes its place.
+		var slow = domains["Slow RAM"] ?? chip;
+		long scratch = ReferenceEquals(slow, chip) ? 0x80000 : 0;
+		Require(ReferenceEquals(slow, chip) == (machine == Puae6Machine.A600), "Slow RAM exists on the A500 and only there");
+		Console.WriteLine($"scratch {slow.Name} base={scratch}");
 		var rom = domains["ROM"]!;
 		// Before the first unit, right after the seal: nothing has written the machine, so a poke from managed code would be fatal; these go through the guest.
-		foreach (long at in new long[] { 0, 4095, 4096, slow.Size - 2 })
+		foreach (long at in new long[] { scratch, scratch + 4095, scratch + 4096, slow.Size - 2 })
 		{
 			slow.PokeUshort(at, 0xBEEF, true);
-			Require(slow.PeekUshort(at, true) == 0xBEEF && slow.PeekByte(at) == 0xBE && slow.PeekByte(at + 1) == 0xEF, $"Slow RAM word at {at}: poked before the first unit, read back big endian");
+			Require(slow.PeekUshort(at, true) == 0xBEEF && slow.PeekByte(at) == 0xBE && slow.PeekByte(at + 1) == 0xEF, $"{slow.Name} word at {at}: poked before the first unit, read back big endian");
 		}
-		slow.PokeUint(8, 0x01020304, true);
-		Require(slow.PeekUint(8, true) == 0x01020304 && slow.PeekUshort(8, false) == 0x0201, "a 32-bit poke reads back and the byte order follows the flag");
+		slow.PokeUint(scratch + 8, 0x01020304, true);
+		Require(slow.PeekUint(scratch + 8, true) == 0x01020304 && slow.PeekUshort(scratch + 8, false) == 0x0201, "a 32-bit poke reads back and the byte order follows the flag");
 		var before = rom.PeekByte(0);
 		rom.PokeByte(0, (byte)~before);
 		Require(rom.PeekByte(0) == before, "the ROM does not take a poke");

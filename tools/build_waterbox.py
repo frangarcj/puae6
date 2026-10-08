@@ -698,7 +698,7 @@ _RUNS = iter(range(1, 1 << 30))
 
 
 def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None, *, ports: tuple[str, ...] = (),
-              render: str | None = None, digest_every: int = 0, bad_calls_at: int = 0, limits: bool = False, ntsc: bool = False,
+              render: str | None = None, digest_every: int = 0, bad_calls_at: int = 0, limits: bool = False, ntsc: bool = False, machine: str = "A500",
               abi_at: tuple[int, ...] = (), pages_at: int = 0, memory_at: int | None = None, save_at: int = 0, state: Path | None = None, restore: Path | None = None,
               restore_from: int = 0, timeout: int = 3600) -> tuple[list[str], dict]:
     """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines
@@ -708,7 +708,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     the guest with canaries in the registers (WB13), `pages_at` the unit after which the 16 KiB page groups of Chip RAM are written and
     restored (WB14, needs the chipcell fixture), `memory_at` the unit after which (0: right after the seal) the memory areas the guest reports are read, written,
     refused and restored through the guest (T20a; after a unit it needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
-    initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15). Needs the runtime (build/waterbox/receipt.json) and the
+    initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15), `machine` "A500" or "A600" the p6_config.machine the guest is given (T23e). Needs the runtime (build/waterbox/receipt.json) and the
     guest (--puae6) to exist already; several runs may go on at once."""
     runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
     for needed in (runtime_receipt, guest_receipt):
@@ -743,6 +743,8 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
         command += ["--restore", str(Path(restore).resolve()), "--from", str(restore_from)]
     if ntsc:
         command.append("--ntsc")
+    if machine.upper() != "A500":
+        command += ["--machine", machine.lower()]
     process = subprocess.run(command, env=env, cwd=MANAGED, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     log_path.write_text(process.stdout + "\n--- stderr ---\n" + process.stderr)
     if process.returncode or not result_path.is_file():
@@ -756,11 +758,11 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     return lines, result
 
 
-def record_memory(firmware: Path, units: int, result: dict) -> dict:
-    """Stores what a run measured in the `measured` key of manifests/waterbox-memory.json; the budgets stay as written."""
+def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500") -> dict:
+    """Stores what a run measured in the `measured` key (A500) or `measured_a600` (A600) of manifests/waterbox-memory.json; the budgets, one set for both machines, stay as written."""
     manifest = json.loads(MEMORY_MANIFEST.read_text())
-    manifest["measured"] = {
-        "fixture": {"firmware_sha256": sha256(firmware), "firmware_bytes": firmware.stat().st_size, "units": units,
+    manifest["measured" if machine.upper() == "A500" else "measured_a600"] = {
+        "fixture": {"machine": machine.upper(), "firmware_sha256": sha256(firmware), "firmware_bytes": firmware.stat().st_size, "units": units,
                     "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"},
         "guest_sha256": result["guest_sha256"], "runtime_sha256": result["runtime_sha256"],
         "after_seal": result["after_seal"], "after_first_unit": result["after_first_unit"], "after_last_unit": result["after_last_unit"],
@@ -780,6 +782,7 @@ def main() -> int:
     parser.add_argument("--record-memory", action="store_true",
                         help="con --puae6-run: guardar las medidas de la ejecucion en manifests/waterbox-memory.json")
     parser.add_argument("--units", type=int, default=1, help="unidades que ejecuta --puae6-run")
+    parser.add_argument("--machine", choices=("A500", "A600"), default="A500", help="maquina con la que --puae6-run configura el guest (T23e); con --record-memory decide la clave medida")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4, help="trabajos paralelos de make para --puae6")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
@@ -797,12 +800,12 @@ def main() -> int:
         elif args.puae6_run:
             build(args)
             build_puae6(toolchain(), args.jobs)
-            lines, measured = run_puae6(args.puae6_run.resolve(), args.units)
+            lines, measured = run_puae6(args.puae6_run.resolve(), args.units, machine=args.machine)
             print("\n".join(lines))
             (BUILD / "puae6-result.json").write_text(json.dumps(measured, indent=2) + "\n")
             print(f"PUAE6 WBX RUNTIME PASS: {len(lines)} unidades; medidas en {BUILD / 'puae6-result.json'}")
             if args.record_memory:
-                record_memory(args.puae6_run.resolve(), args.units, measured)
+                record_memory(args.puae6_run.resolve(), args.units, measured, args.machine)
                 print(f"medidas guardadas en {MEMORY_MANIFEST}")
         else:
             receipt = build(args)

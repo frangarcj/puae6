@@ -77,7 +77,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		CoreComm = comm;
 		_syncSettings = parameters.SyncSettings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
-		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the A500 has {Drives} floppy drives at most", nameof(parameters));
+		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
 		if (parameters.Media.Count > P6.MaxMedia) throw new ArgumentException($"at most {P6.MaxMedia} disks are supported", nameof(parameters));
 		foreach (var disk in parameters.Media)
 			if (disk.Length != P6.AdfBytes) throw new ArgumentException($"an ADF has {P6.AdfBytes} bytes, this one {disk.Length}", nameof(parameters));
@@ -130,7 +130,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		}
 		init.Config.AbiVersion = P6.AbiVersion;
 		init.Config.StructSize = (uint)sizeof(P6Config);
-		init.Config.Machine = P6.MachineA500;
+		init.Config.Machine = _syncSettings.Machine == Puae6Machine.A600 ? P6.MachineA600 : P6.MachineA500;
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
 		init.Config.AudioRateHz = 48000;
 		init.Config.RandomSeed = _syncSettings.RandomSeed;
@@ -214,12 +214,17 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	StateIdentity MakeIdentity(byte[] firmware)
 	{
 		var heaps = Heaps();
-		var config = $"puae6-config-1;machine=A500;region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
+		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000";
+		byte[] ConfigHash(Puae6Machine machine) => StateEnvelope.Sha256(Encoding.UTF8.GetBytes(Config(machine)));
+		// The same settings on each of the other machines: a state or a movie that carries one of these hashes was made on that Amiga, and the refusal can say so.
+		var others = new Dictionary<string, byte[]>();
+		foreach (Puae6Machine machine in Enum.GetValues(typeof(Puae6Machine)))
+			if (machine != _syncSettings.Machine) others[machine.ToString()] = ConfigHash(machine);
 		var media = new List<byte[]> { BitConverter.GetBytes(_media.Count) };
 		foreach (var disk in _media) media.Add(StateEnvelope.Sha256(disk));
 		return new StateIdentity(_guest.Identity.Sha256, [ heaps.SbrkHeapSizeKB, heaps.SealedHeapSizeKB, heaps.InvisibleHeapSizeKB, heaps.PlainHeapSizeKB, heaps.MmapHeapSizeKB ],
-			StateEnvelope.Sha256(Encoding.UTF8.GetBytes(config)), StateEnvelope.Sha256(firmware), StateEnvelope.Sha256(media.ToArray()));
+			ConfigHash(_syncSettings.Machine), StateEnvelope.Sha256(firmware), StateEnvelope.Sha256(media.ToArray()), _syncSettings.Machine.ToString(), others);
 	}
 
 	// The areas of the machine (Chip RAM primary, Slow RAM, the ROM), as function hooks that run in the sandbox: the same objects BizHawk makes for

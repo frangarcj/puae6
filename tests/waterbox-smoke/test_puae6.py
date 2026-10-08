@@ -28,6 +28,7 @@ GUEST_RECEIPT = ROOT / "build/waterbox/puae6/puae6-receipt.json"
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
 ADF_BYTES = 901120
 KICKSTART_BYTES = 512 * 1024
+MEASURED = (("A500", "measured"), ("A600", "measured_a600"))     # one set of budgets for both machines (T23e)
 
 
 def runtime_available():
@@ -76,23 +77,26 @@ class MemoryManifestTests(unittest.TestCase):
         for entry in self.manifest["candidates_for_exclusion"]:
             self.assertIn("T36", entry["needed"])
 
-    def test_what_was_measured_fits_in_half_of_its_budget(self):
-        measured = self.manifest["measured"]
-        self.assertTrue(measured, "run tools/build_waterbox.py --puae6-run ... --record-memory")
+    def test_what_was_measured_fits_in_half_of_its_budget_on_both_machines(self):
         layout = self.manifest["layout"]
-        for phase in ("after_seal", "after_first_unit", "after_last_unit"):
-            for heap in ("sbrk", "mmap"):
-                self.assertLessEqual(2 * measured[phase][heap]["committed_bytes"], layout[heap], f"{heap} {phase}")
-            self.assertLessEqual(measured[phase]["sealed"]["committed_bytes"], layout["sealed"])
-            # nothing is allocated from the heaps whose content would be left out of a snapshot
-            self.assertEqual(0, measured[phase]["plain"]["committed_bytes"])
-            self.assertEqual(0, measured[phase]["invisible"]["committed_bytes"])
+        for machine, key in MEASURED:
+            measured = self.manifest[key]
+            self.assertTrue(measured, f"run tools/build_waterbox.py --puae6-run ... --record-memory{' --machine A600' if machine == 'A600' else ''}")
+            self.assertEqual(machine, measured["fixture"]["machine"])
+            for phase in ("after_seal", "after_first_unit", "after_last_unit"):
+                for heap in ("sbrk", "mmap"):
+                    self.assertLessEqual(2 * measured[phase][heap]["committed_bytes"], layout[heap], f"{machine} {heap} {phase}")
+                self.assertLessEqual(measured[phase]["sealed"]["committed_bytes"], layout["sealed"])
+                # nothing is allocated from the heaps whose content would be left out of a snapshot
+                self.assertEqual(0, measured[phase]["plain"]["committed_bytes"])
+                self.assertEqual(0, measured[phase]["invisible"]["committed_bytes"])
 
     def test_the_sealed_heap_holds_the_firmware_and_was_not_written_after_the_seal(self):
-        measured = self.manifest["measured"]
-        firmware = measured["fixture"]["firmware_bytes"]
-        self.assertGreaterEqual(measured["after_seal"]["sealed"]["committed_bytes"], firmware)
-        self.assertEqual(0, measured["after_last_unit"]["sealed"]["dirty_bytes"])
+        for machine, key in MEASURED:
+            measured = self.manifest[key]
+            firmware = measured["fixture"]["firmware_bytes"]
+            self.assertGreaterEqual(measured["after_seal"]["sealed"]["committed_bytes"], firmware, machine)
+            self.assertEqual(0, measured["after_last_unit"]["sealed"]["dirty_bytes"], machine)
 
 
 class GuestAbiTests(unittest.TestCase):
@@ -156,13 +160,14 @@ class WaterboxRuntimeTests(unittest.TestCase):
         path.write_bytes(microrom(name + ".s", defines))
         return path
 
-    def native(self, rom, units):
-        result = subprocess.run([str(self.headless), "--run", str(rom), "--units", str(units)], capture_output=True, text=True, timeout=600)
+    def native(self, rom, units, machine="A500"):
+        result = subprocess.run([str(self.headless), "--run", str(rom), "--units", str(units), *(["--machine", "a600"] if machine == "A600" else [])],
+                                capture_output=True, text=True, timeout=600)
         self.assertEqual(0, result.returncode, result.stderr)
         return UNIT.findall(result.stdout)
 
-    def waterbox(self, rom, units, media=()):
-        lines, result = build_waterbox.run_puae6(rom, units, tuple(media))
+    def waterbox(self, rom, units, media=(), machine="A500"):
+        lines, result = build_waterbox.run_puae6(rom, units, tuple(media), machine=machine)
         return UNIT.findall("\n".join(lines)), result
 
     def test_the_first_unit_inside_waterbox_equals_headless_ticks_picture_and_audio(self):
@@ -179,6 +184,17 @@ class WaterboxRuntimeTests(unittest.TestCase):
                 inside, _ = self.waterbox(rom, 60)
                 self.assertEqual(60, len(inside))
                 self.assertEqual(self.native(rom, 60), inside)
+
+    def test_the_a600_inside_waterbox_equals_headless_on_the_a600_and_is_not_the_a500(self):
+        # T23e: the guest takes the machine the host puts in p6_config (the A600 is ECS with 1 MiB of Chip RAM and no Slow RAM): 60 units of the fixture programs
+        # are those of p6_headless --machine a600, and the guest reports the machine it was given.
+        for name, defines in (("boot", None), ("vsync", None), ("copper_irq", {"HP": "2"})):
+            with self.subTest(name):
+                rom = self.firmware(name, defines)
+                inside, result = self.waterbox(rom, 60, machine="A600")
+                self.assertEqual("A600", result["machine"])
+                self.assertEqual(60, len(inside))
+                self.assertEqual(self.native(rom, 60, "A600"), inside)
 
     def test_the_machine_does_not_notice_that_the_host_buffers_were_overwritten_after_init_and_after_every_call(self):
         # The harness fills the firmware copy, p6w_init and p6_input with 0xA5 right after each call. Equality with headless above is the proof;
@@ -236,18 +252,20 @@ class WaterboxRuntimeTests(unittest.TestCase):
         starts = [result["ranges"][name] for name in ("sbrk", "sealed", "invisible", "plain", "mmap")]
         self.assertTrue(all(a["start"] + a["size"] == b["start"] for a, b in zip(starts, starts[1:])), "the heaps are contiguous, as the runtime lays them out")
 
-    def test_the_measurements_in_the_manifest_are_the_ones_a_run_produces_now(self):
-        measured = self.manifest["measured"]
-        fixture = measured["fixture"]
-        rom = self.firmware("boot")
-        self.assertEqual(fixture["firmware_sha256"], build_waterbox.sha256(rom), "the recorded fixture is the boot micro-ROM")
-        _, result = self.waterbox(rom, fixture["units"])
-        for key in ("after_seal", "after_first_unit", "after_last_unit", "snapshot_bytes"):
-            self.assertEqual(measured[key], result[key], f"{key} changed: rerun tools/build_waterbox.py --puae6-run build/waterbox/boot.rom --units "
-                             f"{fixture['units']} --record-memory and review manifests/waterbox-memory.json")
-        for phase in ("after_seal", "after_first_unit", "after_last_unit"):
-            for heap, size in self.manifest["layout"].items():
-                self.assertLessEqual(result[phase][heap]["committed_bytes"], size, f"{heap} exceeds its budget")
+    def test_the_measurements_in_the_manifest_are_the_ones_a_run_produces_now_on_both_machines(self):
+        for machine, key in MEASURED:
+            with self.subTest(machine=machine):
+                measured = self.manifest[key]
+                fixture = measured["fixture"]
+                rom = self.firmware("boot")
+                self.assertEqual(fixture["firmware_sha256"], build_waterbox.sha256(rom), "the recorded fixture is the boot micro-ROM")
+                _, result = self.waterbox(rom, fixture["units"], machine=machine)
+                for field in ("after_seal", "after_first_unit", "after_last_unit", "snapshot_bytes"):
+                    self.assertEqual(measured[field], result[field], f"{machine} {field} changed: rerun tools/build_waterbox.py --puae6-run build/waterbox/boot.rom --units "
+                                     f"{fixture['units']} --record-memory --machine {machine} and review manifests/waterbox-memory.json")
+                for phase in ("after_seal", "after_first_unit", "after_last_unit"):
+                    for heap, size in self.manifest["layout"].items():
+                        self.assertLessEqual(result[phase][heap]["committed_bytes"], size, f"{machine} {heap} exceeds its budget")
 
 
 if __name__ == "__main__":

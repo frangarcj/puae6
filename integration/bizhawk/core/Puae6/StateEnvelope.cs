@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Collections.Generic;
 using System.IO;
 using System.Buffers.Binary;
 using System.Linq;
@@ -50,9 +51,24 @@ public sealed class StateIdentity
 	public byte[] ConfigHash { get; }
 	public byte[] FirmwareSha256 { get; }
 	public byte[] MediaHash { get; }
+	/// <summary>The machine these settings are for ("A500", "A600"); empty when the identity does not name one.</summary>
+	public string Machine { get; }
+	/// <summary>The config hash the same settings would have on each of the other machines, by machine name: it lets a refusal say "made on the A500" instead of "other settings".</summary>
+	public IReadOnlyDictionary<string, byte[]> ConfigHashOfOtherMachines { get; }
 
-	public StateIdentity(string guestSha256, uint[] heapsKB, byte[] configHash, byte[] firmwareSha256, byte[] mediaHash)
+	/// <summary>The message of a refusal because the config differs: when <paramref name="have"/> is the config hash of the same settings on another machine, it names both.</summary>
+	public string ConfigMismatch(byte[] have, string verb)
 	{
+		foreach (var other in ConfigHashOfOtherMachines)
+			if (other.Value.SequenceEqual(have)) return $"the {verb} was made for the {other.Key}, this core is the {Machine}: the machine is a sync setting and a {verb} of one Amiga does not run on another";
+		return $"the {verb} was made with other sync settings (machine, standard, seed, clock, ports, drives); this core is the {Machine}";
+	}
+
+	public StateIdentity(string guestSha256, uint[] heapsKB, byte[] configHash, byte[] firmwareSha256, byte[] mediaHash, string machine = "",
+		IReadOnlyDictionary<string, byte[]>? otherMachines = null)
+	{
+		Machine = machine;
+		ConfigHashOfOtherMachines = otherMachines ?? new Dictionary<string, byte[]>();
 		GuestSha256 = Enumerable.Range(0, 32).Select(i => Convert.ToByte(guestSha256.Substring(2 * i, 2), 16)).ToArray();
 		HeapsKB = heapsKB;
 		ConfigHash = configHash;
@@ -122,7 +138,8 @@ public static class StateEnvelope
 		var heaps = Take(reader, 4 * expected.HeapsKB.Length, "the header");
 		for (int i = 0; i < expected.HeapsKB.Length; ++i)
 			if (BinaryPrimitives.ReadUInt32LittleEndian(heaps.AsSpan(4 * i, 4)) != expected.HeapsKB[i]) throw new StateRejectedException(StateRejection.OtherHeaps, "the state was made with other heap sizes");
-		Same(Take(reader, 32, "the header"), expected.ConfigHash, StateRejection.OtherConfig, "other sync settings");
+		var config = Take(reader, 32, "the header");
+		if (!config.SequenceEqual(expected.ConfigHash)) throw new StateRejectedException(StateRejection.OtherConfig, expected.ConfigMismatch(config, "state"));
 		Same(Take(reader, 32, "the header"), expected.FirmwareSha256, StateRejection.OtherFirmware, "another firmware");
 		Same(Take(reader, 32, "the header"), expected.MediaHash, StateRejection.OtherMedia, "other disks");
 		ulong length = BinaryPrimitives.ReadUInt64LittleEndian(Take(reader, 8, "the header"));
