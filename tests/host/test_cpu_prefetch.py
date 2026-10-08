@@ -24,7 +24,7 @@ class CPUPrefetchTests(unittest.TestCase):
         # the sole compiled dispatch target is the generated 68000 CE table.
         table = re.search(r"cputbls\[6\]\[8\]\s*=\s*(\{.*?\});", pp, re.S)
         self.assertIsNotNone(table)
-        self.assertEqual(re.findall(r"op_smalltbl_\d+", table.group(1)), ["op_smalltbl_14"])
+        self.assertEqual(re.findall(r"op_smalltbl_\d+", table.group(1)), ["op_smalltbl_14", "op_smalltbl_21"])   # 68000 CE and 68020 CE (T24a)
         cells = re.search(r"\{\s*\{(.*?)\}", table.group(1), re.S).group(1).split(",")
         self.assertEqual(len(cells), 8)
         self.assertEqual(cells[4].strip(), "op_smalltbl_14")
@@ -40,7 +40,7 @@ class CPUPrefetchTests(unittest.TestCase):
                 subprocess.run([*common, optimization, "-c", str(tree / "newcpu.cpp"), "-o", str(obj)], check=True)
                 imports = subprocess.run(["nm", "-u", str(obj)], text=True, capture_output=True, check=True).stdout
                 tables = set(re.findall(r"op_smalltbl_\d+\b", imports))
-                self.assertLessEqual(tables, {"op_smalltbl_13", "op_smalltbl_14"})
+                self.assertLessEqual(tables, {"op_smalltbl_13", "op_smalltbl_14", "op_smalltbl_21"})
                 for forbidden in ("pthread", "is_mainthread", "statusline", "gettimeofday", "clock_gettime"):
                     self.assertNotIn(forbidden, imports)
                 strip = "-Wl,-dead_strip" if platform.system() == "Darwin" else "-Wl,--gc-sections"

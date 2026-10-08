@@ -68,7 +68,7 @@ static void address_error_frame()
 }
 static void frame_feature_boundary()
 {
- for (int format : {3, 7, 9, 10, 11, 15}) {
+ for (int format : {3, 7, 9, 10, 15}) {   // 0xB is the 68020 long bus cycle fault frame without MMU state (T24a)
   reset();
   Exception_build_stack_frame(0x11112222, 0x33334444, 0x55556666, 2, format);
   assert(m68k_areg(regs, 7) == 128 && !write_count);
@@ -89,6 +89,22 @@ static void frame_feature_boundary()
   check(write_count - 3, 126 - (length - 8), 2, (format << 12) | 8);
   check(write_count - 2, 122 - (length - 8), 4, 0x33334444);
   check(write_count - 1, 128 - length, 2, 0x2515);
+  p6_diagnostic diag{}; assert(p6_diag_read(&diag, 1) == 0);
+ }
+ // Format B (68020 address error, CPUEMU_21): 46 words, the MMU fields written as zero; the fields a 68020 reads back sit
+ // at their documented offsets from the frame start (M68020UM, long bus cycle fault stack frame).
+ reset(); regs.mmu_fault_addr = 0xabcdef01; regs.prefetch020[1] = 0x1111; regs.prefetch020[2] = 0x2222;
+ Exception_build_stack_frame(0x11112222, 0x33334444, 0x55556666, 3, 0xb);
+ assert(m68k_areg(regs, 7) == 128 - 92);
+ {
+  const unsigned char *frame = ram + 128 - 92;
+  auto w = [&](unsigned o) { return unsigned(frame[o] << 8 | frame[o + 1]); };
+  assert(w(0) == 0x2515 && w(2) == 0x3333 && w(4) == 0x4444 && w(6) == (0xb000 | 12));
+  assert(w(10) == 0x6666 && w(12) == 0x1111 && w(14) == 0x2222);          // SSW, stage C, stage B
+  assert(w(16) == 0xabcd && w(18) == 0xef01);                              // data cycle fault address
+  assert(w(44) == 0xabcd && w(46) == 0xef01);                              // data input buffer = fault address
+  for (unsigned o = 20; o < 92; ++o) assert((o >= 44 && o < 48) || frame[o] == 0);   // all written (the RAM was 0xCC), the rest zero
+  assert(frame[-1] == 0xcc && write_count > 20);
   p6_diagnostic diag{}; assert(p6_diag_read(&diag, 1) == 0);
  }
  // Common dispatcher must retain non-FPU exception routing with no FP state.

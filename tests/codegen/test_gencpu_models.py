@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_13.cpp"}
+PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_13.cpp", "cpuemu_21.cpp"}
 
 
 def digest(path):
@@ -68,7 +68,7 @@ class GencpuModelTests(unittest.TestCase):
                 self.assertEqual(digest(patched_out / name), digest(pristine_out / name))
 
     def test_profile_models_match_the_full_generation_and_the_build_tree(self):
-        restricted, restricted_out = self.run_tool(self.patched, "13", "14")
+        restricted, restricted_out = self.run_tool(self.patched, "13", "14", "21")
         self.assertEqual(restricted.returncode, 0, restricted.stderr)
         self.assertEqual({p.name for p in restricted_out.iterdir()}, PROFILE_OUTPUTS)
         # The generated tree the engine compiles is exactly this output.
@@ -77,11 +77,14 @@ class GencpuModelTests(unittest.TestCase):
                 self.assertEqual(digest(restricted_out / name), digest(ROOT / "build/generated" / name))
         # The handler file is the one the unrestricted run writes.
         _, full_out = self.run_tool(self.pristine)
-        self.assertEqual(digest(restricted_out / "cpuemu_13.cpp"), digest(full_out / "cpuemu_13.cpp"))
+        for name in ("cpuemu_13.cpp", "cpuemu_21.cpp"):
+            self.assertEqual(digest(restricted_out / name), digest(full_out / name))
+        # The 68020 cycle-exact handlers are also the ones upstream ships pregenerated (T24a).
+        self.assertEqual(digest(restricted_out / "cpuemu_21.cpp"), digest(ROOT / "upstream/winuae/cpuemu_21.cpp"))
         table = restricted_out / "cpustbl.cpp"
         names = {line.split("op_smalltbl_")[1].split("[")[0] for line in table.read_text().splitlines()
                  if line.startswith("const struct cputbl op_smalltbl_")}
-        self.assertEqual(names, {"13", "14"})
+        self.assertEqual(names, {"13", "14", "21"})
 
     def test_invalid_model_numbers_are_rejected(self):
         for argument in ("abc", "56", "-1", "13x", ""):

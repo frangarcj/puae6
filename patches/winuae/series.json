@@ -2860,6 +2860,45 @@
           "after_sha256": "8b57fff5c29acae2379deb9894e26c20aaa605daa397c073972b632c6acb7458"
         }
       ]
+    },
+    {
+      "id": "0106-cpu-68020-ce-selection",
+      "file": "patches/winuae/0106-cpu-68020-ce-selection.patch",
+      "sha256": "4be66d76c422aec8baf575ab4a238700949f6a876016e4d4ce3b33b479c20814",
+      "title": "Select and run the 68020 cycle-exact core (cpuemu_21) without FPU, MMU or data cache",
+      "reason": "T24a: the profile compiled only the 68000 CE family. The 68020 helpers (instruction cache, pipeline, delayed accesses, prefetch fill), the CE020 accessor set, the cputbls row, the interrupt-delay flag, the CE020 loop m68k_run_2ce, the 68020 exception branch (formats 0, 2 and, without MMU state, B) and the model switch of m68k_run/fill_prefetch are brought back; the 68030/68040 blocks stay out. External bus errors are not modelled without an MMU (upstream's do_access_or_bus_error returns in that case too).",
+      "category": "host hooks",
+      "order": 106,
+      "symbols": [
+        "set_x_funcs",
+        "cputbls",
+        "build_cpufunctbl",
+        "Exception_normal",
+        "Exception_build_stack_frame",
+        "m68k_run",
+        "m68k_run_2ce",
+        "fill_prefetch",
+        "fill_prefetch_020",
+        "fill_prefetch_020_ntx",
+        "do_access_or_bus_error",
+        "get_word_ce020_prefetch",
+        "mem_access_delay_longi_read_ce020"
+      ],
+      "test": "GEN01; tests/host/test_cpu_020.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "31472b7fca1df21496f3f447899971a911f5fcfab0051625943fcdad40e6b0b1",
+          "after_sha256": "fabf05e86f27cddbaafb45af69233008e42d094ace81dedf37ec4bf3ad64870b"
+        },
+        {
+          "path": "newcpu_common.cpp",
+          "before_sha256": "f31d116051da14ad8a6e9ce58f3fbb5b7019f6e01715230039d03287623b1d09",
+          "after_sha256": "96601a4ded9f9e54a0589738b289f20f16f3bd5ad61ee0b06ac9b006bfbd5670"
+        }
+      ]
     }
   ]
 }

@@ -10595,7 +10595,7 @@
       "title": "Generar, compilar y seleccionar el 68020 cycle-exact (cpuemu_21) sin maquina nueva y sin cambiar el 68000",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T23"
       ],
@@ -10613,12 +10613,14 @@
         "tests/codegen/**",
         "tests/host/**",
         "docs/adr/**",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "manifests/waterbox-memory.json"
       ],
       "steps": [
         "Decision 2026-10-08 (investigacion en scratch/t24-research.md): A1200 = built_in_prefs model 4 config 0 (68EC020 cycle exact, cpuemu_21, address_space_24, AGA, 2 MiB Chip, sin Slow ni Fast, sin RTC), SIN Gayle como el A600 (cs_ide=cs_pcmcia=cs_compatible=0, cs_ciaoverlay=1), waiting_blits=0 declarado (upstream lo pone a 1 con 020; es un atajo de emulacion, no hardware), sin FPU/MMU/JIT. Nombre honesto: A1200 (68EC020, AGA, 2 MiB Chip, sin Gayle), el A1200OG de PUAE5. P6_MACHINE_A1200=3 aditivo.",
         "gencpu 13 14 21 (cpuemu_21 identico al de upstream); CPUEMU_21 en sysconfig; parche pequeno de newcpu.cpp: bloques 020 fuera de #ifndef P6_PORTABLE, fill_prefetch_020*, get_word_ce020_prefetch*, set_x_funcs CE020, cputbls, m68k_run_2ce, excepciones 020 (formatos 0/2/B sin campos MMU o declarado limite).",
-        "Probe de instrucciones 020 con micro-ROM (MOVEC VBR/CACR, BFxxx, MULS.L/DIVS.L, CAS, modos de direccionamiento 020) contra resultados deducidos del programa; el 68000 sale byte a byte igual (cpuemu_13/14 y tablas sin cambios)."
+        "Probe de instrucciones 020 con micro-ROM (MOVEC VBR/CACR, BFxxx, MULS.L/DIVS.L, CAS, modos de direccionamiento 020) contra resultados deducidos del programa; el 68000 sale byte a byte igual (cpuemu_13/14 y tablas sin cambios).",
+        "Ampliacion de touch (2026-10-08): el 68020 CE crece el guest (+0,6 MB) y tests/waterbox-smoke/test_puae6.py exige volver a registrar waterbox-memory para A500 y A600."
       ],
       "checks": [
         "GEN01",

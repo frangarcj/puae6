@@ -27,11 +27,12 @@ class CPUCommonTests(unittest.TestCase):
             imports = {line.split()[-1].lstrip("_") for line in result.stdout.splitlines() if line.strip()}
             # Exact imports of the entire object, before any test dead stripping.
             # mmufixup is common CPU storage defined in newcpu.cpp, not a backend.
+            # get_word_ce020_prefetch is the 68020 CE accessor of x_get_disp_ea_ce020 (CPUEMU_21, T24a).
             # The 68040 cache fetch helpers are not imported: patch 0050 guards x_get_disp_ea_040.
             self.assertEqual(imports, {
                 "Z14set_cpu_cachesb", "Z15memory_get_bytej", "Z15memory_get_longj",
                 "Z15memory_get_wordj", "Z15memory_put_bytejj", "Z15memory_put_longjj",
-                "Z15memory_put_wordjj", "Z19Exception_cpu_oldpcij", "Z7op_illgj", "Z9Exceptioni", "Z9write_logPKcz",
+                "Z15memory_put_wordjj", "Z19Exception_cpu_oldpcij", "Z23get_word_ce020_prefetchi", "Z7op_illgj", "Z9Exceptioni", "Z9write_logPKcz",
                 "currprefs", "mmufixup", "regflags", "regs", "table68k", "x_cp_get_byte",
                 "x_cp_get_long", "x_cp_get_word", "x_cp_put_byte", "x_cp_put_long",
                 "x_cp_put_word", "x_get_long", "x_next_ilong", "x_next_iword", "x_put_long", "x_put_word"})

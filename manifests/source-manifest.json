@@ -10,6 +10,7 @@
     "readcpu.cpp",
     "events.cpp",
     "cpuemu_13.cpp",
+    "cpuemu_21.cpp",
     "cpustbl.cpp",
     "cpudefs.cpp",
     "blitfunc.cpp",
@@ -78,6 +79,7 @@
       "cpudefs.cpp",
       "cpustbl.cpp",
       "cpuemu_13.cpp",
+      "cpuemu_21.cpp",
       "blitfunc.cpp",
       "blittable.cpp"
     ],
@@ -86,9 +88,10 @@
       "inputevents.def",
       "sinctable.cpp"
     ],
-    "cpu_dispatch": "CPUEMU_13 agrupa handlers13/14. Parche0014 limita cputbls P6 a [0][4]=op_smalltbl_14 y conserva bucle CE68000. Unidad completa y helpers probados; aun pendiente prueba de enlace del perfil y lifecycle. Generados intactos, sin CPU68010 anunciada.",
+    "cpu_dispatch": "CPUEMU_13 agrupa handlers13/14; CPUEMU_21 es el 68020 cycle exact (T24a, ADR 0010), sin FPU ni MMU. Parche0014 limita cputbls P6 a [0][4]=op_smalltbl_14 y la ampliacion T24a anade [2][4]=op_smalltbl_21; m68k_run elige el bucle CE por modelo. Generados intactos, sin CPU68010 anunciada.",
     "features_on": [
-      "CPUEMU_13"
+      "CPUEMU_13",
+      "CPUEMU_21"
     ],
     "features_off": [
       "JIT",
@@ -196,7 +199,8 @@
       "outputs": [
         "cputbl.h",
         "cpustbl.cpp",
-        "cpuemu_13.cpp"
+        "cpuemu_13.cpp",
+        "cpuemu_21.cpp"
       ],
       "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"
     },

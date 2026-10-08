@@ -47,7 +47,7 @@ class EngineIncludeTests(unittest.TestCase):
             cls.closure = dict(pool.map(dependencies, engine_commands()))
 
     def test_every_dependency_is_inside_an_allowed_tree(self):
-        self.assertEqual(len(self.closure), 33)
+        self.assertEqual(len(self.closure), 34)
         for unit, paths in self.closure.items():
             for path in paths:
                 with self.subTest(unit=Path(unit).name, header=path.name):

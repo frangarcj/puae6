@@ -65,13 +65,15 @@
       "outputs": [
         "cputbl.h",
         "cpustbl.cpp",
-        "cpuemu_13.cpp"
+        "cpuemu_13.cpp",
+        "cpuemu_21.cpp"
       ],
       "runs": [
         {
           "args": [
             "13",
-            "14"
+            "14",
+            "21"
           ],
           "cwd": "generated"
         }

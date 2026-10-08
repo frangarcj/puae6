@@ -5,6 +5,7 @@
 #include <string>
 
 uae_prefs currprefs{};
+evt_t currcycle;   // read by the 68020 cycle helpers newcpu.cpp now compiles (T24a); never executed here
 static uaecptr addresses[4];
 static unsigned reads;
 

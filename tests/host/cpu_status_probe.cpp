@@ -3,6 +3,7 @@
 #include <cassert>
 
 uae_prefs currprefs{}, changed_prefs{};
+evt_t currcycle;   // read by the 68020 cycle helpers newcpu.cpp now compiles (T24a); never executed here
 
 // Observed boundaries for reset only: synthetic vectors/ROM, not a machine.
 uaecptr rtarea_base;
