@@ -10591,8 +10591,8 @@
       "evidence": null
     },
     {
-      "id": "T24",
-      "title": "Añadir A1200/AGA y 68020 interpretado",
+      "id": "T24a",
+      "title": "Generar, compilar y seleccionar el 68020 cycle-exact (cpuemu_21) sin maquina nueva y sin cambiar el 68000",
       "milestone": "M2",
       "required": true,
       "status": "pending",
@@ -10605,17 +10605,269 @@
         "docs/04-validation.md"
       ],
       "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/sysconfig.h",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/codegen/**",
+        "tests/host/**",
+        "docs/adr/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Decision 2026-10-08 (investigacion en scratch/t24-research.md): A1200 = built_in_prefs model 4 config 0 (68EC020 cycle exact, cpuemu_21, address_space_24, AGA, 2 MiB Chip, sin Slow ni Fast, sin RTC), SIN Gayle como el A600 (cs_ide=cs_pcmcia=cs_compatible=0, cs_ciaoverlay=1), waiting_blits=0 declarado (upstream lo pone a 1 con 020; es un atajo de emulacion, no hardware), sin FPU/MMU/JIT. Nombre honesto: A1200 (68EC020, AGA, 2 MiB Chip, sin Gayle), el A1200OG de PUAE5. P6_MACHINE_A1200=3 aditivo.",
+        "gencpu 13 14 21 (cpuemu_21 identico al de upstream); CPUEMU_21 en sysconfig; parche pequeno de newcpu.cpp: bloques 020 fuera de #ifndef P6_PORTABLE, fill_prefetch_020*, get_word_ce020_prefetch*, set_x_funcs CE020, cputbls, m68k_run_2ce, excepciones 020 (formatos 0/2/B sin campos MMU o declarado limite).",
+        "Probe de instrucciones 020 con micro-ROM (MOVEC VBR/CACR, BFxxx, MULS.L/DIVS.L, CAS, modos de direccionamiento 020) contra resultados deducidos del programa; el 68000 sale byte a byte igual (cpuemu_13/14 y tablas sin cambios)."
+      ],
+      "checks": [
+        "GEN01",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Dos generaciones identicas; el 68020 ejecuta el probe correcto; A500/A600 sin cambios de hash."
+      ],
+      "stop": "No editar cpuemu*/cpustbl* a mano ni traer cpummu/FPU para resolver simbolos.",
+      "evidence": null
+    },
+    {
+      "id": "T24b",
+      "title": "Maquina A1200/AGA en el bridge: preset campo a campo, AGA activado y arranque headless con Kickstart 3.1",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/video.cpp",
+        "bridge/video_geometry.h",
+        "config/profiles/**",
+        "ports/portable/sysconfig.h",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "manifests/codegen.json",
+        "tests/host/**",
+        "tests/fuzz/**",
+        "tests/step/**",
+        "tests/codegen/**",
+        "adapters/headless/**",
+        "CMakeLists.txt",
+        "tests/config/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Activar AGA (sin el define fixup_prefs borra el bit en silencio) midiendo tamano/tiempo de drawing.cpp; aceptar el ROM id 15 (KS 3.1 A1200, cpu=1) segun la CPU del preset (parche 0035).",
+        "config/profiles/a1200-aga.json + test_a1200_profile; check_preset por maquina; headless --machine a1200.",
+        "Micro-ROM: VPOSR (Alice) y DENISEID (Lisa) del A1200 y instrucciones 020; opt-in P6_KICKSTART_A1200_ROM hasta la pantalla de insertar disco y P6_AGA_ADF (Catabasis) arrancando. Si el 3.1 exige Gayle: parar, reproducer, no fingir el dispositivo."
+      ],
+      "checks": [
+        "AV01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "A500/A600 sin cambios; el A1200 llega a la pantalla de insertar disco del 3.1 y arranca una demo AGA de forma determinista."
+      ],
+      "stop": "No anadir aceleradoras ni Fast RAM para resolver dependencias; cortar por feature.",
+      "evidence": null
+    },
+    {
+      "id": "T24c",
+      "title": "Estado nativo del A1200: CPU 020 (VBR/CACR/CAAR/MSP, cache y prefetch 020), paleta AGA de 24 bits y PIXL de 24 bits; DET02/STATE01",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state_cpu.cpp",
+        "bridge/state_upstream.cpp",
+        "bridge/state_devices.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "manifests/state-inventory.json",
+        "tests/state/**",
+        "tests/fuzz/**",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "P6CP v2 con el estado del 020 (cuerpos upstream donde existan, accesores pequenos para caches020/prefetch020/ce020 donde no); subcuerpo de paleta AGA; PIXL a 24 bits; eventos que pasan a alcanzables (setup_fmodes_delayed).",
+        "DET02 en micro-ROMs A1200 y opt-in con KS 3.1 + demo AGA; STATE01 con la cota por maquina; estados de otra maquina INCOMPATIBLE."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "DET02 sin divergencias en A1200; el layout A500/A600 solo cambia si un campo nuevo es comun y se explica."
+      ],
+      "stop": "Una divergencia nueva requiere reproducer y atribucion, no relajar el digest.",
+      "evidence": null
+    },
+    {
+      "id": "T24d",
+      "title": "Escenarios AGA de video y audio (AV01/AV02): 8 planos, paleta de 256x24 bits, HAM8, FMODE, sprites anchos, filtro A1200",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "tests/scenarios/aga/**",
+        "tests/scenarios/test_schema.py",
+        "tools/scenario_schema.py",
+        "tests/step/**",
+        "tests/audio/**"
+      ],
+      "steps": [
+        "Micro-ROMs AGA con imagen deducida del programa (como tests/scenarios/ecs), en PAL y NTSC, con sanitizers; cero fuera de active; AudioA1200Tests (filtro A1200)."
+      ],
+      "checks": [
+        "AV01",
+        "AV02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Ningun modo AGA desborda; los hashes A500/A600 no cambian."
+      ],
+      "stop": "No ampliar el buffer canonico ni retocar el chipset para que un modo encaje.",
+      "evidence": null
+    },
+    {
+      "id": "T24e",
+      "title": "A1200 en libretro: opcion puae6_machine A1200, Kickstart por nombres conocidos y LR01",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/fuzz/**"
+      ],
+      "steps": [
+        "Valor A1200 en la opcion de reinicio; nombres de PUAE5 kick40068.A1200 / amiga-os-310-a1200.rom y los de coleccion; LR01 con micro-ROM, RetroArch real y opt-in KS 3.1 + demo AGA (DMS/ADF)."
+      ],
+      "checks": [
+        "LR01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El A1200 se elige y arranca por libretro; A500/A600 sin cambios."
+      ],
+      "stop": "No aceptar parcialmente una configuracion de maquina.",
+      "evidence": null
+    },
+    {
+      "id": "T24f",
+      "title": "A1200 en BizHawk/Waterbox: sync setting, FirmwareID Amiga/A1200, waterbox-memory y WB03",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24c"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "ports/waterbox/**",
+        "adapters/waterbox/**",
+        "manifests/waterbox-memory.json",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "tools/build_waterbox.py",
+        "config/schema/**",
+        "tests/config/**"
+      ],
+      "steps": [
+        "Valor A1200 del sync setting Machine, identidad de estado/pelicula, FirmwareID de la base de BizHawk sin tocar MacHawk; presupuesto Waterbox comprobado para el A1200 (codigo AGA +15 MB, 2 MiB Chip), measured_a1200; WB03 en las tres maquinas."
+      ],
+      "checks": [
+        "WB03"
+      ],
+      "acceptance": [
+        "Snapshot Waterbox del A1200 en sandbox nuevo; el presupuesto A500 no se reutiliza sin medir."
+      ],
+      "stop": "Sin runner Waterbox la puerta queda BLOCKED.",
+      "evidence": null
+    },
+    {
+      "id": "T24",
+      "title": "Añadir A1200/AGA y 68020 interpretado",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23",
+        "T24a",
+        "T24b",
+        "T24c",
+        "T24d",
+        "T24e",
+        "T24f"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
         "config/profiles/**",
         "manifests/source-manifest.json",
         "tests/scenarios/aga/**",
         "bridge/config.cpp",
-        "manifests/state-inventory.json"
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "docs/01-architecture.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/adr/**",
+        "tools/check.py"
       ],
       "steps": [
         "Seleccionar las fuentes y generacion 68020/AGA del upstream, sin JIT/FPU/MMU y sin duplicar el motor.",
         "Documentar configuracion de caches/prefetch/clock que usa el preset y añadir su estado al inventario.",
         "Probar bitplanes/paleta/copper/blitter/CPU y modos de video con fixtures y referencia.",
-        "Repetir restore nativo y Waterbox, load/unload y audio en todas las configuraciones publicadas."
+        "Repetir restore nativo y Waterbox, load/unload y audio en todas las configuraciones publicadas.",
+        "Division (2026-10-08): T24a (68020 CE generado y seleccionado), T24b (maquina A1200/AGA + KS 3.1), T24c (estado), T24d (escenarios AV), T24e (libretro), T24f (BizHawk/Waterbox); T24 es el cierre: tabla de capacidades, SAFE01 para T24 en tools/check.py y el gate completo en A500+A600+A1200."
       ],
       "checks": [
         "GEN01",
