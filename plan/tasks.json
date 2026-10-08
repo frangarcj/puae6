@@ -10689,7 +10689,7 @@
       "title": "Estado nativo del A1200: CPU 020 (VBR/CACR/CAAR/MSP, cache y prefetch 020), paleta AGA de 24 bits y PIXL de 24 bits; DET02/STATE01",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24b"
       ],
@@ -10765,7 +10765,7 @@
       "title": "A1200 en libretro: opcion puae6_machine A1200, Kickstart por nombres conocidos y LR01",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24b"
       ],
