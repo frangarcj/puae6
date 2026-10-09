@@ -148,8 +148,8 @@ M1: A500/68000, OCS, PAL y NTSC, Chip/Slow RAM, Kickstart del usuario, ADF de so
 lectura, teclado, joystick y raton. Audio Paula stereo de salida, video software,
 reset, avance exacto y snapshot Waterbox. No basta con una ventana negra.
 
-M2: core libretro completo para ese perfil; A600/ECS (hecho en T23: segundo preset del mismo perfil, 1 MiB Chip, sin Gayle; tabla en docs/02-contracts.md) y A1200/68020/AGA (pendiente); RAM Fast
-limitada por perfil; estados nativos; replay en plataformas Tier 1. Sin FPU/MMU
+M2: core libretro completo para ese perfil; A600/ECS (hecho en T23: segundo preset del mismo perfil, 1 MiB Chip, sin Gayle; tabla en docs/02-contracts.md) y A1200/68020/AGA (hecho en T24: tercer preset del mismo perfil, 68EC020 ciclo exacto, AGA, 2 MiB Chip, sin Gayle; tabla en docs/02-contracts.md, ADR 0010 para el 68020); RAM Fast
+limitada por perfil (T49); estados nativos; replay en plataformas Tier 1. Sin FPU/MMU
 ni aceleradoras en estos perfiles. El detalle exacto de clocks/caches se deriva
 solo del preset upstream auditado, no de un valor inventado.
 

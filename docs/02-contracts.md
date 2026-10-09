@@ -270,7 +270,7 @@ en una playlist/configuracion de juego.
 
 Modelo implementado (T17b): `config/schema/options.json` es el esquema unico de lo que la ABI v1 deja elegir, y `tools/generate_options.py` lo valida, normaliza una configuracion
 pedida y genera las tablas del core libretro (`adapters/libretro/options_generated.h` y `config/schema/options_table.generated.json`; `--check` falla si estan obsoletas).
-Normalizar da a cada opcion el valor pedido o el defecto del esquema; una clave desconocida, una no soportada (CPU, RAM, ROM, una maquina que no sea A500 ni A600, `.uae`; con su razon)
+Normalizar da a cada opcion el valor pedido o el defecto del esquema; una clave desconocida, una no soportada (CPU, RAM, ROM, una maquina que no sea A500, A600 ni A1200, `.uae`; con su razon)
 o un valor fuera del esquema levanta ConfigError, que nombra la clave y todos los problemas, y nunca devuelve una configuracion parcial. Headless y el wrapper BizHawk no se
 generan: `tests/config` comprueba contra el esquema sus defaults, valores y mapeo a `p6_config`, de modo que no hay defaults divergentes. Cada opcion es `reboot` (un campo de
 `p6_config`: entra en config_hash y en la identidad del estado) o `presentation` (sin efecto sobre la emulacion). El core libretro lee las opciones antes de cargar y un valor que
@@ -280,43 +280,58 @@ cargar el contenido (no cambia el config, la identidad ni el bound de estado), u
 La regla de que un cambio que afecta al tamaño del estado exige recarga se cumple por construccion (todo lo que entra en el config es `reboot`) y T18 la comprueba contra el bound
 real: `retro_serialize_size` no se mueve con una opcion de presentacion cambiada en marcha ni con una `reboot` solo avisada, y es el mismo en cada carga del mismo contenido y configuracion.
 
-### Maquinas y capacidades (T23)
+### Maquinas y capacidades (T23, T24)
 
-`p6_config.machine` elige entre dos presets del MISMO perfil de build `deterministic-a500` (no hay un segundo perfil: mismo motor, mismo interprete 68000 ciclo
-exacto, mismo scheduler `p6_run_frame`, sin ifdefs de frontend). Cada preset sale de `built_in_prefs` del upstream fijado (`config/profiles/a500-ocs.json`,
-`config/profiles/a600-ecs.json`; `tests/host` compara cada perfil con las preferencias que construye `bridge/config.cpp`, campo a campo).
+`p6_config.machine` elige entre tres presets del MISMO perfil de build `deterministic-a500` (no hay un segundo perfil: mismo motor, mismo scheduler `p6_run_frame`, sin ifdefs
+de frontend; el interprete 68000 ciclo exacto `cpuemu_13` y el 68020 ciclo exacto `cpuemu_21` estan compilados y `m68k_run` elige por el modelo de CPU del preset, ADR 0010).
+Cada preset sale de `built_in_prefs` del upstream fijado (`config/profiles/a500-ocs.json`, `a600-ecs.json`, `a1200-aga.json`; `tests/host` compara cada perfil con las
+preferencias que construye `bridge/config.cpp`, campo a campo, y cada campo que difiere del upstream lleva su razon).
 
-| | A500 | A600 |
-| --- | --- | --- |
-| Chipset | OCS (Agnus + Denise OCS) | ECS (Agnus + Denise ECS: SuperHires, DIWHIGH, BEAMCON0/VARBEAMEN, productividad) |
-| CPU | 68000 ciclo exacto, 24 bits, sin FPU/MMU | igual |
-| Chip RAM | 512 KiB | 1 MiB (sin alias del primer medio MiB) |
-| Slow (Bogo) RAM | 512 KiB | ninguna |
-| Fast RAM | ninguna | ninguna |
-| RTC | MSM6242B (epoca de la config) | ninguno de serie (el cuerpo `P6RT` del estado va vacio) |
-| Gayle / IDE / PCMCIA | no existe | NO emulado: `cs_ide = cs_pcmcia = cs_compatible = 0`, `gayle.cpp`/`ide.cpp` no se compilan; un `.hdf`/PCMCIA no se acepta |
-| Kickstart probado | 1.3 (r34.5) | 2.05 (r37.350), con Workbench 2.05 r37.71 de disco |
-| Selector | libretro `puae6_machine` = `A500` (defecto) / `A600` (reinicio); headless `--machine`; BizHawk sync setting `Machine` | igual |
-| FirmwareID BizHawk | Amiga/A500 | Amiga/A600 |
-| Estados y peliculas | propios del A500 | propios del A600: se rechazan antes de tocar nada (`config_hash` lleva la maquina) |
-| Chipset de VPOSR | familia 0 (OCS) | familia 2 en la tabla upstream = 8372A (`$2xxx` PAL, `$3xxx` NTSC), DENISEID `$FFFC` |
+| | A500 | A600 | A1200 |
+| --- | --- | --- | --- |
+| Chipset | OCS (Agnus + Denise OCS) | ECS (Agnus + Denise ECS: SuperHires, DIWHIGH, BEAMCON0/VARBEAMEN, productividad) | AGA (Alice + Lisa: paleta de 256 entradas de 24 bits, 8 planos, HAM8, BPLCON4, FMODE 0/1/3 con fetch de 16/32/64 bits, sprites de 16/32/64 bits) |
+| CPU | 68000 ciclo exacto, 24 bits, sin FPU/MMU | igual | 68EC020 ciclo exacto (`cpuemu_21`, cache de instrucciones de 64 lineas, 24 bits), sin FPU/MMU: la linea F levanta la excepcion 11 |
+| Chip RAM | 512 KiB | 1 MiB (sin alias del primer medio MiB) | 2 MiB (sin alias) |
+| Slow (Bogo) RAM | 512 KiB | ninguna | ninguna |
+| Fast RAM | ninguna | ninguna | ninguna (la del A1200 con 8 MiB es T49) |
+| RTC | MSM6242B (epoca de la config) | ninguno de serie (el cuerpo `P6RT` del estado va vacio) | ninguno de serie (igual) |
+| Gayle / IDE / PCMCIA | no existe | NO emulado: `cs_ide = cs_pcmcia = cs_compatible = 0`, `gayle.cpp`/`ide.cpp` no se compilan; un `.hdf`/PCMCIA no se acepta | NO emulado (igual; el IDE es T56); `$DE1000` sin Gayle cae en el espejo de custom |
+| Kickstart probado | 1.3 (r34.5) | 2.05 (r37.350), con Workbench 2.05 r37.71 de disco | 3.1 (r40.68), hasta la pantalla de insertar disco y con una demo AGA gratuita (Catabasis) cargada de disco |
+| Selector | libretro `puae6_machine` = `A500` (defecto) / `A600` / `A1200` (reinicio; el `A1200` es el A1200OG de PUAE5); headless `--machine`; BizHawk sync setting `Machine` | igual | igual |
+| FirmwareID BizHawk | Amiga/A500 | Amiga/A600 | Amiga/A1200 |
+| Estados y peliculas | propios del A500 | propios del A600 | propios del A1200: cada maquina rechaza las de las otras dos antes de tocar nada (`config_hash` lleva la maquina; matriz 3 x 3 en las pruebas) |
+| Chipset de VPOSR / DENISEID | familia 0 (OCS) | familia 2 en la tabla upstream = 8372A (`$2xxx` PAL, `$3xxx` NTSC), DENISEID `$FFFC` | Alice `$23xx` PAL / `$33xx` NTSC, Lisa `$00F8` |
+| Cota de estado (`retro_serialize_size`) | 3 608 513 B | 3 608 482 B | 5 890 716 B (cuerpo del 68020, paleta AGA, anillo de Denise y raster a 3 bytes por pixel; ADR 0009 punto 9) |
+| Waterbox, mmap medido (presupuesto 16 MiB) | 5 586 944 B | 5 046 272 B | 6 094 848 B (36 % del presupuesto, sin cambiarlo) |
+| Waterbox, snapshot tras 60 unidades | 9 154 004 B | 9 137 620 B | 10 186 196 B |
 
 Probado con firmware autorizado (opt-in por variables de entorno, nunca copiado ni registrado): Kickstart 1.3 en el A500 y Kickstart 2.05 en el A600 arrancan hasta
-la pantalla de insertar disco y hasta el shell del Workbench 2.05, y DET02 restaura un estado tomado durante la carga real de un disco (parche 0105). Probado sin firmware
-comercial: micro-ROM de identificacion, 1 MiB de Chip, SuperHires, DIWHIGH, BEAMCON0/VARBEAMEN y productividad en PAL y NTSC (AV01, AV02), estados nativos y de Waterbox,
-libretro con RetroArch real y el nucleo BizHawk dentro de Waterbox (WB03).
+la pantalla de insertar disco y hasta el shell del Workbench 2.05, y DET02 restaura un estado tomado durante la carga real de un disco (parche 0105). El Kickstart 3.1 r40.68 arranca
+en el A1200 sin Gayle hasta la pantalla de insertar disco y, con la demo AGA gratuita Catabasis en DF0, sale de ella y muestra una paleta de 24 bits (mas de 32 colores, canales que
+el ECS no produce); DET02 restaura estados del A1200 tomados con el Kickstart 3.1 y en mitad de la carga del disco de la demo, en el mismo proceso y en uno nuevo; el nucleo libretro
+corre el A1200 unidad por unidad como headless (con RetroArch real en un contenedor, tambien con el Kickstart 3.1 y la demo) y el nucleo BizHawk dentro de Waterbox lo ejecuta y restaura
+estados en un sandbox nuevo y en otro proceso (WB03). Probado sin firmware comercial: micro-ROM de
+identificacion, 1 MiB de Chip, SuperHires, DIWHIGH, BEAMCON0/VARBEAMEN y productividad en PAL y NTSC (AV01, AV02); en el A1200, un micro-ROM de instrucciones 68020 con valores
+calculados desde la semantica del M68020UM (`tests/host/test_cpu_020.py`, `tests/step/test_a1200.py`), 15 programas AGA con la imagen predicha desde el propio programa en PAL y NTSC
+(`tests/scenarios/aga`, `tests/step/test_aga.py`), audio con el modelo de filtro del A1200 (`AudioA1200Tests`), 185 pruebas DET02 (`tests/state/test_det02_a1200.py`), estados nativos y
+de Waterbox, libretro con RetroArch real y el nucleo BizHawk (WB03).
 
-NO probado (no afirmar compatibilidad): otros Kickstart que el motor acepta por contenido (2.04 o 3.1 en el A600, 2.05 en el A500); configuraciones de 2 MiB de Chip o con Fast
-RAM; la interfaz de EmuHawk (el wrapper se probo por FFI y en el arnes, no con la UI); A1200/AGA/68020, IDE, PCMCIA, CD32/CDTV.
+NO probado (no afirmar compatibilidad): otros Kickstart que el motor acepta por contenido (2.04 o 3.1 en el A600, 2.05 en el A500, el Kickstart 3.0 en el A1200); configuraciones del
+A600 de 2 MiB de Chip o de cualquier maquina con Fast RAM (T49); FPU (T54); Gayle e IDE (T56) y PCMCIA; 68030/040/060 y otros 020 sin el bus de 24 bits (T55); la interfaz de EmuHawk
+(el wrapper se probo por FFI y en el arnes, no con la UI); CD32/CDTV. La compatibilidad del A1200 con juegos y demos AGA mas alla de la demo citada no esta medida.
 
-Medido (lo que hace el motor, no una afirmacion de lo que hace un chip real): la tabla upstream identifica el A600 como 8372A (VPOSR `$20`/`$30`); en SuperHires el motor
-pinta el borde negro en lugar de COLOR00; en NTSC la imagen SHRES de las lineas impares aparece 2 columnas a la izquierda (el propio comentario de upstream llama a
-esa alineacion un hack).
+Medido (lo que hace el motor, no una afirmacion de lo que hace un chip real): la tabla upstream identifica el A600 como 8372A (VPOSR `$20`/`$30`) y el A1200 por Alice `$23`/`$33`;
+en SuperHires el motor pinta el borde negro en lugar de COLOR00; en NTSC la imagen SHRES de las lineas impares aparece 2 columnas a la izquierda (el propio comentario de upstream llama a
+esa alineacion un hack); en el A1200 un sprite aparece un pixel lores a la derecha del pixel de plano de la misma coordenada, y un DDFSTRT que no cae en una unidad de fetch empieza la
+imagen en la unidad siguiente (las dos medidas de T24d, fijadas en `MeasuredTests` de `tests/step/test_aga.py`, 15 casos la segunda).
 
 Limites documentados: la unidad en la que el invitado escribe BEAMCON0 se describe entera con el haz nuevo aunque parte corriera con el anterior (un error de una unidad,
 determinista; ADR 0006 "Haz programado"); el aviso de cambio de cadencia de libretro (`SET_SYSTEM_AV_INFO`) solo salta cuando la tasa se aleja mas de un 1 % de la anunciada,
 de modo que el campo largo y el entrelazado (0,3 %) no lo disparan y un cambio real PAL<->NTSC (19 %) si; los rasters de mas de 576 filas o 760 columnas no se entregan
-(`P6_FRAME_NO_VIDEO`); fuera de `active` todo byte vale cero en cada unidad, tambien en la transicion de haz (T23g).
+(`P6_FRAME_NO_VIDEO`); fuera de `active` todo byte vale cero en cada unidad, tambien en la transicion de haz (T23g) y en los modos AGA mas anchos (T24d). En el A1200,
+`waiting_blits = 0` (el preset de upstream pone 1, "automatico", para toda CPU desde el 68020: la espera del blitter correria dentro de la escritura que lo arranca, un atajo de emulacion
+sin hardware detras y un bucle en mitad de una instruccion; con 0 la CPU ejecuta sus propios bucles de sondeo, como en las maquinas de 68000), de modo que un programa que cuenta con ese
+atajo no lo encuentra; sin Gayle, `$DE1000` y su banco leen el espejo de custom en lugar de un registro de Gayle. El A1200 es el de serie (A1200OG): el que lleva 8 MiB de Fast es T49.
 
 ## ROMs, discos y persistencia
 

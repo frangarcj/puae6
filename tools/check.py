@@ -34,6 +34,14 @@ TASK_SUITES = {
         'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
         'sanitized_video_guests': 'tests.step.test_step.VideoGuestSanitizerTests',
     },
+    # T24 closes the A1200: the T26 suites plus the video guests of the ECS (A600) and AGA (A1200, 68EC020) programs under ASan/UBSan.
+    ('SAFE01', 'T24'): {
+        'canary_self_test': 'tests.canaries.test_canaries',
+        'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
+        'sanitized_video_guests': 'tests.step.test_step.VideoGuestSanitizerTests',
+        'sanitized_ecs_guests': 'tests.step.test_ecs.EcsGuestSanitizerTests',
+        'sanitized_aga_guests': 'tests.step.test_aga.AgaGuestSanitizerTests',
+    },
     ('FUZZ01', 'T26'): {
         'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
         'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',

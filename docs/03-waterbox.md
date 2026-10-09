@@ -354,11 +354,14 @@ Las peliculas se graban con el core (entrada pseudoaleatoria con semilla fija: t
 - DET06: la misma reproduccion con otra zona horaria, locale, idioma, globalizacion invariante, directorio de trabajo, `HOME` y `TMPDIR` es la misma reproduccion y la grabada.
   (El directorio de trabajo es el de la biblioteca del runtime, porque BizHawk pide a dlopen su nombre sin ruta: se probaron cuatro copias en cuatro directorios.)
 
-Alcance: Waterbox cubre dos maquinas, el A500 (OCS) y el A600 (ECS, 1 MiB Chip, sin Slow ni Gayle), ambas PAL y NTSC, como sync setting `Machine` (T23e); no hay otra (A1200/AGA, Fast, 68020 siguen sin probar). Una pelicula
-es de una maquina: la cabecera BK2 lleva el hash de configuracion (`machine=` forma parte de la cadena que se hashea), de modo que una pelicula grabada en el A500 se rechaza en el A600 y al reves, antes de tocar el
-sandbox y con un mensaje que nombra ambas maquinas (igual que un estado); las peliculas y estados del A500 anteriores a T23e conservan su hash y siguen cargando. Probado con las micro-ROM y los discos de las pruebas en las dos
-maquinas (WB03, `tests/waterbox-state/test_wrapper_machine.py`, y la reproduccion de una pelicula en el A600) y, con las variables de entorno de firmware, con Kickstart 1.3 en el A500 y Kickstart 2.05 en el A600; no probado:
-la interfaz de EmuHawk (no se ha ejecutado), otros Kickstart. Las peliculas del core UAE de BizHawk se
+Alcance: Waterbox cubre tres maquinas, el A500 (OCS), el A600 (ECS, 1 MiB Chip, sin Slow ni Gayle) y el A1200 (68EC020 ciclo exacto, AGA, 2 MiB Chip, sin Gayle), todas PAL y NTSC, como sync setting `Machine` (T23e, T24f); Fast, FPU, Gayle/IDE y otras CPU siguen sin probar. Una pelicula
+es de una maquina: la cabecera BK2 lleva el hash de configuracion (`machine=` forma parte de la cadena que se hashea), de modo que una pelicula o un estado de una maquina se rechaza en cualquiera de las otras dos (matriz 3 x 3), antes de tocar el
+sandbox y con un mensaje que nombra la maquina para la que se hizo; las peliculas y estados del A500 y del A600 anteriores a T24f conservan su hash y siguen cargando. Probado con las micro-ROM y los discos de las pruebas en las tres
+maquinas (WB03, `tests/waterbox-state/test_wrapper_machine.py`, y la reproduccion de una pelicula en el A600) y, con las variables de entorno de firmware, con Kickstart 1.3 en el A500, Kickstart 2.05 en el A600 y Kickstart 3.1 mas la demo AGA Catabasis (un estado a mitad de la demo restaurado en un sandbox nuevo y en otro proceso) en el A1200; no probado:
+la interfaz de EmuHawk (no se ha ejecutado), otros Kickstart.
+
+Presupuesto por maquina (`manifests/waterbox-memory.json`, `measured`, `measured_a600`, `measured_a1200`; el presupuesto de cada heap no cambia y no se reutiliza sin medir): mmap 5 586 944 B (A500), 5 046 272 B (A600) y 6 094 848 B (A1200, 36 % de los 16 MiB: 2 MiB de Chip y las tablas de AGA);
+snapshot tras 60 unidades 9 154 004, 9 137 620 y 10 186 196 B. Con AGA compilado el guest pesa unos 9,8 MB mas de imagen (T24b); las medidas de las tres maquinas se vuelven a grabar con `--record-memory` cuando cambia el guest, y ninguna pasa de la mitad de su presupuesto (lo exigen los tests de `tests/waterbox-smoke`). Las peliculas del core UAE de BizHawk se
 rechazan por su cabecera y no se convierten. Los contadores de lag y de ciclos son los de la propia grabacion (el golden es la grabacion: si una reproduccion difiere, se corrige el
 motor o el core, nunca la pelicula).
 

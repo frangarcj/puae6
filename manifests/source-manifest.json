@@ -3,7 +3,7 @@
   "status": "host-contracts-planned",
   "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
   "profile": "deterministic-a500",
-  "preset": "cfgfile.cpp: built_in_prefs(model=0, config=0, compa=0) = A500: 68000 CE, OCS, Chip512K/Slow512K, RTC MSM6242B; built_in_prefs(model=2, config=0, compa=0) = A600: 68000 CE, ECS Agnus+Denise, Chip1M, sin Slow, sin RTC, sin Gayle (cs_ide=cs_pcmcia=cs_compatible=0, cs_ciaoverlay=1; config/profiles/a600-ecs.json); PAL/NTSC explicito",
+  "preset": "cfgfile.cpp: built_in_prefs(model=0, config=0, compa=0) = A500: 68000 CE, OCS, Chip512K/Slow512K, RTC MSM6242B; built_in_prefs(model=2, config=0, compa=0) = A600: 68000 CE, ECS Agnus+Denise, Chip1M, sin Slow, sin RTC, sin Gayle (cs_ide=cs_pcmcia=cs_compatible=0, cs_ciaoverlay=1; config/profiles/a600-ecs.json); built_in_prefs(model=4, config=0, compa=0) = A1200: 68EC020 CE (cpuemu_21), AGA Alice+Lisa, Chip2M, sin Slow/Fast, sin RTC, sin Gayle (mismos overrides cs_*, waiting_blits=0; config/profiles/a1200-aga.json, T24b); PAL/NTSC explicito",
   "audit_sources": [
     "newcpu.cpp",
     "newcpu_common.cpp",
@@ -127,7 +127,7 @@
       "USE_LONG_DOUBLE",
       "TOD_HACK"
     ],
-    "runtime_constraints": "cpu_model=68000, cpu_cycle_exact=cpu_memory_cycle_exact=blitter_cycle_exact=true; cachesize=0; cpu_thread=false; keyboard_mode=0; dongle=0; tod_hack=false; input_autoswitchleftright=false; floppy_read_only=true; semilla/epocaRTC/PAL-NTSC explicitos. Deshabilitar host pacing y arranque Denise requiere parches, no solo prefs.",
+    "runtime_constraints": "cpu_model=68000 (A500/A600) o 68020 de 24 bits sin FPU/MMU (A1200), cpu_cycle_exact=cpu_memory_cycle_exact=blitter_cycle_exact=true; cachesize=0; cpu_thread=false; keyboard_mode=0; dongle=0; tod_hack=false; input_autoswitchleftright=false; floppy_read_only=true; semilla/epocaRTC/PAL-NTSC explicitos. Deshabilitar host pacing y arranque Denise requiere parches, no solo prefs.",
     "state_policy": "Retener inicialmente savestate.cpp por globals/helpers compartidos; aislar persistencia, rewind y formato legado del host. No exponer estados nativos hasta T15 ni prometer formato WinUAE. Waterbox captura memoria causal.",
     "excluded_units": {
       "ersatz.cpp": "Firmware del usuario obligatorio; quitar fallback AROS de memory.cpp y ruta Ersatz, error de carga explicito",
@@ -251,8 +251,8 @@
     "libretro-core.c": "Referencia de frontend antiguo; reutilizar semantica de frame mediante bridge neutral",
     "capsimg": "IPF fuera de M1; licencia y alternativa MAME pendientes de revision propia",
     "genp2c/gencomp": "Sin invocacion genp2c hallada en proyectos actuales; gencomp es JIT excluido. No agregar por glob.",
-    "gayle.cpp/ide.cpp": "El A600 real tiene Gayle (IDE, PCMCIA); el preset A600 de PUAE6 no: cs_ide=cs_pcmcia=cs_compatible=0 y gayle.cpp/ide.cpp no se compilan (T23a). Un dispositivo soportado nunca se simula con stubs de exito.",
-    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "Fuera de A500 M1; no enlazar por conveniencia",
+    "gayle.cpp/ide.cpp": "El A600 y el A1200 reales tienen Gayle (IDE, PCMCIA); los presets A600 y A1200 de PUAE6 no: cs_ide=cs_pcmcia=cs_compatible=0 y gayle.cpp/ide.cpp no se compilan (T23a, T24b); $DE1000 sin Gayle cae en el espejo de custom. El IDE es T56. Un dispositivo soportado nunca se simula con stubs de exito.",
+    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "Fuera de los perfiles A500/A600/A1200 (el A1200 es 68EC020 sin FPU: FPUEMU y MMUEMU siguen apagados, T54/T55); no enlazar por conveniencia",
     "red/hostfs/dispositivos fisicos/plugins/archives": "Sin backend ni contrato determinista M1; rechazo explicito"
   },
   "unresolved": [

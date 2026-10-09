@@ -10841,7 +10841,7 @@
       "title": "Añadir A1200/AGA y 68020 interpretado",
       "milestone": "M2",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T23",
         "T24a",
@@ -10867,7 +10867,8 @@
         "docs/03-waterbox.md",
         "docs/04-validation.md",
         "docs/adr/**",
-        "tools/check.py"
+        "tools/check.py",
+        "tests/state/test_fmode_transient.py"
       ],
       "steps": [
         "Seleccionar las fuentes y generacion 68020/AGA del upstream, sin JIT/FPU/MMU y sin duplicar el motor.",
@@ -10875,7 +10876,8 @@
         "Probar bitplanes/paleta/copper/blitter/CPU y modos de video con fixtures y referencia.",
         "Repetir restore nativo y Waterbox, load/unload y audio en todas las configuraciones publicadas.",
         "Division (2026-10-08): T24a (68020 CE generado y seleccionado), T24b (maquina A1200/AGA + KS 3.1), T24c (estado), T24d (escenarios AV), T24e (libretro), T24f (BizHawk/Waterbox); T24 es el cierre: tabla de capacidades, SAFE01 para T24 en tools/check.py y el gate completo en A500+A600+A1200.",
-        "Hallazgo de T24c (2026-10-09): tras cargar un estado, fetchmode_fmode_spr y fmode_denise quedan unos CCK por detras hasta que dispara la cola (converge en menos de una linea; ningun escenario DET02 lo ve). Antes de cerrar, buscar un escenario que lo haga visible (sprite al principio de linea justo tras la carga con FMODE pendiente); si diverge, corregirlo; si no, documentar por que es inocuo."
+        "Hallazgo de T24c (2026-10-09): tras cargar un estado, fetchmode_fmode_spr y fmode_denise quedan unos CCK por detras hasta que dispara la cola (converge en menos de una linea; ningun escenario DET02 lo ve). Antes de cerrar, buscar un escenario que lo haga visible (sprite al principio de linea justo tras la carga con FMODE pendiente); si diverge, corregirlo; si no, documentar por que es inocuo.",
+        "Ampliacion de touch (2026-10-09): el reproductor del transitorio de FMODE es un DET02 y va en tests/state para que lo recoja la suite de estado (run_parallel --suite state)."
       ],
       "checks": [
         "GEN01",

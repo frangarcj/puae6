@@ -143,6 +143,17 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
      cursores por el parche 0109). El punto 6 supuso el anillo ocioso en la frontera; un programa que reescribe FMODE sin parar lo mantiene lleno y las primeras posiciones de una
      linea dependen de lo que las ranuras guardan de la vuelta anterior del anillo y de donde esta el cursor (DET02 `aga-fmode-toggle`, imagen reiniciada: veinte pixeles a la izquierda
      de la primera linea del display distintos tres cuadros despues de la carga; poniendo solo `rga_denise_cycle` al valor del original, la imagen era la del original).
+   - **Transitorio de FMODE tras una carga (hallazgo de T24c, cerrado en T24): inocuo, medido, no corregido.** La maquina cargada tiene `fetchmode_fmode_bpl/spr` (Agnus) y `fmode_denise`/
+     `denise_sprfmode`/`denise_bplfmode` (Denise) con el FMODE de los registros desde la carga, y la original los cambia despues: Agnus al disparar el evento `setup_fmodes_delayed` (id 12, 2 CCK tras
+     la escritura) y Denise cuando su pase de linea consume la ranura de FMODE del anillo (que DRNG lleva). Con una escritura de FMODE por el Copper en la linea 3, CCK $DE, el evento queda pendiente en la frontera
+     de unidad (el probe lo confirma en la tabla de eventos). Medido con lldb sobre `p6_state_probe` (A1200, estado de la unidad 3 cargado en un proceso nuevo): la original dispara el evento en (vpos 4, hpos 4)
+     y su Denise toma el FMODE nuevo en el pase de la linea 4, que corre en (4, 22); la cargada tiene los valores de Agnus 1 CCK antes y los de Denise desde la carga. No hay consumidor en medio: una unidad
+     acaba en el borrado vertical (vpos 4, hpos 3 o 4), el DMA de planos empieza en el CCK $18 como pronto, el DMA de sprites no corre por encima de la linea 25 (un sprite con vstart 5 no aparece: su imagen es la
+     del programa sin sprite), y Denise solo se mueve en sus pases, cuyo primer paso tras la carga consume la ranura de FMODE antes que cualquier otra (`do_denise_cck` -> `expand_fmode`), y despues las de
+     SPRxPOS/SPRxCTL/DATA que el Copper escribe tras la frontera, en el mismo orden que la original. `tests/state/test_fmode_transient.py` pone el peor caso (fetch de 16, 32 y 64 bits en los dos sentidos, por
+     separado para planos y sprites, con y sin un sprite manual armado por el Copper en los CCK siguientes a la frontera, DDFSTRT $18) y comprueba que el evento esta pendiente en cada frontera guardada: 150 pruebas DET02
+     iguales en los cinco modos (misma imagen, imagen reiniciada, proceso nuevo, con y sin el haz puesto). Limite: la prueba vale para la frontera de un haz estandar (PAL y NTSC, borrado vertical hasta la linea 4); con un haz programado (BEAMCON0) que acabe la unidad en otro sitio no se ha buscado, y
+     si algun dia un programa lo hiciera visible, lo que faltaria en el estado seria el FMODE de Denise con su evento, no una tolerancia en DET02.
    - **P6AU**: el estado de un canal acepta tambien 0x13 (un canal en estado 3 al que se apaga el DMA sigue con un periodo manual y marca el estado con 0x10); la validacion lo rechazaba
      y el guardado fallaba. Es una correccion de la validacion, comun a las tres maquinas; el layout no cambia.
    - **Cota por maquina** (`retro_serialize_size`/`state_bound`, medidos en el probe): A500 3 608 513 bytes, A600 3 608 482 (31 menos: sin cuerpo de reloj), A1200 5 890 716. La del A1200 es
