@@ -10,7 +10,7 @@ using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200]
+///   core NAME [firmware=PATH] [adf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8]
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
 ///       "record" keeps each unit's input as BizHawk's own BK2 log entry
 ///   run NAME UNITS movie=FILE [silent=A-B]                       the input of each unit is read from a .bk2 by the core's frame number (after a load, from the frame of the state)
@@ -63,6 +63,9 @@ internal static unsafe partial class Program
 						Region = arguments.ContainsKey("ntsc") ? Puae6Region.NTSC : Puae6Region.PAL,
 						FloppyDrives = int.Parse(arguments.GetValueOrDefault("drives", "1")),
 						ControllerPort1 = arguments.GetValueOrDefault("port1", "mouse") == "joystick" ? Puae6Port1.Joystick : Puae6Port1.Mouse,
+						ChipMemory = Enum.Parse<Puae6Chip>(arguments.GetValueOrDefault("chip", "Auto")),
+						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
+						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "None")),
 					};
 					var make = new Dictionary<string, string>(fixedOptions);
 					if (arguments.TryGetValue("firmware", out var firmware)) make["firmware"] = firmware;

@@ -6,12 +6,13 @@
     "Never edit the generated files by hand: change this file and run python3 tools/generate_options.py.",
     "class 'reboot': part of the machine. It maps to a p6_config field, so it enters config_hash and the state identity; a change needs a reload and",
     "never moves the running machine or the state bound. class 'presentation': no effect on emulation; it is applied in place.",
-    "Only what the ABI honours is here (bridge/config.cpp validate_config). The CPU, the RAM and the ROM are not choices: they are listed under",
+    "Only what the ABI honours is here (bridge/config.cpp validate_config). The CPU and the ROM are not choices: they are listed under",
     "'unsupported' with the reason, which is the diagnostic a request for them gets. The machine is a choice between the presets the ABI has (T23d, T24e):",
     "the A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3), the A600 (ECS, 1 MiB Chip, no Slow RAM, Kickstart 2.05, without Gayle: no IDE and no PCMCIA)",
-    "and the A1200 (68EC020, AGA, 2 MiB Chip, no Slow or Fast RAM, Kickstart 3.1, without Gayle).",
-    "PUAE5 (libretro-uae) calls it puae_model: its A500 is this A500, but its A600 is a Kickstart 3.1 machine with 2 MiB Chip + 8 MiB Fast, which this one is not;",
-    "its A1200OG (2 MiB Chip) is this A1200, while its A1200 carries 8 MiB of Fast RAM (task T49). So the key is puae6_machine, with the values of the ABI, and no PUAE5 key is read.",
+    "and the A1200 (68EC020, AGA, 2 MiB Chip, no Slow or Fast RAM, Kickstart 3.1, without Gayle). T49 adds the memory as choices of their own: Chip RAM, Slow RAM and one Zorro II",
+    "Fast RAM board (autoconfig), each 'auto' (the machine's own) or a size; a size the machine cannot have is refused at load with the reason. 'presets' are the PUAE5-like bundles of a",
+    "model and its memory (PUAE5's A1200 has 8 MiB of Fast RAM and its A600 is a 2 MiB Chip + 8 MiB Fast machine): they are values of the options, not a new ABI field.",
+    "PUAE5 (libretro-uae) calls the machine puae_model: its A500 is this A500 and its A1200OG (2 MiB Chip) is this A1200 without Fast RAM. So the key is puae6_machine, with the values of the ABI, and no PUAE5 key is read.",
     "A value may carry \"wrapper\": false: the libretro core and headless offer it but the BizHawk wrapper does not yet (its sync setting enum lacks it). None is marked since T24f: the wrapper's Machine setting offers the three machines."
   ],
   "categories": [
@@ -35,7 +36,7 @@
         "key": "puae6_machine",
         "category": "machine",
         "label": "Model",
-        "info": "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200)."
+        "info": "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200)."
       },
       "headless": {"how": "choice", "flag": "--machine", "names": {"A500": "a500", "A600": "a600", "A1200": "a1200"}},
       "wrapper": {"how": "setting", "setting": "Machine", "type": "Puae6Machine"}
@@ -58,6 +59,72 @@
       },
       "headless": {"how": "flag", "flag": "--ntsc", "sets": "NTSC"},
       "wrapper": {"how": "setting", "setting": "Region", "type": "Puae6Region"}
+    },
+    {
+      "id": "chip_size",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.chip_kib",
+      "default": "Auto",
+      "values": [
+        {"value": "Auto", "abi": 0, "label": "Machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB)"},
+        {"value": "KB512", "abi": 512, "label": "512 KiB"},
+        {"value": "MB1", "abi": 1024, "label": "1 MiB"},
+        {"value": "MB2", "abi": 2048, "label": "2 MiB"}
+      ],
+      "libretro": {
+        "key": "puae6_chip_size",
+        "category": "machine",
+        "label": "Chip RAM",
+        "info": "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach."
+      },
+      "headless": {"how": "kib", "flag": "--chip"},
+      "wrapper": {"how": "setting", "setting": "ChipMemory", "type": "Puae6Chip"}
+    },
+    {
+      "id": "slow_size",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.slow_kib",
+      "default": "Auto",
+      "values": [
+        {"value": "Auto", "abi": 0, "label": "Machine's own (A500 512 KiB, A600 and A1200 none)"},
+        {"value": "None", "abi": 4294967295, "label": "None"},
+        {"value": "KB512", "abi": 512, "label": "512 KiB"},
+        {"value": "MB1", "abi": 1024, "label": "1 MiB"},
+        {"value": "MB1_5", "abi": 1536, "label": "1.5 MiB"},
+        {"value": "MB1_75", "abi": 1792, "label": "1.75 MiB"}
+      ],
+      "libretro": {
+        "key": "puae6_slow_size",
+        "category": "machine",
+        "label": "Slow RAM",
+        "info": "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and none on the A600 and the A1200. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most."
+      },
+      "headless": {"how": "kib", "flag": "--slow"},
+      "wrapper": {"how": "setting", "setting": "SlowMemory", "type": "Puae6Slow"}
+    },
+    {
+      "id": "fast_size",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.fast_kib",
+      "default": "None",
+      "values": [
+        {"value": "None", "abi": 0, "label": "None"},
+        {"value": "MB1", "abi": 1024, "label": "1 MiB"},
+        {"value": "MB2", "abi": 2048, "label": "2 MiB"},
+        {"value": "MB4", "abi": 4096, "label": "4 MiB"},
+        {"value": "MB8", "abi": 8192, "label": "8 MiB"}
+      ],
+      "libretro": {
+        "key": "puae6_fast_size",
+        "category": "machine",
+        "label": "Fast RAM (Zorro II)",
+        "info": "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board."
+      },
+      "headless": {"how": "kib", "flag": "--fast"},
+      "wrapper": {"how": "setting", "setting": "FastMemory", "type": "Puae6Fast"}
     },
     {
       "id": "audio_rate_hz",
@@ -162,14 +229,27 @@
       "wrapper": {"how": "none"}
     }
   ],
+  "presets": [
+    {
+      "id": "a1200_fast8",
+      "label": "A1200 + 8 MiB Fast RAM (PUAE5's A1200)",
+      "values": {"machine": "A1200", "fast_size": "MB8"},
+      "note": "The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand."
+    },
+    {
+      "id": "a600_puae5",
+      "label": "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)",
+      "values": {"machine": "A600", "chip_size": "MB2", "fast_size": "MB8"},
+      "note": "PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested)."
+    }
+  ],
   "reserved": [
     {"id": "floppy_drives", "for": "a later media task", "wrapper_setting": "FloppyDrives", "why": "How many of the given disks start in a drive is a media placement made with media events (DF0 and DF1 exist in the bridge); libretro drives DF0 alone from Disk Control, so there is nothing to offer yet."}
   ],
   "unsupported": [
     {"key": "cpu_model", "why": "The 68000 at the A500 clock is the only CPU the generated tables cover."},
-    {"key": "chipmem_size", "why": "ABI v1 fixes 512 KiB of Chip RAM."},
-    {"key": "bogomem_size", "why": "ABI v1 fixes 512 KiB of Slow RAM."},
-    {"key": "fastmem_size", "why": "The A500 profile has no Fast RAM."},
+    {"key": "z3fastmem_size", "why": "Zorro III RAM needs a 32-bit bus (68030 and up, T55); every machine here has a 24-bit one."},
+    {"key": "fastmem2_size", "why": "One Zorro II Fast RAM board is offered; a second board is not."},
     {"key": "kickstart_rom_file", "why": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration."},
     {"key": "floppy_speed", "why": "Turbo floppy would change the timing of the machine; the profile fixes the real drive speed."},
     {"key": "cpu_speed", "why": "The machine runs at its real clock; the host speed never changes the emulation."},

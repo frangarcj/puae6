@@ -61,6 +61,7 @@ inline bool read_options(retro_environment_t environment, p6_options::Settings *
         }
         settings->*option.field = option.values[i].number;
     }
+    p6_options::apply_preset(settings);       // a preset the person chose lies over the model and the memory options (T49)
     return true;
 }
 

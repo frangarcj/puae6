@@ -199,10 +199,36 @@ class NormalizationTests(unittest.TestCase):
     def test_nothing_requested_gives_the_defaults(self):
         document = schema()
         normalized = gen.normalize_config(document, {})
-        self.assertEqual(normalized, {"machine": "A500", "video_standard": "PAL", "audio_rate_hz": "48000", "random_seed": 1, "rtc_epoch_seconds": 946684800,
-                                      "floppy_writes": "disabled", "video_aspect": "pixel", "floppy_save": "off"})
+        self.assertEqual(normalized, {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "audio_rate_hz": "48000", "random_seed": 1,
+                                      "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled", "video_aspect": "pixel", "floppy_save": "off"})
         self.assertEqual(gen.to_p6_config(document, normalized),
-                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
+                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
+
+    def test_the_presets_are_bundles_of_the_options_and_give_the_memory_of_puae5(self):
+        # T49: PUAE5's A1200 has 8 MiB of Fast RAM and its A600 is a 2 MiB Chip + 8 MiB Fast machine. A preset is values of the options, so the ABI has no field for it.
+        document = schema()
+        self.assertEqual([entry["id"] for entry in document["presets"]], ["a1200_fast8", "a600_puae5"])
+        a1200 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {}), "a1200_fast8"))
+        self.assertEqual((a1200["machine"], a1200["chip_kib"], a1200["slow_kib"], a1200["fast_kib"]), (3, 0, 0, 8192))
+        a600 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {"fast_size": "MB1"}), "a600_puae5"))
+        self.assertEqual((a600["machine"], a600["chip_kib"], a600["slow_kib"], a600["fast_kib"]), (2, 2048, 0, 8192))
+        plain = gen.normalize_config(document, {"machine": "A600"})
+        self.assertEqual(gen.apply_preset(document, plain, "none"), plain)
+        with self.assertRaises(gen.ConfigError) as caught:
+            gen.apply_preset(document, plain, "a4000")
+        self.assertIn("none, a1200_fast8, a600_puae5", str(caught.exception))
+
+    def test_a_preset_that_names_a_value_the_option_does_not_have_is_a_schema_error(self):
+        document = schema()
+        document["presets"][0]["values"]["fast_size"] = "MB16"
+        with self.assertRaises(gen.SchemaError) as caught:
+            gen.validate_schema(document, gen.p6_config_fields())
+        self.assertIn("'MB16' is not a value of fast_size", str(caught.exception))
+        document = schema()
+        del document["presets"][1]["values"]["machine"]
+        with self.assertRaises(gen.SchemaError) as caught:
+            gen.validate_schema(document, gen.p6_config_fields())
+        self.assertIn("names at least the machine", str(caught.exception))
 
     def test_values_are_normalized_and_numbers_accept_text(self):
         document = schema()
@@ -274,7 +300,11 @@ class NormalizationTests(unittest.TestCase):
         self.refuses({"machine": 3}, "option machine", "allowed: A500, A600, A1200")
         self.refuses({"machine": 2}, "option machine", "allowed: A500, A600, A1200")
         self.refuses({"cpu_model": "68020"}, "option cpu_model is not supported: The 68000")
-        self.refuses({"chipmem_size": 2048}, "option chipmem_size is not supported")
+        self.refuses({"z3fastmem_size": 64}, "option z3fastmem_size is not supported: Zorro III RAM")
+        self.refuses({"fastmem2_size": 8}, "option fastmem2_size is not supported: One Zorro II Fast RAM board")
+        self.refuses({"chip_size": "3M"}, "option chip_size", "'3M'", "allowed: Auto, KB512, MB1, MB2")
+        self.refuses({"fast_size": "16M"}, "option fast_size", "allowed: None, MB1, MB2, MB4, MB8")
+        self.refuses({"slow_size": 512}, "option slow_size", "allowed: Auto, None, KB512, MB1, MB1_5, MB1_75")
         self.refuses({"kickstart_rom_file": "/etc/passwd"}, "never chosen by a path")
         self.refuses({"uae_config_file": "a.uae"}, "only the keys of this schema are accepted")
 
@@ -379,7 +409,10 @@ class GeneratorTests(unittest.TestCase):
     def test_the_table_has_the_normalized_p6_config_that_adapters_must_use(self):
         table = json.loads(gen.TABLE.read_text())
         self.assertEqual({name: entry["default"] for name, entry in table["p6_config"].items()},
-                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
+                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
+        self.assertEqual(table["p6_config"]["chip_kib"]["allowed"], [0, 512, 1024, 2048])
+        self.assertEqual(table["p6_config"]["slow_kib"]["allowed"], [0, 4294967295, 512, 1024, 1536, 1792])
+        self.assertEqual(table["p6_config"]["fast_kib"]["allowed"], [0, 1024, 2048, 4096, 8192])
         self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3])
         self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3})
         self.assertNotIn("wrapper_not_offered", table["adapters"]["machine"])

@@ -86,6 +86,12 @@ class HeadlessParity(Schema):
                     self.assertEqual(spellings, {spelling: self.number(option, value) for value, spelling in how["names"].items()},
                                      f"{how['flag']} does not take the spellings of the schema, or maps one to another value")
                     self.assertIn(f"config.{field} = {field};", self.source)
+                elif how["how"] == "kib":
+                    # T49: the memory sizes: --chip KIB, --slow KIB|none, --fast KIB. The locals start at 0 (the machine's own memory, or no Fast RAM), which is each default.
+                    self.assertEqual(default, 0, f"{name}: the schema default is not the 0 that headless starts with")
+                    self.assertRegex(self.source, rf"\b{field} = 0[,;]")
+                    self.assertRegex(self.source, rf'strcmp\(argv\[i\], "{re.escape(how["flag"])}"\)')
+                    self.assertIn(f"config.{field} = {field};", self.source)
                 elif how["how"] == "value":
                     local = re.search(rf"uint64_t seed = (\d+)[,;]", self.source)
                     self.assertIsNotNone(local, "headless has no local with the default of the value")
@@ -214,11 +220,17 @@ class LibretroParity(Schema):
             default = option["default"]
             expected = self.number(option, default) if option["type"] == "enum" else default
             self.assertEqual(int(found[name]), expected, f"Settings.{name} starts at {found[name]}, the schema default is {expected}")
-        self.assertEqual(set(found), set(self.options))
+        self.assertEqual(set(found), set(self.options) | {"preset"})
+        self.assertEqual(int(found["preset"]), 0, "the preset starts at none")
 
     def test_the_options_offered_are_the_exposed_ones_with_their_values_and_defaults(self):
         exposed = [o for o in self.schema["options"] if o["libretro"]]
         keys = re.findall(r'^    \{"(puae6_\w+)", (true|false), &Settings::(\w+), (\w+), (\d+), (\d+)\},$', self.header, re.M)
+        # The preset (T49) is offered right after the model and is no option of the schema: it lays the values of a preset over the options.
+        self.assertEqual([k[0] for k in keys].index("puae6_preset"), 1)
+        preset = [k for k in keys if k[0] == "puae6_preset"][0]
+        self.assertEqual((preset[1], preset[2], int(preset[4]), int(preset[5])), ("true", "preset", 1 + len(self.schema["presets"]), 0))
+        keys = [k for k in keys if k[0] != "puae6_preset"]
         self.assertEqual([k[0] for k in keys], [o["libretro"]["key"] for o in exposed])
         for (key, reboot, field, _, count, index), option in zip(keys, exposed):
             self.assertEqual((field, reboot == "true", int(count)), (option["id"], option["class"] == "reboot", len(option["values"])), key)
@@ -300,7 +312,8 @@ class AdaptersAgree(Schema):
         headless = read(HEADLESS)
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
-        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
+        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "audio_rate_hz": 48000, "random_seed": 1,
+                                    "rtc_epoch_seconds": 946684800, "flags": 0})
         for field, value in defaults.items():
             self.assertEqual(int(libretro[self.table["p6_config"][field]["option"]]), value, f"libretro {field}")
         self.assertRegex(headless, r"\bstandard = P6_VIDEO_PAL[,;]")

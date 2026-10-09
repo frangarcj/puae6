@@ -251,6 +251,7 @@ class ContentFuzzTests(unittest.TestCase):
                     # Only the value names of the schema were ever accepted, and each of them was.
                     allowed = {f"{option['libretro']['key']}={value['value']}" for option in self.schema["options"] if option["libretro"]
                                for value in option["values"]}
+                    allowed |= {f"puae6_preset={name}" for name in ["none"] + [preset["id"] for preset in self.schema["presets"]]}      # T49: the preset is offered beside the options
                     accepted = {m[1] for m in re.finditer(r"^options accepted (\S+): \d+$", text, re.M)}
                     self.assertEqual(accepted, allowed)
 

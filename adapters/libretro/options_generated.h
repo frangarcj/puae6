@@ -14,22 +14,47 @@ namespace p6_options {
 struct Settings {
     uint32_t machine = 1u;  // reboot, p6_config.machine = A500
     uint32_t video_standard = 1u;  // reboot, p6_config.video_standard = PAL
+    uint32_t chip_size = 0u;  // reboot, p6_config.chip_kib = Auto
+    uint32_t slow_size = 0u;  // reboot, p6_config.slow_kib = Auto
+    uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = None
     uint32_t audio_rate_hz = 48000u;  // reboot, p6_config.audio_rate_hz = 48000
     uint64_t random_seed = UINT64_C(1);  // reboot, p6_config.random_seed
     int64_t rtc_epoch_seconds = INT64_C(946684800);  // reboot, p6_config.rtc_epoch_seconds
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
     uint32_t video_aspect = 0u;  // presentation, presentation.video_aspect = pixel
     uint32_t floppy_save = 0u;  // presentation, presentation.floppy_save = off
+    uint32_t preset = 0u;  // reboot, a bundle of the options above (the schema's presets, apply_preset); 0 = none. Not a p6_config field
 };
 
 inline void to_config(const Settings &settings, p6_config *config)
 {
     config->machine = settings.machine;
     config->video_standard = settings.video_standard;
+    config->chip_kib = settings.chip_size;
+    config->slow_kib = settings.slow_size;
+    config->fast_kib = settings.fast_size;
     config->audio_rate_hz = settings.audio_rate_hz;
     config->random_seed = settings.random_seed;
     config->rtc_epoch_seconds = settings.rtc_epoch_seconds;
     config->flags = settings.floppy_writes;
+}
+
+// Lays the preset the person chose over the model and the memory options (read_options calls it once everything is read).
+inline void apply_preset(Settings *settings)
+{
+    switch (settings->preset) {
+    case 1u:  // a1200_fast8
+        settings->machine = 3u;
+        settings->fast_size = 8192u;
+        break;
+    case 2u:  // a600_puae5
+        settings->machine = 2u;
+        settings->chip_size = 2048u;
+        settings->fast_size = 8192u;
+        break;
+    default:
+        break;
+    }
 }
 
 // The options libretro offers: the value names the frontend stores and the number each stands for in Settings.
@@ -52,9 +77,35 @@ constexpr Value kMachineValues[] = {
     {"A600", 2u},
     {"A1200", 3u},
 };
+constexpr Value kPresetValues[] = {
+    {"none", 0u},
+    {"a1200_fast8", 1u},
+    {"a600_puae5", 2u},
+};
 constexpr Value kVideoStandardValues[] = {
     {"PAL", 1u},
     {"NTSC", 2u},
+};
+constexpr Value kChipSizeValues[] = {
+    {"Auto", 0u},
+    {"KB512", 512u},
+    {"MB1", 1024u},
+    {"MB2", 2048u},
+};
+constexpr Value kSlowSizeValues[] = {
+    {"Auto", 0u},
+    {"None", 4294967295u},
+    {"KB512", 512u},
+    {"MB1", 1024u},
+    {"MB1_5", 1536u},
+    {"MB1_75", 1792u},
+};
+constexpr Value kFastSizeValues[] = {
+    {"None", 0u},
+    {"MB1", 1024u},
+    {"MB2", 2048u},
+    {"MB4", 4096u},
+    {"MB8", 8192u},
 };
 constexpr Value kAudioRateHzValues[] = {
     {"44100", 44100u},
@@ -75,7 +126,11 @@ constexpr Value kFloppySaveValues[] = {
 
 constexpr Option kOptions[] = {
     {"puae6_machine", true, &Settings::machine, kMachineValues, 3, 0},
+    {"puae6_preset", true, &Settings::preset, kPresetValues, 3, 0},
     {"puae6_video_standard", true, &Settings::video_standard, kVideoStandardValues, 2, 0},
+    {"puae6_chip_size", true, &Settings::chip_size, kChipSizeValues, 4, 0},
+    {"puae6_slow_size", true, &Settings::slow_size, kSlowSizeValues, 6, 0},
+    {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 5, 0},
     {"puae6_audio_rate", true, &Settings::audio_rate_hz, kAudioRateHzValues, 2, 1},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 2, 0},
@@ -94,13 +149,29 @@ inline retro_core_option_v2_category kCategoriesV2[] = {
 
 inline retro_core_option_v2_definition kDefinitionsV2[] = {
     {"puae6_machine", "Model (Restart)", "Model (Restart)",
-     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.",
-     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}}, "A500"},
+    {"puae6_preset", "Preset (Restart)", "Preset (Restart)",
+     "A model and its memory in one choice, over the Model and the memory options (PUAE5-like machines). A1200 + 8 MiB Fast RAM (PUAE5's A1200): The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand.; A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600): PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "A model and its memory in one choice, over the Model and the memory options (PUAE5-like machines). A1200 + 8 MiB Fast RAM (PUAE5's A1200): The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand.; A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600): PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested). It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"none", "None (the model and the memory options below)"}, {"a1200_fast8", "A1200 + 8 MiB Fast RAM (PUAE5's A1200)"}, {"a600_puae5", "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)"}}, "none"},
     {"puae6_video_standard", "Video Standard (Restart)", "Video Standard (Restart)",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL"},
+    {"puae6_chip_size", "Chip RAM (Restart)", "Chip RAM (Restart)",
+     "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"Auto", "Machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}}, "Auto"},
+    {"puae6_slow_size", "Slow RAM (Restart)", "Slow RAM (Restart)",
+     "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and none on the A600 and the A1200. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and none on the A600 and the A1200. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"Auto", "Machine's own (A500 512 KiB, A600 and A1200 none)"}, {"None", "None"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB1_75", "1.75 MiB"}}, "Auto"},
+    {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "Fast RAM (Zorro II) (Restart)",
+     "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "Audio Sample Rate (Restart)",
      "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -123,8 +194,12 @@ inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};
 
 // retro_core_option (version 1): no categories.
 constexpr retro_core_option_definition kDefinitionsV1[] = {
-    {"puae6_machine", "Model (Restart)", "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}}, "A500"},
+    {"puae6_machine", "Model (Restart)", "The A500 is the OCS machine with Kickstart 1.3; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500: kick34005.A500, A600: kick37350.A600, A1200: kick40068.A1200). It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}}, "A500"},
+    {"puae6_preset", "Preset (Restart)", "A model and its memory in one choice, over the Model and the memory options (PUAE5-like machines). A1200 + 8 MiB Fast RAM (PUAE5's A1200): The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand.; A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600): PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested). It takes effect the next time the content is loaded; the running machine is not changed.", {{"none", "None (the model and the memory options below)"}, {"a1200_fast8", "A1200 + 8 MiB Fast RAM (PUAE5's A1200)"}, {"a600_puae5", "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)"}}, "none"},
     {"puae6_video_standard", "Video Standard (Restart)", "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.", {{"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL"},
+    {"puae6_chip_size", "Chip RAM (Restart)", "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}}, "Auto"},
+    {"puae6_slow_size", "Slow RAM (Restart)", "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and none on the A600 and the A1200. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (A500 512 KiB, A600 and A1200 none)"}, {"None", "None"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB1_75", "1.75 MiB"}}, "Auto"},
+    {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}}, "pixel"},
@@ -135,7 +210,11 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
 // Legacy SET_VARIABLES: "Description; default|other|..." (the default comes first).
 constexpr retro_variable kVariables[] = {
     {"puae6_machine", "Model (Restart); A500|A600|A1200"},
+    {"puae6_preset", "Preset (Restart); none|a1200_fast8|a600_puae5"},
     {"puae6_video_standard", "Video Standard (Restart); PAL|NTSC"},
+    {"puae6_chip_size", "Chip RAM (Restart); Auto|KB512|MB1|MB2"},
+    {"puae6_slow_size", "Slow RAM (Restart); Auto|None|KB512|MB1|MB1_5|MB1_75"},
+    {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); None|MB1|MB2|MB4|MB8"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart); 48000|44100"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3"},

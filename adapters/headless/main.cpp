@@ -2,7 +2,7 @@
 // dependency, reports the identity of the build and what the native ABI implements, and runs a
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
-//   p6_headless --run ROM [--machine a500|a600|a1200] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
+//   p6_headless --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
 #include "p6.h"
 #include "sha256.h"
@@ -104,6 +104,7 @@ static int run(int argc, char **argv)
     const char *rom_path = nullptr, *dump = nullptr, *disk_path = nullptr;
     uint32_t units = 1, standard = P6_VIDEO_PAL, machine = P6_MACHINE_A500;
     uint64_t seed = 1, dump_from = 1;
+    uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;       // 0: the machine's own memory (T49); slow "none" is P6_MEMORY_NONE
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
@@ -117,6 +118,9 @@ static int run(int argc, char **argv)
             else if (!strcmp(name, "a1200")) machine = P6_MACHINE_A1200;
             else return -1;
         }
+        else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
+        else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
         else return -1;
@@ -137,6 +141,9 @@ static int run(int argc, char **argv)
     config.flags = 0;        // floppy writes are for the adapters that can export a disk
     config.random_seed = seed;
     config.rtc_epoch_seconds = 946684800;   // 2000-01-01T00:00:00Z, the contract's default
+    config.chip_kib = chip_kib;
+    config.slow_kib = slow_kib;
+    config.fast_kib = fast_kib;
     p6_error error = make_error();
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
@@ -203,7 +210,7 @@ int main(int argc, char **argv)
         const int code = run(argc, argv);
         if (code >= 0) return code;
     }
-    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
+    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
             argv[0], argv[0]);
     return 64;
 }

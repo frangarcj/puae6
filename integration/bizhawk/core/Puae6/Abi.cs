@@ -28,7 +28,8 @@ public static class P6
 	public const uint FieldProgressive = 0, FieldEven = 1, FieldOdd = 2;
 	public const uint FrameLag = 1u << 0, FrameNoVideo = 1u << 1, FrameDriveLight = 1u << 2;
 	public const uint RenderVideo = 1u << 0, RenderAudio = 1u << 1;
-	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3;
+	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4;
+	public const uint MemoryNone = uint.MaxValue;
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
 	public const int AdfBytes = 901120;                          // the only medium of ABI v1: an 880 KiB ADF
 
@@ -50,7 +51,9 @@ public unsafe struct P6Config
 	public uint Machine, VideoStandard, AudioRateHz, Flags;     // flags must be zero in ABI v1
 	public ulong RandomSeed;
 	public long RtcEpochSeconds;                                 // UTC; never read from the host clock
-	public fixed ulong Reserved[4];
+	public uint ChipKib, SlowKib, FastKib;                       // 0: the machine's own memory; P6.MemoryNone (Slow, Fast): none
+	public uint Reserved32;
+	public fixed ulong Reserved[2];
 }
 
 [StructLayout(LayoutKind.Sequential)]

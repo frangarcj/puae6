@@ -878,6 +878,10 @@ class LibretroTests(LibretroHarness):
 
     def test_the_options_are_offered_through_v2_v1_and_the_legacy_interface_as_the_schema_says(self):
         schema, exposed = self.schema_options()
+        # T49: the preset is offered right after the model; it is no option of the schema (it lays the values of a preset over the model and the memory).
+        preset = {"libretro": {"key": "puae6_preset", "category": "machine"}, "default": "none", "class": "reboot",
+                  "values": [{"value": "none"}] + [{"value": entry["id"]} for entry in schema["presets"]]}
+        exposed = exposed[:1] + [preset] + exposed[1:]
         reference = None
         for api in (2, 1, 0):
             with self.subTest(api=api):

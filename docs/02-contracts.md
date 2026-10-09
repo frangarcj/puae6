@@ -349,9 +349,14 @@ siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fast
 Cotas de estado medidas (micro-ROM): A500 3 608 513, A600 3 608 482, A1200 5 890 716 (sin cambios); A500 con 2 MiB de Fast 5 705 947; A600 con 2 MiB de Chip y 8 MiB de Fast 13 045 948;
 A1200 con 8 MiB de Fast 14 279 606; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 758.
 
+Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` (Auto, KB512, MB1, MB2), `puae6_slow_size` (Auto, None, KB512, MB1, MB1_5, MB1_75) y
+`puae6_fast_size` (None, MB1, MB2, MB4, MB8), headless `--chip KIB`, `--slow KIB|none` y `--fast KIB`, y los sync settings de BizHawk `ChipMemory`, `SlowMemory` y `FastMemory` (el heap mmap
+de Waterbox crece con la memoria pedida por encima de la propia de la maquina, ver `manifests/waterbox-memory.json`). Un tamano que la maquina no puede tener hace fallar la carga con la razon
+del puente; uno que el esquema no tiene, nombrando la clave y el valor. Cambiar una de ellas con la maquina en marcha solo se avisa y se aplica al volver a cargar (la cota de estado no se mueve).
+
 Presets publicados junto a los de serie (`config/schema/options.json`, `presets`): `a1200_fast8` (el A1200 de PUAE5: A1200 con 8 MiB de Fast) y `a600_puae5` (A600 con 2 MiB de Chip y
 8 MiB de Fast; el A600 de PUAE5 lleva ademas Gayle y el Kickstart 3.1 de su modelo, que este no: corre el Kickstart que se le da, y el 2.05 es el probado). Son combinaciones de
-opciones, no un campo nuevo de la ABI.
+opciones, no un campo nuevo de la ABI: libretro los ofrece como `puae6_preset` (none, a1200_fast8, a600_puae5), que se aplica sobre el modelo y la memoria elegidos.
 
 ## ROMs, discos y persistencia
 

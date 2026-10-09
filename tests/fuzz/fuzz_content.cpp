@@ -432,15 +432,18 @@ int fuzz_options(uint64_t seed, uint64_t iterations)
         if (accepted != ((bad == nullptr) != selftest())) bug("read_options and the oracle disagree", iteration, first_kind + " " + why);
         if (accepted) {
             if (!why.empty()) bug("an accepted set of options left a message", iteration, why);
+            // What the frontend holds, with the preset it names (T49) laid over the model and the memory as the core does after reading everything.
+            p6_options::Settings expected = before;
             for (const p6_options::Option &option : p6_options::kOptions) {
                 const auto found = held.find(option.key);
-                uint32_t wanted = before.*option.field;
                 if (found != held.end()) {
-                    for (unsigned i = 0; i < option.count; ++i) if (found->second == option.values[i].name) wanted = option.values[i].number;
+                    for (unsigned i = 0; i < option.count; ++i) if (found->second == option.values[i].name) expected.*option.field = option.values[i].number;
                     ++accepted_values[std::string(option.key) + "=" + found->second];
                 }
-                if (settings.*option.field != wanted) bug("a setting that is not the one the frontend holds", iteration, option.key);
             }
+            p6_options::apply_preset(&expected);
+            for (const p6_options::Option &option : p6_options::kOptions)
+                if (settings.*option.field != expected.*option.field) bug("a setting that is not the one the frontend holds", iteration, option.key);
             if (held.empty()) ++all_defaults;
         } else {
             if (!bad) bug("refused with nothing wrong", iteration);

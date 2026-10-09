@@ -29,6 +29,63 @@
       "option": "video_standard",
       "class": "reboot"
     },
+    "chip_kib": {
+      "default": 0,
+      "allowed": [
+        0,
+        512,
+        1024,
+        2048
+      ],
+      "names": {
+        "Auto": 0,
+        "KB512": 512,
+        "MB1": 1024,
+        "MB2": 2048
+      },
+      "option": "chip_size",
+      "class": "reboot"
+    },
+    "slow_kib": {
+      "default": 0,
+      "allowed": [
+        0,
+        4294967295,
+        512,
+        1024,
+        1536,
+        1792
+      ],
+      "names": {
+        "Auto": 0,
+        "None": 4294967295,
+        "KB512": 512,
+        "MB1": 1024,
+        "MB1_5": 1536,
+        "MB1_75": 1792
+      },
+      "option": "slow_size",
+      "class": "reboot"
+    },
+    "fast_kib": {
+      "default": 0,
+      "allowed": [
+        0,
+        1024,
+        2048,
+        4096,
+        8192
+      ],
+      "names": {
+        "None": 0,
+        "MB1": 1024,
+        "MB2": 2048,
+        "MB4": 4096,
+        "MB8": 8192
+      },
+      "option": "fast_size",
+      "class": "reboot"
+    },
     "audio_rate_hz": {
       "default": 48000,
       "allowed": [
@@ -129,6 +186,42 @@
       },
       "libretro": "puae6_video_standard"
     },
+    "chip_size": {
+      "headless": {
+        "how": "kib",
+        "flag": "--chip"
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "ChipMemory",
+        "type": "Puae6Chip"
+      },
+      "libretro": "puae6_chip_size"
+    },
+    "slow_size": {
+      "headless": {
+        "how": "kib",
+        "flag": "--slow"
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "SlowMemory",
+        "type": "Puae6Slow"
+      },
+      "libretro": "puae6_slow_size"
+    },
+    "fast_size": {
+      "headless": {
+        "how": "kib",
+        "flag": "--fast"
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "FastMemory",
+        "type": "Puae6Fast"
+      },
+      "libretro": "puae6_fast_size"
+    },
     "audio_rate_hz": {
       "headless": {
         "how": "fixed"
@@ -191,14 +284,30 @@
       "libretro": "puae6_floppy_save"
     }
   },
+  "presets": {
+    "a1200_fast8": {
+      "label": "A1200 + 8 MiB Fast RAM (PUAE5's A1200)",
+      "values": {
+        "machine": "A1200",
+        "fast_size": "MB8"
+      }
+    },
+    "a600_puae5": {
+      "label": "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)",
+      "values": {
+        "machine": "A600",
+        "chip_size": "MB2",
+        "fast_size": "MB8"
+      }
+    }
+  },
   "reserved": {
     "floppy_drives": "FloppyDrives"
   },
   "unsupported": {
     "cpu_model": "The 68000 at the A500 clock is the only CPU the generated tables cover.",
-    "chipmem_size": "ABI v1 fixes 512 KiB of Chip RAM.",
-    "bogomem_size": "ABI v1 fixes 512 KiB of Slow RAM.",
-    "fastmem_size": "The A500 profile has no Fast RAM.",
+    "z3fastmem_size": "Zorro III RAM needs a 32-bit bus (68030 and up, T55); every machine here has a 24-bit one.",
+    "fastmem2_size": "One Zorro II Fast RAM board is offered; a second board is not.",
     "kickstart_rom_file": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration.",
     "floppy_speed": "Turbo floppy would change the timing of the machine; the profile fixes the real drive speed.",
     "cpu_speed": "The machine runs at its real clock; the host speed never changes the emulation.",

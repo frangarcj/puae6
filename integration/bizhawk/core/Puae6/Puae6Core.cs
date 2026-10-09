@@ -40,11 +40,35 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
 	public const int MaxWidth = 760, MaxHeight = 576, MaxAudioFrames = 8192;
 
-	// The heaps are part of what a snapshot is compatible with; they are the budgets of manifests/waterbox-memory.json (a test compares them).
-	public static WaterboxOptions Heaps() => new()
+	// The heaps are part of what a snapshot is compatible with; they are the budgets of manifests/waterbox-memory.json (a test compares them). The mmap heap holds
+	// Chip, Slow and Fast RAM among other large blocks, so it grows with the memory the settings ask for beyond the machine's own (T49: twice the extra memory, which
+	// keeps the rule of the manifest, a budget of at least twice what was measured; the measurements are recorded per configuration).
+	public static WaterboxOptions Heaps() => Heaps(new Puae6SyncSettings());
+
+	public static WaterboxOptions Heaps(Puae6SyncSettings settings) => new()
 	{
-		SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = 16384,
+		SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = 16384 + 2 * ExtraMemoryKiB(settings),
 	};
+
+	// What each machine comes with, in KiB: Chip, Slow.
+	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch { Puae6Machine.A1200 => (2048u, 0u), Puae6Machine.A600 => (1024u, 0u), _ => (512u, 512u) };
+
+	static uint ChipKib(Puae6Chip chip) => chip switch { Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB2 => 2048u, _ => 0u };
+
+	static uint SlowKib(Puae6Slow slow) => slow switch { Puae6Slow.None => P6.MemoryNone, Puae6Slow.KB512 => 512u, Puae6Slow.MB1 => 1024u, Puae6Slow.MB1_5 => 1536u, Puae6Slow.MB1_75 => 1792u, _ => 0u };
+
+	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
+
+	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
+	static int ExtraMemoryKiB(Puae6SyncSettings settings)
+	{
+		var (ownChip, ownSlow) = OwnMemory(settings.Machine);
+		uint chip = ChipKib(settings.ChipMemory), slow = SlowKib(settings.SlowMemory);
+		long extra = FastKib(settings.FastMemory);
+		if (chip > ownChip) extra += chip - ownChip;
+		if (slow != P6.MemoryNone && slow > ownSlow) extra += slow - ownSlow;
+		return (int)extra;
+	}
 
 
 	readonly Puae6Guest _guest;
@@ -91,7 +115,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
 		_aspectNum = 1; _aspectDen = 1;
 
-		var heaps = Heaps();
+		var heaps = Heaps(_syncSettings);
 		_guest = parameters.PinnedGuestSha256 is { } pin
 			? Puae6Guest.Open(parameters.GuestDirectory, parameters.GuestFileName, pin, heaps)
 			: Puae6Guest.Open(parameters.GuestDirectory, parameters.GuestFileName, heaps);
@@ -138,6 +162,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.Flags = 0;      // floppy writes: the wrapper keeps every disk write protected until its export is wired (T27c)
 		init.Config.RandomSeed = _syncSettings.RandomSeed;
 		init.Config.RtcEpochSeconds = _syncSettings.RtcEpochSeconds;
+		init.Config.ChipKib = ChipKib(_syncSettings.ChipMemory);
+		init.Config.SlowKib = SlowKib(_syncSettings.SlowMemory);
+		init.Config.FastKib = FastKib(_syncSettings.FastMemory);
 		fixed (byte* rom = firmware)
 		{
 			init.Firmware = rom;
@@ -216,9 +243,12 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	StateIdentity MakeIdentity(byte[] firmware)
 	{
-		var heaps = Heaps();
+		var heaps = Heaps(_syncSettings);
+		// The memory enters the identity only when it is not the machine's own: the identity of a core with the stock memory is the one it always had.
+		string memory = _syncSettings.ChipMemory == Puae6Chip.Auto && _syncSettings.SlowMemory == Puae6Slow.Auto && _syncSettings.FastMemory == Puae6Fast.None
+			? "" : $";chip={_syncSettings.ChipMemory};slow={_syncSettings.SlowMemory};fast={_syncSettings.FastMemory}";
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
-			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000";
+			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;
 		byte[] ConfigHash(Puae6Machine machine) => StateEnvelope.Sha256(Encoding.UTF8.GetBytes(Config(machine)));
 		// The same settings on each of the other machines: a state or a movie that carries one of these hashes was made on that Amiga, and the refusal can say so.
 		var others = new Dictionary<string, byte[]>();
