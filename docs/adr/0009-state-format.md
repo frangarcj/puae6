@@ -202,6 +202,21 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
   estado de chipset y scheduler; a comparar con los 9,1 MB del snapshot Waterbox tras una unidad, que captura paginas enteras.
 - Cada actualizacion de upstream cambia `patch_series_hash` y por tanto invalida los estados guardados: es intencionado.
 
+10. **Revision 2026-10-09 (T49): memoria configurable y una placa de Fast RAM Zorro II.** Mismo contenedor (once chunks, mismas etiquetas, orden y version 1) y la misma regla: el
+    cuerpo de un chunk sigue a la configuracion, que forma parte de la identidad. Una maquina cuya memoria es la de su preset no cambia un solo byte (el layout, la cota y el
+    `config_hash` del A500, el A600 y el A1200 son los de antes).
+    - **`config_hash`**: el sobre no cambia (`machine`, `video_standard`, `audio_rate_hz`, `flags`, `random_seed`, `rtc_epoch_seconds`). La memoria entra en la palabra `flags` del
+      hash cuando NO es la del preset: bit 31, `fast_kib / 1024` en los bits 8 a 11, `slow_kib / 64` en 12 a 16 y `chip_kib / 64` en 17 a 22; los bits 0 a 7 siguen siendo `p6_config.flags` (T27 usa el 0) (con los tamanos efectivos: pedir la
+      memoria propia de la maquina, con ceros o con sus tamanos, es la misma configuracion). `p6_config.flags` solo lleva banderas definidas (`validate_config` rechaza cualquier otro bit), de modo que la memoria nunca choca con ellas.
+    - **P6RM**: con Fast RAM el cuerpo anade, tras Chip y Slow, `ram.fast_size` (u32, el configurado, no el asignado: la placa se asigna al cargar la imagen y la cota y la
+      validacion de una imagen que no ha empezado lo conocen), los bytes de la placa y el bloque de la cadena autoconfig (22 campos y 256 bytes de nibbles; parche 0112): la tarjeta
+      en la que esta el invitado, el byte bajo de la base a medio escribir, los nibbles que presenta, la base de la placa (la que sugiere la cadena, la que le dio el invitado, o
+      `$FFFFFFFF` tras un shut-up), si responde en esa base y si la ventana de `$E80000` sigue contestando. El `apply` desmapea la placa viva, pone la cadena y mapea la placa donde
+      la tenia el estado (`map_banks_z2`); el mapa de bancos y las tablas CE siguen siendo derivados. Cada campo se valida en rango y contra los demas antes de tocar nada.
+    - **Cota**: la del preset mas `4 + fast + 278` bytes (278 = el bloque de la cadena); es la misma antes de la primera unidad y despues.
+    - Prueba: `tests/state/test_state_fast.py` (layout, cota, identidad, rechazo campo a campo, DET02 en cada paso de la cadena en el A1200, el A600 y el A500) y, con firmware autorizado,
+      `tests/state/test_det02_fast.py` (Kickstart 1.3, 2.05 con el Workbench 2.05, y 3.1 con una demo AGA).
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

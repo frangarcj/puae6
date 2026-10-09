@@ -65,6 +65,17 @@ p6_config valid_config(uint32_t machine = P6_MACHINE_A500)
     return c;
 }
 
+// The memory rules of p6_config (T49), written again from the header comments: 0 is the machine's own, P6_MEMORY_NONE is none. The A500 has an OCS Agnus (Chip RAM 512 KiB or 1 MiB),
+// AGA maps 1.5 MiB of Slow RAM at most, and the Fast RAM board is 1, 2, 4 or 8 MiB.
+bool memory_accepted(const p6_config &c)
+{
+    const bool a500 = c.machine == P6_MACHINE_A500, aga = c.machine == P6_MACHINE_A1200;
+    const bool chip = c.chip_kib == 0 || c.chip_kib == 512 || c.chip_kib == 1024 || (!a500 && c.chip_kib == 2048);
+    const bool slow = c.slow_kib == 0 || c.slow_kib == P6_MEMORY_NONE || c.slow_kib == 512 || c.slow_kib == 1024 || c.slow_kib == 1536 || (!aga && c.slow_kib == 1792);
+    const bool fast = c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE || c.fast_kib == 1024 || c.fast_kib == 2048 || c.fast_kib == 4096 || c.fast_kib == 8192;
+    return chip && slow && fast;
+}
+
 // The rules of ABI v1, written again here from the header comments: the fuzzer's oracle.
 bool oracle_accepts(const p6_config &c)
 {
@@ -72,9 +83,9 @@ bool oracle_accepts(const p6_config &c)
     static const bool inverted = getenv("P6_FUZZ_SELFTEST") != nullptr;
     return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && (c.machine == P6_MACHINE_A500 || c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
-           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && !c.reserved[0] &&
-           !c.reserved[1] && !c.reserved[2] && !c.reserved[3] && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
-           c.rtc_epoch_seconds <= INT64_C(253402300799);
+           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && !c.reserved32 && !c.reserved[0] &&
+           !c.reserved[1] && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
+           c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);
 }
 
 bool message_is_bounded(const p6_error &e)
@@ -96,13 +107,20 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
         p6_config c = valid_config();
         unsigned char *raw = reinterpret_cast<unsigned char *>(&c);
         for (unsigned edits = rng.below(4); edits--;) {
-            switch (rng.below(4)) {
+            switch (rng.below(5)) {
             case 0: raw[rng.below(sizeof c)] ^= uint8_t(1u << rng.below(8)); break;
             case 1: raw[rng.below(sizeof c)] = uint8_t(rng.next()); break;
             case 2: {   // a whole aligned field set to a boundary value
                 const uint64_t v = kBoundary[rng.below(sizeof kBoundary / sizeof kBoundary[0])];
                 const unsigned at = rng.below(sizeof c / 4) * 4;
                 memcpy(raw + at, &v, at + 8 <= sizeof c && rng.coin() ? 8 : 4);
+                break;
+            }
+            case 3: {   // a size next to the ones the machines have
+                static const uint32_t sizes[] = {0, 256, 512, 1024, 1536, 1792, 2048, 4096, 8192, 16384, P6_MEMORY_NONE};
+                uint32_t *field = rng.below(3) == 0 ? &c.chip_kib : rng.coin() ? &c.slow_kib : &c.fast_kib;
+                *field = sizes[rng.below(sizeof sizes / sizeof sizes[0])];
+                if (rng.coin()) c.machine = 1 + rng.below(3);
                 break;
             }
             default: c.video_standard = uint32_t(rng.below(4)); c.audio_rate_hz = rng.coin() ? 44100 : 48000; break;

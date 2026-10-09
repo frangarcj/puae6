@@ -39,6 +39,7 @@ extern "C" p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capac
     const Source sources[] = {
         {P6_REGION_CHIP_RAM, P6_REGION_WRITABLE, &chipmem_bank},
         {P6_REGION_SLOW_RAM, P6_REGION_WRITABLE, &bogomem_bank},
+        {P6_REGION_FAST_RAM, P6_REGION_WRITABLE, &fastmem_bank[0]},
         {P6_REGION_ROM, 0, &kickmem_bank},
     };
     p6_memory_region found[sizeof sources / sizeof sources[0]];

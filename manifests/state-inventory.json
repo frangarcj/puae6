@@ -2122,6 +2122,57 @@
         }
       },
       {
+        "id": "ram-fast-zorro2-board",
+        "subsystem": "ram",
+        "component": "Zorro II Fast RAM, one autoconfig board of 1, 2, 4 or 8 MiB (fastmem_bank[0], p6_config.fast_kib) and the autoconfig chain the guest walks to configure it",
+        "owner": "build/upstream/expansion.cpp, memory.cpp (patches 0110 to 0113)",
+        "chunk": null,
+        "save": "p6_expansion_state_get (patch 0112)",
+        "restore": "p6_expansion_state_set (patch 0112)",
+        "reset": "expamem_reset at the end of custom_reset (the chain is rebuilt from the preferences), expansion_clear zeroes the board in memory_clear, expansion_cleanup frees it at unload",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "serialize_extended",
+        "saved_fields": "The board's bytes (the configured size) and 22 fields of the chain: ecard, cardno (always 1), chipdone, whether the card's map function has been taken up, the current bank (none or the autoconfig bank), the autoconfig mode (always 0), the half-written base (hi, lo), board_pointer, board_size, the board's start (the slot the chain suggests, the base the guest gave it, or $FFFFFFFF after a shut-up), whether it answers there, and the first 256 bytes of the card's nibbles (expamem). Only for a config with Fast RAM: the body of every other machine is what it was.",
+        "omitted": "Not state: the cards[] table and slots_e8/slots_20 (rebuilt by every reset from the preferences), startmask and startaccessmask (set by the map function from the base, restored with it), expamem beyond 256 bytes (all $FF), the board name strings, the Z3 autoconfig bank (an address-24 machine has none). upstream's save_expansion/save_fram (FRAM, EXPA, EXPB) are not used: they save the boards of a WinUAE configuration with its own bookkeeping, and the native state saves the values above.",
+        "pointers": "expamem_bank_current (NULL or &expamem_bank), expamem_map (NULL or the card's map function) and fastmem_bank[0].baseaddr are pointers: the state holds flags and rebuilds them. The board is mapped again through map_banks_z2 (the bank map and the CE tables are derived, see ram-bank-map-and-timing-tables).",
+        "rebuild": "Allocated at p6_load (expansion_init from virtualdevice_init, patch 0113), zeroed by memory_clear; the apply of P6RM unmaps the live board, sets the chain and maps the board where the state had it.",
+        "evidence": [
+          "build/upstream/expansion.cpp:3922",
+          "build/upstream/expansion.cpp:3996",
+          "build/upstream/memory.cpp:3109",
+          "build/upstream/custom.cpp:7193",
+          "bridge/state.cpp",
+          "bridge/memory.cpp"
+        ],
+        "proof": {
+          "task": "T49",
+          "checks": [
+            "STATE01",
+            "DET02"
+          ],
+          "status": "done",
+          "what": "DET02 of a program that walks the chain slowly (boundaries before the card is read, between the reads, with the low byte of the base written, after the board is configured, after a shut-up), on the A1200 with 8 MiB, the A600 with 2 MiB Chip and 8 MiB, and the A500 with 2 MiB and 1 MiB plus Slow RAM, in this process and in a new one"
+        },
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T49",
+          "covers": [
+            "fastmem_bank",
+            "p6_expansion_state_get"
+          ]
+        },
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T49",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/state/test_state_fast.py: the layout (the body follows the config and nothing else changes), the bound (the same before the first unit), every field range- and cross-checked, DET02 at every step of the chain"
+        }
+      },
+      {
         "id": "ram-kickstart-rom",
         "subsystem": "ram",
         "component": "Kickstart ROM image (kickmem_bank) and the ROM chunk",
@@ -2230,7 +2281,7 @@
         "upstream_compiled": false,
         "policy": "rebuild",
         "saved_fields": "None. save_cram/save_bram save contents only.",
-        "omitted": "mem_banks is a pure function of (profile, overlay_state): the A500 preset has no autoconfig, Zorro, Gayle or A3000 banks and map_banks is called after boot only by map_overlay. ce_banktype depends on overlay_state: with ROM at 0, get_mem_bank(0) is not CHIPRAM so chip-RAM banks and (chipramtiming) the Slow RAM banks get FAST16 instead of CHIP16. baseaddr[] exists only for JIT (put_mem_bank does not write it), ce_cachable is read only by 020+/MMU code; highram_temp_bank is written only for banks >= 0x100 (none).",
+        "omitted": "mem_banks is a pure function of (profile, overlay_state): the presets have no Gayle or A3000 banks and no autoconfig unless a Fast RAM board is configured (its mapping is restored by the P6RM apply) and map_banks is called after boot only by map_overlay. ce_banktype depends on overlay_state: with ROM at 0, get_mem_bank(0) is not CHIPRAM so chip-RAM banks and (chipramtiming) the Slow RAM banks get FAST16 instead of CHIP16. baseaddr[] exists only for JIT (put_mem_bank does not write it), ce_cachable is read only by 020+/MMU code; highram_temp_bank is written only for banks >= 0x100 (none).",
         "pointers": "mem_banks[] is an array of addrbank* (static objects with function pointers, host baseaddr, ABFLAG_MAPPED flag); ce_banktype/ce_cachable are derived bytes; chipmem_full_mask/chipmem_full_size and last_address_space_24 are derived from prefs. None may be serialized.",
         "rebuild": "memory_reset() with mem_hardreset == 0 re-creates the map without clearing RAM (memory_clear runs only if mem_hardreset != 0, reallocation only if sizes changed), then map_overlay(saved OVL). Keep mem_hardreset == 0 so RAM is not cleared.",
         "evidence": [
@@ -2307,7 +2358,7 @@
       {
         "id": "ram-expansion-and-extended-rom",
         "subsystem": "ram",
-        "component": "Expansion and alternative memory: Fast/Z3 RAM boards, A3000 motherboard RAM, 25-bit RAM, custom RAM, debug RAM, extended Kickstart, A1000 WCS, rtarea/boot ROM",
+        "component": "Expansion and alternative memory: Z3 RAM boards (the Zorro II Fast RAM board is ram-fast-zorro2-board), A3000 motherboard RAM, 25-bit RAM, custom RAM, debug RAM, extended Kickstart, A1000 WCS, rtarea/boot ROM",
         "owner": "build/upstream/memory.cpp, expansion.cpp (AUTOCONFIG undefined)",
         "chunk": "A3K1",
         "save": "save_a3000lram (also save_a3000hram, save_fram, save_zram, save_bootrom)",
@@ -2316,7 +2367,7 @@
         "in_profile": false,
         "upstream_compiled": false,
         "policy": "out_of_profile",
-        "saved_fields": "Raw RAM contents per board (chunks A3K1, A3K2, FRAM, ZRAM, ZCRM, BORO); none exists in the A500 preset (check_preset requires fastmem/z3fastmem/mbresmem sizes 0).",
+        "saved_fields": "Raw RAM contents per board (chunks A3K1, A3K2, FRAM, ZRAM, ZCRM, BORO); none of these exists in the profile (check_preset requires z3fastmem/mbresmem sizes 0 and no board but the first Zorro II one).",
         "omitted": null,
         "pointers": "Static addrbank objects only; their baseaddr stay NULL.",
         "rebuild": null,
@@ -7529,10 +7580,10 @@
           "EXPB",
           "EXPI"
         ],
-        "reason": "the profile has Chip RAM and 512 KiB of Slow RAM only: check_preset rejects any fast, Zorro III or motherboard memory and the profile configures no expansion board",
+        "reason": "the profile has no Zorro III or motherboard memory and no board but one Zorro II Fast RAM board; that board is saved by the native P6RM body (ram-fast-zorro2-board), not by upstream's chunks",
         "evidence": [
           "bridge/config.cpp",
-          "ports/portable/sysconfig.h"
+          "bridge/state.cpp"
         ]
       },
       {

@@ -3,6 +3,7 @@
 #include <cassert>
 
 volatile uae_atomic uae_int_requested = 0;
+struct uae_prefs currprefs;       // T49: virtualdevice_init allocates the Zorro II Fast RAM board only while one is configured
 
 enum : int {
 	CONFIG, CHECK_AUDIO, CHECK_CUSTOM, CHECK_CPU,
@@ -10,7 +11,7 @@ enum : int {
 	HS_CB, RE_CIA, RE_CB, RE_UAE, RESET_EVENTTAB, RESET_MEMORY, RESET_DISK,
 	RESET_CIA, RESET_A1000, RESET_DONGLE, RESET_CB, IMM_CB, EARLY, LATE,
 	INPUT_CLOSE, DISK_FREE, DUMP_COUNTS, STATE_FREE, MEMORY_FREE, DRAW_FREE,
-	GRAPHICS_LEAVE, SOUND_CLOSE, SOUND_UPDATE
+	GRAPHICS_LEAVE, SOUND_CLOSE, SOUND_UPDATE, EXPANSION_INIT, EXPANSION_CLEANUP
 };
 static int log_events[128], log_size;
 static int last_hardreset = -1, blit_hpos = 0x7fffffff;
@@ -51,6 +52,8 @@ void DISK_free() { note(DISK_FREE); }
 void dump_counts() { note(DUMP_COUNTS); }
 void savestate_free() { note(STATE_FREE); }
 void memory_cleanup() { note(MEMORY_FREE); }
+void expansion_init() { note(EXPANSION_INIT); }
+void expansion_cleanup() { note(EXPANSION_CLEANUP); }
 void drawing_free() { note(DRAW_FREE); }
 void graphics_leave() { note(GRAPHICS_LEAVE); }
 void close_sound() { note(SOUND_CLOSE); }
@@ -109,9 +112,9 @@ int main()
 
 	clear_log(); do_leave_program();
 	assert(log_events[0] == EARLY);
-	const int teardown_expected[] = { EARLY, INPUT_CLOSE, DISK_FREE, DUMP_COUNTS,
+	const int teardown_expected[] = { EARLY, INPUT_CLOSE, DISK_FREE, DUMP_COUNTS, EXPANSION_CLEANUP,
 		STATE_FREE, MEMORY_FREE, DRAW_FREE, LATE, GRAPHICS_LEAVE, SOUND_CLOSE };
-	expect(teardown_expected, 10);
+	expect(teardown_expected, 11);
 
 	clear_log(); virtualdevice_init();
 	devices_vsync_pre(); devices_vsync_post(); devices_hsync(); devices_rethink();
@@ -119,4 +122,9 @@ int main()
 	const int reinit_expected[] = { VS_AUDIO, VS_CIA, VS_INPUT, HS_DISK,
 		HS_AUDIO, HS_BLIT, RE_CIA, RE_UAE };
 	expect(reinit_expected, 8); // Re-init clears all previously registered callbacks.
+
+	// The Fast RAM board is allocated with the machine, and only for a machine that has one.
+	clear_log(); virtualdevice_init(); assert(log_size == 0);
+	currprefs.fastmem[0].size = 0x100000;
+	clear_log(); virtualdevice_init(); assert(log_size == 1 && log_events[0] == EXPANSION_INIT);
 }

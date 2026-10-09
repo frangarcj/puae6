@@ -9,8 +9,22 @@ namespace p6_bridge {
 // Name under which p6_load registers the firmware buffer with the engine's blob store.
 extern const char *const kFirmwareId;
 
+// The memory a config asks for, in KiB, after the machine's own sizes have replaced the zeros of p6_config (T49).
+struct Memory {
+    uint32_t chip_kib, slow_kib, fast_kib;
+};
+Memory preset_memory(uint32_t machine);
+Memory resolve_memory(const p6_config &config);
+// True when resolve_memory gives the machine's own memory: such a config is the series one in every identity (config_hash included).
+bool memory_is_preset(const p6_config &config);
+
+// The flags word that config_hash takes (the envelope hashes machine, standard, rate, flags, seed and clock; the memory has no field of its own there so that the
+// identity of every preset config stays the one it was): c.flags for a config with the preset's memory, else with bit 31 and the three sizes folded in above the flag bits (fast/1024 at 8, slow/64 at 12, chip/64 at 17; bits 0 to 7 stay p6_config.flags).
+uint32_t identity_flags(const p6_config &config);
+
 // Pure checks; the engine is not touched, so a rejected config or firmware costs nothing.
 p6_result validate_config(const p6_config &config, p6_error *error);
+p6_result validate_memory(const p6_config &config, p6_error *error);
 p6_result validate_firmware(const p6_buffer &firmware, p6_error *error);
 
 // Fills currprefs with the preset for `config` (upstream built_in_prefs config 0 of model 0 = A500, 2 = A600 or 4 = A1200, the

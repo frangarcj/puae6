@@ -29,7 +29,7 @@ class DeviceTests(unittest.TestCase):
             savestate_free rethink_uae_int inputdevice_close inputdevice_vsync
             CIA_vsync_prehandler check_prefs_changed_cpu
             check_prefs_changed_audio check_prefs_changed_custom CIA_reset DISK_free
-            uae_int_requested""".split())
+            uae_int_requested expansion_init expansion_cleanup currprefs""".split())
         with tempfile.TemporaryDirectory(prefix="p6-devices-") as tmp:
             obj, exe = Path(tmp) / "devices.o", Path(tmp) / "probe"
             for optimization in ("-O0", "-O2"):

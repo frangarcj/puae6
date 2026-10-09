@@ -71,6 +71,7 @@ int main() {
     prefs.chipmem.size=0x80000; prefs.bogomem.size=0x80000;
     prefs.seed=0x81234567; prefs.cpu_model=68000;
     expected=prefs;
+    expected.fastmem[0].size=0x100000;      // T49: the first Zorro II board is the one the profile can have (p6_config.fast_kib); the other boards, Zorro III and RTG stay absent
     for (int i=0;i<MAX_RAM_BOARDS;i++) {
         prefs.fastmem[i].size=0x100000*(i+1);
         prefs.z3fastmem[i].size=0x1000000*(i+1);

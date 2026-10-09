@@ -104,6 +104,13 @@ void load(const std::vector<uint8_t> &rom, const std::vector<uint8_t> *adf)
     assert(p6_load(p6_buffer{rom.data(), rom.size()}, adf ? &media : nullptr, adf ? 1 : 0, &e) == P6_OK);
 }
 
+void load_config(const std::vector<uint8_t> &rom, const p6_config &c)
+{
+    p6_error e = make_error();
+    assert(p6_init(&c, &e) == P6_OK);
+    assert(p6_load(p6_buffer{rom.data(), rom.size()}, nullptr, 0, &e) == P6_OK);
+}
+
 void unload()
 {
     p6_error e = make_error();
@@ -224,12 +231,54 @@ void the_drive_light_follows_the_led(const std::vector<uint8_t> &chipcell, const
 
 }  // namespace
 
+// T49: a Zorro II Fast RAM board is a region of its own at its real size, from the load on (it is allocated with the image, before the first unit), and a reload with another
+// size or without the board leaves nothing of the previous one: not its region, not its bytes.
+void reports_the_fast_ram_board(const std::vector<uint8_t> &rom)
+{
+    p6_config c = make_config();
+    c.machine = P6_MACHINE_A1200;
+    c.fast_kib = 8192;
+    for (int round = 0; round < 3; ++round) {
+        load_config(rom, c);
+        Regions r = ask();
+        assert(r.count == 3 && r.find(P6_REGION_CHIP_RAM) && r.find(P6_REGION_FAST_RAM) && r.find(P6_REGION_ROM) && !r.find(P6_REGION_SLOW_RAM));
+        const p6_memory_region *fast = r.find(P6_REGION_FAST_RAM);
+        assert(fast->bytes == 8u << 20 && fast->flags == P6_REGION_WRITABLE && r.find(P6_REGION_CHIP_RAM)->bytes == 2u << 20);
+        const uint8_t *bytes = static_cast<const uint8_t *>(fast->data);
+        for (size_t i = 0; i < fast->bytes; ++i) assert(bytes[i] == 0);        // a new board is zero, whatever the last one held
+        const_cast<uint8_t *>(bytes)[12345] = 0x5a;
+        run_unit();
+        r = ask();
+        assert(r.find(P6_REGION_FAST_RAM)->bytes == 8u << 20);
+        unload();
+    }
+    // Another size, then none, then the board again.
+    c.fast_kib = 1024;
+    load_config(rom, c);
+    assert(ask().find(P6_REGION_FAST_RAM)->bytes == 1u << 20);
+    unload();
+    c.fast_kib = 0;
+    load_config(rom, c);
+    assert(ask().count == 2 && !ask().find(P6_REGION_FAST_RAM));
+    run_unit();
+    assert(ask().count == 2);
+    unload();
+    c.fast_kib = 4096;
+    c.machine = P6_MACHINE_A600;
+    c.chip_kib = 2048;
+    load_config(rom, c);
+    Regions r = ask();
+    assert(r.count == 3 && r.find(P6_REGION_CHIP_RAM)->bytes == 2u << 20 && r.find(P6_REGION_FAST_RAM)->bytes == 4u << 20);
+    unload();
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) { fprintf(stderr, "usage: %s CHIPCELL.rom DISK.rom A.adf\n", argv[0]); return 2; }
     const std::vector<uint8_t> chipcell = read_file(argv[1]), disk = read_file(argv[2]), adf = read_file(argv[3]);
     refuses_before_a_load_and_after_an_unload(chipcell);
     reports_the_machine_memory(chipcell);
+    reports_the_fast_ram_board(chipcell);
     the_host_sees_and_changes_what_the_cpu_does(chipcell);
     the_drive_light_follows_the_led(chipcell, disk, adf);
     puts("bridge-memory-ok");

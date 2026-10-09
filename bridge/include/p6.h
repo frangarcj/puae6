@@ -59,7 +59,11 @@ typedef struct p6_config {
     uint32_t flags;             /* P6_CONFIG_*; any other bit is P6_ERROR_BAD_ARGUMENT. */
     uint64_t random_seed;
     int64_t rtc_epoch_seconds;  /* UTC epoch; never read from host clock. */
-    uint64_t reserved[4];
+    uint32_t chip_kib;          /* Chip RAM: 0 = the machine's own, else 512, 1024, 1536 or 2048 (A500: 512 or 1024). */
+    uint32_t slow_kib;          /* Slow RAM at $C00000: 0 = the machine's own, P6_MEMORY_NONE = none, else 512, 1024, 1536 or 1792. */
+    uint32_t fast_kib;          /* Zorro II Fast RAM (one autoconfig board): 0 or P6_MEMORY_NONE = none, else 1024, 2048, 4096 or 8192. */
+    uint32_t reserved32;        /* Must be zero. */
+    uint64_t reserved[2];
 } p6_config;
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
  * (sector granularity, one fixed pool of P6_OVERLAY_SECTORS shared by every disk) that is part of the machine state and of p6_state_bound, so a state
@@ -67,13 +71,18 @@ typedef struct p6_config {
  * part of the configuration identity: a state of one setting does not load in the other. Getting the writes out is explicit: p6_media_export. */
 #define P6_CONFIG_FLOPPY_WRITES UINT32_C(1)
 #define P6_OVERLAY_SECTORS UINT32_C(3520)    /* 512-byte sectors: two disks' worth */
+#define P6_MEMORY_NONE UINT32_C(0xFFFFFFFF)
+/* The flags word of config_hash carries p6_config.flags in bits 0 to 7 (the defined P6_CONFIG_* flags; any other bit is refused) and, when the memory is not the preset's,
+ * the sizes above them (bridge/config.cpp identity_flags: bit 31, fast_kib/1024 at bit 8, slow_kib/64 at 12, chip_kib/64 at 17), so the two never collide. */
 #define P6_MACHINE_A500 UINT32_C(1)
 #define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no IDE/PCMCIA (Gayle is not emulated). */
 #define P6_MACHINE_A1200 UINT32_C(3)  /* 68EC020 cycle exact (24-bit bus), AGA, 2 MiB Chip, no Slow/Fast RAM, no Gayle. */
 #define P6_VIDEO_PAL    UINT32_C(1)
 #define P6_VIDEO_NTSC   UINT32_C(2)
 
-/* Memory is fixed per machine: A500 512 KiB Chip + 512 KiB Slow; A600 1 MiB Chip, no Slow; A1200 2 MiB Chip, no Slow. */
+/* Memory of the machine as the preset has it (all three memory fields of p6_config zero): A500 512 KiB Chip + 512 KiB Slow; A600 1 MiB Chip,
+ * no Slow; A1200 2 MiB Chip, no Slow; no Fast RAM on any. chip_kib, slow_kib and fast_kib change it at load (T49); they enter config_hash only when
+ * the resulting memory is not the preset's, so a config that names the preset's own sizes is the same machine, state and movie identity included. */
 typedef struct p6_buffer {
     const void *data;
     uint64_t bytes;
@@ -186,7 +195,7 @@ typedef struct p6_frame {
  * cross-build interchange format. Region data is borrowed until next mutation.
  *
  * Memory regions (T20a) are the memory as the emulated CPU sees it, in the order of the 68000: bytes are in big-endian
- * order and offset n of a region is byte n of that memory. The profile reports Chip RAM, Slow RAM and the ROM, each
+ * order and offset n of a region is byte n of that memory. The profile reports Chip RAM, Slow RAM, Fast RAM and the ROM, each
  * with its real size; a RAM that the machine does not have is not reported. Only RAM carries P6_REGION_WRITABLE: the
  * ROM is read-only. A host write is an external action that the emulated machine did not do, so a caller that records
  * a replay has to treat it as input. The pointers are valid until the next call that changes the machine (a
@@ -200,6 +209,7 @@ typedef struct p6_memory_region {
 #define P6_REGION_CHIP_RAM UINT32_C(1)
 #define P6_REGION_SLOW_RAM UINT32_C(2)
 #define P6_REGION_ROM      UINT32_C(3)
+#define P6_REGION_FAST_RAM UINT32_C(4)   /* Zorro II Fast RAM (T49): present only when p6_config.fast_kib asked for it, and after the unit that ran its autoconfig reset */
 #define P6_REGION_WRITABLE (UINT32_C(1) << 0)
 
 typedef struct p6_media_event {

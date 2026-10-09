@@ -1,0 +1,70 @@
+diff --git a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -797,7 +797,9 @@
+ #ifdef P6_PORTABLE
+ 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
+ 		p->z3fastmem[i].size = 0;
+-		p->fastmem[i].size = 0;
++		// T49: the first Zorro II board is the one the profile can have (p6_config.fast_kib); the others stay absent
++		if (i > 0)
++			p->fastmem[i].size = 0;
+ 	}
+ 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
+ 		p->rtgboards[i].rtgmem_size = 0;
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -3433,6 +3433,10 @@
+ 
+ #ifdef AUTOCONFIG
+ 	expansion_map();
++#elif defined(P6_PORTABLE)
++	// T49: autoconfig exists only while a Zorro II Fast RAM board is configured; without one the $E80000 window stays as the machine always had it
++	if (currprefs.fastmem[0].size)
++		expansion_map();
+ #endif
+ 
+ 	if (a3000_f0) {
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7192,6 +7192,10 @@
+ 	// must be last
+ #ifdef AUTOCONFIG
+ 	expamem_reset(hardreset);
++#elif defined(P6_PORTABLE)
++	// T49: the autoconfig chain is walked only while a Zorro II Fast RAM board is configured
++	if (currprefs.fastmem[0].size)
++		expamem_reset(hardreset);
+ #endif
+ }
+ 
+diff --git a/devices.cpp b/devices.cpp
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -392,7 +392,7 @@
+ #ifdef SERIAL_PORT
+ 	serial_exit();
+ #endif
+-#ifdef AUTOCONFIG
++#if defined(AUTOCONFIG) || defined(P6_PORTABLE)
+ 	expansion_cleanup();
+ #endif
+ #ifndef P6_PORTABLE
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -3970,6 +3970,12 @@
+ 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
+ 		mapped_free (&fastmem_bank[i]);
+ 		mapped_free (&z3fastmem_bank[i]);
++#ifdef P6_PORTABLE
++		// T49: a board of the next image is allocated from scratch, at the address its own autoconfig chain assigns: nothing of this one survives
++		fastmem_bank[i].reserved_size = 0;
++		fastmem_bank[i].mask = 0;
++		fastmem_bank[i].start = 0;
++#endif
+ 	}
+ 	mapped_free (&z3chipmem_bank);
+ 

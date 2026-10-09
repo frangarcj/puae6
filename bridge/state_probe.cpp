@@ -55,6 +55,7 @@
 #include "p6.h"
 #include "session.h"
 #include "state.h"
+#include "config.h"
 #include "p6_state_access.h"
 #include "sha256.h"
 #include "media.h"
@@ -83,6 +84,7 @@
 #include <string>
 #include <vector>
 
+extern bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig);    // expansion.cpp, patch 0111
 extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first);     // custom.cpp, patch 0103
 
 extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
@@ -191,6 +193,16 @@ void ram(Canon &c)
     c.put(uint32_t(chipmem_bank.allocated_size)).raw(chipmem_bank.baseaddr, chipmem_bank.allocated_size);
     c.put(uint32_t(bogomem_bank.allocated_size));
     if (bogomem_bank.baseaddr) c.raw(bogomem_bank.baseaddr, bogomem_bank.allocated_size);
+    // T49: a Zorro II Fast RAM board adds itself and the autoconfig chain it is on (nothing for the machines without one, whose digest is what it was).
+    if (fastmem_bank[0].allocated_size) {
+        c.put(uint32_t(fastmem_bank[0].allocated_size)).raw(fastmem_bank[0].baseaddr, fastmem_bank[0].allocated_size);
+        uint32_t w[13] = {};
+        uint8_t ac[256] = {};
+        const bool got = p6_expansion_state_get(w, 13, ac);
+        c.put(uint8_t(got));
+        for (uint32_t v : w) c.put(v);
+        c.raw(ac, sizeof ac);
+    }
 }
 
 void rtc(Canon &c)
@@ -340,6 +352,7 @@ void bridge(Canon &c)
     for (uint32_t i = 0; i < s.media_count && i < P6_MAX_MEDIA; ++i) c.raw(s.media_content_id[i], P6_CONTENT_ID_SIZE);
     c.put(s.config.machine).put(s.config.video_standard).put(s.config.audio_rate_hz).put(s.config.flags).put(s.config.random_seed)
         .put(s.config.rtc_epoch_seconds);
+    if (!p6_bridge::memory_is_preset(s.config)) c.put(s.config.chip_kib).put(s.config.slow_kib).put(s.config.fast_kib);
 }
 
 const Probe kProbes[] = {{"cpu", cpu}, {"scheduler", scheduler}, {"ram", ram}, {"rtc", rtc}, {"cia", cias}, {"chipset", chipset},
@@ -871,6 +884,7 @@ int main(int argc, char **argv)
     uint32_t standard = P6_VIDEO_PAL;
     uint32_t machine = P6_MACHINE_A500;
     uint32_t rate = 48000;
+    uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
     uint64_t seed = 1;
     bool floppy_writes = false;
     std::vector<StateOp> state_ops;
@@ -890,6 +904,9 @@ int main(int argc, char **argv)
             else return 64;
         }
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
+        else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
         else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--save-fields-at") || !strcmp(argv[i], "--load-at") ||
                   !strcmp(argv[i], "--load-fault-at") || !strcmp(argv[i], "--load-fault-head-at") || !strcmp(argv[i], "--public-save-at") ||
@@ -965,7 +982,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -990,6 +1007,9 @@ int main(int argc, char **argv)
     config.random_seed = seed;
     config.rtc_epoch_seconds = 946684800;
     config.flags = floppy_writes ? P6_CONFIG_FLOPPY_WRITES : 0;
+    config.chip_kib = chip_kib;
+    config.slow_kib = slow_kib;
+    config.fast_kib = fast_kib;
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);

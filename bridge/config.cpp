@@ -24,6 +24,7 @@
 #include "video_present.h"
 
 #include <stdio.h>
+#include <initializer_list>
 #include <set>
 
 namespace p6_bridge {
@@ -51,8 +52,8 @@ const char *const kFirmwareId = "p6-firmware.rom";
 
 namespace {
 
-// The machine of the last build_preferences: check_preset (called by the lifecycle right after it) judges the result by it.
-uint32_t preset_machine = P6_MACHINE_A500;
+// The config of the last build_preferences: check_preset (called by the lifecycle right after it) judges the result by its machine and memory.
+p6_config preset_config = {};
 bool preset_floppy_writes = false;     // P6_CONFIG_FLOPPY_WRITES of that build: the master switch floppy_read_only is its opposite
 
 // A Kickstart is 256 or 512 KiB; the 880 KiB "KICK" disk image is the largest accepted container.
@@ -99,6 +100,61 @@ void pin_input()
 
 }  // namespace
 
+namespace {
+
+bool one_of(uint32_t value, std::initializer_list<uint32_t> allowed)
+{
+    for (uint32_t candidate : allowed)
+        if (value == candidate) return true;
+    return false;
+}
+
+}  // namespace
+
+Memory preset_memory(uint32_t machine)
+{
+    return machine == P6_MACHINE_A1200 ? Memory{2048, 0, 0} : machine == P6_MACHINE_A600 ? Memory{1024, 0, 0} : Memory{512, 512, 0};
+}
+
+Memory resolve_memory(const p6_config &c)
+{
+    const Memory preset = preset_memory(c.machine);
+    return Memory{c.chip_kib ? c.chip_kib : preset.chip_kib,
+                  c.slow_kib == P6_MEMORY_NONE ? 0 : c.slow_kib ? c.slow_kib : preset.slow_kib,
+                  c.fast_kib == P6_MEMORY_NONE ? 0 : c.fast_kib};
+}
+
+// Bits of the flags word of config_hash (the envelope has no field for the memory): 0 to 7 are p6_config.flags (P6_CONFIG_*, T27 uses bit 0; validate_config refuses any bit that is not a
+// defined flag, so the memory can never collide with them), 8 to 11 fast_kib / 1024, 12 to 16 slow_kib / 64, 17 to 22 chip_kib / 64, 31 marks that the memory is not the preset's.
+constexpr uint32_t kMemoryIdentityBit = 0x80000000u;
+
+uint32_t identity_flags(const p6_config &c)
+{
+    if (memory_is_preset(c)) return c.flags;
+    const Memory m = resolve_memory(c);
+    return c.flags | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
+}
+
+bool memory_is_preset(const p6_config &c)
+{
+    const Memory preset = preset_memory(c.machine), now = resolve_memory(c);
+    return now.chip_kib == preset.chip_kib && now.slow_kib == preset.slow_kib && now.fast_kib == preset.fast_kib;
+}
+
+p6_result validate_memory(const p6_config &c, p6_error *error)
+{
+    // What the engine allocates and maps without a quirk: Chip RAM sizes of 1.5 MiB (allocated as 2 MiB with the upper half out of reach) are not offered.
+    // The A500's Agnus is OCS: its 1 MiB is the 8371 with the jumper, anything above it needs ECS. AGA maps at most 1.5 MiB of Slow RAM (memory_reset).
+    const bool a500 = c.machine == P6_MACHINE_A500, aga = c.machine == P6_MACHINE_A1200;
+    if (c.chip_kib && !one_of(c.chip_kib, {512, 1024}) && !(!a500 && c.chip_kib == 2048))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "chip memory size is not supported for this machine");
+    if (c.slow_kib && c.slow_kib != P6_MEMORY_NONE && !one_of(c.slow_kib, {512, 1024, 1536}) && !(!aga && c.slow_kib == 1792))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "slow memory size is not supported for this machine");
+    if (c.fast_kib && c.fast_kib != P6_MEMORY_NONE && !one_of(c.fast_kib, {1024, 2048, 4096, 8192}))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "fast memory size is not supported");
+    return P6_OK;
+}
+
 p6_result validate_config(const p6_config &c, p6_error *error)
 {
     if (c.abi_version != P6_ABI_VERSION || c.struct_size != sizeof c)
@@ -109,8 +165,10 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio rate must be 44100 or 48000 Hz");
-    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0 || c.reserved[0] || c.reserved[1] || c.reserved[2] || c.reserved[3])
+    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0 || c.reserved32 || c.reserved[0] || c.reserved[1])
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags, or reserved fields that are not zero");
+    if (const p6_result memory = validate_memory(c, error))
+        return memory;
     if (c.rtc_epoch_seconds < P6_CIVIL_MIN_SECONDS || c.rtc_epoch_seconds > P6_CIVIL_MAX_SECONDS)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the clock epoch is outside years 1..9999");
     return P6_OK;
@@ -130,7 +188,7 @@ void build_preferences(const p6_config &c)
     default_prefs(&currprefs, true, 0);
     // The preset names its Kickstart by id through the ROM list, which has no entries here; the
     // firmware is the buffer given to p6_load, so the result of configure_rom() is not needed.
-    preset_machine = c.machine;
+    preset_config = c;
     preset_floppy_writes = (c.flags & P6_CONFIG_FLOPPY_WRITES) != 0;
     built_in_prefs(&currprefs, c.machine == P6_MACHINE_A1200 ? 4 : c.machine == P6_MACHINE_A600 ? 2 : 0, 0, 0, 0);
     if (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) {
@@ -148,6 +206,10 @@ void build_preferences(const p6_config &c)
         // the blit, as an emulation shortcut that no hardware has. The CPU runs its own polling loops instead, as on the 68000 machines.
         currprefs.waiting_blits = 0;
     }
+    const Memory memory = resolve_memory(c);
+    currprefs.chipmem.size = memory.chip_kib * 1024;
+    currprefs.bogomem.size = memory.slow_kib * 1024;
+    currprefs.fastmem[0].size = memory.fast_kib * 1024;     // one Zorro II autoconfig board (patch 0110); fixup_prefs keeps board 0 only
     currprefs.ntscmode = c.video_standard == P6_VIDEO_NTSC;
     currprefs.seed = fold_seed(c.random_seed);
     currprefs.sound_freq = int(c.audio_rate_hz);
@@ -198,16 +260,17 @@ void build_preferences(const p6_config &c)
 p6_result check_preset(p6_error *error)
 {
     const uae_prefs &p = currprefs;
-    const bool a1200 = preset_machine == P6_MACHINE_A1200;
-    const bool a600 = preset_machine == P6_MACHINE_A600;
+    const bool a1200 = preset_config.machine == P6_MACHINE_A1200;
+    const bool a600 = preset_config.machine == P6_MACHINE_A600;
     const bool no_gayle = a600 || a1200;
+    const Memory memory = resolve_memory(preset_config);
     const char *drifted = nullptr;
     if (p.cpu_model != (a1200 ? 68020 : 68000) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model || p.mmu_model ||
         !p.address_space_24 || (a1200 && p.waiting_blits)) drifted = "cpu";
     else if (p.chipset_mask != (a1200 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA
                                       : a600 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE : CSMASK_OCS) || !p.blitter_cycle_exact) drifted = "chipset";
-    else if (p.chipmem.size != (a1200 ? 0x200000 : a600 ? 0x100000 : 0x80000) || p.bogomem.size != (no_gayle ? 0 : 0x80000) ||
-             p.fastmem[0].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
+    else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
+             p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
     else if (no_gayle && (p.cs_ide || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
     else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||

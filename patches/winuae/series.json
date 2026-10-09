@@ -3026,6 +3026,119 @@
           "after_sha256": "252b03ae48ad0c41c70001fda73eb8dd328f446e71e0ed5697f708a5cd0eb1a8"
         }
       ]
+    },
+    {
+      "id": "0110-expansion-z2-fast-ram",
+      "file": "patches/winuae/0110-expansion-z2-fast-ram.patch",
+      "sha256": "fe78f53f4870a5104fa2ff862933651d8295fae56b48be8cb8603dde63cc3b3e",
+      "title": "Autoconfig and the first Zorro II Fast RAM board while one is configured",
+      "reason": "T49: Fast RAM is a Zorro II autoconfig board, and the port compiled the autoconfig entry points out (AUTOCONFIG is not defined: it also brings the trap area, emulib and native-call hooks, none of which the profile has). The four sites that matter (expansion_map in memory_reset, expamem_reset at the end of custom_reset, board 0 kept by fixup_prefs, expansion_cleanup at leave) are enabled by P6_PORTABLE alone, and the first two only while fastmem[0].size is nonzero, so that a machine without Fast RAM keeps its E80000 window and every golden byte for byte. A cleaned-up bank forgets its size and address, so the next image allocates and configures its own.",
+      "category": "host hooks",
+      "order": 112,
+      "symbols": [
+        "custom_reset",
+        "expansion_cleanup",
+        "fixup_prefs",
+        "memory_reset",
+        "virtualdevice_free"
+      ],
+      "test": "tests/state/test_state_fast.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "16c63072d9c4df767a262287cc9f9f98431f6ae862b0aa273ccf04f732fd1db0",
+          "after_sha256": "98677ba8b1cfeafc97a59d51087154025206c377b243a723e0e645bf9ee5dddb"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "97def62b8141f0a2904e932ac78dae2b2ba42391a5c4d3edb707ffca0e0c5167",
+          "after_sha256": "fdce7968244752b56986db34a1cf9049e09390a994453b4fe23eeaf215a477f6"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "bb1355847b44bf87d5d741262ec827c2de9f19e4bef64504643ae9ed9e4d7c56",
+          "after_sha256": "f9f7f34fe798b27d4ac7be34f0280d055326f6c0cd4972bbe9e1a68d0f926705"
+        },
+        {
+          "path": "devices.cpp",
+          "before_sha256": "43fcaabd3dfc28ce8c4a15768ce3538f9b1f3dfbbc15d403dcfe8de4f64b87e9",
+          "after_sha256": "fd809147ca70679fa2740169d74b6981b2ee5a1fe8ddaddbc0594fa83acf45f7"
+        },
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "c44a4530f911ec1c57272acc9643df922f81e940d51e91298e4b4b4044e9fae3",
+          "after_sha256": "e19276de72bd885cc3940f4e4090624dc524cb0f07a94c168393f6e9174446d6"
+        }
+      ]
+    },
+    {
+      "id": "0111-fast-ram-access-mask",
+      "file": "patches/winuae/0111-fast-ram-access-mask.patch",
+      "sha256": "ed16fc41b784bf4636805023ed1125189ba9cea7016a8a51ce2184a3c77cd193",
+      "title": "A Zorro II board is read and written at the address its guest gave it",
+      "reason": "T49: the accessors of a RAM bank subtract startaccessmask, which only the allocation sets, from the start the bank had then. The Fast RAM board is allocated when the image is loaded, before the guest chooses its base, so a board that fills the Zorro II space (8 MiB at 200000, where start & mask is 200000) was addressed a rotation away from its place: self consistent for the guest and wrong for a host that reads the region at an address. The map function sets the masks from the base it has just been given.",
+      "category": "host hooks",
+      "order": 113,
+      "symbols": [
+        "expamem_map_fastcard"
+      ],
+      "test": "tests/state/test_state_fast.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "e19276de72bd885cc3940f4e4090624dc524cb0f07a94c168393f6e9174446d6",
+          "after_sha256": "f79118653402803078deb7798940909ee0d99a8e51c61e6020f9b34b656e102a"
+        }
+      ]
+    },
+    {
+      "id": "0112-expansion-state-access",
+      "file": "patches/winuae/0112-expansion-state-access.patch",
+      "sha256": "df67f4f3a515f9136ecbb21444d68a3028518de505708c9b0cf7f375edd8ae1f",
+      "title": "State access for the autoconfig chain and the position of the Zorro II Fast RAM board",
+      "reason": "T49: a state taken while the guest is mid-way through the autoconfig chain (a card presented, a half-written base) or after the board has been given its base must put both back; ecard, chipdone, the base nibbles and expamem are file-local statics of expansion.cpp. Values only; the mapping of the board and of the E80000 window is rebuilt as expamem_next and expamem_map_fastcard leave them.",
+      "category": "host hooks",
+      "order": 114,
+      "symbols": [
+        "p6_expansion_state_get",
+        "p6_expansion_state_set"
+      ],
+      "test": "tests/state/test_state_fast.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "f79118653402803078deb7798940909ee0d99a8e51c61e6020f9b34b656e102a",
+          "after_sha256": "9102378aabe086e302550bab5aa9b134d35662140e6822dec0cde8d0d2c8c8bd"
+        }
+      ]
+    },
+    {
+      "id": "0113-fast-ram-allocated-at-load",
+      "file": "patches/winuae/0113-fast-ram-allocated-at-load.patch",
+      "sha256": "7740318ca71792c0618b9e44878065694d9beb25fe2b1d78056473b4fb0ffbd4",
+      "title": "Allocate the Zorro II Fast RAM board with the machine",
+      "reason": "T49: expansion_init is the WinUAE call that allocates the board, from virtualdevice_init, and it sat under AUTOCONFIG with the trap-area installers. With it the board exists when p6_load returns (its region, and the state bound, which depends on its size), and a reload with the same size finds a board to reuse instead of the one expansion_cleanup freed.",
+      "category": "host hooks",
+      "order": 115,
+      "symbols": [
+        "virtualdevice_init"
+      ],
+      "test": "tests/state/test_state_fast.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "fd809147ca70679fa2740169d74b6981b2ee5a1fe8ddaddbc0594fa83acf45f7",
+          "after_sha256": "1597e7e4ca67a8d9d6338be098e8df60e3faf734c956a9a97523eee65b99e321"
+        }
+      ]
     }
   ]
 }

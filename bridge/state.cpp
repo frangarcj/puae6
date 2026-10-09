@@ -11,6 +11,7 @@
 #include "error_util.h"
 #include "session.h"
 #include "frame_step.h"
+#include "config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -25,6 +26,9 @@
 using p6_session::Guard;
 using p6_session::State;
 using p6_session::session;
+
+extern bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig);      // expansion.cpp, patch 0111
+extern bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoconfig);
 
 namespace p6_state {
 
@@ -112,6 +116,45 @@ void visit_bridge(Archive &a)
 // allocated by p6_load from the configuration that is part of the identity. The block is never cleared on the way in
 // (memory_clear belongs to a hard reset). Derived state (the overlay mapping, the bank map) is rebuilt by the chunks that own its
 // inputs (docs: manifests/state-inventory.json, ram-overlay-state).
+//
+// A machine with a Zorro II Fast RAM board (T49) appends to the body: the board's size and bytes, then the autoconfig chain (patch 0111, the values
+// listed in p6_expansion_state_get and the 256 bytes of the card's nibbles). A machine without one keeps the body it always had, so no state of the
+// three presets changes by a byte. The size is the configured one, not the allocated one: the board is allocated by the reset head, and the bound
+// (made before the first unit) and the validation of a load into an image that has not started it have to know it already.
+constexpr unsigned kExpansionWords = 13;
+
+void visit_expansion(Archive &a, uint32_t fast)
+{
+    uint32_t w[kExpansionWords] = {};
+    uint8_t ac[256] = {};
+    if (a.mode() == Mode::Save)
+        a.require(fastmem_bank[0].allocated_size == fast && p6_expansion_state_get(w, kExpansionWords, ac), "the Fast RAM board or its autoconfig chain is not in a state that can be saved");
+    const uint8_t ecard = get<uint8_t>(a, w[0], 0, 1, "ram.fast_ecard");
+    get<uint8_t>(a, w[1], 1, 1, "ram.fast_cardno");
+    const uint8_t chipdone = get<uint8_t>(a, w[2], 0, 1, "ram.fast_chipdone");
+    const uint8_t map_set = get<uint8_t>(a, w[3], 0, 1, "ram.fast_map_set");
+    const uint8_t bank_current = get<uint8_t>(a, w[4], 0, 1, "ram.fast_bank_current");
+    get<uint8_t>(a, w[5], 0, 0, "ram.fast_autoconfig_mode");
+    const uint16_t hi = get<uint16_t>(a, w[6], 0, 0xffff, "ram.fast_hi");
+    const uint8_t lo = get<uint8_t>(a, w[7], 0, 0xff, "ram.fast_lo");
+    const uint32_t pointer = a.val<uint32_t>(w[8], 0, 0xffffffffu, "ram.fast_board_pointer");
+    const uint32_t size = a.val<uint32_t>(w[9], 0, 0x800000u, "ram.fast_board_size");
+    const uint32_t start = a.val<uint32_t>(w[10], 0, 0xffffffffu, "ram.fast_start");
+    const uint8_t mapped = get<uint8_t>(a, w[12], 0, 1, "ram.fast_mapped");
+    a.bytes(ac, sizeof ac, "ram.fast_autoconfig");
+    if (a.mode() == Mode::Measure) return;
+    // The base of the board: none (0), a shut-up board ($FFFFFFFF) or an address in 64 KiB steps, the slot the chain suggests or the one the guest gave it. Where the board answers it
+    // lies inside $200000-$9FFFFF (the guest decides; an 8 MiB board can only be at $200000).
+    a.require(start == 0 || start == 0xffffffffu || !(start & 0xffff), "the Fast RAM board is at an address it cannot have");
+    a.require(!mapped || (start >= 0x200000 && start + fast <= 0xa00000 && !(start & 0xffff)), "the Fast RAM board answers at an address it cannot have");
+    a.require(ecard == 0 || (!map_set && !bank_current), "a finished autoconfig chain still has a card");
+    if (a.applying() && a.ok()) {
+        w[0] = ecard; w[1] = 1; w[2] = chipdone; w[3] = map_set; w[4] = bank_current; w[5] = 0; w[6] = hi; w[7] = lo;
+        w[8] = pointer; w[9] = size; w[10] = start; w[11] = fast; w[12] = mapped;
+        a.require(p6_expansion_state_set(w, kExpansionWords, ac), "the autoconfig chain does not fit the machine");
+    }
+}
+
 void visit_ram(Archive &a)
 {
     const uint32_t chip = chipmem_bank.allocated_size, slow = bogomem_bank.allocated_size;
@@ -119,6 +162,13 @@ void visit_ram(Archive &a)
     a.val<uint32_t>(slow, slow, slow, "ram.slow_size");
     a.bytes(chipmem_bank.baseaddr, chip, "ram.chip");
     a.bytes(bogomem_bank.baseaddr, slow, "ram.slow");
+    const uint32_t fast = p6_bridge::resolve_memory(session.config).fast_kib * 1024;
+    if (!fast) return;
+    a.val<uint32_t>(fast, fast, fast, "ram.fast_size");
+    if (a.mode() == Mode::Save || a.applying())
+        a.require(fastmem_bank[0].allocated_size == fast && fastmem_bank[0].baseaddr, "the Fast RAM board is not allocated");
+    a.bytes(fastmem_bank[0].baseaddr, fast, "ram.fast");
+    visit_expansion(a, fast);
 }
 
 }  // namespace
@@ -188,7 +238,7 @@ Identity current_identity()
     memcpy(identity.patch_series_hash, build.patch_series_hash, 32);
     memcpy(identity.codegen_hash, build.codegen_hash, 32);
     const p6_config &c = session.config;
-    config_hash(c.machine, c.video_standard, c.audio_rate_hz, c.flags, c.random_seed, c.rtc_epoch_seconds, identity.config_hash);
+    config_hash(c.machine, c.video_standard, c.audio_rate_hz, p6_bridge::identity_flags(c), c.random_seed, c.rtc_epoch_seconds, identity.config_hash);
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;

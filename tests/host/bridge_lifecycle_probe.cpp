@@ -90,7 +90,24 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
-    c = make_config(); c.reserved[3] = 1;                assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved[1] = 1;                assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved32 = 1;                 assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    // Memory (T49): the sizes the machine can have are accepted, the others are UNSUPPORTED, and the preset's own sizes are the same config as zero.
+    c = make_config(); c.chip_kib = 1024;                assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.chip_kib = 2048;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // OCS Agnus: no more than 1 MiB
+    c = make_config(); c.chip_kib = 1536;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.chip_kib = 256;                 assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.machine = P6_MACHINE_A600; c.chip_kib = 2048; c.fast_kib = 8192;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.machine = P6_MACHINE_A1200; c.fast_kib = 8192; c.slow_kib = 1536;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.machine = P6_MACHINE_A1200; c.slow_kib = 1792;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // AGA maps 1.5 MiB of Slow RAM at most
+    c = make_config(); c.slow_kib = P6_MEMORY_NONE;      assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.slow_kib = 2048;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.fast_kib = 3072;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.fast_kib = 16384;               assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.fast_kib = 512;                 assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.rtc_epoch_seconds = INT64_MIN;  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.rtc_epoch_seconds = INT64_MAX;  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     assert(e.message[0] != 0);

@@ -293,7 +293,7 @@ preferencias que construye `bridge/config.cpp`, campo a campo, y cada campo que 
 | CPU | 68000 ciclo exacto, 24 bits, sin FPU/MMU | igual | 68EC020 ciclo exacto (`cpuemu_21`, cache de instrucciones de 64 lineas, 24 bits), sin FPU/MMU: la linea F levanta la excepcion 11 |
 | Chip RAM | 512 KiB | 1 MiB (sin alias del primer medio MiB) | 2 MiB (sin alias) |
 | Slow (Bogo) RAM | 512 KiB | ninguna | ninguna |
-| Fast RAM | ninguna | ninguna | ninguna (la del A1200 con 8 MiB es T49) |
+| Fast RAM | ninguna de serie; opcional una placa Zorro II autoconfig de 1, 2, 4 u 8 MiB (`p6_config.fast_kib`, T49) | igual | igual |
 | RTC | MSM6242B (epoca de la config) | ninguno de serie (el cuerpo `P6RT` del estado va vacio) | ninguno de serie (igual) |
 | Gayle / IDE / PCMCIA | no existe | NO emulado: `cs_ide = cs_pcmcia = cs_compatible = 0`, `gayle.cpp`/`ide.cpp` no se compilan; un `.hdf`/PCMCIA no se acepta | NO emulado (igual; el IDE es T56); `$DE1000` sin Gayle cae en el espejo de custom |
 | Kickstart probado | 1.3 (r34.5) | 2.05 (r37.350), con Workbench 2.05 r37.71 de disco | 3.1 (r40.68), hasta la pantalla de insertar disco y con una demo AGA gratuita (Catabasis) cargada de disco |
@@ -317,7 +317,7 @@ calculados desde la semantica del M68020UM (`tests/host/test_cpu_020.py`, `tests
 de Waterbox, libretro con RetroArch real y el nucleo BizHawk (WB03).
 
 NO probado (no afirmar compatibilidad): otros Kickstart que el motor acepta por contenido (2.04 o 3.1 en el A600, 2.05 en el A500, el Kickstart 3.0 en el A1200); configuraciones del
-A600 de 2 MiB de Chip o de cualquier maquina con Fast RAM (T49); FPU (T54); Gayle e IDE (T56) y PCMCIA; 68030/040/060 y otros 020 sin el bus de 24 bits (T55); la interfaz de EmuHawk
+el Kickstart 3.1 del A600 (r40.063, el del A600 de PUAE5; no hay copia autorizada) y Chip de 1,5 MiB; FPU (T54); Gayle e IDE (T56) y PCMCIA; 68030/040/060 y otros 020 sin el bus de 24 bits (T55); la interfaz de EmuHawk
 (el wrapper se probo por FFI y en el arnes, no con la UI); CD32/CDTV. La compatibilidad del A1200 con juegos y demos AGA mas alla de la demo citada no esta medida.
 
 Medido (lo que hace el motor, no una afirmacion de lo que hace un chip real): la tabla upstream identifica el A600 como 8372A (VPOSR `$20`/`$30`) y el A1200 por Alice `$23`/`$33`;
@@ -331,7 +331,27 @@ de modo que el campo largo y el entrelazado (0,3 %) no lo disparan y un cambio r
 (`P6_FRAME_NO_VIDEO`); fuera de `active` todo byte vale cero en cada unidad, tambien en la transicion de haz (T23g) y en los modos AGA mas anchos (T24d). En el A1200,
 `waiting_blits = 0` (el preset de upstream pone 1, "automatico", para toda CPU desde el 68020: la espera del blitter correria dentro de la escritura que lo arranca, un atajo de emulacion
 sin hardware detras y un bucle en mitad de una instruccion; con 0 la CPU ejecuta sus propios bucles de sondeo, como en las maquinas de 68000), de modo que un programa que cuenta con ese
-atajo no lo encuentra; sin Gayle, `$DE1000` y su banco leen el espejo de custom en lugar de un registro de Gayle. El A1200 es el de serie (A1200OG): el que lleva 8 MiB de Fast es T49.
+atajo no lo encuentra; sin Gayle, `$DE1000` y su banco leen el espejo de custom en lugar de un registro de Gayle. El A1200 de serie es el A1200OG de PUAE5; el que lleva 8 MiB de Fast RAM es el preset `a1200_fast8` (T49).
+
+### Memoria configurable (T49)
+
+`p6_config` lleva tres tamanos en KiB (`chip_kib`, `slow_kib`, `fast_kib`; ocupan la mitad de lo que era `reserved`, el struct sigue midiendo 72 bytes): 0 es la memoria propia de la
+maquina, `P6_MEMORY_NONE` (`0xFFFFFFFF`) es ninguna (Slow y Fast), y los valores se validan por maquina en `p6_init` (`P6_ERROR_UNSUPPORTED` con la razon): Chip 512 KiB o 1 MiB en
+el A500 (Agnus OCS) y ademas 2 MiB en el A600 y el A1200 (no se ofrece 1,5 MiB: el motor lo asigna como 2 MiB con la mitad alta inalcanzable); Slow 512 KiB, 1 MiB o 1,5 MiB (y 1,75 MiB
+salvo en el A1200, cuyo AGA mapea 1,5 MiB como maximo); Fast una sola placa Zorro II de 1, 2, 4 u 8 MiB. Zorro III y una segunda placa quedan fuera (T55).
+
+La placa de Fast RAM es una tarjeta autoconfig de verdad: el motor la presenta en `$E80000` al terminar el reset (`expamem_reset`), el Kickstart (1.3, 2.05 y 3.1 probados) la configura
+escribiendo su base (`$200000` para 8 MiB) y anade su memoria a la lista del sistema. Sin placa no hay cadena autoconfig ni ventana mapeada: las tres maquinas de serie siguen
+siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fastmem[0].size != 0`). La placa se asigna al cargar la imagen y es una region mas de `p6_memory_regions`
+(`P6_REGION_FAST_RAM`, big endian, el byte n de la region es la direccion `$200000 + n`). Su contenido entra en el estado nativo (P6RM, ver ADR 0009 punto 10): la cota crece en
+`4 + fast + 278` bytes, y la memoria configurada forma parte de `config_hash` cuando no es la del preset (un estado o una pelicula de otra memoria es INCOMPATIBLE).
+
+Cotas de estado medidas (micro-ROM): A500 3 608 513, A600 3 608 482, A1200 5 890 716 (sin cambios); A500 con 2 MiB de Fast 5 705 947; A600 con 2 MiB de Chip y 8 MiB de Fast 13 045 948;
+A1200 con 8 MiB de Fast 14 279 606; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 758.
+
+Presets publicados junto a los de serie (`config/schema/options.json`, `presets`): `a1200_fast8` (el A1200 de PUAE5: A1200 con 8 MiB de Fast) y `a600_puae5` (A600 con 2 MiB de Chip y
+8 MiB de Fast; el A600 de PUAE5 lleva ademas Gayle y el Kickstart 3.1 de su modelo, que este no: corre el Kickstart que se le da, y el 2.05 es el probado). Son combinaciones de
+opciones, no un campo nuevo de la ABI.
 
 ## ROMs, discos y persistencia
 
