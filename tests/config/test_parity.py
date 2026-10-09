@@ -300,9 +300,9 @@ class AdaptersAgree(Schema):
         headless = read(HEADLESS)
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
-        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
+        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
         for field, value in defaults.items():
-            self.assertEqual(int(libretro[field]), value, f"libretro {field}")
+            self.assertEqual(int(libretro[self.table["p6_config"][field]["option"]]), value, f"libretro {field}")
         self.assertRegex(headless, r"\bstandard = P6_VIDEO_PAL[,;]")
         self.assertRegex(headless, r"\bmachine = P6_MACHINE_A500[,;]")
         self.assertIn("public Puae6Region Region { get; set; } = Puae6Region.PAL;", wrapper)

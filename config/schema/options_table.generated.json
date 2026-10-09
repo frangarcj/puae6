@@ -55,6 +55,19 @@
       "max": 253402300799,
       "option": "rtc_epoch_seconds",
       "class": "reboot"
+    },
+    "flags": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "disabled": 0,
+        "enabled": 1
+      },
+      "option": "floppy_writes",
+      "class": "reboot"
     }
   },
   "presentation": {
@@ -69,6 +82,19 @@
         "4:3": 1
       },
       "option": "video_aspect",
+      "class": "presentation"
+    },
+    "floppy_save": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "off": 0,
+        "on_close": 1
+      },
+      "option": "floppy_save",
       "class": "presentation"
     }
   },
@@ -136,6 +162,16 @@
       },
       "libretro": null
     },
+    "floppy_writes": {
+      "headless": {
+        "how": "fixed"
+      },
+      "wrapper": {
+        "how": "fixed",
+        "where": "flags"
+      },
+      "libretro": "puae6_floppy_writes"
+    },
     "video_aspect": {
       "headless": {
         "how": "none"
@@ -144,6 +180,15 @@
         "how": "none"
       },
       "libretro": "puae6_video_aspect"
+    },
+    "floppy_save": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_floppy_save"
     }
   },
   "reserved": {

@@ -404,9 +404,10 @@ int fuzz_options(uint64_t seed, uint64_t iterations)
         // Which options the frontend holds, and what it holds for them.
         std::map<std::string, std::string> held;
         const bool calm = rng.below(3) == 0;                         // a third of the frontends hold only exact names, so that acceptance is exercised too
+        const bool holds_nothing = iteration % 250 == 7;             // a frontend with none of our options at all: with six of them the random choice alone reaches it too rarely
         for (const p6_options::Option &option : p6_options::kOptions) {
             const uint32_t how = rng.below(10);
-            if (how == 0) continue;                                  // the frontend has no such variable
+            if (how == 0 || holds_nothing) continue;                 // the frontend has no such variable
             if (how == 1) { values[option.key] = "ignored"; missing_value[option.key] = true; continue; }     // answers with a NULL value
             std::string kind = "exact";
             values[option.key] = held[option.key] = calm ? option.values[rng.below(option.count)].name : hostile_value(rng, option, &kind);

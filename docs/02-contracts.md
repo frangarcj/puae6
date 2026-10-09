@@ -73,7 +73,7 @@ reescrito con limites y comparado con el de WinUAE) se decodifican en memoria, c
 de ese ADF: el contenedor no entra en estados ni peliculas. Se rechazan con mensaje IPF/CT RAW (la licencia de capsimg prohibe redistribuirla con el core; un lector con licencia
 compatible seria tarea propia), FDI, SCP, 7z, RAR, LHA, ADF extendido, ZIP cifrado/ZIP64/multivolumen y DMS cifrado, de alta densidad o FMS. Las rutas son bytes UTF-8 que se pasan tal cual y nunca son identidad: los medios se nombran por el SHA-256 de sus
 bytes (ADR 0008), y dos discos con los mismos bytes comparten un medio del manifiesto. Una playlist M3U tiene una entrada `fichero|etiqueta` por linea (la etiqueta es opcional y por
-defecto es el nombre sin extension), las lineas `#` son comentarios (`#SAVEDISK:` avisa y se ignora: el core no escribe discos), las rutas relativas lo son al directorio de la
+defecto es el nombre sin extension), las lineas `#` son comentarios (`#SAVEDISK:` avisa y se ignora: los discos solo se escriben con `puae6_floppy_writes`, y se guardan como dice el parrafo de escritura de libretro de mas abajo), las rutas relativas lo son al directorio de la
 playlist (una ruta con raiz, letra de unidad o `esquema://` se usa tal cual) y se aceptan un BOM UTF-8 inicial y los finales de linea CR, LF y CRLF. Como mucho 16 discos
 (`P6_MAX_MEDIA`) y cada entrada ha de ser un disco (ADF o uno de los contenedores anteriores); un NUL, una entrada sin nombre, una ruta de mas de 4096 bytes, mas de 16 entradas, una playlist vacia o un disco que no es un
 ADF hacen fallar toda la carga con un mensaje que nombra la linea o el disco; nada se carga a medias. Disk Control: la interfaz EXT si el frontend la ofrece y la clasica si no. Las
@@ -390,6 +390,15 @@ Exportar es explicito: `p6_media_write_status_get` describe el overlay (capacida
 `p6_media_export` copia el disco actual (base con el overlay encima, 901120 bytes) a un buffer del llamante sin cambiar nada en la maquina: ni flush, ni evento, ni estado.
 Hacerlo duradero (fichero temporal, flush, rename) es del llamante; run, save y load nunca escriben fuera del core, y una rama especulativa (rewind, runahead, segunda
 instancia) no debe exportar.
+
+Libretro (T27b): `puae6_floppy_writes` (Restart, `disabled` por defecto, el flag `P6_CONFIG_FLOPPY_WRITES` del esquema de opciones) hace escribibles los disquetes; el overlay va en los
+estados, el rewind y el runahead (la cota de `retro_serialize_size` crece 2 017 456 bytes) y los ficheros de disco NO se tocan nunca. `puae6_floppy_save` (`off` / `on_close`, se aplica
+al momento) decide si las escrituras se guardan: solo en `retro_unload_game`/`retro_deinit` (jamas durante un run, una carga de estado, un rewind o un runahead) y solo de los discos que
+cambiaron respecto de los bytes con que se cargaron. Cada uno se exporta con `p6_media_export` y se escribe en el save directory del frontend como `puae6-<24 hex del SHA-256 del
+disco tal como lo dio su fichero>.adf` mediante un fichero temporal vecino, flush/fsync y rename (siempre queda el disco viejo o el nuevo); al cargar con escrituras habilitadas, esa
+copia ES el disco (su SHA-256 es su identidad: un estado guardado con otra copia no carga, como con cualquier otro medio). Un disco con una pista que no es AmigaDOS no se guarda y se
+avisa; con `off` se avisa de cuantos discos cambiaron y se descartan. La cabecera de un ADF guardado que el puente tomaria por otro formato (extendido o ejecutable) se rechaza al
+guardar y al usar. headless siempre `flags = 0`; el wrapper BizHawk lo fija a 0 hasta T27c.
 
 Guardar estado revierte overlay, drive state, indice de disco y eventos pendientes.
 Flushear a almacenamiento del host es operacion explicita aparte, atomica y nunca

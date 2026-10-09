@@ -134,6 +134,7 @@ static int run(int argc, char **argv)
     config.machine = machine;
     config.video_standard = standard;
     config.audio_rate_hz = 48000;
+    config.flags = 0;        // floppy writes are for the adapters that can export a disk
     config.random_seed = seed;
     config.rtc_epoch_seconds = 946684800;   // 2000-01-01T00:00:00Z, the contract's default
     p6_error error = make_error();

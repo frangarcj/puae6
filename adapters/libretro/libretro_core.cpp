@@ -7,7 +7,9 @@
 // Content (T17a): the Kickstart is looked up by known file names in the frontend's system directory and identified by the bridge from its bytes
 // (never by its name); the content is a disk, an M3U playlist of disks, or nothing (the Kickstart boots alone). A disk is an ADF, an ADZ, a DMS or a ZIP of one
 // of them, decoded in memory to its ADF by container.h; the SHA-256 of the ADF is the medium's identity, whatever the container (T17d). Files are read through the
-// frontend's VFS when it offers one and through stdio otherwise. Disks are read-only. Every image of the playlist is registered with p6_load,
+// frontend's VFS when it offers one and through stdio otherwise. Disks are read-only unless puae6_floppy_writes is on (T27): then the guest can write to them over an
+// overlay that lives in the machine (and so in save states, rewind and run-ahead), the files are still never touched, and floppy_save.h says how the changes
+// can be kept (only when the content closes, only if puae6_floppy_save asks for it). Every image of the playlist is registered with p6_load,
 // and the Disk Control interface only records what the frontend asks: the next retro_run turns it into p6_media_event_enqueue calls, so a
 // change lands on one unit boundary (see disk_control.h). Disks added later (T17e: add_image_index makes an empty slot, replace_image_index reads a file, decodes it as at load
 // and registers it with p6_media_append at the END of the manifest) are registered inside the callback: registering a medium changes nothing of the machine (no drive, no event,
@@ -34,6 +36,7 @@
 #include "content.h"
 #include "disk_control.h"
 #include "firmware.h"
+#include "floppy_save.h"
 #include "input_map.h"
 #include "options.h"
 #include "sha256.h"
@@ -67,6 +70,8 @@ retro_log_printf_t log_cb;
 struct Medium {
     std::vector<uint8_t> bytes;           // p6_load borrows it until p6_unload
     uint8_t id[P6_CONTENT_ID_SIZE];       // SHA-256 of the bytes: the identity of the disk, whatever it is called or wherever it is
+    uint8_t origin[P6_CONTENT_ID_SIZE];   // the identity of the disk as its file gave it: the name of the file its changes are saved to (the same as id unless a saved copy replaced it)
+    bool saved_copy = false;              // the bytes are a copy saved by an earlier session (T27), not the file's
 };
 
 struct Core {
@@ -339,6 +344,14 @@ void notify_error(const char *format, ...)
     va_end(arguments);
 }
 
+void notify_info(const char *format, ...)
+{
+    va_list arguments;
+    va_start(arguments, format);
+    vnotify(RETRO_LOG_INFO, format, arguments);
+    va_end(arguments);
+}
+
 void notify_warning(const char *format, ...)
 {
     va_list arguments;
@@ -367,6 +380,91 @@ std::string to_hex(const uint8_t *bytes, size_t count)
         text += digits[bytes[i] & 15];
     }
     return text;
+}
+
+// The frontend's save directory, or empty when it has none (nothing can then be kept between sessions).
+std::string save_directory()
+{
+    const char *directory = nullptr;
+    if (!environment_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &directory) || !directory || !*directory || strlen(directory) > p6_libretro::kMaxPathBytes) return std::string();
+    return directory;
+}
+
+// A disk was just read (its bytes and id are the file's): remembers that id as the origin and, with floppy writes on, swaps in the copy an earlier session
+// saved for it, if there is one and it is a plain ADF the bridge takes. The copy becomes the disk (its own SHA-256 is its identity); a file that is not usable
+// is reported and the original is used.
+void use_saved_copy(Medium *medium)
+{
+    memcpy(medium->origin, medium->id, sizeof medium->id);
+    if (!core.settings.floppy_writes) return;
+    const std::string path = p6_libretro::saved_disk_path(save_directory(), medium->origin);
+    if (path.empty()) return;
+    std::vector<uint8_t> bytes;
+    const p6_libretro::ReadResult read = core.files.read(path, p6_libretro::kDiskBytes, &bytes);
+    if (read == p6_libretro::ReadResult::CannotOpen) return;
+    if (read != p6_libretro::ReadResult::Ok || bytes.size() != p6_libretro::kDiskBytes || !p6_libretro::is_plain_adf_start(bytes.data(), bytes.size())) {
+        notify_warning("the saved changes of a disk (%s) are not used: %s", path.c_str(),
+                       read != p6_libretro::ReadResult::Ok ? describe(read) : "it is not a plain 901120-byte ADF");
+        return;
+    }
+    medium->bytes = std::move(bytes);
+    p6_sha256_hash(medium->bytes.data(), medium->bytes.size(), medium->id);
+    medium->saved_copy = true;
+    log(RETRO_LOG_INFO, "the disk uses the changes an earlier session saved in %s", path.c_str());
+}
+
+// When the content closes (and only then): the disks the guest changed. Each is exported (what the machine holds now, the file's disk with the overlay over it);
+// if it differs from the bytes it was loaded with it is a change. With puae6_floppy_save on, a change is written to the save directory by an atomic replace;
+// otherwise the person is told, once, that changes are being discarded. Nothing here runs during a run, a state load or a rewind, and a failure only costs the changes.
+void save_floppy_changes()
+{
+    if (!core.loaded || core.faulted || !core.settings.floppy_writes) return;
+    const bool keep = core.settings.floppy_save == 1;
+    const std::string directory = keep ? save_directory() : std::string();
+    if (keep && directory.empty()) notify_warning("the frontend has no save directory: the changes to the floppies are discarded");
+    std::vector<uint8_t> image;
+    unsigned changed = 0, saved = 0, lost = 0;
+    try {
+        image.resize(p6_libretro::kDiskBytes);
+        for (size_t i = 0; i < core.media.size(); ++i) {
+            const Medium &medium = core.media[i];
+            uint64_t written = 0;
+            p6_error error = make_error();
+            const p6_result result = p6_media_export(uint32_t(i), image.data(), image.size(), &written, &error);
+            if (result == P6_ERROR_UNSUPPORTED) {
+                notify_warning("disk %zu has a track in a format that is not AmigaDOS, which an ADF cannot hold: its changes are discarded", i + 1);
+                ++lost;
+                continue;
+            }
+            if (result != P6_OK) {
+                report("p6_media_export", result, error);
+                continue;
+            }
+            if (written == medium.bytes.size() && memcmp(image.data(), medium.bytes.data(), image.size()) == 0) continue;      // as it was loaded
+            ++changed;
+            if (!keep || directory.empty()) continue;
+            if (!p6_libretro::is_plain_adf_start(image.data(), image.size())) {
+                notify_warning("disk %zu cannot be saved: its first bytes would make the engine take it for another format", i + 1);
+                ++lost;
+                continue;
+            }
+            const std::string path = p6_libretro::saved_disk_path(directory, medium.origin);
+            std::string why;
+            if (p6_libretro::write_file_atomically(path, image.data(), image.size(), &why)) {
+                log(RETRO_LOG_INFO, "disk %zu: the changes were saved in %s", i + 1, path.c_str());
+                ++saved;
+            } else {
+                notify_warning("disk %zu: the changes were not saved: %s", i + 1, why.c_str());
+                ++lost;
+            }
+        }
+    } catch (const std::bad_alloc &) {
+        notify_warning("not enough memory to save the changes to the floppies");
+        return;
+    }
+    if (saved) notify_info("%u disk(s) saved in %s", saved, directory.c_str());
+    if (changed && !keep) notify_warning("%u disk(s) were changed and the changes are discarded: Save Floppy Changes is off", changed);
+    (void)lost;
 }
 
 // The disks the content names, read through the VFS or stdio, with the distinct ones in `media` (the manifest) and one image per playlist
@@ -434,6 +532,7 @@ bool load_disks(const retro_game_info *game, std::vector<Medium> *media, std::ve
             return false;
         }
         p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
+        use_saved_copy(&medium);
         size_t known = 0;
         while (known < media->size() && memcmp((*media)[known].id, medium.id, sizeof medium.id) != 0) ++known;
         if (known == media->size()) {
@@ -596,6 +695,7 @@ bool read_added_disk(const std::string &path, Medium *medium, std::string *why)
     }
     if (!decode_disk(&medium->bytes, path, why)) return false;
     p6_sha256_hash(medium->bytes.data(), medium->bytes.size(), medium->id);
+    use_saved_copy(medium);
     return true;
 }
 
@@ -873,6 +973,7 @@ RETRO_API void retro_init(void)
 
 RETRO_API void retro_deinit(void)
 {
+    save_floppy_changes();
     stop_image();
     core.files.use_vfs(nullptr);
     log_cb = nullptr;
@@ -1135,7 +1236,9 @@ RETRO_API bool retro_load_game_special(unsigned, const struct retro_game_info *,
 RETRO_API void retro_unload_game(void)
 {
     CallGuard guard;
-    if (guard.ok) stop_image();
+    if (!guard.ok) return;
+    save_floppy_changes();
+    stop_image();
 }
 
 RETRO_API unsigned retro_get_region(void) { return core.settings.video_standard == P6_VIDEO_NTSC ? RETRO_REGION_NTSC : RETRO_REGION_PAL; }

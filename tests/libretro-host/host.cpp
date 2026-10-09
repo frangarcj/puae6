@@ -5,7 +5,7 @@
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
 //                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
-//                    [--options-api 0|1|2] [--no-options] [--set KEY=VALUE]... [--set-at RUN:KEY=VALUE]...
+//                    [--options-api 0|1|2] [--no-options] [--set KEY=VALUE]... [--set-at RUN:KEY=VALUE]... [--save-dir DIR]
 // The core gets the Kickstart from the system directory DIR (the frontend's GET_SYSTEM_DIRECTORY) and the content PATH by name (need_fullpath),
 // read through a VFS the host offers (unless --no-vfs) that wraps stdio and prints every open. No --content is a load without content.
 // COMMAND is a Disk Control call: eject, insert, index=N, remove=N, replace=N:PATH, add. --disk makes it before run RUN (after run RUN-1),
@@ -23,7 +23,7 @@
 // mouse reports: the device of port 0 stays the core's default, "Joystick + Mouse", unless --device says otherwise); --analog PORT:X,Y holds the left stick; --device PORT:ID is retro_set_controller_port_device before the load, and the action device:PORT:ID
 // is the same call between two runs, as a menu does. The core's debug log shows the packet each run sent, "ports=... keys=...".
 // ACTION, executed after visible run RUN (0 is before the first run): save:SLOT, load:SLOT[:VARIANT], savefile:PATH, loadfile:PATH[:VARIANT], reset,
-// images (print the Disk Control view: count, index, eject), disk:COMMAND (a Disk Control call between two runs, see COMMAND below).
+// images (print the Disk Control view: count, index, eject), file:PATH (print whether the file exists, its size and a hash), disk:COMMAND (a Disk Control call between two runs, see COMMAND below).
 // A saved blob is the whole serialize_size bytes, prefilled with 0xA5 so that bytes the core does not write are noticed. VARIANT is a list of edits made to a
 // copy of the blob before it is handed to retro_unserialize: size=D (blob size = serialize_size + D, a longer one is filled with fill=), usedsize=D (relative to
 // the end of the frame: header + section + native state, read from the header), fill=0xHH (for appended bytes, 0 by default), xor=OFFSET (flip a byte; a negative
@@ -68,8 +68,8 @@ struct Options {
     bool mouse = false;
     int mouse_dx = 0, mouse_dy = 0;
     unsigned mouse_buttons = 0;
-    std::string system_dir, content, retry_system;
-    bool has_system = false, has_content = false, no_vfs = false, legacy_disk = false, legacy_message = false, has_initial = false;
+    std::string system_dir, content, retry_system, save_dir;
+    bool has_save = false, has_system = false, has_content = false, no_vfs = false, legacy_disk = false, legacy_message = false, has_initial = false;
     int64_t vfs_claim = -1;
     unsigned initial_index = 0;
     std::string initial_path;
@@ -345,6 +345,10 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
                av->geometry.max_width, av->geometry.max_height, double(av->geometry.aspect_ratio), av->timing.fps, av->timing.sample_rate);
         return !options.reject_optional && !options.refuse_av_info;      // counted even when refused: the core must not ask again for the same rate
     }
+    case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
+        if (!options.has_save) return false;
+        *static_cast<const char **>(data) = options.save_dir.c_str();
+        return true;
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
         if (!options.has_system) return false;
         *static_cast<const char **>(data) = options.system_dir.c_str();
@@ -683,6 +687,17 @@ void do_action(const std::string &text)
         bool tail_intact = true;
         for (size_t i = size; i < given; ++i) tail_intact = tail_intact && buffer[i] == 0xA5;
         printf("state save %s %s ok=%d tail=%s\n", argument.c_str(), variant.c_str(), int(ok), tail_intact ? "intact" : "written");
+    } else if (command == "file") {
+        // "file:PATH": whether the file exists now, its size and a hash of it (T27: a core must not write a floppy while it runs, a rewind or a run-ahead goes on).
+        std::vector<uint8_t> bytes;
+        if (FILE *file = fopen(argument.c_str(), "rb")) {
+            uint8_t buffer[65536];
+            for (size_t n; (n = fread(buffer, 1, sizeof buffer, file)) > 0;) bytes.insert(bytes.end(), buffer, buffer + n);
+            fclose(file);
+            printf("file %s size=%zu hash=%016" PRIx64 "\n", argument.c_str(), bytes.size(), fnv(kFnvBasis, bytes.data(), bytes.size()));
+        } else {
+            printf("file %s missing\n", argument.c_str());
+        }
     } else if (command == "save" || command == "savefile") {
         std::vector<uint8_t> blob;
         const bool ok = save_blob(&blob);
@@ -830,6 +845,7 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--bad-format")) options.bad_format = true;
         else if (!strcmp(a, "--reenter")) options.reenter = true;
         else if (!strcmp(a, "--system")) options.system_dir = next(), options.has_system = true;
+        else if (!strcmp(a, "--save-dir")) options.save_dir = next(), options.has_save = true;
         else if (!strcmp(a, "--content")) options.content = next(), options.has_content = true;
         else if (!strcmp(a, "--no-vfs")) options.no_vfs = true;
         else if (!strcmp(a, "--vfs-claim")) options.vfs_claim = atoll(next());

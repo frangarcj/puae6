@@ -135,6 +135,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.Machine = _syncSettings.Machine switch { Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, _ => P6.MachineA500 };
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
 		init.Config.AudioRateHz = 48000;
+		init.Config.Flags = 0;      // floppy writes: the wrapper keeps every disk write protected until its export is wired (T27c)
 		init.Config.RandomSeed = _syncSettings.RandomSeed;
 		init.Config.RtcEpochSeconds = _syncSettings.RtcEpochSeconds;
 		fixed (byte* rom = firmware)

@@ -84,8 +84,11 @@ class SchemaValidationTests(unittest.TestCase):
         option(document, "video_standard")["maps_to"] = "p6_config.cpu_model"
         self.refuses(document, "p6_config has no field 'cpu_model'")
         document = schema()
+        option(document, "video_standard")["maps_to"] = "p6_config.reserved"
+        self.refuses(document, "p6_config.reserved has one valid value in ABI v1")
+        document = schema()
         option(document, "video_standard")["maps_to"] = "p6_config.flags"
-        self.refuses(document, "p6_config.flags has one valid value in ABI v1")
+        self.refuses(document, "maps_to 'p6_config.flags' is already used by option 'video_standard'")
         document = schema()
         option(document, "video_standard")["maps_to"] = "video_standard"
         self.refuses(document, "maps_to must be 'p6_config.FIELD'")
@@ -197,9 +200,9 @@ class NormalizationTests(unittest.TestCase):
         document = schema()
         normalized = gen.normalize_config(document, {})
         self.assertEqual(normalized, {"machine": "A500", "video_standard": "PAL", "audio_rate_hz": "48000", "random_seed": 1, "rtc_epoch_seconds": 946684800,
-                                      "video_aspect": "pixel"})
+                                      "floppy_writes": "disabled", "video_aspect": "pixel", "floppy_save": "off"})
         self.assertEqual(gen.to_p6_config(document, normalized),
-                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
+                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
 
     def test_values_are_normalized_and_numbers_accept_text(self):
         document = schema()
@@ -376,13 +379,13 @@ class GeneratorTests(unittest.TestCase):
     def test_the_table_has_the_normalized_p6_config_that_adapters_must_use(self):
         table = json.loads(gen.TABLE.read_text())
         self.assertEqual({name: entry["default"] for name, entry in table["p6_config"].items()},
-                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800})
+                         {"machine": 1, "video_standard": 1, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
         self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3])
         self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3})
         self.assertNotIn("wrapper_not_offered", table["adapters"]["machine"])
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
-        self.assertEqual(list(table["presentation"]), ["video_aspect"])
+        self.assertEqual(list(table["presentation"]), ["video_aspect", "floppy_save"])
 
 
 if __name__ == "__main__":

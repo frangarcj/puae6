@@ -16,7 +16,8 @@
   ],
   "categories": [
     {"id": "machine", "label": "Machine", "info": "What the emulated Amiga is. These options take effect when the content is loaded."},
-    {"id": "video", "label": "Video", "info": "How the picture is presented. These options apply at once."}
+    {"id": "video", "label": "Video", "info": "How the picture is presented. These options apply at once."},
+    {"id": "media", "label": "Media", "info": "What the machine does with the disks it is given."}
   ],
   "options": [
     {
@@ -104,6 +105,25 @@
       "wrapper": {"how": "setting", "setting": "RtcEpochSeconds", "type": "long"}
     },
     {
+      "id": "floppy_writes",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.flags",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled: every disk is write protected"},
+        {"value": "enabled", "abi": 1, "abi_name": "P6_CONFIG_FLOPPY_WRITES", "label": "Enabled: the guest can write to the disks"}
+      ],
+      "libretro": {
+        "key": "puae6_floppy_writes",
+        "category": "media",
+        "label": "Floppy Writes",
+        "info": "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state."
+      },
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "fixed", "where": "flags"}
+    },
+    {
       "id": "video_aspect",
       "class": "presentation",
       "type": "enum",
@@ -118,6 +138,25 @@
         "category": "video",
         "label": "Aspect Ratio",
         "info": "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "floppy_save",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.floppy_save",
+      "default": "off",
+      "values": [
+        {"value": "off", "abi": 0, "label": "Off: the changes are lost when the content closes"},
+        {"value": "on_close", "abi": 1, "label": "When the content closes"}
+      ],
+      "libretro": {
+        "key": "puae6_floppy_save",
+        "category": "media",
+        "label": "Save Floppy Changes",
+        "info": "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}
