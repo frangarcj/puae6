@@ -122,7 +122,7 @@ class ZfileTests(unittest.TestCase):
             symbols = {line.split()[-1].lstrip("_") for line in result.stdout.splitlines() if line.strip()}
             allowed = {"calloc", "malloc", "free", "memmove", "strcpy", "strcpy_chk", "strchr", "memcpy", "memset", "bzero",
                        "strlen", "Z9get_crc32Pvi", "error", "errno_location", "stack_chk_fail", "stack_chk_guard"}
-            allowed.update("p6_blob_"+name for name in ("open", "close", "stat", "read", "seek", "exists"))
+            allowed.update("p6_blob_"+name for name in ("open", "close", "stat", "read", "seek", "exists", "write"))
             self.assertLessEqual(symbols, allowed)
 
 

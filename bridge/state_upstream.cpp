@@ -114,6 +114,8 @@
 #include "video_present.h"
 #include "media.h"
 #include "session.h"
+#include "blob_io.h"
+#include "overlay.h"
 
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);       // events.cpp 0078
 extern void p6_events_set(int idx, int next, int remain);
@@ -1172,10 +1174,46 @@ void put_media_in_drives()
     }
 }
 
+// The write overlay of the floppies (T27, P6_CONFIG_FLOPPY_WRITES): the sectors the guest wrote, which are machine state like Chip RAM. It follows the bodies above
+// and exists only in an image that reserved the pool at load (the configuration flag is part of the identity, so a state and its image agree). u32 count, u64 of
+// writes refused for lack of room, then per sector in the order they were first written: u8 medium (an index of the manifest the state had), u16 sector (0..1759) and
+// the 512 bytes. The bound is the whole pool, whatever the state holds. A state names a sector at most once; a medium beyond its manifest or a sector beyond
+// the disk is refused before anything is applied. The identity of a disk stays its base (the CRC in DSKn is the base's): the overlay is not part of the manifest.
+void visit_overlay(Archive &a)
+{
+    p6_overlay *o = p6_blob_overlay();
+    if (!o) return;
+    static uint8_t seen[(P6_OVL_MEDIA * P6_OVL_DISK_SECTORS + 7) / 8];      // Validate and Apply: the sectors this body named so far
+    memset(seen, 0, sizeof seen);
+    uint32_t count = o->count;
+    const uint32_t n = a.count(count, P6_OVL_SLOTS, "overlay.count");
+    a.num(o->refused, "overlay.refused");
+    for (uint32_t i = 0; i < n && a.ok(); ++i) {
+        const uint32_t medium = a.val<uint8_t>(o->medium[i], 0, uint8_t(P6_OVL_MEDIA - 1), "overlay.medium");
+        const uint32_t sector = a.val<uint16_t>(o->sector[i], 0, uint16_t(P6_OVL_DISK_SECTORS - 1), "overlay.sector");
+        if (a.reading() && a.ok()) {
+            a.require(medium < manifest_count(), "overlay: a sector of a medium the state's manifest does not have");
+            const uint32_t at = medium * P6_OVL_DISK_SECTORS + sector;
+            a.require(!(seen[at >> 3] & (1u << (at & 7))), "overlay: a sector is named twice");
+            seen[at >> 3] = uint8_t(seen[at >> 3] | (1u << (at & 7)));
+        }
+        if (a.applying() && a.ok()) {
+            o->medium[i] = uint8_t(medium);
+            o->sector[i] = uint16_t(sector);
+        }
+        a.bytes(p6_overlay_sector(o, i), P6_OVL_SECTOR_BYTES, "overlay.data");
+    }
+    if (a.applying() && a.ok()) {
+        o->count = n;
+        a.require(p6_overlay_index(o, manifest_count()) == 0, "overlay: the sectors do not index");
+    }
+}
+
 void visit_disk(Archive &a)
 {
     if (a.applying()) put_media_in_drives();
     visit_bodies(a, kDiskBodies, nullptr);
+    if (a.ok()) visit_overlay(a);
 }
 
 // The preferences and the drive name the medium the state says each drive holds, or is waiting for: the engine's own names (what disk_insert_2 and disk_eject set) are the
@@ -1188,7 +1226,7 @@ void rebuild_disk()
         if (s.drive_media[n] >= 0) p6_bridge::media_blob_id(s.media_content_id[s.drive_media[n]], id);
         _tcscpy(changed_prefs.floppyslots[n].df, id);
         _tcscpy(currprefs.floppyslots[n].df, id);
-        changed_prefs.floppyslots[n].forcedwriteprotect = currprefs.floppyslots[n].forcedwriteprotect = true;
+        changed_prefs.floppyslots[n].forcedwriteprotect = currprefs.floppyslots[n].forcedwriteprotect = p6_bridge::media_forced_write_protect(id);
         if (g_disk_pending[n]) p6_disk_newname_set(int(n), id);
     }
 }

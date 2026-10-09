@@ -48,6 +48,7 @@ typedef struct p6_caps {
 #define P6_CAP_MEDIA_EVENTS     (UINT64_C(1) << 2)
 #define P6_CAP_LAG_FLAG         (UINT64_C(1) << 3)
 #define P6_CAP_MEDIA_APPEND     (UINT64_C(1) << 4)
+#define P6_CAP_MEDIA_WRITE      (UINT64_C(1) << 5)   /* P6_CONFIG_FLOPPY_WRITES, p6_media_export and p6_media_write_status */
 
 typedef struct p6_config {
     uint32_t abi_version;
@@ -55,11 +56,17 @@ typedef struct p6_config {
     uint32_t machine;           /* P6_MACHINE_A500, A600 or A1200; any other value is P6_ERROR_UNSUPPORTED. */
     uint32_t video_standard;    /* P6_VIDEO_PAL or P6_VIDEO_NTSC. */
     uint32_t audio_rate_hz;
-    uint32_t flags;             /* Must be zero in ABI v1. */
+    uint32_t flags;             /* P6_CONFIG_*; any other bit is P6_ERROR_BAD_ARGUMENT. */
     uint64_t random_seed;
     int64_t rtc_epoch_seconds;  /* UTC epoch; never read from host clock. */
     uint64_t reserved[4];
 } p6_config;
+/* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
+ * (sector granularity, one fixed pool of P6_OVERLAY_SECTORS shared by every disk) that is part of the machine state and of p6_state_bound, so a state
+ * load or a rewind takes the writes back and the base is never touched. Without the flag every disk is write protected, as in ABI v1. The flag is
+ * part of the configuration identity: a state of one setting does not load in the other. Getting the writes out is explicit: p6_media_export. */
+#define P6_CONFIG_FLOPPY_WRITES UINT32_C(1)
+#define P6_OVERLAY_SECTORS UINT32_C(3520)    /* 512-byte sectors: two disks' worth */
 #define P6_MACHINE_A500 UINT32_C(1)
 #define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no IDE/PCMCIA (Gayle is not emulated). */
 #define P6_MACHINE_A1200 UINT32_C(3)  /* 68EC020 cycle exact (24-bit bus), AGA, 2 MiB Chip, no Slow/Fast RAM, no Gayle. */
@@ -293,6 +300,32 @@ p6_result p6_media_event_enqueue(const p6_media_event *event, p6_error *error);
  * A native state records how many media the manifest had and the hash of that prefix: it loads in an image whose manifest starts with the same media
  * (the image may have appended more since), and it is INCOMPATIBLE in one whose manifest does not. Every medium a state names is inside its own prefix. */
 p6_result p6_media_append(const p6_media *medium, uint32_t *index, p6_error *error);
+
+/* Writable floppies (P6_CAP_MEDIA_WRITE, config flag P6_CONFIG_FLOPPY_WRITES; UNSUPPORTED otherwise).
+ *
+ * The identity of a disk stays its base: the content_id of the manifest, the CRC a drive reports and the media_manifest_hash of a state never include
+ * what was written. The writes are machine state, like RAM: a state carries the overlay as of its unit, and loading it replaces the overlay (a state
+ * taken before a write loads the disk as it was). A guest write that does not fit is refused without storing any of it: while fewer than 11 sectors are
+ * free the drives report the disk write protected, so a well behaved guest never tries; one that tries anyway is counted in `refused_writes`.
+ *
+ * p6_media_write_status describes the overlay as of the last unit boundary; nothing in it grows with time except what a guest writes.
+ * p6_media_export copies the disk as it is now (the base with the overlay over it, exactly 901120 bytes) into the caller's buffer; it reads the
+ * machine and changes nothing in it (no flush, no state change, no event), and the bytes are the caller's to make durable (write a temporary file,
+ * flush it, rename it over the target: nothing of that is done by run, save or load, and a caller that speculates (rewind, run-ahead, a second
+ * instance) must not export from the speculative branch). CAPACITY (nothing written) when the buffer is smaller than the disk. */
+typedef struct p6_media_write_status {
+    uint32_t abi_version;
+    uint32_t struct_size;
+    uint32_t media_index;       /* in: the disk. */
+    uint32_t reserved0;         /* Zero. */
+    uint64_t overlay_capacity;  /* out: sectors the pool holds (P6_OVERLAY_SECTORS), for all disks together. */
+    uint64_t overlay_used;      /* out: sectors in use, for all disks together. */
+    uint64_t medium_sectors;    /* out: sectors of this disk that differ from the base's. */
+    uint64_t refused_writes;    /* out: guest writes refused for lack of room since the load or the state that was loaded. */
+    uint64_t reserved[2];
+} p6_media_write_status;
+p6_result p6_media_write_status_get(p6_media_write_status *status, p6_error *error);
+p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_t capacity, uint64_t *written, p6_error *error);
 
 #ifdef __cplusplus
 } /* extern "C" */

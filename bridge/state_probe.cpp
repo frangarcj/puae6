@@ -57,6 +57,8 @@
 #include "state.h"
 #include "p6_state_access.h"
 #include "sha256.h"
+#include "media.h"
+#include "blob_io.h"
 #include "rtc_time.h"
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -384,7 +386,7 @@ std::vector<uint8_t> g_rom;          // what p6_load was given, for the operatio
 std::vector<p6_media> g_media;
 std::vector<std::vector<uint8_t>> g_appended;      // the images --append-at registered: borrowed by the bridge until p6_unload
 
-enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Append, Public, PublicSave, PublicLoad };
+enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Append, Public, PublicSave, PublicLoad, Export, Status, Ram, RamOut };
 
 struct StateOp {
     uint64_t unit;
@@ -570,6 +572,75 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             uint32_t index = UINT32_MAX;
             const p6_result result = p6_media_append(&medium, &index, &error);
             printf("append %" PRIu64 " %d %u %s\n", unit, int(result), index, error.message);
+        } else if (op.kind == OpKind::Export) {
+            // The public p6_media_export (T27) of medium INDEX: the file it is written to and the SHA-256 of the 901120 bytes. "export UNIT CODE INDEX SHA256 WRITTEN MESSAGE".
+            const uint32_t index = uint32_t(strtoul(op.chunk, nullptr, 10));
+            std::vector<uint8_t> image(901120);
+            uint64_t written = 0;
+            const p6_result result = p6_media_export(index, image.data(), image.size(), &written, &error);
+            uint8_t digest[32] = {};
+            if (result == P6_OK) {
+                p6_sha256_hash(image.data(), size_t(written), digest);
+                if (FILE *f = fopen(op.path, "wb")) { fwrite(image.data(), 1, size_t(written), f); fclose(f); }
+            }
+            printf("export %" PRIu64 " %d %u %s %" PRIu64 " %s\n", unit, int(result), index, hex(digest, 32).c_str(), written, error.message);
+        } else if (op.kind == OpKind::Status) {
+            p6_media_write_status st = {};
+            st.abi_version = P6_ABI_VERSION;
+            st.struct_size = sizeof st;
+            st.media_index = uint32_t(strtoul(op.chunk, nullptr, 10));
+            const p6_result result = p6_media_write_status_get(&st, &error);
+            // base= is the SHA-256 of what the blob store holds for the medium (the "rb" stream): the base must stay the registered image whatever the guest writes.
+            std::string base = "none";
+            if (st.media_index < g_media.size()) {
+                char id[p6_bridge::kMediaBlobIdBytes];
+                p6_bridge::media_blob_id(g_media[st.media_index].content_id, id);
+                p6_blob_handle handle = 0;
+                std::vector<uint8_t> bytes(size_t(g_media[st.media_index].image.bytes));
+                size_t items = 0;
+                if (p6_blob_open(id, "rb", &handle) == P6_BLOB_OK) {
+                    uint8_t digest[32];
+                    if (p6_blob_read(handle, bytes.data(), bytes.size(), 1, bytes.size(), &items) == P6_BLOB_OK && items == bytes.size()) {
+                        p6_sha256_hash(bytes.data(), bytes.size(), digest);
+                        base = hex(digest, 32);
+                    }
+                    p6_blob_close(handle);
+                }
+            }
+            printf("status %" PRIu64 " %d %u capacity=%" PRIu64 " used=%" PRIu64 " medium=%" PRIu64 " refused=%" PRIu64 " base=%s %s\n", unit, int(result), st.media_index,
+                   st.overlay_capacity, st.overlay_used, st.medium_sectors, st.refused_writes, base.c_str(), error.message);
+        } else if (op.kind == OpKind::Ram) {
+            // An external write into Chip RAM at the boundary (a host action, never part of a replay): the file's bytes at ADDRESS. "ram UNIT CODE ADDRESS BYTES".
+            std::vector<uint8_t> data;
+            const unsigned long at = strtoul(op.chunk, nullptr, 0);
+            p6_memory_region regions[4] = {};
+            uint32_t count = 0;
+            int code = -1;
+            if (read_file(op.path, &data) && p6_memory_regions(regions, 4, &count, &error) == P6_OK)
+                for (uint32_t i = 0; i < count; ++i)
+                    if (regions[i].type == P6_REGION_CHIP_RAM && (regions[i].flags & P6_REGION_WRITABLE) && at <= regions[i].bytes && data.size() <= regions[i].bytes - at) {
+                        memcpy(static_cast<uint8_t *>(const_cast<void *>(regions[i].data)) + at, data.data(), data.size());
+                        code = 0;
+                        break;
+                    }
+            printf("ram %" PRIu64 " %d %lu %zu\n", unit, code, at, data.size());
+        } else if (op.kind == OpKind::RamOut) {
+            // Chip RAM [ADDRESS, ADDRESS + LENGTH) into a file, what a host could read through p6_memory_regions. "ramout UNIT CODE ADDRESS LENGTH".
+            const unsigned long at = strtoul(op.chunk, nullptr, 0), length = strtoul(op.extra, nullptr, 0);
+            p6_memory_region regions[4] = {};
+            uint32_t count = 0;
+            int code = -1;
+            if (p6_memory_regions(regions, 4, &count, &error) == P6_OK)
+                for (uint32_t i = 0; i < count; ++i)
+                    if (regions[i].type == P6_REGION_CHIP_RAM && at <= regions[i].bytes && length <= regions[i].bytes - at) {
+                        if (FILE *f = fopen(op.path, "wb")) {
+                            fwrite(static_cast<const uint8_t *>(regions[i].data) + at, 1, length, f);
+                            fclose(f);
+                            code = 0;
+                        }
+                        break;
+                    }
+            printf("ramout %" PRIu64 " %d %lu %lu\n", unit, code, at, length);
         } else if (op.kind == OpKind::Public) {
             // The public functions of p6.h, in one process: the bound, a save into a buffer of exactly that size, one into a buffer that is too small, a load of
             // garbage and the load of the state just saved. Only the last one changes the machine (to the one it was).
@@ -801,6 +872,7 @@ int main(int argc, char **argv)
     uint32_t machine = P6_MACHINE_A500;
     uint32_t rate = 48000;
     uint64_t seed = 1;
+    bool floppy_writes = false;
     std::vector<StateOp> state_ops;
     std::vector<const char *> adf_paths;
     p6_port_input ports[2] = {{P6_PORT_JOYSTICK, 0, 0, 0, 0}, {P6_PORT_JOYSTICK, 0, 0, 0, 0}};
@@ -843,6 +915,20 @@ int main(int argc, char **argv)
             // --append-at UNIT FILE (T17e): registers the image after UNIT, at the end of the manifest (prints "append UNIT CODE INDEX MESSAGE")
             state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Append, argv[i + 2], nullptr});
             i += 2;
+        } else if (!strcmp(argv[i], "--export-at") && i + 3 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Export, argv[i + 3], argv[i + 2]});
+            i += 3;
+        } else if (!strcmp(argv[i], "--status-at") && i + 2 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Status, nullptr, argv[i + 2]});
+            i += 2;
+        } else if (!strcmp(argv[i], "--ram-at") && i + 3 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Ram, argv[i + 3], argv[i + 2]});
+            i += 3;
+        } else if (!strcmp(argv[i], "--ramout-at") && i + 4 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::RamOut, argv[i + 4], argv[i + 2], argv[i + 3]});
+            i += 4;
+        } else if (!strcmp(argv[i], "--writable")) {
+            floppy_writes = true;
         } else if (!strcmp(argv[i], "--digest-at") && i + 1 < argc) {
             state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Digest, nullptr, nullptr});
         } else if (!strcmp(argv[i], "--handler-table")) {
@@ -903,6 +989,7 @@ int main(int argc, char **argv)
     config.audio_rate_hz = rate;
     config.random_seed = seed;
     config.rtc_epoch_seconds = 946684800;
+    config.flags = floppy_writes ? P6_CONFIG_FLOPPY_WRITES : 0;
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);

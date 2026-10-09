@@ -250,6 +250,24 @@
       "evidence": []
     },
     {
+      "id": "floppy-write-overlay",
+      "subsystem": "disk",
+      "symbols": [
+        "overlay_storage",
+        "p6_overlay",
+        "p6_blob_overlay_reserve"
+      ],
+      "owner": "ports/portable/blob_io.c, ports/portable/media/overlay.h",
+      "at_load": "T27: p6_load reserves the pool (P6_CONFIG_FLOPPY_WRITES only) with every sector the base's; p6_blob_clear releases it. The pool is machine state: P6DK carries it after the engine's bodies, and a state load replaces it as a whole",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "patches/winuae/0120-disk-write-overlay.patch",
+        "tests/media-cow/test_med02.py",
+        "tests/media-cow/test_overlay.py"
+      ]
+    },
+    {
       "id": "heap-pointers",
       "subsystem": "engine",
       "symbols": [

@@ -47,10 +47,12 @@ struct ContextScope {
 
 // The size of the manifest the state in hand was taken with: the loading state's (a prefix of the live manifest, recognised from its identity by load()) while a payload
 // is validated or applied, the live one when the machine is saved or measured. Every medium index a body carries has to be below it.
+}  // namespace
 uint32_t manifest_count()
 {
     return g_context ? g_context->media_count : session.media_count;
 }
+namespace {
 
 // P6BR: the bookkeeping of the API session (bridge/session.h) that no engine chunk holds: the audio frame count, the delivery flag of the unit,
 // the pending reset, the start flag, the media-event sequence guard, the drive contents the caller asked for and the ordered queue of media

@@ -122,6 +122,13 @@ cadencia BEAMCON0, estados de otras maquinas rechazados, RetroArch real con `pua
 invitados de video bajo ASan/UBSan: `VideoGuestSanitizerTests` (A500), `EcsGuestSanitizerTests` (A600) y `AgaGuestSanitizerTests` (A1200: los 15 programas AGA en PAL y NTSC, que ejercitan tambien el 020). El transitorio de FMODE tras una carga (hallazgo de T24c) se busca con `tests/state/test_fmode_transient.py` (151 pruebas, ~85 s; parte de
 `run_parallel.py --suite state`): un FMODE en vuelo en la frontera y sprites/planos justo despues; no diverge y el motivo esta en ADR 0009 (punto 9). Lo que no se prueba: Kickstart 3.0, Fast RAM, FPU, Gayle/IDE, otros 020, la interfaz de EmuHawk.
 Medido, no afirmado de un hardware: un sprite aparece un pixel lores a la derecha del pixel de plano de la misma coordenada y un DDFSTRT que no cae en una unidad de fetch empieza la imagen en la unidad siguiente.
+MED02 (T27a, `tests/media-cow/`): `test_overlay.py` prueba el almacen (base nunca escrita, tamaño fijo, todo-o-nada, pool lleno rechazado y contado, indice reconstruible,
+ASan/UBSan) y `test_med02.py` corre el micro-ROM de `med02.py` (un trackdisk en miniatura: escribe pistas AmigaDOS por DMA, sobrescribe una, escribe la otra cara, aleja la cabeza
+y lee de vuelta) por el bridge y el motor reales con las palabras MFM codificadas por el modelo independiente de `tests/scenarios/disk/disk.py`: lo exportado es la base con
+los sectores del invitado, lo leido por el invitado decodifica a ellos, el hash de la base no cambia nunca ni el del disco que no se toco, un estado a mitad quita las
+escrituras posteriores (mismo proceso y proceso nuevo, y el estado guardado tras cargar es el cargado, byte a byte), la cota (STATE01) incluye el pool entero y no crece, un
+estado con el pool casi lleno hace que el drive informe el disco protegido, y un overlay imposible (sector repetido, medio fuera del manifiesto, mas sectores que el pool,
+cortado, con bytes de mas) se rechaza sin tocar la maquina. Sin el flag el disco sigue protegido como en MED01.
 T07 prueba STEP01 en bridge/headless; T16 lo amplia al adaptador libretro y T19
 al guest Waterbox. Ningun adaptador puede aprobarlo con un scheduler alternativo.
 No se puede presentar PASS de un subconjunto como PASS del conjunto completo.

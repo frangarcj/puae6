@@ -8,6 +8,7 @@
 #include "session.h"
 #include "sha256.h"
 #include "blob_io.h"
+#include "overlay.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -80,7 +81,7 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
     return P6_OK;
 }
 
-p6_result register_media(const p6_media *media, uint32_t count, p6_error *error)
+p6_result register_media(const p6_media *media, uint32_t count, uint32_t first_index, p6_error *error)
 {
     for (uint32_t i = 0; i < count; ++i) {
         char id[kMediaBlobIdBytes];
@@ -94,8 +95,17 @@ p6_result register_media(const p6_media *media, uint32_t count, p6_error *error)
         default:
             return p6_fail(error, P6_ERROR_INTERNAL, "a medium could not be registered");
         }
+        // With P6_CONFIG_FLOPPY_WRITES the disk is writable over the overlay that p6_load reserved; its number is its index in the manifest.
+        if (session.config.flags & P6_CONFIG_FLOPPY_WRITES)
+            if (p6_blob_overlay_bind(id, first_index + i) != P6_BLOB_OK)
+                return p6_fail(error, P6_ERROR_INTERNAL, "a medium could not get its write overlay");
     }
     return P6_OK;
+}
+
+bool media_forced_write_protect(const char *id)
+{
+    return !p6_blob_overlay_writable(id);
 }
 
 namespace {
@@ -132,7 +142,7 @@ p6_result append_media(const p6_media &medium, uint32_t *index, p6_error *error)
     }
     if (s.media_count >= P6_MAX_MEDIA)
         return p6_fail(error, P6_ERROR_CAPACITY, "the media manifest is full");
-    if (const p6_result registered = register_media(&medium, 1, error))
+    if (const p6_result registered = register_media(&medium, 1, s.media_count, error))
         return registered;               // register_media adds nothing when it fails
     const uint32_t at = s.media_count;
     memcpy(s.media_content_id[at], medium.content_id, P6_CONTENT_ID_SIZE);
@@ -163,7 +173,7 @@ void set_prefs_media(uint32_t drive, const char *id)
 {
     _tcscpy(changed_prefs.floppyslots[drive].df, id);
     _tcscpy(currprefs.floppyslots[drive].df, id);
-    changed_prefs.floppyslots[drive].forcedwriteprotect = true;   // used by the engine's own change detection
+    changed_prefs.floppyslots[drive].forcedwriteprotect = media_forced_write_protect(id);   // used by the engine's own change detection
 }
 
 }  // namespace
@@ -200,8 +210,9 @@ void apply_media_events()
             // A reset re-inserts what changed_prefs names, so it must name the new disk before the delayed swap lands;
             // currprefs is left alone because disk_insert ignores a name that is already there.
             _tcscpy(changed_prefs.floppyslots[e.drive].df, id);
-            changed_prefs.floppyslots[e.drive].forcedwriteprotect = true;
-            disk_insert(int(e.drive), id, true);
+            const bool protect = media_forced_write_protect(id);
+            changed_prefs.floppyslots[e.drive].forcedwriteprotect = protect;
+            disk_insert(int(e.drive), id, protect);
             s.drive_media[e.drive] = int32_t(e.media_index);
         } else if (s.drive_media[e.drive] >= 0) {
             disk_eject(int(e.drive));                // immediate; also forgets a swap that has not landed yet
@@ -240,7 +251,7 @@ void put_media_now(uint32_t drive, int32_t index)
     char id[kMediaBlobIdBytes];
     media_blob_id(s.media_content_id[index], id);
     set_prefs_media(drive, id);                  // drive_insert examines the image the preferences name before it reads the one it is given
-    disk_insert_force(int(drive), id, true);
+    disk_insert_force(int(drive), id, media_forced_write_protect(id));
 }
 
 }  // namespace p6_bridge
@@ -292,4 +303,61 @@ extern "C" p6_result p6_media_append(const p6_media *medium, uint32_t *index, p6
     if (!medium || !index)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium or the index is null");
     return p6_bridge::append_media(*medium, index, error);
+}
+
+extern "C" p6_result p6_media_write_status_get(p6_media_write_status *status, p6_error *error)
+{
+    if (!p6_error_usable(error))
+        return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    Guard guard;
+    if (!guard.ok)
+        return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
+    if (session.state != State::Loaded)
+        return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    if (!status || status->abi_version != P6_ABI_VERSION || status->struct_size != sizeof *status)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the status has the wrong ABI version or size");
+    if (status->reserved0 || status->reserved[0] || status->reserved[1])
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved status fields must be zero");
+    p6_overlay *overlay = p6_blob_overlay();
+    if (!overlay)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the image was loaded without P6_CONFIG_FLOPPY_WRITES");
+    if (status->media_index >= session.media_count)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium is not in the manifest");
+    uint64_t own = 0;
+    for (uint32_t i = 0; i < overlay->count; ++i)
+        if (overlay->medium[i] == status->media_index) ++own;
+    status->overlay_capacity = P6_OVL_SLOTS;
+    status->overlay_used = overlay->count;
+    status->medium_sectors = own;
+    status->refused_writes = overlay->refused;
+    return P6_OK;
+}
+
+extern "C" p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_t capacity, uint64_t *written, p6_error *error)
+{
+    if (!p6_error_usable(error))
+        return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    Guard guard;
+    if (!guard.ok)
+        return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");      // p6_run_frame holds the guard: an export never sees half a unit
+    if (session.state != State::Loaded)
+        return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    if (!written)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "written is null");
+    *written = 0;
+    if (!p6_blob_overlay())
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the image was loaded without P6_CONFIG_FLOPPY_WRITES");
+    if (media_index >= session.media_count)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium is not in the manifest");
+    if (capacity < p6_bridge::kAdfBytes)
+        return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than a disk image (901120 bytes)");
+    if (!buffer)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the buffer is null");
+    size_t bytes = 0;
+    if (p6_blob_overlay_export(media_index, buffer, size_t(capacity), &bytes) != P6_BLOB_OK || bytes != p6_bridge::kAdfBytes)
+        return p6_fail(error, P6_ERROR_INTERNAL, "the disk could not be exported");
+    *written = bytes;
+    return P6_OK;
 }

@@ -14,7 +14,7 @@ struct p6_zfile_owner {
  p6_blob_handle blob;
  int error;
  uint32_t kind;
- char name[P6_BLOB_ID_BYTES + 1], original[P6_BLOB_ID_BYTES + 1], mode[3];
+ char name[P6_BLOB_ID_BYTES + 1], original[P6_BLOB_ID_BYTES + 1], mode[4];
 };
 static_assert(std::is_standard_layout<p6_zfile_owner>::value && offsetof(p6_zfile_owner, file) == 0,
               "zfile must be the pointer-interconvertible first member");
@@ -39,6 +39,7 @@ static int p6_zfail(p6_zfile_owner *owner, int status)
  case P6_BLOB_NO_MEMORY: code = ENOMEM; break;
  case P6_BLOB_HANDLE: code = EBADF; break;
  case P6_BLOB_RANGE: code = ERANGE; break;
+ case P6_BLOB_NO_SPACE: code = ENOSPC; break;
  default: break;
  }
  if (owner) owner->error = code;
@@ -73,7 +74,7 @@ zfile *zfile_fopen(const TCHAR *name, const TCHAR *mode, int mask, int index)
  owner->blob = blob;
  if (!p6_refresh(owner)) { p6_blob_close(blob); xfree(owner); return NULL; }
  strcpy(owner->name, name); /* blob_open already bounded and validated this ID. */
- memcpy(owner->mode, "rb", 3);
+ strcpy(owner->mode, mode[1] == '+' ? "r+b" : "rb"); /* blob_open accepted exactly one of the two */
  owner->file.name = owner->file.originalname = owner->name;
  owner->file.mode = owner->mode;
  owner->file.opencnt = 1; owner->file.dataseek = 1; owner->file.zfdmask = mask;
@@ -186,6 +187,15 @@ size_t zfile_fwrite(const void *data, size_t width, size_t count, zfile *file)
 {
  auto *owner = p6_owner(file);
  if (!owner) return 0;
+ if (!file->data && !file->parent && strchr(owner->mode, '+')) {
+  /* A disk image with a write overlay (T27): the bytes go to the overlay, the base is never touched, the file does not grow, and the
+   * write is all or nothing. The engine ignores the result of a track write, so a refusal is also counted by the overlay (p6_blob_write). */
+  if (width && count > SIZE_MAX / width) { p6_zfail(owner, P6_BLOB_RANGE); return 0; }
+  if (!width || !count) return 0;
+  int result = p6_blob_write(owner->blob, data, width * count);
+  if (result) { p6_zfail(owner, result); return 0; }
+  return p6_refresh(owner) ? count : 0;
+ }
  if (!file->data || !file->allocsize) { p6_zfail(owner, P6_BLOB_READ_ONLY); return 0; }
  if (width && count > SIZE_MAX / width) { p6_zfail(owner, P6_BLOB_RANGE); return 0; }
  size_t bytes = width * count;
@@ -389,6 +399,13 @@ uae_u32 zfile_crc32(zfile *file)
  auto *owner = p6_owner(file);
  if (!owner || !p6_refresh(owner)) return 0;
  if (file->data) return get_crc32(file->data, (int)file->size);
+ if (!file->parent && strchr(owner->mode, '+')) {
+  /* The identity of a disk is its base: the CRC a drive reports (and a state carries) does not change with what the guest wrote. */
+  zfile *base = zfile_fopen(owner->name, "rb", 0);
+  uae_u32 crc = base ? zfile_crc32(base) : 0;
+  zfile_fclose(base);
+  return crc;
+ }
  int length;
  uae_u8 *data = zfile_getdata(file, 0, -1, &length);
  if (!data) return 0;

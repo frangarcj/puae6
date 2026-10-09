@@ -103,7 +103,10 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     if (p6_blob_register(p6_bridge::kFirmwareId, P6_BLOB_ROM, firmware.data, size_t(firmware.bytes)) != P6_BLOB_OK)
         return p6_fail(error, P6_ERROR_CAPACITY, "firmware could not be registered");
     stage = Stage::Blob;
-    if (const p6_result registered = p6_bridge::register_media(media, media_count, error))
+    if (config.flags & P6_CONFIG_FLOPPY_WRITES)
+        if (p6_blob_overlay_reserve() != P6_BLOB_OK)
+            return p6_fail(error, P6_ERROR_CAPACITY, "the write overlay of the floppies could not be reserved");
+    if (const p6_result registered = p6_bridge::register_media(media, media_count, 0, error))
         return registered;
 
     // The reset head starts the engine's cycle counter at zero, as a clean process has it; the clock is anchored to that counter, so

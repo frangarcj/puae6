@@ -1,0 +1,41 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -839,8 +839,18 @@
+ 	return type == DRV_PC_525_ONLY_40 || type == DRV_PC_35_ONLY_80 || type == DRV_PC_525_40_80;
+ }
+ 
++#ifdef P6_PORTABLE
++extern "C" int p6_blob_overlay_room(unsigned int sectors);       // ports/portable/blob_io.c
++extern "C" int p6_blob_overlay_writable(const char *id);
++#endif
+ static bool drive_writeprotected(drive *drv)
+ {
++#ifdef P6_PORTABLE
++	// A disk with a write overlay (T27) stays writable while a whole track still fits in the overlay: when the pool is nearly full the
++	// drive reports the disk write protected, which a guest sees as /WPRO and as a protected-disk error instead of a write that is lost.
++	if (!currprefs.floppy_read_only && !drv->wrprot && !drv->forcedwrprot && drv->diskfile != NULL)
++		return !p6_blob_overlay_room(11);
++#endif
+ #ifdef FLOPPYBRIDGE
+ 	if (drv->bridge) {
+ 		bool v = drv->bridge->isWriteProtected();
+@@ -975,7 +985,9 @@
+ 	if (crc32) *crc32 = 0;
+ 	if (wrprot) *wrprot = true;
+ 	if (outfname) outfname[0] = 0;
+-	struct zfile *f = zfile_fopen(fname_in, _T("rb"), 0);
++	// A medium the session made writable (T27) is opened over its write overlay; the base itself is never written.
++	const bool writable = p6_blob_overlay_writable(fname_in) != 0;
++	struct zfile *f = zfile_fopen(fname_in, writable ? _T("r+b") : _T("rb"), 0);
+ 	if (!f)
+ 		return 0;
+ 	if (zfile_gettype(f) != ZFILE_DISKIMAGE) {
+@@ -1016,6 +1028,7 @@
+ 	}
+ 	if (outfname) _tcscpy(outfname, name);
+ 	if (crc32) *crc32 = crc;
++	if (wrprot) *wrprot = !writable;
+ 	if (zf && leave_open)
+ 		*zf = f;
+ 	else

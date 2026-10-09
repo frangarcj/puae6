@@ -53,6 +53,7 @@ namespace {
 
 // The machine of the last build_preferences: check_preset (called by the lifecycle right after it) judges the result by it.
 uint32_t preset_machine = P6_MACHINE_A500;
+bool preset_floppy_writes = false;     // P6_CONFIG_FLOPPY_WRITES of that build: the master switch floppy_read_only is its opposite
 
 // A Kickstart is 256 or 512 KiB; the 880 KiB "KICK" disk image is the largest accepted container.
 constexpr uint64_t kFirmwareMaxBytes = 1760u * 512u;
@@ -108,8 +109,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio rate must be 44100 or 48000 Hz");
-    if (c.flags != 0 || c.reserved[0] || c.reserved[1] || c.reserved[2] || c.reserved[3])
-        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "config flags and reserved fields must be zero");
+    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0 || c.reserved[0] || c.reserved[1] || c.reserved[2] || c.reserved[3])
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags, or reserved fields that are not zero");
     if (c.rtc_epoch_seconds < P6_CIVIL_MIN_SECONDS || c.rtc_epoch_seconds > P6_CIVIL_MAX_SECONDS)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the clock epoch is outside years 1..9999");
     return P6_OK;
@@ -130,6 +131,7 @@ void build_preferences(const p6_config &c)
     // The preset names its Kickstart by id through the ROM list, which has no entries here; the
     // firmware is the buffer given to p6_load, so the result of configure_rom() is not needed.
     preset_machine = c.machine;
+    preset_floppy_writes = (c.flags & P6_CONFIG_FLOPPY_WRITES) != 0;
     built_in_prefs(&currprefs, c.machine == P6_MACHINE_A1200 ? 4 : c.machine == P6_MACHINE_A600 ? 2 : 0, 0, 0, 0);
     if (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) {
         // The A600 or A1200 table (CP_A600, CP_A1200) has just been applied once. Gayle, its IDE and its PCMCIA slot are not compiled (P6_PORTABLE),
@@ -186,7 +188,7 @@ void build_preferences(const p6_config &c)
     // flag is not pinned: the reset head re-inserts disks with it cleared, so the master switch carries the guarantee.
     for (int i = 0; i < 4; ++i)
         currprefs.floppyslots[i].df[0] = 0;
-    currprefs.floppy_read_only = true;
+    currprefs.floppy_read_only = !preset_floppy_writes;      // every disk is write protected unless the session reserved a write overlay (T27)
     currprefs.reset_delay = 0;        // config-invariants.json: the delayed-reset wait cannot poll
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
     _tcscpy(currprefs.romfile, kFirmwareId);
@@ -211,7 +213,7 @@ p6_result check_preset(p6_error *error)
     else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||
              p.input_mouse_speed != 100 || p.keyboard_mode || p.cs_resetwarning || p.input_contact_bounce) drifted = "input";
     else if (p.floppyslots[0].df[0] || p.floppyslots[1].df[0] || p.floppyslots[2].df[0] || p.floppyslots[3].df[0] ||
-             !p.floppy_read_only) drifted = "floppy";
+             p.floppy_read_only == preset_floppy_writes) drifted = "floppy";
     else if (p.gfx_resolution != RES_HIRES || p.gfx_vresolution != VRES_DOUBLE || p.gfx_iscanlines != 1 ||
              p.gfx_pscanlines || p.gfx_scandoubler || p.gfx_lores_mode || p.gfx_overscanmode != OVERSCANMODE_OVERSCAN ||
              p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||

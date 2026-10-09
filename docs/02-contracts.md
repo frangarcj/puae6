@@ -367,6 +367,23 @@ Escritura M3: base inmutable + copy-on-write dentro del estado. La granularidad
 pista/MFM cuando sea necesario, no forzar todo a sectores ADF validos. Limite de
 overlay reservado al cargar, incluido en bound de estado. Overflow es error claro.
 
+Implementado (T27a, `P6_CAP_MEDIA_WRITE`, parche 0120): con `p6_config.flags = P6_CONFIG_FLOPPY_WRITES` todos los disquetes de la sesion son escribibles sobre un
+overlay de granularidad SECTOR (512 bytes, el mismo en que el motor cambia un ADF: decodifica la pista MFM que escribio el invitado y escribe sus sectores por zfile). La
+base (el ADF registrado, su `content_id`, el CRC que reporta el drive y el `media_manifest_hash` de un estado) NO cambia nunca: la identidad de un medio es su base, y el
+overlay es estado de maquina como la RAM. Un `p6_load` reserva un pool unico y fijo de `P6_OVERLAY_SECTORS` = 3520 sectores (dos discos) compartido por todos los medios
+(si el flag esta puesto; sin el, todo disco esta protegido como en ABI v1 y el estado no cambia ni de tamaño ni de bytes). El pool va en el chunk P6DK despues de los cuerpos
+del motor (u32 cuenta, u64 escrituras rechazadas, por sector en orden de primera escritura: u8 medio, u16 sector, 512 bytes; un sector una sola vez, medio dentro del
+manifiesto del estado, validado antes de aplicar) y `p6_state_bound` incluye el pool entero (`4 + 8 + 3520 * 515` bytes mas que sin el flag), de modo que no crece con las
+escrituras. Cargar un estado SUSTITUYE el overlay: uno tomado antes de escribir devuelve el disco como estaba (rewind), uno posterior trae las escrituras (como la RAM). El
+flag forma parte de `config_hash`: un estado de una sesion con escrituras no carga en una sin ellas ni al reves. Un sector cuyo contenido nuevo es igual al de la base no
+consume hueco. La escritura de una pista es todo-o-nada; con menos de 11 sectores libres el drive informa el disco como protegido (/WPRO, visto por el invitado y por el
+motor en `drive_writeprotected`), asi que una pista que no cabe no se escribe a medias ni se pierde sin aviso; `refused_writes` cuenta una escritura que llegase al overlay sin
+hueco (el motor no la intenta mientras el drive esta protegido). El overlay no crece el tamaño del disco: el 901120 anunciado es fijo.
+Exportar es explicito: `p6_media_write_status_get` describe el overlay (capacidad, uso, sectores distintos de la base de un medio, rechazos, hash de la base) y
+`p6_media_export` copia el disco actual (base con el overlay encima, 901120 bytes) a un buffer del llamante sin cambiar nada en la maquina: ni flush, ni evento, ni estado.
+Hacerlo duradero (fichero temporal, flush, rename) es del llamante; run, save y load nunca escriben fuera del core, y una rama especulativa (rewind, runahead, segunda
+instancia) no debe exportar.
+
 Guardar estado revierte overlay, drive state, indice de disco y eventos pendientes.
 Flushear a almacenamiento del host es operacion explicita aparte, atomica y nunca
 se ejecuta durante replay especulativo/runahead/rewind. No escribir sobre el medio

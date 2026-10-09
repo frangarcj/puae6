@@ -22,7 +22,9 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
 
 // After validate_media: copies every image into the engine's blob store under its blob id. A store that cannot hold
 // them all fails with CAPACITY; the caller unloads what was registered.
-p6_result register_media(const p6_media *media, uint32_t count, p6_error *error);
+p6_result register_media(const p6_media *media, uint32_t count, uint32_t first_index, p6_error *error);
+// Whether the engine has to treat the registered medium `id` as write protected: yes unless the session reserved a write overlay for it (P6_CONFIG_FLOPPY_WRITES).
+bool media_forced_write_protect(const char *id);
 
 // p6_media_append (the manifest only grows at its end): after validate_media(medium, 1), the index of the medium whose content id this is, or a new one that is
 // registered as p6_load registers its media. CAPACITY when the manifest is full and the medium is new; nothing changes in that case or on any other failure.

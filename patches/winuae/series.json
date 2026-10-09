@@ -2980,6 +2980,30 @@
           "after_sha256": "bb1355847b44bf87d5d741262ec827c2de9f19e4bef64504643ae9ed9e4d7c56"
         }
       ]
+    },
+    {
+      "id": "0120-disk-write-overlay",
+      "file": "patches/winuae/0120-disk-write-overlay.patch",
+      "sha256": "c342a458d46002458065a3c03c12205ca1ec00572a6b97903b54ae86ed953123",
+      "title": "Disk images with a write overlay open read-write and report write protection from the pool",
+      "reason": "T27: the portable DISK_validate_filename opens every image rb and reports it write protected; a session that reserved a write overlay needs the medium opened over it (r+b, base never written) and the drive's /WPRO to follow how much room the overlay has left.",
+      "category": "host hooks",
+      "order": 110,
+      "symbols": [
+        "DISK_validate_filename",
+        "drive_writeprotected",
+        "ispcbridgedrive"
+      ],
+      "test": "tests/media-cow/test_med02.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "8b57fff5c29acae2379deb9894e26c20aaa605daa397c073972b632c6acb7458",
+          "after_sha256": "f7da666b270f7c617fcf51ef69595343a9d89a27fac0617cfd3ea10feca7c67f"
+        }
+      ]
     }
   ]
 }

@@ -68,6 +68,8 @@ void visit_video(Archive &a);
 const char *disk_matches_manifest(const uint8_t *body, uint64_t length, MediaPlan &plan);
 // The plan of the load in progress (state.cpp), or null outside a load: the apply of P6DK puts the media the state names into the drives.
 const MediaPlan *loading_media();
+// The size of the manifest the state in hand was taken with (state.cpp): every medium index a body carries is below it.
+uint32_t manifest_count();
 
 // A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value), which is the only thing a
 // cross-check may use: Validate stores nothing, so the live variable it came from belongs to another machine.

@@ -160,6 +160,16 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
      la del A600 mas 1 MiB de Chip (2 MiB frente a 1), 8 + 1024 (CAGA), 8 + 90132 (DRNG), 662 (bloque del 68020) y el raster a tres bytes por pixel en lugar de dos
      (1824 x 626 = 1 141 824 bytes mas); `tests/state/test_state_a1200.py` lo comprueba al byte. Un estado de un A1200 con un programa de dos colores ocupa unos 2,2 MB; con una imagen AGA
      llena de colores, algo mas; no hay compatibilidad entre maquinas: un estado de una es INCOMPATIBLE en otra por `config_hash`, antes de tocar nada.
+10. **Revision 2026-10-09 (T27): el overlay de escritura de los disquetes es estado, la identidad del medio sigue siendo su base.** Con `P6_CONFIG_FLOPPY_WRITES`
+    (que forma parte de `config_hash`) el chunk P6DK lleva, despues de los cuerpos del motor, el pool de sectores que el invitado escribio: u32 cuenta (<= 3520), u64
+    escrituras rechazadas, y por sector u8 medio, u16 sector, 512 bytes, en el orden de primera escritura. Decisiones: (a) la identidad de un medio (content id, el CRC que
+    guarda DSKn, `media_manifest_hash`) es la de su BASE inmutable y no incluye el overlay, de modo que un estado guardado antes de escribir sigue cargando y devuelve el
+    disco como estaba, y `disk_matches_manifest` no cambia; el overlay no es identidad sino contenido, como la RAM, y cargar un estado lo SUSTITUYE entero; (b) el pool es de
+    tamaño fijo y su tamaño completo entra en `state_bound` (4 + 8 + 3520 x 515 bytes) aunque el estado lleve menos, asi que serializar no crece con las escrituras; sin el flag
+    no hay cuerpo y los estados no cambian ni de bytes; (c) se valida antes de aplicar: cuenta <= pool, medio dentro del manifiesto del estado, sector < 1760, ningun
+    sector repetido; (d) la granularidad es el sector porque es en lo que el motor cambia un ADF (decodifica la pista MFM y escribe sectores por zfile); el estado de pista
+    y MFM (buffer, posicion, DMA en curso) ya viaja en DSDn/DISK/DSKX y la escritura es sincrona al fin del DMA (`drive_write_data`), asi que no hay escritura diferida
+    fuera de ellos.
 
 ## Evidencia
 
