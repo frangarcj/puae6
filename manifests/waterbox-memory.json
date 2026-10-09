@@ -102,11 +102,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "8be5899ec750361011ce35d991406d69a79cd6a56048e4c3110553fc0c6a3125",
+    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
     "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
     "after_seal": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -148,7 +148,7 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
@@ -190,7 +190,7 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
@@ -243,11 +243,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "8be5899ec750361011ce35d991406d69a79cd6a56048e4c3110553fc0c6a3125",
+    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
     "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
     "after_seal": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -289,7 +289,7 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
@@ -331,7 +331,7 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
@@ -384,11 +384,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "8be5899ec750361011ce35d991406d69a79cd6a56048e4c3110553fc0c6a3125",
+    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
     "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
     "after_seal": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -430,7 +430,7 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
@@ -472,7 +472,7 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8015872,
         "invisible_bytes": 4096
       },
@@ -526,11 +526,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "8be5899ec750361011ce35d991406d69a79cd6a56048e4c3110553fc0c6a3125",
+    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
     "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
     "after_seal": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -572,7 +572,7 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
@@ -614,7 +614,7 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
@@ -669,11 +669,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "8be5899ec750361011ce35d991406d69a79cd6a56048e4c3110553fc0c6a3125",
+    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
     "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
     "after_seal": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -715,7 +715,7 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
@@ -757,7 +757,7 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
@@ -812,11 +812,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "8be5899ec750361011ce35d991406d69a79cd6a56048e4c3110553fc0c6a3125",
+    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
     "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
     "after_seal": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -858,7 +858,7 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
@@ -900,7 +900,7 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
@@ -954,11 +954,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "8be5899ec750361011ce35d991406d69a79cd6a56048e4c3110553fc0c6a3125",
+    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
     "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
     "after_seal": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1000,7 +1000,7 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
@@ -1042,7 +1042,7 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 50282496,
+        "committed_bytes": 50298880,
         "dirty_bytes": 8130560,
         "invisible_bytes": 4096
       },
