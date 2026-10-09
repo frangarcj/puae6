@@ -147,6 +147,33 @@ int main(void)
     assert(p6_overlay_index(o, 2) == -1);                   /* a sector named twice */
     (void)slot_of;
 
+    /* Raw tracks: kept exactly, per disk and track, read back whole, replaced in place, removed in order, refused when too long or when every slot is taken; a disk that
+     * has one cannot be exported as an ADF. */
+    p6_overlay_reset(o);
+    unsigned short words[P6_OVL_RAW_WORDS + 8], back[P6_OVL_RAW_WORDS + 8];
+    for (unsigned i = 0; i < P6_OVL_RAW_WORDS + 8; ++i) words[i] = (unsigned short)(i * 0x9E37u + 0x1234u);
+    unsigned int bits = 0;
+    assert(p6_blob_raw_read("disk-a", 5, back, &bits) == 0);                                   /* nothing yet */
+    assert(p6_blob_raw_write("disk-a", 5, words, 101344) == P6_BLOB_OK && o->raw_count == 1);
+    memset(back, 0, sizeof back);
+    assert(p6_blob_raw_read("disk-a", 5, back, &bits) == 1 && bits == 101344 && !memcmp(back, words, 101344 / 16 * 2));
+    assert(p6_blob_raw_read("disk-a", 6, back, &bits) == 0 && p6_blob_raw_read("disk-b", 5, back, &bits) == 0 && p6_blob_raw_read("rom", 5, back, &bits) == 0);
+    assert(p6_blob_raw_write("disk-a", 5, words, 100) == P6_BLOB_OK && o->raw_count == 1 && o->raw_bits[0] == 100);      /* in place, shorter */
+    assert(p6_blob_raw_write("disk-b", 7, words, 1000) == P6_BLOB_OK && p6_blob_raw_write("disk-a", 9, words, 17) == P6_BLOB_OK && o->raw_count == 3);
+    assert(p6_blob_raw_write("disk-a", 160, words, 100) == P6_BLOB_NO_SPACE && p6_blob_raw_write("disk-a", 5, words, 0) == P6_BLOB_NO_SPACE &&
+           p6_blob_raw_write("disk-a", 5, words, P6_OVL_RAW_WORDS * 16 + 1) == P6_BLOB_NO_SPACE && p6_blob_raw_write("nothing", 5, words, 100) == P6_BLOB_ARGUMENT);
+    assert(o->refused == 3 && o->raw_count == 3);
+    assert(p6_blob_overlay_export(0, buffer, BYTES, &exported) == P6_BLOB_UNSUPPORTED && exported == 0);     /* disk A holds raw tracks */
+    assert(p6_blob_overlay_export(2, buffer, BYTES, &exported) == P6_BLOB_OK);                              /* disk C holds none */
+    p6_blob_raw_clear("disk-a", 5);                                                                           /* the order of first writing is kept */
+    assert(o->raw_count == 2 && o->raw_medium[0] == 1 && o->raw_track[0] == 7 && o->raw_medium[1] == 0 && o->raw_track[1] == 9);
+    assert(p6_blob_raw_read("disk-b", 7, back, &bits) == 1 && bits == 1000 && !memcmp(back, words, 1000 / 16 * 2 + 2 - 2));
+    p6_blob_raw_clear("disk-a", 9);
+    assert(p6_blob_overlay_export(0, buffer, BYTES, &exported) == P6_BLOB_OK);
+    for (unsigned t = 0; t < P6_OVL_RAW_SLOTS - 1; ++t) assert(p6_blob_raw_write("disk-c", t, words, 64) == P6_BLOB_OK);      /* disk B holds one already */
+    assert(p6_blob_raw_write("disk-c", 100, words, 64) == P6_BLOB_NO_SPACE && o->raw_count == P6_OVL_RAW_SLOTS);
+    assert(p6_blob_raw_write("disk-c", 3, words, 128) == P6_BLOB_OK);                                         /* a track that has a slot still takes writes */
+
     /* Closing the streams and clearing the store frees the pool (the sanitizer's leak check is the assertion); the pool is gone afterwards. */
     assert(p6_blob_close(rw) == P6_BLOB_OK && p6_blob_close(rwb) == P6_BLOB_OK && p6_blob_close(rwc) == P6_BLOB_OK && p6_blob_close(base) == P6_BLOB_OK);
     p6_blob_clear();

@@ -312,7 +312,9 @@ p6_result p6_media_append(const p6_media *medium, uint32_t *index, p6_error *err
  * p6_media_export copies the disk as it is now (the base with the overlay over it, exactly 901120 bytes) into the caller's buffer; it reads the
  * machine and changes nothing in it (no flush, no state change, no event), and the bytes are the caller's to make durable (write a temporary file,
  * flush it, rename it over the target: nothing of that is done by run, save or load, and a caller that speculates (rewind, run-ahead, a second
- * instance) must not export from the speculative branch). CAPACITY (nothing written) when the buffer is smaller than the disk. */
+ * instance) must not export from the speculative branch). CAPACITY (nothing written) when the buffer is smaller than the disk; UNSUPPORTED (nothing written) when the
+ * guest wrote a track in a format that is not AmigaDOS: an ADF has no place for it (the machine keeps it and reads it back, but the image would lose it), see raw_tracks.
+ * A guest write that cannot be kept (every raw slot taken) is counted in refused_writes. */
 typedef struct p6_media_write_status {
     uint32_t abi_version;
     uint32_t struct_size;
@@ -322,7 +324,8 @@ typedef struct p6_media_write_status {
     uint64_t overlay_used;      /* out: sectors in use, for all disks together. */
     uint64_t medium_sectors;    /* out: sectors of this disk that differ from the base's. */
     uint64_t refused_writes;    /* out: guest writes refused for lack of room since the load or the state that was loaded. */
-    uint64_t reserved[2];
+    uint64_t raw_tracks;        /* out: tracks of this disk that the guest wrote in a format that is not AmigaDOS (kept exactly, at most 16 for all disks; they stop p6_media_export). */
+    uint64_t reserved[1];
 } p6_media_write_status;
 p6_result p6_media_write_status_get(p6_media_write_status *status, p6_error *error);
 p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_t capacity, uint64_t *written, p6_error *error);

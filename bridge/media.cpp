@@ -317,20 +317,23 @@ extern "C" p6_result p6_media_write_status_get(p6_media_write_status *status, p6
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
     if (!status || status->abi_version != P6_ABI_VERSION || status->struct_size != sizeof *status)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the status has the wrong ABI version or size");
-    if (status->reserved0 || status->reserved[0] || status->reserved[1])
+    if (status->reserved0 || status->reserved[0])
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved status fields must be zero");
     p6_overlay *overlay = p6_blob_overlay();
     if (!overlay)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the image was loaded without P6_CONFIG_FLOPPY_WRITES");
     if (status->media_index >= session.media_count)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium is not in the manifest");
-    uint64_t own = 0;
+    uint64_t own = 0, raw = 0;
     for (uint32_t i = 0; i < overlay->count; ++i)
         if (overlay->medium[i] == status->media_index) ++own;
+    for (uint32_t i = 0; i < overlay->raw_count; ++i)
+        if (overlay->raw_medium[i] == status->media_index) ++raw;
     status->overlay_capacity = P6_OVL_SLOTS;
     status->overlay_used = overlay->count;
     status->medium_sectors = own;
     status->refused_writes = overlay->refused;
+    status->raw_tracks = raw;
     return P6_OK;
 }
 
@@ -356,7 +359,10 @@ extern "C" p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_
     if (!buffer)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the buffer is null");
     size_t bytes = 0;
-    if (p6_blob_overlay_export(media_index, buffer, size_t(capacity), &bytes) != P6_BLOB_OK || bytes != p6_bridge::kAdfBytes)
+    const int exported = p6_blob_overlay_export(media_index, buffer, size_t(capacity), &bytes);
+    if (exported == P6_BLOB_UNSUPPORTED)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the guest wrote a track in a format that is not AmigaDOS: an ADF image cannot hold it (the machine keeps it)");
+    if (exported != P6_BLOB_OK || bytes != p6_bridge::kAdfBytes)
         return p6_fail(error, P6_ERROR_INTERNAL, "the disk could not be exported");
     *written = bytes;
     return P6_OK;

@@ -214,6 +214,34 @@ int p6_blob_overlay_writable(const char *id)
  int index = asset_index(id);
  return index >= 0 && assets[index].medium != 0;
 }
+static int bound_medium(const char *id)
+{
+ if (!overlay_storage || !valid_id(id)) return -1;
+ const int index = asset_index(id);
+ return index >= 0 && assets[index].medium ? (int)assets[index].medium - 1 : -1;
+}
+int p6_blob_raw_write(const char *id, unsigned int track, const unsigned short *words, unsigned int bits)
+{
+ const int medium = bound_medium(id);
+ if (medium < 0 || !words) return P6_BLOB_ARGUMENT;
+ if (p6_overlay_raw_put(&overlay, (uint32_t)medium, track, words, bits)) { ++overlay.refused; return P6_BLOB_NO_SPACE; }
+ return P6_BLOB_OK;
+}
+int p6_blob_raw_read(const char *id, unsigned int track, unsigned short *words, unsigned int *bits)
+{
+ const int medium = bound_medium(id);
+ if (medium < 0 || !words || !bits) return 0;
+ const int32_t slot = p6_overlay_raw_find(&overlay, (uint32_t)medium, track);
+ if (slot < 0) return 0;
+ *bits = overlay.raw_bits[slot];
+ memcpy(words, p6_overlay_raw_slot(&overlay, (uint32_t)slot), (size_t)((*bits + 15u) / 16u) * sizeof(uint16_t));
+ return 1;
+}
+void p6_blob_raw_clear(const char *id, unsigned int track)
+{
+ const int medium = bound_medium(id);
+ if (medium >= 0) p6_overlay_raw_remove(&overlay, (uint32_t)medium, track);
+}
 int p6_blob_overlay_room(unsigned int sectors) { return overlay_storage && p6_overlay_free(&overlay) >= sectors; }
 struct p6_overlay *p6_blob_overlay(void) { return overlay_storage ? &overlay : NULL; }
 int p6_blob_overlay_export(uint32_t medium, void *out, size_t capacity, size_t *written)
@@ -224,6 +252,7 @@ int p6_blob_overlay_export(uint32_t medium, void *out, size_t capacity, size_t *
   const struct asset *a = &assets[i];
   if (capacity < a->bytes) return P6_BLOB_CAPACITY;
   if (!out) return P6_BLOB_ARGUMENT;
+  for (uint32_t k = 0; k < overlay.raw_count; ++k) if (overlay.raw_medium[k] == medium) return P6_BLOB_UNSUPPORTED;
   memcpy(out, a->data, a->bytes);
   for (uint32_t sec = 0; sec < P6_OVL_DISK_SECTORS; ++sec) {
    int32_t slot = p6_overlay_find(&overlay, medium, sec);

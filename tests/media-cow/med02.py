@@ -82,18 +82,18 @@ def _mark(a, index):
 
 def _write(a, name):
     disk._dma_prologue(a, 0x9100)                        # SET | MFMPREC | FAST, no WORDSYNC: the transfer starts at once
-    a += ["    MOVE.L #$%X,$DFF020.L      ; DSKPTH/L: %s" % (BUF_ADDR[name], name),
+    a += ["    MOVE.L #$%X,$DFF020.L      ; DSKPTH/L: %s" % (BUF_ADDR[name] if name in BUF_ADDR else RAW_ADDR, name),
           "    MOVE.W #$%04X,$DFF024.L      ; DSKLEN: DMAEN | WRITE | %d words, twice" % (0xC000 | BUF_WORDS, BUF_WORDS),
           "    MOVE.W #$%04X,$DFF024.L" % (0xC000 | BUF_WORDS)]
     disk._dma_epilogue(a)
 
 
-def _read(a, name):
+def _read(a, name, sync=disk.SYNC, words=CAPTURE_WORDS):
     disk._dma_prologue(a, 0x9500)                        # SET | MFMPREC | WORDSYNC | FAST
-    a += ["    MOVE.W #$%04X,$DFF07E.L      ; DSKSYNC" % disk.SYNC,
+    a += ["    MOVE.W #$%04X,$DFF07E.L      ; DSKSYNC" % sync,
           "    MOVE.L #$%X,$DFF020.L      ; DSKPTH/L: capture %s" % (CAPTURE[name], name),
-          "    MOVE.W #$%04X,$DFF024.L      ; DSKLEN: DMAEN | %d words, twice" % (0x8000 | CAPTURE_WORDS, CAPTURE_WORDS),
-          "    MOVE.W #$%04X,$DFF024.L" % (0x8000 | CAPTURE_WORDS)]
+          "    MOVE.W #$%04X,$DFF024.L      ; DSKLEN: DMAEN | %d words, twice" % (0x8000 | words, words),
+          "    MOVE.W #$%04X,$DFF024.L" % (0x8000 | words)]
     disk._dma_epilogue(a)
 
 
@@ -151,3 +151,88 @@ def rom_source():
           "hvert:", "    MOVE.W #$0020,$DFF09C.L      ; INTREQ: clear VERTB", "    RTE",
           "hdsk:", "    MOVE.W #$0002,$DFF09C.L      ; INTREQ: clear DSKBLK", "    RTE"]
     return "\n".join(a) + "\n"
+
+
+# --- A custom-format track (not AmigaDOS): the second guest ---------------------------------------------------------------------------------------------------
+
+RAW_ADDR = 0x70000
+RAW_SYNC = 0x8914                                      # a sync word no AmigaDOS track has
+RAW_SYNC_AT = 100                                      # index in the written revolution of the sync word; the pattern follows it
+RAW_PATTERN_WORDS = 2000                               # what the guest reads back after the sync
+CAPTURE["r1"], CAPTURE["r2"] = 0x10000, 0x20000
+RAW_SPINUP, RAW_HOLD1, RAW_HOLD2 = 26, 60, 60
+RAW_STATE1, RAW_STATE2, RAW_END = 50, 150, 290         # S1: before any write; S2: the raw track written and read, the AmigaDOS overwrite not yet; both inside a hold, in both standards
+RAW_MARKERS = ("raw_w", "raw_r", "ad_w", "ad_r", "end")
+
+
+def raw_pattern():
+    """The words that follow the sync in the raw track: not a sector, and without the sync word."""
+    words = [(i * 0x9E37 + 0x1234) & 0xFFFF for i in range(RAW_PATTERN_WORDS)]
+    assert RAW_SYNC not in words and disk.SYNC not in words
+    return words
+
+
+def raw_buffer_bytes():
+    """A revolution of words: MFM zeros, then the sync and the pattern, then zeros: what the guest writes with no regard for the AmigaDOS format."""
+    words = [0xAAAA] * BUF_WORDS
+    words[RAW_SYNC_AT] = RAW_SYNC
+    words[RAW_SYNC_AT + 1:RAW_SYNC_AT + 1 + RAW_PATTERN_WORDS] = raw_pattern()
+    return struct.pack(">%dH" % BUF_WORDS, *words)
+
+
+def _raw_mark(a, index):
+    a += ["    MOVE.W #$%04X,$%X.L          ; marker %d: %s reached" % (disk.MARK_DONE, disk.MARK_BASE + 2 * index, index, RAW_MARKERS[index])]
+
+
+def raw_markers(ram):
+    values = struct.unpack(">%dH" % len(RAW_MARKERS), ram[:2 * len(RAW_MARKERS)])
+    return [name for name, v in zip(RAW_MARKERS, values) if v == disk.MARK_DONE]
+
+
+def raw_rom_source():
+    """Spins up, waits (S1), writes the custom track and reads it back after the head left (r1, S2 in the hold that follows), then writes track 0 as AmigaDOS (buf1) over it and reads that."""
+    a = rom_source().split("    MOVE.B #$77,$BFD100.L        ; select DF0 (bit 3 low): the motor latches at the select edge\n")[0]
+    a = a.splitlines()
+    a += ["    MOVE.B #$77,$BFD100.L        ; select DF0 (bit 3 low): the motor latches at the select edge"]
+    slot = disk._wait(a, RAW_SPINUP, 0)
+    slot = disk._wait(a, RAW_HOLD1, slot)
+    _write(a, "raw")
+    _raw_mark(a, 0)
+    slot = disk._wait(a, SETTLE, slot)
+    slot = _step(a, slot, 0)
+    _read(a, "r1", RAW_SYNC, RAW_PATTERN_WORDS)
+    _raw_mark(a, 1)
+    slot = disk._wait(a, RAW_HOLD2, slot)
+    _write(a, "buf1")
+    _raw_mark(a, 2)
+    slot = disk._wait(a, SETTLE, slot)
+    slot = _step(a, slot, 0)
+    _read(a, "r2")
+    _raw_mark(a, 3)
+    slot = disk._wait(a, TAIL, slot)
+    assert disk.LOG_BASE + slot <= disk.MARK_BASE
+    _raw_mark(a, 4)
+    a += ["done:", "    STOP #$2000", "    BRA.S done",
+          "hvert:", "    MOVE.W #$0020,$DFF09C.L      ; INTREQ: clear VERTB", "    RTE",
+          "hdsk:", "    MOVE.W #$0002,$DFF09C.L      ; INTREQ: clear DSKBLK", "    RTE"]
+    return "\n".join(a) + "\n"
+
+
+def same_raw_read(capture, pattern_bytes):
+    """None when `capture` (the words the guest read after the sync) is the pattern the guest wrote, the index of the word where the stream slipped when it is the pattern
+    except for a bit slip, False when it is neither. The drive jitters when the read passes the index hole (disk.cpp floppy_random_bits 1..3, the engine's emulation of a
+    real drive's bit slip): from some bit of some word on, the stream is the pattern shifted left by that many bits."""
+    n = min(len(capture), len(pattern_bytes))
+    if capture[:n] == pattern_bytes[:n]:
+        return None
+    k = next(i for i in range(0, n, 2) if capture[i:i + 2] != pattern_bytes[i:i + 2])
+    got = "".join(format(b, "08b") for b in capture[k:n])
+    want = "".join(format(b, "08b") for b in pattern_bytes[k:n])
+    for slip in range(16):
+        if got[:slip] != want[:slip]:
+            break
+        for jitter in (1, 2, 3):
+            # from bit `slip` on, capture bit i is pattern bit i + jitter (the last word is left out: the DMA ends in it)
+            if got[slip:len(got) - 16] == want[slip + jitter:len(want) - 16 + jitter]:
+                return k // 2
+    return False

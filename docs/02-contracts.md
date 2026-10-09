@@ -373,12 +373,19 @@ base (el ADF registrado, su `content_id`, el CRC que reporta el drive y el `medi
 overlay es estado de maquina como la RAM. Un `p6_load` reserva un pool unico y fijo de `P6_OVERLAY_SECTORS` = 3520 sectores (dos discos) compartido por todos los medios
 (si el flag esta puesto; sin el, todo disco esta protegido como en ABI v1 y el estado no cambia ni de tamaño ni de bytes). El pool va en el chunk P6DK despues de los cuerpos
 del motor (u32 cuenta, u64 escrituras rechazadas, por sector en orden de primera escritura: u8 medio, u16 sector, 512 bytes; un sector una sola vez, medio dentro del
-manifiesto del estado, validado antes de aplicar) y `p6_state_bound` incluye el pool entero (`4 + 8 + 3520 * 515` bytes mas que sin el flag), de modo que no crece con las
-escrituras. Cargar un estado SUSTITUYE el overlay: uno tomado antes de escribir devuelve el disco como estaba (rewind), uno posterior trae las escrituras (como la RAM). El
+manifiesto del estado, validado antes de aplicar), seguido de las pistas crudas (abajo), y `p6_state_bound` incluye los dos pools enteros (`12 + 3520 * 515` mas `4 + 16 * (6 +
+12784)` bytes, 2 017 456 en total, mas que sin el flag), de modo que no crece con las escrituras. Cargar un estado SUSTITUYE el overlay: uno tomado antes de escribir devuelve el disco como estaba (rewind), uno posterior trae las escrituras (como la RAM). El
 flag forma parte de `config_hash`: un estado de una sesion con escrituras no carga en una sin ellas ni al reves. Un sector cuyo contenido nuevo es igual al de la base no
 consume hueco. La escritura de una pista es todo-o-nada; con menos de 11 sectores libres el drive informa el disco como protegido (/WPRO, visto por el invitado y por el
 motor en `drive_writeprotected`), asi que una pista que no cabe no se escribe a medias ni se pierde sin aviso; `refused_writes` cuenta una escritura que llegase al overlay sin
 hueco (el motor no la intenta mientras el drive esta protegido). El overlay no crece el tamaño del disco: el 901120 anunciado es fijo.
+Pistas que no son AmigaDOS (T27a2, parche 0121): un ADF solo tiene once sectores por pista y el motor descartaba (`drive_write_adf_amigados` falla, `convert_adf_to_ext2` no
+esta compilado) una pista escrita que no decodifica. Ahora se guarda tal cual la escribio el invitado, como las palabras MFM de la pista, en un segundo pool de 16 pistas
+(`P6_OVL_RAW_SLOTS`, compartido por todos los medios, 12784 bytes cada una: una vuelta NTSC) que viaja en el estado a continuacion de los sectores, y la unidad lee la pista
+desde ahi hasta que el invitado la escribe de nuevo como AmigaDOS (entonces la copia cruda se borra). Un disco con una pista cruda NO se puede exportar como ADF: `p6_media_export`
+responde UNSUPPORTED con el motivo y no escribe nada, y `p6_media_write_status_get` cuenta `raw_tracks`; la maquina, en cambio, sigue leyendo lo que escribio y los estados la
+restauran. Si el pool de pistas crudas esta lleno, la escritura no se guarda y se cuenta en `refused_writes` (es el unico caso en que ese contador se mueve con el motor real).
+La lectura de una pista cruda incluye el salto de 1-3 bits que el motor da al pasar por el indice (`floppy_random_bits`), como una unidad real.
 Exportar es explicito: `p6_media_write_status_get` describe el overlay (capacidad, uso, sectores distintos de la base de un medio, rechazos, hash de la base) y
 `p6_media_export` copia el disco actual (base con el overlay encima, 901120 bytes) a un buffer del llamante sin cambiar nada en la maquina: ni flush, ni evento, ni estado.
 Hacerlo duradero (fichero temporal, flush, rename) es del llamante; run, save y load nunca escriben fuera del core, y una rama especulativa (rewind, runahead, segunda

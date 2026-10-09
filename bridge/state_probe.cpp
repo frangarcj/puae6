@@ -607,8 +607,8 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                     p6_blob_close(handle);
                 }
             }
-            printf("status %" PRIu64 " %d %u capacity=%" PRIu64 " used=%" PRIu64 " medium=%" PRIu64 " refused=%" PRIu64 " base=%s %s\n", unit, int(result), st.media_index,
-                   st.overlay_capacity, st.overlay_used, st.medium_sectors, st.refused_writes, base.c_str(), error.message);
+            printf("status %" PRIu64 " %d %u capacity=%" PRIu64 " used=%" PRIu64 " medium=%" PRIu64 " refused=%" PRIu64 " raw=%" PRIu64 " base=%s %s\n", unit, int(result), st.media_index,
+                   st.overlay_capacity, st.overlay_used, st.medium_sectors, st.refused_writes, st.raw_tracks, base.c_str(), error.message);
         } else if (op.kind == OpKind::Ram) {
             // An external write into Chip RAM at the boundary (a host action, never part of a replay): the file's bytes at ADDRESS. "ram UNIT CODE ADDRESS BYTES".
             std::vector<uint8_t> data;

@@ -1207,6 +1207,32 @@ void visit_overlay(Archive &a)
         o->count = n;
         a.require(p6_overlay_index(o, manifest_count()) == 0, "overlay: the sectors do not index");
     }
+    // The raw tracks (a custom format the guest wrote, see overlay.h): u32 count (<= 16), then per track u8 medium, u8 track (cylinder * 2 + side), u32 length in bits and
+    // the (bits + 15) / 16 words of 16 bits. Distinct (medium, track) pairs; a length of zero or beyond the slot is refused.
+    uint32_t raw = o->raw_count;
+    const uint32_t tracks = a.count(raw, P6_OVL_RAW_SLOTS, "overlay.raw_count");
+    static uint8_t seen_raw[(P6_OVL_MEDIA * P6_OVL_TRACKS + 7) / 8];
+    memset(seen_raw, 0, sizeof seen_raw);
+    for (uint32_t i = 0; i < tracks && a.ok(); ++i) {
+        const uint32_t medium = a.val<uint8_t>(o->raw_medium[i], 0, uint8_t(P6_OVL_MEDIA - 1), "overlay.raw_medium");
+        const uint32_t track = a.val<uint8_t>(o->raw_track[i], 0, uint8_t(P6_OVL_TRACKS - 1), "overlay.raw_track");
+        const uint32_t bits = a.val<uint32_t>(o->raw_bits[i], 1u, P6_OVL_RAW_WORDS * 16u, "overlay.raw_bits");
+        if (a.reading() && a.ok()) {
+            a.require(medium < manifest_count(), "overlay: a raw track of a medium the state's manifest does not have");
+            const uint32_t at = medium * P6_OVL_TRACKS + track;
+            a.require(!(seen_raw[at >> 3] & (1u << (at & 7))), "overlay: a raw track is named twice");
+            seen_raw[at >> 3] = uint8_t(seen_raw[at >> 3] | (1u << (at & 7)));
+        }
+        const uint32_t words = a.mode() == Mode::Measure ? P6_OVL_RAW_WORDS : (bits + 15u) / 16u;      // the bound counts the longest track
+        uint16_t *slot = p6_overlay_raw_slot(o, i);
+        for (uint32_t w = 0; w < words && a.ok(); ++w) a.num(slot[w], "overlay.raw_words");
+        if (a.applying() && a.ok()) {
+            o->raw_medium[i] = uint8_t(medium);
+            o->raw_track[i] = uint8_t(track);
+            o->raw_bits[i] = bits;
+        }
+    }
+    if (a.applying() && a.ok()) o->raw_count = tracks;
 }
 
 void visit_disk(Archive &a)

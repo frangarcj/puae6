@@ -165,11 +165,13 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     escrituras rechazadas, y por sector u8 medio, u16 sector, 512 bytes, en el orden de primera escritura. Decisiones: (a) la identidad de un medio (content id, el CRC que
     guarda DSKn, `media_manifest_hash`) es la de su BASE inmutable y no incluye el overlay, de modo que un estado guardado antes de escribir sigue cargando y devuelve el
     disco como estaba, y `disk_matches_manifest` no cambia; el overlay no es identidad sino contenido, como la RAM, y cargar un estado lo SUSTITUYE entero; (b) el pool es de
-    tamaño fijo y su tamaño completo entra en `state_bound` (4 + 8 + 3520 x 515 bytes) aunque el estado lleve menos, asi que serializar no crece con las escrituras; sin el flag
+    tamaño fijo y su tamaño completo entra en `state_bound` (4 + 8 + 3520 x 515 bytes, mas 4 + 16 x (6 + 12784) de las pistas crudas, 2 017 456 en total) aunque el estado lleve menos, asi que serializar no crece con las escrituras; sin el flag
     no hay cuerpo y los estados no cambian ni de bytes; (c) se valida antes de aplicar: cuenta <= pool, medio dentro del manifiesto del estado, sector < 1760, ningun
     sector repetido; (d) la granularidad es el sector porque es en lo que el motor cambia un ADF (decodifica la pista MFM y escribe sectores por zfile); el estado de pista
     y MFM (buffer, posicion, DMA en curso) ya viaja en DSDn/DISK/DSKX y la escritura es sincrona al fin del DMA (`drive_write_data`), asi que no hay escritura diferida
-    fuera de ellos.
+    fuera de ellos. (e) Una pista escrita que no decodifica en once sectores (formato propio) no es una escritura de sectores y un ADF no tiene sitio para ella: se guarda tal
+    cual en un segundo pool (16 pistas de 12784 bytes) que sigue al de sectores en el mismo cuerpo (u32 cuenta, y por pista u8 medio, u8 pista, u32 bits y las palabras
+    MFM), con las mismas validaciones, y el disco con una pista cruda no se exporta como ADF (UNSUPPORTED) en lugar de perderla sin decirlo.
 
 ## Evidencia
 

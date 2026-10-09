@@ -22,11 +22,13 @@ from tests.scenarios.disk import disk  # noqa: E402
 from tests.state import envelope as e  # noqa: E402
 from tests.state.harness import ProbeCase, Run, parse_chunks, reforge  # noqa: E402
 
-STATUS = re.compile(r"^status (\d+) (-?\d+) (\d+) capacity=(\d+) used=(\d+) medium=(\d+) refused=(\d+) base=(\w+) ?(.*)$", re.M)
+STATUS = re.compile(r"^status (\d+) (-?\d+) (\d+) capacity=(\d+) used=(\d+) medium=(\d+) refused=(\d+) (?:raw=(\d+) )?base=(\w+) ?(.*)$", re.M)
 EXPORT = re.compile(r"^export (\d+) (-?\d+) (\d+) ([0-9a-f]{64}) (\d+) ?(.*)$", re.M)
 POOL = 3520
 SLOT_BYTES = 1 + 2 + 512
 OVERLAY_FIXED = 4 + 8                                   # count u32, refused u64
+RAW_SLOTS, RAW_WORDS = 16, 6392
+RAW_BOUND = 4 + RAW_SLOTS * (1 + 1 + 4 + 2 * RAW_WORDS)    # count, then per track medium, track, bits and the words: the longest track in every slot
 
 
 def sha(data):
@@ -35,7 +37,7 @@ def sha(data):
 
 def overlay_of(state):
     """(refused, [(medium, sector, bytes)], offset of the overlay in the P6DK body, body) of a saved state: eight bytes of tag and length start each sub-body of the chunk,
-    the overlay follows the last of them."""
+    the overlay follows the last of them and the raw tracks follow the sectors (raw_of)."""
     body = [c for c in parse_chunks(state) if c[0] == b"P6DK"][0][2]
     at = 0
     for _ in range(10):                                 # DSK0..3, DSD0..3, DISK, DSKX
@@ -47,14 +49,34 @@ def overlay_of(state):
         o = at + OVERLAY_FIXED + i * SLOT_BYTES
         medium, sector = struct.unpack_from("<BH", body, o)
         slots.append((medium, sector, bytes(body[o + 3:o + 3 + 512])))
-    assert at + OVERLAY_FIXED + count * SLOT_BYTES == len(body)
     return refused, slots, at, body
 
 
-def with_overlay(state, slots, refused=0):
-    """The state with its overlay replaced, every checksum made right again."""
+def raw_of(state):
+    """[(medium, track, bits, bytes of the words)] of the raw tracks of a saved state, and the offset in the P6DK body where they start."""
+    refused, slots, at, body = overlay_of(state)
+    start = at + OVERLAY_FIXED + len(slots) * SLOT_BYTES
+    count = struct.unpack_from("<I", body, start)[0]
+    o = start + 4
+    tracks = []
+    for _ in range(count):
+        medium, track, bits = struct.unpack_from("<BBI", body, o)
+        n = (bits + 15) // 16 * 2
+        tracks.append((medium, track, bits, bytes(body[o + 6:o + 6 + n])))
+        o += 6 + n
+    assert o == len(body), (o, len(body))
+    return tracks, start
+
+
+def raw_bytes(tracks):
+    return struct.pack("<I", len(tracks)) + b"".join(struct.pack("<BBI", m, t, bits) + data for m, t, bits, data in tracks)
+
+
+def with_overlay(state, slots, refused=0, tracks=None):
+    """The state with its overlay replaced (and its raw tracks, when given), every checksum made right again."""
     _, _, at, body = overlay_of(state)
-    new = bytes(body[:at]) + struct.pack("<IQ", len(slots), refused) + b"".join(struct.pack("<BH", m, s) + d for m, s, d in slots)
+    old_tracks, _ = raw_of(state)
+    new = bytes(body[:at]) + struct.pack("<IQ", len(slots), refused) + b"".join(struct.pack("<BH", m, s) + d for m, s, d in slots) + raw_bytes(old_tracks if tracks is None else tracks)
 
     def edit(chunks):
         for chunk in chunks:
@@ -96,7 +118,7 @@ class Med02Case(ProbeCase):
 
     @staticmethod
     def statuses(text):
-        return {(int(m[1]), int(m[3])): dict(code=int(m[2]), capacity=int(m[4]), used=int(m[5]), medium=int(m[6]), refused=int(m[7]), base=m[8]) for m in STATUS.finditer(text)}
+        return {(int(m[1]), int(m[3])): dict(code=int(m[2]), capacity=int(m[4]), used=int(m[5]), medium=int(m[6]), refused=int(m[7]), raw=int(m[8] or 0), base=m[9]) for m in STATUS.finditer(text)}
 
     @staticmethod
     def exports(text):
@@ -172,7 +194,7 @@ class Med02Tests(Med02Case):
         bound = bounds.pop()
         self.assertTrue(all(size <= bound for _, size, _, _ in run.saves))
         read_only = self.probe_on(self.MACHINE, "med02", "--units", "1", "--save-at", "1", str(self.dir / "ro.state"), *self.args_for(writable=False, poke=False))
-        self.assertEqual(bound - read_only.saves[0][3], OVERLAY_FIXED + POOL * SLOT_BYTES)
+        self.assertEqual(bound - read_only.saves[0][3], OVERLAY_FIXED + POOL * SLOT_BYTES + RAW_BOUND)
         # The public functions of p6.h agree: the bound, and a save that fits it.
         public = run.public[0]
         self.assertEqual((public[1], int(public[2]), int(public[3]), int(public[4])), ("1", 0, 0, 0))

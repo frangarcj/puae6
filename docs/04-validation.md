@@ -128,7 +128,9 @@ y lee de vuelta) por el bridge y el motor reales con las palabras MFM codificada
 los sectores del invitado, lo leido por el invitado decodifica a ellos, el hash de la base no cambia nunca ni el del disco que no se toco, un estado a mitad quita las
 escrituras posteriores (mismo proceso y proceso nuevo, y el estado guardado tras cargar es el cargado, byte a byte), la cota (STATE01) incluye el pool entero y no crece, un
 estado con el pool casi lleno hace que el drive informe el disco protegido, y un overlay imposible (sector repetido, medio fuera del manifiesto, mas sectores que el pool,
-cortado, con bytes de mas) se rechaza sin tocar la maquina. Sin el flag el disco sigue protegido como en MED01.
+cortado, con bytes de mas) se rechaza sin tocar la maquina. Sin el flag el disco sigue protegido como en MED01. `test_med02_raw.py` repite el esquema con un invitado que escribe una vuelta sin ningun sector (sync propio 0x8914 y un patron): lo
+que lee despues de alejar la cabeza es lo escrito (salvo el salto de bits del indice, que el oraculo conoce), el export dice que no puede (UNSUPPORTED) y el estado lo trae o lo
+quita, y escribir la pista como AmigaDOS sustituye la copia cruda.
 T07 prueba STEP01 en bridge/headless; T16 lo amplia al adaptador libretro y T19
 al guest Waterbox. Ningun adaptador puede aprobarlo con un scheduler alternativo.
 No se puede presentar PASS de un subconjunto como PASS del conjunto completo.

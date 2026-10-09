@@ -2991,8 +2991,7 @@
       "order": 110,
       "symbols": [
         "DISK_validate_filename",
-        "drive_writeprotected",
-        "ispcbridgedrive"
+        "drive_writeprotected"
       ],
       "test": "tests/media-cow/test_med02.py",
       "upstream_candidate": false,
@@ -3002,6 +3001,29 @@
           "path": "disk.cpp",
           "before_sha256": "8b57fff5c29acae2379deb9894e26c20aaa605daa397c073972b632c6acb7458",
           "after_sha256": "f7da666b270f7c617fcf51ef69595343a9d89a27fac0617cfd3ea10feca7c67f"
+        }
+      ]
+    },
+    {
+      "id": "0121-disk-raw-track-overlay",
+      "file": "patches/winuae/0121-disk-raw-track-overlay.patch",
+      "sha256": "71de2c07ca688ef70084a2c555341b3aa45d549c6c80b878e3a1f9c6cdce9c43",
+      "title": "A track the guest wrote that is not AmigaDOS is kept and read back",
+      "reason": "T27: with a plain ADF the portable build dropped a written track that does not decode into eleven sectors (convert_adf_to_ext2 is compiled out). The track the guest wrote is kept as raw MFM words in the write overlay and the drive builds the read from them, until the guest writes the track as AmigaDOS again.",
+      "category": "host hooks",
+      "order": 111,
+      "symbols": [
+        "drive_fill_bigbuf",
+        "drive_write_data"
+      ],
+      "test": "tests/media-cow/test_med02_raw.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "f7da666b270f7c617fcf51ef69595343a9d89a27fac0617cfd3ea10feca7c67f",
+          "after_sha256": "252b03ae48ad0c41c70001fda73eb8dd328f446e71e0ed5697f708a5cd0eb1a8"
         }
       ]
     }

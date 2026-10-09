@@ -59,8 +59,16 @@ int p6_blob_overlay_reserve(void);                                  /* NO_MEMORY
 int p6_blob_overlay_bind(const char *id, uint32_t medium);          /* the asset must be a 901120-byte ADF; one medium number per asset; NOT_FOUND, RANGE, DUPLICATE, UNSUPPORTED (no pool) */
 int p6_blob_overlay_writable(const char *id);                       /* 1 when "r+b" works on the asset, else 0 */
 int p6_blob_overlay_room(unsigned int sectors);                     /* 1 when the pool exists and has `sectors` slots free */
-struct p6_overlay *p6_blob_overlay(void);                           /* the pool, or NULL when none was reserved */
-/* The merged image of a bound asset (base with the overlay over it): exactly the asset's size is written, nothing when `capacity` is smaller (CAPACITY). */
+struct p6_overlay *p6_blob_overlay(void);
+/* Raw tracks (a custom format the guest wrote; media/overlay.h), by the id of the disk image and the track (cylinder * 2 + side). The engine calls these where it would
+ * decode a written track into sectors or build a read from them: raw_write keeps `bits` bits of MFM words (host order), raw_read copies them back (the number of words
+ * is (bits + 15) / 16; 1 when the track has a raw copy, 0 when it has none or the asset has no overlay), raw_clear forgets the copy. raw_write returns 0, or
+ * NO_SPACE (the track is longer than a slot, or every slot is taken; counted as a refused write). */
+int p6_blob_raw_write(const char *id, unsigned int track, const unsigned short *words, unsigned int bits);
+int p6_blob_raw_read(const char *id, unsigned int track, unsigned short *words, unsigned int *bits);
+void p6_blob_raw_clear(const char *id, unsigned int track);                           /* the pool, or NULL when none was reserved */
+/* The merged image of a bound asset (base with the overlay over it): exactly the asset's size is written, nothing when `capacity` is smaller (CAPACITY), and nothing
+ * (UNSUPPORTED) when the disk holds a raw track, which an ADF cannot represent. */
 int p6_blob_overlay_export(uint32_t medium, void *out, size_t capacity, size_t *written);
 
 #ifdef __cplusplus
