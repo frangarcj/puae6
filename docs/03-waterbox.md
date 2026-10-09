@@ -422,6 +422,15 @@ ISaveRam puede usarse para una representacion acotada, pero NO mapear el HDF ent
 como save RAM automaticamente. Definir export/import del overlay y distinguir
 persistencia durable del rollback. Peliculas reproducidas no flushean por defecto.
 
+Estado (T27): el nucleo nativo ya tiene el overlay (docs/02-contracts.md, "Escritura M3": sectores mas pistas crudas, pool fijo reservado en `p6_load` con
+`P6_CONFIG_FLOPPY_WRITES`, estado y cota incluidos, `p6_media_export` y `p6_media_write_status_get` sin efectos laterales). El guest Waterbox lo hereda sin codigo nuevo
+de maquina: el pool es memoria del sandbox (heap de `p6_malloc_array`) y el snapshot lo captura; el wrapper sigue fijando `Config.Flags = 0` (los discos protegidos) hasta T27c, que
+falta y cuya puerta (WB10) esta BLOCKED aqui por no haber runner Waterbox en este arbol: (1) exportar desde el guest `p6w_media_export` y `p6w_media_write_status` con la disciplina
+de p6w (version, tamaño, resultado, mensaje) y añadirlos al layout que el wrapper comprueba; (2) un sync setting `FloppyWrites` (entra en la identidad de la pelicula y del
+estado, como Machine) que fija `Config.Flags`; (3) `ISaveRam` solo como representacion acotada y explicita (nunca el HDF entero): los sectores cambiados por disco con el content id
+de la base, sin llamarse durante el replay de una pelicula, y la importacion solo antes de la primera unidad; (4) WB10: escribir, snapshot, sobrescribir, restaurar en el mismo sandbox
+y en uno nuevo (WB04) y comprobar que los bytes, la pista y el estado del drive vuelven y que ni el medio base ni ningun fichero cambian.
+
 ## Suite de aceptacion Waterbox
 
 WB01 mini-core real antes del port Amiga; no emulacion de wrapper nativo.

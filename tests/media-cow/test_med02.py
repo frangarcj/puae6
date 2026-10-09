@@ -240,6 +240,16 @@ class Med02Tests(Med02Case):
         text, run = self.run_text("--units", "106", "--every", "106", *self.args_for(writable=False, poke=False), "--load-at", "106", str(d / "s105.state"))
         self.assertEqual(run.loads[0][:2], (106, 10), run.loads)
 
+    def test_resetting_the_guest_keeps_what_it_wrote(self):
+        # p6_reset restarts the machine, not the disk: the overlay survives, and the guest that starts again sees (and rewrites) the same disk.
+        d = self.dir
+        self.writes()
+        ops = ["--reset-at", "300", "--export-at", "305", "0", str(d / "after-reset.bin"), "--status-at", "305", "0", "--ramout-at", "305", hex(disk.MARK_BASE), "16", str(d / "marks-reset.bin")]
+        text, run = self.run_text("--units", "306", "--every", "306", *self.args_for(), *ops)
+        self.assertEqual(med02.marker_words((d / "marks-reset.bin").read_bytes()), [], "the guest really started again")
+        self.assertEqual((d / "after-reset.bin").read_bytes(), med02.expected_image(self.a, ["buf2", "buf3"]))
+        self.assertEqual(self.statuses(text)[305, 0]["used"], 22)
+
     def test_without_the_flag_the_disk_is_protected_as_before(self):
         d = self.dir
         ops = ["--export-at", "300", "0", str(d / "ro-export.bin"), "--status-at", "300", "0", "--ramout-at", "300", hex(disk.LOG_BASE), "300", str(d / "ro-log.bin"),

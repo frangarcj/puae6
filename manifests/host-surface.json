@@ -719,7 +719,7 @@
         "stdioemu_ftell",
         "stdioemu_fwrite"
       ],
-      "semantics": "zfile directo y disco/ROM requieren read/seek/size/close, EOF y errores exactos. DISK_validate_filename P6 abre directamente rb desde un ID explícito ADF; la ruta legacy intenta r+b antes de rb. Denegar escritura sin mutación. Temporales ROM transformada admiten escritura RAM bounded. Quitar ABR XML/directory scan/history/host-state persist; no hacer passthrough de FILE host. Las declaraciones my_*/posixemu_*/stdioemu_* no usadas no obligan a implementar POSIX/Win32 completo; retirar su rama.",
+      "semantics": "zfile directo y disco/ROM requieren read/seek/size/close, EOF y errores exactos. DISK_validate_filename P6 abre directamente rb desde un ID explícito ADF, o r+b sobre el overlay de escritura cuando la sesion reservo P6_CONFIG_FLOPPY_WRITES (T27: la base nunca se escribe; el overlay es estado); la ruta legacy intenta r+b antes de rb. Denegar escritura sin mutación en todo lo demas. Temporales ROM transformada admiten escritura RAM bounded. Quitar ABR XML/directory scan/history/host-state persist; no hacer passthrough de FILE host. Las declaraciones my_*/posixemu_*/stdioemu_* no usadas no obligan a implementar POSIX/Win32 completo; retirar su rama.",
       "native": "Assets autorizados cargados antes de emular, VFS cerrado. Clave ROM solo como asset explicito; ausente/invalida falla.",
       "waterbox": "VFS/handles/cursor en guest; snapshots incluyen estado; filesystem y librerias host inaccesibles.",
       "test": "T12 MED01 read/seek/EOF/truncado/CRC, r+b denegado, host paths/XML no consultados; WB03 cursor restaurado.",
