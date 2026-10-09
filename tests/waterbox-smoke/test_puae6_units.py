@@ -32,8 +32,8 @@ from test_puae6 import runtime_available  # noqa: E402
 BUILD = ROOT / "build/link-audit"
 FIXTURES = ROOT / "tests/fixtures/microrom"
 UNITS = int(os.environ.get("P6_TEST_WB_UNITS", "10000"))
-RUN = re.compile(r"^run (\d+) video=(\d+)x(\d+) pitch=(\d+) dupe=(\d) hash=(\w+) audio=(\d+) polls=(\d+) states=(\d+)$", re.M)
-TICKS = re.compile(r"^log \d+ \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+)$", re.M)
+RUN = re.compile(r"^run (\d+) video=(\d+)x(\d+) pitch=(\d+) dupe=(\d) hash=(\w+) px=\w+ audio=(\d+) polls=(\d+) states=(\d+) .*$", re.M)
+TICKS = re.compile(r"^log \d+ \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+) keys=\w+$", re.M)
 CYCLE = re.compile(r"^cycle (\d+) end runs=(\d+) audio_frames=(\d+) audio_hash=(\w+)$", re.M)
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) parity=(\d) .* hash=(\w+) audio=(\d+)$")
 LACE = Display("hires-lace-fields", mode="hires", lace=True, bg=0x008, cycle_fg=True)   # both fields, a picture that changes every unit
@@ -56,6 +56,14 @@ class WaterboxUnitTests(unittest.TestCase):
         cls.roms = {"lace": Path(cls.tmp.name) / "lace.rom", "input_all": Path(cls.tmp.name) / "input_all.rom"}
         cls.roms["lace"].write_bytes(builder.build(rom_source(LACE)))
         cls.roms["input_all"].write_bytes(builder.build((FIXTURES / "input_all.s").read_text(encoding="utf-8")))
+        # Port 0 is "Joystick only" (--device 0:257) in libretro(), as in Waterbox: the core's default since T17c is "Joystick + Mouse".
+        # The libretro core finds its Kickstart in the system directory under a known name (T17a), so each micro-ROM gets a directory of its own.
+        cls.systems = {}
+        for name, rom in cls.roms.items():
+            system = Path(cls.tmp.name) / f"system-{name}"
+            system.mkdir()
+            (system / "kick34005.A500").write_bytes(rom.read_bytes())
+            cls.systems[name] = system
 
     @classmethod
     def tearDownClass(cls):
@@ -70,7 +78,7 @@ class WaterboxUnitTests(unittest.TestCase):
         return [line for line in result.stdout.splitlines() if line.startswith("unit ")]
 
     def libretro(self, rom, units, *options):
-        result = subprocess.run([str(self.host), str(self.core), str(self.roms[rom]), "--runs", str(units), *map(str, options)],
+        result = subprocess.run([str(self.host), str(self.core), "--system", str(self.systems[rom]), "--device", "0:257", "--runs", str(units), *map(str, options)],
                                 capture_output=True, text=True, timeout=3600, env={**os.environ, "ASAN_OPTIONS": "detect_leaks=0"})
         self.assertEqual(0, result.returncode, result.stdout[-800:] + result.stderr[-800:])
         self.assertNotIn("VIOLATION", result.stdout)
@@ -117,7 +125,8 @@ class WaterboxUnitTests(unittest.TestCase):
         with ThreadPoolExecutor(4) as pool:
             first = pool.submit(self.wb, "input_all", UNITS, ports=ports, digest_every=every)
             second = pool.submit(self.wb, "input_all", UNITS, ports=ports, digest_every=every)
-            retro = pool.submit(self.libretro, "input_all", UNITS, "--joy", "0:1", "--joy", "1:91")
+            # libretro port 0 is the Amiga joystick port and port 1 the mouse port (PUAE5's crossing, T17c): the masks go crossed so that each Amiga port gets what Waterbox gives it.
+            retro = pool.submit(self.libretro, "input_all", UNITS, "--joy", "0:91", "--joy", "1:1")
             idle = pool.submit(self.wb, "input_all", UNITS, digest_every=every)
             (lines_a, a), (lines_b, b), (runs, ticks, cycle), (lines_idle, idle_result) = (first.result(), second.result(), retro.result(), idle.result())
         self.assertEqual(lines_a, lines_b)
