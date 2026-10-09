@@ -10940,15 +10940,102 @@
       "evidence": null
     },
     {
-      "id": "T27",
-      "title": "Añadir escritura de discos mediante overlay reversible",
+      "id": "T27a",
+      "title": "Overlay de escritura de disquetes (sectores + pistas crudas), estado nativo, export y MED02",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15",
         "T12",
         "T15k"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "ports/portable/**",
+        "bridge/**",
+        "patches/winuae/**",
+        "tests/media-cow/**",
+        "tests/state/**",
+        "tests/host/**",
+        "tests/codegen/**",
+        "tests/fuzz/**",
+        "tools/check.py",
+        "manifests/state-inventory.json",
+        "manifests/host-surface.json",
+        "adapters/headless/main.cpp",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "steps": [
+        "Pool fijo de 3520 sectores de 512 bytes compartido por los medios, reservado en p6_load con P6_CONFIG_FLOPPY_WRITES (entra en config_hash); /WPRO cuando no cabe una pista (parche 0120); pistas no AmigaDOS como MFM crudo en 16 ranuras (parche 0121); overlay en P6DK con la cota del pool entero; identidad del medio = su base; p6_media_export y p6_media_write_status_get; sin el flag ningun byte de estado cambia."
+      ],
+      "checks": [
+        "MED02",
+        "STATE01",
+        "DET02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Rewind revierte bytes y metadatos del drive; la base conserva su hash; la cota no crece con escrituras; un overflow da /WPRO o rechazo contado, nunca datos perdidos en silencio."
+      ],
+      "stop": "Una representacion por sectores que pierde escrituras de pista necesita rediseño local; no descartar datos silenciosamente.",
+      "evidence": null
+    },
+    {
+      "id": "T27b",
+      "title": "libretro: escritura de disquetes (puae6_floppy_writes) y guardado durable al cerrar (puae6_floppy_save)",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T27a",
+        "T18"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "tests/libretro-host/**",
+        "tests/config/**",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Opcion de reinicio mapeada a p6_config.flags; guardado solo en retro_unload_game/retro_deinit, en el save directory (puae6-<sha>.adf, temporal + fsync + rename), nunca durante run, load, rewind ni runahead; la copia guardada es el disco en la siguiente carga; el original nunca se escribe."
+      ],
+      "checks": [
+        "LR02",
+        "STATE01"
+      ],
+      "acceptance": [
+        "Ninguna escritura durable durante pasos especulativos; el fichero guardado es la linea temporal final."
+      ],
+      "stop": "No escribir el fichero original del usuario.",
+      "evidence": null
+    },
+    {
+      "id": "T27",
+      "title": "Añadir escritura de discos mediante overlay reversible",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T15",
+        "T12",
+        "T15k",
+        "T27a",
+        "T27b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -10966,7 +11053,8 @@
         "Implementar base inmutable mas overlay de granularidad adecuada al formato; conservar estado de pista/MFM y writes diferidos.",
         "Reservar limites al load e incluirlos en state_bound; overflow produce error antes de escribir fuera del buffer.",
         "Crear fixture que escribe, guarda, sobrescribe, restaura y verifica contenido/track state anterior.",
-        "Separar export/commit durable explicito y atomico; no escribir base ni flushear durante pasos especulativos."
+        "Separar export/commit durable explicito y atomico; no escribir base ni flushear durante pasos especulativos.",
+        "Division (2026-10-09): T27a (overlay, estado nativo, export, MED02, FUZZ01) y T27b (libretro); trabajadas en un worktree paralelo e integradas por cherry-pick. T27 es el cierre: repetir MED02/STATE01/DET02/LR02/FUZZ01 en main. La parte BizHawk/Waterbox (sync setting, export desde el guest, WB10) es T28."
       ],
       "checks": [
         "MED02",
