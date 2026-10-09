@@ -33,7 +33,16 @@ internal static unsafe partial class Program
 				case "pin": Console.WriteLine("pin " + Puae6Guest.BuiltWithSha256); break;
 				case "identity": Identity(options["guest"], options["sha"]); break;
 				case "open": Open(options, int.Parse(options["units"])); break;
-				case "heaps": { var h = Puae6Core.Heaps(); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break; }
+				case "heaps":
+				{
+					// heaps [--machine A500|A600|A1200] [--chip Auto|KB512|MB1|MB2] [--slow ...] [--fast ...]: the heaps of the core for those settings (T49: the mmap heap follows the memory).
+					var settings = new Puae6SyncSettings();
+					if (options.TryGetValue("machine", out var machine)) settings.Machine = Enum.Parse<Puae6Machine>(machine);
+					if (options.TryGetValue("chip", out var chip)) settings.ChipMemory = Enum.Parse<Puae6Chip>(chip);
+					if (options.TryGetValue("slow", out var slow)) settings.SlowMemory = Enum.Parse<Puae6Slow>(slow);
+					if (options.TryGetValue("fast", out var fast)) settings.FastMemory = Enum.Parse<Puae6Fast>(fast);
+					var h = Puae6Core.Heaps(settings); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break;
+				}
 				case "play": Play(options); break;
 				case "session": RunSession(options); break;
 				case "inventory": Inventory(); break;

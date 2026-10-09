@@ -99,6 +99,7 @@ void memory_access(uint32_t type, void *buffer, int64_t address, int64_t count, 
 // One function per area, because BizHawk's hook has no area argument.
 void access_chip_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_CHIP_RAM, buffer, address, count, write); }
 void access_slow_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_SLOW_RAM, buffer, address, count, write); }
+void access_fast_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_FAST_RAM, buffer, address, count, write); }
 void access_rom(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_ROM, buffer, address, count, write); }
 
 struct AreaSpec {
@@ -110,12 +111,13 @@ struct AreaSpec {
 const AreaSpec area_specs[] = {
     {P6_REGION_CHIP_RAM, "Chip RAM", P6W_AREA_PRIMARY, access_chip_ram},     // the one BizHawk treats as main memory
     {P6_REGION_SLOW_RAM, "Slow RAM", 0, access_slow_ram},
+    {P6_REGION_FAST_RAM, "Fast RAM", 0, access_fast_ram},      // T49: the Zorro II board, at $200000 once the Kickstart has configured it
     {P6_REGION_ROM, "ROM", 0, access_rom},
 };
 
 }  // namespace
 
-// The memory areas of the loaded machine (see p6w_memory_area): Chip RAM first and primary, Slow RAM and the ROM when the machine has
+// The memory areas of the loaded machine (see p6w_memory_area): Chip RAM first and primary, Slow RAM, Fast RAM and the ROM when the machine has
 // them, all big endian with 16-bit words. Returns how many were written; zero (and nothing written) when no machine is loaded or
 // `capacity` is too small. Call it after p6w_init_machine and before the seal: the areas are function hooks and stay valid for the life of the sandbox.
 ECL_EXPORT size_t p6w_memory_areas(p6w_memory_area *out, size_t capacity)

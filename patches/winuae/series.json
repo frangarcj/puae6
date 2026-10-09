@@ -3139,6 +3139,28 @@
           "after_sha256": "1597e7e4ca67a8d9d6338be098e8df60e3faf734c956a9a97523eee65b99e321"
         }
       ]
+    },
+    {
+      "id": "0114-expansion-clear-keeps-clean-pages",
+      "file": "patches/winuae/0114-expansion-clear-keeps-clean-pages.patch",
+      "sha256": "628a1522f3c9b764600d4cb88933402afbff3020a4b594dfad6c4c86f63db180",
+      "title": "A board is cleared without touching what is already zero",
+      "reason": "T49: expansion_clear (every hard reset, and the power-on of a load) memsets the Fast RAM board, and a board that was just allocated zeroed (calloc) had its pages dirtied by the zeros: a Waterbox snapshot carries every dirty page, so an 8 MiB board added 8 MiB to each snapshot (measured 10.2 MB to 18.7 MB on the A1200). Only the non-zero words are cleared, the result is the same.",
+      "category": "host hooks",
+      "order": 116,
+      "symbols": [
+        "clear_bank"
+      ],
+      "test": "tests/waterbox-smoke/test_puae6.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "9102378aabe086e302550bab5aa9b134d35662140e6822dec0cde8d0d2c8c8bd",
+          "after_sha256": "c63e0991f645db34874a2cf8a39b501c7d9c48aa0657ae8737906c8214f2ca37"
+        }
+      ]
     }
   ]
 }

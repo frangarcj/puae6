@@ -200,7 +200,15 @@ internal static unsafe partial class Program
 	{
 		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
 		var machine = MachineOf(options.GetValueOrDefault("machine"));
-		using var core = MakeCore(options, new Puae6SyncSettings { Machine = machine });
+		// T49: --chip, --slow and --fast (the names of the enums: Auto, KB512, MB1, MB2, None, MB1_5, MB1_75, MB4, MB8) give the machine other memory.
+		var settings = new Puae6SyncSettings
+		{
+			Machine = machine,
+			ChipMemory = Enum.Parse<Puae6Chip>(options.GetValueOrDefault("chip", "Auto")),
+			SlowMemory = Enum.Parse<Puae6Slow>(options.GetValueOrDefault("slow", "Auto")),
+			FastMemory = Enum.Parse<Puae6Fast>(options.GetValueOrDefault("fast", "None")),
+		};
+		using var core = MakeCore(options, settings);
 		var domains = core.ServiceProvider.GetService<IMemoryDomains>()!;
 		var names = domains.Select(d => d.Name).ToList();
 		Console.WriteLine("domains " + string.Join(',', names));
@@ -213,10 +221,14 @@ internal static unsafe partial class Program
 			Console.WriteLine($"domain {d.Name} size={d.Size} writable={d.Writable}");
 		}
 		var chip = domains["Chip RAM"]!;
-		// The A500 has Slow RAM, which nothing writes; the A600 and the A1200 have none and the part of Chip RAM above 512 KiB, which the fixtures leave alone, takes its place.
-		var slow = domains["Slow RAM"] ?? chip;
+		// The Fast RAM board, when there is one, is what the pokes go to (nothing writes it). Else the A500 has Slow RAM, which nothing writes; the A600 and the A1200 have none and the part of
+		// Chip RAM above 512 KiB, which the fixtures leave alone, takes its place.
+		var board = domains["Fast RAM"];
+		Require((board != null) == (settings.FastMemory != Puae6Fast.None), "the Fast RAM domain exists when a board is configured and only then");
+		bool hasSlow = settings.SlowMemory switch { Puae6Slow.None => false, Puae6Slow.Auto => machine == Puae6Machine.A500, _ => true };
+		Require((domains["Slow RAM"] != null) == hasSlow, "Slow RAM exists when the machine has it");
+		var slow = board ?? domains["Slow RAM"] ?? chip;
 		long scratch = ReferenceEquals(slow, chip) ? 0x80000 : 0;
-		Require(ReferenceEquals(slow, chip) == (machine != Puae6Machine.A500), "Slow RAM exists on the A500 and only there");
 		Console.WriteLine($"scratch {slow.Name} base={scratch}");
 		var rom = domains["ROM"]!;
 		// Before the first unit, right after the seal: nothing has written the machine, so a poke from managed code would be fatal; these go through the guest.

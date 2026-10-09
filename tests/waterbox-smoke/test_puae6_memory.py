@@ -39,9 +39,10 @@ class GuestMemoryTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def run_and_compare(self, units, memory_at, machine="A500"):
-        lines, result = build_waterbox.run_puae6(self.rom, units, memory_at=memory_at, machine=machine)
-        native = subprocess.run([str(self.headless), "--run", str(self.rom), "--units", str(units), "--machine", machine.lower()], capture_output=True, text=True, timeout=3600)
+    def run_and_compare(self, units, memory_at, machine="A500", **memory):
+        lines, result = build_waterbox.run_puae6(self.rom, units, memory_at=memory_at, machine=machine, **memory)
+        flags = [part for flag, key in (("--chip", "chip_kib"), ("--slow", "slow_kib"), ("--fast", "fast_kib")) for part in ([flag, str(memory[key])] if key in memory else [])]
+        native = subprocess.run([str(self.headless), "--run", str(self.rom), "--units", str(units), "--machine", machine.lower(), *flags], capture_output=True, text=True, timeout=3600)
         self.assertEqual(0, native.returncode, native.stderr)
         self.assertEqual([line for line in native.stdout.splitlines() if line.startswith("unit ")], lines,
                          "reads, writes, refusals and restores left the machine exactly where the snapshot was")
@@ -91,6 +92,29 @@ class GuestMemoryTests(unittest.TestCase):
 
     def test_on_the_a1200_after_a_unit_the_marker_reads_big_endian_and_a_write_changes_the_next_picture(self):
         self.check_a1200_areas(self.run_and_compare(30, 15, "A1200"))
+
+    def check_fast_areas(self, memory, names, sizes):
+        areas = memory["areas"]
+        self.assertEqual(names, [area["Name"] for area in areas])
+        self.assertEqual(sizes, [area["Size"] for area in areas[:-1]])
+        # T49: the board is a writable area like the others, between Slow RAM and the ROM; only Chip RAM is primary.
+        writable = [1024 | 64 | 16 | 1 | (8 if i == 0 else 0) for i in range(len(areas) - 1)]
+        self.assertEqual(writable + [1024 | 64 | 16], [area["Flags"] for area in areas])
+
+    def test_with_fast_ram_the_board_is_an_area_of_its_own_and_writes_land_in_clean_pages_of_the_board(self):
+        # The writes of the harness go to the board (nothing else writes it): its pages are clean since the seal, a store from managed code there would kill the process, these go
+        # through the guest and are tracked; the first and last bytes of the board, a bulk write, a restore and every refusal behave as in the other areas.
+        for machine, memory, names, sizes in (("A1200", {"fast_kib": 8192}, ["Chip RAM", "Fast RAM", "ROM"], [2097152, 8388608]),
+                                              ("A600", {"chip_kib": 2048, "fast_kib": 8192}, ["Chip RAM", "Fast RAM", "ROM"], [2097152, 8388608]),
+                                              ("A500", {"fast_kib": 2048}, ["Chip RAM", "Slow RAM", "Fast RAM", "ROM"], [524288, 524288, 2097152])):
+            with self.subTest(machine=machine, memory=memory):
+                result = self.run_and_compare(30, 0, machine, **memory)
+                self.check_fast_areas(result, names, sizes)
+                self.assertGreaterEqual(result["dirty_pages_after_writes"], result["dirty_pages_before_writes"] + 12)
+
+    def test_with_fast_ram_after_a_unit_the_marker_reads_big_endian_and_a_write_changes_the_next_picture(self):
+        result = self.run_and_compare(30, 15, "A1200", fast_kib=8192)
+        self.check_fast_areas(result, ["Chip RAM", "Fast RAM", "ROM"], [2097152, 8388608])
 
 
 if __name__ == "__main__":

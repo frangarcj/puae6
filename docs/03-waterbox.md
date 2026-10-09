@@ -361,7 +361,15 @@ maquinas (WB03, `tests/waterbox-state/test_wrapper_machine.py`, y la reproduccio
 la interfaz de EmuHawk (no se ha ejecutado), otros Kickstart.
 
 Presupuesto por maquina (`manifests/waterbox-memory.json`, `measured`, `measured_a600`, `measured_a1200`; el presupuesto de cada heap no cambia y no se reutiliza sin medir): mmap 5 586 944 B (A500), 5 046 272 B (A600) y 6 094 848 B (A1200, 36 % de los 16 MiB: 2 MiB de Chip y las tablas de AGA);
-snapshot tras 60 unidades 9 154 004, 9 137 620 y 10 186 196 B. Con AGA compilado el guest pesa unos 9,8 MB mas de imagen (T24b); las medidas de las tres maquinas se vuelven a grabar con `--record-memory` cuando cambia el guest, y ninguna pasa de la mitad de su presupuesto (lo exigen los tests de `tests/waterbox-smoke`). Las peliculas del core UAE de BizHawk se
+snapshot tras 60 unidades 9 154 004, 9 137 620 y 10 186 196 B. Con AGA compilado el guest pesa unos 9,8 MB mas de imagen (T24b); las medidas de las tres maquinas se vuelven a grabar con `--record-memory` cuando cambia el guest, y ninguna pasa de la mitad de su presupuesto (lo exigen los tests de `tests/waterbox-smoke`). Memoria configurable (T49): un A1200 con 8 MiB de Fast RAM Zorro II, el A600 de PUAE5 (2 MiB de Chip y 8 MiB de Fast) y un A500 con Fast y Slow RAM se ejecutan en el sandbox unidad por unidad como `p6_headless`
+con las mismas opciones (`tests/waterbox-smoke/test_puae6.py`), y la placa es un dominio de memoria (`Fast RAM`, entre `Slow RAM` y la ROM; `test_puae6_memory.py`, `tests/ffi`). El heap mmap
+deja de ser un unico presupuesto: la regla de `memory_budget` en `manifests/waterbox-memory.json` es el presupuesto base mas DOS VECES la memoria pedida por encima de la propia de la maquina
+(toda la Fast mas el Chip y el Slow que excedan), de modo que la regla de la mitad sigue valiendo y una configuracion sin memoria extra conserva el layout, el snapshot y la identidad de siempre. Medido
+(micro-ROM, 60 unidades): A1200 + 8 MiB de Fast 14 499 840 B de mmap committed (de un presupuesto de 33 554 432), snapshot 10 309 076 B; A600 con 2 MiB de Chip y 8 MiB de Fast 14 499 840 B y 10 310 100 B;
+A1200 con 1,5 MiB de Slow y 8 MiB de Fast 16 613 376 B (de 36 700 160) y 12 424 148 B; A500 con 2 MiB de Fast 7 700 480 B y 9 270 740 B. La placa se limpia al arrancar sin escribir los ceros que ya tiene
+(parche 0114): sin eso sus 8 MiB quedaban sucios y el snapshot del A1200 pasaba de 10,2 MB a 18,7 MB. El wrapper calcula el mismo presupuesto (`Puae6Core.Heaps(settings)`, que forma parte de la identidad
+de un estado) y `tests/waterbox-state/test_wrapper_memory.py` lo compara con el de la regla.
+Las peliculas del core UAE de BizHawk se
 rechazan por su cabecera y no se convierten. Los contadores de lag y de ciclos son los de la propia grabacion (el golden es la grabacion: si una reproduccion difiere, se corrige el
 motor o el core, nunca la pelicula).
 

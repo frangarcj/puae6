@@ -53,6 +53,8 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
 
     /// p6_config.machine the next TryInit gives the guest: P6_MACHINE_A500 (1), P6_MACHINE_A600 (2) or P6_MACHINE_A1200 (3).
     internal uint MachineId = 1;
+    /// p6_config.chip_kib, slow_kib and fast_kib the next TryInit gives the guest (T49): 0 is the machine's own memory, uint.MaxValue (Slow) is none.
+    internal uint ChipKib, SlowKib, FastKib;
     internal readonly string[] HeapNames = ["elf", "main_thread", "alt_thread", "sbrk", "sealed", "invisible", "plain", "mmap"];
     internal readonly ulong[] Ranges = new ulong[16];
     /// The two controller ports of the packet every unit carries: type, buttons, dx, dy. Nothing pressed by default.
@@ -98,6 +100,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             *(uint*)(p + 16) = MachineId; *(uint*)(p + 20) = standard;      //   machine (1 = A500, 2 = A600, 3 = A1200), video standard
             *(uint*)(p + 24) = 48000; *(ulong*)(p + 32) = seed;             //   audio rate, random seed
             *(long*)(p + 40) = epoch;                                       //   rtc epoch
+            *(uint*)(p + 48) = ChipKib; *(uint*)(p + 52) = SlowKib; *(uint*)(p + 56) = FastKib;     //   chip_kib, slow_kib, fast_kib (reserved32 and reserved[2] stay zero)
             *(nint*)(p + InitFirmware) = rom; *(ulong*)(p + InitFirmware + 8) = (ulong)firmware.Length;
             *(uint*)(p + InitMediaCount) = mediaCount ?? (uint)media.Length;
             for (int i = 0; i < media.Length && i < 16; ++i)                // p6w_media: type, flags, content_id (SHA-256), data, bytes
@@ -344,7 +347,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
         return dirty;
     }
 
-    internal const uint ChipRam = 1, SlowRam = 2, Rom = 3;      // P6_REGION_*
+    internal const uint ChipRam = 1, SlowRam = 2, Rom = 3, FastRam = 4;      // P6_REGION_*
 
     /// The areas the guest reports (p6w_memory_areas): data (a guest function), name, size and flags of each, in the order it gives them.
     internal (ulong Data, string Name, long Size, long Flags)[] Areas()
@@ -428,12 +431,25 @@ internal static unsafe class Puae6
         return 3;
     }
 
+    /// The mmap heap of the sandbox for a memory configuration (T49): the budget of manifests/waterbox-memory.json plus twice the memory asked for above what the machine comes with
+    /// (Chip and Slow above their own sizes, and all the Fast RAM). The same rule as Puae6Core.Heaps in the wrapper (tests/waterbox-state compares them), so a budget is at least
+    /// twice what was measured.
+    internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib)
+    {
+        uint ownChip = machineId == 3 ? 2048u : machineId == 2 ? 1024u : 512u, ownSlow = machineId == 1 ? 512u : 0u;
+        ulong extra = fastKib;
+        if (chipKib > ownChip) extra += chipKib - ownChip;
+        if (slowKib != uint.MaxValue && slowKib > ownSlow) extra += slowKib - ownSlow;
+        return baseBytes + (nuint)(2 * extra * 1024);
+    }
+
     // Smoke.dll --puae6 --runtime receipt.json --guest puae6-receipt.json --manifest waterbox-memory.json --firmware rom --units N --result out.json
     //   [--media disk.adf]... [--port N:type:buttons:dx:dy]... [--render 101-200:0,...] [--digest-every K] [--bad-calls-at U] [--limits] [--ntsc]
     //   [--abi-at U,U...] (WB13 before those units)  [--pages-at U] (WB14 after unit U, needs the chipcell fixture)
     //   [--memory-at U] (T20a: the memory areas and the accesses through the guest; U = 0 right after the seal, U > 0 after that unit and
     //   needs the chipcell fixture)
     //   [--machine a500|a600|a1200] (the machine the guest is configured as; A500 by default)
+    //   [--chip KIB] [--slow KIB|none] [--fast KIB] (T49: the memory the guest is configured with, 0 is the machine's own; the mmap heap grows with the extra memory, see MmapBudget)
     //   [--save-at U --state file] (WB15: snapshot after unit U)  [--restore file --from U] (a new process: init, seal, load, continue from U+1)
     internal static int Run(string[] args)
     {
@@ -447,6 +463,9 @@ internal static unsafe class Puae6
         Layout layout = new() { Sbrk = memory.GetProperty("sbrk").GetUInt32(), Sealed = memory.GetProperty("sealed").GetUInt32(),
             Invisible = memory.GetProperty("invisible").GetUInt32(), Plain = memory.GetProperty("plain").GetUInt32(),
             Mmap = memory.GetProperty("mmap").GetUInt32() };
+        uint chipKib = uint.Parse(options.Optional("chip") ?? "0"), fastKib = uint.Parse(options.Optional("fast") ?? "0");
+        string slowText = options.Optional("slow") ?? "0";
+        uint slowKib = slowText == "none" ? uint.MaxValue : uint.Parse(slowText);
         var firmware = File.ReadAllBytes(options.Get("firmware"));
         var media = options.All("media").Select(File.ReadAllBytes).ToArray();
         ulong units = ulong.Parse(options.Get("units"));
@@ -454,6 +473,7 @@ internal static unsafe class Puae6
         string machineName = (options.Optional("machine") ?? "a500").ToLowerInvariant();
         Program.Require(machineName is "a500" or "a600" or "a1200", $"--machine is a500, a600 or a1200 (got {machineName})");
         uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, _ => 1u };
+        layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib);
         var image = File.ReadAllBytes(guestPath);
         using var api = new Native(dylibPath);
         var report = new Dictionary<string, object?> {
@@ -461,6 +481,7 @@ internal static unsafe class Puae6
             ["guest_sha256"] = guest.GetProperty("sha256").GetString(), ["runtime_sha256"] = runtime.GetProperty("sha256").GetString(),
             ["layout"] = new Dictionary<string, ulong> { ["sbrk"] = layout.Sbrk, ["sealed"] = layout.Sealed, ["invisible"] = layout.Invisible,
                 ["plain"] = layout.Plain, ["mmap"] = layout.Mmap },
+            ["configured_memory"] = new Dictionary<string, uint> { ["chip_kib"] = chipKib, ["slow_kib"] = slowKib, ["fast_kib"] = fastKib },
             ["firmware_bytes"] = firmware.Length, ["media_bytes"] = media.Sum(image => (long)image.Length),
             ["host_buffers_poisoned_after_init"] = true };
 
@@ -472,7 +493,7 @@ internal static unsafe class Puae6
             var parts = item.Split(':'); var span = parts[0].Split('-');
             return (ulong.Parse(span[0]), ulong.Parse(span[^1]), uint.Parse(parts[1]));
         }).ToList();
-        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId };
+        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib };
         foreach (var port in options.All("port"))
         {
             var p = port.Split(':');
@@ -488,7 +509,7 @@ internal static unsafe class Puae6
         var abiAt = (options.Optional("abi-at") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(ulong.Parse).ToHashSet();
         ulong from = 0;
         object? areas = null;
-        if (memoryAt == 0) areas = MemoryTests(machine, 0, machineId);               // sealed and not yet advanced: every page of the machine is still clean
+        if (memoryAt == 0) areas = MemoryTests(machine, 0, machineId, chipKib, slowKib, fastKib);               // sealed and not yet advanced: every page of the machine is still clean
         if (options.Optional("restore") is string restore)
         {
             from = ulong.Parse(options.Get("from"));
@@ -515,7 +536,7 @@ internal static unsafe class Puae6
             if (digestEvery != 0 && unit % digestEvery == 0) digests[unit.ToString()] = machine.Digest();
             if (unit == saveAt) File.WriteAllBytes(options.Get("state"), machine.Save());
             if (unit == pagesAt) pages = PageTests(machine, unit);
-            if (unit == memoryAt) areas = MemoryTests(machine, unit, machineId);
+            if (unit == memoryAt) areas = MemoryTests(machine, unit, machineId, chipKib, slowKib, fastKib);
         }
         if (abiAt.Count > 0)
         {
@@ -588,34 +609,40 @@ internal static unsafe class Puae6
     /// 16-bit words, function hooks that point into the sandbox); reads give what the 68000 stored; writes go through the guest, also into
     /// pages that nothing has written since the seal (a managed store there would be fatal); the ROM and everything out of range is refused
     /// and counted; a restore undoes the writes; and the word the fixture copies into COLOR00 changes the next picture.
-    static object MemoryTests(Puae6Machine machine, ulong lastUnit, uint machineId)
+    static object MemoryTests(Puae6Machine machine, ulong lastUnit, uint machineId, uint chipKib, uint slowKib, uint fastKib)
     {
-        bool noSlow = machineId >= 2;                           // the A600 and the A1200 have no Slow RAM
-        long chipBytes = machineId == 3 ? 2097152 : machineId == 2 ? 1048576 : 524288;
+        // What the machine has: its own memory unless the configuration says otherwise (0 = the machine's own, uint.MaxValue = no Slow RAM).
+        long chipBytes = (chipKib != 0 ? chipKib : machineId == 3 ? 2048u : machineId == 2 ? 1024u : 512u) * 1024L;
+        long slowBytes = slowKib == uint.MaxValue ? 0 : (slowKib != 0 ? slowKib : machineId == 1 ? 512u : 0u) * 1024L;
+        long fastBytes = fastKib * 1024L;
+        bool noSlow = slowBytes == 0;
         string machineName = machineId == 3 ? "A1200" : machineId == 2 ? "A600" : "A500";
         const long MarkerAt = 0x10000, CellAt = 0x30000;
         AudioMark mark = new(machine);
         var areas = machine.Areas();
-        // The A500 has Chip RAM (512 KiB), Slow RAM (512 KiB) and the ROM; the A600 has 1 MiB of Chip RAM and the ROM and the A1200 2 MiB of Chip RAM and the ROM: no Slow RAM at all.
-        string[] names = noSlow ? ["Chip RAM", "ROM"] : ["Chip RAM", "Slow RAM", "ROM"];
-        long[] writable = noSlow ? [1, 0] : [1, 1, 0];
-        Program.Require(areas.Length == names.Length, $"the {machineName} reports {string.Join(", ", names)} (got {areas.Length})");
-        for (int i = 0; i < names.Length; ++i)
+        // Chip RAM first and primary, then Slow RAM and Fast RAM when the machine has them, then the ROM. The A500 comes with 512 KiB of Slow RAM, the A600 and the A1200 with none.
+        var names = new List<string> { "Chip RAM" };
+        var sizes = new List<long> { chipBytes };
+        if (!noSlow) { names.Add("Slow RAM"); sizes.Add(slowBytes); }
+        if (fastBytes != 0) { names.Add("Fast RAM"); sizes.Add(fastBytes); }
+        names.Add("ROM");
+        Program.Require(areas.Length == names.Count, $"the {machineName} reports {string.Join(", ", names)} (got {string.Join(", ", areas.Select(a => a.Name))})");
+        for (int i = 0; i < names.Count; ++i)
         {
             var area = areas[i];
             Program.Require(area.Name == names[i], $"area {i} is {names[i]} (got {area.Name})");
-            Program.Require(area.Size >= 262144 && area.Size <= (i == 0 ? chipBytes : 524288), $"{area.Name}: a real size ({area.Size})");
-            long expected = 16L | 64 | 1024 | writable[i] | (i == 0 ? 8L : 0L);            // big endian, 16-bit words, function hook, writable, primary
+            if (names[i] != "ROM") Program.Require(area.Size == sizes[i], $"{area.Name}: {sizes[i]} bytes (got {area.Size})");
+            else Program.Require(area.Size >= 262144 && area.Size <= 524288, $"{area.Name}: a real size ({area.Size})");
+            long expected = 16L | 64 | 1024 | (names[i] == "ROM" ? 0L : 1L) | (i == 0 ? 8L : 0L);            // big endian, 16-bit words, function hook, writable, primary
             Program.Require(area.Flags == expected, $"{area.Name}: flags {expected} (got {area.Flags})");
             Program.Require(area.Data >= machine.Ranges[0] && area.Data < machine.Ranges[14] + machine.Ranges[15], $"{area.Name}: the hook is a function of the sandbox");
         }
         Program.Require(areas.Count(a => (a.Flags & 8) != 0) == 1, "exactly one primary area");
-        if (noSlow) Program.Require(areas[0].Size == chipBytes, $"{chipBytes >> 20} MiB of Chip RAM");
-        else Program.Require(areas[0].Size == 524288 && areas[1].Size == 524288, "512 KiB of Chip RAM and of Slow RAM");
-        // The area the writes go to: nothing writes Slow RAM, and on the A600 and the A1200, which have none, the part of Chip RAM above 512 KiB (the fixtures use the first 320 KiB).
-        uint scratch = noSlow ? Puae6Machine.ChipRam : Puae6Machine.SlowRam;
-        int scratchName = noSlow ? 0 : 1;
-        long scratchBase = noSlow ? 0x80000 : 0, scratchSize = areas[scratchName].Size - scratchBase;
+        // The area the writes go to: the Fast RAM board when there is one (nothing writes it: its pages are clean since the seal), else Slow RAM, and on the A600 and the A1200, which have
+        // none, the part of Chip RAM above 512 KiB (the fixtures use the first 320 KiB).
+        uint scratch = fastBytes != 0 ? Puae6Machine.FastRam : noSlow ? Puae6Machine.ChipRam : Puae6Machine.SlowRam;
+        int scratchName = fastBytes != 0 ? names.IndexOf("Fast RAM") : noSlow ? 0 : 1;
+        long scratchBase = scratch == Puae6Machine.ChipRam ? 0x80000 : 0, scratchSize = areas[scratchName].Size - scratchBase;
 
         // Reads are the 68000's bytes: the fixture stored the long $50364D57 at $10000 (once it has run).
         if (lastUnit > 0)

@@ -15,7 +15,7 @@ import unittest
 
 from tests.state import test_det02 as d
 from tests.state import test_det02_a600 as a600
-from tests.state.harness import FieldTable, ProbeCase
+from tests.state.harness import FieldTable, ProbeCase, parse_chunks
 
 A1200_ROM = os.environ.get("P6_KICKSTART_A1200_ROM")
 AGA_ADF = os.environ.get("P6_AGA_ADF")
@@ -23,6 +23,30 @@ A500_ROM = os.environ.get("P6_KICKSTART_ROM")
 A600_ZIP = os.environ.get("P6_KICKSTART_A600_ZIP")
 WB_ZIP = os.environ.get("P6_WB205_ZIP")
 RAM = 2
+
+
+def memory_list(blob):
+    """The MemHeaders of the system's memory list (ExecBase.MemList) in a state: [(attributes, lower, upper)]. Only RAM that the chunk P6RM holds can be read (Chip and Fast)."""
+    body = parse_chunks(blob)[RAM][2]
+    chip, slow = (int.from_bytes(body[at:at + 4], "little") for at in (0, 4))
+    chip_bytes = body[8:8 + chip]
+    after = 8 + chip + slow
+    fast_bytes = body[after + 4:after + 4 + int.from_bytes(body[after:after + 4], "little")]
+
+    def read(address, length):
+        if address + length <= len(chip_bytes):
+            return chip_bytes[address:address + length]
+        if 0x200000 <= address and address + length - 0x200000 <= len(fast_bytes):
+            return fast_bytes[address - 0x200000:address - 0x200000 + length]
+        raise IndexError(hex(address))
+
+    long = lambda address: int.from_bytes(read(address, 4), "big")
+    sysbase, headers, node = long(4), [], None
+    node = long(sysbase + 322)
+    while node and long(node):
+        headers.append((int.from_bytes(read(node + 14, 2), "big"), long(node + 20), long(node + 24)))
+        node = long(node)
+    return headers
 
 FAST8 = ["--fast", "8192"]
 PUAE5_A600 = ["--chip", "2048", "--fast", "8192"]
@@ -73,6 +97,17 @@ class Det02FastKickstart31A1200Tests(A1200Case):
         _, table = self.fields("a1200", 30, FAST8)
         self.assertEqual((1, 1, 0x200000), (table.get("ram.fast_ecard"), table.get("ram.fast_mapped"), table.get("ram.fast_start")))
 
+    def test_the_system_has_the_board_in_its_memory_list_as_fast_memory(self):
+        # What the Kickstart did with the board is visible in the system's own books: a MemHeader marked MEMF_FAST (4) that spans the board, $200000 to $A00000.
+        path = self.dir / "list.state"
+        self.probe_on("a1200", "kickstart", "--units", "100", "--save-at", "100", str(path), *FAST8)
+        headers = memory_list(path.read_bytes())
+        fast = [h for h in headers if h[0] & 4]
+        self.assertTrue(fast, headers)
+        self.assertEqual(0x200000, min(lower for _, lower, _ in fast) & ~0xffff)
+        self.assertEqual(0xA00000, max(upper for _, _, upper in fast))
+        self.assertTrue(any(h[0] & 2 for h in headers), "and Chip RAM is in the list as well")
+
     def fields(self, machine, unit, extra):
         path = self.dir / f"fields-{unit}.state"
         run = self.probe_on(machine, "kickstart", "--units", str(unit), "--save-fields-at", str(unit), str(path), *extra)
@@ -92,6 +127,10 @@ class Det02FastKickstart205A600Tests(A600Case):
         table = FieldTable(path.read_bytes(), RAM, run.fields)
         self.assertEqual((1, 1, 0x200000), (table.get("ram.fast_ecard"), table.get("ram.fast_mapped"), table.get("ram.fast_start")))
         self.assertEqual((2 << 20, 0, 8 << 20), (table.get("ram.chip_size"), table.get("ram.slow_size"), table.get("ram.fast_size")))
+        state = self.dir / "list.state"
+        self.probe_on("a600", "kickstart", "--units", "100", "--save-at", "100", str(state), *PUAE5_A600)
+        fast = [h for h in memory_list(state.read_bytes()) if h[0] & 4]
+        self.assertTrue(fast and max(upper for _, _, upper in fast) == 0xA00000, "the system lists the 8 MiB board as Fast memory")
 
 
 @unittest.skipUnless(A600_ZIP and WB_ZIP, "BLOCKED: set P6_KICKSTART_A600_ZIP and P6_WB205_ZIP to run the Workbench 2.05 boot")

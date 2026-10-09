@@ -47,7 +47,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	public static WaterboxOptions Heaps(Puae6SyncSettings settings) => new()
 	{
-		SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = 16384 + 2 * ExtraMemoryKiB(settings),
+		SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = (uint)(16384 + 2 * ExtraMemoryKiB(settings)),
 	};
 
 	// What each machine comes with, in KiB: Chip, Slow.

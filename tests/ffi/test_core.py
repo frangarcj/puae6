@@ -300,6 +300,24 @@ class CoreTests(unittest.TestCase):
         self.assertIn("chip-marker 50364d57", out)
         self.assertEqual(4, out.count("ok an out-of-range access throws"))
 
+    def test_the_fast_ram_board_and_the_other_sizes_are_domains_of_the_machine_that_has_them(self):
+        # T49: the Zorro II board is a domain of its own at its real size, between Slow RAM and the ROM; the pokes before the first unit go through the guest into its clean pages.
+        cases = ((("--machine", "a1200", "--fast", "MB8"), "domains Chip RAM,Fast RAM,ROM,Waterbox PageData", {"Chip RAM": 2097152, "Fast RAM": 8388608}),
+                 (("--machine", "a600", "--chip", "MB2", "--fast", "MB8"), "domains Chip RAM,Fast RAM,ROM,Waterbox PageData", {"Chip RAM": 2097152, "Fast RAM": 8388608}),
+                 (("--machine", "a500", "--fast", "MB2", "--slow", "MB1"), "domains Chip RAM,Slow RAM,Fast RAM,ROM,Waterbox PageData",
+                  {"Chip RAM": 524288, "Slow RAM": 1048576, "Fast RAM": 2097152}),
+                 (("--machine", "a500", "--slow", "None", "--chip", "MB1"), "domains Chip RAM,ROM,Waterbox PageData", {"Chip RAM": 1048576}))
+        for flags, names, sizes in cases:
+            with self.subTest(flags=flags):
+                out = self.core("domains", "--firmware", str(self.dir / "chipcell.rom"), *flags)
+                self.assertIn(names, out)
+                for name, size in sizes.items():
+                    self.assertIn(f"domain {name} size={size} writable=True", out)
+                if "Fast RAM" in sizes:
+                    self.assertIn("scratch Fast RAM base=0", out)
+                self.assertIn("chip-marker 50364d57", out)
+                self.assertEqual(4, out.count("ok an out-of-range access throws"))
+
 
 if __name__ == "__main__":
     unittest.main()
