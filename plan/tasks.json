@@ -11623,13 +11623,128 @@
       "evidence": null
     },
     {
+      "id": "T49a",
+      "title": "Fast Zorro II (1-8 MiB autoconfig) y Chip/Slow configurables en motor, regiones y estado nativo",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "patches/winuae/**",
+        "manifests/state-inventory.json",
+        "tests/state/**",
+        "tests/host/**",
+        "tests/contracts/**",
+        "tests/fuzz/**",
+        "docs/02-contracts.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "steps": [
+        "p6_config chip_kib/slow_kib/fast_kib (de reserved, struct 72 B), validacion por maquina, P6_REGION_FAST_RAM, P6RM con placa y cadena autoconfig, memoria no de serie plegada en config_hash (bits 8-22 + bit 31; bits 0-7 = p6_config.flags), parches 0110-0113; las series conservan sus golden."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01"
+      ],
+      "acceptance": [
+        "DET02 en cada paso de la cadena autoconfig en A500/A600/A1200 y con Kickstarts reales; las cotas de serie no cambian."
+      ],
+      "stop": "No reutilizar el presupuesto Waterbox sin medir; Z3 queda para T55.",
+      "evidence": null
+    },
+    {
+      "id": "T49b",
+      "title": "Opciones de memoria y presets PUAE5-like (libretro, headless, esquema, settings)",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T49a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "adapters/headless/main.cpp",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/fuzz/**"
+      ],
+      "steps": [
+        "puae6_chip_size/puae6_slow_size/puae6_fast_size y puae6_preset (a1200_fast8, a600_puae5 sin Gayle ni KS 3.1 A600), headless --chip/--slow/--fast; opciones de reinicio."
+      ],
+      "checks": [
+        "LR01"
+      ],
+      "acceptance": [
+        "Las opciones cambian la maquina solo al reiniciar; la cota de estado no se mueve en caliente."
+      ],
+      "stop": "No reutilizar el presupuesto Waterbox sin medir; Z3 queda para T55.",
+      "evidence": null
+    },
+    {
+      "id": "T49c",
+      "title": "BizHawk/Waterbox con Fast/Chip/Slow: sync settings, dominio Fast RAM, presupuesto mmap medido y WB03",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T49b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "adapters/waterbox/**",
+        "ports/waterbox/**",
+        "patches/winuae/**",
+        "tools/build_waterbox.py",
+        "manifests/waterbox-memory.json",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "tests/bizhawk-movies/**",
+        "docs/03-waterbox.md"
+      ],
+      "steps": [
+        "Presupuesto mmap = 16 MiB + 2x la memoria extra, medido por configuracion (memory_budget en waterbox-memory.json, Puae6Core.Heaps); parche 0114 (clear_bank sin ensuciar paginas: snapshot 18,7 -> 10,3 MB)."
+      ],
+      "checks": [
+        "WB03"
+      ],
+      "acceptance": [
+        "Snapshot Waterbox del A1200 + 8 MiB en sandbox nuevo; el presupuesto de serie no se reutiliza sin medir."
+      ],
+      "stop": "No reutilizar el presupuesto Waterbox sin medir; Z3 queda para T55.",
+      "evidence": null
+    },
+    {
       "id": "T49",
       "title": "Memoria configurable: Chip, Slow y Fast Zorro II (8 MiB para A600/A1200 como PUAE5), con region, estado y presupuesto Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
-        "T24"
+        "T24",
+        "T49a",
+        "T49b",
+        "T49c"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -11661,7 +11776,8 @@
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece A600/A1200/A4000 con 2M Chip + 8M Fast y chipmem/bogomem/fastmem configurables. Fast Z2 (autoconfig) como region de p6_memory_regions, chunk de RAM, state bound por configuracion y presupuesto mmap de Waterbox medido (hoy 16 MiB).",
         "Presets PUAE5-like: A600 (KS 3.1, 2M Chip + 8M Fast) y A1200 + 8M Fast como configuraciones publicadas junto a las de serie; opcion libretro/sync setting de memoria (reinicio).",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: expansion.c de uae-waterbox.patch y la configuracion de memoria de UAE.ISettable.cs/LibUAE.cs."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: expansion.c de uae-waterbox.patch y la configuracion de memoria de UAE.ISettable.cs/LibUAE.cs.",
+        "Division (2026-10-09): T49a (motor+estado), T49b (opciones/libretro), T49c (BizHawk/Waterbox), trabajadas en un worktree paralelo, rebasadas sobre T27 e integradas por cherry-pick. Convivencia con T27: bits 0-7 de la palabra flags de config_hash son p6_config.flags (P6_CONFIG_FLOPPY_WRITES = bit 0), la memoria no de serie usa los bits 8-22 y 31; tests/media-cow/test_med02_fast.py prueba A1200 + 8 MiB + escrituras (cota sumada, cuatro hashes distintos, estados no intercambiables). T49 es el cierre: repetir DET02/STATE01/WB03/LR01 en main. Pendiente fuera de alcance: KS 3.1 del A600 (r40.063) no autorizado, preset a600_puae5 probado con 2.05; Z3 en T55."
       ],
       "checks": [
         "DET02",
