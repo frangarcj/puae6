@@ -157,6 +157,30 @@ class StateFuzzTests(unittest.TestCase):
         self.assertIn("a refused state changed the machine", result.stderr)
 
 
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class StateWritableFuzzTests(StateFuzzTests):
+    """FUZZ01 for the write overlay of the floppies (T27): the same mutated states, but of a session with P6_CONFIG_FLOPPY_WRITES whose good states carry the sectors a guest wrote
+    (so the edits reach the overlay's count, media, sectors and data, and the chunk length that holds them), and p6_media_export / p6_media_write_status called with arguments from
+    outside (null buffers, capacities around the size of a disk, indexes outside the manifest, forged struct sizes), checked against the merged image and for writes past the capacity."""
+
+    def run_state(self, seed, iterations, extra_env=None, machine=None):
+        return subprocess.run([str(self.exe), "state-writable", str(self.rom), str(seed), str(iterations), *([machine] if machine else [])], capture_output=True, text=True,
+                              timeout=3600, env={**self.ENV, **(extra_env or {})})
+
+    def test_the_recorded_state_seeds_run_clean_and_reach_every_mutation_and_every_outcome(self):
+        for run in CORPUS["state_writable_runs"]:
+            with self.subTest(seed=run["seed"], iterations=run["iterations"]):
+                result = self.run_state(run["seed"], run["iterations"])
+                self.assertTrue(clean(result), result.stderr[-1200:])
+                kinds = self.kinds(result.stdout)
+                self.assertEqual(sorted(STATE_KINDS), sorted(kinds))
+                results = {int(m[1]): int(m[2]) for m in re.finditer(r"^state result (\d+): (\d+)$", result.stdout, re.M)}
+                self.assertLessEqual({0, 1, 9, 10}, set(results), results)
+                self.assertFalse(set(results) - {0, 1, 9, 10}, f"a result outside the documented set: {results}")
+
+    test_the_state_harness_can_fail = StateFuzzTests.test_the_state_harness_can_fail
+
+
 CONTENT_KINDS = ("random-bytes", "valid-flipped", "long-line", "path-length-boundary", "nul", "bom-middle", "cr-only", "bar", "savedisk", "many-entries",
                  "huge-path", "path-forms", "utf8-invalid", "whitespace", "huge-file")
 OPTION_KINDS = ("exact", "empty", "padded", "case", "suffix", "prefix", "zeros", "other-value", "non-ascii", "long", "random-bytes", "control",

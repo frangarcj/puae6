@@ -58,6 +58,15 @@ TASK_SUITES = {
         'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
         'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
     },
+    # T27 adds the write overlay of the floppies: mutated states that carry it and the export / status calls with hostile arguments.
+    ('FUZZ01', 'T27'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'state_writable': 'tests.fuzz.test_fuzz.StateWritableFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
+    },
 }
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}
 DRIVER = '''import json, sys, unittest

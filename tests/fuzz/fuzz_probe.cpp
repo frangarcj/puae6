@@ -5,11 +5,14 @@
 //   fuzz_probe firmware ROM SEED N       p6_load on mutated images; accepted ones run two units and unload
 //   fuzz_probe blob SEED N               random operations on the blob store
 //   fuzz_probe media ROM SEED N          p6_load on mutated disk lists and p6_media_event_enqueue on mutated events, against an oracle
+//   fuzz_probe state-writable ROM SEED N the same with P6_CONFIG_FLOPPY_WRITES: the good states carry a write overlay (T27), and p6_media_export and
+//                                        p6_media_write_status are called with hostile arguments
 //   fuzz_probe state ROM SEED N          p6_state_load on N mutated states of a running image (truncated, extended, bit flips, byte runs, extreme values, chunk table edits, swapped and
 //                                        spliced chunks, other build/ROM/config/media identities and manifest prefixes), with, without and with an appended disk, resealed or not
 // Output is a histogram of result codes; nothing else varies between runs.
 #include "p6.h"
 #include "blob_io.h"
+#include "media.h"
 #include "sha256.h"
 #include "envelope.h"
 
@@ -46,6 +49,8 @@ p6_error fresh_error()
     return e;
 }
 
+bool g_writable = false;      // state-writable: the session is configured with P6_CONFIG_FLOPPY_WRITES
+
 p6_config valid_config(uint32_t machine = P6_MACHINE_A500)
 {
     p6_config c{};
@@ -56,6 +61,7 @@ p6_config valid_config(uint32_t machine = P6_MACHINE_A500)
     c.audio_rate_hz = 48000;
     c.random_seed = 1;
     c.rtc_epoch_seconds = 946684800;
+    c.flags = g_writable ? P6_CONFIG_FLOPPY_WRITES : 0;
     return c;
 }
 
@@ -66,7 +72,7 @@ bool oracle_accepts(const p6_config &c)
     static const bool inverted = getenv("P6_FUZZ_SELFTEST") != nullptr;
     return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && (c.machine == P6_MACHINE_A500 || c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
-           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && c.flags == 0 && !c.reserved[0] &&
+           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && !c.reserved[0] &&
            !c.reserved[1] && !c.reserved[2] && !c.reserved[3] && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799);
 }
@@ -500,6 +506,21 @@ bool state_save(std::vector<uint8_t> &out, uint64_t *bound_seen)
     return true;
 }
 
+// What a guest leaves on a writable disk, written the way the engine writes it (zfile over the blob store): a few runs of sectors, one of them a whole track.
+void guest_writes(const uint8_t content_id[P6_CONTENT_ID_SIZE])
+{
+    char id[p6_bridge::kMediaBlobIdBytes];
+    p6_bridge::media_blob_id(content_id, id);
+    p6_blob_handle h = 0;
+    if (p6_blob_open(id, "r+b", &h) != P6_BLOB_OK) bug("a writable disk did not open r+b", 0);
+    uint8_t data[11 * 512];
+    for (size_t i = 0; i < sizeof data; ++i) data[i] = uint8_t(i * 7 + (i >> 9) * 13 + 1);
+    const struct { int64_t at; size_t bytes; } runs[] = {{0, 11 * 512}, {100 * 512 + 17, 700}, {1759 * 512, 512}};
+    for (const auto &run : runs)
+        if (p6_blob_seek(h, run.at, P6_BLOB_SET) != P6_BLOB_OK || p6_blob_write(h, data, run.bytes) != P6_BLOB_OK) bug("a guest write did not land", 0);
+    p6_blob_close(h);
+}
+
 // Loads the image of one session (`media`: a disk mounted at boot or none), runs it and takes the good state, the reference and, where asked, leaves the image loaded.
 // `append` registers the disk with p6_media_append after a load of no media instead of passing it to p6_load (T17e): the manifest, and so the state, is the same.
 bool state_session(const std::vector<uint8_t> &rom, const std::vector<uint8_t> *adf, StateImage &image, bool keep_loaded, bool append = false)
@@ -517,6 +538,7 @@ bool state_session(const std::vector<uint8_t> &rom, const std::vector<uint8_t> *
         uint32_t index = UINT32_MAX;
         if (p6_media_append(&media, &index, &error) != P6_OK || index != 0) return false;
     }
+    if (adf && g_writable) guest_writes(media.content_id);
     if (adf) {
         p6_media_event event{};
         event.abi_version = P6_ABI_VERSION;
@@ -699,6 +721,58 @@ Candidate mutate_state(const StateImage &image, Random &rng, unsigned kind)
     return c;
 }
 
+// p6_media_export and p6_media_write_status with arguments from outside: every outcome is one of the documented codes, nothing is written beyond the capacity that was given,
+// a refusal leaves the caller's buffer alone, and an accepted export is the base with the guest's sectors over it (the same bytes the blob store merges).
+void fuzz_export(Random &rng, const std::vector<uint8_t> &rom, const std::vector<uint8_t> &adf, uint64_t iterations)
+{
+    p6_error error = fresh_error();
+    p6_media media{};
+    media.type = P6_MEDIA_ADF;
+    media.image = p6_buffer{adf.data(), adf.size()};
+    p6_sha256_hash(adf.data(), adf.size(), media.content_id);
+    if (p6_load(p6_buffer{rom.data(), rom.size()}, &media, 1, &error) != P6_OK) bug("the writable session for the export fuzz could not load", 0);
+    guest_writes(media.content_id);
+    std::vector<uint8_t> expected(adf);
+    {
+        uint8_t data[11 * 512];
+        for (size_t i = 0; i < sizeof data; ++i) data[i] = uint8_t(i * 7 + (i >> 9) * 13 + 1);
+        memcpy(expected.data(), data, 11 * 512);
+        memcpy(expected.data() + 100 * 512 + 17, data, 700);
+        memcpy(expected.data() + 1759 * 512, data, 512);
+    }
+    const uint32_t indexes[] = {0, 0, 0, 1, 15, 16, 0xffffffffu};
+    const uint64_t capacities[] = {0, 1, 901119, 901120, 901120, 901121, 1u << 20, ~uint64_t(0)};
+    for (uint64_t i = 0; i < iterations; ++i) {
+        const uint32_t index = indexes[rng.below(7)];
+        const uint64_t capacity = capacities[rng.below(8)];
+        std::vector<uint8_t> out(size_t(1u << 20) + 64, 0xA5);          // a canary after the largest capacity that can be honest
+        uint64_t written = 0x1234, *written_ptr = rng.below(16) ? &written : nullptr;
+        void *buffer = rng.below(16) ? out.data() : nullptr;
+        const uint64_t allowed = capacity < (1u << 20) ? capacity : (1u << 20);
+        error = fresh_error();
+        const p6_result r = p6_media_export(index, buffer, capacity, written_ptr, &error);
+        for (size_t k = size_t(allowed); k < out.size(); ++k)
+            if (out[k] != 0xA5) bug("p6_media_export wrote beyond the capacity it was given", i);
+        const bool should = index == 0 && buffer && written_ptr && capacity >= 901120 && capacity <= (1u << 20);
+        if (capacity > (1u << 20) && buffer && written_ptr && index == 0) continue;      // a capacity larger than the real buffer: the call would honestly write 901120 bytes, which fit
+        if (should != (r == P6_OK)) bug("p6_media_export accepted or refused the wrong call", i);
+        if (r == P6_OK && (written != 901120 || memcmp(out.data(), expected.data(), expected.size()))) bug("the export is not the base with the guest's writes over it", i);
+        if (r != P6_OK && written_ptr && written != 0) bug("a refused export left a length", i);
+        if (r != P6_OK && r != P6_ERROR_BAD_ARGUMENT && r != P6_ERROR_CAPACITY) bug("an export answered a code the header does not give it", i);
+        p6_media_write_status st{};
+        st.abi_version = rng.below(8) ? P6_ABI_VERSION : 7;
+        st.struct_size = rng.below(8) ? sizeof st : 8;
+        st.media_index = indexes[rng.below(7)];
+        st.reserved0 = rng.below(16) ? 0 : 1;
+        error = fresh_error();
+        const p6_result q = p6_media_write_status_get(rng.below(32) ? &st : nullptr, &error);
+        const bool good = st.abi_version == P6_ABI_VERSION && st.struct_size == sizeof st && !st.reserved0 && st.media_index == 0;
+        if (q == P6_OK && (!good || st.overlay_used == 0 || st.overlay_capacity != P6_OVERLAY_SECTORS || st.refused_writes != 0)) bug("a status that cannot be", i);
+        if (q != P6_OK && q != P6_ERROR_BAD_ARGUMENT) bug("a status answered a code the header does not give it", i);
+    }
+    if (p6_unload(&error) != P6_OK) bug("unload after the export fuzz", 0);
+}
+
 int fuzz_state(const char *path, uint64_t seed, uint64_t iterations, uint32_t machine)
 {
     Random rng(seed);
@@ -719,6 +793,7 @@ int fuzz_state(const char *path, uint64_t seed, uint64_t iterations, uint32_t ma
     images[0].foreign = images[1].good;
     images[1].foreign = images[0].good;
     images[2].foreign = images[0].good;
+    if (g_writable) fuzz_export(rng, rom, adf, iterations);
 
     std::map<int, unsigned> histogram;
     unsigned accepted_by_kind[kStateKindCount] = {}, refused_by_kind[kStateKindCount] = {};
@@ -812,10 +887,12 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "config")) return fuzz_config(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "firmware")) return fuzz_firmware(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "media")) return fuzz_media(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
-    if ((argc == 5 || (argc == 6 && (!strcmp(argv[5], "a600") || !strcmp(argv[5], "a1200")))) && !strcmp(argv[1], "state"))
+    if ((argc == 5 || (argc == 6 && (!strcmp(argv[5], "a600") || !strcmp(argv[5], "a1200")))) && (!strcmp(argv[1], "state") || !strcmp(argv[1], "state-writable"))) {
+        g_writable = !strcmp(argv[1], "state-writable");
         return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10),
                           argc == 5 ? P6_MACHINE_A500 : !strcmp(argv[5], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A1200);
+    }
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200] | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200] | state-writable ROM SEED N | blob SEED N\n", argv[0]);
     return 64;
 }
