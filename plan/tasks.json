@@ -11243,7 +11243,7 @@
       "title": "HDF de solo lectura por uae0 (uaehf.device + placa UAEFS) sin hilos: un micro-ROM lee el bloque 0",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T27",
         "T28",
