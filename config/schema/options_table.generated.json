@@ -882,6 +882,12 @@
       "option": "hotkey_reset",
       "class": "presentation"
     },
+    "hotkey_statusbar": {
+      "default": 293,
+      "values_from": "hotkey_key",
+      "option": "hotkey_statusbar",
+      "class": "presentation"
+    },
     "mapper_up": {
       "default": 0,
       "values_from": "mapper_target",
@@ -1025,6 +1031,57 @@
       "values_from": "mapper_target",
       "option": "mapper_rr",
       "class": "presentation"
+    },
+    "statusbar": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "names": {
+        "bottom": 0,
+        "bottom_minimal": 1,
+        "bottom_basic": 2,
+        "bottom_basic_minimal": 3,
+        "top": 4,
+        "top_minimal": 5,
+        "top_basic": 6,
+        "top_basic_minimal": 7
+      },
+      "option": "statusbar",
+      "class": "presentation"
+    },
+    "statusbar_startup": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "disabled": 0,
+        "enabled": 1
+      },
+      "option": "statusbar_startup",
+      "class": "presentation"
+    },
+    "statusbar_messages": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "disabled": 0,
+        "enabled": 1
+      },
+      "option": "statusbar_messages",
+      "class": "presentation"
     }
   },
   "value_sets": {
@@ -1048,6 +1105,7 @@
       "toggle_mouse": 18,
       "toggle_turbo": 19,
       "toggle_aspect": 20,
+      "toggle_statusbar": 17,
       "toggle_crop": 21,
       "reset": 22,
       "key_grave": 256,
@@ -1494,6 +1552,15 @@
       },
       "libretro": "puae6_hotkey_reset"
     },
+    "hotkey_statusbar": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_hotkey_statusbar"
+    },
     "mapper_up": {
       "headless": {
         "how": "none"
@@ -1709,6 +1776,33 @@
         "how": "none"
       },
       "libretro": "puae6_mapper_rr"
+    },
+    "statusbar": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_statusbar"
+    },
+    "statusbar_startup": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_statusbar_startup"
+    },
+    "statusbar_messages": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_statusbar_messages"
     }
   },
   "presets": {

@@ -32,10 +32,10 @@
 namespace p6_libretro {
 
 constexpr size_t kStateHeaderBytes = 64;
-constexpr uint32_t kStateVersion = 4;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d)
+constexpr uint32_t kStateVersion = 5;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d); 5: the statusbar's flag and the message of the last action (T31b)
 constexpr size_t kSectionAlign = 16;
 constexpr size_t kMaxImages = 16;                                   // P6_MAX_MEDIA: a playlist cannot name more
-constexpr size_t kInputBytes = 8 * 4;                                // the input memory in the section: eight 32-bit words
+constexpr size_t kInputBytes = 9 * 4;                                // the input memory in the section: nine 32-bit words
 
 enum class FrameError { None, TooSmall, BadMagic, BadVersion, BadLayout, NonZeroPadding, BadChecksum };
 
@@ -95,7 +95,7 @@ inline void encode_section(const Section &section, std::vector<uint8_t> *out)
     out->insert(out->end(), section.picture.begin(), section.picture.end());
     const InputMemory &in = section.input;
     u32((in.caps_latched ? 1u : 0u) | (in.caps_held ? 2u : 0u) | (in.dpad_mouse ? 4u : 0u) | (in.turbo_toggled ? 8u : 0u) | (in.crop_toggled ? 16u : 0u) |
-        (in.aspect_toggled ? 32u : 0u));
+        (in.aspect_toggled ? 32u : 0u) | (in.statusbar_shown ? 64u : 0u));
     u32(uint32_t(in.mouse_rx));
     u32(uint32_t(in.mouse_ry));
     u32(uint32_t(in.turbo_phase) | uint32_t(in.reset_hold) << 8);
@@ -103,6 +103,7 @@ inline void encode_section(const Section &section, std::vector<uint8_t> *out)
     u32(uint32_t(uint16_t(in.host_frac[0])) | uint32_t(uint16_t(in.host_frac[1])) << 16);
     u32(uint32_t(uint16_t(in.stick_frac[0][0])) | uint32_t(uint16_t(in.stick_frac[0][1])) << 16);
     u32(uint32_t(uint16_t(in.stick_frac[1][0])) | uint32_t(uint16_t(in.stick_frac[1][1])) << 16);
+    u32(uint32_t(in.message) | uint32_t(in.message_left) << 8);
     out->resize(align_up(out->size(), kSectionAlign), 0);
 }
 
@@ -150,12 +151,12 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     out->picture.assign(data + at, data + at + picture);
     at += picture;
     if (!room(kInputBytes)) return fail("the section is cut short");
-    uint32_t word[8];
+    uint32_t word[9];
     for (uint32_t &w : word) {
         w = get32(data + at);
         at += 4;
     }
-    if (word[0] & ~63u) return fail("unknown input flags");
+    if (word[0] & ~127u) return fail("unknown input flags");
     const int32_t rx = int32_t(word[1]), ry = int32_t(word[2]);
     if (rx < -kMouseBacklog || rx > kMouseBacklog || ry < -kMouseBacklog || ry > kMouseBacklog) return fail("the mouse movement owed is beyond the backlog");
     if ((word[3] & 0xFF) >= kTurboCycle || (word[3] >> 8) > kResetHoldUnits || (word[3] >> 16)) return fail("the turbo phase or the soft reset count is out of range");
@@ -170,12 +171,17 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
         !fraction(word[6], 999, &out->input.stick_frac[0][0]) || !fraction(word[6] >> 16, 999, &out->input.stick_frac[0][1]) ||
         !fraction(word[7], 999, &out->input.stick_frac[1][0]) || !fraction(word[7] >> 16, 999, &out->input.stick_frac[1][1]))
         return fail("a fraction of a mouse count is out of range");
+    if ((word[8] & 0xFF) > kMessageReset || ((word[8] >> 8) & 0xFF) > kMessageUnits || (word[8] >> 16) || (((word[8] & 0xFF) == 0) != (((word[8] >> 8) & 0xFF) == 0)))
+        return fail("the message of the last action is out of range");
     out->input.caps_latched = word[0] & 1;
     out->input.caps_held = word[0] & 2;
     out->input.dpad_mouse = word[0] & 4;
     out->input.turbo_toggled = word[0] & 8;
     out->input.crop_toggled = word[0] & 16;
     out->input.aspect_toggled = word[0] & 32;
+    out->input.statusbar_shown = word[0] & 64;
+    out->input.message = uint8_t(word[8] & 0xFF);
+    out->input.message_left = uint8_t((word[8] >> 8) & 0xFF);
     out->input.mouse_rx = rx;
     out->input.mouse_ry = ry;
     out->input.turbo_phase = uint8_t(word[3] & 0xFF);

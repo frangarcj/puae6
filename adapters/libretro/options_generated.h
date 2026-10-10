@@ -46,6 +46,7 @@ struct Settings {
     uint32_t hotkey_aspect_toggle = 0u;  // presentation, presentation.hotkey_aspect_toggle = ---
     uint32_t hotkey_crop_toggle = 0u;  // presentation, presentation.hotkey_crop_toggle = ---
     uint32_t hotkey_reset = 0u;  // presentation, presentation.hotkey_reset = ---
+    uint32_t hotkey_statusbar = 293u;  // presentation, presentation.hotkey_statusbar = f12
     uint32_t mapper_up = 0u;  // presentation, presentation.mapper_up = ---
     uint32_t mapper_down = 0u;  // presentation, presentation.mapper_down = ---
     uint32_t mapper_left = 0u;  // presentation, presentation.mapper_left = ---
@@ -70,6 +71,9 @@ struct Settings {
     uint32_t mapper_rd = 0u;  // presentation, presentation.mapper_rd = ---
     uint32_t mapper_rl = 0u;  // presentation, presentation.mapper_rl = ---
     uint32_t mapper_rr = 0u;  // presentation, presentation.mapper_rr = ---
+    uint32_t statusbar = 0u;  // presentation, presentation.statusbar = bottom
+    uint32_t statusbar_startup = 0u;  // presentation, presentation.statusbar_startup = disabled
+    uint32_t statusbar_messages = 0u;  // presentation, presentation.statusbar_messages = disabled
     uint32_t preset = 0u;  // reboot, a bundle of the options above (the schema's presets, apply_preset); 0 = none. Not a p6_config field
 };
 
@@ -140,6 +144,7 @@ constexpr Value kMapperTargetSetValues[] = {
     {"toggle_mouse", 18u},
     {"toggle_turbo", 19u},
     {"toggle_aspect", 20u},
+    {"toggle_statusbar", 17u},
     {"toggle_crop", 21u},
     {"reset", 22u},
     {"key_grave", 256u},
@@ -257,10 +262,11 @@ constexpr uint32_t kMapperTargetMouseMoveRight = 15u;
 constexpr uint32_t kMapperTargetToggleMouse = 18u;
 constexpr uint32_t kMapperTargetToggleTurbo = 19u;
 constexpr uint32_t kMapperTargetToggleAspect = 20u;
+constexpr uint32_t kMapperTargetToggleStatusbar = 17u;
 constexpr uint32_t kMapperTargetToggleCrop = 21u;
 constexpr uint32_t kMapperTargetReset = 22u;
-#define P6_SET_MAPPER_TARGET_V2 {"---", "Default function of the button"}, {"none", "Disabled (does nothing)"}, {"joy_up", "Joystick Up"}, {"joy_down", "Joystick Down"}, {"joy_left", "Joystick Left"}, {"joy_right", "Joystick Right"}, {"joy_fire", "Joystick Fire (button 1)"}, {"joy_fire2", "Joystick 2nd fire (button 2)"}, {"joy_fire3", "Joystick 3rd button (button 3)"}, {"mouse_left", "Mouse Left Button"}, {"mouse_right", "Mouse Right Button"}, {"mouse_middle", "Mouse Middle Button"}, {"mouse_move_up", "Mouse Move Up"}, {"mouse_move_down", "Mouse Move Down"}, {"mouse_move_left", "Mouse Move Left"}, {"mouse_move_right", "Mouse Move Right"}, {"toggle_mouse", "Toggle Joystick/Mouse"}, {"toggle_turbo", "Toggle Turbo Fire"}, {"toggle_aspect", "Toggle Aspect Ratio (PAL/NTSC pixels)"}, {"toggle_crop", "Toggle Crop"}, {"reset", "Reset (Ctrl-Amiga-Amiga)"}, {"key_grave", "Key Grave"}, {"key_1", "Key 1"}, {"key_2", "Key 2"}, {"key_3", "Key 3"}, {"key_4", "Key 4"}, {"key_5", "Key 5"}, {"key_6", "Key 6"}, {"key_7", "Key 7"}, {"key_8", "Key 8"}, {"key_9", "Key 9"}, {"key_0", "Key 0"}, {"key_minus", "Key Minus"}, {"key_equals", "Key Equals"}, {"key_backslash", "Key Backslash"}, {"key_keypad_0", "Key Keypad 0"}, {"key_q", "Key Q"}, {"key_w", "Key W"}, {"key_e", "Key E"}, {"key_r", "Key R"}, {"key_t", "Key T"}, {"key_y", "Key Y"}, {"key_u", "Key U"}, {"key_i", "Key I"}, {"key_o", "Key O"}, {"key_p", "Key P"}, {"key_left_bracket", "Key Left Bracket"}, {"key_right_bracket", "Key Right Bracket"}, {"key_keypad_1", "Key Keypad 1"}, {"key_keypad_2", "Key Keypad 2"}, {"key_keypad_3", "Key Keypad 3"}, {"key_a", "Key A"}, {"key_s", "Key S"}, {"key_d", "Key D"}, {"key_f", "Key F"}, {"key_g", "Key G"}, {"key_h", "Key H"}, {"key_j", "Key J"}, {"key_k", "Key K"}, {"key_l", "Key L"}, {"key_semicolon", "Key Semicolon"}, {"key_quote", "Key Quote"}, {"key_hash", "Key Hash"}, {"key_keypad_4", "Key Keypad 4"}, {"key_keypad_5", "Key Keypad 5"}, {"key_keypad_6", "Key Keypad 6"}, {"key_less_than", "Key Less Than"}, {"key_z", "Key Z"}, {"key_x", "Key X"}, {"key_c", "Key C"}, {"key_v", "Key V"}, {"key_b", "Key B"}, {"key_n", "Key N"}, {"key_m", "Key M"}, {"key_comma", "Key Comma"}, {"key_period", "Key Period"}, {"key_slash", "Key Slash"}, {"key_keypad_period", "Key Keypad Period"}, {"key_keypad_7", "Key Keypad 7"}, {"key_keypad_8", "Key Keypad 8"}, {"key_keypad_9", "Key Keypad 9"}, {"key_space", "Key Space"}, {"key_backspace", "Key Backspace"}, {"key_tab", "Key Tab"}, {"key_keypad_enter", "Key Keypad Enter"}, {"key_return", "Key Return"}, {"key_escape", "Key Escape"}, {"key_delete", "Key Delete"}, {"key_keypad_minus", "Key Keypad Minus"}, {"key_up", "Key Up"}, {"key_down", "Key Down"}, {"key_right", "Key Right"}, {"key_left", "Key Left"}, {"key_f1", "Key F1"}, {"key_f2", "Key F2"}, {"key_f3", "Key F3"}, {"key_f4", "Key F4"}, {"key_f5", "Key F5"}, {"key_f6", "Key F6"}, {"key_f7", "Key F7"}, {"key_f8", "Key F8"}, {"key_f9", "Key F9"}, {"key_f10", "Key F10"}, {"key_keypad_left_paren", "Key Keypad Left Paren"}, {"key_keypad_right_paren", "Key Keypad Right Paren"}, {"key_keypad_slash", "Key Keypad Slash"}, {"key_keypad_star", "Key Keypad Star"}, {"key_keypad_plus", "Key Keypad Plus"}, {"key_help", "Key Help"}, {"key_left_shift", "Key Left Shift"}, {"key_right_shift", "Key Right Shift"}, {"key_control", "Key Control"}, {"key_left_alt", "Key Left Alt"}, {"key_right_alt", "Key Right Alt"}, {"key_left_amiga", "Key Left Amiga"}, {"key_right_amiga", "Key Right Amiga"}
-#define P6_SET_MAPPER_TARGET_LEGACY "---|none|joy_up|joy_down|joy_left|joy_right|joy_fire|joy_fire2|joy_fire3|mouse_left|mouse_right|mouse_middle|mouse_move_up|mouse_move_down|mouse_move_left|mouse_move_right|toggle_mouse|toggle_turbo|toggle_aspect|toggle_crop|reset|key_grave|key_1|key_2|key_3|key_4|key_5|key_6|key_7|key_8|key_9|key_0|key_minus|key_equals|key_backslash|key_keypad_0|key_q|key_w|key_e|key_r|key_t|key_y|key_u|key_i|key_o|key_p|key_left_bracket|key_right_bracket|key_keypad_1|key_keypad_2|key_keypad_3|key_a|key_s|key_d|key_f|key_g|key_h|key_j|key_k|key_l|key_semicolon|key_quote|key_hash|key_keypad_4|key_keypad_5|key_keypad_6|key_less_than|key_z|key_x|key_c|key_v|key_b|key_n|key_m|key_comma|key_period|key_slash|key_keypad_period|key_keypad_7|key_keypad_8|key_keypad_9|key_space|key_backspace|key_tab|key_keypad_enter|key_return|key_escape|key_delete|key_keypad_minus|key_up|key_down|key_right|key_left|key_f1|key_f2|key_f3|key_f4|key_f5|key_f6|key_f7|key_f8|key_f9|key_f10|key_keypad_left_paren|key_keypad_right_paren|key_keypad_slash|key_keypad_star|key_keypad_plus|key_help|key_left_shift|key_right_shift|key_control|key_left_alt|key_right_alt|key_left_amiga|key_right_amiga"
+#define P6_SET_MAPPER_TARGET_V2 {"---", "Default function of the button"}, {"none", "Disabled (does nothing)"}, {"joy_up", "Joystick Up"}, {"joy_down", "Joystick Down"}, {"joy_left", "Joystick Left"}, {"joy_right", "Joystick Right"}, {"joy_fire", "Joystick Fire (button 1)"}, {"joy_fire2", "Joystick 2nd fire (button 2)"}, {"joy_fire3", "Joystick 3rd button (button 3)"}, {"mouse_left", "Mouse Left Button"}, {"mouse_right", "Mouse Right Button"}, {"mouse_middle", "Mouse Middle Button"}, {"mouse_move_up", "Mouse Move Up"}, {"mouse_move_down", "Mouse Move Down"}, {"mouse_move_left", "Mouse Move Left"}, {"mouse_move_right", "Mouse Move Right"}, {"toggle_mouse", "Toggle Joystick/Mouse"}, {"toggle_turbo", "Toggle Turbo Fire"}, {"toggle_aspect", "Toggle Aspect Ratio (PAL/NTSC pixels)"}, {"toggle_statusbar", "Toggle Statusbar"}, {"toggle_crop", "Toggle Crop"}, {"reset", "Reset (Ctrl-Amiga-Amiga)"}, {"key_grave", "Key Grave"}, {"key_1", "Key 1"}, {"key_2", "Key 2"}, {"key_3", "Key 3"}, {"key_4", "Key 4"}, {"key_5", "Key 5"}, {"key_6", "Key 6"}, {"key_7", "Key 7"}, {"key_8", "Key 8"}, {"key_9", "Key 9"}, {"key_0", "Key 0"}, {"key_minus", "Key Minus"}, {"key_equals", "Key Equals"}, {"key_backslash", "Key Backslash"}, {"key_keypad_0", "Key Keypad 0"}, {"key_q", "Key Q"}, {"key_w", "Key W"}, {"key_e", "Key E"}, {"key_r", "Key R"}, {"key_t", "Key T"}, {"key_y", "Key Y"}, {"key_u", "Key U"}, {"key_i", "Key I"}, {"key_o", "Key O"}, {"key_p", "Key P"}, {"key_left_bracket", "Key Left Bracket"}, {"key_right_bracket", "Key Right Bracket"}, {"key_keypad_1", "Key Keypad 1"}, {"key_keypad_2", "Key Keypad 2"}, {"key_keypad_3", "Key Keypad 3"}, {"key_a", "Key A"}, {"key_s", "Key S"}, {"key_d", "Key D"}, {"key_f", "Key F"}, {"key_g", "Key G"}, {"key_h", "Key H"}, {"key_j", "Key J"}, {"key_k", "Key K"}, {"key_l", "Key L"}, {"key_semicolon", "Key Semicolon"}, {"key_quote", "Key Quote"}, {"key_hash", "Key Hash"}, {"key_keypad_4", "Key Keypad 4"}, {"key_keypad_5", "Key Keypad 5"}, {"key_keypad_6", "Key Keypad 6"}, {"key_less_than", "Key Less Than"}, {"key_z", "Key Z"}, {"key_x", "Key X"}, {"key_c", "Key C"}, {"key_v", "Key V"}, {"key_b", "Key B"}, {"key_n", "Key N"}, {"key_m", "Key M"}, {"key_comma", "Key Comma"}, {"key_period", "Key Period"}, {"key_slash", "Key Slash"}, {"key_keypad_period", "Key Keypad Period"}, {"key_keypad_7", "Key Keypad 7"}, {"key_keypad_8", "Key Keypad 8"}, {"key_keypad_9", "Key Keypad 9"}, {"key_space", "Key Space"}, {"key_backspace", "Key Backspace"}, {"key_tab", "Key Tab"}, {"key_keypad_enter", "Key Keypad Enter"}, {"key_return", "Key Return"}, {"key_escape", "Key Escape"}, {"key_delete", "Key Delete"}, {"key_keypad_minus", "Key Keypad Minus"}, {"key_up", "Key Up"}, {"key_down", "Key Down"}, {"key_right", "Key Right"}, {"key_left", "Key Left"}, {"key_f1", "Key F1"}, {"key_f2", "Key F2"}, {"key_f3", "Key F3"}, {"key_f4", "Key F4"}, {"key_f5", "Key F5"}, {"key_f6", "Key F6"}, {"key_f7", "Key F7"}, {"key_f8", "Key F8"}, {"key_f9", "Key F9"}, {"key_f10", "Key F10"}, {"key_keypad_left_paren", "Key Keypad Left Paren"}, {"key_keypad_right_paren", "Key Keypad Right Paren"}, {"key_keypad_slash", "Key Keypad Slash"}, {"key_keypad_star", "Key Keypad Star"}, {"key_keypad_plus", "Key Keypad Plus"}, {"key_help", "Key Help"}, {"key_left_shift", "Key Left Shift"}, {"key_right_shift", "Key Right Shift"}, {"key_control", "Key Control"}, {"key_left_alt", "Key Left Alt"}, {"key_right_alt", "Key Right Alt"}, {"key_left_amiga", "Key Left Amiga"}, {"key_right_amiga", "Key Right Amiga"}
+#define P6_SET_MAPPER_TARGET_LEGACY "---|none|joy_up|joy_down|joy_left|joy_right|joy_fire|joy_fire2|joy_fire3|mouse_left|mouse_right|mouse_middle|mouse_move_up|mouse_move_down|mouse_move_left|mouse_move_right|toggle_mouse|toggle_turbo|toggle_aspect|toggle_statusbar|toggle_crop|reset|key_grave|key_1|key_2|key_3|key_4|key_5|key_6|key_7|key_8|key_9|key_0|key_minus|key_equals|key_backslash|key_keypad_0|key_q|key_w|key_e|key_r|key_t|key_y|key_u|key_i|key_o|key_p|key_left_bracket|key_right_bracket|key_keypad_1|key_keypad_2|key_keypad_3|key_a|key_s|key_d|key_f|key_g|key_h|key_j|key_k|key_l|key_semicolon|key_quote|key_hash|key_keypad_4|key_keypad_5|key_keypad_6|key_less_than|key_z|key_x|key_c|key_v|key_b|key_n|key_m|key_comma|key_period|key_slash|key_keypad_period|key_keypad_7|key_keypad_8|key_keypad_9|key_space|key_backspace|key_tab|key_keypad_enter|key_return|key_escape|key_delete|key_keypad_minus|key_up|key_down|key_right|key_left|key_f1|key_f2|key_f3|key_f4|key_f5|key_f6|key_f7|key_f8|key_f9|key_f10|key_keypad_left_paren|key_keypad_right_paren|key_keypad_slash|key_keypad_star|key_keypad_plus|key_help|key_left_shift|key_right_shift|key_control|key_left_alt|key_right_alt|key_left_amiga|key_right_amiga"
 // The value set hotkey_key: one list for every option that says values_from.
 constexpr Value kHotkeyKeySetValues[] = {
     {"---", 0u},
@@ -630,6 +636,24 @@ constexpr Value kTurboPulseValues[] = {
     {"10", 10u},
     {"12", 12u},
 };
+constexpr Value kStatusbarValues[] = {
+    {"bottom", 0u},
+    {"bottom_minimal", 1u},
+    {"bottom_basic", 2u},
+    {"bottom_basic_minimal", 3u},
+    {"top", 4u},
+    {"top_minimal", 5u},
+    {"top_basic", 6u},
+    {"top_basic_minimal", 7u},
+};
+constexpr Value kStatusbarStartupValues[] = {
+    {"disabled", 0u},
+    {"enabled", 1u},
+};
+constexpr Value kStatusbarMessagesValues[] = {
+    {"disabled", 0u},
+    {"enabled", 1u},
+};
 
 constexpr Option kOptions[] = {
     {"puae6_machine", true, &Settings::machine, kMachineValues, 3, 0},
@@ -665,30 +689,34 @@ constexpr Option kOptions[] = {
     {"puae6_hotkey_aspect_toggle", false, &Settings::hotkey_aspect_toggle, kHotkeyKeySetValues, 10, 0},
     {"puae6_hotkey_crop_toggle", false, &Settings::hotkey_crop_toggle, kHotkeyKeySetValues, 10, 0},
     {"puae6_hotkey_reset", false, &Settings::hotkey_reset, kHotkeyKeySetValues, 10, 0},
-    {"puae6_mapper_up", false, &Settings::mapper_up, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_down", false, &Settings::mapper_down, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_left", false, &Settings::mapper_left, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_right", false, &Settings::mapper_right, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_b", false, &Settings::mapper_b, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_a", false, &Settings::mapper_a, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_y", false, &Settings::mapper_y, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_x", false, &Settings::mapper_x, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_select", false, &Settings::mapper_select, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_start", false, &Settings::mapper_start, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_l", false, &Settings::mapper_l, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_r", false, &Settings::mapper_r, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_l2", false, &Settings::mapper_l2, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_r2", false, &Settings::mapper_r2, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_l3", false, &Settings::mapper_l3, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_r3", false, &Settings::mapper_r3, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_lu", false, &Settings::mapper_lu, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_ld", false, &Settings::mapper_ld, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_ll", false, &Settings::mapper_ll, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_lr", false, &Settings::mapper_lr, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_ru", false, &Settings::mapper_ru, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_rd", false, &Settings::mapper_rd, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_rl", false, &Settings::mapper_rl, kMapperTargetSetValues, 116, 0},
-    {"puae6_mapper_rr", false, &Settings::mapper_rr, kMapperTargetSetValues, 116, 0},
+    {"puae6_hotkey_statusbar", false, &Settings::hotkey_statusbar, kHotkeyKeySetValues, 10, 2},
+    {"puae6_mapper_up", false, &Settings::mapper_up, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_down", false, &Settings::mapper_down, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_left", false, &Settings::mapper_left, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_right", false, &Settings::mapper_right, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_b", false, &Settings::mapper_b, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_a", false, &Settings::mapper_a, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_y", false, &Settings::mapper_y, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_x", false, &Settings::mapper_x, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_select", false, &Settings::mapper_select, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_start", false, &Settings::mapper_start, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_l", false, &Settings::mapper_l, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_r", false, &Settings::mapper_r, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_l2", false, &Settings::mapper_l2, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_r2", false, &Settings::mapper_r2, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_l3", false, &Settings::mapper_l3, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_r3", false, &Settings::mapper_r3, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_lu", false, &Settings::mapper_lu, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_ld", false, &Settings::mapper_ld, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_ll", false, &Settings::mapper_ll, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_lr", false, &Settings::mapper_lr, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_ru", false, &Settings::mapper_ru, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_rd", false, &Settings::mapper_rd, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_rl", false, &Settings::mapper_rl, kMapperTargetSetValues, 117, 0},
+    {"puae6_mapper_rr", false, &Settings::mapper_rr, kMapperTargetSetValues, 117, 0},
+    {"puae6_statusbar", false, &Settings::statusbar, kStatusbarValues, 8, 0},
+    {"puae6_statusbar_startup", false, &Settings::statusbar_startup, kStatusbarStartupValues, 2, 0},
+    {"puae6_statusbar_messages", false, &Settings::statusbar_messages, kStatusbarMessagesValues, 2, 0},
 };
 constexpr unsigned kOptionCount = sizeof kOptions / sizeof kOptions[0];
 
@@ -700,6 +728,7 @@ inline retro_core_option_v2_category kCategoriesV2[] = {
     {"media", "Media", "What the machine does with the disks it is given."},
     {"input", "Input", "How the frontend's controllers become Amiga input. These options apply at once; none of them changes the machine, only the packet of input it is given."},
     {"retropad", "RetroPad Mapper", "What each button and stick direction of player 1's RetroPad does. 'Default function' keeps the joystick (or the mouse, in D-Pad mouse mode)."},
+    {"osd", "OSD", "What the core draws over the picture it hands to the frontend: the statusbar with the drive LED and the messages of the core's actions. Nothing of it is part of the machine."},
     {"hotkey", "Hotkeys", "Keys of the physical keyboard that run an action of the core. A key used here does not reach the Amiga."},
     {nullptr, nullptr, nullptr},
 };
@@ -837,6 +866,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "Presses Ctrl-Amiga-Amiga for a while (the Amiga's soft reset, as the keyboard does it). The key is not sent to the Amiga.",
      "Presses Ctrl-Amiga-Amiga for a while (the Amiga's soft reset, as the keyboard does it). The key is not sent to the Amiga.",
      "hotkey", {P6_SET_HOTKEY_KEY_V2}, "---"},
+    {"puae6_hotkey_statusbar", "Toggle Statusbar", "Toggle Statusbar",
+     "Shows or hides the statusbar. The key is not sent to the Amiga. F12 is the PUAE5 default; the Amiga has no F12.",
+     "Shows or hides the statusbar. The key is not sent to the Amiga. F12 is the PUAE5 default; the Amiga has no F12.",
+     "hotkey", {P6_SET_HOTKEY_KEY_V2}, "f12"},
     {"puae6_mapper_up", "Up", "Up",
      "What Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that).",
      "What Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that).",
@@ -933,6 +966,18 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "What Right Stick Right of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that).",
      "What Right Stick Right of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that).",
      "retropad", {P6_SET_MAPPER_TARGET_V2}, "---"},
+    {"puae6_statusbar", "Statusbar Mode", "Statusbar Mode",
+     "Where the statusbar is drawn (over the top or the bottom of the picture) and how much it shows. Full: the drive LED (DF0, from the drive light of the machine), what the two Amiga ports are being sent (the mouse's three buttons, the joystick's four directions and three buttons) and the pad's mode and turbo, plus the message of the last action. Basic: the LED and the message. Minimal: the LED alone. The power LED and the track are not part of the native ABI and are not shown.",
+     "Where the statusbar is drawn (over the top or the bottom of the picture) and how much it shows. Full: the drive LED (DF0, from the drive light of the machine), what the two Amiga ports are being sent (the mouse's three buttons, the joystick's four directions and three buttons) and the pad's mode and turbo, plus the message of the last action. Basic: the LED and the message. Minimal: the LED alone. The power LED and the track are not part of the native ABI and are not shown.",
+     "osd", {{"bottom", "Bottom Full"}, {"bottom_minimal", "Bottom Full Minimal"}, {"bottom_basic", "Bottom Basic"}, {"bottom_basic_minimal", "Bottom Basic Minimal"}, {"top", "Top Full"}, {"top_minimal", "Top Full Minimal"}, {"top_basic", "Top Basic"}, {"top_basic_minimal", "Top Basic Minimal"}}, "bottom"},
+    {"puae6_statusbar_startup", "Statusbar Startup", "Statusbar Startup",
+     "Show the statusbar when the content loads. The Toggle Statusbar hotkey or button shows and hides it afterwards.",
+     "Show the statusbar when the content loads. The Toggle Statusbar hotkey or button shows and hides it afterwards.",
+     "osd", {{"disabled", "Disabled"}, {"enabled", "Enabled"}}, "disabled"},
+    {"puae6_statusbar_messages", "Statusbar Messages", "Statusbar Messages",
+     "With the statusbar hidden, show the message of an action (joystick/mouse, turbo, crop, aspect, reset) alone for three seconds of emulated time.",
+     "With the statusbar hidden, show the message of an action (joystick/mouse, turbo, crop, aspect, reset) alone for three seconds of emulated time.",
+     "osd", {{"disabled", "Disabled"}, {"enabled", "Enabled"}}, "disabled"},
     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, {}, nullptr},
 };
 inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};
@@ -972,6 +1017,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_hotkey_aspect_toggle", "Toggle Aspect Ratio", "Swaps the pixel aspect announced between PAL and NTSC. The key is not sent to the Amiga.", {P6_SET_HOTKEY_KEY_V2}, "---"},
     {"puae6_hotkey_crop_toggle", "Toggle Crop", "Turns the crop off if it is on, and on (Automatic) if it is off. The key is not sent to the Amiga.", {P6_SET_HOTKEY_KEY_V2}, "---"},
     {"puae6_hotkey_reset", "Reset", "Presses Ctrl-Amiga-Amiga for a while (the Amiga's soft reset, as the keyboard does it). The key is not sent to the Amiga.", {P6_SET_HOTKEY_KEY_V2}, "---"},
+    {"puae6_hotkey_statusbar", "Toggle Statusbar", "Shows or hides the statusbar. The key is not sent to the Amiga. F12 is the PUAE5 default; the Amiga has no F12.", {P6_SET_HOTKEY_KEY_V2}, "f12"},
     {"puae6_mapper_up", "Up", "What Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
     {"puae6_mapper_down", "Down", "What Down of player 1's RetroPad does. Unmapped, it is joystick down (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
     {"puae6_mapper_left", "Left", "What Left of player 1's RetroPad does. Unmapped, it is joystick left (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
@@ -996,6 +1042,9 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_mapper_rd", "Right Stick Down", "What Right Stick Down of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
     {"puae6_mapper_rl", "Right Stick Left", "What Right Stick Left of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
     {"puae6_mapper_rr", "Right Stick Right", "What Right Stick Right of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
+    {"puae6_statusbar", "Statusbar Mode", "Where the statusbar is drawn (over the top or the bottom of the picture) and how much it shows. Full: the drive LED (DF0, from the drive light of the machine), what the two Amiga ports are being sent (the mouse's three buttons, the joystick's four directions and three buttons) and the pad's mode and turbo, plus the message of the last action. Basic: the LED and the message. Minimal: the LED alone. The power LED and the track are not part of the native ABI and are not shown.", {{"bottom", "Bottom Full"}, {"bottom_minimal", "Bottom Full Minimal"}, {"bottom_basic", "Bottom Basic"}, {"bottom_basic_minimal", "Bottom Basic Minimal"}, {"top", "Top Full"}, {"top_minimal", "Top Full Minimal"}, {"top_basic", "Top Basic"}, {"top_basic_minimal", "Top Basic Minimal"}}, "bottom"},
+    {"puae6_statusbar_startup", "Statusbar Startup", "Show the statusbar when the content loads. The Toggle Statusbar hotkey or button shows and hides it afterwards.", {{"disabled", "Disabled"}, {"enabled", "Enabled"}}, "disabled"},
+    {"puae6_statusbar_messages", "Statusbar Messages", "With the statusbar hidden, show the message of an action (joystick/mouse, turbo, crop, aspect, reset) alone for three seconds of emulated time.", {{"disabled", "Disabled"}, {"enabled", "Enabled"}}, "disabled"},
     {nullptr, nullptr, nullptr, {}, nullptr},
 };
 
@@ -1034,6 +1083,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_hotkey_aspect_toggle", "Toggle Aspect Ratio; " P6_SET_HOTKEY_KEY_LEGACY},
     {"puae6_hotkey_crop_toggle", "Toggle Crop; " P6_SET_HOTKEY_KEY_LEGACY},
     {"puae6_hotkey_reset", "Reset; " P6_SET_HOTKEY_KEY_LEGACY},
+    {"puae6_hotkey_statusbar", "Toggle Statusbar; f12|---|f11|pause|print|scrolllock|numlock|menu|rctrl|rshift"},
     {"puae6_mapper_up", "Up; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_down", "Down; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_left", "Left; " P6_SET_MAPPER_TARGET_LEGACY},
@@ -1058,6 +1108,9 @@ constexpr retro_variable kVariables[] = {
     {"puae6_mapper_rd", "Right Stick Down; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_rl", "Right Stick Left; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_rr", "Right Stick Right; " P6_SET_MAPPER_TARGET_LEGACY},
+    {"puae6_statusbar", "Statusbar Mode; bottom|bottom_minimal|bottom_basic|bottom_basic_minimal|top|top_minimal|top_basic|top_basic_minimal"},
+    {"puae6_statusbar_startup", "Statusbar Startup; disabled|enabled"},
+    {"puae6_statusbar_messages", "Statusbar Messages; disabled|enabled"},
     {nullptr, nullptr},
 };
 

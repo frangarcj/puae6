@@ -229,6 +229,7 @@ static void soft_reset()
     InputMemory memory;
     step(pressing(bit(kHotkeyBit + 4)), config, &memory);
     CHECK(memory.reset_hold == kResetHoldUnits - 1);                                  // the first unit of the chord is this one
+    CHECK(memory.message == kMessageReset && memory.message_left == kMessageUnits - 1);
     Effects fx;
     unsigned units = 1;
     Controls c;
@@ -255,6 +256,9 @@ static void memory_in_a_state()
     section.input.turbo_toggled = true;
     section.input.crop_toggled = true;
     section.input.aspect_toggled = true;
+    section.input.statusbar_shown = true;
+    section.input.message = kMessageAspectNtsc;
+    section.input.message_left = 77;
     section.input.mouse_rx = -480;
     section.input.mouse_ry = 17;
     section.input.turbo_phase = 119;
@@ -274,23 +278,59 @@ static void memory_in_a_state()
     CHECK(decode_section(bytes.data(), bytes.size(), 100, 760, 576, &back, &why));
     CHECK(back.input == section.input);
     // Every field has a range, and a value outside it is refused. A section with no disk, no audio and no picture has 40 bytes before the input memory, which
-    // is eight words (flags, the two owed counts, turbo and reset counters, the inputs held, and the three pairs of fractions).
+    // is nine words (flags, the two owed counts, turbo and reset counters, the inputs held, the three pairs of fractions, and the message).
     auto accepts = [&](size_t word, uint32_t value) {
         std::vector<uint8_t> copy = bytes;
         put32(&copy[40 + 4 * word], value);
         Section out;
         return decode_section(copy.data(), copy.size(), 100, 760, 576, &out, &why);
     };
-    CHECK(accepts(0, 63) && !accepts(0, 64));                                        // the six flags
+    CHECK(accepts(0, 127) && !accepts(0, 128));                                      // the seven flags
     CHECK(accepts(1, uint32_t(kMouseBacklog)) && !accepts(1, uint32_t(kMouseBacklog + 1)));
     CHECK(accepts(3, kTurboCycle - 1) && !accepts(3, kTurboCycle));                  // the turbo phase stays inside its cycle
     CHECK(accepts(3, kResetHoldUnits << 8) && !accepts(3, (kResetHoldUnits + 1) << 8) && !accepts(3, UINT32_C(1) << 16));
     CHECK(accepts(4, bit(kHotkeyBit + kHotkeyCount - 1)) && !accepts(4, bit(kHotkeyBit + kHotkeyCount)));      // a hotkey that does not exist
     CHECK(accepts(5, 99) && !accepts(5, 100) && !accepts(5, uint32_t(uint16_t(-100))));     // the fraction a Mouse Speed leaves: -99 .. 99
     CHECK(accepts(6, 999) && !accepts(6, 1000) && accepts(7, uint32_t(uint16_t(-999)) << 16) && !accepts(7, uint32_t(uint16_t(-1000)) << 16));
+    CHECK(accepts(8, kMessageReset | (kMessageUnits << 8)) && accepts(8, 0) && !accepts(8, kMessageReset + 1) && !accepts(8, kMessageJoystick | ((kMessageUnits + 1) << 8)));
+    CHECK(!accepts(8, 5) && !accepts(8, 5 << 8) && !accepts(8, UINT32_C(1) << 16));      // a message has units left and units left have a message; nothing above
     // A section cut inside the input memory is refused.
     Section out;
     CHECK(!decode_section(bytes.data(), 60, 100, 760, 576, &out, &why));
+}
+
+static void messages_and_statusbar()
+{
+    InputConfig config;
+    InputMemory memory;
+    step(pressing(bit(kHotkeyBit + 5)), config, &memory);
+    CHECK(memory.statusbar_shown && memory.message == kMessageNone);                  // the statusbar toggle says nothing
+    step(pressing(0), config, &memory);
+    step(pressing(bit(kHotkeyBit + 5)), config, &memory);
+    CHECK(!memory.statusbar_shown);
+    // Each action says what it did, for kMessageUnits units, and the count is the memory's: it ends by itself.
+    struct Row { unsigned hotkey; bool turbo, crop_on, aspect_ntsc; uint8_t first, second; };
+    const Row rows[] = {{0, false, false, false, kMessageMouse, kMessageJoystick}, {1, false, false, false, kMessageTurboOn, kMessageTurboOff},
+                        {1, true, false, false, kMessageTurboOff, kMessageTurboOn}, {3, false, false, false, kMessageCropOn, kMessageCropOff},
+                        {3, false, true, false, kMessageCropOff, kMessageCropOn}, {2, false, false, false, kMessageAspectNtsc, kMessageAspectNormal},
+                        {2, false, false, true, kMessageAspectPal, kMessageAspectNormal}, {4, false, false, false, kMessageReset, kMessageReset}};
+    for (const Row &row : rows) {
+        InputConfig c;
+        c.turbo = row.turbo;
+        c.crop_on = row.crop_on;
+        c.aspect_ntsc = row.aspect_ntsc;
+        InputMemory m;
+        step(pressing(bit(kHotkeyBit + row.hotkey)), c, &m);
+        CHECK(m.message == row.first && m.message_left == kMessageUnits - 1);
+        for (unsigned n = 0; n < 10; ++n) step(pressing(0), c, &m);
+        CHECK(m.message == row.first && m.message_left == kMessageUnits - 11);
+        if (row.hotkey != 4) {                                                        // a second action replaces the message and restarts the count
+            step(pressing(bit(kHotkeyBit + row.hotkey)), c, &m);
+            CHECK(m.message == row.second && m.message_left == kMessageUnits - 1);
+        }
+        for (unsigned n = 0; n < kMessageUnits; ++n) step(pressing(0), c, &m);
+        CHECK(m.message == kMessageNone && m.message_left == 0);
+    }
 }
 
 int main()
@@ -302,6 +342,7 @@ int main()
     turbo();
     stick_mouse();
     soft_reset();
+    messages_and_statusbar();
     memory_in_a_state();
     if (failures) {
         printf("%d check(s) failed\n", failures);

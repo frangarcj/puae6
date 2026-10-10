@@ -77,3 +77,23 @@ cuenta del reset, botones y hotkeys pulsados en el run anterior (para los flanco
 
 Diferencias deliberadas con PUAE5: sin `physicalmouse=double`, sin `joyport_order` ni dispositivos CD32/analogico/lightgun (necesitan puertos nuevos en la ABI, tareas P21/P22 aparte),
 sin `save_disk` (depende de P12), y el teclado virtual / la barra de estado son T31a / T31b.
+
+## OSD: barra de estado, mensajes y LED (T31b) — categoria `OSD`
+
+Implementado en `adapters/libretro/overlay.h` (fuente 5x7 propia y primitivas de dibujo), `statusbar.h` y `libretro_core.cpp`; comprobado con
+`tests/libretro-ui/overlay_probe.cpp` (dibujo sobre imagenes sinteticas) y `test_statusbar.py` (el core completo con el frontend minimo y el floppy guest de `tests/scenarios/disk`).
+La barra se dibuja sobre la **copia** de la imagen que recibe el frontend, a partir de: la luz de unidad de la unidad recien ejecutada (`P6_FRAME_DRIVE_LIGHT`), el paquete `p6_input`
+que el propio adaptador hizo para esa unidad y la memoria de entrada (bandera de la barra y mensaje de la ultima accion con las unidades que le quedan: viajan en el estado, asi un
+rewind o un runahead muestran la misma barra). El estado nativo, el audio y la cadencia no cambian con ninguna de estas opciones.
+
+| Clave | Valores (defecto en negrita) | Efecto |
+|---|---|---|
+| `puae6_statusbar` | **bottom**, bottom_minimal, bottom_basic, bottom_basic_minimal, top, top_minimal, top_basic, top_basic_minimal | Donde va la barra y cuanto muestra. Full: LED de DF0, los dos puertos Amiga (puerto 1 = raton con sus 3 botones, puerto 2 = joystick con 4 direcciones y 3 botones; encendido lo que se esta enviando), modo raton y turbo del pad, y el mensaje. Basic: LED y mensaje. Minimal: solo el LED. Escala 2 si cabe, si no 1. |
+| `puae6_statusbar_startup` | **disabled**, enabled | La barra esta visible al cargar. |
+| `puae6_statusbar_messages` | **disabled**, enabled | Con la barra oculta, el mensaje de una accion (joystick/raton, turbo, crop, aspecto, reset) se muestra solo durante 150 unidades emuladas. |
+| `puae6_hotkey_statusbar` | **f12**, f11, pause, ... | Tecla que muestra/oculta la barra (F12 es el defecto de PUAE5; el Amiga no tiene F12). Tambien el objetivo `toggle_statusbar` del mapper. |
+
+Interfaz LED (`RETRO_ENVIRONMENT_GET_LED_INTERFACE`): el core llama a `set_led_state` solo cuando un LED cambia, en el orden de PUAE5 (0 power, 1 unidades de disquete, 2 HD/CD/MD,
+3 DF0, 4-6 DF1-DF3, 7 HD, 8 CD/MD). La ABI nativa da una unica luz de unidad (el LED de alguna unidad esta encendido; libretro maneja solo DF0), que enciende los LED 1 y 3;
+**no se emiten** el LED de power (no esta en la ABI), la pista, DF1-3, HD ni CD. Al cerrar el contenido los LED se apagan. Con runahead, las unidades especulativas tambien llaman (como en
+PUAE5); un frontend que lo evita ignora el LED de esas llamadas.

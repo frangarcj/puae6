@@ -199,6 +199,24 @@
       "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
     },
     {
+      "id": "puae-adapter-osd",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/overlay.h",
+        "adapters/libretro/statusbar.h"
+      ],
+      "handling": "T31b: the statusbar modes (position and Full/Basic/Minimal), startup and message options, the LED order of the libretro LED interface (power, drives, HD/CD/MD, DF0-3, HD, CD/MD) and the idea of a bar with LED, ports and messages are PUAE5 behaviour; the code (adapters/libretro/overlay.h, statusbar.h) and the 5x7 bitmap font are written for PUAE6 and draw on a copy of the picture. The LED of the drive light follows MacHawk's LEDCallback / IDriveLight (read-only reference). No libretro-uae source file or font is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
       "id": "puae-libchdr",
       "source_id": "puae_libretro_reference",
       "scope": "embedded_dependency_in_reference",

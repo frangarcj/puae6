@@ -2,7 +2,7 @@
 // the libretro contract asks of a core on every retro_run: the input is polled once, exactly one picture is shown, audio arrives as
 // whole stereo frames, and the serialization size does not grow. Everything optional can be refused.
 //   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--refuse-av-info] [--bad-format]
-//                    [--no-rgb565] [--dump-pictures DIR [--dump-from RUN]]
+//                    [--no-rgb565] [--no-led] [--dump-pictures DIR [--dump-from RUN]]
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
 //                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
@@ -38,6 +38,7 @@
 //   spec P video=WxH dupe=D hash=H px=P audio=F ahash=A unit=U ticks=T       (a speculative run at position P)
 //   state size=S / state save NAME ok=R size=S used=U hash=H section=H / state native NAME hash=H (the machine's part of that state alone, T31)
 //   state load NAME VARIANT ok=R size=S / state final ok=R size=S hash=H / state reset
+//   led RUN LED=STATE [(speculative)]   (the core set a LED of the frontend, T31b; LED 1 is "floppy drives" and 3 DF0, PUAE5's order)
 //   pixel-format RGB565 (the core asked for 16-bit pixels and the host took them; --no-rgb565 refuses, as a frontend without them does)
 //   --dump-pictures DIR writes picture-RUN.bin for every visible run that showed a picture: width, height, bytes per pixel and run as little-endian uint32, then the rows
 //   log LEVEL TEXT         (only when the log interface is offered)
@@ -66,6 +67,7 @@ namespace {
 
 struct Options {
     int runs = 10, cycles = 1;
+    bool no_led = false;                                        // --no-led: a frontend without the LED interface
     bool reject_optional = false, no_log = false, no_dupe = false, bad_format = false, reenter = false, refuse_av_info = false, no_rgb565 = false;
     std::string dump_dir;                                       // --dump-pictures: every picture shown, to a file
     int dump_from = 1;                                          // --dump-from RUN: from this visible run on
@@ -333,6 +335,12 @@ void print_images()
     }
 }
 
+// The LED interface (T31b): every call is printed with the visible run it came in ("led RUN LED=STATE"); a core must call it only when a LED changes.
+void RETRO_CALLCONV set_led_state(int led, int state)
+{
+    printf("led %d %d=%d%s\n", run_number, led, state, muted ? " (speculative)" : "");
+}
+
 bool RETRO_CALLCONV environment(unsigned command, void *data)
 {
     environment_commands.insert(command & 0xFFFF);
@@ -346,6 +354,10 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         }
         if (*static_cast<retro_pixel_format *>(data) != RETRO_PIXEL_FORMAT_XRGB8888) return false;
         pixel_bytes = 4;
+        return true;
+    case RETRO_ENVIRONMENT_GET_LED_INTERFACE:
+        if (options.no_led || options.reject_optional) return false;
+        static_cast<retro_led_interface *>(data)->set_led_state = set_led_state;
         return true;
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         if (options.no_log || options.reject_optional) return false;
@@ -893,6 +905,7 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--refuse-av-info")) options.refuse_av_info = true;
         else if (!strcmp(a, "--bad-format")) options.bad_format = true;
         else if (!strcmp(a, "--no-rgb565")) options.no_rgb565 = true;
+        else if (!strcmp(a, "--no-led")) options.no_led = true;
         else if (!strcmp(a, "--dump-pictures")) options.dump_dir = next();
         else if (!strcmp(a, "--dump-from")) options.dump_from = atoi(next());
         else if (!strcmp(a, "--reenter")) options.reenter = true;

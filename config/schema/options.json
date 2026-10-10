@@ -24,6 +24,7 @@
     {"id": "media", "label": "Media", "info": "What the machine does with the disks it is given."},
     {"id": "input", "label": "Input", "info": "How the frontend's controllers become Amiga input. These options apply at once; none of them changes the machine, only the packet of input it is given."},
     {"id": "retropad", "label": "RetroPad Mapper", "info": "What each button and stick direction of player 1's RetroPad does. 'Default function' keeps the joystick (or the mouse, in D-Pad mouse mode)."},
+    {"id": "osd", "label": "OSD", "info": "What the core draws over the picture it hands to the frontend: the statusbar with the drive LED and the messages of the core's actions. Nothing of it is part of the machine."},
     {"id": "hotkey", "label": "Hotkeys", "info": "Keys of the physical keyboard that run an action of the core. A key used here does not reach the Amiga."}
   ],
   "value_sets": {
@@ -47,6 +48,7 @@
       {"value": "toggle_mouse", "abi": 18, "label": "Toggle Joystick/Mouse", "const": "ToggleMouse"},
       {"value": "toggle_turbo", "abi": 19, "label": "Toggle Turbo Fire", "const": "ToggleTurbo"},
       {"value": "toggle_aspect", "abi": 20, "label": "Toggle Aspect Ratio (PAL/NTSC pixels)", "const": "ToggleAspect"},
+      {"value": "toggle_statusbar", "abi": 17, "label": "Toggle Statusbar", "const": "ToggleStatusbar"},
       {"value": "toggle_crop", "abi": 21, "label": "Toggle Crop", "const": "ToggleCrop"},
       {"value": "reset", "abi": 22, "label": "Reset (Ctrl-Amiga-Amiga)", "const": "Reset"},
       {"value": "key_grave", "abi": 256, "label": "Key Grave"},
@@ -1022,6 +1024,22 @@
       "wrapper": {"how": "none"}
     },
     {
+      "id": "hotkey_statusbar",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_statusbar",
+      "default": "f12",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_statusbar",
+        "category": "hotkey",
+        "label": "Toggle Statusbar",
+        "info": "Shows or hides the statusbar. The key is not sent to the Amiga. F12 is the PUAE5 default; the Amiga has no F12."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
       "id": "mapper_up",
       "class": "presentation",
       "type": "enum",
@@ -1401,6 +1419,69 @@
         "category": "retropad",
         "label": "Right Stick Right",
         "info": "What Right Stick Right of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "statusbar",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.statusbar",
+      "default": "bottom",
+      "values": [
+        {"value": "bottom", "abi": 0, "label": "Bottom Full"},
+        {"value": "bottom_minimal", "abi": 1, "label": "Bottom Full Minimal"},
+        {"value": "bottom_basic", "abi": 2, "label": "Bottom Basic"},
+        {"value": "bottom_basic_minimal", "abi": 3, "label": "Bottom Basic Minimal"},
+        {"value": "top", "abi": 4, "label": "Top Full"},
+        {"value": "top_minimal", "abi": 5, "label": "Top Full Minimal"},
+        {"value": "top_basic", "abi": 6, "label": "Top Basic"},
+        {"value": "top_basic_minimal", "abi": 7, "label": "Top Basic Minimal"}
+      ],
+      "libretro": {
+        "key": "puae6_statusbar",
+        "category": "osd",
+        "label": "Statusbar Mode",
+        "info": "Where the statusbar is drawn (over the top or the bottom of the picture) and how much it shows. Full: the drive LED (DF0, from the drive light of the machine), what the two Amiga ports are being sent (the mouse's three buttons, the joystick's four directions and three buttons) and the pad's mode and turbo, plus the message of the last action. Basic: the LED and the message. Minimal: the LED alone. The power LED and the track are not part of the native ABI and are not shown."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "statusbar_startup",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.statusbar_startup",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_statusbar_startup",
+        "category": "osd",
+        "label": "Statusbar Startup",
+        "info": "Show the statusbar when the content loads. The Toggle Statusbar hotkey or button shows and hides it afterwards."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "statusbar_messages",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.statusbar_messages",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_statusbar_messages",
+        "category": "osd",
+        "label": "Statusbar Messages",
+        "info": "With the statusbar hidden, show the message of an action (joystick/mouse, turbo, crop, aspect, reset) alone for three seconds of emulated time."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}

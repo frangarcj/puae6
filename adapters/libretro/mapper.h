@@ -29,6 +29,7 @@
 #include "libretro.h"
 #include "options_generated.h"
 #include "p6.h"
+#include "present.h"
 
 #include <algorithm>
 #include <stdint.h>
@@ -46,10 +47,15 @@ constexpr unsigned kResetHoldUnits = 40;           // how long the soft reset ho
 constexpr unsigned kCapsLockCode = 0x62;
 constexpr unsigned kKeyCtrl = 0x63, kKeyLeftAmiga = 0x66, kKeyRightAmiga = 0x67;
 constexpr uint32_t kKeyTargetBase = 0x100;         // mapper targets from here on are Amiga keys: base + the key's code
+constexpr unsigned kMessageUnits = 150;            // how long the statusbar shows the message of an action: three seconds of PAL
+
+// The messages of the actions (statusbar.h has their text). 0 is none.
+constexpr uint8_t kMessageNone = 0, kMessageJoystick = 1, kMessageMouse = 2, kMessageTurboOn = 3, kMessageTurboOff = 4, kMessageCropOn = 5, kMessageCropOff = 6,
+                  kMessageAspectPal = 7, kMessageAspectNtsc = 8, kMessageAspectNormal = 9, kMessageReset = 10;
 
 constexpr unsigned kMapperInputs = 24;
 constexpr unsigned kStickInput = 16;               // inputs 16..19: left stick up, down, left, right; 20..23 the right one
-constexpr unsigned kHotkeyCount = 5;               // mouse toggle, turbo, aspect, crop, reset (the order of the schema's hotkey options)
+constexpr unsigned kHotkeyCount = 6;               // mouse toggle, turbo, aspect, crop, reset, statusbar (the order of the schema's hotkey options)
 constexpr unsigned kHotkeyBit = 24;                // bits of Controls::down / InputMemory::held from here on are the hotkeys
 
 // What the adapter keeps between two runs for the input. It is part of the saved timeline (state_frame.h), and is zero at load (the D-Pad mode starts from
@@ -62,6 +68,9 @@ struct InputMemory {
     bool turbo_toggled = false;        // Toggle Turbo Fire: inverts the Turbo Fire option
     bool crop_toggled = false;         // Toggle Crop: inverts whether the picture is cropped
     bool aspect_toggled = false;       // Toggle Aspect Ratio: the other standard's pixel aspect
+    bool statusbar_shown = false;      // the statusbar is up (Statusbar Startup, then the hotkey or the mapped button)
+    uint8_t message = kMessageNone;    // the last action's message, and the units it has left to be shown
+    uint8_t message_left = 0;
     uint8_t turbo_phase = 0;           // units the turbo button has been held, modulo kTurboCycle
     uint8_t reset_hold = 0;            // units left of the Ctrl-Amiga-Amiga of a soft reset
     uint32_t held = 0;                 // the inputs and hotkeys that were down at the last run (bit n of Controls::down)
@@ -72,7 +81,8 @@ struct InputMemory {
     {
         return caps_latched == other.caps_latched && caps_held == other.caps_held && mouse_rx == other.mouse_rx && mouse_ry == other.mouse_ry &&
                dpad_mouse == other.dpad_mouse && turbo_toggled == other.turbo_toggled && crop_toggled == other.crop_toggled &&
-               aspect_toggled == other.aspect_toggled && turbo_phase == other.turbo_phase && reset_hold == other.reset_hold && held == other.held &&
+               aspect_toggled == other.aspect_toggled && statusbar_shown == other.statusbar_shown && message == other.message &&
+               message_left == other.message_left && turbo_phase == other.turbo_phase && reset_hold == other.reset_hold && held == other.held &&
                host_frac[0] == other.host_frac[0] && host_frac[1] == other.host_frac[1] && stick_frac[0][0] == other.stick_frac[0][0] &&
                stick_frac[0][1] == other.stick_frac[0][1] && stick_frac[1][0] == other.stick_frac[1][0] && stick_frac[1][1] == other.stick_frac[1][1];
     }
@@ -87,6 +97,8 @@ struct InputConfig {
     int speed_tenths[2] = {10, 10};               // left, right: the stick mouse speed in tenths (10 = 100%)
     int dpad_speed = 6;                           // counts a unit of a digital mouse movement
     int mouse_speed = 100;                        // percent, of the frontend's mouse
+    bool crop_on = false;                         // the Crop option is on: what Toggle Crop turns off (for its message)
+    bool aspect_ntsc = false;                     // the aspect announced without the toggle is NTSC's: what Toggle Aspect Ratio swaps (for its message)
     bool turbo = false;
     unsigned turbo_input = 0;                     // the RETRO_DEVICE_ID_JOYPAD_* number of the turbo button
     int pulse = 6;
@@ -105,6 +117,9 @@ inline InputConfig input_config(const p6_options::Settings &s)
     c.hotkey_code[2] = s.hotkey_aspect_toggle;
     c.hotkey_code[3] = s.hotkey_crop_toggle;
     c.hotkey_code[4] = s.hotkey_reset;
+    c.hotkey_code[5] = s.hotkey_statusbar;
+    c.crop_on = s.video_crop != 0;
+    c.aspect_ntsc = s.video_aspect == kAspectNtsc || (s.video_aspect != kAspectPal && s.video_standard == P6_VIDEO_NTSC);
     c.analog_mouse = s.analog_mouse;
     c.deadzone = int(s.analog_mouse_deadzone);
     c.speed_tenths[0] = int(s.analog_mouse_speed_left);
@@ -121,7 +136,7 @@ inline InputConfig input_config(const p6_options::Settings &s)
 // The action each hotkey runs, in the order of the options.
 constexpr uint32_t kHotkeyTargets[kHotkeyCount] = {
     p6_options::kMapperTargetToggleMouse, p6_options::kMapperTargetToggleTurbo, p6_options::kMapperTargetToggleAspect,
-    p6_options::kMapperTargetToggleCrop, p6_options::kMapperTargetReset,
+    p6_options::kMapperTargetToggleCrop, p6_options::kMapperTargetReset, p6_options::kMapperTargetToggleStatusbar,
 };
 
 // What the frontend reported this run, as far as the mapper cares: which inputs and hotkeys are down, and where the sticks are.
@@ -264,13 +279,35 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
     };
     const uint32_t edges = controls.down & ~memory->held;
     memory->held = controls.down;
+    auto say = [&](uint8_t message) {
+        memory->message = message;
+        memory->message_left = uint8_t(kMessageUnits);
+    };
     auto run_action = [&](uint32_t target) {
         switch (target) {
-        case kMapperTargetToggleMouse: memory->dpad_mouse = !memory->dpad_mouse; break;
-        case kMapperTargetToggleTurbo: memory->turbo_toggled = !memory->turbo_toggled; break;
-        case kMapperTargetToggleAspect: memory->aspect_toggled = !memory->aspect_toggled; break;
-        case kMapperTargetToggleCrop: memory->crop_toggled = !memory->crop_toggled; break;
-        case kMapperTargetReset: if (!memory->reset_hold) memory->reset_hold = uint8_t(kResetHoldUnits); break;
+        case kMapperTargetToggleMouse:
+            memory->dpad_mouse = !memory->dpad_mouse;
+            say(memory->dpad_mouse ? kMessageMouse : kMessageJoystick);
+            break;
+        case kMapperTargetToggleTurbo:
+            memory->turbo_toggled = !memory->turbo_toggled;
+            say(config.turbo != memory->turbo_toggled ? kMessageTurboOn : kMessageTurboOff);
+            break;
+        case kMapperTargetToggleAspect:
+            memory->aspect_toggled = !memory->aspect_toggled;
+            say(!memory->aspect_toggled ? kMessageAspectNormal : config.aspect_ntsc ? kMessageAspectPal : kMessageAspectNtsc);
+            break;
+        case kMapperTargetToggleCrop:
+            memory->crop_toggled = !memory->crop_toggled;
+            say(config.crop_on != memory->crop_toggled ? kMessageCropOn : kMessageCropOff);
+            break;
+        case kMapperTargetToggleStatusbar: memory->statusbar_shown = !memory->statusbar_shown; break;
+        case kMapperTargetReset:
+            if (!memory->reset_hold) {
+                memory->reset_hold = uint8_t(kResetHoldUnits);
+                say(kMessageReset);
+            }
+            break;
         default: break;
         }
     };
@@ -296,6 +333,7 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
         out->move_x += take_whole(&memory->stick_frac[s][0], mx, 1000);
         out->move_y += take_whole(&memory->stick_frac[s][1], my, 1000);
     }
+    if (memory->message_left && --memory->message_left == 0) memory->message = kMessageNone;
     if (memory->reset_hold) {
         press_key(out->keys, kKeyCtrl);
         press_key(out->keys, kKeyLeftAmiga);

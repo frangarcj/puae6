@@ -33,6 +33,9 @@
 // "Joystick only" (the mouse wins otherwise: see input_map.h). What the adapter keeps
 // between two runs for the input (the Caps Lock latch, mouse movement that did not fit a unit) is part of the saved adapter section.
 //
+// Statusbar and LED (T31b): a bar over the top or bottom of the picture copy shows the drive LED, the two ports and the pad's mode, and the messages of the actions;
+// the frontend's LED interface, if it has one, gets the drive light too. Both are outputs read from the unit just run and the input memory (statusbar.h).
+//
 // Mapper (T31d): player 1's RetroPad can be remapped, auto-fire, drive the mouse by D-Pad or analog stick, and a few hotkeys run actions of the core; all of it is
 // a function of what the frontend reports and of the input memory (mapper.h), turned into the same p6_input packet before p6_run_frame.
 //
@@ -49,6 +52,7 @@
 #include "present.h"
 #include "sha256.h"
 #include "state_frame.h"
+#include "statusbar.h"
 
 #include <algorithm>
 #include <stdarg.h>
@@ -104,6 +108,9 @@ struct Core {
     std::vector<uint8_t> last_picture;    // a copy of the picture as presented, kept only when the frontend cannot repeat a picture by itself
     uint32_t last_width = 0, last_height = 0;
     unsigned bytes_per_pixel = 4;         // of the pixel format in force: 4 (XRGB8888) or 2 (RGB565, T31c)
+    p6_libretro::StatusData status;       // what the statusbar draws from: the drive light and the packet of the unit just run (T31b); it is derived, not saved
+    retro_set_led_state_t set_led = nullptr;       // the frontend's LED interface, if it has one
+    int led_state[2] = {0, 0};            // what the LEDs were last set to: 1 (floppy drives) and 3 (DF0), in PUAE5's order
     p6_libretro::Presenter presenter;     // crop, position, gamma and the 16-bit format over a copy of the picture (T31c); the machine never sees it
     uint32_t announced_width = 0, announced_height = 0;
     float announced_ratio = 0;            // the picture aspect ratio the frontend was last told (after the aspect option)
@@ -154,6 +161,21 @@ void report(const char *what, p6_result result, const p6_error &error)
     log(RETRO_LOG_ERROR, "%s failed (%d): %s", what, int(result), error.message);
 }
 
+// The LEDs of the frontend (RETRO_ENVIRONMENT_GET_LED_INTERFACE), in the order of PUAE5's core: 0 power, 1 floppy drives, 2 HD/CD/MD, 3 DF0, 4-6 DF1-DF3, 7 HD,
+// 8 CD/MD. The ABI reports one drive light (some drive's LED is on; libretro drives DF0 alone), which is what lights "floppy drives" and DF0; the power LED, DF1-3,
+// the hard disk and the CD are not part of the profile. Called only when the state of a LED changes, with the light of the unit just run.
+void set_leds(bool drive_light)
+{
+    const int state = drive_light ? 1 : 0;
+    if (!core.set_led) return;
+    const int leds[2] = {1, 3};
+    for (int i = 0; i < 2; ++i)
+        if (core.led_state[i] != state) {
+            core.led_state[i] = state;
+            core.set_led(leds[i], state);
+        }
+}
+
 void stop_image()
 {
     if (core.loaded) {
@@ -172,6 +194,8 @@ void stop_image()
     core.initial_path.clear();
     core.announced_size = false;
     core.announced_ratio = 0;
+    set_leds(false);
+    core.status = p6_libretro::StatusData();
     core.presenter.forget();
     core.bytes_per_pixel = 4;
     core.announced_rate_num = core.announced_rate_den = core.announced_aspect_num = core.announced_aspect_den = 0;
@@ -293,8 +317,23 @@ void deliver_video(const p6_frame &frame, bool have_frame, const Picture &pictur
     (void)have_frame;
     if (picture.valid) {
         const p6_libretro::PresentOptions options = present_options();
+        // Overlays (T31b): drawn on the copy, from the memory of the input and the unit just run; the picture of the engine is never written to.
+        const p6_libretro::StatusbarMode bar_mode = p6_libretro::statusbar_mode(core.settings.statusbar);
+        core.status.turbo = (core.settings.turbo_fire != 0) != core.input.turbo_toggled;
+        core.status.mouse_mode = core.input.dpad_mouse;
+        core.status.message = core.input.message;
+        const bool bar = core.input.statusbar_shown;
+        const bool strip = !bar && core.settings.statusbar_messages != 0 && core.input.message != 0;
         p6_libretro::Presented shown = core.presenter.compose_xrgb(options, picture.window, picture.origin, picture.stride, picture.native_width,
-                                                                    picture.native_height, false);
+                                                                    picture.native_height, bar || strip);
+        if (bar || strip) {
+            p6_libretro::Canvas canvas;
+            canvas.pixels = const_cast<uint32_t *>(static_cast<const uint32_t *>(shown.data));
+            canvas.width = shown.width;
+            canvas.height = shown.height;
+            canvas.stride = shown.pitch / 4;
+            p6_libretro::draw_statusbar(canvas, bar_mode, core.status, bar, strip);
+        }
         shown = core.presenter.finish(options, shown);
         const uint32_t width = shown.width, height = shown.height;
         const float ratio = aspect_ratio(width, height, frame.aspect_num, frame.aspect_den);
@@ -1025,6 +1064,8 @@ RETRO_API void retro_init(void)
     if (environment_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs) && vfs.iface && vfs.iface->open && vfs.iface->read && vfs.iface->close)
         core.files.use_vfs(vfs.iface);
     register_disk_control();
+    retro_led_interface led = {};
+    if (environment_cb(RETRO_ENVIRONMENT_GET_LED_INTERFACE, &led) && led.set_led_state) core.set_led = led.set_led_state;
 }
 
 RETRO_API void retro_deinit(void)
@@ -1103,12 +1144,16 @@ RETRO_API void retro_run(void)
         apply_disk_requests();      // what the frontend asked of the tray since the last unit lands on this boundary
         input_poll_cb();
         const p6_input input = p6_libretro::read_input(input_state_cb, core.device, p6_libretro::input_config(core.settings), &core.input);
+        core.status.ports[0] = input.ports[0];
+        core.status.ports[1] = input.ports[1];
         frame.abi_version = P6_ABI_VERSION;
         frame.struct_size = sizeof frame;
         p6_error error = make_error();
         const p6_result result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
         if (result == P6_OK) {
             have_frame = true;
+            core.status.drive_light = (frame.flags & P6_FRAME_DRIVE_LIGHT) != 0;
+            set_leds(core.status.drive_light);
             log(RETRO_LOG_DEBUG, "unit=%llu ticks=%llu ports=%u:%x:%d:%d,%u:%x:%d:%d keys=%08x%08x%08x%08x", (unsigned long long)frame.unit_index,
                 (unsigned long long)frame.master_ticks, input.ports[0].type, input.ports[0].buttons, input.ports[0].dx,
                 input.ports[0].dy, input.ports[1].type, input.ports[1].buttons, input.ports[1].dx, input.ports[1].dy, input.keys[3], input.keys[2],
@@ -1248,7 +1293,8 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     environment_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated);       // clears the flag: what was just read is what is in force
     core.settings = core.requested = chosen;
     core.input = p6_libretro::InputMemory();
-    core.input.dpad_mouse = chosen.joyport == 1;        // the pad starts as the joystick or as the mouse; the mapper's toggle flips it from there
+    core.input.dpad_mouse = chosen.joyport == 1;
+    core.input.statusbar_shown = chosen.statusbar_startup == 1;       // the bar starts up as the option says; the hotkey or the mapped button flips it from there        // the pad starts as the joystick or as the mouse; the mapper's toggle flips it from there
     try {
         std::vector<p6_libretro::Image> images;
         if (!load_disks(game, &core.media, &images)) {

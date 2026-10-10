@@ -229,7 +229,7 @@ class InputTests(lr.LibretroHarness):
     def test_codes_the_amiga_keyboard_does_not_have_are_ignored(self):
         unknown = [RETROK[n] for n in ("F11", "F12", "F13", "PAUSE", "PRINT", "NUMLOCK", "SCROLLOCK", "MENU", "CLEAR", "KP_EQUALS", "COMPOSE", "EURO", "COLON",
                                         "GREATER", "TILDE")] + [9999, 65535, 3, 400]
-        arguments = []
+        arguments = ["--set", "puae6_hotkey_statusbar=---"]       # F12 is the statusbar's hotkey by default (T31b): it draws a bar, it does not reach the Amiga
         for code in unknown:
             arguments += ["--key-at", f"2:{code}:1"]
         out, found = self.run_input(*arguments, runs=6)
