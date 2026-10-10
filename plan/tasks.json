@@ -11163,7 +11163,7 @@
       "title": "SIGSEGV intermitente al crear un segundo sandbox Waterbox con otros heaps en el mismo proceso",
       "milestone": "M3",
       "required": true,
-      "status": "done",
+      "status": "pending",
       "depends": [
         "T28"
       ],
@@ -11183,7 +11183,8 @@
       ],
       "steps": [
         "En T28 un test de peliculas con FloppyWrites distinto fallo una vez con SIGSEGV al arrancar un segundo sandbox con otro tamano de heap en el mismo proceso, y paso 3/3 al repetirlo aislado. Construir un reproducer en bucle (dos sandboxes con heaps distintos, crear/liberar/alternar; tambien con A500 vs A1200 de test_wrapper_machine y sin FloppyWrites para saber si es anterior a T28), capturar backtrace (lldb/crash report) y localizar si es del core (Dispose/orden de liberacion, punteros fijados), del arnes o de libwaterboxhost de ../MacHawk (solo lectura).",
-        "Si la causa esta en libwaterboxhost de MacHawk, no modificarlo: documentar reproducer + backtrace + dos hipotesis, aplicar el rodeo minimo en el core si existe (p. ej. orden de Dispose) y marcar el resto como hallazgo para el usuario."
+        "Si la causa esta en libwaterboxhost de MacHawk, no modificarlo: documentar reproducer + backtrace + dos hipotesis, aplicar el rodeo minimo en el core si existe (p. ej. orden de Dispose) y marcar el resto como hallazgo para el usuario.",
+        "Revision 2026-10-10: no se acepta como done (falta rodeo y causa). Hipotesis principal verificable: la pila alternativa de senales de libwaterboxhost (MacHawk waterbox/waterboxhost/src/memory_block/tripguard.rs:390, prepare_thread) es un vec de 64 KiB del heap sin pagina de guarda; si el manejador (Debug, sigfillset) la desborda escribe en memoria de malloc contigua. Encaja con: no-dirty-detection 0/900, sin pila alternativa 0/600, Release 1/600 frente a Debug 8/300. Experimento: pila alternativa de 1 MiB por mmap con pagina de guarda en la copia del runtime que construye tools/build_waterbox.py (nunca en ../MacHawk); si es desbordamiento, la guarda da SIGSEGV limpio dentro del manejador y la tasa cae a 0. Segunda hipotesis: MAP_FIXED del host sobre un segmento de malloc. Requiere autorizacion del usuario para parchear la copia del runtime."
       ],
       "checks": [
         "WB04",
