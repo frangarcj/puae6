@@ -45,7 +45,10 @@
 // Mapper (T31d): player 1's RetroPad can be remapped, auto-fire, drive the mouse by D-Pad or analog stick, and a few hotkeys run actions of the core; all of it is
 // a function of what the frontend reports and of the input memory (mapper.h), turned into the same p6_input packet before p6_run_frame.
 //
-// What this adapter does not do yet (see docs/02-contracts.md and the plan): any memory region. IPF, FDI and the other floppy formats are refused with a message (container.h).
+// Memory (T75): the Chip, Slow and Fast RAM and the ROM are announced with RETRO_ENVIRONMENT_SET_MEMORY_MAPS at their Amiga bus addresses, RETRO_MEMORY_SYSTEM_RAM is the
+// Chip RAM and the core says it supports achievements; memory_map.h has the decisions (order, endianness, what a write of the frontend is).
+//
+// What this adapter does not do yet (see docs/02-contracts.md and the plan): IPF, FDI and the other floppy formats are refused with a message (container.h).
 #include "libretro.h"
 #include "p6.h"
 #include "config_import.h"
@@ -55,6 +58,7 @@
 #include "firmware.h"
 #include "floppy_save.h"
 #include "input_map.h"
+#include "memory_map.h"
 #include "options.h"
 #include "present.h"
 #include "sha256.h"
@@ -132,6 +136,8 @@ struct Core {
     size_t state_bytes = 0;               // the serialization size once asked for: header + adapter section + native bound, constant until unload
     uint32_t max_width = 0, max_height = 0;
     std::vector<uint8_t> section;         // scratch for the encoded adapter section
+    p6_libretro::MemoryMap memory_map;    // what the frontend was last told about the memory (T75); the descriptors live here, the pointers are the engine's
+    bool memory_announced = false;        // memory_map is valid (the frontend was told, whether or not it took the map)
 } core;
 
 struct CallGuard {
@@ -184,6 +190,31 @@ void set_leds(bool drive_light)
         }
 }
 
+// The memory as the frontend sees it (T75). Asked of the bridge after the load, after every unit and after every state load: the engine keeps its buffers while the
+// configuration is the same (see memory_map.h), so this is one comparison and the frontend is told once. If a pointer or a size ever did change, the frontend is
+// told again, because it keeps the pointers it was given (and a stale one would be read or poked after free).
+void refresh_memory_map()
+{
+    if (!core.loaded || core.faulted) return;
+    p6_memory_region regions[8];
+    uint32_t count = 0;
+    p6_error error = make_error();
+    const p6_result result = p6_memory_regions(regions, uint32_t(sizeof regions / sizeof regions[0]), &count, &error);
+    if (result != P6_OK) {
+        report("p6_memory_regions", result, error);
+        return;
+    }
+    p6_libretro::MemoryMap now;
+    const uint32_t slow = core.settings.slow_size;
+    if (!p6_libretro::build_memory_map(regions, count, slow == 0 || slow == P6_MEMORY_NONE ? 0 : size_t(slow) * 1024, &now)) return;
+    if (core.memory_announced && now.same_as(core.memory_map)) return;
+    if (core.memory_announced) log(RETRO_LOG_WARN, "the memory moved: the frontend is told again");
+    core.memory_map = now;
+    core.memory_announced = true;
+    retro_memory_map map = {core.memory_map.descriptor, core.memory_map.count};
+    if (environment_cb) environment_cb(RETRO_ENVIRONMENT_SET_MEMORY_MAPS, &map);     // optional: a frontend without it still gets RETRO_MEMORY_SYSTEM_RAM
+}
+
 void stop_image()
 {
     if (core.loaded) {
@@ -213,6 +244,8 @@ void stop_image()
     core.warned_overflow = false;
     core.input = p6_libretro::InputMemory();
     core.state_ready = false;
+    core.memory_map = p6_libretro::MemoryMap();
+    core.memory_announced = false;
     core.can_append = false;
     core.state_bytes = 0;
     core.max_width = core.max_height = 0;
@@ -1125,6 +1158,8 @@ RETRO_API void retro_init(void)
     if (environment_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs) && vfs.iface && vfs.iface->open && vfs.iface->read && vfs.iface->close)
         core.files.use_vfs(vfs.iface);
     register_disk_control();
+    bool achievements = true;       // the Chip RAM is RETRO_MEMORY_SYSTEM_RAM and the map describes the rest (T75)
+    environment_cb(RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS, &achievements);     // optional
     retro_led_interface led = {};
     if (environment_cb(RETRO_ENVIRONMENT_GET_LED_INTERFACE, &led) && led.set_led_state) core.set_led = led.set_led_state;
 }
@@ -1215,6 +1250,7 @@ RETRO_API void retro_run(void)
             have_frame = true;
             core.status.drive_light = (frame.flags & P6_FRAME_DRIVE_LIGHT) != 0;
             set_leds(core.status.drive_light);
+            refresh_memory_map();
             log(RETRO_LOG_DEBUG, "unit=%llu ticks=%llu ports=%u:%x:%d:%d,%u:%x:%d:%d keys=%08x%08x%08x%08x", (unsigned long long)frame.unit_index,
                 (unsigned long long)frame.master_ticks, input.ports[0].type, input.ports[0].buttons, input.ports[0].dx,
                 input.ports[0].dy, input.ports[1].type, input.ports[1].buttons, input.ports[1].dx, input.ports[1].dy, input.keys[3], input.keys[2],
@@ -1311,6 +1347,7 @@ RETRO_API bool retro_unserialize(const void *data, size_t size)
         return false;
     }
     apply_section(std::move(section));
+    refresh_memory_map();
     return true;
 }
 RETRO_API void retro_cheat_reset(void) {}
@@ -1402,6 +1439,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         }
         core.loaded = true;
         announce_state_support();
+        refresh_memory_map();
         // The image the frontend remembers from its last session, if the content still has it at that index; else the first.
         unsigned initial = 0;
         if (core.have_initial) {
@@ -1429,7 +1467,18 @@ RETRO_API void retro_unload_game(void)
 }
 
 RETRO_API unsigned retro_get_region(void) { return core.settings.video_standard == P6_VIDEO_NTSC ? RETRO_REGION_NTSC : RETRO_REGION_PAL; }
-RETRO_API void *retro_get_memory_data(unsigned) { return nullptr; }
-RETRO_API size_t retro_get_memory_size(unsigned) { return 0; }
+// RETRO_MEMORY_SYSTEM_RAM is the Chip RAM (as in PUAE5), straight from the engine's buffer; the answer is what the frontend was told in the memory map, so it is the same
+// pointer from the load to the unload and no engine call is made (a frontend may ask from a thread that is not the one that runs the core).
+RETRO_API void *retro_get_memory_data(unsigned id)
+{
+    if (id != RETRO_MEMORY_SYSTEM_RAM || !core.loaded || core.faulted || !core.memory_announced) return nullptr;
+    return const_cast<void *>(core.memory_map.system_ram);
+}
+
+RETRO_API size_t retro_get_memory_size(unsigned id)
+{
+    if (id != RETRO_MEMORY_SYSTEM_RAM || !core.loaded || core.faulted || !core.memory_announced) return 0;
+    return core.memory_map.system_ram_bytes;
+}
 
 }  // extern "C"

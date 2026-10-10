@@ -221,7 +221,11 @@ typedef struct p6_frame {
  * with its real size; a RAM that the machine does not have is not reported. Only RAM carries P6_REGION_WRITABLE: the
  * ROM is read-only. A host write is an external action that the emulated machine did not do, so a caller that records
  * a replay has to treat it as input. The pointers are valid until the next call that changes the machine (a
- * p6_run_frame, a reset, an unload); a caller that keeps a region across those has to ask again. */
+ * p6_run_frame, a reset, an unload); a caller that keeps a region across those has to ask again. Measured (T75): while one image is
+ * loaded with one configuration the engine keeps its buffers (memory_reset only reallocates when a size changes), so a reset, a state
+ * load and a run-ahead leave the pointers where they were; a caller that hands them to somebody else (libretro's memory map) asks again
+ * after each of those and tells that somebody when one differs. The Slow RAM can be reported larger than the CPU reaches (the engine
+ * allocates 2 MiB for 1.5 MiB on the A500): the caller limits it to the size it configured. */
 typedef struct p6_memory_region {
     uint32_t type;
     uint32_t flags;

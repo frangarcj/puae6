@@ -245,6 +245,23 @@ class RealFrontendTests(unittest.TestCase):
         self.assertEqual(events, ["DF0: medium 0 inserted", "DF0: ejected", "DF0: medium 1 inserted"])
         self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
 
+    def test_retroarch_takes_the_memory_map_and_the_achievements_flag_and_the_machine_is_the_plain_one(self):
+        # T75: RetroArch is told where the RAM and the ROM are (SET_MEMORY_MAPS, validated by the frontend itself) and that the core supports achievements, and
+        # the units it runs are the plain ones: announcing memory changes nothing of the machine. The map is also what the minimal frontend checks in detail
+        # (tests/libretro-host/test_memory.py).
+        text = self.retroarch("memory", options={"puae6_machine": "A1200", "puae6_fast_size": "MB8"}, kickstarts=("kick40068.A1200",))
+        self.assertRegex(text, r"SET_MEMORY_MAPS")
+        self.assertRegex(text, r"SET_SUPPORT_ACHIEVEMENTS")
+        self.assertNotRegex(text, r"(?m)^\[libretro (ERROR|WARN)\]")
+        self.assertEqual([line for line in text.splitlines() if "MEMORY_MAPS" in line and ("fail" in line.lower() or "invalid" in line.lower())], [])
+        native = subprocess.run([str(self.macos_headless), "--run", str(self.rom), "--machine", "a1200", "--fast", "8192", "--units", str(FRAMES)], capture_output=True,
+                                text=True, timeout=600)
+        expected = {int(m[1]): int(m[2]) for m in HEADLESS.finditer(native.stdout)}
+        ticks = {int(m[1]): int(m[2]) for m in UNIT.finditer(text)}
+        self.assertEqual(len(expected), FRAMES)
+        for unit, value in expected.items():
+            self.assertEqual(ticks[unit], value, f"unit {unit}")
+
     # --- T18: states, rewind and runahead in the real frontend -------------------------------------------------------------------------------------
 
     def expected_ticks(self, units):

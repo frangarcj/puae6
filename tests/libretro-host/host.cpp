@@ -2,7 +2,7 @@
 // the libretro contract asks of a core on every retro_run: the input is polled once, exactly one picture is shown, audio arrives as
 // whole stereo frames, and the serialization size does not grow. Everything optional can be refused.
 //   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--refuse-av-info] [--bad-format]
-//                    [--no-rgb565] [--no-led] [--dump-pictures DIR [--dump-from RUN]] [--dump-audio DIR]
+//                    [--no-rgb565] [--no-led] [--no-memory-map] [--no-achievements] [--dump-pictures DIR [--dump-from RUN]] [--dump-audio DIR]
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
 //                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
@@ -25,6 +25,8 @@
 // is the same call between two runs, as a menu does. The core's debug log shows the packet each run sent, "ports=... keys=...".
 // Sticks (T31d): --analog PORT:X,Y holds the left stick, --analog-right PORT:X,Y the right one, --stick-at POSITION:PORT:INDEX:X,Y moves a stick (INDEX 0 left, 1 right) from POSITION on.
 // ACTION, executed after visible run RUN (0 is before the first run): save:SLOT, load:SLOT[:VARIANT], savefile:PATH, loadfile:PATH[:VARIANT], reset,
+// memory (T75: print retro_get_memory_data/size of SYSTEM_RAM and a hash of every descriptor's bytes, and check that SYSTEM_RAM is the pointer and length of the descriptor
+// named CHIP), peek:ADDR:LEN (read LEN bytes of the emulated address ADDR through the map, as a frontend does), poke:ADDR:HEXBYTES (write them),
 // images (print the Disk Control view: count, index, eject), file:PATH (print whether the file exists, its size and a hash), disk:COMMAND (a Disk Control call between two runs, see COMMAND below).
 // A saved blob is the whole serialize_size bytes, prefilled with 0xA5 so that bytes the core does not write are noticed. VARIANT is a list of edits made to a
 // copy of the blob before it is handed to retro_unserialize: size=D (blob size = serialize_size + D, a longer one is filled with fill=), usedsize=D (relative to
@@ -48,11 +50,16 @@
 //   options api=A count=N categories=C / category KEY / option KEY default=D values=A|B|... [category=C] desc=TEXT
 //   av-set RUN base=WxH max=WxH aspect=A fps=F rate=R   (SET_SYSTEM_AV_INFO: the core announced another rate during run RUN, T23f)
 //   set RUN KEY=VALUE / geometry WxH aspect=A / av-after RUN base=... (the av line again, after the run that followed a --set-at)
+//   memory-map N count=C / memory-desc I name=NAME start=A len=L select=S disconnect=D flags=F ptr=P   (SET_MEMORY_MAPS, T75: the Nth announcement and its descriptors)
+//   achievements 1                                  (SET_SUPPORT_ACHIEVEMENTS)
+//   memory system_ram ptr=P size=N / memory hash NAME=H... / memory-check ok=1 (actions "memory", see below)
+//   peek ADDR LEN HEX / poke ADDR N                 (an emulated address resolved through the announced map; "unmapped" when no descriptor holds it)
 //   cycle C end ... / final ...
 // Exit code: 0 ok, 1 a contract violation (printed as VIOLATION), 2 the core could not be loaded, 3 retro_load_game refused.
 #include "libretro.h"
 
 #include <algorithm>
+#include <ctype.h>
 #include <dlfcn.h>
 #include <inttypes.h>
 #include <stdarg.h>
@@ -69,6 +76,8 @@ namespace {
 struct Options {
     int runs = 10, cycles = 1;
     bool no_led = false;                                        // --no-led: a frontend without the LED interface
+    bool no_achievements = false;                               // --no-achievements: a frontend that does not take SET_SUPPORT_ACHIEVEMENTS
+    bool no_memory_map = false;                                 // --no-memory-map: a frontend that does not take SET_MEMORY_MAPS
     bool reject_optional = false, no_log = false, no_dupe = false, bad_format = false, reenter = false, refuse_av_info = false, no_rgb565 = false;
     std::string dump_dir;                                       // --dump-pictures: every picture shown, to a file
     std::string dump_audio_dir;                                 // --dump-audio: the audio of every visible run, to a file
@@ -201,6 +210,24 @@ struct Registered {
 };
 std::map<std::string, Registered> registered;
 bool variable_update = false;
+
+// The memory map the core announced last (T75), as a frontend keeps it: the descriptors are copied, the pointers are the core's.
+struct MapEntry {
+    uint64_t flags;
+    void *ptr;
+    size_t offset, start, select, disconnect, len;
+    std::string name;
+};
+std::vector<MapEntry> memory_map;
+int map_announcements = 0;
+
+// A pointer is printed as a number of its own ("p1", "p2", ... in the order they first appear): equal pointers print equal, and two processes print the same text.
+std::string pointer_id(const void *pointer)
+{
+    static std::map<const void *, int> seen;
+    if (!pointer) return "null";
+    return "p" + std::to_string(seen.emplace(pointer, int(seen.size()) + 1).first->second);
+}
 
 void violation(const char *format, ...)
 {
@@ -508,6 +535,34 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         printf("input descriptors count=%d ports=%d\n", count, ports_seen);
         return true;
     }
+    case RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS:
+        if (options.reject_optional || options.no_achievements) return false;
+        printf("achievements %d\n", int(*static_cast<bool *>(data)));
+        return true;
+    case RETRO_ENVIRONMENT_SET_MEMORY_MAPS: {
+        if (options.reject_optional || options.no_memory_map) return false;
+        const retro_memory_map *map = static_cast<const retro_memory_map *>(data);
+        ++map_announcements;
+        memory_map.clear();
+        printf("memory-map %d count=%u\n", map_announcements, map->num_descriptors);
+        for (unsigned i = 0; i < map->num_descriptors; ++i) {
+            const retro_memory_descriptor &d = map->descriptors[i];
+            const std::string name = d.addrspace ? d.addrspace : "";
+            // What libretro asks of a descriptor: a name of at most 8 characters of [a-zA-Z0-9_-], a pointer for memory that exists, a start whose bits are in select,
+            // and a length that is a power of two when select is zero.
+            bool valid_name = name.size() <= 8;
+            for (char c : name) valid_name = valid_name && (isalnum((unsigned char)c) || c == '_' || c == '-');
+            if (!valid_name) violation("memory descriptor %u: the name '%s' is not allowed", i, name.c_str());
+            if (!d.ptr) violation("memory descriptor %u (%s) has no pointer", i, name.c_str());
+            if (!d.len) violation("memory descriptor %u (%s) has no length", i, name.c_str());
+            if ((d.start & ~d.select) && d.select) violation("memory descriptor %u (%s): start has bits that select does not", i, name.c_str());
+            if (!d.select && (d.len & (d.len - 1))) violation("memory descriptor %u (%s): select is 0 and the length is not a power of two", i, name.c_str());
+            memory_map.push_back({d.flags, d.ptr, d.offset, d.start, d.select, d.disconnect, d.len, name});
+            printf("memory-desc %u name=%s start=0x%zx len=0x%zx select=0x%zx disconnect=0x%zx flags=0x%" PRIx64 " ptr=%s\n", i, name.c_str(), d.start, d.len, d.select,
+                   d.disconnect, d.flags, pointer_id(d.ptr).c_str());
+        }
+        return true;
+    }
     case RETRO_ENVIRONMENT_SHUTDOWN:
         shutdown_requested = true;
         return true;
@@ -731,6 +786,73 @@ bool load_blob(const std::string &name, std::vector<uint8_t> blob, const std::st
     return ok;
 }
 
+// --- the memory a frontend reaches through the core (T75) ---
+
+// The descriptor that holds the emulated address, by libretro's rule (the first one in the order of the map; select 0: start and len are the whole mapping), and the offset in it.
+const MapEntry *resolve(size_t address, size_t *offset)
+{
+    for (const MapEntry &d : memory_map) {
+        const size_t masked = address & ~d.disconnect;
+        const bool inside = d.select ? (masked & d.select) == (d.start & d.select) && masked - d.start < d.len && masked >= d.start
+                                     : masked >= d.start && masked - d.start < d.len;
+        if (!inside) continue;
+        *offset = masked - d.start;
+        return &d;
+    }
+    return nullptr;
+}
+
+void memory_report()
+{
+    void *ram = core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+    const size_t size = core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM);
+    printf("memory system_ram ptr=%s size=%zu announcements=%d\n", pointer_id(ram).c_str(), size, map_announcements);
+    printf("memory hash");
+    for (const MapEntry &d : memory_map) printf(" %s=%016" PRIx64, d.name.c_str(), fnv(kFnvBasis, static_cast<const uint8_t *>(d.ptr) + d.offset, d.len));
+    printf("\n");
+    bool ok = true;
+    if (core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM + 1) || core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM + 1)) {
+        violation("a memory type other than SYSTEM_RAM answered");
+        ok = false;
+    }
+    if (!memory_map.empty()) {
+        const MapEntry &chip = memory_map[0];
+        if (chip.name != "CHIP" || chip.ptr != ram || chip.len != size) {
+            violation("SYSTEM_RAM (%p, %zu) is not the first descriptor (%s %p, %zu)", ram, size, chip.name.c_str(), chip.ptr, chip.len);
+            ok = false;
+        }
+    }
+    printf("memory-check ok=%d\n", int(ok));
+}
+
+void memory_access(bool write, const std::string &address_text, const std::string &argument)
+{
+    const size_t address = size_t(strtoull(address_text.c_str(), nullptr, 0));
+    size_t length = write ? argument.size() / 2 : size_t(strtoull(argument.c_str(), nullptr, 0));
+    std::vector<uint8_t> bytes(length);
+    if (write)
+        for (size_t i = 0; i < length; ++i) bytes[i] = uint8_t(strtoul(argument.substr(i * 2, 2).c_str(), nullptr, 16));
+    size_t done_bytes = 0;
+    std::string hex;
+    for (size_t i = 0; i < length; ++i) {
+        size_t offset = 0;
+        const MapEntry *d = resolve(address + i, &offset);
+        if (!d) break;
+        uint8_t *byte = static_cast<uint8_t *>(d->ptr) + d->offset + offset;
+        if (write) {
+            if (d->flags & RETRO_MEMDESC_CONST) break;      // a frontend does not write memory that is declared constant
+            *byte = bytes[i];
+        } else {
+            char text[3];
+            snprintf(text, sizeof text, "%02x", *byte);
+            hex += text;
+        }
+        ++done_bytes;
+    }
+    if (write) printf("poke 0x%zx %zu\n", address, done_bytes);
+    else printf("peek 0x%zx %zu %s\n", address, done_bytes, done_bytes ? hex.c_str() : "unmapped");
+}
+
 void do_action(const std::string &text)
 {
     const std::vector<std::string> parts = split(text, ':');
@@ -799,6 +921,10 @@ void do_action(const std::string &text)
         const unsigned port = unsigned(atoi(argument.c_str())), device = unsigned(atoi(variant.c_str()));
         core.set_controller_port_device(port, device);
         printf("state device port=%u device=%u\n", port, device);
+    } else if (command == "memory") {
+        memory_report();
+    } else if (command == "peek" || command == "poke") {
+        memory_access(command == "poke", argument, variant);
     } else if (command == "images") {
         printf("state images count=%u index=%u eject=%d\n", disk_registered ? disk.get_num_images() : 0, disk_registered ? disk.get_image_index() : 0,
                int(disk_registered && disk.get_eject_state()));
@@ -860,6 +986,9 @@ void make_run(int at, bool speculative)
         printf("av-after %d base=%ux%u max=%ux%u aspect=%.6f fps=%.6f rate=%.0f region=%u\n", run_number, after.geometry.base_width, after.geometry.base_height,
                after.geometry.max_width, after.geometry.max_height, double(after.geometry.aspect_ratio), after.timing.fps, after.timing.sample_rate, core.get_region());
     }
+    // T75: what the core hands out as SYSTEM_RAM is the pointer it announced, in every run (a frontend keeps it).
+    if (!memory_map.empty() && (core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM) != memory_map[0].ptr || core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM) != memory_map[0].len))
+        violation("SYSTEM_RAM is not the announced CHIP descriptor");
     if (run.videos != 1) violation("%d pictures were shown (exactly one is required)", run.videos);
     if (run.polls != 1) violation("the input was polled %d times (once is required)", run.polls);
     if (core.serialize_size() != state_size) violation("the serialization size changed from %zu to %zu", state_size, core.serialize_size());
@@ -922,6 +1051,8 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--bad-format")) options.bad_format = true;
         else if (!strcmp(a, "--no-rgb565")) options.no_rgb565 = true;
         else if (!strcmp(a, "--no-led")) options.no_led = true;
+        else if (!strcmp(a, "--no-memory-map")) options.no_memory_map = true;
+        else if (!strcmp(a, "--no-achievements")) options.no_achievements = true;
         else if (!strcmp(a, "--dump-pictures")) options.dump_dir = next();
         else if (!strcmp(a, "--dump-audio")) options.dump_audio_dir = next();
         else if (!strcmp(a, "--dump-from")) options.dump_from = atoi(next());

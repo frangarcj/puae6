@@ -13398,7 +13398,7 @@
       "title": "Memory maps, RETRO_MEMORY_SYSTEM_RAM y SUPPORT_ACHIEVEMENTS (RetroAchievements)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T49"
       ],

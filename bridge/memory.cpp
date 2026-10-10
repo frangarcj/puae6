@@ -2,7 +2,8 @@
 //
 // The regions are views of what the engine allocated, in the engine's own order (the 68000's, big endian), not copies: the
 // host reads and writes the very bytes the CPU sees. The pointers are resolved at every call, never cached: the engine
-// allocates and frees its RAM in memory_reset(), so a pointer kept across a reset could be left dangling.
+// allocates and frees its RAM in memory_reset(), so a pointer kept across a reset could be left dangling. (T75 measured that the buffers do not move while the
+// configuration is the same: the libretro adapter keeps them but asks again after every reset, state load and unit and tells its frontend if one differs.)
 #include "error_util.h"
 #include "session.h"
 
