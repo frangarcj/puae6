@@ -11091,14 +11091,19 @@
         "tests/waterbox-media/**",
         "manifests/waterbox-memory.json",
         "tests/ffi/**",
-        "docs/03-waterbox.md"
+        "docs/03-waterbox.md",
+        "adapters/waterbox/**",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "integration/bizhawk/smoke/**"
       ],
       "steps": [
         "Colocar overlay/metadata en memoria capturada; mantener base en readonly y lista de medios predefinida al seal.",
         "Definir export/import acotado de persistencia sin mapear todo HDF como SaveRAM automaticamente.",
         "Reproducir WB10 con writes, ramas, seek y restore en sandbox nuevo; comprobar que el archivo durable no cambia.",
         "Medir crecimiento de snapshots/heaps ante escrituras adversarias y probar agotamiento.",
-        "Ampliacion de touch (2026-10-10): el DSL de sesiones del arnes gestionado vive en tests/ffi (Session.cs) y WB10 necesita verbos de escritura/export; docs/03-waterbox.md lleva el estado T27c/T28 que hay que cerrar."
+        "Ampliacion de touch (2026-10-10): el DSL de sesiones del arnes gestionado vive en tests/ffi (Session.cs) y WB10 necesita verbos de escritura/export; docs/03-waterbox.md lleva el estado T27c/T28 que hay que cerrar.",
+        "Ampliacion de touch (2026-10-10, segunda): el guest real vive en adapters/waterbox (p6w.h, puae6_guest.cpp, layout P6W_LAYOUT_VALUES), no en ports/waterbox (solo Makefile e imports.json), como ya tenian T21 y T49c; el layout lo comprueban tests/waterbox-smoke, tests/waterbox-state e integration/bizhawk/smoke/Puae6.cs."
       ],
       "checks": [
         "WB10",
