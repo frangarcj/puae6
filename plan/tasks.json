@@ -10940,6 +10940,44 @@
       "evidence": null
     },
     {
+      "id": "T25a",
+      "title": "GCC enlaza sin el toolchain de la matriz y DET04/DET06 registrados en tools/check.py",
+      "milestone": "M2",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T25"
+      ],
+      "read": [
+        "reports/platform-matrix.md",
+        "cmake/toolchains/linux-gcc.cmake",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "CMakeLists.txt",
+        "cmake/**",
+        "tools/check.py",
+        "tests/portability/**",
+        "ports/portable/media/overlay.h",
+        "reports/platform-matrix.md"
+      ],
+      "steps": [
+        "T25 encontro que GCC -O0 no enlaza: funciones static sin llamadas (expamem_map_uaeboard, add_rtarea_pointer, *_ce030_cicheck, read_processor_time) referencian rtarea_bank, mmu030_cache_state, uae_time() y otros simbolos de modulos excluidos del perfil; Clang las descarta y GCC no. Solo cmake/toolchains/linux-gcc.cmake lo rodea (-ffunction-sections -fdata-sections -Wl,--gc-sections). Decidir en CMakeLists.txt: el mismo tratamiento de secciones para todos los compiladores (comprobando que los hashes de la matriz no cambian) o definiciones de error claro (nunca stubs de exito) para esos simbolos; comprobar si GCC -O2 sin las banderas enlaza.",
+        "Registrar en tools/check.py ('DET04','T25') y ('DET06','T25') apuntando a tests.portability.test_portability (opt-in P6_TEST_PORTABILITY=1 para las filas Docker).",
+        "static_assert de alineacion en las vistas de ports/portable/media/overlay.h (propuesta de la auditoria de T25)."
+      ],
+      "checks": [
+        "BUILD01",
+        "DET04",
+        "DET06"
+      ],
+      "acceptance": [
+        "Un build GCC Debug con el CMakeLists.txt por defecto (sin toolchain de la matriz) enlaza, y la matriz vuelve a dar 89/89 hashes iguales en las 5 filas."
+      ],
+      "stop": "No cambiar flags de CPU ni hashes golden.",
+      "evidence": null
+    },
+    {
       "id": "T27a",
       "title": "Overlay de escritura de disquetes (sectores + pistas crudas), estado nativo, export y MED02",
       "milestone": "M3",
@@ -11807,7 +11845,8 @@
         "T25",
         "T26",
         "T32",
-        "T33"
+        "T33",
+        "T25a"
       ],
       "read": [
         "docs/04-validation.md",
