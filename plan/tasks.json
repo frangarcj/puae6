@@ -11693,7 +11693,7 @@
       "title": "Añadir UX libretro sin contaminar la emulacion",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17",
         "T18",
@@ -11720,7 +11720,8 @@
         "adapters/libretro/**",
         "tests/libretro-host/**",
         "config/schema/**",
-        "tests/config/**"
+        "tests/config/**",
+        "cmake/Libretro.cmake"
       ],
       "steps": [
         "Inventariar UX util del PUAE fijado y seleccionar teclado virtual, crop, indicadores y mapping sin copiar motor antiguo.",
@@ -11730,7 +11731,8 @@
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): T31 cubre vkbd, statusbar/LED/OSD, crop/zoom/posicion/aspecto/gamma/RGB565 y la entrada del adaptador (mapper de RetroPad, turbo fire, analog-stick-mouse, D-Pad mouse). Dividir al ejecutar en T31a vkbd, T31b OSD/statusbar, T31c presentacion de video, T31d mapper/turbo/raton analogico; nada de eso cambia la maquina.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: LEDCallback de bizhawk.c y UAE.IDriveLight.cs para el LED de disquetera; la correccion del raton por stick analogico de libretro-uae (commits 106b98d5, 237ca4a9).",
         "Cierre (2026-10-10): T31 queda como cierre de T31a-T31d; posee el importador .uae allowlist (paso 3), docs/options.md y los checks LR01/IN01/DET05/FUZZ01 sobre el conjunto.",
-        "Ampliacion de touch (2026-10-10): cargar un .uae como contenido pasa por libretro_core.cpp/content.h y sus claves se traducen al esquema comun, asi que el cierre necesita adapters/libretro/**, config/schema/** y sus tests."
+        "Ampliacion de touch (2026-10-10): cargar un .uae como contenido pasa por libretro_core.cpp/content.h y sus claves se traducen al esquema comun, asi que el cierre necesita adapters/libretro/**, config/schema/** y sus tests.",
+        "Ampliacion de touch (2026-10-10, segunda): config_import.cpp es una unidad de compilacion propia del core, asi que el cierre necesita cmake/Libretro.cmake (una linea: el fuente nuevo en puae6_libretro); sin ello el importador no se enlaza."
       ],
       "checks": [
         "LR01",

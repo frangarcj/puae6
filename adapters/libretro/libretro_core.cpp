@@ -39,12 +39,16 @@
 // Statusbar and LED (T31b): a bar over the top or bottom of the picture copy shows the drive LED, the two ports and the pad's mode, and the messages of the actions;
 // the frontend's LED interface, if it has one, gets the drive light too. Both are outputs read from the unit just run and the input memory (statusbar.h).
 //
+// Configuration file (T31 closure): a .uae as content is read through config_import.h, which keeps an allowlist of its keys, translates them to the schema's reboot
+// options (laid over the frontend's) and takes its disks as the playlist; anything else in the file fails the load with the key and the line.
+//
 // Mapper (T31d): player 1's RetroPad can be remapped, auto-fire, drive the mouse by D-Pad or analog stick, and a few hotkeys run actions of the core; all of it is
 // a function of what the frontend reports and of the input memory (mapper.h), turned into the same p6_input packet before p6_run_frame.
 //
 // What this adapter does not do yet (see docs/02-contracts.md and the plan): any memory region. IPF, FDI and the other floppy formats are refused with a message (container.h).
 #include "libretro.h"
 #include "p6.h"
+#include "config_import.h"
 #include "container.h"
 #include "content.h"
 #include "disk_control.h"
@@ -581,9 +585,43 @@ void save_floppy_changes()
     (void)lost;
 }
 
+// Reads the .uae the content is and lays its keys over `settings` (the frontend's options): `disks` are the ones it names. Returns false after saying why, with
+// every problem of the file (up to a bound) in the log and the first ones on screen.
+bool import_configuration(const retro_game_info *game, p6_options::Settings *settings, std::vector<p6_libretro::PlaylistEntry> *disks)
+{
+    using namespace p6_libretro;
+    const std::string content = game->path;
+    std::vector<uint8_t> bytes;
+    const ReadResult read = core.files.read(content, kMaxUaeBytes, &bytes);
+    if (read != ReadResult::Ok) {
+        notify_error("the configuration %s cannot be loaded: %s", content.c_str(), describe(read));
+        return false;
+    }
+    UaeImport imported;
+    const bool ok = import_uae(bytes, directory_of(content), *settings, P6_MAX_MEDIA, &imported);
+    for (const UaeReport &report : imported.warnings) log(RETRO_LOG_WARN, "%s %s", content.c_str(), describe_report(report).c_str());
+    if (imported.warnings_omitted) log(RETRO_LOG_WARN, "%s: %zu more ignored keys", content.c_str(), imported.warnings_omitted);
+    if (!ok) {
+        for (const UaeReport &report : imported.errors) log(RETRO_LOG_ERROR, "%s %s", content.c_str(), describe_report(report).c_str());
+        if (imported.errors_omitted) log(RETRO_LOG_ERROR, "%s: %zu more problems", content.c_str(), imported.errors_omitted);
+        const size_t shown = std::min<size_t>(imported.errors.size(), 3);
+        std::string first;
+        for (size_t i = 0; i < shown; ++i) first += (i ? "; " : "") + describe_report(imported.errors[i]);
+        notify_error("the configuration %s is refused (%zu problem(s)): %s", content.c_str(), imported.errors.size() + imported.errors_omitted, first.c_str());
+        return false;
+    }
+    for (const std::string &line : imported.applied) log(RETRO_LOG_INFO, "%s: %s", content.c_str(), line.c_str());
+    if (!imported.warnings.empty())
+        notify_warning("%zu key(s) of %s were ignored (they do not change the machine; see the log)", imported.warnings.size() + imported.warnings_omitted, content.c_str());
+    *settings = imported.settings;
+    *disks = std::move(imported.disks);
+    return true;
+}
+
 // The disks the content names, read through the VFS or stdio, with the distinct ones in `media` (the manifest) and one image per playlist
 // entry. Returns false after saying why (nothing is half-loaded: the caller drops what was filled).
-bool load_disks(const retro_game_info *game, std::vector<Medium> *media, std::vector<p6_libretro::Image> *images)
+bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::PlaylistEntry> *configured, std::vector<Medium> *media,
+                std::vector<p6_libretro::Image> *images)
 {
     using namespace p6_libretro;
     if (!game) return true;                       // no content: the Kickstart boots alone (SET_SUPPORT_NO_GAME)
@@ -593,7 +631,9 @@ bool load_disks(const retro_game_info *game, std::vector<Medium> *media, std::ve
     }
     const std::string content = game->path;
     std::vector<PlaylistEntry> entries;
-    if (has_extension(content, "m3u")) {
+    if (configured) {                             // a .uae: the disks it names, already checked and resolved by the importer
+        entries = *configured;
+    } else if (has_extension(content, "m3u")) {
         std::vector<uint8_t> text;
         const ReadResult read = core.files.read(content, kMaxPlaylistBytes, &text);
         if (read != ReadResult::Ok) {
@@ -1102,7 +1142,7 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "adf|adz|dms|zip|m3u";
+    info->valid_extensions = "adf|adz|dms|zip|m3u|uae";
     info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
     info->block_extract = true;           // a zip is read by the core, in memory: the frontend must not extract it to a temporary directory
 }
@@ -1312,13 +1352,20 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     core.can_dupe = environment_cb(RETRO_ENVIRONMENT_GET_CAN_DUPE, &can_dupe) && can_dupe;
     bool updated = false;
     environment_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated);       // clears the flag: what was just read is what is in force
-    core.settings = core.requested = chosen;
+    // A .uae as content lays its keys over the frontend's options (config_import.h): `core.requested` stays what the frontend holds, so that only a change in
+    // the menu is reported later, and `core.settings` is what the machine runs with.
+    p6_options::Settings effective = chosen;
+    std::vector<p6_libretro::PlaylistEntry> configured_disks;
+    const bool configured = game && game->path && p6_libretro::has_extension(game->path, "uae");
+    if (configured && !import_configuration(game, &effective, &configured_disks)) return false;
+    core.settings = effective;
+    core.requested = chosen;
     core.input = p6_libretro::InputMemory();
     core.input.dpad_mouse = chosen.joyport == 1;
     core.input.statusbar_shown = chosen.statusbar_startup == 1;       // the bar starts up as the option says; the hotkey or the mapped button flips it from there        // the pad starts as the joystick or as the mouse; the mapper's toggle flips it from there
     try {
         std::vector<p6_libretro::Image> images;
-        if (!load_disks(game, &core.media, &images)) {
+        if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images)) {
             stop_image();
             return false;
         }

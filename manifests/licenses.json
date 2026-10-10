@@ -246,6 +246,24 @@
       "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
     },
     {
+      "id": "puae-adapter-config-import",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/config_import.h",
+        "adapters/libretro/config_import.cpp"
+      ],
+      "handling": "T31 closure: that a .uae can be the content of the core (PUAE5, core.c) is the idea; the importer is written for PUAE6 as an allowlist over the common option schema. The key names and the units of the memory sizes (chipmem_size in 512 KiB, bogomem_size in 256 KiB, fastmem_size in MiB, chipset_compatible spellings) are the file format of WinUAE's cfgfile.cpp (pinned upstream, GPL-2.0, the engine's own licence) used as a specification; no line of cfgfile.cpp, libretro-uae or PUAE is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae or WinUAE source file is copied by the importer"
+    },
+    {
       "id": "puae-libchdr",
       "source_id": "puae_libretro_reference",
       "scope": "embedded_dependency_in_reference",

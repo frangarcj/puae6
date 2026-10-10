@@ -8,7 +8,7 @@ set(_libretro_include "${CMAKE_CURRENT_SOURCE_DIR}/references/libretro-api/inclu
 string(SUBSTRING "${_upstream_commit}" 0 12 _upstream_short)
 set(_libretro_version "0.1.0-winuae-${_upstream_short}-p${_patch_count}")
 
-add_library(puae6_libretro SHARED adapters/libretro/libretro_core.cpp $<TARGET_OBJECTS:p6_engine>)
+add_library(puae6_libretro SHARED adapters/libretro/libretro_core.cpp adapters/libretro/config_import.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(puae6_libretro p6_codegen)
 # The portable SHA-256 is included as "sha256.h", like the bridge does; options_generated.h (tools/generate_options.py) sits next to the sources.
 target_include_directories(puae6_libretro PRIVATE "${_libretro_include}" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media")

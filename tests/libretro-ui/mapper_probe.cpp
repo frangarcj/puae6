@@ -333,9 +333,42 @@ static void messages_and_statusbar()
     }
 }
 
+// T31 closure: the adapter's own defaults are the schema's. Settings starts at the value the schema gives each option (the generated table says which), and the input
+// configuration made from those defaults is the one a default-constructed InputConfig is, apart from the two things the schema turns on (Select opens the virtual
+// keyboard, F12 shows the statusbar): the core with no menu touched is the RetroPad as a joystick, nothing drawn.
+static void schema_defaults()
+{
+    Settings settings;
+    for (const Option &option : kOptions)
+        CHECK(settings.*option.field == option.values[option.default_index].number);
+    const InputConfig made = input_config(settings), plain;
+    for (unsigned i = 0; i < kMapperInputs; ++i)
+        CHECK(made.mapper[i] == plain.mapper[i] || (made.mapper[i] == settings.mapper_select && settings.mapper_select != 0 && i == 2));
+    unsigned mapped = 0;
+    for (unsigned i = 0; i < kMapperInputs; ++i) mapped += made.mapper[i] != 0;
+    CHECK(mapped == 1);                               // Select -> toggle_vkbd, nothing else
+    unsigned hot = 0;
+    for (unsigned i = 0; i < kHotkeyCount; ++i) hot += made.hotkey_code[i] != 0;
+    CHECK(hot == 1 && made.hotkey_code[5] == settings.hotkey_statusbar && settings.hotkey_statusbar != 0);
+    CHECK(made.analog_mouse == plain.analog_mouse && made.deadzone == plain.deadzone && made.speed_tenths[0] == plain.speed_tenths[0] &&
+          made.speed_tenths[1] == plain.speed_tenths[1] && made.dpad_speed == plain.dpad_speed && made.mouse_speed == plain.mouse_speed &&
+          made.turbo == plain.turbo && made.turbo_input == plain.turbo_input && made.pulse == plain.pulse && made.face == plain.face &&
+          made.crop_on == plain.crop_on);
+    // The presentation defaults leave the picture as the engine made it and draw nothing.
+    CHECK(settings.video_crop == 0 && settings.video_aspect == 0 && settings.video_gamma == 5 && settings.video_color_depth == 0);
+    CHECK(settings.statusbar_startup == 0 && settings.statusbar_messages == 0 && settings.joyport == 0 && settings.turbo_fire == 0);
+    // The machine defaults are the ABI's defaults: p6_config from the default settings is the A500, PAL, 48 kHz, the machine's own memory, no FPU, read-only disks.
+    p6_config config = {};
+    to_config(settings, &config);
+    CHECK(config.machine == P6_MACHINE_A500 && config.video_standard == P6_VIDEO_PAL && config.audio_rate_hz == 48000 && config.chip_kib == 0 &&
+          config.slow_kib == 0 && config.fast_kib == 0 && config.fpu_model == 0 && config.flags == 0 && config.random_seed == 1 &&
+          config.rtc_epoch_seconds == 946684800);
+}
+
 int main()
 {
     defaults();
+    schema_defaults();
     face_options();
     targets();
     actions_and_edges();

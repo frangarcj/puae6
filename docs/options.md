@@ -122,3 +122,113 @@ bloque principal, cursores y teclado numerico (96 teclas, todas las de `input_ma
 
 Fuera de T31a: el color del puntero de lightpen/lightgun y la tecla SVDS (save disk) de PUAE5 (necesitan P21 y P12), y las teclas "J/M" del vkbd de PUAE5 (el cambio joystick/raton esta en el
 mapper: `toggle_mouse`).
+
+## Importador `.uae` (cierre de T31) — contenido `.uae`
+
+Implementado en `adapters/libretro/config_import.h/.cpp` (analizador y traduccion, sin motor ni ABI) y en `libretro_core.cpp` (lectura por la VFS y aplicacion). Comprobado con
+`tests/libretro-ui/uae_probe.cpp` (C++ con ASan/UBSan sobre ficheros sinteticos, incluida una mutacion con semilla) y `test_uae.py` (el core completo con el frontend minimo).
+
+PUAE5 acepta cualquier `.uae` como contenido (`core.c:7125-7260`) y por eso puede arrancar una maquina para la que este proyecto no tiene perfil. Aqui un `.uae` es una **lista de claves
+del esquema comun** mas **rutas de disquete**: el importador lee una *allowlist* y nunca devuelve un exito que ignore algo que cambiaria la maquina. La opcion `uae_config_file` sigue
+en `unsupported` del esquema (no es una clave de `p6_config`: ni headless ni el wrapper de BizHawk importan `.uae`); la extension `uae` solo la anuncia el core libretro.
+
+### Politica
+
+* **Se acepta y se traduce** lo que el esquema tiene (modelo, memoria, FPU, estandar de video, frecuencia de audio, proteccion de escritura) y los discos.
+* **Se comprueba** lo que solo describe la maquina que el perfil ya es (chipset, CPU, ciclo exacto, numero de unidades): un valor que no coincide **se rechaza**, uno que coincide no hace nada.
+* **Aviso** (el fichero carga): claves de ventana/entrada del anfitrion (`gfx_*`, `win32.*`, `input.*`, `joyport*`, `mouse_*`, ...). No cambian la maquina; el core registra una linea por clave y un
+  mensaje en pantalla con su numero. Los metadatos (`config_*`) se aceptan sin aviso.
+* **Se rechaza** lo que cambia la maquina y no cabe en el esquema (directorios y discos duros del anfitrion, CD, Kickstart por ruta, SCSI, RTG, JIT, placas, redes, rutas absolutas) **y toda clave
+  desconocida**: no se puede saber que una clave desconocida deje la maquina como esta, y un `.uae` con una clave ignorada en silencio es como dos sesiones divergen. La carga falla con la clave y la linea
+  (`line 12 (filesystem2): not supported: ...`); el log lleva **todos** los problemas (hasta 32; el resto se cuenta) y la pantalla los tres primeros.
+* Una clave de ruta (`filesystem*`, `hardfile*`, `uaehf*`, `cdimage*`, `kickstart*`, `cart*`, `flash_file`) **sin valor** no monta nada y no se rechaza.
+* Las claves, los valores booleanos (`true/false/yes/no`) y los valores de las claves de WinUAE no distinguen mayusculas; los nombres de valor de las claves nativas `puae6_*` (`MB4`, `A1200`) van tal cual los del menu.
+
+### Precedencia (determinista)
+
+De menor a mayor: **1.** defaults del esquema; **2.** opciones del frontend (su `puae6_preset` ya expandido sobre modelo y memoria, como hace `read_options`); **3.** el preset que nombre el fichero
+(`puae6_preset=`); **4.** las claves del fichero. El orden de las lineas no importa; dos claves que fijan la misma opcion (`chipset_compatible` y `puae6_machine`, o una clave repetida) se rechazan,
+porque ganaria la que apareciese despues. Una opcion que el fichero no nombra conserva el valor del frontend. **Las opciones de presentacion, entrada y OSD nunca se leen del `.uae`** (las del
+menu, `puae6_video_*`, `puae6_mapper_*`, ... se rechazan con ese motivo): el fichero solo escribe las opciones `reboot` del hash de configuracion. Si el fichero no nombra maquina, preset ni
+`chipset_compatible`, el chipset (`ocs`/`ecs`/`aga`) fija el modelo (A500/A600/A1200); sin ninguno de ellos manda el modelo del frontend y `cpu_model`/`chipset` se comprueban contra el.
+Para el aviso "cambia en el menu" (`refresh_options`) el core compara con lo que el *frontend* tiene, no con lo que impuso el fichero: cambiar solo una opcion de presentacion no avisa de nada.
+
+El resultado es el mismo `p6_config` (y el mismo `config_hash` y estado guardado) que las opciones equivalentes: `test_uae.py` carga el fichero y, en otro proceso, las opciones, y compara
+imagenes, audio y el estado guardado unidad por unidad.
+
+### Texto y limites
+
+`clave=valor` por linea; se recortan espacios y tabuladores alrededor de clave y valor; un par de comillas dobles alrededor del valor se quita; `;` y `#` al principio de linea son comentarios
+(no hay comentarios al final de linea); acepta BOM UTF-8 y fines de linea LF, CRLF y CR. Sin `include`, sin variables de entorno ni `$(...)` (una ruta con ellas se rechaza), sin plugins ni shell.
+
+| Limite | Valor |
+|---|---|
+| Tamano del fichero | 128 KiB (`kMaxUaeBytes`; la lectura nunca guarda mas de 128 KiB + 1) |
+| Longitud de una linea | 4096 bytes |
+| Lineas | 4096 |
+| Problemas y avisos conservados | 32 de cada (el resto se cuenta) |
+| Discos | los de `P6_MAX_MEDIA` (16) |
+| Caracteres | sin NUL ni controles (salvo tabulador); claves con letras, digitos, `_`, `.`, `-` |
+
+Las rutas de disco son **relativas a la carpeta del `.uae`**, se pasan tal cual a la VFS (el adaptador no normaliza, como con un `.m3u`; una barra invertida no se convierte) y se rechazan si son
+absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o tienen un componente `..`. Los discos que nombra el fichero son la lista de Disk Control en este orden: `floppy0`, luego
+`diskimage0` ... `diskimage15` por numero (la lista de intercambio de WinUAE; el que repite el archivo de `floppy0` no se anade otra vez). Sin discos, el Kickstart arranca solo.
+
+### Claves aceptadas (traducidas o comprobadas)
+
+| Clave | Que hace |
+|---|---|
+| `chipset_compatible` | `A500`, `A600`, `A1200` -> `puae6_machine`. `-` y `Generic` no nombran maquina. Cualquier otra (`A500+`, `A2000`, `A4000`, `CD32`, ...) se rechaza. |
+| `chipset` | `ocs`/`ecs`/`aga`: si el fichero no nombra maquina la fija (A500/A600/A1200); si la nombra, debe ser la suya. `ecs_agnus`/`ecs_denise` (mixtos) se rechazan. |
+| `cpu_model` | Debe ser el del modelo: `68000` (A500, A600) o `68020` (A1200, el 68EC020). No cambia nada. |
+| `fpu_model` | `0` -> `puae6_fpu_model=None`, `68881`, `68882`. `68040`/`68060` se rechazan. |
+| `chipmem_size` | Unidades de 512 KiB (como WinUAE): `1`=512 KiB, `2`=1 MiB, `4`=2 MiB -> `puae6_chip_size`. `-1` (128 KiB), `0` (256 KiB) y lo que no ofrece el core se rechazan. |
+| `bogomem_size` | Unidades de 256 KiB: `0`=ninguna (`None`), `2`=512 KiB, `4`, `6`, `7` -> `puae6_slow_size`. |
+| `fastmem_size`, `fastmem_size_k` | MiB (o KiB): `0`=ninguna, `1`, `2`, `4`, `8` MiB -> `puae6_fast_size`. |
+| `sound_frequency` | `44100`/`48000` -> `puae6_audio_rate`. |
+| `ntsc` | `true` -> NTSC, `false` -> PAL (`puae6_video_standard`). |
+| `floppy_write_protect` | `true` -> `puae6_floppy_writes=disabled`, `false` -> `enabled`. |
+| `floppy0` | El disco de DF0 (ruta relativa). Vacio = ninguno. |
+| `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
+| `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
+| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). |
+| `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`: preset del esquema, que las demas claves refinan. |
+
+Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada): `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact`, `cycle_exact`, `cpu_compatible` = `true`;
+`cpu_24bit_addressing`, `cpu_address_space_24` = `true`; `cpu_speed` = `real`; `cpu_throttle` = `0`; `cachesize` = `0`; `compfpu` = `false`; `mmu_model` = `0`; `immediate_blits` = `false`;
+`waiting_blits` = `disabled`; `floppy_speed` = `100`; `synchronize_clock`, `bsdsocket_emu`, `scsi` = `false`; `nr_floppies` = `2` (DF0 y DF1 existen siempre); `floppy0type`, `floppy1type` = `0`;
+`floppy2type`, `floppy3type` = `-1`; `floppy0wp`, `floppy1wp`, `floppy2wp`, `floppy3wp` = `false` (la proteccion es un solo interruptor: `floppy_write_protect`). Cualquier otro valor se rechaza con el motivo de la tabla siguiente.
+
+### Claves rechazadas (y por que)
+
+| Clave | Motivo |
+|---|---|
+| `filesystem*`, `hardfile*`, `uaehf*` | Directorios y discos duros del anfitrion no se montan desde una configuracion (el perfil determinista no tiene sistema de ficheros del anfitrion; los discos duros son medios que se le dan al core, T29). |
+| `cdimage*` | No hay unidad de CD. |
+| `kickstart*`, `cart*`, `flash_file` | El Kickstart se busca en el directorio de sistema por los nombres del modelo; nunca por una ruta de la configuracion. |
+| `gfxcard*`, `rtg*`, `picasso96*`, `uaegfx*` | No hay placa RTG. |
+| `comp_*` (y `cachesize`, `compfpu` distintos de 0/`false`) | El perfil determinista no tiene JIT. |
+| `scsi_*`, `scsi=true` | No hay controlador SCSI. |
+| `cpuboard*`, `ppc*`, `a2065*`, `a2091*`, `a4091*`, `catweasel*`, `toccata*`, `x86*`, `uaeboard*`, `serial_*`, `parallel_*`, `midi*`, `sampler*`, `genlock*` | Placas de expansion y dispositivos del anfitrion no forman parte de los perfiles. |
+| `bsdsocket*`, `uaenet*` | Sin red en el perfil determinista. |
+| `pcmcia*` | Sin PCMCIA (el A600 y el A1200 de este core no tienen Gayle). |
+| `include*`, `plugin*`, `shell*`, `exec*`, `script*`, `cmd*`, `command*` | Un `.uae` no incluye otro, ni carga plugins ni ejecuta programas. |
+| `z3mem*`, `z3fastmem*`, `mem25bit*`, `a3000mem*`, `mbresmem*`, `megachipmem*` | Sin RAM Zorro III ni de placa base (bus de 24 bits); solo se acepta `0`. |
+| `fastmem2*`, `fastmem3*`, `fastmem4*` | Una sola placa Fast Zorro II; las demas, solo `0`. |
+| `cpu_*`, `fpu_*`, `cs_*`, `chipset_*`, `blitter_*`, `agnus_*`, `denise_*`, `collision_level`, `rtc`, `sound_*`, `keyboard_*`, `floppy*` (el resto) | Fijados por el perfil de maquina y no son claves del esquema; el importador no puede saber si el fichero coincide, asi que los rechaza. Incluye `cpu_multiplier`, `cpu_frequency`, `sound_filter`, `sound_interpol`. |
+| Cualquier ruta absoluta, `..`, `~`, `$(...)`/`${...}` en un disco | Fuera de la carpeta del `.uae`; el importador no expande nada. |
+| Una opcion de presentacion/entrada/OSD del menu (`puae6_video_crop`, `puae6_mapper_*`, ...) | El fichero solo escribe la maquina. |
+| Lo desconocido | `unknown key`. |
+
+### Avisos (se ignoran, no cambian la maquina)
+
+`gfx_*`, `win32.*`, `use_gui*` (ventana del anfitrion); `input.*`, `joyport*`, `mouse_*`, `magic_mouse*` (la entrada es del core: Input y RetroPad Mapper); `show_leds*`, `leds_on_screen*` (la barra de
+estado es una opcion del core); `kbd_lang*` (la distribucion del teclado es del frontend); `rom_path`, `floppy_path` (no se usan rutas del anfitrion). Metadatos aceptados sin aviso: `config_*`
+(`config_description`, `config_version`, `config_hardware`, `config_host`, ...), `z3mem_start`, `z3mapping`.
+
+### Fuera de alcance (abierto)
+
+* Los `puae_libretro_*.uae` del directorio de sistema (overrides por nucleo/contenido de PUAE5): no se leen. Un override es una segunda fuente de configuracion que cambiaria la maquina sin que el
+  contenido lo diga; si se quisiera, entraria con este mismo importador y una capa mas en la precedencia.
+* `floppy1`-`floppy3` con disco y mas de DF0: dependen de P13 (cuatro unidades, tag MD); `hardfile2`/`uaehf` con HDF, de T29/P15.
+* Un `.uae` no se exporta: el core no escribe configuracion.

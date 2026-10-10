@@ -1620,7 +1620,7 @@
     {"key": "floppy_speed", "why": "Turbo floppy would change the timing of the machine; the profile fixes the real drive speed."},
     {"key": "cpu_speed", "why": "The machine runs at its real clock; the host speed never changes the emulation."},
     {"key": "jit", "why": "The deterministic profile has no JIT."},
-    {"key": "uae_config_file", "why": "A whole .uae file is not imported; only the keys of this schema are accepted."},
+    {"key": "uae_config_file", "why": "A whole .uae file is not a configuration key; only the keys of this schema are accepted here. The libretro core reads one as content through an allowlist that translates its keys to this schema (docs/options.md, Importador .uae)."},
     {"key": "controller_port1", "why": "The device of a port is input, not configuration: the libretro core offers its types with SET_CONTROLLER_INFO and reads the one chosen with retro_set_controller_port_device at every run (T17c), and the wrapper's ControllerPort1 is a per-session choice; it is not a p6_config field and never enters config_hash."},
     {"key": "controller_port2", "why": "As controller_port1 (the wrapper's ControllerPort2)."}
   ]
