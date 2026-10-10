@@ -17,6 +17,7 @@ struct Settings {
     uint32_t chip_size = 0u;  // reboot, p6_config.chip_kib = Auto
     uint32_t slow_size = 0u;  // reboot, p6_config.slow_kib = Auto
     uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = None
+    uint32_t fpu_model = 0u;  // reboot, p6_config.fpu_model = None
     uint32_t audio_rate_hz = 48000u;  // reboot, p6_config.audio_rate_hz = 48000
     uint64_t random_seed = UINT64_C(1);  // reboot, p6_config.random_seed
     int64_t rtc_epoch_seconds = INT64_C(946684800);  // reboot, p6_config.rtc_epoch_seconds
@@ -88,6 +89,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->chip_kib = settings.chip_size;
     config->slow_kib = settings.slow_size;
     config->fast_kib = settings.fast_size;
+    config->fpu_model = settings.fpu_model;
     config->audio_rate_hz = settings.audio_rate_hz;
     config->random_seed = settings.random_seed;
     config->rtc_epoch_seconds = settings.rtc_epoch_seconds;

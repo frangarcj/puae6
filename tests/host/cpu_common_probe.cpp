@@ -68,7 +68,7 @@ static void address_error_frame()
 }
 static void frame_feature_boundary()
 {
- for (int format : {3, 7, 9, 10, 15}) {   // 0xB is the 68020 long bus cycle fault frame without MMU state (T24a)
+ for (int format : {7, 10, 15}) {   // 0xB is the 68020 long bus cycle fault frame without MMU state (T24a); 3 and 9 are the FPU's (T54), below
   reset();
   Exception_build_stack_frame(0x11112222, 0x33334444, 0x55556666, 2, format);
   assert(m68k_areg(regs, 7) == 128 && !write_count);
@@ -80,11 +80,11 @@ static void frame_feature_boundary()
  }
  // Retained formats do not depend on excluded backends. Format 4 is mixed
  // FPU-unimplemented/68060 bus fault; format 8 is a non-MMU 68010 frame.
- for (int format : {0, 1, 2, 4, 8}) {
+ for (int format : {0, 1, 2, 3, 4, 8, 9}) {      // 3 is the post-instruction FPU frame (68040), 9 the coprocessor mid-instruction frame of the 68020 (T54)
   reset(); regs.irc = 0x4e71; regs.mmu_fault_addr = 0xabcdef01;
   regs.read_buffer = 0x1234; regs.write_buffer = 0x5678;
   Exception_build_stack_frame(0x11112222, 0x33334444, 0x55556666, 2, format);
-  unsigned length = format == 8 ? 58 : format == 4 ? 16 : format == 2 ? 12 : 8;
+  unsigned length = format == 8 ? 58 : format == 9 ? 20 : format == 4 ? 16 : (format == 2 || format == 3) ? 12 : 8;
   assert(m68k_areg(regs, 7) == 128 - length);
   check(write_count - 3, 126 - (length - 8), 2, (format << 12) | 8);
   check(write_count - 2, 122 - (length - 8), 4, 0x33334444);
@@ -107,9 +107,10 @@ static void frame_feature_boundary()
   assert(frame[-1] == 0xcc && write_count > 20);
   p6_diagnostic diag{}; assert(p6_diag_read(&diag, 1) == 0);
  }
- // Common dispatcher must retain non-FPU exception routing with no FP state.
+ // Common dispatcher must retain non-FPU exception routing with no FP state. The vectors 48 to 55 are the FPU's since the profile has one (T54, FPUEMU) and take
+ // the coprocessor frame path of upstream; tests/host/test_cpu_fpu.py checks the frames the 68881/68882 pushes on a 68020 from a real program.
  currprefs.cpu_model = 68010;
- for (int nr : {5, 6, 7, 9, 11, 48, 55, 60, 61}) {
+ for (int nr : {5, 6, 7, 9, 11, 60, 61}) {
   reset(); regs.instruction_pc = 0x12345678;
   Exception_build_stack_frame_common(0, 0xabcdef02, 0, nr, nr);
   assert(m68k_areg(regs, 7) == 120 && write_count == 3);

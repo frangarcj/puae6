@@ -86,6 +86,21 @@
       "option": "fast_size",
       "class": "reboot"
     },
+    "fpu_model": {
+      "default": 0,
+      "allowed": [
+        0,
+        68881,
+        68882
+      ],
+      "names": {
+        "None": 0,
+        "M68881": 68881,
+        "M68882": 68882
+      },
+      "option": "fpu_model",
+      "class": "reboot"
+    },
     "audio_rate_hz": {
       "default": 48000,
       "allowed": [
@@ -1357,6 +1372,16 @@
         "type": "Puae6Fast"
       },
       "libretro": "puae6_fast_size"
+    },
+    "fpu_model": {
+      "headless": {
+        "how": "fixed"
+      },
+      "wrapper": {
+        "how": "fixed",
+        "where": "fpu"
+      },
+      "libretro": null
     },
     "audio_rate_hz": {
       "headless": {

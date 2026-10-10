@@ -62,7 +62,10 @@ typedef struct p6_config {
     uint32_t chip_kib;          /* Chip RAM: 0 = the machine's own, else 512, 1024, 1536 or 2048 (A500: 512 or 1024). */
     uint32_t slow_kib;          /* Slow RAM at $C00000: 0 = the machine's own, P6_MEMORY_NONE = none, else 512, 1024, 1536 or 1792. */
     uint32_t fast_kib;          /* Zorro II Fast RAM (one autoconfig board): 0 or P6_MEMORY_NONE = none, else 1024, 2048, 4096 or 8192. */
-    uint32_t reserved32;        /* Must be zero. */
+    union {
+        uint32_t fpu_model;     /* Floating point unit (T54): 0 = none, 68881 or 68882 (A1200 only: it is the 68020's coprocessor), computed by SoftFloat whatever the host. */
+        uint32_t reserved32;    /* The name these four bytes had until T54 (zero, ABI v1); an earlier source that sets it to zero means no FPU. */
+    };
     uint64_t reserved[2];
 } p6_config;
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay

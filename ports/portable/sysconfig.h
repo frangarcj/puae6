@@ -33,7 +33,11 @@
 
 #define P6_PORTABLE 1
 #define CPUEMU_13 1
-#define CPUEMU_21 1 /* 68020 cycle exact, no FPU/MMU (ADR 0010); chosen only by a 68020 preset */
+#define CPUEMU_21 1 /* 68020 cycle exact, no MMU (ADR 0010); chosen only by a 68020 preset */
+/* 68881/68882 (T54): upstream's fpp.cpp over its integer SoftFloat (fpp_softfloat.cpp), never fpp_native.cpp, a long double or the host FPU. FPUEMU makes
+ * cpuemu_21 compile the coprocessor handlers; whether a machine has an FPU is currprefs.fpu_model (0 = none), a configuration choice of p6_config. */
+#define FPUEMU 1
+#define WITH_SOFTFLOAT 1
 #define AGA 1 /* Alice/Lisa: without it fixup_prefs clears the AGA bit of chipset_mask; A500/A600 never set it */
 #define SIZEOF_SHORT __SIZEOF_SHORT__
 #define SIZEOF_INT __SIZEOF_INT__

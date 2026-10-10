@@ -1312,38 +1312,64 @@
       {
         "id": "cpu-fpu-chunk",
         "subsystem": "cpu",
-        "component": "FPU registers and FSAVE data",
-        "owner": "build/upstream/fpp.cpp (not in the compiled unit list)",
+        "component": "FPU 68881/68882 (T54): FP0-FP7, FPCR, FPSR, FPIAR, the FPU state, the exception posted for the next instruction and the FSAVE data of the last exception",
+        "owner": "build/upstream/fpp.cpp + fpp_softfloat.cpp (SoftFloat; fpp_native.cpp is not linked), regs of build/upstream/include/newcpu.h",
         "chunk": "FPU ",
-        "save": "save_fpu",
+        "save": "save_fpu (the upstream chunk FPU is not written: the block is in P6CP)",
         "restore": "restore_fpu",
-        "reset": null,
-        "in_profile": false,
-        "upstream_compiled": false,
-        "policy": "out_of_profile",
-        "saved_fields": "FP0-FP7 (extended), FPCR, FPSR, FPIAR, fpu_state, exception/unimplemented pending bits, FSAVE ccr/eo words; returns 0 when fpu_model == 0.",
-        "omitted": null,
-        "pointers": null,
-        "rebuild": null,
+        "reset": "fpu_reset (m68k_reset): SoftFloat initialised for the model, FPCR/FPSR/FPIAR zero, state null",
+        "in_profile": true,
+        "upstream_compiled": true,
+        "policy": "serialize_extended",
+        "saved_fields": "The block of the FPU appended to P6CP after the 68020 block on a machine configured with a 68881 or 68882 (p6_config.fpu_model; 110 bytes, bridge/state_cpu.cpp visit_fpu): FP0-FP7 as sign/exponent (u16) and significand (u64), FPCR (mask 0xFFF0), FPSR (mask 0x0FFFFFF8), FPIAR, fpu_state (0..1), fp_exp_pend (0 or the vector 48..55 that the next FPU instruction takes) and the FSAVE data of fsave_data (the command/condition word and the exceptional operand, patch 0142). That is what upstream's save_fpu carries for a 6888x (the body is under SAVESTATE and is not compiled) less what only a 68040 or 68060 reads. A machine without an FPU has no block.",
+        "omitted": "Not carried, and why: fpu_exp_state and fp_unimp_pend (set only by the 68040 and 68060 branches of fpp.cpp; a save refuses a machine that has them set), fp_opword, fp_ea and fp_ea_set (written when an exception is posted and read in the same instruction, or only to build the frame of a 68040), fp_exception, fp_branch, fpu_exp_pre and fp_unimp_ins (set and read within one instruction), fp_result (JIT), fpu_mmu_fixup (68060), warned (a log counter), the SoftFloat status in fpp_softfloat.cpp (rounding mode and precision follow FPCR and fpp_set_fpcr puts them back; the exception flags are cleared by fpsr_clear_status at the start of every instruction that reads them) and the floatx80_internal_* variables of softfloat.cpp (written by each rounding before anything reads them; Paula's tangent shares them and runs outside an FPU instruction).",
+        "pointers": "condition_table points at one of two const tables, chosen by get_features() from the model at reset.",
+        "rebuild": "fpcr_mask, fpsr_mask, support_exceptions, support_denormals and condition_table come from fpu_reset/get_features for the configured model; apply_fpu writes the registers back as values and sets FPCR through fpp_set_fpcr so that SoftFloat's rounding mode and precision follow.",
         "evidence": [
-          "build/upstream/fpp.cpp:3734",
-          "build/upstream/fpp.cpp:3802",
-          "build/upstream/fpp.cpp:3809",
-          "build/upstream/savestate.cpp:693",
-          "build/upstream/savestate.cpp:1016",
-          "build/upstream/include/newcpu.h:229",
-          "ports/portable/sysconfig.h:14"
+          "build/upstream/include/newcpu.h:230",
+          "build/upstream/include/newcpu.h:233",
+          "build/upstream/fpp.cpp:309",
+          "build/upstream/fpp.cpp:375",
+          "build/upstream/fpp.cpp:2180",
+          "build/upstream/fpp.cpp:3685",
+          "build/upstream/fpp.cpp:3744",
+          "build/upstream/fpp.cpp:3812",
+          "build/upstream/fpp.cpp:3890",
+          "ports/portable/sysconfig.h:39"
         ],
         "proof": {
-          "task": "T15",
+          "task": "T54",
           "checks": [
-            "FUZZ01"
+            "DET02",
+            "STATE01",
+            "DET04"
           ],
-          "status": "pending",
-          "what": "a state that carries this chunk is rejected, never restored in part"
+          "status": "done",
+          "what": "DET02 on the A1200 with a 68882 (tests/state/test_det02_fpu.py): arithmetic, every rounding mode and precision, an exception posted for the next instruction, FSAVE/FRESTORE and FMOVEM give the same digests and RAM after a load in the same image, in a restarted one and in a new process; every field of the block has a poke that changes the future (tests/state/test_state_fpu.py FpuNecessityTests)"
         },
-        "probe": null,
-        "waterbox": "not reached by the profile"
+        "probe": {
+          "probe": "cpu",
+          "status": "implemented",
+          "task": "T54",
+          "covers": [
+            "regs.fp",
+            "regs.fpcr",
+            "regs.fpsr",
+            "regs.fpiar",
+            "regs.fpu_state",
+            "regs.fp_exp_pend",
+            "p6_fpu_fsave_get"
+          ]
+        },
+        "waterbox": "captured by the snapshot",
+        "native_state": {
+          "task": "T54",
+          "chunk": "P6CP",
+          "file": "bridge/state_cpu.cpp",
+          "visitor": "visit_cpu",
+          "proves": "tests/state/test_state_fpu.py: the chunk of a machine with an FPU is the body of the A1200 and the 110-byte block, the model of the FPU is in the configuration hash, each field is validated before anything is applied and decides the future (the futures: tests/state/test_det02_fpu.py)",
+          "notes": "The chunk version stays 1: the body follows the machine and its configuration, as the 68020 block does."
+        }
       },
       {
         "id": "cpu-mmu-chunk",

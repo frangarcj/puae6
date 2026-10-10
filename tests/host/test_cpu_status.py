@@ -26,7 +26,10 @@ class CPUStatusTests(unittest.TestCase):
                 imports = subprocess.run(["nm", "-u", str(obj)], text=True,
                                          capture_output=True, check=True).stdout
                 self.assertIsNone(re.search(
-                    r"mmu|fpu|(?:tc|tt0|tt1|srp|crp)_030|cache_default|get_word_030_prefetch", imports), imports)
+                    r"mmu|(?:tc|tt0|tt1|srp|crp)_030|cache_default|get_word_030_prefetch", imports), imports)
+                # The FPU (T54) is part of the profile, so the CPU core reaches it through these four names and no other: nothing of the native backend or the x87.
+                fpu = {line.split()[-1].lstrip("_") for line in imports.splitlines() if re.search(r"fpu|fpp|fp_init|x87", line.lower())}
+                self.assertLessEqual(fpu, {"Z12fpp_get_fpsrv", "Z14fpu_modechangev", "Z9fpu_resetv", "fpp_print"}, imports)
                 strip = "-Wl,-dead_strip" if platform.system() == "Darwin" else "-Wl,--gc-sections"
                 # Only this helper probe uses section GC, never the engine link.
                 subprocess.run([*common, optimization, "-ffunction-sections", "-fdata-sections", strip,

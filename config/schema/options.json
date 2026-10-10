@@ -268,6 +268,22 @@
       "wrapper": {"how": "setting", "setting": "FastMemory", "type": "Puae6Fast"}
     },
     {
+      "id": "fpu_model",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.fpu_model",
+      "default": "None",
+      "values": [
+        {"value": "None", "abi": 0, "label": "None"},
+        {"value": "M68881", "abi": 68881, "label": "68881"},
+        {"value": "M68882", "abi": 68882, "label": "68882"}
+      ],
+      "libretro": null,
+      "libretro_policy": "Not offered yet: the engine has the FPU (T54, A1200 only, SoftFloat so the results are the same on every host) and p6_config.fpu_model carries it, but the core's option, headless's --fpu and the wrapper's FpuModel setting are the adapters' follow-up task. Until then every adapter runs without an FPU, the default.",
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "fixed", "where": "fpu"}
+    },
+    {
       "id": "audio_rate_hz",
       "class": "reboot",
       "type": "enum",

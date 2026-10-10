@@ -128,11 +128,15 @@ Memory resolve_memory(const p6_config &c)
 // defined flag, so the memory can never collide with them), 8 to 11 fast_kib / 1024, 12 to 16 slow_kib / 64, 17 to 22 chip_kib / 64, 31 marks that the memory is not the preset's.
 constexpr uint32_t kMemoryIdentityBit = 0x80000000u;
 
+// T54: 23 and 24 carry the FPU (1 = 68881, 2 = 68882), so a config without one hashes as it always did, and the memory bits above never meet them (chip_kib / 64 is at most 32 << 17 = bit 22).
+constexpr unsigned kFpuIdentityShift = 23;
+
 uint32_t identity_flags(const p6_config &c)
 {
-    if (memory_is_preset(c)) return c.flags;
+    const uint32_t fpu = (c.fpu_model == 68881 ? 1u : c.fpu_model == 68882 ? 2u : 0u) << kFpuIdentityShift;
+    if (memory_is_preset(c)) return c.flags | fpu;
     const Memory m = resolve_memory(c);
-    return c.flags | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
+    return c.flags | fpu | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
 }
 
 bool memory_is_preset(const p6_config &c)
@@ -165,8 +169,13 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio rate must be 44100 or 48000 Hz");
-    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0 || c.reserved32 || c.reserved[0] || c.reserved[1])
+    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0 || c.reserved[0] || c.reserved[1])
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags, or reserved fields that are not zero");
+    // The FPU (T54) is the coprocessor of a 68020: the 68000 machines have no coprocessor interface, and the internal FPU of the 68030/68040 comes with those CPUs (T55).
+    if (c.fpu_model != 0 && c.fpu_model != 68881 && c.fpu_model != 68882)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "fpu model must be 0 (none), 68881 or 68882");
+    if (c.fpu_model != 0 && c.machine != P6_MACHINE_A1200)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "an FPU needs a 68020: only the A1200 can have a 68881 or 68882");
     if (const p6_result memory = validate_memory(c, error))
         return memory;
     if (c.rtc_epoch_seconds < P6_CIVIL_MIN_SECONDS || c.rtc_epoch_seconds > P6_CIVIL_MAX_SECONDS)
@@ -206,6 +215,10 @@ void build_preferences(const p6_config &c)
         // the blit, as an emulation shortcut that no hardware has. The CPU runs its own polling loops instead, as on the 68000 machines.
         currprefs.waiting_blits = 0;
     }
+    // The FPU (T54). fpu_mode 1 is upstream's "softfloat" setting; the portable build has no other backend (patch 0140) and fpu_strict/fpu_no_unimplemented keep
+    // the 68881/68882 behaviour that built_in_prefs leaves (the strict and no-unimplemented modes are 68040/68060 matters).
+    currprefs.fpu_model = int(c.fpu_model);
+    currprefs.fpu_mode = c.fpu_model ? 1 : 0;
     const Memory memory = resolve_memory(c);
     currprefs.chipmem.size = memory.chip_kib * 1024;
     currprefs.bogomem.size = memory.slow_kib * 1024;
@@ -265,7 +278,8 @@ p6_result check_preset(p6_error *error)
     const bool no_gayle = a600 || a1200;
     const Memory memory = resolve_memory(preset_config);
     const char *drifted = nullptr;
-    if (p.cpu_model != (a1200 ? 68020 : 68000) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model || p.mmu_model ||
+    if (p.cpu_model != (a1200 ? 68020 : 68000) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
+        p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict || p.fpu_no_unimplemented || p.mmu_model ||
         !p.address_space_24 || (a1200 && p.waiting_blits)) drifted = "cpu";
     else if (p.chipset_mask != (a1200 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA
                                       : a600 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE : CSMASK_OCS) || !p.blitter_cycle_exact) drifted = "chipset";

@@ -3161,6 +3161,155 @@
           "after_sha256": "c63e0991f645db34874a2cf8a39b501c7d9c48aa0657ae8737906c8214f2ca37"
         }
       ]
+    },
+    {
+      "id": "0140-fpu-softfloat-only",
+      "file": "patches/winuae/0140-fpu-softfloat-only.patch",
+      "sha256": "db300dd22d40a13efbbcf19619c965304dc5464ad1190e0e1540c0c5d8aa1157",
+      "title": "FPU 68881/68882 over SoftFloat only",
+      "reason": "FPUEMU turns on fpp.cpp; fpu_reset and fpu_modechange always use fp_init_softfloat (fpp_native and the x87 control word are not linked), the 68000 FPU hack of build_cpufunctbl is out and the F-line override of a 68020 leaves the coprocessor-1 opcodes to the FPU when fpu_model is set",
+      "category": "host hooks",
+      "order": 117,
+      "symbols": [
+        "build_cpufunctbl",
+        "fpu_modechange",
+        "fpu_reset"
+      ],
+      "test": "tests/host/test_cpu_fpu.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "35972c15328da20aa9bf644e70f631b390a9f4e26d6598dc4c42765f082327a1",
+          "after_sha256": "9bec42f60b6be35725f2053d1869692b7203b35edf750bf87ccd8259fed8e3c1"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "45fa44df81157d4b1bb42b0d4f4a1ee70e6d5e27019e669c63890cef7adfcb85",
+          "after_sha256": "bf172240a865647304ee54a22d5a72fd6054642401b438531120ff389706e2e4"
+        }
+      ]
+    },
+    {
+      "id": "0141-fpu-without-mmu030-and-x87",
+      "file": "patches/winuae/0141-fpu-without-mmu030-and-x87.patch",
+      "sha256": "d8957b15b7708a1e4b67e01136326a6c7a77b3e20a22fee105f35654f8965aa2",
+      "title": "FPU without the 68030 MMU bookkeeping and the Windows x87 hook",
+      "reason": "fpp.cpp references mmu030_state/mmu030_data_buffer_out/mmu030_fmovem_store (cpummu030.cpp, MMUEMU) and od-win32's fpux_restore; neither exists in the profile, so the 68030 restartable-FMOVEM branch is compiled out and the x87 control word is never touched",
+      "category": "host hooks",
+      "order": 118,
+      "symbols": [
+        "fmovem2fpp",
+        "fmovem2mem",
+        "fpu_reset"
+      ],
+      "test": "tests/host/test_cpu_fpu.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "9bec42f60b6be35725f2053d1869692b7203b35edf750bf87ccd8259fed8e3c1",
+          "after_sha256": "b39894372f290717623c91d0f016ee152ac6874a85e82a80bb2dc329b860339f"
+        }
+      ]
+    },
+    {
+      "id": "0142-fpu-state-access",
+      "file": "patches/winuae/0142-fpu-state-access.patch",
+      "sha256": "b9e03b8e6619640497e4c1974b12dcce168cb82bc10a0e9885fd7574dba7038d",
+      "title": "FPU FSAVE data accessors for the native state",
+      "reason": "fsave_data (condition/command word and exceptional operand of the last FPU exception) is file-local to fpp.cpp and an FSAVE after a trapped operation writes it into the frame; the CPU chunk carries it, so the bridge gets read/write accessors",
+      "category": "host hooks",
+      "order": 119,
+      "symbols": [
+        "p6_fpu_fsave_get",
+        "p6_fpu_fsave_set"
+      ],
+      "test": "tests/state/test_state_fpu.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "b39894372f290717623c91d0f016ee152ac6874a85e82a80bb2dc329b860339f",
+          "after_sha256": "c2e44de85c0239e57901e6cd19409ff7a2560a09489d26ca26055cb3823441aa"
+        }
+      ]
+    },
+    {
+      "id": "0143-softfloat-case-exact-includes",
+      "file": "patches/winuae/0143-softfloat-case-exact-includes.patch",
+      "sha256": "511ac5e228f5f370a5133a8e176aea3a26183fc9e684ffdbe3b971c18c5205ac",
+      "title": "SoftFloat macro header include with the case of the file",
+      "reason": "fpp_softfloat.cpp and softfloat_decimal.cpp include softfloat-macros.h, which only resolves on a case-insensitive file system; the file is SOFTFLOAT-MACROS.H (patch 0021 did the same for softfloat.cpp), so the FPU builds on Linux",
+      "category": "host hooks",
+      "order": 120,
+      "symbols": [
+        "fp_init_softfloat"
+      ],
+      "test": "tests/host/test_cpu_fpu.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp_softfloat.cpp",
+          "before_sha256": "dc81324b9044328973a20c099aba31ac7f972df95b02130d798491bf444a832d",
+          "after_sha256": "3e1c28399d556dd030d7485da5435b5473bd01a23ea228cb0eab613f2f8997af"
+        },
+        {
+          "path": "softfloat/softfloat_decimal.cpp",
+          "before_sha256": "f10fa5b257fc278dc98446e2a6b9d1e41a694c45ef2ef6277af0d553ff4fced2",
+          "after_sha256": "abc054bc0028a36b9839a3bc4a406bb989937108d14088af0164f583f3bad4a2"
+        }
+      ]
+    },
+    {
+      "id": "0144-fpu-exception-ends-the-instruction",
+      "file": "patches/winuae/0144-fpu-exception-ends-the-instruction.patch",
+      "sha256": "13179a5a192b007b2e45a6a2fcaf3150af13a39015f0cd28f76cc8997837e5ed",
+      "title": "FPU exceptions end the instruction of the CE020 handler",
+      "reason": "fp_exception_pending and FTRAPcc raise an exception without setting regs.fp_exception, so the generated cpuemu_21 handler goes on to refill the prefetch queue after the exception has set it up for the handler: the CPU then runs the handler's operands as opcodes (a taken FTRAPcc, or the instruction after a posted FPU exception, never reached its handler); setting fp_exception returns from the handler as TRAPcc does",
+      "category": "host hooks",
+      "order": 121,
+      "symbols": [
+        "fp_exception_pending",
+        "fpuop_trapcc"
+      ],
+      "test": "tests/host/test_cpu_fpu.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "c2e44de85c0239e57901e6cd19409ff7a2560a09489d26ca26055cb3823441aa",
+          "after_sha256": "86488ece0bf7a10ac11c9c4a507ab2ebb6ad3601322d3bf2e29ee76fce0f5c08"
+        }
+      ]
+    },
+    {
+      "id": "0145-fpu-quotient-pointer-type",
+      "file": "patches/winuae/0145-fpu-quotient-pointer-type.patch",
+      "sha256": "292ef5404c302aa49414efbd023a76fbf325faf71686558bbef393d90d7c592d",
+      "title": "FMOD and FREM quotient through a uint64_t",
+      "reason": "uae_u64 is unsigned long long and SoftFloat's uint64_t is unsigned long on LP64 Linux, so floatx80_mod/floatx80_rem did not accept the quotient pointer there (macOS has both as unsigned long long); the FPU only built on the Darwin row",
+      "category": "host hooks",
+      "order": 122,
+      "symbols": [
+        "fp_mod",
+        "fp_rem"
+      ],
+      "test": "tests/host/test_cpu_fpu.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp_softfloat.cpp",
+          "before_sha256": "3e1c28399d556dd030d7485da5435b5473bd01a23ea228cb0eab613f2f8997af",
+          "after_sha256": "452cc6022d2072b3aa526de2a426e7885e52497b73c8102b908705ef13b4d172"
+        }
+      ]
     }
   ]
 }

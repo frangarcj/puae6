@@ -18,7 +18,7 @@ from tests.state.harness import ProbeCase, SCENARIOS, TRACE, USER  # noqa: E402
 
 INVENTORY = json.loads((ROOT / "manifests/state-inventory.json").read_text())["savestate"]
 CLOSED = {"cpu": {"P6CP": "T15b1"}, "scheduler": {"P6SC": "T15b2"}}      # subsystem -> chunk and the task that wrote it
-EXTENDED = {"cpu-020plus-caches-and-fallback": "T24c"}                     # components a later task added to the chunk (the block of the 68020 in P6CP)
+EXTENDED = {"cpu-020plus-caches-and-fallback": "T24c", "cpu-fpu-chunk": "T54"}          # components a later task added to the chunk (the blocks of the 68020 and of the FPU in P6CP)
 CAUSAL = {"serialize", "serialize_extended", "extension"}
 
 
@@ -42,7 +42,7 @@ class InventoryClosureTests(unittest.TestCase):
                     self.assertIn("T15b", component["rebuild"], "a derived component says what rebuilds it after a restore")
                 else:
                     self.assertEqual("noncausal", component["policy"])
-        self.assertEqual(26, found)         # 25 and, since T24c, the 68020 state of the A1200
+        self.assertEqual(27, found)         # 25, since T24c the 68020 state of the A1200 and, since T54, the FPU
 
 
 class ClosureTests(ProbeCase):

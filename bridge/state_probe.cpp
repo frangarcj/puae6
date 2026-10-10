@@ -70,6 +70,7 @@
 #include "custom.h"
 #include "blitter.h"
 #include "newcpu.h"
+#include "fpp.h"
 #include "video_present.h"
 #include "inputdevice.h"
 #include "input.h"
@@ -107,6 +108,8 @@ extern void p6_input_get(p6_input_raw *out);                           // inputd
 extern int p6_keybuf_get(uae_u8 *codes, int max);                      // keybuf.cpp, patch 0084: the keyboard ring from the oldest code to the newest
 extern void p6_input_set(const p6_input_raw *in);
 extern int p6_input_engine_released_keys;
+extern void p6_fpu_fsave_get(uae_u32 *ccr, uae_u32 *eo);               // fpp.cpp, patch 0142
+extern void p6_fpu_fsave_set(uae_u32 ccr, const uae_u32 *eo);
 
 namespace {
 
@@ -162,6 +165,16 @@ void cpu(Canon &c)
             c.put(regs.cacheholdingdata_valid).put(regs.fc030).put(int32_t(regs.memory_waitstate_cycles));
             c.put(uint8_t(regs.ce020memcycle_data)).put(int32_t(regs.ce020_tail)).put(int64_t(regs.ce020_tail_cycles));
         }
+    }
+    if (currprefs.fpu_model) {
+        // T54: with an FPU the digest also holds what the FPU block of the CPU chunk carries (the data registers as bit patterns, the control registers, the pending-exception words
+        // and the FSAVE data). A machine without one has the digest it always had.
+        for (int i = 0; i < 8; ++i) c.put(regs.fp[i].fpx.high).put(regs.fp[i].fpx.low);
+        c.put(regs.fpcr).put(regs.fpsr).put(regs.fpiar);
+        c.put(regs.fpu_state).put(regs.fp_exp_pend);
+        uae_u32 ccr = 0, eo[3] = {};
+        p6_fpu_fsave_get(&ccr, eo);
+        c.put(ccr).put(eo[0]).put(eo[1]).put(eo[2]);
     }
 }
 
@@ -767,6 +780,20 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 else if (!strcmp(what, "cache-line")) { uae_u32 d[CACHELINES020], t[CACHELINES020]; uae_u8 v[CACHELINES020]; p6_caches020_get(d, t, v, CACHELINES020); v[0] ^= 1; d[1] ^= 0xff; p6_caches020_set(d, t, v, CACHELINES020); }
                 else { fprintf(stderr, "unknown poke %s\n", op.chunk); exit(64); }
             }
+            else if (!strncmp(op.chunk, "fpu-", 4)) {
+                // T54: change one field of the FPU that the CPU chunk carries, to show that it decides the future (tests/state/test_state_fpu.py). fpu-reg moves the mantissa of FP0 by
+                // one unit in the last place, fpu-fpcr flips the rounding mode, fpu-fpsr flips the N condition code, fpu-fpiar adds 2, fpu-state flips the idle/null bit and fpu-fsave
+                // changes the exceptional operand that an FSAVE writes, and exp-pend posts an exception for the next FPU instruction (or takes back the one that was posted).
+                const char *what = op.chunk + 4;
+                if (!strcmp(what, "reg")) regs.fp[0].fpx.low += 1;
+                else if (!strcmp(what, "fpcr")) { uae_u32 v = regs.fpcr ^ 0x10; fpp_set_fpcr(v); }
+                else if (!strcmp(what, "fpsr")) regs.fpsr ^= 0x08000000;
+                else if (!strcmp(what, "fpiar")) regs.fpiar += 2;
+                else if (!strcmp(what, "state")) regs.fpu_state ^= 1;
+                else if (!strcmp(what, "exp-pend")) regs.fp_exp_pend = regs.fp_exp_pend ? 0 : 50;
+                else if (!strcmp(what, "fsave")) { uae_u32 ccr, eo[3]; p6_fpu_fsave_get(&ccr, eo); eo[0] ^= 0x7fff0000; ccr ^= 0x1; p6_fpu_fsave_set(ccr, eo); }
+                else { fprintf(stderr, "unknown poke %s\n", op.chunk); exit(64); }
+            }
             else if (!strcmp(op.chunk, "ev2-foreign")) event2_newevent_xx(-1, evt_t(3000) * CYCLE_UNIT, 0, foreign_handler);
             else if (!strcmp(op.chunk, "ev2-stale")) {
                 // What a fired event leaves in its slot: inactive, with the time, the data and the handler it had. A save writes zeros for it.
@@ -884,6 +911,7 @@ int main(int argc, char **argv)
     uint32_t standard = P6_VIDEO_PAL;
     uint32_t machine = P6_MACHINE_A500;
     uint32_t rate = 48000;
+    uint32_t fpu_model = 0;                                  // T54: 0 = none, 68881 or 68882 (--fpu 68882)
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
     uint64_t seed = 1;
     bool floppy_writes = false;
@@ -907,6 +935,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
         else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--save-fields-at") || !strcmp(argv[i], "--load-at") ||
                   !strcmp(argv[i], "--load-fault-at") || !strcmp(argv[i], "--load-fault-head-at") || !strcmp(argv[i], "--public-save-at") ||
@@ -982,7 +1011,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 68881|68882] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -1010,6 +1039,7 @@ int main(int argc, char **argv)
     config.chip_kib = chip_kib;
     config.slow_kib = slow_kib;
     config.fast_kib = fast_kib;
+    config.fpu_model = fpu_model;
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);

@@ -3,6 +3,11 @@
 #include <cassert>
 
 uae_prefs currprefs{}, changed_prefs{};
+// The front door of the FPU (T54, FPUEMU) that newcpu.cpp calls; these probes run a 68000 (fpu_model 0), which never reaches it, and fpp.cpp is not part of them.
+void fpu_reset(void) {}
+void fpu_modechange(void) {}
+uae_u32 fpp_get_fpsr(void) { return 0; }
+FPP_PRINT fpp_print;
 evt_t currcycle;   // read by the 68020 cycle helpers newcpu.cpp now compiles (T24a); never executed here
 
 // Observed boundaries for reset only: synthetic vectors/ROM, not a machine.

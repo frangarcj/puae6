@@ -91,7 +91,20 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved[1] = 1;                assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
-    c = make_config(); c.reserved32 = 1;                 assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    // The FPU (T54, p6_config.fpu_model): a 68020 has the coprocessor interface, a 68000 does not, and the internal FPUs of the 68030/68040 are not machines of the profile yet.
+    c = make_config(); c.fpu_model = 1;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.fpu_model = 68040;              assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.fpu_model = 68881;              assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // the A500: a 68000
+    c = make_config(); c.machine = P6_MACHINE_A600; c.fpu_model = 68882;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // the A600: a 68000
+    c = make_config(); c.machine = P6_MACHINE_A1200; c.fpu_model = 68040;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.machine = P6_MACHINE_A1200; c.fpu_model = 68881;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.machine = P6_MACHINE_A1200; c.fpu_model = 68882;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.machine = P6_MACHINE_A1200; c.fpu_model = 0;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);   // no FPU is the default, and the old reserved32 = 0
     // Memory (T49): the sizes the machine can have are accepted, the others are UNSUPPORTED, and the preset's own sizes are the same config as zero.
     c = make_config(); c.chip_kib = 1024;                assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.chip_kib = 2048;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // OCS Agnus: no more than 1 MiB

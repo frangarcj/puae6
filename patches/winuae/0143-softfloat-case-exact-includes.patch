@@ -1,0 +1,24 @@
+diff --git a/fpp_softfloat.cpp b/fpp_softfloat.cpp
+--- a/fpp_softfloat.cpp
++++ b/fpp_softfloat.cpp
+@@ -23,7 +23,7 @@
+ #include "newcpu.h"
+ #include "fpp.h"
+ 
+-#include "softfloat/softfloat-macros.h"
++#include "softfloat/SOFTFLOAT-MACROS.H"
+ #include "softfloat/softfloat-specialize.h"
+ 
+ #define	FPCR_ROUNDING_MODE	0x00000030
+diff --git a/softfloat/softfloat_decimal.cpp b/softfloat/softfloat_decimal.cpp
+--- a/softfloat/softfloat_decimal.cpp
++++ b/softfloat/softfloat_decimal.cpp
+@@ -19,7 +19,7 @@
+ #endif
+ 
+ #include "softfloat.h"
+-#include "softfloat-macros.h"
++#include "SOFTFLOAT-MACROS.H"
+ #include "softfloat/softfloat-specialize.h"
+ 
+ /*----------------------------------------------------------------------------

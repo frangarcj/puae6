@@ -23,6 +23,7 @@
 #include "custom.h"
 #include "blitter.h"
 #include "newcpu.h"
+#include "fpp.h"
 
 // What the engine patches add (patches/winuae/0076-0080), declared here as lifecycle.cpp declares p6_cia_session_begin.
 extern uae_u32 p6_rng_get(void);                                                           // main.cpp 0076
@@ -38,6 +39,8 @@ extern int p6_custom_ce020_extra_get(void);                                     
 extern void p6_custom_ce020_extra_set(int v);
 extern bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigned n);      // newcpu.cpp 0108
 extern bool p6_caches020_set(const uae_u32 *data, const uae_u32 *tag, const uae_u8 *valid, unsigned n);
+extern void p6_fpu_fsave_get(uae_u32 *ccr, uae_u32 *eo);                                   // fpp.cpp 0142
+extern void p6_fpu_fsave_set(uae_u32 ccr, const uae_u32 *eo);
 
 namespace p6_state {
 
@@ -209,6 +212,67 @@ void apply_020(const Cpu020 &c)
     p6_caches020_set(c.cache_data, c.cache_tag, c.cache_valid, kCaches020);
 }
 
+// -- The FPU block of P6CP (T54) ----------------------------------------------------------------------------------------------------------------------------------
+// Appended after the 68020 block of a machine whose configuration has a 68881 or a 68882 (p6_config.fpu_model; the block exists with the FPU, whose model is in the
+// identity, so the body follows the machine as the 68020 block does), in this order (little endian, 110 bytes):
+//   8 x { u16 high  u64 low }  FP0..FP7 as the unit holds them: sign and 15-bit exponent, 64-bit significand. Every pattern is valid (the registers are written by
+//                              FMOVEM and FRESTORE with whatever the program has, unnormals and pseudo-denormals included), so no range
+//   u32 fpcr (only the bits of 0xFFF0)  u32 fpsr (only the bits of 0x0FFFFFF8)  u32 fpiar
+//   u8 fpu_state (0..1: null or idle)  u8 fp_exp_pend (0, or the vector 48..55 of an exception that an instruction posted and the next FPU instruction takes)
+//   u32 fsave_ccr  u32 fsave_eo[3]    the FSAVE data of fpp.cpp's file-local fsave_data (patch 0142): the 6888x part of it
+// These are the fields of upstream's own save_fpu for a 6888x (that body is under SAVESTATE and is not compiled), packed the way the other blocks are, less what only the 68040
+// and 68060 branches of fpp.cpp read: fpu_exp_state and fp_unimp_pend (a save refuses a machine that has them set: it would be a defect of the engine), and fp_opword, fp_ea
+// and fp_ea_set, which are written when an exception is posted and read only to build the frame of a 68040, in the same instruction (the frames a 68881/68882 pushes in this engine
+// are formats 0 and 3, whose fp_ea is the one just posted). What the unit does not carry: the SoftFloat status (rounding mode and precision follow FPCR and fpp_set_fpcr puts them back; the exception flags are cleared at the start of every instruction that
+// reads them), the condition-code tables and masks (fpu_reset derives them from the model), the transient fp_exception/fp_branch/fpu_exp_pre/fp_unimp_ins (set and read
+// within one instruction) and floatx80_internal_* (written by each rounding before anything reads it). tests/state/test_state_fpu.py pokes each field.
+struct CpuFpu {
+    uint16_t high[8] = {};
+    uint64_t low[8] = {};
+    uint32_t fpcr = 0, fpsr = 0, fpiar = 0;
+    uint8_t state = 0, exp_pend = 0;
+    uint32_t fsave_ccr = 0, fsave_eo[3] = {};
+};
+
+void visit_fpu(Archive &a, CpuFpu &f)
+{
+    for (unsigned i = 0; i < 8; ++i) {
+        f.high[i] = a.val<uint16_t>(regs.fp[i].fpx.high, "fpu.fp.high");
+        f.low[i] = a.val<uint64_t>(regs.fp[i].fpx.low, "fpu.fp.low");
+    }
+    f.fpcr = a.val<uint32_t>(regs.fpcr, "fpu.fpcr");
+    f.fpsr = a.val<uint32_t>(regs.fpsr, "fpu.fpsr");
+    if (a.mode() != Mode::Measure) {
+        a.require((f.fpcr & ~0xfff0u) == 0, "fpu.fpcr: a bit the control register of a 6888x does not have");     // a mask, not a range
+        a.require((f.fpsr & ~0x0ffffff8u) == 0, "fpu.fpsr: a bit the status register of a 6888x does not have");
+    }
+    f.fpiar = a.val<uint32_t>(regs.fpiar, "fpu.fpiar");
+    f.state = get<uint8_t>(a, regs.fpu_state, 0, 1, "fpu.state");
+    if (a.mode() == Mode::Save) a.require(regs.fpu_exp_state == 0 && regs.fp_unimp_pend == 0, "fpu: a 68040 or 68060 frame state on a 68881 or 68882");
+    f.exp_pend = get<uint8_t>(a, regs.fp_exp_pend, 0, 55, "fpu.exp_pend");
+    if (a.mode() != Mode::Measure) a.require(f.exp_pend == 0 || f.exp_pend >= 48, "fpu.exp_pend: not the vector of an FPU exception");
+    uae_u32 live_ccr = 0, live_eo[3] = {};
+    p6_fpu_fsave_get(&live_ccr, live_eo);
+    f.fsave_ccr = a.val<uint32_t>(live_ccr, "fpu.fsave.ccr");
+    for (unsigned i = 0; i < 3; ++i) f.fsave_eo[i] = a.val<uint32_t>(live_eo[i], "fpu.fsave.eo");
+}
+
+void apply_fpu(const CpuFpu &f)
+{
+    for (unsigned i = 0; i < 8; ++i) {
+        regs.fp[i].fpx.high = f.high[i];
+        regs.fp[i].fpx.low = f.low[i];
+    }
+    fpp_set_fpcr(f.fpcr);               // also puts SoftFloat's rounding mode and precision back
+    regs.fpsr = f.fpsr;
+    regs.fpiar = f.fpiar;
+    regs.fpu_state = f.state;
+    regs.fpu_exp_state = 0;
+    regs.fp_unimp_pend = 0;
+    regs.fp_exp_pend = f.exp_pend;
+    p6_fpu_fsave_set(f.fsave_ccr, f.fsave_eo);
+}
+
 }  // namespace
 
 // Body, little endian, in this order:
@@ -219,7 +283,8 @@ void apply_020(const Cpu020 &c)
 //   u8 ipl0 ipl1 ipl_pin ipl_pin_p (0..7)  u8 ipl_evt_pre_mode (0..1)  i64 ipl_evt ipl_evt_pre ipl_pin_change_evt ipl_pin_change_evt_p (>= 0)
 //   u32 xorshiftstate (>= 1)
 // A 68020 machine (the A1200, T24c) appends the block of the 68020 (visit_020 above); the chunk version stays 1 because the body follows the machine, as
-// P6RT's does, and the machine is part of the identity. SR then keeps T0 and M (mask 0xF71F instead of 0xA71F).
+// P6RT's does, and the machine is part of the identity. SR then keeps T0 and M (mask 0xF71F instead of 0xA71F). A machine with an FPU (T54) appends the block of the FPU
+// after that (visit_fpu above); the model of the FPU is in the identity too.
 void visit_cpu(Archive &a)
 {
     const bool checks = a.mode() != Mode::Measure;
@@ -290,6 +355,11 @@ void visit_cpu(Archive &a)
     Cpu020 c020;
     if (m68020) visit_020(a, c020);
 
+    // 9. The FPU, when the configuration has one.
+    CpuFpu fpu;
+    const bool has_fpu = currprefs.fpu_model == 68881 || currprefs.fpu_model == 68882;
+    if (has_fpu) visit_fpu(a, fpu);
+
     if (a.applying() && a.ok()) {
         quit_program = quit;
         regs.sr = sr;
@@ -318,6 +388,7 @@ void visit_cpu(Archive &a)
         regs.ipl_pin_change_evt_p = chg_p;
         p6_rng_set(rng);
         if (m68020) apply_020(c020);
+        if (has_fpu) apply_fpu(fpu);
         // Not touched, on purpose: ir, ird and irc are not refilled from memory (restore_cpu_finish's fill_prefetch_quick would overwrite them with
         // what memory holds now, which can differ from the prefetch queue), doint() is not called (it would recompute ipl_pin from the chipset,
         // whose delayed events are still pending), and lastipl is 0 in the profile (a save refuses otherwise); vbr, sfc, dfc, msp and the rest of the 020 are the block's.

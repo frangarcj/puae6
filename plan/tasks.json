@@ -12328,13 +12328,92 @@
       "evidence": null
     },
     {
+      "id": "T54a",
+      "title": "FPU 68881/68882 en el motor, la configuracion y el estado nativo (SoftFloat, A1200)",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "done",
+      "depends": [
+        "T24"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/codegen/**",
+        "tests/host/**",
+        "bridge/**",
+        "manifests/state-inventory.json",
+        "tests/state/**",
+        "config/**",
+        "adapters/libretro/options_generated.h",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "p6_config.fpu_model (0, 68881 o 68882; solo A1200; error claro en otro caso) en el esquema y plegado en config_hash (bits 23-24 de la palabra flags: las configuraciones sin FPU conservan su hash), FPUEMU + WITH_SOFTFLOAT en el perfil con fpp.cpp, fpp_softfloat.cpp y softfloat_decimal.cpp (nunca fpp_native), parches 0140-0145 (solo SoftFloat, sin MMU 030 ni x87, acceso a fsave_data, las excepciones FPU terminan la instruccion CE020, includes con la caja exacta, puntero del cociente de FMOD/FREM), bloque de FPU de 110 bytes en P6CP y digest del probe, DET02 en el A1200 con 68882."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "STATE01"
+      ],
+      "acceptance": [
+        "DET02 con la FPU activa a mitad de programas aritmeticos, de modos de redondeo, de excepcion pendiente y de FSAVE/FRESTORE; cada campo del bloque decide el futuro; las configuraciones sin FPU no cambian de hash, cota ni estado."
+      ],
+      "stop": "No usar fast-math ni la FPU nativa.",
+      "evidence": null
+    },
+    {
+      "id": "T54b",
+      "title": "Corpus de instrucciones FPU con resultados deducidos y DET04 en la matriz de plataformas",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "pending",
+      "depends": [
+        "T54a",
+        "T25"
+      ],
+      "touch": [
+        "tests/host/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "plan/tasks.json",
+        "reports/tasks/T54.md"
+      ],
+      "steps": [
+        "tests/host/fpu_corpus.py (unas 2300 instrucciones: redondeo en los cuatro modos y tres precisiones, desbordamiento y desnormales, NaN/infinitos/ceros, conversiones, FMOVECR, los 32 predicados, FMOVEM, FSAVE/FRESTORE, excepciones con trampa, transcendentes con tolerancia) con las esperas de tests/host/fpu_ref.py (aritmetica racional exacta), hash dorado y matriz DET04 (tests/host/fpu_matrix.py) en las cinco filas."
+      ],
+      "checks": [
+        "DET04"
+      ],
+      "acceptance": [
+        "Los resultados FPU son bit a bit iguales en macOS arm64 y en Linux arm64 y x86_64 con Clang y GCC."
+      ],
+      "stop": "No cambiar el hash dorado ni las tolerancias para hacer pasar una regresion inexplicada.",
+      "evidence": null
+    },
+    {
       "id": "T54",
       "title": "FPU 68881/68882 e interna con softfloat (identica en x86_64 y ARM64)",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T24"
+        "T24",
+        "T54a",
+        "T54b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12355,7 +12434,8 @@
         "config/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece FPU (puae_cpu_model con FPU y modelos 030/040). Compilar fpp con softfloat (nunca la FPU del host), generar las tablas con FPUEMU, probe de instrucciones FPU con esperados de softfloat, estado de la FPU."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece FPU (puae_cpu_model con FPU y modelos 030/040). Compilar fpp con softfloat (nunca la FPU del host), generar las tablas con FPUEMU, probe de instrucciones FPU con esperados de softfloat, estado de la FPU.",
+        "Division (2026-10-10): T54a (motor, configuracion y estado nativo) y T54b (corpus y matriz DET04); T54 es el cierre. Queda para el siguiente: la opcion en libretro/headless/BizHawk (adapters, tests/config) y el guest Waterbox con FPU; la FPU interna 68030/68040 es T55."
       ],
       "checks": [
         "GEN01",

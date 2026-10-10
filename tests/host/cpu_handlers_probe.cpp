@@ -5,12 +5,13 @@
 #include "newcpu.h"
 #include "cputbl.h"
 #include <type_traits>
-#if defined(FPUEMU) || defined(MMUEMU)
-#error "This probe requires the A500 profile without FPU/MMU"
+#if defined(MMUEMU) || !defined(FPUEMU) || !defined(WITH_SOFTFLOAT)
+#error "This probe requires the profile with the SoftFloat FPU (T54) and without MMU"
 #endif
+// The 68000 handlers of CPUEMU13 never touch the FPU: it is in the register file as SoftFloat extended values, and this probe never needs it.
 template<class T, class = void> struct has_fp : std::false_type {};
 template<class T> struct has_fp<T, std::void_t<decltype(T::fp)>> : std::true_type {};
-static_assert(!has_fp<regstruct>::value && sizeof(fpdata) == sizeof(double));
+static_assert(has_fp<regstruct>::value && sizeof(decltype(fpdata::fpx)) == 16);
 
 regstruct regs{};
 flag_struct regflags{};

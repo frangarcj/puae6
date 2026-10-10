@@ -1,0 +1,36 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -384,6 +384,11 @@
+ 			Exception(regs.fp_exp_pend);
+ 			if (currprefs.fpu_model != 68882)
+ 				regs.fp_exp_pend = 0;
++#ifdef P6_PORTABLE
++			// The generated handler of the instruction goes on to refill the prefetch queue unless fp_exception is set; the exception has just loaded it
++			// for the handler's first instruction, and a second refill (CE020) skips into the handler and runs what is left as opcodes.
++			regs.fp_exception = true;
++#endif
+ 			return true;
+ 		}
+ 	}
+@@ -399,7 +404,9 @@
+ 		regs.fpu_exp_pre = pre;
+ 		Exception(55);
+ 		regs.fp_unimp_pend = 0;
+-
++#ifdef P6_PORTABLE
++		regs.fp_exception = true;
++#endif
+ 		return true;
+ 	}
+ 	return false;
+@@ -2321,6 +2328,9 @@
+ 		fpu_op_illg (opcode, 0, false, oldpc);
+ 	} else if (cc) {
+ 		Exception_cpu_oldpc(7, oldpc);
++#ifdef P6_PORTABLE
++		regs.fp_exception = true;		// as TRAPcc does: the exception ends the instruction, no second prefetch (see fp_exception_pending)
++#endif
+ 	}
+ }
+ 
