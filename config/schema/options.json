@@ -45,6 +45,7 @@
       {"value": "mouse_move_down", "abi": 13, "label": "Mouse Move Down", "const": "MouseMoveDown"},
       {"value": "mouse_move_left", "abi": 14, "label": "Mouse Move Left", "const": "MouseMoveLeft"},
       {"value": "mouse_move_right", "abi": 15, "label": "Mouse Move Right", "const": "MouseMoveRight"},
+      {"value": "toggle_vkbd", "abi": 16, "label": "Toggle Virtual Keyboard", "const": "ToggleVkbd"},
       {"value": "toggle_mouse", "abi": 18, "label": "Toggle Joystick/Mouse", "const": "ToggleMouse"},
       {"value": "toggle_turbo", "abi": 19, "label": "Toggle Turbo Fire", "const": "ToggleTurbo"},
       {"value": "toggle_aspect", "abi": 20, "label": "Toggle Aspect Ratio (PAL/NTSC pixels)", "const": "ToggleAspect"},
@@ -1040,6 +1041,22 @@
       "wrapper": {"how": "none"}
     },
     {
+      "id": "hotkey_vkbd",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_vkbd",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_vkbd",
+        "category": "hotkey",
+        "label": "Toggle Virtual Keyboard",
+        "info": "Opens and closes the virtual keyboard. The key is not sent to the Amiga. Select does the same by default."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
       "id": "mapper_up",
       "class": "presentation",
       "type": "enum",
@@ -1172,13 +1189,13 @@
       "class": "presentation",
       "type": "enum",
       "maps_to": "presentation.mapper_select",
-      "default": "---",
+      "default": "toggle_vkbd",
       "values_from": "mapper_target",
       "libretro": {
         "key": "puae6_mapper_select",
         "category": "retropad",
         "label": "Select",
-        "info": "What Select of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+        "info": "What Select of player 1's RetroPad does. Unmapped, it opens the virtual keyboard (PUAE5's default) (Face Button Options and the analog mouse can change that)."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}
@@ -1482,6 +1499,77 @@
         "category": "osd",
         "label": "Statusbar Messages",
         "info": "With the statusbar hidden, show the message of an action (joystick/mouse, turbo, crop, aspect, reset) alone for three seconds of emulated time."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "vkbd_theme",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.vkbd_theme",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Automatic (shadow)"},
+        {"value": "auto_outline", "abi": 1, "label": "Automatic (outline)"},
+        {"value": "beige", "abi": 2, "label": "Beige (shadow)"},
+        {"value": "beige_outline", "abi": 3, "label": "Beige (outline)"},
+        {"value": "cd32", "abi": 4, "label": "CD32 (shadow)"},
+        {"value": "cd32_outline", "abi": 5, "label": "CD32 (outline)"},
+        {"value": "light", "abi": 6, "label": "Light (shadow)"},
+        {"value": "light_outline", "abi": 7, "label": "Light (outline)"},
+        {"value": "dark", "abi": 8, "label": "Dark (shadow)"},
+        {"value": "dark_outline", "abi": 9, "label": "Dark (outline)"}
+      ],
+      "libretro": {
+        "key": "puae6_vkbd_theme",
+        "category": "osd",
+        "label": "Virtual KBD Theme",
+        "info": "The colors of the virtual keyboard and how its labels are drawn (a shadow or an outline). Automatic is the beige of the A500 and A600 and the light grey of the A1200. Select opens the keyboard by default; see Virtual Keyboard in docs/options.md for the controls."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "vkbd_transparency",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.vkbd_transparency",
+      "default": "25%",
+      "values": [
+        {"value": "0%", "abi": 0, "label": "0%"},
+        {"value": "25%", "abi": 25, "label": "25%"},
+        {"value": "50%", "abi": 50, "label": "50%"},
+        {"value": "75%", "abi": 75, "label": "75%"},
+        {"value": "100%", "abi": 100, "label": "100%"}
+      ],
+      "libretro": {
+        "key": "puae6_vkbd_transparency",
+        "category": "osd",
+        "label": "Virtual KBD Transparency",
+        "info": "How see-through the keys are (100% leaves only the labels). RetroPad A switches the transparency off and on while the keyboard is open."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "vkbd_dimming",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.vkbd_dimming",
+      "default": "25%",
+      "values": [
+        {"value": "0%", "abi": 0, "label": "0%"},
+        {"value": "25%", "abi": 25, "label": "25%"},
+        {"value": "50%", "abi": 50, "label": "50%"},
+        {"value": "75%", "abi": 75, "label": "75%"},
+        {"value": "100%", "abi": 100, "label": "100%"}
+      ],
+      "libretro": {
+        "key": "puae6_vkbd_dimming",
+        "category": "osd",
+        "label": "Virtual KBD Dimming",
+        "info": "How much the picture around the virtual keyboard is darkened while it is open."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}

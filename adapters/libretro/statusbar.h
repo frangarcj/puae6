@@ -112,6 +112,24 @@ inline void draw_ports(const Canvas &canvas, int *pen, int y, int scale, const p
     }
 }
 
+// The layout of the bar for a picture of this width: the width the content needs at scale 1 (LED, ports, flags and message) decides the scale (2 when it fits twice over).
+inline BarLayout statusbar_layout(uint32_t canvas_width, const StatusbarMode &mode, const StatusData &data, bool bar)
+{
+    const char *message = message_text(data.message);
+    const bool show_message = *message != 0 && !mode.minimal;
+    const int led = bar ? (mode.minimal ? 10 : 29) : 0;
+    const int full = bar && !mode.minimal && !mode.basic ? 90 + 62 : 0;
+    return bar_layout(canvas_width, 4 + led + full + (show_message ? int(strlen(message)) * kGlyphAdvance + 8 : 0));
+}
+
+// How many rows the bar (or the message strip) takes at the foot or the head of the picture, 0 when nothing is drawn.
+inline int statusbar_height(uint32_t canvas_width, const StatusbarMode &mode, const StatusData &data, bool bar, bool message_strip)
+{
+    const bool show_message = *message_text(data.message) != 0 && !mode.minimal;
+    if (!bar && !(message_strip && show_message)) return 0;
+    return statusbar_layout(canvas_width, mode, data, bar).height;
+}
+
 // Draws the bar (when `bar` is set) or the message alone (when only `message_strip` is), at the top or the bottom of the canvas.
 inline void draw_statusbar(const Canvas &canvas, const StatusbarMode &mode, const StatusData &data, bool bar, bool message_strip)
 {
@@ -119,11 +137,7 @@ inline void draw_statusbar(const Canvas &canvas, const StatusbarMode &mode, cons
     const bool has_message = *message != 0;
     const bool show_message = has_message && !mode.minimal;           // Minimal is the LED alone
     if (!bar && !(message_strip && show_message)) return;
-    // The width the content needs at scale 1 decides the scale (2 when it fits twice over): LED, ports, flags and message.
-    const int led = bar ? (mode.minimal ? 10 : 29) : 0;
-    const int full = bar && !mode.minimal && !mode.basic ? 90 + 62 : 0;
-    const int needed = 4 + led + full + (show_message ? int(strlen(message)) * kGlyphAdvance + 8 : 0);
-    const BarLayout layout = bar_layout(canvas.width, needed);
+    const BarLayout layout = statusbar_layout(canvas.width, mode, data, bar);
     const int scale = layout.scale;
     const int y = mode.top ? 0 : int(canvas.height) - layout.height;
     fill_rect(canvas, 0, y, int(canvas.width), layout.height, kBarBackground, 230);

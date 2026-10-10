@@ -88,7 +88,7 @@ constexpr uint8_t kFont[64][kGlyphHeight] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F},     // _
 };
 
-// The glyph rows of a character: capitals for lower case, the arrows for '~' (down), '{' (left) and '}' (right), nullptr for anything else.
+// The glyph rows of a character: capitals for lower case, the arrows for '~' (down), '{' (left) and '}' (right), the grave accent, nullptr for anything else.
 inline const uint8_t *glyph(char c)
 {
     static const uint8_t down[kGlyphHeight] = {0x04, 0x04, 0x04, 0x04, 0x15, 0x0E, 0x04};
@@ -96,6 +96,8 @@ inline const uint8_t *glyph(char c)
     static const uint8_t right[kGlyphHeight] = {0x00, 0x04, 0x02, 0x1F, 0x02, 0x04, 0x00};
     if (c >= 'a' && c <= 'z') c = char(c - 'a' + 'A');
     if (c >= ' ' && c <= '_') return kFont[c - ' '];
+    static const uint8_t grave[kGlyphHeight] = {0x08, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00};
+    if (c == '`') return grave;
     if (c == '~') return down;
     if (c == '{') return left;
     if (c == '}') return right;

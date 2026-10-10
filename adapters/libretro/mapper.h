@@ -30,6 +30,7 @@
 #include "options_generated.h"
 #include "p6.h"
 #include "present.h"
+#include "vkbd.h"
 
 #include <algorithm>
 #include <stdint.h>
@@ -55,7 +56,7 @@ constexpr uint8_t kMessageNone = 0, kMessageJoystick = 1, kMessageMouse = 2, kMe
 
 constexpr unsigned kMapperInputs = 24;
 constexpr unsigned kStickInput = 16;               // inputs 16..19: left stick up, down, left, right; 20..23 the right one
-constexpr unsigned kHotkeyCount = 6;               // mouse toggle, turbo, aspect, crop, reset, statusbar (the order of the schema's hotkey options)
+constexpr unsigned kHotkeyCount = 7;               // mouse toggle, turbo, aspect, crop, reset, statusbar, virtual keyboard (the order of the schema's hotkey options)
 constexpr unsigned kHotkeyBit = 24;                // bits of Controls::down / InputMemory::held from here on are the hotkeys
 
 // What the adapter keeps between two runs for the input. It is part of the saved timeline (state_frame.h), and is zero at load (the D-Pad mode starts from
@@ -71,6 +72,12 @@ struct InputMemory {
     bool statusbar_shown = false;      // the statusbar is up (Statusbar Startup, then the hotkey or the mapped button)
     uint8_t message = kMessageNone;    // the last action's message, and the units it has left to be shown
     uint8_t message_left = 0;
+    bool vkbd_open = false;            // the virtual keyboard is up and owns the pad (vkbd.h)
+    bool vkbd_opaque = false;          // its transparency is switched off (RetroPad A)
+    uint8_t vk_cursor = 0;             // the key under the cursor (an index of kVkbd)
+    uint8_t vk_held = kVkbdNoKey;      // the key code RetroPad B holds down, or kVkbdNoKey
+    uint8_t vk_latch = 0;              // the modifiers latched (bits of kVkLatchCodes)
+    uint8_t vk_repeat = 0;             // units a direction has been held, for the repeat
     uint8_t turbo_phase = 0;           // units the turbo button has been held, modulo kTurboCycle
     uint8_t reset_hold = 0;            // units left of the Ctrl-Amiga-Amiga of a soft reset
     uint32_t held = 0;                 // the inputs and hotkeys that were down at the last run (bit n of Controls::down)
@@ -82,7 +89,8 @@ struct InputMemory {
         return caps_latched == other.caps_latched && caps_held == other.caps_held && mouse_rx == other.mouse_rx && mouse_ry == other.mouse_ry &&
                dpad_mouse == other.dpad_mouse && turbo_toggled == other.turbo_toggled && crop_toggled == other.crop_toggled &&
                aspect_toggled == other.aspect_toggled && statusbar_shown == other.statusbar_shown && message == other.message &&
-               message_left == other.message_left && turbo_phase == other.turbo_phase && reset_hold == other.reset_hold && held == other.held &&
+               message_left == other.message_left && vkbd_open == other.vkbd_open && vkbd_opaque == other.vkbd_opaque && vk_cursor == other.vk_cursor &&
+               vk_held == other.vk_held && vk_latch == other.vk_latch && vk_repeat == other.vk_repeat && turbo_phase == other.turbo_phase && reset_hold == other.reset_hold && held == other.held &&
                host_frac[0] == other.host_frac[0] && host_frac[1] == other.host_frac[1] && stick_frac[0][0] == other.stick_frac[0][0] &&
                stick_frac[0][1] == other.stick_frac[0][1] && stick_frac[1][0] == other.stick_frac[1][0] && stick_frac[1][1] == other.stick_frac[1][1];
     }
@@ -118,6 +126,7 @@ inline InputConfig input_config(const p6_options::Settings &s)
     c.hotkey_code[3] = s.hotkey_crop_toggle;
     c.hotkey_code[4] = s.hotkey_reset;
     c.hotkey_code[5] = s.hotkey_statusbar;
+    c.hotkey_code[6] = s.hotkey_vkbd;
     c.crop_on = s.video_crop != 0;
     c.aspect_ntsc = s.video_aspect == kAspectNtsc || (s.video_aspect != kAspectPal && s.video_standard == P6_VIDEO_NTSC);
     c.analog_mouse = s.analog_mouse;
@@ -137,6 +146,7 @@ inline InputConfig input_config(const p6_options::Settings &s)
 constexpr uint32_t kHotkeyTargets[kHotkeyCount] = {
     p6_options::kMapperTargetToggleMouse, p6_options::kMapperTargetToggleTurbo, p6_options::kMapperTargetToggleAspect,
     p6_options::kMapperTargetToggleCrop, p6_options::kMapperTargetReset, p6_options::kMapperTargetToggleStatusbar,
+    p6_options::kMapperTargetToggleVkbd,
 };
 
 // What the frontend reported this run, as far as the mapper cares: which inputs and hotkeys are down, and where the sticks are.
@@ -268,6 +278,43 @@ inline void apply_target(uint32_t target, bool mouse_mode, const InputConfig &co
     }
 }
 
+// The virtual keyboard's run (vkbd.h): while it is open the pad's D-Pad, B, A, Y and X belong to it. `edges` are the inputs that went down in this run.
+inline void vkbd_step(const Controls &controls, uint32_t edges, InputMemory *memory, Effects *out)
+{
+    auto down = [&](unsigned id) { return (controls.down >> id & 1) != 0; };
+    auto edge = [&](unsigned id) { return (edges >> id & 1) != 0; };
+    const unsigned dirs[4] = {RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT};
+    int held = -1, pressed = -1;
+    for (unsigned d : dirs) {
+        if (held < 0 && down(d)) held = int(d);
+        if (pressed < 0 && edge(d)) pressed = int(d);
+    }
+    if (held < 0) {
+        memory->vk_repeat = 0;
+    } else if (pressed >= 0) {                                    // a new press moves at once and starts the repeat count
+        memory->vk_cursor = uint8_t(vk_move(memory->vk_cursor, unsigned(pressed)));
+        memory->vk_repeat = 1;
+    } else {
+        if (memory->vk_repeat < 255) ++memory->vk_repeat;
+        if (memory->vk_repeat > kVkRepeatDelay && (memory->vk_repeat - kVkRepeatDelay) % kVkRepeatEvery == 0)
+            memory->vk_cursor = uint8_t(vk_move(memory->vk_cursor, unsigned(held)));
+    }
+    if (!down(RETRO_DEVICE_ID_JOYPAD_B)) memory->vk_held = kVkbdNoKey;
+    if (edge(RETRO_DEVICE_ID_JOYPAD_B)) {
+        const uint8_t code = kVkbd[memory->vk_cursor].code;
+        const int latch = vk_latch_bit(code);
+        if (code == kCapsLockCode) memory->caps_latched = !memory->caps_latched;
+        else if (latch >= 0) memory->vk_latch ^= uint8_t(1u << latch);
+        else memory->vk_held = code;
+    }
+    if (edge(RETRO_DEVICE_ID_JOYPAD_Y)) memory->caps_latched = !memory->caps_latched;
+    if (edge(RETRO_DEVICE_ID_JOYPAD_A)) memory->vkbd_opaque = !memory->vkbd_opaque;
+    if (memory->vk_held != kVkbdNoKey) press_key(out->keys, memory->vk_held);
+    for (unsigned i = 0; i < kVkLatchCount; ++i)
+        if (memory->vk_latch >> i & 1) press_key(out->keys, kVkLatchCodes[i]);
+    if (down(RETRO_DEVICE_ID_JOYPAD_X)) press_key(out->keys, 0x40);
+}
+
 // One run of the mapper. `mouse_port` is whether the pad may use the mouse port (the frontend's player 1 is a pad with the mouse). Edges and the actions
 // they run first, then the functions of the inputs that are down.
 inline void mapper_step(const Controls &controls, const InputConfig &config, bool mouse_port, InputMemory *memory, Effects *out)
@@ -279,6 +326,7 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
     };
     const uint32_t edges = controls.down & ~memory->held;
     memory->held = controls.down;
+    const bool was_open = memory->vkbd_open;
     auto say = [&](uint8_t message) {
         memory->message = message;
         memory->message_left = uint8_t(kMessageUnits);
@@ -302,6 +350,14 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
             say(config.crop_on != memory->crop_toggled ? kMessageCropOn : kMessageCropOff);
             break;
         case kMapperTargetToggleStatusbar: memory->statusbar_shown = !memory->statusbar_shown; break;
+        case kMapperTargetToggleVkbd:
+            memory->vkbd_open = !memory->vkbd_open;
+            if (!memory->vkbd_open) {                                  // closing lets go of everything the keyboard held; the cursor stays where it was
+                memory->vk_held = kVkbdNoKey;
+                memory->vk_latch = 0;
+                memory->vk_repeat = 0;
+            }
+            break;
         case kMapperTargetReset:
             if (!memory->reset_hold) {
                 memory->reset_hold = uint8_t(kResetHoldUnits);
@@ -319,12 +375,19 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
     const bool turbo_on = config.turbo != memory->turbo_toggled;
     const unsigned pulse = unsigned(std::max(2, config.pulse));
     const bool turbo_held = turbo_on && (controls.down >> config.turbo_input & 1);
-    for (unsigned input = 0; input < kMapperInputs; ++input) {
-        bool down = controls.down >> input & 1;
-        if (down && turbo_held && input == config.turbo_input) down = (memory->turbo_phase % pulse) < pulse / 2;
-        if (down) apply_target(target_of(input), mouse_mode, config, out);
+    if (memory->vkbd_open != was_open) {
+        memory->turbo_phase = 0;                                       // the run that opens or closes the keyboard is the pad's to neither: what went down in it is not a press
+    } else if (memory->vkbd_open) {
+        vkbd_step(controls, edges, memory, out);                       // the pad belongs to the keyboard: it gives the joystick and the mapper nothing
+        memory->turbo_phase = 0;
+    } else {
+        for (unsigned input = 0; input < kMapperInputs; ++input) {
+            bool down = controls.down >> input & 1;
+            if (down && turbo_held && input == config.turbo_input) down = (memory->turbo_phase % pulse) < pulse / 2;
+            if (down) apply_target(target_of(input), mouse_mode, config, out);
+        }
+        memory->turbo_phase = turbo_held ? uint8_t((memory->turbo_phase + 1) % kTurboCycle) : 0;
     }
-    memory->turbo_phase = turbo_held ? uint8_t((memory->turbo_phase + 1) % kTurboCycle) : 0;
     for (unsigned s = 0; s < 2; ++s) {
         const bool moves = s == 0 ? left_mouse : right_mouse;
         const int x = controls.stick[s][0], y = controls.stick[s][1];

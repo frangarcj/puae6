@@ -97,3 +97,28 @@ Interfaz LED (`RETRO_ENVIRONMENT_GET_LED_INTERFACE`): el core llama a `set_led_s
 3 DF0, 4-6 DF1-DF3, 7 HD, 8 CD/MD). La ABI nativa da una unica luz de unidad (el LED de alguna unidad esta encendido; libretro maneja solo DF0), que enciende los LED 1 y 3;
 **no se emiten** el LED de power (no esta en la ABI), la pista, DF1-3, HD ni CD. Al cerrar el contenido los LED se apagan. Con runahead, las unidades especulativas tambien llaman (como en
 PUAE5); un frontend que lo evita ignora el LED de esas llamadas.
+
+## Teclado virtual (T31a) — categoria `OSD`
+
+Implementado en `adapters/libretro/vkbd.h` (disposicion, navegacion y dibujo) y su paso en `mapper.h` (`vkbd_step`); comprobado con `tests/libretro-ui/vkbd_probe.cpp`
+(C++ sobre controles e imagenes sinteticos) y `test_vkbd.py` (el core completo: paquetes, imagen, estado). El teclado virtual es **entrada normal**: las teclas que pulsa el
+RetroPad son bits del mismo mapa de teclas de `p6_input` que pone el teclado fisico, asi que la maquina no distingue una tecla virtual de una real y una grabacion de paquetes
+lo reproduce. Se dibuja sobre la copia de la imagen (los pixeles de fuera del teclado se oscurecen segun *Dimming*; el estado nativo, el audio y la cadencia no cambian por abrirlo).
+Su memoria (abierto, cursor, tecla sujeta, modificadores enganchados, cuenta de repeticion, transparencia) va en la seccion del adaptador del estado (version 6).
+
+Uso: **Select** (por defecto, como en PUAE5; o el boton mapeado a `toggle_vkbd`, o el hotkey) abre y cierra. Abierto, el RetroPad es del teclado y no da nada al joystick ni al mapper
+(el raton del frontend y el teclado fisico siguen funcionando): D-Pad mueve el cursor (repite a las 16 unidades y despues cada 4), **B** pulsa la tecla bajo el cursor mientras este abajo, **A** quita/pone la
+transparencia, **Y** cambia Caps Lock y **X** pulsa Espacio. Un modificador (Shift, Ctrl, Alt, Amiga) pulsado con B se **engancha** hasta pulsarlo otra vez; Caps Lock es el mismo cerrojo que
+el de la tecla Caps Lock del anfitrion. Cerrar suelta todo lo que sujetaba. La run en que se abre o se cierra no cuenta como pulsacion de nada. La disposicion es la del teclado Amiga:
+bloque principal, cursores y teclado numerico (96 teclas, todas las de `input_map.h`).
+
+| Clave | Valores (defecto en negrita) | Efecto |
+|---|---|---|
+| `puae6_vkbd_theme` | **auto**, auto_outline, beige, beige_outline, cd32, cd32_outline, light, light_outline, dark, dark_outline | Colores y estilo de las etiquetas (sombra o contorno). Auto: beige en A500/A600, gris claro en A1200. |
+| `puae6_vkbd_transparency` | 0%, **25%**, 50%, 75%, 100% | Cuanto dejan ver las teclas la imagen (100 % solo etiquetas y marcos). **A** la apaga y enciende. |
+| `puae6_vkbd_dimming` | 0%, **25%**, 50%, 75%, 100% | Cuanto se oscurece la imagen alrededor del teclado. |
+| `puae6_hotkey_vkbd` | **---**, f11, f12, ... | Tecla del teclado fisico que abre/cierra el teclado virtual (no llega al Amiga). |
+| `puae6_mapper_select` | **toggle_vkbd** (el resto de botones: ---) | Select abre el teclado por defecto. |
+
+Fuera de T31a: el color del puntero de lightpen/lightgun y la tecla SVDS (save disk) de PUAE5 (necesitan P21 y P12), y las teclas "J/M" del vkbd de PUAE5 (el cambio joystick/raton esta en el
+mapper: `toggle_mouse`).

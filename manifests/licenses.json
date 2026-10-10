@@ -217,6 +217,23 @@
       "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
     },
     {
+      "id": "puae-adapter-vkbd",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/vkbd.h"
+      ],
+      "handling": "T31a: the virtual keyboard's behaviour (RetroPad Select opens it, D-Pad moves a cursor, B presses, A toggles transparency, Y Caps Lock, X Space, latching modifiers, themes with shadow or outline, transparency and dimming options) is PUAE5's libretro-uae vkbd reimplemented for PUAE6: the layout, the navigation and the drawing in adapters/libretro/vkbd.h are written for the Amiga key table of input_map.h and draw on a copy of the picture with the project's own 5x7 font; no libretro-uae source file, key matrix table or font is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
       "id": "puae-libchdr",
       "source_id": "puae_libretro_reference",
       "scope": "embedded_dependency_in_reference",

@@ -11281,7 +11281,7 @@
       "title": "Teclado virtual libretro (vkbd) como entrada normal serializable",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17",
         "T18",

@@ -32,10 +32,10 @@
 namespace p6_libretro {
 
 constexpr size_t kStateHeaderBytes = 64;
-constexpr uint32_t kStateVersion = 5;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d); 5: the statusbar's flag and the message of the last action (T31b)
+constexpr uint32_t kStateVersion = 6;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d); 5: the statusbar's flag and the message of the last action (T31b); 6: the virtual keyboard's memory (T31a)
 constexpr size_t kSectionAlign = 16;
 constexpr size_t kMaxImages = 16;                                   // P6_MAX_MEDIA: a playlist cannot name more
-constexpr size_t kInputBytes = 9 * 4;                                // the input memory in the section: nine 32-bit words
+constexpr size_t kInputBytes = 11 * 4;                               // the input memory in the section: eleven 32-bit words
 
 enum class FrameError { None, TooSmall, BadMagic, BadVersion, BadLayout, NonZeroPadding, BadChecksum };
 
@@ -104,6 +104,8 @@ inline void encode_section(const Section &section, std::vector<uint8_t> *out)
     u32(uint32_t(uint16_t(in.stick_frac[0][0])) | uint32_t(uint16_t(in.stick_frac[0][1])) << 16);
     u32(uint32_t(uint16_t(in.stick_frac[1][0])) | uint32_t(uint16_t(in.stick_frac[1][1])) << 16);
     u32(uint32_t(in.message) | uint32_t(in.message_left) << 8);
+    u32((in.vkbd_open ? 1u : 0u) | (in.vkbd_opaque ? 2u : 0u) | uint32_t(in.vk_cursor) << 8 | uint32_t(in.vk_held) << 16);
+    u32(uint32_t(in.vk_latch) | uint32_t(in.vk_repeat) << 8);
     out->resize(align_up(out->size(), kSectionAlign), 0);
 }
 
@@ -151,7 +153,7 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     out->picture.assign(data + at, data + at + picture);
     at += picture;
     if (!room(kInputBytes)) return fail("the section is cut short");
-    uint32_t word[9];
+    uint32_t word[11];
     for (uint32_t &w : word) {
         w = get32(data + at);
         at += 4;
@@ -173,6 +175,16 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
         return fail("a fraction of a mouse count is out of range");
     if ((word[8] & 0xFF) > kMessageReset || ((word[8] >> 8) & 0xFF) > kMessageUnits || (word[8] >> 16) || (((word[8] & 0xFF) == 0) != (((word[8] >> 8) & 0xFF) == 0)))
         return fail("the message of the last action is out of range");
+    const uint32_t cursor = (word[9] >> 8) & 0xFF, keyheld = (word[9] >> 16) & 0xFF, latch = word[10] & 0xFF;
+    if ((word[9] & ~3u & 0xFF) || (word[9] >> 24) || cursor >= kVkbdKeys || (keyheld != kVkbdNoKey && vk_find(uint8_t(keyheld)) < 0) || latch >= (1u << kVkLatchCount) || (word[10] >> 16))
+        return fail("the virtual keyboard's memory is out of range");
+    if (!(word[9] & 1) && (keyheld != kVkbdNoKey || latch || ((word[10] >> 8) & 0xFF))) return fail("a closed virtual keyboard holds a key");
+    out->input.vkbd_open = word[9] & 1;
+    out->input.vkbd_opaque = word[9] & 2;
+    out->input.vk_cursor = uint8_t(cursor);
+    out->input.vk_held = uint8_t(keyheld);
+    out->input.vk_latch = uint8_t(latch);
+    out->input.vk_repeat = uint8_t((word[10] >> 8) & 0xFF);
     out->input.caps_latched = word[0] & 1;
     out->input.caps_held = word[0] & 2;
     out->input.dpad_mouse = word[0] & 4;

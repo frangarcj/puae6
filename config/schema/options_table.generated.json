@@ -888,6 +888,12 @@
       "option": "hotkey_statusbar",
       "class": "presentation"
     },
+    "hotkey_vkbd": {
+      "default": 0,
+      "values_from": "hotkey_key",
+      "option": "hotkey_vkbd",
+      "class": "presentation"
+    },
     "mapper_up": {
       "default": 0,
       "values_from": "mapper_target",
@@ -937,7 +943,7 @@
       "class": "presentation"
     },
     "mapper_select": {
-      "default": 0,
+      "default": 16,
       "values_from": "mapper_target",
       "option": "mapper_select",
       "class": "presentation"
@@ -1082,6 +1088,73 @@
       },
       "option": "statusbar_messages",
       "class": "presentation"
+    },
+    "vkbd_theme": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "names": {
+        "auto": 0,
+        "auto_outline": 1,
+        "beige": 2,
+        "beige_outline": 3,
+        "cd32": 4,
+        "cd32_outline": 5,
+        "light": 6,
+        "light_outline": 7,
+        "dark": 8,
+        "dark_outline": 9
+      },
+      "option": "vkbd_theme",
+      "class": "presentation"
+    },
+    "vkbd_transparency": {
+      "default": 25,
+      "allowed": [
+        0,
+        25,
+        50,
+        75,
+        100
+      ],
+      "names": {
+        "0%": 0,
+        "25%": 25,
+        "50%": 50,
+        "75%": 75,
+        "100%": 100
+      },
+      "option": "vkbd_transparency",
+      "class": "presentation"
+    },
+    "vkbd_dimming": {
+      "default": 25,
+      "allowed": [
+        0,
+        25,
+        50,
+        75,
+        100
+      ],
+      "names": {
+        "0%": 0,
+        "25%": 25,
+        "50%": 50,
+        "75%": 75,
+        "100%": 100
+      },
+      "option": "vkbd_dimming",
+      "class": "presentation"
     }
   },
   "value_sets": {
@@ -1102,6 +1175,7 @@
       "mouse_move_down": 13,
       "mouse_move_left": 14,
       "mouse_move_right": 15,
+      "toggle_vkbd": 16,
       "toggle_mouse": 18,
       "toggle_turbo": 19,
       "toggle_aspect": 20,
@@ -1561,6 +1635,15 @@
       },
       "libretro": "puae6_hotkey_statusbar"
     },
+    "hotkey_vkbd": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_hotkey_vkbd"
+    },
     "mapper_up": {
       "headless": {
         "how": "none"
@@ -1803,6 +1886,33 @@
         "how": "none"
       },
       "libretro": "puae6_statusbar_messages"
+    },
+    "vkbd_theme": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_vkbd_theme"
+    },
+    "vkbd_transparency": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_vkbd_transparency"
+    },
+    "vkbd_dimming": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_vkbd_dimming"
     }
   },
   "presets": {

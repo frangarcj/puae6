@@ -33,6 +33,9 @@
 // "Joystick only" (the mouse wins otherwise: see input_map.h). What the adapter keeps
 // between two runs for the input (the Caps Lock latch, mouse movement that did not fit a unit) is part of the saved adapter section.
 //
+// Virtual keyboard (T31a): Select (or a hotkey) opens the Amiga keyboard over the picture; the pad moves a cursor over it and presses keys as the keyboard's own bits
+// of the p6_input packet (vkbd.h, mapper.h), and its memory is in the input memory of the state.
+//
 // Statusbar and LED (T31b): a bar over the top or bottom of the picture copy shows the drive LED, the two ports and the pad's mode, and the messages of the actions;
 // the frontend's LED interface, if it has one, gets the drive light too. Both are outputs read from the unit just run and the input memory (statusbar.h).
 //
@@ -53,6 +56,7 @@
 #include "sha256.h"
 #include "state_frame.h"
 #include "statusbar.h"
+#include "vkbd.h"
 
 #include <algorithm>
 #include <stdarg.h>
@@ -324,15 +328,32 @@ void deliver_video(const p6_frame &frame, bool have_frame, const Picture &pictur
         core.status.message = core.input.message;
         const bool bar = core.input.statusbar_shown;
         const bool strip = !bar && core.settings.statusbar_messages != 0 && core.input.message != 0;
+        const bool keyboard = core.input.vkbd_open;
         p6_libretro::Presented shown = core.presenter.compose_xrgb(options, picture.window, picture.origin, picture.stride, picture.native_width,
-                                                                    picture.native_height, bar || strip);
-        if (bar || strip) {
+                                                                    picture.native_height, bar || strip || keyboard);
+        if (bar || strip || keyboard) {
             p6_libretro::Canvas canvas;
             canvas.pixels = const_cast<uint32_t *>(static_cast<const uint32_t *>(shown.data));
             canvas.width = shown.width;
             canvas.height = shown.height;
             canvas.stride = shown.pitch / 4;
-            p6_libretro::draw_statusbar(canvas, bar_mode, core.status, bar, strip);
+            if (keyboard) {          // under the statusbar: the keyboard sits above a bar at the bottom
+                p6_libretro::VkbdView view;
+                view.cursor = core.input.vk_cursor;
+                view.held = core.input.vk_held;
+                view.latch = core.input.vk_latch;
+                view.caps = core.input.caps_latched;
+                view.opaque = core.input.vkbd_opaque;
+                p6_libretro::VkbdLook look;
+                look.theme = core.settings.vkbd_theme / 2;
+                look.outline = (core.settings.vkbd_theme & 1) != 0;
+                look.transparency = core.settings.vkbd_transparency;
+                look.dimming = core.settings.vkbd_dimming;
+                look.a1200 = core.settings.machine == P6_MACHINE_A1200;
+                const bool bottom_bar = (bar || strip) && !bar_mode.top;
+                p6_libretro::draw_vkbd(canvas, view, look, bottom_bar ? p6_libretro::statusbar_height(canvas.width, bar_mode, core.status, bar, strip) : 0);
+            }
+            if (bar || strip) p6_libretro::draw_statusbar(canvas, bar_mode, core.status, bar, strip);
         }
         shown = core.presenter.finish(options, shown);
         const uint32_t width = shown.width, height = shown.height;

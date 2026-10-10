@@ -235,10 +235,12 @@ class NormalizationTests(unittest.TestCase):
                         "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit",
                         "analog_mouse": "disabled", "analog_mouse_deadzone": "20", "analog_mouse_speed_left": "1.0", "analog_mouse_speed_right": "1.0",
                         "dpad_mouse_speed": "6", "mouse_speed": "100", "joyport": "joystick", "face_buttons": "disabled", "turbo_fire": "disabled",
-                        "turbo_fire_button": "B", "turbo_pulse": "6", "statusbar": "bottom", "statusbar_startup": "disabled", "statusbar_messages": "disabled"}
+                        "turbo_fire_button": "B", "turbo_pulse": "6", "statusbar": "bottom", "statusbar_startup": "disabled", "statusbar_messages": "disabled",
+                        "vkbd_theme": "auto", "vkbd_transparency": "25%", "vkbd_dimming": "25%"}
         for name in ("up", "down", "left", "right", "b", "a", "y", "x", "select", "start", "l", "r", "l2", "r2", "l3", "r3", "lu", "ld", "ll", "lr", "ru", "rd", "rl", "rr"):
             presentation["mapper_" + name] = "---"          # every button does what it always did
-        for name in ("mouse_toggle", "turbo_toggle", "aspect_toggle", "crop_toggle", "reset"):
+        presentation["mapper_select"] = "toggle_vkbd"       # except Select, which opens the virtual keyboard (PUAE5's default)
+        for name in ("mouse_toggle", "turbo_toggle", "aspect_toggle", "crop_toggle", "reset", "vkbd"):
             presentation["hotkey_" + name] = "---"          # and no key of the keyboard is taken from the Amiga
         presentation["hotkey_statusbar"] = "f12"            # but F12, which the Amiga does not have, shows the statusbar (PUAE5's default), and the bar starts hidden
         self.assertEqual(normalized, {**machine, **presentation})
