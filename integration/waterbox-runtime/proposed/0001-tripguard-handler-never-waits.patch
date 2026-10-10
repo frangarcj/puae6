@@ -1,0 +1,68 @@
+diff --git a/waterbox/waterboxhost/src/memory_block/tripguard.rs b/waterbox/waterboxhost/src/memory_block/tripguard.rs
+index 9bba872..eb5c9de 100644
+--- a/waterbox/waterboxhost/src/memory_block/tripguard.rs
++++ b/waterbox/waterboxhost/src/memory_block/tripguard.rs
+@@ -73,13 +73,14 @@ struct GlobalData {
+ }
+ 
+ pub unsafe fn register(block: *mut MemoryBlock) {
++	// The alternate stack of the thread is made before the lock is taken (it used to be made with the lock held: a fault inside that allocation reached trip() and waited for it).
++	#[cfg(target_os = "macos")]
++	trip_pal::prepare_thread();
+ 	let mut data = GLOBAL_DATA.lock().unwrap();
+ 	if !data.initialized {
+ 		trip_pal::initialize();
+ 		data.initialized = true;
+ 	}
+-	#[cfg(target_os = "macos")]
+-	trip_pal::prepare_thread();
+ 	data.active_blocks.push(MemoryBlockRef(block));
+ }
+ 
+@@ -102,7 +103,11 @@ enum TripResult {
+ }
+ 
+ unsafe fn trip(addr: usize) -> TripResult {
+-	let data = GLOBAL_DATA.lock().unwrap();
++	// A signal handler must not wait for a lock that the interrupted code (this very thread, in register()) may hold: the fault is then not ours to handle.
++	let data = match GLOBAL_DATA.try_lock() {
++		Ok(data) => data,
++		Err(_) => return TripResult::NotHandled,
++	};
+ 	let memory_block = match data.active_blocks
+ 		.iter()
+ 		.find(|x| (*x.0).addr.contains(addr)) {
+@@ -312,7 +317,7 @@ mod trip_pal {
+ 	static SA_OLD_SEGV: OnceLock<sigaction> = OnceLock::new();
+ 	static SA_OLD_BUS: OnceLock<sigaction> = OnceLock::new();
+ 	thread_local! {
+-		static ALT_STACK: std::cell::RefCell<Option<Box<[u8]>>> = std::cell::RefCell::new(None);
++		static ALT_STACK: std::cell::RefCell<Option<(usize, usize)>> = std::cell::RefCell::new(None);
+ 	}
+ 
+ 	unsafe extern "C" fn handler(sig: i32, info: *const siginfo_t, ucontext: *mut c_void) {
+@@ -390,14 +395,20 @@ mod trip_pal {
+ 				if current.ss_flags & SS_DISABLE == 0 {
+ 					return
+ 				}
+-				let mut storage = vec![0u8; 64 * 1024].into_boxed_slice();
++				// 64 KiB of the alternate stack come from mmap, not from the allocator, with a PROT_NONE guard page below: the handler (trip() with a snapshot of a page) used at most
++				// 3 336 bytes in the measurements of T28a, and an overrun now faults on the guard instead of writing over the neighbour's heap.
++				let guard = host_page_size();
++				let size = 64 * 1024;
++				let base = libc::mmap(null_mut(), guard + size, libc::PROT_READ | libc::PROT_WRITE, libc::MAP_PRIVATE | libc::MAP_ANON, -1, 0);
++				assert!(base != libc::MAP_FAILED, "mapping the alternate signal stack failed");
++				assert_eq!(libc::mprotect(base, guard, libc::PROT_NONE), 0, "protecting the guard of the alternate signal stack failed");
+ 				let stack = stack_t {
+-					ss_sp: storage.as_mut_ptr() as *mut c_void,
+-					ss_size: storage.len(),
++					ss_sp: (base as usize + guard) as *mut c_void,
++					ss_size: size,
+ 					ss_flags: 0,
+ 				};
+ 				assert_eq!(sigaltstack(&stack, null_mut()), 0, "installing alternate signal stack failed");
+-				*alt_stack = Some(storage);
++				*alt_stack = Some((base as usize + guard, size));
+ 			}
+ 		});
+ 	}

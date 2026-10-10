@@ -234,3 +234,26 @@ al UAE antiguo de ese fork. PUAE6 parte de WinUAE6 en C++: T02/T09 deben derivar
 sus dependencias reales, sin eliminar libc++ por analogia. La referencia local
 CAPSImg ya capturada conserva sus avisos y su exclusion de los paquetes hasta
 la revision correspondiente; citar una alternativa no cambia sus condiciones.
+
+## Propuesta T28a para MacHawk: el manejador de tripguard no debe esperar un cerrojo
+
+Hallazgo de T28a (reports/tasks/T28a.md), redactado para llevarlo a MacHawk; aqui NO se modifica `../MacHawk` ni se aplica a la copia del runtime (el parche esta en
+`integration/waterbox-runtime/proposed/0001-tripguard-handler-never-waits.patch`, sin conectar a `tools/build_waterbox.py`, porque no cierra por si solo el fallo intermitente).
+
+Problema, en `waterbox/waterboxhost/src/memory_block/tripguard.rs` (macOS ARM64): `register()` toma `GLOBAL_DATA` y, con el cerrojo tomado, llama a `trip_pal::prepare_thread()`,
+que reserva con `vec![0u8; 64 * 1024]` la pila alternativa de señales. El manejador de SIGSEGV/SIGBUS se instala para todo el proceso y `trip()` empieza por `GLOBAL_DATA.lock()`.
+Si algo falla dentro de esa asignacion (en macOS 26.7.1 `libsystem_malloc` falla con una frecuencia del 0,5 al 4 % de los procesos que crean un host, ver el informe), el manejador espera
+un cerrojo que su propio hilo tiene: el proceso se cuelga (`__psynch_mutexwait`, 123 muestras) en lugar de abortar con el fallo; ademas el manejador bloquea todas las señales (`sigfillset`),
+asi que ni SIGTERM lo termina.
+
+Cambio propuesto (tres puntos):
+
+1. `trip()`: `GLOBAL_DATA.try_lock()` y `NotHandled` si esta tomado (un manejador de señales no espera cerrojos que el codigo interrumpido pueda tener). El fallo pasa a aparecer como
+   `[unhandled] sig=... addr=... pc=...` y como informe de caida normal.
+2. `register()`: llamar a `prepare_thread()` antes de tomar el cerrojo.
+3. Pila alternativa de 64 KiB por `mmap` con una pagina de guarda `PROT_NONE` debajo (en vez del heap): el manejador uso como maximo 3 336 bytes en las mediciones (4 sandboxes, 30 unidades,
+   save/load), asi que 64 KiB son veinte veces lo medido, y un desbordamiento futuro fallaria en la guarda en lugar de escribir sobre el heap contiguo. En C puro tambien quita el sitio
+   donde caia el fallo (el `calloc` de 64 KiB).
+
+Con el parche los 8 tests del runtime pasan. No arregla el fallo de fondo: en .NET sigue habiendo procesos que mueren en el `Box<Mutex>` de la primera activacion o en malloc de CoreCLR,
+con un grupo de segmentos de malloc a NULL (`_xzm_segment_group_alloc_segment + 144`, `addr=0x178`), lo que apunta a `libsystem_malloc` y no a esta biblioteca.

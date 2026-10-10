@@ -11163,7 +11163,7 @@
       "title": "SIGSEGV intermitente al crear un segundo sandbox Waterbox con otros heaps en el mismo proceso",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "blocked",
       "depends": [
         "T28"
       ],
@@ -11199,7 +11199,7 @@
         "El reproducer corre N>=200 iteraciones sin fallo tras el arreglo, o el fallo queda atribuido con backtrace a un componente fuera del repo y documentado con su rodeo."
       ],
       "stop": "No ocultar el crash reintentando tests ni subiendo timeouts.",
-      "evidence": null
+      "evidence": "reports/tasks/T28a.md"
     },
     {
       "id": "T28b",
