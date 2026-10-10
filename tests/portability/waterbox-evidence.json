@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "row": "waterbox-darwin-arm64",
+  "date": "2026-10-10",
+  "host": "macOS 26.7 arm64, 16 KiB host pages; guest ELF aarch64 (4 KiB logical pages)",
+  "guest": {
+    "file": "build/waterbox/puae6/release/puae6.wbx",
+    "sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
+    "note": "Built in this worktree (a different checkout path from the one that recorded it) by `python3 tools/build_waterbox.py --puae6`; the hash is the guest_sha256 of manifests/waterbox-memory.json, so the guest is bit-identical to the recorded one."
+  },
+  "runtime": {
+    "dylib": "libwaterboxhost.dylib (Rust debug, aarch64-apple-darwin), sha256 5247ebd26d22395f182807711a621f4ef9d27a0dbec7a0f7b6e7227ab6c64d02",
+    "toolchain": "Homebrew clang 22.1.8 / LLD 22.1.8, rustc 1.95.0, cargo 1.95.0 (plan/toolchains.json, profile darwin-arm64-local-smoke); dotnet 10 runtime rolling forward the net8.0 harness"
+  },
+  "checks": {
+    "WB02": {
+      "command": "python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_units.py",
+      "result": "5 tests OK, 0 skips, 525 s: 10000 units twice in two processes equal p6_headless and the libretro core (ticks, image hash, PCM hash, parity, cadence, audio frames) with the same hardware snapshot digest each time; guard bands; render/audio off; limits",
+      "passed": true
+    },
+    "WB13": {
+      "command": "python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_wb.py",
+      "result": "OK (10 tests in the file, 138 s, 0 skips): host callback crosses puae6.wbx with canaries in x19-x29/d8-d15/sp; x18, x28, musl TSD and errno intact; also in a restored sandbox",
+      "passed": true
+    },
+    "WB14": {
+      "command": "python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_wb.py",
+      "result": "OK (same run): 16 KiB groups of a clean page and of Chip RAM dirty and restore as a whole on A500, A600 (1 MiB) and A1200 (2 MiB); a poke changes the next picture",
+      "passed": true
+    },
+    "WB15": {
+      "command": "python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_wb.py",
+      "result": "OK (same run): a new process restores a snapshot of another (interlaced, buttons held, A600, A1200) and continues exactly; a damaged guest or one that is not the receipt's is refused",
+      "passed": true
+    }
+  },
+  "not_claimed": "Waterbox Linux x86_64 and Windows x86_64 runtimes are out of the declared scope (user decision 2026-10-10); snapshots of this row are not moved to any other row."
+}
