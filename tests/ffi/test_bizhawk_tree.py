@@ -7,7 +7,8 @@ packages from the local cache). tests/ffi/inventory then loads the assembly as i
 * both cores are registered, UAE with its normal priority and PUAE6 with a low one, so UAE is still what an Amiga game opens with and PUAE6 is chosen
   explicitly (the core picker or Config.PreferredCores); the order the loader uses (RomLoader.MakeCoreFromCoreInventory) is reproduced here;
 * the constructor that BizHawk calls takes CoreLoadParameters, the core name is the new constant, and the assembly records the guest it belongs with;
-* the patches apply to the pinned commit with `git apply --check`, which writes nothing, and MacHawk's HEAD and its tracked files are as they were.
+* the patches apply to the pinned commit with `git apply --check`, which writes nothing, and MacHawk's HEAD and its tracked files are as they were;
+* opt-in (P6_EMUHAWK_BUILD=1): EmuHawk.exe, with the patched MainForm.cs that gives the .SaveRAM file whole to PUAE6 (T28b), compiles in a second tree.
 
 Needs dotnet, the pinned ../MacHawk checkout and the local NuGet cache (no network), and the guest receipt (tools/build_waterbox.py --puae6); skips without them.
     python3 -m unittest discover -s tests/ffi -p "test_bizhawk_tree.py"
@@ -99,6 +100,14 @@ class BizHawkTreeTests(unittest.TestCase):
         self.assertIn("Kickstart v1.3", re.search(r'Option\("Amiga", "A500", [^\n]*Ideal\)', database)[0])
         self.assertIn("Kickstart v2.05", re.search(r'Option\("Amiga", "A600", [^\n]*Ideal\)', database)[0])
         self.assertIn("Kickstart v3.1 r40.068", re.search(r'Option\("Amiga", "A1200", [^\n]*Ideal\)', database)[0])
+
+    @unittest.skipUnless(os.environ.get("P6_EMUHAWK_BUILD") == "1", "opt-in (about a minute and 200 MB): P6_EMUHAWK_BUILD=1 compiles EmuHawk.exe in a second tree")
+    def test_emuhawk_compiles_with_the_patched_mainform_that_hands_the_save_ram_file_to_the_core(self):
+        # T28b: MainForm.LoadSaveRam names the cores that get the whole .SaveRAM file; the patch adds Puae6.Puae6Core. EmuHawk (WinForms, net48) is compiled, never run.
+        exe = build_tree.build_emuhawk(self.guest)
+        self.assertTrue(exe.is_file())
+        patched = (build_tree.TREE_EMUHAWK / "src/BizHawk.Client.EmuHawk/MainForm.cs").read_text(encoding="utf-8-sig")
+        self.assertIn('NES { BoardName: "FDS" } or Puae6.Puae6Core)', patched)
 
     def test_macHawk_was_not_touched(self):
         self.assertEqual(self.before, tracked_state())

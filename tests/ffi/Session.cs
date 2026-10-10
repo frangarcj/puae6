@@ -32,6 +32,7 @@ using BizHawk.Client.Common;
 ///   writesaveram TAG PATH | readsaveram TAG PATH                  a SaveRam to a file / from a file (both are the caller's files, the core never touches them)
 ///   mutatesaveram TAG NEW truncate:N|flip:OFFSET|pad:N|junk:N     a SaveRam made up from another one
 ///   replay NAME on|off                                            ReplayInProgress; "run ... movie=" turns it on, as a frontend playing a movie does
+///   mainflush NAME PATH | mainload NAME PATH [stock|patched]       EmuHawk's FlushSaveRAM and LoadSaveRam as MainForm.cs runs them (MainFormSaveRam.cs); "notice TEXT" for what the core notified about SaveRAM
 ///   savedisk NAME TAG | loaddisk NAME INDEX TAG                   keep an exported disk in memory / compare: loaddisk prints "diskcmp NAME INDEX TAG equal=0|1 differs=N"
 ///   digest NAME [LABEL] | peek NAME DOMAIN ADDR COUNT | poke NAME DOMAIN ADDR HEX | dispose NAME | echo TEXT
 /// </summary>
@@ -171,6 +172,8 @@ internal static unsafe partial class Program
 					Console.WriteLine($"mutatedsaveram {words[2]} bytes={copy.Length}");
 					break;
 				}
+				case "mainflush": MainFormFlush(machines[words[1]].Core, words[1], words[2]); break;
+				case "mainload": MainFormLoad(machines[words[1]].Core, words[1], words[2], words.Length > 3 && words[3] == "patched"); break;
 				case "replay": machines[words[1]].Core.ReplayInProgress = words[2] == "on"; Console.WriteLine($"replay {words[1]} {words[2]}"); break;
 				case "savedisk":
 				{

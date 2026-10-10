@@ -8,6 +8,8 @@ net48 reference assemblies, restored from the local NuGet cache (never from the 
 
     python3 integration/bizhawk/patches/build_tree.py            # export, patch, install the sources and build; prints the assembly
     python3 integration/bizhawk/patches/build_tree.py --check    # only: does every patch apply to the pinned commit (nothing is written)
+    python3 integration/bizhawk/patches/build_tree.py --emuhawk  # the same in a second tree (<key>-emuhawk) that also has EmuHawk, and builds EmuHawk.exe (WinForms, net48; it is
+                                                                 # compiled, never run here): proves that what the patches change in MainForm.cs compiles against the core
 """
 import argparse
 import json
@@ -37,12 +39,17 @@ def tree_key() -> str:
 
 
 TREE = ROOT / "build/bizhawk-tree" / tree_key()
+TREE_EMUHAWK = TREE.with_name(TREE.name + "-emuhawk")
 INSTALL_AT = "src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6"
-# What the projects that are built (and the patches) need: the solution props, analyzers and prebuilt generators the build references, and five projects.
+# What the projects that are built (and the patches) need: the solution props, analyzers and prebuilt generators the build references, and five projects. The single files of
+# Client.Common and EmuHawk are only there to be patched; EmuHawk itself (WinForms) is built by --emuhawk, which adds the projects it references.
 EXPORT = [".editorconfig", ".global.editorconfig.ini", ".stylecop.json", "Common.props", "Directory.Packages.props", "global.json", "References",
           "ExternalProjects", "src/.gitignore", "src/BannedSymbols.BannedApiAnalyzers.txt", "src/MainSlnCommon.props", "src/Menees.Analyzers.Settings.xml",
           "src/BizHawk.BizInvoke", "src/BizHawk.Common", "src/BizHawk.Emulation.Common", "src/BizHawk.Emulation.Cores", "src/BizHawk.Emulation.DiscSystem",
-          "src/BizHawk.Client.Common/config/Config.cs"]
+          "src/BizHawk.Client.Common/config/Config.cs", "src/BizHawk.Client.EmuHawk/MainForm.cs"]
+EXPORT_EMUHAWK = [path for path in EXPORT if not path.startswith(("src/BizHawk.Client.Common/", "src/BizHawk.Client.EmuHawk/"))] + [
+    "src/MainSlnExecutable.props", "src/BizHawk.Bizware.Audio", "src/BizHawk.Bizware.Graphics", "src/BizHawk.Bizware.Graphics.Controls", "src/BizHawk.Bizware.Input",
+    "src/BizHawk.Client.Common", "src/BizHawk.Client.EmuHawk", "src/BizHawk.WinForms.Controls"]
 
 
 class RecipeError(RuntimeError):
@@ -75,60 +82,70 @@ def check_patches() -> None:
             raise RecipeError(f"{patch.name} no se aplica al commit fijado de MacHawk:\n{result.stderr.decode()}")
 
 
-def export_tree() -> bool:
+def export_tree(tree: Path = TREE, paths: list[str] = EXPORT) -> bool:
     """Exports the pinned sources into the tree of these inputs; returns False when that tree already exists (it is then left as it is)."""
-    if TREE.exists():
+    if tree.exists():
         return False
-    TREE.mkdir(parents=True)
-    archive = git("archive", "--format=tar", pinned_commit(), "--", *EXPORT)
+    tree.mkdir(parents=True)
+    archive = git("archive", "--format=tar", pinned_commit(), "--", *paths)
     if archive.returncode:
         raise RecipeError(archive.stderr.decode())
-    subprocess.run(["tar", "-x", "-C", str(TREE)], input=archive.stdout, check=True)
+    subprocess.run(["tar", "-x", "-C", str(tree)], input=archive.stdout, check=True)
     return True
 
 
-def apply_patches() -> None:
+def apply_patches(tree: Path = TREE) -> None:
     """GNU patch, not `git apply`: inside a subdirectory of another repository (build/ is one) `git apply` silently skips every file outside the
     directory it runs in. Each patch must then be reversible, which proves that it is there."""
     for patch in PATCHES:
         for command, what in ((["patch", "-p1", "--no-backup-if-mismatch", "-i", str(patch)], "se aplica"),
                               (["patch", "-p1", "-R", "--dry-run", "-i", str(patch)], "queda aplicado")):
-            result = subprocess.run(command, cwd=TREE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(command, cwd=tree, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode:
                 raise RecipeError(f"{patch.name} no {what} a la copia: {(result.stdout + result.stderr).decode()}")
 
 
-def install_sources() -> None:
-    target = TREE / INSTALL_AT
+def install_sources(tree: Path = TREE) -> None:
+    target = tree / INSTALL_AT
     target.mkdir(parents=True, exist_ok=True)
     for directory in CORE_SOURCES:
         for source in sorted(directory.glob("*.cs")):
             shutil.copy2(source, target / source.name)
 
 
-def build(guest_sha256: str) -> Path:
+def build(guest_sha256: str, tree: Path = TREE, project: str = "src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj",
+          output: str = "src/BizHawk.Emulation.Cores/bin/Debug/BizHawk.Emulation.Cores.dll") -> Path:
     dotnet = shutil.which("dotnet")
     if not dotnet:
         raise RecipeError("falta dotnet")
     env = {**os.environ, "DOTNET_CLI_HOME": str(ROOT / "build/waterbox/dotnet-home"), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget"),
            "DOTNET_NOLOGO": "1", "DOTNET_CLI_TELEMETRY_OPTOUT": "1"}
-    project = TREE / "src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj"
-    log = TREE / "build.log"
+    log = tree / "build.log"
     with log.open("w") as out:
-        result = subprocess.run([dotnet, "build", str(project), "-c", "Debug", "--nologo", f"-p:Puae6GuestSha256={guest_sha256}",
+        result = subprocess.run([dotnet, "build", str(tree / project), "-c", "Debug", "--nologo", f"-p:Puae6GuestSha256={guest_sha256}",
                                  f"-p:RestoreSources={Path.home() / '.nuget/packages'}", "-p:InstallGitHooks=false"],
-                                cwd=TREE, env=env, stdout=out, stderr=subprocess.STDOUT)
+                                cwd=tree, env=env, stdout=out, stderr=subprocess.STDOUT)
     if result.returncode:
         raise RecipeError("la compilacion fallo; ultimas lineas de " + str(log) + ":\n" + "\n".join(log.read_text().splitlines()[-30:]))
-    assembly = TREE / "src/BizHawk.Emulation.Cores/bin/Debug/BizHawk.Emulation.Cores.dll"
+    assembly = tree / output
     if not assembly.is_file():
         raise RecipeError(f"no se encuentra {assembly}")
     return assembly
 
 
+def build_emuhawk(guest_sha256: str) -> Path:
+    """EmuHawk.exe (net48, WinForms) of the patched tree: it is compiled, which is what proves that the lines the patches change in MainForm.cs are valid against the core; it
+    is not run (it is a Windows program)."""
+    if export_tree(TREE_EMUHAWK, EXPORT_EMUHAWK):
+        apply_patches(TREE_EMUHAWK)
+        install_sources(TREE_EMUHAWK)
+    return build(guest_sha256, TREE_EMUHAWK, "src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj", "output/EmuHawk.exe")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--emuhawk", action="store_true", help="build EmuHawk.exe in a second tree instead of the core's assembly")
     options = parser.parse_args()
     check_patches()
     if options.check:
@@ -137,10 +154,14 @@ def main() -> int:
     receipt = ROOT / "build/waterbox/puae6/puae6-receipt.json"
     if not receipt.is_file():
         raise RecipeError(f"falta {receipt}: ejecutar tools/build_waterbox.py --puae6")
+    guest = json.loads(receipt.read_text())["guest"]["sha256"]
+    if options.emuhawk:
+        print(build_emuhawk(guest))
+        return 0
     if export_tree():
         apply_patches()
         install_sources()
-    print(build(json.loads(receipt.read_text())["guest"]["sha256"]))
+    print(build(guest))
     return 0
 
 

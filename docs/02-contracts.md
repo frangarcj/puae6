@@ -423,7 +423,16 @@ cambiaron respecto de los bytes con que se cargaron. Cada uno se exporta con `p6
 disco tal como lo dio su fichero>.adf` mediante un fichero temporal vecino, flush/fsync y rename (siempre queda el disco viejo o el nuevo); al cargar con escrituras habilitadas, esa
 copia ES el disco (su SHA-256 es su identidad: un estado guardado con otra copia no carga, como con cualquier otro medio). Un disco con una pista que no es AmigaDOS no se guarda y se
 avisa; con `off` se avisa de cuantos discos cambiaron y se descartan. La cabecera de un ADF guardado que el puente tomaria por otro formato (extendido o ejecutable) se rechaza al
-guardar y al usar. headless siempre `flags = 0`; el wrapper BizHawk lo fija a 0 hasta T27c.
+guardar y al usar. headless siempre `flags = 0`.
+
+BizHawk/Waterbox (T28, T28b): el sync setting `FloppyWrites` (por defecto `false`: `flags = 0` y el nucleo no tiene `ISaveRam`) fija `P6_CONFIG_FLOPPY_WRITES`. El overlay viaja en el snapshot
+del sandbox (rollback) y lo duradero es `ISaveRam`: la lista acotada de sectores distintos de la base (`P6SR`, 12 + 40 + 514 n + 32 bytes, nunca una imagen), tomada solo por una llamada explicita
+(`CloneSaveRam`, que EmuHawk hace en `FlushSaveRAM` y en el autoflush) y devuelta solo antes de la primera unidad (`StoreSaveRam`), porque la base vive en el heap sellado. EmuHawk dimensiona el
+buffer de la carga con `CloneSaveRam()` de un nucleo recien creado, que aqui es `null`; por eso `integration/bizhawk/patches/0001-register-puae6.patch` añade `Puae6.Puae6Core` a la lista de
+nucleos que reciben el fichero `.SaveRAM` entero (con un EmuHawk sin parchear el fichero se escribe pero no se autocarga). Un `.SaveRAM` que el nucleo rechaza
+(`SaveRamRejectedException`, que es una `IOException` precisamente porque `LoadSaveRam` solo captura esa) se avisa en pantalla con su motivo, sin excepcion sin capturar y sin cambiar nada.
+`ReplayInProgress` no lo pone ningun frontend real: BizHawk ya separa la SaveRAM de las peliculas (ruta propia por pelicula, peliculas que empiezan desde SaveRAM, `LoadSaveRam` no se
+ejecuta con una pelicula en cola); es un gancho para herramientas y para el arnes de tests (documentado en el comentario de la propiedad, `Puae6Core.Persistence.cs`).
 
 Guardar estado revierte overlay, drive state, indice de disco y eventos pendientes.
 Flushear a almacenamiento del host es operacion explicita aparte, atomica y nunca

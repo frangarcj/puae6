@@ -30,7 +30,12 @@ public enum SaveRamRejection
 	WritesDisabled,
 }
 
-public sealed class SaveRamRejectedException : Exception
+/// <summary>
+/// A SaveRam the core refused (nothing changed). It derives from <see cref="IOException"/> on purpose: EmuHawk's MainForm.LoadSaveRam, which feeds the .SaveRAM file to StoreSaveRam,
+/// catches only IOException (it shows "An error occurred while loading Sram"); any other type would leave a damaged or foreign file as an unhandled exception while a ROM is opening.
+/// The core also notifies the reason on screen (<see cref="Puae6Core.StoreSaveRam"/>), which the generic message does not carry.
+/// </summary>
+public sealed class SaveRamRejectedException : IOException
 {
 	public SaveRamRejection Reason { get; }
 	public SaveRamRejectedException(SaveRamRejection reason, string message) : base(message) => Reason = reason;

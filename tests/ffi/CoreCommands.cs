@@ -96,7 +96,7 @@ internal static unsafe partial class Program
 	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null, IReadOnlyList<byte[]>? media = null)
 	{
 		string guest = Path.GetFullPath(options["guest"]);
-		var comm = new CoreComm(_ => { }, (_, _) => { }, null!, CoreComm.CorePreferencesFlags.None, null!);
+		var comm = new CoreComm(_ => { }, (message, _) => { if (message.StartsWith("SaveRAM")) Console.WriteLine($"notice {message}"); }, null!, CoreComm.CorePreferencesFlags.None, null!);
 		settings ??= new Puae6SyncSettings();
 		if (options.TryGetValue("seed", out var seed)) settings.RandomSeed = ulong.Parse(seed);
 		return new Puae6Core(comm, new Puae6Parameters

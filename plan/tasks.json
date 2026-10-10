@@ -11200,7 +11200,7 @@
       "title": "Autocarga de .SaveRAM en EmuHawk para PUAE6 y contrato de escrituras actualizado",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T28"
       ],

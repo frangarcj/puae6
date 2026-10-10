@@ -459,9 +459,20 @@ Estado (T28): hecho y probado en el runtime Waterbox real (tests/waterbox-media,
    a 2 932 736 bytes. El snapshot con el pool vacio (unidad 100) es de 9 273 065 bytes y con las 160 pistas de los dos discos escritas de 11 058 644: el crecimiento (1,79 MB) es el pool, por debajo
    de los 2 017 456 bytes que la cota de estado ya incluye, y no crece mas por escribir otra vez lo mismo.
 
-Limites y abierto (T29/T60): EmuHawk carga el fichero `.SaveRAM` con el tamaño de `CloneSaveRam()` de un nucleo recien creado, que aqui es `null` (nada cambiado) y por tanto no lo
-carga; la importacion funciona por `StoreSaveRam` (peliculas "desde SaveRAM", herramientas) y falta el flujo de menu/archivo del frontend y que este marque `ReplayInProgress` durante una
-pelicula. El caso de una pista que no es AmigaDOS en una SaveRam (formato extendido) y el rendimiento de `SaveRamModified` (exporta los discos tocados) con Kickstart real tampoco estan medidos.
+Autocarga y peliculas (T28b, `tests/waterbox-media/test_media_frontend.py`, `tests/ffi/MainFormSaveRam.cs`): `MainForm.LoadSaveRam` de EmuHawk solo pasa el fichero `.SaveRAM` entero a una lista fija
+de nucleos; a los demas les dimensiona el buffer con `CloneSaveRam()` de un nucleo recien creado, que aqui es `null` (nada difiere de la base), asi que se salta la carga. Se eligio (a): `integration/bizhawk/patches/0001-register-puae6.patch`
+añade `Puae6.Puae6Core` a esa lista (una linea en `MainForm.cs`; `build_tree.py --emuhawk` compila EmuHawk.exe, net48, en un arbol aparte para comprobar que lo que cambia el parche es valido contra el nucleo; no se ejecuta, es un programa de
+Windows). La opcion (b), un tamaño fijo con relleno de ceros, funcionaria con un EmuHawk sin parchear pero obligaria a cada `.SaveRAM` a pesar el maximo (1 809 964 bytes frente a 11 392 de MED02) y dimensionaria el buffer con un dato que el
+nucleo no tiene (cuanto va a escribir el invitado); (a) no cambia el formato ni el coste. Con un EmuHawk sin parchear el fichero se escribe (FlushSaveRAM) pero no se autocarga, que el test `stock` documenta. Un fichero que el nucleo rechaza
+(`SaveRamRejectedException`, una `IOException` porque `LoadSaveRam` solo captura esa) se avisa en pantalla con el motivo y no cambia nada. `ReplayInProgress` no lo pone ningun frontend real (BizHawk separa la SaveRAM de cada pelicula, no
+ejecuta `LoadSaveRam` con una pelicula en cola y empieza las peliculas "desde SaveRAM" con `StoreSaveRam` antes de la primera unidad): es un resguardo para herramientas y para el arnes; su documentacion esta en el codigo.
+Abierto (T60): ningun EmuHawk real se ha ejecutado aqui (el flujo se reproduce con el mismo algoritmo de MainForm sobre el nucleo y el sandbox reales); el caso de una pista que no es AmigaDOS en una SaveRam (formato extendido) y el
+rendimiento de `SaveRamModified` (exporta los discos tocados) con Kickstart real tampoco estan medidos.
+
+Fallo intermitente al crear un host (T28a, reports/tasks/T28a.md): con este equipo (macOS 26.7.1, `libsystem_malloc` xzone) del orden del 0,5 al 4 % de los procesos que crean un host Waterbox
+mueren con SIGSEGV o SIGBUS dentro de malloc o se cuelgan (el manejador de `tripguard` espera un cerrojo que su propio hilo tiene). Pasa con un solo sandbox, sin `FloppyWrites`, antes de T28 y
+sin .NET (`tests/waterbox-media/boot_driver.c`); no es del core ni de un segundo heap. Un test que cree sandboxes y muera con -11, -10 o un timeout de 30 minutos con esa pila no es una
+regresion; el reproducer es `tests/waterbox-media/repro_heaps.py` y el parche que convertiria el cuelgue en aborto esta descrito en el informe (es de MacHawk, que aqui es solo lectura).
 
 ## Suite de aceptacion Waterbox
 

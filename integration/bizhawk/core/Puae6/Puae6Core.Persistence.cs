@@ -37,8 +37,11 @@ public sealed unsafe partial class Puae6Core
 	public int MediaCount => _media.Count;
 
 	/// <summary>
-	/// A movie is being played back or recorded from its start: the SaveRam is not read (CloneSaveRam gives null, SaveRamModified is false) and not replaced (StoreSaveRam is refused). The frontend that
-	/// plays a movie sets it; nothing the movie does can make the durable copy change.
+	/// A guard that a frontend or a tool may raise while a movie plays: the SaveRam is then not read (CloneSaveRam gives null, SaveRamModified is false) and not replaced (StoreSaveRam is
+	/// refused). Nothing in BizHawk sets it, and nothing needs to: EmuHawk keeps a movie's SaveRAM apart from the game's (<c>PathEntryCollectionExtensions.SaveRamAbsolutePath(game, movie)</c>, one file per
+	/// movie), does not run LoadSaveRam when a movie is queued, and starts a movie "from SaveRAM" by calling StoreSaveRam before the first unit (IMovie.ProcessSram, TasMovie.Attach), which
+	/// this property must therefore leave open. Only the session host of the tests (<c>run ... movie=</c>, <c>replay</c>) sets it, to prove the guard; a frontend that does not separate the
+	/// files of a movie from the durable copy would have to.
 	/// </summary>
 	public bool ReplayInProgress { get; set; }
 
@@ -149,9 +152,23 @@ public sealed unsafe partial class Puae6Core
 	/// <summary>
 	/// Gives the core a SaveRam it made: its sectors become part of the disks the machine has. Only before the first unit and before any state is loaded, and not during a replay: the base disks
 	/// live in the sealed heap, so the machine is built again with the disks the SaveRam makes (as a new core would be) and what the SaveRam was becomes part of the identity of states and movies.
-	/// A SaveRam that is not whole, not ours or not for these disks is refused with its reason and nothing changes. Zero bytes after the end of the data are padding and are ignored.
+	/// A SaveRam that is not whole, not ours or not for these disks is refused with its reason (also notified on screen) and nothing changes; the exception is an IOException, which is what
+	/// EmuHawk's LoadSaveRam catches. Zero bytes after the end of the data are padding and are ignored.
 	/// </summary>
 	public void StoreSaveRam(byte[] data)
+	{
+		try
+		{
+			StoreSaveRamChecked(data);
+		}
+		catch (SaveRamRejectedException e)
+		{
+			CoreComm.Notify($"SaveRAM refused ({e.Reason}): {e.Message}", 8);          // the frontend's own message (EmuHawk: "An error occurred while loading Sram") does not say why
+			throw;
+		}
+	}
+
+	void StoreSaveRamChecked(byte[] data)
 	{
 		if (!_syncSettings.FloppyWrites) throw new SaveRamRejectedException(SaveRamRejection.WritesDisabled, "this core was created without floppy writes: there is no SaveRam");
 		if (ReplayInProgress) throw new SaveRamRejectedException(SaveRamRejection.TooLate, "a movie is being replayed: the durable copy is not read into it");
