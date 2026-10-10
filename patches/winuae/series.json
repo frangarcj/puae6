@@ -3310,6 +3310,252 @@
           "after_sha256": "452cc6022d2072b3aa526de2a426e7885e52497b73c8102b908705ef13b4d172"
         }
       ]
+    },
+    {
+      "id": "0160-native2amiga-exter-queue",
+      "file": "patches/winuae/0160-native2amiga-exter-queue.patch",
+      "sha256": "e7b30b29d2eed46ef642426322a461344daa3459303b9279bff0b21d9633aab7",
+      "title": "The EXTER work queue of native2amiga is built under P6_NATIVE2AMIGA, not SUPPORT_THREADS",
+      "reason": "T29a: uae_ReplyMsg and its siblings are how a finished host-side request reaches the 68k (native2amiga_pending, drained by exter_int_helper at INT2). Upstream keys the queue on SUPPORT_THREADS, a name that stands for the Windows thread layer and is excluded from this profile. The queue itself only needs counting semaphores when one thread fills and drains it (ports/portable/threaddep/thread.h), so it stays under a macro of its own; the function pointer of uae_Signal_with_Func is cast for the queue's void* slot.",
+      "category": "host hooks",
+      "order": 123,
+      "symbols": [
+        "native2amiga_free",
+        "destroy_comm_pipe",
+        "uae_Cause",
+        "uae_ReplyMsg",
+        "uae_PutMsg",
+        "uae_Signal",
+        "uae_Signal_with_Func",
+        "uae_NotificationHack",
+        "uae_ShellExecute",
+        "uae_ShellExecute2",
+        "uae_nativesem_wait",
+        "uae_nativesem_post"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "native2amiga.cpp",
+          "before_sha256": "002b67b9980ec24d9e2b0a6198aeb634eee6f5034ab20702f7e1ba82abdce860",
+          "after_sha256": "5a01df2e0ad72819a73b4b32856eed93e544a51ffa2c33fdfc45cacd7e8b5db3"
+        },
+        {
+          "path": "include/native2amiga.h",
+          "before_sha256": "ee76514e42dfa98a23aeb9004812dbc24a46f4955409f21cf1ec9bc7c267947d",
+          "after_sha256": "c2e7f4d641b7d9b6d6ac2e4dc3ecd3f7d5a7d8432644dd9ca13aadd180477632"
+        },
+        {
+          "path": "include/native2amiga_api.h",
+          "before_sha256": "5ced235a51950d2d3405404d471c90627e490eaead846df83ea99556e6912029",
+          "after_sha256": "6bd6e72bb974bb21f87a4a5e6691300134bca4db2eedde5e8e90597371a7b37c"
+        },
+        {
+          "path": "include/commpipe.h",
+          "before_sha256": "e6e80e495e18567b8b01ca64dc84593ebf992165495cff3660c59b1bf3adc615",
+          "after_sha256": "e4c9a5a9bfb3286807e3e40e67fde773b95b3106b533c93b7ea5aabfca7fbeb6"
+        }
+      ]
+    },
+    {
+      "id": "0161-hardfile-synchronous-uaehf",
+      "file": "patches/winuae/0161-hardfile-synchronous-uaehf.patch",
+      "sha256": "396a7239c15c5fe70a12bbf72cfc487fce1fd25491dd40a5e9fe4408029a01f3",
+      "title": "uaehf.device serves a request in line, over flat images, without threads, SCSI or container formats",
+      "reason": "T29a: upstream starts one host thread per unit and queues every read and write to it; the instant the guest sees the reply then depends on the scheduler of the host. A block of an image in memory takes no emulated time, so BeginIO runs what the thread ran (hardfile_do_io, the ReplyMsg through native2amiga_pending) before it returns, and the finish reaches the guest at the next INT2. The unit has no thread (start_thread only records the base of the device), HD_SCSICMD answers IOERR_NOCMD (scsi.cpp is not built), and an image is a flat byte range read through hdf_open_target: no VHD, CHD, geometry .ini or host file system handler. hdf_close frees the generated RDB, which upstream frees only in the CHD branch. AdIDE scrambling (ide.cpp tables) is not recognized, and the version reader of the file system image of the generated RDB (atol) goes with it.",
+      "category": "host hooks",
+      "order": 124,
+      "symbols": [
+        "start_thread",
+        "hardfile_beginio",
+        "hardfile_thread",
+        "hardfile_reset",
+        "abort_async",
+        "hdf_open",
+        "hdf_close",
+        "hdf_read2",
+        "hdf_write2",
+        "create_virtual_rdb",
+        "hardfile_open",
+        "hardfile_do_io"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "hardfile.cpp",
+          "before_sha256": "6c96986158ad1ca1716dbbab0cd6e295414ebf05c55b1b86387fb5263f6657b3",
+          "after_sha256": "60fa5b24eb054dd91390e09ce6aea4af52546c18088689c8ada053dc9a8ecd3e"
+        }
+      ]
+    },
+    {
+      "id": "0162-traps-no-thread-traps",
+      "file": "patches/winuae/0162-traps-no-thread-traps.patch",
+      "sha256": "6719049e2fb5a5f5a37a7586d0af7ef08fc38aec478e6f89fe9d33d169895be5",
+      "title": "Direct traps only: an extended trap or a hardware-trap thread stops the build with a reason",
+      "reason": "T29a: m68k_handle_trap runs a simple trap in line (handler(NULL), registers read from the CPU); only an extended trap (TRAPFLAG_EXTRA_STACK) and the hardware traps of uaeboard > 2 start threads. The profile selects neither, so the thread starts, joins and sleeps (init_traps, reset_traps, free_traps, the slot wait of alloc_host_main_trap_context) are removed and trap_HandleExtendedTrap reports and stops if some day one is registered.",
+      "category": "host hooks",
+      "order": 125,
+      "symbols": [
+        "trap_HandleExtendedTrap",
+        "exit_trap_handler",
+        "init_traps",
+        "reset_traps",
+        "free_traps"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "traps.cpp",
+          "before_sha256": "9a83b5f02803aa587da018d36d968df9f33d2bf917ac314738ff27c24c5592c5",
+          "after_sha256": "9b06363f4c36d7c757529ae77af1bebf3ab2eaef4589cfc4ae92a18faaa53eb4"
+        }
+      ]
+    },
+    {
+      "id": "0163-filesys-hard-files-only",
+      "file": "patches/winuae/0163-filesys-hard-files-only.patch",
+      "sha256": "69e1aeb4db338b0992dffaff3101dc991b7d5a5b1f21d39545742f46b23dca09",
+      "title": "filesys.cpp for hard files: only UAE-controller hard files become units, bounded RDB parsing, no extra stack, no host date, no unbounded printf, no state bodies yet",
+      "reason": "T29a: the UAEFS board code runs on the single thread. set_filesys_unit_1 refuses everything but a hard file on the UAE controller (host directories, archives, CDs, tapes and other controllers have no provider in the profile), filesys_init_storeinfo no longer asks for an extended trap (its body only reads 68k registers), the resident id string carries no build date of the host, exter_int_helper drains native2amiga_pending under P6_NATIVE2AMIGA, two unbounded _stprintf into pointers become snprintf, the shell-execution code uses snprintf and my_strdup and the RDB file system version reader a local p6_atol (the Waterbox guest imports from libc only what ports/waterbox/imports.json lists), and the save/restore bodies (host paths, savestate.cpp helpers the profile does not build) wait for T29c under SAVESTATE. pt_rdsk, which parses what a disk says about itself, refuses an RDB block size that is not a power of two between 256 and FILESYS_MAX_BLOCKSIZE (it sized an xmalloc), ends a chain of FSHD blocks after 1024 (nothing in the disk ended a loop) and widens the block offsets to 64 bits.",
+      "category": "host hooks",
+      "order": 126,
+      "symbols": [
+        "filesys_install",
+        "filesys_install_code",
+        "exter_int_helper",
+        "dostypes",
+        "dumprdbblock",
+        "makenativepath",
+        "restore_notify",
+        "sprintf_filesys_unit"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "filesys.cpp",
+          "before_sha256": "cd64ae9658cc589d417703b5eeb2f4ffb2a30411723ebc3f69417c23656750a0",
+          "after_sha256": "bcafe94ce0d6464670bcf13ea42a4d54f90d5a6ec23604667e9c07d5d6fbe1fd"
+        }
+      ]
+    },
+    {
+      "id": "0164-autoconf-trap-area-with-hard-file",
+      "file": "patches/winuae/0164-autoconf-trap-area-with-hard-file.patch",
+      "sha256": "658c1b93612c7ee85c9209b1a9f8cf9a53134e967272ebde33a99ec7a84f7c0f",
+      "title": "The trap area installs the filesystem boot code and keeps no host memory protection",
+      "reason": "T29a: rtarea_init copies the filesystem boot ROM (filesys_install_code) under FILESYS, which stays excluded as a feature; it runs under P6_FILESYS, and only when the session mounts a hard file (devices.cpp). boot_rom_copy (uaeboard 3) no longer names protect_roms, which the profile does not build, and uae_int_requested stays defined by ports/portable/atomic.cpp (the portable probes link it without the engine).",
+      "category": "host hooks",
+      "order": 127,
+      "symbols": [
+        "rtarea_init",
+        "boot_rom_copy"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "autoconf.cpp",
+          "before_sha256": "2434deaf2217dba82b59292b6daf3ae91fcf3407c644491574d7a9e49fa3d87e",
+          "after_sha256": "18387712ef981272240c3975bf3d6bfcfefa95cd0dff1b6a35fda1f630c1aa95"
+        }
+      ]
+    },
+    {
+      "id": "0165-expansion-uaefs-board",
+      "file": "patches/winuae/0165-expansion-uaefs-board.patch",
+      "sha256": "f37a223dff5518e4cdc736121ae00129e3157b3d2db223bdd510be735918a461",
+      "title": "The UAEFS board, the UAE boot ROM and the trap-area RAM exist when a hard file is mounted",
+      "reason": "T29a: PUAE5 mounts a hard file through the UAE controller (uae0): a Zorro II board of 64 KiB whose DiagArea runs filesys_diagentry, and the boot ROM at $F00000. 0053 excluded all of it for the A500; it comes back under P6_FILESYS (FILESYS stays excluded as a feature). need_uae_boot_rom is upstream's again: check_boot_rom answers 0 unless some condition holds, and the only one that can hold in the profile is a mounted unit of the UAE controller (nr_directory_units counts every mount configuration of that controller), so a machine without a hard file is the one that was built before. uaeboard_alloc_ram and uaeboard_map_ram return: the filesystem keeps its shared records in the board.",
+      "category": "host hooks",
+      "order": 128,
+      "symbols": [
+        "need_uae_boot_rom",
+        "check_boot_rom",
+        "uaeboard_map_ram",
+        "uaeboard_alloc_ram",
+        "expamem_init_filesys",
+        "expansion_map",
+        "expansion_cleanup"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "c63e0991f645db34874a2cf8a39b501c7d9c48aa0657ae8737906c8214f2ca37",
+          "after_sha256": "8d5d05f4e97108fdc914aafcd075fb7e33dadcaf6d84fc83acc465cf92607b08"
+        }
+      ]
+    },
+    {
+      "id": "0166-devices-filesys-lifecycle",
+      "file": "patches/winuae/0166-devices-filesys-lifecycle.patch",
+      "sha256": "42df46a66f0b3d4c37b65993f18f979e8d191e921c8cec60fe94323a85731acc",
+      "title": "The device lifecycle starts, resets and frees the trap area, uaehf.device and the UAEFS board when a hard file is mounted",
+      "reason": "T29a: virtualdevice_init, devices_reset and virtualdevice_free ran the FILESYS parts behind a feature that is excluded. They run now behind P6_FILESYS and a runtime test (a mount configuration exists), so a session without a hard file creates no trap area and no queue and resets nothing of it; with one, the order is upstream's: rtarea_setup, rtarea_init, uaeres_install, hardfile_install, expansion_init, filesys_install, and the EXTER queue (native2amiga_install, which main.cpp calls under AUTOCONFIG) is allocated and given back with the image.",
+      "category": "host hooks",
+      "order": 129,
+      "symbols": [
+        "virtualdevice_init",
+        "devices_reset",
+        "virtualdevice_free"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "1597e7e4ca67a8d9d6338be098e8df60e3faf734c956a9a97523eee65b99e321",
+          "after_sha256": "5d800d85781457fa28b0ded03e7083b30cbff8acf7dc9f81730e70fc1fa0a8af"
+        }
+      ]
+    },
+    {
+      "id": "0167-cpu-memory-trap-area-reach",
+      "file": "patches/winuae/0167-cpu-memory-trap-area-reach.patch",
+      "sha256": "36eca0c7003c61c262f65de6d519aadf6c413d4c75d5a0ba8e52b3ad5906165c",
+      "title": "A-line traps, the autoconfig window and the boot ROM bank are reachable while a hard file is mounted",
+      "reason": "T29a: the CPU treats an A-line opcode as a trap call only inside the trap area (in_rtarea: uae_boot_rom_type is 0 without a hard file, so every other session keeps the illegal-instruction exception), the memory map puts the boot ROM bank at rtarea_base through need_uae_boot_rom (0 without a hard file), and the autoconfig window and its reset are taken as for a Fast RAM board when a hard file is mounted.",
+      "category": "host hooks",
+      "order": 130,
+      "symbols": [
+        "in_rtarea",
+        "op_illg",
+        "memory_reset",
+        "custom_reset"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "bf172240a865647304ee54a22d5a72fd6054642401b438531120ff389706e2e4",
+          "after_sha256": "fc18404d4c63ff650e0b8f2a5bb137ccdbca4e11cb827d4ea192dc37440a07b6"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "fdce7968244752b56986db34a1cf9049e09390a994453b4fe23eeaf215a477f6",
+          "after_sha256": "276f26f143318a9d25cd88357de16f56b0cd495f3575730b19fd62991ae913b7"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "f9f7f34fe798b27d4ac7be34f0280d055326f6c0cd4972bbe9e1a68d0f926705",
+          "after_sha256": "0146035fe3f70e472e1ce81bbdcb8a8bdaacd0e3bcb45f4a3070c470112a76ab"
+        }
+      ]
     }
   ]
 }

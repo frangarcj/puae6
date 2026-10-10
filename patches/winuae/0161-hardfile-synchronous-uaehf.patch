@@ -1,7 +1,23 @@
 diff --git a/hardfile.cpp b/hardfile.cpp
 --- a/hardfile.cpp
 +++ b/hardfile.cpp
-@@ -400,6 +400,7 @@
+@@ -334,6 +334,7 @@
+ 	pl (p, 2, sum);
+ }
+ 
++#ifndef P6_PORTABLE // only create_virtual_rdb uses it, for a file system handler read from a host file (excluded above)
+ static uae_u32 get_filesys_version(uae_u8 *fs, int size)
+ {
+ 	int ver = -1, rev = -1;
+@@ -381,6 +382,7 @@
+ 		rev = 0;
+ 	return (ver << 16) | rev;
+ }
++#endif
+ 
+ // hardware block size is always 256 or 512
+ // filesystem block size can be 256, 512 or larger
+@@ -400,6 +402,7 @@
  	write_log(_T("Creating virtual RDB (RDB size=%d, %d blocks). H=%d S=%d HBS=%d FSBS=%d)\n"),
  		size, size / hardblocksize, hfd->ci.surfaces, hfd->ci.sectors, hardblocksize, fsblocksize);
  
@@ -9,7 +25,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  	if (hfd->ci.filesys[0]) {
  		struct zfile *f = NULL;
  		TCHAR fspath[MAX_DPATH];
-@@ -416,6 +417,7 @@
+@@ -416,6 +419,7 @@
  			}
  		}
  	}
@@ -17,7 +33,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  
  	int filesysblocks = (filesyslen + hardblocksize - 5 * 4 - 1) / (hardblocksize - 5 * 4);
  
-@@ -595,6 +597,7 @@
+@@ -595,6 +599,7 @@
  	return 1;
  }
  
@@ -25,7 +41,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static uae_u32 vhd_checksum (uae_u8 *p, int offset)
  {
  	int i;
-@@ -608,6 +611,7 @@
+@@ -608,6 +613,7 @@
  	}
  	return ~sum;
  }
@@ -33,14 +49,14 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  
  static int hdf_write2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, uae_u32 *error);
  static int hdf_read2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, uae_u32 *error);
-@@ -629,6 +633,22 @@
+@@ -629,8 +635,24 @@
  	return hdf_write2(hfd, buffer, offset, len, error);
  }
  
 +#ifdef P6_PORTABLE
 +// The name is the blob id of the registered image (bridge/media.cpp): hdf_open_target reads the size from the store and checks nothing the file says about itself.
-+int hdf_open (struct hardfiledata *hfd, const TCHAR *pname)
-+{
+ int hdf_open (struct hardfiledata *hfd, const TCHAR *pname)
+ {
 +	if ((!pname || pname[0] == 0) && hfd->ci.rootdir[0] == 0)
 +		return 0;
 +	hfd->adide = 0;
@@ -53,10 +69,12 @@ diff --git a/hardfile.cpp b/hardfile.cpp
 +	return hdf_open_target (hfd, pname);
 +}
 +#else
- int hdf_open (struct hardfiledata *hfd, const TCHAR *pname)
- {
++int hdf_open (struct hardfiledata *hfd, const TCHAR *pname)
++{
  	int ret;
-@@ -755,13 +775,16 @@
+ 	uae_u8 tmp[512], tmp2[512];
+ 	uae_u32 v;
+@@ -755,13 +777,16 @@
  	hdf_close_target (hfd);
  	return 0;
  }
@@ -73,7 +91,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  	return v;
  }
  
-@@ -769,6 +792,11 @@
+@@ -769,6 +794,11 @@
  {
  	hdf_flush_cache (hfd);
  	hdf_close_target (hfd);
@@ -85,7 +103,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  #ifdef WITH_CHD
  	if (hfd->hfd_type == HFD_CHD_OTHER) {
  		chd_file *cf = (chd_file*)hfd->chd_handle;
-@@ -800,6 +828,7 @@
+@@ -800,6 +830,7 @@
  	return hdf_dup_target (dhfd, shfd);
  }
  
@@ -93,7 +111,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static uae_u64 vhd_read (struct hardfiledata *hfd, void *v, uae_u64 offset, uae_u64 len)
  {
  	uae_u64 read;
-@@ -1086,6 +1115,7 @@
+@@ -1086,6 +1117,7 @@
  	zfile_fclose (zf);
  	return ret;
  }
@@ -101,7 +119,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  
  static int hdf_read2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, uae_u32 *error)
  {
-@@ -1108,6 +1138,7 @@
+@@ -1108,6 +1140,7 @@
  	}
  	offset -= hfd->virtual_size;
  
@@ -109,7 +127,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  	if (hfd->hfd_type == HFD_VHD_DYNAMIC)
  		ret = (int)vhd_read (hfd, buffer, offset, len);
  	else if (hfd->hfd_type == HFD_VHD_FIXED)
-@@ -1138,6 +1169,7 @@
+@@ -1138,6 +1171,7 @@
  	}
  #endif
  	else
@@ -117,7 +135,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  		ret = hdf_read_target (hfd, buffer, offset, len, error);
  
  	if (ret <= 0)
-@@ -1159,6 +1191,7 @@
+@@ -1159,6 +1193,7 @@
  	}
  	offset -= hfd->virtual_size;
  
@@ -125,7 +143,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  	if (hfd->hfd_type == HFD_VHD_DYNAMIC)
  		ret = (int)vhd_write(hfd, buffer, offset, len);
  	else if (hfd->hfd_type == HFD_VHD_FIXED)
-@@ -1187,6 +1220,7 @@
+@@ -1187,6 +1222,7 @@
  	}
  #endif
  	else
@@ -133,7 +151,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  		ret = hdf_write_target(hfd, buffer, offset, len, error);
  
  	if (ret <= 0)
-@@ -1194,6 +1228,7 @@
+@@ -1194,6 +1230,7 @@
  	return ret;
  }
  
@@ -141,7 +159,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static void adide_decode (void *v, int len)
  {
  	int i;
-@@ -1219,6 +1254,8 @@
+@@ -1219,6 +1256,8 @@
  	}
  }
  
@@ -150,7 +168,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static void hdf_byteswap (void *v, int len)
  {
  	int i;
-@@ -1238,11 +1275,14 @@
+@@ -1238,11 +1277,14 @@
  	if (v > 0 && offset < 16 * 512 && !hfd->byteswap && !hfd->adide)  {
  		uae_u8 *buf = (uae_u8*)buffer;
  		bool changed = false;
@@ -166,7 +184,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  			hfd->byteswap = 1;
  			changed = true;
  			write_log (_T("HDF: byteswapped RDB detected\n"));
-@@ -1269,10 +1309,12 @@
+@@ -1269,10 +1311,12 @@
  
  	if (!hfd->adide) {
  		v = hdf_cache_read(hfd, buffer, offset, len, error);
@@ -179,7 +197,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  	}
  	if (hfd->byteswap) {
  		hdf_byteswap(buffer, len);
-@@ -1300,11 +1342,13 @@
+@@ -1300,11 +1344,13 @@
  	}
  	if (!hfd->adide) {
  		v = hdf_cache_write(hfd, buffer, offset, len, error);
@@ -193,7 +211,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  	}
  	if (hfd->byteswap) {
  		hdf_byteswap(buffer, len);
-@@ -1449,6 +1493,7 @@
+@@ -1449,6 +1495,7 @@
  	xfree (ss);
  }
  
@@ -201,7 +219,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static const uae_u8 sasi_commands[] =
  {
  	0x00, 0x01, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x12,
-@@ -2395,6 +2440,7 @@
+@@ -2395,6 +2442,7 @@
  	trap_put_bytes(ctx, scsicmd, scsicmdaddr, sizeof scsicmd);
  	return ret;
  }
@@ -209,7 +227,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  
  
  void hardfile_send_disk_change (struct hardfiledata *hfd, bool insert)
-@@ -2491,12 +2537,14 @@
+@@ -2491,12 +2539,14 @@
  	hf_log (_T("aborting async request %p\n"), request);
  	i = 0;
  	while (i < MAX_ASYNC_REQUESTS) {
@@ -224,7 +242,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  		i++;
  	}
  	i = release_async_request (hfpd, request);
-@@ -2505,7 +2553,9 @@
+@@ -2505,7 +2555,9 @@
  	}
  }
  
@@ -234,7 +252,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static void start_thread (TrapContext *ctx, int unit)
  {
  	struct hardfileprivdata *hfpd = &hardfpd[unit];
-@@ -2515,12 +2565,18 @@
+@@ -2515,12 +2567,18 @@
  	write_log("hardfile thread starting, unit %d\n", unit);
  	memset (hfpd, 0, sizeof (struct hardfileprivdata));
  	hfpd->base = trap_get_areg(ctx, 6);
@@ -253,7 +271,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static void end_thread(TrapContext *ctx, int unit)
  {
  	struct hardfileprivdata *hfpd = &hardfpd[unit];
-@@ -2529,6 +2585,7 @@
+@@ -2529,6 +2587,7 @@
  	hfpd->thread_running = 0;
  	write_log("hardfile thread ended, unit %d\n", unit);
  }
@@ -261,7 +279,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  
  static int mangleunit (int unit)
  {
-@@ -2564,8 +2621,10 @@
+@@ -2564,8 +2623,10 @@
  				trap_put_long(ctx, ioreq + 24, unit); /* io_Unit */
  				trap_put_byte(ctx, ioreq + 31, 0); /* io_Error */
  				trap_put_byte(ctx, ioreq + 8, 7); /* ln_type = NT_REPLYMSG */
@@ -272,7 +290,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  				hf_log(_T("virtual hardfile_open, unit %d (%d), OK\n"), unit, trap_get_dreg(ctx, 0));
  				return 0;
  			} else {
-@@ -2577,8 +2636,10 @@
+@@ -2577,8 +2638,10 @@
  					trap_put_long(ctx, ioreq + 24, unit); /* io_Unit */
  					trap_put_byte(ctx, ioreq + 31, 0); /* io_Error */
  					trap_put_byte(ctx, ioreq + 8, 7); /* ln_type = NT_REPLYMSG */
@@ -283,7 +301,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  					hf_log(_T("hardfile_open, unit %d (%d), OK\n"), unit, trap_get_dreg(ctx, 0));
  					return 0;
  				}
-@@ -2895,6 +2956,7 @@
+@@ -2895,6 +2958,7 @@
  
  #if HDF_SUPPORT_DS
  	case HD_SCSICMD: /* SCSI */
@@ -291,7 +309,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  		if (hfpd->sd) {
  			if (vdisk(hfpd)) {
  				error = handle_scsi(ctx, iobuf, request, hfd, hfpd->sd, true);
-@@ -2904,7 +2966,9 @@
+@@ -2904,7 +2968,9 @@
  				error = handle_scsi(ctx, iobuf, request, hfd, hfpd->sd, true);
  			}
  			actual = 30; // sizeof(struct SCSICmd)
@@ -302,7 +320,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  			error = IOERR_NOCMD;
  		}
  		break;
-@@ -3056,14 +3120,30 @@
+@@ -3056,14 +3122,30 @@
  		add_async_request(hfpd, iobuf, request, ASYNC_REQUEST_TEMP, 0);
  		put_byte_host(iobuf + 30, get_byte_host(iobuf + 30) & ~1);
  		trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
@@ -333,7 +351,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  static void hardfile_thread (void *devs)
  {
  	struct hardfileprivdata *hfpd = (struct hardfileprivdata*)devs;
-@@ -3094,6 +3174,7 @@
+@@ -3094,6 +3176,7 @@
  		uae_sem_post (&change_sem);
  	}
  }
@@ -341,7 +359,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  
  void hardfile_reset (void)
  {
-@@ -3109,6 +3190,7 @@
+@@ -3109,6 +3192,7 @@
  					abort_async (hfpd, request, 0, 0);
  			}
  		}
@@ -349,7 +367,7 @@ diff --git a/hardfile.cpp b/hardfile.cpp
  		if (hfpd->thread_running) {
  			write_comm_pipe_pvoid(&hfpd->requests, NULL, 0);
  			write_comm_pipe_pvoid(&hfpd->requests, NULL, 0);
-@@ -3117,6 +3199,7 @@
+@@ -3117,6 +3201,7 @@
  				sleep_millis(1);
  			}
  		}

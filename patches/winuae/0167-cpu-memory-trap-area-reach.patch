@@ -1,7 +1,7 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -2423,12 +2423,11 @@
+@@ -2427,12 +2427,11 @@
  	return (munge24 (pc) & 0xFFF80000) == 0xF80000;
  }
  
@@ -15,7 +15,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  STATIC_INLINE void wait_memory_cycles (void)
  {
-@@ -3934,9 +3933,7 @@
+@@ -3938,9 +3937,7 @@
  	uaecptr pc = m68k_getpc ();
  	static int warned;
  	int inrom = in_rom (pc);
@@ -25,7 +25,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  	if (opcode == 0x4afc || opcode == 0xfc4a) {
  		if (!valid_address(pc, 4) && valid_address(pc - 4, 4)) {
-@@ -3978,7 +3975,7 @@
+@@ -3982,7 +3979,7 @@
  		}
  	}
  
