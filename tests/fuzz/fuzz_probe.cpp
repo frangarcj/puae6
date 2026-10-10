@@ -76,6 +76,12 @@ bool memory_accepted(const p6_config &c)
     return chip && slow && fast;
 }
 
+// The FPU (T54, p6_config.fpu_model, the four bytes that were reserved32): none, or a 68881 or 68882 on the A1200 (the 68020); anything else is refused.
+bool fpu_accepted(const p6_config &c)
+{
+    return c.fpu_model == 0 || ((c.fpu_model == 68881 || c.fpu_model == 68882) && c.machine == P6_MACHINE_A1200);
+}
+
 // The rules of ABI v1, written again here from the header comments: the fuzzer's oracle.
 bool oracle_accepts(const p6_config &c)
 {
@@ -83,7 +89,7 @@ bool oracle_accepts(const p6_config &c)
     static const bool inverted = getenv("P6_FUZZ_SELFTEST") != nullptr;
     return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && (c.machine == P6_MACHINE_A500 || c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
-           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && !c.reserved32 && !c.reserved[0] &&
+           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && fpu_accepted(c) && !c.reserved[0] &&
            !c.reserved[1] && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);
 }
@@ -121,6 +127,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
                 uint32_t *field = rng.below(3) == 0 ? &c.chip_kib : rng.coin() ? &c.slow_kib : &c.fast_kib;
                 *field = sizes[rng.below(sizeof sizes / sizeof sizes[0])];
                 if (rng.coin()) c.machine = 1 + rng.below(3);
+                if (rng.below(4) == 0) { static const uint32_t fpus[] = {0, 68881, 68882, 68040, 1}; c.fpu_model = fpus[rng.below(5)]; }       // T54: valid on the A1200 only
                 break;
             }
             default: c.video_standard = uint32_t(rng.below(4)); c.audio_rate_hz = rng.coin() ? 44100 : 48000; break;

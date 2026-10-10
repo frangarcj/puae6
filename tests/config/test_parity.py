@@ -313,7 +313,7 @@ class AdaptersAgree(Schema):
         headless = read(HEADLESS)
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
-        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "audio_rate_hz": 48000, "random_seed": 1,
+        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1,
                                     "rtc_epoch_seconds": 946684800, "flags": 0})
         for field, value in defaults.items():
             self.assertEqual(int(libretro[self.table["p6_config"][field]["option"]]), value, f"libretro {field}")

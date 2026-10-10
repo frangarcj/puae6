@@ -325,6 +325,11 @@ constexpr Value kFastSizeValues[] = {
     {"MB4", 4096u},
     {"MB8", 8192u},
 };
+constexpr Value kFpuModelValues[] = {
+    {"None", 0u},
+    {"M68881", 68881u},
+    {"M68882", 68882u},
+};
 constexpr Value kAudioRateHzValues[] = {
     {"44100", 44100u},
     {"48000", 48000u},
@@ -696,6 +701,7 @@ constexpr Option kOptions[] = {
     {"puae6_chip_size", true, &Settings::chip_size, kChipSizeValues, 4, 0},
     {"puae6_slow_size", true, &Settings::slow_size, kSlowSizeValues, 6, 0},
     {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 5, 0},
+    {"puae6_fpu_model", true, &Settings::fpu_model, kFpuModelValues, 3, 0},
     {"puae6_audio_rate", true, &Settings::audio_rate_hz, kAudioRateHzValues, 2, 1},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 4, 0},
@@ -796,6 +802,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.",
      "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
+    {"puae6_fpu_model", "FPU (Restart)", "FPU (Restart)",
+     "The floating point coprocessor of the A1200 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The floating point coprocessor of the A1200 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"None", "None"}, {"M68881", "68881"}, {"M68882", "68882"}}, "None"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "Audio Sample Rate (Restart)",
      "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1044,6 +1054,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_chip_size", "Chip RAM (Restart)", "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}}, "Auto"},
     {"puae6_slow_size", "Slow RAM (Restart)", "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and none on the A600 and the A1200. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (A500 512 KiB, A600 and A1200 none)"}, {"None", "None"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB1_75", "1.75 MiB"}}, "Auto"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
+    {"puae6_fpu_model", "FPU (Restart)", "The floating point coprocessor of the A1200 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"M68881", "68881"}, {"M68882", "68882"}}, "None"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}, {"PAL", "PAL pixel aspect (26:25)"}, {"NTSC", "NTSC pixel aspect (43:50)"}}, "pixel"},
@@ -1114,6 +1125,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_chip_size", "Chip RAM (Restart); Auto|KB512|MB1|MB2"},
     {"puae6_slow_size", "Slow RAM (Restart); Auto|None|KB512|MB1|MB1_5|MB1_75"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); None|MB1|MB2|MB4|MB8"},
+    {"puae6_fpu_model", "FPU (Restart); None|M68881|M68882"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart); 48000|44100"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3|PAL|NTSC"},

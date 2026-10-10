@@ -217,6 +217,16 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     - Prueba: `tests/state/test_state_fast.py` (layout, cota, identidad, rechazo campo a campo, DET02 en cada paso de la cadena en el A1200, el A600 y el A500) y, con firmware autorizado,
       `tests/state/test_det02_fast.py` (Kickstart 1.3, 2.05 con el Workbench 2.05, y 3.1 con una demo AGA).
 
+11. **Revision 2026-10-10 (T54): la FPU 68881/68882.** Misma regla: el cuerpo de P6CP sigue a la configuracion (el modelo esta en `config_hash`, bits 23-24 de la palabra `flags`, sin
+    tocar el hash de las maquinas sin FPU). Con FPU, P6CP anade tras el bloque del 68020 un bloque de **110 bytes**: FP0-FP7 (u16 signo/exponente + u64 significando, patrones crudos: cualquier
+    valor es valido), FPCR (solo los bits de `0xFFF0`), FPSR (`0x0FFFFFF8`), FPIAR, `fpu_state` (0..1), `fp_exp_pend` (0 o el vector 48..55 de una excepcion publicada que tomara la siguiente
+    instruccion FPU) y `fsave_data` (palabra de comando y operando excepcional de la ultima excepcion, parche 0142). No se guardan, con su razon en el inventario: `fpu_exp_state` y
+    `fp_unimp_pend` (solo las ramas 040/060; un save las rechaza), `fp_opword`/`fp_ea`/`fp_ea_set` (se escriben y se leen en la misma instruccion), el estado de SoftFloat (modo y precision
+    siguen a FPCR por `fpp_set_fpcr`; las banderas se limpian al empezar cada instruccion) y `floatx80_internal_*`. El digest del probe suma los mismos campos.
+    - **Cota**: la del A1200 mas 110 (5 890 716 -> 5 890 826); la misma antes y despues de la primera unidad.
+    - Prueba: `tests/state/test_state_fpu.py` (layout, cota, identidad, rechazo campo a campo, un poke por campo que cambia el futuro) y `tests/state/test_det02_fpu.py` (aritmetica, modos de
+      redondeo, excepcion pendiente en la frontera, FSAVE/FRESTORE/FMOVEM y, con el Kickstart 3.1 autorizado, el arranque con un 68882).
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

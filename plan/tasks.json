@@ -12405,15 +12405,98 @@
       "evidence": null
     },
     {
+      "id": "T54c",
+      "title": "La opcion fpu_model en headless, libretro y el esquema: --fpu, puae6_fpu_model, contratos, fuzz, documentos y licencias",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "done",
+      "depends": [
+        "T54a",
+        "T54b"
+      ],
+      "touch": [
+        "adapters/headless/**",
+        "adapters/libretro/**",
+        "config/**",
+        "tests/config/**",
+        "tests/fuzz/**",
+        "tests/contracts/**",
+        "tests/libretro-host/**",
+        "manifests/licenses.json",
+        "docs/02-contracts.md",
+        "docs/adr/0009-state-format.md",
+        "plan/tasks.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Esquema: fpu_model con libretro puae6_fpu_model (None, M68881, M68882), headless --fpu y wrapper FpuModel; options_generated.h solo con tools/generate_options.py. Arreglar tests/config, el oraculo de tests/fuzz (fpu_model en lugar de reserved32 == 0), tests/contracts/layout_probe.c y tests/libretro-host/test_fpu.py (la maquina de libretro es la de headless --fpu, la cota crece 110). docs/02-contracts.md (campo y bits 23-24 del hash), ADR 0009 punto 11 (bloque de 110 B) y manifests/licenses.json (SoftFloat y fpp en el perfil)."
+      ],
+      "checks": [
+        "LR01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "tests/config, libretro-host y FUZZ01 en verde con la opcion; la maquina de libretro con puae6_fpu_model es la de headless --fpu unidad por unidad."
+      ],
+      "stop": "No subir timeouts ni tocar hashes golden.",
+      "evidence": null
+    },
+    {
+      "id": "T54d",
+      "title": "El wrapper BizHawk y el guest Waterbox con FPU: sync setting FpuModel, identidad y presupuesto de memoria medido",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "in_progress",
+      "depends": [
+        "T54c"
+      ],
+      "touch": [
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/smoke/**",
+        "adapters/waterbox/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "tests/waterbox-smoke/**",
+        "manifests/waterbox-memory.json",
+        "tools/build_waterbox.py",
+        "plan/tasks.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Sync setting FpuModel (Puae6Fpu) del wrapper: p6_config.fpu_model, en la identidad de estado y pelicula solo cuando no es None; --fpu del smoke y de build_waterbox; guest reconstruido, manifests/waterbox-memory.json regrabado (claves measured*) y un A1200 con 68882 ejecutado en el sandbox (WB03)."
+      ],
+      "checks": [
+        "WB03",
+        "LR01"
+      ],
+      "acceptance": [
+        "El A1200 con 68882 corre en Waterbox y restaura; el presupuesto de memoria esta medido."
+      ],
+      "stop": "No regrabar presupuestos sin medir ni subir timeouts.",
+      "evidence": null
+    },
+    {
       "id": "T54",
       "title": "FPU 68881/68882 e interna con softfloat (identica en x86_64 y ARM64)",
       "milestone": "M3",
       "required": true,
-      "status": "done",
+      "status": "pending",
       "depends": [
         "T24",
         "T54a",
-        "T54b"
+        "T54b",
+        "T54c",
+        "T54d"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12435,7 +12518,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece FPU (puae_cpu_model con FPU y modelos 030/040). Compilar fpp con softfloat (nunca la FPU del host), generar las tablas con FPUEMU, probe de instrucciones FPU con esperados de softfloat, estado de la FPU.",
-        "Division (2026-10-10): T54a (motor, configuracion y estado nativo) y T54b (corpus y matriz DET04); T54 es el cierre. Queda para el siguiente: la opcion en libretro/headless/BizHawk (adapters, tests/config) y el guest Waterbox con FPU; la FPU interna 68030/68040 es T55."
+        "Division (2026-10-10): T54a (motor, configuracion y estado nativo) y T54b (corpus y matriz DET04); T54 es el cierre. Queda para el siguiente: la opcion en libretro/headless/BizHawk (adapters, tests/config) y el guest Waterbox con FPU; la FPU interna 68030/68040 es T55.",
+        "Division (2026-10-10, segunda parte): T54c (opcion en headless/libretro, contratos, documentos) y T54d (wrapper BizHawk y guest Waterbox)."
       ],
       "checks": [
         "GEN01",

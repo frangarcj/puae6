@@ -1375,13 +1375,15 @@
     },
     "fpu_model": {
       "headless": {
-        "how": "fixed"
+        "how": "kib",
+        "flag": "--fpu"
       },
       "wrapper": {
-        "how": "fixed",
-        "where": "fpu"
+        "how": "setting",
+        "setting": "FpuModel",
+        "type": "Puae6Fpu"
       },
-      "libretro": null
+      "libretro": "puae6_fpu_model"
     },
     "audio_rate_hz": {
       "headless": {

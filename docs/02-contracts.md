@@ -349,6 +349,19 @@ siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fast
 Cotas de estado medidas (micro-ROM): A500 3 608 513, A600 3 608 482, A1200 5 890 716 (sin cambios); A500 con 2 MiB de Fast 5 705 947; A600 con 2 MiB de Chip y 8 MiB de Fast 13 045 948;
 A1200 con 8 MiB de Fast 14 279 606; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 758.
 
+### FPU 68881/68882 (T54)
+
+`p6_config.fpu_model` (los 4 bytes que eran `reserved32`, offset 52; una union anonima conserva el nombre antiguo y el struct sigue midiendo 72 bytes): 0 sin FPU (por defecto), 68881
+o 68882. Solo el A1200 (su 68020 tiene interfaz de coprocesador): en un 68000 o con otro valor `p6_init` falla con `P6_ERROR_UNSUPPORTED` y la razon. La FPU interna del 030/040 llega con
+esas CPUs (T55). Se calcula con `fpp.cpp` + `fpp_softfloat.cpp` + `softfloat/*` (nunca `fpp_native`, x87 ni `long double`): los resultados son bit a bit los mismos en cualquier host e
+ISA (corpus de `tests/host/fpu_corpus.py` en las cinco filas de la matriz, `tests/host/fpu_matrix_evidence.json`). Una maquina sin FPU lanza la excepcion de linea F (vector 11) con
+las instrucciones de coprocesador, como siempre.
+
+`config_hash`: el modelo entra en la palabra `flags` del hash en los bits 23 y 24 (1 = 68881, 2 = 68882), entre la memoria (bits 8-22 y 31) y `p6_config.flags` (0-7); sin FPU la palabra es la
+de antes y el hash de las series no cambia. Un estado o una pelicula de un modelo es INCOMPATIBLE en los otros dos. La cota crece 110 bytes con FPU (A1200: 5 890 716 -> 5 890 826); ver
+ADR 0009 punto 11. Opciones: libretro `puae6_fpu_model` (None, M68881, M68882), headless `--fpu 0|68881|68882` y el sync setting `FpuModel` de BizHawk (en la identidad del estado y de la
+pelicula solo cuando no es `None`).
+
 Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` (Auto, KB512, MB1, MB2), `puae6_slow_size` (Auto, None, KB512, MB1, MB1_5, MB1_75) y
 `puae6_fast_size` (None, MB1, MB2, MB4, MB8), headless `--chip KIB`, `--slow KIB|none` y `--fast KIB`, y los sync settings de BizHawk `ChipMemory`, `SlowMemory` y `FastMemory` (el heap mmap
 de Waterbox crece con la memoria pedida por encima de la propia de la maquina, ver `manifests/waterbox-memory.json`). Un tamano que la maquina no puede tener hace fallar la carga con la razon

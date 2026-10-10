@@ -278,10 +278,14 @@
         {"value": "M68881", "abi": 68881, "label": "68881"},
         {"value": "M68882", "abi": 68882, "label": "68882"}
       ],
-      "libretro": null,
-      "libretro_policy": "Not offered yet: the engine has the FPU (T54, A1200 only, SoftFloat so the results are the same on every host) and p6_config.fpu_model carries it, but the core's option, headless's --fpu and the wrapper's FpuModel setting are the adapters' follow-up task. Until then every adapter runs without an FPU, the default.",
-      "headless": {"how": "fixed"},
-      "wrapper": {"how": "fixed", "where": "fpu"}
+      "libretro": {
+        "key": "puae6_fpu_model",
+        "category": "machine",
+        "label": "FPU",
+        "info": "The floating point coprocessor of the A1200 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882."
+      },
+      "headless": {"how": "kib", "flag": "--fpu"},
+      "wrapper": {"how": "setting", "setting": "FpuModel", "type": "Puae6Fpu"}
     },
     {
       "id": "audio_rate_hz",

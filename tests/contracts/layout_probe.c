@@ -33,6 +33,7 @@ OFFSET(p6_config, rtc_epoch_seconds, 32);
 OFFSET(p6_config, chip_kib, 40);
 OFFSET(p6_config, slow_kib, 44);
 OFFSET(p6_config, fast_kib, 48);
+OFFSET(p6_config, fpu_model, 52);     /* T54: the union with reserved32 */
 OFFSET(p6_config, reserved32, 52);
 OFFSET(p6_config, reserved, 56);
 OFFSET(p6_buffer, bytes, 8);

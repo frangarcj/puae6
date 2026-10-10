@@ -45,8 +45,8 @@
     {
       "id": "winuae-softfloat",
       "source_id": "winuae",
-      "scope": "Paula audio tangent: integer arithmetic and FPSP; FPU emulation excluded",
-      "declared_license": "Mixed SoftFloat-2a, BSD and GPL-2.0-or-later portions as identified in retained source notices; FPSP extension attributed to Andreas Grabher for Previous",
+      "scope": "Paula audio tangent and the FPU 68881/68882 (T54): integer SoftFloat (softfloat.cpp), its decimal extension (softfloat_decimal.cpp), the FPSP transcendental functions (softfloat_fpsp.cpp) and the FPU front ends fpp.cpp and fpp_softfloat.cpp; fpp_native.cpp (host FPU, long double) is excluded",
+      "declared_license": "Mixed SoftFloat-2a, BSD and GPL-2.0-or-later portions as identified in retained source notices; the decimal and FPSP extensions are extensions to SoftFloat Release 2a (FPSP attributed to Andreas Grabher for Previous, NeXT Computer Emulator); fpp.cpp (Herman ten Brugge 1996, Peter Keunecke 2005, Toni Wilen) and fpp_softfloat.cpp (Andreas Grabher and Toni Wilen) are WinUAE sources under GPL-2.0-or-later like the rest of the engine",
       "notice_files": [
         {
           "path": "upstream/winuae/softfloat/softfloat.cpp",
@@ -71,10 +71,22 @@
         {
           "path": "upstream/winuae/softfloat/softfloat_fpsp_tables.h",
           "sha256": "9670ce7c4c9e6ddc2e811ca2e703eebcff62de512a8a4289301d4f64ba9d72bf"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat_decimal.cpp",
+          "sha256": "f10fa5b257fc278dc98446e2a6b9d1e41a694c45ef2ef6277af0d553ff4fced2"
+        },
+        {
+          "path": "upstream/winuae/fpp_softfloat.cpp",
+          "sha256": "dc81324b9044328973a20c099aba31ac7f972df95b02130d798491bf444a832d"
+        },
+        {
+          "path": "upstream/winuae/fpp.cpp",
+          "sha256": "35972c15328da20aa9bf644e70f631b390a9f4e26d6598dc4c42765f082327a1"
         }
       ],
-      "handling": "Retain all mixed notices and attribution for these six files; do not relabel as BSD-only. Patch0021 identifies PUAE6 derivative changes. FPSP source and tables identify an extension to SoftFloat2a/FPSP; release packaging must reproduce the retained notices. No FPU enablement implied.",
-      "build_eligibility": "selected_audio_math_only; softfloat.cpp and softfloat_fpsp.cpp, four headers; decimal and FPU backends not selected"
+      "handling": "Retain all mixed notices and attribution for these nine files; do not relabel as BSD-only. Patches 0021 and 0143 (case-exact include of SOFTFLOAT-MACROS.H) and 0140-0142, 0144 and 0145 identify PUAE6 derivative changes. The FPSP source and tables identify an extension to SoftFloat2a/FPSP; the decimal file says it is an extension to SoftFloat 2a without further terms, so it is kept with the SoftFloat-2a notice. Release packaging must reproduce the retained notices. The FPU is computed only by these files, never by fpp_native.cpp, the host FPU or long double (determinism, T54).",
+      "build_eligibility": "selected: softfloat.cpp, softfloat_fpsp.cpp, softfloat_decimal.cpp, fpp.cpp and fpp_softfloat.cpp, four headers; fpp_native.cpp not selected"
     },
     {
       "id": "winuae-tinyxml2",
@@ -461,8 +473,8 @@
     {
       "id": "softfloat-file-level-scope",
       "source_id": "winuae",
-      "status": "audio_selection_reviewed_release_notices_pending",
-      "detail": "Six retained files inventoried with pristine hashes for audio tangent. Preserve mixed SoftFloat2a/BSD/GPL notices and FPSP attribution in release packaging; do not extend selection to decimal or FPU without a new review."
+      "status": "selection_reviewed_release_notices_pending",
+      "detail": "Nine retained files inventoried with pristine hashes (the audio tangent and, since T54, the FPU: softfloat_decimal.cpp, fpp.cpp and fpp_softfloat.cpp). Preserve mixed SoftFloat2a/BSD/GPL notices and FPSP attribution in release packaging; the decimal extension carries only the SoftFloat-2a extension header and needs the SoftFloat-2a text in the package. fpp_native.cpp stays excluded."
     },
     {
       "id": "final-waterbox-sysroot",
