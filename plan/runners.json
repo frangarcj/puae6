@@ -6,12 +6,17 @@
   "status_definitions": {
     "tools_available_unvalidated": "Herramientas consultadas; build y ejecucion PUAE6 pendientes.",
     "not_provisioned": "No se ha identificado ni accedido a un runner ejecutable de esta plataforma.",
-    "reference_available_unvalidated": "Referencia funcional segun usuario, con receta local documentada; PUAE6 pendiente de validar."
+    "reference_available_unvalidated": "Referencia funcional segun usuario, con receta local documentada; PUAE6 pendiente de validar.",
+    "verified_native": "Build y ejecucion de PUAE6 verificados en esta maquina (T25, tests/portability/evidence.json); no certifica otras plataformas.",
+    "verified_container": "Build y ejecucion verificados dentro de un contenedor Docker Linux de la ISA del anfitrion (T25).",
+    "verified_container_translated": "Build y ejecucion verificados en un contenedor Docker Linux x86_64 TRADUCIDO en un Mac arm64 (T25): no es hardware x86_64 nativo.",
+    "verified_waterbox_darwin_arm64": "Guest ARM64 ejecutado en Waterbox/MacHawk Darwin ARM64 (WB02, WB13-WB15 de T19c2, repetidos en T25).",
+    "out_of_scope": "Fuera del alcance declarado por decision del usuario; sin evidencia ni soporte anunciado. No es 'pendiente de runner'."
   },
   "runners": [
     {
       "id": "native-macos-arm64",
-      "status": "tools_available_unvalidated",
+      "status": "verified_native",
       "host": "macOS 26.7 (25G229) arm64",
       "host_page_size": 16384,
       "location": "local",
@@ -27,15 +32,20 @@
         "macos_sdk": "26.5",
         "homebrew_llvm_lld": "22.1.8"
       },
-      "build_verified": false,
-      "emulator_execution_verified": false,
+      "build_verified": true,
+      "emulator_execution_verified": true,
       "remaining": [
-        "Crear y probar los targets nativos PUAE6; gcc/g++ actuales son Clang, no una segunda toolchain GCC."
+        "Solo esta fila Apple Clang; Homebrew LLVM 22 y GCC de Homebrew solo estan en el test opt-in tests/codegen/test_compilers.py (build, sin hashes)."
+      ],
+      "verified_date": "2026-10-10",
+      "evidence": "reports/platform-matrix.md",
+      "compilers": [
+        "Apple clang version 21.0.0 (clang-2100.1.1.101)"
       ]
     },
     {
       "id": "waterbox-macos-arm64",
-      "status": "reference_available_unvalidated",
+      "status": "verified_waterbox_darwin_arm64",
       "host": "macOS 26.7 (25G229) arm64",
       "guest": "Waterbox ELF aarch64",
       "host_page_size": 16384,
@@ -46,35 +56,41 @@
       "reference_access": "read_only",
       "provision_owner": "Propietario del entorno local (usuario)",
       "validation_owner": "Implementador de T01/T09",
-      "build_verified": false,
-      "emulator_execution_verified": false,
-      "snapshot_verified": false,
+      "build_verified": true,
+      "emulator_execution_verified": true,
+      "snapshot_verified": true,
       "cached_artifacts_present": true,
       "remaining": [
-        "Fijar inputs completos y outputs aislados bajo uae; caches y WBX existentes no validan PUAE6.",
-        "Capturar toolchain Rust efectiva: nightly fijado en archivo; receta local RUSTC_BOOTSTRAP=1 cargo test con Rust/Cargo Homebrew disponible, aun no ejecutada aqui.",
-        "Usar invocacion apropiada: DOTNET_ROLL_FORWARD=Major permite runtime 10 para net8.0 segun waterbox/vice/README.md; el preflight del smoke amplio exige 8, no todo Waterbox.",
-        "Reconsultar daemon Docker al ejecutar: socket inaccesible en T00; receta existente guest usa imagen machawk-wbx:arm64 (Clang 18), independiente del LLVM host observado.",
-        "Verificar toolchain/sysroots, x18/x28, paginas 4/16 KiB y permisos MAP_JIT mediante T09 real.",
-        "Sin ejecucion real del mini-core en Waterbox, la puerta de T09 queda bloqueada."
-      ]
+        "Runtime Waterbox Linux/Windows x86_64: fuera del alcance declarado (decision del usuario 2026-10-10).",
+        "Release: la reconstruccion del sysroot desde fuentes sigue sin verificar (plan/toolchains.json)."
+      ],
+      "verified_date": "2026-10-10",
+      "evidence": "reports/platform-matrix.md"
     },
     {
       "id": "linux-x86_64",
-      "status": "not_provisioned",
-      "host": "Linux x86_64",
-      "location": null,
+      "status": "verified_container_translated",
+      "host": "Ubuntu 24.04 x86_64 en contenedor Docker (--platform linux/amd64) sobre macOS arm64",
+      "location": "local Docker",
       "provision_owner": "Propietario del entorno/CI (usuario)",
       "validation_owner": "Implementador de T25/T39",
-      "build_verified": false,
-      "emulator_execution_verified": false,
+      "build_verified": true,
+      "emulator_execution_verified": true,
       "remaining": [
-        "Asignar runner nativo y Waterbox Linux; QEMU 11.0.3 local sin VM ejecutada no lo acredita."
+        "Ningun hardware x86_64 nativo: la fila prueba el codigo x86_64 y sus compiladores bajo traduccion, no una CPU x86_64."
+      ],
+      "verified_date": "2026-10-10",
+      "evidence": "reports/platform-matrix.md",
+      "native_hardware": false,
+      "execution_environment": "x86_64 binaries translated by Docker Desktop (Rosetta/QEMU) on macOS arm64; NOT x86_64 hardware",
+      "compilers": [
+        "Ubuntu clang version 18.1.3 (1ubuntu1)",
+        "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
       ]
     },
     {
       "id": "windows-x86_64",
-      "status": "not_provisioned",
+      "status": "out_of_scope",
       "host": "Windows x86_64",
       "location": null,
       "provision_owner": "Propietario del entorno/CI (usuario)",
@@ -82,25 +98,36 @@
       "build_verified": false,
       "emulator_execution_verified": false,
       "remaining": [
-        "Asignar runner nativo y Waterbox Windows; Wine en PATH no demuestra esa plataforma."
-      ]
+        "Fuera de alcance: reabrirlo exige una nueva decision de alcance y un runner que lo ejecute."
+      ],
+      "scope_decision": "2026-10-10, user decision: the declared matrix is the Mac (native) and Docker Linux ARM64/x86_64 with Clang and GCC; there is no Windows hardware or runner",
+      "scope_change_date": "2026-10-10",
+      "scope_reason": "Sin hardware ni runner Windows."
     },
     {
       "id": "linux-arm64",
-      "status": "not_provisioned",
-      "host": "Linux arm64",
-      "location": null,
+      "status": "verified_container",
+      "host": "Ubuntu 24.04 arm64 en contenedor Docker Desktop (VM linuxkit arm64) sobre macOS arm64",
+      "location": "local Docker",
       "provision_owner": "Propietario del entorno/CI (usuario)",
       "validation_owner": "Implementador de T25/T39",
-      "build_verified": false,
-      "emulator_execution_verified": false,
+      "build_verified": true,
+      "emulator_execution_verified": true,
       "remaining": [
-        "Asignar runner Linux ARM64; no se ha iniciado contenedor ni accedido a otra maquina."
+        "Kernel linuxkit de la VM de Docker Desktop, no una distribucion Linux arm64 instalada en hardware propio."
+      ],
+      "verified_date": "2026-10-10",
+      "evidence": "reports/platform-matrix.md",
+      "native_hardware": true,
+      "execution_environment": "container on a Docker Desktop arm64 VM; arm64 code runs on the arm64 CPU of the Mac (virtualized, not a separate Linux machine)",
+      "compilers": [
+        "Ubuntu clang version 18.1.3 (1ubuntu1)",
+        "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
       ]
     },
     {
       "id": "macos-x86_64",
-      "status": "not_provisioned",
+      "status": "out_of_scope",
       "host": "macOS x86_64",
       "location": null,
       "provision_owner": "Propietario del entorno/CI (usuario)",
@@ -108,8 +135,13 @@
       "build_verified": false,
       "emulator_execution_verified": false,
       "remaining": [
-        "Rosetta presente por ruta; no se probo ejecucion traducida ni existe un runner Intel identificado."
-      ]
+        "Fuera de alcance: reabrirlo exige una nueva decision de alcance y un runner que lo ejecute."
+      ],
+      "scope_decision": "2026-10-10, user decision: the declared matrix is the Mac (native) and Docker Linux ARM64/x86_64 with Clang and GCC; there is no Windows hardware or runner",
+      "scope_change_date": "2026-10-10",
+      "scope_reason": "Nunca formo parte de la matriz declarada; sin maquina Intel."
     }
-  ]
+  ],
+  "verified_date": "2026-10-10",
+  "verification": "reports/platform-matrix.md y tests/portability/evidence.json (T25)"
 }
