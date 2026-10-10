@@ -13285,10 +13285,21 @@
         "config/**",
         "adapters/libretro/**",
         "tests/audio/**",
-        "tests/libretro-host/**"
+        "tests/libretro-host/**",
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "bridge/state.cpp",
+        "tests/contracts/**",
+        "tests/config/**",
+        "tests/host/**",
+        "tests/state/**",
+        "tests/libretro-ui/**",
+        "docs/02-contracts.md",
+        "docs/adr/0009-state-format.md"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_sound_stereo_separation, interpol y filter. Opciones de reinicio deterministas con la identidad del estado."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_sound_stereo_separation, interpol y filter. Opciones de reinicio deterministas con la identidad del estado.",
+        "Decision 2026-10-10 (revision): las tres opciones son de reinicio (filtro y su tipo e interpolacion viven en AUDP; la separacion cambia el PCM futuro). ABI: campos de 8 bits en una union con reserved[0] de p6_config (mismo offset y sizeof, como fpu_model). Identidad: una segunda palabra de identidad de audio plegada en config_hash SOLO cuando difiere del defecto del perfil (separacion 7, anti, filtro emulado, tipo auto por maquina), asi las series golden no cambian; documentarlo en docs/02-contracts.md y ADR 0009. sinc (2) se rechaza con P6_ERROR_UNSUPPORTED en validate_config (su sinc_queue no esta en AUDP). Separacion en porcentaje como PUAE5 (N % = N/10)."
       ],
       "checks": [
         "AV02",
