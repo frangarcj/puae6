@@ -7967,6 +7967,26 @@
       "InputCallbacks": {
         "policy": "construction",
         "what": "BizHawk's input callback list; the machine has no callback per input read, so nothing ever calls it"
+      },
+      "_parameters": {
+        "policy": "construction",
+        "what": "where the guest is, its pin and the firmware, kept to open the guest again when a SaveRam is stored before the first unit (T28); the firmware hash is in the envelope"
+      },
+      "_imported": {
+        "policy": "construction",
+        "what": "the SaveRam stored before the first unit, if any (T28): the guest's disks are the bases with it over them, and its SHA-256 is part of the config hash of the envelope, so a state never needs to carry it"
+      },
+      "_started": {
+        "policy": "lifecycle",
+        "what": "a unit ran or a state loaded (T28): the base disks of the guest cannot change any more, so StoreSaveRam is refused"
+      },
+      "_saveRamClean": {
+        "policy": "lifecycle",
+        "what": "SHA-256 of the SaveRam as of the last CloneSaveRam(clearDirty) or StoreSaveRam (T28): bookkeeping of what the frontend already made durable; a state load does not touch it (rollback is not persistence)"
+      },
+      "ReplayInProgress": {
+        "policy": "lifecycle",
+        "what": "a movie is being replayed (T28): the SaveRam is neither read nor replaced; set by the frontend, not machine state"
       }
     }
   }
