@@ -11095,7 +11095,8 @@
         "adapters/waterbox/**",
         "tests/waterbox-smoke/**",
         "tests/waterbox-state/**",
-        "integration/bizhawk/smoke/**"
+        "integration/bizhawk/smoke/**",
+        "manifests/state-inventory.json"
       ],
       "steps": [
         "Colocar overlay/metadata en memoria capturada; mantener base en readonly y lista de medios predefinida al seal.",
@@ -11103,7 +11104,8 @@
         "Reproducir WB10 con writes, ramas, seek y restore en sandbox nuevo; comprobar que el archivo durable no cambia.",
         "Medir crecimiento de snapshots/heaps ante escrituras adversarias y probar agotamiento.",
         "Ampliacion de touch (2026-10-10): el DSL de sesiones del arnes gestionado vive en tests/ffi (Session.cs) y WB10 necesita verbos de escritura/export; docs/03-waterbox.md lleva el estado T27c/T28 que hay que cerrar.",
-        "Ampliacion de touch (2026-10-10, segunda): el guest real vive en adapters/waterbox (p6w.h, puae6_guest.cpp, layout P6W_LAYOUT_VALUES), no en ports/waterbox (solo Makefile e imports.json), como ya tenian T21 y T49c; el layout lo comprueban tests/waterbox-smoke, tests/waterbox-state e integration/bizhawk/smoke/Puae6.cs."
+        "Ampliacion de touch (2026-10-10, segunda): el guest real vive en adapters/waterbox (p6w.h, puae6_guest.cpp, layout P6W_LAYOUT_VALUES), no en ports/waterbox (solo Makefile e imports.json), como ya tenian T21 y T49c; el layout lo comprueban tests/waterbox-smoke, tests/waterbox-state e integration/bizhawk/smoke/Puae6.cs.",
+        "Ampliacion de touch (2026-10-10, revision): tests/waterbox-state/test_wrapper_inventory.py exige clasificar cada campo nuevo de Puae6Core en manifests/state-inventory.json (commit 81d9607)."
       ],
       "checks": [
         "WB10",
@@ -11116,6 +11118,80 @@
         "La pelicula especulativa no deja modificaciones fuera del sandbox ni necesita callbacks mutables host."
       ],
       "stop": "No marcar medio determinista si un handle/cursor externo cambia el resultado tras restore.",
+      "evidence": null
+    },
+    {
+      "id": "T28a",
+      "title": "SIGSEGV intermitente al crear un segundo sandbox Waterbox con otros heaps en el mismo proceso",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T28"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "reports/tasks/T28.md"
+      ],
+      "touch": [
+        "tests/waterbox-media/**",
+        "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/smoke/**",
+        "adapters/waterbox/**",
+        "reports/tasks/T28a.md"
+      ],
+      "steps": [
+        "En T28 un test de peliculas con FloppyWrites distinto fallo una vez con SIGSEGV al arrancar un segundo sandbox con otro tamano de heap en el mismo proceso, y paso 3/3 al repetirlo aislado. Construir un reproducer en bucle (dos sandboxes con heaps distintos, crear/liberar/alternar; tambien con A500 vs A1200 de test_wrapper_machine y sin FloppyWrites para saber si es anterior a T28), capturar backtrace (lldb/crash report) y localizar si es del core (Dispose/orden de liberacion, punteros fijados), del arnes o de libwaterboxhost de ../MacHawk (solo lectura).",
+        "Si la causa esta en libwaterboxhost de MacHawk, no modificarlo: documentar reproducer + backtrace + dos hipotesis, aplicar el rodeo minimo en el core si existe (p. ej. orden de Dispose) y marcar el resto como hallazgo para el usuario."
+      ],
+      "checks": [
+        "WB04",
+        "WB10"
+      ],
+      "acceptance": [
+        "El reproducer corre N>=200 iteraciones sin fallo tras el arreglo, o el fallo queda atribuido con backtrace a un componente fuera del repo y documentado con su rodeo."
+      ],
+      "stop": "No ocultar el crash reintentando tests ni subiendo timeouts.",
+      "evidence": null
+    },
+    {
+      "id": "T28b",
+      "title": "Autocarga de .SaveRAM en EmuHawk para PUAE6 y contrato de escrituras actualizado",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T28"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "reports/tasks/T28.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/**",
+        "integration/bizhawk/core/**",
+        "tests/ffi/**",
+        "tests/waterbox-media/**",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md"
+      ],
+      "steps": [
+        "EmuHawk (MainForm.LoadSaveRam) solo pasa el fichero entero a una lista fija de cores (AppleII, C64, DOSBox, MGBAHawk, NeoGeoPort, NES FDS); a los demas les dimensiona el buffer con CloneSaveRam() de un core recien creado, que en PUAE6 es null (sin cambios), asi que el .SaveRAM nunca se autocarga. Elegir y probar: (a) añadir Puae6 a esa lista en integration/bizhawk/patches (el parche ya toca Client.Common), o (b) que el core con FloppyWrites devuelva un tamaño fijo acotado con relleno de ceros (el parser ya ignora el relleno). Medir el coste de cada uno; preferir (a) si el parche aplica y se puede comprobar.",
+        "Revisar ReplayInProgress: BizHawk ya separa la SaveRAM de las peliculas (ruta por pelicula, peliculas desde SaveRAM); documentar quien lo pone o retirarlo si ningun frontend real puede ponerlo.",
+        "docs/02-contracts.md aun dice flags = 0 para el wrapper BizHawk y 'hasta T27c': actualizarlo al estado de T28."
+      ],
+      "checks": [
+        "WB10",
+        "MED02"
+      ],
+      "acceptance": [
+        "Un .SaveRAM escrito por FlushSaveRAM vuelve a cargarse por el camino de EmuHawk (simulado con el mismo algoritmo de MainForm si EmuHawk no se ejecuta aqui) y la maquina ve los sectores; los rechazos se notifican sin excepcion sin capturar."
+      ],
+      "stop": "No mapear el disco entero como SaveRAM para que encaje el tamaño.",
       "evidence": null
     },
     {
@@ -12956,7 +13032,9 @@
         "T74",
         "T75",
         "T76",
-        "T31"
+        "T31",
+        "T28a",
+        "T28b"
       ],
       "read": [
         "docs/01-architecture.md",
