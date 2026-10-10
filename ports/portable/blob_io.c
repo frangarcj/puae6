@@ -3,7 +3,8 @@
 #include "media/overlay.h"
 #include <string.h>
 
-struct asset { char id[P6_BLOB_ID_BYTES + 1]; unsigned char *data; size_t bytes; uint32_t kind; uint32_t medium; /* overlay medium + 1, 0 = none */ };
+struct asset { char id[P6_BLOB_ID_BYTES + 1]; unsigned char *data; size_t bytes; uint32_t kind; uint32_t medium; /* overlay medium + 1, 0 = none */
+ unsigned char *hdf_over, *hdf_dirty; size_t hdf_chunks, hdf_used; /* P6_BLOB_HDF: the written chunks (the whole image's worth of room) and their bitmap */ };
 struct stream { p6_blob_handle token; size_t asset, position; int overlay; };
 static struct asset assets[P6_BLOB_ASSETS];
 static struct stream streams[P6_BLOB_STREAMS];
@@ -48,6 +49,15 @@ int p6_blob_register(const char *id, uint32_t kind, const void *data, size_t byt
   unsigned char *copy = bytes ? (unsigned char *)p6_malloc_array(1, bytes) : NULL;
   if (bytes && !copy) return P6_BLOB_NO_MEMORY;
   if (bytes) memcpy(copy, data, bytes);
+  memset(&assets[i], 0, sizeof assets[i]);
+  if (kind == P6_BLOB_HDF && bytes) {
+   const size_t chunks = (bytes + P6_HDF_CHUNK - 1) / P6_HDF_CHUNK;
+   assets[i].hdf_over = (unsigned char *)p6_malloc_array(1, bytes);        /* never read before its chunk is written: no need to touch the pages */
+   assets[i].hdf_dirty = (unsigned char *)p6_malloc_array(1, (chunks + 7) / 8);
+   if (assets[i].hdf_dirty) memset(assets[i].hdf_dirty, 0, (chunks + 7) / 8);
+   if (!assets[i].hdf_over || !assets[i].hdf_dirty) { free(assets[i].hdf_over); free(assets[i].hdf_dirty); memset(&assets[i], 0, sizeof assets[i]); free(copy); return P6_BLOB_NO_MEMORY; }
+   assets[i].hdf_chunks = chunks;
+  }
   strcpy(assets[i].id, id); /* valid_id bounded this string before allocation. */
   assets[i].data = copy; assets[i].bytes = bytes; assets[i].kind = kind; assets[i].medium = 0;
   return P6_BLOB_OK;
@@ -83,6 +93,71 @@ int p6_blob_pread(const char *id, uint64_t offset, void *out, size_t length, siz
  size_t n = a->bytes - (size_t)offset < length ? a->bytes - (size_t)offset : length;
  memcpy(out, a->data + (size_t)offset, n);
  *got = n;
+ return P6_BLOB_OK;
+}
+
+static struct asset *hdf_asset(const char *id)
+{
+ if (!valid_id(id)) return NULL;
+ const int index = asset_index(id);
+ return index >= 0 && assets[index].kind == P6_BLOB_HDF ? &assets[index] : NULL;
+}
+static int chunk_dirty(const struct asset *a, size_t chunk) { return (a->hdf_dirty[chunk >> 3] >> (chunk & 7)) & 1; }
+
+int p6_blob_hdf_read(const char *id, uint64_t offset, void *out, size_t length, size_t *got)
+{
+ if (!got) return P6_BLOB_ARGUMENT;
+ *got = 0;
+ const struct asset *a = hdf_asset(id);
+ if (!a || (length && !out)) return a ? P6_BLOB_ARGUMENT : P6_BLOB_NOT_FOUND;
+ if (offset >= a->bytes || !length) return P6_BLOB_OK;
+ size_t n = a->bytes - (size_t)offset < length ? a->bytes - (size_t)offset : length, at = (size_t)offset;
+ for (size_t done = 0; done < n;) {
+  const size_t chunk = (at + done) / P6_HDF_CHUNK, end = (chunk + 1) * P6_HDF_CHUNK;
+  size_t part = end - (at + done) < n - done ? end - (at + done) : n - done;
+  memcpy((unsigned char *)out + done, (chunk_dirty(a, chunk) ? a->hdf_over : a->data) + at + done, part);
+  done += part;
+ }
+ *got = n;
+ return P6_BLOB_OK;
+}
+
+int p6_blob_hdf_write(const char *id, uint64_t offset, const void *data, size_t length, size_t *done)
+{
+ if (!done) return P6_BLOB_ARGUMENT;
+ *done = 0;
+ struct asset *a = hdf_asset(id);
+ if (!a || (length && !data)) return a ? P6_BLOB_ARGUMENT : P6_BLOB_NOT_FOUND;
+ if (offset > a->bytes || length > a->bytes - (size_t)offset) return P6_BLOB_RANGE;    /* the image never grows, and nothing is stored */
+ const size_t at = (size_t)offset;
+ for (size_t chunk = length ? at / P6_HDF_CHUNK : 0; length && chunk <= (at + length - 1) / P6_HDF_CHUNK; ++chunk) {
+  if (chunk_dirty(a, chunk)) continue;
+  const size_t from = chunk * P6_HDF_CHUNK, n = a->bytes - from < P6_HDF_CHUNK ? a->bytes - from : P6_HDF_CHUNK;
+  memcpy(a->hdf_over + from, a->data + from, n);              /* copy on write: the chunk starts as the base's */
+  a->hdf_dirty[chunk >> 3] |= (unsigned char)(1u << (chunk & 7));
+  ++a->hdf_used;
+ }
+ if (length) memcpy(a->hdf_over + at, data, length);
+ *done = length;
+ return P6_BLOB_OK;
+}
+
+int p6_blob_hdf_export(const char *id, void *out, size_t capacity, size_t *written)
+{
+ if (!written) return P6_BLOB_ARGUMENT;
+ *written = 0;
+ const struct asset *a = hdf_asset(id);
+ if (!a || !out) return a ? P6_BLOB_ARGUMENT : P6_BLOB_NOT_FOUND;
+ if (capacity < a->bytes) return P6_BLOB_CAPACITY;
+ return p6_blob_hdf_read(id, 0, out, a->bytes, written);
+}
+
+int p6_blob_hdf_status(const char *id, uint64_t *chunks, uint64_t *dirty)
+{
+ const struct asset *a = hdf_asset(id);
+ if (!a) return P6_BLOB_NOT_FOUND;
+ if (chunks) *chunks = a->hdf_chunks;
+ if (dirty) *dirty = a->hdf_used;
  return P6_BLOB_OK;
 }
 
@@ -290,7 +365,7 @@ int p6_blob_overlay_export(uint32_t medium, void *out, size_t capacity, size_t *
 }
 void p6_blob_clear(void)
 {
- for (size_t i = 0; i < P6_BLOB_ASSETS; ++i) free(assets[i].data);
+ for (size_t i = 0; i < P6_BLOB_ASSETS; ++i) { free(assets[i].data); free(assets[i].hdf_over); free(assets[i].hdf_dirty); }
  memset(assets, 0, sizeof assets); memset(streams, 0, sizeof streams);
  free(overlay_storage);
  overlay_storage = NULL; memset(&overlay, 0, sizeof overlay);

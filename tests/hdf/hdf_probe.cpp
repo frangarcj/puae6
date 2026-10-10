@@ -162,6 +162,26 @@ int main(int argc, char **argv)
     printf(" sr=%04x halted=%d\n", regs.sr, int(regs.halted));
     for (size_t i = 0; i < images.size(); ++i)
         printf("hdf %zu buffer_unchanged=%d blob_equal=%d\n", i, int(images[i] == originals[i]), int(blob_equals(media[i], originals[i])));
+    if (const char *path = getenv("P6_PROBE_EXPORT")) {
+        // The image as the guest left it (T29b): the base with the overlay over it, a short buffer refused, and the numbers of the overlay.
+        std::vector<uint8_t> exported(images[0].size());
+        uint64_t written = 0;
+        p6_result r = p6_media_export(0, exported.data(), exported.size() - 1, &written, &error);
+        printf("export_short=%d written=%" PRIu64 "\n", int(r), written);
+        r = p6_media_export(0, exported.data(), exported.size(), &written, &error);
+        printf("export=%d written=%" PRIu64 "\n", int(r), written);
+        p6_media_write_status status{};
+        status.abi_version = P6_ABI_VERSION;
+        status.struct_size = sizeof status;
+        status.media_index = 0;
+        r = p6_media_write_status_get(&status, &error);
+        printf("status=%d capacity=%" PRIu64 " used=%" PRIu64 " medium=%" PRIu64 " refused=%" PRIu64 "\n", int(r), status.overlay_capacity, status.overlay_used,
+               status.medium_sectors, status.refused_writes);
+        FILE *f = fopen(path, "wb");
+        if (!f) { perror(path); return 5; }
+        fwrite(exported.data(), 1, exported.size(), f);
+        fclose(f);
+    }
     if (getenv("P6_PROBE_STATE")) {
         uint64_t bound = 0, written = 0;
         p6_result r = p6_state_bound(&bound, &error);

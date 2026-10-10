@@ -9,7 +9,9 @@ What it does, in order (the addresses are the constants below):
   2. autoconfig: reads er_Type of the board at $E80000, writes its base ($E90000) and so maps the board (expamem_map_filesys);
   3. copies the DiagArea of the board ($E92000, 512 bytes) to Chip RAM, as expansion.library does, and calls its DiagPoint (hwtrap_install, then filesys_diagentry);
   4. scans the copy for a Resident (RT_MATCHWORD $4AFC pointing at itself) named "uaeh..." and takes OpenDevice and BeginIO out of its function table;
-  5. calls Open with an IORequest, then BeginIO for: CMD_READ of block 0, CMD_READ of block N, CMD_READ past the end, CMD_WRITE of one block, HD_SCSICMD;
+  5. calls Open with an IORequest, then BeginIO for: CMD_READ of block 0, CMD_READ of block N, CMD_READ past the end, CMD_WRITE of block 0's bytes to block 3,
+     CMD_READ of block 3, CMD_WRITE of blocks 0 and N (1024 bytes, BUF0 then BUF1) over blocks 7 and 8, which cross the 4 KiB chunk of the overlay, CMD_READ of
+     those two, HD_SCSICMD;
   6. stores what it saw at RES and stops.
 """
 import importlib.util
@@ -34,17 +36,20 @@ CONFIGDEV = 0x2800
 EXPLIB = 0x2900
 IOREQ = 0x3000
 LIBBASE = 0x4800               # 64 scratch bytes: uaehf.device counts its openers at +32
-BUF0, BUF1, BUF2 = 0x4000, 0x4200, 0x4400
+BUF0, BUF1, BUF2 = 0x4000, 0x4200, 0x4400     # BUF0 and BUF1 are contiguous: block 0 and block N, written together as one request of two blocks
+BUF3, BUF4 = 0x7000, 0x7400                   # read-backs (BUF4 holds two blocks)
 RES = 0x5000
 BOARD = 0xE90000
 DONE = 0x444F4E45              # "DONE"
 
 CMD_READ, CMD_WRITE, HD_SCSICMD = 2, 3, 28
+WRITE_BLOCK, CROSS_BLOCK = 3, 7  # CROSS_BLOCK and the next one are the last block of chunk 0 and the first of chunk 1
 # Offsets in the structure at RES
 R_TYPE, R_DIAG_D0, R_BEGINIO, R_RESIDENT, R_OPEN = 0, 4, 8, 12, 16
-R_ERR = 17                      # io_Error of the requests in order: read0, readN, read past the end, write, scsi (5 bytes)
-R_ACTUAL = 24                   # io_Actual of the three reads, longs
-R_DONE = 40
+REQUESTS = 8
+R_ERR = 17                      # io_Error of the requests in order: read0, readN, read past the end, write 3, read 3, write 7-8, read 7-8, scsi (8 bytes)
+R_ACTUAL = 28                   # io_Actual of every request, longs
+R_DONE = R_ACTUAL + 4 * REQUESTS
 
 
 class _Asm:
@@ -219,15 +224,17 @@ def program(read_offset_block, past_end_block):
         a.op("JSR (A4)                 ; BeginIO", 0x4E94)
         a.move_b_abs_d0(IOREQ + 31)
         a.move_b_d0_abs(RES + R_ERR + slot)
-        if slot < 3:
-            a.move_l_abs_d0(IOREQ + 32)
-            a.move_l_d0_abs(RES + R_ACTUAL + 4 * slot)
+        a.move_l_abs_d0(IOREQ + 32)
+        a.move_l_d0_abs(RES + R_ACTUAL + 4 * slot)
 
     request(0, CMD_READ, 512, BUF0, 0)
     request(1, CMD_READ, 512, BUF1, read_offset_block)
     request(2, CMD_READ, 512, BUF2, past_end_block)
-    request(3, CMD_WRITE, 512, BUF0, 0)
-    request(4, HD_SCSICMD, 30, BUF2, 0)
+    request(3, CMD_WRITE, 512, BUF0, WRITE_BLOCK)
+    request(4, CMD_READ, 512, BUF3, WRITE_BLOCK)
+    request(5, CMD_WRITE, 1024, BUF0, CROSS_BLOCK)
+    request(6, CMD_READ, 1024, BUF4, CROSS_BLOCK)
+    request(7, HD_SCSICMD, 30, BUF2, 0)
     a.label("finish")
     a.move_l_imm_abs(DONE, RES + R_DONE)
     a.label("park")

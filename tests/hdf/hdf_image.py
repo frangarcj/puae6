@@ -21,15 +21,18 @@ def _bstr(text, size):
     return data.ljust(size, b"\0")
 
 
-def ffs_partition(blocks, name="Empty"):
-    """An empty FFS volume of `blocks` blocks (including the 2 of the boot block), as one bytes object."""
+def ffs_partition(blocks, name="Empty", valid=True):
+    """An empty FFS volume of `blocks` blocks (including the 2 of the boot block), as one bytes object.
+
+    With valid=False the root block says the bitmap is not valid (a volume that was not closed properly): the file system validates the disk when it mounts it, which
+    writes the bitmap and the root block back."""
     reserved, root = 2, (blocks - 1 + 2) // 2
     bitmap = root + 1
     image = bytearray(blocks * BLOCK)
     image[0:4] = struct.pack(">L", DOS_FFS)
     longs = [0] * 128
     longs[0], longs[3] = 2, 72                      # T_HEADER, hash table size
-    longs[128 - 50], longs[128 - 49] = END, bitmap  # bitmap valid, first bitmap page
+    longs[128 - 50], longs[128 - 49] = END if valid else 0, bitmap  # bitmap valid (or not), first bitmap page
     longs[128 - 20:128 - 12] = struct.unpack(">8L", _bstr(name, 32))
     longs[127] = 1                                  # ST_ROOT
     image[root * BLOCK:(root + 1) * BLOCK] = _fix(longs, 5)
@@ -44,7 +47,7 @@ def ffs_partition(blocks, name="Empty"):
     return bytes(image)
 
 
-def rdb_image(cylinders=16, heads=2, sectors=32, name="DH0", rdb_block_bytes=BLOCK, fshd_loop=False):
+def rdb_image(cylinders=16, heads=2, sectors=32, name="DH0", rdb_block_bytes=BLOCK, fshd_loop=False, valid=True):
     """A disk with an RDB (block 0), one bootable partition `name` (block 1, cylinders 1 to the last) and an empty FFS volume in it.
 
     Hostile variants: rdb_block_bytes is the block size the RDB declares (a field the engine used to take as the size of a buffer), and fshd_loop makes the list of
@@ -73,7 +76,7 @@ def rdb_image(cylinders=16, heads=2, sectors=32, name="DH0", rdb_block_bytes=BLO
     image[0:BLOCK] = _fix(rdsk, 2).ljust(BLOCK, b"\0")
     image[BLOCK:2 * BLOCK] = _fix(part, 2).ljust(BLOCK, b"\0")
     start, blocks = cylinder_blocks, (cylinders - 1) * cylinder_blocks
-    image[start * BLOCK:(start + blocks) * BLOCK] = ffs_partition(blocks, "Empty")
+    image[start * BLOCK:(start + blocks) * BLOCK] = ffs_partition(blocks, "Empty", valid)
     return bytes(image)
 
 

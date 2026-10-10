@@ -109,14 +109,14 @@ typedef struct p6_media {
     p6_buffer image;
 } p6_media;
 #define P6_MEDIA_ADF UINT32_C(1)
-/* P6_MEDIA_HDF: a hard file, mounted READ-ONLY from power-on on the UAE controller (uaehf.device and the UAEFS board, the way PUAE5 does) as DH0, DH1... in
+/* P6_MEDIA_HDF: a hard file, mounted from power-on on the UAE controller (uaehf.device and the UAEFS board, the way PUAE5 does) as DH0, DH1... in
  * the order the hard files have in the p6_load array, at most P6_MAX_HDF. The image is a multiple of 512 bytes, at least one block; a hard file that starts
  * with "RDSK" brings its own RDB, any other is one partition (32 sectors, 1 head, 2 reserved blocks, boot priority 0). There is no fixed size limit: the image
- * is copied whole (the memory it takes is its size) and p6_load answers CAPACITY if it does not fit. A hard file is never a floppy: it cannot be mounted in a
- * drive, appended with p6_media_append or exported; flags must be 0. Guest I/O is synchronous, with no emulated delay: a request finishes in the unit that
+ * is copied whole (the memory it takes is its size, twice: the base and the room for the overlay of its writes, see below) and p6_load answers CAPACITY if it does not fit. A hard file is never a floppy: it cannot be mounted in a
+ * drive or appended with p6_media_append; flags must be 0. Guest I/O is synchronous, with no emulated delay: a request finishes in the unit that
  * issued it and the guest sees the reply at the next INT2. The Kickstart must be 1.3 or later (unit 34+). A session with a hard file has NO native state yet
  * (p6_state_bound, p6_state_save and p6_state_load answer P6_ERROR_UNSUPPORTED): the state of the controller is not serialized. SCSI direct commands
- * (HD_SCSICMD) answer IOERR_NOCMD, and writes answer "write protected" (the write overlay is a later task). */
+ * (HD_SCSICMD) answer IOERR_NOCMD. Writes: see the paragraph on hard files below. */
 #define P6_MEDIA_HDF UINT32_C(2)
 
 typedef struct p6_port_input {
@@ -337,7 +337,14 @@ p6_result p6_media_event_enqueue(const p6_media_event *event, p6_error *error);
  * (the image may have appended more since), and it is INCOMPATIBLE in one whose manifest does not. Every medium a state names is inside its own prefix. */
 p6_result p6_media_append(const p6_media *medium, uint32_t *index, p6_error *error);
 
-/* Writable floppies (P6_CAP_MEDIA_WRITE, config flag P6_CONFIG_FLOPPY_WRITES; UNSUPPORTED otherwise).
+/* Hard files (P6_MEDIA_HDF) are always writable (T29b): the guest's writes go to an overlay of 4 KiB chunks, made on the first write to a chunk, over the immutable base
+ * (the registered copy and the caller's buffer never change). The room is reserved by p6_load and is the size of the image, so a write cannot run out of it. They are
+ * not floppies: P6_CONFIG_FLOPPY_WRITES does not apply. p6_media_export(index of a hard file) copies the image as it is now, the base with the overlay over it, into a buffer of
+ * at least its size (CAPACITY otherwise, nothing written), and p6_media_write_status_get counts in chunks (overlay_capacity = chunks of the image, overlay_used =
+ * medium_sectors = chunks written, refused_writes = raw_tracks = 0). Nothing leaves the process by itself: no flush, no file. The overlay is not part of any state yet
+ * (a session with a hard file has none until T29c).
+ *
+ * Writable floppies (P6_CAP_MEDIA_WRITE, config flag P6_CONFIG_FLOPPY_WRITES; UNSUPPORTED otherwise).
  *
  * The identity of a disk stays its base: the content_id of the manifest, the CRC a drive reports and the media_manifest_hash of a state never include
  * what was written. The writes are machine state, like RAM: a state carries the overlay as of its unit, and loading it replaces the overlay (a state

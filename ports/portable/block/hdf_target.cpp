@@ -3,8 +3,8 @@
  *
  * An image is the immutable base registered by p6_load under its blob id (the SHA-256 of its bytes, bridge/media.cpp). The name that hdf_open receives is
  * that id; a read is p6_blob_pread, a function of the registered bytes and the offset, so no cursor, handle or file of the host takes part and two sessions
- * with the same image answer the same bytes. Nothing is ever written: the units are mounted read-only and a write that reaches this layer fails with the
- * error AmigaOS calls "disk is write protected" (28), whatever the caller did; the write overlay is a later task.
+ * with the same image answer the same bytes. A write goes to the overlay of the image (4 KiB chunks over the immutable base, p6_blob_hdf_write, T29b): the base is
+ * never touched and nothing leaves the process until the caller exports.
  */
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -51,7 +51,6 @@ int hdf_open_target(struct hardfiledata *hfd, const TCHAR *name)
     if (!hfd->handle)
         return 0;
     hfd->handle->mark.open = 1;
-    hfd->ci.readonly = true;              // the base is immutable
     _tcscpy(hfd->vendor_id, _T("UAE"));
     _tcscpy(hfd->product_id, _T("HardDrive"));
     _tcscpy(hfd->product_rev, _T("0.4"));
@@ -91,7 +90,7 @@ int hdf_read_target(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int 
     if (len <= 0 || !hfd->handle_valid || offset > hfd->physsize)
         return 0;
     offset += hfd->offset;
-    if (p6_blob_pread(hfd->ci.rootdir, offset, buffer, size_t(len), &got) != P6_BLOB_OK) {
+    if (p6_blob_hdf_read(hfd->ci.rootdir, offset, buffer, size_t(len), &got) != P6_BLOB_OK) {
         if (error)
             *error = 1;
         return 0;
@@ -101,13 +100,18 @@ int hdf_read_target(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int 
 
 int hdf_write_target(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, uae_u32 *error)
 {
-    (void)hfd;
-    (void)buffer;
-    (void)offset;
-    (void)len;
-    if (error)
-        *error = kWriteProtected;
-    return 0;
+    size_t done = 0;
+    if (len <= 0 || !hfd->handle_valid || hfd->ci.readonly) {
+        if (error)
+            *error = kWriteProtected;
+        return 0;
+    }
+    if (p6_blob_hdf_write(hfd->ci.rootdir, offset + hfd->offset, buffer, size_t(len), &done) != P6_BLOB_OK) {
+        if (error)
+            *error = 1;
+        return 0;
+    }
+    return int(done);
 }
 
 int hdf_resize_target(struct hardfiledata *hfd, uae_u64 newsize)

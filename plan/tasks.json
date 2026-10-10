@@ -11300,7 +11300,7 @@
       "title": "Escritura de HDF en trozos de 4 KiB sobre base inmutable, con exportacion explicita",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T29a"
       ],

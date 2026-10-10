@@ -41,8 +41,17 @@ def seen(ram):
     long = lambda at: struct.unpack(">L", ram[res + at:res + at + 4])[0]
     return dict(
         er_type=ram[res + hdf_rom.R_TYPE], diag_d0=long(hdf_rom.R_DIAG_D0), begin_io=long(hdf_rom.R_BEGINIO), resident=long(hdf_rom.R_RESIDENT),
-        open_error=ram[res + hdf_rom.R_OPEN], errors=list(ram[res + hdf_rom.R_ERR:res + hdf_rom.R_ERR + 5]),
-        actual=[long(hdf_rom.R_ACTUAL + 4 * n) for n in range(3)], done=long(hdf_rom.R_DONE) == hdf_rom.DONE)
+        open_error=ram[res + hdf_rom.R_OPEN], errors=list(ram[res + hdf_rom.R_ERR:res + hdf_rom.R_ERR + hdf_rom.REQUESTS]),
+        actual=[long(hdf_rom.R_ACTUAL + 4 * n) for n in range(hdf_rom.REQUESTS)], done=long(hdf_rom.R_DONE) == hdf_rom.DONE)
+
+
+def expected_after_the_guest(image):
+    """The image once the micro-ROM has run: block 3 is block 0, and blocks 7 and 8 are blocks 0 and N (written as one request across a chunk boundary)."""
+    out = bytearray(image)
+    out[3 * 512:4 * 512] = image[0:512]
+    out[7 * 512:8 * 512] = image[0:512]
+    out[8 * 512:9 * 512] = image[BLOCKS_READ * 512:(BLOCKS_READ + 1) * 512]
+    return bytes(out)
 
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
@@ -77,8 +86,11 @@ class Block0Tests(unittest.TestCase):
         self.assertEqual(ram[hdf_rom.BUF1:hdf_rom.BUF1 + 512], image[offset:offset + 512], "the block at %d is the file's" % offset)
         self.assertEqual(guest["errors"][2], 0xFC, "a read beyond the end is IOERR_BADLENGTH (-4)")
         self.assertEqual(guest["actual"][2], 0)
-        self.assertEqual(guest["errors"][3], 28, "a write answers 'disk is write protected'")
-        self.assertEqual(guest["errors"][4], 0xFD, "HD_SCSICMD is IOERR_NOCMD (-3): scsi.cpp is not built")
+        self.assertEqual(guest["errors"][3:7], [0, 0, 0, 0], "the writes and their read-backs succeed")
+        self.assertEqual(guest["actual"][3:7], [512, 512, 1024, 1024])
+        self.assertEqual(ram[hdf_rom.BUF3:hdf_rom.BUF3 + 512], image[0:512], "block 3 reads back what was written there")
+        self.assertEqual(ram[hdf_rom.BUF4:hdf_rom.BUF4 + 1024], image[0:512] + image[offset:offset + 512], "two blocks across a chunk boundary read back")
+        self.assertEqual(guest["errors"][7], 0xFD, "HD_SCSICMD is IOERR_NOCMD (-3): scsi.cpp is not built")
 
     def test_the_guest_reads_block_zero_and_another_block_of_the_file_on_all_three_machines(self):
         for machine in MACHINES:
@@ -88,6 +100,19 @@ class Block0Tests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout[-600:] + result.stderr[-600:])
                     self.assert_reads(name, ram)
                     self.assertIn("hdf 0 buffer_unchanged=1 blob_equal=1", result.stdout)     # neither the caller's bytes nor the registered base changed
+
+    def test_what_the_guest_wrote_is_in_the_export_and_nowhere_else(self):
+        for name, image in self.images.items():
+            with self.subTest(image=name), tempfile.TemporaryDirectory(dir=self.temp.name) as directory:
+                out = Path(directory, "export.bin")
+                result, ram = run(self.exe, directory, self.rom, images=(image,), env={"P6_PROBE_EXPORT": str(out)})
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(out.read_bytes(), expected_after_the_guest(image), "the base with the overlay over it")
+                self.assertIn("hdf 0 buffer_unchanged=1 blob_equal=1", result.stdout)          # the caller's bytes and the registered base are still the original
+                self.assertIn("export_short=7 written=0", result.stdout)                          # a short buffer is CAPACITY and nothing is written
+                self.assertIn("export=0 written=%d" % len(image), result.stdout)
+                # blocks 3 and 7 are in chunk 0 and 1: two chunks differ from the base (block 3 and 7 are both in chunk 0; block 8 is in chunk 1)
+                self.assertIn("status=0 capacity=%d used=2 medium=2 refused=0" % (len(image) // 4096), result.stdout)
 
     def test_the_image_is_found_by_content_and_two_processes_agree_on_everything(self):
         first, ram_a = self.run_case(self.images["rdb"], seed=7, env={"TZ": "Pacific/Kiritimati", "HOME": "/nonexistent-a"})
@@ -141,17 +166,32 @@ class Block0Tests(unittest.TestCase):
             for forbidden in ("pthread", "std::thread", "CreateThread", "uae_start_thread", "sched_yield", "sleep_millis(", "usleep"):
                 self.assertNotIn(forbidden, text.replace("uae_start_thread*", ""), (name, forbidden))
 
-    def boot_kickstart(self, variable, machine, units, image=None):
-        """Boots the Kickstart that `variable` names (read from there, never copied) with an RDB disk mounted and returns the dump of RAM."""
+    def boot_kickstart(self, variable, machine, units, image=None, export=False):
+        """Boots the Kickstart that `variable` names (read from there, never copied) with an RDB disk mounted and returns the dump of RAM (and the exported image)."""
         with tempfile.TemporaryDirectory(dir=self.temp.name) as directory:
             disk = Path(directory, "disk.hdf")
             disk.write_bytes(image or self.images["rdb"])
             dump = Path(directory, "ram.bin")
+            exported = Path(directory, "export.bin")
             result = subprocess.run([str(self.exe), os.environ[variable], machine, "pal", "1", str(units), str(dump), str(disk)],
-                                    capture_output=True, text=True, timeout=1800, env={**os.environ, "ASAN_OPTIONS": "detect_leaks=0"})
+                                    capture_output=True, text=True, timeout=1800,
+                                    env={**os.environ, "ASAN_OPTIONS": "detect_leaks=0", **({"P6_PROBE_EXPORT": str(exported)} if export else {})})
             self.assertEqual(result.returncode, 0, result.stdout[-800:] + result.stderr[-800:])
             self.assertIn("halted=0", result.stdout)
-            return dump.read_bytes()
+            self.assertIn("hdf 0 buffer_unchanged=1 blob_equal=1", result.stdout)
+            return (dump.read_bytes(), exported.read_bytes(), result.stdout) if export else dump.read_bytes()
+
+    def assert_the_file_system_validated_the_volume(self, variable, machine, units):
+        # The root block of the volume says the bitmap is not valid: Kickstart's file system validates the disk when it mounts it and writes the bitmap and the root block.
+        image = hdf_image.rdb_image(valid=False)
+        _, exported, stdout = self.boot_kickstart(variable, machine, units, image, export=True)
+        changed = [b for b in range(len(image) // 512) if exported[b * 512:(b + 1) * 512] != image[b * 512:(b + 1) * 512]]
+        self.assertTrue(changed, "the guest wrote the validated volume back")
+        root = 64 + (15 * 64 - 1 + 2) // 2         # block of the root: first block of the partition (cylinder 1) + its middle
+        self.assertIn(root, changed, changed)
+        self.assertEqual(struct.unpack(">L", exported[root * 512 + 4 * 78:root * 512 + 4 * 78 + 4])[0], 0xFFFFFFFF, "the bitmap is valid again")
+        self.assertIn("export=0", stdout)
+        return changed
 
     @unittest.skipUnless(os.environ.get("P6_KICKSTART_ROM"), "opt-in: P6_KICKSTART_ROM names a Kickstart 1.3 image")
     def test_kickstart_13_mounts_the_partition_of_the_hard_file(self):
@@ -164,6 +204,11 @@ class Block0Tests(unittest.TestCase):
         ram = self.boot_kickstart("P6_KICKSTART_A1200_ROM", "a1200", 500)
         self.assertIn(b"\x03DH0", ram)
         self.assertIn(b"uaehf.device", ram)
+
+    @unittest.skipUnless(os.environ.get("P6_KICKSTART_A1200_ROM"), "opt-in: P6_KICKSTART_A1200_ROM names a Kickstart 3.1 image")
+    def test_kickstart_31_writes_the_validated_volume_into_the_overlay(self):
+        # (Kickstart 1.3 mounts the partition but does not touch the volume until a user does, so there is nothing for it to write in a boot with no disk to run.)
+        self.assert_the_file_system_validated_the_volume("P6_KICKSTART_A1200_ROM", "a1200", 700)
 
     @unittest.skipUnless(os.environ.get("P6_KICKSTART_ROM"), "opt-in: P6_KICKSTART_ROM names a Kickstart 1.3 image")
     def test_an_rdb_whose_block_size_is_hostile_is_refused_without_the_allocation(self):

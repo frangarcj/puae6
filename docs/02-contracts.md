@@ -481,18 +481,25 @@ aprobado; el cursor o cache mutable no puede ocultar estado fuera del sandbox.
 Cualquier caching externo debe ser semantica de funcion pura y probado tras reset
 arbitrario de la cache. MVP prefiere precargar floppies para reducir esa superficie.
 
-Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro de SOLO LECTURA por el controlador UAE (`uaehf.device` y la placa UAEFS, como
+Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro por el controlador UAE (`uaehf.device` y la placa UAEFS, como
 PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256
 de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs (`P6_BLOB_HDF`, `p6_blob_pread`: lectura por offset de la base inmutable, sin cursor ni fichero del
 host) y el presupuesto de memoria es su tamaño (CAPACITY si no cabe). Una imagen que empieza por `RDSK` trae su RDB; cualquier otra es una particion (32 sectores, 1 cabeza, 2 bloques
-reservados, prioridad de arranque 0). Un HDF no es un disquete: ni `MOUNT` en una unidad, ni `p6_media_append`, ni exportacion. La E/S es sincrona y sin retardo emulado: la peticion se sirve
+reservados, prioridad de arranque 0). Un HDF no es un disquete: ni `MOUNT` en una unidad, ni `p6_media_append`. La E/S es sincrona y sin retardo emulado: la peticion se sirve
 dentro de `BeginIO` (sin hilo por unidad) y el invitado ve la respuesta en la siguiente INT2 (cola EXTER de `native2amiga`, sin hilos); `HD_SCSICMD` responde `IOERR_NOCMD` (no se compila
-`scsi.cpp`), una escritura responde "protegido contra escritura" (28), y se rechazan los volumenes del host (directorios, archivos, CD, cinta) y cualquier controlador distinto del UAE.
+`scsi.cpp`), y se rechazan los volumenes del host (directorios, archivos, CD, cinta) y cualquier controlador distinto del UAE.
 Kickstart 1.3 o posterior (version 34+): con una anterior `p6_load` responde UNSUPPORTED. La placa UAEFS y la ROM de arranque UAE ($F00000) existen SOLO si hay un HDF: sin el, la maquina,
 sus digests y sus hashes son los de antes. RDB y particiones se validan sin reservar tamaños leidos del disco (tamaño de bloque del RDB: potencia de dos entre 256 y 8192; cadena de
 FSHD acotada a 1024; sin VHD ni CHD). Con un HDF montado NO hay estado nativo todavia: `p6_state_bound`, `p6_state_save` y `p6_state_load` responden UNSUPPORTED (el estado del
-controlador, la cola EXTER y la placa no estan serializados; llega con T29c). Pendiente de T29: overlay de escritura de 4 KiB y exportacion (`HARDDISK_CHUNK` de MacHawk), estado,
-Waterbox (el almacen de blobs va al heap sellado: presupuesto de `HardDiskHeapKB`) y el bit de capacidad `P6_CAP_MEDIA_HDF` (cambia `p6_query_caps`, que fijan pruebas de otras zonas).
+controlador, la cola EXTER y la placa no estan serializados; llega con T29c). Pendiente de T29: el estado (T29c), Waterbox y el bit de capacidad `P6_CAP_MEDIA_HDF` (cambia `p6_query_caps`, que fijan pruebas de otras zonas; T29d).
+
+Escritura de HDF (T29b, sin parches del motor: todo en `ports/portable`): un HDF es siempre escribible. La base registrada es inmutable (ni el buffer del llamante ni la copia del almacen de blobs cambian
+jamas); una escritura del invitado copia el trozo de 4 KiB (`P6_HDF_CHUNK`, el `HARDDISK_CHUNK` de MacHawk) a un overlay la primera vez que lo toca, lo marca en un bitmap de sucios y escribe ahi; toda lectura
+ve el overlay sobre la base. La memoria del overlay (el tamaño de la imagen mas su bitmap) se reserva al registrar el medio en `p6_load`, asi que una escritura no asigna ni puede fallar por falta de sitio
+(presupuesto como MacHawk: tamaño del fichero, ahora dos veces: base y sitio para el overlay). `p6_media_export` de un indice de HDF copia la imagen tal como esta ahora (la base con el overlay encima) a un
+buffer de al menos su tamaño (CAPACITY sin escribir nada si es menor) y `p6_media_write_status_get` cuenta en trozos (`overlay_capacity` = trozos de la imagen, `overlay_used` = `medium_sectors` = trozos
+escritos, `refused_writes` = `raw_tracks` = 0). Nada sale del proceso solo: ni flush ni fichero; la exportacion duradera es del llamante. `CMD_WRITE`, `CMD_FORMAT` y sus versiones TD64/NSD escriben; una escritura
+fuera de la imagen es `IOERR_BADLENGTH` y no almacena nada. El overlay todavia no esta en ningun estado (T29c): con un HDF sigue sin haberlo.
 
 ## Regiones de memoria
 

@@ -34,6 +34,18 @@ int p6_blob_exists(const char *id);
  * [offset, offset + length) that lie inside the asset: *got is their number (0 at or beyond the end), P6_BLOB_RANGE is not used and a missing asset is NOT_FOUND. */
 int p6_blob_size(const char *id, uint64_t *bytes, uint32_t *kind);
 int p6_blob_pread(const char *id, uint64_t offset, void *out, size_t length, size_t *got);
+
+/* The write overlay of a hard file (T29b): the base of a P6_BLOB_HDF asset is never written; a write goes to a copy of the 4 KiB chunk (P6_HDF_CHUNK, the
+ * HARDDISK_CHUNK of MacHawk) that is made on its first write, and the chunk is marked in a bitmap. The memory for all of it (the size of the image plus its bitmap) is
+ * reserved when the asset is registered, so a write never fails for lack of room and never allocates. hdf_read gives the bytes the guest sees (the overlay over the base),
+ * hdf_write is all-or-nothing and RANGE (nothing stored) when it ends beyond the image, hdf_export copies the whole image as it is now (CAPACITY, nothing written, when the
+ * buffer is smaller) and hdf_status says how many chunks the image has and how many differ from the base's. p6_blob_pread keeps answering the base. None of this is
+ * state yet: a session with a hard file has no native state until T29c. */
+enum { P6_HDF_CHUNK = 4096 };
+int p6_blob_hdf_read(const char *id, uint64_t offset, void *out, size_t length, size_t *got);
+int p6_blob_hdf_write(const char *id, uint64_t offset, const void *data, size_t length, size_t *done);
+int p6_blob_hdf_export(const char *id, void *out, size_t capacity, size_t *written);
+int p6_blob_hdf_status(const char *id, uint64_t *chunks, uint64_t *dirty);
 /* "rb": the base, always. "r+b": the base with the write overlay of the asset on top (p6_blob_overlay_bind), READ_ONLY for an asset without
  * one. out is zeroed on failure; every successful open has its own cursor. */
 int p6_blob_open(const char *id, const char *mode, p6_blob_handle *out);

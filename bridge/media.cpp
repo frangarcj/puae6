@@ -147,7 +147,7 @@ p6_result mount_hard_files(const p6_media *media, uint32_t count, p6_error *erro
         uci_set_defaults(&ci, rdb);
         ci.type = UAEDEV_HDF;
         ci.controller_type = HD_CONTROLLER_TYPE_UAE;
-        ci.readonly = true;
+        ci.readonly = false;                                             // writes go to the overlay of the image (P6_BLOB_HDF), never to the base
         ci.blocksize = int(kHdfBlock);
         media_blob_id(media[i].content_id, ci.rootdir);                  // hdf_open_target looks the image up by this id
         snprintf(ci.devname, sizeof ci.devname, "DH%u", unit);
@@ -383,11 +383,25 @@ extern "C" p6_result p6_media_write_status_get(p6_media_write_status *status, p6
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the status has the wrong ABI version or size");
     if (status->reserved0 || status->reserved[0])
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved status fields must be zero");
+    if (status->media_index >= session.media_count)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium is not in the manifest");
+    if (session.media_type[status->media_index] == P6_MEDIA_HDF) {
+        // A hard file has an overlay of its own, always: the unit of the numbers is the 4 KiB chunk, and the room is the image's own size (it cannot run out).
+        char id[p6_bridge::kMediaBlobIdBytes];
+        p6_bridge::media_blob_id(session.media_content_id[status->media_index], id);
+        uint64_t chunks = 0, dirty = 0;
+        if (p6_blob_hdf_status(id, &chunks, &dirty) != P6_BLOB_OK)
+            return p6_fail(error, P6_ERROR_INTERNAL, "the hard file is not registered");
+        status->overlay_capacity = chunks;
+        status->overlay_used = dirty;
+        status->medium_sectors = dirty;
+        status->refused_writes = 0;
+        status->raw_tracks = 0;
+        return P6_OK;
+    }
     p6_overlay *overlay = p6_blob_overlay();
     if (!overlay)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the image was loaded without P6_CONFIG_FLOPPY_WRITES");
-    if (status->media_index >= session.media_count)
-        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium is not in the manifest");
     uint64_t own = 0, raw = 0;
     for (uint32_t i = 0; i < overlay->count; ++i)
         if (overlay->medium[i] == status->media_index) ++own;
@@ -414,6 +428,22 @@ extern "C" p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_
     if (!written)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "written is null");
     *written = 0;
+    if (media_index < session.media_count && session.media_type[media_index] == P6_MEDIA_HDF) {
+        char id[p6_bridge::kMediaBlobIdBytes];
+        p6_bridge::media_blob_id(session.media_content_id[media_index], id);
+        uint64_t chunks = 0, dirty = 0, bytes = 0;
+        if (p6_blob_hdf_status(id, &chunks, &dirty) != P6_BLOB_OK || p6_blob_size(id, &bytes, nullptr) != P6_BLOB_OK)
+            return p6_fail(error, P6_ERROR_INTERNAL, "the hard file is not registered");
+        if (capacity < bytes)
+            return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than the hard file");
+        if (!buffer)
+            return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the buffer is null");
+        size_t copied = 0;
+        if (p6_blob_hdf_export(id, buffer, size_t(capacity), &copied) != P6_BLOB_OK || copied != bytes)
+            return p6_fail(error, P6_ERROR_INTERNAL, "the hard file could not be exported");
+        *written = copied;
+        return P6_OK;
+    }
     if (!p6_blob_overlay())
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the image was loaded without P6_CONFIG_FLOPPY_WRITES");
     if (media_index >= session.media_count)
