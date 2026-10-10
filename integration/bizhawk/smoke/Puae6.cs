@@ -46,7 +46,9 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
         400, 8, 136, 144,                   // p6w_frame: size, frame, result, error
         128, 72, 72, 64, 80,                // p6_frame size, p6_input size, p6_config size, p6_frame.audio, p6_frame.master_ticks
         32, 8, 16, 24,                      // p6w_memory_area: size, name, size, flags (the layout of LibWaterboxCore.MemoryArea)
-        320, 8, 56, 64];                    // p6w_media_event: size, event, result, error
+        320, 8, 56, 64,                     // p6w_media_event: size, event, result, error
+        336, 8, 72, 80,                     // p6w_media_write_status: size, status, result, error (T28)
+        304, 16, 32, 40, 48];               // p6w_media_export: size, buffer, written, result, error
     const int InitSize = 1264, InitFirmware = 80, InitMediaCount = 96, InitMedia = 104, MediaSize = 56, InitResult = 1000, InitError = 1008;
     const int FrameSize = 400, FrameInner = 8, FrameResult = 136, FrameError = 144, InputSize = 72;
     const uint FrameNoVideo = 2;
@@ -55,6 +57,8 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     internal uint MachineId = 1;
     /// p6_config.chip_kib, slow_kib and fast_kib the next TryInit gives the guest (T49): 0 is the machine's own memory, uint.MaxValue (Slow) is none.
     internal uint ChipKib, SlowKib, FastKib;
+    /// p6_config.flags the next TryInit gives the guest: P6_CONFIG_FLOPPY_WRITES (1) makes the floppies writable (T28, --floppy-writes).
+    internal uint ConfigFlags;
     internal readonly string[] HeapNames = ["elf", "main_thread", "alt_thread", "sbrk", "sealed", "invisible", "plain", "mmap"];
     internal readonly ulong[] Ranges = new ulong[16];
     /// The two controller ports of the packet every unit carries: type, buttons, dx, dy. Nothing pressed by default.
@@ -98,7 +102,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             *(uint*)p = 1; *(uint*)(p + 4) = InitSize;                      // abi_version, struct_size
             *(uint*)(p + 8) = 1; *(uint*)(p + 12) = 72;                     // p6_config: abi_version, struct_size
             *(uint*)(p + 16) = MachineId; *(uint*)(p + 20) = standard;      //   machine (1 = A500, 2 = A600, 3 = A1200), video standard
-            *(uint*)(p + 24) = 48000; *(ulong*)(p + 32) = seed;             //   audio rate, random seed
+            *(uint*)(p + 24) = 48000; *(uint*)(p + 28) = ConfigFlags; *(ulong*)(p + 32) = seed;     //   audio rate, flags, random seed
             *(long*)(p + 40) = epoch;                                       //   rtc epoch
             *(uint*)(p + 48) = ChipKib; *(uint*)(p + 52) = SlowKib; *(uint*)(p + 56) = FastKib;     //   chip_kib, slow_kib, fast_kib (reserved32 and reserved[2] stay zero)
             *(nint*)(p + InitFirmware) = rom; *(ulong*)(p + InitFirmware + 8) = (ulong)firmware.Length;
@@ -137,6 +141,20 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
         var (result, error) = TryInit(firmware, media, standard, seed, epoch);
         if (result != 0) throw new InvalidOperationException($"p6w_init_machine failed ({result}): {error}");
         Seal();
+    }
+
+    /// Queues the mount of media[index] into a drive (p6w_media_event_enqueue, sequence numbers from 1): what the wrapper does for the boot disks (T28 measures with writable disks in the drives).
+    internal void MountBoot(uint drive, uint index, ulong sequence)
+    {
+        using var call = new Guarded(320);
+        call.Payload.Clear();
+        byte* p = (byte*)call.Address;
+        *(uint*)p = 1; *(uint*)(p + 4) = 320;                       // p6w_media_event: abi_version, struct_size
+        *(uint*)(p + 8) = 1; *(uint*)(p + 12) = 48;                 // p6_media_event: abi_version, struct_size
+        *(uint*)(p + 16) = 1; *(uint*)(p + 20) = drive; *(uint*)(p + 24) = index;      // P6_MEDIA_EVENT_MOUNT, drive, media index
+        *(ulong*)(p + 32) = sequence;
+        int result = In(() => Guest<Init>("p6w_media_event_enqueue")(call.Address));
+        Program.Require(result == 0 && *(int*)(p + 56) == 0, $"p6w_media_event_enqueue failed ({result}): {Marshal.PtrToStringUTF8(call.Address + 64)}");
     }
 
     internal void Seal() => In(() => { api.Seal(host, out var sealedResult); sealedResult.Checked(); return 0; });
@@ -434,12 +452,13 @@ internal static unsafe class Puae6
     /// The mmap heap of the sandbox for a memory configuration (T49): the budget of manifests/waterbox-memory.json plus twice the memory asked for above what the machine comes with
     /// (Chip and Slow above their own sizes, and all the Fast RAM). The same rule as Puae6Core.Heaps in the wrapper (tests/waterbox-state compares them), so a budget is at least
     /// twice what was measured.
-    internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib)
+    internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib, bool floppyWrites = false)
     {
         uint ownChip = machineId == 3 ? 2048u : machineId == 2 ? 1024u : 512u, ownSlow = machineId == 1 ? 512u : 0u;
         ulong extra = fastKib;
         if (chipKib > ownChip) extra += chipKib - ownChip;
         if (slowKib != uint.MaxValue && slowKib > ownSlow) extra += slowKib - ownSlow;
+        if (floppyWrites) extra += 4096;        // T28: the write overlay (Puae6Core.FloppyOverlayKiB), measured in manifests/waterbox-memory.json
         return baseBytes + (nuint)(2 * extra * 1024);
     }
 
@@ -449,6 +468,8 @@ internal static unsafe class Puae6
     //   [--memory-at U] (T20a: the memory areas and the accesses through the guest; U = 0 right after the seal, U > 0 after that unit and
     //   needs the chipcell fixture)
     //   [--machine a500|a600|a1200] (the machine the guest is configured as; A500 by default)
+    //   [--drives N] (T28: the first N media are mounted into DF0..DF{N-1} before the first unit, as the wrapper does)
+    //   [--floppy-writes] (T28: p6_config.flags = P6_CONFIG_FLOPPY_WRITES; the disks are writable and the overlay is part of every snapshot)
     //   [--chip KIB] [--slow KIB|none] [--fast KIB] (T49: the memory the guest is configured with, 0 is the machine's own; the mmap heap grows with the extra memory, see MmapBudget)
     //   [--save-at U --state file] (WB15: snapshot after unit U)  [--restore file --from U] (a new process: init, seal, load, continue from U+1)
     internal static int Run(string[] args)
@@ -473,7 +494,7 @@ internal static unsafe class Puae6
         string machineName = (options.Optional("machine") ?? "a500").ToLowerInvariant();
         Program.Require(machineName is "a500" or "a600" or "a1200", $"--machine is a500, a600 or a1200 (got {machineName})");
         uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, _ => 1u };
-        layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib);
+        layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"));
         var image = File.ReadAllBytes(guestPath);
         using var api = new Native(dylibPath);
         var report = new Dictionary<string, object?> {
@@ -493,13 +514,17 @@ internal static unsafe class Puae6
             var parts = item.Split(':'); var span = parts[0].Split('-');
             return (ulong.Parse(span[0]), ulong.Parse(span[^1]), uint.Parse(parts[1]));
         }).ToList();
-        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib };
+        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib,
+            ConfigFlags = options.Flag("floppy-writes") ? 1u : 0u };
         foreach (var port in options.All("port"))
         {
             var p = port.Split(':');
             machine.Ports[int.Parse(p[0])] = (uint.Parse(p[1]), uint.Parse(p[2]), short.Parse(p[3]), short.Parse(p[4]));
         }
-        machine.Start(firmware, media, standard, seed: 1, epoch: 946684800);
+        var (initResult, initError) = machine.TryInit(firmware, media, standard, seed: 1, epoch: 946684800);
+        if (initResult != 0) throw new InvalidOperationException($"p6w_init_machine failed ({initResult}): {initError}");
+        for (uint drive = 0; drive < uint.Parse(options.Optional("drives") ?? "0"); ++drive) machine.MountBoot(drive, drive, drive + 1);
+        machine.Seal();
         var afterSeal = Usage(machine);
         var sealedSnapshot = machine.Save().Length;
         ulong digestEvery = ulong.Parse(options.Optional("digest-every") ?? "0");

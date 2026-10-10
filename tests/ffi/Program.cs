@@ -35,12 +35,13 @@ internal static unsafe partial class Program
 				case "open": Open(options, int.Parse(options["units"])); break;
 				case "heaps":
 				{
-					// heaps [--machine A500|A600|A1200] [--chip Auto|KB512|MB1|MB2] [--slow ...] [--fast ...]: the heaps of the core for those settings (T49: the mmap heap follows the memory).
+					// heaps [--machine A500|A600|A1200] [--chip Auto|KB512|MB1|MB2] [--slow ...] [--fast ...] [--writes]: the heaps of the core for those settings (T49: the mmap heap follows the memory).
 					var settings = new Puae6SyncSettings();
 					if (options.TryGetValue("machine", out var machine)) settings.Machine = Enum.Parse<Puae6Machine>(machine);
 					if (options.TryGetValue("chip", out var chip)) settings.ChipMemory = Enum.Parse<Puae6Chip>(chip);
 					if (options.TryGetValue("slow", out var slow)) settings.SlowMemory = Enum.Parse<Puae6Slow>(slow);
 					if (options.TryGetValue("fast", out var fast)) settings.FastMemory = Enum.Parse<Puae6Fast>(fast);
+					settings.FloppyWrites = options.ContainsKey("writes");
 					var h = Puae6Core.Heaps(settings); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break;
 				}
 				case "play": Play(options); break;
@@ -92,6 +93,9 @@ internal static unsafe partial class Program
 		Dump<P6wMemoryArea>("P6wMemoryArea", "Data", "Name", "Size", "Flags");
 		Dump<P6MediaEvent>("P6MediaEvent", "AbiVersion", "StructSize", "Type", "Drive", "MediaIndex", "Reserved0", "Sequence", "Reserved");
 		Dump<P6wMediaEvent>("P6wMediaEvent", "AbiVersion", "StructSize", "Event", "Result", "Reserved", "Error");
+		Dump<P6MediaWriteStatus>("P6MediaWriteStatus", "AbiVersion", "StructSize", "MediaIndex", "Reserved0", "OverlayCapacity", "OverlayUsed", "MediumSectors", "RefusedWrites", "RawTracks", "Reserved");
+		Dump<P6wMediaWriteStatus>("P6wMediaWriteStatus", "AbiVersion", "StructSize", "Status", "Result", "Reserved", "Error");
+		Dump<P6wMediaExport>("P6wMediaExport", "AbiVersion", "StructSize", "MediaIndex", "Reserved0", "Buffer", "Capacity", "Written", "Result", "Reserved1", "Error");
 	}
 
 	/// <summary>Host memory with a guard band on both sides, which the guest must leave as it finds it.</summary>

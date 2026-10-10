@@ -45,6 +45,9 @@ STRUCTS = {
     "P6wMemoryArea": ("p6w_memory_area", ["Data", "Name", "Size", "Flags"]),
     "P6MediaEvent": ("p6_media_event", ["AbiVersion", "StructSize", "Type", "Drive", "MediaIndex", "Reserved0", "Sequence", "Reserved"]),
     "P6wMediaEvent": ("p6w_media_event", ["AbiVersion", "StructSize", "Event", "Result", "Reserved", "Error"]),
+    "P6MediaWriteStatus": ("p6_media_write_status", ["AbiVersion", "StructSize", "MediaIndex", "Reserved0", "OverlayCapacity", "OverlayUsed", "MediumSectors", "RefusedWrites", "RawTracks", "Reserved"]),
+    "P6wMediaWriteStatus": ("p6w_media_write_status_args", ["AbiVersion", "StructSize", "Status", "Result", "Reserved", "Error"]),
+    "P6wMediaExport": ("p6w_media_export_args", ["AbiVersion", "StructSize", "MediaIndex", "Reserved0", "Buffer", "Capacity", "Written", "Result", "Reserved1", "Error"]),
 }
 SPECIAL = {("P6Input", "Port0"): "offsetof(p6_input, ports) + 0 * sizeof(p6_port_input)", ("P6Input", "Port1"): "offsetof(p6_input, ports) + 1 * sizeof(p6_port_input)"}
 
@@ -85,7 +88,9 @@ class FfiTests(unittest.TestCase):
                      " sizeof(p6w_media), sizeof(p6w_frame), offsetof(p6w_frame, frame), offsetof(p6w_frame, result), offsetof(p6w_frame, error),"
                      " sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config), offsetof(p6_frame, audio), offsetof(p6_frame, master_ticks),"
                      " sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags),"
-                     " sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error)};")
+                     " sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error),"
+                     " sizeof(p6w_media_write_status_args), offsetof(p6w_media_write_status_args, status), offsetof(p6w_media_write_status_args, result), offsetof(p6w_media_write_status_args, error),"
+                     " sizeof(p6w_media_export_args), offsetof(p6w_media_export_args, buffer), offsetof(p6w_media_export_args, written), offsetof(p6w_media_export_args, result), offsetof(p6w_media_export_args, error)};")
         lines.append("  printf(\"layout\"); for (unsigned long long v : layout) printf(\" %llu\", v); printf(\"\\n\");")
         for struct, (c_name, fields) in STRUCTS.items():
             lines.append(f"  printf(\"size {struct} %zu\\n\", sizeof({c_name}));")

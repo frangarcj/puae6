@@ -23,6 +23,9 @@ public abstract class LibPuae6
 	[BizImport(CC)] public abstract int p6w_init_machine(IntPtr args);
 	[BizImport(CC)] public abstract int p6w_frame_advance(IntPtr input, uint renderFlags, IntPtr output);
 	[BizImport(CC)] public abstract int p6w_media_event_enqueue(IntPtr call);
+	/// <summary>The write overlay of the floppies (P6_CONFIG_FLOPPY_WRITES): status of one medium, and a copy of a medium as it is now into host memory (T28). Neither changes the machine.</summary>
+	[BizImport(CC)] public abstract int p6w_media_write_status(IntPtr call);
+	[BizImport(CC)] public abstract int p6w_media_export(IntPtr call);
 	[BizImport(CC)] public abstract int p6w_reset();
 	[BizImport(CC)] public abstract int p6w_shutdown();
 	/// <summary>The memory areas of the loaded machine (P6wMemoryArea), up to <paramref name="capacity"/>; zero before p6w_init_machine succeeded.</summary>

@@ -21,7 +21,9 @@
     "rule": "mmap heap of a configuration = layout.mmap + mmap_extra_factor * extra memory, where the extra memory is the Fast RAM in full plus the Chip and Slow RAM above what the machine comes with (A500 512 KiB Chip + 512 KiB Slow, A600 1 MiB Chip, A1200 2 MiB Chip). The other heaps do not change. A configuration with no extra memory keeps the base layout, so the snapshot, the identity and every measurement of the stock machines are what they were.",
     "mmap_extra_factor": 2,
     "why": "The base rule of budget_basis is a budget of at least twice what was measured. Fast RAM is allocated at load from the mmap heap (an 8 MiB board added 8 396 800 bytes to the committed size of the A1200, board and bookkeeping), so the budget grows by twice the memory asked for and the half rule keeps holding: A1200 + 8 MiB Fast committed 14 499 840 of a 33 554 432 budget, the A1200 with 1.5 MiB Slow and 8 MiB Fast 16 613 376 of 36 700 160. The wrapper computes the same budget (Puae6Core.Heaps(settings)) and tests/waterbox-state compares the two.",
-    "dirty_pages": "A board is cleared at power-on without writing the zeros it already holds (patch 0114): its pages stay clean until the guest writes them, so the snapshot after 60 units of an A1200 with 8 MiB of Fast RAM is 10 309 076 bytes against 10 186 196 without the board (before the patch it was 18 714 068, every page of the board dirty)."
+    "dirty_pages": "A board is cleared at power-on without writing the zeros it already holds (patch 0114): its pages stay clean until the guest writes them, so the snapshot after 60 units of an A1200 with 8 MiB of Fast RAM is 10 309 076 bytes against 10 186 196 without the board (before the patch it was 18 714 068, every page of the board dirty).",
+    "floppy_writes_overlay_kib": 4096,
+    "floppy_writes": "A core created with the sync setting FloppyWrites (P6_CONFIG_FLOPPY_WRITES, T28) reserves the write overlay at load: a pool of 3520 sectors and 16 raw tracks, about 2 MiB, allocated from the mmap heap. The wrapper counts it as 4096 KiB of extra memory (Puae6Core.FloppyOverlayKiB), so the mmap heap of such a core is layout.mmap + mmap_extra_factor * 4096 KiB more than the base, plus whatever extra memory the machine asks for. measured_a500_floppy_writes_full is the worst case: a guest that rewrites every track of both disks (tests/waterbox-media/wb12.py, 3520 sectors) committed 3.9 MiB more in the mmap heap than the stock machine (9 502 720 against 5 586 944 bytes) and its snapshot is 1.9 MiB bigger; the budget is more than twice the committed size."
   },
   "classification": [
     {
@@ -102,8 +104,8 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
-    "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
         "committed_bytes": 50298880,
@@ -243,8 +245,8 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
-    "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
         "committed_bytes": 50298880,
@@ -384,8 +386,8 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
-    "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
         "committed_bytes": 50298880,
@@ -526,8 +528,8 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
-    "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
         "committed_bytes": 50298880,
@@ -669,8 +671,8 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
-    "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
         "committed_bytes": 50298880,
@@ -812,8 +814,8 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
-    "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
         "committed_bytes": 50298880,
@@ -954,8 +956,8 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "4fde4dbe944060ffb28d2858240193fd88bca8a0f2c5484cf34ee9d14f28d17b",
-    "runtime_sha256": "4f43f5c290cf5559589801773732c11105627bab0c04dfb484558b42a887a374",
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
     "after_seal": {
       "elf": {
         "committed_bytes": 50298880,
@@ -1085,6 +1087,154 @@
     "snapshot_bytes": {
       "after_seal": 46548,
       "after_last_unit": 9270740
+    }
+  },
+  "measured_a500_floppy_writes_full": {
+    "fixture": {
+      "machine": "A500",
+      "floppy_writes": true,
+      "drives": 2,
+      "media": [
+        "A",
+        "B"
+      ],
+      "firmware": "tests/waterbox-media/wb12.py",
+      "firmware_sha256": "b345d6af6486a714fdd513052a8d439e300f23f85f03c0ac812927f855420093",
+      "firmware_bytes": 262144,
+      "units": 5600,
+      "note": "the adversarial writer: every track of both disks is rewritten, 3520 sectors, the whole pool of the overlay (WB12)"
+    },
+    "guest_sha256": "f552cf845130788d25c2dadf61914a439872c68ad56684787cabb6605c549866",
+    "runtime_sha256": "8d6476613a41dc4559e4f0101b3c2bdafcc9e8948d7099a261f1fda762456adc",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 50298880,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 2064384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9502720,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 50298880,
+        "dirty_bytes": 8065024,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 2064384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9502720,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 50298880,
+        "dirty_bytes": 8065024,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 2064384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9502720,
+        "dirty_bytes": 2932736,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 48596,
+      "after_last_unit": 11058644
     }
   }
 }

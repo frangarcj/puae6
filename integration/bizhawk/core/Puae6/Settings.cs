@@ -61,6 +61,13 @@ public sealed class Puae6SyncSettings
 	/// <summary>How many of the disks the core was given are in a drive at power-on (1 or 2, DF0 and DF1); the rest are slots for the Insert button.</summary>
 	public int FloppyDrives { get; set; } = 1;
 
+	/// <summary>
+	/// The floppy disks can be written (P6_CONFIG_FLOPPY_WRITES; off by default: every disk is write protected, as always). What the guest writes goes to a reversible overlay in the sandbox,
+	/// part of every state; the disks the core was given and every file stay as they were. It is a sync setting: a state and a movie of one setting do not load in the other, and the Waterbox
+	/// heaps grow by what the overlay needs (<see cref="Puae6Core.Heaps(Puae6SyncSettings)"/>). Making the writes durable is explicit (ISaveRam, <see cref="SaveRam"/>).
+	/// </summary>
+	public bool FloppyWrites { get; set; }
+
 	public Puae6SyncSettings Clone() => (Puae6SyncSettings)MemberwiseClone();
 
 	public static bool NeedsReboot(Puae6SyncSettings x, Puae6SyncSettings y) => !DeepEquality.DeepEquals(x, y);

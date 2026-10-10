@@ -64,7 +64,9 @@ ECL_EXPORT size_t p6w_layout(uint64_t *out, size_t capacity)
         sizeof(p6w_frame), offsetof(p6w_frame, frame), offsetof(p6w_frame, result), offsetof(p6w_frame, error),
         sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config), offsetof(p6_frame, audio), offsetof(p6_frame, master_ticks),
         sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags),
-        sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error)};
+        sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error),
+        sizeof(p6w_media_write_status_args), offsetof(p6w_media_write_status_args, status), offsetof(p6w_media_write_status_args, result), offsetof(p6w_media_write_status_args, error),
+        sizeof(p6w_media_export_args), offsetof(p6w_media_export_args, buffer), offsetof(p6w_media_export_args, written), offsetof(p6w_media_export_args, result), offsetof(p6w_media_export_args, error)};
     if (!out || capacity < P6W_LAYOUT_VALUES) return 0;
     memcpy(out, values, sizeof values);
     return P6W_LAYOUT_VALUES;
@@ -247,6 +249,39 @@ ECL_EXPORT int32_t p6w_media_event_enqueue(p6w_media_event *call)
     }
     p6_error error = {P6_ABI_VERSION, sizeof error, {}};
     call->result = p6_media_event_enqueue(&call->event, &error);
+    if (call->result != P6_OK) set_error(call->error, error.message);
+    return call->result;
+}
+
+// The write overlay (T28): its status and the export of a disk. The overlay is memory of the sandbox, captured by the snapshot, so these read what a restore puts back;
+// nothing here writes to the host except the bytes of the export into the host's own buffer.
+ECL_EXPORT int32_t p6w_media_write_status(p6w_media_write_status_args *call)
+{
+    if (!call) return P6_ERROR_BAD_ARGUMENT;
+    call->error[0] = 0;
+    call->result = P6_OK;
+    if (call->abi_version != P6W_ABI_VERSION || call->struct_size != sizeof *call) {
+        set_error(call->error, "p6w_media_write_status has the wrong ABI version or size");
+        return call->result = P6_ERROR_BAD_ARGUMENT;
+    }
+    p6_error error = {P6_ABI_VERSION, sizeof error, {}};
+    call->result = p6_media_write_status_get(&call->status, &error);
+    if (call->result != P6_OK) set_error(call->error, error.message);
+    return call->result;
+}
+
+ECL_EXPORT int32_t p6w_media_export(p6w_media_export_args *call)
+{
+    if (!call) return P6_ERROR_BAD_ARGUMENT;
+    call->error[0] = 0;
+    call->result = P6_OK;
+    call->written = 0;
+    if (call->abi_version != P6W_ABI_VERSION || call->struct_size != sizeof *call) {
+        set_error(call->error, "p6w_media_export has the wrong ABI version or size");
+        return call->result = P6_ERROR_BAD_ARGUMENT;
+    }
+    p6_error error = {P6_ABI_VERSION, sizeof error, {}};
+    call->result = p6_media_export(call->media_index, call->buffer, call->capacity, &call->written, &error);
     if (call->result != P6_OK) set_error(call->error, error.message);
     return call->result;
 }

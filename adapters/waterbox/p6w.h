@@ -58,6 +58,33 @@ typedef struct p6w_media_event {
     char error[P6_ERROR_TEXT_CAPACITY]; /* out: empty on success. */
 } p6w_media_event;
 
+/* The write overlay of the floppies (T28; P6_CONFIG_FLOPPY_WRITES, docs/02-contracts.md "Escritura M3"). Both calls only read the machine: no flush, no event, no state
+ * change, and nothing leaves the sandbox except the bytes of p6w_media_export in the host's buffer. status.media_index is an input; the rest of status is output.
+ * The export copies the disk as it is now (the base with the overlay over it, exactly 901120 bytes) into `buffer`, host memory of `capacity` bytes that is valid for
+ * the call; `written` is 0 unless the result is P6_OK. A medium that was never written exports its base. Errors are those of p6_media_export (UNSUPPORTED without
+ * the flag or with a raw track on the disk, CAPACITY for a short buffer, BAD_ARGUMENT for an unknown medium or a null buffer). */
+typedef struct p6w_media_write_status_args {
+    uint32_t abi_version;
+    uint32_t struct_size;
+    p6_media_write_status status;
+    int32_t result;                     /* out: p6_result. */
+    uint32_t reserved;
+    char error[P6_ERROR_TEXT_CAPACITY]; /* out: empty on success. */
+} p6w_media_write_status_args;
+
+typedef struct p6w_media_export_args {
+    uint32_t abi_version;
+    uint32_t struct_size;
+    uint32_t media_index;               /* in: the disk. */
+    uint32_t reserved0;
+    void *buffer;                       /* in: host memory, written by the guest during the call. */
+    uint64_t capacity;                  /* in: bytes of buffer. */
+    uint64_t written;                   /* out */
+    int32_t result;                     /* out: p6_result. */
+    uint32_t reserved1;
+    char error[P6_ERROR_TEXT_CAPACITY]; /* out: empty on success. */
+} p6w_media_export_args;
+
 /* A memory area of the machine (T20a), in the layout BizHawk's LibWaterboxCore.MemoryArea has, so that the managed side can hand it to
  * WaterboxMemoryDomain as it is. The area is always a function hook: `data` is the address of a guest function
  *     void access(void *buffer, int64_t address, int64_t count, bool write)
@@ -81,9 +108,10 @@ typedef struct p6w_memory_area {
 /* Sizes and offsets the guest was compiled with, for the host to check its own layout against: {sizeof(p6w_init), offsetof(result),
  * offsetof(error), sizeof(p6w_frame), offsetof(frame), offsetof(result), sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config),
  * sizeof(p6w_media), offsetof(media), ..., sizeof(p6w_memory_area), offsetof(name), offsetof(size), offsetof(flags), sizeof(p6w_media_event), offsetof(event), offsetof(result),
- * offsetof(error)}; see puae6_guest.cpp
+ * offsetof(error), sizeof(p6w_media_write_status_args), offsetof(status), offsetof(result), offsetof(error), sizeof(p6w_media_export_args), offsetof(buffer),
+ * offsetof(written), offsetof(result), offsetof(error)}; see puae6_guest.cpp
  * for the order. Returns the number of values written. */
-#define P6W_LAYOUT_VALUES 22
+#define P6W_LAYOUT_VALUES 31
 
 #ifdef __cplusplus
 } /* extern "C" */

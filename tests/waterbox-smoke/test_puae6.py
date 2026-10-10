@@ -166,7 +166,9 @@ class GuestAbiTests(unittest.TestCase):
                 offsetof(p6_frame, audio_frames), offsetof(p6_frame, unit_index), offsetof(p6_frame, cadence_num), offsetof(p6_frame, field_parity),
                 offsetof(p6w_init, firmware), offsetof(p6w_init, media_count), offsetof(p6_config, random_seed), offsetof(p6_config, rtc_epoch_seconds),
                 sizeof(p6w_memory_area), offsetof(p6w_memory_area, name), offsetof(p6w_memory_area, size), offsetof(p6w_memory_area, flags),
-                sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error)};
+                sizeof(p6w_media_event), offsetof(p6w_media_event, event), offsetof(p6w_media_event, result), offsetof(p6w_media_event, error),
+                sizeof(p6w_media_write_status_args), offsetof(p6w_media_write_status_args, status), offsetof(p6w_media_write_status_args, result), offsetof(p6w_media_write_status_args, error),
+                sizeof(p6w_media_export_args), offsetof(p6w_media_export_args, buffer), offsetof(p6w_media_export_args, written), offsetof(p6w_media_export_args, result), offsetof(p6w_media_export_args, error)};
             for (unsigned long long x : v) printf("%llu ", x);
         }"""
         with tempfile.TemporaryDirectory() as directory:
@@ -177,7 +179,7 @@ class GuestAbiTests(unittest.TestCase):
             values = [int(x) for x in subprocess.run([f"{directory}/layout"], check=True, capture_output=True, text=True).stdout.split()]
         text = (ROOT / "integration/bizhawk/smoke/Puae6.cs").read_text()
         body = re.search(r"ExpectedLayout = \[(.*?)\];", text, re.S).group(1)
-        self.assertEqual([int(x) for x in re.findall(r"\d+", re.sub(r"//[^\n]*", "", body))], values[:14] + values[26:34])
+        self.assertEqual([int(x) for x in re.findall(r"\d+", re.sub(r"//[^\n]*", "", body))], values[:14] + values[26:43])
         names = {"InitSize": values[0], "InitFirmware": values[22], "InitMediaCount": values[23], "InitResult": values[1], "InitError": values[2],
                  "FrameSize": values[5], "FrameInner": values[6], "FrameResult": values[7], "FrameError": values[8], "InputSize": values[10]}
         for name, offset in names.items():

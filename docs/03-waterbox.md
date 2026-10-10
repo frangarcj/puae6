@@ -430,14 +430,38 @@ ISaveRam puede usarse para una representacion acotada, pero NO mapear el HDF ent
 como save RAM automaticamente. Definir export/import del overlay y distinguir
 persistencia durable del rollback. Peliculas reproducidas no flushean por defecto.
 
-Estado (T27): el nucleo nativo ya tiene el overlay (docs/02-contracts.md, "Escritura M3": sectores mas pistas crudas, pool fijo reservado en `p6_load` con
-`P6_CONFIG_FLOPPY_WRITES`, estado y cota incluidos, `p6_media_export` y `p6_media_write_status_get` sin efectos laterales). El guest Waterbox lo hereda sin codigo nuevo
-de maquina: el pool es memoria del sandbox (heap de `p6_malloc_array`) y el snapshot lo captura; el wrapper sigue fijando `Config.Flags = 0` (los discos protegidos) hasta T27c, que
-falta y cuya puerta (WB10) esta BLOCKED aqui por no haber runner Waterbox en este arbol: (1) exportar desde el guest `p6w_media_export` y `p6w_media_write_status` con la disciplina
-de p6w (version, tamaño, resultado, mensaje) y añadirlos al layout que el wrapper comprueba; (2) un sync setting `FloppyWrites` (entra en la identidad de la pelicula y del
-estado, como Machine) que fija `Config.Flags`; (3) `ISaveRam` solo como representacion acotada y explicita (nunca el HDF entero): los sectores cambiados por disco con el content id
-de la base, sin llamarse durante el replay de una pelicula, y la importacion solo antes de la primera unidad; (4) WB10: escribir, snapshot, sobrescribir, restaurar en el mismo sandbox
-y en uno nuevo (WB04) y comprobar que los bytes, la pista y el estado del drive vuelven y que ni el medio base ni ningun fichero cambian.
+Estado (T28): hecho y probado en el runtime Waterbox real (tests/waterbox-media, ejecutado con `python3 -m unittest discover -s tests/waterbox-media -p 'test_media_*.py'`).
+
+1. Exports del guest (`adapters/waterbox/p6w.h`): `p6w_media_write_status` (estado del overlay de un medio) y `p6w_media_export` (copia el disco actual, base mas overlay, 901120 bytes, al
+   buffer del host), con la disciplina p6w (version, tamaño, resultado y mensaje; los punteros del host solo valen durante la llamada) y sin efectos en la maquina. `p6w_layout`
+   pasa de 22 a 31 valores y el wrapper los compara (`Abi.cs`, `Puae6.cs` del smoke y el compilador C en `tests/ffi`). El pool del overlay es memoria del sandbox y el snapshot lo captura.
+2. `Puae6SyncSettings.FloppyWrites` (por defecto `false`: los discos siguen protegidos y el nucleo no tiene `ISaveRam`) fija `p6_config.flags = P6_CONFIG_FLOPPY_WRITES`. Entra en el hash de
+   configuracion (`;floppywrites=1` solo si esta activo: la identidad de un nucleo sin escrituras no cambia), asi que estados y peliculas de un valor no cargan en el otro (los heaps
+   tambien difieren y el sobre los comprueba antes: `OtherHeaps`). Los heaps crecen `FloppyOverlayKiB` = 4096 de "memoria extra" (x2 del mmap, regla de `memory_budget`).
+3. `ISaveRam` solo como representacion acotada y explicita (`SaveRam.cs`): `"P6SR"`, version 1, por disco que cambio (indice, content id SHA-256 de la BASE tal como se dio al nucleo,
+   sectores cambiados en orden creciente con sus 512 bytes) y SHA-256 del conjunto; como mucho 3520 sectores (el pool), unos 1,8 MiB, y 12 + 40 + 514 n + 32 bytes en la practica (11 392
+   para los 22 sectores de MED02); nunca una imagen. `CloneSaveRam` da `null` si nada difiere de la base, si no hay escrituras y mientras `ReplayInProgress` (la peticion de una pelicula
+   no lee ni sustituye la copia duradera); un disco con una pista que no es AmigaDOS no cabe en un ADF, se deja fuera y se avisa (`DisksWithRawTracks`). `SaveRamModified` compara con
+   la ultima copia que se declaro limpia. `StoreSaveRam` solo antes de la primera unidad y de cargar un estado (`TooLate` despues) y nunca en replay: la base vive en el heap sellado, asi
+   que el nucleo reconstruye el guest con los discos que da la SaveRam (como un nucleo nuevo; si falla, el nucleo queda como estaba) y el SHA-256 de lo guardado entra en el hash de
+   configuracion: un estado hecho sin esa SaveRam no carga. Una SaveRam que no es entera, ni nuestra, ni de estos discos (`NotSaveRam`, `WrongVersion`, `BadLength`, `Corrupt`,
+   `BadFields`, `OtherMedia`) se rechaza con su motivo y no cambia nada; los ceros tras el checksum son relleno y se ignoran. Rollback (snapshot) y persistencia son operaciones distintas:
+   un `load` no toca la copia guardada ni la modifica.
+4. WB10 (`test_media_overlay.py`): MED02 escribe, sobrescribe y relee pistas AmigaDOS por DMA; el disco coincide con el modelo, un estado a mitad devuelve bytes, pista leida, lineas del drive y
+   digest completo en el mismo sandbox y en uno nuevo (WB04, tres sandboxes turnandose y otro proceso), una rama o un seek de pelicula con escrituras dejan el overlay donde dice el estado,
+   y ningun fichero (discos, ROM) cambia: los archivos dados al nucleo se comparan por tamaño, mtime y SHA-256 despues de cada test. WB11: estados de otro `FloppyWrites`, otros discos
+   o con otra SaveRam, y peliculas de otro ajuste, se rechazan sin tocar la instancia (mismo digest y mismo futuro que un control). WB12 (`test_media_limits.py`, escritor adversario de
+   `wb12.py`): se reescriben las 160 pistas de DF0 y de DF1 (3520 sectores: justo el pool; un sector cuyo contenido iguala al de la base no gasta hueco, por eso el disco W invierte el primer
+   byte de cada sector); con menos de 11 sectores libres el drive informa protegido, un tercer disco metido en DF0 queda intacto y `refused_writes` sigue en 0 (el invitado no llega a
+   intentarlo); 18 pistas no AmigaDOS llenan las 16 ranuras crudas y las otras 2 se cuentan como rechazadas, el disco no se exporta (UNSUPPORTED) y la SaveRam lo deja fuera.
+   Mediciones (manifests/waterbox-memory.json, `measured_a500_floppy_writes_full`, micro-ROM adversaria, 5600 unidades): el heap mmap compromete 9 502 720 bytes desde el sello (5 586 944 de
+   la maquina sin escrituras: el pool de 3520 sectores se reserva al cargar) frente a un presupuesto de 25 165 824 (16 MiB mas 2 x 4096 KiB); la memoria sucia del mmap pasa de 1 081 344
+   a 2 932 736 bytes. El snapshot con el pool vacio (unidad 100) es de 9 273 065 bytes y con las 160 pistas de los dos discos escritas de 11 058 644: el crecimiento (1,79 MB) es el pool, por debajo
+   de los 2 017 456 bytes que la cota de estado ya incluye, y no crece mas por escribir otra vez lo mismo.
+
+Limites y abierto (T29/T60): EmuHawk carga el fichero `.SaveRAM` con el tamaño de `CloneSaveRam()` de un nucleo recien creado, que aqui es `null` (nada cambiado) y por tanto no lo
+carga; la importacion funciona por `StoreSaveRam` (peliculas "desde SaveRAM", herramientas) y falta el flujo de menu/archivo del frontend y que este marque `ReplayInProgress` durante una
+pelicula. El caso de una pista que no es AmigaDOS en una SaveRam (formato extendido) y el rendimiento de `SaveRamModified` (exporta los discos tocados) con Kickstart real tampoco estan medidos.
 
 ## Suite de aceptacion Waterbox
 

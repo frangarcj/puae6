@@ -35,7 +35,7 @@ public sealed class Puae6Parameters
 /// state) and speaks only the ABI of adapters/waterbox/p6w.h.
 /// </summary>
 [PortedCore(name: Puae6Names.Core, author: "WinUAE team and the PUAE6 project", portedVersion: "WinUAE 6.0.3", portedUrl: "https://github.com/tonioni/WinUAE", isReleased: false)]
-public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISettable<object, Puae6SyncSettings>
+public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISaveRam, ISettable<object, Puae6SyncSettings>
 {
 	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
 	public const int MaxWidth = 760, MaxHeight = 576, MaxAudioFrames = 8192;
@@ -50,6 +50,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = (uint)(16384 + 2 * ExtraMemoryKiB(settings)),
 	};
 
+	/// <summary>The write overlay of the floppies counted as extra memory of the sandbox (T28): its pool is 3520 sectors, 1.8 MiB, and a machine whose guest wrote every track of both disks measured 3.9 MiB more committed in the mmap heap (manifests/waterbox-memory.json, measured_a500_floppy_writes_full).</summary>
+	public const int FloppyOverlayKiB = 4096;
+
 	// What each machine comes with, in KiB: Chip, Slow.
 	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch { Puae6Machine.A1200 => (2048u, 0u), Puae6Machine.A600 => (1024u, 0u), _ => (512u, 512u) };
 
@@ -62,21 +65,22 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
 	static int ExtraMemoryKiB(Puae6SyncSettings settings)
 	{
+		long overlay = settings.FloppyWrites ? FloppyOverlayKiB : 0;
 		var (ownChip, ownSlow) = OwnMemory(settings.Machine);
 		uint chip = ChipKib(settings.ChipMemory), slow = SlowKib(settings.SlowMemory);
-		long extra = FastKib(settings.FastMemory);
+		long extra = FastKib(settings.FastMemory) + overlay;
 		if (chip > ownChip) extra += chip - ownChip;
 		if (slow != P6.MemoryNone && slow > ownSlow) extra += slow - ownSlow;
 		return (int)extra;
 	}
 
 
-	readonly Puae6Guest _guest;
+	Puae6Guest _guest = null!;                  // replaced once, before the first unit, when a SaveRam is stored (the base disks change: StoreSaveRam)
 	readonly Puae6SyncSettings _syncSettings;
 	readonly BasicServiceProvider _serviceProvider;
 	readonly int[] _videoBuffer = new int[MaxWidth * MaxHeight];
 	readonly short[] _soundBuffer = new short[2 * MaxAudioFrames];
-	readonly MemoryDomainList _domains;
+	MemoryDomainList _domains = null!;
 	int _soundFrames;
 	bool _disposed;
 
@@ -93,7 +97,18 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	int _currentDrive, _currentSlot;
 	bool _ejectHeld, _insertHeld, _slotHeld, _driveHeld;
 	ulong _mediaSequence;
-	readonly StateIdentity _identity;           // what a state is valid for: this guest build, these heaps, these settings, this firmware, these disks
+	StateIdentity _identity = null!;            // what a state is valid for: this guest build, these heaps, these settings, this firmware, these disks
+	// Persistence of the floppy writes (T28, docs/03-waterbox.md): none of it is machine state; the writes themselves are in the sandbox and travel with its snapshot.
+	readonly Puae6Parameters _parameters;       // what is needed to open the guest again when a SaveRam is stored before the first unit
+	ImportedSaveRam? _imported;                 // the SaveRam that was stored, if any: the disks the guest has are the bases with it over them
+	bool _started;                              // a unit ran or a state loaded: the base disks of the guest cannot change any more
+	byte[]? _saveRamClean;                      // SHA-256 of the SaveRam as of the last CloneSaveRam(clearDirty) or StoreSaveRam; SaveRamModified compares with it
+
+	sealed class ImportedSaveRam
+	{
+		internal byte[] Hash = [ ];
+		internal HashSet<int> Disks = new();
+	}
 	bool _faulted;                              // a state load failed after the sandbox was touched: the machine is undefined until a state loads whole
 
 	public Puae6Core(CoreComm comm, Puae6Parameters parameters)
@@ -106,6 +121,11 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		foreach (var disk in parameters.Media)
 			if (disk.Length != P6.AdfBytes) throw new ArgumentException($"an ADF has {P6.AdfBytes} bytes, this one {disk.Length}", nameof(parameters));
 		_media = parameters.Media.Select(disk => (byte[])disk.Clone()).ToList();
+		_parameters = new Puae6Parameters
+		{
+			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
+			Firmware = (byte[])parameters.Firmware.Clone(),
+		};
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
 		BufferWidth = MaxWidth;
@@ -115,51 +135,76 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
 		_aspectNum = 1; _aspectDen = 1;
 
+		BootGuest(_media, null);
+		_serviceProvider = new BasicServiceProvider(this);
+		_serviceProvider.Register<IMemoryDomains>(_domains);
+		// ISaveRam exists only when the disks can be written: without the flag every disk is protected and there is nothing to persist.
+		if (!_syncSettings.FloppyWrites) _serviceProvider.Unregister<ISaveRam>();
+		else _saveRamClean = SaveRamHash(null);
+	}
+
+	/// <summary>
+	/// Opens the guest and brings the machine to the state it is in at the first unit (initialized with <paramref name="guestMedia"/>, boot disks queued, sealed), then makes it the
+	/// core's. When the core already had a guest (a SaveRam changes the base disks before the first unit) the old one is disposed only once the new one is whole; a failure leaves the
+	/// core as it was.
+	/// </summary>
+	void BootGuest(IReadOnlyList<byte[]> guestMedia, ImportedSaveRam? imported)
+	{
 		var heaps = Heaps(_syncSettings);
-		_guest = parameters.PinnedGuestSha256 is { } pin
-			? Puae6Guest.Open(parameters.GuestDirectory, parameters.GuestFileName, pin, heaps)
-			: Puae6Guest.Open(parameters.GuestDirectory, parameters.GuestFileName, heaps);
+		var guest = _parameters.PinnedGuestSha256 is { } pin
+			? Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, pin, heaps)
+			: Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, heaps);
+		var previous = (Guest: _guest, Sequence: _mediaSequence, Disks: (int[])_driveDisk.Clone(), Imported: _imported);
 		try
 		{
-			InitializeMachine(parameters.Firmware);
+			_guest = guest;
+			_mediaSequence = 0;
+			_driveDisk[0] = _driveDisk[1] = -1;
+			_imported = imported;
+			InitializeMachine(_parameters.Firmware, guestMedia);
 			MountBootDisks();
-			_identity = MakeIdentity(parameters.Firmware);
-			_domains = CreateMemoryDomains();
-			_guest.Host.Seal();
-			_serviceProvider = new BasicServiceProvider(this);
-			_serviceProvider.Register<IMemoryDomains>(_domains);
+			var identity = MakeIdentity(_parameters.Firmware);
+			var domains = CreateMemoryDomains();
+			guest.Host.Seal();
+			_identity = identity;
+			_domains = domains;
 		}
 		catch
 		{
-			_guest.Dispose();
+			_guest = previous.Guest;
+			_mediaSequence = previous.Sequence;
+			previous.Disks.CopyTo(_driveDisk, 0);
+			_imported = previous.Imported;
+			guest.Dispose();
 			throw;
 		}
+		previous.Guest?.Dispose();
 	}
 
 	CoreComm CoreComm { get; }
 
-	void InitializeMachine(byte[] firmware)
+	void InitializeMachine(byte[] firmware, IReadOnlyList<byte[]> media)
 	{
 		var init = new P6wInit { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wInit) };
 		var pins = new List<GCHandle>();
-		init.MediaCount = (uint)_media.Count;
-		for (int i = 0; i < _media.Count; ++i)
+		init.MediaCount = (uint)media.Count;
+		for (int i = 0; i < media.Count; ++i)
 		{
-			pins.Add(GCHandle.Alloc(_media[i], GCHandleType.Pinned));
+			pins.Add(GCHandle.Alloc(media[i], GCHandleType.Pinned));
 			var entry = init.Media.At(i);
 			entry->Type = P6.MediaAdf;
 			byte[] id;
-			using (var sha = System.Security.Cryptography.SHA256.Create()) id = sha.ComputeHash(_media[i]);
+			using (var sha = System.Security.Cryptography.SHA256.Create()) id = sha.ComputeHash(media[i]);
 			for (int b = 0; b < P6.ContentIdSize; ++b) entry->ContentId[b] = id[b];
 			entry->Data = (byte*)pins[i].AddrOfPinnedObject();
-			entry->Bytes = (ulong)_media[i].Length;
+			entry->Bytes = (ulong)media[i].Length;
 		}
 		init.Config.AbiVersion = P6.AbiVersion;
 		init.Config.StructSize = (uint)sizeof(P6Config);
 		init.Config.Machine = _syncSettings.Machine switch { Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, _ => P6.MachineA500 };
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
 		init.Config.AudioRateHz = 48000;
-		init.Config.Flags = 0;      // floppy writes: the wrapper keeps every disk write protected until its export is wired (T27c)
+		init.Config.Flags = _syncSettings.FloppyWrites ? P6.ConfigFloppyWrites : 0;      // off: every disk is write protected, as in ABI v1
 		init.Config.RandomSeed = _syncSettings.RandomSeed;
 		init.Config.RtcEpochSeconds = _syncSettings.RtcEpochSeconds;
 		init.Config.ChipKib = ChipKib(_syncSettings.ChipMemory);
@@ -247,6 +292,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// The memory enters the identity only when it is not the machine's own: the identity of a core with the stock memory is the one it always had.
 		string memory = _syncSettings.ChipMemory == Puae6Chip.Auto && _syncSettings.SlowMemory == Puae6Slow.Auto && _syncSettings.FastMemory == Puae6Fast.None
 			? "" : $";chip={_syncSettings.ChipMemory};slow={_syncSettings.SlowMemory};fast={_syncSettings.FastMemory}";
+		// The same for the floppy writes (T28): a state of a core that can write its disks does not load in one that cannot, and a SaveRam that was stored changes the disks the
+		// guest has, so what it was (its SHA-256) is part of what a state and a movie are valid for. A core without writes keeps the identity it always had.
+		if (_syncSettings.FloppyWrites) memory += ";floppywrites=1";
+		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;
 		byte[] ConfigHash(Puae6Machine machine) => StateEnvelope.Sha256(Encoding.UTF8.GetBytes(Config(machine)));
@@ -309,6 +358,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	{
 		if (_faulted) throw new InvalidOperationException("a state load failed halfway and the machine is undefined; load a state that is whole, or create the core again");
 		var input = BuildInput(controller, out bool power);
+		_started = true;
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
 		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0);
 		using (_guest.Host.EnterExit())
@@ -580,6 +630,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		using var inner = new BinaryReader(stream);
 		var fields = Parse(inner);                                    // and one whose fields cannot be
 		using var _ = _guest.Host.EnterExit();
+		_started = true;                                              // the machine is not the one a SaveRam could still change
 		try
 		{
 			_guest.Host.LoadStateBinary(inner);

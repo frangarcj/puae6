@@ -11075,7 +11075,7 @@
       "title": "Validar overlay y persistencia en Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T27",
         "T21"

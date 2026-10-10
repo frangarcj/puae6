@@ -30,6 +30,7 @@ public static class P6
 	public const uint RenderVideo = 1u << 0, RenderAudio = 1u << 1;
 	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4;
 	public const uint MemoryNone = uint.MaxValue;
+	public const uint ConfigFloppyWrites = 1;
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
 	public const int AdfBytes = 901120;                          // the only medium of ABI v1: an 880 KiB ADF
 
@@ -167,6 +168,40 @@ public unsafe struct P6wMediaEvent
 	public fixed byte Error[P6.ErrorTextCapacity];
 }
 
+/// <summary>p6_media_write_status: the write overlay as of the last unit boundary. MediaIndex is the input; the rest is output.</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6MediaWriteStatus
+{
+	public uint AbiVersion, StructSize;
+	public uint MediaIndex, Reserved0;
+	public ulong OverlayCapacity, OverlayUsed, MediumSectors, RefusedWrites, RawTracks;
+	public fixed ulong Reserved[1];
+}
+
+/// <summary>The argument of p6w_media_write_status. Result and Error are outputs.</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6wMediaWriteStatus
+{
+	public uint AbiVersion, StructSize;
+	public P6MediaWriteStatus Status;
+	public int Result;
+	public uint Reserved;
+	public fixed byte Error[P6.ErrorTextCapacity];
+}
+
+/// <summary>The argument of p6w_media_export: the guest copies the disk into Buffer (host memory) during the call. Written, Result and Error are outputs.</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6wMediaExport
+{
+	public uint AbiVersion, StructSize;
+	public uint MediaIndex, Reserved0;
+	public byte* Buffer;
+	public ulong Capacity, Written;
+	public int Result;
+	public uint Reserved1;
+	public fixed byte Error[P6.ErrorTextCapacity];
+}
+
 /// <summary>The layout of LibWaterboxCore.MemoryArea, which is what p6w_memory_areas writes.</summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct P6wMemoryArea
@@ -180,7 +215,7 @@ public struct P6wMemoryArea
 /// <summary>The sizes and offsets this wrapper was written for, in the order of the guest's p6w_layout (P6W_LAYOUT_VALUES values).</summary>
 public static unsafe class AbiLayout
 {
-	public const int Values = 22;
+	public const int Values = 31;
 
 	public static ulong[] Compute()
 	{
@@ -188,6 +223,8 @@ public static unsafe class AbiLayout
 		P6wFrame frame = default;
 		P6wMemoryArea area = default;
 		P6wMediaEvent call = default;
+		P6wMediaWriteStatus status = default;
+		P6wMediaExport export = default;
 		ulong Offset<T, F>(T* owner, F* field) where T : unmanaged where F : unmanaged => (ulong)((byte*)field - (byte*)owner);
 		return [
 			(ulong)sizeof(P6wInit), Offset(&init, &init.Result), Offset(&init, init.Error), Offset(&init, (byte*)&init.Media), (ulong)sizeof(P6wMedia),
@@ -195,6 +232,8 @@ public static unsafe class AbiLayout
 			(ulong)sizeof(P6Frame), (ulong)sizeof(P6Input), (ulong)sizeof(P6Config), Offset(&frame.Frame, (byte*)&frame.Frame.Audio), Offset(&frame.Frame, (byte*)&frame.Frame.MasterTicks),
 			(ulong)sizeof(P6wMemoryArea), Offset(&area, (byte*)&area.Name), Offset(&area, (byte*)&area.Size), Offset(&area, (byte*)&area.Flags),
 			(ulong)sizeof(P6wMediaEvent), Offset(&call, (byte*)&call.Event), Offset(&call, &call.Result), Offset(&call, call.Error),
+			(ulong)sizeof(P6wMediaWriteStatus), Offset(&status, (byte*)&status.Status), Offset(&status, &status.Result), Offset(&status, status.Error),
+			(ulong)sizeof(P6wMediaExport), Offset(&export, (byte*)&export.Buffer), Offset(&export, (byte*)&export.Written), Offset(&export, &export.Result), Offset(&export, export.Error),
 		];
 	}
 
@@ -205,5 +244,7 @@ public static unsafe class AbiLayout
 		"sizeof(p6_frame)", "sizeof(p6_input)", "sizeof(p6_config)", "offsetof(p6_frame, audio)", "offsetof(p6_frame, master_ticks)",
 		"sizeof(p6w_memory_area)", "offsetof(p6w_memory_area, name)", "offsetof(p6w_memory_area, size)", "offsetof(p6w_memory_area, flags)",
 		"sizeof(p6w_media_event)", "offsetof(p6w_media_event, event)", "offsetof(p6w_media_event, result)", "offsetof(p6w_media_event, error)",
+		"sizeof(p6w_media_write_status_args)", "offsetof(p6w_media_write_status_args, status)", "offsetof(p6w_media_write_status_args, result)", "offsetof(p6w_media_write_status_args, error)",
+		"sizeof(p6w_media_export_args)", "offsetof(p6w_media_export_args, buffer)", "offsetof(p6w_media_export_args, written)", "offsetof(p6w_media_export_args, result)", "offsetof(p6w_media_export_args, error)",
 	];
 }

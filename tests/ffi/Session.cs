@@ -9,8 +9,9 @@ using Puae6;
 using BizHawk.Client.Common;
 
 /// <summary>
-/// T21b: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8]
+/// T21b, T28: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
+///   core NAME [firmware=PATH] [adf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [writes]
+///   (writes: the floppy disks can be written, T28; without it every disk is protected)
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
 ///       "record" keeps each unit's input as BizHawk's own BK2 log entry
 ///   run NAME UNITS movie=FILE [silent=A-B]                       the input of each unit is read from a .bk2 by the core's frame number (after a load, from the frame of the state)
@@ -22,6 +23,16 @@ using BizHawk.Client.Common;
 ///   save NAME TAG | load NAME TAG | savefile NAME PATH | loadfile NAME PATH   (a refused load prints "rejected NAME TAG reason=... message=...")
 ///   mutate TAG NEW truncate:N | flip:OFFSET | magic | version:N | length:N | grow:N      garbage NEW BYTES      (states made up from other states or from nothing)
 ///   repack TAG NEW offset=N bytes=HEX [length=N]     the payload of a state with some bytes replaced (and cut to `length`), under an envelope whose length and checksum are right
+///   export NAME INDEX [file=PATH]                                the disk as it is now (base with the overlay over it): "export NAME INDEX result=CODE bytes=N sha=..." (nothing is written to disk unless file=)
+///   status NAME INDEX                                             the write overlay: "status NAME INDEX result=CODE capacity=N used=N medium=N refused=N raw=N"
+///   saveram NAME TAG [keep]                                       CloneSaveRam (clearDirty unless "keep"): "saveram NAME TAG bytes=N sha=... modified=BEFORE" or "saveram NAME TAG null"
+///   services NAME                                                 "services NAME saveram=0|1 memorydomains=0|1": ISaveRam is a service only when the core can write its disks
+///   modified NAME                                                 SaveRamModified: "modified NAME 0|1"
+///   storesaveram NAME TAG                                         StoreSaveRam (before the first unit): "storedsaveram NAME TAG" or "saveram-rejected NAME TAG reason=... message=..."
+///   writesaveram TAG PATH | readsaveram TAG PATH                  a SaveRam to a file / from a file (both are the caller's files, the core never touches them)
+///   mutatesaveram TAG NEW truncate:N|flip:OFFSET|pad:N|junk:N     a SaveRam made up from another one
+///   replay NAME on|off                                            ReplayInProgress; "run ... movie=" turns it on, as a frontend playing a movie does
+///   savedisk NAME TAG | loaddisk NAME INDEX TAG                   keep an exported disk in memory / compare: loaddisk prints "diskcmp NAME INDEX TAG equal=0|1 differs=N"
 ///   digest NAME [LABEL] | peek NAME DOMAIN ADDR COUNT | poke NAME DOMAIN ADDR HEX | dispose NAME | echo TEXT
 /// </summary>
 internal static unsafe partial class Program
@@ -44,6 +55,8 @@ internal static unsafe partial class Program
 		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
 		var machines = new Dictionary<string, Machine>();
 		var states = new Dictionary<string, byte[]>();
+		var saverams = new Dictionary<string, byte[]>();
+		var disks = new Dictionary<string, byte[]>();
 		var fixedOptions = new Dictionary<string, string>(options);
 		foreach (var raw in File.ReadAllLines(options["program"]))
 		{
@@ -66,6 +79,7 @@ internal static unsafe partial class Program
 						ChipMemory = Enum.Parse<Puae6Chip>(arguments.GetValueOrDefault("chip", "Auto")),
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
 						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "None")),
+						FloppyWrites = arguments.ContainsKey("writes"),
 					};
 					var make = new Dictionary<string, string>(fixedOptions);
 					if (arguments.TryGetValue("firmware", out var firmware)) make["firmware"] = firmware;
@@ -99,6 +113,78 @@ internal static unsafe partial class Program
 				case "savefile": File.WriteAllBytes(words[2], Save(machines[words[1]].Core)); Console.WriteLine($"savedfile {words[1]}"); break;
 				case "load": Load(machines[words[1]], states[words[2]], words[1], words[2]); break;
 				case "loadfile": Load(machines[words[1]], File.ReadAllBytes(words[2]), words[1], words[2]); break;
+				case "export":
+				{
+					var core = machines[words[1]].Core;
+					int result = core.ExportMedium(int.Parse(words[2]), out var image, out var error);
+					if (image is not null && arguments.TryGetValue("file", out var file)) File.WriteAllBytes(file, image);
+					Console.WriteLine($"export {words[1]} {words[2]} result={result} bytes={image?.Length ?? 0} sha={(image is null ? "-" : Hex(SHA256.HashData(image)))}{(result == 0 ? "" : " message=" + error.Replace(' ', '_'))}");
+					break;
+				}
+				case "status":
+				{
+					var s = machines[words[1]].Core.GetMediaWriteStatus(int.Parse(words[2]));
+					Console.WriteLine($"status {words[1]} {words[2]} result={s.Result} capacity={s.OverlayCapacity} used={s.OverlayUsed} medium={s.MediumSectors} refused={s.RefusedWrites} raw={s.RawTracks}");
+					break;
+				}
+				case "saveram":
+				{
+					var core = machines[words[1]].Core;
+					bool before = core.SaveRamModified;
+					var blob = core.CloneSaveRam(clearDirty: !arguments.ContainsKey("keep"));
+					if (blob is null) Console.WriteLine($"saveram {words[1]} {words[2]} null modified={(before ? 1 : 0)}");
+					else { saverams[words[2]] = blob; Console.WriteLine($"saveram {words[1]} {words[2]} bytes={blob.Length} sha={Hex(SHA256.HashData(blob))} modified={(before ? 1 : 0)}"); }
+					break;
+				}
+				case "services":
+				{
+					var provider = machines[words[1]].Core.ServiceProvider;
+					Console.WriteLine($"services {words[1]} saveram={(provider.HasService<ISaveRam>() ? 1 : 0)} memorydomains={(provider.HasService<IMemoryDomains>() ? 1 : 0)}");
+					break;
+				}
+				case "modified": Console.WriteLine($"modified {words[1]} {(machines[words[1]].Core.SaveRamModified ? 1 : 0)}"); break;
+				case "storesaveram":
+				{
+					try { machines[words[1]].Core.StoreSaveRam(saverams[words[2]]); Console.WriteLine($"storedsaveram {words[1]} {words[2]}"); }
+					catch (SaveRamRejectedException e) { Console.WriteLine($"saveram-rejected {words[1]} {words[2]} reason={e.Reason} message={e.Message}"); }
+					break;
+				}
+				case "writesaveram": File.WriteAllBytes(words[2], saverams[words[1]]); Console.WriteLine($"wrotesaveram {words[1]}"); break;
+				case "readsaveram": saverams[words[1]] = File.ReadAllBytes(words[2]); Console.WriteLine($"readsaveram {words[1]} bytes={saverams[words[1]].Length}"); break;
+				case "mutatesaveram":
+				{
+					var copy = (byte[])saverams[words[1]].Clone();
+					var parts = words[3].Split(':');
+					switch (parts[0])
+					{
+						case "truncate": copy = copy[..int.Parse(parts[1])]; break;
+						case "flip": copy[int.Parse(parts[1])] ^= 0x01; break;
+						case "pad": copy = copy.Concat(new byte[int.Parse(parts[1])]).ToArray(); break;
+						case "junk": copy = copy.Concat(Enumerable.Repeat((byte)0x5A, int.Parse(parts[1]))).ToArray(); break;
+						default: throw new ArgumentException($"unknown mutation {words[3]}");
+					}
+					saverams[words[2]] = copy;
+					Console.WriteLine($"mutatedsaveram {words[2]} bytes={copy.Length}");
+					break;
+				}
+				case "replay": machines[words[1]].Core.ReplayInProgress = words[2] == "on"; Console.WriteLine($"replay {words[1]} {words[2]}"); break;
+				case "savedisk":
+				{
+					int result = machines[words[1]].Core.ExportMedium(int.Parse(arguments.GetValueOrDefault("index", "0")), out var image, out var error);
+					if (image is null) throw new InvalidOperationException($"savedisk: {result} {error}");
+					disks[words[2]] = image;
+					Console.WriteLine($"saveddisk {words[2]} sha={Hex(SHA256.HashData(image))}");
+					break;
+				}
+				case "loaddisk":
+				{
+					int result = machines[words[1]].Core.ExportMedium(int.Parse(words[2]), out var image, out var error);
+					if (image is null) throw new InvalidOperationException($"loaddisk: {result} {error}");
+					var reference = disks[words[3]];
+					int differs = Enumerable.Range(0, reference.Length / 512).Count(sector => !image.AsSpan(sector * 512, 512).SequenceEqual(reference.AsSpan(sector * 512, 512)));
+					Console.WriteLine($"diskcmp {words[1]} {words[2]} {words[3]} equal={(differs == 0 ? 1 : 0)} differs={differs}");
+					break;
+				}
 				case "mutate": states[words[2]] = Mutate(states[words[1]], words[3]); Console.WriteLine($"mutated {words[2]} bytes={states[words[2]].Length}"); break;
 				case "repack": states[words[2]] = Repack(states[words[1]], arguments); Console.WriteLine($"repacked {words[2]} bytes={states[words[2]].Length}"); break;
 				case "garbage": states[words[1]] = new Random(7).GetBytes(int.Parse(words[2])); Console.WriteLine($"garbage {words[1]} bytes={states[words[1]].Length}"); break;
@@ -294,6 +380,7 @@ internal static unsafe partial class Program
 	{
 		var core = machine.Core;
 		Script? script = arguments.TryGetValue("script", out var path) ? new Script(path) : null;
+		if (arguments.ContainsKey("movie")) core.ReplayInProgress = true;           // a frontend that plays a movie says so; the durable copy is not read or replaced while it does
 		var presses = new List<(int From, int To, string Button)>();
 		foreach (var item in arguments.GetValueOrDefault("press", "").Replace('_', ' ').Split(';', StringSplitOptions.RemoveEmptyEntries))
 		{

@@ -16,7 +16,7 @@ public enum MovieRejection
 	MissingKey,
 	/// <summary>Recorded with another build of the guest.</summary>
 	OtherGuest,
-	/// <summary>Recorded with other sync settings (machine, standard, seed, clock, ports, drives).</summary>
+	/// <summary>Recorded with other sync settings (machine, standard, seed, clock, ports, drives, memory, floppy writes, stored SaveRam).</summary>
 	OtherConfig,
 	/// <summary>Recorded with another Kickstart.</summary>
 	OtherFirmware,

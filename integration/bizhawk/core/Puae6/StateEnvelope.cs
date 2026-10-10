@@ -24,7 +24,7 @@ public enum StateRejection
 	OtherGuest,
 	/// <summary>Written with other heap sizes.</summary>
 	OtherHeaps,
-	/// <summary>Written with other sync settings (machine, standard, seed, clock, ports, drives).</summary>
+	/// <summary>Written with other sync settings (machine, standard, seed, clock, ports, drives, memory, floppy writes, stored SaveRam).</summary>
 	OtherConfig,
 	/// <summary>Written with another firmware (the Kickstart is in the sandbox, not in the snapshot).</summary>
 	OtherFirmware,
@@ -61,7 +61,7 @@ public sealed class StateIdentity
 	{
 		foreach (var other in ConfigHashOfOtherMachines)
 			if (other.Value.SequenceEqual(have)) return $"the {verb} was made for the {other.Key}, this core is the {Machine}: the machine is a sync setting and a {verb} of one Amiga does not run on another";
-		return $"the {verb} was made with other sync settings (machine, standard, seed, clock, ports, drives); this core is the {Machine}";
+		return $"the {verb} was made with other sync settings (machine, standard, seed, clock, ports, drives, memory, floppy writes, stored SaveRam); this core is the {Machine}";
 	}
 
 	public StateIdentity(string guestSha256, uint[] heapsKB, byte[] configHash, byte[] firmwareSha256, byte[] mediaHash, string machine = "",
