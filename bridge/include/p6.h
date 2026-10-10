@@ -67,7 +67,14 @@ typedef struct p6_config {
         uint32_t fpu_model;     /* Floating point unit (T54): 0 = none, 68881 or 68882 (A1200 only: it is the 68020's coprocessor), computed by SoftFloat whatever the host. */
         uint32_t reserved32;    /* The name these four bytes had until T54 (zero, ABI v1); an earlier source that sets it to zero means no FPU. */
     };
-    uint64_t reserved[2];
+    /* Paula's output (T73), in the first four bytes of what was reserved[0]. Zero in every field is the profile's own setting, so a source that predates them (those bytes zero) is
+     * unchanged; a restart option: it changes the samples and the audio state, so it enters config_hash (docs/02-contracts.md, Opciones de audio de Paula) off the profile's setting only. */
+    uint8_t sound_separation;       /* Stereo separation: 0 = the profile's (70 %), else 1 + percent / 10 (1 = 0 %, mono; 11 = 100 %, as Paula wires the channels). */
+    uint8_t sound_interpolation;    /* 0 = the profile's (anti), else 1 + upstream's sound_interpol: 1 none, 2 anti, 4 rh, 5 crux; 3 (sinc) is P6_ERROR_UNSUPPORTED. */
+    uint8_t sound_filter;           /* 0 = the profile's (emulated, the LED filter follows the power LED), else 1 + upstream's sound_filter: 1 off, 2 emulated, 3 always on. */
+    uint8_t sound_filter_type;      /* 0 = auto (A500 and A600: the A500 model, A1200: the A1200 model), 1 = A500 model, 2 = A1200 model. */
+    uint8_t reserved8[4];           /* Zero in ABI v1 (the rest of what was reserved[0]). */
+    uint64_t reserved1;             /* Zero in ABI v1 (what was reserved[1]). */
 } p6_config;
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
  * (sector granularity, one fixed pool of P6_OVERLAY_SECTORS shared by every disk) that is part of the machine state and of p6_state_bound, so a state
@@ -77,7 +84,9 @@ typedef struct p6_config {
 #define P6_OVERLAY_SECTORS UINT32_C(3520)    /* 512-byte sectors: two disks' worth */
 #define P6_MEMORY_NONE UINT32_C(0xFFFFFFFF)
 /* The flags word of config_hash carries p6_config.flags in bits 0 to 7 (the defined P6_CONFIG_* flags; any other bit is refused) and, when the memory is not the preset's,
- * the sizes above them (bridge/config.cpp identity_flags: bit 31, fast_kib/1024 at bit 8, slow_kib/64 at 12, chip_kib/64 at 17), so the two never collide. */
+ * the sizes above them (bridge/config.cpp identity_flags: bit 31, fast_kib/1024 at bit 8, slow_kib/64 at 12, chip_kib/64 at 17), so the two never collide.
+ * Paula's output options (sound_*) are not in that word: when they differ from the profile's setting for the machine, config_hash is derived from the one above and an audio word
+ * (bridge/config.cpp audio_identity, domain p6/config/audio/v1); at the profile's setting the hash is the one it always was. */
 #define P6_MACHINE_A500 UINT32_C(1)
 #define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no IDE/PCMCIA (Gayle is not emulated). */
 #define P6_MACHINE_A1200 UINT32_C(3)  /* 68EC020 cycle exact (24-bit bus), AGA, 2 MiB Chip, no Slow/Fast RAM, no Gayle. */

@@ -2,7 +2,7 @@
 // the libretro contract asks of a core on every retro_run: the input is polled once, exactly one picture is shown, audio arrives as
 // whole stereo frames, and the serialization size does not grow. Everything optional can be refused.
 //   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--refuse-av-info] [--bad-format]
-//                    [--no-rgb565] [--no-led] [--dump-pictures DIR [--dump-from RUN]]
+//                    [--no-rgb565] [--no-led] [--dump-pictures DIR [--dump-from RUN]] [--dump-audio DIR]
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
 //                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
@@ -40,6 +40,7 @@
 //   state load NAME VARIANT ok=R size=S / state final ok=R size=S hash=H / state reset
 //   led RUN LED=STATE [(speculative)]   (the core set a LED of the frontend, T31b; LED 1 is "floppy drives" and 3 DF0, PUAE5's order)
 //   pixel-format RGB565 (the core asked for 16-bit pixels and the host took them; --no-rgb565 refuses, as a frontend without them does)
+//   --dump-audio DIR writes audio-RUN.bin for every visible run: the interleaved little-endian int16 the core gave the frontend in it (T73)
 //   --dump-pictures DIR writes picture-RUN.bin for every visible run that showed a picture: width, height, bytes per pixel and run as little-endian uint32, then the rows
 //   log LEVEL TEXT         (only when the log interface is offered)
 //   message TEXT           (SET_MESSAGE or SET_MESSAGE_EXT)
@@ -70,6 +71,7 @@ struct Options {
     bool no_led = false;                                        // --no-led: a frontend without the LED interface
     bool reject_optional = false, no_log = false, no_dupe = false, bad_format = false, reenter = false, refuse_av_info = false, no_rgb565 = false;
     std::string dump_dir;                                       // --dump-pictures: every picture shown, to a file
+    std::string dump_audio_dir;                                 // --dump-audio: the audio of every visible run, to a file
     int dump_from = 1;                                          // --dump-from RUN: from this visible run on
     size_t audio_partial = 0;
     int stall_first = -1, stall_last = -1;
@@ -184,6 +186,7 @@ int position = 0;               // the frame of the emulated timeline the run be
 bool muted = false;             // a speculative run: the picture and the audio are not shown
 size_t state_size = 0;          // what retro_serialize_size said after the load: it must not change
 uint64_t audio_hash = UINT64_C(1469598103934665603), audio_total = 0;
+std::vector<int16_t> run_audio;       // the samples of the visible run being made, when --dump-audio asks for them
 retro_game_info game_info;
 bool in_video_callback = false;
 bool has_game = false;
@@ -563,6 +566,7 @@ void RETRO_CALLCONV audio_sample(int16_t left, int16_t right)
     run.audio_hash = fnv(run.audio_hash, pair, sizeof pair);
     ++run.audio_frames;
     if (muted) return;
+    if (!options.dump_audio_dir.empty()) run_audio.insert(run_audio.end(), pair, pair + 2);
     audio_hash = fnv(audio_hash, pair, sizeof pair);
     ++audio_total;
 }
@@ -577,6 +581,7 @@ size_t RETRO_CALLCONV audio_batch(const int16_t *data, size_t frames)
     run.audio_frames += taken;
     if (muted) return taken;                  // a runahead frontend swallows the audio of a speculative run
     if (taken) audio_hash = fnv(audio_hash, data, taken * 2 * sizeof(int16_t));
+    if (taken && !options.dump_audio_dir.empty()) run_audio.insert(run_audio.end(), data, data + taken * 2);
     audio_total += taken;
     return taken;
 }
@@ -816,6 +821,7 @@ void make_run(int at, bool speculative)
     position = at;
     muted = speculative;
     run = Run{};
+    run_audio.clear();
     for (const Options::DiskStep &step : options.disk_steps)
         if (!step.during && step.run == at) disk_command(at, step.command);
     bool changed_options = false;
@@ -836,6 +842,16 @@ void make_run(int at, bool speculative)
                " ticks=%" PRIu64 "\n", run_number, run.width, run.height, run.pitch, int(run.dupe), run.picture_hash, run.first_pixel, run.audio_frames,
                run.polls, run.states, run.audio_hash, run.unit, run.ticks);
         done = at;
+        if (!options.dump_audio_dir.empty()) {
+            char path[1024];
+            snprintf(path, sizeof path, "%s/audio-%03d.bin", options.dump_audio_dir.c_str(), run_number);
+            if (FILE *out = fopen(path, "wb")) {
+                fwrite(run_audio.data(), sizeof(int16_t), run_audio.size(), out);
+                fclose(out);
+            } else {
+                violation("cannot write %s", path);
+            }
+        }
     }
     if (changed_options) {
         // What the core announces after a change made while it runs: a reboot option must leave all of this as it was.
@@ -907,6 +923,7 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--no-rgb565")) options.no_rgb565 = true;
         else if (!strcmp(a, "--no-led")) options.no_led = true;
         else if (!strcmp(a, "--dump-pictures")) options.dump_dir = next();
+        else if (!strcmp(a, "--dump-audio")) options.dump_audio_dir = next();
         else if (!strcmp(a, "--dump-from")) options.dump_from = atoi(next());
         else if (!strcmp(a, "--reenter")) options.reenter = true;
         else if (!strcmp(a, "--system")) options.system_dir = next(), options.has_system = true;

@@ -33,7 +33,7 @@ TABLE = ROOT / "config/schema/options_table.generated.json"
 P6_HEADER = ROOT / "bridge/include/p6.h"
 
 # p6_config fields that are not choices of ABI v1: they have one valid value (checked by bridge/config.cpp validate_config).
-FIXED_CONFIG_FIELDS = {"abi_version", "struct_size", "reserved32", "reserved"}
+FIXED_CONFIG_FIELDS = {"abi_version", "struct_size", "reserved32", "reserved8", "reserved1"}
 REBOOT_SENTENCE = " It takes effect the next time the content is loaded; the running machine is not changed."
 REBOOT_SUFFIX = " (Restart)"
 MAX_VALUES = 128      # RETRO_NUM_CORE_OPTION_VALUES_MAX
@@ -341,8 +341,8 @@ def _validate_adapters(option, klass, where, errors):
     headless, wrapper = option["headless"], option["wrapper"]
     if _only(headless, {"how", "flag", "sets", "names"}, {"how"}, f"{where} headless", errors):
         how = headless["how"]
-        if how not in ("flag", "value", "choice", "kib", "fixed", "none"):
-            errors.append(f"{where}: headless how must be flag, value, choice, kib, fixed or none")
+        if how not in ("flag", "value", "choice", "kib", "fixed", "none", "profile"):
+            errors.append(f"{where}: headless how must be flag, value, choice, kib, fixed, profile or none")
         needed = {"flag": {"flag", "sets"}, "value": {"flag"}, "choice": {"flag", "names"}, "kib": {"flag"}}.get(how, set())
         if set(headless) - {"how"} != needed:
             errors.append(f"{where}: headless '{how}' takes exactly the fields {sorted(needed)}")
@@ -360,8 +360,8 @@ def _validate_adapters(option, klass, where, errors):
             errors.append(f"{where}: headless 'none' is for presentation options only (a reboot option is part of the machine headless runs)")
     if _only(wrapper, {"how", "setting", "type", "where"}, {"how"}, f"{where} wrapper", errors):
         how = wrapper["how"]
-        if how not in ("setting", "fixed", "none"):
-            errors.append(f"{where}: wrapper how must be setting, fixed or none")
+        if how not in ("setting", "fixed", "none", "profile"):
+            errors.append(f"{where}: wrapper how must be setting, fixed, profile or none")
         needed = {"setting": {"setting", "type"}, "fixed": {"where"}}.get(how, set())
         if set(wrapper) - {"how"} != needed:
             errors.append(f"{where}: wrapper '{how}' takes exactly the fields {sorted(needed)}")

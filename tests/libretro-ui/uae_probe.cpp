@@ -96,6 +96,21 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
     Settings refined = preset;
     refined.fast_size = 4096;
     CHECK(same_config(import("puae6_preset=a600_puae5\nfastmem_size=4\n").imported.settings, refined));
+    // T73: WinUAE's spellings of Paula's output become the options of the frontend (separation in tenths: 7 is the profile's 70 %); the profile's own values are the defaults.
+    Settings audio;
+    audio.sound_separation = 1;           // 0 %: abi 1 + percent / 10
+    audio.sound_interpolation = 4;        // rh: abi 1 + upstream's 3
+    audio.sound_filter = 1;               // off
+    audio.sound_filter_type = 2;          // enhanced = the A1200 model
+    CHECK(same_config(import("sound_stereo_separation=0\nsound_interpol=rh\nsound_filter=off\nsound_filter_type=enhanced\n").imported.settings, audio));
+    Settings loud;
+    loud.sound_separation = 11;           // 100 %
+    loud.sound_interpolation = 5;         // crux
+    loud.sound_filter = 3;                // always on
+    loud.sound_filter_type = 1;           // standard = the A500 model
+    CHECK(same_config(import("sound_stereo_separation=10\nsound_interpol=crux\nsound_filter=on\nsound_filter_type=standard\n").imported.settings, loud));
+    CHECK(same_config(import("sound_stereo_separation=7\nsound_interpol=anti\nsound_filter=emulated\n").imported.settings, Settings()));
+    CHECK(same_config(import("puae6_sound_stereo_separation=0\npuae6_sound_interpolation=rh\npuae6_sound_filter=off\npuae6_sound_filter_type=A1200\n").imported.settings, audio));
     // An empty file, or one with comments only, is the frontend's options.
     CHECK(import("").ok && same_config(import("").imported.settings, Settings()));
     CHECK(import("; nothing\n# nothing\n\n   \n").ok);
@@ -193,7 +208,13 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"plugin=x.dll", "plugin", "plugin"},
         {"collision_level=full", "collision_level", "fixed by the machine profile"},
         {"rtc=MSM6242B", "rtc", "fixed by the machine profile"},
-        {"sound_filter=on", "sound_filter", "fixed by the machine profile"},
+        {"sound_mixed_stereo_delay=2", "sound_mixed_stereo_delay", "fixed by the machine profile"},
+        {"sound_interpol=sinc", "sound_interpol", "sinc interpolation is not offered"},
+        {"sound_interpol=fast", "sound_interpol", "expected none, anti, rh or crux"},
+        {"sound_filter=fixedonly", "sound_filter", "fixedonly is not offered"},
+        {"sound_filter_type=odd", "sound_filter_type", "expected standard"},
+        {"sound_stereo_separation=11", "sound_stereo_separation", "expected 0 to 10"},
+        {"sound_stereo_separation=-1", "sound_stereo_separation", "expected 0 to 10"},
         {"cs_ide=true", "cs_ide", "fixed by the machine profile"},
         {"nr_floppies=4", "nr_floppies", "DF0 and DF1"},
         {"floppy0type=1", "floppy0type", "3.5"},

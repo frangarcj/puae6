@@ -35,7 +35,12 @@ OFFSET(p6_config, slow_kib, 44);
 OFFSET(p6_config, fast_kib, 48);
 OFFSET(p6_config, fpu_model, 52);     /* T54: the union with reserved32 */
 OFFSET(p6_config, reserved32, 52);
-OFFSET(p6_config, reserved, 56);
+OFFSET(p6_config, sound_separation, 56);       /* T73: the first bytes of what was reserved[0] */
+OFFSET(p6_config, sound_interpolation, 57);
+OFFSET(p6_config, sound_filter, 58);
+OFFSET(p6_config, sound_filter_type, 59);
+OFFSET(p6_config, reserved8, 60);
+OFFSET(p6_config, reserved1, 64);
 OFFSET(p6_buffer, bytes, 8);
 OFFSET(p6_media, content_id, 8);
 OFFSET(p6_media, image, 40);

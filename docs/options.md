@@ -186,12 +186,16 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 | `bogomem_size` | Unidades de 256 KiB: `0`=ninguna (`None`), `2`=512 KiB, `4`, `6`, `7` -> `puae6_slow_size`. |
 | `fastmem_size`, `fastmem_size_k` | MiB (o KiB): `0`=ninguna, `1`, `2`, `4`, `8` MiB -> `puae6_fast_size`. |
 | `sound_frequency` | `44100`/`48000` -> `puae6_audio_rate`. |
+| `sound_stereo_separation` | `0` a `10` (decimas de 100 %, como WinUAE) -> `puae6_sound_stereo_separation` `0`..`100`. `7` es el 70 % del perfil. Fuera de rango se rechaza. |
+| `sound_interpol` | `none`, `anti`, `rh`, `crux` -> `puae6_sound_interpolation`. `sinc` se rechaza (su cola no esta en el estado nativo). |
+| `sound_filter` | `off`, `emulated`, `on` -> `puae6_sound_filter` (`emulated`, `off`, `on`). `fixedonly` se rechaza. |
+| `sound_filter_type` | `standard` (modelo A500) y `enhanced` (modelo A1200) -> `puae6_sound_filter_type` `A500`/`A1200`. |
 | `ntsc` | `true` -> NTSC, `false` -> PAL (`puae6_video_standard`). |
 | `floppy_write_protect` | `true` -> `puae6_floppy_writes=disabled`, `false` -> `enabled`. |
 | `floppy0` | El disco de DF0 (ruta relativa). Vacio = ninguno. |
 | `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
 | `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
-| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). |
+| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). |
 | `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`: preset del esquema, que las demas claves refinan. |
 
 Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada): `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact`, `cycle_exact`, `cpu_compatible` = `true`;
@@ -215,7 +219,7 @@ Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada
 | `include*`, `plugin*`, `shell*`, `exec*`, `script*`, `cmd*`, `command*` | Un `.uae` no incluye otro, ni carga plugins ni ejecuta programas. |
 | `z3mem*`, `z3fastmem*`, `mem25bit*`, `a3000mem*`, `mbresmem*`, `megachipmem*` | Sin RAM Zorro III ni de placa base (bus de 24 bits); solo se acepta `0`. |
 | `fastmem2*`, `fastmem3*`, `fastmem4*` | Una sola placa Fast Zorro II; las demas, solo `0`. |
-| `cpu_*`, `fpu_*`, `cs_*`, `chipset_*`, `blitter_*`, `agnus_*`, `denise_*`, `collision_level`, `rtc`, `sound_*`, `keyboard_*`, `floppy*` (el resto) | Fijados por el perfil de maquina y no son claves del esquema; el importador no puede saber si el fichero coincide, asi que los rechaza. Incluye `cpu_multiplier`, `cpu_frequency`, `sound_filter`, `sound_interpol`. |
+| `cpu_*`, `fpu_*`, `cs_*`, `chipset_*`, `blitter_*`, `agnus_*`, `denise_*`, `collision_level`, `rtc`, `sound_*`, `keyboard_*`, `floppy*` (el resto) | Fijados por el perfil de maquina y no son claves del esquema; el importador no puede saber si el fichero coincide, asi que los rechaza. Incluye `cpu_multiplier`, `cpu_frequency`, `sound_mixed_stereo_delay` y los volumenes (las cuatro claves de audio de la tabla anterior si se traducen). |
 | Cualquier ruta absoluta, `..`, `~`, `$(...)`/`${...}` en un disco | Fuera de la carpeta del `.uae`; el importador no expande nada. |
 | Una opcion de presentacion/entrada/OSD del menu (`puae6_video_crop`, `puae6_mapper_*`, ...) | El fichero solo escribe la maquina. |
 | Lo desconocido | `unknown key`. |

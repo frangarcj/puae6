@@ -3,6 +3,7 @@
 #ifndef P6_BRIDGE_CONFIG_H
 #define P6_BRIDGE_CONFIG_H
 #include "p6.h"
+#include <stdint.h>
 
 namespace p6_bridge {
 
@@ -21,6 +22,18 @@ bool memory_is_preset(const p6_config &config);
 // The flags word that config_hash takes (the envelope hashes machine, standard, rate, flags, seed and clock; the memory has no field of its own there so that the
 // identity of every preset config stays the one it was): c.flags for a config with the preset's memory, else with bit 31 and the three sizes folded in above the flag bits (fast/1024 at 8, slow/64 at 12, chip/64 at 17; bits 0 to 7 stay p6_config.flags).
 uint32_t identity_flags(const p6_config &config);
+
+// Paula's output options (T73, p6_config.sound_*), resolved to upstream's own values: stereo separation 0..10 (tenths of 100 %), sound_interpol (0 none, 1 anti, 3 rh, 4 crux; 2 is sinc, refused),
+// sound_filter (0 off, 1 emulated, 2 on) and sound_filter_type (0 A500, 1 A1200). The profile's setting is 7, anti, emulated and the model of the machine's own output stage.
+constexpr int kProfileSeparation = 7, kProfileInterpolation = 1, kProfileFilter = 1;
+struct Audio {
+    int separation, interpolation, filter, filter_type;
+};
+Audio resolve_audio(const p6_config &config);
+// True when the options leave the profile's output (the filter model counts only while the filter is on): such a config is the series one in every identity.
+bool audio_is_profile(const p6_config &config);
+// When the config is not the profile's: the four resolved settings as the bytes config_hash is derived from (state.cpp: domain p6/config/audio/v1, over the hash of the flags word and these bytes).
+bool audio_identity(const p6_config &config, uint8_t out[4]);
 
 // Pure checks; the engine is not touched, so a rejected config or firmware costs nothing.
 p6_result validate_config(const p6_config &config, p6_error *error);

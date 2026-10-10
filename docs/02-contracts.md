@@ -362,6 +362,29 @@ de antes y el hash de las series no cambia. Un estado o una pelicula de un model
 ADR 0009 punto 11. Opciones: libretro `puae6_fpu_model` (None, M68881, M68882), headless `--fpu 0|68881|68882` y el sync setting `FpuModel` de BizHawk (en la identidad del estado y de la
 pelicula solo cuando no es `None`).
 
+### Opciones de audio de Paula (T73)
+
+`p6_config.sound_separation`, `sound_interpolation`, `sound_filter` y `sound_filter_type` (un byte cada uno, offsets 56 a 59: son los 4 primeros bytes de lo que era `reserved[0]`; los otros 4 pasan
+a `reserved8[4]` (offset 60) y `reserved[1]` a `reserved1` (offset 64), a cero; el struct sigue midiendo 72 bytes y nada se mueve). **Cero en los cuatro es el perfil** (separacion 70 %, interpolacion `anti`, filtro
+emulado, tipo `auto` = modelo A500 en A500/A600 y modelo A1200 en A1200), asi que una fuente anterior a las opciones no cambia. Resto de valores: separacion `1 + porcentaje/10` (1 = 0 %, mono; 11 = 100 %),
+interpolacion `1 + sound_interpol` (1 none, 2 anti, 4 rh, 5 crux; **3, sinc, es `P6_ERROR_UNSUPPORTED`**: su cola no esta en el estado nativo y el parche 0099 la rechaza), filtro `1 + sound_filter`
+(1 off, 2 emulado, 3 siempre activo) y tipo 1 = A500, 2 = A1200. Fuera de rango, `P6_ERROR_UNSUPPORTED` con la razon.
+
+**Clasificacion: son opciones de reinicio, no de presentacion.** El estado de los filtros (`sound_filter_state`, `led_filter_on`) y el integrador de la interpolacion (`sample_accum`, `current_sample`,
+`last_sample`...) estan en el cuerpo AUDP del estado nativo, asi que filtro, tipo e interpolacion cambian el estado guardado; la separacion no esta en el estado pero cambia los `mixed_mul` del mezclador
+y, con ellos, todas las muestras futuras: un estado cargado con otra separacion continuaria con otro PCM. Ninguna toca el hardware que ve el resto del motor (CPU, DMA, RAM, el filtro del LED como estado de
+la maquina): solo el camino de mezcla de `audio.cpp` y su estado. Cambian el hash A/V; el hash de hardware de las series por defecto no cambia.
+
+`config_hash`: con los valores del perfil de la maquina el hash es **el de siempre** (la palabra `flags` no tiene bits de audio). Si alguno difiere, `bridge/state.cpp` deriva
+`H("p6/config/audio/v1" ‖ hash_de_siempre ‖ separacion, interpolacion, filtro, tipo)` con los cuatro valores **resueltos** en los numeros de upstream (separacion 0..10, `sound_interpol`, `sound_filter`, tipo 0/1), de modo que dos
+escrituras de la misma maquina (0 y el valor del perfil; `auto` y el modelo de la maquina; cualquier tipo con el filtro apagado, donde el tipo no hace nada) dan el mismo hash. Un estado o una pelicula
+con una combinacion es INCOMPATIBLE en otra; se recalcula con `tests/state/envelope.py` (`config_hash_audio`). Aritmetica: `rh`/`crux`/`none` y la mezcla son enteras; el filtro y el
+`anti` usan los floats que ya usaba el perfil (`-ffp-contract=off`, ADR 0007); el cruce de tipo de filtro (A1200 en A500 o A500 en A1200) y el resto de combinaciones se comprobaron en la matriz de T25: 48 casos (A500 y A1200, dos ROMs, tipos cruzados, filtro off/on, tres interpolaciones, tres separaciones y una combinada) dan los mismos hashes de hardware y A/V
+unidad a unidad en macOS arm64 (Apple Clang) y en Linux arm64 y x86_64 (Clang y GCC), O0; el cruce se soporta (`reports/tasks/T73.md`).
+Opciones: libretro `puae6_sound_stereo_separation` (0..100 en pasos de 10, 70 por defecto), `puae6_sound_interpolation` (none, anti, rh, crux), `puae6_sound_filter` (emulated, off, on) y
+`puae6_sound_filter_type` (auto, A500, A1200), el importador `.uae` (`sound_stereo_separation` 0..10, `sound_interpol`, `sound_filter`, `sound_filter_type` standard/enhanced). **Headless y BizHawk todavia no las
+ofrecen** (el esquema los marca `profile`: el campo se queda a cero): siguiente tarea.
+
 Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` (Auto, KB512, MB1, MB2), `puae6_slow_size` (Auto, None, KB512, MB1, MB1_5, MB1_75) y
 `puae6_fast_size` (None, MB1, MB2, MB4, MB8), headless `--chip KIB`, `--slow KIB|none` y `--fast KIB`, y los sync settings de BizHawk `ChipMemory`, `SlowMemory` y `FastMemory` (el heap mmap
 de Waterbox crece con la memoria pedida por encima de la propia de la maquina, ver `manifests/waterbox-memory.json`). Un tamano que la maquina no puede tener hace fallar la carga con la razon

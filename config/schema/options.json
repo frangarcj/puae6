@@ -20,6 +20,7 @@
   ],
   "categories": [
     {"id": "machine", "label": "Machine", "info": "What the emulated Amiga is. These options take effect when the content is loaded."},
+    {"id": "audio", "label": "Audio", "info": "How Paula's output is produced. These options take effect when the content is loaded: they change the samples and the state of the output stage, so they are part of the machine."},
     {"id": "video", "label": "Video", "info": "How the picture is presented. These options apply at once."},
     {"id": "media", "label": "Media", "info": "What the machine does with the disks it is given."},
     {"id": "input", "label": "Input", "info": "How the frontend's controllers become Amiga input. These options apply at once; none of them changes the machine, only the packet of input it is given."},
@@ -305,6 +306,95 @@
       },
       "headless": {"how": "fixed"},
       "wrapper": {"how": "fixed", "where": "audio"}
+    },
+    {
+      "id": "sound_separation",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_separation",
+      "default": "70",
+      "values": [
+        {"value": "0", "abi": 1, "label": "0%"},
+        {"value": "10", "abi": 2, "label": "10%"},
+        {"value": "20", "abi": 3, "label": "20%"},
+        {"value": "30", "abi": 4, "label": "30%"},
+        {"value": "40", "abi": 5, "label": "40%"},
+        {"value": "50", "abi": 6, "label": "50%"},
+        {"value": "60", "abi": 7, "label": "60%"},
+        {"value": "70", "abi": 0, "label": "70%"},
+        {"value": "80", "abi": 9, "label": "80%"},
+        {"value": "90", "abi": 10, "label": "90%"},
+        {"value": "100", "abi": 11, "label": "100%"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_stereo_separation",
+        "category": "audio",
+        "label": "Stereo Separation",
+        "info": "How much of each side's channels stays on that side: Paula wires channels 0 and 3 to the left and 1 and 2 to the right; 0% mixes them into mono and 100% keeps them apart. The default is the profile's (70%, as the upstream engine and PUAE5). It changes the samples, not the machine's other hardware."
+      },
+      "headless": {"how": "profile"},
+      "wrapper": {"how": "profile"}
+    },
+    {
+      "id": "sound_interpolation",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_interpolation",
+      "default": "anti",
+      "values": [
+        {"value": "none", "abi": 1, "label": "None"},
+        {"value": "anti", "abi": 0, "label": "Anti"},
+        {"value": "rh", "abi": 4, "label": "RH"},
+        {"value": "crux", "abi": 5, "label": "Crux"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_interpolation",
+        "category": "audio",
+        "label": "Interpolation",
+        "info": "How Paula's samples are resampled to the output rate: none (the nearest sample), anti (the upstream default), rh or crux. Sinc is not offered: its queue is not part of the native state, so a state could not be restored sample for sample."
+      },
+      "headless": {"how": "profile"},
+      "wrapper": {"how": "profile"}
+    },
+    {
+      "id": "sound_filter",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_filter",
+      "default": "emulated",
+      "values": [
+        {"value": "emulated", "abi": 0, "label": "Emulated (follows the power LED)"},
+        {"value": "off", "abi": 1, "label": "Off"},
+        {"value": "on", "abi": 3, "label": "Always on"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_filter",
+        "category": "audio",
+        "label": "Audio Filter",
+        "info": "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state."
+      },
+      "headless": {"how": "profile"},
+      "wrapper": {"how": "profile"}
+    },
+    {
+      "id": "sound_filter_type",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_filter_type",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Auto (by machine)"},
+        {"value": "A500", "abi": 1, "label": "A500"},
+        {"value": "A1200", "abi": 2, "label": "A1200"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_filter_type",
+        "category": "audio",
+        "label": "Audio Filter Type",
+        "info": "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off."
+      },
+      "headless": {"how": "profile"},
+      "wrapper": {"how": "profile"}
     },
     {
       "id": "random_seed",

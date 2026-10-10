@@ -113,8 +113,8 @@ class SchemaValidationTests(unittest.TestCase):
         option(document, "video_standard")["maps_to"] = "p6_config.cpu_model"
         self.refuses(document, "p6_config has no field 'cpu_model'")
         document = schema()
-        option(document, "video_standard")["maps_to"] = "p6_config.reserved"
-        self.refuses(document, "p6_config.reserved has one valid value in ABI v1")
+        option(document, "video_standard")["maps_to"] = "p6_config.reserved1"
+        self.refuses(document, "p6_config.reserved1 has one valid value in ABI v1")
         document = schema()
         option(document, "video_standard")["maps_to"] = "p6_config.flags"
         self.refuses(document, "maps_to 'p6_config.flags' is already used by option 'video_standard'")
@@ -229,7 +229,8 @@ class NormalizationTests(unittest.TestCase):
         document = schema()
         normalized = gen.normalize_config(document, {})
         machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "fpu_model": "None", "audio_rate_hz": "48000", "random_seed": 1,
-                   "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled"}
+                   "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled",
+                   "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
         presentation = {"video_aspect": "pixel", "floppy_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
                         "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit",
@@ -245,7 +246,8 @@ class NormalizationTests(unittest.TestCase):
         presentation["hotkey_statusbar"] = "f12"            # but F12, which the Amiga does not have, shows the statusbar (PUAE5's default), and the bar starts hidden
         self.assertEqual(normalized, {**machine, **presentation})
         self.assertEqual(gen.to_p6_config(document, normalized),
-                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
+                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
+                          "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0})
 
     def test_the_presets_are_bundles_of_the_options_and_give_the_memory_of_puae5(self):
         # T49: PUAE5's A1200 has 8 MiB of Fast RAM and its A600 is a 2 MiB Chip + 8 MiB Fast machine. A preset is values of the options, so the ABI has no field for it.
@@ -452,7 +454,8 @@ class GeneratorTests(unittest.TestCase):
     def test_the_table_has_the_normalized_p6_config_that_adapters_must_use(self):
         table = json.loads(gen.TABLE.read_text())
         self.assertEqual({name: entry["default"] for name, entry in table["p6_config"].items()},
-                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
+                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
+                          "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0})
         self.assertEqual(table["p6_config"]["chip_kib"]["allowed"], [0, 512, 1024, 2048])
         self.assertEqual(table["p6_config"]["slow_kib"]["allowed"], [0, 4294967295, 512, 1024, 1536, 1792])
         self.assertEqual(table["p6_config"]["fast_kib"]["allowed"], [0, 1024, 2048, 4096, 8192])

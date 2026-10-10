@@ -2,6 +2,7 @@
 // The probe inspects engine state directly (it is test code); the bridge sources never call
 // m68k_go_unit for the frame boundary except through p6_run_frame (T07c).
 #include "p6.h"
+#include <string.h>
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "options.h"
@@ -90,7 +91,20 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
-    c = make_config(); c.reserved[1] = 1;                assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved1 = 1;                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved8[3] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // the bytes after the audio options are still reserved
+    // Paula's output (T73): zero is the profile; sinc and what the fields do not have are refused with the reason, the rest is accepted on every machine.
+    c = make_config(); c.sound_interpolation = 3;        assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "sinc"));
+    c = make_config(); c.sound_interpolation = 6;        assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.sound_separation = 12;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.sound_filter = 4;               assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.sound_filter_type = 3;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A600, P6_MACHINE_A1200}) {
+        c = make_config(); c.machine = machine; c.sound_separation = 1; c.sound_interpolation = 5; c.sound_filter = 3; c.sound_filter_type = 2;
+        assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+        c = make_config(); c.machine = machine; c.sound_separation = 11; c.sound_interpolation = 1; c.sound_filter = 1; c.sound_filter_type = 1;
+        assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    }
     // The FPU (T54, p6_config.fpu_model): a 68020 has the coprocessor interface, a 68000 does not, and the internal FPUs of the 68030/68040 are not machines of the profile yet.
     c = make_config(); c.fpu_model = 1;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.fpu_model = 68040;              assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);

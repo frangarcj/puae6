@@ -19,6 +19,10 @@ struct Settings {
     uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = None
     uint32_t fpu_model = 0u;  // reboot, p6_config.fpu_model = None
     uint32_t audio_rate_hz = 48000u;  // reboot, p6_config.audio_rate_hz = 48000
+    uint32_t sound_separation = 0u;  // reboot, p6_config.sound_separation = 70
+    uint32_t sound_interpolation = 0u;  // reboot, p6_config.sound_interpolation = anti
+    uint32_t sound_filter = 0u;  // reboot, p6_config.sound_filter = emulated
+    uint32_t sound_filter_type = 0u;  // reboot, p6_config.sound_filter_type = auto
     uint64_t random_seed = UINT64_C(1);  // reboot, p6_config.random_seed
     int64_t rtc_epoch_seconds = INT64_C(946684800);  // reboot, p6_config.rtc_epoch_seconds
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
@@ -91,6 +95,10 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->fast_kib = settings.fast_size;
     config->fpu_model = settings.fpu_model;
     config->audio_rate_hz = settings.audio_rate_hz;
+    config->sound_separation = settings.sound_separation;
+    config->sound_interpolation = settings.sound_interpolation;
+    config->sound_filter = settings.sound_filter;
+    config->sound_filter_type = settings.sound_filter_type;
     config->random_seed = settings.random_seed;
     config->rtc_epoch_seconds = settings.rtc_epoch_seconds;
     config->flags = settings.floppy_writes;
@@ -333,6 +341,35 @@ constexpr Value kFpuModelValues[] = {
 constexpr Value kAudioRateHzValues[] = {
     {"44100", 44100u},
     {"48000", 48000u},
+};
+constexpr Value kSoundSeparationValues[] = {
+    {"0", 1u},
+    {"10", 2u},
+    {"20", 3u},
+    {"30", 4u},
+    {"40", 5u},
+    {"50", 6u},
+    {"60", 7u},
+    {"70", 0u},
+    {"80", 9u},
+    {"90", 10u},
+    {"100", 11u},
+};
+constexpr Value kSoundInterpolationValues[] = {
+    {"none", 1u},
+    {"anti", 0u},
+    {"rh", 4u},
+    {"crux", 5u},
+};
+constexpr Value kSoundFilterValues[] = {
+    {"emulated", 0u},
+    {"off", 1u},
+    {"on", 3u},
+};
+constexpr Value kSoundFilterTypeValues[] = {
+    {"auto", 0u},
+    {"A500", 1u},
+    {"A1200", 2u},
 };
 constexpr Value kFloppyWritesValues[] = {
     {"disabled", 0u},
@@ -703,6 +740,10 @@ constexpr Option kOptions[] = {
     {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 5, 0},
     {"puae6_fpu_model", true, &Settings::fpu_model, kFpuModelValues, 3, 0},
     {"puae6_audio_rate", true, &Settings::audio_rate_hz, kAudioRateHzValues, 2, 1},
+    {"puae6_sound_stereo_separation", true, &Settings::sound_separation, kSoundSeparationValues, 11, 7},
+    {"puae6_sound_interpolation", true, &Settings::sound_interpolation, kSoundInterpolationValues, 4, 1},
+    {"puae6_sound_filter", true, &Settings::sound_filter, kSoundFilterValues, 3, 0},
+    {"puae6_sound_filter_type", true, &Settings::sound_filter_type, kSoundFilterTypeValues, 3, 0},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 4, 0},
     {"puae6_floppy_save", false, &Settings::floppy_save, kFloppySaveValues, 2, 0},
@@ -768,6 +809,7 @@ constexpr unsigned kOptionCount = sizeof kOptions / sizeof kOptions[0];
 // Not const: libretro's structs take non-const pointers. The frontend only reads them.
 inline retro_core_option_v2_category kCategoriesV2[] = {
     {"machine", "Machine", "What the emulated Amiga is. These options take effect when the content is loaded."},
+    {"audio", "Audio", "How Paula's output is produced. These options take effect when the content is loaded: they change the samples and the state of the output stage, so they are part of the machine."},
     {"video", "Video", "How the picture is presented. These options apply at once."},
     {"media", "Media", "What the machine does with the disks it is given."},
     {"input", "Input", "How the frontend's controllers become Amiga input. These options apply at once; none of them changes the machine, only the packet of input it is given."},
@@ -810,6 +852,22 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
+    {"puae6_sound_stereo_separation", "Stereo Separation (Restart)", "Stereo Separation (Restart)",
+     "How much of each side's channels stays on that side: Paula wires channels 0 and 3 to the left and 1 and 2 to the right; 0% mixes them into mono and 100% keeps them apart. The default is the profile's (70%, as the upstream engine and PUAE5). It changes the samples, not the machine's other hardware. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "How much of each side's channels stays on that side: Paula wires channels 0 and 3 to the left and 1 and 2 to the right; 0% mixes them into mono and 100% keeps them apart. The default is the profile's (70%, as the upstream engine and PUAE5). It changes the samples, not the machine's other hardware. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "audio", {{"0", "0%"}, {"10", "10%"}, {"20", "20%"}, {"30", "30%"}, {"40", "40%"}, {"50", "50%"}, {"60", "60%"}, {"70", "70%"}, {"80", "80%"}, {"90", "90%"}, {"100", "100%"}}, "70"},
+    {"puae6_sound_interpolation", "Interpolation (Restart)", "Interpolation (Restart)",
+     "How Paula's samples are resampled to the output rate: none (the nearest sample), anti (the upstream default), rh or crux. Sinc is not offered: its queue is not part of the native state, so a state could not be restored sample for sample. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "How Paula's samples are resampled to the output rate: none (the nearest sample), anti (the upstream default), rh or crux. Sinc is not offered: its queue is not part of the native state, so a state could not be restored sample for sample. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "audio", {{"none", "None"}, {"anti", "Anti"}, {"rh", "RH"}, {"crux", "Crux"}}, "anti"},
+    {"puae6_sound_filter", "Audio Filter (Restart)", "Audio Filter (Restart)",
+     "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "audio", {{"emulated", "Emulated (follows the power LED)"}, {"off", "Off"}, {"on", "Always on"}}, "emulated"},
+    {"puae6_sound_filter_type", "Audio Filter Type (Restart)", "Audio Filter Type (Restart)",
+     "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "audio", {{"auto", "Auto (by machine)"}, {"A500", "A500"}, {"A1200", "A1200"}}, "auto"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "Floppy Writes (Restart)",
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1056,6 +1114,10 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
     {"puae6_fpu_model", "FPU (Restart)", "The floating point coprocessor of the A1200 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"M68881", "68881"}, {"M68882", "68882"}}, "None"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
+    {"puae6_sound_stereo_separation", "Stereo Separation (Restart)", "How much of each side's channels stays on that side: Paula wires channels 0 and 3 to the left and 1 and 2 to the right; 0% mixes them into mono and 100% keeps them apart. The default is the profile's (70%, as the upstream engine and PUAE5). It changes the samples, not the machine's other hardware. It takes effect the next time the content is loaded; the running machine is not changed.", {{"0", "0%"}, {"10", "10%"}, {"20", "20%"}, {"30", "30%"}, {"40", "40%"}, {"50", "50%"}, {"60", "60%"}, {"70", "70%"}, {"80", "80%"}, {"90", "90%"}, {"100", "100%"}}, "70"},
+    {"puae6_sound_interpolation", "Interpolation (Restart)", "How Paula's samples are resampled to the output rate: none (the nearest sample), anti (the upstream default), rh or crux. Sinc is not offered: its queue is not part of the native state, so a state could not be restored sample for sample. It takes effect the next time the content is loaded; the running machine is not changed.", {{"none", "None"}, {"anti", "Anti"}, {"rh", "RH"}, {"crux", "Crux"}}, "anti"},
+    {"puae6_sound_filter", "Audio Filter (Restart)", "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"emulated", "Emulated (follows the power LED)"}, {"off", "Off"}, {"on", "Always on"}}, "emulated"},
+    {"puae6_sound_filter_type", "Audio Filter Type (Restart)", "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Auto (by machine)"}, {"A500", "A500"}, {"A1200", "A1200"}}, "auto"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}, {"PAL", "PAL pixel aspect (26:25)"}, {"NTSC", "NTSC pixel aspect (43:50)"}}, "pixel"},
     {"puae6_floppy_save", "Save Floppy Changes", "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
@@ -1127,6 +1189,10 @@ constexpr retro_variable kVariables[] = {
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); None|MB1|MB2|MB4|MB8"},
     {"puae6_fpu_model", "FPU (Restart); None|M68881|M68882"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart); 48000|44100"},
+    {"puae6_sound_stereo_separation", "Stereo Separation (Restart); 70|0|10|20|30|40|50|60|80|90|100"},
+    {"puae6_sound_interpolation", "Interpolation (Restart); anti|none|rh|crux"},
+    {"puae6_sound_filter", "Audio Filter (Restart); emulated|off|on"},
+    {"puae6_sound_filter_type", "Audio Filter Type (Restart); auto|A500|A1200"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3|PAL|NTSC"},
     {"puae6_floppy_save", "Save Floppy Changes; off|on_close"},

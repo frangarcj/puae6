@@ -201,7 +201,8 @@ constexpr Fixed kFixed[] = {
 // The native spelling of a reboot option: the libretro key, exactly as the frontend's menu has it. The presentation, input and OSD options are not here.
 constexpr const char *kNativeKeys[] = {
     "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
-    "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes",
+    "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
+    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type",
 };
 
 const p6_options::Option *find_option(const char *key)
@@ -500,6 +501,32 @@ private:
         if (key == "sound_frequency") {
             if (!parse_int(e.value, false, &number)) error(e, "expected a number of Hz");
             else set_number(e, "puae6_audio_rate", uint64_t(number), std::to_string(number) + " Hz");
+            return;
+        }
+        // Paula's output (T73): WinUAE's own spellings of the four settings the schema offers. The mixed stereo delay, the volumes and the rest of sound_* stay refused below.
+        if (key == "sound_stereo_separation") {
+            if (!parse_int(e.value, false, &number) || number > 10) error(e, "expected 0 to 10 (tenths of 100 %)");
+            else set_name(e, "puae6_sound_stereo_separation", std::to_string(number * 10));
+            return;
+        }
+        if (key == "sound_interpol") {
+            const std::string v = lower(e.value);
+            if (v == "sinc") error(e, "sinc interpolation is not offered: its queue is not part of the native state (none, anti, rh and crux are)");
+            else if (v == "none" || v == "anti" || v == "rh" || v == "crux") set_name(e, "puae6_sound_interpolation", v);
+            else error(e, "expected none, anti, rh or crux (sinc is not offered)");
+            return;
+        }
+        if (key == "sound_filter") {
+            const std::string v = lower(e.value);
+            if (v == "off" || v == "emulated" || v == "on") set_name(e, "puae6_sound_filter", v);
+            else error(e, "expected off, emulated or on (fixedonly is not offered)");
+            return;
+        }
+        if (key == "sound_filter_type") {
+            const std::string v = lower(e.value);
+            if (v == "standard") set_name(e, "puae6_sound_filter_type", "A500");
+            else if (v == "enhanced") set_name(e, "puae6_sound_filter_type", "A1200");
+            else error(e, "expected standard (the A500 model) or enhanced (the A1200 model)");
             return;
         }
         if (key == "ntsc") {

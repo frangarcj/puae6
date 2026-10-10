@@ -49,6 +49,12 @@ def config_hash(machine, video_standard, audio_rate_hz, flags, random_seed, rtc_
     return domain_hash("p6/config/v1", struct.pack("<IIIIQq", machine, video_standard, audio_rate_hz, flags, random_seed, rtc_epoch_seconds))
 
 
+def config_hash_audio(base, separation, interpolation, filter_, filter_type):
+    """T73: the hash of a config whose Paula output differs from the profile's: derived from the hash of the flags word (`base`, 32 bytes) and the four resolved settings in upstream's own
+    values (separation 0..10, sound_interpol, sound_filter, sound_filter_type; the type is 0 while the filter is off). The profile's setting keeps `base` (bridge/state.cpp)."""
+    return domain_hash("p6/config/audio/v1", base, bytes([separation, interpolation, filter_, filter_type]))
+
+
 def media_manifest_hash(media):
     """`media` is a list of (type, content_id) in the order of the p6_load array."""
     return domain_hash("p6/media-manifest/v1", struct.pack("<I", len(media)), *(struct.pack("<I", kind) + content_id for kind, content_id in media))

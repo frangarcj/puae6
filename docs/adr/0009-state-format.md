@@ -227,6 +227,13 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     - Prueba: `tests/state/test_state_fpu.py` (layout, cota, identidad, rechazo campo a campo, un poke por campo que cambia el futuro) y `tests/state/test_det02_fpu.py` (aritmetica, modos de
       redondeo, excepcion pendiente en la frontera, FSAVE/FRESTORE/FMOVEM y, con el Kickstart 3.1 autorizado, el arranque con un 68882).
 
+12. **Revision 2026-10-10 (T73): opciones de audio de Paula en la identidad.** El contenedor, los chunks y las cotas no cambian (AUDP ya lleva el estado de los filtros y del integrador de la
+    interpolacion; la separacion solo cambia constantes del mezclador). Lo que cambia es la identidad: con la separacion, la interpolacion, el filtro o su tipo distintos del perfil de la maquina
+    (70 %, anti, emulado, modelo propio), `config_hash` pasa a `H("p6/config/audio/v1" ‖ config_hash_de_siempre ‖ 4 bytes resueltos)`; en el perfil es el de siempre, asi que las series, los estados y las
+    peliculas existentes siguen valiendo. El resto de la envoltura (`machine`, `flags`...) no tiene campo nuevo: la palabra `flags` no tiene bits libres para 220+ combinaciones, y una segunda palabra
+    plegada solo fuera del perfil no mueve ningun hash conocido. `sinc` (cola no guardada) se rechaza en `p6_init`. Prueba: `tests/audio/test_audio_options.py` (hash esperado recalculado con
+    `tests/state/envelope.py`, estado aceptado por las mismas opciones y rechazado por cualquier otra, rewind con las opciones activas).
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

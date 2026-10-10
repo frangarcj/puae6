@@ -239,6 +239,13 @@ Identity current_identity()
     memcpy(identity.codegen_hash, build.codegen_hash, 32);
     const p6_config &c = session.config;
     config_hash(c.machine, c.video_standard, c.audio_rate_hz, p6_bridge::identity_flags(c), c.random_seed, c.rtc_epoch_seconds, identity.config_hash);
+    // T73: Paula's output options. The hash of a config at the profile's setting is the one it always was; any other setting derives from it with the four resolved settings.
+    uint8_t audio[4];
+    if (p6_bridge::audio_identity(c, audio)) {
+        const uint8_t *parts[2] = {identity.config_hash, audio};
+        const uint64_t lengths[2] = {32, 4};
+        domain_hash("p6/config/audio/v1", parts, lengths, 2, identity.config_hash);
+    }
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;

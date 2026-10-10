@@ -131,6 +131,36 @@ constexpr uint32_t kMemoryIdentityBit = 0x80000000u;
 // T54: 23 and 24 carry the FPU (1 = 68881, 2 = 68882), so a config without one hashes as it always did, and the memory bits above never meet them (chip_kib / 64 is at most 32 << 17 = bit 22).
 constexpr unsigned kFpuIdentityShift = 23;
 
+Audio resolve_audio(const p6_config &c)
+{
+    // 0 is the profile's own setting; any other value is upstream's + 1 (p6.h). The type 'auto' is the model of the machine's Paula output stage (A1200: its AGA filter).
+    const int own_type = c.machine == P6_MACHINE_A1200 ? FILTER_SOUND_TYPE_A1200 : FILTER_SOUND_TYPE_A500;
+    return Audio{c.sound_separation ? int(c.sound_separation) - 1 : kProfileSeparation,
+                 c.sound_interpolation ? int(c.sound_interpolation) - 1 : kProfileInterpolation,
+                 c.sound_filter ? int(c.sound_filter) - 1 : kProfileFilter,
+                 c.sound_filter_type == 1 ? FILTER_SOUND_TYPE_A500 : c.sound_filter_type == 2 ? FILTER_SOUND_TYPE_A1200 : own_type};
+}
+
+bool audio_is_profile(const p6_config &c)
+{
+    const Audio a = resolve_audio(c);
+    const int own_type = c.machine == P6_MACHINE_A1200 ? FILTER_SOUND_TYPE_A1200 : FILTER_SOUND_TYPE_A500;
+    // The model of the filter is only a difference while a filter filters.
+    return a.separation == kProfileSeparation && a.interpolation == kProfileInterpolation && a.filter == kProfileFilter && (a.filter == FILTER_SOUND_OFF || a.filter_type == own_type);
+}
+
+bool audio_identity(const p6_config &c, uint8_t out[4])
+{
+    if (audio_is_profile(c)) return false;
+    // The resolved settings, so that two spellings of one machine (0 and the profile's value, auto and the machine's model, any model with the filter off) hash alike.
+    const Audio a = resolve_audio(c);
+    out[0] = uint8_t(a.separation);
+    out[1] = uint8_t(a.interpolation);
+    out[2] = uint8_t(a.filter);
+    out[3] = a.filter == FILTER_SOUND_OFF ? 0 : uint8_t(a.filter_type);
+    return true;
+}
+
 uint32_t identity_flags(const p6_config &c)
 {
     const uint32_t fpu = (c.fpu_model == 68881 ? 1u : c.fpu_model == 68882 ? 2u : 0u) << kFpuIdentityShift;
@@ -169,8 +199,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio rate must be 44100 or 48000 Hz");
-    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0 || c.reserved[0] || c.reserved[1])
-        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags, or reserved fields that are not zero");
+    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags");
     // The FPU (T54) is the coprocessor of a 68020: the 68000 machines have no coprocessor interface, and the internal FPU of the 68030/68040 comes with those CPUs (T55).
     if (c.fpu_model != 0 && c.fpu_model != 68881 && c.fpu_model != 68882)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "fpu model must be 0 (none), 68881 or 68882");
@@ -178,6 +208,18 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "an FPU needs a 68020: only the A1200 can have a 68881 or 68882");
     if (const p6_result memory = validate_memory(c, error))
         return memory;
+    if (c.reserved8[0] || c.reserved8[1] || c.reserved8[2] || c.reserved8[3] || c.reserved1)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
+    if (c.sound_separation > 11)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "stereo separation must be 0 (the profile's) or 1 to 11 (0 to 100 %)");
+    if (c.sound_interpolation == 3)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "sinc interpolation is not supported: its queue is not part of the native state (none, anti, rh and crux are)");
+    if (c.sound_interpolation > 5)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "interpolation must be 0 (the profile's), 1 (none), 2 (anti), 4 (rh) or 5 (crux)");
+    if (c.sound_filter > 3)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio filter must be 0 (the profile's), 1 (off), 2 (emulated) or 3 (on)");
+    if (c.sound_filter_type > 2)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio filter type must be 0 (auto), 1 (A500) or 2 (A1200)");
     if (c.rtc_epoch_seconds < P6_CIVIL_MIN_SECONDS || c.rtc_epoch_seconds > P6_CIVIL_MAX_SECONDS)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the clock epoch is outside years 1..9999");
     return P6_OK;
@@ -229,7 +271,12 @@ void build_preferences(const p6_config &c)
     currprefs.sound_stereo = SND_STEREO;
     currprefs.produce_sound = 3;
     currprefs.sound_auto = 0;
-    currprefs.sound_stereo_separation = 7;    // upstream default: each side keeps 26/32 of its channels and takes 6/32 of the other
+    // Paula's output (T73): the profile's own setting unless the config names one (resolve_audio); validate_config has refused what the engine cannot restore.
+    const Audio audio = resolve_audio(c);
+    currprefs.sound_stereo_separation = audio.separation;   // profile 7 (upstream default): each side keeps 26/32 of its channels and takes 6/32 of the other
+    currprefs.sound_interpol = audio.interpolation;
+    currprefs.sound_filter = audio.filter;
+    currprefs.sound_filter_type = audio.filter_type;
     currprefs.sound_mixed_stereo_delay = 0;   // no delayed crossfeed
     currprefs.sound_volume_paula = 0;         // Paula volume at full scale
     currprefs.sound_volume_master = 0;

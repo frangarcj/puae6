@@ -63,7 +63,7 @@ class HeadlessParity(Schema):
 
     def test_every_config_field_headless_sets_is_one_of_the_schema_and_each_reboot_option_is_set(self):
         assigned = set(re.findall(r"\bconfig\.(\w+) = ", self.source))
-        expected = FIXED_ASSIGNMENTS | {o["maps_to"].partition(".")[2] for o in self.reboot.values()}
+        expected = FIXED_ASSIGNMENTS | {o["maps_to"].partition(".")[2] for o in self.reboot.values() if o["headless"]["how"] != "profile"}
         self.assertEqual(assigned, expected, "adapters/headless/main.cpp sets a p6_config field that the schema does not have, or misses one")
 
     def test_each_option_is_taken_the_way_the_schema_says_with_the_schema_default(self):
@@ -72,7 +72,11 @@ class HeadlessParity(Schema):
             with self.subTest(option=name, how=how["how"]):
                 field = option["maps_to"].partition(".")[2]
                 default = self.default_of(name)
-                if how["how"] == "fixed":
+                if how["how"] == "profile":
+                    # T73: not offered by headless yet; the field stays zero, which is the profile's own setting (the default of the option is its ABI number 0).
+                    self.assertEqual(default, 0, f"{name}: the profile's setting is the ABI zero")
+                    self.assertNotRegex(self.source, rf"config\.{field}\b")
+                elif how["how"] == "fixed":
                     found = re.search(rf"config\.{field} = (\d+);", self.source)
                     self.assertIsNotNone(found, f"headless does not set config.{field} to a literal")
                     self.assertEqual(int(found[1]), default, f"headless fixes {field} at {found[1]}, the schema default is {default}")
@@ -200,7 +204,7 @@ class WrapperParity(Schema):
                 field = camel(option["maps_to"].partition(".")[2])
                 self.assertRegex(self.core, rf"init\.Config\.{field} = [^;]*_syncSettings\.{how['setting']}", f"{how['setting']} does not reach the config")
         sets = set(re.findall(r"init\.Config\.(\w+) = ", self.core))
-        expected = {"AbiVersion", "StructSize", "Machine"} | {camel(o["maps_to"].partition(".")[2]) for o in self.reboot.values()}
+        expected = {"AbiVersion", "StructSize", "Machine"} | {camel(o["maps_to"].partition(".")[2]) for o in self.reboot.values() if o["wrapper"]["how"] != "profile"}
         self.assertEqual(sets, expected, "the wrapper sets a config field that the schema does not have, or misses one")
 
 
@@ -314,7 +318,7 @@ class AdaptersAgree(Schema):
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
         self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1,
-                                    "rtc_epoch_seconds": 946684800, "flags": 0})
+                                    "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0})
         for field, value in defaults.items():
             self.assertEqual(int(libretro[self.table["p6_config"][field]["option"]]), value, f"libretro {field}")
         self.assertRegex(headless, r"\bstandard = P6_VIDEO_PAL[,;]")

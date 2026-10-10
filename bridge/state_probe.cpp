@@ -912,6 +912,7 @@ int main(int argc, char **argv)
     uint32_t machine = P6_MACHINE_A500;
     uint32_t rate = 48000;
     uint32_t fpu_model = 0;                                  // T54: 0 = none, 68881 or 68882 (--fpu 68882)
+    uint32_t sound[4] = {0, 0, 0, 0};                        // T73: p6_config sound_separation, sound_interpolation, sound_filter, sound_filter_type as ABI numbers (--sound-sep, --sound-interp, --sound-filter, --sound-type)
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
     uint64_t seed = 1;
     bool floppy_writes = false;
@@ -936,6 +937,10 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--sound-sep") && i + 1 < argc) sound[0] = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) sound[1] = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--sound-filter") && i + 1 < argc) sound[2] = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--sound-type") && i + 1 < argc) sound[3] = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
         else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--save-fields-at") || !strcmp(argv[i], "--load-at") ||
                   !strcmp(argv[i], "--load-fault-at") || !strcmp(argv[i], "--load-fault-head-at") || !strcmp(argv[i], "--public-save-at") ||
@@ -1040,6 +1045,7 @@ int main(int argc, char **argv)
     config.slow_kib = slow_kib;
     config.fast_kib = fast_kib;
     config.fpu_model = fpu_model;
+    config.sound_separation = uint8_t(sound[0]); config.sound_interpolation = uint8_t(sound[1]); config.sound_filter = uint8_t(sound[2]); config.sound_filter_type = uint8_t(sound[3]);
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
