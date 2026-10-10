@@ -11089,13 +11089,16 @@
         "ports/waterbox/**",
         "integration/bizhawk/core/**",
         "tests/waterbox-media/**",
-        "manifests/waterbox-memory.json"
+        "manifests/waterbox-memory.json",
+        "tests/ffi/**",
+        "docs/03-waterbox.md"
       ],
       "steps": [
         "Colocar overlay/metadata en memoria capturada; mantener base en readonly y lista de medios predefinida al seal.",
         "Definir export/import acotado de persistencia sin mapear todo HDF como SaveRAM automaticamente.",
         "Reproducir WB10 con writes, ramas, seek y restore en sandbox nuevo; comprobar que el archivo durable no cambia.",
-        "Medir crecimiento de snapshots/heaps ante escrituras adversarias y probar agotamiento."
+        "Medir crecimiento de snapshots/heaps ante escrituras adversarias y probar agotamiento.",
+        "Ampliacion de touch (2026-10-10): el DSL de sesiones del arnes gestionado vive en tests/ffi (Session.cs) y WB10 necesita verbos de escritura/export; docs/03-waterbox.md lleva el estado T27c/T28 que hay que cerrar."
       ],
       "checks": [
         "WB10",
@@ -11193,6 +11196,186 @@
       "evidence": null
     },
     {
+      "id": "T31a",
+      "title": "Teclado virtual libretro (vkbd) como entrada normal serializable",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17",
+        "T18",
+        "T24",
+        "T17c",
+        "T17d",
+        "T17e"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "tests/libretro-ui/**",
+        "tests/libretro-host/**",
+        "tests/config/**",
+        "docs/options.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Teclado virtual superpuesto en el adaptador: dibujo fuera del hash hardware, pulsaciones convertidas en eventos de teclado normales (los mismos que el teclado real), estado del vkbd en el estado del adaptador; paridad con el vkbd de PUAE5 (reports/research/parity-puae5.md).",
+        "Division de T31 (2026-10-10, paso 5 de la ficha): la presentacion y el mapper viven en adapters/libretro (libretro_core.cpp, input_map.h, options*.h) y sus opciones en config/schema/options.json + tools/generate_options.py, fuera de adapters/libretro/ui/**; por eso touch se amplia a esas rutas. Nada de esto cambia la maquina: el hash hardware no se mueve y las acciones UI son inputs/eventos normales serializables."
+      ],
+      "checks": [
+        "LR01",
+        "IN01",
+        "DET05",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El cambio no altera el hash hardware ni el de la imagen nativa con la opcion activada o no; las opciones semanticas (si las hay) van a sync config; tests en tests/libretro-ui o tests/libretro-host lo prueban."
+      ],
+      "stop": "Si una comodidad exige mutar hardware sin input/config registrado, rediseñar la frontera en vez de ocultarla como setting grafico.",
+      "evidence": null
+    },
+    {
+      "id": "T31b",
+      "title": "OSD/statusbar y LED de disquetera en libretro, fuera del hash hardware",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17",
+        "T18",
+        "T24",
+        "T17c",
+        "T17d",
+        "T17e"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "tests/libretro-ui/**",
+        "tests/libretro-host/**",
+        "tests/config/**",
+        "docs/options.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Barra de estado/OSD con LED de disquetera, pista y potencia leidos de P6_FRAME_DRIVE_LIGHT/estado publico, dibujada sobre una copia del frame presentado; modelo LEDCallback de bizhawk.c y UAE.IDriveLight.cs de ../MacHawk (solo lectura).",
+        "Division de T31 (2026-10-10, paso 5 de la ficha): la presentacion y el mapper viven en adapters/libretro (libretro_core.cpp, input_map.h, options*.h) y sus opciones en config/schema/options.json + tools/generate_options.py, fuera de adapters/libretro/ui/**; por eso touch se amplia a esas rutas. Nada de esto cambia la maquina: el hash hardware no se mueve y las acciones UI son inputs/eventos normales serializables."
+      ],
+      "checks": [
+        "LR01",
+        "IN01",
+        "DET05",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El cambio no altera el hash hardware ni el de la imagen nativa con la opcion activada o no; las opciones semanticas (si las hay) van a sync config; tests en tests/libretro-ui o tests/libretro-host lo prueban."
+      ],
+      "stop": "Si una comodidad exige mutar hardware sin input/config registrado, rediseñar la frontera en vez de ocultarla como setting grafico.",
+      "evidence": null
+    },
+    {
+      "id": "T31c",
+      "title": "Presentacion de video libretro: crop, zoom, posicion, aspecto, gamma y RGB565",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17",
+        "T18",
+        "T24",
+        "T17c",
+        "T17d",
+        "T17e"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "tests/libretro-ui/**",
+        "tests/libretro-host/**",
+        "tests/config/**",
+        "docs/options.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Crop/zoom/posicion/aspecto/gamma/formato RGB565 en el adaptador como transformacion del frame presentado; el hash hardware y el de la imagen nativa no cambian; geometria comunicada con SET_GEOMETRY/SET_SYSTEM_AV_INFO.",
+        "Division de T31 (2026-10-10, paso 5 de la ficha): la presentacion y el mapper viven en adapters/libretro (libretro_core.cpp, input_map.h, options*.h) y sus opciones en config/schema/options.json + tools/generate_options.py, fuera de adapters/libretro/ui/**; por eso touch se amplia a esas rutas. Nada de esto cambia la maquina: el hash hardware no se mueve y las acciones UI son inputs/eventos normales serializables."
+      ],
+      "checks": [
+        "LR01",
+        "IN01",
+        "DET05",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El cambio no altera el hash hardware ni el de la imagen nativa con la opcion activada o no; las opciones semanticas (si las hay) van a sync config; tests en tests/libretro-ui o tests/libretro-host lo prueban."
+      ],
+      "stop": "Si una comodidad exige mutar hardware sin input/config registrado, rediseñar la frontera en vez de ocultarla como setting grafico.",
+      "evidence": null
+    },
+    {
+      "id": "T31d",
+      "title": "Mapper de RetroPad, turbo fire y raton por stick analogico/D-Pad en libretro",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T17",
+        "T18",
+        "T24",
+        "T17c",
+        "T17d",
+        "T17e"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "tests/libretro-ui/**",
+        "tests/libretro-host/**",
+        "tests/config/**",
+        "docs/options.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Mapper configurable de RetroPad, turbo fire, raton por stick analogico (correccion de libretro-uae 106b98d5, 237ca4a9) y raton por D-Pad, todo convertido en input normal antes de p6_run_frame; turbo con contador de unidades del adaptador guardado en su estado, nunca reloj de pared.",
+        "Division de T31 (2026-10-10, paso 5 de la ficha): la presentacion y el mapper viven en adapters/libretro (libretro_core.cpp, input_map.h, options*.h) y sus opciones en config/schema/options.json + tools/generate_options.py, fuera de adapters/libretro/ui/**; por eso touch se amplia a esas rutas. Nada de esto cambia la maquina: el hash hardware no se mueve y las acciones UI son inputs/eventos normales serializables."
+      ],
+      "checks": [
+        "LR01",
+        "IN01",
+        "DET05",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El cambio no altera el hash hardware ni el de la imagen nativa con la opcion activada o no; las opciones semanticas (si las hay) van a sync config; tests en tests/libretro-ui o tests/libretro-host lo prueban."
+      ],
+      "stop": "Si una comodidad exige mutar hardware sin input/config registrado, rediseñar la frontera en vez de ocultarla como setting grafico.",
+      "evidence": null
+    },
+    {
       "id": "T31",
       "title": "Añadir UX libretro sin contaminar la emulacion",
       "milestone": "M3",
@@ -11204,7 +11387,11 @@
         "T24",
         "T17c",
         "T17d",
-        "T17e"
+        "T17e",
+        "T31a",
+        "T31b",
+        "T31c",
+        "T31d"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -11224,7 +11411,8 @@
         "Crear importador .uae allowlist con errores por claves peligrosas/no soportadas, sin plugins ni shell.",
         "Probar que toggles de overlay/crop/volumen no cambian hardware; opciones semanticas van a sync config.",
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): T31 cubre vkbd, statusbar/LED/OSD, crop/zoom/posicion/aspecto/gamma/RGB565 y la entrada del adaptador (mapper de RetroPad, turbo fire, analog-stick-mouse, D-Pad mouse). Dividir al ejecutar en T31a vkbd, T31b OSD/statusbar, T31c presentacion de video, T31d mapper/turbo/raton analogico; nada de eso cambia la maquina.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: LEDCallback de bizhawk.c y UAE.IDriveLight.cs para el LED de disquetera; la correccion del raton por stick analogico de libretro-uae (commits 106b98d5, 237ca4a9)."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: LEDCallback de bizhawk.c y UAE.IDriveLight.cs para el LED de disquetera; la correccion del raton por stick analogico de libretro-uae (commits 106b98d5, 237ca4a9).",
+        "Cierre (2026-10-10): T31 queda como cierre de T31a-T31d; posee el importador .uae allowlist (paso 3), docs/options.md y los checks LR01/IN01/DET05/FUZZ01 sobre el conjunto."
       ],
       "checks": [
         "LR01",
