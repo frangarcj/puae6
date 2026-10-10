@@ -12,7 +12,7 @@
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
 //   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
-//                      [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
+//                      [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
 //                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]...
 // --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
 // chunks that do not exist yet, so a state made here restores only what the registry implements. They print "save UNIT BYTES SHA256",
@@ -39,6 +39,7 @@
 // make one entry of the engine's edge memory differ from the bridge's; a save made then must be refused.
 // --key UNIT CODE down|up and --port-at UNIT N:type:buttons:dx:dy (T15c3) change the packet the probe sends from that unit on (a key held, a mouse that moves only in some
 // units), so that a boundary can find the keyboard in the middle of a handshake or the mouse in flight; both are applied right before the unit they name.
+// --hdf mounts a hard file at p6_load (T29c; after the --adf images, in the order given), so that the controller and the overlay of its writes are part of the "ram" digest.
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
 // --event-at UNIT DRIVE INDEX SEQUENCE (T15h) calls p6_media_event_enqueue after UNIT (INDEX -1 ejects; at UNIT 0 the event is a boot medium) and prints "event UNIT CODE MESSAGE";
 // --append-at UNIT FILE (T17e) calls p6_media_append with the image in FILE and prints "append UNIT CODE INDEX MESSAGE"; the medium is not mounted (use --event-at with the index).
@@ -215,6 +216,17 @@ void ram(Canon &c)
         c.put(uint8_t(got));
         for (uint32_t v : w) c.put(v);
         c.raw(ac, sizeof ac);
+    }
+    // T29c: a machine with a hard file adds its controller and the overlay of its writes, as the state writes them (the section of P6DK: the trap area, the UAEFS board, the units of the
+    // file system and of uaehf.device, the EXTER queue and the dirty chunks). Nothing for a machine without one, whose digest is what it was.
+    if (p6_bridge::hard_file_count()) {
+        p6_state::Archive measure = p6_state::Archive::measurer();
+        p6_state::visit_hdf(measure);
+        std::vector<uint8_t> section(size_t(measure.position()));
+        p6_state::Archive save = p6_state::Archive::saver(section.data(), section.size());
+        p6_state::visit_hdf(save);
+        c.put(uint8_t(save.ok())).put(uint64_t(save.position()));
+        if (save.ok()) c.raw(section.data(), size_t(save.position()));
     }
 }
 
@@ -918,6 +930,7 @@ int main(int argc, char **argv)
     bool floppy_writes = false;
     std::vector<StateOp> state_ops;
     std::vector<const char *> adf_paths;
+    std::vector<const char *> hdf_paths;
     p6_port_input ports[2] = {{P6_PORT_JOYSTICK, 0, 0, 0, 0}, {P6_PORT_JOYSTICK, 0, 0, 0, 0}};
     std::vector<InputEvent> input_events;
     for (int i = 1; i < argc; ++i) {
@@ -997,6 +1010,7 @@ int main(int argc, char **argv)
         } else if (!strcmp(argv[i], "--public-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Public, nullptr, nullptr});
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--adf") && i + 1 < argc) adf_paths.push_back(argv[++i]);
+        else if (!strcmp(argv[i], "--hdf") && i + 1 < argc) hdf_paths.push_back(argv[++i]);
         else if (!strcmp(argv[i], "--port") && i + 1 < argc) {
             unsigned port, type, buttons;
             int dx, dy;
@@ -1016,7 +1030,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 68881|68882] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 68881|68882] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -1029,6 +1043,16 @@ int main(int argc, char **argv)
         m.type = P6_MEDIA_ADF;
         p6_sha256_hash(adfs[k].data(), adfs[k].size(), m.content_id);
         m.image = p6_buffer{adfs[k].data(), adfs[k].size()};
+        media.push_back(m);
+    }
+
+    std::vector<std::vector<uint8_t>> hdfs(hdf_paths.size());
+    for (size_t k = 0; k < hdf_paths.size(); ++k) {
+        if (!read_file(hdf_paths[k], &hdfs[k])) return 1;
+        p6_media m = {};
+        m.type = P6_MEDIA_HDF;
+        p6_sha256_hash(hdfs[k].data(), hdfs[k].size(), m.content_id);
+        m.image = p6_buffer{hdfs[k].data(), hdfs[k].size()};
         media.push_back(m);
     }
 

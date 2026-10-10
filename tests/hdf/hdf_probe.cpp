@@ -186,9 +186,13 @@ int main(int argc, char **argv)
         uint64_t bound = 0, written = 0;
         p6_result r = p6_state_bound(&bound, &error);
         printf("state_bound=%d %s\n", int(r), r == P6_OK ? "" : error.message);
-        std::vector<uint8_t> buffer(1 << 20);
+        std::vector<uint8_t> buffer(static_cast<size_t>(bound));
         r = p6_state_save(buffer.data(), buffer.size(), &written, &error);
-        printf("state_save=%d %s\n", int(r), r == P6_OK ? "" : error.message);
+        printf("state_save=%d %s written=%" PRIu64 " bound=%" PRIu64 "\n", int(r), r == P6_OK ? "" : error.message, written, bound);
+        if (r == P6_OK) {
+            r = p6_state_load(buffer.data(), written, &error);
+            printf("state_load=%d %s\n", int(r), r == P6_OK ? "" : error.message);
+        }
     }
 
     FILE *out = fopen(argv[6], "wb");

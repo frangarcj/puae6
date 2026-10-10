@@ -172,6 +172,20 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     fuera de ellos. (e) Una pista escrita que no decodifica en once sectores (formato propio) no es una escritura de sectores y un ADF no tiene sitio para ella: se guarda tal
     cual en un segundo pool (16 pistas de 12784 bytes) que sigue al de sectores en el mismo cuerpo (u32 cuenta, y por pista u8 medio, u8 pista, u32 bits y las palabras
     MFM), con las mismas validaciones, y el disco con una pista cruda no se exporta como ADF (UNSUPPORTED) en lugar de perderla sin decirlo.
+11. **Revision 2026-10-10 (T29c): el controlador de un disco duro y su overlay son estado; la base es identidad.** Con al menos un `P6_MEDIA_HDF` el chunk P6DK lleva, despues de los cuerpos del motor y
+    antes del overlay de los disquetes, la seccion de `bridge/state_hdf.cpp`; sin HDF no hay seccion y el chunk no cambia ni de bytes. Decisiones: (a) cuerpo propio, no `save_filesys`: el de upstream guarda la ruta
+    del host de cada unidad y el fichero del sistema de ficheros, y reconstruye las unidades montandolas; aqui las unidades las reconstruye cada carga desde la configuracion de montaje y la seccion lleva lo que el
+    arranque y el invitado les hicieron, mediante accesores de los parches 0180-0182 (valores y bytes del invitado, ningun puntero ni cadena del host: `rdb_filesysstore` viaja como contenido, a lo sumo 262144 bytes que
+    `pt_rdsk` ya acota); (b) orden: numero de HDF y content id de cada base, globales de `filesys.cpp`, por HDF la unidad de `filesys` y la de `uaehf.device`, zona de traps, placa UAEFS, cadena autoconfig si no hay Fast RAM,
+    cola EXTER y los overlays; (c) el overlay lleva solo los trozos de 4 KiB sucios, como lista de indices ascendentes con sus bytes (el bitmap disperso: el indice ES el bit, y un trozo sin nombrar es el de la base);
+    cargar lo SUSTITUYE entero; (d) la identidad de la base es su content id, comprobado en dos sitios antes de tocar la maquina: el `media_manifest_hash` de la cabecera (que ya incluye tipo y content id) y, ya
+    validado el cuerpo, `hdf_matches_manifest` (el content id de la seccion contra el registrado), ambos INCOMPATIBLE. La busqueda del prefijo del manifiesto (T17e) solo acepta un prefijo que contenga todos los HDF,
+    porque un HDF no se anexa: sin ello el estado de `[disquete]` seria el de `[disquete, HDF]`; (e) `state_bound` es el maximo con todos los trozos sucios (tamaño de la imagen + 4 bytes por trozo) mas el maximo del
+    controlador, y no cambia durante la vida de la imagen (el contrato de la cota); el estado real es mucho menor; (f) la cadena autoconfig de una maquina con HDF tiene la placa UAEFS y la ROM de arranque UAE
+    ademas de la tarjeta de Fast RAM si la hay: `visit_expansion` (P6RM) cuenta tarjetas segun haya HDF y la seccion la lleva cuando no hay Fast RAM; (g) la posicion en el anillo de la cola EXTER no es comportamiento
+    (se guardan los mensajes en orden y se vuelve a empezar en 0), y la linea de peticion `uae_int_requested` se guarda aparte porque el invitado la baja leyendo un byte de la zona de traps. Pruebas:
+    `tests/state/test_det02_hdf.py` (DET02 con el controlador ocupado y con los Kickstart 1.3 y 3.1 del propietario, opt-in; cada componente se comprobo anulando su aplicacion y la prueba falla),
+    `tests/state/test_state_hdf.py` (STATE01 por tamaño de HDF, identidad de la base, cuerpos hostiles, DET03 entre procesos y re-guardado byte a byte).
 
 ## Evidencia
 

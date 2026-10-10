@@ -3556,6 +3556,98 @@
           "after_sha256": "0146035fe3f70e472e1ce81bbdcb8a8bdaacd0e3bcb45f4a3070c470112a76ab"
         }
       ]
+    },
+    {
+      "id": "0180-native2amiga-queue-state",
+      "file": "patches/winuae/0180-native2amiga-queue-state.patch",
+      "sha256": "6a1a1dfd81cb8a82ae4418a2013a2f506ad157947bd4066017881054a8e4b7ad",
+      "title": "The EXTER work queue of native2amiga can be read and put back as values",
+      "reason": "T29c: a message that the host queued for the 68k (the ReplyMsg of a finished hard-file request) and that the EXTER interrupt has not delivered yet is machine state at a unit boundary. The ring is described as its entries in order (the position in the ring is not behaviour), each message as the producers wrote it, and a message that carries a pointer of the host is refused instead of being written as an address.",
+      "category": "host hooks",
+      "order": 131,
+      "symbols": [
+        "p6_n2a_state_get",
+        "p6_n2a_state_set",
+        "p6_n2a_length",
+        "p6_n2a_walk"
+      ],
+      "test": "tests/state/test_det02_hdf.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "native2amiga.cpp",
+          "before_sha256": "5a01df2e0ad72819a73b4b32856eed93e544a51ffa2c33fdfc45cacd7e8b5db3",
+          "after_sha256": "f6281407e629069ef01bf6159c8bea72e8ef5731f7538c4df316bcc85772454a"
+        }
+      ]
+    },
+    {
+      "id": "0181-filesys-hardfile-rtarea-state",
+      "file": "patches/winuae/0181-filesys-hardfile-rtarea-state.patch",
+      "sha256": "63278f8cdefe79da1e6c0f049a39a68631e40b9bb5753863d4407dc0594237f6",
+      "title": "The controller of a hard file (filesys units, uaehf.device units, trap area) can be read and put back as values",
+      "reason": "T29c: upstream save_filesys keeps host paths and names savestate.cpp helpers the profile does not build, so the state of the UAE controller is written by the bridge from accessors: the globals and the per-unit values of filesys.cpp (the file system handler of an RDB included, as bytes), the per-unit values and unfinished requests of hardfpd, and the 64 KiB of the trap area with the cursors ds() and here() continue from and the request line of the EXTER interrupt. The walk of exter_int_helper over the units was a function-local static and is a file-local one now (a boundary can fall inside the interrupt that delivers a reply).",
+      "category": "host hooks",
+      "order": 132,
+      "symbols": [
+        "exter_int_helper",
+        "p6_filesys_state_get",
+        "p6_filesys_state_set",
+        "p6_filesys_unit_mounted",
+        "p6_filesys_unit_state_get",
+        "p6_filesys_unit_state_set",
+        "p6_hardfile_state_get",
+        "p6_hardfile_state_set",
+        "p6_rtarea_state_get",
+        "p6_rtarea_state_set"
+      ],
+      "test": "tests/state/test_det02_hdf.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "filesys.cpp",
+          "before_sha256": "bcafe94ce0d6464670bcf13ea42a4d54f90d5a6ec23604667e9c07d5d6fbe1fd",
+          "after_sha256": "cf368f03b5fa76da9eb5f4eb2387a26a57434468681b5c6892b46dcd34b9807d"
+        },
+        {
+          "path": "hardfile.cpp",
+          "before_sha256": "60fa5b24eb054dd91390e09ce6aea4af52546c18088689c8ada053dc9a8ecd3e",
+          "after_sha256": "4911d6937fc7cae3c5e0e0c1467e619bab5a172c02b1715725dee83f60c33f4e"
+        },
+        {
+          "path": "autoconf.cpp",
+          "before_sha256": "18387712ef981272240c3975bf3d6bfcfefa95cd0dff1b6a35fda1f630c1aa95",
+          "after_sha256": "927960fc3e4ba04157a8d368d11958af6fa533874d95d1818a72642be4c1dd9d"
+        }
+      ]
+    },
+    {
+      "id": "0182-expansion-uaefs-state",
+      "file": "patches/winuae/0182-expansion-uaefs-state.patch",
+      "sha256": "19f7ccfc5c6660c01a06e8b17b81163e9ad96f4b4096cbf51159a7a1f268ee5b",
+      "title": "The UAEFS board and an autoconfig chain without a Fast RAM board can be read and put back as values",
+      "reason": "T29c: the board that carries the DiagArea and the records shared with the host is machine state (where the guest put it, whether it has its memory, the 64 KiB), and the chain accessors of the Fast RAM board (patch 0112) also serve a machine whose only board is the UAEFS one: the Fast RAM words are zero and nothing of the Fast RAM bank is touched.",
+      "category": "host hooks",
+      "order": 133,
+      "symbols": [
+        "p6_expansion_state_get",
+        "p6_expansion_state_set",
+        "p6_uaefs_state_get",
+        "p6_uaefs_state_set",
+        "p6_uaefs_mapped"
+      ],
+      "test": "tests/state/test_det02_hdf.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "8d5d05f4e97108fdc914aafcd075fb7e33dadcaf6d84fc83acc465cf92607b08",
+          "after_sha256": "2ce717e3fa630a601b5570735922e2c3ee15934ec6de58073879307dcf18f98d"
+        }
+      ]
     }
   ]
 }

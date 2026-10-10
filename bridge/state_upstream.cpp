@@ -1239,6 +1239,7 @@ void visit_disk(Archive &a)
 {
     if (a.applying()) put_media_in_drives();
     visit_bodies(a, kDiskBodies, nullptr);
+    if (a.ok()) visit_hdf(a);               // T29c: the controller of the hard files and the overlay of their writes, while one is mounted (state_hdf.cpp)
     if (a.ok()) visit_overlay(a);
 }
 
@@ -1283,6 +1284,8 @@ const char *disk_matches_manifest(const uint8_t *body, uint64_t length, MediaPla
         if (i == sizeof kDiskBodies / sizeof kDiskBodies[0] - 1) dskx = body + at + 8;
         at += 8 + size;
     }
+    // The hard files follow the bodies (state_hdf.cpp): the state has to name the base images this image registered.
+    if (const char *why = hdf_matches_manifest(body + at, length - at)) return why;
     for (int n = 0; n < 4; ++n) {
         const bool countdown = int32_t(Body{dskx, kDiskPhaseBytes}.u32((kDkDrives + n * kDkDriveWords + kDkChangeTime) * 4)) > 0;
         const int32_t medium = plan.drive_media[n];

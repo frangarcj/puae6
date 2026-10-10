@@ -46,6 +46,15 @@ int p6_blob_hdf_read(const char *id, uint64_t offset, void *out, size_t length, 
 int p6_blob_hdf_write(const char *id, uint64_t offset, const void *data, size_t length, size_t *done);
 int p6_blob_hdf_export(const char *id, void *out, size_t capacity, size_t *written);
 int p6_blob_hdf_status(const char *id, uint64_t *chunks, uint64_t *dirty);
+/* The overlay as machine state (T29c): the chunks written so far, nothing of the base. next_dirty gives the first dirty chunk at or after `from` (*chunk is the chunk
+ * count of the image when there is none), chunk_bytes the length a chunk has (P6_HDF_CHUNK, less for the last one of an image that is not a multiple of it) and
+ * chunk_data its current bytes (RANGE for a chunk that is not dirty: the base is read with p6_blob_pread). state_clear takes the overlay back to the base (nothing dirty)
+ * and state_put makes one chunk dirty with the given bytes (chunk_bytes of them), which is how a loaded state replaces the overlay as a whole. */
+int p6_blob_hdf_next_dirty(const char *id, uint64_t from, uint64_t *chunk);
+int p6_blob_hdf_chunk_bytes(const char *id, uint64_t chunk, size_t *bytes);
+int p6_blob_hdf_chunk_data(const char *id, uint64_t chunk, const void **data);
+int p6_blob_hdf_state_clear(const char *id);
+int p6_blob_hdf_state_put(const char *id, uint64_t chunk, const void *data);
 /* "rb": the base, always. "r+b": the base with the write overlay of the asset on top (p6_blob_overlay_bind), READ_ONLY for an asset without
  * one. out is zeroed on failure; every successful open has its own cursor. */
 int p6_blob_open(const char *id, const char *mode, p6_blob_handle *out);

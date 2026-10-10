@@ -135,11 +135,16 @@ class Block0Tests(unittest.TestCase):
             result, _ = run(self.exe, directory, self.rom, images=five)
             self.assertIn("load refused: 7 too many hard files", result.stdout)
 
-    def test_a_session_with_a_hard_file_has_no_state(self):
+    def test_a_session_with_a_hard_file_has_a_state_that_loads_back(self):
+        """T29c: the gate that said UNSUPPORTED is gone. The bound holds the controller, the section of every hard file's overlay at its largest (the whole image) and the machine; the state
+        the guest left (the micro-ROM wrote blocks 3, 7 and 8: three dirty chunks) is smaller than that and loads back into the same session (tests/state/test_det02_hdf.py has the futures)."""
         result, _ = self.run_case(self.images["plain"], env={"P6_PROBE_STATE": "1"})
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("state_bound=4 a session with a hard file has no native state yet", result.stdout)
-        self.assertIn("state_save=4 a session with a hard file has no native state yet", result.stdout)
+        self.assertIn("state_bound=0 ", result.stdout)
+        save = next(line for line in result.stdout.splitlines() if line.startswith("state_save=0"))
+        written, bound = (int(field.split("=")[1]) for field in save.split()[-2:])
+        self.assertLess(written, bound)
+        self.assertIn("state_load=0 ", result.stdout)
 
     def test_load_unload_cycles_do_not_grow_the_heap(self):
         result, _ = self.run_case(self.images["plain"], env={"P6_PROBE_CYCLES": "8"})

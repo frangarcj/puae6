@@ -70,6 +70,12 @@ const char *disk_matches_manifest(const uint8_t *body, uint64_t length, MediaPla
 const MediaPlan *loading_media();
 // The size of the manifest the state in hand was taken with (state.cpp): every medium index a body carries is below it.
 uint32_t manifest_count();
+// The autoconfig chain of the Zorro II boards (state.cpp; the Fast RAM board has `fast` bytes, 0 for a machine without one) and the hard-file section of P6DK (state_hdf.cpp):
+// the controller of the UAE hard files and the overlay of their writes, present only while a hard file is mounted. hdf_matches_manifest is what the section says about the
+// media (the content id of every hard file against the registered one, before the machine is touched): nullptr, or why the state's hard files are not this image's.
+void visit_expansion(Archive &a, uint32_t fast);
+void visit_hdf(Archive &a);
+const char *hdf_matches_manifest(const uint8_t *section, uint64_t length);
 
 // A value of the machine that travels as a fixed-width integer in [lo, hi]. Returns what was read (Save: the live value), which is the only thing a
 // cross-check may use: Validate stores nothing, so the live variable it came from belongs to another machine.

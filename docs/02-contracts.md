@@ -490,8 +490,7 @@ dentro de `BeginIO` (sin hilo por unidad) y el invitado ve la respuesta en la si
 `scsi.cpp`), y se rechazan los volumenes del host (directorios, archivos, CD, cinta) y cualquier controlador distinto del UAE.
 Kickstart 1.3 o posterior (version 34+): con una anterior `p6_load` responde UNSUPPORTED. La placa UAEFS y la ROM de arranque UAE ($F00000) existen SOLO si hay un HDF: sin el, la maquina,
 sus digests y sus hashes son los de antes. RDB y particiones se validan sin reservar tamaños leidos del disco (tamaño de bloque del RDB: potencia de dos entre 256 y 8192; cadena de
-FSHD acotada a 1024; sin VHD ni CHD). Con un HDF montado NO hay estado nativo todavia: `p6_state_bound`, `p6_state_save` y `p6_state_load` responden UNSUPPORTED (el estado del
-controlador, la cola EXTER y la placa no estan serializados; llega con T29c). Pendiente de T29: el estado (T29c), Waterbox y el bit de capacidad `P6_CAP_MEDIA_HDF` (cambia `p6_query_caps`, que fijan pruebas de otras zonas; T29d).
+FSHD acotada a 1024; sin VHD ni CHD). Con un HDF montado el estado nativo existe desde T29c (parrafo siguiente; T29a y T29b respondian UNSUPPORTED). Pendiente de T29: Waterbox y el bit de capacidad `P6_CAP_MEDIA_HDF` (cambia `p6_query_caps`, que fijan pruebas de otras zonas; T29d).
 
 Escritura de HDF (T29b, sin parches del motor: todo en `ports/portable`): un HDF es siempre escribible. La base registrada es inmutable (ni el buffer del llamante ni la copia del almacen de blobs cambian
 jamas); una escritura del invitado copia el trozo de 4 KiB (`P6_HDF_CHUNK`, el `HARDDISK_CHUNK` de MacHawk) a un overlay la primera vez que lo toca, lo marca en un bitmap de sucios y escribe ahi; toda lectura
@@ -499,7 +498,20 @@ ve el overlay sobre la base. La memoria del overlay (el tamaño de la imagen mas
 (presupuesto como MacHawk: tamaño del fichero, ahora dos veces: base y sitio para el overlay). `p6_media_export` de un indice de HDF copia la imagen tal como esta ahora (la base con el overlay encima) a un
 buffer de al menos su tamaño (CAPACITY sin escribir nada si es menor) y `p6_media_write_status_get` cuenta en trozos (`overlay_capacity` = trozos de la imagen, `overlay_used` = `medium_sectors` = trozos
 escritos, `refused_writes` = `raw_tracks` = 0). Nada sale del proceso solo: ni flush ni fichero; la exportacion duradera es del llamante. `CMD_WRITE`, `CMD_FORMAT` y sus versiones TD64/NSD escriben; una escritura
-fuera de la imagen es `IOERR_BADLENGTH` y no almacena nada. El overlay todavia no esta en ningun estado (T29c): con un HDF sigue sin haberlo.
+fuera de la imagen es `IOERR_BADLENGTH` y no almacena nada. El overlay es estado desde T29c (parrafo siguiente).
+
+Estado de un HDF (T29c, parches 0180-0182, `bridge/state_hdf.cpp`): con un HDF montado el chunk P6DK lleva, despues de los cuerpos del motor y antes del overlay de los disquetes, una seccion que NO existe sin HDF (un estado sin
+HDF no cambia ni de bytes). Lleva el controlador UAE como valores y bytes del invitado, jamas punteros ni rutas del host (el `save_filesys` de upstream guarda rutas y reconstruye las unidades montandolas): el numero de HDF y el
+content id de cada base, los globales de `filesys.cpp` (incluido el avance de la interrupcion EXTER en curso y si retiene su semaforo), por unidad los campos que el arranque y el invitado escribieron en `UnitInfo` (placa de
+dispositivo, `startup`, nodo, paquete de parametros, particiones del RDB, el gestor de ficheros que trajo el RDB como bytes en `rdb_filesysstore`, hasta 262144), el `hardfpd[]` de `uaehf.device` (peticiones sin terminar con sus
+48 bytes de IORequest), los 64 KiB de la zona de traps ($F00000) con sus cursores y la linea de peticion de EXTER (`uae_int_requested`), la placa UAEFS (base, si tiene memoria, si responde, 64 KiB), la cadena autoconfig cuando
+no hay Fast RAM (con ella la lleva P6RM; con HDF la cadena tiene dos tarjetas mas: la placa UAEFS y la ROM de arranque UAE), la cola EXTER (los mensajes en orden; uno con puntero del host no se guarda) y, por HDF, el overlay:
+los trozos de 4 KiB sucios (indice ascendente y bytes), NUNCA la base. Cargar un estado SUSTITUYE el overlay entero. La identidad de la base (content id) se comprueba antes de tocar la maquina: un estado tomado con otro HDF
+(aunque del mismo tamaño), sin HDF, o con un HDF y un disquete donde esta imagen tiene el disquete y el HDF, es INCOMPATIBLE (`media_manifest_hash`, y el content id del cuerpo contra el registrado si alguien lo forja con
+checksums validos); un cuerpo fuera de lo que la maquina puede tener es CORRUPT_STATE y no toca nada. Un HDF no es un anexo del manifiesto (esta desde `p6_load`), asi que un prefijo del manifiesto que no lo contenga no es
+un estado de esta imagen. `p6_state_bound` cuenta cada trozo de cada HDF como escrito (el tamaño de la imagen mas 4 bytes por trozo, mas hasta 256 KiB de gestor de ficheros por HDF y los 64 KiB + 64 KiB de zona de traps y placa):
+es una cota que no cambia hasta `p6_unload` (contrato de STATE01), asi que crece con el tamaño del HDF aunque el estado real solo lleve los trozos sucios; un estado de un HDF de 4 MiB con tres trozos sucios ocupa lo que la
+maquina (unos 1,3 MB), no 4 MiB. Quien reserve el buffer por la cota con HDF grandes paga el tamaño de la imagen; la memoria del overlay ya se reserva entera en `p6_load` (T29b) y el coste en Waterbox se mide en T29d.
 
 ## Regiones de memoria
 

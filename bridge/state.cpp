@@ -124,14 +124,19 @@ void visit_bridge(Archive &a)
 // (made before the first unit) and the validation of a load into an image that has not started it have to know it already.
 constexpr unsigned kExpansionWords = 13;
 
+}  // namespace
+
+// The chain of a machine whose cards are the Fast RAM board (`fast` bytes, 0 for none) and, with a hard file (T29c), the UAEFS board and the UAE boot ROM after it. A machine with only
+// those two has the same words with the Fast RAM ones at zero, and its chain is described by the hard-file section of P6DK (visit_hdf), which calls this with `fast` 0.
 void visit_expansion(Archive &a, uint32_t fast)
 {
+    const uint32_t cards = (fast ? 1u : 0u) + (p6_bridge::hard_file_count() ? 2u : 0u);   // the hard file adds the UAEFS board and the UAE boot ROM (a card with no autoconfig, expamem_rtarea_init)
     uint32_t w[kExpansionWords] = {};
     uint8_t ac[256] = {};
     if (a.mode() == Mode::Save)
         a.require(fastmem_bank[0].allocated_size == fast && p6_expansion_state_get(w, kExpansionWords, ac), "the Fast RAM board or its autoconfig chain is not in a state that can be saved");
-    const uint8_t ecard = get<uint8_t>(a, w[0], 0, 1, "ram.fast_ecard");
-    get<uint8_t>(a, w[1], 1, 1, "ram.fast_cardno");
+    const uint8_t ecard = get<uint8_t>(a, w[0], 0, cards, "ram.fast_ecard");
+    get<uint8_t>(a, w[1], cards, cards, "ram.fast_cardno");
     const uint8_t chipdone = get<uint8_t>(a, w[2], 0, 1, "ram.fast_chipdone");
     const uint8_t map_set = get<uint8_t>(a, w[3], 0, 1, "ram.fast_map_set");
     const uint8_t bank_current = get<uint8_t>(a, w[4], 0, 1, "ram.fast_bank_current");
@@ -140,21 +145,23 @@ void visit_expansion(Archive &a, uint32_t fast)
     const uint8_t lo = get<uint8_t>(a, w[7], 0, 0xff, "ram.fast_lo");
     const uint32_t pointer = a.val<uint32_t>(w[8], 0, 0xffffffffu, "ram.fast_board_pointer");
     const uint32_t size = a.val<uint32_t>(w[9], 0, 0x800000u, "ram.fast_board_size");
-    const uint32_t start = a.val<uint32_t>(w[10], 0, 0xffffffffu, "ram.fast_start");
-    const uint8_t mapped = get<uint8_t>(a, w[12], 0, 1, "ram.fast_mapped");
+    const uint32_t start = a.val<uint32_t>(w[10], 0, fast ? 0xffffffffu : 0u, "ram.fast_start");
+    const uint8_t mapped = get<uint8_t>(a, w[12], 0, fast ? 1 : 0, "ram.fast_mapped");
     a.bytes(ac, sizeof ac, "ram.fast_autoconfig");
     if (a.mode() == Mode::Measure) return;
     // The base of the board: none (0), a shut-up board ($FFFFFFFF) or an address in 64 KiB steps, the slot the chain suggests or the one the guest gave it. Where the board answers it
     // lies inside $200000-$9FFFFF (the guest decides; an 8 MiB board can only be at $200000).
     a.require(start == 0 || start == 0xffffffffu || !(start & 0xffff), "the Fast RAM board is at an address it cannot have");
     a.require(!mapped || (start >= 0x200000 && start + fast <= 0xa00000 && !(start & 0xffff)), "the Fast RAM board answers at an address it cannot have");
-    a.require(ecard == 0 || (!map_set && !bank_current), "a finished autoconfig chain still has a card");
+    a.require(ecard < cards || (!map_set && !bank_current), "a finished autoconfig chain still has a card");
     if (a.applying() && a.ok()) {
-        w[0] = ecard; w[1] = 1; w[2] = chipdone; w[3] = map_set; w[4] = bank_current; w[5] = 0; w[6] = hi; w[7] = lo;
+        w[0] = ecard; w[1] = cards; w[2] = chipdone; w[3] = map_set; w[4] = bank_current; w[5] = 0; w[6] = hi; w[7] = lo;
         w[8] = pointer; w[9] = size; w[10] = start; w[11] = fast; w[12] = mapped;
         a.require(p6_expansion_state_set(w, kExpansionWords, ac), "the autoconfig chain does not fit the machine");
     }
 }
+
+namespace {
 
 void visit_ram(Archive &a)
 {
@@ -215,7 +222,14 @@ bool recognise_manifest_prefix(const uint8_t *data, uint64_t bytes, uint32_t *co
 {
     constexpr uint64_t kManifestHashAt = 208;      // media_manifest_hash in the header (docs/adr/0009-state-format.md)
     if (!data || bytes < kHeaderSize) return false;
+    // The hard files are mounted at p6_load and cannot be appended, so every prefix a state can have been taken with holds all of them (T29c): a prefix that leaves one out is a
+    // machine without that controller, and the state of such a machine is not this image's.
+    uint32_t hard_files = 0;
+    for (uint32_t i = 0; i < session.media_count && i < P6_MAX_MEDIA; ++i) hard_files += session.media_type[i] == P6_MEDIA_HDF;
+    uint32_t held = 0;
     for (uint32_t n = 0; n <= session.media_count && n <= P6_MAX_MEDIA; ++n) {
+        if (n > 0) held += session.media_type[n - 1] == P6_MEDIA_HDF;
+        if (held != hard_files) continue;
         uint8_t prefix[32];
         manifest_prefix_hash(n, prefix);
         if (!memcmp(prefix, data + kManifestHashAt, 32)) {
@@ -300,10 +314,6 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
-    // The controller of a hard file (the UAEFS board, uaehf.device, the trap area, the EXTER queue) has no serializer yet (T29c): a state of such a machine would
-    // be incomplete, so there is none. This holds for every option, the placeholders of the tests included.
-    if (p6_bridge::hard_file_count())
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "a session with a hard file has no native state yet: the state of its controller is not serialized");
     char missing[160];
     if (!options.allow_placeholders && !complete(missing, sizeof missing)) {
         char text[P6_ERROR_TEXT_CAPACITY];

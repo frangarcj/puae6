@@ -135,9 +135,9 @@ class _Asm:
         self.op32("MOVEA.L #$%X,A%d" % (imm, reg), 0x207C | (reg << 9), imm)
 
 
-def program(read_offset_block, past_end_block):
-    """The micro-ROM source. read_offset_block: the block of the second read; past_end_block: a block just beyond the end of the hard file."""
-    a = _Asm()
+def _boot(a):
+    """The part every program shares: the stand-in for exec, autoconfig of the board, its DiagArea, the resident, Open (steps 1 to 5 of the module text, up to BeginIO).
+    Leaves the address of BeginIO in A4 and in RES + R_BEGINIO."""
     a.label("entry")
     a.op("MOVE.W #$2700,SR", 0x46FC, 0x2700)
     a.op("LEA $1F00.W,A7", 0x4FF8, 0x1F00)
@@ -211,6 +211,26 @@ def program(read_offset_block, past_end_block):
     a.move_b_abs_d0(IOREQ + 31)
     a.move_b_d0_abs(RES + R_OPEN)
 
+
+def _stubs(a):
+    """The two subroutines the stand-in for exec points at."""
+    a.label("nothing")
+    a.op("MOVEQ #0,D0", 0x7000)
+    a.op("RTS", 0x4E75)
+    a.label("allocmem")                              # D0 = size: returns the heap pointer and moves it on
+    a.op32("MOVEA.L heap,A0", 0x2079, HEAP_POINTER)
+    a.op("MOVE.L A0,D1", 0x2208)
+    a.op("ADD.L D0,D1", 0xD280)
+    a.op32("MOVE.L D1,heap", 0x23C1, HEAP_POINTER)
+    a.op("MOVE.L A0,D0", 0x2008)
+    a.op("RTS", 0x4E75)
+
+
+def program(read_offset_block, past_end_block):
+    """The micro-ROM source. read_offset_block: the block of the second read; past_end_block: a block just beyond the end of the hard file."""
+    a = _Asm()
+    _boot(a)
+
     def request(slot, command, length, data, block):
         a.move_w_imm_abs(command, IOREQ + 28)
         a.move_b_imm_abs(0, IOREQ + 30)
@@ -240,18 +260,95 @@ def program(read_offset_block, past_end_block):
     a.label("park")
     a.op("STOP #$2700", 0x4E72, 0x2700)
     a.branch("BRA.S park", 0x6000, "park")
-    a.label("nothing")
-    a.op("MOVEQ #0,D0", 0x7000)
-    a.op("RTS", 0x4E75)
-    a.label("allocmem")                              # D0 = size: returns the heap pointer and moves it on
-    a.op32("MOVEA.L heap,A0", 0x2079, HEAP_POINTER)
-    a.op("MOVE.L A0,D1", 0x2208)
-    a.op("ADD.L D0,D1", 0xD280)
-    a.op32("MOVE.L D1,heap", 0x23C1, HEAP_POINTER)
-    a.op("MOVE.L A0,D0", 0x2008)
-    a.op("RTS", 0x4E75)
+    _stubs(a)
     return a.source()
 
 
 def rom(read_offset_block=5, past_end_block=0x100000):
     return builder.build(program(read_offset_block, past_end_block))
+
+
+# --- the program of DET02 (T29c) --------------------------------------------------------------------------------------------------------------------------------
+STATE, COUNT = RES + 0x100, RES + 0x104     # whether the interrupt of the EXTER queue is in progress (0/1) and the vertical blanks the handler has served
+EXTER_HELPER = 0xF0FF50                      # exter_int_helper, in the trap area
+RTAREA_INTREQ = 0xF0FFFC                     # a read of this byte takes the request line of the EXTER interrupt back (uae_int_requested bit 0)
+DRAIN_BLOCK = 7                              # the first write of the loop: blocks 7 and 8, across the chunk boundary of the overlay; each vertical blank moves it one chunk on
+
+
+def loop_program():
+    """What DET02 runs (tests/state/test_det02_hdf.py): the boot of program(), then a vertical-blank handler that, every unit, writes two blocks across a chunk boundary of the overlay
+    (a new chunk every unit, with the unit count as data), reads them back, reads block 0 of the base, and takes one step of the EXTER interrupt of the filesystem (exter_int_helper:
+    n = 10 to start it, 11 to go on, as the boot ROM does until it answers 0). Every request leaves a ReplyMsg in the queue, so the queue grows by two a unit and the interrupt is in
+    progress at most boundaries: the sample of what a state taken with the controller busy has to carry. INTENA keeps INT2 off, so the handler is the only reader of the queue. Every
+    other unit takes the request line back with a read of the INTREQ byte of the trap area, so that uae_int_requested is 0 at some boundaries and 1 at others."""
+    a = _Asm()
+    _boot(a)
+    a.move_l_imm_abs(0, STATE)
+    a.move_l_imm_abs(0, COUNT)
+    a.move_l_label_abs("handler", 0x6C)
+    a.move_w_imm_abs(0xC020, 0xDFF09A)               # INTENA: SET | INTEN | VERTB
+    a.op("MOVE.W #$2000,SR", 0x46FC, 0x2000)
+    a.label("main")
+    a.op("ADDQ.L #1,D7", 0x5287)
+    a.branch("BRA.S main", 0x6000, "main")
+    a.label("finish")                                # the boot found no resident: park
+    a.op("STOP #$2700", 0x4E72, 0x2700)
+    a.branch("BRA.S finish", 0x6000, "finish")
+
+    def issue(command, length, data, offset=None):
+        a.move_w_imm_abs(command, IOREQ + 28)
+        a.move_b_imm_abs(0, IOREQ + 30)
+        a.move_b_imm_abs(0, IOREQ + 31)
+        a.move_l_imm_abs(0, IOREQ + 32)
+        a.move_l_imm_abs(length, IOREQ + 36)
+        a.move_l_imm_abs(data, IOREQ + 40)
+        if offset is not None:
+            a.move_l_imm_abs(offset, IOREQ + 44)
+        a.movea_l_imm(1, IOREQ)
+        a.movea_l_imm(6, LIBBASE)
+        a.op32("MOVEA.L BeginIO,A4", 0x2879, RES + R_BEGINIO)
+        a.op("JSR (A4)                 ; BeginIO", 0x4E94)
+
+    a.label("handler")
+    a.move_w_imm_abs(0x0020, 0xDFF09C)               # INTREQ: clear VERTB
+    a.op("MOVEM.L D0-D7/A0-A6,-(A7)", 0x48E7, 0xFFFE)
+    a.op32("MOVE.L COUNT,D3", 0x2639, COUNT)
+    a.op("ADDQ.L #1,D3", 0x5283)
+    a.op32("MOVE.L D3,COUNT", 0x23C3, COUNT)
+    a.op32("MOVE.L D3,BUF0", 0x23C3, BUF0)           # the data: the unit count at the start of the first block and of the second
+    a.op32("MOVE.L D3,BUF1", 0x23C3, BUF1)
+    a.op("MOVE.L D3,D0", 0x2003)
+    a.op("SUBQ.L #1,D0", 0x5380)
+    a.op("LSL.L #8,D0", 0xE188)                      # the unit count (from 0) times 4096: one chunk a unit
+    a.op("LSL.L #4,D0", 0xE988)
+    a.op32("ADDI.L #3584,D0", 0x0680, 512 * DRAIN_BLOCK)
+    a.op32("MOVE.L D0,offset", 0x23C0, IOREQ + 44)
+    issue(CMD_WRITE, 1024, BUF0)                     # the offset is the one just stored
+    issue(CMD_READ, 1024, BUF4)                      # the same blocks back
+    issue(CMD_READ, 512, BUF2, 0)                    # block 0 of the base
+    a.op32("MOVE.L STATE,D2", 0x2439, STATE)
+    a.op("MOVEQ #10,D0", 0x700A)
+    a.op("TST.L D2", 0x4A82)
+    a.branch("BEQ.S go", 0x6700, "go")
+    a.op("MOVEQ #11,D0", 0x700B)
+    a.label("go")
+    a.op32("JSR exter_int_helper", 0x4EB9, EXTER_HELPER)
+    a.op("MOVEQ #0,D2", 0x7400)
+    a.op("TST.L D0", 0x4A80)
+    a.branch("BEQ.S idle", 0x6700, "idle")
+    a.op("MOVEQ #1,D2", 0x7401)
+    a.label("idle")
+    a.op32("MOVE.L D2,STATE", 0x23C2, STATE)
+    a.op32("MOVE.L COUNT,D3", 0x2639, COUNT)
+    a.op32("ANDI.L #1,D3", 0x0283, 1)
+    a.branch("BEQ.S keep", 0x6700, "keep")
+    a.move_b_abs_d0(RTAREA_INTREQ)
+    a.label("keep")
+    a.op("MOVEM.L (A7)+,D0-D7/A0-A6", 0x4CDF, 0x7FFF)
+    a.op("RTE", 0x4E73)
+    _stubs(a)
+    return a.source()
+
+
+def loop_rom():
+    return builder.build(loop_program())

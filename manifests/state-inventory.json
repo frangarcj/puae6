@@ -7586,6 +7586,204 @@
         "proof": null,
         "probe": null,
         "waterbox": "captured by the snapshot"
+      },
+      {
+        "subsystem": "ram",
+        "chunk": "P6DK",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "extension",
+        "proof": {
+          "task": "T29c",
+          "checks": [
+            "DET02",
+            "DET03",
+            "STATE01"
+          ],
+          "status": "done",
+          "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
+        },
+        "waterbox": "captured by the snapshot",
+        "id": "hdf-filesys-units-and-globals",
+        "component": "The filesystem side of the UAE controller: the globals of filesys.cpp that the boot code and the EXTER interrupt write, and per hard file the dynamic part of its UnitInfo (device board, startup message, device node, parameter packet, the partitions of the RDB and the file system handler it brought)",
+        "owner": "build/upstream/filesys.cpp (patches 0163, 0181)",
+        "save": "p6_filesys_state_get, p6_filesys_unit_state_get (patch 0181)",
+        "restore": "p6_filesys_state_set, p6_filesys_unit_state_set (patch 0181)",
+        "reset": "filesys_reset (set_filesys_unit_1 rebuilds mountinfo from the mount configuration), filesys_diagentry and filesys_dev_storeinfo / filesys_dev_remember write the rest as the guest boots",
+        "saved_fields": "17 globals (filesys_configdev, mountertask, automountunit, filesys_in_interrupt, the walk of the interrupt in progress, whether it holds singlethread_int_sem, the three hack states, ks12hack_deviceproc, the two original ROM entries, ROM_filesys_hack_remove, the shell-execute pair, a_uniq, key_uniq); per hard file 43 words (devname_amiga, startup, devicenode, parmpacket, devno, rdb_lowcyl, rdb_highcyl, rdb_cylblocks, rdb_filesyssize, filesysseg, rdb_dostype, the 32 rdb_devname_amiga) and the bytes of rdb_filesysstore (at most 262144) until filesys_dev_remember hands them to the guest.",
+        "omitted": "Configuration, rebuilt by every load: open, devname, rootdir, volname, bootpri, readonly, the geometry in hf, the virtual-directory fields (zarchive, cdfs, threads: no host file system in the profile). Not state: heartbeat, segtrack_mode, the shell-execute queue (no uaeboard 2, no tod_hack), the unreached CD and virtual-unit globals (cd_unit_*, units).",
+        "pointers": "rdb_filesysstore is a heap pointer: the state holds its bytes and the apply allocates a copy. devname, rootdir, volname and filesysdir are host strings and are never in a state. singlethread_int_sem is a counter (thread.h): the state holds whether the interrupt owns it.",
+        "rebuild": null,
+        "evidence": [
+          "build/upstream/filesys.cpp:6860",
+          "build/upstream/filesys.cpp:250",
+          "build/upstream/filesys.cpp:9008",
+          "bridge/state_hdf.cpp"
+        ],
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T29c",
+          "covers": [
+            "visit_hdf"
+          ]
+        },
+        "native_state": {
+          "task": "T29c",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_det02_hdf.py: the controller busy, in this process and in a new one, and the owner's Kickstarts; tests/state/test_state_hdf.py: the values outside what the machine can have are refused untouched",
+          "notes": "the hard-file section is visit_hdf in bridge/state_hdf.cpp, called by visit_disk after the bodies of the disks when a hard file is mounted"
+        }
+      },
+      {
+        "subsystem": "ram",
+        "chunk": "P6DK",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "extension",
+        "proof": {
+          "task": "T29c",
+          "checks": [
+            "DET02",
+            "DET03",
+            "STATE01"
+          ],
+          "status": "done",
+          "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
+        },
+        "waterbox": "captured by the snapshot",
+        "id": "hdf-uaehf-device-units",
+        "component": "uaehf.device per unit (hardfpd): the library base the guest opened, the change counter and interrupt, and the requests that did not finish",
+        "owner": "build/upstream/hardfile.cpp (patch 0161, 0181)",
+        "save": "p6_hardfile_state_get (patch 0181)",
+        "restore": "p6_hardfile_state_set (patch 0181)",
+        "reset": "hardfile_reset (aborts the requests and clears every unit at each reset), start_thread (the first BeginIO of a unit records its base and marks it running)",
+        "saved_fields": "Per unit: base, changenum, changeint, thread_running (the unit has been opened), all_closed, directorydrive; and per slot of MAX_ASYNC_REQUESTS that is in use: its position, the request, its type (temporary or change interrupt), its data and the 48 bytes of the IORequest the host copied.",
+        "omitted": "requests (the comm pipe of the thread of upstream: there is no thread), sd (SCSI, not built). A request that finishes in BeginIO leaves no slot, so most boundaries carry no request at all.",
+        "pointers": "d_request_iobuf[] are heap pointers: the state holds the 48 bytes and the apply allocates them.",
+        "rebuild": null,
+        "evidence": [
+          "build/upstream/hardfile.cpp:97",
+          "build/upstream/hardfile.cpp:2485",
+          "bridge/state_hdf.cpp"
+        ],
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T29c",
+          "covers": [
+            "visit_hdf"
+          ]
+        },
+        "native_state": {
+          "task": "T29c",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_det02_hdf.py with the owner's Kickstarts (the unit is opened by the guest, a change interrupt stays queued); tests/state/test_state_hdf.py",
+          "notes": "the hard-file section is visit_hdf in bridge/state_hdf.cpp, called by visit_disk after the bodies of the disks when a hard file is mounted"
+        }
+      },
+      {
+        "subsystem": "ram",
+        "chunk": "P6DK",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "extension",
+        "proof": {
+          "task": "T29c",
+          "checks": [
+            "DET02",
+            "DET03",
+            "STATE01"
+          ],
+          "status": "done",
+          "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
+        },
+        "waterbox": "captured by the snapshot",
+        "id": "hdf-trap-area-uaefs-board-and-exter-queue",
+        "component": "The trap area at $F00000 (the UAE boot ROM bank), the UAEFS Zorro II board, the autoconfig chain of a machine without Fast RAM, the queue of the EXTER interrupt and its request line",
+        "owner": "build/upstream/autoconf.cpp, expansion.cpp, native2amiga.cpp (patches 0160, 0164, 0165, 0180, 0181, 0182)",
+        "save": "p6_rtarea_state_get, p6_uaefs_state_get, p6_n2a_state_get, p6_expansion_state_get",
+        "restore": "p6_rtarea_state_set, p6_uaefs_state_set, p6_n2a_state_set, p6_expansion_state_set",
+        "reset": "rtarea_init writes the code and tables at load, rtarea_reset zeroes the variables at every reset, expamem_reset rebuilds the chain from the preferences, native2amiga_reset empties the queue, the guest configures the board through autoconfig",
+        "saved_fields": "The 65536 bytes of the trap area and its cursors (rt_addr, rt_straddr, rt_addr_restart, rt_addr_reset) with uae_int_requested; the UAEFS board (base, whether it has memory, whether it answers, uaeboard_ram_start, 65536 bytes); the 13 words and 256 nibbles of the autoconfig chain (the cards are the UAEFS board and the UAE boot ROM, and the Fast RAM board first when there is one, which P6RM then carries); the queue as the messages the producers wrote, in order.",
+        "omitted": "Not state: the position in the ring of the queue (rdp and wrp), the semaphores of the queue and the trap area (counters at one), the table of traps (written at load), absolute_rom_addresses and the trampoline (uaeboard 3, not selected), the hardware-trap slots (uaeboard 2, not selected). A message with a host pointer (Signal_with_Func, ShellExecute) is refused by the save; nothing in the profile produces one.",
+        "pointers": "rtarea_bank.baseaddr and filesys_bank.baseaddr are heap pointers (the state holds the bytes); the queue entries are a union with a pointer, of which the state keeps only the 32-bit values; expamem_map and expamem_bank_current are rebuilt from flags.",
+        "rebuild": null,
+        "evidence": [
+          "build/upstream/autoconf.cpp:354",
+          "build/upstream/expansion.cpp:1229",
+          "build/upstream/native2amiga.cpp:19",
+          "bridge/state_hdf.cpp"
+        ],
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T29c",
+          "covers": [
+            "visit_hdf"
+          ]
+        },
+        "native_state": {
+          "task": "T29c",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_det02_hdf.py (the queue grows by two replies a unit and the interrupt is in progress at most boundaries); tests/state/test_state_hdf.py: the cursors, the board and the messages outside what the machine can have are refused untouched",
+          "notes": "the hard-file section is visit_hdf in bridge/state_hdf.cpp, called by visit_disk after the bodies of the disks when a hard file is mounted"
+        }
+      },
+      {
+        "subsystem": "ram",
+        "chunk": "P6DK",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "extension",
+        "proof": {
+          "task": "T29c",
+          "checks": [
+            "DET02",
+            "DET03",
+            "STATE01"
+          ],
+          "status": "done",
+          "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
+        },
+        "waterbox": "captured by the snapshot",
+        "id": "hdf-write-overlay",
+        "component": "The write overlay of each hard file: the 4 KiB chunks the guest wrote, over the immutable base",
+        "owner": "ports/portable/blob_io.c (T29b), bridge/state_hdf.cpp",
+        "save": "p6_blob_hdf_next_dirty, p6_blob_hdf_chunk_data (ports/portable/blob_io.c)",
+        "restore": "p6_blob_hdf_state_clear, p6_blob_hdf_state_put (ports/portable/blob_io.c)",
+        "reset": "p6_blob_register reserves the room and an empty bitmap at load, p6_blob_clear gives them back at unload; a p6_reset keeps the disk as the guest left it",
+        "saved_fields": "Per hard file: the number of dirty chunks, then in ascending order each chunk's index and its bytes (4096, less for the last chunk of an image that is not a multiple of it). The base is not in the state: it is named by its content id, which the header's media_manifest_hash and the section both carry and which is compared before the machine is touched.",
+        "omitted": "The base, the clean chunks, the memory the room takes. The bound counts every chunk as dirty (the size of the image plus four bytes a chunk) and does not change while the image lives; the state holds what is dirty.",
+        "pointers": "hdf_over and hdf_dirty are heap pointers of the blob store; the state holds indices and bytes.",
+        "rebuild": null,
+        "evidence": [
+          "ports/portable/blob_io.c",
+          "ports/portable/blob_io.h",
+          "bridge/state_hdf.cpp"
+        ],
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T29c",
+          "covers": [
+            "visit_hdf"
+          ]
+        },
+        "native_state": {
+          "task": "T29c",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_state_hdf.py: the bound by size, an all-dirty image, the dirty list in ascending order, no base in the state, another base or none refused untouched; tests/state/test_det02_hdf.py",
+          "notes": "the hard-file section is visit_hdf in bridge/state_hdf.cpp, called by visit_disk after the bodies of the disks when a hard file is mounted"
+        }
       }
     ],
     "out_of_profile_chunks": [
@@ -7639,10 +7837,11 @@
           "SCS3",
           "SCS4"
         ],
-        "reason": "no hard disk, Gayle or SCSI in the A500 profile; the only media are read-only ADF registered by content id",
+        "reason": "no Gayle or SCSI controller in any profile: the hard files of the UAE controller (T29a) are not saved by upstream's chunks but by the hard-file section of P6DK (visit_hdf)",
         "evidence": [
           "bridge/media.cpp",
-          "bridge/config.cpp"
+          "bridge/config.cpp",
+          "bridge/state_hdf.cpp"
         ]
       },
       {
@@ -7652,9 +7851,10 @@
           "FSYP",
           "FSYC"
         ],
-        "reason": "FILESYS is an excluded feature: no host file system is ever exposed",
+        "reason": "the host file system is an excluded feature (no directory, archive or CD unit is ever mounted); the UAE controller is compiled for hard files only (P6_FILESYS) and its state is the native section, so the FSYS, FSYP and FSYC bodies of upstream, which keep host paths, are never written and a state that carries them is refused",
         "evidence": [
-          "ports/portable/sysconfig.h"
+          "ports/portable/sysconfig.h",
+          "bridge/state_hdf.cpp"
         ]
       },
       {

@@ -11339,7 +11339,7 @@
       "title": "Estado nativo del controlador uae0 y del overlay HDF (DET02/DET03 con E/S en vuelo)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T29b"
       ],
@@ -11356,7 +11356,11 @@
         "tests/state/**",
         "tests/hdf/**",
         "docs/adr/0009-state-format.md",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "ports/portable/**",
+        "manifests/host-surface.json",
+        "manifests/engine-warnings.json",
+        "CMakeLists.txt"
       ],
       "steps": [
         "Leer reports/tasks/T29a.md (llega con la fusion de T29a) y ~/.claude/projects/-Users-frangar-Fun-uae/scratch/t29-research.md.",

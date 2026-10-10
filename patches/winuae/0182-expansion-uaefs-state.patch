@@ -1,0 +1,112 @@
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -1916,6 +1916,70 @@
+ 	map_banks_z2(&filesys_bank, filesys_bank.start >> 16, 1);
+ 	expamem_map_filesys_update();
+ 	return &filesys_bank;
++}
++
++/* Native state of the UAEFS board (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0182): where the board is and the 64 KiB it holds. The autoconfig chain it
++ * sits on is the one p6_expansion_state_get describes. Values: 0 the base of the board (0 before the guest gave it one, $FFFFFFFF after a shut-up, else a multiple of 64 KiB
++ * inside the Zorro II space), 1 whether the board has its memory (the guest configured it), 2 whether it answers at that base, 3 where the next uaeboard_alloc_ram starts
++ * (0 while the board has no memory: the variable is not read before expamem_map_filesys sets it). The bytes are the whole bank: the DiagArea the boot code runs, the code
++ * filesys_diagentry wrote after it and the records the 68k side shares with the host. */
++#define P6_UAEFS_WORDS 4
++#define P6_UAEFS_BYTES 65536
++
++static bool p6_uaefs_mapped(void)
++{
++	const uae_u32 start = filesys_bank.start;
++	return start != 0 && start != 0xffffffff && start < 0x1000000 && filesys_bank.allocated_size && &get_mem_bank(start) == &filesys_bank;
++}
++
++bool p6_uaefs_state_get(uint32_t *w, unsigned n, uint8_t *bytes)
++{
++	if (!w || n != P6_UAEFS_WORDS || !bytes)
++		return false;
++	const bool allocated = filesys_bank.baseaddr && filesys_bank.allocated_size == P6_UAEFS_BYTES;
++	if (filesys_bank.baseaddr && !allocated)
++		return false;
++	const bool mapped = p6_uaefs_mapped();
++	w[0] = (allocated || filesys_bank.start == 0xffffffff) ? filesys_bank.start : 0;
++	w[1] = allocated ? 1 : 0;
++	w[2] = mapped ? 1 : 0;
++	w[3] = allocated ? uaeboard_ram_start : 0;
++	if (allocated)
++		memcpy(bytes, filesys_bank.baseaddr, P6_UAEFS_BYTES);
++	else
++		memset(bytes, 0, P6_UAEFS_BYTES);
++	return true;
++}
++
++/* The inverse for an image that has installed the board (expansion_init): false, and nothing touched, for values no board could have. The mapping and the allocation are
++ * rebuilt as expamem_map_filesys leaves them. */
++bool p6_uaefs_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes)
++{
++	if (!w || n != P6_UAEFS_WORDS || !bytes || w[1] > 1 || w[2] > w[1])
++		return false;
++	const uint32_t start = w[0];
++	if (w[2] && (start & 0xffff || ((start < 0x200000 || start >= 0xa00000) && (start < 0xe90000 || start >= 0xf00000))))
++		return false; // the Zorro II space, or the I/O window above the autoconfig one where expansion.library puts the boards of 64 KiB
++	if (w[1] && start != 0 && (start & 0xffff))
++		return false;
++	if (!w[1] && (start != 0 && start != 0xffffffff))
++		return false;
++	if (w[1] ? (w[3] < UAEBOARD_WRITEOFFSET || w[3] > P6_UAEFS_BYTES) : w[3] != 0)
++		return false;
++	if (p6_uaefs_mapped())
++		map_banks(&dummy_bank, filesys_bank.start >> 16, 1, 0);
++	mapped_free(&filesys_bank);
++	filesys_bank.start = start;
++	filesys_bank.mask = filesys_bank.reserved_size - 1;
++	if (w[1]) {
++		if (!mapped_malloc(&filesys_bank))
++			return false;
++		memcpy(filesys_bank.baseaddr, bytes, P6_UAEFS_BYTES);
++		uaeboard_ram_start = w[3];
++	}
++	if (w[2])
++		map_banks_z2(&filesys_bank, start >> 16, 1);
++	return true;
+ }
+ 
+ #if KS12_BOOT_HACK
+@@ -4125,8 +4189,10 @@
+ 		return false;
+ 	const uint32_t size = fastmem_bank[0].allocated_size;
+ 	const uint32_t start = w[10];
+-	if (w[1] != uint32_t(cardno) || w[0] > w[1] || w[2] > 1 || w[3] > 1 || w[4] > 1 || w[5] > 1 || w[11] != size || !size || w[12] > 1)
++	if (w[1] != uint32_t(cardno) || w[0] > w[1] || w[2] > 1 || w[3] > 1 || w[4] > 1 || w[5] > 1 || w[11] != size || w[12] > 1)
+ 		return false;
++	if (!size && (w[10] || w[12]))
++		return false; // no Fast RAM board (T29c: the chain of a machine with only the UAEFS board): words 10 to 12 are zero
+ 	if (w[0] >= w[1] && (w[3] || w[4] || w[5]))
+ 		return false;
+ 	if (w[12] && (start & 0xffff || start < 0x200000 || (start >> 16) + (size >> 16) > 0xa0))
+@@ -4134,15 +4200,17 @@
+ 	if (start != 0 && start != 0xffffffff && (start & 0xffff))
+ 		return false;
+ 
+-	if (p6_fast_mapped())
+-		map_banks(&dummy_bank, fastmem_bank[0].start >> 16, size >> 16, 0);
+-	fastmem_bank[0].start = start;
+-	if (start != 0 && start != 0xffffffff) {
+-		fastmem_bank[0].startmask = start;
+-		fastmem_bank[0].startaccessmask = start & fastmem_bank[0].mask;
++	if (size) {
++		if (p6_fast_mapped())
++			map_banks(&dummy_bank, fastmem_bank[0].start >> 16, size >> 16, 0);
++		fastmem_bank[0].start = start;
++		if (start != 0 && start != 0xffffffff) {
++			fastmem_bank[0].startmask = start;
++			fastmem_bank[0].startaccessmask = start & fastmem_bank[0].mask;
++		}
++		if (w[12])
++			map_banks_z2(&fastmem_bank[0], start >> 16, size >> 16);
+ 	}
+-	if (w[12])
+-		map_banks_z2(&fastmem_bank[0], start >> 16, size >> 16);
+ 
+ 	ecard = int(w[0]);
+ 	chipdone = w[2] != 0;

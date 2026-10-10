@@ -161,6 +161,65 @@ int p6_blob_hdf_status(const char *id, uint64_t *chunks, uint64_t *dirty)
  return P6_BLOB_OK;
 }
 
+int p6_blob_hdf_next_dirty(const char *id, uint64_t from, uint64_t *chunk)
+{
+ if (!chunk) return P6_BLOB_ARGUMENT;
+ const struct asset *a = hdf_asset(id);
+ if (!a) { *chunk = 0; return P6_BLOB_NOT_FOUND; }
+ uint64_t at = from;
+ while (at < a->hdf_chunks && !chunk_dirty(a, (size_t)at)) {
+  if (!(at & 7) && !a->hdf_dirty[at >> 3]) at += 8; else ++at;   /* a whole byte of clean chunks at a time */
+ }
+ *chunk = at < a->hdf_chunks ? at : a->hdf_chunks;
+ return P6_BLOB_OK;
+}
+
+int p6_blob_hdf_chunk_bytes(const char *id, uint64_t chunk, size_t *bytes)
+{
+ if (!bytes) return P6_BLOB_ARGUMENT;
+ *bytes = 0;
+ const struct asset *a = hdf_asset(id);
+ if (!a) return P6_BLOB_NOT_FOUND;
+ if (chunk >= a->hdf_chunks) return P6_BLOB_RANGE;
+ const size_t from = (size_t)chunk * P6_HDF_CHUNK;
+ *bytes = a->bytes - from < P6_HDF_CHUNK ? a->bytes - from : P6_HDF_CHUNK;
+ return P6_BLOB_OK;
+}
+
+int p6_blob_hdf_chunk_data(const char *id, uint64_t chunk, const void **data)
+{
+ if (!data) return P6_BLOB_ARGUMENT;
+ *data = NULL;
+ const struct asset *a = hdf_asset(id);
+ if (!a) return P6_BLOB_NOT_FOUND;
+ if (chunk >= a->hdf_chunks || !chunk_dirty(a, (size_t)chunk)) return P6_BLOB_RANGE;
+ *data = a->hdf_over + (size_t)chunk * P6_HDF_CHUNK;
+ return P6_BLOB_OK;
+}
+
+int p6_blob_hdf_state_clear(const char *id)
+{
+ struct asset *a = hdf_asset(id);
+ if (!a) return P6_BLOB_NOT_FOUND;
+ if (a->hdf_dirty) memset(a->hdf_dirty, 0, (a->hdf_chunks + 7) / 8);
+ a->hdf_used = 0;
+ return P6_BLOB_OK;
+}
+
+int p6_blob_hdf_state_put(const char *id, uint64_t chunk, const void *data)
+{
+ struct asset *a = hdf_asset(id);
+ if (!a || !data) return a ? P6_BLOB_ARGUMENT : P6_BLOB_NOT_FOUND;
+ if (chunk >= a->hdf_chunks) return P6_BLOB_RANGE;
+ const size_t from = (size_t)chunk * P6_HDF_CHUNK, n = a->bytes - from < P6_HDF_CHUNK ? a->bytes - from : P6_HDF_CHUNK;
+ memcpy(a->hdf_over + from, data, n);
+ if (!chunk_dirty(a, (size_t)chunk)) {
+  a->hdf_dirty[chunk >> 3] |= (unsigned char)(1u << (chunk & 7));
+  ++a->hdf_used;
+ }
+ return P6_BLOB_OK;
+}
+
 int p6_blob_open(const char *id, const char *mode, p6_blob_handle *out)
 {
  if (!out) return P6_BLOB_ARGUMENT;

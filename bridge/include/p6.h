@@ -114,8 +114,10 @@ typedef struct p6_media {
  * with "RDSK" brings its own RDB, any other is one partition (32 sectors, 1 head, 2 reserved blocks, boot priority 0). There is no fixed size limit: the image
  * is copied whole (the memory it takes is its size, twice: the base and the room for the overlay of its writes, see below) and p6_load answers CAPACITY if it does not fit. A hard file is never a floppy: it cannot be mounted in a
  * drive or appended with p6_media_append; flags must be 0. Guest I/O is synchronous, with no emulated delay: a request finishes in the unit that
- * issued it and the guest sees the reply at the next INT2. The Kickstart must be 1.3 or later (unit 34+). A session with a hard file has NO native state yet
- * (p6_state_bound, p6_state_save and p6_state_load answer P6_ERROR_UNSUPPORTED): the state of the controller is not serialized. SCSI direct commands
+ * issued it and the guest sees the reply at the next INT2. The Kickstart must be 1.3 or later (unit 34+). A native state of a session with a hard file carries the
+ * UAE controller (the UAEFS board, the trap area, the units of the filesystem and of uaehf.device, the queue of the EXTER interrupt) and, of each hard file, the 4 KiB
+ * chunks the guest wrote and nothing of the base; the base is named by its content id, so a state of another base image, or of a session without that hard file, is
+ * refused (INCOMPATIBLE) before the machine is touched. p6_state_bound counts every chunk of every hard file as written, so it grows with the image. SCSI direct commands
  * (HD_SCSICMD) answer IOERR_NOCMD. Writes: see the paragraph on hard files below. */
 #define P6_MEDIA_HDF UINT32_C(2)
 
@@ -341,8 +343,8 @@ p6_result p6_media_append(const p6_media *medium, uint32_t *index, p6_error *err
  * (the registered copy and the caller's buffer never change). The room is reserved by p6_load and is the size of the image, so a write cannot run out of it. They are
  * not floppies: P6_CONFIG_FLOPPY_WRITES does not apply. p6_media_export(index of a hard file) copies the image as it is now, the base with the overlay over it, into a buffer of
  * at least its size (CAPACITY otherwise, nothing written), and p6_media_write_status_get counts in chunks (overlay_capacity = chunks of the image, overlay_used =
- * medium_sectors = chunks written, refused_writes = raw_tracks = 0). Nothing leaves the process by itself: no flush, no file. The overlay is not part of any state yet
- * (a session with a hard file has none until T29c).
+ * medium_sectors = chunks written, refused_writes = raw_tracks = 0). Nothing leaves the process by itself: no flush, no file. The overlay is machine state, like the sectors of a
+ * writable floppy: a state carries the chunks written as of its unit (never the base) and loading it replaces the overlay as a whole.
  *
  * Writable floppies (P6_CAP_MEDIA_WRITE, config flag P6_CONFIG_FLOPPY_WRITES; UNSUPPORTED otherwise).
  *

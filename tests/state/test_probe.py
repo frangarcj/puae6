@@ -77,7 +77,7 @@ class ProbeTests(unittest.TestCase):
         text = SOURCE.read_text()
         body = text[text.index("void cpu(Canon &c)"):text.index("const Probe kProbes")]
         raws = re.findall(r"\.raw\(([^,]+),", body)
-        allowed = {"chipmem_bank.baseaddr", "bogomem_bank.baseaddr", "fastmem_bank[0].baseaddr", "ac", "buffer", "first + size_t(y) * size_t(stride)", "s.firmware_sha256", "s.media_content_id[i]"}
+        allowed = {"chipmem_bank.baseaddr", "bogomem_bank.baseaddr", "fastmem_bank[0].baseaddr", "ac", "buffer", "first + size_t(y) * size_t(stride)", "s.firmware_sha256", "s.media_content_id[i]", "section.data()"}
         self.assertEqual([], [r for r in raws if r.strip() not in allowed], "raw() of something the audit did not name")
         self.assertNotRegex(body, r"memcpy|sizeof\s*\(\s*regs\s*\)|sizeof\s*\(\s*eventtab|reinterpret_cast<const uint8_t \*>\(&")
 
