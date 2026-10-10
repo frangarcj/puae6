@@ -181,6 +181,24 @@
       "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
     },
     {
+      "id": "puae-adapter-input-mapper",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/mapper.h",
+        "adapters/libretro/input_map.h"
+      ],
+      "handling": "T31d: the analog stick mouse (deadzone scaling of the whole stick past the deadzone, speed per stick, carried sub-pixel remainder: libretro-uae's adjust_analog_deadzone / process_analogmouse and the corrections of its commits 106b98d5 and 237ca4a9), the D-Pad mouse speed, the turbo fire options, the face button options, the list of mapper inputs and hotkeys and the soft reset chord are PUAE5 behaviour reimplemented as integer arithmetic over p6_input in adapters/libretro/mapper.h; no libretro-uae source file is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
       "id": "puae-libchdr",
       "source_id": "puae_libretro_reference",
       "scope": "embedded_dependency_in_reference",

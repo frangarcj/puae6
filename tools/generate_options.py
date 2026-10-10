@@ -10,6 +10,11 @@ Outputs, never edited by hand:
   config/schema/options_table.generated.json   the table that headless and the BizHawk wrapper must respect: the normalized p6_config
                                                defaults and allowed values, and where each adapter takes its value from
 
+Value sets. Several options may offer the same long list of values (the 24 RetroPad mapper options all choose among the same targets); the schema
+lists them once under "value_sets" and an option says "values_from": NAME. load_schema copies the set into the option's "values", so everything downstream
+(validation, normalization, the outputs) sees an ordinary enum; the generated header emits the set once and gives each of its entries with a "const" name a
+constant (p6_options::k<Set><Const>) so that no adapter types a number the schema owns.
+
 The module is also a library: load_schema, validate_schema and normalize_config (one request for a configuration, checked against the
 schema with a diagnostic that names the key and the value), which tests/config uses.
 """
@@ -49,7 +54,19 @@ class ConfigError(ValueError):
 
 
 def load_schema(path: Path = SCHEMA) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    schema = json.loads(Path(path).read_text(encoding="utf-8"))
+    expand_value_sets(schema)
+    return schema
+
+
+def expand_value_sets(schema: dict) -> None:
+    """Gives every option that says values_from its values (a copy of the set, which validate_schema then checks like any other list)."""
+    sets = schema.get("value_sets") if isinstance(schema, dict) else None
+    for option in (schema.get("options") if isinstance(schema, dict) else None) or []:
+        if isinstance(option, dict) and isinstance(option.get("values_from"), str) and "values" not in option:
+            if not isinstance(sets, dict) or option["values_from"] not in sets:
+                raise SchemaError(f"option '{option.get('id')}': values_from names the value set {option['values_from']!r}, which the schema does not have")
+            option["values"] = json.loads(json.dumps(sets[option["values_from"]]))
 
 
 def p6_config_fields(header: Path = P6_HEADER) -> list[str]:
@@ -88,7 +105,7 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
     """Raise SchemaError, listing every problem, unless the schema is complete and consistent. `config_fields` are the members of p6_config
     (by default read from bridge/include/p6.h): every one of them must be mapped by an option or be a fixed field of ABI v1."""
     errors: list[str] = []
-    if not _only(schema, {"schema_version", "about", "categories", "options", "presets", "reserved", "unsupported"},
+    if not _only(schema, {"schema_version", "about", "categories", "value_sets", "options", "presets", "reserved", "unsupported"},
                  {"schema_version", "categories", "options", "presets", "reserved", "unsupported"}, "schema", errors):
         raise SchemaError("\n".join(errors))
     if schema.get("schema_version") != 1:
@@ -110,13 +127,14 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
             if not _text(category[field]):
                 errors.append(f"{where}: {field} must be non-empty ASCII text")
 
+    _validate_value_sets(schema.get("value_sets", {}), errors)
     ids: set[str] = set()
     keys: set[str] = set()
     mapped: dict[str, str] = {}
     for i, option in enumerate(schema.get("options") or []):
         name = option.get("id") if isinstance(option, dict) else None
         where = f"option '{name}'" if isinstance(name, str) else f"options[{i}]"
-        allowed = {"id", "class", "type", "maps_to", "default", "values", "min", "max", "libretro", "libretro_policy", "headless", "wrapper", "restart"}
+        allowed = {"id", "class", "type", "maps_to", "default", "values", "min", "max", "libretro", "libretro_policy", "headless", "wrapper", "restart", "values_from"}
         if not _only(option, allowed, {"id", "class", "type", "maps_to", "default", "libretro", "headless", "wrapper"}, where, errors):
             continue
         if not (isinstance(name, str) and IDENTIFIER.fullmatch(name)):
@@ -147,6 +165,10 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
             if maps_to in mapped:
                 errors.append(f"{where}: maps_to '{maps_to}' is already used by option '{mapped[maps_to]}'")
             mapped[maps_to] = str(name)
+        if "values_from" in option:
+            shared = (schema.get("value_sets") or {}).get(option["values_from"])
+            if option["type"] != "enum" or shared is None or option.get("values") != shared:
+                errors.append(f"{where}: values_from must name a value set of the schema, and the values of an enum must be that set (load_schema copies it)")
         _validate_values(option, kind, where, errors)
         _validate_libretro(option, kind, where, categories, keys, errors)
         _validate_adapters(option, klass, where, errors)
@@ -180,6 +202,43 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
                 errors.append(f"p6_config.{field} is not covered: map an option to it or declare it fixed in tools/generate_options.py")
     if errors:
         raise SchemaError("\n".join(errors))
+
+
+def _validate_value_sets(sets, errors):
+    """A value set is a list of values shared by several options: each has a name, a 32-bit number and a label, and may name a constant for the generated header."""
+    if not isinstance(sets, dict):
+        errors.append("schema: value_sets must be an object")
+        return
+    for name, values in sets.items():
+        where = f"value set '{name}'"
+        if not (isinstance(name, str) and IDENTIFIER.fullmatch(name)):
+            errors.append(f"{where}: the name must be lowercase letters, digits and underscores")
+        if not (isinstance(values, list) and values):
+            errors.append(f"{where}: must be a non-empty list of values")
+            continue
+        names, abis, consts = set(), set(), set()
+        for j, value in enumerate(values):
+            if not _only(value, {"value", "abi", "label", "const"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
+                continue
+            if not _text(value["value"]) or not _text(value["label"]):
+                errors.append(f"{where} values[{j}]: value and label must be non-empty ASCII text")
+            if value["value"] in names:
+                errors.append(f"{where}: duplicate value '{value['value']}'")
+            names.add(value["value"])
+            abi = value["abi"]
+            if not (isinstance(abi, int) and not isinstance(abi, bool) and 0 <= abi < 2**32):
+                errors.append(f"{where} values[{j}]: abi must be an integer of 32 bits")
+            elif abi in abis:
+                errors.append(f"{where}: duplicate abi value {abi}")
+            abis.add(abi)
+            if "const" in value:
+                if not (isinstance(value["const"], str) and re.fullmatch(r"[A-Z][A-Za-z0-9]*", value["const"])):
+                    errors.append(f"{where} values[{j}]: const must be a CamelCase identifier")
+                elif value["const"] in consts:
+                    errors.append(f"{where}: duplicate const '{value['const']}'")
+                consts.add(str(value["const"]))
+        if len(values) > MAX_VALUES - 1:
+            errors.append(f"{where}: libretro takes at most {MAX_VALUES - 1} values and ends the list with an empty one")
 
 
 def _validate_presets(schema, errors):
@@ -220,7 +279,7 @@ def _validate_values(option, kind, where, errors):
             return
         names, abis = set(), set()
         for j, value in enumerate(values):
-            if not _only(value, {"value", "abi", "abi_name", "label", "wrapper"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
+            if not _only(value, {"value", "abi", "abi_name", "label", "wrapper", "const"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
                 continue
             if "wrapper" in value and (value["wrapper"] is not False or not (isinstance(option.get("wrapper"), dict) and option["wrapper"].get("how") == "setting")):
                 errors.append(f"{where} values[{j}]: wrapper may only be false (the BizHawk wrapper does not offer this value), on an option the wrapper takes as a setting")
@@ -402,6 +461,13 @@ def _literal(option: dict, value: int) -> str:
     return {"enum": f"{value}u", "u64": f"UINT64_C({value})", "i64": f"INT64_C({value})"}[option["type"]]
 
 
+def _inline_values(option: dict) -> str:
+    """The {value, label} initializers of a libretro definition: the set's macro when the option shares a set, else the list."""
+    if "values_from" in option:
+        return f"P6_SET_{option['values_from'].upper()}_V2"
+    return ", ".join(f"{{{_c(v['value'])}, {_c(v['label'])}}}" for v in option["values"])
+
+
 def _needs_reload(option: dict) -> bool:
     """A reboot option, or a presentation option the core reads when the content is loaded (restart): a change made while it runs only applies after a reload."""
     return option["class"] == "reboot" or bool(option.get("restart"))
@@ -498,7 +564,22 @@ def generate_header(schema: dict) -> str:
     w("    unsigned default_index;")
     w("};")
     w("")
+    for name, values in (schema.get("value_sets") or {}).items():
+        w(f"// The value set {name}: one list for every option that says values_from.")
+        w(f"constexpr Value k{_camel(name)}SetValues[] = {{")
+        for value in values:
+            w(f"    {{{_c(value['value'])}, {value['abi']}u}},")
+        w("};")
+        for value in values:
+            if "const" in value:
+                w(f"constexpr uint32_t k{_camel(name)}{value['const']} = {value['abi']}u;")
+        names = "|".join(v["value"] for v in values)
+        pairs = ", ".join(f"{{{_c(v['value'])}, {_c(v['label'])}}}" for v in values)
+        w(f"#define P6_SET_{name.upper()}_V2 {pairs}")
+        w(f"#define P6_SET_{name.upper()}_LEGACY {_c(names)}")
     for option in exposed:
+        if "values_from" in option:
+            continue
         w(f"constexpr Value k{_camel(option['id'])}Values[] = {{")
         for value in option["values"]:
             w(f"    {{{_c(value['value'])}, {value['abi']}u}},")
@@ -507,7 +588,7 @@ def generate_header(schema: dict) -> str:
     w("constexpr Option kOptions[] = {")
     for option in exposed:
         index = [v["value"] for v in option["values"]].index(option["default"])
-        values = f"k{_camel(option['id'])}Values"
+        values = f"k{_camel(option['values_from'])}SetValues" if "values_from" in option else f"k{_camel(option['id'])}Values"
         w(f"    {{{_c(option['libretro']['key'])}, {'true' if _needs_reload(option) else 'false'}, &Settings::{option['id']}, {values}, "
           f"{len(option['values'])}, {index}}},")
     w("};")
@@ -524,7 +605,7 @@ def generate_header(schema: dict) -> str:
     w("inline retro_core_option_v2_definition kDefinitionsV2[] = {")
     for option in exposed:
         desc, info = _description(option)
-        values = ", ".join(f"{{{_c(v['value'])}, {_c(v['label'])}}}" for v in option["values"])
+        values = _inline_values(option)
         w(f"    {{{_c(option['libretro']['key'])}, {_c(desc)}, {_c(desc)},")
         w(f"     {_c(info)},")
         w(f"     {_c(info)},")
@@ -537,7 +618,7 @@ def generate_header(schema: dict) -> str:
     w("constexpr retro_core_option_definition kDefinitionsV1[] = {")
     for option in exposed:
         desc, info = _description(option)
-        values = ", ".join(f"{{{_c(v['value'])}, {_c(v['label'])}}}" for v in option["values"])
+        values = _inline_values(option)
         w(f"    {{{_c(option['libretro']['key'])}, {_c(desc)}, {_c(info)}, {{{values}}}, {_c(option['default'])}}},")
     w("    {nullptr, nullptr, nullptr, {}, nullptr},")
     w("};")
@@ -547,12 +628,19 @@ def generate_header(schema: dict) -> str:
     for option in exposed:
         desc, _ = _description(option)
         names = [v["value"] for v in option["values"]]
+        if "values_from" in option and names[0] == option["default"]:      # the set's own text, written once
+            w(f"    {{{_c(option['libretro']['key'])}, {_c(desc + '; ')} P6_SET_{option['values_from'].upper()}_LEGACY}},")
+            continue
         names.remove(option["default"])
         w(f"    {{{_c(option['libretro']['key'])}, {_c(desc + '; ' + '|'.join([option['default']] + names))}}},")
     w("    {nullptr, nullptr},")
     w("};")
     w("")
     w("}  // namespace p6_options")
+    w("")
+    for name in (schema.get("value_sets") or {}):
+        w(f"#undef P6_SET_{name.upper()}_V2")
+        w(f"#undef P6_SET_{name.upper()}_LEGACY")
     w("")
     w("#endif")
     return "\n".join(out) + "\n"
@@ -562,7 +650,9 @@ def generate_table(schema: dict) -> str:
     """The table adapters must respect: the p6_config fields as numbers, and how each adapter takes its value."""
     config, presentation, adapters = {}, {}, {}
     for option in schema["options"]:
-        if option["type"] == "enum":
+        if option["type"] == "enum" and "values_from" in option:
+            entry = {"default": abi_value(option, option["default"]), "values_from": option["values_from"]}
+        elif option["type"] == "enum":
             allowed = [value["abi"] for value in option["values"]]
             entry = {"default": abi_value(option, option["default"]), "allowed": allowed,
                      "names": {value["value"]: value["abi"] for value in option["values"]}}
@@ -578,7 +668,9 @@ def generate_table(schema: dict) -> str:
         withheld = [value["value"] for value in option.get("values", []) if value.get("wrapper") is False]
         if withheld:
             adapters[option["id"]]["wrapper_not_offered"] = withheld
-    document = {"generated_by": PREAMBLE, "p6_config": config, "presentation": presentation, "adapters": adapters,
+    document = {"generated_by": PREAMBLE, "p6_config": config, "presentation": presentation,
+                "value_sets": {name: {value["value"]: value["abi"] for value in values} for name, values in (schema.get("value_sets") or {}).items()},
+                "adapters": adapters,
                 "presets": {entry["id"]: {"label": entry["label"], "values": entry["values"]} for entry in schema["presets"]},
                 "reserved": {entry["id"]: entry["wrapper_setting"] for entry in schema["reserved"]},
                 "unsupported": {entry["key"]: entry["why"] for entry in schema["unsupported"]}}

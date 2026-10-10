@@ -31,8 +31,9 @@
 // BizHawk wrapper does the same with its pointer reference). The backlog is bounded, so a long burst never keeps the pointer moving for seconds after the
 // hand stopped. The host's own pointer speed and acceleration are the frontend's business: the core adds none and reads no clock.
 //
-// Joystick. B, A and X are the buttons 1, 2 and 3 (the two fire buttons and the third of a gamepad); the D-pad and the left stick give the four
-// directions, the stick beyond a fixed threshold (a pure function of the reading, no timers). The CD32 pad, the Arcadia pad, the analog joystick, the
+// Joystick. By default B, A and X are the buttons 1, 2 and 3 (the two fire buttons and the third of a gamepad); the D-pad and the left stick give the four
+// directions, the stick beyond a fixed threshold (a pure function of the reading, no timers). Since T31d (mapper.h) what each button and stick direction of
+// player 1 does is an option, with these as the defaults, and turbo fire, the mouse by stick or D-Pad and the hotkeys are part of the same step. The CD32 pad, the Arcadia pad, the analog joystick, the
 // light gun and light pen of PUAE5, and the keyboard-as-joystick emulation, are not part of the A500 profile of p6_input (docs/02-contracts.md).
 //
 // Double input. A frontend that binds host keys to a RetroPad (RetroArch's default binds the arrows and some letters) makes those keys reach the core twice:
@@ -43,6 +44,7 @@
 #define P6_LIBRETRO_INPUT_MAP_H
 
 #include "libretro.h"
+#include "mapper.h"
 #include "p6.h"
 
 #include <algorithm>
@@ -50,11 +52,6 @@
 
 namespace p6_libretro {
 
-constexpr unsigned kPortCount = 2;
-constexpr int kMouseMaxCounts = 120;              // what the engine delivers per axis and unit (docs/02-contracts.md)
-constexpr int kMouseBacklog = 8 * kMouseMaxCounts; // the most movement kept for later runs, per axis
-constexpr int kStickThreshold = 20000;            // of 32767, the same as PUAE5 uses
-constexpr unsigned kCapsLockCode = 0x62;
 // Player 1's RetroPad without the mouse: a subclass of RETRO_DEVICE_JOYPAD, which is how a frontend names a variant of the pad. Plain RETRO_DEVICE_JOYPAD
 // in port 0 is the pad plus the mouse.
 constexpr unsigned kDeviceJoystickOnly = RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 0);
@@ -94,18 +91,6 @@ constexpr KeyMapping kKeyMap[] = {
     {RETROK_RMETA, 0x67}, {RETROK_RSUPER, 0x67}, {RETROK_PAGEDOWN, 0x67},
 };
 
-// What the adapter keeps between two runs for the input. It is part of the saved timeline (state_frame.h), and is zero at load.
-struct InputMemory {
-    bool caps_latched = false;         // the Amiga's Caps Lock is on: bit 0x62 of the packet
-    bool caps_held = false;            // the host's Caps Lock key was down at the last run: a press is the edge from up to down
-    int32_t mouse_rx = 0, mouse_ry = 0;    // movement of the host that did not fit the 120 counts of a unit
-
-    bool operator==(const InputMemory &other) const
-    {
-        return caps_latched == other.caps_latched && caps_held == other.caps_held && mouse_rx == other.mouse_rx && mouse_ry == other.mouse_ry;
-    }
-};
-
 // The device types a port accepts. Keyboard means "nothing in this port": the Amiga keyboard is attached whatever the ports hold, but frontends use the
 // type to hand the physical keyboard to the core (RetroArch's game focus) instead of reading it as a RetroPad.
 inline bool device_allowed(unsigned port, unsigned device)
@@ -124,10 +109,18 @@ inline bool device_allowed(unsigned port, unsigned device)
     }
 }
 
-inline void read_keys(retro_input_state_t state, InputMemory *memory, uint32_t keys[4])
+inline bool is_hotkey(const InputConfig &config, unsigned retro)
+{
+    for (unsigned code : config.hotkey_code)
+        if (code && code == retro) return true;
+    return false;
+}
+
+// The keyboard of the frontend as Amiga keys. A key that is a hotkey runs its action and does not reach the Amiga.
+inline void read_keys(retro_input_state_t state, const InputConfig &config, InputMemory *memory, uint32_t keys[4])
 {
     for (const KeyMapping &mapping : kKeyMap)
-        if (state(0, RETRO_DEVICE_KEYBOARD, 0, mapping.retro))
+        if (!is_hotkey(config, mapping.retro) && state(0, RETRO_DEVICE_KEYBOARD, 0, mapping.retro))
             keys[mapping.amiga / 32] |= UINT32_C(1) << (mapping.amiga % 32);
     const bool held = state(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_CAPSLOCK) != 0;
     if (held && !memory->caps_held) memory->caps_latched = !memory->caps_latched;       // every press flips the latch
@@ -135,6 +128,29 @@ inline void read_keys(retro_input_state_t state, InputMemory *memory, uint32_t k
     if (memory->caps_latched) keys[kCapsLockCode / 32] |= UINT32_C(1) << (kCapsLockCode % 32);
 }
 
+// What the mapper needs of the frontend: the 16 buttons and the two sticks of player 1's pad (when the pad is read at all) and the hotkeys.
+inline void read_controls(retro_input_state_t state, const InputConfig &config, bool pad, Controls *controls)
+{
+    if (pad) {
+        for (unsigned id = 0; id < 16; ++id)
+            if (state(0, RETRO_DEVICE_JOYPAD, 0, id)) controls->down |= UINT32_C(1) << id;
+        for (unsigned stick = 0; stick < 2; ++stick) {
+            const unsigned index = stick == 0 ? RETRO_DEVICE_INDEX_ANALOG_LEFT : RETRO_DEVICE_INDEX_ANALOG_RIGHT;
+            const int x = state(0, RETRO_DEVICE_ANALOG, index, RETRO_DEVICE_ID_ANALOG_X), y = state(0, RETRO_DEVICE_ANALOG, index, RETRO_DEVICE_ID_ANALOG_Y);
+            controls->stick[stick][0] = int16_t(x);
+            controls->stick[stick][1] = int16_t(y);
+            const unsigned base = kStickInput + 4 * stick;
+            if (y < -kStickThreshold) controls->down |= UINT32_C(1) << base;
+            if (y > kStickThreshold) controls->down |= UINT32_C(1) << (base + 1);
+            if (x < -kStickThreshold) controls->down |= UINT32_C(1) << (base + 2);
+            if (x > kStickThreshold) controls->down |= UINT32_C(1) << (base + 3);
+        }
+    }
+    for (unsigned k = 0; k < kHotkeyCount; ++k)
+        if (config.hotkey_code[k] && state(0, RETRO_DEVICE_KEYBOARD, 0, config.hotkey_code[k])) controls->down |= UINT32_C(1) << (kHotkeyBit + k);
+}
+
+// Player 2's joystick: no mapper (it is player 1's), the buttons and directions as they always were.
 inline void read_joystick(retro_input_state_t state, unsigned port, p6_port_input *out)
 {
     auto pressed = [&](unsigned id) { return state(port, RETRO_DEVICE_JOYPAD, 0, id) != 0; };
@@ -159,12 +175,25 @@ inline int16_t take_counts(int32_t *owed, int want)
     return int16_t(now);
 }
 
-inline void read_mouse(retro_input_state_t state, InputMemory *memory, p6_port_input *out)
+// The frontend's mouse, scaled by the Mouse Speed (the part of a count it leaves is kept, so 50% of a one-count movement is a count every second run).
+inline int scale_mouse(int counts, int percent, int16_t *carry)
+{
+    const int total = counts * percent + *carry;
+    const int whole = total / 100;
+    *carry = int16_t(total - whole * 100);
+    return whole;
+}
+
+// The mouse port: the frontend's mouse (when the device has one) plus what the pad makes of itself (D-Pad mouse, stick mouse), with the buttons of both.
+inline void read_mouse(retro_input_state_t state, const InputConfig &config, const Effects &pad, InputMemory *memory, p6_port_input *out)
 {
     auto read = [&](unsigned id) { return int(state(0, RETRO_DEVICE_MOUSE, 0, id)); };      // the one physical mouse is libretro port 0's
     out->type = P6_PORT_MOUSE;
-    out->dx = take_counts(&memory->mouse_rx, read(RETRO_DEVICE_ID_MOUSE_X));
-    out->dy = take_counts(&memory->mouse_ry, read(RETRO_DEVICE_ID_MOUSE_Y));
+    const int hx = scale_mouse(read(RETRO_DEVICE_ID_MOUSE_X), config.mouse_speed, &memory->host_frac[0]);
+    const int hy = scale_mouse(read(RETRO_DEVICE_ID_MOUSE_Y), config.mouse_speed, &memory->host_frac[1]);
+    out->dx = take_counts(&memory->mouse_rx, hx + pad.move_x);
+    out->dy = take_counts(&memory->mouse_ry, hy + pad.move_y);
+    out->buttons |= pad.mouse_buttons;
     if (read(RETRO_DEVICE_ID_MOUSE_LEFT)) out->buttons |= P6_BUTTON_1;
     if (read(RETRO_DEVICE_ID_MOUSE_RIGHT)) out->buttons |= P6_BUTTON_2;
     if (read(RETRO_DEVICE_ID_MOUSE_MIDDLE)) out->buttons |= P6_BUTTON_3;
@@ -183,17 +212,30 @@ inline bool joystick_shadowed_by_mouse(const unsigned device[kPortCount])
     return reads_mouse(device[0]) && device[1] == RETRO_DEVICE_JOYPAD;
 }
 
-// The packet of one run, from the frontend's state (polled once, just before) and the device of each libretro port. An Amiga port nothing drives is empty
-// (P6_PORT_NONE with all fields zero). Called once per p6_run_frame: it moves InputMemory.
-inline p6_input read_input(retro_input_state_t state, const unsigned device[kPortCount], InputMemory *memory)
+// The packet of one run, from the frontend's state (polled once, just before), the options that shape the input and the device of each libretro port. An
+// Amiga port nothing drives is empty (P6_PORT_NONE with all fields zero). Called once per p6_run_frame: it moves InputMemory.
+inline p6_input read_input(retro_input_state_t state, const unsigned device[kPortCount], const InputConfig &config, InputMemory *memory)
 {
     p6_input input = {};
     input.abi_version = P6_ABI_VERSION;
     input.struct_size = sizeof input;
-    read_keys(state, memory, input.keys);
-    if (reads_mouse(device[0])) read_mouse(state, memory, &input.ports[0]);                   // the mouse wins the mouse port
-    else memory->mouse_rx = memory->mouse_ry = 0;                                              // no movement is owed to a mouse that is not there
-    if (reads_pad(device[0])) read_joystick(state, 0, &input.ports[joystick_amiga_port(0)]);
+    const bool pad = reads_pad(device[0]), mouse_port = reads_mouse(device[0]);
+    Controls controls;
+    read_controls(state, config, pad, &controls);
+    Effects effects;
+    mapper_step(controls, config, mouse_port, memory, &effects);       // moves the memory even without a pad: releases are seen, the soft reset finishes
+    read_keys(state, config, memory, input.keys);
+    for (unsigned word = 0; word < 4; ++word) input.keys[word] |= effects.keys[word];
+    if (mouse_port) {
+        read_mouse(state, config, effects, memory, &input.ports[0]);                  // the mouse wins the mouse port
+    } else {
+        memory->mouse_rx = memory->mouse_ry = 0;                                           // no movement is owed to a mouse that is not there
+        memory->host_frac[0] = memory->host_frac[1] = 0;
+    }
+    if (pad) {
+        input.ports[joystick_amiga_port(0)].type = P6_PORT_JOYSTICK;
+        input.ports[joystick_amiga_port(0)].buttons = effects.joy;
+    }
     if (device[1] == RETRO_DEVICE_JOYPAD && !joystick_shadowed_by_mouse(device)) read_joystick(state, 1, &input.ports[joystick_amiga_port(1)]);
     return input;
 }

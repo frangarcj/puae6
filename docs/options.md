@@ -48,3 +48,32 @@ Notas:
   una sesion con otro formato se descarta esa imagen y la siguiente unidad dibuja una nueva.
 * Fuera de T31c (quedan como paridad PUAE5 abierta): `puae_gfx_flickerfixer` (quitar artefactos de interlace), `zoom_mode*` (marcadores obsoletos de PUAE5, sustituidos por
   los niveles de crop), y la resolucion/linea (`P24`, cambia el raster canonico y es de reinicio).
+
+## Entrada (T31d) — categorias `Input`, `RetroPad Mapper` y `Hotkeys`
+
+Implementado en `adapters/libretro/mapper.h` (funcion pura `mapper_step`) e `input_map.h` (lectura del frontend); comprobado con
+`tests/libretro-ui/mapper_probe.cpp` (C++ sobre controles sinteticos) y `test_mapper.py` (el core completo: opciones dentro, paquetes `p6_input` fuera, y la memoria
+a traves de estados, rewind y runahead). Todo es entrada normal: el paquete que recibe `p6_run_frame` sigue siendo teclas Amiga, botones de joystick y cuentas de raton.
+Aplica al **jugador 1** (el RetroPad del puerto libretro 0); el joystick del jugador 2 no tiene mapper.
+
+Memoria que el adaptador guarda entre dos `retro_run` (seccion del adaptador del estado, version 4): modo del D-Pad, toggles de turbo/crop/aspecto, fase del turbo (unidades),
+cuenta del reset, botones y hotkeys pulsados en el run anterior (para los flancos), restos fraccionarios del raton y de los sticks. Nada usa reloj de pared.
+
+| Clave | Valores (defecto en negrita) | Efecto |
+|---|---|---|
+| `puae6_mapper_up/down/left/right/b/a/y/x/select/start/l/r/l2/r2/l3/r3` | **---** (funcion por defecto), none, joy_up ... joy_fire3, mouse_left/right/middle, mouse_move_up/down/left/right, toggle_mouse, toggle_turbo, toggle_aspect, toggle_crop, reset, key_* (las 95 teclas Amiga sin Caps Lock, con los nombres del wrapper BizHawk) | Que hace cada boton. Sin mapear: D-Pad = direcciones, B/A/X = botones 1/2/3 (re-repartidos por `face_buttons`), el resto nada. |
+| `puae6_mapper_lu/ld/ll/lr` , `ru/rd/rl/rr` | igual | Las cuatro direcciones de cada stick (mas alla de 20000/32767). Sin mapear, el stick izquierdo son las direcciones del joystick y el derecho nada. |
+| `puae6_face_buttons` | **disabled** (B fuego, A 2o), jump (A = arriba), rotate (Y fuego, B 2o), rotate_jump (Y fuego, B arriba) | Reparto de los botones de cara cuando no estan mapeados. |
+| `puae6_joyport` (Restart) | **joystick**, mouse | Que maneja el D-Pad al cargar: el joystick o el raton (D-Pad mueve, B/A/X = botones izq/dcha/central). `toggle_mouse` / hotkey lo cambia en marcha; el cambio viaja en el estado. Necesita el puerto de raton (dispositivo "Joystick + Mouse"). |
+| `puae6_dpad_mouse_speed` | 1 ... **6** (100 %) ... 18 | Cuentas por unidad de un movimiento digital (D-Pad en modo raton, botones `mouse_move_*`). |
+| `puae6_analog_mouse` | **disabled**, left, right, both | Mueve el raton con un stick. El stick que mueve el raton no da direcciones de joystick (salvo que una de sus direcciones este mapeada: gana el mapeo). Sin puerto de raton el stick sigue siendo un stick. PUAE5 trae `both` por defecto; aqui es `disabled` porque el stick izquierdo ya es un joystick. |
+| `puae6_analog_mouse_deadzone` | 0 ... **20** ... 50 (%) | Zona muerta; mas alla la velocidad crece de 0 a la maxima en el borde del stick (se escala el stick entero, asi una diagonal no es mas rapida). |
+| `puae6_analog_mouse_speed_left/right` | 0.1 ... **1.0** ... 3.0 | A 100 % un stick a fondo mueve 10 cuentas por unidad. La aritmetica es entera (milesimas de cuenta con resto que se arrastra; se pierde al soltar el stick): igual en todos los hosts. |
+| `puae6_mouse_speed` | 10 ... **100** ... 300 (%) | Escala el movimiento del raton del frontend; los restos fraccionarios se arrastran. 100 % es identico al comportamiento anterior. |
+| `puae6_turbo_fire` | **disabled**, enabled | Mientras se mantiene el boton turbo se pulsa y suelta su funcion. El hotkey de turbo invierte este ajuste. |
+| `puae6_turbo_fire_button` | **B**, A, Y, X, L, R, L2, R2 | Boton que dispara solo (sea lo que sea que tenga mapeado). |
+| `puae6_turbo_pulse` | 2, 4, **6** ... 12 | Unidades por ciclo: mitad pulsado, mitad suelto, empezando pulsado; la fase es un contador de unidades emuladas (0 al soltar). |
+| `puae6_hotkey_mouse_toggle`, `_turbo_toggle`, `_aspect_toggle`, `_crop_toggle`, `_reset` | **---**, f11, f12, pause, print, scrolllock, numlock, menu, rctrl, rshift | Tecla del teclado fisico que ejecuta la accion y **no llega al Amiga**. `reset` mantiene Ctrl-Amiga-Amiga 40 unidades (el reset suave del teclado). PUAE5 trae RCtrl como cambio joystick/raton; aqui queda sin asignar porque RCtrl es el Ctrl del Amiga. |
+
+Diferencias deliberadas con PUAE5: sin `physicalmouse=double`, sin `joyport_order` ni dispositivos CD32/analogico/lightgun (necesitan puertos nuevos en la ABI, tareas P21/P22 aparte),
+sin `save_disk` (depende de P12), y el teclado virtual / la barra de estado son T31a / T31b.

@@ -14,7 +14,7 @@
 // The adapter section carries what the adapter keeps between two runs and the frontend has not seen the effect of yet: the disk tray (the list by medium, selection, open
 // tray, requests not applied, the medium the drive holds, the media-event counter; since T17e the list may be shorter than the live one, see DiskTray::fits), the audio the frontend has not taken, and the geometry (and, for
 // a frontend that cannot repeat a picture, the pixels, in the format the session presents: 4 or 2 bytes a pixel) of the last picture, and the input memory (T17c: the Caps Lock latch and the mouse movement that did
-// not fit a unit). All of it belongs to the saved timeline, so a rewind or a runahead branch leaves no input, audio or disk request of the abandoned
+// not fit a unit; T31d: the mapper's, turbo's and stick mouse's memory, the D-Pad mode and the presentation toggles). All of it belongs to the saved timeline, so a rewind or a runahead branch leaves no input, audio or disk request of the abandoned
 // future behind. What the frontend holds down is not carried: the adapter reads it afresh in every retro_run and the bridge's own edge state is in the
 // native state. Every number is little-endian, whatever the host is.
 #ifndef P6_LIBRETRO_STATE_FRAME_H
@@ -32,9 +32,10 @@
 namespace p6_libretro {
 
 constexpr size_t kStateHeaderBytes = 64;
-constexpr uint32_t kStateVersion = 3;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e)
+constexpr uint32_t kStateVersion = 4;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d)
 constexpr size_t kSectionAlign = 16;
 constexpr size_t kMaxImages = 16;                                   // P6_MAX_MEDIA: a playlist cannot name more
+constexpr size_t kInputBytes = 8 * 4;                                // the input memory in the section: eight 32-bit words
 
 enum class FrameError { None, TooSmall, BadMagic, BadVersion, BadLayout, NonZeroPadding, BadChecksum };
 
@@ -71,7 +72,7 @@ struct Section {
 // The most a section can take for the given limits; the serialization size is built from it, so it must hold for every Section the adapter can make.
 inline size_t section_bound(size_t pending_values, size_t picture_bytes)
 {
-    return align_up(4 + 4 * kMaxImages + 4 + 4 + 4 + 8 + 4 + 2 * pending_values + 4 + 4 + 4 + picture_bytes, kSectionAlign);
+    return align_up(4 + 4 * kMaxImages + 4 + 4 + 4 + 8 + 4 + 2 * pending_values + 4 + 4 + 4 + picture_bytes + kInputBytes, kSectionAlign);
 }
 
 inline void encode_section(const Section &section, std::vector<uint8_t> *out)
@@ -92,9 +93,16 @@ inline void encode_section(const Section &section, std::vector<uint8_t> *out)
     u32(section.last_height);
     u32(uint32_t(section.picture.size()));
     out->insert(out->end(), section.picture.begin(), section.picture.end());
-    u32((section.input.caps_latched ? 1u : 0u) | (section.input.caps_held ? 2u : 0u));
-    u32(uint32_t(section.input.mouse_rx));
-    u32(uint32_t(section.input.mouse_ry));
+    const InputMemory &in = section.input;
+    u32((in.caps_latched ? 1u : 0u) | (in.caps_held ? 2u : 0u) | (in.dpad_mouse ? 4u : 0u) | (in.turbo_toggled ? 8u : 0u) | (in.crop_toggled ? 16u : 0u) |
+        (in.aspect_toggled ? 32u : 0u));
+    u32(uint32_t(in.mouse_rx));
+    u32(uint32_t(in.mouse_ry));
+    u32(uint32_t(in.turbo_phase) | uint32_t(in.reset_hold) << 8);
+    u32(in.held);
+    u32(uint32_t(uint16_t(in.host_frac[0])) | uint32_t(uint16_t(in.host_frac[1])) << 16);
+    u32(uint32_t(uint16_t(in.stick_frac[0][0])) | uint32_t(uint16_t(in.stick_frac[0][1])) << 16);
+    u32(uint32_t(uint16_t(in.stick_frac[1][0])) | uint32_t(uint16_t(in.stick_frac[1][1])) << 16);
     out->resize(align_up(out->size(), kSectionAlign), 0);
 }
 
@@ -141,16 +149,38 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     if (!room(picture)) return fail("the section is cut short");
     out->picture.assign(data + at, data + at + picture);
     at += picture;
-    if (!room(12)) return fail("the section is cut short");
-    const uint32_t input_flags = get32(data + at);
-    const int32_t rx = int32_t(get32(data + at + 4)), ry = int32_t(get32(data + at + 8));
-    at += 12;
-    if (input_flags & ~3u) return fail("unknown input flags");
+    if (!room(kInputBytes)) return fail("the section is cut short");
+    uint32_t word[8];
+    for (uint32_t &w : word) {
+        w = get32(data + at);
+        at += 4;
+    }
+    if (word[0] & ~63u) return fail("unknown input flags");
+    const int32_t rx = int32_t(word[1]), ry = int32_t(word[2]);
     if (rx < -kMouseBacklog || rx > kMouseBacklog || ry < -kMouseBacklog || ry > kMouseBacklog) return fail("the mouse movement owed is beyond the backlog");
-    out->input.caps_latched = input_flags & 1;
-    out->input.caps_held = input_flags & 2;
+    if ((word[3] & 0xFF) >= kTurboCycle || (word[3] >> 8) > kResetHoldUnits || (word[3] >> 16)) return fail("the turbo phase or the soft reset count is out of range");
+    if (word[4] & ~(((UINT32_C(1) << kHotkeyCount) - 1) << kHotkeyBit | ((UINT32_C(1) << kMapperInputs) - 1))) return fail("unknown inputs held");
+    auto fraction = [&](uint32_t half, int limit, int16_t *value) {
+        const int v = int16_t(uint16_t(half));
+        if (v < -limit || v > limit) return false;
+        *value = int16_t(v);
+        return true;
+    };
+    if (!fraction(word[5], 99, &out->input.host_frac[0]) || !fraction(word[5] >> 16, 99, &out->input.host_frac[1]) ||
+        !fraction(word[6], 999, &out->input.stick_frac[0][0]) || !fraction(word[6] >> 16, 999, &out->input.stick_frac[0][1]) ||
+        !fraction(word[7], 999, &out->input.stick_frac[1][0]) || !fraction(word[7] >> 16, 999, &out->input.stick_frac[1][1]))
+        return fail("a fraction of a mouse count is out of range");
+    out->input.caps_latched = word[0] & 1;
+    out->input.caps_held = word[0] & 2;
+    out->input.dpad_mouse = word[0] & 4;
+    out->input.turbo_toggled = word[0] & 8;
+    out->input.crop_toggled = word[0] & 16;
+    out->input.aspect_toggled = word[0] & 32;
     out->input.mouse_rx = rx;
     out->input.mouse_ry = ry;
+    out->input.turbo_phase = uint8_t(word[3] & 0xFF);
+    out->input.reset_hold = uint8_t(word[3] >> 8);
+    out->input.held = word[4];
     if (align_up(at, kSectionAlign) != size) return fail("the section has bytes it does not describe");
     for (; at < size; ++at)
         if (data[at]) return fail("the section padding is not zero");

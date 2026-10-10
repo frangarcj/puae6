@@ -33,6 +33,9 @@
 // "Joystick only" (the mouse wins otherwise: see input_map.h). What the adapter keeps
 // between two runs for the input (the Caps Lock latch, mouse movement that did not fit a unit) is part of the saved adapter section.
 //
+// Mapper (T31d): player 1's RetroPad can be remapped, auto-fire, drive the mouse by D-Pad or analog stick, and a few hotkeys run actions of the core; all of it is
+// a function of what the frontend reports and of the input memory (mapper.h), turned into the same p6_input packet before p6_run_frame.
+//
 // What this adapter does not do yet (see docs/02-contracts.md and the plan): any memory region. IPF, FDI and the other floppy formats are refused with a message (container.h).
 #include "libretro.h"
 #include "p6.h"
@@ -190,14 +193,15 @@ p6_libretro::PresentOptions present_options()
 {
     p6_libretro::PresentOptions options = p6_libretro::present_options(core.settings);
     options.depth16 = core.bytes_per_pixel == 2;
-    return options;
+    // The toggles of the mapper (Toggle Crop, Toggle Aspect Ratio) are in the input memory, so a state brings its own back.
+    return p6_libretro::with_toggles(options, core.input.crop_toggled, core.input.aspect_toggled, core.settings.video_standard == P6_VIDEO_NTSC);
 }
 
 // The aspect ratio announced for a picture of width x height pixels whose pixel aspect is num:den: the machine's own, or what the aspect option asks for. It
 // never changes a pixel of the picture.
 float aspect_ratio(uint32_t width, uint32_t height, uint32_t num, uint32_t den)
 {
-    return p6_libretro::picture_aspect(core.settings.video_aspect, width, height, num, den);
+    return p6_libretro::picture_aspect(present_options().aspect, width, height, num, den);        // after the mapper's Toggle Aspect Ratio
 }
 
 // What retro_get_system_av_info announces from the load, before any unit has run: the nominal rate of the configured standard (a progressive
@@ -1098,7 +1102,7 @@ RETRO_API void retro_run(void)
     if (!core.faulted) {
         apply_disk_requests();      // what the frontend asked of the tray since the last unit lands on this boundary
         input_poll_cb();
-        const p6_input input = p6_libretro::read_input(input_state_cb, core.device, &core.input);
+        const p6_input input = p6_libretro::read_input(input_state_cb, core.device, p6_libretro::input_config(core.settings), &core.input);
         frame.abi_version = P6_ABI_VERSION;
         frame.struct_size = sizeof frame;
         p6_error error = make_error();
@@ -1243,6 +1247,8 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     bool updated = false;
     environment_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated);       // clears the flag: what was just read is what is in force
     core.settings = core.requested = chosen;
+    core.input = p6_libretro::InputMemory();
+    core.input.dpad_mouse = chosen.joyport == 1;        // the pad starts as the joystick or as the mouse; the mapper's toggle flips it from there
     try {
         std::vector<p6_libretro::Image> images;
         if (!load_disks(game, &core.media, &images)) {

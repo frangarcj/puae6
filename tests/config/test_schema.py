@@ -68,6 +68,35 @@ class SchemaValidationTests(unittest.TestCase):
         option(document, "video_standard")["values"][1]["abi"] = 1
         self.refuses(document, "duplicate abi value 1")
 
+    def test_a_value_set_is_copied_into_the_options_that_name_it_and_an_unknown_set_is_refused(self):
+        document = schema()
+        shared = document["value_sets"]["mapper_target"]
+        for name in ("mapper_up", "mapper_rr"):
+            self.assertEqual(option(document, name)["values"], shared)
+            self.assertEqual(option(document, name)["values_from"], "mapper_target")
+        option(document, "mapper_up")["values_from"] = "nope"
+        self.refuses(document, "values_from must name a value set of the schema")
+        raw = json.loads(gen.SCHEMA.read_text())
+        next(o for o in raw["options"] if o["id"] == "mapper_up")["values_from"] = "nope"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "s.json"
+            path.write_text(json.dumps(raw))
+            with self.assertRaises(gen.SchemaError) as caught:
+                gen.load_schema(path)
+            self.assertIn("names the value set 'nope'", str(caught.exception))
+
+    def test_a_value_set_emits_one_list_and_a_constant_for_each_name_the_adapter_uses(self):
+        header = gen.HEADER.read_text()
+        self.assertEqual(header.count("constexpr Value kMapperTargetSetValues[] = {"), 1)       # once, not once per mapper option
+        self.assertIn("constexpr uint32_t kMapperTargetJoyFire = 6u;", header)
+        self.assertIn("constexpr uint32_t kMapperTargetDefault = 0u;", header)
+        for macro in re.findall(r"(?m)^#define (P6_SET_\w+)", header):
+            self.assertIn(f"#undef {macro}\n", header)                                       # the helper macros are not left defined for the includer
+        table = json.loads(gen.TABLE.read_text())
+        self.assertEqual(table["presentation"]["mapper_up"]["values_from"], "mapper_target")
+        self.assertEqual(table["value_sets"]["mapper_target"]["joy_fire"], 6)
+        self.assertNotIn("allowed", table["presentation"]["mapper_up"])
+
     def test_a_default_that_is_not_one_of_the_values_is_refused(self):
         document = schema()
         option(document, "video_standard")["default"] = "SECAM"
@@ -203,7 +232,14 @@ class NormalizationTests(unittest.TestCase):
                    "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
         presentation = {"video_aspect": "pixel", "floppy_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
-                        "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit"}
+                        "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit",
+                        "analog_mouse": "disabled", "analog_mouse_deadzone": "20", "analog_mouse_speed_left": "1.0", "analog_mouse_speed_right": "1.0",
+                        "dpad_mouse_speed": "6", "mouse_speed": "100", "joyport": "joystick", "face_buttons": "disabled", "turbo_fire": "disabled",
+                        "turbo_fire_button": "B", "turbo_pulse": "6"}
+        for name in ("up", "down", "left", "right", "b", "a", "y", "x", "select", "start", "l", "r", "l2", "r2", "l3", "r3", "lu", "ld", "ll", "lr", "ru", "rd", "rl", "rr"):
+            presentation["mapper_" + name] = "---"          # every button does what it always did
+        for name in ("mouse_toggle", "turbo_toggle", "aspect_toggle", "crop_toggle", "reset"):
+            presentation["hotkey_" + name] = "---"          # and no key of the keyboard is taken from the Amiga
         self.assertEqual(normalized, {**machine, **presentation})
         self.assertEqual(gen.to_p6_config(document, normalized),
                          {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
@@ -422,9 +458,11 @@ class GeneratorTests(unittest.TestCase):
         self.assertNotIn("wrapper_not_offered", table["adapters"]["machine"])
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
-        self.assertEqual(list(table["presentation"]), ["video_aspect", "floppy_save", "video_crop", "video_crop_mode", "video_crop_delay", "video_vertical_pos",
-                                                         "video_horizontal_pos", "video_gamma", "video_color_depth"])
-        self.assertEqual([name for name, entry in table["presentation"].items() if entry.get("restart")], ["video_color_depth"])
+        presentation = [o["id"] for o in schema()["options"] if o["class"] == "presentation"]
+        self.assertEqual(list(table["presentation"]), presentation)
+        self.assertEqual(presentation[:9], ["video_aspect", "floppy_save", "video_crop", "video_crop_mode", "video_crop_delay", "video_vertical_pos",
+                                            "video_horizontal_pos", "video_gamma", "video_color_depth"])
+        self.assertEqual([name for name, entry in table["presentation"].items() if entry.get("restart")], ["video_color_depth", "joyport"])
 
 
 if __name__ == "__main__":

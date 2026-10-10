@@ -21,8 +21,143 @@
   "categories": [
     {"id": "machine", "label": "Machine", "info": "What the emulated Amiga is. These options take effect when the content is loaded."},
     {"id": "video", "label": "Video", "info": "How the picture is presented. These options apply at once."},
-    {"id": "media", "label": "Media", "info": "What the machine does with the disks it is given."}
+    {"id": "media", "label": "Media", "info": "What the machine does with the disks it is given."},
+    {"id": "input", "label": "Input", "info": "How the frontend's controllers become Amiga input. These options apply at once; none of them changes the machine, only the packet of input it is given."},
+    {"id": "retropad", "label": "RetroPad Mapper", "info": "What each button and stick direction of player 1's RetroPad does. 'Default function' keeps the joystick (or the mouse, in D-Pad mouse mode)."},
+    {"id": "hotkey", "label": "Hotkeys", "info": "Keys of the physical keyboard that run an action of the core. A key used here does not reach the Amiga."}
   ],
+  "value_sets": {
+    "mapper_target": [
+      {"value": "---", "abi": 0, "label": "Default function of the button", "const": "Default"},
+      {"value": "none", "abi": 1, "label": "Disabled (does nothing)", "const": "None"},
+      {"value": "joy_up", "abi": 2, "label": "Joystick Up", "const": "JoyUp"},
+      {"value": "joy_down", "abi": 3, "label": "Joystick Down", "const": "JoyDown"},
+      {"value": "joy_left", "abi": 4, "label": "Joystick Left", "const": "JoyLeft"},
+      {"value": "joy_right", "abi": 5, "label": "Joystick Right", "const": "JoyRight"},
+      {"value": "joy_fire", "abi": 6, "label": "Joystick Fire (button 1)", "const": "JoyFire"},
+      {"value": "joy_fire2", "abi": 7, "label": "Joystick 2nd fire (button 2)", "const": "JoyFire2"},
+      {"value": "joy_fire3", "abi": 8, "label": "Joystick 3rd button (button 3)", "const": "JoyFire3"},
+      {"value": "mouse_left", "abi": 9, "label": "Mouse Left Button", "const": "MouseLeft"},
+      {"value": "mouse_right", "abi": 10, "label": "Mouse Right Button", "const": "MouseRight"},
+      {"value": "mouse_middle", "abi": 11, "label": "Mouse Middle Button", "const": "MouseMiddle"},
+      {"value": "mouse_move_up", "abi": 12, "label": "Mouse Move Up", "const": "MouseMoveUp"},
+      {"value": "mouse_move_down", "abi": 13, "label": "Mouse Move Down", "const": "MouseMoveDown"},
+      {"value": "mouse_move_left", "abi": 14, "label": "Mouse Move Left", "const": "MouseMoveLeft"},
+      {"value": "mouse_move_right", "abi": 15, "label": "Mouse Move Right", "const": "MouseMoveRight"},
+      {"value": "toggle_mouse", "abi": 18, "label": "Toggle Joystick/Mouse", "const": "ToggleMouse"},
+      {"value": "toggle_turbo", "abi": 19, "label": "Toggle Turbo Fire", "const": "ToggleTurbo"},
+      {"value": "toggle_aspect", "abi": 20, "label": "Toggle Aspect Ratio (PAL/NTSC pixels)", "const": "ToggleAspect"},
+      {"value": "toggle_crop", "abi": 21, "label": "Toggle Crop", "const": "ToggleCrop"},
+      {"value": "reset", "abi": 22, "label": "Reset (Ctrl-Amiga-Amiga)", "const": "Reset"},
+      {"value": "key_grave", "abi": 256, "label": "Key Grave"},
+      {"value": "key_1", "abi": 257, "label": "Key 1"},
+      {"value": "key_2", "abi": 258, "label": "Key 2"},
+      {"value": "key_3", "abi": 259, "label": "Key 3"},
+      {"value": "key_4", "abi": 260, "label": "Key 4"},
+      {"value": "key_5", "abi": 261, "label": "Key 5"},
+      {"value": "key_6", "abi": 262, "label": "Key 6"},
+      {"value": "key_7", "abi": 263, "label": "Key 7"},
+      {"value": "key_8", "abi": 264, "label": "Key 8"},
+      {"value": "key_9", "abi": 265, "label": "Key 9"},
+      {"value": "key_0", "abi": 266, "label": "Key 0"},
+      {"value": "key_minus", "abi": 267, "label": "Key Minus"},
+      {"value": "key_equals", "abi": 268, "label": "Key Equals"},
+      {"value": "key_backslash", "abi": 269, "label": "Key Backslash"},
+      {"value": "key_keypad_0", "abi": 271, "label": "Key Keypad 0"},
+      {"value": "key_q", "abi": 272, "label": "Key Q"},
+      {"value": "key_w", "abi": 273, "label": "Key W"},
+      {"value": "key_e", "abi": 274, "label": "Key E"},
+      {"value": "key_r", "abi": 275, "label": "Key R"},
+      {"value": "key_t", "abi": 276, "label": "Key T"},
+      {"value": "key_y", "abi": 277, "label": "Key Y"},
+      {"value": "key_u", "abi": 278, "label": "Key U"},
+      {"value": "key_i", "abi": 279, "label": "Key I"},
+      {"value": "key_o", "abi": 280, "label": "Key O"},
+      {"value": "key_p", "abi": 281, "label": "Key P"},
+      {"value": "key_left_bracket", "abi": 282, "label": "Key Left Bracket"},
+      {"value": "key_right_bracket", "abi": 283, "label": "Key Right Bracket"},
+      {"value": "key_keypad_1", "abi": 285, "label": "Key Keypad 1"},
+      {"value": "key_keypad_2", "abi": 286, "label": "Key Keypad 2"},
+      {"value": "key_keypad_3", "abi": 287, "label": "Key Keypad 3"},
+      {"value": "key_a", "abi": 288, "label": "Key A"},
+      {"value": "key_s", "abi": 289, "label": "Key S"},
+      {"value": "key_d", "abi": 290, "label": "Key D"},
+      {"value": "key_f", "abi": 291, "label": "Key F"},
+      {"value": "key_g", "abi": 292, "label": "Key G"},
+      {"value": "key_h", "abi": 293, "label": "Key H"},
+      {"value": "key_j", "abi": 294, "label": "Key J"},
+      {"value": "key_k", "abi": 295, "label": "Key K"},
+      {"value": "key_l", "abi": 296, "label": "Key L"},
+      {"value": "key_semicolon", "abi": 297, "label": "Key Semicolon"},
+      {"value": "key_quote", "abi": 298, "label": "Key Quote"},
+      {"value": "key_hash", "abi": 299, "label": "Key Hash"},
+      {"value": "key_keypad_4", "abi": 301, "label": "Key Keypad 4"},
+      {"value": "key_keypad_5", "abi": 302, "label": "Key Keypad 5"},
+      {"value": "key_keypad_6", "abi": 303, "label": "Key Keypad 6"},
+      {"value": "key_less_than", "abi": 304, "label": "Key Less Than"},
+      {"value": "key_z", "abi": 305, "label": "Key Z"},
+      {"value": "key_x", "abi": 306, "label": "Key X"},
+      {"value": "key_c", "abi": 307, "label": "Key C"},
+      {"value": "key_v", "abi": 308, "label": "Key V"},
+      {"value": "key_b", "abi": 309, "label": "Key B"},
+      {"value": "key_n", "abi": 310, "label": "Key N"},
+      {"value": "key_m", "abi": 311, "label": "Key M"},
+      {"value": "key_comma", "abi": 312, "label": "Key Comma"},
+      {"value": "key_period", "abi": 313, "label": "Key Period"},
+      {"value": "key_slash", "abi": 314, "label": "Key Slash"},
+      {"value": "key_keypad_period", "abi": 316, "label": "Key Keypad Period"},
+      {"value": "key_keypad_7", "abi": 317, "label": "Key Keypad 7"},
+      {"value": "key_keypad_8", "abi": 318, "label": "Key Keypad 8"},
+      {"value": "key_keypad_9", "abi": 319, "label": "Key Keypad 9"},
+      {"value": "key_space", "abi": 320, "label": "Key Space"},
+      {"value": "key_backspace", "abi": 321, "label": "Key Backspace"},
+      {"value": "key_tab", "abi": 322, "label": "Key Tab"},
+      {"value": "key_keypad_enter", "abi": 323, "label": "Key Keypad Enter"},
+      {"value": "key_return", "abi": 324, "label": "Key Return"},
+      {"value": "key_escape", "abi": 325, "label": "Key Escape"},
+      {"value": "key_delete", "abi": 326, "label": "Key Delete"},
+      {"value": "key_keypad_minus", "abi": 330, "label": "Key Keypad Minus"},
+      {"value": "key_up", "abi": 332, "label": "Key Up"},
+      {"value": "key_down", "abi": 333, "label": "Key Down"},
+      {"value": "key_right", "abi": 334, "label": "Key Right"},
+      {"value": "key_left", "abi": 335, "label": "Key Left"},
+      {"value": "key_f1", "abi": 336, "label": "Key F1"},
+      {"value": "key_f2", "abi": 337, "label": "Key F2"},
+      {"value": "key_f3", "abi": 338, "label": "Key F3"},
+      {"value": "key_f4", "abi": 339, "label": "Key F4"},
+      {"value": "key_f5", "abi": 340, "label": "Key F5"},
+      {"value": "key_f6", "abi": 341, "label": "Key F6"},
+      {"value": "key_f7", "abi": 342, "label": "Key F7"},
+      {"value": "key_f8", "abi": 343, "label": "Key F8"},
+      {"value": "key_f9", "abi": 344, "label": "Key F9"},
+      {"value": "key_f10", "abi": 345, "label": "Key F10"},
+      {"value": "key_keypad_left_paren", "abi": 346, "label": "Key Keypad Left Paren"},
+      {"value": "key_keypad_right_paren", "abi": 347, "label": "Key Keypad Right Paren"},
+      {"value": "key_keypad_slash", "abi": 348, "label": "Key Keypad Slash"},
+      {"value": "key_keypad_star", "abi": 349, "label": "Key Keypad Star"},
+      {"value": "key_keypad_plus", "abi": 350, "label": "Key Keypad Plus"},
+      {"value": "key_help", "abi": 351, "label": "Key Help"},
+      {"value": "key_left_shift", "abi": 352, "label": "Key Left Shift"},
+      {"value": "key_right_shift", "abi": 353, "label": "Key Right Shift"},
+      {"value": "key_control", "abi": 355, "label": "Key Control"},
+      {"value": "key_left_alt", "abi": 356, "label": "Key Left Alt"},
+      {"value": "key_right_alt", "abi": 357, "label": "Key Right Alt"},
+      {"value": "key_left_amiga", "abi": 358, "label": "Key Left Amiga"},
+      {"value": "key_right_amiga", "abi": 359, "label": "Key Right Amiga"}
+    ],
+    "hotkey_key": [
+      {"value": "---", "abi": 0, "label": "Unmapped"},
+      {"value": "f11", "abi": 292, "label": "F11"},
+      {"value": "f12", "abi": 293, "label": "F12"},
+      {"value": "pause", "abi": 19, "label": "Pause"},
+      {"value": "print", "abi": 316, "label": "Print Screen"},
+      {"value": "scrolllock", "abi": 302, "label": "Scroll Lock"},
+      {"value": "numlock", "abi": 300, "label": "Num Lock"},
+      {"value": "menu", "abi": 319, "label": "Menu"},
+      {"value": "rctrl", "abi": 305, "label": "Right Ctrl"},
+      {"value": "rshift", "abi": 303, "label": "Right Shift"}
+    ]
+  },
   "options": [
     {
       "id": "machine",
@@ -469,6 +604,803 @@
         "category": "video",
         "label": "Color Depth",
         "info": "The pixel format handed to the frontend: 24-bit (XRGB8888) or 16-bit (RGB565, half the video memory traffic on slow devices). The machine always draws 24-bit; 16-bit only converts the picture on the way out. The format is announced when the content is loaded."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "left", "abi": 1, "label": "Left Analog"},
+        {"value": "right", "abi": 2, "label": "Right Analog"},
+        {"value": "both", "abi": 3, "label": "Both Analogs"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse",
+        "category": "input",
+        "label": "Analog Stick Mouse",
+        "info": "Moves the mouse with a stick of player 1's RetroPad. The stick that moves the mouse no longer gives joystick directions (unless one of its directions is mapped in RetroPad Mapper, which wins). Needs the mouse port: Joystick + Mouse or Mouse only. PUAE5 defaults to both sticks; here it is off because the left stick is a joystick."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse_deadzone",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse_deadzone",
+      "default": "20",
+      "values": [
+        {"value": "0", "abi": 0, "label": "0%"},
+        {"value": "5", "abi": 5, "label": "5%"},
+        {"value": "10", "abi": 10, "label": "10%"},
+        {"value": "15", "abi": 15, "label": "15%"},
+        {"value": "20", "abi": 20, "label": "20%"},
+        {"value": "25", "abi": 25, "label": "25%"},
+        {"value": "30", "abi": 30, "label": "30%"},
+        {"value": "35", "abi": 35, "label": "35%"},
+        {"value": "40", "abi": 40, "label": "40%"},
+        {"value": "45", "abi": 45, "label": "45%"},
+        {"value": "50", "abi": 50, "label": "50%"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse_deadzone",
+        "category": "input",
+        "label": "Analog Stick Mouse Deadzone",
+        "info": "How far from the center a stick must be before it moves the mouse; beyond it the speed grows from zero to the full speed at the edge."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse_speed_left",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse_speed_left",
+      "default": "1.0",
+      "values": [
+        {"value": "0.1", "abi": 1, "label": "10%"},
+        {"value": "0.2", "abi": 2, "label": "20%"},
+        {"value": "0.3", "abi": 3, "label": "30%"},
+        {"value": "0.4", "abi": 4, "label": "40%"},
+        {"value": "0.5", "abi": 5, "label": "50%"},
+        {"value": "0.6", "abi": 6, "label": "60%"},
+        {"value": "0.7", "abi": 7, "label": "70%"},
+        {"value": "0.8", "abi": 8, "label": "80%"},
+        {"value": "0.9", "abi": 9, "label": "90%"},
+        {"value": "1.0", "abi": 10, "label": "100%"},
+        {"value": "1.1", "abi": 11, "label": "110%"},
+        {"value": "1.2", "abi": 12, "label": "120%"},
+        {"value": "1.3", "abi": 13, "label": "130%"},
+        {"value": "1.4", "abi": 14, "label": "140%"},
+        {"value": "1.5", "abi": 15, "label": "150%"},
+        {"value": "1.6", "abi": 16, "label": "160%"},
+        {"value": "1.7", "abi": 17, "label": "170%"},
+        {"value": "1.8", "abi": 18, "label": "180%"},
+        {"value": "1.9", "abi": 19, "label": "190%"},
+        {"value": "2.0", "abi": 20, "label": "200%"},
+        {"value": "2.1", "abi": 21, "label": "210%"},
+        {"value": "2.2", "abi": 22, "label": "220%"},
+        {"value": "2.3", "abi": 23, "label": "230%"},
+        {"value": "2.4", "abi": 24, "label": "240%"},
+        {"value": "2.5", "abi": 25, "label": "250%"},
+        {"value": "2.6", "abi": 26, "label": "260%"},
+        {"value": "2.7", "abi": 27, "label": "270%"},
+        {"value": "2.8", "abi": 28, "label": "280%"},
+        {"value": "2.9", "abi": 29, "label": "290%"},
+        {"value": "3.0", "abi": 30, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse_speed_left",
+        "category": "input",
+        "label": "Left Analog Stick Mouse Speed",
+        "info": "Mouse speed of the left stick: at 100% a full push moves 10 counts a unit. Fractions of a count are kept for the next unit."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse_speed_right",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse_speed_right",
+      "default": "1.0",
+      "values": [
+        {"value": "0.1", "abi": 1, "label": "10%"},
+        {"value": "0.2", "abi": 2, "label": "20%"},
+        {"value": "0.3", "abi": 3, "label": "30%"},
+        {"value": "0.4", "abi": 4, "label": "40%"},
+        {"value": "0.5", "abi": 5, "label": "50%"},
+        {"value": "0.6", "abi": 6, "label": "60%"},
+        {"value": "0.7", "abi": 7, "label": "70%"},
+        {"value": "0.8", "abi": 8, "label": "80%"},
+        {"value": "0.9", "abi": 9, "label": "90%"},
+        {"value": "1.0", "abi": 10, "label": "100%"},
+        {"value": "1.1", "abi": 11, "label": "110%"},
+        {"value": "1.2", "abi": 12, "label": "120%"},
+        {"value": "1.3", "abi": 13, "label": "130%"},
+        {"value": "1.4", "abi": 14, "label": "140%"},
+        {"value": "1.5", "abi": 15, "label": "150%"},
+        {"value": "1.6", "abi": 16, "label": "160%"},
+        {"value": "1.7", "abi": 17, "label": "170%"},
+        {"value": "1.8", "abi": 18, "label": "180%"},
+        {"value": "1.9", "abi": 19, "label": "190%"},
+        {"value": "2.0", "abi": 20, "label": "200%"},
+        {"value": "2.1", "abi": 21, "label": "210%"},
+        {"value": "2.2", "abi": 22, "label": "220%"},
+        {"value": "2.3", "abi": 23, "label": "230%"},
+        {"value": "2.4", "abi": 24, "label": "240%"},
+        {"value": "2.5", "abi": 25, "label": "250%"},
+        {"value": "2.6", "abi": 26, "label": "260%"},
+        {"value": "2.7", "abi": 27, "label": "270%"},
+        {"value": "2.8", "abi": 28, "label": "280%"},
+        {"value": "2.9", "abi": 29, "label": "290%"},
+        {"value": "3.0", "abi": 30, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse_speed_right",
+        "category": "input",
+        "label": "Right Analog Stick Mouse Speed",
+        "info": "Mouse speed of the right stick (see the left one)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "dpad_mouse_speed",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.dpad_mouse_speed",
+      "default": "6",
+      "values": [
+        {"value": "1", "abi": 1, "label": "0%"},
+        {"value": "2", "abi": 2, "label": "33%"},
+        {"value": "3", "abi": 3, "label": "50%"},
+        {"value": "4", "abi": 4, "label": "66%"},
+        {"value": "5", "abi": 5, "label": "83%"},
+        {"value": "6", "abi": 6, "label": "100%"},
+        {"value": "7", "abi": 7, "label": "116%"},
+        {"value": "8", "abi": 8, "label": "133%"},
+        {"value": "9", "abi": 9, "label": "150%"},
+        {"value": "10", "abi": 10, "label": "166%"},
+        {"value": "11", "abi": 11, "label": "183%"},
+        {"value": "12", "abi": 12, "label": "200%"},
+        {"value": "13", "abi": 13, "label": "216%"},
+        {"value": "14", "abi": 14, "label": "233%"},
+        {"value": "15", "abi": 15, "label": "250%"},
+        {"value": "16", "abi": 16, "label": "266%"},
+        {"value": "17", "abi": 17, "label": "283%"},
+        {"value": "18", "abi": 18, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_dpad_mouse_speed",
+        "category": "input",
+        "label": "D-Pad Mouse Speed",
+        "info": "Counts a unit that the D-Pad (or any button mapped to a mouse movement) moves the mouse; 6 is 100%. Used in D-Pad mouse mode."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mouse_speed",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mouse_speed",
+      "default": "100",
+      "values": [
+        {"value": "10", "abi": 10, "label": "10%"},
+        {"value": "20", "abi": 20, "label": "20%"},
+        {"value": "30", "abi": 30, "label": "30%"},
+        {"value": "40", "abi": 40, "label": "40%"},
+        {"value": "50", "abi": 50, "label": "50%"},
+        {"value": "60", "abi": 60, "label": "60%"},
+        {"value": "70", "abi": 70, "label": "70%"},
+        {"value": "80", "abi": 80, "label": "80%"},
+        {"value": "90", "abi": 90, "label": "90%"},
+        {"value": "100", "abi": 100, "label": "100%"},
+        {"value": "110", "abi": 110, "label": "110%"},
+        {"value": "120", "abi": 120, "label": "120%"},
+        {"value": "130", "abi": 130, "label": "130%"},
+        {"value": "140", "abi": 140, "label": "140%"},
+        {"value": "150", "abi": 150, "label": "150%"},
+        {"value": "160", "abi": 160, "label": "160%"},
+        {"value": "170", "abi": 170, "label": "170%"},
+        {"value": "180", "abi": 180, "label": "180%"},
+        {"value": "190", "abi": 190, "label": "190%"},
+        {"value": "200", "abi": 200, "label": "200%"},
+        {"value": "210", "abi": 210, "label": "210%"},
+        {"value": "220", "abi": 220, "label": "220%"},
+        {"value": "230", "abi": 230, "label": "230%"},
+        {"value": "240", "abi": 240, "label": "240%"},
+        {"value": "250", "abi": 250, "label": "250%"},
+        {"value": "260", "abi": 260, "label": "260%"},
+        {"value": "270", "abi": 270, "label": "270%"},
+        {"value": "280", "abi": 280, "label": "280%"},
+        {"value": "290", "abi": 290, "label": "290%"},
+        {"value": "300", "abi": 300, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_mouse_speed",
+        "category": "input",
+        "label": "Mouse Speed",
+        "info": "Scales the movement of the frontend's mouse (the physical one). 100% passes it as it is. Fractions of a count are kept for the next unit."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "joyport",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.joyport",
+      "default": "joystick",
+      "restart": true,
+      "values": [
+        {"value": "joystick", "abi": 0, "label": "Joystick"},
+        {"value": "mouse", "abi": 1, "label": "Mouse"}
+      ],
+      "libretro": {
+        "key": "puae6_joyport",
+        "category": "input",
+        "label": "RetroPad Joystick/Mouse",
+        "info": "What player 1's D-Pad and fire buttons drive when the content loads: the joystick, or the mouse (D-Pad moves it, B/A/X are its buttons). The hotkey or button mapped to Toggle Joystick/Mouse switches it while the content runs, and the switch travels with save states. Needs the mouse port; with Joystick only the pad stays a joystick."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "face_buttons",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.face_buttons",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "B = Fire, A = 2nd fire"},
+        {"value": "jump", "abi": 1, "label": "B = Fire, A = Up"},
+        {"value": "rotate", "abi": 2, "label": "Y = Fire, B = 2nd fire"},
+        {"value": "rotate_jump", "abi": 3, "label": "Y = Fire, B = Up"}
+      ],
+      "libretro": {
+        "key": "puae6_face_buttons",
+        "category": "input",
+        "label": "RetroPad Face Button Options",
+        "info": "Which RetroPad face buttons are the fire buttons when they are not mapped: B and A as usual, 'jump' makes A press up (platform games), 'rotate' makes Y the fire button and B the second one, 'rotate + jump' makes Y fire and B up. X stays the third button."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "turbo_fire",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.turbo_fire",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_turbo_fire",
+        "category": "input",
+        "label": "Turbo Fire",
+        "info": "While the Turbo Button is held its function is pressed and released over and over (Turbo Pulse says how often). The Toggle Turbo Fire hotkey inverts this setting while the content runs. The count is in emulated units, never in time."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "turbo_fire_button",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.turbo_fire_button",
+      "default": "B",
+      "values": [
+        {"value": "B", "abi": 0, "label": "RetroPad B"},
+        {"value": "A", "abi": 8, "label": "RetroPad A"},
+        {"value": "Y", "abi": 1, "label": "RetroPad Y"},
+        {"value": "X", "abi": 9, "label": "RetroPad X"},
+        {"value": "L", "abi": 10, "label": "RetroPad L"},
+        {"value": "R", "abi": 11, "label": "RetroPad R"},
+        {"value": "L2", "abi": 12, "label": "RetroPad L2"},
+        {"value": "R2", "abi": 13, "label": "RetroPad R2"}
+      ],
+      "libretro": {
+        "key": "puae6_turbo_fire_button",
+        "category": "input",
+        "label": "Turbo Button",
+        "info": "The RetroPad button that auto-fires (whatever it is mapped to)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "turbo_pulse",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.turbo_pulse",
+      "default": "6",
+      "values": [
+        {"value": "2", "abi": 2, "label": "2 frames"},
+        {"value": "4", "abi": 4, "label": "4 frames"},
+        {"value": "6", "abi": 6, "label": "6 frames"},
+        {"value": "8", "abi": 8, "label": "8 frames"},
+        {"value": "10", "abi": 10, "label": "10 frames"},
+        {"value": "12", "abi": 12, "label": "12 frames"}
+      ],
+      "libretro": {
+        "key": "puae6_turbo_pulse",
+        "category": "input",
+        "label": "Turbo Pulse",
+        "info": "Units in a turbo cycle: 2 is one unit pressed and one released, 4 is two and two, 6 three and three, and so on."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_mouse_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_mouse_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_mouse_toggle",
+        "category": "hotkey",
+        "label": "Switch Joystick/Mouse",
+        "info": "Toggles what the D-Pad and fire buttons of player 1 drive between the joystick and the mouse. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_turbo_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_turbo_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_turbo_toggle",
+        "category": "hotkey",
+        "label": "Toggle Turbo Fire",
+        "info": "Inverts the Turbo Fire setting while the content runs. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_aspect_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_aspect_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_aspect_toggle",
+        "category": "hotkey",
+        "label": "Toggle Aspect Ratio",
+        "info": "Swaps the pixel aspect announced between PAL and NTSC. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_crop_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_crop_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_crop_toggle",
+        "category": "hotkey",
+        "label": "Toggle Crop",
+        "info": "Turns the crop off if it is on, and on (Automatic) if it is off. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_reset",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_reset",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_reset",
+        "category": "hotkey",
+        "label": "Reset",
+        "info": "Presses Ctrl-Amiga-Amiga for a while (the Amiga's soft reset, as the keyboard does it). The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_up",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_up",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_up",
+        "category": "retropad",
+        "label": "Up",
+        "info": "What Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_down",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_down",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_down",
+        "category": "retropad",
+        "label": "Down",
+        "info": "What Down of player 1's RetroPad does. Unmapped, it is joystick down (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_left",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_left",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_left",
+        "category": "retropad",
+        "label": "Left",
+        "info": "What Left of player 1's RetroPad does. Unmapped, it is joystick left (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_right",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_right",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_right",
+        "category": "retropad",
+        "label": "Right",
+        "info": "What Right of player 1's RetroPad does. Unmapped, it is joystick right (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_b",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_b",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_b",
+        "category": "retropad",
+        "label": "B",
+        "info": "What B of player 1's RetroPad does. Unmapped, it is the fire button (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_a",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_a",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_a",
+        "category": "retropad",
+        "label": "A",
+        "info": "What A of player 1's RetroPad does. Unmapped, it is the 2nd fire button (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_y",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_y",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_y",
+        "category": "retropad",
+        "label": "Y",
+        "info": "What Y of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_x",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_x",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_x",
+        "category": "retropad",
+        "label": "X",
+        "info": "What X of player 1's RetroPad does. Unmapped, it is the 3rd button (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_select",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_select",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_select",
+        "category": "retropad",
+        "label": "Select",
+        "info": "What Select of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_start",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_start",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_start",
+        "category": "retropad",
+        "label": "Start",
+        "info": "What Start of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_l",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_l",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_l",
+        "category": "retropad",
+        "label": "L",
+        "info": "What L of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_r",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_r",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_r",
+        "category": "retropad",
+        "label": "R",
+        "info": "What R of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_l2",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_l2",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_l2",
+        "category": "retropad",
+        "label": "L2",
+        "info": "What L2 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_r2",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_r2",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_r2",
+        "category": "retropad",
+        "label": "R2",
+        "info": "What R2 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_l3",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_l3",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_l3",
+        "category": "retropad",
+        "label": "L3",
+        "info": "What L3 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_r3",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_r3",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_r3",
+        "category": "retropad",
+        "label": "R3",
+        "info": "What R3 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_lu",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_lu",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_lu",
+        "category": "retropad",
+        "label": "Left Stick Up",
+        "info": "What Left Stick Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_ld",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_ld",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_ld",
+        "category": "retropad",
+        "label": "Left Stick Down",
+        "info": "What Left Stick Down of player 1's RetroPad does. Unmapped, it is joystick down (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_ll",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_ll",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_ll",
+        "category": "retropad",
+        "label": "Left Stick Left",
+        "info": "What Left Stick Left of player 1's RetroPad does. Unmapped, it is joystick left (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_lr",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_lr",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_lr",
+        "category": "retropad",
+        "label": "Left Stick Right",
+        "info": "What Left Stick Right of player 1's RetroPad does. Unmapped, it is joystick right (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_ru",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_ru",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_ru",
+        "category": "retropad",
+        "label": "Right Stick Up",
+        "info": "What Right Stick Up of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_rd",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_rd",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_rd",
+        "category": "retropad",
+        "label": "Right Stick Down",
+        "info": "What Right Stick Down of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_rl",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_rl",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_rl",
+        "category": "retropad",
+        "label": "Right Stick Left",
+        "info": "What Right Stick Left of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_rr",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_rr",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_rr",
+        "category": "retropad",
+        "label": "Right Stick Right",
+        "info": "What Right Stick Right of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}

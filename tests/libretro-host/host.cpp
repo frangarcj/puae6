@@ -23,6 +23,7 @@
 // --mouse-at POSITION:DX,DY,BUTTONS moves the mouse by DX,DY in that position only and holds BUTTONS (bit 0 left, 1 right, 2 middle) from there on (like --mouse it only scripts what the
 // mouse reports: the device of port 0 stays the core's default, "Joystick + Mouse", unless --device says otherwise); --analog PORT:X,Y holds the left stick; --device PORT:ID is retro_set_controller_port_device before the load, and the action device:PORT:ID
 // is the same call between two runs, as a menu does. The core's debug log shows the packet each run sent, "ports=... keys=...".
+// Sticks (T31d): --analog PORT:X,Y holds the left stick, --analog-right PORT:X,Y the right one, --stick-at POSITION:PORT:INDEX:X,Y moves a stick (INDEX 0 left, 1 right) from POSITION on.
 // ACTION, executed after visible run RUN (0 is before the first run): save:SLOT, load:SLOT[:VARIANT], savefile:PATH, loadfile:PATH[:VARIANT], reset,
 // images (print the Disk Control view: count, index, eject), file:PATH (print whether the file exists, its size and a hash), disk:COMMAND (a Disk Control call between two runs, see COMMAND below).
 // A saved blob is the whole serialize_size bytes, prefilled with 0xA5 so that bytes the core does not write are noticed. VARIANT is a list of edits made to a
@@ -117,6 +118,13 @@ struct Options {
     };
     std::vector<MouseStep> mouse_steps;
     int analog[2][2] = {{0, 0}, {0, 0}};
+    int analog_right[2][2] = {{0, 0}, {0, 0}};                  // the right stick
+    struct StickStep {
+        int position;
+        unsigned port, index;                                   // index 0: the left stick, 1: the right one
+        int x, y;
+    };
+    std::vector<StickStep> stick_steps;
     struct DeviceSetting {
         unsigned port, device;
     };
@@ -573,9 +581,13 @@ int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned inde
             if (step.code == id && step.position <= position) down = step.down;
         return down ? 1 : 0;
     }
-    if (device == RETRO_DEVICE_ANALOG && index == RETRO_DEVICE_INDEX_ANALOG_LEFT) {
-        if (id == RETRO_DEVICE_ID_ANALOG_X) return int16_t(options.analog[port][0]);
-        if (id == RETRO_DEVICE_ID_ANALOG_Y) return int16_t(options.analog[port][1]);
+    if (device == RETRO_DEVICE_ANALOG && (index == RETRO_DEVICE_INDEX_ANALOG_LEFT || index == RETRO_DEVICE_INDEX_ANALOG_RIGHT)) {
+        int x = index == RETRO_DEVICE_INDEX_ANALOG_LEFT ? options.analog[port][0] : options.analog_right[port][0];
+        int y = index == RETRO_DEVICE_INDEX_ANALOG_LEFT ? options.analog[port][1] : options.analog_right[port][1];
+        for (const Options::StickStep &step : options.stick_steps)       // the last change of this stick at or before this position holds
+            if (step.port == port && step.index == index && step.position <= position) x = step.x, y = step.y;
+        if (id == RETRO_DEVICE_ID_ANALOG_X) return int16_t(x);
+        if (id == RETRO_DEVICE_ID_ANALOG_Y) return int16_t(y);
         return 0;
     }
     if (index != 0) return 0;
@@ -952,6 +964,16 @@ bool parse(int argc, char **argv)
             if (sscanf(next(), "%u:%d,%d", &port, &x, &y) != 3 || port > 1) return false;
             options.analog[port][0] = x;
             options.analog[port][1] = y;
+        } else if (!strcmp(a, "--analog-right")) {
+            unsigned port = 0;
+            int x = 0, y = 0;
+            if (sscanf(next(), "%u:%d,%d", &port, &x, &y) != 3 || port > 1) return false;
+            options.analog_right[port][0] = x;
+            options.analog_right[port][1] = y;
+        } else if (!strcmp(a, "--stick-at")) {
+            Options::StickStep step = {};
+            if (sscanf(next(), "%d:%u:%u:%d,%d", &step.position, &step.port, &step.index, &step.x, &step.y) != 5 || step.port > 1 || step.index > 1) return false;
+            options.stick_steps.push_back(step);
         } else if (!strcmp(a, "--device")) {
             Options::DeviceSetting setting = {};
             if (sscanf(next(), "%u:%u", &setting.port, &setting.device) != 2) return false;

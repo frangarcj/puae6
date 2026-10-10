@@ -66,6 +66,18 @@ inline PresentOptions present_options(const p6_options::Settings &settings)
     return options;
 }
 
+// The options after the toggles of the mapper (Toggle Crop, Toggle Aspect Ratio): Toggle Crop turns the crop off when it is on and on (Automatic) when it is
+// off; Toggle Aspect Ratio swaps the pixel aspect between PAL and NTSC, taking the machine's standard when the option is the machine's own or 4:3.
+inline PresentOptions with_toggles(PresentOptions options, bool crop_toggled, bool aspect_toggled, bool machine_ntsc)
+{
+    if (crop_toggled) options.crop = options.crop == kCropOff ? kCropAuto : kCropOff;
+    if (aspect_toggled) {
+        const bool ntsc = options.aspect == kAspectNtsc || (options.aspect != kAspectPal && machine_ntsc);
+        options.aspect = ntsc ? kAspectPal : kAspectNtsc;
+    }
+    return options;
+}
+
 // A rectangle of the native raster; x and y are negative or beyond the raster when a position pushes the window out of it.
 struct Window {
     int32_t x = 0, y = 0;

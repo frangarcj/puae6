@@ -11416,7 +11416,7 @@
       "title": "Mapper de RetroPad, turbo fire y raton por stick analogico/D-Pad en libretro",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17",
         "T18",
