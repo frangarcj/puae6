@@ -287,6 +287,9 @@ p6_result check_preset(p6_error *error)
              p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
     else if (no_gayle && (p.cs_ide || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
+    else if (p.uaeboard || p.uaeboard_nodiag || p.boot_rom || p.uae_hide || p.uae_hide_autoconfig || p.scsi || p.uaescsidevmode || p.socket_emu ||
+             p.uaeserial || p.sana2 || p.win32_automount_drives || p.win32_automount_removable || p.win32_automount_cddrives || p.win32_automount_netdrives ||
+             p.harddrive_read_only) drifted = "uae controller";    // the hard files are the only thing the UAE controller is configured for, and it is the default one
     else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||
              p.input_mouse_speed != 100 || p.keyboard_mode || p.cs_resetwarning || p.input_contact_bounce) drifted = "input";
     else if (p.floppyslots[0].df[0] || p.floppyslots[1].df[0] || p.floppyslots[2].df[0] || p.floppyslots[3].df[0] ||

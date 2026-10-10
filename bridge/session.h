@@ -32,6 +32,7 @@ struct Session {
     bool started = false;         // the first p6_run_frame got past validation: the power-on reset head has been reached
     uint8_t firmware_sha256[32] = {};                       // identity of what was loaded (docs/adr/0008-media-identity.md)
     uint32_t media_count = 0;
+    uint8_t media_type[P6_MAX_MEDIA] = {};                  // P6_MEDIA_ADF or P6_MEDIA_HDF of each medium
     uint8_t media_content_id[P6_MAX_MEDIA][P6_CONTENT_ID_SIZE] = {};   // in the order of the p6_load array
 };
 

@@ -10,6 +10,8 @@ namespace p6_bridge {
 
 // An accepted image is a plain double-density ADF: 80 cylinders x 2 heads x 11 sectors x 512 bytes.
 constexpr uint64_t kAdfBytes = 1760u * 512u;
+// A hard file is a whole number of blocks of this size (the block of uaehf.device and of an RDB it brings).
+constexpr uint64_t kHdfBlock = 512u;
 
 // "media-" + the 64 lowercase hex digits of the content id + NUL. It has no dot, so the engine cannot recognise an
 // extension in it and treat the image as some other disk format.
@@ -19,6 +21,13 @@ void media_blob_id(const uint8_t content_id[P6_CONTENT_ID_SIZE], char out[kMedia
 // Pure checks of the list p6_load received; the engine is not touched, so a rejected list costs nothing. Every image is
 // hashed and its content_id must be the SHA-256 of its bytes.
 p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error);
+
+// Hard files (P6_MEDIA_HDF) of the list given to p6_load: how many the session mounted (0 when none), and the mount configuration the engine builds its units from
+// (one UAE-controller unit, read-only, per hard file, named DH0, DH1... in list order). mount_hard_files runs on the preferences after build_preferences and before
+// the machine exists; the images are registered by register_media. hard_file_count is what p6_state_* consult.
+uint32_t hard_file_count();
+uint32_t hard_files_in(const p6_media *media, uint32_t count);
+p6_result mount_hard_files(const p6_media *media, uint32_t count, p6_error *error);
 
 // After validate_media: copies every image into the engine's blob store under its blob id. A store that cannot hold
 // them all fails with CAPACITY; the caller unloads what was registered.

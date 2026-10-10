@@ -12,6 +12,7 @@
 #include "session.h"
 #include "frame_step.h"
 #include "config.h"
+#include "media.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -194,12 +195,11 @@ namespace {
 // The hash of the first `count` media of the live manifest, as media_manifest_hash defines it. current_identity() is the whole manifest (count == media_count).
 void manifest_prefix_hash(uint32_t count, uint8_t out[32])
 {
-    // ABI v1 accepts only ADF images (validate_media), so every medium has the same type.
     uint32_t types[P6_MAX_MEDIA];
     const uint8_t *ids[P6_MAX_MEDIA];
     if (count > P6_MAX_MEDIA) count = P6_MAX_MEDIA;
     for (uint32_t i = 0; i < count; ++i) {
-        types[i] = P6_MEDIA_ADF;
+        types[i] = session.media_type[i];
         ids[i] = session.media_content_id[i];
     }
     media_manifest_hash(count, types, ids, out);
@@ -293,6 +293,10 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    // The controller of a hard file (the UAEFS board, uaehf.device, the trap area, the EXTER queue) has no serializer yet (T29c): a state of such a machine would
+    // be incomplete, so there is none. This holds for every option, the placeholders of the tests included.
+    if (p6_bridge::hard_file_count())
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "a session with a hard file has no native state yet: the state of its controller is not serialized");
     char missing[160];
     if (!options.allow_placeholders && !complete(missing, sizeof missing)) {
         char text[P6_ERROR_TEXT_CAPACITY];

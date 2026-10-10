@@ -41,7 +41,7 @@ static int asset_index(const char *id)
 int p6_blob_register(const char *id, uint32_t kind, const void *data, size_t bytes)
 {
  if (!valid_id(id) || (!data && bytes)) return P6_BLOB_ARGUMENT;
- if (kind != P6_BLOB_ROM && kind != P6_BLOB_ADF && kind != P6_BLOB_KEY) return P6_BLOB_UNSUPPORTED;
+ if (kind != P6_BLOB_ROM && kind != P6_BLOB_ADF && kind != P6_BLOB_KEY && kind != P6_BLOB_HDF) return P6_BLOB_UNSUPPORTED;
  if (bytes > INT64_MAX) return P6_BLOB_RANGE;
  if (asset_index(id) >= 0) return P6_BLOB_DUPLICATE;
  for (size_t i = 0; i < P6_BLOB_ASSETS; ++i) if (!assets[i].id[0]) {
@@ -59,6 +59,31 @@ int p6_blob_exists(const char *id)
 {
  if (!valid_id(id)) return P6_BLOB_ARGUMENT;
  return asset_index(id) >= 0 ? P6_BLOB_OK : P6_BLOB_NOT_FOUND;
+}
+
+int p6_blob_size(const char *id, uint64_t *bytes, uint32_t *kind)
+{
+ if (!valid_id(id)) return P6_BLOB_ARGUMENT;
+ int index = asset_index(id);
+ if (index < 0) return P6_BLOB_NOT_FOUND;
+ if (bytes) *bytes = assets[index].bytes;
+ if (kind) *kind = assets[index].kind;
+ return P6_BLOB_OK;
+}
+
+int p6_blob_pread(const char *id, uint64_t offset, void *out, size_t length, size_t *got)
+{
+ if (!got) return P6_BLOB_ARGUMENT;
+ *got = 0;
+ if (!valid_id(id) || (length && !out)) return P6_BLOB_ARGUMENT;
+ int index = asset_index(id);
+ if (index < 0) return P6_BLOB_NOT_FOUND;
+ const struct asset *a = &assets[index];
+ if (offset >= a->bytes || !length) return P6_BLOB_OK;
+ size_t n = a->bytes - (size_t)offset < length ? a->bytes - (size_t)offset : length;
+ memcpy(out, a->data + (size_t)offset, n);
+ *got = n;
+ return P6_BLOB_OK;
 }
 
 int p6_blob_open(const char *id, const char *mode, p6_blob_handle *out)

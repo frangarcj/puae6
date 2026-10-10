@@ -57,7 +57,9 @@ add_library(p6_portable STATIC
     ports/portable/pcm_output.cpp
     ports/portable/sound_lifecycle.cpp
     ports/portable/diagnostics.cpp
-    ports/portable/gui.cpp)
+    ports/portable/gui.cpp
+    ports/portable/block/hdf_target.cpp
+    ports/portable/hostfs_unsupported.cpp)
 if(P6_UNIT_TRACE)
     target_compile_definitions(p6_engine PRIVATE P6_UNIT_TRACE)
 endif()
@@ -179,6 +181,14 @@ target_include_directories(p6_med01_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_med01_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_med01_probe PRIVATE p6_bridge p6_portable)
+# T29a: a firmware with hard files (P6_MEDIA_HDF) read through uaehf.device (tests/hdf/test_block0.py).
+add_executable(p6_hdf_probe tests/hdf/hdf_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_hdf_probe p6_codegen)
+target_include_directories(p6_hdf_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media"
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_hdf_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_hdf_probe PRIVATE p6_state p6_bridge p6_portable)
 # LIFE01: many init/load/run/unload/shutdown cycles in one process (tests/lifecycle/test_cycles.py).
 add_executable(p6_cycles_probe tests/lifecycle/cycles_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_cycles_probe p6_codegen)

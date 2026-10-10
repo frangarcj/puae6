@@ -12,6 +12,7 @@ extern "C" {
 #define P6_ERROR_TEXT_CAPACITY 256u
 #define P6_CONTENT_ID_SIZE 32u
 #define P6_MAX_MEDIA 16u
+#define P6_MAX_HDF 4u
 
 typedef int32_t p6_result;
 #define P6_OK                    INT32_C(0)
@@ -93,12 +94,21 @@ typedef struct p6_buffer {
 
 /* image data is borrowed and immutable through p6_unload(); bytes is exact. */
 typedef struct p6_media {
-    uint32_t type;
+    uint32_t type;              /* P6_MEDIA_ADF or P6_MEDIA_HDF. */
     uint32_t flags;             /* Must be zero in ABI v1. */
     uint8_t content_id[P6_CONTENT_ID_SIZE];
     p6_buffer image;
 } p6_media;
 #define P6_MEDIA_ADF UINT32_C(1)
+/* P6_MEDIA_HDF: a hard file, mounted READ-ONLY from power-on on the UAE controller (uaehf.device and the UAEFS board, the way PUAE5 does) as DH0, DH1... in
+ * the order the hard files have in the p6_load array, at most P6_MAX_HDF. The image is a multiple of 512 bytes, at least one block; a hard file that starts
+ * with "RDSK" brings its own RDB, any other is one partition (32 sectors, 1 head, 2 reserved blocks, boot priority 0). There is no fixed size limit: the image
+ * is copied whole (the memory it takes is its size) and p6_load answers CAPACITY if it does not fit. A hard file is never a floppy: it cannot be mounted in a
+ * drive, appended with p6_media_append or exported; flags must be 0. Guest I/O is synchronous, with no emulated delay: a request finishes in the unit that
+ * issued it and the guest sees the reply at the next INT2. The Kickstart must be 1.3 or later (unit 34+). A session with a hard file has NO native state yet
+ * (p6_state_bound, p6_state_save and p6_state_load answer P6_ERROR_UNSUPPORTED): the state of the controller is not serialized. SCSI direct commands
+ * (HD_SCSICMD) answer IOERR_NOCMD, and writes answer "write protected" (the write overlay is a later task). */
+#define P6_MEDIA_HDF UINT32_C(2)
 
 typedef struct p6_port_input {
     uint32_t type;

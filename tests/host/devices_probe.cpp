@@ -11,7 +11,10 @@ enum : int {
 	HS_CB, RE_CIA, RE_CB, RE_UAE, RESET_EVENTTAB, RESET_MEMORY, RESET_DISK,
 	RESET_CIA, RESET_A1000, RESET_DONGLE, RESET_CB, IMM_CB, EARLY, LATE,
 	INPUT_CLOSE, DISK_FREE, DUMP_COUNTS, STATE_FREE, MEMORY_FREE, DRAW_FREE,
-	GRAPHICS_LEAVE, SOUND_CLOSE, SOUND_UPDATE, EXPANSION_INIT, EXPANSION_CLEANUP
+	GRAPHICS_LEAVE, SOUND_CLOSE, SOUND_UPDATE, EXPANSION_INIT, EXPANSION_CLEANUP,
+	// T29a: what exists only while a hard file is mounted
+	RTAREA_SETUP, N2A_INSTALL, RTAREA_INIT, UAERES_INSTALL, HARDFILE_INSTALL, FILESYS_INSTALL, RTAREA_RESET, N2A_RESET, TRAPS_RESET,
+	FS_PREPARE_RESET, FS_RESET, FS_START_THREADS, HARDFILE_RESET, TRAPS_FREE, FS_CLEANUP, N2A_FREE, RTAREA_FREE
 };
 static int log_events[128], log_size;
 static int last_hardreset = -1, blit_hpos = 0x7fffffff;
@@ -54,6 +57,23 @@ void savestate_free() { note(STATE_FREE); }
 void memory_cleanup() { note(MEMORY_FREE); }
 void expansion_init() { note(EXPANSION_INIT); }
 void expansion_cleanup() { note(EXPANSION_CLEANUP); }
+void rtarea_setup() { note(RTAREA_SETUP); }
+void native2amiga_install() { note(N2A_INSTALL); }
+void rtarea_init() { note(RTAREA_INIT); }
+void uaeres_install() { note(UAERES_INSTALL); }
+void hardfile_install() { note(HARDFILE_INSTALL); }
+void filesys_install() { note(FILESYS_INSTALL); }
+void rtarea_reset() { note(RTAREA_RESET); }
+void native2amiga_reset() { note(N2A_RESET); }
+void reset_traps() { note(TRAPS_RESET); }
+void filesys_prepare_reset() { note(FS_PREPARE_RESET); }
+void filesys_reset() { note(FS_RESET); }
+void filesys_start_threads() { note(FS_START_THREADS); }
+void hardfile_reset() { note(HARDFILE_RESET); }
+void free_traps() { note(TRAPS_FREE); }
+void filesys_cleanup() { note(FS_CLEANUP); }
+void native2amiga_free() { note(N2A_FREE); }
+void rtarea_free() { note(RTAREA_FREE); }
 void drawing_free() { note(DRAW_FREE); }
 void graphics_leave() { note(GRAPHICS_LEAVE); }
 void close_sound() { note(SOUND_CLOSE); }
@@ -127,4 +147,20 @@ int main()
 	clear_log(); virtualdevice_init(); assert(log_size == 0);
 	currprefs.fastmem[0].size = 0x100000;
 	clear_log(); virtualdevice_init(); assert(log_size == 1 && log_events[0] == EXPANSION_INIT);
+
+	// T29a: the trap area, uaehf.device, the UAEFS board and the EXTER queue come and go with the hard file, in the order upstream has them.
+	currprefs.fastmem[0].size = 0;
+	currprefs.mountitems = 1;
+	clear_log(); virtualdevice_init();
+	const int hdf_init_expected[] = { RTAREA_SETUP, N2A_INSTALL, RTAREA_INIT, UAERES_INSTALL, HARDFILE_INSTALL, EXPANSION_INIT, FILESYS_INSTALL };
+	expect(hdf_init_expected, 7);
+	clear_log(); last_hardreset = 1; devices_reset(1);
+	const int hdf_reset_expected[] = { RESET_EVENTTAB, RESET_MEMORY, RTAREA_RESET, RESET_DISK, RESET_CIA, RESET_A1000, N2A_RESET, TRAPS_RESET,
+		FS_PREPARE_RESET, FS_RESET, FS_START_THREADS, HARDFILE_RESET, RESET_DONGLE };
+	expect(hdf_reset_expected, 13);
+	clear_log(); do_leave_program();
+	const int hdf_teardown_expected[] = { TRAPS_RESET, TRAPS_FREE, FS_CLEANUP, INPUT_CLOSE, DISK_FREE, DUMP_COUNTS, EXPANSION_CLEANUP,
+		STATE_FREE, MEMORY_FREE, N2A_FREE, RTAREA_FREE, DRAW_FREE, GRAPHICS_LEAVE, SOUND_CLOSE };
+	expect(hdf_teardown_expected, 14);
+	currprefs.mountitems = 0;
 }

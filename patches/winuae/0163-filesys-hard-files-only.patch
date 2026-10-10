@@ -1,0 +1,169 @@
+diff --git a/filesys.cpp b/filesys.cpp
+--- a/filesys.cpp
++++ b/filesys.cpp
+@@ -970,6 +970,15 @@
+ 
+ 	memcpy (&c, ci, sizeof (struct uaedev_config_info));
+ 
++#ifdef P6_PORTABLE
++	// The profile mounts hard files on the UAE controller and nothing else: a host directory (volname), an archive, a CD, a tape or a unit on some
++	// other controller has no provider here (hostfs_unsupported.cpp), so it is refused instead of being opened as if it were there.
++	if (c.type != UAEDEV_HDF || c.controller_type != HD_CONTROLLER_TYPE_UAE || c.volname[0]) {
++		error_log (_T("'%s': only hard files on the UAE controller are supported."), c.rootdir);
++		return -1;
++	}
++#endif
++
+ 	if (nr < 0) {
+ 		for (nr = 0; nr < MAX_FILESYSTEM_UNITS; nr++) {
+ 			if (!mountinfo.ui[nr].open)
+@@ -1432,6 +1441,7 @@
+ 
+ }
+ 
++#ifndef P6_PORTABLE // GUI text of a unit; nothing in the profile calls it
+ int sprintf_filesys_unit (TCHAR *buffer, int num)
+ {
+ 	UnitInfo *uip = mountinfo.ui;
+@@ -1444,6 +1454,7 @@
+ 		uip[num].rootdir, (int)(uip[num].hf.virtsize / (1024 * 1024)));
+ 	return 0;
+ }
++#endif
+ 
+ static void free_mountinfo (void)
+ {
+@@ -6925,7 +6936,7 @@
+ 		*        d0 = 5: Send FileNofication message, port in a0, notifystruct in a1
+ 		*/
+ 
+-#ifdef SUPPORT_THREADS
++#if defined(SUPPORT_THREADS) || defined(P6_NATIVE2AMIGA)
+ 		/* First, check signals/messages */
+ 		while (comm_pipe_has_data(&native2amiga_pending)) {
+ 			int cmd = read_comm_pipe_int_blocking(&native2amiga_pending);
+@@ -8238,7 +8249,7 @@
+ 			dt[j++] = c;
+ 		} else {
+ 			dt[j++] = '\\';
+-			_stprintf (&dt[j], _T("%d"), c);
++			snprintf (&dt[j], 5, "%d", c); // at most "255" and the NUL: dt holds 32
+ 			j += uaetcslen (&dt[j]);
+ 		}
+ 	}
+@@ -8306,7 +8317,7 @@
+ 		TCHAR outbuf[81];
+ 		for (int j = 0; j < w; j++) {
+ 			uae_u8 v = buf[i + j];
+-			_stprintf(outbuf + 2 * j, _T("%02X"), v);
++			snprintf(outbuf + 2 * j, 3, "%02X", v);
+ 			outbuf[2 * w + 1 + j] = (v >= 32 && v <= 126) ? v : '.';
+ 		}
+ 		outbuf[2 * w] = ' ';
+@@ -8339,7 +8350,7 @@
+ 			break;
+ 		}
+ 		memset (buf, 0, readblocksize);
+-		hdf_read (hfd, buf, partblock * hfd->ci.blocksize, readblocksize, &error);
++		hdf_read (hfd, buf, (uae_u64)partblock * hfd->ci.blocksize, readblocksize, &error);
+ 		if (!rdb_checksum ("PART", buf, partblock)) {
+ 			write_log (_T("RDB: checksum error PART block %d\n"), partblock);
+ 			dumprdbblock(buf, partblock);
+@@ -8512,6 +8523,13 @@
+ 	uae_u32 error = 0;
+ 
+ 	blocksize = rl (bufrdb + 16);
++#ifdef P6_PORTABLE
++	// The block size is a field of the disk and sizes the buffer below: a power of two that the buffers of the engine hold, or the RDB is refused.
++	if (blocksize < 256 || blocksize > FILESYS_MAX_BLOCKSIZE || (blocksize & (blocksize - 1))) {
++		write_log (_T("RDB: unsupported block size %d\n"), blocksize);
++		return -2;
++	}
++#endif
+ 	readblocksize = blocksize > hfd->ci.blocksize ? blocksize : hfd->ci.blocksize;
+ 
+ 	badblock = rl (bufrdb + 24);
+@@ -8565,7 +8583,7 @@
+ 			goto error;
+ 		}
+ 		memset (buf, 0, readblocksize);
+-		hdf_read (hfd, buf, partblock * hfd->ci.blocksize, readblocksize, &error);
++		hdf_read (hfd, buf, (uae_u64)partblock * hfd->ci.blocksize, readblocksize, &error);
+ 		if (!rdb_checksum ("PART", buf, partblock)) {
+ 			err = -2;
+ 			write_log(_T("RDB: checksum error in PART block %d\n"), partblock);
+@@ -8632,7 +8650,7 @@
+ 		fsnode = 0;
+ 	}
+ 
+-	for (;;) {
++	for (int fshd_blocks = 0;; fshd_blocks++) {
+ 		if (fileblock == -1) {
+ 			if (!fsnode)
+ 				write_log (_T("RDB: FS %08X (%s) not in FileSystem.resource or in RDB\n"), dostype, dostypes (dt, dostype));
+@@ -8642,8 +8660,15 @@
+ 			write_log (_T("RDB: corrupt FSHD pointer %d\n"), fileblock);
+ 			goto error;
+ 		}
++#ifdef P6_PORTABLE
++		// The chain of file system headers ends at -1, and nothing in the disk says it does: a loop ends here, after more headers than any RDB holds.
++		if (fshd_blocks >= 1024) {
++			write_log (_T("RDB: FSHD chain too long or looping\n"));
++			goto error;
++		}
++#endif
+ 		memset (buf, 0, readblocksize);
+-		hdf_read (hfd, buf, fileblock * hfd->ci.blocksize, readblocksize, &error);
++		hdf_read (hfd, buf, (uae_u64)fileblock * hfd->ci.blocksize, readblocksize, &error);
+ 		if (!rdb_checksum ("FSHD", buf, fileblock)) {
+ 			write_log (_T("RDB: checksum error in FSHD block %d\n"), fileblock);
+ 			dumprdbblock(buf, fileblock);
+@@ -8678,7 +8703,7 @@
+ 		if (!legalrdbblock (uip, lsegblock))
+ 			goto error;
+ 		memset (buf, 0, readblocksize);
+-		hdf_read (hfd, buf, lsegblock * hfd->ci.blocksize, readblocksize, &error);
++		hdf_read (hfd, buf, (uae_u64)lsegblock * hfd->ci.blocksize, readblocksize, &error);
+ 		if (!rdb_checksum("LSEG", buf, lsegblock)) {
+ 			write_log(_T("RDB: checksum error in LSEG block %d\n"), lsegblock);
+ 			dumprdbblock(buf, lsegblock);
+@@ -9477,7 +9502,8 @@
+ 	dw (RTS);
+ 
+ 	org (rtarea_base + 0xFF48);
+-	calltrap (deftrap2 (filesys_init_storeinfo, TRAPFLAG_EXTRA_STACK, _T("filesys_init_storeinfo")));
++	// P6: the body only reads the 68k state and allocates in the board's memory; the extra stack of an extended trap (a thread) is not needed.
++	calltrap (deftrap2 (filesys_init_storeinfo, 0, _T("filesys_init_storeinfo")));
+ 	dw (RTS);
+ 
+ 	org (rtarea_base + 0xFF50);
+@@ -9527,9 +9553,13 @@
+ 	// Fill struct resident
+ 	TCHAR buf[256];
+ 	TCHAR *s = au(UAEFS_VERSION);
++#ifdef P6_PORTABLE // the build date of the host is in the id string upstream: the guest must not see it
++	_stprintf(buf, _T("%s\r\n"), s);
++#else
+ 	int y, m, d;
+ 	target_getdate(&y, &m, &d);
+ 	_stprintf(buf, _T("%s (%d.%d.%d)\r\n"), s, d, m, y);
++#endif
+ 	uaecptr idstring = ds(buf);
+ 	xfree(s);
+ 
+@@ -9558,6 +9588,7 @@
+ #include "od-win32/win32_filesys.cpp"
+ #endif
+ 
++#ifdef SAVESTATE // P6: the state of the filesystem is T29c; these bodies keep host paths and name savestate.cpp helpers the profile does not build
+ static uae_u8 *restore_filesys_hardfile (UnitInfo *ui, uae_u8 *src)
+ {
+ 	struct hardfiledata *hfd = &ui->hf;
+@@ -10309,6 +10340,7 @@
+ 		return -1;
+ 	return filesys_in_interrupt ? 0 : 1;
+ }
++#endif /* SAVESTATE */
+ 
+ static void shellexecute2_free(struct ShellExecute2 *se2)
+ {

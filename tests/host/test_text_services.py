@@ -53,7 +53,9 @@ class TextServicesTests(unittest.TestCase):
                 for forbidden in ("gettimeofday", "time", "setlocale", "iconv", "wcstombs"):
                     self.assertNotIn(forbidden, {l.strip().lstrip("_") for l in imports.splitlines()})
             self.assertEqual(names["text_services.cpp"],
-                             {"uaetcslen(char const*)", "my_strdup(char const*)", "au(char const*)"})
+                             {"uaetcslen(char const*)", "my_strdup(char const*)", "au(char const*)", "uaestrlen(char const*)", "ua(char const*)",
+                              "ua_copy(char*, int, char const*)", "ua_fs(char const*, int)", "ua_fs_copy(char*, int, char const*, int)",
+                              "au_fs(char const*)", "au_fs_copy(char*, int, char const*)", "samepath(char const*, char const*)"})
             self.assertIn("uae_int_requested", names["atomic.cpp"])
 
 

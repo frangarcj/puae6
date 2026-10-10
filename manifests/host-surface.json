@@ -23,9 +23,11 @@
         "cstring",
         "ctype.h",
         "errno.h",
+        "exception",
         "functional",
         "limits.h",
         "math.h",
+        "new",
         "stdarg.h",
         "stdbool.h",
         "stddef.h",
@@ -36,6 +38,7 @@
         "string.h",
         "strings.h",
         "sys/types.h",
+        "typeinfo",
         "vector"
       ],
       "semantics": "Tipos, strings, contenedores y aritmetica del runtime C/C++; incluir stdio no autoriza filesystem host. libm influye en filtros/tablas: sin fast-math ni locale variable.",
@@ -164,7 +167,8 @@
         "sunmath.h",
         "values.h",
         "setjmp.h",
-        "signal.h"
+        "signal.h",
+        "od-win32/win32_filesys.cpp"
       ],
       "semantics": "Ramas Windows/SDL/Lua/Solaris/debug/MMU o intrinsics especificos, fuera del perfil. Los includes no guardados necesitan parche; no basta declarar feature off. connect en CIA es un parametro bool, no llamada de red; una llamada de red sigue excluida. SDL/Win32 solo aparecen en ramas a eliminar.",
       "native": "Excluir rama host y sustituir solo operaciones requeridas por contratos locales.",
@@ -201,7 +205,10 @@
       "semantics": "CAPS/IPF, archives y compresion fuera de M1. ZFD_NORMAL incluye ARCHIVE|UNPACK: acotar flags y rechazar formatos, no fingir descompresion exitosa.",
       "native": "Solo ADF plano/ROM explicitos; error unsupported para otros formatos.",
       "waterbox": "Igual; sin resolver plugins fuera del guest ni incorporar CAPSImg.",
-      "test": "T12 MED01 acepta ADF sintetico valido y rechaza ZIP/IPF/truncados; ninguna carga dinamica ni lectura host."
+      "test": "T12 MED01 acepta ADF sintetico valido y rechaza ZIP/IPF/truncados; ninguna carga dinamica ni lectura host.",
+      "symbols": [
+        "target_type"
+      ]
     },
     "excluded_av": {
       "headers": [
@@ -765,18 +772,26 @@
           "zfile_truncate"
         ],
         "selected_callers": {
-          "zfile_crc32": [
-            "disk.cpp"
-          ],
-          "zfile_exists": [
-            "memory.cpp",
+          "zfile_fwrite": [
+            "cia.cpp",
+            "audio.cpp",
             "disk.cpp",
             "cfgfile.cpp",
             "rommgr.cpp",
-            "savestate.cpp"
+            "savestate.cpp",
+            "hardfile.cpp"
           ],
-          "zfile_exit": [
-            "main.cpp"
+          "zfile_fopen": [
+            "cia.cpp",
+            "memory.cpp",
+            "audio.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "main.cpp",
+            "savestate.cpp",
+            "filesys.cpp",
+            "hardfile.cpp"
           ],
           "zfile_fclose": [
             "cia.cpp",
@@ -787,39 +802,15 @@
             "rommgr.cpp",
             "expansion.cpp",
             "main.cpp",
-            "savestate.cpp"
+            "savestate.cpp",
+            "filesys.cpp",
+            "hardfile.cpp"
           ],
-          "zfile_fgets": [
-            "cfgfile.cpp"
-          ],
-          "zfile_fgetsa": [
-            "cfgfile.cpp"
-          ],
-          "zfile_fopen": [
+          "zfile_size32": [
             "cia.cpp",
             "memory.cpp",
-            "audio.cpp",
-            "disk.cpp",
-            "cfgfile.cpp",
-            "rommgr.cpp",
-            "main.cpp",
-            "savestate.cpp"
-          ],
-          "zfile_fopen_data": [
-            "memory.cpp",
-            "rommgr.cpp"
-          ],
-          "zfile_fopen_empty": [
-            "disk.cpp",
-            "cfgfile.cpp",
             "rommgr.cpp",
             "savestate.cpp"
-          ],
-          "zfile_fopen_load_zfile": [
-            "disk.cpp"
-          ],
-          "zfile_fputs": [
-            "cfgfile.cpp"
           ],
           "zfile_fread": [
             "cia.cpp",
@@ -828,10 +819,8 @@
             "cfgfile.cpp",
             "rommgr.cpp",
             "expansion.cpp",
-            "savestate.cpp"
-          ],
-          "zfile_fread32": [
-            "memory.cpp"
+            "savestate.cpp",
+            "filesys.cpp"
           ],
           "zfile_fseek": [
             "memory.cpp",
@@ -840,51 +829,49 @@
             "cfgfile.cpp",
             "rommgr.cpp",
             "expansion.cpp",
-            "savestate.cpp"
+            "savestate.cpp",
+            "filesys.cpp",
+            "hardfile.cpp"
           ],
-          "zfile_ftell": [
-            "disk.cpp",
-            "cfgfile.cpp"
+          "zfile_fopen_data": [
+            "memory.cpp",
+            "rommgr.cpp"
+          ],
+          "zfile_fread32": [
+            "memory.cpp"
           ],
           "zfile_ftell32": [
             "memory.cpp",
             "audio.cpp",
             "disk.cpp",
             "rommgr.cpp",
-            "savestate.cpp"
+            "savestate.cpp",
+            "filesys.cpp"
           ],
-          "zfile_fwrite": [
-            "cia.cpp",
-            "audio.cpp",
+          "zfile_gunzip": [
+            "memory.cpp"
+          ],
+          "zfile_exists": [
+            "memory.cpp",
             "disk.cpp",
             "cfgfile.cpp",
             "rommgr.cpp",
             "savestate.cpp"
           ],
-          "zfile_get_data_pointer": [
-            "cfgfile.cpp"
-          ],
-          "zfile_getdata": [
-            "rommgr.cpp",
-            "savestate.cpp"
-          ],
-          "zfile_getfilename": [
+          "zfile_fopen_load_zfile": [
             "disk.cpp"
-          ],
-          "zfile_getname": [
-            "disk.cpp",
-            "rommgr.cpp",
-            "main.cpp",
-            "savestate.cpp"
           ],
           "zfile_getoriginalname": [
             "disk.cpp"
           ],
-          "zfile_gettype": [
-            "main.cpp"
+          "zfile_getfilename": [
+            "disk.cpp"
           ],
-          "zfile_gunzip": [
-            "memory.cpp"
+          "zfile_fopen_empty": [
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "savestate.cpp"
           ],
           "zfile_iscompressed": [
             "disk.cpp",
@@ -893,30 +880,120 @@
           "zfile_size": [
             "disk.cpp"
           ],
-          "zfile_size32": [
-            "cia.cpp",
-            "memory.cpp",
+          "zfile_crc32": [
+            "disk.cpp"
+          ],
+          "zfile_getname": [
+            "disk.cpp",
             "rommgr.cpp",
+            "main.cpp",
             "savestate.cpp"
+          ],
+          "zfile_ftell": [
+            "disk.cpp",
+            "cfgfile.cpp"
+          ],
+          "zfile_fgets": [
+            "cfgfile.cpp"
+          ],
+          "zfile_fgetsa": [
+            "cfgfile.cpp"
+          ],
+          "zfile_get_data_pointer": [
+            "cfgfile.cpp"
+          ],
+          "zfile_fputs": [
+            "cfgfile.cpp"
           ],
           "zfile_truncate": [
             "cfgfile.cpp"
           ],
-          "zfile_zcompress": [
+          "zfile_getdata": [
+            "rommgr.cpp",
             "savestate.cpp"
+          ],
+          "zfile_gettype": [
+            "main.cpp"
           ],
           "zfile_zopen": [
             "main.cpp"
           ],
+          "zfile_exit": [
+            "main.cpp"
+          ],
+          "zfile_zcompress": [
+            "savestate.cpp"
+          ],
           "zfile_zuncompress": [
             "savestate.cpp"
+          ],
+          "zfile_opendir_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_exists_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_load_file": [
+            "filesys.cpp",
+            "hardfile.cpp"
+          ],
+          "zfile_read_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_close_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_open_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_lseek_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fill_file_attrs_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_stat_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fs_usage_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fclose_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fopen_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_readdir_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fsize_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_closedir_archive": [
+            "filesys.cpp"
           ]
         },
         "excluded_pending_link": {
           "zfile_gunzip": "memory.cpp AROS embedded fallback excluded by ADR; remove/guard branch in T06.",
           "zfile_zopen": "main.cpp host disk-swapper scan/history; exclude branch in T06.",
           "zfile_zcompress": "savestate.cpp legacy persistence; isolate from retained state globals/helpers in T06.",
-          "zfile_zuncompress": "savestate.cpp legacy persistence; isolate in T06."
+          "zfile_zuncompress": "savestate.cpp legacy persistence; isolate in T06.",
+          "zfile_close_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_closedir_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_exists_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_fclose_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_fill_file_attrs_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_fopen_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_fs_usage_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_fsize_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_load_file": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_lseek_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_open_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_opendir_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_read_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_readdir_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system.",
+          "zfile_stat_archive": "filesys.cpp or hardfile.cpp (T29a): host archive volumes and host files; ports/portable/hostfs_unsupported.cpp provides it and it fails (NULL, -1 or 0), because a session has no host file system."
         },
         "coverage": "Lexical calls in selected upstream/generated units, excluding legacy zfile.cpp body. Includes inactive branches. Does not prove preprocessing, headers/macros, caller error propagation or full engine link. All other zfile declarations remain undefined until required and audited.",
         "tests": [

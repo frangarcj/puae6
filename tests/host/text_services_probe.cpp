@@ -9,6 +9,7 @@
 #include "sysdeps.h"
 
 extern volatile uae_atomic uae_int_requested;
+extern bool samepath(const TCHAR *p1, const TCHAR *p2);    // declared in uae.h, which this probe does not include
 
 static long fail_at = -1, calls;
 extern "C" void *p6_text_test_malloc(size_t n)
@@ -73,6 +74,38 @@ int main()
     TCHAR *again = au("ok");
     assert(again && strcmp(again, "ok") == 0);
     xfree(again);
+
+    // The other way (T29a): UTF-8 to ISO-8859-1 for the Amiga side. What does not fit becomes the default character, a copy is bounded and always ends in NUL.
+    char *latin = ua("caf\xc3\xa9 \xe2\x82\xac");           // e acute, then the euro sign (not in ISO-8859-1)
+    assert(latin && strcmp(latin, "caf\xe9 ?") == 0 && uaestrlen(latin) == 6);
+    free(latin);
+    latin = ua_fs("a\xe2\x82\xac" "b", '_');
+    assert(latin && strcmp(latin, "a_b") == 0);
+    free(latin);
+    for (int b = 1; b < 256; ++b) {                     // au() and ua() are inverse on every byte value
+        char in[2] = { (char)b, 0 };
+        TCHAR *wide_one = au(in);
+        char *narrow = ua(wide_one);
+        assert(narrow && narrow[0] == (char)b && narrow[1] == 0);
+        free(narrow);
+        xfree(wide_one);
+    }
+    char small[4];
+    memset(small, 'z', sizeof small);
+    assert(ua_copy(small, 4, "abcdef") == small && strcmp(small, "abc") == 0);
+    assert(ua_copy(small, 0, "abcdef") == small && small[0] == 'a');   // nothing is written for a capacity of 0
+    TCHAR cut[4];
+    assert(au_fs_copy(cut, 4, "a\xe9\xe9") == cut && strcmp(cut, "a\xc3\xa9") == 0);   // a two-byte character is never cut in half
+    TCHAR *via = au_fs("\xe9");
+    assert(via && strcmp(via, "\xc3\xa9") == 0);
+    xfree(via);
+    assert(samepath("a/b", "a/b") && !samepath("a/b", "a/B"));
+
+    // The counters and the bit test of the trap area (T29a): the new value of an increment or decrement, the old state of the bit.
+    volatile uae_atomic counter = 5;
+    assert(atomic_inc(&counter) == 6 && counter == 6 && atomic_dec(&counter) == 5 && counter == 5);
+    volatile uae_atomic bits = 0x6;
+    assert(atomic_bit_test_and_reset(&bits, 1) == 1 && bits == 0x4 && atomic_bit_test_and_reset(&bits, 1) == 0 && bits == 0x4);
 
     // Interrupt-request bits: zero without producers, and the atomic contract holds on it.
     assert(uae_int_requested == 0);

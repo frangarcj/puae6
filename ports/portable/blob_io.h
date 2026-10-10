@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 enum { P6_BLOB_ASSETS = 32, P6_BLOB_STREAMS = 64, P6_BLOB_ID_BYTES = 80 };
-enum { P6_BLOB_ROM = 1, P6_BLOB_ADF = 2, P6_BLOB_KEY = 3 };
+enum { P6_BLOB_ROM = 1, P6_BLOB_ADF = 2, P6_BLOB_KEY = 3, P6_BLOB_HDF = 4 };
 enum { P6_BLOB_OK = 0, P6_BLOB_ARGUMENT = -1, P6_BLOB_NOT_FOUND = -2,
        P6_BLOB_UNSUPPORTED = -3, P6_BLOB_READ_ONLY = -4, P6_BLOB_CAPACITY = -5,
        P6_BLOB_NO_MEMORY = -6, P6_BLOB_HANDLE = -7, P6_BLOB_RANGE = -8,
@@ -29,6 +29,11 @@ typedef struct p6_blob_info {
  */
 int p6_blob_register(const char *id, uint32_t kind, const void *data, size_t bytes);
 int p6_blob_exists(const char *id);
+/* The base of an asset by offset, with no stream: no cursor to move, nothing the host keeps between two reads (the hard files of T29a are read this way, so a read
+ * is a function of the registered bytes and the offset alone). size gives the length and kind of the asset (either may be NULL). pread copies the bytes of
+ * [offset, offset + length) that lie inside the asset: *got is their number (0 at or beyond the end), P6_BLOB_RANGE is not used and a missing asset is NOT_FOUND. */
+int p6_blob_size(const char *id, uint64_t *bytes, uint32_t *kind);
+int p6_blob_pread(const char *id, uint64_t offset, void *out, size_t length, size_t *got);
 /* "rb": the base, always. "r+b": the base with the write overlay of the asset on top (p6_blob_overlay_bind), READ_ONLY for an asset without
  * one. out is zeroed on failure; every successful open has its own cursor. */
 int p6_blob_open(const char *id, const char *mode, p6_blob_handle *out);

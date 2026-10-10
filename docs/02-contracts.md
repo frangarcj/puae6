@@ -458,6 +458,19 @@ aprobado; el cursor o cache mutable no puede ocultar estado fuera del sandbox.
 Cualquier caching externo debe ser semantica de funcion pura y probado tras reset
 arbitrario de la cache. MVP prefiere precargar floppies para reducir esa superficie.
 
+Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro de SOLO LECTURA por el controlador UAE (`uaehf.device` y la placa UAEFS, como
+PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256
+de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs (`P6_BLOB_HDF`, `p6_blob_pread`: lectura por offset de la base inmutable, sin cursor ni fichero del
+host) y el presupuesto de memoria es su tamaño (CAPACITY si no cabe). Una imagen que empieza por `RDSK` trae su RDB; cualquier otra es una particion (32 sectores, 1 cabeza, 2 bloques
+reservados, prioridad de arranque 0). Un HDF no es un disquete: ni `MOUNT` en una unidad, ni `p6_media_append`, ni exportacion. La E/S es sincrona y sin retardo emulado: la peticion se sirve
+dentro de `BeginIO` (sin hilo por unidad) y el invitado ve la respuesta en la siguiente INT2 (cola EXTER de `native2amiga`, sin hilos); `HD_SCSICMD` responde `IOERR_NOCMD` (no se compila
+`scsi.cpp`), una escritura responde "protegido contra escritura" (28), y se rechazan los volumenes del host (directorios, archivos, CD, cinta) y cualquier controlador distinto del UAE.
+Kickstart 1.3 o posterior (version 34+): con una anterior `p6_load` responde UNSUPPORTED. La placa UAEFS y la ROM de arranque UAE ($F00000) existen SOLO si hay un HDF: sin el, la maquina,
+sus digests y sus hashes son los de antes. RDB y particiones se validan sin reservar tamaños leidos del disco (tamaño de bloque del RDB: potencia de dos entre 256 y 8192; cadena de
+FSHD acotada a 1024; sin VHD ni CHD). Con un HDF montado NO hay estado nativo todavia: `p6_state_bound`, `p6_state_save` y `p6_state_load` responden UNSUPPORTED (el estado del
+controlador, la cola EXTER y la placa no estan serializados; llega con T29c). Pendiente de T29: overlay de escritura de 4 KiB y exportacion (`HARDDISK_CHUNK` de MacHawk), estado,
+Waterbox (el almacen de blobs va al heap sellado: presupuesto de `HardDiskHeapKB`) y el bit de capacidad `P6_CAP_MEDIA_HDF` (cambia `p6_query_caps`, que fijan pruebas de otras zonas).
+
 ## Regiones de memoria
 
 Implementado (T20a): `p6_memory_regions` (capacidad `P6_CAP_MEMORY_REGIONS`) devuelve vistas de la memoria que el motor asigno, no copias: Chip RAM,

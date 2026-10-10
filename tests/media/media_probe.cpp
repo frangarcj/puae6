@@ -142,7 +142,7 @@ static void rejected_lists(const std::vector<uint8_t> &rom)
     rejects(rom, many.data(), uint32_t(many.size()), P6_ERROR_CAPACITY, "too many");
 
     p6_media m = ma; m.type = 0;                       rejects(rom, &m, 1, P6_ERROR_UNSUPPORTED, "type 0");
-    m = ma; m.type = 2;                                rejects(rom, &m, 1, P6_ERROR_UNSUPPORTED, "type 2");
+    m = ma; m.type = 3;                                rejects(rom, &m, 1, P6_ERROR_UNSUPPORTED, "type 3");   // 2 is P6_MEDIA_HDF since T29a
     m = ma; m.flags = 1;                               rejects(rom, &m, 1, P6_ERROR_BAD_ARGUMENT, "flags");
     m = ma; m.image.data = nullptr;                    rejects(rom, &m, 1, P6_ERROR_BAD_ARGUMENT, "no data");
     for (uint64_t bytes : {uint64_t(0), uint64_t(512), p6_bridge::kAdfBytes - 1, p6_bridge::kAdfBytes + 1,

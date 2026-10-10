@@ -93,6 +93,48 @@
       "count": 1,
       "disposition": "revisit",
       "note": "`if (dst[i].custom)` tests the address of an array member, always true, in the port-copy code; the copied custom strings are always empty in the profile (patch 0048). Upstream bug candidate."
+    },
+    {
+      "file": "filesys.cpp",
+      "flag": "-Wdeprecated-declarations",
+      "count": 5,
+      "disposition": "dead_under_profile",
+      "note": "The five sprintf calls (lines 10404-10468) format the command of filesys_shellexecute2, which hands a command to the host shell: the profile has no caller of it (no host to run it on), so the code is present and never runs. T29a does not touch it; an upstream update keeps the same text."
+    },
+    {
+      "file": "filesys.cpp",
+      "flag": "-Wformat",
+      "count": 4,
+      "disposition": "dead_under_profile",
+      "note": "Two of the formats (line 6003) are in the debug output of a host file lock and two (lines 10351 and 10396) in the shell execution code: log text for host directories and host shell commands, which a session cannot have (the units are refused unless they are hard files). A wrong width in a log line, never reached."
+    },
+    {
+      "file": "filesys.cpp",
+      "flag": "-Wpointer-bool-conversion",
+      "count": 1,
+      "disposition": "dead_under_profile",
+      "note": "filesys_createvolname tests a local array as a condition (line 817): it names the volume of a host directory, which the profile refuses before the machine exists."
+    },
+    {
+      "file": "filesys.cpp",
+      "flag": "-Wunused-value",
+      "count": 1,
+      "disposition": "harmless",
+      "note": "A comma expression with an unused left operand (line 2245) in the lock code of a virtual volume; the value is the right operand, as intended upstream."
+    },
+    {
+      "file": "traps.cpp",
+      "flag": "-Wformat",
+      "count": 1,
+      "disposition": "dead_under_profile",
+      "note": "A size_t printed with %d in the debug text of hardware_trap_background (uaeboard > 2), which the profile never selects (trap_is_indirect is false)."
+    },
+    {
+      "file": "traps.cpp",
+      "flag": "-Wformat-insufficient-args",
+      "count": 2,
+      "disposition": "dead_under_profile",
+      "note": "Two write_log calls of hardware_trap_thread (uaeboard > 2) miss their argument (a slot number): the thread never starts in the profile, and the line would only print an unspecified number."
     }
   ]
 }

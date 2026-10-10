@@ -98,6 +98,8 @@ void release_engine()
 p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media_count, p6_error *error)
 {
     p6_bridge::build_preferences(config);
+    if (const p6_result mounted = p6_bridge::mount_hard_files(media, media_count, error))
+        return mounted;
     if (const p6_result preset = p6_bridge::check_preset(error))
         return preset;
     if (p6_blob_register(p6_bridge::kFirmwareId, P6_BLOB_ROM, firmware.data, size_t(firmware.bytes)) != P6_BLOB_OK)
@@ -142,6 +144,9 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     memory_reset();
     if (const p6_result loaded = p6_bridge::check_loaded_firmware(error))
         return loaded;
+    // Before 1.3 (version 33) the board is not found by autoconfig: the engine patches PutMsg and DoIO (the "boot hack"), which this profile does not test.
+    if (p6_bridge::hard_files_in(media, media_count) && kickstart_version < 34)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "a hard file needs Kickstart 1.3 or later");
     custom_init();
     // A load is a new power-on. A clean process starts with the CPU registers and the beam at zero, but the reset head keeps
     // D0-D7/A0-A6 and lets the beam run on, so whatever the previous session left there would decide how the new one begins

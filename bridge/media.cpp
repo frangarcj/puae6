@@ -15,6 +15,7 @@
 #include "options.h"
 #include "disk.h"
 #include "zfile.h"
+#include "filesys.h"
 
 #include <string.h>
 
@@ -56,18 +57,28 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
     if (count && !media)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the media array is null");
     // Cheap checks on every entry first, so that hashing 900 KiB happens only for a list that is otherwise acceptable.
+    uint32_t hard_files = 0;
     for (uint32_t i = 0; i < count; ++i) {
         const p6_media &m = media[i];
-        if (m.type != P6_MEDIA_ADF)
-            return p6_fail(error, P6_ERROR_UNSUPPORTED, "only ADF media are supported");
+        if (m.type != P6_MEDIA_ADF && m.type != P6_MEDIA_HDF)
+            return p6_fail(error, P6_ERROR_UNSUPPORTED, "only ADF and HDF media are supported");
         if (m.flags != 0)
             return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "media flags are reserved");
         if (!m.image.data)
             return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "a medium has no image");
-        if (m.image.bytes != kAdfBytes)
-            return p6_fail(error, P6_ERROR_WRONG_MEDIA, "a disk image must be exactly 901120 bytes");
-        if (has_special_header(static_cast<const uint8_t *>(m.image.data)))
-            return p6_fail(error, P6_ERROR_WRONG_MEDIA, "extended ADF and executable images are not supported");
+        if (m.type == P6_MEDIA_HDF) {
+            // Whatever else the file claims about itself is checked by the engine over the registered bytes (RDB and partition blocks, with bounds); here only
+            // what makes it a block device at all.
+            if (++hard_files > P6_MAX_HDF)
+                return p6_fail(error, P6_ERROR_CAPACITY, "too many hard files");
+            if (m.image.bytes < kHdfBlock || m.image.bytes % kHdfBlock != 0)
+                return p6_fail(error, P6_ERROR_WRONG_MEDIA, "a hard file must be a whole number of 512-byte blocks, at least one");
+        } else {
+            if (m.image.bytes != kAdfBytes)
+                return p6_fail(error, P6_ERROR_WRONG_MEDIA, "a disk image must be exactly 901120 bytes");
+            if (has_special_header(static_cast<const uint8_t *>(m.image.data)))
+                return p6_fail(error, P6_ERROR_WRONG_MEDIA, "extended ADF and executable images are not supported");
+        }
         for (uint32_t j = 0; j < i; ++j)
             if (!memcmp(media[j].content_id, m.content_id, P6_CONTENT_ID_SIZE))
                 return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "two media share a content id");
@@ -86,7 +97,7 @@ p6_result register_media(const p6_media *media, uint32_t count, uint32_t first_i
     for (uint32_t i = 0; i < count; ++i) {
         char id[kMediaBlobIdBytes];
         media_blob_id(media[i].content_id, id);
-        switch (p6_blob_register(id, P6_BLOB_ADF, media[i].image.data, size_t(media[i].image.bytes))) {
+        switch (p6_blob_register(id, media[i].type == P6_MEDIA_HDF ? P6_BLOB_HDF : P6_BLOB_ADF, media[i].image.data, size_t(media[i].image.bytes))) {
         case P6_BLOB_OK:
             break;
         case P6_BLOB_CAPACITY:
@@ -96,7 +107,7 @@ p6_result register_media(const p6_media *media, uint32_t count, uint32_t first_i
             return p6_fail(error, P6_ERROR_INTERNAL, "a medium could not be registered");
         }
         // With P6_CONFIG_FLOPPY_WRITES the disk is writable over the overlay that p6_load reserved; its number is its index in the manifest.
-        if (session.config.flags & P6_CONFIG_FLOPPY_WRITES)
+        if (media[i].type == P6_MEDIA_ADF && (session.config.flags & P6_CONFIG_FLOPPY_WRITES))
             if (p6_blob_overlay_bind(id, first_index + i) != P6_BLOB_OK)
                 return p6_fail(error, P6_ERROR_INTERNAL, "a medium could not get its write overlay");
     }
@@ -106,6 +117,51 @@ p6_result register_media(const p6_media *media, uint32_t count, uint32_t first_i
 bool media_forced_write_protect(const char *id)
 {
     return !p6_blob_overlay_writable(id);
+}
+
+uint32_t hard_file_count()
+{
+    const p6_session::Session &s = p6_session::session;
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < s.media_count && i < P6_MAX_MEDIA; ++i)
+        n += s.media_type[i] == P6_MEDIA_HDF;
+    return n;
+}
+
+uint32_t hard_files_in(const p6_media *media, uint32_t count)
+{
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < count; ++i)
+        n += media[i].type == P6_MEDIA_HDF;
+    return n;
+}
+
+p6_result mount_hard_files(const p6_media *media, uint32_t count, p6_error *error)
+{
+    uint32_t unit = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        if (media[i].type != P6_MEDIA_HDF)
+            continue;
+        const bool rdb = !memcmp(media[i].image.data, "RDSK", 4);      // a disk with its own RDB brings its geometry; any other is one partition
+        uaedev_config_info ci;
+        uci_set_defaults(&ci, rdb);
+        ci.type = UAEDEV_HDF;
+        ci.controller_type = HD_CONTROLLER_TYPE_UAE;
+        ci.readonly = true;
+        ci.blocksize = int(kHdfBlock);
+        media_blob_id(media[i].content_id, ci.rootdir);                  // hdf_open_target looks the image up by this id
+        snprintf(ci.devname, sizeof ci.devname, "DH%u", unit);
+        ci.controller_unit = int(unit);
+        // What add_filesys_config does for a unit of the UAE controller, which cfgfile.cpp excludes together with the text configuration around it.
+        if (currprefs.mountitems >= MOUNT_CONFIG_SIZE)
+            return p6_fail(error, P6_ERROR_CAPACITY, "a hard file could not be mounted");
+        uaedev_config_data &mount = currprefs.mountconfig[currprefs.mountitems++];
+        mount.configoffset = -1;
+        mount.unitnum = -1;
+        memcpy(&mount.ci, &ci, sizeof ci);
+        ++unit;
+    }
+    return P6_OK;
 }
 
 namespace {
@@ -123,8 +179,10 @@ void remember_identity(const p6_buffer &firmware, const p6_media *media, uint32_
     memset(g_crc, 0, sizeof g_crc);
     p6_sha256_hash(firmware.data, firmware.bytes, s.firmware_sha256);
     s.media_count = count;
-    for (uint32_t i = 0; i < count; ++i)
+    for (uint32_t i = 0; i < count; ++i) {
         memcpy(s.media_content_id[i], media[i].content_id, P6_CONTENT_ID_SIZE);
+        s.media_type[i] = uint8_t(media[i].type);
+    }
 }
 
 p6_result append_media(const p6_media &medium, uint32_t *index, p6_error *error)
@@ -132,6 +190,8 @@ p6_result append_media(const p6_media &medium, uint32_t *index, p6_error *error)
     p6_session::Session &s = p6_session::session;
     if (const p6_result checked = validate_media(&medium, 1, error))
         return checked;
+    if (medium.type != P6_MEDIA_ADF)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "only a disk can be appended: a hard file is part of the p6_load list");
     // A disk is its content: the same bytes under another name are the medium that is already registered, and the manifest (and the identity of every state)
     // does not grow for it.
     for (uint32_t i = 0; i < s.media_count; ++i) {
@@ -146,6 +206,7 @@ p6_result append_media(const p6_media &medium, uint32_t *index, p6_error *error)
         return registered;               // register_media adds nothing when it fails
     const uint32_t at = s.media_count;
     memcpy(s.media_content_id[at], medium.content_id, P6_CONTENT_ID_SIZE);
+    s.media_type[at] = P6_MEDIA_ADF;
     g_crc[at] = MeasuredCrc{};           // measured when a state needs it, as for the media of p6_load
     s.media_count = at + 1;
     *index = at;
@@ -157,6 +218,7 @@ void forget_media()
     p6_session::Session &s = p6_session::session;
     memset(s.firmware_sha256, 0, sizeof s.firmware_sha256);
     memset(s.media_content_id, 0, sizeof s.media_content_id);
+    memset(s.media_type, 0, sizeof s.media_type);
     memset(g_crc, 0, sizeof g_crc);
     s.media_count = 0;
     s.media_queued = 0;
@@ -278,6 +340,8 @@ extern "C" p6_result p6_media_event_enqueue(const p6_media_event *event, p6_erro
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A500 has only DF0 and DF1");
     if (event->type == P6_MEDIA_EVENT_MOUNT && event->media_index >= session.media_count)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium was not passed to p6_load");
+    if (event->type == P6_MEDIA_EVENT_MOUNT && session.media_type[event->media_index] != P6_MEDIA_ADF)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "only a disk can be mounted in a drive: a hard file is mounted by p6_load");
     if (event->type == P6_MEDIA_EVENT_EJECT && event->media_index != P6_MEDIA_INDEX_EJECT)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "an eject event carries P6_MEDIA_INDEX_EJECT");
     if (session.have_sequence && event->sequence <= session.last_sequence)

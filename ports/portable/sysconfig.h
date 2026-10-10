@@ -32,6 +32,10 @@
 #endif
 
 #define P6_PORTABLE 1
+/* T29a: the hard file units of the engine (uaehf.device, the UAEFS board, the trap area) are compiled; a machine has them only when its media list holds a
+ * HDF (bridge/media.cpp). FILESYS, UAE_FILESYS_THREADS and SUPPORT_THREADS stay excluded above: these macros name the single-thread subset instead. */
+#define P6_FILESYS 1
+#define P6_NATIVE2AMIGA 1 /* the queue that carries a finished request to the 68k (upstream keys it on SUPPORT_THREADS) */
 #define CPUEMU_13 1
 #define CPUEMU_21 1 /* 68020 cycle exact, no MMU (ADR 0010); chosen only by a 68020 preset */
 /* 68881/68882 (T54): upstream's fpp.cpp over its integer SoftFloat (fpp_softfloat.cpp), never fpp_native.cpp, a long double or the host FPU. FPUEMU makes
@@ -48,6 +52,8 @@
 typedef int32_t uae_atomic; /* Storage contract only; operations are separate. */
 
 #define HAVE_STRING_H 1
+#define HAVE_FCNTL_H 1 /* only the O_* constants that filesys.cpp names in the code of host-file volumes (rejected at configuration) */
+#define FSDB_DIR_SEPARATOR_S "/"
 #define HAVE_SYS_TYPES_H 1
 #define HAVE_VAR_ATTRIBUTE_UNUSED 1
 #define MAX_DPATH 1000
