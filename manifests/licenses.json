@@ -164,6 +164,23 @@
       "build_eligibility": "excluded_from_PUAE6_build_reference_only"
     },
     {
+      "id": "puae-adapter-video-presentation",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/present.h"
+      ],
+      "handling": "T31c: the crop level sizes (lores width and PAL/NTSC lines of Minimum ... Maximum), the 320x200 minimum and the idea of crop modes by picture aspect come from libretro-uae's libretro-core.c (update_av_info) as numbers and behaviour; the code in adapters/libretro/present.h is written for PUAE6 (it works on a copy of the XRGB raster and finds the drawn area from the pixels). No source file of libretro-uae is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
       "id": "puae-libchdr",
       "source_id": "puae_libretro_reference",
       "scope": "embedded_dependency_in_reference",

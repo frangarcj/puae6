@@ -11371,7 +11371,7 @@
       "title": "Presentacion de video libretro: crop, zoom, posicion, aspecto, gamma y RGB565",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17",
         "T18",

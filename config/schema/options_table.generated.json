@@ -132,11 +132,15 @@
       "default": 0,
       "allowed": [
         0,
-        1
+        1,
+        2,
+        3
       ],
       "names": {
         "pixel": 0,
-        "4:3": 1
+        "4:3": 1,
+        "PAL": 2,
+        "NTSC": 3
       },
       "option": "video_aspect",
       "class": "presentation"
@@ -153,6 +157,310 @@
       },
       "option": "floppy_save",
       "class": "presentation"
+    },
+    "video_crop": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "names": {
+        "disabled": 0,
+        "minimum": 1,
+        "smaller": 2,
+        "small": 3,
+        "medium": 4,
+        "large": 5,
+        "larger": 6,
+        "maximum": 7,
+        "auto": 8
+      },
+      "option": "video_crop",
+      "class": "presentation"
+    },
+    "video_crop_mode": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "names": {
+        "both": 0,
+        "horizontal": 1,
+        "vertical": 2,
+        "16:9": 3,
+        "16:10": 4,
+        "4:3": 5,
+        "5:4": 6
+      },
+      "option": "video_crop_mode",
+      "class": "presentation"
+    },
+    "video_crop_delay": {
+      "default": 1,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "disabled": 0,
+        "enabled": 1
+      },
+      "option": "video_crop_delay",
+      "class": "presentation"
+    },
+    "video_vertical_pos": {
+      "default": 0,
+      "allowed": [
+        0,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120,
+        122,
+        124,
+        126,
+        128,
+        130,
+        132,
+        134,
+        136,
+        138,
+        140,
+        142,
+        144,
+        146,
+        148,
+        150,
+        152,
+        154,
+        156,
+        158,
+        160,
+        162,
+        164,
+        166,
+        168,
+        170,
+        172,
+        174,
+        176,
+        178,
+        180,
+        182,
+        184,
+        186,
+        188,
+        190,
+        192,
+        194,
+        196,
+        198
+      ],
+      "names": {
+        "auto": 0,
+        "-20": 108,
+        "-18": 110,
+        "-16": 112,
+        "-14": 114,
+        "-12": 116,
+        "-10": 118,
+        "-8": 120,
+        "-6": 122,
+        "-4": 124,
+        "-2": 126,
+        "0": 128,
+        "2": 130,
+        "4": 132,
+        "6": 134,
+        "8": 136,
+        "10": 138,
+        "12": 140,
+        "14": 142,
+        "16": 144,
+        "18": 146,
+        "20": 148,
+        "22": 150,
+        "24": 152,
+        "26": 154,
+        "28": 156,
+        "30": 158,
+        "32": 160,
+        "34": 162,
+        "36": 164,
+        "38": 166,
+        "40": 168,
+        "42": 170,
+        "44": 172,
+        "46": 174,
+        "48": 176,
+        "50": 178,
+        "52": 180,
+        "54": 182,
+        "56": 184,
+        "58": 186,
+        "60": 188,
+        "62": 190,
+        "64": 192,
+        "66": 194,
+        "68": 196,
+        "70": 198
+      },
+      "option": "video_vertical_pos",
+      "class": "presentation"
+    },
+    "video_horizontal_pos": {
+      "default": 0,
+      "allowed": [
+        0,
+        88,
+        90,
+        92,
+        94,
+        96,
+        98,
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120,
+        122,
+        124,
+        126,
+        128,
+        130,
+        132,
+        134,
+        136,
+        138,
+        140,
+        142,
+        144,
+        146,
+        148,
+        150,
+        152,
+        154,
+        156,
+        158,
+        160,
+        162,
+        164,
+        166,
+        168
+      ],
+      "names": {
+        "auto": 0,
+        "-40": 88,
+        "-38": 90,
+        "-36": 92,
+        "-34": 94,
+        "-32": 96,
+        "-30": 98,
+        "-28": 100,
+        "-26": 102,
+        "-24": 104,
+        "-22": 106,
+        "-20": 108,
+        "-18": 110,
+        "-16": 112,
+        "-14": 114,
+        "-12": 116,
+        "-10": 118,
+        "-8": 120,
+        "-6": 122,
+        "-4": 124,
+        "-2": 126,
+        "0": 128,
+        "2": 130,
+        "4": 132,
+        "6": 134,
+        "8": 136,
+        "10": 138,
+        "12": 140,
+        "14": 142,
+        "16": 144,
+        "18": 146,
+        "20": 148,
+        "22": 150,
+        "24": 152,
+        "26": 154,
+        "28": 156,
+        "30": 158,
+        "32": 160,
+        "34": 162,
+        "36": 164,
+        "38": 166,
+        "40": 168
+      },
+      "option": "video_horizontal_pos",
+      "class": "presentation"
+    },
+    "video_gamma": {
+      "default": 5,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "names": {
+        "-0.5": 0,
+        "-0.4": 1,
+        "-0.3": 2,
+        "-0.2": 3,
+        "-0.1": 4,
+        "0": 5,
+        "0.1": 6,
+        "0.2": 7,
+        "0.3": 8,
+        "0.4": 9,
+        "0.5": 10
+      },
+      "option": "video_gamma",
+      "class": "presentation"
+    },
+    "video_color_depth": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "24bit": 0,
+        "16bit": 1
+      },
+      "option": "video_color_depth",
+      "class": "presentation",
+      "restart": true
     }
   },
   "adapters": {
@@ -282,6 +590,69 @@
         "how": "none"
       },
       "libretro": "puae6_floppy_save"
+    },
+    "video_crop": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_video_crop"
+    },
+    "video_crop_mode": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_video_crop_mode"
+    },
+    "video_crop_delay": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_video_crop_delay"
+    },
+    "video_vertical_pos": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_video_vertical_pos"
+    },
+    "video_horizontal_pos": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_video_horizontal_pos"
+    },
+    "video_gamma": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_video_gamma"
+    },
+    "video_color_depth": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_video_color_depth"
     }
   },
   "presets": {

@@ -17,7 +17,11 @@
 //
 // Options (T17b): the core options come from the one schema (config/schema/options.json, options.h). The reboot options (machine, video standard, audio rate)
 // are read when the content is loaded and become the p6_config; a change made while the machine runs is reported and only applies after a reload. The
-// presentation option (aspect) is applied at once. A value outside the schema fails the load, naming the key and the value.
+// presentation options (aspect, and since T31c crop, position, gamma) are applied at once; the pixel format (Color Depth) is read when the content loads, like a
+// reboot option, and a change is reported. A value outside the schema fails the load, naming the key and the value.
+//
+// Presentation (T31c): the picture the frontend gets is a window, a gamma table and a pixel format applied to a COPY of the engine's raster (present.h); the
+// native picture, the state and the cadence never see an option of it, and when none applies the raster itself is handed over.
 //
 // Save states (T18): retro_serialize_size is the frame header, the adapter section and the native state bound (p6_state_bound), and stays the same until
 // unload. The frame (state_frame.h) carries what the adapter keeps between two runs, so that rewind, runahead and state files leave nothing of an
@@ -39,6 +43,7 @@
 #include "floppy_save.h"
 #include "input_map.h"
 #include "options.h"
+#include "present.h"
 #include "sha256.h"
 #include "state_frame.h"
 
@@ -93,9 +98,12 @@ struct Core {
     bool have_initial = false;            // set_initial_image was called before this load
     unsigned initial_index = 0;
     std::string initial_path;
-    std::vector<uint8_t> last_picture;    // a copy, kept only when the frontend cannot repeat a picture by itself
+    std::vector<uint8_t> last_picture;    // a copy of the picture as presented, kept only when the frontend cannot repeat a picture by itself
     uint32_t last_width = 0, last_height = 0;
+    unsigned bytes_per_pixel = 4;         // of the pixel format in force: 4 (XRGB8888) or 2 (RGB565, T31c)
+    p6_libretro::Presenter presenter;     // crop, position, gamma and the 16-bit format over a copy of the picture (T31c); the machine never sees it
     uint32_t announced_width = 0, announced_height = 0;
+    float announced_ratio = 0;            // the picture aspect ratio the frontend was last told (after the aspect option)
     uint32_t announced_rate_num = 0, announced_rate_den = 0;      // the units per second and the pixel aspect the frontend was last told (the load announces the nominal ones)
     uint32_t announced_aspect_num = 0, announced_aspect_den = 0;
     std::vector<uint8_t> blank;           // what a run shows before the first picture exists
@@ -160,6 +168,9 @@ void stop_image()
     core.have_initial = false;
     core.initial_path.clear();
     core.announced_size = false;
+    core.announced_ratio = 0;
+    core.presenter.forget();
+    core.bytes_per_pixel = 4;
     core.announced_rate_num = core.announced_rate_den = core.announced_aspect_num = core.announced_aspect_den = 0;
     core.last_width = core.last_height = 0;
     core.last_picture.clear();
@@ -174,12 +185,19 @@ void stop_image()
     core.section.shrink_to_fit();
 }
 
-// The aspect ratio announced for a picture of width x height pixels whose pixel aspect is num:den: the machine's own, or a plain 4:3 when the
-// presentation option asks for it. It never changes a pixel of the picture.
+// The options that shape the picture handed to the frontend, over the running settings; the pixel format is the one the frontend accepted at the load.
+p6_libretro::PresentOptions present_options()
+{
+    p6_libretro::PresentOptions options = p6_libretro::present_options(core.settings);
+    options.depth16 = core.bytes_per_pixel == 2;
+    return options;
+}
+
+// The aspect ratio announced for a picture of width x height pixels whose pixel aspect is num:den: the machine's own, or what the aspect option asks for. It
+// never changes a pixel of the picture.
 float aspect_ratio(uint32_t width, uint32_t height, uint32_t num, uint32_t den)
 {
-    if (core.settings.video_aspect == 1) return 4.0f / 3.0f;
-    return float(double(width) * num / (double(height) * den));
+    return p6_libretro::picture_aspect(core.settings.video_aspect, width, height, num, den);
 }
 
 // What retro_get_system_av_info announces from the load, before any unit has run: the nominal rate of the configured standard (a progressive
@@ -205,10 +223,34 @@ bool rate_moved(uint32_t num, uint32_t den)
     return (now > was ? now - was : was - now) * 100 > was * kRateBandPercent;
 }
 
+// The picture of a unit as the frontend will get it: the raster the engine drew and the window of it that is presented (T31c). Made once per unit
+// (it moves the automatic window's memory) before anything is announced.
+struct Picture {
+    bool valid = false;
+    const uint8_t *origin = nullptr;
+    size_t stride = 0;
+    uint32_t native_width = 0, native_height = 0;
+    p6_libretro::Window window;
+};
+
+Picture plan_picture(const p6_frame &frame, bool have_frame)
+{
+    Picture picture;
+    if (!have_frame || !frame.video || !frame.active.width || !frame.active.height) return picture;
+    picture.valid = true;
+    picture.origin = static_cast<const uint8_t *>(frame.video) + size_t(frame.active.y) * frame.video_stride_bytes + size_t(frame.active.x) * 4;
+    picture.stride = frame.video_stride_bytes;
+    picture.native_width = frame.active.width;
+    picture.native_height = frame.active.height;
+    picture.window = core.presenter.plan(present_options(), picture.origin, picture.stride, picture.native_width, picture.native_height, frame.aspect_num,
+                                         frame.aspect_den);
+    return picture;
+}
+
 // Called at the boundary of each run, before the picture is handed over: tells the frontend when the unit that came back does not run at the
 // announced rate (SET_SYSTEM_AV_INFO, with the geometry of the same unit so that the timing and the picture change together) or has another pixel
 // aspect (SET_GEOMETRY, announced by deliver_video). Once per change, never per unit; the frontend may refuse, and is not asked again for the same value.
-void announce_av_change(const p6_frame &frame, bool picture)
+void announce_av_change(const p6_frame &frame, const Picture &picture)
 {
     if (core.announced_rate_num == 0) {
         const Nominal nominal = nominal_av();
@@ -218,8 +260,8 @@ void announce_av_change(const p6_frame &frame, bool picture)
         core.announced_aspect_den = nominal.aspect_den;
     }
     if (!frame.cadence_num || !frame.cadence_den || !rate_moved(frame.cadence_num, frame.cadence_den)) return;
-    const uint32_t width = picture ? frame.active.width : (core.announced_width ? core.announced_width : 756);
-    const uint32_t height = picture ? frame.active.height : (core.announced_height ? core.announced_height : 574);
+    const uint32_t width = picture.valid ? picture.window.width : (core.announced_width ? core.announced_width : 756);
+    const uint32_t height = picture.valid ? picture.window.height : (core.announced_height ? core.announced_height : 574);
     retro_system_av_info info = {};
     info.geometry.base_width = width;
     info.geometry.base_height = height;
@@ -237,47 +279,55 @@ void announce_av_change(const p6_frame &frame, bool picture)
     core.announced_size = true;
     core.announced_width = width;
     core.announced_height = height;
+    core.announced_ratio = info.geometry.aspect_ratio;
 }
 
-// One picture per run. The active raster is what the renderer drew, so that is what the frontend gets, not the padded buffer.
-void deliver_video(const p6_frame &frame, bool have_frame)
+// One picture per run. The active raster is what the renderer drew; the frontend gets the window of it that crop, position, gamma and the pixel format make of a
+// copy (T31c), or the raster itself, not the padded buffer, when none of them applies.
+void deliver_video(const p6_frame &frame, bool have_frame, const Picture &picture)
 {
-    if (have_frame && frame.video && frame.active.width && frame.active.height) {
-        const uint8_t *origin = static_cast<const uint8_t *>(frame.video) + size_t(frame.active.y) * frame.video_stride_bytes +
-                                size_t(frame.active.x) * 4;
-        const uint32_t width = frame.active.width, height = frame.active.height;
-        if (!core.announced_size || width != core.announced_width || height != core.announced_height ||
-            frame.aspect_num != core.announced_aspect_num || frame.aspect_den != core.announced_aspect_den) {
+    (void)have_frame;
+    if (picture.valid) {
+        const p6_libretro::PresentOptions options = present_options();
+        p6_libretro::Presented shown = core.presenter.compose_xrgb(options, picture.window, picture.origin, picture.stride, picture.native_width,
+                                                                    picture.native_height, false);
+        shown = core.presenter.finish(options, shown);
+        const uint32_t width = shown.width, height = shown.height;
+        const float ratio = aspect_ratio(width, height, frame.aspect_num, frame.aspect_den);
+        if (!core.announced_size || width != core.announced_width || height != core.announced_height || ratio != core.announced_ratio) {
             retro_game_geometry geometry = {};
             geometry.base_width = geometry.max_width = width;
             geometry.base_height = geometry.max_height = height;
-            geometry.aspect_ratio = aspect_ratio(width, height, frame.aspect_num, frame.aspect_den);
+            geometry.aspect_ratio = ratio;
             environment_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &geometry);      // optional: a refusal only costs the frontend's hint
             core.announced_size = true;
             core.announced_width = width;
             core.announced_height = height;
+            core.announced_ratio = ratio;
             core.announced_aspect_num = frame.aspect_num;
             core.announced_aspect_den = frame.aspect_den;
         }
         if (!core.can_dupe) {
-            core.last_picture.resize(size_t(width) * height * 4);
+            core.last_picture.resize(size_t(width) * height * shown.bytes_per_pixel);
             for (uint32_t y = 0; y < height; ++y)
-                memcpy(&core.last_picture[size_t(y) * width * 4], origin + size_t(y) * frame.video_stride_bytes, size_t(width) * 4);
+                memcpy(&core.last_picture[size_t(y) * width * shown.bytes_per_pixel], static_cast<const uint8_t *>(shown.data) + size_t(y) * shown.pitch,
+                       size_t(width) * shown.bytes_per_pixel);
         }
         core.last_width = width;
         core.last_height = height;
-        video_cb(origin, width, height, frame.video_stride_bytes);
+        video_cb(shown.data, width, height, shown.pitch);
         return;
     }
+    const size_t bytes = core.bytes_per_pixel;
     // No new picture in this unit (a mode change, or nothing drawn yet): repeat the previous one.
     if (core.last_width && core.can_dupe) {
-        video_cb(nullptr, core.last_width, core.last_height, size_t(core.last_width) * 4);
+        video_cb(nullptr, core.last_width, core.last_height, size_t(core.last_width) * bytes);
     } else if (core.last_width && !core.last_picture.empty()) {
-        video_cb(core.last_picture.data(), core.last_width, core.last_height, size_t(core.last_width) * 4);
+        video_cb(core.last_picture.data(), core.last_width, core.last_height, size_t(core.last_width) * bytes);
     } else {
         const uint32_t width = core.announced_width ? core.announced_width : 756, height = core.announced_height ? core.announced_height : 574;
-        core.blank.assign(size_t(width) * height * 4, 0);
-        video_cb(core.blank.data(), width, height, size_t(width) * 4);
+        core.blank.assign(size_t(width) * height * bytes, 0);
+        video_cb(core.blank.data(), width, height, size_t(width) * bytes);
     }
 }
 
@@ -922,7 +972,9 @@ void apply_section(p6_libretro::Section &&section)
     core.input = section.input;
     core.last_picture.clear();
     if (!core.can_dupe) {
-        if (section.picture.empty()) core.last_width = core.last_height = 0;       // saved by a frontend that repeats pictures: nothing to show again
+        // Saved by a frontend that repeats pictures, or in the other pixel format (a state of a 16-bit session in a 24-bit one): nothing to show again.
+        if (section.picture.empty() || section.picture.size() != size_t(core.last_width) * core.last_height * core.bytes_per_pixel)
+            core.last_width = core.last_height = 0;
         else core.last_picture = std::move(section.picture);
     }
 }
@@ -997,8 +1049,12 @@ RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)
     caps.struct_size = sizeof caps;
     p6_query_caps(&caps, nullptr);
     const bool ntsc = core.settings.video_standard == P6_VIDEO_NTSC;
-    // The nominal active raster of each standard; a unit can draw less, and the geometry is updated when it does.
-    const uint32_t width = 756, height = ntsc ? 484 : 574;
+    // The nominal active raster of each standard, or the window of it that the crop option asks for (the automatic crop starts with all of it); a unit can draw
+    // less, and the geometry is updated when it does.
+    const uint32_t native_width = 756, native_height = ntsc ? 484 : 574;
+    uint32_t width = native_width, height = native_height;
+    p6_libretro::crop_size(present_options(), native_width, native_height, ntsc ? 43 : 26, ntsc ? 50 : 25, ntsc, p6_libretro::Box{0, 0, native_width, native_height},
+                           &width, &height);
     info->geometry.base_width = width;
     info->geometry.base_height = height;
     info->geometry.max_width = caps.max_video_width ? caps.max_video_width : 760;
@@ -1061,8 +1117,9 @@ RETRO_API void retro_run(void)
     } else {
         input_poll_cb();        // a run still polls once and shows one picture, so a stalled image never starves the frontend
     }
-    if (have_frame) announce_av_change(frame, frame.video && frame.active.width && frame.active.height);
-    deliver_video(frame, have_frame);
+    const Picture picture = plan_picture(frame, have_frame);
+    if (have_frame) announce_av_change(frame, picture);
+    deliver_video(frame, have_frame, picture);
     deliver_audio(frame, have_frame);
 }
 
@@ -1157,15 +1214,6 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         log(RETRO_LOG_ERROR, "a game is already loaded");
         return false;
     }
-    retro_pixel_format format = RETRO_PIXEL_FORMAT_XRGB8888;
-    if (!environment_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &format)) {
-        log(RETRO_LOG_ERROR, "the frontend does not accept XRGB8888, the only pixel format of this core");
-        return false;
-    }
-    p6_libretro::offer_input_descriptors(environment_cb);
-    note_shadowed_joystick();
-    bool can_dupe = false;
-    core.can_dupe = environment_cb(RETRO_ENVIRONMENT_GET_CAN_DUPE, &can_dupe) && can_dupe;
     // The options are read before anything is loaded: a value the schema does not allow stops here, and these are the values the machine runs with.
     p6_options::Settings chosen;
     std::string why;
@@ -1173,6 +1221,25 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         notify_error("%s", why.c_str());
         return false;
     }
+    // The pixel format is announced once, here: RGB565 when Color Depth asks for it and the frontend takes it, else XRGB8888 (the format the machine draws in).
+    retro_pixel_format format = chosen.video_color_depth == 1 ? RETRO_PIXEL_FORMAT_RGB565 : RETRO_PIXEL_FORMAT_XRGB8888;
+    unsigned bytes = format == RETRO_PIXEL_FORMAT_RGB565 ? 2 : 4;
+    bool accepted = environment_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &format);
+    if (!accepted && bytes == 2) {
+        notify_warning("the frontend does not accept 16-bit pixels (RGB565): the picture stays in 24-bit");
+        format = RETRO_PIXEL_FORMAT_XRGB8888;
+        bytes = 4;
+        accepted = environment_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &format);
+    }
+    if (!accepted) {
+        log(RETRO_LOG_ERROR, "the frontend does not accept XRGB8888, the pixel format the machine draws in");
+        return false;
+    }
+    core.bytes_per_pixel = bytes;
+    p6_libretro::offer_input_descriptors(environment_cb);
+    note_shadowed_joystick();
+    bool can_dupe = false;
+    core.can_dupe = environment_cb(RETRO_ENVIRONMENT_GET_CAN_DUPE, &can_dupe) && can_dupe;
     bool updated = false;
     environment_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated);       // clears the flag: what was just read is what is in force
     core.settings = core.requested = chosen;

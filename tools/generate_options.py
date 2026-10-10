@@ -116,7 +116,7 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
     for i, option in enumerate(schema.get("options") or []):
         name = option.get("id") if isinstance(option, dict) else None
         where = f"option '{name}'" if isinstance(name, str) else f"options[{i}]"
-        allowed = {"id", "class", "type", "maps_to", "default", "values", "min", "max", "libretro", "libretro_policy", "headless", "wrapper"}
+        allowed = {"id", "class", "type", "maps_to", "default", "values", "min", "max", "libretro", "libretro_policy", "headless", "wrapper", "restart"}
         if not _only(option, allowed, {"id", "class", "type", "maps_to", "default", "libretro", "headless", "wrapper"}, where, errors):
             continue
         if not (isinstance(name, str) and IDENTIFIER.fullmatch(name)):
@@ -127,6 +127,8 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
         kind, klass, maps_to = option["type"], option["class"], option["maps_to"]
         if klass not in ("reboot", "presentation"):
             errors.append(f"{where}: class must be 'reboot' or 'presentation', not {klass!r}")
+        if "restart" in option and not (option["restart"] is True and klass == "presentation"):
+            errors.append(f"{where}: restart is true or absent, and only a presentation option has it (one the core reads when the content is loaded and cannot apply in place)")
         if kind not in ("enum", "u64", "i64"):
             errors.append(f"{where}: type must be 'enum', 'u64' or 'i64', not {kind!r}")
         if not (isinstance(maps_to, str) and re.fullmatch(r"(p6_config|presentation)\.[a-z][a-z0-9_]*", maps_to)):
@@ -400,10 +402,15 @@ def _literal(option: dict, value: int) -> str:
     return {"enum": f"{value}u", "u64": f"UINT64_C({value})", "i64": f"INT64_C({value})"}[option["type"]]
 
 
+def _needs_reload(option: dict) -> bool:
+    """A reboot option, or a presentation option the core reads when the content is loaded (restart): a change made while it runs only applies after a reload."""
+    return option["class"] == "reboot" or bool(option.get("restart"))
+
+
 def _description(option: dict) -> tuple[str, str]:
     """The label and the help text a frontend shows; a reboot option says so in both."""
     libretro = option["libretro"]
-    reboot = option["class"] == "reboot"
+    reboot = _needs_reload(option)
     return libretro["label"] + (REBOOT_SUFFIX if reboot else ""), libretro["info"] + (REBOOT_SENTENCE if reboot else "")
 
 
@@ -484,7 +491,7 @@ def generate_header(schema: dict) -> str:
     w("")
     w("struct Option {")
     w("    const char *key;")
-    w("    bool reboot;                        // part of the machine: a change needs a reload and is never applied to the running one")
+    w("    bool reboot;                        // a change needs a reload and is never applied to the running one: a reboot option (part of the machine) or a restart one (read at load)")
     w("    uint32_t Settings::*field;")
     w("    const Value *values;")
     w("    unsigned count;")
@@ -501,7 +508,7 @@ def generate_header(schema: dict) -> str:
     for option in exposed:
         index = [v["value"] for v in option["values"]].index(option["default"])
         values = f"k{_camel(option['id'])}Values"
-        w(f"    {{{_c(option['libretro']['key'])}, {'true' if option['class'] == 'reboot' else 'false'}, &Settings::{option['id']}, {values}, "
+        w(f"    {{{_c(option['libretro']['key'])}, {'true' if _needs_reload(option) else 'false'}, &Settings::{option['id']}, {values}, "
           f"{len(option['values'])}, {index}}},")
     w("};")
     w("constexpr unsigned kOptionCount = sizeof kOptions / sizeof kOptions[0];")
@@ -563,6 +570,8 @@ def generate_table(schema: dict) -> str:
             entry = {"default": option["default"], "min": option["min"], "max": option["max"]}
         entry["option"] = option["id"]
         entry["class"] = option["class"]
+        if option.get("restart"):
+            entry["restart"] = True
         (config if option["class"] == "reboot" else presentation)[option["maps_to"].partition(".")[2]] = entry
         adapters[option["id"]] = {"headless": option["headless"], "wrapper": option["wrapper"],
                                   "libretro": option["libretro"]["key"] if option["libretro"] else None}

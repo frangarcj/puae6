@@ -13,7 +13,7 @@
 //
 // The adapter section carries what the adapter keeps between two runs and the frontend has not seen the effect of yet: the disk tray (the list by medium, selection, open
 // tray, requests not applied, the medium the drive holds, the media-event counter; since T17e the list may be shorter than the live one, see DiskTray::fits), the audio the frontend has not taken, and the geometry (and, for
-// a frontend that cannot repeat a picture, the pixels) of the last picture, and the input memory (T17c: the Caps Lock latch and the mouse movement that did
+// a frontend that cannot repeat a picture, the pixels, in the format the session presents: 4 or 2 bytes a pixel) of the last picture, and the input memory (T17c: the Caps Lock latch and the mouse movement that did
 // not fit a unit). All of it belongs to the saved timeline, so a rewind or a runahead branch leaves no input, audio or disk request of the abandoned
 // future behind. What the frontend holds down is not carried: the adapter reads it afresh in every retro_run and the bridge's own edge state is in the
 // native state. Every number is little-endian, whatever the host is.
@@ -136,7 +136,8 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     const uint32_t picture = get32(data + at + 8);
     at += 12;
     if (out->last_width > max_width || out->last_height > max_height) return fail("the last picture is larger than the machine draws");
-    if (picture && picture != uint64_t(out->last_width) * out->last_height * 4) return fail("the picture does not match its size");
+    if (picture && picture != uint64_t(out->last_width) * out->last_height * 4 && picture != uint64_t(out->last_width) * out->last_height * 2)
+        return fail("the picture does not match its size");       // 4 bytes a pixel (XRGB8888) or 2 (RGB565, T31c)
     if (!room(picture)) return fail("the section is cut short");
     out->picture.assign(data + at, data + at + picture);
     at += picture;

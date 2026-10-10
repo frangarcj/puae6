@@ -233,7 +233,7 @@ class LibretroParity(Schema):
         keys = [k for k in keys if k[0] != "puae6_preset"]
         self.assertEqual([k[0] for k in keys], [o["libretro"]["key"] for o in exposed])
         for (key, reboot, field, _, count, index), option in zip(keys, exposed):
-            self.assertEqual((field, reboot == "true", int(count)), (option["id"], option["class"] == "reboot", len(option["values"])), key)
+            self.assertEqual((field, reboot == "true", int(count)), (option["id"], option["class"] == "reboot" or bool(option.get("restart")), len(option["values"])), key)
             self.assertEqual(option["values"][int(index)]["value"], option["default"], f"{key}: the default index points at another value")
             # The key is in the v2 definitions, the v1 ones and the legacy strings.
             self.assertEqual(self.header.count(f'"{key}"'), 4, key)
@@ -241,11 +241,12 @@ class LibretroParity(Schema):
             if option["libretro"] is None:
                 self.assertEqual(option["id"] in {k[2] for k in keys}, False, f"{option['id']} is not offered by libretro, so it keeps its default")
 
-    def test_every_reboot_option_says_so_in_the_menu_and_a_presentation_one_does_not(self):
+    def test_every_option_that_needs_a_reload_says_so_in_the_menu_and_one_that_applies_at_once_does_not(self):
+        # A reboot option (part of the machine) and a presentation option the core reads when the content loads (restart, e.g. the pixel format).
         for option in self.schema["options"]:
             if option["libretro"]:
                 label = re.search(rf'\{{"{option["libretro"]["key"]}", "([^"]*)"', self.header)[1]
-                self.assertEqual(label.endswith("(Restart)"), option["class"] == "reboot", label)
+                self.assertEqual(label.endswith("(Restart)"), option["class"] == "reboot" or bool(option.get("restart")), label)
 
     def test_the_core_fills_p6_config_from_the_options_and_types_no_value_of_its_own(self):
         assigned = set(re.findall(r"\bconfig\.(\w+) = ", self.core_source))

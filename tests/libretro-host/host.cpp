@@ -2,6 +2,7 @@
 // the libretro contract asks of a core on every retro_run: the input is polled once, exactly one picture is shown, audio arrives as
 // whole stereo frames, and the serialization size does not grow. Everything optional can be refused.
 //   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--refuse-av-info] [--bad-format]
+//                    [--no-rgb565] [--dump-pictures DIR [--dump-from RUN]]
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
 //                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
@@ -34,7 +35,10 @@
 //   run N video=WxH pitch=P dupe=D hash=H px=P audio=F polls=K states=S ahash=A unit=U ticks=T   (px: the pixel in the middle of the picture, XRGB8888;
 //                                                          ahash: the audio of that run alone; unit, ticks: from the core's debug log)
 //   spec P video=WxH dupe=D hash=H px=P audio=F ahash=A unit=U ticks=T       (a speculative run at position P)
-//   state size=S / state save NAME ok=R size=S used=U hash=H section=H / state load NAME VARIANT ok=R size=S / state final ok=R size=S hash=H / state reset
+//   state size=S / state save NAME ok=R size=S used=U hash=H section=H / state native NAME hash=H (the machine's part of that state alone, T31)
+//   state load NAME VARIANT ok=R size=S / state final ok=R size=S hash=H / state reset
+//   pixel-format RGB565 (the core asked for 16-bit pixels and the host took them; --no-rgb565 refuses, as a frontend without them does)
+//   --dump-pictures DIR writes picture-RUN.bin for every visible run that showed a picture: width, height, bytes per pixel and run as little-endian uint32, then the rows
 //   log LEVEL TEXT         (only when the log interface is offered)
 //   message TEXT           (SET_MESSAGE or SET_MESSAGE_EXT)
 //   vfs open PATH / initial result=R / disk-control ext=E / images count=N index=I eject=E / image I path=P label=L / disk RUN COMMAND ...
@@ -61,7 +65,9 @@ namespace {
 
 struct Options {
     int runs = 10, cycles = 1;
-    bool reject_optional = false, no_log = false, no_dupe = false, bad_format = false, reenter = false, refuse_av_info = false;
+    bool reject_optional = false, no_log = false, no_dupe = false, bad_format = false, reenter = false, refuse_av_info = false, no_rgb565 = false;
+    std::string dump_dir;                                       // --dump-pictures: every picture shown, to a file
+    int dump_from = 1;                                          // --dump-from RUN: from this visible run on
     size_t audio_partial = 0;
     int stall_first = -1, stall_last = -1;
     unsigned joy[2] = {0, 0};
@@ -161,6 +167,7 @@ struct Run {
 } run;
 
 std::set<unsigned> environment_commands;
+unsigned pixel_bytes = 4;       // the pixel format the core asked for: 4 (XRGB8888) or 2 (RGB565, T31c)
 bool shutdown_requested = false;
 int run_number = 0, violations = 0;
 int position = 0;               // the frame of the emulated timeline the run being made belongs to (see the header)
@@ -324,7 +331,14 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
     switch (command) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
         if (options.bad_format) return false;
-        return *static_cast<retro_pixel_format *>(data) == RETRO_PIXEL_FORMAT_XRGB8888;
+        if (*static_cast<retro_pixel_format *>(data) == RETRO_PIXEL_FORMAT_RGB565 && !options.no_rgb565) {
+            pixel_bytes = 2;
+            printf("pixel-format RGB565\n");
+            return true;
+        }
+        if (*static_cast<retro_pixel_format *>(data) != RETRO_PIXEL_FORMAT_XRGB8888) return false;
+        pixel_bytes = 4;
+        return true;
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         if (options.no_log || options.reject_optional) return false;
         static_cast<retro_log_callback *>(data)->log = log_printf;
@@ -489,10 +503,25 @@ void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned hei
         run.dupe = true;
     } else {
         uint64_t hash = UINT64_C(1469598103934665603);
-        for (unsigned y = 0; y < height; ++y) hash = fnv(hash, static_cast<const uint8_t *>(data) + size_t(y) * pitch, size_t(width) * 4);
+        for (unsigned y = 0; y < height; ++y) hash = fnv(hash, static_cast<const uint8_t *>(data) + size_t(y) * pitch, size_t(width) * pixel_bytes);
         run.picture_hash = hash;
-        run.first_pixel = *reinterpret_cast<const uint32_t *>(static_cast<const uint8_t *>(data) + size_t(height / 2) * pitch + size_t(width / 2) * 4);
-        if (pitch < size_t(width) * 4) violation("pitch %zu is smaller than a row of %u pixels", pitch, width);
+        const uint8_t *middle = static_cast<const uint8_t *>(data) + size_t(height / 2) * pitch + size_t(width / 2) * pixel_bytes;
+        if (pixel_bytes == 2) run.first_pixel = *reinterpret_cast<const uint16_t *>(middle);
+        else run.first_pixel = *reinterpret_cast<const uint32_t *>(middle);
+        if (pitch < size_t(width) * pixel_bytes) violation("pitch %zu is smaller than a row of %u pixels", pitch, width);
+        if (!options.dump_dir.empty() && !muted && run_number >= options.dump_from) {
+            // picture-NNN.bin: four little-endian uint32 (width, height, bytes per pixel, run number), then the rows without padding.
+            char path[1024];
+            snprintf(path, sizeof path, "%s/picture-%03d.bin", options.dump_dir.c_str(), run_number);
+            if (FILE *out = fopen(path, "wb")) {
+                const uint32_t header[4] = {width, height, pixel_bytes, uint32_t(run_number)};
+                fwrite(header, sizeof header, 1, out);
+                for (unsigned y = 0; y < height; ++y) fwrite(static_cast<const uint8_t *>(data) + size_t(y) * pitch, 1, size_t(width) * pixel_bytes, out);
+                fclose(out);
+            } else {
+                violation("cannot write %s", path);
+            }
+        }
     }
     if (run.videos == 1)
         for (const Options::DiskStep &step : options.disk_steps)
@@ -704,6 +733,14 @@ void do_action(const std::string &text)
         printf("state save %s ok=%d size=%zu used=%zu hash=%016" PRIx64 " section=%016" PRIx64 "\n", argument.c_str(), int(ok), blob.size(),
                ok ? frame_length(blob) : size_t(0), fnv(kFnvBasis, blob.data(), blob.size()), ok ? section_hash(blob) : uint64_t(0));
         if (!ok) return;
+        if (blob.size() >= 64) {
+            // T31: the machine's own part of the state (what follows the adapter section), apart from the adapter's side: a presentation option or an overlay must leave it as it was.
+            uint32_t section = 0;
+            for (int i = 3; i >= 0; --i) section = section << 8 | blob[24 + i];
+            const size_t from = 64 + section, to = frame_length(blob);
+            if (from <= to && to <= blob.size())
+                printf("state native %s hash=%016" PRIx64 "\n", argument.c_str(), fnv(kFnvBasis, blob.data() + from, to - from));
+        }
         if (command == "save") {
             slots[argument] = {blob, done};
         } else if (FILE *file = fopen(argument.c_str(), "wb")) {
@@ -843,6 +880,9 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--no-dupe")) options.no_dupe = true;
         else if (!strcmp(a, "--refuse-av-info")) options.refuse_av_info = true;
         else if (!strcmp(a, "--bad-format")) options.bad_format = true;
+        else if (!strcmp(a, "--no-rgb565")) options.no_rgb565 = true;
+        else if (!strcmp(a, "--dump-pictures")) options.dump_dir = next();
+        else if (!strcmp(a, "--dump-from")) options.dump_from = atoi(next());
         else if (!strcmp(a, "--reenter")) options.reenter = true;
         else if (!strcmp(a, "--system")) options.system_dir = next(), options.has_system = true;
         else if (!strcmp(a, "--save-dir")) options.save_dir = next(), options.has_save = true;

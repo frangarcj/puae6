@@ -891,7 +891,7 @@ class LibretroTests(LibretroHarness):
                 for (key, default, values, category, desc), option in zip(offered, exposed):
                     self.assertEqual(default, option["default"], key)
                     self.assertEqual(sorted(values.split("|")), sorted(v["value"] for v in option["values"]), key)
-                    self.assertEqual(desc.endswith("(Restart)"), option["class"] == "reboot", desc)      # a reboot option says so in the menu
+                    self.assertEqual(desc.endswith("(Restart)"), option["class"] == "reboot" or bool(option.get("restart")), desc)      # an option that needs a reload says so in the menu
                     if api == 2:
                         self.assertEqual(category, option["libretro"]["category"], key)
                 self.assertIn(f"options api={api} count={len(exposed)} categories={len(schema['categories']) if api == 2 else 0}", out)
@@ -999,7 +999,7 @@ class LibretroTests(LibretroHarness):
     def test_a_value_the_schema_does_not_allow_fails_the_load_naming_the_key_and_the_value(self):
         for key, value, allowed in (("puae6_video_standard", "SECAM", "PAL, NTSC"), ("puae6_video_standard", "pal", "PAL, NTSC"),
                                     ("puae6_video_standard", "", "PAL, NTSC"), ("puae6_audio_rate", "22050", "44100, 48000"),
-                                    ("puae6_video_aspect", "wide", "pixel, 4:3")):
+                                    ("puae6_video_aspect", "wide", "pixel, 4:3, PAL, NTSC")):
             with self.subTest(key=key, value=value):
                 result = self.frontend("boot", "--set", f"{key}={value}", expect=3)
                 text = f'the option {key} has the value "{value}", which this core does not support (allowed: {allowed})'

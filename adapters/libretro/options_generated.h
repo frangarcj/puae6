@@ -23,6 +23,13 @@ struct Settings {
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
     uint32_t video_aspect = 0u;  // presentation, presentation.video_aspect = pixel
     uint32_t floppy_save = 0u;  // presentation, presentation.floppy_save = off
+    uint32_t video_crop = 0u;  // presentation, presentation.video_crop = disabled
+    uint32_t video_crop_mode = 0u;  // presentation, presentation.video_crop_mode = both
+    uint32_t video_crop_delay = 1u;  // presentation, presentation.video_crop_delay = enabled
+    uint32_t video_vertical_pos = 0u;  // presentation, presentation.video_vertical_pos = auto
+    uint32_t video_horizontal_pos = 0u;  // presentation, presentation.video_horizontal_pos = auto
+    uint32_t video_gamma = 5u;  // presentation, presentation.video_gamma = 0
+    uint32_t video_color_depth = 0u;  // presentation, presentation.video_color_depth = 24bit
     uint32_t preset = 0u;  // reboot, a bundle of the options above (the schema's presets, apply_preset); 0 = none. Not a p6_config field
 };
 
@@ -65,7 +72,7 @@ struct Value {
 
 struct Option {
     const char *key;
-    bool reboot;                        // part of the machine: a change needs a reload and is never applied to the running one
+    bool reboot;                        // a change needs a reload and is never applied to the running one: a reboot option (part of the machine) or a restart one (read at load)
     uint32_t Settings::*field;
     const Value *values;
     unsigned count;
@@ -118,10 +125,146 @@ constexpr Value kFloppyWritesValues[] = {
 constexpr Value kVideoAspectValues[] = {
     {"pixel", 0u},
     {"4:3", 1u},
+    {"PAL", 2u},
+    {"NTSC", 3u},
 };
 constexpr Value kFloppySaveValues[] = {
     {"off", 0u},
     {"on_close", 1u},
+};
+constexpr Value kVideoCropValues[] = {
+    {"disabled", 0u},
+    {"minimum", 1u},
+    {"smaller", 2u},
+    {"small", 3u},
+    {"medium", 4u},
+    {"large", 5u},
+    {"larger", 6u},
+    {"maximum", 7u},
+    {"auto", 8u},
+};
+constexpr Value kVideoCropModeValues[] = {
+    {"both", 0u},
+    {"horizontal", 1u},
+    {"vertical", 2u},
+    {"16:9", 3u},
+    {"16:10", 4u},
+    {"4:3", 5u},
+    {"5:4", 6u},
+};
+constexpr Value kVideoCropDelayValues[] = {
+    {"disabled", 0u},
+    {"enabled", 1u},
+};
+constexpr Value kVideoVerticalPosValues[] = {
+    {"auto", 0u},
+    {"-20", 108u},
+    {"-18", 110u},
+    {"-16", 112u},
+    {"-14", 114u},
+    {"-12", 116u},
+    {"-10", 118u},
+    {"-8", 120u},
+    {"-6", 122u},
+    {"-4", 124u},
+    {"-2", 126u},
+    {"0", 128u},
+    {"2", 130u},
+    {"4", 132u},
+    {"6", 134u},
+    {"8", 136u},
+    {"10", 138u},
+    {"12", 140u},
+    {"14", 142u},
+    {"16", 144u},
+    {"18", 146u},
+    {"20", 148u},
+    {"22", 150u},
+    {"24", 152u},
+    {"26", 154u},
+    {"28", 156u},
+    {"30", 158u},
+    {"32", 160u},
+    {"34", 162u},
+    {"36", 164u},
+    {"38", 166u},
+    {"40", 168u},
+    {"42", 170u},
+    {"44", 172u},
+    {"46", 174u},
+    {"48", 176u},
+    {"50", 178u},
+    {"52", 180u},
+    {"54", 182u},
+    {"56", 184u},
+    {"58", 186u},
+    {"60", 188u},
+    {"62", 190u},
+    {"64", 192u},
+    {"66", 194u},
+    {"68", 196u},
+    {"70", 198u},
+};
+constexpr Value kVideoHorizontalPosValues[] = {
+    {"auto", 0u},
+    {"-40", 88u},
+    {"-38", 90u},
+    {"-36", 92u},
+    {"-34", 94u},
+    {"-32", 96u},
+    {"-30", 98u},
+    {"-28", 100u},
+    {"-26", 102u},
+    {"-24", 104u},
+    {"-22", 106u},
+    {"-20", 108u},
+    {"-18", 110u},
+    {"-16", 112u},
+    {"-14", 114u},
+    {"-12", 116u},
+    {"-10", 118u},
+    {"-8", 120u},
+    {"-6", 122u},
+    {"-4", 124u},
+    {"-2", 126u},
+    {"0", 128u},
+    {"2", 130u},
+    {"4", 132u},
+    {"6", 134u},
+    {"8", 136u},
+    {"10", 138u},
+    {"12", 140u},
+    {"14", 142u},
+    {"16", 144u},
+    {"18", 146u},
+    {"20", 148u},
+    {"22", 150u},
+    {"24", 152u},
+    {"26", 154u},
+    {"28", 156u},
+    {"30", 158u},
+    {"32", 160u},
+    {"34", 162u},
+    {"36", 164u},
+    {"38", 166u},
+    {"40", 168u},
+};
+constexpr Value kVideoGammaValues[] = {
+    {"-0.5", 0u},
+    {"-0.4", 1u},
+    {"-0.3", 2u},
+    {"-0.2", 3u},
+    {"-0.1", 4u},
+    {"0", 5u},
+    {"0.1", 6u},
+    {"0.2", 7u},
+    {"0.3", 8u},
+    {"0.4", 9u},
+    {"0.5", 10u},
+};
+constexpr Value kVideoColorDepthValues[] = {
+    {"24bit", 0u},
+    {"16bit", 1u},
 };
 
 constexpr Option kOptions[] = {
@@ -133,8 +276,15 @@ constexpr Option kOptions[] = {
     {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 5, 0},
     {"puae6_audio_rate", true, &Settings::audio_rate_hz, kAudioRateHzValues, 2, 1},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
-    {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 2, 0},
+    {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 4, 0},
     {"puae6_floppy_save", false, &Settings::floppy_save, kFloppySaveValues, 2, 0},
+    {"puae6_video_crop", false, &Settings::video_crop, kVideoCropValues, 9, 0},
+    {"puae6_video_crop_mode", false, &Settings::video_crop_mode, kVideoCropModeValues, 7, 0},
+    {"puae6_video_crop_delay", false, &Settings::video_crop_delay, kVideoCropDelayValues, 2, 1},
+    {"puae6_video_vertical_pos", false, &Settings::video_vertical_pos, kVideoVerticalPosValues, 47, 0},
+    {"puae6_video_horizontal_pos", false, &Settings::video_horizontal_pos, kVideoHorizontalPosValues, 42, 0},
+    {"puae6_video_gamma", false, &Settings::video_gamma, kVideoGammaValues, 11, 5},
+    {"puae6_video_color_depth", true, &Settings::video_color_depth, kVideoColorDepthValues, 2, 0},
 };
 constexpr unsigned kOptionCount = sizeof kOptions / sizeof kOptions[0];
 
@@ -181,13 +331,41 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
      "media", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
     {"puae6_video_aspect", "Aspect Ratio", "Aspect Ratio",
-     "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed.",
-     "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed.",
-     "video", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}}, "pixel"},
+     "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.",
+     "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.",
+     "video", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}, {"PAL", "PAL pixel aspect (26:25)"}, {"NTSC", "NTSC pixel aspect (43:50)"}}, "pixel"},
     {"puae6_floppy_save", "Save Floppy Changes", "Save Floppy Changes",
      "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.",
      "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.",
      "media", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
+    {"puae6_video_crop", "Crop", "Crop",
+     "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it.",
+     "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it.",
+     "video", {{"disabled", "Disabled"}, {"minimum", "Minimum (720x540 PAL)"}, {"smaller", "Smaller (696x528 PAL)"}, {"small", "Small (672x512 PAL)"}, {"medium", "Medium (640x480)"}, {"large", "Large (640x448)"}, {"larger", "Larger (640x432)"}, {"maximum", "Maximum (640x400)"}, {"auto", "Automatic (the drawn area)"}}, "disabled"},
+    {"puae6_video_crop_mode", "Crop Mode", "Crop Mode",
+     "Which dimensions Crop cuts: both, only the width, only the height, or the smallest window of a picture aspect ratio (16:9, 16:10, 4:3, 5:4) that holds the cropped size. 'Horizontal + Vertical' with Automatic removes the borders completely.",
+     "Which dimensions Crop cuts: both, only the width, only the height, or the smallest window of a picture aspect ratio (16:9, 16:10, 4:3, 5:4) that holds the cropped size. 'Horizontal + Vertical' with Automatic removes the borders completely.",
+     "video", {{"both", "Horizontal + Vertical"}, {"horizontal", "Horizontal"}, {"vertical", "Vertical"}, {"16:9", "16:9"}, {"16:10", "16:10"}, {"4:3", "4:3"}, {"5:4", "5:4"}}, "both"},
+    {"puae6_video_crop_delay", "Automatic Crop Delay", "Automatic Crop Delay",
+     "With Crop on Automatic: 'enabled' waits until the drawn area has been the same for about a second of emulated time before the picture changes size, 'disabled' follows it at once. Counted in emulated units, never in wall-clock time.",
+     "With Crop on Automatic: 'enabled' waits until the drawn area has been the same for about a second of emulated time before the picture changes size, 'disabled' follows it at once. Counted in emulated units, never in wall-clock time.",
+     "video", {{"disabled", "Disabled: instant geometry changes"}, {"enabled", "Enabled: patient geometry changes"}}, "enabled"},
+    {"puae6_video_vertical_pos", "Vertical Position", "Vertical Position",
+     "Where the window of Crop starts, in lines of the PAL/NTSC picture (2 pixels of the double-line raster each): 'Automatic' centers the window, 0 puts the window at the top of the raster. Positive numbers move the picture up, negative ones down (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame.",
+     "Where the window of Crop starts, in lines of the PAL/NTSC picture (2 pixels of the double-line raster each): 'Automatic' centers the window, 0 puts the window at the top of the raster. Positive numbers move the picture up, negative ones down (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame.",
+     "video", {{"auto", "Automatic (centered)"}, {"-20", "-20"}, {"-18", "-18"}, {"-16", "-16"}, {"-14", "-14"}, {"-12", "-12"}, {"-10", "-10"}, {"-8", "-8"}, {"-6", "-6"}, {"-4", "-4"}, {"-2", "-2"}, {"0", "Default (0)"}, {"2", "+2"}, {"4", "+4"}, {"6", "+6"}, {"8", "+8"}, {"10", "+10"}, {"12", "+12"}, {"14", "+14"}, {"16", "+16"}, {"18", "+18"}, {"20", "+20"}, {"22", "+22"}, {"24", "+24"}, {"26", "+26"}, {"28", "+28"}, {"30", "+30"}, {"32", "+32"}, {"34", "+34"}, {"36", "+36"}, {"38", "+38"}, {"40", "+40"}, {"42", "+42"}, {"44", "+44"}, {"46", "+46"}, {"48", "+48"}, {"50", "+50"}, {"52", "+52"}, {"54", "+54"}, {"56", "+56"}, {"58", "+58"}, {"60", "+60"}, {"62", "+62"}, {"64", "+64"}, {"66", "+66"}, {"68", "+68"}, {"70", "+70"}}, "auto"},
+    {"puae6_video_horizontal_pos", "Horizontal Position", "Horizontal Position",
+     "Where the window of Crop starts, in lores pixels (2 pixels of the hires raster each): 'Automatic' centers the window, 0 puts the window at the left of the raster. Positive numbers move the picture to the right, negative ones to the left (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame.",
+     "Where the window of Crop starts, in lores pixels (2 pixels of the hires raster each): 'Automatic' centers the window, 0 puts the window at the left of the raster. Positive numbers move the picture to the right, negative ones to the left (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame.",
+     "video", {{"auto", "Automatic (centered)"}, {"-40", "-40"}, {"-38", "-38"}, {"-36", "-36"}, {"-34", "-34"}, {"-32", "-32"}, {"-30", "-30"}, {"-28", "-28"}, {"-26", "-26"}, {"-24", "-24"}, {"-22", "-22"}, {"-20", "-20"}, {"-18", "-18"}, {"-16", "-16"}, {"-14", "-14"}, {"-12", "-12"}, {"-10", "-10"}, {"-8", "-8"}, {"-6", "-6"}, {"-4", "-4"}, {"-2", "-2"}, {"0", "Default (0)"}, {"2", "+2"}, {"4", "+4"}, {"6", "+6"}, {"8", "+8"}, {"10", "+10"}, {"12", "+12"}, {"14", "+14"}, {"16", "+16"}, {"18", "+18"}, {"20", "+20"}, {"22", "+22"}, {"24", "+24"}, {"26", "+26"}, {"28", "+28"}, {"30", "+30"}, {"32", "+32"}, {"34", "+34"}, {"36", "+36"}, {"38", "+38"}, {"40", "+40"}}, "auto"},
+    {"puae6_video_gamma", "Color Gamma", "Color Gamma",
+     "Adjusts the gamma of the picture shown: positive values brighten the mid tones, negative ones darken them (the exponent 1/(1+value) on every color channel). Only the picture handed to the frontend changes.",
+     "Adjusts the gamma of the picture shown: positive values brighten the mid tones, negative ones darken them (the exponent 1/(1+value) on every color channel). Only the picture handed to the frontend changes.",
+     "video", {{"-0.5", "-0.5"}, {"-0.4", "-0.4"}, {"-0.3", "-0.3"}, {"-0.2", "-0.2"}, {"-0.1", "-0.1"}, {"0", "Disabled"}, {"0.1", "+0.1"}, {"0.2", "+0.2"}, {"0.3", "+0.3"}, {"0.4", "+0.4"}, {"0.5", "+0.5"}}, "0"},
+    {"puae6_video_color_depth", "Color Depth (Restart)", "Color Depth (Restart)",
+     "The pixel format handed to the frontend: 24-bit (XRGB8888) or 16-bit (RGB565, half the video memory traffic on slow devices). The machine always draws 24-bit; 16-bit only converts the picture on the way out. The format is announced when the content is loaded. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The pixel format handed to the frontend: 24-bit (XRGB8888) or 16-bit (RGB565, half the video memory traffic on slow devices). The machine always draws 24-bit; 16-bit only converts the picture on the way out. The format is announced when the content is loaded. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "video", {{"24bit", "24-bit (XRGB8888)"}, {"16bit", "16-bit (RGB565)"}}, "24bit"},
     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, {}, nullptr},
 };
 inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};
@@ -202,8 +380,15 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
-    {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, or a plain 4:3. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}}, "pixel"},
+    {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}, {"PAL", "PAL pixel aspect (26:25)"}, {"NTSC", "NTSC pixel aspect (43:50)"}}, "pixel"},
     {"puae6_floppy_save", "Save Floppy Changes", "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
+    {"puae6_video_crop", "Crop", "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it.", {{"disabled", "Disabled"}, {"minimum", "Minimum (720x540 PAL)"}, {"smaller", "Smaller (696x528 PAL)"}, {"small", "Small (672x512 PAL)"}, {"medium", "Medium (640x480)"}, {"large", "Large (640x448)"}, {"larger", "Larger (640x432)"}, {"maximum", "Maximum (640x400)"}, {"auto", "Automatic (the drawn area)"}}, "disabled"},
+    {"puae6_video_crop_mode", "Crop Mode", "Which dimensions Crop cuts: both, only the width, only the height, or the smallest window of a picture aspect ratio (16:9, 16:10, 4:3, 5:4) that holds the cropped size. 'Horizontal + Vertical' with Automatic removes the borders completely.", {{"both", "Horizontal + Vertical"}, {"horizontal", "Horizontal"}, {"vertical", "Vertical"}, {"16:9", "16:9"}, {"16:10", "16:10"}, {"4:3", "4:3"}, {"5:4", "5:4"}}, "both"},
+    {"puae6_video_crop_delay", "Automatic Crop Delay", "With Crop on Automatic: 'enabled' waits until the drawn area has been the same for about a second of emulated time before the picture changes size, 'disabled' follows it at once. Counted in emulated units, never in wall-clock time.", {{"disabled", "Disabled: instant geometry changes"}, {"enabled", "Enabled: patient geometry changes"}}, "enabled"},
+    {"puae6_video_vertical_pos", "Vertical Position", "Where the window of Crop starts, in lines of the PAL/NTSC picture (2 pixels of the double-line raster each): 'Automatic' centers the window, 0 puts the window at the top of the raster. Positive numbers move the picture up, negative ones down (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame.", {{"auto", "Automatic (centered)"}, {"-20", "-20"}, {"-18", "-18"}, {"-16", "-16"}, {"-14", "-14"}, {"-12", "-12"}, {"-10", "-10"}, {"-8", "-8"}, {"-6", "-6"}, {"-4", "-4"}, {"-2", "-2"}, {"0", "Default (0)"}, {"2", "+2"}, {"4", "+4"}, {"6", "+6"}, {"8", "+8"}, {"10", "+10"}, {"12", "+12"}, {"14", "+14"}, {"16", "+16"}, {"18", "+18"}, {"20", "+20"}, {"22", "+22"}, {"24", "+24"}, {"26", "+26"}, {"28", "+28"}, {"30", "+30"}, {"32", "+32"}, {"34", "+34"}, {"36", "+36"}, {"38", "+38"}, {"40", "+40"}, {"42", "+42"}, {"44", "+44"}, {"46", "+46"}, {"48", "+48"}, {"50", "+50"}, {"52", "+52"}, {"54", "+54"}, {"56", "+56"}, {"58", "+58"}, {"60", "+60"}, {"62", "+62"}, {"64", "+64"}, {"66", "+66"}, {"68", "+68"}, {"70", "+70"}}, "auto"},
+    {"puae6_video_horizontal_pos", "Horizontal Position", "Where the window of Crop starts, in lores pixels (2 pixels of the hires raster each): 'Automatic' centers the window, 0 puts the window at the left of the raster. Positive numbers move the picture to the right, negative ones to the left (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame.", {{"auto", "Automatic (centered)"}, {"-40", "-40"}, {"-38", "-38"}, {"-36", "-36"}, {"-34", "-34"}, {"-32", "-32"}, {"-30", "-30"}, {"-28", "-28"}, {"-26", "-26"}, {"-24", "-24"}, {"-22", "-22"}, {"-20", "-20"}, {"-18", "-18"}, {"-16", "-16"}, {"-14", "-14"}, {"-12", "-12"}, {"-10", "-10"}, {"-8", "-8"}, {"-6", "-6"}, {"-4", "-4"}, {"-2", "-2"}, {"0", "Default (0)"}, {"2", "+2"}, {"4", "+4"}, {"6", "+6"}, {"8", "+8"}, {"10", "+10"}, {"12", "+12"}, {"14", "+14"}, {"16", "+16"}, {"18", "+18"}, {"20", "+20"}, {"22", "+22"}, {"24", "+24"}, {"26", "+26"}, {"28", "+28"}, {"30", "+30"}, {"32", "+32"}, {"34", "+34"}, {"36", "+36"}, {"38", "+38"}, {"40", "+40"}}, "auto"},
+    {"puae6_video_gamma", "Color Gamma", "Adjusts the gamma of the picture shown: positive values brighten the mid tones, negative ones darken them (the exponent 1/(1+value) on every color channel). Only the picture handed to the frontend changes.", {{"-0.5", "-0.5"}, {"-0.4", "-0.4"}, {"-0.3", "-0.3"}, {"-0.2", "-0.2"}, {"-0.1", "-0.1"}, {"0", "Disabled"}, {"0.1", "+0.1"}, {"0.2", "+0.2"}, {"0.3", "+0.3"}, {"0.4", "+0.4"}, {"0.5", "+0.5"}}, "0"},
+    {"puae6_video_color_depth", "Color Depth (Restart)", "The pixel format handed to the frontend: 24-bit (XRGB8888) or 16-bit (RGB565, half the video memory traffic on slow devices). The machine always draws 24-bit; 16-bit only converts the picture on the way out. The format is announced when the content is loaded. It takes effect the next time the content is loaded; the running machine is not changed.", {{"24bit", "24-bit (XRGB8888)"}, {"16bit", "16-bit (RGB565)"}}, "24bit"},
     {nullptr, nullptr, nullptr, {}, nullptr},
 };
 
@@ -217,8 +402,15 @@ constexpr retro_variable kVariables[] = {
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); None|MB1|MB2|MB4|MB8"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart); 48000|44100"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
-    {"puae6_video_aspect", "Aspect Ratio; pixel|4:3"},
+    {"puae6_video_aspect", "Aspect Ratio; pixel|4:3|PAL|NTSC"},
     {"puae6_floppy_save", "Save Floppy Changes; off|on_close"},
+    {"puae6_video_crop", "Crop; disabled|minimum|smaller|small|medium|large|larger|maximum|auto"},
+    {"puae6_video_crop_mode", "Crop Mode; both|horizontal|vertical|16:9|16:10|4:3|5:4"},
+    {"puae6_video_crop_delay", "Automatic Crop Delay; enabled|disabled"},
+    {"puae6_video_vertical_pos", "Vertical Position; auto|-20|-18|-16|-14|-12|-10|-8|-6|-4|-2|0|2|4|6|8|10|12|14|16|18|20|22|24|26|28|30|32|34|36|38|40|42|44|46|48|50|52|54|56|58|60|62|64|66|68|70"},
+    {"puae6_video_horizontal_pos", "Horizontal Position; auto|-40|-38|-36|-34|-32|-30|-28|-26|-24|-22|-20|-18|-16|-14|-12|-10|-8|-6|-4|-2|0|2|4|6|8|10|12|14|16|18|20|22|24|26|28|30|32|34|36|38|40"},
+    {"puae6_video_gamma", "Color Gamma; 0|-0.5|-0.4|-0.3|-0.2|-0.1|0.1|0.2|0.3|0.4|0.5"},
+    {"puae6_video_color_depth", "Color Depth (Restart); 24bit|16bit"},
     {nullptr, nullptr},
 };
 

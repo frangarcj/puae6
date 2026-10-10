@@ -199,8 +199,12 @@ class NormalizationTests(unittest.TestCase):
     def test_nothing_requested_gives_the_defaults(self):
         document = schema()
         normalized = gen.normalize_config(document, {})
-        self.assertEqual(normalized, {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "audio_rate_hz": "48000", "random_seed": 1,
-                                      "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled", "video_aspect": "pixel", "floppy_save": "off"})
+        machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "audio_rate_hz": "48000", "random_seed": 1,
+                   "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled"}
+        # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
+        presentation = {"video_aspect": "pixel", "floppy_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
+                        "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit"}
+        self.assertEqual(normalized, {**machine, **presentation})
         self.assertEqual(gen.to_p6_config(document, normalized),
                          {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0})
 
@@ -418,7 +422,9 @@ class GeneratorTests(unittest.TestCase):
         self.assertNotIn("wrapper_not_offered", table["adapters"]["machine"])
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
-        self.assertEqual(list(table["presentation"]), ["video_aspect", "floppy_save"])
+        self.assertEqual(list(table["presentation"]), ["video_aspect", "floppy_save", "video_crop", "video_crop_mode", "video_crop_delay", "video_vertical_pos",
+                                                         "video_horizontal_pos", "video_gamma", "video_color_depth"])
+        self.assertEqual([name for name, entry in table["presentation"].items() if entry.get("restart")], ["video_color_depth"])
 
 
 if __name__ == "__main__":
