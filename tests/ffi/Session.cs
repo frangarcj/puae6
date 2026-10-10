@@ -52,7 +52,11 @@ internal static unsafe partial class Program
 
 	static void RunSession(Dictionary<string, string> options)
 	{
-		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		var runtime = NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		// P6_EVICT=0: the setting a Release build of BizHawk gives the host (WaterboxHost's static constructor calls it under #if !DEBUG): a sandbox stays mapped between calls instead of
+		// being unmapped and mapped again at every EnterExit. This host is a Debug build, so by default it runs the eviction path (T28a measures both).
+		if (Environment.GetEnvironmentVariable("P6_EVICT") == "0")
+			((delegate* unmanaged[Cdecl]<byte, void>)NativeLibrary.GetExport(runtime, "wbx_set_always_evict_blocks"))(0);
 		var machines = new Dictionary<string, Machine>();
 		var states = new Dictionary<string, byte[]>();
 		var saverams = new Dictionary<string, byte[]>();

@@ -11163,7 +11163,7 @@
       "title": "SIGSEGV intermitente al crear un segundo sandbox Waterbox con otros heaps en el mismo proceso",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T28"
       ],
