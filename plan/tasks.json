@@ -13318,6 +13318,47 @@
       "evidence": null
     },
     {
+      "id": "T73a",
+      "title": "Opciones de audio de Paula en headless y BizHawk/Waterbox (sync settings e identidad)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T73"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "reports/tasks/T73.md"
+      ],
+      "touch": [
+        "adapters/headless/**",
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/smoke/**",
+        "adapters/waterbox/**",
+        "tools/generate_options.py",
+        "config/schema/**",
+        "tests/config/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "tests/waterbox-smoke/**",
+        "manifests/waterbox-memory.json",
+        "manifests/state-inventory.json"
+      ],
+      "steps": [
+        "T73 dejo las cuatro opciones (sound_separation, sound_interpolation, sound_filter, sound_filter_type) en p6_config, el esquema, libretro y el importador .uae; el esquema las marca 'profile' en headless y wrapper. Añadir --sound-sep/--sound-interp/--sound-filter/--sound-type en headless y sync settings en el wrapper BizHawk que entren en la identidad de estado y pelicula solo fuera del defecto (como FpuModel en T54d), con tests de wrapper y re-registro de waterbox-memory si cambia el guest."
+      ],
+      "checks": [
+        "AV02",
+        "WB03"
+      ],
+      "acceptance": [
+        "Las tres superficies dan el mismo PCM y el mismo config_hash para la misma combinacion; un estado o pelicula con otra combinacion se rechaza."
+      ],
+      "stop": "No cambiar los defectos ni los hashes golden.",
+      "evidence": null
+    },
+    {
       "id": "T74",
       "title": "Sonido de disquetera (driveclick) determinista",
       "milestone": "M3",
@@ -13455,7 +13496,8 @@
         "T76",
         "T31",
         "T28a",
-        "T28b"
+        "T28b",
+        "T73a"
       ],
       "read": [
         "docs/01-architecture.md",
