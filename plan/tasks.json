@@ -11233,6 +11233,54 @@
       "evidence": null
     },
     {
+      "id": "T29a",
+      "title": "HDF de solo lectura por uae0 (uaehf.device + placa UAEFS) sin hilos: un micro-ROM lee el bloque 0",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T27",
+        "T28",
+        "T24"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "ports/portable/**",
+        "CMakeLists.txt",
+        "manifests/source-manifest.json",
+        "manifests/codegen.json",
+        "manifests/state-inventory.json",
+        "config/schema/**",
+        "tests/hdf/**",
+        "tests/host/**",
+        "tests/fixtures/**",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Investigacion en ~/.claude/projects/-Users-frangar-Fun-uae/scratch/t29-research.md: opcion uae0 (uaehf.device + placa UAEFS + rtarea, como PUAE5), traps simples en linea (uaeboard=0, ctx NULL), hardfile_beginio sincrono sin hilo por unidad, filesys_init_storeinfo sin TRAPFLAG_EXTRA_STACK, capa threaddep de un solo hilo, cola native2amiga bajo macro propia (no SUPPORT_THREADS), FILESYS_VIRTUAL y HD_SCSICMD rechazados con error claro.",
+        "Decisiones del usuario (2026-10-10): identidad como PUAE5 tomando como referencia ../MacHawk (sus parches extra de waterbox/uae: uae-waterbox.patch, bizhawk-hd.c/.h, UAE.cs MountHardDisk, LibUAE.cs): placa UAEFS y boot ROM solo cuando hay HDF, sin Gayle; sin HDF la maquina y sus hashes golden no cambian. E/S sincrona de latencia cero. Topes como MacHawk: hasta 4 HDF (BIZHAWK_HD_MAX), sin tope fijo de tamano: precarga entera y presupuesto de memoria por tamano del fichero (en Waterbox, como HardDiskHeapKB: tamano + bitmap de sucios + 64 KiB), granularidad de escritura de 4 KiB (HARDDISK_CHUNK) para T29b.",
+        "Vertical: P6_MEDIA_HDF (o kind de blob equivalente) con base inmutable identificada por content id, lectura por offset sin cursor host, validacion basica de geometria/RDB con topes (sin xmalloc de tamanos leidos del fichero: hdf_open VHD, pt_rdsk blocksize, ciclos FSHD); un micro-ROM saca BeginIO de la resident del DiagArea y lee el bloque 0 por CMD_READ; si hay Kickstart autorizado (env), test opt-in de arranque/lectura con KS 1.3 o 3.1. Escritura, estado del controlador, Waterbox y FUZZ01 completo quedan para decidir despues (T29 cierre)."
+      ],
+      "checks": [
+        "MED03",
+        "BUILD01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Con HDF el micro-ROM lee el bloque 0 identico al fichero; sin HDF los digests y hashes golden no cambian; el build no importa primitivas de hilos y el HDF malformado se rechaza sin asignacion ilimitada.",
+        "Si se monta un HDF, p6_state_save devuelve UNSUPPORTED con mensaje claro hasta que exista el estado del controlador (no un estado incompleto)."
+      ],
+      "stop": "No habilitar hilos, SCSI ni volumenes del host; no stubs de exito.",
+      "evidence": null
+    },
+    {
       "id": "T29",
       "title": "Incorporar HDF como dispositivo de bloques determinista",
       "milestone": "M3",
@@ -11241,7 +11289,8 @@
       "depends": [
         "T27",
         "T28",
-        "T24"
+        "T24",
+        "T29a"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -11259,7 +11308,8 @@
         "Seleccionar backend HDF upstream necesario y validar geometria, offsets, longitudes y dispositivo soportado.",
         "Mantener base identificada e inmutable mas overlay; decidir precarga o lecturas puras por ID/offset con cache descartable probada.",
         "Probar particiones/lecturas/escrituras y estado de controlador alrededor de save/load tanto nativo como WBX.",
-        "Publicar limites de tamaño y memoria por perfil; rechazar explicitamente montajes de directorios host en deterministic."
+        "Publicar limites de tamaño y memoria por perfil; rechazar explicitamente montajes de directorios host en deterministic.",
+        "2026-10-10: T29a (vertical de lectura) separada; el usuario decide el resto (escritura 4 KiB, estado del controlador, Waterbox, topes/FUZZ01) tras ver T29a."
       ],
       "checks": [
         "MED03",
