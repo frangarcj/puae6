@@ -12456,7 +12456,7 @@
         "docs/02-contracts.md",
         "docs/04-validation.md"
       ],
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T54c"
       ],
@@ -12490,7 +12490,7 @@
       "title": "FPU 68881/68882 e interna con softfloat (identica en x86_64 y ARM64)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24",
         "T54a",

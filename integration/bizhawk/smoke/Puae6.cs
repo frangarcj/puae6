@@ -57,6 +57,8 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     internal uint MachineId = 1;
     /// p6_config.chip_kib, slow_kib and fast_kib the next TryInit gives the guest (T49): 0 is the machine's own memory, uint.MaxValue (Slow) is none.
     internal uint ChipKib, SlowKib, FastKib;
+    /// p6_config.fpu_model the next TryInit gives the guest (T54): 0 (none), 68881 or 68882 (A1200 only).
+    internal uint FpuModel;
     /// p6_config.flags the next TryInit gives the guest: P6_CONFIG_FLOPPY_WRITES (1) makes the floppies writable (T28, --floppy-writes).
     internal uint ConfigFlags;
     internal readonly string[] HeapNames = ["elf", "main_thread", "alt_thread", "sbrk", "sealed", "invisible", "plain", "mmap"];
@@ -104,7 +106,8 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             *(uint*)(p + 16) = MachineId; *(uint*)(p + 20) = standard;      //   machine (1 = A500, 2 = A600, 3 = A1200), video standard
             *(uint*)(p + 24) = 48000; *(uint*)(p + 28) = ConfigFlags; *(ulong*)(p + 32) = seed;     //   audio rate, flags, random seed
             *(long*)(p + 40) = epoch;                                       //   rtc epoch
-            *(uint*)(p + 48) = ChipKib; *(uint*)(p + 52) = SlowKib; *(uint*)(p + 56) = FastKib;     //   chip_kib, slow_kib, fast_kib (reserved32 and reserved[2] stay zero)
+            *(uint*)(p + 48) = ChipKib; *(uint*)(p + 52) = SlowKib; *(uint*)(p + 56) = FastKib;     //   chip_kib, slow_kib, fast_kib (reserved[2] stays zero)
+            *(uint*)(p + 60) = FpuModel;
             *(nint*)(p + InitFirmware) = rom; *(ulong*)(p + InitFirmware + 8) = (ulong)firmware.Length;
             *(uint*)(p + InitMediaCount) = mediaCount ?? (uint)media.Length;
             for (int i = 0; i < media.Length && i < 16; ++i)                // p6w_media: type, flags, content_id (SHA-256), data, bytes
@@ -470,6 +473,7 @@ internal static unsafe class Puae6
     //   [--machine a500|a600|a1200] (the machine the guest is configured as; A500 by default)
     //   [--drives N] (T28: the first N media are mounted into DF0..DF{N-1} before the first unit, as the wrapper does)
     //   [--floppy-writes] (T28: p6_config.flags = P6_CONFIG_FLOPPY_WRITES; the disks are writable and the overlay is part of every snapshot)
+    //   [--fpu 68881|68882] (T54: the FPU the guest is configured with, A1200 only)
     //   [--chip KIB] [--slow KIB|none] [--fast KIB] (T49: the memory the guest is configured with, 0 is the machine's own; the mmap heap grows with the extra memory, see MmapBudget)
     //   [--save-at U --state file] (WB15: snapshot after unit U)  [--restore file --from U] (a new process: init, seal, load, continue from U+1)
     internal static int Run(string[] args)
@@ -485,6 +489,7 @@ internal static unsafe class Puae6
             Invisible = memory.GetProperty("invisible").GetUInt32(), Plain = memory.GetProperty("plain").GetUInt32(),
             Mmap = memory.GetProperty("mmap").GetUInt32() };
         uint chipKib = uint.Parse(options.Optional("chip") ?? "0"), fastKib = uint.Parse(options.Optional("fast") ?? "0");
+        uint fpuModel = uint.Parse(options.Optional("fpu") ?? "0");
         string slowText = options.Optional("slow") ?? "0";
         uint slowKib = slowText == "none" ? uint.MaxValue : uint.Parse(slowText);
         var firmware = File.ReadAllBytes(options.Get("firmware"));
@@ -503,6 +508,7 @@ internal static unsafe class Puae6
             ["layout"] = new Dictionary<string, ulong> { ["sbrk"] = layout.Sbrk, ["sealed"] = layout.Sealed, ["invisible"] = layout.Invisible,
                 ["plain"] = layout.Plain, ["mmap"] = layout.Mmap },
             ["configured_memory"] = new Dictionary<string, uint> { ["chip_kib"] = chipKib, ["slow_kib"] = slowKib, ["fast_kib"] = fastKib },
+            ["configured_fpu"] = fpuModel,
             ["firmware_bytes"] = firmware.Length, ["media_bytes"] = media.Sum(image => (long)image.Length),
             ["host_buffers_poisoned_after_init"] = true };
 
@@ -514,7 +520,7 @@ internal static unsafe class Puae6
             var parts = item.Split(':'); var span = parts[0].Split('-');
             return (ulong.Parse(span[0]), ulong.Parse(span[^1]), uint.Parse(parts[1]));
         }).ToList();
-        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib,
+        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib, FpuModel = fpuModel,
             ConfigFlags = options.Flag("floppy-writes") ? 1u : 0u };
         foreach (var port in options.All("port"))
         {

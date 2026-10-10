@@ -60,6 +60,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	static uint SlowKib(Puae6Slow slow) => slow switch { Puae6Slow.None => P6.MemoryNone, Puae6Slow.KB512 => 512u, Puae6Slow.MB1 => 1024u, Puae6Slow.MB1_5 => 1536u, Puae6Slow.MB1_75 => 1792u, _ => 0u };
 
+	static uint FpuNumber(Puae6Fpu fpu) => fpu switch { Puae6Fpu.M68881 => 68881u, Puae6Fpu.M68882 => 68882u, _ => 0u };
+
 	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
 
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
@@ -210,6 +212,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.ChipKib = ChipKib(_syncSettings.ChipMemory);
 		init.Config.SlowKib = SlowKib(_syncSettings.SlowMemory);
 		init.Config.FastKib = FastKib(_syncSettings.FastMemory);
+		init.Config.FpuModel = FpuNumber(_syncSettings.FpuModel);
 		fixed (byte* rom = firmware)
 		{
 			init.Firmware = rom;
@@ -295,6 +298,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// The same for the floppy writes (T28): a state of a core that can write its disks does not load in one that cannot, and a SaveRam that was stored changes the disks the
 		// guest has, so what it was (its SHA-256) is part of what a state and a movie are valid for. A core without writes keeps the identity it always had.
 		if (_syncSettings.FloppyWrites) memory += ";floppywrites=1";
+		// And for the FPU (T54): the model is in the config hash of the native state too, and a state or a movie of a machine with a 68882 means nothing to one without.
+		if (_syncSettings.FpuModel != Puae6Fpu.None) memory += ";fpu=" + _syncSettings.FpuModel;
 		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;

@@ -32,7 +32,7 @@ GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
 RECEIPT = build_waterbox.BUILD / "puae6/puae6-receipt.json"
 # C# struct -> (C struct, {C# field: C field}); the C name is the C# name in snake case except where it says otherwise.
 STRUCTS = {
-    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "Reserved32", "Reserved"]),
+    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "Reserved"]),
     "P6PortInput": ("p6_port_input", ["Type", "Buttons", "Dx", "Dy", "Reserved"]),
     "P6Input": ("p6_input", ["AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved"]),
     "P6Rect": ("p6_rect", ["X", "Y", "Width", "Height"]),

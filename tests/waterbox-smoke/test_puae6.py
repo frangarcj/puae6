@@ -35,11 +35,12 @@ MEMORY_CONFIGS = (
     ("A600, 2 MiB Chip + 8 MiB Fast (PUAE5)", "measured_a600_chip2048_fast8192", "A600", {"chip_kib": 2048, "fast_kib": 8192}),
     ("A1200 + 1.5 MiB Slow + 8 MiB Fast", "measured_a1200_slow1536_fast8192", "A1200", {"slow_kib": 1536, "fast_kib": 8192}),
     ("A500 + 2 MiB Fast", "measured_a500_fast2048", "A500", {"fast_kib": 2048}),
+    ("A1200 with a 68882 (T54)", "measured_a1200_fpu68882", "A1200", {"fpu_model": 68882}),     # SoftFloat adds no memory: the base budget
 )
 OWN_MEMORY_KIB = {"A500": (512, 512), "A600": (1024, 0), "A1200": (2048, 0)}      # Chip, Slow
 
 
-def extra_memory_kib(machine, chip_kib=0, slow_kib=0, fast_kib=0):
+def extra_memory_kib(machine, chip_kib=0, slow_kib=0, fast_kib=0, fpu_model=0):
     """The memory a configuration has above what the machine comes with, in KiB: all the Fast RAM and the Chip and Slow RAM above their own sizes."""
     own_chip, own_slow = OWN_MEMORY_KIB[machine]
     extra = fast_kib
@@ -52,7 +53,7 @@ def extra_memory_kib(machine, chip_kib=0, slow_kib=0, fast_kib=0):
 
 def memory_flags(memory):
     flags = []
-    for flag, key in (("--chip", "chip_kib"), ("--slow", "slow_kib"), ("--fast", "fast_kib")):
+    for flag, key in (("--chip", "chip_kib"), ("--slow", "slow_kib"), ("--fast", "fast_kib"), ("--fpu", "fpu_model")):
         if memory.get(key):
             flags += [flag, str(memory[key])]
     return flags
@@ -274,7 +275,8 @@ class WaterboxRuntimeTests(unittest.TestCase):
                     rom = self.firmware(name, defines)
                     inside, result = self.waterbox(rom, 60, machine=machine, memory=memory)
                     self.assertEqual(machine, result["machine"])
-                    self.assertEqual({"chip_kib": 0, "slow_kib": 0, "fast_kib": 0, **memory}, result["configured_memory"])
+                    self.assertEqual({"chip_kib": 0, "slow_kib": 0, "fast_kib": 0, **{k: v for k, v in memory.items() if k != "fpu_model"}}, result["configured_memory"])
+                    self.assertEqual(memory.get("fpu_model", 0), result["configured_fpu"])
                     self.assertEqual(self.manifest["layout"]["mmap"] + self.manifest["memory_budget"]["mmap_extra_factor"] * extra_memory_kib(machine, **memory) * 1024,
                                      result["layout"]["mmap"])
                     self.assertEqual(60, len(inside))

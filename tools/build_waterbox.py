@@ -700,7 +700,7 @@ _RUNS = iter(range(1, 1 << 30))
 def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None, *, ports: tuple[str, ...] = (),
               render: str | None = None, digest_every: int = 0, bad_calls_at: int = 0, limits: bool = False, ntsc: bool = False, machine: str = "A500",
               abi_at: tuple[int, ...] = (), pages_at: int = 0, memory_at: int | None = None, save_at: int = 0, state: Path | None = None, restore: Path | None = None,
-              restore_from: int = 0, timeout: int = 3600, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0) -> tuple[list[str], dict]:
+              restore_from: int = 0, timeout: int = 3600, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0) -> tuple[list[str], dict]:
     """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines
     it printed in the format of p6_headless, plus the measurements. `ports` are "N:type:buttons:dx:dy" held on every unit, `render` a
     schedule "101-200:0,201-300:2" of render flags (1 video, 2 audio) by unit range, `digest_every` the period of the snapshot digests and
@@ -709,7 +709,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     restored (WB14, needs the chipcell fixture), `memory_at` the unit after which (0: right after the seal) the memory areas the guest reports are read, written,
     refused and restored through the guest (T20a; after a unit it needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
     initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15), `machine` "A500", "A600" or "A1200" the p6_config.machine the guest is given (T23e, T24f), `chip_kib`, `slow_kib` ("none" or KiB) and `fast_kib` its memory (T49; 0 is the machine's own, and the
-    mmap heap of the sandbox grows with the extra memory as manifests/waterbox-memory.json says). Needs the runtime (build/waterbox/receipt.json) and the
+    mmap heap of the sandbox grows with the extra memory as manifests/waterbox-memory.json says), `fpu_model` the FPU the A1200 is given (T54: 0, 68881 or 68882). Needs the runtime (build/waterbox/receipt.json) and the
     guest (--puae6) to exist already; several runs may go on at once."""
     runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
     for needed in (runtime_receipt, guest_receipt):
@@ -746,7 +746,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
         command.append("--ntsc")
     if machine.upper() != "A500":
         command += ["--machine", machine.lower()]
-    for flag, value in (("--chip", chip_kib), ("--slow", slow_kib), ("--fast", fast_kib)):
+    for flag, value in (("--chip", chip_kib), ("--slow", slow_kib), ("--fast", fast_kib), ("--fpu", fpu_model)):
         if value:
             command += [flag, str(value)]
     process = subprocess.run(command, env=env, cwd=MANAGED, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
@@ -765,7 +765,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
 MEASURED_KEYS = {"A500": "measured", "A600": "measured_a600", "A1200": "measured_a1200"}
 
 
-def measured_key(machine: str, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0) -> str:
+def measured_key(machine: str, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0) -> str:
     """The key of manifests/waterbox-memory.json a run is recorded under: the machine's, or (T49) the machine's and each size asked for: measured_a1200_fast8192."""
     key = MEASURED_KEYS[machine.upper()]
     if machine.upper() == "A500" and (chip_kib or slow_kib or fast_kib):
@@ -773,15 +773,15 @@ def measured_key(machine: str, chip_kib: int = 0, slow_kib: int | str = 0, fast_
     for name, kib in (("chip", chip_kib), ("slow", slow_kib), ("fast", fast_kib)):
         if kib:
             key += f"_{name}{kib}"
-    return key
+    return key + (f"_fpu{fpu_model}" if fpu_model else "")
 
 
-def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500", chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0) -> dict:
+def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500", chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0) -> dict:
     """Stores what a run measured in the `measured` key (A500), `measured_a600` (A600) or `measured_a1200` (A1200) of manifests/waterbox-memory.json, or (T49) in the key of a machine
     with other memory (measured_key); the budgets stay as written: the base ones for the stock machines and the rule of `memory_budget` for the others."""
     manifest = json.loads(MEMORY_MANIFEST.read_text())
-    memory = {name: kib for name, kib in (("chip_kib", chip_kib), ("slow_kib", slow_kib), ("fast_kib", fast_kib)) if kib}
-    manifest[measured_key(machine, chip_kib, slow_kib, fast_kib)] = {
+    memory = {name: kib for name, kib in (("chip_kib", chip_kib), ("slow_kib", slow_kib), ("fast_kib", fast_kib), ("fpu_model", fpu_model)) if kib}
+    manifest[measured_key(machine, chip_kib, slow_kib, fast_kib, fpu_model)] = {
         "fixture": {"machine": machine.upper(), **memory, "firmware_sha256": sha256(firmware), "firmware_bytes": firmware.stat().st_size, "units": units,
                     "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"},
         "guest_sha256": result["guest_sha256"], "runtime_sha256": result["runtime_sha256"],
@@ -806,6 +806,7 @@ def main() -> int:
     parser.add_argument("--chip", type=int, default=0, metavar="KIB", help="memoria Chip con la que --puae6-run configura el guest (T49; 0: la de la maquina)")
     parser.add_argument("--slow", default="0", metavar="KIB|none", help="memoria Slow con la que --puae6-run configura el guest (T49; 0: la de la maquina)")
     parser.add_argument("--fast", type=int, default=0, metavar="KIB", help="memoria Fast Zorro II con la que --puae6-run configura el guest (T49)")
+    parser.add_argument("--fpu", type=int, default=0, choices=(0, 68881, 68882), help="FPU con la que --puae6-run configura el guest (T54; solo el A1200)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4, help="trabajos paralelos de make para --puae6")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
@@ -824,12 +825,12 @@ def main() -> int:
             build(args)
             build_puae6(toolchain(), args.jobs)
             slow = args.slow if args.slow == "none" else int(args.slow)
-            lines, measured = run_puae6(args.puae6_run.resolve(), args.units, machine=args.machine, chip_kib=args.chip, slow_kib=slow, fast_kib=args.fast)
+            lines, measured = run_puae6(args.puae6_run.resolve(), args.units, machine=args.machine, chip_kib=args.chip, slow_kib=slow, fast_kib=args.fast, fpu_model=args.fpu)
             print("\n".join(lines))
             (BUILD / "puae6-result.json").write_text(json.dumps(measured, indent=2) + "\n")
             print(f"PUAE6 WBX RUNTIME PASS: {len(lines)} unidades; medidas en {BUILD / 'puae6-result.json'}")
             if args.record_memory:
-                record_memory(args.puae6_run.resolve(), args.units, measured, args.machine, args.chip, slow, args.fast)
+                record_memory(args.puae6_run.resolve(), args.units, measured, args.machine, args.chip, slow, args.fast, args.fpu)
                 print(f"medidas guardadas en {MEMORY_MANIFEST}")
         else:
             receipt = build(args)

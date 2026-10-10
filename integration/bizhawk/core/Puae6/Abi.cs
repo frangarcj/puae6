@@ -53,7 +53,7 @@ public unsafe struct P6Config
 	public ulong RandomSeed;
 	public long RtcEpochSeconds;                                 // UTC; never read from the host clock
 	public uint ChipKib, SlowKib, FastKib;                       // 0: the machine's own memory; P6.MemoryNone (Slow, Fast): none
-	public uint Reserved32;
+	public uint FpuModel;                                        // T54: 0 (none), 68881 or 68882 (A1200 only); was Reserved32
 	public fixed ulong Reserved[2];
 }
 
