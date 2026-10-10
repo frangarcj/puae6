@@ -13429,6 +13429,43 @@
       "evidence": null
     },
     {
+      "id": "T75a",
+      "title": "p6_memory_regions informa el tamano alcanzable de Slow RAM (A500 con 1,5/1,75 MiB), no el asignado",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T75"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "reports/tasks/T75.md"
+      ],
+      "touch": [
+        "bridge/memory.cpp",
+        "bridge/include/p6.h",
+        "adapters/libretro/**",
+        "tests/libretro-host/**",
+        "tests/host/**",
+        "integration/bizhawk/core/**",
+        "tests/waterbox-state/**",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "T75 encontro que con slow 1,5/1,75 MiB p6_memory_regions devuelve el tamano asignado (2 MiB) y no el alcanzable por la CPU; el adaptador libretro lo recorta, pero el dominio Slow de BizHawk y cualquier otro cliente ven 2 MiB. Informar reserved_size (alcanzable), quitar el recorte del adaptador, probar el dominio Slow en el wrapper y regrabar waterbox-memory si cambia el guest."
+      ],
+      "checks": [
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Los tres adaptadores ven el mismo tamano de Slow que la CPU alcanza para cada opcion."
+      ],
+      "stop": "No cambiar la memoria asignada ni el estado.",
+      "evidence": null
+    },
+    {
       "id": "T76",
       "title": "Modelo automatico, tags en el nombre de fichero y configuracion por contenido",
       "milestone": "M3",
@@ -13497,7 +13534,8 @@
         "T31",
         "T28a",
         "T28b",
-        "T73a"
+        "T73a",
+        "T75a"
       ],
       "read": [
         "docs/01-architecture.md",
