@@ -13,7 +13,8 @@
 //     N times    43 words of a UnitInfo, u32 size and the bytes of the file system handler the RDB brought and the guest has not taken yet (at most 262144),
 //                6 words of hardfpd, u32 count of unfinished requests and per request u8 slot, request, type, data and the 48 bytes of its IORequest
 //     5 words and the 65536 bytes of the trap area (patch 0181, p6_rtarea_state_get), 4 words and the 65536 bytes of the UAEFS board (patch 0182, p6_uaefs_state_get)
-//     the autoconfig chain (visit_expansion with no Fast RAM board) when the machine has no Fast RAM: with one, P6RM carries it
+//     the autoconfig chain (visit_expansion with no Fast RAM board) when the machine has no Fast RAM: with one, P6RM carries it, then the 11520 bytes of the autoconfig image of the card the
+//     chain is at beyond its first 256 (patch 0221, p6_expamem_image_get): the DiagArea and the code the UAEFS board copies into its memory when the guest configures it
 //     u32 count and the values of the EXTER queue (patch 0180, p6_n2a_state_get)
 //   the overlay, for each hard file: u32 count of dirty chunks, then per chunk (in ascending order) its u32 index and its bytes (4096, less for the last chunk of an image that is not a
 //   multiple of it). The base is never in the state: a chunk that is not named is the base's.
@@ -42,6 +43,8 @@ extern bool p6_rtarea_state_get(uint32_t *w, unsigned n, uint8_t *bytes);       
 extern bool p6_rtarea_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes);
 extern bool p6_uaefs_state_get(uint32_t *w, unsigned n, uint8_t *bytes);                     // expansion.cpp 0182
 extern bool p6_uaefs_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes);
+extern bool p6_expamem_image_get(uint8_t *bytes, unsigned n);                                // expansion.cpp 0221
+extern bool p6_expamem_image_set(const uint8_t *bytes, unsigned n);
 
 using p6_session::session;
 
@@ -50,9 +53,9 @@ namespace {
 
 // The sizes the engine accessors work with (the comments of the patches list the words).
 constexpr uint32_t kGlobalWords = 17, kUnitWords = 43, kHardfileWords = 6, kRtareaWords = 5, kUaefsWords = 4;
-constexpr uint32_t kRequests = 50, kIobuf = 48, kRtareaBytes = 65536, kUaefsBytes = 65536, kStoreMax = 262144, kQueueMax = 299, kUnits = 50;
+constexpr uint32_t kRequests = 50, kIobuf = 48, kRtareaBytes = 65536, kUaefsBytes = 65536, kStoreMax = 262144, kQueueMax = 299, kUnits = 50, kExpamemBytes = 0x3000 - 256;
 
-uint8_t g_rtarea[kRtareaBytes], g_uaefs[kUaefsBytes], g_store[kStoreMax];       // one machine at a time: scratch for Save and Apply
+uint8_t g_rtarea[kRtareaBytes], g_uaefs[kUaefsBytes], g_store[kStoreMax], g_expamem[kExpamemBytes];       // one machine at a time: scratch for Save and Apply
 uint8_t g_chunk[P6_HDF_CHUNK];
 
 bool measuring(const Archive &a) { return a.mode() == Mode::Measure; }
@@ -183,6 +186,14 @@ void visit_board(Archive &a)
     if (a.applying() && a.ok()) a.require(p6_uaefs_state_set(w, kUaefsWords, g_uaefs), "hdf: the UAEFS board does not fit the machine");
 }
 
+// The autoconfig image of the card the chain is at, beyond the 256 bytes P6RM carries (patch 0221): any bytes are a possible image.
+void visit_expamem_image(Archive &a)
+{
+    if (a.mode() == Mode::Save) a.require(p6_expamem_image_get(g_expamem, kExpamemBytes), "the autoconfig image is not in a state that can be saved");
+    a.bytes(g_expamem, kExpamemBytes, "hdf.expamem");
+    if (a.applying() && a.ok()) a.require(p6_expamem_image_set(g_expamem, kExpamemBytes), "hdf: the autoconfig image does not fit the machine");
+}
+
 void visit_queue(Archive &a)
 {
     uint32_t values[kQueueMax] = {};
@@ -259,6 +270,7 @@ void visit_hdf(Archive &a)
     if (a.ok()) visit_trap_area(a);
     if (a.ok()) visit_board(a);
     if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0) visit_expansion(a, 0);
+    if (a.ok()) visit_expamem_image(a);          // after the chain: putting the card's first 256 bytes back rebuilds the buffer (expamem_next)
     if (a.ok()) visit_queue(a);
     for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
 }

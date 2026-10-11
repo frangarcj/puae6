@@ -61,7 +61,7 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 268, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 104, "DSKX": 164,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 320, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 104, "DSKX": 164,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
@@ -80,7 +80,7 @@ BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_
               "lof_detect", "lof_pdetect", "lof_detect_vsync", "prevlof0", "prevlof1", "prevlof2",
               "display_last_hsync_low", "display_last_hsync_high", "display_last_vsync_low", "display_last_vsync_high",
               "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)] + ["plffirstline", "plflastline", "need_vdiw_check", "interlace_seen",
-              "programmed_register_accessed_h", "programmed_register_accessed_v"]
+              "programmed_register_accessed_h", "programmed_register_accessed_v", "nosignal_cnt", "nosignal_status", "nosignal_trigger", "lines_after_beamcon_change", "syncs_stopped"] + [f"rga_bltadd{i}" for i in range(4)] + [f"rga_conflictaddr{i}" for i in range(4)]
 
 # The words of COPR, in the order of p6_custom_copper_get (custom.cpp, patch 0095) and of the enum of bridge/state_upstream.cpp.
 COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ignore_next", "vcmp", "hcmp", "strobe", "strobetype", "enabled_thisline",
@@ -937,6 +937,22 @@ class UpstreamBodiesTests(ProbeCase):
         ("BEAM with an interlace of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("interlace_seen"), struct.pack(">i", 2), "the interlace the display has seen is not a flag"),
         ("BEAM with a programmed-beam flag of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("programmed_register_accessed_h"), struct.pack(">i", 2), "a flag of the programmed beam registers is not a flag"),
         ("BEAM with a vertical programmed-beam flag of -1", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("programmed_register_accessed_v"), struct.pack(">i", -1), "a flag of the programmed beam registers is not a flag"),
+        ("BEAM with a no-signal status of 3", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("nosignal_status"), struct.pack(">i", 3),
+         "the no-signal status is not one of -1 (ending), 0, 1 and 2, or its request or the stopped syncs are not flags"),
+        ("BEAM with a no-signal status of -2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("nosignal_status"), struct.pack(">i", -2),
+         "the no-signal status is not one of -1 (ending), 0, 1 and 2, or its request or the stopped syncs are not flags"),
+        ("BEAM with a no-signal request of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("nosignal_trigger"), struct.pack(">i", 2),
+         "the no-signal status is not one of -1 (ending), 0, 1 and 2, or its request or the stopped syncs are not flags"),
+        ("BEAM with stopped syncs of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("syncs_stopped"), struct.pack(">i", 2),
+         "the no-signal status is not one of -1 (ending), 0, 1 and 2, or its request or the stopped syncs are not flags"),
+        ("BEAM with a pipeline increment of 4", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("rga_bltadd2"), struct.pack(">i", 4),
+         "the pointer increment of a slot of the DMA pipeline is not one the blitter sets (-2, 0 or 2)"),
+        ("BEAM with an odd pipeline increment", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("rga_bltadd0"), struct.pack(">i", 1),
+         "the pointer increment of a slot of the DMA pipeline is not one the blitter sets (-2, 0 or 2)"),
+        ("BEAM with a negative no-signal countdown", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("nosignal_cnt"), struct.pack(">i", -1),
+         "a count of vertical blanks of the no-signal state is beyond what the engine sets"),
+        ("BEAM with six lines after a beam change", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("lines_after_beamcon_change"), struct.pack(">i", 6),
+         "a count of vertical blanks of the no-signal state is beyond what the engine sets"),
         ("BEAM with a test of the vertical window of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("need_vdiw_check"), struct.pack(">i", 2), "the flag that tests the vertical display window is not a flag"),
         ("DSKX with a position beyond a line", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", 256 << 8), "the position of the floppy controller in its line is not inside a line"),
         ("DSKX with a negative position", b"P6DK", "DSKX", dskx_at("hpos"), struct.pack(">i", -1), "the position of the floppy controller in its line is not inside a line"),

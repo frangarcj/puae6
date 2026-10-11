@@ -156,7 +156,7 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
      si algun dia un programa lo hiciera visible, lo que faltaria en el estado seria el FMODE de Denise con su evento, no una tolerancia en DET02.
    - **P6AU**: el estado de un canal acepta tambien 0x13 (un canal en estado 3 al que se apaga el DMA sigue con un periodo manual y marca el estado con 0x10); la validacion lo rechazaba
      y el guardado fallaba. Es una correccion de la validacion, comun a las tres maquinas; el layout no cambia.
-   - **Cota por maquina** (`retro_serialize_size`/`state_bound`, medidos en el probe): A500 3 608 513 bytes, A600 3 608 482 (31 menos: sin cuerpo de reloj), A1200 5 890 716. La del A1200 es
+   - **Cota por maquina** (`retro_serialize_size`/`state_bound`, medidos en el probe): A500 3 608 513 bytes, A600 3 608 482 (31 menos: sin cuerpo de reloj), A1200 5 890 716 (cada una 52 mas desde T15l, punto 13). La del A1200 es
      la del A600 mas 1 MiB de Chip (2 MiB frente a 1), 8 + 1024 (CAGA), 8 + 90132 (DRNG), 662 (bloque del 68020) y el raster a tres bytes por pixel en lugar de dos
      (1824 x 626 = 1 141 824 bytes mas); `tests/state/test_state_a1200.py` lo comprueba al byte. Un estado de un A1200 con un programa de dos colores ocupa unos 2,2 MB; con una imagen AGA
      llena de colores, algo mas; no hay compatibilidad entre maquinas: un estado de una es INCOMPATIBLE en otra por `config_hash`, antes de tocar nada.
@@ -247,6 +247,24 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     peliculas existentes siguen valiendo. El resto de la envoltura (`machine`, `flags`...) no tiene campo nuevo: la palabra `flags` no tiene bits libres para 220+ combinaciones, y una segunda palabra
     plegada solo fuera del perfil no mueve ningun hash conocido. `sinc` (cola no guardada) se rechaza en `p6_init`. Prueba: `tests/audio/test_audio_options.py` (hash esperado recalculado con
     `tests/state/envelope.py`, estado aceptado por las mismas opciones y rechazado por cualquier otra, rewind con las opciones activas).
+
+13. **Revision 2026-10-11 (T15l): estado oculto del arranque del Kickstart 2.05.** DET02 no veia cuatro cosas que el 2.05 hace entre las unidades 60 y 200 (A600, con un disquete, con un disco duro y
+    sin ningun medio); el run-ahead de libretro, que carga un estado en la misma imagen decenas de unidades antes de que se note, las encontro. Ninguna estaba en un cuerpo ni en un registro:
+    - **BEAM** pasa de 67 a 80 palabras (parche 0220, +52 bytes en las tres maquinas): `nosignal_cnt`, `nosignal_status`, `nosignal_trigger` y `lines_after_beamcon_change` (un cambio de la viga
+      programada, con el que el 2.05 enciende la pantalla, deja el monitor "sin senal" dos vertical blanks: `getlinetype` devuelve `LINETYPE_BLANK` y la imagen sale negra; una maquina cargada la
+      dibujaba encendida una o dos unidades antes), `syncs_stopped` (BPLCON0 ERSY, unidades 115-118: Agnus para los contadores del haz al final de una linea y corre sus lineas desde un evento de
+      hsync falso; `restore_custom` nunca lo pone) y `bltadd`/`conflictaddr` de las cuatro ranuras del pipeline de DMA (`rga_pipe`, que `save_custom_slots` no escribe: un blit con la escritura de D
+      en vuelo avanza el puntero por `bltadd` al terminar; con cero, el blit de la pantalla de la unidad 194 escribia 35 x 145 palabras sobre una sola). CHSL va antes que BEAM, que pone esos
+      campos encima.
+    - **Seccion de disco duro** (parche 0221): `expamem[256..0x3000)`, la imagen de autoconfiguracion de la tarjeta a la que ha llegado la cadena. P6RM lleva los 256 primeros bytes; los de
+      UAEFS (DiagArea, codigo de arranque y bootblock) los construye `expamem_init_filesys` cuando la cadena llega a la tarjeta y `expamem_map_filesys` los copia a la memoria de la placa al darle
+      el invitado su base (unidades 67-73): una maquina que cargaba un estado anterior mapeaba una placa con $FF donde la original tenia el codigo, y la diferencia solo se veia 40 unidades despues (la
+      unidad 113 duraba 3 CCK mas). +11 520 bytes con un disco duro (el estado del A600 con el Workbench como disco duro mide 4 920 658 de cota).
+    - **Cotas** (medidas en el probe, sin disco duro): A500 3 608 565 bytes, A600 3 608 534, A1200 5 890 768 (52 mas cada una; el A1200 con FPU, 110 mas).
+    - Lo que dejo pasar a DET02: su horizonte es de 6 unidades tras la carga, y la divergencia del disco duro aparecia 40 unidades despues del estado. Por eso el barrido es por unidad (A600 con el
+      2.05: 60-200 sin medio, 61-200 con el disco duro, en los modos de la misma imagen con el haz puesto y de proceso nuevo; el de la misma imagen sin poner el haz, 108-118) y la prueba de
+      libretro hace run-ahead desde el run 1 (`tests/libretro-host/test_hdf.py`). Prueba: `tests/state/test_det02_a600.py` (`kickstart-window`, `kickstart-late`, `workbench-window`),
+      `tests/state/test_det02_hdf.py` (`workbench-hdf-autoconfig`, sin el fallo esperado de las 120) y los rechazos de BEAM de `tests/state/test_state_upstream.py`.
 
 ## Riesgos
 

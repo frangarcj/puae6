@@ -4,7 +4,7 @@
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (164), the last ours and not upstream's
-//   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (268), COPR (60) and BLTP (72), the last three ours and not upstream's
+//   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (320), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each) and AUDP (340), ours and not upstream's
 //   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
 //
@@ -13,6 +13,10 @@
 // saves one frame later differs. The fourth is interlace_seen: a machine that had not seen the interlace found it at the next vertical blank and restarted the display.
 // Patch 0104 adds two more, programmed_register_accessed_h and _v (65 to 67 words): on an ECS Agnus restore_custom sets the horizontal one itself, and the programmed-beam checks that it
 // switches on add update_agnus_vb calls that shift current_linear_vpos_visible by a line; they are not derived from the registers.
+// Patch 0220 adds thirteen (67 to 80 words, T15l): the monitor's no-signal countdown (nosignal_cnt, nosignal_status, nosignal_trigger), lines_after_beamcon_change, syncs_stopped, and the bltadd and
+// conflictaddr of the four slots of the DMA pipeline. A change of the programmed beam, which is how the Kickstart 2.05 switches the display on, blanks the picture for two vertical blanks, and
+// BPLCON0 ERSY stops the beam counters at the end of a line; a state taken inside them drew the display on one or two units early, or ran with real hsyncs; and a blit in flight whose D write
+// had lost its pointer increment wrote a whole screen over one word. save_custom_slots (CHSL, which comes before BEAM) does not write those two fields.
 //
 // BEAM is the one body that is not WinUAE's: its restore_custom reads VPOSR and VHPOSR and throws them away, and the counters of the frame, the line history and the
 // sync latches of Agnus live in file statics that no body names. It is 61 words of 32 bits, big endian like the others, copied by p6_custom_beam_get and
@@ -244,7 +248,9 @@ enum BeamWord : unsigned {
     kAgnusVb, kAgnusPvb, kPrevStrobe, kDmalShifter, kDmal, kDmalNext, kLatches,      // 20 flags from here: phsync, phblank, pvsync, pcsync, csync, vb_active, ... bsvb_prev, equdis
     kPlfFirstLine = kLatches + 20, kPlfLastLine, kNeedVdiwCheck, kInterlaceSeen,      // patch 0103: the vertical display window, which calcvdiw derives and custom_reset does not, and the interlace
     kProgrammedH, kProgrammedV,        // patch 0104: whether a program has written the ECS registers that program the beam (restore_custom sets the horizontal one itself on an ECS Agnus)
-    kBeamWords
+    kNoSignalCount, kNoSignalStatus, kNoSignalTrigger, kLinesAfterBeamcon, kSyncsStopped,      // patch 0220: the monitor's no-signal countdown (two blank vertical blanks after a change of the programmed beam), its request and the stopped syncs (BPLCON0 ERSY)
+    kRgaBltadd, kRgaConflictAddr = kRgaBltadd + 4,      // patch 0220: bltadd and conflictaddr of the four slots of the DMA pipeline (a blit D write in flight advances its pointer by the first)
+    kBeamWords = kRgaConflictAddr + 4
 };
 constexpr uint32_t kBeamBytes = kBeamWords * 4;
 
@@ -940,6 +946,10 @@ const char *check_beam(const Sub &, const Body &b, Seen &)
     if (!within(kNeedVdiwCheck, 0, 1)) return "the flag that tests the vertical display window is not a flag";
     if (!within(kInterlaceSeen, 0, 1)) return "the interlace the display has seen is not a flag";
     if (!within(kProgrammedH, 0, 1) || !within(kProgrammedV, 0, 1)) return "a flag of the programmed beam registers is not a flag";
+    if (!within(kNoSignalStatus, -1, 2) || !within(kNoSignalTrigger, 0, 1) || !within(kSyncsStopped, 0, 1)) return "the no-signal status is not one of -1 (ending), 0, 1 and 2, or its request or the stopped syncs are not flags";
+    if (!within(kNoSignalCount, 0, 0xffff) || !within(kLinesAfterBeamcon, 0, 5)) return "a count of vertical blanks of the no-signal state is beyond what the engine sets";
+    for (unsigned slot = 0; slot < 4; ++slot)
+        if (!within(kRgaBltadd + slot, -2, 2) || (at(kRgaBltadd + slot) & 1)) return "the pointer increment of a slot of the DMA pipeline is not one the blitter sets (-2, 0 or 2)";
     if (at(kLastHsyncHigh) < 0 || at(kLastVsyncHigh) < 0) return "a time stamp of the display is negative";
     return nullptr;
 }

@@ -73,10 +73,17 @@ KICKSTART_SCENARIOS = {
     "kickstart": ("kickstart", input_tests.KICKSTART_INPUT, (60,), (d.SAME, d.SAME_BEAM, d.NEW, d.NEW_BEAM)),
     "kickstart-handshake": ("kickstart", input_tests.KICKSTART_INPUT, (107,), (d.SAME_BEAM, d.RESET_BEAM, d.NEW)),
     "kickstart-steady": ("kickstart", input_tests.KICKSTART_INPUT, (140,), (d.SAME_BEAM, d.RESET_BEAM, d.NEW)),
+    # T15l: every unit in which the 2.05 switches the display on (80-125), with no medium and no input. The programmed beam changes (the monitor blanks the picture for two units: the
+    # no-signal countdown) and BPLCON0 ERSY stops the beam counters for a few units (syncs_stopped); a state taken inside used to give another picture, or another line, after the load.
+    "kickstart-window": ("kickstart", [], tuple(range(80, 126)), (d.SAME_BEAM, d.NEW)),
+    # ... and after it, up to the first 200 units: 194 is inside a blit of the screen whose D write sits in a pipeline slot (the pointer increment is in the slot, not in a register).
+    "kickstart-late": ("kickstart", [], (130, 160, 190, 193, 194, 195, 200), (d.SAME_BEAM, d.NEW)),
     "kickstart-insert-disk": ("kickstart", [], (700,), (d.SAME_BEAM, d.NEW)),       # no disk: the animation of the disk entering the drive, long after the boot
 }
 WORKBENCH_SCENARIOS = {
     "workbench-boot": ("kickstart", "workbench", (200, 300, 400, 700), (d.SAME_BEAM, d.NEW)),
+    # T15l: the same window as "kickstart-window" with the disk in DF0 (the floppy controller selecting the drive while the display is switched on).
+    "workbench-window": ("kickstart", "workbench", (95, 105, 112, 115, 118, 120, 122), (d.SAME_BEAM, d.NEW)),
 }
 
 

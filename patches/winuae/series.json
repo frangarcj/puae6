@@ -3673,6 +3673,52 @@
           "after_sha256": "9461942d28bbcc4520fbe40ef2627d77e65dd13efb5decbfd5f098d814b73aab"
         }
       ]
+    },
+    {
+      "id": "0220-beam-nosignal",
+      "file": "patches/winuae/0220-beam-nosignal.patch",
+      "sha256": "91a3fa4cab37055d2150f59f5031e836e25c253bb891882a80504746c042d90a",
+      "title": "The monitor's no-signal countdown, the stopped syncs and the blitter's pipeline fields come back with the state",
+      "reason": "T15l: Kickstart 2.05 switches the display on by changing the programmed beam (handle_nosignal blanks the picture for two vertical blanks) and sets BPLCON0 ERSY, which stops the beam counters at the end of a line (syncs_stopped), and its Intuition blits to the screen with the D write in a pipeline slot whose bltadd advances the pointer; none of nosignal_cnt, nosignal_status, nosignal_trigger, lines_after_beamcon_change, syncs_stopped, rga_pipe[].bltadd and rga_pipe[].conflictaddr is in a body, so a state taken at those moments drew the display early, ran with real hsyncs or wrote a whole blit over one word. The BEAM body carries them (67 to 80 words).",
+      "category": "host hooks",
+      "order": 135,
+      "symbols": [
+        "p6_custom_beam_get",
+        "p6_custom_beam_set"
+      ],
+      "test": "STATE02; tests.state.test_det02_a600; tests.state.test_det02_hdf; tests/libretro-host/test_hdf.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "0146035fe3f70e472e1ce81bbdcb8a8bdaacd0e3bcb45f4a3070c470112a76ab",
+          "after_sha256": "1a0c650b2c708965c3d2a3a6847a2604615d4c7c9dac65c5525fefcec5f6b0eb"
+        }
+      ]
+    },
+    {
+      "id": "0221-expamem-image-state",
+      "file": "patches/winuae/0221-expamem-image-state.patch",
+      "sha256": "31cca400fa8698518962d142508ba93bd487dc51e7cb2f54691a25171670f038",
+      "title": "The autoconfig image of the UAEFS board beyond its first 256 bytes comes back with the state",
+      "reason": "T15l: expamem_init_filesys builds the DiagArea, the boot code and the bootblock of the UAEFS board in expamem when the autoconfig chain reaches it, and expamem_map_filesys copies the first 3000 bytes of the buffer into the board's memory when the guest configures it; P6RM carries only the first 256 bytes, so a state taken before that moment (Kickstart 2.05 on a hard file, units 67 to 72) loaded into a machine that had not reached the card mapped a board with FF where the original had the code. The hard-file section carries the rest of the image.",
+      "category": "host hooks",
+      "order": 136,
+      "symbols": [
+        "p6_expamem_image_get",
+        "p6_expamem_image_set"
+      ],
+      "test": "tests.state.test_det02_hdf; tests/state/test_state_hdf.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "2ce717e3fa630a601b5570735922e2c3ee15934ec6de58073879307dcf18f98d",
+          "after_sha256": "ff2b015e7869b08dc2f24dadf1f32fa84a66974fc03a07dc77950fd7e9b5de1d"
+        }
+      ]
     }
   ]
 }

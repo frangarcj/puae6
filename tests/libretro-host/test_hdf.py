@@ -504,19 +504,26 @@ class WorkbenchHardFileTests(lr.LibretroHarness):
         self.assertEqual(LOAD.search(refused)[3], "0")
 
     def test_run_ahead_across_the_validation_changes_nothing_on_the_way_and_ends_in_the_same_disk(self):
-        # Run-ahead after runs 150 (before the guest writes), 190 (just after) and 300 and 600: 50 speculative runs each time, then the state goes back. The guest writes inside the
-        # speculative window of run 150 and the real timeline writes again when it gets there: what the frontend sees, and the disk the content closes with, are the plain run's.
-        # (Not from run 0: A600 + Kickstart 2.05 does not replay exactly from a state taken before unit ~115, with no hard disk either; see reports/tasks/T63.md.)
+        # Run-ahead from the first run: after runs 1, 60, 100 and 120 (inside the window in which the Kickstart 2.05 switches the display on, T15l), 150 (before the guest writes), 190 (just
+        # after), 300 and 600, 50 speculative runs each time, then the state goes back. The guest writes inside the speculative window of run 150 and the real timeline writes again when it
+        # gets there: what the frontend sees, and the disk the content closes with, are the plain run's.
         saves, plain_saves = self.work(), self.work()
         target = saves / saved_name(self.unclean)
         plain = self.boot("unclean.hdf", WB_RUNS, *SAVE_ON, save_dir=plain_saves)
-        ahead = ["--ahead", "150:50", "--ahead", "190:50", "--ahead", "300:50", "--ahead", "600:50"]
+        ahead = [x for run in (1, 60, 100, 120, 150, 190, 300, 600) for x in ("--ahead", f"{run}:50")]
         text = self.boot("unclean.hdf", WB_RUNS, *SAVE_ON, *ahead, "--do", f"{WB_RUNS // 2}:file:{target}", "--do", f"{WB_RUNS}:file:{target}", save_dir=saves)
         self.assertEqual([m[2] for m in FILE.finditer(text)], [None, None], "run-ahead wrote a file")
         key = lambda r: (r["n"], r["size"], r["hash"], r["unit"], r["ticks"])
         self.assertEqual([key(r) for r in HardFileTests.runs(plain)], [key(r) for r in HardFileTests.runs(text)], "the visible runs are the plain ones")
         self.assertEqual(target.read_bytes(), (plain_saves / target.name).read_bytes())
 
+    def test_run_ahead_after_every_run_of_the_boot_changes_nothing_on_the_way(self):
+        # A600 + Kickstart 2.05: a run-ahead of 3 speculative runs after every visible run from the first one, through the window (units ~95-125) in which the display is switched on
+        # (T15l: the monitor's no-signal countdown was not in the state, so a state taken inside it drew the picture early and the visible line left the plain one).
+        plain = self.boot("clean.hdf", 260)
+        text = self.boot("clean.hdf", 260, "--ahead-every", "3")
+        key = lambda r: (r["n"], r["size"], r["hash"], r["unit"], r["ticks"])
+        self.assertEqual([key(r) for r in HardFileTests.runs(plain)], [key(r) for r in HardFileTests.runs(text)], "the visible runs are the plain ones")
 
 if __name__ == "__main__":
     unittest.main()

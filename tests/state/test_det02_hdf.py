@@ -102,6 +102,9 @@ WORKBENCH_205 = os.environ.get("P6_WB205_ZIP")
 ANSWER_THE_PROMPT = ["--key", "600", "0x0A", "down", "--key", "604", "0x0A", "up", "--key", "620", "0x44", "down", "--key", "624", "0x44", "up"]
 WORKBENCH_HDF_SCENARIOS = {
     "workbench-hdf-boot": ("kickstart", "workbench-hdf", (60, 120, 180, 260, 350, 440, 505), (d.SAME_BEAM, d.NEW)),
+    # T15l: the UAEFS board is configured in the units 67-73 (expansion.library): the card's DiagArea is in the autoconfig buffer beyond its first 256 bytes, which P6RM does not carry and
+    # the hard-file section does (patch 0221): a state taken before the guest maps the board used to give a board with $FF where the original had the code.
+    "workbench-hdf-autoconfig": ("kickstart", "workbench-hdf", (66, 67, 70, 72, 73), (d.SAME_BEAM, d.NEW)),
     "workbench-hdf-screen": ("kickstart", "workbench-hdf-keys", (630, 680, 740), (d.SAME_BEAM, d.NEW)),
     # The volume was not closed (bitmap-valid flag cleared, see tests/hdf/test_workbench_hdf.py): between units 170 and 190 the file system validates it and writes the root block and
     # the bitmap, so these states are taken before (150, 178), just after (190) and well after (300) a real write and carry a real overlay of one 4 KiB chunk.
@@ -135,12 +138,11 @@ class Det02HdfWorkbench205Tests(d.Det02Case):
         return super().arguments(extra)
 
 
-# Found by T63 and NOT about hard files: the A600 with the Kickstart 2.05 diverges at unit 120 with a floppy in DF0 and with no disk at all too (probed with the A600 scenarios of
-# tests/state/test_det02_a600.py at 110, 115, 120, 125 and 130: only 120 fails; 107, 140 and the rest pass). The first unit after the load shows another video digest and another picture,
-# the machine is the original's from the second one on. The reproducer is this table (it needs the owner's firmware); the attribution is open (video/picture of the unit in which the
-# Kickstart switches the display on), so it is pinned here as an expected failure with its first divergence, not relaxed.
-BOOT_120 = (1, ("video", "picture"), "open (not T63)", "A600 Kickstart 2.05 at unit 120, with a floppy and with no disk too: the first unit after the load has another video digest and picture")
-WORKBENCH_DIVERGENCES = {f"workbench-hdf-boot@120/{mode}": BOOT_120 for mode in (d.SAME_BEAM, d.NEW)}
+# Found by T63 and NOT about hard files (T15l fixed it): the A600 with the Kickstart 2.05 diverged at unit 120 (and at 112-118 in other ways) with a floppy, with a hard file and with no
+# medium at all. The Kickstart switches the display on by changing the programmed beam and by setting BPLCON0 ERSY: the monitor's no-signal countdown blanks the picture for two units
+# after it, and the stopped syncs make Agnus run its lines from a fake hsync event; neither was in the state (patch 0220, BEAM). The scenario "workbench-hdf-boot" takes states at 120 and
+# the A600 table of tests/state/test_det02_a600.py (kickstart-window) at every unit from 80 to 125. No divergence is left, so there is nothing to pin.
+WORKBENCH_DIVERGENCES = {}
 d.populate(Det02HdfWorkbench205Tests, WORKBENCH_HDF_SCENARIOS, WORKBENCH_DIVERGENCES)
 
 
