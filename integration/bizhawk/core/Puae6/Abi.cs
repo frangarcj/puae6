@@ -56,7 +56,9 @@ public unsafe struct P6Config
 	public long RtcEpochSeconds;                                 // UTC; never read from the host clock
 	public uint ChipKib, SlowKib, FastKib;                       // 0: the machine's own memory; P6.MemoryNone (Slow, Fast): none
 	public uint FpuModel;                                        // T54: 0 (none), 68881 or 68882 (A1200 only); was Reserved32
-	public fixed ulong Reserved[2];
+	public byte SoundSeparation, SoundInterpolation, SoundFilter, SoundFilterType;     // T73: Paula's output; 0 in each is the profile's own setting (the schema's numbers, config/schema/options.json)
+	public fixed byte Reserved8[4];                              // zero in ABI v1
+	public ulong Reserved1;                                      // zero in ABI v1
 }
 
 [StructLayout(LayoutKind.Sequential)]

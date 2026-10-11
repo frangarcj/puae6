@@ -83,6 +83,15 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	static uint FpuNumber(Puae6Fpu fpu) => fpu switch { Puae6Fpu.M68881 => 68881u, Puae6Fpu.M68882 => 68882u, _ => 0u };
 
+	// Paula's output (T73a): the numbers of config/schema/options.json (0 in each is the profile's own setting; 70 % is 0, not 8). The enums list the values of the schema in order.
+	static byte SoundSeparationNumber(Puae6SoundSeparation separation) => separation == Puae6SoundSeparation.P70 ? (byte)0 : (byte)(1 + (int)separation);
+
+	static byte SoundInterpolationNumber(Puae6SoundInterpolation interpolation) => interpolation switch { Puae6SoundInterpolation.None => (byte)1, Puae6SoundInterpolation.RH => (byte)4, Puae6SoundInterpolation.Crux => (byte)5, _ => (byte)0 };
+
+	static byte SoundFilterNumber(Puae6SoundFilter filter) => filter switch { Puae6SoundFilter.Off => (byte)1, Puae6SoundFilter.On => (byte)3, _ => (byte)0 };
+
+	static byte SoundFilterTypeNumber(Puae6SoundFilterType type) => type switch { Puae6SoundFilterType.A500 => (byte)1, Puae6SoundFilterType.A1200 => (byte)2, _ => (byte)0 };
+
 	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
 
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
@@ -245,6 +254,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.SlowKib = SlowKib(_syncSettings.SlowMemory);
 		init.Config.FastKib = FastKib(_syncSettings.FastMemory);
 		init.Config.FpuModel = FpuNumber(_syncSettings.FpuModel);
+		init.Config.SoundSeparation = SoundSeparationNumber(_syncSettings.SoundSeparation);
+		init.Config.SoundInterpolation = SoundInterpolationNumber(_syncSettings.SoundInterpolation);
+		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
+		init.Config.SoundFilterType = SoundFilterTypeNumber(_syncSettings.SoundFilterType);
 		fixed (byte* rom = firmware)
 		{
 			init.Firmware = rom;
@@ -332,6 +345,13 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.FloppyWrites) memory += ";floppywrites=1";
 		// And for the FPU (T54): the model is in the config hash of the native state too, and a state or a movie of a machine with a 68882 means nothing to one without.
 		if (_syncSettings.FpuModel != Puae6Fpu.None) memory += ";fpu=" + _syncSettings.FpuModel;
+		// And for Paula's output (T73a): the native state's config hash carries the four options when one is off the profile's setting, and the samples a state goes on to produce depend on them. A core at the
+		// profile's settings keeps the identity it always had; the text names only what differs, so it is stricter than the native hash (which also equates A500 with Auto on an A500) and never looser.
+		string sound = (_syncSettings.SoundSeparation != Puae6SoundSeparation.P70 ? ",separation=" + _syncSettings.SoundSeparation : "") +
+			(_syncSettings.SoundInterpolation != Puae6SoundInterpolation.Anti ? ",interpolation=" + _syncSettings.SoundInterpolation : "") +
+			(_syncSettings.SoundFilter != Puae6SoundFilter.Emulated ? ",filter=" + _syncSettings.SoundFilter : "") +
+			(_syncSettings.SoundFilterType != Puae6SoundFilterType.Auto ? ",filtertype=" + _syncSettings.SoundFilterType : "");
+		if (sound.Length != 0) memory += ";sound=" + sound.Substring(1);
 		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;

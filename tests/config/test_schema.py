@@ -196,6 +196,23 @@ class SchemaValidationTests(unittest.TestCase):
         del option(document, "machine")["headless"]["names"]
         self.refuses(document, "headless 'choice' takes exactly the fields")
 
+    def test_a_named_headless_flag_and_the_wrapper_name_of_a_value_are_checked(self):
+        # T73a: Paula's output options. 'named' is a flag with a spelling per value (the numbers are the table of main.cpp), the wrapper names the members of its enum after the value
+        # or after wrapper_name when the value is a number.
+        for names in ({"none": "none"}, {"none": "none", "anti": "anti", "rh": "rh", "crux": "Crux"}, {"none": "none", "anti": "anti", "rh": "anti", "crux": "crux"}):
+            with self.subTest(names=names):
+                document = schema()
+                option(document, "sound_interpolation")["headless"]["names"] = names
+                self.refuses(document, "headless 'named' names every value of an enum once")
+        document = schema()
+        del option(document, "sound_interpolation")["headless"]["flag"]
+        self.refuses(document, "headless 'named' takes exactly the fields")
+        for name in ("0P", "", "P 1", 5):
+            with self.subTest(wrapper_name=name):
+                document = schema()
+                option(document, "sound_separation")["values"][0]["wrapper_name"] = name
+                self.refuses(document, "wrapper_name must be the C# identifier")
+
     def test_a_value_the_wrapper_does_not_offer_is_marked_false_and_only_on_an_option_the_wrapper_takes_as_a_setting(self):
         for mark in (True, "no", 0, None):
             with self.subTest(mark=mark):

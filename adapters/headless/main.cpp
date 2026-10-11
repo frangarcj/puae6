@@ -2,7 +2,9 @@
 // dependency, reports the identity of the build and what the native ABI implements, and runs a
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
-//   p6_headless --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
+//   p6_headless --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]
+//                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
+//                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
 #include "p6.h"
 #include "sha256.h"
@@ -93,6 +95,46 @@ static bool dump_frame(const char *directory, const p6_frame &f)
     return fclose(out) == 0;
 }
 
+// Paula's output options (T73, T73a): the spellings after --sound-sep, --sound-interp, --sound-filter and --sound-type and the p6_config number each one is (config/schema/options.json
+// names them; tests/config compares these tables with it). Zero is the profile's own setting, so a run that names none leaves the fields at zero and is the run it always was.
+struct Named {
+    const char *spelling;
+    uint8_t abi;
+};
+static const Named sound_separation_names[] = {{"0", 1}, {"10", 2}, {"20", 3}, {"30", 4}, {"40", 5}, {"50", 6}, {"60", 7}, {"70", 0}, {"80", 9}, {"90", 10}, {"100", 11}};
+static const Named sound_interpolation_names[] = {{"none", 1}, {"anti", 0}, {"rh", 4}, {"crux", 5}};
+static const Named sound_filter_names[] = {{"emulated", 0}, {"off", 1}, {"on", 3}};
+static const Named sound_filter_type_names[] = {{"auto", 0}, {"a500", 1}, {"a1200", 2}};
+
+template <size_t N>
+static bool pick_named(const Named (&table)[N], const char *spelling, uint8_t *abi)
+{
+    for (const Named &entry : table)
+        if (!strcmp(entry.spelling, spelling)) {
+            *abi = entry.abi;
+            return true;
+        }
+    return false;
+}
+
+// audio-NNN.bin: the interleaved little-endian int16 stereo samples the unit handed over, to compare the samples of one adapter with another's.
+static bool dump_audio(const char *directory, const p6_frame &f)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/audio-%03llu.bin", directory, (unsigned long long)f.unit_index);
+    FILE *out = fopen(path, "wb");
+    if (!out) {
+        fprintf(stderr, "%s: %s\n", path, strerror(errno));
+        return false;
+    }
+    for (uint64_t i = 0; i < f.audio_frames * 2; ++i) {
+        const int16_t sample = static_cast<const int16_t *>(f.audio)[i];
+        const uint8_t bytes[2] = {uint8_t(sample & 0xff), uint8_t((sample >> 8) & 0xff)};
+        fwrite(bytes, 1, 2, out);
+    }
+    return fclose(out) == 0;
+}
+
 static int fail(const char *what, p6_result result, const p6_error &error)
 {
     fprintf(stderr, "%s failed (%d): %s\n", what, int(result), error.message);
@@ -101,16 +143,18 @@ static int fail(const char *what, p6_result result, const p6_error &error)
 
 static int run(int argc, char **argv)
 {
-    const char *rom_path = nullptr, *dump = nullptr, *disk_path = nullptr;
+    const char *rom_path = nullptr, *dump = nullptr, *dump_audio_dir = nullptr, *disk_path = nullptr;
     const char *export_hdf = nullptr;            // T29d: after the last unit, the first hard file as it is then (the base with the overlay of the guest's writes over it)
     std::vector<const char *> hdf_paths;         // T29d: hard files on the UAE controller, after the disk in the manifest
     uint32_t units = 1, standard = P6_VIDEO_PAL, machine = P6_MACHINE_A500;
     uint64_t seed = 1, dump_from = 1;
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0, fpu_model = 0;       // 0: the machine's own memory (T49); slow "none" is P6_MEMORY_NONE
+    uint8_t sound_separation = 0, sound_interpolation = 0, sound_filter = 0, sound_filter_type = 0;     // 0: the profile's own setting (T73)
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
+        else if (!strcmp(argv[i], "--dump-audio") && i + 1 < argc) dump_audio_dir = argv[++i];
         else if (!strcmp(argv[i], "--dump-from") && i + 1 < argc) dump_from = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--disk") && i + 1 < argc) disk_path = argv[++i];
         else if (!strcmp(argv[i], "--export-hdf") && i + 1 < argc) export_hdf = argv[++i];
@@ -126,6 +170,10 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));       // T54: 0 (none), 68881 or 68882; the bridge refuses the rest
+        else if (!strcmp(argv[i], "--sound-sep") && i + 1 < argc) { if (!pick_named(sound_separation_names, argv[++i], &sound_separation)) return -1; }
+        else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) { if (!pick_named(sound_interpolation_names, argv[++i], &sound_interpolation)) return -1; }
+        else if (!strcmp(argv[i], "--sound-filter") && i + 1 < argc) { if (!pick_named(sound_filter_names, argv[++i], &sound_filter)) return -1; }
+        else if (!strcmp(argv[i], "--sound-type") && i + 1 < argc) { if (!pick_named(sound_filter_type_names, argv[++i], &sound_filter_type)) return -1; }
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
         else return -1;
@@ -150,6 +198,10 @@ static int run(int argc, char **argv)
     config.slow_kib = slow_kib;
     config.fast_kib = fast_kib;
     config.fpu_model = fpu_model;
+    config.sound_separation = sound_separation;
+    config.sound_interpolation = sound_interpolation;
+    config.sound_filter = sound_filter;
+    config.sound_filter_type = sound_filter_type;
     p6_error error = make_error();
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
@@ -214,6 +266,7 @@ static int run(int argc, char **argv)
                frame.field_parity, frame.aspect_num, frame.aspect_den, frame.cadence_num, frame.cadence_den, picture_hash(frame),
                frame.audio_frames);
         if (dump && frame.video && frame.unit_index >= dump_from && !dump_frame(dump, frame)) status = 1;
+        if (dump_audio_dir && !dump_audio(dump_audio_dir, frame)) status = 1;
     }
     if (!status && export_hdf) {
         if (hard_files.empty()) {
@@ -248,7 +301,9 @@ int main(int argc, char **argv)
         const int code = run(argc, argv);
         if (code >= 0) return code;
     }
-    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
+    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]\n"
+                    "                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n"
+                    "                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
             argv[0], argv[0]);
     return 64;
 }

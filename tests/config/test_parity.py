@@ -73,9 +73,22 @@ class HeadlessParity(Schema):
                 field = option["maps_to"].partition(".")[2]
                 default = self.default_of(name)
                 if how["how"] == "profile":
-                    # T73: not offered by headless yet; the field stays zero, which is the profile's own setting (the default of the option is its ABI number 0).
+                    # An option the adapter does not offer: the field stays zero, which is the profile's own setting (the default of the option is its ABI number 0).
                     self.assertEqual(default, 0, f"{name}: the profile's setting is the ABI zero")
                     self.assertNotRegex(self.source, rf"config\.{field}\b")
+                elif how["how"] == "named":
+                    # T73a: Paula's output. A flag takes one spelling per value of the enum; the table `NAME_names` of main.cpp gives each spelling its p6_config number, the local starts at the
+                    # schema default (the ABI zero of the profile) and p6_config gets the local.
+                    self.assertEqual(default, 0, f"{name}: the schema default is not the 0 that headless starts with")
+                    self.assertRegex(self.source, rf"\b{field} = 0[,;]")
+                    self.assertRegex(self.source, rf'strcmp\(argv\[i\], "{re.escape(how["flag"])}"\)')
+                    table = re.search(rf"static const Named {field}_names\[\] = \{{(.*?)\}};", self.source, re.S)
+                    self.assertIsNotNone(table, f"headless has no table {field}_names")
+                    spellings = {m[1]: int(m[2]) for m in re.finditer(r'\{"([^"]+)", (\d+)\}', table[1])}
+                    self.assertEqual(spellings, {spelling: self.number(option, value) for value, spelling in how["names"].items()},
+                                     f"{how['flag']} does not take the spellings of the schema, or maps one to another number")
+                    self.assertIn(f"pick_named({field}_names, argv[++i], &{field})", self.source)
+                    self.assertIn(f"config.{field} = {field};", self.source)
                 elif how["how"] == "fixed":
                     found = re.search(rf"config\.{field} = (\d+);", self.source)
                     self.assertIsNotNone(found, f"headless does not set config.{field} to a literal")
@@ -115,8 +128,8 @@ class HeadlessParity(Schema):
     def test_headless_has_no_flag_for_a_key_the_schema_fixes(self):
         flags = set(re.findall(r'strcmp\(argv\[i\], "(--[\w-]+)"\)', self.source))
         flagged = {o["headless"]["flag"] for o in self.reboot.values() if "flag" in o["headless"]}
-        # --units, --dump, --dump-from and --disk are about the run (how long, what to write, what disk), not about the machine.
-        self.assertEqual(flags - {"--units", "--dump", "--dump-from", "--disk", "--hdf", "--export-hdf"}, flagged, "headless takes a flag for a key the schema does not give it, or lacks one")
+        # --units, --dump, --dump-from, --dump-audio and --disk are about the run (how long, what to write, what disk), not about the machine.
+        self.assertEqual(flags - {"--units", "--dump", "--dump-from", "--dump-audio", "--disk", "--hdf", "--export-hdf"}, flagged, "headless takes a flag for a key the schema does not give it, or lacks one")
 
     def test_the_audio_rate_headless_cannot_select_is_still_the_schema_default(self):
         # --rate belongs to p6_state_probe (bridge/state_probe.cpp); the schema says headless fixes the audio rate, so a change of the schema
@@ -161,12 +174,40 @@ class WrapperParity(Schema):
                 if option["type"] == "enum":
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
                     # A value the schema marks "wrapper": false is one the wrapper does not offer yet (none since T24f): the enum lists the others, in order.
-                    offered = [v["value"] for v in option["values"] if v.get("wrapper") is not False]
+                    offered = [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
                     self.assertEqual([m.strip() for m in members[1].split(",")], offered,
                                      f"enum {kind} does not list the schema's values in order, less the ones marked wrapper false")
-                    self.assertEqual(default, f"{kind}.{option['default']}", f"{how['setting']} defaults to {default}, the schema to {option['default']}")
+                    default_name = next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
+                    self.assertEqual(default, f"{kind}.{default_name}", f"{how['setting']} defaults to {default}, the schema to {option['default']}")
                 else:
                     self.assertEqual(int(default), option["default"], f"{how['setting']} defaults to {default}, the schema to {option['default']}")
+
+    def test_paulas_output_reaches_the_machine_as_the_abi_numbers_of_the_schema_and_the_identity_only_off_the_profile(self):
+        # T73a: four sync settings; the enum members are the schema's values (wrapper_name when the value is a number), in order, and the function that makes the p6_config byte of each
+        # gives the schema's number to each member: the separation is 1 + the index except the profile's 70 % (0), the others are switches with the profile's value as the default.
+        for name, function in (("sound_separation", "SoundSeparationNumber"), ("sound_interpolation", "SoundInterpolationNumber"), ("sound_filter", "SoundFilterNumber"),
+                               ("sound_filter_type", "SoundFilterTypeNumber")):
+            with self.subTest(option=name):
+                option = self.reboot[name]
+                kind = option["wrapper"]["type"]
+                body = re.search(rf"static byte {function}\(\w+ (\w+)\) => ([^\n]*);", self.core)
+                self.assertIsNotNone(body, f"the core has no {function}")
+                numbers = {v.get("wrapper_name", v["value"]): v["abi"] for v in option["values"]}
+                if name == "sound_separation":
+                    self.assertIn(f"{kind}.P70 ? (byte)0 : (byte)(1 + (int)", body[2])
+                    self.assertEqual(numbers, {f"P{10 * i}": (0 if i == 7 else 1 + i) for i in range(11)})
+                else:
+                    explicit = {m[1]: int(m[2]) for m in re.finditer(rf"{kind}\.(\w+) => \(byte\)(\d+)", body[2])}
+                    self.assertTrue(body[2].endswith("_ => (byte)0 }"), "the members that are not listed are the profile's setting, zero")
+                    self.assertEqual({member: number for member, number in numbers.items() if number}, explicit)
+                    self.assertEqual(numbers[next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])], 0)
+                self.assertIn(f"init.Config.{camel(name)} = {function}(_syncSettings.{option['wrapper']['setting']});", self.core)
+        # the identity names a setting only when it is not the default: a core at the profile's settings has the identity it always had
+        for name, member in (("sound_separation", "SoundSeparation"), ("sound_interpolation", "SoundInterpolation"), ("sound_filter", "SoundFilter"), ("sound_filter_type", "SoundFilterType")):
+            option = self.reboot[name]
+            default_name = next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
+            self.assertIn(f"_syncSettings.{member} != {option['wrapper']['type']}.{default_name} ?", self.core)
+        self.assertIn('memory += ";sound=" + sound.Substring(1);', self.core)
 
     def test_the_standard_reaches_the_machine_as_the_abi_numbers_of_the_schema(self):
         pal, ntsc = (self.number(self.options["video_standard"], v) for v in ("PAL", "NTSC"))

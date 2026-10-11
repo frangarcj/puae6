@@ -32,7 +32,7 @@ GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
 RECEIPT = build_waterbox.BUILD / "puae6/puae6-receipt.json"
 # C# struct -> (C struct, {C# field: C field}); the C name is the C# name in snake case except where it says otherwise.
 STRUCTS = {
-    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "Reserved"]),
+    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "Reserved8", "Reserved1"]),
     "P6PortInput": ("p6_port_input", ["Type", "Buttons", "Dx", "Dy", "Reserved"]),
     "P6Input": ("p6_input", ["AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved"]),
     "P6Rect": ("p6_rect", ["X", "Y", "Width", "Height"]),
@@ -49,9 +49,8 @@ STRUCTS = {
     "P6wMediaWriteStatus": ("p6w_media_write_status_args", ["AbiVersion", "StructSize", "Status", "Result", "Reserved", "Error"]),
     "P6wMediaExport": ("p6w_media_export_args", ["AbiVersion", "StructSize", "MediaIndex", "Reserved0", "Buffer", "Capacity", "Written", "Result", "Reserved1", "Error"]),
 }
-# P6Config.Reserved is what is left after fpu_model (two ulongs); since T73 the first four bytes of it are the sound_* options of Paula and the rest reserved8/reserved1 (the C# mirror does not name them).
-SPECIAL = {("P6Input", "Port0"): "offsetof(p6_input, ports) + 0 * sizeof(p6_port_input)", ("P6Input", "Port1"): "offsetof(p6_input, ports) + 1 * sizeof(p6_port_input)",
-           ("P6Config", "Reserved"): "offsetof(p6_config, sound_separation)"}
+# The tail of p6_config after fpu_model is, since T73, Paula's four sound_* bytes, reserved8[4] and reserved1: the C# mirror names each one (T73a), so the snake-case rule finds them.
+SPECIAL = {("P6Input", "Port0"): "offsetof(p6_input, ports) + 0 * sizeof(p6_port_input)", ("P6Input", "Port1"): "offsetof(p6_input, ports) + 1 * sizeof(p6_port_input)"}
 
 
 def snake(name):

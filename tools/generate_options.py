@@ -279,7 +279,7 @@ def _validate_values(option, kind, where, errors):
             return
         names, abis = set(), set()
         for j, value in enumerate(values):
-            if not _only(value, {"value", "abi", "abi_name", "label", "wrapper", "const"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
+            if not _only(value, {"value", "abi", "abi_name", "label", "wrapper", "wrapper_name", "const"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
                 continue
             if "wrapper" in value and (value["wrapper"] is not False or not (isinstance(option.get("wrapper"), dict) and option["wrapper"].get("how") == "setting")):
                 errors.append(f"{where} values[{j}]: wrapper may only be false (the BizHawk wrapper does not offer this value), on an option the wrapper takes as a setting")
@@ -294,6 +294,8 @@ def _validate_values(option, kind, where, errors):
             elif abi in abis:
                 errors.append(f"{where}: duplicate abi value {abi}")
             abis.add(abi)
+            if "wrapper_name" in value and not (isinstance(value["wrapper_name"], str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", value["wrapper_name"])):
+                errors.append(f"{where} values[{j}]: wrapper_name must be the C# identifier of the member of the wrapper's enum (the value itself when it is not a number)")
             if "abi_name" in value and not (isinstance(value["abi_name"], str) and re.fullmatch(r"P6_[A-Z0-9_]+", value["abi_name"])):
                 errors.append(f"{where} values[{j}]: abi_name must be a P6_ constant name")
         if option["default"] not in names:
@@ -341,21 +343,21 @@ def _validate_adapters(option, klass, where, errors):
     headless, wrapper = option["headless"], option["wrapper"]
     if _only(headless, {"how", "flag", "sets", "names"}, {"how"}, f"{where} headless", errors):
         how = headless["how"]
-        if how not in ("flag", "value", "choice", "kib", "fixed", "none", "profile"):
-            errors.append(f"{where}: headless how must be flag, value, choice, kib, fixed, profile or none")
-        needed = {"flag": {"flag", "sets"}, "value": {"flag"}, "choice": {"flag", "names"}, "kib": {"flag"}}.get(how, set())
+        if how not in ("flag", "value", "choice", "named", "kib", "fixed", "none", "profile"):
+            errors.append(f"{where}: headless how must be flag, value, choice, named, kib, fixed, profile or none")
+        needed = {"flag": {"flag", "sets"}, "value": {"flag"}, "choice": {"flag", "names"}, "named": {"flag", "names"}, "kib": {"flag"}}.get(how, set())
         if set(headless) - {"how"} != needed:
             errors.append(f"{where}: headless '{how}' takes exactly the fields {sorted(needed)}")
         if how == "kib" and option["type"] != "enum":
             errors.append(f"{where}: headless 'kib' is for the memory sizes, which are enums")
         if how == "flag" and option["type"] == "enum" and headless.get("sets") not in [v.get("value") for v in option.get("values", [])]:
             errors.append(f"{where}: headless flag sets {headless.get('sets')!r}, which is not a value")
-        if how == "choice" and "names" in headless:
+        if how in ("choice", "named") and "names" in headless:
             names = headless["names"]
             values = [v.get("value") for v in option.get("values", [])] if option["type"] == "enum" else []
             if not (isinstance(names, dict) and sorted(names) == sorted(values) and all(_text(spelling) and spelling == spelling.lower() for spelling in names.values())
                     and len(set(names.values())) == len(names)):
-                errors.append(f"{where}: headless 'choice' names every value of an enum once, in lowercase ASCII (the spelling after the flag)")
+                errors.append(f"{where}: headless '{how}' names every value of an enum once, in lowercase ASCII (the spelling after the flag)")
         if (how == "none") != (klass == "presentation"):
             errors.append(f"{where}: headless 'none' is for presentation options only (a reboot option is part of the machine headless runs)")
     if _only(wrapper, {"how", "setting", "type", "where"}, {"how"}, f"{where} wrapper", errors):

@@ -13476,7 +13476,7 @@
       "title": "Opciones de audio de Paula en headless y BizHawk/Waterbox (sync settings e identidad)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T73"
       ],
@@ -13497,10 +13497,12 @@
         "tests/waterbox-state/**",
         "tests/waterbox-smoke/**",
         "manifests/waterbox-memory.json",
-        "manifests/state-inventory.json"
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md"
       ],
       "steps": [
-        "T73 dejo las cuatro opciones (sound_separation, sound_interpolation, sound_filter, sound_filter_type) en p6_config, el esquema, libretro y el importador .uae; el esquema las marca 'profile' en headless y wrapper. Añadir --sound-sep/--sound-interp/--sound-filter/--sound-type en headless y sync settings en el wrapper BizHawk que entren en la identidad de estado y pelicula solo fuera del defecto (como FpuModel en T54d), con tests de wrapper y re-registro de waterbox-memory si cambia el guest."
+        "T73 dejo las cuatro opciones (sound_separation, sound_interpolation, sound_filter, sound_filter_type) en p6_config, el esquema, libretro y el importador .uae; el esquema las marca 'profile' en headless y wrapper. Añadir --sound-sep/--sound-interp/--sound-filter/--sound-type en headless y sync settings en el wrapper BizHawk que entren en la identidad de estado y pelicula solo fuera del defecto (como FpuModel en T54d), con tests de wrapper y re-registro de waterbox-memory si cambia el guest.",
+        "Hecho: la frase de docs/02-contracts.md 'Headless y BizHawk todavia no las ofrecen' dejo de ser cierta, por eso docs/02-contracts.md entra en el touch; el guest no cambio (sha 9b0fd130..., el registrado), waterbox-memory no se re-registra. Ver reports/tasks/T73a.md."
       ],
       "checks": [
         "AV02",

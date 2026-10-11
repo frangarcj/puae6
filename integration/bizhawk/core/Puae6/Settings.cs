@@ -24,6 +24,18 @@ public enum Puae6Fast { None, MB1, MB2, MB4, MB8 }
 /// <summary>The floating point coprocessor (restart): none, or a 68881 or 68882, which only the A1200 can have (the 68000 has no coprocessor interface). SoftFloat computes it, so the results are the same on every host.</summary>
 public enum Puae6Fpu { None, M68881, M68882 }
 
+/// <summary>Paula's stereo separation (restart): how much of each side's channels stays on that side, 0 % (mono) to 100 %. 70 % is the profile's own setting.</summary>
+public enum Puae6SoundSeparation { P0, P10, P20, P30, P40, P50, P60, P70, P80, P90, P100 }
+
+/// <summary>How Paula's samples are resampled to the output rate (restart). Anti is the profile's own setting; sinc is not offered (its queue is not part of the machine's state).</summary>
+public enum Puae6SoundInterpolation { None, Anti, RH, Crux }
+
+/// <summary>Paula's low-pass output filter (restart): Emulated follows the power LED as the hardware does (the profile's own setting), Off never filters, On always filters.</summary>
+public enum Puae6SoundFilter { Emulated, Off, On }
+
+/// <summary>The model of the output filter (restart): Auto is the A500 model on the A500 and the A600 and the A1200 model on the A1200; the others force one. It has no effect while the filter is Off.</summary>
+public enum Puae6SoundFilterType { Auto, A500, A1200 }
+
 /// <summary>What is plugged into the first controller port of the Amiga (the one the mouse normally uses).</summary>
 public enum Puae6Port1 { Mouse, Joystick, None }
 
@@ -50,6 +62,18 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>The FPU of the machine (A1200 only; another machine refuses it when the core starts). It enters the identity of states and movies when it is not <c>None</c>.</summary>
 	public Puae6Fpu FpuModel { get; set; } = Puae6Fpu.None;
+
+	/// <summary>Paula's stereo separation. It changes every sample the machine hands over, so it is a sync setting: it enters the identity of states and movies when it is not the profile's 70 %.</summary>
+	public Puae6SoundSeparation SoundSeparation { get; set; } = Puae6SoundSeparation.P70;
+
+	/// <summary>The interpolation of Paula's output (its integrator is part of the machine's state). It enters the identity when it is not <c>Anti</c>.</summary>
+	public Puae6SoundInterpolation SoundInterpolation { get; set; } = Puae6SoundInterpolation.Anti;
+
+	/// <summary>Paula's output filter (its state is part of the machine's state). It enters the identity when it is not <c>Emulated</c>.</summary>
+	public Puae6SoundFilter SoundFilter { get; set; } = Puae6SoundFilter.Emulated;
+
+	/// <summary>The model of the output filter. It enters the identity when it is not <c>Auto</c>.</summary>
+	public Puae6SoundFilterType SoundFilterType { get; set; } = Puae6SoundFilterType.Auto;
 
 	/// <summary>The video standard of the machine. It is not detected from anything.</summary>
 	public Puae6Region Region { get; set; } = Puae6Region.PAL;

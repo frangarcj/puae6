@@ -382,8 +382,13 @@ con una combinacion es INCOMPATIBLE en otra; se recalcula con `tests/state/envel
 `anti` usan los floats que ya usaba el perfil (`-ffp-contract=off`, ADR 0007); el cruce de tipo de filtro (A1200 en A500 o A500 en A1200) y el resto de combinaciones se comprobaron en la matriz de T25: 48 casos (A500 y A1200, dos ROMs, tipos cruzados, filtro off/on, tres interpolaciones, tres separaciones y una combinada) dan los mismos hashes de hardware y A/V
 unidad a unidad en macOS arm64 (Apple Clang) y en Linux arm64 y x86_64 (Clang y GCC), O0; el cruce se soporta (`reports/tasks/T73.md`).
 Opciones: libretro `puae6_sound_stereo_separation` (0..100 en pasos de 10, 70 por defecto), `puae6_sound_interpolation` (none, anti, rh, crux), `puae6_sound_filter` (emulated, off, on) y
-`puae6_sound_filter_type` (auto, A500, A1200), el importador `.uae` (`sound_stereo_separation` 0..10, `sound_interpol`, `sound_filter`, `sound_filter_type` standard/enhanced). **Headless y BizHawk todavia no las
-ofrecen** (el esquema los marca `profile`: el campo se queda a cero): siguiente tarea.
+`puae6_sound_filter_type` (auto, A500, A1200), el importador `.uae` (`sound_stereo_separation` 0..10, `sound_interpol`, `sound_filter`, `sound_filter_type` standard/enhanced). Headless (T73a): `--sound-sep 0..100`, `--sound-interp none|anti|rh|crux`, `--sound-filter emulated|off|on`
+y `--sound-type auto|a500|a1200` (y `--dump-audio DIR`, que escribe `audio-NNN.bin` por unidad como el anfitrion libretro); BizHawk: los sync settings `SoundSeparation` (`P0`..`P100`), `SoundInterpolation`
+(`None`, `Anti`, `RH`, `Crux`), `SoundFilter` (`Emulated`, `Off`, `On`) y `SoundFilterType` (`Auto`, `A500`, `A1200`), con los defectos del perfil. En la identidad del estado y de la pelicula del
+wrapper entran solo fuera del perfil (`;sound=separation=P0,filter=On...`, solo lo que difiere): un estado o una pelicula de una combinacion es `OtherConfig` en cualquier otra. El texto es mas
+estricto que el hash nativo (que iguala `A500` con `auto` en un A500), nunca mas laxo; el guest de Waterbox no serializa la maquina (se instantanea entera), asi que el `config_hash` nativo solo
+lo ven los estados de libretro y la sonda. El esquema los marca `named` en headless y `setting` en el wrapper (`wrapper_name` da el miembro del enum cuando el valor es un numero); `tests/waterbox-state/test_wrapper_audio.py`
+compara el PCM de las tres superficies para cada valor y combinacion.
 
 Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` (Auto, KB512, MB1, MB2), `puae6_slow_size` (Auto, None, KB512, MB1, MB1_5, MB1_75) y
 `puae6_fast_size` (None, MB1, MB2, MB4, MB8), headless `--chip KIB`, `--slow KIB|none` y `--fast KIB`, y los sync settings de BizHawk `ChipMemory`, `SlowMemory` y `FastMemory` (el heap mmap

@@ -10,7 +10,7 @@ using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b, T28: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [writes]
+///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [writes]
 ///   (writes: the floppy disks can be written, T28; without it every disk is protected. hdf: hard files, T63b; always writable, their media index follows the floppies)
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
 ///       "record" keeps each unit's input as BizHawk's own BK2 log entry
@@ -85,6 +85,10 @@ internal static unsafe partial class Program
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
 						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "None")),
 						FpuModel = Enum.Parse<Puae6Fpu>(arguments.GetValueOrDefault("fpu", "None")),
+						SoundSeparation = Enum.Parse<Puae6SoundSeparation>(arguments.GetValueOrDefault("sep", "P70")),
+						SoundInterpolation = Enum.Parse<Puae6SoundInterpolation>(arguments.GetValueOrDefault("interp", "Anti")),
+						SoundFilter = Enum.Parse<Puae6SoundFilter>(arguments.GetValueOrDefault("filter", "Emulated")),
+						SoundFilterType = Enum.Parse<Puae6SoundFilterType>(arguments.GetValueOrDefault("ftype", "Auto")),
 						FloppyWrites = arguments.ContainsKey("writes"),
 					};
 					var make = new Dictionary<string, string>(fixedOptions);
