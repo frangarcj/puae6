@@ -49,7 +49,9 @@ STRUCTS = {
     "P6wMediaWriteStatus": ("p6w_media_write_status_args", ["AbiVersion", "StructSize", "Status", "Result", "Reserved", "Error"]),
     "P6wMediaExport": ("p6w_media_export_args", ["AbiVersion", "StructSize", "MediaIndex", "Reserved0", "Buffer", "Capacity", "Written", "Result", "Reserved1", "Error"]),
 }
-SPECIAL = {("P6Input", "Port0"): "offsetof(p6_input, ports) + 0 * sizeof(p6_port_input)", ("P6Input", "Port1"): "offsetof(p6_input, ports) + 1 * sizeof(p6_port_input)"}
+# P6Config.Reserved is what is left after fpu_model (two ulongs); since T73 the first four bytes of it are the sound_* options of Paula and the rest reserved8/reserved1 (the C# mirror does not name them).
+SPECIAL = {("P6Input", "Port0"): "offsetof(p6_input, ports) + 0 * sizeof(p6_port_input)", ("P6Input", "Port1"): "offsetof(p6_input, ports) + 1 * sizeof(p6_port_input)",
+           ("P6Config", "Reserved"): "offsetof(p6_config, sound_separation)"}
 
 
 def snake(name):

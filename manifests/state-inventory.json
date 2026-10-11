@@ -7965,6 +7965,14 @@
         "policy": "construction",
         "what": "names for on-screen messages only"
       },
+      "_hardFiles": {
+        "policy": "construction",
+        "what": "the hard files the core was given (T63b); the media hash of the envelope covers their contents and order, the guest's writes to them are the overlay of the sandbox (in the snapshot), and the arrays are the bases of the SaveRam diff"
+      },
+      "_hardFileNames": {
+        "policy": "construction",
+        "what": "names of the hard files for messages and the export only"
+      },
       "_identity": {
         "policy": "construction",
         "what": "what a state is valid for"
@@ -8200,7 +8208,7 @@
       },
       "_imported": {
         "policy": "construction",
-        "what": "the SaveRam stored before the first unit, if any (T28): the guest's disks are the bases with it over them, and its SHA-256 is part of the config hash of the envelope, so a state never needs to carry it"
+        "what": "the SaveRam stored before the first unit, if any (T28): the guest's disks and hard files are the bases with it over them, and its SHA-256 is part of the config hash of the envelope, so a state never needs to carry it"
       },
       "_started": {
         "policy": "lifecycle",

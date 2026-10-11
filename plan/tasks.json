@@ -13046,7 +13046,7 @@
       "title": "HDF en el core BizHawk/Waterbox: montaje como MacHawk, SaveRAM dispersa de trozos sucios, identidad de estados y peliculas",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "evidence": null,
       "depends": [
         "T29"

@@ -26,20 +26,26 @@ public sealed partial class Puae6Core
 
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<object, Puae6SyncSettings> lp)
 	{
-		// ADF disks only: hard disks, WHDLoad archives and optical discs are not supported by the guest, and booting without them would hide that they were asked for.
+		// ADF disks and HDF hard files (T63b); WHDLoad archives and optical discs are not supported by the guest, and booting without them would hide that they were asked for.
 		if (lp.Discs.Count != 0)
 			throw new NotSupportedException("PUAE6 does not load optical discs; open the game with the UAE core");
+		bool IsHardFile(IRomAsset rom) => rom.Extension.Equals(".hdf", StringComparison.OrdinalIgnoreCase);
 		foreach (var rom in lp.Roms)
-			if (!rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase))
-				throw new NotSupportedException($"PUAE6 loads ADF disks only ({rom.Extension} is not one); open the game with the UAE core");
+			if (!IsHardFile(rom) && !rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase))
+				throw new NotSupportedException($"PUAE6 loads ADF disks and HDF hard files only ({rom.Extension} is not one); open the game with the UAE core");
+		var floppies = lp.Roms.Where(rom => !IsHardFile(rom)).ToList();
+		var hardFiles = lp.Roms.Where(IsHardFile).ToList();
+		string NameOf(IRomAsset rom) => Path.GetFileName(rom.RomPath.Split('|').Last());
 		var settings = lp.SyncSettings ?? new Puae6SyncSettings();
 		return new Puae6Parameters
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
 			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(settings.Machine), $"A Kickstart for the Amiga {settings.Machine.ToString().Substring(1)} is required"),
 			SyncSettings = settings,
-			Media = lp.Roms.Select(rom => rom.FileData).ToList(),
-			MediaNames = lp.Roms.Select(rom => Path.GetFileName(rom.RomPath.Split('|').Last())).ToList(),
+			Media = floppies.Select(rom => rom.FileData).ToList(),
+			MediaNames = floppies.Select(NameOf).ToList(),
+			HardFiles = hardFiles.Select(rom => rom.FileData).ToList(),
+			HardFileNames = hardFiles.Select(NameOf).ToList(),
 		};
 	}
 

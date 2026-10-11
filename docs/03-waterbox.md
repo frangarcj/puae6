@@ -294,7 +294,7 @@ despues Eject (o, si no, Insert) actua sobre ella, por flanco, al principio de l
 de MED01 con `p6_media_event_enqueue` (PAL y NTSC, dos semillas); `Next Drive` da la vuelta con una unidad; un boton mantenido es un solo evento; el guest ve
 expulsar y reinsertar (las cuatro fases de `swap_timeline`); una segunda unidad toma un disco sin cambiar lo que ve la primera; un disco que no es un ADF de
 901120 bytes se rechaza. Cuatro defectos sembrados (insertar o expulsar sin flanco, `Next Drive` sin vuelta, seleccionar despues de actuar) hacen fallar su prueba.
-El constructor de EmuHawk acepta ADF y rechaza HDF, LHA y discos opticos con un mensaje.
+El constructor de EmuHawk acepta ADF y rechaza HDF, LHA y discos opticos con un mensaje (desde T63b acepta tambien HDF; LHA y discos opticos siguen rechazados).
 
 ### Resultado de T21b: el estado del wrapper, su sobre y las pruebas de snapshot con el core real
 
@@ -483,8 +483,16 @@ que escribe un trozo por unidad, 60 unidades): 2 MiB comprometen 9 814 016 bytes
 byte, el que exporta el motor nativo (`--export-hdf`); (2) WB04/WB10: un snapshot de la unidad 20 restaurado en un proceso y una sandbox nuevos continua con las unidades de la ejecucion directa, su disco duro es el de la unidad
 20 nada mas cargar y el de la ejecucion directa tras las mismas unidades, y el digest final de la sandbox es el mismo; (3) WB10 en la misma sandbox: cargar de vuelta el snapshot de la unidad 12 tras la 30 devuelve el disco
 duro al de la unidad 12 (no el de las escrituras posteriores) y las unidades que vuelven a correr son las de la primera pasada; (4) el presupuesto: la imagen no esta en el heap sellado, lo comprometido cabe en la mitad del
-presupuesto y el snapshot crece con los trozos escritos, no con la imagen. El crash de libwaterboxhost (T28a) no aparecio en estas ejecuciones. Limites: el nucleo C# de BizHawk (`Puae6Core`) todavia no monta discos duros
-(T63: opciones, arranque desde RDB, SaveRAM de un HDF); aqui se prueba el guest y el ABI `p6w`, no el wrapper.
+presupuesto y el snapshot crece con los trozos escritos, no con la imagen. El crash de libwaterboxhost (T28a) no aparecio en estas ejecuciones. Limites: aqui se prueba el guest y el ABI `p6w`, no el wrapper (el nucleo C# monta HDF desde T63b, parrafo siguiente).
+
+Discos duros en el nucleo de BizHawk (T63b, `tests/waterbox-media/test_media_hdf.py`, en el sandbox real; formato de la SaveRam y de la identidad en docs/02-contracts.md, "HDF en el nucleo BizHawk/Waterbox"):
+`Puae6Parameters.HardFiles` (y los `.hdf` del cargador de EmuHawk) se montan tras los disquetes con el heap `Heaps(settings, tamaños)` (twice `HardFileHeapKiB` por imagen) sin tocar el guest ni su ABI. Lo medido: el HDF que
+exporta el nucleo tras 40 unidades del micro-ROM de lazo es, byte a byte, el que exporta `p6_headless`; el overlay cuenta los 42 trozos que escribio el invitado; la SaveRam de un HDF de 32 MiB con esos 42 trozos ocupa 172 328 bytes; un nucleo nuevo la
+recibe antes de su primera unidad y exporta la misma imagen, devuelve la misma SaveRam byte a byte y, ejecutando mas, acaba donde un nucleo que nunca recargo; WB03/WB04/WB15 con HDF (guardar, seguir, cargar, repetir:
+mismas unidades y digest; sandbox nuevo; otro proceso; el overlay vuelve atras con la carga); un estado o una pelicula de otro HDF o de ninguno se rechaza sin cambiar la instancia; los ficheros dados al nucleo no cambian
+(MED02). Limites: la SaveRam se calcula exportando la imagen entera y comparandola con la base (`CloneSaveRam` y `SaveRamModified` cuestan el tamaño de la imagen cuando el invitado escribio algo; no hay API que
+enumere los trozos sucios y se prefirio no tocar el guest ni el ABI), el menu "Export Hard Disk" de EmuHawk y el arranque desde RDB con un Kickstart real quedan fuera (el montaje desde RDB de un Kickstart 1.3/3.1 lo prueba
+T29a/c con micro-ROM y Kickstart del propietario en el motor nativo; ningun EmuHawk real se ha ejecutado aqui).
 
 ## Suite de aceptacion Waterbox
 

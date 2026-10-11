@@ -533,6 +533,21 @@ disco, o sin disco, se rechaza. Con Kickstart real (opt-in, nunca copiado) KS 1.
 No hecho (deliberadamente): disco de arranque vacio (`puae6_boot_hd` de PUAE5). Una particion sin sistema de ficheros pide formatearla desde el invitado, la cota de 128 MiB no cubre sus opciones de hasta 512 MB, y
 necesitaria crear ficheros en el save directory fuera de la exportacion explicita: queda como subtarea de T63 (junto a WHDLoad, T30). BizHawk/Waterbox monta los discos como MacHawk en T63b.
 
+HDF en el nucleo BizHawk/Waterbox (T63b, `integration/bizhawk/core/Puae6`, `tests/waterbox-media/test_media_hdf.py`): sin cambios en `p6.h`, `p6w.h` ni en el motor (no hay bit de capacidad ni parche nuevos). El cargador da
+al nucleo los ficheros `.hdf` junto a los `.adf` (`Puae6Parameters.HardFiles`; el constructor de EmuHawk reparte `lp.Roms` por extension), hasta `P6_MAX_HDF` = 4, multiplos de 512 bytes y sin dos copias de una imagen
+(`ArgumentException` con el motivo al crear el nucleo). Se montan en `p6w_init` tras los disquetes (el medio p6 de un HDF es `MediaCount + n`, el que usan `p6w_media_export` y `p6w_media_write_status`), siempre
+escribibles y sin `FloppyWrites`. El mmap heap del sandbox crece `2 x HardFileHeapKiB` de cada imagen (`Puae6Core.HardFileHeapKiB`, la misma regla que el smoke y que `manifests/waterbox-memory.json`; el heap sellado no
+crece). La identidad de estados y peliculas añade, solo si hay HDF, el numero de HDF y el SHA-256 de cada imagen tal como se dio al nucleo (el hash de medios de un nucleo sin HDF es el de siempre), asi que otro HDF
+(aunque del mismo tamaño), ninguno o dos se rechazan antes de tocar el sandbox (`OtherMedia`, o `OtherHeaps` si el heap difiere); lo que el invitado escribio es el overlay del sandbox y viaja en el snapshot.
+`ISaveRam` existe cuando hay algo escribible (disquetes con `FloppyWrites` o algun HDF). Una SaveRam con HDF es la version 2 de `P6SR` (la de solo disquetes sigue siendo la version 1, byte a byte la de T28):
+`"P6SR" | u32 2 | u32 disquetes | (disquetes como en la version 1) | u32 discos duros (1..4)` y por cada uno `u32 indice | 32 bytes content id de la base | u64 bytes de la imagen | u32 4096 | u32 trozos | (u32 trozo |
+bytes del trozo)*` en orden creciente (el ultimo trozo de una imagen que no es multiplo de 4096 es corto) y el SHA-256 de todo lo anterior. Es el formato disperso de MacHawk (`UAE.ISaveRam.cs`: trozos de 4 KiB sucios)
+con la identidad de la base añadida y SOLO los trozos cuyos bytes difieren de la imagen (un trozo escrito con los mismos bytes no esta; el nucleo exporta la imagen con `p6_media_export` y la compara con su base,
+asi que `CloneSaveRam`/`SaveRamModified` cuestan el tamaño de la imagen cuando hay escrituras, y nada si el overlay esta vacio). `StoreSaveRam`, solo antes de la primera unidad, reconstruye el guest con la base y los
+trozos encima (como para los disquetes: el overlay del guest empieza vacio y el hash de lo guardado entra en la identidad); una SaveRam de otra imagen (`OtherMedia`), cortada (`BadLength`), danada (`Corrupt`), de un
+nucleo con otros medios (`BadFields`), a un nucleo sin nada escribible (`WritesDisabled`) o despues de la primera unidad (`TooLate`) se rechaza sin cambiar nada. EmuHawk la carga entera por el parche
+`0001-register-puae6.patch` (T28b); el menu "Export Hard Disk" de MacHawk no se porta (el API es `GetHardDiskContents`, `GetHardDiskName`, `HasHardDisk`).
+
 ## Regiones de memoria
 
 Implementado (T20a): `p6_memory_regions` (capacidad `P6_CAP_MEMORY_REGIONS`) devuelve vistas de la memoria que el motor asigno, no copias: Chip RAM,

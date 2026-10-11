@@ -14,6 +14,8 @@ public static class P6
 	public const int ErrorTextCapacity = 256;
 	public const int ContentIdSize = 32;
 	public const int MaxMedia = 16;
+	public const int MaxHardFiles = 4;                           // P6_MAX_HDF
+	public const int HardFileChunkBytes = 4096;                  // P6_HDF_CHUNK: the granule of the write overlay of a hard file
 
 	// p6_result
 	public const int Ok = 0, BadArgument = 1, BadState = 2, Busy = 3, Unsupported = 4, NeedFirmware = 5, WrongMedia = 6, Capacity = 7, Io = 8,
@@ -21,7 +23,7 @@ public static class P6
 
 	public const uint MachineA500 = 1, MachineA600 = 2, MachineA1200 = 3;
 	public const uint VideoPal = 1, VideoNtsc = 2;
-	public const uint MediaAdf = 1;
+	public const uint MediaAdf = 1, MediaHdf = 2;
 	public const uint PortNone = 0, PortJoystick = 1, PortMouse = 2;
 	public const uint Button1 = 1u << 0, Button2 = 1u << 1, Button3 = 1u << 2, ButtonUp = 1u << 3, ButtonDown = 1u << 4, ButtonLeft = 1u << 5, ButtonRight = 1u << 6;
 	public const uint PixelXrgb8888 = 1;
@@ -32,7 +34,7 @@ public static class P6
 	public const uint MemoryNone = uint.MaxValue;
 	public const uint ConfigFloppyWrites = 1;
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
-	public const int AdfBytes = 901120;                          // the only medium of ABI v1: an 880 KiB ADF
+	public const int AdfBytes = 901120;                          // an 880 KiB ADF (the other medium of ABI v1 is a hard file of any multiple of 512 bytes)
 
 	// p6w_memory_area.flags: the values of LibWaterboxCore.MemoryDomainFlags.
 	public const long AreaWritable = 1, AreaPrimary = 8, AreaBigEndian = 16, AreaWordSize2 = 64, AreaFunctionHook = 1024;

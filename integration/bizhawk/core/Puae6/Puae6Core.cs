@@ -27,6 +27,13 @@ public sealed class Puae6Parameters
 	public IReadOnlyList<byte[]> Media { get; set; } = new List<byte[]>();
 	/// <summary>Names to show when a disk is selected or inserted; "disk N" where missing.</summary>
 	public IReadOnlyList<string> MediaNames { get; set; } = new List<string>();
+	/// <summary>
+	/// The hard files (T63b): at most <see cref="P6.MaxHardFiles"/>, each a multiple of 512 bytes (an RDB image, or a single partition). They are mounted at power-on on the UAE controller as DH0, DH1... in this order,
+	/// always writable; what the guest writes is the overlay of the sandbox, never the array given here. They need no <see cref="Puae6SyncSettings.FloppyWrites"/>.
+	/// </summary>
+	public IReadOnlyList<byte[]> HardFiles { get; set; } = new List<byte[]>();
+	/// <summary>Names of the hard files, for messages and for the export; "hard file N" where missing.</summary>
+	public IReadOnlyList<string> HardFileNames { get; set; } = new List<string>();
 }
 
 /// <summary>
@@ -45,10 +52,24 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// keeps the rule of the manifest, a budget of at least twice what was measured; the measurements are recorded per configuration).
 	public static WaterboxOptions Heaps() => Heaps(new Puae6SyncSettings());
 
-	public static WaterboxOptions Heaps(Puae6SyncSettings settings) => new()
+	public static WaterboxOptions Heaps(Puae6SyncSettings settings) => Heaps(settings, Array.Empty<long>());
+
+	/// <summary>
+	/// The heaps for these settings and these hard files (T63b; the sizes in bytes of the images, in order). A hard file is extra memory of the mmap heap like Fast RAM: the guest keeps the image once as the base and
+	/// reserves beside it the room for the overlay of its writes and its dirty bitmap (<see cref="HardFileHeapKiB"/>, manifests/waterbox-memory.json, measured_a500_hdf*), and the budget counts it twice like all
+	/// extra memory. The image is not in the sealed heap, so that one does not grow.
+	/// </summary>
+	public static WaterboxOptions Heaps(Puae6SyncSettings settings, IEnumerable<long> hardFileBytes)
 	{
-		SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = (uint)(16384 + 2 * ExtraMemoryKiB(settings)),
-	};
+		long hard = hardFileBytes.Sum(bytes => (long)HardFileHeapKiB(bytes));
+		return new()
+		{
+			SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = (uint)(16384 + 2 * (ExtraMemoryKiB(settings) + hard)),
+		};
+	}
+
+	/// <summary>The mmap heap a hard file asks for, in KiB: the base (the size of the image), the room for the overlay of the guest's writes (the size of the image again, 4 KiB chunks made on the first write), its dirty bitmap and 64 KiB of the allocator's own. The counterpart of MacHawk's HardDiskHeapKB, which keeps the image once because it writes in place.</summary>
+	public static ulong HardFileHeapKiB(long bytes) => (ulong)(2 * ((bytes + 1023) / 1024) + (bytes / P6.HardFileChunkBytes + 7) / 8 / 1024 + 64);
 
 	/// <summary>The write overlay of the floppies counted as extra memory of the sandbox (T28): its pool is 3520 sectors, 1.8 MiB, and a machine whose guest wrote every track of both disks measured 3.9 MiB more committed in the mmap heap (manifests/waterbox-memory.json, measured_a500_floppy_writes_full).</summary>
 	public const int FloppyOverlayKiB = 4096;
@@ -95,6 +116,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	const int Drives = 2;
 	readonly List<byte[]> _media;
 	readonly IReadOnlyList<string> _mediaNames;
+	// The hard files (T63b), as the core was given them: the bases of the SaveRam's diff and what the media hash covers. They are mounted at power-on and are the p6 media after the floppies
+	// (the index of hard file n in p6w_media_export and the write status is _media.Count + n); the guest keeps the writes in its overlay, so these arrays never change.
+	readonly List<byte[]> _hardFiles;
+	readonly IReadOnlyList<string> _hardFileNames;
 	readonly int[] _driveDisk = [ -1, -1 ];
 	int _currentDrive, _currentSlot;
 	bool _ejectHeld, _insertHeld, _slotHeld, _driveHeld;
@@ -110,6 +135,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	{
 		internal byte[] Hash = [ ];
 		internal HashSet<int> Disks = new();
+		internal HashSet<int> HardFiles = new();
 	}
 	bool _faulted;                              // a state load failed after the sandbox was touched: the machine is undefined until a state loads whole
 
@@ -123,6 +149,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		foreach (var disk in parameters.Media)
 			if (disk.Length != P6.AdfBytes) throw new ArgumentException($"an ADF has {P6.AdfBytes} bytes, this one {disk.Length}", nameof(parameters));
 		_media = parameters.Media.Select(disk => (byte[])disk.Clone()).ToList();
+		ValidateHardFiles(parameters, _media.Count);
+		_hardFiles = parameters.HardFiles.Select(image => (byte[])image.Clone()).ToList();
+		_hardFileNames = parameters.HardFileNames;
 		_parameters = new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
@@ -137,11 +166,11 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
 		_aspectNum = 1; _aspectDen = 1;
 
-		BootGuest(_media, null);
+		BootGuest(_media, _hardFiles, null);
 		_serviceProvider = new BasicServiceProvider(this);
 		_serviceProvider.Register<IMemoryDomains>(_domains);
-		// ISaveRam exists only when the disks can be written: without the flag every disk is protected and there is nothing to persist.
-		if (!_syncSettings.FloppyWrites) _serviceProvider.Unregister<ISaveRam>();
+		// ISaveRam exists only when something can be written: without the flag every floppy is protected, and a hard file is always writable (T63b).
+		if (!SaveRamPossible) _serviceProvider.Unregister<ISaveRam>();
 		else _saveRamClean = SaveRamHash(null);
 	}
 
@@ -150,9 +179,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	/// core's. When the core already had a guest (a SaveRam changes the base disks before the first unit) the old one is disposed only once the new one is whole; a failure leaves the
 	/// core as it was.
 	/// </summary>
-	void BootGuest(IReadOnlyList<byte[]> guestMedia, ImportedSaveRam? imported)
+	void BootGuest(IReadOnlyList<byte[]> guestMedia, IReadOnlyList<byte[]> guestHardFiles, ImportedSaveRam? imported)
 	{
-		var heaps = Heaps(_syncSettings);
+		var heaps = Heaps(_syncSettings, _hardFiles.Select(image => image.LongLength));
 		var guest = _parameters.PinnedGuestSha256 is { } pin
 			? Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, pin, heaps)
 			: Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, heaps);
@@ -163,7 +192,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			_mediaSequence = 0;
 			_driveDisk[0] = _driveDisk[1] = -1;
 			_imported = imported;
-			InitializeMachine(_parameters.Firmware, guestMedia);
+			InitializeMachine(_parameters.Firmware, guestMedia, guestHardFiles);
 			MountBootDisks();
 			var identity = MakeIdentity(_parameters.Firmware);
 			var domains = CreateMemoryDomains();
@@ -185,21 +214,24 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	CoreComm CoreComm { get; }
 
-	void InitializeMachine(byte[] firmware, IReadOnlyList<byte[]> media)
+	// The floppies first and then the hard files: the index of a floppy in the p6 media is its slot, and hard file n is _media.Count + n. The content id of each is the SHA-256 of the image it is given
+	// (the p6 bridge checks it): after a SaveRam the images are the bases with its sectors and chunks over them, and their ids are not the bases'.
+	void InitializeMachine(byte[] firmware, IReadOnlyList<byte[]> media, IReadOnlyList<byte[]> hardFiles)
 	{
 		var init = new P6wInit { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wInit) };
 		var pins = new List<GCHandle>();
-		init.MediaCount = (uint)media.Count;
-		for (int i = 0; i < media.Count; ++i)
+		init.MediaCount = (uint)(media.Count + hardFiles.Count);
+		for (int i = 0; i < media.Count + hardFiles.Count; ++i)
 		{
-			pins.Add(GCHandle.Alloc(media[i], GCHandleType.Pinned));
+			var image = i < media.Count ? media[i] : hardFiles[i - media.Count];
+			pins.Add(GCHandle.Alloc(image, GCHandleType.Pinned));
 			var entry = init.Media.At(i);
-			entry->Type = P6.MediaAdf;
+			entry->Type = i < media.Count ? P6.MediaAdf : P6.MediaHdf;
 			byte[] id;
-			using (var sha = System.Security.Cryptography.SHA256.Create()) id = sha.ComputeHash(media[i]);
+			using (var sha = System.Security.Cryptography.SHA256.Create()) id = sha.ComputeHash(image);
 			for (int b = 0; b < P6.ContentIdSize; ++b) entry->ContentId[b] = id[b];
 			entry->Data = (byte*)pins[i].AddrOfPinnedObject();
-			entry->Bytes = (ulong)media[i].Length;
+			entry->Bytes = (ulong)image.Length;
 		}
 		init.Config.AbiVersion = P6.AbiVersion;
 		init.Config.StructSize = (uint)sizeof(P6Config);
@@ -291,7 +323,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	StateIdentity MakeIdentity(byte[] firmware)
 	{
-		var heaps = Heaps(_syncSettings);
+		var heaps = Heaps(_syncSettings, _hardFiles.Select(image => image.LongLength));
 		// The memory enters the identity only when it is not the machine's own: the identity of a core with the stock memory is the one it always had.
 		string memory = _syncSettings.ChipMemory == Puae6Chip.Auto && _syncSettings.SlowMemory == Puae6Slow.Auto && _syncSettings.FastMemory == Puae6Fast.None
 			? "" : $";chip={_syncSettings.ChipMemory};slow={_syncSettings.SlowMemory};fast={_syncSettings.FastMemory}";
@@ -310,6 +342,13 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			if (machine != _syncSettings.Machine) others[machine.ToString()] = ConfigHash(machine);
 		var media = new List<byte[]> { BitConverter.GetBytes(_media.Count) };
 		foreach (var disk in _media) media.Add(StateEnvelope.Sha256(disk));
+		// The hard files (T63b): how many and what each one is, as the core was given them. A core without hard files keeps the media hash it always had. What the guest wrote to them is state, not identity.
+		if (_hardFiles.Count != 0)
+		{
+			media.Add(Encoding.ASCII.GetBytes("hard files"));
+			media.Add(BitConverter.GetBytes(_hardFiles.Count));
+			foreach (var image in _hardFiles) media.Add(StateEnvelope.Sha256(image));
+		}
 		return new StateIdentity(_guest.Identity.Sha256, [ heaps.SbrkHeapSizeKB, heaps.SealedHeapSizeKB, heaps.InvisibleHeapSizeKB, heaps.PlainHeapSizeKB, heaps.MmapHeapSizeKB ],
 			ConfigHash(_syncSettings.Machine), StateEnvelope.Sha256(firmware), StateEnvelope.Sha256(media.ToArray()), _syncSettings.Machine.ToString(), others);
 	}

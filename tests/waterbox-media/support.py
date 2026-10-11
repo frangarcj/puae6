@@ -85,6 +85,7 @@ class Sessions(unittest.TestCase):
         path.write_text("\n".join(lines) + "\n")
         result = build_waterbox.run_ffi("session", "--runtime", "libwaterboxhost.dylib", "--guest", str(GUEST), "--sha", self.guest_sha, "--firmware",
                                         str(self.media / f"{firmware}.rom"), "--program", str(path), timeout=timeout)
+        self.stderr = result.stderr          # for the programs that are expected to fail (expect=1): what the host said
         self.assertEqual(expect, result.returncode, f"{result.stdout[-2500:]}\n{result.stderr[-2500:]}")
         return result.stdout
 

@@ -42,12 +42,15 @@ internal static unsafe partial class Program
 					if (options.TryGetValue("slow", out var slow)) settings.SlowMemory = Enum.Parse<Puae6Slow>(slow);
 					if (options.TryGetValue("fast", out var fast)) settings.FastMemory = Enum.Parse<Puae6Fast>(fast);
 					settings.FloppyWrites = options.ContainsKey("writes");
-					var h = Puae6Core.Heaps(settings); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break;
+					// --hdf-bytes N[,N...] (T63b): the sizes of the hard files the core would be given.
+					var hard = options.TryGetValue("hdf-bytes", out var sizes) ? sizes.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(long.Parse).ToArray() : [];
+					var h = Puae6Core.Heaps(settings, hard); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break;
 				}
 				case "play": Play(options); break;
 				case "session": RunSession(options); break;
 				case "inventory": Inventory(); break;
 				case "media": Media(options); break;
+				case "saveramformat": SaveRamFormat(); break;
 				case "av": Av(options); break;
 				case "domains": Domains(options); break;
 				case "two": Two(options); break;
