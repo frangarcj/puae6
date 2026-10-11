@@ -13135,6 +13135,47 @@
       "evidence": null
     },
     {
+      "id": "T15l",
+      "title": "A600/ECS con Kickstart 2.05: DET02 en la ventana de arranque (unidades ~95-125) y run-ahead libretro que diverge",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T23",
+        "T63"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "tests/state/**",
+        "tests/libretro-host/**",
+        "tests/hdf/**",
+        "manifests/state-inventory.json",
+        "manifests/waterbox-memory.json",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Hallazgo del cierre de T63 (reports/tasks/T63.md, \"Hallazgo fuera de T63\"): con A600 + Kickstart 2.05 (con HDF, con disquete y SIN medio) un estado tomado en la unidad 120 da en la primera unidad tras la carga otro video/picture (110, 115, 125, 130 pasan); libretro con --ahead-every K (3, 20, 50, 100) sin contenido diverge desde la unidad 95-113 (fotogramas de 574 filas en vez de 576, menos ticks). A500 + KS 1.3 converge.",
+        "Reproducer: workbench-hdf-boot@120/* en tests/state/test_det02_hdf.py (fallo esperado con su divergencia fijada, dueño \"open (not T63)\"). Hipotesis a verificar en este orden: (1) GEOM/BEAM/LOF del primer fotograma largo antes de que el 2.05 encienda la pantalla no viajan (cf. T15j parche 0103, 0104 programmed_register_accessed_*); (2) un campo de P6RT/CIA (TOD) que el 2.05 lee por primera vez en esa ventana. Para decidir: DET02 con boundaries 80..125 del escenario kickstart A600 y la tabla de grupos chipset.* de la primera unidad.",
+        "Al cerrar: quitar el fallo esperado de workbench-hdf-boot@120, anadir boundaries 80..125 a test_det02_a600, y que el test de run-ahead Workbench de tests/libretro-host/test_hdf.py empiece en el run 0. Waterbox: re-registrar waterbox-memory si cambia el guest."
+      ],
+      "checks": [
+        "DET02",
+        "DET03",
+        "LR01"
+      ],
+      "acceptance": [
+        "DET02 del A600 con Kickstart 2.05 pasa en todas las fronteras 60..200 sin fallos esperados, y el run-ahead libretro desde el run 0 da la misma linea visible que sin run-ahead."
+      ],
+      "stop": "No relajar comparaciones ni mover fronteras para esquivar la ventana; reproducer minimo y dos hipotesis antes de marcar blocked.",
+      "evidence": null
+    },
+    {
       "id": "T64",
       "title": "Directorios, LHA y ZIP como volumenes de solo lectura desde memoria (como MacHawk), con escrituras a un overlay",
       "milestone": "M3",
@@ -13648,7 +13689,8 @@
         "T28a",
         "T28b",
         "T73a",
-        "T75a"
+        "T75a",
+        "T15l"
       ],
       "read": [
         "docs/01-architecture.md",
