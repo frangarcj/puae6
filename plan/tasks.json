@@ -10944,7 +10944,7 @@
       "title": "GCC enlaza sin el toolchain de la matriz y DET04/DET06 registrados en tools/check.py",
       "milestone": "M2",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T25"
       ],
@@ -10959,12 +10959,14 @@
         "tools/check.py",
         "tests/portability/**",
         "ports/portable/media/overlay.h",
-        "reports/platform-matrix.md"
+        "reports/platform-matrix.md",
+        "plan/toolchains.json"
       ],
       "steps": [
         "T25 encontro que GCC -O0 no enlaza: funciones static sin llamadas (expamem_map_uaeboard, add_rtarea_pointer, *_ce030_cicheck, read_processor_time) referencian rtarea_bank, mmu030_cache_state, uae_time() y otros simbolos de modulos excluidos del perfil; Clang las descarta y GCC no. Solo cmake/toolchains/linux-gcc.cmake lo rodea (-ffunction-sections -fdata-sections -Wl,--gc-sections). Decidir en CMakeLists.txt: el mismo tratamiento de secciones para todos los compiladores (comprobando que los hashes de la matriz no cambian) o definiciones de error claro (nunca stubs de exito) para esos simbolos; comprobar si GCC -O2 sin las banderas enlaza.",
         "Registrar en tools/check.py ('DET04','T25') y ('DET06','T25') apuntando a tests.portability.test_portability (opt-in P6_TEST_PORTABILITY=1 para las filas Docker).",
-        "static_assert de alineacion en las vistas de ports/portable/media/overlay.h (propuesta de la auditoria de T25)."
+        "static_assert de alineacion en las vistas de ports/portable/media/overlay.h (propuesta de la auditoria de T25).",
+        "Ampliacion de la ficha (2026-10-11): touch += plan/toolchains.json. Al quitar las banderas de seccion de cmake/toolchains/linux-gcc.cmake (ahora las pone CMakeLists.txt para todos los compiladores) cambia el SHA-256 de ese archivo, que el candado plan/toolchains.json registra y tests/portability/test_portability.py compara; es la unica edicion en ese archivo."
       ],
       "checks": [
         "BUILD01",

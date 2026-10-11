@@ -8,13 +8,8 @@ set(CMAKE_CXX_COMPILER /usr/bin/g++ CACHE FILEPATH "C++ compiler")
 set(P6_HOST_CC /usr/bin/gcc CACHE FILEPATH "Compiler of the code generator host tools")
 set(P6_HOST_CXX /usr/bin/g++ CACHE FILEPATH "Compiler of the code generator host tools")
 
-# Link-level fix found by the matrix (reports/platform-matrix.md, "GCC -O0"). Reproducer: configure with this file minus the three set() lines
-# below, -DCMAKE_BUILD_TYPE=Debug, and link p6_headless or p6_state_probe: ld reports undefined references to rtarea_bank, rtarea_base,
-# EXPANSION_bootcode, filesys_get_entry(int), mmu030_cache_state, jit_direct_compatible_memory and uae_time(). They come from static functions
-# that nothing calls (expamem_map_uaeboard, add_rtarea_pointer, the *_ce030_cicheck helpers, read_processor_time) and that reference modules the
-# profile excludes: GCC keeps unreferenced static functions at -O0, Clang does not (nm of expansion.cpp.o shows expamem_map_uaeboard in GCC's
-# object and not in Clang's). With one section per function the linker discards the unreachable ones: the code of every function is what
-# the compiler generated anyway. Whether the -O2 GCC build needs it is not known: every GCC build of the matrix was made with these flags.
-set(CMAKE_C_FLAGS_INIT "-ffunction-sections -fdata-sections")
-set(CMAKE_CXX_FLAGS_INIT "-ffunction-sections -fdata-sections")
-set(CMAKE_EXE_LINKER_FLAGS_INIT "-Wl,--gc-sections")
+# No section flags here: GCC -O0 keeps the unreferenced `static` functions that name symbols of the modules the profile leaves out, and the link failed
+# (reports/platform-matrix.md, "GCC -O0"). CMakeLists.txt now gives every compiler and linker the same treatment (one section per function and datum and
+# --gc-sections on ELF, -dead_strip on ld64), so this file only chooses the compiler. Reproducer of the failure: configure the repository with this file and
+# -DP6_GC_SECTIONS=OFF, -DCMAKE_BUILD_TYPE=Debug, and link p6_headless or p6_state_probe: undefined references to rtarea_bank, rtarea_base,
+# EXPANSION_bootcode, filesys_get_entry(int), mmu030_cache_state, jit_direct_compatible_memory and uae_time().

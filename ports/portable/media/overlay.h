@@ -45,25 +45,43 @@ typedef struct p6_overlay {
 #define P6_OVL_STORAGE_BYTES (sizeof(uint16_t) * P6_OVL_MEDIA * P6_OVL_DISK_SECTORS + P6_OVL_SLOTS * (sizeof(uint8_t) + sizeof(uint16_t) + P6_OVL_SECTOR_BYTES) + \
                               P6_OVL_RAW_SLOTS * (2 * sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint16_t) * P6_OVL_RAW_WORDS))
 
+/* Where each view starts inside the block. The views are typed (uint16_t, uint32_t), so a start that is not a multiple of the type's alignment would be an
+ * unaligned access through that pointer: undefined behaviour in C, a fault on strict targets. Today every offset is even or a multiple of four by the
+ * arithmetic of the sizes; the assertions below make a change of a size, a slot count or the order of the views fail to compile instead of
+ * misaligning silently. The block itself comes from malloc (blob_io.c), which aligns for any type. */
+#define P6_OVL_OFF_SLOT_OF 0u
+#define P6_OVL_OFF_SECTOR (P6_OVL_OFF_SLOT_OF + sizeof(uint16_t) * P6_OVL_MEDIA * P6_OVL_DISK_SECTORS)
+#define P6_OVL_OFF_MEDIUM (P6_OVL_OFF_SECTOR + sizeof(uint16_t) * P6_OVL_SLOTS)
+#define P6_OVL_OFF_DATA (P6_OVL_OFF_MEDIUM + P6_OVL_SLOTS)
+#define P6_OVL_OFF_RAW_WORDS (P6_OVL_OFF_DATA + (size_t)P6_OVL_SLOTS * P6_OVL_SECTOR_BYTES)
+#define P6_OVL_OFF_RAW_BITS (P6_OVL_OFF_RAW_WORDS + sizeof(uint16_t) * (size_t)P6_OVL_RAW_SLOTS * P6_OVL_RAW_WORDS)
+#define P6_OVL_OFF_RAW_MEDIUM (P6_OVL_OFF_RAW_BITS + sizeof(uint32_t) * P6_OVL_RAW_SLOTS)
+#define P6_OVL_OFF_RAW_TRACK (P6_OVL_OFF_RAW_MEDIUM + P6_OVL_RAW_SLOTS)
+#ifdef __cplusplus
+#define P6_OVL_ASSERT(condition, message) static_assert(condition, message)
+#define P6_OVL_ALIGNOF(type) alignof(type)
+#else
+#define P6_OVL_ASSERT(condition, message) _Static_assert(condition, message)
+#define P6_OVL_ALIGNOF(type) _Alignof(type)
+#endif
+P6_OVL_ASSERT(P6_OVL_OFF_SLOT_OF % P6_OVL_ALIGNOF(uint16_t) == 0, "slot_of view is misaligned for uint16_t");
+P6_OVL_ASSERT(P6_OVL_OFF_SECTOR % P6_OVL_ALIGNOF(uint16_t) == 0, "sector view is misaligned for uint16_t");
+P6_OVL_ASSERT(P6_OVL_OFF_RAW_WORDS % P6_OVL_ALIGNOF(uint16_t) == 0, "raw_words view is misaligned for uint16_t");
+P6_OVL_ASSERT(P6_OVL_OFF_RAW_BITS % P6_OVL_ALIGNOF(uint32_t) == 0, "raw_bits view is misaligned for uint32_t");
+P6_OVL_ASSERT(P6_OVL_OFF_RAW_TRACK + P6_OVL_RAW_SLOTS == P6_OVL_STORAGE_BYTES, "the views do not fill P6_OVL_STORAGE_BYTES exactly");
+
 static inline void p6_overlay_use(p6_overlay *o, void *storage)
 {
     uint8_t *p = (uint8_t *)storage;
     memset(o, 0, sizeof *o);
-    o->slot_of = (uint16_t *)(void *)p;
-    p += sizeof(uint16_t) * P6_OVL_MEDIA * P6_OVL_DISK_SECTORS;
-    o->sector = (uint16_t *)(void *)p;
-    p += sizeof(uint16_t) * P6_OVL_SLOTS;
-    o->medium = p;
-    p += P6_OVL_SLOTS;
-    o->data = p;
-    p += (size_t)P6_OVL_SLOTS * P6_OVL_SECTOR_BYTES;
-    o->raw_words = (uint16_t *)(void *)p;
-    p += sizeof(uint16_t) * (size_t)P6_OVL_RAW_SLOTS * P6_OVL_RAW_WORDS;
-    o->raw_bits = (uint32_t *)(void *)p;
-    p += sizeof(uint32_t) * P6_OVL_RAW_SLOTS;
-    o->raw_medium = p;
-    p += P6_OVL_RAW_SLOTS;
-    o->raw_track = p;
+    o->slot_of = (uint16_t *)(void *)(p + P6_OVL_OFF_SLOT_OF);
+    o->sector = (uint16_t *)(void *)(p + P6_OVL_OFF_SECTOR);
+    o->medium = p + P6_OVL_OFF_MEDIUM;
+    o->data = p + P6_OVL_OFF_DATA;
+    o->raw_words = (uint16_t *)(void *)(p + P6_OVL_OFF_RAW_WORDS);
+    o->raw_bits = (uint32_t *)(void *)(p + P6_OVL_OFF_RAW_BITS);
+    o->raw_medium = p + P6_OVL_OFF_RAW_MEDIUM;
+    o->raw_track = p + P6_OVL_OFF_RAW_TRACK;
 }
 
 /* Every sector is the base's again (a load, or the start of applying a state). The storage stays. */

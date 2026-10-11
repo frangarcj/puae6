@@ -6,7 +6,8 @@ reference row; rows out of the declared scope have no evidence and no support; n
 
 P6_TEST_PORTABILITY=1: runs the rows this machine can run (the native row on macOS arm64, the Docker rows when the daemon answers) at -O0:
 builds the probe, runs the corpus in both variants and compares every hash with the evidence, so that a change that moves a hash on one ISA or
-compiler fails here. The first run builds the images (tests/portability/Dockerfile) and every tree; it takes a long time.
+compiler fails here. A declared row that cannot run here is a skipped subtest, so tools/check.py (DET04, DET06 for T25) reports BLOCKED, not PASS,
+until all five rows have run. The first run builds the images (tests/portability/Dockerfile) and every tree; it takes a long time.
     P6_TEST_PORTABILITY=1 python3 -m unittest tests.portability.test_portability
 """
 import hashlib
@@ -157,8 +158,11 @@ class RowExecutionTests(unittest.TestCase):
         from tests.portability import run_matrix
         rows = runnable_rows()
         self.assertTrue(rows, "no row can run on this machine")
-        for name in rows:
+        for name in ROWS:
             with self.subTest(row=name):
+                # A row this machine cannot run is a SKIP, not a pass: a matrix with a missing row has not agreed (tools/check.py reports it BLOCKED).
+                if name not in rows:
+                    self.skipTest(f"{name} cannot run here ({ROWS[name]['kind']} row" + ("; Docker is not answering" if ROWS[name]["kind"] == "docker" else "") + ")")
                 kickstart = os.environ.get("P6_KICKSTART_ROM")       # optional authorized Kickstart: an extra case whose result is compared across rows by report
                 self.assertEqual(run_matrix.exec_row(name, "O0", kickstart=kickstart if kickstart and Path(kickstart).is_file() else None), 0, name)
                 base = json.loads((run_matrix.BUILD / name / "O0-baseline.json").read_text(encoding="utf-8"))

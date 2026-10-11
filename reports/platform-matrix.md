@@ -112,18 +112,30 @@ programa de comprobacion vio el desplazamiento), otro directorio de trabajo y la
 
 ## Hallazgos
 
-1. **GCC -O0 no enlazaba** (build, no determinismo). Reproducer: configurar `cmake/toolchains/linux-gcc.cmake` sin sus tres lineas finales, `-DCMAKE_BUILD_TYPE=Debug`, y
-   enlazar `p6_headless` o `p6_state_probe` con GCC 13.3 en ARM64 y x86_64: `undefined reference to` `rtarea_bank` (12), `mmu030_cache_state` (10), `rtarea_base` (4),
-   `jit_direct_compatible_memory` (4), `EXPANSION_bootcode` (4), `uae_time()` (2), `filesys_get_entry(int)` (2). Son funciones `static` que nadie llama
-   (`expamem_map_uaeboard`, `add_rtarea_pointer`, los `*_ce030_cicheck`, `read_processor_time`) y que referencian modulos que el perfil excluye; GCC las
-   conserva a -O0 y Clang no (`nm` de `expansion.cpp.o`: GCC contiene `expamem_map_uaeboard`, Clang no). El motor no se toca: el toolchain GCC pone
-   `-ffunction-sections -fdata-sections` y `-Wl,--gc-sections`, y el enlazador descarta lo inalcanzable. Una configuracion de variante que sustituia
-   `CMAKE_CXX_FLAGS` (pierde los `_INIT` del toolchain) reprodujo el mismo fallo por accidente, con la misma lista de simbolos. No se sabe si GCC -O2 lo
-   necesita: todas las construcciones GCC de la matriz llevan esas banderas. Propuesta para el CMake raiz (fuera de las rutas de T25): hacerlo para
-   todos los compiladores o dar definiciones de error para esos simbolos; no un stub que devuelva exito.
+1. **GCC -O0 no enlazaba** (build, no determinismo; corregido en T25a). Son funciones `static` que nadie llama (`expamem_map_uaeboard`, `add_rtarea_pointer`, los
+   `*_ce030_cicheck`, `read_processor_time`) y que referencian simbolos de modulos que el perfil excluye; GCC las conserva a -O0 y Clang no (`nm` de
+   `expansion.cpp.o`: GCC contiene `expamem_map_uaeboard`, Clang no). El motor no se toca. **Decision (T25a)**: `CMakeLists.txt` da el mismo tratamiento a todos los
+   compiladores y enlazadores, eligiendo por el enlazador que acepta la bandera (`check_linker_flag`) y no por el sistema operativo: `-ffunction-sections
+   -fdata-sections` con `--gc-sections` en GNU ld/gold/lld (ELF) y `-dead_strip` en ld64 (sin bandera de compilacion: GCC ni la implementa para Mach-O); el
+   toolchain GCC ya no lleva banderas y cualquier compilador de cualquier sistema enlaza con el CMake por defecto. El codigo de las funciones vivas es el que
+   genera el compilador en cualquier caso, y los hashes no cambian (ver abajo). Se descarto dar definiciones de error a esos simbolos: seria mantener una lista de
+   simbolos de modulos fuera del perfil y cada una seria un stub; con la seccion por funcion el enlazador solo descarta lo inalcanzable y un simbolo que si se
+   llama sigue siendo un error de enlace. **Reproducer**: `-DP6_GC_SECTIONS=OFF` con GCC y `-DCMAKE_BUILD_TYPE=Debug`, enlazar `p6_headless` o `p6_state_probe`;
+   medido el 2026-10-11 con GCC 13.3 en Linux ARM64 y x86_64 (GNU ld): `undefined reference to` `uae_time()`, `jit_direct_compatible_memory` y `mmu030_cache_state`
+   (18 y 16 referencias; la lista de T25 incluia ademas `rtarea_*`, `EXPANSION_bootcode` y `filesys_get_entry(int)`, que ya no aparecen con el motor actual) y con
+   Homebrew GCC 15 en macOS (ld64, sin `-dead_strip`). **GCC -O2 sin las banderas si enlaza** (GCC 13.3 ARM64 y x86_64, `-O2 -g`, `-DP6_GC_SECTIONS=OFF`; y GCC 15 en
+   macOS): a -O2 GCC descarta las `static` sin referencias; -O0 las conserva. Con el CMake por defecto (banderas puestas) se construyeron y
+   enlazaron **todos** los ejecutables y la biblioteca libretro en el arbol -O0 de Linux ARM64 con GCC 13.3 y con Clang 18, y en macOS con Apple Clang
+   (`ninja` sin objetivo); con Homebrew GCC 15 en macOS enlazan p6_headless, p6_state_probe y el nucleo libretro, y `p6_hdf_probe` y `p6_cycles_probe` no compilan
+   (`#include <malloc/malloc.h>` del SDK de macOS 26 usa macros que GCC no entiende: es un fallo de compilacion de GCC con el SDK, sin relacion con el enlace). Una
+   configuracion de variante que sustituia `CMAKE_CXX_FLAGS` (pierde los `_INIT` del toolchain) reprodujo el mismo fallo por accidente en T25; ya no hay `_INIT`
+   que perder.
 2. **Sin diferencias de hash** entre arm64 y x86_64, Apple Clang, Clang 18 y GCC 13, -O0 y -O2, en las 89 unidades de corpus ni en el Kickstart autorizado.
    La razon plausible, no demostrada aqui, es `-ffp-contract=off -fno-fast-math` del CMake raiz (CMakeLists.txt: sin FMA contraido el filtro RC de Paula
-   y el intervalo de muestra dan los mismos bits), mas aritmetica entera de ancho fijo en el motor.
+   y el intervalo de muestra dan los mismos bits), mas aritmetica entera de ancho fijo en el motor. T25a (2026-10-11) repitio las cinco filas con las banderas de seccion en `CMakeLists.txt`
+   (-O0, -O2 y ASan/UBSan, 15 ejecuciones): **89/89** hashes de hardware y A/V iguales a los registrados en cada una, 4/4 lineas de `p6_headless` y DET06 89/89 en las
+   variantes -O0 y -O2 (la variante sanitizada solo la linea base); resultado en `evidence.json`, clave `reruns.T25a`. Un cambio de enlazado no altera el codigo
+   de las funciones vivas ni la maquina emulada.
 3. **El guest de Waterbox es identico bit a bit con otra ruta de checkout**: reconstruido en este worktree, su SHA-256 (`4fde4dbe...d17b`) es el
    `guest_sha256` que `manifests/waterbox-memory.json` registro desde otro directorio, sin la ruta del checkout dentro del ELF.
 4. **Estados**: los estados nativos del ABI publico guardados por las cinco construcciones tienen los mismos bytes y se cargan entre todas las filas
@@ -162,7 +174,7 @@ Ninguna bandera de CPU ni de aliasing se ha cambiado; cada comprobacion es una m
   sus bancos. Los `reinterpret_cast` del proyecto son 5 sitios (2 en `state_upstream.cpp`, 3 en `video_present.cpp`) sobre el buffer de video de `uint32_t`
   con `stride` multiplo de 4, y las vistas de `ports/portable/media/overlay.h` sobre un bloque de almacenamiento: sus desplazamientos
   (`slot_of` 0, `sector` 56320, `medium` 63360, `data` 66880, `raw_words` 1 869 120, `raw_bits` 2 073 664) son multiplos de la alineacion de
-  cada tipo si el bloque lo esta; seria barato un `static_assert` (propuesta, `ports/portable/media/overlay.h` esta fuera de las rutas de T25).
+  cada tipo si el bloque lo esta (T25a lo comprueba en compilacion con `static_assert` sobre los desplazamientos, en C y en C++).
 - **LLP64**: no ejecutable aqui (no hay Windows). Revision: `uae_u32`/`uae_s64` son tipos de ancho fijo (`upstream/winuae/include/uae/types.h`); el
   codigo propio usa `long` solo en `ports/portable/tchar.h` (`p6_tcstol`, con `unsigned long limit`, acotado), y `PERIOD_MAX` (ULONG_MAX) guardado
   en un `int` da -1/-2 en LP64 igual que el `long` de 32 bits de Windows (nota de `manifests/engine-warnings.json`). Las ABIs de `p6.h` usan enteros
@@ -198,9 +210,10 @@ python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_wb.py        
 | SAFE01 | ASan+UBSan sobre el corpus por fila (tabla de auditoria) y, en macOS, `python3 tools/check.py --check SAFE01 --task T24` | ver el cierre en `reports/tasks/T25.md` |
 | WB02, WB13, WB14, WB15 | guest ARM64 en Waterbox/MacHawk Darwin, repetidos en este worktree | ver la fila Waterbox |
 
-`tools/check.py` no conoce la tarea T25 (`NOT_IMPLEMENTED` para cualquier combinacion no listada en `TASK_SUITES`) y no esta entre las rutas de T25:
-los checks de esta ficha se ejecutan con `tests/portability` y con las suites propias de cada check. Propuesta: registrar ('DET04','T25') y
-('DET06','T25') apuntando a `tests.portability.test_portability` cuando se amplie el dispatcher.
+`tools/check.py` registra desde T25a ('DET04','T25') y ('DET06','T25') sobre `tests.portability.test_portability`: las pruebas de coherencia de documentos y evidencia
+corren siempre y las que construyen y ejecutan las filas son opt-in (`P6_TEST_PORTABILITY=1`; las filas Linux necesitan Docker). Sin la variable esas pruebas se
+omiten y el despachador devuelve `BLOCKED` (nunca `PASS`): `python3 tools/check.py --check DET04 --task T25`. Con ella, el mismo comando construye y ejecuta las filas
+que esta maquina puede ejecutar (las demas, p. ej. las de Docker con el daemon parado, son subpruebas omitidas: `BLOCKED` hasta que corran las cinco) y compara cada hash con `evidence.json` (`P6_TEST_PORTABILITY=1 python3 tools/check.py --check DET06 --task T25`, horas con las filas x86_64).
 
 ## Limites
 

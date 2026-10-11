@@ -40,6 +40,29 @@ option(P6_UNIT_TRACE "Test-only: engine reports and can swallow video boundaries
 # an uncontracted one by one least significant bit in a fraction of the samples (measured). Contraction is a compiler and ISA
 # choice that must not reach the machine.
 add_compile_options(-fno-fast-math -ffp-contract=off)
+# Dead code is not a link input. The profile leaves modules out (rtarea, the 030 cache, JIT, uaenet...) and some engine functions that nothing calls
+# still name their symbols: expamem_map_uaeboard, add_rtarea_pointer, the *_ce030_cicheck helpers, read_processor_time. Clang drops an unreferenced
+# `static` function at -O0 and GCC keeps it, so GCC -O0 failed to link with undefined references that no execution path reaches. Rather than define
+# those symbols (a stub that returns success would hide a missing module), the linker discards what nothing reaches, for every compiler: the code of
+# a function that stays is what the compiler generated either way. The flag is chosen by the linker that accepts it, not by the operating system:
+# GNU ld, gold and lld on ELF want one section per function and datum plus --gc-sections; ld64 strips atoms (subsections_via_symbols) with -dead_strip
+# and needs no compiler flag (GCC does not even implement -ffunction-sections for Mach-O). P6_GC_SECTIONS=OFF is the reproducer of the failure.
+option(P6_GC_SECTIONS "Let the linker discard unreachable functions and data (needed by GCC at -O0)" ON)
+if(P6_GC_SECTIONS)
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "LINKER:--gc-sections" P6_LINKER_HAS_GC_SECTIONS)
+    if(P6_LINKER_HAS_GC_SECTIONS)
+        add_compile_options(-ffunction-sections -fdata-sections)
+        add_link_options("LINKER:--gc-sections")
+    else()
+        check_linker_flag(CXX "LINKER:-dead_strip" P6_LINKER_HAS_DEAD_STRIP)
+        if(P6_LINKER_HAS_DEAD_STRIP)
+            add_link_options("LINKER:-dead_strip")
+        else()
+            message(FATAL_ERROR "The linker accepts neither --gc-sections nor -dead_strip; configure with -DP6_GC_SECTIONS=OFF only to reproduce the GCC -O0 link failure")
+        endif()
+    endif()
+endif()
 
 include(cmake/HostTools.cmake)
 p6_add_host_codegen(p6_codegen)

@@ -91,7 +91,7 @@ def configure_command(row, opt):
     flags = ""
     if o["flags"]:
         # The flags of the variant go to the flags of its build type, never to CMAKE_<LANG>_FLAGS: that would replace the _INIT flags that a
-        # toolchain file sets (the GCC file needs its section flags to link at -O0). Debug's own default is "-g".
+        # toolchain file sets (the GCC file used to carry its section flags there; CMakeLists.txt owns them now). Debug's own default is "-g".
         key = o["build_type"].upper()
         text = ("-g " if o["build_type"] == "Debug" else "") + o["flags"]
         flags = f" -DCMAKE_C_FLAGS_{key}={shlex.quote(text)} -DCMAKE_CXX_FLAGS_{key}={shlex.quote(text)}"
@@ -359,7 +359,7 @@ def report(write):
     text = json.dumps(evidence, indent=1, ensure_ascii=False, sort_keys=True) + "\n"
     if write:
         old = load(EVIDENCE) if EVIDENCE.exists() else {}
-        for key in ("states", "audit"):          # sections recorded by other commands survive a new comparison
+        for key in ("states", "audit", "reruns"):          # sections recorded by other commands survive a new comparison
             if key in old and key not in evidence:
                 evidence[key] = old[key]
         EVIDENCE.write_text(json.dumps(evidence, indent=1, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")

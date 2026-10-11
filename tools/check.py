@@ -87,7 +87,22 @@ TASK_SUITES = {
         'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
         'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
     },
+    # T25: the portability matrix. DET04 (the declared ISA/compiler rows agree, hardware and A/V apart) and DET06 (another locale, zone, clock, directory
+    # and ROM path change nothing) are the one module tests.portability.test_portability. Its coherence tests always run (the report, plan/runners.json,
+    # the toolchain files and the recorded evidence say the same thing); the tests that build and run the rows are opt-in (P6_TEST_PORTABILITY=1: the
+    # macOS row natively, the Linux rows in Docker, which must be up) and are SKIPPED otherwise, which the dispatcher reports as BLOCKED, never as
+    # PASS: a matrix that did not run is not a matrix that agreed. A full run builds five trees and runs ~90 cases per row (x86_64 is translated
+    # and slow), hence TASK_SUITE_TIMEOUT.
+    ('DET04', 'T25'): {
+        'matrix_coherence': 'tests.portability.test_portability.MatrixCoherenceTests',
+        'rows_reproduce_hashes': 'tests.portability.test_portability.RowExecutionTests',
+    },
+    ('DET06', 'T25'): {
+        'matrix_coherence': 'tests.portability.test_portability.MatrixCoherenceTests',
+        'rows_under_another_host': 'tests.portability.test_portability.RowExecutionTests',
+    },
 }
+TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600}
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}
 DRIVER = '''import json, sys, unittest
 suite = unittest.defaultTestLoader.loadTestsFromName(sys.argv[1])
@@ -116,7 +131,7 @@ def _dispatch_task_suites(check_id, task, required, finish, executed):
     if not all(shutil.which(tool) for tool in ('clang', 'clang++', 'cmake')):
         return finish('BLOCKED', 'Faltan compiladores HOST clang/clang++/cmake', wanted, 'HARNESS')
     for name in wanted:
-        result = _run_suite(suites[name], TASK_SUITE_ENV, 3600)
+        result = _run_suite(suites[name], TASK_SUITE_ENV, TASK_SUITE_TIMEOUT.get((check_id, task), 3600))
         try:
             counts = json.loads(result.stdout.strip().splitlines()[-1])
             if type(counts) is not dict or any(type(n) is not int or n < 0 for n in counts.values()):
@@ -130,7 +145,7 @@ def _dispatch_task_suites(check_id, task, required, finish, executed):
         if counts['skipped'] or counts['expected_failures']:
             return finish('BLOCKED', f'{name}: assertions omitidas o pendientes', wanted, 'HARNESS')
         executed.append(name)
-    return finish('PASS', 'Suites nativas de sanitizers/fuzzing ejecutadas; no es un resultado de emulacion', wanted, 'HARNESS')
+    return finish('PASS', 'Suites nativas ejecutadas (sanitizers, fuzzing, matriz de portabilidad segun la tarea); no es un resultado de emulacion', wanted, 'HARNESS')
 
 
 def dispatch(check_id, task='T04', profile='deterministic-a500', scenario=None, required=()):

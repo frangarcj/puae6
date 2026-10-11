@@ -1660,6 +1660,239 @@
   "opt": "O0",
   "row": "macos-arm64-appleclang"
  },
+ "reruns": {
+  "T25a": {
+   "date": "2026-10-11",
+   "every_tree_links_all_targets": {
+    "note": "cmake --build of the whole O0 tree (libretro core and host, every probe), Linux GCC 13.3 and Clang 18, ARM64",
+    "rows": {
+     "linux-arm64-clang": {
+      "exit": 0,
+      "undefined": 0
+     },
+     "linux-arm64-gcc": {
+      "exit": 0,
+      "undefined": 0
+     }
+    }
+   },
+   "executions": {
+    "linux-arm64-clang/O0": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-arm64-clang/O2": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-arm64-clang/san": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "headless_equal": 4
+    },
+    "linux-arm64-gcc/O0": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-arm64-gcc/O2": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-arm64-gcc/san": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "headless_equal": 4
+    },
+    "linux-x86_64-clang/O0": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-x86_64-clang/O2": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-x86_64-clang/san": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "headless_equal": 4
+    },
+    "linux-x86_64-gcc/O0": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-x86_64-gcc/O2": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "linux-x86_64-gcc/san": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "headless_equal": 4
+    },
+    "macos-arm64-appleclang/O0": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "macos-arm64-appleclang/O2": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    },
+    "macos-arm64-appleclang/san": {
+     "baseline": {
+      "cases": 89,
+      "equal_to_recorded": 89
+     },
+     "build_exit": 0,
+     "det06": {
+      "cases": 89,
+      "clock_shifted": true,
+      "equal_to_baseline": 89
+     },
+     "headless_equal": 4
+    }
+   },
+   "gcc_without_section_flags": {
+    "note": "-DP6_GC_SECTIONS=OFF, p6_headless and p6_state_probe only; the exit of the link, not a row",
+    "rows": {
+     "linux-arm64-gcc": {
+      "O0raw": {
+       "exit": 1,
+       "symbols": [
+        "`jit_direct_compatible_memory'",
+        "`mmu030_cache_state'",
+        "`uae_time()'"
+       ],
+       "undefined_references": 18
+      },
+      "O2raw": {
+       "exit": 0,
+       "symbols": [],
+       "undefined_references": 0
+      }
+     },
+     "linux-x86_64-gcc": {
+      "O0raw": {
+       "exit": 1,
+       "symbols": [
+        "`jit_direct_compatible_memory'",
+        "`mmu030_cache_state'",
+        "`uae_time()'"
+       ],
+       "undefined_references": 16
+      },
+      "O2raw": {
+       "exit": 0,
+       "symbols": [],
+       "undefined_references": 0
+      }
+     }
+    }
+   },
+   "what": "all rows rebuilt after CMakeLists.txt took over the section flags (-ffunction-sections -fdata-sections + --gc-sections on ELF, -dead_strip on ld64) and cmake/toolchains/linux-gcc.cmake lost them; compared with the hashes of `cases` above"
+  }
+ },
  "schema_version": 1,
  "states": {
   "as_loader": {
