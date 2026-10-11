@@ -81,7 +81,7 @@ inline const char *describe(InflateResult result)
     switch (result) {
     case InflateResult::Truncated: return "is truncated";
     case InflateResult::Corrupt: return "is corrupt";
-    case InflateResult::TooLarge: return "decompresses to more than it declares or than a disk can hold";
+    case InflateResult::TooLarge: return "decompresses to more than it declares or than the core reads";
     default: return "";
     }
 }
@@ -89,8 +89,8 @@ inline const char *describe(InflateResult result)
 inline uint16_t le16(const uint8_t *p) { return uint16_t(p[0] | (p[1] << 8)); }
 inline uint32_t le32(const uint8_t *p) { return uint32_t(p[0]) | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24); }
 
-// gzip (RFC 1952): one member, which must end the file. `out` receives the data, at most kDiskBytes of it.
-inline bool gunzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, std::string *why)
+// gzip (RFC 1952): one member, which must end the file. `out` receives the data, at most `limit` bytes of it (an ADF by default; a hard file asks for its own cap, T63a).
+inline bool gunzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, std::string *why, size_t limit = kDiskBytes)
 {
     const uint8_t *in = file.data();
     const size_t size = file.size();
@@ -119,9 +119,9 @@ inline bool gunzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, 
     }
     size_t consumed = 0;
     out->clear();
-    const InflateResult result = inflate_raw(in + pos, size - pos, kDiskBytes, out, &consumed);
+    const InflateResult result = inflate_raw(in + pos, size - pos, limit, out, &consumed);
     if (result != InflateResult::Ok) {
-        *why = std::string("the gzip stream ") + describe(result) + (result == InflateResult::TooLarge ? " (an ADF is 901120 bytes)" : "");
+        *why = std::string("the gzip stream ") + describe(result) + (result == InflateResult::TooLarge ? (limit == kDiskBytes ? " (an ADF is 901120 bytes)" : " (more than the core reads)") : "");
         return false;
     }
     pos += consumed;
@@ -140,8 +140,9 @@ struct ZipEntry {
     uint32_t crc, compressed, uncompressed, offset;
 };
 
-// ZIP: the central directory is the authority (sizes in a local header may be zero when a data descriptor follows). Picks the one disk entry.
-inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, std::string *why, std::string *member_name)
+// ZIP: the central directory is the authority (sizes in a local header may be zero when a data descriptor follows). Picks the one disk entry, or with `hard_files` (T63a, an .hdz
+// that is a zip) the one .hdf entry, whose size may be up to `limit`.
+inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, std::string *why, std::string *member_name, size_t limit = kMaxDiskFileBytes, bool hard_files = false)
 {
     const uint8_t *in = file.data();
     const size_t size = file.size();
@@ -181,25 +182,27 @@ inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, s
         const std::string base = slash == std::string::npos ? entry.name : entry.name.substr(slash + 1);
         if (base.empty() || entry.name.compare(0, 9, "__MACOSX/") == 0 || base.compare(0, 2, "._") == 0) continue;     // a directory or a resource fork
         const std::string ext = lower_extension(base);
-        if (ext == "adf" || ext == "adz" || ext == "dms") disks.push_back(entry);
-        else if (unsupported_format_reason(base)) ++unsupported;
+        if (hard_files ? ext == "hdf" : (ext == "adf" || ext == "adz" || ext == "dms")) disks.push_back(entry);
+        else if (!hard_files && unsupported_format_reason(base)) ++unsupported;
         else ++other;
     }
     (void)other;
     if (disks.empty()) {
-        *why = unsupported ? "the ZIP file holds a disk in a format the core does not read (IPF, FDI or similar); only ADF, ADZ and DMS disks are"
-                           : "the ZIP file holds no disk image (.adf, .adz or .dms)";
+        *why = hard_files ? "the ZIP file holds no hard file (.hdf)"
+              : unsupported ? "the ZIP file holds a disk in a format the core does not read (IPF, FDI or similar); only ADF, ADZ and DMS disks are"
+                            : "the ZIP file holds no disk image (.adf, .adz or .dms)";
         return false;
     }
     if (disks.size() > 1) {
-        *why = "the ZIP file holds " + std::to_string(disks.size()) + " disk images; the core loads one disk per file, so list them in an .m3u playlist";
+        *why = hard_files ? "the ZIP file holds " + std::to_string(disks.size()) + " hard files; the core loads one per file, so list them in an .m3u playlist"
+                          : "the ZIP file holds " + std::to_string(disks.size()) + " disk images; the core loads one disk per file, so list them in an .m3u playlist";
         return false;
     }
     const ZipEntry &entry = disks[0];
     *member_name = entry.name;
     if (entry.flags & 1) { *why = "the ZIP entry is encrypted"; return false; }
     if (entry.method != 0 && entry.method != 8) { *why = "the ZIP entry uses compression method " + std::to_string(entry.method) + " (only stored and deflate are read)"; return false; }
-    if (entry.uncompressed > kMaxDiskFileBytes) { *why = "the ZIP entry is larger than any disk file the core reads"; return false; }
+    if (entry.uncompressed > limit) { *why = hard_files ? "the ZIP entry is larger than any hard file the core reads" : "the ZIP entry is larger than any disk file the core reads"; return false; }
     if (entry.offset > size || size - entry.offset < 30 || memcmp(in + entry.offset, "PK\3\4", 4) != 0) { *why = "the ZIP file is damaged (bad local header)"; return false; }
     const size_t data = size_t(entry.offset) + 30 + le16(in + entry.offset + 26) + le16(in + entry.offset + 28);
     if (data > directory_offset || entry.compressed > directory_offset - data) { *why = "the ZIP file is truncated (entry data out of range)"; return false; }

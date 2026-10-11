@@ -232,7 +232,7 @@ class NormalizationTests(unittest.TestCase):
                    "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled",
                    "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
-        presentation = {"video_aspect": "pixel", "floppy_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
+        presentation = {"video_aspect": "pixel", "floppy_save": "off", "hdf_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
                         "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit",
                         "analog_mouse": "disabled", "analog_mouse_deadzone": "20", "analog_mouse_speed_left": "1.0", "analog_mouse_speed_right": "1.0",
                         "dpad_mouse_speed": "6", "mouse_speed": "100", "joyport": "joystick", "face_buttons": "disabled", "turbo_fire": "disabled",
@@ -468,7 +468,7 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
         presentation = [o["id"] for o in schema()["options"] if o["class"] == "presentation"]
         self.assertEqual(list(table["presentation"]), presentation)
-        self.assertEqual(presentation[:9], ["video_aspect", "floppy_save", "video_crop", "video_crop_mode", "video_crop_delay", "video_vertical_pos",
+        self.assertEqual(presentation[:10], ["video_aspect", "floppy_save", "hdf_save", "video_crop", "video_crop_mode", "video_crop_delay", "video_vertical_pos",
                                             "video_horizontal_pos", "video_gamma", "video_color_depth"])
         self.assertEqual([name for name, entry in table["presentation"].items() if entry.get("restart")], ["video_color_depth", "joyport"])
 

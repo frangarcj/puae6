@@ -5,8 +5,10 @@
 //   fuzz_content m3u SEED N         parse_m3u on N hostile playlists, against an independent oracle (accepted within the caps, or refused with a message)
 //   fuzz_content vfs SEED N         FileReader::read through a hostile VFS (lying sizes, short reads, failures, endless streams): never beyond the cap
 //   fuzz_content options SEED N     read_options with hostile values from the frontend: only the exact value names of the schema are accepted
+//   fuzz_content hdz SEED N         decode_hard_file (T63a) on hostile .hdf and .hdz files: gzip members cut, flipped, bombs, wrong sizes; never beyond the cap
 // Output is a histogram per kind of mutation and per outcome; nothing else varies between runs.
 #include "content.h"
+#include "hdf.h"
 #include "options.h"
 
 #include <stdio.h>
@@ -464,6 +466,235 @@ int fuzz_options(uint64_t seed, uint64_t iterations)
     return 0;
 }
 
+// --- hard files (T63a) -------------------------------------------------------------------------------------------------------------------------
+
+void put32(std::vector<uint8_t> *out, uint32_t value)
+{
+    for (int i = 0; i < 4; ++i) out->push_back(uint8_t(value >> (8 * i)));
+}
+
+// A gzip file whose DEFLATE stream is stored blocks: valid, and needs no compressor.
+std::vector<uint8_t> gzip_stored(const std::vector<uint8_t> &data)
+{
+    std::vector<uint8_t> out = {0x1F, 0x8B, 8, 0, 0, 0, 0, 0, 0, 0xFF};
+    size_t at = 0;
+    do {
+        const size_t n = std::min<size_t>(data.size() - at, 65535);
+        const bool last = at + n == data.size();
+        out.push_back(last ? 1 : 0);
+        out.push_back(uint8_t(n));
+        out.push_back(uint8_t(n >> 8));
+        out.push_back(uint8_t(~n));
+        out.push_back(uint8_t((~n) >> 8));
+        out.insert(out.end(), data.begin() + std::ptrdiff_t(at), data.begin() + std::ptrdiff_t(at + n));
+        at += n;
+    } while (at < data.size());
+    put32(&out, crc32_update(0, data.data(), data.size()));
+    put32(&out, uint32_t(data.size()));
+    return out;
+}
+
+void put16(std::vector<uint8_t> *out, uint32_t value)
+{
+    out->push_back(uint8_t(value));
+    out->push_back(uint8_t(value >> 8));
+}
+
+// A zip file of stored (uncompressed) members: a local header and data for each, then the central directory and the end record.
+std::vector<uint8_t> zip_stored(const std::vector<std::pair<std::string, std::vector<uint8_t>>> &members)
+{
+    std::vector<uint8_t> out, directory;
+    for (const auto &member : members) {
+        const uint32_t offset = uint32_t(out.size()), crc = crc32_update(0, member.second.data(), member.second.size()), size = uint32_t(member.second.size());
+        for (std::vector<uint8_t> *part : {&out, &directory}) {
+            const bool central = part == &directory;
+            part->insert(part->end(), {'P', 'K', uint8_t(central ? 1 : 3), uint8_t(central ? 2 : 4)});
+            if (central) put16(part, 20);                          // version made by
+            put16(part, 20);                                       // version needed
+            put16(part, 0);                                        // flags
+            put16(part, 0);                                        // method: stored
+            put16(part, 0); put16(part, 0x21);                     // time, date
+            put32(part, crc); put32(part, size); put32(part, size);
+            put16(part, uint32_t(member.first.size()));
+            put16(part, 0);                                        // extra
+            if (central) {
+                put16(part, 0); put16(part, 0); put16(part, 0);    // comment, disk, internal attributes
+                put32(part, 0);                                    // external attributes
+                put32(part, offset);
+            }
+            part->insert(part->end(), member.first.begin(), member.first.end());
+        }
+        out.insert(out.end(), member.second.begin(), member.second.end());
+    }
+    const uint32_t directory_offset = uint32_t(out.size());
+    out.insert(out.end(), directory.begin(), directory.end());
+    out.insert(out.end(), {'P', 'K', 5, 6});
+    put16(&out, 0); put16(&out, 0);
+    put16(&out, uint32_t(members.size())); put16(&out, uint32_t(members.size()));
+    put32(&out, uint32_t(directory.size()));
+    put32(&out, directory_offset);
+    put16(&out, 0);
+    return out;
+}
+
+// A gzip file whose stream is one fixed-Huffman block: a zero, then `matches` copies of 258 bytes at distance 1 (13 bits each): a bomb a few bytes in size.
+std::vector<uint8_t> gzip_bomb(size_t matches)
+{
+    std::vector<uint8_t> out = {0x1F, 0x8B, 8, 0, 0, 0, 0, 0, 0, 0xFF};
+    uint32_t bits = 0;
+    unsigned have = 0;
+    auto put_bit = [&](unsigned bit) {
+        bits |= bit << have;
+        if (++have == 8) {
+            out.push_back(uint8_t(bits));
+            bits = 0;
+            have = 0;
+        }
+    };
+    auto put_code = [&](unsigned code, unsigned n) { for (unsigned i = n; i-- > 0;) put_bit((code >> i) & 1); };      // Huffman codes go most significant bit first
+    put_bit(1); put_bit(1); put_bit(0);                           // BFINAL, BTYPE = 01 (fixed codes)
+    put_code(0x30 + 0, 8);                                        // literal 0
+    for (size_t i = 0; i < matches; ++i) {
+        put_code(0xC0 + (285 - 280), 8);                          // length 258
+        put_code(0, 5);                                           // distance 1
+    }
+    put_code(0, 7);                                               // end of block
+    while (have) put_bit(0);
+    for (int i = 0; i < 8; ++i) out.push_back(0);                 // a trailer nobody gets to read
+    return out;
+}
+
+std::vector<uint8_t> hard_image(Random &rng, size_t blocks)
+{
+    std::vector<uint8_t> image(blocks * kHdfBlock, 0);
+    switch (rng.below(3)) {
+    case 0: for (uint8_t &b : image) b = uint8_t(rng.below(256)); break;
+    case 1: for (size_t i = 0; i < image.size(); i += 61) image[i] = uint8_t(rng.below(256)); break;
+    default: break;
+    }
+    if (rng.coin() && image.size() >= 4) memcpy(image.data(), "RDSK", 4);
+    return image;
+}
+
+int fuzz_hdz(uint64_t seed, uint64_t iterations)
+{
+    static const char *const kinds[] = {"valid-hdz", "valid-hdf", "hdz-flipped", "hdz-truncated", "hdz-trailing", "hdz-bad-crc", "hdz-bad-size", "wrong-size", "over-cap", "bomb",
+                                        "random-gzip", "random-bytes", "not-gzip", "gzip-named-hdf", "valid-zip", "zip-flipped", "zip-two-hdf", "zip-no-hdf"};
+    Random rng(seed);
+    std::map<std::string, std::pair<unsigned, unsigned>> histogram;
+    std::map<std::string, unsigned> refusals;
+    for (uint64_t iteration = 0; iteration < iterations; ++iteration) {
+        const size_t cap = kHdfBlock * (1 + rng.below(160));       // up to 80 KiB: the cap is a parameter, so the fuzzer can reach it
+        const std::string kind = kinds[rng.below(sizeof kinds / sizeof *kinds)];
+        std::vector<uint8_t> file, image;
+        std::string name = "disk.hdz";
+        bool must_load = false, must_refuse = false;
+        const size_t blocks = 1 + rng.below(unsigned(cap / kHdfBlock));
+        if (kind == "valid-hdz" || kind == "valid-hdf") {
+            image = hard_image(rng, blocks);
+            if (kind == "valid-hdf") {
+                name = "Disk.HDF";
+                file = image;
+            } else {
+                name = rng.coin() ? "disk.hdz" : "DISK.HDZ";
+                file = gzip_stored(image);
+            }
+            must_load = true;
+        } else if (kind == "hdz-flipped" || kind == "hdz-truncated" || kind == "hdz-trailing" || kind == "hdz-bad-crc" || kind == "hdz-bad-size") {
+            image = hard_image(rng, blocks);
+            file = gzip_stored(image);
+            if (kind == "hdz-flipped") {
+                file[rng.below(unsigned(file.size()))] ^= uint8_t(1u << rng.below(8));
+            } else if (kind == "hdz-truncated") {
+                file.resize(rng.below(unsigned(file.size())));
+                must_refuse = true;
+            } else if (kind == "hdz-trailing") {
+                for (unsigned n = 1 + rng.below(40); n--;) file.push_back(uint8_t(rng.below(256)));
+                must_refuse = true;
+            } else if (kind == "hdz-bad-crc") {
+                file[file.size() - 8 + rng.below(4)] ^= uint8_t(1 + rng.below(255));
+                must_refuse = true;
+            } else {
+                file[file.size() - 4 + rng.below(4)] ^= uint8_t(1 + rng.below(255));
+                must_refuse = true;
+            }
+        } else if (kind == "wrong-size") {
+            static const size_t sizes[] = {0, 1, 511, 513, 1000, 1023, 4097, 100000};
+            image.assign(sizes[rng.below(sizeof sizes / sizeof *sizes)], 7);
+            const bool zipped = rng.coin();
+            name = zipped ? "x.hdz" : "x.hdf";
+            file = zipped ? gzip_stored(image) : image;
+            must_refuse = true;
+        } else if (kind == "over-cap") {
+            image.assign(cap + kHdfBlock * (1 + rng.below(3)), 1);
+            const bool zipped = rng.coin();
+            name = zipped ? "x.hdz" : "x.hdf";
+            file = zipped ? gzip_stored(image) : image;
+            must_refuse = true;
+        } else if (kind == "bomb") {
+            file = gzip_bomb(cap / 258 + 1 + rng.below(4000));
+            must_refuse = true;
+        } else if (kind == "random-gzip") {
+            file = {0x1F, 0x8B, uint8_t(rng.coin() ? 8 : rng.below(256)), uint8_t(rng.below(256))};
+            for (unsigned n = rng.below(300); n--;) file.push_back(uint8_t(rng.below(256)));
+        } else if (kind == "random-bytes") {
+            for (unsigned n = rng.below(1200); n--;) file.push_back(uint8_t(rng.below(256)));
+            name = rng.coin() ? "r.hdz" : "r.hdf";
+        } else if (kind == "not-gzip") {
+            file = hard_image(rng, blocks);
+            file[0] = uint8_t(rng.below(0x1F));                     // anything but the gzip magic
+            must_refuse = true;
+        } else if (kind == "valid-zip" || kind == "zip-flipped") {
+            image = hard_image(rng, blocks);
+            file = zip_stored({{"__MACOSX/._x", {1, 2, 3}}, {rng.coin() ? "dir/Disk.HDF" : "disk.hdf", image}, {"readme.txt", {'h', 'i'}}});
+            if (kind == "zip-flipped") file[rng.below(unsigned(file.size()))] ^= uint8_t(1u << rng.below(8));
+            else must_load = true;
+        } else if (kind == "zip-two-hdf") {
+            file = zip_stored({{"a.hdf", hard_image(rng, 1)}, {"b.hdf", hard_image(rng, 2)}});
+            must_refuse = true;
+        } else if (kind == "zip-no-hdf") {
+            file = zip_stored({{"a.adf", hard_image(rng, 1)}, {"b.txt", {'x'}}});
+            must_refuse = true;
+        } else {                                                    // a gzip file with the name of a plain hard file: it is the image, as a file of that name is
+            image = hard_image(rng, 1 + rng.below(8));
+            file = gzip_stored(image);
+            name = "disk.hdf";
+        }
+        const std::vector<uint8_t> original = file;
+        std::string why;
+        const bool loaded = decode_hard_file(&file, name, cap, &why);
+        auto &count = histogram[kind];
+        if (loaded) {
+            ++count.first;
+            if (file.size() < kHdfBlock || file.size() % kHdfBlock || file.size() > cap) bug("a hard file that is not whole blocks within the cap was accepted", iteration, kind);
+            if (container_detail::lower_extension(name) == "hdz") {
+                // Whatever gunzip gave back is what the member's trailer says it is (the CRC and the size), and the member ends the file. A zip checked its member's CRC against the
+                // central directory itself.
+                if (original[0] == 0x1F) {
+                    const uint8_t *trailer = original.data() + original.size() - 8;
+                    if (container_detail::le32(trailer) != crc32_update(0, file.data(), file.size()) || container_detail::le32(trailer + 4) != uint32_t(file.size()))
+                        bug("an .hdz was accepted whose trailer does not describe it", iteration, kind);
+                }
+            } else if (file != original) {
+                bug("a plain hard file was changed", iteration, kind);
+            }
+            if (must_refuse || (selftest() && must_load)) bug("a hard file that has to be refused was accepted", iteration, kind);
+            if (must_load && file != image) bug("a valid file did not come back as its image", iteration, kind);
+            if (!why.empty()) bug("an accepted file left a reason", iteration, why);
+        } else {
+            ++count.second;
+            if (why.empty()) bug("a refusal without a message", iteration, kind);
+            if (must_load) bug("a valid hard file was refused", iteration, why);
+            std::string key;                                        // the reason with its numbers taken out: one line per kind of refusal
+            for (char c : why) if (c < '0' || c > '9') key += c;
+            ++refusals[key.substr(0, 64)];
+        }
+    }
+    for (const auto &kind : histogram) printf("hdz kind %s: accepted %u refused %u\n", kind.first.c_str(), kind.second.first, kind.second.second);
+    for (const auto &reason : refusals) printf("hdz refusal \"%s\": %u\n", reason.first.c_str(), reason.second);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -471,6 +702,7 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "m3u")) return fuzz_m3u(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "vfs")) return fuzz_vfs(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "options")) return fuzz_options(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N\n", argv[0]);
+    if (argc == 4 && !strcmp(argv[1], "hdz")) return fuzz_hdz(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
+    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N\n", argv[0]);
     return 2;
 }

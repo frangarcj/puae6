@@ -48,6 +48,11 @@
 // Memory (T75): the Chip, Slow and Fast RAM and the ROM are announced with RETRO_ENVIRONMENT_SET_MEMORY_MAPS at their Amiga bus addresses, RETRO_MEMORY_SYSTEM_RAM is the
 // Chip RAM and the core says it supports achievements; memory_map.h has the decisions (order, endianness, what a write of the frontend is).
 //
+// Hard disks (T63a): an .hdf (or an .hdz, gzip of one, decoded in memory) as content or in an M3U is registered with p6_load as a P6_MEDIA_HDF and mounted from power-on on the UAE
+// controller as DH0, DH1... in the order named (hdf.h). They follow every floppy in the manifest, all of them are mounted at once, and Disk Control does not list them. The guest can
+// always write to them; the file is never touched, the writes are machine state (save states, rewind, run-ahead carry them) and, like the floppies', they leave the machine only when
+// the content closes and puae6_hdf_save asks for it: p6_media_export of the whole image and an atomic replace in the save directory.
+//
 // What this adapter does not do yet (see docs/02-contracts.md and the plan): IPF, FDI and the other floppy formats are refused with a message (container.h).
 #include "libretro.h"
 #include "p6.h"
@@ -57,6 +62,7 @@
 #include "disk_control.h"
 #include "firmware.h"
 #include "floppy_save.h"
+#include "hdf.h"
 #include "input_map.h"
 #include "memory_map.h"
 #include "options.h"
@@ -92,10 +98,11 @@ retro_input_state_t input_state_cb;
 retro_log_printf_t log_cb;
 
 struct Medium {
+    uint32_t type = P6_MEDIA_ADF;         // P6_MEDIA_ADF, or P6_MEDIA_HDF for a hard file (T63a): those follow every floppy in the manifest and are not in the tray
     std::vector<uint8_t> bytes;           // p6_load borrows it until p6_unload
     uint8_t id[P6_CONTENT_ID_SIZE];       // SHA-256 of the bytes: the identity of the disk, whatever it is called or wherever it is
     uint8_t origin[P6_CONTENT_ID_SIZE];   // the identity of the disk as its file gave it: the name of the file its changes are saved to (the same as id unless a saved copy replaced it)
-    bool saved_copy = false;              // the bytes are a copy saved by an earlier session (T27), not the file's
+    bool saved_copy = false;              // the bytes are a copy saved by an earlier session (T27, T63a), not the file's
 };
 
 struct Core {
@@ -579,6 +586,7 @@ void save_floppy_changes()
         image.resize(p6_libretro::kDiskBytes);
         for (size_t i = 0; i < core.media.size(); ++i) {
             const Medium &medium = core.media[i];
+            if (medium.type != P6_MEDIA_ADF) continue;        // the hard files are saved by save_hard_file_changes
             uint64_t written = 0;
             p6_error error = make_error();
             const p6_result result = p6_media_export(uint32_t(i), image.data(), image.size(), &written, &error);
@@ -618,6 +626,86 @@ void save_floppy_changes()
     (void)lost;
 }
 
+// A hard file was just read (its bytes and id are the file's): remembers that id as the origin and, with puae6_hdf_save on, swaps in the copy an earlier session saved for it, if
+// there is one and it has the size of the file. The copy becomes the disk (its own SHA-256 is its identity); a file that is not usable is reported and the original is used.
+void use_saved_hard_file(Medium *medium)
+{
+    memcpy(medium->origin, medium->id, sizeof medium->id);
+    if (core.settings.hdf_save != 1) return;
+    const std::string path = p6_libretro::saved_hard_file_path(save_directory(), medium->origin);
+    if (path.empty()) return;
+    std::vector<uint8_t> bytes;
+    const p6_libretro::ReadResult read = core.files.read(path, p6_libretro::kMaxHdfBytes, &bytes);
+    if (read == p6_libretro::ReadResult::CannotOpen) return;
+    if (read != p6_libretro::ReadResult::Ok || bytes.size() != medium->bytes.size()) {
+        notify_warning("the saved changes of a hard disk (%s) are not used: %s", path.c_str(),
+                       read != p6_libretro::ReadResult::Ok ? describe(read) : "it does not have the size of the hard disk it was saved from");
+        return;
+    }
+    medium->bytes = std::move(bytes);
+    p6_sha256_hash(medium->bytes.data(), medium->bytes.size(), medium->id);
+    medium->saved_copy = true;
+    log(RETRO_LOG_INFO, "the hard disk uses the changes an earlier session saved in %s", path.c_str());
+}
+
+// When the content closes (and only then): the hard disks the guest changed. p6_media_write_status_get says whether the guest wrote any 4 KiB chunk of one, so an untouched
+// disk costs nothing; otherwise the image as it is now (the file's bytes with the overlay over them) is exported and, if it differs from the bytes it was loaded with, it is a
+// change. With puae6_hdf_save on, a change replaces puae6-<id>.hdf in the save directory by an atomic replace; otherwise the person is told that the changes are discarded.
+void save_hard_file_changes()
+{
+    if (!core.loaded || core.faulted) return;
+    bool any = false;
+    for (const Medium &medium : core.media) any = any || medium.type == P6_MEDIA_HDF;
+    if (!any) return;
+    const bool keep = core.settings.hdf_save == 1;
+    const std::string directory = keep ? save_directory() : std::string();
+    if (keep && directory.empty()) notify_warning("the frontend has no save directory: the changes to the hard disks are discarded");
+    unsigned changed = 0, saved = 0, hard_units = 0;
+    try {
+        std::vector<uint8_t> image;
+        for (size_t i = 0; i < core.media.size(); ++i) {
+            const Medium &medium = core.media[i];
+            if (medium.type != P6_MEDIA_HDF) continue;
+            const unsigned unit = hard_units++;
+            p6_media_write_status status = {};
+            status.abi_version = P6_ABI_VERSION;
+            status.struct_size = sizeof status;
+            status.media_index = uint32_t(i);
+            p6_error error = make_error();
+            p6_result result = p6_media_write_status_get(&status, &error);
+            if (result != P6_OK) {
+                report("p6_media_write_status_get", result, error);
+                continue;
+            }
+            if (status.medium_sectors == 0) continue;                    // the guest never wrote to it
+            image.resize(medium.bytes.size());
+            uint64_t written = 0;
+            error = make_error();
+            result = p6_media_export(uint32_t(i), image.data(), image.size(), &written, &error);
+            if (result != P6_OK || written != medium.bytes.size()) {
+                report("p6_media_export", result, error);
+                continue;
+            }
+            if (memcmp(image.data(), medium.bytes.data(), image.size()) == 0) continue;      // written with the bytes it already had
+            ++changed;
+            if (!keep || directory.empty()) continue;
+            const std::string path = p6_libretro::saved_hard_file_path(directory, medium.origin);
+            std::string why;
+            if (p6_libretro::write_file_atomically(path, image.data(), image.size(), &why)) {
+                log(RETRO_LOG_INFO, "hard disk DH%u: the changes were saved in %s", unit, path.c_str());
+                ++saved;
+            } else {
+                notify_warning("hard disk DH%u: the changes were not saved: %s", unit, why.c_str());
+            }
+        }
+    } catch (const std::bad_alloc &) {
+        notify_warning("not enough memory to save the changes to the hard disks");
+        return;
+    }
+    if (saved) notify_info("%u hard disk(s) saved in %s", saved, directory.c_str());
+    if (changed && !keep) notify_warning("%u hard disk(s) were changed and the changes are discarded: Save Hard Disk Changes is off", changed);
+}
+
 // Reads the .uae the content is and lays its keys over `settings` (the frontend's options): `disks` are the ones it names. Returns false after saying why, with
 // every problem of the file (up to a bound) in the log and the first ones on screen.
 bool import_configuration(const retro_game_info *game, p6_options::Settings *settings, std::vector<p6_libretro::PlaylistEntry> *disks)
@@ -648,6 +736,56 @@ bool import_configuration(const retro_game_info *game, p6_options::Settings *set
         notify_warning("%zu key(s) of %s were ignored (they do not change the machine; see the log)", imported.warnings.size() + imported.warnings_omitted, content.c_str());
     *settings = imported.settings;
     *disks = std::move(imported.disks);
+    return true;
+}
+
+// One hard disk of the content (T63a): read through the VFS or stdio with the cap of hdf.h, decoded when it is an .hdz, and appended to `hard_files` (the caller puts them after
+// the floppies). `ordinal` is its place among everything the content names. Returns false after saying why.
+bool load_hard_file(const std::string &path, size_t ordinal, std::vector<Medium> *hard_files, size_t *total_bytes)
+{
+    using namespace p6_libretro;
+    p6_caps caps = {};
+    caps.abi_version = P6_ABI_VERSION;
+    caps.struct_size = sizeof caps;
+    p6_query_caps(&caps, nullptr);
+    if (!(caps.flags & P6_CAP_MEDIA_HDF)) {
+        notify_error("%s: this build of the core cannot mount hard disks", path.c_str());
+        return false;
+    }
+    if (hard_files->size() >= P6_MAX_HDF) {
+        notify_error("%s: the core mounts at most %u hard disks", path.c_str(), P6_MAX_HDF);
+        return false;
+    }
+    Medium medium;
+    medium.type = P6_MEDIA_HDF;
+    const ReadResult read = core.files.read(path, kMaxHdfBytes, &medium.bytes);
+    if (read == ReadResult::TooLarge) {
+        notify_error("%s (entry %zu) is larger than the %zu bytes of hard disk this core reads", path.c_str(), ordinal + 1, kMaxHdfBytes);
+        return false;
+    }
+    if (read != ReadResult::Ok) {
+        notify_error("%s (entry %zu): %s", path.c_str(), ordinal + 1, describe(read));
+        return false;
+    }
+    std::string why;
+    if (!decode_hard_file(&medium.bytes, path, kMaxHdfBytes, &why)) {       // in memory: the image is what is hashed, so the container is no part of the identity
+        notify_error("%s (entry %zu): %s", path.c_str(), ordinal + 1, why.c_str());
+        return false;
+    }
+    if (medium.bytes.size() > kMaxHdfTotalBytes - std::min(kMaxHdfTotalBytes, *total_bytes)) {
+        notify_error("%s: the hard disks of the content together are larger than the %zu bytes this core holds", path.c_str(), kMaxHdfTotalBytes);
+        return false;
+    }
+    p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
+    use_saved_hard_file(&medium);
+    for (const Medium &other : *hard_files)
+        if (memcmp(other.id, medium.id, sizeof medium.id) == 0) {
+            notify_error("%s has the same bytes as an earlier hard disk of the content: the same disk cannot be mounted twice", path.c_str());
+            return false;
+        }
+    *total_bytes += medium.bytes.size();
+    log(RETRO_LOG_INFO, "hard disk DH%zu (%s): %s", hard_files->size(), path.c_str(), describe_hard_file(inspect_hard_file(medium.bytes.data(), medium.bytes.size())).c_str());
+    hard_files->push_back(std::move(medium));
     return true;
 }
 
@@ -686,20 +824,26 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         if (playlist.save_disks_ignored)
             log(RETRO_LOG_WARN, "%u #SAVEDISK line(s) of the playlist are ignored: the disks are read-only", playlist.save_disks_ignored);
         entries = std::move(playlist.entries);
-    } else if (is_disk_extension(content)) {
+    } else if (is_disk_extension(content) || is_hard_file_extension(content)) {
         entries.push_back({content, without_extension(file_name(content))});
     } else if (const char *reason = unsupported_format_reason(content)) {
         notify_error("%s cannot be loaded: %s", content.c_str(), reason);
         return false;
     } else {
-        notify_error("%s is not content this core loads (an .adf, .adz, .dms or .zip disk or an .m3u playlist of them)", content.c_str());
+        notify_error("%s is not content this core loads (an .adf, .adz, .dms or .zip disk, an .hdf or .hdz hard disk, or an .m3u playlist of them)", content.c_str());
         return false;
     }
+    std::vector<Medium> hard_files;               // the hard disks of the content, in the order named: they follow every floppy in the manifest
+    size_t hard_bytes = 0;
     for (size_t i = 0; i < entries.size(); ++i) {
         const PlaylistEntry &entry = entries[i];
+        if (is_hard_file_extension(entry.path)) {
+            if (!load_hard_file(entry.path, i, &hard_files, &hard_bytes)) return false;
+            continue;
+        }
         if (!is_disk_extension(entry.path)) {
             const char *reason = unsupported_format_reason(entry.path);
-            notify_error("disk %zu (%s) is not an .adf, .adz, .dms or .zip disk%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
+            notify_error("disk %zu (%s) is not an .adf, .adz, .dms, .zip, .hdf or .hdz file%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
             return false;
         }
         Medium medium;
@@ -728,6 +872,15 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         }
         images->push_back({entry.path, entry.label, uint32_t(known)});
         log(RETRO_LOG_INFO, "disk %zu: medium %zu, label \"%s\"", i + 1, known, entry.label.c_str());
+    }
+    if (media->size() + hard_files.size() > P6_MAX_MEDIA) {
+        notify_error("the content names %zu distinct floppies and %zu hard disks: the most this core keeps is %u media", media->size(), hard_files.size(), P6_MAX_MEDIA);
+        return false;
+    }
+    size_t unit = 0;
+    for (Medium &hard : hard_files) {              // after the floppies, so that the indices of the tray (the floppies) are the same with or without them
+        log(RETRO_LOG_INFO, "hard disk DH%zu: medium %zu sha256=%s", unit++, media->size(), to_hex(hard.id, sizeof hard.id).c_str());
+        media->push_back(std::move(hard));
     }
     return true;
 }
@@ -1167,6 +1320,7 @@ RETRO_API void retro_init(void)
 RETRO_API void retro_deinit(void)
 {
     save_floppy_changes();
+    save_hard_file_changes();
     stop_image();
     core.files.use_vfs(nullptr);
     log_cb = nullptr;
@@ -1177,7 +1331,7 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "adf|adz|dms|zip|m3u|uae";
+    info->valid_extensions = "adf|adz|dms|zip|hdf|hdz|m3u|uae";
     info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
     info->block_extract = true;           // a zip is read by the core, in memory: the frontend must not extract it to a temporary directory
 }
@@ -1409,7 +1563,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         std::vector<p6_media> manifest;
         for (const Medium &medium : core.media) {
             p6_media entry = {};
-            entry.type = P6_MEDIA_ADF;
+            entry.type = medium.type;
             memcpy(entry.content_id, medium.id, sizeof medium.id);
             entry.image = p6_buffer{medium.bytes.data(), medium.bytes.size()};
             manifest.push_back(entry);
@@ -1463,6 +1617,7 @@ RETRO_API void retro_unload_game(void)
     CallGuard guard;
     if (!guard.ok) return;
     save_floppy_changes();
+    save_hard_file_changes();
     stop_image();
 }
 

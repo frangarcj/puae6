@@ -13000,7 +13000,7 @@
       "title": "HDF/HDZ en libretro: contenido, RDB y geometria, M3U de discos duros, escrituras exportadas explicitamente y estados",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "evidence": null,
       "depends": [
         "T29"

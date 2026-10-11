@@ -77,6 +77,16 @@ TASK_SUITES = {
         'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
         'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
     },
+    # T63a adds the hard files of the libretro adapter: `libretro_content` now also decodes hostile .hdf and .hdz (gzip members cut, flipped, bombs, wrong sizes) with the adapter's own header.
+    ('FUZZ01', 'T63a'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'state_writable': 'tests.fuzz.test_fuzz.StateWritableFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
+        'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
+    },
 }
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}
 DRIVER = '''import json, sys, unittest

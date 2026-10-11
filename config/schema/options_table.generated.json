@@ -251,6 +251,19 @@
       "option": "floppy_save",
       "class": "presentation"
     },
+    "hdf_save": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "off": 0,
+        "on_close": 1
+      },
+      "option": "hdf_save",
+      "class": "presentation"
+    },
     "video_crop": {
       "default": 0,
       "allowed": [
@@ -1559,6 +1572,15 @@
         "how": "none"
       },
       "libretro": "puae6_floppy_save"
+    },
+    "hdf_save": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_hdf_save"
     },
     "video_crop": {
       "headless": {

@@ -63,7 +63,7 @@ lecturas puras autorizadas. No invocar libretro fuera de su hilo de entrada.
 
 Adaptador libretro (T16a, T17): `adapters/libretro` exporta solo los `retro_*` (exports.txt / exports.map) sobre la ABI nativa y no incluye nada del motor. El contenido
 de `retro_load_game` NO es el firmware: es un disco (`.adf`, `.adz`, `.dms` o un `.zip` con un disco), una playlist `.m3u` de discos o ninguno (SET_SUPPORT_NO_GAME: el
-Kickstart arranca solo); `need_fullpath` y `block_extract` son true (el core lee el ZIP en memoria; el frontend no extrae nada) y las extensiones son `adf|adz|dms|zip|m3u`. El Kickstart 1.3 se busca en el directorio de sistema del frontend por una lista fija de nombres conocidos (`kick34005.A500`,
+Kickstart arranca solo); `need_fullpath` y `block_extract` son true (el core lee el ZIP en memoria; el frontend no extrae nada) y las extensiones son `adf|adz|dms|zip|hdf|hdz|m3u|uae` (los discos duros `.hdf`/`.hdz` se describen en "Libretro (T63a)" tras el estado de un HDF). El Kickstart 1.3 se busca en el directorio de sistema del frontend por una lista fija de nombres conocidos (`kick34005.A500`,
 `amiga-os-130.rom` y tres nombres de coleccion); `p6_load` acepta o rechaza el fichero por su contenido (tamaño y SHA-256), no por el nombre, y un fichero presente pero
 rechazado no oculta uno bueno bajo el nombre siguiente. El core copia el buffer porque `p6_load` lo toma prestado hasta el unload. Los ficheros se leen enteros a traves del VFS
 del frontend (version 1: open, size, read, close) y con stdio POSIX si no lo ofrece, siempre con cota y nunca con el tamaño que el fichero dice tener: playlist 64 KiB, una ruta
@@ -512,6 +512,26 @@ checksums validos); un cuerpo fuera de lo que la maquina puede tener es CORRUPT_
 un estado de esta imagen. `p6_state_bound` cuenta cada trozo de cada HDF como escrito (el tamaño de la imagen mas 4 bytes por trozo, mas hasta 256 KiB de gestor de ficheros por HDF y los 64 KiB + 64 KiB de zona de traps y placa):
 es una cota que no cambia hasta `p6_unload` (contrato de STATE01), asi que crece con el tamaño del HDF aunque el estado real solo lleve los trozos sucios; un estado de un HDF de 4 MiB con tres trozos sucios ocupa lo que la
 maquina (unos 1,3 MB), no 4 MiB. Quien reserve el buffer por la cota con HDF grandes paga el tamaño de la imagen; la memoria del overlay ya se reserva entera en `p6_load` (T29b) y el coste en Waterbox se mide en T29d.
+
+Libretro (T63a, `adapters/libretro/hdf.h`, `libretro_core.cpp`): un `.hdf` (o un `.hdz`, gzip de un HDF) como contenido o como entrada de una playlist `.m3u` se registra en `p6_load` como `P6_MEDIA_HDF`
+(requiere `P6_CAP_MEDIA_HDF`; si no, el load falla con mensaje). Los discos duros van DESPUES de todos los disquetes del manifiesto, en el orden en que la playlist los nombra (DH0, DH1... hasta `P6_MAX_HDF` = 4), y se montan
+todos a la vez desde el arranque; Disk Control no los lista (la bandeja sigue siendo solo de disquetes, con los mismos indices con o sin discos duros) y una playlist puede mezclar disquetes y discos duros en cualquier
+orden. Un HDF no es un disquete: no se inserta, no se expulsa y `add_image_index`/`replace_image_index` solo admiten disquetes. Cotas, siempre aplicadas antes de reservar nada y nunca con el tamaño que el fichero dice
+tener: un HDF (o un HDZ ya decodificado) como mucho `kMaxHdfBytes` = 128 MiB y todos los de una carga juntos 128 MiB (el puente guarda la imagen tres veces: el buffer del core, la base registrada y el sitio del overlay,
+y la cota de estado `p6_state_bound`, y con ella `retro_serialize_size`, crece con el tamaño de la imagen: ver Estado de un HDF); un `.hdz` ha de ser gzip de un miembro que acaba el fichero (CRC y tamaño comprobados) o un ZIP con exactamente un `.hdf` (los demas miembros se ignoran; varios piden una playlist) y
+una bomba se detiene en la cota (`container.h` `gunzip` con limite); la imagen es un multiplo de 512 bytes de al menos un bloque (si no, el load falla nombrando el fichero y el tamaño); dos HDF con los mismos bytes no
+se montan dos veces (mensaje) y mas de cuatro tampoco. Un fichero cuyo nombre es `.hdf` es la imagen tal cual aunque empiece como un gzip (la identidad de un medio son sus bytes). Geometria: el motor decide
+(T29a): una imagen que empieza por `RDSK` trae su RDB y sus particiones; cualquier otra es UNA particion de 32 sectores, 1 cabeza, 2 bloques reservados y prioridad de arranque 0; el core solo lo registra en el log
+(`hard disk DH0 (ruta): N blocks with a Rigid Disk Block` / `one partition`). PUAE5 estimaba 16 superficies para imagenes de 1 GiB o mas; con la cota de 128 MiB no hace falta. Los cambios del invitado: el HDF es
+siempre escribible, el fichero NUNCA se toca y las escrituras (trozos de 4 KiB) son estado de la maquina, asi que los estados, el rewind y el runahead las llevan y las devuelven. Salen de la maquina solo si el
+contenido se cierra (`retro_unload_game`/`retro_deinit`, jamas durante un run, una carga de estado, un rewind o un runahead) y `puae6_hdf_save` = `on_close` (por defecto `off`: se avisa de cuantos discos duros
+cambiaron y se descartan): `p6_media_write_status_get` dice si el invitado escribio algun trozo (un disco intacto no se exporta), `p6_media_export` copia la imagen (base con overlay) y, si difiere de los bytes con los
+que se cargo, se escribe en el save directory como `puae6-<24 hex del SHA-256 del HDF tal como lo dio su fichero>.hdf` por un fichero temporal vecino, flush/fsync y rename (siempre queda el disco viejo o el nuevo; un fallo
+se avisa y deja el viejo). Con `on_close` la carga siguiente del mismo fichero usa esa copia (su SHA-256 es su identidad: un estado guardado con otra copia no carga); una copia de otro tamaño se avisa y se usa el original.
+Un estado libretro (marco `P6LRSTAT`) lleva el HDF a traves del estado nativo (controlador UAE y trozos sucios, nunca la base); la identidad de la base se comprueba antes de tocar la maquina, asi que un estado de otro
+disco, o sin disco, se rechaza. Con Kickstart real (opt-in, nunca copiado) KS 1.3 monta la particion del RDB tambien desde una playlist con un disquete, y KS 3.1 (A1200) valida el volumen y el core lo guarda al cerrar.
+No hecho (deliberadamente): disco de arranque vacio (`puae6_boot_hd` de PUAE5). Una particion sin sistema de ficheros pide formatearla desde el invitado, la cota de 128 MiB no cubre sus opciones de hasta 512 MB, y
+necesitaria crear ficheros en el save directory fuera de la exportacion explicita: queda como subtarea de T63 (junto a WHDLoad, T30). BizHawk/Waterbox monta los discos como MacHawk en T63b.
 
 ## Regiones de memoria
 

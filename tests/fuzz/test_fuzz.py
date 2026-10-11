@@ -243,6 +243,8 @@ class HardFileFuzzTests(unittest.TestCase):
 
 CONTENT_KINDS = ("random-bytes", "valid-flipped", "long-line", "path-length-boundary", "nul", "bom-middle", "cr-only", "bar", "savedisk", "many-entries",
                  "huge-path", "path-forms", "utf8-invalid", "whitespace", "huge-file")
+HDZ_KINDS = ("valid-hdz", "valid-hdf", "hdz-flipped", "hdz-truncated", "hdz-trailing", "hdz-bad-crc", "hdz-bad-size", "wrong-size", "over-cap", "bomb", "random-gzip",
+             "random-bytes", "not-gzip", "gzip-named-hdf", "valid-zip", "zip-flipped", "zip-two-hdf", "zip-no-hdf")
 OPTION_KINDS = ("exact", "empty", "padded", "case", "suffix", "prefix", "zeros", "other-value", "non-ascii", "long", "random-bytes", "control",
                 "other-options-value", "number-forms", "no-value")
 
@@ -296,6 +298,18 @@ class ContentFuzzTests(unittest.TestCase):
                     self.assertGreater(sum(r for _, r in kinds.values()), 0)
                     for reason in ("a NUL byte is not text", "more than the cap", "the entry has no file name", "the path is too long"):
                         self.assertIn(f'm3u refusal "{reason}"', text)
+                elif run["target"] == "hdz":
+                    kinds = self.histogram(text, "hdz")
+                    self.assertEqual(sorted(HDZ_KINDS), sorted(kinds))
+                    for kind in ("valid-hdz", "valid-hdf", "valid-zip"):
+                        self.assertGreater(kinds[kind][0], 0)
+                        self.assertEqual(kinds[kind][1], 0, kind)          # a valid hard file is never refused
+                    for kind in ("hdz-truncated", "hdz-trailing", "hdz-bad-crc", "hdz-bad-size", "wrong-size", "over-cap", "bomb", "not-gzip", "zip-two-hdf", "zip-no-hdf"):
+                        self.assertGreater(kinds[kind][1], 0, kind)
+                        self.assertEqual(kinds[kind][0], 0, kind)          # and these never are accepted
+                    for reason in ("the gzip stream decompresses to more than it declares or than the core reads (more than the core reads)", "the hard file is larger than the  bytes the core reads",
+                                   "a hard file must be a whole number of -byte blocks, at least one (this one is  bytes)", "an .hdz must be a gzip file (or a zip file with one .hdf) of a hard file", "the ZIP file holds  hard files; the core loads one per file, so list them in an .m3u playlist", "the ZIP file holds no hard file (.hdf)"):
+                        self.assertIn(f'hdz refusal "{reason[:64]}"', text)
                 elif run["target"] == "vfs":
                     for outcome in ("Ok", "CannotOpen", "TooLarge", "ReadFailed"):
                         self.assertIn(f"vfs result {outcome}:", text)
@@ -316,14 +330,14 @@ class ContentFuzzTests(unittest.TestCase):
                     self.assertEqual(accepted, allowed)
 
     def test_a_run_is_reproducible(self):
-        for target in ("m3u", "options"):
+        for target in ("m3u", "options", "hdz"):
             first = self.run_target(target, 7, 500)
             self.assertTrue(clean(first), first.stderr[-400:])
             self.assertEqual(first.stdout, self.run_target(target, 7, 500).stdout)
 
     def test_the_content_harness_can_fail(self):
         # With each oracle spoiled on purpose the same run has to be reported as a failure.
-        for target in ("m3u", "vfs", "options"):
+        for target in ("m3u", "vfs", "options", "hdz"):
             with self.subTest(target=target):
                 result = self.run_target(target, 1, 200, {"P6_FUZZ_SELFTEST": "1"})
                 self.assertEqual(result.returncode, 1)

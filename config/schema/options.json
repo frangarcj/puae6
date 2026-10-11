@@ -482,6 +482,25 @@
       "wrapper": {"how": "none"}
     },
     {
+      "id": "hdf_save",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hdf_save",
+      "default": "off",
+      "values": [
+        {"value": "off", "abi": 0, "label": "Off: the changes are lost when the content closes"},
+        {"value": "on_close", "abi": 1, "label": "When the content closes"}
+      ],
+      "libretro": {
+        "key": "puae6_hdf_save",
+        "category": "media",
+        "label": "Save Hard Disk Changes",
+        "info": "A hard disk (.hdf or .hdz) is always writable for the guest, but the file is never touched: what the guest writes lives in the machine (in save states, rewind and run-ahead). When the content closes, a hard disk the guest changed is written to the frontend's save directory as puae6-<id>.hdf (a temporary file renamed over the old one), and the next time the same file loads with this option on, that copy is the disk. Never during rewind, run-ahead or loading a state. A save state holds only the 4 KiB chunks the guest wrote, but the size the frontend reserves for one grows with the hard disk."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
       "id": "video_crop",
       "class": "presentation",
       "type": "enum",

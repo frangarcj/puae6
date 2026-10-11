@@ -28,6 +28,7 @@ struct Settings {
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
     uint32_t video_aspect = 0u;  // presentation, presentation.video_aspect = pixel
     uint32_t floppy_save = 0u;  // presentation, presentation.floppy_save = off
+    uint32_t hdf_save = 0u;  // presentation, presentation.hdf_save = off
     uint32_t video_crop = 0u;  // presentation, presentation.video_crop = disabled
     uint32_t video_crop_mode = 0u;  // presentation, presentation.video_crop_mode = both
     uint32_t video_crop_delay = 1u;  // presentation, presentation.video_crop_delay = enabled
@@ -382,6 +383,10 @@ constexpr Value kVideoAspectValues[] = {
     {"NTSC", 3u},
 };
 constexpr Value kFloppySaveValues[] = {
+    {"off", 0u},
+    {"on_close", 1u},
+};
+constexpr Value kHdfSaveValues[] = {
     {"off", 0u},
     {"on_close", 1u},
 };
@@ -747,6 +752,7 @@ constexpr Option kOptions[] = {
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 4, 0},
     {"puae6_floppy_save", false, &Settings::floppy_save, kFloppySaveValues, 2, 0},
+    {"puae6_hdf_save", false, &Settings::hdf_save, kHdfSaveValues, 2, 0},
     {"puae6_video_crop", false, &Settings::video_crop, kVideoCropValues, 9, 0},
     {"puae6_video_crop_mode", false, &Settings::video_crop_mode, kVideoCropModeValues, 7, 0},
     {"puae6_video_crop_delay", false, &Settings::video_crop_delay, kVideoCropDelayValues, 2, 1},
@@ -879,6 +885,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
     {"puae6_floppy_save", "Save Floppy Changes", "Save Floppy Changes",
      "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.",
      "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.",
+     "media", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
+    {"puae6_hdf_save", "Save Hard Disk Changes", "Save Hard Disk Changes",
+     "A hard disk (.hdf or .hdz) is always writable for the guest, but the file is never touched: what the guest writes lives in the machine (in save states, rewind and run-ahead). When the content closes, a hard disk the guest changed is written to the frontend's save directory as puae6-<id>.hdf (a temporary file renamed over the old one), and the next time the same file loads with this option on, that copy is the disk. Never during rewind, run-ahead or loading a state. A save state holds only the 4 KiB chunks the guest wrote, but the size the frontend reserves for one grows with the hard disk.",
+     "A hard disk (.hdf or .hdz) is always writable for the guest, but the file is never touched: what the guest writes lives in the machine (in save states, rewind and run-ahead). When the content closes, a hard disk the guest changed is written to the frontend's save directory as puae6-<id>.hdf (a temporary file renamed over the old one), and the next time the same file loads with this option on, that copy is the disk. Never during rewind, run-ahead or loading a state. A save state holds only the 4 KiB chunks the guest wrote, but the size the frontend reserves for one grows with the hard disk.",
      "media", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
     {"puae6_video_crop", "Crop", "Crop",
      "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it.",
@@ -1121,6 +1131,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}, {"PAL", "PAL pixel aspect (26:25)"}, {"NTSC", "NTSC pixel aspect (43:50)"}}, "pixel"},
     {"puae6_floppy_save", "Save Floppy Changes", "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
+    {"puae6_hdf_save", "Save Hard Disk Changes", "A hard disk (.hdf or .hdz) is always writable for the guest, but the file is never touched: what the guest writes lives in the machine (in save states, rewind and run-ahead). When the content closes, a hard disk the guest changed is written to the frontend's save directory as puae6-<id>.hdf (a temporary file renamed over the old one), and the next time the same file loads with this option on, that copy is the disk. Never during rewind, run-ahead or loading a state. A save state holds only the 4 KiB chunks the guest wrote, but the size the frontend reserves for one grows with the hard disk.", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
     {"puae6_video_crop", "Crop", "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it.", {{"disabled", "Disabled"}, {"minimum", "Minimum (720x540 PAL)"}, {"smaller", "Smaller (696x528 PAL)"}, {"small", "Small (672x512 PAL)"}, {"medium", "Medium (640x480)"}, {"large", "Large (640x448)"}, {"larger", "Larger (640x432)"}, {"maximum", "Maximum (640x400)"}, {"auto", "Automatic (the drawn area)"}}, "disabled"},
     {"puae6_video_crop_mode", "Crop Mode", "Which dimensions Crop cuts: both, only the width, only the height, or the smallest window of a picture aspect ratio (16:9, 16:10, 4:3, 5:4) that holds the cropped size. 'Horizontal + Vertical' with Automatic removes the borders completely.", {{"both", "Horizontal + Vertical"}, {"horizontal", "Horizontal"}, {"vertical", "Vertical"}, {"16:9", "16:9"}, {"16:10", "16:10"}, {"4:3", "4:3"}, {"5:4", "5:4"}}, "both"},
     {"puae6_video_crop_delay", "Automatic Crop Delay", "With Crop on Automatic: 'enabled' waits until the drawn area has been the same for about a second of emulated time before the picture changes size, 'disabled' follows it at once. Counted in emulated units, never in wall-clock time.", {{"disabled", "Disabled: instant geometry changes"}, {"enabled", "Enabled: patient geometry changes"}}, "enabled"},
@@ -1196,6 +1207,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3|PAL|NTSC"},
     {"puae6_floppy_save", "Save Floppy Changes; off|on_close"},
+    {"puae6_hdf_save", "Save Hard Disk Changes; off|on_close"},
     {"puae6_video_crop", "Crop; disabled|minimum|smaller|small|medium|large|larger|maximum|auto"},
     {"puae6_video_crop_mode", "Crop Mode; both|horizontal|vertical|16:9|16:10|4:3|5:4"},
     {"puae6_video_crop_delay", "Automatic Crop Delay; enabled|disabled"},

@@ -110,6 +110,18 @@
       "seed": 2,
       "iterations": 20000,
       "note": "baseline; no defect found"
+    },
+    {
+      "target": "hdz",
+      "seed": 1,
+      "iterations": 6000,
+      "note": "baseline of T63a (decode_hard_file: .hdf and .hdz with cut, flipped, bad-trailer and oversized gzip members, a bomb at the cap, wrong sizes); no defect found"
+    },
+    {
+      "target": "hdz",
+      "seed": 2,
+      "iterations": 6000,
+      "note": "baseline of T63a; no defect found"
     }
   ],
   "config_runs": [

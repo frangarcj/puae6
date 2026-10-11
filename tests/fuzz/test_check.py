@@ -71,6 +71,17 @@ class TaskSuiteDispatchTests(unittest.TestCase):
         self.assertEqual(result["assertions_executed"], sorted(suites))
         self.assertEqual(runner.call_count, len(suites))
 
+    def test_the_content_fuzzer_with_hard_files_is_covered_for_t63a_and_keeps_every_earlier_target(self):
+        suites = check.TASK_SUITES[("FUZZ01", "T63a")]
+        self.assertEqual(suites["libretro_content"], "tests.fuzz.test_fuzz.ContentFuzzTests")        # which fuzzes decode_hard_file (the hdz target) since T63a
+        self.assertTrue(set(check.TASK_SUITES[("FUZZ01", "T29d")]) <= set(suites))
+        with mock.patch.object(check.shutil, "which", return_value="/usr/bin/tool"), \
+             mock.patch.object(check, "_run_suite", return_value=completed(COUNTS)) as runner:
+            result = check.dispatch("FUZZ01", task="T63a", required=("libretro_content", "hard_file"))
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["assertions_executed"], sorted(suites))
+        self.assertEqual(runner.call_count, len(suites))
+
     def test_other_tasks_and_profiles_are_not_covered(self):
         for kwargs in ({"task": "T27"}, {"task": "T26", "profile": "other"}):
             self.assertEqual(check.dispatch("SAFE01", **kwargs)["status"], "NOT_IMPLEMENTED")
