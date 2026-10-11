@@ -11439,7 +11439,7 @@
       "title": "Incorporar HDF como dispositivo de bloques determinista",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T27",
         "T28",
