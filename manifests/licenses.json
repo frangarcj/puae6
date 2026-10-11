@@ -456,6 +456,161 @@
       ],
       "handling": "Six pristine files only: emutls C runtime plus internal headers and full license. Preserve notices for source and binary distribution.",
       "build_eligibility": "selected_for_waterbox_C++_TLS"
+    },
+    {
+      "id": "machawk-whdload-commodore-os",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Proprietary: AmigaOS 2.x/3.x commands, libraries, monitor drivers and Preferences files of Commodore-Amiga, Inc. (copyright strings and $VER lines in the files); not a free-distribution license",
+      "notice_files": [],
+      "handling": "Reference capture only (the file is what the old core ships in WHDLoad.hdf). Never copied into a PUAE6 image, a fixture or CI: the generated startup sequence needs none of them; a user who wants them supplies his own AmigaOS files.",
+      "build_eligibility": "excluded_not_redistributable",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/C/Assign",
+          "whdload/WHDLoad_files/C/ClickNot",
+          "whdload/WHDLoad_files/C/Copy",
+          "whdload/WHDLoad_files/C/Delete",
+          "whdload/WHDLoad_files/C/Dir",
+          "whdload/WHDLoad_files/C/Execute",
+          "whdload/WHDLoad_files/C/IconX",
+          "whdload/WHDLoad_files/C/JoyMouse",
+          "whdload/WHDLoad_files/C/List",
+          "whdload/WHDLoad_files/C/MEmacs",
+          "whdload/WHDLoad_files/C/MakeDir",
+          "whdload/WHDLoad_files/C/MultiView",
+          "whdload/WHDLoad_files/C/Rename",
+          "whdload/WHDLoad_files/C/RequestChoice",
+          "whdload/WHDLoad_files/C/RequestFile",
+          "whdload/WHDLoad_files/C/Type",
+          "whdload/WHDLoad_files/Devs/Monitors/NTSC",
+          "whdload/WHDLoad_files/Devs/Monitors/PAL",
+          "whdload/WHDLoad_files/Devs/system-configuration",
+          "whdload/WHDLoad_files/Devs/system-configuration-default",
+          "whdload/WHDLoad_files/Devs/system-configuration-native",
+          "whdload/WHDLoad_files/Libs/asl.library",
+          "whdload/WHDLoad_files/Libs/commodities.library",
+          "whdload/WHDLoad_files/Libs/diskfont.library",
+          "whdload/WHDLoad_files/Libs/lowlevel.library",
+          "whdload/WHDLoad_files/Libs/mathieeedoubbas.library"
+        ],
+        "set_sha256": "39fa3a5cb2001f1828a40513505845bd548ab0a9deea5966f78c9feed014986b"
+      }
+    },
+    {
+      "id": "machawk-whdload-third-party-unaudited",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Third-party Amiga utilities and libraries (JoyPad by Daniel Balster, RequestString by Adam Dawes, xfdmaster/xfdDecrunch, powerpacker, reqtools, parm, xpkmaster and the xpk compressors, WBRun): each has its own terms, none is retained here and none was audited",
+      "notice_files": [],
+      "handling": "Unaudited. Not used by PUAE6 and never put in a generated image until its license is read and registered here; the WHDLoad flow of T30 does not need any of them.",
+      "build_eligibility": "excluded_unaudited",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/C/JoyPad",
+          "whdload/WHDLoad_files/C/MemClear",
+          "whdload/WHDLoad_files/C/RequestString",
+          "whdload/WHDLoad_files/C/WBRun",
+          "whdload/WHDLoad_files/C/xfdDecrunch",
+          "whdload/WHDLoad_files/Libs/compressors/xpkBLZW.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkCBR0.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkDLTA.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkDUKE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkFAST.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkFRLE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkGZIP.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkHFMN.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkHUFF.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkIMPL.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkMASH.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkNONE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkNUKE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkRAKE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkRLEN.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkSHRI.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkSMPL.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkSQSH.library",
+          "whdload/WHDLoad_files/Libs/parm.library",
+          "whdload/WHDLoad_files/Libs/powerpacker.library",
+          "whdload/WHDLoad_files/Libs/reqtools.library",
+          "whdload/WHDLoad_files/Libs/xfdmaster.library",
+          "whdload/WHDLoad_files/Libs/xpkmaster.library"
+        ],
+        "set_sha256": "dd1938697b004aa3f9b9985b3ae507a1f06a29d78ea245f920b36b3cdbf395a7"
+      }
+    },
+    {
+      "id": "machawk-whdload-program",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "WHDLoad (C:WHDLoad 18.9 and its S:WHDLoad.prefs) is copyright Bert Jahn, all rights reserved; commercial use only with his written permission (Docs/en/copy.html of the 20.0 package); no redistribution grant is retained in the capture",
+      "notice_files": [],
+      "handling": "Reference capture of an older WHDLoad. The tool of T30 takes the user's own current WHDLoad package as an input (license entry `whdload` in user_supplied_inputs) and never stores it in the repository.",
+      "build_eligibility": "excluded_not_redistributed_by_this_project",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad.prefs",
+          "whdload/WHDLoad_files/C/WHDLoad",
+          "whdload/WHDLoad_files/S/WHDLoad.prefs",
+          "whdload/WHDLoad_files/S/WHDLoad.prefs.default"
+        ],
+        "set_sha256": "f10d0f78a2774f6f9f559aa085f51f5c176e44a9dd749588a688041712f090ac"
+      }
+    },
+    {
+      "id": "machawk-whdload-kickstart-rtb",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "ROM Tool Bundle files of the WHDLoad project (relocation data that WHDLoad needs next to a Kickstart image the user owns); they contain no Kickstart code but no license text is retained",
+      "notice_files": [],
+      "handling": "Reference capture only. A slave that asks for a Kickstart also needs the user's own image and its .RTB; both are user assets (never in the repository or in CI), see prepare_whdload.py --asset.",
+      "build_eligibility": "excluded_unaudited",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick33180.A500.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick34005.A500.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick40063.A600.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick40068.A1200.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick40068.A4000.RTB"
+        ],
+        "set_sha256": "30e0b9a4d50ffc1e83de23becdf68d1cb22e34345afc65fa349a5814a40a1004"
+      }
+    },
+    {
+      "id": "machawk-whdload-boot-scripts",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Scripts written for libretro-uae (GPL-2.0, repository COPYING; no per-file notice)",
+      "notice_files": [],
+      "handling": "Reference only, read for the flow (assigns, WHDLoad.prefs, KSCopy). PUAE6 generates its own boot script from config/whdload/*.json and does not copy these.",
+      "build_eligibility": "reference_only",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/S/KSCopy",
+          "whdload/WHDLoad_files/S/MkCustom",
+          "whdload/WHDLoad_files/S/Startup-Sequence",
+          "whdload/WHDLoad_files/S/WBSelect",
+          "whdload/WHDLoad_files/S/WHDLoad-Cleanup",
+          "whdload/WHDLoad_files/S/WHDLoad-Startup"
+        ],
+        "set_sha256": "ffff2b49fa566df334f977c9db467c3a2946fdf2e0cc0021c6d8eeab6d0999f5"
+      }
+    },
+    {
+      "id": "machawk-whdload-boot-images",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Composite disk images (WHDLoad.hdf, WHDSaves.hdf) built from the components above; their terms are the strictest of them (they hold Commodore files)",
+      "notice_files": [],
+      "handling": "Reference only; never mounted or embedded by PUAE6.",
+      "build_eligibility": "excluded_not_redistributable",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad.hdf",
+          "whdload/WHDSaves.hdf"
+        ],
+        "set_sha256": "125afee40cd989567032bffe80ddfc62630275f8711ea93ace73b7b59d4092d0"
+      }
     }
   ],
   "exclusions": [
@@ -505,6 +660,57 @@
       "source_id": "winuae",
       "status": "profile_allowlist_pending",
       "detail": "The manifest records known notice evidence and explicit exclusions. Compare against the final selected source allowlist before distribution; this inventory does not claim a complete legal review."
+    }
+  ],
+  "user_supplied_inputs": [
+    {
+      "id": "whdload",
+      "name": "WHDLoad user package (WHDLoad_usr.lha)",
+      "author": "Bert Jahn",
+      "origin": "https://whdload.de/whdload/WHDLoad_usr.lha",
+      "pinned_member": "WHDLoad/C/WHDLoad = WHDLoad 20.0 build 7051 (27.03.2026)",
+      "license_evidence": "Docs/en/copy.html of the package: 'WHDLoad is copyright 1995-2026 by Bert Jahn. All rights reserved. Commercial use is only allowed with an explicit, written permission by the author', no-warranty text, and the BSD 2-Clause notice of WHDLoadArchiveFS (WHDLoad.VFS, Teemu Suutari, 2020). The package is offered for download by its author; it grants no explicit right to redistribute it.",
+      "evidence_sha256": {
+        "WHDLoad/Docs/en/copy.html": "608b490a7e7c394baf685babd5b38d4eb0dc123dd475ed51ca596cf32a901c1e"
+      },
+      "redistribution": "unverified",
+      "handling": "The user downloads it; prepare_whdload.py reads it from the path given (--input whdload=PATH or P6_WHDLOAD_LHA) and the image that holds C:WHDLoad is for that user only (manifest `redistributable: false`). It is never committed, shipped or used by public CI."
+    },
+    {
+      "id": "fatal-mission",
+      "name": "Fatal Mission 1 (WHDLoad install by Kyzer, FatalMission.lha)",
+      "author": "Robin Burrows (game), Steven Huckle (graphics), Kyzer/CSG (install, upload)",
+      "origin": "https://whdload.de/games/FatalMission.lha ; https://aminet.net/game/shoot/FatalMission.readme",
+      "pinned_member": "FatalMission/FM1, FatalMission/FatalMission.slave (sha256 in config/whdload/fatal-mission.json)",
+      "license_evidence": "Aminet readme of the package (game/shoot/FatalMission.readme): 'Short: Classic PD shoot-em-up Fatal Mission', author Robin Burrows, uploader Kyzer/CSG; the original game data is included in the package and the whdload.de page lists no Image to supply. The public-domain claim is the uploader's; it was not independently verified with the author.",
+      "evidence_sha256": {
+        "aminet FatalMission.readme (2026-10-12)": "2b17408040a4b21f03abfce268a0e1c2440114d6efbefc40248594ad73ffce9e",
+        "whdload.de FatalMission.html (2026-10-12)": "dc20bd785efff1d8409f47f1edf0d364a47fb47d31791fa19bc375e508517e5a"
+      },
+      "redistribution": "unverified",
+      "handling": "Opt-in input of the real-game tests (P6_FATALMISSION_LHA, a download kept outside the repository). Not committed and not used by public CI until the public-domain claim is confirmed; nothing commercial."
+    },
+    {
+      "id": "user-kickstart",
+      "name": "Kickstart ROM image and its .RTB owned by the user",
+      "author": "Commodore / Cloanto / Hyperion (the user's own licence)",
+      "origin": "the user's machine",
+      "pinned_member": null,
+      "license_evidence": "Not applicable: never obtained, copied or hashed by this project.",
+      "evidence_sha256": {},
+      "redistribution": "no",
+      "handling": "Declared in a config as a user asset: the file is read from the path the user gives (--asset or the environment variable the config names), checked by size only, written into the image the user builds for himself and never recorded or hashed in any manifest. The manifest of such an image says `redistributable: false`."
+    },
+    {
+      "id": "generated",
+      "name": "Text generated from the config (startup sequence, WHDLoad.prefs)",
+      "author": "PUAE6",
+      "origin": "config/whdload/*.json",
+      "pinned_member": null,
+      "license_evidence": "Written for this project; plain commands and option names, no third-party text.",
+      "evidence_sha256": {},
+      "redistribution": "yes",
+      "handling": "Free to include in any image."
     }
   ]
 }

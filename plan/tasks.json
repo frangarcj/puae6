@@ -11485,13 +11485,88 @@
       "evidence": null
     },
     {
+      "id": "T30a",
+      "title": "Generador WHDLoad determinista: decodificador LHA acotado, escritor FFS, manifiesto de instalacion, licencias y assets visibles",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "evidence": null,
+      "depends": [
+        "T29"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tools/prepare_whdload.py",
+        "tools/whdload/**",
+        "config/whdload/**",
+        "tests/whdload/**",
+        "docs/whdload.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Parte generadora de T30 (P16 de reports/research/parity-puae5.md, version offline). Referencia ../MacHawk (solo lectura): UAE.WHDLoad.cs (RASystem: determinista con timestamp 1980 y orden fijo) y references/machawk-uae/whdload (startup-sequence, WHDLoad.prefs); portar la idea, no el motor.",
+        "tools/prepare_whdload.py + tools/whdload/ (lha.py: -lh0-/-lh5-/-lh6-/-lh7- en Python puro con cotas; ffs.py: escritor FFS determinista): manifiesto config/whdload/*.json (ficheros con SHA-256 esperado, boot, prefs, datos distribuidos frente a assets del usuario), instalacion en directorio o LHA, imagen con orden lexicografico y sellos fijos, mismo input = mismos bytes y mismo manifiesto; nunca ejecuta nada del juego en el host.",
+        "Auditar y registrar en manifests/licenses.json los activos de references/machawk-uae/whdload (varios C: son de Commodore y no se redistribuyen) y los descargados (WHDLoad, juegos de libre distribucion). touch se amplia con tools/whdload/** porque el decodificador y el escritor son modulos propios."
+      ],
+      "checks": [
+        "MED03",
+        "SRC01"
+      ],
+      "acceptance": [
+        "Dos preparaciones con los mismos inputs dan la misma imagen y el mismo manifiesto; un asset o licencia que falta se nombra y la preparacion falla (o se marca) sin exito silencioso."
+      ],
+      "stop": "Sin acceso al FS del host fuera de la preparacion: el replay recibe la imagen ya hecha."
+    },
+    {
+      "id": "T30b",
+      "title": "Arranque WHDLoad real desde el conjunto instalado en headless, libretro y BizHawk/Waterbox: input, escritura y restore",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "evidence": null,
+      "depends": [
+        "T30a",
+        "T63"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tests/whdload/**",
+        "config/whdload/**",
+        "docs/whdload.md",
+        "tools/prepare_whdload.py",
+        "tools/whdload/**"
+      ],
+      "steps": [
+        "Parte de ejecucion de T30: la imagen que prepara T30a (un juego de libre distribucion, datos incluidos; Kickstart del usuario por variable de entorno, opt-in) arranca WHDLoad, responde a entrada, escribe en el volumen y repone desde un estado en el motor nativo, en libretro y en el nucleo BizHawk dentro de Waterbox.",
+        "DET02 (estados con la imagen), WB03 (nucleo C#) y MED03 (el replay no monta carpetas del host). Sin cambios de produccion (adapters/, bridge/, integration/): si hacen falta, parar y explicar."
+      ],
+      "checks": [
+        "DET02",
+        "WB03"
+      ],
+      "acceptance": [
+        "El mismo juego instalado arranca, recibe una tecla, escribe y repone en los tres adaptadores, o la puerta queda blocked con el motivo."
+      ],
+      "stop": "Si el crash de libwaterboxhost (T28a) interfiere, anotar la senal y repetir, sin subir timeouts."
+    },
+    {
       "id": "T30",
       "title": "Definir y probar un flujo WHDLoad reproducible",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T29"
+        "T29",
+        "T30a",
+        "T30b"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -11509,7 +11584,8 @@
         "Fijar manifest de instalacion: archivos/boot/config/hashes y herramientas autorizadas, separando datos distribuidos de assets del usuario.",
         "Generar imagen determinista con orden, timestamps y contenido controlados o exigir imagen previamente identificada; no ejecutar scripts arbitrarios del juego en el host.",
         "Probar arranque, input, escritura y restore desde el mismo conjunto instalado en ambos adaptadores.",
-        "Documentar restricciones de formatos/instaladores y que el flujo no replica automaticamente toda la UX de PUAE viejo."
+        "Documentar restricciones de formatos/instaladores y que el flujo no replica automaticamente toda la UX de PUAE viejo.",
+        "2026-10-12: dividida en T30a (generador, licencias, MED03/SRC01) y T30b (arranque real en los tres adaptadores, DET02/WB03); T30 queda como cierre con docs/whdload.md."
       ],
       "checks": [
         "MED03",
