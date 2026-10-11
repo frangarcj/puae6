@@ -9,6 +9,9 @@
 //                                        p6_media_write_status are called with hostile arguments
 //   fuzz_probe state ROM SEED N          p6_state_load on N mutated states of a running image (truncated, extended, bit flips, byte runs, extreme values, chunk table edits, swapped and
 //                                        spliced chunks, other build/ROM/config/media identities and manifest prefixes), with, without and with an appended disk, resealed or not
+//   fuzz_probe hardfile ROM SEED N IMAGE...  (T29d) p6_load of a hard file whose Rigid Disk Block, PART, FSHD and LSEG blocks were mutated (fields set to boundary values, pointers
+//                                        sent elsewhere, blocks swapped, copied, zeroed or cut off, with the checksums put right again most of the time), then the micro-ROM of
+//                                        tests/hdf/hdf_rom.py (mount_program) asks the filesystem for the partitions, which parses all of it; the state is saved and loaded back
 // Output is a histogram of result codes; nothing else varies between runs.
 #include "p6.h"
 #include "blob_io.h"
@@ -916,6 +919,161 @@ int fuzz_state(const char *path, uint64_t seed, uint64_t iterations, uint32_t ma
     return 0;
 }
 
+// --- T29d: hard files with a hostile Rigid Disk Block -------------------------------------------------------------------------------------------------------------------
+constexpr uint32_t kBlock = 512;
+constexpr uint32_t kRdbIds[] = {0x5244534B, 0x50415254, 0x46534844, 0x4C534547};      // RDSK PART FSHD LSEG
+constexpr uint32_t kMountResults = 0x5200;          // tests/hdf/hdf_rom.py: MOUNT_RES, a long per partition asked for (8), then DONE
+constexpr uint32_t kMountAsked = 8, kDone = 0x444F4E45;
+
+uint32_t get_be(const std::vector<uint8_t> &image, size_t at) { return uint32_t(image[at]) << 24 | uint32_t(image[at + 1]) << 16 | uint32_t(image[at + 2]) << 8 | image[at + 3]; }
+void put_be(std::vector<uint8_t> &image, size_t at, uint32_t v) { for (int i = 0; i < 4; ++i) image[at + i] = uint8_t(v >> (24 - 8 * i)); }
+
+bool is_rdb_block(const std::vector<uint8_t> &image, size_t block)
+{
+    if ((block + 1) * kBlock > image.size()) return false;
+    const uint32_t id = get_be(image, block * kBlock);
+    for (uint32_t known : kRdbIds) if (id == known) return true;
+    return false;
+}
+
+// "The longs of the block add up to zero", over as many longs as the block says it has (at most the block): what rdb_checksum asks.
+void fix_checksum(std::vector<uint8_t> &image, size_t block)
+{
+    const size_t base = block * kBlock;
+    uint32_t longs = get_be(image, base + 4);
+    if (longs < 4 || longs > kBlock / 4) longs = kBlock / 4;
+    put_be(image, base + 8, 0);
+    uint32_t sum = 0;
+    for (uint32_t i = 0; i < longs; ++i) sum += get_be(image, base + 4 * i);
+    put_be(image, base + 8, 0u - sum);
+}
+
+std::vector<uint8_t> mutate_hard_file(const std::vector<uint8_t> &good, Random &rng)
+{
+    std::vector<uint8_t> image = good;
+    const size_t blocks = image.size() / kBlock;
+    std::vector<size_t> rdb;
+    for (size_t b = 0; b < blocks && b < 64; ++b) if (is_rdb_block(image, b)) rdb.push_back(b);
+    if (rdb.empty()) rdb.push_back(0);
+    for (unsigned edits = 1 + rng.below(4); edits--;) {
+        const size_t block = rdb[rng.below(uint32_t(rdb.size()))];
+        const size_t base = block * kBlock;
+        if (base + kBlock > image.size()) continue;
+        switch (rng.below(10)) {
+        case 0: image[base + rng.below(kBlock)] ^= uint8_t(1u << rng.below(8)); break;
+        case 1: put_be(image, base + 4 * rng.below(kBlock / 4), uint32_t(kBoundary[rng.below(sizeof kBoundary / sizeof kBoundary[0])])); break;
+        case 2: {       // a link of the lists (next, partition list, file system list, first load segment, the block size field) sent elsewhere
+            static const unsigned fields[] = {1, 4, 7, 8, 18, 9, 16};
+            const uint32_t target = rng.coin() ? uint32_t(rng.below(uint32_t(blocks) + 2)) : (rng.coin() ? 0xFFFFFFFFu : uint32_t(rng.next()));
+            put_be(image, base + 4 * fields[rng.below(sizeof fields / sizeof fields[0])], target);
+            break;
+        }
+        case 3: {       // two blocks swapped
+            const size_t other = rng.below(uint32_t(std::min<size_t>(blocks, 64)));
+            for (uint32_t i = 0; i < kBlock; ++i) std::swap(image[base + i], image[other * kBlock + i]);
+            break;
+        }
+        case 4: memset(&image[base], 0, kBlock); break;
+        case 5: { const size_t other = rng.below(uint32_t(std::min<size_t>(blocks, 64))); memcpy(&image[other * kBlock], &image[base], kBlock); break; }
+        case 6: {       // a run of random bytes
+            const uint32_t at = rng.below(kBlock), length = 1 + rng.below(std::min<uint32_t>(32, kBlock - at));
+            for (uint32_t i = 0; i < length; ++i) image[base + at + i] = uint8_t(rng.next());
+            break;
+        }
+        case 7: if (blocks > 4) image.resize((blocks - 1 - rng.below(uint32_t(std::min<size_t>(blocks - 3, 8)))) * kBlock); break;      // cut off a few blocks
+        case 8: image.resize(image.size() + kBlock * (1 + rng.below(3))); break;                                                        // zero blocks added
+        default: put_be(image, base + 4, rng.below(4) == 0 ? uint32_t(rng.next()) : rng.below(200)); break;                             // how many longs the block says it has
+        }
+    }
+    if (rng.below(10) < 7)
+        for (size_t b = 0; b < image.size() / kBlock && b < 64; ++b) if (is_rdb_block(image, b)) fix_checksum(image, b);
+    if (rng.below(12) == 0 && image.size() > 1) image.resize(image.size() - 1 - rng.below(kBlock - 1));          // not a whole number of blocks: refused
+    return image;
+}
+
+int fuzz_hardfile(const char *rom_path, uint64_t seed, uint64_t iterations, int image_count, char **image_paths)
+{
+    Random rng(seed);
+    const std::vector<uint8_t> rom = read_file(rom_path);
+    std::vector<std::vector<uint8_t>> pool;
+    for (int i = 0; i < image_count; ++i) pool.push_back(read_file(image_paths[i]));
+    p6_config config = valid_config();
+    p6_error error = fresh_error();
+    if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
+    std::map<int, unsigned> histogram, mounts;
+    unsigned ran = 0, states = 0;
+    std::vector<uint8_t> buffer;
+    for (uint64_t i = 0; i < iterations; ++i) {
+        const std::vector<uint8_t> image = mutate_hard_file(pool[rng.below(uint32_t(pool.size()))], rng);
+        p6_media m{};
+        m.type = P6_MEDIA_HDF;
+        m.image = p6_buffer{image.data(), image.size()};
+        p6_sha256_hash(image.data(), image.size(), m.content_id);
+        const bool expected = !image.empty() && image.size() % kBlock == 0;
+        error = fresh_error();
+        const p6_result r = p6_load(p6_buffer{rom.data(), rom.size()}, &m, 1, &error);
+        ++histogram[int(r)];
+        if (!message_is_bounded(error)) bug("unbounded message", i);
+        if ((r == P6_OK) != expected) bug(r == P6_OK ? "a hard file that is not whole blocks was accepted" : "a hard file of whole blocks was refused", i);
+        if (r != P6_OK) {
+            if (r != P6_ERROR_WRONG_MEDIA && r != P6_ERROR_CAPACITY && r != P6_ERROR_BAD_ARGUMENT) bug("a hard file result outside the documented set", i);
+            if (!error.message[0]) bug("error without a message", i);
+            continue;
+        }
+        ++ran;
+        p6_input input{};
+        input.abi_version = P6_ABI_VERSION;
+        input.struct_size = sizeof input;
+        p6_frame frame{};
+        for (unsigned unit = 0; unit < 4; ++unit) {
+            frame = p6_frame{};
+            frame.abi_version = P6_ABI_VERSION;
+            frame.struct_size = sizeof frame;
+            error = fresh_error();
+            if (p6_run_frame(&input, 0, &frame, &error) != P6_OK) bug("a unit with a mutated hard file failed", i);
+        }
+        // What the filesystem answered for each partition asked for: the guest stored it in Chip RAM.
+        p6_memory_region regions[8];
+        uint32_t count = 0;
+        if (p6_memory_regions(regions, 8, &count, nullptr) != P6_OK) bug("p6_memory_regions", i);
+        for (uint32_t k = 0; k < count; ++k) {
+            if (regions[k].type != P6_REGION_CHIP_RAM) continue;
+            const uint8_t *chip = static_cast<const uint8_t *>(regions[k].data);
+            if (regions[k].bytes < kMountResults + 4 * (kMountAsked + 1)) bug("Chip RAM too small", i);
+            uint32_t done = uint32_t(chip[kMountResults + 4 * kMountAsked]) << 24 | uint32_t(chip[kMountResults + 4 * kMountAsked + 1]) << 16 |
+                            uint32_t(chip[kMountResults + 4 * kMountAsked + 2]) << 8 | chip[kMountResults + 4 * kMountAsked + 3];
+            if (done != kDone) bug("the guest did not finish asking for the partitions", i);
+            for (uint32_t n = 0; n < kMountAsked; ++n) {
+                const int32_t answer = int32_t(uint32_t(chip[kMountResults + 4 * n]) << 24 | uint32_t(chip[kMountResults + 4 * n + 1]) << 16 |
+                                               uint32_t(chip[kMountResults + 4 * n + 2]) << 8 | chip[kMountResults + 4 * n + 3]);
+                ++mounts[answer < -2 ? -3 : answer > 3 ? 4 : answer];
+            }
+        }
+        // The state of a machine that has parsed a hostile disk saves and loads back (T29c), and the machine goes on.
+        uint64_t bound = 0, written = 0;
+        error = fresh_error();
+        if (p6_state_bound(&bound, &error) != P6_OK) bug("p6_state_bound with a mutated hard file", i);
+        buffer.resize(size_t(bound));
+        error = fresh_error();
+        if (p6_state_save(buffer.data(), buffer.size(), &written, &error) != P6_OK) bug("p6_state_save with a mutated hard file", i);
+        error = fresh_error();
+        if (p6_state_load(buffer.data(), written, &error) != P6_OK) bug("a state of a mutated hard file did not load back", i);
+        frame = p6_frame{};
+        frame.abi_version = P6_ABI_VERSION;
+        frame.struct_size = sizeof frame;
+        error = fresh_error();
+        if (p6_run_frame(&input, 0, &frame, &error) != P6_OK) bug("a unit after the state load failed", i);
+        ++states;
+        error = fresh_error();
+        if (p6_unload(&error) != P6_OK) bug("p6_unload", i);
+    }
+    for (const auto &entry : histogram) printf("hardfile result %d: %u\n", entry.first, entry.second);
+    for (const auto &entry : mounts) printf("hardfile mount answer %d: %u\n", entry.first, entry.second);
+    printf("hardfile loaded %u states %u\n", ran, states);
+    p6_shutdown(nullptr);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -928,6 +1086,7 @@ int main(int argc, char **argv)
         return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10),
                           argc == 5 ? P6_MACHINE_A500 : !strcmp(argv[5], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A1200);
     }
+    if (argc >= 6 && !strcmp(argv[1], "hardfile")) return fuzz_hardfile(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc - 5, argv + 5);
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200] | state-writable ROM SEED N | blob SEED N\n", argv[0]);
     return 64;

@@ -19,7 +19,7 @@ typedef struct p6w_media {
     uint32_t type;                      /* P6_MEDIA_*; flags must be zero, as in p6_media. */
     uint32_t flags;
     uint8_t content_id[P6_CONTENT_ID_SIZE];
-    const void *data;                   /* host memory, copied into the sealed heap. */
+    const void *data;                   /* host memory, copied into the sealed heap; a P6_MEDIA_HDF image is not (T29d): it is only read during p6w_init, where p6_load copies it into the blob store of the guest (the mmap heap) and the overlay of its writes is reserved beside it. */
     uint64_t bytes;
 } p6w_media;
 
@@ -60,7 +60,7 @@ typedef struct p6w_media_event {
 
 /* The write overlay of the floppies (T28; P6_CONFIG_FLOPPY_WRITES, docs/02-contracts.md "Escritura M3"). Both calls only read the machine: no flush, no event, no state
  * change, and nothing leaves the sandbox except the bytes of p6w_media_export in the host's buffer. status.media_index is an input; the rest of status is output.
- * The export copies the disk as it is now (the base with the overlay over it, exactly 901120 bytes) into `buffer`, host memory of `capacity` bytes that is valid for
+ * The export copies the disk as it is now (the base with the overlay over it: 901120 bytes for a floppy, the size of the image for a hard file, T29d) into `buffer`, host memory of `capacity` bytes that is valid for
  * the call; `written` is 0 unless the result is P6_OK. A medium that was never written exports its base. Errors are those of p6_media_export (UNSUPPORTED without
  * the flag or with a raw track on the disk, CAPACITY for a short buffer, BAD_ARGUMENT for an unknown medium or a null buffer). */
 typedef struct p6w_media_write_status_args {

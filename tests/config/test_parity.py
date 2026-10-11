@@ -116,7 +116,7 @@ class HeadlessParity(Schema):
         flags = set(re.findall(r'strcmp\(argv\[i\], "(--[\w-]+)"\)', self.source))
         flagged = {o["headless"]["flag"] for o in self.reboot.values() if "flag" in o["headless"]}
         # --units, --dump, --dump-from and --disk are about the run (how long, what to write, what disk), not about the machine.
-        self.assertEqual(flags - {"--units", "--dump", "--dump-from", "--disk"}, flagged, "headless takes a flag for a key the schema does not give it, or lacks one")
+        self.assertEqual(flags - {"--units", "--dump", "--dump-from", "--disk", "--hdf", "--export-hdf"}, flagged, "headless takes a flag for a key the schema does not give it, or lacks one")
 
     def test_the_audio_rate_headless_cannot_select_is_still_the_schema_default(self):
         # --rate belongs to p6_state_probe (bridge/state_probe.cpp); the schema says headless fixes the audio rate, so a change of the schema

@@ -67,6 +67,16 @@ TASK_SUITES = {
         'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
         'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
     },
+    # T29d adds the hard files of the UAE controller: Rigid Disk Blocks with mutated RDSK, PART, FSHD and LSEG blocks, parsed by the filesystem the way the boot ROM asks, then saved and loaded back.
+    ('FUZZ01', 'T29d'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'state_writable': 'tests.fuzz.test_fuzz.StateWritableFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
+        'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
+    },
 }
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}
 DRIVER = '''import json, sys, unittest

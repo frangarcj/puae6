@@ -11383,7 +11383,7 @@
       "title": "HDF en Waterbox, bit de capacidad, FUZZ01 de RDB/PART/LSEG y cierre de inventarios",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T29c"
       ],
@@ -11407,12 +11407,21 @@
         "docs/adr/**",
         "manifests/state-inventory.json",
         "docs/02-contracts.md",
-        "docs/03-waterbox.md"
+        "docs/03-waterbox.md",
+        "adapters/headless/**",
+        "integration/bizhawk/smoke/**",
+        "tests/hdf/**",
+        "tests/state/**",
+        "ports/portable/**",
+        "manifests/host-surface.json",
+        "manifests/engine-warnings.json",
+        "patches/winuae/**"
       ],
       "steps": [
         "Leer reports/tasks/T29a.md (llega con la fusion de T29a) y ~/.claude/projects/-Users-frangar-Fun-uae/scratch/t29-research.md.",
         "Guest Waterbox con HDF: presupuesto mmap por tamano como HardDiskHeapKB de MacHawk, WB10 con escrituras HDF, snapshot y restore en sandbox nuevo, medicion en waterbox-memory.json. Parches 0190-0199 si hacen falta.",
-        "P6_CAP_MEDIA_HDF en p6_query_caps con sus tests (test_headless_link, bridge_caps_probe); FUZZ01 de T29 con RDB/PART/LSEG/FSHD mutados registrado en tools/check.py; ADR de presupuesto de parches y state-inventory al dia."
+        "P6_CAP_MEDIA_HDF en p6_query_caps con sus tests (test_headless_link, bridge_caps_probe); FUZZ01 de T29 con RDB/PART/LSEG/FSHD mutados registrado en tools/check.py; ADR de presupuesto de parches y state-inventory al dia.",
+        "Ampliacion de touch (T29d): adapters/headless (--hdf/--export-hdf para comparar el guest con el motor nativo), integration/bizhawk/smoke (HardFileHeapKiB y medios HDF en el smoke), tests/hdf y tests/state (imagenes RDB para el fuzzer y el smoke), ports/portable, manifests/host-surface.json y engine-warnings.json (por si el parche lo exige), patches/winuae (0190: rdb_checksum acotado, hallazgo del fuzzer)."
       ],
       "checks": [
         "WB10",

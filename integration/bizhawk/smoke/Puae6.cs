@@ -61,6 +61,8 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     internal uint FpuModel;
     /// p6_config.flags the next TryInit gives the guest: P6_CONFIG_FLOPPY_WRITES (1) makes the floppies writable (T28, --floppy-writes).
     internal uint ConfigFlags;
+    /// p6_media.type of each medium the next TryInit gives (T29d): P6_MEDIA_ADF (1) unless it says P6_MEDIA_HDF (2). Media past its end are floppies.
+    internal uint[] MediaTypes = [];
     internal readonly string[] HeapNames = ["elf", "main_thread", "alt_thread", "sbrk", "sealed", "invisible", "plain", "mmap"];
     internal readonly ulong[] Ranges = new ulong[16];
     /// The two controller ports of the packet every unit carries: type, buttons, dx, dy. Nothing pressed by default.
@@ -114,7 +116,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             {
                 Marshal.Copy(media[i], 0, disks[i], media[i].Length);
                 byte* entry = p + InitMedia + i * MediaSize;
-                *(uint*)entry = 1;                                          // P6_MEDIA_ADF
+                *(uint*)entry = i < MediaTypes.Length ? MediaTypes[i] : 1u;  // P6_MEDIA_ADF, or P6_MEDIA_HDF for a hard file
                 SHA256.HashData(media[i]).CopyTo(new Span<byte>(entry + 8, 32));
                 *(nint*)(entry + 40) = disks[i]; *(ulong*)(entry + 48) = (ulong)media[i].Length;
             }
@@ -406,6 +408,23 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     }
     internal ulong Refused() => In(() => Guest<Counter>("p6w_memory_refused")());
 
+    /// p6w_media_export (T28, T29d): the medium as it is now, the base with the overlay of the guest's writes over it, into a host buffer of `capacity` bytes. Returns the result code and the bytes.
+    internal (int Result, byte[] Image) ExportMedium(uint index, int capacity)
+    {
+        using var call = new Guarded(304);
+        using var buffer = new Guarded(Math.Max(capacity, 1));
+        call.Payload.Clear();
+        buffer.Payload.Fill(0x77);
+        byte* p = (byte*)call.Address;
+        *(uint*)p = 1; *(uint*)(p + 4) = 304;                       // p6w_media_export: abi_version, struct_size
+        *(uint*)(p + 8) = index;
+        *(nint*)(p + 16) = buffer.Address; *(ulong*)(p + 24) = (ulong)capacity;
+        int result = In(() => Guest<Init>("p6w_media_export")(call.Address));
+        ulong written = *(ulong*)(p + 32);
+        buffer.Check("the export buffer"); call.Check("p6w_media_export"); Canaries += 2;
+        return (result, result == 0 ? buffer.Payload[..(int)written].ToArray() : []);
+    }
+
     public override void Dispose()
     {
         base.Dispose();
@@ -455,17 +474,26 @@ internal static unsafe class Puae6
     /// The mmap heap of the sandbox for a memory configuration (T49): the budget of manifests/waterbox-memory.json plus twice the memory asked for above what the machine comes with
     /// (Chip and Slow above their own sizes, and all the Fast RAM). The same rule as Puae6Core.Heaps in the wrapper (tests/waterbox-state compares them), so a budget is at least
     /// twice what was measured.
-    internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib, bool floppyWrites = false)
+    internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib, bool floppyWrites = false, ulong hardFileKib = 0)
     {
         uint ownChip = machineId == 3 ? 2048u : machineId == 2 ? 1024u : 512u, ownSlow = machineId == 1 ? 512u : 0u;
         ulong extra = fastKib;
         if (chipKib > ownChip) extra += chipKib - ownChip;
         if (slowKib != uint.MaxValue && slowKib > ownSlow) extra += slowKib - ownSlow;
         if (floppyWrites) extra += 4096;        // T28: the write overlay (Puae6Core.FloppyOverlayKiB), measured in manifests/waterbox-memory.json
+        extra += hardFileKib;                   // T29d: HardFileHeapKiB of every hard file, see below
         return baseBytes + (nuint)(2 * extra * 1024);
     }
 
+    /// The mmap heap a hard file asks for, in KiB (T29d), the counterpart of MacHawk's HardDiskHeapKB: the blob store keeps the base (the size of the image) and, reserved beside it at load, the room for
+    /// the overlay of the guest's writes (the size of the image again, 4 KiB chunks made on first write) and its dirty bitmap, so twice the image plus the bitmap and 64 KiB of the allocator's
+    /// own; the budget then counts it twice like any extra memory (a budget is at least twice what was measured).
+    internal static ulong HardFileHeapKiB(long bytes) => (ulong)(2 * ((bytes + 1023) / 1024) + (bytes / 4096 + 7) / 8 / 1024 + 64);
+
     // Smoke.dll --puae6 --runtime receipt.json --guest puae6-receipt.json --manifest waterbox-memory.json --firmware rom --units N --result out.json
+    //   [--rewind-to V --rewind-from U] (T29d: after unit U the snapshot of unit V is loaded back in the same sandbox and units V+1.. run again)
+    //   [--hdf image.hdf]... (T29d: hard files on the UAE controller, after the --media disks; the mmap heap grows with HardFileHeapKiB of each)  [--export-at U[,U...]] (after those units: the
+    //   hard files as the guest has written them, "export U INDEX result=N bytes=B sha=...")
     //   [--media disk.adf]... [--port N:type:buttons:dx:dy]... [--render 101-200:0,...] [--digest-every K] [--bad-calls-at U] [--limits] [--ntsc]
     //   [--abi-at U,U...] (WB13 before those units)  [--pages-at U] (WB14 after unit U, needs the chipcell fixture)
     //   [--memory-at U] (T20a: the memory areas and the accesses through the guest; U = 0 right after the seal, U > 0 after that unit and
@@ -493,13 +521,17 @@ internal static unsafe class Puae6
         string slowText = options.Optional("slow") ?? "0";
         uint slowKib = slowText == "none" ? uint.MaxValue : uint.Parse(slowText);
         var firmware = File.ReadAllBytes(options.Get("firmware"));
-        var media = options.All("media").Select(File.ReadAllBytes).ToArray();
+        var disks = options.All("media").Select(File.ReadAllBytes).ToArray();
+        var hardFiles = options.All("hdf").Select(File.ReadAllBytes).ToArray();
+        var media = disks.Concat(hardFiles).ToArray();
+        var mediaTypes = disks.Select(_ => 1u).Concat(hardFiles.Select(_ => 2u)).ToArray();
+        var exportAt = (options.Optional("export-at") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(ulong.Parse).ToHashSet();
         ulong units = ulong.Parse(options.Get("units"));
         uint standard = options.Flag("ntsc") ? 2u : 1u;
         string machineName = (options.Optional("machine") ?? "a500").ToLowerInvariant();
         Program.Require(machineName is "a500" or "a600" or "a1200", $"--machine is a500, a600 or a1200 (got {machineName})");
         uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, _ => 1u };
-        layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"));
+        layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"), (ulong)hardFiles.Sum(file => (long)HardFileHeapKiB(file.Length)));
         var image = File.ReadAllBytes(guestPath);
         using var api = new Native(dylibPath);
         var report = new Dictionary<string, object?> {
@@ -509,7 +541,7 @@ internal static unsafe class Puae6
                 ["plain"] = layout.Plain, ["mmap"] = layout.Mmap },
             ["configured_memory"] = new Dictionary<string, uint> { ["chip_kib"] = chipKib, ["slow_kib"] = slowKib, ["fast_kib"] = fastKib },
             ["configured_fpu"] = fpuModel,
-            ["firmware_bytes"] = firmware.Length, ["media_bytes"] = media.Sum(image => (long)image.Length),
+            ["firmware_bytes"] = firmware.Length, ["media_bytes"] = disks.Sum(image => (long)image.Length), ["hard_file_bytes"] = hardFiles.Sum(image => (long)image.Length),
             ["host_buffers_poisoned_after_init"] = true };
 
         if (options.Flag("limits")) report["limits"] = Limits(api, image, layout, firmware, standard, machineId);
@@ -521,7 +553,7 @@ internal static unsafe class Puae6
             return (ulong.Parse(span[0]), ulong.Parse(span[^1]), uint.Parse(parts[1]));
         }).ToList();
         using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib, FpuModel = fpuModel,
-            ConfigFlags = options.Flag("floppy-writes") ? 1u : 0u };
+            ConfigFlags = options.Flag("floppy-writes") ? 1u : 0u, MediaTypes = mediaTypes };
         foreach (var port in options.All("port"))
         {
             var p = port.Split(':');
@@ -530,6 +562,24 @@ internal static unsafe class Puae6
         var (initResult, initError) = machine.TryInit(firmware, media, standard, seed: 1, epoch: 946684800);
         if (initResult != 0) throw new InvalidOperationException($"p6w_init_machine failed ({initResult}): {initError}");
         for (uint drive = 0; drive < uint.Parse(options.Optional("drives") ?? "0"); ++drive) machine.MountBoot(drive, drive, drive + 1);
+        var exports = new List<object>();
+        void ExportHardFiles(string label)
+        {
+            for (int k = 0; k < hardFiles.Length; ++k)
+            {
+                uint index = (uint)(disks.Length + k);
+                var (exportResult, exported) = machine.ExportMedium(index, hardFiles[k].Length);
+                string sha = exportResult == 0 ? Convert.ToHexString(SHA256.HashData(exported)).ToLowerInvariant() : "-";
+                Console.WriteLine($"export {label} {index} result={exportResult} bytes={exported.Length} sha={sha}");
+                exports.Add(new { unit = label, index, result = exportResult, bytes = exported.Length, sha256 = sha });
+                if (exportResult == 0 && options.Optional("export-dir") is string directory)
+                    File.WriteAllBytes(Path.Combine(directory, $"hdf{k}-{label}.bin"), exported);
+            }
+        }
+        // WB10 in the same sandbox (T29d): --rewind-to V --rewind-from U keeps the snapshot of unit V and, after unit U, exports, loads it, exports again and runs units V+1.. once more.
+        ulong rewindTo = ulong.Parse(options.Optional("rewind-to") ?? "0"), rewindFrom = ulong.Parse(options.Optional("rewind-from") ?? "0");
+        byte[]? rewindState = null;
+        bool rewound = false;
         machine.Seal();
         var afterSeal = Usage(machine);
         var sealedSnapshot = machine.Save().Length;
@@ -545,6 +595,7 @@ internal static unsafe class Puae6
         {
             from = ulong.Parse(options.Get("from"));
             machine.Load(File.ReadAllBytes(restore));          // a machine that was initialized and sealed like the one that saved, then given its state
+            if (exportAt.Contains(from)) ExportHardFiles($"{from}");
         }
         var digests = new Dictionary<string, string>();
         var abi = new List<object>();
@@ -565,9 +616,19 @@ internal static unsafe class Puae6
             if (machine.LastPcm != null) Console.WriteLine($"pcm {unit} {machine.LastPcm}");
             if (unit == from + 1) afterFirst = Usage(machine);
             if (digestEvery != 0 && unit % digestEvery == 0) digests[unit.ToString()] = machine.Digest();
+            if (exportAt.Contains(unit)) ExportHardFiles(unit.ToString());
+            if (rewindTo != 0 && unit == rewindTo) rewindState = machine.Save();
             if (unit == saveAt) File.WriteAllBytes(options.Get("state"), machine.Save());
             if (unit == pagesAt) pages = PageTests(machine, unit);
             if (unit == memoryAt) areas = MemoryTests(machine, unit, machineId, chipKib, slowKib, fastKib);
+            if (rewindFrom != 0 && unit == rewindFrom && !rewound && rewindState != null)
+            {
+                rewound = true;
+                ExportHardFiles($"{unit}-before-rewind");
+                machine.Load(rewindState);
+                ExportHardFiles($"{rewindTo}-after-rewind");
+                unit = rewindTo;                            // the next unit is rewindTo + 1 again, from the machine the snapshot held
+            }
         }
         if (abiAt.Count > 0)
         {
@@ -596,6 +657,7 @@ internal static unsafe class Puae6
         report["pages"] = pages;
         report["memory"] = areas;
         report["restored_from"] = from;
+        report["exports"] = exports;
         report["ports"] = machine.Ports.Select(p => $"{p.Type}:{p.Buttons}:{p.Dx}:{p.Dy}").ToArray();
         File.WriteAllText(options.Get("result"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         return 0;

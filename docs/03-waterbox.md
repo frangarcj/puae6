@@ -474,6 +474,18 @@ mueren con SIGSEGV o SIGBUS dentro de malloc o se cuelgan (el manejador de `trip
 sin .NET (`tests/waterbox-media/boot_driver.c`); no es del core ni de un segundo heap. Un test que cree sandboxes y muera con -11, -10 o un timeout de 30 minutos con esa pila no es una
 regresion; el reproducer es `tests/waterbox-media/repro_heaps.py` y el parche que convertiria el cuelgue en aborto esta descrito en el informe (es de MacHawk, que aqui es solo lectura).
 
+Discos duros en Waterbox (T29d, `tests/waterbox-smoke/test_puae6_hdf.py`, ejecutado en el runtime real): el guest recibe un `P6_MEDIA_HDF` por `p6w_init` como cualquier medio, pero NO lo copia al heap sellado (que es del
+firmware y de discos que nadie parchea y tiene 16 MiB): `p6_load` copia la imagen al almacen de blobs, en el heap mmap, y reserva a su lado el sitio del overlay de escrituras (T29b), todo antes del sello, de modo que la
+base es la linea de base del snapshot y solo viajan las paginas sucias del overlay. Presupuesto: el heap mmap de la sandbox crece `2 x (2 x imagen + bitmap + 64 KiB)` (memoria extra, contada dos veces como toda la regla de
+`memory_budget`; `HardFileHeapKiB` en el smoke, contrapartida del `HardDiskHeapKB` de MacHawk, que guarda la imagen una vez porque escribe en su sitio). Medido (`measured_a500_hdf2048` y `measured_a500_hdf32768`, micro-ROM
+que escribe un trozo por unidad, 60 unidades): 2 MiB comprometen 9 814 016 bytes de mmap y 32 MiB 72 728 576 (el doble de la imagen mas 5,6 MB de la maquina), y el snapshot es de 9,8 MB en ambos casos (el A500 sin disco duro:
+9,2 MB). Pruebas, contra `p6_headless --hdf` con el mismo ROM y la misma imagen: (1) las 40 unidades (ticks, imagen, audio) son las nativas y el disco duro exportado por el guest (`p6w_media_export`) tras la ultima es, byte a
+byte, el que exporta el motor nativo (`--export-hdf`); (2) WB04/WB10: un snapshot de la unidad 20 restaurado en un proceso y una sandbox nuevos continua con las unidades de la ejecucion directa, su disco duro es el de la unidad
+20 nada mas cargar y el de la ejecucion directa tras las mismas unidades, y el digest final de la sandbox es el mismo; (3) WB10 en la misma sandbox: cargar de vuelta el snapshot de la unidad 12 tras la 30 devuelve el disco
+duro al de la unidad 12 (no el de las escrituras posteriores) y las unidades que vuelven a correr son las de la primera pasada; (4) el presupuesto: la imagen no esta en el heap sellado, lo comprometido cabe en la mitad del
+presupuesto y el snapshot crece con los trozos escritos, no con la imagen. El crash de libwaterboxhost (T28a) no aparecio en estas ejecuciones. Limites: el nucleo C# de BizHawk (`Puae6Core`) todavia no monta discos duros
+(T63: opciones, arranque desde RDB, SaveRAM de un HDF); aqui se prueba el guest y el ABI `p6w`, no el wrapper.
+
 ## Suite de aceptacion Waterbox
 
 WB01 mini-core real antes del port Amiga; no emulacion de wrapper nativo.

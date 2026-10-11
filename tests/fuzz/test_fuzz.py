@@ -181,6 +181,66 @@ class StateWritableFuzzTests(StateFuzzTests):
     test_the_state_harness_can_fail = StateFuzzTests.test_the_state_harness_can_fail
 
 
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class HardFileFuzzTests(unittest.TestCase):
+    """FUZZ01 for the hard files of the UAE controller (T29d): hostile Rigid Disk Blocks. Disks with an RDB, partitions and a file system in LoadSegBlocks, a plain partition and a disk with no
+    partition table are mutated (fields set to boundary values, links sent elsewhere, blocks swapped, copied, zeroed or cut off, sizes and checksums forged or put right again so that the
+    parser gets past the checksum), given to p6_load, and a micro-ROM asks the filesystem for the partitions, which reads all of it (pt_rdsk, rdb_mount, the FSHD and LSEG chains). The
+    engine is built with ASan and UBSan, no recover, and any single allocation above 24 MiB is a report (the images are 0.5 and 2 MiB; the file system of an RDB is capped at 256 KiB).
+    The state of the machine that parsed the disk is saved and loaded back and the machine runs a unit more."""
+
+    ENV = {**ENV, "ASAN_OPTIONS": "detect_leaks=0:max_allocation_size_mb=24"}
+
+    @classmethod
+    def setUpClass(cls):
+        from tests.hdf import hdf_image, hdf_rom
+        cls.exe = build_probe(ROOT / "build/native-debug", True, "p6_fuzz_probe")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-fuzz-hdf-")
+        directory = Path(cls.tmp.name)
+        cls.rom = directory / "mount.rom"
+        cls.rom.write_bytes(hdf_rom.mount_rom())
+        images = {"handler": hdf_image.rdb_image(cylinders=16, handler_blocks=3), "rdb": hdf_image.rdb_image(cylinders=16), "big": hdf_image.rdb_image(cylinders=64, handler_blocks=1),
+                  "loop": hdf_image.rdb_image(cylinders=16, fshd_loop=True), "plain": hdf_image.plain_partition(256)}
+        cls.images = []
+        for name, data in images.items():
+            path = directory / f"{name}.hdf"
+            path.write_bytes(data)
+            cls.images.append(str(path))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_target(self, seed, iterations, extra_env=None):
+        return subprocess.run([str(self.exe), "hardfile", str(self.rom), str(seed), str(iterations), *self.images], capture_output=True, text=True, timeout=3600,
+                              env={**self.ENV, **(extra_env or {})})
+
+    def test_the_recorded_seeds_run_clean_and_reach_loaded_and_refused_disks_and_every_kind_of_answer(self):
+        for run in CORPUS["hardfile_runs"]:
+            with self.subTest(seed=run["seed"], iterations=run["iterations"]):
+                result = self.run_target(run["seed"], run["iterations"])
+                self.assertTrue(clean(result), result.stderr[-1200:])
+                text = result.stdout
+                results = {int(m[1]): int(m[2]) for m in re.finditer(r"^hardfile result (-?\d+): (\d+)$", text, re.M)}
+                self.assertIn(0, results, "some disks load")
+                self.assertTrue(set(results) - {0}, "and some are refused (not whole blocks)")
+                answers = {int(m[1]): int(m[2]) for m in re.finditer(r"^hardfile mount answer (-?\d+): (\d+)$", text, re.M)}
+                self.assertLessEqual({-2, 2}, set(answers), f"a partition mounts with its file system from the RDB, and the list ends: {answers}")
+                self.assertTrue(set(answers) - {-2, 2}, f"and some mutations reach the other answers: {answers}")
+                loaded = re.search(r"^hardfile loaded (\d+) states (\d+)$", text, re.M)
+                self.assertEqual(loaded[1], loaded[2], "every loaded disk gave a state that loaded back")
+
+    def test_a_run_is_reproducible(self):
+        first = self.run_target(3, 60)
+        self.assertTrue(clean(first), first.stderr[-600:])
+        self.assertEqual(first.stdout, self.run_target(3, 60).stdout)
+
+    def test_the_harness_can_fail(self):
+        # A target that is asked for nothing to mutate refuses (a harness that cannot fail would pass on an empty pool).
+        result = subprocess.run([str(self.exe), "hardfile", str(self.rom), "1", "5"], capture_output=True, text=True, timeout=600, env=self.ENV)
+        self.assertNotEqual(result.returncode, 0, "no image given: the target refuses it")
+
+
 CONTENT_KINDS = ("random-bytes", "valid-flipped", "long-line", "path-length-boundary", "nul", "bom-middle", "cr-only", "bar", "savedisk", "many-entries",
                  "huge-path", "path-forms", "utf8-invalid", "whitespace", "huge-file")
 OPTION_KINDS = ("exact", "empty", "padded", "case", "suffix", "prefix", "zeros", "other-value", "non-ascii", "long", "random-bytes", "control",

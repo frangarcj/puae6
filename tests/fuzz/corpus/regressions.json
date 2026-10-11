@@ -1,36 +1,146 @@
 {
   "purpose": "Seeds replayed by tests/fuzz/test_fuzz.py. Every bug a fuzz run finds and fixes adds its target, seed and iteration count here with the fix it belongs to; the runs are deterministic, so a seed is a reproducer.",
   "runs": [
-    {"target": "config", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "config", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "blob", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "blob", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "firmware", "seed": 1, "iterations": 120, "note": "baseline; no defect found"},
-    {"target": "media", "seed": 1, "iterations": 80, "note": "baseline; no defect found"},
-    {"target": "media", "seed": 2, "iterations": 80, "note": "baseline; no defect found"}
+    {
+      "target": "config",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "config",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "blob",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "blob",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "firmware",
+      "seed": 1,
+      "iterations": 120,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "media",
+      "seed": 1,
+      "iterations": 80,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "media",
+      "seed": 2,
+      "iterations": 80,
+      "note": "baseline; no defect found"
+    }
   ],
   "state_runs": [
-    {"seed": 1, "iterations": 300, "note": "baseline; 300 mutated states per session, with and without a disk. The only finding: DISK_update shifted the -1 of DSKSYNC(-1, v) left in every state load (UBSan), patch 0102"},
-    {"seed": 2, "iterations": 300, "note": "baseline; no defect found"},
-    {"seed": 1, "iterations": 150, "machine": "a600", "note": "T23b: the A600 profile (1 MiB Chip, empty clock chunk). The first run found that a state loaded into an ECS Agnus left programmed_register_accessed_h set (patch 0104)"},
-    {"seed": 1, "iterations": 60, "machine": "a1200", "note": "T24c: the A1200 profile (68EC020, AGA, 2 MiB Chip, the 68020 block of P6CP, CAGA and the Denise ring in the video chunk): mutated states of 2.2 MB each"}
+    {
+      "seed": 1,
+      "iterations": 300,
+      "note": "baseline; 300 mutated states per session, with and without a disk. The only finding: DISK_update shifted the -1 of DSKSYNC(-1, v) left in every state load (UBSan), patch 0102"
+    },
+    {
+      "seed": 2,
+      "iterations": 300,
+      "note": "baseline; no defect found"
+    },
+    {
+      "seed": 1,
+      "iterations": 150,
+      "machine": "a600",
+      "note": "T23b: the A600 profile (1 MiB Chip, empty clock chunk). The first run found that a state loaded into an ECS Agnus left programmed_register_accessed_h set (patch 0104)"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a1200",
+      "note": "T24c: the A1200 profile (68EC020, AGA, 2 MiB Chip, the 68020 block of P6CP, CAGA and the Denise ring in the video chunk): mutated states of 2.2 MB each"
+    }
   ],
   "state_writable_runs": [
-    {"seed": 1, "iterations": 200, "note": "T27: states of a session with floppy writes (the overlay body of P6DK carries three runs of guest sectors) and p6_media_export / p6_media_write_status with hostile arguments"},
-    {"seed": 2, "iterations": 200, "note": "T27: a second seed"}
+    {
+      "seed": 1,
+      "iterations": 200,
+      "note": "T27: states of a session with floppy writes (the overlay body of P6DK carries three runs of guest sectors) and p6_media_export / p6_media_write_status with hostile arguments"
+    },
+    {
+      "seed": 2,
+      "iterations": 200,
+      "note": "T27: a second seed"
+    }
   ],
   "content_runs": [
-    {"target": "m3u", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "m3u", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "vfs", "seed": 1, "iterations": 3000, "note": "baseline; no defect found"},
-    {"target": "options", "seed": 1, "iterations": 20000, "note": "baseline; no defect found"},
-    {"target": "options", "seed": 2, "iterations": 20000, "note": "baseline; no defect found"}
+    {
+      "target": "m3u",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "m3u",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "vfs",
+      "seed": 1,
+      "iterations": 3000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "options",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "options",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    }
   ],
   "config_runs": [
-    {"seed": 1, "iterations": 20000, "note": "found before the fix: a digit string of more than 4300 characters escaped normalize_config as a bare ValueError that named no option, and a request that was not a dict escaped as TypeError (an empty list was accepted as nothing requested); fixed in tools/generate_options.py"},
-    {"seed": 2, "iterations": 20000, "note": "baseline after the fix; no defect found"}
+    {
+      "seed": 1,
+      "iterations": 20000,
+      "note": "found before the fix: a digit string of more than 4300 characters escaped normalize_config as a bare ValueError that named no option, and a request that was not a dict escaped as TypeError (an empty list was accepted as nothing requested); fixed in tools/generate_options.py"
+    },
+    {
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline after the fix; no defect found"
+    }
   ],
   "scenario_runs": [
-    {"seed": 1, "iterations": 4000, "note": "baseline; no defect found"}
+    {
+      "seed": 1,
+      "iterations": 4000,
+      "note": "baseline; no defect found"
+    }
+  ],
+  "hardfile_runs": [
+    {
+      "seed": 1,
+      "iterations": 60,
+      "note": "baseline of T29d; 60 mutated hard files (RDSK, PART, FSHD and LSEG blocks), loaded, mounted by the micro-ROM, saved and loaded back. Findings: rdb_checksum summed the longs a block declared out of a one-block buffer (heap overflow read and an int overflow), and the log dumps of the RDB (dump_partinfo, dump_rdb) overflowed ints and divided by a block size of zero: patch 0190"
+    },
+    {
+      "seed": 2,
+      "iterations": 60,
+      "note": "baseline; second seed"
+    }
   ]
 }

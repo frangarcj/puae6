@@ -352,3 +352,48 @@ def loop_program():
 
 def loop_rom():
     return builder.build(loop_program())
+
+
+# --- the program of the hard file fuzzer (T29d) -------------------------------------------------------------------------------------------------------------------
+PARM, FSRES, FSNODE, NODE = 0x8000, 0x9000, 0x9100, 0x9200      # the parameter packet, a FileSystem.resource without file systems, its (empty) list, a device node
+MOUNT_RES = RES + 0x200                                          # the result of each filesys_dev_storeinfo, a long per partition asked for
+MOUNT_ASKED = 8                                                  # partitions asked for
+STOREINFO, REMEMBER = 0xF0FF28, 0xF0FF20                         # filesys_dev_storeinfo and filesys_dev_remember, in the trap area
+PP_FSPTR, PP_ADDTOFSRES, PP_FSRES, PP_DEVICEPROC, PP_EXPLIB = 404, 408, 412, 420, 424
+
+
+def mount_program():
+    """What the hard file fuzzer runs (tests/fuzz/fuzz_probe.cpp, `hardfile`): the boot of program(), then what expansion.library and the boot ROM of the filesystem do for a hard file with an RDB,
+    without exec: for each of MOUNT_ASKED partitions, filesys_dev_storeinfo (which reads the RDB, the PART blocks and the FSHD and LSEG chain from the image the fuzzer mutated) and, when it
+    answers a mount (D0 >= 0), filesys_dev_remember, which hands the file system the RDB brought over and lets the host free it. The answers are stored at MOUNT_RES, then DONE."""
+    a = _Asm()
+    _boot(a)
+    a.move_l_imm_abs(FSNODE + 4, FSRES + 18)         # fsr_FileSysEntries: a list whose first node has no successor
+    a.move_l_imm_abs(0, FSNODE + 4)
+    a.move_l_imm_abs(0, FSNODE)
+    for sub in range(MOUNT_ASKED):
+        for field, value in ((PP_FSPTR, 0), (PP_ADDTOFSRES, 0), (PP_FSRES, FSRES), (PP_DEVICEPROC, 0), (PP_EXPLIB, 0)):
+            a.move_l_imm_abs(value, PARM + field)
+        a.move_l_imm_abs(0, NODE + 28)
+        a.movea_l_imm(0, PARM)
+        a.op32("MOVE.L #sub<<16,D6", 0x2C3C, sub << 16)
+        a.op("MOVEQ #0,D7", 0x7E00)
+        a.op32("JSR filesys_dev_storeinfo", 0x4EB9, STOREINFO)
+        a.move_l_d0_abs(MOUNT_RES + 4 * sub)
+        a.op("TST.L D0", 0x4A80)
+        a.branch("BMI.S skip%d" % sub, 0x6B00, "skip%d" % sub)
+        a.op("MOVEQ #0,D3", 0x7600)
+        a.movea_l_imm(3, NODE)
+        a.movea_l_imm(1, PARM)
+        a.op32("JSR filesys_dev_remember", 0x4EB9, REMEMBER)
+        a.label("skip%d" % sub)
+    a.move_l_imm_abs(DONE, MOUNT_RES + 4 * MOUNT_ASKED)
+    a.label("finish")
+    a.op("STOP #$2700", 0x4E72, 0x2700)
+    a.branch("BRA.S finish", 0x6000, "finish")
+    _stubs(a)
+    return a.source()
+
+
+def mount_rom():
+    return builder.build(mount_program())

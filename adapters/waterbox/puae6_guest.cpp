@@ -197,7 +197,9 @@ ECL_EXPORT int32_t p6w_init_machine(p6w_init *args)
     for (uint32_t i = 0; i < args->media_count; ++i) {
         const p6w_media &given = args->media[i];
         if (!given.data || !given.bytes) return fail(P6_ERROR_BAD_ARGUMENT, "a medium has no data");
-        const void *copy = seal_copy(given.data, given.bytes);
+        // A hard file is not copied into the sealed heap (T29d): it can be tens of MiB, p6_load copies it into the blob store (the mmap heap, where the base and the room for its write
+        // overlay are the budget of the sandbox) and the bridge keeps no pointer to the buffer it was given. The sealed heap is for what is never patched and stays small.
+        const void *copy = given.type == P6_MEDIA_HDF ? given.data : seal_copy(given.data, given.bytes);
         if (!copy) return fail(P6_ERROR_CAPACITY, "the sealed heap cannot hold the media");
         media[i].type = given.type;
         media[i].flags = given.flags;

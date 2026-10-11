@@ -700,7 +700,8 @@ _RUNS = iter(range(1, 1 << 30))
 def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_receipt: Path | None = None, *, ports: tuple[str, ...] = (),
               render: str | None = None, digest_every: int = 0, bad_calls_at: int = 0, limits: bool = False, ntsc: bool = False, machine: str = "A500",
               abi_at: tuple[int, ...] = (), pages_at: int = 0, memory_at: int | None = None, save_at: int = 0, state: Path | None = None, restore: Path | None = None,
-              restore_from: int = 0, timeout: int = 3600, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0) -> tuple[list[str], dict]:
+              restore_from: int = 0, timeout: int = 3600, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0,
+              hard_files: tuple[Path, ...] = (), export_at: tuple[int, ...] = (), export_dir: Path | None = None, rewind_to: int = 0, rewind_from: int = 0) -> tuple[list[str], dict]:
     """Runs puae6.wbx in a real Waterbox sandbox (init with the firmware and the ADF images, seal, `units` units) and returns the unit lines
     it printed in the format of p6_headless, plus the measurements. `ports` are "N:type:buttons:dx:dy" held on every unit, `render` a
     schedule "101-200:0,201-300:2" of render flags (1 video, 2 audio) by unit range, `digest_every` the period of the snapshot digests and
@@ -709,7 +710,10 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     restored (WB14, needs the chipcell fixture), `memory_at` the unit after which (0: right after the seal) the memory areas the guest reports are read, written,
     refused and restored through the guest (T20a; after a unit it needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
     initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15), `machine` "A500", "A600" or "A1200" the p6_config.machine the guest is given (T23e, T24f), `chip_kib`, `slow_kib` ("none" or KiB) and `fast_kib` its memory (T49; 0 is the machine's own, and the
-    mmap heap of the sandbox grows with the extra memory as manifests/waterbox-memory.json says), `fpu_model` the FPU the A1200 is given (T54: 0, 68881 or 68882). Needs the runtime (build/waterbox/receipt.json) and the
+    mmap heap of the sandbox grows with the extra memory as manifests/waterbox-memory.json says), `fpu_model` the FPU the A1200 is given (T54: 0, 68881 or 68882), `hard_files` the hard files mounted
+    on the UAE controller after the disks (T29d; the mmap heap grows with the heap of each, see the smoke's HardFileHeapKiB) and `export_at` the units after which they are exported through the guest
+    (printed as "export" lines and returned in result["exports"]; `export_dir` also keeps the images); `rewind_to`/`rewind_from` load the snapshot of unit `rewind_to` back in the same sandbox after
+    unit `rewind_from` and run the units after it again (WB10). Needs the runtime (build/waterbox/receipt.json) and the
     guest (--puae6) to exist already; several runs may go on at once."""
     runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
     for needed in (runtime_receipt, guest_receipt):
@@ -722,6 +726,14 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
                "--manifest", str(MEMORY_MANIFEST), "--firmware", str(Path(firmware).resolve()), "--units", str(units), "--result", str(result_path)]
     for disk in media:
         command += ["--media", str(Path(disk).resolve())]
+    for hard_file in hard_files:
+        command += ["--hdf", str(Path(hard_file).resolve())]
+    if export_at:
+        command += ["--export-at", ",".join(map(str, export_at))]
+    if export_dir:
+        command += ["--export-dir", str(Path(export_dir).resolve())]
+    if rewind_from:
+        command += ["--rewind-to", str(rewind_to), "--rewind-from", str(rewind_from)]
     for port in ports:
         command += ["--port", port]
     if render:
@@ -758,6 +770,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     result_path.unlink()
     log_path.unlink()
     lines = [line for line in process.stdout.splitlines() if line.startswith("unit ")]
+    result["export_lines"] = [line for line in process.stdout.splitlines() if line.startswith("export ")]
     result["pcm"] = {int(fields[1]): fields[2] for fields in (line.split() for line in process.stdout.splitlines() if line.startswith("pcm "))}
     return lines, result
 
@@ -765,24 +778,27 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
 MEASURED_KEYS = {"A500": "measured", "A600": "measured_a600", "A1200": "measured_a1200"}
 
 
-def measured_key(machine: str, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0) -> str:
-    """The key of manifests/waterbox-memory.json a run is recorded under: the machine's, or (T49) the machine's and each size asked for: measured_a1200_fast8192."""
+def measured_key(machine: str, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0, hard_file_kib: int = 0) -> str:
+    """The key of manifests/waterbox-memory.json a run is recorded under: the machine's, or (T49) the machine's and each size asked for: measured_a1200_fast8192. With hard files (T29d) the
+    total of their sizes in KiB follows: measured_a500_hdf8192."""
     key = MEASURED_KEYS[machine.upper()]
-    if machine.upper() == "A500" and (chip_kib or slow_kib or fast_kib):
+    if machine.upper() == "A500" and (chip_kib or slow_kib or fast_kib or hard_file_kib):
         key += "_a500"
     for name, kib in (("chip", chip_kib), ("slow", slow_kib), ("fast", fast_kib)):
         if kib:
             key += f"_{name}{kib}"
-    return key + (f"_fpu{fpu_model}" if fpu_model else "")
+    return key + (f"_fpu{fpu_model}" if fpu_model else "") + (f"_hdf{hard_file_kib}" if hard_file_kib else "")
 
 
-def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500", chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0) -> dict:
+def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500", chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0,
+                  hard_files: tuple[Path, ...] = ()) -> dict:
     """Stores what a run measured in the `measured` key (A500), `measured_a600` (A600) or `measured_a1200` (A1200) of manifests/waterbox-memory.json, or (T49) in the key of a machine
     with other memory (measured_key); the budgets stay as written: the base ones for the stock machines and the rule of `memory_budget` for the others."""
     manifest = json.loads(MEMORY_MANIFEST.read_text())
     memory = {name: kib for name, kib in (("chip_kib", chip_kib), ("slow_kib", slow_kib), ("fast_kib", fast_kib), ("fpu_model", fpu_model)) if kib}
-    manifest[measured_key(machine, chip_kib, slow_kib, fast_kib, fpu_model)] = {
-        "fixture": {"machine": machine.upper(), **memory, "firmware_sha256": sha256(firmware), "firmware_bytes": firmware.stat().st_size, "units": units,
+    hard_bytes = [Path(path).stat().st_size for path in hard_files]
+    manifest[measured_key(machine, chip_kib, slow_kib, fast_kib, fpu_model, sum(hard_bytes) // 1024)] = {
+        "fixture": {"machine": machine.upper(), **memory, **({"hard_file_bytes": hard_bytes} if hard_bytes else {}), "firmware_sha256": sha256(firmware), "firmware_bytes": firmware.stat().st_size, "units": units,
                     "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"},
         "guest_sha256": result["guest_sha256"], "runtime_sha256": result["runtime_sha256"],
         "after_seal": result["after_seal"], "after_first_unit": result["after_first_unit"], "after_last_unit": result["after_last_unit"],
@@ -807,6 +823,7 @@ def main() -> int:
     parser.add_argument("--slow", default="0", metavar="KIB|none", help="memoria Slow con la que --puae6-run configura el guest (T49; 0: la de la maquina)")
     parser.add_argument("--fast", type=int, default=0, metavar="KIB", help="memoria Fast Zorro II con la que --puae6-run configura el guest (T49)")
     parser.add_argument("--fpu", type=int, default=0, choices=(0, 68881, 68882), help="FPU con la que --puae6-run configura el guest (T54; solo el A1200)")
+    parser.add_argument("--hdf", type=Path, action="append", default=[], metavar="IMAGE", help="disco duro que --puae6-run monta en el guest (T29d; repetible); el heap mmap crece con HardFileHeapKiB de cada uno")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4, help="trabajos paralelos de make para --puae6")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
@@ -825,12 +842,13 @@ def main() -> int:
             build(args)
             build_puae6(toolchain(), args.jobs)
             slow = args.slow if args.slow == "none" else int(args.slow)
-            lines, measured = run_puae6(args.puae6_run.resolve(), args.units, machine=args.machine, chip_kib=args.chip, slow_kib=slow, fast_kib=args.fast, fpu_model=args.fpu)
+            lines, measured = run_puae6(args.puae6_run.resolve(), args.units, machine=args.machine, chip_kib=args.chip, slow_kib=slow, fast_kib=args.fast, fpu_model=args.fpu,
+                                          hard_files=tuple(args.hdf))
             print("\n".join(lines))
             (BUILD / "puae6-result.json").write_text(json.dumps(measured, indent=2) + "\n")
             print(f"PUAE6 WBX RUNTIME PASS: {len(lines)} unidades; medidas en {BUILD / 'puae6-result.json'}")
             if args.record_memory:
-                record_memory(args.puae6_run.resolve(), args.units, measured, args.machine, args.chip, slow, args.fast, args.fpu)
+                record_memory(args.puae6_run.resolve(), args.units, measured, args.machine, args.chip, slow, args.fast, args.fpu, tuple(args.hdf))
                 print(f"medidas guardadas en {MEMORY_MANIFEST}")
         else:
             receipt = build(args)

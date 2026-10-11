@@ -2,7 +2,7 @@
 // dependency, reports the identity of the build and what the native ABI implements, and runs a
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
-//   p6_headless --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
+//   p6_headless --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
 #include "p6.h"
 #include "sha256.h"
@@ -102,6 +102,8 @@ static int fail(const char *what, p6_result result, const p6_error &error)
 static int run(int argc, char **argv)
 {
     const char *rom_path = nullptr, *dump = nullptr, *disk_path = nullptr;
+    const char *export_hdf = nullptr;            // T29d: after the last unit, the first hard file as it is then (the base with the overlay of the guest's writes over it)
+    std::vector<const char *> hdf_paths;         // T29d: hard files on the UAE controller, after the disk in the manifest
     uint32_t units = 1, standard = P6_VIDEO_PAL, machine = P6_MACHINE_A500;
     uint64_t seed = 1, dump_from = 1;
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0, fpu_model = 0;       // 0: the machine's own memory (T49); slow "none" is P6_MEMORY_NONE
@@ -111,6 +113,8 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
         else if (!strcmp(argv[i], "--dump-from") && i + 1 < argc) dump_from = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--disk") && i + 1 < argc) disk_path = argv[++i];
+        else if (!strcmp(argv[i], "--export-hdf") && i + 1 < argc) export_hdf = argv[++i];
+        else if (!strcmp(argv[i], "--hdf") && i + 1 < argc && hdf_paths.size() < P6_MAX_HDF) hdf_paths.push_back(argv[++i]);
         else if (!strcmp(argv[i], "--machine") && i + 1 < argc) {
             const char *name = argv[++i];
             if (!strcmp(name, "a500")) machine = P6_MACHINE_A500;
@@ -149,11 +153,24 @@ static int run(int argc, char **argv)
     p6_error error = make_error();
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
-    p6_media media = {};
-    media.type = P6_MEDIA_ADF;
-    media.image = p6_buffer{disk.data(), disk.size()};
-    p6_sha256_hash(disk.data(), disk.size(), media.content_id);   // the media identity is the SHA-256 of the image
-    result = p6_load(p6_buffer{rom.data(), rom.size()}, disk_path ? &media : nullptr, disk_path ? 1 : 0, &error);
+    std::vector<p6_media> media;
+    if (disk_path) {
+        p6_media adf = {};
+        adf.type = P6_MEDIA_ADF;
+        adf.image = p6_buffer{disk.data(), disk.size()};
+        p6_sha256_hash(disk.data(), disk.size(), adf.content_id);   // the media identity is the SHA-256 of the image
+        media.push_back(adf);
+    }
+    std::vector<std::vector<uint8_t>> hard_files(hdf_paths.size());
+    for (size_t k = 0; k < hdf_paths.size(); ++k) {
+        if (!read_file(hdf_paths[k], &hard_files[k])) return 1;
+        p6_media hdf = {};
+        hdf.type = P6_MEDIA_HDF;
+        hdf.image = p6_buffer{hard_files[k].data(), hard_files[k].size()};
+        p6_sha256_hash(hard_files[k].data(), hard_files[k].size(), hdf.content_id);
+        media.push_back(hdf);
+    }
+    result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
     if (result != P6_OK) {
         const int code = fail("p6_load", result, error);
         p6_shutdown(nullptr);
@@ -198,6 +215,25 @@ static int run(int argc, char **argv)
                frame.audio_frames);
         if (dump && frame.video && frame.unit_index >= dump_from && !dump_frame(dump, frame)) status = 1;
     }
+    if (!status && export_hdf) {
+        if (hard_files.empty()) {
+            fprintf(stderr, "--export-hdf needs a --hdf\n");
+            status = 1;
+        } else {
+            std::vector<uint8_t> image(hard_files[0].size());
+            uint64_t written = 0;
+            result = p6_media_export(disk_path ? 1 : 0, image.data(), image.size(), &written, &error);
+            if (result != P6_OK) {
+                status = fail("p6_media_export", result, error);
+            } else if (FILE *out = fopen(export_hdf, "wb")) {
+                fwrite(image.data(), 1, size_t(written), out);
+                if (fclose(out)) status = 1;
+            } else {
+                perror(export_hdf);
+                status = 1;
+            }
+        }
+    }
     p6_unload(nullptr);
     p6_shutdown(nullptr);
     if (!status) printf("done units=%u\n", units);
@@ -212,7 +248,7 @@ int main(int argc, char **argv)
         const int code = run(argc, argv);
         if (code >= 0) return code;
     }
-    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--disk ADF] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
+    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]]\n",
             argv[0], argv[0]);
     return 64;
 }

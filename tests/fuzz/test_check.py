@@ -58,6 +58,19 @@ class TaskSuiteDispatchTests(unittest.TestCase):
         gap = check.dispatch("FUZZ01", task="T17", required=("netplay",))
         self.assertEqual((gap["status"], gap["assertions_executed"]), ("NOT_IMPLEMENTED", []))
 
+    def test_the_hard_file_fuzzer_is_covered_for_t29d_and_the_earlier_tasks_have_a_gap(self):
+        suites = check.TASK_SUITES[("FUZZ01", "T29d")]
+        self.assertEqual(suites["hard_file"], "tests.fuzz.test_fuzz.HardFileFuzzTests")
+        self.assertTrue(set(check.TASK_SUITES[("FUZZ01", "T27")]) <= set(suites))
+        gap = check.dispatch("FUZZ01", task="T27", required=("hard_file",))
+        self.assertEqual((gap["status"], gap["assertions_executed"]), ("NOT_IMPLEMENTED", []))
+        with mock.patch.object(check.shutil, "which", return_value="/usr/bin/tool"), \
+             mock.patch.object(check, "_run_suite", return_value=completed(COUNTS)) as runner:
+            result = check.dispatch("FUZZ01", task="T29d", required=("hard_file",))
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["assertions_executed"], sorted(suites))
+        self.assertEqual(runner.call_count, len(suites))
+
     def test_other_tasks_and_profiles_are_not_covered(self):
         for kwargs in ({"task": "T27"}, {"task": "T26", "profile": "other"}):
             self.assertEqual(check.dispatch("SAFE01", **kwargs)["status"], "NOT_IMPLEMENTED")

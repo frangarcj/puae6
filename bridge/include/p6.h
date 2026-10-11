@@ -50,6 +50,7 @@ typedef struct p6_caps {
 #define P6_CAP_LAG_FLAG         (UINT64_C(1) << 3)
 #define P6_CAP_MEDIA_APPEND     (UINT64_C(1) << 4)
 #define P6_CAP_MEDIA_WRITE      (UINT64_C(1) << 5)   /* P6_CONFIG_FLOPPY_WRITES, p6_media_export and p6_media_write_status */
+#define P6_CAP_MEDIA_HDF        (UINT64_C(1) << 6)   /* P6_MEDIA_HDF: hard files on the UAE controller (uaehf.device), their write overlay, their export and their native state (T29) */
 
 typedef struct p6_config {
     uint32_t abi_version;

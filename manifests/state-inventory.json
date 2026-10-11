@@ -7603,7 +7603,7 @@
           "status": "done",
           "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
         },
-        "waterbox": "captured by the snapshot",
+        "waterbox": "captured by the snapshot (the trap area, the board, the units and the queue are engine memory); restored in a new sandbox in tests/waterbox-smoke/test_puae6_hdf.py",
         "id": "hdf-filesys-units-and-globals",
         "component": "The filesystem side of the UAE controller: the globals of filesys.cpp that the boot code and the EXTER interrupt write, and per hard file the dynamic part of its UnitInfo (device board, startup message, device node, parameter packet, the partitions of the RDB and the file system handler it brought)",
         "owner": "build/upstream/filesys.cpp (patches 0163, 0181)",
@@ -7653,7 +7653,7 @@
           "status": "done",
           "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
         },
-        "waterbox": "captured by the snapshot",
+        "waterbox": "captured by the snapshot (the trap area, the board, the units and the queue are engine memory); restored in a new sandbox in tests/waterbox-smoke/test_puae6_hdf.py",
         "id": "hdf-uaehf-device-units",
         "component": "uaehf.device per unit (hardfpd): the library base the guest opened, the change counter and interrupt, and the requests that did not finish",
         "owner": "build/upstream/hardfile.cpp (patch 0161, 0181)",
@@ -7702,7 +7702,7 @@
           "status": "done",
           "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
         },
-        "waterbox": "captured by the snapshot",
+        "waterbox": "captured by the snapshot (the trap area, the board, the units and the queue are engine memory); restored in a new sandbox in tests/waterbox-smoke/test_puae6_hdf.py",
         "id": "hdf-trap-area-uaefs-board-and-exter-queue",
         "component": "The trap area at $F00000 (the UAE boot ROM bank), the UAEFS Zorro II board, the autoconfig chain of a machine without Fast RAM, the queue of the EXTER interrupt and its request line",
         "owner": "build/upstream/autoconf.cpp, expansion.cpp, native2amiga.cpp (patches 0160, 0164, 0165, 0180, 0181, 0182)",
@@ -7752,7 +7752,7 @@
           "status": "done",
           "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
         },
-        "waterbox": "captured by the snapshot",
+        "waterbox": "the base is allocated by p6_load before the seal (blob store, mmap heap) and is the baseline of the snapshot; the overlay's room is reserved there too and only its dirty pages travel (measured: 9.8 MB at unit 60 with a 2 MiB or a 32 MiB hard file, manifests/waterbox-memory.json); WB10 for hard files is tests/waterbox-smoke/test_puae6_hdf.py",
         "id": "hdf-write-overlay",
         "component": "The write overlay of each hard file: the 4 KiB chunks the guest wrote, over the immutable base",
         "owner": "ports/portable/blob_io.c (T29b), bridge/state_hdf.cpp",

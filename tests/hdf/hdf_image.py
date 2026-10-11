@@ -47,11 +47,13 @@ def ffs_partition(blocks, name="Empty", valid=True):
     return bytes(image)
 
 
-def rdb_image(cylinders=16, heads=2, sectors=32, name="DH0", rdb_block_bytes=BLOCK, fshd_loop=False, valid=True):
+def rdb_image(cylinders=16, heads=2, sectors=32, name="DH0", rdb_block_bytes=BLOCK, fshd_loop=False, valid=True, handler_blocks=0):
     """A disk with an RDB (block 0), one bootable partition `name` (block 1, cylinders 1 to the last) and an empty FFS volume in it.
 
     Hostile variants: rdb_block_bytes is the block size the RDB declares (a field the engine used to take as the size of a buffer), and fshd_loop makes the list of
-    file system headers a single header whose successor is itself, with a DosType that is nobody's (the loop a RDB loader has to leave on its own)."""
+    file system headers a single header whose successor is itself, with a DosType that is nobody's (the loop a RDB loader has to leave on its own). handler_blocks makes the RDB carry the
+    file system of its partition (T29d): a FileSystemHeaderBlock for DOS\\1 at block 2 and that many LoadSegBlocks after it, of 492 bytes of "code" each, which the loader copies into
+    the guest when FileSystem.resource does not have one."""
     cylinder_blocks = heads * sectors
     total = cylinders * cylinder_blocks
     rdsk = [0] * 64
@@ -73,6 +75,18 @@ def rdb_image(cylinders=16, heads=2, sectors=32, name="DH0", rdb_block_bytes=BLO
         fshd[0:2], fshd[3:5] = (0x46534844, 64), (7, 2)       # "FSHD", next = itself
         fshd[8] = 0x58585858                                   # a DosType no partition has
         image[2 * BLOCK:3 * BLOCK] = _fix(fshd, 2).ljust(BLOCK, b"\0")
+    if handler_blocks:
+        assert not fshd_loop and total > 3 + handler_blocks
+        rdsk[8] = 2
+        fshd = [0] * 64
+        fshd[0:2], fshd[3:5] = (0x46534844, 64), (7, END)
+        fshd[8], fshd[9], fshd[18] = DOS_FFS, (1 << 16) | 1, 3          # DosType, version 1.1, first LoadSegBlock
+        image[2 * BLOCK:3 * BLOCK] = _fix(fshd, 2).ljust(BLOCK, b"\0")
+        for k in range(handler_blocks):
+            lseg = [0] * 128
+            lseg[0:2], lseg[3], lseg[4] = (0x4C534547, 128), 7, 3 + k + 1 if k + 1 < handler_blocks else END
+            lseg[5:] = [(0x4E714E71 + k) & 0xFFFFFFFF] * 123             # NOP, NOP: the code
+            image[(3 + k) * BLOCK:(4 + k) * BLOCK] = _fix(lseg, 2)
     image[0:BLOCK] = _fix(rdsk, 2).ljust(BLOCK, b"\0")
     image[BLOCK:2 * BLOCK] = _fix(part, 2).ljust(BLOCK, b"\0")
     start, blocks = cylinder_blocks, (cylinders - 1) * cylinder_blocks

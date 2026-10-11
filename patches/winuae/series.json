@@ -3648,6 +3648,31 @@
           "after_sha256": "2ce717e3fa630a601b5570735922e2c3ee15934ec6de58073879307dcf18f98d"
         }
       ]
+    },
+    {
+      "id": "0190-filesys-rdb-checksum-bounded",
+      "file": "patches/winuae/0190-filesys-rdb-checksum-bounded.patch",
+      "sha256": "436eeca3663b8b968f80efafc6dc144fb527dc5d11e0cb0106eb210f5b8662d1",
+      "title": "The checksum of an RDB block sums the longs that were read, not the longs the block says it has",
+      "reason": "T29d (FUZZ01 of hard files): rdb_checksum summed as many longs as the block declared, up to FILESYS_MAX_BLOCKSIZE / 4, out of buffers that hold one block of the disk (512 bytes, read with hdf_read): a PART, FSHD or LSEG block that says it has 2000 longs made pt_rdsk read 1.5 KiB past the end of a heap buffer (ASan), the sum then depended on whatever the heap held, and a declared size of 573671350 longs overflowed the int of \"blocksize * 4\" (UBSan). The sum is now bounded by the bytes the caller read; a block that claims more is not a block.",
+      "category": "host hooks",
+      "order": 134,
+      "symbols": [
+        "rdb_checksum",
+        "dump_rdb",
+        "pt_rdsk",
+        "rdb_mount"
+      ],
+      "test": "tests/fuzz/test_fuzz.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "filesys.cpp",
+          "before_sha256": "cf368f03b5fa76da9eb5f4eb2387a26a57434468681b5c6892b46dcd34b9807d",
+          "after_sha256": "9461942d28bbcc4520fbe40ef2627d77e65dd13efb5decbfd5f098d814b73aab"
+        }
+      ]
     }
   ]
 }
