@@ -23,6 +23,7 @@ Needs the Waterbox runtime and the guest (tools/build_waterbox.py --puae6-run bu
 """
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import struct
@@ -337,6 +338,126 @@ class HardFileTests(Sessions):
             with self.subTest(option=option[:60]):
                 self.run_hdf([f"core X {option}"], expect=1)
                 self.assertIn(message, self.stderr)
+
+
+# --- the owner's Workbench 2.05 as a hard file in the core of BizHawk (T63, opt-in) ---------------------------------------------------------------------------------------
+# tests/hdf/test_workbench_hdf.py explains why the bytes of the Workbench 2.05 ADF are a valid plain partition: the core is given that .hdf (an A600 whose Kickstart 2.05 is read in memory
+# from the owner's zip and written to the temporary directory of the test, which goes away at the end; no hash, byte or copy of either is kept anywhere), boots from DH0 and reaches the
+# AmigaDOS window of the disk's own startup script, the same last picture as the floppy. WB 2.05 does not write while it boots, so the writes of the SaveRAM and WB03 tests come from a copy
+# whose volume was not closed (bitmap-valid flag cleared in memory): the file system validates it and rewrites the root block and the bitmap, a real write of a real guest on a real volume.
+#   BOOT    the last picture from DH0 is the last picture from DF0; a boot that wrote nothing has nothing to put in the SaveRAM (clean, no SaveRam to store).
+#   WB03    save before the guest writes, go on across the validation, load, go on again: the same units and digest, the hard file goes back with the load, in a new sandbox and in another process.
+#   SAVERAM the SaveRam holds the one 4 KiB chunk (110: blocks 880 and 881) that differs and the bytes the guest wrote; a new core that stores it before its first unit has the validated
+#           volume already, goes on without rewriting it, and gives back the same SaveRam.
+KICKSTART_A600_ZIP = os.environ.get("P6_KICKSTART_A600_ZIP")
+WORKBENCH_205_ZIP = os.environ.get("P6_WB205_ZIP")
+WB_UNITS, WB_FLOPPY_UNITS = 700, 2600          # the disk's script waits for an answer from unit ~510; the validation of the unclean volume is done by 600; the floppy settles at ~2370
+WB_EARLY = 150                                 # before the guest writes anything (the first write is between units 170 and 190)
+ROOT_CHUNK = 880 * 512 // CHUNK                # the chunk of the root block (880) and of the bitmap (881)
+
+
+@unittest.skipUnless(AVAILABLE and KICKSTART_A600_ZIP and WORKBENCH_205_ZIP, "BLOCKED: set P6_KICKSTART_A600_ZIP and P6_WB205_ZIP (and build the guest) to boot the Workbench 2.05 from a hard file")
+class WorkbenchHardFileTests(Sessions):
+    FIRMWARE = {}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from tests.hdf.test_workbench_hdf import BITMAP_VALID, ROOT_BLOCK, blocks_changed, unclean
+        from tests.step.test_kickstart_a600 import member
+        cls.root_block, cls.bitmap_valid, cls.blocks_changed = ROOT_BLOCK, BITMAP_VALID, staticmethod(blocks_changed)
+        disk = member(WORKBENCH_205_ZIP, ".adf", 901120)
+        cls.disk, cls.unclean = disk, unclean(disk)
+        (cls.media / "ks.rom").write_bytes(member(KICKSTART_A600_ZIP, ".rom", 524288))
+        for name, data in (("clean.hdf", disk), ("unclean.hdf", cls.unclean), ("W.adf", disk)):
+            (cls.media / name).write_bytes(data)
+        cls.files_before = tree(cls.media)
+        cls.cache = {}
+
+    def wcore(self, name, image="clean", **options):
+        """An A600 with the Workbench hard file `image` ("clean" or "unclean") and no floppy."""
+        return self.core(name, adf="", writes=False, hdf=str(self.media / f"{image}.hdf"), machine="a600", **options)
+
+    def run_wb(self, lines, **kwargs):
+        return self.session(lines, firmware="ks", **kwargs)
+
+    def final_hash(self, out, name):
+        return self.units(out, name)[-1][3]
+
+    def booted(self):
+        """The unclean volume after WB_UNITS units: (output, exported bytes, SaveRam bytes, its digest), made once per class."""
+        if "boot" not in self.cache:
+            exported, saveram = self.out / "wb-unclean.bin", self.out / "wb-unclean.saveram"
+            out = self.run_wb([self.wcore("U", "unclean"), f"run U {WB_UNITS}", "digest U end", "status U 0", f"export U 0 file={exported}", "saveram U r", f"writesaveram r {saveram}"])
+            self.cache["boot"] = (out, exported.read_bytes(), saveram.read_bytes())
+        return self.cache["boot"]
+
+    # --- BOOT --------------------------------------------------------------------------------------------------------------------
+
+    def test_the_hard_file_boots_from_dh0_to_the_screen_the_floppy_reaches_and_a_clean_boot_has_nothing_to_save(self):
+        out = self.run_wb([self.wcore("H"), f"run H {WB_UNITS}", "modified H", "status H 0", "saveram H r",
+                           self.core("F", adf="W", writes=False, machine="a600"), f"run F {WB_FLOPPY_UNITS}"])
+        units, floppy = self.units(out, "H"), self.units(out, "F")
+        self.assertEqual((WB_UNITS, WB_FLOPPY_UNITS), (len(units), len(floppy)))
+        self.assertEqual(floppy[-1][3], units[-1][3], "the last picture is the one the same bytes reach from DF0")
+        self.assertEqual(units[-100][3], units[-1][3], "the screen is stable")
+        self.assertNotEqual(units[WB_EARLY][3], units[-1][3])
+        self.assertEqual([0], self.modified(out, "H"), "the guest wrote nothing: the SaveRam is the empty one")
+        (status,) = self.statuses(out, "H")
+        self.assertEqual((0, 0), (status["used"], status["medium"]))
+        self.assertEqual(self.disk, (self.media / "clean.hdf").read_bytes(), "the file the core was given is the same")
+
+    # --- SAVERAM -----------------------------------------------------------------------------------------------------------------
+
+    def test_the_saveram_holds_the_one_chunk_the_guest_rewrote_and_the_exported_volume_is_valid_again(self):
+        out, exported, blob = self.booted()
+        self.assertEqual([self.root_block, self.root_block + 1], self.blocks_changed(self.unclean, exported))
+        longs = struct.unpack(">128L", exported[self.root_block * 512:(self.root_block + 1) * 512])
+        self.assertEqual((0xFFFFFFFF, 0), (longs[self.bitmap_valid], sum(longs) & 0xFFFFFFFF), "the guest validated the volume")
+        (status,) = self.statuses(out, "U")
+        self.assertEqual((1, 1), (status["used"], status["medium"]), "blocks 880 and 881 are one 4 KiB chunk")
+        version, floppies, hards = parse_saveram(blob)
+        content_id, size, chunks = hards[0]
+        self.assertEqual((2, 0, sha(self.unclean), len(self.unclean)), (version, floppies, content_id.hex(), size))
+        self.assertEqual([ROOT_CHUNK], sorted(chunks))
+        self.assertEqual(exported[ROOT_CHUNK * CHUNK:(ROOT_CHUNK + 1) * CHUNK], chunks[ROOT_CHUNK])
+        self.assertEqual(saveram_size(1), len(blob))
+
+    def test_a_new_core_that_stores_the_saveram_has_the_validated_volume_and_goes_on_without_rewriting_it(self):
+        out, exported, blob = self.booted()
+        path, again, final = self.out / "wb-in.saveram", self.out / "wb-again.saveram", self.out / "wb-final.bin"
+        path.write_bytes(blob)
+        second = self.run_wb([self.wcore("B", "unclean"), "modified B", f"readsaveram r {path}", "storesaveram B r", "modified B", "status B 0", f"run B {WB_UNITS}", "modified B",
+                              "saveram B same keep", f"writesaveram same {again}", f"export B 0 file={final}", "status B 0"])
+        self.assertIn("storedsaveram B r", second)
+        self.assertEqual([0, 0, 0], self.modified(second, "B"), "what was stored is what was kept: it stays clean while the guest has nothing left to validate")
+        self.assertEqual([0, 0], [s["used"] for s in self.statuses(second, "B")], "the overlay stays empty: the guest wrote nothing")
+        self.assertEqual(exported, final.read_bytes(), "the volume is the one the first core validated")
+        self.assertEqual(blob, again.read_bytes(), "the SaveRam it would give is the one it was given, byte for byte")
+        self.assertEqual(self.final_hash(second, "B"), self.final_hash(out, "U"), "and it ends on the same picture")
+
+    # --- WB03 --------------------------------------------------------------------------------------------------------------------
+
+    def test_wb03_a_state_taken_before_the_guest_writes_replays_the_validation_in_a_new_sandbox_and_in_another_process(self):
+        m = WB_UNITS - WB_EARLY
+        state, mid, end, back = self.out / "wb.state", self.out / "wb-mid.bin", self.out / "wb-end.bin", self.out / "wb-back.bin"
+        out = self.run_wb([self.wcore("A", "unclean"), f"run A {WB_EARLY}", "save A s", f"savefile A {state}", f"export A 0 file={mid}", f"run A {m}", "digest A first",
+                           f"export A 0 file={end}", "load A s", f"export A 0 file={back}", f"run A {m}", "digest A second",
+                           self.wcore("B", "unclean"), "load B s", f"run B {m}", "digest B b"])
+        a, b = ([u[1:] for u in self.units(out, name)] for name in "AB")
+        self.assertEqual(a[WB_EARLY:WB_EARLY + m], a[WB_EARLY + m:], "every unit after the load is the one that followed the save")
+        self.assertEqual(a[WB_EARLY:WB_EARLY + m], b, "in a new sandbox (WB04)")
+        digests = self.digests(out, "A")
+        self.assertEqual({digests["first"]}, {digests["second"], self.digests(out, "B")["b"]})
+        self.assertEqual(self.unclean, mid.read_bytes(), "before the validation the volume is the one the core was given")
+        self.assertEqual(self.booted()[1], end.read_bytes(), "after it, the validated one")
+        self.assertEqual(mid.read_bytes(), back.read_bytes(), "the load took the writes back")
+        other = self.run_wb([self.wcore("C", "unclean"), f"loadfile C {state}", f"run C {m}", "digest C c"])
+        self.assertEqual(digests["first"], self.digests(other, "C")["c"], "and in another process (WB15)")
+        refused = self.run_wb([self.wcore("N", "clean"), f"loadfile N {state}", self.core("Z", adf="", writes=False, machine="a600"), f"loadfile Z {state}"])
+        reasons = {m[1]: m[2] for m in re.finditer(r"^rejected (\S+) \S+ reason=(\w+) message=", refused, re.M)}
+        self.assertEqual("OtherMedia", reasons["N"], "the same size, other bytes: another volume is another machine")
+        self.assertIn(reasons["Z"], ("OtherHeaps", "OtherMedia"), "and so is none")
 
 
 if __name__ == "__main__":

@@ -407,5 +407,116 @@ class HardFileTests(lr.LibretroHarness):
         self.assertEqual(path.read_bytes(), image)
 
 
+# --- the owner's Workbench 2.05 as an .hdf (T63, opt-in) ----------------------------------------------------------------------------------------------------------------
+# tests/hdf/test_workbench_hdf.py explains why the bytes of the Workbench 2.05 ADF are a valid hard file (one 32-sector partition, root block at 880): here the core is given that
+# .hdf as the content (an A600 whose Kickstart 2.05 comes from the owner's zip, read in memory and written to a temporary directory outside the repository that goes away at the end;
+# no hash, byte or copy is kept anywhere) and boots it from DH0 to the AmigaDOS window of the disk's own startup script, the same last picture the floppy reaches. WB 2.05 does not write
+# while it boots, so the writes of these tests come from a copy whose volume was not closed (bitmap-valid flag cleared in memory): the file system validates it and rewrites the root block and
+# the bitmap, the guest's real writes on a real volume. Those writes live in the machine (states, rewind, run-ahead carry them) and reach the host only by the explicit export on close.
+KICKSTART_A600_ZIP = os.environ.get("P6_KICKSTART_A600_ZIP")
+WORKBENCH_205_ZIP = os.environ.get("P6_WB205_ZIP")
+WB_RUNS = 700                  # the disk's script waits for an answer from run ~510; the validation of the unclean volume is done by 600
+WB_FLOPPY_RUNS = 2600          # the same screen from DF0 is stable from ~2370
+
+
+@unittest.skipUnless(lr.TOOLS and KICKSTART_A600_ZIP and WORKBENCH_205_ZIP, "BLOCKED: set P6_KICKSTART_A600_ZIP and P6_WB205_ZIP to boot the Workbench 2.05 from an .hdf")
+class WorkbenchHardFileTests(lr.LibretroHarness):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from tests.hdf.test_workbench_hdf import unclean
+        from tests.step.test_kickstart_a600 import member
+        cls.system_dir = Path(cls.tmp.name) / "wb-system"
+        cls.system_dir.mkdir()
+        (cls.system_dir / lr.KICKSTART_NAMES_A600[0]).write_bytes(member(KICKSTART_A600_ZIP, ".rom", 524288))
+        cls.disk = member(WORKBENCH_205_ZIP, ".adf", 901120)
+        cls.unclean = unclean(cls.disk)
+        cls.files = Path(cls.tmp.name) / "wb-files"
+        cls.files.mkdir()
+        for name, data in (("clean.hdf", cls.disk), ("unclean.hdf", cls.unclean), ("floppy.adf", cls.disk)):
+            (cls.files / name).write_bytes(data)
+
+    def boot(self, name, runs, *options, save_dir=None):
+        extra = ["--save-dir", save_dir] if save_dir else []
+        return self.frontend("boot", "--runs", runs, *lr.A600, *extra, *options, content=self.files / name, system=self.system_dir).stdout
+
+    @staticmethod
+    def last(text):
+        return HardFileTests.runs(text)[-1]
+
+    def test_the_hdf_boots_from_dh0_to_the_screen_the_floppy_reaches_and_exports_nothing_it_did_not_write(self):
+        saves = self.work()
+        text = self.boot("clean.hdf", WB_RUNS, *SAVE_ON, save_dir=saves)
+        floppy = self.boot("floppy.adf", WB_FLOPPY_RUNS)
+        self.assertRegex(text, r"hard disk DH0 \(.*clean\.hdf\): 1760 blocks, one partition")
+        runs = HardFileTests.runs(text)
+        self.assertEqual(len(runs), WB_RUNS)
+        self.assertEqual(self.last(floppy)["hash"], runs[-1]["hash"], "the last picture is the one the same bytes reach from DF0")
+        self.assertEqual(runs[-100]["hash"], runs[-1]["hash"], "the screen is stable")
+        self.assertEqual((self.files / "clean.hdf").read_bytes(), self.disk, "the file is never touched")
+        self.assertEqual(HardFileTests.saved_files(saves), [], "a boot that wrote nothing exports nothing")
+        self.assertNotIn("hard disk(s)", text)
+
+    def test_the_writes_of_the_guest_are_exported_atomically_only_when_the_content_closes(self):
+        from tests.hdf.test_workbench_hdf import BITMAP_VALID, ROOT_BLOCK, blocks_changed
+        saves = self.work()
+        target = saves / saved_name(self.unclean)
+        text = self.boot("unclean.hdf", WB_RUNS, *SAVE_ON, "--do", f"{WB_RUNS // 2}:file:{target}", "--do", f"{WB_RUNS}:file:{target}", save_dir=saves)
+        self.assertEqual([m[2] for m in FILE.finditer(text)], [None, None], "nothing is written during the run (the file is missing both times it is looked for)")
+        self.assertEqual(HardFileTests.saved_files(saves), [target.name])
+        exported = target.read_bytes()
+        self.assertEqual(blocks_changed(self.unclean, exported), [ROOT_BLOCK, ROOT_BLOCK + 1])
+        longs = struct.unpack(">128L", exported[ROOT_BLOCK * 512:(ROOT_BLOCK + 1) * 512])
+        self.assertEqual((longs[BITMAP_VALID], sum(longs) & 0xFFFFFFFF), (0xFFFFFFFF, 0), "the volume is valid again")
+        self.assertEqual((self.files / "unclean.hdf").read_bytes(), self.unclean, "the file is never touched")
+        # Off by default: the changes are reported and discarded.
+        discarded = self.work()
+        self.assertRegex(self.boot("unclean.hdf", WB_RUNS, save_dir=discarded), r"1 hard disk\(s\) were changed and the changes are discarded")
+        self.assertEqual(HardFileTests.saved_files(discarded), [])
+        # The next load with the option on uses the saved copy, which is already valid: nothing is rewritten and the screen is the same.
+        again = self.boot("unclean.hdf", WB_RUNS, *SAVE_ON, save_dir=saves)
+        self.assertIn("the hard disk uses the changes an earlier session saved in", again)
+        self.assertEqual(target.read_bytes(), exported)
+        self.assertEqual(self.last(again)["hash"], self.last(text)["hash"])
+
+    def test_a_state_taken_before_the_guest_writes_converges_after_it_wrote_and_loads_in_another_process(self):
+        EARLY, LATE = 150, 650        # the guest rewrites the root block and the bitmap between units 170 and 190
+        saves = self.work()
+        target = saves / saved_name(self.unclean)
+        # One timeline: states before (EARLY) and after (LATE) the validation, on to WB_RUNS; then the early state is loaded back and the machine runs to where LATE was taken.
+        runs = WB_RUNS + (LATE - EARLY)
+        text = self.boot("unclean.hdf", runs, "--do", f"{EARLY}:save:early", "--do", f"{LATE}:save:late", "--do", f"{WB_RUNS}:load:early", "--do", f"{runs}:save:again",
+                         *SAVE_ON, save_dir=saves)
+        saved = {m[1]: m[5] for m in SAVE.finditer(text)}
+        self.assertNotEqual(saved["early"], saved["late"], "the writes are part of the state")
+        self.assertEqual(saved["again"], saved["late"], "the early state replays to the same machine, writes included")
+        self.assertTrue(all(m[3] == "1" for m in LOAD.finditer(text)))
+        exported = target.read_bytes()
+        # Another process, a new machine at power-on: the late state brings the writes in and closing the content exports them.
+        state = self.work() / "late.state"
+        self.boot("unclean.hdf", LATE, "--do", f"{LATE}:savefile:{state}")
+        other_saves = self.work()
+        second = self.boot("unclean.hdf", 20, *SAVE_ON, "--do", f"0:loadfile:{state}:pos={LATE}", save_dir=other_saves)
+        self.assertEqual(LOAD.search(second)[3], "1")
+        self.assertEqual((other_saves / target.name).read_bytes(), exported, "the state carried the writes; the process exported them")
+        # Another disk, or none, is another machine: refused before anything changes.
+        refused = self.boot("clean.hdf", 20, "--do", f"0:loadfile:{state}:pos={LATE}")
+        self.assertEqual(LOAD.search(refused)[3], "0")
+
+    def test_run_ahead_across_the_validation_changes_nothing_on_the_way_and_ends_in_the_same_disk(self):
+        # Run-ahead after runs 150 (before the guest writes), 190 (just after) and 300 and 600: 50 speculative runs each time, then the state goes back. The guest writes inside the
+        # speculative window of run 150 and the real timeline writes again when it gets there: what the frontend sees, and the disk the content closes with, are the plain run's.
+        # (Not from run 0: A600 + Kickstart 2.05 does not replay exactly from a state taken before unit ~115, with no hard disk either; see reports/tasks/T63.md.)
+        saves, plain_saves = self.work(), self.work()
+        target = saves / saved_name(self.unclean)
+        plain = self.boot("unclean.hdf", WB_RUNS, *SAVE_ON, save_dir=plain_saves)
+        ahead = ["--ahead", "150:50", "--ahead", "190:50", "--ahead", "300:50", "--ahead", "600:50"]
+        text = self.boot("unclean.hdf", WB_RUNS, *SAVE_ON, *ahead, "--do", f"{WB_RUNS // 2}:file:{target}", "--do", f"{WB_RUNS}:file:{target}", save_dir=saves)
+        self.assertEqual([m[2] for m in FILE.finditer(text)], [None, None], "run-ahead wrote a file")
+        key = lambda r: (r["n"], r["size"], r["hash"], r["unit"], r["ticks"])
+        self.assertEqual([key(r) for r in HardFileTests.runs(plain)], [key(r) for r in HardFileTests.runs(text)], "the visible runs are the plain ones")
+        self.assertEqual(target.read_bytes(), (plain_saves / target.name).read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()

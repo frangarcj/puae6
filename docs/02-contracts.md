@@ -548,6 +548,16 @@ trozos encima (como para los disquetes: el overlay del guest empieza vacio y el 
 nucleo con otros medios (`BadFields`), a un nucleo sin nada escribible (`WritesDisabled`) o despues de la primera unidad (`TooLate`) se rechaza sin cambiar nada. EmuHawk la carga entera por el parche
 `0001-register-puae6.patch` (T28b); el menu "Export Hard Disk" de MacHawk no se porta (el API es `GetHardDiskContents`, `GetHardDiskName`, `HasHardDisk`).
 
+Cierre de T63 (HDF con Workbench, opt-in con `P6_KICKSTART_A600_ZIP` + `P6_WB205_ZIP`, sin cambios de produccion): los bytes del ADF de Workbench 2.05 (901120 = 1760 bloques = 55 cilindros de 32, `DOS\0`,
+bloque raiz 880) SON una particion plana valida (T29a: 32 sectores, 1 cabeza, 2 reservados, DosType = primer long del bloque 0), asi que "el HDF con Workbench" es el ADF leido en memoria del zip del usuario y dado
+como `P6_MEDIA_HDF` sin disquete: el A600 con Kickstart 2.05 arranca desde DH0 (unidad ~510) a la misma ultima imagen, pixel por pixel, que el mismo disco desde DF0 (unidad ~2370), en el motor nativo
+(`tests/hdf/test_workbench_hdf.py`), en libretro (`WorkbenchHardFileTests` de `tests/libretro-host/test_hdf.py`) y en el nucleo BizHawk dentro de Waterbox (`WorkbenchHardFileTests` de
+`tests/waterbox-media/test_media_hdf.py`, WB03); DET02 lo cubre con estados dentro del arranque, de la carga que sigue a responder el script del disco y con overlay real (`tests/state/test_det02_hdf.py`). WB 2.05 no escribe
+al arrancar; las escrituras de las pruebas salen de una copia derivada en memoria con el flag de bitmap valido del bloque raiz a 0: el sistema de ficheros valida el volumen entre las unidades 170 y 190
+y reescribe los bloques 880 y 881 (un trozo de 4 KiB, el 110), que salen solo por la exportacion explicita (`puae6_hdf_save=on_close`, atomica, y la SaveRAM P6SR v2 en BizHawk) y vuelven con estados, rewind,
+run-ahead y SaveRAM. Limite conocido, ajeno a los HDF (reports/tasks/T63.md): el A600 con Kickstart 2.05 no repone exactamente desde un estado tomado cerca de las unidades 95-125 (DET02 en la 120; run-ahead
+desde el run 0 de libretro), con o sin disco; el A500 con Kickstart 1.3 si.
+
 ## Regiones de memoria
 
 Implementado (T20a): `p6_memory_regions` (capacidad `P6_CAP_MEMORY_REGIONS`) devuelve vistas de la memoria que el motor asigno, no copias: Chip RAM,

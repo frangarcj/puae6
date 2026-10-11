@@ -92,5 +92,57 @@ d.populate(Det02HdfKickstart13Tests, KICKSTART_SCENARIOS, DIVERGENCES)
 d.populate(Det02HdfKickstart31Tests, KICKSTART_SCENARIOS, DIVERGENCES)
 
 
+# --- the owner's Workbench 2.05 as a hard file (T63) ---------------------------------------------------------------------------------------------------------------
+# The ADF of Workbench 2.05 (read in memory from the owner's zip, written to a temporary directory outside the repository, never copied, hashed or kept) is, byte for byte, a valid plain
+# partition (see tests/hdf/test_workbench_hdf.py): given as a hard file with no floppy in DF0, the A600 boots from DH0. States are taken at boundaries inside the autoconfig, the mount, the
+# load of the system by the file system (the EXTER interrupt answering reads) and, with the prompt of the disk's script answered by keys, inside the load that follows the answer to the script's prompt. The guest
+# writes nothing in a boot, so what is proved is that the controller state and the (empty) overlay go back the same, which is what DET02 compares.
+KICKSTART_205 = os.environ.get("P6_KICKSTART_A600_ZIP")
+WORKBENCH_205 = os.environ.get("P6_WB205_ZIP")
+ANSWER_THE_PROMPT = ["--key", "600", "0x0A", "down", "--key", "604", "0x0A", "up", "--key", "620", "0x44", "down", "--key", "624", "0x44", "up"]
+WORKBENCH_HDF_SCENARIOS = {
+    "workbench-hdf-boot": ("kickstart", "workbench-hdf", (60, 120, 180, 260, 350, 440, 505), (d.SAME_BEAM, d.NEW)),
+    "workbench-hdf-screen": ("kickstart", "workbench-hdf-keys", (630, 680, 740), (d.SAME_BEAM, d.NEW)),
+    # The volume was not closed (bitmap-valid flag cleared, see tests/hdf/test_workbench_hdf.py): between units 170 and 190 the file system validates it and writes the root block and
+    # the bitmap, so these states are taken before (150, 178), just after (190) and well after (300) a real write and carry a real overlay of one 4 KiB chunk.
+    "workbench-hdf-unclean": ("kickstart", "workbench-hdf-unclean", (150, 178, 190, 300), (d.SAME_BEAM, d.NEW)),
+}
+
+
+@unittest.skipUnless(KICKSTART_205 and WORKBENCH_205, "BLOCKED: set P6_KICKSTART_A600_ZIP and P6_WB205_ZIP to boot the Workbench 2.05 from a hard file")
+class Det02HdfWorkbench205Tests(d.Det02Case):
+    MACHINE = "a600"
+
+    @classmethod
+    def firmware(cls):
+        from tests.step.test_kickstart_a600 import member
+        rom = cls.dir / "kickstart-2.05.rom"
+        rom.write_bytes(member(KICKSTART_205, ".rom", 524288))
+        cls.workbench = cls.dir / "workbench-2.05.hdf"
+        cls.workbench.write_bytes(member(WORKBENCH_205, ".adf", 901120))
+        from tests.hdf.test_workbench_hdf import unclean
+        cls.unclean = cls.dir / "workbench-2.05-unclean.hdf"
+        cls.unclean.write_bytes(unclean(cls.workbench.read_bytes()))
+        return rom
+
+    def arguments(self, extra):
+        if extra == "workbench-hdf":
+            return ["--hdf", str(self.workbench)]
+        if extra == "workbench-hdf-unclean":
+            return ["--hdf", str(self.unclean)]
+        if extra == "workbench-hdf-keys":
+            return ["--hdf", str(self.workbench), *ANSWER_THE_PROMPT]
+        return super().arguments(extra)
+
+
+# Found by T63 and NOT about hard files: the A600 with the Kickstart 2.05 diverges at unit 120 with a floppy in DF0 and with no disk at all too (probed with the A600 scenarios of
+# tests/state/test_det02_a600.py at 110, 115, 120, 125 and 130: only 120 fails; 107, 140 and the rest pass). The first unit after the load shows another video digest and another picture,
+# the machine is the original's from the second one on. The reproducer is this table (it needs the owner's firmware); the attribution is open (video/picture of the unit in which the
+# Kickstart switches the display on), so it is pinned here as an expected failure with its first divergence, not relaxed.
+BOOT_120 = (1, ("video", "picture"), "open (not T63)", "A600 Kickstart 2.05 at unit 120, with a floppy and with no disk too: the first unit after the load has another video digest and picture")
+WORKBENCH_DIVERGENCES = {f"workbench-hdf-boot@120/{mode}": BOOT_120 for mode in (d.SAME_BEAM, d.NEW)}
+d.populate(Det02HdfWorkbench205Tests, WORKBENCH_HDF_SCENARIOS, WORKBENCH_DIVERGENCES)
+
+
 if __name__ == "__main__":
     unittest.main()

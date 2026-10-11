@@ -13097,7 +13097,7 @@
       "title": "HDF/HDZ, RDB y arranque desde disco duro en libretro y BizHawk (controladora uae0/uaehf de PUAE5)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T29",
         "T63a",
