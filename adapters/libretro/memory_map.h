@@ -74,10 +74,10 @@ inline retro_memory_descriptor describe_region(const p6_memory_region &region, s
     return descriptor;
 }
 
-// Builds the map from what p6_memory_regions reported. Returns false when there is no Chip RAM to offer (no machine). `slow_limit` is the Slow RAM the options asked for,
-// in bytes (0: the machine's own): the engine rounds 1.5 MiB up to the 2 MiB it allocates on some machines, and the CPU only reaches what was asked for, so that is what
-// is announced (a frontend that concatenates the RAM, like rcheevos, would otherwise find the Fast RAM half a MiB away from where it counts).
-inline bool build_memory_map(const p6_memory_region *regions, uint32_t count, size_t slow_limit, MemoryMap *out)
+// Builds the map from what p6_memory_regions reported. Returns false when there is no Chip RAM to offer (no machine). The regions already carry the size the CPU reaches (T75a: the
+// engine allocates 2 MiB for 1.5 MiB of Slow RAM and the bridge reports 1.5), so they are announced as they are and a frontend that concatenates the RAM, like rcheevos, finds
+// the Fast RAM where it counts.
+inline bool build_memory_map(const p6_memory_region *regions, uint32_t count, MemoryMap *out)
 {
     *out = MemoryMap();
     for (uint32_t i = 0; i < count && out->count < kMaxMemoryDescriptors; ++i) {
@@ -89,12 +89,9 @@ inline bool build_memory_map(const p6_memory_region *regions, uint32_t count, si
             out->system_ram = region.data;
             out->system_ram_bytes = size_t(region.bytes);
             break;
-        case P6_REGION_SLOW_RAM: {
-            p6_memory_region reachable = region;
-            if (slow_limit && reachable.bytes > slow_limit) reachable.bytes = slow_limit;
-            out->descriptor[out->count++] = describe_region(reachable, kSlowStart, "SLOW", RETRO_MEMDESC_SYSTEM_RAM);
+        case P6_REGION_SLOW_RAM:
+            out->descriptor[out->count++] = describe_region(region, kSlowStart, "SLOW", RETRO_MEMDESC_SYSTEM_RAM);
             break;
-        }
         case P6_REGION_FAST_RAM:
             out->descriptor[out->count++] = describe_region(region, kFastStart, "FAST", RETRO_MEMDESC_SYSTEM_RAM);
             break;

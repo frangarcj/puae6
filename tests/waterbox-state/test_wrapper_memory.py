@@ -9,6 +9,8 @@ WB03  the A1200 with 8 MiB of Fast RAM, the A600 of PUAE5 (2 MiB Chip + 8 MiB Fa
       again: the same units and the same digest; a state runs in a new sandbox (WB04) and in another process (WB15); with the owner's Kickstarts, where supplied (opt-in), the
       Kickstart configures the board and the snapshot restores a machine that is using it.
 AREAS the Fast RAM domain has the size of the board, reads and writes through the guest (also to pages that nothing has written since the seal), and a load takes the writes back.
+SLOW  the Slow RAM domain has the size the CPU reaches for every option (T75a): 1.5 and 1.75 MiB are not the 2 MiB the engine allocates; the last reachable bytes are read and written
+      through the guest and the first byte after them is out of range.
 ID    a state or a movie of one memory is refused by a core with other memory, before the sandbox is touched, and the instance that refused it goes on as if never asked.
 HEAP  the heaps of the core for a configuration are the base ones plus twice the extra memory (the same rule as the smoke harness and the manifest), and are the base ones for stock memory.
 
@@ -115,6 +117,27 @@ class WrapperMemoryTests(unittest.TestCase):
                 self.assertEqual(("Fast_RAM", "100", "00000000"), peeks[4], "the load took the later write back")
                 self.assertEqual(("Fast_RAM", "0", "DEADBEEF01020304"), peeks[5], "and kept the earlier ones")
                 self.assertEqual(8, len(peeks[6][2]) // 2)
+
+    def test_the_slow_ram_domain_has_the_size_the_cpu_reaches_not_the_size_the_engine_allocated(self):
+        # T75a: the engine allocates 2 MiB for the 1.5 and 1.75 MiB options but maps only what was asked. `domains` (tests/ffi) writes the last word of the domain through the guest
+        # and requires that an access past its Size throws, so the Size has to be the reachable one.
+        cases = (("a500", None, 512 << 10), ("a500", "KB512", 512 << 10), ("a500", "MB1", 1 << 20), ("a500", "MB1_5", 1536 << 10),
+                 ("a500", "MB1_75", 1792 << 10), ("a1200", "MB1_5", 1536 << 10), ("a600", "MB1_5", 1536 << 10))
+        for machine, slow, size in cases:
+            with self.subTest(machine=machine, slow=slow):
+                flags = ["--machine", machine] + (["--slow", slow] if slow else [])
+                result = build_waterbox.run_ffi("domains", "--runtime", "libwaterboxhost.dylib", "--guest", str(base.GUEST), "--sha", self.sha, "--firmware", str(self.dir / "chipcell.rom"), *flags)
+                self.assertEqual(0, result.returncode, f"{result.stdout[-2500:]}\n{result.stderr[-2500:]}")
+                self.assertNotIn("FAIL", result.stdout)
+                self.assertIn(f"domain Slow RAM size={size} writable=True", result.stdout)
+                self.assertEqual(4, result.stdout.count("ok an out-of-range access throws"))
+
+    def test_the_last_bytes_of_a_1_5_mib_slow_ram_are_read_and_written_through_the_guest_and_a_load_takes_them_back(self):
+        last = f"{(1536 << 10) - 8:x}"
+        out = self.session([self.core("A", "a500", slow="MB1_5"), "run A 5", f"peek A Slow_RAM {last} 8", f"poke A Slow_RAM {last} A5A5A5A5A5A5A5A5", f"peek A Slow_RAM {last} 8", "save A s",
+                            f"poke A Slow_RAM {last} 1122334455667788", "load A s", f"peek A Slow_RAM {last} 8"])
+        peeks = [value.upper() for value in re.findall(rf"^peek A Slow_RAM {last} (\w+)$", out, re.M)]
+        self.assertEqual(["0000000000000000", "A5A5A5A5A5A5A5A5", "A5A5A5A5A5A5A5A5"], peeks)
 
     # --- the identity of a state and of a movie ------------------------------------------------------------------------------------
 

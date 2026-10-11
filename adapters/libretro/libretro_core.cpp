@@ -212,8 +212,7 @@ void refresh_memory_map()
         return;
     }
     p6_libretro::MemoryMap now;
-    const uint32_t slow = core.settings.slow_size;
-    if (!p6_libretro::build_memory_map(regions, count, slow == 0 || slow == P6_MEMORY_NONE ? 0 : size_t(slow) * 1024, &now)) return;
+    if (!p6_libretro::build_memory_map(regions, count, &now)) return;
     if (core.memory_announced && now.same_as(core.memory_map)) return;
     if (core.memory_announced) log(RETRO_LOG_WARN, "the memory moved: the frontend is told again");
     core.memory_map = now;

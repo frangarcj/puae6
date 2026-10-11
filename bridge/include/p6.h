@@ -226,9 +226,10 @@ typedef struct p6_frame {
  * a replay has to treat it as input. The pointers are valid until the next call that changes the machine (a
  * p6_run_frame, a reset, an unload); a caller that keeps a region across those has to ask again. Measured (T75): while one image is
  * loaded with one configuration the engine keeps its buffers (memory_reset only reallocates when a size changes), so a reset, a state
- * load and a run-ahead leave the pointers where they were; a caller that hands them to somebody else (libretro's memory map) asks again
- * after each of those and tells that somebody when one differs. The Slow RAM can be reported larger than the CPU reaches (the engine
- * allocates 2 MiB for 1.5 MiB on the A500): the caller limits it to the size it configured. */
+ * load and a run-ahead leave the pointers where they were; a caller that hands them to somebody else (a frontend's memory map) asks again
+ * after each of those and tells that somebody when one differs. The Slow RAM is reported with the size the CPU
+ * reaches (T75a), not the size allocated: the engine allocates 2 MiB for the 1.5 and 1.75 MiB options and maps only what was asked, so every client
+ * (a frontend memory map, a Waterbox domain) sees the same bytes the CPU can address. */
 typedef struct p6_memory_region {
     uint32_t type;
     uint32_t flags;

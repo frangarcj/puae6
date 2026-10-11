@@ -272,6 +272,41 @@ void reports_the_fast_ram_board(const std::vector<uint8_t> &rom)
     unload();
 }
 
+// T75a: the Slow RAM region is the size the CPU reaches for every option, not the size the engine allocated (2 MiB for 1.5 and 1.75 MiB). The bytes are the engine's own
+// buffer, and what is allocated beyond the region is not touched by this call.
+void reports_the_slow_ram_the_cpu_reaches(const std::vector<uint8_t> &rom)
+{
+    struct Case { uint32_t machine; uint32_t slow_kib; uint64_t reach; uint64_t allocated; };
+    const Case cases[] = {
+        {P6_MACHINE_A500, 0, 512u << 10, 512u << 10},                 // the machine's own
+        {P6_MACHINE_A500, 512, 512u << 10, 512u << 10},
+        {P6_MACHINE_A500, 1024, 1u << 20, 1u << 20},
+        {P6_MACHINE_A500, 1536, 1536u << 10, 2u << 20},               // allocated as a power of two, reached up to 1.5 MiB
+        {P6_MACHINE_A500, 1792, 1792u << 10, 2u << 20},
+        {P6_MACHINE_A1200, 1536, 1536u << 10, 2u << 20},
+        {P6_MACHINE_A1200, 1024, 1u << 20, 1u << 20},
+        {P6_MACHINE_A500, P6_MEMORY_NONE, 0, 0},
+    };
+    for (const Case &test : cases) {
+        p6_config c = make_config();
+        c.machine = test.machine;
+        c.slow_kib = test.slow_kib;
+        load_config(rom, c);
+        for (int round = 0; round < 2; ++round) {                    // before and after a unit
+            const Regions r = ask();
+            const p6_memory_region *slow = r.find(P6_REGION_SLOW_RAM);
+            if (!test.reach) {
+                assert(!slow);
+            } else {
+                assert(slow && slow->data == bogomem_bank.baseaddr && slow->flags == P6_REGION_WRITABLE);
+                assert(slow->bytes == test.reach && bogomem_bank.allocated_size == test.allocated);
+            }
+            run_unit();
+        }
+        unload();
+    }
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) { fprintf(stderr, "usage: %s CHIPCELL.rom DISK.rom A.adf\n", argv[0]); return 2; }
@@ -279,6 +314,7 @@ int main(int argc, char **argv)
     refuses_before_a_load_and_after_an_unload(chipcell);
     reports_the_machine_memory(chipcell);
     reports_the_fast_ram_board(chipcell);
+    reports_the_slow_ram_the_cpu_reaches(chipcell);
     the_host_sees_and_changes_what_the_cpu_does(chipcell);
     the_drive_light_follows_the_led(chipcell, disk, adf);
     puts("bridge-memory-ok");

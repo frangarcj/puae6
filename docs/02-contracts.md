@@ -558,6 +558,10 @@ maquina (una unidad, un reset, un unload); el motor libera y reasigna su RAM en 
 Solo se pide en LOADED (BAD_STATE si no), `count` es obligatorio y con `regions` nulo y capacidad cero devuelve el numero necesario; una capacidad
 insuficiente devuelve CAPACITY con el numero necesario y sin salida parcial.
 
+El tamano de la Slow RAM es el que la CPU alcanza, no el asignado (T75a): el motor asigna 2 MiB (potencia de dos) para las opciones de 1,5 y 1,75 MiB, pero solo mapea
+`currprefs.bogomem.size` en `$C00000`, asi que `p6_memory_regions` informa 1536 o 1792 KiB y la cola asignada no se ofrece. Los adaptadores (el mapa de libretro y el dominio `Slow RAM`
+de BizHawk, y cualquier otro cliente) ven el mismo tamano que la CPU para cada opcion; el adaptador libretro ya no recorta nada. La memoria asignada y el estado no cambian.
+
 El guest de Waterbox las ofrece al wrapper como `p6w_memory_areas` (adapters/waterbox/p6w.h): la estructura es la de `LibWaterboxCore.MemoryArea` de
 BizHawk y cada area es una funcion de acceso que se ejecuta dentro del sandbox y resuelve el puntero del motor en cada llamada. Es necesario por
 dos razones medidas: una escritura managed en una pagina que el seguimiento de paginas sucias aun protege es un `AccessViolationException` fatal

@@ -13546,7 +13546,7 @@
       "title": "p6_memory_regions informa el tamano alcanzable de Slow RAM (A500 con 1,5/1,75 MiB), no el asignado",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T75"
       ],

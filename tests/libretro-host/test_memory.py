@@ -136,6 +136,17 @@ class MemoryMapTests(lr.LibretroHarness):
         found, _ = descriptors(self.machine("A1200", "--runs", 3, "--set", "puae6_slow_size=MB1_5").stdout)
         self.assertEqual((found["SLOW"]["start"], found["SLOW"]["len"]), (0xC00000, 1536 * KIB))
 
+    def test_every_slow_ram_option_is_announced_with_the_size_the_cpu_reaches(self):
+        # T75a: the size comes from p6_memory_regions (the engine allocates 2 MiB for 1.5 and 1.75 MiB), not from a limit the adapter applies.
+        for option, kib in (("KB512", 512), ("MB1", 1024), ("MB1_5", 1536), ("MB1_75", 1792)):
+            with self.subTest(option=option):
+                found, order = descriptors(self.machine("A500", "--runs", 3, "--set", f"puae6_slow_size={option}").stdout)
+                self.assertEqual(["CHIP", "SLOW", "ROM"], order)
+                self.assertEqual((found["SLOW"]["start"], found["SLOW"]["len"]), (0xC00000, kib * KIB))
+        found, order = descriptors(self.machine("A1200", "--runs", 3, "--set", "puae6_slow_size=MB1", "--set", "puae6_fast_size=MB1").stdout)
+        self.assertEqual(["CHIP", "SLOW", "FAST", "ROM"], order)
+        self.assertEqual(found["SLOW"]["len"], 1024 * KIB)
+
     def test_the_rom_window_of_every_machine_ends_at_the_end_of_the_24_bit_bus(self):
         # The micro-ROM is 256 KiB for every machine, so the 512 KiB case is the same rule on the size the engine reports: the end of the ROM is the end of the 24-bit bus.
         for machine in CASES:
