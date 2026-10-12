@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import compare_runs as cr  # noqa: E402
 from tests.portability import corpus  # noqa: E402
 from tests.reference import builds  # noqa: E402
+from tests.scenarios.corpus import corpus as differential  # noqa: E402
 
 CLASSES = json.loads((ROOT / "tests/reference/patch-classes.json").read_text())
 
@@ -91,7 +92,11 @@ class Ref01Tests(unittest.TestCase):
         names = [scenario for entry in CLASSES["ablate"].values() if entry["effect"] == "neutral" for scenario in entry["scenarios"]]
         by_id = {case["id"]: case for case in self.cases}
         self.assertGreaterEqual(len(names), 5)
-        for name in names:
+        # A neutral patch may name scenarios of the differential corpus (T32b, e.g. patch 0262): those are compared, equal unless a patch says
+        # otherwise, by tests/reference/test_corpus.py. Here only the cases of this corpus run, and every name must exist in one of the two.
+        unknown = sorted(set(names) - set(by_id) - {entry.id for entry in differential.ENTRIES})
+        self.assertEqual([], unknown, "a neutral patch names a scenario that no corpus has")
+        for name in (name for name in names if name in by_id):
             with self.subTest(case=name):
                 self.assertFalse(expected_difference(name), "a neutral patch and a patch expected to differ name the same case")
                 product, reference = run_both(self.rom(by_id[name]), by_id[name]["args"])
