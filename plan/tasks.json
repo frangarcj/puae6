@@ -11526,7 +11526,7 @@
       "title": "Arranque WHDLoad real desde el conjunto instalado en headless, libretro y BizHawk/Waterbox: input, escritura y restore",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "evidence": null,
       "depends": [
         "T30a",
@@ -11546,7 +11546,8 @@
       ],
       "steps": [
         "Parte de ejecucion de T30: la imagen que prepara T30a (un juego de libre distribucion, datos incluidos; Kickstart del usuario por variable de entorno, opt-in) arranca WHDLoad, responde a entrada, escribe en el volumen y repone desde un estado en el motor nativo, en libretro y en el nucleo BizHawk dentro de Waterbox.",
-        "DET02 (estados con la imagen), WB03 (nucleo C#) y MED03 (el replay no monta carpetas del host). Sin cambios de produccion (adapters/, bridge/, integration/): si hacen falta, parar y explicar."
+        "DET02 (estados con la imagen), WB03 (nucleo C#) y MED03 (el replay no monta carpetas del host). Sin cambios de produccion (adapters/, bridge/, integration/): si hacen falta, parar y explicar.",
+        "2026-10-12: hecho con Fatal Mission (WHDLoad 20.0 + install de Kyzer) en A1200 + Kickstart 3.1 del usuario: arranque, joystick/F10, escritura de boot.log/exit.log y volumen exportado identico en nativo, libretro y Waterbox; DET02 pasa salvo whdload-game (PCM tras cargar con audio DMA sonando, fijado en DIVERGENCES, T15m); el nucleo BizHawk (snapshot del sandbox) no la tiene."
       ],
       "checks": [
         "DET02",
@@ -11558,6 +11559,42 @@
       "stop": "Si el crash de libwaterboxhost (T28a) interfiere, anotar la senal y repetir, sin subir timeouts."
     },
     {
+      "id": "T15m",
+      "title": "Estado nativo: el PCM tras cargar un estado de un juego con audio DMA sonando (Fatal Mission en WHDLoad) es otra forma de onda aunque todos los digests coincidan",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "evidence": null,
+      "depends": [
+        "T15",
+        "T30b"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "tests/state/**",
+        "tests/whdload/**",
+        "manifests/state-inventory.json",
+        "manifests/waterbox-memory.json"
+      ],
+      "steps": [
+        "Hallazgo de T30b (2026-10-12): tests/whdload/test_det02_whdload.py, escenarios whdload-game@420 y @700 (A1200 + Kickstart 3.1 del usuario + imagen de tools/prepare_whdload.py con Fatal Mission, fuego en el puerto 1 desde la unidad 400): tras cargar el estado, CPU, RAM, chipset, audio, video y bridge coinciden con el original en cada unidad pero el PCM de cada unidad difiere desde la primera y sigue distinto (la senal del juego es un tono periodico de dos unidades: otra forma de onda). Pasa en el arranque, el titulo y tras F10. Misma brecha en libretro (ahash tras loadfile); el nucleo BizHawk no la tiene porque su estado es el snapshot completo del sandbox.",
+        "Reproducir con un micro-ROM (Paula DMA en bucle con el periodo y el volumen que usa el juego), localizar el campo de Paula (audio.cpp: canal, buffer de muestras, filtro o fase del remuestreador) que ni P6AU ni AUDP llevan y ponerlo en el estado con un parche; quitar las 4 entradas de DIVERGENCES de tests/whdload/test_det02_whdload.py."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Los 4 escenarios whdload-game pasan sin entrada en DIVERGENCES y la suite de estado sigue sin fallos esperados."
+      ],
+      "stop": "Dos intentos sin aislar el campo: guardar el caso minimo y dos hipotesis (estado de canal en curso; filtro/remuestreador) y marcar blocked."
+    },
+    {
       "id": "T30",
       "title": "Definir y probar un flujo WHDLoad reproducible",
       "milestone": "M3",
@@ -11566,7 +11603,8 @@
       "depends": [
         "T29",
         "T30a",
-        "T30b"
+        "T30b",
+        "T15m"
       ],
       "read": [
         "docs/02-contracts.md",
@@ -11585,7 +11623,8 @@
         "Generar imagen determinista con orden, timestamps y contenido controlados o exigir imagen previamente identificada; no ejecutar scripts arbitrarios del juego en el host.",
         "Probar arranque, input, escritura y restore desde el mismo conjunto instalado en ambos adaptadores.",
         "Documentar restricciones de formatos/instaladores y que el flujo no replica automaticamente toda la UX de PUAE viejo.",
-        "2026-10-12: dividida en T30a (generador, licencias, MED03/SRC01) y T30b (arranque real en los tres adaptadores, DET02/WB03); T30 queda como cierre con docs/whdload.md."
+        "2026-10-12: dividida en T30a (generador, licencias, MED03/SRC01) y T30b (arranque real en los tres adaptadores, DET02/WB03); T30 queda como cierre con docs/whdload.md.",
+        "2026-10-12: T30b encontro una brecha de estado (PCM de un juego con audio DMA tras cargar un estado, T15m); T30 no se cierra hasta que T15m la corrija o se decida aceptarla."
       ],
       "checks": [
         "MED03",

@@ -221,6 +221,9 @@ def prepare(config, inputs, assets, allow_missing=False, licenses=None):
         if "size" in asset and len(data) != asset["size"]:
             problems.append("asset %s: %d bytes, expected %d (the file is not the one the install asks for)" % (asset["to"], len(data), asset["size"]))
             continue
+        if asset["to"].lower() in {k.lower() for k in files}:
+            problems.append("%s is placed twice" % asset["to"])
+            continue
         # The user's file goes into the image; its hash is deliberately not recorded anywhere (a Kickstart is never hashed or copied by this project).
         files[asset["to"]] = data
         asset_records.append({"path": asset["to"], "size": len(data), "license": asset["license"]})

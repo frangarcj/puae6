@@ -73,8 +73,8 @@ class PlanTests(unittest.TestCase):
     def test_current_project_gate_and_machawk_priority(self):
         data = json.loads((ROOT / "plan/tasks.json").read_text())
         by_id = {task["id"]: task for task in data["tasks"]}
-        self.assertEqual(307, len(by_id))
-        self.assertEqual(299, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(308, len(by_id))
+        self.assertEqual(300, sum(task["required"] for task in by_id.values()))
         self.assertEqual(["T03", "T26"], by_id["T48a"]["depends"])
         self.assertEqual(["T03", "T26"], by_id["T48b"]["depends"])
         self.assertEqual(["T22", "T26"], by_id["T48c"]["depends"])
@@ -92,7 +92,8 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(["T29", "T63a", "T63b"], by_id["T63"]["depends"])
         self.assertEqual(["T29"], by_id["T30a"]["depends"])
         self.assertEqual(["T30a", "T63"], by_id["T30b"]["depends"])
-        self.assertEqual(["T29", "T30a", "T30b"], by_id["T30"]["depends"])
+        self.assertEqual(["T29", "T30a", "T30b", "T15m"], by_id["T30"]["depends"])
+        self.assertEqual(["T15", "T30b"], by_id["T15m"]["depends"])
         self.assertEqual(["T00"], by_id["T01a"]["depends"])
         self.assertEqual(["T01a"], by_id["T01b"]["depends"])
         self.assertEqual(["T01a", "T01b"], by_id["T01"]["depends"])
