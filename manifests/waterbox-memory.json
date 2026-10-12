@@ -248,7 +248,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -389,7 +389,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -531,7 +531,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -674,7 +674,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -817,7 +817,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -959,7 +959,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -1107,7 +1107,7 @@
       "units": 5600,
       "note": "the adversarial writer: every track of both disks is rewritten, 3520 sectors, the whole pool of the overlay (WB12)"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -1249,7 +1249,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -1388,12 +1388,12 @@
       "hard_file_bytes": [
         2097152
       ],
-      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_sha256": "74ed176f3f70af7ff8535709f3b8c7b21be73a188b764278769125f61101a5ad",
       "firmware_bytes": 262144,
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -1454,8 +1454,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 98304,
-        "dirty_bytes": 81920,
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1475,7 +1475,7 @@
       },
       "mmap": {
         "committed_bytes": 9814016,
-        "dirty_bytes": 1081344,
+        "dirty_bytes": 1097728,
         "invisible_bytes": 0
       }
     },
@@ -1496,8 +1496,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 98304,
-        "dirty_bytes": 81920,
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1517,13 +1517,13 @@
       },
       "mmap": {
         "committed_bytes": 9814016,
-        "dirty_bytes": 1081344,
+        "dirty_bytes": 1343488,
         "invisible_bytes": 0
       }
     },
     "snapshot_bytes": {
       "after_seal": 49396,
-      "after_last_unit": 9486580
+      "after_last_unit": 9797876
     }
   },
   "measured_a500_hdf32768": {
@@ -1532,12 +1532,12 @@
       "hard_file_bytes": [
         33554432
       ],
-      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_sha256": "74ed176f3f70af7ff8535709f3b8c7b21be73a188b764278769125f61101a5ad",
       "firmware_bytes": 262144,
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -1598,8 +1598,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 98304,
-        "dirty_bytes": 81920,
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1619,7 +1619,7 @@
       },
       "mmap": {
         "committed_bytes": 72728576,
-        "dirty_bytes": 1081344,
+        "dirty_bytes": 1097728,
         "invisible_bytes": 0
       }
     },
@@ -1640,8 +1640,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 98304,
-        "dirty_bytes": 81920,
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1661,13 +1661,13 @@
       },
       "mmap": {
         "committed_bytes": 72728576,
-        "dirty_bytes": 1081344,
+        "dirty_bytes": 1343488,
         "invisible_bytes": 0
       }
     },
     "snapshot_bytes": {
       "after_seal": 110844,
-      "after_last_unit": 9548028
+      "after_last_unit": 9859324
     }
   },
   "measured_a500og": {
@@ -1678,7 +1678,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -1819,7 +1819,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -1960,7 +1960,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -2101,7 +2101,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
@@ -2242,7 +2242,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
