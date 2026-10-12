@@ -16,7 +16,8 @@
 //     redistribution inside a commercial product or as a "freebie"; a core that ships it would be tied to that condition, and linking a binary
 //     library host-side is not an option for the deterministic profile. The way in is an IPF reader with a compatible licence, a task of its own
 //     (docs/07-machawk.md).
-//   - FDI, SCP and other flux or track-level formats, 7z, RAR, LHA: refused with a message; convert to ADF.
+//   - FDI, SCP and other flux or track-level formats, 7z, RAR: refused with a message; convert to ADF. An LHA, and a ZIP that holds files and no disk image, are not disks:
+//     they are volumes (volume.h, T64a) and become a hard file.
 #ifndef P6_LIBRETRO_CONTAINER_H
 #define P6_LIBRETRO_CONTAINER_H
 
@@ -70,7 +71,7 @@ inline const char *unsupported_format_reason(const std::string &path)
     if (ext == "ipf" || ext == "ctr" || ext == "raw") return container_detail::ipf_reason();
     if (ext == "fdi") return "FDI images are not supported (a track-level format the disk loader here does not read); convert the disk to ADF";
     if (ext == "scp" || ext == "dsk" || ext == "img" || ext == "ima" || ext == "st") return "this disk format is not supported; convert the disk to ADF";
-    if (ext == "7z" || ext == "rar" || ext == "lha" || ext == "lzh" || ext == "lzx") return "only ZIP archives are read; put the ADF in a ZIP or use an ADZ";
+    if (ext == "7z" || ext == "rar" || ext == "lzx") return "only ZIP archives are read as disks; put the ADF in a ZIP or use an ADZ (an LHA or a ZIP of files is a volume, a different thing)";
     return nullptr;
 }
 
@@ -140,9 +141,13 @@ struct ZipEntry {
     uint32_t crc, compressed, uncompressed, offset;
 };
 
-// ZIP: the central directory is the authority (sizes in a local header may be zero when a data descriptor follows). Picks the one disk entry, or with `hard_files` (T63a, an .hdz
-// that is a zip) the one .hdf entry, whose size may be up to `limit`.
-inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, std::string *why, std::string *member_name, size_t limit = kMaxDiskFileBytes, bool hard_files = false)
+struct ZipDirectory {
+    std::vector<ZipEntry> entries;
+    size_t directory_offset = 0;           // where the central directory starts: no entry's data reaches past it
+};
+
+// The central directory of a ZIP file, which is the authority (sizes in a local header may be zero when a data descriptor follows). Every entry is listed; what to do with them is for the caller.
+inline bool read_zip_directory(const std::vector<uint8_t> &file, ZipDirectory *zip, std::string *why)
 {
     const uint8_t *in = file.data();
     const size_t size = file.size();
@@ -159,9 +164,8 @@ inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, s
     if (count == 0xFFFF || directory_size == 0xFFFFFFFFu || directory_offset == 0xFFFFFFFFu) { *why = "ZIP64 files are not supported"; return false; }
     if (directory_offset > eocd || directory_size > eocd - directory_offset) { *why = "the ZIP file is damaged (central directory out of range)"; return false; }
     if (count == 0) { *why = "the ZIP file is empty"; return false; }
-
-    std::vector<ZipEntry> disks;
-    unsigned unsupported = 0, other = 0;
+    zip->entries.clear();
+    zip->directory_offset = directory_offset;
     size_t pos = directory_offset;
     const size_t directory_end = size_t(directory_offset) + directory_size;
     for (unsigned i = 0; i < count; ++i) {
@@ -178,34 +182,30 @@ inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, s
         entry.uncompressed = le32(e + 24);
         entry.offset = le32(e + 42);
         pos += 46 + name_length + extra_length + comment_length;
-        const size_t slash = entry.name.find_last_of('/');
-        const std::string base = slash == std::string::npos ? entry.name : entry.name.substr(slash + 1);
-        if (base.empty() || entry.name.compare(0, 9, "__MACOSX/") == 0 || base.compare(0, 2, "._") == 0) continue;     // a directory or a resource fork
-        const std::string ext = lower_extension(base);
-        if (hard_files ? ext == "hdf" : (ext == "adf" || ext == "adz" || ext == "dms")) disks.push_back(entry);
-        else if (!hard_files && unsupported_format_reason(base)) ++unsupported;
-        else ++other;
+        zip->entries.push_back(std::move(entry));
     }
-    (void)other;
-    if (disks.empty()) {
-        *why = hard_files ? "the ZIP file holds no hard file (.hdf)"
-              : unsupported ? "the ZIP file holds a disk in a format the core does not read (IPF, FDI or similar); only ADF, ADZ and DMS disks are"
-                            : "the ZIP file holds no disk image (.adf, .adz or .dms)";
-        return false;
-    }
-    if (disks.size() > 1) {
-        *why = hard_files ? "the ZIP file holds " + std::to_string(disks.size()) + " hard files; the core loads one per file, so list them in an .m3u playlist"
-                          : "the ZIP file holds " + std::to_string(disks.size()) + " disk images; the core loads one disk per file, so list them in an .m3u playlist";
-        return false;
-    }
-    const ZipEntry &entry = disks[0];
-    *member_name = entry.name;
+    return true;
+}
+
+// A directory entry, a macOS resource fork or the folder macOS adds: not a file of the archive.
+inline bool zip_entry_ignored(const ZipEntry &entry)
+{
+    const size_t slash = entry.name.find_last_of('/');
+    const std::string base = slash == std::string::npos ? entry.name : entry.name.substr(slash + 1);
+    return base.empty() || entry.name.compare(0, 9, "__MACOSX/") == 0 || base.compare(0, 2, "._") == 0;
+}
+
+// The bytes of one entry, checked (encryption, method, size against `limit`, CRC). `what` names what the limit is the largest of ("disk file", "hard file").
+inline bool extract_zip_entry(const std::vector<uint8_t> &file, const ZipDirectory &zip, const ZipEntry &entry, size_t limit, const char *what, std::vector<uint8_t> *out, std::string *why)
+{
+    const uint8_t *in = file.data();
+    const size_t size = file.size();
     if (entry.flags & 1) { *why = "the ZIP entry is encrypted"; return false; }
     if (entry.method != 0 && entry.method != 8) { *why = "the ZIP entry uses compression method " + std::to_string(entry.method) + " (only stored and deflate are read)"; return false; }
-    if (entry.uncompressed > limit) { *why = hard_files ? "the ZIP entry is larger than any hard file the core reads" : "the ZIP entry is larger than any disk file the core reads"; return false; }
+    if (entry.uncompressed > limit) { *why = std::string("the ZIP entry is larger than any ") + what + " the core reads"; return false; }
     if (entry.offset > size || size - entry.offset < 30 || memcmp(in + entry.offset, "PK\3\4", 4) != 0) { *why = "the ZIP file is damaged (bad local header)"; return false; }
     const size_t data = size_t(entry.offset) + 30 + le16(in + entry.offset + 26) + le16(in + entry.offset + 28);
-    if (data > directory_offset || entry.compressed > directory_offset - data) { *why = "the ZIP file is truncated (entry data out of range)"; return false; }
+    if (data > zip.directory_offset || entry.compressed > zip.directory_offset - data) { *why = "the ZIP file is truncated (entry data out of range)"; return false; }
     out->clear();
     if (entry.method == 0) {
         if (entry.compressed != entry.uncompressed) { *why = "the ZIP entry is damaged (stored sizes differ)"; return false; }
@@ -218,6 +218,36 @@ inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, s
     }
     if (crc32_update(0, out->data(), out->size()) != entry.crc) { *why = "the ZIP entry is corrupt (CRC mismatch)"; return false; }
     return true;
+}
+
+// ZIP: picks the one disk entry, or with `hard_files` (T63a, an .hdz that is a zip) the one .hdf entry, whose size may be up to `limit`.
+inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, std::string *why, std::string *member_name, size_t limit = kMaxDiskFileBytes, bool hard_files = false)
+{
+    ZipDirectory zip;
+    if (!read_zip_directory(file, &zip, why)) return false;
+    std::vector<const ZipEntry *> disks;
+    unsigned unsupported = 0;
+    for (const ZipEntry &entry : zip.entries) {
+        if (zip_entry_ignored(entry)) continue;
+        const size_t slash = entry.name.find_last_of('/');
+        const std::string base = slash == std::string::npos ? entry.name : entry.name.substr(slash + 1);
+        const std::string ext = lower_extension(base);
+        if (hard_files ? ext == "hdf" : (ext == "adf" || ext == "adz" || ext == "dms")) disks.push_back(&entry);
+        else if (!hard_files && unsupported_format_reason(base)) ++unsupported;
+    }
+    if (disks.empty()) {
+        *why = hard_files ? "the ZIP file holds no hard file (.hdf)"
+              : unsupported ? "the ZIP file holds a disk in a format the core does not read (IPF, FDI or similar); only ADF, ADZ and DMS disks are"
+                            : "the ZIP file holds no disk image (.adf, .adz or .dms)";
+        return false;
+    }
+    if (disks.size() > 1) {
+        *why = hard_files ? "the ZIP file holds " + std::to_string(disks.size()) + " hard files; the core loads one per file, so list them in an .m3u playlist"
+                          : "the ZIP file holds " + std::to_string(disks.size()) + " disk images; the core loads one disk per file, so list them in an .m3u playlist";
+        return false;
+    }
+    *member_name = disks[0]->name;
+    return extract_zip_entry(file, zip, *disks[0], limit, hard_files ? "hard file" : "disk file", out, why);
 }
 
 // `bytes` holds a file or a member of a zip; `depth` is 0 for a file. On success `bytes` is the ADF.

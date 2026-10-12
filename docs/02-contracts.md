@@ -63,7 +63,7 @@ lecturas puras autorizadas. No invocar libretro fuera de su hilo de entrada.
 
 Adaptador libretro (T16a, T17): `adapters/libretro` exporta solo los `retro_*` (exports.txt / exports.map) sobre la ABI nativa y no incluye nada del motor. El contenido
 de `retro_load_game` NO es el firmware: es un disco (`.adf`, `.adz`, `.dms` o un `.zip` con un disco), una playlist `.m3u` de discos o ninguno (SET_SUPPORT_NO_GAME: el
-Kickstart arranca solo); `need_fullpath` y `block_extract` son true (el core lee el ZIP en memoria; el frontend no extrae nada) y las extensiones son `adf|adz|dms|zip|hdf|hdz|m3u|uae` (los discos duros `.hdf`/`.hdz` se describen en "Libretro (T63a)" tras el estado de un HDF). El Kickstart 1.3 se busca en el directorio de sistema del frontend por una lista fija de nombres conocidos (`kick34005.A500`,
+Kickstart arranca solo); `need_fullpath` y `block_extract` son true (el core lee el ZIP en memoria; el frontend no extrae nada) y las extensiones son `adf|adz|dms|zip|lha|lzh|hdf|hdz|m3u|uae|/` (los discos duros `.hdf`/`.hdz` se describen en "Libretro (T63a)" tras el estado de un HDF; `.lha`, un `.zip` de ficheros y un directorio, la `/` de PUAE5, son volumenes: "Volumenes (T64a)"). El Kickstart 1.3 se busca en el directorio de sistema del frontend por una lista fija de nombres conocidos (`kick34005.A500`,
 `amiga-os-130.rom` y tres nombres de coleccion); `p6_load` acepta o rechaza el fichero por su contenido (tamaño y SHA-256), no por el nombre, y un fichero presente pero
 rechazado no oculta uno bueno bajo el nombre siguiente. El core copia el buffer porque `p6_load` lo toma prestado hasta el unload. Los ficheros se leen enteros a traves del VFS
 del frontend (version 1: open, size, read, close) y con stdio POSIX si no lo ofrece, siempre con cota y nunca con el tamaño que el fichero dice tener: playlist 64 KiB, una ruta
@@ -71,7 +71,7 @@ del frontend (version 1: open, size, read, close) y con stdio POSIX si no lo ofr
 reconoce por los bytes, no por el nombre; ADZ (gzip), ZIP (almacenado o deflate, exactamente un disco: varios piden una playlist) y DMS (los modos de xDMS 1.3, dominio publico,
 reescrito con limites y comparado con el de WinUAE) se decodifican en memoria, con salida acotada y todos los CRC comprobados, al ADF de 901120 bytes, y la identidad es el SHA-256
 de ese ADF: el contenedor no entra en estados ni peliculas. Se rechazan con mensaje IPF/CT RAW (la licencia de capsimg prohibe redistribuirla con el core; un lector con licencia
-compatible seria tarea propia), FDI, SCP, 7z, RAR, LHA, ADF extendido, ZIP cifrado/ZIP64/multivolumen y DMS cifrado, de alta densidad o FMS. Las rutas son bytes UTF-8 que se pasan tal cual y nunca son identidad: los medios se nombran por el SHA-256 de sus
+compatible seria tarea propia), FDI, SCP, 7z, RAR (un LHA no es un disco: es un volumen), ADF extendido, ZIP cifrado/ZIP64/multivolumen y DMS cifrado, de alta densidad o FMS. Las rutas son bytes UTF-8 que se pasan tal cual y nunca son identidad: los medios se nombran por el SHA-256 de sus
 bytes (ADR 0008), y dos discos con los mismos bytes comparten un medio del manifiesto. Una playlist M3U tiene una entrada `fichero|etiqueta` por linea (la etiqueta es opcional y por
 defecto es el nombre sin extension), las lineas `#` son comentarios (`#SAVEDISK:` avisa y se ignora: los discos solo se escriben con `puae6_floppy_writes`, y se guardan como dice el parrafo de escritura de libretro de mas abajo), las rutas relativas lo son al directorio de la
 playlist (una ruta con raiz, letra de unidad o `esquema://` se usa tal cual) y se aceptan un BOM UTF-8 inicial y los finales de linea CR, LF y CRLF. Como mucho 16 discos
@@ -542,7 +542,7 @@ de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs 
 host) y el presupuesto de memoria es su tamaño (CAPACITY si no cabe). Una imagen que empieza por `RDSK` trae su RDB; cualquier otra es una particion (32 sectores, 1 cabeza, 2 bloques
 reservados, prioridad de arranque 0). Un HDF no es un disquete: ni `MOUNT` en una unidad, ni `p6_media_append`. La E/S es sincrona y sin retardo emulado: la peticion se sirve
 dentro de `BeginIO` (sin hilo por unidad) y el invitado ve la respuesta en la siguiente INT2 (cola EXTER de `native2amiga`, sin hilos); `HD_SCSICMD` responde `IOERR_NOCMD` (no se compila
-`scsi.cpp`), y se rechazan los volumenes del host (directorios, archivos, CD, cinta) y cualquier controlador distinto del UAE.
+`scsi.cpp`), y se rechazan los volumenes del host en vivo (directorios, archivos, CD, cinta) y cualquier controlador distinto del UAE; un directorio, un LHA o un ZIP entran como una imagen construida por el adaptador ("Volumenes (T64a)").
 Kickstart 1.3 o posterior (version 34+): con una anterior `p6_load` responde UNSUPPORTED. La placa UAEFS y la ROM de arranque UAE ($F00000) existen SOLO si hay un HDF: sin el, la maquina,
 sus digests y sus hashes son los de antes. RDB y particiones se validan sin reservar tamaños leidos del disco (tamaño de bloque del RDB: potencia de dos entre 256 y 8192; cadena de
 FSHD acotada a 1024; sin VHD ni CHD). Con un HDF montado el estado nativo existe desde T29c (parrafo siguiente; T29a y T29b respondian UNSUPPORTED). Cierre de T29 (T29d): `P6_CAP_MEDIA_HDF` (bit 6) en `p6_query_caps` anuncia `P6_MEDIA_HDF`, su overlay de escritura, la exportacion y el estado; `p6_headless` acepta `--hdf IMAGEN` (repetible) y `--export-hdf FICHERO`; el guest Waterbox recibe los HDF por `p6w_init` sin copiarlos al heap sellado; el fuzzer de discos duros (`FUZZ01`, parche 0190) muta RDSK, PART, FSHD y LSEG.
@@ -612,6 +612,24 @@ al arrancar; las escrituras de las pruebas salen de una copia derivada en memori
 y reescribe los bloques 880 y 881 (un trozo de 4 KiB, el 110), que salen solo por la exportacion explicita (`puae6_hdf_save=on_close`, atomica, y la SaveRAM P6SR v2 en BizHawk) y vuelven con estados, rewind,
 run-ahead y SaveRAM. Limite conocido, ajeno a los HDF (reports/tasks/T63.md): el A600 con Kickstart 2.05 no repone exactamente desde un estado tomado cerca de las unidades 95-125 (DET02 en la 120; run-ahead
 desde el run 0 de libretro), con o sin disco; el A500 con Kickstart 1.3 si.
+
+Volumenes (T64a, `adapters/libretro/{ffs_volume,lha,volume}.h`, `docs/adr/0011-volumes-from-the-host.md`; sin parches del motor ni ABI nueva): un directorio, un `.lha`/`.lzh` o un `.zip` de ficheros como contenido
+(o como entrada de un M3U) se lee UNA vez, al cargar, y se convierte en una particion plana FFS en memoria (la forma de un HDF sin RDB) que el nucleo registra como un `.hdf` (`P6_MEDIA_HDF`, DH0, DH1...
+tras los disquetes, fuera de Disk Control). El host nunca se monta ni se vuelve a leer: lo que entra en la maquina es esa imagen, con content id = SHA-256 de sus bytes, y estados, rewind, run-ahead, overlay de
+escrituras, exportacion (`puae6_hdf_save=on_close`) y Waterbox son los de cualquier HDF. La eleccion frente a un volumen de archivo de UAE como el de MacHawk (filesys/zfile en memoria) y por que esta es la de
+menor superficie estan en el ADR 0011. Determinismo (identidad = contenido): la imagen depende solo de los nombres (ISO 8859-1) y los bytes de los ficheros y de los directorios vacios; no de la ruta, del nombre
+del directorio o del archivo, de fechas, permisos, usuario, orden de `readdir` ni orden de los miembros. Hijos y bloques en orden de bytes del nombre; todas las fechas 1990-01-01 00:00:00; el volumen se llama
+`PUAE6`; proteccion 0; DOS\1 (FFS), DOS\3 si un nombre tiene un byte mayor que 127; 1 MiB libre para el invitado. El mismo arbol desde un directorio, un LHA y un ZIP es el mismo medio y un estado tomado con uno
+carga con otro. Fuentes: un directorio por el VFS de libretro version 3 (`stat` y las llamadas de directorio; version 1 o sin VFS, la biblioteca C), sin `.DS_Store`, `._*` ni `__MACOSX`, con un enlace simbolico
+tratado como lo que apunta; un LHA con cabeceras de nivel 0, 1 y 2 y metodos `-lh0-`, `-lh5-`, `-lh6-`, `-lh7-` y `-lhd-` (`lha.h`, port de `tools/whdload/lha.py`, CRC-16 de cada miembro); un ZIP almacenado o
+deflate (todos sus miembros por `container.h`; un `.zip` con un `.adf`/`.adz`/`.dms` sigue siendo un disco). El escritor es un port de `tools/whdload/ffs.py` y es su oraculo: `tests/hdf/test_volume.py` compara los
+bytes. Cotas aplicadas antes de reservar y nunca con un tamaño que la fuente declara: 4096 entradas, 48 MiB de ficheros (25 paginas de bitmap en la raiz, ~49 MiB; la cadena de extension no se escribe), 64 MiB el
+archivo, 64 niveles, nombres de 30 bytes. Es un error con mensaje, y la carga falla, un nombre fuera de ISO 8859-1, `:` o `/` en un nombre, dos nombres que solo difieren en mayusculas, un fichero que tambien es
+directorio, un miembro repetido, un LHA con CRC o metodo que no se lee, un nombre de ZIP o LHA que sale del volumen (`..`, absoluto, vacio) o un arbol que no cabe. Limites: Kickstart 1.3 o anterior no arranca estos
+volumenes (la ROM no trae FFS y no se escribe OFS); el contenido decide que arranca (un volumen sin `S:Startup-Sequence` no arranca solo: la UX de WHDLoad es T65); el volumen es de solo lectura para el HOST (la fuente
+no se toca jamas) y escribible para el invitado como cualquier HDF. Pruebas: `tests/hdf/test_volume.py` (el escritor y el lector contra el oraculo, ASan/UBSan), `tests/libretro-host/test_volume.py` (LR01/MED02/MED03/DET02:
+directorio, LHA y ZIP en el nucleo con el VFS 3, con el 1 y sin VFS; la micro-ROM lee y escribe bloques; estados entre procesos y entre fuentes; Fatal Mission con WHDLoad arranca desde un directorio y desde un LHA con el
+Kickstart 3.1 del usuario, opt-in), `FUZZ01` (`volume` de `tests/fuzz`). BizHawk/Waterbox: T64b.
 
 ## Regiones de memoria
 

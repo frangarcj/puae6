@@ -83,7 +83,10 @@ La UX de WHDLoad de PUAE5 (opciones `puae_use_whdload`, temas, prefs/splash, `bu
 descargar, `WHDSaves.hdf` aparte, copia de Kickstarts de `RASystem:`, instalaciones Retroplay/Arcadia, "Boot HD",
 directorios/LHA montados como volumen vivo) no esta aqui. El flujo de T30 es offline y explicito: la imagen ya hecha
 es el contenido (libretro: `.hdf`; BizHawk: `HardFiles`), y lo que el invitado escribe sale por la exportacion
-explicita de T63a/T63b. P16/P17 (importador dentro del core, UX) quedan en sus tareas.
+explicita de T63a/T63b. P16/P17 (importador dentro del core, UX) quedan en sus tareas. T64a pone en el nucleo libretro la parte de P16 que no es UX: un directorio, un `.lha` o un
+`.zip` de ficheros entran como una imagen FFS construida en memoria con las mismas reglas que `tools/whdload/ffs.py` (que es su oraculo) y el mismo orden y sellos fijos (docs/02-contracts.md "Volumenes (T64a)",
+docs/adr/0011-volumes-from-the-host.md): el arbol de ficheros de Fatal Mission que describe el config de T30 (WHDLoad, el juego y su `S:Startup-Sequence`) arranca como directorio y como LHA con WHDLoad, sin pasar por la imagen de
+`prepare_whdload.py` (`RealGameVolumeTests` de `tests/libretro-host/test_volume.py`, opt-in); el contenido decide que arranca, y quien escribe el script de arranque sigue siendo el flujo de T30.
 
 ## Resultado con un juego real (T30b)
 

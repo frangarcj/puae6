@@ -4,7 +4,7 @@
 //   p6_libretro_host CORE [--system DIR] [--content PATH] [--runs N] [--cycles C] [--reject-optional] [--no-log] [--no-dupe] [--refuse-av-info] [--bad-format]
 //                    [--no-rgb565] [--no-led] [--no-memory-map] [--no-achievements] [--dump-pictures DIR [--dump-from RUN]] [--dump-audio DIR]
 //                    [--audio-partial K] [--audio-stall FIRST:LAST] [--reenter] [--joy PORT:MASK] [--mouse DX,DY,BUTTONS]
-//                    [--no-vfs] [--vfs-claim BYTES] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
+//                    [--no-vfs] [--vfs-claim BYTES] [--vfs-version 1|2|3] [--retry-system DIR] [--legacy-disk-control] [--legacy-message]
 //                    [--initial INDEX:PATH] [--disk RUN:COMMAND]... [--disk-during RUN:COMMAND]...
 //                    [--options-api 0|1|2] [--no-options] [--set KEY=VALUE]... [--set-at RUN:KEY=VALUE]... [--save-dir DIR]
 // The core gets the Kickstart from the system directory DIR (the frontend's GET_SYSTEM_DIRECTORY) and the content PATH by name (need_fullpath),
@@ -60,12 +60,14 @@
 
 #include <algorithm>
 #include <ctype.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <map>
 #include <set>
 #include <string>
@@ -91,6 +93,7 @@ struct Options {
     std::string system_dir, content, retry_system, save_dir;
     bool has_save = false, has_system = false, has_content = false, no_vfs = false, legacy_disk = false, legacy_message = false, has_initial = false;
     int64_t vfs_claim = -1;
+    unsigned vfs_version = 3;                                   // --vfs-version N: the newest VFS interface the frontend has (1 has no directory calls)
     unsigned initial_index = 0;
     std::string initial_path;
     int options_api = 2;
@@ -326,7 +329,44 @@ int64_t RETRO_CALLCONV vfs_seek(retro_vfs_file_handle *handle, int64_t offset, i
     return fseek(handle->file, long(offset), whence) ? -1 : ftell(handle->file);
 }
 
-retro_vfs_interface vfs_interface = {vfs_get_path, vfs_open, vfs_close, vfs_size, vfs_tell, vfs_seek, vfs_read};
+// VFS version 3 (T64a): stat and the directory calls over POSIX, printing every directory opened so that a test can tell the core listed it through the frontend.
+int RETRO_CALLCONV vfs_stat(const char *path, int32_t *size)
+{
+    struct stat info;
+    if (stat(path, &info) != 0) return 0;
+    if (size) *size = int32_t(info.st_size);
+    return RETRO_VFS_STAT_IS_VALID | (S_ISDIR(info.st_mode) ? RETRO_VFS_STAT_IS_DIRECTORY : 0);
+}
+}  // namespace
+struct retro_vfs_dir_handle {
+    DIR *dir;
+    struct dirent *current;
+    std::string path;
+};
+namespace {
+retro_vfs_dir_handle *RETRO_CALLCONV vfs_opendir(const char *path, bool)
+{
+    DIR *dir = opendir(path);
+    printf("vfs opendir %s%s\n", path, dir ? "" : " (failed)");
+    return dir ? new retro_vfs_dir_handle{dir, nullptr, path} : nullptr;
+}
+bool RETRO_CALLCONV vfs_readdir(retro_vfs_dir_handle *handle) { return (handle->current = readdir(handle->dir)) != nullptr; }
+const char *RETRO_CALLCONV vfs_dirent_get_name(retro_vfs_dir_handle *handle) { return handle->current ? handle->current->d_name : nullptr; }
+bool RETRO_CALLCONV vfs_dirent_is_dir(retro_vfs_dir_handle *handle)
+{
+    struct stat info;
+    const std::string full = handle->path + "/" + handle->current->d_name;
+    return stat(full.c_str(), &info) == 0 && S_ISDIR(info.st_mode);          // follows links, as a real frontend's does
+}
+int RETRO_CALLCONV vfs_closedir(retro_vfs_dir_handle *handle)
+{
+    closedir(handle->dir);
+    delete handle;
+    return 0;
+}
+
+retro_vfs_interface vfs_interface = {vfs_get_path, vfs_open, vfs_close, vfs_size, vfs_tell, vfs_seek, vfs_read, nullptr, nullptr, nullptr, nullptr, nullptr, vfs_stat, nullptr,
+                                     vfs_opendir, vfs_readdir, vfs_dirent_get_name, vfs_dirent_is_dir, vfs_closedir};
 
 // --- Disk Control as a frontend drives it ---
 
@@ -419,8 +459,8 @@ bool RETRO_CALLCONV environment(unsigned command, void *data)
         return true;
     case RETRO_ENVIRONMENT_GET_VFS_INTERFACE: {
         retro_vfs_interface_info *info = static_cast<retro_vfs_interface_info *>(data);
-        if (options.no_vfs || options.reject_optional || info->required_interface_version > 3) return false;
-        info->required_interface_version = 3;
+        if (options.no_vfs || options.reject_optional || info->required_interface_version > options.vfs_version) return false;
+        info->required_interface_version = options.vfs_version;
         info->iface = &vfs_interface;
         return true;
     }
@@ -1062,6 +1102,7 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--content")) options.content = next(), options.has_content = true;
         else if (!strcmp(a, "--no-vfs")) options.no_vfs = true;
         else if (!strcmp(a, "--vfs-claim")) options.vfs_claim = atoll(next());
+        else if (!strcmp(a, "--vfs-version")) options.vfs_version = unsigned(atoi(next()));
         else if (!strcmp(a, "--retry-system")) options.retry_system = next();
         else if (!strcmp(a, "--legacy-disk-control")) options.legacy_disk = true;
         else if (!strcmp(a, "--legacy-message")) options.legacy_message = true;

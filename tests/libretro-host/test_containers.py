@@ -54,7 +54,7 @@ class ContainerCoreTests(lr.LibretroHarness):
 
     def test_the_core_offers_the_container_extensions(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertIn("extensions=adf|adz|dms|zip|hdf|hdz|m3u|uae", out)
+        self.assertIn("extensions=adf|adz|dms|zip|lha|lzh|hdf|hdz|m3u|uae|/", out)
 
     def test_a_disk_in_any_container_is_the_same_medium_and_the_same_future(self):
         disk = c.varied_adf("the game")
@@ -110,7 +110,7 @@ class ContainerCoreTests(lr.LibretroHarness):
         files = {
             "game.ipf": b"CAPS" + bytes(3000), "disguised.adf": b"CAPS" + bytes(3000), "game.fdi": b"Formatted Disk Image file\r\n" + bytes(3000),
             "game.scp": bytes(100), "game.7z": b"7z" + bytes(100), "set.zip": c.zip_file([("a.adf", disk), ("b.adf", c.adf("b"))]),
-            "none.zip": c.zip_file([("readme.txt", b"x")]), "short.adz": c.adz(bytes(900000)), "long.adz": c.adz(bytes(901121)),
+            "none.zip": c.zip_file([("readme/", b"")]), "short.adz": c.adz(bytes(900000)), "long.adz": c.adz(bytes(901121)),
             "cut.adz": c.adz(disk)[:100], "cut.zip": c.zip_file([("a.adf", disk)])[:-40], "cut.dms": c.dms_file(disk)[:5000],
             "partial.dms": c.dms_file(disk, tracks=range(40)), "crypt.dms": c.dms_file(disk, info=2),
             "bomb.adz": b"\x1f\x8b\x08\0\0\0\0\0\0\3" + bomb + struct.pack("<II", 0, 0),

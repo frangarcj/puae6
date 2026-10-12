@@ -15,6 +15,10 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#if !defined(_WIN32)
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
 #include <new>
 #include <string>
 #include <vector>
@@ -26,11 +30,48 @@ constexpr size_t kMaxPathBytes = 4096;               // one playlist path or one
 
 enum class ReadResult { Ok, CannotOpen, TooLarge, ReadFailed, OutOfMemory };
 
+// One entry of a directory as the frontend (or the C library) lists it. A link is what it points to: the VFS cannot tell a link, so neither does the C library path.
+struct DirEntry {
+    std::string name;
+    bool is_dir = false;
+};
+enum class ListResult { Ok, CannotOpen, TooMany };
+
 // Reads whole files, through the frontend's VFS (version 1 is enough: open, size, read, close) when one was given and through stdio when not.
 class FileReader {
 public:
-    void use_vfs(const retro_vfs_interface *vfs) { vfs_ = vfs; }
+    // `version` is the VFS interface version the frontend agreed to (1 to 3): the directory calls exist from 3 on.
+    void use_vfs(const retro_vfs_interface *vfs, unsigned version = 1)
+    {
+        vfs_ = vfs;
+        vfs_dirs_ = vfs && version >= 3 && vfs->stat && vfs->opendir && vfs->readdir && vfs->dirent_get_name && vfs->dirent_is_dir && vfs->closedir;
+    }
     bool uses_vfs() const { return vfs_ != nullptr; }
+    bool lists_with_vfs() const { return vfs_dirs_; }
+
+    // Is `path` a directory? Through the VFS when it has the directory calls, with the C library otherwise (nothing on Windows without the VFS).
+    bool is_directory(const std::string &path) const
+    {
+        if (vfs_dirs_) return (vfs_->stat(path.c_str(), nullptr) & RETRO_VFS_STAT_IS_DIRECTORY) != 0;
+#if !defined(_WIN32)
+        struct stat info;
+        return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+#else
+        return false;
+#endif
+    }
+
+    // The entries of a directory (not "." or ".."), hidden ones included, in the order the host gives them: nobody may depend on it. More than `max_entries` is TooMany.
+    ListResult list(const std::string &path, size_t max_entries, std::vector<DirEntry> *out) const
+    {
+        out->clear();
+        try {
+            return vfs_dirs_ ? list_vfs(path, max_entries, out) : list_posix(path, max_entries, out);
+        } catch (const std::bad_alloc &) {
+            out->clear();
+            return ListResult::TooMany;
+        }
+    }
 
     // Fills `out` with the whole file. A file larger than `max_bytes` is TooLarge whatever the frontend says about its size, and nothing larger than
     // `max_bytes + 1` is ever buffered.
@@ -80,6 +121,56 @@ private:
         return result;
     }
 
+    ListResult list_vfs(const std::string &path, size_t max_entries, std::vector<DirEntry> *out) const
+    {
+        retro_vfs_dir_handle *dir = vfs_->opendir(path.c_str(), true);
+        if (!dir) return ListResult::CannotOpen;
+        ListResult result = ListResult::Ok;
+        while (vfs_->readdir(dir)) {
+            const char *name = vfs_->dirent_get_name(dir);
+            if (!name || !strcmp(name, ".") || !strcmp(name, "..")) continue;
+            if (out->size() >= max_entries) {
+                result = ListResult::TooMany;
+                break;
+            }
+            DirEntry entry;
+            entry.name = name;
+            entry.is_dir = vfs_->dirent_is_dir(dir);
+            out->push_back(std::move(entry));
+        }
+        vfs_->closedir(dir);
+        if (result != ListResult::Ok) out->clear();
+        return result;
+    }
+
+    static ListResult list_posix(const std::string &path, size_t max_entries, std::vector<DirEntry> *out)
+    {
+#if !defined(_WIN32)
+        DIR *dir = opendir(path.c_str());
+        if (!dir) return ListResult::CannotOpen;
+        ListResult result = ListResult::Ok;
+        while (const struct dirent *item = readdir(dir)) {
+            if (!strcmp(item->d_name, ".") || !strcmp(item->d_name, "..")) continue;
+            if (out->size() >= max_entries) {
+                result = ListResult::TooMany;
+                break;
+            }
+            DirEntry entry;
+            entry.name = item->d_name;
+            struct stat info;
+            const std::string full = path.empty() || path.back() == '/' ? path + entry.name : path + "/" + entry.name;
+            entry.is_dir = stat(full.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+            out->push_back(std::move(entry));
+        }
+        closedir(dir);
+        if (result != ListResult::Ok) out->clear();
+        return result;
+#else
+        (void)path; (void)max_entries; (void)out;
+        return ListResult::CannotOpen;
+#endif
+    }
+
     static ReadResult read_stdio(const std::string &path, size_t max_bytes, std::vector<uint8_t> *out)
     {
         FILE *file = fopen(path.c_str(), "rb");
@@ -106,6 +197,7 @@ private:
     }
 
     const retro_vfs_interface *vfs_ = nullptr;
+    bool vfs_dirs_ = false;
 };
 
 // --- paths -------------------------------------------------------------------------------------------------------------------------------------

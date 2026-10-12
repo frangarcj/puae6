@@ -6,10 +6,12 @@
 //   fuzz_content vfs SEED N         FileReader::read through a hostile VFS (lying sizes, short reads, failures, endless streams): never beyond the cap
 //   fuzz_content options SEED N     read_options with hostile values from the frontend: only the exact value names of the schema are accepted
 //   fuzz_content hdz SEED N         decode_hard_file (T63a) on hostile .hdf and .hdz files: gzip members cut, flipped, bombs, wrong sizes; never beyond the cap
+//   fuzz_content volume SEED N      the volume builder (T64a) on hostile trees, LHA archives and ZIP files: flipped, cut, claiming more than the caps, with names that leave the volume
 // Output is a histogram per kind of mutation and per outcome; nothing else varies between runs.
 #include "content.h"
 #include "hdf.h"
 #include "options.h"
+#include "volume.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -695,6 +697,322 @@ int fuzz_hdz(uint64_t seed, uint64_t iterations)
     return 0;
 }
 
+// --- volumes (T64a) --------------------------------------------------------------------------------------------------------------------------------
+
+using Tree = std::map<std::string, std::vector<uint8_t>>;      // path -> bytes; a path that ends with '/' is a directory
+
+// An LHA archive of stored members (the -lh0- method needs no compressor) with the header level of the call: 0, 1 or 2 (the writer of tests/whdload/lha_fixture.py, in C++). `method` may be
+// another one, with `packed` as the bytes of the member and `original` as the size the header claims. A name that ends with '/' is a directory.
+std::vector<uint8_t> lha_member(const std::string &name, const std::vector<uint8_t> &data, unsigned level, const char *method, uint32_t original, const std::vector<uint8_t> *packed = nullptr)
+{
+    const std::vector<uint8_t> &body = packed ? *packed : data;
+    const uint16_t crc = lha_detail::crc16(data.data(), data.size());
+    const bool directory = !name.empty() && name.back() == '/';
+    std::string file = name, folder;
+    if (level != 0) {
+        const std::string bare = directory ? name.substr(0, name.size() - 1) : name;
+        const size_t slash = bare.find_last_of('/');
+        folder = directory ? bare + "/" : (slash == std::string::npos ? std::string() : bare.substr(0, slash + 1));
+        file = directory ? std::string() : bare.substr(folder.size());
+        for (char &c : folder) if (c == '/') c = char(0xFF);
+    }
+    // The extended headers: each is [kind][body][size of the next]; the first size sits in the fixed part.
+    std::vector<std::pair<uint8_t, std::string>> items;
+    if (level == 2 && !file.empty()) items.push_back({1, file});
+    if (level != 0 && !folder.empty()) items.push_back({2, folder});
+    std::vector<uint8_t> tail;
+    for (size_t i = 0; i < items.size(); ++i) {
+        tail.push_back(items[i].first);
+        tail.insert(tail.end(), items[i].second.begin(), items[i].second.end());
+        const size_t next = i + 1 < items.size() ? items[i + 1].second.size() + 3 : 0;
+        put16(&tail, uint32_t(next));
+    }
+    const uint32_t first = items.empty() ? 0 : uint32_t(items[0].second.size() + 3);
+    std::vector<uint8_t> out, fixed;
+    for (const char *m = method; *m; ++m) fixed.push_back(uint8_t(*m));
+    put32(&fixed, uint32_t(body.size() + (level == 1 ? tail.size() : 0)));
+    put32(&fixed, original);
+    put32(&fixed, 0x5A210000);
+    fixed.push_back(0x20);
+    fixed.push_back(uint8_t(level));
+    if (level != 2) {
+        fixed.push_back(uint8_t(file.size()));
+        fixed.insert(fixed.end(), file.begin(), file.end());
+    }
+    put16(&fixed, crc);
+    if (level != 0) {
+        fixed.push_back('A');
+        put16(&fixed, first);
+    }
+    if (level == 2) {
+        put16(&out, uint32_t(2 + fixed.size() + tail.size()));
+    } else {
+        unsigned sum = 0;
+        for (uint8_t b : fixed) sum += b;
+        out = {uint8_t(fixed.size()), uint8_t(sum)};
+    }
+    out.insert(out.end(), fixed.begin(), fixed.end());
+    out.insert(out.end(), tail.begin(), tail.end());
+    out.insert(out.end(), body.begin(), body.end());
+    return out;
+}
+
+std::vector<uint8_t> lha_archive(const Tree &tree, unsigned level)
+{
+    std::vector<uint8_t> out;
+    for (const auto &item : tree) {
+        const bool directory = !item.first.empty() && item.first.back() == '/';
+        const std::vector<uint8_t> member = lha_member(item.first, item.second, level, directory ? "-lhd-" : "-lh0-", uint32_t(directory ? 0 : item.second.size()));
+        out.insert(out.end(), member.begin(), member.end());
+    }
+    out.push_back(0);
+    return out;
+}
+
+std::string random_name(Random &rng, bool hostile)
+{
+    static const char *const good[] = {"a", "Game", "data", "level1.dat", "S", "Startup-Sequence", "x y", "n\xE9", "ZZ", "file.info", "0123456789012345678901234567890"};
+    static const char *const bad[] = {"", ".", "..", "a:b", "x\x01y", "has/slash", "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn", "\\", ("a\xFF" "b")};
+    std::string name = hostile && rng.below(3) == 0 ? bad[rng.below(sizeof bad / sizeof *bad)] : good[rng.below(sizeof good / sizeof *good)];
+    if (name.size() == 31 && !hostile) name.pop_back();            // the longest valid name is 30 bytes
+    return name;
+}
+
+// The independent check of a volume: every block that is reachable has its checksum, every file has the bytes the tree said, nothing is reached twice, the bitmap is valid.
+bool volume_matches(const std::vector<uint8_t> &image, const Tree &tree, std::string *why)
+{
+    if (image.size() % (32 * 512) || image.size() < 64 * 512) { *why = "the size is not a multiple of 32 blocks"; return false; }
+    const uint32_t blocks = uint32_t(image.size() / 512), root = (blocks - 1 + 2) / 2;
+    auto longs = [&](uint32_t block, uint32_t at) { const uint8_t *p = image.data() + size_t(block) * 512 + at * 4; return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | p[3]; };
+    auto sum_ok = [&](uint32_t block) { uint32_t sum = 0; for (uint32_t i = 0; i < 128; ++i) sum += longs(block, i); return sum == 0; };
+    if (!sum_ok(root) || longs(root, 127) != 1) { *why = "root block"; return false; }
+    std::vector<bool> used(blocks, false);
+    size_t files = 0, expected_files = 0;
+    for (const auto &item : tree) if (item.first.empty() || item.first.back() != '/') ++expected_files;
+    std::vector<std::pair<uint32_t, std::string>> pending = {{root, ""}};
+    while (!pending.empty()) {
+        const auto here = pending.back();
+        pending.pop_back();
+        for (uint32_t slot = 0; slot < 72; ++slot) {
+            for (uint32_t chain = longs(here.first, 6 + slot); chain;) {
+                if (chain >= blocks || used[chain] || !sum_ok(chain)) { *why = "directory entry"; return false; }
+                used[chain] = true;
+                const uint8_t *raw = image.data() + size_t(chain) * 512 + 108 * 4;
+                const std::string name(reinterpret_cast<const char *>(raw + 1), raw[0]);
+                const std::string path = here.second.empty() ? name : here.second + "/" + name;
+                if (longs(chain, 127) == 2) {
+                    pending.push_back({chain, path});
+                } else {
+                    const auto found = tree.find(path);
+                    if (found == tree.end()) { *why = "a file that is not in the tree: " + path; return false; }
+                    const uint32_t size = longs(chain, 81);
+                    if (size != found->second.size()) { *why = "size of " + path; return false; }
+                    std::vector<uint32_t> list;
+                    for (uint32_t header = chain;;) {
+                        for (uint32_t i = 0; i < longs(header, 2); ++i) list.push_back(longs(header, 77 - i));
+                        header = longs(header, 126);
+                        if (!header) break;
+                        if (header >= blocks || used[header] || !sum_ok(header)) { *why = "extension block"; return false; }
+                        used[header] = true;
+                    }
+                    std::vector<uint8_t> data;
+                    for (uint32_t block : list) {
+                        if (block >= blocks || used[block]) { *why = "data block"; return false; }
+                        used[block] = true;
+                        data.insert(data.end(), image.begin() + std::ptrdiff_t(block) * 512, image.begin() + std::ptrdiff_t(block + 1) * 512);
+                    }
+                    data.resize(size);
+                    if (data != found->second) { *why = "bytes of " + path; return false; }
+                    ++files;
+                }
+                chain = longs(chain, 124);
+            }
+        }
+    }
+    if (files != expected_files) { *why = "the number of files"; return false; }
+    return true;
+}
+
+int fuzz_volume(uint64_t seed, uint64_t iterations)
+{
+    static const char *const kinds[] = {"tree-valid", "tree-hostile", "lha-valid", "lha-flipped", "lha-truncated", "lha-random-method", "lha-big-claim", "lha-hostile-names",
+                                        "zip-valid", "zip-flipped", "zip-hostile-names", "zip-big-claim", "zip-truncated"};
+    Random rng(seed);
+    std::map<std::string, std::pair<unsigned, unsigned>> histogram;
+    std::map<std::string, unsigned> refusals;
+    LhaLimits small;
+    small.max_entries = 64;
+    small.max_file = 1 << 16;
+    small.max_total = 1 << 17;
+    for (uint64_t iteration = 0; iteration < iterations; ++iteration) {
+        const std::string kind = kinds[rng.below(sizeof kinds / sizeof *kinds)];
+        Tree tree;
+        const unsigned members_wanted = 1 + rng.below(8);
+        for (unsigned i = 0; i < members_wanted; ++i) {
+            std::string path;
+            for (unsigned depth = rng.below(3); depth > 0; --depth) path += random_name(rng, false) + "/";
+            const bool directory = rng.below(5) == 0;
+            std::string leaf = random_name(rng, false);
+            std::vector<uint8_t> data;
+            if (!directory) for (unsigned n = rng.below(3) ? rng.below(1500) : rng.below(40000); n--;) data.push_back(uint8_t(rng.below(4) ? 'a' + rng.below(5) : rng.below(256)));
+            tree[path + leaf + (directory ? "/" : "")] = directory ? std::vector<uint8_t>() : data;
+        }
+        // A tree whose paths cannot all stand together (a file and a directory with the same name, two names that differ in case) is not "valid": the oracle below is the writer itself,
+        // so only the names are controlled here, and the check is "accepted => the image is exactly the tree".
+        std::string why;
+        const bool hostile = kind.find("hostile") != std::string::npos;
+        bool accepted = false, must_refuse = false;
+        Tree expected = tree;
+        if (kind == "tree-valid" || kind == "tree-hostile") {
+            std::vector<VolumeFile> files;
+            expected.clear();
+            for (const auto &item : tree) {
+                std::string path = item.first;
+                if (kind == "tree-hostile" && rng.below(2) == 0) path = random_name(rng, true) + (rng.coin() ? "/" + random_name(rng, true) : "");
+                VolumeFile file;
+                file.is_dir = !path.empty() && path.back() == '/';
+                file.path = file.is_dir ? path.substr(0, path.size() - 1) : path;
+                file.data = item.second;
+                if (!file.is_dir) expected[file.path] = file.data;
+                else expected[file.path + "/"] = {};
+                files.push_back(std::move(file));
+            }
+            std::vector<uint8_t> image;
+            accepted = build_ffs_volume(&files, VolumeOptions(), &image, &why);
+            if (accepted) {
+                // directories are listed with a trailing slash in `expected`; a file named like a directory would have been refused
+                Tree check;
+                for (const auto &item : expected) if (item.first.empty() || item.first.back() != '/') check[item.first] = item.second;
+                std::string reason;
+                // Only files are compared (the tree may have implicit directories); the walk counts the files it reaches.
+                if (!volume_matches(image, check, &reason)) bug("an accepted tree did not come back as an image of itself", iteration, reason);
+            }
+        } else if (kind.compare(0, 3, "lha") == 0) {
+            const unsigned level = rng.below(3);
+            std::vector<uint8_t> blob = lha_archive(tree, level);
+            if (kind == "lha-flipped") {
+                for (unsigned n = 1 + rng.below(3); n--;) blob[rng.below(unsigned(blob.size()))] ^= uint8_t(1u << rng.below(8));
+            } else if (kind == "lha-truncated") {
+                blob.resize(rng.below(unsigned(blob.size())));
+            } else if (kind == "lha-random-method") {
+                static const char *const methods[] = {"-lh5-", "-lh6-", "-lh7-"};
+                std::vector<uint8_t> packed;
+                for (unsigned n = rng.below(600); n--;) packed.push_back(uint8_t(rng.below(256)));
+                blob = lha_member("f", {}, rng.below(3), methods[rng.below(3)], 1 + rng.below(4000), &packed);
+                blob.push_back(0);
+            } else if (kind == "lha-big-claim") {
+                std::vector<uint8_t> packed = {1, 2, 3};
+                blob = lha_member("f", {}, rng.below(3), rng.coin() ? "-lh5-" : "-lh0-", rng.coin() ? uint32_t(small.max_file + 1 + rng.below(1000)) : 0xFFFFFFFFu, &packed);
+                blob.push_back(0);
+                must_refuse = true;
+            } else if (kind == "lha-hostile-names") {
+                std::map<std::string, std::vector<uint8_t>> bad;
+                static const char *const names[] = {"../x", "a/../b", "/abs", "C:x", "a//b", ".", "x\x01y", "a/./b"};
+                bad[names[rng.below(sizeof names / sizeof *names)]] = {1, 2, 3};
+                blob = lha_archive(bad, 0);
+                must_refuse = true;
+            }
+            std::vector<LhaEntry> entries;
+            accepted = read_lha(blob.data(), blob.size(), small, &entries, &why);
+            if (accepted) {
+                size_t total = 0;
+                for (const LhaEntry &entry : entries) {
+                    total += entry.data.size();
+                    if (entry.name.empty() || entry.name[0] == '/' || entry.name.find("..") == 0 || entry.name.find(':') != std::string::npos) bug("an LHA member with a name that leaves the volume was accepted", iteration, entry.name);
+                }
+                if (entries.size() > small.max_entries || total > small.max_total) bug("an LHA was accepted beyond its limits", iteration);
+                if (kind == "lha-valid") {
+                    std::map<std::string, std::vector<uint8_t>> got;
+                    for (const LhaEntry &entry : entries) got[entry.name + (entry.is_dir ? "/" : "")] = entry.data;
+                    for (const auto &item : tree) {
+                        const std::string key = item.first;
+                        if (!got.count(key) && !(key.back() == '/' && got.count(key))) bug("a valid LHA lost a member", iteration, key);
+                        else if (got[key] != item.second) bug("a valid LHA changed a member", iteration, key);
+                    }
+                }
+                std::vector<VolumeFile> files;
+                std::vector<uint8_t> image;
+                for (const LhaEntry &entry : entries) {
+                    VolumeFile file;
+                    file.path = entry.name;
+                    file.is_dir = entry.is_dir;
+                    file.data = entry.data;
+                    files.push_back(std::move(file));
+                }
+                std::string reason;
+                if (build_ffs_volume(&files, VolumeOptions(), &image, &reason)) {
+                    Tree check;
+                    for (const LhaEntry &entry : entries) if (!entry.is_dir) check[entry.name] = entry.data;
+                    if (!volume_matches(image, check, &reason)) bug("the image of an accepted LHA is not its content", iteration, reason);
+                }
+            } else if (kind == "lha-valid") {
+                bug("a valid LHA was refused", iteration, why);
+            }
+        } else {
+            std::vector<std::pair<std::string, std::vector<uint8_t>>> members;
+            for (const auto &item : tree) members.push_back({item.first, item.second});
+            std::vector<uint8_t> blob;
+            if (kind == "zip-hostile-names") {
+                static const char *const names[] = {"../x", "a/../b", "/abs", "a//b", "./x", "a/./b", "x\x01y"};
+                members = {{names[rng.below(sizeof names / sizeof *names)], {1}}, {"ok", {2}}};
+                must_refuse = true;
+            }
+            if (kind == "zip-big-claim") {
+                members = {{"big", {1, 2, 3}}};
+                must_refuse = true;
+            }
+            blob = zip_stored(members);
+            if (kind == "zip-big-claim") {
+                // declare 100 MiB in the central directory (and the local header): the 48 MiB cap refuses it before anything is read
+                for (size_t at = 0; at + 4 < blob.size(); ++at)
+                    if (!memcmp(&blob[at], "PK\1\2", 4)) { blob[at + 24] = 0; blob[at + 25] = 0; blob[at + 26] = 0; blob[at + 27] = 0x06; break; }
+            }
+            if (kind == "zip-flipped") blob[rng.below(unsigned(blob.size()))] ^= uint8_t(1u << rng.below(8));
+            if (kind == "zip-truncated") blob.resize(rng.below(unsigned(blob.size())));
+            std::vector<VolumeFile> files;
+            accepted = volume_from_zip(blob, &files, &why);
+            if (accepted) {
+                for (const VolumeFile &file : files) {
+                    if (file.path.empty() || file.path[0] == '/' || file.path.find("..") != std::string::npos) bug("a ZIP member with a path that leaves the volume was accepted", iteration, file.path);
+                }
+                if (kind == "zip-valid") {
+                    std::vector<uint8_t> image;
+                    std::string reason;
+                    Tree check;
+                    for (const VolumeFile &file : files) if (!file.is_dir) check[file.path] = file.data;
+                    if (build_ffs_volume(&files, VolumeOptions(), &image, &reason) && !volume_matches(image, check, &reason)) bug("the image of an accepted ZIP is not its content", iteration, reason);
+                }
+            }
+        }
+        auto &count = histogram[kind];
+        (void)hostile;
+        if (accepted) {
+            ++count.first;
+            if (must_refuse || (selftest() && kind == "tree-valid")) bug("something that has to be refused was accepted", iteration, kind);
+            if (!why.empty()) bug("an accepted source left a reason", iteration, why);
+        } else {
+            ++count.second;
+            if (why.empty()) bug("a refusal without a message", iteration, kind);
+            std::string key;                                        // the reason without the names (inside quotes or parentheses), the numbers and the member a CRC belongs to
+            bool quoted = false;
+            int nested = 0;
+            for (char c : why) {
+                if (c == '"') quoted = !quoted;
+                else if (!quoted && c == '(') ++nested;
+                else if (!quoted && c == ')') nested -= nested > 0;
+                else if (!quoted && !nested && (c < '0' || c > '9')) key += c;
+            }
+            if (key.compare(0, 6, "CRC of") == 0) key = "CRC of a member";
+            for (const char *tail : {" appears twice", " is both a file and a directory"})            // the path in front of these two is a name
+                if (key.size() > strlen(tail) && key.compare(key.size() - strlen(tail), strlen(tail), tail) == 0) key = std::string("a path") + tail;
+            ++refusals[key.substr(0, 48)];
+        }
+    }
+    for (const auto &kind : histogram) printf("volume kind %s: accepted %u refused %u\n", kind.first.c_str(), kind.second.first, kind.second.second);
+    for (const auto &reason : refusals) printf("volume refusal \"%s\": %u\n", reason.first.c_str(), reason.second);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -703,6 +1021,7 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "vfs")) return fuzz_vfs(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "options")) return fuzz_options(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "hdz")) return fuzz_hdz(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N\n", argv[0]);
+    if (argc == 4 && !strcmp(argv[1], "volume")) return fuzz_volume(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
+    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N | volume SEED N\n", argv[0]);
     return 2;
 }

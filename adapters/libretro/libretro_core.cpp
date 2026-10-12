@@ -53,6 +53,10 @@
 // always write to them; the file is never touched, the writes are machine state (save states, rewind, run-ahead carry them) and, like the floppies', they leave the machine only when
 // the content closes and puae6_hdf_save asks for it: p6_media_export of the whole image and an atomic replace in the save directory.
 //
+// Volumes (T64a): a directory, an .lha or a .zip of files as content (or as an entry of an M3U) is read ONCE, here, and turned into one FFS hard file in memory (volume.h, ffs_volume.h,
+// lha.h; docs/adr/0011-volumes-from-the-host.md), which is registered exactly like an .hdf. The host is never mounted: what enters the machine is the image, whose content id is the
+// SHA-256 of its bytes, so states, rewind and run-ahead carry the guest's writes as for any hard file and the source is never written.
+//
 // What this adapter does not do yet (see docs/02-contracts.md and the plan): IPF, FDI and the other floppy formats are refused with a message (container.h).
 #include "libretro.h"
 #include "p6.h"
@@ -71,6 +75,7 @@
 #include "state_frame.h"
 #include "statusbar.h"
 #include "vkbd.h"
+#include "volume.h"
 
 #include <algorithm>
 #include <stdarg.h>
@@ -738,11 +743,9 @@ bool import_configuration(const retro_game_info *game, p6_options::Settings *set
     return true;
 }
 
-// One hard disk of the content (T63a): read through the VFS or stdio with the cap of hdf.h, decoded when it is an .hdz, and appended to `hard_files` (the caller puts them after
-// the floppies). `ordinal` is its place among everything the content names. Returns false after saying why.
-bool load_hard_file(const std::string &path, size_t ordinal, std::vector<Medium> *hard_files, size_t *total_bytes)
+// Can the content take one more hard disk? Says why not.
+bool can_take_hard_file(const std::string &path, size_t already)
 {
-    using namespace p6_libretro;
     p6_caps caps = {};
     caps.abi_version = P6_ABI_VERSION;
     caps.struct_size = sizeof caps;
@@ -751,10 +754,41 @@ bool load_hard_file(const std::string &path, size_t ordinal, std::vector<Medium>
         notify_error("%s: this build of the core cannot mount hard disks", path.c_str());
         return false;
     }
-    if (hard_files->size() >= P6_MAX_HDF) {
+    if (already >= P6_MAX_HDF) {
         notify_error("%s: the core mounts at most %u hard disks", path.c_str(), P6_MAX_HDF);
         return false;
     }
+    return true;
+}
+
+// A hard file whose bytes are in `medium` (read and decoded, or built): its identity, the copy an earlier session saved, the checks that apply to every hard disk of the content, and
+// its place in `hard_files` (the caller puts them after the floppies).
+bool add_hard_file(Medium &&medium, const std::string &path, std::vector<Medium> *hard_files, size_t *total_bytes)
+{
+    using namespace p6_libretro;
+    if (medium.bytes.size() > kMaxHdfTotalBytes - std::min(kMaxHdfTotalBytes, *total_bytes)) {
+        notify_error("%s: the hard disks of the content together are larger than the %zu bytes this core holds", path.c_str(), kMaxHdfTotalBytes);
+        return false;
+    }
+    p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
+    use_saved_hard_file(&medium);
+    for (const Medium &other : *hard_files)
+        if (memcmp(other.id, medium.id, sizeof medium.id) == 0) {
+            notify_error("%s has the same bytes as an earlier hard disk of the content: the same disk cannot be mounted twice", path.c_str());
+            return false;
+        }
+    *total_bytes += medium.bytes.size();
+    log(RETRO_LOG_INFO, "hard disk DH%zu (%s): %s", hard_files->size(), path.c_str(), describe_hard_file(inspect_hard_file(medium.bytes.data(), medium.bytes.size())).c_str());
+    hard_files->push_back(std::move(medium));
+    return true;
+}
+
+// One hard disk of the content (T63a): read through the VFS or stdio with the cap of hdf.h, decoded when it is an .hdz, and appended to `hard_files` (the caller puts them after
+// the floppies). `ordinal` is its place among everything the content names. Returns false after saying why.
+bool load_hard_file(const std::string &path, size_t ordinal, std::vector<Medium> *hard_files, size_t *total_bytes)
+{
+    using namespace p6_libretro;
+    if (!can_take_hard_file(path, hard_files->size())) return false;
     Medium medium;
     medium.type = P6_MEDIA_HDF;
     const ReadResult read = core.files.read(path, kMaxHdfBytes, &medium.bytes);
@@ -771,21 +805,52 @@ bool load_hard_file(const std::string &path, size_t ordinal, std::vector<Medium>
         notify_error("%s (entry %zu): %s", path.c_str(), ordinal + 1, why.c_str());
         return false;
     }
-    if (medium.bytes.size() > kMaxHdfTotalBytes - std::min(kMaxHdfTotalBytes, *total_bytes)) {
-        notify_error("%s: the hard disks of the content together are larger than the %zu bytes this core holds", path.c_str(), kMaxHdfTotalBytes);
+    return add_hard_file(std::move(medium), path, hard_files, total_bytes);
+}
+
+enum class VolumeSource { Directory, Lha, Zip };
+
+// A volume (T64a): the directory at `path`, or the LHA (read here) or the ZIP (read already, its bytes are `archive`) turned into one FFS hard file in memory and appended to
+// `hard_files` like an .hdf. Nothing of the host is kept: the image is the content. Returns false after saying why.
+bool load_volume(const std::string &path, size_t ordinal, VolumeSource source, std::vector<uint8_t> *archive, std::vector<Medium> *hard_files, size_t *total_bytes)
+{
+    using namespace p6_libretro;
+    if (!can_take_hard_file(path, hard_files->size())) return false;
+    std::vector<VolumeFile> files;
+    std::string why;
+    bool ok = false;
+    const char *what = source == VolumeSource::Directory ? "directory" : source == VolumeSource::Lha ? "LHA archive" : "ZIP file";
+    if (source == VolumeSource::Directory) {
+        ok = volume_from_directory(core.files, path, &files, &why);
+    } else {
+        if (source == VolumeSource::Lha) {
+            const ReadResult read = core.files.read(path, kMaxVolumeArchiveBytes, archive);
+            if (read == ReadResult::TooLarge) {
+                notify_error("%s (entry %zu) is larger than the %zu bytes of archive this core reads as a volume", path.c_str(), ordinal + 1, kMaxVolumeArchiveBytes);
+                return false;
+            }
+            if (read != ReadResult::Ok) {
+                notify_error("%s (entry %zu): %s", path.c_str(), ordinal + 1, describe(read));
+                return false;
+            }
+            ok = volume_from_lha(*archive, &files, &why);
+        } else {
+            ok = volume_from_zip(*archive, &files, &why);
+        }
+        archive->clear();
+        archive->shrink_to_fit();
+    }
+    VolumeSummary summary;
+    Medium medium;
+    medium.type = P6_MEDIA_HDF;
+    if (ok) ok = build_volume_image(&files, &medium.bytes, &summary, &why);
+    if (!ok) {
+        notify_error("%s (entry %zu) cannot be a volume: the %s %s", path.c_str(), ordinal + 1, what, why.c_str());
         return false;
     }
-    p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
-    use_saved_hard_file(&medium);
-    for (const Medium &other : *hard_files)
-        if (memcmp(other.id, medium.id, sizeof medium.id) == 0) {
-            notify_error("%s has the same bytes as an earlier hard disk of the content: the same disk cannot be mounted twice", path.c_str());
-            return false;
-        }
-    *total_bytes += medium.bytes.size();
-    log(RETRO_LOG_INFO, "hard disk DH%zu (%s): %s", hard_files->size(), path.c_str(), describe_hard_file(inspect_hard_file(medium.bytes.data(), medium.bytes.size())).c_str());
-    hard_files->push_back(std::move(medium));
-    return true;
+    log(RETRO_LOG_INFO, "volume DH%zu (%s): %s of %zu files and %zu directories (%zu bytes), built as a hard disk of %zu bytes; the host is not read again", hard_files->size(), path.c_str(),
+        what, summary.files, summary.directories, summary.bytes, medium.bytes.size());
+    return add_hard_file(std::move(medium), path, hard_files, total_bytes);
 }
 
 // The disks the content names, read through the VFS or stdio, with the distinct ones in `media` (the manifest) and one image per playlist
@@ -823,38 +888,58 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         if (playlist.save_disks_ignored)
             log(RETRO_LOG_WARN, "%u #SAVEDISK line(s) of the playlist are ignored: the disks are read-only", playlist.save_disks_ignored);
         entries = std::move(playlist.entries);
-    } else if (is_disk_extension(content) || is_hard_file_extension(content)) {
+    } else if (core.files.is_directory(content)) {        // a directory is a volume (T64a); a frontend that lists "/" among the extensions hands it over as content
+        std::string trimmed = content;
+        while (trimmed.size() > 1 && is_separator(trimmed.back())) trimmed.pop_back();
+        entries.push_back({content, file_name(trimmed)});
+    } else if (is_disk_extension(content) || is_hard_file_extension(content) || is_volume_extension(content)) {
         entries.push_back({content, without_extension(file_name(content))});
     } else if (const char *reason = unsupported_format_reason(content)) {
         notify_error("%s cannot be loaded: %s", content.c_str(), reason);
         return false;
     } else {
-        notify_error("%s is not content this core loads (an .adf, .adz, .dms or .zip disk, an .hdf or .hdz hard disk, or an .m3u playlist of them)", content.c_str());
+        notify_error("%s is not content this core loads (an .adf, .adz, .dms or .zip disk, an .hdf or .hdz hard disk, an .lha, a .zip of files or a directory as a volume, or an .m3u playlist of them)",
+                     content.c_str());
         return false;
     }
     std::vector<Medium> hard_files;               // the hard disks of the content, in the order named: they follow every floppy in the manifest
     size_t hard_bytes = 0;
     for (size_t i = 0; i < entries.size(); ++i) {
         const PlaylistEntry &entry = entries[i];
+        if (core.files.is_directory(entry.path)) {
+            if (!load_volume(entry.path, i, VolumeSource::Directory, nullptr, &hard_files, &hard_bytes)) return false;
+            continue;
+        }
         if (is_hard_file_extension(entry.path)) {
             if (!load_hard_file(entry.path, i, &hard_files, &hard_bytes)) return false;
             continue;
         }
+        if (is_volume_extension(entry.path)) {
+            std::vector<uint8_t> archive;
+            if (!load_volume(entry.path, i, VolumeSource::Lha, &archive, &hard_files, &hard_bytes)) return false;
+            continue;
+        }
         if (!is_disk_extension(entry.path)) {
             const char *reason = unsupported_format_reason(entry.path);
-            notify_error("disk %zu (%s) is not an .adf, .adz, .dms, .zip, .hdf or .hdz file%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
+            notify_error("disk %zu (%s) is not an .adf, .adz, .dms, .zip, .hdf, .hdz or .lha file or a directory%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
             return false;
         }
         Medium medium;
-        // The file may be a container, so the cap is the largest container; what it holds is bounded by decode_disk.
-        const ReadResult read = core.files.read(entry.path, kMaxDiskFileBytes, &medium.bytes);
+        // The file may be a container, so the cap is the largest container; what it holds is bounded by decode_disk. A zip may also be a volume (files, no disk), which can be larger.
+        const bool zipped = has_extension(entry.path, "zip");
+        const size_t cap = zipped ? kMaxVolumeArchiveBytes : kMaxDiskFileBytes;
+        const ReadResult read = core.files.read(entry.path, cap, &medium.bytes);
         if (read == ReadResult::TooLarge) {
-            notify_error("disk %zu (%s) is larger than any disk file this core reads (%zu bytes)", i + 1, entry.path.c_str(), kMaxDiskFileBytes);
+            notify_error("disk %zu (%s) is larger than any %s this core reads (%zu bytes)", i + 1, entry.path.c_str(), zipped ? "zip file" : "disk file", cap);
             return false;
         }
         if (read != ReadResult::Ok) {
             notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), describe(read));
             return false;
+        }
+        if (zipped && zip_is_volume(medium.bytes)) {
+            if (!load_volume(entry.path, i, VolumeSource::Zip, &medium.bytes, &hard_files, &hard_bytes)) return false;
+            continue;
         }
         std::string why;
         if (!decode_disk(&medium.bytes, entry.path, &why)) {      // in memory: the ADF is what is hashed, so the container is no part of the identity
@@ -1304,11 +1389,17 @@ RETRO_API void retro_init(void)
     if (environment_cb && environment_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging) && logging.log)
         log_cb = logging.log;
     if (!environment_cb) return;
-    // The frontend's file system, asked for as early as the API recommends; version 1 (open, size, read, close) is all the core uses.
+    // The frontend's file system, asked for as early as the API recommends; version 1 (open, size, read, close) is enough for files.
     retro_vfs_interface_info vfs = {};
-    vfs.required_interface_version = 1;
-    if (environment_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs) && vfs.iface && vfs.iface->open && vfs.iface->read && vfs.iface->close)
-        core.files.use_vfs(vfs.iface);
+    // Version 3 has stat and the directory calls a directory volume needs (T64a); a frontend that offers less gets files through the VFS and directories through the C library.
+    for (const unsigned wanted : {3u, 1u}) {
+        vfs = {};
+        vfs.required_interface_version = wanted;
+        if (environment_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs) && vfs.iface && vfs.iface->open && vfs.iface->read && vfs.iface->close) {
+            core.files.use_vfs(vfs.iface, std::max(wanted, vfs.required_interface_version));
+            break;
+        }
+    }
     register_disk_control();
     bool achievements = true;       // the Chip RAM is RETRO_MEMORY_SYSTEM_RAM and the map describes the rest (T75)
     environment_cb(RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS, &achievements);     // optional
@@ -1330,7 +1421,7 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "adf|adz|dms|zip|hdf|hdz|m3u|uae";
+    info->valid_extensions = "adf|adz|dms|zip|lha|lzh|hdf|hdz|m3u|uae|/";
     info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
     info->block_extract = true;           // a zip is read by the core, in memory: the frontend must not extract it to a temporary directory
 }

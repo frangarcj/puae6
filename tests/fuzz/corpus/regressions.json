@@ -152,6 +152,18 @@
       "seed": 2,
       "iterations": 6000,
       "note": "baseline of T63a; no defect found"
+    },
+    {
+      "target": "volume",
+      "seed": 1,
+      "iterations": 3000,
+      "note": "baseline of T64a (the volume builder: trees with hostile names, LHA archives and ZIP files flipped, cut, claiming more than the caps, with names that leave the volume; an accepted source is an image that is exactly its tree); no defect found"
+    },
+    {
+      "target": "volume",
+      "seed": 2,
+      "iterations": 3000,
+      "note": "baseline of T64a; no defect found"
     }
   ],
   "config_runs": [

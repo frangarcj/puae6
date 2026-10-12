@@ -5,7 +5,7 @@
  * onto AmigaDOS. A session has no host file system, no archive volume, no CD or tape and no clipboard, so every service below FAILS the way a missing
  * file or a missing device fails (NULL, -1, false, 0); none of them reports success for something that is not there. Nothing reaches them: a
  * configuration with a directory, archive, CD or tape unit is refused before the machine exists (bridge/media.cpp only builds hard file units), and the
- * unit table the filesystem opens holds nothing else. T64 replaces the volume half with an in-memory file system behind the same names.
+ * unit table the filesystem opens holds nothing else. Directories, LHA and ZIP files are volumes by another road (ADR 0011): an FFS image the adapter builds in memory.
  */
 #include "sysconfig.h"
 #include "sysdeps.h"

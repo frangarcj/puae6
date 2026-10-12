@@ -13431,13 +13431,92 @@
       "evidence": null
     },
     {
+      "id": "T64a",
+      "title": "Directorios, LHA y ZIP como volumenes en libretro: imagen FFS construida en memoria (ADR 0011), determinista, con estados y escrituras al overlay del HDF",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "evidence": null,
+      "depends": [
+        "T63"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "tests/**",
+        "docs/adr/**",
+        "ports/portable/hostfs_unsupported.cpp",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/whdload.md"
+      ],
+      "steps": [
+        "Parte libretro de T64 (P16 de reports/research/parity-puae5.md). Decision (ADR 0011): NO se monta el filesys/zfile de UAE como MacHawk (exigiria un estado nativo del arbol de a_inode, locks y notificaciones que el proyecto ya descarto en T29c); el adaptador lee la fuente una vez al cargar (VFS de libretro version 3, extension `/` de PUAE5) y construye una particion plana FFS en memoria que entra por P6_MEDIA_HDF, el camino de T29/T63 (estado nativo, overlay de escrituras exportable, rewind, run-ahead).",
+        "adapters/libretro/{ffs_volume,lha,volume}.h: escritor FFS (port de tools/whdload/ffs.py, que es su oraculo), lector LHA acotado (port de tools/whdload/lha.py) y fuentes directorio/LHA/ZIP con orden, fechas y nombre de volumen fijos (identidad = contenido); `.lha`/`.lzh`, un `.zip` de ficheros y un directorio como contenido o entrada de M3U. Tests: tests/hdf/test_volume.py (oraculo, ASan), tests/libretro-host/test_volume.py (LR01/MED02/MED03/DET02, Fatal Mission con WHDLoad desde un directorio y un LHA con el Kickstart 3.1 del usuario, opt-in) y el objetivo `volume` de FUZZ01 (tools/check.py, tests/fuzz).",
+        "2026-10-12: touch ampliado con tools/check.py (registro de ('FUZZ01','T64a') y ('FUZZ01','T64')), docs/02-contracts.md y docs/whdload.md (documentacion del contrato) y ports/portable/hostfs_unsupported.cpp (solo el comentario que prometia un filesystem en memoria para T64)."
+      ],
+      "checks": [
+        "LR01",
+        "MED02",
+        "MED03",
+        "DET02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un directorio, un LHA y un ZIP arrancan como volumen en libretro, deterministas (el mismo contenido es el mismo medio) y con estados."
+      ],
+      "stop": "El montaje vivo del FS del host queda fuera."
+    },
+    {
+      "id": "T64b",
+      "title": "Directorios (si el cargador lo permite), LHA y ZIP como volumenes en el nucleo BizHawk/Waterbox: la misma imagen FFS construida en memoria",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "evidence": null,
+      "depends": [
+        "T64a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0011-volumes-from-the-host.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "tests/**",
+        "docs/02-contracts.md",
+        "docs/adr/**",
+        "manifests/waterbox-memory.json"
+      ],
+      "steps": [
+        "Parte BizHawk de T64. El nucleo C# construye la misma imagen que el adaptador libretro (ADR 0011; tools/whdload/ffs.py y lha.py y adapters/libretro/{ffs_volume,lha,volume}.h son los oraculos: los bytes han de ser iguales) a partir de un LHA o un ZIP que el cargador le da como fichero y los entrega como un HDF mas (Puae6Parameters.HardFiles), con las mismas cotas. Un directorio solo si el cargador de BizHawk lo permite; si no, se documenta. Referencia de MacHawk (solo lectura): UAE.WHDLoad.cs AddReadonlyFile. No cambia el guest salvo que haga falta; si cambia, re-registrar manifests/waterbox-memory.json."
+      ],
+      "checks": [
+        "WB03",
+        "MED03",
+        "DET02"
+      ],
+      "acceptance": [
+        "Un LHA y un ZIP arrancan como volumen en el nucleo BizHawk dentro de Waterbox, con los mismos bytes que en libretro y con estados."
+      ],
+      "stop": "El montaje vivo del FS del host queda fuera."
+    },
+    {
       "id": "T64",
       "title": "Directorios, LHA y ZIP como volumenes de solo lectura desde memoria (como MacHawk), con escrituras a un overlay",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T63"
+        "T63",
+        "T64a",
+        "T64b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13455,7 +13534,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk monta los .lha/.zip como volumenes de archivo de UAE desde memoria (filesys archive, AddReadonlyFile), sin montar el host. Mismo camino aqui; un directorio se empaqueta en memoria por el adaptador (VFS, orden y fechas fijos) y entra igual; las escrituras van a un HDF/overlay exportable. Lanzar directorios como contenido (extension |/ de references/puae).",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: filesys.c y zfile_archive.c de uae-waterbox.patch, bizhawk-unzip.c/.h (minizip sobre un zfile en memoria) y AddReadonlyFile de UAE.WHDLoad.cs."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: filesys.c y zfile_archive.c de uae-waterbox.patch, bizhawk-unzip.c/.h (minizip sobre un zfile en memoria) y AddReadonlyFile de UAE.WHDLoad.cs.",
+        "2026-10-12: dividida en T64a (libretro, ADR 0011), T64b (BizHawk/Waterbox) y este cierre: un directorio y un LHA arrancan como volumen, deterministas y con estados en ambos adaptadores (MED02, DET02, FUZZ01, LR01)."
       ],
       "checks": [
         "MED02",
