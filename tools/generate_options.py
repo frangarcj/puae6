@@ -105,7 +105,7 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
     """Raise SchemaError, listing every problem, unless the schema is complete and consistent. `config_fields` are the members of p6_config
     (by default read from bridge/include/p6.h): every one of them must be mapped by an option or be a fixed field of ABI v1."""
     errors: list[str] = []
-    if not _only(schema, {"schema_version", "about", "categories", "value_sets", "options", "presets", "reserved", "unsupported"},
+    if not _only(schema, {"schema_version", "about", "categories", "value_sets", "options", "presets", "selectors", "reserved", "unsupported"},
                  {"schema_version", "categories", "options", "presets", "reserved", "unsupported"}, "schema", errors):
         raise SchemaError("\n".join(errors))
     if schema.get("schema_version") != 1:
@@ -174,6 +174,7 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
         _validate_adapters(option, klass, where, errors)
 
     _validate_presets(schema, errors)
+    _validate_selectors(schema, errors, keys)
     for i, entry in enumerate(schema.get("reserved") or []):
         where = f"reserved[{i}]"
         if _only(entry, {"id", "for", "wrapper_setting", "why"}, {"id", "for", "wrapper_setting", "why"}, where, errors):
@@ -322,8 +323,9 @@ def _validate_libretro(option, kind, where, categories, keys, errors):
         errors.append(f"{where}: libretro_policy is only for a key libretro does not offer")
     if kind != "enum":
         errors.append(f"{where}: libretro offers enums only (a number would need a free-form field the frontends do not have)")
-    if not _only(libretro, {"key", "category", "label", "info"}, {"key", "category", "label", "info"}, f"{where} libretro", errors):
+    if not _only(libretro, {"key", "category", "label", "info", "extra_values", "default"}, {"key", "category", "label", "info"}, f"{where} libretro", errors):
         return
+    _validate_libretro_extras(option, libretro, where, errors)
     key = libretro["key"]
     if not (isinstance(key, str) and LIBRETRO_KEY.fullmatch(key)):
         errors.append(f"{where}: libretro key must be 'puae6_' and lowercase letters, digits and underscores")
@@ -337,6 +339,89 @@ def _validate_libretro(option, kind, where, categories, keys, errors):
             errors.append(f"{where}: libretro {field} must be non-empty ASCII text")
     if isinstance(option.get("values"), list) and len(option["values"]) > MAX_VALUES:
         errors.append(f"{where}: libretro takes at most {MAX_VALUES} values")
+
+
+def _validate_libretro_extras(option, libretro, where, errors):
+    """T76: values only the libretro core offers (the automatic ones: the core resolves them to a value of the option before the machine is made) and the libretro default.
+    An extra value has a name, a number that is no value of the option (it never reaches p6_config), a label and a CamelCase constant for the generated header."""
+    names = {v.get("value") for v in option.get("values", []) if isinstance(v, dict)}
+    abis = {v.get("abi") for v in option.get("values", []) if isinstance(v, dict)}
+    extras = libretro.get("extra_values", [])
+    if not isinstance(extras, list):
+        errors.append(f"{where}: libretro extra_values must be a list")
+        return
+    seen_names, seen_abis, consts = set(), set(), set()
+    for j, extra in enumerate(extras):
+        label = f"{where} libretro extra_values[{j}]"
+        if not _only(extra, {"value", "abi", "label", "const"}, {"value", "abi", "label", "const"}, label, errors):
+            continue
+        if not _text(extra["value"]) or not _text(extra["label"]):
+            errors.append(f"{label}: value and label must be non-empty ASCII text")
+        if extra["value"] in names or extra["value"] in seen_names:
+            errors.append(f"{label}: '{extra['value']}' is already a value of the option")
+        seen_names.add(extra["value"])
+        abi = extra["abi"]
+        if not (isinstance(abi, int) and not isinstance(abi, bool) and 0 <= abi < 2**32):
+            errors.append(f"{label}: abi must be an integer of 32 bits")
+        elif abi in abis or abi in seen_abis:
+            errors.append(f"{label}: the number {abi} is already used by a value of the option (an extra value never reaches p6_config, so it needs a number of its own)")
+        seen_abis.add(abi)
+        if not (isinstance(extra["const"], str) and re.fullmatch(r"[A-Z][A-Za-z0-9]*", extra["const"])) or extra["const"] in consts:
+            errors.append(f"{label}: const must be a new CamelCase identifier")
+        consts.add(str(extra["const"]))
+    if extras and option.get("type") != "enum":
+        errors.append(f"{where}: only an enum has extra libretro values")
+    if "default" in libretro and libretro["default"] not in names | seen_names:
+        errors.append(f"{where}: libretro default {libretro['default']!r} is not a value of the option or an extra one")
+
+
+def _validate_selectors(schema, errors, taken_keys):
+    """T76: choices only the libretro core has (they pick the machine before it is made and are no p6_config field): the model for floppy and for hard disk content and
+    the switch of the file name tags. Each shapes like an option of the libretro menu: a key, a category, values with a number, a default."""
+    options = _option_index(schema) if all(isinstance(o, dict) and "id" in o for o in schema.get("options") or []) else {}
+    ids, keys = set(), set(taken_keys)
+    categories = {c.get("id") for c in schema.get("categories") or [] if isinstance(c, dict)}
+    for i, selector in enumerate(schema.get("selectors") or []):
+        where = f"selectors[{i}]"
+        if not _only(selector, {"id", "default", "values", "values_of", "libretro"}, {"id", "default", "libretro"}, where, errors):
+            continue
+        name = selector["id"]
+        if not (isinstance(name, str) and IDENTIFIER.fullmatch(name)) or name in ids or name in options or name == "preset":
+            errors.append(f"{where}: id must be a new lowercase identifier")
+        ids.add(str(name))
+        if ("values" in selector) == ("values_of" in selector):
+            errors.append(f"{where}: give either values or values_of (the id of an option whose values are taken)")
+            continue
+        if "values_of" in selector:
+            source = options.get(selector["values_of"])
+            if not source or source.get("type") != "enum" or source.get("class") != "reboot":
+                errors.append(f"{where}: values_of must name a reboot enum option")
+                continue
+            values = source["values"]
+        else:
+            values = selector["values"]
+            if not (isinstance(values, list) and values):
+                errors.append(f"{where}: values must be a non-empty list")
+                continue
+            names, abis = set(), set()
+            for j, value in enumerate(values):
+                if _only(value, {"value", "abi", "label"}, {"value", "abi", "label"}, f"{where} values[{j}]", errors):
+                    if value["value"] in names or value["abi"] in abis or not _text(value["value"]) or not _text(value["label"]) or not isinstance(value["abi"], int) or isinstance(value["abi"], bool):
+                        errors.append(f"{where} values[{j}]: a new name, a new integer number and a label")
+                    names.add(value["value"])
+                    abis.add(value["abi"])
+        if selector["default"] not in [v.get("value") for v in values]:
+            errors.append(f"{where}: default {selector['default']!r} is not one of the values")
+        libretro = selector["libretro"]
+        if _only(libretro, {"key", "category", "label", "info"}, {"key", "category", "label", "info"}, f"{where} libretro", errors):
+            if not (isinstance(libretro["key"], str) and LIBRETRO_KEY.fullmatch(libretro["key"])) or libretro["key"] in keys or libretro["key"] == PRESET_KEY:
+                errors.append(f"{where}: libretro key must be a new 'puae6_' key")
+            keys.add(str(libretro["key"]))
+            if libretro["category"] not in categories:
+                errors.append(f"{where}: libretro category '{libretro['category']}' is not declared")
+            for field in ("label", "info"):
+                if not _text(libretro[field]):
+                    errors.append(f"{where}: libretro {field} must be non-empty ASCII text")
 
 
 def _validate_adapters(option, klass, where, errors):
@@ -463,11 +548,25 @@ def _literal(option: dict, value: int) -> str:
     return {"enum": f"{value}u", "u64": f"UINT64_C({value})", "i64": f"INT64_C({value})"}[option["type"]]
 
 
+def _lr_values(option: dict) -> list:
+    """The values libretro offers for an option: the automatic ones only the core has (T76, libretro.extra_values) first, then the option's own."""
+    return list((option["libretro"].get("extra_values") or [])) + list(option["values"])
+
+
+def _lr_default(option: dict) -> str:
+    """The value libretro starts with (T76: the automatic one for the model and the video standard, which the core resolves before the machine is made)."""
+    return option["libretro"].get("default", option["default"])
+
+
+def _lr_abi(option: dict, name: str) -> int:
+    return next(v["abi"] for v in _lr_values(option) if v["value"] == name)
+
+
 def _inline_values(option: dict) -> str:
     """The {value, label} initializers of a libretro definition: the set's macro when the option shares a set, else the list."""
     if "values_from" in option:
         return f"P6_SET_{option['values_from'].upper()}_V2"
-    return ", ".join(f"{{{_c(v['value'])}, {_c(v['label'])}}}" for v in option["values"])
+    return ", ".join(f"{{{_c(v['value'])}, {_c(v['label'])}}}" for v in _lr_values(option))
 
 
 def _needs_reload(option: dict) -> bool:
@@ -492,20 +591,35 @@ def _preset_entry(schema: dict) -> dict:
                          "info": "A model and its memory in one choice, over the Model and the memory options (PUAE5-like machines). " + labels}}
 
 
+def _selector_entries(schema: dict) -> list:
+    """The libretro choices that are no option of the schema (T76: the model of the floppy and of the hard disk content, the file name tags), shaped like an option."""
+    options = _option_index(schema)
+    entries = []
+    for selector in schema.get("selectors") or []:
+        values = options[selector["values_of"]]["values"] if "values_of" in selector else selector["values"]
+        entries.append({"id": selector["id"], "class": "reboot", "default": selector["default"], "libretro": selector["libretro"],
+                        "values": [{"value": v["value"], "abi": v["abi"], "label": v["label"]} for v in values]})
+    return entries
+
+
 def _libretro_entries(schema: dict) -> list:
-    """The options libretro offers, in menu order: the preset comes right after the model."""
+    """The options libretro offers, in menu order: the preset and the selectors come right after the model."""
     entries = []
     for option in schema["options"]:
         if option["libretro"]:
             entries.append(option)
             if option["id"] == "machine":
                 entries.append(_preset_entry(schema))
+                entries.extend(_selector_entries(schema))
     return entries
 
 
 def _apply_preset_function(schema: dict) -> list:
     options = _option_index(schema)
-    lines = ["// Lays the preset the person chose over the model and the memory options (read_options calls it once everything is read).",
+    lines = ["// The number of each preset in Settings.preset (0 is none).",
+             *[f"constexpr uint32_t kPreset{_camel(entry['id'])} = {n}u;" for n, entry in enumerate(schema["presets"], 1)],
+             "",
+             "// Lays the preset the person chose over the model and the memory options (read_options calls it once everything is read).",
              "inline void apply_preset(Settings *settings)", "{", "    switch (settings->preset) {"]
     for n, entry in enumerate(schema["presets"], 1):
         lines.append(f"    case {n}u:  // {entry['id']}")
@@ -536,10 +650,15 @@ def generate_header(schema: dict) -> str:
     w("// machine. A key libretro does not offer keeps its default here, which is the only value the core ever uses for it.")
     w("struct Settings {")
     for option in options:
-        default = abi_value(option, option["default"])
-        note = f"  // {option['class']}, {option['maps_to']}" + (f" = {option['default']}" if option["type"] == "enum" else "")
+        name = _lr_default(option) if option["libretro"] else option["default"]
+        default = _lr_abi(option, name) if option["libretro"] and option["type"] == "enum" else abi_value(option, option["default"])
+        note = f"  // {option['class']}, {option['maps_to']}" + (f" = {name}" if option["type"] == "enum" else "")
+        if option["libretro"] and name != option["default"]:
+            note += f" (libretro starts automatic; the schema's default for the other adapters is {option['default']})"
         w(f"    {_field_type(option)} {option['id']} = {_literal(option, default)};{note}")
     w("    uint32_t preset = 0u;  // reboot, a bundle of the options above (the schema's presets, apply_preset); 0 = none. Not a p6_config field")
+    for selector in _selector_entries(schema):
+        w(f"    uint32_t {selector['id']} = {_lr_abi(selector, selector['default'])}u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = {selector['default']}")
     w("};")
     w("")
     w("inline void to_config(const Settings &settings, p6_config *config)")
@@ -566,6 +685,9 @@ def generate_header(schema: dict) -> str:
     w("    unsigned default_index;")
     w("};")
     w("")
+    for option in options:
+        for extra in (option["libretro"] or {}).get("extra_values") or []:
+            w(f"constexpr uint32_t k{_camel(option['id'])}{extra['const']} = {extra['abi']}u;       // {option['libretro']['key']}={extra['value']}: resolved by the core before the machine is made")
     for name, values in (schema.get("value_sets") or {}).items():
         w(f"// The value set {name}: one list for every option that says values_from.")
         w(f"constexpr Value k{_camel(name)}SetValues[] = {{")
@@ -583,16 +705,16 @@ def generate_header(schema: dict) -> str:
         if "values_from" in option:
             continue
         w(f"constexpr Value k{_camel(option['id'])}Values[] = {{")
-        for value in option["values"]:
+        for value in _lr_values(option):
             w(f"    {{{_c(value['value'])}, {value['abi']}u}},")
         w("};")
     w("")
     w("constexpr Option kOptions[] = {")
     for option in exposed:
-        index = [v["value"] for v in option["values"]].index(option["default"])
+        index = [v["value"] for v in _lr_values(option)].index(_lr_default(option))
         values = f"k{_camel(option['values_from'])}SetValues" if "values_from" in option else f"k{_camel(option['id'])}Values"
         w(f"    {{{_c(option['libretro']['key'])}, {'true' if _needs_reload(option) else 'false'}, &Settings::{option['id']}, {values}, "
-          f"{len(option['values'])}, {index}}},")
+          f"{len(_lr_values(option))}, {index}}},")
     w("};")
     w("constexpr unsigned kOptionCount = sizeof kOptions / sizeof kOptions[0];")
     w("")
@@ -611,7 +733,7 @@ def generate_header(schema: dict) -> str:
         w(f"    {{{_c(option['libretro']['key'])}, {_c(desc)}, {_c(desc)},")
         w(f"     {_c(info)},")
         w(f"     {_c(info)},")
-        w(f"     {_c(option['libretro']['category'])}, {{{values}}}, {_c(option['default'])}}},")
+        w(f"     {_c(option['libretro']['category'])}, {{{values}}}, {_c(_lr_default(option))}}},")
     w("    {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, {}, nullptr},")
     w("};")
     w("inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};")
@@ -621,7 +743,7 @@ def generate_header(schema: dict) -> str:
     for option in exposed:
         desc, info = _description(option)
         values = _inline_values(option)
-        w(f"    {{{_c(option['libretro']['key'])}, {_c(desc)}, {_c(info)}, {{{values}}}, {_c(option['default'])}}},")
+        w(f"    {{{_c(option['libretro']['key'])}, {_c(desc)}, {_c(info)}, {{{values}}}, {_c(_lr_default(option))}}},")
     w("    {nullptr, nullptr, nullptr, {}, nullptr},")
     w("};")
     w("")
@@ -629,12 +751,12 @@ def generate_header(schema: dict) -> str:
     w("constexpr retro_variable kVariables[] = {")
     for option in exposed:
         desc, _ = _description(option)
-        names = [v["value"] for v in option["values"]]
+        names = [v["value"] for v in _lr_values(option)]
         if "values_from" in option and names[0] == option["default"]:      # the set's own text, written once
             w(f"    {{{_c(option['libretro']['key'])}, {_c(desc + '; ')} P6_SET_{option['values_from'].upper()}_LEGACY}},")
             continue
-        names.remove(option["default"])
-        w(f"    {{{_c(option['libretro']['key'])}, {_c(desc + '; ' + '|'.join([option['default']] + names))}}},")
+        names.remove(_lr_default(option))
+        w(f"    {{{_c(option['libretro']['key'])}, {_c(desc + '; ' + '|'.join([_lr_default(option)] + names))}}},")
     w("    {nullptr, nullptr},")
     w("};")
     w("")
@@ -667,6 +789,9 @@ def generate_table(schema: dict) -> str:
         (config if option["class"] == "reboot" else presentation)[option["maps_to"].partition(".")[2]] = entry
         adapters[option["id"]] = {"headless": option["headless"], "wrapper": option["wrapper"],
                                   "libretro": option["libretro"]["key"] if option["libretro"] else None}
+        if option["libretro"] and (option["libretro"].get("extra_values") or "default" in option["libretro"]):
+            adapters[option["id"]]["libretro_default"] = _lr_default(option)
+            adapters[option["id"]]["libretro_extra_values"] = {v["value"]: v["abi"] for v in option["libretro"].get("extra_values") or []}
         withheld = [value["value"] for value in option.get("values", []) if value.get("wrapper") is False]
         if withheld:
             adapters[option["id"]]["wrapper_not_offered"] = withheld
@@ -674,6 +799,8 @@ def generate_table(schema: dict) -> str:
                 "value_sets": {name: {value["value"]: value["abi"] for value in values} for name, values in (schema.get("value_sets") or {}).items()},
                 "adapters": adapters,
                 "presets": {entry["id"]: {"label": entry["label"], "values": entry["values"]} for entry in schema["presets"]},
+                "selectors": {entry["id"]: {"libretro": entry["libretro"]["key"], "default": entry["default"], "values": {v["value"]: v["abi"] for v in entry["values"]}}
+                              for entry in _selector_entries(schema)},
                 "reserved": {entry["id"]: entry["wrapper_setting"] for entry in schema["reserved"]},
                 "unsupported": {entry["key"]: entry["why"] for entry in schema["unsupported"]}}
     return json.dumps(document, indent=2, sort_keys=False) + "\n"

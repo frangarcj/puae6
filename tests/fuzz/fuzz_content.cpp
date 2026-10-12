@@ -9,10 +9,14 @@
 //   fuzz_content volume SEED N      the volume builder (T64a) on hostile trees, LHA archives and ZIP files: flipped, cut, claiming more than the caps, with names that leave the volume
 //   fuzz_content archive SEED N DIR the archives of disks (T59: sevenzip.h, archive.h) on the seed archives in DIR (a ZIP, 7z and RP9 of ADFs, written by test_fuzz.py): flipped, cut, with the
 //                                   7z checksums put right again, random LZMA streams and absurd claims, members by name, RP9 manifests of random XML, and the order of a set
+//   fuzz_content model SEED N       the automatic model and the tags in the names (T76: model.h resolve_model) on random, near-miss, glued and hostile names (bytes, NUL, 100 KB, every tag
+//                                   300 times), against an independent oracle written from the table of docs/options.md; pure (twice the same answer), never automatic, a choice made by
+//                                   hand is never changed, and what is said is bounded
 // Output is a histogram per kind of mutation and per outcome; nothing else varies between runs.
 #include "content.h"
 #include "hdf.h"
 #include "archive.h"
+#include "model.h"
 #include "options.h"
 #include "volume.h"
 
@@ -1274,6 +1278,228 @@ int fuzz_archive(uint64_t seed, uint64_t iterations, const std::string &director
     return 0;
 }
 
+// --- the automatic model and the tags in the names (T76) ---------------------------------------------------------------------------------------------
+
+// An independent oracle for resolve_model (adapters/libretro/model.h): written from the table of docs/options.md with its own loops and its own numbers (1 A500, 2 A600, 3 A1200,
+// 4 A500 OG, 5 A500+, 6 A1000, 7 A2000 OG, 8 A2000), so that the library and the oracle can only agree by being right.
+struct OracleTag {
+    const char *text;
+    bool bare;
+    int machine;            // 0 = a machine this core does not have (a warning)
+    int memory;             // 0 none, 1 the A1200 preset (8 MiB Fast), 2 the A600 preset (2 MiB Chip + 8 MiB Fast)
+};
+
+const OracleTag kOracleTags[] = {
+    {"(A4030)", false, 0, 0}, {"(030)", false, 0, 0}, {"(A4040)", false, 0, 0}, {"(040)", false, 0, 0},
+    {"(A1200OG)", false, 3, 0}, {"(A1200NF)", false, 3, 0}, {"(A1200)", false, 3, 1}, {"CD32", true, 3, 1}, {"(CD32NF)", false, 3, 1}, {"(CD32FR)", false, 3, 1},
+    {"(A600)", false, 2, 2}, {"(A500+)", false, 5, 0}, {"(A500PLUS)", false, 5, 0}, {"(A500OG)", false, 4, 0}, {"(512K)", false, 4, 0}, {"(512KB)", false, 4, 0},
+    {"(A500)", false, 1, 0}, {"(A2000OG)", false, 7, 0}, {"(A2000)", false, 8, 0}, {"(A1000)", false, 6, 0},
+};
+const char *const kOracleWeak[] = {"AGA", "AmigaCD", "ECS", "OCS"};
+const OracleTag kOracleNtsc[] = {{"NTSC", true, 0, 0}, {"(USA)", false, 0, 0}};
+const OracleTag kOraclePal[] = {{"PAL", true, 0, 0}, {"(Europe)", false, 0, 0}, {"(France)", false, 0, 0}, {"(Germany)", false, 0, 0}, {"(Italy)", false, 0, 0},
+                                {"(Spain)", false, 0, 0}, {"(Finland)", false, 0, 0}, {"(Denmark)", false, 0, 0}, {"(Sweden)", false, 0, 0}};
+
+bool oracle_has(const std::string &name, const std::string &tag, bool bare)
+{
+    auto letter_or_digit = [](unsigned char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
+    for (size_t at = 0; at + tag.size() <= name.size(); ++at) {
+        if (name.compare(at, tag.size(), tag) != 0) continue;
+        if (!bare) return true;
+        const bool left = at == 0 || !letter_or_digit(static_cast<unsigned char>(name[at - 1]));
+        const bool right = at + tag.size() == name.size() || !letter_or_digit(static_cast<unsigned char>(name[at + tag.size()]));
+        if (left && right) return true;
+    }
+    return false;
+}
+
+struct Expected {
+    uint32_t machine, video, chip, fast;
+    std::string model_by;       // "tag", "word", "type", "explicit", "off", "blocked"
+    std::string video_by;       // "tag", "option", "explicit", "off"
+    const OracleTag *tag = nullptr;
+};
+
+Expected oracle_resolve(const p6_options::Settings &s, bool hard, const std::vector<std::string> &names)
+{
+    Expected e{s.machine, s.video_standard, s.chip_size, s.fast_size, "explicit", "explicit"};
+    const bool tags = s.filename_tags != 0;
+    if (s.machine == 0) {
+        const uint32_t type_model = hard ? s.model_hd : s.model_fd;
+        e.machine = type_model;
+        e.model_by = tags ? "type" : "off";
+        const OracleTag *decided = nullptr;
+        for (size_t n = 0; tags && n < names.size() && !decided; ++n)
+            for (const OracleTag &tag : kOracleTags)
+                if (oracle_has(names[n], tag.text, tag.bare)) { decided = &tag; break; }
+        if (decided) {
+            e.tag = decided;
+            if (decided->machine == 0) {
+                e.model_by = "blocked";
+            } else {
+                e.model_by = "tag";
+                e.machine = uint32_t(decided->machine);
+                if (decided->memory == 2 && s.chip_size == 0) e.chip = 2048;
+                if (decided->memory >= 1 && s.fast_size == 0) e.fast = 8192;
+            }
+        } else {
+            const char *word = nullptr;
+            for (size_t n = 0; tags && n < names.size() && !word; ++n)
+                for (const char *candidate : kOracleWeak)
+                    if (oracle_has(names[n], candidate, true)) { word = candidate; break; }
+            if (word) {
+                const std::string w = word;
+                auto in = [&](std::initializer_list<uint32_t> list) { return std::find(list.begin(), list.end(), type_model) != list.end(); };
+                if ((w == "AGA" || w == "AmigaCD") && !in({3})) { e.machine = 3; e.model_by = "word"; }
+                else if (w == "ECS" && !in({5, 2, 8})) { e.machine = 2; e.model_by = "word"; }
+                else if (w == "OCS" && !in({1, 4, 5, 6, 7})) { e.machine = 1; e.model_by = "word"; }
+            }
+        }
+    }
+    if (s.video_standard == 0 || s.video_standard == 3) {
+        e.video = s.video_standard == 3 ? 2 : 1;
+        e.video_by = tags ? "option" : "off";
+        for (size_t n = 0; tags && n < names.size(); ++n) {
+            bool ntsc = false, pal = false;
+            for (const OracleTag &tag : kOracleNtsc) ntsc = ntsc || oracle_has(names[n], tag.text, tag.bare);
+            for (const OracleTag &tag : kOraclePal) pal = pal || oracle_has(names[n], tag.text, tag.bare);
+            if (ntsc || pal) { e.video = ntsc ? 2 : 1; e.video_by = "tag"; break; }
+        }
+    }
+    return e;
+}
+
+const char *const kTagWords[] = {"(A4030)", "(030)", "(A4040)", "(040)", "(A1200OG)", "(A1200NF)", "(A1200)", "CD32", "(CD32NF)", "(CD32FR)", "(CD32)", "(A600)", "(A500+)", "(A500PLUS)",
+                                 "(A500OG)", "(512K)", "(512KB)", "(A500)", "(A2000OG)", "(A2000)", "(A1000)", "AGA", "AmigaCD", "ECS", "OCS", "NTSC", "(USA)", "PAL", "(Europe)",
+                                 "(France)", "(Germany)", "(Italy)", "(Spain)", "(Finland)", "(Denmark)", "(Sweden)", "CDTV", "(MD)", "_Arcadia", "(CE)"};
+const char *const kFillers[] = {"Game", " ", "-", "_", ".", "/", "\\", "Disk 1", "(Disk 2)", "[!]", "v1.2", "0", "9", "a", "Z", "\xC3\xA9", "\xE2\x82\xAC", "(", ")", "+", "OG", "NF", "FR",
+                                "/home/user/Amiga/", "C:\\Games\\", ".adf", ".zip#", "Some Game (1991)(Publisher)"};
+
+std::string random_tag_name(Random &rng, unsigned tags)
+{
+    std::string name = rng.coin() ? rng.pick(kFillers) : "";
+    for (unsigned i = 0; i < tags; ++i) {
+        name += rng.pick(kFillers);
+        name += rng.pick(kTagWords);
+        if (rng.coin()) name += rng.pick(kFillers);
+    }
+    return name + ".adf";
+}
+
+// A tag that is wrong in one small way: a character changed, dropped or added, a case flipped, a bare word glued to a letter or a digit.
+std::string near_miss(Random &rng)
+{
+    std::string tag = rng.pick(kTagWords);
+    switch (rng.below(7)) {
+    case 0: tag[rng.below(uint32_t(tag.size()))] ^= 0x20; break;                         // a case flip (a no-op on a digit or a symbol: still a legal name)
+    case 1: tag.erase(rng.below(uint32_t(tag.size())), 1); break;
+    case 2: tag.insert(rng.below(uint32_t(tag.size() + 1)), 1, char('A' + rng.below(26))); break;
+    case 3: tag = "x" + tag; break;
+    case 4: tag += "x"; break;
+    case 5: tag.insert(rng.below(uint32_t(tag.size() + 1)), " "); break;
+    default: tag += std::to_string(rng.below(10)); break;
+    }
+    return std::string(rng.pick(kFillers)) + tag + rng.pick(kFillers);
+}
+
+std::string hostile_name(Random &rng)
+{
+    std::string name;
+    switch (rng.below(5)) {
+    case 0: name.resize(rng.below(200)); for (char &c : name) c = char(rng.below(256)); break;                                         // bytes, NUL and invalid UTF-8 included
+    case 1: name.assign(kMaxPathBytes - 1 + rng.below(3), 'p'); name.insert(rng.below(uint32_t(name.size())), rng.pick(kTagWords)); break;       // at the cap
+    case 2: name.assign(60000 + rng.below(40000), 'A'); name += rng.pick(kTagWords); break;                                             // far beyond any path
+    case 3: for (unsigned i = 0; i < 300; ++i) name += rng.pick(kTagWords); break;                                                     // every tag, many times
+    default: name = "(((((((" + std::string(rng.below(100), '(') + rng.pick(kTagWords) + std::string(rng.below(100), ')'); break;
+    }
+    return name;
+}
+
+int fuzz_model(uint64_t seed, uint64_t iterations)
+{
+    static const char *const kinds[] = {"clean", "multi", "near", "bare", "hostile", "explicit", "off", "order"};
+    Random rng(seed);
+    std::map<std::string, std::pair<unsigned, unsigned>> histogram;
+    std::map<std::string, unsigned> decided, warned;
+    for (uint64_t iteration = 0; iteration < iterations; ++iteration) {
+        const std::string kind = kinds[rng.below(sizeof kinds / sizeof *kinds)];
+        p6_options::Settings settings;
+        settings.machine = rng.below(3) ? 0 : 1 + rng.below(8);
+        static const uint32_t videos[] = {0, 3, 1, 2};
+        settings.video_standard = videos[rng.below(4)];
+        static const uint32_t chips[] = {0, 512, 1024, 2048}, fasts[] = {0, 1024, 2048, 4096, 8192};
+        settings.chip_size = chips[rng.below(4)];
+        settings.fast_size = fasts[rng.below(5)];
+        settings.model_fd = 1 + rng.below(8);
+        settings.model_hd = 1 + rng.below(8);
+        settings.filename_tags = rng.below(8) ? 1 : 0;
+        if (kind == "explicit") { settings.machine = 1 + rng.below(8); settings.video_standard = 1 + rng.below(2); settings.filename_tags = 1; }
+        if (kind == "off") settings.filename_tags = 0;
+        if (kind != "explicit" && kind != "off" && rng.below(4)) { settings.machine = 0; }
+        const bool hard = rng.below(4) == 0;
+        std::vector<std::string> names;
+        const unsigned count = rng.below(9);
+        for (unsigned i = 0; i < count; ++i) {
+            if (kind == "clean") names.push_back(random_tag_name(rng, 1));
+            else if (kind == "multi" || kind == "explicit" || kind == "off" || kind == "order") names.push_back(random_tag_name(rng, 1 + rng.below(4)));
+            else if (kind == "near") names.push_back(near_miss(rng) + (rng.coin() ? random_tag_name(rng, 1) : std::string()));
+            else if (kind == "bare") {
+                // A bare word between neighbours: letters and digits glue it (no tag), anything else frees it.
+                static const char *const words[] = {"PAL", "NTSC", "AGA", "AmigaCD", "ECS", "OCS", "CD32", "CDTV"};
+                static const char *const glue[] = {"", "x", "Z", "0", "9", "_", " ", "-", ".", "(", ")", "\xC3\xA9", "/"};
+                names.push_back(std::string(rng.pick(glue)) + rng.pick(words) + rng.pick(glue));
+            } else names.push_back(hostile_name(rng));
+        }
+        if (kind == "order" && names.size() > 1) std::reverse(names.begin() + std::ptrdiff_t(rng.below(uint32_t(names.size()))), names.end());
+
+        const ModelResolution first = resolve_model(settings, hard, names), again = resolve_model(settings, hard, names);
+        const Expected want = oracle_resolve(settings, hard, names);
+        auto &count_kind = histogram[kind];
+        const bool by_tag = want.model_by == "tag" || want.model_by == "word" || want.video_by == "tag";
+        (by_tag ? count_kind.first : count_kind.second)++;
+        // Pure: the same inputs, the same answer, notes and warnings included.
+        if (first.notes != again.notes || first.warnings != again.warnings || first.settings.machine != again.settings.machine || first.settings.video_standard != again.settings.video_standard ||
+            first.settings.chip_size != again.settings.chip_size || first.settings.fast_size != again.settings.fast_size)
+            bug("the same inputs gave two answers", iteration, kind);
+        // Never automatic, always a machine and a standard of the ABI.
+        if (first.settings.machine < 1 || first.settings.machine > 8) bug("the machine is not one of the eight", iteration, std::to_string(first.settings.machine));
+        if (first.settings.video_standard != 1 && first.settings.video_standard != 2) bug("the video standard is not PAL or NTSC", iteration, std::to_string(first.settings.video_standard));
+        uint32_t expected_machine = want.machine;
+        if (selftest()) expected_machine = expected_machine % 8 + 1;
+        if (first.settings.machine != expected_machine)
+            bug("the machine is not the oracle's", iteration, kind + ": " + std::to_string(first.settings.machine) + " instead of " + std::to_string(expected_machine) + " by " + want.model_by);
+        if (first.settings.video_standard != want.video) bug("the video standard is not the oracle's", iteration, kind + ": " + std::to_string(first.settings.video_standard) + " by " + want.video_by);
+        if (first.settings.chip_size != want.chip || first.settings.fast_size != want.fast) bug("the memory is not the oracle's", iteration, kind);
+        // Nothing else changes, and what a person chose is never changed by a tag.
+        if (settings.machine != 0 && first.settings.machine != settings.machine) bug("a model chosen by hand was changed", iteration, kind);
+        if ((settings.video_standard == 1 || settings.video_standard == 2) && first.settings.video_standard != settings.video_standard) bug("a standard chosen by hand was changed", iteration, kind);
+        if (settings.machine != 0 && (first.settings.chip_size != settings.chip_size || first.settings.fast_size != settings.fast_size)) bug("the memory of a model chosen by hand was changed", iteration, kind);
+        if (settings.fast_size != 0 && first.settings.fast_size != settings.fast_size) bug("a Fast RAM size chosen by hand was changed", iteration, kind);
+        if (settings.chip_size != 0 && first.settings.chip_size != settings.chip_size) bug("a Chip RAM size chosen by hand was changed", iteration, kind);
+        for (const p6_options::Option &option : p6_options::kOptions) {
+            if (option.field == &p6_options::Settings::machine || option.field == &p6_options::Settings::video_standard || option.field == &p6_options::Settings::chip_size ||
+                option.field == &p6_options::Settings::fast_size)
+                continue;
+            if (first.settings.*option.field != settings.*option.field) bug("an option the resolution does not own was changed", iteration, option.key);
+        }
+        // With the tags off nothing is read, so nothing is said about a tag; and what is said is bounded however long the names are.
+        if (settings.filename_tags == 0 && !first.warnings.empty()) bug("a warning with the tags off", iteration, first.warnings[0]);
+        if (first.notes.size() > 3 || first.warnings.size() > 4) bug("more messages than there is to say", iteration, std::to_string(first.notes.size()));
+        for (const std::string &text : first.notes) if (text.size() > 600) bug("a note longer than a line of the log", iteration, std::to_string(text.size()));
+        for (const std::string &text : first.warnings) if (text.size() > 600) bug("a warning longer than a line of the log", iteration, std::to_string(text.size()));
+        if (want.model_by == "tag") ++decided[want.tag ? want.tag->text : "?"];
+        if (want.model_by == "word") ++decided["word"];
+        if (want.model_by == "blocked") ++warned["unsupported-model-tag"];
+        if (want.video_by == "tag") ++decided["region"];
+        if (!first.warnings.empty()) ++warned["warnings"];
+        if (want.model_by == "blocked" && first.warnings.empty()) bug("a tag of a machine this core does not have was not warned", iteration, kind);
+    }
+    for (const auto &kind : histogram) printf("model kind %s: accepted %u refused %u\n", kind.first.c_str(), kind.second.first, kind.second.second);
+    for (const auto &tag : decided) printf("model decided \"%s\": %u\n", tag.first.c_str(), tag.second);
+    for (const auto &what : warned) printf("model warned \"%s\": %u\n", what.first.c_str(), what.second);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -1284,6 +1510,7 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "hdz")) return fuzz_hdz(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "volume")) return fuzz_volume(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "archive")) return fuzz_archive(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10), argv[4]);
-    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N | volume SEED N | archive SEED N DIR\n", argv[0]);
+    if (argc == 4 && !strcmp(argv[1], "model")) return fuzz_model(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
+    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N | volume SEED N | archive SEED N DIR | model SEED N\n", argv[0]);
     return 2;
 }

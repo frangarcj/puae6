@@ -74,6 +74,7 @@
 #include "hdf.h"
 #include "input_map.h"
 #include "memory_map.h"
+#include "model.h"
 #include "options.h"
 #include "present.h"
 #include "sha256.h"
@@ -861,9 +862,10 @@ bool load_volume(const std::string &path, size_t ordinal, VolumeSource source, s
 }
 
 // The disks the content names, read through the VFS or stdio, with the distinct ones in `media` (the manifest) and one image per playlist
-// entry. Returns false after saying why (nothing is half-loaded: the caller drops what was filled).
+// entry. Returns false after saying why (nothing is half-loaded: the caller drops what was filled). `names` receives the names the automatic model looks at (T76, model.h):
+// the path of the content, then each entry of the playlist in order and, after an archive, the members it holds.
 bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::PlaylistEntry> *configured, std::vector<Medium> *media,
-                std::vector<p6_libretro::Image> *images)
+                std::vector<p6_libretro::Image> *images, std::vector<std::string> *names)
 {
     using namespace p6_libretro;
     if (!game) return true;                       // no content: the Kickstart boots alone (SET_SUPPORT_NO_GAME)
@@ -872,6 +874,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         return false;
     }
     const std::string content = game->path;
+    names->push_back(content);
     std::vector<PlaylistEntry> entries;
     if (configured) {                             // a .uae: the disks it names, already checked and resolved by the importer
         entries = *configured;
@@ -913,6 +916,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
     size_t hard_bytes = 0;
     for (size_t i = 0; i < entries.size(); ++i) {
         const PlaylistEntry &entry = entries[i];
+        if (entry.path != names->back()) names->push_back(entry.path);
         // "file.zip#member.adf" names one member of an archive (T59); the rest of the checks are about the archive itself.
         std::string archive_path = entry.path, member;
         split_member(entry.path, &archive_path, &member);
@@ -972,6 +976,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
                 for (const DiskMember &disk : set.disks) names += (names.empty() ? "" : ", ") + disk.name;
                 log(RETRO_LOG_INFO, "%s: %s of %zu disk(s), in this order: %s", entry.path.c_str(), set.kind.c_str(), set.disks.size(), names.c_str());
             }
+            for (const DiskMember &disk : set.disks) names->push_back(disk.name);
             for (DiskMember &disk : set.disks) {
                 Piece piece;
                 piece.name = disk.name;
@@ -1708,7 +1713,15 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     p6_options::Settings effective = chosen;
     std::vector<p6_libretro::PlaylistEntry> configured_disks;
     const bool configured = game && game->path && p6_libretro::has_extension(game->path, "uae");
-    if (configured && !import_configuration(game, &effective, &configured_disks)) return false;
+    if (configured) {
+        // The automatic model and video standard of a .uae are resolved from its own name before its keys are read (they are checked against the machine and refine it); the disks it
+        // names are not looked at, since a .uae that cares about the machine names it. A .uae is never hard disk content here (the importer refuses a hard disk).
+        const p6_libretro::ModelResolution resolved = p6_libretro::resolve_model(effective, false, std::vector<std::string>{game->path});
+        for (const std::string &note : resolved.notes) log(RETRO_LOG_INFO, "%s", note.c_str());
+        for (const std::string &warning : resolved.warnings) notify_warning("%s", warning.c_str());
+        effective = resolved.settings;
+        if (!import_configuration(game, &effective, &configured_disks)) return false;
+    }
     core.settings = effective;
     core.requested = chosen;
     core.input = p6_libretro::InputMemory();
@@ -1716,9 +1729,21 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     core.input.statusbar_shown = chosen.statusbar_startup == 1;       // the bar starts up as the option says; the hotkey or the mapped button flips it from there        // the pad starts as the joystick or as the mouse; the mapper's toggle flips it from there
     try {
         std::vector<p6_libretro::Image> images;
-        if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images)) {
+        std::vector<std::string> names;
+        if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images, &names)) {
             stop_image();
             return false;
+        }
+        // The automatic model and video standard (T76) are resolved here, once the content is known and before the machine exists: a pure function of the options, of whether the
+        // content has a hard disk and of the names (model.h). What the machine is made with is `core.settings` from here on, so the p6_config below, and with it the state identity,
+        // carries the machine a tag picked.
+        if (!configured) {          // a .uae was resolved above, before its keys
+            bool hard_disk = false;
+            for (const Medium &medium : core.media) hard_disk = hard_disk || medium.type == P6_MEDIA_HDF;
+            const p6_libretro::ModelResolution resolved = p6_libretro::resolve_model(core.settings, hard_disk, names);
+            for (const std::string &note : resolved.notes) log(RETRO_LOG_INFO, "%s", note.c_str());
+            for (const std::string &warning : resolved.warnings) notify_warning("%s", warning.c_str());
+            core.settings = resolved.settings;
         }
         std::vector<p6_media> manifest;
         for (const Medium &medium : core.media) {

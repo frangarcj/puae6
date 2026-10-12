@@ -176,6 +176,18 @@
       "seed": 2,
       "iterations": 4000,
       "note": "baseline of T59"
+    },
+    {
+      "target": "model",
+      "seed": 1,
+      "iterations": 6000,
+      "note": "baseline of T76 (the automatic model and the tags in the names: random, near-miss, glued and hostile names against an independent oracle written from the table of docs/options.md; pure, never automatic, a choice made by hand is never changed, what is said is bounded)"
+    },
+    {
+      "target": "model",
+      "seed": 2,
+      "iterations": 6000,
+      "note": "baseline of T76"
     }
   ],
   "config_runs": [

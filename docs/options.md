@@ -123,6 +123,78 @@ bloque principal, cursores y teclado numerico (96 teclas, todas las de `input_ma
 Fuera de T31a: el color del puntero de lightpen/lightgun y la tecla SVDS (save disk) de PUAE5 (necesitan P21 y P12), y las teclas "J/M" del vkbd de PUAE5 (el cambio joystick/raton esta en el
 mapper: `toggle_mouse`).
 
+## Modelo automatico y etiquetas del nombre (T76) — categoria `Machine`
+
+`puae6_machine=auto` (el valor por defecto, como `puae_model=auto` de PUAE5) y `puae6_video_standard=PAL auto` / `NTSC auto` (como `PAL auto` / `NTSC auto` de PUAE5) se resuelven **al cargar el contenido y
+antes de que exista la maquina**. Implementado en `adapters/libretro/model.h` (`resolve_model`, una funcion pura: sin ficheros, reloj, entorno ni locale), llamado una sola vez desde `retro_load_game` con
+las opciones, si el contenido tiene disco duro y la lista de nombres. El resultado es un `p6_config` normal: entra en `config_hash` y en la identidad del estado como cualquier modelo (un estado de un
+contenido cuya etiqueta eligio otra maquina u otro estandar se rechaza, `tests/libretro-host/test_model_tags.py`). Headless y BizHawk no la usan: eligen la maquina de forma explicita (flag `--machine`,
+sync setting `Machine`); `auto` no existe en el esquema de `p6_config` (`config/schema/options.json`: `libretro.extra_values`).
+
+Opciones (todas `reboot`, no son campos de `p6_config`, salvo las dos primeras que ganan un valor):
+
+| Clave | Valores (primero = defecto) | Que hace |
+|---|---|---|
+| `puae6_machine` | `auto`, `A500`, `A600`, `A1200`, `A500OG`, `A500PLUS`, `A1000`, `A2000OG`, `A2000` | `auto` = etiquetas y tipo de contenido; cualquier otro valor es el modelo y **ninguna etiqueta lo cambia**. Un `puae6_preset` distinto de `none` cuenta como modelo elegido. |
+| `puae6_video_standard` | `PAL auto`, `NTSC auto`, `PAL`, `NTSC` | `PAL auto` = la etiqueta de region si la hay, si no PAL; `NTSC auto` = igual con NTSC por defecto. `PAL`/`NTSC` fijan el estandar. |
+| `puae6_model_fd` | `A500` y los demas modelos | modelo de `auto` para contenido **sin** disco duro (disquetes, o sin contenido). `puae_model_fd` de PUAE5. |
+| `puae6_model_hd` | `A1200` y los demas | modelo de `auto` para contenido **con** disco duro (`.hdf`, `.hdz`, directorio o `.lha` como volumen, solo o con disquetes). `puae_model_hd` de PUAE5; el disco duro pide un Kickstart 2.0 o posterior. |
+| `puae6_filename_tags` | `enabled`, `disabled` | `disabled`: no se lee ninguna etiqueta (el modelo sale de las opciones y del tipo de contenido, el estandar de la opcion). |
+
+Un `.uae` como contenido: el modelo y el estandar automaticos se resuelven **con el nombre del propio `.uae`** (no con los discos que nombra) antes de leer sus claves, que se comprueban contra ese modelo y lo
+refinan; lo que el fichero nombra (`chipset_compatible`, `chipset`, `puae6_machine`, un preset, `ntsc`) es un modelo o estandar elegido y la etiqueta no lo cambia. Un `.uae` no puede pedir `auto`.
+
+### Que nombres se miran y en que orden
+
+1. La **ruta del contenido** tal como la da el frontend (carpetas incluidas, como PUAE5: `Juegos (A600)/Game.adf` lleva la etiqueta `(A600)`).
+2. Cada **disco de la lista**, en el orden de la lista (`.m3u`, o los de un `.uae`), con su ruta.
+3. Tras un archivo (`.zip`, `.7z`, `.rp9`), los **nombres de los miembros** que contiene, en el orden de T59.
+
+El orden del archivo, la hora, el directorio de trabajo y el sistema de ficheros no cuentan. La comparacion es byte a byte y distingue mayusculas (`(a1200)` no es una etiqueta).
+
+### Precedencia (fija)
+
+1. **Lo elegido a mano gana**: un modelo o preset distinto de `auto`, un estandar distinto de los `auto`: ninguna etiqueta lo cambia. Las etiquetas se miran igualmente, para que el registro diga que una no se uso
+   (`the tag (A1200) in ... is not used: the model is fixed by puae6_machine or puae6_preset`).
+2. **Etiquetas fuertes de modelo** (tabla siguiente): se prueban los nombres en orden y **decide el primer nombre que contiene una**; dentro de un nombre gana la primera fila de la tabla (orden de PUAE5: un
+   nombre con `(A1200)` y `(A500)` es un A1200). Una etiqueta de una maquina que no existe (`(A4030)`, `(030)`, `(A4040)`, `(040)`) es un **aviso** y deja el modelo a las opciones: no deja que otra
+   etiqueta mas debil elija otra maquina en su lugar.
+3. **Palabras de chipset** (`AGA`, `AmigaCD`, `ECS`, `OCS`): solo si ningun nombre tiene una etiqueta fuerte; de nuevo decide el primer nombre que tenga una. Cambian el modelo solo si el modelo del tipo de
+   contenido no tiene ya ese chipset (PUAE5): `AGA` -> A1200 si no es ya A1200; `ECS` -> A600 si no es ya A500+, A600 o A2000; `OCS` -> A500 si no es ya A500, A500OG, A500+, A1000 o A2000OG.
+4. Si no, el modelo del tipo de contenido: `puae6_model_hd` si hay disco duro, `puae6_model_fd` si no.
+5. **Estandar**: el primer nombre con una etiqueta de region decide; dentro de un nombre `NTSC`/`(USA)` gana a `PAL` y a los paises (PUAE5). Sin etiqueta, el de la opcion.
+
+Una palabra suelta (`PAL`, `NTSC`, `AGA`, `ECS`, `OCS`, `AmigaCD`, `CD32`, `CDTV`) no puede tocar una letra o un digito por ningun lado: `PALADIN` no es PAL ni `SAGA` es AGA (el `strstr` de PUAE5 los
+encuentra). Es la unica diferencia de lectura con PUAE5; las etiquetas entre parentesis y `_Arcadia` se buscan en cualquier posicion.
+
+### Tabla de etiquetas
+
+| Etiqueta (en el orden de la tabla) | Efecto en PUAE6 | PUAE5 |
+|---|---|---|
+| `(A4030)`, `(030)`, `(A4040)`, `(040)` | **aviso**, sin efecto: no hay 68030/68040; el modelo sale de las opciones | A4000/030 y /040 |
+| `(A1200OG)`, `(A1200NF)` | A1200 (68EC020, AGA, 2 MiB Chip, sin Fast RAM) | A1200OG |
+| `(A1200)`, `(CD32)`, `(CD32NF)`, `(CD32FR)`, `CD32` | A1200 **con 8 MiB de Fast RAM**: el preset `a1200_fast8` (solo toma la memoria que las opciones dejan en su valor por defecto; `puae6_fast_size=MB4` se queda) | A1200 (y `CD32` en contenido de disquete) |
+| `(A600)` | A600 con 2 MiB de Chip y 8 MiB de Fast: el preset `a600_puae5` (misma regla; el Kickstart es el del A600 de este core, 2.05, no el 3.1 de PUAE5) | A600 |
+| `(A500+)`, `(A500PLUS)` | A500PLUS | A500PLUS |
+| `(A500OG)`, `(512K)`, `(512KB)` | A500OG | A500OG |
+| `(A500)` | A500 | A500 |
+| `(A2000OG)`, `(A2000)`, `(A1000)` | A2000OG, A2000, A1000 (**extension de PUAE6**: PUAE5 no tiene etiqueta para ellos) | (ninguna) |
+| `AGA`, `AmigaCD` / `ECS` / `OCS` | palabras de chipset, regla 3 | igual |
+| `NTSC`, `(USA)` | NTSC si `puae6_video_standard` es `PAL auto` o `NTSC auto` | igual (`NTSC`, `(USA)`) |
+| `PAL`, `(Europe)`, `(France)`, `(Germany)`, `(Italy)`, `(Spain)`, `(Finland)`, `(Denmark)`, `(Sweden)` | PAL, con la misma condicion | igual |
+| `CDTV` | **aviso**: no hay CD ni CDTV | CDTV (solo con CD) |
+| `(MD)` | **aviso**: no hay MultiDrive (DF2, DF3) hasta T61 | MultiDrive |
+| `_Arcadia` | **aviso**: no hay pad Arcadia | pad Arcadia |
+| `(CE)` | sin efecto, **nota** en el registro: todos los modelos de este core son exactos al ciclo | fuerza CE |
+
+PUAE5 no tiene etiquetas de memoria, FPU ni velocidad (la memoria va con el modelo): aqui tampoco; son `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model` y `puae6_floppy_speed`. Lo que
+una etiqueta no puede honrar **nunca** falla en silencio ni elige otra cosa: se ignora con un aviso en pantalla y en el registro (una sola vez por etiqueta, aunque la tengan varios nombres).
+
+### Que se dice y donde
+
+El registro (`RETRO_LOG_INFO`) dice siempre el modelo y el estandar elegidos y por que (`model A600 (puae6_machine=auto): the tag (A600) in ... names the A600 with ...`, `NTSC (puae6_video_standard auto): ...`)
+y despues `machine A600 (puae6_machine)`. Los avisos tambien salen como mensaje en pantalla. Cambiar una de estas opciones en marcha se avisa y se aplica al recargar, como el resto de las `reboot`.
+
 ## Importador `.uae` (cierre de T31) — contenido `.uae`
 
 Implementado en `adapters/libretro/config_import.h/.cpp` (analizador y traduccion, sin motor ni ABI) y en `libretro_core.cpp` (lectura por la VFS y aplicacion). Comprobado con
@@ -196,7 +268,7 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 | `floppy0` | El disco de DF0 (ruta relativa). Vacio = ninguno. |
 | `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
 | `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
-| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). |
+| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y `puae6_video_standard=PAL auto` / `NTSC auto` se rechazan (T76): son la eleccion automatica del frontend, que el core resuelve con el nombre del `.uae` antes de leer sus claves; un fichero nombra la maquina y el estandar. |
 | `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`: preset del esquema, que las demas claves refinan. |
 
 Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada): `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact`, `cycle_exact`, `cpu_compatible` = `true`;

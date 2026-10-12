@@ -118,6 +118,17 @@ TASK_SUITES = {
         'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
         'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
     },
+    # T76 adds the automatic model and the tags in the names of the libretro adapter: `libretro_content` now also runs the `model` target (random, near-miss, glued and hostile names, 100 KB long
+    # ones included, against an independent oracle: pure, never automatic, a choice made by hand is never changed by a tag, what is said is bounded).
+    ('FUZZ01', 'T76'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'state_writable': 'tests.fuzz.test_fuzz.StateWritableFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
+        'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
+    },
     # T25: the portability matrix. DET04 (the declared ISA/compiler rows agree, hardware and A/V apart) and DET06 (another locale, zone, clock, directory
     # and ROM path change nothing) are the one module tests.portability.test_portability. Its coherence tests always run (the report, plan/runners.json,
     # the toolchain files and the recorded evidence say the same thing); the tests that build and run the rows are opt-in (P6_TEST_PORTABILITY=1: the

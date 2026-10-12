@@ -12,8 +12,8 @@ namespace p6_options {
 // Every key of the schema with its default. The reboot keys are p6_config fields (to_config); the presentation keys never reach the
 // machine. A key libretro does not offer keeps its default here, which is the only value the core ever uses for it.
 struct Settings {
-    uint32_t machine = 1u;  // reboot, p6_config.machine = A500
-    uint32_t video_standard = 1u;  // reboot, p6_config.video_standard = PAL
+    uint32_t machine = 0u;  // reboot, p6_config.machine = auto (libretro starts automatic; the schema's default for the other adapters is A500)
+    uint32_t video_standard = 0u;  // reboot, p6_config.video_standard = PAL auto (libretro starts automatic; the schema's default for the other adapters is PAL)
     uint32_t chip_size = 0u;  // reboot, p6_config.chip_kib = Auto
     uint32_t slow_size = 0u;  // reboot, p6_config.slow_kib = Auto
     uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = None
@@ -86,6 +86,9 @@ struct Settings {
     uint32_t vkbd_transparency = 25u;  // presentation, presentation.vkbd_transparency = 25%
     uint32_t vkbd_dimming = 25u;  // presentation, presentation.vkbd_dimming = 25%
     uint32_t preset = 0u;  // reboot, a bundle of the options above (the schema's presets, apply_preset); 0 = none. Not a p6_config field
+    uint32_t model_fd = 1u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = A500
+    uint32_t model_hd = 3u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = A1200
+    uint32_t filename_tags = 1u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = enabled
 };
 
 inline void to_config(const Settings &settings, p6_config *config)
@@ -106,6 +109,10 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->flags = settings.floppy_writes;
     config->floppy_speed = settings.floppy_speed;
 }
+
+// The number of each preset in Settings.preset (0 is none).
+constexpr uint32_t kPresetA1200Fast8 = 1u;
+constexpr uint32_t kPresetA600Puae5 = 2u;
 
 // Lays the preset the person chose over the model and the memory options (read_options calls it once everything is read).
 inline void apply_preset(Settings *settings)
@@ -140,6 +147,9 @@ struct Option {
     unsigned default_index;
 };
 
+constexpr uint32_t kMachineAuto = 0u;       // puae6_machine=auto: resolved by the core before the machine is made
+constexpr uint32_t kVideoStandardPalAuto = 0u;       // puae6_video_standard=PAL auto: resolved by the core before the machine is made
+constexpr uint32_t kVideoStandardNtscAuto = 3u;       // puae6_video_standard=NTSC auto: resolved by the core before the machine is made
 // The value set mapper_target: one list for every option that says values_from.
 constexpr Value kMapperTargetSetValues[] = {
     {"---", 0u},
@@ -302,6 +312,7 @@ constexpr Value kHotkeyKeySetValues[] = {
 #define P6_SET_HOTKEY_KEY_V2 {"---", "Unmapped"}, {"f11", "F11"}, {"f12", "F12"}, {"pause", "Pause"}, {"print", "Print Screen"}, {"scrolllock", "Scroll Lock"}, {"numlock", "Num Lock"}, {"menu", "Menu"}, {"rctrl", "Right Ctrl"}, {"rshift", "Right Shift"}
 #define P6_SET_HOTKEY_KEY_LEGACY "---|f11|f12|pause|print|scrolllock|numlock|menu|rctrl|rshift"
 constexpr Value kMachineValues[] = {
+    {"auto", 0u},
     {"A500", 1u},
     {"A600", 2u},
     {"A1200", 3u},
@@ -316,7 +327,33 @@ constexpr Value kPresetValues[] = {
     {"a1200_fast8", 1u},
     {"a600_puae5", 2u},
 };
+constexpr Value kModelFdValues[] = {
+    {"A500", 1u},
+    {"A600", 2u},
+    {"A1200", 3u},
+    {"A500OG", 4u},
+    {"A500PLUS", 5u},
+    {"A1000", 6u},
+    {"A2000OG", 7u},
+    {"A2000", 8u},
+};
+constexpr Value kModelHdValues[] = {
+    {"A500", 1u},
+    {"A600", 2u},
+    {"A1200", 3u},
+    {"A500OG", 4u},
+    {"A500PLUS", 5u},
+    {"A1000", 6u},
+    {"A2000OG", 7u},
+    {"A2000", 8u},
+};
+constexpr Value kFilenameTagsValues[] = {
+    {"enabled", 1u},
+    {"disabled", 0u},
+};
 constexpr Value kVideoStandardValues[] = {
+    {"PAL auto", 0u},
+    {"NTSC auto", 3u},
     {"PAL", 1u},
     {"NTSC", 2u},
 };
@@ -751,9 +788,12 @@ constexpr Value kVkbdDimmingValues[] = {
 };
 
 constexpr Option kOptions[] = {
-    {"puae6_machine", true, &Settings::machine, kMachineValues, 8, 0},
+    {"puae6_machine", true, &Settings::machine, kMachineValues, 9, 0},
     {"puae6_preset", true, &Settings::preset, kPresetValues, 3, 0},
-    {"puae6_video_standard", true, &Settings::video_standard, kVideoStandardValues, 2, 0},
+    {"puae6_model_fd", true, &Settings::model_fd, kModelFdValues, 8, 0},
+    {"puae6_model_hd", true, &Settings::model_hd, kModelHdValues, 8, 2},
+    {"puae6_filename_tags", true, &Settings::filename_tags, kFilenameTagsValues, 2, 0},
+    {"puae6_video_standard", true, &Settings::video_standard, kVideoStandardValues, 4, 0},
     {"puae6_chip_size", true, &Settings::chip_size, kChipSizeValues, 4, 0},
     {"puae6_slow_size", true, &Settings::slow_size, kSlowSizeValues, 6, 0},
     {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 5, 0},
@@ -842,17 +882,29 @@ inline retro_core_option_v2_category kCategoriesV2[] = {
 
 inline retro_core_option_v2_definition kDefinitionsV2[] = {
     {"puae6_machine", "Model (Restart)", "Model (Restart)",
-     "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). It takes effect the next time the content is loaded; the running machine is not changed.",
-     "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). It takes effect the next time the content is loaded; the running machine is not changed.",
-     "machine", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "A500"},
+     "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). Automatic (T76) chooses the model when the content loads, before the machine exists: a tag in the name of the file or of one of its disks (for instance (A1200), (A600), (A500OG), see docs/options.md) if File Name Tags is on, else Automatic Floppy Model for floppy disks and Automatic Hard Disk Model for hard disks. A model or a preset chosen here is never changed by a tag. The model it picks is part of the state identity like any other. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). Automatic (T76) chooses the model when the content loads, before the machine exists: a tag in the name of the file or of one of its disks (for instance (A1200), (A600), (A500OG), see docs/options.md) if File Name Tags is on, else Automatic Floppy Model for floppy disks and Automatic Hard Disk Model for hard disks. A model or a preset chosen here is never changed by a tag. The model it picks is part of the state identity like any other. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"auto", "Automatic (file name tags, else by content)"}, {"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "auto"},
     {"puae6_preset", "Preset (Restart)", "Preset (Restart)",
      "A model and its memory in one choice, over the Model and the memory options (PUAE5-like machines). A1200 + 8 MiB Fast RAM (PUAE5's A1200): The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand.; A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600): PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested). It takes effect the next time the content is loaded; the running machine is not changed.",
      "A model and its memory in one choice, over the Model and the memory options (PUAE5-like machines). A1200 + 8 MiB Fast RAM (PUAE5's A1200): The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand.; A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600): PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested). It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"none", "None (the model and the memory options below)"}, {"a1200_fast8", "A1200 + 8 MiB Fast RAM (PUAE5's A1200)"}, {"a600_puae5", "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)"}}, "none"},
+    {"puae6_model_fd", "Automatic Floppy Model (Restart)", "Automatic Floppy Model (Restart)",
+     "The model Automatic picks for content that has no hard disk (floppy disks, or nothing) when no tag of the file name names one. PUAE5's puae_model_fd. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The model Automatic picks for content that has no hard disk (floppy disks, or nothing) when no tag of the file name names one. PUAE5's puae_model_fd. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "A500"},
+    {"puae6_model_hd", "Automatic Hard Disk Model (Restart)", "Automatic Hard Disk Model (Restart)",
+     "The model Automatic picks for content with a hard disk (an .hdf, an .hdz, a directory or an .lha as a volume, alone or with floppies) when no tag of the file name names one. PUAE5's puae_model_hd. The hard disks need a Kickstart of 2.0 or later, so the A1200 is the default. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The model Automatic picks for content with a hard disk (an .hdf, an .hdz, a directory or an .lha as a volume, alone or with floppies) when no tag of the file name names one. PUAE5's puae_model_hd. The hard disks need a Kickstart of 2.0 or later, so the A1200 is the default. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "A1200"},
+    {"puae6_filename_tags", "File Name Tags (Restart)", "File Name Tags (Restart)",
+     "Read the tags of the name of the file, of its folders and of its disks, as PUAE5 does ((A1200), (A600), (A500OG), (A500+), (A500), (A2000), (A2000OG), (A1000), AGA, ECS, OCS for the model; (NTSC), (USA), (PAL), (Europe) and the other countries for the video standard) to resolve the Automatic model and video standard. Disabled uses only the options. Tags of something this core does not have (68030, 68040, CDTV, MultiDrive, Arcadia) are ignored with a warning. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "Read the tags of the name of the file, of its folders and of its disks, as PUAE5 does ((A1200), (A600), (A500OG), (A500+), (A500), (A2000), (A2000OG), (A1000), AGA, ECS, OCS for the model; (NTSC), (USA), (PAL), (Europe) and the other countries for the video standard) to resolve the Automatic model and video standard. Disabled uses only the options. Tags of something this core does not have (68030, 68040, CDTV, MultiDrive, Arcadia) are ignored with a warning. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"enabled", "Enabled"}, {"disabled", "Disabled"}}, "enabled"},
     {"puae6_video_standard", "Video Standard (Restart)", "Video Standard (Restart)",
-     "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
-     "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.",
-     "machine", {{"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL"},
+     "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"PAL auto", "Automatic PAL (file name tags, else PAL)"}, {"NTSC auto", "Automatic NTSC (file name tags, else NTSC)"}, {"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL auto"},
     {"puae6_chip_size", "Chip RAM (Restart)", "Chip RAM (Restart)",
      "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1135,9 +1187,12 @@ inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};
 
 // retro_core_option (version 1): no categories.
 constexpr retro_core_option_definition kDefinitionsV1[] = {
-    {"puae6_machine", "Model (Restart)", "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "A500"},
+    {"puae6_machine", "Model (Restart)", "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). Automatic (T76) chooses the model when the content loads, before the machine exists: a tag in the name of the file or of one of its disks (for instance (A1200), (A600), (A500OG), see docs/options.md) if File Name Tags is on, else Automatic Floppy Model for floppy disks and Automatic Hard Disk Model for hard disks. A model or a preset chosen here is never changed by a tag. The model it picks is part of the state identity like any other. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Automatic (file name tags, else by content)"}, {"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "auto"},
     {"puae6_preset", "Preset (Restart)", "A model and its memory in one choice, over the Model and the memory options (PUAE5-like machines). A1200 + 8 MiB Fast RAM (PUAE5's A1200): The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand.; A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600): PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested). It takes effect the next time the content is loaded; the running machine is not changed.", {{"none", "None (the model and the memory options below)"}, {"a1200_fast8", "A1200 + 8 MiB Fast RAM (PUAE5's A1200)"}, {"a600_puae5", "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)"}}, "none"},
-    {"puae6_video_standard", "Video Standard (Restart)", "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. It takes effect the next time the content is loaded; the running machine is not changed.", {{"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL"},
+    {"puae6_model_fd", "Automatic Floppy Model (Restart)", "The model Automatic picks for content that has no hard disk (floppy disks, or nothing) when no tag of the file name names one. PUAE5's puae_model_fd. It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "A500"},
+    {"puae6_model_hd", "Automatic Hard Disk Model (Restart)", "The model Automatic picks for content with a hard disk (an .hdf, an .hdz, a directory or an .lha as a volume, alone or with floppies) when no tag of the file name names one. PUAE5's puae_model_hd. The hard disks need a Kickstart of 2.0 or later, so the A1200 is the default. It takes effect the next time the content is loaded; the running machine is not changed.", {{"A500", "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A600", "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"}, {"A1200", "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"}, {"A500OG", "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"}, {"A500PLUS", "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"}, {"A1000", "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"}, {"A2000OG", "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"}, {"A2000", "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"}}, "A1200"},
+    {"puae6_filename_tags", "File Name Tags (Restart)", "Read the tags of the name of the file, of its folders and of its disks, as PUAE5 does ((A1200), (A600), (A500OG), (A500+), (A500), (A2000), (A2000OG), (A1000), AGA, ECS, OCS for the model; (NTSC), (USA), (PAL), (Europe) and the other countries for the video standard) to resolve the Automatic model and video standard. Disabled uses only the options. Tags of something this core does not have (68030, 68040, CDTV, MultiDrive, Arcadia) are ignored with a warning. It takes effect the next time the content is loaded; the running machine is not changed.", {{"enabled", "Enabled"}, {"disabled", "Disabled"}}, "enabled"},
+    {"puae6_video_standard", "Video Standard (Restart)", "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag. It takes effect the next time the content is loaded; the running machine is not changed.", {{"PAL auto", "Automatic PAL (file name tags, else PAL)"}, {"NTSC auto", "Automatic NTSC (file name tags, else NTSC)"}, {"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL auto"},
     {"puae6_chip_size", "Chip RAM (Restart)", "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (512 KiB on the OCS machines, 1 MiB on the ECS ones, 2 MiB on the A1200)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}}, "Auto"},
     {"puae6_slow_size", "Slow RAM (Restart)", "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and the A2000 OG and none on the others. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (A500 and A2000 OG 512 KiB, the others none)"}, {"None", "None"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB1_75", "1.75 MiB"}}, "Auto"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
@@ -1212,9 +1267,12 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
 
 // Legacy SET_VARIABLES: "Description; default|other|..." (the default comes first).
 constexpr retro_variable kVariables[] = {
-    {"puae6_machine", "Model (Restart); A500|A600|A1200|A500OG|A500PLUS|A1000|A2000OG|A2000"},
+    {"puae6_machine", "Model (Restart); auto|A500|A600|A1200|A500OG|A500PLUS|A1000|A2000OG|A2000"},
     {"puae6_preset", "Preset (Restart); none|a1200_fast8|a600_puae5"},
-    {"puae6_video_standard", "Video Standard (Restart); PAL|NTSC"},
+    {"puae6_model_fd", "Automatic Floppy Model (Restart); A500|A600|A1200|A500OG|A500PLUS|A1000|A2000OG|A2000"},
+    {"puae6_model_hd", "Automatic Hard Disk Model (Restart); A1200|A500|A600|A500OG|A500PLUS|A1000|A2000OG|A2000"},
+    {"puae6_filename_tags", "File Name Tags (Restart); enabled|disabled"},
+    {"puae6_video_standard", "Video Standard (Restart); PAL auto|NTSC auto|PAL|NTSC"},
     {"puae6_chip_size", "Chip RAM (Restart); Auto|KB512|MB1|MB2"},
     {"puae6_slow_size", "Slow RAM (Restart); Auto|None|KB512|MB1|MB1_5|MB1_75"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); None|MB1|MB2|MB4|MB8"},

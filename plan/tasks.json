@@ -14161,7 +14161,7 @@
       "title": "Modelo automatico, tags en el nombre de fichero y configuracion por contenido",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T50",
         "T63"
@@ -14174,11 +14174,19 @@
       "touch": [
         "adapters/libretro/**",
         "config/**",
-        "tests/libretro-host/**"
+        "tests/libretro-host/**",
+        "tools/generate_options.py",
+        "tests/config/**",
+        "tests/fuzz/**",
+        "tests/libretro-ui/**",
+        "tools/check.py",
+        "docs/options.md",
+        "docs/02-contracts.md"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5: puae_model=auto (A500 con disquete, A1200 con HD, CD32 con CD) y tags como (A1200OG), (NTSC), (MD). Resolucion determinista de la config antes del load, sin cambiar nada en marcha.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: la deteccion de tags y modelo de UAE.ISettable.cs."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: la deteccion de tags y modelo de UAE.ISettable.cs.",
+        "Alcance (2026-10-12): `auto` solo existe en libretro (el esquema lo declara como `libretro.extra_values` y `selectors`, generados por tools/generate_options.py; headless y BizHawk no lo ven) y se resuelve en adapters/libretro/model.h antes de p6_init, como funcion pura de las opciones, del tipo de contenido y de los nombres (ruta del contenido, discos de la lista, miembros de archivos). La ficha amplia su touch con tools/generate_options.py (los valores y selectores solo-libretro), tests/config/** (paridad y esquema), tests/fuzz/** y tools/check.py (FUZZ01 T76, objetivo `model`), tests/libretro-ui/** (sondas de Settings/importador con el defecto automatico) y docs/options.md + docs/02-contracts.md (tabla de etiquetas y precedencia). BizHawk no cambia: su Machine es un sync setting y la deteccion por nombre no es trivial alli."
       ],
       "checks": [
         "LR01",

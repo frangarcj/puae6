@@ -58,6 +58,15 @@ MACHINES = {"A500": ((), KICKSTART_NAMES, "1.3", "a500"), "A600": (A600, KICKSTA
             "A1200": (A1200, KICKSTART_NAMES_A1200, "3.1", "a1200")}
 ADF_BYTES = 901120
 
+
+def hard_disk_on_the_a500(options):
+    """T76: Automatic puts content with a hard disk on the A1200 (puae6_model_hd), which wants its own Kickstart; the tests of the hard disk and volume plumbing run on the micro-ROM under the
+    A500's name, so they ask for that model for hard disks unless they choose a machine (or a model for hard disks, or a preset) themselves."""
+    chosen = " ".join(map(str, options))
+    if "puae6_machine" in chosen or "puae6_model_hd" in chosen or "puae6_preset" in chosen:
+        return options
+    return (*options, "--set", "puae6_model_hd=A500")
+
 # A program that shows what DF0 reports: it selects the drive with the motor on, pulses STEP (which clears the disk-change latch) and puts the
 # CIA-A port that carries the drive's status lines into COLOR00, so that the middle of the picture tells whether a disk is in the drive.
 OBSERVER = """; PUAE6 test program: the colour of the screen is the drive's status.
@@ -549,7 +558,7 @@ class LibretroTests(LibretroHarness):
         for value in ("a1200", "A1200OG", "A4000", "a600", "A500+", "", "A600 ", "A1200 "):
             with self.subTest(value=value):
                 result = self.frontend("boot", "--set", f"puae6_machine={value}", expect=3)
-                text = f'the option puae6_machine has the value "{value}", which this core does not support (allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000)'
+                text = f'the option puae6_machine has the value "{value}", which this core does not support (allowed: auto, A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000)'
                 self.assertIn(f"message PUAE6: {text}", result.stdout)
                 self.assertIn("load refused", result.stdout)
                 self.assertNotIn("run 1 ", result.stdout)
@@ -860,7 +869,7 @@ class LibretroTests(LibretroHarness):
 
     # --- T17b: the core options come from the schema; a reboot option needs a reload, a presentation option does not -------------------
 
-    OPTION = re.compile(r"^option (\S+) default=(\S*) values=(\S*) category=(\S*) desc=(.*)$", re.M)
+    OPTION = re.compile(r"^option (\S+) default=(.*?) values=(.*?) category=(\S*) desc=(.*)$", re.M)          # a value may hold a space ("PAL auto")
     AV = re.compile(r"^av(?:-after \d+)? base=.*$", re.M)
 
     @staticmethod
@@ -881,7 +890,15 @@ class LibretroTests(LibretroHarness):
         # T49: the preset is offered right after the model; it is no option of the schema (it lays the values of a preset over the model and the memory).
         preset = {"libretro": {"key": "puae6_preset", "category": "machine"}, "default": "none", "class": "reboot",
                   "values": [{"value": "none"}] + [{"value": entry["id"]} for entry in schema["presets"]]}
-        exposed = exposed[:1] + [preset] + exposed[1:]
+        # T76: then the selectors (the model of the floppy and of the hard disk content, the file name tags), and the automatic values only libretro offers come first in their options.
+        machine_values = next(o for o in schema["options"] if o["id"] == "machine")["values"]
+        selectors = [{"libretro": selector["libretro"], "default": selector["default"], "class": "reboot",
+                      "values": machine_values if "values_of" in selector else selector["values"]} for selector in schema["selectors"]]
+        exposed = exposed[:1] + [preset] + selectors + exposed[1:]
+        for option in exposed:
+            if "id" in option:
+                option["default"] = option["libretro"].get("default", option["default"])
+                option["values"] = list(option["libretro"].get("extra_values", [])) + option["values"]
         reference = None
         for api in (2, 1, 0):
             with self.subTest(api=api):
@@ -997,8 +1014,8 @@ class LibretroTests(LibretroHarness):
         self.assertEqual(self.machine(chosen)[1], self.machine(base)[1][:3])
 
     def test_a_value_the_schema_does_not_allow_fails_the_load_naming_the_key_and_the_value(self):
-        for key, value, allowed in (("puae6_video_standard", "SECAM", "PAL, NTSC"), ("puae6_video_standard", "pal", "PAL, NTSC"),
-                                    ("puae6_video_standard", "", "PAL, NTSC"), ("puae6_audio_rate", "22050", "44100, 48000"),
+        for key, value, allowed in (("puae6_video_standard", "SECAM", "PAL auto, NTSC auto, PAL, NTSC"), ("puae6_video_standard", "pal", "PAL auto, NTSC auto, PAL, NTSC"),
+                                    ("puae6_video_standard", "", "PAL auto, NTSC auto, PAL, NTSC"), ("puae6_audio_rate", "22050", "44100, 48000"),
                                     ("puae6_video_aspect", "wide", "pixel, 4:3, PAL, NTSC")):
             with self.subTest(key=key, value=value):
                 result = self.frontend("boot", "--set", f"{key}={value}", expect=3)

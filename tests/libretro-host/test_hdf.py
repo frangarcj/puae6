@@ -76,6 +76,9 @@ def seen(ram):
 
 @unittest.skipUnless(lr.TOOLS, "toolchain unavailable")
 class HardFileTests(lr.LibretroHarness):
+    def frontend(self, rom="boot", *options, **keywords):
+        return super().frontend(rom, *lr.hard_disk_on_the_a500(options), **keywords)
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

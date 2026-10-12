@@ -1,10 +1,13 @@
 // Unit checks of the RetroPad mapper (adapters/libretro/mapper.h, T31d) on synthetic controls, with no engine and no frontend: the default functions, the
 // targets, Face Button Options, the edges and the actions they run, the D-Pad mouse mode, turbo fire, the arithmetic of the analog stick mouse, the soft
 // reset, and the input memory through the adapter section of a state. Exit code 0 and "mapper probe ok" when every check holds.
+#include "model.h"
 #include "state_frame.h"
 
 #include <stdio.h>
 #include <string.h>
+#include <string>
+#include <vector>
 
 using namespace p6_libretro;
 using namespace p6_options;
@@ -358,8 +361,10 @@ static void schema_defaults()
     CHECK(settings.video_crop == 0 && settings.video_aspect == 0 && settings.video_gamma == 5 && settings.video_color_depth == 0);
     CHECK(settings.statusbar_startup == 0 && settings.statusbar_messages == 0 && settings.joyport == 0 && settings.turbo_fire == 0);
     // The machine defaults are the ABI's defaults: p6_config from the default settings is the A500, PAL, 48 kHz, the machine's own memory, no FPU, read-only disks.
+    // T76: libretro starts on the automatic model and video standard; with a floppy and no tag they are the A500 and PAL (model.h), which is the ABI's default machine.
+    CHECK(settings.machine == p6_options::kMachineAuto && settings.video_standard == p6_options::kVideoStandardPalAuto);
     p6_config config = {};
-    to_config(settings, &config);
+    to_config(p6_libretro::resolve_model(settings, false, std::vector<std::string>()).settings, &config);
     CHECK(config.machine == P6_MACHINE_A500 && config.video_standard == P6_VIDEO_PAL && config.audio_rate_hz == 48000 && config.chip_kib == 0 &&
           config.slow_kib == 0 && config.fast_kib == 0 && config.fpu_model == 0 && config.flags == 0 && config.random_seed == 1 &&
           config.rtc_epoch_seconds == 946684800);

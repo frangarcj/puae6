@@ -273,9 +273,18 @@ class LibretroParity(Schema):
         for name, option in self.options.items():
             default = option["default"]
             expected = self.number(option, default) if option["type"] == "enum" else default
+            if option["libretro"] and "default" in option["libretro"]:
+                # T76: libretro starts on the automatic value of the model and of the video standard (a number of its own that never reaches p6_config); the core resolves it
+                # to a value of the option before the machine exists, and with no tag and a floppy it is the schema's default (checked in AdaptersAgree).
+                extra = {v["value"]: v["abi"] for v in option["libretro"]["extra_values"]}
+                expected = extra[option["libretro"]["default"]]
             self.assertEqual(int(found[name]), expected, f"Settings.{name} starts at {found[name]}, the schema default is {expected}")
-        self.assertEqual(set(found), set(self.options) | {"preset"})
+        selectors = {selector["id"]: selector for selector in self.schema["selectors"]}
+        self.assertEqual(set(found), set(self.options) | {"preset"} | set(selectors))
         self.assertEqual(int(found["preset"]), 0, "the preset starts at none")
+        for name, selector in selectors.items():
+            numbers = {v["value"]: v["abi"] for v in (self.options[selector["values_of"]]["values"] if "values_of" in selector else selector["values"])}
+            self.assertEqual(int(found[name]), numbers[selector["default"]], f"Settings.{name} starts at {found[name]}, the selector's default is {selector['default']}")
 
     def test_the_options_offered_are_the_exposed_ones_with_their_values_and_defaults(self):
         exposed = [o for o in self.schema["options"] if o["libretro"]]
@@ -284,11 +293,20 @@ class LibretroParity(Schema):
         self.assertEqual([k[0] for k in keys].index("puae6_preset"), 1)
         preset = [k for k in keys if k[0] == "puae6_preset"][0]
         self.assertEqual((preset[1], preset[2], int(preset[4]), int(preset[5])), ("true", "preset", 1 + len(self.schema["presets"]), 0))
-        keys = [k for k in keys if k[0] != "puae6_preset"]
+        # T76: the selectors (the model of the floppy and of the hard disk content, the file name tags) follow the preset; they are no option of the schema either.
+        selectors = self.schema["selectors"]
+        self.assertEqual([k[0] for k in keys][2:2 + len(selectors)], [s["libretro"]["key"] for s in selectors])
+        for key, selector in zip(keys[2:2 + len(selectors)], selectors):
+            values = self.options[selector["values_of"]]["values"] if "values_of" in selector else selector["values"]
+            self.assertEqual((key[1], key[2], int(key[4])), ("true", selector["id"], len(values)), key[0])
+            self.assertEqual(values[int(key[5])]["value"], selector["default"], f"{key[0]}: the default index points at another value")
+            self.assertEqual(self.header.count(f'"{key[0]}"'), 4, key[0])
+        keys = [k for k in keys if k[0] != "puae6_preset" and k[0] not in {s["libretro"]["key"] for s in selectors}]
         self.assertEqual([k[0] for k in keys], [o["libretro"]["key"] for o in exposed])
         for (key, reboot, field, _, count, index), option in zip(keys, exposed):
-            self.assertEqual((field, reboot == "true", int(count)), (option["id"], option["class"] == "reboot" or bool(option.get("restart")), len(option["values"])), key)
-            self.assertEqual(option["values"][int(index)]["value"], option["default"], f"{key}: the default index points at another value")
+            offered = list(option["libretro"].get("extra_values", [])) + option["values"]        # T76: the automatic values only libretro offers come first
+            self.assertEqual((field, reboot == "true", int(count)), (option["id"], option["class"] == "reboot" or bool(option.get("restart")), len(offered)), key)
+            self.assertEqual(offered[int(index)]["value"], option["libretro"].get("default", option["default"]), f"{key}: the default index points at another value")
             # The key is in the v2 definitions, the v1 ones and the legacy strings.
             self.assertEqual(self.header.count(f'"{key}"'), 4, key)
         for option in self.schema["options"]:
@@ -381,7 +399,18 @@ class AdaptersAgree(Schema):
         self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1,
                                     "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0})
         for field, value in defaults.items():
-            self.assertEqual(int(libretro[self.table["p6_config"][field]["option"]]), value, f"libretro {field}")
+            name = self.table["p6_config"][field]["option"]
+            extras = self.table["adapters"][name].get("libretro_extra_values")
+            if extras:
+                # T76: libretro starts on an automatic value; with a floppy and no tag the core resolves it to the schema's default (model.h: puae6_model_fd, PAL auto).
+                self.assertEqual(int(libretro[name]), extras[self.table["adapters"][name]["libretro_default"]], f"libretro {field} starts automatic")
+                if field == "machine":
+                    self.assertEqual(int(libretro["model_fd"]), value, "the automatic model of a floppy with no tag is the schema's default machine")
+                if field == "video_standard":
+                    self.assertEqual(self.table["adapters"][name]["libretro_default"], "PAL auto")
+                    self.assertEqual(value, 1, "PAL auto resolves to PAL")
+                continue
+            self.assertEqual(int(libretro[name]), value, f"libretro {field}")
         self.assertRegex(headless, r"\bstandard = P6_VIDEO_PAL[,;]")
         self.assertRegex(headless, r"\bmachine = P6_MACHINE_A500[,;]")
         self.assertIn("public Puae6Region Region { get; set; } = Puae6Region.PAL;", wrapper)

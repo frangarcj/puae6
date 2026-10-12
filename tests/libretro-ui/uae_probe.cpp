@@ -28,7 +28,16 @@ struct Result {
     UaeImport imported;
 };
 
-static Result import(const std::string &text, const Settings &base = Settings(), const std::string &directory = "/games/a/", size_t max_disks = 16)
+// T76: the libretro defaults are automatic (model and video standard); the importer is given the settings after the core has resolved them, which for a floppy with no tag is the A500 and PAL.
+static Settings concrete()
+{
+    Settings settings;
+    settings.machine = P6_MACHINE_A500;
+    settings.video_standard = P6_VIDEO_PAL;
+    return settings;
+}
+
+static Result import(const std::string &text, const Settings &base = concrete(), const std::string &directory = "/games/a/", size_t max_disks = 16)
 {
     Result r;
     r.ok = import_uae(bytes_of(text), directory, base, max_disks, &r.imported);
@@ -81,7 +90,7 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
          "puae6_audio_rate=44100\npuae6_floppy_writes=enabled\n", 2, 2, 1024, 0xFFFFFFFFu, 4096, 68881, 44100, 1},
     };
     for (const Row &row : rows) {
-        Settings expected;
+        Settings expected = concrete();
         expected.machine = row.machine;
         expected.video_standard = row.standard;
         expected.chip_size = row.chip;
@@ -97,7 +106,7 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
         CHECK(!r.imported.applied.empty());
     }
     // The preset a file names is the preset of the frontend: a600_puae5 = A600 + 2 MiB Chip + 8 MiB Fast, then the keys refine it.
-    Settings preset;
+    Settings preset = concrete();
     preset.preset = 2;
     apply_preset(&preset);
     CHECK(same_config(import("puae6_preset=a600_puae5\n").imported.settings, preset));
@@ -105,43 +114,43 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
     refined.fast_size = 4096;
     CHECK(same_config(import("puae6_preset=a600_puae5\nfastmem_size=4\n").imported.settings, refined));
     // T73: WinUAE's spellings of Paula's output become the options of the frontend (separation in tenths: 7 is the profile's 70 %); the profile's own values are the defaults.
-    Settings audio;
+    Settings audio = concrete();
     audio.sound_separation = 1;           // 0 %: abi 1 + percent / 10
     audio.sound_interpolation = 4;        // rh: abi 1 + upstream's 3
     audio.sound_filter = 1;               // off
     audio.sound_filter_type = 2;          // enhanced = the A1200 model
     CHECK(same_config(import("sound_stereo_separation=0\nsound_interpol=rh\nsound_filter=off\nsound_filter_type=enhanced\n").imported.settings, audio));
-    Settings loud;
+    Settings loud = concrete();
     loud.sound_separation = 11;           // 100 %
     loud.sound_interpolation = 5;         // crux
     loud.sound_filter = 3;                // always on
     loud.sound_filter_type = 1;           // standard = the A500 model
     CHECK(same_config(import("sound_stereo_separation=10\nsound_interpol=crux\nsound_filter=on\nsound_filter_type=standard\n").imported.settings, loud));
-    CHECK(same_config(import("sound_stereo_separation=7\nsound_interpol=anti\nsound_filter=emulated\n").imported.settings, Settings()));
+    CHECK(same_config(import("sound_stereo_separation=7\nsound_interpol=anti\nsound_filter=emulated\n").imported.settings, concrete()));
     CHECK(same_config(import("puae6_sound_stereo_separation=0\npuae6_sound_interpolation=rh\npuae6_sound_filter=off\npuae6_sound_filter_type=A1200\n").imported.settings, audio));
     // T62: WinUAE's floppy_speed is a percentage of the real drive, 0 being the turbo mode; the option's numbers are abi 0 (the real drive), 2, 3, 4 and 5 (turbo).
     for (const auto &speed : {std::pair<const char *, uint32_t>{"floppy_speed=100\n", 0}, {"floppy_speed=200\n", 2}, {"floppy_speed=400\n", 3}, {"floppy_speed=800\n", 4}, {"floppy_speed=0\n", 5},
                               {"puae6_floppy_speed=turbo\n", 5}, {"puae6_floppy_speed=400\n", 3}}) {
-        Settings fast;
+        Settings fast = concrete();
         fast.floppy_speed = speed.second;
         CHECK(same_config(import(speed.first).imported.settings, fast));
     }
     // An empty file, or one with comments only, is the frontend's options.
-    CHECK(import("").ok && same_config(import("").imported.settings, Settings()));
+    CHECK(import("").ok && same_config(import("").imported.settings, concrete()));
     CHECK(import("; nothing\n# nothing\n\n   \n").ok);
 }
 
 static void precedence()
 {
     // The file's keys beat the frontend's options; an option the file does not name stays.
-    Settings frontend;
+    Settings frontend = concrete();
     frontend.machine = 3;
     frontend.fast_size = 8192;
     frontend.video_standard = 2;
     Result r = import("chipset_compatible=A500\n", frontend);
     CHECK(r.ok && r.imported.settings.machine == 1 && r.imported.settings.fast_size == 8192 && r.imported.settings.video_standard == 2);
     // The frontend's own preset arrives expanded (read_options does it) and is refined by the file.
-    Settings with_preset;
+    Settings with_preset = concrete();
     with_preset.preset = 1;
     apply_preset(&with_preset);
     r = import("chipset_compatible=A600\n", with_preset);
@@ -149,12 +158,12 @@ static void precedence()
     // The order of the lines does not matter.
     CHECK(same_config(import("fastmem_size=2\nchipset_compatible=A1200\n").imported.settings, import("chipset_compatible=A1200\nfastmem_size=2\n").imported.settings));
     // A file that names no machine leaves the frontend's machine, and the keys that describe a machine are checked against it.
-    frontend = Settings();
+    frontend = concrete();
     frontend.machine = 3;
     CHECK(import("cpu_model=68020\nchipset=aga\n", frontend).ok);
     CHECK(!import("cpu_model=68000\n", frontend).ok);
     // The presentation, input and OSD options are never touched.
-    Settings busy;
+    Settings busy = concrete();
     for (const Option &option : kOptions)
         if (strcmp(option.key, "puae6_machine") && !strncmp(option.key, "puae6_video_", 12)) busy.*option.field = option.values[option.count - 1].number;
     busy.statusbar = 3;
@@ -259,7 +268,10 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"kbd_layout=us", "kbd_layout", "unknown key"},
         {"puae6_video_crop=maximum", "puae6_video_crop", "presentation"},
         {"puae6_nothing=1", "puae6_nothing", "unknown key"},
-        {"puae6_machine=A4000", "puae6_machine", "allowed: A500, A600, A1200"},
+        {"puae6_machine=A4000", "puae6_machine", "allowed: auto, A500, A600, A1200"},
+        {"puae6_machine=auto", "puae6_machine", "automatic choice"},          // T76: the core resolves the automatic model from the name of the .uae; a file names the machine
+        {"puae6_video_standard=PAL auto", "puae6_video_standard", "automatic choice"},
+        {"puae6_video_standard=NTSC auto", "puae6_video_standard", "automatic choice"},
         {"puae6_preset=none2", "puae6_preset", "allowed:"},
         {"floppy0=/abs/disk.adf", "floppy0", "absolute"},
         {"floppy0=C:\\disks\\a.adf", "floppy0", "absolute"},
@@ -314,13 +326,13 @@ static void harmless_keys_are_accepted()
                                 "leds_on_screen=1\nuse_gui=no\nmagic_mouse=true\nkbd_lang=us\nrom_path=/roms\nfloppy_path=/disks\n");
     CHECK(noisy.ok && noisy.imported.warnings.size() == 13);
     CHECK(noisy.imported.warnings[0].key == "gfx_width" && noisy.imported.warnings[0].line == 1);
-    CHECK(same_config(noisy.imported.settings, Settings()));
+    CHECK(same_config(noisy.imported.settings, concrete()));
 }
 
 static void the_text_is_read_like_a_configuration_file()
 {
     const char *keys = "chipset_compatible=A600\nchipmem_size=2\nntsc=yes\n";
-    Settings expected;
+    Settings expected = concrete();
     expected.machine = 2;
     expected.chip_size = 1024;
     expected.video_standard = 2;
@@ -390,7 +402,7 @@ static void the_bounds_hold()
     for (int i = 0; i < 16; ++i) disks += "diskimage" + std::to_string(i) + "=d" + std::to_string(i) + ".adf\n";
     CHECK(import(disks).ok && import(disks).imported.disks.size() == 16);
     CHECK(!import(disks + "floppy0=extra.adf\n").ok && mentions(import(disks + "floppy0=extra.adf\n"), "", "at most 16"));
-    CHECK(!import(disks, Settings(), "", 8).ok);
+    CHECK(!import(disks, concrete(), "", 8).ok);
     // A huge number in a size key is refused, not wrapped.
     CHECK(!import("chipmem_size=99999999999999999999\n").ok);
     CHECK(!import("fastmem_size=4294967297\n").ok);
@@ -399,11 +411,11 @@ static void the_bounds_hold()
 
 static void the_disks_are_paths_relative_to_the_file()
 {
-    Result r = import("floppy0=game.adf\n", Settings(), "/games/a/");
+    Result r = import("floppy0=game.adf\n", concrete(), "/games/a/");
     CHECK(r.ok && r.imported.disks.size() == 1 && r.imported.disks[0].path == "/games/a/game.adf" && r.imported.disks[0].label == "game");
-    r = import("floppy0=disks/game.adf\n", Settings(), "");
+    r = import("floppy0=disks/game.adf\n", concrete(), "");
     CHECK(r.ok && r.imported.disks[0].path == "disks/game.adf");
-    r = import("floppy0=sub\\game one.adf\n", Settings(), "vfs://base/");
+    r = import("floppy0=sub\\game one.adf\n", concrete(), "vfs://base/");
     CHECK(r.ok && r.imported.disks[0].path == "vfs://base/sub\\game one.adf" && r.imported.disks[0].label == "game one");
     // DF0 first, then the swap list in number order whatever the order of the file, without repeating DF0's file; an empty entry is no disk.
     r = import("diskimage3=d.adf\ndiskimage1=b.adf\nfloppy0=a.adf\ndiskimage0=a.adf\ndiskimage2=\ndiskimage10=e.adf\n");
@@ -453,8 +465,9 @@ static void whatever_the_bytes_the_answer_is_consistent()
             default: text += text.substr(at, 1 + random.below(40)); break;
             }
         }
-        Settings base;
+        Settings base = concrete();
         base.machine = 1 + random.below(3);
+        base.video_standard = 1 + random.below(2);
         const Result r = import(text, base, "/d/");
         CHECK(r.ok == r.imported.errors.empty());
         CHECK(r.imported.errors.size() <= kMaxUaeReports && r.imported.warnings.size() <= kMaxUaeReports);
@@ -488,7 +501,7 @@ static void whatever_the_bytes_the_answer_is_consistent()
         std::vector<uint8_t> noise(random.below(600));
         for (uint8_t &b : noise) b = uint8_t(random.below(256));
         UaeImport out;
-        const bool ok = import_uae(noise, "/d/", Settings(), 16, &out);
+        const bool ok = import_uae(noise, "/d/", concrete(), 16, &out);
         CHECK(ok == out.errors.empty());
     }
 }

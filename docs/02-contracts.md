@@ -468,6 +468,17 @@ Presets publicados junto a los de serie (`config/schema/options.json`, `presets`
 8 MiB de Fast; el A600 de PUAE5 lleva ademas Gayle y el Kickstart 3.1 de su modelo, que este no: corre el Kickstart que se le da, y el 2.05 es el probado). Son combinaciones de
 opciones, no un campo nuevo de la ABI: libretro los ofrece como `puae6_preset` (none, a1200_fast8, a600_puae5), que se aplica sobre el modelo y la memoria elegidos.
 
+### Modelo automatico y etiquetas del nombre (T76)
+
+Solo el core libretro. `puae6_machine=auto` (el defecto) y `puae6_video_standard=PAL auto` / `NTSC auto` son valores que **solo ofrece libretro** (`libretro.extra_values` del esquema): no existen en `p6_config`,
+en headless ni en BizHawk, que eligen la maquina de forma explicita. `retro_load_game` los resuelve una sola vez, despues de leer los discos y antes de `p6_init`, con la funcion pura `resolve_model`
+(`adapters/libretro/model.h`) de las opciones, de si el contenido tiene disco duro y de la lista de nombres (ruta del contenido, discos de la lista en orden, miembros de un archivo tras el archivo); no lee
+ficheros, reloj ni entorno, de modo que el mismo contenido elige siempre la misma maquina. Lo resuelto es el `p6_config` normal (`machine`, `video_standard` y, en dos etiquetas, `chip_kib`/`fast_kib`), asi que
+**entra en `config_hash` y en la identidad del estado**: un estado de un contenido cuya etiqueta eligio otra maquina u otro estandar lo rechaza `p6_state_load` como el de cualquier otra maquina. Un modelo,
+preset o estandar elegido a mano nunca lo cambia una etiqueta. La tabla de etiquetas, la precedencia y las opciones `puae6_model_fd`, `puae6_model_hd` y `puae6_filename_tags` estan en `docs/options.md`
+("Modelo automatico y etiquetas del nombre"). Una etiqueta de algo que no existe (68030/68040, CDTV, MultiDrive, Arcadia) se ignora con un aviso y no elige otra maquina. BizHawk no cambia en T76: su
+`Machine` es un sync setting y la deteccion por nombre no es trivial alli (queda fuera de esta tarea).
+
 ## ROMs, discos y persistencia
 
 Firmware y cada medio tienen content ID (SHA-256 de contenido normalizado segun

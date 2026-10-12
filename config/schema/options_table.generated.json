@@ -1447,7 +1447,11 @@
         "setting": "Machine",
         "type": "Puae6Machine"
       },
-      "libretro": "puae6_machine"
+      "libretro": "puae6_machine",
+      "libretro_default": "auto",
+      "libretro_extra_values": {
+        "auto": 0
+      }
     },
     "video_standard": {
       "headless": {
@@ -1460,7 +1464,12 @@
         "setting": "Region",
         "type": "Puae6Region"
       },
-      "libretro": "puae6_video_standard"
+      "libretro": "puae6_video_standard",
+      "libretro_default": "PAL auto",
+      "libretro_extra_values": {
+        "PAL auto": 0,
+        "NTSC auto": 3
+      }
     },
     "chip_size": {
       "headless": {
@@ -2186,6 +2195,44 @@
         "machine": "A600",
         "chip_size": "MB2",
         "fast_size": "MB8"
+      }
+    }
+  },
+  "selectors": {
+    "model_fd": {
+      "libretro": "puae6_model_fd",
+      "default": "A500",
+      "values": {
+        "A500": 1,
+        "A600": 2,
+        "A1200": 3,
+        "A500OG": 4,
+        "A500PLUS": 5,
+        "A1000": 6,
+        "A2000OG": 7,
+        "A2000": 8
+      }
+    },
+    "model_hd": {
+      "libretro": "puae6_model_hd",
+      "default": "A1200",
+      "values": {
+        "A500": 1,
+        "A600": 2,
+        "A1200": 3,
+        "A500OG": 4,
+        "A500PLUS": 5,
+        "A1000": 6,
+        "A2000OG": 7,
+        "A2000": 8
+      }
+    },
+    "filename_tags": {
+      "libretro": "puae6_filename_tags",
+      "default": "enabled",
+      "values": {
+        "enabled": 1,
+        "disabled": 0
       }
     }
   },

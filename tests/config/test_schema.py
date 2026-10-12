@@ -240,6 +240,60 @@ class SchemaValidationTests(unittest.TestCase):
             gen.validate_schema(document, gen.p6_config_fields())
         self.assertGreaterEqual(len(str(caught.exception).splitlines()), 2)
 
+    def test_the_automatic_values_only_libretro_offers_are_checked_and_never_reach_the_other_adapters(self):
+        # T76: libretro.extra_values (puae6_machine=auto, puae6_video_standard=PAL auto / NTSC auto) have a number of their own and a constant, and a libretro default.
+        document = schema()
+        machine = option(document, "machine")["libretro"]
+        machine["extra_values"][0]["abi"] = 1
+        self.refuses(document, "the number 1 is already used by a value of the option")
+        document = schema()
+        option(document, "machine")["libretro"]["extra_values"][0]["value"] = "A600"
+        self.refuses(document, "'A600' is already a value of the option")
+        document = schema()
+        option(document, "machine")["libretro"]["default"] = "A9000"
+        self.refuses(document, "libretro default 'A9000' is not a value of the option or an extra one")
+        document = schema()
+        del option(document, "machine")["libretro"]["extra_values"][0]["const"]
+        self.refuses(document, "missing field 'const'")
+        real = schema()
+        table = json.loads(gen.generate_table(real))
+        self.assertEqual(table["adapters"]["machine"]["libretro_extra_values"], {"auto": 0})
+        self.assertEqual(table["adapters"]["video_standard"]["libretro_extra_values"], {"PAL auto": 0, "NTSC auto": 3})
+        self.assertEqual([v for v in table["p6_config"]["machine"]["names"]], [v["value"] for v in option(real, "machine")["values"]], "p6_config never sees auto")
+        self.assertNotIn("auto", table["p6_config"]["machine"]["names"])
+        self.assertNotIn("PAL auto", table["p6_config"]["video_standard"]["names"])
+        header = gen.generate_header(real)
+        self.assertIn("constexpr uint32_t kMachineAuto = 0u;", header)
+        self.assertIn("constexpr uint32_t kVideoStandardNtscAuto = 3u;", header)
+
+    def test_the_selectors_are_checked(self):
+        document = schema()
+        document["selectors"][0]["values_of"] = "video_aspect"
+        self.refuses(document, "values_of must name a reboot enum option")
+        document = schema()
+        document["selectors"][0]["libretro"]["key"] = "puae6_machine"
+        self.refuses(document, "libretro key must be a new 'puae6_' key")
+        document = schema()
+        document["selectors"][0]["default"] = "A9000"
+        self.refuses(document, "default 'A9000' is not one of the values")
+        document = schema()
+        document["selectors"][2]["values"][1]["abi"] = 1
+        self.refuses(document, "a new name, a new integer number and a label")
+        document = schema()
+        document["selectors"][1]["id"] = "machine"
+        self.refuses(document, "id must be a new lowercase identifier")
+        document = schema()
+        document["selectors"][0]["libretro"]["category"] = "nowhere"
+        self.refuses(document, "libretro category 'nowhere' is not declared")
+        real = schema()
+        self.assertEqual([s["id"] for s in real["selectors"]], ["model_fd", "model_hd", "filename_tags"])
+        table = json.loads(gen.generate_table(real))
+        self.assertEqual(table["selectors"]["model_hd"]["default"], "A1200")
+        self.assertEqual(table["selectors"]["filename_tags"]["values"], {"enabled": 1, "disabled": 0})
+        with self.assertRaises(gen.ConfigError) as caught:
+            gen.normalize_config(real, {"model_fd": "A600"})
+        self.assertIn("option model_fd is unknown", str(caught.exception), "a selector is no option of the schema: headless and the wrapper do not take it")
+
 
 class NormalizationTests(unittest.TestCase):
     def test_nothing_requested_gives_the_defaults(self):

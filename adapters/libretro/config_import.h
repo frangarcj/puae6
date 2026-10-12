@@ -45,7 +45,7 @@ struct UaeImport {
 };
 
 // Imports the bytes of a .uae. `directory` is the .uae's own folder with its trailing separator (directory_of), `base` the options the frontend holds
-// (read_options, preset applied), `max_disks` the most disks a content may name. Returns true when there is no error; `out` is then complete. On false
+// (read_options, preset applied, and the automatic model and video standard resolved from the name of the .uae by model.h: T76), `max_disks` the most disks a content may name. Returns true when there is no error; `out` is then complete. On false
 // `out->errors` says why, and `out->settings` must not be used.
 //
 // Precedence, from the weakest: the schema's defaults, the frontend's options (its preset expanded), the preset a .uae names (puae6_preset), the keys

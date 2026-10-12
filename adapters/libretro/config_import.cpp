@@ -361,8 +361,15 @@ private:
         }
         for (unsigned i = 0; i < option->count; ++i) {
             if (name != option->values[i].name) continue;
+            const uint32_t number = option->values[i].number;
+            if ((!strcmp(option_key, "puae6_machine") && number == p6_options::kMachineAuto) ||
+                (!strcmp(option_key, "puae6_video_standard") && (number == p6_options::kVideoStandardPalAuto || number == p6_options::kVideoStandardNtscAuto))) {
+                // T76: the automatic values are resolved by the core from the name of the .uae before its keys are read; a file that cares names the machine and the standard.
+                error(e, std::string("\"") + name + "\" is the frontend's automatic choice, not a value for a file: name the machine or the standard (" + option_key + " takes the others)");
+                return false;
+            }
             if (!claim(e, option_key)) return false;
-            out_->settings.*option->field = option->values[i].number;
+            out_->settings.*option->field = number;
             if (record) note(e, std::string(option_key) + "=" + name);
             return true;
         }
@@ -679,6 +686,11 @@ private:
 
 bool import_uae(const std::vector<uint8_t> &bytes, const std::string &directory, const p6_options::Settings &base, size_t max_disks, UaeImport *out)
 {
+    if (base.machine == p6_options::kMachineAuto || base.video_standard == p6_options::kVideoStandardPalAuto || base.video_standard == p6_options::kVideoStandardNtscAuto) {
+        // The keys that describe a machine (chipset, CPU) are checked against the one the options chose, so it must exist: the core resolves the automatic model first (model.h).
+        out->errors.push_back({0, "", "internal error: the importer needs a model and a video standard, not the automatic ones"});
+        return false;
+    }
     try {
         return Importer(base, directory, max_disks, out).run(bytes);
     } catch (const std::bad_alloc &) {

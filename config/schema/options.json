@@ -184,7 +184,11 @@
         "key": "puae6_machine",
         "category": "machine",
         "label": "Model",
-        "info": "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600)."
+        "info": "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have no IDE or PCMCIA: Gayle is not emulated. The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). Automatic (T76) chooses the model when the content loads, before the machine exists: a tag in the name of the file or of one of its disks (for instance (A1200), (A600), (A500OG), see docs/options.md) if File Name Tags is on, else Automatic Floppy Model for floppy disks and Automatic Hard Disk Model for hard disks. A model or a preset chosen here is never changed by a tag. The model it picks is part of the state identity like any other.",
+        "extra_values": [
+          {"value": "auto", "abi": 0, "label": "Automatic (file name tags, else by content)", "const": "Auto"}
+        ],
+        "default": "auto"
       },
       "headless": {"how": "choice", "flag": "--machine", "names": {"A500": "a500", "A500OG": "a500og", "A500PLUS": "a500plus", "A600": "a600", "A1000": "a1000", "A1200": "a1200", "A2000OG": "a2000og", "A2000": "a2000"}},
       "wrapper": {"how": "setting", "setting": "Machine", "type": "Puae6Machine"}
@@ -203,7 +207,12 @@
         "key": "puae6_video_standard",
         "category": "machine",
         "label": "Video Standard",
-        "info": "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine."
+        "info": "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag.",
+        "extra_values": [
+          {"value": "PAL auto", "abi": 0, "label": "Automatic PAL (file name tags, else PAL)", "const": "PalAuto"},
+          {"value": "NTSC auto", "abi": 3, "label": "Automatic NTSC (file name tags, else NTSC)", "const": "NtscAuto"}
+        ],
+        "default": "PAL auto"
       },
       "headless": {"how": "flag", "flag": "--ntsc", "sets": "NTSC"},
       "wrapper": {"how": "setting", "setting": "Region", "type": "Puae6Region"}
@@ -1744,6 +1753,44 @@
       "label": "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)",
       "values": {"machine": "A600", "chip_size": "MB2", "fast_size": "MB8"},
       "note": "PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has no Gayle (no IDE, no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested)."
+    }
+  ],
+  "selectors": [
+    {
+      "id": "model_fd",
+      "default": "A500",
+      "values_of": "machine",
+      "libretro": {
+        "key": "puae6_model_fd",
+        "category": "machine",
+        "label": "Automatic Floppy Model",
+        "info": "The model Automatic picks for content that has no hard disk (floppy disks, or nothing) when no tag of the file name names one. PUAE5's puae_model_fd."
+      }
+    },
+    {
+      "id": "model_hd",
+      "default": "A1200",
+      "values_of": "machine",
+      "libretro": {
+        "key": "puae6_model_hd",
+        "category": "machine",
+        "label": "Automatic Hard Disk Model",
+        "info": "The model Automatic picks for content with a hard disk (an .hdf, an .hdz, a directory or an .lha as a volume, alone or with floppies) when no tag of the file name names one. PUAE5's puae_model_hd. The hard disks need a Kickstart of 2.0 or later, so the A1200 is the default."
+      }
+    },
+    {
+      "id": "filename_tags",
+      "default": "enabled",
+      "values": [
+        {"value": "enabled", "abi": 1, "label": "Enabled"},
+        {"value": "disabled", "abi": 0, "label": "Disabled"}
+      ],
+      "libretro": {
+        "key": "puae6_filename_tags",
+        "category": "machine",
+        "label": "File Name Tags",
+        "info": "Read the tags of the name of the file, of its folders and of its disks, as PUAE5 does ((A1200), (A600), (A500OG), (A500+), (A500), (A2000), (A2000OG), (A1000), AGA, ECS, OCS for the model; (NTSC), (USA), (PAL), (Europe) and the other countries for the video standard) to resolve the Automatic model and video standard. Disabled uses only the options. Tags of something this core does not have (68030, 68040, CDTV, MultiDrive, Arcadia) are ignored with a warning."
+      }
     }
   ],
   "reserved": [

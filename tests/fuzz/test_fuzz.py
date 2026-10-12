@@ -249,6 +249,10 @@ HDZ_KINDS = ("valid-hdz", "valid-hdf", "hdz-flipped", "hdz-truncated", "hdz-trai
 VOLUME_KINDS = ("tree-valid", "tree-hostile", "lha-valid", "lha-flipped", "lha-truncated", "lha-random-method", "lha-big-claim", "lha-hostile-names", "zip-valid", "zip-flipped",
                 "zip-hostile-names", "zip-big-claim", "zip-truncated")
 ARCHIVE_KINDS = ("clean", "flip", "flip-fixed", "truncated", "cut-fixed", "member", "random-lzma", "big-claim", "manifest-flip", "manifest-random", "manifest-deep", "order")
+MODEL_KINDS = ("clean", "multi", "near", "bare", "hostile", "explicit", "off", "order")
+# Every tag of docs/options.md that picks a model must be the one that decided at least once, and every word and region too (the four tags of machines this core does not have only warn).
+MODEL_DECIDERS = ("(A1200OG)", "(A1200NF)", "(A1200)", "CD32", "(CD32NF)", "(CD32FR)", "(A600)", "(A500+)", "(A500PLUS)", "(A500OG)", "(512K)", "(512KB)", "(A500)", "(A2000OG)", "(A2000)",
+                  "(A1000)", "word", "region")
 OPTION_KINDS = ("exact", "empty", "padded", "case", "suffix", "prefix", "zeros", "other-value", "non-ascii", "long", "random-bytes", "control",
                 "other-options-value", "number-forms", "no-value")
 
@@ -374,6 +378,17 @@ class ContentFuzzTests(unittest.TestCase):
                     for reason in ("the LZMA data is corrupt or truncated", "unpacks to more than the core reads", "is not usable XML", "has no member named", "truncated or damaged",
                                    "entry is corrupt", "archive is damaged"):
                         self.assertIn(reason, text)
+                elif run["target"] == "model":
+                    kinds = self.histogram(text, "model")
+                    self.assertEqual(sorted(MODEL_KINDS), sorted(kinds))
+                    for kind in ("clean", "multi", "near", "bare", "hostile", "order"):
+                        self.assertGreater(kinds[kind][0], 0, kind)          # a tag decided
+                        self.assertGreater(kinds[kind][1], 0, kind)          # and not always
+                    for kind in ("explicit", "off"):
+                        self.assertEqual(kinds[kind][0], 0, kind)            # a choice made by hand or the tags off: no tag ever decides
+                    for tag in MODEL_DECIDERS:
+                        self.assertRegex(text, rf'(?m)^model decided "{re.escape(tag)}": [1-9]', tag)
+                    self.assertRegex(text, r'(?m)^model warned "unsupported-model-tag": [1-9]')
                 elif run["target"] == "vfs":
                     for outcome in ("Ok", "CannotOpen", "TooLarge", "ReadFailed"):
                         self.assertIn(f"vfs result {outcome}:", text)
@@ -389,19 +404,22 @@ class ContentFuzzTests(unittest.TestCase):
                     # Only the value names of the schema were ever accepted, and each of them was.
                     allowed = {f"{option['libretro']['key']}={value['value']}" for option in self.schema["options"] if option["libretro"]
                                for value in option["values"]}
+                    allowed |= {f"{option['libretro']['key']}={extra['value']}" for option in self.schema["options"] if option["libretro"] for extra in option["libretro"].get("extra_values", [])}      # T76: auto, PAL auto, NTSC auto
+                    allowed |= {f"{selector['libretro']['key']}={value['value']}" for selector in self.schema["selectors"]
+                                for value in (next(o for o in self.schema["options"] if o["id"] == selector["values_of"])["values"] if "values_of" in selector else selector["values"])}      # T76: the selectors
                     allowed |= {f"puae6_preset={name}" for name in ["none"] + [preset["id"] for preset in self.schema["presets"]]}      # T49: the preset is offered beside the options
-                    accepted = {m[1] for m in re.finditer(r"^options accepted (\S+): \d+$", text, re.M)}
+                    accepted = {m[1] for m in re.finditer(r"^options accepted (.+): \d+$", text, re.M)}
                     self.assertEqual(accepted, allowed)
 
     def test_a_run_is_reproducible(self):
-        for target in ("m3u", "options", "hdz", "volume", "archive"):
+        for target in ("m3u", "options", "hdz", "volume", "archive", "model"):
             first = self.run_target(target, 7, 500)
             self.assertTrue(clean(first), first.stderr[-400:])
             self.assertEqual(first.stdout, self.run_target(target, 7, 500).stdout)
 
     def test_the_content_harness_can_fail(self):
         # With each oracle spoiled on purpose the same run has to be reported as a failure.
-        for target in ("m3u", "vfs", "options", "hdz", "volume", "archive"):
+        for target in ("m3u", "vfs", "options", "hdz", "volume", "archive", "model"):
             with self.subTest(target=target):
                 result = self.run_target(target, 1, 200, {"P6_FUZZ_SELFTEST": "1"})
                 self.assertEqual(result.returncode, 1)
