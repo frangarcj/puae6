@@ -13476,7 +13476,7 @@
       "title": "Directorios (si el cargador lo permite), LHA y ZIP como volumenes en el nucleo BizHawk/Waterbox: la misma imagen FFS construida en memoria",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "evidence": null,
       "depends": [
         "T64a"
@@ -13495,7 +13495,8 @@
         "manifests/waterbox-memory.json"
       ],
       "steps": [
-        "Parte BizHawk de T64. El nucleo C# construye la misma imagen que el adaptador libretro (ADR 0011; tools/whdload/ffs.py y lha.py y adapters/libretro/{ffs_volume,lha,volume}.h son los oraculos: los bytes han de ser iguales) a partir de un LHA o un ZIP que el cargador le da como fichero y los entrega como un HDF mas (Puae6Parameters.HardFiles), con las mismas cotas. Un directorio solo si el cargador de BizHawk lo permite; si no, se documenta. Referencia de MacHawk (solo lectura): UAE.WHDLoad.cs AddReadonlyFile. No cambia el guest salvo que haga falta; si cambia, re-registrar manifests/waterbox-memory.json."
+        "Parte BizHawk de T64. El nucleo C# construye la misma imagen que el adaptador libretro (ADR 0011; tools/whdload/ffs.py y lha.py y adapters/libretro/{ffs_volume,lha,volume}.h son los oraculos: los bytes han de ser iguales) a partir de un LHA o un ZIP que el cargador le da como fichero y los entrega como un HDF mas (Puae6Parameters.HardFiles), con las mismas cotas. Un directorio solo si el cargador de BizHawk lo permite; si no, se documenta. Referencia de MacHawk (solo lectura): UAE.WHDLoad.cs AddReadonlyFile. No cambia el guest salvo que haga falta; si cambia, re-registrar manifests/waterbox-memory.json.",
+        "2026-10-12: cerrada. El nucleo C# (integration/bizhawk/core/Puae6/Volumes.cs, tercer port del mismo algoritmo con el mismo oraculo) construye la imagen de un LHA o un ZIP de ficheros (Puae6Parameters.Volumes; EmuHawk: .lha, .lzh y el .zip sin disco) y la monta como un HDF; un directorio no es un fichero ROM del cargador de BizHawk y no se ofrece. El guest no cambia (manifests/waterbox-memory.json sin tocar)."
       ],
       "checks": [
         "WB03",

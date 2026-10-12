@@ -98,7 +98,7 @@ internal static unsafe partial class Program
 		var other => throw new ArgumentException($"machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og or a2000 (got {other})"),
 	};
 
-	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null, IReadOnlyList<byte[]>? media = null, IReadOnlyList<byte[]>? hardFiles = null)
+	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null, IReadOnlyList<byte[]>? media = null, IReadOnlyList<byte[]>? hardFiles = null, IReadOnlyList<byte[]>? volumes = null)
 	{
 		string guest = Path.GetFullPath(options["guest"]);
 		var comm = new CoreComm(_ => { }, (message, _) => { if (message.StartsWith("SaveRAM")) Console.WriteLine($"notice {message}"); }, null!, CoreComm.CorePreferencesFlags.None, null!);
@@ -107,7 +107,7 @@ internal static unsafe partial class Program
 		return new Puae6Core(comm, new Puae6Parameters
 		{
 			GuestDirectory = Path.GetDirectoryName(guest)!, GuestFileName = Path.GetFileName(guest), PinnedGuestSha256 = options["sha"],
-			Firmware = File.ReadAllBytes(options["firmware"]), SyncSettings = settings, Media = media ?? new List<byte[]>(), HardFiles = hardFiles ?? new List<byte[]>(),
+			Firmware = File.ReadAllBytes(options["firmware"]), SyncSettings = settings, Media = media ?? new List<byte[]>(), HardFiles = hardFiles ?? new List<byte[]>(), Volumes = volumes ?? new List<byte[]>(),
 		});
 	}
 

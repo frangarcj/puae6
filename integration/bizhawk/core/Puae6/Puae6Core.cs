@@ -34,6 +34,14 @@ public sealed class Puae6Parameters
 	public IReadOnlyList<byte[]> HardFiles { get; set; } = new List<byte[]>();
 	/// <summary>Names of the hard files, for messages and for the export; "hard file N" where missing.</summary>
 	public IReadOnlyList<string> HardFileNames { get; set; } = new List<string>();
+	/// <summary>
+	/// LHA archives and ZIP files of files (T64b, ADR 0011): each becomes ONE FFS hard file built in memory (<see cref="Puae6Volumes"/>: the same bytes as the libretro adapter's) and is mounted like an .hdf, after <see cref="HardFiles"/>, within
+	/// the same limit of <see cref="P6.MaxHardFiles"/> and without two copies of one image. The host is never mounted or read again: the identity of the medium is the hash of the image, so the same content from an LHA and from a ZIP is one medium.
+	/// An archive that is not a usable volume (damaged, unsafe, over a limit) fails the creation of the core with the reason.
+	/// </summary>
+	public IReadOnlyList<byte[]> Volumes { get; set; } = new List<byte[]>();
+	/// <summary>Names of the volumes, for messages and for the export; "volume N" where missing.</summary>
+	public IReadOnlyList<string> VolumeNames { get; set; } = new List<string>();
 }
 
 /// <summary>
@@ -165,6 +173,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public Puae6Core(CoreComm comm, Puae6Parameters parameters)
 	{
 		CoreComm = comm;
+		parameters = Puae6Volumes.Resolve(parameters);
 		_syncSettings = parameters.SyncSettings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
 		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));

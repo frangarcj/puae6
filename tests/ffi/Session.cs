@@ -10,8 +10,9 @@ using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b, T28: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [writes]
-///   (writes: the floppy disks can be written, T28; without it every disk is protected. hdf: hard files, T63b; always writable, their media index follows the floppies)
+///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [writes]
+///   (writes: the floppy disks can be written, T28; without it every disk is protected. hdf: hard files, T63b; always writable, their media index follows the floppies. volume: LHA archives or ZIP files of files, T64b,
+///    built into hard files in memory after the hdf ones)
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
 ///       "record" keeps each unit's input as BizHawk's own BK2 log entry
 ///   run NAME UNITS movie=FILE [silent=A-B]                       the input of each unit is read from a .bk2 by the core's frame number (after a load, from the frame of the state)
@@ -97,7 +98,8 @@ internal static unsafe partial class Program
 					var adfs = arguments.TryGetValue("adf", out var list) ? list.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
 					var machine = new Machine { Mouse = settings.ControllerPort1 == Puae6Port1.Mouse, Options = arguments };
 					var hdfs = arguments.TryGetValue("hdf", out var hardList) ? hardList.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
-					machine.Core = MakeCore(make, settings, adfs, hdfs);
+					var volumes = arguments.TryGetValue("volume", out var volumeList) ? volumeList.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
+					machine.Core = MakeCore(make, settings, adfs, hdfs, volumes);
 					machine.Core.ControllerDefinition.BuildMnemonicsCache("Amiga");        // what EmuHawk does when it records
 					machine.Controller = new ScriptedController(machine.Core.ControllerDefinition);
 					machines[words[1]] = machine;

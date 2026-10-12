@@ -3,6 +3,7 @@
 //   Ffi.dll pin
 //   Ffi.dll identity --guest puae6.wbx --sha HASH
 //   Ffi.dll play --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --firmware input_all.rom --script script.txt --units N [--port1 joystick] [--ntsc] [--power-at U,U]
+//   Ffi.dll volume --archive FILE --out FILE     the hard file that Puae6Volumes builds from an LHA or a ZIP of files (T64b); "volume bytes=N sha=HEX", or the reason it is not a volume
 //   Ffi.dll open --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --manifest waterbox-memory.json --firmware boot.rom --units N
 // Every check prints a line "ok ..." and any failure ends the process with a nonzero exit code and the reason on stderr.
 using System.Runtime.InteropServices;
@@ -45,6 +46,16 @@ internal static unsafe partial class Program
 					// --hdf-bytes N[,N...] (T63b): the sizes of the hard files the core would be given.
 					var hard = options.TryGetValue("hdf-bytes", out var sizes) ? sizes.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(long.Parse).ToArray() : [];
 					var h = Puae6Core.Heaps(settings, hard); Console.WriteLine($"heaps {h.SbrkHeapSizeKB} {h.SealedHeapSizeKB} {h.InvisibleHeapSizeKB} {h.PlainHeapSizeKB} {h.MmapHeapSizeKB}"); break;
+				}
+				case "volume":
+				{
+					var archive = File.ReadAllBytes(options["archive"]);
+					byte[] image;
+					try { image = Puae6Volumes.FromArchive(archive); }
+					catch (VolumeException e) { Console.WriteLine($"volume refused {e.Message}"); return 2; }
+					if (options.TryGetValue("out", out var outPath)) File.WriteAllBytes(outPath, image);
+					Console.WriteLine($"volume bytes={image.Length} sha={Convert.ToHexString(SHA256.HashData(image)).ToLowerInvariant()} zip={Puae6Volumes.IsVolumeZip(archive)}");
+					break;
 				}
 				case "play": Play(options); break;
 				case "session": RunSession(options); break;

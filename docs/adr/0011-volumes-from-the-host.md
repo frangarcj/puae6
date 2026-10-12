@@ -65,5 +65,9 @@ reutiliza la idea (el host nunca se monta: un `.lha`/`.zip` entra como bytes en 
 - Un volumen no lleva `S:Startup-Sequence` ni WHDLoad por si mismo: el contenido decide que arranca (T65/P17 pone la UX de WHDLoad).
 - Un volumen mide como mucho unos 49 MiB (una cadena de extension del bitmap lo ampliaria) y solo hasta 4 en total con los demas HDF.
 - La imagen se construye al cargar: una carpeta de cientos de MiB se rechaza, no se carga por trozos. Los cambios de la fuente despues de la carga no llegan a la maquina.
-- BizHawk/Waterbox es T64b (el cargador de EmuHawk lee ficheros de ROM; ver su informe); el escritor y el lector son los mismos algoritmos.
+- Un LHA no puede nombrar un fichero con el byte 0xFF: es el separador de ruta de sus cabeceras.
+- BizHawk/Waterbox (T64b): el cargador de EmuHawk da ficheros como ROM, asi que se ofrecen el LHA y el ZIP y NO el directorio. El nucleo C# (`Puae6Volumes`, `integration/bizhawk/core/Puae6/Volumes.cs`) es un tercer
+  port del mismo algoritmo y tiene el mismo oraculo: no hay una copia del constructor dentro del guest (tendria que sobrevivir al presupuesto del heap sellado, habria que re-registrar `waterbox-memory.json` y el guest
+  seria otro) ni un puente nativo (BizHawk no distribuye bibliotecas fuera de Waterbox). El coste es mantener tres implementaciones; lo que las ata es `tests/hdf/test_volume.py` y `tests/waterbox-media/test_media_volume.py`,
+  que comparan los bytes con `tools/whdload/ffs.py` y `lha.py`.
 - No hay `filesystem2=rw` (escritura directa al host) ni vista viva de un directorio: son el montaje del host que la ficha deja fuera.
