@@ -12376,7 +12376,8 @@
         "T26",
         "T32",
         "T33",
-        "T25a"
+        "T25a",
+        "T48f"
       ],
       "read": [
         "docs/04-validation.md",
@@ -14863,6 +14864,40 @@
         "test_build_parity demuestra igualdad byte a byte entre -O0 y -O2 en los escenarios listados y falla si se siembra una diferencia; el build Debug sigue disponible por variable de entorno y los tests de build_support y del runner cubren la seleccion de arbol, el reparto por clase y el nivel con nombre."
       ],
       "stop": "No bajar unidades, quitar escenarios, cachear salidas del probe entre tests ni sustituir procesos limpios por reutilizacion del emulador. Si -O0 y -O2 difieren, es un fallo de determinismo: guardar reproducer y marcar blocked, no quitar la prueba de paridad."
+    },
+    {
+      "id": "T48f",
+      "title": "build_waterbox comprueba que build/upstream y build/generated son de la serie actual antes de construir el guest, y waterbox-memory se valida clave a clave",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T48e",
+        "T29d"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tools/build_waterbox.py",
+        "tools/materialize_upstream.py",
+        "tests/waterbox-smoke/**",
+        "tests/codegen/**"
+      ],
+      "steps": [
+        "Hallazgo del orquestador (2026-10-12): tras integrar T51 (parche 0290), `tools/build_waterbox.py --puae6` compilo el guest con un build/upstream materializado antes de 0290 y fallo al enlazar (p6_memory_rom_refusal indefinido); un cambio que no rompiera el enlace habria dado un guest con la serie vieja sin aviso. Hacer que build_waterbox verifique el recibo de la materializacion (serie, sha de series.json) y rematerialice o se niegue con un mensaje claro, como hace generate_cpu.",
+        "Ademas: T72 solo re-registro la clave `measured` y T51 cambio el firmware de las claves hdf; un test debe exigir que las 16 claves measured* tengan el mismo guest_sha256 que el guest construido y el fixture documentado de cada una (loop micro-ROM para las hdf), para que un re-registro parcial falle."
+      ],
+      "checks": [
+        "WB02",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Un guest no se construye ni se mide con un arbol materializado de otra serie, y un waterbox-memory.json con claves de guests distintos o con otro fixture falla un test."
+      ],
+      "stop": "No relajar el test de memoria para aceptar claves mezcladas.",
+      "evidence": null
     }
   ]
 }
