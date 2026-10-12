@@ -57,6 +57,10 @@
 // lha.h; docs/adr/0011-volumes-from-the-host.md), which is registered exactly like an .hdf. The host is never mounted: what enters the machine is the image, whose content id is the
 // SHA-256 of its bytes, so states, rewind and run-ahead carry the guest's writes as for any hard file and the source is never written.
 //
+// Archives of disks (T59): a .zip, a .7z or an .rp9 with several floppies is a set, read in memory in a deterministic order (PUAE5's, archive.h) and expanded in place into the
+// playlist; "file.zip#member.adf" is one member; the sets and members are expanded when the content loads, the archive is never kept and nothing is written. An archive of one disk is
+// that disk, as before.
+//
 // What this adapter does not do yet (see docs/02-contracts.md and the plan): IPF, FDI and the other floppy formats are refused with a message (container.h).
 #include "libretro.h"
 #include "p6.h"
@@ -66,6 +70,7 @@
 #include "disk_control.h"
 #include "firmware.h"
 #include "floppy_save.h"
+#include "archive.h"
 #include "hdf.h"
 #include "input_map.h"
 #include "memory_map.h"
@@ -90,6 +95,8 @@
 #endif
 
 namespace {
+
+static_assert(p6_libretro::kMaxArchiveDisks == P6_MAX_MEDIA, "an archive set must fit the media manifest");
 
 constexpr size_t kPendingAudioFrames = 16384;     // a stalled frontend may hold this many stereo frames back; older ones are dropped
 constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500, A600 and A1200 (all 512 KiB); what the file claims never decides an allocation
@@ -892,13 +899,13 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         std::string trimmed = content;
         while (trimmed.size() > 1 && is_separator(trimmed.back())) trimmed.pop_back();
         entries.push_back({content, file_name(trimmed)});
-    } else if (is_disk_extension(content) || is_hard_file_extension(content) || is_volume_extension(content)) {
+    } else if (is_disk_path(content) || is_hard_file_extension(content) || is_volume_extension(content)) {
         entries.push_back({content, without_extension(file_name(content))});
     } else if (const char *reason = unsupported_format_reason(content)) {
         notify_error("%s cannot be loaded: %s", content.c_str(), reason);
         return false;
     } else {
-        notify_error("%s is not content this core loads (an .adf, .adz, .dms or .zip disk, an .hdf or .hdz hard disk, an .lha, a .zip of files or a directory as a volume, or an .m3u playlist of them)",
+        notify_error("%s is not content this core loads (an .adf, .adz, .dms, .zip, .7z or .rp9 disk or set of disks, an .hdf or .hdz hard disk, an .lha, a .zip of files or a directory as a volume, or an .m3u playlist of them)",
                      content.c_str());
         return false;
     }
@@ -906,56 +913,105 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
     size_t hard_bytes = 0;
     for (size_t i = 0; i < entries.size(); ++i) {
         const PlaylistEntry &entry = entries[i];
-        if (core.files.is_directory(entry.path)) {
+        // "file.zip#member.adf" names one member of an archive (T59); the rest of the checks are about the archive itself.
+        std::string archive_path = entry.path, member;
+        split_member(entry.path, &archive_path, &member);
+        if (member.empty() && core.files.is_directory(entry.path)) {
             if (!load_volume(entry.path, i, VolumeSource::Directory, nullptr, &hard_files, &hard_bytes)) return false;
             continue;
         }
-        if (is_hard_file_extension(entry.path)) {
+        if (member.empty() && is_hard_file_extension(entry.path)) {
             if (!load_hard_file(entry.path, i, &hard_files, &hard_bytes)) return false;
             continue;
         }
-        if (is_volume_extension(entry.path)) {
+        if (member.empty() && is_volume_extension(entry.path)) {
             std::vector<uint8_t> archive;
             if (!load_volume(entry.path, i, VolumeSource::Lha, &archive, &hard_files, &hard_bytes)) return false;
             continue;
         }
-        if (!is_disk_extension(entry.path)) {
+        if (!is_disk_extension(archive_path)) {
             const char *reason = unsupported_format_reason(entry.path);
-            notify_error("disk %zu (%s) is not an .adf, .adz, .dms, .zip, .hdf, .hdz or .lha file or a directory%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
+            notify_error("disk %zu (%s) is not an .adf, .adz, .dms, .zip, .7z, .rp9, .hdf, .hdz or .lha file or a directory%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
             return false;
         }
-        Medium medium;
-        // The file may be a container, so the cap is the largest container; what it holds is bounded by decode_disk. A zip may also be a volume (files, no disk), which can be larger.
-        const bool zipped = has_extension(entry.path, "zip");
-        const size_t cap = zipped ? kMaxVolumeArchiveBytes : kMaxDiskFileBytes;
-        const ReadResult read = core.files.read(entry.path, cap, &medium.bytes);
+        Medium first;
+        // The file may be a container, so the cap is the largest container; what it holds is bounded by decode_disk and read_disk_set. A zip may also be a volume (files, no disk), which can be larger.
+        const bool zipped = has_extension(archive_path, "zip");
+        const size_t cap = is_archive_extension(archive_path) ? kMaxVolumeArchiveBytes : kMaxDiskFileBytes;
+        const ReadResult read = core.files.read(archive_path, cap, &first.bytes);
         if (read == ReadResult::TooLarge) {
-            notify_error("disk %zu (%s) is larger than any %s this core reads (%zu bytes)", i + 1, entry.path.c_str(), zipped ? "zip file" : "disk file", cap);
+            notify_error("disk %zu (%s) is larger than any %s this core reads (%zu bytes)", i + 1, entry.path.c_str(), is_archive_extension(archive_path) ? "archive" : "disk file", cap);
             return false;
         }
         if (read != ReadResult::Ok) {
             notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), describe(read));
             return false;
         }
-        if (zipped && zip_is_volume(medium.bytes)) {
-            if (!load_volume(entry.path, i, VolumeSource::Zip, &medium.bytes, &hard_files, &hard_bytes)) return false;
+        if (zipped && member.empty() && zip_is_volume(first.bytes)) {
+            if (!load_volume(entry.path, i, VolumeSource::Zip, &first.bytes, &hard_files, &hard_bytes)) return false;
             continue;
         }
+        // The disks this entry stands for, in order: one for a plain disk file or a one-disk archive, the whole set (T59) for an archive with several, the member for "#member".
+        struct Piece {
+            std::string name;
+            Medium medium;
+        };
+        std::vector<Piece> pieces;
         std::string why;
-        if (!decode_disk(&medium.bytes, entry.path, &why)) {      // in memory: the ADF is what is hashed, so the container is no part of the identity
-            notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), why.c_str());
+        bool is_set = false;
+        if (is_archive_bytes(first.bytes)) {
+            DiskSet set;
+            if (!read_disk_set(first.bytes, member, ArchiveLimits(), &set, &why)) {
+                notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), why.c_str());
+                return false;
+            }
+            for (const std::string &note : set.notes) log(RETRO_LOG_INFO, "%s: %s", entry.path.c_str(), note.c_str());
+            is_set = set.disks.size() > 1 || !member.empty();
+            if (is_set) {
+                std::string names;
+                for (const DiskMember &disk : set.disks) names += (names.empty() ? "" : ", ") + disk.name;
+                log(RETRO_LOG_INFO, "%s: %s of %zu disk(s), in this order: %s", entry.path.c_str(), set.kind.c_str(), set.disks.size(), names.c_str());
+            }
+            for (DiskMember &disk : set.disks) {
+                Piece piece;
+                piece.name = disk.name;
+                piece.medium.bytes = std::move(disk.adf);
+                pieces.push_back(std::move(piece));
+            }
+        } else {
+            if (!decode_disk(&first.bytes, entry.path, &why)) {      // in memory: the ADF is what is hashed, so the container is no part of the identity
+                notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), why.c_str());
+                return false;
+            }
+            Piece piece;
+            piece.medium.bytes = std::move(first.bytes);
+            pieces.push_back(std::move(piece));
+        }
+        first.bytes.clear();
+        if (images->size() + pieces.size() > P6_MAX_MEDIA) {
+            notify_error("the content names more than %u disks (disk %zu, %s, adds %zu): the most this core keeps is %u", P6_MAX_MEDIA, i + 1, entry.path.c_str(), pieces.size(), P6_MAX_MEDIA);
             return false;
         }
-        p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
-        use_saved_copy(&medium);
-        size_t known = 0;
-        while (known < media->size() && memcmp((*media)[known].id, medium.id, sizeof medium.id) != 0) ++known;
-        if (known == media->size()) {
-            log(RETRO_LOG_INFO, "medium %zu sha256=%s", known, to_hex(medium.id, sizeof medium.id).c_str());
-            media->push_back(std::move(medium));
+        const bool explicit_label = entry.label != without_extension(file_name(entry.path));
+        for (Piece &piece : pieces) {
+            Medium medium = std::move(piece.medium);
+            p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
+            use_saved_copy(&medium);
+            size_t known = 0;
+            while (known < media->size() && memcmp((*media)[known].id, medium.id, sizeof medium.id) != 0) ++known;
+            if (known == media->size()) {
+                log(RETRO_LOG_INFO, "medium %zu sha256=%s", known, to_hex(medium.id, sizeof medium.id).c_str());
+                media->push_back(std::move(medium));
+            }
+            std::string path = entry.path, label = entry.label;
+            if (is_set) {
+                const std::string member_label = without_extension(file_name(piece.name));
+                path = archive_path + "#" + piece.name;
+                label = !explicit_label ? member_label : pieces.size() == 1 && !member.empty() ? entry.label : entry.label + " - " + member_label;
+            }
+            images->push_back({path, label, uint32_t(known)});
+            log(RETRO_LOG_INFO, "disk %zu: medium %zu, label \"%s\"", images->size(), known, label.c_str());
         }
-        images->push_back({entry.path, entry.label, uint32_t(known)});
-        log(RETRO_LOG_INFO, "disk %zu: medium %zu, label \"%s\"", i + 1, known, entry.label.c_str());
     }
     if (media->size() + hard_files.size() > P6_MAX_MEDIA) {
         notify_error("the content names %zu distinct floppies and %zu hard disks: the most this core keeps is %u media", media->size(), hard_files.size(), P6_MAX_MEDIA);
@@ -1102,13 +1158,16 @@ bool read_added_disk(const std::string &path, Medium *medium, std::string *why)
         *why = "the disk has no path (or a path that is too long); this core reads the file itself";
         return false;
     }
-    if (!is_disk_extension(path)) {
+    std::string archive_path = path, member;
+    split_member(path, &archive_path, &member);
+    if (!is_disk_extension(archive_path)) {
         const char *reason = unsupported_format_reason(path);
-        *why = "it is not an .adf, .adz, .dms or .zip disk";
+        *why = "it is not an .adf, .adz, .dms, .zip, .7z or .rp9 disk";
         if (reason) *why += std::string(": ") + reason;
         return false;
     }
-    const ReadResult read = core.files.read(path, kMaxDiskFileBytes, &medium->bytes);
+    const size_t cap = is_archive_extension(archive_path) ? kMaxVolumeArchiveBytes : kMaxDiskFileBytes;
+    const ReadResult read = core.files.read(archive_path, cap, &medium->bytes);
     if (read == ReadResult::TooLarge) {
         *why = "it is larger than any disk file this core reads";
         return false;
@@ -1117,7 +1176,18 @@ bool read_added_disk(const std::string &path, Medium *medium, std::string *why)
         *why = describe(read);
         return false;
     }
-    if (!decode_disk(&medium->bytes, path, why)) return false;
+    if (is_archive_bytes(medium->bytes)) {
+        // One disk: an archive of one, or a member by name ("file.zip#member.adf"); a set is added disk by disk.
+        DiskSet set;
+        if (!read_disk_set(medium->bytes, member, ArchiveLimits(), &set, why)) return false;
+        if (set.disks.size() != 1) {
+            *why = "the archive holds " + std::to_string(set.disks.size()) + " disks and one is added at a time: name the one to add as file#member.adf";
+            return false;
+        }
+        medium->bytes = std::move(set.disks[0].adf);
+    } else if (!decode_disk(&medium->bytes, path, why)) {
+        return false;
+    }
     p6_sha256_hash(medium->bytes.data(), medium->bytes.size(), medium->id);
     use_saved_copy(medium);
     return true;
@@ -1421,7 +1491,7 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "adf|adz|dms|zip|lha|lzh|hdf|hdz|m3u|uae|/";
+    info->valid_extensions = "adf|adz|dms|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/";
     info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
     info->block_extract = true;           // a zip is read by the core, in memory: the frontend must not extract it to a temporary directory
 }

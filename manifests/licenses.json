@@ -356,6 +356,32 @@
       "build_eligibility": "excluded_from_PUAE6_build_reference_only"
     },
     {
+      "id": "machawk-uae-lzma-sdk",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "Public domain (LZMA SDK 19.00 by Igor Pavlov: the header of each retained file says \"Public domain\")",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/7zip/LzmaDec.c",
+          "sha256": "7433738640c26bc09b28bc14a90e47f97733267d358571729b3185c37c531c0d"
+        },
+        {
+          "path": "references/machawk-uae/deps/7zip/Lzma2Dec.c",
+          "sha256": "26e3f4024a15ae086205938e8c8d9d8781c1569907536dbd6f3e69fc7583d92e"
+        },
+        {
+          "path": "references/machawk-uae/deps/7zip/7zArcIn.c",
+          "sha256": "19d9cf2795b0817742dee73660e318f4edd9aa6e76425ddab79778288981d9b7"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/sevenzip.h",
+        "adapters/libretro/archive.h"
+      ],
+      "handling": "T59: PUAE5 reads .7z with this SDK (deps/7zip). PUAE6 does NOT import it: adapters/libretro/sevenzip.h is an independent, bounded reader of the 7z container (7zFormat.txt) with Copy, LZMA and LZMA2, written from the public description of the algorithm, about a fifth of the size of the SDK files it would need and without a C build step; no file of the SDK is copied or linked, so nothing is added under third_party/. The SDK stays the reference to read and, being public domain, the thing to import if a method the reader refuses (BCJ, PPMd...) ever has to be read. The RP9 manifest elements that archive.h reads were checked against the public Cloanto documentation (cloanto.com/kb/15-122 and 19-109) and Amiberry's rp9_manifest.cpp (read for the names of elements and attributes only; no code taken).",
+      "build_eligibility": "reference_only; the independent reader is part of the libretro adapter (GPL-2.0-or-later like the rest of PUAE6)"
+    },
+    {
       "id": "machawk-uae-libmpeg2",
       "source_id": "bizhawk_uae_reference",
       "scope": "embedded_dependency_in_reference",

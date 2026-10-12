@@ -166,7 +166,7 @@ class ContainerTests(unittest.TestCase):
         self.assertRefused(b"Formatted Disk Image file\r\n" + bytes(2000), "FDI images are not supported", "x.bin")
         self.assertRefused(bytes(3000), "FDI images are not supported", "game.fdi")
         self.assertRefused(bytes(3000), "this disk format is not supported", "game.scp")
-        self.assertRefused(bytes(3000), "only ZIP archives are read", "game.7z")
+        self.assertRefused(bytes(3000), "only ZIP, 7z and RP9 archives are read", "game.rar")
         self.assertRefused(b"UAE-1ADF" + bytes(2000), "extended ADF", "game.adf")
         self.assertRefused(b"UAE--ADF" + bytes(2000), "extended ADF", "game.adf")
         self.assertRefused(bytes(901119), "is 901119 bytes, not an ADF of 901120", "game.adf")

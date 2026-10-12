@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zlib
 
 from tests.host.test_bridge_lifecycle import ROOT, TOOLS, build_probe
 from tests.step.test_step import builder
@@ -247,11 +248,37 @@ HDZ_KINDS = ("valid-hdz", "valid-hdf", "hdz-flipped", "hdz-truncated", "hdz-trai
              "random-bytes", "not-gzip", "gzip-named-hdf", "valid-zip", "zip-flipped", "zip-two-hdf", "zip-no-hdf")
 VOLUME_KINDS = ("tree-valid", "tree-hostile", "lha-valid", "lha-flipped", "lha-truncated", "lha-random-method", "lha-big-claim", "lha-hostile-names", "zip-valid", "zip-flipped",
                 "zip-hostile-names", "zip-big-claim", "zip-truncated")
+ARCHIVE_KINDS = ("clean", "flip", "flip-fixed", "truncated", "cut-fixed", "member", "random-lzma", "big-claim", "manifest-flip", "manifest-random", "manifest-deep", "order")
 OPTION_KINDS = ("exact", "empty", "padded", "case", "suffix", "prefix", "zeros", "other-value", "non-ascii", "long", "random-bytes", "control",
                 "other-options-value", "number-forms", "no-value")
 
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
+def write_archive_seeds(directory):
+    """The seed archives of the `archive` target (T59): the same three disks in a 7z (LZMA2 solid with an encoded header, LZMA with a plain header, Copy), a ZIP (deflated and stored) and an
+    RP9 package, with the disks they have to give, in order (index.txt, and NAME.expect with 'member crc32' lines)."""
+    sys.path.insert(0, str(ROOT / "tests/libretro-host"))
+    import archives as a
+    from tests.media import containers as c
+    directory.mkdir()
+    disks = [(f"Game (Disk {i}).adf", c.adf(f"fuzz disk {i}")) for i in (1, 2, 3)]
+    crc = lambda data: zlib.crc32(data) & 0xFFFFFFFF
+    reversed_disks = list(reversed(disks))
+    rp9 = a.rp9_file([(name, 3 - i, None) for i, (name, _) in enumerate(disks)], disks)
+    seeds = {
+        "set-lzma2.7z": (a.sevenzip_file(reversed_disks + [("readme.txt", b"hi"), ("shots/", b"")]), disks),
+        "set-lzma.7z": (a.sevenzip_file(disks, method="lzma", solid=False, encode_header=False), disks),
+        "set-copy.7z": (a.sevenzip_file(reversed_disks, method="copy", encode_header=False), disks),
+        "set.zip": (c.zip_file(reversed_disks + [("readme.txt", b"hi")]), disks),
+        "set-stored.zip": (c.zip_file(disks, 0), disks),
+        "set.rp9": (rp9, list(reversed(disks))),
+    }
+    for name, (data, expected) in seeds.items():
+        (directory / name).write_bytes(data)
+        (directory / (name + ".expect")).write_text("".join(f"{member} {crc(body):08x}\n" for member, body in expected))
+    (directory / "index.txt").write_text("".join(f"{name}\n" for name in seeds))
+
+
 class ContentFuzzTests(unittest.TestCase):
     """FUZZ01 for the libretro content (T17): the M3U parser, the file reader over a VFS that lies, and the option values, with the adapter's headers
     compiled with ASan and UBSan next to no engine. Any single allocation above 4 MB is a report: a playlist is at most 64 KB."""
@@ -269,13 +296,16 @@ class ContentFuzzTests(unittest.TestCase):
         if built.returncode:
             raise RuntimeError(built.stderr[-2000:])
         cls.schema = generate_options.load_schema()
+        cls.seeds = Path(cls.tmp.name) / "archive-seeds"
+        write_archive_seeds(cls.seeds)
 
     @classmethod
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
     def run_target(self, target, seed, iterations, extra_env=None):
-        return subprocess.run([str(self.exe), target, str(seed), str(iterations)], capture_output=True, text=True, timeout=900,
+        extra = [str(self.seeds)] if target == "archive" else []
+        return subprocess.run([str(self.exe), target, str(seed), str(iterations), *extra], capture_output=True, text=True, timeout=900,
                               env={**self.ENV, **(extra_env or {})})
 
     @staticmethod
@@ -328,6 +358,22 @@ class ContentFuzzTests(unittest.TestCase):
                                    "over-subscribed Huffman code", "a path is both a file and a directory", "the name   cannot be an AmigaDOS name", "the ZIP file has an unsafe name",
                                    "the files of the ZIP file together are larger th"):
                         self.assertIn(f'volume refusal "{reason}', text)
+                elif run["target"] == "archive":
+                    kinds = self.histogram(text, "archive")
+                    self.assertEqual(sorted(ARCHIVE_KINDS), sorted(kinds))
+                    for kind in ("clean", "order"):
+                        self.assertGreater(kinds[kind][0], 0)
+                        self.assertEqual(kinds[kind][1], 0, kind)          # a clean archive is never refused
+                    for kind in ("big-claim", "manifest-random", "manifest-deep"):
+                        self.assertGreater(kinds[kind][1], 0, kind)
+                    self.assertEqual(kinds["big-claim"][0], 0)             # a claim beyond the cap is never taken
+                    for kind in ("flip", "flip-fixed", "truncated", "cut-fixed", "member", "random-lzma", "manifest-flip"):
+                        self.assertGreater(kinds[kind][1], 0, kind)          # the mutations are refused at least sometimes
+                    for kind in ("member", "manifest-flip", "manifest-random"):
+                        self.assertGreater(kinds[kind][0], 0, kind)          # and accepted, so that the oracles had something to check
+                    for reason in ("the LZMA data is corrupt or truncated", "unpacks to more than the core reads", "is not usable XML", "has no member named", "truncated or damaged",
+                                   "entry is corrupt", "archive is damaged"):
+                        self.assertIn(reason, text)
                 elif run["target"] == "vfs":
                     for outcome in ("Ok", "CannotOpen", "TooLarge", "ReadFailed"):
                         self.assertIn(f"vfs result {outcome}:", text)
@@ -348,14 +394,14 @@ class ContentFuzzTests(unittest.TestCase):
                     self.assertEqual(accepted, allowed)
 
     def test_a_run_is_reproducible(self):
-        for target in ("m3u", "options", "hdz", "volume"):
+        for target in ("m3u", "options", "hdz", "volume", "archive"):
             first = self.run_target(target, 7, 500)
             self.assertTrue(clean(first), first.stderr[-400:])
             self.assertEqual(first.stdout, self.run_target(target, 7, 500).stdout)
 
     def test_the_content_harness_can_fail(self):
         # With each oracle spoiled on purpose the same run has to be reported as a failure.
-        for target in ("m3u", "vfs", "options", "hdz", "volume"):
+        for target in ("m3u", "vfs", "options", "hdz", "volume", "archive"):
             with self.subTest(target=target):
                 result = self.run_target(target, 1, 200, {"P6_FUZZ_SELFTEST": "1"})
                 self.assertEqual(result.returncode, 1)

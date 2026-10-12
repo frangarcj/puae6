@@ -7,14 +7,18 @@
 //   fuzz_content options SEED N     read_options with hostile values from the frontend: only the exact value names of the schema are accepted
 //   fuzz_content hdz SEED N         decode_hard_file (T63a) on hostile .hdf and .hdz files: gzip members cut, flipped, bombs, wrong sizes; never beyond the cap
 //   fuzz_content volume SEED N      the volume builder (T64a) on hostile trees, LHA archives and ZIP files: flipped, cut, claiming more than the caps, with names that leave the volume
+//   fuzz_content archive SEED N DIR the archives of disks (T59: sevenzip.h, archive.h) on the seed archives in DIR (a ZIP, 7z and RP9 of ADFs, written by test_fuzz.py): flipped, cut, with the
+//                                   7z checksums put right again, random LZMA streams and absurd claims, members by name, RP9 manifests of random XML, and the order of a set
 // Output is a histogram per kind of mutation and per outcome; nothing else varies between runs.
 #include "content.h"
 #include "hdf.h"
+#include "archive.h"
 #include "options.h"
 #include "volume.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
@@ -1013,6 +1017,263 @@ int fuzz_volume(uint64_t seed, uint64_t iterations)
     return 0;
 }
 
+// --- archives of disks (T59) ------------------------------------------------------------------------------------------------------------------------
+
+struct ArchiveSeed {
+    std::string name;
+    std::vector<uint8_t> bytes;
+    std::vector<std::pair<std::string, uint32_t>> expect;      // the disks of the clean archive, in playlist order: member name and CRC-32
+};
+
+std::vector<uint8_t> slurp(const std::string &path, bool *ok)
+{
+    std::vector<uint8_t> out;
+    FILE *f = fopen(path.c_str(), "rb");
+    *ok = f != nullptr;
+    if (!f) return out;
+    uint8_t buffer[65536];
+    size_t got;
+    while ((got = fread(buffer, 1, sizeof buffer, f)) > 0) out.insert(out.end(), buffer, buffer + got);
+    fclose(f);
+    return out;
+}
+
+std::vector<ArchiveSeed> load_archive_seeds(const std::string &directory)
+{
+    std::vector<ArchiveSeed> seeds;
+    bool ok = false;
+    const std::vector<uint8_t> index = slurp(directory + "/index.txt", &ok);
+    if (!ok) { fprintf(stderr, "no index.txt in %s\n", directory.c_str()); exit(2); }
+    const std::string text(index.begin(), index.end());
+    size_t at = 0;
+    while (at < text.size()) {
+        size_t end = text.find('\n', at);
+        if (end == std::string::npos) end = text.size();
+        const std::string name = text.substr(at, end - at);
+        at = end + 1;
+        if (name.empty()) continue;
+        ArchiveSeed seed;
+        seed.name = name;
+        seed.bytes = slurp(directory + "/" + name, &ok);
+        if (!ok) { fprintf(stderr, "no seed %s\n", name.c_str()); exit(2); }
+        const std::vector<uint8_t> expect = slurp(directory + "/" + name + ".expect", &ok);
+        if (!ok) { fprintf(stderr, "no expectation for %s\n", name.c_str()); exit(2); }
+        const std::string lines(expect.begin(), expect.end());
+        size_t line_at = 0;
+        while (line_at < lines.size()) {
+            size_t line_end = lines.find('\n', line_at);
+            if (line_end == std::string::npos) line_end = lines.size();
+            const std::string line = lines.substr(line_at, line_end - line_at);
+            line_at = line_end + 1;
+            const size_t space = line.rfind(' ');
+            if (space == std::string::npos) continue;
+            seed.expect.push_back({line.substr(0, space), uint32_t(strtoul(line.c_str() + space + 1, nullptr, 16))});
+        }
+        seeds.push_back(std::move(seed));
+    }
+    return seeds;
+}
+
+void put_u32_at(uint8_t *at, uint32_t value)
+{
+    for (int i = 0; i < 4; ++i) at[i] = uint8_t(value >> (8 * i));
+}
+
+// The seven-zip header checksums put right again after a mutation, so that the structure has to defend itself.
+void fix_sevenzip_checksums(std::vector<uint8_t> *bytes)
+{
+    if (bytes->size() < 32) return;
+    uint8_t *b = bytes->data();
+    uint64_t offset = 0, size = 0;
+    for (int i = 7; i >= 0; --i) { offset = (offset << 8) | b[12 + i]; size = (size << 8) | b[20 + i]; }
+    if (offset <= bytes->size() - 32 && size <= bytes->size() - 32 - offset) put_u32_at(b + 28, crc32_update(0, b + 32 + offset, size_t(size)));
+    put_u32_at(b + 8, crc32_update(0, b + 12, 20));
+}
+
+// A 7z of one folder whose coder is LZMA or LZMA2, with a plain header written here: random packed bytes and a claimed size.
+std::vector<uint8_t> random_lzma_archive(Random &rng, uint64_t claim)
+{
+    std::vector<uint8_t> packed;
+    for (unsigned n = 1 + rng.below(400); n--;) packed.push_back(uint8_t(rng.below(256)));
+    if (rng.below(4)) packed[0] = rng.coin() ? 0 : uint8_t(0x80 | rng.below(0x80));
+    const bool lzma2 = rng.coin();
+    auto number = [](uint64_t value) {
+        std::vector<uint8_t> out = {0xFF};
+        for (int i = 0; i < 8; ++i) out.push_back(uint8_t(value >> (8 * i)));
+        return out;
+    };
+    std::vector<uint8_t> header = {0x01, 0x04, 0x06, 0x00, 0x01, 0x09};
+    auto append = [&](const std::vector<uint8_t> &v) { header.insert(header.end(), v.begin(), v.end()); };
+    append(number(packed.size()));
+    header.insert(header.end(), {0x00, 0x07, 0x0B, 0x01, 0x00, 0x01});
+    if (lzma2) header.insert(header.end(), {0x21, 0x21, 0x01, uint8_t(rng.below(41))});
+    else header.insert(header.end(), {0x23, 0x03, 0x01, 0x01, 0x05, uint8_t(rng.below(225)), uint8_t(rng.below(256)), uint8_t(rng.below(256)), uint8_t(rng.below(256)), uint8_t(rng.below(256))});
+    header.push_back(0x0C);
+    append(number(claim));
+    header.insert(header.end(), {0x00, 0x00, 0x05, 0x01, 0x11, 0x05, 0x00, 'x', 0x00, 0x00, 0x00, 0x00, 0x00});
+    std::vector<uint8_t> bytes = {'7', 'z', 0xBC, 0xAF, 0x27, 0x1C, 0, 4, 0, 0, 0, 0};
+    const uint64_t offset = packed.size();
+    for (int i = 0; i < 8; ++i) bytes.push_back(uint8_t(offset >> (8 * i)));
+    for (int i = 0; i < 8; ++i) bytes.push_back(uint8_t(uint64_t(header.size()) >> (8 * i)));
+    bytes.insert(bytes.end(), 4, 0);
+    bytes.insert(bytes.end(), packed.begin(), packed.end());
+    bytes.insert(bytes.end(), header.begin(), header.end());
+    put_u32_at(bytes.data() + 28, crc32_update(0, header.data(), header.size()));
+    put_u32_at(bytes.data() + 8, crc32_update(0, bytes.data() + 12, 20));
+    return bytes;
+}
+
+int fuzz_archive(uint64_t seed, uint64_t iterations, const std::string &directory)
+{
+    static const char *const kinds[] = {"clean", "flip", "flip-fixed", "truncated", "cut-fixed", "member", "random-lzma", "big-claim", "manifest-flip", "manifest-random", "manifest-deep", "order"};
+    Random rng(seed);
+    const std::vector<ArchiveSeed> seeds = load_archive_seeds(directory);
+    ArchiveLimits limits;
+    limits.sevenzip.max_unpack = 3u << 20;
+    limits.sevenzip.max_header = 1u << 20;
+    // Every disk the seeds can give, by CRC: whatever is accepted has to be one of them, byte for byte.
+    std::map<uint32_t, std::vector<uint8_t>> originals;
+    for (const ArchiveSeed &s : seeds) {
+        DiskSet set;
+        std::string why;
+        if (!read_disk_set(s.bytes, "", limits, &set, &why)) bug("a seed archive was refused", 0, s.name + ": " + why);
+        for (DiskMember &disk : set.disks) originals[crc32_update(0, disk.adf.data(), disk.adf.size())] = disk.adf;
+    }
+    std::map<std::string, std::pair<unsigned, unsigned>> histogram;
+    std::map<std::string, unsigned> refusals;
+    auto note_refusal = [&](const std::string &why) {
+        std::string key;                                        // the reason without the names (in quotes), the numbers and what is in parentheses
+        bool quoted = false;
+        int nested = 0;
+        for (char c : why) {
+            if (c == '"') quoted = !quoted;
+            else if (!quoted && c == '(') ++nested;
+            else if (!quoted && c == ')') nested -= nested > 0;
+            else if (!quoted && !nested && (c < '0' || c > '9')) key += c;
+        }
+        ++refusals[key.substr(0, 56)];
+    };
+    for (uint64_t iteration = 0; iteration < iterations; ++iteration) {
+        const std::string kind = kinds[rng.below(sizeof kinds / sizeof *kinds)];
+        auto &count = histogram[kind];
+        if (kind == "order") {
+            static const char *const parts[] = {"Game", " ", "(Program)", "(Disk 1)", "(Disk 2)", ".adf", "/", "a", "B", "2", "10", "\xC3\xA9"};
+            std::string names[3];
+            for (std::string &name : names) for (unsigned n = 1 + rng.below(5); n--;) name += parts[rng.below(sizeof parts / sizeof *parts)];
+            using archive_detail::disk_name_before;
+            for (const std::string &x : names) if (disk_name_before(x, x)) bug("the order is not irreflexive", iteration, x);
+            for (const std::string &x : names) for (const std::string &y : names) {
+                if (disk_name_before(x, y) && disk_name_before(y, x)) bug("the order is not antisymmetric", iteration, x + " / " + y);
+                if (x != y && !disk_name_before(x, y) && !disk_name_before(y, x)) bug("the order is not total", iteration, x + " / " + y);
+            }
+            for (const std::string &x : names) for (const std::string &y : names) for (const std::string &z : names)
+                if (disk_name_before(x, y) && disk_name_before(y, z) && !disk_name_before(x, z)) bug("the order is not transitive", iteration, x + " / " + y + " / " + z);
+            ++count.first;
+            continue;
+        }
+        if (kind == "manifest-flip" || kind == "manifest-random" || kind == "manifest-deep") {
+            static const char *const pieces[] = {"<rp9>", "</rp9>", "<application>", "</application>", "<media>", "</media>", "<floppy>", "</floppy>", "<floppy priority=\"1\" root=\"shared\"/>", "a.adf", "<!-- c -->",
+                                                 "<![CDATA[b.adf]]>", "&amp;", "&#x41;", "&#0;", "&bogus;", "<?xml version=\"1.0\"?>", "<!DOCTYPE x>", "<!DOCTYPE x [<!ENTITY e \"f\">]>", " priority=\"7\"", "<x:floppy>",
+                                                 "</x:floppy>", "\"", "'", "<", ">", "/", "\xEF\xBB\xBF", "<harddrive>h.hdf</harddrive>"};
+            std::string text = "<rp9><requirements><host>x</host></requirements><application><media><floppy priority=\"2\">b.adf</floppy><floppy priority=\"1\" root=\"\">a.adf</floppy><harddrive>h.hdf</harddrive></media></application></rp9>";
+            if (kind == "manifest-flip") {
+                for (unsigned n = 1 + rng.below(4); n--;) text[rng.below(unsigned(text.size()))] ^= char(1u << rng.below(8));
+            } else if (kind == "manifest-random") {
+                text.clear();
+                for (unsigned n = rng.below(60); n--;) text += pieces[rng.below(sizeof pieces / sizeof *pieces)];
+            } else {
+                for (unsigned n = rng.below(300); n--;) text += rng.coin() ? "<a>" : "<a x=\"1\"><floppy>";
+            }
+            archive_detail::Rp9Media media;
+            std::string why;
+            const bool accepted = archive_detail::parse_rp9_media(reinterpret_cast<const uint8_t *>(text.data()), text.size(), &media, &why);
+            if (accepted) {
+                ++count.first;
+                if (media.floppies.size() > text.size()) bug("more floppies than bytes", iteration, kind);
+                if (!why.empty()) bug("an accepted manifest left a reason", iteration, why);
+            } else {
+                ++count.second;
+                if (why.empty()) bug("a refusal without a message", iteration, kind);
+                note_refusal(why);
+            }
+            continue;
+        }
+        if (kind == "random-lzma" || kind == "big-claim") {
+            const uint64_t claim = kind == "big-claim" ? (uint64_t(1) << (22 + rng.below(38))) : 1 + rng.below(200000);
+            const std::vector<uint8_t> bytes = random_lzma_archive(rng, claim);
+            sevenzip::Archive archive;
+            std::string why;
+            const bool opened = archive.open(bytes.data(), bytes.size(), limits.sevenzip, &why);
+            bool accepted = false;
+            if (opened) {
+                for (size_t i = 0; i < archive.entries().size(); ++i) {
+                    std::vector<uint8_t> data;
+                    if (!archive.extract(i, &data, &why)) continue;
+                    accepted = true;
+                    if (data.size() != archive.entries()[i].size) bug("an extracted file has another size than its entry", iteration, kind);
+                    if (data.size() > limits.sevenzip.max_unpack) bug("an extracted file is beyond the cap", iteration, kind);
+                }
+            }
+            if (kind == "big-claim" && (accepted || opened)) bug("a claim beyond the cap was taken", iteration, kind);
+            if (accepted) {
+                ++count.first;
+            } else {
+                ++count.second;
+                if (why.empty()) bug("a refusal without a message", iteration, kind);
+                note_refusal(why);
+            }
+            continue;
+        }
+        const ArchiveSeed &base = seeds[rng.below(unsigned(seeds.size()))];
+        std::vector<uint8_t> bytes = base.bytes;
+        std::string member;
+        const bool is_7z = sevenzip::looks_like_sevenzip(bytes.data(), bytes.size());
+        const bool clean = kind == "clean";
+        if (kind == "flip" || kind == "flip-fixed") {
+            for (unsigned n = 1 + rng.below(3); n--;) bytes[rng.below(unsigned(bytes.size()))] ^= uint8_t(1u << rng.below(8));
+            if (kind == "flip-fixed" && is_7z) fix_sevenzip_checksums(&bytes);
+        } else if (kind == "truncated" || kind == "cut-fixed") {
+            bytes.resize(rng.below(unsigned(bytes.size())));
+            if (kind == "cut-fixed" && is_7z) fix_sevenzip_checksums(&bytes);
+        } else if (kind == "member") {
+            member = rng.coin() && !base.expect.empty() ? base.expect[rng.below(unsigned(base.expect.size()))].first : rng.coin() ? "missing.adf" : std::string(1, char('a' + rng.below(26)));
+        }
+        DiskSet set;
+        std::string why;
+        const bool accepted = read_disk_set(bytes, member, limits, &set, &why);
+        if (accepted) {
+            ++count.first;
+            if (!why.empty()) bug("an accepted archive left a reason", iteration, why);
+            if (set.disks.empty() || set.disks.size() > limits.max_disks) bug("a set with no disk or too many was accepted", iteration, kind);
+            if (set.kind.empty()) bug("an accepted set without a kind", iteration, kind);
+            for (const DiskMember &disk : set.disks) {
+                const uint32_t crc = crc32_update(0, disk.adf.data(), disk.adf.size());
+                if (disk.adf.size() != kDiskBytes) bug("a disk of the wrong size was accepted", iteration, disk.name);
+                const auto original = originals.find(crc);
+                if (original == originals.end() || original->second != disk.adf) bug("an accepted disk is not a disk of the seeds", iteration, kind + " " + base.name + " " + disk.name);
+            }
+            if (set.kind != "RP9 package" && member.empty())
+                for (size_t i = 1; i < set.disks.size(); ++i)
+                    if (archive_detail::disk_name_before(set.disks[i].name, set.disks[i - 1].name)) bug("a set is not in the order of its names", iteration, set.disks[i - 1].name + " / " + set.disks[i].name);
+            if (clean) {
+                std::vector<std::pair<std::string, uint32_t>> got;
+                for (const DiskMember &disk : set.disks) got.push_back({disk.name, crc32_update(0, disk.adf.data(), disk.adf.size())});
+                std::vector<std::pair<std::string, uint32_t>> want = base.expect;
+                if (selftest()) std::reverse(want.begin(), want.end());
+                if (got != want) bug("a clean archive did not give its disks in the expected order", iteration, base.name);
+            }
+        } else {
+            ++count.second;
+            if (why.empty()) bug("a refusal without a message", iteration, kind);
+            if (clean) bug("a clean archive was refused", iteration, base.name + ": " + why);
+            note_refusal(why);
+        }
+    }
+    for (const auto &kind : histogram) printf("archive kind %s: accepted %u refused %u\n", kind.first.c_str(), kind.second.first, kind.second.second);
+    for (const auto &reason : refusals) printf("archive refusal \"%s\": %u\n", reason.first.c_str(), reason.second);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -1022,6 +1283,7 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "options")) return fuzz_options(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "hdz")) return fuzz_hdz(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 4 && !strcmp(argv[1], "volume")) return fuzz_volume(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N | volume SEED N\n", argv[0]);
+    if (argc == 5 && !strcmp(argv[1], "archive")) return fuzz_archive(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10), argv[4]);
+    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N | volume SEED N | archive SEED N DIR\n", argv[0]);
     return 2;
 }

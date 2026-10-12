@@ -198,7 +198,7 @@ inline bool zip_is_volume(const std::vector<uint8_t> &bytes)
         const size_t slash = entry.name.find_last_of('/');
         const std::string base = slash == std::string::npos ? entry.name : entry.name.substr(slash + 1);
         const std::string ext = container_detail::lower_extension(base);
-        if (ext == "adf" || ext == "adz" || ext == "dms" || unsupported_format_reason(base)) return false;
+        if (ext == "adf" || ext == "adz" || ext == "dms" || ext == "7z" || unsupported_format_reason(base)) return false;
         files = true;
     }
     return files;

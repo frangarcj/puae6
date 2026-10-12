@@ -164,6 +164,18 @@
       "seed": 2,
       "iterations": 3000,
       "note": "baseline of T64a; no defect found"
+    },
+    {
+      "target": "archive",
+      "seed": 1,
+      "iterations": 4000,
+      "note": "baseline of T59 (the 7z reader and the archives of disks: a ZIP, a 7z and an RP9 package of three ADFs flipped, cut, with the 7z checksums put right again, random LZMA and LZMA2 streams, claims beyond the caps, members by name, RP9 manifests of random XML, and the order of a set; an accepted disk is a disk of the seeds, byte for byte)"
+    },
+    {
+      "target": "archive",
+      "seed": 2,
+      "iterations": 4000,
+      "note": "baseline of T59"
     }
   ],
   "config_runs": [

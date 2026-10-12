@@ -107,6 +107,17 @@ TASK_SUITES = {
         'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
         'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
     },
+    # T59 adds the archives of disks of the libretro adapter: `libretro_content` now also runs the `archive` target (a ZIP, a 7z and an RP9 package of ADFs flipped, cut, with the 7z checksums put right
+    # again, random LZMA and LZMA2 streams, claims beyond the caps, members by name, manifests of random XML and the order of a set; an accepted disk is a disk of the seeds, byte for byte).
+    ('FUZZ01', 'T59'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'state_writable': 'tests.fuzz.test_fuzz.StateWritableFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
+        'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
+    },
     # T25: the portability matrix. DET04 (the declared ISA/compiler rows agree, hardware and A/V apart) and DET06 (another locale, zone, clock, directory
     # and ROM path change nothing) are the one module tests.portability.test_portability. Its coherence tests always run (the report, plan/runners.json,
     # the toolchain files and the recorded evidence say the same thing); the tests that build and run the rows are opt-in (P6_TEST_PORTABILITY=1: the

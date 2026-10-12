@@ -141,7 +141,7 @@ class UaeCoreTests(lr.LibretroHarness):
 
     def test_the_extension_is_offered(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertRegex(out, r"extensions=adf\|adz\|dms\|zip\|lha\|lzh\|hdf\|hdz\|m3u\|uae\|/ need_fullpath=1")
+        self.assertRegex(out, r"extensions=adf\|adz\|dms\|zip\|7z\|rp9\|lha\|lzh\|hdf\|hdz\|m3u\|uae\|/ need_fullpath=1")
 
     # --- what is refused, and how -----------------------------------------------------------------------------------------------------------
 

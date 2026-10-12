@@ -54,7 +54,7 @@ class ContainerCoreTests(lr.LibretroHarness):
 
     def test_the_core_offers_the_container_extensions(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertIn("extensions=adf|adz|dms|zip|lha|lzh|hdf|hdz|m3u|uae|/", out)
+        self.assertIn("extensions=adf|adz|dms|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
 
     def test_a_disk_in_any_container_is_the_same_medium_and_the_same_future(self):
         disk = c.varied_adf("the game")
@@ -109,7 +109,7 @@ class ContainerCoreTests(lr.LibretroHarness):
         bomb = b"".join(body.compress(bytes(1 << 20)) for _ in range(64)) + body.flush()          # 64 MiB of zeros in a few tens of KB
         files = {
             "game.ipf": b"CAPS" + bytes(3000), "disguised.adf": b"CAPS" + bytes(3000), "game.fdi": b"Formatted Disk Image file\r\n" + bytes(3000),
-            "game.scp": bytes(100), "game.7z": b"7z" + bytes(100), "set.zip": c.zip_file([("a.adf", disk), ("b.adf", c.adf("b"))]),
+            "game.scp": bytes(100), "game.7z": b"7z" + bytes(100), "game.rar": bytes(100),
             "none.zip": c.zip_file([("readme/", b"")]), "short.adz": c.adz(bytes(900000)), "long.adz": c.adz(bytes(901121)),
             "cut.adz": c.adz(disk)[:100], "cut.zip": c.zip_file([("a.adf", disk)])[:-40], "cut.dms": c.dms_file(disk)[:5000],
             "partial.dms": c.dms_file(disk, tracks=range(40)), "crypt.dms": c.dms_file(disk, info=2),
@@ -119,7 +119,7 @@ class ContainerCoreTests(lr.LibretroHarness):
         directory = self.written(files)
         expected = {
             "game.ipf": "capsimg", "disguised.adf": "capsimg", "game.fdi": "FDI images are not supported", "game.scp": "not supported",
-            "game.7z": "only ZIP archives are read", "set.zip": ".m3u playlist", "none.zip": "no disk image", "short.adz": "holds 900000 bytes",
+            "game.7z": "not an ADF", "game.rar": "only ZIP, 7z and RP9 archives are read", "none.zip": "no disk image", "short.adz": "holds 900000 bytes",
             "long.adz": "more than", "cut.adz": "truncated", "cut.zip": "no central directory", "cut.dms": "truncated", "partial.dms": "40 of 80 tracks",
             "crypt.dms": "encrypted", "bomb.adz": "more than", "bomb.zip": "decompresses to more than", "lying.zip": "larger than any disk file",
         }
@@ -133,7 +133,7 @@ class ContainerCoreTests(lr.LibretroHarness):
                 self.assertEqual(self.media(out), [])             # nothing was registered
         # In a playlist the message names the disk too, and nothing is half loaded.
         (directory / "list.m3u").write_text("game.ipf\n")
-        (directory / "good.m3u").write_text("set.zip\n")
+        (directory / "good.m3u").write_text("none.zip\n")
         out = self.frontend("boot", "--runs", 2, content=directory / "good.m3u", expect=3).stdout
         self.assertIn("disk 1 (", " ".join(self.messages(out)))
         out = self.frontend("boot", "--runs", 2, content=directory / "list.m3u", expect=3).stdout

@@ -1,4 +1,4 @@
-// Disk files the libretro adapter reads (T17d): the plain ADF, an ADZ (gzip of an ADF), a ZIP that holds one disk, and a DMS archive. Each is decoded in
+// Disk files the libretro adapter reads (T17d): the plain ADF, an ADZ (gzip of an ADF), a ZIP that holds one disk, and a DMS archive (archive.h, T59, reads the archives that hold several). Each is decoded in
 // memory, with no temporary file and no write, to the 901120-byte ADF it contains; the SHA-256 of THAT image is the identity of the medium
 // (docs/adr/0008-media-identity.md), so a disk is the same medium, with the same states and movies, whichever container it came in. The native ABI
 // (p6_load) still sees nothing but ADF images.
@@ -9,14 +9,14 @@
 // cap and a DMS track by the 32000 bytes the format allows (inflate.h, dms.h). A hostile file is therefore a message, never a large allocation.
 //
 // Decisions (docs/02-contracts.md, "Medios"):
-//   - ZIP: exactly one disk image (.adf, .adz or .dms) among its entries; other entries (readmes, directories, macOS resource forks) are ignored. A zip
-//     with several disks is refused and asks for an .m3u playlist, the one way to name a set (labels, order): the core does not guess an order from names.
-//     Encrypted entries, ZIP64 and compression methods other than stored and deflate are refused. A zip does not contain another zip.
+//   - ZIP: the disk images (.adf, .adz or .dms) among its entries; other entries (readmes, directories, macOS resource forks) are ignored. A ZIP, a 7z or an RP9 package with several disks
+//     is a SET of disks, read by archive.h (T59) in a deterministic order, or one member by name ("file.zip#member.adf"); this file decodes the one disk. Encrypted entries, ZIP64
+//     and compression methods other than stored and deflate are refused. A zip does not contain another zip.
 //   - IPF (and CT RAW): refused. It needs the SPS decoder library (capsimg), whose licence (references/capsimg/LICENCE.txt) forbids commercial use and
 //     redistribution inside a commercial product or as a "freebie"; a core that ships it would be tied to that condition, and linking a binary
 //     library host-side is not an option for the deterministic profile. The way in is an IPF reader with a compatible licence, a task of its own
 //     (docs/07-machawk.md).
-//   - FDI, SCP and other flux or track-level formats, 7z, RAR: refused with a message; convert to ADF. An LHA, and a ZIP that holds files and no disk image, are not disks:
+//   - FDI, SCP and other flux or track-level formats, RAR: refused with a message; convert to ADF. An LHA, and a ZIP that holds files and no disk image, are not disks:
 //     they are volumes (volume.h, T64a) and become a hard file.
 #ifndef P6_LIBRETRO_CONTAINER_H
 #define P6_LIBRETRO_CONTAINER_H
@@ -61,7 +61,7 @@ inline const char *ipf_reason()
 inline bool is_disk_extension(const std::string &path)
 {
     const std::string ext = container_detail::lower_extension(path);
-    return ext == "adf" || ext == "adz" || ext == "dms" || ext == "zip";
+    return ext == "adf" || ext == "adz" || ext == "dms" || ext == "zip" || ext == "7z" || ext == "rp9";
 }
 
 // What to say about a file whose extension names a format the core does not read; nullptr for any other extension.
@@ -71,7 +71,7 @@ inline const char *unsupported_format_reason(const std::string &path)
     if (ext == "ipf" || ext == "ctr" || ext == "raw") return container_detail::ipf_reason();
     if (ext == "fdi") return "FDI images are not supported (a track-level format the disk loader here does not read); convert the disk to ADF";
     if (ext == "scp" || ext == "dsk" || ext == "img" || ext == "ima" || ext == "st") return "this disk format is not supported; convert the disk to ADF";
-    if (ext == "7z" || ext == "rar" || ext == "lzx") return "only ZIP archives are read as disks; put the ADF in a ZIP or use an ADZ (an LHA or a ZIP of files is a volume, a different thing)";
+    if (ext == "rar" || ext == "lzx") return "only ZIP, 7z and RP9 archives are read as disks; put the ADF in a ZIP or a 7z, or use an ADZ (an LHA or a ZIP of files is a volume, a different thing)";
     return nullptr;
 }
 

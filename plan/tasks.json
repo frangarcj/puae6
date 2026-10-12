@@ -13291,7 +13291,7 @@
       "title": "Contenedores: ZIP multi-disco, zip#miembro, 7z y rp9 en memoria",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T17d"
       ],
@@ -13306,11 +13306,16 @@
         "manifests/licenses.json",
         "tests/libretro-host/**",
         "tests/fuzz/**",
-        "integration/bizhawk/**"
+        "integration/bizhawk/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "tests/media/test_container.py",
+        "tests/libretro-ui/test_uae.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 abre ZIP con varios discos, 7z y rp9. Decodificar en memoria sin directorio temporal, con cota de tamano y FUZZ01.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk-unzip.c y zfile_archive.c de uae-waterbox.patch."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk-unzip.c y zfile_archive.c de uae-waterbox.patch.",
+        "Alcance (2026-10-12): el lector de 7z (adapters/libretro/sevenzip.h, LZMA/LZMA2 acotado, escrito aqui en vez de importar el SDK: manifests/licenses.json lo registra como referencia, sin third_party/) y los conjuntos de discos (archive.h) son del adaptador libretro; BizHawk no cambia (su cargador, HawkFile, ya abre zip y 7z y da el miembro). La ficha amplia su touch con tools/check.py (FUZZ01 T59), docs/02-contracts.md (la regla y el orden documentados), tests/media/test_container.py (un mensaje de 7z que ya no es cierto) y tests/libretro-ui/test_uae.py (la cadena de extensiones)."
       ],
       "checks": [
         "MED01",
