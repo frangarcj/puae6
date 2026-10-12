@@ -606,8 +606,45 @@ def puae6_sources() -> list[str]:
     return sources
 
 
+STALE_TREES_HELP = ("mueva build/upstream y build/generated a build/stale/<nombre> (nunca se sobrescriben ni se borran aqui) y ejecute "
+                    "python3 tools/materialize_upstream.py y python3 tools/generate_cpu.py")
+
+
+def ensure_current_trees(root: Path = ROOT) -> dict:
+    """T48f: the guest is only built from build/upstream and build/generated of the CURRENT patch series (patches/winuae/series.json).
+
+    build/upstream goes through the official materializer: absent, it is materialized; present, its inventory must be the one the pristine snapshot plus
+    the series gives, otherwise the materializer refuses and so does this. build/generated must carry the receipt of a codegen run over that same
+    upstream commit and series (and the same recipe and source manifest), with the bytes the receipt lists. Nothing is rebuilt or overwritten here: a tree of another
+    series is refused with the steps to renew it, instead of compiling a guest from it (a change that does not break the link would otherwise go unnoticed)."""
+    import materialize_upstream
+    import generate_cpu
+    root = Path(root)
+    try:
+        receipt, upstream = materialize_upstream.materialize(root)
+    except (ValueError, OSError) as error:
+        raise BuildError(f"build/upstream no corresponde a la serie actual de patches/winuae/series.json: {error}\n  {STALE_TREES_HELP}") from error
+    generated = root / "build/generated"
+    if not (generated / "codegen-receipt.json").is_file():
+        raise BuildError(f"falta {generated / 'codegen-receipt.json'}: ejecute python3 tools/generate_cpu.py")
+    recipe_path, selection_path = root / "manifests/codegen.json", root / "manifests/source-manifest.json"
+    products = [name for generator in json.loads(recipe_path.read_text())["generators"] for name in generator["outputs"]]
+    try:
+        cached = generate_cpu._cached_output(generated, products)
+    except ValueError as error:
+        raise BuildError(f"build/generated esta alterado o incompleto: {error}\n  {STALE_TREES_HELP}") from error
+    identity = cached["identity"]
+    expected = {"upstream_commit": receipt["upstream_commit"], "series": receipt["series_sha256"],
+                "recipe": sha256(recipe_path), "source_manifest": sha256(selection_path)}
+    stale = [f"{name}: {identity.get(name)} != {value}" for name, value in expected.items() if identity.get(name) != value]
+    if stale:
+        raise BuildError("build/generated se genero con otra serie o receta que las actuales (" + "; ".join(stale) + f")\n  {STALE_TREES_HELP}")
+    return {"upstream": str(upstream), "generated": str(generated), **expected}
+
+
 def build_puae6(tc: dict, jobs: int) -> dict:
     """Compile and link puae6.wbx with the pinned recipe and check the result; it does not run a machine."""
+    ensure_current_trees()
     out = BUILD / "puae6"
     out.mkdir(parents=True, exist_ok=True)
     sources = puae6_sources()
@@ -634,6 +671,24 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     (out / "puae6-receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     print(f"PUAE6 BUILD PASS: {guest} ({metadata['size']} bytes, sha256 {metadata['sha256'][:16]}...)")
     return receipt
+
+
+_TREES_CHECKED = False
+
+
+def check_guest_matches_trees(guest_receipt: Path, root: Path = ROOT) -> None:
+    """T48f: a guest is only measured if the engine trees are the current series' (checked once per process) and puae6.wbx was built from exactly those files:
+    its receipt lists the sha256 of every source, and the ones under build/upstream and build/generated must still be the ones on disk."""
+    global _TREES_CHECKED
+    if not _TREES_CHECKED:
+        ensure_current_trees(root)
+        _TREES_CHECKED = True
+    sources = json.loads(Path(guest_receipt).read_text())["sources"]
+    stale = sorted(name for name, digest in sources.items()
+                   if name.startswith(("build/upstream/", "build/generated/")) and (not (root / name).is_file() or sha256(root / name) != digest))
+    if stale:
+        raise BuildError(f"{guest_receipt} se construyo con otro build/upstream o build/generated ({len(stale)} fuentes distintas, p. ej. {stale[:3]}): "
+                         "reconstruir el guest con tools/build_waterbox.py --puae6")
 
 
 MEMORY_MANIFEST = ROOT / "manifests/waterbox-memory.json"
@@ -719,6 +774,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     for needed in (runtime_receipt, guest_receipt):
         if not needed.is_file():
             raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6-run")
+    check_guest_matches_trees(guest_receipt)
     dotnet, env = build_managed()
     tag = f"{os.getpid()}-{next(_RUNS)}"
     result_path, log_path = BUILD / f"puae6-result-{tag}.json", BUILD / f"puae6-run-{tag}.log"

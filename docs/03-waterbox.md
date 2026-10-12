@@ -145,6 +145,30 @@ Guest ABI: adapters/waterbox/p6w.h y puae6_guest.cpp (`p6w_abi_version`, `p6w_la
 managed (integration/bizhawk/smoke/Puae6.cs) comprueba al crear el sandbox que las estructuras que
 conoce son las que el guest compilo (`p6w_layout`); no es el wrapper de BizHawk (T20).
 
+### Re-registro completo de manifests/waterbox-memory.json (T48f)
+
+Las 16 claves `measured*` son una sola medida del MISMO guest y el MISMO runtime: cuando cambia el guest (un parche del motor, el puente, el adaptador) o el runtime se
+regraban TODAS, nunca solo la que se estaba tocando (T72 grabo solo `measured` y T51 cambio el firmware de las claves hdf: el manifiesto quedo con guests mezclados y los tests
+de presupuesto seguian en verde). `tests/waterbox-smoke/test_memory_manifest.py` lo exige sin runtime: el conjunto de claves es exactamente el que producen `MEASURED_KEYS` y
+`measured_key`, `MEMORY_CONFIGS` de `test_puae6.py`, los dos discos duros y el solapado de disquete lleno; todas comparten `guest_sha256` y `runtime_sha256` (y, con el guest construido en este arbol, el `guest_sha256` es el de `build/waterbox/puae6/puae6-receipt.json`;
+el del runtime no se compara con el dylib construido: sus bytes llevan las rutas del arbol donde se compilo); y cada una lleva su fixture documentado por el sha256
+del firmware. `tools/build_waterbox.py` se niega a construir o medir un guest con un `build/upstream` o `build/generated` de otra serie de parches (`ensure_current_trees`: rematerializa
+si falta, y si existe y difiere se niega con los pasos para renovarlo en `build/stale/`, sin sobrescribir nada). Receta, con los arboles de la serie actual:
+
+1. Construir el guest y el runtime una vez: `python3 tools/build_waterbox.py --puae6 --jobs 3`. No reconstruirlo mientras dure el resto, ni lanzar a la vez otra medicion que use `build/waterbox`.
+2. Firmwares (sin Kickstart; los mismos que usan los tests):
+   `python3 tests/fixtures/microrom/build_rom.py tests/fixtures/microrom/boot.s --output build/waterbox/boot.rom` (sha256 e2578b2e..., el de las 13 claves de maquina, memoria y FPU) y
+   `python3 -c "import sys; sys.path.insert(0, '.'); from tests.hdf import hdf_rom; open('build/waterbox/loop.rom', 'wb').write(hdf_rom.loop_rom())"` (el micro-ROM de bucle de los discos duros, sha256 74ed176f...).
+3. Las 8 maquinas, cada una con 60 unidades: `python3 tools/build_waterbox.py --puae6-run build/waterbox/boot.rom --units 60 --record-memory --machine M` para M en A500, A600, A1200,
+   A500OG, A500PLUS, A1000, A2000OG y A2000 (la clave `measured` es la del A500).
+4. Las 5 configuraciones de memoria y FPU, con el mismo `boot.rom` y 60 unidades: `--machine A1200 --fast 8192`; `--machine A600 --chip 2048 --fast 8192`;
+   `--machine A1200 --slow 1536 --fast 8192`; `--machine A500 --fast 2048`; `--machine A1200 --fpu 68882` (son las de `MEMORY_CONFIGS` en `tests/waterbox-smoke/test_puae6.py`).
+5. Los 2 discos duros, con `build/waterbox/loop.rom`, 60 unidades y `--machine A500 --hdf IMAGEN`, con las imagenes de `tests.hdf.hdf_image.rdb_image(cylinders=64)` (2 MiB,
+   `measured_a500_hdf2048`) y `rdb_image(cylinders=1024)` (32 MiB, `measured_a500_hdf32768`) escritas en un directorio temporal.
+6. El solapado de disquete lleno: `python3 tests/waterbox-media/test_media_limits.py --record` (5600 unidades; su propio firmware `wb12`, clave `measured_a500_floppy_writes_full`).
+7. Comprobar: `python3 -m unittest discover -s tests/waterbox-smoke -p "test_memory_manifest.py"` (y `test_puae6.py`, `test_puae6_memory.py`, `test_puae6_hdf.py`) y
+   `python3 -m unittest discover -s tests/waterbox-media -p "test_media_limits.py"`; en `git diff` las 16 claves cambian a la vez y `runtime_sha256` solo si cambio el runtime.
+
 ### Resultado de T19c1: unidad tras unidad dentro de Waterbox
 
 `python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_units.py` (varios minutos;
