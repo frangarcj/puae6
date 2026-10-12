@@ -185,6 +185,24 @@ class CoreTests(unittest.TestCase):
                 self.assertTrue(all(row["opaque"] == "1" for row in rows), "every pixel of the picture is opaque ARGB")
                 self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
 
+    def test_an_amiga_forever_rom_is_decrypted_with_the_rom_key_and_is_the_plain_rom(self):
+        # T51: AMIROMTYPE1 + XOR with a synthetic key (the format of Cloanto's rom.key; the cipher is written here from the format, not taken from the core). The decrypted image is the
+        # firmware, so the core runs exactly the units of the plain ROM; without the key or with another one the creation of the core fails and says why.
+        plain = (self.dir / "lace.rom").read_bytes()
+        key = bytes((i * 37 + 11) % 251 for i in range(1584))
+        (self.dir / "lace-encrypted.rom").write_bytes(b"AMIROMTYPE1" + bytes(b ^ key[i % len(key)] for i, b in enumerate(plain)))
+        (self.dir / "rom.key").write_bytes(key)
+        (self.dir / "wrong.key").write_bytes(key[::-1])
+        expected, _ = self.av("lace", 12)
+        opened, _ = self.av("lace-encrypted", 12, "--romkey", str(self.dir / "rom.key"))
+        self.assertEqual(expected, opened)
+        for label, extra, text in (("no key", [], "no rom.key was given"), ("wrong key", ["--romkey", str(self.dir / "wrong.key")], "does not decrypt it")):
+            with self.subTest(case=label):
+                result = build_waterbox.run_ffi("av", "--runtime", "libwaterboxhost.dylib", "--guest", str(GUEST), "--sha", self.sha, "--firmware", str(self.dir / "lace-encrypted.rom"),
+                                                "--units", "2", *extra)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(text, result.stdout + result.stderr)
+
     def test_picture_audio_and_timing_per_unit_are_those_of_headless_on_the_a600_in_both_standards(self):
         # T23e: the same lines on the other machine (ECS, 1 MiB of Chip RAM): the core with Machine = A600 is p6_headless --machine a600.
         for standard, flag in (("pal", []), ("ntsc", ["--ntsc"])):

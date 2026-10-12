@@ -1791,6 +1791,26 @@
         "label": "File Name Tags",
         "info": "Read the tags of the name of the file, of its folders and of its disks, as PUAE5 does ((A1200), (A600), (A500OG), (A500+), (A500), (A2000), (A2000OG), (A1000), AGA, ECS, OCS for the model; (NTSC), (USA), (PAL), (Europe) and the other countries for the video standard) to resolve the Automatic model and video standard. Disabled uses only the options. Tags of something this core does not have (68030, 68040, CDTV, MultiDrive, Arcadia) are ignored with a warning."
       }
+    },
+    {
+      "id": "kickstart",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Automatic (the Kickstart of the model)"},
+        {"value": "kick33180.A500", "abi": 1, "label": "1.2 r33.180 (A500, A2000)"},
+        {"value": "kick34005.A500", "abi": 2, "label": "1.3 r34.5 (A500, A1000, A2000, CDTV)"},
+        {"value": "kick37175.A500", "abi": 3, "label": "2.04 r37.175 (A500+)"},
+        {"value": "kick37350.A600", "abi": 4, "label": "2.05 r37.350 (A600)"},
+        {"value": "kick40063.A600", "abi": 5, "label": "3.1 r40.063 (A500, A600, A2000)"},
+        {"value": "kick39106.A1200", "abi": 6, "label": "3.0 r39.106 (A1200)"},
+        {"value": "kick40068.A1200", "abi": 7, "label": "3.1 r40.068 (A1200)"}
+      ],
+      "libretro": {
+        "key": "puae6_kickstart",
+        "category": "machine",
+        "label": "Kickstart ROM",
+        "info": "Automatic looks for the Kickstart of the model (see Model). A version chosen here is looked for in the system directory instead, under PUAE5's names (kick34005.A500, amiga-os-130.rom, the TOSEC names) and the machine runs it if the ROM, identified by its content, can run on that machine: the CPU the ROM needs is checked at load and a Kickstart of another CPU (the 3.1 of the A1200 on an A500) is refused with the reason. A file whose name does not say its version is not found: rename it. ROMs encrypted by Amiga Forever (AMIROMTYPE1) are decrypted with the rom.key that sits in the same system directory; the decrypted ROM is the firmware and its SHA-256 the identity of the states, so a state taken with another Kickstart is refused. PUAE5's AROS is not offered (it is not built in)."
+      }
     }
   ],
   "reserved": [

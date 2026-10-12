@@ -302,6 +302,10 @@ p6_result validate_firmware(const p6_buffer &firmware, p6_error *error)
         return p6_fail(error, P6_ERROR_NEED_FIRMWARE, "no firmware was supplied");
     if (firmware.bytes > kFirmwareMaxBytes)
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "firmware is larger than any Kickstart image");
+    // Amiga Forever's encrypted ROMs (Cloanto AMIROMTYPE1) are decrypted by the adapter, with the rom.key of the person, before p6_load: the bridge has no key and the firmware identity is the SHA-256 of the
+    // decrypted image. Saying so is clearer than "not a Kickstart".
+    if (firmware.bytes > 11 && memcmp(firmware.data, "AMIROMTYPE1", 11) == 0)
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "firmware is an encrypted Amiga Forever ROM (AMIROMTYPE1): decrypt it with its rom.key before p6_load");
     return P6_OK;
 }
 
@@ -449,6 +453,22 @@ p6_result check_preset(p6_error *error)
     return P6_OK;
 }
 
+// A Kickstart the engine knows by its content (never by its name) that needs more than the preset's CPU (patch 0290): the message says which ROM it is, what it needs and what this machine
+// has. P6_OK when the refusal was something else.
+static p6_result refused_by_cpu(p6_error *error)
+{
+    const char *name = nullptr;
+    const int needs = p6_memory_rom_refusal(&name);
+    if (!needs || !name) return P6_OK;
+    const char *requirement = (needs & 8) ? "a 68030 or later" : ((needs & 3) == 3) ? "a 68030" : (needs & 4) ? "the A4000 chipset (Ramsey, Gary, IDE)"
+        : ((needs & 3) == 1) ? "a 68EC020 or later" : "a 68020 or later with a 32-bit bus";
+    const MachineInfo &machine = machine_info(preset_config.machine);
+    char text[P6_ERROR_TEXT_CAPACITY];
+    snprintf(text, sizeof text, "the ROM \"%.100s\" needs %s but the %s has a %s: it is the firmware of another machine", name, requirement, machine.name,
+             machine.cpu == 68020 ? "68EC020" : "68000");
+    return p6_fail(error, P6_ERROR_WRONG_MEDIA, text);
+}
+
 p6_result check_loaded_firmware(p6_error *error)
 {
     switch (p6_memory_rom_status()) {
@@ -457,8 +477,10 @@ p6_result check_loaded_firmware(p6_error *error)
     case P6_ROM_UNLOADED:
     case P6_ROM_OPEN_ERROR:
         return p6_fail(error, P6_ERROR_NEED_FIRMWARE, "firmware was not found");
-    case P6_ROM_READ_ERROR:
     case P6_ROM_UNSUPPORTED:
+        if (const p6_result refused = refused_by_cpu(error)) return refused;
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "firmware is not an accepted Kickstart image");
+    case P6_ROM_READ_ERROR:
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "firmware is not an accepted Kickstart image");
     case P6_ROM_NO_MEMORY:
         return p6_fail(error, P6_ERROR_CAPACITY, "not enough memory for the firmware");

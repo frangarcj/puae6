@@ -371,6 +371,16 @@ class LibretroFirmware(Schema):
         self.assertIn("Kickstart v3.1 r40.68 (1993)(Commodore)(A1200)[!].rom", a1200)      # the name of the project's authorized copy
         self.assertNotIn("kick39106.A1200", a1200)                                          # the 3.0 is PUAE5's, but this A1200 boots the 3.1
 
+    def test_the_versions_puae6_kickstart_offers_are_the_rows_of_the_table_of_choices(self):
+        # T51: the abi number and the value of each option value of the selector are the row of firmware.h that the core looks the names up by.
+        (selector,) = [s for s in self.schema["selectors"] if s["id"] == "kickstart"]
+        rows = re.findall(r'\{(\d+), "([\w.]+)", "([\d. r]+)", (k\w+Names), ', self.firmware)
+        self.assertEqual([(int(r[0]), r[1]) for r in rows], [(v["abi"], v["value"]) for v in selector["values"] if v["value"] != "auto"])
+        self.assertEqual(selector["default"], "auto")
+        self.assertEqual([v["abi"] for v in selector["values"] if v["value"] == "auto"], [0])
+        for _, value, _, array in rows:
+            self.assertEqual(self.names(array)[0], value, f"the first name of {array} is PUAE5's normal name, which is the value")
+
     def test_the_first_two_names_of_each_machine_are_the_ones_puae5_reads(self):
         if not PUAE5.is_file():
             self.skipTest("references/machawk-uae is not there")
@@ -384,7 +394,8 @@ class LibretroFirmware(Schema):
     def test_the_core_looks_only_for_the_names_of_the_machine_it_was_given(self):
         self.assertIn("firmware_for(config.machine)", self.core_source)
         self.assertNotIn("kKickstartNames", self.core_source)
-        self.assertIn("for (size_t n = 0; n < firmware.count; ++n)", self.core_source)
+        self.assertIn("const char *const *names = chosen ? chosen->names : firmware.names;", self.core_source)       # T51: the machine's own names, or only those of the version puae6_kickstart named
+        self.assertIn("for (size_t n = 0; n < count; ++n)", self.core_source)
         # The message of a missing ROM names the Kickstart version and the machine, so the person knows what to put in the system directory.
         self.assertIn("no Kickstart %s ROM in the system directory", self.core_source)
 

@@ -253,6 +253,7 @@ MODEL_KINDS = ("clean", "multi", "near", "bare", "hostile", "explicit", "off", "
 # Every tag of docs/options.md that picks a model must be the one that decided at least once, and every word and region too (the four tags of machines this core does not have only warn).
 MODEL_DECIDERS = ("(A1200OG)", "(A1200NF)", "(A1200)", "CD32", "(CD32NF)", "(CD32FR)", "(A600)", "(A500+)", "(A500PLUS)", "(A500OG)", "(512K)", "(512KB)", "(A500)", "(A2000OG)", "(A2000)",
                   "(A1000)", "word", "region")
+FIRMWARE_KINDS = ("clean", "clean-long-key", "plain", "near-tag", "no-key", "wrong-key", "short", "huge", "flipped")
 OPTION_KINDS = ("exact", "empty", "padded", "case", "suffix", "prefix", "zeros", "other-value", "non-ascii", "long", "random-bytes", "control",
                 "other-options-value", "number-forms", "no-value")
 
@@ -389,6 +390,18 @@ class ContentFuzzTests(unittest.TestCase):
                     for tag in MODEL_DECIDERS:
                         self.assertRegex(text, rf'(?m)^model decided "{re.escape(tag)}": [1-9]', tag)
                     self.assertRegex(text, r'(?m)^model warned "unsupported-model-tag": [1-9]')
+                elif run["target"] == "firmware":
+                    kinds = self.histogram(text, "firmware")
+                    self.assertEqual(sorted(FIRMWARE_KINDS), sorted(kinds))
+                    for kind in ("clean", "clean-long-key", "huge"):
+                        self.assertGreater(kinds[kind][0], 0, kind)
+                        self.assertEqual(kinds[kind][1], 0, kind)          # an image encrypted with its key is always decrypted
+                    for kind in ("plain", "near-tag", "no-key", "short"):
+                        self.assertGreater(kinds[kind][1], 0, kind)
+                    for kind in ("plain", "near-tag", "no-key"):
+                        self.assertEqual(kinds[kind][0], 0, kind)          # and these never come out as a ROM
+                    for result in ("Decrypted", "NeedsKey", "WrongKey", "NotEncrypted"):
+                        self.assertRegex(text, rf"(?m)^firmware result {result}: [1-9]", result)
                 elif run["target"] == "vfs":
                     for outcome in ("Ok", "CannotOpen", "TooLarge", "ReadFailed"):
                         self.assertIn(f"vfs result {outcome}:", text)
@@ -412,14 +425,14 @@ class ContentFuzzTests(unittest.TestCase):
                     self.assertEqual(accepted, allowed)
 
     def test_a_run_is_reproducible(self):
-        for target in ("m3u", "options", "hdz", "volume", "archive", "model"):
+        for target in ("m3u", "options", "hdz", "volume", "archive", "model", "firmware"):
             first = self.run_target(target, 7, 500)
             self.assertTrue(clean(first), first.stderr[-400:])
             self.assertEqual(first.stdout, self.run_target(target, 7, 500).stdout)
 
     def test_the_content_harness_can_fail(self):
         # With each oracle spoiled on purpose the same run has to be reported as a failure.
-        for target in ("m3u", "vfs", "options", "hdz", "volume", "archive", "model"):
+        for target in ("m3u", "vfs", "options", "hdz", "volume", "archive", "model", "firmware"):
             with self.subTest(target=target):
                 result = self.run_target(target, 1, 200, {"P6_FUZZ_SELFTEST": "1"})
                 self.assertEqual(result.returncode, 1)

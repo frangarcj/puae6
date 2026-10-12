@@ -12801,7 +12801,7 @@
       "title": "Selector de Kickstart por maquina, tabla de nombres/hashes de PUAE5 y rom.key (ROMs cifradas de Amiga Forever)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -12821,10 +12821,19 @@
         "tests/libretro-host/**",
         "integration/bizhawk/**",
         "tests/ffi/**",
-        "tests/host/**"
+        "tests/host/**",
+        "tools/generate_options.py",
+        "tests/fuzz/**",
+        "tools/check.py",
+        "tests/reference/patch-classes.json",
+        "manifests/waterbox-memory.json",
+        "docs/options.md",
+        "docs/02-contracts.md",
+        "reports/tasks/T51.md"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 deja elegir Kickstart por modelo (puae_kickstart) y descifra ROMs de Amiga Forever con rom.key. Elegir firmware alternativo valido para la maquina (p.ej. 3.1 en A600) con la identidad del firmware en estados/peliculas; descifrado rom.key determinista en el adaptador; AROS opcional si su licencia lo permite."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 deja elegir Kickstart por modelo (puae_kickstart) y descifra ROMs de Amiga Forever con rom.key. Elegir firmware alternativo valido para la maquina (p.ej. 3.1 en A600) con la identidad del firmware en estados/peliculas; descifrado rom.key determinista en el adaptador; AROS opcional si su licencia lo permite.",
+        "Ampliacion de la ficha (2026-10-12, T51): (1) puae6_kickstart es un selector solo-libretro del esquema (`selectors`, valores de PUAE5 sin los A4000 ni AROS), que no es un campo de p6_config: la identidad del firmware ya es el SHA-256 de los bytes; (2) romkey.h descifra AMIROMTYPE1 (XOR con rom.key repetido desde su primer byte, la prueba de WinUAE rommgr.cpp) en el adaptador y BizHawk lo recibe por Puae6Parameters.RomKey (integration/bizhawk/core/Puae6/RomKey.cs); (3) el parche 0290 (memory.cpp) guarda el nombre y el requisito de CPU del ROM conocido que el preset no puede ejecutar y el puente lo dice (p6_load); la clasificacion del parche entra en tests/reference/patch-classes.json (T32a); (4) FUZZ01 T51 (objetivo `firmware` de tests/fuzz y tools/check.py) y la documentacion (docs/options.md, docs/02-contracts.md); (5) el guest cambia, asi que se re-registra manifests/waterbox-memory.json. AROS no se integra: ver docs/02-contracts.md (Kickstart alternativo y rom.key)."
       ],
       "checks": [
         "LR01",

@@ -107,7 +107,7 @@ internal static unsafe partial class Program
 		return new Puae6Core(comm, new Puae6Parameters
 		{
 			GuestDirectory = Path.GetDirectoryName(guest)!, GuestFileName = Path.GetFileName(guest), PinnedGuestSha256 = options["sha"],
-			Firmware = File.ReadAllBytes(options["firmware"]), SyncSettings = settings, Media = media ?? new List<byte[]>(), HardFiles = hardFiles ?? new List<byte[]>(), Volumes = volumes ?? new List<byte[]>(),
+			Firmware = File.ReadAllBytes(options["firmware"]), RomKey = options.TryGetValue("romkey", out var key) ? File.ReadAllBytes(key) : null, SyncSettings = settings, Media = media ?? new List<byte[]>(), HardFiles = hardFiles ?? new List<byte[]>(), Volumes = volumes ?? new List<byte[]>(),
 		});
 	}
 

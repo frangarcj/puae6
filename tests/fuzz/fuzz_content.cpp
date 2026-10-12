@@ -12,12 +12,17 @@
 //   fuzz_content model SEED N       the automatic model and the tags in the names (T76: model.h resolve_model) on random, near-miss, glued and hostile names (bytes, NUL, 100 KB, every tag
 //                                   300 times), against an independent oracle written from the table of docs/options.md; pure (twice the same answer), never automatic, a choice made by
 //                                   hand is never changed, and what is said is bounded
+//   fuzz_content firmware SEED N    the Amiga Forever ROMs (T51: romkey.h decrypt_cloanto_rom) on encrypted and plain images with keys of every length, wrong keys, cut and flipped tags and
+//                                   payloads of 0 to 600 KB, against an independent oracle (the XOR indexed by position modulo the key, not by a running counter); the input is never touched,
+//                                   nothing comes out unless the result is Decrypted, a round trip gives the original back, and the version table (firmware.h) knows exactly its seven choices
 // Output is a histogram per kind of mutation and per outcome; nothing else varies between runs.
 #include "content.h"
+#include "firmware.h"
 #include "hdf.h"
 #include "archive.h"
 #include "model.h"
 #include "options.h"
+#include "romkey.h"
 #include "volume.h"
 
 #include <stdio.h>
@@ -1500,6 +1505,115 @@ int fuzz_model(uint64_t seed, uint64_t iterations)
     return 0;
 }
 
+// --- the ROMs encrypted by Amiga Forever (T51) --------------------------------------------------------------------------------------------------------
+
+// A byte string that starts like a Kickstart in one of the three ways WinUAE accepts, or like none.
+std::vector<uint8_t> kickstart_like(Random &rng, size_t bytes, bool valid)
+{
+    std::vector<uint8_t> rom(bytes);
+    for (uint8_t &b : rom) b = uint8_t(rng.next());
+    if (!valid) {
+        if (bytes >= 4) { rom[0] = 0x12; rom[2] = 0x00; }       // neither $11 $11/$14 first nor $4E $F9 at offset 2
+        return rom;
+    }
+    if (bytes >= 4) {
+        switch (rng.below(3)) {
+        case 0: rom[0] = 0x11; rom[1] = 0x11; break;
+        case 1: rom[0] = 0x11; rom[1] = 0x14; break;
+        default: rom[2] = 0x4e; rom[3] = 0xf9; break;
+        }
+    }
+    return rom;
+}
+
+std::vector<uint8_t> encrypt_oracle(const std::vector<uint8_t> &rom, const std::vector<uint8_t> &key)
+{
+    std::vector<uint8_t> out(kCloantoMagic, kCloantoMagic + 11);
+    for (size_t n = 0; n < rom.size(); ++n) out.push_back(uint8_t(rom[n] ^ key[n % key.size()]));
+    return out;
+}
+
+int fuzz_firmware(uint64_t seed, uint64_t iterations)
+{
+    Random rng(seed);
+    std::map<std::string, std::pair<unsigned, unsigned>> histogram;       // kind -> (decrypted, not)
+    std::map<std::string, unsigned> results;
+    for (uint64_t iteration = 0; iteration < iterations; ++iteration) {
+        const unsigned shape = rng.below(9);
+        const char *const kinds[] = {"clean", "clean-long-key", "plain", "near-tag", "no-key", "wrong-key", "short", "huge", "flipped"};
+        const std::string kind = kinds[shape];
+        const size_t sizes[] = {0, 1, 3, 4, 5, 256, 4096, 262144, 524288, 600000};
+        size_t bytes = shape == 7 ? 524288 + rng.below(80000) : shape == 6 ? rng.below(4) : sizes[rng.below(10)];
+        if (shape == 0 || shape == 1 || shape == 4 || shape == 5 || shape == 8) bytes = std::max<size_t>(bytes, 4);
+        const bool valid = shape == 6 ? rng.coin() : shape == 5 ? rng.coin() : true;
+        const std::vector<uint8_t> rom = kickstart_like(rng, bytes, valid);
+        size_t key_bytes = shape == 1 ? 1 + rng.below(70000) : shape == 7 ? 1 : 1 + rng.below(2000);
+        if (rng.below(8) == 0) key_bytes = 1 + rng.below(4);
+        std::vector<uint8_t> key(key_bytes);
+        for (uint8_t &b : key) b = uint8_t(rng.next());
+        std::vector<uint8_t> file = encrypt_oracle(rom, key);
+        std::vector<uint8_t> used_key = key;
+        if (shape == 2) {                       // not encrypted at all: a plain ROM, noise, or the tag cut short
+            file = rom;
+            if (rng.coin() && file.size() >= 11) {
+                memcpy(file.data(), kCloantoMagic, 11);
+                file.resize(rng.below(11));
+            }
+        } else if (shape == 3) {                // one byte of the tag different (or the tag cut)
+            if (file.size() > 11) file[rng.below(11)] ^= uint8_t(1 + rng.below(255));
+        } else if (shape == 8) {                // the payload flipped somewhere
+            if (file.size() > 11) file[11 + rng.below(file.size() - 11)] ^= uint8_t(1 + rng.below(255));
+        }
+        const bool encrypted = file.size() >= 11 && !memcmp(file.data(), kCloantoMagic, 11);
+        if (shape == 4) used_key.clear();
+        if (shape == 5) for (size_t i = 0; i < used_key.size(); ++i) used_key[i] ^= uint8_t(1 + rng.below(255));
+        // The oracle: decrypt by position modulo the key length and apply WinUAE's test to the result.
+        CloantoResult expected = CloantoResult::NotEncrypted;
+        std::vector<uint8_t> want;
+        if (encrypted) {
+            if (used_key.empty()) {
+                expected = CloantoResult::NeedsKey;
+            } else {
+                const size_t payload = file.size() - 11;
+                for (size_t n = 0; n < payload; ++n) want.push_back(uint8_t(file[11 + n] ^ used_key[n % used_key.size()]));
+                const bool like = payload >= 4 && ((want[2] == 0x4e && want[3] == 0xf9) || (want[0] == 0x11 && (want[1] == 0x11 || want[1] == 0x14)));
+                expected = like ? CloantoResult::Decrypted : CloantoResult::WrongKey;
+            }
+        }
+        if (selftest()) expected = expected == CloantoResult::Decrypted ? CloantoResult::WrongKey : CloantoResult::Decrypted;
+        const std::vector<uint8_t> file_before = file, key_before = used_key;
+        std::vector<uint8_t> out = {1, 2, 3};     // anything left in it must be cleared
+        const CloantoResult got = decrypt_cloanto_rom(file.data(), file.size(), used_key.empty() ? nullptr : used_key.data(), used_key.size(), &out);
+        if (got != expected) bug("the result is not the oracle's", iteration, kind + ": " + std::to_string(int(got)) + " instead of " + std::to_string(int(expected)));
+        if (file != file_before || used_key != key_before) bug("the input was modified", iteration, kind);
+        if (got == CloantoResult::Decrypted) {
+            if (out != want) bug("the decrypted image is not the oracle's", iteration, kind);
+            if ((shape == 0 || shape == 1 || shape == 7) && out != rom) bug("a round trip did not give the ROM back", iteration, kind);
+        } else if (!out.empty()) {
+            bug("something came out of a result that is not Decrypted", iteration, kind);
+        }
+        std::vector<uint8_t> again;
+        if (decrypt_cloanto_rom(file.data(), file.size(), used_key.empty() ? nullptr : used_key.data(), used_key.size(), &again) != got || (got == CloantoResult::Decrypted && again != out))
+            bug("the same input gave another answer", iteration, kind);
+        if (is_cloanto_rom(file.data(), file.size()) != encrypted) bug("is_cloanto_rom disagrees with the tag", iteration, kind);
+        auto &entry = histogram[kind];
+        (got == CloantoResult::Decrypted ? entry.first : entry.second)++;
+        ++results[got == CloantoResult::Decrypted ? "Decrypted" : got == CloantoResult::NeedsKey ? "NeedsKey" : got == CloantoResult::WrongKey ? "WrongKey" : "NotEncrypted"];
+    }
+    // The table of versions: seven choices, each with names, and nothing else (the value 0 is Automatic, the others are no choice).
+    unsigned known = 0;
+    for (uint32_t value = 0; value < 300; ++value) {
+        const KickstartChoice *choice = kickstart_choice(value);
+        if (!choice) continue;
+        ++known;
+        if (choice->value != value || !choice->count || !choice->names[0][0] || !choice->option[0]) bug("an entry of the table of versions is empty", value);
+    }
+    if (known != 7 || kickstart_choice(0xFFFFFFFFu) || kickstart_choice(0)) bug("the table of versions does not have exactly seven choices", known);
+    for (const auto &kind : histogram) printf("firmware kind %s: accepted %u refused %u\n", kind.first.c_str(), kind.second.first, kind.second.second);
+    for (const auto &what : results) printf("firmware result %s: %u\n", what.first.c_str(), what.second);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -1511,6 +1625,7 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "volume")) return fuzz_volume(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "archive")) return fuzz_archive(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10), argv[4]);
     if (argc == 4 && !strcmp(argv[1], "model")) return fuzz_model(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N | volume SEED N | archive SEED N DIR | model SEED N\n", argv[0]);
+    if (argc == 4 && !strcmp(argv[1], "firmware")) return fuzz_firmware(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
+    fprintf(stderr, "usage: %s m3u SEED N | vfs SEED N | options SEED N | hdz SEED N | volume SEED N | archive SEED N DIR | model SEED N | firmware SEED N\n", argv[0]);
     return 2;
 }

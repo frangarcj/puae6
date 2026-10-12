@@ -69,6 +69,7 @@
 #include "content.h"
 #include "disk_control.h"
 #include "firmware.h"
+#include "romkey.h"
 #include "floppy_save.h"
 #include "archive.h"
 #include "hdf.h"
@@ -100,7 +101,7 @@ namespace {
 static_assert(p6_libretro::kMaxArchiveDisks == P6_MAX_MEDIA, "an archive set must fit the media manifest");
 
 constexpr size_t kPendingAudioFrames = 16384;     // a stalled frontend may hold this many stereo frames back; older ones are dropped
-constexpr size_t kMaxFirmwareBytes = 512 * 1024;  // the largest Kickstart of the A500, A600 and A1200 (all 512 KiB); what the file claims never decides an allocation
+constexpr size_t kMaxFirmwareBytes = 512 * 1024 + p6_libretro::kCloantoMagicBytes;  // the largest Kickstart (512 KiB), or the same ROM encrypted by Amiga Forever (AMIROMTYPE1 in front); what the file claims never decides an allocation
 
 retro_environment_t environment_cb;
 retro_video_refresh_t video_cb;
@@ -1033,7 +1034,9 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
 // The Kickstart of the machine the options chose (T23d): the first file of the system directory under one of that machine's known names that the
 // bridge accepts. A name that is there but refused (a damaged copy, another machine's ROM) does not hide a good one under the next name; the names of
 // the other machine are not tried, so a missing Kickstart is a clear failure and never another machine's ROM in silence. Returns false after saying why.
-bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::FirmwareNames &firmware)
+// T51: `chosen` is the version puae6_kickstart names (nullptr: Automatic, the machine's own names); then only the names of that version are tried, and the bridge says from the bytes whether this
+// machine can run it. A file Amiga Forever encrypted (AMIROMTYPE1) is decrypted with the rom.key of the same system directory before p6_load; the decrypted image is the firmware.
+bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::FirmwareNames &firmware, const p6_libretro::KickstartChoice *chosen)
 {
     using namespace p6_libretro;
     const char *directory = nullptr;
@@ -1045,9 +1048,13 @@ bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::Fir
         notify_error("the system directory path is too long");
         return false;
     }
+    const char *const *names = chosen ? chosen->names : firmware.names;
+    const size_t count = chosen ? chosen->count : firmware.count;
+    std::vector<uint8_t> key;                // rom.key, read once if a ROM is encrypted; never logged, never kept past this function
+    bool key_read = false;
     std::string refusals;
-    for (size_t n = 0; n < firmware.count; ++n) {
-        const char *const name = firmware.names[n];
+    for (size_t n = 0; n < count; ++n) {
+        const char *const name = names[n];
         const std::string path = join_path(directory, name);
         const ReadResult read = core.files.read(path, kMaxFirmwareBytes, &core.firmware);
         if (read == ReadResult::CannotOpen) continue;
@@ -1057,10 +1064,32 @@ bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::Fir
             refusals += std::string(name) + " " + describe(read);
             continue;
         }
+        bool decrypted = false;
+        if (is_cloanto_rom(core.firmware.data(), core.firmware.size())) {
+            if (!key_read) {
+                key_read = true;
+                for (const char *key_name : {"rom.key", "ROM.KEY"}) {
+                    if (core.files.read(join_path(directory, key_name), kMaxRomKeyBytes, &key) == ReadResult::Ok && !key.empty()) break;
+                    key.clear();
+                }
+            }
+            std::vector<uint8_t> rom;
+            const CloantoResult opened = decrypt_cloanto_rom(core.firmware.data(), core.firmware.size(), key.data(), key.size(), &rom);
+            if (opened != CloantoResult::Decrypted) {
+                const char *why = opened == CloantoResult::NeedsKey ? "is encrypted by Amiga Forever (AMIROMTYPE1) and the system directory has no usable rom.key"
+                                                                      : "is encrypted by Amiga Forever (AMIROMTYPE1) and the rom.key of the system directory does not decrypt it";
+                log(RETRO_LOG_WARN, "%s %s", name, why);
+                refusals += refusals.empty() ? "" : "; ";
+                refusals += std::string(name) + " " + why;
+                continue;
+            }
+            core.firmware.swap(rom);         // the decrypted image is the firmware: its SHA-256 is the identity of the states
+            decrypted = true;
+        }
         p6_error error = make_error();
         const p6_result result = p6_load(p6_buffer{core.firmware.data(), core.firmware.size()}, manifest.data(), uint32_t(manifest.size()), &error);
         if (result == P6_OK) {
-            log(RETRO_LOG_INFO, "Kickstart %s, %s", name, core.files.uses_vfs() ? "read through the frontend VFS" : "read with stdio");
+            log(RETRO_LOG_INFO, "Kickstart %s%s, %s", name, decrypted ? " (decrypted with rom.key)" : "", core.files.uses_vfs() ? "read through the frontend VFS" : "read with stdio");
             return true;
         }
         report("p6_load", result, error);
@@ -1068,7 +1097,10 @@ bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::Fir
         refusals += std::string(name) + " refused (" + error.message + ")";
     }
     core.firmware.clear();
-    if (refusals.empty())
+    if (refusals.empty() && chosen)
+        notify_error("no Kickstart %s ROM in the system directory %s (looked for %s, ...); puae6_kickstart asks for it on the %s", chosen->version, directory, chosen->names[0],
+                     firmware.model);
+    else if (refusals.empty())
         notify_error("no Kickstart %s ROM in the system directory %s (looked for %s, ...) for the %s chosen by puae6_machine", firmware.kickstart, directory,
                      firmware.names[0], firmware.model);
     else
@@ -1772,7 +1804,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             return false;
         }
         core.initialized = true;
-        if (!load_firmware(manifest, *firmware)) {
+        if (!load_firmware(manifest, *firmware, p6_libretro::kickstart_choice(core.settings.kickstart))) {
             stop_image();
             return false;
         }

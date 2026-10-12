@@ -129,6 +129,17 @@ TASK_SUITES = {
         'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
         'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
     },
+    # T51 adds the Kickstart choice and the ROMs encrypted by Amiga Forever: `libretro_content` now also runs the `firmware` target (AMIROMTYPE1 images, keys of every length, wrong keys, cut and flipped tags,
+    # payloads of 0 to 600 KB against an independent oracle, the input never touched, nothing out unless Decrypted, a round trip gives the ROM back, the table of versions has its seven choices).
+    ('FUZZ01', 'T51'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'state_writable': 'tests.fuzz.test_fuzz.StateWritableFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
+        'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
+    },
     # T25: the portability matrix. DET04 (the declared ISA/compiler rows agree, hardware and A/V apart) and DET06 (another locale, zone, clock, directory
     # and ROM path change nothing) are the one module tests.portability.test_portability. Its coherence tests always run (the report, plan/runners.json,
     # the toolchain files and the recorded evidence say the same thing); the tests that build and run the rows are opt-in (P6_TEST_PORTABILITY=1: the

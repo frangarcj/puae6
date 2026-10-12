@@ -98,6 +98,51 @@ constexpr FirmwareNames kFirmware[] = {
     {P6_MACHINE_A2000, "A2000", "3.1", kA2000KickstartNames, sizeof kA2000KickstartNames / sizeof kA2000KickstartNames[0]},
 };
 
+// T51. puae6_kickstart chooses a Kickstart by version instead of the machine's own. The values are PUAE5's (libretro-uae puae_kickstart: the "normal" file name of each ROM, less the A4000 ones
+// and AROS, which this core does not have) and the names a version is looked for under are those of uae_kickstarts[] (normal, Amiga Forever, TOSEC "[!]", TOSEC) plus the spelling of the
+// collections that the lists above already have. Which machine can run a version is the bridge's decision from the bytes (the CPU the ROM needs), never from the name.
+constexpr const char *kKs12Names[] = {
+    "kick33180.A500",
+    "amiga-os-120.rom",
+    "Kickstart v1.2 rev 33.180 (1986)(Commodore)(A500-A2000)[!].rom",
+    "Kickstart v1.2 rev 33.180 (1986)(Commodore)(A500-A1000-A2000).rom",
+    "Kickstart v1.2 r33.180 (1986-10)(Commodore)(A500-A1000-A2000)[!].rom",
+};
+
+constexpr const char *kKs30A1200Names[] = {
+    "kick39106.A1200",
+    "amiga-os-300-a1200.rom",
+    "Kickstart v3.0 rev 39.106 (1992)(Commodore)(A1200)[!].rom",
+    "Kickstart v3.0 rev 39.106 (1992)(Commodore)(A1200).rom",
+    "Kickstart v3.0 r39.106 (1992-09)(Commodore)(A1200)[!].rom",
+};
+
+struct KickstartChoice {
+    uint32_t value;                  // the "abi" of the option value in config/schema/options.json (0 is Automatic, which has no entry here)
+    const char *option;              // the value of puae6_kickstart
+    const char *version;             // "2.05": how the message names it
+    const char *const *names;
+    size_t count;
+};
+
+constexpr KickstartChoice kKickstartChoices[] = {
+    {1, "kick33180.A500", "1.2", kKs12Names, sizeof kKs12Names / sizeof kKs12Names[0]},
+    {2, "kick34005.A500", "1.3", kA500KickstartNames, sizeof kA500KickstartNames / sizeof kA500KickstartNames[0]},
+    {3, "kick37175.A500", "2.04", kA500PlusKickstartNames, sizeof kA500PlusKickstartNames / sizeof kA500PlusKickstartNames[0]},
+    {4, "kick37350.A600", "2.05", kA600KickstartNames, sizeof kA600KickstartNames / sizeof kA600KickstartNames[0]},
+    {5, "kick40063.A600", "3.1 r40.063", kA2000KickstartNames, sizeof kA2000KickstartNames / sizeof kA2000KickstartNames[0]},
+    {6, "kick39106.A1200", "3.0", kKs30A1200Names, sizeof kKs30A1200Names / sizeof kKs30A1200Names[0]},
+    {7, "kick40068.A1200", "3.1 r40.068", kA1200KickstartNames, sizeof kA1200KickstartNames / sizeof kA1200KickstartNames[0]},
+};
+
+// The version puae6_kickstart names, or nullptr for Automatic (0) and for a value that is no choice (the options never produce one).
+inline const KickstartChoice *kickstart_choice(uint32_t value)
+{
+    for (const KickstartChoice &entry : kKickstartChoices)
+        if (entry.value == value) return &entry;
+    return nullptr;
+}
+
 // The names of `machine`, or nullptr for a number that is no machine (the options never produce one).
 inline const FirmwareNames *firmware_for(uint32_t machine)
 {

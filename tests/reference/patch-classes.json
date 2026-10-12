@@ -148,7 +148,8 @@
     "0260-programmed-beam-derived-values": "instrumentation",
     "0261-bitplane-sequencer-state": "instrumentation",
     "0280-disk-linecounter-state": "instrumentation",
-    "0262-denise-sprite-mask-unsigned-shift": "behavior"
+    "0262-denise-sprite-mask-unsigned-shift": "behavior",
+    "0290-rom-refusal-by-cpu": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

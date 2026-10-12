@@ -316,7 +316,7 @@ calculados desde la semantica del M68020UM (`tests/host/test_cpu_020.py`, `tests
 (`tests/scenarios/aga`, `tests/step/test_aga.py`), audio con el modelo de filtro del A1200 (`AudioA1200Tests`), 185 pruebas DET02 (`tests/state/test_det02_a1200.py`), estados nativos y
 de Waterbox, libretro con RetroArch real y el nucleo BizHawk (WB03).
 
-NO probado (no afirmar compatibilidad): otros Kickstart que el motor acepta por contenido (2.04 o 3.1 en el A600, 2.05 en el A500, el Kickstart 3.0 en el A1200); configuraciones del
+NO probado (no afirmar compatibilidad): otros Kickstart que el motor acepta por contenido (2.04 o 3.1 r40.063 en el A600, el Kickstart 3.0 en el A1200; T51 mide el 2.05 en el A500 y otros arranques, ver "Kickstart alternativo y rom.key"); configuraciones del
 el Kickstart 3.1 del A600 (r40.063, el del A600 de PUAE5; no hay copia autorizada) y Chip de 1,5 MiB; FPU (T54); Gayle e IDE (T56) y PCMCIA; 68030/040/060 y otros 020 sin el bus de 24 bits (T55); la interfaz de EmuHawk
 (el wrapper se probo por FFI y en el arnes, no con la UI); CD32/CDTV. La compatibilidad del A1200 con juegos y demos AGA mas alla de la demo citada no esta medida.
 
@@ -478,6 +478,40 @@ ficheros, reloj ni entorno, de modo que el mismo contenido elige siempre la mism
 preset o estandar elegido a mano nunca lo cambia una etiqueta. La tabla de etiquetas, la precedencia y las opciones `puae6_model_fd`, `puae6_model_hd` y `puae6_filename_tags` estan en `docs/options.md`
 ("Modelo automatico y etiquetas del nombre"). Una etiqueta de algo que no existe (68030/68040, CDTV, MultiDrive, Arcadia) se ignora con un aviso y no elige otra maquina. BizHawk no cambia en T76: su
 `Machine` es un sync setting y la deteccion por nombre no es trivial alli (queda fuera de esta tarea).
+
+### Kickstart alternativo y rom.key (T51)
+
+**Elegir el Kickstart.** La opcion `puae6_kickstart` (solo libretro, un selector del esquema sin campo en `p6_config`) elige una version en lugar de la propia de la maquina: sus valores son los de
+`puae_kickstart` de PUAE5 (el nombre "normal" de cada ROM: 1.2, 1.3, 2.04, 2.05, 3.1 r40.063, 3.0 y 3.1 r40.068; no los A4000 ni `aros`) y los nombres que busca para cada version son los de
+`uae_kickstarts[]` de PUAE5 (normal, Amiga Forever, TOSEC `[!]`, TOSEC; `tests/libretro-host/test_firmware.py` los lee del codigo de PUAE5 y exige que el adaptador los tenga todos). `auto` busca los
+nombres del modelo como antes. Una version elegida busca **solo** sus nombres (un directorio con el 1.3 no arranca una maquina a la que se pidio el 2.05, y `auto` nunca busca el 2.05 en el A500) y la
+decision de si la maquina puede ejecutarla es del puente, por los bytes del ROM y nunca por el nombre. Los bytes que arrancan son el firmware y su SHA-256 su identidad (como siempre): un estado o
+una pelicula tomados con otro Kickstart los rechaza la carga (`p6_state_load`; la cabecera `PUAE6Firmware` de las peliculas de BizHawk), con los mismos bytes bajo otro nombre u otra opcion los acepta.
+
+**Un ROM de otra CPU.** El parche 0290 guarda, cuando el ROM es uno que el motor conoce (su tabla de `rommgr.cpp`, por contenido) y pide mas CPU que el preset, el nombre que el motor le da y lo que pide;
+`p6_load` responde `WRONG_MEDIA` con el motivo: `the ROM "KS ROM v3.1 (A1200)" needs a 68EC020 or later but the A500 has a 68000: it is the firmware of another machine`. La comprobacion es la del parche
+0107 (68030 o mas, 68030, chipset del A4000, 68EC020, 68020 con bus de 32 bits). Un ROM que el motor no conoce (un micro-ROM, un dump desconocido) pasa por su cabecera y su suma de comprobacion.
+
+**ROMs cifradas de Amiga Forever (`rom.key`).** Un fichero que empieza por los 11 bytes `AMIROMTYPE1` es el ROM con cada byte XOR de los bytes del fichero de clave `rom.key` repetidos desde su primer
+byte (el fichero entero, de cualquier longitud: el de Amiga Forever pesa unos 1,5 KiB; el adaptador lee hasta 64 KiB); es el formato de `decode_cloanto_rom_do` de WinUAE (`rommgr.cpp`), y se acepta la
+clave si lo descifrado empieza como un Kickstart (`$4EF9` en el desplazamiento 2, o `$1111` / `$1114` al principio), la misma prueba. El adaptador libretro (`adapters/libretro/romkey.h`, funciones puras)
+lee `rom.key` (o `ROM.KEY`) del directorio de sistema, descifra y da a `p6_load` el ROM **descifrado**, cuyo SHA-256 es la identidad: el mismo ROM descifrado, o el cifrado con su clave, son un firmware y un
+estado se mueve entre ambos. La clave se usa y se descarta: ni sus bytes ni su longitud ni su hash llegan al puente, a un estado o a un log. Sin clave, con una clave vacia o mayor de 64 KiB, o con una que no
+descifra, el nombre se salta con un aviso que lo dice y se prueba el siguiente (no esconde un ROM bueno); si no queda ninguno el fallo nombra el motivo. Un ROM cifrado que llega tal cual a `p6_load` (headless,
+otro adaptador) lo rechaza con `firmware is an encrypted Amiga Forever ROM (AMIROMTYPE1): decrypt it with its rom.key before p6_load`. BizHawk: el nucleo recibe la clave por `Puae6Parameters.RomKey`
+(`integration/bizhawk/core/Puae6/RomKey.cs`, el mismo algoritmo y la misma prueba, comprobado en `tests/ffi/test_core.py` contra un cifrado escrito aparte); el gestor de firmware de EmuHawk no tiene
+entrada para una clave (su base de datos nombra los Kickstart sin cifrar por hash), de modo que desde EmuHawk el firmware se elige entre los Kickstart sin cifrar de la familia (`Amiga/A500`,
+`Amiga/A600`, `Amiga/A1200`: el 1.2, el 2.04 y el 3.1 r40.063 son opciones de esas entradas) y un ROM cifrado sin clave hace fallar la creacion del nucleo con el motivo. No hay ROM cifrado real de Amiga
+Forever del usuario: las pruebas usan un ROM sintetico cifrado con una clave sintetica; **el descifrado con material real de Amiga Forever NO se ha ejecutado**.
+
+**AROS.** No se integra. El ROM `aros.rom.cpp` de WinUAE (un gzip de 561 072 bytes que PUAE5 usa de reserva) se descarga aparte (el README de WinUAE manda bajar `aros.rom.cpp.zip`), no trae ni licencia ni
+receta de construccion ni version de AROS en el arbol fijado, y su licencia (AROS Public License, derivada de la MPL 1.1, con partes de terceros) depende de cual sea ese binario: sin eso no esta claro que se
+pueda redistribuir con el nucleo (decision de T06b2ba: retirado del perfil). Tampoco habria identidad estable sin fijar su version, ni compatibilidad medida; la opcion `aros` de PUAE5 no se ofrece.
+
+**Matriz medida** (propietario, opt-in con `P6_KICKSTART_ROM` 1.3, `P6_KICKSTART_A600_ZIP` 2.05 y `P6_KICKSTART_A1200_ROM` 3.1; `tests/libretro-host/test_firmware.py`, `OwnersKickstartsTests`): con `puae6_kickstart`
+llegan a la pantalla de insertar disco, tras 1 200 unidades y sin cambiar nada mas, el 2.05 en el A500, el A500 OG, el A500+, el A1000, el A2000 y el A1200, y el 1.3 en el A600, el A500+, el A2000 y el A1200; el
+3.1 r40.68 del A1200 se rechaza con el motivo anterior en el A500, A600, A500+, A500 OG, A1000, A2000 OG y A2000 (68000). Eso comprueba que la maquina corre, no compatibilidad con juegos. NO probado: el 1.2, el 2.04, el 3.0
+y el 3.1 r40.063 (no hay copia autorizada), cualquier ROM cifrado real de Amiga Forever y un Kickstart elegido desde EmuHawk.
 
 ## ROMs, discos y persistencia
 

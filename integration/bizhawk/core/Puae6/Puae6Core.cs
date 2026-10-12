@@ -22,6 +22,9 @@ public sealed class Puae6Parameters
 	public string? PinnedGuestSha256 { get; set; }
 	/// <summary>The Kickstart (or the micro-ROM of a test): copied by the guest into its sealed heap.</summary>
 	public byte[] Firmware { get; set; } = [ ];
+	/// <summary>The rom.key of Amiga Forever (T51), only needed when <see cref="Firmware"/> is an encrypted ROM (AMIROMTYPE1): the core decrypts it (<see cref="Puae6RomKey"/>) and the decrypted image is the firmware whose
+	/// SHA-256 is the identity of states and movies. The key is not kept.</summary>
+	public byte[]? RomKey { get; set; }
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
 	/// <summary>The ADF images the machine may use (880 KiB each, at most 16): the first <see cref="Puae6SyncSettings.FloppyDrives"/> are in a drive at power-on.</summary>
 	public IReadOnlyList<byte[]> Media { get; set; } = new List<byte[]>();
@@ -176,6 +179,13 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public Puae6Core(CoreComm comm, Puae6Parameters parameters)
 	{
 		CoreComm = comm;
+		if (Puae6RomKey.IsEncrypted(parameters.Firmware))
+			parameters = new Puae6Parameters
+			{
+				GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256, SyncSettings = parameters.SyncSettings,
+				Firmware = Puae6RomKey.Resolve(parameters.Firmware, parameters.RomKey), Media = parameters.Media, MediaNames = parameters.MediaNames, HardFiles = parameters.HardFiles,
+				HardFileNames = parameters.HardFileNames, Volumes = parameters.Volumes, VolumeNames = parameters.VolumeNames,
+			};
 		parameters = Puae6Volumes.Resolve(parameters);
 		_syncSettings = parameters.SyncSettings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));

@@ -2234,6 +2234,20 @@
         "enabled": 1,
         "disabled": 0
       }
+    },
+    "kickstart": {
+      "libretro": "puae6_kickstart",
+      "default": "auto",
+      "values": {
+        "auto": 0,
+        "kick33180.A500": 1,
+        "kick34005.A500": 2,
+        "kick37175.A500": 3,
+        "kick37350.A600": 4,
+        "kick40063.A600": 5,
+        "kick39106.A1200": 6,
+        "kick40068.A1200": 7
+      }
     }
   },
   "reserved": {

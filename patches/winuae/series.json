@@ -3855,6 +3855,32 @@
           "after_sha256": "04f5df70cb623a9178ada3bf06caa007bf69b1bb2a07d9855a8d217c465b9941"
         }
       ]
+    },
+    {
+      "id": "0290-rom-refusal-by-cpu",
+      "file": "patches/winuae/0290-rom-refusal-by-cpu.patch",
+      "sha256": "d694dac3438dc43698a781a496e624e092073410600213c5694a966412d8664a",
+      "title": "Name and CPU requirement of a Kickstart the preset cannot run",
+      "reason": "p6_load answered 'not an accepted Kickstart image' for a known ROM that needs a 68020 or more than the preset has (patch 0107); the engine already knows which ROM it is and what it needs, so the bridge can say it. The refusal is only recorded for the message; the status and the load are as before.",
+      "category": "host hooks",
+      "order": 143,
+      "symbols": [
+        "p6_memory_rom_refusal",
+        "load_kickstart",
+        "restore_roms",
+        "memory_init",
+        "memory_cleanup"
+      ],
+      "test": "tests/libretro-host/test_firmware.py (a ROM of another CPU is refused with its name and requirement)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "276f26f143318a9d25cd88357de16f56b0cd495f3575730b19fd62991ae913b7",
+          "after_sha256": "cba17dfa5ebc69f2c2668addcd8204bfa7b790ea9cb761458e9cbd258711fbc4"
+        }
+      ]
     }
   ]
 }

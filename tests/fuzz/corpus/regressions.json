@@ -188,6 +188,18 @@
       "seed": 2,
       "iterations": 6000,
       "note": "baseline of T76"
+    },
+    {
+      "target": "firmware",
+      "seed": 1,
+      "iterations": 1500,
+      "note": "baseline of T51 (the ROMs encrypted by Amiga Forever: AMIROMTYPE1 images and keys of every length, wrong keys, cut and flipped tags, payloads of 0 to 600 KB, against an independent oracle; the input is never touched, nothing comes out unless Decrypted, a round trip gives the ROM back; the table of versions has exactly its seven choices)"
+    },
+    {
+      "target": "firmware",
+      "seed": 2,
+      "iterations": 1500,
+      "note": "baseline of T51"
     }
   ],
   "config_runs": [

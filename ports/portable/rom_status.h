@@ -13,6 +13,9 @@ enum { P6_ROM_LOAD_OK = 0, P6_ROM_UNLOADED = 1, P6_ROM_OPEN_ERROR = 2,
  * The bridge must validate firmware and check this after load/reset and before
  * run; CPU entry also guards it. No public ABI success is implied by this API. */
 int p6_memory_rom_status(void);
+/* When P6_ROM_UNSUPPORTED came from a ROM the engine knows that needs more than the preset's CPU (patch 0290): the requirement bits of upstream's table (rd->cpu: 8 = 68030 or later,
+ * 3 = 68030, 4 = A4000 chipset, 1 = 68EC020 or later, 2 = 68020 with a 32-bit bus) and the engine's name for the ROM (*name, valid until the next load); 0 and NULL otherwise. */
+int p6_memory_rom_refusal(const char **name);
 #ifdef __cplusplus
 }
 #endif
