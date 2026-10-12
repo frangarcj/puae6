@@ -70,9 +70,16 @@ p6_config valid_config(uint32_t machine = P6_MACHINE_A500)
 
 // The memory rules of p6_config (T49), written again from the header comments: 0 is the machine's own, P6_MEMORY_NONE is none. The A500 has an OCS Agnus (Chip RAM 512 KiB or 1 MiB),
 // AGA maps 1.5 MiB of Slow RAM at most, and the Fast RAM board is 1, 2, 4 or 8 MiB.
+bool machine_accepted(uint32_t machine) { return machine >= P6_MACHINE_A500 && machine <= P6_MACHINE_A2000; }       // 1 to 8 (T50)
+
+// OCS Agnus: the A500, the A500 OG and the A2000 OG (the A1000 has its own rule); the others have the ECS Agnus or AGA and take 2 MiB of Chip RAM.
+bool ocs_agnus(uint32_t machine) { return machine == P6_MACHINE_A500 || machine == P6_MACHINE_A500OG || machine == P6_MACHINE_A2000OG; }
+
 bool memory_accepted(const p6_config &c)
 {
-    const bool a500 = c.machine == P6_MACHINE_A500, aga = c.machine == P6_MACHINE_A1200;
+    if (c.machine == P6_MACHINE_A1000)         // the memory of its preset: 512 KiB of Chip RAM, nothing else
+        return (c.chip_kib == 0 || c.chip_kib == 512) && (c.slow_kib == 0 || c.slow_kib == P6_MEMORY_NONE) && (c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE);
+    const bool a500 = ocs_agnus(c.machine), aga = c.machine == P6_MACHINE_A1200;
     const bool chip = c.chip_kib == 0 || c.chip_kib == 512 || c.chip_kib == 1024 || (!a500 && c.chip_kib == 2048);
     const bool slow = c.slow_kib == 0 || c.slow_kib == P6_MEMORY_NONE || c.slow_kib == 512 || c.slow_kib == 1024 || c.slow_kib == 1536 || (!aga && c.slow_kib == 1792);
     const bool fast = c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE || c.fast_kib == 1024 || c.fast_kib == 2048 || c.fast_kib == 4096 || c.fast_kib == 8192;
@@ -97,7 +104,7 @@ bool oracle_accepts(const p6_config &c)
 {
     // Self-test of the harness: with this variable set the oracle is wrong on purpose, and the run has to fail.
     static const bool inverted = getenv("P6_FUZZ_SELFTEST") != nullptr;
-    return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && (c.machine == P6_MACHINE_A500 || c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) &&
+    return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && machine_accepted(c.machine) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
            (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && fpu_accepted(c) && audio_accepted(c) &&
            !c.reserved1 && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
@@ -136,7 +143,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
                 static const uint32_t sizes[] = {0, 256, 512, 1024, 1536, 1792, 2048, 4096, 8192, 16384, P6_MEMORY_NONE};
                 uint32_t *field = rng.below(3) == 0 ? &c.chip_kib : rng.coin() ? &c.slow_kib : &c.fast_kib;
                 *field = sizes[rng.below(sizeof sizes / sizeof sizes[0])];
-                if (rng.coin()) c.machine = 1 + rng.below(3);
+                if (rng.coin()) c.machine = 1 + rng.below(8);
                 if (rng.below(4) == 0) { static const uint32_t fpus[] = {0, 68881, 68882, 68040, 1}; c.fpu_model = fpus[rng.below(5)]; }       // T54: valid on the A1200 only
                 if (rng.below(4) == 0) {         // T73: Paula's output, in and out of range
                     c.sound_separation = uint8_t(rng.below(14)); c.sound_interpolation = uint8_t(rng.below(8));
@@ -1076,18 +1083,29 @@ int fuzz_hardfile(const char *rom_path, uint64_t seed, uint64_t iterations, int 
 
 }  // namespace
 
+// The machine a name of the command line stands for (the state target takes any machine, T50), 0 when it is none.
+static uint32_t state_machine(const char *name)
+{
+    static const struct { const char *name; uint32_t machine; } machines[] = {
+        {"a600", P6_MACHINE_A600}, {"a1200", P6_MACHINE_A1200}, {"a500og", P6_MACHINE_A500OG}, {"a500plus", P6_MACHINE_A500PLUS},
+        {"a1000", P6_MACHINE_A1000}, {"a2000og", P6_MACHINE_A2000OG}, {"a2000", P6_MACHINE_A2000},
+    };
+    for (const auto &m : machines)
+        if (!strcmp(name, m.name)) return m.machine;
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 4 && !strcmp(argv[1], "config")) return fuzz_config(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "firmware")) return fuzz_firmware(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
     if (argc == 5 && !strcmp(argv[1], "media")) return fuzz_media(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10));
-    if ((argc == 5 || (argc == 6 && (!strcmp(argv[5], "a600") || !strcmp(argv[5], "a1200")))) && (!strcmp(argv[1], "state") || !strcmp(argv[1], "state-writable"))) {
+    if ((argc == 5 || (argc == 6 && state_machine(argv[5]))) && (!strcmp(argv[1], "state") || !strcmp(argv[1], "state-writable"))) {
         g_writable = !strcmp(argv[1], "state-writable");
-        return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10),
-                          argc == 5 ? P6_MACHINE_A500 : !strcmp(argv[5], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A1200);
+        return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc == 5 ? P6_MACHINE_A500 : state_machine(argv[5]));
     }
     if (argc >= 6 && !strcmp(argv[1], "hardfile")) return fuzz_hardfile(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc - 5, argv + 5);
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200] | state-writable ROM SEED N | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200|a500og|a500plus|a1000|a2000og|a2000] | state-writable ROM SEED N | blob SEED N\n", argv[0]);
     return 64;
 }

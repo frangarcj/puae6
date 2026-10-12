@@ -12562,7 +12562,7 @@
       "title": "Presets A500OG (sin Slow), A500+ (KS 2.04, 1M Chip), A1000, A2000OG y A2000 (ECS, KS 3.1)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T49",
         "T50a",
@@ -12593,11 +12593,13 @@
         "manifests/waterbox-memory.json",
         "docs/02-contracts.md",
         "plan/tasks.json",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "tests/fuzz/**"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Cada preset sale de built_in_prefs de upstream con overrides declarados y su perfil verificado campo a campo, como T23a; arranque opt-in con el Kickstart que el usuario autorice para cada uno; tabla de capacidades.",
-        "Division (2026-10-12): T50a (motor, perfiles, escenarios y estado), T50b (libretro), T50c (BizHawk/Waterbox); T50 es el cierre: tabla de capacidades de docs/02-contracts.md, lo no probado declarado (Kickstart 2.04 y 3.1 r40.063: sin copia autorizada; el A1000 real con su ROM de arranque y el Kickstart de disco) y los cuatro checks."
+        "Division (2026-10-12): T50a (motor, perfiles, escenarios y estado), T50b (libretro), T50c (BizHawk/Waterbox); T50 es el cierre: tabla de capacidades de docs/02-contracts.md, lo no probado declarado (Kickstart 2.04 y 3.1 r40.063: sin copia autorizada; el A1000 real con su ROM de arranque y el Kickstart de disco) y los cuatro checks.",
+        "Ampliacion de touch (2026-10-12): FUZZ01 (tests/fuzz) modela las maquinas aceptadas y corre el fuzz de estado de los cinco presets (corpus de regresiones); el cierre lo verifica con la suite de estado completa (2143 pruebas), los 221 tests de libretro-host, ffi, waterbox-smoke y waterbox-state."
       ],
       "checks": [
         "AV01",

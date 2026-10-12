@@ -282,7 +282,7 @@ real: `retro_serialize_size` no se mueve con una opcion de presentacion cambiada
 
 ### Maquinas y capacidades (T23, T24)
 
-`p6_config.machine` elige entre tres presets del MISMO perfil de build `deterministic-a500` (no hay un segundo perfil: mismo motor, mismo scheduler `p6_run_frame`, sin ifdefs
+`p6_config.machine` elige entre tres presets (T23, T24; T50 anade cinco mas, ver abajo) del MISMO perfil de build `deterministic-a500` (no hay un segundo perfil: mismo motor, mismo scheduler `p6_run_frame`, sin ifdefs
 de frontend; el interprete 68000 ciclo exacto `cpuemu_13` y el 68020 ciclo exacto `cpuemu_21` estan compilados y `m68k_run` elige por el modelo de CPU del preset, ADR 0010).
 Cada preset sale de `built_in_prefs` del upstream fijado (`config/profiles/a500-ocs.json`, `a600-ecs.json`, `a1200-aga.json`; `tests/host` compara cada perfil con las
 preferencias que construye `bridge/config.cpp`, campo a campo, y cada campo que difiere del upstream lleva su razon).
@@ -332,6 +332,56 @@ de modo que el campo largo y el entrelazado (0,3 %) no lo disparan y un cambio r
 `waiting_blits = 0` (el preset de upstream pone 1, "automatico", para toda CPU desde el 68020: la espera del blitter correria dentro de la escritura que lo arranca, un atajo de emulacion
 sin hardware detras y un bucle en mitad de una instruccion; con 0 la CPU ejecuta sus propios bucles de sondeo, como en las maquinas de 68000), de modo que un programa que cuenta con ese
 atajo no lo encuentra; sin Gayle, `$DE1000` y su banco leen el espejo de custom en lugar de un registro de Gayle. El A1200 de serie es el A1200OG de PUAE5; el que lleva 8 MiB de Fast RAM es el preset `a1200_fast8` (T49).
+
+### Presets A500 OG, A500+, A1000, A2000 OG y A2000 (T50)
+
+Cinco presets mas del MISMO perfil `deterministic-a500` (mismo motor, mismo `p6_run_frame`), valores aditivos de `p6_config.machine` (`P6_MACHINE_A500OG` 4, `A500PLUS` 5, `A1000` 6, `A2000OG` 7, `A2000` 8):
+los tres anteriores conservan valor, `config_hash`, estados y hashes. `bridge/config.cpp` tiene una tabla (`kMachines`) con el modelo y la configuracion de `built_in_prefs` de cada uno, su
+memoria, CPU y chipset; cada perfil esta en `config/profiles/<maquina>.json` y `tests/host/test_machine_profiles.py` lo compara campo a campo con el comparador upstream (fuente de cada campo
+`upstream`/`pin`/`override`/`config`; un campo `upstream` o `pin` tiene el valor del comparador, un cambio sin declarar falla). El comparador se construye como WinUAE: primero el estandar de video,
+despues `built_in_prefs`.
+
+| | A500 OG | A500+ | A1000 | A2000 OG | A2000 |
+| --- | --- | --- | --- | --- | --- |
+| Sale de | modelo 0, configuracion 3 | modelo 1 | modelo 3 | modelo 0 + tabla `CP_A2000` | modelo 1 (chipset ECS Agnus) + tabla `CP_A2000` |
+| Chipset | OCS | ECS (Agnus y Denise) | 8361 Agnus + 8362 Denise (`CSMASK_A1000`, `cs_agnusmodel`/`cs_denisemodel`) | OCS | ECS Agnus + Denise OCS (el `ecs_agnus` de PUAE5) |
+| Chip / Slow | 512 KiB / ninguna | 1 MiB / ninguna | 512 KiB / ninguna (la memoria del preset: otra se rechaza) | 512 KiB / 512 KiB | 1 MiB / ninguna |
+| Reloj MSM6242B | no | si | no | si | si |
+| TOD de CIA-A | sincronismo vertical | sincronismo vertical | red (50/60 Hz) | red | red |
+| Kickstart (libretro, `puae6_machine`) | el 1.3 del A500 | `kick37175.A500` (2.04) | 1.3, 1.2, 1.1 como ROM de 256 KiB | el 1.3 | `kick40063.A600` (3.1 r40.063) |
+| FirmwareID BizHawk | Amiga/A500 | Amiga/A600 | Amiga/A500 | Amiga/A500 | Amiga/A600 |
+| Estado | el del A500 sin Slow ni reloj (-524 319 B) | igual tamano que el A500 | el del A500 OG + CTOD (+16 B) | el del A500 + CTOD (+16 B) | el del A500+ + CTOD (+16 B) |
+
+Overrides declarados en los perfiles (el resto de diferencias con upstream es la de siempre: media por content id, entrada, video, audio):
+DF1 se conserva (la configuracion 3 del A500 y el A1000 de upstream solo tienen una unidad; la ABI da DF0 y DF1 a toda maquina); en el A1000 y los A2000, `cs_compatible = 0` despues de aplicar la
+tabla una vez (cada `fixup_prefs` la reaplicaria con el aviso de reset, `cs_resetwarning`, que la frontera de entrada del estado rechaza; el A600 y el A1200 hacen lo mismo por Gayle); el filtro de audio del
+A1000 es el del perfil (emulado) y no el "siempre activo" de upstream; el A2000 (ECS Agnus sin Denise ECS) es el de PUAE5 (`chipset ecs_agnus`). El A2000 no tiene modelo upstream: PUAE5 lo hace con
+`chipset_compatible = A2000`, que en WinUAE es `cs_compatible = CP_A2000` y `built_in_chipset_prefs`, y asi lo construye el puente (`cs_rtc`, `cs_ciaatod`, `cs_unmapped_space`, `cs_df0idhw` son
+overrides con `via: CP_A2000`). `cs_ciaatod` (50 o 60 Hz) depende del estandar, que el puente elige ANTES de `built_in_prefs`, como WinUAE.
+
+Memoria: A500 OG, A2000 OG, A500+ y A2000 siguen las reglas de T49 de su Agnus (OCS: Chip 512 KiB o 1 MiB; ECS: tambien 2 MiB; Slow 512 KiB a 1,75 MiB; una placa Fast Zorro II); el A1000 solo admite la
+suya (`P6_ERROR_UNSUPPORTED` "the A1000 has the memory of its preset"). FPU: solo el A1200.
+
+Decision del A1000: el Kickstart llega como imagen ROM de 256 KiB (1.3 probado; 1.2 y 1.1 los busca el nucleo libretro pero NO se probaron). El A1000 real arranca con un ROM de arranque de 8 KiB y el
+Kickstart en un disco que se carga en la RAM de solo-escritura (WOM): el cargador portable solo acepta 256 o 512 KiB (y la imagen de disco `KICK`), asi que ese camino no existe aqui y `cs_a1000ram`
+queda como bandera sin efecto. Declarado, no emulado.
+
+TOD de red: con `cs_ciaatod` 1 o 2 el TOD cuenta 50 o 60 Hz y no el sincronismo; el estado lleva dos palabras mas (parche 0240: `cia_hsync` y `vblank_hz`, cuerpo CTOD de P6CH, solo en esas tres
+maquinas: los estados de las otras cinco no cambian), sin las cuales DET02 divergia (un tick de TOD) con un micro-ROM y para siempre con el Kickstart 1.3 y un juego, en un estado tomado a mitad de la
+carga del disco. Medido (no afirmado de un hardware): el periodo del TOD de red es el de 1/50 s o 1/60 s mas una o dos lineas (el contador de `cia_hsync_do` espera un limite de linea; 14 233 relojes E en
+PAL frente a 14 187,6 ideales); el registro de decenas de ano del reloj vale 10 en 2000 (`tm_year / 10`, como lo guarda `rtc.cpp`); en NTSC las dos columnas de la izquierda de cada par de filas
+(fuera de lo que describe el modelo) son negras en el A1000 donde el A500 muestra el final de la linea anterior.
+
+Probado: micro-ROM en los cinco, PAL y NTSC (identificacion de chips, Chip RAM y su alias, reloj, TOD, imagenes deducidas del programa y sus hashes de repetibilidad en
+`tests/scenarios/machines/machines-baselines.json`; `tests/step/test_machines.py`, AV01), DET02 con 439 pruebas y la estructura y matriz de estados (`tests/state/test_det02_machines.py`,
+`test_state_machines.py`), headless, nucleo libretro (`tests/libretro-host/test_machines.py`: sesion = `p6_headless --machine`, nombres de Kickstart, familias, memoria, estados) y el nucleo BizHawk dentro de Waterbox
+(`tests/waterbox-state/test_wrapper_machines_t50.py`, WB03 y la matriz de identidad entre las ocho maquinas). Con firmware autorizado (opt-in): el Kickstart 1.3 arranca en el A500 OG, el A1000 y el A2000 OG
+hasta la pantalla de insertar disco (la misma imagen que el A500) y, con el disco del juego autorizado, hasta su pantalla de carga; DET02 restaura estados con el 1.3 (con y sin el disco) en las tres maquinas
+(`tests/step/test_kickstart_ks13.py`, `Det02Kickstart13*`).
+
+NO probado: el Kickstart 2.04 en el A500+ y el 3.1 r40.063 en el A2000 (no hay copia autorizada; esos dos presets solo corren micro-ROM); los Kickstart 1.2 y 1.1 en el A1000; el arranque real del A1000 con
+su ROM de arranque; la compatibilidad con juegos o demos mas alla del arranque citado; la interfaz de EmuHawk. Los libretro y BizHawk piden el firmware por familia (la base de BizHawk de MacHawk no se toca):
+quien tenga el 2.04 y el 3.1 los elige en el gestor de firmware de la entrada Amiga/A600.
 
 ### Memoria configurable (T49)
 

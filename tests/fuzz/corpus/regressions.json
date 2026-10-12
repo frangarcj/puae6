@@ -66,6 +66,36 @@
       "iterations": 60,
       "machine": "a1200",
       "note": "T24c: the A1200 profile (68EC020, AGA, 2 MiB Chip, the 68020 block of P6CP, CAGA and the Denise ring in the video chunk): mutated states of 2.2 MB each"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a500og",
+      "note": "T50: the A500 OG: no Slow RAM, no clock chunk (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a500plus",
+      "note": "T50: the A500+: ECS Agnus, 1 MiB Chip, the clock chunk (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 100,
+      "machine": "a1000",
+      "note": "T50: the A1000: the 8361 chips and the CTOD body of P6CH (patch 0240), no clock chunk (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a2000og",
+      "note": "T50: the A2000 OG: Slow RAM, the clock chunk and the CTOD body (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 100,
+      "machine": "a2000",
+      "note": "T50: the A2000: ECS Agnus with the OCS Denise, the clock chunk and the CTOD body (baseline; no defect found)"
     }
   ],
   "state_writable_runs": [
