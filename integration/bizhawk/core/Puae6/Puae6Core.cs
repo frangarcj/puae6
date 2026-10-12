@@ -75,7 +75,21 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public const int FloppyOverlayKiB = 4096;
 
 	// What each machine comes with, in KiB: Chip, Slow.
-	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch { Puae6Machine.A1200 => (2048u, 0u), Puae6Machine.A600 => (1024u, 0u), _ => (512u, 512u) };
+	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch
+	{
+		Puae6Machine.A1200 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
+		Puae6Machine.A500OG or Puae6Machine.A1000 => (512u, 0u), _ => (512u, 512u),   // A500 and A2000 OG: 512 KiB Chip + 512 KiB Slow
+	};
+
+	/// <summary>Whether the machine has an OCS Agnus: it cannot leave its video standard (no BEAMCON0), so its picture in NTSC has the NTSC rows.</summary>
+	public static bool IsOcs(Puae6Machine machine) => machine is Puae6Machine.A500 or Puae6Machine.A500OG or Puae6Machine.A1000 or Puae6Machine.A2000OG;
+
+	/// <summary>The number of the machine in p6_config.machine (P6_MACHINE_*, config/schema/options.json).</summary>
+	static uint MachineNumber(Puae6Machine machine) => machine switch
+	{
+		Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, Puae6Machine.A500OG => P6.MachineA500OG, Puae6Machine.A500PLUS => P6.MachineA500Plus,
+		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, _ => P6.MachineA500,
+	};
 
 	static uint ChipKib(Puae6Chip chip) => chip switch { Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB2 => 2048u, _ => 0u };
 
@@ -169,9 +183,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
 		BufferWidth = MaxWidth;
-		// The buffer the machine announces at the load: 576 rows, except an A500 in NTSC (it cannot leave its standard); the A600 and the A1200 keep the PAL height in
+		// The buffer the machine announces at the load: 576 rows, except an OCS machine in NTSC (the A500, the A500 OG, the A1000 and the A2000 OG cannot leave their standard); the ECS and AGA machines keep the PAL height in
 		// NTSC too so that a programmed PAL beam fits (ADR 0006). The first picture replaces it with the size that was really drawn.
-		BufferHeight = _syncSettings.Region == Puae6Region.NTSC && _syncSettings.Machine == Puae6Machine.A500 ? 486 : MaxHeight;
+		BufferHeight = _syncSettings.Region == Puae6Region.NTSC && IsOcs(_syncSettings.Machine) ? 486 : MaxHeight;
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
 		_aspectNum = 1; _aspectDen = 1;
 
@@ -244,7 +258,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		}
 		init.Config.AbiVersion = P6.AbiVersion;
 		init.Config.StructSize = (uint)sizeof(P6Config);
-		init.Config.Machine = _syncSettings.Machine switch { Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, _ => P6.MachineA500 };
+		init.Config.Machine = MachineNumber(_syncSettings.Machine);
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
 		init.Config.AudioRateHz = 48000;
 		init.Config.Flags = _syncSettings.FloppyWrites ? P6.ConfigFloppyWrites : 0;      // off: every disk is write protected, as in ABI v1

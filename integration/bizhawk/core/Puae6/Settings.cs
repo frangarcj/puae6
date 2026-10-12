@@ -8,9 +8,11 @@ public enum Puae6Region { PAL, NTSC }
 
 /// <summary>
 /// The Amiga the core emulates: the A500 (OCS, 512 KiB Chip + 512 KiB Slow RAM, Kickstart 1.3) the A600 (ECS, 1 MiB Chip RAM, Kickstart 2.05, no IDE or PCMCIA) or the A1200 (68EC020, AGA, 2 MiB Chip RAM, Kickstart 3.1, no Gayle).
-/// The names are the ones of the schema (config/schema/options.json) and of the BizHawk firmware database (FirmwareID "A500" / "A600").
+/// The names are the ones of the schema (config/schema/options.json). T50 adds the A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3), the A500+ (ECS, 1 MiB Chip, Kickstart 2.04), the A1000 (the 8361 and 8362 chips,
+/// 512 KiB Chip, a Kickstart 1.x image as a ROM) and the A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, the clock and the mains TOD of the A2000) and the A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1). The firmware each asks
+/// of BizHawk's database is in Puae6Core.EmuHawk.cs (FirmwareOf): the database has the entries "A500" (Kickstart 1.3) and "A600" (2.05, 2.04 and the 3.1 r40.063 of the A600 and the A2000).
 /// </summary>
-public enum Puae6Machine { A500, A600, A1200 }
+public enum Puae6Machine { A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000 }
 
 /// <summary>Chip RAM (restart): the machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB) or a size; the A500 (OCS) has 512 KiB or 1 MiB, the other machines also 2 MiB.</summary>
 public enum Puae6Chip { Auto, KB512, MB1, MB2 }

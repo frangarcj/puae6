@@ -10,6 +10,7 @@ WB04  two machines of the same guest in one process, taking turns with different
       is disposed.
 T24f  the same lines on the A1200 (Machine = A1200, --machine a1200) and its domains: 2 MiB of Chip RAM and the ROM.
 T23e  the same lines on the A600 (Machine = A600, --machine a600): the picture, ticks and PCM of p6_headless --machine a600; the domains are 1 MiB of Chip RAM and the ROM.
+T50   the same lines on the A500 OG, the A500+, the A1000, the A2000 OG and the A2000 (--machine a500og, a500plus, a1000, a2000og, a2000) and their domains.
 WB07  the memory domains are the machine's (big endian, 16-bit words, function hooks): pokes before the first unit go through the guest into pages nothing
       has written, the ROM takes none, out-of-range accesses throw, and nothing is a temporary pointer or an empty region.
 
@@ -207,6 +208,35 @@ class CoreTests(unittest.TestCase):
                 for row, (unit, ticks, video, w, h, parity, an, ad, cn, cd, picture, audio) in zip(rows, native):
                     self.assertEqual((unit, ticks, f"{w}x{h}", f"{cn}/{cd}", picture, audio), (row["unit"], row["ticks"], row["size"], row["vsync"], row["hash"], row["audio"]), f"unit {unit}")
                 self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
+
+    T50_MACHINES = {"a500og": {"Chip RAM": 524288}, "a500plus": {"Chip RAM": 1048576}, "a1000": {"Chip RAM": 524288}, "a2000og": {"Chip RAM": 524288, "Slow RAM": 524288}, "a2000": {"Chip RAM": 1048576}}
+
+    def test_picture_audio_and_timing_per_unit_are_those_of_headless_on_the_t50_machines_in_both_standards(self):
+        # T50: the core with Machine = A500OG, A500PLUS, A1000, A2000OG or A2000 is p6_headless --machine <name>.
+        for machine in self.T50_MACHINES:
+            for standard, flag in (("pal", []), ("ntsc", ["--ntsc"])):
+                with self.subTest(machine=machine, standard=standard):
+                    units = 30
+                    rows, out = self.av("lace", units, "--machine", machine, *flag)
+                    native = self.headless_lines("lace", units, "--machine", machine, *flag)
+                    self.assertEqual(units, len(rows))
+                    for row, (unit, ticks, video, w, h, parity, an, ad, cn, cd, picture, audio) in zip(rows, native):
+                        self.assertEqual((unit, ticks, f"{w}x{h}", f"{cn}/{cd}", picture, audio), (row["unit"], row["ticks"], row["size"], row["vsync"], row["hash"], row["audio"]), f"unit {unit}")
+                    self.assertIn(f"region={'NTSC' if standard == 'ntsc' else 'PAL'} system=Amiga deterministic=True", out)
+
+    def test_the_t50_machines_have_the_memory_domains_of_their_preset(self):
+        for machine, sizes in self.T50_MACHINES.items():
+            with self.subTest(machine=machine):
+                out = self.core("domains", "--firmware", str(self.dir / "chipcell.rom"), "--machine", machine)
+                names = ",".join([*sizes, "ROM", "Waterbox PageData"])
+                self.assertIn(f"domains {names}", out)
+                for name, size in sizes.items():
+                    self.assertIn(f"domain {name} size={size} writable=True", out)
+                if "Slow RAM" not in sizes:
+                    self.assertNotIn("Slow RAM size=", out)
+                self.assertIn("domain ROM size=524288 writable=False", out)
+                self.assertIn("chip-marker 50364d57", out)
+                self.assertEqual(4, out.count("ok an out-of-range access throws"))
 
     def test_a_guest_that_programs_ntsc_timing_on_a_pal_a600_changes_the_vsync_the_core_reports(self):
         # T23f: BizHawk takes the frame rate from every unit that carries a picture, so the rate of the beam the guest programs (262 lines of 227.5 clocks

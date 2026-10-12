@@ -84,13 +84,18 @@ internal static unsafe partial class Program
 		}
 	}
 
-	/// <summary>The machine a command asks for: "a500" (the default), "a600" or "a1200".</summary>
+	/// <summary>The machine a command asks for: "a500" (the default), "a600", "a1200" or, from T50, "a500og", "a500plus", "a1000", "a2000og" or "a2000".</summary>
 	static Puae6Machine MachineOf(string? name) => (name ?? "a500").ToLowerInvariant() switch
 	{
 		"a500" => Puae6Machine.A500,
 		"a600" => Puae6Machine.A600,
 		"a1200" => Puae6Machine.A1200,
-		var other => throw new ArgumentException($"machine is a500, a600 or a1200 (got {other})"),
+		"a500og" => Puae6Machine.A500OG,
+		"a500plus" => Puae6Machine.A500PLUS,
+		"a1000" => Puae6Machine.A1000,
+		"a2000og" => Puae6Machine.A2000OG,
+		"a2000" => Puae6Machine.A2000,
+		var other => throw new ArgumentException($"machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og or a2000 (got {other})"),
 	};
 
 	static Puae6Core MakeCore(Dictionary<string, string> options, Puae6SyncSettings? settings = null, IReadOnlyList<byte[]>? media = null, IReadOnlyList<byte[]>? hardFiles = null)
@@ -225,10 +230,11 @@ internal static unsafe partial class Program
 		// Chip RAM above 512 KiB, which the fixtures leave alone, takes its place.
 		var board = domains["Fast RAM"];
 		Require((board != null) == (settings.FastMemory != Puae6Fast.None), "the Fast RAM domain exists when a board is configured and only then");
-		bool hasSlow = settings.SlowMemory switch { Puae6Slow.None => false, Puae6Slow.Auto => machine == Puae6Machine.A500, _ => true };
+		bool hasSlow = settings.SlowMemory switch { Puae6Slow.None => false, Puae6Slow.Auto => machine is Puae6Machine.A500 or Puae6Machine.A2000OG, _ => true };
 		Require((domains["Slow RAM"] != null) == hasSlow, "Slow RAM exists when the machine has it");
 		var slow = board ?? domains["Slow RAM"] ?? chip;
-		long scratch = ReferenceEquals(slow, chip) ? 0x80000 : 0;
+		// With nothing but Chip RAM (the 512 KiB of the A500 OG and the A1000 included) the pokes go to the part the fixtures leave alone: above 512 KiB when there is any, else $40000.
+		long scratch = ReferenceEquals(slow, chip) ? (chip.Size > 0x80000 ? 0x80000 : 0x40000) : 0;
 		Console.WriteLine($"scratch {slow.Name} base={scratch}");
 		var rom = domains["ROM"]!;
 		// Before the first unit, right after the seal: nothing has written the machine, so a poke from managed code would be fatal; these go through the guest.

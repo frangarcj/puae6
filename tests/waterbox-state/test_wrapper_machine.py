@@ -58,6 +58,10 @@ def program_text(lines):
 
 @unittest.skipUnless(runtime_available() and TOOLS, "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")
 class WrapperMachineTests(unittest.TestCase):
+    MACHINES = MACHINES          # the machines these tests run on
+    UNIVERSE = MACHINES          # every machine a state or a movie of which has to be refused by each of them (T50: tests/waterbox-state/test_wrapper_machines_t50.py has the other five)
+    MOVIE_PLAYBACK = ("a600", "a1200")
+
     @classmethod
     def setUpClass(cls):
         cls.sha = json.loads(RECEIPT.read_text())["guest"]["sha256"]
@@ -91,8 +95,8 @@ class WrapperMachineTests(unittest.TestCase):
         return self.script("held", [line(keys=[ESC] if u >= 50 else [], p0=(MOUSE, 0, 1 if u % 7 == 0 else 0, 0), p1=(JOYSTICK, 0, 0, 0)) for u in range(1, 500)])
 
     def session(self, lines, firmware="disk", expect=0):
-        WrapperMachineTests.count += 1
-        path = self.dir / f"program-{WrapperMachineTests.count}.txt"
+        type(self).count += 1
+        path = self.dir / f"program-{type(self).count}.txt"
         path.write_text(program_text(lines))
         fw = firmware if os.path.isabs(firmware) else self.rom(firmware)
         result = build_waterbox.run_ffi("session", "--runtime", "libwaterboxhost.dylib", "--guest", str(GUEST), "--sha", self.sha, "--firmware", fw, "--program", str(path))
@@ -114,11 +118,13 @@ class WrapperMachineTests(unittest.TestCase):
 
     # --- WB03, WB04 and WB15 on both machines ---------------------------------------------------------------------------------------
 
+    SAVE_POINTS = (10, 55, 130)
+
     def test_save_go_on_load_and_repeat_gives_the_same_units_and_the_same_machine_on_both_machines(self):
         script = self.held_keys()
         # a disk read by DMA (units 26-52), the swap pending (80-180), a read after the swap (about 190), the motor on throughout, a key held from 50
-        for machine in MACHINES:
-            for n in (10, 55, 130):
+        for machine in self.MACHINES:
+            for n in self.SAVE_POINTS:
                 with self.subTest(machine=machine, saved_at=n):
                     m = 100
                     out = self.session([self.core("A", machine), f"run A {n} script={script} press={SWAP}", "save A s", f"run A {m} script={script} press={SWAP}", "digest A first",
@@ -132,7 +138,7 @@ class WrapperMachineTests(unittest.TestCase):
     def test_a_state_runs_in_a_new_sandbox_and_in_a_third_as_in_the_first_on_both_machines(self):
         script = self.held_keys()
         n, m = 85, 60
-        for machine in MACHINES:
+        for machine in self.MACHINES:
             with self.subTest(machine=machine):
                 out = self.session([self.core("A", machine), f"run A {n} script={script} press={SWAP}", "save A s",
                                     self.core("B", machine), "load B s", self.core("C", machine), "run C 17", "load C s",
@@ -146,7 +152,7 @@ class WrapperMachineTests(unittest.TestCase):
 
     def test_a_state_written_by_one_process_is_loaded_by_another_new_one_on_both_machines(self):
         script = self.held_keys()
-        for machine in MACHINES:
+        for machine in self.MACHINES:
             with self.subTest(machine=machine):
                 state = self.dir / f"process-{machine}.state"
                 first = self.session([self.core("A", machine), f"run A 85 script={script} press={SWAP}", f"savefile A {state}", f"run A 70 script={script} press={SWAP}", "digest A end"])
@@ -166,8 +172,8 @@ class WrapperMachineTests(unittest.TestCase):
     def test_a_state_of_each_other_machine_is_refused_naming_both_and_the_instance_goes_on_as_if_never_asked(self):
         # The 3x3 matrix: the diagonal is accepted by every test above, each of the other six pairs is refused here.
         script = self.held_keys()
-        for loaded in MACHINES:
-            made = [m for m in MACHINES if m != loaded]
+        for loaded in self.MACHINES:
+            made = [m for m in self.UNIVERSE if m != loaded]
             with self.subTest(loaded=loaded, made=made):
                 lines = []
                 for i, m in enumerate(made):
@@ -187,7 +193,7 @@ class WrapperMachineTests(unittest.TestCase):
                 self.assertEqual(self.digests(out, "W")["twin"], self.digests(out, "T")["after"])
 
     def test_a_state_of_the_same_machine_with_other_settings_is_refused_without_naming_a_machine(self):
-        for machine in MACHINES:
+        for machine in self.MACHINES:
             out = self.session([self.core("A", machine), "run A 20", "save A s", self.core("T", machine, ntsc=True), "load T s"])
             refusal = re.search(r"^rejected T s reason=OtherConfig message=(.*)$", out, re.M)
             self.assertIsNotNone(refusal, machine)
@@ -197,12 +203,12 @@ class WrapperMachineTests(unittest.TestCase):
     def test_a_movie_of_the_other_machine_is_refused_naming_both_and_each_machine_accepts_its_own(self):
         script = self.held_keys()
         movies = {}
-        for machine in MACHINES:
+        for machine in self.UNIVERSE:
             movies[machine] = self.dir / f"{machine}.bk2"
             out = self.session([self.core("R", machine), f"run R 60 script={script} press={SWAP} record", f"endmovie R {movies[machine]}"])
             self.assertIn(f"movie {movies[machine]} frames=60", out)
-        for played in MACHINES:
-            others = [m for m in MACHINES if m != played]
+        for played in self.MACHINES:
+            others = [m for m in self.UNIVERSE if m != played]
             with self.subTest(played=played):
                 out = self.session([self.core("P", played)] + [f"moviecheck P {movies[recorded]}" for recorded in others] + [f"moviecheck P {movies[played]}"])
                 refusals = re.findall(r"^movie rejected P reason=OtherConfig message=(.*)$", out, re.M)
@@ -214,7 +220,7 @@ class WrapperMachineTests(unittest.TestCase):
 
     def test_a_movie_of_the_a600_and_of_the_a1200_plays_back_to_the_units_of_its_recording(self):
         script = self.held_keys()
-        for machine in ("a600", "a1200"):
+        for machine in self.MOVIE_PLAYBACK:
             with self.subTest(machine=machine):
                 movie = self.dir / f"{machine}-play.bk2"
                 recorded = self.session([self.core("R", machine), f"run R 120 script={script} press={SWAP} record", f"endmovie R {movie}", "digest R end"])

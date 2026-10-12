@@ -40,7 +40,7 @@ public sealed partial class Puae6Core
 		return new Puae6Parameters
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
-			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(settings.Machine), $"A Kickstart for the Amiga {settings.Machine.ToString().Substring(1)} is required"),
+			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(settings.Machine), $"A Kickstart for the Amiga {settings.Machine.ToString().Substring(1)} is required (the firmware \"{FirmwareName(settings.Machine)}\")"),
 			SyncSettings = settings,
 			Media = floppies.Select(rom => rom.FileData).ToList(),
 			MediaNames = floppies.Select(NameOf).ToList(),
@@ -49,6 +49,16 @@ public sealed partial class Puae6Core
 		};
 	}
 
-	/// <summary>The entry of BizHawk's firmware database for each machine (FirmwareDatabase.cs, Amiga): "A500" is Kickstart 1.3, "A600" Kickstart 2.05 and "A1200" Kickstart 3.1 r40.68, the ideal option of each.</summary>
-	public static FirmwareID FirmwareOf(Puae6Machine machine) => new(VSystemID.Raw.Amiga, machine.ToString());
+	/// <summary>The entry of BizHawk's firmware database for each machine (FirmwareDatabase.cs, Amiga): "A500" is Kickstart 1.3 (1.2 and the 3.1 r40.063 are its other options), "A600" Kickstart 2.05 (2.04 of the A500+ and the 3.1
+	/// r40.063 are its other options) and "A1200" Kickstart 3.1 r40.68, the ideal option of each. T50: the A500 OG, the A1000 and the A2000 OG ask for "A500" (the Kickstart 1.3 of the A500), the A500+ and the A2000 for "A600"
+	/// (the 2.04 of the A500+, or the 3.1 r40.063 that PUAE5 gives the A2000: the person picks the option in the firmware manager; the core accepts any image the engine accepts by its content).</summary>
+	public static FirmwareID FirmwareOf(Puae6Machine machine) => new(VSystemID.Raw.Amiga, FirmwareName(machine));
+
+	/// <summary>The name of the FirmwareID of the machine: the name of the member for the A500, the A600 and the A1200, and the family's for the T50 machines.</summary>
+	public static string FirmwareName(Puae6Machine machine) => machine switch
+	{
+		Puae6Machine.A500OG or Puae6Machine.A1000 or Puae6Machine.A2000OG => "A500",
+		Puae6Machine.A500PLUS or Puae6Machine.A2000 => "A600",
+		_ => machine.ToString(),
+	};
 }

@@ -53,7 +53,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     const int FrameSize = 400, FrameInner = 8, FrameResult = 136, FrameError = 144, InputSize = 72;
     const uint FrameNoVideo = 2;
 
-    /// p6_config.machine the next TryInit gives the guest: P6_MACHINE_A500 (1), P6_MACHINE_A600 (2) or P6_MACHINE_A1200 (3).
+    /// p6_config.machine the next TryInit gives the guest: P6_MACHINE_A500 (1), A600 (2), A1200 (3), A500OG (4), A500PLUS (5), A1000 (6), A2000OG (7) or A2000 (8).
     internal uint MachineId = 1;
     /// p6_config.chip_kib, slow_kib and fast_kib the next TryInit gives the guest (T49): 0 is the machine's own memory, uint.MaxValue (Slow) is none.
     internal uint ChipKib, SlowKib, FastKib;
@@ -105,7 +105,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             var p = (byte*)args.Address;
             *(uint*)p = 1; *(uint*)(p + 4) = InitSize;                      // abi_version, struct_size
             *(uint*)(p + 8) = 1; *(uint*)(p + 12) = 72;                     // p6_config: abi_version, struct_size
-            *(uint*)(p + 16) = MachineId; *(uint*)(p + 20) = standard;      //   machine (1 = A500, 2 = A600, 3 = A1200), video standard
+            *(uint*)(p + 16) = MachineId; *(uint*)(p + 20) = standard;      //   machine (1 = A500, 2 = A600, 3 = A1200, 4 = A500OG, 5 = A500PLUS, 6 = A1000, 7 = A2000OG, 8 = A2000), video standard
             *(uint*)(p + 24) = 48000; *(uint*)(p + 28) = ConfigFlags; *(ulong*)(p + 32) = seed;     //   audio rate, flags, random seed
             *(long*)(p + 40) = epoch;                                       //   rtc epoch
             *(uint*)(p + 48) = ChipKib; *(uint*)(p + 52) = SlowKib; *(uint*)(p + 56) = FastKib;     //   chip_kib, slow_kib, fast_kib (reserved[2] stays zero)
@@ -476,7 +476,7 @@ internal static unsafe class Puae6
     /// twice what was measured.
     internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib, bool floppyWrites = false, ulong hardFileKib = 0)
     {
-        uint ownChip = machineId == 3 ? 2048u : machineId == 2 ? 1024u : 512u, ownSlow = machineId == 1 ? 512u : 0u;
+        uint ownChip = machineId == 3 ? 2048u : machineId is 2 or 5 or 8 ? 1024u : 512u, ownSlow = machineId is 1 or 7 ? 512u : 0u;
         ulong extra = fastKib;
         if (chipKib > ownChip) extra += chipKib - ownChip;
         if (slowKib != uint.MaxValue && slowKib > ownSlow) extra += slowKib - ownSlow;
@@ -498,7 +498,7 @@ internal static unsafe class Puae6
     //   [--abi-at U,U...] (WB13 before those units)  [--pages-at U] (WB14 after unit U, needs the chipcell fixture)
     //   [--memory-at U] (T20a: the memory areas and the accesses through the guest; U = 0 right after the seal, U > 0 after that unit and
     //   needs the chipcell fixture)
-    //   [--machine a500|a600|a1200] (the machine the guest is configured as; A500 by default)
+    //   [--machine a500|a600|a1200|a500og|a500plus|a1000|a2000og|a2000] (the machine the guest is configured as; A500 by default)
     //   [--drives N] (T28: the first N media are mounted into DF0..DF{N-1} before the first unit, as the wrapper does)
     //   [--floppy-writes] (T28: p6_config.flags = P6_CONFIG_FLOPPY_WRITES; the disks are writable and the overlay is part of every snapshot)
     //   [--fpu 68881|68882] (T54: the FPU the guest is configured with, A1200 only)
@@ -529,8 +529,9 @@ internal static unsafe class Puae6
         ulong units = ulong.Parse(options.Get("units"));
         uint standard = options.Flag("ntsc") ? 2u : 1u;
         string machineName = (options.Optional("machine") ?? "a500").ToLowerInvariant();
-        Program.Require(machineName is "a500" or "a600" or "a1200", $"--machine is a500, a600 or a1200 (got {machineName})");
-        uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, _ => 1u };
+        Program.Require(machineName is "a500" or "a600" or "a1200" or "a500og" or "a500plus" or "a1000" or "a2000og" or "a2000",
+            $"--machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og or a2000 (got {machineName})");
+        uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, "a500og" => 4u, "a500plus" => 5u, "a1000" => 6u, "a2000og" => 7u, "a2000" => 8u, _ => 1u };
         layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"), (ulong)hardFiles.Sum(file => (long)HardFileHeapKiB(file.Length)));
         var image = File.ReadAllBytes(guestPath);
         using var api = new Native(dylibPath);

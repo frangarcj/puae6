@@ -709,7 +709,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     the guest with canaries in the registers (WB13), `pages_at` the unit after which the 16 KiB page groups of Chip RAM are written and
     restored (WB14, needs the chipcell fixture), `memory_at` the unit after which (0: right after the seal) the memory areas the guest reports are read, written,
     refused and restored through the guest (T20a; after a unit it needs the chipcell fixture), `save_at`/`state` where a snapshot is written and `restore`/`restore_from` a new process that
-    initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15), `machine` "A500", "A600" or "A1200" the p6_config.machine the guest is given (T23e, T24f), `chip_kib`, `slow_kib` ("none" or KiB) and `fast_kib` its memory (T49; 0 is the machine's own, and the
+    initializes, seals, loads that snapshot and continues after unit `restore_from` (WB15), `machine` "A500", "A600", "A1200", "A500OG", "A500PLUS", "A1000", "A2000OG" or "A2000" the p6_config.machine the guest is given (T23e, T24f, T50), `chip_kib`, `slow_kib` ("none" or KiB) and `fast_kib` its memory (T49; 0 is the machine's own, and the
     mmap heap of the sandbox grows with the extra memory as manifests/waterbox-memory.json says), `fpu_model` the FPU the A1200 is given (T54: 0, 68881 or 68882), `hard_files` the hard files mounted
     on the UAE controller after the disks (T29d; the mmap heap grows with the heap of each, see the smoke's HardFileHeapKiB) and `export_at` the units after which they are exported through the guest
     (printed as "export" lines and returned in result["exports"]; `export_dir` also keeps the images); `rewind_to`/`rewind_from` load the snapshot of unit `rewind_to` back in the same sandbox after
@@ -775,7 +775,8 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     return lines, result
 
 
-MEASURED_KEYS = {"A500": "measured", "A600": "measured_a600", "A1200": "measured_a1200"}
+MEASURED_KEYS = {"A500": "measured", "A600": "measured_a600", "A1200": "measured_a1200", "A500OG": "measured_a500og", "A500PLUS": "measured_a500plus",
+                 "A1000": "measured_a1000", "A2000OG": "measured_a2000og", "A2000": "measured_a2000"}
 
 
 def measured_key(machine: str, chip_kib: int = 0, slow_kib: int | str = 0, fast_kib: int = 0, fpu_model: int = 0, hard_file_kib: int = 0) -> str:
@@ -818,7 +819,7 @@ def main() -> int:
     parser.add_argument("--record-memory", action="store_true",
                         help="con --puae6-run: guardar las medidas de la ejecucion en manifests/waterbox-memory.json")
     parser.add_argument("--units", type=int, default=1, help="unidades que ejecuta --puae6-run")
-    parser.add_argument("--machine", choices=("A500", "A600", "A1200"), default="A500", help="maquina con la que --puae6-run configura el guest (T23e, T24f); con --record-memory decide la clave medida")
+    parser.add_argument("--machine", choices=tuple(MEASURED_KEYS), default="A500", help="maquina con la que --puae6-run configura el guest (T23e, T24f); con --record-memory decide la clave medida")
     parser.add_argument("--chip", type=int, default=0, metavar="KIB", help="memoria Chip con la que --puae6-run configura el guest (T49; 0: la de la maquina)")
     parser.add_argument("--slow", default="0", metavar="KIB|none", help="memoria Slow con la que --puae6-run configura el guest (T49; 0: la de la maquina)")
     parser.add_argument("--fast", type=int, default=0, metavar="KIB", help="memoria Fast Zorro II con la que --puae6-run configura el guest (T49)")

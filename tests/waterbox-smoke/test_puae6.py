@@ -28,7 +28,9 @@ GUEST_RECEIPT = ROOT / "build/waterbox/puae6/puae6-receipt.json"
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
 ADF_BYTES = 901120
 KICKSTART_BYTES = 512 * 1024
-MEASURED = (("A500", "measured"), ("A600", "measured_a600"), ("A1200", "measured_a1200"))     # one set of budgets for the three machines (T23e, T24f)
+MEASURED = (("A500", "measured"), ("A600", "measured_a600"), ("A1200", "measured_a1200"),     # one set of budgets for the machines (T23e, T24f, T50)
+            ("A500OG", "measured_a500og"), ("A500PLUS", "measured_a500plus"), ("A1000", "measured_a1000"), ("A2000OG", "measured_a2000og"), ("A2000", "measured_a2000"))
+T50_MACHINES = ("A500OG", "A500PLUS", "A1000", "A2000OG", "A2000")
 # T49: machines with other memory: (label, manifest key, machine, memory flags of p6_headless and of build_waterbox.run_puae6). Their mmap budget is the base one plus twice the extra memory.
 MEMORY_CONFIGS = (
     ("A1200 + 8 MiB Fast", "measured_a1200_fast8192", "A1200", {"fast_kib": 8192}),
@@ -37,7 +39,7 @@ MEMORY_CONFIGS = (
     ("A500 + 2 MiB Fast", "measured_a500_fast2048", "A500", {"fast_kib": 2048}),
     ("A1200 with a 68882 (T54)", "measured_a1200_fpu68882", "A1200", {"fpu_model": 68882}),     # SoftFloat adds no memory: the base budget
 )
-OWN_MEMORY_KIB = {"A500": (512, 512), "A600": (1024, 0), "A1200": (2048, 0)}      # Chip, Slow
+OWN_MEMORY_KIB = {"A500": (512, 512), "A600": (1024, 0), "A1200": (2048, 0), "A500OG": (512, 0), "A500PLUS": (1024, 0), "A1000": (512, 0), "A2000OG": (512, 512), "A2000": (1024, 0)}      # Chip, Slow
 
 
 def extra_memory_kib(machine, chip_kib=0, slow_kib=0, fast_kib=0, fpu_model=0):
@@ -265,6 +267,21 @@ class WaterboxRuntimeTests(unittest.TestCase):
                 runs[name] = inside
         self.assertNotEqual(runs["boot"], self.native(self.firmware("boot"), 60, "A600"))
         self.assertNotEqual(runs["boot"], self.native(self.firmware("boot"), 60, "A500"))
+
+    def test_the_t50_machines_inside_waterbox_equal_headless_and_are_none_of_the_others(self):
+        # T50: the A500 OG, A500+, A1000, A2000 OG and A2000 in the sandbox: the fixture programs are p6_headless --machine <name> unit by unit, and the guest reports the machine it was given.
+        runs = {}
+        for machine in T50_MACHINES:
+            for name, defines in (("boot", None), ("copper_irq", {"HP": "2"})):
+                with self.subTest(machine=machine, program=name):
+                    rom = self.firmware(name, defines)
+                    inside, result = self.waterbox(rom, 40, machine=machine)
+                    self.assertEqual(machine, result["machine"])
+                    self.assertEqual(40, len(inside))
+                    self.assertEqual(self.native(rom, 40, machine), inside)
+                    runs[machine, name] = inside
+        # the picture of the ECS machines is not the OCS one
+        self.assertNotEqual(runs["A500PLUS", "boot"], self.native(self.firmware("boot"), 40, "A500"))
 
     def test_a_machine_with_other_memory_inside_waterbox_equals_headless_with_the_same_memory(self):
         # T49: Chip, Slow and Zorro II Fast RAM in the sandbox: the board is allocated from the mmap heap the budget rule gives, and 60 units of the fixture programs are those of

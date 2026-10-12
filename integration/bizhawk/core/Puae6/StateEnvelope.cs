@@ -51,7 +51,7 @@ public sealed class StateIdentity
 	public byte[] ConfigHash { get; }
 	public byte[] FirmwareSha256 { get; }
 	public byte[] MediaHash { get; }
-	/// <summary>The machine these settings are for ("A500", "A600", "A1200"); empty when the identity does not name one.</summary>
+	/// <summary>The machine these settings are for (a name of Puae6Machine: "A500", "A600", "A1200", "A500OG", "A500PLUS", "A1000", "A2000OG", "A2000"); empty when the identity does not name one.</summary>
 	public string Machine { get; }
 	/// <summary>The config hash the same settings would have on each of the other machines, by machine name: it lets a refusal say "made on the A500" instead of "other settings".</summary>
 	public IReadOnlyDictionary<string, byte[]> ConfigHashOfOtherMachines { get; }

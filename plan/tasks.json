@@ -12522,7 +12522,7 @@
       "title": "Presets A500OG, A500+, A1000, A2000OG y A2000 en BizHawk/Waterbox: sync setting Machine, FirmwareID, waterbox-memory y WB03",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T50a",
         "T50b"
