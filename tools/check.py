@@ -215,6 +215,14 @@ TASK_SUITES[('DET02', 'T32')] = TASK_SUITES[('DET02', 'T32b')]
 TASK_SUITES[('DET03', 'T32')] = TASK_SUITES[('DET03', 'T32b')]
 for _check in ('DET04', 'DET06', 'SAFE01', 'FUZZ01'):
     TASK_SUITES[(_check, 'T32')] = TASK_SUITES[(_check, 'T32c')]
+# T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
+# relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
+# pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).
+TASK_SUITES[('UPD01', 'T37')] = {'update_tool': 'tests.upstream-update.test_update'}
+TASK_SUITES[('SRC01', 'T37')] = {'import_sources': 'tests.test_import_sources',
+                                 'pinned_snapshot': 'tests.upstream-update.test_update.RealPinnedSnapshotTests',
+                                 'new_snapshot_verification': 'tests.upstream-update.test_update.DirectorySnapshotTests'}
+TASK_SUITES[('GEN01', 'T37')] = {'regeneration_of_the_candidate': 'tests.upstream-update.test_update.GeneratorTests'}
 TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
                       ('DET04', 'T32'): 6 * 3600, ('DET06', 'T32'): 6 * 3600}

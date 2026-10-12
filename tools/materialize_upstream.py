@@ -24,6 +24,16 @@ FILE_HEADER = re.compile(r"^(---|\+\+\+) ([ab]/)(\S+)(?:\t.*)?$")
 OFFSET = re.compile(r"\(offset -?\d+ lines?\)")
 
 
+class PatchRejected(ValueError):
+    """The patch tool refused a patch. kind is "rejected" (the context does not match) or
+    "offset" (it would only apply at a shifted line number, which the series never accepts)."""
+
+    def __init__(self, message: str, kind: str, output: str):
+        super().__init__(message)
+        self.kind = kind
+        self.output = output
+
+
 def _safe_rel(name: str) -> PurePosixPath:
     path = PurePosixPath(name)
     if (not name or not path.parts or path.is_absolute() or path.as_posix() != name
@@ -147,9 +157,10 @@ def _apply(data: bytes, tree: Path, check: bool) -> None:
                             stderr=subprocess.PIPE, env=env)
     output = (result.stdout + result.stderr).decode("utf-8", errors="replace")
     if result.returncode:
-        raise ValueError(f"git apply fallo: {output.strip()}")
+        raise PatchRejected(f"git apply fallo: {output.strip()}", "rejected", output)
     if OFFSET.search(output):
-        raise ValueError(f"git apply encontro un offset; parche rechazado: {output.strip()}")
+        raise PatchRejected(f"git apply encontro un offset; parche rechazado: {output.strip()}",
+                            "offset", output)
 
 
 def _destination(root: Path, value: str) -> Path:

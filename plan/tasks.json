@@ -12278,7 +12278,7 @@
       "title": "Automatizar actualizaciones sin esconder conflictos",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T32",
         "T02"
@@ -12309,7 +12309,7 @@
         "No hay descargas master implicitas ni parches con fuzz."
       ],
       "stop": "Automatizar la deteccion no autoriza resolver conflictos semanticos; dejar reporte y tarea por conflicto.",
-      "evidence": null
+      "evidence": "reports/tasks/T37.md"
     },
     {
       "id": "T38",
