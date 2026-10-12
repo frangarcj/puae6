@@ -1388,7 +1388,7 @@
       "hard_file_bytes": [
         2097152
       ],
-      "firmware_sha256": "74ed176f3f70af7ff8535709f3b8c7b21be73a188b764278769125f61101a5ad",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
       "firmware_bytes": 262144,
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
@@ -1454,8 +1454,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 163840,
-        "dirty_bytes": 131072,
+        "committed_bytes": 98304,
+        "dirty_bytes": 81920,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1475,7 +1475,7 @@
       },
       "mmap": {
         "committed_bytes": 9814016,
-        "dirty_bytes": 1097728,
+        "dirty_bytes": 1081344,
         "invisible_bytes": 0
       }
     },
@@ -1496,8 +1496,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 163840,
-        "dirty_bytes": 131072,
+        "committed_bytes": 98304,
+        "dirty_bytes": 81920,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1517,13 +1517,13 @@
       },
       "mmap": {
         "committed_bytes": 9814016,
-        "dirty_bytes": 1343488,
+        "dirty_bytes": 1081344,
         "invisible_bytes": 0
       }
     },
     "snapshot_bytes": {
       "after_seal": 49396,
-      "after_last_unit": 9797876
+      "after_last_unit": 9486580
     }
   },
   "measured_a500_hdf32768": {
@@ -1532,7 +1532,7 @@
       "hard_file_bytes": [
         33554432
       ],
-      "firmware_sha256": "74ed176f3f70af7ff8535709f3b8c7b21be73a188b764278769125f61101a5ad",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
       "firmware_bytes": 262144,
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
@@ -1598,8 +1598,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 163840,
-        "dirty_bytes": 131072,
+        "committed_bytes": 98304,
+        "dirty_bytes": 81920,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1619,7 +1619,7 @@
       },
       "mmap": {
         "committed_bytes": 72728576,
-        "dirty_bytes": 1097728,
+        "dirty_bytes": 1081344,
         "invisible_bytes": 0
       }
     },
@@ -1640,8 +1640,8 @@
         "invisible_bytes": 1048576
       },
       "sbrk": {
-        "committed_bytes": 163840,
-        "dirty_bytes": 131072,
+        "committed_bytes": 98304,
+        "dirty_bytes": 81920,
         "invisible_bytes": 0
       },
       "sealed": {
@@ -1661,13 +1661,13 @@
       },
       "mmap": {
         "committed_bytes": 72728576,
-        "dirty_bytes": 1343488,
+        "dirty_bytes": 1081344,
         "invisible_bytes": 0
       }
     },
     "snapshot_bytes": {
       "after_seal": 110844,
-      "after_last_unit": 9859324
+      "after_last_unit": 9548028
     }
   },
   "measured_a500og": {

@@ -131,3 +131,35 @@ def write_corpus(directory):
 if __name__ == "__main__":
     target = Path(sys.argv[1])
     print(f"{len(write_corpus(target))} cases in {target}")
+
+
+# --- the differential corpus (T32c) ----------------------------------------------------------------------------------------------------------------------------------
+# The 28 scenarios of tests/scenarios/corpus (T32b) as a second corpus of the matrix: the same rows, the same builds, their own directory, results and evidence
+# (tests/portability/evidence-differential.json), so that the evidence of T25 and its report stay as they were. Media the scenarios name are files of the corpus
+# directory and the arguments name them as `@corpus/<file>`: row_driver.py resolves the token against the directory the ROMs are in, which in the `host` variant
+# (DET06) is the odd one.
+
+def write_differential(directory):
+    """Writes the ROMs, the media and cases.json of the differential corpus into `directory` and returns the list of cases."""
+    from tests.reference import corpus_run
+    from tests.scenarios.corpus import corpus as differential
+
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    assets = corpus_run.Assets(directory)
+    prefix = str(directory) + "/"
+    texts = differential.programs()
+    listing = []
+    for program in sorted({entry.program for entry in differential.ENTRIES}):
+        (directory / f"{program}.rom").write_bytes(differential.build_rom(texts[program]))
+    for entry in differential.ENTRIES:
+        args = [("@corpus/" + a[len(prefix):]) if a.startswith(prefix) else a for a in map(str, corpus_run.probe_arguments(entry, assets))]
+        listing.append({"id": entry.id, "group": "differential-" + entry.machine, "rom": entry.program, "args": args})
+    ids = [case["id"] for case in listing]
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate case ids")
+    (directory / "cases.json").write_text(json.dumps(listing, indent=1) + "\n", encoding="utf-8")
+    return listing
+
+
+CORPORA = {"": write_corpus, "differential": write_differential}

@@ -3833,6 +3833,28 @@
           "after_sha256": "e7dbf1b47ea71904eb6e1b2a658e95fcf1869a6eb13a4269da1c2d4dafd0d133"
         }
       ]
+    },
+    {
+      "id": "0262-denise-sprite-mask-unsigned-shift",
+      "file": "patches/winuae/0262-denise-sprite-mask-unsigned-shift.patch",
+      "sha256": "1c08ee28cbad17e9788e75be2b581dd95fe5c161c32807d2f802b72218e078f4",
+      "title": "Defined shift for the sprite priority mask of Denise",
+      "reason": "expand_bplcon2 shifts the int constant 0x0000FFFF left by 4 * plf1pri, which is up to 20: a register value of 5 in BPLCON2 PF1P makes the shift overflow int (UBSan, drawing.cpp:3196; found by the register-ring scenarios of the differential corpus under SAFE01). The unsigned constant gives the same bits, and the mask is cut to 16 bits right after.",
+      "category": "build/portability",
+      "order": 142,
+      "symbols": [
+        "expand_bplcon2"
+      ],
+      "test": "tests/reference/test_corpus_sanitizers.py (ocs-ring-copper-ntsc, ecs-ring-copper-ntsc)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "e0b182ac27ecf07f5629167448c474622cf448013a24187c18cfd89d5172596d",
+          "after_sha256": "04f5df70cb623a9178ada3bf06caa007bf69b1bb2a07d9855a8d217c465b9941"
+        }
+      ]
     }
   ]
 }

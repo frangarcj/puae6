@@ -194,6 +194,12 @@ longitudes derivadas de BEAMCON0 eran las del reset). Las dos brechas, fijadas c
 las cerro T15n (parches 0260 y 0261, ADR 0009 punto 14) y la tabla esta vacia; `OpenDivergenceGate` (con `P6_RELEASE_GATE=1`, parte del cierre de T32) falla si vuelve a tener una:
 lo que el corpus encuentra bloquea la release hasta que la tarea duena lo cierra. Un PASS de DET02/DET03 de T32b significa "cada escenario iguala o su divergencia esta fijada", y con la tabla vacia, que iguala.
 
+T32c repite el corpus fuera del proceso que lo creo. DET04/DET06: el mismo corpus (programas, medios y argumentos con `@corpus/`) corre en la matriz de T25 con `P6_MATRIX_SET=differential`
+(`tests/portability/run_matrix.py`, evidencia propia en `tests/portability/evidence-differential.json`; la de T25 no se toca): cinco filas, O0 y O2 con variante `host`, y `san`; las filas de
+Linux necesitan Docker y, si no corrieron, el check es BLOCKED. SAFE01 (`tests/reference/test_corpus_sanitizers.py`): los 28 escenarios y un estado guardado y cargado en el primer punto de cada uno bajo
+ASan/UBSan sin un solo aviso; encontro un desplazamiento indefinido en `expand_bplcon2` (`0x0000FFFF << 4 * plf1pri`, hasta 20 posiciones, con BPLCON2 PF1P=5 de los anillos de Copper) y el parche 0262 lo
+hace sin signo con el mismo valor (clase `behavior`, efecto `neutral`, REF01 lo prueba). FUZZ01 anade `CorpusScenarioFuzzTests`: mutaciones de los 28 escenarios y de los archivos de maquina.
+
 ## Matriz de CI propuesta
 
 Tier 1 de producto: Linux x86_64 (Clang y GCC), Windows x86_64 (toolchain fijada),

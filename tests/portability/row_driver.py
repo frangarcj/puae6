@@ -120,8 +120,11 @@ def main():
         rom_directory.mkdir(parents=True)
         cwd = Path(work.name) / "otro directorio"
         cwd.mkdir()
-        for rom in corpus.glob("*.rom"):
-            shutil.copyfile(rom, rom_directory / rom.name)
+        for rom in corpus.iterdir():
+            if rom.is_file() and rom.name != "cases.json":          # the ROMs and the media the arguments name (@corpus/...)
+                shutil.copyfile(rom, rom_directory / rom.name)
+    for case in cases:
+        case["args"] = [str(rom_directory / a[len("@corpus/"):]) if a.startswith("@corpus/") else a for a in case["args"]]
     roms = {c["id"]: rom_directory / (c["rom"] + ".rom") for c in cases}
     if args.kickstart:
         cases.append({"id": "kickstart-a500-pal", "group": "kickstart", "rom": "(authorized)", "args": ["--units", "150"], "every": "25"})

@@ -147,9 +147,20 @@
     "0240-cia-tod-mains-state": "instrumentation",
     "0260-programmed-beam-derived-values": "instrumentation",
     "0261-bitplane-sequencer-state": "instrumentation",
-    "0280-disk-linecounter-state": "instrumentation"
+    "0280-disk-linecounter-state": "instrumentation",
+    "0262-denise-sprite-mask-unsigned-shift": "behavior"
   },
   "ablate": {
+    "0262-denise-sprite-mask-unsigned-shift": {
+      "effect": "neutral",
+      "why": "The sprite priority mask of expand_bplcon2 is shifted as an unsigned constant (the signed shift of 0xFFFF by up to 20 places is undefined); the mask is cut to 16 bits, so the value is the same.",
+      "test": "tests/reference/test_corpus_sanitizers.py (UBSan, ring scenarios)",
+      "scenarios": [
+        "ocs-ring-copper-ntsc",
+        "ecs-ring-copper-ntsc"
+      ],
+      "subsystems": []
+    },
     "0020-audio-signed-scaling": {
       "effect": "neutral",
       "why": "Left shifts of negative PCM and sinc amplitudes become multiplications (defined in C++17); the patch claims the same scale, rounding and clipping.",

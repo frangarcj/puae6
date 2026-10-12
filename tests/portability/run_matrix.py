@@ -15,6 +15,9 @@ The canonical hashes are the ones of the corpus (tests/portability/corpus.py): p
 lines that p6_state_probe prints for every unit (tests/portability/row_driver.py says which are which). The reference row is
 rows.REFERENCE; every other row is compared with it, hardware and A/V separately. DET06 compares the `host` variant of a row (another
 locale, time zone, clock, working directory and ROM path) with its own `baseline` variant.
+P6_MATRIX_SET=differential (T32c) runs the same rows and builds over another corpus, the 28 scenarios of tests/scenarios/corpus
+(corpus.write_differential): its own corpus directory, its own result files (`O0-baseline-differential.json`...) and its own evidence
+(tests/portability/evidence-differential.json); the evidence of T25 and its report are not touched. It has no Kickstart case and no p6_headless lines.
 An authorized Kickstart (P6_KICKSTART_ROM) is mounted read-only into the container for the run, as an extra case whose hashes stay in
 build/ and are never written to the evidence: the ROM is not copied, hashed or committed.
 """
@@ -38,7 +41,12 @@ from tests.portability.rows import DATE, OPTS, REFERENCE, ROWS  # noqa: E402
 
 PORT = ROOT / "tests/portability"
 BUILD = ROOT / "build/portability"
-EVIDENCE = PORT / "evidence.json"
+SET = os.environ.get("P6_MATRIX_SET", "")
+if SET not in corpus_module.CORPORA:
+    raise SystemExit(f"P6_MATRIX_SET must be one of {sorted(corpus_module.CORPORA)}, not {SET!r}")
+TAG = f"-{SET}" if SET else ""                       # appended to the name of every result file of a set other than the default one
+EVIDENCE = PORT / (f"evidence-{SET}.json" if SET else "evidence.json")
+CORPUS_DIR = BUILD / (f"corpus-{SET}" if SET else "corpus")
 TARGETS = ("p6_state_probe", "p6_headless")
 FAKE_OFFSET = 800_000_000          # about 25 years ahead: 2051, past the 32-bit time_t of 2038
 JOBS = int(os.environ.get("P6_PORTABILITY_JOBS", "4"))
@@ -54,7 +62,7 @@ class Row:
         self.host_dir = BUILD / name
         self.src = "/src" if self.docker else str(ROOT)
         self.dir = "/src/build" if self.docker else str(self.host_dir)      # the row's build root, in the row's own paths
-        self.corpus = "/corpus" if self.docker else str(BUILD / "corpus")
+        self.corpus = "/corpus" if self.docker else str(CORPUS_DIR)
         self.states = "/states" if self.docker else str(BUILD / "states")
 
     def run(self, command, log, timeout, kickstart=None):
@@ -63,7 +71,7 @@ class Row:
         if self.docker:
             argv = ["docker", "run", "--rm", "--platform", self.spec["platform"], "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "HOME=/tmp", "-e", "PYTHONDONTWRITEBYTECODE=1", "-v", f"{ROOT}:/src:ro", "-v", f"{self.host_dir}:/src/build",
-                    "-v", f"{BUILD / 'corpus'}:/corpus:ro", "-v", f"{BUILD / 'states'}:/states", "-w", "/src"]
+                    "-v", f"{CORPUS_DIR}:/corpus:ro", "-v", f"{BUILD / 'states'}:/states", "-w", "/src"]
             if kickstart:
                 argv += ["-v", f"{kickstart}:/kickstart/kick.rom:ro"]
             argv += [self.spec["image"], "bash", "-c", command]
@@ -145,10 +153,11 @@ def run_variants(row, opt, variants, kickstart):
     out = {}
     library, check = faketime(row) if "host" in variants else (None, None)
     for variant in variants:
-        result = row.host_dir / f"{opt}-{variant}.json"
+        result = row.host_dir / f"{opt}-{variant}{TAG}.json"
         command = (f"python3 -I {row.src}/tests/portability/row_driver.py --probe {row.tree(opt)}/p6_state_probe --corpus {row.corpus} "
-                   f"--out {row.dir if row.docker else row.host_dir}/{opt}-{variant}.json --variant {variant} --jobs {JOBS} "
-                   f"--headless {row.tree(opt)}/p6_headless")
+                   f"--out {row.dir if row.docker else row.host_dir}/{opt}-{variant}{TAG}.json --variant {variant} --jobs {JOBS}")
+        if not SET:
+            command += f" --headless {row.tree(opt)}/p6_headless"
         if variant == "host" and library:
             command += f" --preload {library} --fake-offset {FAKE_OFFSET}"
         if kickstart:
@@ -177,8 +186,8 @@ def states_phase(pairs, mode):
 
 
 def corpus_directory():
-    directory = BUILD / "corpus"
-    cases = corpus_module.write_corpus(directory)
+    directory = CORPUS_DIR
+    cases = corpus_module.CORPORA[SET](directory)
     digest = hashlib.sha256()
     for path in sorted(directory.iterdir()):
         digest.update(path.name.encode() + b"\0" + hashlib.sha256(path.read_bytes()).digest())
@@ -190,19 +199,19 @@ def exec_row(name, opt, skip_build=False, skip_host=False, kickstart=None, drop_
     count, corpus_digest = corpus_directory()
     record = {"row": name, "opt": opt, "date": DATE, "corpus": {"cases": count, "sha256": corpus_digest}}
     if not skip_build:
-        previous = load(row.host_dir / f"{opt}-record.json").get("build") if (row.host_dir / f"{opt}-record.json").exists() else None
+        previous = load(row.host_dir / f"{opt}-record{TAG}.json").get("build") if (row.host_dir / f"{opt}-record{TAG}.json").exists() else None
         record["build"] = build_row(row, opt)
         if previous and previous.get("exit") == 0 and record["build"]["exit"] == 0 and not record["build"]["compiled"]:
             record["build"] = previous            # nothing was compiled this time: the record of the build that made these binaries stays
         print(f"{name} {opt}: build exit {record['build']['exit']} in {record['build']['seconds']} s, {record['build']['warnings']} warnings")
         if record["build"]["exit"]:
-            (row.host_dir / f"{opt}-record.json").write_text(json.dumps(record, indent=1) + "\n")
+            (row.host_dir / f"{opt}-record{TAG}.json").write_text(json.dumps(record, indent=1) + "\n")
             return 1
-    elif (row.host_dir / f"{opt}-record.json").exists():          # the build of an earlier call is still the build of these binaries
-        record["build"] = load(row.host_dir / f"{opt}-record.json").get("build")
+    elif (row.host_dir / f"{opt}-record{TAG}.json").exists():          # the build of an earlier call is still the build of these binaries
+        record["build"] = load(row.host_dir / f"{opt}-record{TAG}.json").get("build")
     variants = ["baseline"] + ([] if skip_host else ["host"])
     record["runs"], record["faketime"] = run_variants(row, opt, variants, kickstart)
-    (row.host_dir / f"{opt}-record.json").write_text(json.dumps(record, indent=1, sort_keys=True) + "\n")
+    (row.host_dir / f"{opt}-record{TAG}.json").write_text(json.dumps(record, indent=1, sort_keys=True) + "\n")
     print(f"{name} {opt}: " + ", ".join(f"{v} exit {r['exit']} in {r['seconds']} s" for v, r in record["runs"].items()))
     if drop_tree:       # the disk of the machine is shared: an audit tree is only needed while it runs; its results stay in build/portability/ROW
         tree = (row.host_dir / opt).resolve()
@@ -296,7 +305,7 @@ def states_evidence():
 
 
 def report(write):
-    reference_record = BUILD / REFERENCE[0] / f"{REFERENCE[1]}-baseline.json"
+    reference_record = BUILD / REFERENCE[0] / f"{REFERENCE[1]}-baseline{TAG}.json"
     if not reference_record.exists():
         print("no reference result", reference_record, file=sys.stderr)
         return 1
@@ -308,7 +317,7 @@ def report(write):
                 "executions": {}}
     corpus = None
     for name in ROWS:
-        for record_path in sorted((BUILD / name).glob("*-record.json")):
+        for record_path in sorted((BUILD / name).glob(f"*-record{TAG}.json")):
             record = load(record_path)
             opt = record["opt"]
             entry = {"row": name, "opt": opt, "isa": ROWS[name]["isa"], "native_hardware": ROWS[name]["native_hardware"]}
@@ -316,7 +325,7 @@ def report(write):
             if build:
                 entry["build"] = {k: build[k] for k in ("exit", "seconds", "warnings", "warning_flags", "warning_origin", "cxx", "cc", "kernel")}
             corpus = corpus or record["corpus"]
-            baseline_path = BUILD / name / f"{opt}-baseline.json"
+            baseline_path = BUILD / name / f"{opt}-baseline{TAG}.json"
             if baseline_path.exists():
                 baseline = load(baseline_path)
                 entry["baseline"] = compare(reference, baseline)
@@ -326,7 +335,7 @@ def report(write):
             if baseline_path.exists() and load(baseline_path).get("headless"):
                 mine, ref = load(baseline_path)["headless"], reference.get("headless", {})
                 entry["headless"] = {"cases": len(ref), "equal": sum(1 for k, v in ref.items() if mine.get(k) == v and not v.startswith("error"))}
-            host_path = BUILD / name / f"{opt}-host.json"
+            host_path = BUILD / name / f"{opt}-host{TAG}.json"
             if host_path.exists() and baseline_path.exists():
                 host = load(host_path)
                 own = compare(baseline, host)
@@ -338,14 +347,14 @@ def report(write):
                     entry["det06"]["kickstart_equal"] = "error" not in a and "error" not in b and a["hardware"] == b["hardware"] and a["av"] == b["av"]
             evidence["executions"][f"{name}/{opt}"] = entry
     evidence["corpus"] = corpus
-    states = states_evidence()
+    states = None if SET else states_evidence()
     if states:
         evidence["states"] = states
     # Kickstart: the unit hashes of the reference row against every row, as booleans only
     kick = {}
     for name in ROWS:
         for opt in OPTS:
-            path = BUILD / name / f"{opt}-baseline.json"
+            path = BUILD / name / f"{opt}-baseline{TAG}.json"
             if path.exists():
                 case = load(path)["cases"].get("kickstart-a500-pal")
                 if case and "error" not in case:

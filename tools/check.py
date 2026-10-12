@@ -174,8 +174,40 @@ TASK_SUITES = {
         'corpus_public_a600': 'tests.reference.test_corpus_det03.CorpusDet03A600Tests',
         'corpus_public_a1200': 'tests.reference.test_corpus_det03.CorpusDet03A1200Tests',
     },
+    # T32c: the differential corpus in the portability matrix (P6_MATRIX_SET=differential: its own programs, media and evidence file, evidence-differential.json), the same rows and
+    # variants as T25. Coherence always runs; the rows that build and run are opt-in (P6_TEST_PORTABILITY=1, Docker up) and BLOCKED otherwise. SAFE01 adds the 28 scenarios under ASan/UBSan
+    # (a run, and a state saved and loaded); FUZZ01 adds the mutation of the 28 scenario files and of the machine files to the parsers of T59.
+    ('DET04', 'T32c'): {
+        'matrix_coherence': 'tests.portability.test_portability.MatrixCoherenceTests',
+        'differential_coherence': 'tests.portability.test_portability.DifferentialMatrixTests',
+        'differential_rows_reproduce_hashes': 'tests.portability.test_portability.DifferentialRowExecutionTests',
+    },
+    ('DET06', 'T32c'): {
+        'matrix_coherence': 'tests.portability.test_portability.MatrixCoherenceTests',
+        'differential_coherence': 'tests.portability.test_portability.DifferentialMatrixTests',
+        'differential_rows_under_another_host': 'tests.portability.test_portability.DifferentialRowExecutionTests',
+    },
+    ('SAFE01', 'T32c'): {
+        'canary_self_test': 'tests.canaries.test_canaries',
+        'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
+        'sanitized_video_guests': 'tests.step.test_step.VideoGuestSanitizerTests',
+        'sanitized_ecs_guests': 'tests.step.test_ecs.EcsGuestSanitizerTests',
+        'sanitized_aga_guests': 'tests.step.test_aga.AgaGuestSanitizerTests',
+        'sanitized_corpus': 'tests.reference.test_corpus_sanitizers.CorpusSanitizerTests',
+    },
+    ('FUZZ01', 'T32c'): {
+        'fuzz_native': 'tests.fuzz.test_fuzz.NativeFuzzTests',
+        'fuzz_scenario': 'tests.fuzz.test_fuzz.ScenarioFuzzTests',
+        'fuzz_corpus_scenario': 'tests.fuzz.test_fuzz.CorpusScenarioFuzzTests',
+        'state': 'tests.fuzz.test_fuzz.StateFuzzTests',
+        'state_writable': 'tests.fuzz.test_fuzz.StateWritableFuzzTests',
+        'libretro_content': 'tests.fuzz.test_fuzz.ContentFuzzTests',
+        'normalize_config': 'tests.fuzz.test_fuzz.ConfigNormalizeFuzzTests',
+        'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
+    },
 }
-TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600}
+TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
+                      ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600}
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}
 DRIVER = '''import json, sys, unittest
 suite = unittest.defaultTestLoader.loadTestsFromName(sys.argv[1])

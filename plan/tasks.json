@@ -11976,7 +11976,7 @@
       "title": "Repeticiones, entorno distinto, sanitizers y fuzz de los parsers del corpus",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T32b"
       ],
@@ -11990,12 +11990,16 @@
         "tests/portability/**",
         "tests/fuzz/**",
         "tools/check.py",
-        "reports/corpus-matrix.md"
+        "reports/corpus-matrix.md",
+        "patches/winuae/**",
+        "docs/04-validation.md",
+        "manifests/waterbox-memory.json"
       ],
       "steps": [
         "Repetir el corpus en procesos nuevos, instancia nueva y entorno host distinto (hora, zona, locale, rutas, caches), y bajo sanitizers (DET04/DET06 con Docker solo al final).",
         "Fuzz de todos los parsers implementados que alimentan el corpus (configuracion, playlists, estados, discos, hard files, escenarios).",
-        "Los checks de la ficha se registran en tools/check.py para esta tarea."
+        "Los checks de la ficha se registran en tools/check.py para esta tarea.",
+        "Ampliacion (T32c): el corpus bajo ASan/UBSan encontro un desplazamiento indefinido en expand_bplcon2 (drawing.cpp, int 0x0000FFFF << hasta 20 con BPLCON2 PF1P=5, escenarios ocs/ecs-ring-copper-ntsc); se corrige con el parche 0262 (patches/winuae/**), que cambia el guest de Waterbox (manifests/waterbox-memory.json) y se documenta en docs/04-validation.md."
       ],
       "checks": [
         "DET04",

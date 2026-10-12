@@ -576,5 +576,38 @@ class ScenarioFuzzTests(unittest.TestCase):
                     pass
 
 
+class CorpusScenarioFuzzTests(unittest.TestCase):
+    """T32c: the scenario files of the differential corpus (tests/scenarios/corpus, and the ones of the machines, ECS and AGA next to them) as seeds of the mutation
+    fuzz of the scenario validator: every unmutated seed is accepted, a mutated one is accepted or refused with a ValueError and never anything else, and the
+    mutations are refused more often than not."""
+
+    def test_every_scenario_of_the_corpus_is_accepted_and_its_mutations_are_accepted_or_refused_cleanly(self):
+        seeds = sorted((ROOT / "tests/scenarios/corpus").glob("*.json")) + sorted((ROOT / "tests/scenarios/machines").glob("machine-*.json"))[:6]
+        seeds = [p for p in seeds if p.name != "index.json"]
+        self.assertGreaterEqual(len(seeds), 28)
+        originals = [load_json(p) for p in seeds]
+        for original, path in zip(originals, seeds):
+            try:
+                validate_scenario(original)
+            except ValueError as error:
+                self.fail(f"{path.name}: {error}")
+        for run in CORPUS["scenario_runs"]:
+            rng = random.Random(run["seed"] + 32)
+            accepted = rejected = 0
+            for iteration in range(run["iterations"]):
+                candidate = copy.deepcopy(rng.choice(originals))
+                for _ in range(1 + rng.randrange(3)):
+                    candidate = mutate(candidate, rng)
+                try:
+                    validate_scenario(candidate)
+                    accepted += 1
+                except ValueError:
+                    rejected += 1
+                except Exception as error:
+                    self.fail(f"seed {run['seed']} iteration {iteration}: {type(error).__name__}: {error}")
+            self.assertGreater(rejected, run["iterations"] // 2)
+            self.assertGreater(accepted, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

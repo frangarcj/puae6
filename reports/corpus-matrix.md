@@ -1,7 +1,7 @@
 # Corpus diferencial y diagnostico de desync (T32)
 
-Estado: EN CURSO. T32a (referencia, comparador, REF01 y DET01 sobre los micro-ROM existentes), T32b (el corpus de 28 escenarios, DET02/DET03) y T15n (las dos brechas del estado que hallo el corpus) cerradas; T32c
-(repeticiones, entorno, sanitizers, fuzz) pendiente; T32 es el cierre que completa este documento.
+Estado: CERRADO. T32a (referencia, comparador, REF01 y DET01 sobre los micro-ROM existentes), T32b (el corpus de 28 escenarios, DET02/DET03), T15n (las dos brechas del estado que hallo el corpus) y
+T32c (matriz DET04/DET06, sanitizers SAFE01, fuzz FUZZ01) cerradas; T32 es el cierre que completa este documento: matriz final por escenario, `OpenDivergenceGate` en verde y toda diferencia explicada.
 
 Lo que dice y lo que no: igualar la referencia prueba fidelidad al WinUAE 6.0.3 elegido bajo el puerto comun (puente, puerto portable, probe, reloj
 emulado). No es exactitud de una Amiga fisica ni ve un error del puerto, y la referencia no es una compilacion independiente de WinUAE para Windows.
@@ -11,8 +11,8 @@ emulado). No es exactitud de una Amiga fisica ni ve un error del puerto, y la re
 `python3 tools/build_reference.py` aplica al snapshot verificado (`upstream/winuae`, intacto) los parches de `patches/winuae/series.json` que
 `tests/reference/patch-classes.json` no marca como `ablate`, en `build/reference/upstream`, y deja un recibo con las identidades (serie, clasificacion,
 herramientas) y el hash del arbol; un arbol que no es lo que dice su recibo no se reutiliza. Se compila con `-DP6_UPSTREAM_TREE=reference` (mismos fuentes
-generados de CPU: ningun parche quitado toca una entrada de los generadores ni una cabecera). 137 parches: 74 `required`, 46 `instrumentation`, 17 `behavior`
-(todos quitados en la referencia: 120 aplicados, 99 hunks con offset, ninguno con fuzz).
+generados de CPU: ningun parche quitado toca una entrada de los generadores ni una cabecera). 142 parches: 74 `required`, 50 `instrumentation`, 18 `behavior`
+(todos quitados en la referencia: 124 aplicados, 107 hunks con offset, ninguno con fuzz).
 
 Parches quitados y lo que se espera de su ausencia (REF01 lo comprueba caso a caso):
 
@@ -22,6 +22,7 @@ Parches quitados y lo que se espera de su ausencia (REF01 lo comprueba caso a ca
 | 0024 cpu-halt-preserve-paula | differs: scheduler, bridge, pcm | a500-halt-pal | tests.host.test_cpu_halt_audio |
 | 0041 preset-clear-all-ram-boards | inert | | tests.host.test_cfgfile_preset |
 | 0061 drawing-null-buffer-arithmetic | neutral | 5 de video | tests.host.test_drawing_source |
+| 0262 denise-sprite-mask-unsigned-shift (T32c) | neutral | ocs-ring-copper-ntsc, ecs-ring-copper-ntsc | tests/reference/test_corpus_sanitizers.py |
 | 0068 0072 (sesion) | inert | | tests.lifecycle.test_reload / test_cycles |
 | 0069 input-pot-state-reset | differs: input | a500-vsync-reset3-pal | tests.lifecycle.test_reload |
 | 0090 0091 0093 0096 0102 (aplicar un estado) | inert | | tests.state.test_state_upstream, FUZZ01 |
@@ -114,8 +115,44 @@ ningun escenario anterior tocaba:
 Las cotas del estado crecen 36 bytes en las tres maquinas (BEAM). Pruebas: `tests/reference/test_corpus_det02.py` y `test_corpus_det03.py` (los dos escenarios, ahora sin divergencia), los rechazos de
 BEAM y el tamano del cuerpo en `tests/state/test_state_upstream.py` y `test_state_container.py`, y `A600RewoundStateTests`, que obligo a llevar tambien `ddfstrt_val`.
 
-## Pendiente
+## T32c: repeticiones, entorno distinto, sanitizers y fuzz
 
-- Waterbox: el guest cambia con los parches 0260/0261: `manifests/waterbox-memory.json` y su prueba se vuelven a medir en la integracion (no se ejecuto aqui).
-- T32c: procesos/instancia nueva/entorno distinto/sanitizers (DET04, DET06 con Docker al final, SAFE01) y fuzz de todos los parsers (FUZZ01).
-- T32: matriz final por escenario, `OpenDivergenceGate` en verde, toda diferencia explicada y respaldada por un test o bloqueando la release.
+Cuatro puertas, todas con `python3 tools/check.py --check ID --task T32c`:
+
+- **DET04 / DET06** (`tests/portability/test_portability.py`: `DifferentialMatrixTests` y `DifferentialRowExecutionTests`). El mismo corpus (28 programas, medios y argumentos `@corpus/...`, digest
+  `6dc0d803...`) corre en las cinco filas de T25 (macOS arm64 AppleClang nativo; Linux arm64 clang y gcc, Linux x86_64 clang y gcc en Docker, x86_64 traducido) con `P6_MATRIX_SET=differential`
+  (`tests/portability/run_matrix.py`; la evidencia de T25 y `reports/platform-matrix.md` no se tocan). Cada fila corre en O0 y O2 (linea base y variante `host`: otro locale, otra zona, reloj
+  adelantado ~25 anos por una biblioteca precargada, otro directorio de trabajo y otra ruta de ROM) y en `san` (ASan/UBSan, linea base). Resultado, `tests/portability/evidence-differential.json`:
+  las 15 combinaciones fila/optimizacion dan 28/28 hashes de hardware y 28/28 de A/V iguales a la fila de referencia, sin errores ni diferencias, y las 10 variantes `host` son iguales a su linea base
+  (28/28 y 28/28). Los hashes distinguen los escenarios entre si (la prueba lo exige: un hash constante no demostraria nada). Con Docker abierto una sola vez al final, las dos puertas pasan
+  re-ejecutando las cinco filas en O0 (`P6_TEST_PORTABILITY=1`); sin Docker las filas Linux se saltan y el check es BLOCKED, nunca PASS.
+- **SAFE01** (`tests/reference/test_corpus_sanitizers.py`, mas las cinco suites de T24). Los 28 escenarios corren bajo ASan/UBSan y un estado guardado en el primer punto de cada uno se carga bajo
+  los sanitizers, sin un solo aviso. **Hallazgo**: `ocs-ring-copper-ntsc` y `ecs-ring-copper-ntsc` (el Copper escribe BPLCON2 con PF1P=5) disparaban UBSan en `expand_bplcon2`
+  (`drawing.cpp`, `0x0000FFFF << (4 * plf1pri)`, un `int` desplazado hasta 20 posiciones). Parche 0262: la constante pasa a `unsigned` y la mascara se recorta a 16 bits como antes; mismo valor.
+  Clase `behavior`, efecto `neutral` en `tests/reference/patch-classes.json`: REF01 lo prueba en esos dos escenarios (producto y referencia iguales). El guest de Waterbox cambia
+  (`manifests/waterbox-memory.json` vuelto a medir; humo, memoria, contrato, hdf, wb y unidades de Waterbox pasan).
+- **FUZZ01** (`CorpusScenarioFuzzTests` y los parsers de T59/T76). Mutaciones sembradas de los 28 escenarios y de los primeros archivos de maquina: los intactos validan, toda mutacion se rechaza solo con
+  `ValueError` y se rechaza mas de la mitad. Se suman los demas objetivos ya implementados: nativo, escenarios, estados (`state`, `state_writable`), contenido de libretro (M3U, VFS, archivos
+  ZIP/7z/RP9 de T59, el modelo y las etiquetas de nombre de T76), normalizacion de opciones y hard files.
+
+## Matriz final por escenario (T32)
+
+Todos los escenarios, tras T15n y T32c:
+
+| Escenario | REF01 | DET02 | DET03 | DET04 (5 filas x O0/O2/san) | DET06 (host, O0/O2) | SAFE01 | FUZZ01 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 28 escenarios (19 A500 OCS, 5 A600 ECS, 4 A1200 AGA) | igual en 26; declarada en 2 | igual (109 pruebas) | igual (28) | igual (28/28 hardware y A/V en 15 combinaciones) | igual (28/28 en 10 variantes) | limpio (28 y 28 estados) | 28 semillas |
+
+Las dos diferencias frente a la referencia son las unicas del corpus y estan explicadas y respaldadas por un test:
+
+| Escenario | Parche | Subsistemas | Primera unidad | Causa | Test |
+| --- | --- | --- | --- | --- | --- |
+| ocs-halt-pal (y a500-halt-pal de T32a) | 0024 cpu-halt-preserve-paula | scheduler, bridge, pcm | 1 | con la CPU parada el producto sigue ejecutando Paula (ADR 0002); el upstream la desactiva | tests.host.test_cpu_halt_audio |
+| reset-mid-run-pal (y a500-vsync-reset3-pal) | 0069 input-pot-state-reset | input | 4 | p6_reset deja el puerto de pot en cero; el upstream conserva lo de la sesion | tests.lifecycle.test_reload |
+
+Atribucion medida en ambos: reaplicar solo ese parche al arbol de referencia deja el caso igual. No quedan divergencias abiertas: `DIVERGENCES` de `tests/reference/test_corpus_det02.py` esta vacia
+y `P6_RELEASE_GATE=1 python3 -m unittest tests.reference.test_corpus_det02.OpenDivergenceGate tests.reference.test_corpus_det03.OpenDivergenceGate` pasa. Los parches `inert` no los nota el corpus
+de micro-ROM ni el de escenarios (actuan tras una carga, en un proceso usado o con entradas que no tiene): su evidencia es el test nombrado en `patch-classes.json`.
+
+Limites: igualar la referencia es fidelidad al WinUAE 6.0.3 elegido bajo el puerto comun, no exactitud de una Amiga fisica; la matriz prueba determinismo entre ISA, compiladores y entorno host sobre
+estos 28 escenarios, no sobre cualquier programa; Waterbox/BizHawk se mide por sus propias puertas (WB03, waterbox-state), no por esta matriz.
