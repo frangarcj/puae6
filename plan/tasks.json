@@ -11882,8 +11882,8 @@
       "evidence": null
     },
     {
-      "id": "T32",
-      "title": "Cerrar corpus diferencial y diagnostico de desync",
+      "id": "T32a",
+      "title": "Referencia del mismo WinUAE SHA, comparador de ejecuciones y DET01",
       "milestone": "M4",
       "required": true,
       "status": "pending",
@@ -11900,18 +11900,139 @@
         "docs/05-maintenance.md"
       ],
       "touch": [
-        "tests/scenarios/**",
-        "tests/reference/**",
         "tools/compare_runs.py",
+        "tests/reference/**",
         "manifests/fixtures.json",
         "reports/corpus-matrix.md"
+      ],
+      "steps": [
+        "Decidir y documentar que es \"la referencia\" (docs/04-validation.md, REF01): el mismo arbol WinUAE 6.0.3 con solo los parches imprescindibles (build/portability, exclusion de servicios host, retorno por unidad de video y lectores de estado que no cambian la emulacion) y SIN los parches que cambian lo que el motor calcula; cada parche de la serie queda clasificado con motivo y, si cambia comportamiento, con el test que lo respalda.",
+        "Construir esa referencia de forma reproducible (serie filtrada aplicada al snapshot verificado, mismo puente/puerto/probe, relojes/config/assets/salida normalizados) y que la ejecucion de la referencia y la del producto emitan el mismo formato canonico por unidad (ticks, eventos, CPU, chipset, RAM, PCM, imagen).",
+        "tools/compare_runs.py compara dos ejecuciones o dos referencias: primer boundary distinto, subsistema/grupo divergente, ultimas entradas aplicadas y checkpoints previos; una suma final sola no basta.",
+        "REF01 sobre los micro-ROM existentes: toda diferencia producto/referencia esta en la tabla de diferencias esperadas con su test; una no explicada falla. DET01: dos procesos nuevos, mismas entradas, 10000 boundaries, hashes iguales.",
+        "Los micro-tests de comportamiento propios de cada parche de la tabla (que hace que el motor del producto difiera del upstream) se anaden aqui solo si el parche no tenia ya uno; el corpus de 20 escenarios es T32b."
+      ],
+      "checks": [
+        "REF01",
+        "DET01"
+      ],
+      "acceptance": [
+        "La referencia se construye desde el snapshot verificado y la serie filtrada, no desde un arbol editado a mano; la clasificacion de parches cubre toda la serie y falla si aparece un parche sin clasificar.",
+        "compare_runs.py reproduce una divergencia inyectada (primer boundary, subsistema y entradas previas correctos) y no marca diferencia entre dos ejecuciones iguales.",
+        "Igualdad con la referencia se describe como fidelidad al upstream elegido, nunca como exactitud de una Amiga fisica."
+      ],
+      "stop": "Si la referencia no se puede construir sin los parches que cambian emulacion, registrar cuales y por que (blocked con nota), no relajar la comparacion.",
+      "evidence": null
+    },
+    {
+      "id": "T32b",
+      "title": "Corpus diferencial de al menos 20 escenarios con microtests",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T32a"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/00-evidence.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tests/scenarios/**",
+        "tests/reference/**",
+        "manifests/fixtures.json",
+        "reports/corpus-matrix.md"
+      ],
+      "steps": [
+        "Completar al menos 20 escenarios con 4 OCS, 4 ECS, 4 AGA, PAL/NTSC, teclado/raton/joystick, 2 de audio/DMA, 2 de reset/swap y 2 de escritura/restauracion; micro-tests antes que pantallas de arranque, juegos/demos como complemento opt-in por variable de entorno.",
+        "Hallazgo de T24c: programas que mantienen lleno el anillo rga_denise en OCS/ECS (bucles que reescriben BPLCON0 y colores) con DET02 en A500 y A600, y su comparacion con la referencia.",
+        "Cada escenario pasa REF01 (T32a) y DET02/DET03; los hashes de repetibilidad tienen procedencia (generador + programa + maquina), no se cambian automaticamente.",
+        "manifests/fixtures.json registra procedencia, licencia, recetas y variables de entorno de los fixtures; los escenarios que necesitan assets ausentes quedan BLOCKED, nunca PASS."
+      ],
+      "checks": [
+        "REF01",
+        "DET02",
+        "DET03"
+      ],
+      "acceptance": [
+        "El corpus tiene todas las categorias de docs/04-validation.md (conteo verificado por un test) y no se compone solo de arranques.",
+        "Los programas del anillo rga_denise en OCS/ECS pasan DET02 o su divergencia queda explicada y respaldada por un test."
+      ],
+      "stop": "Un corpus compuesto solo de pantallas de arranque no satisface cobertura; anadir microtests antes de optimizar.",
+      "evidence": null
+    },
+    {
+      "id": "T32c",
+      "title": "Repeticiones, entorno distinto, sanitizers y fuzz de los parsers del corpus",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T32b"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/00-evidence.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "tests/reference/**",
+        "tests/portability/**",
+        "tests/fuzz/**",
+        "tools/check.py",
+        "reports/corpus-matrix.md"
+      ],
+      "steps": [
+        "Repetir el corpus en procesos nuevos, instancia nueva y entorno host distinto (hora, zona, locale, rutas, caches), y bajo sanitizers (DET04/DET06 con Docker solo al final).",
+        "Fuzz de todos los parsers implementados que alimentan el corpus (configuracion, playlists, estados, discos, hard files, escenarios).",
+        "Los checks de la ficha se registran en tools/check.py para esta tarea."
+      ],
+      "checks": [
+        "DET04",
+        "DET06",
+        "SAFE01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "DET04/DET06 corren el corpus en la matriz declarada y comparan hashes por fila; lo que no se ejecuta queda BLOCKED, nunca PASS.",
+        "SAFE01 y FUZZ01 pasan sin errores nuevos de sanitizers ni de limites."
+      ],
+      "stop": "Una fila de la matriz que no se pudo ejecutar no es una fila que coincide.",
+      "evidence": null
+    },
+    {
+      "id": "T32",
+      "title": "Cerrar corpus diferencial y diagnostico de desync",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T25",
+        "T26",
+        "T28",
+        "T30",
+        "T31",
+        "T32a",
+        "T32b",
+        "T32c"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/00-evidence.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "reports/corpus-matrix.md",
+        "manifests/fixtures.json"
       ],
       "steps": [
         "Construir referencia del mismo WinUAE SHA con instrumentacion minima separada; normalizar clocks/config/assets y output.",
         "Completar al menos 20 escenarios con las categorias OCS/ECS/AGA, PAL/NTSC, audio, input, medios y restore definidas.",
         "Comparar ticks/eventos/CPU/chipset y A/V canonicos; emitir primer boundary y subsistema divergente con inputs previos.",
         "Repetir procesos, instancia nueva, entorno distinto, sanitizers y fuzz de todos los parsers ya implementados.",
-        "Hallazgo de T24c (2026-10-09): el anillo rga_denise viaja en el estado solo en AGA (DRNG); en A500/A600 el ADR 0009 supone el anillo ocioso en la frontera de unidad. El corpus diferencial debe incluir programas que lo mantengan lleno en OCS/ECS (bucles que reescriben BPLCON0/colores) y comprobar DET02."
+        "Hallazgo de T24c (2026-10-09): el anillo rga_denise viaja en el estado solo en AGA (DRNG); en A500/A600 el ADR 0009 supone el anillo ocioso en la frontera de unidad. El corpus diferencial debe incluir programas que lo mantengan lleno en OCS/ECS (bucles que reescriben BPLCON0/colores) y comprobar DET02.",
+        "2026-10-12: dividida en T32a (referencia, comparador, REF01/DET01), T32b (corpus de 20 escenarios, DET02/DET03) y T32c (repeticiones, entorno, sanitizers y fuzz: DET04/DET06/SAFE01/FUZZ01); T32 queda como cierre: reports/corpus-matrix.md recoge toda diferencia explicada y respaldada por un test o bloqueando release."
       ],
       "checks": [
         "REF01",
