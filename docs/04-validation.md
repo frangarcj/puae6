@@ -160,6 +160,24 @@ Igualar WinUAE prueba fidelidad al upstream elegido, no exactitud universal de u
 Amiga fisica. Donde haya tests de hardware o bugs conocidos, documentar su
 procedencia. No usar PUAE viejo como unico oraculo de timing para WinUAE 6.
 
+REF01 (T32a). La referencia es el MISMO snapshot verificado de WinUAE 6.0.3 con la cola de parches menos los parches que cambian lo que el motor calcula
+(`tests/reference/patch-classes.json`, `python3 tools/build_reference.py`, arbol `build/reference/upstream`, compilado con `-DP6_UPSTREAM_TREE=reference`).
+Cada parche de la serie esta clasificado: `required` (sin el, el perfil no enlaza ni corre de forma determinista: servicios host excluidos, portabilidad,
+reloj/semilla/ritmo sustituidos por valores emulados o explicitos, retorno por unidad de video, soporte de medios y dispositivos de un preset),
+`instrumentation` (lectores/escritores de estado, observadores y ganchos de sesion por los que el probe y el puente miran la maquina) o `behavior` (cambia
+el resultado o dice reescribir codigo sin cambiarlo). Solo los `behavior` se quitan (`ablate`); cada uno declara `neutral` (el resultado no cambia: REF01 lo
+demuestra), `inert` (solo actua tras una carga, un reset de un proceso usado o con entradas que el corpus no tiene: igual en el corpus, y el test nombrado es la
+evidencia del parche) o `differs` (cambia los casos y subsistemas nombrados: REF01 exige esa diferencia y ninguna otra). Un parche que no se puede quitar
+porque otro depende de el (0070, 0071: sus hunks son vecinos de 0078 y 0074) pasa a `instrumentation` y se queda. La referencia comparte con el producto el puente, el puerto
+portable, los micro-ROM, el probe y el reloj emulado: solo puede mostrar lo que cambian los parches quitados, no sustituye a WinUAE en Windows ni ve un
+error del puerto. `tools/compare_runs.py` compara por frontera de unidad y clave (digest de CPU, scheduler = ticks y eventos, RAM, RTC, CIA, chipset y sus
+grupos, audio, entrada, video, puente, mas el PCM y la imagen que recibe el host): primer boundary distinto, subsistemas, las claves que divergen despues, la
+ultima frontera igual y las entradas aplicadas hasta ella. El "mirar primero" sigue un orden causal y es una pista, no una causa: un `--poke-at` en el
+chipset hace diferir primero al digest de la CPU porque este incluye el haz. El resultado se lee como fidelidad al upstream elegido bajo el puerto comun,
+nunca como exactitud de una Amiga fisica. DET01 (`tests/reference/test_det01.py`): dos procesos nuevos a la vez, mismas entradas (las pseudoaleatorias salen
+de un LCG con su semilla en el caso), 10000 unidades, digests cada 5 unidades y PCM/imagen de cada unidad, salidas identicas byte a byte.
+`python3 tools/check.py --check REF01 --task T32a` y `--check DET01 --task T32a` ejecutan las suites (REF01 ~2 min, DET01 ~12 min).
+
 ## Matriz de CI propuesta
 
 Tier 1 de producto: Linux x86_64 (Clang y GCC), Windows x86_64 (toolchain fijada),

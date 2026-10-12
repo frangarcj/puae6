@@ -121,6 +121,18 @@ TASK_SUITES = {
         'matrix_coherence': 'tests.portability.test_portability.MatrixCoherenceTests',
         'rows_under_another_host': 'tests.portability.test_portability.RowExecutionTests',
     },
+    # T32a: REF01 (the product against the reference, the same WinUAE snapshot without the patches that change what the engine computes, over the micro-ROM
+    # corpus of tests/portability/corpus.py; every difference is declared by an ablated patch and nowhere else) and DET01 (two new processes print the same
+    # digests over 10000 units). Both build p6_state_probe twice (build/state-opt and build/reference-opt); `compare_runs` is the comparator's own tests.
+    ('REF01', 'T32a'): {
+        'compare_runs': 'tests.reference.test_compare_runs',
+        'patch_classification': 'tests.reference.test_patch_classes',
+        'reference_corpus': 'tests.reference.test_ref01',
+    },
+    ('DET01', 'T32a'): {
+        'compare_runs': 'tests.reference.test_compare_runs',
+        'repeated_processes': 'tests.reference.test_det01',
+    },
 }
 TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600}
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}

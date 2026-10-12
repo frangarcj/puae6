@@ -11886,7 +11886,7 @@
       "title": "Referencia del mismo WinUAE SHA, comparador de ejecuciones y DET01",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T25",
         "T26",
@@ -11903,14 +11903,19 @@
         "tools/compare_runs.py",
         "tests/reference/**",
         "manifests/fixtures.json",
-        "reports/corpus-matrix.md"
+        "reports/corpus-matrix.md",
+        "tools/build_reference.py",
+        "cmake/HostTools.cmake",
+        "tools/check.py",
+        "docs/04-validation.md"
       ],
       "steps": [
         "Decidir y documentar que es \"la referencia\" (docs/04-validation.md, REF01): el mismo arbol WinUAE 6.0.3 con solo los parches imprescindibles (build/portability, exclusion de servicios host, retorno por unidad de video y lectores de estado que no cambian la emulacion) y SIN los parches que cambian lo que el motor calcula; cada parche de la serie queda clasificado con motivo y, si cambia comportamiento, con el test que lo respalda.",
         "Construir esa referencia de forma reproducible (serie filtrada aplicada al snapshot verificado, mismo puente/puerto/probe, relojes/config/assets/salida normalizados) y que la ejecucion de la referencia y la del producto emitan el mismo formato canonico por unidad (ticks, eventos, CPU, chipset, RAM, PCM, imagen).",
         "tools/compare_runs.py compara dos ejecuciones o dos referencias: primer boundary distinto, subsistema/grupo divergente, ultimas entradas aplicadas y checkpoints previos; una suma final sola no basta.",
         "REF01 sobre los micro-ROM existentes: toda diferencia producto/referencia esta en la tabla de diferencias esperadas con su test; una no explicada falla. DET01: dos procesos nuevos, mismas entradas, 10000 boundaries, hashes iguales.",
-        "Los micro-tests de comportamiento propios de cada parche de la tabla (que hace que el motor del producto difiera del upstream) se anaden aqui solo si el parche no tenia ya uno; el corpus de 20 escenarios es T32b."
+        "Los micro-tests de comportamiento propios de cada parche de la tabla (que hace que el motor del producto difiera del upstream) se anaden aqui solo si el parche no tenia ya uno; el corpus de 20 escenarios es T32b.",
+        "2026-10-12: touch ampliado con tools/build_reference.py (materializa el arbol de referencia desde el snapshot verificado y la serie filtrada), cmake/HostTools.cmake (P6_UPSTREAM_TREE=reference apunta las mismas fuentes al arbol de referencia), tools/check.py (registrar REF01/DET01 para T32a) y docs/04-validation.md (definir la referencia); manifests/fixtures.json pasa a T32b, que define el corpus."
       ],
       "checks": [
         "REF01",
