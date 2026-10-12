@@ -12118,7 +12118,7 @@
       "title": "Medir baseline de rendimiento y snapshots",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T32"
       ],
@@ -12131,14 +12131,26 @@
         "tools/bench.py",
         "tests/bench/**",
         "reports/baselines/**",
-        "plan/performance-budgets.json"
+        "plan/performance-budgets.json",
+        "tools/check.py",
+        "CMakeLists.txt",
+        "tests/libretro-host/host.cpp",
+        "tests/ffi/Bench.cs",
+        "tests/ffi/Program.cs",
+        "integration/bizhawk/smoke/Puae6Bench.cs",
+        "integration/bizhawk/smoke/Puae6.cs",
+        "integration/bizhawk/smoke/Native.cs",
+        "integration/bizhawk/smoke/Program.cs",
+        "docs/04-validation.md",
+        "reports/tasks/T33.md"
       ],
       "steps": [
         "Implementar benchmark sin vsync que separa motor, conversion/adaptador, I/O y save/load; reloj host solo para medir.",
         "Ejecutar warmup y repeticiones del protocolo por perfil/runner; conservar datos brutos, versiones, carga y condiciones.",
         "Medir mediana/p95, asignaciones/copias, RSS/heaps, bytes de snapshot y dirty pages solo si realmente disponibles.",
         "Ratificar presupuesto por maquina y perfil sin convertir las metas propuestas en resultados observados.",
-        "En Darwin ARM64 distinguir paginas logicas de 4 KiB y grupos fisicos de 16 KiB; registrar dirty tracking por la unidad realmente medida y costo del runtime local."
+        "En Darwin ARM64 distinguir paginas logicas de 4 KiB y grupos fisicos de 16 KiB; registrar dirty tracking por la unidad realmente medida y costo del runtime local.",
+        "Ampliacion (T33): medir exige un punto de medida en cada capa. Una sonda nativa (tests/bench/bench_probe.cpp, objetivo p6_bench_probe en CMakeLists.txt), un modo --bench del frontend libretro (tests/libretro-host/host.cpp, solo temporiza y cuenta; los demas modos no cambian), el modo --puae6-bench del harness del guest (integration/bizhawk/smoke/Puae6Bench.cs, con un metodo en Puae6.cs, el interruptor de expulsion del runtime en Native.cs y su despacho en Program.cs) y el comando bench de tests/ffi (Bench.cs, despacho en Program.cs) para el core tal como lo llama BizHawk; PERF01 y WB12 se registran en tools/check.py y docs/04-validation.md dice donde esta la baseline. El informe reports/tasks/T33.md es opcional: se usa porque hay un hallazgo (el runtime local es una compilacion debug)."
       ],
       "checks": [
         "PERF01",

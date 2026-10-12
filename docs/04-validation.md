@@ -6,8 +6,11 @@ Un plan validado no es un core validado. Compilar no es arrancar; arrancar no es
 ser determinista; determinismo no demuestra exactitud del hardware. Los runners
 guardan automaticamente build ID, perfil, host/ISA, toolchain, escenario y checks
 cuando esos datos importan; no se rellena una ficha manual por cada ejecucion.
-No hay benchmarks observados aun. Todos los umbrales de este documento son metas
-propuestas que se ratifican tras la primera baseline reproducible.
+Hay una primera baseline de rendimiento (T33, `reports/baselines/T33-2026-10-12-a`,
+resumen en `summary.md`, presupuestos en `plan/performance-budgets.json`). Es ORIENTATIVA:
+se tomo en el Mac de uso diario del usuario, sin runner dedicado (plan/runners.json), y
+ningun umbral de este documento se ha convertido en limite duro; las metas siguen siendo
+metas propuestas y la baseline solo dice si las observaciones las cumplen.
 
 ## Runner de escenarios (a implementar en T04)
 
@@ -259,6 +262,28 @@ Objetivos iniciales a ratificar con baseline:
 No son garantias para todo hardware ni resultados ya medidos. La baseline aprobada
 fija presupuesto por perfil/host; no se rebaja en el mismo cambio que lo incumple.
 Performance se mide en release fijada, sanitizers en un job distinto.
+
+### Baseline T33 (orientativa)
+
+`python3 tools/bench.py build|run|summarize|compare|budgets`. Mide sin vsync y por capas: la
+sonda nativa (`tests/bench/bench_probe.cpp`, Release `-O2`, la optimizacion del guest), el
+frontend libretro con `--bench`, el guest Waterbox (`integration/bizhawk/smoke/Puae6Bench.cs`:
+Activate / `p6w_frame_advance` / copia / Deactivate) y el core de BizHawk (`tests/ffi/Bench.cs`,
+Release). Reloj de pared y CPU del hilo, leidos fuera del motor; calentamiento de 300 unidades,
+10000 medidas en el escenario principal (3000 en los demas), cinco repeticiones intercaladas
+(tres en los runners que solo contrastan una configuracion), datos brutos y condiciones de cada
+ejecucion en `raw/`. Escenarios: micro-ROM A500 OCS (Copper/blitter/DMA/motor de disco), A500
+NTSC, A600 ECS, A1200 AGA, Paula+DMA, y opt-in por variable de entorno Kickstart 1.3 +
+Speedball 2 y Kickstart 3.1 + una demo AGA (usados en el sitio, sin copiar ni calcular hash).
+Todos los runners de un escenario terminan la ventana en el mismo tick maestro: se comparan
+modos de precision equivalentes. Dos sesiones separadas 1,7 h repiten las medianas de las 14
+filas comparadas con una diferencia maxima de 0,54 %; el p95 se repite salvo cuando una
+perturbacion del Mac cae en una sesion (11 de 14 filas dentro del 5 %).
+El runtime local de Waterbox es una compilacion DEBUG de libwaterboxhost con expulsion forzada:
+entrar en el sandbox cuesta ~2,8 ms por unidad (frente a ~0,0002 ms con las mismas fuentes en
+Release), y es el unico caso en que un runner supera el 70 % de la unidad (A1200 con Kickstart
+3.1 y una demo AGA: p95 20,5 ms de 20,03). Con runtime Release el core de BizHawk cuesta +12,5 %
+(A500 busy: 4,50 ms frente a 4,00 ms nativos).
 
 ## Orden de optimizacion
 

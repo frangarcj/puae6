@@ -234,6 +234,19 @@ TASK_SUITES[('SRC01', 'T37')] = {'import_sources': 'tests.test_import_sources',
                                  'pinned_snapshot': 'tests.upstream-update.test_update.RealPinnedSnapshotTests',
                                  'new_snapshot_verification': 'tests.upstream-update.test_update.DirectorySnapshotTests'}
 TASK_SUITES[('GEN01', 'T37')] = {'regeneration_of_the_candidate': 'tests.upstream-update.test_update.GeneratorTests'}
+
+# T33 measures. PERF01 is the statistics and summary of tools/bench.py (no emulator), the native and libretro probes in the optimized tree (what a sample is, that the clock does not feed the
+# engine, no allocation in the steady state) and the committed baseline with the budgets derived from it (a function of the raw files, goals apart from observations, everything advisory
+# unless stable). WB12 runs the Waterbox probes (guest ABI and core) in a real sandbox: p50/p95 of a unit and of a snapshot, the dirty unit of Darwin ARM64, the heaps; without a runtime the
+# suite skips and the gate is BLOCKED, never PASS. The baseline itself is ORIENTATIVE: no dedicated runner exists (plan/runners.json).
+TASK_SUITES[('PERF01', 'T33')] = {
+    'bench_statistics': 'tests.bench.test_statistics',
+    'native_and_libretro_probes': 'tests.bench.test_native',
+    'baseline_and_budgets': 'tests.bench.test_budgets',
+}
+TASK_SUITES[('WB12', 'T33')] = {
+    'waterbox_probes': 'tests.bench.test_wb12',
+}
 TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
                       ('DET04', 'T32'): 6 * 3600, ('DET06', 'T32'): 6 * 3600}

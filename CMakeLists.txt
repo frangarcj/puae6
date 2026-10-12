@@ -239,6 +239,11 @@ target_include_directories(p6_state_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_state_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_state_probe PRIVATE p6_state p6_bridge p6_portable)
+# T33: the benchmark probe (tools/bench.py builds it in a Release tree). It uses the public ABI like p6_headless and keeps NDEBUG as the build type has it: a benchmark with the asserts on is a different product.
+add_executable(p6_bench_probe tests/bench/bench_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_bench_probe p6_codegen)
+target_include_directories(p6_bench_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_link_libraries(p6_bench_probe PRIVATE p6_state p6_bridge p6_portable)
 if(P6_UNIT_TRACE)
     # STEP01 harness (tests/step/test_step.py drives it). Only in trace builds: the profile never has the hook.
     add_executable(p6_step_probe tests/step/step_probe.cpp $<TARGET_OBJECTS:p6_engine>)

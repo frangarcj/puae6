@@ -4,6 +4,7 @@
 //   Ffi.dll identity --guest puae6.wbx --sha HASH
 //   Ffi.dll play --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --firmware input_all.rom --script script.txt --units N [--port1 joystick] [--ntsc] [--power-at U,U]
 //   Ffi.dll volume --archive FILE --out FILE     the hard file that Puae6Volumes builds from an LHA or a ZIP of files (T64b); "volume bytes=N sha=HEX", or the reason it is not a volume
+//   Ffi.dll bench --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --firmware ROM --units N --out FILE [--warmup W] [--machine NAME] [--ntsc 1] [--adf DISK] [--state-rounds R]   (T33, Bench.cs)
 //   Ffi.dll open --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --manifest waterbox-memory.json --firmware boot.rom --units N
 // Every check prints a line "ok ..." and any failure ends the process with a nonzero exit code and the reason on stderr.
 using System.Runtime.InteropServices;
@@ -59,6 +60,7 @@ internal static unsafe partial class Program
 				}
 				case "play": Play(options); break;
 				case "session": RunSession(options); break;
+				case "bench": Bench(options); break;                 // T33: tools/bench.py
 				case "inventory": Inventory(); break;
 				case "media": Media(options); break;
 				case "saveramformat": SaveRamFormat(); break;

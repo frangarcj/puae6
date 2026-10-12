@@ -1,0 +1,806 @@
+{
+  "schema_version": 1,
+  "status": "ORIENTATIVE",
+  "task": "T33",
+  "baseline": "reports/baselines/T33-2026-10-12-a",
+  "rule": "The goals below are the ones docs/04-validation.md proposed before any measurement. Ratifying a budget here means fixing the formula and the machine/profile it is compared on; it does NOT mean the numbers under `observed` are limits. They were taken on a Mac that someone was using (no dedicated runner, plan/runners.json), so no hard threshold derives from them: every entry is advisory until a quiet runner repeats the baseline with a small between-run dispersion.",
+  "goals": {
+    "p95_unit_fraction_max": 0.7,
+    "time_regression_investigate_above": 0.05,
+    "state_size_or_cost_regression_investigate_above": 0.1,
+    "steady_state_allocation_per_unit": "none in the bridge and the adapters (measured: see `allocation`)",
+    "note": "A regression sustained above these is investigated and approved by a person, with the run repeated to discard noise; a budget is never lowered in the change that breaks it."
+  },
+  "noise_policy": {
+    "noisy_wait_ratio_above": 1.05,
+    "load_average": "recorded with every run (reports/baselines/*/raw), never used as a verdict by itself",
+    "minimum_repetitions": 5,
+    "stable_means": "between_run_cv <= 0.02, no noisy run and at least five repetitions IN THIS BASELINE. It describes these repetitions only and does not promote an entry: enforcement stays advisory until a dedicated runner (plan/runners.json has none) repeats the baseline and a person approves the thresholds"
+  },
+  "entries": {
+    "libretro/a1200-aga-planes8-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 5.058,
+        "p95_ms": 5.463,
+        "p95_unit_fraction": 0.2736,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0204,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "native/a1200-aga-planes8-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 5.056,
+        "p95_ms": 5.329,
+        "p95_unit_fraction": 0.2669,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0121,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-core-release/a1200-aga-planes8-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 5.654,
+        "p95_ms": 6.101,
+        "p95_unit_fraction": 0.3056,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0198,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-guest-debug-runtime/a1200-aga-planes8-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 10.486,
+        "p95_ms": 10.961,
+        "p95_unit_fraction": 0.5489,
+        "reps": 3,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0035,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-guest-release-runtime/a1200-aga-planes8-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 7.085,
+        "p95_ms": 7.527,
+        "p95_unit_fraction": 0.377,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0145,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "libretro/a1200-ks31-demo-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 6.411,
+        "p95_ms": 7.365,
+        "p95_unit_fraction": 0.3677,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0137,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "native/a1200-ks31-demo-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 6.406,
+        "p95_ms": 7.361,
+        "p95_unit_fraction": 0.3674,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.013,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-core-release/a1200-ks31-demo-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 7.052,
+        "p95_ms": 8.12,
+        "p95_unit_fraction": 0.4053,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0127,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-guest-debug-runtime/a1200-ks31-demo-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 12.187,
+        "p95_ms": 20.538,
+        "p95_unit_fraction": 1.0253,
+        "reps": 3,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0198,
+        "noisy_runs": 1,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": false,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-guest-release-runtime/a1200-ks31-demo-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 8.509,
+        "p95_ms": 9.712,
+        "p95_unit_fraction": 0.4848,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0197,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "libretro/a500-ks13-game-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 4.166,
+        "p95_ms": 4.446,
+        "p95_unit_fraction": 0.2219,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.014,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "native/a500-ks13-game-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 4.172,
+        "p95_ms": 4.657,
+        "p95_unit_fraction": 0.2325,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0178,
+        "noisy_runs": 1,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-core-release/a500-ks13-game-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 4.735,
+        "p95_ms": 5.073,
+        "p95_unit_fraction": 0.2532,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0147,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-guest-debug-runtime/a500-ks13-game-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 10.014,
+        "p95_ms": 13.644,
+        "p95_unit_fraction": 0.6811,
+        "reps": 3,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0295,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-guest-release-runtime/a500-ks13-game-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "observed": {
+        "p50_ms": 6.171,
+        "p95_ms": 6.541,
+        "p95_unit_fraction": 0.3265,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0175,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "libretro/a500-ocs-busy-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 4.006,
+        "p95_ms": 4.206,
+        "p95_unit_fraction": 0.2106,
+        "reps": 5,
+        "units_per_rep": 10000,
+        "between_run_cv": 0.0018,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "native/a500-ocs-busy-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 3.999,
+        "p95_ms": 4.22,
+        "p95_unit_fraction": 0.2113,
+        "reps": 5,
+        "units_per_rep": 10000,
+        "between_run_cv": 0.0025,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-core-debug/a500-ocs-busy-pal": {
+      "runner": "waterbox-core-debug",
+      "layer": "waterbox-core",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 9.293,
+        "p95_ms": 9.855,
+        "p95_unit_fraction": 0.4936,
+        "reps": 3,
+        "units_per_rep": 10000,
+        "between_run_cv": 0.0097,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-core-release/a500-ocs-busy-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 4.501,
+        "p95_ms": 4.777,
+        "p95_unit_fraction": 0.2392,
+        "reps": 5,
+        "units_per_rep": 10000,
+        "between_run_cv": 0.0039,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-guest-debug-runtime/a500-ocs-busy-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 9.302,
+        "p95_ms": 10.111,
+        "p95_unit_fraction": 0.5063,
+        "reps": 3,
+        "units_per_rep": 10000,
+        "between_run_cv": 0.0066,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-guest-release-runtime/a500-ocs-busy-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 5.932,
+        "p95_ms": 6.256,
+        "p95_unit_fraction": 0.3133,
+        "reps": 5,
+        "units_per_rep": 10000,
+        "between_run_cv": 0.0036,
+        "noisy_runs": 1,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-guest-release-runtime-evict/a500-ocs-busy-pal": {
+      "runner": "waterbox-guest-release-runtime-evict",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 8.576,
+        "p95_ms": 9.186,
+        "p95_unit_fraction": 0.4601,
+        "reps": 3,
+        "units_per_rep": 10000,
+        "between_run_cv": 0.0113,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "libretro/a500-ocs-copper-ntsc": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "ntsc",
+      "scenario": "a500-ocs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "observed": {
+        "p50_ms": 3.706,
+        "p95_ms": 4.068,
+        "p95_unit_fraction": 0.2443,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0183,
+        "noisy_runs": 1,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "native/a500-ocs-copper-ntsc": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "ntsc",
+      "scenario": "a500-ocs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "observed": {
+        "p50_ms": 3.702,
+        "p95_ms": 3.892,
+        "p95_unit_fraction": 0.2337,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0028,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "libretro/a500-ocs-tone4-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-tone4-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 3.554,
+        "p95_ms": 3.803,
+        "p95_unit_fraction": 0.1905,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0151,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "native/a500-ocs-tone4-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-tone4-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "observed": {
+        "p50_ms": 3.559,
+        "p95_ms": 4.114,
+        "p95_unit_fraction": 0.206,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0231,
+        "noisy_runs": 1,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "libretro/a600-ecs-copper-ntsc": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "observed": {
+        "p50_ms": 3.82,
+        "p95_ms": 4.06,
+        "p95_unit_fraction": 0.2438,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0127,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "native/a600-ecs-copper-ntsc": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "observed": {
+        "p50_ms": 3.818,
+        "p95_ms": 4.205,
+        "p95_unit_fraction": 0.2525,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0162,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-core-release/a600-ecs-copper-ntsc": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "observed": {
+        "p50_ms": 4.339,
+        "p95_ms": 4.601,
+        "p95_unit_fraction": 0.2763,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.012,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    },
+    "waterbox-guest-debug-runtime/a600-ecs-copper-ntsc": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "observed": {
+        "p50_ms": 8.818,
+        "p95_ms": 9.454,
+        "p95_unit_fraction": 0.5677,
+        "reps": 3,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0123,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": false
+    },
+    "waterbox-guest-release-runtime/a600-ecs-copper-ntsc": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "observed": {
+        "p50_ms": 5.54,
+        "p95_ms": 5.933,
+        "p95_unit_fraction": 0.3563,
+        "reps": 5,
+        "units_per_rep": 3000,
+        "between_run_cv": 0.0121,
+        "noisy_runs": 0,
+        "source": "reports/baselines/T33-2026-10-12-a/summary.json"
+      },
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "goal_met_by_observation": true,
+      "enforcement": "advisory",
+      "stable": true
+    }
+  },
+  "reproducibility": {
+    "file": "reports/baselines/reproducibility-T33-2026-10-12-a-vs-T33-2026-10-12-b.json",
+    "second_baseline": "reports/baselines/T33-2026-10-12-b",
+    "rows_compared": 14,
+    "rows_with_p50_within_goal": 14,
+    "rows_reproduced_p50_and_p95": 11,
+    "largest_p50_difference": 0.0054,
+    "reading": "the medians of every compared row repeat within the 5 % goal between two sessions about 1.7 hours apart; the p95 of a row repeats unless a disturbance of the machine fell on one of the sessions"
+  }
+}

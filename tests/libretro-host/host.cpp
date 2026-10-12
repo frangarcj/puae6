@@ -42,6 +42,9 @@
 //   state load NAME VARIANT ok=R size=S / state final ok=R size=S hash=H / state reset
 //   led RUN LED=STATE [(speculative)]   (the core set a LED of the frontend, T31b; LED 1 is "floppy drives" and 3 DF0, PUAE5's order)
 //   pixel-format RGB565 (the core asked for 16-bit pixels and the host took them; --no-rgb565 refuses, as a frontend without them does)
+//   --bench FILE (T33, tools/bench.py): a frontend that only measures. The callbacks do no hashing (a picture is counted and one pixel read, the audio is counted), every visible retro_run is timed
+//   (steady clock outside the core, and the CPU time of the thread) and FILE gets one JSON object with the raw nanoseconds; --bench-state R then makes R rounds of retro_serialize, one run,
+//   retro_unserialize and the first run after the load. The core does the same work as in any other mode; the contract checks stay on.
 //   --dump-audio DIR writes audio-RUN.bin for every visible run: the interleaved little-endian int16 the core gave the frontend in it (T73)
 //   --dump-pictures DIR writes picture-RUN.bin for every visible run that showed a picture: width, height, bytes per pixel and run as little-endian uint32, then the rows
 //   log LEVEL TEXT         (only when the log interface is offered)
@@ -59,7 +62,9 @@
 #include "libretro.h"
 
 #include <algorithm>
+#include <chrono>
 #include <ctype.h>
+#include <time.h>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <inttypes.h>
@@ -77,6 +82,8 @@ namespace {
 
 struct Options {
     int runs = 10, cycles = 1;
+    std::string bench_out;                                      // --bench FILE: measure instead of verify (see the header)
+    int bench_state_rounds = 0;                                 // --bench-state R
     bool no_led = false;                                        // --no-led: a frontend without the LED interface
     bool no_achievements = false;                               // --no-achievements: a frontend that does not take SET_SUPPORT_ACHIEVEMENTS
     bool no_memory_map = false;                                 // --no-memory-map: a frontend that does not take SET_MEMORY_MAPS
@@ -232,6 +239,19 @@ std::string pointer_id(const void *pointer)
     return "p" + std::to_string(seen.emplace(pointer, int(seen.size()) + 1).first->second);
 }
 
+// --bench: the timings, in nanoseconds of the host's clocks (read outside the core, never fed back into it).
+uint64_t bench_wall_ns()
+{
+    return uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+uint64_t bench_cpu_ns()
+{
+    timespec t;
+    return clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t) == 0 ? uint64_t(t.tv_sec) * 1000000000u + uint64_t(t.tv_nsec) : 0;
+}
+std::vector<uint64_t> bench_run_wall, bench_run_cpu, bench_save_ns, bench_load_ns, bench_after_load_ns;
+uint64_t bench_audio_frames = 0, bench_pictures = 0;
+
 void violation(const char *format, ...)
 {
     printf("VIOLATION run %d: ", run_number);
@@ -280,6 +300,7 @@ void RETRO_CALLCONV log_printf(enum retro_log_level level, const char *format, .
         run.unit = unit;
         run.ticks = ticks;
     }
+    if (!options.bench_out.empty()) return;      // --bench: the log callback of a frontend that keeps nothing (RetroArch filters by level), so the core's per-unit debug line is still formatted
     printf("log %d %s\n", int(level), text);
 }
 
@@ -617,6 +638,12 @@ void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned hei
     run.width = width;
     run.height = height;
     run.pitch = pitch;
+    if (!options.bench_out.empty()) {      // --bench: what the smallest frontend does, count the picture and look at one pixel
+        ++bench_pictures;
+        if (!data) run.dupe = true;
+        else run.first_pixel = *(static_cast<const uint8_t *>(data) + size_t(height / 2) * pitch);
+        return;
+    }
     if (!data) {
         run.dupe = true;
     } else {
@@ -657,6 +684,10 @@ void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned hei
 
 void RETRO_CALLCONV audio_sample(int16_t left, int16_t right)
 {
+    if (!options.bench_out.empty()) {
+        ++bench_audio_frames;
+        return;
+    }
     const int16_t pair[2] = {left, right};
     run.audio_hash = fnv(run.audio_hash, pair, sizeof pair);
     ++run.audio_frames;
@@ -668,6 +699,10 @@ void RETRO_CALLCONV audio_sample(int16_t left, int16_t right)
 
 size_t RETRO_CALLCONV audio_batch(const int16_t *data, size_t frames)
 {
+    if (!options.bench_out.empty()) {
+        bench_audio_frames += frames;
+        return frames;
+    }
     if (!data && frames) violation("audio batch without data for %zu frames", frames);
     if (!muted && position >= options.stall_first && position <= options.stall_last) return 0;      // a frontend that cannot take audio now
     size_t taken = frames;
@@ -998,7 +1033,13 @@ void make_run(int at, bool speculative)
                 variable_update = changed_options = true;
                 printf("set %d %s=%s\n", run_number, step.key.c_str(), step.value.c_str());
             }
+    const bool timed = !options.bench_out.empty() && !speculative;
+    const uint64_t bench_w0 = timed ? bench_wall_ns() : 0, bench_c0 = timed ? bench_cpu_ns() : 0;
     core.run();
+    if (timed) {
+        bench_run_cpu.push_back(bench_cpu_ns() - bench_c0);
+        bench_run_wall.push_back(bench_wall_ns() - bench_w0);
+    }
     muted = false;
     if (speculative) {
         printf("spec %d video=%ux%u dupe=%d hash=%016" PRIx64 " px=%08x audio=%" PRIu64 " ahash=%016" PRIx64 " unit=%" PRIu64 " ticks=%" PRIu64 "\n", at,
@@ -1083,6 +1124,8 @@ bool parse(int argc, char **argv)
         const char *a = argv[i];
         auto next = [&]() -> const char * { return i + 1 < argc ? argv[++i] : ""; };
         if (!strcmp(a, "--runs")) options.runs = atoi(next());
+        else if (!strcmp(a, "--bench")) options.bench_out = next();
+        else if (!strcmp(a, "--bench-state")) options.bench_state_rounds = atoi(next());
         else if (!strcmp(a, "--cycles")) options.cycles = atoi(next());
         else if (!strcmp(a, "--reject-optional")) options.reject_optional = true;
         else if (!strcmp(a, "--no-log")) options.no_log = true;
@@ -1273,6 +1316,22 @@ int main(int argc, char **argv)
                 if (ahead.first == n) run_ahead(ahead.second);
             if (options.ahead_every > 0) run_ahead(options.ahead_every);
         }
+        if (!options.bench_out.empty() && state_size)
+            for (int round = 0; round < options.bench_state_rounds && !shutdown_requested; ++round) {
+                std::vector<uint8_t> saved(state_size, 0xA5);
+                const uint64_t s0 = bench_wall_ns();
+                const bool saved_ok = core.serialize(saved.data(), saved.size());
+                bench_save_ns.push_back(bench_wall_ns() - s0);
+                make_run(done + 1, true);                              // the machine moves away from the saved point...
+                const uint64_t l0 = bench_wall_ns();
+                const bool loaded_ok = saved_ok && core.unserialize(saved.data(), saved.size());
+                bench_load_ns.push_back(bench_wall_ns() - l0);        // ...and the load brings it back
+                if (!saved_ok || !loaded_ok) violation("bench: state round %d failed (save %d, load %d)", round, int(saved_ok), int(loaded_ok));
+                position = done;
+                const uint64_t a0 = bench_wall_ns();
+                core.run();
+                bench_after_load_ns.push_back(bench_wall_ns() - a0);
+            }
         if (state_size) {
             std::vector<uint8_t> blob;
             const bool ok = save_blob(&blob);
@@ -1283,6 +1342,26 @@ int main(int argc, char **argv)
         if (shutdown_requested) status = 1;
     }
     core.deinit();
+    if (!options.bench_out.empty()) {
+        if (FILE *out = fopen(options.bench_out.c_str(), "w")) {
+            auto array = [&](const char *key, const std::vector<uint64_t> &values, bool last) {
+                fprintf(out, "\"%s\":[", key);
+                for (size_t i = 0; i < values.size(); ++i) fprintf(out, "%s%" PRIu64, i ? "," : "", values[i]);
+                fprintf(out, "]%s", last ? "" : ",");
+            };
+            fprintf(out, "{\"tool\":\"p6_libretro_host --bench\",\"state_bytes\":%zu,\"pictures\":%" PRIu64 ",\"audio_frames\":%" PRIu64 ",", state_size, bench_pictures, bench_audio_frames);
+            array("run_wall_ns", bench_run_wall, false);
+            array("run_cpu_ns", bench_run_cpu, false);
+            array("state_save_ns", bench_save_ns, false);
+            array("state_load_ns", bench_load_ns, false);
+            array("first_run_after_load_ns", bench_after_load_ns, true);
+            fprintf(out, "}\n");
+            fclose(out);
+        } else {
+            perror(options.bench_out.c_str());
+            status = 1;
+        }
+    }
     printf("final violations=%d vfs_opens=%d environment=", violations, vfs_opens);
     bool first = true;
     for (unsigned command : environment_commands) {

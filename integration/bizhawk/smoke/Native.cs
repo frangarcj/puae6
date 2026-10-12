@@ -64,6 +64,11 @@ internal sealed class Native : IDisposable
     internal readonly PageData GetPageData;
     T Bind<T>(string name) where T : Delegate =>
         Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(library, name));
+    /// T33: wbx_set_always_evict_blocks. The runtime starts with eviction on (the sandbox is unmapped when it is deactivated and mapped again when it is activated, to catch dangling pointers); a Release
+    /// BizHawk turns it off in WaterboxHost's static constructor. The benchmark measures both.
+    internal void SetAlwaysEvict(bool on) =>
+        Marshal.GetDelegateForFunctionPointer<EvictSetting>(NativeLibrary.GetExport(library, "wbx_set_always_evict_blocks"))(on ? (byte)1 : (byte)0);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate void EvictSetting(byte on);
     internal Native(string absolutePath)
     {
         if (!Path.IsPathFullyQualified(absolutePath)) throw new ArgumentException("Dylib path must be absolute");

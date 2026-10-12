@@ -273,6 +273,38 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
         return results;
     }
 
+    /// T33 (tools/bench.py): one unit as the wrapper makes it, timed in pieces and checked for nothing. Enter is Activate (with the runtime's eviction on, the sandbox is mapped again here), Guest the p6w_frame_advance
+    /// call, Copy what Puae6Core.CopyOut does with the picture (rows of the active area into an int[] with the alpha set) and the PCM (into a short[]), Exit is Deactivate. Ticks of Stopwatch, nanoseconds on macOS.
+    internal (long Enter, long Guest, long Copy, long Exit, uint Width, uint Height, ulong AudioFrames, ulong Ticks) BenchUnit(uint flags, int[] videoBuffer, short[] soundBuffer)
+    {
+        WriteInput();
+        PrepareOutput();
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        api.Activate(host, out var entered); entered.Checked();
+        long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
+        int result = advance(input.Address, flags, output.Address);
+        long t2 = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (result != 0 || *(int*)(output.Address + FrameResult) != 0) throw new InvalidOperationException($"p6w_frame_advance failed ({result})");
+        byte* f = (byte*)output.Address + FrameInner;
+        var video = *(byte**)(f + 8);
+        uint width = *(uint*)(f + 48), height = *(uint*)(f + 52), stride = *(uint*)(f + 36), x = *(uint*)(f + 40), y = *(uint*)(f + 44);
+        if (video != null)
+            for (uint row = 0; row < height; ++row)
+            {
+                var source = new ReadOnlySpan<int>(video + (ulong)(y + row) * stride + (ulong)x * 4, (int)width);
+                var target = videoBuffer.AsSpan((int)(row * width), (int)width);
+                for (int i = 0; i < target.Length; ++i) target[i] = source[i] | unchecked((int)0xFF000000);
+            }
+        ulong frames = *(ulong*)(f + 72);
+        var audio = *(byte**)(f + 64);
+        if (frames != 0 && audio != null) new ReadOnlySpan<short>(audio, (int)frames * 2).CopyTo(soundBuffer);
+        ulong ticks = *(ulong*)(f + 80);
+        long t3 = System.Diagnostics.Stopwatch.GetTimestamp();
+        api.Deactivate(host, out var left); left.Checked();
+        long t4 = System.Diagnostics.Stopwatch.GetTimestamp();
+        return (t1 - t0, t2 - t1, t3 - t2, t4 - t3, width, height, frames, ticks);
+    }
+
     /// Calls the guest with a valid frame, as a host that forgot p6w_init would.
     internal int AdvanceWithoutPreparing()
     {

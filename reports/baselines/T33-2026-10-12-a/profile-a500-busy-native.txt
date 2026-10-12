@@ -1,0 +1,36 @@
+# macOS sample(1), 5 s at 1 ms, p6_bench_probe (Release -O2) on a500-ocs-busy-pal: 3759 samples on the main thread, "top of stack" list (functions that were executing).
+# One sample on a loaded machine: ORIENTATIVE. Of the 3759: do_cck 1607 (43 %), checkhorizontal1_ecs 611 (16 %), lts_ecs_fm0_n0_p2_ilores_dhires 512 (14 %), do_denise_cck 168 (4 %),
+# expand_drga_early 100 (3 %), memset 82 (2 %), DISK_update 68, do_cycles_ce 63, do_cycles_normal 63, update_audio 61, m68k_run_1_ce 48: the 68000 itself is about 3 %.
+Sort by top of stack, same collapsed (when >= 5):
+        do_cck(bool)  (in p6_bench_probe)        1607
+        checkhorizontal1_ecs(int, int, int)  (in p6_bench_probe)        611
+        lts_ecs_fm0_n0_p2_ilores_dhires()  (in p6_bench_probe)        512
+        do_denise_cck(int, int, int)  (in p6_bench_probe)        168
+        expand_drga_early(denise_rga*)  (in p6_bench_probe)        100
+        _platform_memset  (in libsystem_platform.dylib)        82
+        DISK_update(int)  (in p6_bench_probe)        68
+        do_cycles_ce(int)  (in p6_bench_probe)        63
+        do_cycles_normal(int)  (in p6_bench_probe)        63
+        update_audio()  (in p6_bench_probe)        61
+        m68k_run_1_ce()  (in p6_bench_probe)        48
+        get_wordi_ce000(int)  (in p6_bench_probe)        33
+        DISK_update_predict()  (in p6_bench_probe)        28
+        expand_drga(denise_rga*)  (in p6_bench_probe)        26
+        op_6001_14_ff(unsigned int)  (in p6_bench_probe)        22
+        generate_sprites(int, int)  (in p6_bench_probe)        20
+        kickmem_wget(unsigned int)  (in p6_bench_probe)        18
+        op_5080_14_ff(unsigned int)  (in p6_bench_probe)        18
+        draw_denise_line_queue(int, nln_how, unsigned int, int, int, int, int, int, int, int, int, int, bool, 
+        chipmem_agnus_wget(unsigned int)  (in p6_bench_probe)        14
+        ipl_fetch_next_pre()  (in p6_bench_probe)        14
+        cap_check(bool)  (in p6_bench_probe)        13
+        cctrue(int)  (in p6_bench_probe)        13
+        sample16si_anti_handler()  (in p6_bench_probe)        12
+        doreaddma()  (in p6_bench_probe)        11
+        MISC_handler()  (in p6_bench_probe)        10
+        memory_get_wordi(unsigned int)  (in p6_bench_probe)        9
+        audio_state_channel2(int, bool)  (in p6_bench_probe)        8
+        anti_prehandler(unsigned long)  (in p6_bench_probe)        7
+        do_filter(int*, int)  (in p6_bench_probe)        7
+        ipl_fetch_next()  (in p6_bench_probe)        6
+        DISK_hsync()  (in p6_bench_probe)        5
