@@ -301,7 +301,7 @@ preferencias que construye `bridge/config.cpp`, campo a campo, y cada campo que 
 | FirmwareID BizHawk | Amiga/A500 | Amiga/A600 | Amiga/A1200 |
 | Estados y peliculas | propios del A500 | propios del A600 | propios del A1200: cada maquina rechaza las de las otras dos antes de tocar nada (`config_hash` lleva la maquina; matriz 3 x 3 en las pruebas) |
 | Chipset de VPOSR / DENISEID | familia 0 (OCS) | familia 2 en la tabla upstream = 8372A (`$2xxx` PAL, `$3xxx` NTSC), DENISEID `$FFFC` | Alice `$23xx` PAL / `$33xx` NTSC, Lisa `$00F8` |
-| Cota de estado (`retro_serialize_size`) | 3 608 565 B | 3 608 534 B | 5 890 768 B (cuerpo del 68020, paleta AGA, anillo de Denise y raster a 3 bytes por pixel; ADR 0009 punto 9) |
+| Cota de estado (`retro_serialize_size`) | 3 608 617 B | 3 608 586 B | 5 890 820 B (cuerpo del 68020, paleta AGA, anillo de Denise y raster a 3 bytes por pixel; ADR 0009 punto 9) |
 | Waterbox, mmap medido (presupuesto 16 MiB) | 5 586 944 B | 5 046 272 B | 6 094 848 B (36 % del presupuesto, sin cambiarlo) |
 | Waterbox, snapshot tras 60 unidades | 9 154 004 B | 9 137 620 B | 10 186 196 B |
 
@@ -396,8 +396,9 @@ siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fast
 (`P6_REGION_FAST_RAM`, big endian, el byte n de la region es la direccion `$200000 + n`). Su contenido entra en el estado nativo (P6RM, ver ADR 0009 punto 10): la cota crece en
 `4 + fast + 278` bytes, y la memoria configurada forma parte de `config_hash` cuando no es la del preset (un estado o una pelicula de otra memoria es INCOMPATIBLE).
 
-Cotas de estado medidas (micro-ROM): A500 3 608 565, A600 3 608 534, A1200 5 890 768 (T15l: +52 por las 13 palabras mas de BEAM, ADR 0009 punto 13); A500 con 2 MiB de Fast 5 705 947; A600 con 2 MiB de Chip y 8 MiB de Fast 13 045 948;
-A1200 con 8 MiB de Fast 14 279 606; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 758 (estas cuatro, medidas antes de T15l, crecen lo mismo).
+Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14): A500 3 608 617, A600 3 608 586, A1200 5 890 820; A500 OG 3 084 298, A500+ 3 608 617, A1000 3 084 314, A2000 OG 3 608 633, A2000 3 608 633
+(T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 706 051; A600 con 2 MiB de Chip y 8 MiB de Fast 13 046 052;
+A1200 con 8 MiB de Fast 14 279 710; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 862; A1200 con FPU 68882 5 890 930.
 
 ### FPU 68881/68882 (T54)
 
@@ -408,7 +409,7 @@ ISA (corpus de `tests/host/fpu_corpus.py` en las cinco filas de la matriz, `test
 las instrucciones de coprocesador, como siempre.
 
 `config_hash`: el modelo entra en la palabra `flags` del hash en los bits 23 y 24 (1 = 68881, 2 = 68882), entre la memoria (bits 8-22 y 31) y `p6_config.flags` (0-7); sin FPU la palabra es la
-de antes y el hash de las series no cambia. Un estado o una pelicula de un modelo es INCOMPATIBLE en los otros dos. La cota crece 110 bytes con FPU (A1200: 5 890 716 -> 5 890 826; con T15l, 5 890 768 -> 5 890 878); ver
+de antes y el hash de las series no cambia. Un estado o una pelicula de un modelo es INCOMPATIBLE en los otros dos. La cota crece 110 bytes con FPU (A1200: 5 890 716 -> 5 890 826; con T15l, 5 890 768 -> 5 890 878; con T15n, 5 890 820 -> 5 890 930); ver
 ADR 0009 punto 11. Opciones: libretro `puae6_fpu_model` (None, M68881, M68882), headless `--fpu 0|68881|68882` y el sync setting `FpuModel` de BizHawk (en la identidad del estado y de la
 pelicula solo cuando no es `None`).
 
