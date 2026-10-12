@@ -305,12 +305,13 @@ class NormalizationTests(unittest.TestCase):
         for text in texts:
             self.assertIn(text, str(caught.exception))
 
-    def test_the_machine_is_a_restart_option_with_the_three_machines_of_the_abi_and_the_a500_by_default(self):
+    def test_the_machine_is_a_restart_option_with_the_machines_of_the_abi_and_the_a500_by_default(self):
         document = schema()
         machine = option(document, "machine")
         self.assertEqual((machine["class"], machine["maps_to"], machine["default"]), ("reboot", "p6_config.machine", "A500"))
         self.assertEqual([(v["value"], v["abi"], v["abi_name"]) for v in machine["values"]],
-                         [("A500", 1, "P6_MACHINE_A500"), ("A600", 2, "P6_MACHINE_A600"), ("A1200", 3, "P6_MACHINE_A1200")])
+                         [("A500", 1, "P6_MACHINE_A500"), ("A600", 2, "P6_MACHINE_A600"), ("A1200", 3, "P6_MACHINE_A1200"), ("A500OG", 4, "P6_MACHINE_A500OG"),
+                          ("A500PLUS", 5, "P6_MACHINE_A500PLUS"), ("A1000", 6, "P6_MACHINE_A1000"), ("A2000OG", 7, "P6_MACHINE_A2000OG"), ("A2000", 8, "P6_MACHINE_A2000")])
         self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A600"}))["machine"], 2)
         self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A1200"}))["machine"], 3)
         self.assertIn("no IDE or PCMCIA", machine["libretro"]["info"])      # the description says what the A600 does not have
@@ -355,12 +356,12 @@ class NormalizationTests(unittest.TestCase):
 
     def test_cpu_ram_rom_and_other_machines_are_refused_with_their_reason(self):
         # T23d, T24e: the machine is an option of three values; any other model (or another spelling) is refused as a value, naming the key and the choices.
-        self.refuses({"machine": "A4000"}, "option machine", "'A4000'", "allowed: A500, A600, A1200")
-        self.refuses({"machine": "a600"}, "option machine", "'a600'", "allowed: A500, A600, A1200")
-        self.refuses({"machine": "a1200"}, "option machine", "'a1200'", "allowed: A500, A600, A1200")
-        self.refuses({"machine": "A1200OG"}, "option machine", "'A1200OG'", "allowed: A500, A600, A1200")
-        self.refuses({"machine": 3}, "option machine", "allowed: A500, A600, A1200")
-        self.refuses({"machine": 2}, "option machine", "allowed: A500, A600, A1200")
+        self.refuses({"machine": "A4000"}, "option machine", "'A4000'", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
+        self.refuses({"machine": "a600"}, "option machine", "'a600'", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
+        self.refuses({"machine": "a1200"}, "option machine", "'a1200'", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
+        self.refuses({"machine": "A1200OG"}, "option machine", "'A1200OG'", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
+        self.refuses({"machine": 3}, "option machine", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
+        self.refuses({"machine": 2}, "option machine", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
         self.refuses({"cpu_model": "68020"}, "option cpu_model is not supported: The 68000")
         self.refuses({"z3fastmem_size": 64}, "option z3fastmem_size is not supported: Zorro III RAM")
         self.refuses({"fastmem2_size": 8}, "option fastmem2_size is not supported: One Zorro II Fast RAM board")
@@ -399,14 +400,20 @@ class AbiTests(unittest.TestCase):
                 if "abi_name" in value:
                     self.assertEqual(constants[value["abi_name"]], value["abi"], f"{entry['id']} {value['value']}")
         self.assertEqual((constants["P6_MACHINE_A500"], constants["P6_MACHINE_A600"], constants["P6_MACHINE_A1200"]), (1, 2, 3))
+        # T50: five more presets, additive: the three above keep their values
+        self.assertEqual([constants[n] for n in ("P6_MACHINE_A500OG", "P6_MACHINE_A500PLUS", "P6_MACHINE_A1000", "P6_MACHINE_A2000OG", "P6_MACHINE_A2000")], [4, 5, 6, 7, 8])
 
     def test_the_bridge_accepts_exactly_the_values_of_the_schema(self):
         source = (ROOT / "bridge/config.cpp").read_text()
         rates = sorted(int(n) for n in re.findall(r"audio_rate_hz != (\d+)", source))
         self.assertEqual(rates, sorted(v["abi"] for v in option(schema(), "audio_rate_hz")["values"]))
         self.assertIn("c.video_standard != P6_VIDEO_PAL && c.video_standard != P6_VIDEO_NTSC", source)
-        self.assertIn("c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600 && c.machine != P6_MACHINE_A1200", source)
-        self.assertEqual([v["abi_name"] for v in option(schema(), "machine")["values"]], ["P6_MACHINE_A500", "P6_MACHINE_A600", "P6_MACHINE_A1200"])
+        self.assertIn("if (!find_machine(c.machine))", source)           # T50: the machines the bridge accepts are the rows of its table, one per value of the schema
+        names = [v["abi_name"] for v in option(schema(), "machine")["values"]]
+        self.assertEqual(names, ["P6_MACHINE_A500", "P6_MACHINE_A600", "P6_MACHINE_A1200", "P6_MACHINE_A500OG", "P6_MACHINE_A500PLUS", "P6_MACHINE_A1000", "P6_MACHINE_A2000OG", "P6_MACHINE_A2000"])
+        table = source[source.index("const MachineInfo kMachines[]"):]
+        table = table[:table.index("};")]
+        self.assertEqual(re.findall(r"\{(P6_MACHINE_\w+),", table), names)
         self.assertEqual([v["abi_name"] for v in option(schema(), "video_standard")["values"]], ["P6_VIDEO_PAL", "P6_VIDEO_NTSC"])
 
     def test_the_clock_range_is_the_one_the_bridge_enforces(self):
@@ -478,8 +485,8 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(table["p6_config"]["fast_kib"]["allowed"], [0, 1024, 2048, 4096, 8192])
         self.assertEqual(table["p6_config"]["fpu_model"]["allowed"], [0, 68881, 68882])       # T54
         self.assertEqual(table["p6_config"]["fpu_model"]["names"], {"None": 0, "M68881": 68881, "M68882": 68882})
-        self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3])
-        self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3})
+        self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3, 4, 5, 6, 7, 8])
+        self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3, "A500OG": 4, "A500PLUS": 5, "A1000": 6, "A2000OG": 7, "A2000": 8})
         self.assertNotIn("wrapper_not_offered", table["adapters"]["machine"])
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])

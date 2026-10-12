@@ -12487,7 +12487,7 @@
       "title": "Presets A500OG, A500+, A1000, A2000OG y A2000 en el nucleo libretro: puae6_machine y nombres de Kickstart por maquina",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T50a"
       ],

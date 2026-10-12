@@ -549,7 +549,7 @@ class LibretroTests(LibretroHarness):
         for value in ("a1200", "A1200OG", "A4000", "a600", "A500+", "", "A600 ", "A1200 "):
             with self.subTest(value=value):
                 result = self.frontend("boot", "--set", f"puae6_machine={value}", expect=3)
-                text = f'the option puae6_machine has the value "{value}", which this core does not support (allowed: A500, A600, A1200)'
+                text = f'the option puae6_machine has the value "{value}", which this core does not support (allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000)'
                 self.assertIn(f"message PUAE6: {text}", result.stdout)
                 self.assertIn("load refused", result.stdout)
                 self.assertNotIn("run 1 ", result.stdout)

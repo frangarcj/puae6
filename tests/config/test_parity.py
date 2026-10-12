@@ -222,8 +222,13 @@ class WrapperParity(Schema):
         self.assertEqual(machine["wrapper"], {"how": "setting", "setting": "Machine", "type": "Puae6Machine"})
         self.assertEqual(machine["default"], "A500")
         numbers = {v["value"]: v["abi"] for v in machine["values"]}
-        self.assertIn(f"const uint MachineA500 = {numbers['A500']}, MachineA600 = {numbers['A600']}, MachineA1200 = {numbers['A1200']};", self.abi)
-        self.assertIn("init.Config.Machine = _syncSettings.Machine switch { Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, _ => P6.MachineA500 };", self.core)
+        self.assertIn(f"const uint MachineA500 = {numbers['A500']}, MachineA600 = {numbers['A600']}, MachineA1200 = {numbers['A1200']}, MachineA500OG = {numbers['A500OG']}, "
+                      f"MachineA500Plus = {numbers['A500PLUS']}, MachineA1000 = {numbers['A1000']}, MachineA2000OG = {numbers['A2000OG']}, MachineA2000 = {numbers['A2000']};", self.abi)
+        # T50: the number of every machine other than the default is a row of one switch (MachineNumber), and each row names the constant that has the schema's number
+        self.assertIn("init.Config.Machine = MachineNumber(_syncSettings.Machine);", self.core)
+        rows = dict(re.findall(r"Puae6Machine\.(\w+) => P6\.(Machine\w+)", re.search(r"static uint MachineNumber\(Puae6Machine machine\) => machine switch(.*?)\};", self.core, re.S)[1]))
+        constants = {m[1]: int(m[2]) for m in re.finditer(r"(Machine\w+) = (\d+)", re.search(r"public const uint MachineA500 = .*?;", self.abi)[0])}
+        self.assertEqual({name: constants[constant] for name, constant in rows.items()}, {name: number for name, number in numbers.items() if name != "A500"})
         # the three machines are offered, each with the FirmwareID of BizHawk's database that carries its name (tests/ffi/test_bizhawk_tree.py checks the database itself)
         self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], [])
         self.assertIn("puae6-config-1;machine={machine};", self.core)
@@ -323,10 +328,21 @@ class LibretroFirmware(Schema):
         rows = re.findall(r'\{(P6_MACHINE_\w+), "(\w+)", "([\d.]+)", (k\w+KickstartNames), ', self.firmware)
         machines = self.options["machine"]["values"]
         self.assertEqual([(r[0], r[1]) for r in rows], [(v["abi_name"], v["value"]) for v in machines])
-        a500, a600, a1200 = (self.names(r[3]) for r in rows)
+        a500, a600, a1200 = (self.names(r[3]) for r in rows[:3])
         self.assertEqual((rows[0][2], rows[1][2], rows[2][2]), ("1.3", "2.05", "3.1"))
         for left, right in ((a500, a600), (a500, a1200), (a600, a1200)):
             self.assertFalse(set(left) & set(right), "a name that serves two machines would let one boot with the other's ROM")
+        # T50: a name serves two machines only inside a family (the A500, the A500 OG, the A2000 OG and the A1000 boot the Kickstart 1.3), never across families
+        families = {"A500": "1.x", "A500OG": "1.x", "A2000OG": "1.x", "A1000": "1.x", "A500PLUS": "2.04", "A600": "2.05", "A1200": "3.1", "A2000": "3.1 r40.063"}
+        by_machine = {r[1]: set(self.names(r[3])) for r in rows}
+        self.assertEqual(set(by_machine), set(families))
+        for left in by_machine:
+            for right in by_machine:
+                if families[left] != families[right]:
+                    self.assertFalse(by_machine[left] & by_machine[right], f"{left} and {right} are not the same family but a name serves both")
+        self.assertEqual(self.names("kA500PlusKickstartNames")[:2], ["kick37175.A500", "amiga-os-204.rom"])
+        self.assertEqual(self.names("kA2000KickstartNames")[:2], ["kick40063.A600", "amiga-os-310-a600.rom"])
+        self.assertTrue(set(self.names("kA500KickstartNames")) < set(self.names("kA1000KickstartNames")), "the A1000 looks for the 1.3 first and then for the Kickstarts 1.2 and 1.1")
         self.assertEqual(a500[:2], ["kick34005.A500", "amiga-os-130.rom"])
         self.assertEqual(a600[:2], ["kick37350.A600", "amiga-os-205-a600.rom"])
         self.assertEqual(a1200[:2], ["kick40068.A1200", "amiga-os-310-a1200.rom"])

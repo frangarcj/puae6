@@ -218,7 +218,14 @@ struct MachineFacts {
     const char *chipset;
     const char *cpu;
 };
-constexpr MachineFacts kMachines[] = {{"A500", "ocs", "68000"}, {"A600", "ecs", "68000"}, {"A1200", "aga", "68020"}};
+constexpr MachineFacts kMachines[] = {{"A500", "ocs", "68000"}, {"A600", "ecs", "68000"}, {"A1200", "aga", "68020"},
+                                      {"A500OG", "ocs", "68000"}, {"A500PLUS", "ecs", "68000"}, {"A1000", "ocs", "68000"}, {"A2000OG", "ocs", "68000"}, {"A2000", "ecs_agnus", "68000"}};
+// The spellings of chipset_compatible (WinUAE's cscompa) that name a machine. "A2000" names two: the A2000 OG with the OCS chipset and the A2000 with the ECS Agnus (see finish).
+struct Spelling {
+    const char *spelling;
+    const char *machine;
+};
+constexpr Spelling kSpellings[] = {{"a500", "A500"}, {"a500+", "A500PLUS"}, {"a600", "A600"}, {"a1000", "A1000"}, {"a1200", "A1200"}, {"a2000", "A2000"}};
 
 class Importer {
 public:
@@ -245,7 +252,7 @@ private:
     size_t max_disks_;
     UaeImport *out_;
     std::map<std::string, unsigned> claimed_;          // option key -> the line that set it
-    const Entry *chipset_ = nullptr, *cpu_ = nullptr;
+    const Entry *chipset_ = nullptr, *cpu_ = nullptr, *a2000_ = nullptr;
     const Entry *floppy0_ = nullptr;
     std::vector<std::pair<unsigned, const Entry *>> images_;
 
@@ -452,13 +459,13 @@ private:
         if (key == "chipset_compatible") {
             const std::string v = lower(e.value);
             if (v == "-" || v == "generic") return;         // names no machine
-            for (const MachineFacts &machine : kMachines) {
-                if (v == lower(machine.name)) {
-                    set_name(e, "puae6_machine", machine.name);
-                    return;
-                }
+            for (const Spelling &spelling : kSpellings) {
+                if (v != spelling.spelling) continue;
+                if (v == "a2000") a2000_ = &e;                 // the chipset line tells the A2000 OG from the A2000: decided in finish()
+                else set_name(e, "puae6_machine", spelling.machine);
+                return;
             }
-            error(e, "the machine \"" + e.value + "\" is not one of this core's (A500, A600, A1200)");
+            error(e, "the machine \"" + e.value + "\" is not one of this core's (A500, A500+, A600, A1000, A1200, A2000)");
             return;
         }
         if (key == "chipset") {
@@ -605,13 +612,21 @@ private:
     {
         // The machine: named by the file (chipset_compatible, puae6_machine, a preset) or, when the file names none, by its chipset. A chipset and a CPU that
         // the file also gives only describe the machine and must agree with it.
+        if (a2000_)         // chipset_compatible = A2000: the OCS chipset is the A2000 OG, the ECS Agnus (PUAE5's A2000) the A2000
+            set_name(*a2000_, "puae6_machine", chipset_ && lower(chipset_->value) == "ocs" ? "A2000OG" : "A2000");
         const bool named = claimed_.count("puae6_machine") || claimed_.count("puae6_preset");
         std::string chipset;
         if (chipset_) {
             chipset = lower(chipset_->value);
             const char *machine = chipset == "ocs" ? "A500" : chipset == "ecs" ? "A600" : chipset == "aga" ? "A1200" : nullptr;
-            if (!machine) {
-                error(*chipset_, "the chipset \"" + chipset_->value + "\" is not one of this core's (ocs, ecs, aga)");
+            if (chipset == "ecs_agnus") {
+                // The A2000's chipset (T50): it checks a machine the file names (chipset_compatible = A2000) but does not choose one alone, since it says nothing of the Kickstart or the memory.
+                if (!named) {
+                    error(*chipset_, "the chipset ecs_agnus names no machine by itself: add chipset_compatible=A2000");
+                    chipset.clear();
+                }
+            } else if (!machine) {
+                error(*chipset_, "the chipset \"" + chipset_->value + "\" is not one of this core's (ocs, ecs_agnus, ecs, aga)");
                 chipset.clear();
             } else if (!named) {
                 set_name(*chipset_, "puae6_machine", machine);

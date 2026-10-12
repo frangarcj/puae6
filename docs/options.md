@@ -150,7 +150,7 @@ De menor a mayor: **1.** defaults del esquema; **2.** opciones del frontend (su 
 (`puae6_preset=`); **4.** las claves del fichero. El orden de las lineas no importa; dos claves que fijan la misma opcion (`chipset_compatible` y `puae6_machine`, o una clave repetida) se rechazan,
 porque ganaria la que apareciese despues. Una opcion que el fichero no nombra conserva el valor del frontend. **Las opciones de presentacion, entrada y OSD nunca se leen del `.uae`** (las del
 menu, `puae6_video_*`, `puae6_mapper_*`, ... se rechazan con ese motivo): el fichero solo escribe las opciones `reboot` del hash de configuracion. Si el fichero no nombra maquina, preset ni
-`chipset_compatible`, el chipset (`ocs`/`ecs`/`aga`) fija el modelo (A500/A600/A1200); sin ninguno de ellos manda el modelo del frontend y `cpu_model`/`chipset` se comprueban contra el.
+`chipset_compatible`, el chipset (`ocs`/`ecs`/`aga`) fija el modelo (A500/A600/A1200; `ecs_agnus` solo comprueba el A2000 que nombra `chipset_compatible`); sin ninguno de ellos manda el modelo del frontend y `cpu_model`/`chipset` se comprueban contra el.
 Para el aviso "cambia en el menu" (`refresh_options`) el core compara con lo que el *frontend* tiene, no con lo que impuso el fichero: cambiar solo una opcion de presentacion no avisa de nada.
 
 El resultado es el mismo `p6_config` (y el mismo `config_hash` y estado guardado) que las opciones equivalentes: `test_uae.py` carga el fichero y, en otro proceso, las opciones, y compara
@@ -178,9 +178,9 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 
 | Clave | Que hace |
 |---|---|
-| `chipset_compatible` | `A500`, `A600`, `A1200` -> `puae6_machine`. `-` y `Generic` no nombran maquina. Cualquier otra (`A500+`, `A2000`, `A4000`, `CD32`, ...) se rechaza. |
-| `chipset` | `ocs`/`ecs`/`aga`: si el fichero no nombra maquina la fija (A500/A600/A1200); si la nombra, debe ser la suya. `ecs_agnus`/`ecs_denise` (mixtos) se rechazan. |
-| `cpu_model` | Debe ser el del modelo: `68000` (A500, A600) o `68020` (A1200, el 68EC020). No cambia nada. |
+| `chipset_compatible` | `A500`, `A500+`, `A600`, `A1000`, `A1200`, `A2000` -> `puae6_machine` (T50: `A500+` es el A500PLUS; `A2000` es el A2000OG con `chipset=ocs` y el A2000 con `chipset=ecs_agnus` o sin linea de chipset). `-` y `Generic` no nombran maquina. Cualquier otra (`A4000`, `CD32`, ...) se rechaza. El A500OG solo se elige con `puae6_machine=A500OG`: ningun `.uae` lo distingue del A500 sin cambiar la memoria. |
+| `chipset` | `ocs`/`ecs`/`aga`: si el fichero no nombra maquina la fija (A500/A600/A1200); si la nombra, debe ser la suya (`A2000`: `ocs` o `ecs_agnus`). `ecs_agnus` solo, sin `chipset_compatible=A2000`, y `ecs_denise` se rechazan. |
+| `cpu_model` | Debe ser el del modelo: `68000` (A500, A500OG, A500PLUS, A600, A1000, A2000OG, A2000) o `68020` (A1200, el 68EC020). No cambia nada. |
 | `fpu_model` | `0` -> `puae6_fpu_model=None`, `68881`, `68882`. `68040`/`68060` se rechazan. |
 | `chipmem_size` | Unidades de 512 KiB (como WinUAE): `1`=512 KiB, `2`=1 MiB, `4`=2 MiB -> `puae6_chip_size`. `-1` (128 KiB), `0` (256 KiB) y lo que no ofrece el core se rechazan. |
 | `bogomem_size` | Unidades de 256 KiB: `0`=ninguna (`None`), `2`=512 KiB, `4`, `6`, `7` -> `puae6_slow_size`. |

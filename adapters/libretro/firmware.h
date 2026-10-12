@@ -50,10 +50,52 @@ constexpr const char *kA1200KickstartNames[] = {
     "Kickstart v3.1 r40.68 (1993)(Commodore)(A1200)[!].rom",
 };
 
+// T50. The A500 OG and the A2000 OG boot the same Kickstart 1.3 as the A500 (PUAE5: the A500OG and the A2000OG read uae_kickstarts[A500_KS13_ROM]) and share its names.
+// The A500+ boots the Kickstart 2.04 r37.175 (PUAE5: A500_KS204_ROM), the A2000 the 3.1 r40.063 of the A600 (A600_KS31_ROM: the same ROM as the A500-A600-A2000 3.1 of the
+// collections). The A1000 has no PUAE5 model; its Kickstart arrives as a ROM image (the 256 KiB Kickstart 1.x, never the 8 KiB boot ROM plus the disk of the original), so it looks
+// for the 1.3 and then the 1.2 and the 1.1 that PUAE5's list names for it (A500_KS12_ROM, A1000_KS11_PAL_ROM, A1000_KS11_NTSC_ROM).
+constexpr const char *kA500PlusKickstartNames[] = {
+    "kick37175.A500",
+    "amiga-os-204.rom",
+    "Kickstart v2.04 rev 37.175 (1991)(Commodore)(A500+)[!].rom",
+    "Kickstart v2.04 rev 37.175 (1991)(Commodore)(A500+).rom",
+    "Kickstart v2.04 r37.175 (1991-05)(Commodore)(A500+)[!].rom",
+};
+
+constexpr const char *kA2000KickstartNames[] = {
+    "kick40063.A600",
+    "amiga-os-310-a600.rom",
+    "Kickstart v3.1 rev 40.63 (1993)(Commodore)(A500-A600-A2000)[!].rom",
+    "Kickstart v3.1 rev 40.63 (1993)(Commodore)(A500-A600-A2000).rom",
+    "Kickstart v3.1 r40.063 (1993-07)(Commodore)(A500-A600-A2000)[!].rom",
+};
+
+constexpr const char *kA1000KickstartNames[] = {
+    "kick34005.A500",
+    "amiga-os-130.rom",
+    "Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom",
+    "Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV).rom",
+    "Kickstart v1.3 r34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom",
+    "kick33180.A500",
+    "amiga-os-120.rom",
+    "Kickstart v1.2 rev 33.180 (1986)(Commodore)(A500-A2000)[!].rom",
+    "Kickstart v1.2 rev 33.180 (1986)(Commodore)(A500-A1000-A2000).rom",
+    "kick32034.A1000",
+    "amiga-os-110-pal.rom",
+    "Kickstart v1.1 rev 32.34 (1986)(Commodore)(A1000)(PAL).rom",
+    "kick31034.A1000",
+    "amiga-os-110-ntsc.rom",
+};
+
 constexpr FirmwareNames kFirmware[] = {
     {P6_MACHINE_A500, "A500", "1.3", kA500KickstartNames, sizeof kA500KickstartNames / sizeof kA500KickstartNames[0]},
     {P6_MACHINE_A600, "A600", "2.05", kA600KickstartNames, sizeof kA600KickstartNames / sizeof kA600KickstartNames[0]},
     {P6_MACHINE_A1200, "A1200", "3.1", kA1200KickstartNames, sizeof kA1200KickstartNames / sizeof kA1200KickstartNames[0]},
+    {P6_MACHINE_A500OG, "A500OG", "1.3", kA500KickstartNames, sizeof kA500KickstartNames / sizeof kA500KickstartNames[0]},
+    {P6_MACHINE_A500PLUS, "A500PLUS", "2.04", kA500PlusKickstartNames, sizeof kA500PlusKickstartNames / sizeof kA500PlusKickstartNames[0]},
+    {P6_MACHINE_A1000, "A1000", "1.3", kA1000KickstartNames, sizeof kA1000KickstartNames / sizeof kA1000KickstartNames[0]},
+    {P6_MACHINE_A2000OG, "A2000OG", "1.3", kA500KickstartNames, sizeof kA500KickstartNames / sizeof kA500KickstartNames[0]},
+    {P6_MACHINE_A2000, "A2000", "3.1", kA2000KickstartNames, sizeof kA2000KickstartNames / sizeof kA2000KickstartNames[0]},
 };
 
 // The names of `machine`, or nullptr for a number that is no machine (the options never produce one).
