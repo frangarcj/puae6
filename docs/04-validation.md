@@ -178,6 +178,21 @@ nunca como exactitud de una Amiga fisica. DET01 (`tests/reference/test_det01.py`
 de un LCG con su semilla en el caso), 10000 unidades, digests cada 5 unidades y PCM/imagen de cada unidad, salidas identicas byte a byte.
 `python3 tools/check.py --check REF01 --task T32a` y `--check DET01 --task T32a` ejecutan las suites (REF01 ~2 min, DET01 ~12 min).
 
+Corpus diferencial (T32b). `tests/scenarios/corpus/corpus.py` define 28 escenarios: 19 en el A500 (OCS), 5 en el A600 (ECS) y 4 en el A1200 (AGA), con un `<id>.json` estricto por escenario y un
+`index.json` (generados y comparados con el generador por `tests/reference/test_corpus.py`) y la procedencia de cada programa y el hash de su imagen en `manifests/fixtures.json` (sin firmware
+ni juegos: los fixtures con Kickstart son opt-in por variable de entorno y quedan BLOCKED sin ella). Cubre PAL y NTSC, audio y DMA (cuatro canales, volumen entre cargas de periodo,
+modulacion), raton y joystick (un puerto que cambia de tipo, una medida de pot), teclado, un reset a mitad de la ejecucion, un cambio de disco, la escritura de un disquete y de un hard file
+con restauracion, la CPU parada por un doble fallo de bus, el Copper, el blitter y el entrelazado. No es un corpus de pantallas de arranque: el test exige mas micro-tests que
+generadores de imagen y cada categoria cubierta tambien por un programa que no es de imagen, y comprueba que el programa y los argumentos de cada escenario hacen lo que su categoria
+dice (una etiqueta no basta). Cada escenario pasa por tres puertas: REF01 (producto contra referencia: igual salvo donde un parche quitado declara lo contrario, 0024 en `ocs-halt-pal` y
+0069 en `reset-mid-run-pal`), DET02 (`tests/reference/test_corpus_det02.py`, los modos de `tests/state/test_det02.py` sobre los puntos de guardado de cada escenario) y DET03
+(`test_corpus_det03.py`, el estado por la ABI publica a un proceso nuevo). Los programas que mantienen ocupado el anillo de registros de Denise (`tests/scenarios/corpus/rings.py`: la CPU
+reescribe BPLCON0/1/2 y los colores sin parar, o un Copper lo hace alrededor de las lineas 2 a 6, con y sin BPLCON3 y DIWHIGH) son el punto 5 de la ficha de T32: igualan en el A500 y con
+Copper en el A600; el bucle de CPU con BPLCON3 y DIWHIGH en el A600 diverge (misma imagen, o imagen reiniciada), y un haz programado (`ecs-beam-var-wide-pal`) cargado en un proceso
+nuevo tampoco iguala. Esas ocho pruebas DET02 y la DET03 quedan como divergencia FIJADA (la primera unidad tras la carga y los subsistemas, `DIVERGENCES`, dueno T15n): su prueba pasa
+mientras la divergencia este donde la tabla dice, y `OpenDivergenceGate` (con `P6_RELEASE_GATE=1`, parte del cierre de T32) falla mientras la tabla no este vacia: lo que el corpus
+encuentra bloquea la release hasta que la tarea dueña lo cierra. Un PASS de DET02/DET03 de T32b significa "cada escenario iguala o su divergencia esta fijada", no "no hay divergencias".
+
 ## Matriz de CI propuesta
 
 Tier 1 de producto: Linux x86_64 (Clang y GCC), Windows x86_64 (toolchain fijada),

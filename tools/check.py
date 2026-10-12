@@ -133,6 +133,25 @@ TASK_SUITES = {
         'compare_runs': 'tests.reference.test_compare_runs',
         'repeated_processes': 'tests.reference.test_det01',
     },
+    # T32b: the differential corpus (tests/scenarios/corpus: 28 scenarios on the three machines). REF01 checks its coverage of docs/04-validation.md and compares every scenario with the
+    # reference; DET02 and DET03 run every scenario through the registry and the public ABI. A divergence the corpus found is PINNED (where it first shows and in which subsystems) and
+    # owned by a task, and the test of the pin passes while it is where the table says; the release gate that fails while any is open (OpenDivergenceGate) belongs to the closure of T32.
+    ('REF01', 'T32b'): {
+        'compare_runs': 'tests.reference.test_compare_runs',
+        'patch_classification': 'tests.reference.test_patch_classes',
+        'corpus_coverage': 'tests.reference.test_corpus.CoverageTests',
+        'corpus_reference': 'tests.reference.test_corpus.Ref01CorpusTests',
+    },
+    ('DET02', 'T32b'): {
+        'corpus_a500': 'tests.reference.test_corpus_det02.CorpusA500Tests',
+        'corpus_a600': 'tests.reference.test_corpus_det02.CorpusA600Tests',
+        'corpus_a1200': 'tests.reference.test_corpus_det02.CorpusA1200Tests',
+    },
+    ('DET03', 'T32b'): {
+        'corpus_public_a500': 'tests.reference.test_corpus_det03.CorpusDet03A500Tests',
+        'corpus_public_a600': 'tests.reference.test_corpus_det03.CorpusDet03A600Tests',
+        'corpus_public_a1200': 'tests.reference.test_corpus_det03.CorpusDet03A1200Tests',
+    },
 }
 TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600}
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}

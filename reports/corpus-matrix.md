@@ -1,7 +1,7 @@
 # Corpus diferencial y diagnostico de desync (T32)
 
-Estado: EN CURSO. T32a cerrada (referencia, comparador, REF01 y DET01 sobre los micro-ROM existentes); T32b (corpus de 20 escenarios, DET02/DET03) y T32c
-(repeticiones, entorno, sanitizers, fuzz) pendientes; T32 es el cierre que completa este documento.
+Estado: EN CURSO. T32a (referencia, comparador, REF01 y DET01 sobre los micro-ROM existentes) y T32b (el corpus de 28 escenarios, DET02/DET03) cerradas; T32c
+(repeticiones, entorno, sanitizers, fuzz) y T15n (las brechas del estado que halla el corpus) pendientes; T32 es el cierre que completa este documento.
 
 Lo que dice y lo que no: igualar la referencia prueba fidelidad al WinUAE 6.0.3 elegido bajo el puerto comun (puente, puerto portable, probe, reloj
 emulado). No es exactitud de una Amiga fisica ni ve un error del puerto, y la referencia no es una compilacion independiente de WinUAE para Windows.
@@ -50,12 +50,68 @@ CIA, bridge y pcm; entradas: `unit 4: poke-at beam:10:10:20`.
 ### DET01
 
 Dos procesos nuevos a la vez, mismas entradas, 10000 unidades, digest de cada subsistema cada 5 unidades y PCM/imagen de cada unidad, salidas identicas byte
-a byte: ver el resultado de `python3 tools/check.py --check DET01 --task T32a` en el commit de cierre de T32a. Casos: a500-vsync-pal, audio-tone_all-48000,
+a byte: `python3 tools/check.py --check DET01 --task T32a` PASS (~17 min). Casos: a500-vsync-pal, audio-tone_all-48000,
 a500-flip-lace-pal, input-scripted (LCG con semilla 32: raton y joystick cada 37 unidades, teclas cada 301) y a1200-copper-irq-pal.
+
+## T32b: el corpus de 28 escenarios
+
+`tests/scenarios/corpus/corpus.py` (escenarios estrictos generados, `index.json`, procedencia en `manifests/fixtures.json`; las categorias de `docs/04-validation.md` las exige
+`tests/reference/test_corpus.py` y comprueba que cada una este respaldada por el programa y los argumentos). Cada escenario pasa REF01 contra la referencia de T32a, DET02 en los modos de
+`tests/state/test_det02.py` y DET03 por la ABI publica.
+
+| Escenario | Maquina | Norma | Categorias | REF01 | DET02 (unidades) | DET03 |
+| --- | --- | --- | --- | --- | --- | --- |
+| ocs-vsync-irq-pal | a500 | pal | ocs, pal, irq, cpu | igual | igual (2,3) | igual |
+| ocs-copper-irq-ntsc | a500 | ntsc | ocs, ntsc, copper, irq | igual | igual (2) | igual |
+| ocs-lores-bars-pal | a500 | pal | ocs, pal | igual | igual (2,4) | igual |
+| ocs-hires-lace-ntsc | a500 | ntsc | ocs, ntsc, interlace | igual | igual (2,3,4) | igual |
+| ocs-blitter-dma-pal | a500 | pal | ocs, pal, dma, blitter | igual | igual (2,5) | igual |
+| ocs-halt-pal | a500 | pal | ocs, pal, cpu | declarada (0024: scheduler, bridge, pcm) | igual (2) | igual |
+| ocs-ring-cpu-pal | a500 | pal | ocs, pal, ring | igual | igual (2,4,6) | igual |
+| ocs-ring-copper-ntsc | a500 | ntsc | ocs, ntsc, ring, copper | igual | igual (2,4,6) | igual |
+| ecs-beam-var-wide-pal | a600 | pal | ecs, pal | igual | fijada, T15n (2,4) | fijada, T15n |
+| ecs-shres-ntsc | a600 | ntsc | ecs, ntsc | igual | igual (2,4) | igual |
+| ecs-diwhigh-v-pal | a600 | pal | ecs, pal | igual | igual (2,4) | igual |
+| ecs-ring-cpu-pal | a600 | pal | ecs, pal, ring | igual | fijada, T15n (2,4,6) | igual |
+| ecs-ring-copper-ntsc | a600 | ntsc | ecs, ntsc, ring, copper | igual | igual (2,4,6) | igual |
+| aga-planes8-fmode3-pal | a1200 | pal | aga, pal | igual | igual (2) | igual |
+| aga-ham8-ntsc | a1200 | ntsc | aga, ntsc | igual | igual (2) | igual |
+| aga-sprite64-pal | a1200 | pal | aga, pal | igual | igual (2) | igual |
+| aga-bars24-ntsc | a1200 | ntsc | aga, ntsc, copper | igual | igual (2) | igual |
+| audio-tone4-pal | a500 | pal | ocs, pal, audio, dma | igual | igual (3) | igual |
+| audio-volume-ntsc | a500 | ntsc | ocs, ntsc, audio, irq | igual | igual (5,6) | igual |
+| audio-modulated-pal | a500 | pal | ocs, pal, audio, dma | igual | igual (3,4) | igual |
+| input-mouse-joystick-pal | a500 | pal | ocs, pal, mouse, joystick | igual | igual (4) | igual |
+| input-keyboard-pal | a500 | pal | ocs, pal, keyboard | igual | igual (3,6) | igual |
+| input-pot-pal | a500 | pal | ocs, pal, joystick | igual | igual (6) | igual |
+| input-types-pal | a500 | pal | ocs, pal, mouse, joystick | igual | igual (4) | igual |
+| reset-mid-run-pal | a500 | pal | ocs, pal, reset, restore | declarada (0069: input) | igual (5) | igual |
+| swap-disk-pal | a500 | pal | ocs, pal, swap, dma | igual | igual (12) | igual |
+| floppy-write-pal | a500 | pal | ocs, pal, write, restore | igual | igual (105) | igual |
+| hdf-write-pal | a500 | pal | ocs, pal, write, restore, dma | igual | igual (3,5) | igual |
+
+Resultado (`python3 tools/check.py --check REF01|DET02|DET03 --task T32b`, los tres PASS): REF01 igual en 26 escenarios y con la diferencia declarada y atribuida en 2; DET02 109 pruebas,
+101 igualan y 8 son una divergencia FIJADA; DET03 28 pruebas, 27 igualan y 1 fijada. Un PASS de T32b significa "cada escenario iguala o su divergencia esta fijada donde la tabla dice",
+no "no hay divergencias": `OpenDivergenceGate` (`P6_RELEASE_GATE=1`) falla mientras `DIVERGENCES` no este vacia y es parte del cierre de T32.
+
+### Hallazgos del corpus (tarea T15n)
+
+El punto 5 de la ficha (programas que mantienen lleno el anillo `rga_denise` en OCS/ECS) y un haz programado en un proceso nuevo han encontrado dos brechas del estado nativo en el A600 que
+ningun escenario anterior tocaba:
+
+1. `ecs-ring-cpu-pal` (la CPU reescribe BPLCON0/1/2, BPLCON3, DIWHIGH y los colores sin parar): DET02 diverge en las unidades 2, 4 y 6 con la misma imagen y con la imagen reiniciada, no con
+   un proceso nuevo; desde la unidad 1 tras la carga la frontera cae seis ciclos de color despues, con CPU, scheduler, video, bridge, chipset.beam e imagen distintos y todos los digest iguales en
+   la unidad 0. Igualan: el mismo programa sin BPLCON3 ni DIWHIGH, el A500 con el mismo bucle y el Copper en ambas maquinas. Medido, no atribuido: copiar al cargado el anillo `rga_denise` y sus
+   cursores del original no basta; los estaticos que cambian en la carga son sobre todo de Denise (`lts`, `denise_res`, `bplcon1_shift_mask`, `bpl1dat_trigger`, `hbstop_denise_reg`...) y
+   `diwhigh_saved` (restore_custom lo deja sin el bit 15 que escribe DIWHIGH).
+2. `ecs-beam-var-wide-pal` (BEAMCON0 y HTOTAL programados, linea mas ancha) cargado en un proceso nuevo: el grupo `timing` del digest del chipset difiere nada mas cargar. restore_custom
+   deja `new_beamcon0` y no `beamcon0` ni lo que `init_beamcon0` deriva de el (maxhpos/maxvpos, vblank_hz, hsstop_detect, minfirstline...); una misma imagen que programo el haz ella misma
+   iguala. Candidato a arreglo: llamar a `init_beamcon0` en `p6_custom_rebuild_derived` cuando `beamcon0 != new_beamcon0`.
+
+Los dos estan en `DIVERGENCES` de `tests/reference/test_corpus_det02.py` con su dueno (T15n), y T32 no se cierra hasta que T15n los resuelva.
 
 ## Pendiente
 
-- T32b: 20 escenarios (4 OCS, 4 ECS, 4 AGA, PAL/NTSC, teclado/raton/joystick, 2 audio/DMA, 2 reset/swap, 2 escritura/restauracion), anillo `rga_denise` en
-  OCS/ECS con DET02, `manifests/fixtures.json`.
+- T15n: las dos brechas de arriba (dueno de las 8 pruebas DET02 y la DET03 fijadas).
 - T32c: procesos/instancia nueva/entorno distinto/sanitizers (DET04, DET06 con Docker al final, SAFE01) y fuzz de todos los parsers (FUZZ01).
-- T32: matriz final por escenario, toda diferencia explicada y respaldada por un test o bloqueando la release.
+- T32: matriz final por escenario, `OpenDivergenceGate` en verde, toda diferencia explicada y respaldada por un test o bloqueando la release.

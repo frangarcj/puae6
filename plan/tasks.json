@@ -11934,7 +11934,7 @@
       "title": "Corpus diferencial de al menos 20 escenarios con microtests",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T32a"
       ],
@@ -11947,13 +11947,16 @@
         "tests/scenarios/**",
         "tests/reference/**",
         "manifests/fixtures.json",
-        "reports/corpus-matrix.md"
+        "reports/corpus-matrix.md",
+        "tools/check.py",
+        "docs/04-validation.md"
       ],
       "steps": [
         "Completar al menos 20 escenarios con 4 OCS, 4 ECS, 4 AGA, PAL/NTSC, teclado/raton/joystick, 2 de audio/DMA, 2 de reset/swap y 2 de escritura/restauracion; micro-tests antes que pantallas de arranque, juegos/demos como complemento opt-in por variable de entorno.",
         "Hallazgo de T24c: programas que mantienen lleno el anillo rga_denise en OCS/ECS (bucles que reescriben BPLCON0 y colores) con DET02 en A500 y A600, y su comparacion con la referencia.",
         "Cada escenario pasa REF01 (T32a) y DET02/DET03; los hashes de repetibilidad tienen procedencia (generador + programa + maquina), no se cambian automaticamente.",
-        "manifests/fixtures.json registra procedencia, licencia, recetas y variables de entorno de los fixtures; los escenarios que necesitan assets ausentes quedan BLOCKED, nunca PASS."
+        "manifests/fixtures.json registra procedencia, licencia, recetas y variables de entorno de los fixtures; los escenarios que necesitan assets ausentes quedan BLOCKED, nunca PASS.",
+        "2026-10-12: touch ampliado con tools/check.py (registrar REF01/DET02/DET03 para T32b) y docs/04-validation.md (el corpus y sus categorias); los escenarios nuevos van en tests/scenarios/corpus/ (ficheros nuevos, ningun escenario existente se edita mientras T50 integra)."
       ],
       "checks": [
         "REF01",
@@ -12007,6 +12010,50 @@
       "evidence": null
     },
     {
+      "id": "T15n",
+      "title": "Estado nativo: el programa que reescribe registros de Denise sin parar (hallazgo de T32b)",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T15",
+        "T32b"
+      ],
+      "read": [
+        "docs/adr/0009-state-format.md",
+        "docs/04-validation.md",
+        "manifests/state-inventory.json"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/state_upstream.cpp",
+        "bridge/state_probe.cpp",
+        "tests/state/**",
+        "tests/reference/**",
+        "manifests/state-inventory.json",
+        "manifests/waterbox-memory.json",
+        "docs/adr/0009-state-format.md",
+        "docs/04-validation.md"
+      ],
+      "steps": [
+        "El escenario ecs-ring-cpu-pal del corpus (tests/scenarios/corpus/rings.py: la CPU reescribe BPLCON0/1/2, BPLCON3, DIWHIGH y los colores en un bucle) diverge en DET02 en el A600 (modos same-image-beam-set y reset-image-beam-set; el proceso nuevo no): desde la unidad 1 tras la carga la frontera cae 6 ciclos de color despues, con CPU, scheduler, video, bridge, chipset.beam e imagen distintos. Los mismos programas en el A500 (OCS) y con el Copper en el A600 igualan.",
+        "Atribuir la causa con un reproductor minimo (tests/reference/test_corpus_det02.py lo fija como fallo esperado con su pin) y ponerla en el estado: candidatos medidos hasta ahora, ninguno confirmado: el anillo rga_denise y sus cursores (en AGA ya viajan en DRNG; copiar anillo y cursores del original al cargado no basta por si solo), diwhigh_saved (restore_custom lo deja sin el bit 15 que escribe DIWHIGH()), el estado de lineas/optimizacion de dibujo que Denise guarda entre cuadros.",
+        "Si hace falta un parche del motor, numeros 0260-0269; cambiar el tamano de un chunk obliga a volver a medir la cota (STATE01) y waterbox-memory."
+      ],
+      "checks": [
+        "DET02",
+        "DET03",
+        "STATE01",
+        "STATE02"
+      ],
+      "acceptance": [
+        "ecs-ring-cpu-pal pasa DET02 en todos los modos sin fallo esperado y su entrada sale de DIVERGENCES; ningun escenario que pasaba deja de pasar.",
+        "La causa esta documentada en el ADR 0009 y respaldada por un test que falla sin el arreglo."
+      ],
+      "stop": "Dos intentos razonados sin atribuir la causa: guardar el reproductor minimo y las hipotesis medidas, dejar la tarea blocked y mantener el fallo esperado a la vista; no relajar la comparacion ni quitar el escenario.",
+      "evidence": null
+    },
+    {
       "id": "T32",
       "title": "Cerrar corpus diferencial y diagnostico de desync",
       "milestone": "M4",
@@ -12020,7 +12067,8 @@
         "T31",
         "T32a",
         "T32b",
-        "T32c"
+        "T32c",
+        "T15n"
       ],
       "read": [
         "docs/04-validation.md",
@@ -12037,7 +12085,8 @@
         "Comparar ticks/eventos/CPU/chipset y A/V canonicos; emitir primer boundary y subsistema divergente con inputs previos.",
         "Repetir procesos, instancia nueva, entorno distinto, sanitizers y fuzz de todos los parsers ya implementados.",
         "Hallazgo de T24c (2026-10-09): el anillo rga_denise viaja en el estado solo en AGA (DRNG); en A500/A600 el ADR 0009 supone el anillo ocioso en la frontera de unidad. El corpus diferencial debe incluir programas que lo mantengan lleno en OCS/ECS (bucles que reescriben BPLCON0/colores) y comprobar DET02.",
-        "2026-10-12: dividida en T32a (referencia, comparador, REF01/DET01), T32b (corpus de 20 escenarios, DET02/DET03) y T32c (repeticiones, entorno, sanitizers y fuzz: DET04/DET06/SAFE01/FUZZ01); T32 queda como cierre: reports/corpus-matrix.md recoge toda diferencia explicada y respaldada por un test o bloqueando release."
+        "2026-10-12: dividida en T32a (referencia, comparador, REF01/DET01), T32b (corpus de 20 escenarios, DET02/DET03) y T32c (repeticiones, entorno, sanitizers y fuzz: DET04/DET06/SAFE01/FUZZ01); T32 queda como cierre: reports/corpus-matrix.md recoge toda diferencia explicada y respaldada por un test o bloqueando release.",
+        "2026-10-12: T32b encontro una brecha del estado nativo en el A600 (T15n); T32 no se cierra hasta que T15n la corrija o se decida aceptarla con una nota."
       ],
       "checks": [
         "REF01",

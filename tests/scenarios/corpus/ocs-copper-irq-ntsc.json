@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "scenario_id": "ocs-copper-irq-ntsc",
+  "profile": "deterministic-a500",
+  "config": {
+    "machine": "A500",
+    "video_standard": "NTSC",
+    "audio_rate_hz": 48000,
+    "random_seed": 1,
+    "rtc_epoch_seconds": 946684800,
+    "chip_ram_bytes": 524288,
+    "slow_ram_bytes": 524288
+  },
+  "firmware": [
+    "911d19f368f44faf1d91628d07c927d781296a9253010b246eaa93af86b8562d"
+  ],
+  "media": [],
+  "program": null,
+  "units": 8,
+  "inputs": [
+    {
+      "unit": 0,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "checkpoints": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "probes": [],
+  "render": true,
+  "audio": true
+}
