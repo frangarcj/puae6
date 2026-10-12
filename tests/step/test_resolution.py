@@ -31,9 +31,14 @@ RESOLUTION_STEP = {"lores": 0, "hires": 1, "superhires": 2}
 FLAG_NO_VIDEO = 2
 
 
+# The probe names of the eight machines and whether the Agnus of the preset is OCS (bridge/config.cpp kMachines; the A1000 has the 8361, the A2000 OG the OCS one of the A500).
+MACHINES = ("a500", "a500og", "a500plus", "a600", "a1000", "a1200", "a2000og", "a2000")
+OCS_AGNUS = {"a500", "a500og", "a1000", "a2000og"}
+
+
 def buffer_size(standard, machine, resolution, lines):
-    """The buffer an image announces (docs/adr/0006-video-output.md): 380 << resolution columns; the long PAL height, or the NTSC one on an OCS machine, halved by single lines."""
-    ntsc_short = standard == "ntsc" and machine == "a500"
+    """The buffer an image announces (docs/adr/0006-video-output.md): 380 << resolution columns; the long PAL height, or the NTSC one on an OCS Agnus (it cannot leave its standard), halved by single lines."""
+    ntsc_short = standard == "ntsc" and machine in OCS_AGNUS
     height = 486 if ntsc_short else 576
     return 380 << RESOLUTION_STEP[resolution], height // (1 if lines == "double" else 2)
 
@@ -148,6 +153,22 @@ class RasterTests(ResolutionCase):
                     width, height = buffer_size(standard, machine, resolution, lines)
                     with self.subTest(machine=machine, standard=standard, resolution=resolution, lines=lines):
                         self.assertEqual({(r[5], r[6], r[10], r[11], r[18]) for r in rows}, {(width, height, *nominal_raster(standard, resolution, lines), "zero")})
+
+
+    def test_every_machine_announces_and_delivers_the_height_of_its_agnus(self):
+        # T72a: the height follows the Agnus of the preset, not the machine number: an OCS Agnus (A500, A500 OG, A1000, A2000 OG) keeps 486 rows in NTSC, an ECS or AGA one (A500+, A600,
+        # A1200, A2000) 576. p6_query_video (the "geometry" line the probe prints before loading anything) and every frame of the run carry the same buffer, in every option.
+        source = (FIXTURES / "vsync.s").read_text(encoding="utf-8")
+        for machine in MACHINES:
+            for standard in STANDARDS:
+                for resolution, lines in COMBINATIONS:
+                    rows, _, out = self.run_options("vsync", source, standard, 3, resolution, lines, machine)
+                    width, height = buffer_size(standard, machine, resolution, lines)
+                    with self.subTest(machine=machine, standard=standard, resolution=resolution, lines=lines):
+                        self.assertEqual(len(rows), 3)
+                        self.assertEqual(height, (486 if standard == "ntsc" and machine in OCS_AGNUS else 576) // (1 if lines == "double" else 2))
+                        self.assertIn(f"geometry {width}x{height} ", out)
+                        self.assertEqual({(r[5], r[6]) for r in rows}, {(width, height)})
 
 
 class PictureTests(ResolutionCase):

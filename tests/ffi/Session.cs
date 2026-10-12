@@ -17,6 +17,7 @@ using BizHawk.Client.Common;
 ///       "record" keeps each unit's input as BizHawk's own BK2 log entry
 ///   run NAME UNITS movie=FILE [silent=A-B]                       the input of each unit is read from a .bk2 by the core's frame number (after a load, from the frame of the state)
 ///   moviefinish NAME FILE                                         the play ended where the movie does and its CycleCount and lag count are the header's, or the program fails ("desync: ...")
+///   buffer NAME                                                   BufferWidth x BufferHeight of the core now (right after the load: the buffer announced for the settings)
 ///   digest NAME [LABEL [machine]]                                 SHA-256 of the whole state; with "machine", of the sandbox's snapshot alone
 ///   endmovie NAME FILE                                            writes what "record" kept, with the header of this core, as a .bk2
 ///   movieverify NAME FILE UNITS [script=FILE] [press=SPEC]      decodes the .bk2 with BizHawk's Bk2Controller and compares every button and axis of every frame with the scripted input that was recorded
@@ -109,6 +110,7 @@ internal static unsafe partial class Program
 					Console.WriteLine($"core {words[1]} ready");
 					break;
 				}
+				case "buffer": Console.WriteLine($"buffer {words[1]} {machines[words[1]].Core.BufferWidth}x{machines[words[1]].Core.BufferHeight}"); break;     // the buffer announced at the load, or the last picture's
 				case "run": Run(words[1], machines[words[1]], int.Parse(words[2]), arguments); break;
 				case "endmovie": EndMovie(machines[words[1]], words[2]); Console.WriteLine($"movie {words[2]} frames={machines[words[1]].Recorded.Count}"); break;
 				case "movieverify": MovieVerify(machines[words[1]], words[2], int.Parse(words[3]), arguments); break;

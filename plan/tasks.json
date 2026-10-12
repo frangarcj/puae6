@@ -14056,7 +14056,7 @@
       "title": "Altura del buffer NTSC de los presets OCS (A500OG, A1000, A2000OG): el bridge decide la altura ECS con machine != A500",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T50",
         "T72"

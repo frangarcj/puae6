@@ -108,8 +108,8 @@ de la configuracion, el mismo al que se ancla el RTC. Todo son enteros del haz, 
 cadencia y el aspecto de las unidades siguientes; un adaptador que anuncie un unico valor al
 cargar debe releerlos por unidad (libretro: SET_SYSTEM_AV_INFO una vez por cambio de mas de un 1 %
 en la tasa, ver ADR 0006; BizHawk: VsyncNumerator/Denominator por unidad con imagen). El buffer (`video_width/height`, `caps.max_video_*`) es constante
-desde el load: 760 x 576, salvo un A500 NTSC (760 x 486; no puede salir de su estandar). Una
-configuracion NTSC de la maquina ECS reserva las 576 filas para no perder la imagen de un haz PAL.
+desde el load: 760 x 576, salvo un NTSC con Agnus OCS (A500, A500 OG, A1000, A2000 OG: 760 x 486; no pueden salir de su estandar). Una
+configuracion NTSC con Agnus ECS o AGA (A500+, A600, A2000, A1200) reserva las 576 filas para no perder la imagen de un haz PAL; decide el Agnus del preset, no el numero de maquina (T72a).
 Es el buffer del perfil (hires, doble linea): la resolucion y el modo de linea (T72, abajo) lo escalan, `p6_query_video(config)` da el de una configuracion y `caps.max_video_*` sigue describiendo el perfil.
 
 p6_run_frame es la unica primitive publica que hace avanzar el scheduler. Los
@@ -469,8 +469,8 @@ sigue midiendo 72 bytes). Son el `gfx_resolution` y el `gfx_vresolution` de upst
 la palabra de flags (28-29 la resolucion fuera de hires: 1 lores, 2 super-hires; 30 la linea simple), **solo fuera del perfil**, sin chocar con la memoria (8-22, 31), la FPU (23-24) ni la velocidad de disquete
 (25-27): con el raster de siempre, escrito como sea, el hash es **el de siempre**. Un estado o una pelicula de un raster es INCOMPATIBLE en otro.
 
-Rasters (activo nominal PAL / NTSC; buffer anunciado, constante desde el load): hires + doble (defecto) 756 x 574 / 756 x 484 en 760 x 576 (760 x 486 en un A500 NTSC); hires + simple 756 x 287 / 756 x 242 en 760 x 288
-(760 x 243); lores 378 de ancho en 380 (doble 574 / 484 filas, simple 287 / 242); super-hires 1512 en 1520. Las maquinas ECS y AGA reservan en NTSC la altura PAL (la mitad con linea simple). `video_width x
+Rasters (activo nominal PAL / NTSC; buffer anunciado, constante desde el load): hires + doble (defecto) 756 x 574 / 756 x 484 en 760 x 576 (760 x 486 en NTSC con Agnus OCS); hires + simple 756 x 287 / 756 x 242 en 760 x 288
+(760 x 243); lores 378 de ancho en 380 (doble 574 / 484 filas, simple 287 / 242); super-hires 1512 en 1520. Las maquinas con Agnus ECS o AGA (A500+, A600, A2000, A1200) reservan en NTSC la altura PAL (la mitad con linea simple). `video_width x
 video_height` de cada `p6_frame` es el anuncio de `p6_query_video`; un raster que no cabe (un haz ECS programado mas grande que el buffer de la opcion) se entrega como `P6_FRAME_NO_VIDEO`, nunca se escribe fuera, y
 todo lo que hay fuera de `active` vale cero como siempre. El aspecto de pixel es el del estandar por el factor del raster (lores x2 de ancho, super-hires la mitad, linea simple x2 de alto: 52:25 en PAL lores doble,
 26:25 lores simple, 13:50 super-hires simple). Con **linea simple** un invitado entrelazado se ve campo a campo (cada unidad es un campo completo de 287 / 242 filas) y `field_parity` es siempre

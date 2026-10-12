@@ -31,19 +31,23 @@ constexpr bool raster_is_profile(uint8_t resolution, uint8_t line_mode)
 // line mode (one row per line instead of two). `res` and `vres` are the engine's values.
 constexpr uint32_t buffer_width(int res) { return (kBufferWidth / 2) << res; }
 
-// Rows of the buffer a loaded machine delivers; announced at load and constant afterwards. An OCS machine cannot leave the standard of
-// its configuration, so NTSC keeps the short buffer. An ECS or AGA Agnus (A600, A1200) can be programmed into the other standard (BEAMCON0), so its NTSC
+// Whether the Agnus of the machine's preset is ECS or AGA (it has BEAMCON0), read from the preset table of config.cpp: the A500+, A600, A2000 and A1200. The A500, A500 OG, A1000
+// and A2000 OG have an OCS Agnus. An unknown machine is the A500.
+bool machine_has_ecs_agnus(uint32_t machine);
+
+// Rows of the buffer a loaded machine delivers; announced at load and constant afterwards. An OCS Agnus cannot leave the standard of
+// its configuration, so NTSC keeps the short buffer. An ECS or AGA Agnus can be programmed into the other standard (BEAMCON0), so its NTSC
 // configuration reserves the PAL height: the raster of a programmed PAL beam still fits. Single line mode halves it (both heights are even).
 constexpr uint32_t buffer_height(bool ntsc, bool beamcon0, int vres = 1)
 {
     return (ntsc && !beamcon0 ? kBufferHeightNtsc : kBufferHeightPal) >> (1 - vres);
 }
 
-// The buffer of a configuration: what every frame of its image reports as video_width x video_height (ECS and AGA Agnus, every machine but the A500, can be programmed into the other standard).
+// The buffer of a configuration: what every frame of its image reports as video_width x video_height (an ECS or AGA Agnus can be programmed into the other standard; the preset decides, not the machine number).
 inline uint32_t config_buffer_width(const p6_config &c) { return buffer_width(engine_resolution(c.video_resolution)); }
 inline uint32_t config_buffer_height(const p6_config &c)
 {
-    return buffer_height(c.video_standard == P6_VIDEO_NTSC, c.machine != P6_MACHINE_A500, engine_line_mode(c.video_line_mode));
+    return buffer_height(c.video_standard == P6_VIDEO_NTSC, machine_has_ecs_agnus(c.machine), engine_line_mode(c.video_line_mode));
 }
 
 // The nominal active raster of a normal unit (no long-field bit left set): 189 colour clocks of four hires columns, and 287 / 242 lines of one row (single) or two (double).

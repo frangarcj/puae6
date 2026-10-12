@@ -575,6 +575,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (render && frame.Video != null)
 		{
 			if (frame.VideoFormat != P6.PixelXrgb8888) throw new InvalidOperationException($"the guest delivered pixel format {frame.VideoFormat}");
+			// The buffer is the one the machine announced at the load (ADR 0006, T72a): constant for the life of the image, the same numbers p6_query_video gives for the settings.
+			if (frame.VideoWidth != (uint)RasterWidth(_syncSettings) || frame.VideoHeight != (uint)RasterHeight(_syncSettings))
+				throw new InvalidOperationException($"the guest delivered a buffer of {frame.VideoWidth}x{frame.VideoHeight}, not the {RasterWidth(_syncSettings)}x{RasterHeight(_syncSettings)} announced for {_syncSettings.Machine} in {_syncSettings.Region}");
 			var active = frame.Active;
 			if (active.Width > MaxWidth || active.Height > MaxHeight || active.X + active.Width > frame.VideoWidth || active.Y + active.Height > frame.VideoHeight
 				|| (ulong)(active.Y + active.Height) * frame.VideoStrideBytes > frame.VideoBytes)

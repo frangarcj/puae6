@@ -66,6 +66,25 @@ class MachineLibretroTests(lr.LibretroHarness):
                         self.assertIn(f"machine {machine} (puae6_machine)", out)
                         self.compare_with_headless(out, rom, units, "--machine", flag, *(["--ntsc"] if standard else []))
 
+    def test_every_machine_announces_the_buffer_height_of_its_agnus(self):
+        # T72a: SET_SYSTEM_AV_INFO announces the bridge's buffer, and the bridge decides by the Agnus of the preset (OCS: A500, A500 OG, A1000, A2000 OG keep 486 rows in NTSC; ECS and AGA:
+        # A500+, A600, A1200, A2000 reserve 576), halved by single lines; no picture of the run is larger than that.
+        every = {"A500": lr.KICKSTART_NAMES[0], "A600": lr.KICKSTART_NAMES_A600[0], "A1200": lr.KICKSTART_NAMES_A1200[0], **{m: v[2][0] for m, v in NEW.items()}}
+        ocs = {"A500", "A500OG", "A1000", "A2000OG"}
+        for machine, name in every.items():
+            for standard in ("PAL", "NTSC"):
+                for resolution, lines in (("hires", "double"), ("lores", "single"), ("superhires", "double")):
+                    with self.subTest(machine=machine, standard=standard, resolution=resolution, lines=lines):
+                        out = self.frontend("boot", "--runs", 3, *option(machine), "--set", f"puae6_video_standard={standard}", "--set", f"puae6_video_resolution={resolution}",
+                                            "--set", f"puae6_video_line_mode={lines}", name=name).stdout
+                        found = re.search(r"^av base=(\d+)x(\d+) max=(\d+)x(\d+) ", out, re.M)
+                        self.assertIsNotNone(found, out[-400:])
+                        rows = (486 if standard == "NTSC" and machine in ocs else 576) >> (0 if lines == "double" else 1)
+                        self.assertEqual((int(found[3]), int(found[4])), (380 << {"lores": 0, "hires": 1, "superhires": 2}[resolution], rows))
+                        runs = self.runs(out)
+                        self.assertTrue(runs)
+                        self.assertTrue(all(r["size"][0] <= int(found[3]) and r["size"][1] <= int(found[4]) for r in runs))
+
     def test_each_known_file_name_of_each_machine_is_found_with_the_vfs_and_with_stdio(self):
         for machine, (_, _, names, _) in NEW.items():
             reference = None

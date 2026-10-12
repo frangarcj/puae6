@@ -158,6 +158,11 @@ bool is_aga(uint32_t machine) { return (machine_info(machine).chipset_mask & CSM
 
 }  // namespace
 
+bool machine_has_ecs_agnus(uint32_t machine)
+{
+    return (machine_info(machine).chipset_mask & (CSMASK_ECS_AGNUS | CSMASK_AGA)) != 0;
+}
+
 Memory preset_memory(uint32_t machine)
 {
     return machine_info(machine).memory;

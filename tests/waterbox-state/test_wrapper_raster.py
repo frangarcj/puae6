@@ -98,6 +98,30 @@ class WrapperRasterTests(unittest.TestCase):
                     hashes = [m[4] for m in headless if int(m[0]) == int(unit[1])]
                     self.assertEqual(hashes, [unit[3]], f"unit {unit[1]}")
 
+    # --- T72a: the buffer of every machine -------------------------------------------------------------------------------------------------
+
+    def test_every_machine_announces_before_the_first_frame_the_buffer_its_guest_delivers(self):
+        # The height follows the Agnus of the preset: an OCS one (A500, A500 OG, A1000, A2000 OG) keeps 486 rows in NTSC, an ECS or AGA one (A500+, A600, A1200, A2000) reserves 576; single lines
+        # halve it. The wrapper announces it at the load (`buffer` right after `core`) and refuses any frame whose buffer is another one (Puae6Core.CopyOut), so running units proves the
+        # guest delivers the announced numbers; headless and libretro are checked against p6_query_video by tests/step/test_resolution.py and tests/libretro-host/test_machines.py.
+        ocs = {"a500", "a500og", "a1000", "a2000og"}
+        machines = ("a500", "a500og", "a500plus", "a600", "a1000", "a1200", "a2000og", "a2000")
+        program, expected = [], []
+        for machine in machines:
+            for standard in ("pal", "ntsc"):
+                for resolution, lines in (("Hires", "Double"), ("Lores", "Single"), ("SuperHires", "Double")):
+                    name = f"M{len(expected)}"
+                    rows = (486 if standard == "ntsc" and machine in ocs else 576) // (2 if lines == "Single" else 1)
+                    width = {"Lores": 380, "Hires": 760, "SuperHires": 1520}[resolution]
+                    program += [f"core {name} machine={machine} vres={resolution} vlines={lines}" + (" ntsc" if standard == "ntsc" else ""), f"buffer {name}", f"run {name} 2", f"dispose {name}"]
+                    expected.append((name, machine, standard, resolution, lines, f"{width}x{rows}"))
+        out = self.session(program)
+        seen = dict(re.findall(r"^buffer (\S+) (\d+x\d+)$", out, re.M))
+        for name, machine, standard, resolution, lines, size in expected:
+            with self.subTest(machine=machine, standard=standard, resolution=resolution, lines=lines):
+                self.assertEqual(size, seen.get(name))
+                self.assertEqual(2, len(self.units(out, name)))
+
     # --- WB03 ------------------------------------------------------------------------------------------------------------------------------
 
     def test_save_go_on_load_and_repeat_gives_the_same_units_and_machine_at_every_raster(self):
