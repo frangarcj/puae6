@@ -28,6 +28,8 @@ int resolve_floppy_speed(const p6_config &config);
 // The CPU of the config (T52, p6_config.cpu_model): 68000, 68010 or 68020 (the machine's own when the field is 0). cpu_identity is true when it is not the machine's own and writes the
 // two bytes config_hash is derived from (state.cpp: domain p6/config/cpu/v1, over the hash so far and these bytes): the model, 0 = 68000, 1 = 68010, 2 = 68020, and the multiplier of the clock (0 = the machine's own).
 int resolve_cpu(const p6_config &config);
+// The multiplier of the CPU clock of the config (T52, p6_config.cpu_multiplier): 1, 2, 4, 8, 10, 12 or 16, the machine's own (2 with a 68000, 4 with the A1200's 68EC020) when the field is 0.
+int resolve_cpu_multiplier(const p6_config &config);
 bool cpu_identity(const p6_config &config, uint8_t out[2]);
 // Paula's output options (T73, p6_config.sound_*), resolved to upstream's own values: stereo separation 0..10 (tenths of 100 %), sound_interpol (0 none, 1 anti, 3 rh, 4 crux; 2 is sinc, refused),
 // sound_filter (0 off, 1 emulated, 2 on) and sound_filter_type (0 A500, 1 A1200). The profile's setting is 7, anti, emulated and the model of the machine's own output stage.

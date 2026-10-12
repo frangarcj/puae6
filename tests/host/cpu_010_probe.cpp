@@ -1,5 +1,5 @@
 // Runs a micro-ROM on the 68010 cycle-exact core (cpuemu_13 row of cputbls, patch 0310) of the real engine and prints what the program left in Chip RAM.
-//   usage: p6_cpu010_probe rom max_units [--machine a500|a600|a1200] [--cpu 68000|68010|68020]
+//   usage: p6_cpu010_probe rom max_units [--machine a500|a600|a1200] [--cpu 68000|68010|68020] [--multiplier N]
 // The default is the A500 with p6_config.cpu_model = 68010 (T52); the reset head (prefs_changed_cpu / build_cpufunctbl / set_x_funcs) selects op_smalltbl_13 and m68k_run_1_ce.
 // With --cpu 68000 the machine keeps its own 68000: the same program must then fail (the 68000 has none of its instructions). --machine a1200 loads the 68EC020 machine, whose CPU is its own
 // unless --cpu names it (only 68020 is valid there).
@@ -49,12 +49,13 @@ static void check(p6_result r, const p6_error &e, const char *what)
 
 int main(int argc, char **argv)
 {
-    if (argc < 3) { fprintf(stderr, "usage: %s rom max_units [--machine a500|a600|a1200] [--cpu 68000|68010|68020]\n", argv[0]); return 64; }
+    if (argc < 3) { fprintf(stderr, "usage: %s rom max_units [--machine a500|a600|a1200] [--cpu 68000|68010|68020] [--multiplier N]\n", argv[0]); return 64; }
     const std::vector<uint8_t> rom = read_file(argv[1]);
     const int max_units = atoi(argv[2]);
     uint32_t machine = P6_MACHINE_A500;
     uint8_t cpu_model = 2;                 // the 68010 of the A500, unless the machine or --cpu says otherwise
     bool cpu_named = false;
+    uint8_t multiplier = 0;                // p6_config.cpu_multiplier (T52): 0 is the machine's own clock
     for (int i = 3; i < argc; ++i) {
         if (!strcmp(argv[i], "--machine") && i + 1 < argc) {
             const char *name = argv[++i];
@@ -63,6 +64,8 @@ int main(int argc, char **argv)
             const int model = atoi(argv[++i]);
             cpu_model = uint8_t(1 + (model - 68000) / 10);
             cpu_named = true;
+        } else if (!strcmp(argv[i], "--multiplier") && i + 1 < argc) {
+            multiplier = uint8_t(atoi(argv[++i]));
         } else { fprintf(stderr, "unknown argument %s\n", argv[i]); return 64; }
     }
     if (machine == P6_MACHINE_A1200 && !cpu_named) cpu_model = 0;     // the soldered 68EC020
@@ -72,6 +75,7 @@ int main(int argc, char **argv)
     config.struct_size = sizeof config;
     config.machine = machine;
     config.cpu_model = cpu_model;
+    config.cpu_multiplier = multiplier;
     config.video_standard = P6_VIDEO_PAL;
     config.audio_rate_hz = 48000;
     config.random_seed = 1;

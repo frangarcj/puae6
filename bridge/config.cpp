@@ -215,12 +215,18 @@ int resolve_cpu(const p6_config &c)
     return c.cpu_model ? 68000 + 10 * (int(c.cpu_model) - 1) : machine_info(c.machine).cpu;
 }
 
+int resolve_cpu_multiplier(const p6_config &c)
+{
+    // upstream's built_in_prefs gives the 68000 machines 2 << 8 (7.09 MHz) and the 68EC020 of the A1200 4 << 8 (14.19 MHz); CPU_CLOCK_MULTIPLIER of the config replaces it
+    return c.cpu_multiplier ? int(c.cpu_multiplier) : machine_info(c.machine).cpu == 68020 ? 4 : 2;
+}
+
 bool cpu_identity(const p6_config &c, uint8_t out[2])
 {
     // The resolved model as 0 = 68000, 1 = 68010, 2 = 68020 and the resolved multiplier of the clock (0 while it is the machine's own): two spellings of the same machine (0 and the machine's
     // own number) hash alike.
     out[0] = uint8_t((resolve_cpu(c) - 68000) / 10);
-    out[1] = 0;
+    out[1] = resolve_cpu_multiplier(c) == (machine_info(c.machine).cpu == 68020 ? 4 : 2) ? 0 : uint8_t(resolve_cpu_multiplier(c));
     return resolve_cpu(c) != machine_info(c.machine).cpu || out[1] != 0;
 }
 
@@ -319,8 +325,10 @@ p6_result validate_config(const p6_config &c, p6_error *error)
     }
     if (const p6_result memory = validate_memory(c, error))
         return memory;
-    if (c.reserved1)
-        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
+    for (uint8_t byte : c.reserved7)
+        if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
+    if (!one_of(c.cpu_multiplier, {0, 1, 2, 4, 8, 10, 12, 16}))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu multiplier must be 0 (the machine's own), 1, 2, 4, 8, 10, 12 or 16");
     if (!resolution_option_valid(c.video_resolution))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "video resolution must be 0 (the profile's), 1 (lores), 2 (hires) or 3 (super-hires)");
     if (!line_mode_option_valid(c.video_line_mode))
@@ -402,6 +410,9 @@ void build_preferences(const p6_config &c)
     // The CPU (T52): the machine's own unless the config names a 68010 for a 68000 machine. Everything else of the preset (cycle exact, 24-bit space, no MMU) is the 68000's and the 68010 shares it;
     // build_cpufunctbl then takes op_smalltbl_13, the 68010 cycle-exact table, and m68k_run_1_ce runs it (patch 0310).
     currprefs.cpu_model = resolve_cpu(c);
+    // The clock of the CPU (T52): upstream's cpu_clock_multiplier is the multiplier << 8, and the machine's own is what built_in_prefs has just put there. cpucycleunit is derived from it by the
+    // reset head (prefs_changed_cpu), never from a host clock.
+    currprefs.cpu_clock_multiplier = resolve_cpu_multiplier(c) << 8;
     const Memory memory = resolve_memory(c);
     currprefs.chipmem.size = memory.chip_kib * 1024;
     currprefs.bogomem.size = memory.slow_kib * 1024;
@@ -466,7 +477,7 @@ p6_result check_preset(p6_error *error)
     const bool no_gayle = machine.no_gayle;
     const Memory memory = resolve_memory(preset_config);
     const char *drifted = nullptr;
-    if (p.cpu_model != resolve_cpu(preset_config) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
+    if (p.cpu_model != resolve_cpu(preset_config) || p.cpu_clock_multiplier != (resolve_cpu_multiplier(preset_config) << 8) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
         p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict || p.fpu_no_unimplemented || p.mmu_model ||
         !p.address_space_24 || (machine.cpu == 68020 && p.waiting_blits)) drifted = "cpu";
     else if (p.chipset_mask != machine.chipset_mask || !p.blitter_cycle_exact) drifted = "chipset";

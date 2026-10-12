@@ -29,6 +29,9 @@ public enum Puae6Fpu { None, M68881, M68882 }
 /// <summary>The CPU (restart): the machine's own (a 68000, the A1200's 68EC020), a 68010 in the socket of a machine with a 68000, or the A1200's 68020. Another combination is refused when the core starts, with the reason.</summary>
 public enum Puae6Cpu { Auto, M68000, M68010, M68020 }
 
+/// <summary>The clock of the cycle-exact CPU (restart), PUAE5's multipliers of the 3.55 MHz colour clock: Auto is the machine's own (7.09 MHz, 14.19 MHz on the A1200), X1 is 3.55 MHz and X16 56.75 MHz. It counts emulated time, never the host's.</summary>
+public enum Puae6CpuClock { Auto, X1, X2, X4, X8, X10, X12, X16 }
+
 /// <summary>Paula's stereo separation (restart): how much of each side's channels stays on that side, 0 % (mono) to 100 %. 70 % is the profile's own setting.</summary>
 public enum Puae6SoundSeparation { P0, P10, P20, P30, P40, P50, P60, P70, P80, P90, P100 }
 
@@ -79,6 +82,9 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>The CPU of the machine. It changes the instruction set, the exception frames and the registers, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
 	public Puae6Cpu CpuModel { get; set; } = Puae6Cpu.Auto;
+
+	/// <summary>The clock of the CPU. It changes when everything the CPU does meets the chipset, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
+	public Puae6CpuClock CpuMultiplier { get; set; } = Puae6CpuClock.Auto;
 
 	/// <summary>Paula's stereo separation. It changes every sample the machine hands over, so it is a sync setting: it enters the identity of states and movies when it is not the profile's 70 %.</summary>
 	public Puae6SoundSeparation SoundSeparation { get; set; } = Puae6SoundSeparation.P70;

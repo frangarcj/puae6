@@ -92,7 +92,12 @@ typedef struct p6_config {
      * soldered 68EC020 and nothing else; any other combination is P6_ERROR_UNSUPPORTED with the reason. A restart option: it changes the instruction set, the exception frames and
      * the registers, so it enters config_hash off the machine's own CPU only (a derived hash, bridge/config.cpp cpu_identity, domain p6/config/cpu/v1). */
     uint8_t cpu_model;
-    uint64_t reserved1;             /* Zero in ABI v1 (what was reserved[1]). */
+    /* The clock of the CPU (T52), in the first byte of what was reserved[1]: 0 = the machine's own (2 on the machines with a 68000, 4 on the A1200), else the multiplier of upstream's
+     * cpu_clock_multiplier (N << 8), PUAE5's values: 1 (3.55 MHz), 2 (7.09 MHz, a 68000), 4 (14.19 MHz, the A1200's 68EC020), 8, 10, 12 or 16 (56.75 MHz); any other is P6_ERROR_UNSUPPORTED. One CPU
+     * clock lasts CYCLE_UNIT / N of emulated time, so every access and instruction costs fewer or more colour clocks; nothing reads the clock of the host. A restart option: it enters config_hash off
+     * the machine's own clock only, together with the CPU model (bridge/config.cpp cpu_identity, domain p6/config/cpu/v1). */
+    uint8_t cpu_multiplier;
+    uint8_t reserved7[7];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
 } p6_config;
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
  * (sector granularity, one fixed pool of P6_OVERLAY_SECTORS shared by every disk) that is part of the machine state and of p6_state_bound, so a state

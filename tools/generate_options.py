@@ -33,7 +33,7 @@ TABLE = ROOT / "config/schema/options_table.generated.json"
 P6_HEADER = ROOT / "bridge/include/p6.h"
 
 # p6_config fields that are not choices of ABI v1: they have one valid value (checked by bridge/config.cpp validate_config).
-FIXED_CONFIG_FIELDS = {"abi_version", "struct_size", "reserved32", "reserved1"}
+FIXED_CONFIG_FIELDS = {"abi_version", "struct_size", "reserved32", "reserved7"}
 REBOOT_SENTENCE = " It takes effect the next time the content is loaded; the running machine is not changed."
 REBOOT_SUFFIX = " (Restart)"
 MAX_VALUES = 128      # RETRO_NUM_CORE_OPTION_VALUES_MAX

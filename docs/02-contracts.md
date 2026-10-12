@@ -438,6 +438,18 @@ cuerpo de `P6CP` la rechaza por su longitud. Opciones: libretro `puae6_cpu_model
 `--cpu auto|68000|68010|68020` y el sync setting `CpuModel` de BizHawk (en la identidad del estado y de la pelicula solo fuera de `Auto`: `;cpu=M68010`).
 
 
+`p6_config.cpu_multiplier` (un byte, offset 64: el primero de lo que era `reserved1`, que queda como `reserved7[7]`): el `cpu_clock_multiplier` de upstream (N << 8) con los valores de PUAE5 (`puae_cpu_multiplier`):
+**cero es el de la maquina** (2 en las de 68000, 4 en el A1200), y 1, 2, 4, 8, 10, 12 o 16; otro valor es `P6_ERROR_UNSUPPORTED`. Un ciclo de reloj de la CPU dura `CYCLE_UNIT / N` (`cpucycleunit`), de modo que
+N = 2 son los 7,09 MHz de una 68000 y N = 4 los 14,19 MHz de la 68EC020 del A1200; 1 son 3,55 MHz y 16 56,75 MHz. Es **determinista**: solo cambia cuantos ciclos de color emulados cuesta cada acceso y cada
+instruccion (el bus del chipset, el DMA y el refresco siguen donde estan), nunca se mide tiempo real ni hay "velocidad maxima" ligada al host. Tambien es una opcion de reinicio y entra en el mismo hash derivado.
+Medido (`tests/host/test_cpu_clock.py`, 2000 pasadas de `TST.W (An)+` / `DBRA` desde ROM, en pulsos E del CIA-A, uno cada 5 relojes de color): la 68000 tarda 36004 relojes de CPU segun el manual,
+es decir `36004 * (512 // N) / 2560` pulsos (el `cpucycleunit` de upstream es entero: 512 // N), que es 3600 con el reloj de la maquina y 7200 / N cuando N divide 512; medido 7205, 3603, 1802, 902, 719, 592 y 452
+para N = 1, 2, 4, 8, 10, 12 y 16. El mismo bucle en modo bucle de la 68010: 4807, 2404, 1203, 602, 480, 396 y 302 (escala igual). La 68EC020 del A1200: 6102, 3252, 2002, 1002, 813, 743 y 552: nunca va mas lenta
+con un reloj mas rapido, pero no escala por completo (la cache de instrucciones corre al reloj de la CPU y las lecturas de ROM esperan al bus). Los ticks de cada unidad y los marcos de audio entregados son los de la maquina por defecto salvo lo que mide la instruccion que cierra la unidad (<= 16 relojes de color, un marco de audio): no cambian con
+el multiplicador (el chipset no se mueve). Opciones: libretro `puae6_cpu_model` (auto, 68000, 68010, 68020) y
+`puae6_cpu_multiplier` (auto, 1, 2, 4, 8, 10, 12, 16), el importador `.uae` (`cpu_model`, `cpu_multiplier`), headless `--cpu auto|68000|68010|68020` y `--cpu-multiplier auto|1|2|4|8|10|12|16` y los sync
+settings `CpuModel` y `CpuMultiplier` de BizHawk (en la identidad del estado y de la pelicula solo fuera del defecto).
+
 ### Opciones de audio de Paula (T73)
 
 `p6_config.sound_separation`, `sound_interpolation`, `sound_filter` y `sound_filter_type` (un byte cada uno, offsets 56 a 59: son los 4 primeros bytes de lo que era `reserved[0]`; los otros 4 pasan

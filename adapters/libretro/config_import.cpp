@@ -201,7 +201,7 @@ constexpr Fixed kFixed[] = {
 constexpr const char *kNativeKeys[] = {
     "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
     "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
-    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model",
+    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model", "puae6_cpu_multiplier",
 };
 
 const p6_options::Option *find_option(const char *key)
@@ -480,6 +480,14 @@ private:
         }
         if (key == "cpu_model") {
             cpu_ = &e;
+            return;
+        }
+        // The clock of the CPU (T52): WinUAE's cpu_multiplier, written as a whole number of times 3.55 MHz; PUAE5's values are the schema's.
+        if (key == "cpu_multiplier") {
+            if (!parse_int(e.value, false, &number)) error(e, "expected a number (1, 2, 4, 8, 10, 12 or 16)");
+            else if (number == 0) set_name(e, "puae6_cpu_multiplier", "auto");
+            else if (number == 1 || number == 2 || number == 4 || number == 8 || number == 10 || number == 12 || number == 16) set_name(e, "puae6_cpu_multiplier", std::to_string(number));
+            else error(e, "the CPU clock " + e.value + " is not offered (1, 2, 4, 8, 10, 12 or 16 times 3.55 MHz)");
             return;
         }
         if (key == "fpu_model") {

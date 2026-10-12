@@ -3,7 +3,7 @@
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
 //   p6_headless --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]
-//                         [--cpu auto|68000|68010|68020]
+//                         [--cpu auto|68000|68010|68020] [--cpu-multiplier auto|1|2|4|8|10|12|16]
 //                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
 //                         [--floppy-speed 100|200|400|800|turbo] [--resolution lores|hires|superhires] [--line-mode single|double]
 //                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
@@ -114,6 +114,8 @@ static const Named video_resolution_names[] = {{"lores", 1}, {"hires", 0}, {"sup
 static const Named video_line_mode_names[] = {{"single", 1}, {"double", 0}};
 // The CPU (T52), after --cpu: p6_config.cpu_model as 1 + (model - 68000) / 10; zero (auto) is the machine's own. The bridge refuses the combinations a machine cannot have.
 static const Named cpu_model_names[] = {{"auto", 0}, {"68000", 1}, {"68010", 2}, {"68020", 3}};
+// The clock of the CPU (T52), after --cpu-multiplier: upstream's cpu_clock_multiplier / 256, PUAE5's values; zero (auto) is the machine's own (2 with a 68000, 4 on the A1200).
+static const Named cpu_multiplier_names[] = {{"auto", 0}, {"1", 1}, {"2", 2}, {"4", 4}, {"8", 8}, {"10", 10}, {"12", 12}, {"16", 16}};
 
 template <size_t N>
 static bool pick_named(const Named (&table)[N], const char *spelling, uint8_t *abi)
@@ -161,7 +163,7 @@ static int run(int argc, char **argv)
     uint8_t sound_separation = 0, sound_interpolation = 0, sound_filter = 0, sound_filter_type = 0;     // 0: the profile's own setting (T73)
     uint8_t floppy_speed = 0;                                                                           // 0: the real drive (T62)
     uint8_t video_resolution = 0, video_line_mode = 0;                                                  // 0: the profile's raster, hires and double lines (T72)
-    uint8_t cpu_model = 0;                                                                              // 0: the machine's own CPU (T52)
+    uint8_t cpu_model = 0, cpu_multiplier = 0;                                                          // 0: the machine's own CPU and clock (T52)
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
@@ -195,6 +197,7 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--resolution") && i + 1 < argc) { if (!pick_named(video_resolution_names, argv[++i], &video_resolution)) return -1; }
         else if (!strcmp(argv[i], "--line-mode") && i + 1 < argc) { if (!pick_named(video_line_mode_names, argv[++i], &video_line_mode)) return -1; }
         else if (!strcmp(argv[i], "--cpu") && i + 1 < argc) { if (!pick_named(cpu_model_names, argv[++i], &cpu_model)) return -1; }
+        else if (!strcmp(argv[i], "--cpu-multiplier") && i + 1 < argc) { if (!pick_named(cpu_multiplier_names, argv[++i], &cpu_multiplier)) return -1; }
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
         else return -1;
@@ -227,6 +230,7 @@ static int run(int argc, char **argv)
     config.video_resolution = video_resolution;
     config.video_line_mode = video_line_mode;
     config.cpu_model = cpu_model;
+    config.cpu_multiplier = cpu_multiplier;
     p6_error error = make_error();
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
@@ -327,7 +331,7 @@ int main(int argc, char **argv)
         if (code >= 0) return code;
     }
     fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]\n"
-                    "                         [--cpu auto|68000|68010|68020]\n                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-speed 100|200|400|800|turbo]\n                         [--resolution lores|hires|superhires] [--line-mode single|double]\n"
+                    "                         [--cpu auto|68000|68010|68020] [--cpu-multiplier auto|1|2|4|8|10|12|16]\n                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-speed 100|200|400|800|turbo]\n                         [--resolution lores|hires|superhires] [--line-mode single|double]\n"
                     "                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
             argv[0], argv[0]);
     return 64;

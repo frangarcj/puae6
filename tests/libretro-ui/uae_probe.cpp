@@ -179,6 +179,11 @@ static void precedence()
     r = import("cpu_model=68010\nchipset_compatible=A600\n", frontend);
     CHECK(r.ok && r.imported.settings.machine == 2 && r.imported.settings.cpu_model == 2);
     CHECK(!import("cpu_model=68010\nchipset=aga\n", frontend).ok);
+    // The clock of the CPU (T52b): PUAE5's multipliers are the option puae6_cpu_multiplier (the value is the multiplier), 0 the machine's own.
+    r = import("cpu_multiplier=8\n", frontend);
+    CHECK(r.ok && r.imported.settings.cpu_multiplier == 8);        // the ABI number of the value "8"
+    r = import("cpu_multiplier=0\n", frontend);
+    CHECK(r.ok && r.imported.settings.cpu_multiplier == 0);
     CHECK(!import("cpu_model=68020\nchipset=ocs\n", frontend).ok);
     // The presentation, input and OSD options are never touched.
     Settings busy = concrete();
@@ -227,7 +232,8 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"comp_constjump=true", "comp_constjump", "JIT"},
         {"cpu_speed=max", "cpu_speed", "real clock"},
         {"cpu_throttle=50", "cpu_throttle", "real clock"},
-        {"cpu_multiplier=8", "cpu_multiplier", "fixed by the machine profile"},
+        {"cpu_multiplier=3", "cpu_multiplier", "is not offered"},
+        {"cpu_multiplier=fast", "cpu_multiplier", "expected a number"},
         {"cpu_frequency=14", "cpu_frequency", "fixed by the machine profile"},
         {"cpu_cycle_exact=false", "cpu_cycle_exact", "cycle exact"},
         {"cpu_compatible=false", "cpu_compatible", "cycle exact"},

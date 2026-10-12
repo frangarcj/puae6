@@ -325,6 +325,31 @@
       "wrapper": {"how": "setting", "setting": "CpuModel", "type": "Puae6Cpu"}
     },
     {
+      "id": "cpu_multiplier",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.cpu_multiplier",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Machine's own (7.09 MHz; 14.19 MHz on the A1200)", "wrapper_name": "Auto"},
+        {"value": "1", "abi": 1, "label": "3.546895 MHz", "wrapper_name": "X1"},
+        {"value": "2", "abi": 2, "label": "7.093790 MHz (A500)", "wrapper_name": "X2"},
+        {"value": "4", "abi": 4, "label": "14.187580 MHz (A1200)", "wrapper_name": "X4"},
+        {"value": "8", "abi": 8, "label": "28.375160 MHz", "wrapper_name": "X8"},
+        {"value": "10", "abi": 10, "label": "35.468950 MHz", "wrapper_name": "X10"},
+        {"value": "12", "abi": 12, "label": "42.562740 MHz", "wrapper_name": "X12"},
+        {"value": "16", "abi": 16, "label": "56.750320 MHz", "wrapper_name": "X16"}
+      ],
+      "libretro": {
+        "key": "puae6_cpu_multiplier",
+        "category": "machine",
+        "label": "CPU Cycle-exact Speed",
+        "info": "How fast the cycle-exact CPU runs: the clock of the CPU as a multiple of the 3.55 MHz colour clock (PUAE5's values). 'Machine's own' is 7.09 MHz on the machines with a 68000 and 14.19 MHz on the A1200. A faster CPU needs fewer colour clocks for every instruction and every bus access; the chipset, the DMA and the audio do not change. It is counted in emulated time, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one clock does not load in another. Programs that count on the speed of the CPU (timing loops, copy protections) may not work with another clock."
+      },
+      "headless": {"how": "named", "flag": "--cpu-multiplier", "names": {"auto": "auto", "1": "1", "2": "2", "4": "4", "8": "8", "10": "10", "12": "12", "16": "16"}},
+      "wrapper": {"how": "setting", "setting": "CpuMultiplier", "type": "Puae6CpuClock"}
+    },
+    {
       "id": "audio_rate_hz",
       "class": "reboot",
       "type": "enum",

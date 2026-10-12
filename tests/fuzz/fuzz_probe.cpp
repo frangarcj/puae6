@@ -94,16 +94,23 @@ bool fpu_accepted(const p6_config &c)
 
 // Paula's output (T73, the first four bytes of what was reserved[0]): 0 is the profile's, separation 1 to 11, interpolation 1, 2, 4 or 5 (3, sinc, is refused), filter 1 to 3, filter type 1 or 2.
 // The fifth byte is the floppy speed (T62): 0 is the profile's, 1 to 5 the steps; the sixth and seventh are the raster (T72: resolution 0 the profile's, 1 lores, 2 hires, 3 super-hires; line
-// mode 0 the profile's, 1 single, 2 double); the eighth is the CPU (T52: 0 the machine's own, 1 68000 and 2 68010 on the 68000 machines, 3 68020 on the A1200); reserved1 is still reserved.
+// mode 0 the profile's, 1 single, 2 double); the eighth is the CPU (T52: 0 the machine's own, 1 68000 and 2 68010 on the 68000 machines, 3 68020 on the A1200) and the first of the next eight its
+// clock (0 the machine's own, else 1, 2, 4, 8, 10, 12 or 16); the other seven are still reserved.
 bool cpu_accepted(const p6_config &c)
 {
     return c.cpu_model == 0 || (c.machine == P6_MACHINE_A1200 ? c.cpu_model == 3 : (c.cpu_model == 1 || c.cpu_model == 2));
 }
 
+bool clock_accepted(const p6_config &c)
+{
+    const uint8_t m = c.cpu_multiplier;
+    return m == 0 || m == 1 || m == 2 || m == 4 || m == 8 || m == 10 || m == 12 || m == 16;
+}
+
 bool audio_accepted(const p6_config &c)
 {
     return c.sound_separation <= 11 && c.sound_interpolation <= 5 && c.sound_interpolation != 3 && c.sound_filter <= 3 && c.sound_filter_type <= 2 && c.floppy_speed <= 5 &&
-           c.video_resolution <= 3 && c.video_line_mode <= 2 && cpu_accepted(c);
+           c.video_resolution <= 3 && c.video_line_mode <= 2 && cpu_accepted(c) && clock_accepted(c);
 }
 
 // The rules of ABI v1, written again here from the header comments: the fuzzer's oracle.
@@ -114,7 +121,7 @@ bool oracle_accepts(const p6_config &c)
     return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && machine_accepted(c.machine) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
            (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && fpu_accepted(c) && audio_accepted(c) &&
-           !c.reserved1 && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
+           !c.reserved7[0] && !c.reserved7[1] && !c.reserved7[2] && !c.reserved7[3] && !c.reserved7[4] && !c.reserved7[5] && !c.reserved7[6] && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);
 }
 

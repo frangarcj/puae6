@@ -110,6 +110,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The CPU (T52): the numbers of config/schema/options.json (0 is the machine's own, 1 + (model - 68000) / 10 the others).
 	static byte CpuModelNumber(Puae6Cpu cpu) => cpu switch { Puae6Cpu.M68000 => (byte)1, Puae6Cpu.M68010 => (byte)2, Puae6Cpu.M68020 => (byte)3, _ => (byte)0 };
 
+	// The clock of the CPU (T52): the numbers of config/schema/options.json (0 is the machine's own, the others the multiplier itself).
+	static byte CpuMultiplierNumber(Puae6CpuClock clock) => clock switch { Puae6CpuClock.X1 => (byte)1, Puae6CpuClock.X2 => (byte)2, Puae6CpuClock.X4 => (byte)4, Puae6CpuClock.X8 => (byte)8, Puae6CpuClock.X10 => (byte)10, Puae6CpuClock.X12 => (byte)12, Puae6CpuClock.X16 => (byte)16, _ => (byte)0 };
+
 	static uint FpuNumber(Puae6Fpu fpu) => fpu switch { Puae6Fpu.M68881 => 68881u, Puae6Fpu.M68882 => 68882u, _ => 0u };
 
 	// Paula's output (T73a): the numbers of config/schema/options.json (0 in each is the profile's own setting; 70 % is 0, not 8). The enums list the values of the schema in order.
@@ -307,6 +310,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.FastKib = FastKib(_syncSettings.FastMemory);
 		init.Config.FpuModel = FpuNumber(_syncSettings.FpuModel);
 		init.Config.CpuModel = CpuModelNumber(_syncSettings.CpuModel);
+		init.Config.CpuMultiplier = CpuMultiplierNumber(_syncSettings.CpuMultiplier);
 		init.Config.SoundSeparation = SoundSeparationNumber(_syncSettings.SoundSeparation);
 		init.Config.SoundInterpolation = SoundInterpolationNumber(_syncSettings.SoundInterpolation);
 		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
@@ -404,6 +408,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// And for the CPU (T52): the native config hash derives from the resolved model when it is not the machine's own; the text names whatever the setting is off Auto, which is stricter (it also tells an
 		// explicit 68000 from Auto on an A500) and never looser.
 		if (_syncSettings.CpuModel != Puae6Cpu.Auto) memory += ";cpu=" + _syncSettings.CpuModel;
+		// And for its clock (T52): the same, off the machine's own.
+		if (_syncSettings.CpuMultiplier != Puae6CpuClock.Auto) memory += ";cpuclock=" + _syncSettings.CpuMultiplier;
 		// And for Paula's output (T73a): the native state's config hash carries the four options when one is off the profile's setting, and the samples a state goes on to produce depend on them. A core at the
 		// profile's settings keeps the identity it always had; the text names only what differs, so it is stricter than the native hash (which also equates A500 with Auto on an A500) and never looser.
 		string sound = (_syncSettings.SoundSeparation != Puae6SoundSeparation.P70 ? ",separation=" + _syncSettings.SoundSeparation : "") +

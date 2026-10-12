@@ -43,7 +43,8 @@ OFFSET(p6_config, floppy_speed, 60);           /* T62: the fifth byte of what wa
 OFFSET(p6_config, video_resolution, 61);       /* T72: the sixth and seventh bytes of what was reserved[0] */
 OFFSET(p6_config, video_line_mode, 62);
 OFFSET(p6_config, cpu_model, 63);             /* T52: the eighth byte of what was reserved[0] */
-OFFSET(p6_config, reserved1, 64);
+OFFSET(p6_config, cpu_multiplier, 64);       /* T52: the first byte of what was reserved[1] */
+OFFSET(p6_config, reserved7, 65);
 OFFSET(p6_buffer, bytes, 8);
 OFFSET(p6_media, content_id, 8);
 OFFSET(p6_media, image, 40);

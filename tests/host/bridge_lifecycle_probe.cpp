@@ -115,7 +115,16 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
-    c = make_config(); c.reserved1 = 1;                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved7[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved7[6] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    // The clock (T52): 0 is the machine's own, 1, 2, 4, 8, 10, 12 and 16 are PUAE5's multipliers on every machine, anything else is refused with the reason.
+    for (uint8_t multiplier : {3, 5, 6, 7, 9, 11, 14, 17, 32, 255}) {
+        c = make_config(); c.cpu_multiplier = multiplier; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "cpu multiplier"));
+    }
+    for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A600, P6_MACHINE_A1200, P6_MACHINE_A2000})
+        for (uint8_t multiplier : {0, 1, 2, 4, 8, 10, 12, 16}) {
+            c = make_config(); c.machine = machine; c.cpu_multiplier = multiplier; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+        }
     // The CPU (T52): 0 is the machine's own, 68010 is offered on the machines with a 68000, the A1200 has its soldered 68EC020 only, anything above 3 is refused with the reason.
     c = make_config(); c.cpu_model = 4;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "cpu model"));
     c = make_config(); c.cpu_model = 3;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "68020"));

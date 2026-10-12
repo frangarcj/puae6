@@ -938,6 +938,7 @@ int main(int argc, char **argv)
     uint32_t standard = P6_VIDEO_PAL;
     uint32_t machine = P6_MACHINE_A500;
     uint32_t rate = 48000;
+    uint32_t cpu_multiplier = 0;                             // T52: p6_config cpu_multiplier (--cpu-multiplier 1|2|4|8|10|12|16; 0 the machine's own)
     uint32_t cpu_model = 0;                                  // T52: p6_config cpu_model as the ABI number (--cpu 68000|68010|68020; 0 the machine's own)
     uint32_t fpu_model = 0;                                  // T54: 0 = none, 68881 or 68882 (--fpu 68882)
     uint32_t floppy_speed = 0;                               // T62: p6_config floppy_speed as the ABI number (--floppy-speed: 0 the profile, 1 100 %, 2 200 %, 3 400 %, 4 800 %, 5 turbo)
@@ -972,6 +973,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--cpu") && i + 1 < argc) { const uint32_t model = uint32_t(strtoul(argv[++i], nullptr, 10)); cpu_model = model >= 68000 ? 1 + (model - 68000) / 10 : model; }
+        else if (!strcmp(argv[i], "--cpu-multiplier") && i + 1 < argc) cpu_multiplier = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-sep") && i + 1 < argc) sound[0] = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) sound[1] = uint32_t(strtoul(argv[++i], nullptr, 10));
@@ -1054,7 +1056,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--cpu 68000|68010] [--fpu 68881|68882] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--cpu 68000|68010] [--cpu-multiplier N] [--fpu 68881|68882] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -1094,6 +1096,7 @@ int main(int argc, char **argv)
     config.fast_kib = fast_kib;
     config.fpu_model = fpu_model;
     config.cpu_model = uint8_t(cpu_model);
+    config.cpu_multiplier = uint8_t(cpu_multiplier);
     config.sound_separation = uint8_t(sound[0]); config.sound_interpolation = uint8_t(sound[1]); config.sound_filter = uint8_t(sound[2]); config.sound_filter_type = uint8_t(sound[3]);
     config.floppy_speed = uint8_t(floppy_speed);
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
