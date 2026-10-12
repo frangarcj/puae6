@@ -11602,7 +11602,7 @@
       "title": "Definir y probar un flujo WHDLoad reproducible",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T29",
         "T30a",
