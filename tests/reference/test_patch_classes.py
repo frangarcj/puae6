@@ -148,6 +148,23 @@ class ReferenceTreeTests(unittest.TestCase):
         finally:
             shutil.rmtree(ROOT / "build/reference-tamper", ignore_errors=True)
 
+    def test_a_tree_that_is_the_earlier_output_of_the_tool_is_replaced_when_the_classification_changes_and_a_modified_one_is_not(self):
+        spare = "build/reference-replace/upstream"
+        other = copy.deepcopy(CLASSES)
+        victim = "0020-audio-signed-scaling"
+        del other["ablate"][victim]
+        other["patches"][victim] = "required"
+        try:
+            first, path = br.materialize_reference(ROOT, spare, force=True)
+            second, _ = br.materialize_reference(ROOT, spare, classes=other)
+            self.assertNotEqual(first["tree"], second["tree"])
+            self.assertEqual(len(first["applied"]) + 1, len(second["applied"]))
+            (path / "audio.cpp").write_bytes((path / "audio.cpp").read_bytes() + b"\n// edited by hand\n")
+            with self.assertRaisesRegex(ValueError, "in the way; not overwritten"):       # its identity changed too: it is not the tool's output any more, it is somebody's edit
+                br.materialize_reference(ROOT, spare, classes=CLASSES)
+        finally:
+            shutil.rmtree(ROOT / "build/reference-replace", ignore_errors=True)
+
     def test_ablating_a_patch_that_another_one_needs_stops_with_the_name_of_the_dependent(self):
         # 0078 changes lines that sit next to the ones 0070 changes: the reference cannot be built without 0070.
         broken = copy.deepcopy(CLASSES)

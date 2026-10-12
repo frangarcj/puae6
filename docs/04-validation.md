@@ -188,10 +188,11 @@ dice (una etiqueta no basta). Cada escenario pasa por tres puertas: REF01 (produ
 0069 en `reset-mid-run-pal`), DET02 (`tests/reference/test_corpus_det02.py`, los modos de `tests/state/test_det02.py` sobre los puntos de guardado de cada escenario) y DET03
 (`test_corpus_det03.py`, el estado por la ABI publica a un proceso nuevo). Los programas que mantienen ocupado el anillo de registros de Denise (`tests/scenarios/corpus/rings.py`: la CPU
 reescribe BPLCON0/1/2 y los colores sin parar, o un Copper lo hace alrededor de las lineas 2 a 6, con y sin BPLCON3 y DIWHIGH) son el punto 5 de la ficha de T32: igualan en el A500 y con
-Copper en el A600; el bucle de CPU con BPLCON3 y DIWHIGH en el A600 diverge (misma imagen, o imagen reiniciada), y un haz programado (`ecs-beam-var-wide-pal`) cargado en un proceso
-nuevo tampoco iguala. Esas ocho pruebas DET02 y la DET03 quedan como divergencia FIJADA (la primera unidad tras la carga y los subsistemas, `DIVERGENCES`, dueno T15n): su prueba pasa
-mientras la divergencia este donde la tabla dice, y `OpenDivergenceGate` (con `P6_RELEASE_GATE=1`, parte del cierre de T32) falla mientras la tabla no este vacia: lo que el corpus
-encuentra bloquea la release hasta que la tarea dueña lo cierra. Un PASS de DET02/DET03 de T32b significa "cada escenario iguala o su divergencia esta fijada", no "no hay divergencias".
+Copper en el A600, pero el bucle de CPU con BPLCON3 y DIWHIGH en el A600 divergia (misma imagen, o imagen reiniciada: la captura de bitplanes de la primera linea visible paraba un ciclo
+despues de empezar porque el secuenciador de bitplanes de Agnus no iba en el estado) y un haz programado (`ecs-beam-var-wide-pal`) cargado en un proceso nuevo tampoco igualaba (las
+longitudes derivadas de BEAMCON0 eran las del reset). Las dos brechas, fijadas como divergencia por T32b (`DIVERGENCES`: la primera unidad tras la carga y los subsistemas, dueno T15n),
+las cerro T15n (parches 0260 y 0261, ADR 0009 punto 14) y la tabla esta vacia; `OpenDivergenceGate` (con `P6_RELEASE_GATE=1`, parte del cierre de T32) falla si vuelve a tener una:
+lo que el corpus encuentra bloquea la release hasta que la tarea duena lo cierra. Un PASS de DET02/DET03 de T32b significa "cada escenario iguala o su divergencia esta fijada", y con la tabla vacia, que iguala.
 
 ## Matriz de CI propuesta
 

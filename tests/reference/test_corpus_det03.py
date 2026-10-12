@@ -12,9 +12,8 @@ from tests.reference import test_corpus_det02 as base  # noqa: E402
 from tests.scenarios.corpus import corpus  # noqa: E402
 from tests.state import test_det02 as d  # noqa: E402
 
-# "scenario@N/mode" -> divergence, as in DET02: the ones that DET02 has, if the public path shows them too (the ring scenario of the A600 needs a machine with history, and DET03 loads into a
-# fresh one, which is the mode that matches).
-DIVERGENCES = {key: row for key, row in base.DIVERGENCES.items() if key.endswith("/new-process") and key.split("@")[1].split("/")[0] == "4"}
+# "scenario@N/mode" -> divergence, as in DET02 (empty since T15n).
+DIVERGENCES = base.DIVERGENCES
 
 
 def scenarios(machine):

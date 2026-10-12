@@ -1,0 +1,39 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13204,7 +13204,15 @@
+ //  slot, and the pointer is advanced by the slot's bltadd (+2, or -2 in descending mode) when the write is done: a state loaded with the field at zero wrote the whole blit over one
+ //  word (Kickstart 2.05, unit 194: a 35 x 145 blit of the screen, whose destination pointer never advanced). conflictaddr is the address the Copper leaves in the blitter's pointer
+ //  after their conflict. The fields are in the four slots, live or not, as the pipeline has them: save_custom_slots does not write them, so CHSL has to come before BEAM.
+-#define P6_BEAM_WORDS 80
++//  80 bprun  81 bprun_cycle  82 ddf_stopping  83 ddf_enable_on  84 ddf_limit_in  85 ddf_limit  86 ddfstrt_match  87 hwi_old  88 ddfstrt_val: the bitplane sequencer of Agnus between two
++//  colour clocks. Its latches are file statics that no body names and that custom_reset puts to idle. At a vertical blank they are idle for almost every program, but a program that
++//  rewrites DIWHIGH all the time (the vertical window opens and closes at the lines the registers name, in the middle of a fetch) leaves them anywhere: ddf_stopping 1 or 0 and
++//  bprun_cycle 16 or 36 at the boundary, and the next fetch of the original then runs, or stops, as they say. A machine that loaded the state kept its own (the same image) or the
++//  reset's (a new one): the fetch of the first display line stopped one cycle in (bprun dropped to 0 where the original's stayed on), the bitplane DMA of that line was gone and the CPU,
++//  which the DMA had been holding off the bus, ran 148 colour clocks earlier. ddfstrt_val is the colour clock at which a fetch may start (DDFSTRT | 1: a write of DDFSTRT sets it and
++//  custom_reset never does, so a machine that never wrote the register has 0 where restore_custom derives 1), kept so that the latch ddf_enable_on is set at the same clock after a load
++//  as in the machine that never loaded. ddf_limit_out is not here: decide_bpl derives it from ddf_limit_in at every colour clock.
++#define P6_BEAM_WORDS 89
+ bool p6_custom_beam_get(int32_t *out, unsigned n)
+ {
+ 	if (!out || n != P6_BEAM_WORDS) return false;
+@@ -13223,7 +13231,8 @@
+ 		programmed_register_accessed_h, programmed_register_accessed_v,
+ 		nosignal_cnt, nosignal_status, nosignal_trigger, lines_after_beamcon_change, syncs_stopped,
+ 		rga_pipe[0].bltadd, rga_pipe[1].bltadd, rga_pipe[2].bltadd, rga_pipe[3].bltadd,
+-		int32_t(rga_pipe[0].conflictaddr), int32_t(rga_pipe[1].conflictaddr), int32_t(rga_pipe[2].conflictaddr), int32_t(rga_pipe[3].conflictaddr)
++		int32_t(rga_pipe[0].conflictaddr), int32_t(rga_pipe[1].conflictaddr), int32_t(rga_pipe[2].conflictaddr), int32_t(rga_pipe[3].conflictaddr),
++		bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old, ddfstrt_val
+ 	};
+ 	static_assert(sizeof head / sizeof head[0] == P6_BEAM_WORDS, "review the beam word list");
+ 	memcpy(out, head, sizeof head);
+@@ -13267,6 +13276,8 @@
+ 		rga_pipe[i].bltadd = uae_s16(in[72 + i]);
+ 		rga_pipe[i].conflictaddr = uae_u32(in[76 + i]);
+ 	}
++	bprun = in[80]; bprun_cycle = in[81]; ddf_stopping = in[82]; ddf_enable_on = in[83];
++	ddf_limit_in = in[84] != 0; ddf_limit = in[85] != 0; ddfstrt_match = in[86] != 0; hwi_old = in[87] != 0; ddfstrt_val = uae_u16(in[88]);
+ 	setmaxhpos();
+ 	return true;
+ }

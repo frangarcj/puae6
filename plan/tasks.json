@@ -12014,7 +12014,7 @@
       "title": "Estado nativo: el programa que reescribe registros de Denise sin parar (hallazgo de T32b)",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T15",
         "T32b"
@@ -12033,12 +12033,15 @@
         "manifests/state-inventory.json",
         "manifests/waterbox-memory.json",
         "docs/adr/0009-state-format.md",
-        "docs/04-validation.md"
+        "docs/04-validation.md",
+        "tools/build_reference.py",
+        "reports/corpus-matrix.md"
       ],
       "steps": [
         "El escenario ecs-ring-cpu-pal del corpus (tests/scenarios/corpus/rings.py: la CPU reescribe BPLCON0/1/2, BPLCON3, DIWHIGH y los colores en un bucle) diverge en DET02 en el A600 (modos same-image-beam-set y reset-image-beam-set; el proceso nuevo no): desde la unidad 1 tras la carga la frontera cae 6 ciclos de color despues, con CPU, scheduler, video, bridge, chipset.beam e imagen distintos. Los mismos programas en el A500 (OCS) y con el Copper en el A600 igualan.",
         "Atribuir la causa con un reproductor minimo (tests/reference/test_corpus_det02.py lo fija como fallo esperado con su pin) y ponerla en el estado: candidatos medidos hasta ahora, ninguno confirmado: el anillo rga_denise y sus cursores (en AGA ya viajan en DRNG; copiar anillo y cursores del original al cargado no basta por si solo), diwhigh_saved (restore_custom lo deja sin el bit 15 que escribe DIWHIGH()), el estado de lineas/optimizacion de dibujo que Denise guarda entre cuadros.",
-        "Si hace falta un parche del motor, numeros 0260-0269; cambiar el tamano de un chunk obliga a volver a medir la cota (STATE01) y waterbox-memory."
+        "Si hace falta un parche del motor, numeros 0260-0269; cambiar el tamano de un chunk obliga a volver a medir la cota (STATE01) y waterbox-memory.",
+        "2026-10-12: cerrada. Causas atribuidas con un trazador de instrucciones en una copia de desarrollo del motor (fuera del repositorio): (1) ecs-ring-cpu-pal: el secuenciador de bitplanes de Agnus (bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old y ddfstrt_val) no iba en el estado; BEAM pasa de 80 a 89 palabras (parche 0261, +36 bytes). (2) ecs-beam-var-wide-pal: restore_custom no rehacia lo que init_beamcon0 deriva del haz programado; p6_custom_beam_set lo ejecuta en un Agnus ECS/AGA (parche 0260). Descartado: el anillo rga_denise y sus cursores, diwhigh_saved, pfunc. touch ampliado con tools/build_reference.py (la serie cambio y la herramienta se negaba a sustituir su propio arbol anterior), reports/corpus-matrix.md y bridge/state_probe.cpp. Pendiente de integracion: volver a medir manifests/waterbox-memory.json con el guest nuevo."
       ],
       "checks": [
         "DET02",

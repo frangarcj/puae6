@@ -61,7 +61,7 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 320, "COPR": 60, "BLTP": 72, "AUDP": 356, "DNSP": 64, "GEOM": 104, "DSKX": 164,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 356, "COPR": 60, "BLTP": 72, "AUDP": 356, "DNSP": 64, "GEOM": 104, "DSKX": 164,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
@@ -80,7 +80,8 @@ BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_
               "lof_detect", "lof_pdetect", "lof_detect_vsync", "prevlof0", "prevlof1", "prevlof2",
               "display_last_hsync_low", "display_last_hsync_high", "display_last_vsync_low", "display_last_vsync_high",
               "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)] + ["plffirstline", "plflastline", "need_vdiw_check", "interlace_seen",
-              "programmed_register_accessed_h", "programmed_register_accessed_v", "nosignal_cnt", "nosignal_status", "nosignal_trigger", "lines_after_beamcon_change", "syncs_stopped"] + [f"rga_bltadd{i}" for i in range(4)] + [f"rga_conflictaddr{i}" for i in range(4)]
+              "programmed_register_accessed_h", "programmed_register_accessed_v", "nosignal_cnt", "nosignal_status", "nosignal_trigger", "lines_after_beamcon_change", "syncs_stopped"] + [f"rga_bltadd{i}" for i in range(4)] + [f"rga_conflictaddr{i}" for i in range(4)] + [
+    "bprun", "bprun_cycle", "ddf_stopping", "ddf_enable_on", "ddf_limit_in", "ddf_limit", "ddfstrt_match", "hwi_old", "ddfstrt_val"]       # patch 0261 (T15n): the bitplane sequencer of Agnus
 
 # The words of COPR, in the order of p6_custom_copper_get (custom.cpp, patch 0095) and of the enum of bridge/state_upstream.cpp.
 COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ignore_next", "vcmp", "hcmp", "strobe", "strobetype", "enabled_thisline",
@@ -870,6 +871,11 @@ class UpstreamBodiesTests(ProbeCase):
         ("BEAM with a DMA list of 17 bits", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("dmal"), struct.pack(">i", 0x10000), "the DMA list of the line is not 16 bits"),
         ("BEAM with a sync latch of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("latch7"), struct.pack(">i", 2), "a sync latch is not a flag"),
         ("BEAM with a negative time stamp", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("display_last_vsync_high"), struct.pack(">i", -1), "a time stamp of the display is negative"),
+        ("BEAM with a bitplane sequencer in state 4", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("bprun"), struct.pack(">i", 4), "the bitplane sequencer is not in one of its states"),
+        ("BEAM with a DDF passed of 3", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("ddf_stopping"), struct.pack(">i", 3), "the bitplane sequencer is not in one of its states"),
+        ("BEAM with a negative fetch cycle", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("bprun_cycle"), struct.pack(">i", -1), "the bitplane sequencer is not in one of its states"),
+        ("BEAM with an edge detector of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("hwi_old"), struct.pack(">i", 2), "a latch of the bitplane sequencer is not a flag"),
+        ("BEAM with a fetch start beyond the line", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("ddfstrt_val"), struct.pack(">i", 0x100), "the colour clock at which a fetch may start is beyond the line"),
         ("COPR in state 24", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", 24), "a state of the Copper is not one of its states"),
         ("COPR in a negative state", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", -1), "a state of the Copper is not one of its states"),
         ("COPR with a previous state of 24", b"P6CH", "COPR", 4 * COPR_WORDS.index("state_prev"), struct.pack(">i", 24), "a state of the Copper is not one of its states"),

@@ -160,7 +160,14 @@ def materialize_reference(root: Path = ROOT, destination: str = "build/reference
             offsets += _apply_allowing_offsets(data, stage, patch["id"])
         files = import_sources.inventory(stage)
         if target.exists():
-            if _tree_digest(import_sources.inventory(target)) != _tree_digest(files):
+            existing = _tree_digest(import_sources.inventory(target))
+            if existing == _tree_digest(files):
+                pass
+            elif previous and previous.get("tree") == existing and not target.is_symlink():
+                # The tree is this tool's own earlier output, exactly as its receipt says (the series or the classification changed since): replace it.
+                shutil.rmtree(target)
+                os.rename(stage, target)
+            else:
                 raise ValueError(f"an existing different tree is in the way; not overwritten: {target}")
         else:
             target.parent.mkdir(parents=True, exist_ok=True)

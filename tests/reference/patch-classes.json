@@ -143,7 +143,9 @@
     "0190-filesys-rdb-checksum-bounded": "behavior",
     "0220-beam-nosignal": "instrumentation",
     "0221-expamem-image-state": "instrumentation",
-    "0250-audio-mixvol-state": "instrumentation"
+    "0250-audio-mixvol-state": "instrumentation",
+    "0260-programmed-beam-derived-values": "instrumentation",
+    "0261-bitplane-sequencer-state": "instrumentation"
   },
   "ablate": {
     "0020-audio-signed-scaling": {

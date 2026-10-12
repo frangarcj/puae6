@@ -17,17 +17,11 @@ from tests.scenarios.corpus import corpus  # noqa: E402
 from tests.state import test_det02 as d  # noqa: E402
 
 # "scenario@N/mode" -> (units after the load at which the first difference shows, what differs there, owner, cause). See tests/state/test_det02.py.
-# Found by the corpus (T32b), owned by T15n, and not attributed yet: the measurements so far are in the card of T15n. Both are ECS-only (the same programs and the Copper variant match
-# on the OCS A500, and the Copper variant on the A600).
-RING_CAUSE = ("a CPU loop that rewrites BPLCON0/1/2, BPLCON3, DIWHIGH and the colours without stopping on the A600: one unit after the load the boundary falls six colour clocks later "
-              "(an instruction later) with every digest equal at unit 0; the ring rga_denise and its cursors, diwhigh_saved and Denise's line state are candidates, none confirmed")
-BEAM_CAUSE = ("a programmed beam (BEAMCON0 and HTOTAL, a wider line) loaded into a fresh process: the timing group of the chipset digest differs right after the load, so what the program "
-              "derived from the programmed registers (line length, vertical frequency) is not rebuilt by the load; a same image that had programmed the beam itself matches")
-DIVERGENCES = {
-    **{f"ecs-ring-cpu-pal@{n}/{mode}": (1, ("cpu", "scheduler", "video", "bridge", "chipset.beam", "picture"), "T15n", RING_CAUSE)
-       for n in (2, 4, 6) for mode in ("same-image-beam-set", "reset-image-beam-set")},
-    **{f"ecs-beam-var-wide-pal@{n}/new-process": (0, ("chipset.timing",), "T15n", BEAM_CAUSE) for n in (2, 4)},
-}
+# Empty: the two divergences the corpus found (T32b) were closed by T15n. ecs-ring-cpu-pal (a CPU loop that rewrites BPLCON0/1/2, BPLCON3, DIWHIGH and the colours on the A600 diverged one
+# unit after the load, in the same image and in a restarted one) lost the bitplane DMA of the first display line because the bitplane sequencer of Agnus (bprun, ddf_stopping...) was not
+# in the state: patch 0261 puts it in BEAM. ecs-beam-var-wide-pal (a programmed beam loaded into a fresh process) kept the derived lengths of the PAL reset: patch 0260 runs
+# init_beamcon0 when the derived values are rebuilt.
+DIVERGENCES = {}
 
 
 def scenarios(machine):

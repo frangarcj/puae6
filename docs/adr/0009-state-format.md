@@ -266,6 +266,23 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
       libretro hace run-ahead desde el run 1 (`tests/libretro-host/test_hdf.py`). Prueba: `tests/state/test_det02_a600.py` (`kickstart-window`, `kickstart-late`, `workbench-window`),
       `tests/state/test_det02_hdf.py` (`workbench-hdf-autoconfig`, sin el fallo esperado de las 120) y los rechazos de BEAM de `tests/state/test_state_upstream.py`.
 
+14. **Revision 2026-10-12 (T15n): dos huecos que hallo el corpus diferencial de T32b.** Programas que el DET02 anterior no tenia (la CPU reescribiendo BPLCON0/1/2, BPLCON3, DIWHIGH y los colores
+    sin parar en el A600; una viga programada cargada en un proceso nuevo) mostraron dos cosas que un estado no llevaba:
+    - **BEAM** pasa de 80 a 89 palabras (parche 0261, +36 bytes en las tres maquinas): el secuenciador de bitplanes de Agnus, `bprun`, `bprun_cycle`, `ddf_stopping`, `ddf_enable_on`, `ddf_limit_in`,
+      `ddf_limit`, `ddfstrt_match`, `hwi_old` y `ddfstrt_val` (palabras 80 a 88; este ultimo es el ciclo en que puede empezar una captura, `DDFSTRT | 1`: lo pone una escritura de DDFSTRT y `custom_reset` nunca, de modo que una maquina que no la escribio tiene 0 donde `restore_custom` deriva 1, y sin llevarlo `ddf_enable_on` se ponia en otro ciclo tras una carga que en la maquina que nunca cargo). `custom_reset` los deja en reposo y ningun cuerpo los nombra; en un vertical blank estan en reposo para casi todos los programas, pero
+      uno que reescribe DIWHIGH sin parar abre y cierra la ventana vertical en mitad de una captura y los deja en cualquier sitio (ddf_stopping 1 o 0, bprun_cycle 36 o 16 en la frontera). La maquina
+      que cargaba el estado mantenia los suyos, y la captura de la primera linea visible paraba un ciclo despues de empezar (`bprun` pasaba a 0 donde el de la original seguia en 1): sin DMA de
+      bitplanes en esa linea, la CPU, que el DMA tenia fuera del bus, corria 148 ciclos de color antes y la frontera de la unidad caia 6 ciclos de color mas tarde. `ddf_limit_out` no va: `decide_bpl`
+      lo deriva de `ddf_limit_in` en cada ciclo de color. El inventario dejaba esta omision dicha (`chipset-bitplane-fetch-sequencer`: "bprun/ddf_* son estado vivo para cualquier programa que abra la
+      ventana pronto"); la prueba que faltaba era un programa que lo hiciera en la frontera.
+    - **`p6_custom_rebuild_derived` ejecuta `init_beamcon0`** en un Agnus ECS o AGA (parche 0260, sin cambio de layout): restore_custom lee `new_beamcon0` y los registros que programan la viga
+      pero las longitudes de linea y de cuadro, la frecuencia vertical, los margenes de la imagen y las tablas de hsync que `init_beamcon0` deriva de ellos los obtiene WinUAE de `custom_reset` e
+      `init_hz`, que el bridge nunca ejecuta en una maquina viva. Un proceso nuevo que cargaba una viga programada (BEAMCON0 y HTOTAL, una linea mas ancha) conservaba los del reset PAL, y el grupo
+      `timing` del digest del chipset difiria nada mas cargar. BEAM va despues y repone los contadores que `init_beamcon0` reinicia (`lines_after_beamcon_change`).
+    - **Cotas** (medidas en el probe, sin disco duro): A500 3 608 617 bytes, A600 3 608 586, A1200 5 890 820.
+    - Prueba: `tests/reference/test_corpus_det02.py` y `test_corpus_det03.py` (`ecs-ring-cpu-pal` en la misma imagen y en la reiniciada, `ecs-beam-var-wide-pal` en un proceso nuevo; tenian estas
+      divergencias fijadas como pruebas de que seguian ahi y salieron de la tabla al cerrarse), y los rechazos de BEAM de `tests/state/test_state_upstream.py`.
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

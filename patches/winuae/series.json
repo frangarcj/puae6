@@ -3765,6 +3765,51 @@
           "after_sha256": "3f7ed7d64ac44b53d438a9f140f0d2a6fdb12fd1d666d967925a4a47ebeded21"
         }
       ]
+    },
+    {
+      "id": "0260-programmed-beam-derived-values",
+      "file": "patches/winuae/0260-programmed-beam-derived-values.patch",
+      "sha256": "5f6f1813c9b85b5c430f27805a022bf598c8f5424cacb4558008f47b799fc67f",
+      "title": "A load rebuilds what init_beamcon0 derives from the programmed beam",
+      "reason": "restore_custom reads new_beamcon0 and the beam registers, but the line and frame lengths, the vertical frequency, the display margins and the hsync tables that init_beamcon0 derives from them come from custom_reset and init_hz in WinUAE's own load, which the bridge never runs on a live machine: a fresh image that loaded a state of a programmed beam (a wider line, a taller frame) kept the derived values of its PAL or NTSC reset, so the chipset timing differed from the first unit after the load. p6_custom_beam_set, which comes after the bodies of CHIP and before the counters it sets, runs init_beamcon0 on an ECS or AGA Agnus.",
+      "category": "host hooks",
+      "order": 139,
+      "symbols": [
+        "p6_custom_beam_set"
+      ],
+      "test": "tests/reference/test_corpus_det02.py (ecs-beam-var-wide-pal); tests/state/test_det02_a600.py; tests/state/test_det02_a1200.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "3f7ed7d64ac44b53d438a9f140f0d2a6fdb12fd1d666d967925a4a47ebeded21",
+          "after_sha256": "8326c3e15fc57bf335e10b437f03f311bf36dbe62c8f57b2cdf7f960ce11c196"
+        }
+      ]
+    },
+    {
+      "id": "0261-bitplane-sequencer-state",
+      "file": "patches/winuae/0261-bitplane-sequencer-state.patch",
+      "sha256": "16e2128c3620e7489582e33b8421e895c9a7edf95212578164f46058e69a691e",
+      "title": "The bitplane sequencer of Agnus comes back with the state",
+      "reason": "A program that rewrites DIWHIGH all the time opens and closes the vertical display window in the middle of a fetch and leaves the file statics of the bitplane sequencer (bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old) away from idle at a vertical blank; no body names them and custom_reset puts them to idle, so a machine that loaded the state fetched the first display line differently (bprun dropped to 0 one cycle in), lost the bitplane DMA of that line and ran its CPU 148 colour clocks early. ddfstrt_val, which custom_reset never sets and restore_custom derives, travels too so that ddf_enable_on is set at the same clock. BEAM carries them: 80 to 89 words.",
+      "category": "host hooks",
+      "order": 140,
+      "symbols": [
+        "p6_custom_beam_get",
+        "p6_custom_beam_set"
+      ],
+      "test": "tests/reference/test_corpus_det02.py (ecs-ring-cpu-pal); tests/state/test_det02_a600.py; tests/state/test_state_a600.py (A600RewoundStateTests)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "8326c3e15fc57bf335e10b437f03f311bf36dbe62c8f57b2cdf7f960ce11c196",
+          "after_sha256": "36696576765cf1e5c20839cf8a5ee8a4a4d853598ebb7295e04eb5b848e5a9c2"
+        }
+      ]
     }
   ]
 }

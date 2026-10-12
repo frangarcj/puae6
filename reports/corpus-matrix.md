@@ -1,7 +1,7 @@
 # Corpus diferencial y diagnostico de desync (T32)
 
-Estado: EN CURSO. T32a (referencia, comparador, REF01 y DET01 sobre los micro-ROM existentes) y T32b (el corpus de 28 escenarios, DET02/DET03) cerradas; T32c
-(repeticiones, entorno, sanitizers, fuzz) y T15n (las brechas del estado que halla el corpus) pendientes; T32 es el cierre que completa este documento.
+Estado: EN CURSO. T32a (referencia, comparador, REF01 y DET01 sobre los micro-ROM existentes), T32b (el corpus de 28 escenarios, DET02/DET03) y T15n (las dos brechas del estado que hallo el corpus) cerradas; T32c
+(repeticiones, entorno, sanitizers, fuzz) pendiente; T32 es el cierre que completa este documento.
 
 Lo que dice y lo que no: igualar la referencia prueba fidelidad al WinUAE 6.0.3 elegido bajo el puerto comun (puente, puerto portable, probe, reloj
 emulado). No es exactitud de una Amiga fisica ni ve un error del puerto, y la referencia no es una compilacion independiente de WinUAE para Windows.
@@ -90,28 +90,32 @@ a500-flip-lace-pal, input-scripted (LCG con semilla 32: raton y joystick cada 37
 | floppy-write-pal | a500 | pal | ocs, pal, write, restore | igual | igual (105) | igual |
 | hdf-write-pal | a500 | pal | ocs, pal, write, restore, dma | igual | igual (3,5) | igual |
 
-Resultado (`python3 tools/check.py --check REF01|DET02|DET03 --task T32b`, los tres PASS): REF01 igual en 26 escenarios y con la diferencia declarada y atribuida en 2; DET02 109 pruebas,
-101 igualan y 8 son una divergencia FIJADA; DET03 28 pruebas, 27 igualan y 1 fijada. Un PASS de T32b significa "cada escenario iguala o su divergencia esta fijada donde la tabla dice",
-no "no hay divergencias": `OpenDivergenceGate` (`P6_RELEASE_GATE=1`) falla mientras `DIVERGENCES` no este vacia y es parte del cierre de T32.
+Resultado (`python3 tools/check.py --check REF01|DET02|DET03 --task T32b`, los tres PASS): REF01 igual en 26 escenarios y con la diferencia declarada y atribuida en 2; DET02 109 pruebas y DET03 28,
+todas igualan (T32b las cerro con 8 DET02 y 1 DET03 como divergencia fijada; T15n las resolvio y `DIVERGENCES` esta vacia). `OpenDivergenceGate` (`P6_RELEASE_GATE=1`) falla mientras esa tabla no
+este vacia y es parte del cierre de T32.
 
-### Hallazgos del corpus (tarea T15n)
+### Hallazgos del corpus, cerrados por T15n
 
-El punto 5 de la ficha (programas que mantienen lleno el anillo `rga_denise` en OCS/ECS) y un haz programado en un proceso nuevo han encontrado dos brechas del estado nativo en el A600 que
+El punto 5 de la ficha (programas que mantienen lleno el anillo `rga_denise` en OCS/ECS) y un haz programado en un proceso nuevo encontraron dos brechas del estado nativo en el A600 que
 ningun escenario anterior tocaba:
 
-1. `ecs-ring-cpu-pal` (la CPU reescribe BPLCON0/1/2, BPLCON3, DIWHIGH y los colores sin parar): DET02 diverge en las unidades 2, 4 y 6 con la misma imagen y con la imagen reiniciada, no con
-   un proceso nuevo; desde la unidad 1 tras la carga la frontera cae seis ciclos de color despues, con CPU, scheduler, video, bridge, chipset.beam e imagen distintos y todos los digest iguales en
-   la unidad 0. Igualan: el mismo programa sin BPLCON3 ni DIWHIGH, el A500 con el mismo bucle y el Copper en ambas maquinas. Medido, no atribuido: copiar al cargado el anillo `rga_denise` y sus
-   cursores del original no basta; los estaticos que cambian en la carga son sobre todo de Denise (`lts`, `denise_res`, `bplcon1_shift_mask`, `bpl1dat_trigger`, `hbstop_denise_reg`...) y
-   `diwhigh_saved` (restore_custom lo deja sin el bit 15 que escribe DIWHIGH).
-2. `ecs-beam-var-wide-pal` (BEAMCON0 y HTOTAL programados, linea mas ancha) cargado en un proceso nuevo: el grupo `timing` del digest del chipset difiere nada mas cargar. restore_custom
-   deja `new_beamcon0` y no `beamcon0` ni lo que `init_beamcon0` deriva de el (maxhpos/maxvpos, vblank_hz, hsstop_detect, minfirstline...); una misma imagen que programo el haz ella misma
-   iguala. Candidato a arreglo: llamar a `init_beamcon0` en `p6_custom_rebuild_derived` cuando `beamcon0 != new_beamcon0`.
+1. `ecs-ring-cpu-pal` (la CPU reescribe BPLCON0/1/2, BPLCON3, DIWHIGH y los colores sin parar): DET02 divergia en las unidades 2, 4 y 6 con la misma imagen y con la imagen reiniciada, no con un
+   proceso nuevo. Atribucion medida con un trazador de instrucciones en una copia de desarrollo del motor (nada de ello esta en el repositorio): las dos maquinas ejecutan las mismas instrucciones
+   hasta la 937 de la primera unidad (linea 44, la primera visible); ahi la original se detiene 148 ciclos de color en una escritura de COLOR03 (la captura de bitplanes en hires de 4 planos
+   se lleva el bus) y la cargada no, porque `bprun` pasa a 0 un ciclo despues de empezar. Las variables del secuenciador de bitplanes de Agnus (`ddf_stopping` 0 contra 1, `bprun_cycle` 16
+   contra 36...) ya difieren en la primera instruccion tras la carga: son estaticos del motor que ningun cuerpo nombra y que `custom_reset` deja en reposo, pero un programa que reescribe
+   DIWHIGH sin parar abre y cierra la ventana vertical en mitad de una captura y los deja en cualquier sitio en la frontera. Arreglo: BEAM lleva `bprun`, `bprun_cycle`, `ddf_stopping`,
+   `ddf_enable_on`, `ddf_limit_in`, `ddf_limit`, `ddfstrt_match`, `hwi_old` y `ddfstrt_val` (parche 0261; BEAM de 80 a 89 palabras). Lo que quedo descartado: el anillo `rga_denise` y sus
+   cursores (copiarlos del original no basta), `diwhigh_saved` y `pfunc` (la escritura retardada de BPLCON0 estaba vacia en todas las fronteras medidas).
+2. `ecs-beam-var-wide-pal` (BEAMCON0 y HTOTAL programados, linea mas ancha) cargado en un proceso nuevo: el grupo `timing` del digest del chipset diferia nada mas cargar. restore_custom deja
+   `new_beamcon0` y no `beamcon0` ni lo que `init_beamcon0` deriva de el (maxhpos/maxvpos, vblank_hz, hsstop_detect, minfirstline, las tablas de hsync...). Arreglo: `p6_custom_beam_set`
+   ejecuta `init_beamcon0` en un Agnus ECS o AGA antes de poner los contadores (parche 0260).
 
-Los dos estan en `DIVERGENCES` de `tests/reference/test_corpus_det02.py` con su dueno (T15n), y T32 no se cierra hasta que T15n los resuelva.
+Las cotas del estado crecen 36 bytes en las tres maquinas (BEAM). Pruebas: `tests/reference/test_corpus_det02.py` y `test_corpus_det03.py` (los dos escenarios, ahora sin divergencia), los rechazos de
+BEAM y el tamano del cuerpo en `tests/state/test_state_upstream.py` y `test_state_container.py`, y `A600RewoundStateTests`, que obligo a llevar tambien `ddfstrt_val`.
 
 ## Pendiente
 
-- T15n: las dos brechas de arriba (dueno de las 8 pruebas DET02 y la DET03 fijadas).
+- Waterbox: el guest cambia con los parches 0260/0261: `manifests/waterbox-memory.json` y su prueba se vuelven a medir en la integracion (no se ejecuto aqui).
 - T32c: procesos/instancia nueva/entorno distinto/sanitizers (DET04, DET06 con Docker al final, SAFE01) y fuzz de todos los parsers (FUZZ01).
 - T32: matriz final por escenario, `OpenDivergenceGate` en verde, toda diferencia explicada y respaldada por un test o bloqueando la release.

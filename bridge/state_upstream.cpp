@@ -18,6 +18,11 @@
 // BPLCON0 ERSY stops the beam counters at the end of a line; a state taken inside them drew the display on one or two units early, or ran with real hsyncs; and a blit in flight whose D write
 // had lost its pointer increment wrote a whole screen over one word. save_custom_slots (CHSL, which comes before BEAM) does not write those two fields.
 //
+// Patch 0261 adds nine (80 to 89 words, T15n): the bitplane sequencer of Agnus (bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old and ddfstrt_val).
+// custom_reset puts them to idle and no body names them; a program that rewrites DIWHIGH all the time (the vertical window opens and closes in the middle of a fetch) leaves them
+// elsewhere at a vertical blank, and the machine that loaded the state fetched its first display line differently: the CPU, which the DMA of that line had been holding off the bus,
+// ran 148 colour clocks early. Patch 0260 is the other half of T15n: p6_custom_rebuild_derived runs init_beamcon0, so that a programmed beam loaded into a fresh image gets its derived lengths.
+//
 // BEAM is the one body that is not WinUAE's: its restore_custom reads VPOSR and VHPOSR and throws them away, and the counters of the frame, the line history and the
 // sync latches of Agnus live in file statics that no body names. It is 61 words of 32 bits, big endian like the others, copied by p6_custom_beam_get and
 // p6_custom_beam_set (patch 0094; the list is in custom.cpp): the beam and the line history, the frame phase (display_hsync_counter, display_vsync_counter,
@@ -254,7 +259,8 @@ enum BeamWord : unsigned {
     kProgrammedH, kProgrammedV,        // patch 0104: whether a program has written the ECS registers that program the beam (restore_custom sets the horizontal one itself on an ECS Agnus)
     kNoSignalCount, kNoSignalStatus, kNoSignalTrigger, kLinesAfterBeamcon, kSyncsStopped,      // patch 0220: the monitor's no-signal countdown (two blank vertical blanks after a change of the programmed beam), its request and the stopped syncs (BPLCON0 ERSY)
     kRgaBltadd, kRgaConflictAddr = kRgaBltadd + 4,      // patch 0220: bltadd and conflictaddr of the four slots of the DMA pipeline (a blit D write in flight advances its pointer by the first)
-    kBeamWords = kRgaConflictAddr + 4
+    kBprun = kRgaConflictAddr + 4, kBprunCycle, kDdfStopping, kDdfEnableOn, kDdfLimitIn, kDdfLimit, kDdfStrtMatch, kHwiOld, kDdfStrtVal,      // patch 0261: the bitplane sequencer of Agnus (bprun, how far its fetch has gone, DDF passed, DDF enabled, the hard limits, the DDFSTRT match, the edge detector of "DMA and window and DDF" and the clock at which a fetch may start)
+    kBeamWords
 };
 constexpr uint32_t kBeamBytes = kBeamWords * 4;
 
@@ -991,6 +997,9 @@ const char *check_beam(const Sub &, const Body &b, Seen &)
     if (!within(kProgrammedH, 0, 1) || !within(kProgrammedV, 0, 1)) return "a flag of the programmed beam registers is not a flag";
     if (!within(kNoSignalStatus, -1, 2) || !within(kNoSignalTrigger, 0, 1) || !within(kSyncsStopped, 0, 1)) return "the no-signal status is not one of -1 (ending), 0, 1 and 2, or its request or the stopped syncs are not flags";
     if (!within(kNoSignalCount, 0, 0xffff) || !within(kLinesAfterBeamcon, 0, 5)) return "a count of vertical blanks of the no-signal state is beyond what the engine sets";
+    if (!within(kBprun, 0, 3) || !within(kDdfStopping, -1, 2) || !within(kBprunCycle, 0, 0xffff)) return "the bitplane sequencer is not in one of its states (BPRUN 0 to 3, DDF passed -1 to 2, a cycle count of its fetch)";
+    if (!within(kDdfEnableOn, 0, 1) || !within(kDdfLimitIn, 0, 1) || !within(kDdfLimit, 0, 1) || !within(kDdfStrtMatch, 0, 1) || !within(kHwiOld, 0, 1)) return "a latch of the bitplane sequencer is not a flag";
+    if (!within(kDdfStrtVal, 0, 0xff)) return "the colour clock at which a fetch may start is beyond the line";
     for (unsigned slot = 0; slot < 4; ++slot)
         if (!within(kRgaBltadd + slot, -2, 2) || (at(kRgaBltadd + slot) & 1)) return "the pointer increment of a slot of the DMA pipeline is not one the blitter sets (-2, 0 or 2)";
     if (at(kLastHsyncHigh) < 0 || at(kLastVsyncHigh) < 0) return "a time stamp of the display is negative";
