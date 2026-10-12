@@ -190,17 +190,18 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 | `sound_interpol` | `none`, `anti`, `rh`, `crux` -> `puae6_sound_interpolation`. `sinc` se rechaza (su cola no esta en el estado nativo). |
 | `sound_filter` | `off`, `emulated`, `on` -> `puae6_sound_filter` (`emulated`, `off`, `on`). `fixedonly` se rechaza. |
 | `sound_filter_type` | `standard` (modelo A500) y `enhanced` (modelo A1200) -> `puae6_sound_filter_type` `A500`/`A1200`. |
+| `floppy_speed` | Porcentaje de la unidad real (T62): `100`, `200`, `400`, `800` -> `puae6_floppy_speed` con el mismo valor; `0` es el turbo (`turbo`). Otro numero se rechaza. |
 | `ntsc` | `true` -> NTSC, `false` -> PAL (`puae6_video_standard`). |
 | `floppy_write_protect` | `true` -> `puae6_floppy_writes=disabled`, `false` -> `enabled`. |
 | `floppy0` | El disco de DF0 (ruta relativa). Vacio = ninguno. |
 | `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
 | `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
-| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). |
+| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). |
 | `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`: preset del esquema, que las demas claves refinan. |
 
 Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada): `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact`, `cycle_exact`, `cpu_compatible` = `true`;
 `cpu_24bit_addressing`, `cpu_address_space_24` = `true`; `cpu_speed` = `real`; `cpu_throttle` = `0`; `cachesize` = `0`; `compfpu` = `false`; `mmu_model` = `0`; `immediate_blits` = `false`;
-`waiting_blits` = `disabled`; `floppy_speed` = `100`; `synchronize_clock`, `bsdsocket_emu`, `scsi` = `false`; `nr_floppies` = `2` (DF0 y DF1 existen siempre); `floppy0type`, `floppy1type` = `0`;
+`waiting_blits` = `disabled`; `synchronize_clock`, `bsdsocket_emu`, `scsi` = `false`; `nr_floppies` = `2` (DF0 y DF1 existen siempre); `floppy0type`, `floppy1type` = `0`;
 `floppy2type`, `floppy3type` = `-1`; `floppy0wp`, `floppy1wp`, `floppy2wp`, `floppy3wp` = `false` (la proteccion es un solo interruptor: `floppy_write_protect`). Cualquier otro valor se rechaza con el motivo de la tabla siguiente.
 
 ### Claves rechazadas (y por que)

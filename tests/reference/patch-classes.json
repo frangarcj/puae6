@@ -146,7 +146,8 @@
     "0250-audio-mixvol-state": "instrumentation",
     "0240-cia-tod-mains-state": "instrumentation",
     "0260-programmed-beam-derived-values": "instrumentation",
-    "0261-bitplane-sequencer-state": "instrumentation"
+    "0261-bitplane-sequencer-state": "instrumentation",
+    "0280-disk-linecounter-state": "instrumentation"
   },
   "ablate": {
     "0020-audio-signed-scaling": {

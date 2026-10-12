@@ -26,6 +26,7 @@ struct Settings {
     uint64_t random_seed = UINT64_C(1);  // reboot, p6_config.random_seed
     int64_t rtc_epoch_seconds = INT64_C(946684800);  // reboot, p6_config.rtc_epoch_seconds
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
+    uint32_t floppy_speed = 0u;  // reboot, p6_config.floppy_speed = 100
     uint32_t video_aspect = 0u;  // presentation, presentation.video_aspect = pixel
     uint32_t floppy_save = 0u;  // presentation, presentation.floppy_save = off
     uint32_t hdf_save = 0u;  // presentation, presentation.hdf_save = off
@@ -103,6 +104,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->random_seed = settings.random_seed;
     config->rtc_epoch_seconds = settings.rtc_epoch_seconds;
     config->flags = settings.floppy_writes;
+    config->floppy_speed = settings.floppy_speed;
 }
 
 // Lays the preset the person chose over the model and the memory options (read_options calls it once everything is read).
@@ -380,6 +382,13 @@ constexpr Value kSoundFilterTypeValues[] = {
 constexpr Value kFloppyWritesValues[] = {
     {"disabled", 0u},
     {"enabled", 1u},
+};
+constexpr Value kFloppySpeedValues[] = {
+    {"100", 0u},
+    {"200", 2u},
+    {"400", 3u},
+    {"800", 4u},
+    {"turbo", 5u},
 };
 constexpr Value kVideoAspectValues[] = {
     {"pixel", 0u},
@@ -755,6 +764,7 @@ constexpr Option kOptions[] = {
     {"puae6_sound_filter", true, &Settings::sound_filter, kSoundFilterValues, 3, 0},
     {"puae6_sound_filter_type", true, &Settings::sound_filter_type, kSoundFilterTypeValues, 3, 0},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
+    {"puae6_floppy_speed", true, &Settings::floppy_speed, kFloppySpeedValues, 5, 0},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 4, 0},
     {"puae6_floppy_save", false, &Settings::floppy_save, kFloppySaveValues, 2, 0},
     {"puae6_hdf_save", false, &Settings::hdf_save, kHdfSaveValues, 2, 0},
@@ -883,6 +893,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
      "media", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
+    {"puae6_floppy_speed", "Floppy Speed (Restart)", "Floppy Speed (Restart)",
+     "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "media", {{"100", "Default (the real drive, 300 RPM)"}, {"200", "2x"}, {"400", "4x"}, {"800", "8x"}, {"turbo", "Turbo"}}, "100"},
     {"puae6_video_aspect", "Aspect Ratio", "Aspect Ratio",
      "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.",
      "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.",
@@ -1134,6 +1148,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_sound_filter", "Audio Filter (Restart)", "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"emulated", "Emulated (follows the power LED)"}, {"off", "Off"}, {"on", "Always on"}}, "emulated"},
     {"puae6_sound_filter_type", "Audio Filter Type (Restart)", "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Auto (by machine)"}, {"A500", "A500"}, {"A1200", "A1200"}}, "auto"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
+    {"puae6_floppy_speed", "Floppy Speed (Restart)", "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.", {{"100", "Default (the real drive, 300 RPM)"}, {"200", "2x"}, {"400", "4x"}, {"800", "8x"}, {"turbo", "Turbo"}}, "100"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}, {"PAL", "PAL pixel aspect (26:25)"}, {"NTSC", "NTSC pixel aspect (43:50)"}}, "pixel"},
     {"puae6_floppy_save", "Save Floppy Changes", "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported.", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
     {"puae6_hdf_save", "Save Hard Disk Changes", "A hard disk (.hdf or .hdz) is always writable for the guest, but the file is never touched: what the guest writes lives in the machine (in save states, rewind and run-ahead). When the content closes, a hard disk the guest changed is written to the frontend's save directory as puae6-<id>.hdf (a temporary file renamed over the old one), and the next time the same file loads with this option on, that copy is the disk. Never during rewind, run-ahead or loading a state. A save state holds only the 4 KiB chunks the guest wrote, but the size the frontend reserves for one grows with the hard disk.", {{"off", "Off: the changes are lost when the content closes"}, {"on_close", "When the content closes"}}, "off"},
@@ -1210,6 +1225,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_sound_filter", "Audio Filter (Restart); emulated|off|on"},
     {"puae6_sound_filter_type", "Audio Filter Type (Restart); auto|A500|A1200"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
+    {"puae6_floppy_speed", "Floppy Speed (Restart); 100|200|400|800|turbo"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3|PAL|NTSC"},
     {"puae6_floppy_save", "Save Floppy Changes; off|on_close"},
     {"puae6_hdf_save", "Save Hard Disk Changes; off|on_close"},

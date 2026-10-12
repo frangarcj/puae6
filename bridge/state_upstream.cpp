@@ -3,7 +3,7 @@
 // length and the bytes the engine wrote, with no ASF container and no zfile. The engine is compiled with P6_STATE_BODIES (patches 0086-0091), SAVESTATE
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
-//   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (164), the last ours and not upstream's
+//   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (168), the last ours and not upstream's
 //   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (320), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each) and AUDP (356), ours and not upstream's
 //   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
@@ -76,7 +76,7 @@
 // the low byte of disk_hpos, so a machine that a CPU access to DSKBYTR had brought up to the middle of a line was brought up from the start of it after a load and read
 // another word of the track; dsklen2 (the previous DSKLEN, which decides whether one write or two start a transfer) is in no body; restore_disk zeroes dskchange_time, so a
 // delayed insert that was counting down never landed; the motor-off latch, the step limiter, the index decay and the wordsync edge flag are not carried either, and the geometry and bit counter of
-// the track under the head are in DSDn only while a track is buffered (a drive that spins empty after an eject advances its head from the ones it kept). 41 words: disk_hpos, dsklen2,
+// the track under the head are in DSDn only while a track is buffered (a drive that spins empty after an eject advances its head from the ones it kept). 42 words: disk_hpos, dsklen2,
 // dsksync_on, indexdecay and prev_data (patch 0105: the last value written to CIA-B port B, from which DISK_select_set, which the apply calls, derives the drive mask, the step line,
 // the direction and the side that restore_cia_finish would rebuild: without it the first write after a load was judged against the latch of the machine's own history, and the
 // head stepped, or the shifter bits were drawn, differently from the original), then for each drive dskchange_time, motordelay, steplimit, the age of the last step, floppybitcounter, tracklen, trackspeed, skipoffset and indexoffset. Applied as values after DISK; nothing
@@ -189,6 +189,8 @@ struct Seen {
     uint32_t drive_crc[4];                                  // DSKn: the CRC of the image in the drive, 0 for none
     struct { bool present; uint32_t bit_counter, track_length, speed, skip_offset, index_offset; } track[4];     // DSDn: the buffered track of a drive, if any
     uint8_t disk_hpos;                                      // DISK: the fraction of a colour clock disk_hpos had
+    uint8_t disk_dma;                                       // DISK: the DMA state (0 off, 2 read, 3 write)
+    uint16_t disk_length;                                   // DISK: the words left
 };
 
 struct Sub {
@@ -705,7 +707,7 @@ void visit_raster(Archive &a)
 // -- DSKX: the floppy controller that DISK, DSKn and DSDn do not carry (patch 0101) ------------------------------------------------------------------------
 
 // The words of the body, in the order of p6_disk_phase_get: the global ones, then kDiskDriveWords per drive.
-enum DiskWord : unsigned { kDkHpos, kDkLen2, kDkSyncOn, kDkIndexDecay, kDkSelect, kDkDrives, kDkDriveWords = 9 };
+enum DiskWord : unsigned { kDkHpos, kDkLen2, kDkSyncOn, kDkIndexDecay, kDkSelect, kDkLineCounter, kDkDrives, kDkDriveWords = 9 };
 enum DiskDriveWord : unsigned { kDkChangeTime, kDkMotorDelay, kDkStepLimit, kDkStepAge, kDkBitCounter, kDkTrackLen, kDkTrackSpeed, kDkSkipOffset, kDkIndexOffset };
 constexpr unsigned kDiskWords = kDkDrives + 4 * kDkDriveWords;
 constexpr uint32_t kDiskPhaseBytes = kDiskWords * 4;
@@ -776,11 +778,14 @@ const char *check_dsd(const Sub &sub, const Body &b, Seen &seen)
 const char *check_disk(const Sub &, const Body &b, Seen &seen)
 {
     seen.disk_hpos = uint8_t(b.u8(4));
+    seen.disk_dma = uint8_t(b.u8(5));
+    seen.disk_length = uint16_t(b.u16(15));
     if (b.u8(2) > 15) return "the bit offset is beyond 15";
     if (b.u8(3) > 1) return "the sync flag is not a flag";
     if (b.u8(5) != 0 && b.u8(5) != 2 && b.u8(5) != 3) return "the DMA state is not off, read or write";
     if (b.u8(8) > 2 || b.u8(11) > 2 || b.u8(14) > 2) return "a FIFO slot is in use in a way the controller never leaves it";
-    if (b.u16(15) > 0x3fff) return "the DMA length is beyond 16383 words";
+    // 0xffff is the -1 that a turbo read leaves (DSKLEN_2 counts the transfer down in one go); DSKX says whether the two lines of that transfer are what this state is in.
+    if (b.u16(15) > 0x3fff && b.u16(15) != 0xffff) return "the DMA length is beyond 16383 words";
     return nullptr;
 }
 
@@ -796,6 +801,10 @@ const char *check_dskx(const Sub &, const Body &b, Seen &seen)
     if (at(kDkSyncOn) < 0 || at(kDkSyncOn) > 1) return "the wordsync flag is not a flag";
     if (at(kDkIndexDecay) < 0 || at(kDkIndexDecay) > 2) return "the index pulse decay is beyond 2 lines";
     if (at(kDkSelect) < 0 || at(kDkSelect) > 0xff) return "the last write to the drive select lines is wider than the port";
+    // The turbo floppy (T62) completes a transfer at once and counts two lines before the DSKBLK interrupt: in them the DMA is off, and a read leaves its length at -1.
+    if (at(kDkLineCounter) < 0 || at(kDkLineCounter) > 2) return "the turbo transfer counter is beyond the two lines it counts";
+    if (at(kDkLineCounter) && seen.disk_dma) return "a turbo transfer is counting down while the DMA of the disk is on";
+    if (seen.disk_length == 0xffff && !at(kDkLineCounter)) return "the DMA length is the one a turbo read leaves, and no turbo transfer is counting down";
     for (unsigned n = 0; n < 4; ++n)        // the side is derived from that write (bit 2 of the port, active low), and every DSKn carries the one global side
         if (((seen.drive_state[n] & 16) != 0) != ((at(kDkSelect) & 4) == 0)) return "the side of a drive is not the one of the last write to the drive select lines";
     for (unsigned n = 0; n < 4; ++n) {

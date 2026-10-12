@@ -38,6 +38,9 @@ public enum Puae6SoundFilter { Emulated, Off, On }
 /// <summary>The model of the output filter (restart): Auto is the A500 model on the A500 and the A600 and the A1200 model on the A1200; the others force one. It has no effect while the filter is Off.</summary>
 public enum Puae6SoundFilterType { Auto, A500, A1200 }
 
+/// <summary>The speed of the floppy drives (restart): the real drive (P100, the profile's own setting), twice, four or eight times as fast, or Turbo, which removes the rotation and transfers a whole DSKLEN at once. It is counted in emulated colour clocks, never in wall clock time.</summary>
+public enum Puae6FloppySpeed { P100, P200, P400, P800, Turbo }
+
 /// <summary>What is plugged into the first controller port of the Amiga (the one the mouse normally uses).</summary>
 public enum Puae6Port1 { Mouse, Joystick, None }
 
@@ -76,6 +79,9 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>The model of the output filter. It enters the identity when it is not <c>Auto</c>.</summary>
 	public Puae6SoundFilterType SoundFilterType { get; set; } = Puae6SoundFilterType.Auto;
+
+	/// <summary>The speed of the floppy drives. It changes when every disk transfer ends, so it is a sync setting: it enters the identity of states and movies when it is not <c>P100</c>.</summary>
+	public Puae6FloppySpeed FloppySpeed { get; set; } = Puae6FloppySpeed.P100;
 
 	/// <summary>The video standard of the machine. It is not detected from anything.</summary>
 	public Puae6Region Region { get; set; } = Puae6Region.PAL;

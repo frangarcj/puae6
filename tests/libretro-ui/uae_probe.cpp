@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <utility>
 
 using namespace p6_libretro;
 using namespace p6_options;
@@ -118,6 +119,13 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
     CHECK(same_config(import("sound_stereo_separation=10\nsound_interpol=crux\nsound_filter=on\nsound_filter_type=standard\n").imported.settings, loud));
     CHECK(same_config(import("sound_stereo_separation=7\nsound_interpol=anti\nsound_filter=emulated\n").imported.settings, Settings()));
     CHECK(same_config(import("puae6_sound_stereo_separation=0\npuae6_sound_interpolation=rh\npuae6_sound_filter=off\npuae6_sound_filter_type=A1200\n").imported.settings, audio));
+    // T62: WinUAE's floppy_speed is a percentage of the real drive, 0 being the turbo mode; the option's numbers are abi 0 (the real drive), 2, 3, 4 and 5 (turbo).
+    for (const auto &speed : {std::pair<const char *, uint32_t>{"floppy_speed=100\n", 0}, {"floppy_speed=200\n", 2}, {"floppy_speed=400\n", 3}, {"floppy_speed=800\n", 4}, {"floppy_speed=0\n", 5},
+                              {"puae6_floppy_speed=turbo\n", 5}, {"puae6_floppy_speed=400\n", 3}}) {
+        Settings fast;
+        fast.floppy_speed = speed.second;
+        CHECK(same_config(import(speed.first).imported.settings, fast));
+    }
     // An empty file, or one with comments only, is the frontend's options.
     CHECK(import("").ok && same_config(import("").imported.settings, Settings()));
     CHECK(import("; nothing\n# nothing\n\n   \n").ok);
@@ -204,7 +212,8 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"fastmem2_size=4", "fastmem2_size", "one Zorro II"},
         {"immediate_blits=true", "immediate_blits", "compatibility shortcut"},
         {"waiting_blits=automatic", "waiting_blits", "compatibility shortcut"},
-        {"floppy_speed=0", "floppy_speed", "turbo floppy"},
+        {"floppy_speed=150", "floppy_speed", "is not offered"},
+        {"floppy_speed=fast", "floppy_speed", "expected 0 (turbo), 100, 200, 400 or 800"},
         {"synchronize_clock=true", "synchronize_clock", "never follows the host"},
         {"bsdsocket_emu=true", "bsdsocket_emu", "network"},
         {"cpuboard_type=Blizzard1260", "cpuboard_type", "expansion boards"},

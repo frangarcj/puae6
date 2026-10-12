@@ -4,6 +4,7 @@
 //   p6_headless [--identity]
 //   p6_headless --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]
 //                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
+//                         [--floppy-speed 100|200|400|800|turbo]
 //                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
 #include "p6.h"
@@ -105,6 +106,8 @@ static const Named sound_separation_names[] = {{"0", 1}, {"10", 2}, {"20", 3}, {
 static const Named sound_interpolation_names[] = {{"none", 1}, {"anti", 0}, {"rh", 4}, {"crux", 5}};
 static const Named sound_filter_names[] = {{"emulated", 0}, {"off", 1}, {"on", 3}};
 static const Named sound_filter_type_names[] = {{"auto", 0}, {"a500", 1}, {"a1200", 2}};
+// The floppy drive speed (T62), after --floppy-speed: the percentage of the real drive, or turbo (upstream's floppy_speed 0). Zero is the profile's (100).
+static const Named floppy_speed_names[] = {{"100", 0}, {"200", 2}, {"400", 3}, {"800", 4}, {"turbo", 5}};
 
 template <size_t N>
 static bool pick_named(const Named (&table)[N], const char *spelling, uint8_t *abi)
@@ -150,6 +153,7 @@ static int run(int argc, char **argv)
     uint64_t seed = 1, dump_from = 1;
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0, fpu_model = 0;       // 0: the machine's own memory (T49); slow "none" is P6_MEMORY_NONE
     uint8_t sound_separation = 0, sound_interpolation = 0, sound_filter = 0, sound_filter_type = 0;     // 0: the profile's own setting (T73)
+    uint8_t floppy_speed = 0;                                                                           // 0: the real drive (T62)
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
@@ -179,6 +183,7 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) { if (!pick_named(sound_interpolation_names, argv[++i], &sound_interpolation)) return -1; }
         else if (!strcmp(argv[i], "--sound-filter") && i + 1 < argc) { if (!pick_named(sound_filter_names, argv[++i], &sound_filter)) return -1; }
         else if (!strcmp(argv[i], "--sound-type") && i + 1 < argc) { if (!pick_named(sound_filter_type_names, argv[++i], &sound_filter_type)) return -1; }
+        else if (!strcmp(argv[i], "--floppy-speed") && i + 1 < argc) { if (!pick_named(floppy_speed_names, argv[++i], &floppy_speed)) return -1; }
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
         else return -1;
@@ -207,6 +212,7 @@ static int run(int argc, char **argv)
     config.sound_interpolation = sound_interpolation;
     config.sound_filter = sound_filter;
     config.sound_filter_type = sound_filter_type;
+    config.floppy_speed = floppy_speed;
     p6_error error = make_error();
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);
@@ -307,7 +313,7 @@ int main(int argc, char **argv)
         if (code >= 0) return code;
     }
     fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]\n"
-                    "                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n"
+                    "                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-speed 100|200|400|800|turbo]\n"
                     "                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
             argv[0], argv[0]);
     return 64;

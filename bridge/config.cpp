@@ -177,6 +177,21 @@ constexpr uint32_t kMemoryIdentityBit = 0x80000000u;
 // T54: 23 and 24 carry the FPU (1 = 68881, 2 = 68882), so a config without one hashes as it always did, and the memory bits above never meet them (chip_kib / 64 is at most 32 << 17 = bit 22).
 constexpr unsigned kFpuIdentityShift = 23;
 
+// T62: 25 to 27 carry the floppy speed as the step above the real drive's (0 = 100 %, 1 = 200 %, 2 = 400 %, 3 = 800 %, 4 = turbo): 100 % is the zero of every config that predates the option,
+// and bit 31 (the memory marker) and bits 23 and 24 (the FPU) stay where they were.
+constexpr unsigned kFloppyIdentityShift = 25;
+
+int resolve_floppy_speed(const p6_config &c)
+{
+    switch (c.floppy_speed) {
+    case 2: return 200;
+    case 3: return 400;
+    case 4: return 800;
+    case 5: return 0;
+    default: return 100;      // 0 (the profile's) and 1 (named)
+    }
+}
+
 Audio resolve_audio(const p6_config &c)
 {
     // 0 is the profile's own setting; any other value is upstream's + 1 (p6.h). The type 'auto' is the model of the machine's Paula output stage (A1200: its AGA filter).
@@ -210,9 +225,10 @@ bool audio_identity(const p6_config &c, uint8_t out[4])
 uint32_t identity_flags(const p6_config &c)
 {
     const uint32_t fpu = (c.fpu_model == 68881 ? 1u : c.fpu_model == 68882 ? 2u : 0u) << kFpuIdentityShift;
-    if (memory_is_preset(c)) return c.flags | fpu;
+    const uint32_t floppy = (c.floppy_speed >= 2 ? uint32_t(c.floppy_speed) - 1u : 0u) << kFloppyIdentityShift;
+    if (memory_is_preset(c)) return c.flags | fpu | floppy;
     const Memory m = resolve_memory(c);
-    return c.flags | fpu | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
+    return c.flags | fpu | floppy | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
 }
 
 bool memory_is_preset(const p6_config &c)
@@ -261,8 +277,10 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "an FPU needs a 68020: only the A1200 can have a 68881 or 68882");
     if (const p6_result memory = validate_memory(c, error))
         return memory;
-    if (c.reserved8[0] || c.reserved8[1] || c.reserved8[2] || c.reserved8[3] || c.reserved1)
+    if (c.reserved8[0] || c.reserved8[1] || c.reserved8[2] || c.reserved1)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
+    if (c.floppy_speed > 5)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "floppy speed must be 0 (the profile's), 1 (100 %), 2 (200 %), 3 (400 %), 4 (800 %) or 5 (turbo)");
     if (c.sound_separation > 11)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "stereo separation must be 0 (the profile's) or 1 to 11 (0 to 100 %)");
     if (c.sound_interpolation == 3)
@@ -380,6 +398,7 @@ void build_preferences(const p6_config &c)
     // flag is not pinned: the reset head re-inserts disks with it cleared, so the master switch carries the guarantee.
     for (int i = 0; i < 4; ++i)
         currprefs.floppyslots[i].df[0] = 0;
+    currprefs.floppy_speed = resolve_floppy_speed(c);       // T62: 100 is the real drive, 0 the turbo mode; no wall clock is read either way (the DMA counts emulated colour clocks)
     currprefs.floppy_read_only = !preset_floppy_writes;      // every disk is write protected unless the session reserved a write overlay (T27)
     currprefs.reset_delay = 0;        // config-invariants.json: the delayed-reset wait cannot poll
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
@@ -409,7 +428,7 @@ p6_result check_preset(p6_error *error)
     else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||
              p.input_mouse_speed != 100 || p.keyboard_mode || p.cs_resetwarning || p.input_contact_bounce) drifted = "input";
     else if (p.floppyslots[0].df[0] || p.floppyslots[1].df[0] || p.floppyslots[2].df[0] || p.floppyslots[3].df[0] ||
-             p.floppy_read_only == preset_floppy_writes) drifted = "floppy";
+             p.floppy_read_only == preset_floppy_writes || p.floppy_speed != resolve_floppy_speed(preset_config)) drifted = "floppy";
     else if (p.gfx_resolution != RES_HIRES || p.gfx_vresolution != VRES_DOUBLE || p.gfx_iscanlines != 1 ||
              p.gfx_pscanlines || p.gfx_scandoubler || p.gfx_lores_mode || p.gfx_overscanmode != OVERSCANMODE_OVERSCAN ||
              p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||

@@ -283,6 +283,15 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     - Prueba: `tests/reference/test_corpus_det02.py` y `test_corpus_det03.py` (`ecs-ring-cpu-pal` en la misma imagen y en la reiniciada, `ecs-beam-var-wide-pal` en un proceso nuevo; tenian estas
       divergencias fijadas como pruebas de que seguian ahi y salieron de la tabla al cerrarse), y los rechazos de BEAM de `tests/state/test_state_upstream.py`.
 
+15. **Revision 2026-10-12 (T62): la velocidad de disquete es identidad, y el turbo lleva su contador de lineas.** `p6_config.floppy_speed` (100, 200, 400, 800 % y turbo) entra en la palabra `flags`
+    de `config_hash` en los bits 25 a 27, solo fuera de la unidad real (el hash de siempre en el perfil); un estado de una velocidad es INCOMPATIBLE en otra. El turbo de upstream (`floppy_speed` 0)
+    hace que `DSKLEN_2` mueva la transferencia entera de una vez y espere dos lineas (`linecounter`) antes de la interrupcion DSKBLK; mientras cuenta, `DISK_hsync` vuelve antes de `DISK_update`, asi
+    que un estado tomado en esas dos lineas que no lo llevara no terminaria la transferencia. **DSKX** pasa de 41 a 42 palabras (parche 0280, +4 bytes en las tres maquinas: la palabra 5 es el
+    contador, 0 a 2). La longitud del DMA de DISK deja de estar acotada por 0x3fff solo en un caso: una lectura turbo la deja en -1 (`0xffff` en el campo de 16 bits), y la validacion lo acepta
+    unicamente con el contador en marcha y el DMA apagado (y rechaza el contador con el DMA encendido o la longitud -1 sin contador). Los 200, 400 y 800 % no anaden estado: son la duracion de un bit
+    (`trackspeed`, que DSDn y DSKX ya llevan) y el vaciado del FIFO, que DISK lleva. Prueba: `tests/state/test_det02_floppy.py` (DET02 en cada velocidad, un limite dentro de las dos lineas, el
+    estado con el contador a cero que no reproduce al original, las refutaciones del contador) y `tests/libretro-host/test_floppy_speed.py`.
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

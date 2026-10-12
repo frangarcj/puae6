@@ -61,7 +61,7 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 356, "COPR": 60, "BLTP": 72, "AUDP": 356, "DNSP": 64, "GEOM": 104, "DSKX": 164,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 356, "COPR": 60, "BLTP": 72, "AUDP": 356, "DNSP": 64, "GEOM": 104, "DSKX": 168,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
@@ -104,8 +104,8 @@ def audp_at(word, channel=None):
     return 4 * (AUDP_GLOBAL.index(word) if channel is None else len(AUDP_GLOBAL) + channel * len(AUDP_CHANNEL) + AUDP_CHANNEL.index(word))
 
 
-# The words of DSKX, in the order of p6_disk_phase_get (disk.cpp, patches 0101 and 0105) and of the enums of bridge/state_upstream.cpp: 5 of the controller, then 9 per drive.
-DSKX_GLOBAL = ["hpos", "dsklen2", "dsksync_on", "indexdecay", "select"]
+# The words of DSKX, in the order of p6_disk_phase_get (disk.cpp, patches 0101 and 0105) and of the enums of bridge/state_upstream.cpp: 6 of the controller (T62 added the turbo line counter), then 9 per drive.
+DSKX_GLOBAL = ["hpos", "dsklen2", "dsksync_on", "indexdecay", "select", "linecounter"]
 DSKX_DRIVE = ["change_time", "motor_delay", "step_limit", "step_age", "bit_counter", "track_length", "track_speed", "skip_offset", "index_offset"]
 CHANGE_MAX = 2 * 50 * 312 + 4   # the longest countdown of a delayed disk change, in lines
 

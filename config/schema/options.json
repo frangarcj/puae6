@@ -448,6 +448,28 @@
       "wrapper": {"how": "fixed", "where": "flags"}
     },
     {
+      "id": "floppy_speed",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.floppy_speed",
+      "default": "100",
+      "values": [
+        {"value": "100", "abi": 0, "label": "Default (the real drive, 300 RPM)", "wrapper_name": "P100"},
+        {"value": "200", "abi": 2, "label": "2x", "wrapper_name": "P200"},
+        {"value": "400", "abi": 3, "label": "4x", "wrapper_name": "P400"},
+        {"value": "800", "abi": 4, "label": "8x", "wrapper_name": "P800"},
+        {"value": "turbo", "abi": 5, "label": "Turbo", "wrapper_name": "Turbo"}
+      ],
+      "libretro": {
+        "key": "puae6_floppy_speed",
+        "category": "media",
+        "label": "Floppy Speed",
+        "info": "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default."
+      },
+      "headless": {"how": "named", "flag": "--floppy-speed", "names": {"100": "100", "200": "200", "400": "400", "800": "800", "turbo": "turbo"}},
+      "wrapper": {"how": "setting", "setting": "FloppySpeed", "type": "Puae6FloppySpeed"}
+    },
+    {
       "id": "video_aspect",
       "class": "presentation",
       "type": "enum",
@@ -1732,7 +1754,6 @@
     {"key": "z3fastmem_size", "why": "Zorro III RAM needs a 32-bit bus (68030 and up, T55); every machine here has a 24-bit one."},
     {"key": "fastmem2_size", "why": "One Zorro II Fast RAM board is offered; a second board is not."},
     {"key": "kickstart_rom_file", "why": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration."},
-    {"key": "floppy_speed", "why": "Turbo floppy would change the timing of the machine; the profile fixes the real drive speed."},
     {"key": "cpu_speed", "why": "The machine runs at its real clock; the host speed never changes the emulation."},
     {"key": "jit", "why": "The deterministic profile has no JIT."},
     {"key": "uae_config_file", "why": "A whole .uae file is not a configuration key; only the keys of this schema are accepted here. The libretro core reads one as content through an allowlist that translates its keys to this schema (docs/options.md, Importador .uae)."},

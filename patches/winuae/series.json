@@ -3810,6 +3810,29 @@
           "after_sha256": "36696576765cf1e5c20839cf8a5ee8a4a4d853598ebb7295e04eb5b848e5a9c2"
         }
       ]
+    },
+    {
+      "id": "0280-disk-linecounter-state",
+      "file": "patches/winuae/0280-disk-linecounter-state.patch",
+      "sha256": "b1abc0d2cd45032916317c85877ce0eba4f4b70736a02bb3dd3faa45696272e1",
+      "title": "Native state: the turbo floppy's line counter is carried by DSKX",
+      "reason": "floppy_speed 0 completes a transfer inside DSKLEN_2 and waits two lines before the DSKBLK interrupt (linecounter); T62 makes the speed an option, so a state taken in those two lines has to carry the counter",
+      "category": "host hooks",
+      "order": 141,
+      "symbols": [
+        "p6_disk_phase_get",
+        "p6_disk_phase_set"
+      ],
+      "test": "tests/state/test_det02_floppy.py (turbo transfers with states taken in the two lines of linecounter); tests/state/test_state_upstream.py (the DSKX layout)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "252b03ae48ad0c41c70001fda73eb8dd328f446e71e0ed5697f708a5cd0eb1a8",
+          "after_sha256": "e7dbf1b47ea71904eb6e1b2a658e95fcf1869a6eb13a4269da1c2d4dafd0d133"
+        }
+      ]
     }
   ]
 }

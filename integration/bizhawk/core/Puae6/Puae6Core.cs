@@ -114,6 +114,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	static byte SoundFilterTypeNumber(Puae6SoundFilterType type) => type switch { Puae6SoundFilterType.A500 => (byte)1, Puae6SoundFilterType.A1200 => (byte)2, _ => (byte)0 };
 
+	// The floppy speed (T62): the numbers of config/schema/options.json (0 is the profile's own, the real drive).
+	static byte FloppySpeedNumber(Puae6FloppySpeed speed) => speed switch { Puae6FloppySpeed.P200 => (byte)2, Puae6FloppySpeed.P400 => (byte)3, Puae6FloppySpeed.P800 => (byte)4, Puae6FloppySpeed.Turbo => (byte)5, _ => (byte)0 };
+
 	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
 
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
@@ -281,6 +284,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.SoundInterpolation = SoundInterpolationNumber(_syncSettings.SoundInterpolation);
 		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
 		init.Config.SoundFilterType = SoundFilterTypeNumber(_syncSettings.SoundFilterType);
+		init.Config.FloppySpeed = FloppySpeedNumber(_syncSettings.FloppySpeed);
 		fixed (byte* rom = firmware)
 		{
 			init.Firmware = rom;
@@ -375,6 +379,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			(_syncSettings.SoundFilter != Puae6SoundFilter.Emulated ? ",filter=" + _syncSettings.SoundFilter : "") +
 			(_syncSettings.SoundFilterType != Puae6SoundFilterType.Auto ? ",filtertype=" + _syncSettings.SoundFilterType : "");
 		if (sound.Length != 0) memory += ";sound=" + sound.Substring(1);
+		// And for the floppy speed (T62): the native config hash carries it off the real drive's speed, and when every transfer ends depends on it.
+		if (_syncSettings.FloppySpeed != Puae6FloppySpeed.P100) memory += ";floppyspeed=" + _syncSettings.FloppySpeed;
 		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;

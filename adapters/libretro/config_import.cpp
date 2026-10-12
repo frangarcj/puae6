@@ -183,7 +183,6 @@ constexpr Fixed kFixed[] = {
     {"mmu_model", "0", "there is no MMU"},
     {"immediate_blits", "false", "a compatibility shortcut that is not the hardware"},
     {"waiting_blits", "disabled|false|no|0", "a compatibility shortcut that is not the hardware"},
-    {"floppy_speed", "100", "turbo floppy would change the timing of the machine; the profile fixes the real drive speed"},
     {"synchronize_clock", "false", "the clock never follows the host (see the schema's rtc_epoch_seconds)"},
     {"bsdsocket_emu", "false", "there is no network in the deterministic profile"},
     {"scsi", "false", "there is no SCSI controller in the machines of this core"},
@@ -202,7 +201,7 @@ constexpr Fixed kFixed[] = {
 constexpr const char *kNativeKeys[] = {
     "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
     "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
-    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type",
+    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed",
 };
 
 const p6_options::Option *find_option(const char *key)
@@ -527,6 +526,14 @@ private:
             const std::string v = lower(e.value);
             if (v == "off" || v == "emulated" || v == "on") set_name(e, "puae6_sound_filter", v);
             else error(e, "expected off, emulated or on (fixedonly is not offered)");
+            return;
+        }
+        // The floppy drive speed (T62): upstream's floppy_speed as a percentage of the real drive, 0 being the turbo mode. WinUAE's slider offers 100, 200, 400 and 800.
+        if (key == "floppy_speed") {
+            if (!parse_int(e.value, false, &number)) error(e, "expected 0 (turbo), 100, 200, 400 or 800");
+            else if (number == 0) set_name(e, "puae6_floppy_speed", "turbo");
+            else if (number == 100 || number == 200 || number == 400 || number == 800) set_name(e, "puae6_floppy_speed", std::to_string(number));
+            else error(e, "floppy speed " + e.value + " is not offered (0 for turbo, 100, 200, 400 or 800)");
             return;
         }
         if (key == "sound_filter_type") {

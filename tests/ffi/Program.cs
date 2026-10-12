@@ -95,7 +95,7 @@ internal static unsafe partial class Program
 			Console.WriteLine($"size {name} {sizeof(T)}");
 			foreach (string field in fields) Console.WriteLine($"field {name}.{field} {Marshal.OffsetOf<T>(field)}");
 		}
-		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "Reserved8", "Reserved1");
+		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "Reserved8", "Reserved1");
 		Dump<P6PortInput>("P6PortInput", "Type", "Buttons", "Dx", "Dy", "Reserved");
 		Dump<P6Input>("P6Input", "AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved");
 		Dump<P6Rect>("P6Rect", "X", "Y", "Width", "Height");

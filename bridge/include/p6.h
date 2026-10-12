@@ -74,7 +74,11 @@ typedef struct p6_config {
     uint8_t sound_interpolation;    /* 0 = the profile's (anti), else 1 + upstream's sound_interpol: 1 none, 2 anti, 4 rh, 5 crux; 3 (sinc) is P6_ERROR_UNSUPPORTED. */
     uint8_t sound_filter;           /* 0 = the profile's (emulated, the LED filter follows the power LED), else 1 + upstream's sound_filter: 1 off, 2 emulated, 3 always on. */
     uint8_t sound_filter_type;      /* 0 = auto (A500 and A600: the A500 model, A1200: the A1200 model), 1 = A500 model, 2 = A1200 model. */
-    uint8_t reserved8[4];           /* Zero in ABI v1 (the rest of what was reserved[0]). */
+    /* Floppy drive speed (T62), in the fifth byte of what was reserved[0]: how fast the drive hands the disk's bits over, 0 = the profile's (the real drive, 100 %), else 1 + a step:
+     * 1 = 100 %, 2 = 200 %, 3 = 400 %, 4 = 800 %, 5 = turbo (upstream's floppy_speed 0: a transfer of the whole DSKLEN at once). A restart option: it changes when the DMA ends, so it enters
+     * config_hash off the profile's speed only (bits 25 to 27 of the flags word, below). Anything above 5 is P6_ERROR_UNSUPPORTED. */
+    uint8_t floppy_speed;
+    uint8_t reserved8[3];           /* Zero in ABI v1 (the rest of what was reserved[0]). */
     uint64_t reserved1;             /* Zero in ABI v1 (what was reserved[1]). */
 } p6_config;
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
@@ -86,6 +90,7 @@ typedef struct p6_config {
 #define P6_MEMORY_NONE UINT32_C(0xFFFFFFFF)
 /* The flags word of config_hash carries p6_config.flags in bits 0 to 7 (the defined P6_CONFIG_* flags; any other bit is refused) and, when the memory is not the preset's,
  * the sizes above them (bridge/config.cpp identity_flags: bit 31, fast_kib/1024 at bit 8, slow_kib/64 at 12, chip_kib/64 at 17), so the two never collide.
+ * The floppy speed (T62) takes bits 25 to 27 of it: 0 for the real drive speed, whether the config says 0 or 1, else 1 = 200 %, 2 = 400 %, 3 = 800 %, 4 = turbo.
  * Paula's output options (sound_*) are not in that word: when they differ from the profile's setting for the machine, config_hash is derived from the one above and an audio word
  * (bridge/config.cpp audio_identity, domain p6/config/audio/v1); at the profile's setting the hash is the one it always was. */
 #define P6_MACHINE_A500 UINT32_C(1)

@@ -116,7 +116,14 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved1 = 1;                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
-    c = make_config(); c.reserved8[3] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // the bytes after the audio options are still reserved
+    c = make_config(); c.reserved8[2] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // the bytes after the floppy speed are still reserved
+    // The floppy speed (T62): 0 is the profile (the real drive), 1 to 5 are the steps (100, 200, 400, 800 %, turbo), anything above is refused with the reason, on every machine.
+    c = make_config(); c.floppy_speed = 6;               assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "floppy speed"));
+    for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A600, P6_MACHINE_A1200})
+        for (uint8_t speed = 0; speed <= 5; ++speed) {
+            c = make_config(); c.machine = machine; c.floppy_speed = speed;
+            assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+        }
     // Paula's output (T73): zero is the profile; sinc and what the fields do not have are refused with the reason, the rest is accepted on every machine.
     c = make_config(); c.sound_interpolation = 3;        assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "sinc"));
     c = make_config(); c.sound_interpolation = 6;        assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);

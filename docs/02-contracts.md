@@ -301,9 +301,9 @@ preferencias que construye `bridge/config.cpp`, campo a campo, y cada campo que 
 | FirmwareID BizHawk | Amiga/A500 | Amiga/A600 | Amiga/A1200 |
 | Estados y peliculas | propios del A500 | propios del A600 | propios del A1200: cada maquina rechaza las de las otras dos antes de tocar nada (`config_hash` lleva la maquina; matriz 3 x 3 en las pruebas) |
 | Chipset de VPOSR / DENISEID | familia 0 (OCS) | familia 2 en la tabla upstream = 8372A (`$2xxx` PAL, `$3xxx` NTSC), DENISEID `$FFFC` | Alice `$23xx` PAL / `$33xx` NTSC, Lisa `$00F8` |
-| Cota de estado (`retro_serialize_size`) | 3 608 617 B | 3 608 586 B | 5 890 820 B (cuerpo del 68020, paleta AGA, anillo de Denise y raster a 3 bytes por pixel; ADR 0009 punto 9) |
+| Cota de estado (`retro_serialize_size`) | 3 608 621 B | 3 608 590 B | 5 890 824 B (cuerpo del 68020, paleta AGA, anillo de Denise y raster a 3 bytes por pixel; ADR 0009 punto 9) |
 | Waterbox, mmap medido (presupuesto 16 MiB) | 5 586 944 B | 5 046 272 B | 6 094 848 B (36 % del presupuesto, sin cambiarlo) |
-| Waterbox, snapshot tras 60 unidades | 9 154 004 B | 9 137 620 B | 10 186 196 B |
+| Waterbox, snapshot tras 60 unidades | 9 203 892 B | 9 187 508 B | 10 236 084 B |
 
 Probado con firmware autorizado (opt-in por variables de entorno, nunca copiado ni registrado): Kickstart 1.3 en el A500 y Kickstart 2.05 en el A600 arrancan hasta
 la pantalla de insertar disco y hasta el shell del Workbench 2.05, y DET02 restaura un estado tomado durante la carga real de un disco (parche 0105). El Kickstart 3.1 r40.68 arranca
@@ -396,9 +396,9 @@ siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fast
 (`P6_REGION_FAST_RAM`, big endian, el byte n de la region es la direccion `$200000 + n`). Su contenido entra en el estado nativo (P6RM, ver ADR 0009 punto 10): la cota crece en
 `4 + fast + 278` bytes, y la memoria configurada forma parte de `config_hash` cuando no es la del preset (un estado o una pelicula de otra memoria es INCOMPATIBLE).
 
-Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14): A500 3 608 617, A600 3 608 586, A1200 5 890 820; A500 OG 3 084 298, A500+ 3 608 617, A1000 3 084 314, A2000 OG 3 608 633, A2000 3 608 633
-(T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 706 051; A600 con 2 MiB de Chip y 8 MiB de Fast 13 046 052;
-A1200 con 8 MiB de Fast 14 279 710; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 862; A1200 con FPU 68882 5 890 930.
+Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14, y T62: DSKX de 41 a 42 palabras, +4 bytes en todas, punto 15): A500 3 608 621, A600 3 608 590, A1200 5 890 824; A500 OG 3 084 302, A500+ 3 608 621, A1000 3 084 318, A2000 OG 3 608 637, A2000 3 608 637
+(T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 706 055; A600 con 2 MiB de Chip y 8 MiB de Fast 13 046 056;
+A1200 con 8 MiB de Fast 14 279 714; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 866; A1200 con FPU 68882 5 890 934.
 
 ### FPU 68881/68882 (T54)
 
@@ -440,6 +440,24 @@ wrapper entran solo fuera del perfil (`;sound=separation=P0,filter=On...`, solo 
 estricto que el hash nativo (que iguala `A500` con `auto` en un A500), nunca mas laxo; el guest de Waterbox no serializa la maquina (se instantanea entera), asi que el `config_hash` nativo solo
 lo ven los estados de libretro y la sonda. El esquema los marca `named` en headless y `setting` en el wrapper (`wrapper_name` da el miembro del enum cuando el valor es un numero); `tests/waterbox-state/test_wrapper_audio.py`
 compara el PCM de las tres superficies para cada valor y combinacion.
+
+### Velocidad de disquete (T62)
+
+`p6_config.floppy_speed` (un byte, offset 60: el quinto de lo que era `reserved[0]`; `reserved8` queda con 3 bytes desde el offset 61, a cero, y el struct sigue midiendo 72 bytes). Es el `floppy_speed` de
+upstream, con los valores de PUAE5 (`puae_floppy_speed`: 100, 200, 400, 800 y turbo = 0): **cero es el perfil** (la unidad real, 100 %), 1 = 100 % nombrado, 2 = 200 %, 3 = 400 %, 4 = 800 %, 5 = turbo;
+mayor de 5, `P6_ERROR_UNSUPPORTED` con la razon. Es una **opcion de reinicio**, no de presentacion: cambia cuando termina cada transferencia del DMA de disco (a 200/400/800 % el controlador lee la pista
+mas deprisa y vacia el FIFO de golpe: `get_floppy_speed`, `doreaddma`; en turbo `DSKLEN_2` mueve la transferencia entera de una vez y espera dos lineas, `linecounter`, antes de la interrupcion DSKBLK),
+y con ello el orden de todo lo demas. **Nunca depende del reloj del host**: el DMA cuenta ciclos de color emulados, no se duerme ni se mide tiempo real. Medido con `tests/state/test_det02_floppy.py`
+(un programa que lee pistas de `$1900` palabras una tras otra desde la unidad 2; unidades de video hasta que termina la primera / lecturas terminadas en 40 unidades): 100 % 10/3, 200 % 5/7,
+400 % 2/15, 800 % 1/30, turbo 0/6046.
+
+`config_hash`: la velocidad entra en la palabra `flags` del hash en los bits 25 a 27 (0 = unidad real, tanto si la config dice 0 como 1; 1 = 200 %, 2 = 400 %, 3 = 800 %, 4 = turbo), sin chocar con la memoria
+(bits 8-22 y 31), la FPU (23-24) ni `p6_config.flags` (0-7): con la unidad real el hash es **el de siempre**. Un estado o una pelicula de una velocidad es INCOMPATIBLE en otra. El estado nativo carga
+una palabra mas por la velocidad turbo (parche 0280): el DSKX pasa de 164 a 168 bytes (41 a 42 palabras) y lleva `linecounter` (las dos lineas que espera una transferencia turbo; un estado tomado en ellas
+no terminaba la transferencia al cargarse), y la validacion acepta el `-1` que una lectura turbo deja en la longitud del DMA (`0xffff` en DISK) solo si ese contador esta en marcha y el DMA apagado.
+Opciones: libretro `puae6_floppy_speed` (100, 200, 400, 800, turbo; media), el importador `.uae` (`floppy_speed` 0/100/200/400/800), headless `--floppy-speed 100|200|400|800|turbo` y el sync setting
+`FloppySpeed` de BizHawk (`P100`, `P200`, `P400`, `P800`, `Turbo`; en la identidad del estado y de la pelicula solo fuera de `P100`: `;floppyspeed=Turbo`). Los programas que miden el tiempo de sus
+propias lecturas y las protecciones de copia pueden no funcionar por encima del 100 %; las pistas con temporizacion por palabra (ADF extendidos, IPF) no se ofrecen en estas maquinas.
 
 Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` (Auto, KB512, MB1, MB2), `puae6_slow_size` (Auto, None, KB512, MB1, MB1_5, MB1_75) y
 `puae6_fast_size` (None, MB1, MB2, MB4, MB8), headless `--chip KIB`, `--slow KIB|none` y `--fast KIB`, y los sync settings de BizHawk `ChipMemory`, `SlowMemory` y `FastMemory` (el heap mmap

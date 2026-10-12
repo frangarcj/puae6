@@ -23,6 +23,8 @@ bool memory_is_preset(const p6_config &config);
 // identity of every preset config stays the one it was): c.flags for a config with the preset's memory, else with bit 31 and the three sizes folded in above the flag bits (fast/1024 at 8, slow/64 at 12, chip/64 at 17; bits 0 to 7 stay p6_config.flags).
 uint32_t identity_flags(const p6_config &config);
 
+// The floppy drive speed (T62, p6_config.floppy_speed) as upstream's floppy_speed: 100, 200, 400 or 800 (percent of the real drive), 0 for the turbo mode that transfers a whole DSKLEN at once.
+int resolve_floppy_speed(const p6_config &config);
 // Paula's output options (T73, p6_config.sound_*), resolved to upstream's own values: stereo separation 0..10 (tenths of 100 %), sound_interpol (0 none, 1 anti, 3 rh, 4 crux; 2 is sinc, refused),
 // sound_filter (0 off, 1 emulated, 2 on) and sound_filter_type (0 A500, 1 A1200). The profile's setting is 7, anti, emulated and the model of the machine's own output stage.
 constexpr int kProfileSeparation = 7, kProfileInterpolation = 1, kProfileFilter = 1;

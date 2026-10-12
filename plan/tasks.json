@@ -13402,7 +13402,7 @@
       "title": "Velocidad de disquete (turbo) como opcion de reinicio determinista",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -13416,10 +13416,24 @@
         "config/**",
         "adapters/libretro/**",
         "integration/bizhawk/**",
-        "tests/**"
+        "tests/**",
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "bridge/state_upstream.cpp",
+        "bridge/state_probe.cpp",
+        "adapters/headless/**",
+        "patches/winuae/**",
+        "tools/generate_options.py",
+        "manifests/waterbox-memory.json",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/0009-state-format.md",
+        "reports/tasks/T62.md"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_floppy_speed. floppy_speed como opcion de reinicio con la identidad del estado; DET02."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_floppy_speed. floppy_speed como opcion de reinicio con la identidad del estado; DET02.",
+        "Ampliacion de la ficha (2026-10-12, T62): la opcion es el byte p6_config.floppy_speed (offset 60, bridge/include/p6.h y bridge/config.h/.cpp) con los bits 25-27 de la palabra flags del config_hash; el turbo (floppy_speed 0) hace DSKLEN_2 completar la transferencia y esperar dos lineas (linecounter), que ningun cuerpo del estado llevaba, asi que el parche 0280 (patches/winuae, bridge/state_upstream.cpp: DSKX de 164 a 168 bytes, el -1 de la longitud del DMA tras una lectura turbo) lo anade; headless (--floppy-speed) y la sonda de estado (bridge/state_probe.cpp) la ofrecen, y el cambio de guest re-registra manifests/waterbox-memory.json; docs/02-contracts.md, docs/options.md y ADR 0009 lo documentan."
       ],
       "checks": [
         "DET02",

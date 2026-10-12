@@ -39,7 +39,8 @@ OFFSET(p6_config, sound_separation, 56);       /* T73: the first bytes of what w
 OFFSET(p6_config, sound_interpolation, 57);
 OFFSET(p6_config, sound_filter, 58);
 OFFSET(p6_config, sound_filter_type, 59);
-OFFSET(p6_config, reserved8, 60);
+OFFSET(p6_config, floppy_speed, 60);           /* T62: the fifth byte of what was reserved[0] */
+OFFSET(p6_config, reserved8, 61);
 OFFSET(p6_config, reserved1, 64);
 OFFSET(p6_buffer, bytes, 8);
 OFFSET(p6_media, content_id, 8);

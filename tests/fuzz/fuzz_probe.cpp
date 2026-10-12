@@ -93,10 +93,11 @@ bool fpu_accepted(const p6_config &c)
 }
 
 // Paula's output (T73, the first four bytes of what was reserved[0]): 0 is the profile's, separation 1 to 11, interpolation 1, 2, 4 or 5 (3, sinc, is refused), filter 1 to 3, filter type 1 or 2.
-// The four bytes after them, and reserved1, are still reserved.
+// The fifth byte is the floppy speed (T62): 0 is the profile's, 1 to 5 the steps; the three after it, and reserved1, are still reserved.
 bool audio_accepted(const p6_config &c)
 {
-    return c.sound_separation <= 11 && c.sound_interpolation <= 5 && c.sound_interpolation != 3 && c.sound_filter <= 3 && c.sound_filter_type <= 2 && !c.reserved8[0] && !c.reserved8[1] && !c.reserved8[2] && !c.reserved8[3];
+    return c.sound_separation <= 11 && c.sound_interpolation <= 5 && c.sound_interpolation != 3 && c.sound_filter <= 3 && c.sound_filter_type <= 2 && c.floppy_speed <= 5 &&
+           !c.reserved8[0] && !c.reserved8[1] && !c.reserved8[2];
 }
 
 // The rules of ABI v1, written again here from the header comments: the fuzzer's oracle.
@@ -147,7 +148,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
                 if (rng.below(4) == 0) { static const uint32_t fpus[] = {0, 68881, 68882, 68040, 1}; c.fpu_model = fpus[rng.below(5)]; }       // T54: valid on the A1200 only
                 if (rng.below(4) == 0) {         // T73: Paula's output, in and out of range
                     c.sound_separation = uint8_t(rng.below(14)); c.sound_interpolation = uint8_t(rng.below(8));
-                    c.sound_filter = uint8_t(rng.below(5)); c.sound_filter_type = uint8_t(rng.below(4));
+                    c.sound_filter = uint8_t(rng.below(5)); c.sound_filter_type = uint8_t(rng.below(4)); c.floppy_speed = uint8_t(rng.below(8));
                 }
                 break;
             }
