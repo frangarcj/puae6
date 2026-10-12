@@ -12168,7 +12168,7 @@
       "title": "Optimizar copies, logs y allocs medidos",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T33"
       ],
@@ -12180,13 +12180,18 @@
         "bridge/**",
         "adapters/**",
         "tests/bench/**",
-        "reports/optimizations/**"
+        "reports/optimizations/**",
+        "integration/bizhawk/core/Puae6/**",
+        "tests/ffi/**",
+        "tools/bench.py",
+        "tools/check.py"
       ],
       "steps": [
         "Elegir un hotspot demostrado de adaptacion/presentacion; escribir benchmark y prueba de equivalencia antes del cambio.",
         "Eliminar solo copia, formateo o asignacion redundante respetando lifetime/capacidad y threading.",
         "Comparar antes/despues con cinco repeticiones y mismo build profile; ejecutar hashes/restore y memory checks.",
-        "Registrar decision de conservar o revertir; si no hay mejora confiable, entregar informe sin optimizacion artificial."
+        "Registrar decision de conservar o revertir; si no hay mejora confiable, entregar informe sin optimizacion artificial.",
+        "Ampliacion de zona (T34, medida de T33): el hotspot demostrado esta en el core de BizHawk (~4,4 KB de basura gestionada por unidad en los nombres de boton y el bucle de alfa de la copia de la imagen), no en bridge ni adapters; se amplia touch a integration/bizhawk/core/Puae6/** (el cambio), tests/ffi/** (IoBench.cs: equivalencia y coste frente a la forma anterior), tools/bench.py (P6_BENCH_FFI_RELEASE para correr el antes junto al despues; build_ffi_release) y tools/check.py (los checks de la tarea)."
       ],
       "checks": [
         "PERF01",

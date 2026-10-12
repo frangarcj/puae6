@@ -247,7 +247,17 @@ TASK_SUITES[('PERF01', 'T33')] = {
 TASK_SUITES[('WB12', 'T33')] = {
     'waterbox_probes': 'tests.bench.test_wb12',
 }
-TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
+# T34 optimizes what the adapters do around the engine. What the measurement found (reports/optimizations/T34.md) is in the BizHawk core (the names asked of the controller and the copy of
+# the picture); the native bridge, libretro and the guest have nothing to remove. PERF01 is the suites of T33 plus the equivalence and cost of the two forms (tests.bench.test_core_io).
+# DET01, DET02 and SAFE01 add what shows that the core still produces the same machine: the picture, the PCM, the timing and the input packet it delivers are those of p6_headless (tests.ffi.test_core),
+# what a saved and loaded state brings back (tests.waterbox-state.test_wrapper_state), and the ownership of the sandbox's memory and the canaries of the ABI (test_wrapper_memory, test_ffi).
+TASK_SUITES[('PERF01', 'T34')] = {**TASK_SUITES[('PERF01', 'T33')], 'core_io_equivalence_and_cost': 'tests.bench.test_core_io'}
+TASK_SUITES[('DET01', 'T34')] = {**TASK_SUITES[('DET01', 'T32a')], 'core_picture_pcm_timing_and_input': 'tests.ffi.test_core'}
+TASK_SUITES[('DET02', 'T34')] = {**TASK_SUITES[('DET02', 'T32b')], 'core_state_round_trip': 'tests.waterbox-state.test_wrapper_state'}
+TASK_SUITES[('SAFE01', 'T34')] = {'canary_self_test': 'tests.canaries.test_canaries', 'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
+                                 'core_memory_ownership': 'tests.waterbox-state.test_wrapper_memory', 'core_abi': 'tests.ffi.test_ffi'}
+TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
+                      ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
                       ('DET04', 'T32'): 6 * 3600, ('DET06', 'T32'): 6 * 3600}
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1', 'P6_RELEASE_GATE': '1'}      # the second is read only by the OpenDivergenceGate tests of T32

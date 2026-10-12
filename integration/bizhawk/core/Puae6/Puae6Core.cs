@@ -509,12 +509,14 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	P6Input BuildInput(IController controller, out bool power)
 	{
 		var input = new P6Input { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6Input) };
-		for (int code = 0; code < Controllers.KeyNames.Length; ++code)
+		var keyButtons = Controllers.KeyButtons;
+		for (int code = 0; code < keyButtons.Length; ++code)
 		{
-			if (Controllers.KeyNames[code] is null || code == Controllers.CapsLockCode) continue;
-			if (controller.IsPressed(Controllers.KeyButton(code))) input.Keys[code / 32] |= 1u << (code % 32);
+			string? button = keyButtons[code];
+			if (button is null || code == Controllers.CapsLockCode) continue;
+			if (controller.IsPressed(button)) input.Keys[code / 32] |= 1u << (code % 32);
 		}
-		bool caps = controller.IsPressed(Controllers.KeyButton(Controllers.CapsLockCode));
+		bool caps = controller.IsPressed(keyButtons[Controllers.CapsLockCode]!);
 		if (caps && !_capsHeld) _capsLatched = !_capsLatched;
 		_capsHeld = caps;
 		if (_capsLatched) input.Keys[Controllers.CapsLockCode / 32] |= 1u << (Controllers.CapsLockCode % 32);
@@ -532,8 +534,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static P6PortInput JoystickPacket(IController controller, int port)
 	{
 		var packet = new P6PortInput { Type = P6.PortJoystick };
-		for (int i = 0; i < Controllers.JoystickNames.Length; ++i)
-			if (controller.IsPressed(Controllers.Joystick(port, Controllers.JoystickNames[i]))) packet.Buttons |= Controllers.JoystickBits[i];
+		var buttons = Controllers.JoystickButtons[port - 1];
+		for (int i = 0; i < buttons.Length; ++i)
+			if (controller.IsPressed(buttons[i])) packet.Buttons |= Controllers.JoystickBits[i];
 		return packet;
 	}
 
@@ -544,10 +547,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	P6PortInput MousePacket(IController controller)
 	{
 		var packet = new P6PortInput { Type = P6.PortMouse };
-		if (controller.IsPressed($"P1 {Controllers.MouseLeft}")) packet.Buttons |= P6.Button1;
-		if (controller.IsPressed($"P1 {Controllers.MouseRight}")) packet.Buttons |= P6.Button2;
-		if (controller.IsPressed($"P1 {Controllers.MouseMiddle}")) packet.Buttons |= P6.Button3;
-		int x = controller.AxisValue($"P1 {Controllers.MouseX}"), y = controller.AxisValue($"P1 {Controllers.MouseY}");
+		if (controller.IsPressed(Controllers.Port1MouseLeft)) packet.Buttons |= P6.Button1;
+		if (controller.IsPressed(Controllers.Port1MouseRight)) packet.Buttons |= P6.Button2;
+		if (controller.IsPressed(Controllers.Port1MouseMiddle)) packet.Buttons |= P6.Button3;
+		int x = controller.AxisValue(Controllers.Port1MouseX), y = controller.AxisValue(Controllers.Port1MouseY);
 		if (!_mouseKnown)
 		{
 			_mouseKnown = true;
@@ -579,8 +582,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			for (uint row = 0; row < active.Height; ++row)
 			{
 				var source = new ReadOnlySpan<int>(frame.Video + (active.Y + row) * frame.VideoStrideBytes + active.X * 4, (int)active.Width);
-				var target = _videoBuffer.AsSpan((int)(row * active.Width), (int)active.Width);
-				for (int i = 0; i < target.Length; ++i) target[i] = source[i] | unchecked((int)0xFF000000);     // XRGB8888 to BizHawk's ARGB
+				PixelCopy.XrgbToArgb(source, _videoBuffer.AsSpan((int)(row * active.Width), (int)active.Width));     // XRGB8888 to BizHawk's ARGB
 			}
 			BufferWidth = (int)active.Width;
 			BufferHeight = (int)active.Height;

@@ -1,0 +1,48 @@
+{
+  "first": "T34f-before",
+  "first_started": "2026-10-12T16:36:20Z",
+  "goal_time_regression": 0.05,
+  "largest_p50_difference": 0.03785269149936703,
+  "rows": {
+    "waterbox-core-release/a1200-aga-planes8-pal": {
+      "first_p50_ms": 5.67975,
+      "first_p95_ms": 6.017541649999999,
+      "p50_difference": -0.026046480919054583,
+      "p95_difference": 0.4287475600605096,
+      "reproduced_within_goal": false,
+      "second_p50_ms": 5.5318125,
+      "second_p95_ms": 8.597547949999992,
+      "state_load_p50_ms_difference": 0.026131574124977075,
+      "state_save_p50_ms_difference": 0.08071853465699518
+    },
+    "waterbox-core-release/a500-ocs-busy-pal": {
+      "first_p50_ms": 4.573083,
+      "first_p95_ms": 4.9231354000000005,
+      "p50_difference": -0.03785269149936703,
+      "p95_difference": -0.020226896461145328,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 4.3999795,
+      "second_p95_ms": 4.823555650000001,
+      "state_load_p50_ms_difference": 0.001694598411343229,
+      "state_save_p50_ms_difference": 0.018400029163458485
+    },
+    "waterbox-core-release/a600-ecs-copper-ntsc": {
+      "first_p50_ms": 4.3397505,
+      "first_p95_ms": 4.6333854500000005,
+      "p50_difference": -0.019764039430377453,
+      "p95_difference": -0.016655467332207474,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 4.2539795,
+      "second_p95_ms": 4.55621425,
+      "state_load_p50_ms_difference": -0.01311441374192902,
+      "state_save_p50_ms_difference": -0.008986660973951694
+    }
+  },
+  "rows_compared": 3,
+  "rows_reproduced": 2,
+  "rows_with_p50_within_goal": 3,
+  "schema_version": 1,
+  "second": "T34f-after",
+  "second_started": "2026-10-12T16:37:46Z",
+  "status": "ORIENTATIVE"
+}

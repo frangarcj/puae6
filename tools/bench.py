@@ -52,7 +52,7 @@ RELEASE_RUNTIME_RECEIPT = WORK / "runtime-release-receipt.json"
 GUEST_RECEIPT = WATERBOX / "puae6/puae6-receipt.json"
 SMOKE_DLL = WATERBOX / "managed/bin/Debug/net8.0/Smoke.dll"
 FFI_DEBUG = ROOT / "build/ffi/bin/Debug/net8.0"
-FFI_RELEASE = ROOT / "build/ffi/bin/Release/net8.0"
+FFI_RELEASE = Path(os.environ.get("P6_BENCH_FFI_RELEASE") or ROOT / "build/ffi/bin/Release/net8.0")      # T34: another build of the core (the "before" of an optimization) to run next to this one
 MEMORY_MANIFEST = ROOT / "manifests/waterbox-memory.json"
 
 # The goals of docs/04-validation.md. They are goals: a baseline compares them with what was measured and never turns them into results.
@@ -819,6 +819,15 @@ def sh(command, **kwargs):
     subprocess.run([str(c) for c in command], check=True, **kwargs)
 
 
+def build_ffi_release():
+    """The host of the FFI tests and the core, Release (the managed build BizHawk ships), built with the guest it belongs with (the SHA-256 of the receipt)."""
+    import build_waterbox
+    receipt = json.loads(GUEST_RECEIPT.read_text())["guest"]["sha256"]
+    cache = Path.home() / ".nuget/packages"
+    env = {**build_waterbox.managed_env(), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget")}
+    sh(["dotnet", "build", ROOT / "tests/ffi/Ffi.csproj", "-c", "Release", "--nologo", f"-p:Puae6GuestSha256={receipt}", f"-p:RestoreSources={cache}"], env=env, cwd=ROOT)
+
+
 def build_command(args):
     jobs = str(min(args.jobs, 3))
     if not (NATIVE_TREE / "CMakeCache.txt").is_file():
@@ -839,10 +848,7 @@ def build_command(args):
     RELEASE_RUNTIME_RECEIPT.write_text(json.dumps({"runtime_dylib": {"path": str(RELEASE_RUNTIME), "sha256": sha256_of(RELEASE_RUNTIME)}}, indent=2) + "\n")
     build_waterbox.build_managed()
     build_waterbox.build_core()                                    # Debug host of the FFI tests (also compiles Bench.cs)
-    receipt = json.loads(GUEST_RECEIPT.read_text())["guest"]["sha256"]
-    cache = Path.home() / ".nuget/packages"
-    env = {**build_waterbox.managed_env(), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget")}
-    sh(["dotnet", "build", ROOT / "tests/ffi/Ffi.csproj", "-c", "Release", "--nologo", f"-p:Puae6GuestSha256={receipt}", f"-p:RestoreSources={cache}"], env=env, cwd=ROOT)
+    build_ffi_release()
     print("built: native tree", NATIVE_TREE, "| release runtime", RELEASE_RUNTIME, "| Ffi Release", FFI_RELEASE)
     return 0
 

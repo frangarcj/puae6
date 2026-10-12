@@ -1,0 +1,76 @@
+{
+  "date_utc": "2026-10-12T16:22:08Z",
+  "git": {
+    "commit": "bbf1fcde2695e064a39365a6ee53b589330f4548",
+    "uncommitted_changes": true
+  },
+  "host": {
+    "machine": "arm64",
+    "os": "26.7.1 25G241",
+    "kernel": "25.6.0",
+    "cpu": "Apple M1 Pro",
+    "cores": 8,
+    "performance_cores": 6,
+    "efficiency_cores": 2,
+    "memory_bytes": 17179869184,
+    "host_page_bytes": 16384,
+    "power": [
+      "Now drawing from 'AC Power'",
+      " -InternalBattery-0 (id=26411107)\t100%; charged; 0:00 remaining present: true"
+    ]
+  },
+  "tools": {
+    "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "cmake": "cmake version 4.3.2",
+    "python": "3.14.7",
+    "dotnet": "10.0.400",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)",
+    "native_flags": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O2",
+      "CMAKE_C_FLAGS_RELEASE": "-O2",
+      "P6_SANITIZERS": "OFF"
+    }
+  },
+  "profile": "deterministic-a500",
+  "p6_config": {
+    "audio_rate_hz": 48000,
+    "random_seed": 1,
+    "rtc_epoch_seconds": 946684800,
+    "input": "idle (no key, no port movement)"
+  },
+  "engine": {
+    "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "patches": 143,
+    "series_sha256": "9a8127bce15118ed7cfe299c67395dc9258d1a13126fc97bc8993139a846f2ce"
+  },
+  "artifacts": {
+    "p6_bench_probe": "86ac605a2779f59ebe508d541d4e6f3e531e33118a9042b75be26e1942795dee",
+    "puae6_libretro": "cd7c5d2f041437737f17bdebfb4bd6a7668fd495895da98ffa534eea81be4834",
+    "p6_libretro_host": "89581c1dabb40da42df1f7cb323712a7a2ab328513a968213161543b77d34d59",
+    "puae6.wbx": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "libwaterboxhost_debug": "d351a82bf67d4300699f1a64598ccdf654f2ee4dada254e24af8497c1e036ec2",
+    "libwaterboxhost_release": "b76a70ec194078fc68dc8416439e94012f0f1c0cba680ad8fde059e8673687d3"
+  },
+  "condition_when_started": {
+    "load": [
+      4.15,
+      6.96,
+      6.87
+    ],
+    "free_mib": 1149,
+    "active_mib": 5157,
+    "swapouts": 30854063,
+    "swap": "total = 11264.00M  used = 10147.38M  free = 1116.62M  (encrypted)",
+    "thermal": "Note: No thermal warning level has been recorded | Note: No performance warning level has been recorded | Note: No CPU power status has been recorded",
+    "busiest": [
+      "62.6 663296 /System/Volumes/Preboot/Cryptexes/App/System/Library/StagedFrameworks/Safari/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+      "10.9 53824 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python",
+      "9.3 24352 /usr/sbin/coreaudiod",
+      "5.8 23728 /System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd",
+      "5.3 399440 /Users/frangar/.vscode/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude"
+    ]
+  },
+  "measurement_status": "ORIENTATIVE: the Mac is used by someone while the benchmark runs; no dedicated runner exists (plan/runners.json). Nothing here is a hard threshold."
+}

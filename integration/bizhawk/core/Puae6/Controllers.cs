@@ -28,6 +28,20 @@ public static class Controllers
 	/// controller button toggles it on each press instead of having to be held.</summary>
 	public const int CapsLockCode = 0x62;
 
+	/// <summary>The controller button of each key code ("Key Space"), built once: the core asks for every key at every unit and a string built per question was ~4 KB of garbage per unit (T34).
+	/// Null where the code is not a key. <see cref="KeyButton"/> reads this table.</summary>
+	public static readonly string?[] KeyButtons = BuildKeyButtons();
+
+	/// <summary>The joystick buttons of port 1 and port 2, in the order of <see cref="JoystickNames"/> (the names <see cref="Joystick"/> makes), built once.</summary>
+	public static readonly string[][] JoystickButtons = [ BuildJoystickButtons(1), BuildJoystickButtons(2) ];
+
+	/// <summary>The mouse buttons and axes of port 1 as the controller names them, built once.</summary>
+	public static readonly string Port1MouseLeft = $"P1 {MouseLeft}", Port1MouseMiddle = $"P1 {MouseMiddle}", Port1MouseRight = $"P1 {MouseRight}", Port1MouseX = $"P1 {MouseX}", Port1MouseY = $"P1 {MouseY}";
+
+	static string?[] BuildKeyButtons() => KeyNames.Select(name => name is null ? null : $"Key {name}").ToArray();
+
+	static string[] BuildJoystickButtons(int port) => JoystickNames.Select(name => Joystick(port, name)).ToArray();
+
 	static string?[] BuildKeyNames()
 	{
 		var names = new string?[0x68];
@@ -86,5 +100,5 @@ public static class Controllers
 		return controller.MakeImmutable();
 	}
 
-	public static string KeyButton(int code) => $"Key {KeyNames[code]}";
+	public static string KeyButton(int code) => KeyButtons[code] ?? $"Key {KeyNames[code]}";
 }

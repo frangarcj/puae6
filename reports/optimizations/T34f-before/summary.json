@@ -1,0 +1,859 @@
+{
+  "baseline": "T34f-before",
+  "cost_breakdown": {
+    "a1200-aga-planes8-pal": {
+      "core_release_over_native_ms": null,
+      "engine_ms (native, render 0)": null,
+      "libretro_adapter_ms (libretro - native)": null,
+      "main_cost": null,
+      "main_cost_by_runner": {
+        "libretro": "engine",
+        "native": "engine",
+        "waterbox-core-release": "engine (p6w_frame_advance inside the sandbox)"
+      },
+      "output_production_ms (native render 3 - render 0)": null,
+      "unit_ms": 20.0,
+      "waterbox_core_release_ms": 5.67975
+    },
+    "a500-ocs-busy-pal": {
+      "core_release_over_native_ms": null,
+      "engine_ms (native, render 0)": null,
+      "libretro_adapter_ms (libretro - native)": null,
+      "main_cost": null,
+      "main_cost_by_runner": {
+        "libretro": "engine",
+        "native": "engine",
+        "waterbox-core-release": "engine (p6w_frame_advance inside the sandbox)"
+      },
+      "output_production_ms (native render 3 - render 0)": null,
+      "unit_ms": 20.0,
+      "waterbox_core_release_ms": 4.573083
+    },
+    "a600-ecs-copper-ntsc": {
+      "core_release_over_native_ms": null,
+      "engine_ms (native, render 0)": null,
+      "libretro_adapter_ms (libretro - native)": null,
+      "main_cost": null,
+      "main_cost_by_runner": {
+        "libretro": "engine",
+        "native": "engine",
+        "waterbox-core-release": "engine (p6w_frame_advance inside the sandbox)"
+      },
+      "output_production_ms (native render 3 - render 0)": null,
+      "unit_ms": 16.666666666666668,
+      "waterbox_core_release_ms": 4.3397505
+    }
+  },
+  "environment": {
+    "artifacts": {
+      "libwaterboxhost_debug": "d351a82bf67d4300699f1a64598ccdf654f2ee4dada254e24af8497c1e036ec2",
+      "libwaterboxhost_release": "b76a70ec194078fc68dc8416439e94012f0f1c0cba680ad8fde059e8673687d3",
+      "p6_bench_probe": "86ac605a2779f59ebe508d541d4e6f3e531e33118a9042b75be26e1942795dee",
+      "p6_libretro_host": "89581c1dabb40da42df1f7cb323712a7a2ab328513a968213161543b77d34d59",
+      "puae6.wbx": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+      "puae6_libretro": "cd7c5d2f041437737f17bdebfb4bd6a7668fd495895da98ffa534eea81be4834"
+    },
+    "condition_when_started": {
+      "active_mib": 5711,
+      "busiest": [
+        "99.4 404544 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "97.9 49072 /Users/frangar/Fun/uae/.claude/worktrees/agent-acf1202cea9f958ea/build/link-audit/p6_libretro_host",
+        "10.8 54176 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python",
+        "10.5 30016 /usr/sbin/coreaudiod",
+        "4.6 24896 /System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+      ],
+      "free_mib": 146,
+      "load": [
+        2.92,
+        5.03,
+        5.74
+      ],
+      "swap": "total = 10240.00M  used = 9396.75M  free = 843.25M  (encrypted)",
+      "swapouts": 30862350,
+      "thermal": "Note: No thermal warning level has been recorded | Note: No performance warning level has been recorded | Note: No CPU power status has been recorded"
+    },
+    "date_utc": "2026-10-12T16:36:20Z",
+    "engine": {
+      "patches": 143,
+      "series_sha256": "9a8127bce15118ed7cfe299c67395dc9258d1a13126fc97bc8993139a846f2ce",
+      "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827"
+    },
+    "git": {
+      "commit": "bbf1fcde2695e064a39365a6ee53b589330f4548",
+      "uncommitted_changes": true
+    },
+    "host": {
+      "cores": 8,
+      "cpu": "Apple M1 Pro",
+      "efficiency_cores": 2,
+      "host_page_bytes": 16384,
+      "kernel": "25.6.0",
+      "machine": "arm64",
+      "memory_bytes": 17179869184,
+      "os": "26.7.1 25G241",
+      "performance_cores": 6,
+      "power": [
+        "Now drawing from 'AC Power'",
+        " -InternalBattery-0 (id=26411107)\t100%; charged; 0:00 remaining present: true"
+      ]
+    },
+    "measurement_status": "ORIENTATIVE: the Mac is used by someone while the benchmark runs; no dedicated runner exists (plan/runners.json). Nothing here is a hard threshold.",
+    "p6_config": {
+      "audio_rate_hz": 48000,
+      "input": "idle (no key, no port movement)",
+      "random_seed": 1,
+      "rtc_epoch_seconds": 946684800
+    },
+    "profile": "deterministic-a500",
+    "tools": {
+      "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)",
+      "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+      "cmake": "cmake version 4.3.2",
+      "dotnet": "10.0.400",
+      "native_flags": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O2",
+        "CMAKE_C_FLAGS_RELEASE": "-O2",
+        "P6_SANITIZERS": "OFF"
+      },
+      "python": "3.14.7"
+    }
+  },
+  "scenarios": {
+    "a1200-aga-planes8-pal": {
+      "kind": "microrom",
+      "machine": "a1200",
+      "runners": {
+        "waterbox-core-release": {
+          "between_run_cv": 0.002305420658907965,
+          "core_create_ms": 316.12125,
+          "cpu_median_of_run_medians_ns": 5672521.0,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 5.7337705,
+          "first_unit_after_load_p95_ms": 5.9439708499999995,
+          "gc_collections_in_window": [
+            3,
+            2,
+            1
+          ],
+          "host_crashes_retried": 0,
+          "layer": "waterbox-core",
+          "load1_range": [
+            3.83,
+            11.99
+          ],
+          "managed_allocated_bytes_in_window": 13338224,
+          "managed_build": "Release",
+          "median_of_run_medians_ns": 5679750.0,
+          "median_of_run_p95_ns": 6046819.100000001,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 5.67975,
+          "p50_unit_fraction": 0.2839875,
+          "p95_headroom_x": 3.3236163807856656,
+          "p95_ms": 6.017541649999999,
+          "p95_unit_fraction": 0.30087708249999995,
+          "p99_ms": 6.31713542,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 484524032,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.008995749337771912,
+                "iqr": 102749.5,
+                "mad": 51062.5,
+                "max": 7476375.0,
+                "mean": 5685944.302666667,
+                "min": 5500417.0,
+                "n": 3000,
+                "p50": 5676292.0,
+                "p95": 5845617.3,
+                "p99": 5973666.670000001,
+                "stdev": 98293.69719417616
+              },
+              "load1_after": 4.04,
+              "load1_before": 3.83,
+              "noisy": [],
+              "peak_rss_bytes": 483016704,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.01070340681027871,
+                "iqr": 124030.75,
+                "mad": 60854.0,
+                "max": 11628583.0,
+                "mean": 5704732.114,
+                "min": 5500209.0,
+                "n": 3000,
+                "p50": 5685479.5,
+                "p95": 5892563.95,
+                "p99": 6036987.330000001,
+                "stdev": 157647.1723875408
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.012163991988747154,
+                "iqr": 141592.75,
+                "mad": 69000.5,
+                "max": 8048209.0,
+                "mean": 5713921.148,
+                "min": 5497250.0,
+                "n": 3000,
+                "p50": 5672521.0,
+                "p95": 6004158.3,
+                "p99": 6177100.5,
+                "stdev": 157082.28396596297
+              },
+              "load1_after": 4.34,
+              "load1_before": 4.33,
+              "noisy": [],
+              "peak_rss_bytes": 392904704,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.013468902680575729,
+                "iqr": 156343.75,
+                "mad": 76500.0,
+                "max": 12985166.0,
+                "mean": 5733422.542666666,
+                "min": 5497000.0,
+                "n": 3000,
+                "p50": 5679750.0,
+                "p95": 6056162.15,
+                "p99": 6299471.07,
+                "stdev": 248848.75301453995
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.01079918041816299,
+                "iqr": 130073.0,
+                "mad": 61270.5,
+                "max": 7043792.0,
+                "mean": 5697600.1,
+                "min": 5501125.0,
+                "n": 3000,
+                "p50": 5673625.0,
+                "p95": 5901487.500000001,
+                "p99": 6112278.750000001,
+                "stdev": 126576.81558877465
+              },
+              "load1_after": 5.42,
+              "load1_before": 5.11,
+              "noisy": [],
+              "peak_rss_bytes": 484524032,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.012144412910038942,
+                "iqr": 144562.0,
+                "mad": 69000.0,
+                "max": 11195500.0,
+                "mean": 5722479.2546666665,
+                "min": 5498458.0,
+                "n": 3000,
+                "p50": 5681625.0,
+                "p95": 5970512.5,
+                "p99": 6551205.410000005,
+                "stdev": 216035.37747460516
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.012418700600861813,
+                "iqr": 176156.75,
+                "mad": 70250.0,
+                "max": 17699166.0,
+                "mean": 5741561.859666667,
+                "min": 5497667.0,
+                "n": 3000,
+                "p50": 5656791.5,
+                "p95": 6027029.15,
+                "p99": 6992407.260000019,
+                "stdev": 448095.6434370531
+              },
+              "load1_after": 4.82,
+              "load1_before": 5.02,
+              "noisy": [],
+              "peak_rss_bytes": 484130816,
+              "rep": 4,
+              "wall_ns": {
+                "cod": 0.013956938273782618,
+                "iqr": 199395.0,
+                "mad": 79124.5,
+                "max": 40952333.0,
+                "mean": 5909088.05,
+                "min": 5497417.0,
+                "n": 3000,
+                "p50": 5669187.5,
+                "p95": 6074277.05,
+                "p99": 12224051.010000035,
+                "stdev": 1853030.7056051577
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.0094891287083634,
+                "iqr": 139354.25,
+                "mad": 53500.5,
+                "max": 8112250.0,
+                "mean": 5690983.838,
+                "min": 5457792.0,
+                "n": 3000,
+                "p50": 5638083.5,
+                "p95": 6012927.4,
+                "p99": 6179983.830000001,
+                "stdev": 159444.55479896793
+              },
+              "load1_after": 11.99,
+              "load1_before": 15.85,
+              "noisy": [],
+              "peak_rss_bytes": 475987968,
+              "rep": 5,
+              "wall_ns": {
+                "cod": 0.011170285361064316,
+                "iqr": 159146.0,
+                "mad": 63103.5,
+                "max": 13744250.0,
+                "mean": 5708256.761333333,
+                "min": 5457542.0,
+                "n": 3000,
+                "p50": 5649229.0,
+                "p95": 6046819.100000001,
+                "p99": 6225027.330000002,
+                "stdev": 229456.176900573
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.012658821215671892,
+            "iqr": 158343.25,
+            "mad": 71833.0,
+            "max": 40952333.0,
+            "mean": 5755595.744533333,
+            "min": 5457542.0,
+            "n": 15000,
+            "p50": 5674541.0,
+            "p95": 6017541.649999999,
+            "p99": 6317135.42,
+            "stdev": 854376.8347811956
+          },
+          "reps": 5,
+          "run_median_range_ns": [
+            5649229.0,
+            5685479.5
+          ],
+          "runs": 5,
+          "snapshot_bytes": 10236361,
+          "state_load_p50_ms": 8.5265625,
+          "state_load_p95_ms": 9.9136059,
+          "state_save_p50_ms": 9.850854,
+          "state_save_p95_ms": 17.462469050000003,
+          "units": 3000,
+          "warmup": 300
+        }
+      },
+      "standard": "pal",
+      "summary": "A1200 AGA (68EC020 cycle exact): eight bitplanes fetched 64 bits at a time (corpus aga-planes8-fmode3-pal)",
+      "ticks_equal_across_runners": true,
+      "unit_ms": 20.0,
+      "unit_ms_nominal": 20.0,
+      "window_end": {
+        "3300": {
+          "119664580096": [
+            "waterbox-core-release"
+          ]
+        }
+      }
+    },
+    "a500-ocs-busy-pal": {
+      "kind": "microrom",
+      "machine": "a500",
+      "runners": {
+        "waterbox-core-release": {
+          "between_run_cv": 0.00917096459452035,
+          "core_create_ms": 313.970292,
+          "cpu_median_of_run_medians_ns": 4565187.5,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 4.6954375,
+          "first_unit_after_load_p95_ms": 4.8578601,
+          "gc_collections_in_window": [
+            8,
+            2,
+            1
+          ],
+          "host_crashes_retried": 1,
+          "layer": "waterbox-core",
+          "load1_range": [
+            2.92,
+            19.52
+          ],
+          "managed_allocated_bytes_in_window": 44529080,
+          "managed_build": "Release",
+          "median_of_run_medians_ns": 4573083.0,
+          "median_of_run_p95_ns": 4842666.05,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 4.573083,
+          "p50_unit_fraction": 0.22865414999999997,
+          "p95_headroom_x": 4.062451745690358,
+          "p95_ms": 4.9231354000000005,
+          "p95_unit_fraction": 0.24615677000000002,
+          "p99_ms": 6.904670420000009,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 360644608,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.01750544896312519,
+                "iqr": 162166.0,
+                "mad": 80187.0,
+                "max": 13877000.0,
+                "mean": 4619055.6882,
+                "min": 4351542.0,
+                "n": 10000,
+                "p50": 4580688.0,
+                "p95": 4820961.05,
+                "p99": 5450474.580000002,
+                "stdev": 359895.3957686888
+              },
+              "load1_after": 3.75,
+              "load1_before": 2.92,
+              "noisy": [],
+              "peak_rss_bytes": 359923712,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.01948168981709734,
+                "iqr": 179677.5,
+                "mad": 89500.5,
+                "max": 48702667.0,
+                "mean": 4715516.7942,
+                "min": 4351375.0,
+                "n": 10000,
+                "p50": 4594083.0,
+                "p95": 4871385.399999999,
+                "p99": 7544064.080000003,
+                "stdev": 1301265.9591629612
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.02036236189641718,
+                "iqr": 186833.0,
+                "mad": 92958.0,
+                "max": 8076750.0,
+                "mean": 4574965.4806,
+                "min": 4335625.0,
+                "n": 10000,
+                "p50": 4565187.5,
+                "p95": 4791215.2,
+                "p99": 4984228.0,
+                "stdev": 150801.0678667158
+              },
+              "load1_after": 4.43,
+              "load1_before": 3.7,
+              "noisy": [],
+              "peak_rss_bytes": 360022016,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.021835160219046974,
+                "iqr": 199354.75,
+                "mad": 99854.0,
+                "max": 16283125.0,
+                "mean": 4592956.9541,
+                "min": 4335416.0,
+                "n": 10000,
+                "p50": 4573083.0,
+                "p95": 4842666.05,
+                "p99": 5068044.75,
+                "stdev": 242809.62564437636
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.01353209822050365,
+                "iqr": 132437.25,
+                "mad": 60917.0,
+                "max": 7102834.0,
+                "mean": 4537377.7775,
+                "min": 4345458.0,
+                "n": 10000,
+                "p50": 4501667.0,
+                "p95": 4782016.649999999,
+                "p99": 5016296.01,
+                "stdev": 141345.50726950748
+              },
+              "load1_after": 5.41,
+              "load1_before": 4.5,
+              "noisy": [],
+              "peak_rss_bytes": 360644608,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.014770894570461983,
+                "iqr": 147792.25,
+                "mad": 66583.5,
+                "max": 13522292.0,
+                "mean": 4555898.5707,
+                "min": 4345292.0,
+                "n": 10000,
+                "p50": 4507750.0,
+                "p95": 4839835.1,
+                "p99": 5134862.590000001,
+                "stdev": 214386.26202956942
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.012165442547061218,
+                "iqr": 119177.25,
+                "mad": 54708.5,
+                "max": 7365666.0,
+                "mean": 4528290.8687,
+                "min": 4350041.0,
+                "n": 10000,
+                "p50": 4497041.5,
+                "p95": 4761495.55,
+                "p99": 4980404.580000001,
+                "stdev": 130474.5401538586
+              },
+              "load1_after": 5.49,
+              "load1_before": 6.75,
+              "noisy": [],
+              "peak_rss_bytes": 359907328,
+              "rep": 4,
+              "wall_ns": {
+                "cod": 0.01346948180846486,
+                "iqr": 136448.0,
+                "mad": 60645.5,
+                "max": 10445375.0,
+                "mean": 4542562.5603,
+                "min": 4349834.0,
+                "n": 10000,
+                "p50": 4502437.5,
+                "p95": 4798877.1,
+                "p99": 5034052.0,
+                "stdev": 178185.01657519344
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.02649556242899106,
+                "iqr": 265042.5,
+                "mad": 121395.5,
+                "max": 11971875.0,
+                "mean": 4711256.8378,
+                "min": 4351125.0,
+                "n": 10000,
+                "p50": 4581729.5,
+                "p95": 5393453.55,
+                "p99": 7443886.000000005,
+                "stdev": 527323.0677757172
+              },
+              "load1_after": 19.52,
+              "load1_before": 42.08,
+              "noisy": [],
+              "peak_rss_bytes": 303972352,
+              "rep": 5,
+              "wall_ns": {
+                "cod": 0.02827569896565316,
+                "iqr": 278510.5,
+                "mad": 130020.5,
+                "max": 19818000.0,
+                "mean": 4833894.442,
+                "min": 4350917.0,
+                "n": 10000,
+                "p50": 4598312.5,
+                "p95": 6272613.949999999,
+                "p99": 9435552.0,
+                "stdev": 952859.2462720622
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.02027129172793865,
+            "iqr": 194510.25,
+            "mad": 92187.5,
+            "max": 48702667.0,
+            "mean": 4648165.86426,
+            "min": 4335416.0,
+            "n": 50000,
+            "p50": 4547687.5,
+            "p95": 4923135.4,
+            "p99": 6904670.420000009,
+            "stdev": 748284.2121612958
+          },
+          "reps": 5,
+          "run_median_range_ns": [
+            4502437.5,
+            4598312.5
+          ],
+          "runs": 5,
+          "snapshot_bytes": 9204169,
+          "state_load_p50_ms": 7.8930205,
+          "state_load_p95_ms": 8.496347300000002,
+          "state_save_p50_ms": 9.0387085,
+          "state_save_p95_ms": 12.455882700000004,
+          "units": 10000,
+          "warmup": 300
+        }
+      },
+      "standard": "pal",
+      "summary": "A500 OCS: every DMA channel on, a blit in flight under contention, the disk motor running (corpus ocs-blitter-dma-pal)",
+      "ticks_equal_across_runners": true,
+      "unit_ms": 20.0,
+      "unit_ms_nominal": 20.0,
+      "window_end": {
+        "10300": {
+          "373497797632": [
+            "waterbox-core-release"
+          ]
+        }
+      }
+    },
+    "a600-ecs-copper-ntsc": {
+      "kind": "microrom",
+      "machine": "a600",
+      "runners": {
+        "waterbox-core-release": {
+          "between_run_cv": 0.004372274516840936,
+          "core_create_ms": 319.485666,
+          "cpu_median_of_run_medians_ns": 4330250.0,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 4.399063,
+          "first_unit_after_load_p95_ms": 4.7134268,
+          "gc_collections_in_window": [
+            3,
+            2,
+            1
+          ],
+          "host_crashes_retried": 0,
+          "layer": "waterbox-core",
+          "load1_range": [
+            3.75,
+            15.85
+          ],
+          "managed_allocated_bytes_in_window": 13336816,
+          "managed_build": "Release",
+          "median_of_run_medians_ns": 4339750.5,
+          "median_of_run_p95_ns": 4617179.500000001,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 4.3397505,
+          "p50_unit_fraction": 0.26038502999999996,
+          "p95_headroom_x": 3.5970818414571286,
+          "p95_ms": 4.6333854500000005,
+          "p95_unit_fraction": 0.278003127,
+          "p99_ms": 4.81992033,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 446447616,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.012239562799315424,
+                "iqr": 115937.0,
+                "mad": 52854.0,
+                "max": 11597166.0,
+                "mean": 4383894.615,
+                "min": 4204416.0,
+                "n": 3000,
+                "p50": 4318291.5,
+                "p95": 4616087.2,
+                "p99": 4914212.58000003,
+                "stdev": 371075.59446955833
+              },
+              "load1_after": 3.83,
+              "load1_before": 3.75,
+              "noisy": [],
+              "peak_rss_bytes": 446447616,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.013718648359715764,
+                "iqr": 135156.0,
+                "mad": 59312.0,
+                "max": 13369875.0,
+                "mean": 4403986.136666667,
+                "min": 4204125.0,
+                "n": 3000,
+                "p50": 4323458.0,
+                "p95": 4650520.8,
+                "p99": 5471789.250000002,
+                "stdev": 456016.57966655045
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.011536016477169116,
+                "iqr": 101468.75,
+                "mad": 50229.5,
+                "max": 6966125.0,
+                "mean": 4368396.442666667,
+                "min": 4208125.0,
+                "n": 3000,
+                "p50": 4354146.0,
+                "p95": 4532133.3,
+                "p99": 4644525.000000004,
+                "stdev": 103937.05303053405
+              },
+              "load1_after": 4.33,
+              "load1_before": 4.43,
+              "noisy": [],
+              "peak_rss_bytes": 445956096,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.01347578782799215,
+                "iqr": 121343.0,
+                "mad": 58750.5,
+                "max": 7338459.0,
+                "mean": 4381548.830333333,
+                "min": 4207875.0,
+                "n": 3000,
+                "p50": 4359708.0,
+                "p95": 4567918.15,
+                "p99": 4709752.91,
+                "stdev": 124935.62449695262
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.012845678655966745,
+                "iqr": 116594.25,
+                "mad": 55625.0,
+                "max": 7118292.0,
+                "mean": 4360325.040666667,
+                "min": 4206000.0,
+                "n": 3000,
+                "p50": 4330250.0,
+                "p95": 4566500.0,
+                "p99": 4731591.160000001,
+                "stdev": 124702.74272708553
+              },
+              "load1_after": 5.11,
+              "load1_before": 5.41,
+              "noisy": [],
+              "peak_rss_bytes": 446185472,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.013796760896738189,
+                "iqr": 127052.5,
+                "mad": 59874.5,
+                "max": 16974125.0,
+                "mean": 4385955.772666667,
+                "min": 4205834.0,
+                "n": 3000,
+                "p50": 4339750.5,
+                "p95": 4617179.500000001,
+                "p99": 4951103.0,
+                "stdev": 322514.62979623466
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.008823252980593508,
+                "iqr": 86635.5,
+                "mad": 38020.5,
+                "max": 5736917.0,
+                "mean": 4341815.314666667,
+                "min": 4210666.0,
+                "n": 3000,
+                "p50": 4309125.0,
+                "p95": 4570597.6,
+                "p99": 4738014.17,
+                "stdev": 109957.97866889114
+              },
+              "load1_after": 5.02,
+              "load1_before": 5.49,
+              "noisy": [],
+              "peak_rss_bytes": 446349312,
+              "rep": 4,
+              "wall_ns": {
+                "cod": 0.010090295748688676,
+                "iqr": 101709.5,
+                "mad": 43520.5,
+                "max": 8450542.0,
+                "mean": 4354555.117333333,
+                "min": 4210375.0,
+                "n": 3000,
+                "p50": 4313104.5,
+                "p95": 4606446.15,
+                "p99": 4772783.750000001,
+                "stdev": 164672.75805874987
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.018402719363945382,
+                "iqr": 174166.75,
+                "mad": 79854.0,
+                "max": 5084375.0,
+                "mean": 4375701.615666667,
+                "min": 4208791.0,
+                "n": 3000,
+                "p50": 4339250.0,
+                "p95": 4653344.05,
+                "p99": 4759501.25,
+                "stdev": 135573.06917856986
+              },
+              "load1_after": 15.85,
+              "load1_before": 19.52,
+              "noisy": [],
+              "peak_rss_bytes": 446414848,
+              "rep": 5,
+              "wall_ns": {
+                "cod": 0.020979415500856913,
+                "iqr": 191542.25,
+                "mad": 91479.0,
+                "max": 5424291.0,
+                "mean": 4393574.266333333,
+                "min": 4208625.0,
+                "n": 3000,
+                "p50": 4360417.0,
+                "p95": 4685599.7,
+                "p99": 4801589.760000001,
+                "stdev": 147769.82718232682
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.01427918881633319,
+            "iqr": 136968.5,
+            "mad": 61958.0,
+            "max": 16974125.0,
+            "mean": 4383924.024666667,
+            "min": 4204125.0,
+            "n": 15000,
+            "p50": 4339042.0,
+            "p95": 4633385.45,
+            "p99": 4819920.33,
+            "stdev": 274916.9599977897
+          },
+          "reps": 5,
+          "run_median_range_ns": [
+            4313104.5,
+            4360417.0
+          ],
+          "runs": 5,
+          "snapshot_bytes": 8516041,
+          "state_load_p50_ms": 7.677583,
+          "state_load_p95_ms": 8.460479200000002,
+          "state_save_p50_ms": 8.6262295,
+          "state_save_p95_ms": 16.53297915,
+          "units": 3000,
+          "warmup": 300
+        }
+      },
+      "standard": "ntsc",
+      "summary": "A600 ECS NTSC: the Copper rewrites BPLCON3/DIWHIGH too (corpus ecs-ring-copper-ntsc)",
+      "ticks_equal_across_runners": true,
+      "unit_ms": 16.666666666666668,
+      "unit_ms_nominal": 16.666666666666668,
+      "window_end": {
+        "3300": {
+          "100708960256": [
+            "waterbox-core-release"
+          ]
+        }
+      }
+    }
+  },
+  "schema_version": 1,
+  "status": "ORIENTATIVE"
+}
