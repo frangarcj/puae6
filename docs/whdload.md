@@ -94,14 +94,14 @@ de WHDLoad) lo termina y el script escribe `exit.log`. La imagen que sale de la 
 un FFS valido (`inspect`) con exactamente esos dos ficheros mas, y es IDENTICA byte a byte en el motor nativo
 (`p6_state_probe`), en libretro (`puae6_hdf_save=on_close`) y en el nucleo BizHawk dentro de Waterbox (`export`).
 
-* DET02 (nativo): pasan los estados dentro del arranque (unidades 120, 240), con el titulo (330) y tras F10 (1502).
-  Con el juego en marcha (420, 700) el PCM tras cargar es otra forma de onda aunque todos los digests coincidan: es
-  una brecha de estado de Paula (T15m), fijada en `DIVERGENCES` de `tests/whdload/test_det02_whdload.py` y repetida
-  como fallo esperado en libretro; el nucleo BizHawk no la tiene (su estado es el snapshot del sandbox).
+* DET02 (nativo): pasan los estados dentro del arranque (unidades 120, 240), con el titulo (330), con el juego en marcha
+  (420, 700) y tras F10 (1502). T30b encontro que con el juego en marcha el PCM tras cargar era otra forma de onda
+  aunque todos los digests coincidieran; T15m lo cerro (parche 0250): Paula mezcla el volumen que fijo al cargar el
+  ultimo periodo (`mixvol`), no el del registro, y `restore_audio` ponia el segundo en el primero; un reproductor que
+  escribe el volumen en cada vertical con periodos de varias lineas deja los dos distintos en la frontera. Ahora el
+  volumen del mezclador viaja en AUDP y el escenario `tone-volume` de `tests/state/test_det02.py` lo cubre sin juego.
 * WB03: estado antes de que el script escriba (unidad 120): mismo sandbox, sandbox nuevo y otro proceso dan las mismas
   unidades y el mismo volumen; un estado de otro volumen se rechaza. Lo mismo en mitad del juego (700).
-* Hasta que T15m cierre la brecha, "restaurar" en libretro y nativo es exacto en imagen y maquina, no en sonido, con un
-  juego que tiene audio DMA sonando.
 
 Para repetirlo: `P6_WHDLOAD_LHA`, `P6_FATALMISSION_LHA` y `P6_KICKSTART_A1200_ROM` y, con el arbol de `build/link-audit`,
 `P6_STATE_PROBE_BUILD=debug python3 -m unittest tests.whdload.test_boot_native tests.whdload.test_det02_whdload tests.whdload.test_libretro_whdload tests.whdload.test_waterbox_whdload`

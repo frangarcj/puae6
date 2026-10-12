@@ -144,9 +144,9 @@ class WhdloadLibretroTests(lr.LibretroHarness):
         straight = self.runs(self.boot(MID + 60, *play()))
         self.assertEqual([r["hash"] for r in straight[MID:MID + 60]], [r["hash"] for r in self.runs(second)][:60], "a new process goes on as the original did")
 
-    @unittest.expectedFailure
-    def test_t15m_the_sound_after_a_state_of_the_game_in_play_is_the_one_the_original_made(self):
-        # The same finding as DET02 in the native engine (tests/whdload/test_det02_whdload.py, T15m): the pictures after the load are the original's, the PCM of the game's steady tone is another waveform.
+    def test_the_sound_after_a_state_of_the_game_in_play_is_the_one_the_original_made(self):
+        # The finding of T30b that T15m closed (tests/whdload/test_det02_whdload.py): the pictures after the load were the original's and the PCM of the game's steady tone another waveform, because
+        # Paula mixed the volume of the register where the original mixed the one it had latched at its last period (patch 0250).
         MID = 700
         state = self.work() / "mid.state"
         self.boot(MID, *play(leave=False), "--do", f"{MID}:savefile:{state}")

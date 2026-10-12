@@ -60,6 +60,10 @@ the card, item by item:
                                       the ADKCON masks). The PCM of every unit after the load is the original's sample for sample, in every mode, silent programs, tone and
                                       tone-modulated (channel 0 modulating the volume of channel 1 with the LED filter on) included. A new process also handed over, in its
                                       first unit, the samples its own reset head had queued before the load: load() now drops them (the PCM transport is not state)
+  mixer volume                        fixed by T15m (patch 0250, the 16th word of each channel of AUDP): the mixer uses the volume latched when the period is loaded (loadper), not the one in
+                                      AUDxVOL, and restore_audio sets the first to the second. A player that writes the volume in the vertical blank, with periods of several lines, leaves the two
+                                      different at the boundary: the PCM was another waveform from the first unit after the load with every digest equal (Fatal Mission under WHDLoad, T30b;
+                                      tone-volume is the micro-ROM). AUDn does not carry mixvol, so the digest of the audio saw nothing
   border colour                      fixed by T15g (patch 0100, p6_denise_rebuild_derived): restore_custom puts the colour registers into denise_colors and rebuilds acolors, but only after its
                                       queue of BPLCON writes has run update_bordercolor on the old table, so a new image (or one restarted before the load) drew the border of its first
                                       picture black where the state's COLOR00 was red: bordercolor is derived and is recomputed after CHIP. denise_colors needs no body of its own: the
@@ -128,6 +132,7 @@ SCENARIOS = {
     "copper_irq": ("copper_irq", [], (2,), CORE),
     "tone": ("tone", [], (3,), CORE),
     "tone-modulated": ("tone-mod", [], (3, 4), CORE),
+    "tone-volume": ("tone-vol", [], (5, 6), CORE),
     "busy": ("busy", [], (2, 5), CORE),
     "busy-disk": ("busy", "disk", (8,), CORE),
     "copper_irq-wait": ("copper_irq", [], (1, 3), (SAME_BEAM, RESET_BEAM)),
@@ -380,6 +385,41 @@ loop:
     BRA.S loop
 """
 
+TONE_VOLUME = """; PUAE6 test program (T15m): a tone of long periods (1500 colour clocks, several lines) whose volume the level-3 handler writes in every frame, 40 and 10 in turn.
+; Paula mixes the volume it latched when the period was loaded, not the one in the register, so at a unit boundary the two are different whenever the write came after the last load.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.W #$000F,$DFF096.L     ; audio DMA off
+    MOVE.L #$64646464,$20000.L  ; a square wave of 16 bytes
+    MOVE.L #$64646464,$20004.L
+    MOVE.L #$9C9C9C9C,$20008.L
+    MOVE.L #$9C9C9C9C,$2000C.L
+    MOVE.L #$20000,$DFF0A0.L    ; AUD0LC
+    MOVE.W #8,$DFF0A4.L         ; AUD0LEN: 8 words
+    MOVE.W #1500,$DFF0A6.L      ; AUD0PER
+    MOVE.W #64,$DFF0A8.L        ; AUD0VOL
+    MOVE.L #h1,$6C.L            ; level-3 autovector
+    MOVE.W #$C020,$DFF09A.L     ; INTENA: SET | INTEN | VERTB
+    MOVE.W #$8201,$DFF096.L     ; DMACON: SET | DMAEN | AUD0EN
+    MOVE.W #$2000,SR
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+h1:
+    MOVE.W #$0020,$DFF09C.L     ; INTREQ: clear VERTB
+    MOVE.W #40,$DFF0A8.L
+    MOVE.L #h2,$6C.L
+    RTE
+h2:
+    MOVE.W #$0020,$DFF09C.L
+    MOVE.W #10,$DFF0A8.L
+    MOVE.L #h1,$6C.L
+    RTE
+"""
+
 # cause id -> (owner, what is known). The owner is the task whose card has to make the scenarios of that cause match; the text is where the attribution came from.
 # None is left: T15g closed the last one (the palette).
 CAUSES = {}
@@ -575,7 +615,7 @@ class Det02Tests(Det02Case):
         "blt-dsk": (upstream.BUSY, None, {"#$83FF,$DFF096.L": "#$8250,$DFF096.L"}),
         "late-bpl": (LATE_BITPLANES, None, None), "interlaced": (INTERLACED, None, None),
         "tone": (tone_source(Tone("det02", channels=(0, 1), period=200, volume=64)), None, None),
-        "tone-mod": (TONE_MODULATED, None, None), "disk-dma": (upstream.DISK_DMA, None, None), "disk-seek": (DISK_SEEK, None, None),
+        "tone-mod": (TONE_MODULATED, None, None), "tone-vol": (TONE_VOLUME, None, None), "disk-dma": (upstream.DISK_DMA, None, None), "disk-seek": (DISK_SEEK, None, None),
         "disk-dma-single": (upstream.DISK_DMA, None, {"    MOVE.W #$8800,$DFF024.L     ; DSKLEN twice: the next transfer, $800 words\n    MOVE.W #$8800,$DFF024.L\n": "    MOVE.W #$8800,$DFF024.L     ; DSKLEN once\n"}),
         "disk-dma-sync": (upstream.DISK_DMA, None, {"    MOVE.W #$7F00,$DFF09E.L     ; ADKCON: clear WORDSYNC and the rest\n    MOVE.W #$9100,$DFF09E.L     ; ADKCON: SET | MFMPREC | FAST, as trackdisk\n":
                                            "    MOVE.W #$4489,$DFF07E.L     ; DSKSYNC\n    MOVE.W #$9500,$DFF09E.L     ; ADKCON: SET | MFMPREC | WORDSYNC | FAST: the transfer waits for the sync word\n"}),

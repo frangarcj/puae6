@@ -3719,6 +3719,29 @@
           "after_sha256": "ff2b015e7869b08dc2f24dadf1f32fa84a66974fc03a07dc77950fd7e9b5de1d"
         }
       ]
+    },
+    {
+      "id": "0250-audio-mixvol-state",
+      "file": "patches/winuae/0250-audio-mixvol-state.patch",
+      "sha256": "348b8c76b5e25975d3914b5029874499a12dc293165a71105fdba74d296527cc",
+      "title": "The volume the mixer uses (mixvol) comes back with the state, as the 16th word of each channel of AUDP",
+      "reason": "T15m: loadper latches AUDxVOL into mixvol when a period is loaded and the mixer uses mixvol, but restore_audio sets it to the current AUDxVOL, so a state taken between a volume write and the next period load (a player that sets the volume in the vertical blank, a period of several lines) played the new volume where the original still played the old one, with every digest equal.",
+      "category": "host hooks",
+      "order": 137,
+      "symbols": [
+        "p6_audio_phase_get",
+        "p6_audio_phase_set"
+      ],
+      "test": "tests/state/test_state_upstream.py; tests/state/test_det02.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "47849cd5292c7c8620817e36c0aad587336bcc9108e17ea63c6fc56b89f4c45a",
+          "after_sha256": "3a7028cc404b712077210932bcc93e5748ba77833fb4c64324c4c5c600dec8d3"
+        }
+      ]
     }
   ]
 }

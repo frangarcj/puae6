@@ -11563,7 +11563,7 @@
       "title": "Estado nativo: el PCM tras cargar un estado de un juego con audio DMA sonando (Fatal Mission en WHDLoad) es otra forma de onda aunque todos los digests coincidan",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "evidence": null,
       "depends": [
         "T15",
@@ -11580,11 +11580,14 @@
         "tests/state/**",
         "tests/whdload/**",
         "manifests/state-inventory.json",
-        "manifests/waterbox-memory.json"
+        "manifests/waterbox-memory.json",
+        "docs/whdload.md"
       ],
       "steps": [
         "Hallazgo de T30b (2026-10-12): tests/whdload/test_det02_whdload.py, escenarios whdload-game@420 y @700 (A1200 + Kickstart 3.1 del usuario + imagen de tools/prepare_whdload.py con Fatal Mission, fuego en el puerto 1 desde la unidad 400): tras cargar el estado, CPU, RAM, chipset, audio, video y bridge coinciden con el original en cada unidad pero el PCM de cada unidad difiere desde la primera y sigue distinto (la senal del juego es un tono periodico de dos unidades: otra forma de onda). Pasa en el arranque, el titulo y tras F10. Misma brecha en libretro (ahash tras loadfile); el nucleo BizHawk no la tiene porque su estado es el snapshot completo del sandbox.",
-        "Reproducir con un micro-ROM (Paula DMA en bucle con el periodo y el volumen que usa el juego), localizar el campo de Paula (audio.cpp: canal, buffer de muestras, filtro o fase del remuestreador) que ni P6AU ni AUDP llevan y ponerlo en el estado con un parche; quitar las 4 entradas de DIVERGENCES de tests/whdload/test_det02_whdload.py."
+        "Reproducir con un micro-ROM (Paula DMA en bucle con el periodo y el volumen que usa el juego), localizar el campo de Paula (audio.cpp: canal, buffer de muestras, filtro o fase del remuestreador) que ni P6AU ni AUDP llevan y ponerlo en el estado con un parche; quitar las 4 entradas de DIVERGENCES de tests/whdload/test_det02_whdload.py.",
+        "2026-10-12 (T15m): touch += docs/whdload.md, whose section 'Resultado con un juego real' dice que la brecha esta abierta y debe decir que esta cerrada.",
+        "2026-10-12 (T15m): causa raiz: mixvol. loadper() fija data.mixvol = data.audvol al cargar cada periodo y el mezclador usa mixvol; restore_audio lo pone igual al AUDxVOL actual y AUDP no lo llevaba, asi que un estado tomado entre una escritura de volumen y la siguiente carga de periodo (un reproductor que escribe el volumen en la vertical, periodos de varias lineas) sonaba con el volumen nuevo donde el original aun sonaba con el viejo, con todos los digests iguales (el digest de audio es AUDn, que no lleva mixvol). Parche 0250: palabra 16 de cada canal de AUDP (89 palabras, AUDP 356 bytes); escenario tone-volume en tests/state/test_det02.py (micro-ROM sin fixtures); DIVERGENCES de tests/whdload vacio; el expectedFailure de libretro quitado."
       ],
       "checks": [
         "DET02"

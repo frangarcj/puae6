@@ -5,7 +5,7 @@
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (164), the last ours and not upstream's
 //   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (320), COPR (60) and BLTP (72), the last three ours and not upstream's
-//   P6AU  AUD0..AUD3 (25 each) and AUDP (340), ours and not upstream's
+//   P6AU  AUD0..AUD3 (25 each) and AUDP (356), ours and not upstream's
 //   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
 //
 // BEAM (patch 0103 added four words) also carries the first and last line of the vertical display window and the flag that tests them: calcvdiw derives the lines from the registers and
@@ -31,9 +31,10 @@
 //
 // AUDP is the fourth (patch 0099, p6_audio_phase_get and p6_audio_phase_set): restore_audio rounds the period, copies dat into dat2 and zeroes what AUDn does not carry, and
 // restore_audio_finish sets last_cycles to the cycle of the load, so a restored Paula restarted its resampler phase, its filters and its interpolation from zero and lost
-// the DMA latches of its channels. 85 words: the resampler phase (next_sample_evtime and the cycles not yet integrated, 64 bits), whether audio was activated, the LED filter and
-// the five RC stages of the four output filters, and 15 words per channel (the DMA latches, the exact period, dat2, the fast-CPU latches, the interpolation integrator
-// and the ADKCON mask). Applied as values after restore_audio_finish; Paula does not run on load. The profiles that would need more (sinc interpolation, volume counters,
+// the DMA latches of its channels. 89 words: the resampler phase (next_sample_evtime and the cycles not yet integrated, 64 bits), whether audio was activated, the LED filter and
+// the five RC stages of the four output filters, and 16 words per channel (the DMA latches, the exact period, dat2, the fast-CPU latches, the interpolation integrator,
+// the ADKCON mask and, since patch 0250, the volume the mixer uses: loadper latches AUDxVOL into mixvol when a period is loaded and restore_audio sets it to the current register, so
+// a state taken between a volume write and the next period load played the new volume where the original still played the old one). Applied as values after restore_audio_finish; Paula does not run on load. The profiles that would need more (sinc interpolation, volume counters,
 // delayed crossfeed) make both calls refuse, and the save fails with the body's length.
 //
 // BLTP is the third: restore_blitter_new puts back the registers, the shifters, the counters and the pipeline of the cycle-exact blitter and drops what keeps a blit in flight
@@ -333,7 +334,7 @@ uint8_t *apply_bltp(int, uint8_t *body)
 enum AudioWord : unsigned { kAudNextSample, kAudPendingLow, kAudPendingHigh, kAudWorkToDo, kAudLedFilter, kAudFilters, kAudChannels = kAudFilters + 4 * 5 };
 enum AudioChannelWord : unsigned {
     kAudFlags, kAudIrqCheck, kAudPeriod, kAudDat2, kAudPtx, kAudDmaOffActive, kAudDmaOffCpuCount, kAudDmaOffPc, kAudMinPerLoop,
-    kAudCurrentSample, kAudLastSample, kAudNewSample, kAudSampleAccum, kAudSampleAccumTime, kAudAdkMask, kAudChannelWords
+    kAudCurrentSample, kAudLastSample, kAudNewSample, kAudSampleAccum, kAudSampleAccumTime, kAudAdkMask, kAudMixVol, kAudChannelWords
 };
 constexpr unsigned kAudioWords = kAudChannels + 4 * kAudChannelWords;
 // The longest sample period of the profile, in the engine's cycle units: the faster colour clock (NTSC, 3579545 Hz) at the slower rate (44100 Hz). A bound of the
@@ -873,6 +874,7 @@ const char *check_audp(const Sub &, const Body &b, Seen &seen)
         if (ch(kAudDmaOffActive) < 0 || ch(kAudDmaOffActive) > 1) return "the DMA-off latch of a channel is not a flag";
         if (ch(kAudDat2) < 0 || ch(kAudDat2) > 0xffff || ch(kAudNewSample) < 0 || ch(kAudNewSample) > 0xff) return "a data latch of a channel is wider than its register";
         if (ch(kAudAdkMask) != 0 && ch(kAudAdkMask) != -1) return "the modulation mask of a channel is neither all nor nothing";
+        if (ch(kAudMixVol) < 0 || ch(kAudMixVol) > 64) return "the volume the mixer uses is not a volume";
         const int32_t period = ch(kAudPeriod);
         const uint16_t rounded = period == -1 ? 0 : uint16_t(period / CYCLE_UNIT);       // save_audio's own arithmetic: int division
         if (rounded != seen.aud_period[n]) return "the exact period of a channel is not the one AUDn rounds";

@@ -11,11 +11,8 @@ import unittest
 from tests.state import test_det02 as d
 from tests.whdload import support
 
-# Where DET02 diverges with the real game (found by T30b; the engine is out of this task's reach, so the table pins it and T15m owns it): with the game started (fire at unit 400) and its sound playing, the
-# machine after a load matches the original in every digest (CPU, RAM, chipset, audio, picture) and the PCM it hands over differs from the first unit after the load and stays different: the waveform of
-# the steady tone the game plays is another one. The boot, the title, the volume's writes and the end of the game (after F10 the sound is off) match.
-CAUSE = "the PCM of a game with Paula DMA playing is another waveform from the first unit after the load, with every digest equal: audio state that neither P6AU nor AUDP carries"
-DIVERGENCES = {f"whdload-game@{n}/{mode}": (1, ("pcm",), "T15m", CAUSE) for n in (420, 700) for mode in (d.SAME_BEAM, d.NEW)}
+# Where DET02 diverges with the real game: nowhere. T30b found the PCM of the game after a load to be another waveform, and T15m closed it (patch 0250: the volume the mixer uses).
+DIVERGENCES = {}
 
 # name -> (rom, probe arguments, units N at which the state is taken, modes). The history before N is part of the arguments; the units above N are the input the loaded machine receives.
 SCENARIOS = {

@@ -61,7 +61,7 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 320, "COPR": 60, "BLTP": 72, "AUDP": 340, "DNSP": 64, "GEOM": 104, "DSKX": 164,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 320, "COPR": 60, "BLTP": 72, "AUDP": 356, "DNSP": 64, "GEOM": 104, "DSKX": 164,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
@@ -88,10 +88,10 @@ COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ign
 # The words of BLTP, in the order of p6_blitter_phase_get (blitter.cpp, patch 0097) and of the enum of bridge/state_upstream.cpp.
 BLTP_WORDS = ["queued", "count_done", "change_cycles_low", "change_cycles_high", "delayed_update", "dmacount", "cyclecount", "ahold2", "bhold2", "chold2", "bhold",
               "ddatl", "dptl", "linepixel2", "apt_prev", "bpt_prev", "cpt_prev", "dpt_prev"]
-# The words of AUDP, in the order of p6_audio_phase_get (audio.cpp, patch 0099) and of the enums of bridge/state_upstream.cpp: 25 of Paula, then 15 per channel.
+# The words of AUDP, in the order of p6_audio_phase_get (audio.cpp, patch 0099) and of the enums of bridge/state_upstream.cpp: 25 of Paula, then 16 per channel (patch 0250 added mixvol).
 AUDP_GLOBAL = ["next_sample_evtime", "pending_cycles_low", "pending_cycles_high", "work_to_do", "led_filter"] + [f"filter{i}_rc{j}" for i in range(4) for j in range(1, 6)]
 AUDP_CHANNEL = ["flags", "irqcheck", "per", "dat2", "ptx", "dmaoff_active", "dmaoff_cpu_count", "dmaoff_pc", "minperloop", "current_sample", "last_sample", "new_sample",
-                "sample_accum", "sample_accum_time", "adk_mask"]
+                "sample_accum", "sample_accum_time", "adk_mask", "mixvol"]
 # The words of GEOM, in the order of p6_frame_geometry_get (custom.cpp, patch 0100, three words more in patch 0103) and of the enum of bridge/state_upstream.cpp.
 GEOM_WORDS = ["hpos", "vpos", "hpos_short", "vpos_nom", "hpos_temp", "vpos_temp", "temp_change", "in_width", "in_height", "in_width2", "in_height2", "out_width", "out_height",
               "extra_width", "extra_height", "x_offset", "y_offset", "in_x_offset", "in_y_offset", "refused", "alloc_width", "alloc_height", "display_redraw", "erase_next_draw", "center_y_erase", "locked"]
@@ -912,6 +912,8 @@ class UpstreamBodiesTests(ProbeCase):
         ("AUDP channel 1 with a partial modulation mask", b"P6AU", "AUDP", audp_at("adk_mask", 1), struct.pack(">i", 0xFF), "the modulation mask of a channel is neither all nor nothing"),
         ("AUDP channel 2 with a period AUDn does not round to", b"P6AU", "AUDP", audp_at("per", 2), struct.pack(">i", 12345 * 512),
          "the exact period of a channel is not the one AUDn rounds"),
+        ("AUDP channel 2 with a mixer volume of 65", b"P6AU", "AUDP", audp_at("mixvol", 2), struct.pack(">i", 65), "the volume the mixer uses is not a volume"),
+        ("AUDP channel 0 with a negative mixer volume", b"P6AU", "AUDP", audp_at("mixvol", 0), struct.pack(">i", -1), "the volume the mixer uses is not a volume"),
         ("DNSP with a genlock pixel number of 9 bits", b"P6VD", "DNSP", 4 * 9, struct.pack(">i", 0x100), "a pixel number of the genlock buffer is wider than a byte"),
         ("DNSP with a negative genlock pixel number", b"P6VD", "DNSP", 4 * 15, struct.pack(">i", -1), "a pixel number of the genlock buffer is wider than a byte"),
         ("GEOM with a negative adopted height", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("vpos"), struct.pack(">i", -1), "a size of the raster is negative or beyond 16 bits"),

@@ -135,7 +135,7 @@ class WhdloadWaterboxTests(Sessions):
         self.assertEqual(first_volume.read_bytes(), (self.out / "other.hdf").read_bytes())
 
     def test_a_state_of_the_game_in_play_goes_on_with_the_sound_the_original_made(self):
-        # What the native engine and libretro do not do yet (tests/whdload/test_det02_whdload.py, T15m: the PCM of the game's steady tone is another waveform after a load): the state of the core is
+        # What the native engine and libretro had not got until T15m (tests/whdload/test_det02_whdload.py: the PCM of the game's steady tone was another waveform after a load): the state of the core is
         # the snapshot of the whole sandbox, so Paula's state is in it whatever the engine's own state lacks.
         MID, m = 700, 60
         out = self.run_game([self.gcore("A"), f"run A {MID} script={self.script}", "save A s", f"run A {m} script={self.script}", self.gcore("B"), "load B s", f"run B {m} script={self.script}"])
