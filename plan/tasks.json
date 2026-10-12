@@ -13997,6 +13997,45 @@
       "evidence": null
     },
     {
+      "id": "T72a",
+      "title": "Altura del buffer NTSC de los presets OCS (A500OG, A1000, A2000OG): el bridge decide la altura ECS con machine != A500",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T50",
+        "T72"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/adr/0006-video-output.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "integration/bizhawk/**",
+        "adapters/libretro/**",
+        "tests/step/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Hallazgo de T72 (reports/tasks/T72.md): el bridge usa `machine != P6_MACHINE_A500` para elegir la altura de buffer ECS (576 filas tambien en NTSC). Un A500OG, A1000 o A2000OG en NTSC, que son OCS, recibe 576 filas y no 486, mientras BizHawk anuncia 486 antes del primer frame. Decidir por el Agnus del preset (OCS/ECS/AGA), no por el numero de maquina; comprobar que p6_query_video, p6_frame, SET_SYSTEM_AV_INFO de libretro y el buffer inicial de BizHawk coinciden en las 8 maquinas x PAL/NTSC x las opciones de T72, y que los hashes de las maquinas existentes no cambian (A500, A600, A1200: solo cambian los presets OCS afectados, con baseline nuevo justificado)."
+      ],
+      "checks": [
+        "AV01",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Cada maquina anuncia y entrega la altura de su Agnus en PAL y NTSC en los tres adaptadores; A500, A600 y A1200 no cambian."
+      ],
+      "stop": "No cambiar hashes de A500/A600/A1200; un cambio en los presets OCS se justifica con la altura correcta, no se ajusta el test.",
+      "evidence": null
+    },
+    {
       "id": "T73",
       "title": "Opciones de audio de Paula: separacion estereo, interpolacion y filtro, como opciones de reinicio",
       "milestone": "M3",
@@ -14277,7 +14316,8 @@
         "T28b",
         "T73a",
         "T75a",
-        "T15l"
+        "T15l",
+        "T72a"
       ],
       "read": [
         "docs/01-architecture.md",
