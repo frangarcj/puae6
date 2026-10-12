@@ -13513,7 +13513,7 @@
       "title": "Directorios, LHA y ZIP como volumenes de solo lectura desde memoria (como MacHawk), con escrituras a un overlay",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T63",
         "T64a",
@@ -13536,7 +13536,8 @@
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk monta los .lha/.zip como volumenes de archivo de UAE desde memoria (filesys archive, AddReadonlyFile), sin montar el host. Mismo camino aqui; un directorio se empaqueta en memoria por el adaptador (VFS, orden y fechas fijos) y entra igual; las escrituras van a un HDF/overlay exportable. Lanzar directorios como contenido (extension |/ de references/puae).",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: filesys.c y zfile_archive.c de uae-waterbox.patch, bizhawk-unzip.c/.h (minizip sobre un zfile en memoria) y AddReadonlyFile de UAE.WHDLoad.cs.",
-        "2026-10-12: dividida en T64a (libretro, ADR 0011), T64b (BizHawk/Waterbox) y este cierre: un directorio y un LHA arrancan como volumen, deterministas y con estados en ambos adaptadores (MED02, DET02, FUZZ01, LR01)."
+        "2026-10-12: dividida en T64a (libretro, ADR 0011), T64b (BizHawk/Waterbox) y este cierre: un directorio y un LHA arrancan como volumen, deterministas y con estados en ambos adaptadores (MED02, DET02, FUZZ01, LR01).",
+        "2026-10-12: cierre. Puerta: un directorio y un LHA (y un ZIP) arrancan como volumen, deterministas (el mismo contenido es el mismo medio) y con estados en libretro (LR01 238 pruebas, Fatal Mission con WHDLoad y el Kickstart 3.1 del usuario desde un directorio y desde un LHA) y en BizHawk/Waterbox (WB03; ffi 37, waterbox-media 55, waterbox-state 66); FUZZ01 ('FUZZ01','T64a'/'T64'); ADR 0011; informe reports/tasks/T64.md."
       ],
       "checks": [
         "MED02",
