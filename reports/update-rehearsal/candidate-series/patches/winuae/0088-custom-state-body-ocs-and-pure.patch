@@ -1,0 +1,89 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7996,7 +7996,9 @@ uae_u8 *restore_custom(uae_u8 *src)
+ 	intreq = RW;			/* 09C INTREQ */
+ 	adkcon = RW;			/* 09E ADKCON */
+ 	for (i = 0; i < 8; i++) {
+-		bplpt[i] = RL;
++		uae_u32 pt = RL;
++		if (i < MAX_PLANES)
++			bplpt[i] = pt;
+ 	}
+ 	bplcon0 = RW;			/* 100 BPLCON0 */
+ 	bplcon1 = RW;			/* 102 BPLCON1 */
+@@ -8014,8 +8016,10 @@ uae_u8 *restore_custom(uae_u8 *src)
+ 		uae_u16 v = RW;
+ 		agnus_colors.color_regs_genlock[i] = denise_colors.color_regs_genlock[i] = (v & 0x8000) != 0;
+ 		agnus_colors.color_regs_ecs[i] = denise_colors.color_regs_ecs[i] = v & 0xfff; /* 180 COLORxx */
++#ifdef AGA
+ 		agnus_colors.color_regs_aga[i] = denise_colors.color_regs_aga[i] = getxcolor(v);
+ 		saved_color_regs_aga[i] = getxcolor(v);
++#endif
+ 	}
+ 	htotal = RW;			/* 1C0 HTOTAL */
+ 	hsstop = RW;			/* 1C2 HSTOP ? */
+@@ -8147,7 +8151,12 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
+ 
+ 	SL(currprefs.chipset_mask | 0x100);
+ 	SW(blt_info.bltddat);	/* 000 BLTDDAT */
++#ifdef P6_PORTABLE
++	/* DMACONR() stores the derived bits 14 (busy) and 13 (zero) into the live dmacon: a save must not change the machine. */
++	SW((dmacon & ~(0x4000 | 0x2000)) | (blit_busy(true) ? 0x4000 : 0) | (blt_info.blitzero ? 0x2000 : 0)); /* 002 DMACONR */
++#else
+ 	SW(DMACONR());			/* 002 DMACONR */
++#endif
+ 	SW(VPOSR());			/* 004 VPOSR */
+ 	SW(VHPOSR());			/* 006 VHPOSR */
+ 	SW(0);					/* 008 DSKDATR */
+@@ -8232,7 +8241,7 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
+ 	for (i = 0; full && i < 32; i++)
+ 		SW(0);
+ 	for (i = 0; i < 8; i++)
+-		SL(bplpt[i]);		/* 0E0-0FE BPLxPT */
++		SL(i < MAX_PLANES ? bplpt[i] : 0);		/* 0E0-0FE BPLxPT */
+ 	SW(bplcon0);			/* 100 BPLCON0 */
+ 	SW(bplcon1);			/* 102 BPLCON1 */
+ 	SW(bplcon2);			/* 104 BPLCON2 */
+@@ -8258,6 +8267,7 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
+ 	}
+ 	for (i = 0; i < 32; i++) {
+ 		if (aga_mode) {
++#ifdef AGA
+ 			uae_u32 v = agnus_colors.color_regs_aga[i];
+ 			uae_u16 v2;
+ 			v &= 0x00f0f0f0;
+@@ -8265,6 +8275,7 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
+ 			v2 |= ((v >> 12) & 15) << 4;
+ 			v2 |= ((v >> 20) & 15) << 8;
+ 			SW(v2);
++#endif
+ 		} else {
+ 			uae_u16 v = agnus_colors.color_regs_ecs[i];
+ 			if (agnus_colors.color_regs_genlock[i])
+@@ -8572,10 +8583,12 @@ static int getregfrompt(uaecptr *pt)
+ 		return 0x118;
+ 	if (pt == &bplpt[5])
+ 		return 0x11a;
++#if MAX_PLANES > 6
+ 	if (pt == &bplpt[6])
+ 		return 0x11c;
+ 	if (pt == &bplpt[7])
+ 		return 0x11e;
++#endif
+ 	if (pt == &spr[0].pt)
+ 		return 0x140;
+ 	if (pt == &spr[1].pt)
+@@ -8623,10 +8636,12 @@ static uaecptr *getptfromreg(int reg)
+ 		return &bplpt[4];
+ 	case 0x11a:
+ 		return &bplpt[5];
++#if MAX_PLANES > 6
+ 	case 0x11c:
+ 		return &bplpt[6];
+ 	case 0x11e:
+ 		return &bplpt[7];
++#endif
+ 	case 0x140:
+ 		return &spr[0].pt;
+ 	case 0x142:

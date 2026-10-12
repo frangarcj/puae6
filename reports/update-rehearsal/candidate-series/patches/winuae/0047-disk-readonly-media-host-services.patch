@@ -1,0 +1,249 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -62,7 +62,9 @@ int disk_debug_track = -1;
+ #include "fsdb.h"
+ #include "statusline.h"
+ #include "rommgr.h"
++#ifndef P6_PORTABLE
+ #include "tinyxml2.h"
++#endif
+ #ifdef FLOPPYBRIDGE
+ #include "floppybridge/floppybridge_abstract.h"
+ #include "floppybridge/floppybridge_lib.h"
+@@ -264,6 +266,7 @@ static drive floppy[MAX_FLOPPY_DRIVES];
+ static TCHAR dfxhistory[HISTORY_MAX][MAX_PREVIOUS_IMAGES][MAX_DPATH];
+ 
+ static uae_u8 exeheader[]={0x00,0x00,0x03,0xf3,0x00,0x00,0x00,0x00};
++#ifndef P6_PORTABLE
+ static uae_u8 bootblock_ofs[]={
+ 	0x44,0x4f,0x53,0x00,0xc0,0x20,0x0f,0x19,0x00,0x00,0x03,0x70,0x43,0xfa,0x00,0x18,
+ 	0x4e,0xae,0xff,0xa0,0x4a,0x80,0x67,0x0a,0x20,0x40,0x20,0x68,0x00,0x16,0x70,0x00,
+@@ -278,6 +281,7 @@ static uae_u8 bootblock_ffs[]={
+ 	0x64, 0x6F, 0x73, 0x2E, 0x6C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x00, 0x65, 0x78, 0x70, 0x61,
+ 	0x6E, 0x73, 0x69, 0x6F, 0x6E, 0x2E, 0x6C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x00, 0x00, 0x00,
+ };
++#endif
+ 
+ #define FS_OFS_DATABLOCKSIZE 488
+ #define FS_FLOPPY_BLOCKSIZE 512
+@@ -285,11 +289,13 @@ static uae_u8 bootblock_ffs[]={
+ #define FS_FLOPPY_TOTALBLOCKS 1760
+ #define FS_FLOPPY_RESERVED 2
+ 
++#ifndef P6_PORTABLE
+ static void writeimageblock (struct zfile *dst, uae_u8 *sector, int offset)
+ {
+ 	zfile_fseek (dst, offset, SEEK_SET);
+ 	zfile_fwrite (sector, FS_FLOPPY_BLOCKSIZE, 1, dst);
+ }
++#endif
+ 
+ static uae_u32 disk_checksum (uae_u8 *p, uae_u8 *c)
+ {
+@@ -304,6 +310,7 @@ static uae_u32 disk_checksum (uae_u8 *p, uae_u8 *c)
+ 	return cs;
+ }
+ 
++#ifndef P6_PORTABLE
+ static int dirhash (const uae_char *name)
+ {
+ 	uae_u32 hash;
+@@ -618,6 +625,7 @@ static int createimagefromexe(struct zfile *src, struct zfile *dst, int hd, bool
+ 
+ 	return 1;
+ }
++#endif
+ 
+ #ifdef FLOPPYBRIDGE
+ static FloppyBridgeAPI *bridges[4];
+@@ -975,6 +983,23 @@ int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num,
+ 		errno = ENOTSUP;
+ 		return 0;
+ 	}
++	// drive_insert would convert an Amiga executable into a dated ADF. Like the
++	// legacy probe, missing bytes read as zero.
++	uae_u8 header[sizeof exeheader] = { 0 };
++	zfile_fread(header, 1, sizeof header, f);
++	int header_error = zfile_ferror(f);
++	if (!header_error && zfile_fseek(f, 0, SEEK_SET))
++		header_error = EIO;
++	if (header_error) {
++		zfile_fclose(f);
++		errno = header_error;
++		return 0;
++	}
++	if (memcmp(header, exeheader, sizeof header) == 0) {
++		zfile_fclose(f);
++		errno = ENOTSUP;
++		return 0;
++	}
+ 	// The legacy caller supplies a distinct MAX_DPATH output buffer.
+ 	const TCHAR *name = zfile_getname(f);
+ 	if (_tcslen(name) >= MAX_DPATH) {
+@@ -1107,6 +1132,7 @@ static int read_header_ext2 (struct zfile *diskfile, trackid *trackdata, int *nu
+ 	return 1;
+ }
+ 
++#ifndef P6_PORTABLE
+ static void saveimagecutpathpart(TCHAR *name)
+ {
+ 	int i;
+@@ -1344,6 +1370,7 @@ static bool diskfile_iswriteprotect (struct uae_prefs *p, const TCHAR *fname_in,
+ 		return wrprot2;
+ 	return wrprot1;
+ }
++#endif
+ 
+ static bool isrecognizedext(const TCHAR *name)
+ {
+@@ -1580,6 +1607,7 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR
+ 			offs += tid->len;
+ 		}
+ 
++#ifndef P6_PORTABLE
+ 	} else if (memcmp (exeheader, buffer, sizeof exeheader) == 0 && !canauto && size <= 512 * (1760 * 2 - 7)) {
+ 		bool ffs = false;
+ 		int hd = 1;
+@@ -1619,6 +1647,7 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR
+ 			drv->useturbo = 1;
+ 		}
+ 
++#endif
+ 	} else if (canauto && (
+ 
+ 		// 320k double sided
+@@ -1806,7 +1835,9 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR
+ 			}
+ 		}
+ 	}
++#ifndef P6_PORTABLE
+ 	openwritefile(p, drv, 0);
++#endif
+ 	drive_settype_id(drv); /* Set DD or HD drive */
+ 	drive_fill_bigbuf(drv, side, 1);
+ 	drv->mfmpos = uaerand();
+@@ -2916,6 +2947,7 @@ static int drive_write_ext2(uae_u16 *bigmfmbuf, struct zfile *diskfile, trackid
+ 
+ static void drive_write_data (drive * drv);
+ 
++#ifndef P6_PORTABLE
+ static bool convert_adf_to_ext2 (drive *drv, int mode)
+ {
+ 	TCHAR name[MAX_DPATH];
+@@ -2967,6 +2999,7 @@ static bool convert_adf_to_ext2 (drive *drv, int mode)
+ 
+ 	return true;
+ }
++#endif
+ 
+ static void drive_write_data (drive *drv)
+ {
+@@ -2990,6 +3023,7 @@ static void drive_write_data (drive *drv)
+ 			drv->buffered_side = 2;
+ 		} else {
+ 			if (drive_write_adf_amigados (drv)) {
++#ifndef P6_PORTABLE
+ 				if (currprefs.floppy_auto_ext2) {
+ 					convert_adf_to_ext2 (drv, currprefs.floppy_auto_ext2);
+ 				} else {
+@@ -2998,6 +3032,7 @@ static void drive_write_data (drive *drv)
+ 						notify_user (NUMSG_NEEDEXT2);
+ 					warned = 1;
+ 				}
++#endif
+ 			}
+ 		}
+ 		return;
+@@ -3063,6 +3098,7 @@ static void drive_eject (drive * drv)
+ 	inprec_recorddiskchange (drv->drvnum, NULL, false);
+ }
+ 
++#ifndef P6_PORTABLE
+ static void floppy_get_bootblock (uae_u8 *dst, bool ffs, bool bootable)
+ {
+ 	strcpy ((char*)dst, "DOS");
+@@ -3239,6 +3275,7 @@ static void diskfile_readonly (const TCHAR *name, bool readonly)
+ 	}
+ 	write_log(_T("'%s': new mode = %x\n"), name, mode);
+ }
++#endif
+ 
+ static void setdskchangetime (drive *drv, int dsktime)
+ {
+@@ -3262,6 +3299,7 @@ void DISK_reinsert (int num)
+ 	setdskchangetime (&floppy[num], 2 * 50 * 312);
+ }
+ 
++#ifndef P6_PORTABLE
+ int disk_setwriteprotect (struct uae_prefs *p, int num, const TCHAR *fname_in, bool writeprotected)
+ {
+ 	int needwritefile, oldprotect;
+@@ -3311,6 +3349,7 @@ int disk_setwriteprotect (struct uae_prefs *p, int num, const TCHAR *fname_in, b
+ 
+ 	return 1;
+ }
++#endif
+ 
+ void disk_eject (int num)
+ {
+@@ -3423,6 +3462,7 @@ void disk_insert_force (int num, const TCHAR *name, bool forcedwriteprotect)
+ 	disk_insert_2 (num, name, 1, forcedwriteprotect);
+ }
+ 
++#ifdef FLOPPYBRIDGE
+ static void floppybridge_getsetprofile(int i)
+ {
+ #ifdef FLOPPYBRIDGE
+@@ -3442,6 +3482,7 @@ static void floppybridge_getsetprofile(int i)
+ 	}
+ #endif
+ }
++#endif
+ 
+ static void DISK_check_change (void)
+ {
+@@ -5569,6 +5610,7 @@ static void load_track (int num, int cyl, int dside, int *sectable)
+ 	drv->buffered_cyl = -1;
+ }
+ 
++#ifndef P6_PORTABLE
+ using namespace tinyxml2;
+ 
+ static bool abr_loaded;
+@@ -5702,6 +5744,7 @@ static void abrcheck(struct diskinfo *di)
+ 		}
+ 	}
+ }
++#endif
+ 
+ #ifdef FLOPPYBRIDGE
+ static void get_floppybridgeinfo(struct uae_prefs *prefs, TCHAR *infotext, int num)
+@@ -5815,9 +5858,11 @@ int DISK_examine_image(struct uae_prefs *p, int num, struct diskinfo *di, bool d
+ 		crc += v;
+ 	}
+ 	di->bootblockcrc32 = get_crc32(di->bootblock, 1024);
++#ifndef P6_PORTABLE
+ 	if (deepcheck) {
+ 		abrcheck(di);
+ 	}
++#endif
+ 	if (dos == 0x4b49434b) { /* KICK */
+ 		ret = 10;
+ 		goto end;
+@@ -6165,6 +6210,7 @@ uae_u8 *save_floppy (size_t *len, uae_u8 *dstptr)
+ 
+ #endif /* SAVESTATE */
+ 
++#ifndef P6_PORTABLE
+ #define MAX_DISKENTRIES 4
+ int disk_prevnext_name (TCHAR *imgp, int dir)
+ {
+@@ -6334,6 +6380,7 @@ int disk_prevnext (int drive, int dir)
+ 	_tcscpy (changed_prefs.floppyslots[drive].df, img);
+ 	return 1;
+ }
++#endif
+ 
+ static int getdebug(void)
+ {

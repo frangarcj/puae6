@@ -1,0 +1,21 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -2397,6 +2397,17 @@ void cia_set_overlay(bool overlay)
+ 	oldovl = overlay;
+ }
+ 
++#ifdef P6_PORTABLE
++// cia_cycle_accurate is worked out once per frame, at the end of CIA_vsync_prehandler, so a process that has not finished a frame yet
++// has it false and runs its first frame with CIA interrupts that do not wait for the E clock. A load is a new process: without this,
++// a reload would start that frame with the value the last session left (true) and every keyboard interrupt of unit 1 would come 8 to
++// 11 colour clocks later than in a clean process.
++void p6_cia_session_begin(void)
++{
++	cia_cycle_accurate = false;
++}
++#endif
++
+ void CIA_reset(int hardreset)
+ {
+ #ifdef P6_PORTABLE

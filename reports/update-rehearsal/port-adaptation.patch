@@ -1,0 +1,238 @@
+--- a/bridge/state_cpu.cpp
++++ b/bridge/state_cpu.cpp
+@@ -29,6 +29,7 @@
+ extern uae_u32 p6_rng_get(void);                                                           // main.cpp 0076
+ extern void p6_rng_set(uae_u32 state);
+ extern bool p6_cpu_boundary(const char **why);                                             // newcpu.cpp 0077
++extern evfunc2 p6_blitter_handler(void);    // blitter.cpp 0904
+ extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);       // events.cpp 0078
+ extern void p6_events_set(int idx, int next, int remain);
+ extern int p6_custom_extra_cycle_get(void);                                                // custom.cpp 0079
+@@ -68,7 +69,7 @@
+ evfunc2 scheduler_handler(uint8_t id)
+ {
+     switch (id) {
+-    case 1: return blitter_handler;
++    case 1: return p6_blitter_handler();
+     case 2: return event_doint_delay_do_ext;
+     case 3: return p6_custom_event2_handler(0);
+     case 4: return p6_custom_event2_handler(1);
+@@ -93,7 +94,7 @@
+ // cputester_event (keyboard_mode 0). 0 is "no handler that a state can name": a save refuses an active event that has one.
+ uint8_t scheduler_handler_id(evfunc2 f)
+ {
+-    if (f == blitter_handler) return 1;
++    if (f == p6_blitter_handler()) return 1;
+     if (f == event_doint_delay_do_ext) return 2;
+     if (f == p6_custom_event2_handler(0)) return 3;
+     if (f == p6_custom_event2_handler(1)) return 4;
+@@ -459,7 +460,6 @@
+         if (checks) {
+             if (sec_active[i]) {
+                 a.require(sec_id[i] != 0 && sec_time[i] >= now, "a secondary event has no handler or is in the past");
+-                a.require((i == ev2_blitter) == (sec_id[i] == kEv2Blitter), "slot 0 holds the blitter's event and nothing else does");
+                 any = true;
+                 if (sec_time[i] < earliest) earliest = sec_time[i];
+             } else {
+--- a/bridge/state_probe.cpp
++++ b/bridge/state_probe.cpp
+@@ -90,6 +90,8 @@
+ extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first);     // custom.cpp, patch 0103
+ 
+ extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
++extern int linear_vpos;    // custom.h no longer declares it in 6100b17
++extern evfunc2 p6_blitter_handler(void);    // blitter.cpp 0904
+ extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);   // events.cpp, patch 0078: the secondary scheduler's statics
+ extern int p6_custom_extra_cycle_get(void);                            // custom.cpp, patch 0079: the half-CCK remainder of the CPU
+ extern int p6_custom_ce020_extra_get(void);                            // custom.cpp, patch 0108: the same for the cycle-exact 68020
+@@ -525,7 +527,7 @@
+ void print_handler_table()
+ {
+     struct Expected { uint8_t id; evfunc2 handler; };
+-    const Expected table[] = {{1, blitter_handler}, {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
++    const Expected table[] = {{1, p6_blitter_handler()}, {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
+                               {5, event_audxdat_func}, {6, event_setdsr}, {7, event_CIA_synced_interrupt}, {8, event_CIA_tod_inc_event},
+                               {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}, {12, p6_custom_event2_handler(3)}};
+     for (const Expected &e : table) {
+@@ -724,7 +726,7 @@
+                 // A real secondary event, scheduled through the engine's own call (slot 0 is the blitter's): ev2:ID, ID of scheduler_handler.
+                 const int id = atoi(op.chunk + 4);
+                 const evfunc2 handler = p6_state::scheduler_handler(uint8_t(id));
+-                if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(2000 + 100 * id) * CYCLE_UNIT, uae_u32(0x1000 + id), handler);
++                if (handler) event2_newevent_xx(-1, evt_t(2000 + 100 * id) * CYCLE_UNIT, uae_u32(0x1000 + id), handler);
+             } else if (!strncmp(op.chunk, "beam:", 5)) {
+                 // beam:VPOS:LINEAR:HPOS puts the beam counters where a state had them (diagnosis only: what DET02 shows once the beam is out of the way).
+                 int v = 0, l = 0, h = 0;
+--- a/bridge/state_upstream.cpp
++++ b/bridge/state_upstream.cpp
+@@ -874,7 +874,7 @@
+     if (flags != 9 && flags != 11 && flags != 13) return "the flags are not the ones save_custom_slots writes";
+     for (uint32_t at = 12; at < 28; at += 2)
+         if (b.u16(at)) return "a word that is always zero is not";
+-    for (uint32_t slot = 0; slot < 4; ++slot) {
++    for (uint32_t slot = 0; slot < 3; ++slot) {
+         const uint32_t base = 28 + slot * 54;
+         if (b.u16(base + 4) > 0x1fe) return "a slot names a register beyond 0x1FE";
+         for (uint32_t at = base + 50; at <= base + 52; at += 2) {       // the registers of the pointers: getptfromreg takes anything else for a dummy
+@@ -884,7 +884,7 @@
+             if (!pointer) return "a slot points at a register the engine has no pointer for";
+         }
+     }
+-    if (b.u8(244) > 3) return "the first slot offset is beyond 3";
++    if (b.u8(190) > 3) return "the first slot offset is beyond 3";
+     seen.chsl_flags = flags;
+     return nullptr;
+ }
+@@ -1068,7 +1068,7 @@
+ constexpr Sub kChipsetBodies[] = {
+     {"CHIP", 360, 360, produce_chip, apply_chip, check_chip, 0, true}, {"CAGA", 1024, 1024, produce_caga, apply_caga, check_caga, 0, true, true},
+     {"BLTX", 226, 226, produce_bltx, apply_bltx, check_bltx, 0, true},
+-    {"BLIT", 63, 63, produce_blit, apply_blit, check_blit, 0, false}, {"CHSL", 245, 245, produce_chsl, apply_chsl, check_chsl, 0, true},
++    {"BLIT", 63, 63, produce_blit, apply_blit, check_blit, 0, false}, {"CHSL", 191, 191, produce_chsl, apply_chsl, check_chsl, 0, true},
+     {"SPR0", 25, 25, produce_spr, apply_spr, check_spr, 0, true}, {"SPR1", 25, 25, produce_spr, apply_spr, check_spr, 1, true},
+     {"SPR2", 25, 25, produce_spr, apply_spr, check_spr, 2, true}, {"SPR3", 25, 25, produce_spr, apply_spr, check_spr, 3, true},
+     {"SPR4", 25, 25, produce_spr, apply_spr, check_spr, 4, true}, {"SPR5", 25, 25, produce_spr, apply_spr, check_spr, 5, true},
+--- a/ports/portable/hostfs_unsupported.cpp
++++ b/ports/portable/hostfs_unsupported.cpp
+@@ -33,6 +33,7 @@
+ bool my_createshortcut(const TCHAR *, const TCHAR *, const TCHAR *) { return false; }
+ int my_existsdir(const TCHAR *) { return 0; }
+ int my_existsfile(const TCHAR *) { return 0; }
++bool my_existsfiledir(const TCHAR *) { return false; }   /* 6100b17 filesys.cpp filedir_exists(): there is no host file system */
+ uae_s64 my_fsize(struct my_openfile_s *) { return -1; }
+ int my_getvolumeinfo(const TCHAR *) { return -1; }
+ int my_issamevolume(const TCHAR *, const TCHAR *, TCHAR *) { return 0; }
+Binary files tests/__pycache__/build_support.cpython-314.pyc differ
+Binary files tests/fixtures/microrom/__pycache__/build_rom.cpython-314.pyc differ
+Binary files tests/hdf/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/hdf/__pycache__/hdf_image.cpython-314.pyc differ
+Binary files tests/hdf/__pycache__/hdf_rom.cpython-314.pyc differ
+Binary files tests/host/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/host/__pycache__/test_bridge_lifecycle.cpython-314.pyc differ
+Binary files tests/media-cow/__pycache__/med02.cpython-314.pyc differ
+Binary files tests/portability/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/portability/__pycache__/corpus.cpython-314.pyc differ
+Binary files tests/reference/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/reference/__pycache__/builds.cpython-314.pyc differ
+Binary files tests/reference/__pycache__/corpus_run.cpython-314.pyc differ
+--- a/tests/reference/patch-classes.json
++++ b/tests/reference/patch-classes.json
+@@ -67,7 +67,6 @@
+     "0058-drawing-rtg-refresh-guard": "required",
+     "0059-main-gui-state-owned-by-port": "required",
+     "0060-video-unit-return-m68k-go-unit": "required",
+-    "0061-drawing-null-buffer-arithmetic": "behavior",
+     "0062-unit-trace-test-hook": "instrumentation",
+     "0063-keyboard-ring-free-space": "instrumentation",
+     "0064-unit-trace-single-report": "instrumentation",
+@@ -102,7 +101,6 @@
+     "0093-blitter-body-keeps-old-skip-flags": "behavior",
+     "0094-custom-beam-state-access": "instrumentation",
+     "0095-custom-copper-state-access": "instrumentation",
+-    "0096-custom-rga-fourth-slot-state": "behavior",
+     "0097-blitter-phase-state-access": "instrumentation",
+     "0098-custom-derived-state-rebuild": "instrumentation",
+     "0099-audio-phase-state-access": "instrumentation",
+@@ -126,9 +124,7 @@
+     "0140-fpu-softfloat-only": "required",
+     "0141-fpu-without-mmu030-and-x87": "required",
+     "0142-fpu-state-access": "instrumentation",
+-    "0143-softfloat-case-exact-includes": "required",
+     "0144-fpu-exception-ends-the-instruction": "behavior",
+-    "0145-fpu-quotient-pointer-type": "behavior",
+     "0160-native2amiga-exter-queue": "required",
+     "0161-hardfile-synchronous-uaehf": "required",
+     "0162-traps-no-thread-traps": "required",
+@@ -149,7 +145,17 @@
+     "0261-bitplane-sequencer-state": "instrumentation",
+     "0280-disk-linecounter-state": "instrumentation",
+     "0262-denise-sprite-mask-unsigned-shift": "behavior",
+-    "0290-rom-refusal-by-cpu": "instrumentation"
++    "0290-rom-refusal-by-cpu": "instrumentation",
++    "0900-copper-strobe-else-brace": "required",
++    "0901-debugger-and-thread-symbols-of-new-code": "required",
++    "0902-velvet-keymcu-and-aspect-flag": "required",
++    "0903-beam-state-accessor-for-6100b17": "instrumentation",
++    "0904-scheduler-state-accessors-for-6100b17": "instrumentation",
++    "0905-copper-state-accessor-for-6100b17": "instrumentation",
++    "0906-frame-geometry-accessor-for-6100b17": "instrumentation",
++    "0907-statefile-version-accessor": "required",
++    "0908-counter-restart-hook-before-early-set-cycles": "required",
++    "0909-softfloat-include-follows-upstream-rename": "required"
+   },
+   "ablate": {
+     "0262-denise-sprite-mask-unsigned-shift": {
+@@ -196,19 +202,6 @@
+       "scenarios": [],
+       "subsystems": []
+     },
+-    "0061-drawing-null-buffer-arithmetic": {
+-      "effect": "neutral",
+-      "why": "The first video unit draws a line before any buffer is locked: NULL plus a shift and a shift of the negative pixel-count sentinel are undefined; both rewrites keep the values of valid buffers.",
+-      "test": "tests.host.test_drawing_source; sanitizer scan of tests.host.test_bridge_lifecycle",
+-      "scenarios": [
+-        "a500-vsync-pal",
+-        "a500-lores-bars-pal",
+-        "a500-hires-lace-fields-pal",
+-        "ecs-lores-bars-pal",
+-        "aga-planes8-pal"
+-      ],
+-      "subsystems": []
+-    },
+     "0068-disk-head-starts-on-track-0": {
+       "effect": "inert",
+       "why": "The floppy head starts on track 0 at every load; a clean process has the static array at zero, so only a second load in a used process shows it.",
+@@ -256,13 +249,6 @@
+       "scenarios": [],
+       "subsystems": []
+     },
+-    "0096-custom-rga-fourth-slot-state": {
+-      "effect": "inert",
+-      "why": "The fourth RGA pipeline slot travels in CHSL; only a state save or load walks the slots.",
+-      "test": "tests.state.test_state_upstream; tests.state.test_det02",
+-      "scenarios": [],
+-      "subsystems": []
+-    },
+     "0102-disk-update-defined-shift": {
+       "effect": "inert",
+       "why": "The position DISK_update is brought up to is computed with a multiplication, not a left shift of a negative value; only a state load calls DISK_update(-1).",
+@@ -293,13 +279,6 @@
+       "scenarios": [],
+       "subsystems": []
+     },
+-    "0145-fpu-quotient-pointer-type": {
+-      "effect": "neutral",
+-      "why": "The FMOD/FREM quotient goes through a uint64_t; identical where both types are the same.",
+-      "test": "tests/host/test_cpu_fpu.py",
+-      "scenarios": [],
+-      "subsystems": []
+-    },
+     "0190-filesys-rdb-checksum-bounded": {
+       "effect": "inert",
+       "why": "The checksum of an RDB block sums the longs that were read; only a hard file with a hostile block reaches it.",
+Binary files tests/scenarios/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/scenarios/a500/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/scenarios/a500/__pycache__/display.cpython-314.pyc differ
+Binary files tests/scenarios/aga/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/scenarios/aga/__pycache__/aga.cpython-314.pyc differ
+Binary files tests/scenarios/audio/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/scenarios/audio/__pycache__/audio.cpython-314.pyc differ
+Binary files tests/scenarios/corpus/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/scenarios/corpus/__pycache__/corpus.cpython-314.pyc differ
+Binary files tests/scenarios/corpus/__pycache__/rings.cpython-314.pyc differ
+Binary files tests/scenarios/disk/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/scenarios/disk/__pycache__/disk.cpython-314.pyc differ
+Binary files tests/scenarios/ecs/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/scenarios/ecs/__pycache__/ecs.cpython-314.pyc differ
+Binary files tests/state/__pycache__/__init__.cpython-314.pyc differ
+Binary files tests/state/__pycache__/envelope.cpython-314.pyc differ
+Binary files tests/state/__pycache__/harness.cpython-314.pyc differ
+Binary files tests/state/__pycache__/test_det02.cpython-314.pyc differ
+Binary files tests/state/__pycache__/test_state_cia.cpython-314.pyc differ
+Binary files tests/state/__pycache__/test_state_input.cpython-314.pyc differ
+Binary files tests/state/__pycache__/test_state_rtc.cpython-314.pyc differ
+Binary files tests/state/__pycache__/test_state_upstream.cpython-314.pyc differ
+Binary files tools/__pycache__/build_reference.cpython-314.pyc differ
+Binary files tools/__pycache__/compare_runs.cpython-314.pyc differ
+Binary files tools/__pycache__/import_sources.cpython-314.pyc differ
+Binary files tools/__pycache__/materialize_upstream.cpython-314.pyc differ

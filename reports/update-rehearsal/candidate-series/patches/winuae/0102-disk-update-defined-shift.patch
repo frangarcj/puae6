@@ -1,0 +1,12 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -4889,7 +4889,7 @@ void DISK_update (int tohpos)
+ 		return;
+ 	}
+ 
+-	cycles = (tohpos << 8) - disk_hpos;
++	cycles = (tohpos * 256) - disk_hpos;
+ 	if (cycles <= 0) {
+ 		return;
+ 	}

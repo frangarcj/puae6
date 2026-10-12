@@ -1,0 +1,311 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -1050,7 +1050,7 @@ static void set_x_funcs (void)
+ 		}
+ 	} else if (currprefs.cpu_model < 68020) {
+ #else
+-	is_super_access = is_super_access_68000;
++	is_super_access = currprefs.cpu_model >= 68010 ? nommu_is_super_access : is_super_access_68000;
+ 	if (currprefs.cpu_model < 68020) {
+ #endif
+ 		// 68000/010
+@@ -1363,6 +1363,23 @@ static void set_x_funcs (void)
+ 	}
+ #else
+ 		}
++	} else if (currprefs.cpu_model == 68020) {
++		// 68020 cycle exact (cpuemu_21): the only 68020 core of the profile (T24a, ADR 0010)
++		x_prefetch = get_word_ce020_prefetch;
++		x_get_ilong = get_long_ce020_prefetch;
++		x_get_iword = get_word_ce020_prefetch;
++		x_get_ibyte = NULL;
++		x_next_iword = next_iword_020ce;
++		x_next_ilong = next_ilong_020ce;
++		x_put_long = put_long_ce020;
++		x_put_word = put_word_ce020;
++		x_put_byte = put_byte_ce020;
++		x_get_long = get_long_ce020;
++		x_get_word = get_word_ce020;
++		x_get_byte = get_byte_ce020;
++		x_do_cycles = do_cycles_ce020;
++		x_do_cycles_pre = do_cycles_ce020;
++		x_do_cycles_post = do_cycles_ce020_post;
+ 	}
+ #endif
+ 	x2_prefetch = x_prefetch;
+@@ -1433,6 +1450,11 @@ static void set_x_funcs (void)
+ 
+ 	icache_fetch = get_longi;
+ 	icache_fetch_word = NULL;
++#ifdef P6_PORTABLE
++	if (currprefs.cpu_model == 68020 && currprefs.cpu_cycle_exact) {
++		icache_fetch = mem_access_delay_longi_read_ce020;
++	}
++#endif
+ #ifndef P6_PORTABLE
+ 	if (currprefs.cpu_memory_cycle_exact) {
+ 		icache_fetch = mem_access_delay_longi_read_ce020;
+@@ -1915,7 +1937,12 @@ void REGPARAM2 op_unimpl_1_noret(uae_u32 opcode)
+ // generic+direct, generic+direct+jit, generic+indirect, more compatible, cycle-exact, mmu, mmu+more compatible, mmu+mc+ce
+ #ifdef P6_PORTABLE
+ static const struct cputbl *cputbls[6][8] = {
+-	{ NULL, NULL, NULL, NULL, op_smalltbl_14, NULL, NULL, NULL }
++	// 68000 cycle exact
++	{ NULL, NULL, NULL, NULL, op_smalltbl_14, NULL, NULL, NULL },
++	// 68010: not selectable
++	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
++	// 68020 cycle exact
++	{ NULL, NULL, NULL, NULL, op_smalltbl_21, NULL, NULL, NULL }
+ };
+ #else
+ static const struct cputbl *cputbls[6][8] =
+@@ -2085,6 +2112,17 @@ static void build_cpufunctbl (void)
+ 
+ 	}
+ 
++#ifdef P6_PORTABLE
++	if (currprefs.cpu_model >= 68020) {
++		// The profile has no FPU and no MMU (FPUEMU and MMUEMU are off): cpuemu_21 compiles the coprocessor handlers empty,
++		// so every F-line opcode takes the line F exception, as on a 68020 without coprocessors.
++		for (opcode = 0xf000; opcode <= 0xffff; opcode++) {
++			cpufunctbl[opcode] = op_illg_1;
++			cpufunctbl_noret[opcode] = op_illg_1_noret;
++		}
++	}
++#endif
++
+ 	need_opcode_swap = 0;
+ #ifdef HAVE_GET_WORD_UNSWAPPED
+ 	if (jit) {
+@@ -2123,9 +2161,9 @@ static void build_cpufunctbl (void)
+ 	m68k_interrupt_delay = false;
+ 	m68k_accurate_ipl = false;
+ 	if (currprefs.cpu_cycle_exact) {
+-		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13
++		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13 || tbl == op_smalltbl_21
+ #ifndef P6_PORTABLE
+-			|| tbl == op_smalltbl_21 || tbl == op_smalltbl_23
++			|| tbl == op_smalltbl_23
+ #endif
+ 		)
+ 			m68k_interrupt_delay = true;
+@@ -3294,7 +3332,7 @@ static void Exception_normal (int nr)
+ 	
+ 	bool used_exception_build_stack_frame = false;
+ 
+-#ifndef P6_PORTABLE
++#if !defined(P6_PORTABLE) || defined(CPUEMU_21)
+ 	if (currprefs.cpu_model > 68000) {
+ 		uae_u32 oldpc = regs.instruction_pc;
+ 		nextpc = exception_pc (nr);
+@@ -3389,8 +3427,10 @@ static void Exception_normal (int nr)
+ 				uae_u16 ssw = (sv ? 4 : 0) | last_fc_for_exception_3;
+ 				ssw |= MMU030_SSW_RW | MMU030_SSW_SIZE_W;
+ 				regs.mmu_fault_addr = last_fault_for_exception_3;
++#ifdef MMUEMU
+ 				mmu030_state[0] = mmu030_state[1] = 0;
+ 				mmu030_data_buffer_out = 0;
++#endif
+ 				Exception_build_stack_frame(last_fault_for_exception_3, currpc, ssw, vector_nr, 0x0b);
+ 				used_exception_build_stack_frame = true;
+ 			} else {
+@@ -5992,6 +6032,7 @@ void cpu_halt(int id)
+ 	set_special(SPCFLAG_CHECK);
+ }
+ 
++#if defined(CPUEMU_0) || defined(CPUEMU_21)
+ #ifdef CPUEMU_0
+ #ifdef CPUEMU_33
+ 
+@@ -6349,6 +6390,8 @@ static void m68k_run_3p(void)
+ 	}
+ }
+ 
++#endif /* CPUEMU_0 */
++
+ /* "cycle exact" 68020/030  */
+ 
+ static void m68k_run_2ce (void)
+@@ -6454,12 +6497,14 @@ static void m68k_run_2ce (void)
+ 					cputrace.readcounter = cputrace.writecounter = 0;
+ 				}
+ 
++#ifndef P6_PORTABLE // input record/playback debugging is excluded
+ 				if (inputrecord_debug & 4) {
+ 					if (input_record > 0)
+ 						inprec_recorddebug_cpu(1, r->opcode);
+ 					else if (input_play > 0)
+ 						inprec_playdebug_cpu(1, r->opcode);
+ 				}
++#endif
+ #ifdef DEBUGGER
+ 				if (debug_opcode_watch) {
+ 					debug_trainer_match();
+@@ -6492,6 +6537,7 @@ static void m68k_run_2ce (void)
+ 	}
+ }
+ 
++#ifdef CPUEMU_0
+ #ifdef CPUEMU_20
+ 
+ // full prefetch 020 (more compatible)
+@@ -6780,6 +6826,7 @@ static void m68k_run_mmu (void)
+ #endif
+ 
+ #endif /* CPUEMU_0 */
++#endif /* CPUEMU_0 || CPUEMU_21 */
+ 
+ int in_m68k_go = 0;
+ #ifdef P6_PORTABLE
+@@ -6841,7 +6888,7 @@ void m68k_run(void)
+ 
+ 		currprefs.cpu_model < 68020 ? m68k_run_2_000 : m68k_run_2_020;
+ #else
+-	run_func = m68k_run_1_ce;
++	run_func = currprefs.cpu_model >= 68020 ? m68k_run_2ce : m68k_run_1_ce;
+ #endif
+ 
+ 	run_func();
+@@ -8524,7 +8571,6 @@ void mem_access_delay_word_write (uaecptr addr, uae_u32 v)
+ 	put_word (addr, v);
+ }
+ 
+-#ifndef P6_PORTABLE
+ static void start_020_cycle(void)
+ {
+ 	regs.ce020startcycle = get_cycles();
+@@ -9011,6 +9057,7 @@ void mem_access_delay_long_write_ce020 (uaecptr addr, uae_u32 v)
+ }
+ 
+ 
++#ifndef P6_PORTABLE
+ // 68030 caches aren't so simple as 68020 cache..
+ 
+ STATIC_INLINE struct cache030 *geticache030 (struct cache030 *cp, uaecptr addr, uae_u32 *tagp, int *lwsp)
+@@ -10412,7 +10459,13 @@ static void reset_pipeline_state(void)
+ #endif
+ }
+ 
+-#ifndef P6_PORTABLE
++#ifdef P6_PORTABLE
++// External bus errors are not modelled without an MMU (upstream's own version returns here too): the
++// 68020 profile has no MMU, so a prefetch never faults.
++static void do_access_or_bus_error(uaecptr, uaecptr)
++{
++}
++#endif
+ static int add_prefetch_030(int idx, uae_u16 w, uaecptr pc)
+ {
+ 	regs.prefetch020[0] = regs.prefetch020[1];
+@@ -10438,6 +10491,7 @@ static int add_prefetch_030(int idx, uae_u16 w, uaecptr pc)
+ 	return idx + 1;
+ }
+ 
++#ifndef P6_PORTABLE
+ void fill_prefetch_030_ntx(void)
+ {
+ 	uaecptr pc = m68k_getpc ();
+@@ -10573,6 +10627,7 @@ void fill_prefetch_030_ntx_continue (void)
+ 		regs.irc = get_word_030_prefetch(0);
+ }
+ 
++#endif
+ void fill_prefetch_020_ntx(void)
+ {
+ 	uaecptr pc = m68k_getpc ();
+@@ -10615,6 +10670,7 @@ void continue_020_prefetch(void)
+ 	fill_prefetch_020_ntx();
+ }
+ 
++#ifndef P6_PORTABLE
+ void continue_ce030_prefetch(void)
+ {
+ 	fill_prefetch_030_ntx();
+@@ -10623,6 +10679,7 @@ void continue_030_prefetch(void)
+ {
+ 	fill_prefetch_030_ntx();
+ }
++#endif
+ 
+ void fill_prefetch_020(void)
+ {
+@@ -10630,6 +10687,7 @@ void fill_prefetch_020(void)
+ 	check_t0_trace();
+ }
+ 
++#ifndef P6_PORTABLE
+ void fill_prefetch_030(void)
+ {
+ 	fill_prefetch_030_ntx();
+@@ -10657,7 +10715,9 @@ void fill_prefetch (void)
+ 		fill_prefetch_030 ();
+ 	} else if (currprefs.cpu_model <= 68010) {
+ #else
+-	if (currprefs.cpu_model <= 68010) {
++	if (currprefs.cpu_model == 68020) {
++		fill_prefetch_020 ();
++	} else if (currprefs.cpu_model <= 68010) {
+ #endif
+ 		uaecptr pc = m68k_getpc ();
+ 		regs.ir = x_get_word (pc);
+diff --git a/newcpu_common.cpp b/newcpu_common.cpp
+--- a/newcpu_common.cpp
++++ b/newcpu_common.cpp
+@@ -1648,6 +1648,56 @@ void Exception_build_stack_frame(uae_u32 oldpc, uae_u32 currpc, uae_u32 ssw, int
+ 		m68k_areg(regs, 7) -= 2;
+ 		x_put_word(m68k_areg(regs, 7), regs.wb2_address); // = mmu030_state[1]); 8 0x08
+ 		break;
++#endif
++#if !defined(MMUEMU) && defined(CPUEMU_21)
++	case 0xB:
++		// Long bus cycle fault frame of the 68020 without an MMU (T24a): the address error of an odd PC. The MMU state
++		// that the frame above copies (mmu030_state, mmu030_ad, mmu030_disp_store, mm030_stageb_address, regs.wb2_*
++		// and wb3_*) is zero without an MMU, so it is written as zero rather than linking cpummu030.
++		for (i = 0; i < MAX_MMU030_ACCESS; i++) {
++			m68k_areg(regs, 7) -= 4;
++			x_put_long(m68k_areg(regs, 7), 0);
++		}
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), 0); // version & internal information
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), 0); // internal registers
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), 0);
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), 0);
++		m68k_areg(regs, 7) -= 4;
++		x_put_long(m68k_areg(regs, 7), regs.mmu_fault_addr); // data input buffer = fault address
++		{
++			uae_u32 ps = (regs.prefetch020_valid[0] ? 1 : 0) | (regs.prefetch020_valid[1] ? 2 : 0) | (regs.prefetch020_valid[2] ? 4 : 0);
++			ps |= ((regs.pipeline_r8[0] & 7) << 8);
++			ps |= ((regs.pipeline_r8[1] & 7) << 11);
++			ps |= ((regs.pipeline_pos & 15) << 16);
++			ps |= ((regs.pipeline_stop & 15) << 20);
++			m68k_areg(regs, 7) -= 4;
++			x_put_long(m68k_areg(regs, 7), ps);
++		}
++		m68k_areg(regs, 7) -= 4;
++		x_put_long(m68k_areg(regs, 7), 0); // stage B address
++		m68k_areg(regs, 7) -= 4;
++		x_put_long(m68k_areg(regs, 7), 0);
++		m68k_areg(regs, 7) -= 4;
++		x_put_long(m68k_areg(regs, 7), 0);
++		m68k_areg(regs, 7) -= 4;
++		x_put_long(m68k_areg(regs, 7), 0); // data output buffer
++		m68k_areg(regs, 7) -= 4;
++		x_put_long(m68k_areg(regs, 7), regs.prefetch020[0] << 16); // internal register (opcode storage)
++		m68k_areg(regs, 7) -= 4;
++		x_put_long(m68k_areg(regs, 7), regs.mmu_fault_addr); // data cycle fault address
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), regs.prefetch020[2]); // instruction pipe stage B
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), regs.prefetch020[1]); // instruction pipe stage C
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), ssw);
++		m68k_areg(regs, 7) -= 2;
++		x_put_word(m68k_areg(regs, 7), 0);
++		break;
+ #endif
+ 	default:
+ 		write_log(_T("Unknown exception stack frame format: %X\n"), format);

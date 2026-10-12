@@ -1,0 +1,306 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -281,6 +281,7 @@ int inputdevice_geteventid(const TCHAR *s)
+ 	return 0;
+ }
+ 
++#ifndef P6_PORTABLE
+ int inputdevice_uaelib (const TCHAR *s, const TCHAR *parm)
+ {
+ 	//write_log(_T("%s: %s\n"), s, parm);
+@@ -336,6 +337,7 @@ int inputdevice_uaelib (const TCHAR *s, const TCHAR *parm)
+ 	}
+ 	return 0;
+ }
++#endif
+ 
+ int inputdevice_uaelib(const TCHAR *s, int parm, int max, bool autofire)
+ {
+@@ -752,6 +754,7 @@ static bool isemptykey(int keyboard, int scancode)
+ 	return true;
+ }
+ 
++#ifndef P6_PORTABLE
+ static void out_config (struct zfile *f, int id, int num, const TCHAR *s1, const TCHAR *s2)
+ {
+ 	TCHAR tmp[MAX_DPATH];
+@@ -844,9 +847,11 @@ static bool write_slot (TCHAR *p, struct uae_input_device *uid, int i, int j)
+ 	}
+ 	return ok;
+ }
++#endif
+ 
+ static struct inputdevice_functions *getidf (int devnum);
+ 
++#ifndef P6_PORTABLE
+ static void kbrlabel (TCHAR *s)
+ {
+ 	while (*s) {
+@@ -1039,9 +1044,11 @@ static void write_config (struct zfile *f, int idnum, int devnum, const TCHAR *n
+ 	for (i = 0; i < ID_BUTTON_TOTAL; i++)
+ 		write_config2 (f, idnum, i, ID_BUTTON_OFFSET, tmp1, id);
+ }
++#endif
+ 
+ static const TCHAR *kbtypes[] = { _T("amiga"), _T("pc"), NULL };
+ 
++#ifndef P6_PORTABLE
+ void write_inputdevice_config (struct uae_prefs *p, struct zfile *f)
+ {
+ 	int i, id;
+@@ -1152,6 +1159,7 @@ static TCHAR *getstring (const TCHAR **pp)
+ 	*pp = p;
+ 	return str;
+ }
++#endif
+ 
+ static void reset_inputdevice_settings (struct uae_input_device *uid)
+ {
+@@ -1372,7 +1380,15 @@ static void gethidvals2(const TCHAR *devname, int *id, const TCHAR *str)
+ 	TCHAR *s = _tcsstr(dv, str);
+ 	if (s) {
+ 		int val = -1;
++#ifdef P6_PORTABLE
++		const TCHAR *digits = s + _tcslen(str);
++		TCHAR *digits_end;
++		long parsed = _tcstol(digits, &digits_end, 16);
++		if (digits_end != digits && parsed >= 0 && parsed <= INT_MAX)
++			val = (int)parsed;
++#else
+ 		_stscanf(s + _tcslen(str), _T("%X"), &val);
++#endif
+ 		*id = val;
+ 	}
+ 	xfree(dv);
+@@ -1531,6 +1547,7 @@ static int matchdevice(struct uae_prefs *p, struct inputdevice_functions *inf, c
+ 	return match;
+ }
+ 
++#ifndef P6_PORTABLE
+ static bool read_slot (const TCHAR *parm, int num, int joystick, int button, struct uae_input_device *id, int keynum, int subnum, const struct inputevent *ie, uae_u64 flags, int port, TCHAR *custom)
+ {
+ 	int mask;
+@@ -2080,10 +2097,12 @@ void inputdevice_generate_jport_custom(struct uae_prefs *pr, int port)
+ 		generate_jport_custom_item(pr->keyboard_settings[pr->input_selected_setting], l, port, IDTYPE_KEYBOARD, jpc->custom);
+ 	}
+ }
++#endif
+ 
+ static int custom_autoswitch_joy[MAX_JPORTS_CUSTOM];
+ static int custom_autoswitch_mouse[MAX_JPORTS_CUSTOM];
+ 
++#ifndef P6_PORTABLE
+ void inputdevice_jportcustom_fixup(struct uae_prefs *p, TCHAR *data, int cnum)
+ {
+ 	TCHAR olddata[MAX_DPATH];
+@@ -2442,6 +2461,7 @@ void inputdevice_parse_jport_custom(struct uae_prefs *pr, int index, int port, T
+ 	}
+ 
+ }
++#endif
+ 
+ static int mouseedge_alive, mousehack_alive_cnt;
+ static int lastmx, lastmy;
+@@ -2653,7 +2673,9 @@ static bool get_mouse_position(int *xp, int *yp, int inx, int iny)
+ 	int monid = 0;
+ 	struct vidbuf_description *vidinfo = &adisplays[monid].gfxvidinfo;
+ 	struct amigadisplay *ad = &adisplays[monid];
++#ifdef PICASSO96
+ 	struct picasso96_state_struct *state = &picasso96_state[monid];
++#endif
+ 	int x, y;
+ 	float fdy, fdx, fmx, fmy;
+ 	bool ob = false;
+@@ -4222,6 +4244,7 @@ struct delayed_event
+ };
+ static struct delayed_event *delayed_events;
+ 
++#ifndef P6_PORTABLE
+ int handle_custom_event (const TCHAR *custom, int append)
+ {
+ 	TCHAR *p, *buf, *nextp;
+@@ -4365,6 +4388,7 @@ int handle_custom_event (const TCHAR *custom, int append)
+ 	xfree (buf);
+ 	return 0;
+ }
++#endif
+ 
+ void inputdevice_playevents(void)
+ {
+@@ -4399,7 +4423,9 @@ void inputdevice_hsync(bool forceread)
+ 			if (de->event_string) {
+ 				TCHAR *s = de->event_string;
+ 				de->event_string = NULL;
++#ifndef P6_PORTABLE
+ 				handle_custom_event (s, 0);
++#endif
+ 				xfree (s);
+ 			}
+ 		}
+@@ -4433,8 +4459,10 @@ void inputdevice_hsync(bool forceread)
+ 					iq->state = 0;
+ 				else
+ 					iq->state = iq->storedstate;
++#ifndef P6_PORTABLE
+ 				if (iq->custom)
+ 					handle_custom_event (iq->custom, 0);
++#endif
+ 				if (iq->evt)
+ 					handle_input_event (iq->evt, iq->state, iq->max, HANDLE_IE_FLAG_PLAYBACKEVENT);
+ 				iq->linecnt = iq->nextlinecnt;
+@@ -4802,7 +4830,11 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
+ 
+ 	if (code == 0)
+ 		goto end;
+-	if (state && needcputrace(code) && can_cpu_tracer() == true && is_cpu_tracer() == false && !input_play && !input_record && !debugging) {
++	if (state && needcputrace(code) && can_cpu_tracer() == true && is_cpu_tracer() == false && !input_play && !input_record
++#ifdef DEBUGGER
++		&& !debugging
++#endif
++		) {
+ 		if (set_cpu_tracer (true)) {
+ 			tracer_enable = 1;
+ 			return true; // wait for next frame
+@@ -5068,6 +5100,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
+ 	case AKS_VOLUP:
+ 		sound_volume (newstate <= 0 ? 1 : -1);
+ 		break;
++#ifndef P6_PORTABLE
+ 	case AKS_VOLMUTE:
+ 		sound_mute (newstate);
+ 		break;
+@@ -5080,6 +5113,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
+ 	case AKS_MVOLMUTE:
+ 		master_sound_volume (0);
+ 		break;
++#endif
+ 	case AKS_QUIT:
+ 		uae_quit ();
+ 		break;
+@@ -5214,6 +5248,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
+ 		changed_prefs.input_selected_setting = currprefs.input_selected_setting = code - AKS_INPUT_CONFIG_1;
+ 		inputdevice_updateconfig (&changed_prefs, &currprefs);
+ 		break;
++#ifndef P6_PORTABLE
+ 	case AKS_DISK_PREV0:
+ 	case AKS_DISK_PREV1:
+ 	case AKS_DISK_PREV2:
+@@ -5226,6 +5261,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
+ 	case AKS_DISK_NEXT3:
+ 		disk_prevnext (code - AKS_DISK_NEXT0, 1);
+ 		break;
++#endif
+ 	case AKS_RTG_PREV:
+ 		toggle_rtg(0, -1);
+ 		break;
+@@ -6400,12 +6436,14 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
+ 		uae_u64 flags2 = id->flags[offset][slotoffset + sub];
+ 		if (checkqualifiers (evt2, flags2, qualmask, NULL)) {
+ 			custom = id->custom[offset][slotoffset + sub];
++#ifndef P6_PORTABLE
+ 			if (state && custom) {
+ 				if (autofire)
+ 					queue_input_event (-1, custom, 1, 1, currprefs.input_autofire_linecnt, 1);
+ 				handle_custom_event (custom, 0);
+ 				return true;
+ 			}
++#endif
+ 		}
+ 		return false;
+ 	}
+@@ -6445,8 +6483,10 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
+ 		custom = id->custom[offset][slotoffset + idx];
+ 		if (autofire)
+ 			queue_input_event (-1, custom, 1, 1, currprefs.input_autofire_linecnt, 1);
++#ifndef P6_PORTABLE
+ 		if (custom)
+ 			handle_custom_event (custom, 0);
++#endif
+ 	}
+ 
+ 	id->flags[offset][slotoffset] &= ~(ID_FLAG_CUSTOMEVENT_TOGGLED1 | ID_FLAG_CUSTOMEVENT_TOGGLED2);
+@@ -7862,9 +7902,12 @@ static void compatibility_copy (struct uae_prefs *prefs, bool gameports)
+ 	}
+ 	for (int i = 0; i < MAX_JPORTS; i++) {
+ 		for (int j = 0; j < MAX_JPORT_DEVS; j++) {
++#ifndef P6_PORTABLE
+ 			if (JSEM_ISCUSTOM(i, j, prefs)) {
+ 				inputdevice_parse_jport_custom(prefs, prefs->jports[i].jd[j].id - JSEM_CUSTOM, i, NULL);
+-			} else if (gameports && prefs->jports[i].jd[j].id >= 0) {
++			} else
++#endif
++			if (gameports && prefs->jports[i].jd[j].id >= 0) {
+ 				// TODO: handle sub item autofire correctly
+ 				setautofires(prefs, i, j, prefs->jports[i].jd[j].autofire, true);
+ 			}
+@@ -8161,9 +8204,11 @@ void inputdevice_updateconfig_internal (struct uae_prefs *srcprefs, struct uae_p
+ 		mice[i].enabled = 0;
+ 	}
+ 
++#ifndef P6_PORTABLE
+ 	for (int i = 0; i < MAX_JPORTS_CUSTOM; i++) {
+ 		inputdevice_parse_jport_custom(dstprefs, i, -1, NULL);
+ 	}
++#endif
+ 
+ 	compatibility_copy (dstprefs, true);
+ 
+@@ -8355,9 +8400,11 @@ bool inputdevice_devicechange (struct uae_prefs *prefs)
+ 			fixedports[i][j] = false;
+ 		}
+ 	}
++#ifndef P6_PORTABLE
+ 	for (int i = 0; i < MAX_JPORTS_CUSTOM; i++) {
+ 		inputdevice_jportcustom_fixup(prefs, prefs->jports_custom[i].custom, i);
+ 	}
++#endif
+ 
+ 	for (int i = 0; i < MAX_JPORTS; i++) {
+ 		bool found = true;
+@@ -9161,11 +9208,13 @@ int inputdevice_get_widget_type (int devnum, int num, TCHAR *name, bool inccode)
+ 	uae_u32 code = 0;
+ 	const struct inputdevice_functions *idf = getidf (devnum);
+ 	int r = idf->get_widget_type (inputdevice_get_device_index (devnum), num, name, &code);
++#ifndef P6_PORTABLE
+ 	if (r && inccode && &idev[IDTYPE_KEYBOARD] == idf) {
+ 		TCHAR *p = name + _tcslen(name);
+ 		if (_tcsncmp(name, _T("KEY_"), 4))
+ 			_stprintf(p, _T(" [0x%02X]"), code);
+ 	}
++#endif
+ 	return r;
+ }
+ 
+@@ -9777,6 +9826,7 @@ void setjoystickstate (int joy, int axis, int state, int max)
+ 	if (input_play)
+ 		return;
+ 	if (!joysticks[joy].enabled) {
++#ifndef P6_PORTABLE
+ 		if (currprefs.input_autoswitchleftright) {
+ 			if (v1 > 0)
+ 				v1 = 1;
+@@ -9803,6 +9853,7 @@ void setjoystickstate (int joy, int axis, int state, int max)
+ 				}
+ 			}
+ 		}
++#endif
+ 		return;
+ 	}
+ 	for (i = 0; i < MAX_INPUT_SUB_EVENT; i++) {
+@@ -10437,6 +10488,7 @@ void inputdevice_fix_prefs(struct uae_prefs *p, bool userconfig)
+ 		return;
+ 
+ 	bool defaultports = userconfig == false;
++#ifndef P6_PORTABLE
+ 	// Convert old style custom mapping to new style
+ 	for (int i = 0; i < MAX_JPORTS_CUSTOM; i++) {
+ 		struct jport_custom *jpc = &p->jports_custom[i];
+@@ -10447,6 +10499,7 @@ void inputdevice_fix_prefs(struct uae_prefs *p, bool userconfig)
+ 			inputdevice_generate_jport_custom(p, i);
+ 		}
+ 	}
++#endif
+ 	bool matched[MAX_JPORTS][MAX_JPORT_DEVS];
+ 	// configname+friendlyname first
+ 	for (int i = 0; i < MAX_JPORTS; i++) {

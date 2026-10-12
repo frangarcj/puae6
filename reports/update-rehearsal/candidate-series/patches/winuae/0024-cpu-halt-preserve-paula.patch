@@ -1,0 +1,13 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -5916,7 +5916,9 @@ void cpu_halt(int id)
+ 		if (id >= 0) {
+ 			regs.intmask = 7;
+ 			MakeSR();
++#ifndef P6_PORTABLE
+ 			audio_deactivate();
++#endif // CPU halt leaves Paula/chipset running on the shared emulated clock.
+ #ifdef DEBUGGER
+ 			if (debugging)
+ 				activate_debugger();

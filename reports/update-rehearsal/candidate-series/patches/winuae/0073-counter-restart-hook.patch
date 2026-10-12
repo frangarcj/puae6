@@ -1,0 +1,26 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -6782,6 +6782,11 @@ static void m68k_run_mmu (void)
+ #endif /* CPUEMU_0 */
+ 
+ int in_m68k_go = 0;
++#ifdef P6_PORTABLE
++// Called by the reset head just before the engine's cycle counter starts over at zero, whatever asked for the reset (the API,
++// the keyboard chord, the reset-warning sequence). The bridge keeps the caller's tick count and the clock of the board continuous.
++void (*p6_counter_restart_hook)(void);
++#endif
+ 
+ #if 0
+ static void exception2_handle (uaecptr addr, uaecptr fault)
+@@ -6961,6 +6966,10 @@ void m68k_go (int may_quit)
+ 			prefs_changed_cpu();
+ 			build_cpufunctbl();
+ 			set_x_funcs();
++#ifdef P6_PORTABLE
++			if (p6_counter_restart_hook)
++				p6_counter_restart_hook();
++#endif
+ 			set_cycles (start_cycles);
+ #ifdef P6_UNIT_TRACE
+ 			p6_unit_last_reported = -1;

@@ -1,0 +1,21 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -384,7 +384,7 @@ STATIC_INLINE int FINISH_DATA (int data, int bits, int ch)
+ {
+ 	if (bits < 16) {
+ 		int shift = 16 - bits;
+-		data <<= shift;
++		data *= 1 << shift;
+ 	} else {
+ 		int shift = bits - 16;
+ 		data >>= shift;
+@@ -657,7 +657,7 @@ static void samplexx_sinc_handler (int *datasp, int ch_start, int ch_num)
+ 		int j, v;
+ 		struct audio_channel_data2 *acd = audio_data[i];
+ 		/* The sum rings with harmonic components up to infinity... */
+-		int sum = acd->sinc_output_state << 17;
++		int sum = acd->sinc_output_state * 131072;
+ 		/* ...but we cancel them through mixing in BLEPs instead */
+ 		int offsetpos = acd->sinc_queue_head & (SINC_QUEUE_LENGTH - 1);
+ 		for (j = 0; j < SINC_QUEUE_LENGTH; j += 1) {

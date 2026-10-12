@@ -1,0 +1,17 @@
+diff --git a/savestate.cpp b/savestate.cpp
+--- a/savestate.cpp
++++ b/savestate.cpp
+@@ -90,6 +90,13 @@ static int savestate_flags;
+ #endif
+ // Read by get_statefile_version() from the restore_* bodies the portable profile keeps.
+ static uae_u32 statefile_version;
++#ifdef P6_PORTABLE
++// The legacy .uss reader that sets it is excluded, so the version stays 0 ("no version information"): the fix-up of 6.0.0-6.0.3 state files in the CPU trace stays off, as this build only reads states of its own writer.
++uae_u32 get_statefile_version(void)
++{
++	return statefile_version;
++}
++#endif
+ 
+ TCHAR savestate_fname[MAX_DPATH];
+ TCHAR path_statefile[MAX_DPATH];

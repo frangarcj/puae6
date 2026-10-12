@@ -1,0 +1,54 @@
+diff --git a/keybuf.cpp b/keybuf.cpp
+--- a/keybuf.cpp
++++ b/keybuf.cpp
+@@ -389,3 +389,50 @@ void keybuf_inject(const uae_char *txt)
+ 	keyinject_offset = 0;
+ 	keyinject = newbuf;
+ }
++
++#ifdef P6_PORTABLE
++// Native state of the keyboard ring (bridge/state_devices.cpp). The ring travels as the list of its codes from the oldest to the newest: where it starts in the array
++// is not state, only the order and the count are (keybuf_free and keys_available look at the difference of the two indexes).
++// Returns the number of codes, or -1 when there are more than `max` or one is not a byte (record_key stores whole bytes).
++int p6_keybuf_get(uae_u8 *codes, int max)
++{
++	int n = kpb_first - kpb_last;
++	if (n < 0)
++		n += KEYBUF_SIZE;
++	if (n > max)
++		return -1;
++	for (int i = 0, k = kpb_last; i < n; i++) {
++		if (keybuf[k] < 0 || keybuf[k] > 255)
++			return -1;
++		codes[i] = (uae_u8)keybuf[k];
++		if (++k == KEYBUF_SIZE)
++			k = 0;
++	}
++	return n;
++}
++
++// The ring starts again from the beginning with these codes (at most KEYBUF_SIZE - 1).
++void p6_keybuf_set(const uae_u8 *codes, int n)
++{
++	kpb_last = 0;
++	kpb_first = n;
++	for (int i = 0; i < n; i++)
++		keybuf[i] = codes[i];
++}
++
++// True when the ring is all the state of the keyboard buffer: no text is being typed into it, no release is held back and none is to be swallowed.
++// keyinject_do, ovpos and cnt of can_inject() are not state: with nothing to inject they only set a flag that get_next_key clears.
++bool p6_keybuf_boundary(const char **why)
++{
++	const char *w = NULL;
++	if (keyinject || keyinject_state)
++		w = "a text is being typed into the keyboard ring";
++	else if (ignore_next_release)
++		w = "the next key release is to be ignored";
++	else if (delayed_released_time)
++		w = "a key release is held back";
++	if (why)
++		*why = w;
++	return w == NULL;
++}
++#endif

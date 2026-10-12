@@ -1,0 +1,42 @@
+diff --git a/autoconf.cpp b/autoconf.cpp
+--- a/autoconf.cpp
++++ b/autoconf.cpp
+@@ -489,7 +489,9 @@ uae_u32 boot_rom_copy(TrapContext *ctx, uaecptr rombase, int mode)
+ 		return 0;
+ 	if (!mode) {
+ 		rtarea_write_enabled = true;
++#ifndef P6_PORTABLE
+ 		protect_roms(false);
++#endif
+ 		rombase_new = rombase;
+ 		int size = 4 + 2 + 4;
+ 		for (int i = 0; i < absolute_rom_address; i++) {
+@@ -524,7 +526,9 @@ uae_u32 boot_rom_copy(TrapContext *ctx, uaecptr rombase, int mode)
+ 		write_log(_T("ROMBASE %08x RAMBASE %08x RELOC %08x (%d)\n"), rtarea_base, rombase, reloc, absolute_rom_address);
+ 	} else {
+ 		rtarea_write_enabled = false;
++#ifndef P6_PORTABLE
+ 		protect_roms(true);
++#endif
+ 		write_log(_T("ROMBASE changed (%d).\n"), absolute_rom_address);
+ 		reloc = 1;
+ 	}
+@@ -639,7 +643,7 @@ void rtarea_init(void)
+ 	dw (0);
+ 	dw (0);
+ 
+-#ifdef FILESYS
++#if defined(FILESYS) || defined(P6_FILESYS)
+ 	filesys_install_code();
+ 
+ 	trap_entry = filesys_get_entry(10);
+@@ -687,7 +691,9 @@ void rtarea_init(void)
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE // defined by ports/portable/atomic.cpp, which the portable probes link without the engine
+ volatile uae_atomic uae_int_requested = 0;
++#endif
+ 
+ void rtarea_setup (void)
+ {

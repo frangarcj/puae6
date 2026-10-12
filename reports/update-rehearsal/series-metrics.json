@@ -1,0 +1,138 @@
+{
+  "old": {
+    "patches": 143,
+    "files": 43,
+    "added_lines": 4365,
+    "removed_lines": 393,
+    "hot_files": [
+      {
+        "file": "custom.cpp",
+        "added": 581,
+        "removed": 55,
+        "patches": 29
+      },
+      {
+        "file": "newcpu.cpp",
+        "added": 458,
+        "removed": 46,
+        "patches": 20
+      },
+      {
+        "file": "inputdevice.cpp",
+        "added": 401,
+        "removed": 7,
+        "patches": 9
+      },
+      {
+        "file": "disk.cpp",
+        "added": 334,
+        "removed": 31,
+        "patches": 16
+      },
+      {
+        "file": "drawing.cpp",
+        "added": 243,
+        "removed": 61,
+        "patches": 9
+      },
+      {
+        "file": "expansion.cpp",
+        "added": 271,
+        "removed": 29,
+        "patches": 9
+      },
+      {
+        "file": "cia.cpp",
+        "added": 252,
+        "removed": 12,
+        "patches": 10
+      },
+      {
+        "file": "filesys.cpp",
+        "added": 231,
+        "removed": 32,
+        "patches": 3
+      },
+      {
+        "file": "memory.cpp",
+        "added": 217,
+        "removed": 9,
+        "patches": 12
+      },
+      {
+        "file": "rommgr.cpp",
+        "added": 172,
+        "removed": 8,
+        "patches": 6
+      }
+    ]
+  },
+  "new": {
+    "patches": 149,
+    "files": 41,
+    "added_lines": 4396,
+    "removed_lines": 391,
+    "hot_files": [
+      {
+        "file": "custom.cpp",
+        "added": 586,
+        "removed": 70,
+        "patches": 32
+      },
+      {
+        "file": "newcpu.cpp",
+        "added": 465,
+        "removed": 46,
+        "patches": 22
+      },
+      {
+        "file": "inputdevice.cpp",
+        "added": 401,
+        "removed": 7,
+        "patches": 9
+      },
+      {
+        "file": "disk.cpp",
+        "added": 334,
+        "removed": 31,
+        "patches": 16
+      },
+      {
+        "file": "expansion.cpp",
+        "added": 271,
+        "removed": 29,
+        "patches": 9
+      },
+      {
+        "file": "drawing.cpp",
+        "added": 235,
+        "removed": 51,
+        "patches": 9
+      },
+      {
+        "file": "cia.cpp",
+        "added": 255,
+        "removed": 11,
+        "patches": 11
+      },
+      {
+        "file": "filesys.cpp",
+        "added": 231,
+        "removed": 32,
+        "patches": 3
+      },
+      {
+        "file": "memory.cpp",
+        "added": 216,
+        "removed": 8,
+        "patches": 12
+      },
+      {
+        "file": "rommgr.cpp",
+        "added": 171,
+        "removed": 7,
+        "patches": 6
+      }
+    ]
+  }
+}

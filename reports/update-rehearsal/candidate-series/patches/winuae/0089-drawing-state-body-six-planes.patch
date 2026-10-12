@@ -1,0 +1,64 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -7874,13 +7874,15 @@ void draw_denise_bitplane_line_fast(int gfx_ypos, enum nln_how how, struct lines
+ #define SL save_u32
+ #define SQ save_u64
+ 
++/* The bodies have eight planes: without AGA there are MAX_PLANES (6) registers, and BPL7DAT and BPL8DAT read as zero and are not stored. */
+ uae_u16 save_custom_bpl_dat(int num)
+ {
+-	return bplxdat[num];
++	return num < MAX_PLANES ? bplxdat[num] : 0;
+ }
+ void restore_custom_bpl_dat(int num, uae_u16 dat)
+ {
+-	bplxdat[num] = dat;
++	if (num < MAX_PLANES)
++		bplxdat[num] = dat;
+ }
+ 
+ uae_u8 *save_custom_bpl(size_t *len, uae_u8 *dstptr)
+@@ -7894,12 +7896,13 @@ uae_u8 *save_custom_bpl(size_t *len, uae_u8 *dstptr)
+ 
+ 	SL(1);
+ 	for (int i = 0; i < 8; i++) {
+-		SL(bplxdat[i]);
+-		SL(bplxdat2[i]);
+-		SL(bplxdat3[i]);
+-		SQ(bplxdat_64[i]);
+-		SQ(bplxdat2_64[i]);
+-		SQ(bplxdat3_64[i]);
++		const bool have = i < MAX_PLANES;
++		SL(have ? bplxdat[i] : 0);
++		SL(have ? bplxdat2[i] : 0);
++		SL(have ? bplxdat3[i] : 0);
++		SQ(have ? bplxdat_64[i] : 0);
++		SQ(have ? bplxdat2_64[i] : 0);
++		SQ(have ? bplxdat3_64[i] : 0);
+ 	}
+ 
+ 	*len = dst - dstbak;
+@@ -7911,12 +7914,16 @@ uae_u8 *restore_custom_bpl(uae_u8 *src)
+ 	uae_u32 v = RL;
+ 
+ 	for (int i = 0; i < 8; i++) {
+-		bplxdat[i] = RL;
+-		bplxdat2[i] = RL;
+-		bplxdat3[i] = RL;
+-		bplxdat_64[i] = RQ;
+-		bplxdat2_64[i] = RQ;
+-		bplxdat3_64[i] = RQ;
++		const uae_u32 d1 = RL, d2 = RL, d3 = RL;
++		const uae_u64 q1 = RQ, q2 = RQ, q3 = RQ;
++		if (i < MAX_PLANES) {
++			bplxdat[i] = d1;
++			bplxdat2[i] = d2;
++			bplxdat3[i] = d3;
++			bplxdat_64[i] = q1;
++			bplxdat2_64[i] = q2;
++			bplxdat3_64[i] = q3;
++		}
+ 	}
+ 
+ 	return src;

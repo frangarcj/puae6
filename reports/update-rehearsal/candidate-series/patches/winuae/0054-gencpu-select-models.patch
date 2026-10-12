@@ -1,0 +1,34 @@
+diff --git a/gencpu.cpp b/gencpu.cpp
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -10283,6 +10283,21 @@ static void generate_cpu (int id, int mode)
+ 
+ int main(int argc, char *argv[])
+ {
++	// PUAE6: optional model numbers on the command line restrict the emitted tables and
++	// handler files; without arguments every model is generated, as upstream does.
++	bool selected[56] = {};
++	bool restricted = false;
++	for (int a = 1; a < argc; a++) {
++		char *end;
++		long n = strtol(argv[a], &end, 10);
++		if (end == argv[a] || *end || n < 0 || n > 55) {
++			fprintf(stderr, "gencpu: invalid model number '%s'\n", argv[a]);
++			return 1;
++		}
++		selected[n] = true;
++		restricted = true;
++	}
++
+ 	init_table68k();
+ 
+ 	opcode_map =  xmalloc (int, nr_cpuop_funcs);
+@@ -10322,6 +10337,8 @@ int main(int argc, char *argv[])
+ 	for (int i = 0; i <= 55; i++) {
+ 		if ((i >= 6 && i < 11) || (i > 14 && i < 20) || (i > 25 && i < 31) || (i > 35 && i < 40))
+ 			continue;
++		if (restricted && !selected[i])
++			continue;
+ 		generate_stbl = 1;
+ 		generate_cpu (i, 0);
+ 	}

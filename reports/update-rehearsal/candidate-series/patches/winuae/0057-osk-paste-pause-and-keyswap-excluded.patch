@@ -1,0 +1,75 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -222,9 +222,12 @@ static void osk_control(int x, int y, int button, int buttonstate)
+ 	if (!osk_state) {
+ 		return;
+ 	}
++#ifndef P6_PORTABLE // no on-screen keyboard: osk_state can never become nonzero
+ 	target_osk_control(x, y, button, buttonstate);
++#endif
+ }
+ 
++#ifndef P6_PORTABLE // the on-screen keyboard is a desktop overlay drawn by the host
+ void osk_setup(int monid, int state)
+ {
+ 	if (monid) {
+@@ -254,6 +257,7 @@ void osk_setup(int monid, int state)
+ 		return;
+ 	}
+ }
++#endif
+ 
+ static int isdevice (struct uae_input_device *id)
+ {
+@@ -5019,9 +5023,11 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
+ 
+ 	switch (code)
+ 	{
++#ifndef P6_PORTABLE
+ 	case AKS_OSK:
+ 		osk_setup(0, -1);
+ 		break;
++#endif
+ #ifndef P6_PORTABLE
+ 	// Desktop GUI and screenshots; presentation belongs to the bridge.
+ 	case AKS_ENTERGUI:
+@@ -5245,9 +5251,11 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
+ 		else if (state == 2)
+ 			inputdevice_swap_compa_ports(&changed_prefs, 2);
+ 		break;
++#ifndef P6_PORTABLE
+ 	case AKS_PASTE:
+ 		target_paste_to_keyboard();
+ 		break;
++#endif
+ 	case AKS_SWITCHINTERPOL:
+ 		changed_prefs.sound_interpol++;
+ 		if (changed_prefs.sound_interpol > 4)
+diff --git a/keybuf.cpp b/keybuf.cpp
+--- a/keybuf.cpp
++++ b/keybuf.cpp
+@@ -268,8 +268,10 @@ void keybuf_vsync(void)
+ 
+ int record_key(int kc, bool direct)
+ {
++#ifndef P6_PORTABLE // the host pause flag does not exist; the bridge decides when frames run
+ 	if (pause_emulation)
+ 		return 0;
++#endif
+ 	return record_key_direct(kc, direct);
+ }
+ 
+@@ -307,10 +309,12 @@ int record_key_direct(int kc, bool direct)
+ 			// $0D <> $0C
+ 			keyswap(&kcd, &kc, 0x0d, 0x0c);
+ 		}
++#ifndef P6_PORTABLE // host keyboard-layout correction; the bridge sends Amiga raw scancodes
+ 		if (key_swap_hack == 2) {
+ 			// $2B <> $0D
+ 			keyswap(&kcd, &kc, 0x2b, 0x0d);
+ 		}
++#endif
+ 
+ 		if (ignore_next_release) {
+ 			ignore_next_release = false;

@@ -1,0 +1,15 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -6994,6 +6994,11 @@ void m68k_go (int may_quit)
+ 			hsync_counter = 0;
+ 			vsync_counter = 0;
+ 			if (quit_program) {
++#ifdef P6_PORTABLE
++				// 6100b17 starts the counter over here, before the reset head: the bridge has to keep the caller's ticks and the clock of the board continuous first.
++				if (p6_counter_restart_hook)
++					p6_counter_restart_hook();
++#endif
+ 				set_cycles(start_cycles);
+ 				clear_events();
+ 			}

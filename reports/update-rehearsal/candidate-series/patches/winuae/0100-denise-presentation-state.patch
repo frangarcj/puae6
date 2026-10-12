@@ -1,0 +1,101 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -8320,3 +8320,42 @@ void draw_denise_line_queue_flush(void)
+ 	}
+ #endif
+ }
++
++// Native state (bridge/state_upstream.cpp, run once after every body of CHIP has been restored): the border colour Denise keeps apart from its colour registers.
++// restore_custom puts the 32 colour registers into denise_colors and rebuilds acolors with docols, but it does so after its queue of register writes has been flushed, and
++// those writes (BPLCON0 and BPLCON3) run update_ecs_features and update_bordercolor while acolors still holds what the image had before the load: a new image (or one
++// restarted before the load) drew the border of its first picture with the COLOR00 of its reset, black, where the state's was red. bordercolor and bordercolor_ecs_shres
++// are derived (from COLOR00 and the border-blank bit of BPLCON3) and are in no body; only a COLOR00 write or a BPLCON write recomputes them, so a machine that had already
++// written the same values hid it. Derived values only: no register is written, nothing is drawn or scheduled.
++void p6_denise_rebuild_derived(void)
++{
++	update_bordercolor();
++}
++
++// Native state (bridge/state_upstream.cpp, sub-body DNSP of P6VD): the two halves of Denise's four-pixel output pipeline. Every colour clock denise_draw writes the pixels of
++// this half into dtbuf and copies out the ones of the other half (dtbuf[h ^ lol]), so the first pixels of a line leave from what the previous colour clock left behind: no
++// body carries them (BPLX has the shift registers, not the pixels that have already been decoded), and a machine that has not drawn the same lines before (a new image) put
++// zero where the original put the colour of the border: two pixels at the start of the first line and two at the end of the third of the first picture after a load.
++// Values only, in 32-bit words: 0-7 dtbuf[0..1][0..3], 8-15 dtgbuf[0..1][0..3].
++#define P6_DENISE_PIPE_WORDS 16
++bool p6_denise_pipe_get(int32_t *out, unsigned n)
++{
++	if (!out || n != P6_DENISE_PIPE_WORDS) return false;
++	for (int h = 0; h < 2; h++)
++		for (int i = 0; i < 4; i++) {
++			out[h * 4 + i] = int32_t(dtbuf[h][i]);
++			out[8 + h * 4 + i] = dtgbuf[h][i];
++		}
++	return true;
++}
++
++bool p6_denise_pipe_set(const int32_t *in, unsigned n)
++{
++	if (!in || n != P6_DENISE_PIPE_WORDS) return false;
++	for (int h = 0; h < 2; h++)
++		for (int i = 0; i < 4; i++) {
++			dtbuf[h][i] = uae_u32(in[h * 4 + i]);
++			dtgbuf[h][i] = uae_u8(in[8 + h * 4 + i]);
++		}
++	return true;
++}
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13240,4 +13240,51 @@ void p6_custom_rebuild_derived(void)
+ 		SPRxCTLPOS(i);
+ 	}
+ }
++
++// Native state (bridge/state_upstream.cpp, sub-body GEOM of P6VD): the size of the raster the machine has measured and settled on. The engine does not read the size of the frame
++// from the registers: vsync_check_vsyncmode follows the lines and colour clocks the last frames really had (linear_vpos_prev and linear_hpos_prev, which BEAM carries), and only
++// after the same measure has held for a few frames does it adopt it (current_linear_*, with the candidate in current_linear_*_temp and the frames to wait in
++// current_linear_temp_change) and let compute_framesync derive the size of the picture from it (inwidth, inheight and their doublescan twins, the visible out size, the extra
++// width and height and the sync offsets of the drawing buffer). None of it is in a body, and WinUAE's own load gets it from init_hz, which the bridge never runs on a live machine:
++// a machine that had adopted a different frame (a long frame stuck on, a same image that has run on) kept it, a new image adopted the saved one a few units later and put out a
++// blank picture the unit it switched, so the same program showed 576 lines where the original showed 574, or the other way round. Values only, in 32-bit words:
++//  0 current_linear_hpos  1 current_linear_vpos  2 current_linear_hpos_short  3 current_linear_vpos_nom  4 current_linear_hpos_temp  5 current_linear_vpos_temp
++//  6 current_linear_temp_change  then the drawing buffer: 7 inwidth  8 inheight  9 inwidth2  10 inheight2  11 outwidth  12 outheight  13 extrawidth  14 extraheight
++//  15 xoffset  16 yoffset  17 inxoffset  18 inyoffset
++// Set does what compute_framesync does with a new size (target_graphics_buffer_update publishes the allocation of the presentation and clears what the old mode drew) and, when the
++// size changed, what vsync_check_vsyncmode does after it (resetfulllinestate and a full redraw), so that no line of the next picture is skipped as unchanged over a buffer that was
++// cleared. The profile draws into the drawing buffer itself (no auxiliary buffer): both calls refuse otherwise.
++#define P6_FRAME_GEOMETRY_WORDS 19
++bool p6_frame_geometry_get(int32_t *out, unsigned n)
++{
++	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
++	if (!out || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
++	const struct vidbuffer *vb = vi->inbuffer;
++	const int32_t words[] = {
++		current_linear_hpos, current_linear_vpos, current_linear_hpos_short, current_linear_vpos_nom, current_linear_hpos_temp, current_linear_vpos_temp,
++		current_linear_temp_change, vb->inwidth, vb->inheight, vb->inwidth2, vb->inheight2, vb->outwidth, vb->outheight, vb->extrawidth, vb->extraheight,
++		vb->xoffset, vb->yoffset, vb->inxoffset, vb->inyoffset
++	};
++	static_assert(sizeof words / sizeof words[0] == P6_FRAME_GEOMETRY_WORDS, "review the frame geometry word list");
++	memcpy(out, words, sizeof words);
++	return true;
++}
++
++bool p6_frame_geometry_set(const int32_t *in, unsigned n)
++{
++	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
++	if (!in || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
++	struct vidbuffer *vb = vi->inbuffer;
++	const int owidth = vb->outwidth, oheight = vb->outheight;
++	current_linear_hpos = in[0]; current_linear_vpos = in[1]; current_linear_hpos_short = in[2]; current_linear_vpos_nom = in[3];
++	current_linear_hpos_temp = in[4]; current_linear_vpos_temp = in[5]; current_linear_temp_change = in[6];
++	vb->inwidth = in[7]; vb->inheight = in[8]; vb->inwidth2 = in[9]; vb->inheight2 = in[10]; vb->outwidth = in[11]; vb->outheight = in[12];
++	vb->extrawidth = in[13]; vb->extraheight = in[14]; vb->xoffset = in[15]; vb->yoffset = in[16]; vb->inxoffset = in[17]; vb->inyoffset = in[18];
++	target_graphics_buffer_update(0, false);
++	if (vb->outwidth != owidth || vb->outheight != oheight) {
++		resetfulllinestate();
++		display_redraw = true;
++	}
++	return true;
++}
+ #endif

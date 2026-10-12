@@ -1,0 +1,15 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -6532,3 +6532,11 @@ void disk_reserved_reset_disk_change(int num)
+ 		drv->dskchange = false;
+ 	}
+ }
++
++#ifdef P6_PORTABLE
++// Native state (bridge/state_cpu.cpp): the secondary event that ends the motor-off delay, named by an id in a state.
++evfunc2 p6_disk_motordelay_handler(void)
++{
++	return motordelay_func;
++}
++#endif

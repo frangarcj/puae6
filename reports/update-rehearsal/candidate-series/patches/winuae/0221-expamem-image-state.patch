@@ -1,0 +1,33 @@
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -1986,6 +1986,29 @@ bool p6_uaefs_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes)
+ 	return true;
+ }
+ 
++/* Native state (bridge/state_hdf.cpp, after the UAEFS board, patch 0221): the image of the autoconfig card beyond its first 256 bytes, which the tail of P6RM carries (p6_expansion_state_get).
++ * expamem is the buffer in which each card builds its autoconfig data when the chain reaches it; for the UAEFS board it holds, up to 12 KiB, the DiagArea the guest's expansion.library
++ * will run, the boot code and the bootblock, and expamem_map_filesys copies the first $3000 bytes of it into the board's memory the moment the guest gives the board its base. A machine
++ * that loaded a state taken before that moment had the buffer of its own reset (the card's init runs when the chain gets to it, not at the reset), so the board it mapped had $FF where
++ * the original's had the DiagArea (Kickstart 2.05 on a hard file, units 67 to 72: the 68k side found other code and the first request of the file system went another way). The bytes
++ * are the buffer as it is, values only. */
++#define P6_EXPAMEM_IMAGE_BYTES (0x3000 - 256)
++bool p6_expamem_image_get(uint8_t *bytes, unsigned n)
++{
++	if (!bytes || n != P6_EXPAMEM_IMAGE_BYTES)
++		return false;
++	memcpy(bytes, expamem + 256, P6_EXPAMEM_IMAGE_BYTES);
++	return true;
++}
++
++bool p6_expamem_image_set(const uint8_t *bytes, unsigned n)
++{
++	if (!bytes || n != P6_EXPAMEM_IMAGE_BYTES)
++		return false;
++	memcpy(expamem + 256, bytes, P6_EXPAMEM_IMAGE_BYTES);
++	return true;
++}
++
+ #if KS12_BOOT_HACK
+ static uaecptr ks12_resident;
+ static void set_ks12_boot_hack(void)

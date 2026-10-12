@@ -1,0 +1,37 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -6332,17 +6332,22 @@ uae_u8 *save_floppy (size_t *len, uae_u8 *dstptr)
+  * generator P6SC carries), and per drive selected_delay and state (the LED), dskeject (consumed by the DISK_vsync of the unit that set it), dskeject_time (only a change of
+  * drive type sets it), indexhack (only drive types of indexhackmode > 1), revolution_check and the track-access bookkeeping (images that load several revolutions).
+  * Values only, in 32-bit words in the order of the list below; it never runs the drives and never schedules anything. The newname of a delayed insert is the bridge's.
+- *  0 disk_hpos  1 dsklen2  2 dsksync_on  3 indexdecay
++ * prev_data is the last value written to CIA-B port B as DISK_select saw it, and the drive-select mask, the step line, the direction and the side are all derived from it by
++ * fetch_DISK_select. None of them is in a body of upstream (restore_cia_finish rebuilds them with DISK_select_set, which is never called here), so a machine that loaded a state
++ * had every drive deselected and the step line low: the first write to port B did not step the drive that the original stepped (the previous mask picks which drives step), drew
++ * no random shifter bits (rand_shifter does nothing for a selected drive) and so drew other values from the generator, and the head of the DOS load went to another track.
++ * The apply puts them back with DISK_select_set (the same call upstream makes), so one word carries them all.
++ *  0 disk_hpos  1 dsklen2  2 dsksync_on  3 indexdecay  4 prev_data
+  *  then 9 words per drive: 0 dskchange_time  1 motordelay  2 steplimit  3 the age of the last step in cycles (get_cycles () - steplimitcycle, 0 when steplimit is 0)
+  *  4 floppybitcounter  5 tracklen  6 trackspeed  7 skipoffset  8 indexoffset */
+-#define P6_DISK_PHASE_GLOBAL 4
++#define P6_DISK_PHASE_GLOBAL 5
+ #define P6_DISK_PHASE_DRIVE 9
+ #define P6_DISK_PHASE_WORDS (P6_DISK_PHASE_GLOBAL + MAX_FLOPPY_DRIVES * P6_DISK_PHASE_DRIVE)
+ 
+ bool p6_disk_phase_get(int32_t *out, unsigned n)
+ {
+ 	if (!out || n != P6_DISK_PHASE_WORDS) return false;
+-	out[0] = disk_hpos; out[1] = dsklen2; out[2] = dsksync_on ? 1 : 0; out[3] = indexdecay;
++	out[0] = disk_hpos; out[1] = dsklen2; out[2] = dsksync_on ? 1 : 0; out[3] = indexdecay; out[4] = prev_data;
+ 	for (int i = 0; i < MAX_FLOPPY_DRIVES; i++) {
+ 		const drive *drv = &floppy[i];
+ 		int32_t *w = out + P6_DISK_PHASE_GLOBAL + i * P6_DISK_PHASE_DRIVE;
+@@ -6358,6 +6363,7 @@ bool p6_disk_phase_set(const int32_t *in, unsigned n)
+ {
+ 	if (!in || n != P6_DISK_PHASE_WORDS) return false;
+ 	disk_hpos = in[0]; dsklen2 = in[1]; dsksync_on = in[2] != 0; indexdecay = in[3];
++	DISK_select_set (uae_u8 (in[4]));
+ 	for (int i = 0; i < MAX_FLOPPY_DRIVES; i++) {
+ 		drive *drv = &floppy[i];
+ 		const int32_t *w = in + P6_DISK_PHASE_GLOBAL + i * P6_DISK_PHASE_DRIVE;

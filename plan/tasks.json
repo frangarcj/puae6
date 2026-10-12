@@ -12382,7 +12382,7 @@
       "title": "Ensayar una actualizacion upstream real",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T37",
         "T33"
@@ -12401,7 +12401,8 @@
         "Elegir y fijar un candidato upstream concreto, registrar release notes y alcance; no necesita reemplazar la baseline final.",
         "Ejecutar importacion, cola, codegen, builds nativos/WBX, corpus, estados en instancia nueva y benchmark.",
         "Resolver conflictos en area de ensayo con lectura/test por parche; registrar esfuerzo, delta y cambios de semantica.",
-        "Demostrar retorno al conjunto de pins anterior sin alterar instalaciones o archivos del usuario."
+        "Demostrar retorno al conjunto de pins anterior sin alterar instalaciones o archivos del usuario.",
+        "2026-10-12: el usuario acepta el ensayo como completado con hallazgos: WB03/WB04 BLOCKED en el candidato (los accesores de estado de Copper/haz/planificador/blitter no estan portados a 6.1.0 b17), PERF01 parcial y tres diferencias abiertas (CPU en la unidad 1 de 13 escenarios, 2 filas de imagen, entrelazado) quedan como tareas propuestas en reports/update-rehearsal/results.json para cuando se decida actualizar de verdad; el pin 6.0.3 no se mueve."
       ],
       "checks": [
         "UPD01",

@@ -1,0 +1,25 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13223,4 +13223,21 @@ bool p6_custom_copper_set(const int32_t *in, unsigned n)
+ 	copper_dma_change_cycle = evt_t(uint64_t(uint32_t(in[13])) | uint64_t(uint32_t(in[14])) << 32);
+ 	return true;
+ }
++// Native state (bridge/state_upstream.cpp, run once after every body of CHIP has been restored): what the engine derives from the registers and not stores. WinUAE's own load
++// gets it from custom_reset (its isrestore branch writes BPLCON0 and FMODE back and calls setup_fmodes, SPRxCTLPOS and the sprite width), which the bridge never runs on a
++// live machine; the bodies put back the registers but not bplcon0_planes, bplcon0_planes_limit, bpl_sequence and curr_diagram (the bitplane slot sequence of the line), the
++// fetch unit of the mode, fmode_inuse, or the first and last line of each sprite (vstart, vstop, dblscan, from POS and CTL). A machine that had the same values already (the
++// image that saved the state, or one that wrote the same registers again) hides it: an image restarted before the load had the bitplane DMA of the next line drawn from the
++// planes of its reset. Derived values only: no register is written, no event is scheduled (fmode_inuse is set to FMODE first, which is where a steady machine has it, so
++// that setup_fmodes does not queue setup_fmodes_delayed) and nothing runs.
++void p6_custom_rebuild_derived(void)
++{
++	sprite_width = GET_SPRITEWIDTH(fmode);
++	fmode_inuse = fmode;
++	setup_fmodes(bplcon0);
++	setup_fmodes_delayed(fmode);
++	for (int i = 0; i < MAX_SPRITES; i++) {
++		SPRxCTLPOS(i);
++	}
++}
+ #endif

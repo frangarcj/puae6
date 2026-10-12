@@ -1,0 +1,26 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -3882,3 +3882,22 @@ uae_u8 *save_fpu(size_t *len, uae_u8 *dstptr)
+ }
+ 
+ #endif
++
++#ifdef P6_PORTABLE
++/* State access for bridge/state_cpu.cpp (T54). fsave_data is the one piece of 68881/68882 state that lives in a file-local variable of this unit: the FSAVE frame of an
++ * idle FPU reads the condition/command word and the exceptional operand that the last exception left (a 68040 or 68060 would have more, the profile has neither). The
++ * registers, FPCR/FPSR/FPIAR and the pending-exception words are in `regs`. Everything else here is derived from fpu_model by fpu_reset (get_features) or written before it is read. */
++void p6_fpu_fsave_get(uae_u32 *ccr, uae_u32 *eo)
++{
++	*ccr = fsave_data.ccr;
++	for (int i = 0; i < 3; i++)
++		eo[i] = fsave_data.eo[i];
++}
++
++void p6_fpu_fsave_set(uae_u32 ccr, const uae_u32 *eo)
++{
++	fsave_data.ccr = ccr;
++	for (int i = 0; i < 3; i++)
++		fsave_data.eo[i] = eo[i];
++}
++#endif

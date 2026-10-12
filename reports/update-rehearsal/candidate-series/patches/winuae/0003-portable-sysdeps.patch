@@ -1,0 +1,21 @@
+diff --git a/include/sysdeps.h b/include/sysdeps.h
+--- a/include/sysdeps.h
++++ b/include/sysdeps.h
+@@ -62,7 +62,7 @@ using namespace std;
+ #error unrecognized CPU type
+ #endif
+ 
+-#ifdef _WIN32
++#if defined(_WIN32) && !defined(P6_PORTABLE)
+ /* Parameters are passed in ECX, EDX for both x86 and x86-64 (RCX, RDX).
+  * For x86-64, __fastcall is the default, so it isn't really required. */
+ #define JITCALL __fastcall
+@@ -277,7 +277,7 @@ extern int uaetcslen(const TCHAR*);
+ #define DONT_HAVE_POSIX
+ #endif
+ 
+-#if !defined(FSUAE) && defined _WIN32
++#if !defined(FSUAE) && defined(_WIN32) && !defined(P6_PORTABLE)
+ 
+ //#ifdef FSUAE
+ //#error _WIN32 should not be defined here

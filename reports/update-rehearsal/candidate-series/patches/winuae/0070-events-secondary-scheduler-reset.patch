@@ -1,0 +1,15 @@
+diff --git a/events.cpp b/events.cpp
+--- a/events.cpp
++++ b/events.cpp
+@@ -580,4 +580,11 @@ void clear_events(void)
+ 	}
+ 	event2next = 0;
+ 	firstvent2idx = -1;
++#ifdef P6_PORTABLE
++	// The re-entry counters and the cached count of active secondary events are scheduler state: only a cold process has
++	// them at zero. Upstream now resets event2next/firstvent2idx itself (what event2idx was for).
++	event2cnt = 0;
++	event2restart = 0;
++	event2total = 0;
++#endif
+ }

@@ -1,0 +1,84 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -8573,8 +8573,28 @@ uae_u8 *save_custom_extra(size_t *len, uae_u8 *dstptr)
+ 
+ #endif /* SAVESTATE */
+ 
++#ifdef P6_PORTABLE
++/* An RGA slot also points at the refresh pointer, at the pointer of an audio channel and at the disk pointer, none of which has a register of its own: restoring
++ * a slot that held one with a null pointer crashes handle_rga_out. The native state names them with codes above the register file. */
++extern uaecptr *p6_audio_pt(int nr);
++extern uaecptr *p6_disk_pt(void);
++#define P6_RGA_PT_REFRESH 0x200
++#define P6_RGA_PT_AUDIO0 0x201
++#define P6_RGA_PT_DISK 0x205
++#endif
++
+ static int getregfrompt(uaecptr *pt)
+ {
++#ifdef P6_PORTABLE
++	if (pt == &refptr)
++		return P6_RGA_PT_REFRESH;
++	for (int i = 0; i < 4; i++) {
++		if (pt == p6_audio_pt(i))
++			return P6_RGA_PT_AUDIO0 + i;
++	}
++	if (pt == p6_disk_pt())
++		return P6_RGA_PT_DISK;
++#endif
+ 	if (pt == &blt_info.bltdpt)
+ 		return 0x000;
+ 	if (pt == &blt_info.bltcpt)
+@@ -8625,6 +8645,17 @@ static uaecptr *getptfromreg(int reg)
+ {
+ 	switch (reg)
+ 	{
++#ifdef P6_PORTABLE
++	case P6_RGA_PT_REFRESH:
++		return &refptr;
++	case P6_RGA_PT_AUDIO0:
++	case P6_RGA_PT_AUDIO0 + 1:
++	case P6_RGA_PT_AUDIO0 + 2:
++	case P6_RGA_PT_AUDIO0 + 3:
++		return p6_audio_pt(reg - P6_RGA_PT_AUDIO0);
++	case P6_RGA_PT_DISK:
++		return p6_disk_pt();
++#endif
+ 	case -1:
+ 	case 0xffff:
+ 		return NULL;
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -2667,6 +2667,13 @@ uaecptr *audio_getpt(int nr)
+ 	cdp->pt &= ~1;
+ 	return &cdp->pt;
+ }
++#ifdef P6_PORTABLE
++/* The pointer audio_getpt returns, without its side effects: the native state names the pointer of an RGA slot (custom.cpp getregfrompt). */
++uaecptr *p6_audio_pt(int nr)
++{
++	return &audio_channel[nr].pt;
++}
++#endif
+ uaecptr audio_getloadpt(int nr)
+ {
+ 	struct audio_channel_data *cdp = audio_channel + nr;
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -5325,6 +5325,13 @@ uaecptr *disk_getpt(void)
+ 	dskpt &= ~1;
+ 	return &dskpt;
+ }
++#ifdef P6_PORTABLE
++/* The pointer disk_getpt returns, without its side effect (see p6_audio_pt). */
++uaecptr *p6_disk_pt(void)
++{
++	return &dskpt;
++}
++#endif
+ 
+ void DSKPTH(uae_u16 v)
+ {

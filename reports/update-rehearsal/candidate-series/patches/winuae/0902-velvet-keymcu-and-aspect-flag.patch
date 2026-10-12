@@ -1,0 +1,40 @@
+diff --git a/cfgfile.cpp b/cfgfile.cpp
+--- a/cfgfile.cpp
++++ b/cfgfile.cpp
+@@ -8938,7 +8938,9 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
+ 	p->lightboost_strobo_ratio = 50;
+ 
+ 	savestate_state = 0;
++#ifndef P6_PORTABLE
+ 	gfx_keep_aspect_seen = false;
++#endif
+ 
+ #ifndef P6_PORTABLE
+ 	// Host (win32_*, rtg_*) defaults belong to the desktop target.
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -2366,9 +2366,11 @@ static void WriteCIAB(uae_u16 addr, uae_u8 val, uae_u32 *flags)
+ 			}
+ 			WriteCIAReg(1, reg, val);
+ 			CIA_calctimers();
++#ifndef P6_PORTABLE
+ 			if (currprefs.keyboard_mode > 0 && handshake && currprefs.cs_compatible == CP_VELVET) {
+ 				keymcu_do();
+ 			}
++#endif
+ 		}
+ 		break;
+ 	case 4:
+@@ -2383,9 +2385,11 @@ static void WriteCIAB(uae_u16 addr, uae_u8 val, uae_u32 *flags)
+ 	case 13:
+ 	case 15:
+ 		CIA_update();
++#ifndef P6_PORTABLE
+ 		if (currprefs.keyboard_mode > 0 && reg == 12 && currprefs.cs_compatible == CP_VELVET) {
+ 			keymcu_do();
+ 		}
++#endif
+ 		WriteCIAReg(1, reg, val);
+ 		CIA_calctimers();
+ 		break;

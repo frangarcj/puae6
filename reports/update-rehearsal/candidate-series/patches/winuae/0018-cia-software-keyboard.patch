@@ -1,0 +1,81 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -60,7 +60,9 @@
+ #include "rtc_time.h"
+ #endif
+ #include "devices.h"
++#ifndef P6_PORTABLE
+ #include "keyboard_mcu.h"
++#endif
+ 
+ #define CIAA_DEBUG_R 0
+ #define CIAA_DEBUG_W 0
+@@ -1228,11 +1230,13 @@ void keyboard_connected(bool connect)
+ {
+ 	if (connect) {
+ 		write_log(_T("Keyboard connected\n"));
++#ifndef P6_PORTABLE
+ 		if (currprefs.keyboard_mode > 0) {
+ 			keymcu_reset();
+ 			keymcu2_reset();
+ 			keymcu3_reset();
+ 		}
++#endif
+ 	} else {
+ 		write_log(_T("Keyboard disconnected\n"));
+ 	}
+@@ -1241,6 +1245,7 @@ void keyboard_connected(bool connect)
+ 	resetwarning_phase = 0;
+ }
+ 
++#ifndef P6_PORTABLE
+ static bool keymcu_execute(void)
+ {
+ 	bool handshake = (cia[0].t[0].cr & 0x40) != 0 && (cia[0].sdr_buf & 0x80) == 0;
+@@ -1285,6 +1290,7 @@ static void keymcu_do(void)
+ 	keymcu_event(0);
+ }
+ 
++#endif
+ static void check_keyboard(void)
+ {
+ 	if (currprefs.keyboard_mode >= 0) {
+@@ -1342,9 +1348,12 @@ void CIA_hsync_posthandler(bool ciahsync, bool dotod)
+ 		}
+ #endif
+ 	} else {
++#ifndef P6_PORTABLE
+ 		if (currprefs.keyboard_mode > 0) {
+ 			keymcu_do();
+-		} else {
++		} else
++#endif
++		{
+ 			if (currprefs.keyboard_mode == 0) {
+ 				// custom hsync
+ 				if (resetwarning_phase) {
+@@ -2215,9 +2224,11 @@ static void WriteCIAA(uae_u16 addr, uae_u8 val, uae_u32 *flags)
+ 	case 13:
+ 	case 15:
+ 		CIA_update();
++#ifndef P6_PORTABLE
+ 		if (currprefs.keyboard_mode > 0 && reg == 12 && currprefs.cs_compatible != CP_VELVET) {
+ 			keymcu_do();
+ 		}
++#endif
+ 		WriteCIAReg(0, reg, val);
+ 		CIA_calctimers();
+ 		break;
+@@ -2230,9 +2241,11 @@ static void WriteCIAA(uae_u16 addr, uae_u8 val, uae_u32 *flags)
+ 			}
+ 			WriteCIAReg(0, reg, val);
+ 			CIA_calctimers();
++#ifndef P6_PORTABLE
+ 			if (currprefs.keyboard_mode > 0 && handshake && currprefs.cs_compatible != CP_VELVET) {
+ 				keymcu_do();
+ 			}
++#endif
+ 		}
+ 		break;
+ 	}

@@ -1,0 +1,31 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -4561,13 +4561,14 @@ static bool haltloop_do(int vsynctimeline, frame_time_t rpt_end, int lines)
+ // first p6_unit_skip of them, so the same engine can advance N units with and without returning.
+ extern int p6_unit_skip;
+ extern void p6_unit_observe(void);
++// The engine's cycle counter restarts at a reset, so the first boundary after it can land on the count of the last one before it.
++static evt_t p6_unit_last_reported = -1;
+ static bool p6_unit_swallowed(void)
+ {
+ 	// The wait loop of a CPU held in reset and the tail of do_specialties can both see the same boundary.
+-	static evt_t last_reported = -1;
+-	if (get_cycles() == last_reported)
++	if (get_cycles() == p6_unit_last_reported)
+ 		return false;
+-	last_reported = get_cycles();
++	p6_unit_last_reported = get_cycles();
+ 	p6_unit_observe();
+ 	if (p6_unit_skip <= 0)
+ 		return false;
+@@ -6961,6 +6962,9 @@ void m68k_go (int may_quit)
+ 			build_cpufunctbl();
+ 			set_x_funcs();
+ 			set_cycles (start_cycles);
++#ifdef P6_UNIT_TRACE
++			p6_unit_last_reported = -1;
++#endif
+ 			custom_reset (cpu_hardreset != 0, cpu_keyboardreset);
+ #ifdef P6_PORTABLE
+ 			if (p6_memory_rom_status() != P6_ROM_LOAD_OK)

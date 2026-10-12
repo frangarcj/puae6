@@ -1,0 +1,20 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -5887,6 +5887,8 @@ static void check_halt(void)
+ 		do_specialties (0);
+ }
+ 
++#endif // CPUEMU_0: reset/halt requests are shared by all CPU families.
++
+ void cpu_inreset(void)
+ {
+ 	set_special(SPCFLAG_CPUINRESET);
+@@ -5924,6 +5926,7 @@ void cpu_halt(int id)
+ 	set_special(SPCFLAG_CHECK);
+ }
+ 
++#ifdef CPUEMU_0
+ #ifdef CPUEMU_33
+ 
+ /* MMU 68060  */

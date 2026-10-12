@@ -1,0 +1,17 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13240,6 +13240,13 @@ bool p6_custom_beam_get(int32_t *out, unsigned n)
+ bool p6_custom_beam_set(const int32_t *in, unsigned n)
+ {
+ 	if (!in || n != P6_BEAM_WORDS) return false;
++	/* What init_beamcon0 derives from BEAMCON0 and from the registers that program the beam (the line and frame lengths, the vertical frequency, the display margins, the hsync
++	   tables): restore_custom reads new_beamcon0 and the registers, but WinUAE's own load gets the rest from custom_reset and init_hz, which the bridge never runs on a live machine.
++	   An image that loads the state of a machine that had programmed the beam kept the derived values of its own (the PAL or NTSC reset of a fresh one, those of another programming in
++	   one with history). It runs first: the counters and latches below are what init_beamcon0 starts again (lines_after_beamcon_change) or leaves for the line to set (maxhpos). */
++	if (ecs_agnus) {
++		init_beamcon0();
++	}
+ 	vpos = in[0]; vpos_prev = in[1]; agnus_hpos = uae_u8(in[2]); agnus_hpos_prev = in[3]; agnus_hpos_next = in[4]; agnus_vpos_next = in[5];
+ 	agnus_pos_change = in[6]; hhpos = uae_u16(in[7]);
+ 	linear_vpos = in[8]; linear_hpos = in[9];

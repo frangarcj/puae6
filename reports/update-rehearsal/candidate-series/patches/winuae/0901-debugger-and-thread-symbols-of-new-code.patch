@@ -1,0 +1,44 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -3638,9 +3638,11 @@ void denise_reset(bool hard)
+ 	last_bpl_pix = 0;
+ 	decode_specials = 0;
+ 	decode_specials_debug = currprefs.gfx_overscanmode >= OVERSCANMODE_ULTRA ? 2 : (currprefs.display_calibration ? 1 : 0);
++#ifdef DEBUGGER
+ 	if (debug_dma == 2) {
+ 		decode_specials_debug |= 0x100;
+ 	}
++#endif
+ 	debug_special_hvsync = currprefs.gfx_overscanmode == OVERSCANMODE_ULTRA + 1;
+ 	debug_special_csync = currprefs.gfx_overscanmode == OVERSCANMODE_ULTRA + 2;
+ 	denise_csync_blanken = false;
+@@ -5772,6 +5774,7 @@ static uint32_t decode_denise_specials_debug(uint32_t v, int inc)
+ 			}
+ 		}
+ 	}
++#ifdef DEBUGGER
+ 	if (debug_dma == 2 && debug_dma_ptr) {
+ 		uae_u32 cv = 0;
+ 		int t = 0;
+@@ -5795,6 +5798,7 @@ static uint32_t decode_denise_specials_debug(uint32_t v, int inc)
+ 			//v &= 0x7f7f7f7f;
+ 		}
+ 	}
++#endif
+ 
+ 	*buf_d++ = v;
+ 	return v;
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -6894,7 +6894,9 @@ void m68k_run(void)
+ 
+ 	run_func();
+ 
++#ifdef WITH_THREADED_CPU
+ 	cpu_thread_tid = 0;
++#endif
+ }
+ 
+ #ifdef P6_PORTABLE

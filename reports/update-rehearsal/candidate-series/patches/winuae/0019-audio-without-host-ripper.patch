@@ -1,0 +1,42 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -171,6 +171,7 @@ static int samplecnt;
+ static int extrasamples, outputsample, doublesample;
+ #endif
+ 
++#ifndef P6_PORTABLE
+ int sampleripper_enabled;
+ struct ripped_sample
+ {
+@@ -355,6 +356,8 @@ static void do_samplerip (struct audio_channel_data *adp)
+ 	audio_sampleripper (0);
+ }
+ 
++#endif
++
+ static struct audio_channel_data audio_channel[AUDIO_CHANNELS_PAULA];
+ static struct audio_stream_data audio_stream[AUDIO_CHANNEL_STREAMS];
+ static struct audio_channel_data2 *audio_data[AUDIO_CHANNELS_PAULA + AUDIO_CHANNEL_STREAMS * AUDIO_CHANNEL_MAX_STREAM_CH];
+@@ -1875,8 +1878,10 @@ static bool audio_state_channel2 (int nr, bool perfin)
+ 		if (cdp->wlen != 1)
+ 			cdp->wlen = (cdp->wlen - 1) & 0xffff;
+ 		cdp->state = 5;
++#ifndef P6_PORTABLE
+ 		if (sampleripper_enabled)
+ 			do_samplerip(cdp);
++#endif
+ 		break;
+ 	case 5:
+ 		cdp->evtime = MAX_EV;
+@@ -2549,8 +2554,10 @@ void event_audxdat_func(uae_u32 v)
+ 				if (!(v & 0x80000000)) {
+ 					cdp->intreq2 = true;
+ 				}
++#ifndef P6_PORTABLE
+ 				if (sampleripper_enabled)
+ 					do_samplerip(cdp);
++#endif
+ #if DEBUG_AUDIO > 0
+ 				if (debugchannel(nr))
+ 					write_log(_T("AUD%d looped, IRQ=%d, LC=%08X LEN=%d DSR=%d IRQ2=%d\n"), nr, isirq(nr) ? 1 : 0, cdp->pt, cdp->wlen, cdp->dsr, cdp->intreq2);

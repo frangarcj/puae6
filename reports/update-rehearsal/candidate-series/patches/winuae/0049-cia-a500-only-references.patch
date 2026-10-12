@@ -1,0 +1,96 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -1494,7 +1494,9 @@ static void bfe001_change(void)
+ 			map_overlay(0);
+ 		}
+ 	}
++#ifndef P6_PORTABLE
+ 	akiko_mute((v & 1) == 0);
++#endif
+ }
+ 
+ static uae_u32 getciatod(uae_u32 tod)
+@@ -1951,12 +1953,14 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
+ 			write_log(_T("BFE001 R %02X %s\n"), v, debuginfo(0));
+ #endif
+ 
++#ifndef P6_PORTABLE
+ 		if (flags && (inputrecord_debug & 2)) {
+ 			if (input_record > 0)
+ 				inprec_recorddebug_cia(v, 0, m68k_getpc ());
+ 			else if (input_play > 0)
+ 				inprec_playdebug_cia(v, 0, m68k_getpc ());
+ 		}
++#endif
+ 
+ 		return v;
+ 	}
+@@ -1980,13 +1984,16 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
+ 			}
+ 		} else
+ #endif
++#ifndef P6_PORTABLE
+ 		if (parallel_port_scsi) {
+ 
+ 			if (flags) {
+ 				tmp = parallel_port_scsi_read(0, c->prb, c->drb);
+ 			}
+ 
+-		} else {
++		} else
++#endif
++		{
+ 			tmp = handle_parport_joystick (0, tmp);
+ 			tmp = dongle_cia_read (1, reg, c->drb, tmp);
+ #if DONGLE_DEBUG > 0
+@@ -2059,11 +2066,15 @@ static uae_u8 ReadCIAB(uae_u32 addr, uae_u32 *flags)
+ 				parallel_direct_read_status(&v);
+ 			}
+ 			tmp |= v & 7;
+-		} else if (parallel_port_scsi) {
++		}
++#ifndef P6_PORTABLE
++		else if (parallel_port_scsi) {
+ 			if (flags) {
+ 				tmp = parallel_port_scsi_read(1, c->pra, c->dra);
+ 			}
+-		} else {
++		}
++#endif
++		else {
+ 			// serial port in output mode
+ 			if (c->t[0].cr & 0x40) {
+ 				tmp &= ~3;
+@@ -3000,6 +3011,7 @@ static void write_battclock(void)
+ {
+ 	if (!currprefs.rtcfile[0] || currprefs.cs_rtc == 0)
+ 		return;
++#ifndef P6_PORTABLE
+ 	TCHAR path[MAX_DPATH];
+ 	cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
+ 	struct zfile *f = zfile_fopen(path, _T("wb"));
+@@ -3045,6 +3057,7 @@ static void write_battclock(void)
+ 		}
+ 		zfile_fclose(f);
+ 	}
++#endif
+ }
+ 
+ void rtc_hardreset(void)
+@@ -3065,6 +3078,7 @@ void rtc_hardreset(void)
+ 		rtc_ricoh.rtc_alarm[10] = 1; /* 24H mode */
+ 		rtc_ricoh.delayed_write = 0;
+ 	}
++#ifndef P6_PORTABLE
+ 	if (currprefs.rtcfile[0]) {
+ 		TCHAR path[MAX_DPATH];
+ 		cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
+@@ -3087,6 +3101,7 @@ void rtc_hardreset(void)
+ 			zfile_fclose(f);
+ 		}
+ 	}
++#endif
+ }
+ 
+ static uae_u32 REGPARAM2 clock_lget(uaecptr addr)

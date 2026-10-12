@@ -1,0 +1,21 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -6396,6 +6396,8 @@ static void hsync_handler_post(bool onvsync)
+ 
+ 	bool input_read_done = false;
+ 
++#ifndef P6_PORTABLE
++	// Host pacing is frontend policy; hardware line work stays outside this block.
+ 	if (currprefs.cpu_thread) {
+ 
+ 		maybe_process_pull_audio();
+@@ -6520,6 +6522,8 @@ static void hsync_handler_post(bool onvsync)
+ 		}
+ 	}
+ 
++#endif
++
+ 	if (!input_read_done) {
+ 		inputdevice_hsync(false);
+ 	}

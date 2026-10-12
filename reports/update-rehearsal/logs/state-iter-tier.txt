@@ -1,0 +1,23 @@
+6 modules; 2 ok
+FAIL    1.1s  test_state_container  (0 tests, 0 skipped, 0 expected failures)
+FAIL    2.5s  test_state_bridge  (5 tests, 0 skipped, 0 expected failures)
+FAIL   26.9s  test_state_upstream  (35 tests, 0 skipped, 0 expected failures)
+FAIL  232.1s  test_det02  (297 tests, 0 skipped, 0 expected failures)
+== test_state_container
+    ERROR: setUpClass (tests.state.test_state_container.StateContainerTests)
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/qr/zh35j2sx2z76ky665gvgs7vw0000gn/T/p6-state-bju5pwlp/good.state'
+== test_state_bridge
+    ERROR: test_a_body_that_does_not_describe_an_image_is_refused_before_anything_is_applied (tests.state.test_state_bridge.BridgeStateTests.test_a_body_that_does_not_describe_an_image_is_refused_before_anything_is_applied) (standard=())
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/qr/zh35j2sx2z76ky665gvgs7vw0000gn/T/p6-state-rbsuhgkr/refusals.state'
+    ERROR: test_a_body_that_does_not_describe_an_image_is_refused_before_anything_is_applied (tests.state.test_state_bridge.BridgeStateTests.test_a_body_that_does_not_describe_an_image_is_refused_before_anything_is_applied) (standard=('--ntsc',))
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/qr/zh35j2sx2z76ky665gvgs7vw0000gn/T/p6-state-rbsuhgkr/refusals.state'
+== test_state_upstream
+    ERROR: test_a_blit_in_flight_comes_back_in_flight_with_its_phase (tests.state.test_state_upstream.UpstreamBodiesTests.test_a_blit_in_flight_comes_back_in_flight_with_its_phase)
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/qr/zh35j2sx2z76ky665gvgs7vw0000gn/T/p6-state-se5kym9a/flight.first'
+    ERROR: test_a_copper_that_waits_for_the_beam_comes_back_waiting (tests.state.test_state_upstream.UpstreamBodiesTests.test_a_copper_that_waits_for_the_beam_comes_back_waiting)
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/qr/zh35j2sx2z76ky665gvgs7vw0000gn/T/p6-state-se5kym9a/copper.first'
+== test_det02
+    FAIL: test_det02_blit_audio_at_2_reset_image_beam_set (tests.state.test_det02.Det02Tests.test_det02_blit_audio_at_2_reset_image_beam_set)
+    AssertionError: Lists differ: [(5, 0, '')] != []
+    FAIL: test_det02_blit_audio_at_2_same_image_beam_set (tests.state.test_det02.Det02Tests.test_det02_blit_audio_at_2_same_image_beam_set)
+    AssertionError: Lists differ: [(5, 0, '')] != []

@@ -1,0 +1,29 @@
+diff --git a/events.cpp b/events.cpp
+--- a/events.cpp
++++ b/events.cpp
+@@ -588,3 +588,25 @@ void clear_events(void)
+ 	event2total = 0;
+ #endif
+ }
++
++#ifdef P6_PORTABLE
++// Native state (bridge/state_cpu.cpp): the file-local state of the scheduler. p6_events_set is for a restore, after the tables are in
++// place; it also leaves the re-entry counters of MISC_handler at zero, where they are at every instruction boundary.
++void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain)
++{
++	*idx = firstvent2idx;
++	*next = event2next;
++	*cnt = event2cnt;
++	*restart = event2restart;
++	*remain = cycles_to_add_remain;
++}
++
++void p6_events_set(int idx, int next, int remain)
++{
++	firstvent2idx = idx;
++	event2next = next;
++	event2cnt = 0;
++	event2restart = 0;
++	cycles_to_add_remain = remain;
++}
++#endif

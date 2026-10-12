@@ -1,0 +1,68 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -2144,6 +2144,38 @@ static int load_kickstart (void)
+ 	}
+ 
+ 	if (f != NULL) {
++#ifdef P6_PORTABLE
++		// Main firmware for the closed A500 profile; do not select an extended loader.
++		const uae_s64 length = zfile_size(f);
++		uae_u8 header[8];
++		if (zfile_fread(header, 1, sizeof header, f) != sizeof header)
++			goto err;
++		if ((!memcmp(header, "\x00\x00\x03\xf3\x00\x00\x00\x00", 8)) ||
++			!memcmp(header, "\x7f" "ELF", 4) || length == ROM_SIZE_512 + 8 ||
++			length == ROM_SIZE_512 * 2 || length == ROM_SIZE_512 * 4) {
++			rom_load_status = P6_ROM_UNSUPPORTED;
++			goto err;
++		}
++		const bool kickdisk = !memcmp(header, "KICK", 4);
++		if (kickdisk ? length != 1760 * 512 :
++			(length != ROM_SIZE_256 && length != ROM_SIZE_512))
++			goto err;
++		if (zfile_fseek(f, 0, SEEK_SET))
++			goto err;
++		const int size = read_kickstart(f, kickmem_bank.baseaddr,
++			kickdisk ? ROM_SIZE_256 : ROM_SIZE_512, 1, 0);
++		if (size != ROM_SIZE_256 && size != ROM_SIZE_512)
++			goto err;
++		// Same structural fields as rommgr's kickstart_checksum_more_do.
++		const uae_u8 *mem = kickmem_bank.baseaddr;
++		if (mem[0] != 0x11 || mem[1] != (size == ROM_SIZE_256 ? 0x11 : 0x14))
++			goto err;
++		for (unsigned i = 0; i < 4; ++i)
++			if (mem[size - 20 + i] != ((unsigned(size) >> (24 - 8 * i)) & 255))
++				goto err;
++		kickmem_bank.mask = size - 1;
++		kickmem_bank.reserved_size = size;
++#else
+ 		int filesize, size, maxsize;
+ 		int kspos = ROM_SIZE_512;
+ 		int extpos = 0;
+@@ -2250,6 +2282,7 @@ static int load_kickstart (void)
+ 				extendedkickmem2b_bank.start = 0xb00000;
+ 			}
+ 		}
++	#endif
+ 	}
+ 
+ #if defined(AMIGA)
+@@ -3123,8 +3156,16 @@ static void restore_roms(void)
+ 	} else {
+ 		struct romdata *rd = getromdatabydata (kickmem_bank.baseaddr, kickmem_bank.reserved_size);
+ 		if (rd) {
++#ifdef P6_PORTABLE
++			// Known 020/030 or A4000 requirements cannot adapt the A500 profile.
++			if (rd->cpu & 15) {
++				rom_load_status = P6_ROM_UNSUPPORTED;
++				protect_roms(true);
++				return;
++			}
++#endif
+ 			write_log (_T("Known ROM '%s' loaded\n"), rd->name);
+-#if 1
++#ifndef P6_PORTABLE
+ 			if ((rd->cpu & 8) && changed_prefs.cpu_model < 68030) {
+ 				notify_user(NUMSG_KS68030PLUS);
+ 				uae_restart(&currprefs, -1, NULL);

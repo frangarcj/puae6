@@ -1,0 +1,88 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -3804,9 +3804,14 @@ void pulse_joydat(int joy, int xy, int dir)
+ 	}
+ }
+ 
++#ifdef P6_PORTABLE
++unsigned p6_input_poll_mask;
++#endif
++
+ uae_u16 JOY0DAT (void)
+ {
+ 	uae_u16 v;
++	P6_INPUT_POLL(P6_POLL_JOY0DAT);
+ 	readinput ();
+ 	v = getjoystate (0);
+ 	v = dongle_joydat (0, v);
+@@ -3819,6 +3824,7 @@ uae_u16 JOY0DAT (void)
+ uae_u16 JOY1DAT (void)
+ {
+ 	uae_u16 v;
++	P6_INPUT_POLL(P6_POLL_JOY1DAT);
+ 	readinput ();
+ 	v = getjoystate (1);
+ 	v = dongle_joydat (1, v);
+@@ -4567,10 +4573,12 @@ static uae_u16 POTDAT (int joy)
+ 
+ uae_u16 POT0DAT (void)
+ {
++	P6_INPUT_POLL(P6_POLL_POT0DAT);
+ 	return POTDAT (0);
+ }
+ uae_u16 POT1DAT (void)
+ {
++	P6_INPUT_POLL(P6_POLL_POT1DAT);
+ 	return POTDAT (1);
+ }
+ 
+@@ -4616,6 +4624,8 @@ uae_u16 POTGOR (void)
+ {
+ 	uae_u16 v;
+ 
++	P6_INPUT_POLL(P6_POLL_POTGOR);
++
+ 	v = handle_joystick_potgor (potgo_value) & 0x5500;
+ 	v = dongle_potgor (v);
+ #if DONGLE_DEBUG
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -1933,6 +1933,7 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
+ 	{
+ 		if (flags) {
+ 			*flags |= 1;
++			P6_INPUT_POLL(P6_POLL_CIAA_PRA); // a CPU access, not a state dump
+ 		}
+ 		uae_u8 v = DISK_status_ciaa() & 0x3c;
+ 		v |= handle_joystick_buttons(c->pra, c->dra);
+@@ -2032,6 +2033,8 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
+ 	case 13:
+ 	case 14:
+ 	case 15:
++		if (reg == 12 && flags)
++			P6_INPUT_POLL(P6_POLL_CIAA_SDR); // the keyboard byte
+ 		return ReadCIAReg(0, reg);
+ 	}
+ 	return 0;
+diff --git a/include/inputdevice.h b/include/inputdevice.h
+--- a/include/inputdevice.h
++++ b/include/inputdevice.h
+@@ -267,6 +267,16 @@ extern int inputdevice_translatekeycode (int keyboard, int scancode, int state,
+ extern void inputdevice_checkqualifierkeycode (int keyboard, int scancode, int state);
+ extern void inputdevice_setkeytranslation (struct uae_input_device_kbr_default **trans, int **kbmaps);
+ extern void inputdevice_do_keyboard(int code, int state);
++#ifdef P6_PORTABLE
++// Reads of the input registers by the emulated CPU, one bit each. Write-only for the engine: the bridge clears the
++// mask at the start of a unit and reads it at the end, and the unit is a lag frame when nothing was read.
++enum { P6_POLL_JOY0DAT = 1, P6_POLL_JOY1DAT = 2, P6_POLL_POT0DAT = 4, P6_POLL_POT1DAT = 8, P6_POLL_POTGOR = 16,
++       P6_POLL_CIAA_PRA = 32, P6_POLL_CIAA_SDR = 64 };
++extern unsigned p6_input_poll_mask;
++#define P6_INPUT_POLL(bit) (p6_input_poll_mask |= (bit))
++#else
++#define P6_INPUT_POLL(bit) ((void)0)
++#endif
+ extern void inputdevice_do_kb_reset(void);
+ extern int inputdevice_iskeymapped (int keyboard, int scancode);
+ extern int inputdevice_synccapslock (int, int*);

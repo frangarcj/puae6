@@ -1,0 +1,266 @@
+diff --git a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -253,10 +253,13 @@ void fixup_cpu (struct uae_prefs *p)
+ 	if (p->cpu_frequency == 1000000)
+ 		p->cpu_frequency = 0;
+ 
++#ifndef P6_PORTABLE
++	// Accelerator boards are not part of the A500 profile.
+ 	if (p->cpu_model >= 68020 && p->cpuboard_type && p->address_space_24 && cpuboard_32bit(p)) {
+ 		error_log (_T("24-bit address space is not supported with selected accelerator board configuration."));
+ 		p->address_space_24 = 0;
+ 	}
++#endif
+ 	if (p->cpu_model >= 68040 && p->address_space_24) {
+ 		error_log (_T("24-bit address space is not supported with 68040/060 configurations."));
+ 		p->address_space_24 = 0;
+@@ -431,11 +434,16 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 
+ 	built_in_chipset_prefs (p);
+ 	fixup_cpu (p);
++#ifndef P6_PORTABLE
++	// Graphics boards are not part of the A500 profile.
+ 	cfgfile_compatibility_rtg(p);
++#endif
+ 	cfgfile_compatibility_romtype(p);
+ 
+ 	read_kickstart_version(p);
+ 
++#ifndef P6_PORTABLE
++	// Accelerator board memory sizing: no cpuboard in the A500 profile.
+ 	if (p->cpuboard_type && p->cpuboardmem1.size > cpuboard_maxmemory(p)) {
+ 		error_log(_T("Unsupported accelerator board memory size %d (0x%x).\n"), p->cpuboardmem1.size, p->cpuboardmem1.size);
+ 		p->cpuboardmem1.size = cpuboard_maxmemory(p);
+@@ -449,6 +457,7 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 	} else if (cpuboard_memorytype(p) == BOARD_MEMORY_CUSTOM_32) {
+ 		p->mem25bit.size = 0;
+ 	}
++#endif
+ 
+ 	if (((p->chipmem.size & (p->chipmem.size - 1)) != 0 && p->chipmem.size != 0x180000)
+ 		|| p->chipmem.size < 0x20000
+@@ -484,6 +493,8 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 	}
+ #endif
+ 
++#ifndef P6_PORTABLE
++	// Graphics boards and their Zorro III memory limit are not part of the A500 profile.
+ 	bool initial_monitor = false;
+ 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
+ 		struct rtgboardconfig *rbc = &p->rtgboards[i];
+@@ -531,6 +542,7 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 			}
+ 		}
+ 	}
++#endif
+ 	
+ 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
+ 		if ((p->z3fastmem[i].size & (p->z3fastmem[i].size - 1)) != 0 || (p->z3fastmem[i].size != 0 && p->z3fastmem[i].size < 0x100000))
+@@ -545,11 +557,14 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 	if (p->z3autoconfig_start < 0x1000000)
+ 		p->z3autoconfig_start = 0x1000000;
+ 
++#ifndef P6_PORTABLE
++	// max_z3fastmem is the host Zorro III address-space reservation; there is none here.
+ 	if (p->z3chipmem.size > max_z3fastmem) {
+ 		error_log (_T("Zorro III fake chipmem size %d (0x%x) larger than max reserved %d (0x%x)."), p->z3chipmem.size, p->z3chipmem.size, max_z3fastmem, max_z3fastmem);
+ 		p->z3chipmem.size = max_z3fastmem;
+ 		err = 1;
+ 	}
++#endif
+ 	if (((p->z3chipmem.size & (p->z3chipmem.size - 1)) != 0 &&  p->z3chipmem.size != 0x18000000 && p->z3chipmem.size != 0x30000000) || (p->z3chipmem.size != 0 && p->z3chipmem.size < 0x100000))
+ 	{
+ 		error_log (_T("Unsupported 32-bit chipmem size %d (0x%x)."), p->z3chipmem.size, p->z3chipmem.size);
+@@ -596,6 +611,7 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 		error_log (_T("Unsupported CPU Board RAM size."));
+ 	}
+ 
++#ifndef P6_PORTABLE
+ 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
+ 		struct rtgboardconfig *rbc = &p->rtgboards[i];
+ 		if (p->chipmem.size > 0x200000 && rbc->rtgmem_size && gfxboard_get_configtype(rbc) == 2) {
+@@ -626,6 +642,7 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 			rbc->rtgmem_size = 0;
+ 		}
+ 	}
++#endif
+ 
+ 	if (p->cs_z3autoconfig && p->address_space_24) {
+ 		p->cs_z3autoconfig = false;
+@@ -843,9 +860,13 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 	}
+ 
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
+ 	blkdev_fix_prefs (p);
++#endif
+ 	inputdevice_fix_prefs(p, userconfig);
++#ifndef P6_PORTABLE
+ 	target_fixup_options (p);
++#endif
+ #ifndef P6_PORTABLE
+ 	cfgfile_createconfigstore(p);
+ #endif
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -299,7 +299,12 @@ bool expamem_z3hack(struct uae_prefs *p)
+ 	if (z3hack_override == Z3MAPPING_REAL) {
+ 		return false;
+ 	}
++#ifdef P6_PORTABLE
++	// No accelerator boards, so the Blizzard 12xx memory type test is always false.
++	return p->z3_mapping_mode == Z3MAPPING_UAE;
++#else
+ 	return p->z3_mapping_mode == Z3MAPPING_UAE || cpuboard_memorytype(p) == BOARD_MEMORY_BLIZZARD_12xx;
++#endif
+ }
+ 
+ /* Ugly hack for >2M chip RAM in single pool
+@@ -427,7 +432,10 @@ static addrbank *expamem_init_last (void)
+ #ifdef DEBUGGER
+ 	memory_map_dump ();
+ #endif
++#ifndef P6_PORTABLE
++	// Host page protection for native memory mapping and JIT direct; neither exists here.
+ 	mman_set_barriers(false);
++#endif
+ 	return NULL;
+ }
+ 
+@@ -1326,6 +1334,8 @@ uae_u32 uaeboard_base; /* Determined by the OS */
+ static uae_u32 uaeboard_ram_start;
+ #define UAEBOARD_WRITEOFFSET 0x4000
+ 
++#ifndef P6_PORTABLE
++// Only used by the excluded trap and host filesystem code (filesys_bank is FILESYS-only).
+ uae_u8 *uaeboard_map_ram(uaecptr p)
+ {
+ 	if (currprefs.uaeboard > 1) {
+@@ -1352,6 +1362,7 @@ uaecptr uaeboard_alloc_ram(uae_u32 size)
+ 	uaeboard_ram_start += size;
+ 	return p;
+ }
++#endif
+ 
+ static bool uaeboard_write(uaecptr addr)
+ {
+@@ -2424,10 +2435,13 @@ static uaecptr check_boot_rom (struct uae_prefs *p, int *boot_rom_type)
+ 		if (valid_address (RTAREA_DEFAULT, 65536))
+ 			b = RTAREA_BACKUP;
+ 	}
++#ifndef P6_PORTABLE
++	// Host directory units are not part of the A500 profile.
+ 	if (nr_directory_units (NULL))
+ 		return b;
+ 	if (nr_directory_units (p))
+ 		return b;
++#endif
+ #ifdef WIN32
+ 	if (p->win32_automount_drives || p->win32_automount_cddrives || p->win32_automount_netdrives || p->win32_automount_removable)
+ 		return b;
+@@ -2462,6 +2476,12 @@ static uaecptr check_boot_rom (struct uae_prefs *p, int *boot_rom_type)
+ 
+ uaecptr need_uae_boot_rom (struct uae_prefs *p)
+ {
++#ifdef P6_PORTABLE
++	// The UAE boot ROM lives in the traps area (rtarea), which the A500 profile does not build.
++	(void)p;
++	uae_boot_rom_type = 0;
++	return 0;
++#else
+ 	uaecptr v;
+ 
+ 	uae_boot_rom_type = 0;
+@@ -2471,6 +2491,7 @@ uaecptr need_uae_boot_rom (struct uae_prefs *p)
+ 		v = 0;
+ 	}
+ 	return v;
++#endif
+ }
+ 
+ static void add_cpu_expansions(struct uae_prefs *p, int zorro, int *fastmem_nump)
+@@ -3650,6 +3671,8 @@ static void expansion_add_autoconfig(struct uae_prefs *p)
+ 
+ 	reset_ac(p);
+ 
++#ifndef P6_PORTABLE
++	// Accelerator boards are not part of the A500 profile.
+ 	if (p->cpuboard_type) {
+ 		// This may require first 128k slot.
+ 		cards_set[cardno].flags = 1;
+@@ -3659,6 +3682,7 @@ static void expansion_add_autoconfig(struct uae_prefs *p)
+ 		cards_set[cardno].cst = &cpuboards[p->cpuboard_type].subtypes[p->cpuboard_subtype];;
+ 		cards_set[cardno++].map = NULL;
+ 	}
++#endif
+ 
+ 	if (p->z3chipmem.size) {
+ 		cards_set[cardno].flags = 0;
+@@ -4034,9 +4058,12 @@ void expansion_clear (void)
+ 		clear_bank (&z3fastmem_bank[i]);
+ 	}
+ 	clear_bank (&z3chipmem_bank);
++#ifndef P6_PORTABLE
++	// Graphics board memory (PICASSO96) is not part of the A500 profile.
+ 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
+ 		clear_bank (gfxmem_banks[i]);
+ 	}
++#endif
+ }
+ 
+ #ifdef SAVESTATE
+diff --git a/cfgfile.cpp b/cfgfile.cpp
+--- a/cfgfile.cpp
++++ b/cfgfile.cpp
+@@ -6708,6 +6708,8 @@ static void romtype_restricted(struct uae_prefs *p, const int *list)
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE
++// Graphics boards are not part of the A500 profile.
+ void cfgfile_compatibility_rtg(struct uae_prefs *p)
+ {
+ 	int uaegfx = -1;
+@@ -6812,6 +6814,7 @@ void cfgfile_compatibility_rtg(struct uae_prefs *p)
+ 		}
+ 	}
+ }
++#endif
+ 
+ void cfgfile_compatibility_romtype(struct uae_prefs *p)
+ {
+@@ -8879,7 +8882,10 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
+ 
+ 	inputdevice_default_prefs (p);
+ 
++#ifndef P6_PORTABLE
++	// CD/SCSI slots: the memset above already yields the SCSI_UNIT_DEFAULT (0) state.
+ 	blkdev_default_prefs (p);
++#endif
+ 
+ 	p->cr_selected = -1;
+ 	struct chipset_refresh *cr;
+@@ -8919,7 +8925,10 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
+ 	savestate_state = 0;
+ 	gfx_keep_aspect_seen = false;
+ 
++#ifndef P6_PORTABLE
++	// Host (win32_*, rtg_*) defaults belong to the desktop target.
+ 	target_default_options (p, type);
++#endif
+ 
+ #ifndef P6_PORTABLE
+ 	// Desktop cache used to omit unchanged options from text config exports.
+@@ -9063,7 +9072,10 @@ static void buildin_default_prefs (struct uae_prefs *p)
+ 
+ 	p->debug_mem = false;
+ 
++#ifndef P6_PORTABLE
++	// Type 1 only sets host drive, SCSI, MIDI and RTG defaults.
+ 	target_default_options (p, 1);
++#endif
+ 	cfgfile_compatibility_romtype(p);
+ }
+ 

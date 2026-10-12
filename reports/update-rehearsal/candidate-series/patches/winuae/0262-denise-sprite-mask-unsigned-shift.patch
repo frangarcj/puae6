@@ -1,0 +1,12 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -3252,7 +3252,7 @@ static void expand_bplcon2(uae_u16 v)
+ 	plf1pri = bplcon2_denise & 7;
+ 	plf2pri = (bplcon2_denise >> 3) & 7;
+ 	plf_sprite_mask = 0xFFFF0000 << (4 * plf2pri);
+-	plf_sprite_mask |= (0x0000FFFF << (4 * plf1pri)) & 0xFFFF;
++	plf_sprite_mask |= (0x0000FFFFu << (4 * plf1pri)) & 0xFFFF;
+ 	bpldualpfpri = (bplcon2_denise & 0x40) == 0x40;
+ 
+ #ifdef AGA

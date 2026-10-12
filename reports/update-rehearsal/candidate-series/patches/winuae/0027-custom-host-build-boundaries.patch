@@ -1,0 +1,32 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -44,7 +44,9 @@
+ #if defined(ENFORCER)
+ #include "enforcer.h"
+ #endif
++#ifndef P6_PORTABLE
+ #include "threaddep/thread.h"
++#endif
+ #ifdef WITH_LUA
+ #include "luascript.h"
+ #endif
+@@ -181,13 +183,17 @@ static void uae_abort (const TCHAR *format,...)
+ 	TCHAR buffer[1000];
+ 
+ 	va_start (parms, format);
++#ifdef P6_PORTABLE
++	vsnprintf(buffer, sizeof(buffer), format, parms);
++#else
+ 	_vsntprintf (buffer, sizeof (buffer) / sizeof(TCHAR) - 1, format, parms );
++#endif
+ 	va_end (parms);
+ 	if (nomore) {
+ 		write_log (_T("%s\n"), buffer);
+ 		return;
+ 	}
+-	gui_message (buffer);
++	gui_message (_T("%s"), buffer);
+ 	nomore = 1;
+ }
+ 

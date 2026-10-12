@@ -1,0 +1,747 @@
+{
+  "added": [
+    "0900-copper-strobe-else-brace",
+    "0901-debugger-and-thread-symbols-of-new-code",
+    "0902-velvet-keymcu-and-aspect-flag",
+    "0903-beam-state-accessor-for-6100b17",
+    "0904-scheduler-state-accessors-for-6100b17",
+    "0905-copper-state-accessor-for-6100b17",
+    "0906-frame-geometry-accessor-for-6100b17",
+    "0907-statefile-version-accessor",
+    "0908-counter-restart-hook-before-early-set-cycles",
+    "0909-softfloat-include-follows-upstream-rename"
+  ],
+  "dropped": [
+    "0061-drawing-null-buffer-arithmetic",
+    "0096-custom-rga-fourth-slot-state",
+    "0143-softfloat-case-exact-includes",
+    "0145-fpu-quotient-pointer-type"
+  ],
+  "patches": {
+    "0001-gengenblitter-host-includes": {
+      "body_unchanged": true,
+      "bytes_identical": true,
+      "files_dropped": []
+    },
+    "0002-generated-includes": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0003-portable-sysdeps": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0004-portable-allocation": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0005-portable-zfile-boundary": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0006-sha1-text-without-printf": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0007-events-without-host-pacing": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0008-fpdata-without-fpu": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0009-cpu-common-feature-guards": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0010-dma-tags-without-debugger": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0011-cia-portable-profile": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0012-rtc-emulated-time": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0013-cpu-owner-interrupts": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0014-cpu-a500-selection": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0015-cpu-a500-backends": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0016-cpu-dump-without-debugger": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0017-devices-a500-lifecycle": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0018-cia-software-keyboard": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0019-audio-without-host-ripper": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0020-audio-signed-scaling": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0021-softfloat-portable-build": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0022-audio-configuration-boundary": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0023-cpu-common-halt-requests": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0024-cpu-halt-preserve-paula": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0025-custom-physical-clock": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0026-custom-ocs-color-storage": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0027-custom-host-build-boundaries": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0028-custom-optional-irq-tod": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0029-custom-hsync-without-host-waits": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0030-custom-vsync-without-host-presentation": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0031-memory-kickstart-without-path-fallback": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0032-rom-load-status-without-aros-fallback": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0033-rom-exact-reads-and-checksum": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0034-explicit-rom-key-normalization": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0035-a500-main-rom-envelope": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0036-rommgr-portable-names-and-device-guards": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0037-denise-synchronous-portable-dispatch": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0038-drawing-ocs-feature-guards": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0039-main-library-and-explicit-seed": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0040-expansion-portable-card-names": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0041-preset-clear-all-ram-boards": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0042-cfgfile-library-profile": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0043-remove-desktop-config-callers": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0044-savestate-library-profile": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0045-savestate-diagnostic-types": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0046-disk-explicit-readonly-assets": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0047-disk-readonly-media-host-services": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0048-inputdevice-portable-input-profile": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0049-cia-a500-only-references": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0050-newcpu-excluded-hooks": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0051-memory-custom-excluded-hooks": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0052-input-state-rom-excluded-recording": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0053-config-excluded-devices": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0054-gencpu-select-models": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0055-savestate-legacy-uss-excluded": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0056-desktop-host-services-excluded": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0057-osk-paste-pause-and-keyswap-excluded": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0058-drawing-rtg-refresh-guard": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0059-main-gui-state-owned-by-port": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0060-video-unit-return-m68k-go-unit": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0062-unit-trace-test-hook": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0063-keyboard-ring-free-space": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0064-unit-trace-single-report": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0065-input-poll-mask": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0066-input-api-reset": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0067-unit-trace-reset-dedupe": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0068-disk-head-starts-on-track-0": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0069-input-pot-state-reset": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0070-events-secondary-scheduler-reset": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0071-cia-service-instant-reset": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0072-prefs-copy-owns-device-names": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0073-counter-restart-hook": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0074-cia-first-frame-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0075-input-session-begin": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0076-main-rng-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0077-newcpu-state-boundary": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0078-events-state-access": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0079-custom-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0080-disk-motordelay-handler-export": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0081-cia-rtc-msm-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0082-cia-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0083-cia-led-session-begin": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0084-keybuf-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0085-inputdevice-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0086-state-bodies-guard": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0087-disk-state-body-without-paths": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0088-custom-state-body-ocs-and-pure": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0089-drawing-state-body-six-planes": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0090-custom-restore-on-live-machine": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0091-disk-restore-writes-no-preferences": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0092-rga-slot-pointers-named": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0093-blitter-body-keeps-old-skip-flags": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0094-custom-beam-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0095-custom-copper-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0097-blitter-phase-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0098-custom-derived-state-rebuild": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0099-audio-phase-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0100-denise-presentation-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0101-disk-phase-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0102-disk-update-defined-shift": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0103-picture-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0104-programmed-beam-flags": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0105-disk-select-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0106-cpu-68020-ce-selection": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0107-rom-requirements-by-preset-cpu": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0108-cpu-020-aga-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0109-denise-ring-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0110-expansion-z2-fast-ram": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0111-fast-ram-access-mask": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0112-expansion-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0113-fast-ram-allocated-at-load": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0114-expansion-clear-keeps-clean-pages": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0120-disk-write-overlay": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0121-disk-raw-track-overlay": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0140-fpu-softfloat-only": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0141-fpu-without-mmu030-and-x87": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0142-fpu-state-access": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0144-fpu-exception-ends-the-instruction": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0160-native2amiga-exter-queue": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0161-hardfile-synchronous-uaehf": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0162-traps-no-thread-traps": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0163-filesys-hard-files-only": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0164-autoconf-trap-area-with-hard-file": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0165-expansion-uaefs-board": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0166-devices-filesys-lifecycle": {
+      "body_unchanged": false,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0167-cpu-memory-trap-area-reach": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0180-native2amiga-queue-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0181-filesys-hardfile-rtarea-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0182-expansion-uaefs-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0190-filesys-rdb-checksum-bounded": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0220-beam-nosignal": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0221-expamem-image-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0240-cia-tod-mains-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0250-audio-mixvol-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0260-programmed-beam-derived-values": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0261-bitplane-sequencer-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0262-denise-sprite-mask-unsigned-shift": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0280-disk-linecounter-state": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0290-rom-refusal-by-cpu": {
+      "body_unchanged": true,
+      "bytes_identical": false,
+      "files_dropped": []
+    },
+    "0900-copper-strobe-else-brace": {
+      "new": true
+    },
+    "0901-debugger-and-thread-symbols-of-new-code": {
+      "new": true
+    },
+    "0902-velvet-keymcu-and-aspect-flag": {
+      "new": true
+    },
+    "0903-beam-state-accessor-for-6100b17": {
+      "new": true
+    },
+    "0904-scheduler-state-accessors-for-6100b17": {
+      "new": true
+    },
+    "0905-copper-state-accessor-for-6100b17": {
+      "new": true
+    },
+    "0906-frame-geometry-accessor-for-6100b17": {
+      "new": true
+    },
+    "0907-statefile-version-accessor": {
+      "new": true
+    },
+    "0908-counter-restart-hook-before-early-set-cycles": {
+      "new": true
+    },
+    "0909-softfloat-include-follows-upstream-rename": {
+      "new": true
+    }
+  }
+}
