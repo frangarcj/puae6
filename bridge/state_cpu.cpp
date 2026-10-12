@@ -212,6 +212,37 @@ void apply_020(const Cpu020 &c)
     p6_caches020_set(c.cache_data, c.cache_tag, c.cache_valid, kCaches020);
 }
 
+// -- The 68010 block of P6CP (T52) ---------------------------------------------------------------------------------------------------------------------------------
+// Appended to the body of a machine whose CPU is a 68010 (p6_config.cpu_model 2 on a 68000 machine), in this order (little endian, 10 bytes):
+//   u32 vbr  u8 sfc dfc (0..7)  u32 loop_mode
+// What a 68010 has that a 68000 does not and that decides its future: the vector base register (the exception vectors are read from it), the two function code registers (read by MOVEC,
+// used by MOVES) and the loop mode of the cycle-exact core (patch 0310 lets p6_cpu_boundary through with it). The loop mode is the state of a DBcc loop of one instruction that the
+// 68010 runs from its two-word queue: a loop that spans a unit boundary leaves regs.loop_mode set between two instructions (bit 0 the flag, the cycles of the looped instruction in the
+// bits 1 to 15, the extra cycles of its exit in the bits 16 to 31), and the DBcc handler reads it to know whether it is the first pass; ird (carried above) says which instruction loops.
+struct Cpu010 {
+    uint32_t vbr = 0, loop_mode = 0;
+    uint8_t sfc = 0, dfc = 0;
+};
+
+void visit_010(Archive &a, Cpu010 &c)
+{
+    const bool checks = a.mode() != Mode::Measure;
+    c.vbr = a.val<uint32_t>(regs.vbr, "cpu.vbr");
+    c.sfc = get<uint8_t>(a, regs.sfc, 0, 7, "cpu.sfc");
+    c.dfc = get<uint8_t>(a, regs.dfc, 0, 7, "cpu.dfc");
+    c.loop_mode = a.val<uint32_t>(regs.loop_mode, "cpu.loop_mode");
+    // The cycles of the looped instruction are at most the 6 of TST.L and the exit adds at most 4 (gencpu's loop mode table).
+    if (checks) a.require((c.loop_mode & 0xffff) <= 0x10 && (c.loop_mode >> 16) <= 0x10, "cpu.loop_mode: cycles beyond what the looped instructions pay");
+}
+
+void apply_010(const Cpu010 &c)
+{
+    regs.vbr = c.vbr;
+    regs.sfc = c.sfc;
+    regs.dfc = c.dfc;
+    regs.loop_mode = c.loop_mode;
+}
+
 // -- The FPU block of P6CP (T54) ----------------------------------------------------------------------------------------------------------------------------------
 // Appended after the 68020 block of a machine whose configuration has a 68881 or a 68882 (p6_config.fpu_model; the block exists with the FPU, whose model is in the
 // identity, so the body follows the machine as the 68020 block does), in this order (little endian, 110 bytes):
@@ -282,6 +313,7 @@ void apply_fpu(const CpuFpu &f)
 //   u8 stopped (0..1)  u8 halted (0..13, not 4)  u32 spcflags (CPUINRESET|TRACE|DOTRACE|BLTNASTY)
 //   u8 ipl0 ipl1 ipl_pin ipl_pin_p (0..7)  u8 ipl_evt_pre_mode (0..1)  i64 ipl_evt ipl_evt_pre ipl_pin_change_evt ipl_pin_change_evt_p (>= 0)
 //   u32 xorshiftstate (>= 1)
+// A 68010 (T52) appends the block of the 68010 (visit_010 above, 10 bytes) and keeps the SR of a 68000 (it has neither T0 nor M).
 // A 68020 machine (the A1200, T24c) appends the block of the 68020 (visit_020 above); the chunk version stays 1 because the body follows the machine, as
 // P6RT's does, and the machine is part of the identity. SR then keeps T0 and M (mask 0xF71F instead of 0xA71F). A machine with an FPU (T54) appends the block of the FPU
 // after that (visit_fpu above); the model of the FPU is in the identity too.
@@ -354,6 +386,8 @@ void visit_cpu(Archive &a)
     // 8. The 68020: its control registers and what its cycle-exact core keeps between two instructions.
     Cpu020 c020;
     if (m68020) visit_020(a, c020);
+    Cpu010 c010;
+    if (currprefs.cpu_model == 68010) visit_010(a, c010);
 
     // 9. The FPU, when the configuration has one.
     CpuFpu fpu;
@@ -388,6 +422,7 @@ void visit_cpu(Archive &a)
         regs.ipl_pin_change_evt_p = chg_p;
         p6_rng_set(rng);
         if (m68020) apply_020(c020);
+        if (currprefs.cpu_model == 68010) apply_010(c010);
         if (has_fpu) apply_fpu(fpu);
         // Not touched, on purpose: ir, ird and irc are not refilled from memory (restore_cpu_finish's fill_prefetch_quick would overwrite them with
         // what memory holds now, which can differ from the prefetch queue), doint() is not called (it would recompute ipl_pin from the chipset,

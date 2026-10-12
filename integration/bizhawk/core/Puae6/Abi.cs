@@ -59,7 +59,7 @@ public unsafe struct P6Config
 	public byte SoundSeparation, SoundInterpolation, SoundFilter, SoundFilterType;     // T73: Paula's output; 0 in each is the profile's own setting (the schema's numbers, config/schema/options.json)
 	public byte FloppySpeed;                                     // T62: 0 the profile's (the real drive), 2 200 %, 3 400 %, 4 800 %, 5 turbo (the schema's numbers; 1 is a named 100 %)
 	public byte VideoResolution, VideoLineMode;                  // T72: the raster; 0 in each is the profile's (hires, double lines), else 1 lores, 3 super-hires / 1 single (the schema's numbers; 2 is a named hires / double)
-	public fixed byte Reserved8[1];                              // zero in ABI v1
+	public byte CpuModel;                                        // T52: 0 the machine's own, 1 68000, 2 68010 (68000 machines), 3 68020 (A1200; the schema's numbers)
 	public ulong Reserved1;                                      // zero in ABI v1
 }
 

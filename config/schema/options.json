@@ -304,6 +304,27 @@
       "wrapper": {"how": "setting", "setting": "FpuModel", "type": "Puae6Fpu"}
     },
     {
+      "id": "cpu_model",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.cpu_model",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Machine's own (68000; 68EC020 on the A1200)", "wrapper_name": "Auto"},
+        {"value": "68000", "abi": 1, "label": "68000", "wrapper_name": "M68000"},
+        {"value": "68010", "abi": 2, "label": "68010", "wrapper_name": "M68010"},
+        {"value": "68020", "abi": 3, "label": "68020", "wrapper_name": "M68020"}
+      ],
+      "libretro": {
+        "key": "puae6_cpu_model",
+        "category": "machine",
+        "label": "CPU",
+        "info": "The CPU of the machine, cycle exact. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The 68030, 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another."
+      },
+      "headless": {"how": "named", "flag": "--cpu", "names": {"auto": "auto", "68000": "68000", "68010": "68010", "68020": "68020"}},
+      "wrapper": {"how": "setting", "setting": "CpuModel", "type": "Puae6Cpu"}
+    },
+    {
       "id": "audio_rate_hz",
       "class": "reboot",
       "type": "enum",
@@ -1856,7 +1877,6 @@
     {"id": "floppy_drives", "for": "a later media task", "wrapper_setting": "FloppyDrives", "why": "How many of the given disks start in a drive is a media placement made with media events (DF0 and DF1 exist in the bridge); libretro drives DF0 alone from Disk Control, so there is nothing to offer yet."}
   ],
   "unsupported": [
-    {"key": "cpu_model", "why": "The 68000 at the A500 clock is the only CPU the generated tables cover."},
     {"key": "z3fastmem_size", "why": "Zorro III RAM needs a 32-bit bus (68030 and up, T55); every machine here has a 24-bit one."},
     {"key": "fastmem2_size", "why": "One Zorro II Fast RAM board is offered; a second board is not."},
     {"key": "kickstart_rom_file", "why": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration."},

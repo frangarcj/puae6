@@ -201,7 +201,7 @@ constexpr Fixed kFixed[] = {
 constexpr const char *kNativeKeys[] = {
     "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
     "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
-    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_video_resolution", "puae6_video_line_mode",
+    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model",
 };
 
 const p6_options::Option *find_option(const char *key)
@@ -667,8 +667,16 @@ private:
         if (facts) {
             if (!chipset.empty() && chipset != facts->chipset)
                 error(*chipset_, std::string("the chipset ") + chipset_->value + " is not the one of the machine (" + facts->name + ": " + facts->chipset + ")");
-            if (cpu_ && lower(cpu_->value) != facts->cpu)
-                error(*cpu_, "the CPU " + cpu_->value + " is not the one of the machine (" + facts->name + ": " + facts->cpu + ")");
+            if (cpu_) {
+                // T52: the CPU of the file is the machine's own, which it only describes, or, on a machine with a 68000, a 68010 in its socket, which is the option puae6_cpu_model; anything
+                // else is the reason the load would give.
+                const std::string cpu = lower(cpu_->value);
+                const bool socket = cpu == "68010" && std::string(facts->cpu) == "68000";
+                if (cpu != facts->cpu && !socket)
+                    error(*cpu_, "the CPU " + cpu_->value + " is not the one of the machine (" + facts->name + ": " + facts->cpu + (std::string(facts->cpu) == "68000" ? " or 68010" : "") + ")");
+                else if (socket)
+                    set_name(*cpu_, "puae6_cpu_model", cpu);
+            }
         }
 
         // The disks: DF0 first, then the swap list in number order; a swap entry that is DF0's own file is not listed twice.

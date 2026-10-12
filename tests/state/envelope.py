@@ -55,6 +55,12 @@ def config_hash_audio(base, separation, interpolation, filter_, filter_type):
     return domain_hash("p6/config/audio/v1", base, bytes([separation, interpolation, filter_, filter_type]))
 
 
+def config_hash_cpu(base, model, multiplier=0):
+    """T52: the hash of a config whose CPU or clock is not the machine's own: derived from the hash so far (`base`, 32 bytes: the flags word's, then the audio word's when there is one),
+    the resolved model as 0 = 68000, 1 = 68010, 2 = 68020 and the multiplier of the clock (0 while it is the machine's own). The machine's own CPU and clock keep `base` (bridge/state.cpp)."""
+    return domain_hash("p6/config/cpu/v1", base, bytes([model, multiplier]))
+
+
 def media_manifest_hash(media):
     """`media` is a list of (type, content_id) in the order of the p6_load array."""
     return domain_hash("p6/media-manifest/v1", struct.pack("<I", len(media)), *(struct.pack("<I", kind) + content_id for kind, content_id in media))

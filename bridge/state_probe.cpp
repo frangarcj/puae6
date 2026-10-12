@@ -31,6 +31,7 @@
 // the clock in the open, "rtc UNIT STATUS SECONDS TICKS SUBSECOND CYCLE D E F" (p6_rtc_save brings it up to the cycle counter); --poke-at UNIT
 // rtc-fault latches the clock's sticky fault, as a failed read would, and cs-rtc names another clock chip than the profile's.
 // --poke-at UNIT ce020-extracycles|extra|prefetchend|span|instruction-cnt|vbr|cacr|cache-line changes one field of the 68020 that the CPU chunk carries (T24c), for the tests that show that each one decides the future.
+// --cpu 68000|68010|68020 (T52) names the CPU of the machine (p6_config.cpu_model); --poke-at UNIT cpu010-vbr|cpu010-sfc|cpu010-dfc|cpu010-loop changes one field of the 68010 that the CPU chunk carries.
 // --poke-at UNIT cia-tod2 puts CIA-A in the state of a TOD increment pending, without the event that carries it (a save must refuse it) and cia-tod2-event
 // with the event; cia-ovl flips the overlay latch against PRA/DDRA and kbmode names a keyboard other than the A500's (clear puts the CIAs and the mode back).
 // --poke-at UNIT keyinject|ignorerelease|turbo|mousespeed|resetwarning|released put the input in a state outside the profile (a text typed into the ring, a release to
@@ -166,6 +167,10 @@ void cpu(Canon &c)
             c.put(regs.cacheholdingdata_valid).put(regs.fc030).put(int32_t(regs.memory_waitstate_cycles));
             c.put(uint8_t(regs.ce020memcycle_data)).put(int32_t(regs.ce020_tail)).put(int64_t(regs.ce020_tail_cycles));
         }
+    }
+    if (currprefs.cpu_model == 68010) {
+        // T52: a 68010 appends what its block of the CPU chunk carries; the digest of every other CPU is unchanged byte for byte.
+        c.put(regs.vbr).put(regs.sfc).put(regs.dfc).put(regs.loop_mode);
     }
     if (currprefs.fpu_model) {
         // T54: with an FPU the digest also holds what the FPU block of the CPU chunk carries (the data registers as bit patterns, the control registers, the pending-exception words
@@ -792,6 +797,16 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 else if (!strcmp(what, "cache-line")) { uae_u32 d[CACHELINES020], t[CACHELINES020]; uae_u8 v[CACHELINES020]; p6_caches020_get(d, t, v, CACHELINES020); v[0] ^= 1; d[1] ^= 0xff; p6_caches020_set(d, t, v, CACHELINES020); }
                 else { fprintf(stderr, "unknown poke %s\n", op.chunk); exit(64); }
             }
+            else if (!strncmp(op.chunk, "cpu010-", 7)) {
+                // T52: change one field of the 68010 block of the CPU chunk (tests/state/test_state_cpu010.py): VBR moves by 0x100, SFC and DFC by one (modulo 8), and the loop mode
+                // is entered with the flag and the cycles of a one-instruction loop (or left, when it was).
+                const char *what = op.chunk + 7;
+                if (!strcmp(what, "vbr")) regs.vbr += 0x100;
+                else if (!strcmp(what, "sfc")) regs.sfc = (regs.sfc + 1) & 7;
+                else if (!strcmp(what, "dfc")) regs.dfc = (regs.dfc + 1) & 7;
+                else if (!strcmp(what, "loop")) regs.loop_mode = regs.loop_mode ? 0 : 0x20001;
+                else { fprintf(stderr, "unknown poke %s\n", op.chunk); exit(64); }
+            }
             else if (!strncmp(op.chunk, "fpu-", 4)) {
                 // T54: change one field of the FPU that the CPU chunk carries, to show that it decides the future (tests/state/test_state_fpu.py). fpu-reg moves the mantissa of FP0 by
                 // one unit in the last place, fpu-fpcr flips the rounding mode, fpu-fpsr flips the N condition code, fpu-fpiar adds 2, fpu-state flips the idle/null bit and fpu-fsave
@@ -923,6 +938,7 @@ int main(int argc, char **argv)
     uint32_t standard = P6_VIDEO_PAL;
     uint32_t machine = P6_MACHINE_A500;
     uint32_t rate = 48000;
+    uint32_t cpu_model = 0;                                  // T52: p6_config cpu_model as the ABI number (--cpu 68000|68010|68020; 0 the machine's own)
     uint32_t fpu_model = 0;                                  // T54: 0 = none, 68881 or 68882 (--fpu 68882)
     uint32_t floppy_speed = 0;                               // T62: p6_config floppy_speed as the ABI number (--floppy-speed: 0 the profile, 1 100 %, 2 200 %, 3 400 %, 4 800 %, 5 turbo)
     uint32_t sound[4] = {0, 0, 0, 0};                       // T73: p6_config sound_separation, sound_interpolation, sound_filter, sound_filter_type as ABI numbers (--sound-sep, --sound-interp, --sound-filter, --sound-type)
@@ -955,6 +971,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--cpu") && i + 1 < argc) { const uint32_t model = uint32_t(strtoul(argv[++i], nullptr, 10)); cpu_model = model >= 68000 ? 1 + (model - 68000) / 10 : model; }
         else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-sep") && i + 1 < argc) sound[0] = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) sound[1] = uint32_t(strtoul(argv[++i], nullptr, 10));
@@ -1037,7 +1054,7 @@ int main(int argc, char **argv)
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
         } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 68881|68882] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--cpu 68000|68010] [--fpu 68881|68882] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -1076,6 +1093,7 @@ int main(int argc, char **argv)
     config.slow_kib = slow_kib;
     config.fast_kib = fast_kib;
     config.fpu_model = fpu_model;
+    config.cpu_model = uint8_t(cpu_model);
     config.sound_separation = uint8_t(sound[0]); config.sound_interpolation = uint8_t(sound[1]); config.sound_filter = uint8_t(sound[2]); config.sound_filter_type = uint8_t(sound[3]);
     config.floppy_speed = uint8_t(floppy_speed);
     p6_error error{P6_ABI_VERSION, sizeof error, {}};

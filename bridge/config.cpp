@@ -209,6 +209,21 @@ int resolve_floppy_speed(const p6_config &c)
     }
 }
 
+int resolve_cpu(const p6_config &c)
+{
+    // 0 is the machine's own CPU; any other value is 1 + (model - 68000) / 10 (p6.h).
+    return c.cpu_model ? 68000 + 10 * (int(c.cpu_model) - 1) : machine_info(c.machine).cpu;
+}
+
+bool cpu_identity(const p6_config &c, uint8_t out[2])
+{
+    // The resolved model as 0 = 68000, 1 = 68010, 2 = 68020 and the resolved multiplier of the clock (0 while it is the machine's own): two spellings of the same machine (0 and the machine's
+    // own number) hash alike.
+    out[0] = uint8_t((resolve_cpu(c) - 68000) / 10);
+    out[1] = 0;
+    return resolve_cpu(c) != machine_info(c.machine).cpu || out[1] != 0;
+}
+
 Audio resolve_audio(const p6_config &c)
 {
     // 0 is the profile's own setting; any other value is upstream's + 1 (p6.h). The type 'auto' is the model of the machine's Paula output stage (A1200: its AGA filter).
@@ -293,9 +308,18 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "fpu model must be 0 (none), 68881 or 68882");
     if (c.fpu_model != 0 && c.machine != P6_MACHINE_A1200)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "an FPU needs a 68020: only the A1200 can have a 68881 or 68882");
+    // The CPU (T52): the machines with a 68000 take a 68010 in its socket; the A1200's 68EC020 is soldered and it is the only CPU its AGA preset, its Kickstart 3.1 and its 24-bit map are made for.
+    if (c.cpu_model > 3)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu model must be 0 (the machine's own), 1 (68000), 2 (68010) or 3 (68020)");
+    if (c.cpu_model != 0 && resolve_cpu(c) != machine_info(c.machine).cpu) {
+        if (machine_info(c.machine).cpu == 68020)
+            return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A1200 has a soldered 68EC020: no other CPU is offered for it");
+        if (resolve_cpu(c) != 68010)
+            return p6_fail(error, P6_ERROR_UNSUPPORTED, "the machines with a 68000 take a 68000 or a 68010; a 68020 is the A1200's");
+    }
     if (const p6_result memory = validate_memory(c, error))
         return memory;
-    if (c.reserved8[0] || c.reserved1)
+    if (c.reserved1)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     if (!resolution_option_valid(c.video_resolution))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "video resolution must be 0 (the profile's), 1 (lores), 2 (hires) or 3 (super-hires)");
@@ -375,6 +399,9 @@ void build_preferences(const p6_config &c)
     // the 68881/68882 behaviour that built_in_prefs leaves (the strict and no-unimplemented modes are 68040/68060 matters).
     currprefs.fpu_model = int(c.fpu_model);
     currprefs.fpu_mode = c.fpu_model ? 1 : 0;
+    // The CPU (T52): the machine's own unless the config names a 68010 for a 68000 machine. Everything else of the preset (cycle exact, 24-bit space, no MMU) is the 68000's and the 68010 shares it;
+    // build_cpufunctbl then takes op_smalltbl_13, the 68010 cycle-exact table, and m68k_run_1_ce runs it (patch 0310).
+    currprefs.cpu_model = resolve_cpu(c);
     const Memory memory = resolve_memory(c);
     currprefs.chipmem.size = memory.chip_kib * 1024;
     currprefs.bogomem.size = memory.slow_kib * 1024;
@@ -439,7 +466,7 @@ p6_result check_preset(p6_error *error)
     const bool no_gayle = machine.no_gayle;
     const Memory memory = resolve_memory(preset_config);
     const char *drifted = nullptr;
-    if (p.cpu_model != machine.cpu || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
+    if (p.cpu_model != resolve_cpu(preset_config) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
         p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict || p.fpu_no_unimplemented || p.mmu_model ||
         !p.address_space_24 || (machine.cpu == 68020 && p.waiting_blits)) drifted = "cpu";
     else if (p.chipset_mask != machine.chipset_mask || !p.blitter_cycle_exact) drifted = "chipset";
@@ -487,7 +514,7 @@ static p6_result refused_by_cpu(p6_error *error)
     const MachineInfo &machine = machine_info(preset_config.machine);
     char text[P6_ERROR_TEXT_CAPACITY];
     snprintf(text, sizeof text, "the ROM \"%.100s\" needs %s but the %s has a %s: it is the firmware of another machine", name, requirement, machine.name,
-             machine.cpu == 68020 ? "68EC020" : "68000");
+             resolve_cpu(preset_config) == 68020 ? "68EC020" : resolve_cpu(preset_config) == 68010 ? "68010" : "68000");
     return p6_fail(error, P6_ERROR_WRONG_MEDIA, text);
 }
 

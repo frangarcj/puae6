@@ -26,6 +26,9 @@ public enum Puae6Fast { None, MB1, MB2, MB4, MB8 }
 /// <summary>The floating point coprocessor (restart): none, or a 68881 or 68882, which only the A1200 can have (the 68000 has no coprocessor interface). SoftFloat computes it, so the results are the same on every host.</summary>
 public enum Puae6Fpu { None, M68881, M68882 }
 
+/// <summary>The CPU (restart): the machine's own (a 68000, the A1200's 68EC020), a 68010 in the socket of a machine with a 68000, or the A1200's 68020. Another combination is refused when the core starts, with the reason.</summary>
+public enum Puae6Cpu { Auto, M68000, M68010, M68020 }
+
 /// <summary>Paula's stereo separation (restart): how much of each side's channels stays on that side, 0 % (mono) to 100 %. 70 % is the profile's own setting.</summary>
 public enum Puae6SoundSeparation { P0, P10, P20, P30, P40, P50, P60, P70, P80, P90, P100 }
 
@@ -73,6 +76,9 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>The FPU of the machine (A1200 only; another machine refuses it when the core starts). It enters the identity of states and movies when it is not <c>None</c>.</summary>
 	public Puae6Fpu FpuModel { get; set; } = Puae6Fpu.None;
+
+	/// <summary>The CPU of the machine. It changes the instruction set, the exception frames and the registers, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
+	public Puae6Cpu CpuModel { get; set; } = Puae6Cpu.Auto;
 
 	/// <summary>Paula's stereo separation. It changes every sample the machine hands over, so it is a sync setting: it enters the identity of states and movies when it is not the profile's 70 %.</summary>
 	public Puae6SoundSeparation SoundSeparation { get; set; } = Puae6SoundSeparation.P70;

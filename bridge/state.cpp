@@ -260,6 +260,13 @@ Identity current_identity()
         const uint64_t lengths[2] = {32, 4};
         domain_hash("p6/config/audio/v1", parts, lengths, 2, identity.config_hash);
     }
+    // T52: the CPU, when it is not the machine's own. Derived after the audio word so that a config with neither keeps the hash it always had.
+    uint8_t cpu[2];
+    if (p6_bridge::cpu_identity(c, cpu)) {
+        const uint8_t *parts[2] = {identity.config_hash, cpu};
+        const uint64_t lengths[2] = {32, 2};
+        domain_hash("p6/config/cpu/v1", parts, lengths, 2, identity.config_hash);
+    }
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;

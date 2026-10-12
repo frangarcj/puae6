@@ -110,8 +110,8 @@ class SchemaValidationTests(unittest.TestCase):
         option(document, "video_standard")["maps_to"] = "presentation.video_standard"
         self.refuses(document, "a reboot option must map to a p6_config field")
         document = schema()
-        option(document, "video_standard")["maps_to"] = "p6_config.cpu_model"
-        self.refuses(document, "p6_config has no field 'cpu_model'")
+        option(document, "video_standard")["maps_to"] = "p6_config.cpu_frequency"
+        self.refuses(document, "p6_config has no field 'cpu_frequency'")
         document = schema()
         option(document, "video_standard")["maps_to"] = "p6_config.reserved1"
         self.refuses(document, "p6_config.reserved1 has one valid value in ABI v1")
@@ -299,7 +299,7 @@ class NormalizationTests(unittest.TestCase):
     def test_nothing_requested_gives_the_defaults(self):
         document = schema()
         normalized = gen.normalize_config(document, {})
-        machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "fpu_model": "None", "audio_rate_hz": "48000", "random_seed": 1,
+        machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "fpu_model": "None", "cpu_model": "auto", "audio_rate_hz": "48000", "random_seed": 1,
                    "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled",
                    "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto", "floppy_speed": "100", "video_resolution": "hires", "video_line_mode": "double"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
@@ -317,7 +317,7 @@ class NormalizationTests(unittest.TestCase):
         presentation["hotkey_statusbar"] = "f12"            # but F12, which the Amiga does not have, shows the statusbar (PUAE5's default), and the bar starts hidden
         self.assertEqual(normalized, {**machine, **presentation})
         self.assertEqual(gen.to_p6_config(document, normalized),
-                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
+                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "cpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
                           "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "video_resolution": 0, "video_line_mode": 0})
 
     def test_the_presets_are_bundles_of_the_options_and_give_the_memory_of_puae5(self):
@@ -416,7 +416,7 @@ class NormalizationTests(unittest.TestCase):
         self.refuses({"machine": "A1200OG"}, "option machine", "'A1200OG'", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
         self.refuses({"machine": 3}, "option machine", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
         self.refuses({"machine": 2}, "option machine", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
-        self.refuses({"cpu_model": "68020"}, "option cpu_model is not supported: The 68000")
+        self.refuses({"cpu_speed": "max"}, "option cpu_speed is not supported: The machine runs at its real clock")
         self.refuses({"z3fastmem_size": 64}, "option z3fastmem_size is not supported: Zorro III RAM")
         self.refuses({"fastmem2_size": 8}, "option fastmem2_size is not supported: One Zorro II Fast RAM board")
         self.refuses({"chip_size": "3M"}, "option chip_size", "'3M'", "allowed: Auto, KB512, MB1, MB2")
@@ -440,7 +440,7 @@ class NormalizationTests(unittest.TestCase):
     def test_unknown_and_reserved_keys_are_refused_and_every_problem_is_listed(self):
         self.refuses({"turbo": "yes"}, "option turbo is unknown (supported: machine, video_standard")
         self.refuses({"controller_port1": "Mouse"}, "option controller_port1 is not supported")
-        self.refuses({"cpu_model": "68020", "video_standard": "SECAM", "turbo": 1}, "cpu_model", "SECAM", "turbo")
+        self.refuses({"cpu_speed": "max", "video_standard": "SECAM", "turbo": 1}, "cpu_speed", "SECAM", "turbo")
 
 
 class AbiTests(unittest.TestCase):
@@ -532,7 +532,7 @@ class GeneratorTests(unittest.TestCase):
     def test_the_table_has_the_normalized_p6_config_that_adapters_must_use(self):
         table = json.loads(gen.TABLE.read_text())
         self.assertEqual({name: entry["default"] for name, entry in table["p6_config"].items()},
-                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
+                         {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "cpu_model": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
                           "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "video_resolution": 0, "video_line_mode": 0})
         self.assertEqual(table["p6_config"]["chip_kib"]["allowed"], [0, 512, 1024, 2048])
         self.assertEqual(table["p6_config"]["slow_kib"]["allowed"], [0, 4294967295, 512, 1024, 1536, 1792])

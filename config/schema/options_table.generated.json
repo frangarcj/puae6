@@ -111,6 +111,23 @@
       "option": "fpu_model",
       "class": "reboot"
     },
+    "cpu_model": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "names": {
+        "auto": 0,
+        "68000": 1,
+        "68010": 2,
+        "68020": 3
+      },
+      "option": "cpu_model",
+      "class": "reboot"
+    },
     "audio_rate_hz": {
       "default": 48000,
       "allowed": [
@@ -1547,6 +1564,24 @@
       },
       "libretro": "puae6_fpu_model"
     },
+    "cpu_model": {
+      "headless": {
+        "how": "named",
+        "flag": "--cpu",
+        "names": {
+          "auto": "auto",
+          "68000": "68000",
+          "68010": "68010",
+          "68020": "68020"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "CpuModel",
+        "type": "Puae6Cpu"
+      },
+      "libretro": "puae6_cpu_model"
+    },
     "audio_rate_hz": {
       "headless": {
         "how": "fixed"
@@ -2315,7 +2350,6 @@
     "floppy_drives": "FloppyDrives"
   },
   "unsupported": {
-    "cpu_model": "The 68000 at the A500 clock is the only CPU the generated tables cover.",
     "z3fastmem_size": "Zorro III RAM needs a 32-bit bus (68030 and up, T55); every machine here has a 24-bit one.",
     "fastmem2_size": "One Zorro II Fast RAM board is offered; a second board is not.",
     "kickstart_rom_file": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration.",

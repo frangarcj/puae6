@@ -1,0 +1,35 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -1918,8 +1918,8 @@
+ static const struct cputbl *cputbls[6][8] = {
+ 	// 68000 cycle exact
+ 	{ NULL, NULL, NULL, NULL, op_smalltbl_14, NULL, NULL, NULL },
+-	// 68010: not selectable
+-	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
++	// 68010 cycle exact (T52, generated with the 68000 rows in cpuemu_13)
++	{ NULL, NULL, NULL, NULL, op_smalltbl_13, NULL, NULL, NULL },
+ 	// 68020 cycle exact
+ 	{ NULL, NULL, NULL, NULL, op_smalltbl_21, NULL, NULL, NULL }
+ };
+@@ -10665,7 +10665,7 @@
+ 
+ // Native state (bridge/state_cpu.cpp): true at an instruction boundary of a machine whose CPU loop is started and that is in a mode the profile
+ // can be in; otherwise `why` names the first thing that is not. Everything tested here is written before it is read, or never written in the
+-// profile, so it is a check and not a part of the state. A 68020 has the registers of a 68010 and more (T0, M, VBR, SFC, DFC, MSP): they are
++// profile, so it is a check and not a part of the state. A 68010 has VBR, SFC, DFC and its loop mode, a 68020 those and more (T0, M, MSP): they are
+ // state there and are carried by the CPU chunk; a 68000 never has them set.
+ bool p6_cpu_boundary(const char **why)
+ {
+@@ -10674,8 +10674,9 @@
+ 		w = "the CPU loop is not started";
+ 	else if (regs.exception || exception_in_exception)
+ 		w = "an exception is in flight";
+-	else if (regs.loop_mode || regs.lastipl || (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.vbr || regs.sfc || regs.dfc || regs.msp)))
+-		w = "a register or mode that only a 68010 or later has is set";
++	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || regs.lastipl ||
++			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
++		w = "a register or mode that the CPU of this machine does not have is set";
+ 	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))
+ 		w = "a special flag is pending that the profile never leaves pending at a unit boundary";
+ 	else if (cpu_tracer || cpu_prefs_changed_flag || m68k_reset_delay || pissoff)

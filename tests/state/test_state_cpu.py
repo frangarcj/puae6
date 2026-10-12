@@ -215,7 +215,7 @@ class CpuChunkTests(ProbeCase):
 
     def test_a_cpu_that_is_not_at_an_instruction_boundary_is_not_saved_and_nothing_is_written(self):
         names = [("exception", "an exception is in flight"), ("spc-int", "a special flag is pending"),
-                 ("lastipl", "a register or mode that only a 68010 or later has is set")]
+                 ("lastipl", "a register or mode that the CPU of this machine does not have is set")]
         arguments = []
         for index, (poke, _) in enumerate(names):
             arguments += ["--poke-at", "4", poke, "--save-at", "4", str(self.dir / f"poked{index}.state"), "--poke-at", "4", "clear"]

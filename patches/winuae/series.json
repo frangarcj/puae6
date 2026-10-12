@@ -3881,6 +3881,57 @@
           "after_sha256": "cba17dfa5ebc69f2c2668addcd8204bfa7b790ea9cb761458e9cbd258711fbc4"
         }
       ]
+    },
+    {
+      "id": "0310-cpu-68010-ce-selection",
+      "file": "patches/winuae/0310-cpu-68010-ce-selection.patch",
+      "sha256": "dde14ef12a9e8f85f62133d61a1da6fec0ceb22f8468a4e40c619e4cfe56857b",
+      "title": "The 68010 cycle-exact row of cputbls is selectable",
+      "reason": "ADR 0010 left the 68010 row of cputbls null so that build_cpufunctbl aborted instead of choosing a CPU no preset announced; cpuemu_13 already holds the 68010 handlers (op_smalltbl_13, generated with gencpu 13 14 21) and compiles under CPUEMU_13. T52: a preset may now run a 68010 (p6_config.cpu_model), the CPU boundary of the native state lets VBR, SFC, DFC and the loop mode through on a 68010.",
+      "category": "host hooks",
+      "order": 144,
+      "symbols": [
+        "cputbls",
+        "p6_cpu_boundary"
+      ],
+      "test": "tests/host/test_cpu_010.py (68010 micro-ROM)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "fc18404d4c63ff650e0b8f2a5bb137ccdbca4e11cb827d4ea192dc37440a07b6",
+          "after_sha256": "80ce896ea18c3cd1c81b6c312f323548c65001a6bfcd5772a28eeb5c94d9da91"
+        }
+      ]
+    },
+    {
+      "id": "0311-cpu-68010-loop-mode-table",
+      "file": "patches/winuae/0311-cpu-68010-loop-mode-table.patch",
+      "sha256": "93ed252e3550d0e0c7f07595c3a644e3a5e930825ac8a99f5ecade421ccd0146",
+      "title": "The loop mode table of the 68010 holds the cycle-exact handlers",
+      "reason": "loop_mode_table was filled from cpufunctbl, whose entries are NULL in every cycle-exact table (cpuemu_13 has only the noret handlers): the DBcc of the 68010 tests loop_mode_table[regs.ird] before it enters loop mode, so the 68010 never did and a one-instruction DBRA loop cost what it costs on a 68000. The table now holds cpufunctbl_noret (its type too: the generated cycle-exact DBcc ignores the return value). 68000 and 68020 code has no loop mode and does not change. Upstream defect of the cycle-exact 68010 in WinUAE 6.0.3.",
+      "category": "host hooks",
+      "order": 145,
+      "symbols": [
+        "loop_mode_table",
+        "build_cpufunctbl"
+      ],
+      "test": "tests/host/test_cpu_010.py (the DBRA loop is faster than on a 68000)",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "80ce896ea18c3cd1c81b6c312f323548c65001a6bfcd5772a28eeb5c94d9da91",
+          "after_sha256": "434142d0564bcc110d5fdd5a023af890039f508bbcf2d0f62adce19df4730381"
+        },
+        {
+          "path": "include/newcpu.h",
+          "before_sha256": "ab0967118f63dca8ddbbf4d7a60737f61fdf3d7965a70da068425876b6adbbc0",
+          "after_sha256": "af963b3efd129713b9d082fd2e48189d16127d416e346c1122b30e07e1f4adc0"
+        }
+      ]
     }
   ]
 }

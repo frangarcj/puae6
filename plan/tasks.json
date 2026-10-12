@@ -12915,13 +12915,159 @@
       "evidence": null
     },
     {
+      "id": "T52a",
+      "title": "CPU 68010 cycle-exact: fila de cputbls, p6_config.cpu_model en todas las superficies, estado nativo y DET02 (A500, A600)",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "done",
+      "depends": [
+        "T24a"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
+        "bridge/**",
+        "tests/host/**",
+        "tests/state/**",
+        "tests/fuzz/**",
+        "tests/contracts/**",
+        "tests/ffi/**",
+        "tests/reference/patch-classes.json",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/libretro-ui/**",
+        "config/**",
+        "adapters/headless/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/core/**",
+        "tools/generate_options.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "plan/tasks.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Parches 0310 (la fila 68010 de cputbls apunta a op_smalltbl_13, que cpuemu_13 ya genera con gencpu 13 14 21: GEN01 no cambia) y 0311 (loop_mode_table se llenaba con los manejadores NULL de las tablas cycle-exact: el modo bucle de la 68010 estaba muerto; defecto de upstream 6.0.3). p6_config.cpu_model (offset 63: 0 la CPU de la maquina, 1 68000, 2 68010, 3 68020; la 68010 en las maquinas de 68000, la A1200 solo su 68EC020; error claro en otro caso) y config_hash derivado solo fuera de la CPU de la maquina (dominio p6/config/cpu/v1). Bloque de 10 bytes en P6CP (VBR, SFC, DFC, loop_mode). Probe 68010 (tests/host/test_cpu_010.py) y DET02/estado (test_det02_cpu010.py, test_state_cpu010.py). Superficies: esquema (cpu_model: auto, 68000, 68010, 68020), puae6_cpu_model, headless --cpu, importador .uae (cpu_model 68010 en las maquinas de 68000) y sync setting CpuModel de BizHawk con su campo de Abi.cs; la prueba en Waterbox es T52c."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "STATE01"
+      ],
+      "acceptance": [
+        "La 68010 ejecuta su probe (MOVEC/VBR, RTD, MOVES, MOVE from CCR, MOVE from SR privilegiado, marcos de excepcion de 4 y 29 palabras, modo bucle) y DET02 con 68010 a mitad de un bucle en modo bucle, de traps con VBR y de un error de direccion pasa; la 68000 no cambia de hash, cota ni estado. tests/config, libretro-host (test_cpu.py) y libretro-ui en verde; la maquina de libretro con puae6_cpu_model=68010 es la de headless --cpu 68010 unidad por unidad."
+      ],
+      "stop": "No editar a mano cpuemu_13 ni las tablas generadas; no cambiar hashes golden.",
+      "evidence": null
+    },
+    {
+      "id": "T52b",
+      "title": "Multiplicador de reloj de la CPU (cpu_multiplier) como opcion de reinicio determinista, en todas las superficies",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "pending",
+      "depends": [
+        "T52a"
+      ],
+      "touch": [
+        "bridge/**",
+        "tests/host/**",
+        "tests/state/**",
+        "tests/fuzz/**",
+        "tests/contracts/**",
+        "tests/ffi/**",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/libretro-ui/**",
+        "config/**",
+        "adapters/headless/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/core/**",
+        "tools/generate_options.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "plan/tasks.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "p6_config.cpu_multiplier (offset 64: 0 el de la maquina, 1, 2, 4, 8, 10, 12 o 16 como PUAE5; 2 en las de 68000, 4 en la A1200) en currprefs.cpu_clock_multiplier = N << 8, plegado en el mismo config_hash derivado de la CPU solo fuera del reloj de la maquina. Efecto medido con el temporizador E de la CIA (2000 pasadas de TST.W (An)+/DBRA: 7200/N pulsos en una 68000) y DET02 con cada multiplicador en la A500, la 68010 y la A1200. Superficies: esquema (cpu_multiplier), puae6_cpu_multiplier, headless --cpu-multiplier, importador .uae (cpu_multiplier) y sync setting CpuMultiplier de BizHawk."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "AV02"
+      ],
+      "acceptance": [
+        "El multiplicador cambia la velocidad como dice el manual (tiempo del bucle inversamente proporcional) sin romper DET02; el perfil (multiplicador de la maquina) conserva hash, bytes y estados; nada se mide con el reloj del host."
+      ],
+      "stop": "No usar velocidad maxima ligada al reloj del host.",
+      "evidence": null
+    },
+    {
+      "id": "T52c",
+      "title": "cpu_model y cpu_multiplier en el guest Waterbox y el wrapper BizHawk: pruebas WB03 y de identidad, waterbox-memory, contratos y ADR",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "pending",
+      "depends": [
+        "T52a",
+        "T52b"
+      ],
+      "touch": [
+        "tests/waterbox-state/**",
+        "tests/waterbox-smoke/**",
+        "tests/ffi/**",
+        "integration/bizhawk/**",
+        "tools/build_waterbox.py",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/adr/**",
+        "reports/tasks/T52.md",
+        "plan/tasks.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "El guest Waterbox cambia con los parches 0310/0311 y el bloque de estado: re-registrar manifests/waterbox-memory.json completo (16 claves; el runtime_sha256 queda como en main). Pruebas del wrapper (tests/waterbox-state: la 68010 y cada multiplicador, WB03, identidad del estado y de la pelicula solo fuera del defecto), layout C#/C de P6Config (tests/ffi), contratos (docs/02-contracts.md) y ADR 0012."
+      ],
+      "checks": [
+        "WB03",
+        "STATE01"
+      ],
+      "acceptance": [
+        "WB03 con la 68010 y con un multiplicador; los estados y peliculas de una CPU o un reloj se rechazan en otro; waterbox-memory re-registrado."
+      ],
+      "stop": "No subir timeouts ni tocar hashes golden.",
+      "evidence": null
+    },
+    {
       "id": "T52",
       "title": "CPU 68010 y multiplicador de reloj cycle-exact (opcion de reinicio)",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T24a"
+        "T24a",
+        "T52a",
+        "T52b",
+        "T52c"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12939,10 +13085,15 @@
         "bridge/config.cpp",
         "config/**",
         "adapters/libretro/**",
-        "tests/libretro-host/**"
+        "tests/libretro-host/**",
+        "plan/tasks.json",
+        "reports/tasks/T52.md",
+        "docs/adr/**",
+        "tests/test_plan.py"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_cpu_model 68010 y puae_cpu_multiplier. Generar/seleccionar la 68010 CE (fila cputbls) y exponer el multiplicador como opcion de reinicio determinista."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_cpu_model 68010 y puae_cpu_multiplier. Generar/seleccionar la 68010 CE (fila cputbls) y exponer el multiplicador como opcion de reinicio determinista.",
+        "Division (2026-10-12): T52a (68010: fila de cputbls, cpu_model en todas las superficies, estado y DET02), T52b (multiplicador de reloj en todas las superficies) y T52c (guest Waterbox, wrapper BizHawk, contratos y ADR); T52 es el cierre y queda con los checks GEN01, DET02 y LR01."
       ],
       "checks": [
         "GEN01",

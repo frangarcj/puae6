@@ -87,7 +87,11 @@ typedef struct p6_config {
      * its hash, its bytes and its states. Anything above 3 / 2 is P6_ERROR_UNSUPPORTED. */
     uint8_t video_resolution;
     uint8_t video_line_mode;
-    uint8_t reserved8[1];           /* Zero in ABI v1 (the rest of what was reserved[0]). */
+    /* The CPU (T52), in the eighth byte of what was reserved[0]: 0 = the machine's own (68000 on the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000; 68EC020 on the A1200), else
+     * 1 + (model - 68000) / 10: 1 = 68000, 2 = 68010, 3 = 68020. The 68000 machines also take the 68010 (the same sockets, the cycle-exact 68010 of upstream); the A1200 has its
+     * soldered 68EC020 and nothing else; any other combination is P6_ERROR_UNSUPPORTED with the reason. A restart option: it changes the instruction set, the exception frames and
+     * the registers, so it enters config_hash off the machine's own CPU only (a derived hash, bridge/config.cpp cpu_identity, domain p6/config/cpu/v1). */
+    uint8_t cpu_model;
     uint64_t reserved1;             /* Zero in ABI v1 (what was reserved[1]). */
 } p6_config;
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay

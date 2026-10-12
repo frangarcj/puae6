@@ -414,6 +414,30 @@ de antes y el hash de las series no cambia. Un estado o una pelicula de un model
 ADR 0009 punto 11. Opciones: libretro `puae6_fpu_model` (None, M68881, M68882), headless `--fpu 0|68881|68882` y el sync setting `FpuModel` de BizHawk (en la identidad del estado y de la
 pelicula solo cuando no es `None`).
 
+### CPU 68010 y reloj de la CPU (T52)
+
+`p6_config.cpu_model` (un byte, offset 63: el octavo de lo que era `reserved[0]`; `reserved8` desaparece como campo y el struct sigue midiendo 72 bytes): **cero es la CPU de la maquina** (68000 en el A500,
+A500 OG, A500+, A600, A1000, A2000 OG y A2000; 68EC020 en el A1200), 1 = 68000, 2 = 68010, 3 = 68020 (`1 + (modelo - 68000) / 10`). Decision: **la 68010 es opcional en las maquinas de 68000**, incluido el A600
+(el mismo zocalo; la 68010 es la mejora de siempre de una maquina de 68000) y **el A1200 solo tiene su 68EC020 soldada**: es la unica CPU para la que estan hechos su preset AGA, el Kickstart 3.1 (que el motor
+rechaza en una 68000, parche 0290) y el bus de 24 bits, de modo que `cpu_model` 1 o 2 en el A1200, o un 68020 en una maquina de 68000, o un valor mayor de 3, dan `P6_ERROR_UNSUPPORTED` con la razon antes de
+tocar el motor. La 68030, 68040 y 68060 no se ofrecen (T55). Es una **opcion de reinicio**: cambia el juego de instrucciones, los marcos de excepcion y los registros.
+
+La 68010 cycle-exact es la fila `[1][4]` de `cputbls` (`op_smalltbl_13`, parche 0310): `cpuemu_13.cpp` la lleva desde siempre (`gencpu 13 14 21` genera 13 y 14 en el mismo archivo), asi que **GEN01 y los
+fuentes generados no cambian** y las tablas de la 68000 salen byte a byte iguales. Lo que distingue a la 68010 y esta probado con valores derivados del manual (`tests/host/test_cpu_010.py`): MOVEC con VBR, SFC,
+DFC y USP (y `MOVEC CACR` como instruccion ilegal), la tabla de vectores en VBR, el marco de excepcion de cuatro palabras con la palabra formato/offset de vector (la 68000 apila tres), el marco de formato 8
+de 29 palabras del error de direccion y su RTE, RTD, MOVES, MOVE from CCR y MOVE from SR como instruccion privilegiada, y el modo bucle. **Hallazgo (parche 0311, defecto de upstream 6.0.3)**: el modo bucle de la 68010
+cycle-exact estaba muerto (`loop_mode_table` se llenaba de `cpufunctbl`, cuyas entradas son NULL en todas las tablas cycle-exact, asi que el DBcc nunca lo activaba y un bucle de una instruccion costaba lo que en una
+68000); con el parche el bucle `TST.W (An)+` / `DBRA` de 2000 pasadas tarda 2404 pulsos E del CIA frente a los 3600 de la 68000. Sin MMU: un acceso a espacio no mapeado devuelve datos, no un error de bus
+(ADR 0010). Estado: bloque de 10 bytes en `P6CP` tras el cuerpo de la 68000 (VBR, SFC, DFC y `loop_mode`; `p6_cpu_boundary` ya no rechaza esos registros en una 68010), cota +10 bytes, DET02 con la 68010 en la A500 y
+el A600 a mitad de un bucle en modo bucle, de trampas con VBR y MOVES y de un error de direccion (`tests/state/test_det02_cpu010.py`, 119 pruebas) y cada campo con su poke (`tests/state/test_state_cpu010.py`).
+
+`config_hash`: la palabra `flags` esta llena (0-7 flags, 8-22 memoria, 23-24 FPU, 25-27 disquete, 28-30 raster, 31 marca de memoria), asi que la CPU se pliega como el audio (T73): fuera de la CPU de la
+maquina el hash es `H("p6/config/cpu/v1" || hash_hasta_aqui || modelo, multiplicador)` con el modelo resuelto (0 = 68000, 1 = 68010, 2 = 68020) y el multiplicador del reloj (0 mientras es el de la maquina),
+calculado despues del de audio; en la CPU de la maquina (tambien cuando la config la nombra) el hash es **el de siempre**. Un estado o una pelicula de una CPU es INCOMPATIBLE en otra, y con el hash forjado el
+cuerpo de `P6CP` la rechaza por su longitud. Opciones: libretro `puae6_cpu_model` (auto, 68000, 68010, 68020), el importador `.uae` (`cpu_model`: la CPU de la maquina se describe, la 68010 es la opcion), headless
+`--cpu auto|68000|68010|68020` y el sync setting `CpuModel` de BizHawk (en la identidad del estado y de la pelicula solo fuera de `Auto`: `;cpu=M68010`).
+
+
 ### Opciones de audio de Paula (T73)
 
 `p6_config.sound_separation`, `sound_interpolation`, `sound_filter` y `sound_filter_type` (un byte cada uno, offsets 56 a 59: son los 4 primeros bytes de lo que era `reserved[0]`; los otros 4 pasan

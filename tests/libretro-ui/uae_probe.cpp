@@ -170,6 +170,16 @@ static void precedence()
     frontend.machine = 3;
     CHECK(import("cpu_model=68020\nchipset=aga\n", frontend).ok);
     CHECK(!import("cpu_model=68000\n", frontend).ok);
+    // T52: a 68010 is the socket of a machine with a 68000 (puae6_cpu_model), the machine's own CPU is accepted as it is, and the A1200 has no other CPU than its 68EC020.
+    frontend = concrete();
+    r = import("cpu_model=68010\nchipset=ocs\n", frontend);
+    CHECK(r.ok && r.imported.settings.machine == 1 && r.imported.settings.cpu_model == 2);
+    r = import("cpu_model=68000\nchipset=ocs\n", frontend);
+    CHECK(r.ok && r.imported.settings.cpu_model == 0);        // the machine's own CPU is described, not chosen
+    r = import("cpu_model=68010\nchipset_compatible=A600\n", frontend);
+    CHECK(r.ok && r.imported.settings.machine == 2 && r.imported.settings.cpu_model == 2);
+    CHECK(!import("cpu_model=68010\nchipset=aga\n", frontend).ok);
+    CHECK(!import("cpu_model=68020\nchipset=ocs\n", frontend).ok);
     // The presentation, input and OSD options are never touched.
     Settings busy = concrete();
     for (const Option &option : kOptions)
@@ -258,6 +268,8 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"floppy1=disk.adf", "floppy1", "DF0 alone"},
         {"cpu_model=68040", "cpu_model", "not the one of the machine"},
         {"cpu_model=68000\nchipset_compatible=A1200", "cpu_model", "A1200: 68020"},
+        {"cpu_model=68010\nchipset_compatible=A1200", "cpu_model", "A1200: 68020"},
+        {"cpu_model=68020\nchipset_compatible=A500", "cpu_model", "A500: 68000 or 68010"},
         {"chipset=aga\nchipset_compatible=A500", "chipset", "A500: ocs"},
         {"chipset=ecs_agnus", "chipset", "names no machine by itself"},
         {"chipset=ecs_denise", "chipset", "not one of this core's"},
