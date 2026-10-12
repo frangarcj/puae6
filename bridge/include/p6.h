@@ -44,6 +44,8 @@ typedef struct p6_caps {
     uint32_t max_video_height;
     uint32_t max_audio_frames;
 } p6_caps;
+/* max_video_width x max_video_height is the buffer of the profile's raster (hires, double lines); a configuration that asks for another resolution or line mode
+ * (p6_config.video_resolution, video_line_mode) delivers the buffer p6_query_video reports for it. */
 #define P6_CAP_STATE            (UINT64_C(1) << 0)
 #define P6_CAP_MEMORY_REGIONS   (UINT64_C(1) << 1)
 #define P6_CAP_MEDIA_EVENTS     (UINT64_C(1) << 2)
@@ -78,7 +80,14 @@ typedef struct p6_config {
      * 1 = 100 %, 2 = 200 %, 3 = 400 %, 4 = 800 %, 5 = turbo (upstream's floppy_speed 0: a transfer of the whole DSKLEN at once). A restart option: it changes when the DMA ends, so it enters
      * config_hash off the profile's speed only (bits 25 to 27 of the flags word, below). Anything above 5 is P6_ERROR_UNSUPPORTED. */
     uint8_t floppy_speed;
-    uint8_t reserved8[3];           /* Zero in ABI v1 (the rest of what was reserved[0]). */
+    /* Resolution and line mode of the raster (T72), in the sixth and seventh bytes of what was reserved[0]. They are the engine's own gfx_resolution and gfx_vresolution, so the picture the
+     * renderer draws changes, and so does the buffer announced at load. video_resolution: 0 = the profile's (hires), else 1 = lores, 2 = hires, 3 = super-hires. video_line_mode: 0 = the
+     * profile's (double), else 1 = single (one raster row per line; an interlaced guest shows each field on its own, P6_FIELD_PROGRESSIVE), 2 = double (two rows per line, the fields
+     * of an interlaced guest woven). Restart options: they enter config_hash only off the profile's raster (bits 28 to 30 of the flags word, below), so the default configuration keeps
+     * its hash, its bytes and its states. Anything above 3 / 2 is P6_ERROR_UNSUPPORTED. */
+    uint8_t video_resolution;
+    uint8_t video_line_mode;
+    uint8_t reserved8[1];           /* Zero in ABI v1 (the rest of what was reserved[0]). */
     uint64_t reserved1;             /* Zero in ABI v1 (what was reserved[1]). */
 } p6_config;
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
@@ -91,6 +100,7 @@ typedef struct p6_config {
 /* The flags word of config_hash carries p6_config.flags in bits 0 to 7 (the defined P6_CONFIG_* flags; any other bit is refused) and, when the memory is not the preset's,
  * the sizes above them (bridge/config.cpp identity_flags: bit 31, fast_kib/1024 at bit 8, slow_kib/64 at 12, chip_kib/64 at 17), so the two never collide.
  * The floppy speed (T62) takes bits 25 to 27 of it: 0 for the real drive speed, whether the config says 0 or 1, else 1 = 200 %, 2 = 400 %, 3 = 800 %, 4 = turbo.
+ * The raster (T72) takes bits 28 to 30: 28-29 the resolution off hires (1 = lores, 2 = super-hires) and 30 set for the single line mode; the profile's own raster, however it is spelled, adds nothing.
  * Paula's output options (sound_*) are not in that word: when they differ from the profile's setting for the machine, config_hash is derived from the one above and an audio word
  * (bridge/config.cpp audio_identity, domain p6/config/audio/v1); at the profile's setting the hash is the one it always was. */
 #define P6_MACHINE_A500 UINT32_C(1)
@@ -178,7 +188,8 @@ typedef struct p6_rect {
  * rounding); p6_state_save does not invalidate the pointer.
  *
  * Video. video_width x video_height is the delivered buffer and is constant for a
- * loaded image (760x576 PAL, 760x486 NTSC, see p6_caps); video_stride_bytes is the
+ * loaded image (760x576 PAL, 760x486 NTSC for the profile's raster, see p6_caps; the
+ * resolution and line mode of p6_config scale it, see p6_query_video); video_stride_bytes is the
  * row pitch, never width * 4. Rows and columns outside `active` are zero. `active`
  * is the raster the renderer drew for this unit and can be smaller than the buffer
  * (PAL 756x574 normally, 756x576 for a guest that leaves the long-field bit set).
@@ -187,7 +198,8 @@ typedef struct p6_rect {
  * active.width * num : active.height * den. A unit is one video field. field_parity
  * is P6_FIELD_PROGRESSIVE unless the monitor detected interlace; then EVEN when the
  * unit drew rows 0,2,4.. of the buffer (the Amiga long field) and ODD for rows
- * 1,3,5.. The buffer always holds both fields (a weave). cadence_num/cadence_den is
+ * 1,3,5.. The buffer always holds both fields (a weave); in single line mode (p6_config.video_line_mode) it holds the one field of the unit and the parity stays
+ * P6_FIELD_PROGRESSIVE, there is nothing to weave. cadence_num/cadence_den is
  * the nominal number of such units per second for the unit's own mode, as integers;
  * the exact spacing of units is master_ticks. When a unit has no picture to show
  * (the renderer discarded it while changing mode, or P6_RENDER_VIDEO was not
@@ -298,6 +310,17 @@ typedef struct p6_media_event {
  * advertised capability return P6_ERROR_UNSUPPORTED. */
 uint32_t p6_abi_version(void);
 p6_result p6_query_caps(p6_caps *caps, p6_error *error);
+/* The raster of a configuration (T72), callable before p6_init: buffer_width x buffer_height is the video_width x video_height of every frame of an image loaded with it (constant,
+ * never exceeded: a picture that does not fit is delivered as P6_FRAME_NO_VIDEO), active_width x active_height the nominal raster of a normal unit, and aspect_num : aspect_den the
+ * pixel aspect of that configuration. The configuration is validated like p6_init does. */
+typedef struct p6_video_geometry {
+    uint32_t abi_version;
+    uint32_t struct_size;
+    uint32_t buffer_width, buffer_height;
+    uint32_t active_width, active_height;
+    uint32_t aspect_num, aspect_den;
+} p6_video_geometry;
+p6_result p6_query_video(const p6_config *config, p6_video_geometry *geometry, p6_error *error);
 p6_result p6_init(const p6_config *config, p6_error *error);
 p6_result p6_load(p6_buffer firmware, const p6_media *media,
                   uint32_t media_count, p6_error *error);

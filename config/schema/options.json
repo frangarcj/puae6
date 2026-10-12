@@ -479,6 +479,45 @@
       "wrapper": {"how": "setting", "setting": "FloppySpeed", "type": "Puae6FloppySpeed"}
     },
     {
+      "id": "video_resolution",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.video_resolution",
+      "default": "hires",
+      "values": [
+        {"value": "lores", "abi": 1, "label": "Low (378 columns)", "wrapper_name": "Lores"},
+        {"value": "hires", "abi": 0, "label": "High (756 columns, the default)", "wrapper_name": "Hires"},
+        {"value": "superhires", "abi": 3, "label": "Super-High (1512 columns)", "wrapper_name": "SuperHires"}
+      ],
+      "libretro": {
+        "key": "puae6_video_resolution",
+        "category": "video",
+        "label": "Resolution",
+        "info": "The width the renderer draws: low (378 columns of the picture), high (756, the default) or super-high (1512). It is the engine's own resolution, not a scaling of the high picture, so the pixels of a program in another mode are chosen by the renderer and the buffer the core announces changes with it (380, 760 or 1520 columns). It is part of the machine: a state, a rewind or a movie of one resolution does not load in another. PUAE5's Automatic value, which switches the resolution as the program changes mode, is not offered."
+      },
+      "headless": {"how": "named", "flag": "--resolution", "names": {"lores": "lores", "hires": "hires", "superhires": "superhires"}},
+      "wrapper": {"how": "setting", "setting": "VideoResolution", "type": "Puae6VideoResolution"}
+    },
+    {
+      "id": "video_line_mode",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.video_line_mode",
+      "default": "double",
+      "values": [
+        {"value": "single", "abi": 1, "label": "Single Line", "wrapper_name": "Single"},
+        {"value": "double", "abi": 0, "label": "Double Line (the default)", "wrapper_name": "Double"}
+      ],
+      "libretro": {
+        "key": "puae6_video_line_mode",
+        "category": "video",
+        "label": "Line Mode",
+        "info": "Rows per line of the picture: double (574 rows on PAL, 484 on NTSC, the default; an interlaced program has its two fields woven into one picture) or single (287 / 242 rows; an interlaced program shows each field as its own picture of half the height, with no weaving). It is the engine's own vertical resolution and is part of the machine: a state, a rewind or a movie of one line mode does not load in another. PUAE5's Automatic value, which switches to double lines on interlaced screens, is not offered."
+      },
+      "headless": {"how": "named", "flag": "--line-mode", "names": {"single": "single", "double": "double"}},
+      "wrapper": {"how": "setting", "setting": "VideoLineMode", "type": "Puae6VideoLineMode"}
+    },
+    {
       "id": "video_aspect",
       "class": "presentation",
       "type": "enum",
@@ -558,7 +597,7 @@
         "key": "puae6_video_crop",
         "category": "video",
         "label": "Crop",
-        "info": "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it."
+        "info": "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); with another Resolution or Line Mode the sizes follow the raster (a level is the same area in lores pixels and lines); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}

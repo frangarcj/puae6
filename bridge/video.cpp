@@ -14,6 +14,8 @@
 #include "video.h"
 #include "video_geometry.h"
 #include "session.h"
+#include "config.h"
+#include "error_util.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -27,10 +29,12 @@ namespace {
 
 using p6_session::session;
 
-// Pixel aspect of one pixel of the hires, line-doubled raster (the pinned PUAE reference uses the
-// same PAL 26:25 and NTSC 43:50; the engine itself has no display aspect).
-constexpr uint32_t kAspectPal[2] = {26, 25};
-constexpr uint32_t kAspectNtsc[2] = {43, 50};
+// The raster the configuration asked for (T72): the engine's gfx_resolution and gfx_vresolution, whose profile values are hires and double.
+int session_resolution() { return engine_resolution(session.config.video_resolution); }
+int session_line_mode() { return engine_line_mode(session.config.video_line_mode); }
+
+// The standard's pixel aspect lives in video_geometry.h pixel_aspect (the pinned PUAE reference uses the same PAL 26:25 and NTSC 43:50 for a hires pixel on a double line; the engine
+// itself has no display aspect).
 
 // The standard of the beam the unit ran on, as init_beamcon0() decides it: an ECS Agnus follows the PAL bit of BEAMCON0, which a guest
 // may program against the configuration; an OCS Agnus has no such register and keeps the configured standard. Read at the boundary the
@@ -101,19 +105,19 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
 {
     (void)error;
     // The buffer is the one promised at load (it never changes while running); aspect and cadence are those of the beam the unit ran on.
-    const bool has_beamcon0 = session.config.machine != P6_MACHINE_A500;   // ECS and AGA Agnus (A600, A1200); the OCS A500 has no BEAMCON0
-    const uint32_t height = buffer_height(session.config.video_standard == P6_VIDEO_NTSC, has_beamcon0);
+    const int res = session_resolution(), vres = session_line_mode();
+    const uint32_t width = config_buffer_width(session.config);
+    const uint32_t height = config_buffer_height(session.config);
     const bool ntsc = beam_is_ntsc();
 
     frame.video = nullptr;
     frame.video_bytes = 0;
     frame.video_format = P6_PIXEL_XRGB8888;
-    frame.video_width = kBufferWidth;
+    frame.video_width = width;
     frame.video_height = height;
     frame.video_stride_bytes = P6_VIDEO_STRIDE_BYTES;
     frame.active = p6_rect{0, 0, 0, 0};
-    frame.aspect_num = ntsc ? kAspectNtsc[0] : kAspectPal[0];
-    frame.aspect_den = ntsc ? kAspectNtsc[1] : kAspectPal[1];
+    pixel_aspect(ntsc, res, vres, &frame.aspect_num, &frame.aspect_den);
     frame.field_parity = P6_FIELD_PROGRESSIVE;
 
     p6_video_frame_info info;
@@ -122,13 +126,15 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
     const Rate rate = cadence(flags);
     frame.cadence_num = rate.num;
     frame.cadence_den = rate.den;
-    if (flags & P6_VIDEO_FRAME_INTERLACED)
+    // Single lines do not weave: each field of an interlaced guest is a whole picture of its own rows, so the buffer is progressive whatever the beam does (the cadence above still
+    // carries the beam).
+    if ((flags & P6_VIDEO_FRAME_INTERLACED) && vres != 0)
         frame.field_parity = (flags & P6_VIDEO_FRAME_LONG_FIELD) ? P6_FIELD_EVEN : P6_FIELD_ODD;
 
     // A picture exists for this unit when the renderer handed a new one over, it was not marked as
     // discarded (mode being reset) and it fits the buffer that was promised.
     const bool fresh = session.handed_over && have && !(info.flags & P6_VIDEO_FRAME_DISCARD) &&
-                       info.width <= kBufferWidth && info.height <= height;
+                       info.width <= width && info.height <= height;
     if (!fresh) {
         frame.flags |= P6_FRAME_NO_VIDEO;
         return P6_OK;
@@ -144,3 +150,22 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
 }
 
 }  // namespace p6_bridge
+
+// The raster a configuration delivers, before anything is initialized: the same numbers p6_run_frame reports for it, so that a frontend can announce the maximum geometry at load.
+extern "C" p6_result p6_query_video(const p6_config *config, p6_video_geometry *geometry, p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    if (!config || !geometry) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "config or geometry is null");
+    if (geometry->abi_version != P6_ABI_VERSION || geometry->struct_size != sizeof *geometry)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "geometry has the wrong ABI version or size");
+    if (const p6_result checked = p6_bridge::validate_config(*config, error)) return checked;
+    const int res = p6_bridge::engine_resolution(config->video_resolution), vres = p6_bridge::engine_line_mode(config->video_line_mode);
+    const bool ntsc = config->video_standard == P6_VIDEO_NTSC;
+    geometry->buffer_width = p6_bridge::config_buffer_width(*config);
+    geometry->buffer_height = p6_bridge::config_buffer_height(*config);
+    geometry->active_width = p6_bridge::active_width(res);
+    geometry->active_height = p6_bridge::active_height(ntsc, vres);
+    p6_bridge::pixel_aspect(ntsc, res, vres, &geometry->aspect_num, &geometry->aspect_den);
+    return P6_OK;
+}

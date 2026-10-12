@@ -12,7 +12,7 @@ T08b (reports/tasks/T08b.md).
 
 ## Decision
 
-1. **Raster fijado por el preset**, no por el invitado: hires, lineas dobladas, `gfx_overscanmode` 3, sin centrado
+1. **Raster fijado por el preset** (T72: por defecto; la resolucion y el modo de linea son opciones de reinicio, ver su seccion), no por el invitado: hires, lineas dobladas, `gfx_overscanmode` 3, sin centrado
    (`gfx_xcenter/ycenter` 0, sin ancho o alto extra), `gfx_iscanlines` 1 (los campos entrelazados se entretejen en
    un buffer), sin filtros ni scanlines. Resultado: 756 x 574 en PAL y 756 x 484 en NTSC para cualquier modo de
    video del invitado (lores, hires, planos, HAM, EHB, doble campo de juego, sprites, entrelazado). DIWSTRT,
@@ -113,6 +113,53 @@ el pase del renderizador y el retorno; `init_beamcon0` se aplica en vpos 0, ante
   vez. El adaptador de BizHawk relee cadencia y aspecto en cada unidad con imagen (sin cambios) y su `BufferHeight` inicial
   es el del buffer del load (576, salvo A500 NTSC).
 
+## Resolucion y modo de linea (T72)
+
+PUAE5 ofrece `puae_video_resolution` (auto, lores 360, hires 720, superhires 1440) y `puae_video_vresolution` (auto, single, double) (libretro-core.c:1331, 1347, 3463-3570). PUAE6 los ofrece como
+**opciones de reinicio del motor**, `puae6_video_resolution` (`lores`, `hires`, `superhires`) y `puae6_video_line_mode` (`single`, `double`), con el perfil de siempre (hires, doble linea) como defecto.
+
+**Decision: del motor, no una transformacion de presentacion.** Es `gfx_resolution` / `gfx_vresolution` de upstream, que son preferencias del dibujante: `compute_framesync` fija el ancho de la imagen
+con `(columnas) << (resolucion + 1)` y el alto con `lineas << vresolucion`, `drawing.cpp` decide por ellas como se pinta cada linea (`calculate_linetype`: con lineas simples un campo entrelazado se
+dibuja entero en las filas 0..N, sin tejer) y PUAE5 las cambia en `changed_prefs.gfx_resolution/gfx_vresolution`, no en el adaptador. Un escalado de la imagen por defecto no daria lo mismo: el
+super-hires solo existe si el motor lo dibuja, y la linea simple de un programa entrelazado necesita cada campo por separado. De ahi se sigue lo demas:
+- **identidad**: el raster cambia lo que el motor dibuja, el buffer anunciado y los pixeles historia del estado (un tejido de campos no se carga en otra altura), asi que las opciones son `p6_config.video_resolution`
+  y `video_line_mode` (dos bytes del antiguo `reserved8`, offsets 61 y 62) y entran en `config_hash` **solo fuera del perfil** (bits 28 a 30 de la palabra de flags: resolucion fuera de hires 1 = lores, 2 =
+  super-hires; bit 30 = linea simple). Cualquier forma de escribir el perfil (0, o hires/doble nombrados) da el hash, los bytes y los estados de siempre: los baselines dorados de AV01 del A500 y del ECS no
+  cambian y `tests/step/test_resolution.py` lo comprueba contra ellos. Un estado, un rewind o una pelicula de un raster es INCOMPATIBLE en otro;
+- **sin parches del motor**: `build_preferences` solo fija `gfx_resolution` y `gfx_vresolution`; el proveedor de presentacion (`video_present.cpp`) ya aceptaba todo el rango y su array estatico de
+  1824 x 626 contiene el raster mayor (super-hires PAL, 1520 columnas) con holgura;
+- **la autoresolucion no se ofrece** (`auto` de PUAE5 cambia de resolucion o de modo de linea segun los registros del invitado, con `request_init_custom`): seria una reconfiguracion del motor en marcha
+  (`gfx_autoresolution`, `graphics_reset`), con un buffer que cambia, el estado y los hashes dependientes de la historia. El perfil sigue prohibiendola (`P6_VIDEO_CFG_AUTORESOLUTION`); una politica
+  determinista de `auto` seria una tarea propia (ver los limites en `reports/research/parity-puae5.md`).
+
+**Rasters.** El buffer se anuncia al cargar y no cambia (como en "Haz programado"). Columnas: un cuarto de reloj de color por columna hires, la mitad en lores y el doble en super-hires; filas: una por linea
+(simple) o dos (doble):
+
+| resolucion | linea | activo PAL | activo NTSC | buffer PAL (OCS NTSC) | pixel (PAL / NTSC) |
+|---|---|---|---|---|---|
+| hires (defecto) | doble (defecto) | 756 x 574 | 756 x 484 | 760 x 576 (760 x 486) | 26:25 / 43:50 |
+| hires | simple | 756 x 287 | 756 x 242 | 760 x 288 (760 x 243) | 13:25 / 43:100 |
+| lores | doble | 378 x 574 | 378 x 484 | 380 x 576 (380 x 486) | 52:25 / 43:25 |
+| lores | simple | 378 x 287 | 378 x 242 | 380 x 288 (380 x 243) | 26:25 / 43:50 |
+| super-hires | doble | 1512 x 574 | 1512 x 484 | 1520 x 576 (1520 x 486) | 13:25 / 43:100 |
+| super-hires | simple | 1512 x 287 | 1512 x 242 | 1520 x 288 (1520 x 243) | 13:50 / 43:200 |
+
+La anchura de buffer (4 columnas hires mas que el activo) y la altura (dos filas mas) tienen la misma razon que en el perfil: un invitado que alterna el entrelazado cada unidad hace que el renderizador
+mida otra vez el cuadro (campo largo, lineas de 228 relojes). Las maquinas ECS y AGA reservan la altura PAL en NTSC (el haz programable), y la linea simple la divide por dos. El aspecto de pixel es el del
+estandar por el factor del raster (lores el doble de ancho, super-hires la mitad, linea simple el doble de alto). Medido sobre el motor real, los rasters son exactamente los que da la formula, incluido
+un invitado que alterna el entrelazado en cada unidad (cabe siempre) y siete programaciones de haz ECS en PAL y NTSC en lores+simple y super-hires+doble (dibujadas dentro del buffer o entregadas sin imagen, nunca
+escritas fuera: lo que ya pasaba con el perfil, con un buffer mas pequeno o mas grande).
+
+**Lo que dibuja cada una.** El raster de un programa en lores, hires o super-hires es el raster por defecto leido en otras coordenadas: la columna `x` de salida es la `2x >> resolucion` del raster hires y la
+fila `y` es la `2y` (linea simple) o la `y` (doble) del raster de doble linea, para los programas de prueba de `tests/scenarios/a500/display.py` (barras de Copper y un plano de bits; un invitado hires
+visto en lores pierde un pixel de cada dos, como en PUAE5). Con lineas dobles y un invitado entrelazado los campos se tejen como siempre (EVEN las filas 0, 2, 4..., ODD las impares); con **lineas simples
+cada unidad es el campo que se dibujo, con sus filas consecutivas, y `field_parity` es `P6_FIELD_PROGRESSIVE`** (no hay nada que tejer; la cadencia sigue siendo la del haz entrelazado, 50 Hz por campo).
+
+**Anuncio.** `p6_query_caps` sigue describiendo el perfil (760 x 576); `p6_query_video(config)` (nuevo, antes de `p6_init`) da el buffer, el raster activo nominal y el aspecto de una configuracion, y cada
+`p6_frame` informa el mismo `video_width x video_height` que el anuncio (el probe de STEP01 lo comprueba en cada unidad). libretro anuncia con ello `max_width/max_height` y la geometria base; BizHawk reserva
+1520 x 576 y su `BufferWidth/BufferHeight` iniciales son el buffer de la configuracion. El recorte (T31c) escala sus niveles con el raster (un nivel es un tamano en pixeles lores y lineas: x`hx`
+columnas por pixel lores, x`hy` filas por linea) y el aspecto forzado PAL/NTSC tambien.
+
 ## Costo y riesgos
 
 - Sin parches nuevos del motor. `p6_run_frame` descarta el PCM tras cada unidad hasta T11: sin ello la cola se llena y
@@ -131,3 +178,4 @@ el pase del renderizador y el retorno; `init_beamcon0` se aplica en vpos 0, ante
 
 `python3 -m unittest tests.step.test_step` (arbol `build/step-trace`), `tests.host.test_a500_profile`,
 `tests.host.test_bridge_caps`. AV01 completo (pixeles con contenido, PAL/NTSC, lores/hires, entrelazado) es T08c.
+T72: `tests.step.test_resolution` (cada raster, con su baseline, el perfil contra los dorados) y `tests/libretro-host/test_resolution.py`.

@@ -211,7 +211,7 @@ std::vector<uint8_t> read_file(const char *path)
     return data;
 }
 
-p6_config make_config(uint32_t standard, uint64_t seed, uint32_t machine)
+p6_config make_config(uint32_t standard, uint64_t seed, uint32_t machine, uint8_t resolution = 0, uint8_t line_mode = 0)
 {
     p6_config c{};
     c.abi_version = P6_ABI_VERSION;
@@ -221,6 +221,8 @@ p6_config make_config(uint32_t standard, uint64_t seed, uint32_t machine)
     c.audio_rate_hz = getenv("P6_AUDIO_RATE") ? uint32_t(atoi(getenv("P6_AUDIO_RATE"))) : 48000;
     c.random_seed = seed;
     c.rtc_epoch_seconds = 946684800;
+    c.video_resolution = resolution;      // T72: 0 the profile's raster (hires, double lines)
+    c.video_line_mode = line_mode;
     return c;
 }
 
@@ -392,8 +394,8 @@ static uint32_t machine_named(const char *name)
 
 int main(int argc, char **argv)
 {
-    if (argc < 5 || argc > 7) {
-        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc [a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000]]\n", argv[0]);
+    if (argc < 5 || argc > 9) {
+        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc [a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000 [lores|hires|superhires [single|double]]]]\n", argv[0]);
         return 64;
     }
     const std::vector<uint8_t> rom = read_file(argv[1]);
@@ -405,8 +407,21 @@ int main(int argc, char **argv)
     if (!continuous && !frames && strcmp(argv[3], "steps")) return 64;
     if (units < 1) return 64;
     const uint32_t standard = argc >= 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
-    const uint32_t machine = argc == 7 ? machine_named(argv[6]) : P6_MACHINE_A500;
+    const uint32_t machine = argc >= 7 ? machine_named(argv[6]) : P6_MACHINE_A500;
     if (!machine) return 64;
+    // The raster options of T72, spelled as the headless runner does: lores, hires, superhires (the engine's gfx_resolution) and single, double (gfx_vresolution).
+    uint8_t resolution = 0, line_mode = 0;
+    if (argc >= 8) {
+        if (!strcmp(argv[7], "lores")) resolution = 1;
+        else if (!strcmp(argv[7], "hires")) resolution = 2;
+        else if (!strcmp(argv[7], "superhires")) resolution = 3;
+        else return 64;
+    }
+    if (argc >= 9) {
+        if (!strcmp(argv[8], "single")) line_mode = 1;
+        else if (!strcmp(argv[8], "double")) line_mode = 2;
+        else return 64;
+    }
     if (const char *path = getenv("P6_INPUT_SCRIPT")) load_script(path);
     if (const char *list = getenv("P6_RESET_AT"))
         for (const char *c = list; *c;) { reset_at.insert(atoi(c)); while (*c && *c != ',') ++c; if (*c) ++c; }
@@ -414,8 +429,14 @@ int main(int argc, char **argv)
     observer_applies_input = continuous && !script.empty();
 
     p6_error error{P6_ABI_VERSION, sizeof(p6_error), {}};
-    const p6_config config = make_config(standard, strtoull(argv[4], nullptr, 10), machine);
+    const p6_config config = make_config(standard, strtoull(argv[4], nullptr, 10), machine, resolution, line_mode);
     check(p6_init(&config, &error), "p6_init");
+    // T72: the raster the configuration announces before anything runs (p6_query_video); every frame must report that buffer.
+    p6_video_geometry geometry{P6_ABI_VERSION, sizeof geometry};
+    check(p6_query_video(&config, &geometry, &error), "p6_query_video");
+    if (frames)
+        printf("geometry %ux%u active=%ux%u aspect=%u/%u\n", geometry.buffer_width, geometry.buffer_height, geometry.active_width,
+               geometry.active_height, geometry.aspect_num, geometry.aspect_den);
     // P6_RELOAD=N (steps mode, N>=1): the same image is unloaded and loaded again in this process, N loads in all (at least 2),
     // and the run repeats each time, printed after a "pass K" line, so that a later load can be compared with the first one
     // and with a run in a clean process.
@@ -456,6 +477,7 @@ int main(int argc, char **argv)
             if (getenv("P6_DEBUG_UNITS")) fprintf(stderr, "dbg unit %d cycles=%lld vpos=%d hpos=%d ticks=%llu\n", unit, (long long)get_cycles(), vpos, agnus_hpos, (unsigned long long)frame.master_ticks);
             if (frame.unit_index != uint64_t(unit) || frame.master_ticks <= last_ticks) return 4;
             if (frames) print_frame(frame);
+            if (frame.video_width != geometry.buffer_width || frame.video_height != geometry.buffer_height) { fprintf(stderr, "unit %d: the buffer is not the announced one\n", unit); return 8; }
             if (int64_t(get_cycles()) - before > unit_limit_cycles()) { fprintf(stderr, "unit %d is too long\n", unit); return 5; }
             last_ticks = frame.master_ticks;
         }

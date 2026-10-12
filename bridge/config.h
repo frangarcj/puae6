@@ -20,7 +20,7 @@ Memory resolve_memory(const p6_config &config);
 bool memory_is_preset(const p6_config &config);
 
 // The flags word that config_hash takes (the envelope hashes machine, standard, rate, flags, seed and clock; the memory has no field of its own there so that the
-// identity of every preset config stays the one it was): c.flags for a config with the preset's memory, else with bit 31 and the three sizes folded in above the flag bits (fast/1024 at 8, slow/64 at 12, chip/64 at 17; bits 0 to 7 stay p6_config.flags).
+// identity of every preset config stays the one it was): c.flags for a config with the preset's memory, else with bit 31 and the three sizes folded in above the flag bits (fast/1024 at 8, slow/64 at 12, chip/64 at 17; bits 0 to 7 stay p6_config.flags); T54 adds the FPU (23, 24), T62 the floppy speed (25 to 27) and T72 the raster (28 to 30, only off hires and double lines).
 uint32_t identity_flags(const p6_config &config);
 
 // The floppy drive speed (T62, p6_config.floppy_speed) as upstream's floppy_speed: 100, 200, 400 or 800 (percent of the real drive), 0 for the turbo mode that transfers a whole DSKLEN at once.

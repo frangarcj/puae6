@@ -32,7 +32,7 @@ GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
 RECEIPT = build_waterbox.BUILD / "puae6/puae6-receipt.json"
 # C# struct -> (C struct, {C# field: C field}); the C name is the C# name in snake case except where it says otherwise.
 STRUCTS = {
-    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "Reserved8", "Reserved1"]),
+    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "Reserved8", "Reserved1"]),
     "P6PortInput": ("p6_port_input", ["Type", "Buttons", "Dx", "Dy", "Reserved"]),
     "P6Input": ("p6_input", ["AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved"]),
     "P6Rect": ("p6_rect", ["X", "Y", "Width", "Height"]),
@@ -49,7 +49,7 @@ STRUCTS = {
     "P6wMediaWriteStatus": ("p6w_media_write_status_args", ["AbiVersion", "StructSize", "Status", "Result", "Reserved", "Error"]),
     "P6wMediaExport": ("p6w_media_export_args", ["AbiVersion", "StructSize", "MediaIndex", "Reserved0", "Buffer", "Capacity", "Written", "Result", "Reserved1", "Error"]),
 }
-# The tail of p6_config after fpu_model is, since T73, Paula's four sound_* bytes, reserved8[4] and reserved1: the C# mirror names each one (T73a), so the snake-case rule finds them.
+# The tail of p6_config after fpu_model is, since T73, Paula's four sound_* bytes, the floppy speed (T62), the raster options (T72), reserved8[1] and reserved1: the C# mirror names each one (T73a), so the snake-case rule finds them.
 SPECIAL = {("P6Input", "Port0"): "offsetof(p6_input, ports) + 0 * sizeof(p6_port_input)", ("P6Input", "Port1"): "offsetof(p6_input, ports) + 1 * sizeof(p6_port_input)"}
 
 

@@ -23,6 +23,7 @@
 #include "sounddep/sound.h"
 #include "civil_time.h"
 #include "video_present.h"
+#include "video_geometry.h"
 
 #include <stdio.h>
 #include <initializer_list>
@@ -181,6 +182,17 @@ constexpr unsigned kFpuIdentityShift = 23;
 // and bit 31 (the memory marker) and bits 23 and 24 (the FPU) stay where they were.
 constexpr unsigned kFloppyIdentityShift = 25;
 
+// T72: 28 and 29 carry the resolution off hires (1 = lores, 2 = super-hires) and 30 the single line mode, so the profile's raster hashes as it always did (bit 31 is the memory marker and the
+// floppy speed ends at bit 27).
+constexpr unsigned kRasterIdentityShift = 28;
+
+uint32_t raster_identity(const p6_config &c)
+{
+    const int res = engine_resolution(c.video_resolution), vres = engine_line_mode(c.video_line_mode);
+    const uint32_t resolution = res == 0 ? 1u : res == 2 ? 2u : 0u;
+    return (resolution | (vres == 0 ? 4u : 0u)) << kRasterIdentityShift;
+}
+
 int resolve_floppy_speed(const p6_config &c)
 {
     switch (c.floppy_speed) {
@@ -226,9 +238,10 @@ uint32_t identity_flags(const p6_config &c)
 {
     const uint32_t fpu = (c.fpu_model == 68881 ? 1u : c.fpu_model == 68882 ? 2u : 0u) << kFpuIdentityShift;
     const uint32_t floppy = (c.floppy_speed >= 2 ? uint32_t(c.floppy_speed) - 1u : 0u) << kFloppyIdentityShift;
-    if (memory_is_preset(c)) return c.flags | fpu | floppy;
+    const uint32_t raster = raster_identity(c);
+    if (memory_is_preset(c)) return c.flags | fpu | floppy | raster;
     const Memory m = resolve_memory(c);
-    return c.flags | fpu | floppy | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
+    return c.flags | fpu | floppy | raster | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
 }
 
 bool memory_is_preset(const p6_config &c)
@@ -277,8 +290,12 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "an FPU needs a 68020: only the A1200 can have a 68881 or 68882");
     if (const p6_result memory = validate_memory(c, error))
         return memory;
-    if (c.reserved8[0] || c.reserved8[1] || c.reserved8[2] || c.reserved1)
+    if (c.reserved8[0] || c.reserved1)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
+    if (!resolution_option_valid(c.video_resolution))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "video resolution must be 0 (the profile's), 1 (lores), 2 (hires) or 3 (super-hires)");
+    if (!line_mode_option_valid(c.video_line_mode))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "video line mode must be 0 (the profile's), 1 (single) or 2 (double)");
     if (c.floppy_speed > 5)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "floppy speed must be 0 (the profile's), 1 (100 %), 2 (200 %), 3 (400 %), 4 (800 %) or 5 (turbo)");
     if (c.sound_separation > 11)
@@ -374,13 +391,13 @@ void build_preferences(const p6_config &c)
     currprefs.sound_volume_master = 0;
     currprefs.start_gui = false;
     // Video: the canonical raster (docs/adr/0006-video-output.md) is decided by these preferences, not by
-    // what the guest programs. Hires, line doubled, overscan mode 3, no centering: 756 x 574 PAL / 484 NTSC.
+    // what the guest programs. Hires, line doubled by default (T72: the options pick lores or super-hires and single lines), overscan mode 3, no centering: 756 x 574 PAL / 484 NTSC.
     currprefs.gfx_autoresolution = 0;        // the presentation provider serves one fixed raster
     currprefs.gfx_autoresolution_vga = false;
     currprefs.gfx_framerate = 1;             // every video unit is drawn
-    currprefs.gfx_resolution = RES_HIRES;
-    currprefs.gfx_vresolution = VRES_DOUBLE;
-    currprefs.gfx_iscanlines = 1;            // interlaced fields are woven into one buffer
+    currprefs.gfx_resolution = engine_resolution(c.video_resolution);      // T72: the profile's raster is hires and double lines; the options choose another
+    currprefs.gfx_vresolution = engine_line_mode(c.video_line_mode);
+    currprefs.gfx_iscanlines = 1;            // interlaced fields are woven into one buffer (single lines: a field per unit, nothing to weave)
     currprefs.gfx_pscanlines = 0;
     currprefs.gfx_scandoubler = false;
     currprefs.gfx_lores_mode = 0;
@@ -433,7 +450,7 @@ p6_result check_preset(p6_error *error)
              p.input_mouse_speed != 100 || p.keyboard_mode || p.cs_resetwarning || p.input_contact_bounce) drifted = "input";
     else if (p.floppyslots[0].df[0] || p.floppyslots[1].df[0] || p.floppyslots[2].df[0] || p.floppyslots[3].df[0] ||
              p.floppy_read_only == preset_floppy_writes || p.floppy_speed != resolve_floppy_speed(preset_config)) drifted = "floppy";
-    else if (p.gfx_resolution != RES_HIRES || p.gfx_vresolution != VRES_DOUBLE || p.gfx_iscanlines != 1 ||
+    else if (p.gfx_resolution != engine_resolution(preset_config.video_resolution) || p.gfx_vresolution != engine_line_mode(preset_config.video_line_mode) || p.gfx_iscanlines != 1 ||
              p.gfx_pscanlines || p.gfx_scandoubler || p.gfx_lores_mode || p.gfx_overscanmode != OVERSCANMODE_OVERSCAN ||
              p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||
              p.gfx_blackerthanblack || p.display_calibration || p.gfx_monitorblankdelay || p.lightpen_crosshair ||

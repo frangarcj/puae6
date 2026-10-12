@@ -93,11 +93,12 @@ bool fpu_accepted(const p6_config &c)
 }
 
 // Paula's output (T73, the first four bytes of what was reserved[0]): 0 is the profile's, separation 1 to 11, interpolation 1, 2, 4 or 5 (3, sinc, is refused), filter 1 to 3, filter type 1 or 2.
-// The fifth byte is the floppy speed (T62): 0 is the profile's, 1 to 5 the steps; the three after it, and reserved1, are still reserved.
+// The fifth byte is the floppy speed (T62): 0 is the profile's, 1 to 5 the steps; the sixth and seventh are the raster (T72: resolution 0 the profile's, 1 lores, 2 hires, 3 super-hires; line
+// mode 0 the profile's, 1 single, 2 double); the last byte, and reserved1, are still reserved.
 bool audio_accepted(const p6_config &c)
 {
     return c.sound_separation <= 11 && c.sound_interpolation <= 5 && c.sound_interpolation != 3 && c.sound_filter <= 3 && c.sound_filter_type <= 2 && c.floppy_speed <= 5 &&
-           !c.reserved8[0] && !c.reserved8[1] && !c.reserved8[2];
+           c.video_resolution <= 3 && c.video_line_mode <= 2 && !c.reserved8[0];
 }
 
 // The rules of ABI v1, written again here from the header comments: the fuzzer's oracle.

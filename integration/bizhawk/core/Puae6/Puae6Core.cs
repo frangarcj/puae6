@@ -56,7 +56,8 @@ public sealed class Puae6Parameters
 public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISaveRam, ISettable<object, Puae6SyncSettings>
 {
 	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
-	public const int MaxWidth = 760, MaxHeight = 576, MaxAudioFrames = 8192;
+	/// <summary>The largest picture any raster option can deliver (super-hires, 1520 columns; 576 rows); the buffer of one machine is <see cref="RasterWidth"/> x <see cref="RasterHeight"/>.</summary>
+	public const int MaxWidth = 1520, MaxHeight = 576, MaxAudioFrames = 8192;
 
 	// The heaps are part of what a snapshot is compatible with; they are the budgets of manifests/waterbox-memory.json (a test compares them). The mmap heap holds
 	// Chip, Slow and Fast RAM among other large blocks, so it grows with the memory the settings ask for beyond the machine's own (T49: twice the extra memory, which
@@ -119,6 +120,18 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	// The floppy speed (T62): the numbers of config/schema/options.json (0 is the profile's own, the real drive).
 	static byte FloppySpeedNumber(Puae6FloppySpeed speed) => speed switch { Puae6FloppySpeed.P200 => (byte)2, Puae6FloppySpeed.P400 => (byte)3, Puae6FloppySpeed.P800 => (byte)4, Puae6FloppySpeed.Turbo => (byte)5, _ => (byte)0 };
+
+	// The raster (T72): the numbers of config/schema/options.json (0 is the profile's own, hires and double lines).
+	static byte VideoResolutionNumber(Puae6VideoResolution resolution) => resolution switch { Puae6VideoResolution.Lores => (byte)1, Puae6VideoResolution.SuperHires => (byte)3, _ => (byte)0 };
+
+	static byte VideoLineModeNumber(Puae6VideoLineMode mode) => mode switch { Puae6VideoLineMode.Single => (byte)1, _ => (byte)0 };
+
+	/// <summary>Columns of the buffer a machine with these settings announces at the load: 380 at lores, 760 at hires (the profile's), 1520 at super-hires (ADR 0006).</summary>
+	public static int RasterWidth(Puae6SyncSettings settings) => settings.VideoResolution switch { Puae6VideoResolution.Lores => 380, Puae6VideoResolution.SuperHires => 1520, _ => 760 };
+
+	/// <summary>Rows of that buffer: 576, except an OCS machine in NTSC (486; the ECS and AGA machines keep the PAL height so that a programmed PAL beam fits), and half of them with single lines.</summary>
+	public static int RasterHeight(Puae6SyncSettings settings) =>
+		(settings.Region == Puae6Region.NTSC && IsOcs(settings.Machine) ? 486 : 576) / (settings.VideoLineMode == Puae6VideoLineMode.Single ? 2 : 1);
 
 	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
 
@@ -204,10 +217,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		};
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
-		BufferWidth = MaxWidth;
-		// The buffer the machine announces at the load: 576 rows, except an OCS machine in NTSC (the A500, the A500 OG, the A1000 and the A2000 OG cannot leave their standard); the ECS and AGA machines keep the PAL height in
-		// NTSC too so that a programmed PAL beam fits (ADR 0006). The first picture replaces it with the size that was really drawn.
-		BufferHeight = _syncSettings.Region == Puae6Region.NTSC && IsOcs(_syncSettings.Machine) ? 486 : MaxHeight;
+		// The buffer the machine announces at the load (ADR 0006): 760 columns and 576 rows for the profile's raster, except an OCS machine in NTSC (the A500, the A500 OG, the A1000 and the A2000 OG cannot leave their
+		// standard); the ECS and AGA machines keep the PAL height in NTSC too so that a programmed PAL beam fits. The raster options scale it (T72). The first picture replaces it with the size that was really drawn.
+		BufferWidth = RasterWidth(_syncSettings);
+		BufferHeight = RasterHeight(_syncSettings);
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
 		_aspectNum = 1; _aspectDen = 1;
 
@@ -295,6 +308,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
 		init.Config.SoundFilterType = SoundFilterTypeNumber(_syncSettings.SoundFilterType);
 		init.Config.FloppySpeed = FloppySpeedNumber(_syncSettings.FloppySpeed);
+		init.Config.VideoResolution = VideoResolutionNumber(_syncSettings.VideoResolution);
+		init.Config.VideoLineMode = VideoLineModeNumber(_syncSettings.VideoLineMode);
 		fixed (byte* rom = firmware)
 		{
 			init.Firmware = rom;
@@ -391,6 +406,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (sound.Length != 0) memory += ";sound=" + sound.Substring(1);
 		// And for the floppy speed (T62): the native config hash carries it off the real drive's speed, and when every transfer ends depends on it.
 		if (_syncSettings.FloppySpeed != Puae6FloppySpeed.P100) memory += ";floppyspeed=" + _syncSettings.FloppySpeed;
+		// And for the raster (T72): the resolution and the line mode are the engine's own and change the picture the machine draws and the state it goes on from; a core at the profile's raster keeps its identity.
+		if (_syncSettings.VideoResolution != Puae6VideoResolution.Hires) memory += ";resolution=" + _syncSettings.VideoResolution;
+		if (_syncSettings.VideoLineMode != Puae6VideoLineMode.Double) memory += ";linemode=" + _syncSettings.VideoLineMode;
 		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;

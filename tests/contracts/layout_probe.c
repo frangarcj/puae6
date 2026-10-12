@@ -40,7 +40,9 @@ OFFSET(p6_config, sound_interpolation, 57);
 OFFSET(p6_config, sound_filter, 58);
 OFFSET(p6_config, sound_filter_type, 59);
 OFFSET(p6_config, floppy_speed, 60);           /* T62: the fifth byte of what was reserved[0] */
-OFFSET(p6_config, reserved8, 61);
+OFFSET(p6_config, video_resolution, 61);       /* T72: the sixth and seventh bytes of what was reserved[0] */
+OFFSET(p6_config, video_line_mode, 62);
+OFFSET(p6_config, reserved8, 63);
 OFFSET(p6_config, reserved1, 64);
 OFFSET(p6_buffer, bytes, 8);
 OFFSET(p6_media, content_id, 8);

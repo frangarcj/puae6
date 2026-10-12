@@ -135,6 +135,14 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
         fast.floppy_speed = speed.second;
         CHECK(same_config(import(speed.first).imported.settings, fast));
     }
+    // T72: WinUAE's gfx_resolution and gfx_linemode are the engine's raster; the option's numbers are abi 1 (lores), 0 (hires), 3 (super-hires) and 1 (single lines), 0 (double).
+    for (const auto &raster : {std::pair<const char *, std::pair<uint32_t, uint32_t>>{"gfx_resolution=lores\n", {1, 0}}, {"gfx_resolution=hires\n", {0, 0}}, {"gfx_resolution=superhires\n", {3, 0}},
+                               {"gfx_linemode=none\n", {0, 1}}, {"gfx_linemode=double\n", {0, 0}}, {"puae6_video_resolution=lores\npuae6_video_line_mode=single\n", {1, 1}}}) {
+        Settings drawn = concrete();
+        drawn.video_resolution = raster.second.first;
+        drawn.video_line_mode = raster.second.second;
+        CHECK(same_config(import(raster.first).imported.settings, drawn));
+    }
     // An empty file, or one with comments only, is the frontend's options.
     CHECK(import("").ok && same_config(import("").imported.settings, concrete()));
     CHECK(import("; nothing\n# nothing\n\n   \n").ok);
@@ -223,6 +231,9 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"waiting_blits=automatic", "waiting_blits", "compatibility shortcut"},
         {"floppy_speed=150", "floppy_speed", "is not offered"},
         {"floppy_speed=fast", "floppy_speed", "expected 0 (turbo), 100, 200, 400 or 800"},
+        {"gfx_resolution=ultra", "gfx_resolution", "expected lores, hires or superhires"},
+        {"gfx_linemode=scanlines", "gfx_linemode", "scanlines and the other double modes"},
+        {"gfx_linemode=double2", "gfx_linemode", "scanlines and the other double modes"},
         {"synchronize_clock=true", "synchronize_clock", "never follows the host"},
         {"bsdsocket_emu=true", "bsdsocket_emu", "network"},
         {"cpuboard_type=Blizzard1260", "cpuboard_type", "expansion boards"},

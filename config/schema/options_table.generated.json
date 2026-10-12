@@ -247,6 +247,34 @@
       },
       "option": "floppy_speed",
       "class": "reboot"
+    },
+    "video_resolution": {
+      "default": 0,
+      "allowed": [
+        1,
+        0,
+        3
+      ],
+      "names": {
+        "lores": 1,
+        "hires": 0,
+        "superhires": 3
+      },
+      "option": "video_resolution",
+      "class": "reboot"
+    },
+    "video_line_mode": {
+      "default": 0,
+      "allowed": [
+        1,
+        0
+      ],
+      "names": {
+        "single": 1,
+        "double": 0
+      },
+      "option": "video_line_mode",
+      "class": "reboot"
     }
   },
   "presentation": {
@@ -1657,6 +1685,39 @@
         "type": "Puae6FloppySpeed"
       },
       "libretro": "puae6_floppy_speed"
+    },
+    "video_resolution": {
+      "headless": {
+        "how": "named",
+        "flag": "--resolution",
+        "names": {
+          "lores": "lores",
+          "hires": "hires",
+          "superhires": "superhires"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "VideoResolution",
+        "type": "Puae6VideoResolution"
+      },
+      "libretro": "puae6_video_resolution"
+    },
+    "video_line_mode": {
+      "headless": {
+        "how": "named",
+        "flag": "--line-mode",
+        "names": {
+          "single": "single",
+          "double": "double"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "VideoLineMode",
+        "type": "Puae6VideoLineMode"
+      },
+      "libretro": "puae6_video_line_mode"
     },
     "video_aspect": {
       "headless": {

@@ -110,6 +110,7 @@ cargar debe releerlos por unidad (libretro: SET_SYSTEM_AV_INFO una vez por cambi
 en la tasa, ver ADR 0006; BizHawk: VsyncNumerator/Denominator por unidad con imagen). El buffer (`video_width/height`, `caps.max_video_*`) es constante
 desde el load: 760 x 576, salvo un A500 NTSC (760 x 486; no puede salir de su estandar). Una
 configuracion NTSC de la maquina ECS reserva las 576 filas para no perder la imagen de un haz PAL.
+Es el buffer del perfil (hires, doble linea): la resolucion y el modo de linea (T72, abajo) lo escalan, `p6_query_video(config)` da el de una configuracion y `caps.max_video_*` sigue describiendo el perfil.
 
 p6_run_frame es la unica primitive publica que hace avanzar el scheduler. Los
 adaptadores pueden traducir input/eventos antes y presentar A/V despues, pero no
@@ -458,6 +459,28 @@ no terminaba la transferencia al cargarse), y la validacion acepta el `-1` que u
 Opciones: libretro `puae6_floppy_speed` (100, 200, 400, 800, turbo; media), el importador `.uae` (`floppy_speed` 0/100/200/400/800), headless `--floppy-speed 100|200|400|800|turbo` y el sync setting
 `FloppySpeed` de BizHawk (`P100`, `P200`, `P400`, `P800`, `Turbo`; en la identidad del estado y de la pelicula solo fuera de `P100`: `;floppyspeed=Turbo`). Los programas que miden el tiempo de sus
 propias lecturas y las protecciones de copia pueden no funcionar por encima del 100 %; las pistas con temporizacion por palabra (ADF extendidos, IPF) no se ofrecen en estas maquinas.
+
+### Resolucion y modo de linea (T72)
+
+`p6_config.video_resolution` y `p6_config.video_line_mode` (un byte cada uno, offsets 61 y 62: el sexto y el septimo de lo que era `reserved[0]`; `reserved8` queda con 1 byte en el offset 63, a cero, y el struct
+sigue midiendo 72 bytes). Son el `gfx_resolution` y el `gfx_vresolution` de upstream, con los valores de PUAE5 (`puae_video_resolution` lores / hires / superhires, `puae_video_vresolution` single / double):
+**cero es el perfil** (hires y doble linea), `video_resolution` 1 = lores, 2 = hires nombrado, 3 = super-hires, `video_line_mode` 1 = simple, 2 = doble nombrado; mayor de 3 / 2, `P6_ERROR_UNSUPPORTED`. Son
+**opciones de reinicio del motor** (ADR 0006, "Resolucion y modo de linea"): cambian lo que el dibujante pinta, el buffer anunciado y los pixeles historia del estado. `config_hash`: entran en los bits 28 a 30 de
+la palabra de flags (28-29 la resolucion fuera de hires: 1 lores, 2 super-hires; 30 la linea simple), **solo fuera del perfil**, sin chocar con la memoria (8-22, 31), la FPU (23-24) ni la velocidad de disquete
+(25-27): con el raster de siempre, escrito como sea, el hash es **el de siempre**. Un estado o una pelicula de un raster es INCOMPATIBLE en otro.
+
+Rasters (activo nominal PAL / NTSC; buffer anunciado, constante desde el load): hires + doble (defecto) 756 x 574 / 756 x 484 en 760 x 576 (760 x 486 en un A500 NTSC); hires + simple 756 x 287 / 756 x 242 en 760 x 288
+(760 x 243); lores 378 de ancho en 380 (doble 574 / 484 filas, simple 287 / 242); super-hires 1512 en 1520. Las maquinas ECS y AGA reservan en NTSC la altura PAL (la mitad con linea simple). `video_width x
+video_height` de cada `p6_frame` es el anuncio de `p6_query_video`; un raster que no cabe (un haz ECS programado mas grande que el buffer de la opcion) se entrega como `P6_FRAME_NO_VIDEO`, nunca se escribe fuera, y
+todo lo que hay fuera de `active` vale cero como siempre. El aspecto de pixel es el del estandar por el factor del raster (lores x2 de ancho, super-hires la mitad, linea simple x2 de alto: 52:25 en PAL lores doble,
+26:25 lores simple, 13:50 super-hires simple). Con **linea simple** un invitado entrelazado se ve campo a campo (cada unidad es un campo completo de 287 / 242 filas) y `field_parity` es siempre
+`P6_FIELD_PROGRESSIVE`; con linea doble los campos se tejen como siempre. La autoresolucion de PUAE5 (`auto`) no se ofrece (necesita reconfigurar el motor en marcha).
+
+Opciones: libretro `puae6_video_resolution` (lores, hires, superhires; video) y `puae6_video_line_mode` (single, double; video), el importador `.uae` (`gfx_resolution`, `gfx_linemode` none / double), headless
+`--resolution lores|hires|superhires` y `--line-mode single|double`, y los sync settings `VideoResolution` (`Lores`, `Hires`, `SuperHires`) y `VideoLineMode` (`Single`, `Double`) de BizHawk (en la identidad
+del estado y de la pelicula solo fuera del perfil: `;resolution=Lores;linemode=Single`). En libretro el recorte y la posicion (T31c) se miden en pixeles lores y lineas, de modo que un nivel es la misma zona
+de la imagen en cualquier raster, y el aspecto forzado PAL / NTSC lleva tambien el factor del raster. AV01: `tests/step/test_resolution.py` (cada raster en PAL y NTSC con programas de Copper y plano de bits,
+entrelazado, haces ECS y AGA; baselines propios en `tests/step/resolution-baselines.json`, y el raster del perfil contra los dorados de siempre) y `tests/libretro-host/test_resolution.py`.
 
 Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` (Auto, KB512, MB1, MB2), `puae6_slow_size` (Auto, None, KB512, MB1, MB1_5, MB1_75) y
 `puae6_fast_size` (None, MB1, MB2, MB4, MB8), headless `--chip KIB`, `--slow KIB|none` y `--fast KIB`, y los sync settings de BizHawk `ChipMemory`, `SlowMemory` y `FastMemory` (el heap mmap

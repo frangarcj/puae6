@@ -116,7 +116,16 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved1 = 1;                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
-    c = make_config(); c.reserved8[2] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // the bytes after the floppy speed are still reserved
+    c = make_config(); c.reserved8[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // the byte after the raster options is still reserved
+    // The raster (T72): 0 is the profile's (hires, double lines), resolution 1 to 3 and line mode 1 and 2 are the options, anything above is refused with the reason, on every machine.
+    c = make_config(); c.video_resolution = 4;           assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "resolution"));
+    c = make_config(); c.video_line_mode = 3;            assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "line mode"));
+    for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A600, P6_MACHINE_A1200})
+        for (uint8_t resolution = 0; resolution <= 3; ++resolution)
+            for (uint8_t mode = 0; mode <= 2; ++mode) {
+                c = make_config(); c.machine = machine; c.video_resolution = resolution; c.video_line_mode = mode;
+                assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+            }
     // The floppy speed (T62): 0 is the profile (the real drive), 1 to 5 are the steps (100, 200, 400, 800 %, turbo), anything above is refused with the reason, on every machine.
     c = make_config(); c.floppy_speed = 6;               assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "floppy speed"));
     for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A600, P6_MACHINE_A1200})

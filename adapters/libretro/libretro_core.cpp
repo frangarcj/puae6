@@ -286,7 +286,29 @@ p6_libretro::PresentOptions present_options()
 // never changes a pixel of the picture.
 float aspect_ratio(uint32_t width, uint32_t height, uint32_t num, uint32_t den)
 {
-    return p6_libretro::picture_aspect(present_options().aspect, width, height, num, den);        // after the mapper's Toggle Aspect Ratio
+    const p6_libretro::PresentOptions options = present_options();
+    return p6_libretro::picture_aspect(options.aspect, width, height, num, den, options.hx, options.hy);        // after the mapper's Toggle Aspect Ratio
+}
+
+// The raster of the running settings as the bridge announces it (T72): the buffer every frame reports, the nominal active raster and the pixel aspect. The numbers of the
+// profile's raster when the bridge refuses to say (settings that are not loaded yet).
+p6_video_geometry running_geometry(bool ntsc)
+{
+    p6_video_geometry geometry = {};
+    geometry.abi_version = P6_ABI_VERSION;
+    geometry.struct_size = sizeof geometry;
+    p6_config config = {};
+    config.abi_version = P6_ABI_VERSION;
+    config.struct_size = sizeof config;
+    p6_options::to_config(core.settings, &config);
+    if (p6_query_video(&config, &geometry, nullptr) == P6_OK) return geometry;
+    geometry.buffer_width = 760;
+    geometry.buffer_height = ntsc ? 486 : 576;
+    geometry.active_width = 756;
+    geometry.active_height = ntsc ? 484 : 574;
+    geometry.aspect_num = ntsc ? 43 : 26;
+    geometry.aspect_den = ntsc ? 50 : 25;
+    return geometry;
 }
 
 // What retro_get_system_av_info announces from the load, before any unit has run: the nominal rate of the configured standard (a progressive
@@ -298,7 +320,8 @@ struct Nominal {
 Nominal nominal_av()
 {
     const bool ntsc = core.settings.video_standard == P6_VIDEO_NTSC;
-    return ntsc ? Nominal{715909, 11921, 43, 50} : Nominal{3546895, 70824, 26, 25};
+    const p6_video_geometry geometry = running_geometry(ntsc);
+    return ntsc ? Nominal{715909, 11921, geometry.aspect_num, geometry.aspect_den} : Nominal{3546895, 70824, geometry.aspect_num, geometry.aspect_den};
 }
 
 // A unit that runs at another rate than the one announced is a change of beam (an ECS guest that programs BEAMCON0, T23f). The long field and the
@@ -349,13 +372,14 @@ void announce_av_change(const p6_frame &frame, const Picture &picture)
         core.announced_aspect_den = nominal.aspect_den;
     }
     if (!frame.cadence_num || !frame.cadence_den || !rate_moved(frame.cadence_num, frame.cadence_den)) return;
-    const uint32_t width = picture.valid ? picture.window.width : (core.announced_width ? core.announced_width : 756);
-    const uint32_t height = picture.valid ? picture.window.height : (core.announced_height ? core.announced_height : 574);
+    const p6_video_geometry geometry = running_geometry(core.settings.video_standard == P6_VIDEO_NTSC);
+    const uint32_t width = picture.valid ? picture.window.width : (core.announced_width ? core.announced_width : geometry.active_width);
+    const uint32_t height = picture.valid ? picture.window.height : (core.announced_height ? core.announced_height : geometry.active_height);
     retro_system_av_info info = {};
     info.geometry.base_width = width;
     info.geometry.base_height = height;
-    info.geometry.max_width = core.max_width ? core.max_width : 760;
-    info.geometry.max_height = core.max_height ? core.max_height : 576;
+    info.geometry.max_width = core.max_width ? core.max_width : geometry.buffer_width;
+    info.geometry.max_height = core.max_height ? core.max_height : geometry.buffer_height;
     info.geometry.aspect_ratio = aspect_ratio(width, height, frame.aspect_num, frame.aspect_den);
     info.timing.fps = double(frame.cadence_num) / double(frame.cadence_den);
     info.timing.sample_rate = core.settings.audio_rate_hz;
@@ -446,7 +470,8 @@ void deliver_video(const p6_frame &frame, bool have_frame, const Picture &pictur
     } else if (core.last_width && !core.last_picture.empty()) {
         video_cb(core.last_picture.data(), core.last_width, core.last_height, size_t(core.last_width) * bytes);
     } else {
-        const uint32_t width = core.announced_width ? core.announced_width : 756, height = core.announced_height ? core.announced_height : 574;
+        const p6_video_geometry geometry = running_geometry(core.settings.video_standard == P6_VIDEO_NTSC);
+        const uint32_t width = core.announced_width ? core.announced_width : geometry.active_width, height = core.announced_height ? core.announced_height : geometry.active_height;
         core.blank.assign(size_t(width) * height * bytes, 0);
         video_cb(core.blank.data(), width, height, size_t(width) * bytes);
     }
@@ -1388,8 +1413,10 @@ void announce_state_support()
     caps.struct_size = sizeof caps;
     p6_query_caps(&caps, nullptr);
     core.can_append = (caps.flags & P6_CAP_MEDIA_APPEND) != 0;
-    core.max_width = caps.max_video_width;
-    core.max_height = caps.max_video_height;
+    // The buffer of the configuration that is loaded (T72): caps describes the profile's raster, a resolution or line mode option scales it.
+    const p6_video_geometry geometry = running_geometry(core.settings.video_standard == P6_VIDEO_NTSC);
+    core.max_width = geometry.buffer_width;
+    core.max_height = geometry.buffer_height;
     core.state_ready = (caps.flags & P6_CAP_STATE) != 0 && core.max_width && core.max_height;
     if (!core.state_ready) return;
     uint64_t quirks = RETRO_SERIALIZATION_QUIRK_ENDIAN_DEPENDENT | RETRO_SERIALIZATION_QUIRK_PLATFORM_DEPENDENT;       // the frontend reads 64 bits
@@ -1536,22 +1563,19 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
 RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)
 {
     memset(info, 0, sizeof *info);
-    p6_caps caps = {};
-    caps.abi_version = P6_ABI_VERSION;
-    caps.struct_size = sizeof caps;
-    p6_query_caps(&caps, nullptr);
     const bool ntsc = core.settings.video_standard == P6_VIDEO_NTSC;
-    // The nominal active raster of each standard, or the window of it that the crop option asks for (the automatic crop starts with all of it); a unit can draw
-    // less, and the geometry is updated when it does.
-    const uint32_t native_width = 756, native_height = ntsc ? 484 : 574;
+    // The nominal active raster of the configured raster (T72: 756 x 574 PAL / 756 x 484 NTSC for the profile's hires and double lines), or the window of it that the crop option asks for
+    // (the automatic crop starts with all of it); a unit can draw less, and the geometry is updated when it does. The buffer is the one every frame will report.
+    const p6_video_geometry geometry = running_geometry(ntsc);
+    const uint32_t native_width = geometry.active_width, native_height = geometry.active_height;
     uint32_t width = native_width, height = native_height;
-    p6_libretro::crop_size(present_options(), native_width, native_height, ntsc ? 43 : 26, ntsc ? 50 : 25, ntsc, p6_libretro::Box{0, 0, native_width, native_height},
+    p6_libretro::crop_size(present_options(), native_width, native_height, geometry.aspect_num, geometry.aspect_den, ntsc, p6_libretro::Box{0, 0, native_width, native_height},
                            &width, &height);
     info->geometry.base_width = width;
     info->geometry.base_height = height;
-    info->geometry.max_width = caps.max_video_width ? caps.max_video_width : 760;
-    info->geometry.max_height = caps.max_video_height ? caps.max_video_height : 576;
-    info->geometry.aspect_ratio = aspect_ratio(width, height, ntsc ? 43 : 26, ntsc ? 50 : 25);
+    info->geometry.max_width = geometry.buffer_width;
+    info->geometry.max_height = geometry.buffer_height;
+    info->geometry.aspect_ratio = aspect_ratio(width, height, geometry.aspect_num, geometry.aspect_den);
     info->timing.fps = ntsc ? 715909.0 / 11921.0 : 3546895.0 / 70824.0;    // the bridge's rate for a progressive short field
     info->timing.sample_rate = core.settings.audio_rate_hz;
 }

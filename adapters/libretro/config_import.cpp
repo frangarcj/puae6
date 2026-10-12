@@ -201,7 +201,7 @@ constexpr Fixed kFixed[] = {
 constexpr const char *kNativeKeys[] = {
     "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
     "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
-    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed",
+    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_video_resolution", "puae6_video_line_mode",
 };
 
 const p6_options::Option *find_option(const char *key)
@@ -541,6 +541,20 @@ private:
             else if (number == 0) set_name(e, "puae6_floppy_speed", "turbo");
             else if (number == 100 || number == 200 || number == 400 || number == 800) set_name(e, "puae6_floppy_speed", std::to_string(number));
             else error(e, "floppy speed " + e.value + " is not offered (0 for turbo, 100, 200, 400 or 800)");
+            return;
+        }
+        // The raster (T72): upstream's gfx_resolution and gfx_linemode, which are the engine's own gfx_resolution and gfx_vresolution. Scanlines are an effect of the host's display and are not offered.
+        if (key == "gfx_resolution") {
+            const std::string v = lower(e.value);
+            if (v == "lores" || v == "hires" || v == "superhires") set_name(e, "puae6_video_resolution", v);
+            else error(e, "expected lores, hires or superhires");
+            return;
+        }
+        if (key == "gfx_linemode") {
+            const std::string v = lower(e.value);
+            if (v == "none") set_name(e, "puae6_video_line_mode", "single");
+            else if (v == "double") set_name(e, "puae6_video_line_mode", "double");
+            else error(e, "expected none (single lines) or double: scanlines and the other double modes are effects of the host's display, which the core does not draw");
             return;
         }
         if (key == "sound_filter_type") {

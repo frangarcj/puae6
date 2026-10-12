@@ -3,11 +3,12 @@
 // live here are the schema's presentation options, so they are not part of p6_config, of the configuration hash or of the state identity, and
 // tests/libretro-ui proves it by comparing the native state, the audio and the cadence of a run with every option on against a run with all of them off.
 //
-// The window. The native raster is the machine's active area (756 x 574 on PAL, 756 x 484 on NTSC: hires pixels and double lines, docs/adr/0006). Crop
-// chooses a window of it:
-//   * a level is a size in lores pixels and normal lines (PUAE5's table: Minimum 360 x 270 on PAL, Maximum 320 x 200), doubled for the raster, and never larger
-//     than the raster; Automatic takes the area the guest drew: the bounding box of the pixels that differ from the border, found in the picture itself
-//     (the same bytes on every host), never smaller than 640 x 400;
+// The window. The native raster is the machine's active area (756 x 574 on PAL, 756 x 484 on NTSC by default: hires pixels and double lines, docs/adr/0006; the
+// resolution and line mode options of T72 draw another one: 378 or 1512 columns, 287 or 242 rows, and the sizes below follow it through hx columns per lores
+// pixel and hy rows per line, 2 and 2 for the default). Crop chooses a window of it:
+//   * a level is a size in lores pixels and normal lines (PUAE5's table: Minimum 360 x 270 on PAL, Maximum 320 x 200), multiplied by hx and hy for the raster, and
+//     never larger than the raster; Automatic takes the area the guest drew: the bounding box of the pixels that differ from the border, found in the picture
+//     itself (the same bytes on every host), never smaller than 320 x 200 lores pixels and lines;
 //   * the mode says which dimensions are cut (both, width only, height only) or fits the smallest window of a picture aspect ratio around the size;
 //   * the position says where the window starts: automatic centers it on the raster (on the drawn area for Automatic), a number is the distance of its top
 //     (vertical, positive = picture up) or minus the distance of its left edge (horizontal, positive = picture right) from the raster's origin, in lores
@@ -37,7 +38,7 @@ constexpr unsigned kAspectMachine = 0, kAspect4x3 = 1, kAspectPal = 2, kAspectNt
 constexpr uint32_t kPositionAuto = 0, kPositionBias = 128;       // a position option is its value + 128, and 0 is "Automatic"
 constexpr int kGammaBias = 5;                                     // the gamma option is its value in tenths + 5
 
-constexpr uint32_t kMinCropWidth = 640, kMinCropHeight = 400;     // 320 x 200 lores pixels and lines, the smallest crop PUAE5 has
+constexpr uint32_t kMinCropWidth = 320, kMinCropHeight = 200;     // lores pixels and lines, the smallest crop PUAE5 has (times hx and hy for the raster)
 constexpr uint32_t kCropDelayUnits = 50;                          // how long a new drawn area must stay the same before the window follows it (one second of PAL)
 constexpr uint32_t kBorderMargin = 8;                             // columns at each edge the renderer leaves black: not looked at to find the drawn area
 
@@ -48,6 +49,8 @@ struct PresentOptions {
     int vertical = 0, horizontal = 0;          // lores lines / pixels, as the option says
     int gamma_tenths = 0;
     bool depth16 = false;
+    // The scale of the raster (T72): columns per lores pixel (lores 1, hires 2, super-hires 4) and rows per line (single 1, double 2). The default raster is 2 and 2.
+    unsigned hx = 2, hy = 2;
 };
 
 inline PresentOptions present_options(const p6_options::Settings &settings)
@@ -63,6 +66,8 @@ inline PresentOptions present_options(const p6_options::Settings &settings)
     options.horizontal = options.horizontal_auto ? 0 : int(settings.video_horizontal_pos) - int(kPositionBias);
     options.gamma_tenths = int(settings.video_gamma) - kGammaBias;
     options.depth16 = settings.video_color_depth == 1;
+    options.hx = settings.video_resolution == 1 ? 1u : settings.video_resolution == 3 ? 4u : 2u;      // the schema's numbers: 1 lores, 0 hires, 3 super-hires
+    options.hy = settings.video_line_mode == 1 ? 1u : 2u;                                           // 1 single, 0 double
     return options;
 }
 
@@ -114,9 +119,9 @@ constexpr CropSize kCropSizes[] = {
 
 // The pixels of the raster that differ from the border. A row's border is its pixel just inside the black margin; a row with nothing else is blank.
 // Returns false for a picture with nothing drawn (everything the color of the border).
-inline bool find_drawn_area(const uint8_t *origin, size_t stride, uint32_t width, uint32_t height, Box *out)
+inline bool find_drawn_area(const uint8_t *origin, size_t stride, uint32_t width, uint32_t height, Box *out, uint32_t hx = 2)
 {
-    const uint32_t margin = std::min<uint32_t>(kBorderMargin, width / 8);
+    const uint32_t margin = std::min<uint32_t>(kBorderMargin * hx / 2, width / 8);
     if (width <= 2 * margin + 1 || height == 0) return false;
     uint32_t left = width, right = 0, top = height, bottom = 0;
     for (uint32_t y = 0; y < height; ++y) {
@@ -183,12 +188,12 @@ inline void crop_size(const PresentOptions &options, uint32_t native_width, uint
     uint32_t w = native_width, h = native_height;
     if (options.crop != kCropOff) {
         if (options.crop == kCropAuto) {
-            w = std::max(kMinCropWidth, drawn.width);
-            h = std::max(kMinCropHeight, drawn.height);
+            w = std::max(kMinCropWidth * options.hx, drawn.width);
+            h = std::max(kMinCropHeight * options.hy, drawn.height);
         } else {
             const CropSize &size = kCropSizes[std::min<unsigned>(options.crop, kCropMaximum) - 1];
-            w = 2u * size.width;
-            h = 2u * (ntsc ? size.lines_ntsc : size.lines_pal);
+            w = options.hx * size.width;
+            h = options.hy * (ntsc ? size.lines_ntsc : size.lines_pal);
         }
         w = std::min(w, native_width);
         h = std::min(h, native_height);
@@ -216,8 +221,8 @@ inline void crop_size(const PresentOptions &options, uint32_t native_width, uint
             break;
         default: break;
         }
-        w = std::min(std::max(w, kMinCropWidth), native_width);
-        h = std::min(std::max(h, kMinCropHeight), native_height);
+        w = std::min(std::max(w, kMinCropWidth * options.hx), native_width);
+        h = std::min(std::max(h, kMinCropHeight * options.hy), native_height);
     }
     *width = w;
     *height = h;
@@ -233,26 +238,27 @@ inline Window crop_window(const PresentOptions &options, uint32_t native_width, 
     crop_size(options, native_width, native_height, num, den, ntsc, area, &window.width, &window.height);
     const bool follows = options.crop == kCropAuto && have_drawn;
     if (options.crop == kCropOff) {
-        window.x = options.horizontal_auto ? 0 : -2 * options.horizontal;
-        window.y = options.vertical_auto ? 0 : 2 * options.vertical;
+        window.x = options.horizontal_auto ? 0 : -int32_t(options.hx) * options.horizontal;
+        window.y = options.vertical_auto ? 0 : int32_t(options.hy) * options.vertical;
         return window;
     }
     const int64_t center_x = follows ? int64_t(area.x) + int64_t(area.width) / 2 : int64_t(native_width) / 2;
     const int64_t center_y = follows ? int64_t(area.y) + int64_t(area.height) / 2 : int64_t(native_height) / 2;
-    window.x = options.horizontal_auto ? int32_t(center_x - int64_t(window.width) / 2) : -2 * options.horizontal;
-    window.y = options.vertical_auto ? int32_t(center_y - int64_t(window.height) / 2) : 2 * options.vertical;
+    window.x = options.horizontal_auto ? int32_t(center_x - int64_t(window.width) / 2) : -int32_t(options.hx) * options.horizontal;
+    window.y = options.vertical_auto ? int32_t(center_y - int64_t(window.height) / 2) : int32_t(options.hy) * options.vertical;
     if (options.horizontal_auto) window.x = std::max<int32_t>(0, std::min<int32_t>(window.x, int32_t(native_width - window.width)));       // centered windows stay in the raster
     if (options.vertical_auto) window.y = std::max<int32_t>(0, std::min<int32_t>(window.y, int32_t(native_height - window.height)));
     return window;
 }
 
 // The aspect ratio announced for a picture of width x height pixels whose pixels are num:den, after the aspect option.
-inline float picture_aspect(unsigned aspect, uint32_t width, uint32_t height, uint32_t num, uint32_t den)
+inline float picture_aspect(unsigned aspect, uint32_t width, uint32_t height, uint32_t num, uint32_t den, unsigned hx = 2, unsigned hy = 2)
 {
+    // The pixel aspect of a standard is that of a hires pixel on a double line; the scale of the raster makes it wider (lores, hx 1), narrower (super-hires, hx 4) or taller (single, hy 1).
     switch (aspect) {
     case kAspect4x3: return 4.0f / 3.0f;
-    case kAspectPal: num = 26; den = 25; break;
-    case kAspectNtsc: num = 43; den = 50; break;
+    case kAspectPal: num = 26 * hy; den = 25 * hx; break;
+    case kAspectNtsc: num = 43 * hy; den = 50 * hx; break;
     default: break;
     }
     return float(double(width) * num / (double(height) * den));
@@ -334,11 +340,11 @@ struct Presenter {
     // The window of a raster (updating the automatic window's memory from it). `identity` is true when the window is the raster itself.
     Window plan(const PresentOptions &options, const uint8_t *origin, size_t stride, uint32_t width, uint32_t height, uint32_t num, uint32_t den)
     {
-        const bool ntsc = num < den;
+        const bool ntsc = uint64_t(num) * options.hx < uint64_t(den) * options.hy;      // the pixel aspect of the standard, without the scale of the raster
         Box seen;
         bool found = false;
         if (options.crop == kCropAuto) {
-            found = find_drawn_area(origin, stride, width, height, &seen);
+            found = find_drawn_area(origin, stride, width, height, &seen, options.hx);
             follow_drawn_area(&crop, found, seen, options.crop_delay);
         } else {
             crop = CropMemory();

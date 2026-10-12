@@ -1,0 +1,28 @@
+{
+  "pictures": {
+    "lores-bars-pal-lores-single": "7c6c5a990a933d4a9dd9a0be57987ccb92f1d6064a0031e1e49de5be9bc0f988",
+    "lores-bars-pal-lores-double": "6c9503169875007de122267787dc7125e0e10ed3ef63142610bcefdd123f4494",
+    "lores-bars-pal-hires-single": "dd3b256f845fb6d80c1e826156ff7692b5359b00ff618360d0375b0a858ac035",
+    "lores-bars-pal-hires-double": "c2c920d5233b6113a52c732c896341f1d2d0cd8d008246e9511888e3eab687d0",
+    "lores-bars-pal-superhires-single": "f709352d0b0cd8bb6bf04cef5f16170daa74ed47245df1f972c3f754c34b306f",
+    "lores-bars-pal-superhires-double": "4219b1530bef85a2d0b6f96cac9f0507aa8cee36d5e37733856ef36c613d7237",
+    "lores-bars-ntsc-lores-single": "c31c6db80325afcde3f4c52390e5daf55571b45143f3bf4fc2e9f80c7b45e783",
+    "lores-bars-ntsc-lores-double": "2239b624129ad955d4940029249ae3451113fd7fab8404d6a5fbe85572afc568",
+    "lores-bars-ntsc-hires-single": "fbb9b2a93fe547a6153d4b1a085e431a5ca0f586759a9be44f56dc1036897a26",
+    "lores-bars-ntsc-hires-double": "939f945fbfb73e6c2f7d82cf3f64f6a7868c10699b3a994188ff601112cf0ac4",
+    "lores-bars-ntsc-superhires-single": "6fb4ed8e74fc02be438248ce188c532e4566fd959821af0383656d2913e3edd8",
+    "lores-bars-ntsc-superhires-double": "0a6fada6ba79bbe5531ce02043f80c291fc9b9296911d099ed930225ac0fadd2",
+    "hires-bars-pal-lores-single": "1b875240b45efa667be0cbc6aad99dcbe42254c8283e35ec9b161d109ba848f5",
+    "hires-bars-pal-lores-double": "16461e881daf9f3c729b77596a6e96c6cdab45db571617302b4b629879b26a00",
+    "hires-bars-pal-hires-single": "c36220aad79cdcc9d878e2b2aca28417c9bc630dd5ac93f201245324a5ee4179",
+    "hires-bars-pal-hires-double": "d63d21c6e1ebe3df4931ff9f0988fa1b11265de5d9a38ddd9609aa7ebab41317",
+    "hires-bars-pal-superhires-single": "34081c1316885b873b0ccd048be0c53e205d79146e349415fd315d28ac8505cf",
+    "hires-bars-pal-superhires-double": "9ffb79322f9254476c161215a25e8c3a482161f3c76baa8d15d4ee2234b36244",
+    "hires-bars-ntsc-lores-single": "672ce807e97e5d5c353727c0701f8d90a10e6988a09054d7212b5102b34dfd46",
+    "hires-bars-ntsc-lores-double": "1d64c5b05838f45d7831fbdb63c2fd1d23700ca9c49909bbec1f9a8a51c99446",
+    "hires-bars-ntsc-hires-single": "89d9cca96d0b204f6fbee612e49b3d3592c38a55e2ad980e671ed6d2eeff0a94",
+    "hires-bars-ntsc-hires-double": "7c09c731845272a43f4f2b875ea21aac400022c9ee601806843c063306c31528",
+    "hires-bars-ntsc-superhires-single": "4d93391283fb4f2a5a36b85c96e7fdf0dd607cdaa43c913abfba31fda21b275a",
+    "hires-bars-ntsc-superhires-double": "b1d2999d7a7403d1e301371defb3c77cfade1efebeaf5b47def7d2ddd6128d95"
+  }
+}

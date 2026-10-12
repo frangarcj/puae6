@@ -13946,7 +13946,7 @@
       "title": "Resolucion (lores/hires/superhires) y line mode como opciones de reinicio",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24d"
       ],
@@ -13964,10 +13964,27 @@
         "config/**",
         "adapters/libretro/**",
         "tests/step/**",
-        "tests/libretro-host/**"
+        "tests/libretro-host/**",
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "adapters/headless/**",
+        "integration/bizhawk/**",
+        "tools/generate_options.py",
+        "tests/config/**",
+        "tests/contracts/**",
+        "tests/fuzz/**",
+        "tests/host/**",
+        "tests/ffi/**",
+        "tests/libretro-ui/**",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "reports/research/parity-puae5.md",
+        "reports/tasks/T72.md"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_video_resolution y line mode. Rasters canonicos adicionales anunciados en el load, cada uno con sus hashes; el canonico actual no cambia."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_video_resolution y line mode. Rasters canonicos adicionales anunciados en el load, cada uno con sus hashes; el canonico actual no cambia.",
+        "Ampliacion de la ficha (2026-10-12, T72): la resolucion y el modo de linea son el motor (gfx_resolution/gfx_vresolution, decision en ADR 0006) y no una transformacion: dos bytes de p6_config (video_resolution y video_line_mode, offsets 61 y 62 del antiguo reserved8, bridge/include/p6.h), bits 28-30 de la palabra flags del config_hash solo fuera del perfil, p6_query_video (bridge/video.cpp) para anunciar el buffer del raster de la configuracion al cargar, headless (--resolution, --line-mode), el esquema, libretro (puae6_video_resolution, puae6_video_line_mode, importador .uae gfx_resolution/gfx_linemode, recorte y aspecto a escala del raster), BizHawk (sync settings VideoResolution y VideoLineMode, buffer inicial y maximo 1520 x 576) y los tests que miraban reserved8 (contracts, fuzz, host, ffi, libretro-ui); el cambio de guest re-registra manifests/waterbox-memory.json. La autoresolucion (auto) de PUAE5 no se ofrece, ver el ADR."
       ],
       "checks": [
         "AV01",

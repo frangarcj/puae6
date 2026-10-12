@@ -10,7 +10,7 @@ using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b, T28: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [writes]
+///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [vres=Lores|Hires|SuperHires] [vlines=Single|Double] [writes]
 ///   (writes: the floppy disks can be written, T28; without it every disk is protected. hdf: hard files, T63b; always writable, their media index follows the floppies. volume: LHA archives or ZIP files of files, T64b,
 ///    built into hard files in memory after the hdf ones)
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
@@ -91,6 +91,8 @@ internal static unsafe partial class Program
 						SoundFilter = Enum.Parse<Puae6SoundFilter>(arguments.GetValueOrDefault("filter", "Emulated")),
 						SoundFilterType = Enum.Parse<Puae6SoundFilterType>(arguments.GetValueOrDefault("ftype", "Auto")),
 						FloppySpeed = Enum.Parse<Puae6FloppySpeed>(arguments.GetValueOrDefault("fspeed", "P100")),
+						VideoResolution = Enum.Parse<Puae6VideoResolution>(arguments.GetValueOrDefault("vres", "Hires")),
+						VideoLineMode = Enum.Parse<Puae6VideoLineMode>(arguments.GetValueOrDefault("vlines", "Double")),
 						FloppyWrites = arguments.ContainsKey("writes"),
 					};
 					var make = new Dictionary<string, string>(fixedOptions);

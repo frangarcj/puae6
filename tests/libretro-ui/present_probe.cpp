@@ -124,6 +124,46 @@ static void sizes()
     CHECK(w == 756 && h == 574);                                                // and never larger than the raster
 }
 
+// T72: the raster options scale the crop: a level is a size in lores pixels and lines, multiplied by the columns per lores pixel (hx) and the rows per line (hy) of the raster.
+static void scaled_rasters()
+{
+    PresentOptions o;
+    uint32_t w, h;
+    o.crop = 7;                                                                 // maximum: 320 x 200 lores pixels and lines
+    struct Raster { unsigned hx, hy; uint32_t width, height; };
+    for (const Raster &r : {Raster{1, 2, 378, 574}, Raster{2, 1, 756, 287}, Raster{4, 2, 1512, 574}, Raster{4, 1, 1512, 287}}) {
+        o.hx = r.hx;
+        o.hy = r.hy;
+        crop_size(o, r.width, r.height, 26 * r.hy, 25 * r.hx, false, Box{0, 0, r.width, r.height}, &w, &h);
+        CHECK(w == std::min(320u * r.hx, r.width) && h == std::min(200u * r.hy, r.height));
+    }
+    o.crop = kCropAuto;
+    o.hx = 1;
+    o.hy = 1;
+    crop_size(o, 378, 287, 26, 25, false, Box{10, 10, 100, 100}, &w, &h);       // never smaller than 320 x 200 lores pixels and lines
+    CHECK(w == 320 && h == 200);
+    o.crop = 0;
+    o.vertical_auto = false;
+    o.vertical = 3;
+    o.horizontal_auto = false;
+    o.horizontal = 5;
+    o.hx = 4;
+    o.hy = 1;
+    Window window = crop_window(o, 1512, 287, 13, 50, false, false, Box());      // a position is in lores pixels and lines: 4 columns and 1 row each
+    CHECK(window.x == -20 && window.y == 3);
+    // The standard is told from the pixel aspect without the scale of the raster: NTSC lores on double lines is 86:50 and PAL 52:25 (the minimum level has 240 and 270 lines).
+    Presenter presenter;
+    const std::vector<uint32_t> pixels(378 * 574, 0);
+    PresentOptions lores;
+    lores.hx = 1;
+    lores.hy = 2;
+    lores.crop = 1;
+    CHECK(presenter.plan(lores, bytes(pixels), 378 * 4, 378, 574, 86, 50).height == 480);
+    CHECK(presenter.plan(lores, bytes(pixels), 378 * 4, 378, 574, 52, 25).height == 540);
+    CHECK(picture_aspect(kAspectPal, 1512, 287, 0, 0, 4, 1) == picture_aspect(kAspectMachine, 1512, 287, 13, 50));
+    CHECK(picture_aspect(kAspectNtsc, 378, 574, 0, 0, 1, 2) == picture_aspect(kAspectMachine, 378, 574, 86, 50));
+}
+
 static void windows()
 {
     PresentOptions o;
@@ -248,6 +288,7 @@ int main()
     drawn_area();
     patience();
     sizes();
+    scaled_rasters();
     windows();
     copies();
     aspects();

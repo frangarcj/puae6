@@ -41,6 +41,12 @@ public enum Puae6SoundFilterType { Auto, A500, A1200 }
 /// <summary>The speed of the floppy drives (restart): the real drive (P100, the profile's own setting), twice, four or eight times as fast, or Turbo, which removes the rotation and transfers a whole DSKLEN at once. It is counted in emulated colour clocks, never in wall clock time.</summary>
 public enum Puae6FloppySpeed { P100, P200, P400, P800, Turbo }
 
+/// <summary>The resolution of the picture (restart): the width the renderer draws, 378, 756 (Hires, the profile's own setting) or 1512 columns. It is the engine's own resolution, not a scaling.</summary>
+public enum Puae6VideoResolution { Lores, Hires, SuperHires }
+
+/// <summary>The line mode of the picture (restart): one row per line (Single, 287 rows on PAL; an interlaced program shows each field on its own) or two (Double, the profile's own setting, 574 rows; the fields are woven).</summary>
+public enum Puae6VideoLineMode { Single, Double }
+
 /// <summary>What is plugged into the first controller port of the Amiga (the one the mouse normally uses).</summary>
 public enum Puae6Port1 { Mouse, Joystick, None }
 
@@ -82,6 +88,12 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>The speed of the floppy drives. It changes when every disk transfer ends, so it is a sync setting: it enters the identity of states and movies when it is not <c>P100</c>.</summary>
 	public Puae6FloppySpeed FloppySpeed { get; set; } = Puae6FloppySpeed.P100;
+
+	/// <summary>The resolution of the picture. It is the engine's own and changes what is drawn and the size of the picture, so it is a sync setting: it enters the identity of states and movies when it is not <c>Hires</c>.</summary>
+	public Puae6VideoResolution VideoResolution { get; set; } = Puae6VideoResolution.Hires;
+
+	/// <summary>The line mode of the picture. Like the resolution it is part of the machine: it enters the identity when it is not <c>Double</c>.</summary>
+	public Puae6VideoLineMode VideoLineMode { get; set; } = Puae6VideoLineMode.Double;
 
 	/// <summary>The video standard of the machine. It is not detected from anything.</summary>
 	public Puae6Region Region { get; set; } = Puae6Region.PAL;

@@ -107,7 +107,7 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "877a97bd020cd8a1cc4e41f312969887e955afad504151427d5f5b610674780d",
+    "guest_sha256": "79c3e8e3c2c2b738a31b5d665688732eb74a4a98c8f128b5ff9add9f061f0ce2",
     "runtime_sha256": "8dfef1cab329fe66b837f9bce9b5c96cf30b98034b1a61a4b5348638bf74c1cc",
     "after_seal": {
       "elf": {
