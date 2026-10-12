@@ -12,9 +12,11 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import scenario_schema as schema
 from tests.scenarios.aga import aga
 from tests.scenarios.ecs import ecs
+from tests.scenarios.machines import machines
 
 ECS_DIR = ROOT / 'tests/scenarios/ecs'
 AGA_DIR = ROOT / 'tests/scenarios/aga'
+MACHINES_DIR = ROOT / 'tests/scenarios/machines'
 
 
 class ScenarioSchemaTests(unittest.TestCase):
@@ -167,6 +169,41 @@ class ScenarioSchemaTests(unittest.TestCase):
                 self.assertEqual((scenario['units'], scenario['render'], scenario['program'], scenario['media']),
                                  (units, True, None, []))
                 self.assertEqual(text, json.dumps(aga.scenario_document(scenario_id, hashlib.sha256(rom).hexdigest(), units, standard),
+                                                  indent=2) + '\n')
+
+    def test_the_t50_machines_are_presets_of_the_same_profile_with_the_memory_of_their_own_preset(self):
+        expected = {'A500OG': (524288, 0), 'A500PLUS': (1048576, 0), 'A1000': (524288, 0), 'A2000OG': (524288, 524288), 'A2000': (1048576, 0)}
+        for machine, (chip, slow) in expected.items():
+            scenario = schema.load_json(MACHINES_DIR / ('machine-%s-ident-pal.json' % machines.PROBE_NAMES[machine]))
+            with self.subTest(machine=machine):
+                self.assertEqual((scenario['profile'], scenario['config']['machine']), ('deterministic-a500', machine))
+                self.assertEqual((scenario['config']['chip_ram_bytes'], scenario['config']['slow_ram_bytes']), (chip, slow))
+                schema.validate_scenario(scenario)
+                for field, value in (('chip_ram_bytes', chip * 2), ('slow_ram_bytes', slow + 524288)):
+                    bad = copy.deepcopy(scenario)
+                    bad['config'][field] = value
+                    with self.assertRaises(ValueError):
+                        schema.validate_scenario(bad)
+                if not slow:
+                    bad = copy.deepcopy(scenario)
+                    bad['probes'] = [dict(region='slow', offset=0, length=1)]               # no Slow region on a machine without Slow RAM
+                    with self.assertRaises(ValueError):
+                        schema.validate_scenario(bad)
+
+    def test_machine_scenario_files_are_valid_and_name_the_program_they_run(self):
+        from tests.step.test_step import builder
+        programs = machines.scenario_programs()
+        files = {path.stem: path for path in MACHINES_DIR.glob('machine-*.json')}
+        self.assertEqual(set(files), set(programs))
+        self.assertEqual(len(files), 2 * 3 * len(machines.NEW_MACHINES))
+        for scenario_id, (source, units, standard, machine) in programs.items():
+            with self.subTest(scenario=scenario_id):
+                text = files[scenario_id].read_text(encoding='utf-8')
+                scenario = schema.validate_scenario(schema.load_json(files[scenario_id]))
+                rom = builder.build(source)
+                self.assertEqual(scenario['firmware'], [hashlib.sha256(rom).hexdigest()])
+                self.assertEqual((scenario['config']['machine'], scenario['config']['video_standard']), (machine, standard.upper()))
+                self.assertEqual(text, json.dumps(machines.scenario_document(scenario_id, hashlib.sha256(rom).hexdigest(), units, standard, machine),
                                                   indent=2) + '\n')
 
     def result(self):

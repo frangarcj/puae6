@@ -1,10 +1,10 @@
-// Configuration of the A500, A600 and A1200 profiles: validation of p6_config and firmware, and the preset.
+// Configuration of the machine profiles: validation of p6_config and firmware, and the preset.
 //
 // The preset is not a copy of upstream defaults. It starts from what WinUAE itself builds for the machine
-// (default_prefs, then built_in_prefs: model 0 = A500, OCS Agnus, 0.5M Chip + 0.5M Slow; model 2 = A600, ECS
-// Agnus + Denise, 1M Chip, no Slow; both 68000 cycle exact; model 4 = A1200, 68EC020 cycle exact, AGA, 2M Chip, no Slow), applies the
-// overrides listed in config/profiles/a500-ocs.json, a600-ecs.json or a1200-aga.json and finishes with upstream fixup_prefs.
-// tests/host/test_a500_profile.py, test_a600_profile.py and test_a1200_profile.py compare the profile files with the resulting preferences field by field, so a value that is
+// (default_prefs, then built_in_prefs, see kMachines: model 0 = A500, OCS Agnus, 0.5M Chip + 0.5M Slow; model 2 = A600, ECS
+// Agnus + Denise, 1M Chip, no Slow; both 68000 cycle exact; model 4 = A1200, 68EC020 cycle exact, AGA, 2M Chip, no Slow; T50: the A500 OG, A500+, A1000, A2000 OG and A2000), applies the
+// overrides listed in the file of config/profiles/ that kMachines names and finishes with upstream fixup_prefs.
+// tests/host/test_*_profile.py compare the profile files with the resulting preferences field by field, so a value that is
 // neither inherited nor declared cannot appear silently.
 #include "config.h"
 #include "error_util.h"
@@ -13,6 +13,7 @@
 #include "sysdeps.h"
 #include "options.h"
 #include "memory.h"
+#include "disk.h"
 #include "custom.h"
 #include "audio.h"
 #include "inputdevice.h"
@@ -111,9 +112,54 @@ bool one_of(uint32_t value, std::initializer_list<uint32_t> allowed)
 
 }  // namespace
 
+namespace {
+
+// What each machine is: the upstream preset it comes from (built_in_prefs model and configuration), its own memory, CPU and chipset, and whether Gayle is declared absent.
+// `compatible` is the cs_compatible value the finished preset must carry: the chipset table upstream applies for the machine, or 0 where the table is applied once and then cleared (A600 and A1200:
+// no Gayle; A1000 and A2000: the reset warning, see build_preferences).
+struct MachineInfo {
+    uint32_t machine;
+    const char *name;
+    int model, config;
+    Memory memory;
+    int cpu;
+    int chipset_mask;
+    int compatible;
+    bool no_gayle;
+};
+
+const MachineInfo kMachines[] = {
+    {P6_MACHINE_A500, "A500", 0, 0, {512, 512, 0}, 68000, CSMASK_OCS, CP_A500, false},
+    {P6_MACHINE_A600, "A600", 2, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE, 0, true},
+    {P6_MACHINE_A1200, "A1200", 4, 0, {2048, 0, 0}, 68020, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, true},
+    {P6_MACHINE_A500OG, "A500OG", 0, 3, {512, 0, 0}, 68000, CSMASK_OCS, CP_A500, false},
+    {P6_MACHINE_A500PLUS, "A500PLUS", 1, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE, CP_A500P, false},
+    {P6_MACHINE_A1000, "A1000", 3, 0, {512, 0, 0}, 68000, CSMASK_A1000, 0, false},
+    {P6_MACHINE_A2000OG, "A2000OG", 0, 0, {512, 512, 0}, 68000, CSMASK_OCS, 0, false},
+    {P6_MACHINE_A2000, "A2000", 1, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS, 0, false},
+};
+
+const MachineInfo *find_machine(uint32_t machine)
+{
+    for (const MachineInfo &m : kMachines)
+        if (m.machine == machine) return &m;
+    return nullptr;
+}
+
+// The caller has validated the machine (validate_config), so an unknown value is the A500.
+const MachineInfo &machine_info(uint32_t machine)
+{
+    const MachineInfo *m = find_machine(machine);
+    return m ? *m : kMachines[0];
+}
+
+bool is_aga(uint32_t machine) { return (machine_info(machine).chipset_mask & CSMASK_AGA) != 0; }
+
+}  // namespace
+
 Memory preset_memory(uint32_t machine)
 {
-    return machine == P6_MACHINE_A1200 ? Memory{2048, 0, 0} : machine == P6_MACHINE_A600 ? Memory{1024, 0, 0} : Memory{512, 512, 0};
+    return machine_info(machine).memory;
 }
 
 Memory resolve_memory(const p6_config &c)
@@ -134,7 +180,7 @@ constexpr unsigned kFpuIdentityShift = 23;
 Audio resolve_audio(const p6_config &c)
 {
     // 0 is the profile's own setting; any other value is upstream's + 1 (p6.h). The type 'auto' is the model of the machine's Paula output stage (A1200: its AGA filter).
-    const int own_type = c.machine == P6_MACHINE_A1200 ? FILTER_SOUND_TYPE_A1200 : FILTER_SOUND_TYPE_A500;
+    const int own_type = is_aga(c.machine) ? FILTER_SOUND_TYPE_A1200 : FILTER_SOUND_TYPE_A500;
     return Audio{c.sound_separation ? int(c.sound_separation) - 1 : kProfileSeparation,
                  c.sound_interpolation ? int(c.sound_interpolation) - 1 : kProfileInterpolation,
                  c.sound_filter ? int(c.sound_filter) - 1 : kProfileFilter,
@@ -144,7 +190,7 @@ Audio resolve_audio(const p6_config &c)
 bool audio_is_profile(const p6_config &c)
 {
     const Audio a = resolve_audio(c);
-    const int own_type = c.machine == P6_MACHINE_A1200 ? FILTER_SOUND_TYPE_A1200 : FILTER_SOUND_TYPE_A500;
+    const int own_type = is_aga(c.machine) ? FILTER_SOUND_TYPE_A1200 : FILTER_SOUND_TYPE_A500;
     // The model of the filter is only a difference while a filter filters.
     return a.separation == kProfileSeparation && a.interpolation == kProfileInterpolation && a.filter == kProfileFilter && (a.filter == FILTER_SOUND_OFF || a.filter_type == own_type);
 }
@@ -178,9 +224,16 @@ bool memory_is_preset(const p6_config &c)
 p6_result validate_memory(const p6_config &c, p6_error *error)
 {
     // What the engine allocates and maps without a quirk: Chip RAM sizes of 1.5 MiB (allocated as 2 MiB with the upper half out of reach) are not offered.
-    // The A500's Agnus is OCS: its 1 MiB is the 8371 with the jumper, anything above it needs ECS. AGA maps at most 1.5 MiB of Slow RAM (memory_reset).
-    const bool a500 = c.machine == P6_MACHINE_A500, aga = c.machine == P6_MACHINE_A1200;
-    if (c.chip_kib && !one_of(c.chip_kib, {512, 1024}) && !(!a500 && c.chip_kib == 2048))
+    // The OCS Agnus of the A500 and A2000 OG has 1 MiB as the 8371 with the jumper, anything above it needs ECS. AGA maps at most 1.5 MiB of Slow RAM (memory_reset).
+    const MachineInfo &m = machine_info(c.machine);
+    const bool ecs = (m.chipset_mask & (CSMASK_ECS_AGNUS | CSMASK_AGA)) != 0, aga = is_aga(c.machine);
+    if (c.machine == P6_MACHINE_A1000) {
+        // The 8361 Agnus of the A1000 addresses 512 KiB and the machine has no expansion the profile could name: the memory is the preset's.
+        if ((c.chip_kib && c.chip_kib != 512) || (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE))
+            return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A1000 has the memory of its preset: 512 KiB Chip, no Slow, no Fast");
+        return P6_OK;
+    }
+    if (c.chip_kib && !one_of(c.chip_kib, {512, 1024}) && !(ecs && c.chip_kib == 2048))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "chip memory size is not supported for this machine");
     if (c.slow_kib && c.slow_kib != P6_MEMORY_NONE && !one_of(c.slow_kib, {512, 1024, 1536}) && !(!aga && c.slow_kib == 1792))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "slow memory size is not supported for this machine");
@@ -193,8 +246,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
 {
     if (c.abi_version != P6_ABI_VERSION || c.struct_size != sizeof c)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "config has the wrong ABI version or size");
-    if (c.machine != P6_MACHINE_A500 && c.machine != P6_MACHINE_A600 && c.machine != P6_MACHINE_A1200)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "only the A500, the A600 and the A1200 are supported");
+    if (!find_machine(c.machine))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "only the A500, A500 OG, A500+, A600, A1000, A1200, A2000 OG and A2000 are supported");
     if (c.video_standard != P6_VIDEO_PAL && c.video_standard != P6_VIDEO_NTSC)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
@@ -241,18 +294,35 @@ void build_preferences(const p6_config &c)
     // firmware is the buffer given to p6_load, so the result of configure_rom() is not needed.
     preset_config = c;
     preset_floppy_writes = (c.flags & P6_CONFIG_FLOPPY_WRITES) != 0;
-    built_in_prefs(&currprefs, c.machine == P6_MACHINE_A1200 ? 4 : c.machine == P6_MACHINE_A600 ? 2 : 0, 0, 0, 0);
-    if (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200) {
+    const MachineInfo &machine = machine_info(c.machine);
+    // The chipset tables read the video standard (the mains-driven CIA TOD of the A1000 and the A2000 counts 50 or 60 Hz): WinUAE has it chosen before the model.
+    currprefs.ntscmode = c.video_standard == P6_VIDEO_NTSC;
+    built_in_prefs(&currprefs, machine.model, machine.config, 0, 0);
+    if (c.machine == P6_MACHINE_A2000OG || c.machine == P6_MACHINE_A2000) {
+        // PUAE5's A2000 is the A500 (OG: OCS, 0.5M Chip + 0.5M Slow) or the A500+ (ECS Agnus with the OCS Denise, 1M Chip) with `chipset_compatible = A2000`, which in WinUAE is
+        // cs_compatible = CP_A2000 followed by built_in_chipset_prefs: clock, CIA TOD from the mains, CIA TOD bug, unmapped space.
+        if (c.machine == P6_MACHINE_A2000) currprefs.chipset_mask = CSMASK_ECS_AGNUS;
+        currprefs.cs_compatible = CP_A2000;
+        built_in_chipset_prefs(&currprefs);
+    }
+    if (currprefs.floppyslots[1].dfxtype == DRV_NONE)
+        currprefs.floppyslots[1].dfxtype = DRV_35_DD;     // upstream's A500 OG and A1000 have one drive; the ABI gives every machine DF0 and DF1 (the external drive port)
+    if (machine.no_gayle) {
         // The A600 or A1200 table (CP_A600, CP_A1200) has just been applied once. Gayle, its IDE and its PCMCIA slot are not compiled (P6_PORTABLE),
-        // so they are switched off here instead of being declared and missing; with cs_compatible = 0 the fixup_prefs calls of
-        // the lifecycle leave the rest of the table (ECS mirrors, CIA type, E clock phase, no RTC) as built_in_prefs left it.
+        // so they are switched off here instead of being declared and missing.
         currprefs.cs_ide = 0;
         currprefs.cs_pcmcia = 0;
-        currprefs.cs_compatible = 0;
         currprefs.cs_ciaoverlay = 1;     // without Gayle the CIA drives the ROM overlay (the state bridge only knows this mode)
         currprefs.cs_1mchipjumper = true;   // what fixup_prefs sets for 1 MiB Chip; upstream's trailing CP_A600 table would clear it again
     }
-    if (c.machine == P6_MACHINE_A1200) {
+    if (machine.compatible == 0) {
+        // The chipset table has been applied once, by built_in_prefs (A600, A1200) or just above (A2000, whose base preset is the A500). With cs_compatible = 0 the fixup_prefs calls of the
+        // lifecycle leave the rest of the table (ECS mirrors, CIA type, E clock phase, clock, mains TOD) as it is; with the table's value every one of them applies it again, and the tables
+        // do what the profile does not have: Gayle, IDE and PCMCIA on the A600 and the A1200; the reset warning handshake on the A1000 and the A2000 (cs_resetwarning, which pin_input clears
+        // and the input boundary of the state refuses).
+        currprefs.cs_compatible = 0;
+    }
+    if (machine.cpu == 68020) {
         // built_in_prefs sets waiting_blits = 1 for every CPU from the 68020 up: the blitter wait then runs inside the write that starts
         // the blit, as an emulation shortcut that no hardware has. The CPU runs its own polling loops instead, as on the 68000 machines.
         currprefs.waiting_blits = 0;
@@ -320,18 +390,17 @@ void build_preferences(const p6_config &c)
 p6_result check_preset(p6_error *error)
 {
     const uae_prefs &p = currprefs;
-    const bool a1200 = preset_config.machine == P6_MACHINE_A1200;
-    const bool a600 = preset_config.machine == P6_MACHINE_A600;
-    const bool no_gayle = a600 || a1200;
+    const MachineInfo &machine = machine_info(preset_config.machine);
+    const bool no_gayle = machine.no_gayle;
     const Memory memory = resolve_memory(preset_config);
     const char *drifted = nullptr;
-    if (p.cpu_model != (a1200 ? 68020 : 68000) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
+    if (p.cpu_model != machine.cpu || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
         p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict || p.fpu_no_unimplemented || p.mmu_model ||
-        !p.address_space_24 || (a1200 && p.waiting_blits)) drifted = "cpu";
-    else if (p.chipset_mask != (a1200 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA
-                                      : a600 ? CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE : CSMASK_OCS) || !p.blitter_cycle_exact) drifted = "chipset";
+        !p.address_space_24 || (machine.cpu == 68020 && p.waiting_blits)) drifted = "cpu";
+    else if (p.chipset_mask != machine.chipset_mask || !p.blitter_cycle_exact) drifted = "chipset";
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
              p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
+    else if (p.cs_compatible != machine.compatible) drifted = "chipset table";
     else if (no_gayle && (p.cs_ide || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
     else if (p.uaeboard || p.uaeboard_nodiag || p.boot_rom || p.uae_hide || p.uae_hide_autoconfig || p.scsi || p.uaescsidevmode || p.socket_emu ||
@@ -348,7 +417,7 @@ p6_result check_preset(p6_error *error)
              p.leds_on_screen || p.cs_optimizations || p.cs_hvcsync) drifted = "video";
     if (drifted) {
         char text[64];
-        snprintf(text, sizeof text, "the %s preset drifted from the profile (%s)", a1200 ? "A1200" : a600 ? "A600" : "A500", drifted);
+        snprintf(text, sizeof text, "the %s preset drifted from the profile (%s)", machine.name, drifted);
         return p6_fail(error, P6_ERROR_INTERNAL, text);
     }
     if (!p6_sound_validate_config(p))

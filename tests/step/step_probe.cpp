@@ -378,10 +378,22 @@ int64_t unit_limit_cycles()
 
 }  // namespace
 
+// The machine a name on the command line stands for; 0 when it is none of them.
+static uint32_t machine_named(const char *name)
+{
+    static const struct { const char *name; uint32_t machine; } machines[] = {
+        {"a500", P6_MACHINE_A500}, {"a500og", P6_MACHINE_A500OG}, {"a500plus", P6_MACHINE_A500PLUS}, {"a600", P6_MACHINE_A600},
+        {"a1000", P6_MACHINE_A1000}, {"a1200", P6_MACHINE_A1200}, {"a2000og", P6_MACHINE_A2000OG}, {"a2000", P6_MACHINE_A2000},
+    };
+    for (const auto &m : machines)
+        if (!strcmp(name, m.name)) return m.machine;
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 5 || argc > 7) {
-        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc [a500|a600|a1200]]\n", argv[0]);
+        fprintf(stderr, "usage: %s rom units steps|continuous|frames|frames-norender seed [pal|ntsc [a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000]]\n", argv[0]);
         return 64;
     }
     const std::vector<uint8_t> rom = read_file(argv[1]);
@@ -393,8 +405,8 @@ int main(int argc, char **argv)
     if (!continuous && !frames && strcmp(argv[3], "steps")) return 64;
     if (units < 1) return 64;
     const uint32_t standard = argc >= 6 && !strcmp(argv[5], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
-    if (argc == 7 && strcmp(argv[6], "a500") && strcmp(argv[6], "a600") && strcmp(argv[6], "a1200")) return 64;
-    const uint32_t machine = argc == 7 && !strcmp(argv[6], "a1200") ? P6_MACHINE_A1200 : argc == 7 && !strcmp(argv[6], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A500;
+    const uint32_t machine = argc == 7 ? machine_named(argv[6]) : P6_MACHINE_A500;
+    if (!machine) return 64;
     if (const char *path = getenv("P6_INPUT_SCRIPT")) load_script(path);
     if (const char *list = getenv("P6_RESET_AT"))
         for (const char *c = list; *c;) { reset_at.insert(atoi(c)); while (*c && *c != ',') ++c; if (*c) ++c; }

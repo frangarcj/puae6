@@ -1,8 +1,11 @@
 // Builds the preferences of a machine twice in one process, the way upstream does and the way the bridge does,
-// and reports what differs. tests/host/test_a500_profile.py and test_a600_profile.py and test_a1200_profile.py compare the report with
-// config/profiles/a500-ocs.json, a600-ecs.json and a1200-aga.json.
-//   usage: p6_profile_probe [a500|a600|a1200]      (a500 when absent)
+// and reports what differs. tests/host/test_a500_profile.py (and test_a600_profile.py, test_a1200_profile.py, test_machine_profiles.py) compare the report with
+// the file of config/profiles/ that names the machine.
+//   usage: p6_profile_probe [a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000]      (a500 when absent)
+//   The comparator is upstream's own preset: built_in_prefs (model, configuration) after the video standard has been chosen, as WinUAE does. The A2000 has no model of its own upstream:
+//   its comparator is the A500 (OG) or the A500+ (ECS), the A2000 table being a declared override.
 //   line "pinned <video standard> <name> <value>" : selected facts of the bridge preset
+//   line "upstream <video standard> <name> <value>" : the same facts in upstream's preset (the comparator)
 //   line "diff <video standard> <offset> <length>"  : byte ranges of struct uae_prefs where the two differ
 //   line "size <bytes>"                              : sizeof(uae_prefs), to bound the ranges
 #include "p6.h"
@@ -63,16 +66,24 @@ static p6_config make_config(uint32_t machine, uint32_t standard)
     X(cs_ksmirror_a8) X(cs_ciaoverlay) X(cs_ciatype[0]) X(cs_ciatype[1]) X(cs_eclocksync) X(cs_df0idhw) X(cs_ciatodbug) \
     X(cs_1mchipjumper)
 
-static void print_pinned(const char *standard, const uae_prefs &p, bool table)
+// T50: what the tables of the A1000 and the A2000 set besides: the mains-driven CIA TOD, the unmapped space, the A1000 RAM board and the 8361/8362 chips, the E0 mirror of the Kickstart.
+#define PINNED_T50(X) \
+    X(cs_ciaatod) X(cs_unmapped_space) X(cs_a1000ram) X(cs_agnusmodel) X(cs_denisemodel) X(cs_ksmirror_e0)
+
+// level 0: the A500 profile; 1: plus the facts of the A600 table; 2: plus the facts of the T50 machines.
+static void print_pinned(const char *tag, const char *standard, const uae_prefs &p, int level)
 {
-#define X(field) printf("pinned %s %s %lld\n", standard, #field, (long long)(p.field));
+#define X(field) printf("%s %s %s %lld\n", tag, standard, #field, (long long)(p.field));
     PINNED(X)
-    if (table) {
+    if (level >= 1) {
         PINNED_A600(X)
     }
+    if (level >= 2) {
+        PINNED_T50(X)
+    }
 #undef X
-    printf("pinned %s romfile %s\n", standard, p.romfile);
-    for (int i = 0; i < 4; ++i) printf("pinned %s floppyslots[%d].df %s\n", standard, i, p.floppyslots[i].df);
+    printf("%s %s romfile %s\n", tag, standard, p.romfile);
+    for (int i = 0; i < 4; ++i) printf("%s %s floppyslots[%d].df %s\n", tag, standard, i, p.floppyslots[i].df);
 }
 
 static void print_diff(const char *standard)
@@ -88,23 +99,39 @@ static void print_diff(const char *standard)
     }
 }
 
+struct Machine {
+    const char *arg;
+    uint32_t machine;
+    int model, config;
+    int level;       // which pinned groups the profile of this machine names, see print_pinned
+};
+static const Machine kMachines[] = {
+    {"a500", P6_MACHINE_A500, 0, 0, 0},       {"a500og", P6_MACHINE_A500OG, 0, 3, 2}, {"a500plus", P6_MACHINE_A500PLUS, 1, 0, 2},
+    {"a600", P6_MACHINE_A600, 2, 0, 1},       {"a1000", P6_MACHINE_A1000, 3, 0, 2},   {"a1200", P6_MACHINE_A1200, 4, 0, 1},
+    {"a2000og", P6_MACHINE_A2000OG, 0, 0, 2}, {"a2000", P6_MACHINE_A2000, 1, 0, 2},
+};
+
 int main(int argc, char **argv)
 {
-    const bool a600 = argc > 1 && !strcmp(argv[1], "a600");
-    const bool a1200 = argc > 1 && !strcmp(argv[1], "a1200");
-    if (argc > 1 && !a600 && !a1200 && strcmp(argv[1], "a500")) return 64;
+    const char *arg = argc > 1 ? argv[1] : "a500";
+    const Machine *machine = nullptr;
+    for (const Machine &m : kMachines)
+        if (!strcmp(arg, m.arg)) machine = &m;
+    if (!machine) return 64;
     printf("size %zu\n", sizeof(uae_prefs));
     for (uint32_t standard : {P6_VIDEO_PAL, P6_VIDEO_NTSC}) {
         const char *name = standard == P6_VIDEO_PAL ? "pal" : "ntsc";
-        const p6_config config = make_config(a1200 ? P6_MACHINE_A1200 : a600 ? P6_MACHINE_A600 : P6_MACHINE_A500, standard);
-        // What upstream itself builds (cfgfile default_prefs, model 0 = A500, 2 = A600 or 4 = A1200, config 0, fixup).
+        const p6_config config = make_config(machine->machine, standard);
+        // What upstream itself builds (cfgfile default_prefs, built_in_prefs of the model and configuration, fixup).
         default_prefs(&currprefs, true, 0);
-        built_in_prefs(&currprefs, a1200 ? 4 : a600 ? 2 : 0, 0, 0, 0);
+        currprefs.ntscmode = standard == P6_VIDEO_NTSC;
+        built_in_prefs(&currprefs, machine->model, machine->config, 0, 0);
         fixup_prefs(&currprefs, true);
         memcpy(&upstream_prefs, &currprefs, sizeof currprefs);
         p6_bridge::build_preferences(config);
         memcpy(&bridge_prefs, &currprefs, sizeof currprefs);
-        print_pinned(name, bridge_prefs, a600 || a1200);
+        print_pinned("pinned", name, bridge_prefs, machine->level);
+        print_pinned("upstream", name, upstream_prefs, machine->level);      // the same facts as upstream's own preset has them: the test judges each field's source by them
         print_diff(name);
     }
     return 0;

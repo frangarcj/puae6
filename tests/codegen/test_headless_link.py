@@ -45,7 +45,7 @@ class HeadlessLinkTests(unittest.TestCase):
         abi = re.search(r"#define P6_ABI_VERSION\s+UINT32_C\((\d+)\)", header)[1]
         self.assertEqual(info["core"], "puae6-headless")
         self.assertEqual(info["profile"], manifest["profile"])
-        self.assertEqual(info["machines"], "A500 A600 A1200")
+        self.assertEqual(info["machines"], "A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000")
         self.assertEqual(info["abi"], abi)
         self.assertEqual(info["upstream"], f"WinUAE {manifest['commit']}")
         self.assertEqual(info["patches"], f"{count} ({digest})")

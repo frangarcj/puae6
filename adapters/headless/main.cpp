@@ -2,7 +2,7 @@
 // dependency, reports the identity of the build and what the native ABI implements, and runs a
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
-//   p6_headless --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]
+//   p6_headless --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]
 //                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
 //                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
@@ -31,7 +31,7 @@ static int identity(void)
 {
     printf("core: puae6-headless\n");
     printf("profile: %s\n", P6_PROFILE);
-    printf("machines: A500 A600 A1200\n");
+    printf("machines: A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000\n");
     printf("abi: %u\n", (unsigned)p6_abi_version());
     printf("upstream: WinUAE %s\n", P6_UPSTREAM_COMMIT);
     printf("patches: %s (%s)\n", P6_PATCH_COUNT, P6_PATCH_SERIES_SHA256);
@@ -162,8 +162,13 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--machine") && i + 1 < argc) {
             const char *name = argv[++i];
             if (!strcmp(name, "a500")) machine = P6_MACHINE_A500;
+            else if (!strcmp(name, "a500og")) machine = P6_MACHINE_A500OG;
+            else if (!strcmp(name, "a500plus")) machine = P6_MACHINE_A500PLUS;
             else if (!strcmp(name, "a600")) machine = P6_MACHINE_A600;
+            else if (!strcmp(name, "a1000")) machine = P6_MACHINE_A1000;
             else if (!strcmp(name, "a1200")) machine = P6_MACHINE_A1200;
+            else if (!strcmp(name, "a2000og")) machine = P6_MACHINE_A2000OG;
+            else if (!strcmp(name, "a2000")) machine = P6_MACHINE_A2000;
             else return -1;
         }
         else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
@@ -301,7 +306,7 @@ int main(int argc, char **argv)
         const int code = run(argc, argv);
         if (code >= 0) return code;
     }
-    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a600|a1200] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]\n"
+    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]\n"
                     "                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n"
                     "                         [--disk ADF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
             argv[0], argv[0]);

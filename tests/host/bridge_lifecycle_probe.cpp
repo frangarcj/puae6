@@ -83,10 +83,34 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c.abi_version = 2;       assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.struct_size = 8;                assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.machine = 0;                    assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
-    c = make_config(); c.machine = 4;                    assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.machine = 9;                    assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // T50 added 4 to 8: the first number that is no machine
     c = make_config(); c.machine = 0xffffffffu;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.machine = P6_MACHINE_A600;      assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);   // accepted, not UNSUPPORTED
     c = make_config(); c.machine = P6_MACHINE_A1200;     assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    for (uint32_t machine : {P6_MACHINE_A500OG, P6_MACHINE_A500PLUS, P6_MACHINE_A1000, P6_MACHINE_A2000OG, P6_MACHINE_A2000}) {      // T50: every preset is accepted
+        c = make_config(); c.machine = machine;          assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+        c = make_config(); c.machine = machine; c.fpu_model = 68881;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // all of them have a 68000
+    }
+    // The memory of the A1000 is its preset's; the ECS Agnus of the A500+ and the A2000 takes 2 MiB of Chip, the OCS one of the A500 OG and the A2000 OG does not.
+    c = make_config(); c.machine = P6_MACHINE_A1000; c.chip_kib = 1024;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "memory of its preset"));
+    c = make_config(); c.machine = P6_MACHINE_A1000; c.chip_kib = 512; c.slow_kib = P6_MEMORY_NONE; c.fast_kib = P6_MEMORY_NONE;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.machine = P6_MACHINE_A1000; c.slow_kib = 512;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.machine = P6_MACHINE_A1000; c.fast_kib = 1024;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    for (uint32_t machine : {P6_MACHINE_A500PLUS, P6_MACHINE_A2000}) {
+        c = make_config(); c.machine = machine; c.chip_kib = 2048; c.fast_kib = 8192;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    }
+    for (uint32_t machine : {P6_MACHINE_A500OG, P6_MACHINE_A2000OG}) {
+        c = make_config(); c.machine = machine; c.chip_kib = 2048;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+        c = make_config(); c.machine = machine; c.chip_kib = 1024; c.slow_kib = 1536;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    }
     c = make_config(3);                                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
@@ -99,7 +123,7 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.sound_separation = 12;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.sound_filter = 4;               assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.sound_filter_type = 3;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
-    for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A600, P6_MACHINE_A1200}) {
+    for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A600, P6_MACHINE_A1200, P6_MACHINE_A500OG, P6_MACHINE_A500PLUS, P6_MACHINE_A1000, P6_MACHINE_A2000OG, P6_MACHINE_A2000}) {
         c = make_config(); c.machine = machine; c.sound_separation = 1; c.sound_interpolation = 5; c.sound_filter = 3; c.sound_filter_type = 2;
         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
         c = make_config(); c.machine = machine; c.sound_separation = 11; c.sound_interpolation = 1; c.sound_filter = 1; c.sound_filter_type = 1;

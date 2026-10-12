@@ -64,6 +64,7 @@ class ProfileChecks:
         exe = build_probe(cls.build_dir, False, "p6_profile_probe")
         out = subprocess.run([str(exe), cls.PROBE_ARG], capture_output=True, text=True, timeout=120, check=True).stdout
         cls.pinned = {"pal": {}, "ntsc": {}}
+        cls.upstream = {"pal": {}, "ntsc": {}}
         cls.diffs = {"pal": [], "ntsc": []}
         for line in out.splitlines():
             parts = line.split()
@@ -71,6 +72,8 @@ class ProfileChecks:
                 cls.size = int(parts[1])
             elif parts[0] == "pinned":
                 cls.pinned[parts[1]][parts[2]] = " ".join(parts[3:])
+            elif parts[0] == "upstream":
+                cls.upstream[parts[1]][parts[2]] = " ".join(parts[3:])
             elif parts[0] == "diff":
                 cls.diffs[parts[1]].append((int(parts[2]), int(parts[3])))
         cls.profile = json.loads(cls.PROFILE.read_text(encoding="utf-8"))
@@ -99,6 +102,15 @@ class ProfileChecks:
                     actual = self.pinned[standard][f["name"]]
                     self.assertEqual(actual, str(value))
 
+    def test_each_source_agrees_with_the_value_upstream_has(self):
+        # "upstream" and "pin" are values the preset shares with upstream's own: T50 judges them by the comparator and not only by the bytes that differ in a member (an "override" may coincide
+        # with upstream's value inside a member that differs elsewhere, jports and floppyslots, so that one is not constrained).
+        for standard in ("pal", "ntsc"):
+            for f in self.profile["fields"]:
+                if f["source"] in ("upstream", "pin"):
+                    with self.subTest(standard=standard, field=f["name"], source=f["source"]):
+                        self.assertEqual(self.pinned[standard][f["name"]], self.upstream[standard][f["name"]])
+
     def test_every_change_against_upstream_is_declared(self):
         assert self.size == self.layout_size, "probe and layout disagree about struct uae_prefs"
         starts = [offset for offset, _ in self.layout]
@@ -123,7 +135,9 @@ class ProfileChecks:
             if f["source"] in ("override", "pin") and f["name"] not in ("romfile",):
                 with self.subTest(field=f["name"]):
                     compound = top_level(f["name"]) != f["name"]
-                    self.assertTrue((f"currprefs.{top_level(f['name'])}" if compound else f"currprefs.{f['name']} =") in config)
+                    # "via" names the chipset table that sets the value (T50): the bridge applies the table, it has no assignment of its own.
+                    self.assertTrue(f["via"] in config and "built_in_chipset_prefs(&currprefs)" in config if "via" in f else
+                                    (f"currprefs.{top_level(f['name'])}" if compound else f"currprefs.{f['name']} =") in config)
 
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")

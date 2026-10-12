@@ -126,6 +126,8 @@ extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *rema
 extern void p6_events_set(int idx, int next, int remain);
 extern bool p6_custom_beam_get(int32_t *out, unsigned n);       // custom.cpp 0094
 extern bool p6_custom_beam_set(const int32_t *in, unsigned n);
+extern bool p6_custom_ciatod_get(int32_t *out, unsigned n);     // custom.cpp 0240
+extern bool p6_custom_ciatod_set(const int32_t *in, unsigned n);
 extern bool p6_custom_copper_get(int32_t *out, unsigned n);     // custom.cpp 0095
 extern bool p6_custom_copper_set(const int32_t *in, unsigned n);
 extern bool p6_blitter_phase_get(int32_t *out, unsigned n);     // blitter.cpp 0097
@@ -194,6 +196,7 @@ struct Sub {
     int index;
     bool whole;                     // restore_* reads every byte of the body (restore_blitter reads 4 of the 63)
     bool aga_only = false;          // a body of the AGA machines alone (T24c): the other machines have no such body, not an empty one
+    bool mains_only = false;        // a body of the machines whose CIA-A TOD counts the mains (T50, cs_ciaatod 1 or 2): the others have none
 };
 
 uint8_t *produce_dsk(int n, size_t *len, uint8_t *w) { return save_disk(n, len, w, false); }
@@ -270,6 +273,44 @@ uint8_t *apply_beam(int, uint8_t *body)
     int32_t words[kBeamWords];
     for (unsigned i = 0; i < kBeamWords; ++i) words[i] = int32_t(Body{body, kBeamBytes}.u32(i * 4));
     return p6_custom_beam_set(words, kBeamWords) ? body + kBeamBytes : nullptr;
+}
+
+// -- CTOD: where the TOD that the mains drives is in its count (patch 0240, T50) -------------------------------------------------------------------
+
+// Two words of the machines whose CIA-A TOD counts the mains (the A1000 and the A2000s, cs_ciaatod 1 or 2): cia_hsync, the colour clocks to the next tick, and the bits of vblank_hz, the
+// frame rate the length of a mains period is computed from (compute_framesync sets it from the frame the machine is in: short, long or interlaced). Each line lowers cia_hsync by its length,
+// and the line in which it falls below that length ticks the TOD and adds the period (about 71000 clocks at 50 Hz): never negative, and a few periods at most. The machines whose TOD
+// follows the vertical sync have no such body.
+constexpr uint32_t kCiaTodWords = 2, kCiaTodBytes = kCiaTodWords * 4;
+constexpr int32_t kCiaTodMax = 1 << 20;
+
+uint8_t *produce_ctod(int, size_t *len, uint8_t *w)
+{
+    int32_t words[kCiaTodWords];
+    if (!p6_custom_ciatod_get(words, kCiaTodWords)) return nullptr;
+    for (unsigned i = 0; i < kCiaTodWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = kCiaTodBytes;
+    return w;
+}
+
+uint8_t *apply_ctod(int, uint8_t *body)
+{
+    int32_t words[kCiaTodWords];
+    for (unsigned i = 0; i < kCiaTodWords; ++i) words[i] = int32_t(Body{body, kCiaTodBytes}.u32(i * 4));
+    return p6_custom_ciatod_set(words, kCiaTodWords) ? body + kCiaTodBytes : nullptr;
+}
+
+const char *check_ctod(const Sub &, const Body &b, Seen &)
+{
+    const int32_t count = int32_t(b.u32(0));
+    if (count < 0 || count >= kCiaTodMax) return "the count to the next tick of the mains TOD is outside what a period can leave";
+    // The rate is a frame rate of the profile's beam (PAL or NTSC, short, long or interlaced; 10 to 300 Hz is what init_hz accepts): a float of that range, not a NaN or an infinity.
+    const uint32_t bits = b.u32(4);
+    float rate;
+    memcpy(&rate, &bits, sizeof rate);
+    if (!(rate >= 10.0f && rate <= 300.0f)) return "the frame rate of the mains TOD is not a rate the engine can have";
+    return nullptr;
 }
 
 // -- COPR: the Copper between two of its cycles (patch 0095) -------------------------------------------------------------------------------------
@@ -1015,6 +1056,7 @@ constexpr Sub kChipsetBodies[] = {
     {"SPR4", 25, 25, produce_spr, apply_spr, check_spr, 4, true}, {"SPR5", 25, 25, produce_spr, apply_spr, check_spr, 5, true},
     {"SPR6", 25, 25, produce_spr, apply_spr, check_spr, 6, true}, {"SPR7", 25, 25, produce_spr, apply_spr, check_spr, 7, true},
     {"BEAM", kBeamBytes, kBeamBytes, produce_beam, apply_beam, check_beam, 0, true},
+    {"CTOD", kCiaTodBytes, kCiaTodBytes, produce_ctod, apply_ctod, check_ctod, 0, true, false, true},
     {"COPR", kCopperBytes, kCopperBytes, produce_copr, apply_copr, check_copr, 0, true},
     {"BLTP", kBlitterBytes, kBlitterBytes, produce_bltp, apply_bltp, check_bltp, 0, true},
 };
@@ -1094,6 +1136,7 @@ template <size_t N> void visit_bodies(Archive &a, const Sub (&subs)[N], void (*f
     const ApplyScope scope(a.applying());
     for (const Sub &sub : subs) {
         if (sub.aga_only && !aga_machine()) continue;
+        if (sub.mains_only && currprefs.cs_ciaatod == 0) continue;
         uint32_t length = sub.maximum;      // Measure: the largest body, whatever the machine holds
         if (a.mode() == Mode::Save) {
             size_t produced = 0;

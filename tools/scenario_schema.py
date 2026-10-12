@@ -6,7 +6,8 @@ At a boundary reset precedes media events (sequence order), then input. Input
 keys/buttons hold until replaced; mouse deltas default to zero on later units.
 Keys is a 128-bit hexadecimal integer: bit n maps to Amiga key n (not text).
 Program describes a raw CPU-test payload, not a firmware ROM or a boot claim.
-Machines: A500 (OCS, 512 KiB Chip + 512 KiB Slow), A600 (ECS, 1 MiB Chip, no Slow) and A1200 (AGA, 2 MiB Chip, no Slow); the profile
+Machines: A500 (OCS, 512 KiB Chip + 512 KiB Slow), A600 (ECS, 1 MiB Chip, no Slow), A1200 (AGA, 2 MiB Chip, no Slow) and, from T50, the A500OG (OCS, 512 KiB Chip),
+A500PLUS (ECS, 1 MiB), A1000 (512 KiB), A2000OG (OCS, 512 KiB Chip + 512 KiB Slow) and A2000 (ECS Agnus, 1 MiB Chip); the profile
 stays deterministic-a500.
 A 'slow' probe is invalid on a machine without Slow RAM.
 """
@@ -19,8 +20,9 @@ U64 = (1 << 64) - 1
 HASH = re.compile(r'[0-9a-f]{64}\Z')
 # machine -> (chip_ram_bytes, slow_ram_bytes). Both machines are presets inside the build profile deterministic-a500
 # (docs/01-architecture.md): the A500 is OCS with 512 KiB Chip + 512 KiB Slow, the A600 is ECS with 1 MiB Chip and no Slow, the A1200 is
-# AGA with 2 MiB Chip and no Slow.
-MACHINES = {'A500': (524288, 524288), 'A600': (1048576, 0), 'A1200': (2097152, 0)}
+# AGA with 2 MiB Chip and no Slow. T50 adds five more presets of the same profile with the memory of their own preset.
+MACHINES = {'A500': (524288, 524288), 'A600': (1048576, 0), 'A1200': (2097152, 0),
+            'A500OG': (524288, 0), 'A500PLUS': (1048576, 0), 'A1000': (524288, 0), 'A2000OG': (524288, 524288), 'A2000': (1048576, 0)}
 
 
 def require(condition, message):

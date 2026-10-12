@@ -1,0 +1,33 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13297,6 +13297,29 @@
+ 	copper_dma_change_cycle = evt_t(uint64_t(uint32_t(in[13])) | uint64_t(uint32_t(in[14])) << 32);
+ 	return true;
+ }
++
++// Native state (bridge/state_upstream.cpp, sub-body CTOD of P6CH, T50): where the CIA-A TOD that the mains drives is in its count. With cs_ciaatod 1 or 2 (50 or 60 Hz: the A1000 and the
++// A2000 of the profile) cia_hsync_do counts the colour clocks to the next tick in cia_hsync, a file static that no body names: each line lowers it by the length of the line, and the line in
++// which it falls below that length ticks the TOD and adds the length of a mains period, which it computes from vblank_hz (the rate of the frame the machine is in: compute_framesync sets
++// it to the short, long or interlaced value, and a machine that loaded a state kept the one of its own history). WinUAE's own load puts back neither (init_hz zeroes cia_hsync only when it
++// is not restoring): the next tick fell in another line and the TOD the guest read differed by one for good (the digest of the CIAs of DET02 with a real Kickstart, a state taken in the middle
++// of a game's disk loading). Two words: cia_hsync and the bits of vblank_hz. The machines whose TOD follows the vertical sync (cs_ciaatod 0) never use them and have no such body.
++bool p6_custom_ciatod_get(int32_t *out, unsigned n)
++{
++	if (!out || n != 2) return false;
++	out[0] = cia_hsync;
++	memcpy(&out[1], &vblank_hz, sizeof out[1]);
++	return true;
++}
++
++bool p6_custom_ciatod_set(const int32_t *in, unsigned n)
++{
++	if (!in || n != 2) return false;
++	cia_hsync = in[0];
++	memcpy(&vblank_hz, &in[1], sizeof vblank_hz);
++	return true;
++}
++
+ // Native state (bridge/state_upstream.cpp, run once after every body of CHIP has been restored): what the engine derives from the registers and not stores. WinUAE's own load
+ // gets it from custom_reset (its isrestore branch writes BPLCON0 and FMODE back and calls setup_fmodes, SPRxCTLPOS and the sprite width), which the bridge never runs on a
+ // live machine; the bodies put back the registers but not bplcon0_planes, bplcon0_planes_limit, bpl_sequence and curr_diagram (the bitplane slot sequence of the line), the

@@ -12435,13 +12435,139 @@
       "evidence": null
     },
     {
+      "id": "T50a",
+      "title": "Presets A500OG, A500+, A1000, A2000OG y A2000 en el motor: perfiles campo a campo, escenarios y estado (headless, micro-ROMs y Kickstart 1.3 opt-in)",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/state_upstream.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/**",
+        "config/profiles/**",
+        "tests/host/**",
+        "tests/scenarios/**",
+        "tools/scenario_schema.py",
+        "adapters/headless/**",
+        "tests/step/**",
+        "tests/state/**",
+        "tests/codegen/test_headless_link.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "P6_MACHINE_A500OG (4), A500PLUS (5), A1000 (6), A2000OG (7) y A2000 (8), aditivos: bridge/config.cpp lleva una tabla de maquinas (modelo y configuracion de built_in_prefs, memoria, CPU, chipset, cs_compatible) y construye cada preset con built_in_prefs de upstream; el A2000 no tiene modelo upstream (PUAE5 lo hace con chipset_compatible = A2000): base A500 (OG) o A500+ y la tabla CP_A2000 aplicada con built_in_chipset_prefs. Perfiles config/profiles/<maquina>.json campo a campo contra el comparador upstream (tests/host/test_machine_profiles.py); overrides declarados: DF1 se conserva, cs_compatible a 0 en A1000 y A2000 (fixup_prefs reaplica la tabla y con ella cs_resetwarning, que la frontera de entrada del estado rechaza), filtro de audio del A1000, chipset ecs_agnus del A2000.",
+        "Escenarios con micro-ROM en las cinco maquinas y los dos estandares (tests/step/test_machines.py, tests/scenarios/machines): identificacion de chips, Chip RAM, reloj MSM6242B, TOD por red electrica medido con el temporizador de CIA-B, imagenes predichas desde el programa; DET02 (tests/state/test_det02_machines.py, 379 pruebas) y estructura/matriz de estados (test_state_machines.py).",
+        "Parche 0240 (CTOD de P6CH, solo en las maquinas con cs_ciaatod != 0): cia_hsync y vblank_hz no estan en ningun cuerpo y DET02 con el TOD de red divergia en una unidad (micro-ROM) o para siempre (Kickstart 1.3 con un juego, un estado a mitad de la carga). Los estados de las maquinas que cuentan el sincronismo vertical no cambian.",
+        "Arranque con Kickstart real, opt-in por variable de entorno: el 1.3 en A500OG, A1000 y A2000OG (tests/step/test_kickstart_ks13.py, y DET02 con y sin el disco del juego autorizado). El 2.04 del A500+ y el 3.1 r40.063 del A2000 NO se probaron: no hay copia autorizada; esos presets se prueban con micro-ROM.",
+        "Ampliacion de touch (2026-10-12): el preset vive en bridge/ y el motor (parche 0240 y su cuerpo CTOD), y los selectores de maquina estan en el headless, en step_probe y en state_probe, que la ficha no listaba."
+      ],
+      "checks": [
+        "AV01",
+        "DET02"
+      ],
+      "acceptance": [
+        "Los cinco presets salen de built_in_prefs con overrides declarados y su perfil verificado; arrancan por el adaptador headless con micro-ROM (y el 1.3 en tres de ellos) y su estado se restaura exactamente; los existentes no cambian de valor, config_hash ni hashes."
+      ],
+      "stop": "Si un preset necesita hardware no emulado (Gayle, SCSI), declararlo sin el dispositivo o parar.",
+      "evidence": null
+    },
+    {
+      "id": "T50b",
+      "title": "Presets A500OG, A500+, A1000, A2000OG y A2000 en el nucleo libretro: puae6_machine y nombres de Kickstart por maquina",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T50a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "config/schema/**",
+        "tools/generate_options.py",
+        "adapters/libretro/**",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/libretro-ui/**",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Valores nuevos de puae6_machine (A500OG, A500PLUS, A1000, A2000OG, A2000, tras los tres existentes), adapters/libretro/firmware.h con los nombres de Kickstart de cada familia (A500OG/A2000OG/A1000: el 1.3 del A500, y el A1000 tambien 1.2 y 1.1; A500+: 2.04; A2000: 3.1 r40.063), importador .uae (chipset_compatible A500+, A1000, A2000 -> A2000OG o A2000 segun el chipset), tests/libretro-host/test_machines.py: sesion del nucleo = p6_headless unidad por unidad, nombres, familias, memoria, estados."
+      ],
+      "checks": [
+        "LR01"
+      ],
+      "acceptance": [
+        "El nucleo libretro arranca los cinco presets con micro-ROM y busca el Kickstart de la familia de cada uno; los tres existentes no cambian."
+      ],
+      "stop": "Si falta el firmware de una familia, el arranque real de ese preset queda sin probar y se declara.",
+      "evidence": null
+    },
+    {
+      "id": "T50c",
+      "title": "Presets A500OG, A500+, A1000, A2000OG y A2000 en BizHawk/Waterbox: sync setting Machine, FirmwareID, waterbox-memory y WB03",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T50a",
+        "T50b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "ports/waterbox/**",
+        "manifests/waterbox-memory.json",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "tests/waterbox-media/**",
+        "tests/ffi/**",
+        "tools/build_waterbox.py",
+        "config/schema/**",
+        "tests/config/**"
+      ],
+      "steps": [
+        "Valores nuevos del sync setting Machine, constantes P6.Machine*, FirmwareID (A500OG, A1000 y A2000OG piden Amiga/A500; A500+ y A2000 piden Amiga/A600: la base de BizHawk de MacHawk no cambia), memoria propia y altura de buffer por maquina, claves measured* de manifests/waterbox-memory.json re-registradas (el guest cambia: config.cpp, parche 0240) mas una por preset nuevo, WB03 y la matriz de identidad de estados y peliculas en las ocho maquinas."
+      ],
+      "checks": [
+        "WB03"
+      ],
+      "acceptance": [
+        "WB03 pasa en los cinco presets nuevos, un estado o pelicula de otra maquina se rechaza y los tres existentes siguen pasando."
+      ],
+      "stop": "Sin runner Waterbox la puerta queda BLOCKED.",
+      "evidence": null
+    },
+    {
       "id": "T50",
       "title": "Presets A500OG (sin Slow), A500+ (KS 2.04, 1M Chip), A1000, A2000OG y A2000 (ECS, KS 3.1)",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T49"
+        "T49",
+        "T50a",
+        "T50b",
+        "T50c"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12465,10 +12591,13 @@
         "tests/ffi/**",
         "tests/waterbox-state/**",
         "manifests/waterbox-memory.json",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "plan/tasks.json",
+        "tests/test_plan.py"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Cada preset sale de built_in_prefs de upstream con overrides declarados y su perfil verificado campo a campo, como T23a; arranque opt-in con el Kickstart que el usuario autorice para cada uno; tabla de capacidades."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): Cada preset sale de built_in_prefs de upstream con overrides declarados y su perfil verificado campo a campo, como T23a; arranque opt-in con el Kickstart que el usuario autorice para cada uno; tabla de capacidades.",
+        "Division (2026-10-12): T50a (motor, perfiles, escenarios y estado), T50b (libretro), T50c (BizHawk/Waterbox); T50 es el cierre: tabla de capacidades de docs/02-contracts.md, lo no probado declarado (Kickstart 2.04 y 3.1 r40.063: sin copia autorizada; el A1000 real con su ROM de arranque y el Kickstart de disco) y los cuatro checks."
       ],
       "checks": [
         "AV01",

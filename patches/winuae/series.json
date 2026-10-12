@@ -3742,6 +3742,29 @@
           "after_sha256": "3a7028cc404b712077210932bcc93e5748ba77833fb4c64324c4c5c600dec8d3"
         }
       ]
+    },
+    {
+      "id": "0240-cia-tod-mains-state",
+      "file": "patches/winuae/0240-cia-tod-mains-state.patch",
+      "sha256": "e5f79c8ef9a93f31afa7c10bd4ed6b2045d3b14e341c165b9ece0a1ed87dfdfc",
+      "title": "Carry the colour clocks to the next tick of the mains-driven CIA TOD and the frame rate that sets it",
+      "reason": "cia_hsync_do keeps the count in a file static and the length of a mains period comes from vblank_hz, which compute_framesync derives from the frame the machine is in; neither is in a body, so a state loaded into a machine with another history ticked the TOD in another line (A1000 and A2000, cs_ciaatod 1 or 2).",
+      "category": "host hooks",
+      "order": 138,
+      "symbols": [
+        "p6_custom_ciatod_get",
+        "p6_custom_ciatod_set"
+      ],
+      "test": "tests.state.test_det02_machines (tod, busy, copper_irq on the A1000 and the A2000s; the Kickstart 1.3 scenarios with a game disk)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "1a0c650b2c708965c3d2a3a6847a2604615d4c7c9dac65c5525fefcec5f6b0eb",
+          "after_sha256": "3f7ed7d64ac44b53d438a9f140f0d2a6fdb12fd1d666d967925a4a47ebeded21"
+        }
+      ]
     }
   ]
 }

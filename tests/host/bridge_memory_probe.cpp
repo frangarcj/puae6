@@ -307,6 +307,31 @@ void reports_the_slow_ram_the_cpu_reaches(const std::vector<uint8_t> &rom)
     }
 }
 
+// T50: the memory each preset comes with is what the engine allocates and reports, before and after a unit: Chip RAM of its size, the Slow RAM only where the preset has it.
+void reports_the_memory_of_every_preset(const std::vector<uint8_t> &rom)
+{
+    struct Case { uint32_t machine; uint64_t chip; uint64_t slow; };
+    const Case cases[] = {
+        {P6_MACHINE_A500, 512u << 10, 512u << 10}, {P6_MACHINE_A500OG, 512u << 10, 0}, {P6_MACHINE_A500PLUS, 1u << 20, 0}, {P6_MACHINE_A600, 1u << 20, 0},
+        {P6_MACHINE_A1000, 512u << 10, 0}, {P6_MACHINE_A1200, 2u << 20, 0}, {P6_MACHINE_A2000OG, 512u << 10, 512u << 10}, {P6_MACHINE_A2000, 1u << 20, 0},
+    };
+    for (const Case &test : cases) {
+        p6_config c = make_config();
+        c.machine = test.machine;
+        load_config(rom, c);
+        for (int round = 0; round < 2; ++round) {
+            const Regions r = ask();
+            const p6_memory_region *chip = r.find(P6_REGION_CHIP_RAM), *slow = r.find(P6_REGION_SLOW_RAM);
+            assert(chip && chip->bytes == test.chip && chip->data == chipmem_bank.baseaddr && chip->flags == P6_REGION_WRITABLE);
+            assert(r.find(P6_REGION_ROM) && !r.find(P6_REGION_FAST_RAM));
+            if (test.slow) assert(slow && slow->bytes == test.slow && slow->data == bogomem_bank.baseaddr);
+            else assert(!slow && r.count == 2);
+            run_unit();
+        }
+        unload();
+    }
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) { fprintf(stderr, "usage: %s CHIPCELL.rom DISK.rom A.adf\n", argv[0]); return 2; }
@@ -315,6 +340,7 @@ int main(int argc, char **argv)
     reports_the_machine_memory(chipcell);
     reports_the_fast_ram_board(chipcell);
     reports_the_slow_ram_the_cpu_reaches(chipcell);
+    reports_the_memory_of_every_preset(chipcell);
     the_host_sees_and_changes_what_the_cpu_does(chipcell);
     the_drive_light_follows_the_led(chipcell, disk, adf);
     puts("bridge-memory-ok");

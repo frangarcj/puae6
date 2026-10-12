@@ -91,6 +91,13 @@ typedef struct p6_config {
 #define P6_MACHINE_A500 UINT32_C(1)
 #define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no IDE/PCMCIA (Gayle is not emulated). */
 #define P6_MACHINE_A1200 UINT32_C(3)  /* 68EC020 cycle exact (24-bit bus), AGA, 2 MiB Chip, no Slow/Fast RAM, no Gayle. */
+/* T50: more presets of the same 68000/68EC020 family, each built from upstream's built_in_prefs and listed in docs/02-contracts.md ("Maquinas y capacidades"). Their values were added
+ * after the three above, which keep value, config_hash and state identity. */
+#define P6_MACHINE_A500OG UINT32_C(4)    /* A500 with OCS and 512 KiB Chip only (no Slow RAM, no clock): upstream's A500 configuration 3. */
+#define P6_MACHINE_A500PLUS UINT32_C(5)  /* A500+: ECS, 1 MiB Chip, clock; built from upstream's A500+ (model 1). */
+#define P6_MACHINE_A1000 UINT32_C(6)     /* A1000: the 8361 Agnus and 8362 Denise of upstream's A1000 chipset, 512 KiB Chip, the Kickstart given to p6_load as a ROM (no boot ROM, no WOM). */
+#define P6_MACHINE_A2000OG UINT32_C(7)   /* A2000 with OCS: 512 KiB Chip + 512 KiB Slow, the A2000 chipset table (clock, mains-driven CIA TOD). */
+#define P6_MACHINE_A2000 UINT32_C(8)     /* A2000 with the ECS Agnus and the OCS Denise (PUAE5's), 1 MiB Chip, no Slow RAM. */
 #define P6_VIDEO_PAL    UINT32_C(1)
 #define P6_VIDEO_NTSC   UINT32_C(2)
 
