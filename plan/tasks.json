@@ -12207,6 +12207,54 @@
       "evidence": null
     },
     {
+      "id": "T34a",
+      "title": "Runtime Waterbox en Release (decision del usuario 2026-10-12): plan/toolchains.json runtime.profile=release, carril Debug solo para los asertos del runtime, waterbox-memory re-registrado",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T34",
+        "T48f"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "reports/optimizations/T34.md",
+        "reports/tasks/T33.md"
+      ],
+      "touch": [
+        "plan/toolchains.json",
+        "tools/build_waterbox.py",
+        "tools/bench.py",
+        "manifests/waterbox-memory.json",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "tests/waterbox-media/**",
+        "tests/ffi/**",
+        "tests/bench/**",
+        "integration/bizhawk/**",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "reports/baselines/**"
+      ],
+      "steps": [
+        "Decision del usuario (2026-10-12, tras T33/T34): construir la copia local de libwaterboxhost (de ../MacHawk, solo lectura) en Release. Medido: entrar y salir del sandbox ~3,1 ms por unidad en Debug frente a ~0,0004 ms en Release; peor caso A1200 + KS 3.1 + demo AGA p95 20,54 ms (102 % de la unidad) frente a 9,71 ms.",
+        "Cambiar plan/toolchains.json runtime.profile a release y el build del runtime en tools/build_waterbox.py (y tools/bench.py si fija el perfil); mantener un carril Debug explicito para los tests que necesitan los asertos del runtime (y decir cuales); comprobar como se elige la eviction (P6_EVICT) en cada perfil y no cambiar la semantica de los tests; nunca tocar ../MacHawk.",
+        "Re-registrar manifests/waterbox-memory.json completo (receta de docs/03-waterbox.md, T48f: las 16 claves con el mismo guest y el nuevo runtime_sha256) y pasar la puerta Waterbox completa: tests/waterbox-smoke, tests/waterbox-media, tests/waterbox-state, tests/ffi, tests/bench (WB12, PERF01) y una nueva fila de baseline en reports/baselines con el runtime Release."
+      ],
+      "checks": [
+        "WB02",
+        "WB12",
+        "PERF01",
+        "HOST01"
+      ],
+      "acceptance": [
+        "El runtime por defecto es Release, la puerta Waterbox pasa con el, un carril Debug sigue disponible y probado, y la baseline muestra el coste de entrada/salida del sandbox medido."
+      ],
+      "stop": "No modificar ../MacHawk ni instalar nada; si el runtime Release cambia algun comportamiento de los tests (no solo tiempos), parar y reportar.",
+      "evidence": null
+    },
+    {
       "id": "T35",
       "title": "Evaluar SIMD y flags sin perder referencia escalar",
       "milestone": "M4",
@@ -12253,7 +12301,8 @@
       "status": "pending",
       "depends": [
         "T34",
-        "T21"
+        "T21",
+        "T34a"
       ],
       "read": [
         "docs/03-waterbox.md",
