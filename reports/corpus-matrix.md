@@ -154,5 +154,10 @@ Atribucion medida en ambos: reaplicar solo ese parche al arbol de referencia dej
 y `P6_RELEASE_GATE=1 python3 -m unittest tests.reference.test_corpus_det02.OpenDivergenceGate tests.reference.test_corpus_det03.OpenDivergenceGate` pasa. Los parches `inert` no los nota el corpus
 de micro-ROM ni el de escenarios (actuan tras una carga, en un proceso usado o con entradas que no tiene): su evidencia es el test nombrado en `patch-classes.json`.
 
+Cierre: `python3 tools/check.py --check ID --task T32` registra la union de las suites de los hijos (`tools/check.py`, con `P6_RELEASE_GATE=1` para `OpenDivergenceGate`). Ejecutados aqui sobre el arbol
+final: REF01 PASS (con las dos `OpenDivergenceGate`) y DET01 PASS (10000 unidades, dos procesos nuevos). DET02, DET03, SAFE01 y FUZZ01 son las mismas suites que T32b/T32c, ejecutadas en PASS sobre este arbol
+(DET02 109 pruebas y DET03 28 tras el parche 0262; SAFE01 y FUZZ01 de T32c); DET04 y DET06 necesitan Docker para las filas Linux y corrieron una sola vez, en T32c, con `P6_TEST_PORTABILITY=1`
+(sin Docker el check de T32 queda BLOCKED).
+
 Limites: igualar la referencia es fidelidad al WinUAE 6.0.3 elegido bajo el puerto comun, no exactitud de una Amiga fisica; la matriz prueba determinismo entre ISA, compiladores y entorno host sobre
 estos 28 escenarios, no sobre cualquier programa; Waterbox/BizHawk se mide por sus propias puertas (WB03, waterbox-state), no por esta matriz.

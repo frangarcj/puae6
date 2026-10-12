@@ -12066,7 +12066,7 @@
       "title": "Cerrar corpus diferencial y diagnostico de desync",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T25",
         "T26",

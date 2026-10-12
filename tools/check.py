@@ -206,9 +206,19 @@ TASK_SUITES = {
         'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
     },
 }
+# T32 closes the differential corpus with the union of its children, each check with the suites of the task that owns it (T32a: the reference and DET01; T32b: REF01 over the corpus,
+# DET02, DET03; T32c: the matrix, the sanitizers and the fuzz), plus the gate that fails while a divergence the corpus found is open (OpenDivergenceGate, P6_RELEASE_GATE=1).
+TASK_SUITES[('REF01', 'T32')] = {**TASK_SUITES[('REF01', 'T32b')], 'release_gate_det02': 'tests.reference.test_corpus_det02.OpenDivergenceGate',
+                                 'release_gate_det03': 'tests.reference.test_corpus_det03.OpenDivergenceGate'}
+TASK_SUITES[('DET01', 'T32')] = TASK_SUITES[('DET01', 'T32a')]
+TASK_SUITES[('DET02', 'T32')] = TASK_SUITES[('DET02', 'T32b')]
+TASK_SUITES[('DET03', 'T32')] = TASK_SUITES[('DET03', 'T32b')]
+for _check in ('DET04', 'DET06', 'SAFE01', 'FUZZ01'):
+    TASK_SUITES[(_check, 'T32')] = TASK_SUITES[(_check, 'T32c')]
 TASK_SUITE_TIMEOUT = {('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
-                      ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600}
-TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1'}
+                      ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
+                      ('DET04', 'T32'): 6 * 3600, ('DET06', 'T32'): 6 * 3600}
+TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1', 'P6_RELEASE_GATE': '1'}      # the second is read only by the OpenDivergenceGate tests of T32
 DRIVER = '''import json, sys, unittest
 suite = unittest.defaultTestLoader.loadTestsFromName(sys.argv[1])
 result = unittest.TextTestRunner(verbosity=2).run(suite)
