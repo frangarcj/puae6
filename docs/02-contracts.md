@@ -597,7 +597,10 @@ funciones `p6_gayle_words_valid` y `p6_ide_words_valid` son puras: el puente las
 Gayle o un disco pueden tener (un byte mayor que 255, una transferencia mas larga que el buffer, una transferencia en una ranura sin disco, un buffer de otra longitud, los dos discos de un canal en lineas de seleccion
 distintas) es `CORRUPT_STATE` y no toca nada. La cota `p6_state_bound` sigue la misma regla que con el controlador UAE (todos los trozos de cada HDF como sucios, mas 4 buffers de sector).
 
-Superficies: headless `--hdf-controller uae|ide` y el probe de estado. Libretro, el esquema de opciones, el importador `.uae` y BizHawk/Waterbox (la sync setting, el campo de `Abi.cs`, el guest nuevo y `waterbox-memory`) son T56b.
+Superficies: headless `--hdf-controller uae|ide`, el probe de estado, la opcion `hdf_controller` del esquema (`config/schema/options.json`) y con ella `puae6_hdf_controller` de libretro (reboot; la clave nativa tambien vale en un `.uae`),
+la sync setting `HdfController` de BizHawk (`Puae6HdfController`, campo `HdfController` de `P6Config`; la identidad del estado y de la pelicula la nombra solo fuera de `Uae`: `;hdfcontroller=Ide`) y el guest Waterbox, que cambia con los
+parches 0320-0322 (`manifests/waterbox-memory.json` regrabado, ver docs/03-waterbox.md). Un estado libretro o BizHawk del IDE no carga en el controlador UAE ni al reves (`config_hash`). El `.uae` sigue sin montar discos (`hardfile2=...,ide0` se rechaza como
+cualquier disco del fichero: los discos son medios que el core recibe).
 Pruebas: `tests/hdf/test_ide.py` (MED02/MED03: un micro-ROM habla con los registros de Gayle: ID, IDENTIFY, lecturas, escrituras a traves del limite de un trozo del overlay, lectura fuera del disco, el maestro, el esclavo y el
 segundo canal; la exportacion es la base con el overlay y la base no cambia; con IDE y sin HDF la maquina es la de siempre), `tests/state/test_det02_ide.py` (DET02 con la controladora ocupada, en A600 y A1200; en un limite BSY con la
 interrupcion a una linea, en otro con la interrupcion pendiente; y, opt-in, los Kickstart 2.05 y 3.1 reales con el Workbench 2.05 como HDF, con un volumen sin cerrar que el sistema de ficheros valida escribiendo por IDE),

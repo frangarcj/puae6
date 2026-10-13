@@ -398,6 +398,16 @@ con el dominio `p6/config/cpu/v1`, ADR 0012). El guest cambia con los parches 03
 `tests/waterbox-state/test_wrapper_cpu.py` (WB03 con la 68010 y con otros relojes en el A500 y el A1200, el estado en un sandbox nuevo, el rechazo de un estado de otra CPU o de otro reloj antes de
 tocar el sandbox, la 68010 que no es la 68000, un reloj mas rapido que cambia la maquina y no las unidades, y las combinaciones que no existen que fallan al arrancar con la razon).
 
+### El controlador de los discos duros en el wrapper (T56b)
+
+`HdfController` (`Uae`, `Ide`) es una sync setting de reinicio del core BizHawk: da al guest `p6_config.hdf_controller` (offset 65, un byte de lo que era `reserved7`) y entra en la identidad del estado y de la
+pelicula **solo fuera de `Uae`** (`;hdfcontroller=Ide`; el `config_hash` nativo lo deriva con el dominio `p6/config/ide/v1` y solo mientras hay un HDF detras del IDE: `Ide` sin HDF es la maquina por defecto, y
+el texto del wrapper, que nombra el ajuste siempre, es mas estricto y nunca mas laxo). `Ide` solo existe en el A600 y el A1200; en otra maquina el core falla al arrancar con la razon del puente. El guest cambia con los parches
+0320-0322 (Gayle, su IDE y el estado de ambos): `guest_sha256` de las 16 claves `measured*` de `manifests/waterbox-memory.json` se registra de nuevo con la receta de arriba y `runtime_sha256` queda como estaba.
+`tests/waterbox-media/test_media_ide.py` (MOUNT: el HDF que exporta el core tras N unidades es, byte a byte, el que exporta el motor nativo en A600 y A1200, con el guest ordenado y con el que toca al azar; WB03 con la
+controladora ocupada; el estado en un sandbox nuevo; el rechazo de un estado de otro controlador o sin HDF antes de tocar el sandbox; y IDE en una maquina sin Gayle que falla al arrancar con la razon).
+
+
 ### Resultado de T22b: reproduccion, seeks y ramas de peliculas con el core real
 
 `python3 -m unittest discover -s tests/bizhawk-movies -p test_movie_playback.py` (unos veinte minutos: la pelicula larga son 10000 unidades grabadas y reproducidas dos veces).

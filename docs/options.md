@@ -272,7 +272,7 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 | `floppy0` | El disco de DF0 (ruta relativa). Vacio = ninguno. |
 | `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
 | `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
-| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed`, `puae6_video_resolution`, `puae6_video_line_mode`, `puae6_cpu_model`, `puae6_cpu_multiplier` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y `puae6_video_standard=PAL auto` / `NTSC auto` se rechazan (T76): son la eleccion automatica del frontend, que el core resuelve con el nombre del `.uae` antes de leer sus claves; un fichero nombra la maquina y el estandar. |
+| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed`, `puae6_video_resolution`, `puae6_video_line_mode`, `puae6_cpu_model`, `puae6_cpu_multiplier`, `puae6_hdf_controller` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y `puae6_video_standard=PAL auto` / `NTSC auto` se rechazan (T76): son la eleccion automatica del frontend, que el core resuelve con el nombre del `.uae` antes de leer sus claves; un fichero nombra la maquina y el estandar. |
 | `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`: preset del esquema, que las demas claves refinan. |
 
 Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada): `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact`, `cycle_exact`, `cpu_compatible` = `true`;
@@ -292,7 +292,7 @@ Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada
 | `scsi_*`, `scsi=true` | No hay controlador SCSI. |
 | `cpuboard*`, `ppc*`, `a2065*`, `a2091*`, `a4091*`, `catweasel*`, `toccata*`, `x86*`, `uaeboard*`, `serial_*`, `parallel_*`, `midi*`, `sampler*`, `genlock*` | Placas de expansion y dispositivos del anfitrion no forman parte de los perfiles. |
 | `bsdsocket*`, `uaenet*` | Sin red en el perfil determinista. |
-| `pcmcia*` | Sin PCMCIA (el A600 y el A1200 de este core no tienen Gayle). |
+| `pcmcia*` | Sin PCMCIA (Gayle, en el A600 y el A1200, solo lleva su puerto IDE: opcion `puae6_hdf_controller`, T56). |
 | `include*`, `plugin*`, `shell*`, `exec*`, `script*`, `cmd*`, `command*` | Un `.uae` no incluye otro, ni carga plugins ni ejecuta programas. |
 | `z3mem*`, `z3fastmem*`, `mem25bit*`, `a3000mem*`, `mbresmem*`, `megachipmem*` | Sin RAM Zorro III ni de placa base (bus de 24 bits); solo se acepta `0`. |
 | `fastmem2*`, `fastmem3*`, `fastmem4*` | Una sola placa Fast Zorro II; las demas, solo `0`. |

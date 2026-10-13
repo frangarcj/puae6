@@ -13463,7 +13463,7 @@
         "docs/02-contracts.md",
         "docs/04-validation.md"
       ],
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T56a",
         "T63"

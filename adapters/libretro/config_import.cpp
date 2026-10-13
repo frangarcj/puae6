@@ -117,7 +117,7 @@ constexpr Rule kRules[] = {
     {"parallel_", true, Kind::Reject, false, kBoards},
     {"midi", true, Kind::Reject, false, kBoards},
     {"sampler", true, Kind::Reject, false, kBoards},
-    {"pcmcia", true, Kind::Reject, false, "there is no PCMCIA slot (the A600 and the A1200 of this core have no Gayle)"},
+    {"pcmcia", true, Kind::Reject, false, "there is no PCMCIA slot (Gayle, on the A600 and the A1200, has only its IDE port: option puae6_hdf_controller)"},
     {"genlock", true, Kind::Reject, false, kBoards},
     {"include", true, Kind::Reject, false, kExec},
     {"plugin", true, Kind::Reject, false, kExec},
@@ -201,7 +201,7 @@ constexpr Fixed kFixed[] = {
 constexpr const char *kNativeKeys[] = {
     "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
     "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
-    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model", "puae6_cpu_multiplier",
+    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model", "puae6_cpu_multiplier", "puae6_hdf_controller",
 };
 
 const p6_options::Option *find_option(const char *key)

@@ -153,6 +153,19 @@
       "option": "cpu_multiplier",
       "class": "reboot"
     },
+    "hdf_controller": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "uae": 0,
+        "ide": 1
+      },
+      "option": "hdf_controller",
+      "class": "reboot"
+    },
     "audio_rate_hz": {
       "default": 48000,
       "allowed": [
@@ -1628,6 +1641,22 @@
         "type": "Puae6CpuClock"
       },
       "libretro": "puae6_cpu_multiplier"
+    },
+    "hdf_controller": {
+      "headless": {
+        "how": "named",
+        "flag": "--hdf-controller",
+        "names": {
+          "uae": "uae",
+          "ide": "ide"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "HdfController",
+        "type": "Puae6HdfController"
+      },
+      "libretro": "puae6_hdf_controller"
     },
     "audio_rate_hz": {
       "headless": {

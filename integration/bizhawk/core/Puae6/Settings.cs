@@ -32,6 +32,10 @@ public enum Puae6Cpu { Auto, M68000, M68010, M68020 }
 /// <summary>The clock of the cycle-exact CPU (restart), PUAE5's multipliers of the 3.55 MHz colour clock: Auto is the machine's own (7.09 MHz, 14.19 MHz on the A1200), X1 is 3.55 MHz and X16 56.75 MHz. It counts emulated time, never the host's.</summary>
 public enum Puae6CpuClock { Auto, X1, X2, X4, X8, X10, X12, X16 }
 
+/// <summary>The controller the hard files are on (restart): the UAE controller (uaehf.device, the default, any machine) or the IDE port of Gayle, which only the A600 and the A1200 have (another machine refuses it when the core starts, with the reason).
+/// Gayle is switched on only while a hard file is behind it: Ide with no hard file is the machine without it.</summary>
+public enum Puae6HdfController { Uae, Ide }
+
 /// <summary>Paula's stereo separation (restart): how much of each side's channels stays on that side, 0 % (mono) to 100 %. 70 % is the profile's own setting.</summary>
 public enum Puae6SoundSeparation { P0, P10, P20, P30, P40, P50, P60, P70, P80, P90, P100 }
 
@@ -85,6 +89,9 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>The clock of the CPU. It changes when everything the CPU does meets the chipset, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
 	public Puae6CpuClock CpuMultiplier { get; set; } = Puae6CpuClock.Auto;
+
+	/// <summary>The controller of the hard files. It is part of the machine (the registers of Gayle and its drives against the UAE controller's board), so it enters the identity of states and movies when it is not <c>Uae</c>.</summary>
+	public Puae6HdfController HdfController { get; set; } = Puae6HdfController.Uae;
 
 	/// <summary>Paula's stereo separation. It changes every sample the machine hands over, so it is a sync setting: it enters the identity of states and movies when it is not the profile's 70 %.</summary>
 	public Puae6SoundSeparation SoundSeparation { get; set; } = Puae6SoundSeparation.P70;

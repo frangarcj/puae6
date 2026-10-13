@@ -61,7 +61,8 @@ public unsafe struct P6Config
 	public byte VideoResolution, VideoLineMode;                  // T72: the raster; 0 in each is the profile's (hires, double lines), else 1 lores, 3 super-hires / 1 single (the schema's numbers; 2 is a named hires / double)
 	public byte CpuModel;                                        // T52: 0 the machine's own, 1 68000, 2 68010 (68000 machines), 3 68020 (A1200; the schema's numbers)
 	public byte CpuMultiplier;                                   // T52: 0 the machine's own, else 1, 2, 4, 8, 10, 12 or 16 (the schema's numbers)
-	public fixed byte Reserved7[7];                              // zero in ABI v1
+	public byte HdfController;                                   // T56: 0 the UAE controller (uaehf.device), 1 the IDE port of Gayle (A600 and A1200 only; the schema's numbers)
+	public fixed byte Reserved7[6];                              // zero in ABI v1
 }
 
 [StructLayout(LayoutKind.Sequential)]

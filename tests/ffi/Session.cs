@@ -85,6 +85,7 @@ internal static unsafe partial class Program
 						FpuModel = Enum.Parse<Puae6Fpu>(arguments.GetValueOrDefault("fpu", "None")),
 						CpuModel = Enum.Parse<Puae6Cpu>(arguments.GetValueOrDefault("cpu", "Auto")),
 						CpuMultiplier = Enum.Parse<Puae6CpuClock>(arguments.GetValueOrDefault("clock", "Auto")),
+						HdfController = Enum.Parse<Puae6HdfController>(arguments.GetValueOrDefault("hdfc", "Uae")),
 						SoundSeparation = Enum.Parse<Puae6SoundSeparation>(arguments.GetValueOrDefault("sep", "P70")),
 						SoundInterpolation = Enum.Parse<Puae6SoundInterpolation>(arguments.GetValueOrDefault("interp", "Anti")),
 						SoundFilter = Enum.Parse<Puae6SoundFilter>(arguments.GetValueOrDefault("filter", "Emulated")),
