@@ -35,6 +35,7 @@ public static class P6
 	public const uint ConfigFloppyWrites = 1;
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
 	public const int AdfBytes = 901120;                          // an 880 KiB ADF (the other medium of ABI v1 is a hard file of any multiple of 512 bytes)
+	public const int MaxTrackDiskBytes = 3 * 1024 * 1024;        // the largest extended ADF or FDI the bridge reads (T57); a floppy image is read only unless it is a plain ADF
 
 	// p6w_memory_area.flags: the values of LibWaterboxCore.MemoryDomainFlags.
 	public const long AreaWritable = 1, AreaPrimary = 8, AreaBigEndian = 16, AreaWordSize2 = 64, AreaFunctionHook = 1024;

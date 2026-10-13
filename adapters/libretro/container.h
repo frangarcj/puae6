@@ -1,28 +1,30 @@
 // Disk files the libretro adapter reads (T17d): the plain ADF, an ADZ (gzip of an ADF), a ZIP that holds one disk, and a DMS archive (archive.h, T59, reads the archives that hold several). Each is decoded in
-// memory, with no temporary file and no write, to the 901120-byte ADF it contains; the SHA-256 of THAT image is the identity of the medium
-// (docs/adr/0008-media-identity.md), so a disk is the same medium, with the same states and movies, whichever container it came in. The native ABI
-// (p6_load) still sees nothing but ADF images.
+// memory, with no temporary file and no write, to the floppy image it contains: the 901120-byte ADF, or (T57) an extended ADF or an FDI, which the bridge reads as they are (ports/portable/media/trackdisk.h);
+// the SHA-256 of THAT image is the identity of the medium (docs/adr/0008-media-identity.md), so a disk is the same medium, with the same states and movies, whichever container it came in. The native ABI
+// (p6_load) sees nothing but floppy images (P6_MEDIA_ADF).
 //
-// Files are recognised by their bytes, not by their name: a plain ADF is exactly 901120 bytes, and anything else must start with the magic of a
-// container this file decodes. The name is only used to say something useful about a format the core does not read. Nothing is sized from a number
+// Files are recognised by their bytes, not by their name: a plain ADF is exactly 901120 bytes, an extended ADF or an FDI starts with its magic and passes the same check the bridge makes, and anything else
+// must start with the magic of a container this file decodes. The name is only used to say something useful about a format the core does not read. Nothing is sized from a number
 // the file claims: a file is read with a cap (kMaxDiskFileBytes), a deflate stream stops at the size of an ADF, a zip member is limited by the same
 // cap and a DMS track by the 32000 bytes the format allows (inflate.h, dms.h). A hostile file is therefore a message, never a large allocation.
 //
 // Decisions (docs/02-contracts.md, "Medios"):
-//   - ZIP: the disk images (.adf, .adz or .dms) among its entries; other entries (readmes, directories, macOS resource forks) are ignored. A ZIP, a 7z or an RP9 package with several disks
+//   - ZIP: the disk images (.adf, .adz, .dms or .fdi) among its entries; other entries (readmes, directories, macOS resource forks) are ignored. A ZIP, a 7z or an RP9 package with several disks
 //     is a SET of disks, read by archive.h (T59) in a deterministic order, or one member by name ("file.zip#member.adf"); this file decodes the one disk. Encrypted entries, ZIP64
 //     and compression methods other than stored and deflate are refused. A zip does not contain another zip.
 //   - IPF (and CT RAW): refused. It needs the SPS decoder library (capsimg), whose licence (references/capsimg/LICENCE.txt) forbids commercial use and
 //     redistribution inside a commercial product or as a "freebie"; a core that ships it would be tied to that condition, and linking a binary
 //     library host-side is not an option for the deterministic profile. The way in is an IPF reader with a compatible licence, a task of its own
 //     (docs/07-machawk.md).
-//   - FDI, SCP and other flux or track-level formats, RAR: refused with a message; convert to ADF. An LHA, and a ZIP that holds files and no disk image, are not disks:
+//   - Extended ADF (UAE-1ADF, UAE--ADF) and FDI (T57): taken as they are, also inside an ADZ, a ZIP or a 7z, and read only; the bridge decides (classify_floppy) and the message says why it refuses one.
+//   - SCP and other flux formats, RAR: refused with a message; convert to ADF. An LHA, and a ZIP that holds files and no disk image, are not disks:
 //     they are volumes (volume.h, T64a) and become a hard file.
 #ifndef P6_LIBRETRO_CONTAINER_H
 #define P6_LIBRETRO_CONTAINER_H
 
 #include "dms.h"
 #include "inflate.h"
+#include "../../ports/portable/media/trackdisk.h"
 
 #include <ctype.h>
 #include <stddef.h>
@@ -34,7 +36,7 @@
 namespace p6_libretro {
 
 constexpr size_t kDiskBytes = 901120;                          // 80 cylinders x 2 sides x 11 sectors x 512 bytes: what the bridge accepts as an ADF
-constexpr size_t kMaxDiskFileBytes = 2 * 1024 * 1024;           // the largest file read as a disk: the biggest real ADZ, DMS or ZIP of one disk is a little over an ADF
+constexpr size_t kMaxDiskFileBytes = size_t(p6_floppy::kMaxTrackDiskBytes);       // the largest file read as a disk: an extended ADF or an FDI of 3 MiB (a plain ADF, ADZ, DMS or ZIP of one disk is a little over 880 KiB)
 
 namespace container_detail {
 
@@ -61,7 +63,7 @@ inline const char *ipf_reason()
 inline bool is_disk_extension(const std::string &path)
 {
     const std::string ext = container_detail::lower_extension(path);
-    return ext == "adf" || ext == "adz" || ext == "dms" || ext == "zip" || ext == "7z" || ext == "rp9";
+    return ext == "adf" || ext == "adz" || ext == "dms" || ext == "fdi" || ext == "zip" || ext == "7z" || ext == "rp9";
 }
 
 // What to say about a file whose extension names a format the core does not read; nullptr for any other extension.
@@ -69,7 +71,6 @@ inline const char *unsupported_format_reason(const std::string &path)
 {
     const std::string ext = container_detail::lower_extension(path);
     if (ext == "ipf" || ext == "ctr" || ext == "raw") return container_detail::ipf_reason();
-    if (ext == "fdi") return "FDI images are not supported (a track-level format the disk loader here does not read); convert the disk to ADF";
     if (ext == "scp" || ext == "dsk" || ext == "img" || ext == "ima" || ext == "st") return "this disk format is not supported; convert the disk to ADF";
     if (ext == "rar" || ext == "lzx") return "only ZIP, 7z and RP9 archives are read as disks; put the ADF in a ZIP or a 7z, or use an ADZ (an LHA or a ZIP of files is a volume, a different thing)";
     return nullptr;
@@ -232,13 +233,13 @@ inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, s
         const size_t slash = entry.name.find_last_of('/');
         const std::string base = slash == std::string::npos ? entry.name : entry.name.substr(slash + 1);
         const std::string ext = lower_extension(base);
-        if (hard_files ? ext == "hdf" : (ext == "adf" || ext == "adz" || ext == "dms")) disks.push_back(&entry);
+        if (hard_files ? ext == "hdf" : (ext == "adf" || ext == "adz" || ext == "dms" || ext == "fdi")) disks.push_back(&entry);
         else if (!hard_files && unsupported_format_reason(base)) ++unsupported;
     }
     if (disks.empty()) {
         *why = hard_files ? "the ZIP file holds no hard file (.hdf)"
-              : unsupported ? "the ZIP file holds a disk in a format the core does not read (IPF, FDI or similar); only ADF, ADZ and DMS disks are"
-                            : "the ZIP file holds no disk image (.adf, .adz or .dms)";
+              : unsupported ? "the ZIP file holds a disk in a format the core does not read (IPF or similar); only ADF, ADZ, DMS and FDI disks are"
+                            : "the ZIP file holds no disk image (.adf, .adz, .dms or .fdi)";
         return false;
     }
     if (disks.size() > 1) {
@@ -250,7 +251,13 @@ inline bool unzip(const std::vector<uint8_t> &file, std::vector<uint8_t> *out, s
     return extract_zip_entry(file, zip, *disks[0], limit, hard_files ? "hard file" : "disk file", out, why);
 }
 
-// `bytes` holds a file or a member of a zip; `depth` is 0 for a file. On success `bytes` is the ADF.
+// A floppy image the bridge reads: the plain ADF by its size, or an extended ADF / an FDI that passes the bridge's own check (so that the message of a refusal is the bridge's, before the engine is asked).
+inline bool is_floppy_image(const std::vector<uint8_t> &bytes)
+{
+    return bytes.size() == kDiskBytes || (!bytes.empty() && p6_floppy::classify_floppy(bytes.data(), bytes.size()).ok);
+}
+
+// `bytes` holds a file or a member of a zip; `depth` is 0 for a file. On success `bytes` is the floppy image.
 inline bool decode_image(std::vector<uint8_t> *bytes, const std::string &path, unsigned depth, std::string *why)
 {
     if (bytes->size() == kDiskBytes) return true;            // a plain ADF is recognised by its size alone, never by what it starts with
@@ -258,9 +265,9 @@ inline bool decode_image(std::vector<uint8_t> *bytes, const std::string &path, u
     const size_t size = bytes->size();
     std::vector<uint8_t> decoded;
     if (size >= 2 && data[0] == 0x1F && data[1] == 0x8B) {
-        if (!gunzip(*bytes, &decoded, why)) return false;
-        if (decoded.size() != kDiskBytes) {
-            *why = "the gzip stream holds " + std::to_string(decoded.size()) + " bytes, not an ADF of " + std::to_string(kDiskBytes);
+        if (!gunzip(*bytes, &decoded, why, size_t(p6_floppy::kMaxTrackDiskBytes))) return false;
+        if (!is_floppy_image(decoded)) {
+            *why = "the gzip stream holds " + std::to_string(decoded.size()) + " bytes, not an ADF of " + std::to_string(kDiskBytes) + ", an extended ADF or an FDI";
             return false;
         }
     } else if (size >= 4 && (!memcmp(data, "PK\3\4", 4) || !memcmp(data, "PK\5\6", 4))) {
@@ -274,17 +281,19 @@ inline bool decode_image(std::vector<uint8_t> *bytes, const std::string &path, u
     } else if (size >= 4 && !memcmp(data, "CAPS", 4)) {
         *why = ipf_reason();
         return false;
-    } else if (size >= 25 && !memcmp(data, "Formatted Disk Image file", 25)) {
-        *why = unsupported_format_reason("x.fdi");
-        return false;
-    } else if (size >= 8 && (!memcmp(data, "UAE-1ADF", 8) || !memcmp(data, "UAE--ADF", 8))) {
-        *why = "extended ADF images are not supported";
-        return false;
+    } else if ((size >= 25 && !memcmp(data, "Formatted Disk Image file", 25)) || (size >= 8 && (!memcmp(data, "UAE-1ADF", 8) || !memcmp(data, "UAE--ADF", 8)))) {
+        // Taken as it is (T57); the bridge's check says why a damaged one is refused.
+        const p6_floppy::Verdict verdict = p6_floppy::classify_floppy(data, size);
+        if (!verdict.ok) {
+            *why = verdict.why;
+            return false;
+        }
+        return true;
     } else if (const char *reason = unsupported_format_reason(path)) {
         *why = reason;
         return false;
     } else {
-        *why = "the file is " + std::to_string(size) + " bytes, not an ADF of " + std::to_string(kDiskBytes) + " or a supported container (ADZ, ZIP, DMS)";
+        *why = "the file is " + std::to_string(size) + " bytes, not an ADF of " + std::to_string(kDiskBytes) + ", an extended ADF, an FDI or a supported container (ADZ, ZIP, DMS)";
         return false;
     }
     bytes->swap(decoded);
@@ -303,7 +312,7 @@ inline bool decode_disk(std::vector<uint8_t> *bytes, const std::string &path, st
         return false;
     }
     if (!container_detail::decode_image(bytes, path, 0, why)) return false;
-    return bytes->size() == kDiskBytes;
+    return container_detail::is_floppy_image(*bytes);
 }
 
 }  // namespace p6_libretro

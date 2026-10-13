@@ -273,11 +273,11 @@ class ArchiveReaderTests(unittest.TestCase):
         too_many = [(f"d{i:02}.adf", c.adf(f"many {i}")) for i in range(17)]
         self.assertIn("holds 17 disk images; the core keeps at most 16", self.probe("disks", c.zip_file(too_many))[0])
         self.assertEqual(len([x for x in self.probe("disks", c.zip_file(too_many[:16])) if x.startswith("disk")]), 16)
-        self.assertIn("holds no disk image (.adf, .adz or .dms)", self.probe("disks", c.zip_file([("readme.txt", b"x")]))[0])
+        self.assertIn("holds no disk image (.adf, .adz, .dms or .fdi)", self.probe("disks", c.zip_file([("readme.txt", b"x")]))[0])
         self.assertIn("holds no disk image", self.probe("disks", a.sevenzip_file([("readme.txt", b"x")]))[0])
         out = self.probe("disks", c.zip_file(d + [("Game.ipf", b"CAPS" + bytes(100))]))
         self.assertIn('holds "Game.ipf", a disk in a format the core does not read', out[0])
-        self.assertIn("holds a disk in a format the core does not read", self.probe("disks", c.zip_file([("Game.fdi", bytes(100))]))[0])
+        self.assertIn("holds a disk in a format the core does not read", self.probe("disks", c.zip_file([("Game.scp", bytes(100))]))[0])
         self.assertIn("format the core does not read", self.probe("disks", c.zip_file(d + [("more.7z", bytes(100))]))[0])        # a 7z inside an archive is not unpacked
         # A member that is not a disk, in a set, names itself.
         out = self.probe("disks", c.zip_file([("a.adf", c.adf("a")), ("b.adf", bytes(1000))]))
@@ -290,7 +290,7 @@ class ArchiveReaderTests(unittest.TestCase):
         bomb = b"".join(body.compress(bytes(1 << 20)) for _ in range(64)) + body.flush()
         self.assertIn("decompresses to more than", self.probe("disks", c.raw_zip("a.adf", 8, bomb, 0, len(bomb), 901120))[0])
         self.assertIn("larger than any disk file", self.probe("disks", c.raw_zip("a.adf", 8, bomb, 0, len(bomb), 0xFFFFFFFF))[0])
-        self.assertIn("larger than any disk file", self.probe("disks", a.sevenzip_file([("a.adf", bytes(3 * 1024 * 1024))]))[0])
+        self.assertIn("larger than any disk file", self.probe("disks", a.sevenzip_file([("a.adf", bytes(3 * 1024 * 1024 + 1))]))[0])
         self.assertIn("no central directory", self.probe("disks", c.zip_file(d)[:-30])[0])
 
     def test_a_hostile_set_never_returns_a_wrong_disk(self):
@@ -345,7 +345,7 @@ class ArchiveCoreTests(lr.LibretroHarness):
 
     def test_the_core_offers_the_new_extensions(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertIn("extensions=adf|adz|dms|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
+        self.assertIn("extensions=adf|adz|dms|fdi|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
 
     def test_every_archive_of_a_set_is_the_same_playlist_the_same_media_and_the_same_future(self):
         disks = set_of(3)

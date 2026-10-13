@@ -49,7 +49,7 @@ inline bool is_plain_adf_start(const uint8_t *data, size_t size)
     static const uint8_t ext1[8] = {'U', 'A', 'E', '-', '-', 'A', 'D', 'F'};
     static const uint8_t ext2[8] = {'U', 'A', 'E', '-', '1', 'A', 'D', 'F'};
     static const uint8_t hunk[8] = {0x00, 0x00, 0x03, 0xF3, 0x00, 0x00, 0x00, 0x00};
-    return size >= 8 && memcmp(data, ext1, 8) && memcmp(data, ext2, 8) && memcmp(data, hunk, 8);
+    return size >= 25 && memcmp(data, ext1, 8) && memcmp(data, ext2, 8) && memcmp(data, hunk, 8) && memcmp(data, "Formatted Disk Image file", 25);
 }
 
 // Writes `size` bytes to `path` so that a reader sees the old file or the new one and never half of it. On failure the temporary file is removed and the old file

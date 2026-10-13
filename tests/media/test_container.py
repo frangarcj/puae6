@@ -32,7 +32,7 @@ DMS_SOURCES = ROOT / "build/upstream/archivers/dms"
 
 def build(name, sources, extra=()):
     exe = Path(_TMP.name) / name
-    command = [COMPILER, "-std=c++17", "-O1", "-g", *SANITIZE, "-I" + str(ROOT / "adapters/libretro"), *extra, *map(str, sources), "-o", str(exe)]
+    command = [COMPILER, "-std=c++17", "-O1", "-g", *SANITIZE, "-I" + str(ROOT / "adapters/libretro"), "-I" + str(ROOT / "ports/portable/media"), *extra, *map(str, sources), "-o", str(exe)]
     built = subprocess.run(command, capture_output=True, text=True, timeout=900)
     if built.returncode:
         raise RuntimeError(built.stderr[-3000:])
@@ -163,16 +163,32 @@ class ContainerTests(unittest.TestCase):
             with self.subTest(name):
                 self.assertRefused(ipf if name == "game.bin" else bytes(5000), "capsimg", name)
         self.assertRefused(ipf, "licence forbids commercial use", "x.ipf")
-        self.assertRefused(b"Formatted Disk Image file\r\n" + bytes(2000), "FDI images are not supported", "x.bin")
-        self.assertRefused(bytes(3000), "FDI images are not supported", "game.fdi")
+        # An FDI or an extended ADF is read since T57; one that is damaged says what is wrong with it (the bridge's own words).
+        self.assertRefused(b"Formatted Disk Image file\r\n" + bytes(2000), "version the core does not read", "x.bin")
+        self.assertRefused(bytes(3000), "an extended ADF, an FDI or a supported container", "game.fdi")
         self.assertRefused(bytes(3000), "this disk format is not supported", "game.scp")
         self.assertRefused(bytes(3000), "only ZIP, 7z and RP9 archives are read", "game.rar")
-        self.assertRefused(b"UAE-1ADF" + bytes(2000), "extended ADF", "game.adf")
-        self.assertRefused(b"UAE--ADF" + bytes(2000), "extended ADF", "game.adf")
+        self.assertRefused(b"UAE-1ADF" + bytes(2000), "no tracks", "game.adf")
+        self.assertRefused(b"UAE--ADF" + bytes(2000), "shorter than eleven sectors", "game.adf")
         self.assertRefused(bytes(901119), "is 901119 bytes, not an ADF of 901120", "game.adf")
         self.assertRefused(bytes(901121), "is 901121 bytes, not an ADF of 901120", "game.adf")
         self.assertRefused(b"", "is 0 bytes", "game.adf")
-        self.assertRefused(bytes(2 * 1024 * 1024 + 1), "larger than any disk file", "game.adf")
+        self.assertRefused(bytes(3 * 1024 * 1024 + 1), "larger than any disk file", "game.adf")
+
+    def test_an_extended_adf_and_an_fdi_are_taken_as_they_are_in_every_container(self):
+        from tests.media import fdi, trackdisk as td
+        adf = c.adf("t57")
+        dos = lambda t: ("dos", td.dos_track(adf, t))
+        images = {"ext2": td.ext2_image([("raw", td.raw_track(7), td.RAW_WORDS * 16)] + [dos(t) for t in range(1, 160)]),
+                  "ext1": td.ext1_image([("raw", td.SYNC, bytes(range(200)))] + [dos(t) for t in range(1, 160)]),
+                  "fdi": fdi.fdi_image([("amiga", td.dos_track(adf, 0), 0), ("amiga", td.dos_track(adf, 1), 0)])}
+        for name, image in images.items():
+            variants = {"plain": image, "adz": c.adz(image), "zip": c.zip_file([("disk.fdi" if name == "fdi" else "disk.adf", image)])}
+            for how, variant in variants.items():
+                with self.subTest(name=name, how=how):
+                    ok, data = decode(variant, "disk." + ("fdi" if name == "fdi" else "adf"))
+                    self.assertTrue(ok, data)
+                    self.assertEqual(hashlib.sha256(data).hexdigest(), hashlib.sha256(image).hexdigest(), "the identity of the medium is the file as given")
 
     def test_a_zip_that_is_not_exactly_one_disk_is_refused_and_says_what_to_do(self):
         disk = c.adf("z")
@@ -200,7 +216,8 @@ class ContainerTests(unittest.TestCase):
     def test_a_container_that_decodes_to_the_wrong_size_is_refused(self):
         for size in (0, 1, 900000, 901119, 901121, 1000000):
             with self.subTest(size=size):
-                self.assertRefused(c.adz(bytes(size)), f"holds {size} bytes, not an ADF of 901120" if size <= 901120 else "more than", "g.adz")
+                self.assertRefused(c.adz(bytes(size)), f"holds {size} bytes, not an ADF of 901120", "g.adz")
+        self.assertRefused(c.adz(bytes(3 * 1024 * 1024 + 1)), "more than", "g.adz")
         self.assertRefused(c.dms_file(c.adf("d"), tracks=range(79)), "79 of 80 tracks")
         self.assertRefused(c.dms_file(c.adf("d"), tracks=range(40)), "40 of 80 tracks")
         self.assertRefused(c.dms_file(c.adf("d"), tracks=[]), "no disk tracks")
@@ -268,7 +285,7 @@ class ContainerTests(unittest.TestCase):
         for declared in (ADF_BYTES, 1, 0, 2 * 1024 * 1024):
             with self.subTest(declared=declared):
                 self.assertRefused(c.raw_zip("a.adf", 8, body, crc, len(body), declared), "ZIP entry")
-        for declared in (0xFFFFFFFF, 0x7FFFFFFF, 0x80000000, 2 * 1024 * 1024 + 1):
+        for declared in (0xFFFFFFFF, 0x7FFFFFFF, 0x80000000, 3 * 1024 * 1024 + 1):
             with self.subTest(huge=declared):
                 self.assertRefused(c.raw_zip("a.adf", 8, body, crc, len(body), declared), "larger than any disk file")
                 self.assertRefused(c.raw_zip("a.adf", 0, body, crc, declared, declared), "larger than any disk file")

@@ -407,6 +407,11 @@ el texto del wrapper, que nombra el ajuste siempre, es mas estricto y nunca mas 
 `tests/waterbox-media/test_media_ide.py` (MOUNT: el HDF que exporta el core tras N unidades es, byte a byte, el que exporta el motor nativo en A600 y A1200, con el guest ordenado y con el que toca al azar; WB03 con la
 controladora ocupada; el estado en un sandbox nuevo; el rechazo de un estado de otro controlador o sin HDF antes de tocar el sandbox; y IDE en una maquina sin Gayle que falla al arrancar con la razon).
 
+ADF extendido y FDI (T57): el guest cambia con los parches 0330 a 0335 (la escala de la cabeza y la cola de una pista cruda, el decodificador `fdi2raw` acotado y determinista, el estado de la lectura de varias vueltas,
+la temporizacion por byte); `guest_sha256` de las 16 claves `measured*` se registra de nuevo con la receta de arriba (`runtime_sha256` queda como estaba: `cf45f96e`, el runtime Release reproducible). El heap sellado no
+cambia (el total de los disquetes sigue acotado por 16 ADF planos: 14 417 920 bytes), el buffer de entrada de un FDI es el de su pista mas larga (no los 4 MiB del formato) y la cota del estado nativo crece, pero no el
+snapshot del sandbox mas que por las paginas que toca la pista que se lee (`tests/waterbox-media/test_media_trackdisk.py`).
+
 
 ### Resultado de T22b: reproduccion, seeks y ramas de peliculas con el core real
 

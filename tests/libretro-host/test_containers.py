@@ -54,7 +54,7 @@ class ContainerCoreTests(lr.LibretroHarness):
 
     def test_the_core_offers_the_container_extensions(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertIn("extensions=adf|adz|dms|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
+        self.assertIn("extensions=adf|adz|dms|fdi|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
 
     def test_a_disk_in_any_container_is_the_same_medium_and_the_same_future(self):
         disk = c.varied_adf("the game")
@@ -72,6 +72,22 @@ class ContainerCoreTests(lr.LibretroHarness):
         # Another disk is another medium, in any container.
         other = self.written(containers(c.varied_adf("another game")))
         self.assertNotEqual(self.media(self.frontend("boot", "--runs", 1, content=other / "game.adz").stdout), digest)
+
+    def test_an_extended_adf_and_an_fdi_are_media_by_their_own_bytes_in_any_container(self):
+        """T57: the bridge reads them as they are, so the identity is the SHA-256 of the file and the same file in an ADZ or a ZIP is the same medium with the same future."""
+        from tests.media import fdi, trackdisk as td
+        adf = c.varied_adf("t57")
+        images = {"ext.adf": td.ext2_image([("raw", td.raw_track(5), td.RAW_WORDS * 16)] + [("dos", td.dos_track(adf, t)) for t in range(1, 160)]),
+                  "game.fdi": fdi.fdi_image([("amiga", td.dos_track(adf, 0), 0), ("amiga", td.dos_track(adf, 1), 0)])}
+        for name, image in images.items():
+            directory = self.written({name: image, "x.adz": c.adz(image), "x.zip": c.zip_file([(name, image)])})
+            results = {}
+            for file in (name, "x.adz", "x.zip"):
+                with self.subTest(name, file=file):
+                    out = self.frontend("observer", "--runs", 8, content=directory / file).stdout
+                    results[file] = (self.media(out), self.view(out))
+            self.assertEqual(len({str(v) for v in results.values()}), 1, name)
+            self.assertEqual(results[name][0], [hashlib.sha256(image).hexdigest()])
 
     def test_a_playlist_may_name_containers_and_the_same_disk_in_two_containers_is_one_medium(self):
         one, two = c.varied_adf("one"), c.varied_adf("two")
@@ -108,7 +124,7 @@ class ContainerCoreTests(lr.LibretroHarness):
         body = zlib.compressobj(9, zlib.DEFLATED, -15)
         bomb = b"".join(body.compress(bytes(1 << 20)) for _ in range(64)) + body.flush()          # 64 MiB of zeros in a few tens of KB
         files = {
-            "game.ipf": b"CAPS" + bytes(3000), "disguised.adf": b"CAPS" + bytes(3000), "game.fdi": b"Formatted Disk Image file\r\n" + bytes(3000),
+            "game.ipf": b"CAPS" + bytes(3000), "disguised.adf": b"CAPS" + bytes(3000), "game.fdi": b"Formatted Disk Image file\r\n" + bytes(3000), "lying.fdi": bytes(3000),
             "game.scp": bytes(100), "game.7z": b"7z" + bytes(100), "game.rar": bytes(100),
             "none.zip": c.zip_file([("readme/", b"")]), "short.adz": c.adz(bytes(900000)), "long.adz": c.adz(bytes(901121)),
             "cut.adz": c.adz(disk)[:100], "cut.zip": c.zip_file([("a.adf", disk)])[:-40], "cut.dms": c.dms_file(disk)[:5000],
@@ -118,9 +134,9 @@ class ContainerCoreTests(lr.LibretroHarness):
         }
         directory = self.written(files)
         expected = {
-            "game.ipf": "capsimg", "disguised.adf": "capsimg", "game.fdi": "FDI images are not supported", "game.scp": "not supported",
+            "game.ipf": "capsimg", "disguised.adf": "capsimg", "game.fdi": "version the core does not read", "lying.fdi": "an extended ADF, an FDI or a supported container", "game.scp": "not supported",
             "game.7z": "not an ADF", "game.rar": "only ZIP, 7z and RP9 archives are read", "none.zip": "no disk image", "short.adz": "holds 900000 bytes",
-            "long.adz": "more than", "cut.adz": "truncated", "cut.zip": "no central directory", "cut.dms": "truncated", "partial.dms": "40 of 80 tracks",
+            "long.adz": "not an ADF of 901120", "cut.adz": "truncated", "cut.zip": "no central directory", "cut.dms": "truncated", "partial.dms": "40 of 80 tracks",
             "crypt.dms": "encrypted", "bomb.adz": "more than", "bomb.zip": "decompresses to more than", "lying.zip": "larger than any disk file",
         }
         for name, text in expected.items():

@@ -26,7 +26,7 @@ public sealed class Puae6Parameters
 	/// SHA-256 is the identity of states and movies. The key is not kept.</summary>
 	public byte[]? RomKey { get; set; }
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
-	/// <summary>The ADF images the machine may use (880 KiB each, at most 16): the first <see cref="Puae6SyncSettings.FloppyDrives"/> are in a drive at power-on.</summary>
+	/// <summary>The floppy images the machine may use (ADF of 880 KiB, or an extended ADF or an FDI, all together at most what 16 ADF take): the first <see cref="Puae6SyncSettings.FloppyDrives"/> are in a drive at power-on.</summary>
 	public IReadOnlyList<byte[]> Media { get; set; } = new List<byte[]>();
 	/// <summary>Names to show when a disk is selected or inserted; "disk N" where missing.</summary>
 	public IReadOnlyList<string> MediaNames { get; set; } = new List<string>();
@@ -214,7 +214,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
 		if (parameters.Media.Count > P6.MaxMedia) throw new ArgumentException($"at most {P6.MaxMedia} disks are supported", nameof(parameters));
 		foreach (var disk in parameters.Media)
-			if (disk.Length != P6.AdfBytes) throw new ArgumentException($"an ADF has {P6.AdfBytes} bytes, this one {disk.Length}", nameof(parameters));
+			// A floppy image is a plain ADF or (T57) an extended ADF or an FDI, read only; the guest's bridge says which and why not (WRONG_MEDIA with the reason), here only the cap that keeps the sealed heap's budget.
+			if (disk.Length != P6.AdfBytes && (disk.Length < 12 || disk.Length > P6.MaxTrackDiskBytes))
+				throw new ArgumentException($"a floppy image is an ADF of {P6.AdfBytes} bytes or an extended ADF or FDI of at most {P6.MaxTrackDiskBytes}, this one has {disk.Length}", nameof(parameters));
 		_media = parameters.Media.Select(disk => (byte[])disk.Clone()).ToList();
 		ValidateHardFiles(parameters, _media.Count);
 		_hardFiles = parameters.HardFiles.Select(image => (byte[])image.Clone()).ToList();

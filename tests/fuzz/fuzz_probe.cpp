@@ -109,6 +109,12 @@ bool clock_accepted(const p6_config &c)
     return m == 0 || m == 1 || m == 2 || m == 4 || m == 8 || m == 10 || m == 12 || m == 16;
 }
 
+// The controller of the hard files (T56, the second byte of what was reserved[1]): the UAE controller (0), or the IDE of Gayle (1), which only the A600 and the A1200 have; anything else is refused.
+bool hdf_controller_accepted(const p6_config &c)
+{
+    return c.hdf_controller == P6_HDF_CONTROLLER_UAE || (c.hdf_controller == P6_HDF_CONTROLLER_IDE && (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200));
+}
+
 bool audio_accepted(const p6_config &c)
 {
     return c.sound_separation <= 11 && c.sound_interpolation <= 5 && c.sound_interpolation != 3 && c.sound_filter <= 3 && c.sound_filter_type <= 2 && c.floppy_speed <= 5 &&
@@ -123,7 +129,7 @@ bool oracle_accepts(const p6_config &c)
     return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && machine_accepted(c.machine) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
            (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && fpu_accepted(c) && audio_accepted(c) &&
-           !c.reserved7[0] && !c.reserved7[1] && !c.reserved7[2] && !c.reserved7[3] && !c.reserved7[4] && !c.reserved7[5] && !c.reserved7[6] && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
+           !c.reserved7[0] && !c.reserved7[1] && !c.reserved7[2] && !c.reserved7[3] && !c.reserved7[4] && !c.reserved7[5] && hdf_controller_accepted(c) && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);
 }
 

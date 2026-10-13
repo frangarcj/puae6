@@ -4,7 +4,7 @@
 // identity of a medium is still the SHA-256 of its ADF (docs/adr/0008-media-identity.md), whatever archive, member or order it came by.
 //
 // The rules (docs/02-contracts.md, "Medios"):
-//   - What is a disk. A member whose name ends in .adf, .adz or .dms. A member in a format the core refuses (.ipf, .fdi, ...) is not skipped: the archive is refused, naming it, because
+//   - What is a disk. A member whose name ends in .adf, .adz, .dms or .fdi (T57). A member in a format the core refuses (.ipf, ...) is not skipped: the archive is refused, naming it, because
 //     a set that silently lost a disk is worse than no set. Anything else (readmes, screenshots, folders, macOS litter) is ignored and the log says how many.
 //   - The order. PUAE5 sorts the names with qsort and sensible_strcmp (libretro-glue.c). This is that order, made a total order: a name that holds "(Program" sorts before one that does not
 //     (No-Intro marks the program disk of a set that way; PUAE5 does it with a comparison that is not consistent, so its result depends on qsort), then the names are compared byte by byte
@@ -392,7 +392,7 @@ inline Kind classify(const std::string &name)
 {
     const std::string base = base_name(name);
     const std::string ext = container_detail::lower_extension(base);
-    if (ext == "adf" || ext == "adz" || ext == "dms") return Kind::Floppy;
+    if (ext == "adf" || ext == "adz" || ext == "dms" || ext == "fdi") return Kind::Floppy;
     if (ext == "7z" || unsupported_format_reason(base)) return Kind::Unsupported;       // a 7z inside an archive is not unpacked
     return Kind::Other;
 }
@@ -486,7 +486,7 @@ inline bool read_disk_set(const std::vector<uint8_t> &file, const std::string &m
                 return false;
             }
             if (chosen.empty()) {
-                *why = "the " + kind + " holds no disk image (.adf, .adz or .dms)";
+                *why = "the " + kind + " holds no disk image (.adf, .adz, .dms or .fdi)";
                 return false;
             }
             std::sort(chosen.begin(), chosen.end(), [&](size_t a, size_t b) {
@@ -510,8 +510,8 @@ inline bool read_disk_set(const std::vector<uint8_t> &file, const std::string &m
             return false;
         }
         std::string inner;
-        if (!container_detail::decode_image(&disk.adf, disk.name, 1, &inner) || disk.adf.size() != kDiskBytes) {
-            if (inner.empty()) inner = "not an ADF of " + std::to_string(kDiskBytes) + " bytes";
+        if (!container_detail::decode_image(&disk.adf, disk.name, 1, &inner) || !container_detail::is_floppy_image(disk.adf)) {
+            if (inner.empty()) inner = "not an ADF of " + std::to_string(kDiskBytes) + " bytes, an extended ADF or an FDI";
             *why = "the " + kind + " member \"" + disk.name + "\": " + inner;
             return false;
         }

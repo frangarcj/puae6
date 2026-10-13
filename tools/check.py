@@ -243,8 +243,14 @@ TASK_SUITES[('FUZZ01', 'T57a')] = {**TASK_SUITES[('FUZZ01', 'T51')], 'trackdisk'
 TASK_SUITES[('MED01', 'T57b')] = {**TASK_SUITES[('MED01', 'T57a')], 'fdi_reads': 'tests.media.test_fdi'}
 TASK_SUITES[('DET02', 'T57b')] = TASK_SUITES[('DET02', 'T57a')]
 TASK_SUITES[('FUZZ01', 'T57b')] = TASK_SUITES[('FUZZ01', 'T57a')]
-for _check in ('MED01', 'DET02', 'FUZZ01'):
-    TASK_SUITES[(_check, 'T57')] = TASK_SUITES[(_check, 'T57b')]
+# T57 closes both: the formats on the three surfaces. MED01 adds the headless runner (`--disk`), the libretro adapter (the containers hold them, the extension list, the identity of the bytes as given:
+# tests/media/test_container.py without an engine and tests/libretro-host/test_containers.py with the core) and the Waterbox sandbox (the guest reads them, a snapshot in the middle of a revolution
+# of an FDI with weak pulses comes back in another sandbox); FUZZ01 adds the parsers of the adapter (ContentFuzzTests builds container.h with the sanitizers).
+TASK_SUITES[('MED01', 'T57')] = {**TASK_SUITES[('MED01', 'T57b')], 'headless_formats': 'tests.media.test_headless_formats', 'containers': 'tests.media.test_container',
+                                 'libretro_containers': 'tests.libretro-host.test_containers', 'libretro_archives': 'tests.libretro-host.test_archives',
+                                 'waterbox_trackdisk': 'tests.waterbox-media.test_media_trackdisk'}
+TASK_SUITES[('DET02', 'T57')] = TASK_SUITES[('DET02', 'T57b')]
+TASK_SUITES[('FUZZ01', 'T57')] = TASK_SUITES[('FUZZ01', 'T57b')]
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).

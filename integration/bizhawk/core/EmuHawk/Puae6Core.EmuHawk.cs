@@ -34,8 +34,8 @@ public sealed partial class Puae6Core
 		bool IsVolume(IRomAsset rom) => rom.Extension.Equals(".lha", StringComparison.OrdinalIgnoreCase) || rom.Extension.Equals(".lzh", StringComparison.OrdinalIgnoreCase)
 			|| rom.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase) && Puae6Volumes.IsVolumeZip(rom.FileData);
 		foreach (var rom in lp.Roms)
-			if (!IsHardFile(rom) && !IsVolume(rom) && !rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase))
-				throw new NotSupportedException($"PUAE6 loads ADF disks, HDF hard files and LHA or ZIP volumes only ({rom.Extension} is not one); open the game with the UAE core");
+			if (!IsHardFile(rom) && !IsVolume(rom) && !rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase) && !rom.Extension.Equals(".fdi", StringComparison.OrdinalIgnoreCase))
+				throw new NotSupportedException($"PUAE6 loads ADF (plain or extended) and FDI disks, HDF hard files and LHA or ZIP volumes only ({rom.Extension} is not one); open the game with the UAE core");
 		var floppies = lp.Roms.Where(rom => !IsHardFile(rom) && !IsVolume(rom)).ToList();
 		var hardFiles = lp.Roms.Where(IsHardFile).ToList();
 		var volumes = lp.Roms.Where(IsVolume).ToList();

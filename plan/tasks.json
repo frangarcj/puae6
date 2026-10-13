@@ -13653,7 +13653,7 @@
       "title": "ADF extendido (pistas MFM crudas) y FDI",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T27",
         "T57a",
@@ -13688,11 +13688,17 @@
         "tests/ffi/**",
         "plan/tasks.json",
         "tests/test_plan.py",
-        "reports/tasks/T57.md"
+        "reports/tasks/T57.md",
+        "tests/libretro-ui/**",
+        "tests/waterbox-state/**",
+        "tests/codegen/**",
+        "tests/lifecycle/**",
+        "manifests/host-surface.json"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 lee FDI y ADF extendidos. Leer ambos en memoria con identidad por contenido y estado de pista; base para IPF (T58).",
-        "Division (2026-10-13): T57a (ADF extendido en el motor y el puente, DET02 y fuzzer del motor), T57b (FDI); T57 es el cierre: libretro (container.h deja de rechazar el ADF extendido y el FDI, extensiones), headless (--disk ya los acepta), BizHawk/Waterbox (el cargador entrega .adf/.fdi), FUZZ01 de los parsers (('FUZZ01','T57') en tools/check.py), contratos, el enganche documentado para IPF (T58) y el guest Waterbox registrado de nuevo."
+        "Division (2026-10-13): T57a (ADF extendido en el motor y el puente, DET02 y fuzzer del motor), T57b (FDI); T57 es el cierre: libretro (container.h deja de rechazar el ADF extendido y el FDI, extensiones), headless (--disk ya los acepta), BizHawk/Waterbox (el cargador entrega .adf/.fdi), FUZZ01 de los parsers (('FUZZ01','T57') en tools/check.py), contratos, el enganche documentado para IPF (T58) y el guest Waterbox registrado de nuevo.",
+        "Ampliacion de touch (2026-10-13): adapters/headless/** (el texto de uso), tests/libretro-ui, tests/ffi, tests/waterbox-smoke, tests/waterbox-state, tests/waterbox-media (las comprobaciones de extension y de rechazo cambian), tests/codegen y manifests/waterbox-memory.json (el guest cambia con 0330-0335; las 16 claves se registran de nuevo, runtime_sha256 cf45f96e). Hallazgo: el oraculo de FUZZ01 config leia reserved7[6] (fuera del struct desde T56a) y no conocia hdf_controller; corregido en tests/fuzz/fuzz_probe.cpp. Informe: reports/tasks/T57.md."
       ],
       "checks": [
         "MED01",
