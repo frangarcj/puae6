@@ -4045,6 +4045,51 @@
           "after_sha256": "f3d6522e49610eb794e9ddbe5eb1ba669904f6aea5ec1bbfd9262be3869d7beb"
         }
       ]
+    },
+    {
+      "id": "0330-disk-prevtracklen-state",
+      "file": "patches/winuae/0330-disk-prevtracklen-state.patch",
+      "sha256": "516c3c237c99048f5982cb5345b1e5405dcc4cc209346367c2d7a6a2a7923933",
+      "title": "Floppy controller state: the scale of the head position",
+      "reason": "T57: updatemfmpos scales the position of the head by the ratio of the new track length to the last one the position was scaled to (prevtracklen), which is 0 right after an insert and otherwise the length of the last filled track. restore_disk copies it from the LIVE machine's track, so a state taken on one raw track and loaded in a machine that had last scaled to another (every track of an extended ADF or FDI has its own length) moved the head by the wrong ratio when it left the track. DSKX carries it as the tenth word of each drive.",
+      "category": "host hooks",
+      "order": 149,
+      "symbols": [
+        "p6_disk_phase_get",
+        "p6_disk_phase_set"
+      ],
+      "test": "tests/state/test_det02_trackdisk.py (the seek ring over raw tracks of six different lengths)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "e7dbf1b47ea71904eb6e1b2a658e95fcf1869a6eb13a4269da1c2d4dafd0d133",
+          "after_sha256": "7fd0572860adbcf50cb4f4dad66d73c89de4aca301c06705f2f3f9254e03d6ad"
+        }
+      ]
+    },
+    {
+      "id": "0331-disk-raw-track-tail",
+      "file": "patches/winuae/0331-disk-raw-track-tail.patch",
+      "sha256": "fae292379a35fc1d1e0c7feadea99d0d5455615715b69aee91751c755df149df",
+      "title": "A raw track leaves no stale bits in its last word",
+      "reason": "T57: a raw track of the extended ADF reads (bitlen + 7) / 8 bytes into the MFM buffer and then builds words from pairs of bytes, so the second byte of the last word of a track whose length is not a multiple of 16 bits was whatever the previous track left. The drive never reads those bits (the position wraps at the length), but the buffer is saved in the state (DSDn), so its bytes have to be a function of the image alone.",
+      "category": "host hooks",
+      "order": 150,
+      "symbols": [
+        "drive_fill_bigbuf"
+      ],
+      "test": "tests/state/test_det02_trackdisk.py (a raw track of an odd number of bytes)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "7fd0572860adbcf50cb4f4dad66d73c89de4aca301c06705f2f3f9254e03d6ad",
+          "after_sha256": "15a47e24424412bcf0daaedafc57a168530abba2cd712035c843fb9af0e89945"
+        }
+      ]
     }
   ]
 }

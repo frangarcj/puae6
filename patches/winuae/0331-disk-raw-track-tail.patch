@@ -1,0 +1,15 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -2572,6 +2572,11 @@
+ 		int base_offset = ti->type == TRACK_RAW ? 0 : 1;
+ 		drv->tracklen = ti->bitlen + 16 * base_offset;
+ 		drv->bigmfmbuf[0] = ti->sync;
++#ifdef P6_PORTABLE
++		// A track whose length in bits is not a whole number of bytes leaves the last byte of its last word to what the buffer held (the previous track's): the bits past the
++		// end are never read by the drive, but the buffer is saved in a state, so its bytes have to be a function of the image alone.
++		drv->bigmfmbuf[(drv->tracklen + 15) / 16 - 1] = 0;
++#endif
+ 		read_floppy_data (drv->diskfile, drv->filetype, ti, 0, (uae_u8*)(drv->bigmfmbuf + base_offset), NULL, (ti->bitlen + 7) / 8);
+ 		for (i = base_offset; i < (drv->tracklen + 15) / 16; i++) {
+ 			uae_u16 *mfm = drv->bigmfmbuf + i;

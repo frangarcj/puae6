@@ -13549,13 +13549,113 @@
       "evidence": null
     },
     {
+      "id": "T57a",
+      "title": "ADF extendido (UAE-1ADF y UAE--ADF): pistas MFM crudas y pistas AmigaDOS mezcladas, en memoria, de solo lectura, con su pista en el estado nativo",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "done",
+      "depends": [
+        "T27"
+      ],
+      "touch": [
+        "ports/portable/media/**",
+        "bridge/**",
+        "patches/winuae/**",
+        "tests/media/**",
+        "tests/state/**",
+        "tests/fuzz/**",
+        "tests/host/**",
+        "tests/codegen/**",
+        "tests/reference/patch-classes.json",
+        "docs/02-contracts.md",
+        "docs/adr/0008-media-identity.md",
+        "tools/check.py",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T57.md"
+      ],
+      "steps": [
+        "Decision (2026-10-13): un ADF extendido NO es un tipo nuevo del ABI sino otro formato de P6_MEDIA_ADF: el formato lo dicen los bytes (ports/portable/media/trackdisk.h) y la capacidad P6_CAP_MEDIA_EXT_ADF (bit 7) lo anuncia; la identidad es el SHA-256 de los bytes del fichero tal como se dio (un ADF extendido y uno plano del mismo disco son dos medios), el tope es 3 MiB por imagen y 16 discos planos (14 417 920 bytes) en total para que el heap sellado de Waterbox no cambie. El validador del puente (classify_floppy) comprueba contra los bytes todo numero que el motor toma de la cabecera (166 pistas, offsets, bits que caben en el buffer MFM, sin alta densidad). Solo lectura: el overlay de T27 son sectores AmigaDOS y pistas crudas de la geometria del ADF plano, que estos formatos no tienen; con P6_CONFIG_FLOPPY_WRITES estos discos siguen protegidos, p6_media_write_status_get los da sin sectores y p6_media_export responde UNSUPPORTED.",
+        "Estado de pista: el buffer MFM de la pista, su longitud y la posicion ya viajan en DSDn y DISK; el parche 0330 anade prevtracklen (la escala de la posicion de la cabeza, que restore_disk copiaba de la pista de la maquina VIVA) como decima palabra de cada unidad de DSKX (168 a 184 bytes), y 0331 pone a cero los bits tras el final de una pista cruda (el buffer va en el estado). Pruebas: lectura palabra a palabra de una pista cruda con la sincronizacion y su vuelta por el indice, de una UAE--ADF y de una pista AmigaDOS de la misma imagen (MED01), DET02 con estados antes, a mitad y despues de leer una pista cruda y con la cabeza recorriendo pistas de seis longitudes, y el fuzzer del motor (FUZZ01 T57a): cabeceras y tablas mutadas contra un oraculo independiente, y lo aceptado se lee entero con ASan/UBSan.",
+        "Ampliacion de touch (2026-10-13): bridge/** (media.cpp, media.h, session.h, caps.cpp, state_upstream.cpp y p6.h), tests/fuzz/**, tests/host/** y tests/codegen/** (el valor de las capacidades), tests/reference/patch-classes.json (T32a exige clasificar cada parche), docs, tools/check.py y plan/tasks.json con tests/test_plan.py (la division)."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un ADF extendido con una pista cruda y pistas AmigaDOS arranca (la guest lee las dos), y un estado tomado a mitad de la lectura de la pista cruda restaura (DET02)."
+      ],
+      "stop": "No escribir ficheros temporales del host; no cambiar hashes golden.",
+      "evidence": null
+    },
+    {
+      "id": "T57b",
+      "title": "FDI (fdi2raw de WinUAE compilado, determinista) como formato de P6_MEDIA_ADF, en memoria y de solo lectura",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "pending",
+      "depends": [
+        "T57a"
+      ],
+      "touch": [
+        "ports/portable/media/**",
+        "ports/portable/sysconfig.h",
+        "bridge/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
+        "manifests/upstream-files.json",
+        "tests/media/**",
+        "tests/state/**",
+        "tests/fuzz/**",
+        "tests/host/**",
+        "tests/lifecycle/**",
+        "tests/codegen/**",
+        "tests/reference/patch-classes.json",
+        "docs/02-contracts.md",
+        "docs/adr/0008-media-identity.md",
+        "tools/check.py",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T57.md"
+      ],
+      "steps": [
+        "fdi2raw.cpp entra en las unidades de upstream (FDI2RAW en la configuracion portable) y se lee por el camino de disk.cpp (drive_insert, drive_fill_bigbuf, fetchnextrevolution). Determinismo: fdi2raw sortea pulsos con uaerand (pistas de bajo nivel con bits debiles), asi que el estado del generador del motor cambiaria con cada decodificacion; la semilla del sorteo pasa a ser una funcion de la imagen, la pista y el numero de revolucion de la pista (un contador por unidad que entra en DSKX junto a multi_revolution y revolution_check), no del generador. Cotas: el validador del puente comprueba la cabecera FDI (CRC de FDI 2.x, offsets de pista dentro del fichero) y el fuzzer lo ejercita hasta donde el decodificador aguante; cada fallo de seguridad que encuentre se arregla con un parche pequeno.",
+        "Escritor de prueba (tests/media/fdi.py) segun la especificacion FDI 2.0 que fdi2raw implementa (cabecera de 2048 bytes con CRC, tabla de pistas, pistas tipo 0x00..0x0F de sectores descritos/crudos); un FDI real y libre opcional por variable de entorno en ~/Downloads/puae6-free/ (datos no confiables)."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un FDI arranca (la guest lee sus pistas) y un estado tomado a mitad de una lectura restaura (DET02), incluidas las pistas de bajo nivel con bits debiles."
+      ],
+      "stop": "No escribir ficheros temporales del host; si el decodificador de fdi2raw no se puede acotar, documentar el caso minimo y bloquear.",
+      "evidence": null
+    },
+    {
       "id": "T57",
       "title": "ADF extendido (pistas MFM crudas) y FDI",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T27"
+        "T27",
+        "T57a",
+        "T57b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13568,11 +13668,29 @@
         "patches/winuae/**",
         "manifests/source-manifest.json",
         "adapters/libretro/**",
+        "adapters/headless/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/**",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/options.md",
+        "docs/adr/**",
+        "tools/check.py",
         "tests/media/**",
-        "tests/state/**"
+        "tests/state/**",
+        "tests/fuzz/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-media/**",
+        "tests/waterbox-smoke/**",
+        "tests/ffi/**",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T57.md"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 lee FDI y ADF extendidos. Leer ambos en memoria con identidad por contenido y estado de pista; base para IPF (T58)."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 lee FDI y ADF extendidos. Leer ambos en memoria con identidad por contenido y estado de pista; base para IPF (T58).",
+        "Division (2026-10-13): T57a (ADF extendido en el motor y el puente, DET02 y fuzzer del motor), T57b (FDI); T57 es el cierre: libretro (container.h deja de rechazar el ADF extendido y el FDI, extensiones), headless (--disk ya los acepta), BizHawk/Waterbox (el cargador entrega .adf/.fdi), FUZZ01 de los parsers (('FUZZ01','T57') en tools/check.py), contratos, el enganche documentado para IPF (T58) y el guest Waterbox registrado de nuevo."
       ],
       "checks": [
         "MED01",

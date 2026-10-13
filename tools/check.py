@@ -226,6 +226,20 @@ TASK_SUITES[('DET02', 'T32')] = TASK_SUITES[('DET02', 'T32b')]
 TASK_SUITES[('DET03', 'T32')] = TASK_SUITES[('DET03', 'T32b')]
 for _check in ('DET04', 'DET06', 'SAFE01', 'FUZZ01'):
     TASK_SUITES[(_check, 'T32')] = TASK_SUITES[(_check, 'T32c')]
+# T57a reads the extended ADF (UAE-1ADF, UAE--ADF) in memory, read only. MED01: the identity and validation of the media list (the formats and their limits), the guest reading raw MFM tracks and
+# AmigaDOS tracks of one image word for word, and the images never written. DET02: a state taken before, in the middle of and after the read of a raw track, and with the head walking over raw
+# tracks of six lengths, loads into the same image, a restarted one and a new process. FUZZ01 adds the `trackdisk` target: hostile headers and tables against an independent oracle of the format,
+# and what is accepted read by the engine under ASan/UBSan. T57b adds FDI to the same checks (its own tests are in the same modules) and T57 owns the union.
+TASK_SUITES[('MED01', 'T57a')] = {
+    'media_identity_and_events': 'tests.media.test_media',
+    'read_only_disks': 'tests.media.test_med01',
+    'extended_adf_reads': 'tests.media.test_trackdisk',
+    'floppy_formats': 'tests.media.test_trackdisk_formats',
+}
+TASK_SUITES[('DET02', 'T57a')] = {'raw_tracks_restore': 'tests.state.test_det02_trackdisk'}
+TASK_SUITES[('FUZZ01', 'T57a')] = {**TASK_SUITES[('FUZZ01', 'T51')], 'trackdisk': 'tests.fuzz.test_fuzz.TrackDiskFuzzTests'}
+for _check in ('MED01', 'DET02', 'FUZZ01'):
+    TASK_SUITES[(_check, 'T57')] = TASK_SUITES[(_check, 'T57a')]
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).

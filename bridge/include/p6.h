@@ -52,6 +52,7 @@ typedef struct p6_caps {
 #define P6_CAP_LAG_FLAG         (UINT64_C(1) << 3)
 #define P6_CAP_MEDIA_APPEND     (UINT64_C(1) << 4)
 #define P6_CAP_MEDIA_WRITE      (UINT64_C(1) << 5)   /* P6_CONFIG_FLOPPY_WRITES, p6_media_export and p6_media_write_status */
+#define P6_CAP_MEDIA_EXT_ADF    (UINT64_C(1) << 7)   /* P6_MEDIA_ADF also accepts the extended ADF of WinUAE (UAE-1ADF and UAE--ADF: raw MFM tracks and AmigaDOS tracks), read only (T57a) */
 #define P6_CAP_MEDIA_HDF        (UINT64_C(1) << 6)   /* P6_MEDIA_HDF: hard files on the UAE controller (uaehf.device), their write overlay, their export and their native state (T29) */
 
 typedef struct p6_config {
@@ -143,12 +144,18 @@ typedef struct p6_buffer {
 
 /* image data is borrowed and immutable through p6_unload(); bytes is exact. */
 typedef struct p6_media {
-    uint32_t type;              /* P6_MEDIA_ADF or P6_MEDIA_HDF. */
+    uint32_t type;              /* P6_MEDIA_ADF (a floppy image, below) or P6_MEDIA_HDF. */
     uint32_t flags;             /* Must be zero in ABI v1. */
     uint8_t content_id[P6_CONTENT_ID_SIZE];
     p6_buffer image;
 } p6_media;
 #define P6_MEDIA_ADF UINT32_C(1)
+/* P6_MEDIA_ADF: a floppy disk image, whose format the bytes say: a plain ADF (exactly 901120 bytes, the only one a write overlay can cover) or, with P6_CAP_MEDIA_EXT_ADF
+ * (T57), an extended ADF ("UAE-1ADF" or "UAE--ADF": per-track raw MFM with its length in bits, and AmigaDOS tracks, mixed), at most 3 MiB, read from memory by the
+ * engine's own disk reader. The content_id is the SHA-256 of the bytes as given, so an extended ADF and a plain one of the same disk are two media. A track-level image is
+ * always write protected (P6_CONFIG_FLOPPY_WRITES does not apply to it: p6_media_write_status_get reports it with no sectors and p6_media_export answers UNSUPPORTED), and
+ * the floppies of a session together take at most 16 plain disks (14 417 920 bytes: CAPACITY beyond). A header that the engine could not read safely (more tracks than a
+ * drive has, a track that lies outside the file or holds more bits than the engine's buffer, a high-density track) is WRONG_MEDIA, before the engine is touched. */
 /* P6_MEDIA_HDF: a hard file, mounted from power-on on the UAE controller (uaehf.device and the UAEFS board, the way PUAE5 does) as DH0, DH1... in
  * the order the hard files have in the p6_load array, at most P6_MAX_HDF. The image is a multiple of 512 bytes, at least one block; a hard file that starts
  * with "RDSK" brings its own RDB, any other is one partition (32 sectors, 1 head, 2 reserved blocks, boot priority 0). There is no fixed size limit: the image

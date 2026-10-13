@@ -12,6 +12,8 @@
 //   fuzz_probe hardfile ROM SEED N IMAGE...  (T29d) p6_load of a hard file whose Rigid Disk Block, PART, FSHD and LSEG blocks were mutated (fields set to boundary values, pointers
 //                                        sent elsewhere, blocks swapped, copied, zeroed or cut off, with the checksums put right again most of the time), then the micro-ROM of
 //                                        tests/hdf/hdf_rom.py (mount_program) asks the filesystem for the partitions, which parses all of it; the state is saved and loaded back
+//   fuzz_probe trackdisk ROM SEED N IMAGE...  (T57) p6_load of extended ADF images (and FDI, T57b) with a mutated header or table, against an independent oracle of the format; the accepted ones are
+//                                        read by the micro-ROM of tests/media/trackdisk.py sweep_rom_source over the first cylinders at turbo speed, saved and loaded back
 // Output is a histogram of result codes; nothing else varies between runs.
 #include "p6.h"
 #include "blob_io.h"
@@ -1101,6 +1103,164 @@ int fuzz_hardfile(const char *rom_path, uint64_t seed, uint64_t iterations, int 
     return 0;
 }
 
+// --- T57: extended ADF (and FDI) with a hostile header ---------------------------------------------------------------------------------------------------------------
+// The floppy images the bridge accepts are decided by ports/portable/media/trackdisk.h; this is the same decision written again from the format descriptions in the header of that file
+// (an independent oracle: a different walk over the table, 64-bit offsets), so that a validator that is too lax or too strict is a report. What the validator accepts is then read by
+// the engine under the sanitizers: a micro-ROM walks the head over the first cylinders and reads both heads of each with disk DMA.
+constexpr uint64_t kMaxTrackDisk = 3u << 20;
+
+uint64_t be_n(const std::vector<uint8_t> &v, uint64_t at, unsigned n)
+{
+    uint64_t r = 0;
+    for (unsigned i = 0; i < n; ++i) r = r << 8 | v[at + i];
+    return r;
+}
+
+// True when `v` is a floppy image a double-density drive can be given: a plain ADF, or an extended ADF whose every track lies inside the file.
+bool oracle_accepts_floppy(const std::vector<uint8_t> &v)
+{
+    const uint64_t size = v.size();
+    const auto starts = [&](const char *magic) { return size >= 8 && !memcmp(v.data(), magic, 8); };
+    static const uint8_t hunk[8] = {0, 0, 3, 0xF3, 0, 0, 0, 0};
+    if (size >= 8 && !memcmp(v.data(), hunk, 8)) return false;
+    if (starts("UAE-1ADF")) {
+        if (size > kMaxTrackDisk || size < 12) return false;
+        if (be_n(v, 8, 2) != 0) return false;
+        const uint64_t tracks = be_n(v, 10, 2);
+        if (tracks < 1 || tracks > 166 || 12 + 12 * tracks > size) return false;
+        uint64_t at = 12 + 12 * tracks;
+        for (uint64_t t = 0; t < tracks; ++t) {
+            const uint64_t row = 12 + 12 * t;
+            const uint64_t type = v[row + 3], length = be_n(v, row + 4, 4), bits = be_n(v, row + 8, 4);
+            if (be_n(v, row, 2) != 0 || length > 0xFFFFFF || bits > 0xFFFFFF || (v[row + 4] | v[row + 8]) != 0) return false;
+            if (type > 1 || length > 20000 || at + length > size) return false;
+            if (type == 0 ? length < 5632 : (bits < 16 || (bits + 7) / 8 > length)) return false;
+            at += length;
+        }
+        return true;
+    }
+    if (starts("UAE--ADF")) {
+        if (size > kMaxTrackDisk || size < 648) return false;
+        uint64_t at = 648;
+        for (uint64_t t = 0; t < 160; ++t) {
+            const uint64_t sync = be_n(v, 8 + 4 * t, 2), length = be_n(v, 10 + 4 * t, 2);
+            if (length > 20000 || at + length > size) return false;
+            if (sync == 0 ? length < 5632 : length < 2) return false;
+            at += length;
+        }
+        return true;
+    }
+    return size == 901120;
+}
+
+std::vector<uint8_t> mutate_floppy(const std::vector<uint8_t> &good, Random &rng)
+{
+    std::vector<uint8_t> image = good;
+    const bool ext2 = image.size() > 12 && !memcmp(image.data(), "UAE-1ADF", 8);
+    const bool ext1 = image.size() > 648 && !memcmp(image.data(), "UAE--ADF", 8);
+    const size_t table = ext2 ? 12 + 12 * std::min<size_t>(be_n(image, 10, 2), 166) : ext1 ? 648 : 0;
+    for (unsigned edits = rng.below(4); edits--;) {
+        switch (rng.below(9)) {
+        case 0: if (table && table <= image.size()) image[rng.below(uint32_t(table))] ^= uint8_t(1u << rng.below(8)); break;                  // a bit of the header or the table
+        case 1: if (image.size() > table) image[table + rng.below(uint32_t(image.size() - table))] ^= uint8_t(1 + rng.below(255)); break;      // a byte of the data: still a valid image
+        case 2: {       // a field of a row of the table set to a boundary value
+            if (ext2) {
+                const size_t row = 12 + 12 * rng.below(uint32_t(std::min<size_t>(be_n(image, 10, 2), 166)));
+                static const unsigned offsets[] = {0, 2, 3, 4, 5, 8, 9};
+                const size_t at = row + offsets[rng.below(7)];
+                if (at + 4 <= image.size()) for (unsigned i = 0; i < 3; ++i) image[at + i] = uint8_t(kBoundary[rng.below(12)] >> (8 * (2 - i)));
+            } else if (ext1) {
+                const size_t at = 8 + 4 * rng.below(160);
+                image[at] = uint8_t(kBoundary[rng.below(12)]); image[at + 1] = uint8_t(kBoundary[rng.below(12)] >> 8); image[at + 2] = uint8_t(rng.next()); image[at + 3] = uint8_t(rng.next());
+            }
+            break;
+        }
+        case 3: if (ext2) { image[10] = uint8_t(rng.next()); image[11] = uint8_t(rng.coin() ? 160 : rng.next()); } break;                      // how many tracks the file says it has
+        case 4: if (image.size() > 16) image.resize(rng.below(4) == 0 ? table + rng.below(64) : image.size() - 1 - rng.below(uint32_t(std::min<size_t>(image.size() - 1, 40000)))); break;      // cut off
+        case 5: image.insert(image.end(), 1 + rng.below(64), uint8_t(rng.next())); break;                                                       // bytes added (the end of the last track is not the end of the file)
+        case 6: if (ext2) {         // two rows of the table swapped, or a row copied over another
+            const size_t a = 12 + 12 * rng.below(160), b = 12 + 12 * rng.below(160);
+            if (a + 12 <= image.size() && b + 12 <= image.size()) for (unsigned i = 0; i < 12; ++i) { if (rng.coin()) std::swap(image[a + i], image[b + i]); else image[a + i] = image[b + i]; }
+        } break;
+        case 7: if (image.size() >= 8 && rng.below(6) == 0) memcpy(image.data(), rng.coin() ? "UAE-1ADF" : "UAE--ADF", 8); break;                // the other magic over the same bytes
+        default: if (image.size() > table + 64) { const size_t at = table + rng.below(uint32_t(image.size() - table - 32)); for (unsigned i = 0; i < 1 + rng.below(32); ++i) image[at + i] = uint8_t(rng.next()); } break;
+        }
+    }
+    return image;
+}
+
+int fuzz_trackdisk(const char *rom_path, uint64_t seed, uint64_t iterations, int image_count, char **image_paths)
+{
+    Random rng(seed);
+    const std::vector<uint8_t> rom = read_file(rom_path);
+    std::vector<std::vector<uint8_t>> pool;
+    for (int i = 0; i < image_count; ++i) pool.push_back(read_file(image_paths[i]));
+    p6_config config = valid_config();
+    config.floppy_speed = 5;                    // turbo: a read ends in two lines, so the guest covers many tracks in a few units
+    p6_error error = fresh_error();
+    if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
+    std::map<int, unsigned> histogram;
+    unsigned ran = 0, states = 0, accepted_extended = 0;
+    std::vector<uint8_t> buffer;
+    for (uint64_t i = 0; i < iterations; ++i) {
+        const std::vector<uint8_t> image = rng.below(8) == 0 ? pool[rng.below(uint32_t(pool.size()))] : mutate_floppy(pool[rng.below(uint32_t(pool.size()))], rng);
+        p6_media m{};
+        m.type = P6_MEDIA_ADF;
+        m.image = p6_buffer{image.data(), image.size()};
+        p6_sha256_hash(image.data(), image.size(), m.content_id);
+        const bool expected = oracle_accepts_floppy(image);
+        error = fresh_error();
+        const p6_result r = p6_load(p6_buffer{rom.data(), rom.size()}, &m, 1, &error);
+        ++histogram[int(r)];
+        if (!message_is_bounded(error)) bug("unbounded message", i);
+        if ((r == P6_OK) != expected) bug(r == P6_OK ? "a floppy image the oracle refuses was accepted" : "a floppy image the oracle accepts was refused", i);
+        if (r != P6_OK) {
+            if (r != P6_ERROR_WRONG_MEDIA) bug("a floppy result outside the documented set", i);
+            if (!error.message[0]) bug("error without a message", i);
+            continue;
+        }
+        ++ran;
+        if (image.size() != 901120) ++accepted_extended;
+        p6_media_event event{};
+        event.abi_version = P6_ABI_VERSION;
+        event.struct_size = sizeof event;
+        event.type = P6_MEDIA_EVENT_MOUNT;
+        event.sequence = 1;
+        error = fresh_error();
+        if (p6_media_event_enqueue(&event, &error) != P6_OK) bug("the boot disk could not be mounted", i);
+        p6_input input{};
+        input.abi_version = P6_ABI_VERSION;
+        input.struct_size = sizeof input;
+        for (unsigned unit = 0; unit < 52; ++unit) {
+            p6_frame frame{};
+            frame.abi_version = P6_ABI_VERSION;
+            frame.struct_size = sizeof frame;
+            error = fresh_error();
+            if (p6_run_frame(&input, 0, &frame, &error) != P6_OK) bug("a unit with an extended ADF failed", i);
+        }
+        uint64_t bound = 0, saved = 0;
+        error = fresh_error();
+        if (p6_state_bound(&bound, &error) != P6_OK) bug("p6_state_bound with an extended ADF", i);
+        buffer.resize(size_t(bound));
+        error = fresh_error();
+        if (p6_state_save(buffer.data(), buffer.size(), &saved, &error) != P6_OK) bug("p6_state_save with an extended ADF", i);
+        error = fresh_error();
+        if (p6_state_load(buffer.data(), saved, &error) != P6_OK) bug("a state with an extended ADF did not load back", i);
+        p6_frame frame{};
+        frame.abi_version = P6_ABI_VERSION;
+        frame.struct_size = sizeof frame;
+        error = fresh_error();
+        if (p6_run_frame(&input, 0, &frame, &error) != P6_OK) bug("a unit after the state load failed", i);
+        ++states;
+        error = fresh_error();
+        if (p6_unload(&error) != P6_OK) bug("p6_unload", i);
+    }
+    for (const auto &entry : histogram) printf("trackdisk result %d: %u\n", entry.first, entry.second);
+    printf("trackdisk loaded %u extended %u states %u\n", ran, accepted_extended, states);
+    p6_shutdown(nullptr);
+    return 0;
+}
+
 }  // namespace
 
 // The machine a name of the command line stands for (the state target takes any machine, T50), 0 when it is none.
@@ -1126,7 +1286,8 @@ int main(int argc, char **argv)
     }
     if (argc >= 6 && !strcmp(argv[1], "hardfile")) return fuzz_hardfile(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc - 5, argv + 5);
     if (argc >= 6 && !strcmp(argv[1], "hardfile-ide")) return fuzz_hardfile(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc - 5, argv + 5, true);
+    if (argc >= 6 && !strcmp(argv[1], "trackdisk")) return fuzz_trackdisk(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc - 5, argv + 5);
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200|a500og|a500plus|a1000|a2000og|a2000] | state-writable ROM SEED N | hardfile[-ide] ROM SEED N IMAGE... | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200|a500og|a500plus|a1000|a2000og|a2000] | state-writable ROM SEED N | hardfile[-ide] ROM SEED N IMAGE... | trackdisk ROM SEED N IMAGE... | blob SEED N\n", argv[0]);
     return 64;
 }

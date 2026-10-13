@@ -33,6 +33,8 @@ struct Session {
     uint8_t firmware_sha256[32] = {};                       // identity of what was loaded (docs/adr/0008-media-identity.md)
     uint32_t media_count = 0;
     uint8_t media_type[P6_MAX_MEDIA] = {};                  // P6_MEDIA_ADF or P6_MEDIA_HDF of each medium
+    uint8_t media_format[P6_MAX_MEDIA] = {};                // of a P6_MEDIA_ADF, its p6_media::Format (T57: 0 is the plain ADF, the one with a write overlay); 0 for a hard file
+    uint64_t floppy_bytes = 0;                              // the bytes of all the floppy images of the manifest (at most p6_media::kMaxFloppyBytes)
     uint8_t media_content_id[P6_MAX_MEDIA][P6_CONTENT_ID_SIZE] = {};   // in the order of the p6_load array
 };
 

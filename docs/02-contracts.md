@@ -397,9 +397,9 @@ siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fast
 (`P6_REGION_FAST_RAM`, big endian, el byte n de la region es la direccion `$200000 + n`). Su contenido entra en el estado nativo (P6RM, ver ADR 0009 punto 10): la cota crece en
 `4 + fast + 278` bytes, y la memoria configurada forma parte de `config_hash` cuando no es la del preset (un estado o una pelicula de otra memoria es INCOMPATIBLE).
 
-Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14, y T62: DSKX de 41 a 42 palabras, +4 bytes en todas, punto 15): A500 3 608 621, A600 3 608 590, A1200 5 890 824; A500 OG 3 084 302, A500+ 3 608 621, A1000 3 084 318, A2000 OG 3 608 637, A2000 3 608 637
-(T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 706 055; A600 con 2 MiB de Chip y 8 MiB de Fast 13 046 056;
-A1200 con 8 MiB de Fast 14 279 714; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 866; A1200 con FPU 68882 5 890 934.
+Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14, T62: DSKX de 41 a 42 palabras, +4 bytes en todas, punto 15, y T57a: DSKX de 42 a 46 palabras, +16 bytes, punto 16): A500 3 608 637, A600 3 608 606, A1200 5 890 840; A500 OG 3 084 318, A500+ 3 608 637, A1000 3 084 334, A2000 OG 3 608 653, A2000 3 608 653
+(T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 706 071; A600 con 2 MiB de Chip y 8 MiB de Fast 13 046 072;
+A1200 con 8 MiB de Fast 14 279 730; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 882; A1200 con FPU 68882 5 890 950.
 
 ### FPU 68881/68882 (T54)
 
@@ -615,7 +615,7 @@ formato), nombre logico y licencia/procedencia para fixtures. Los paths del SO n
 son identidad ni parte del estado. Medios ausentes o distintos provocan error.
 El motor no enumera home, no descarga BIOS y no carga plugins de forma implicita.
 
-Implementado (T12a, docs/adr/0008-media-identity.md): `p6_load` acepta hasta 16 ADF de 901120 bytes cuyo `content_id` es el
+Implementado (T12a, docs/adr/0008-media-identity.md): `p6_load` acepta hasta 16 ADF de 901120 bytes (y, desde T57a, ADF extendidos: ver mas abajo) cuyo `content_id` es el
 SHA-256 de sus bytes; cualquier otra lista se rechaza antes de tocar el motor (tamaño o formato: WRONG_MEDIA; tipo: UNSUPPORTED;
 duplicado o campos reservados: BAD_ARGUMENT; mas de 16: CAPACITY). Cada imagen se registra como `media-<hex>` y el perfil vacia
 los nombres `dfN.adf` de upstream y protege contra escritura todos los discos.
@@ -631,6 +631,27 @@ medios un disco nuevo es CAPACITY, y durante `p6_run_frame` es BUSY. Registrar n
 quitan durante la sesion. Un estado guarda el hash del prefijo del manifiesto que tenia (ADR 0009): carga si el manifiesto vivo empieza por ese prefijo, de modo
 que los estados anteriores a una adicion siguen siendo validos. El wrapper BizHawk no usa esta funcion: sus medios son fijos por instancia y sus peliculas
 exigen el MediaHash exacto.
+
+ADF extendido (T57a, `P6_CAP_MEDIA_EXT_ADF`, bit 7): **no es un tipo nuevo**; `P6_MEDIA_ADF` es "una imagen de disquete" y su formato lo dicen los bytes (`ports/portable/media/trackdisk.h`): el ADF plano
+de 901120 bytes, o el ADF extendido de WinUAE, `UAE-1ADF` (version 2: cabecera de 12 bytes, una fila de 12 bytes por pista con tipo 0 = sectores AmigaDOS o 1 = MFM crudo, longitud en bytes y longitud en bits)
+y `UAE--ADF` (version 1: 160 pistas de sincronizacion y longitud), que mezclan pistas crudas, de la longitud que sea, con pistas AmigaDOS. Se escogio un formato dentro del tipo y no un tipo nuevo porque el contrato de
+`p6_media` ya es "bytes + SHA-256 de esos bytes" y ninguna otra cosa del puente (eventos, manifiesto, estados, `p6_media_append`, los adaptadores) distingue un disquete de otro; el tipo nuevo habria obligado a
+repetir cada comprobacion de `media_type == ADF` sin ganar nada, y un llamante antiguo recibe `WRONG_MEDIA` con el motivo. La identidad es el SHA-256 de los bytes tal como se dieron (un ADF extendido y uno plano
+del mismo disco son dos medios, y los mismos bytes en un ZIP o sueltos son uno), el tope es 3 MiB por imagen y 16 discos planos (14 417 920 bytes) en TOTAL entre todos los disquetes del manifiesto (`CAPACITY` al
+pasarse, en `p6_load` y en `p6_media_append`): el heap sellado de Waterbox se dimensiono para 16 ADF planos y su presupuesto no cambia. El validador (`classify_floppy`, antes de tocar el motor) comprueba contra los
+bytes todo numero que el lector del motor toma de la cabecera: 1 a 166 pistas (la tabla `MAX_TRACKS` de una unidad), campos reservados a cero, tipo 0 o 1, cada pista dentro del fichero y de a lo mas 20000 bytes (mas
+seria alta densidad, que este core no tiene), las pistas AmigaDOS de al menos once sectores y las crudas con al menos 16 bits y no mas bits que bytes tiene su espacio; el motor, en cambio, no se toca (`disk.cpp` ya lee
+ambos formatos en `drive_insert` y `drive_fill_bigbuf`): `has_special_header` ya no los rechaza, solo el ejecutable Amiga. **Solo lectura**: el overlay de T27 son sectores AmigaDOS y pistas crudas de la geometria del ADF
+plano de 880 KiB, que estos formatos no tienen (pistas de longitud propia, sin sectores fijos); con `P6_CONFIG_FLOPPY_WRITES` estos discos siguen protegidos (/WPRO, `media_forced_write_protect`), no consumen el pool,
+`p6_media_write_status_get` los da sin sectores ni pistas crudas y `p6_media_export` responde `UNSUPPORTED` (el llamante tiene el fichero: no hay nada que exportar); escribir un ADF extendido seria otra tarea (el overlay
+de pistas crudas de T27a2 ya guarda una vuelta por pista y podria cubrirlo). **Estado de pista**: el buffer MFM de la pista que esta bajo la cabeza (`bigmfmbuf`, su longitud en bits, el desplazamiento de salto y de
+indice) viaja en DSDn mientras el motor gira, la posicion en el MFM en DISK, y el parche 0330 anade a DSKX, por unidad, `prevtracklen` (la longitud a la que se escalo por ultima vez la posicion de la cabeza, que
+`updatemfmpos` usa al pasar a una pista de otra longitud: es 0 justo tras insertar el disco y `restore_disk` la copiaba de la pista de la maquina VIVA, no de la del estado; una cabeza que recorre pistas de seis longitudes
+diverge sin ella, `tests/state/test_det02_trackdisk.py`); el parche 0331 pone a cero los bits de la ultima palabra de una pista cruda que pasan de su longitud (el buffer va en el estado, asi que sus bytes han de ser
+funcion de la imagen). El DSKX pasa de 168 a 184 bytes (42 a 46 palabras). La lectura de una pista cruda es la del motor: empieza donde esta la cabeza (un punto aleatorio del giro, por el generador sembrado), una pista mas
+corta que la lectura pasa por el indice sin el salto de bits de las pistas AmigaDOS (`skipoffset` es -1), y la longitud de la pista (no el reloj) fija lo que tarda una vuelta. Con `floppy_speed` distinto del 100 % se lee
+(el DMA cuenta en ciclos de color), pero las protecciones de copia que miden el tiempo no se prometen. Fixtures de las pruebas: `tests/media/trackdisk.py` los escribe desde la descripcion del formato (MFM valido con una
+sincronizacion unica); las pruebas son MED01 (`tests/media/test_trackdisk.py`, `test_trackdisk_formats.py`, `media_probe.cpp`), DET02 (`tests/state/test_det02_trackdisk.py`) y FUZZ01 (`trackdisk` en `tests/fuzz`).
 
 ADF MVP: buffer inmutable de solo lectura, cargado antes de iniciar/sellar. Mount,
 eject y swap operan sobre IDs precargados. Inventariar los metadatos de floppy

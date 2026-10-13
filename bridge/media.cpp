@@ -10,6 +10,7 @@
 #include "sha256.h"
 #include "blob_io.h"
 #include "overlay.h"
+#include "trackdisk.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -25,20 +26,6 @@ using p6_session::State;
 using p6_session::session;
 
 namespace p6_bridge {
-
-namespace {
-
-// First bytes that make the engine pick another loader than the plain one: the extended-ADF magics, and the header
-// of an Amiga executable, which the engine would convert into a disk.
-bool has_special_header(const uint8_t *data)
-{
-    static const uint8_t ext1[8] = {'U', 'A', 'E', '-', '-', 'A', 'D', 'F'};
-    static const uint8_t ext2[8] = {'U', 'A', 'E', '-', '1', 'A', 'D', 'F'};
-    static const uint8_t hunk[8] = {0x00, 0x00, 0x03, 0xF3, 0x00, 0x00, 0x00, 0x00};
-    return !memcmp(data, ext1, 8) || !memcmp(data, ext2, 8) || !memcmp(data, hunk, 8);
-}
-
-}  // namespace
 
 void media_blob_id(const uint8_t content_id[P6_CONTENT_ID_SIZE], char out[kMediaBlobIdBytes])
 {
@@ -59,6 +46,7 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the media array is null");
     // Cheap checks on every entry first, so that hashing 900 KiB happens only for a list that is otherwise acceptable.
     uint32_t hard_files = 0;
+    uint64_t floppy_bytes = 0;
     for (uint32_t i = 0; i < count; ++i) {
         const p6_media &m = media[i];
         if (m.type != P6_MEDIA_ADF && m.type != P6_MEDIA_HDF)
@@ -75,15 +63,19 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
             if (m.image.bytes < kHdfBlock || m.image.bytes % kHdfBlock != 0)
                 return p6_fail(error, P6_ERROR_WRONG_MEDIA, "a hard file must be a whole number of 512-byte blocks, at least one");
         } else {
-            if (m.image.bytes != kAdfBytes)
-                return p6_fail(error, P6_ERROR_WRONG_MEDIA, "a disk image must be exactly 901120 bytes");
-            if (has_special_header(static_cast<const uint8_t *>(m.image.data)))
-                return p6_fail(error, P6_ERROR_WRONG_MEDIA, "extended ADF and executable images are not supported");
+            // A plain ADF, or a track-level image the engine reads in memory (T57): classified by its bytes, and every number its header gives the engine is checked here.
+            const p6_floppy::Verdict verdict = p6_floppy::classify_floppy(static_cast<const uint8_t *>(m.image.data), m.image.bytes);
+            if (!verdict.ok)
+                return p6_fail(error, P6_ERROR_WRONG_MEDIA, verdict.why);
+            floppy_bytes += m.image.bytes;
         }
         for (uint32_t j = 0; j < i; ++j)
             if (!memcmp(media[j].content_id, m.content_id, P6_CONTENT_ID_SIZE))
                 return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "two media share a content id");
     }
+    // The floppies together fit what 16 plain disks take: the sealed heap of the Waterbox guest is sized for that, whatever formats they are.
+    if (floppy_bytes > p6_floppy::kMaxFloppyBytes)
+        return p6_fail(error, P6_ERROR_CAPACITY, "the floppy images together are larger than 16 plain disks");
     for (uint32_t i = 0; i < count; ++i) {
         uint8_t digest[32];
         p6_sha256_hash(media[i].image.data, media[i].image.bytes, digest);
@@ -91,6 +83,11 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
             return p6_fail(error, P6_ERROR_WRONG_MEDIA, "a content id is not the SHA-256 of its image");
     }
     return P6_OK;
+}
+
+uint8_t floppy_format(const p6_media &medium)
+{
+    return p6_floppy::classify_floppy(static_cast<const uint8_t *>(medium.image.data), medium.image.bytes).format;      // validate_media accepted it
 }
 
 p6_result register_media(const p6_media *media, uint32_t count, uint32_t first_index, p6_error *error)
@@ -107,8 +104,9 @@ p6_result register_media(const p6_media *media, uint32_t count, uint32_t first_i
         default:
             return p6_fail(error, P6_ERROR_INTERNAL, "a medium could not be registered");
         }
-        // With P6_CONFIG_FLOPPY_WRITES the disk is writable over the overlay that p6_load reserved; its number is its index in the manifest.
-        if (media[i].type == P6_MEDIA_ADF && (session.config.flags & P6_CONFIG_FLOPPY_WRITES))
+        // With P6_CONFIG_FLOPPY_WRITES a plain ADF is writable over the overlay that p6_load reserved; its number is its index in the manifest. A track-level image (T57) is
+        // read only whatever the flag says: the overlay is made of AmigaDOS sectors and raw tracks of the ADF geometry, which those formats do not have.
+        if (media[i].type == P6_MEDIA_ADF && floppy_format(media[i]) == p6_floppy::kAdf && (session.config.flags & P6_CONFIG_FLOPPY_WRITES))
             if (p6_blob_overlay_bind(id, first_index + i) != P6_BLOB_OK)
                 return p6_fail(error, P6_ERROR_INTERNAL, "a medium could not get its write overlay");
     }
@@ -188,9 +186,15 @@ void remember_identity(const p6_buffer &firmware, const p6_media *media, uint32_
     memset(g_crc, 0, sizeof g_crc);
     p6_sha256_hash(firmware.data, firmware.bytes, s.firmware_sha256);
     s.media_count = count;
+    s.floppy_bytes = 0;
+    memset(s.media_format, 0, sizeof s.media_format);
     for (uint32_t i = 0; i < count; ++i) {
         memcpy(s.media_content_id[i], media[i].content_id, P6_CONTENT_ID_SIZE);
         s.media_type[i] = uint8_t(media[i].type);
+        if (media[i].type == P6_MEDIA_ADF) {
+            s.media_format[i] = floppy_format(media[i]);
+            s.floppy_bytes += media[i].image.bytes;
+        }
     }
 }
 
@@ -211,11 +215,15 @@ p6_result append_media(const p6_media &medium, uint32_t *index, p6_error *error)
     }
     if (s.media_count >= P6_MAX_MEDIA)
         return p6_fail(error, P6_ERROR_CAPACITY, "the media manifest is full");
+    if (s.floppy_bytes + medium.image.bytes > p6_floppy::kMaxFloppyBytes)
+        return p6_fail(error, P6_ERROR_CAPACITY, "the floppy images together would be larger than 16 plain disks");
     if (const p6_result registered = register_media(&medium, 1, s.media_count, error))
         return registered;               // register_media adds nothing when it fails
     const uint32_t at = s.media_count;
     memcpy(s.media_content_id[at], medium.content_id, P6_CONTENT_ID_SIZE);
     s.media_type[at] = P6_MEDIA_ADF;
+    s.media_format[at] = floppy_format(medium);
+    s.floppy_bytes += medium.image.bytes;
     g_crc[at] = MeasuredCrc{};           // measured when a state needs it, as for the media of p6_load
     s.media_count = at + 1;
     *index = at;
@@ -228,6 +236,8 @@ void forget_media()
     memset(s.firmware_sha256, 0, sizeof s.firmware_sha256);
     memset(s.media_content_id, 0, sizeof s.media_content_id);
     memset(s.media_type, 0, sizeof s.media_type);
+    memset(s.media_format, 0, sizeof s.media_format);
+    s.floppy_bytes = 0;
     memset(g_crc, 0, sizeof g_crc);
     s.media_count = 0;
     s.media_queued = 0;
@@ -411,6 +421,15 @@ extern "C" p6_result p6_media_write_status_get(p6_media_write_status *status, p6
     p6_overlay *overlay = p6_blob_overlay();
     if (!overlay)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the image was loaded without P6_CONFIG_FLOPPY_WRITES");
+    if (session.media_format[status->media_index] != p6_floppy::kAdf) {
+        // A track-level image (T57) is read only: it has no part of the overlay, and nothing of it can be written.
+        status->overlay_capacity = P6_OVL_SLOTS;
+        status->overlay_used = overlay->count;
+        status->medium_sectors = 0;
+        status->refused_writes = overlay->refused;
+        status->raw_tracks = 0;
+        return P6_OK;
+    }
     uint64_t own = 0, raw = 0;
     for (uint32_t i = 0; i < overlay->count; ++i)
         if (overlay->medium[i] == status->media_index) ++own;
@@ -457,6 +476,8 @@ extern "C" p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the image was loaded without P6_CONFIG_FLOPPY_WRITES");
     if (media_index >= session.media_count)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium is not in the manifest");
+    if (session.media_format[media_index] != p6_floppy::kAdf)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "an extended ADF or FDI image is read only: the guest cannot change it, so there is nothing to export");
     if (capacity < p6_bridge::kAdfBytes)
         return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than a disk image (901120 bytes)");
     if (!buffer)

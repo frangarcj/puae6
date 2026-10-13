@@ -292,6 +292,13 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     (`trackspeed`, que DSDn y DSKX ya llevan) y el vaciado del FIFO, que DISK lleva. Prueba: `tests/state/test_det02_floppy.py` (DET02 en cada velocidad, un limite dentro de las dos lineas, el
     estado con el contador a cero que no reproduce al original, las refutaciones del contador) y `tests/libretro-host/test_floppy_speed.py`.
 
+16. **Revision 2026-10-13 (T57a): la escala de la posicion de la cabeza es estado.** Una pista cruda de un ADF extendido (o, con T57b, de un FDI) tiene la longitud que dice la imagen, no los 12 668 bytes
+    de una pista AmigaDOS, y `updatemfmpos` escala la posicion de la cabeza por la razon entre la longitud de la pista nueva y `prevtracklen` cuando la cabeza llega a otra pista. `prevtracklen` es 0 justo
+    tras insertar un disco y la longitud de la ultima pista llenada despues; `restore_disk` la copiaba de la pista de la maquina VIVA (la que corre cuando se carga el estado), no de la del estado, y una
+    cabeza que sale de la pista despues de una carga se escalaba por la razon de dos longitudes que no tenian nada que ver con el estado. **DSKX** pasa de 42 a 46 palabras (parche 0330, +16 bytes en
+    todas las maquinas: la palabra 9 de cada unidad, 0 a `kMfmBitsMax`). El buffer de la pista (DSDn) ya viajaba; el parche 0331 pone a cero los bits que pasan del final de una pista cruda para que
+    sus bytes sean funcion de la imagen. Prueba: `tests/state/test_det02_trackdisk.py` (el anillo de busqueda sobre pistas crudas de seis longitudes divergia sin el 0330).
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

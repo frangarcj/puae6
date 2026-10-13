@@ -56,8 +56,8 @@ disco. Mediciones y referencias de codigo: informe de investigacion de T12 (resu
 
 ## Limites
 
-- Solo ADF de doble densidad de 901120 bytes. ADF extendido (`UAE-1ADF`/`UAE--ADF`), HD, ST/IMG, IPF, SCP, ADZ y DMS quedan
-  fuera del MVP hasta acotar `read_header_ext2` (parche opcional 0063 del informe) o añadir una biblioteca.
+- Solo ADF de doble densidad de 901120 bytes. HD, ST/IMG, IPF, SCP, ADZ y DMS quedan fuera del MVP. (El ADF extendido
+  `UAE-1ADF`/`UAE--ADF` entra con T57a: ver mas abajo.)
 - Dos discos con los mismos bytes no son dos medios (id duplicado): el llamante cambia de disco por indice, no por copia.
 - El motor sigue aceptando imagenes de otros tamaños si alguien las registrara fuera del bridge; la barrera esta en `p6_load`.
 - El disco de arranque (montado antes del primer frame) y los cambios en caliente llegan con T12b.
@@ -67,3 +67,21 @@ disco. Mediciones y referencias de codigo: informe de investigacion de T12 (resu
 - Confiar en el `content_id` del llamante: no detecta "disco equivocado" en la carga y deja pasar un ADF extendido hostil.
 - Reutilizar SHA-1/CRC32 del motor: la identidad del contrato es SHA-256 y los tests de Python ya la usan.
 - Pasar por el motor un path virtual con extension `.adf`: reabre la rama PC-format y el reconocimiento por extension.
+
+## ADF extendido (T57a)
+
+11. **Un formato dentro del tipo ADF, no un tipo nuevo.** `P6_MEDIA_ADF` es una imagen de disquete y su formato lo dicen los bytes: `classify_floppy`
+    (ports/portable/media/trackdisk.h) distingue el ADF plano de 901120 bytes, `UAE-1ADF` (version 2) y `UAE--ADF` (version 1) y rechaza
+    el ejecutable Amiga como siempre. La capacidad `P6_CAP_MEDIA_EXT_ADF` (bit 7) anuncia que el puente los acepta. La identidad sigue siendo la del punto 2
+    ampliada: el SHA-256 de los bytes del fichero tal como se dieron (no hay forma normalizada de una pista cruda, que un ADF no puede representar).
+12. **El validador sustituye al tamaño.** Para estos formatos el tamaño no basta: el lector de upstream toma del fichero el numero de pistas (la tabla del
+    motor tiene 166), el desplazamiento y la longitud de cada una y los bits de las crudas (el buffer MFM tiene 0x8000 palabras) sin comprobar nada. El
+    validador comprueba cada numero contra los bytes que va a leer (docs/02-contracts.md, "ADF extendido") y su hermano independiente, escrito
+    otra vez en `tests/media/test_trackdisk_formats.py` y en el objetivo `trackdisk` del fuzzer, discute cada byte de la cabecera. El motor no se toca para leerlos.
+13. **Cotas.** 3 MiB por imagen y, entre todos los disquetes del manifiesto, lo que ocupan 16 ADF planos (14 417 920 bytes): el heap sellado de Waterbox y su
+    presupuesto (docs/03-waterbox.md) se dimensionaron para eso y no cambian. Pasarse es `CAPACITY` (en `p6_load` y en `p6_media_append`), nada queda registrado.
+14. **Solo lectura.** El overlay de T27 es de sectores AmigaDOS y de pistas crudas de la geometria del ADF plano; un ADF extendido tiene pistas de longitud propia y
+    no se escribe: sigue protegido con `P6_CONFIG_FLOPPY_WRITES`, `p6_media_write_status_get` lo da vacio y `p6_media_export` responde `UNSUPPORTED`.
+15. **Enganche para IPF (T58).** El lector de IPF producira pistas MFM con su temporizacion por celda; su sitio natural es `drive_fill_bigbuf` junto a las pistas de
+    este formato (la rama `ADF_IPF`, hoy sin compilar, y `fetchnextrevolution` para varias vueltas), con el estado de pista de este punto 12 mas el contador de
+    revolucion de T57b, y el validador de `trackdisk.h` como compuerta antes del motor (un formato nuevo es un `Format` mas y una funcion de comprobacion).

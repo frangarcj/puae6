@@ -232,5 +232,17 @@
       "iterations": 60,
       "note": "baseline; second seed"
     }
+  ],
+  "trackdisk_runs": [
+    {
+      "seed": 1,
+      "iterations": 40,
+      "note": "baseline of T57a; 40 extended ADF images with a mutated header or table (and 1 in 8 unmutated), against an independent oracle of the format; the accepted ones are read by the sweep micro-ROM over the first cylinders at turbo speed, saved and loaded back"
+    },
+    {
+      "seed": 2,
+      "iterations": 40,
+      "note": "baseline; second seed"
+    }
   ]
 }

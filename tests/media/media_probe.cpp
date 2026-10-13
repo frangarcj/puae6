@@ -3,6 +3,8 @@
 // The guest-visible disk scenario (registers, MFM, replay) is T12c's; here the drives are looked at from the engine.
 #include "p6.h"
 #include "media.h"
+#include "trackdisk.h"
+#include "overlay.h"
 #include "session.h"
 #include "sha256.h"
 #include "blob_io.h"
@@ -470,6 +472,149 @@ static void media_append(const std::vector<uint8_t> &rom)
     assert(p6_unload(&e) == P6_OK);
 }
 
+
+// --- T57a: the extended ADF as a floppy image -----------------------------------------------------------------------------------------------------------------------
+static void put16(std::vector<uint8_t> &v, size_t at, uint32_t x) { v[at] = uint8_t(x >> 8); v[at + 1] = uint8_t(x); }
+static void put32(std::vector<uint8_t> &v, size_t at, uint32_t x) { for (int i = 0; i < 4; ++i) v[at + i] = uint8_t(x >> (24 - 8 * i)); }
+
+// UAE-1ADF with `tracks` tracks: track 0 raw with `raw_bits` bits (6250 words of pattern), the others eleven AmigaDOS sectors of zeros and a pattern byte.
+static std::vector<uint8_t> make_ext2(uint32_t tracks, uint32_t raw_bits, uint8_t pattern, uint32_t dos_bytes = 5632)
+{
+    const uint32_t raw_bytes = (raw_bits + 15) / 16 * 2;
+    std::vector<uint8_t> v(12 + 12 * size_t(tracks) + raw_bytes + size_t(dos_bytes) * (tracks - 1), pattern);
+    memcpy(v.data(), "UAE-1ADF", 8);
+    put16(v, 8, 0);
+    put16(v, 10, tracks);
+    for (uint32_t t = 0; t < tracks; ++t) {
+        uint8_t *row = &v[12 + 12 * size_t(t)];
+        memset(row, 0, 12);
+        row[3] = t == 0 ? 1 : 0;
+        const uint32_t length = t == 0 ? raw_bytes : dos_bytes;
+        put32(v, 12 + 12 * size_t(t) + 4, length);
+        put32(v, 12 + 12 * size_t(t) + 8, t == 0 ? raw_bits : 0);
+    }
+    return v;
+}
+
+static std::vector<uint8_t> make_ext1(uint8_t pattern)
+{
+    std::vector<uint8_t> v(648 + 3000 + 5632u * 159, pattern);
+    memcpy(v.data(), "UAE--ADF", 8);
+    for (uint32_t t = 0; t < 160; ++t) {
+        put16(v, 8 + 4 * size_t(t), t == 0 ? 0x4489 : 0);
+        put16(v, 10 + 4 * size_t(t), t == 0 ? 3000 : 5632);
+    }
+    return v;
+}
+
+static void extended_adf(const std::vector<uint8_t> &rom)
+{
+    p6_error e = make_error();
+    const std::vector<uint8_t> ext2 = make_ext2(160, 100000, 0x5a), ext1 = make_ext1(0x33), plain = make_adf(61);
+    const p6_media m2 = medium_of(ext2), m1 = medium_of(ext1), mp = medium_of(plain);
+
+    // Accepted by their bytes: the format is not in the type, and the manifest remembers it.
+    const p6_media mixed[3] = {mp, m2, m1};
+    assert(load(rom, mixed, 3, &e) == P6_OK && e.message[0] == 0);
+    const p6_session::Session &s = p6_session::session;
+    assert(s.media_count == 3 && s.media_format[0] == p6_floppy::kAdf && s.media_format[1] == p6_floppy::kExt2 && s.media_format[2] == p6_floppy::kExt1);
+    assert(s.floppy_bytes == plain.size() + ext2.size() + ext1.size());
+    assert(blob_holds(m2, ext2) && blob_holds(m1, ext1) && blob_holds(mp, plain));
+    // The identity is the SHA-256 of the file as given: the same disk in the other format is another medium, and a flipped bit another one again.
+    std::vector<uint8_t> other = ext2;
+    other[other.size() - 1] ^= 1;
+    const p6_media mo = medium_of(other);
+    assert(memcmp(mo.content_id, m2.content_id, 32) != 0);
+    // Mounted in a drive like any disk.
+    p6_media_event event{};
+    event.abi_version = P6_ABI_VERSION;
+    event.struct_size = sizeof event;
+    event.type = P6_MEDIA_EVENT_MOUNT;
+    event.drive = 0;
+    event.media_index = 1;
+    event.sequence = 1;
+    assert(p6_media_event_enqueue(&event, &e) == P6_OK);
+    run_units(1);
+    assert(!disk_empty(0) && names(0, id_of(m2)) && s.drive_media[0] == 1);
+    // Appended after the load, with the same rules: another extended disk is registered, and the total of the floppies is bounded.
+    uint32_t index = 0;
+    assert(p6_media_append(&mo, &index, &e) == P6_OK && index == 3 && s.media_format[3] == p6_floppy::kExt2);
+    assert(p6_unload(&e) == P6_OK);
+    assert(!registered(m2) && s.media_count == 0);
+
+    // What the engine could not read safely is refused before it is touched, with a message.
+    for (uint32_t tracks : {0u, 167u, 0xFFFFu}) {
+        std::vector<uint8_t> hostile = ext2;
+        put16(hostile, 10, tracks);
+        const p6_media mh = medium_of(hostile);
+        rejects(rom, &mh, 1, P6_ERROR_WRONG_MEDIA, "number of tracks");
+    }
+    {
+        std::vector<uint8_t> hostile = ext2;
+        hostile.resize(hostile.size() - 1);                              // the last track lies beyond the end of the file
+        const p6_media mh = medium_of(hostile);
+        rejects(rom, &mh, 1, P6_ERROR_WRONG_MEDIA, "track beyond the file");
+        hostile = ext2;
+        put32(hostile, 12 + 8, 100000 + 16);                              // more bits than the bytes of the track hold
+        const p6_media mb = medium_of(hostile);
+        rejects(rom, &mb, 1, P6_ERROR_WRONG_MEDIA, "bits beyond the track");
+        hostile = ext2;
+        hostile[12 + 3] = 4;                                              // a track type the core does not read
+        const p6_media mt = medium_of(hostile);
+        rejects(rom, &mt, 1, P6_ERROR_WRONG_MEDIA, "track type");
+        hostile = ext1;
+        put16(hostile, 10, 60000);                                        // a track of 60000 bytes: beyond what a double-density track holds
+        const p6_media ml = medium_of(hostile);
+        rejects(rom, &ml, 1, P6_ERROR_WRONG_MEDIA, "ext1 long track");
+        std::vector<uint8_t> big(4u << 20, 0);                            // beyond the 3 MiB the core reads
+        memcpy(big.data(), "UAE-1ADF", 8);
+        const p6_media mg = medium_of(big);
+        rejects(rom, &mg, 1, P6_ERROR_WRONG_MEDIA, "larger than 3 MiB");
+    }
+    // The floppies together are bounded by 16 plain disks (14 417 920 bytes), whatever their formats: five extended disks of 2.9 MB fit, a sixth or a plain one with them does not.
+    {
+        std::vector<std::vector<uint8_t>> many;
+        std::vector<p6_media> list;
+        for (uint32_t i = 0; i < 6; ++i) {
+            many.push_back(make_ext2(160, 100000, uint8_t(i), 18000));
+            list.push_back(medium_of(many.back()));
+        }
+        assert(5 * many[0].size() <= p6_floppy::kMaxFloppyBytes && 6 * many[0].size() > p6_floppy::kMaxFloppyBytes && 5 * many[0].size() + plain.size() > p6_floppy::kMaxFloppyBytes);
+        rejects(rom, list.data(), 6, P6_ERROR_CAPACITY, "six extended disks");
+        std::vector<p6_media> withplain(list.begin(), list.begin() + 5);
+        withplain.push_back(mp);
+        rejects(rom, withplain.data(), 6, P6_ERROR_CAPACITY, "five extended disks and a plain one");
+        assert(load(rom, list.data(), 5, &e) == P6_OK);
+        index = 0;
+        assert(p6_media_append(&list[5], &index, &e) == P6_ERROR_CAPACITY && e.message[0] != 0);        // nothing registered
+        assert(!registered(list[5]) && s.media_count == 5);
+        assert(p6_media_append(&list[2], &index, &e) == P6_OK && index == 2);                          // a medium it holds is still answered
+        assert(p6_unload(&e) == P6_OK);
+    }
+    assert(p6_shutdown(&e) == P6_OK);
+
+    // With writes on (P6_CONFIG_FLOPPY_WRITES) a plain ADF has the overlay and an extended one stays write protected, reported with no sectors and not exportable.
+    p6_config c = make_config();
+    c.flags = P6_CONFIG_FLOPPY_WRITES;
+    assert(p6_init(&c, &e) == P6_OK);
+    assert(load(rom, mixed, 3, &e) == P6_OK);
+    assert(p6_bridge::media_forced_write_protect(id_of(m2).c_str()) && p6_bridge::media_forced_write_protect(id_of(m1).c_str()) && !p6_bridge::media_forced_write_protect(id_of(mp).c_str()));
+    p6_media_write_status st{};
+    st.abi_version = P6_ABI_VERSION;
+    st.struct_size = sizeof st;
+    for (uint32_t i = 0; i < 3; ++i) {
+        st.media_index = i;
+        assert(p6_media_write_status_get(&st, &e) == P6_OK && st.medium_sectors == 0 && st.raw_tracks == 0 && st.overlay_capacity == P6_OVL_SLOTS);
+    }
+    std::vector<uint8_t> out(p6_bridge::kAdfBytes);
+    uint64_t written = 7;
+    assert(p6_media_export(0, out.data(), out.size(), &written, &e) == P6_OK && written == p6_bridge::kAdfBytes && out == plain);
+    written = 7;
+    assert(p6_media_export(1, out.data(), out.size(), &written, &e) == P6_ERROR_UNSUPPORTED && written == 0 && e.message[0] != 0);
+    assert(p6_media_export(2, out.data(), out.size(), &written, &e) == P6_ERROR_UNSUPPORTED && written == 0);
+    assert(p6_unload(&e) == P6_OK);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) { fprintf(stderr, "usage: %s boot.rom\n", argv[0]); return 64; }
@@ -489,6 +634,7 @@ int main(int argc, char **argv)
     drives_follow_the_events(rom, media, disks);
     reset_keeps_the_media(rom, media, disks);
     media_append(rom);
+    extended_adf(rom);                                 // leaves the instance initialized with writes on
     assert(disks == before);                           // no swap, eject or frame wrote to the caller's images
     assert(p6_shutdown(&e) == P6_OK);
     puts("media ok");

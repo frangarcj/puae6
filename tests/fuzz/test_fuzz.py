@@ -301,6 +301,65 @@ class IdeHardFileFuzzTests(unittest.TestCase):
         self.assertEqual(first.stdout, self.run_target(3, 40).stdout)
 
 
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class TrackDiskFuzzTests(unittest.TestCase):
+    """FUZZ01 for the extended ADF (T57a): headers, track tables and data mutated (a field set to a boundary value, rows swapped or copied, the file cut or extended, the other magic over the same
+    bytes) and given to p6_load against an independent oracle of the format, with the floppy at turbo speed so that the micro-ROM of tests/media/trackdisk.py sweep_rom_source walks the head
+    over the first cylinders and reads both heads of each. Whatever the oracle accepts the engine reads under ASan and UBSan, no recover; the state of the machine that read it is saved and
+    loaded back and the machine runs a unit more. Any single allocation above 24 MiB is a report."""
+
+    ENV = {**ENV, "ASAN_OPTIONS": "detect_leaks=0:max_allocation_size_mb=24"}
+
+    @classmethod
+    def setUpClass(cls):
+        from tests.media import trackdisk as td
+        from tests.scenarios.disk import disk
+        cls.exe = build_probe(ROOT / "build/native-debug", True, "p6_fuzz_probe")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-fuzz-trackdisk-")
+        directory = Path(cls.tmp.name)
+        cls.rom = directory / "sweep.rom"
+        cls.rom.write_bytes(builder.build(td.sweep_rom_source()))
+        adf = disk.make_adf(0x44)
+        dos = [("dos", td.dos_track(adf, t)) for t in range(160)]
+        raw = [("raw", td.raw_track(0x5EED + t, words=6200 + 11 * t, sync_at=300 + 5 * t), (6200 + 11 * t) * 16) if t < 12 else dos[t] for t in range(160)]
+        images = {"ext2.adf": td.ext2_image(raw), "ext2-dos.adf": td.ext2_image(dos), "ext1.adf": td.ext1_image([("raw", td.SYNC, bytes((i * 5 + 1) & 0xFF for i in range(9000)))] + dos[1:]),
+                  "plain.adf": adf}
+        cls.images = []
+        for name, data in images.items():
+            path = directory / name
+            path.write_bytes(data)
+            cls.images.append(str(path))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_target(self, seed, iterations):
+        return subprocess.run([str(self.exe), "trackdisk", str(self.rom), str(seed), str(iterations), *self.images], capture_output=True, text=True, timeout=3600, env=self.ENV)
+
+    def test_the_recorded_seeds_run_clean_and_reach_loaded_and_refused_images(self):
+        for run in CORPUS["trackdisk_runs"]:
+            with self.subTest(seed=run["seed"], iterations=run["iterations"]):
+                result = self.run_target(run["seed"], run["iterations"])
+                self.assertTrue(clean(result), result.stderr[-1200:])
+                results = {int(m[1]): int(m[2]) for m in re.finditer(r"^trackdisk result (-?\d+): (\d+)$", result.stdout, re.M)}
+                self.assertIn(0, results, "some images load")
+                self.assertIn(6, results, "and some are refused as the wrong medium")
+                loaded = re.search(r"^trackdisk loaded (\d+) extended (\d+) states (\d+)$", result.stdout, re.M)
+                self.assertGreater(int(loaded[2]), 0, "some of the images the oracle accepts are extended ADFs, read by the engine")
+                self.assertEqual(loaded[1], loaded[3], "every loaded image gave a state that loaded back")
+
+    def test_a_run_is_reproducible(self):
+        first = self.run_target(3, 30)
+        self.assertTrue(clean(first), first.stderr[-600:])
+        self.assertEqual(first.stdout, self.run_target(3, 30).stdout)
+
+    def test_the_harness_can_fail(self):
+        # No image to mutate: the target refuses it (a harness that cannot fail would pass on an empty pool).
+        result = subprocess.run([str(self.exe), "trackdisk", str(self.rom), "1", "5"], capture_output=True, text=True, timeout=600, env=self.ENV)
+        self.assertNotEqual(result.returncode, 0)
+
+
 CONTENT_KINDS = ("random-bytes", "valid-flipped", "long-line", "path-length-boundary", "nul", "bom-middle", "cr-only", "bar", "savedisk", "many-entries",
                  "huge-path", "path-forms", "utf8-invalid", "whitespace", "huge-file")
 HDZ_KINDS = ("valid-hdz", "valid-hdf", "hdz-flipped", "hdz-truncated", "hdz-trailing", "hdz-bad-crc", "hdz-bad-size", "wrong-size", "over-cap", "bomb", "random-gzip",

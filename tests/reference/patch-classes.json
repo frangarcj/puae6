@@ -154,7 +154,9 @@
     "0311-cpu-68010-loop-mode-table": "required",
     "0320-ide-hard-disks-synchronous": "required",
     "0321-gayle-ide-port": "required",
-    "0322-gayle-machine-hooks": "required"
+    "0322-gayle-machine-hooks": "required",
+    "0330-disk-prevtracklen-state": "instrumentation",
+    "0331-disk-raw-track-tail": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -309,6 +311,13 @@
       "effect": "inert",
       "why": "The checksum of an RDB block sums the longs that were read; only a hard file with a hostile block reaches it.",
       "test": "tests.fuzz.test_fuzz.HardFileFuzzTests",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0331-disk-raw-track-tail": {
+      "effect": "inert",
+      "why": "Zeroes the bits past the end of a raw track of the extended ADF, which the drive never reads: only a disk with a raw track whose length is not a multiple of 16 bits reaches it, and the REF01 corpus has none.",
+      "test": "tests/state/test_det02_trackdisk.py",
       "scenarios": [],
       "subsystems": []
     }
