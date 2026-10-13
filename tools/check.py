@@ -251,6 +251,15 @@ TASK_SUITES[('MED01', 'T57')] = {**TASK_SUITES[('MED01', 'T57b')], 'headless_for
                                  'waterbox_trackdisk': 'tests.waterbox-media.test_media_trackdisk'}
 TASK_SUITES[('DET02', 'T57')] = TASK_SUITES[('DET02', 'T57b')]
 TASK_SUITES[('FUZZ01', 'T57')] = TASK_SUITES[('FUZZ01', 'T57b')]
+# T58a is the IPF reader with a free license (the decoder of MAME, third_party/mame-ipf), on its own and without the engine. MED01: the decoder against an oracle that encodes MFM itself (cells, timing
+# zones, the write splice, weak and noise cells that differ between revolutions and are the same in every process, the files it opens) and where the files come from (hashes, the license in the files,
+# the diff against what MAME has, no capsimg). FUZZ01 adds the `ipf` target: mutated images, with every checksum put right again most of the time, against an independent oracle of which files open,
+# under ASan/UBSan. T58b and T58 add the engine, the state and the three surfaces.
+TASK_SUITES[('MED01', 'T58a')] = {
+    'ipf_decoder': 'tests.media.test_ipf',
+    'ipf_provenance': 'tests.media.test_ipf_provenance',
+}
+TASK_SUITES[('FUZZ01', 'T58a')] = {**TASK_SUITES[('FUZZ01', 'T57')], 'ipf': 'tests.fuzz.test_ipf'}
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).

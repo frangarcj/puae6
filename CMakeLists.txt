@@ -74,6 +74,7 @@ add_library(p6_portable STATIC
     ports/portable/video_present.cpp
     ports/portable/blob_io.c
     ports/portable/media/sha256.c
+    ports/portable/media/ipf_track.cpp
     ports/portable/civil_time.c
     ports/portable/rtc_time.cpp
     ports/portable/audio_math.cpp
@@ -153,7 +154,8 @@ file(SHA256 "${_codegen_file}" _codegen_sha256)
 file(GLOB_RECURSE _core_files CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/bridge/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/bridge/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.inc")
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mame-ipf/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mame-ipf/*.h")      # the IPF decoder (T58) is compiled into p6_portable
 list(FILTER _core_files EXCLUDE REGEX "/bridge/state_probe\\.cpp$")      # a test tool that lives in the bridge directory
 list(SORT _core_files)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_core_files})

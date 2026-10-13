@@ -13712,13 +13712,112 @@
       "evidence": null
     },
     {
+      "id": "T58a",
+      "title": "IPF: decodificador de licencia libre (lector de MAME, BSD-3) importado con procedencia, ADR de licencia, validador de fichero y fuzzer",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "done",
+      "depends": [
+        "T57"
+      ],
+      "touch": [
+        "third_party/**",
+        "ports/portable/media/**",
+        "CMakeLists.txt",
+        "bridge/media.cpp",
+        "manifests/licenses.json",
+        "tests/media/**",
+        "tests/fuzz/**",
+        "tests/test_import_sources.py",
+        "docs/adr/**",
+        "tools/check.py",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T58.md"
+      ],
+      "steps": [
+        "Decision (2026-10-13): el decodificador es ipf_dsk.cpp de MAME (src/lib/formats, licencia BSD-3-Clause segun su cabecera, Olivier Galibert), importado de un commit fijado a third_party/mame-ipf con su aviso, su texto de licencia y un registro de procedencia (URL, commit, SHA-256 de cada fichero), y compilado en p6_portable con tres cabeceras minimas propias que sustituyen a flopimg.h, ioprocs.h y multibyte.h de MAME. Los cambios locales (no escribir en el buffer de entrada, aritmetica de 64 bits, cotas, puntos de entrada para decodificar UNA pista de una imagen que se lee por offsets) son un parche pequeno sobre el fichero original, que se guarda tal cual. capsimg no se usa ni se consulta su codigo.",
+        "El validador de fichero (classify_floppy, un Format mas: IPF) comprueba sin reservar memoria la estructura (etiquetas, tamanos, CRC de cada etiqueta, pistas dentro del fichero, cotas) y el puente decodifica todas las pistas al registrar el medio, de modo que un IPF que el motor no pueda leer se rechaza con motivo antes de ejecutarse. Fuzzer: ('FUZZ01','T58a') con el decodificador bajo ASan/UBSan y un oraculo independiente en Python. ADR de licencia en docs/adr.",
+        "Ampliacion de touch (2026-10-13): CMakeLists.txt (p6_portable compila el decodificador), bridge/media.cpp (decodificacion completa al registrar), tests/fuzz/** y tools/check.py (FUZZ01 T58a), tests/test_import_sources.py (la procedencia de third_party), plan/tasks.json y tests/test_plan.py (la division) y reports/tasks/T58.md."
+      ],
+      "checks": [
+        "MED01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un IPF de prueba (escrito por tests/media/ipf.py segun el formato que el decodificador lee) se acepta, se decodifica a pistas MFM con temporizacion y bits debiles, y los IPF hostiles se rechazan o se leen sin salirse de sus buffers."
+      ],
+      "stop": "No enlazar capsimg ni codigo de licencia no libre; si el fichero de MAME no se puede acotar, documentar el caso minimo y bloquear.",
+      "evidence": null
+    },
+    {
+      "id": "T58b",
+      "title": "IPF en el motor: pistas con temporizacion, bits debiles por revolucion y su estado en el estado nativo (DET02)",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "pending",
+      "depends": [
+        "T58a"
+      ],
+      "touch": [
+        "ports/portable/media/**",
+        "ports/portable/sysconfig.h",
+        "bridge/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
+        "manifests/host-surface.json",
+        "manifests/upstream-files.json",
+        "CMakeLists.txt",
+        "tests/media/**",
+        "tests/state/**",
+        "tests/fuzz/**",
+        "tests/host/**",
+        "tests/lifecycle/**",
+        "tests/codegen/**",
+        "tests/reference/patch-classes.json",
+        "docs/02-contracts.md",
+        "docs/adr/**",
+        "tools/check.py",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T58.md"
+      ],
+      "steps": [
+        "Enganche de T57 (docs/adr/0008-media-identity.md, punto 16): drive_insert reconoce 'CAPS' y abre el indice del IPF (lee el fichero por offsets del almacen de medios, sin copiarlo), drive_fill_bigbuf decodifica la pista (rama ADF_IPF) y fetchnextrevolution la siguiente revolucion cuando la pista tiene bits debiles. Los bits debiles salen de un generador propio del lector sembrado por (pista, revolucion), nunca uaerand; el contador de revolucion y la pista a la que pertenece son los de FDI (fdirev, fditrack) en DSKX, mas la posicion del empalme en skipoffset. La temporizacion es la fisica: la revolucion dura 200 ms.",
+        "DET02: estados antes, a mitad y despues de leer una pista IPF, con bits debiles y varias revoluciones, con el motor encendido y apagado, y la cabeza recorriendo pistas de varias longitudes. P6_CAP_MEDIA_IPF (bit nuevo del ABI, aditivo)."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Un IPF con pistas AmigaDOS, de sincronizacion propia con temporizacion y con bits debiles se lee por el motor, y un estado tomado a mitad de la lectura de una pista con bits debiles restaura (DET02)."
+      ],
+      "stop": "No escribir ficheros temporales del host; no usar uaerand para los bits debiles; no cambiar hashes golden.",
+      "evidence": null
+    },
+    {
       "id": "T58",
       "title": "IPF con un decodificador de licencia libre (no capsimg), dentro del motor y de Waterbox",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T57"
+        "T57",
+        "T58a",
+        "T58b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13735,11 +13834,32 @@
         "integration/bizhawk/**",
         "tests/media/**",
         "tests/state/**",
-        "docs/adr/**"
+        "docs/adr/**",
+        "adapters/headless/**",
+        "adapters/waterbox/**",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/options.md",
+        "tools/check.py",
+        "tests/fuzz/**",
+        "tests/libretro-host/**",
+        "tests/libretro-ui/**",
+        "tests/waterbox-media/**",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "tests/codegen/**",
+        "tests/lifecycle/**",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T58.md",
+        "manifests/host-surface.json"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk enlaza capsimg (licencia SPS no comercial) estatico en el guest; el usuario pide una version libre. Candidata: el lector IPF de MAME (lib/formats, BSD-3, verificar licencia y procedencia antes de importar), integrado en memoria con estado serializable; si no es viable, reimplementar desde la especificacion publica del formato. ADR de licencia.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/capsimg-config y CAPSIMG-LICENCE-NOTICE.md solo como referencia de integracion en el guest (capsimg NO se reutiliza: licencia no comercial)."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/capsimg-config y CAPSIMG-LICENCE-NOTICE.md solo como referencia de integracion en el guest (capsimg NO se reutiliza: licencia no comercial).",
+        "Division (2026-10-13): T58a (decodificador de licencia libre, importacion con procedencia, ADR, validador y fuzzer), T58b (motor: pistas, revoluciones, estado, DET02); T58 es el cierre: libretro (container.h deja de rechazar el IPF, extension ipf), headless (--disk), BizHawk/Waterbox (el cargador entrega .ipf), P6_CAP_MEDIA_IPF, contratos, WB03, el guest Waterbox registrado de nuevo y la parte opcional con un IPF autorizado por el usuario (P6_IPF_FILE). Ampliacion de touch: adapters/headless, adapters/waterbox, tools/check.py, plan, manifests/waterbox-memory.json, las suites de superficies y docs."
       ],
       "checks": [
         "MED01",

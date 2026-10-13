@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "component": "mame-ipf",
+  "purpose": "IPF (SPS/CAPS) floppy image decoder with a free license, in place of capsimg (docs/adr/0013-ipf-decoder-licence.md)",
+  "source": {
+    "project": "MAME",
+    "repository": "https://github.com/mamedev/mame",
+    "commit": "7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8",
+    "commit_date": "2026-08-28T19:30:30Z",
+    "commit_subject": "floppy: fix weak-bit reads; mark working softlist entries (#16003)",
+    "files_downloaded_from": "https://raw.githubusercontent.com/mamedev/mame/7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8/src/lib/formats/<file>",
+    "downloaded_on": "2026-10-13",
+    "note": "the last commit that changed ipf_dsk.cpp; the files were taken at that commit, not from a branch head"
+  },
+  "license": {
+    "spdx": "BSD-3-Clause",
+    "declared_in": "the first two lines of both files: '// license:BSD-3-Clause' and '// copyright-holders:Olivier Galibert'",
+    "text_file": "LICENSE-BSD-3-Clause.txt",
+    "text_sha256": "a27554938d3dd6569931e5e18b93214a57f47bc1bb8b75fc32fdd18abe042a07",
+    "text_origin": "https://raw.githubusercontent.com/mamedev/mame/7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8/docs/legal/BSD-3-Clause",
+    "mame_as_a_whole": "GPL-2.0 (COPYING of the same commit, sha256 9814ccb157fdb0a8f0fa049f858b6ac761320e90eb28f54e2972468d6d6ac0ca), 'individual source files may be made available under less restrictive licenses, as noted in their respective header comments'",
+    "copyright_holders_in_history": [
+      "Olivier Galibert",
+      "Miodrag Milanovic",
+      "Vas Crabb",
+      "AJR",
+      "Roman Donchenko",
+      "Curt Coder",
+      "holub",
+      "firewave"
+    ]
+  },
+  "originals": [
+    {
+      "path": "original/ipf_dsk.cpp",
+      "upstream_path": "src/lib/formats/ipf_dsk.cpp",
+      "sha256": "2bb985d07a077e5f93c1a7e7ad611d9ef77006f25ad6c037c1a9a3f47c3d80fa"
+    },
+    {
+      "path": "original/ipf_dsk.h",
+      "upstream_path": "src/lib/formats/ipf_dsk.h",
+      "sha256": "6af2d992a600ca1f0c6d882a76340691c09871b7dfdcca3ff7fded421656b1c8"
+    }
+  ],
+  "compiled": [
+    {
+      "path": "ipf_dsk.cpp",
+      "derived_from": "original/ipf_dsk.cpp",
+      "sha256": "023eacd6850bd1f8cc5aa04485748c1c6535e87871bea6bdabc3c3a1d6ca6c7f"
+    },
+    {
+      "path": "ipf_dsk.h",
+      "derived_from": "original/ipf_dsk.h",
+      "sha256": "235684bd875f4a991a3e50964293173d2d2a0ef7e19765c656780fc27df51a80"
+    }
+  ],
+  "local_changes": {
+    "path": "local-changes.diff",
+    "sha256": "e1b136dd521cefa6c1736681d0cd5463b2fc30c2c0e05e880cffd64b8a6f6bd7",
+    "applied_with": "diff -u original/F F; patch -R recovers original/F"
+  },
+  "project_files": [
+    {
+      "path": "flopimg.h",
+      "sha256": "957667532a1dfbc159c2320e0a2ab7c4ffafcb226d4c306219f89c46bc76fa92",
+      "note": "written for PUAE6, no MAME code; stands in for src/lib/formats/flopimg.h"
+    },
+    {
+      "path": "multibyte.h",
+      "sha256": "bcaa6419d064d28c5e6e61338d66cff372085ae36ec962ab6136c5e169704391",
+      "note": "written for PUAE6, no MAME code; stands in for src/lib/util/multibyte.h"
+    }
+  ],
+  "mame_includes_of_the_original": [
+    "ioprocs.h",
+    "multibyte.h",
+    "flopimg.h (through ipf_dsk.h)"
+  ],
+  "audit": {
+    "date": "2026-10-13",
+    "task": "T58a",
+    "checked": [
+      "license and copyright-holders in the first two lines of both files",
+      "the BSD-3-Clause text of the same commit and the MAME COPYING that allows per-file licenses",
+      "the includes of both files: only MAME's own ioprocs.h, multibyte.h and flopimg.h, none of which is imported (two small stand-ins are written for the project, ioprocs.h is not needed)",
+      "nothing of capsimg: the file names no CAPS library call, and no capsimg source was consulted for this import",
+      "the history of the file (25 commits, 8 authors) for other copyright holders"
+    ],
+    "not_legal_advice": true
+  }
+}

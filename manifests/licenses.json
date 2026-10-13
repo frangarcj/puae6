@@ -456,6 +456,33 @@
       "build_eligibility": "excluded_initial_profile"
     },
     {
+      "id": "mame-ipf",
+      "source_id": "mame_ipf",
+      "scope": "selected_engine_dependency_ipf_reader",
+      "declared_license": "BSD-3-Clause: the first lines of ipf_dsk.cpp and ipf_dsk.h say '// license:BSD-3-Clause' and '// copyright-holders:Olivier Galibert' (MAME as a whole is GPL-2.0 and lets individual files carry a less restrictive license in their header)",
+      "notice_files": [
+        {
+          "path": "third_party/mame-ipf/LICENSE-BSD-3-Clause.txt",
+          "sha256": "a27554938d3dd6569931e5e18b93214a57f47bc1bb8b75fc32fdd18abe042a07"
+        },
+        {
+          "path": "third_party/mame-ipf/NOTICE.md",
+          "sha256": "91bc75c2edf4a976eedea92a4563951ae68c0ebf14e91e00fcc4c26f0cc8d121"
+        },
+        {
+          "path": "third_party/mame-ipf/original/ipf_dsk.cpp",
+          "sha256": "2bb985d07a077e5f93c1a7e7ad611d9ef77006f25ad6c037c1a9a3f47c3d80fa"
+        },
+        {
+          "path": "third_party/mame-ipf/original/ipf_dsk.h",
+          "sha256": "6af2d992a600ca1f0c6d882a76340691c09871b7dfdcca3ff7fded421656b1c8"
+        }
+      ],
+      "provenance": "third_party/mame-ipf/PROVENANCE.json: MAME commit 7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8 (2026-08-28), the two files as downloaded and the local changes as a diff; audited 2026-10-13 (T58a), not legal advice",
+      "handling": "T58a: ipf_dsk.cpp and ipf_dsk.h are compiled into p6_portable (and so into the Waterbox guest) with the local changes of local-changes.diff; keep the notice, the license text and the disclaimer in source and reproduce them in the documentation of a binary distribution (T40); do not use the names of the authors to promote the product. The two headers flopimg.h and multibyte.h next to them are written for PUAE6 and contain no MAME code. capsimg is not used.",
+      "build_eligibility": "selected_for_p6_portable"
+    },
+    {
       "id": "waterbox-musl-darwin",
       "source_id": "waterbox_musl_darwin",
       "scope": "toolchain_dependency_snapshot",
@@ -643,7 +670,7 @@
     {
       "id": "ipf-capsimg",
       "source_id": "machawk_capsimg",
-      "reason": "CAPSImg is reference-only and IPF support is excluded from the initial PUAE6 profile."
+      "reason": "CAPSImg is reference-only and is not used: its license is non-commercial. IPF is read by the free decoder of MAME (component mame-ipf, T58a)."
     },
     {
       "id": "win32-ui-and-plugins",
