@@ -155,17 +155,26 @@ class ContainerTests(unittest.TestCase):
         digests = {hashlib.sha256(decode(v)[1]).hexdigest() for v in variants}
         self.assertEqual(digests, {hashlib.sha256(disk).hexdigest()})
 
+    def test_an_ipf_is_taken_as_it_is_also_inside_an_adz_and_a_zip(self):
+        from tests.media import ipf
+        image = ipf.build([ipf.Track(0, 0, ipf.dos_blocks(c.adf("ipf"), 0)), ipf.Track(0, 1, ipf.dos_blocks(c.adf("ipf"), 1, weak_bytes=8))])
+        self.assertDecodesTo(image, image, "game.ipf")
+        self.assertDecodesTo(image, image, "game.bin")
+        self.assertDecodesTo(c.adz(image), image, "game.adz")
+        self.assertDecodesTo(c.zip_file([("readme.txt", b"hi"), ("game.ipf", image)]), image, "game.zip")
+
     # --- what is refused, and why -------------------------------------------------------------------------------------------------------------
 
     def test_formats_the_core_does_not_read_are_refused_with_a_clear_message(self):
-        ipf = b"CAPS\0\0\0\x0c" + bytes(2000)
-        for name in ("game.ipf", "game.IPF", "game.bin"):                  # by content or by name
+        # A CAPS tag without its checksum is no IPF (the bridge's own words); CT RAW is refused by its name.
+        caps = b"CAPS\0\0\0\x0c" + bytes(2000)
+        for name in ("game.ipf", "game.IPF", "game.bin"):
             with self.subTest(name):
-                self.assertRefused(ipf if name == "game.bin" else bytes(5000), "capsimg", name)
-        self.assertRefused(ipf, "licence forbids commercial use", "x.ipf")
+                self.assertRefused(caps if name == "game.bin" else bytes(5000), "an extended ADF, an FDI, an IPF or a supported container" if name != "game.bin" else "an extended ADF, an FDI or an IPF", name)
+        self.assertRefused(bytes(5000), "CT RAW images are not supported", "x.ctr")
         # An FDI or an extended ADF is read since T57; one that is damaged says what is wrong with it (the bridge's own words).
         self.assertRefused(b"Formatted Disk Image file\r\n" + bytes(2000), "version the core does not read", "x.bin")
-        self.assertRefused(bytes(3000), "an extended ADF, an FDI or a supported container", "game.fdi")
+        self.assertRefused(bytes(3000), "an extended ADF, an FDI, an IPF or a supported container", "game.fdi")
         self.assertRefused(bytes(3000), "this disk format is not supported", "game.scp")
         self.assertRefused(bytes(3000), "only ZIP, 7z and RP9 archives are read", "game.rar")
         self.assertRefused(b"UAE-1ADF" + bytes(2000), "no tracks", "game.adf")
@@ -196,7 +205,7 @@ class ContainerTests(unittest.TestCase):
         self.assertRefused(c.zip_file([("a.adf", disk), ("b.adf", c.adf("y"))]), "holds 2 disk images", "set.zip")
         self.assertRefused(c.zip_file([("a.adf", disk), ("b.adf", c.adf("y"))]), ".m3u playlist")
         self.assertRefused(c.zip_file([("a.adf", disk), ("b.dms", c.dms_file(disk))]), "holds 2 disk images")
-        self.assertRefused(c.zip_file([("game.ipf", bytes(1000))]), "a format the core does not read")
+        self.assertRefused(c.zip_file([("game.ctr", bytes(1000))]), "a format the core does not read")
         self.assertRefused(c.zip_file([("inner.zip", c.zip_file([("a.adf", disk)]))]), "holds no disk image")
         self.assertRefused(c.zip_file([("a.adf", bytes(900000))]), "the ZIP entry a.adf: the file is 900000 bytes")
         self.assertRefused(c.zip_file([("a.adf", disk)], zipfile.ZIP_BZIP2), "compression method 12")

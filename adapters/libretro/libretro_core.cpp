@@ -61,7 +61,7 @@
 // playlist; "file.zip#member.adf" is one member; the sets and members are expanded when the content loads, the archive is never kept and nothing is written. An archive of one disk is
 // that disk, as before.
 //
-// What this adapter does not do yet (see docs/02-contracts.md and the plan): IPF, FDI and the other floppy formats are refused with a message (container.h).
+// What this adapter does not do yet (see docs/02-contracts.md and the plan): CT RAW and the other flux formats are refused with a message (container.h); IPF is read (T58).
 #include "libretro.h"
 #include "p6.h"
 #include "config_import.h"
@@ -592,7 +592,7 @@ std::string save_directory()
 void use_saved_copy(Medium *medium)
 {
     memcpy(medium->origin, medium->id, sizeof medium->id);
-    if (!core.settings.floppy_writes || medium->bytes.size() != p6_libretro::kDiskBytes) return;      // an extended ADF or an FDI is read only (T57): nothing is saved for it
+    if (!core.settings.floppy_writes || medium->bytes.size() != p6_libretro::kDiskBytes) return;      // an extended ADF, an FDI or an IPF is read only (T57, T58): nothing is saved for it
     const std::string path = p6_libretro::saved_disk_path(save_directory(), medium->origin);
     if (path.empty()) return;
     std::vector<uint8_t> bytes;
@@ -625,7 +625,7 @@ void save_floppy_changes()
         for (size_t i = 0; i < core.media.size(); ++i) {
             const Medium &medium = core.media[i];
             if (medium.type != P6_MEDIA_ADF) continue;        // the hard files are saved by save_hard_file_changes
-            if (medium.bytes.size() != p6_libretro::kDiskBytes) continue;       // an extended ADF or an FDI is read only (T57): the guest cannot change it and there is nothing to export
+            if (medium.bytes.size() != p6_libretro::kDiskBytes) continue;       // an extended ADF, an FDI or an IPF is read only (T57, T58): the guest cannot change it and there is nothing to export
             uint64_t written = 0;
             p6_error error = make_error();
             const p6_result result = p6_media_export(uint32_t(i), image.data(), image.size(), &written, &error);
@@ -935,7 +935,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         notify_error("%s cannot be loaded: %s", content.c_str(), reason);
         return false;
     } else {
-        notify_error("%s is not content this core loads (an .adf, .adz, .dms, .fdi, .zip, .7z or .rp9 disk or set of disks, an .hdf or .hdz hard disk, an .lha, a .zip of files or a directory as a volume, or an .m3u playlist of them)",
+        notify_error("%s is not content this core loads (an .adf, .adz, .dms, .fdi, .ipf, .zip, .7z or .rp9 disk or set of disks, an .hdf or .hdz hard disk, an .lha, a .zip of files or a directory as a volume, or an .m3u playlist of them)",
                      content.c_str());
         return false;
     }
@@ -962,7 +962,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         }
         if (!is_disk_extension(archive_path)) {
             const char *reason = unsupported_format_reason(entry.path);
-            notify_error("disk %zu (%s) is not an .adf, .adz, .dms, .fdi, .zip, .7z, .rp9, .hdf, .hdz or .lha file or a directory%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
+            notify_error("disk %zu (%s) is not an .adf, .adz, .dms, .fdi, .ipf, .zip, .7z, .rp9, .hdf, .hdz or .lha file or a directory%s%s", i + 1, entry.path.c_str(), reason ? ": " : "", reason ? reason : "");
             return false;
         }
         Medium first;
@@ -1225,7 +1225,7 @@ bool read_added_disk(const std::string &path, Medium *medium, std::string *why)
     split_member(path, &archive_path, &member);
     if (!is_disk_extension(archive_path)) {
         const char *reason = unsupported_format_reason(path);
-        *why = "it is not an .adf, .adz, .dms, .fdi, .zip, .7z or .rp9 disk";
+        *why = "it is not an .adf, .adz, .dms, .fdi, .ipf, .zip, .7z or .rp9 disk";
         if (reason) *why += std::string(": ") + reason;
         return false;
     }
@@ -1556,7 +1556,7 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "adf|adz|dms|fdi|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/";
+    info->valid_extensions = "adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/";
     info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
     info->block_extract = true;           // a zip is read by the core, in memory: the frontend must not extract it to a temporary directory
 }

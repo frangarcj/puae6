@@ -54,7 +54,7 @@ class ContainerCoreTests(lr.LibretroHarness):
 
     def test_the_core_offers_the_container_extensions(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertIn("extensions=adf|adz|dms|fdi|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
+        self.assertIn("extensions=adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
 
     def test_a_disk_in_any_container_is_the_same_medium_and_the_same_future(self):
         disk = c.varied_adf("the game")
@@ -73,12 +73,13 @@ class ContainerCoreTests(lr.LibretroHarness):
         other = self.written(containers(c.varied_adf("another game")))
         self.assertNotEqual(self.media(self.frontend("boot", "--runs", 1, content=other / "game.adz").stdout), digest)
 
-    def test_an_extended_adf_and_an_fdi_are_media_by_their_own_bytes_in_any_container(self):
-        """T57: the bridge reads them as they are, so the identity is the SHA-256 of the file and the same file in an ADZ or a ZIP is the same medium with the same future."""
-        from tests.media import fdi, trackdisk as td
+    def test_an_extended_adf_an_fdi_and_an_ipf_are_media_by_their_own_bytes_in_any_container(self):
+        """T57, T58: the bridge reads them as they are, so the identity is the SHA-256 of the file and the same file in an ADZ or a ZIP is the same medium with the same future."""
+        from tests.media import fdi, ipf, trackdisk as td
         adf = c.varied_adf("t57")
         images = {"ext.adf": td.ext2_image([("raw", td.raw_track(5), td.RAW_WORDS * 16)] + [("dos", td.dos_track(adf, t)) for t in range(1, 160)]),
-                  "game.fdi": fdi.fdi_image([("amiga", td.dos_track(adf, 0), 0), ("amiga", td.dos_track(adf, 1), 0)])}
+                  "game.fdi": fdi.fdi_image([("amiga", td.dos_track(adf, 0), 0), ("amiga", td.dos_track(adf, 1), 0)]),
+                  "game.ipf": ipf.build([ipf.Track(0, 0, ipf.dos_blocks(adf, 0, weak_bytes=12)), ipf.Track(0, 1, ipf.dos_blocks(adf, 1))])}
         for name, image in images.items():
             directory = self.written({name: image, "x.adz": c.adz(image), "x.zip": c.zip_file([(name, image)])})
             results = {}
@@ -134,7 +135,7 @@ class ContainerCoreTests(lr.LibretroHarness):
         }
         directory = self.written(files)
         expected = {
-            "game.ipf": "capsimg", "disguised.adf": "capsimg", "game.fdi": "version the core does not read", "lying.fdi": "an extended ADF, an FDI or a supported container", "game.scp": "not supported",
+            "game.ipf": "an extended ADF, an FDI or an IPF", "disguised.adf": "an extended ADF, an FDI or an IPF", "game.fdi": "version the core does not read", "lying.fdi": "an extended ADF, an FDI, an IPF or a supported container", "game.scp": "not supported",
             "game.7z": "not an ADF", "game.rar": "only ZIP, 7z and RP9 archives are read", "none.zip": "no disk image", "short.adz": "holds 900000 bytes",
             "long.adz": "not an ADF of 901120", "cut.adz": "truncated", "cut.zip": "no central directory", "cut.dms": "truncated", "partial.dms": "40 of 80 tracks",
             "crypt.dms": "encrypted", "bomb.adz": "more than", "bomb.zip": "decompresses to more than", "lying.zip": "larger than any disk file",
@@ -153,7 +154,7 @@ class ContainerCoreTests(lr.LibretroHarness):
         out = self.frontend("boot", "--runs", 2, content=directory / "good.m3u", expect=3).stdout
         self.assertIn("disk 1 (", " ".join(self.messages(out)))
         out = self.frontend("boot", "--runs", 2, content=directory / "list.m3u", expect=3).stdout
-        self.assertIn("capsimg", " ".join(self.messages(out)))
+        self.assertIn("an extended ADF, an FDI or an IPF", " ".join(self.messages(out)))
 
     def test_a_container_load_cycle_repeats_exactly_and_writes_nothing(self):
         disk = c.varied_adf("cycle")

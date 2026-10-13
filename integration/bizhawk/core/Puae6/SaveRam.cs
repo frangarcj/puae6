@@ -258,7 +258,7 @@ public static class SaveRam
 			if (!ContentId(bases[(int)index]).SequenceEqual(id))
 				Fail(SaveRamRejection.OtherMedia, $"the SaveRam was made for another disk in slot {index}: its base is not the one this core was given");
 			if (bases[(int)index].Length != P6.AdfBytes)
-				Fail(SaveRamRejection.BadFields, $"disk {index} is an extended ADF or an FDI, which is read only: a SaveRam names no sectors of it");
+				Fail(SaveRamRejection.BadFields, $"disk {index} is an extended ADF, an FDI or an IPF, which is read only: a SaveRam names no sectors of it");
 		}
 		if (hardSection)
 		{

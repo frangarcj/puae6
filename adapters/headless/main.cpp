@@ -7,7 +7,7 @@
 //                         [--cpu auto|68000|68010|68020] [--cpu-multiplier auto|1|2|4|8|10|12|16]
 //                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
 //                         [--floppy-speed 100|200|400|800|turbo] [--resolution lores|hires|superhires] [--line-mode single|double]
-//                         [--disk ADF|EXTENDED-ADF|FDI] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
+//                         [--disk ADF|EXTENDED-ADF|FDI|IPF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
 #include "p6.h"
 #include "sha256.h"
@@ -338,7 +338,7 @@ int main(int argc, char **argv)
     }
     fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--hdf-controller uae|ide]\n"
                     "                         [--cpu auto|68000|68010|68020] [--cpu-multiplier auto|1|2|4|8|10|12|16]\n                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-speed 100|200|400|800|turbo]\n                         [--resolution lores|hires|superhires] [--line-mode single|double]\n"
-                    "                         [--disk ADF|EXTENDED-ADF|FDI] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
+                    "                         [--disk ADF|EXTENDED-ADF|FDI|IPF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
             argv[0], argv[0]);
     return 64;
 }
