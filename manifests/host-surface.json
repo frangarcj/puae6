@@ -772,16 +772,6 @@
           "zfile_truncate"
         ],
         "selected_callers": {
-          "zfile_fwrite": [
-            "cia.cpp",
-            "audio.cpp",
-            "disk.cpp",
-            "cfgfile.cpp",
-            "rommgr.cpp",
-            "savestate.cpp",
-            "hardfile.cpp",
-            "gayle.cpp"
-          ],
           "zfile_fopen": [
             "cia.cpp",
             "memory.cpp",
@@ -794,6 +784,27 @@
             "filesys.cpp",
             "hardfile.cpp",
             "gayle.cpp"
+          ],
+          "zfile_fwrite": [
+            "cia.cpp",
+            "audio.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "savestate.cpp",
+            "hardfile.cpp",
+            "gayle.cpp"
+          ],
+          "zfile_fread": [
+            "cia.cpp",
+            "memory.cpp",
+            "disk.cpp",
+            "cfgfile.cpp",
+            "rommgr.cpp",
+            "expansion.cpp",
+            "fdi2raw.cpp",
+            "savestate.cpp",
+            "filesys.cpp"
           ],
           "zfile_fclose": [
             "cia.cpp",
@@ -815,15 +826,8 @@
             "rommgr.cpp",
             "savestate.cpp"
           ],
-          "zfile_fread": [
-            "cia.cpp",
-            "memory.cpp",
-            "disk.cpp",
-            "cfgfile.cpp",
-            "rommgr.cpp",
-            "expansion.cpp",
-            "savestate.cpp",
-            "filesys.cpp"
+          "zfile_fread32": [
+            "memory.cpp"
           ],
           "zfile_fseek": [
             "memory.cpp",
@@ -832,27 +836,26 @@
             "cfgfile.cpp",
             "rommgr.cpp",
             "expansion.cpp",
+            "fdi2raw.cpp",
             "savestate.cpp",
             "filesys.cpp",
             "hardfile.cpp"
           ],
+          "zfile_gunzip": [
+            "memory.cpp"
+          ],
           "zfile_fopen_data": [
             "memory.cpp",
             "rommgr.cpp"
-          ],
-          "zfile_fread32": [
-            "memory.cpp"
           ],
           "zfile_ftell32": [
             "memory.cpp",
             "audio.cpp",
             "disk.cpp",
             "rommgr.cpp",
+            "fdi2raw.cpp",
             "savestate.cpp",
             "filesys.cpp"
-          ],
-          "zfile_gunzip": [
-            "memory.cpp"
           ],
           "zfile_exists": [
             "memory.cpp",
@@ -861,13 +864,11 @@
             "rommgr.cpp",
             "savestate.cpp"
           ],
-          "zfile_fopen_load_zfile": [
-            "disk.cpp"
+          "zfile_ftell": [
+            "disk.cpp",
+            "cfgfile.cpp"
           ],
-          "zfile_getoriginalname": [
-            "disk.cpp"
-          ],
-          "zfile_getfilename": [
+          "zfile_crc32": [
             "disk.cpp"
           ],
           "zfile_fopen_empty": [
@@ -876,14 +877,20 @@
             "rommgr.cpp",
             "savestate.cpp"
           ],
+          "zfile_size": [
+            "disk.cpp"
+          ],
+          "zfile_getoriginalname": [
+            "disk.cpp"
+          ],
+          "zfile_getfilename": [
+            "disk.cpp"
+          ],
           "zfile_iscompressed": [
             "disk.cpp",
             "rommgr.cpp"
           ],
-          "zfile_size": [
-            "disk.cpp"
-          ],
-          "zfile_crc32": [
+          "zfile_fopen_load_zfile": [
             "disk.cpp"
           ],
           "zfile_getname": [
@@ -892,8 +899,13 @@
             "main.cpp",
             "savestate.cpp"
           ],
-          "zfile_ftell": [
-            "disk.cpp",
+          "zfile_fputs": [
+            "cfgfile.cpp"
+          ],
+          "zfile_truncate": [
+            "cfgfile.cpp"
+          ],
+          "zfile_get_data_pointer": [
             "cfgfile.cpp"
           ],
           "zfile_fgets": [
@@ -902,21 +914,9 @@
           "zfile_fgetsa": [
             "cfgfile.cpp"
           ],
-          "zfile_get_data_pointer": [
-            "cfgfile.cpp"
-          ],
-          "zfile_fputs": [
-            "cfgfile.cpp"
-          ],
-          "zfile_truncate": [
-            "cfgfile.cpp"
-          ],
           "zfile_getdata": [
             "rommgr.cpp",
             "savestate.cpp"
-          ],
-          "zfile_gettype": [
-            "main.cpp"
           ],
           "zfile_zopen": [
             "main.cpp"
@@ -924,56 +924,59 @@
           "zfile_exit": [
             "main.cpp"
           ],
-          "zfile_zcompress": [
-            "savestate.cpp"
+          "zfile_gettype": [
+            "main.cpp"
           ],
           "zfile_zuncompress": [
             "savestate.cpp"
           ],
-          "zfile_opendir_archive": [
-            "filesys.cpp"
-          ],
-          "zfile_exists_archive": [
-            "filesys.cpp"
+          "zfile_zcompress": [
+            "savestate.cpp"
           ],
           "zfile_load_file": [
             "filesys.cpp",
             "hardfile.cpp"
           ],
-          "zfile_read_archive": [
-            "filesys.cpp"
-          ],
-          "zfile_close_archive": [
-            "filesys.cpp"
-          ],
-          "zfile_open_archive": [
-            "filesys.cpp"
-          ],
-          "zfile_lseek_archive": [
-            "filesys.cpp"
-          ],
-          "zfile_fill_file_attrs_archive": [
-            "filesys.cpp"
-          ],
           "zfile_stat_archive": [
-            "filesys.cpp"
-          ],
-          "zfile_fs_usage_archive": [
-            "filesys.cpp"
-          ],
-          "zfile_fclose_archive": [
             "filesys.cpp"
           ],
           "zfile_fopen_archive": [
             "filesys.cpp"
           ],
-          "zfile_readdir_archive": [
+          "zfile_open_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fclose_archive": [
             "filesys.cpp"
           ],
           "zfile_fsize_archive": [
             "filesys.cpp"
           ],
+          "zfile_close_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fill_file_attrs_archive": [
+            "filesys.cpp"
+          ],
           "zfile_closedir_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_exists_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_readdir_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_fs_usage_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_read_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_lseek_archive": [
+            "filesys.cpp"
+          ],
+          "zfile_opendir_archive": [
             "filesys.cpp"
           ]
         },

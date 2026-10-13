@@ -1116,10 +1116,58 @@ uint64_t be_n(const std::vector<uint8_t> &v, uint64_t at, unsigned n)
     return r;
 }
 
-// True when `v` is a floppy image a double-density drive can be given: a plain ADF, or an extended ADF whose every track lies inside the file.
+uint32_t crc32_bitwise(const uint8_t *p, size_t n)
+{
+    uint32_t crc = ~0u;
+    for (size_t i = 0; i < n; ++i) {
+        crc ^= p[i];
+        for (int k = 0; k < 8; ++k) crc = crc & 1 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+    }
+    return ~crc;
+}
+
+// FDI (T57b): the header of 512 bytes, and tracks that are empty, Amiga (eleven sectors) or low level (four streams inside the track) and lie in the file.
+bool oracle_accepts_fdi(const std::vector<uint8_t> &v)
+{
+    const uint64_t size = v.size();
+    if (size > kMaxTrackDisk || size < 512 || (v[140] != 1 && v[140] != 2)) return false;
+    if (v[140] * 256 + v[141] >= 513 && crc32_bitwise(v.data(), 508) != be_n(v, 508, 4)) return false;
+    const uint64_t tracks = (be_n(v, 142, 2) + 1) * (uint64_t(v[144]) + 1);
+    if (tracks > 166) return false;
+    uint64_t at = 512;
+    for (uint64_t t = 0; t < tracks; ++t) {
+        const uint64_t kind = v[152 + 2 * t], sz = v[153 + 2 * t];
+        uint64_t length;
+        if (kind == 1) { length = (sz & 15) * 512; if ((sz & 15) != 11 || (sz >> 4) > 10) return false; }
+        else if ((kind & 0xC0) == 0x80) length = (((kind & 0x3F) << 8) | sz) * 256;
+        else if (kind == 0) length = sz * 256;
+        else return false;
+        if (at + length > size) return false;
+        if ((kind & 0xC0) == 0x80) {
+            if (length < 16) return false;
+            const uint64_t pulses = be_n(v, at, 4);
+            if (pulses < 2 || pulses > 262144) return false;
+            uint64_t desc[4], pos = 16;
+            for (int k = 0; k < 4; ++k) desc[k] = be_n(v, at + 4 + 3 * k, 3);
+            const bool both = desc[1] != 0 && desc[2] != 0;
+            for (int k = 0; k < 4; ++k) {
+                if ((k == 1 || k == 2) && !both) continue;
+                const uint64_t mode = desc[k] >> 22, len = desc[k] & 0x3FFFFF;
+                if (pos > length || mode > 1 || len > length - pos || (k == 0 && len == 0)) return false;
+                if (mode == 0 && pulses * 2 <= len && (len < pulses * 4 || (pos & 3))) return false;
+                pos += len;
+            }
+        }
+        at += length;
+    }
+    return true;
+}
+
+// True when `v` is a floppy image a double-density drive can be given: a plain ADF, an extended ADF whose every track lies inside the file, or an FDI of the tracks the core reads.
 bool oracle_accepts_floppy(const std::vector<uint8_t> &v)
 {
     const uint64_t size = v.size();
+    if (size >= 25 && !memcmp(v.data(), "Formatted Disk Image file", 25)) return oracle_accepts_fdi(v);
     const auto starts = [&](const char *magic) { return size >= 8 && !memcmp(v.data(), magic, 8); };
     static const uint8_t hunk[8] = {0, 0, 3, 0xF3, 0, 0, 0, 0};
     if (size >= 8 && !memcmp(v.data(), hunk, 8)) return false;
@@ -1158,7 +1206,27 @@ std::vector<uint8_t> mutate_floppy(const std::vector<uint8_t> &good, Random &rng
     std::vector<uint8_t> image = good;
     const bool ext2 = image.size() > 12 && !memcmp(image.data(), "UAE-1ADF", 8);
     const bool ext1 = image.size() > 648 && !memcmp(image.data(), "UAE--ADF", 8);
-    const size_t table = ext2 ? 12 + 12 * std::min<size_t>(be_n(image, 10, 2), 166) : ext1 ? 648 : 0;
+    const bool fdi = image.size() >= 512 && !memcmp(image.data(), "Formatted Disk Image file", 25);
+    const size_t table = ext2 ? 12 + 12 * std::min<size_t>(be_n(image, 10, 2), 166) : ext1 ? 648 : fdi ? 512 : 0;
+    if (fdi) {
+        for (unsigned edits = 1 + rng.below(4); edits--;) {
+            switch (rng.below(8)) {
+            case 0: image[rng.below(512)] ^= uint8_t(1u << rng.below(8)); break;                                                   // a bit of the header, the version, the geometry or the track table
+            case 1: { const size_t at = 152 + 2 * rng.below(24); image[at + rng.below(2)] = uint8_t(rng.coin() ? rng.next() : kBoundary[rng.below(6)]); break; }       // a track entry
+            case 2: { const size_t at = 140 + rng.below(6); image[at] = uint8_t(rng.coin() ? rng.next() : kBoundary[rng.below(6)]); break; }                           // version, geometry, flags
+            case 3: if (image.size() > 640) image[512 + rng.below(uint32_t(image.size() - 512))] ^= uint8_t(1 + rng.below(255)); break;                                 // a byte of the track data (descriptors, streams, sectors)
+            case 4: if (image.size() > 640) { const size_t at = 512 + rng.below(uint32_t(image.size() - 512)); for (unsigned i = 0; i < 1 + rng.below(16) && at + i < image.size(); ++i) image[at + i] = uint8_t(rng.next()); } break;
+            case 5: image.resize(image.size() - 1 - rng.below(uint32_t(std::min<size_t>(image.size() - 1, 70000)))); if (image.size() < 512) image.resize(512); break;
+            case 6: image.insert(image.end(), 1 + rng.below(64), uint8_t(rng.next())); break;
+            default: if (image.size() > 1024) { const size_t a = 512 + 256 * rng.below(uint32_t((image.size() - 512) / 256)), b = 512 + 256 * rng.below(uint32_t((image.size() - 512) / 256)); if (a + 256 <= image.size() && b + 256 <= image.size()) for (unsigned i = 0; i < 256; ++i) image[a + i] = image[b + i]; } break;
+            }
+        }
+        if (image.size() >= 512 && rng.below(10) < 7) {      // the checksum of a 2.1 header put right again: the parser gets past it
+            const uint32_t crc = crc32_bitwise(image.data(), 508);
+            for (int i = 0; i < 4; ++i) image[508 + i] = uint8_t(crc >> (24 - 8 * i));
+        }
+        return image;
+    }
     for (unsigned edits = rng.below(4); edits--;) {
         switch (rng.below(9)) {
         case 0: if (table && table <= image.size()) image[rng.below(uint32_t(table))] ^= uint8_t(1u << rng.below(8)); break;                  // a bit of the header or the table

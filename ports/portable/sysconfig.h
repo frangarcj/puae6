@@ -42,6 +42,9 @@
  * cpuemu_21 compile the coprocessor handlers; whether a machine has an FPU is currprefs.fpu_model (0 = none), a configuration choice of p6_config. */
 #define FPUEMU 1
 #define WITH_SOFTFLOAT 1
+/* FDI images (T57b): upstream's fdi2raw.cpp, the reader of WinUAE, in memory (the zfile of the portable layer), without a library and with patches 0332 to 0334 (bounded, and the draws of
+ * its weak bits a function of the track and the revolution). The guard above refuses it from outside like the others. */
+#define FDI2RAW 1
 #define AGA 1 /* Alice/Lisa: without it fixup_prefs clears the AGA bit of chipset_mask; A500/A600 never set it */
 #define SIZEOF_SHORT __SIZEOF_SHORT__
 #define SIZEOF_INT __SIZEOF_INT__

@@ -238,8 +238,13 @@ TASK_SUITES[('MED01', 'T57a')] = {
 }
 TASK_SUITES[('DET02', 'T57a')] = {'raw_tracks_restore': 'tests.state.test_det02_trackdisk'}
 TASK_SUITES[('FUZZ01', 'T57a')] = {**TASK_SUITES[('FUZZ01', 'T51')], 'trackdisk': 'tests.fuzz.test_fuzz.TrackDiskFuzzTests'}
+# T57b adds the FDI to the same three checks: MED01 reads FDI files written by tests/media/fdi.py (Amiga tracks, low-level tracks of exact pulses and of weak pulses), DET02 covers them with the
+# motor on and off (the weak-bit track fetches a revolution at every index; DSKX carries what the reader keeps), and the fuzz target mutates their header, track table and Huffman streams.
+TASK_SUITES[('MED01', 'T57b')] = {**TASK_SUITES[('MED01', 'T57a')], 'fdi_reads': 'tests.media.test_fdi'}
+TASK_SUITES[('DET02', 'T57b')] = TASK_SUITES[('DET02', 'T57a')]
+TASK_SUITES[('FUZZ01', 'T57b')] = TASK_SUITES[('FUZZ01', 'T57a')]
 for _check in ('MED01', 'DET02', 'FUZZ01'):
-    TASK_SUITES[(_check, 'T57')] = TASK_SUITES[(_check, 'T57a')]
+    TASK_SUITES[(_check, 'T57')] = TASK_SUITES[(_check, 'T57b')]
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).

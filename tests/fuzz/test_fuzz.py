@@ -303,7 +303,7 @@ class IdeHardFileFuzzTests(unittest.TestCase):
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
 class TrackDiskFuzzTests(unittest.TestCase):
-    """FUZZ01 for the extended ADF (T57a): headers, track tables and data mutated (a field set to a boundary value, rows swapped or copied, the file cut or extended, the other magic over the same
+    """FUZZ01 for the extended ADF (T57a) and the FDI (T57b: header, track table and the streams of low-level tracks, with the CRC of a 2.1 header put right again most of the time): headers, track tables and data mutated (a field set to a boundary value, rows swapped or copied, the file cut or extended, the other magic over the same
     bytes) and given to p6_load against an independent oracle of the format, with the floppy at turbo speed so that the micro-ROM of tests/media/trackdisk.py sweep_rom_source walks the head
     over the first cylinders and reads both heads of each. Whatever the oracle accepts the engine reads under ASan and UBSan, no recover; the state of the machine that read it is saved and
     loaded back and the machine runs a unit more. Any single allocation above 24 MiB is a report."""
@@ -322,8 +322,16 @@ class TrackDiskFuzzTests(unittest.TestCase):
         adf = disk.make_adf(0x44)
         dos = [("dos", td.dos_track(adf, t)) for t in range(160)]
         raw = [("raw", td.raw_track(0x5EED + t, words=6200 + 11 * t, sync_at=300 + 5 * t), (6200 + 11 * t) * 16) if t < 12 else dos[t] for t in range(160)]
+        from tests.media import fdi
+        sectors = [w for sector in disk.encode_track(adf, 0) for w in sector]
+        widths, positions = fdi.pulses_from_mfm(sectors + [0xAAAA] * 160)
+        weak = {k for k, pos in enumerate(positions) if pos >= len(sectors) * 16 or k % 7 == 0}
+        amiga = lambda t: ("amiga", td.dos_track(adf, t), t % 11)
+        low = fdi.lowlevel_track(widths)
+        lowweak = fdi.lowlevel_track(widths, (120, 60, weak))
         images = {"ext2.adf": td.ext2_image(raw), "ext2-dos.adf": td.ext2_image(dos), "ext1.adf": td.ext1_image([("raw", td.SYNC, bytes((i * 5 + 1) & 0xFF for i in range(9000)))] + dos[1:]),
-                  "plain.adf": adf}
+                  "plain.adf": adf, "amiga.fdi": fdi.fdi_image([amiga(t) for t in range(12)]), "low.fdi": fdi.fdi_image([("lowlevel", low)] * 6 + [amiga(t) for t in range(6, 12)], version=(2, 1)),
+                  "weak.fdi": fdi.fdi_image([("lowlevel", lowweak)] * 4 + [("lowlevel", low), amiga(5)] + [("empty",)] * 6)}
         cls.images = []
         for name, data in images.items():
             path = directory / name

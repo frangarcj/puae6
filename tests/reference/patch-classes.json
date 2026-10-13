@@ -156,7 +156,11 @@
     "0321-gayle-ide-port": "required",
     "0322-gayle-machine-hooks": "required",
     "0330-disk-prevtracklen-state": "instrumentation",
-    "0331-disk-raw-track-tail": "behavior"
+    "0331-disk-raw-track-tail": "behavior",
+    "0332-fdi2raw-bounded-decoder": "required",
+    "0333-fdi2raw-deterministic-pulses": "required",
+    "0334-disk-fdi-track-state": "instrumentation",
+    "0335-disk-track-timing-state": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

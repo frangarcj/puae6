@@ -299,6 +299,16 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     todas las maquinas: la palabra 9 de cada unidad, 0 a `kMfmBitsMax`). El buffer de la pista (DSDn) ya viajaba; el parche 0331 pone a cero los bits que pasan del final de una pista cruda para que
     sus bytes sean funcion de la imagen. Prueba: `tests/state/test_det02_trackdisk.py` (el anillo de busqueda sobre pistas crudas de seis longitudes divergia sin el 0330).
 
+17. **Revision 2026-10-13 (T57b): la pista FDI lleva su revolucion, y la temporizacion va por byte.** El lector de FDI decodifica cada revolucion de una pista con bits debiles de forma distinta, como una
+    funcion de (pista, revolucion) (patch 0333), y `fetchnextrevolution` pide la siguiente en cada indice mientras la pista tenga `multi_revolution`. Nada de eso estaba en un cuerpo: DSDn trae el buffer de la
+    pista pero no el indicador, ni la cuenta, ni a que pista pertenece. **DSKX** pasa de 46 a 62 palabras (parche 0334, +64 bytes en todas las maquinas: las palabras 10 a 13 de cada unidad,
+    `multi_revolution` 0 o 1, `revolution_check` 0 a 2, `fdirev` 0 a 2^24, `fditrack` -1 a 165). Con el motor apagado DSDn no existe (upstream guarda el buffer solo mientras gira), el estado no trae la pista y la maquina
+    que carga la decodifica otra vez: como la revolucion `fdirev` de la pista `fditrack`, que es lo que la decodificacion del original hizo, bit a bit. La temporizacion de una pista (FDI, IPF) tiene un valor por byte
+    de la pista y `save_disk2` guardaba uno por palabra de 16 bits (parche 0335): DSDn con el bit de temporizacion lleva las palabras y despues `(longitud + 7) / 8` valores de 16 bits, y la cota de DSDn pasa de 4 a 6
+    bytes por palabra del buffer (`kDsdMax`), asi que la cota de estado de todas las maquinas crece en 4 x 32 768 bytes. Pruebas: `tests/state/test_det02_trackdisk.py` (un FDI con pulsos debiles en toda la pista, antes
+    del 0335 divergia desde la primera unidad; con el motor encendido y apagado; el estado con una de las palabras cambiada no continua).
+
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

@@ -397,9 +397,9 @@ siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fast
 (`P6_REGION_FAST_RAM`, big endian, el byte n de la region es la direccion `$200000 + n`). Su contenido entra en el estado nativo (P6RM, ver ADR 0009 punto 10): la cota crece en
 `4 + fast + 278` bytes, y la memoria configurada forma parte de `config_hash` cuando no es la del preset (un estado o una pelicula de otra memoria es INCOMPATIBLE).
 
-Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14, T62: DSKX de 41 a 42 palabras, +4 bytes en todas, punto 15, y T57a: DSKX de 42 a 46 palabras, +16 bytes, punto 16): A500 3 608 637, A600 3 608 606, A1200 5 890 840; A500 OG 3 084 318, A500+ 3 608 637, A1000 3 084 334, A2000 OG 3 608 653, A2000 3 608 653
-(T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 706 071; A600 con 2 MiB de Chip y 8 MiB de Fast 13 046 072;
-A1200 con 8 MiB de Fast 14 279 730; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 376 882; A1200 con FPU 68882 5 890 950.
+Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14, T62: DSKX de 41 a 42 palabras, +4 bytes en todas, punto 15, T57a: DSKX de 42 a 46 palabras, +16 bytes, punto 16, y T57b: DSKX a 62 palabras, +64 bytes, y la cota de DSDn de 4 a 6 bytes por palabra del buffer, +131 072 bytes, punto 17): A500 3 739 773, A600 3 739 742, A1200 6 021 976; A500 OG 3 215 454, A500+ 3 739 773, A1000 3 215 470, A2000 OG 3 739 789, A2000 3 739 789
+(T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 837 207; A600 con 2 MiB de Chip y 8 MiB de Fast 13 177 208;
+A1200 con 8 MiB de Fast 14 410 866; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 508 018; A1200 con FPU 68882 6 022 086.
 
 ### FPU 68881/68882 (T54)
 
@@ -652,6 +652,26 @@ funcion de la imagen). El DSKX pasa de 168 a 184 bytes (42 a 46 palabras). La le
 corta que la lectura pasa por el indice sin el salto de bits de las pistas AmigaDOS (`skipoffset` es -1), y la longitud de la pista (no el reloj) fija lo que tarda una vuelta. Con `floppy_speed` distinto del 100 % se lee
 (el DMA cuenta en ciclos de color), pero las protecciones de copia que miden el tiempo no se prometen. Fixtures de las pruebas: `tests/media/trackdisk.py` los escribe desde la descripcion del formato (MFM valido con una
 sincronizacion unica); las pruebas son MED01 (`tests/media/test_trackdisk.py`, `test_trackdisk_formats.py`, `media_probe.cpp`), DET02 (`tests/state/test_det02_trackdisk.py`) y FUZZ01 (`trackdisk` en `tests/fuzz`).
+
+FDI (T57b, `P6_CAP_MEDIA_FDI`, bit 8): otro formato de `P6_MEDIA_ADF`, por los bytes ("Formatted Disk Image file"), con la misma identidad (SHA-256 del fichero), los mismos topes (3 MiB, 16 discos planos en total) y
+el mismo caracter de solo lectura que el ADF extendido. Lo lee el `fdi2raw.cpp` de WinUAE, compilado en el motor (`FDI2RAW` en `sysconfig.h`; se usa solo en memoria: el `zfile` del blob) con tres parches: 0332
+(acotado), 0333 (determinista) y 0334 (la pista en el estado). **Pistas que se aceptan**: 0x00 vacia (una pista sin formatear: ceros), 0x01 Amiga de doble densidad (once sectores de datos; el lector construye el MFM
+con sus cabeceras, sumas y hueco, empezando en el sector que diga la pista) y 0x80..0xBF de bajo nivel (las transiciones de flujo de una vuelta: `pulses`, cuatro descriptores {medio, minimo, maximo, indice} y los
+cuatro flujos, en forma plana o Huffman; los pulsos de estabilidad menor que la maxima son bits debiles). Las demas (las formas PC y Atari, las descritas por sectores y las crudas 0xF0) las rechaza
+`classify_floppy` con el motivo, porque `fdi2raw` las lee sin mirar donde acaba el dato. El validador comprueba la cabecera (version 1 o 2; desde la 2.1, el CRC-32 de los primeros 508 bytes), 166 pistas como mucho,
+que cada pista este dentro del fichero, que una pista Amiga sea de once sectores y que la estructura de una de bajo nivel (pulsos <= 262144, flujos dentro de la pista, minimo y maximo juntos, los planos con sus
+`pulses` palabras alineadas) quepa; el contenido de un flujo Huffman lo comprueba el decodificador al leerlo. **Determinismo**: `fdi2raw` sortea los bits debiles y el temblor de los pulsos estables con el generador
+del motor (`uaerand`), de modo que cada decodificacion cambiaba el futuro de la maquina y el buffer que un estado decodifica de nuevo no era el que tenia el original: el parche 0333 da al decodificador un generador
+propio (xorshift32) sembrado por (pista, revolucion), y `fdi2raw_set_revolution` recibe la revolucion que cuenta `disk.cpp`. **Pista y estado** (parches 0334 y 0335): la cabeza que llega a otra pista empieza en la
+revolucion 0 y cada indice que cruza una pista con bits debiles pide la siguiente (`fetchnextrevolution`, `multi_revolution`, `revolution_check`); el estado lleva por unidad `multi_revolution`, `revolution_check`,
+`fdirev` (la revolucion de la pista) y `fditrack` (la pista a la que pertenece), de modo que una maquina que carga el estado, con el motor encendido (DSDn trae el buffer) o apagado (la pista se decodifica otra vez,
+como la misma revolucion de la misma pista, bit a bit), sigue como el original; el DSKX pasa de 184 a 248 bytes (46 a 62 palabras). La temporizacion de una pista FDI es un valor por BYTE de la pista (`DISK_update` la
+lee como `tracktiming[mfmpos / 8]`) y `save_disk2` de upstream guardaba uno por palabra de 16 bits: la mitad de la temporizacion no viajaba y una maquina que cargaba el estado leia la segunda mitad de la pista a la
+velocidad de otra vuelta (hallazgo de una pista FDI con pulsos debiles en toda su vuelta, `tests/state/test_det02_trackdisk.py`); el parche 0335 guarda las palabras y despues `(longitud + 7) / 8` valores, y la cota de
+DSDn pasa de 4 a 6 bytes por palabra de la pista. **Memoria**: el buffer de entrada del lector es el de la pista mas larga del fichero mas 4 KiB de ceros (no los 4 MiB del formato), la cache guarda una pista de
+bajo nivel (un megabyte como mucho) y el buffer de salida son 40 000 bytes: no hay nada mas que reservar en el heap sellado. Fixtures: `tests/media/fdi.py` escribe FDI desde el formato (pistas Amiga, de bajo nivel
+con pulsos exactos y con bits debiles); las pruebas son MED01 (`tests/media/test_fdi.py`), DET02 (`tests/state/test_det02_trackdisk.py`, con el motor encendido y apagado) y FUZZ01 (`trackdisk`). Un FDI real y libre
+se prueba por variable de entorno (opt-in, ver `tests/media/test_fdi_real.py`).
 
 ADF MVP: buffer inmutable de solo lectura, cargado antes de iniciar/sellar. Mount,
 eject y swap operan sobre IDs precargados. Inventariar los metadatos de floppy

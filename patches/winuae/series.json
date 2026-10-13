@@ -4090,6 +4090,120 @@
           "after_sha256": "15a47e24424412bcf0daaedafc57a168530abba2cd712035c843fb9af0e89945"
         }
       ]
+    },
+    {
+      "id": "0332-fdi2raw-bounded-decoder",
+      "file": "patches/winuae/0332-fdi2raw-bounded-decoder.patch",
+      "sha256": "cac27e4788f1baf66a321330e01b292c0feb239231d6ede503e69a23ee0ff706",
+      "title": "fdi2raw reads a hostile FDI without leaving its buffers",
+      "reason": "T57b: fdi2raw.cpp trusts the file: the Huffman streams of a low-level track are read with no end (the tree recurses as deep as the stream says, root is an uninitialised node that a leaf frees), a pulse count of 2^32 allocates and indexes, a zero-width cell loops for ever, the bits out are written past the 40000-byte buffer, the cells are timed by a division by zero and a double cast out of range, a track with no index stream walks it with offsets that were never set, the cache keeps every decoded track (a megabyte each) and loadtrack indexes the cache before it flips the side. Everything the decoder takes from the file is now checked against the bytes of the track and against fixed limits (262144 pulses, tree depth 40, 70000 nodes, 8 sub-streams, 200000 bits out, 4*pulses+64 steps), the source buffer is the size of the largest track plus 4 KiB of zeros, and the cache keeps one track; a track it cannot decode is an unformatted one.",
+      "category": "host hooks",
+      "order": 151,
+      "symbols": [
+        "addbit",
+        "decode_lowlevel_track",
+        "expand_tree",
+        "fdi2_celltiming",
+        "fdi2_decode",
+        "fdi2raw_header",
+        "fdi2raw_loadrevolution_2",
+        "fdi2raw_loadtrack",
+        "fdi_decode",
+        "fdi_decompress",
+        "fdi_next",
+        "values_tree16",
+        "values_tree8"
+      ],
+      "test": "tests/media/test_fdi.py (low-level tracks with and without an index stream) and the trackdisk fuzz target with FDI seeds",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fdi2raw.cpp",
+          "before_sha256": "7e885e90596e1295af90d408a1c6149d4eee7bf49d2033f4b5c072c01cfa399d",
+          "after_sha256": "1f0e739610c87fd1f342de74d41a13bfc320ed7f9db94449bf74333dcb0cf7eb"
+        }
+      ]
+    },
+    {
+      "id": "0333-fdi2raw-deterministic-pulses",
+      "file": "patches/winuae/0333-fdi2raw-deterministic-pulses.patch",
+      "sha256": "bfeca15c77a57d4847ec3697a7710fe26ae14e26d188ef171a40c02866577cb1",
+      "title": "fdi2raw draws its weak bits from the track and the revolution, not from the machine",
+      "reason": "T57b: the pulses of a low-level FDI track are drawn at random (a pulse with a stability below the largest is there with that probability, the stable ones jitter within their bounds) with the emulator's generator uaerand. A decode then changed the machine's future by the number of draws it made, and the buffer that a state restore decodes again was not the one the original had decoded earlier. The draws are a function of (track, revolution) with a generator of the decoder's own (xorshift32, seeded by a mix of both); fdi2raw_set_revolution gives the revolution that disk.cpp counts and the state carries.",
+      "category": "host hooks",
+      "order": 152,
+      "symbols": [
+        "fdi2_decode",
+        "fdi2raw_loadrevolution_2",
+        "fdi2raw_set_revolution",
+        "fdi_rand",
+        "fdi_seed"
+      ],
+      "test": "tests/state/test_det02_trackdisk.py (the weak-bit FDI), tests/media/test_fdi.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fdi2raw.cpp",
+          "before_sha256": "1f0e739610c87fd1f342de74d41a13bfc320ed7f9db94449bf74333dcb0cf7eb",
+          "after_sha256": "d61c97230e7565b6ac7d3e589d7e28a4d8a395adccc20bc208421e1f126bf54c"
+        },
+        {
+          "path": "include/fdi2raw.h",
+          "before_sha256": "0e5a30ff1c86e3688f859b837a86c18b52675eb79cf8c9e52a840720dfc1bb18",
+          "after_sha256": "1fdd611b39f0cbdcfa1bad3246b5b6e6a8355cc782dd9fdab256a1f35800e566"
+        }
+      ]
+    },
+    {
+      "id": "0334-disk-fdi-track-state",
+      "file": "patches/winuae/0334-disk-fdi-track-state.patch",
+      "sha256": "83149be338a5e158026bba0f803e423291b30fe9ae8b35ef998290fded209c52",
+      "title": "FDI tracks are a function of the revolution, and the state carries the multi-revolution reader",
+      "reason": "T57b: drive_fill_bigbuf passes the revolution (fdirev, counted from 0 whenever the head reads another track, fditrack) to fdi2raw and makes the length 0 before the call, so a track the decoder cannot read is an unformatted one and not the previous track's length; fetchnextrevolution counts the next revolution and keeps the old length when the new one cannot be decoded. DSKX carries, for each drive, multi_revolution (DSDn restores the buffer but not the flag that says it has several revolutions), revolution_check, fdirev and fditrack: 46 to 62 words.",
+      "category": "host hooks",
+      "order": 153,
+      "symbols": [
+        "drive_fill_bigbuf",
+        "drive_insert",
+        "fetchnextrevolution",
+        "p6_disk_phase_get",
+        "p6_disk_phase_set"
+      ],
+      "test": "tests/state/test_det02_trackdisk.py (an FDI whose track has weak bits, read for more than a turn)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "15a47e24424412bcf0daaedafc57a168530abba2cd712035c843fb9af0e89945",
+          "after_sha256": "a34200e4d0c793ddc13cd76211c487d308e3c4ea4516d3a3926ac8d9dc6034e9"
+        }
+      ]
+    },
+    {
+      "id": "0335-disk-track-timing-state",
+      "file": "patches/winuae/0335-disk-track-timing-state.patch",
+      "sha256": "96e7662fa84fdc2c8bd92873d5a2c1bf7aa25e9da3b7cc133f617442e84d0fe6",
+      "title": "The timing of a buffered track is one value per byte in the state",
+      "reason": "T57b: DISK_update reads the timing of a track (FDI, IPF) as tracktiming[mfmpos / 8], one value per byte of the track, and upstream's save_disk2/restore_disk2 write one per 16-bit word: the second half of the timing array was never carried, and a machine that loaded the state read that half of the track at the speed the buffer left there (the first revolution's, after an insert). DSDn with the timing bit now holds the words and then (tracklen + 7) / 8 values.",
+      "category": "host hooks",
+      "order": 154,
+      "symbols": [
+        "restore_disk2",
+        "save_disk2"
+      ],
+      "test": "tests/state/test_det02_trackdisk.py (FDI with weak pulses in the whole track)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "a34200e4d0c793ddc13cd76211c487d308e3c4ea4516d3a3926ac8d9dc6034e9",
+          "after_sha256": "f505d36d2243f6be29e2aea81141537344be3deb6d23338c4e4d3cfd5a5d835e"
+        }
+      ]
     }
   ]
 }

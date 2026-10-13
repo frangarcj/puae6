@@ -47,7 +47,7 @@ class EngineIncludeTests(unittest.TestCase):
             cls.closure = dict(pool.map(dependencies, engine_commands()))
 
     def test_every_dependency_is_inside_an_allowed_tree(self):
-        self.assertEqual(len(self.closure), 46)   # + gayle.cpp, ide.cpp (T56); + fpp.cpp, fpp_softfloat.cpp, softfloat_decimal.cpp (T54); + autoconf, filesys, hardfile, native2amiga, traps, uaeresource, def_icons (T29a)
+        self.assertEqual(len(self.closure), 47)   # + fdi2raw.cpp (T57b); + gayle.cpp, ide.cpp (T56); + fpp.cpp, fpp_softfloat.cpp, softfloat_decimal.cpp (T54); + autoconf, filesys, hardfile, native2amiga, traps, uaeresource, def_icons (T29a)
         for unit, paths in self.closure.items():
             for path in paths:
                 with self.subTest(unit=Path(unit).name, header=path.name):

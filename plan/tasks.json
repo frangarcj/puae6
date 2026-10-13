@@ -13605,7 +13605,7 @@
         "docs/02-contracts.md",
         "docs/04-validation.md"
       ],
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T57a"
       ],
@@ -13629,11 +13629,13 @@
         "tools/check.py",
         "plan/tasks.json",
         "tests/test_plan.py",
-        "reports/tasks/T57.md"
+        "reports/tasks/T57.md",
+        "manifests/host-surface.json"
       ],
       "steps": [
         "fdi2raw.cpp entra en las unidades de upstream (FDI2RAW en la configuracion portable) y se lee por el camino de disk.cpp (drive_insert, drive_fill_bigbuf, fetchnextrevolution). Determinismo: fdi2raw sortea pulsos con uaerand (pistas de bajo nivel con bits debiles), asi que el estado del generador del motor cambiaria con cada decodificacion; la semilla del sorteo pasa a ser una funcion de la imagen, la pista y el numero de revolucion de la pista (un contador por unidad que entra en DSKX junto a multi_revolution y revolution_check), no del generador. Cotas: el validador del puente comprueba la cabecera FDI (CRC de FDI 2.x, offsets de pista dentro del fichero) y el fuzzer lo ejercita hasta donde el decodificador aguante; cada fallo de seguridad que encuentre se arregla con un parche pequeno.",
-        "Escritor de prueba (tests/media/fdi.py) segun la especificacion FDI 2.0 que fdi2raw implementa (cabecera de 2048 bytes con CRC, tabla de pistas, pistas tipo 0x00..0x0F de sectores descritos/crudos); un FDI real y libre opcional por variable de entorno en ~/Downloads/puae6-free/ (datos no confiables)."
+        "Escritor de prueba (tests/media/fdi.py) segun la especificacion FDI 2.0 que fdi2raw implementa (cabecera de 2048 bytes con CRC, tabla de pistas, pistas tipo 0x00..0x0F de sectores descritos/crudos); un FDI real y libre opcional por variable de entorno en ~/Downloads/puae6-free/ (datos no confiables).",
+        "Ampliacion de touch (2026-10-13): manifests/host-surface.json (el inventario de llamadores de zfile_* recorre las fuentes seleccionadas: fdi2raw.cpp entra en fread, fseek y ftell32). Hallazgos que cambiaron el plan: el decodificador trae un bug propio con un FDI sin flujo de indice (compensaciones sin inicializar), upstream guarda la temporizacion de una pista por palabra aunque se lee por byte (parche 0335), y la cota de DSDn pasa de 4 a 6 bytes por palabra; no hay FDI real y libre que descargar (tests/media/test_fdi_real.py por variable de entorno)."
       ],
       "checks": [
         "MED01",

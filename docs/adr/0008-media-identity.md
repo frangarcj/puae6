@@ -82,6 +82,11 @@ disco. Mediciones y referencias de codigo: informe de investigacion de T12 (resu
     presupuesto (docs/03-waterbox.md) se dimensionaron para eso y no cambian. Pasarse es `CAPACITY` (en `p6_load` y en `p6_media_append`), nada queda registrado.
 14. **Solo lectura.** El overlay de T27 es de sectores AmigaDOS y de pistas crudas de la geometria del ADF plano; un ADF extendido tiene pistas de longitud propia y
     no se escribe: sigue protegido con `P6_CONFIG_FLOPPY_WRITES`, `p6_media_write_status_get` lo da vacio y `p6_media_export` responde `UNSUPPORTED`.
-15. **Enganche para IPF (T58).** El lector de IPF producira pistas MFM con su temporizacion por celda; su sitio natural es `drive_fill_bigbuf` junto a las pistas de
+15. **FDI (T57b).** Otro formato dentro del tipo ADF (`P6_CAP_MEDIA_FDI`), con el mismo validador (`classify_floppy`, la cabecera de 512 bytes, el CRC-32 de las versiones 2.1 y posteriores, 166 pistas,
+    cada pista dentro del fichero), los mismos topes y el mismo caracter de solo lectura. De los tipos de pista del formato entran tres: vacia, Amiga de doble densidad y de bajo nivel (las transiciones de flujo
+    de una vuelta, con sus bits debiles); las demas se rechazan porque `fdi2raw` las lee sin comprobar el final del dato. El decodificador de upstream se compila (`fdi2raw.cpp`, parches 0332 a 0335): acotado
+    (cada lectura contra el final de los bytes de la pista y limites fijos: pulsos, profundidad del arbol de Huffman, bits de salida, pasos), determinista (los sorteos de los bits debiles salen de un generador
+    del decodificador sembrado por pista y revolucion, no del del motor) y con su estado (docs/adr/0009-state-format.md, punto 17). No se usa capsimg ni ninguna biblioteca.
+16. **Enganche para IPF (T58).** El lector de IPF producira pistas MFM con su temporizacion por celda; su sitio natural es `drive_fill_bigbuf` junto a las pistas de
     este formato (la rama `ADF_IPF`, hoy sin compilar, y `fetchnextrevolution` para varias vueltas), con el estado de pista de este punto 12 mas el contador de
     revolucion de T57b, y el validador de `trackdisk.h` como compuerta antes del motor (un formato nuevo es un `Format` mas y una funcion de comprobacion).

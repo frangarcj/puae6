@@ -1,0 +1,86 @@
+diff --git a/fdi2raw.cpp b/fdi2raw.cpp
+--- a/fdi2raw.cpp
++++ b/fdi2raw.cpp
+@@ -131,6 +131,8 @@
+ #define FDI_SRC_PAD 4096		/* zeros after the data of a track: a reader that is a few bytes short reads them, not what the previous track left */
+ struct fdi {
+ 	int src_capacity;
++	uae_u32 rand_state;	/* the generator of the pulses (fdi_rand), seeded for each decode */
++	int serial;		/* which revolution of the track the next decode is (fdi2raw_set_revolution) */
+ 	uae_u8 *track_src_buffer;
+ 	uae_u8 *track_src;
+ 	int track_src_len;
+@@ -1437,8 +1439,31 @@
+ 	int off2 = bitoffset % 8;
+ 	p[off1] |= bit << (7 - off2);
+ 	bitoffset++;
++}
++
++
++/* The weak bits and the jitter of a low-level track are drawn at random, which upstream does with the emulator's generator: a decode then changes the machine's future, and the
++ * track a state restore decodes again is not the one the original had. Here the draws are a function of the track and of the revolution (the caller counts them), so a decode is
++ * a function of the image alone and uses nothing of the machine. xorshift32 from a mixed seed. */
++static uae_u32 fdi_seed (int track, int serial)
++{
++	uae_u32 x = (uae_u32)track * 0x9E3779B1u + (uae_u32)serial * 0x85EBCA6Bu + 0x2545F491u;
++	x ^= x >> 15; x *= 0x2C1B3C6Du; x ^= x >> 12; x *= 0x297A2D39u; x ^= x >> 15;
++	return x ? x : 1;
++}
++
++static uae_u32 fdi_rand (FDI *fdi)
++{
++	uae_u32 x = fdi->rand_state;
++	x ^= x << 13; x ^= x >> 17; x ^= x << 5;
++	fdi->rand_state = x;
++	return x >> 1;
+ }
+ 
++void fdi2raw_set_revolution (FDI *fdi, int serial)
++{
++	fdi->serial = serial;
++}
+ 
+ struct pulse_sample {
+ 	unsigned long size;
+@@ -1691,7 +1716,7 @@
+ 					max_pulse = avg_pulse + (avgp[nexti] - minp[nexti]);
+ 				if (min_pulse < ref_pulse)
+ 					min_pulse = ref_pulse;
+-				randval = uaerand() & FDI_RAND_MASK;
++				randval = fdi_rand (fdi) & FDI_RAND_MASK;
+ 				if (randval < (FDI_RAND_MASK / 2)) {
+ 					if (randval > (FDI_RAND_MASK / 4)) {
+ 						if (randval <= (3 * (FDI_RAND_MASK / 8)))
+@@ -1722,11 +1747,11 @@
+ 				ref_pulse = 0;
+ 				if (i == eodat)
+ 					outstep++;
+-			} else if ((uaerand() & FDI_RAND_MASK) <= ((idx[i] * FDI_RAND_MASK) / maxidx)) {
++			} else if ((fdi_rand (fdi) & FDI_RAND_MASK) <= ((idx[i] * FDI_RAND_MASK) / maxidx)) {
+ 				avg_pulse = avgp[i];
+ 				min_pulse = minp[i];
+ 				max_pulse = maxp[i];
+-				randval = uaerand() & FDI_RAND_MASK;
++				randval = fdi_rand (fdi) & FDI_RAND_MASK;
+ 				if (randval < (FDI_RAND_MASK / 2)) {
+ 					if (randval > (FDI_RAND_MASK / 4)) {
+ 						if (randval <= (3 * (FDI_RAND_MASK / 8)))
+@@ -2242,6 +2267,7 @@
+ 		return 0;
+ 	}
+ 	memset (fdi->track_dst_buffer, 0, MAX_DST_BUFFER);
++	fdi->rand_state = fdi_seed (track, fdi->serial);
+ 	idx = cache->indexoffset;
+ 	fdi2_decode (fdi, cache->totalavg,
+ 		cache->avgp, cache->minp, cache->maxp, cache->idxp,
+diff --git a/include/fdi2raw.h b/include/fdi2raw.h
+--- a/include/fdi2raw.h
++++ b/include/fdi2raw.h
+@@ -12,6 +12,7 @@
+ extern int fdi2raw_loadtrack (FDI*, uae_u16 *mfmbuf, uae_u16 *tracktiming, int track, int *tracklength, int *indexoffset, int *multirev, int mfm);
+ extern int fdi2raw_loadrevolution (FDI*, uae_u16 *mfmbuf, uae_u16 *tracktiming, int track, int *tracklength, int mfm);
+ extern FDI *fdi2raw_header(struct zfile *f);
++extern void fdi2raw_set_revolution (FDI *, int serial);
+ extern void fdi2raw_header_free (FDI *);
+ extern int fdi2raw_get_last_track(FDI *);
+ extern int fdi2raw_get_num_sector (FDI *);

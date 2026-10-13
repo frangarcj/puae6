@@ -13,7 +13,9 @@ import struct
 import subprocess
 import tempfile
 import unittest
+import zlib
 
+from tests.media import fdi as fdi_writer
 from tests.media import trackdisk as td
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -55,7 +57,69 @@ def oracle(data):
                 return False
             at += length
         return True
+    if data[:25] == b"Formatted Disk Image file":
+        return oracle_fdi(data)
     return n == PLAIN
+
+
+def oracle_fdi(data):
+    """FDI: header of 512 bytes, version 1 or 2 (a CRC-32 of the first 508 bytes from 2.1), at most 166 tracks, and tracks that are empty, Amiga (eleven sectors) or low level and lie in the file."""
+    n = len(data)
+    if n > 3 << 20 or n < 512 or data[140] not in (1, 2):
+        return False
+    if data[140] * 256 + data[141] >= 513 and zlib.crc32(data[:508]) != struct.unpack(">I", data[508:512])[0]:
+        return False
+    tracks = (struct.unpack(">H", data[142:144])[0] + 1) * (data[144] + 1)
+    if tracks > 166:
+        return False
+    at = 512
+    for i in range(tracks):
+        kind, size = data[152 + 2 * i], data[153 + 2 * i]
+        if kind == 1:
+            length = (size & 15) * 512
+            if size & 15 != 11 or size >> 4 > 10:
+                return False
+        elif kind & 0xC0 == 0x80:
+            length = (((kind & 0x3F) << 8) | size) * 256
+        elif kind == 0:
+            length = size * 256
+        else:
+            return False
+        if at + length > n:
+            return False
+        if kind & 0xC0 == 0x80 and not oracle_lowlevel(data[at:at + length]):
+            return False
+        at += length
+    return True
+
+
+def oracle_lowlevel(track):
+    if len(track) < 16:
+        return False
+    pulses = struct.unpack(">I", track[:4])[0]
+    if not 2 <= pulses <= 262144:
+        return False
+    descriptors = [int.from_bytes(track[4 + 3 * k:7 + 3 * k], "big") for k in range(4)]
+    both = descriptors[1] != 0 and descriptors[2] != 0
+    pos = 16
+    for k, desc in enumerate(descriptors):
+        if k in (1, 2) and not both:
+            continue
+        mode, size = desc >> 22, desc & 0x3FFFFF
+        if pos > len(track) or mode > 1 or size > len(track) - pos or (k == 0 and size == 0):
+            return False
+        if mode == 0 and pulses * 2 <= size and (size < pulses * 4 or pos & 3):
+            return False
+        pos += size
+    return True
+
+
+def small_fdi(version=(2, 1)):
+    """Four tracks: Amiga, low level with an index stream, empty, Amiga starting at another sector."""
+    widths = [4000] * 400
+    weak = (120, 60, set(range(0, 400, 3)))
+    sector = bytes(range(256)) * 22
+    return fdi_writer.fdi_image([("amiga", sector, 0), ("lowlevel", fdi_writer.lowlevel_track(widths, weak)), ("empty",), ("amiga", sector, 5)], cylinders=2, heads=2, version=version)
 
 
 def small_ext2():
@@ -139,6 +203,37 @@ class FormatTests(unittest.TestCase):
             lines = self.agree(images, name)
             self.assertEqual(lines[len(good)][:3], "ok ")
             self.assertTrue(all(line.startswith("refused") for line in lines[:len(good) - 1]), "a cut file is refused")
+
+    def test_every_byte_of_the_header_and_the_tracks_of_an_fdi_at_boundary_values(self):
+        for version in ((2, 0), (2, 1)):
+            good = small_fdi(version)
+            images = [good]
+            for at in list(range(0, 28)) + list(range(138, 168)) + list(range(500, 520)):       # the magic, the version and geometry, the first track entries, the CRC
+                for value in (0, 1, 0x7F, 0x80, 0xFF, good[at] ^ 1, (good[at] + 1) & 255):
+                    image = bytearray(good)
+                    image[at] = value
+                    images.append(bytes(image))
+            track_data = 512
+            for at in range(track_data, track_data + 40):       # the first words of the first track (the sectors: still valid) and, further on, the low-level track's descriptors
+                image = bytearray(good)
+                image[at] ^= 0xFF
+                images.append(bytes(image))
+            low = 512 + 5632
+            for at in range(low, low + 20):
+                for value in (0, 1, 0x7F, 0x80, 0xFF, good[at] ^ 1):
+                    image = bytearray(good)
+                    image[at] = value
+                    images.append(bytes(image))
+            lines = self.agree(images, f"fdi {version}")
+            self.assertEqual(lines[0], "ok FDI")
+            accepted = sum(line.startswith("ok ") for line in lines)
+            self.assertTrue(1 < accepted < len(images), f"the sweep reaches both answers ({accepted} of {len(images)})")
+
+    def test_every_truncation_and_extension_of_an_fdi(self):
+        good = small_fdi()
+        images = [good[:size] for size in range(0, len(good) + 1, 7)] + [good[:len(good) - k] for k in range(1, 40)] + [good + bytes(extra) for extra in (1, 2, 3, 300)]
+        lines = self.agree(images, "fdi")
+        self.assertTrue(any(line == "ok FDI" for line in lines))
 
     def test_sizes_and_headers_of_plain_images(self):
         images = [bytes(size) for size in (0, 1, 7, 8, 12, 511, PLAIN - 1, PLAIN, PLAIN + 1, 2 * PLAIN)]

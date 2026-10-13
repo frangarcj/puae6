@@ -1,0 +1,81 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -197,6 +197,7 @@
+ 	uae_u16 tracktiming[MAXMFMBUF];
+ 	int multi_revolution;
+ 	int revolution_check;
++	int fdirev, fditrack; /* FDI: which revolution of the buffered track the next decode is, and the track it counts for (-1: none): see drive_fill_bigbuf */
+ 	int skipoffset;
+ 	int mfmpos;
+ 	int indexoffset;
+@@ -1580,6 +1581,8 @@
+ #ifdef FDI2RAW
+ 	} else if ((drv->fdi = fdi2raw_header (drv->diskfile))) {
+ 
++		drv->fditrack = -1;
++		drv->fdirev = 0;
+ 		drv->wrprot = true;
+ 		drv->num_tracks = fdi2raw_get_last_track (drv->fdi);
+ 		drv->num_secs = fdi2raw_get_num_sector (drv->fdi);
+@@ -2548,6 +2551,14 @@
+ 	} else if (drv->filetype == ADF_FDI) {
+ 
+ #ifdef FDI2RAW
++		// The weak bits of a low-level track differ from one revolution to the next: the decode is a function of the track and of the revolution it is (fdi2raw_set_revolution),
++		// which counts from 0 whenever another track is read and is carried by the state. A track the decoder cannot read (it leaves the length at 0) is an unformatted one.
++		if (drv->fditrack != tr) {
++			drv->fditrack = tr;
++			drv->fdirev = 0;
++		}
++		fdi2raw_set_revolution(drv->fdi, drv->fdirev);
++		drv->tracklen = 0;
+ 		fdi2raw_loadtrack(drv->fdi, drv->bigmfmbuf, drv->tracktiming, tr, &drv->tracklen, &drv->indexoffset, &drv->multi_revolution, 1);
+ #endif
+ 
+@@ -4026,7 +4037,14 @@
+ 		break;
+ 	case ADF_FDI:
+ #ifdef FDI2RAW
++	{
++		const int previous = drv->tracklen;
++		drv->fdirev++;
++		fdi2raw_set_revolution(drv->fdi, drv->fdirev);
+ 		fdi2raw_loadrevolution(drv->fdi, drv->bigmfmbuf, drv->tracktiming, drv->cyl * 2 + side, &drv->tracklen, 1);
++		if (drv->tracklen <= 0)
++			drv->tracklen = previous;		// the revolution could not be decoded: the buffer was not touched
++	}
+ #endif
+ 		break;
+ #ifdef FLOPPYBRIDGE
+@@ -6350,9 +6368,12 @@
+  *  4 floppybitcounter  5 tracklen  6 trackspeed  7 skipoffset  8 indexoffset
+  *  9 prevtracklen (T57): the length of the track the head position last was scaled to (updatemfmpos). It is 0 right after an insert and the length of the last track filled
+  *  after that; restore_disk set it from the live machine's track and not from the state's, so a head that moves to a track of another length (extended ADF, FDI: every raw
+- *  track has its own) was scaled by the ratio of two lengths of which one belonged to a machine the state never saw. */
++ *  track has its own) was scaled by the ratio of two lengths of which one belonged to a machine the state never saw.
++ *  10 multi_revolution, 11 revolution_check, 12 fdirev, 13 fditrack (T57b): what the reader of the revolutions of a track keeps. multi_revolution says that the track in the buffer
++ *  has several different revolutions (an FDI whose track has weak bits; DSDn restores the buffer but not this), revolution_check is the count of lines before the next revolution
++ *  may be fetched, and fdirev counts the revolutions fdi2raw decoded of the track fditrack since the head came to it: the next decode of that track is the one after. */
+ #define P6_DISK_PHASE_GLOBAL 6
+-#define P6_DISK_PHASE_DRIVE 10
++#define P6_DISK_PHASE_DRIVE 14
+ #define P6_DISK_PHASE_WORDS (P6_DISK_PHASE_GLOBAL + MAX_FLOPPY_DRIVES * P6_DISK_PHASE_DRIVE)
+ 
+ bool p6_disk_phase_get(int32_t *out, unsigned n)
+@@ -6366,6 +6387,7 @@
+ 		w[0] = drv->dskchange_time; w[1] = drv->motordelay ? 1 : 0; w[2] = drv->steplimit;
+ 		w[3] = age < 0 ? 0 : age > 0x7fffffff ? 0x7fffffff : int32_t(age);
+ 		w[4] = drv->floppybitcounter; w[5] = drv->tracklen; w[6] = drv->trackspeed; w[7] = drv->skipoffset; w[8] = drv->indexoffset; w[9] = drv->prevtracklen;
++		w[10] = drv->multi_revolution; w[11] = drv->revolution_check; w[12] = drv->fdirev; w[13] = drv->fditrack;
+ 	}
+ 	return true;
+ }
+@@ -6382,6 +6404,7 @@
+ 		drv->dskchange_time = w[0]; drv->motordelay = w[1] != 0; drv->steplimit = w[2];
+ 		drv->steplimitcycle = get_cycles () - w[3];
+ 		drv->floppybitcounter = w[4]; drv->tracklen = w[5]; drv->trackspeed = w[6]; drv->skipoffset = w[7]; drv->indexoffset = w[8]; drv->prevtracklen = w[9];
++		drv->multi_revolution = w[10]; drv->revolution_check = w[11]; drv->fdirev = w[12]; drv->fditrack = w[13];
+ 	}
+ 	return true;
+ }

@@ -53,6 +53,7 @@ typedef struct p6_caps {
 #define P6_CAP_MEDIA_APPEND     (UINT64_C(1) << 4)
 #define P6_CAP_MEDIA_WRITE      (UINT64_C(1) << 5)   /* P6_CONFIG_FLOPPY_WRITES, p6_media_export and p6_media_write_status */
 #define P6_CAP_MEDIA_EXT_ADF    (UINT64_C(1) << 7)   /* P6_MEDIA_ADF also accepts the extended ADF of WinUAE (UAE-1ADF and UAE--ADF: raw MFM tracks and AmigaDOS tracks), read only (T57a) */
+#define P6_CAP_MEDIA_FDI        (UINT64_C(1) << 8)   /* P6_MEDIA_ADF also accepts the FDI image ("Formatted Disk Image file": empty, Amiga and low-level tracks), read only (T57b) */
 #define P6_CAP_MEDIA_HDF        (UINT64_C(1) << 6)   /* P6_MEDIA_HDF: hard files on the UAE controller (uaehf.device), their write overlay, their export and their native state (T29) */
 
 typedef struct p6_config {
@@ -151,8 +152,8 @@ typedef struct p6_media {
 } p6_media;
 #define P6_MEDIA_ADF UINT32_C(1)
 /* P6_MEDIA_ADF: a floppy disk image, whose format the bytes say: a plain ADF (exactly 901120 bytes, the only one a write overlay can cover) or, with P6_CAP_MEDIA_EXT_ADF
- * (T57), an extended ADF ("UAE-1ADF" or "UAE--ADF": per-track raw MFM with its length in bits, and AmigaDOS tracks, mixed), at most 3 MiB, read from memory by the
- * engine's own disk reader. The content_id is the SHA-256 of the bytes as given, so an extended ADF and a plain one of the same disk are two media. A track-level image is
+ * (T57), an extended ADF ("UAE-1ADF" or "UAE--ADF": per-track raw MFM with its length in bits, and AmigaDOS tracks, mixed) or, with P6_CAP_MEDIA_FDI, an FDI image
+ * ("Formatted Disk Image file", FDI 1.x and 2.x: empty, Amiga double-density and low-level tracks), at most 3 MiB, read from memory by the engine's own disk reader. The content_id is the SHA-256 of the bytes as given, so an extended ADF and a plain one of the same disk are two media. A track-level image is
  * always write protected (P6_CONFIG_FLOPPY_WRITES does not apply to it: p6_media_write_status_get reports it with no sectors and p6_media_export answers UNSUPPORTED), and
  * the floppies of a session together take at most 16 plain disks (14 417 920 bytes: CAPACITY beyond). A header that the engine could not read safely (more tracks than a
  * drive has, a track that lies outside the file or holds more bits than the engine's buffer, a high-density track) is WRONG_MEDIA, before the engine is touched. */

@@ -1,0 +1,457 @@
+diff --git a/fdi2raw.cpp b/fdi2raw.cpp
+--- a/fdi2raw.cpp
++++ b/fdi2raw.cpp
+@@ -112,6 +112,8 @@
+ #endif
+ 
+ #define MAX_SRC_BUFFER 4194304
++#define FDI_MAX_PULSES 262144
++#define FDI_MAX_BITS 200000	/* what the timing buffer holds (MAX_TIMING_BUFFER / 2 words) and well under the engine's MFM buffer */
+ #define MAX_DST_BUFFER 40000
+ #define MAX_MFM_SYNC_BUFFER 60000
+ #define MAX_TIMING_BUFFER 400000
+@@ -126,7 +128,9 @@
+ 	int lowlevel;
+ };
+ 
++#define FDI_SRC_PAD 4096		/* zeros after the data of a track: a reader that is a few bytes short reads them, not what the previous track left */
+ struct fdi {
++	int src_capacity;
+ 	uae_u8 *track_src_buffer;
+ 	uae_u8 *track_src;
+ 	int track_src_len;
+@@ -176,9 +180,32 @@
+ typedef struct node NODE;
+ 
+ static uae_u8 temp, temp2;
++/* The streams of a low-level track come from the file: every read is bounded by the end of the track's data, the tree by a depth and a number of nodes, and the sub-streams by their
++ * number and their shift. fdi_stream_error is set by the first violation and the decoder gives up; it is reset by each fdi_decode, like temp and temp2. */
++#define FDI_TREE_DEPTH 40
++#define FDI_TREE_NODES 70000
++#define FDI_SUBSTREAMS 8
++static uae_u8 *fdi_stream_end;
++static int fdi_tree_nodes;
++static int fdi_stream_error;
+ 
+-static uae_u8 *expand_tree (uae_u8 *stream, NODE *node)
++static uae_u8 fdi_next (uae_u8 **stream)
+ {
++	if (*stream >= fdi_stream_end) {
++		fdi_stream_error = 1;
++		return 0;
++	}
++	return *(*stream)++;
++}
++
++static uae_u8 *expand_tree (uae_u8 *stream, NODE *node, int depth)
++{
++	if (fdi_stream_error)
++		return stream;
++	if (depth > FDI_TREE_DEPTH || ++fdi_tree_nodes > FDI_TREE_NODES) {
++		fdi_stream_error = 1;
++		return stream;
++	}
+ 	if (temp & temp2) {
+ 		fdi_free (node->left);
+ 		node->left = 0;
+@@ -186,7 +213,7 @@
+ 		node->right = 0;
+ 		temp2 >>= 1;
+ 		if (!temp2) {
+-			temp = *stream++;
++			temp = fdi_next (&stream);
+ 			temp2 = 0x80;
+ 		}
+ 		return stream;
+@@ -194,22 +221,22 @@
+ 		uae_u8 *stream_temp;
+ 		temp2 >>= 1;
+ 		if (!temp2) {
+-			temp = *stream++;
++			temp = fdi_next (&stream);
+ 			temp2 = 0x80;
+ 		}
+ 		node->left = fdi_malloc (NODE, 1);
+ 		memset (node->left, 0, sizeof (NODE));
+-		stream_temp = expand_tree (stream, node->left);
++		stream_temp = expand_tree (stream, node->left, depth + 1);
+ 		node->right = fdi_malloc (NODE ,1);
+ 		memset (node->right, 0, sizeof (NODE));
+-		return expand_tree (stream_temp, node->right);
++		return expand_tree (stream_temp, node->right, depth + 1);
+ 	}
+ }
+ 
+ static uae_u8 *values_tree8 (uae_u8 *stream, NODE *node)
+ {
+ 	if (node->left == 0) {
+-		node->v = *stream++;
++		node->v = fdi_next (&stream);
+ 		return stream;
+ 	} else {
+ 		uae_u8 *stream_temp = values_tree8 (stream, node->left);
+@@ -220,8 +247,8 @@
+ static uae_u8 *values_tree16 (uae_u8 *stream, NODE *node)
+ {
+ 	if (node->left == 0) {
+-		uae_u16 high_8_bits = (*stream++) << 8;
+-		node->v = high_8_bits | (*stream++);
++		uae_u16 high_8_bits = fdi_next (&stream) << 8;
++		node->v = high_8_bits | fdi_next (&stream);
+ 		return stream;
+ 	} else {
+ 		uae_u8 *stream_temp = values_tree16 (stream, node->left);
+@@ -252,29 +279,40 @@
+ 	return v;
+ }
+ 
+-static void fdi_decode (uae_u8 *stream, int size, uae_u8 *out)
++/* 1 when the whole stream decoded, 0 when it ran out of bytes or asked for more than the limits (out is then not to be used). */
++static int fdi_decode (uae_u8 *stream, int size, uae_u8 *out)
+ {
+-	int i;
++	int i, substreams = 0;
+ 	uae_u8 sign_extend, sixteen_bit, sub_stream_shift;
+ 	NODE root;
+ 	NODE *current_node;
+ 
+ 	memset (out, 0, size * 4);
++	fdi_stream_error = 0;
++	fdi_tree_nodes = 0;
+ 	sub_stream_shift = 1;
+ 	while (sub_stream_shift) {
+ 
+ 		//sub-stream header decode
+-		sign_extend = *stream++;
++		sign_extend = fdi_next (&stream);
+ 		sub_stream_shift = sign_extend & 0x7f;
+ 		sign_extend &= 0x80;
+-		sixteen_bit = (*stream++) & 0x80;
++		sixteen_bit = fdi_next (&stream) & 0x80;
++		if (fdi_stream_error || sub_stream_shift > 31 || ++substreams > FDI_SUBSTREAMS)
++			return 0;
+ 
+ 		//huffman tree architecture decode
+-		temp = *stream++;
++		memset (&root, 0, sizeof root);
++		temp = fdi_next (&stream);
+ 		temp2 = 0x80;
+-		stream = expand_tree (stream, &root);
++		stream = expand_tree (stream, &root, 0);
+ 		if (temp2 == 0x80)
+ 			stream--;
++		if (fdi_stream_error) {
++			free_nodes (root.left);
++			free_nodes (root.right);
++			return 0;
++		}
+ 
+ 		//huffman output values	decode
+ 		if (sixteen_bit)
+@@ -284,7 +322,7 @@
+ 
+ 		//sub-stream data decode
+ 		temp2 = 0;
+-		for (i = 0; i < size; i++) {
++		for (i = 0; i < size && !fdi_stream_error; i++) {
+ 			uae_u32 v;
+ 			uae_u8 decode = 1;
+ 			current_node = &root;
+@@ -295,7 +333,7 @@
+ 					temp2 >>= 1;
+ 					if (!temp2) {
+ 						temp2 = 0x80;
+-						temp = *stream++;
++						temp = fdi_next (&stream);
+ 					}
+ 					if (temp & temp2)
+ 						current_node = current_node->right;
+@@ -316,10 +354,12 @@
+ 		}
+ 		free_nodes (root.left);
+ 		free_nodes (root.right);
++		if (fdi_stream_error)
++			return 0;
+ 	}
++	return 1;
+ }
+ 
+-
+ static int decode_raw_track (FDI *fdi)
+ {
+ 	int size = get_u32(fdi->track_src);
+@@ -1353,6 +1393,8 @@
+ 	if (mode == 0 && pulses * 2 > len)
+ 		mode = 1;
+ 	if (mode == 0) {
++		if (src + pulses * 4 > fdi_stream_end || ((uintptr_t)src & 3))
++			return 0;
+ 		dst2 = (uae_u32*)src;
+ 		dst = src;
+ 		for (i = 0; i < pulses; i++) {
+@@ -1361,8 +1403,11 @@
+ 		}
+ 	} else if (mode == 1) {
+ 		dst = fdi_malloc (uae_u8, pulses *4);
++		if (!fdi_decode (src, pulses, dst)) {
++			fdi_free (dst);
++			return 0;
++		}
+ 		*dofree = 1;
+-		fdi_decode (src, pulses, dst);
+ 	} else {
+ 		dst = 0;
+ 	}
+@@ -1387,6 +1432,8 @@
+ STATIC_INLINE void addbit (uae_u8 *p, int bit)
+ {
+ 	int off1 = bitoffset / 8;
++	if (bitoffset >= FDI_MAX_BITS)
++		return;			/* the callers stop before this (fdi2_decode); a normal track is far shorter */
+ 	int off2 = bitoffset % 8;
+ 	p[off1] |= bit << (7 - off2);
+ 	bitoffset++;
+@@ -1560,7 +1607,15 @@
+ 	uae_u16 *pt = fdi->track_dst_buffer_timing;
+ 	uae_u32 ref_pulse, pulse;
+ 	int jitter;
++	unsigned long steps = 0, inner;
++	const unsigned long limit = 4ul * (unsigned long)pulses + 64;
+ 
++	fdi->out = 0;
++	/* a revolution of less than ~0.2 ms of pulses has no cell to measure: avg_size would be 0 and the loops below would not end */
++	if (standard_MFM_2_bit_cell_size < 16 || pulses < 2) {
++		fdi->err = 1;
++		return;
++	}
+ 	/* detects a long-enough stable pulse coming just after another stable pulse */
+ 	i = 1;
+ 	while ( (i < pulses) && ( (idx[i] < maxidx)
+@@ -1586,6 +1641,12 @@
+ 
+ 		/* calculates the current average bitrate from previous decoded data */
+ 		uae_u32 avg_size = (total << (2 + mfm)) / totaldiv; /* this is the new average size for one MFM bit */
++		if (++steps > limit * 8) {		/* the walk over the pulses never reached the end of the data: give up (a pulse of zero width, for one) */
++			fdi->err = 1;
++			fdi->out = 0;
++			return;
++		}
++		inner = 0;
+ 		/* uae_u32 avg_size = (uae_u32)((((float)total)*((float)(mfm+1))*4.0) / ((float)totaldiv)); */
+ 		/* you can try tighter ranges than 25%, or wider ranges. I would probably go for tighter... */
+ 		if ((avg_size < (standard_MFM_8_bit_cell_size - (pulse_limitval * standard_MFM_8_bit_cell_size / 100))) ||
+@@ -1601,6 +1662,11 @@
+ 		pulse = 0;
+ 		while (pulse < ((avg_size / 4) - (avg_size / 16))) {
+ 			uae_u32 avg_pulse, min_pulse, max_pulse;
++			if (++inner > limit) {
++				fdi->err = 1;
++				fdi->out = 0;
++				return;
++			}
+ 			i++;
+ 			if (i >= pulses)
+ 				i = 0;
+@@ -1766,6 +1832,11 @@
+ 		}
+ 
+ 		/* after one pass to correctly initialize the average bitrate, outputs the bits */
++		if (outstep == 1 && bitoffset + real_size >= FDI_MAX_BITS) {
++			fdi->err = 1;
++			fdi->out = 0;
++			return;
++		}
+ 		if (outstep == 1) {
+ 			for (j = real_size; j > 1; j--)
+ 				addbit (d, 0);
+@@ -1798,7 +1869,7 @@
+ 	double avg_bit_len;
+ 	int i;
+ 
+-	if (out == NULL)
++	if (out == NULL || bitoffset <= 0 || totalavg == 0)
+ 		return;
+ 	avg_bit_len = (double)totalavg / (double)bitoffset;
+ 	pt2 = fdi->track_dst_buffer_timing;
+@@ -1806,6 +1877,10 @@
+ 	for (i = 0; i < bitoffset / 8; i++) {
+ 		double v = (pt2[0] + pt2[1] + pt2[2] + pt2[3] + pt2[4] + pt2[5] + pt2[6] + pt2[7]) / 8.0;
+ 		v = 1000.0 * v / avg_bit_len;
++		if (!(v >= 0.0))
++			v = 0.0;
++		else if (v > 65535.0)
++			v = 65535.0;
+ 		*pt++ = (uae_u16)v;
+ 		pt2 += 8;
+ 	}
+@@ -1826,10 +1901,46 @@
+ 
+ 	d = fdi->track_dst;
+ 	p1 = fdi->track_src;
++	if (fdi->track_src_len < 16)
++		return -1;
+ 	pulses = get_u32 (p1);
+-	if (!pulses)
++	if (pulses <= 1 || pulses > FDI_MAX_PULSES)
+ 		return -1;
+ 	p1 += 4;
++	fdi_stream_end = fdi->track_src + fdi->track_src_len;
++	/* The four streams (average, minimum, maximum, index) lie one after the other behind the 12 bytes of descriptors, inside the track. Minimum and maximum come together. */
++	{
++		int pos = 16, n;
++		for (n = 0; n < 4; n++) {
++			uae_u32 desc = get_u24 (p1 + 3 * n), size = desc & 0x3fffff;
++			if ((n == 1 || n == 2) && !(get_u24 (p1 + 3) && get_u24 (p1 + 6)))
++				continue;
++			if (pos > fdi->track_src_len || (desc >> 22) > 1 || size > (uae_u32)(fdi->track_src_len - pos) || (n == 0 && !size))
++				return -1;
++			/* a stream of the plain form is read as `pulses` words in place: it has to hold them and start on a word */
++			if ((desc >> 22) == 0 && pulses * 2 <= (int)size && (size < (uae_u32)pulses * 4 || (pos & 3)))
++				return -1;
++			pos += size;
++		}
++	}
++	/* the memo of the tracks decoded before is not kept: a track of 100000 pulses takes about a megabyte, and a disk has 160 */
++	{
++		int k;
++		for (k = 0; k < MAX_TRACKS; k++) {
++			struct fdi_cache *c = &fdi->cache[k];
++			if (c == cache || !c->lowlevel)
++				continue;
++			if (c->idx_free)
++				fdi_free (c->idxp);
++			if (c->avg_free)
++				fdi_free (c->avgp);
++			if (c->min_free)
++				fdi_free (c->minp);
++			if (c->max_free)
++				fdi_free (c->maxp);
++			memset (c, 0, sizeof *c);
++		}
++	}
+ 	len = 12;
+ 	avgp = (uae_u32*)fdi_decompress (pulses, p1 + 0, p1 + len, &avg_free);
+ 	dumpstream(track, (uae_u8*)avgp, pulses);
+@@ -1841,6 +1952,12 @@
+ 		len += get_u24 (p1 + 3) & 0x3fffff;
+ 		maxp = (uae_u32*)fdi_decompress (pulses, p1 + 6, p1 + len, &max_free);
+ 		len += get_u24 (p1 + 6) & 0x3fffff;
++		if (!minp || !maxp) {
++			if (avg_free) fdi_free (avgp);
++			if (minp && min_free) fdi_free (minp);
++			if (maxp && max_free) fdi_free (maxp);
++			return -1;
++		}
+ 		/* Computes the real min and max values */
+ 		for (i = 0; i < pulses; i++) {
+ 			maxp[i] = avgp[i] + minp[i] - maxp[i];
+@@ -1855,6 +1972,12 @@
+ 		idx_off2 = 1;
+ 		idx_off3 = 2;
+ 		idxp = fdi_decompress (pulses, p1 + 9, p1 + len, &idx_free);
++		if (!idxp) {
++			if (avg_free) fdi_free (avgp);
++			if (min_free) fdi_free (minp);
++			if (max_free) fdi_free (maxp);
++			return -1;
++		}
+ 		if (idx_free) {
+ 			if (idxp[0] == 0 && idxp[1] == 0) {
+ 				idx_off1 = 2;
+@@ -1868,6 +1991,9 @@
+ 	} else {
+ 		idxp = fdi_malloc (uae_u8, pulses * 2);
+ 		idx_free = 1;
++		idx_off1 = 0;			/* two bytes per pulse, as generated below */
++		idx_off2 = 1;
++		idx_off3 = 2;
+ 		for (i = 0; i < pulses; i++) {
+ 			idxp[i * 2 + 0] = 2;
+ 			idxp[i * 2 + 1] = 0;
+@@ -2044,7 +2170,6 @@
+ 	}
+ 
+ 	fdi->mfmsync_buffer = fdi_malloc (int, MAX_MFM_SYNC_BUFFER);
+-	fdi->track_src_buffer = fdi_malloc (uae_u8, MAX_SRC_BUFFER);
+ 	fdi->track_dst_buffer = fdi_malloc (uae_u8, MAX_DST_BUFFER);
+ 	fdi->track_dst_buffer_timing = fdi_malloc (uae_u16, MAX_TIMING_BUFFER / 2);
+ 
+@@ -2085,6 +2210,23 @@
+ 	}
+ 	fdi->track_offsets[i] = offset;
+ 
++	/* The source buffer holds the largest track of the file (and the zeros after it), not the 4 MiB the format allows: the buffer is part of the machine's memory. */
++	{
++		int k, widest = 0;
++		for (k = 0; k < fdi->last_track; k++) {
++			int length = fdi->track_offsets[k + 1] - fdi->track_offsets[k];
++			if (length < 0 || length > MAX_SRC_BUFFER) {
++				fdi2raw_header_free (fdi);
++				return NULL;
++			}
++			if (length > widest)
++				widest = length;
++		}
++		fdi->src_capacity = widest;
++		fdi->track_src_buffer = fdi_malloc (uae_u8, widest + FDI_SRC_PAD);
++		memset (fdi->track_src_buffer, 0, widest + FDI_SRC_PAD);
++	}
++
+ 	return fdi;
+ }
+ 
+@@ -2094,6 +2236,11 @@
+ 	struct fdi_cache *cache = &fdi->cache[track];
+ 	int len, i, idx;
+ 
++	fdi->err = 0;
++	if (track < 0 || track >= MAX_TRACKS || !cache->lowlevel || !cache->avgp) {
++		*tracklength = 0;
++		return 0;
++	}
+ 	memset (fdi->track_dst_buffer, 0, MAX_DST_BUFFER);
+ 	idx = cache->indexoffset;
+ 	fdi2_decode (fdi, cache->totalavg,
+@@ -2103,6 +2250,8 @@
+ 	debuglog ("track %d: nbits=%d avg len=%.2f weakbits=%d idx=%d\n",
+ 		track, bitoffset, (double)cache->totalavg / bitoffset, cache->weakbits, cache->indexoffset);
+ 	len = fdi->out;
++	if (len < 0 || len > FDI_MAX_BITS || fdi->err)
++		len = 0;
+ 	if (cache->weakbits >= 10 && multirev)
+ 		*multirev = 1;
+ 	*tracklength = len;
+@@ -2127,16 +2276,23 @@
+ {
+ 	uae_u8 *p;
+ 	int outlen, i, indexoffset = 0;
+-	struct fdi_cache *cache = &fdi->cache[track];
++	struct fdi_cache *cache;
+ 
+ 	track ^= fdi->reversed_side;
++	*tracklength = 0;
++	if (track < 0 || track >= fdi->last_track)
++		return 0;
++	cache = &fdi->cache[track];
+ 	if (cache->lowlevel)
+ 		return fdi2raw_loadrevolution_2 (fdi, mfmbuf, tracktiming, track, tracklength, indexoffsetp, multirev, mfm);
+ 
+ 	fdi->err = 0;
+ 	fdi->track_src_len = fdi->track_offsets[track + 1] - fdi->track_offsets[track];
++	if (fdi->track_src_len < 0 || fdi->track_src_len > fdi->src_capacity)
++		return 0;
+ 	zfile_fseek (fdi->file, fdi->track_offsets[track], SEEK_SET);
+ 	zfile_fread (fdi->track_src_buffer, fdi->track_src_len, 1, fdi->file);
++	memset (fdi->track_src_buffer + fdi->track_src_len, 0, FDI_SRC_PAD);
+ 	memset (fdi->track_dst_buffer, 0, MAX_DST_BUFFER);
+ 	fdi->track_dst_buffer_timing[0] = 0;
+ 
+@@ -2196,6 +2352,8 @@
+ 	if (outlen > 0) {
+ 		if (cache->lowlevel)
+ 			return fdi2raw_loadrevolution_2 (fdi, mfmbuf, tracktiming, track, tracklength, indexoffsetp, multirev, mfm);
++		if (fdi->out < 0 || fdi->out > FDI_MAX_BITS)
++			return 0;
+ 		*tracklength = fdi->out;
+ 		for (i = 0; i < ((*tracklength) + 15) / (2 * 8); i++) {
+ 			uae_u8 *data = fdi->track_dst_buffer + i * 2;

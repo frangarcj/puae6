@@ -3,7 +3,7 @@
 // length and the bytes the engine wrote, with no ASF container and no zfile. The engine is compiled with P6_STATE_BODIES (patches 0086-0091), SAVESTATE
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
-//   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (184), the last ours and not upstream's
+//   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (248), the last ours and not upstream's
 //   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (320), COPR (60) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each) and AUDP (356), ours and not upstream's
 //   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
@@ -76,11 +76,13 @@
 // the low byte of disk_hpos, so a machine that a CPU access to DSKBYTR had brought up to the middle of a line was brought up from the start of it after a load and read
 // another word of the track; dsklen2 (the previous DSKLEN, which decides whether one write or two start a transfer) is in no body; restore_disk zeroes dskchange_time, so a
 // delayed insert that was counting down never landed; the motor-off latch, the step limiter, the index decay and the wordsync edge flag are not carried either, and the geometry and bit counter of
-// the track under the head are in DSDn only while a track is buffered (a drive that spins empty after an eject advances its head from the ones it kept). 46 words: disk_hpos, dsklen2,
+// the track under the head are in DSDn only while a track is buffered (a drive that spins empty after an eject advances its head from the ones it kept). 62 words: disk_hpos, dsklen2,
 // dsksync_on, indexdecay and prev_data (patch 0105: the last value written to CIA-B port B, from which DISK_select_set, which the apply calls, derives the drive mask, the step line,
 // the direction and the side that restore_cia_finish would rebuild: without it the first write after a load was judged against the latch of the machine's own history, and the
 // head stepped, or the shifter bits were drawn, differently from the original), then for each drive dskchange_time, motordelay, steplimit, the age of the last step, floppybitcounter, tracklen, trackspeed, skipoffset, indexoffset and (patch 0330, T57) prevtracklen, the length the head position was last scaled to: 0 right after
-// an insert, and restore_disk copied it from the live machine's track, so a head that left a raw track of an extended ADF for one of another length was scaled by a ratio the original never saw. Applied as values after DISK; nothing
+// an insert, and restore_disk copied it from the live machine's track, so a head that left a raw track of an extended ADF for one of another length was scaled by a ratio the original never saw, and (patch 0334, T57b)
+// multi_revolution (the buffer holds one of several different revolutions of the track: an FDI whose track has weak bits), revolution_check (the lines before the next revolution may be fetched), fdirev and
+// fditrack (which revolution of which track fdi2raw decoded last: the next decode is a function of both). Applied as values after DISK; nothing
 // is inserted, ejected or scheduled. The image a countdown is waiting for is not a word: the bridge knows it from the medium the state says the drive holds (P6BR), and
 // rebuild_disk, which runs after every chunk is applied, names it in the preferences and in the drive, which is also what makes a later mount of that medium count as a change.
 //
@@ -159,12 +161,12 @@ namespace p6_state {
 
 namespace {
 
-// MAXMFMBUF of disk.cpp: words of the track buffer (DDHDMULT is 1: FLOPPY_DRIVE_HD is not in the profile). A DSDn body is 22 bytes plus a word, or a
-// word and its timing, for every 16 bits of the track.
+// Words of the track buffer a state can hold (the buffer of disk.cpp is larger; the longest track the bridge lets in is 20000 bytes and the FDI reader writes at most 200000 bits). A DSDn body
+// is 22 bytes plus a word for every 16 bits of the track and, with the timing of the track (an FDI: patch 0335), two bytes of timing for every 8 bits.
 constexpr uint32_t kMfmWordsMax = 0x4000;
 constexpr uint32_t kMfmBitsMax = kMfmWordsMax * 16;
 constexpr uint32_t kDsdFixed = 4 + 2 + 4 + 2 + 4 + 4 + 2;
-constexpr uint32_t kDsdMax = kDsdFixed + kMfmWordsMax * 4;
+constexpr uint32_t kDsdMax = kDsdFixed + kMfmWordsMax * 6;
 constexpr uint32_t kRingSlots = DENISE_RGA_SLOT_TOTAL, kRingSlotBytes = 22, kRingCursors = 5;
 constexpr uint32_t kRingBytes = kRingCursors * 4 + kRingSlots * kRingSlotBytes;
 constexpr size_t kWork = (kDsdMax > kRingBytes ? kDsdMax : kRingBytes) + 64;
@@ -708,8 +710,8 @@ void visit_raster(Archive &a)
 // -- DSKX: the floppy controller that DISK, DSKn and DSDn do not carry (patch 0101) ------------------------------------------------------------------------
 
 // The words of the body, in the order of p6_disk_phase_get: the global ones, then kDiskDriveWords per drive.
-enum DiskWord : unsigned { kDkHpos, kDkLen2, kDkSyncOn, kDkIndexDecay, kDkSelect, kDkLineCounter, kDkDrives, kDkDriveWords = 10 };
-enum DiskDriveWord : unsigned { kDkChangeTime, kDkMotorDelay, kDkStepLimit, kDkStepAge, kDkBitCounter, kDkTrackLen, kDkTrackSpeed, kDkSkipOffset, kDkIndexOffset, kDkPrevTrackLen };
+enum DiskWord : unsigned { kDkHpos, kDkLen2, kDkSyncOn, kDkIndexDecay, kDkSelect, kDkLineCounter, kDkDrives, kDkDriveWords = 14 };
+enum DiskDriveWord : unsigned { kDkChangeTime, kDkMotorDelay, kDkStepLimit, kDkStepAge, kDkBitCounter, kDkTrackLen, kDkTrackSpeed, kDkSkipOffset, kDkIndexOffset, kDkPrevTrackLen, kDkMultiRevolution, kDkRevolutionCheck, kDkFdiRevolution, kDkFdiTrack };
 constexpr unsigned kDiskWords = kDkDrives + 4 * kDkDriveWords;
 constexpr uint32_t kDiskPhaseBytes = kDiskWords * 4;
 // The longest delay disk_insert_2 and DISK_check_change arm (2 * 50 * 312 lines), and one more line for each drive that setdskchangetime staggers it behind; the longest line
@@ -759,7 +761,7 @@ const char *check_dsk(const Sub &sub, const Body &b, Seen &seen)
     return nullptr;
 }
 
-// DSDn: mode u32 (1, or 3 with the timing of every word), bit counter u16, track length u32, speed u16, skip offset u32, index offset u32, the words, revolutions u16.
+// DSDn: mode u32 (1, or 3 with the timing of every byte of the track after the words), bit counter u16, track length u32, speed u16, skip offset u32, index offset u32, the words, the timing, revolutions u16.
 const char *check_dsd(const Sub &sub, const Body &b, Seen &seen)
 {
     if (!b.n) return nullptr;
@@ -769,7 +771,7 @@ const char *check_dsd(const Sub &sub, const Body &b, Seen &seen)
     const uint32_t mode = b.u32(0), length = b.u32(6);
     if (mode != 1 && mode != 3) return "the mode is neither 1 nor 3";
     if (!length || length > kMfmBitsMax) return "the track length is outside the buffer";
-    if (b.n != kDsdFixed + (length + 15) / 16 * (mode == 3 ? 4 : 2)) return "the length does not follow from the track length in its header";
+    if (b.n != kDsdFixed + (length + 15) / 16 * 2 + (mode == 3 ? (length + 7) / 8 * 2 : 0)) return "the length does not follow from the track length in its header";
     if (seen.head_position[n] >= length) return "the head position of the drive is beyond the end of the track";
     seen.track[n] = {true, b.u16(4), length, b.u16(10), b.u32(12), b.u32(16)};
     return nullptr;
@@ -820,6 +822,10 @@ const char *check_dskx(const Sub &, const Body &b, Seen &seen)
         if (dk(kDkSkipOffset) < -1 || dk(kDkSkipOffset) > int32_t(kMfmBitsMax) || dk(kDkIndexOffset) < 0 || dk(kDkIndexOffset) > int32_t(kMfmBitsMax))      // -1: no skip position
             return "an offset in the track is outside the buffer";
         if (dk(kDkPrevTrackLen) < 0 || uint32_t(dk(kDkPrevTrackLen)) > kMfmBitsMax) return "the length the head position was last scaled to is outside the buffer";
+        if (dk(kDkMultiRevolution) < 0 || dk(kDkMultiRevolution) > 1) return "the several-revolutions flag of a track is not a flag";
+        if (dk(kDkRevolutionCheck) < 0 || dk(kDkRevolutionCheck) > 2) return "the revolution check of a drive is beyond the two lines it counts";
+        if (dk(kDkFdiRevolution) < 0 || dk(kDkFdiRevolution) > (1 << 24)) return "the revolution counter of an FDI track is beyond what a session can count";
+        if (dk(kDkFdiTrack) < -1 || dk(kDkFdiTrack) >= 166) return "the FDI track a revolution counter belongs to is beyond the 166 tracks of a drive";
         const auto &track = seen.track[n];      // a drive that has a track buffered has these from DSDn: the two bodies describe one track
         if (track.present && (uint32_t(dk(kDkBitCounter)) != track.bit_counter || uint32_t(dk(kDkTrackLen)) != track.track_length || uint32_t(dk(kDkTrackSpeed)) != track.speed ||
                               uint32_t(dk(kDkSkipOffset)) != track.skip_offset || uint32_t(dk(kDkIndexOffset)) != track.index_offset))
