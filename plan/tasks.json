@@ -13513,7 +13513,7 @@
       "title": "Gayle con IDE (y PCMCIA si se usa) en A600/A1200 para HDF, como PUAE5 con chipset_compatible A600/A1200",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T29",
         "T56a",
