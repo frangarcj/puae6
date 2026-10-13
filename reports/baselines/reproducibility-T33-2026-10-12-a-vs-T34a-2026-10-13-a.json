@@ -1,0 +1,249 @@
+{
+  "first": "T33-2026-10-12-a",
+  "first_started": "2026-10-12T13:26:28Z",
+  "goal_time_regression": 0.05,
+  "largest_p50_difference": 0.07414243956673895,
+  "rows": {
+    "native-norender/a1200-aga-planes8-pal": {
+      "first_p50_ms": 5.048458,
+      "first_p95_ms": 5.384292,
+      "p50_difference": -0.0046011079026506896,
+      "p95_difference": -0.011303723869359314,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 5.0252295,
+      "second_p95_ms": 5.32342945
+    },
+    "native-norender/a1200-ks31-demo-pal": {
+      "first_p50_ms": 6.424813,
+      "first_p95_ms": 7.39387915,
+      "p50_difference": -0.006358862117854638,
+      "p95_difference": -0.013270550952945982,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 6.3839585,
+      "second_p95_ms": 7.2957583
+    },
+    "native-norender/a500-ocs-busy-pal": {
+      "first_p50_ms": 4.0013955,
+      "first_p95_ms": 4.221125,
+      "p50_difference": -0.0024573926771297616,
+      "p95_difference": 0.003938523497882753,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 3.9915625,
+      "second_p95_ms": 4.23775
+    },
+    "native-norender/a600-ecs-copper-ntsc": {
+      "first_p50_ms": 3.818583,
+      "first_p95_ms": 4.098625,
+      "p50_difference": 0.0007310303324558561,
+      "p95_difference": -0.008489786208789745,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 3.8213745,
+      "second_p95_ms": 4.063828549999999
+    },
+    "native/a1200-aga-planes8-pal": {
+      "first_p50_ms": 5.0565,
+      "first_p95_ms": 5.32933925,
+      "p50_difference": -0.005488084643528091,
+      "p95_difference": 0.002604863257673132,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 5.0287495,
+      "second_p95_ms": 5.343221450000001,
+      "state_load_p50_ms_difference": -0.0012961730950405343,
+      "state_save_p50_ms_difference": -0.0014895511581949194
+    },
+    "native/a1200-ks31-demo-pal": {
+      "first_p50_ms": 6.405646,
+      "first_p95_ms": 7.360588150000001,
+      "p50_difference": 0.014645361295332263,
+      "p95_difference": 0.46193358882604846,
+      "reproduced_within_goal": false,
+      "second_p50_ms": 6.499459,
+      "second_p95_ms": 10.760691049999986,
+      "state_load_p50_ms_difference": 0.03453665981304454,
+      "state_save_p50_ms_difference": 0.02754355792391602
+    },
+    "native/a500-ocs-busy-pal": {
+      "first_p50_ms": 3.9994375,
+      "first_p95_ms": 4.21966905,
+      "p50_difference": -0.0032973386882530127,
+      "p95_difference": 0.005471329558416429,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 3.98625,
+      "second_p95_ms": 4.24275625,
+      "state_load_p50_ms_difference": 0.0019188321023794342,
+      "state_save_p50_ms_difference": 0.01127965510319864
+    },
+    "native/a600-ecs-copper-ntsc": {
+      "first_p50_ms": 3.8176875,
+      "first_p95_ms": 4.20483925,
+      "p50_difference": 5.998395625625061e-05,
+      "p95_difference": -0.02307890842676102,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 3.8179165,
+      "second_p95_ms": 4.1077961499999995,
+      "state_load_p50_ms_difference": -0.007563368095086202,
+      "state_save_p50_ms_difference": -0.001188045974731683
+    },
+    "waterbox-core-debug/a500-ocs-busy-pal": {
+      "first_p50_ms": 9.2929165,
+      "first_p95_ms": 9.85522675,
+      "p50_difference": -0.07414243956673895,
+      "p95_difference": 0.3858830746842024,
+      "reproduced_within_goal": false,
+      "second_p50_ms": 8.603917,
+      "second_p95_ms": 13.658191949999999,
+      "state_load_p50_ms_difference": 0.020417258995870085,
+      "state_save_p50_ms_difference": 0.05888737036904133
+    },
+    "waterbox-core-release/a1200-aga-planes8-pal": {
+      "first_p50_ms": 5.6537085,
+      "first_p95_ms": 6.101472599999999,
+      "p50_difference": -0.015476567283226482,
+      "p95_difference": -0.005191763050775421,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 5.5662085,
+      "second_p95_ms": 6.069795200000001,
+      "state_load_p50_ms_difference": -0.000594883354682497,
+      "state_save_p50_ms_difference": -0.013152842055230755
+    },
+    "waterbox-core-release/a1200-ks31-demo-pal": {
+      "first_p50_ms": 7.0524995,
+      "first_p95_ms": 8.1198455,
+      "p50_difference": -0.017044737117670107,
+      "p95_difference": 0.3214503034571281,
+      "reproduced_within_goal": false,
+      "second_p50_ms": 6.9322915,
+      "second_p95_ms": 10.729972299999996,
+      "state_load_p50_ms_difference": 0.04339333418386096,
+      "state_save_p50_ms_difference": 0.0840038993562537
+    },
+    "waterbox-core-release/a500-ocs-busy-pal": {
+      "first_p50_ms": 4.5014375,
+      "first_p95_ms": 4.77679825,
+      "p50_difference": -0.030569012676506146,
+      "p95_difference": -0.025749025510968495,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 4.363833,
+      "second_p95_ms": 4.65380035,
+      "state_load_p50_ms_difference": 0.05316111676021038,
+      "state_save_p50_ms_difference": 0.21945806476172433
+    },
+    "waterbox-core-release/a600-ecs-copper-ntsc": {
+      "first_p50_ms": 4.3393125,
+      "first_p95_ms": 4.601419099999999,
+      "p50_difference": -0.03608002419738143,
+      "p95_difference": -0.03706894466535342,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 4.18275,
+      "second_p95_ms": 4.430849349999999,
+      "state_load_p50_ms_difference": -0.00372679910688733,
+      "state_save_p50_ms_difference": -0.0500269702993055
+    },
+    "waterbox-guest-debug-runtime/a1200-aga-planes8-pal": {
+      "first_p50_ms": 10.485542,
+      "first_p95_ms": 10.96122885,
+      "p50_difference": -0.008456119864857814,
+      "p95_difference": 0.013470994175986057,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 10.396875,
+      "second_p95_ms": 11.1088875,
+      "state_load_p50_ms_difference": 0.02205483051589735,
+      "state_save_p50_ms_difference": 0.0032203812514016656
+    },
+    "waterbox-guest-debug-runtime/a1200-ks31-demo-pal": {
+      "first_p50_ms": 12.187354,
+      "first_p95_ms": 20.5382917,
+      "p50_difference": -0.014866844763842774,
+      "p95_difference": -0.3579709869443523,
+      "reproduced_within_goal": false,
+      "second_p50_ms": 12.0061665,
+      "second_p95_ms": 13.18617915,
+      "state_load_p50_ms_difference": -0.04143171935351431,
+      "state_save_p50_ms_difference": -0.10058656600496071
+    },
+    "waterbox-guest-debug-runtime/a500-ocs-busy-pal": {
+      "first_p50_ms": 9.3023955,
+      "first_p95_ms": 10.110502050000001,
+      "p50_difference": -0.005972816356819015,
+      "p95_difference": -0.02352253615338521,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 9.246834,
+      "second_p95_ms": 9.8726774,
+      "state_load_p50_ms_difference": 0.0001795689145158046,
+      "state_save_p50_ms_difference": 0.022911433365131052
+    },
+    "waterbox-guest-debug-runtime/a600-ecs-copper-ntsc": {
+      "first_p50_ms": 8.8184375,
+      "first_p95_ms": 9.45388125,
+      "p50_difference": 0.007611892696410307,
+      "p95_difference": 0.020977749218079076,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 8.8855625,
+      "second_p95_ms": 9.6522024,
+      "state_load_p50_ms_difference": -0.004304193770162319,
+      "state_save_p50_ms_difference": -0.030980109016904848
+    },
+    "waterbox-guest-release-runtime-evict/a500-ocs-busy-pal": {
+      "first_p50_ms": 8.5756045,
+      "first_p95_ms": 9.18646105,
+      "p50_difference": 0.009063909138999961,
+      "p95_difference": 0.003761350514842651,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 8.653333,
+      "second_p95_ms": 9.22101455,
+      "state_load_p50_ms_difference": -0.013157905636282,
+      "state_save_p50_ms_difference": -0.07767330408369894
+    },
+    "waterbox-guest-release-runtime/a1200-aga-planes8-pal": {
+      "first_p50_ms": 7.0853545,
+      "first_p95_ms": 7.52704405,
+      "p50_difference": -0.003325662816165352,
+      "p95_difference": -0.0034262985348145368,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 7.061791,
+      "second_p95_ms": 7.50125415,
+      "state_load_p50_ms_difference": -0.00961091588943632,
+      "state_save_p50_ms_difference": 0.1417984642766814
+    },
+    "waterbox-guest-release-runtime/a1200-ks31-demo-pal": {
+      "first_p50_ms": 8.5090205,
+      "first_p95_ms": 9.711670199999999,
+      "p50_difference": -0.004928534371259392,
+      "p95_difference": -0.01970431924263654,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 8.4670835,
+      "second_p95_ms": 9.520308349999999,
+      "state_load_p50_ms_difference": -0.017653671388751,
+      "state_save_p50_ms_difference": -0.00476229834183651
+    },
+    "waterbox-guest-release-runtime/a500-ocs-busy-pal": {
+      "first_p50_ms": 5.9318545,
+      "first_p95_ms": 6.25570805,
+      "p50_difference": -0.003480530414223775,
+      "p95_difference": 0.6113855728929033,
+      "reproduced_within_goal": false,
+      "second_p50_ms": 5.9112085,
+      "second_p95_ms": 10.080357699999997,
+      "state_load_p50_ms_difference": 0.02920705273867414,
+      "state_save_p50_ms_difference": 0.030224927238239493
+    },
+    "waterbox-guest-release-runtime/a600-ecs-copper-ntsc": {
+      "first_p50_ms": 5.5398125,
+      "first_p95_ms": 5.9329295,
+      "p50_difference": -0.009548337601678687,
+      "p95_difference": -0.028935309276808492,
+      "reproduced_within_goal": true,
+      "second_p50_ms": 5.4869165,
+      "second_p95_ms": 5.761258349999999,
+      "state_load_p50_ms_difference": -0.021986649299902364,
+      "state_save_p50_ms_difference": -0.04960311304740924
+    }
+  },
+  "rows_compared": 22,
+  "rows_reproduced": 17,
+  "rows_with_p50_within_goal": 21,
+  "schema_version": 1,
+  "second": "T34a-2026-10-13-a",
+  "second_started": "2026-10-12T22:18:20Z",
+  "status": "ORIENTATIVE"
+}

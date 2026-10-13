@@ -169,6 +169,33 @@ si falta, y si existe y difiere se niega con los pasos para renovarlo en `build/
 7. Comprobar: `python3 -m unittest discover -s tests/waterbox-smoke -p "test_memory_manifest.py"` (y `test_puae6.py`, `test_puae6_memory.py`, `test_puae6_hdf.py`) y
    `python3 -m unittest discover -s tests/waterbox-media -p "test_media_limits.py"`; en `git diff` las 16 claves cambian a la vez y `runtime_sha256` solo si cambio el runtime.
 
+### Runtime Release por defecto y carril Debug (T34a)
+
+Decision del usuario (2026-10-12, tras T33/T34): la copia local de `libwaterboxhost` (de `../MacHawk`, solo lectura; `tools/build_waterbox.py` la compila desde `build/waterbox/runtime-src`)
+se construye en **Release** (`plan/toolchains.json`, `runtime.profile = release`): lo que BizHawk distribuye. Entrar y salir del sandbox pasa de ~3,1 ms por unidad en Debug a ~0,0004 ms
+(peor caso medido en T33, A1200 + Kickstart 3.1 + demo AGA: p95 20,54 ms, el 102 % de la unidad, frente a 9,71 ms). Todo lo que sigue sale de `tools/build_waterbox.py`.
+
+- **Carril Debug.** `P6_WATERBOX_RUNTIME=debug` en cualquier orden de `build_waterbox.py` (o en los tests, que llaman a `build_waterbox.run_puae6/run_ffi/build_core`) usa el runtime
+  Debug: compilado sin `--release`, con las aserciones del runtime (`debug_assertions`: comprobaciones de mapeos y de threading) y con la expulsion del sandbox forzada en cada llamada.
+  Su recibo es `build/waterbox/receipt-debug.json` (el del carril por defecto sigue siendo `receipt.json`; ambos llevan `runtime_profile`) y el host de pruebas del core se copia a `build/ffi/lane-debug/`,
+  de modo que los dos carriles conviven y nunca comparten una `libwaterboxhost.dylib`. `python3 tools/build_waterbox.py --runtime-lane debug` construye solo ese runtime desde el recibo por defecto
+  (medio minuto). El recibo Debug no se registra en ningun manifiesto: `runtime_sha256` de `manifests/waterbox-memory.json` es siempre el del carril Release.
+- **Que corre en Debug y por que.** `cargo test` del runtime corre siempre en Debug (aserciones puestas) en cada `build()`, como antes. Ademas `tests/waterbox-smoke/test_runtime_lanes.py` ejecuta en el
+  carril Debug `tests/ffi/test_ffi.py` (ABI01, la puerta de identidad WB15, canarios alrededor de lo que se le entrega al guest, guests danados) y `tests/waterbox-smoke/test_puae6_wb.py` (WB13 a WB15: llamadas
+  del host que cruzan el guest, paginas de 16 KiB, restauracion): son los que pasan punteros por la frontera del sandbox y los que una entrada danada convertiria en una asercion del runtime. Ningun otro
+  test depende de las aserciones ni de la expulsion forzada; el mismo test comprueba que la maquina es la misma unidad a unidad en Release, en Release con la expulsion del runtime activada (`P6_EVICT=1`) y en el carril Debug.
+- **Expulsion (`wbx_set_always_evict_blocks`).** El runtime arranca con la expulsion activada (un sandbox se desmapea al desactivarse y se vuelve a mapear al activarse, para cazar punteros colgantes) y un
+  Release de BizHawk la apaga en el constructor estatico de `WaterboxHost` (`#if !DEBUG`). Con un runtime Release y la expulsion activada la unidad A500 busy cuesta 8,65 ms (entrar 2,2 ms y salir 0,14 ms; baseline T34a) frente a 5,91 ms con la expulsion apagada y 9,25 ms en Debug,
+  de modo que no apagarla anularia casi toda la ganancia. Los hosts de prueba (`tests/ffi/Runtime.cs`, `integration/bizhawk/smoke/Native.cs`) la apagan al cargar el runtime, igual que BizHawk, salvo con `P6_EVICT=1` (que deja la del
+  runtime). El runtime Debug ignora la llamada y siempre expulsa. `P6_EVICT=0`, que ponian `tools/bench.py` y los reproductores de T28a, sigue siendo valido y es ahora el valor por defecto.
+- **Reproducibilidad.** El hash de un runtime compilado dependia de la ruta del arbol (`0869b5fc` frente a `8dfef1ca` con las mismas fuentes en T48f): panics con rutas absolutas, fuentes de dependencias y
+  el *install name* del dylib, que cargo fija a la ruta absoluta de `target/<perfil>/deps`. `build_waterbox.runtime_rustflags` pasa `--remap-path-prefix` para el home, el repositorio y `build/waterbox` y un
+  `-Clink-arg=-Wl,-install_name,@rpath/libwaterboxhost.dylib`: el mismo codigo, la misma toolchain fijada (`plan/toolchains.json`) y las mismas fuentes dan el mismo sha256 en cualquier directorio o
+  worktree (`test_runtime_lanes.py` lo reconstruye desde una copia en otro directorio y compara byte a byte; `test_memory_manifest.py` compara ahora `runtime_sha256` con el construido en este arbol). Solo el Release:
+  el Debug conserva su informacion de depuracion con las rutas.
+- **Re-registro.** Cambiar el perfil cambia `runtime_sha256`: hay que regrabar TODAS las claves `measured*` con la receta de arriba (T34a lo hizo con el runtime Release; las cifras de memoria y de
+  snapshot no cambian porque el guest es el mismo, los hashes del runtime si).
+
 ### Resultado de T19c1: unidad tras unidad dentro de Waterbox
 
 `python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_units.py` (varios minutos;

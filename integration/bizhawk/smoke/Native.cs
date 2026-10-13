@@ -73,6 +73,9 @@ internal sealed class Native : IDisposable
     {
         if (!Path.IsPathFullyQualified(absolutePath)) throw new ArgumentException("Dylib path must be absolute");
         library = NativeLibrary.Load(absolutePath);
+        // T34a: eviction like a Release BizHawk (WaterboxHost's static constructor, #if !DEBUG) unless P6_EVICT=1; a Debug runtime (P6_WATERBOX_RUNTIME=debug) ignores it and always evicts.
+        // Puae6Bench sets it explicitly afterwards (--evict).
+        SetAlwaysEvict(Environment.GetEnvironmentVariable("P6_EVICT") == "1");
         CreateHost = Bind<Create>("wbx_create_host");
         Destroy = Bind<Action>("wbx_destroy_host");
         Activate = Bind<Action>("wbx_activate_host");

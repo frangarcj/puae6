@@ -41,7 +41,7 @@
     "target": "aarch64-apple-darwin",
     "cargo_locked": true,
     "rustc_bootstrap": "1",
-    "profile": "debug"
+    "profile": "release"
   },
   "guest": {
     "target": "aarch64-linux-gnu",

@@ -9,12 +9,12 @@ What is measured, each as a layer of its own, with warmup and repetitions (docs/
   native-norender      the same with render 0: the engine alone (the difference is what producing the picture and the PCM costs)
   libretro             tests/libretro-host/host.cpp --bench: retro_run of the real core through a frontend that does nothing with the picture (adapter = this minus native)
   waterbox-guest-*     integration/bizhawk/smoke/Puae6Bench.cs: the guest ABI in a real Waterbox sandbox, one unit split in Activate / p6w_frame_advance / copy / Deactivate,
-                       with the local runtime (a DEBUG build of libwaterboxhost, forced eviction) and with the same runtime sources built Release (what BizHawk ships)
+                       with the Release runtime (the default since T34a: what BizHawk ships, eviction off) and with the Debug lane (a DEBUG build of libwaterboxhost, forced eviction)
   waterbox-core-*      tests/ffi/Bench.cs: Puae6Core.FrameAdvance as BizHawk calls it (input packet, enter, unit, copy to int[]/short[], exit), Release managed code
 State: p6_state_save / p6_state_load (native), retro_serialize / retro_unserialize (libretro), the runtime's Save/Load (guest) and SaveStateBinary / LoadStateBinary (core), each with the
 first unit after a load. Memory: peak RSS of each process, the heaps of the sandbox (committed and dirty), the dirty unit of Darwin ARM64 (16 KiB groups of four 4 KiB logical pages).
 
-    python3 tools/bench.py build                      build every runner (Release -O2 native tree, release runtime, Release core); -j 3 at most
+    python3 tools/bench.py build                      build every runner (Release -O2 native tree, the Release and Debug lanes of the runtime, Release core); -j 3 at most
     python3 tools/bench.py run --id ID [--quick]      run the matrix, interleaved by repetition, raw data under reports/baselines/ID/raw
     python3 tools/bench.py summarize --id ID          reports/baselines/ID/summary.json and summary.md from the raw data
     python3 tools/bench.py compare ID1 ID2            row by row, two baselines taken at different times
@@ -39,6 +39,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
+import build_waterbox  # noqa: E402
 
 BUILD = ROOT / "build"
 NATIVE_TREE = BUILD / "bench-release"          # Release, -O2: the optimization of the Waterbox guest (tools/build_waterbox.py passes CCFLAGS_RELEASE=-O2)
@@ -47,8 +48,8 @@ BASELINES = ROOT / "reports/baselines"
 BUDGETS = ROOT / "plan/performance-budgets.json"
 WATERBOX = BUILD / "waterbox"
 RELEASE_RUNTIME = WATERBOX / "cargo/aarch64-apple-darwin/release/libwaterboxhost.dylib"
-DEBUG_RUNTIME_RECEIPT = WATERBOX / "receipt.json"
-RELEASE_RUNTIME_RECEIPT = WORK / "runtime-release-receipt.json"
+DEBUG_RUNTIME_RECEIPT = build_waterbox.runtime_receipt_path("debug")           # T34a: the two lanes of the runtime, each with its receipt (tools/build_waterbox.py ensure_runtime_lane)
+RELEASE_RUNTIME_RECEIPT = build_waterbox.runtime_receipt_path("release")
 GUEST_RECEIPT = WATERBOX / "puae6/puae6-receipt.json"
 SMOKE_DLL = WATERBOX / "managed/bin/Debug/net8.0/Smoke.dll"
 FFI_DEBUG = ROOT / "build/ffi/bin/Debug/net8.0"
@@ -419,11 +420,11 @@ RUNNERS = [
     NativeRunner("native", 3, "p6_run_frame with picture and audio, Release -O2, one process per run"),
     NativeRunner("native-norender", 0, "p6_run_frame with no picture and no audio: the engine alone"),
     LibretroRunner(),
-    WaterboxGuestRunner("waterbox-guest-debug-runtime", debug_runtime, True, "puae6.wbx in a Waterbox sandbox of the local runtime (a DEBUG build of libwaterboxhost: eviction forced on)"),
-    WaterboxGuestRunner("waterbox-guest-release-runtime", release_runtime, False, "the same guest on the runtime sources built Release with eviction off, what BizHawk ships and sets"),
+    WaterboxGuestRunner("waterbox-guest-debug-runtime", debug_runtime, True, "puae6.wbx in a Waterbox sandbox of the Debug lane of the runtime (a DEBUG build of libwaterboxhost: assertions, eviction forced on)"),
+    WaterboxGuestRunner("waterbox-guest-release-runtime", release_runtime, False, "the same guest on the Release runtime (the default since T34a) with eviction off, what BizHawk ships and sets"),
     WaterboxGuestRunner("waterbox-guest-release-runtime-evict", release_runtime, True, "Release runtime with the runtime's default eviction on (a sandbox mapped and unmapped around every call)"),
     WaterboxCoreRunner("waterbox-core-release", FFI_RELEASE, release_runtime, True, "Puae6Core.FrameAdvance as BizHawk calls it: Release managed code, Release runtime"),
-    WaterboxCoreRunner("waterbox-core-debug", FFI_DEBUG, debug_runtime, False, "the host the FFI tests use: Debug managed code and the Debug runtime"),
+    WaterboxCoreRunner("waterbox-core-debug", FFI_DEBUG, debug_runtime, False, "Debug managed code (the host the FFI tests use) and the Debug lane of the runtime"),
 ]
 # Which runners run for which scenarios, and how many units they get (the full protocol: 300 warmup, 10000 units, five repetitions).
 FULL_ONLY_PRIMARY = {"waterbox-guest-release-runtime-evict", "waterbox-core-debug"}
@@ -838,18 +839,14 @@ def build_command(args):
     if not GUEST_RECEIPT.is_file():
         print("the Waterbox guest is not built: python3 tools/build_waterbox.py --puae6-run build/waterbox/boot.rom --units 60")
         return 1
-    # The runtime sources of the plan, built Release: the same code BizHawk ships, without debug assertions and with the eviction switch honoured.
-    if not RELEASE_RUNTIME.is_file():
-        toolchain = build_waterbox.toolchain()
-        env = dict(toolchain["env"])
-        env["CARGO_BUILD_JOBS"] = jobs
-        sh([toolchain["paths"]["cargo"], "build", "--release", "--offline", "--locked", "--target", toolchain["lock"]["runtime"]["target"], "--manifest-path", toolchain["runtime_copy"] / "Cargo.toml"], env=env, cwd=ROOT)
+    # The two lanes of the runtime (T34a): Release, the default (what BizHawk ships: no debug assertions, eviction switch honoured), and the Debug one (assertions, eviction forced).
+    for profile in build_waterbox.RUNTIME_PROFILES:
+        build_waterbox.ensure_runtime_lane(profile)
     WORK.mkdir(parents=True, exist_ok=True)
-    RELEASE_RUNTIME_RECEIPT.write_text(json.dumps({"runtime_dylib": {"path": str(RELEASE_RUNTIME), "sha256": sha256_of(RELEASE_RUNTIME)}}, indent=2) + "\n")
     build_waterbox.build_managed()
     build_waterbox.build_core()                                    # Debug host of the FFI tests (also compiles Bench.cs)
     build_ffi_release()
-    print("built: native tree", NATIVE_TREE, "| release runtime", RELEASE_RUNTIME, "| Ffi Release", FFI_RELEASE)
+    print("built: native tree", NATIVE_TREE, "| release runtime", RELEASE_RUNTIME, "| debug lane", DEBUG_RUNTIME_RECEIPT, "| Ffi Release", FFI_RELEASE)
     return 0
 
 

@@ -120,7 +120,7 @@ internal static unsafe partial class Program
 	/// <summary>Plays a native input script through the core. Prints a line per unit and then the first 512 words of the log the input_all fixture writes at $1000.</summary>
 	static void Play(Dictionary<string, string> options)
 	{
-		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		LoadRuntime(options["runtime"]);
 		var script = new Script(options["script"]);
 		bool mouse = options.GetValueOrDefault("port1", "mouse") == "mouse";
 		var settings = new Puae6SyncSettings
@@ -155,7 +155,7 @@ internal static unsafe partial class Program
 	/// in the terms of the lines p6_headless prints, so that the two can be compared. --silent A-B asks for neither picture nor audio in those units.</summary>
 	static void Av(Dictionary<string, string> options)
 	{
-		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		LoadRuntime(options["runtime"]);
 		var settings = new Puae6SyncSettings
 		{
 			Machine = MachineOf(options.GetValueOrDefault("machine")),
@@ -203,7 +203,7 @@ internal static unsafe partial class Program
 	/// <summary>The memory domains the way a BizHawk tool uses them, before and after a frame.</summary>
 	static void Domains(Dictionary<string, string> options)
 	{
-		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		LoadRuntime(options["runtime"]);
 		var machine = MachineOf(options.GetValueOrDefault("machine"));
 		// T49: --chip, --slow and --fast (the names of the enums: Auto, KB512, MB1, MB2, None, MB1_5, MB1_75, MB4, MB8) give the machine other memory.
 		var settings = new Puae6SyncSettings
@@ -266,7 +266,7 @@ internal static unsafe partial class Program
 	/// <summary>Two machines of the same guest in one process, taking turns: each must do what it does alone.</summary>
 	static void Two(Dictionary<string, string> options)
 	{
-		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		LoadRuntime(options["runtime"]);
 		var script = new Script(options["script"]);
 		using var a = MakeCore(options);
 		using var b = MakeCore(options, new Puae6SyncSettings { RandomSeed = 7 });
@@ -292,7 +292,7 @@ internal static unsafe partial class Program
 	/// units) and Chip RAM is written to --dump after the last unit, to be compared with the native media probe's.</summary>
 	static void Media(Dictionary<string, string> options)
 	{
-		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		LoadRuntime(options["runtime"]);
 		var adfs = options.TryGetValue("adf", out var list) ? list.Split(',').Select(File.ReadAllBytes).ToList() : [];
 		var settings = new Puae6SyncSettings
 		{

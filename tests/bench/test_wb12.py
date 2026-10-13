@@ -8,8 +8,8 @@ tools/bench.py drives integration/bizhawk/smoke/Puae6Bench.cs (the guest ABI, on
     bytes are 16 KiB times the groups that are whole, plus the logical pages of one group that is not (measured: the single 4 KiB page of the ELF's `.invis` data after the seal);
   * the heaps: nothing is committed past its layout, a heap's dirty bytes are inside what it committed, and the dirty set only grows after the seal;
   * the snapshot of the harness is the one manifests/waterbox-memory.json recorded, and the same machine seen through the core ends on the same master tick as through the guest ABI;
-  * the local runtime is a DEBUG build whose eviction cannot be switched off: when the same runtime sources have been built Release (tools/bench.py build) entering the sandbox is
-    orders of magnitude cheaper, which is the cost of "the local runtime" the report records.
+  * the local runtime is a RELEASE build since T34a (what BizHawk ships, eviction off): entering the sandbox is orders of magnitude cheaper than in the Debug lane
+    (P6_WATERBOX_RUNTIME=debug: a DEBUG build whose eviction cannot be switched off), which is the cost the T33 report records for the Debug runtime and the reason for the change.
 
 Skips (BLOCKED in the gate) without the Waterbox runtime and the guest: python3 tools/build_waterbox.py --puae6-run build/waterbox/boot.rom --units 60.
     python3 -m unittest tests.bench.test_wb12
@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import bench  # noqa: E402
 import build_waterbox  # noqa: E402
 
-AVAILABLE = bench.GUEST_RECEIPT.is_file() and bench.DEBUG_RUNTIME_RECEIPT.is_file()
+AVAILABLE = bench.GUEST_RECEIPT.is_file() and bench.RELEASE_RUNTIME_RECEIPT.is_file()
 UNITS, WARMUP, ROUNDS = 60, 20, 3
 SCENARIO = bench.Scenario("wb12-vsync", "a500", "pal", "microrom", "WB12 fixture", "ocs-vsync-irq-pal", warmup=WARMUP, units=UNITS)
 
@@ -39,7 +39,7 @@ class Wb12Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         build_waterbox.build_managed()                                    # Smoke.dll with the --puae6-bench mode
-        cls.guest = runner("waterbox-guest-debug-runtime").run(SCENARIO, 1, UNITS, WARMUP, ROUNDS)
+        cls.guest = runner("waterbox-guest-release-runtime").run(SCENARIO, 1, UNITS, WARMUP, ROUNDS)
         cls.facts = cls.guest["facts"]
 
     def test_a_unit_is_timed_in_its_four_parts_and_the_percentiles_are_ordered(self):
@@ -90,19 +90,20 @@ class Wb12Tests(unittest.TestCase):
     def test_the_core_as_bizhawk_calls_it_ends_on_the_same_machine_as_the_guest_abi(self):
         if not (bench.FFI_DEBUG / "Ffi.dll").is_file():
             build_waterbox.build_core()
-        core = runner("waterbox-core-debug").run(SCENARIO, 1, UNITS, WARMUP, ROUNDS)
+        host = bench.WaterboxCoreRunner("waterbox-core-lane", bench.FFI_DEBUG, bench.release_runtime, True, "the Debug managed host of the FFI tests on the default (Release) runtime")
+        core = host.run(SCENARIO, 1, UNITS, WARMUP, ROUNDS)
         self.assertEqual(len(core["unit_wall_ns"]), UNITS)
         self.assertEqual(core["unit_index_at_window_end"], self.guest["unit_index_at_window_end"])
         self.assertEqual(core["master_ticks_at_window_end"], self.guest["master_ticks_at_window_end"])
         self.assertGreater(core["facts"]["state_bytes"], self.facts["snapshot_bytes"], "a core state is the envelope and the wrapper's fields around the snapshot")
         self.assertGreaterEqual(core["facts"]["managed_allocated_bytes_in_window"], 0)
 
-    @unittest.skipUnless(bench.RELEASE_RUNTIME.is_file(), "the Release runtime is not built (python3 tools/bench.py build)")
-    def test_the_local_runtime_is_a_debug_build_and_entering_it_costs_what_the_release_build_does_not(self):
-        release = runner("waterbox-guest-release-runtime").run(SCENARIO, 1, UNITS, WARMUP, ROUNDS)
-        self.assertEqual(release["master_ticks_at_window_end"], self.guest["master_ticks_at_window_end"], "the same guest on the other runtime is the same machine")
-        debug_enter = bench.describe(self.guest["parts"]["unit_enter_ns"])["p50"]
-        release_enter = bench.describe(release["parts"]["unit_enter_ns"])["p50"]
+    def test_the_debug_lane_of_the_runtime_costs_what_the_release_build_does_not(self):
+        build_waterbox.ensure_runtime_lane("debug")                       # the Debug lane is built from the same sources when it is missing
+        debug = runner("waterbox-guest-debug-runtime").run(SCENARIO, 1, UNITS, WARMUP, ROUNDS)
+        self.assertEqual(debug["master_ticks_at_window_end"], self.guest["master_ticks_at_window_end"], "the same guest on the other runtime is the same machine")
+        debug_enter = bench.describe(debug["parts"]["unit_enter_ns"])["p50"]
+        release_enter = bench.describe(self.guest["parts"]["unit_enter_ns"])["p50"]
         self.assertGreater(debug_enter, 100 * max(release_enter, 1.0))
 
 

@@ -256,12 +256,52 @@ TASK_SUITES[('DET01', 'T34')] = {**TASK_SUITES[('DET01', 'T32a')], 'core_picture
 TASK_SUITES[('DET02', 'T34')] = {**TASK_SUITES[('DET02', 'T32b')], 'core_state_round_trip': 'tests.waterbox-state.test_wrapper_state'}
 TASK_SUITES[('SAFE01', 'T34')] = {'canary_self_test': 'tests.canaries.test_canaries', 'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
                                  'core_memory_ownership': 'tests.waterbox-state.test_wrapper_memory', 'core_abi': 'tests.ffi.test_ffi'}
+# T34a builds the local Waterbox runtime Release (plan/toolchains.json) and keeps a Debug lane for what only that runtime has (tests/waterbox-smoke/test_runtime_lanes.py runs the ABI/identity
+# and host-callback/page suites in it). The gate is the whole Waterbox side with the Release runtime: the build receipts and imports (HOST01), the guest inside a real sandbox on every machine, the
+# memory manifest as a whole, the media and hard-file limits, the BizHawk core's state, memory ownership and ABI (tests/waterbox-state, tests/ffi), and the Waterbox probes (WB12) and benchmark suites (PERF01).
+# A suite that skips (no Kickstart in the environment) leaves the gate BLOCKED, never PASS.
+TASK_SUITES[('HOST01', 'T34a')] = {'imports_and_build_receipts': 'tests.waterbox-smoke.test_build'}
+TASK_SUITES[('WB02', 'T34a')] = {
+    'memory_manifest_recorded_as_a_whole': 'tests.waterbox-smoke.test_memory_manifest',
+    'runtime_lanes': 'tests.waterbox-smoke.test_runtime_lanes',
+    'guest_in_waterbox': 'tests.waterbox-smoke.test_puae6',
+    'memory_budgets': 'tests.waterbox-smoke.test_puae6_memory',
+    'contract': 'tests.waterbox-smoke.test_puae6_contract',
+    'hard_files': 'tests.waterbox-smoke.test_puae6_hdf',
+    'host_calls_pages_and_restore': 'tests.waterbox-smoke.test_puae6_wb',
+    'units_against_headless': 'tests.waterbox-smoke.test_puae6_units',
+    'media_frontend': 'tests.waterbox-media.test_media_frontend',
+    'media_hdf': 'tests.waterbox-media.test_media_hdf',
+    'media_limits': 'tests.waterbox-media.test_media_limits',
+    'media_overlay': 'tests.waterbox-media.test_media_overlay',
+    'media_volume': 'tests.waterbox-media.test_media_volume',
+    'wrapper_audio': 'tests.waterbox-state.test_wrapper_audio',
+    'wrapper_floppy': 'tests.waterbox-state.test_wrapper_floppy',
+    'wrapper_cpu': 'tests.waterbox-state.test_wrapper_cpu',
+    'wrapper_fpu': 'tests.waterbox-state.test_wrapper_fpu',
+    'wrapper_inventory': 'tests.waterbox-state.test_wrapper_inventory',
+    'wrapper_machine': 'tests.waterbox-state.test_wrapper_machine',
+    'wrapper_machines_t50': 'tests.waterbox-state.test_wrapper_machines_t50',
+    'wrapper_memory': 'tests.waterbox-state.test_wrapper_memory',
+    'wrapper_raster': 'tests.waterbox-state.test_wrapper_raster',
+    'wrapper_state': 'tests.waterbox-state.test_wrapper_state',
+    'ffi_abi': 'tests.ffi.test_ffi',
+    'ffi_core': 'tests.ffi.test_core',
+    'ffi_media': 'tests.ffi.test_media',
+    'ffi_saveram_format': 'tests.ffi.test_saveram_format',
+}
+TASK_SUITES[('WB12', 'T34a')] = TASK_SUITES[('WB12', 'T33')]
+TASK_SUITES[('PERF01', 'T34a')] = TASK_SUITES[('PERF01', 'T34')]
 TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
                       ('DET04', 'T32'): 6 * 3600, ('DET06', 'T32'): 6 * 3600}
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1', 'P6_RELEASE_GATE': '1'}      # the second is read only by the OpenDivergenceGate tests of T32
-DRIVER = '''import json, sys, unittest
+DRIVER = '''import json, pathlib, sys, unittest
+# T34a: the suites of tests/waterbox-* import their neighbours by the bare name (discover -s DIR puts the directory on the path): so does loading them by dotted name
+_file = pathlib.Path(*sys.argv[1].split('.')).with_suffix('.py')
+if _file.is_file():
+    sys.path.append(str(_file.parent.resolve()))
 suite = unittest.defaultTestLoader.loadTestsFromName(sys.argv[1])
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 report = dict(tests=result.testsRun, failures=len(result.failures),

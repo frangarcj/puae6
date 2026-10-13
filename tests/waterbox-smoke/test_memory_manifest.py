@@ -4,7 +4,8 @@ Every `measured*` key is one run of one guest in one Waterbox runtime on one fix
 hard-file keys) leaves numbers of different guests side by side, and the tests that compare each key with its budget keep passing. So this test asks that
   - the set of keys is exactly the one the code produces: one per machine (build_waterbox.MEASURED_KEYS), one per memory configuration of test_puae6.MEMORY_CONFIGS
     (named by build_waterbox.measured_key), the hard-file keys and the full floppy overlay of WB12;
-  - all of them carry the same guest_sha256 and runtime_sha256 (and, when puae6.wbx is built here, the guest's is the built file's);
+  - all of them carry the same guest_sha256 and runtime_sha256 (and, when they are built here, the guest's is puae6.wbx's and the runtime's is the default (Release) libwaterboxhost's:
+    since T34a the library is reproducible, it carries no path of the tree it was compiled in);
   - each one carries the fixture it documents: the machine and memory it names, the firmware it says (boot.s for the machines, tests.hdf.hdf_rom.loop_rom() for the hard
     files, the WB12 writer for the floppy overlay) by sha256, and the size of the hard files its key names.
 The recipe to re-record everything is in docs/03-waterbox.md ("Re-registro completo de waterbox-memory.json").
@@ -65,8 +66,8 @@ def key_problems(manifest):
 
 
 def identity_problems(manifest, built=None):
-    """The keys must share guest_sha256 and runtime_sha256; guest_sha256 must also be the built guest's if given. The runtime is not compared with the built libwaterboxhost.dylib:
-    its bytes carry the paths of the checkout it was compiled in (a worktree builds another hash from the same sources), the guest is the same in any checkout."""
+    """The keys must share guest_sha256 and runtime_sha256; each must also be the built one's if given. Since T34a the runtime is built with the paths of its tree remapped and a fixed
+    install name (build_waterbox.runtime_rustflags), so a worktree builds the same hash from the same sources."""
     problems = []
     measured = {key: value for key, value in manifest.items() if key.startswith("measured")}
     for field in ("guest_sha256", "runtime_sha256"):
@@ -96,7 +97,11 @@ def built_identity():
     guest_receipt = build_waterbox.BUILD / "puae6/puae6-receipt.json"
     if not guest_receipt.is_file():
         return None
-    return {"guest_sha256": json.loads(guest_receipt.read_text())["guest"]["sha256"]}
+    built = {"guest_sha256": json.loads(guest_receipt.read_text())["guest"]["sha256"]}
+    runtime_receipt = build_waterbox.runtime_receipt_path(build_waterbox.default_runtime_profile())
+    if runtime_receipt.is_file():
+        built["runtime_sha256"] = json.loads(runtime_receipt.read_text())["runtime_dylib"]["sha256"]
+    return built
 
 
 @unittest.skipUnless(TOOLS, "no 68k assembler (the firmware shas cannot be recomputed)")
@@ -127,7 +132,7 @@ class MemoryManifestRecordedAsAWholeTests(unittest.TestCase):
         self.assertEqual(produced_keys(), set(self.expected))
         self.assertNoProblems(fixture_problems(self.manifest, self.expected))
 
-    def test_the_recorded_guest_is_the_built_one_when_it_is_built_here(self):
+    def test_the_recorded_guest_and_runtime_are_the_built_ones_when_they_are_built_here(self):
         built = built_identity()
         if built is None:
             self.skipTest("puae6.wbx is not built here (tools/build_waterbox.py --puae6 / --puae6-run build/waterbox/boot.rom): only the keys are compared with each other")
@@ -150,6 +155,7 @@ class MemoryManifestRecordedAsAWholeTests(unittest.TestCase):
         self.assertTrue(identity_problems(self.mutated("measured", guest_sha256=other)), "one key of another guest")
         self.assertTrue(identity_problems(self.mutated("measured_a1200", runtime_sha256=other)), "one key of another runtime")
         self.assertTrue(identity_problems(self.manifest, {"guest_sha256": other}), "all keys of a guest that is not the built one")
+        self.assertTrue(identity_problems(self.manifest, {"runtime_sha256": other}), "all keys of a runtime that is not the built one")
         self.assertTrue(fixture_problems(self.mutated("measured_a500_hdf2048", **{"fixture.firmware_sha256": other}), self.expected), "hard-file key on another firmware")
         self.assertTrue(fixture_problems(self.mutated("measured_a500_hdf32768", **{"fixture.hard_file_bytes": [2 << 20]}), self.expected), "hard-file key with the size of the other")
         self.assertTrue(fixture_problems(self.mutated(FLOPPY_KEY, **{"fixture.firmware_sha256": other}), self.expected), "floppy key on another writer")

@@ -213,8 +213,8 @@ internal static unsafe partial class Program
 	static void Open(Dictionary<string, string> options, int units)
 	{
 		// BizHawk asks dlopen for the bare name libwaterboxhost.dylib; on macOS that only finds it when it is already loaded, which loading it by its
-		// path first arranges (EmuHawk ships it next to the executable and sets the search path itself).
-		NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
+		// path first arranges (EmuHawk ships it next to the executable and sets the search path itself). LoadRuntime also sets the eviction (Runtime.cs).
+		LoadRuntime(options["runtime"]);
 		string guestPath = Path.GetFullPath(options["guest"]);
 		var layout = JsonDocument.Parse(File.ReadAllText(options["manifest"])).RootElement.GetProperty("layout");
 		uint Kb(string name) => layout.GetProperty(name).GetUInt32() / 1024;

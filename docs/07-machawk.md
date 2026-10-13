@@ -138,6 +138,10 @@ los guests bajo el directorio dll esperado por PreInit. Preservar ese contrato e
 un paquete aislado PUAE6. No depender de un fallback de paths ni de un WBX antiguo
 que exista en el checkout. Registrar el hash del archivo REALMENTE cargado.
 
+Perfil del runtime (T34a): `tools/build_waterbox.py` compila la copia de `waterboxhost` que sale de `../MacHawk` (solo lectura) en **Release**, como la que distribuye BizHawk, con las rutas del
+arbol remapeadas y un install name fijo para que su sha256 no dependa del directorio; la compilacion Debug es un carril aparte (`P6_WATERBOX_RUNTIME=debug`) y no se registra. BizHawk Release
+apaga la expulsion de sandboxes al cargar el runtime (`WaterboxHost`, `#if !DEBUG`); los hosts de prueba de PUAE6 hacen lo mismo salvo `P6_EVICT=1`. Detalle en docs/03-waterbox.md.
+
 Las herramientas run-macos-smoke.sh y cargo test ya existen en MacHawk. La primera
 puede descargar dependencias/crear outputs y hacer builds amplios; NO se ejecuta
 automaticamente como parte de este plan. T00 inventaria Docker, Xcode/Clang,

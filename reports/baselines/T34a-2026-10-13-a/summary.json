@@ -1,0 +1,4395 @@
+{
+  "baseline": "T34a-2026-10-13-a",
+  "cost_breakdown": {
+    "a1200-aga-planes8-pal": {
+      "core_release_over_native_ms": 0.5374590000000001,
+      "engine_ms (native, render 0)": 5.0252295,
+      "libretro_adapter_ms (libretro - native)": null,
+      "main_cost": "engine",
+      "main_cost_by_runner": {
+        "libretro": "engine",
+        "native": "engine",
+        "waterbox-core-release": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-debug-runtime": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-release-runtime": "engine (p6w_frame_advance inside the sandbox)"
+      },
+      "output_production_ms (native render 3 - render 0)": 0.0035199999999999676,
+      "unit_ms": 19.967887405745024,
+      "waterbox-guest-debug-runtime": {
+        "copy_ms": 1.584833,
+        "enter_ms": 2.7992295,
+        "exit_ms": 0.249458,
+        "guest_call_minus_native_ms": 0.7206254999999997,
+        "guest_call_ms": 5.749375,
+        "total_ms": 10.396875
+      },
+      "waterbox-guest-release-runtime": {
+        "copy_ms": 1.585292,
+        "enter_ms": 0.000209,
+        "exit_ms": 0.000167,
+        "guest_call_minus_native_ms": 0.44485449999999993,
+        "guest_call_ms": 5.473604,
+        "total_ms": 7.061791
+      },
+      "waterbox_core_release_ms": 5.5662085,
+      "wrapper_ms (core release - guest call, release runtime)": 0.0926045000000002
+    },
+    "a1200-ks31-demo-pal": {
+      "core_release_over_native_ms": 0.43283249999999995,
+      "engine_ms (native, render 0)": 6.3839585,
+      "libretro_adapter_ms (libretro - native)": null,
+      "main_cost": "engine",
+      "main_cost_by_runner": {
+        "libretro": "engine",
+        "native": "engine",
+        "waterbox-core-release": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-debug-runtime": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-release-runtime": "engine (p6w_frame_advance inside the sandbox)"
+      },
+      "output_production_ms (native render 3 - render 0)": 0.11550049999999956,
+      "unit_ms": 20.031887044866004,
+      "waterbox-guest-debug-runtime": {
+        "copy_ms": 1.59225,
+        "enter_ms": 2.782542,
+        "exit_ms": 0.262917,
+        "guest_call_minus_native_ms": 0.8282284999999998,
+        "guest_call_ms": 7.3276875,
+        "total_ms": 12.0061665
+      },
+      "waterbox-guest-release-runtime": {
+        "copy_ms": 1.5908125,
+        "enter_ms": 0.00025,
+        "exit_ms": 0.000208,
+        "guest_call_minus_native_ms": 0.37468699999999977,
+        "guest_call_ms": 6.874146,
+        "total_ms": 8.4670835
+      },
+      "waterbox_core_release_ms": 6.9322915,
+      "wrapper_ms (core release - guest call, release runtime)": 0.05814550000000018
+    },
+    "a500-ocs-busy-pal": {
+      "core_release_over_native_ms": 0.37758299999999956,
+      "engine_ms (native, render 0)": 3.9915625,
+      "libretro_adapter_ms (libretro - native)": null,
+      "main_cost": "engine",
+      "main_cost_by_runner": {
+        "libretro": "engine",
+        "native": "engine",
+        "waterbox-core-release": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-debug-runtime": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-release-runtime": "engine (p6w_frame_advance inside the sandbox)"
+      },
+      "output_production_ms (native render 3 - render 0)": -0.005312500000000053,
+      "unit_ms": 19.967887405745024,
+      "waterbox-guest-debug-runtime": {
+        "copy_ms": 1.585917,
+        "enter_ms": 2.7996455,
+        "exit_ms": 0.256334,
+        "guest_call_minus_native_ms": 0.6046249999999995,
+        "guest_call_ms": 4.590875,
+        "total_ms": 9.246834
+      },
+      "waterbox-guest-release-runtime": {
+        "copy_ms": 1.584083,
+        "enter_ms": 0.000166,
+        "exit_ms": 0.000166,
+        "guest_call_minus_native_ms": 0.3381039999999995,
+        "guest_call_ms": 4.324354,
+        "total_ms": 5.9112085
+      },
+      "waterbox_core_release_ms": 4.363833,
+      "wrapper_ms (core release - guest call, release runtime)": 0.03947900000000004
+    },
+    "a600-ecs-copper-ntsc": {
+      "core_release_over_native_ms": 0.3648335000000005,
+      "engine_ms (native, render 0)": 3.8213745,
+      "libretro_adapter_ms (libretro - native)": null,
+      "main_cost": "engine",
+      "main_cost_by_runner": {
+        "libretro": "engine",
+        "native": "engine",
+        "waterbox-core-release": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-debug-runtime": "engine (p6w_frame_advance inside the sandbox)",
+        "waterbox-guest-release-runtime": "engine (p6w_frame_advance inside the sandbox)"
+      },
+      "output_production_ms (native render 3 - render 0)": -0.003458000000000183,
+      "unit_ms": 16.651557670039068,
+      "waterbox-guest-debug-runtime": {
+        "copy_ms": 1.343458,
+        "enter_ms": 2.8115625,
+        "exit_ms": 0.249375,
+        "guest_call_minus_native_ms": 0.640021,
+        "guest_call_ms": 4.4579375,
+        "total_ms": 8.8855625
+      },
+      "waterbox-guest-release-runtime": {
+        "copy_ms": 1.3348125,
+        "enter_ms": 8.4e-05,
+        "exit_ms": 4.2e-05,
+        "guest_call_minus_native_ms": 0.33191650000000017,
+        "guest_call_ms": 4.149833,
+        "total_ms": 5.4869165
+      },
+      "waterbox_core_release_ms": 4.18275,
+      "wrapper_ms (core release - guest call, release runtime)": 0.03291700000000031
+    }
+  },
+  "environment": {
+    "artifacts": {
+      "libwaterboxhost_debug": "b00021dc853c6791a399880a25a0a87586ac0023f99b75cba880c05559296dfa",
+      "libwaterboxhost_release": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
+      "p6_bench_probe": "ba4726c7c08a0284c6f34ef1066794ff7d5c2f6b316d752711b9cec9d1b63417",
+      "p6_libretro_host": "89581c1dabb40da42df1f7cb323712a7a2ab328513a968213161543b77d34d59",
+      "puae6.wbx": "d73b598ca854966a12a0692da1ccece3ef9f6db28dd80da9dd263e7f642ede19",
+      "puae6_libretro": "c42dec1e72465db12097fe9e7aef9dd838a7f9fbbfa6bc6b728674ca464590e1"
+    },
+    "condition_when_started": {
+      "active_mib": 3624,
+      "busiest": [
+        "77.0 61216 /Users/frangar/Fun/uae/.claude/worktrees/agent-ae57d47844803dba9/build/state-opt/p6_state_probe",
+        "73.5 53728 /Users/frangar/Fun/uae/.claude/worktrees/agent-ae57d47844803dba9/build/link-audit/p6_state_probe",
+        "71.3 357264 build/perf-all-games-20261012/live-counter-v1/footbpow",
+        "25.9 55520 /Users/frangar/Fun/uae/.claude/worktrees/agent-ae57d47844803dba9/build/state-opt/p6_state_probe",
+        "13.6 28880 /usr/sbin/coreaudiod"
+      ],
+      "free_mib": 64,
+      "load": [
+        8.9,
+        9.96,
+        9.08
+      ],
+      "swap": "total = 8192.00M  used = 6656.00M  free = 1536.00M  (encrypted)",
+      "swapouts": 30938581,
+      "thermal": "Note: No thermal warning level has been recorded | Note: No performance warning level has been recorded | Note: No CPU power status has been recorded"
+    },
+    "date_utc": "2026-10-12T22:18:20Z",
+    "engine": {
+      "patches": 143,
+      "series_sha256": "9a8127bce15118ed7cfe299c67395dc9258d1a13126fc97bc8993139a846f2ce",
+      "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827"
+    },
+    "git": {
+      "commit": "dd4ae28ec2f0ee79931d801287dc4c0d47f6a1e6",
+      "uncommitted_changes": false
+    },
+    "host": {
+      "cores": 8,
+      "cpu": "Apple M1 Pro",
+      "efficiency_cores": 2,
+      "host_page_bytes": 16384,
+      "kernel": "25.6.0",
+      "machine": "arm64",
+      "memory_bytes": 17179869184,
+      "os": "26.7.1 25G241",
+      "performance_cores": 6,
+      "power": [
+        "Now drawing from 'AC Power'",
+        " -InternalBattery-0 (id=26411107)\t100%; charged; 0:00 remaining present: true"
+      ]
+    },
+    "measurement_status": "ORIENTATIVE: the Mac is used by someone while the benchmark runs; no dedicated runner exists (plan/runners.json). Nothing here is a hard threshold.",
+    "p6_config": {
+      "audio_rate_hz": 48000,
+      "input": "idle (no key, no port movement)",
+      "random_seed": 1,
+      "rtc_epoch_seconds": 946684800
+    },
+    "profile": "deterministic-a500",
+    "tools": {
+      "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)",
+      "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+      "cmake": "cmake version 4.3.2",
+      "dotnet": "10.0.400",
+      "native_flags": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O2",
+        "CMAKE_C_FLAGS_RELEASE": "-O2",
+        "P6_SANITIZERS": "OFF"
+      },
+      "python": "3.14.7"
+    }
+  },
+  "scenarios": {
+    "a1200-aga-planes8-pal": {
+      "kind": "microrom",
+      "machine": "a1200",
+      "runners": {
+        "native": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 1,
+            "supported": 1,
+            "units": 200
+          },
+          "between_run_cv": 0.009947828525561489,
+          "cpu_median_of_run_medians_ns": 5026500.0,
+          "first_unit_after_load_p50_ms": 5.0837085,
+          "first_unit_after_load_p95_ms": 5.299852400000001,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            3.25,
+            4.06
+          ],
+          "median_of_run_medians_ns": 5028749.5,
+          "median_of_run_p95_ns": 5301506.25,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 39993704,
+            "footprint_before": 39911784,
+            "malloc_allocated_after": 22036480,
+            "malloc_in_use_after": 6398736,
+            "malloc_in_use_before": 6349584,
+            "peak_resident": 41566208,
+            "resident_after": 41566208,
+            "resident_before": 41484288
+          },
+          "noisy_runs": 0,
+          "p50_ms": 5.0287495,
+          "p50_unit_fraction": 0.25184183974080115,
+          "p95_headroom_x": 3.737050315544197,
+          "p95_ms": 5.343221450000001,
+          "p95_unit_fraction": 0.26759072411749907,
+          "p99_ms": 5.885407080000001,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 47759360,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.01744056525507671,
+                "iqr": 178791.0,
+                "mad": 89208.5,
+                "max": 11434000.0,
+                "mean": 5150489.543666666,
+                "min": 4828458.0,
+                "n": 3000,
+                "p50": 5115000.5,
+                "p95": 5368203.850000001,
+                "p99": 6144364.340000007,
+                "stdev": 265305.73086365237
+              },
+              "load1_after": 4.06,
+              "load1_before": 3.25,
+              "noisy": [],
+              "peak_rss_bytes": 47726592,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.018211668990763676,
+                "iqr": 185384.5,
+                "mad": 93438.0,
+                "max": 31091625.0,
+                "mean": 5225080.062333333,
+                "min": 4828250.0,
+                "n": 3000,
+                "p50": 5130666.5,
+                "p95": 5474386.850000001,
+                "p99": 7627056.420000014,
+                "stdev": 880751.59498877
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.004194469312642992,
+                "iqr": 45718.5,
+                "mad": 21083.5,
+                "max": 8916125.0,
+                "mean": 5050625.397666667,
+                "min": 4834583.0,
+                "n": 3000,
+                "p50": 5026500.0,
+                "p95": 5263735.7,
+                "p99": 5440846.75,
+                "stdev": 139582.85381373862
+              },
+              "load1_after": 3.58,
+              "load1_before": 3.88,
+              "noisy": [],
+              "peak_rss_bytes": 47726592,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.004743525204427065,
+                "iqr": 56416.25,
+                "mad": 23854.0,
+                "max": 10477333.0,
+                "mean": 5061897.733666667,
+                "min": 4834375.0,
+                "n": 3000,
+                "p50": 5028749.5,
+                "p95": 5301506.25,
+                "p99": 5495878.580000001,
+                "stdev": 200239.4501982682
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.004538028119611584,
+                "iqr": 47270.0,
+                "mad": 22770.5,
+                "max": 5584166.0,
+                "mean": 5038916.100333333,
+                "min": 4826000.0,
+                "n": 3000,
+                "p50": 5017708.0,
+                "p95": 5252456.25,
+                "p99": 5460048.66,
+                "stdev": 101437.29264372941
+              },
+              "load1_after": 3.99,
+              "load1_before": 3.8,
+              "noisy": [],
+              "peak_rss_bytes": 47759360,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.004880842692432203,
+                "iqr": 55740.0,
+                "mad": 24500.0,
+                "max": 5640583.0,
+                "mean": 5046471.576333334,
+                "min": 4825791.0,
+                "n": 3000,
+                "p50": 5019625.0,
+                "p95": 5280318.100000001,
+                "p99": 5509556.010000001,
+                "stdev": 111791.83391604315
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.008594308497787176,
+            "iqr": 126344.5,
+            "mad": 43291.5,
+            "max": 31091625.0,
+            "mean": 5111149.790777777,
+            "min": 4825791.0,
+            "n": 9000,
+            "p50": 5037229.0,
+            "p95": 5343221.45,
+            "p99": 5885407.080000001,
+            "stdev": 531634.513223574
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            5019625.0,
+            5130666.5
+          ],
+          "runs": 3,
+          "state_bound_bytes": 5890824,
+          "state_bytes": 3185481,
+          "state_load_p50_ms": 19.7125205,
+          "state_load_p95_ms": 19.8418521,
+          "state_save_p50_ms": 18.043292,
+          "state_save_p95_ms": 18.1733524,
+          "units": 3000,
+          "warmup": 300
+        },
+        "native-norender": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 0,
+            "supported": 0,
+            "units": 0
+          },
+          "between_run_cv": 0.004997023710447642,
+          "cpu_median_of_run_medians_ns": 5024083.0,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            3.58,
+            4.18
+          ],
+          "median_of_run_medians_ns": 5025229.5,
+          "median_of_run_p95_ns": 5323697.3,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 40042880,
+            "footprint_before": 39944576,
+            "malloc_allocated_after": 30425088,
+            "malloc_in_use_after": 6398736,
+            "malloc_in_use_before": 6349584,
+            "peak_resident": 41598976,
+            "resident_after": 33980416,
+            "resident_before": 41500672
+          },
+          "noisy_runs": 0,
+          "p50_ms": 5.0252295,
+          "p50_unit_fraction": 0.2516655566955058,
+          "p95_headroom_x": 3.750944310109158,
+          "p95_ms": 5.32342945,
+          "p95_unit_fraction": 0.2665995326309973,
+          "p99_ms": 5.51397092,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 41598976,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.012861736651818216,
+                "iqr": 145615.0,
+                "mad": 65145.5,
+                "max": 11520417.0,
+                "mean": 5096109.4383333335,
+                "min": 4844958.0,
+                "n": 3000,
+                "p50": 5065062.5,
+                "p95": 5318508.3,
+                "p99": 5499808.92,
+                "stdev": 172423.8968338656
+              },
+              "load1_after": 4.18,
+              "load1_before": 4.06,
+              "noisy": [],
+              "peak_rss_bytes": 41598976,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.014222725873006097,
+                "iqr": 162260.5,
+                "mad": 72167.0,
+                "max": 21942250.0,
+                "mean": 5120358.634,
+                "min": 4844750.0,
+                "n": 3000,
+                "p50": 5074062.5,
+                "p95": 5358710.7,
+                "p99": 5604633.33,
+                "stdev": 393001.9489707509
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.0035288031666674295,
+                "iqr": 36551.5,
+                "mad": 17729.0,
+                "max": 5525083.0,
+                "mean": 5037529.795666667,
+                "min": 4832125.0,
+                "n": 3000,
+                "p50": 5024083.0,
+                "p95": 5209897.9,
+                "p99": 5427041.43,
+                "stdev": 87897.35293226932
+              },
+              "load1_after": 3.3,
+              "load1_before": 3.58,
+              "noisy": [],
+              "peak_rss_bytes": 41582592,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.0038098757479633517,
+                "iqr": 42260.5,
+                "mad": 19145.5,
+                "max": 5584250.0,
+                "mean": 5044449.525666666,
+                "min": 4831917.0,
+                "n": 3000,
+                "p50": 5025229.5,
+                "p95": 5237487.850000001,
+                "p99": 5475427.920000001,
+                "stdev": 98518.92833336821
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.004610975257656313,
+                "iqr": 51853.75,
+                "mad": 23125.0,
+                "max": 5664625.0,
+                "mean": 5041615.057333333,
+                "min": 4826375.0,
+                "n": 3000,
+                "p50": 5015208.0,
+                "p95": 5286010.700000001,
+                "p99": 5451335.66,
+                "stdev": 107119.36768798028
+              },
+              "load1_after": 3.7,
+              "load1_before": 3.99,
+              "noisy": [],
+              "peak_rss_bytes": 41598976,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.005311119885685151,
+                "iqr": 61770.75,
+                "mad": 26646.0,
+                "max": 5862792.0,
+                "mean": 5049315.498666666,
+                "min": 4826167.0,
+                "n": 3000,
+                "p50": 5017021.0,
+                "p95": 5323697.3,
+                "p99": 5496012.08,
+                "stdev": 117311.94479550095
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.006936527065137717,
+            "iqr": 90958.25,
+            "mad": 34895.5,
+            "max": 21942250.0,
+            "mean": 5071374.552777777,
+            "min": 4826167.0,
+            "n": 9000,
+            "p50": 5030687.5,
+            "p95": 5323429.45,
+            "p99": 5513970.92,
+            "stdev": 245987.53538398579
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            5017021.0,
+            5074062.5
+          ],
+          "runs": 3,
+          "state_bound_bytes": 0,
+          "state_bytes": 0,
+          "units": 3000,
+          "warmup": 300
+        },
+        "waterbox-core-release": {
+          "between_run_cv": 0.010585254396294742,
+          "core_create_ms": 337.47025,
+          "cpu_median_of_run_medians_ns": 5555604.0,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 5.6754585,
+          "first_unit_after_load_p95_ms": 5.8793777,
+          "gc_collections_in_window": [
+            0,
+            0,
+            0
+          ],
+          "host_crashes_retried": 0,
+          "layer": "waterbox-core",
+          "load1_range": [
+            3.03,
+            8.66
+          ],
+          "managed_allocated_bytes_in_window": 131640,
+          "managed_build": "Release",
+          "median_of_run_medians_ns": 5566208.5,
+          "median_of_run_p95_ns": 6005192.0,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 5.5662085,
+          "p50_unit_fraction": 0.2787580071389289,
+          "p95_headroom_x": 3.289713531973043,
+          "p95_ms": 6.069795200000001,
+          "p95_unit_fraction": 0.30397783584525023,
+          "p99_ms": 6.38613584,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 534478848,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.015583429871151059,
+                "iqr": 176875.0,
+                "mad": 87854.5,
+                "max": 8594291.0,
+                "mean": 5662075.351666667,
+                "min": 5361875.0,
+                "n": 3000,
+                "p50": 5637687.0,
+                "p95": 5927643.4,
+                "p99": 6168795.33,
+                "stdev": 169863.34687986103
+              },
+              "load1_after": 5.22,
+              "load1_before": 4.57,
+              "noisy": [],
+              "peak_rss_bytes": 437469184,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.01670023227661506,
+                "iqr": 191916.5,
+                "mad": 94416.5,
+                "max": 17858291.0,
+                "mean": 5696006.459,
+                "min": 5361667.0,
+                "n": 3000,
+                "p50": 5653604.0,
+                "p95": 6005192.0,
+                "p99": 6452731.000000009,
+                "stdev": 324625.15734029043
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.009658600808099152,
+                "iqr": 245583.5,
+                "mad": 53187.5,
+                "max": 6926292.0,
+                "mean": 5614546.092666667,
+                "min": 5286875.0,
+                "n": 3000,
+                "p50": 5506750.0,
+                "p95": 6103121.15,
+                "p99": 6210550.000000001,
+                "stdev": 224357.3851871297
+              },
+              "load1_after": 8.66,
+              "load1_before": 3.03,
+              "noisy": [],
+              "peak_rss_bytes": 477020160,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.010654436379725692,
+                "iqr": 266885.0,
+                "mad": 58707.5,
+                "max": 14885166.0,
+                "mean": 5633809.590333333,
+                "min": 5286584.0,
+                "n": 3000,
+                "p50": 5510146.0,
+                "p95": 6160872.25,
+                "p99": 6390296.670000001,
+                "stdev": 303693.7097226291
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.017441217912579802,
+                "iqr": 238593.75,
+                "mad": 96896.5,
+                "max": 9369125.0,
+                "mean": 5611008.602666667,
+                "min": 5265917.0,
+                "n": 3000,
+                "p50": 5555604.0,
+                "p95": 5926300.35,
+                "p99": 6167786.250000001,
+                "stdev": 207003.98082673384
+              },
+              "load1_after": 4.5,
+              "load1_before": 3.51,
+              "noisy": [],
+              "peak_rss_bytes": 534478848,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.01874031488400048,
+                "iqr": 250990.25,
+                "mad": 104312.5,
+                "max": 20967875.0,
+                "mean": 5634798.367333333,
+                "min": 5265708.0,
+                "n": 3000,
+                "p50": 5566208.5,
+                "p95": 5974104.15,
+                "p99": 6303834.750000001,
+                "stdev": 397471.63874159
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.02054710861357984,
+            "iqr": 259676.25,
+            "mad": 114896.0,
+            "max": 20967875.0,
+            "mean": 5654871.472222222,
+            "min": 5265708.0,
+            "n": 9000,
+            "p50": 5591833.0,
+            "p95": 6069795.2,
+            "p99": 6386135.84,
+            "stdev": 345511.0636207451
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            5510146.0,
+            5653604.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 10236361,
+          "state_load_p50_ms": 8.7847295,
+          "state_load_p95_ms": 12.11463715,
+          "state_save_p50_ms": 10.397771,
+          "state_save_p95_ms": 17.97957085,
+          "units": 3000,
+          "warmup": 300
+        },
+        "waterbox-guest-debug-runtime": {
+          "between_run_cv": 0.004001656177157923,
+          "cpu_median_of_run_medians_ns": 10386958.5,
+          "evict_blocks": true,
+          "first_unit_after_load_p50_ms": 10.558875,
+          "first_unit_after_load_p95_ms": 11.009975650000001,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 8065024
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 6094848,
+              "dirty_bytes": 2113536
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 262144,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            3.3,
+            4.05
+          ],
+          "median_of_run_medians_ns": 10396875.0,
+          "median_of_run_p95_ns": 11112087.15,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 10.396875,
+          "p50_unit_fraction": 0.5206797689077854,
+          "p95_headroom_x": 1.797469585117774,
+          "p95_ms": 11.1088875,
+          "p95_unit_fraction": 0.5563376472567562,
+          "p99_ms": 11.45930033,
+          "pages_after_seal": {
+            "committed_bytes": 60276736,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 60276736,
+            "dirty_bytes_4k_pages": 12308480,
+            "dirty_groups_16k": 752,
+            "dirty_groups_16k_all_four_logical_pages": 751
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 60276736,
+            "dirty_bytes_4k_pages": 12308480,
+            "dirty_groups_16k": 752,
+            "dirty_groups_16k_all_four_logical_pages": 751
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1584833.0,
+            "unit_enter_ns": 2799229.5,
+            "unit_exit_ns": 249458.0,
+            "unit_guest_ns": 5749375.0
+          },
+          "peak_rss_bytes_max": 566116352,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.009674160209039613,
+                "iqr": 230698.25,
+                "mad": 101229.0,
+                "max": 13184750.0,
+                "mean": 10531510.592333334,
+                "min": 10104458.0,
+                "n": 3000,
+                "p50": 10463854.0,
+                "p95": 11031429.200000001,
+                "p99": 11373584.25,
+                "stdev": 244804.93623060273
+              },
+              "load1_after": 4.05,
+              "load1_before": 4.18,
+              "noisy": [],
+              "peak_rss_bytes": 394985472,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.010695851082365222,
+                "iqr": 252333.5,
+                "mad": 112125.5,
+                "max": 30634042.0,
+                "mean": 10578025.399,
+                "min": 10104292.0,
+                "n": 3000,
+                "p50": 10483083.5,
+                "p95": 11112087.15,
+                "p99": 11559541.670000002,
+                "stdev": 536125.304757693
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.005040841993777719,
+                "iqr": 118926.75,
+                "mad": 52354.5,
+                "max": 13145041.0,
+                "mean": 10461055.007,
+                "min": 10085042.0,
+                "n": 3000,
+                "p50": 10386062.5,
+                "p95": 11040098.200000001,
+                "p99": 11328888.750000004,
+                "stdev": 248721.75050601884
+              },
+              "load1_after": 2.83,
+              "load1_before": 3.3,
+              "noisy": [],
+              "peak_rss_bytes": 565460992,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.005683148361425604,
+                "iqr": 143728.75,
+                "mad": 59062.0,
+                "max": 18697459.0,
+                "mean": 10482876.377666667,
+                "min": 10084833.0,
+                "n": 3000,
+                "p50": 10392479.0,
+                "p95": 11092375.3,
+                "p99": 11416489.500000002,
+                "stdev": 352276.69502541376
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.006747259074925543,
+                "iqr": 171250.75,
+                "mad": 70083.5,
+                "max": 13616833.0,
+                "mean": 10477720.491333334,
+                "min": 10101667.0,
+                "n": 3000,
+                "p50": 10386958.5,
+                "p95": 11077846.450000001,
+                "p99": 11321217.920000002,
+                "stdev": 265558.61780464323
+              },
+              "load1_after": 3.88,
+              "load1_before": 3.7,
+              "noisy": [],
+              "peak_rss_bytes": 566116352,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.00750629395852119,
+                "iqr": 199958.75,
+                "mad": 78042.0,
+                "max": 24739083.0,
+                "mean": 10503762.624,
+                "min": 10124250.0,
+                "n": 3000,
+                "p50": 10396875.0,
+                "p95": 11129497.6,
+                "p99": 11394877.500000002,
+                "stdev": 421201.5139852807
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.008270624093955087,
+            "iqr": 216083.0,
+            "mad": 86188.0,
+            "max": 30634042.0,
+            "mean": 10521554.800222222,
+            "min": 10084833.0,
+            "n": 9000,
+            "p50": 10420979.0,
+            "p95": 11108887.5,
+            "p99": 11459300.33,
+            "stdev": 444949.97399538435
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            10392479.0,
+            10483083.5
+          ],
+          "runs": 3,
+          "snapshot_bytes": 10236084,
+          "state_load_p50_ms": 7.293,
+          "state_load_p95_ms": 8.0078253,
+          "state_save_p50_ms": 6.9896245,
+          "state_save_p95_ms": 10.355575000000004,
+          "units": 3000,
+          "warmup": 300
+        },
+        "waterbox-guest-release-runtime": {
+          "between_run_cv": 0.008794004429283462,
+          "cpu_median_of_run_medians_ns": 7059042.0,
+          "evict_blocks": false,
+          "first_unit_after_load_p50_ms": 7.154958,
+          "first_unit_after_load_p95_ms": 7.485970849999999,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 8065024
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 6094848,
+              "dirty_bytes": 2113536
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 262144,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            2.83,
+            4.57
+          ],
+          "median_of_run_medians_ns": 7061791.0,
+          "median_of_run_p95_ns": 7461250.300000001,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 7.061791,
+          "p50_unit_fraction": 0.3536573928180419,
+          "p95_headroom_x": 2.66193985784964,
+          "p95_ms": 7.50125415,
+          "p95_unit_fraction": 0.37566588781153637,
+          "p99_ms": 8.03150584,
+          "pages_after_seal": {
+            "committed_bytes": 60276736,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 60276736,
+            "dirty_bytes_4k_pages": 12308480,
+            "dirty_groups_16k": 752,
+            "dirty_groups_16k_all_four_logical_pages": 751
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 60276736,
+            "dirty_bytes_4k_pages": 12308480,
+            "dirty_groups_16k": 752,
+            "dirty_groups_16k_all_four_logical_pages": 751
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1585292.0,
+            "unit_enter_ns": 209.0,
+            "unit_exit_ns": 167.0,
+            "unit_guest_ns": 5473604.0
+          },
+          "peak_rss_bytes_max": 603996160,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.015037915673710236,
+                "iqr": 229551.75,
+                "mad": 107728.5,
+                "max": 12507875.0,
+                "mean": 7219581.868666667,
+                "min": 6864500.0,
+                "n": 3000,
+                "p50": 7163792.0,
+                "p95": 7571831.55,
+                "p99": 8235292.090000004,
+                "stdev": 270866.856753444
+              },
+              "load1_after": 4.57,
+              "load1_before": 4.05,
+              "noisy": [],
+              "peak_rss_bytes": 415694848,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.016343061864899398,
+                "iqr": 245437.25,
+                "mad": 117437.5,
+                "max": 15865459.0,
+                "mean": 7269703.905666667,
+                "min": 6864291.0,
+                "n": 3000,
+                "p50": 7185771.0,
+                "p95": 7674577.4,
+                "p99": 9210326.42,
+                "stdev": 480305.6052142463
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.004453507997260818,
+                "iqr": 64177.0,
+                "mad": 31437.5,
+                "max": 9174000.0,
+                "mean": 7088076.401666666,
+                "min": 6804792.0,
+                "n": 3000,
+                "p50": 7059042.0,
+                "p95": 7407556.55,
+                "p99": 7528958.84,
+                "stdev": 142393.99228592124
+              },
+              "load1_after": 3.03,
+              "load1_before": 2.83,
+              "noisy": [],
+              "peak_rss_bytes": 587169792,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.005127381991339024,
+                "iqr": 80197.75,
+                "mad": 36208.5,
+                "max": 17819125.0,
+                "mean": 7103047.033,
+                "min": 6804584.0,
+                "n": 3000,
+                "p50": 7061791.0,
+                "p95": 7435766.7,
+                "p99": 7562048.67,
+                "stdev": 250607.2686690284
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.005008410539998415,
+                "iqr": 76125.0,
+                "mad": 35271.0,
+                "max": 9868208.0,
+                "mean": 7081047.274,
+                "min": 6772291.0,
+                "n": 3000,
+                "p50": 7042354.0,
+                "p95": 7437022.9,
+                "p99": 7573185.33,
+                "stdev": 155180.64345535578
+              },
+              "load1_after": 3.51,
+              "load1_before": 3.88,
+              "noisy": [],
+              "peak_rss_bytes": 603996160,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.005697464709098062,
+                "iqr": 90687.75,
+                "mad": 40146.0,
+                "max": 18321083.0,
+                "mean": 7094770.224,
+                "min": 6772083.0,
+                "n": 3000,
+                "p50": 7046292.0,
+                "p95": 7461250.300000001,
+                "p99": 7611471.34,
+                "stdev": 258105.38463083608
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.008825322225854042,
+            "iqr": 170875.0,
+            "mad": 62437.5,
+            "max": 18321083.0,
+            "mean": 7155840.387555555,
+            "min": 6772083.0,
+            "n": 9000,
+            "p50": 7074812.5,
+            "p95": 7501254.15,
+            "p99": 8031505.84,
+            "stdev": 355714.05698209157
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            7046292.0,
+            7185771.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 10236084,
+          "state_load_p50_ms": 3.175229,
+          "state_load_p95_ms": 3.7512607500000006,
+          "state_save_p50_ms": 3.3993955,
+          "state_save_p95_ms": 5.83843545,
+          "units": 3000,
+          "warmup": 300
+        }
+      },
+      "standard": "pal",
+      "summary": "A1200 AGA (68EC020 cycle exact): eight bitplanes fetched 64 bits at a time (corpus aga-planes8-fmode3-pal)",
+      "ticks_equal_across_runners": true,
+      "unit_ms": 19.967887405745024,
+      "unit_ms_nominal": 20.0,
+      "window_end": {
+        "3300": {
+          "119664580096": [
+            "native",
+            "native-norender",
+            "waterbox-core-release",
+            "waterbox-guest-debug-runtime",
+            "waterbox-guest-release-runtime"
+          ]
+        }
+      }
+    },
+    "a1200-ks31-demo-pal": {
+      "kind": "kickstart",
+      "machine": "a1200",
+      "runners": {
+        "native": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 1,
+            "supported": 1,
+            "units": 200
+          },
+          "between_run_cv": 0.04038541042950135,
+          "cpu_median_of_run_medians_ns": 6485645.5,
+          "first_unit_after_load_p50_ms": 6.4317295,
+          "first_unit_after_load_p95_ms": 10.6280146,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            4.5,
+            16.0
+          ],
+          "median_of_run_medians_ns": 6499459.0,
+          "median_of_run_p95_ns": 7885480.650000002,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 43975064,
+            "footprint_before": 43893144,
+            "malloc_allocated_after": 34619392,
+            "malloc_in_use_after": 8891024,
+            "malloc_in_use_before": 8841872,
+            "peak_resident": 45760512,
+            "resident_after": 45760512,
+            "resident_before": 45678592
+          },
+          "noisy_runs": 1,
+          "p50_ms": 6.499459,
+          "p50_unit_fraction": 0.32445565340114846,
+          "p95_headroom_x": 1.8615799814144864,
+          "p95_ms": 10.760691049999986,
+          "p95_unit_fraction": 0.537178101388998,
+          "p99_ms": 16.489594750000002,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 52920320,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.0775366923770348,
+                "iqr": 1055667.0,
+                "mad": 502875.5,
+                "max": 14604125.0,
+                "mean": 6613950.314333334,
+                "min": 5323417.0,
+                "n": 3000,
+                "p50": 6485645.5,
+                "p95": 7719579.150000002,
+                "p99": 11918815.830000002,
+                "stdev": 1031641.383393592
+              },
+              "load1_after": 16.0,
+              "load1_before": 5.22,
+              "noisy": [],
+              "peak_rss_bytes": 52920320,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.07703202681946297,
+                "iqr": 1036760.5,
+                "mad": 500666.5,
+                "max": 34094584.0,
+                "mean": 6734278.503,
+                "min": 5323042.0,
+                "n": 3000,
+                "p50": 6499459.0,
+                "p95": 7885480.650000002,
+                "p99": 14803829.340000022,
+                "stdev": 1598465.1637230315
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.08262666890360043,
+                "iqr": 1146719.5,
+                "mad": 571792.0,
+                "max": 17792125.0,
+                "mean": 7346672.863,
+                "min": 5615250.0,
+                "n": 3000,
+                "p50": 6920187.0,
+                "p95": 11358166.700000001,
+                "p99": 13409301.67000001,
+                "stdev": 1638891.8655469078
+              },
+              "load1_after": 13.76,
+              "load1_before": 5.35,
+              "noisy": [
+                "the thread waited (1.07 x its CPU time)"
+              ],
+              "peak_rss_bytes": 45187072,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.09026011000828556,
+                "iqr": 1321583.25,
+                "mad": 631125.0,
+                "max": 33907666.0,
+                "mean": 7881599.018666667,
+                "min": 5614500.0,
+                "n": 3000,
+                "p50": 6992291.5,
+                "p95": 14052044.400000002,
+                "p99": 18710158.660000004,
+                "stdev": 2769290.701272445
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.07772718134764643,
+                "iqr": 967176.5,
+                "mad": 494312.5,
+                "max": 8378583.0,
+                "mean": 6397970.928333334,
+                "min": 5259500.0,
+                "n": 3000,
+                "p50": 6359583.5,
+                "p95": 7302423.25,
+                "p99": 7690189.08,
+                "stdev": 563510.6671162383
+              },
+              "load1_after": 4.06,
+              "load1_before": 4.5,
+              "noisy": [],
+              "peak_rss_bytes": 51986432,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.07743569793238755,
+                "iqr": 948844.0,
+                "mad": 493438.0,
+                "max": 8975625.0,
+                "mean": 6411299.405666667,
+                "min": 5259292.0,
+                "n": 3000,
+                "p50": 6372229.0,
+                "p95": 7319675.3,
+                "p99": 7735655.000000001,
+                "stdev": 574307.3149312254
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.07959221283972052,
+            "iqr": 1049395.5,
+            "mad": 524521.0,
+            "max": 34094584.0,
+            "mean": 7009058.975777778,
+            "min": 5259292.0,
+            "n": 9000,
+            "p50": 6590104.5,
+            "p95": 10760691.049999986,
+            "p99": 16489594.750000004,
+            "stdev": 1978891.7519744548
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            6372229.0,
+            6992291.5
+          ],
+          "runs": 3,
+          "state_bound_bytes": 5890824,
+          "state_bytes": 2288543,
+          "state_load_p50_ms": 12.201584,
+          "state_load_p95_ms": 19.286010100000002,
+          "state_save_p50_ms": 11.992354,
+          "state_save_p95_ms": 17.704526800000004,
+          "units": 3000,
+          "warmup": 2500
+        },
+        "native-norender": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 0,
+            "supported": 0,
+            "units": 0
+          },
+          "between_run_cv": 0.0024350909472794346,
+          "cpu_median_of_run_medians_ns": 6373833.5,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            4.06,
+            7.91
+          ],
+          "median_of_run_medians_ns": 6383958.5,
+          "median_of_run_p95_ns": 7299152.4,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 43417984,
+            "footprint_before": 43319680,
+            "malloc_allocated_after": 30425088,
+            "malloc_in_use_after": 8891024,
+            "malloc_in_use_before": 8841872,
+            "peak_resident": 45219840,
+            "resident_after": 45219840,
+            "resident_before": 45121536
+          },
+          "noisy_runs": 0,
+          "p50_ms": 6.3839585,
+          "p50_unit_fraction": 0.31868982116870276,
+          "p95_headroom_x": 2.745689511790159,
+          "p95_ms": 7.2957583,
+          "p95_unit_fraction": 0.3642072403692911,
+          "p99_ms": 7.636990660000001,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 45252608,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.07588001220748791,
+                "iqr": 976667.0,
+                "mad": 481729.0,
+                "max": 8289000.0,
+                "mean": 6359897.762666667,
+                "min": 5215125.0,
+                "n": 3000,
+                "p50": 6348562.5,
+                "p95": 7253539.55,
+                "p99": 7544320.330000001,
+                "stdev": 564671.0926882306
+              },
+              "load1_after": 7.91,
+              "load1_before": 10.54,
+              "noisy": [],
+              "peak_rss_bytes": 45252608,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.07542659777874279,
+                "iqr": 966519.75,
+                "mad": 479479.0,
+                "max": 13590667.0,
+                "mean": 6374242.766666667,
+                "min": 5214916.0,
+                "n": 3000,
+                "p50": 6356895.5,
+                "p95": 7268986.05,
+                "p99": 7619663.580000002,
+                "stdev": 597867.5525871152
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.07780142690768162,
+                "iqr": 983781.75,
+                "mad": 496854.5,
+                "max": 8260416.0,
+                "mean": 6407801.954666667,
+                "min": 5280000.0,
+                "n": 3000,
+                "p50": 6386187.5,
+                "p95": 7273223.55,
+                "p99": 7613078.330000002,
+                "stdev": 559950.9482014849
+              },
+              "load1_after": 7.55,
+              "load1_before": 10.18,
+              "noisy": [],
+              "peak_rss_bytes": 45219840,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.07768539174356538,
+                "iqr": 973219.25,
+                "mad": 496688.0,
+                "max": 8297625.0,
+                "mean": 6418693.202333333,
+                "min": 5279833.0,
+                "n": 3000,
+                "p50": 6393583.0,
+                "p95": 7299152.4,
+                "p99": 7667217.33,
+                "stdev": 564535.6253508785
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.07369654384602296,
+                "iqr": 920229.0,
+                "mad": 469729.5,
+                "max": 11157375.0,
+                "mean": 6399392.117666666,
+                "min": 5246417.0,
+                "n": 3000,
+                "p50": 6373833.5,
+                "p95": 7296587.2,
+                "p99": 7566346.34,
+                "stdev": 558631.039014358
+              },
+              "load1_after": 3.68,
+              "load1_before": 4.06,
+              "noisy": [],
+              "peak_rss_bytes": 45236224,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.07250266429520179,
+                "iqr": 913417.0,
+                "mad": 462854.0,
+                "max": 27309375.0,
+                "mean": 6418815.660666667,
+                "min": 5246208.0,
+                "n": 3000,
+                "p50": 6383958.5,
+                "p95": 7315320.2,
+                "p99": 7586547.170000002,
+                "stdev": 704796.3219941225
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.07490999039228573,
+            "iqr": 938509.75,
+            "mad": 477791.5,
+            "max": 27309375.0,
+            "mean": 6403917.2098888885,
+            "min": 5214916.0,
+            "n": 9000,
+            "p50": 6378208.0,
+            "p95": 7295758.3,
+            "p99": 7636990.660000001,
+            "stdev": 625620.9727388467
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            6356895.5,
+            6393583.0
+          ],
+          "runs": 3,
+          "state_bound_bytes": 0,
+          "state_bytes": 0,
+          "units": 3000,
+          "warmup": 2500
+        },
+        "waterbox-core-release": {
+          "between_run_cv": 0.04933052754626381,
+          "core_create_ms": 373.732875,
+          "cpu_median_of_run_medians_ns": 6915021.0,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 6.607438,
+          "first_unit_after_load_p95_ms": 6.990241650000001,
+          "gc_collections_in_window": [
+            0,
+            0,
+            0
+          ],
+          "host_crashes_retried": 1,
+          "layer": "waterbox-core",
+          "load1_range": [
+            2.99,
+            14.91
+          ],
+          "managed_allocated_bytes_in_window": 131640,
+          "managed_build": "Release",
+          "median_of_run_medians_ns": 6932291.5,
+          "median_of_run_p95_ns": 7931542.0,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 1,
+          "p50_ms": 6.9322915,
+          "p50_unit_fraction": 0.34606282895233703,
+          "p95_headroom_x": 1.8669094835283042,
+          "p95_ms": 10.729972299999996,
+          "p95_unit_fraction": 0.5356446088163219,
+          "p99_ms": 15.878456990000004,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 495976448,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.07185748242846984,
+                "iqr": 985166.25,
+                "mad": 496896.0,
+                "max": 11900584.0,
+                "mean": 6929202.882666667,
+                "min": 5868250.0,
+                "n": 3000,
+                "p50": 6915021.0,
+                "p95": 7838535.400000001,
+                "p99": 8206157.920000001,
+                "stdev": 594580.5646613151
+              },
+              "load1_after": 4.5,
+              "load1_before": 5.63,
+              "noisy": [],
+              "peak_rss_bytes": 495976448,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.07279944878255624,
+                "iqr": 998125.5,
+                "mad": 504667.0,
+                "max": 14724250.0,
+                "mean": 6956792.422,
+                "min": 5865417.0,
+                "n": 3000,
+                "p50": 6932291.5,
+                "p95": 7896810.7,
+                "p99": 8391974.670000004,
+                "stdev": 650509.408008143
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.0733799864743571,
+                "iqr": 990437.5,
+                "mad": 505687.5,
+                "max": 11269709.0,
+                "mean": 6930407.571333333,
+                "min": 5695334.0,
+                "n": 3000,
+                "p50": 6891354.5,
+                "p95": 7889189.600000001,
+                "p99": 8231318.670000001,
+                "stdev": 600079.3188070704
+              },
+              "load1_after": 4.43,
+              "load1_before": 4.55,
+              "noisy": [],
+              "peak_rss_bytes": 490602496,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.07333819999127215,
+                "iqr": 993802.25,
+                "mad": 506687.5,
+                "max": 14634666.0,
+                "mean": 6953439.772,
+                "min": 5695125.0,
+                "n": 3000,
+                "p50": 6908916.5,
+                "p95": 7931542.0,
+                "p99": 8295575.330000001,
+                "stdev": 645444.979658237
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.09435645613240784,
+                "iqr": 1442823.5,
+                "mad": 718375.0,
+                "max": 21548208.0,
+                "mean": 8135951.143,
+                "min": 6225167.0,
+                "n": 3000,
+                "p50": 7613416.5,
+                "p95": 12590155.900000002,
+                "p99": 15434173.340000002,
+                "stdev": 1938372.5316526676
+              },
+              "load1_after": 14.91,
+              "load1_before": 2.99,
+              "noisy": [
+                "the thread waited (1.06 x its CPU time)"
+              ],
+              "peak_rss_bytes": 448839680,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.10371975417916089,
+                "iqr": 1741176.75,
+                "mad": 795604.0,
+                "max": 88907375.0,
+                "mean": 8597947.657,
+                "min": 6223417.0,
+                "n": 3000,
+                "p50": 7670708.5,
+                "p95": 14694964.600000001,
+                "p99": 18791405.080000006,
+                "stdev": 3191206.6230477826
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.07571270723512383,
+            "iqr": 1078583.5,
+            "mad": 538688.0,
+            "max": 88907375.0,
+            "mean": 7502726.617,
+            "min": 5695125.0,
+            "n": 9000,
+            "p50": 7114895.5,
+            "p95": 10729972.299999997,
+            "p99": 15878456.990000004,
+            "stdev": 2067432.444077774
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            6908916.5,
+            7670708.5
+          ],
+          "runs": 3,
+          "snapshot_bytes": 10301897,
+          "state_load_p50_ms": 9.1761665,
+          "state_load_p95_ms": 10.943829150000003,
+          "state_save_p50_ms": 11.1315,
+          "state_save_p95_ms": 16.294785400000002,
+          "units": 3000,
+          "warmup": 2500
+        },
+        "waterbox-guest-debug-runtime": {
+          "between_run_cv": 0.008050506926165473,
+          "cpu_median_of_run_medians_ns": 11984208.5,
+          "evict_blocks": true,
+          "first_unit_after_load_p50_ms": 11.6305415,
+          "first_unit_after_load_p95_ms": 12.0230934,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 8130560
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 7274496,
+              "dirty_bytes": 2113536
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 1425408,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            3.68,
+            10.62
+          ],
+          "median_of_run_medians_ns": 12006166.5,
+          "median_of_run_p95_ns": 13158568.450000001,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 12.0061665,
+          "p50_unit_fraction": 0.5993527456055158,
+          "p95_headroom_x": 1.5191578103855812,
+          "p95_ms": 13.18617915,
+          "p95_unit_fraction": 0.6582594600531906,
+          "p99_ms": 13.76637875,
+          "pages_after_seal": {
+            "committed_bytes": 62619648,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 62619648,
+            "dirty_bytes_4k_pages": 12374016,
+            "dirty_groups_16k": 756,
+            "dirty_groups_16k_all_four_logical_pages": 755
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 62619648,
+            "dirty_bytes_4k_pages": 12374016,
+            "dirty_groups_16k": 756,
+            "dirty_groups_16k_all_four_logical_pages": 755
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1592250.0,
+            "unit_enter_ns": 2782542.0,
+            "unit_exit_ns": 262917.0,
+            "unit_guest_ns": 7327687.5
+          },
+          "peak_rss_bytes_max": 492879872,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.040186466851491506,
+                "iqr": 970061.75,
+                "mad": 488500.0,
+                "max": 18520958.0,
+                "mean": 12162067.036333334,
+                "min": 10876291.0,
+                "n": 3000,
+                "p50": 12155833.5,
+                "p95": 13272477.7,
+                "p99": 13883032.580000013,
+                "stdev": 697451.5302281765
+              },
+              "load1_after": 10.62,
+              "load1_before": 26.46,
+              "noisy": [],
+              "peak_rss_bytes": 351485952,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.040511950285158506,
+                "iqr": 989469.25,
+                "mad": 493417.0,
+                "max": 121384125.0,
+                "mean": 12280798.051666666,
+                "min": 10875917.0,
+                "n": 3000,
+                "p50": 12179542.0,
+                "p95": 13340362.8,
+                "p99": 14129084.170000004,
+                "stdev": 2471606.4538408197
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.04289761893181238,
+                "iqr": 1026458.25,
+                "mad": 511979.5,
+                "max": 14005833.0,
+                "mean": 11947572.279333333,
+                "min": 10610792.0,
+                "n": 3000,
+                "p50": 11934916.5,
+                "p95": 13020781.25,
+                "p99": 13476717.59,
+                "stdev": 638911.9718946494
+              },
+              "load1_after": 4.65,
+              "load1_before": 5.75,
+              "noisy": [],
+              "peak_rss_bytes": 492879872,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.0428546842601493,
+                "iqr": 1026812.25,
+                "mad": 512209.0,
+                "max": 14118875.0,
+                "mean": 11967793.116333334,
+                "min": 10639291.0,
+                "n": 3000,
+                "p50": 11952229.0,
+                "p95": 13043072.900000002,
+                "p99": 13510869.160000002,
+                "stdev": 646958.4867346602
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.0448854423719347,
+                "iqr": 1078521.5,
+                "mad": 537916.5,
+                "max": 18911542.0,
+                "mean": 12002397.773333333,
+                "min": 10706541.0,
+                "n": 3000,
+                "p50": 11984208.5,
+                "p95": 13108825.0,
+                "p99": 13576826.010000002,
+                "stdev": 685968.5558069402
+              },
+              "load1_after": 3.73,
+              "load1_before": 3.68,
+              "noisy": [],
+              "peak_rss_bytes": 350486528,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.04485370080449909,
+                "iqr": 1079479.5,
+                "mad": 538521.0,
+                "max": 36505334.0,
+                "mean": 12041350.918,
+                "min": 10705541.0,
+                "n": 3000,
+                "p50": 12006166.5,
+                "p95": 13158568.450000001,
+                "p99": 13657788.420000002,
+                "stdev": 903161.5194919072
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.04219858147198944,
+            "iqr": 1019458.25,
+            "mad": 508437.5,
+            "max": 121384125.0,
+            "mean": 12096647.362,
+            "min": 10639291.0,
+            "n": 9000,
+            "p50": 12048687.0,
+            "p95": 13186179.149999999,
+            "p99": 13766378.75,
+            "stdev": 1570208.8042005328
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            11952229.0,
+            12179542.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 10301620,
+          "state_load_p50_ms": 7.1505,
+          "state_load_p95_ms": 7.8067378000000005,
+          "state_save_p50_ms": 6.7310415,
+          "state_save_p95_ms": 8.524887500000002,
+          "units": 3000,
+          "warmup": 2500
+        },
+        "waterbox-guest-release-runtime": {
+          "between_run_cv": 0.003725870078844808,
+          "cpu_median_of_run_medians_ns": 8457979.0,
+          "evict_blocks": false,
+          "first_unit_after_load_p50_ms": 8.088375,
+          "first_unit_after_load_p95_ms": 8.454246150000001,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 8130560
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 7274496,
+              "dirty_bytes": 2113536
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 1425408,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            3.73,
+            6.7
+          ],
+          "median_of_run_medians_ns": 8467083.5,
+          "median_of_run_p95_ns": 9478125.3,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 8.4670835,
+          "p50_unit_fraction": 0.42268027375733624,
+          "p95_headroom_x": 2.1041216637553557,
+          "p95_ms": 9.520308349999999,
+          "p95_unit_fraction": 0.4752576893368601,
+          "p99_ms": 10.14031684,
+          "pages_after_seal": {
+            "committed_bytes": 62619648,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 62619648,
+            "dirty_bytes_4k_pages": 12374016,
+            "dirty_groups_16k": 756,
+            "dirty_groups_16k_all_four_logical_pages": 755
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 62619648,
+            "dirty_bytes_4k_pages": 12374016,
+            "dirty_groups_16k": 756,
+            "dirty_groups_16k_all_four_logical_pages": 755
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1590812.5,
+            "unit_enter_ns": 250.0,
+            "unit_exit_ns": 208.0,
+            "unit_guest_ns": 6874146.0
+          },
+          "peak_rss_bytes_max": 596803584,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.06116508447230715,
+                "iqr": 1033281.75,
+                "mad": 517333.0,
+                "max": 11250208.0,
+                "mean": 8474273.859333333,
+                "min": 7408917.0,
+                "n": 3000,
+                "p50": 8457979.0,
+                "p95": 9448026.8,
+                "p99": 9769803.66,
+                "stdev": 608998.3388002501
+              },
+              "load1_after": 6.7,
+              "load1_before": 5.28,
+              "noisy": [],
+              "peak_rss_bytes": 460390400,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.06173412604233795,
+                "iqr": 1034510.25,
+                "mad": 522708.0,
+                "max": 16475375.0,
+                "mean": 8493034.534333333,
+                "min": 7408541.0,
+                "n": 3000,
+                "p50": 8467083.5,
+                "p95": 9478125.3,
+                "p99": 9810819.830000006,
+                "stdev": 651717.9569302467
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.06341435645380186,
+                "iqr": 1087374.75,
+                "mad": 540270.5,
+                "max": 20232167.0,
+                "mean": 8579034.950666666,
+                "min": 7235750.0,
+                "n": 3000,
+                "p50": 8519687.5,
+                "p95": 9566438.95,
+                "p99": 12224471.58000001,
+                "stdev": 864625.4903113391
+              },
+              "load1_after": 4.55,
+              "load1_before": 4.65,
+              "noisy": [],
+              "peak_rss_bytes": 596803584,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.0639557026924091,
+                "iqr": 1093854.25,
+                "mad": 545750.0,
+                "max": 46767666.0,
+                "mean": 8709784.152333334,
+                "min": 7232542.0,
+                "n": 3000,
+                "p50": 8533250.0,
+                "p95": 9633060.75,
+                "p99": 14745561.25000004,
+                "stdev": 1809235.3662683582
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.060791066021456966,
+                "iqr": 1022572.75,
+                "mad": 513896.0,
+                "max": 10482791.0,
+                "mean": 8473278.256333333,
+                "min": 7248250.0,
+                "n": 3000,
+                "p50": 8453479.0,
+                "p95": 9422683.35,
+                "p99": 9738656.25,
+                "stdev": 594218.9937912823
+              },
+              "load1_after": 2.99,
+              "load1_before": 3.73,
+              "noisy": [],
+              "peak_rss_bytes": 456392704,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.060868816891320836,
+                "iqr": 1033438.0,
+                "mad": 515271.0,
+                "max": 10482583.0,
+                "mean": 8486047.381666666,
+                "min": 7248000.0,
+                "n": 3000,
+                "p50": 8465270.5,
+                "p95": 9452920.8,
+                "p99": 9778603.0,
+                "stdev": 598680.8658096003
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.06234947751317764,
+            "iqr": 1057312.25,
+            "mad": 529166.5,
+            "max": 46767666.0,
+            "mean": 8562955.356111111,
+            "min": 7232542.0,
+            "n": 9000,
+            "p50": 8487104.0,
+            "p95": 9520308.35,
+            "p99": 10140316.84,
+            "stdev": 1167454.5156420958
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            8465270.5,
+            8533250.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 10301620,
+          "state_load_p50_ms": 3.2158335,
+          "state_load_p95_ms": 3.8130854500000004,
+          "state_save_p50_ms": 3.774958,
+          "state_save_p95_ms": 5.613635750000001,
+          "units": 3000,
+          "warmup": 2500
+        }
+      },
+      "standard": "pal",
+      "summary": "OPT-IN, A1200 Kickstart 3.1 + an AGA demo disk, read in place from P6_KICKSTART_A1200_ROM and P6_AGA_ADF (not copied, not hashed)",
+      "ticks_equal_across_runners": true,
+      "unit_ms": 20.031887044866004,
+      "unit_ms_nominal": 20.0,
+      "window_end": {
+        "5500": {
+          "199979067392": [
+            "native",
+            "native-norender",
+            "waterbox-core-release",
+            "waterbox-guest-debug-runtime",
+            "waterbox-guest-release-runtime"
+          ]
+        }
+      }
+    },
+    "a500-ocs-busy-pal": {
+      "kind": "microrom",
+      "machine": "a500",
+      "runners": {
+        "native": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 1,
+            "supported": 1,
+            "units": 200
+          },
+          "between_run_cv": 0.007960681176020695,
+          "cpu_median_of_run_medians_ns": 3983271.0,
+          "first_unit_after_load_p50_ms": 4.0231045,
+          "first_unit_after_load_p95_ms": 4.1538955,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            4.43,
+            5.85
+          ],
+          "median_of_run_medians_ns": 3986250.0,
+          "median_of_run_p95_ns": 4229629.2,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 39420264,
+            "footprint_before": 39387496,
+            "malloc_allocated_after": 24117248,
+            "malloc_in_use_after": 6005520,
+            "malloc_in_use_before": 5841680,
+            "peak_resident": 41041920,
+            "resident_after": 41041920,
+            "resident_before": 41009152
+          },
+          "noisy_runs": 0,
+          "p50_ms": 3.98625,
+          "p50_unit_fraction": 0.19963303673542868,
+          "p95_headroom_x": 4.706348003316246,
+          "p95_ms": 4.24275625,
+          "p95_unit_fraction": 0.21247897505568383,
+          "p99_ms": 4.419635829999998,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 44843008,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.014058200996666643,
+                "iqr": 116635.5,
+                "mad": 56813.0,
+                "max": 7425917.0,
+                "mean": 4060775.2848,
+                "min": 3884417.0,
+                "n": 10000,
+                "p50": 4041271.0,
+                "p95": 4231292.0,
+                "p99": 4391037.910000001,
+                "stdev": 120742.801618689
+              },
+              "load1_after": 5.85,
+              "load1_before": 5.84,
+              "noisy": [],
+              "peak_rss_bytes": 44843008,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.016117668956330822,
+                "iqr": 134344.5,
+                "mad": 65292.0,
+                "max": 14358375.0,
+                "mean": 4083809.6501,
+                "min": 3884167.0,
+                "n": 10000,
+                "p50": 4050958.0,
+                "p95": 4265262.5,
+                "p99": 4666793.24,
+                "stdev": 272947.1049427403
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.009391747069361073,
+                "iqr": 75374.5,
+                "mad": 37354.5,
+                "max": 5926041.0,
+                "mean": 3992853.024,
+                "min": 3795500.0,
+                "n": 10000,
+                "p50": 3977375.0,
+                "p95": 4181808.65,
+                "p99": 4328004.58,
+                "stdev": 95885.60393928498
+              },
+              "load1_after": 3.68,
+              "load1_before": 4.5,
+              "noisy": [],
+              "peak_rss_bytes": 44843008,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.010100841357869003,
+                "iqr": 80802.25,
+                "mad": 40208.5,
+                "max": 17711792.0,
+                "mean": 4003609.8043,
+                "min": 3795250.0,
+                "n": 10000,
+                "p50": 3980708.0,
+                "p95": 4209793.1,
+                "p99": 4388438.66,
+                "stdev": 257423.5810776678
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.009147758211781222,
+                "iqr": 67582.25,
+                "mad": 36438.0,
+                "max": 4917041.0,
+                "mean": 3995015.9819,
+                "min": 3794375.0,
+                "n": 10000,
+                "p50": 3983271.0,
+                "p95": 4198672.3,
+                "p99": 4339461.08,
+                "stdev": 93612.37308603693
+              },
+              "load1_after": 3.84,
+              "load1_before": 4.43,
+              "noisy": [],
+              "peak_rss_bytes": 44843008,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.010034493571652555,
+                "iqr": 72000.0,
+                "mad": 40000.0,
+                "max": 6607834.0,
+                "mean": 4001587.3852,
+                "min": 3794166.0,
+                "n": 10000,
+                "p50": 3986250.0,
+                "p95": 4229629.2,
+                "p99": 4384838.16,
+                "stdev": 108534.74385542917
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.013211107811895337,
+            "iqr": 116219.25,
+            "mad": 52812.5,
+            "max": 17711792.0,
+            "mean": 4029668.9465333335,
+            "min": 3794166.0,
+            "n": 30000,
+            "p50": 3997583.0,
+            "p95": 4242756.25,
+            "p99": 4419635.829999998,
+            "stdev": 228725.22203055935
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            3980708.0,
+            4050958.0
+          ],
+          "runs": 3,
+          "state_bound_bytes": 3608621,
+          "state_bytes": 1069032,
+          "state_load_p50_ms": 5.3191455,
+          "state_load_p95_ms": 5.4715101,
+          "state_save_p50_ms": 5.6351875,
+          "state_save_p95_ms": 5.7431791500000005,
+          "units": 10000,
+          "warmup": 300
+        },
+        "native-norender": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 0,
+            "supported": 0,
+            "units": 0
+          },
+          "between_run_cv": 0.004248840838705944,
+          "cpu_median_of_run_medians_ns": 3989791.5,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            3.68,
+            5.89
+          ],
+          "median_of_run_medians_ns": 3991562.5,
+          "median_of_run_p95_ns": 4245760.399999999,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 39698792,
+            "footprint_before": 39666024,
+            "malloc_allocated_after": 28311552,
+            "malloc_in_use_after": 6005520,
+            "malloc_in_use_before": 5841680,
+            "peak_resident": 41320448,
+            "resident_after": 41320448,
+            "resident_before": 41287680
+          },
+          "noisy_runs": 0,
+          "p50_ms": 3.9915625,
+          "p50_unit_fraction": 0.1998990889167161,
+          "p95_headroom_x": 4.711907829802377,
+          "p95_ms": 4.23775,
+          "p95_unit_fraction": 0.2122282600001412,
+          "p99_ms": 4.42670967,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 41353216,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.011684065806581479,
+                "iqr": 96729.75,
+                "mad": 46958.5,
+                "max": 7896792.0,
+                "mean": 4035628.4281,
+                "min": 3883125.0,
+                "n": 10000,
+                "p50": 4019020.5,
+                "p95": 4169834.0,
+                "p99": 4305293.24,
+                "stdev": 118374.36507671257
+              },
+              "load1_after": 5.89,
+              "load1_before": 5.85,
+              "noisy": [],
+              "peak_rss_bytes": 41353216,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.013245958662670622,
+                "iqr": 114937.75,
+                "mad": 53312.5,
+                "max": 31392917.0,
+                "mean": 4059959.4005,
+                "min": 3882917.0,
+                "n": 10000,
+                "p50": 4024812.5,
+                "p95": 4209335.1,
+                "p99": 4430058.330000001,
+                "stdev": 477156.44137256505
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.011477166162692962,
+                "iqr": 89312.75,
+                "mad": 45791.5,
+                "max": 5563459.0,
+                "mean": 4008785.7824,
+                "min": 3795291.0,
+                "n": 10000,
+                "p50": 3989791.5,
+                "p95": 4235044.05,
+                "p99": 4369503.75,
+                "stdev": 109384.19535107551
+              },
+              "load1_after": 4.46,
+              "load1_before": 3.68,
+              "noisy": [],
+              "peak_rss_bytes": 41074688,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.012249714240977061,
+                "iqr": 102333.0,
+                "mad": 48895.5,
+                "max": 6147125.0,
+                "mean": 4016768.9059,
+                "min": 3795042.0,
+                "n": 10000,
+                "p50": 3991562.5,
+                "p95": 4267794.05,
+                "p99": 4437470.92,
+                "stdev": 123017.81442903155
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.010388753529015316,
+                "iqr": 72208.0,
+                "mad": 41395.5,
+                "max": 7984041.0,
+                "mean": 3996365.0396,
+                "min": 3795000.0,
+                "n": 10000,
+                "p50": 3984645.5,
+                "p95": 4207708.05,
+                "p99": 4364966.08,
+                "stdev": 111395.5957641999
+              },
+              "load1_after": 3.39,
+              "load1_before": 3.84,
+              "noisy": [],
+              "peak_rss_bytes": 41074688,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.011073805847991943,
+                "iqr": 79187.75,
+                "mad": 44145.5,
+                "max": 9005416.0,
+                "mean": 4004012.6021,
+                "min": 3794792.0,
+                "n": 10000,
+                "p50": 3986479.5,
+                "p95": 4245760.399999999,
+                "p99": 4420055.590000001,
+                "stdev": 137645.787315645
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.012815331249372798,
+            "iqr": 110041.0,
+            "mad": 51209.0,
+            "max": 31392917.0,
+            "mean": 4026913.6361666666,
+            "min": 3794792.0,
+            "n": 30000,
+            "p50": 3995917.0,
+            "p95": 4237750.0,
+            "p99": 4426709.67,
+            "stdev": 296354.185859786
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            3986479.5,
+            4024812.5
+          ],
+          "runs": 3,
+          "state_bound_bytes": 0,
+          "state_bytes": 0,
+          "units": 10000,
+          "warmup": 300
+        },
+        "waterbox-core-debug": {
+          "between_run_cv": 0.030717643931631504,
+          "core_create_ms": 2678.090875,
+          "cpu_median_of_run_medians_ns": 8583187.0,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 8.606146,
+          "first_unit_after_load_p95_ms": 9.093844050000001,
+          "gc_collections_in_window": [
+            1,
+            1,
+            1
+          ],
+          "host_crashes_retried": 0,
+          "layer": "waterbox-core",
+          "load1_range": [
+            4.2,
+            16.03
+          ],
+          "managed_allocated_bytes_in_window": 524952,
+          "managed_build": "Debug (JIT optimizer disabled)",
+          "median_of_run_medians_ns": 8603917.0,
+          "median_of_run_p95_ns": 14037966.999999998,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 1,
+          "p50_ms": 8.603917,
+          "p50_unit_fraction": 0.4308876960876962,
+          "p95_headroom_x": 1.4619715024392395,
+          "p95_ms": 13.658191949999999,
+          "p95_unit_fraction": 0.6840078608451267,
+          "p99_ms": 19.460689759999998,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 294567936,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.01479260161411972,
+                "iqr": 318458.75,
+                "mad": 119188.0,
+                "max": 14372542.0,
+                "mean": 8156197.2078,
+                "min": 7739208.0,
+                "n": 10000,
+                "p50": 8057271.0,
+                "p95": 8700677.4,
+                "p99": 9032115.510000002,
+                "stdev": 296092.58302711474
+              },
+              "load1_after": 4.02,
+              "load1_before": 4.3,
+              "noisy": [],
+              "peak_rss_bytes": 294567936,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.01574392230589648,
+                "iqr": 340718.5,
+                "mad": 126979.0,
+                "max": 41923625.0,
+                "mean": 8198345.155,
+                "min": 7739042.0,
+                "n": 10000,
+                "p50": 8065271.0,
+                "p95": 8769458.05,
+                "p99": 9447717.920000002,
+                "stdev": 703898.0365572327
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.03388494781701651,
+                "iqr": 612249.0,
+                "mad": 291583.5,
+                "max": 23710042.0,
+                "mean": 9193110.0466,
+                "min": 7862041.0,
+                "n": 10000,
+                "p50": 8605104.0,
+                "p95": 13553643.749999996,
+                "p99": 16491276.170000019,
+                "stdev": 1779782.7432151188
+              },
+              "load1_after": 16.03,
+              "load1_before": 4.2,
+              "noisy": [
+                "the thread waited (1.06 x its CPU time)"
+              ],
+              "peak_rss_bytes": 290373632,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.03869158973860711,
+                "iqr": 838229.25,
+                "mad": 333708.5,
+                "max": 50658083.0,
+                "mean": 9722579.5541,
+                "min": 7861834.0,
+                "n": 10000,
+                "p50": 8624833.0,
+                "p95": 16230094.049999984,
+                "p99": 22268170.50000001,
+                "stdev": 2973172.484346663
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.02689607018931313,
+                "iqr": 471218.75,
+                "mad": 230854.0,
+                "max": 24465458.0,
+                "mean": 8983061.8901,
+                "min": 7822416.0,
+                "n": 10000,
+                "p50": 8583187.0,
+                "p95": 11963858.649999995,
+                "p99": 15607782.92,
+                "stdev": 1440937.601778352
+              },
+              "load1_after": 10.51,
+              "load1_before": 4.63,
+              "noisy": [],
+              "peak_rss_bytes": 291012608,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.028497253053463904,
+                "iqr": 545469.0,
+                "mad": 245188.0,
+                "max": 36478708.0,
+                "mean": 9274148.6885,
+                "min": 7828875.0,
+                "n": 10000,
+                "p50": 8603917.0,
+                "p95": 14037966.999999998,
+                "p99": 18914766.420000006,
+                "stdev": 2166134.9945198665
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.03843826112628238,
+            "iqr": 645865.0,
+            "mad": 325500.0,
+            "max": 50658083.0,
+            "mean": 9065024.465866666,
+            "min": 7739042.0,
+            "n": 30000,
+            "p50": 8468125.0,
+            "p95": 13658191.95,
+            "p99": 19460689.759999998,
+            "stdev": 2254965.819731102
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            8065271.0,
+            8624833.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 9204169,
+          "state_load_p50_ms": 12.477875,
+          "state_load_p95_ms": 13.576543750000003,
+          "state_save_p50_ms": 12.910021,
+          "state_save_p95_ms": 20.1897018,
+          "units": 10000,
+          "warmup": 300
+        },
+        "waterbox-core-release": {
+          "between_run_cv": 0.001058706832709203,
+          "core_create_ms": 367.315916,
+          "cpu_median_of_run_medians_ns": 4359333.0,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 4.462146,
+          "first_unit_after_load_p95_ms": 4.80340175,
+          "gc_collections_in_window": [
+            1,
+            1,
+            1
+          ],
+          "host_crashes_retried": 0,
+          "layer": "waterbox-core",
+          "load1_range": [
+            4.87,
+            4.63
+          ],
+          "managed_allocated_bytes_in_window": 525080,
+          "managed_build": "Release",
+          "median_of_run_medians_ns": 4363833.0,
+          "median_of_run_p95_ns": 4648351.75,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 4.363833,
+          "p50_unit_fraction": 0.21854254840922568,
+          "p95_headroom_x": 4.290662663632535,
+          "p95_ms": 4.65380035,
+          "p95_unit_fraction": 0.2330642323564505,
+          "p99_ms": 4.87025,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 330498048,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.015674976915125868,
+                "iqr": 140052.25,
+                "mad": 68249.5,
+                "max": 7731375.0,
+                "mean": 4378038.0379,
+                "min": 4136875.0,
+                "n": 10000,
+                "p50": 4354041.5,
+                "p95": 4613677.399999999,
+                "p99": 4804260.42,
+                "stdev": 144539.337651854
+              },
+              "load1_after": 4.3,
+              "load1_before": 5.48,
+              "noisy": [],
+              "peak_rss_bytes": 316784640,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.016685553461102613,
+                "iqr": 152666.25,
+                "mad": 72708.0,
+                "max": 23408208.0,
+                "mean": 4394261.8642,
+                "min": 4136583.0,
+                "n": 10000,
+                "p50": 4357542.0,
+                "p95": 4648351.75,
+                "p99": 4867047.83,
+                "stdev": 328381.3149329775
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.011918795834133342,
+                "iqr": 109896.5,
+                "mad": 51958.0,
+                "max": 7431875.0,
+                "mean": 4384918.2664,
+                "min": 4201000.0,
+                "n": 10000,
+                "p50": 4359333.0,
+                "p95": 4594177.399999999,
+                "p99": 4750417.83,
+                "stdev": 121982.56171158332
+              },
+              "load1_after": 4.2,
+              "load1_before": 4.87,
+              "noisy": [],
+              "peak_rss_bytes": 329613312,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.013415270474374248,
+                "iqr": 128010.75,
+                "mad": 58542.0,
+                "max": 10022834.0,
+                "mean": 4396271.6557,
+                "min": 4200791.0,
+                "n": 10000,
+                "p50": 4363833.0,
+                "p95": 4618722.6,
+                "p99": 4799982.170000001,
+                "stdev": 159964.6197889088
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.00810541493378992,
+                "iqr": 68635.25,
+                "mad": 35395.5,
+                "max": 7463000.0,
+                "mean": 4395252.0374,
+                "min": 4169875.0,
+                "n": 10000,
+                "p50": 4366895.5,
+                "p95": 4678302.399999999,
+                "p99": 4861377.5,
+                "stdev": 125364.57401036308
+              },
+              "load1_after": 4.63,
+              "load1_before": 4.91,
+              "noisy": [],
+              "peak_rss_bytes": 330498048,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.0087981161101832,
+                "iqr": 77802.5,
+                "mad": 38437.5,
+                "max": 15340000.0,
+                "mean": 4403751.719,
+                "min": 4169625.0,
+                "n": 10000,
+                "p50": 4368833.0,
+                "p95": 4716549.399999999,
+                "p99": 4901883.75,
+                "stdev": 182272.55162534877
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.012306115893054932,
+            "iqr": 114219.25,
+            "mad": 53708.0,
+            "max": 23408208.0,
+            "mean": 4398095.079633334,
+            "min": 4136583.0,
+            "n": 30000,
+            "p50": 4364334.0,
+            "p95": 4653800.35,
+            "p99": 4870250.0,
+            "stdev": 235723.18980933298
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            4357542.0,
+            4368833.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 9204169,
+          "state_load_p50_ms": 8.2210415,
+          "state_load_p95_ms": 8.906245200000003,
+          "state_save_p50_ms": 10.763521,
+          "state_save_p95_ms": 11.6107455,
+          "units": 10000,
+          "warmup": 300
+        },
+        "waterbox-guest-debug-runtime": {
+          "between_run_cv": 0.009574092976564405,
+          "cpu_median_of_run_medians_ns": 9234750.0,
+          "evict_blocks": true,
+          "first_unit_after_load_p50_ms": 9.46725,
+          "first_unit_after_load_p95_ms": 10.165795800000001,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 8065024
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 5586944,
+              "dirty_bytes": 1081344
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 262144,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            3.39,
+            6.61
+          ],
+          "median_of_run_medians_ns": 9246834.0,
+          "median_of_run_p95_ns": 9861089.899999999,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 9.246834,
+          "p50_unit_fraction": 0.4630852434263809,
+          "p95_headroom_x": 2.022540248883755,
+          "p95_ms": 9.8726774,
+          "p95_unit_fraction": 0.494427737866726,
+          "p99_ms": 10.317967419999993,
+          "pages_after_seal": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 11276288,
+            "dirty_groups_16k": 689,
+            "dirty_groups_16k_all_four_logical_pages": 688
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 11276288,
+            "dirty_groups_16k": 689,
+            "dirty_groups_16k_all_four_logical_pages": 688
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1585917.0,
+            "unit_enter_ns": 2799645.5,
+            "unit_exit_ns": 256334.0,
+            "unit_guest_ns": 4590875.0
+          },
+          "peak_rss_bytes_max": 485851136,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.011158576396045396,
+                "iqr": 223489.25,
+                "mad": 104895.5,
+                "max": 17982209.0,
+                "mean": 9452374.0939,
+                "min": 9057542.0,
+                "n": 10000,
+                "p50": 9400437.5,
+                "p95": 9806408.299999999,
+                "p99": 10218582.830000004,
+                "stdev": 298601.5217445234
+              },
+              "load1_after": 6.61,
+              "load1_before": 5.89,
+              "noisy": [],
+              "peak_rss_bytes": 359743488,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.012263731235548291,
+                "iqr": 248250.0,
+                "mad": 115624.5,
+                "max": 97629000.0,
+                "mean": 9543553.417,
+                "min": 9057334.0,
+                "n": 10000,
+                "p50": 9428166.5,
+                "p95": 9923336.05,
+                "p99": 10706721.91,
+                "stdev": 1556605.6996294803
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.007316977960909756,
+                "iqr": 168760.75,
+                "mad": 67479.0,
+                "max": 16197542.0,
+                "mean": 9303152.4051,
+                "min": 8856416.0,
+                "n": 10000,
+                "p50": 9222250.0,
+                "p95": 9817439.9,
+                "p99": 10116333.84,
+                "stdev": 245573.38957894727
+              },
+              "load1_after": 3.27,
+              "load1_before": 4.46,
+              "noisy": [],
+              "peak_rss_bytes": 483115008,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.00830401783013701,
+                "iqr": 191604.0,
+                "mad": 76666.5,
+                "max": 24744000.0,
+                "mean": 9326368.8359,
+                "min": 8856250.0,
+                "n": 10000,
+                "p50": 9232458.5,
+                "p95": 9861089.899999999,
+                "p99": 10198549.92,
+                "stdev": 364114.42147089995
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.007936489888735482,
+                "iqr": 192791.75,
+                "mad": 73291.5,
+                "max": 14644791.0,
+                "mean": 9316681.8069,
+                "min": 8887833.0,
+                "n": 10000,
+                "p50": 9234750.0,
+                "p95": 9807008.3,
+                "p99": 10089557.26,
+                "stdev": 232286.58941224398
+              },
+              "load1_after": 4.02,
+              "load1_before": 3.39,
+              "noisy": [],
+              "peak_rss_bytes": 485851136,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.008822803567145251,
+                "iqr": 216093.5,
+                "mad": 81583.0,
+                "max": 24714417.0,
+                "mean": 9338560.8804,
+                "min": 8887459.0,
+                "n": 10000,
+                "p50": 9246834.0,
+                "p95": 9853129.15,
+                "p99": 10180366.34,
+                "stdev": 314504.2454039988
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.013279808486556589,
+            "iqr": 286760.25,
+            "mad": 123583.0,
+            "max": 97629000.0,
+            "mean": 9402827.7111,
+            "min": 8856250.0,
+            "n": 30000,
+            "p50": 9306083.0,
+            "p95": 9872677.4,
+            "p99": 10317967.419999992,
+            "stdev": 945919.9130732184
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            9232458.5,
+            9428166.5
+          ],
+          "runs": 3,
+          "snapshot_bytes": 9203892,
+          "state_load_p50_ms": 7.0793335,
+          "state_load_p95_ms": 7.85971845,
+          "state_save_p50_ms": 6.082125,
+          "state_save_p95_ms": 13.12193575,
+          "units": 10000,
+          "warmup": 300
+        },
+        "waterbox-guest-release-runtime": {
+          "between_run_cv": 0.02620755886015681,
+          "cpu_median_of_run_medians_ns": 5904395.5,
+          "evict_blocks": false,
+          "first_unit_after_load_p50_ms": 6.032438,
+          "first_unit_after_load_p95_ms": 6.3536223,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 8065024
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 5586944,
+              "dirty_bytes": 1081344
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 262144,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 1,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            3.27,
+            67.12
+          ],
+          "median_of_run_medians_ns": 5911208.5,
+          "median_of_run_p95_ns": 6293689.899999999,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 1,
+          "p50_ms": 5.9112085,
+          "p50_unit_fraction": 0.29603574879429995,
+          "p95_headroom_x": 1.9808709174819292,
+          "p95_ms": 10.080357699999997,
+          "p95_unit_fraction": 0.5048284525632765,
+          "p99_ms": 16.146712829999952,
+          "pages_after_seal": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 11276288,
+            "dirty_groups_16k": 689,
+            "dirty_groups_16k_all_four_logical_pages": 688
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 11276288,
+            "dirty_groups_16k": 689,
+            "dirty_groups_16k_all_four_logical_pages": 688
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1584083.0,
+            "unit_enter_ns": 166.0,
+            "unit_exit_ns": 166.0,
+            "unit_guest_ns": 4324354.0
+          },
+          "peak_rss_bytes_max": 472416256,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.013577734915604966,
+                "iqr": 440240.0,
+                "mad": 84604.0,
+                "max": 19371625.0,
+                "mean": 6925135.5169,
+                "min": 5789125.0,
+                "n": 10000,
+                "p50": 6231083.5,
+                "p95": 10818483.649999995,
+                "p99": 13270828.160000006,
+                "stdev": 1639419.6406483673
+              },
+              "load1_after": 67.12,
+              "load1_before": 5.76,
+              "noisy": [
+                "the thread waited (1.11 x its CPU time)"
+              ],
+              "peak_rss_bytes": 347144192,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.015978244982705843,
+                "iqr": 1373291.5,
+                "mad": 99646.0,
+                "max": 44133083.0,
+                "mean": 7681451.6361,
+                "min": 5788875.0,
+                "n": 10000,
+                "p50": 6236354.5,
+                "p95": 14391464.299999997,
+                "p99": 20677195.330000002,
+                "stdev": 3169129.4979167976
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.008972806784369373,
+                "iqr": 112260.5,
+                "mad": 52979.0,
+                "max": 8251417.0,
+                "mean": 5935706.9105,
+                "min": 5634250.0,
+                "n": 10000,
+                "p50": 5904395.5,
+                "p95": 6202674.35,
+                "p99": 6404052.41,
+                "stdev": 134998.43631243694
+              },
+              "load1_after": 4.12,
+              "load1_before": 3.27,
+              "noisy": [],
+              "peak_rss_bytes": 418217984,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.009737856480616442,
+                "iqr": 126135.5,
+                "mad": 57562.5,
+                "max": 16579000.0,
+                "mean": 5953762.0584,
+                "min": 5634000.0,
+                "n": 10000,
+                "p50": 5911208.5,
+                "p95": 6238562.8,
+                "p99": 6466334.67,
+                "stdev": 245909.9056905573
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.0070102781590838424,
+                "iqr": 85104.0,
+                "mad": 41292.0,
+                "max": 9627750.0,
+                "mean": 5927843.4402,
+                "min": 5643583.0,
+                "n": 10000,
+                "p50": 5890208.5,
+                "p95": 6265355.899999999,
+                "p99": 6429155.830000001,
+                "stdev": 151501.93434806445
+              },
+              "load1_after": 4.41,
+              "load1_before": 4.02,
+              "noisy": [],
+              "peak_rss_bytes": 472416256,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.007550467952888093,
+                "iqr": 96186.75,
+                "mad": 44499.0,
+                "max": 25241333.0,
+                "mean": 5940335.9458,
+                "min": 5643375.0,
+                "n": 10000,
+                "p50": 5893542.0,
+                "p95": 6293689.899999999,
+                "p99": 6451397.500000001,
+                "stdev": 271383.09021232894
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.02206751546385968,
+            "iqr": 322708.25,
+            "mad": 131749.5,
+            "max": 44133083.0,
+            "mean": 6525183.213433334,
+            "min": 5634000.0,
+            "n": 30000,
+            "p50": 5970291.5,
+            "p95": 10080357.699999997,
+            "p99": 16146712.829999954,
+            "stdev": 2015194.5618285574
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            5893542.0,
+            6236354.5
+          ],
+          "runs": 3,
+          "snapshot_bytes": 9203892,
+          "state_load_p50_ms": 3.2411665,
+          "state_load_p95_ms": 4.3960643,
+          "state_save_p50_ms": 3.71175,
+          "state_save_p95_ms": 9.771535450000002,
+          "units": 10000,
+          "warmup": 300
+        },
+        "waterbox-guest-release-runtime-evict": {
+          "between_run_cv": 0.010312531937645933,
+          "cpu_median_of_run_medians_ns": 8634104.5,
+          "evict_blocks": true,
+          "first_unit_after_load_p50_ms": 8.692979,
+          "first_unit_after_load_p95_ms": 9.312163949999999,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 8065024
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 5586944,
+              "dirty_bytes": 1081344
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 262144,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            4.12,
+            6.55
+          ],
+          "median_of_run_medians_ns": 8653333.0,
+          "median_of_run_p95_ns": 9194417.0,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 8.653333,
+          "p50_unit_fraction": 0.43336246965767256,
+          "p95_headroom_x": 2.1654761845858954,
+          "p95_ms": 9.22101455,
+          "p95_unit_fraction": 0.4617921947690366,
+          "p99_ms": 9.924786489999986,
+          "pages_after_seal": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 11276288,
+            "dirty_groups_16k": 689,
+            "dirty_groups_16k_all_four_logical_pages": 688
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 59768832,
+            "dirty_bytes_4k_pages": 11276288,
+            "dirty_groups_16k": 689,
+            "dirty_groups_16k_all_four_logical_pages": 688
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1586042.0,
+            "unit_enter_ns": 2221833.0,
+            "unit_exit_ns": 150125.0,
+            "unit_guest_ns": 4667250.0
+          },
+          "peak_rss_bytes_max": 546914304,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.016240906096343776,
+                "iqr": 290354.75,
+                "mad": 137854.5,
+                "max": 14808625.0,
+                "mean": 8572281.3696,
+                "min": 8139166.0,
+                "n": 10000,
+                "p50": 8488104.0,
+                "p95": 9115225.65,
+                "p99": 9736675.000000002,
+                "stdev": 367877.53135384223
+              },
+              "load1_after": 6.55,
+              "load1_before": 17.74,
+              "noisy": [],
+              "peak_rss_bytes": 456048640,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.01730489587981976,
+                "iqr": 310032.0,
+                "mad": 147041.5,
+                "max": 120952167.0,
+                "mean": 8644987.1679,
+                "min": 8138958.0,
+                "n": 10000,
+                "p50": 8497104.0,
+                "p95": 9180570.499999998,
+                "p99": 10662298.34000001,
+                "stdev": 1448124.937791381
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.01668816809872579,
+                "iqr": 305541.5,
+                "mad": 144854.0,
+                "max": 16242042.0,
+                "mean": 8737184.6893,
+                "min": 8271084.0,
+                "n": 10000,
+                "p50": 8680042.0,
+                "p95": 9207177.4,
+                "p99": 9598892.08,
+                "stdev": 291482.39413718035
+              },
+              "load1_after": 4.87,
+              "load1_before": 4.12,
+              "noisy": [],
+              "peak_rss_bytes": 367788032,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.018446360130483497,
+                "iqr": 334573.0,
+                "mad": 160604.0,
+                "max": 33521250.0,
+                "mean": 8783977.9153,
+                "min": 8270833.0,
+                "n": 10000,
+                "p50": 8706541.5,
+                "p95": 9285447.899999999,
+                "p99": 9951470.920000004,
+                "stdev": 488970.8005893807
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.017566037103210877,
+                "iqr": 318479.5,
+                "mad": 151667.0,
+                "max": 14813209.0,
+                "mean": 8683702.6088,
+                "min": 8218084.0,
+                "n": 10000,
+                "p50": 8634104.5,
+                "p95": 9135350.65,
+                "p99": 9459098.83,
+                "stdev": 251685.22159804608
+              },
+              "load1_after": 4.91,
+              "load1_before": 4.41,
+              "noisy": [],
+              "peak_rss_bytes": 546914304,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.018788483004178853,
+                "iqr": 338155.75,
+                "mad": 162583.0,
+                "max": 18069291.0,
+                "mean": 8716700.0581,
+                "min": 8217833.0,
+                "n": 10000,
+                "p50": 8653333.0,
+                "p95": 9194417.0,
+                "p99": 9653812.41,
+                "stdev": 345582.23085241567
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.018567132800534895,
+            "iqr": 344573.0,
+            "mad": 160063.0,
+            "max": 120952167.0,
+            "mean": 8715221.713766666,
+            "min": 8138958.0,
+            "n": 30000,
+            "p50": 8620771.0,
+            "p95": 9221014.549999999,
+            "p99": 9924786.489999987,
+            "stdev": 906503.8793348875
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            8497104.0,
+            8706541.5
+          ],
+          "runs": 3,
+          "snapshot_bytes": 9203892,
+          "state_load_p50_ms": 5.360958,
+          "state_load_p95_ms": 5.761752400000001,
+          "state_save_p50_ms": 5.465708,
+          "state_save_p95_ms": 11.65970805,
+          "units": 10000,
+          "warmup": 300
+        }
+      },
+      "standard": "pal",
+      "summary": "A500 OCS: every DMA channel on, a blit in flight under contention, the disk motor running (corpus ocs-blitter-dma-pal)",
+      "ticks_equal_across_runners": true,
+      "unit_ms": 19.967887405745024,
+      "unit_ms_nominal": 20.0,
+      "window_end": {
+        "10300": {
+          "373497797632": [
+            "native",
+            "native-norender",
+            "waterbox-core-debug",
+            "waterbox-core-release",
+            "waterbox-guest-debug-runtime",
+            "waterbox-guest-release-runtime",
+            "waterbox-guest-release-runtime-evict"
+          ]
+        }
+      }
+    },
+    "a600-ecs-copper-ntsc": {
+      "kind": "microrom",
+      "machine": "a600",
+      "runners": {
+        "native": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 1,
+            "supported": 1,
+            "units": 200
+          },
+          "between_run_cv": 0.016555554903639066,
+          "cpu_median_of_run_medians_ns": 3814375.0,
+          "first_unit_after_load_p50_ms": 3.847396,
+          "first_unit_after_load_p95_ms": 3.98165,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            4.02,
+            5.98
+          ],
+          "median_of_run_medians_ns": 3817916.5,
+          "median_of_run_p95_ns": 4053435.4000000004,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 39190888,
+            "footprint_before": 39141736,
+            "malloc_allocated_after": 32505856,
+            "malloc_in_use_after": 5349648,
+            "malloc_in_use_before": 5300496,
+            "peak_resident": 40894464,
+            "resident_after": 16318464,
+            "resident_before": 40796160
+          },
+          "noisy_runs": 0,
+          "p50_ms": 3.8179165,
+          "p50_unit_fraction": 0.2292828440230266,
+          "p95_headroom_x": 4.053647518521354,
+          "p95_ms": 4.1077961499999995,
+          "p95_unit_fraction": 0.24669140457598773,
+          "p99_ms": 4.492777320000001,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 44679168,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.015434336346006177,
+                "iqr": 122520.75,
+                "mad": 60792.0,
+                "max": 8717291.0,
+                "mean": 3954844.8753333334,
+                "min": 3720750.0,
+                "n": 3000,
+                "p50": 3938750.5,
+                "p95": 4126245.5500000003,
+                "p99": 4627454.760000001,
+                "stdev": 203580.40257235907
+              },
+              "load1_after": 4.36,
+              "load1_before": 4.02,
+              "noisy": [],
+              "peak_rss_bytes": 40894464,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.017099610168861724,
+                "iqr": 133937.5,
+                "mad": 67417.0,
+                "max": 9771500.0,
+                "mean": 3980833.6513333335,
+                "min": 3720584.0,
+                "n": 3000,
+                "p50": 3942604.5,
+                "p95": 4229088.1,
+                "p99": 5030095.180000002,
+                "stdev": 284530.795091767
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.008340160576765525,
+                "iqr": 68011.0,
+                "mad": 31812.5,
+                "max": 5773625.0,
+                "mean": 3833293.401666667,
+                "min": 3721291.0,
+                "n": 3000,
+                "p50": 3814375.0,
+                "p95": 3988885.4,
+                "p99": 4122962.58,
+                "stdev": 97872.15277053189
+              },
+              "load1_after": 5.98,
+              "load1_before": 6.63,
+              "noisy": [],
+              "peak_rss_bytes": 44679168,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.009456466635663718,
+                "iqr": 81708.25,
+                "mad": 36104.0,
+                "max": 10868834.0,
+                "mean": 3848080.3163333335,
+                "min": 3721084.0,
+                "n": 3000,
+                "p50": 3817916.5,
+                "p95": 4022000.0,
+                "p99": 4178941.5800000005,
+                "stdev": 214304.96714418827
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.004947789713868648,
+                "iqr": 40229.5,
+                "mad": 18791.5,
+                "max": 4369458.0,
+                "mean": 3815516.658,
+                "min": 3651750.0,
+                "n": 3000,
+                "p50": 3797958.5,
+                "p95": 4008860.1,
+                "p99": 4173670.17,
+                "stdev": 88399.04473627738
+              },
+              "load1_after": 5.07,
+              "load1_before": 5.66,
+              "noisy": [],
+              "peak_rss_bytes": 44384256,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.005528326999600917,
+                "iqr": 46614.25,
+                "mad": 21000.5,
+                "max": 4725500.0,
+                "mean": 3824178.5186666665,
+                "min": 3651542.0,
+                "n": 3000,
+                "p50": 3798708.0,
+                "p95": 4053435.4000000004,
+                "p99": 4248389.250000001,
+                "stdev": 109913.65806124514
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.01372196227399449,
+            "iqr": 142416.25,
+            "mad": 52604.0,
+            "max": 10868834.0,
+            "mean": 3884364.162111111,
+            "min": 3651542.0,
+            "n": 9000,
+            "p50": 3833562.5,
+            "p95": 4107796.15,
+            "p99": 4492777.320000001,
+            "stdev": 225987.16484103902
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            3798708.0,
+            3942604.5
+          ],
+          "runs": 3,
+          "state_bound_bytes": 3608590,
+          "state_bytes": 1094923,
+          "state_load_p50_ms": 5.448229,
+          "state_load_p95_ms": 5.53680625,
+          "state_save_p50_ms": 5.6399585,
+          "state_save_p95_ms": 5.68871875,
+          "units": 3000,
+          "warmup": 300
+        },
+        "native-norender": {
+          "alloc": {
+            "allocs": 0,
+            "bytes": 0,
+            "frees": 0,
+            "logger_works": 0,
+            "supported": 0,
+            "units": 0
+          },
+          "between_run_cv": 0.0028552396760768675,
+          "cpu_median_of_run_medians_ns": 3818020.5,
+          "host_crashes_retried": 0,
+          "layer": "native",
+          "load1_range": [
+            4.36,
+            9.21
+          ],
+          "median_of_run_medians_ns": 3821374.5,
+          "median_of_run_p95_ns": 4040981.5500000007,
+          "meets_goal_p95_le_70_percent": true,
+          "memory": {
+            "footprint_after": 38961512,
+            "footprint_before": 38863208,
+            "malloc_allocated_after": 28311552,
+            "malloc_in_use_after": 5349648,
+            "malloc_in_use_before": 5300496,
+            "peak_resident": 40615936,
+            "resident_after": 40615936,
+            "resident_before": 40517632
+          },
+          "noisy_runs": 0,
+          "p50_ms": 3.8213745,
+          "p50_unit_fraction": 0.2294905122825686,
+          "p95_headroom_x": 4.097504967339006,
+          "p95_ms": 4.063828549999999,
+          "p95_unit_fraction": 0.24405095490327572,
+          "p99_ms": 4.73859467,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 40648704,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.00880774685048021,
+                "iqr": 71760.25,
+                "mad": 33750.0,
+                "max": 5899459.0,
+                "mean": 3848902.8086666665,
+                "min": 3672500.0,
+                "n": 3000,
+                "p50": 3831854.0,
+                "p95": 4009967.0,
+                "p99": 4118148.7500000005,
+                "stdev": 91347.49509339263
+              },
+              "load1_after": 4.34,
+              "load1_before": 4.36,
+              "noisy": [],
+              "peak_rss_bytes": 40648704,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.00986367119356995,
+                "iqr": 84093.75,
+                "mad": 37813.0,
+                "max": 7555958.0,
+                "mean": 3858024.187,
+                "min": 3672292.0,
+                "n": 3000,
+                "p50": 3833562.5,
+                "p95": 4039198.5500000003,
+                "p99": 4169460.66,
+                "stdev": 118308.06507105098
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.009248771712985826,
+                "iqr": 79323.0,
+                "mad": 35312.0,
+                "max": 8661375.0,
+                "mean": 3878488.949,
+                "min": 3677458.0,
+                "n": 3000,
+                "p50": 3818020.5,
+                "p95": 4079423.2500000005,
+                "p99": 5528852.500000033,
+                "stdev": 305541.1887762353
+              },
+              "load1_after": 9.21,
+              "load1_before": 5.98,
+              "noisy": [],
+              "peak_rss_bytes": 40632320,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.010854602185679525,
+                "iqr": 96844.0,
+                "mad": 41479.5,
+                "max": 79509292.0,
+                "mean": 4025169.2153333332,
+                "min": 3677291.0,
+                "n": 3000,
+                "p50": 3821374.5,
+                "p95": 4141682.7,
+                "p99": 9219780.830000006,
+                "stdev": 1899682.9462350511
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.0063009361143044834,
+                "iqr": 58041.25,
+                "mad": 23979.0,
+                "max": 4648458.0,
+                "mean": 3830071.341,
+                "min": 3653791.0,
+                "n": 3000,
+                "p50": 3805625.0,
+                "p95": 4012220.5,
+                "p99": 4161382.170000001,
+                "stdev": 91447.9296122884
+              },
+              "load1_after": 4.84,
+              "load1_before": 5.07,
+              "noisy": [],
+              "peak_rss_bytes": 40615936,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.007092431456246922,
+                "iqr": 68134.75,
+                "mad": 27000.0,
+                "max": 4700375.0,
+                "mean": 3837941.035,
+                "min": 3653500.0,
+                "n": 3000,
+                "p50": 3806875.0,
+                "p95": 4040981.5500000007,
+                "p99": 4240465.090000003,
+                "stdev": 104535.38095539603
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.009703357199881623,
+            "iqr": 87218.5,
+            "mad": 37083.0,
+            "max": 79509292.0,
+            "mean": 3907044.8124444443,
+            "min": 3653500.0,
+            "n": 9000,
+            "p50": 3821667.0,
+            "p95": 4063828.5499999993,
+            "p99": 4738594.67,
+            "stdev": 1103758.9514446442
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            3806875.0,
+            3833562.5
+          ],
+          "runs": 3,
+          "state_bound_bytes": 0,
+          "state_bytes": 0,
+          "units": 3000,
+          "warmup": 300
+        },
+        "waterbox-core-release": {
+          "between_run_cv": 0.007460414103023724,
+          "core_create_ms": 313.700541,
+          "cpu_median_of_run_medians_ns": 4182063.0,
+          "evict_blocks_forced_off": true,
+          "first_unit_after_load_p50_ms": 4.2584585,
+          "first_unit_after_load_p95_ms": 4.374931600000001,
+          "gc_collections_in_window": [
+            0,
+            0,
+            0
+          ],
+          "host_crashes_retried": 0,
+          "layer": "waterbox-core",
+          "load1_range": [
+            3.61,
+            3.88
+          ],
+          "managed_allocated_bytes_in_window": 131640,
+          "managed_build": "Release",
+          "median_of_run_medians_ns": 4182750.0,
+          "median_of_run_p95_ns": 4438431.55,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 4.18275,
+          "p50_unit_fraction": 0.25119271619411127,
+          "p95_headroom_x": 3.758096101831824,
+          "p95_ms": 4.430849349999999,
+          "p95_unit_fraction": 0.2660921841547814,
+          "p99_ms": 4.62801125,
+          "parts_p50_ns": null,
+          "peak_rss_bytes_max": 489635840,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.0028421787285692612,
+                "iqr": 25875.25,
+                "mad": 11708.0,
+                "max": 5558542.0,
+                "mean": 4138895.0253333333,
+                "min": 4022541.0,
+                "n": 3000,
+                "p50": 4119375.0,
+                "p95": 4274937.5,
+                "p99": 4465380.83,
+                "stdev": 76853.67928311581
+              },
+              "load1_after": 3.25,
+              "load1_before": 3.61,
+              "noisy": [],
+              "peak_rss_bytes": 481034240,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.0028878124144252975,
+                "iqr": 26968.5,
+                "mad": 11895.5,
+                "max": 11921333.0,
+                "mean": 4144693.989666667,
+                "min": 4022375.0,
+                "n": 3000,
+                "p50": 4119208.0,
+                "p95": 4290931.9,
+                "p99": 4492765.42,
+                "stdev": 177128.64583913077
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.004295009509030175,
+                "iqr": 38947.5,
+                "mad": 17979.0,
+                "max": 4715041.0,
+                "mean": 4206860.878666666,
+                "min": 4019792.0,
+                "n": 3000,
+                "p50": 4186021.0,
+                "p95": 4414767.0,
+                "p99": 4581182.67,
+                "stdev": 89446.24296490013
+              },
+              "load1_after": 3.88,
+              "load1_before": 4.21,
+              "noisy": [],
+              "peak_rss_bytes": 489635840,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.004776571882743824,
+                "iqr": 43905.5,
+                "mad": 20000.5,
+                "max": 4756167.0,
+                "mean": 4212655.784666667,
+                "min": 4019625.0,
+                "n": 3000,
+                "p50": 4187208.0,
+                "p95": 4438431.55,
+                "p99": 4623198.660000001,
+                "stdev": 98512.9263738299
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.005659168692580672,
+                "iqr": 51604.0,
+                "mad": 23667.0,
+                "max": 5649458.0,
+                "mean": 4210844.646333333,
+                "min": 4018458.0,
+                "n": 3000,
+                "p50": 4182063.0,
+                "p95": 4474935.4,
+                "p99": 4612621.080000001,
+                "stdev": 112067.9826883274
+              },
+              "load1_after": 3.8,
+              "load1_before": 3.69,
+              "noisy": [],
+              "peak_rss_bytes": 481443840,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.00617619986850756,
+                "iqr": 59385.5,
+                "mad": 25833.5,
+                "max": 12219458.0,
+                "mean": 4220486.256666667,
+                "min": 4018250.0,
+                "n": 3000,
+                "p50": 4182750.0,
+                "p95": 4505097.600000001,
+                "p99": 4662361.990000001,
+                "stdev": 193905.3932826645
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.01018757116318092,
+            "iqr": 80916.0,
+            "mad": 42500.0,
+            "max": 12219458.0,
+            "mean": 4192612.010333333,
+            "min": 4018250.0,
+            "n": 9000,
+            "p50": 4171750.0,
+            "p95": 4430849.349999999,
+            "p99": 4628011.25,
+            "stdev": 165482.6462064151
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            4119208.0,
+            4187208.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 8516041,
+          "state_load_p50_ms": 7.613333,
+          "state_load_p95_ms": 10.1979369,
+          "state_save_p50_ms": 8.4561455,
+          "state_save_p95_ms": 16.792976750000005,
+          "units": 3000,
+          "warmup": 300
+        },
+        "waterbox-guest-debug-runtime": {
+          "between_run_cv": 0.00738359455358118,
+          "cpu_median_of_run_medians_ns": 8876750.0,
+          "evict_blocks": true,
+          "first_unit_after_load_p50_ms": 8.911125,
+          "first_unit_after_load_p95_ms": 9.40653125,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 7393280
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 5046272,
+              "dirty_bytes": 1064960
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 262144,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            4.34,
+            4.87
+          ],
+          "median_of_run_medians_ns": 8885562.5,
+          "median_of_run_p95_ns": 9611860.1,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 8.8855625,
+          "p50_unit_fraction": 0.533617495496393,
+          "p95_headroom_x": 1.725156288686929,
+          "p95_ms": 9.6522024,
+          "p95_unit_fraction": 0.5796576267076252,
+          "p99_ms": 10.30511983,
+          "pages_after_seal": {
+            "committed_bytes": 59228160,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 59228160,
+            "dirty_bytes_4k_pages": 10588160,
+            "dirty_groups_16k": 647,
+            "dirty_groups_16k_all_four_logical_pages": 646
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 59228160,
+            "dirty_bytes_4k_pages": 10588160,
+            "dirty_groups_16k": 647,
+            "dirty_groups_16k_all_four_logical_pages": 646
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1343458.0,
+            "unit_enter_ns": 2811562.5,
+            "unit_exit_ns": 249375.0,
+            "unit_guest_ns": 4457937.5
+          },
+          "peak_rss_bytes_max": 483639296,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.008080547497676515,
+                "iqr": 186948.0,
+                "mad": 71729.0,
+                "max": 13220333.0,
+                "mean": 8962380.707333334,
+                "min": 8547166.0,
+                "n": 3000,
+                "p50": 8876750.0,
+                "p95": 9493211.85,
+                "p99": 9826466.580000002,
+                "stdev": 259303.97405771026
+              },
+              "load1_after": 4.19,
+              "load1_before": 4.34,
+              "noisy": [],
+              "peak_rss_bytes": 401309696,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.009188613551477466,
+                "iqr": 216896.25,
+                "mad": 81646.0,
+                "max": 27115959.0,
+                "mean": 9021679.649,
+                "min": 8546792.0,
+                "n": 3000,
+                "p50": 8885562.5,
+                "p95": 9611860.1,
+                "p99": 10663002.000000013,
+                "stdev": 546663.3629343149
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.015896636593038898,
+                "iqr": 406354.0,
+                "mad": 142541.5,
+                "max": 13385792.0,
+                "mean": 9091255.942666667,
+                "min": 8570084.0,
+                "n": 3000,
+                "p50": 8966771.0,
+                "p95": 9762297.25,
+                "p99": 10194850.830000002,
+                "stdev": 369223.42118231434
+              },
+              "load1_after": 4.87,
+              "load1_before": 5.55,
+              "noisy": [],
+              "peak_rss_bytes": 337444864,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.016572584522130777,
+                "iqr": 440802.0,
+                "mad": 148750.0,
+                "max": 22178417.0,
+                "mean": 9137211.248333333,
+                "min": 8569917.0,
+                "n": 3000,
+                "p50": 8975667.0,
+                "p95": 9829727.4,
+                "p99": 10419434.820000002,
+                "stdev": 625446.131943257
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.007432972040792434,
+                "iqr": 145531.25,
+                "mad": 65458.0,
+                "max": 12481542.0,
+                "mean": 8871991.283,
+                "min": 8482708.0,
+                "n": 3000,
+                "p50": 8806437.0,
+                "p95": 9351812.5,
+                "p99": 9576943.840000002,
+                "stdev": 226279.2389961503
+              },
+              "load1_after": 4.36,
+              "load1_before": 4.84,
+              "noisy": [],
+              "peak_rss_bytes": 483639296,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.008288080785461603,
+                "iqr": 165854.75,
+                "mad": 73061.5,
+                "max": 27826917.0,
+                "mean": 8901870.836333333,
+                "min": 8482500.0,
+                "n": 3000,
+                "p50": 8815249.5,
+                "p95": 9396918.450000001,
+                "p99": 9682581.16,
+                "stdev": 550259.8000476904
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.011441839964576912,
+            "iqr": 261531.75,
+            "mad": 101604.5,
+            "max": 27826917.0,
+            "mean": 9020253.911222221,
+            "min": 8482500.0,
+            "n": 9000,
+            "p50": 8880084.0,
+            "p95": 9652202.4,
+            "p99": 10305119.83,
+            "stdev": 583239.5584830308
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            8815249.5,
+            8975667.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 8515764,
+          "state_load_p50_ms": 7.0603545,
+          "state_load_p95_ms": 7.6712104000000005,
+          "state_save_p50_ms": 5.9221045,
+          "state_save_p95_ms": 8.692813950000003,
+          "units": 3000,
+          "warmup": 300
+        },
+        "waterbox-guest-release-runtime": {
+          "between_run_cv": 0.008268445143832133,
+          "cpu_median_of_run_medians_ns": 5485583.0,
+          "evict_blocks": false,
+          "first_unit_after_load_p50_ms": 5.527062,
+          "first_unit_after_load_p95_ms": 5.6541851,
+          "heaps_after_units": {
+            "alt_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "elf": {
+              "committed_bytes": 51806208,
+              "dirty_bytes": 7393280
+            },
+            "invisible": {
+              "committed_bytes": 0,
+              "dirty_bytes": 16384
+            },
+            "main_thread": {
+              "committed_bytes": 1048576,
+              "dirty_bytes": 1048576
+            },
+            "mmap": {
+              "committed_bytes": 5046272,
+              "dirty_bytes": 1064960
+            },
+            "plain": {
+              "committed_bytes": 0,
+              "dirty_bytes": 0
+            },
+            "sbrk": {
+              "committed_bytes": 16384,
+              "dirty_bytes": 16384
+            },
+            "sealed": {
+              "committed_bytes": 262144,
+              "dirty_bytes": 0
+            }
+          },
+          "host_crashes_retried": 0,
+          "layer": "waterbox-guest",
+          "layout": {
+            "invisible": 16384,
+            "mmap": 16777216,
+            "plain": 16384,
+            "sbrk": 4194304,
+            "sealed": 16777216
+          },
+          "load1_range": [
+            4.19,
+            4.21
+          ],
+          "median_of_run_medians_ns": 5486916.5,
+          "median_of_run_p95_ns": 5783662.5,
+          "meets_goal_p95_le_70_percent": true,
+          "noisy_runs": 0,
+          "p50_ms": 5.4869165,
+          "p50_unit_fraction": 0.3295137072895311,
+          "p95_headroom_x": 2.89026401151392,
+          "p95_ms": 5.761258349999999,
+          "p95_unit_fraction": 0.3459891539376017,
+          "p99_ms": 5.952656250000001,
+          "pages_after_seal": {
+            "committed_bytes": 59228160,
+            "dirty_bytes_4k_pages": 2117632,
+            "dirty_groups_16k": 130,
+            "dirty_groups_16k_all_four_logical_pages": 129
+          },
+          "pages_after_units": {
+            "committed_bytes": 59228160,
+            "dirty_bytes_4k_pages": 10588160,
+            "dirty_groups_16k": 647,
+            "dirty_groups_16k_all_four_logical_pages": 646
+          },
+          "pages_after_warmup": {
+            "committed_bytes": 59228160,
+            "dirty_bytes_4k_pages": 10588160,
+            "dirty_groups_16k": 647,
+            "dirty_groups_16k_all_four_logical_pages": 646
+          },
+          "parts_p50_ns": {
+            "unit_copy_ns": 1334812.5,
+            "unit_enter_ns": 84.0,
+            "unit_exit_ns": 42.0,
+            "unit_guest_ns": 4149833.0
+          },
+          "peak_rss_bytes_max": 570310656,
+          "per_run": [
+            {
+              "cpu_ns": {
+                "cod": 0.002187710871020068,
+                "iqr": 26823.0,
+                "mad": 11812.5,
+                "max": 6062167.0,
+                "mean": 5421669.75,
+                "min": 5304708.0,
+                "n": 3000,
+                "p50": 5399479.5,
+                "p95": 5565523.550000001,
+                "p99": 5782836.160000001,
+                "stdev": 75912.44476466841
+              },
+              "load1_after": 3.61,
+              "load1_before": 4.19,
+              "noisy": [],
+              "peak_rss_bytes": 567640064,
+              "rep": 1,
+              "wall_ns": {
+                "cod": 0.002214877572869037,
+                "iqr": 27542.0,
+                "mad": 11959.0,
+                "max": 6218209.0,
+                "mean": 5423933.501,
+                "min": 5304459.0,
+                "n": 3000,
+                "p50": 5399395.5,
+                "p95": 5578377.4,
+                "p99": 5822509.250000001,
+                "stdev": 82385.02350509263
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.002878818896733492,
+                "iqr": 35416.0,
+                "mad": 15792.0,
+                "max": 7304083.0,
+                "mean": 5511160.667,
+                "min": 5330125.0,
+                "n": 3000,
+                "p50": 5485583.0,
+                "p95": 5749349.65,
+                "p99": 5928586.08,
+                "stdev": 112484.34072453275
+              },
+              "load1_after": 4.21,
+              "load1_before": 4.87,
+              "noisy": [],
+              "peak_rss_bytes": 570310656,
+              "rep": 2,
+              "wall_ns": {
+                "cod": 0.0032120955367190298,
+                "iqr": 41686.75,
+                "mad": 17624.5,
+                "max": 11888458.0,
+                "mean": 5521154.3193333335,
+                "min": 5329917.0,
+                "n": 3000,
+                "p50": 5486916.5,
+                "p95": 5783662.5,
+                "p99": 5962880.42,
+                "stdev": 174173.55438578888
+              }
+            },
+            {
+              "cpu_ns": {
+                "cod": 0.006070504061917504,
+                "iqr": 72427.25,
+                "mad": 33375.0,
+                "max": 15160666.0,
+                "mean": 5533443.361,
+                "min": 5282709.0,
+                "n": 3000,
+                "p50": 5497896.0,
+                "p95": 5799487.8,
+                "p99": 5954507.08,
+                "stdev": 238969.06454627137
+              },
+              "load1_after": 3.69,
+              "load1_before": 4.36,
+              "noisy": [],
+              "peak_rss_bytes": 567656448,
+              "rep": 3,
+              "wall_ns": {
+                "cod": 0.006770456276715261,
+                "iqr": 86729.0,
+                "mad": 37249.5,
+                "max": 17403917.0,
+                "mean": 5545398.247,
+                "min": 5282458.0,
+                "n": 3000,
+                "p50": 5501771.0,
+                "p95": 5830135.100000001,
+                "p99": 5998525.420000001,
+                "stdev": 288489.85091406706
+              }
+            }
+          ],
+          "pooled": {
+            "cod": 0.010639573084174332,
+            "iqr": 107927.25,
+            "mad": 58270.5,
+            "max": 17403917.0,
+            "mean": 5496828.689111111,
+            "min": 5282458.0,
+            "n": 9000,
+            "p50": 5476770.5,
+            "p95": 5761258.35,
+            "p99": 5952656.250000001,
+            "stdev": 207054.38892130041
+          },
+          "reps": 3,
+          "run_median_range_ns": [
+            5399395.5,
+            5501771.0
+          ],
+          "runs": 3,
+          "snapshot_bytes": 8515764,
+          "state_load_p50_ms": 3.003479,
+          "state_load_p95_ms": 3.43400415,
+          "state_save_p50_ms": 3.002146,
+          "state_save_p95_ms": 4.430505950000005,
+          "units": 3000,
+          "warmup": 300
+        }
+      },
+      "standard": "ntsc",
+      "summary": "A600 ECS NTSC: the Copper rewrites BPLCON3/DIWHIGH too (corpus ecs-ring-copper-ntsc)",
+      "ticks_equal_across_runners": true,
+      "unit_ms": 16.651557670039068,
+      "unit_ms_nominal": 16.666666666666668,
+      "window_end": {
+        "3300": {
+          "100708960256": [
+            "native",
+            "native-norender",
+            "waterbox-core-release",
+            "waterbox-guest-debug-runtime",
+            "waterbox-guest-release-runtime"
+          ]
+        }
+      }
+    }
+  },
+  "schema_version": 1,
+  "status": "ORIENTATIVE"
+}

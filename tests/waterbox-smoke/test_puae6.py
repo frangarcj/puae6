@@ -23,7 +23,7 @@ from tests.host.test_bridge_lifecycle import TOOLS, build_probe, builder  # noqa
 from tests.scenarios.disk import disk as adf  # noqa: E402
 
 MANIFEST = ROOT / "manifests/waterbox-memory.json"
-RUNTIME_RECEIPT = ROOT / "build/waterbox/receipt.json"
+RUNTIME_RECEIPT = build_waterbox.runtime_receipt_path()          # T34a: Release by default, the Debug lane with P6_WATERBOX_RUNTIME=debug
 GUEST_RECEIPT = ROOT / "build/waterbox/puae6/puae6-receipt.json"
 UNIT = re.compile(r"^unit (\d+) ticks=(\d+) video=(\d) active=(\d+)x(\d+) .* hash=(\w+) audio=(\d+)$", re.M)
 ADF_BYTES = 901120

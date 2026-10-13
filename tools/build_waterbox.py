@@ -25,6 +25,41 @@ BUILD = ROOT / "build/waterbox"
 LOCK = ROOT / "plan/toolchains.json"
 PAGE_SIZE = 16384
 
+# T34a: the local copy of libwaterboxhost is built Release by default (plan/toolchains.json runtime.profile): the same code BizHawk ships, ~0.0004 ms per
+# sandbox entry against ~3.1 ms in Debug. The Debug runtime (runtime assertions, eviction of the sandbox forced on at every call) is a lane of its own,
+# chosen with P6_WATERBOX_RUNTIME=debug: it builds into cargo/<target>/debug and writes build/waterbox/receipt-debug.json, so both can coexist.
+RUNTIME_PROFILES = ("release", "debug")
+RUNTIME_ENV = "P6_WATERBOX_RUNTIME"
+
+
+def runtime_rustflags(root: Path, build: Path) -> str:
+    """RUSTFLAGS of the runtime build. The library carries the paths of the tree it was compiled in (panic locations, dependency sources, and the install name of the dylib, which
+    cargo makes the absolute path of target/<profile>/deps). Remapping the first and giving the dylib a fixed install name make its sha256 the same wherever the repository or its
+    worktree lives (a later prefix wins, so the longest goes last). Its sha256 still depends on the pinned toolchain and sources, as it must."""
+    return " ".join([f"--remap-path-prefix={Path.home()}=/p6/home", f"--remap-path-prefix={root}=/p6/src", f"--remap-path-prefix={build}=/p6/waterbox",
+                     "-Clink-arg=-Wl,-install_name,@rpath/libwaterboxhost.dylib"])
+
+
+def default_runtime_profile() -> str:
+    profile = json.loads(LOCK.read_text())["runtime"]["profile"]
+    if profile not in RUNTIME_PROFILES:
+        raise BuildError(f"plan/toolchains.json runtime.profile debe ser uno de {RUNTIME_PROFILES}, no {profile!r}")
+    return profile
+
+
+def runtime_profile() -> str:
+    """The profile the runtime of this process is built with: the one of plan/toolchains.json, or P6_WATERBOX_RUNTIME (the Debug lane)."""
+    profile = os.environ.get(RUNTIME_ENV) or default_runtime_profile()
+    if profile not in RUNTIME_PROFILES:
+        raise BuildError(f"{RUNTIME_ENV} debe ser uno de {RUNTIME_PROFILES}, no {profile!r}")
+    return profile
+
+
+def runtime_receipt_path(profile: str | None = None) -> Path:
+    """build/waterbox/receipt.json for the default profile, receipt-<profile>.json for the other lane."""
+    profile = profile or runtime_profile()
+    return BUILD / ("receipt.json" if profile == default_runtime_profile() else f"receipt-{profile}.json")
+
 
 class BuildError(ValueError):
     """A fixed input or build artifact violated the T09 contract."""
@@ -418,6 +453,7 @@ def toolchain() -> dict:
     for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "MAKEFLAGS", "CPATH", "CPLUS_INCLUDE_PATH", "C_INCLUDE_PATH", "LIBRARY_PATH"):
         env.pop(key, None)
     env.update({
+        "RUSTFLAGS": runtime_rustflags(ROOT, BUILD),
         "PATH": env_path,
         "RUSTC": str(paths["rustc"]),
         "RUSTC_BOOTSTRAP": lock["runtime"]["rustc_bootstrap"],
@@ -454,14 +490,8 @@ def build(args: argparse.Namespace) -> dict:
          "--", "--test-threads=1"],
         env, ROOT, parse_tests=True,
     )
-    run_logged(
-        [str(paths["cargo"]), "build", "--offline", "--locked", "--target",
-         lock["runtime"]["target"], "--manifest-path", str(runtime_copy / "Cargo.toml")],
-        env, ROOT,
-    )
-    dylib = BUILD / "cargo" / lock["runtime"]["target"] / lock["runtime"]["profile"] / "libwaterboxhost.dylib"
-    if not dylib.is_file():
-        raise BuildError(f"cargo build no produjo dylib esperada: {dylib}")
+    profile = runtime_profile()
+    dylib = cargo_build_runtime(tc, profile)
     header = dylib.read_bytes()[:32]
     if (len(header) != 32 or struct.unpack_from("<II", header) != (0xfeedfacf, 0x100000c)
             or struct.unpack_from("<I", header, 12)[0] != 6):
@@ -539,12 +569,46 @@ def build(args: argparse.Namespace) -> dict:
         "guest": guest_metadata,
         "tls_negative": tls_negative,
         "runtime_dylib": dylib_metadata,
+        "runtime_profile": profile,
     }
-    receipt_path = BUILD / "receipt.json"
+    receipt_path = runtime_receipt_path(profile)
     receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     print(f"BUILD01 PASS: {receipt_path}")
     print("Tests internos del runtime ejecutados; guest aun no ejecutado dentro de Waterbox.")
     return receipt
+
+
+def cargo_build_runtime(tc: dict, profile: str) -> Path:
+    """cargo build of the runtime copy for `profile`, with the same environment as build(); returns the dylib."""
+    run_logged([str(tc["paths"]["cargo"]), "build", "--offline", "--locked", *(["--release"] if profile == "release" else []), "--target",
+                tc["lock"]["runtime"]["target"], "--manifest-path", str(tc["runtime_copy"] / "Cargo.toml")], tc["env"], ROOT)
+    dylib = BUILD / "cargo" / tc["lock"]["runtime"]["target"] / profile / "libwaterboxhost.dylib"
+    if not dylib.is_file():
+        raise BuildError(f"cargo build no produjo dylib esperada: {dylib}")
+    return dylib
+
+
+def ensure_runtime_lane(profile: str) -> Path:
+    """T34a: the receipt of the runtime built with `profile`, building it if it is missing or stale (the sources and the guest are the ones of build/waterbox/receipt.json).
+    The default profile is what build() writes; the other lane is the same receipt with its own runtime_dylib, so both lanes run the same guest and the same managed harness."""
+    if profile not in RUNTIME_PROFILES:
+        raise BuildError(f"perfil de runtime desconocido: {profile!r}")
+    path = runtime_receipt_path(profile)
+    base_path = runtime_receipt_path(default_runtime_profile())
+    if profile == default_runtime_profile():
+        if not path.is_file():
+            raise BuildError(f"falta {path}: ejecutar tools/build_waterbox.py")
+        return path
+    if not base_path.is_file():
+        raise BuildError(f"falta {base_path}: ejecutar tools/build_waterbox.py")
+    base = json.loads(base_path.read_text())
+    tc = toolchain()
+    dylib = cargo_build_runtime(tc, profile)
+    receipt = {**base, "runtime_dylib": {"path": str(dylib), "size": dylib.stat().st_size, "sha256": sha256(dylib)}, "runtime_profile": profile}
+    text = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
+    if not path.is_file() or path.read_text() != text:
+        path.write_text(text)
+    return path
 
 
 IMPORTS = ROOT / "ports/waterbox/imports.json"
@@ -725,7 +789,7 @@ def build_core() -> tuple[str, dict[str, str], Path]:
     dotnet = shutil.which("dotnet")
     if not dotnet:
         raise BuildError("Falta dotnet para el core de BizHawk")
-    receipt, runtime_receipt = BUILD / "puae6/puae6-receipt.json", BUILD / "receipt.json"
+    receipt, runtime_receipt = BUILD / "puae6/puae6-receipt.json", runtime_receipt_path()
     for needed in (receipt, runtime_receipt):
         if not needed.is_file():
             raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6")
@@ -736,8 +800,12 @@ def build_core() -> tuple[str, dict[str, str], Path]:
     cache = Path.home() / ".nuget/packages"
     env = {**managed_env(), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget")}
     run_logged([dotnet, "build", str(FFI_PROJECT), "--nologo", f"-p:Puae6GuestSha256={guest_sha}", f"-p:RestoreSources={cache}"], env, ROOT)
-    shutil.copy2(runtime["path"], FFI_OUTPUT / "libwaterboxhost.dylib")
-    return dotnet, env, FFI_OUTPUT
+    output = FFI_OUTPUT
+    if runtime_profile() != default_runtime_profile():          # the other lane gets its own copy of the host, so that two lanes never share one libwaterboxhost.dylib
+        output = ROOT / f"build/ffi/lane-{runtime_profile()}"
+        shutil.copytree(FFI_OUTPUT, output, dirs_exist_ok=True, copy_function=shutil.copy2)
+    shutil.copy2(runtime["path"], output / "libwaterboxhost.dylib")
+    return dotnet, env, output
 
 
 def run_ffi(*args: str, timeout: int = 1800, env: dict[str, str] | None = None, cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -768,9 +836,9 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     mmap heap of the sandbox grows with the extra memory as manifests/waterbox-memory.json says), `fpu_model` the FPU the A1200 is given (T54: 0, 68881 or 68882), `hard_files` the hard files mounted
     on the UAE controller after the disks (T29d; the mmap heap grows with the heap of each, see the smoke's HardFileHeapKiB) and `export_at` the units after which they are exported through the guest
     (printed as "export" lines and returned in result["exports"]; `export_dir` also keeps the images); `rewind_to`/`rewind_from` load the snapshot of unit `rewind_to` back in the same sandbox after
-    unit `rewind_from` and run the units after it again (WB10). Needs the runtime (build/waterbox/receipt.json) and the
+    unit `rewind_from` and run the units after it again (WB10). Needs the runtime (build/waterbox/receipt.json, or receipt-debug.json in the Debug lane) and the
     guest (--puae6) to exist already; several runs may go on at once."""
-    runtime_receipt, guest_receipt = BUILD / "receipt.json", guest_receipt or BUILD / "puae6/puae6-receipt.json"
+    runtime_receipt, guest_receipt = runtime_receipt_path(), guest_receipt or BUILD / "puae6/puae6-receipt.json"
     for needed in (runtime_receipt, guest_receipt):
         if not needed.is_file():
             raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6-run")
@@ -881,6 +949,8 @@ def main() -> int:
     parser.add_argument("--fast", type=int, default=0, metavar="KIB", help="memoria Fast Zorro II con la que --puae6-run configura el guest (T49)")
     parser.add_argument("--fpu", type=int, default=0, choices=(0, 68881, 68882), help="FPU con la que --puae6-run configura el guest (T54; solo el A1200)")
     parser.add_argument("--hdf", type=Path, action="append", default=[], metavar="IMAGE", help="disco duro que --puae6-run monta en el guest (T29d; repetible); el heap mmap crece con HardFileHeapKiB de cada uno")
+    parser.add_argument("--runtime-lane", choices=RUNTIME_PROFILES, metavar="PROFILE",
+                        help="T34a: construir solo el runtime del carril PROFILE (release o debug) y su recibo, a partir de build/waterbox/receipt.json (que escribe un build normal)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4, help="trabajos paralelos de make para --puae6")
     parser.add_argument("--check-artifact", type=Path,
                         help="validar ELF WBX existente (incluye WB16) sin preparar ni compilar inputs")
@@ -889,7 +959,9 @@ def main() -> int:
                              "y exigir su cobertura completa; fallos no se convierten en PASS")
     args = parser.parse_args()
     try:
-        if args.check_artifact:
+        if args.runtime_lane:
+            print(f"RUNTIME LANE {args.runtime_lane}: {ensure_runtime_lane(args.runtime_lane)}")
+        elif args.check_artifact:
             metadata = validate_elf(args.check_artifact)
             metadata["compiler_tls"] = check_no_compiler_tls(args.check_artifact)
             print(json.dumps(metadata, indent=2, sort_keys=True))
@@ -913,7 +985,7 @@ def main() -> int:
                 dotnet, env = build_managed()
                 result_path = BUILD / "smoke-result.json"
                 run_logged([dotnet, str(BUILD / "managed/bin/Debug/net8.0/Smoke.dll"),
-                            str(BUILD / "receipt.json"), str(result_path)], env, MANAGED)
+                            str(runtime_receipt_path()), str(result_path)], env, MANAGED)
                 summary = verify_smoke(json.loads(result_path.read_text()), receipt, BUILD / "damaged")
                 print("SMOKE_RUNTIME PASS: WB01 WB13 WB14 WB15 (WB16 en el build). "
                       "Runtime ante cargas dañadas: "

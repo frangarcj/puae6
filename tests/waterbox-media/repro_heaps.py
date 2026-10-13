@@ -18,7 +18,7 @@ Variants (--variant, several allowed, "all" is every one):
     python3 tests/waterbox-media/repro_heaps.py --variant all --processes 20 --cycles 10          # 200 cycles per variant, 10 per process
     python3 tests/waterbox-media/repro_heaps.py --variant boot --processes 150 --cycles 1 --keep-going --timeout 90 --evidence-dir /tmp/p6-hangs
     --units 30 --states        longer runs, with a save and a load in each sandbox (the movie test ran 30 units in each)
-    --no-evict                 P6_EVICT=0: the host keeps a sandbox mapped between calls, as BizHawk's Release build sets it
+    --no-evict                 P6_EVICT=0: the host keeps a sandbox mapped between calls, as BizHawk's Release build sets it (the default of the host since T34a; with the Debug lane the runtime ignores it and always evicts)
     --env KEY=VALUE            for every process (MallocScribble=1, DOTNET_TieredCompilation=0, ...);  --ffi-dir DIR  another build of libwaterboxhost.dylib in a copy of the host's directory
     --audit mmap_audit.dylib   clang -dynamiclib -o mmap_audit.dylib tests/waterbox-media/mmap_audit.c  (and tests/waterbox-media/boot_driver.c is the same creation without .NET)
 """
@@ -136,7 +136,7 @@ def main():
     parser.add_argument("--evidence-dir", default=".", help="where the samples of hung processes go")
     parser.add_argument("--audit", metavar="DYLIB", help="a DYLD interposer for mmap/munmap/mprotect (tests/waterbox-media/mmap_audit.c) to load into every process; its log goes to --audit-log")
     parser.add_argument("--audit-log", default="mmap_audit.log")
-    parser.add_argument("--no-evict", action="store_true", help="P6_EVICT=0: the host keeps a sandbox mapped between calls, as BizHawk's Release build sets it (the default of this Debug host unmaps it at every EnterExit)")
+    parser.add_argument("--no-evict", action="store_true", help="P6_EVICT=0: the host keeps a sandbox mapped between calls, as BizHawk's Release build sets it (since T34a it is the host's default; the Debug lane P6_WATERBOX_RUNTIME=debug still unmaps it at every EnterExit)")
     parser.add_argument("--ffi-dir", help="run the session host from this copy of its output directory (to swap the runtime library for another build)")
     parser.add_argument("--env", action="append", default=[], metavar="KEY=VALUE", help="an environment variable for every process (MallocScribble=1, MallocGuardEdges=1, ...)")
     parser.add_argument("--keep-going", action="store_true", help="go on after a failure (the default stops that variant, to keep the evidence)")

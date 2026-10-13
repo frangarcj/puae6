@@ -16,10 +16,7 @@ internal static unsafe partial class Program
 
 	static void Bench(Dictionary<string, string> options)
 	{
-		var runtime = NativeLibrary.Load(Path.GetFullPath(options["runtime"]));
-		// A Release host (the build BizHawk ships) turns the runtime's eviction off in WaterboxHost's static constructor; a Debug host does not. P6_EVICT=0 does it for a Debug host.
-		if (Environment.GetEnvironmentVariable("P6_EVICT") == "0")
-			((delegate* unmanaged[Cdecl]<byte, void>)NativeLibrary.GetExport(runtime, "wbx_set_always_evict_blocks"))(0);
+		LoadRuntime(options["runtime"]);        // eviction off unless P6_EVICT=1 (Runtime.cs)
 		ulong units = ulong.Parse(options["units"]), warmup = ulong.Parse(options.GetValueOrDefault("warmup", "300")), rounds = ulong.Parse(options.GetValueOrDefault("state-rounds", "20"));
 		bool render = options.GetValueOrDefault("render", "1") != "0";
 		var settings = new Puae6SyncSettings
@@ -87,7 +84,7 @@ internal static unsafe partial class Program
 		}
 		var report = new Dictionary<string, object?>
 		{
-			["tool"] = "Ffi.dll bench", ["machine"] = settings.Machine.ToString(), ["region"] = settings.Region.ToString(), ["render"] = render, ["evict_blocks_forced_off"] = Environment.GetEnvironmentVariable("P6_EVICT") == "0",
+			["tool"] = "Ffi.dll bench", ["machine"] = settings.Machine.ToString(), ["region"] = settings.Region.ToString(), ["render"] = render, ["evict_blocks_forced_off"] = Environment.GetEnvironmentVariable("P6_EVICT") != "1",
 			["managed_build"] = typeof(Program).Assembly.GetCustomAttributes(typeof(DebuggableAttribute), false).Cast<DebuggableAttribute>().Any(a => a.IsJITOptimizerDisabled) ? "Debug (JIT optimizer disabled)" : "Release",
 			["warmup_units"] = warmup, ["units"] = units, ["unit_index_at_window_end"] = frameAtEnd, ["master_ticks_at_window_end"] = ticksAtEnd, ["core_create_ms"] = setupMs, ["state_bytes"] = stateBytes,
 			["warmup_median_ns"] = warm.Count == 0 ? 0.0 : warm.OrderBy(v => v).ElementAt(warm.Count / 2) * 1e9 / Stopwatch.Frequency, ["warmup_first_ns"] = warm.Count == 0 ? 0.0 : warm[0] * 1e9 / Stopwatch.Frequency,

@@ -279,11 +279,12 @@ Todos los runners de un escenario terminan la ventana en el mismo tick maestro: 
 modos de precision equivalentes. Dos sesiones separadas 1,7 h repiten las medianas de las 14
 filas comparadas con una diferencia maxima de 0,54 %; el p95 se repite salvo cuando una
 perturbacion del Mac cae en una sesion (11 de 14 filas dentro del 5 %).
-El runtime local de Waterbox es una compilacion DEBUG de libwaterboxhost con expulsion forzada:
-entrar en el sandbox cuesta ~2,8 ms por unidad (frente a ~0,0002 ms con las mismas fuentes en
-Release), y es el unico caso en que un runner supera el 70 % de la unidad (A1200 con Kickstart
+Hasta T33 el runtime local de Waterbox era una compilacion DEBUG de libwaterboxhost con expulsion forzada:
+entrar en el sandbox costaba ~2,8 ms por unidad (frente a ~0,0002 ms con las mismas fuentes en
+Release), y era el unico caso en que un runner superaba el 70 % de la unidad (A1200 con Kickstart
 3.1 y una demo AGA: p95 20,5 ms de 20,03). Con runtime Release el core de BizHawk cuesta +12,5 %
-(A500 busy: 4,50 ms frente a 4,00 ms nativos).
+(A500 busy: 4,50 ms frente a 4,00 ms nativos). Desde T34a el runtime por defecto es Release (el
+Debug es un carril aparte, docs/03-waterbox.md) y la baseline T34a-2026-10-13-a lo mide (reports/baselines).
 
 ## Orden de optimizacion
 

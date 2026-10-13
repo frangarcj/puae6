@@ -35,7 +35,7 @@ def smoke_command(directory, units=UNITS):
     """The command of the Smoke harness for the full-pool run (tools/build_waterbox.py's run_puae6 does not know the flags of T28)."""
     dotnet, env = build_waterbox.build_managed()
     result = directory / "smoke.json"
-    command = [dotnet, str(build_waterbox.BUILD / "managed/bin/Debug/net8.0/Smoke.dll"), "--puae6", "--runtime", str(build_waterbox.BUILD / "receipt.json"), "--guest", str(RECEIPT),
+    command = [dotnet, str(build_waterbox.BUILD / "managed/bin/Debug/net8.0/Smoke.dll"), "--puae6", "--runtime", str(build_waterbox.runtime_receipt_path()), "--guest", str(RECEIPT),
                "--manifest", str(MANIFEST), "--firmware", str(directory / "wb12.rom"), "--units", str(units), "--result", str(result), "--media", str(directory / "A.adf"),
                "--media", str(directory / "B.adf"), "--drives", "2", "--floppy-writes"]
     return command, env, result
