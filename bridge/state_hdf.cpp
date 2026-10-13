@@ -19,6 +19,14 @@
 //   the overlay, for each hard file: u32 count of dirty chunks, then per chunk (in ascending order) its u32 index and its bytes (4096, less for the last chunk of an image that is not a
 //   multiple of it). The base is never in the state: a chunk that is not named is the base's.
 // The bound counts every chunk of every image as dirty (the image size plus four bytes a chunk), as it must be an upper bound that does not change until the image is unloaded.
+//
+// On Gayle's IDE (T56, p6_config.hdf_controller = IDE: bridge/config.h ide_attached) the controller is another one and so is the middle of the section; the identity and the overlay are the same:
+//   u32 N and the content ids as above
+//   the controller: 4 words of Gayle (gayle.cpp, patch 0321: IDE interrupt status and enable, the ID sequence, the splitter), then for each of the four IDE slots (master and slave of the
+//     channel, then the pair behind the splitter; a slot without a drive has its registers all the same) 43 words of the drive (ide.cpp, patch 0320: registers, the state of the
+//     transfer in hand, the geometry the guest set), u32 count of the bytes of its sector buffer that are in hand (at most 131584) and the bytes;
+//     the autoconfig chain (visit_expansion with no Fast RAM board) when the machine has no Fast RAM: with one, P6RM carries it. No UAEFS board, no trap area, no EXTER queue: they do not exist.
+//   the overlay, for each hard file, as above.
 #include "state.h"
 
 #include <stddef.h>
@@ -45,6 +53,8 @@ extern bool p6_uaefs_state_get(uint32_t *w, unsigned n, uint8_t *bytes);        
 extern bool p6_uaefs_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes);
 extern bool p6_expamem_image_get(uint8_t *bytes, unsigned n);                                // expansion.cpp 0221
 extern bool p6_expamem_image_set(const uint8_t *bytes, unsigned n);
+
+#include "ide_units.h"
 
 using p6_session::session;
 
@@ -254,6 +264,42 @@ void visit_overlay_of(Archive &a, uint32_t j)
     }
 }
 
+// The IDE port of Gayle and its four drive slots (the section of a machine on Gayle's IDE, see the layout at the top).
+void visit_ide(Archive &a)
+{
+    static uint32_t drive[4][kIdeWords];
+    static uint8_t buffer[4][kIdeSecbufMax];
+    uint32_t chip[kGayleWords] = {}, length[4] = {};
+    memset(drive, 0, sizeof drive);
+    if (a.mode() == Mode::Save) {
+        a.require(p6_gayle_state_get(chip, kGayleWords), "Gayle is not in a state that can be saved");
+        for (unsigned unit = 0; unit < 4 && a.ok(); ++unit)
+            a.require(p6_gayle_drive_state_get(unit, drive[unit], kIdeWords, buffer[unit], &length[unit]), "an IDE drive is not in a state that can be saved");
+    }
+    word_run(a, chip, kGayleWords, "ide.gayle_word");
+    for (unsigned unit = 0; unit < 4 && a.ok(); ++unit) {
+        word_run(a, drive[unit], kIdeWords, "ide.drive_word");
+        length[unit] = a.val<uint32_t>(length[unit], 0, kIdeSecbufMax, "ide.buffer_length");
+        a.bytes(buffer[unit], measuring(a) ? kIdeSecbufMax : length[unit], "ide.buffer");
+    }
+    if (measuring(a) || !a.ok()) return;
+    // What the machine can have, from the number of hard files alone (unit j is slot j): the engine's own pure functions judge the values, so that applying cannot fail.
+    const uint32_t files = p6_bridge::hard_file_count();
+    a.require(p6_gayle_words_valid(chip, kGayleWords, files > 2), "ide: the registers of Gayle are outside what the chip can have");
+    for (unsigned unit = 0; unit < 4 && a.ok(); ++unit) {
+        const bool present = unit < files;
+        a.require(p6_ide_words_valid(drive[unit], kIdeWords, present), "ide: a drive is outside what a drive can have");
+        a.require(length[unit] == p6_ide_live_bytes(drive[unit], present), "ide: the sector buffer is not the one the transfer in hand says");
+    }
+    // The two drives of a channel are selected together.
+    a.require(drive[0][30] == drive[1][30] && drive[2][30] == drive[3][30], "ide: the drives of a channel are not on the same select line");
+    if (a.applying() && a.ok()) {
+        a.require(p6_gayle_state_set(chip, kGayleWords), "ide: the registers of Gayle do not fit the machine");
+        for (unsigned unit = 0; unit < 4 && a.ok(); ++unit)
+            a.require(p6_gayle_drive_state_set(unit, drive[unit], kIdeWords, buffer[unit], length[unit]), "ide: a drive does not fit the machine");
+    }
+}
+
 }  // namespace
 
 void visit_hdf(Archive &a)
@@ -262,6 +308,12 @@ void visit_hdf(Archive &a)
     if (!files) return;
     visit_identity(a, files);
     if (!a.ok()) return;
+    if (p6_bridge::ide_attached(session.config, files)) {
+        visit_ide(a);
+        if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0) visit_expansion(a, 0);
+        for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
+        return;
+    }
     visit_globals(a);
     for (uint32_t j = 0; j < files && a.ok(); ++j) {
         visit_unit(a, j);

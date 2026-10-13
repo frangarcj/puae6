@@ -43,12 +43,15 @@ class ExpansionSourceTests(unittest.TestCase):
                 allowed = str(tree / "od-win32/machdep/m68k.h")
                 self.assertNotIn("od-win32", content.replace(allowed, ""))
 
-    def test_actual_empty_catalog_and_bounded_device_lookup(self):
+    def test_actual_catalog_and_bounded_device_lookup(self):
+        # The catalog the profile ships holds one board, the IDE port of Gayle (T56); the lookups are also tried on an empty catalog and on one with two entries.
         tree = ROOT / "build/upstream"
         expansion = (tree / "expansion.cpp").read_text()
         rommgr = (tree / "rommgr.cpp").read_text()
-        start = expansion.index("// The fixed A500 profile")
+        start = expansion.index("// The fixed profile has no expansion")
         catalog = expansion[start:expansion.index("#else", start)]
+        table = catalog.index("const struct expansionromtype expansionroms[] = {")
+        table_end = catalog.index("\n};", table) + 3
         queries = function(rommgr, "const struct expansionromtype *get_unit_expansion_rom(")
         queries += function(rommgr, "const struct expansionromtype *get_device_expansion_rom(")
         exporter = function((tree / "cfgfile.cpp").read_text(), "static void write_filesys_config (")
@@ -58,15 +61,19 @@ class ExpansionSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="p6-expansion-catalog-") as directory:
             tmp = Path(directory)
             src, exe = tmp / "catalog.cpp", tmp / "probe"
-            for nonempty in (False, True):
+            for entries in (0, 1, 2):
                 data = catalog
-                if nonempty:
-                    data = data.replace("expansionroms[] = { { NULL } }",
-                                        'expansionroms[] = { { "one" }, { "two" }, { NULL } }')
+                if entries == 0:
+                    data = catalog[:table] + "const struct expansionromtype expansionroms[] = { { NULL } };" + catalog[table_end:]
+                elif entries == 2:
+                    data = catalog[:table] + 'const struct expansionromtype expansionroms[] = { { "one" }, { "two" }, { NULL } };' + catalog[table_end:]
                 src.write_text('#include "sysconfig.h"\n#include "sysdeps.h"\n'
                     '#include "options.h"\n#include "memory.h"\n#include "autoconf.h"\n'
-                    '#include "rommgr.h"\n#include "filesys.h"\n#include <cassert>\n'
+                    '#include "rommgr.h"\n#include "filesys.h"\n#include "gayle.h"\n#include <cassert>\n'
                     'static int warnings; static void cfgfile_warning(const TCHAR *, ...) { ++warnings; }\n'
+                    # the shipped table names the two functions of Gayle's IDE; the probe never calls them
+                    'bool gayle_ide_init(struct autoconfig_info*) { return false; }\n'
+                    'void gayle_add_ide_unit(int, struct uaedev_config_info*, struct romconfig*) {}\n'
                     + data + queries + exporter + '''
 int main() {
     static uae_prefs p{};
@@ -85,15 +92,24 @@ int main() {
     for (const auto &range: ranges) for (int unit=range[0]; unit<=range[1]; unit++) {
         const int index=unit-range[0];
         const auto *found=get_unit_expansion_rom(unit);
-        assert(found == (NONEMPTY && index<2 ? &expansionroms[index] : nullptr));
+        assert(found == (index<ENTRIES ? &expansionroms[index] : nullptr));
     }
-    if (!NONEMPTY) {
+    if (ENTRIES == 0) {
         assert(!expansionroms[0].name);
         assert(!get_device_expansion_rom(ROMTYPE_CPUBOARD));
         assert(!get_device_expansion_rom(ROMTYPE_CD32CART));
     }
+    if (ENTRIES == 1) {
+        // the IDE port of Gayle is the only board: found by its type, by the number of its controller, and nothing else is
+        assert(expansionroms[0].name && !expansionroms[1].name);
+        assert(get_device_expansion_rom(ROMTYPE_MB_IDE) == &expansionroms[0]);
+        assert(get_unit_expansion_rom(HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST) == &expansionroms[0]);
+        assert(!get_device_expansion_rom(ROMTYPE_CPUBOARD));
+        assert(!get_device_expansion_rom(ROMTYPE_CD32CART));
+        assert(!get_device_expansion_rom(ROMTYPE_MB_PCMCIA));
+    }
 }
-'''.replace("NONEMPTY", "true" if nonempty else "false"))
+'''.replace("ENTRIES", str(entries)))
                 for optimization in ("-O0", "-O2"):
                     subprocess.run([*common, optimization, str(src), "-o", str(exe)],
                                    check=True, timeout=60)

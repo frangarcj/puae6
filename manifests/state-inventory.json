@@ -2307,7 +2307,7 @@
         "upstream_compiled": false,
         "policy": "rebuild",
         "saved_fields": "None. save_cram/save_bram save contents only.",
-        "omitted": "mem_banks is a pure function of (profile, overlay_state): the presets have no Gayle or A3000 banks and no autoconfig unless a Fast RAM board is configured (its mapping is restored by the P6RM apply) and map_banks is called after boot only by map_overlay. ce_banktype depends on overlay_state: with ROM at 0, get_mem_bank(0) is not CHIPRAM so chip-RAM banks and (chipramtiming) the Slow RAM banks get FAST16 instead of CHIP16. baseaddr[] exists only for JIT (put_mem_bank does not write it), ce_cachable is read only by 020+/MMU code; highram_temp_bank is written only for banks >= 0x100 (none).",
+        "omitted": "mem_banks is a pure function of (profile, overlay_state): the presets have no A3000 banks, Gayle banks ($D80000-$DEFFFF) only with a hard file on the IDE (T56: cs_ide, a function of the config) and no autoconfig unless a Fast RAM board is configured (its mapping is restored by the P6RM apply) and map_banks is called after boot only by map_overlay. ce_banktype depends on overlay_state: with ROM at 0, get_mem_bank(0) is not CHIPRAM so chip-RAM banks and (chipramtiming) the Slow RAM banks get FAST16 instead of CHIP16. baseaddr[] exists only for JIT (put_mem_bank does not write it), ce_cachable is read only by 020+/MMU code; highram_temp_bank is written only for banks >= 0x100 (none).",
         "pointers": "mem_banks[] is an array of addrbank* (static objects with function pointers, host baseaddr, ABFLAG_MAPPED flag); ce_banktype/ce_cachable are derived bytes; chipmem_full_mask/chipmem_full_size and last_address_space_24 are derived from prefs. None may be serialized.",
         "rebuild": "memory_reset() with mem_hardreset == 0 re-creates the map without clearing RAM (memory_clear runs only if mem_hardreset != 0, reallocation only if sizes changed), then map_overlay(saved OVL). Keep mem_hardreset == 0 so RAM is not cleared.",
         "evidence": [
@@ -7837,11 +7837,12 @@
           "SCS3",
           "SCS4"
         ],
-        "reason": "no Gayle or SCSI controller in any profile: the hard files of the UAE controller (T29a) are not saved by upstream's chunks but by the hard-file section of P6DK (visit_hdf)",
+        "reason": "no SCSI controller in any profile; Gayle and its IDE (GAYL, IDE ) exist only with p6_config.hdf_controller = IDE and a hard file (T56): upstream's save_gayle and save_gayle_ide write the registers of a drive and nothing of the transfer in hand, the UAE controller (T29a) keeps host paths, so neither is written: the hard files, on either controller, are saved by the hard-file section of P6DK (visit_hdf: the UAE controller, or visit_ide: the registers of Gayle, the four IDE slots with the values of their transfer and the bytes of their sector buffer, patches 0320 and 0321)",
         "evidence": [
           "bridge/media.cpp",
           "bridge/config.cpp",
-          "bridge/state_hdf.cpp"
+          "bridge/state_hdf.cpp",
+          "bridge/ide_units.h"
         ]
       },
       {

@@ -3,6 +3,7 @@
 //   p6_hdf_probe ROM a500|a600|a1200 pal|ntsc SEED UNITS DUMP [HDF...]
 // Output: one line per unit (registers and a digest of the whole machine, so that two processes can be compared), the checks on the caller's buffers and, when the
 // images or the load are refused, the refusal. Exit 0 when the load and every unit succeeded, 3 when the load was refused (the message is printed), 4 for a failed unit.
+// With P6_PROBE_IDE=1 the hard files are on the IDE port of Gayle (p6_config.hdf_controller, T56).
 // With P6_PROBE_STATE=1 the probe also asks for the state bound and a save and prints the answers (a session with a hard file has none).
 #include "p6.h"
 #include "media.h"
@@ -121,6 +122,7 @@ int main(int argc, char **argv)
     c.audio_rate_hz = 48000;
     c.random_seed = seed;
     c.rtc_epoch_seconds = 946684800;
+    if (getenv("P6_PROBE_IDE")) c.hdf_controller = P6_HDF_CONTROLLER_IDE;      // T56: the hard files on the IDE port of Gayle (A600 and A1200)
     if (p6_init(&c, &error) != P6_OK) { fprintf(stderr, "init: %s\n", error.message); return 3; }
     if (const char *cycles = getenv("P6_PROBE_CYCLES")) {
         // Load, run two units and unload again and again; what the heap holds after each cycle must not grow.

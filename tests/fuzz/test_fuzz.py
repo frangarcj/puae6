@@ -242,6 +242,65 @@ class HardFileFuzzTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, "no image given: the target refuses it")
 
 
+@unittest.skipUnless(TOOLS, "toolchain unavailable")
+class IdeHardFileFuzzTests(unittest.TestCase):
+    """FUZZ01 for the hard files on the IDE port of Gayle (T56): the same hostile Rigid Disk Blocks as the UAE controller's, on the A600 with p6_config.hdf_controller = IDE. The engine
+    parses them in hdf_hd_open (the geometry out of the RDB, the RDB it makes for a bare partition); the guest is the micro-ROM of tests/hdf/ide_rom.py that identifies the drive and reads and
+    writes blocks through the registers of Gayle, with the interrupt enabled. Built with ASan and UBSan, no recover; the state of the machine that parsed the disk is saved and loaded back and
+    the machine runs a unit more. Also: a guest that pokes at the registers at random (ide_rom.chaos_program) on a good disk, with the same state round trip."""
+
+    ENV = {**ENV, "ASAN_OPTIONS": "detect_leaks=0:max_allocation_size_mb=24"}
+
+    @classmethod
+    def setUpClass(cls):
+        from tests.hdf import hdf_image, ide_rom
+        cls.exe = build_probe(ROOT / "build/native-debug", True, "p6_fuzz_probe")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-fuzz-ide-")
+        directory = Path(cls.tmp.name)
+        cls.rom = directory / "ide.rom"
+        cls.rom.write_bytes(ide_rom.rom())
+        cls.chaos = directory / "chaos.rom"
+        cls.chaos.write_bytes(ide_rom.chaos_rom(0x1234ABCD))
+        images = {"handler": hdf_image.rdb_image(cylinders=16, handler_blocks=3), "rdb": hdf_image.rdb_image(cylinders=16), "big": hdf_image.rdb_image(cylinders=64, handler_blocks=1),
+                  "loop": hdf_image.rdb_image(cylinders=16, fshd_loop=True), "plain": hdf_image.plain_partition(256)}
+        cls.images = []
+        for name, data in images.items():
+            path = directory / f"{name}.hdf"
+            path.write_bytes(data)
+            cls.images.append(str(path))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_target(self, seed, iterations, rom=None):
+        return subprocess.run([str(self.exe), "hardfile-ide", str(rom or self.rom), str(seed), str(iterations), *self.images], capture_output=True, text=True, timeout=3600, env=self.ENV)
+
+    def test_the_recorded_seeds_run_clean_and_reach_loaded_and_refused_disks(self):
+        for run in CORPUS["hardfile_runs"]:
+            with self.subTest(seed=run["seed"], iterations=run["iterations"]):
+                result = self.run_target(run["seed"], run["iterations"])
+                self.assertTrue(clean(result), result.stderr[-1200:])
+                results = {int(m[1]): int(m[2]) for m in re.finditer(r"^hardfile result (-?\d+): (\d+)$", result.stdout, re.M)}
+                self.assertIn(0, results, "some disks load")
+                self.assertTrue(set(results) - {0}, "and some are refused (not whole blocks)")
+                loaded = re.search(r"^hardfile loaded (\d+) states (\d+)$", result.stdout, re.M)
+                self.assertEqual(loaded[1], loaded[2], "every loaded disk gave a state that loaded back")
+
+    def test_a_guest_that_pokes_at_random_on_hostile_disks_runs_clean(self):
+        for seed in (1, 2):
+            with self.subTest(seed=seed):
+                result = self.run_target(seed, 30, rom=self.chaos)
+                self.assertTrue(clean(result), result.stderr[-1200:])
+                loaded = re.search(r"^hardfile loaded (\d+) states (\d+)$", result.stdout, re.M)
+                self.assertEqual(loaded[1], loaded[2])
+
+    def test_a_run_is_reproducible(self):
+        first = self.run_target(3, 40)
+        self.assertTrue(clean(first), first.stderr[-600:])
+        self.assertEqual(first.stdout, self.run_target(3, 40).stdout)
+
+
 CONTENT_KINDS = ("random-bytes", "valid-flipped", "long-line", "path-length-boundary", "nul", "bom-middle", "cr-only", "bar", "savedisk", "many-entries",
                  "huge-path", "path-forms", "utf8-invalid", "whitespace", "huge-file")
 HDZ_KINDS = ("valid-hdz", "valid-hdf", "hdz-flipped", "hdz-truncated", "hdz-trailing", "hdz-bad-crc", "hdz-bad-size", "wrong-size", "over-cap", "bomb", "random-gzip",

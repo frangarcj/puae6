@@ -3932,6 +3932,119 @@
           "after_sha256": "af963b3efd129713b9d082fd2e48189d16127d416e346c1122b30e07e1f4adc0"
         }
       ]
+    },
+    {
+      "id": "0320-ide-hard-disks-synchronous",
+      "file": "patches/winuae/0320-ide-hard-disks-synchronous.patch",
+      "sha256": "1047fa9977e802cf1f8e568fb4e15b21bc0cf675ec3ef00cfddc36c28dcc7156",
+      "title": "IDE with hard disks only, served at once (no thread, no ATAPI, no .ini)",
+      "reason": "Gayle's IDE port (T56) needs ide.cpp, which serves each read and write command from a thread through a comm pipe and carries the ATAPI CD-ROM and tape devices and the .ini identity overrides. In the port the drive does the work of the command in the write that starts it (the interrupt still follows by the irq_delay of the drive, in lines of emulated time), ATAPI and the .ini file are not built, and the state of a drive is read and put back by p6_ide_state_get/set.",
+      "category": "host hooks",
+      "order": 146,
+      "symbols": [
+        "add_ide_unit",
+        "ata_get_identity",
+        "ide_do_command",
+        "ide_get_data_2",
+        "ide_identity_buffer",
+        "ide_put_data_2",
+        "ide_thread",
+        "process_packet_command",
+        "process_rw_command",
+        "remove_ide_unit",
+        "start_ide_thread",
+        "stop_ide_thread",
+        "p6_ide_live_bytes",
+        "p6_ide_state_get",
+        "p6_ide_state_set",
+        "p6_ide_words_valid"
+      ],
+      "test": "tests/hdf/test_ide.py; tests/state/test_det02_ide.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ide.cpp",
+          "before_sha256": "f0cb5ff53e12258726acf4cf1c21dbe0bf8aa2a2a0dc6e6199bcf3a4588f9b7d",
+          "after_sha256": "12d3e57a95e9e5e29c066efb4aaaaf2fcfbb5c41342c86d91b13f364e446c79e"
+        }
+      ]
+    },
+    {
+      "id": "0321-gayle-ide-port",
+      "file": "patches/winuae/0321-gayle-ide-port.patch",
+      "sha256": "3af32ae720cbc7ddfee7297ccf26c54ef8ec180b5e9d09178a82f9ce79615b2a",
+      "title": "Gayle with its IDE port only",
+      "reason": "The IDE of the A600 and the A1200 sits behind Gayle (T56). gayle.cpp is built for its IDE registers, the Gayle ID and the interrupt; the PCMCIA card slot, Fat Gary/Ramsey, the A4000T SCSI and the Dataflyer are not (no card memory, no card insertion, no host-thread hooks, no savestate hooks). The hard files come from the bridge before the machine starts and each reset opens them again, as filesys_reset does with its units; the registers and the drives are read and put back by p6_gayle_state_* and p6_gayle_drive_state_*.",
+      "category": "host hooks",
+      "order": 147,
+      "symbols": [
+        "gayle_free",
+        "gayle_free_units",
+        "gayle_hsync",
+        "gayle_init",
+        "gayle_map_pcmcia",
+        "gayle_reset",
+        "initide",
+        "isdataflyerscsiplus",
+        "p6_gayle_drive_state_get",
+        "p6_gayle_drive_state_set",
+        "p6_gayle_state_get",
+        "p6_gayle_state_set",
+        "p6_gayle_unit",
+        "p6_gayle_units_clear",
+        "p6_gayle_words_valid"
+      ],
+      "test": "tests/hdf/test_ide.py; tests/state/test_det02_ide.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "gayle.cpp",
+          "before_sha256": "1cecbfad9737124720ff3f871acc5c209e01627b8a6530ecc2fd17de0460444d",
+          "after_sha256": "6b52caea7a4141e01d1aa36cece2c57c90707d31614d265e7c5aca207cab2d2d"
+        }
+      ]
+    },
+    {
+      "id": "0322-gayle-machine-hooks",
+      "file": "patches/winuae/0322-gayle-machine-hooks.patch",
+      "sha256": "4351dc1291ae76336d1f7bd6199eb57c88e2565a298e27a34e0eeed1862092fb",
+      "title": "Gayle banks, the card of its IDE port and the walk of the chain",
+      "reason": "T56: the Gayle banks ($D80000-$DFFFFF) were not mapped in the profile and the table of expansion boards was empty. The IDE port of Gayle is the one non-autoconfig card the table has; the chain of cards is walked (expamem_reset) and expansion_init runs while cs_ide is set, as it is for a Fast RAM board or a hard file of the UAE controller. Fat Gary and Ramsey stay out.",
+      "category": "host hooks",
+      "order": 148,
+      "symbols": [
+        "custom_reset",
+        "expansionroms",
+        "memory_reset",
+        "virtualdevice_init"
+      ],
+      "test": "tests/hdf/test_ide.py (the Gayle ID, the IDE registers and an INT2 from the drive)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "cba17dfa5ebc69f2c2668addcd8204bfa7b790ea9cb761458e9cbd258711fbc4",
+          "after_sha256": "782c3ca6996937e2f443b9cab1e9d27fa0c90cc57496e9ca9e008cfc2455317f"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "36696576765cf1e5c20839cf8a5ee8a4a4d853598ebb7295e04eb5b848e5a9c2",
+          "after_sha256": "c29320d477ac40348bae076d4354a04b899e448ec4e1d317a9ac005ccd0b5c3b"
+        },
+        {
+          "path": "devices.cpp",
+          "before_sha256": "5d800d85781457fa28b0ded03e7083b30cbff8acf7dc9f81730e70fc1fa0a8af",
+          "after_sha256": "e033bc47534ca080e07941668e9acf212cf8e11c7152508376f2e26c25180e05"
+        },
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "ff2b015e7869b08dc2f24dadf1f32fa84a66974fc03a07dc77950fd7e9b5de1d",
+          "after_sha256": "f3d6522e49610eb794e9ddbe5eb1ba669904f6aea5ec1bbfd9262be3869d7beb"
+        }
+      ]
     }
   ]
 }

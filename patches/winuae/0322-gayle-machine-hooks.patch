@@ -1,0 +1,71 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -3365,8 +3365,7 @@
+ 			map_banks (&bogomem_bank, 0xC0, t, 0);
+ 		initramboard(&bogomem_bank, &currprefs.bogomem);
+ 	}
+-#ifndef P6_PORTABLE
+-	// Gayle (A600/A1200 IDE and PCMCIA, A4000 IDE) is not part of the A500 profile.
++	// T56: Gayle with its IDE port (cs_ide) is part of the A600 and the A1200 when a hard file is attached to it; the presets leave cs_ide at 0 otherwise (bridge/config.cpp)
+ 	if (currprefs.cs_ide || currprefs.cs_pcmcia) {
+ 		if (currprefs.cs_ide == IDE_A600A1200 || currprefs.cs_pcmcia) {
+ 			map_banks (&gayle_bank, 0xD8, 6, 0);
+@@ -3379,7 +3378,6 @@
+ 		if (currprefs.cs_ide < 0)
+ 			map_banks (&gayle_bank, 0xDD, 1, 0);
+ 	}
+-#endif
+ 	if (currprefs.cs_rtc == 3) { // A2000 clock
+ 		map_banks (&clock_bank, 0xD8, 4, 0);
+ 		clock_bank.startmask = 0xd80000;
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7195,7 +7195,8 @@
+ #elif defined(P6_PORTABLE)
+ 	// T49: the autoconfig chain is walked only while a Zorro II Fast RAM board is configured
+ 	// T29a: and while a hard file is mounted
+-	if (currprefs.fastmem[0].size || currprefs.mountitems)
++	// T56: and while Gayle has its IDE port (a card of the chain that is not autoconfig: it resets the drives and registers the hooks of the chip)
++	if (currprefs.fastmem[0].size || currprefs.mountitems || currprefs.cs_ide)
+ 		expamem_reset(hardreset);
+ #endif
+ }
+diff --git a/devices.cpp b/devices.cpp
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -516,7 +516,8 @@
+ 	uaeexe_install ();
+ #elif defined(P6_PORTABLE)
+ 	// T49: the Zorro II Fast RAM board is allocated at load, as the Chip RAM is, so that its region and the state bound exist before the first unit
+-	if (currprefs.fastmem[0].size || P6_WITH_HDF)
++	// T56: and the IDE port of Gayle
++	if (currprefs.fastmem[0].size || P6_WITH_HDF || currprefs.cs_ide)
+ 		expansion_init ();
+ #endif
+ #if defined(FILESYS) || defined(P6_FILESYS)
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -4533,8 +4533,18 @@
+ #endif /* SAVESTATE */
+ 
+ #ifdef P6_PORTABLE
+-// The fixed A500 profile has no expansion peripherals or accelerator boards.
+-const struct expansionromtype expansionroms[] = { { NULL } };
++// The fixed profile has no expansion peripherals or accelerator boards. T56: the one board of the table is the IDE port that Gayle gives the A600 and the A1200 (a card that is
++// not autoconfig, which upstream lists among the motherboard devices); its drives are the hard files of the session (gayle.cpp).
++const struct expansionromtype expansionroms[] = {
++	{
++		_T("ide_mb"), _T("A600/A1200/A4000 IDE"), _T("Commodore"),
++		NULL, gayle_ide_init, NULL, gayle_add_ide_unit, ROMTYPE_MB_IDE | ROMTYPE_NOT, 0, 0, BOARD_NONAUTOCONFIG_BEFORE, true,
++		NULL, 0,
++		false, EXPANSIONTYPE_INTERNAL | EXPANSIONTYPE_IDE,
++		0, 0, 0, false, NULL, false, 1
++	},
++	{ NULL }
++};
+ static const struct cpuboardsubtype dummy_sub[] = { { NULL } };
+ const struct cpuboardtype cpuboards[] = {
+ 	{ -1, _T("-"), dummy_sub, 0 },

@@ -66,6 +66,10 @@ static p6_config make_config(uint32_t machine, uint32_t standard)
     X(cs_ksmirror_a8) X(cs_ciaoverlay) X(cs_ciatype[0]) X(cs_ciatype[1]) X(cs_eclocksync) X(cs_df0idhw) X(cs_ciatodbug) \
     X(cs_1mchipjumper)
 
+// T56: Gayle's IDE as a board of the motherboard list (upstream's A600 and A1200 tables put it there; the bridge's preset has it only with a hard file on the IDE).
+#define PINNED_GAYLE(X) \
+    X(expansionboard[0].device_type)
+
 // T50: what the tables of the A1000 and the A2000 set besides: the mains-driven CIA TOD, the unmapped space, the A1000 RAM board and the 8361/8362 chips, the E0 mirror of the Kickstart.
 #define PINNED_T50(X) \
     X(cs_ciaatod) X(cs_unmapped_space) X(cs_a1000ram) X(cs_agnusmodel) X(cs_denisemodel) X(cs_ksmirror_e0)
@@ -77,6 +81,9 @@ static void print_pinned(const char *tag, const char *standard, const uae_prefs 
     PINNED(X)
     if (level >= 1) {
         PINNED_A600(X)
+    }
+    if (level == 1) {
+        PINNED_GAYLE(X)
     }
     if (level >= 2) {
         PINNED_T50(X)
@@ -128,7 +135,7 @@ int main(int argc, char **argv)
         built_in_prefs(&currprefs, machine->model, machine->config, 0, 0);
         fixup_prefs(&currprefs, true);
         memcpy(&upstream_prefs, &currprefs, sizeof currprefs);
-        p6_bridge::build_preferences(config);
+        p6_bridge::build_preferences(config, false);
         memcpy(&bridge_prefs, &currprefs, sizeof currprefs);
         print_pinned("pinned", name, bridge_prefs, machine->level);
         print_pinned("upstream", name, upstream_prefs, machine->level);      // the same facts as upstream's own preset has them: the test judges each field's source by them

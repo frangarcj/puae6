@@ -779,7 +779,8 @@
             "cfgfile.cpp",
             "rommgr.cpp",
             "savestate.cpp",
-            "hardfile.cpp"
+            "hardfile.cpp",
+            "gayle.cpp"
           ],
           "zfile_fopen": [
             "cia.cpp",
@@ -791,7 +792,8 @@
             "main.cpp",
             "savestate.cpp",
             "filesys.cpp",
-            "hardfile.cpp"
+            "hardfile.cpp",
+            "gayle.cpp"
           ],
           "zfile_fclose": [
             "cia.cpp",
@@ -804,7 +806,8 @@
             "main.cpp",
             "savestate.cpp",
             "filesys.cpp",
-            "hardfile.cpp"
+            "hardfile.cpp",
+            "gayle.cpp"
           ],
           "zfile_size32": [
             "cia.cpp",

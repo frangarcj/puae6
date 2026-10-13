@@ -43,14 +43,19 @@ bool audio_is_profile(const p6_config &config);
 // When the config is not the profile's: the four resolved settings as the bytes config_hash is derived from (state.cpp: domain p6/config/audio/v1, over the hash of the flags word and these bytes).
 bool audio_identity(const p6_config &config, uint8_t out[4]);
 
+// The IDE port of Gayle (T56, p6_config.hdf_controller): the A600 and the A1200 have it, and it is switched on only while a hard file is behind it (Gayle with nothing attached is never
+// emulated). True when the config asks for IDE on a machine that has Gayle and the list given to p6_load holds `hard_files` hard files (at least one). A config for which this is false
+// is the machine the default config is, in every identity; one for which it is true derives config_hash from the one above and a byte (state.cpp: domain p6/config/ide/v1).
+bool ide_attached(const p6_config &config, uint32_t hard_files);
+
 // Pure checks; the engine is not touched, so a rejected config or firmware costs nothing.
 p6_result validate_config(const p6_config &config, p6_error *error);
 p6_result validate_memory(const p6_config &config, p6_error *error);
 p6_result validate_firmware(const p6_buffer &firmware, p6_error *error);
 
 // Fills currprefs with the preset for `config` (upstream built_in_prefs config 0 of model 0 = A500, 2 = A600 or 4 = A1200, the
-// overrides of the profile file, then upstream fixup_prefs). Touches only preference globals.
-void build_preferences(const p6_config &config);
+// overrides of the profile file, then upstream fixup_prefs). Touches only preference globals. `ide` is ide_attached(config, hard files of the list): the preset then has Gayle's IDE port.
+void build_preferences(const p6_config &config, bool ide);
 
 // Frees the device names and configuration names that the engine's input matching (matchdevices) gives to the preference
 // globals on every load and never releases. currprefs and changed_prefs share them (copy_prefs copies the pointers), so each

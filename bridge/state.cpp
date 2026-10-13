@@ -130,7 +130,9 @@ constexpr unsigned kExpansionWords = 13;
 // those two has the same words with the Fast RAM ones at zero, and its chain is described by the hard-file section of P6DK (visit_hdf), which calls this with `fast` 0.
 void visit_expansion(Archive &a, uint32_t fast)
 {
-    const uint32_t cards = (fast ? 1u : 0u) + (p6_bridge::hard_file_count() ? 2u : 0u);   // the hard file adds the UAEFS board and the UAE boot ROM (a card with no autoconfig, expamem_rtarea_init)
+    // the hard file adds the UAEFS board and the UAE boot ROM (a card with no autoconfig, expamem_rtarea_init); on Gayle's IDE (T56) it adds one card instead, the IDE port itself (not autoconfig either)
+    const bool ide = p6_bridge::ide_attached(session.config, p6_bridge::hard_file_count());
+    const uint32_t cards = (fast ? 1u : 0u) + (ide ? 1u : p6_bridge::hard_file_count() ? 2u : 0u);
     uint32_t w[kExpansionWords] = {};
     uint8_t ac[256] = {};
     if (a.mode() == Mode::Save)
@@ -266,6 +268,13 @@ Identity current_identity()
         const uint8_t *parts[2] = {identity.config_hash, cpu};
         const uint64_t lengths[2] = {32, 2};
         domain_hash("p6/config/cpu/v1", parts, lengths, 2, identity.config_hash);
+    }
+    // T56: Gayle's IDE port, while a hard file is behind it (a config that asks for IDE and has no hard file is the default machine and keeps its hash).
+    if (p6_bridge::ide_attached(c, p6_bridge::hard_file_count())) {
+        const uint8_t ide[1] = {P6_HDF_CONTROLLER_IDE};
+        const uint8_t *parts[2] = {identity.config_hash, ide};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/ide/v1", parts, lengths, 2, identity.config_hash);
     }
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);

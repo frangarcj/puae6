@@ -4,6 +4,7 @@
 // T12: a 901120-byte file with the extended-ADF magic and a track count of 0xFFFF overruns the drive's track table),
 // so this file is the only gatekeeper: an image reaches the engine only after it passed every check below.
 #include "media.h"
+#include "ide_units.h"
 #include "error_util.h"
 #include "session.h"
 #include "sha256.h"
@@ -136,7 +137,7 @@ uint32_t hard_files_in(const p6_media *media, uint32_t count)
     return n;
 }
 
-p6_result mount_hard_files(const p6_media *media, uint32_t count, p6_error *error)
+p6_result mount_hard_files(const p6_media *media, uint32_t count, bool ide, p6_error *error)
 {
     uint32_t unit = 0;
     for (uint32_t i = 0; i < count; ++i) {
@@ -146,12 +147,20 @@ p6_result mount_hard_files(const p6_media *media, uint32_t count, p6_error *erro
         uaedev_config_info ci;
         uci_set_defaults(&ci, rdb);
         ci.type = UAEDEV_HDF;
-        ci.controller_type = HD_CONTROLLER_TYPE_UAE;
+        ci.controller_type = ide ? HD_CONTROLLER_TYPE_IDE_AUTO : HD_CONTROLLER_TYPE_UAE;
         ci.readonly = false;                                             // writes go to the overlay of the image (P6_BLOB_HDF), never to the base
         ci.blocksize = int(kHdfBlock);
         media_blob_id(media[i].content_id, ci.rootdir);                  // hdf_open_target looks the image up by this id
         snprintf(ci.devname, sizeof ci.devname, "DH%u", unit);
         ci.controller_unit = int(unit);
+        if (ide) {
+            // T56: the drives of Gayle's IDE (unit j = master, slave, then the pair behind the splitter) are opened by gayle.cpp on every reset; there is no mount list, no UAEFS board and
+            // no trap area behind them.
+            if (!p6_gayle_unit(int(unit), &ci))
+                return p6_fail(error, P6_ERROR_CAPACITY, "a hard file could not be attached to the IDE");
+            ++unit;
+            continue;
+        }
         // What add_filesys_config does for a unit of the UAE controller, which cfgfile.cpp excludes together with the text configuration around it.
         if (currprefs.mountitems >= MOUNT_CONFIG_SIZE)
             return p6_fail(error, P6_ERROR_CAPACITY, "a hard file could not be mounted");

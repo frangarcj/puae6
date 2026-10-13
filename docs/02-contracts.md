@@ -296,7 +296,7 @@ preferencias que construye `bridge/config.cpp`, campo a campo, y cada campo que 
 | Slow (Bogo) RAM | 512 KiB | ninguna | ninguna |
 | Fast RAM | ninguna de serie; opcional una placa Zorro II autoconfig de 1, 2, 4 u 8 MiB (`p6_config.fast_kib`, T49) | igual | igual |
 | RTC | MSM6242B (epoca de la config) | ninguno de serie (el cuerpo `P6RT` del estado va vacio) | ninguno de serie (igual) |
-| Gayle / IDE / PCMCIA | no existe | NO emulado: `cs_ide = cs_pcmcia = cs_compatible = 0`, `gayle.cpp`/`ide.cpp` no se compilan; un `.hdf`/PCMCIA no se acepta | NO emulado (igual; el IDE es T56); `$DE1000` sin Gayle cae en el espejo de custom |
+| Gayle / IDE / PCMCIA | no existe | de serie NO: `cs_ide = cs_pcmcia = cs_compatible = 0`; con `p6_config.hdf_controller = IDE` y un HDF, Gayle con su puerto IDE (T56, ver "Gayle con IDE"); sin PCMCIA | igual; sin Gayle, `$DE1000` cae en el espejo de custom |
 | Kickstart probado | 1.3 (r34.5) | 2.05 (r37.350), con Workbench 2.05 r37.71 de disco | 3.1 (r40.68), hasta la pantalla de insertar disco y con una demo AGA gratuita (Catabasis) cargada de disco |
 | Selector | libretro `puae6_machine` = `A500` (defecto) / `A600` / `A1200` (reinicio; el `A1200` es el A1200OG de PUAE5); headless `--machine`; BizHawk sync setting `Machine` | igual | igual |
 | FirmwareID BizHawk | Amiga/A500 | Amiga/A600 | Amiga/A1200 |
@@ -318,7 +318,7 @@ calculados desde la semantica del M68020UM (`tests/host/test_cpu_020.py`, `tests
 de Waterbox, libretro con RetroArch real y el nucleo BizHawk (WB03).
 
 NO probado (no afirmar compatibilidad): otros Kickstart que el motor acepta por contenido (2.04 o 3.1 r40.063 en el A600, el Kickstart 3.0 en el A1200; T51 mide el 2.05 en el A500 y otros arranques, ver "Kickstart alternativo y rom.key"); configuraciones del
-el Kickstart 3.1 del A600 (r40.063, el del A600 de PUAE5; no hay copia autorizada) y Chip de 1,5 MiB; FPU (T54); Gayle e IDE (T56) y PCMCIA; 68030/040/060 y otros 020 sin el bus de 24 bits (T55); la interfaz de EmuHawk
+el Kickstart 3.1 del A600 (r40.063, el del A600 de PUAE5; no hay copia autorizada) y Chip de 1,5 MiB; FPU (T54); la ranura PCMCIA y sus tarjetas (el IDE de Gayle es T56); 68030/040/060 y otros 020 sin el bus de 24 bits (T55); la interfaz de EmuHawk
 (el wrapper se probo por FFI y en el arnes, no con la UI); CD32/CDTV. La compatibilidad del A1200 con juegos y demos AGA mas alla de la demo citada no esta medida.
 
 Medido (lo que hace el motor, no una afirmacion de lo que hace un chip real): la tabla upstream identifica el A600 como 8372A (VPOSR `$20`/`$30`) y el A1200 por Alice `$23`/`$33`;
@@ -332,7 +332,7 @@ de modo que el campo largo y el entrelazado (0,3 %) no lo disparan y un cambio r
 (`P6_FRAME_NO_VIDEO`); fuera de `active` todo byte vale cero en cada unidad, tambien en la transicion de haz (T23g) y en los modos AGA mas anchos (T24d). En el A1200,
 `waiting_blits = 0` (el preset de upstream pone 1, "automatico", para toda CPU desde el 68020: la espera del blitter correria dentro de la escritura que lo arranca, un atajo de emulacion
 sin hardware detras y un bucle en mitad de una instruccion; con 0 la CPU ejecuta sus propios bucles de sondeo, como en las maquinas de 68000), de modo que un programa que cuenta con ese
-atajo no lo encuentra; sin Gayle, `$DE1000` y su banco leen el espejo de custom en lugar de un registro de Gayle. El A1200 de serie es el A1200OG de PUAE5; el que lleva 8 MiB de Fast RAM es el preset `a1200_fast8` (T49).
+atajo no lo encuentra; sin Gayle (el A600 y el A1200 de serie, y con la opcion IDE pero sin HDF), `$DE1000` y su banco leen el espejo de custom en lugar de un registro de Gayle. El A1200 de serie es el A1200OG de PUAE5; el que lleva 8 MiB de Fast RAM es el preset `a1200_fast8` (T49).
 
 ### Presets A500 OG, A500+, A1000, A2000 OG y A2000 (T50)
 
@@ -438,7 +438,7 @@ cuerpo de `P6CP` la rechaza por su longitud. Opciones: libretro `puae6_cpu_model
 `--cpu auto|68000|68010|68020` y el sync setting `CpuModel` de BizHawk (en la identidad del estado y de la pelicula solo fuera de `Auto`: `;cpu=M68010`).
 
 
-`p6_config.cpu_multiplier` (un byte, offset 64: el primero de lo que era `reserved1`, que queda como `reserved7[7]`): el `cpu_clock_multiplier` de upstream (N << 8) con los valores de PUAE5 (`puae_cpu_multiplier`):
+`p6_config.cpu_multiplier` (un byte, offset 64: el primero de lo que era `reserved1`; T56 toma el siguiente para `hdf_controller` y el resto queda como `reserved7[6]`): el `cpu_clock_multiplier` de upstream (N << 8) con los valores de PUAE5 (`puae_cpu_multiplier`):
 **cero es el de la maquina** (2 en las de 68000, 4 en el A1200), y 1, 2, 4, 8, 10, 12 o 16; otro valor es `P6_ERROR_UNSUPPORTED`. Un ciclo de reloj de la CPU dura `CYCLE_UNIT / N` (`cpucycleunit`), de modo que
 N = 2 son los 7,09 MHz de una 68000 y N = 4 los 14,19 MHz de la 68EC020 del A1200; 1 son 3,55 MHz y 16 56,75 MHz. Es **determinista**: solo cambia cuantos ciclos de color emulados cuesta cada acceso y cada
 instruccion (el bus del chipset, el DMA y el refresco siguen donde estan), nunca se mide tiempo real ni hay "velocidad maxima" ligada al host. Tambien es una opcion de reinicio y entra en el mismo hash derivado.
@@ -571,6 +571,39 @@ pueda redistribuir con el nucleo (decision de T06b2ba: retirado del perfil). Tam
 llegan a la pantalla de insertar disco, tras 1 200 unidades y sin cambiar nada mas, el 2.05 en el A500, el A500 OG, el A500+, el A1000, el A2000 y el A1200, y el 1.3 en el A600, el A500+, el A2000 y el A1200; el
 3.1 r40.68 del A1200 se rechaza con el motivo anterior en el A500, A600, A500+, A500 OG, A1000, A2000 OG y A2000 (68000). Eso comprueba que la maquina corre, no compatibilidad con juegos. NO probado: el 1.2, el 2.04, el 3.0
 y el 3.1 r40.063 (no hay copia autorizada), cualquier ROM cifrado real de Amiga Forever y un Kickstart elegido desde EmuHawk.
+
+
+### Gayle con IDE (T56)
+
+Decision (2026-10-13, la del orquestador; el usuario puede cambiarla): el A600 y el A1200 de serie NO cambian: Gayle sigue apagado (`cs_ide = cs_pcmcia = cs_compatible = 0`), con los mismos hashes, `config_hash` y estados.
+El IDE de Gayle es una opcion de reinicio, `p6_config.hdf_controller` (un byte, offset 65, en lo que era `reserved7`): `P6_HDF_CONTROLLER_UAE` (0, por defecto: `uaehf.device` y la placa UAEFS, como PUAE5) o
+`P6_HDF_CONTROLLER_IDE` (1). Solo el A600 y el A1200 tienen Gayle: IDE en otra maquina, o un valor mayor que 1, es `P6_ERROR_UNSUPPORTED` con el motivo en `p6_init`. **Gayle se enciende solo si hay un HDF detras**: una
+config con IDE y sin HDF en `p6_load` es la maquina por defecto (mismo preset, mismos bytes, mismo `config_hash`, mismos estados y peliculas), nunca un Gayle vacio (`bridge/config.cpp ide_attached`). Con IDE y al menos un HDF,
+`config_hash` es el de siempre derivado con un byte (dominio `p6/config/ide/v1`), igual que la CPU y el audio: un estado del IDE no carga en la maquina del controlador UAE (ni al reves) y los dos son INCOMPATIBLE por `config_hash`.
+
+Motor (parches 0320-0322): `gayle.cpp` e `ide.cpp` se compilan SOLO para el puerto IDE de Gayle (los registros de la interrupcion IDE, el ID de Gayle y los discos duros): quedan fuera la ranura PCMCIA y todas sus tarjetas
+(PCMCIA NO es necesaria para el IDE de Gayle: `cs_pcmcia` sigue en 0, `$DA8000` y la ventana de $A00000 leen lo que leian), Fat Gary/Ramsey, el SCSI del A4000T, el Dataflyer, los dispositivos ATAPI (CD-ROM, cinta), los `.ini`
+de identidad y el hilo del IDE: cada orden de lectura o escritura se sirve al escribirla (`process_rw_command`), y la interrupcion llega por el `irq_delay` del disco, en lineas de tiempo emulado, nunca por una decision de
+planificacion. Los HDF son las unidades 0 a 3 del IDE (maestro y esclavo del canal de Gayle en `$DA2000`, el par detras del IDE splitter en `$DA3000`), en el orden de la lista de `p6_load` y hasta `P6_MAX_HDF` = 4, sobre el
+mismo backend de bloques de T29 (lectura de la base inmutable, overlay de trozos de 4 KiB, `p6_media_export`): el mismo `content_id`, el mismo presupuesto, la misma exportacion, los mismos limites. Una imagen sin RDB lleva el
+RDB virtual del motor (como en el controlador UAE) y la geometria que el disco anuncia cubre TODO el disco, RDB incluido (el `hdf_hd_open` de upstream dimensiona los cilindros por la particion sola y el Kickstart 2.05, que
+direcciona por CHS, daba "read error on disk block 1163"). Con IDE no hay lista de montaje, ni placa UAEFS, ni zona de traps, ni cola EXTER (no existen): el Kickstart minimo es el que lleve el scsi.device de la maquina (el
+1.3 no lo trae; 2.05 y 3.1 si). Cada reset reabre los discos (`gayle_reset`), como `filesys_reset` con sus unidades.
+
+Estado (`bridge/state_hdf.cpp visit_ide`, la seccion de P6DK que solo existe con un HDF; un estado sin HDF no cambia ni de bytes): despues de la identidad (numero de HDF y content id de cada base) lleva 4 palabras de Gayle (estado y
+habilitacion de la interrupcion IDE, el contador del ID y el splitter), las cuatro ranuras IDE con 35 palabras cada una (registros, estado de la transferencia en curso, geometria que fijo el invitado) y los bytes del buffer de sector que
+la transferencia tiene en la mano (hasta 131584 por ranura; `p6_ide_live_bytes`; el buffer nace en ceros y cada transferencia lo pone a cero antes de empezar, de modo que un invitado que lee el puerto de datos mientras se escribe, o mas alla de lo que una lectura cargo, ve ceros y no lo que dejo el monton o una transferencia anterior: lo que el invitado puede leer es funcion de sus ordenes), la cadena autoconfig (con una tarjeta mas, el propio puerto IDE, que no es autoconfig) si no hay Fast RAM, y el overlay de cada HDF como hasta ahora. Las
+funciones `p6_gayle_words_valid` y `p6_ide_words_valid` son puras: el puente las pregunta al validar, antes de que el reset head haya corrido, para que aplicar un estado validado no pueda fallar; un cuerpo fuera de lo que
+Gayle o un disco pueden tener (un byte mayor que 255, una transferencia mas larga que el buffer, una transferencia en una ranura sin disco, un buffer de otra longitud, los dos discos de un canal en lineas de seleccion
+distintas) es `CORRUPT_STATE` y no toca nada. La cota `p6_state_bound` sigue la misma regla que con el controlador UAE (todos los trozos de cada HDF como sucios, mas 4 buffers de sector).
+
+Superficies: headless `--hdf-controller uae|ide` y el probe de estado. Libretro, el esquema de opciones, el importador `.uae` y BizHawk/Waterbox (la sync setting, el campo de `Abi.cs`, el guest nuevo y `waterbox-memory`) son T56b.
+Pruebas: `tests/hdf/test_ide.py` (MED02/MED03: un micro-ROM habla con los registros de Gayle: ID, IDENTIFY, lecturas, escrituras a traves del limite de un trozo del overlay, lectura fuera del disco, el maestro, el esclavo y el
+segundo canal; la exportacion es la base con el overlay y la base no cambia; con IDE y sin HDF la maquina es la de siempre), `tests/state/test_det02_ide.py` (DET02 con la controladora ocupada, en A600 y A1200; en un limite BSY con la
+interrupcion a una linea, en otro con la interrupcion pendiente; y, opt-in, los Kickstart 2.05 y 3.1 reales con el Workbench 2.05 como HDF, con un volumen sin cerrar que el sistema de ficheros valida escribiendo por IDE),
+`tests/state/test_state_ide.py` (STATE01 por tamaño, identidad del controlador y de la base, cuerpos hostiles, DET03 y re-guardado byte a byte) y `tests/step/test_kickstart_ide.py` (opt-in con `P6_KICKSTART_A600_ZIP`,
+`P6_KICKSTART_A1200_ROM` y `P6_WB205_ZIP`: el Workbench 2.05, ADF leido en memoria como HDF por IDE, llega pixel por pixel a la pantalla a la que llega por el controlador UAE en ambos Kickstart). Sin los ficheros del usuario
+esas pruebas quedan BLOCKED; no se copia ni se calcula el hash de ninguno.
 
 ## ROMs, discos y persistencia
 

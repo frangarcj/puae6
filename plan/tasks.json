@@ -13406,13 +13406,118 @@
       "evidence": null
     },
     {
+      "id": "T56a",
+      "title": "Gayle con IDE en el A600 y el A1200 (opcion hdf_controller = ide): motor, estado nativo, headless y DET02",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "done",
+      "depends": [
+        "T29"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
+        "ports/portable/**",
+        "bridge/**",
+        "config/profiles/**",
+        "tests/hdf/**",
+        "tests/state/**",
+        "tests/host/**",
+        "tests/codegen/**",
+        "tests/reference/patch-classes.json",
+        "adapters/headless/**",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T56.md",
+        "manifests/host-surface.json",
+        "tests/contracts/**"
+      ],
+      "steps": [
+        "Parches 0320 (ide.cpp: solo discos duros, cada orden se sirve al escribirla, sin hilo, sin ATAPI ni .ini), 0321 (gayle.cpp: solo el puerto IDE y el ID de Gayle; sin PCMCIA, Fat Gary/Ramsey, A4000T ni Dataflyer) y 0322 (bancos de Gayle, la tarjeta IDE de la tabla de expansion y el recorrido de la cadena mientras cs_ide). Decision (2026-10-13): el A600 y el A1200 de serie NO cambian (Gayle apagado, mismos hashes, config_hash y estados); p6_config.hdf_controller (0 UAE, 1 IDE, offset 65, solo A600 y A1200) enciende Gayle SOLO si hay un HDF detras (IDE sin HDF es la maquina por defecto, con su identidad), y entra en config_hash como hash derivado (dominio p6/config/ide/v1) mientras esta en vigor. Los HDF son las unidades 0 a 3 del IDE (maestro y esclavo del canal de Gayle, el par tras el splitter) sobre el backend de bloques de T29 (lectura y overlay de 4 KiB, p6_media_export); sin lista de montaje, sin placa UAEFS ni zona de traps. Seccion nueva de P6DK (Gayle: 4 palabras, 4 ranuras de unidad de 43 palabras y su buffer de sector). Headless --hdf-controller uae|ide. PCMCIA queda fuera: no es necesaria para el IDE de Gayle.",
+        "Ampliacion de touch (2026-10-13): manifests/host-surface.json (el inventario de llamadores de zfile_* de tests/host/test_zfile.py recorre las fuentes seleccionadas: gayle.cpp entra en las tres listas de zfile_fclose, zfile_fopen y zfile_fwrite; su codigo PCMCIA no se compila) y tests/contracts/** (el offset de hdf_controller en layout_probe.c)."
+      ],
+      "checks": [
+        "DET02",
+        "MED02",
+        "STATE01"
+      ],
+      "acceptance": [
+        "Un HDF por IDE en el A600 y el A1200 se lee y se escribe a traves de los registros de Gayle (micro-ROM), exporta como base mas overlay, y su estado con la controladora ocupada restaura (DET02) con cota por tamaño (STATE01)."
+      ],
+      "stop": "No dejar Gayle encendido sin el dispositivo detras; no cambiar hashes golden.",
+      "evidence": null
+    },
+    {
+      "id": "T56b",
+      "title": "hdf_controller = ide en libretro y BizHawk (guest Waterbox, wrapper), contratos y arranques reales con Kickstart 2.05 y 3.1",
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "status": "pending",
+      "depends": [
+        "T56a",
+        "T63"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/**",
+        "config/schema/**",
+        "tools/generate_options.py",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/options.md",
+        "manifests/waterbox-memory.json",
+        "manifests/state-inventory.json",
+        "tests/reference/patch-classes.json",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/libretro-ui/**",
+        "tests/waterbox-smoke/**",
+        "tests/waterbox-state/**",
+        "tests/waterbox-media/**",
+        "tests/ffi/**",
+        "tests/step/**",
+        "tests/hdf/**",
+        "tests/state/**",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T56.md"
+      ],
+      "steps": [
+        "La opcion en el esquema (hdf_controller: uae, ide), puae6_hdf_controller de libretro, el importador .uae y la sync setting de BizHawk con su campo de Abi.cs; el guest Waterbox cambia con los parches 0320 a 0322: re-registrar manifests/waterbox-memory.json completo (16 claves, runtime_sha256 como en main). Pruebas opt-in con los Kickstart reales (por variable de entorno, sin copiar ni hashear): KS 2.05 A600 y KS 3.1 A1200 montan y arrancan el Workbench 2.05 como HDF por IDE."
+      ],
+      "checks": [
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "La opcion y su estado funcionan en libretro y en BizHawk/Waterbox igual que en headless, y un HDF por IDE arranca en KS 2.05 (A600) y KS 3.1 (A1200)."
+      ],
+      "stop": "No subir timeouts ni tocar hashes golden; sin runner Waterbox la puerta queda BLOCKED.",
+      "evidence": null
+    },
+    {
       "id": "T56",
       "title": "Gayle con IDE (y PCMCIA si se usa) en A600/A1200 para HDF, como PUAE5 con chipset_compatible A600/A1200",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T29"
+        "T29",
+        "T56a",
+        "T56b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13429,7 +13534,8 @@
         "manifests/state-inventory.json"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 compila gayle.c/ide.c y sus A600/A1200 llevan Gayle. Compilar gayle/ide, estado de la controladora, HDF en IDE determinista sobre el backend de bloques de T29; decidir si el A600/A1200 de serie lo enciende (cambia su identidad)."
+        "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 compila gayle.c/ide.c y sus A600/A1200 llevan Gayle. Compilar gayle/ide, estado de la controladora, HDF en IDE determinista sobre el backend de bloques de T29; decidir si el A600/A1200 de serie lo enciende (cambia su identidad).",
+        "Division (2026-10-13): T56a (motor, estado, headless y DET02), T56b (libretro y BizHawk/Waterbox, contratos y arranques reales con Kickstart 2.05 y 3.1); T56 es el cierre y conserva DET02, MED02 y STATE01."
       ],
       "checks": [
         "DET02",

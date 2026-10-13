@@ -27,7 +27,8 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
 // the machine exists; the images are registered by register_media. hard_file_count is what p6_state_* consult.
 uint32_t hard_file_count();
 uint32_t hard_files_in(const p6_media *media, uint32_t count);
-p6_result mount_hard_files(const p6_media *media, uint32_t count, p6_error *error);
+// With `ide` (T56, ide_attached) the hard files are the drives of Gayle's IDE instead of units of the UAE controller: no mount list entry, the same image and overlay.
+p6_result mount_hard_files(const p6_media *media, uint32_t count, bool ide, p6_error *error);
 
 // After validate_media: copies every image into the engine's blob store under its blob id. A store that cannot hold
 // them all fails with CAPACITY; the caller unloads what was registered.

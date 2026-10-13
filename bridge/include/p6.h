@@ -97,8 +97,16 @@ typedef struct p6_config {
      * clock lasts CYCLE_UNIT / N of emulated time, so every access and instruction costs fewer or more colour clocks; nothing reads the clock of the host. A restart option: it enters config_hash off
      * the machine's own clock only, together with the CPU model (bridge/config.cpp cpu_identity, domain p6/config/cpu/v1). */
     uint8_t cpu_multiplier;
-    uint8_t reserved7[7];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
+    /* The controller the hard files (P6_MEDIA_HDF) are on (T56), in the second byte of what was reserved[1]: P6_HDF_CONTROLLER_UAE (0, the default: uaehf.device and the UAEFS board, the
+     * way PUAE5 mounts them) or P6_HDF_CONTROLLER_IDE (1: the IDE port of Gayle, with the drives the real A600 and A1200 have, master and slave of its channel and the pair behind an
+     * IDE splitter). Only the A600 and the A1200 have Gayle: IDE on another machine is P6_ERROR_UNSUPPORTED. Gayle is switched on only while there is a hard file behind it: an IDE
+     * config whose p6_load has no hard file is the machine the default config is, with its identity, its states and its movies. A restart option: it is part of config_hash while it
+     * is in effect (derived hash, bridge/config.cpp ide_attached, domain p6/config/ide/v1). Anything above 1 is P6_ERROR_UNSUPPORTED. */
+    uint8_t hdf_controller;
+    uint8_t reserved7[6];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
 } p6_config;
+#define P6_HDF_CONTROLLER_UAE 0u
+#define P6_HDF_CONTROLLER_IDE 1u
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
  * (sector granularity, one fixed pool of P6_OVERLAY_SECTORS shared by every disk) that is part of the machine state and of p6_state_bound, so a state
  * load or a rewind takes the writes back and the base is never touched. Without the flag every disk is write protected, as in ABI v1. The flag is
@@ -113,8 +121,8 @@ typedef struct p6_config {
  * Paula's output options (sound_*) are not in that word: when they differ from the profile's setting for the machine, config_hash is derived from the one above and an audio word
  * (bridge/config.cpp audio_identity, domain p6/config/audio/v1); at the profile's setting the hash is the one it always was. */
 #define P6_MACHINE_A500 UINT32_C(1)
-#define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no IDE/PCMCIA (Gayle is not emulated). */
-#define P6_MACHINE_A1200 UINT32_C(3)  /* 68EC020 cycle exact (24-bit bus), AGA, 2 MiB Chip, no Slow/Fast RAM, no Gayle. */
+#define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no PCMCIA; Gayle (IDE) only with p6_config.hdf_controller = P6_HDF_CONTROLLER_IDE and a hard file. */
+#define P6_MACHINE_A1200 UINT32_C(3)  /* 68EC020 cycle exact (24-bit bus), AGA, 2 MiB Chip, no Slow/Fast RAM; Gayle (IDE) as the A600, no PCMCIA. */
 /* T50: more presets of the same 68000/68EC020 family, each built from upstream's built_in_prefs and listed in docs/02-contracts.md ("Maquinas y capacidades"). Their values were added
  * after the three above, which keep value, config_hash and state identity. */
 #define P6_MACHINE_A500OG UINT32_C(4)    /* A500 with OCS and 512 KiB Chip only (no Slow RAM, no clock): upstream's A500 configuration 3. */

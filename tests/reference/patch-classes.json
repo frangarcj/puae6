@@ -151,7 +151,10 @@
     "0262-denise-sprite-mask-unsigned-shift": "behavior",
     "0290-rom-refusal-by-cpu": "instrumentation",
     "0310-cpu-68010-ce-selection": "required",
-    "0311-cpu-68010-loop-mode-table": "required"
+    "0311-cpu-68010-loop-mode-table": "required",
+    "0320-ide-hard-disks-synchronous": "required",
+    "0321-gayle-ide-port": "required",
+    "0322-gayle-machine-hooks": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

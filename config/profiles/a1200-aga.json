@@ -96,7 +96,7 @@
       "name": "cs_compatible",
       "source": "override",
       "value": 0,
-      "why": "CP_A1200 is applied once by built_in_prefs and then cleared: with CP_A1200 every fixup_prefs would impose Gayle, IDE and PCMCIA again (they are not compiled); with 0 it leaves the table values as they are"
+      "why": "CP_A1200 is applied once by built_in_prefs and then cleared: with CP_A1200 every fixup_prefs would impose Gayle, IDE and PCMCIA again; with 0 it leaves the table values as they are (the PCMCIA slot is not built, and the IDE is switched on by the hard file, see cs_ide)"
     },
     {
       "name": "cs_rtc",
@@ -108,13 +108,19 @@
       "name": "cs_ide",
       "source": "override",
       "value": 0,
-      "why": "Gayle IDE is not compiled (gayle.cpp and ide.cpp are outside the build): switched off instead of declared and missing; upstream has IDE_A600A1200"
+      "why": "Gayle's IDE port is there only while a hard file is attached to it (p6_config.hdf_controller = IDE, T56: bridge/config.cpp ide_attached), so the preset has 0; upstream has IDE_A600A1200"
+    },
+    {
+      "name": "expansionboard[0].device_type",
+      "source": "override",
+      "value": 0,
+      "why": "upstream's table puts Gayle's IDE on the motherboard list of boards (cfgfile_compatibility_romtype follows cs_ide); the preset has none until a hard file is attached to the IDE (T56)"
     },
     {
       "name": "cs_pcmcia",
       "source": "override",
       "value": 0,
-      "why": "the PCMCIA slot is part of Gayle, which is not compiled; upstream has 1"
+      "why": "the PCMCIA slot is not built (T56 builds the IDE port of Gayle only); upstream has 1"
     },
     {
       "name": "cs_ksmirror_a8",

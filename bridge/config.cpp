@@ -24,6 +24,7 @@
 #include "civil_time.h"
 #include "video_present.h"
 #include "video_geometry.h"
+#include "ide_units.h"
 
 #include <stdio.h>
 #include <initializer_list>
@@ -57,6 +58,7 @@ namespace {
 // The config of the last build_preferences: check_preset (called by the lifecycle right after it) judges the result by its machine and memory.
 p6_config preset_config = {};
 bool preset_floppy_writes = false;     // P6_CONFIG_FLOPPY_WRITES of that build: the master switch floppy_read_only is its opposite
+bool preset_ide = false;               // T56: that build has the IDE port of Gayle
 
 // A Kickstart is 256 or 512 KiB; the 880 KiB "KICK" disk image is the largest accepted container.
 constexpr uint64_t kFirmwareMaxBytes = 1760u * 512u;
@@ -156,7 +158,15 @@ const MachineInfo &machine_info(uint32_t machine)
 
 bool is_aga(uint32_t machine) { return (machine_info(machine).chipset_mask & CSMASK_AGA) != 0; }
 
+// The machines that have Gayle (the ones whose preset leaves it out by default): the A600 and the A1200.
+bool has_gayle(uint32_t machine) { return machine == P6_MACHINE_A600 || machine == P6_MACHINE_A1200; }
+
 }  // namespace
+
+bool ide_attached(const p6_config &c, uint32_t hard_files)
+{
+    return c.hdf_controller == P6_HDF_CONTROLLER_IDE && has_gayle(c.machine) && hard_files > 0;
+}
 
 bool machine_has_ecs_agnus(uint32_t machine)
 {
@@ -327,6 +337,11 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return memory;
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
+    // The controller of the hard files (T56): the IDE port is Gayle's, and only the A600 and the A1200 have Gayle.
+    if (c.hdf_controller > P6_HDF_CONTROLLER_IDE)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the controller of the hard files must be 0 (UAE) or 1 (IDE)");
+    if (c.hdf_controller == P6_HDF_CONTROLLER_IDE && !has_gayle(c.machine))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "an IDE port is Gayle's: only the A600 and the A1200 have one");
     if (!one_of(c.cpu_multiplier, {0, 1, 2, 4, 8, 10, 12, 16}))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu multiplier must be 0 (the machine's own), 1, 2, 4, 8, 10, 12 or 16");
     if (!resolution_option_valid(c.video_resolution))
@@ -363,13 +378,15 @@ p6_result validate_firmware(const p6_buffer &firmware, p6_error *error)
     return P6_OK;
 }
 
-void build_preferences(const p6_config &c)
+void build_preferences(const p6_config &c, bool ide)
 {
     default_prefs(&currprefs, true, 0);
     // The preset names its Kickstart by id through the ROM list, which has no entries here; the
     // firmware is the buffer given to p6_load, so the result of configure_rom() is not needed.
     preset_config = c;
     preset_floppy_writes = (c.flags & P6_CONFIG_FLOPPY_WRITES) != 0;
+    preset_ide = ide;
+    p6_gayle_units_clear();
     const MachineInfo &machine = machine_info(c.machine);
     // The chipset tables read the video standard (the mains-driven CIA TOD of the A1000 and the A2000 counts 50 or 60 Hz): WinUAE has it chosen before the model.
     currprefs.ntscmode = c.video_standard == P6_VIDEO_NTSC;
@@ -390,6 +407,12 @@ void build_preferences(const p6_config &c)
         currprefs.cs_pcmcia = 0;
         currprefs.cs_ciaoverlay = 1;     // without Gayle the CIA drives the ROM overlay (the state bridge only knows this mode)
         currprefs.cs_1mchipjumper = true;   // what fixup_prefs sets for 1 MiB Chip; upstream's trailing CP_A600 table would clear it again
+        // T56: with a hard file on the IDE the machine has Gayle's IDE port (cs_ide, as the A600 and the A1200 tables have it) and still no PCMCIA slot; the CIA keeps the ROM overlay
+        // (the real machines leave it to Gayle's reset, which the state bridge does not know). Nothing attached: nothing of Gayle, as before.
+        if (ide)
+            currprefs.cs_ide = IDE_A600A1200;
+        else
+            clear_device_rom(&currprefs, ROMTYPE_MB_IDE, 0, true);      // upstream's table lists Gayle's IDE among the boards of the motherboard (currprefs.expansionboard): not without a hard file
     }
     if (machine.compatible == 0) {
         // The chipset table has been applied once, by built_in_prefs (A600, A1200) or just above (A2000, whose base preset is the A500). With cs_compatible = 0 the fixup_prefs calls of the
@@ -484,7 +507,8 @@ p6_result check_preset(p6_error *error)
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
              p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
     else if (p.cs_compatible != machine.compatible) drifted = "chipset table";
-    else if (no_gayle && (p.cs_ide || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
+    else if (no_gayle && (p.cs_ide != (preset_ide ? IDE_A600A1200 : 0) || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
+    else if (!no_gayle && p.cs_ide) drifted = "gayle";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
     else if (p.uaeboard || p.uaeboard_nodiag || p.boot_rom || p.uae_hide || p.uae_hide_autoconfig || p.scsi || p.uaescsidevmode || p.socket_emu ||
              p.uaeserial || p.sana2 || p.win32_automount_drives || p.win32_automount_removable || p.win32_automount_cddrives || p.win32_automount_netdrives ||

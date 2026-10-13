@@ -1012,13 +1012,19 @@ std::vector<uint8_t> mutate_hard_file(const std::vector<uint8_t> &good, Random &
     return image;
 }
 
-int fuzz_hardfile(const char *rom_path, uint64_t seed, uint64_t iterations, int image_count, char **image_paths)
+// ide: the hard files are on the IDE port of Gayle (T56: the A600 with p6_config.hdf_controller = IDE) and the guest is the micro-ROM of tests/hdf/ide_rom.py, which identifies the drive and reads and writes
+// blocks through its registers; what the engine parses is the same hostile RDB (hdf_hd_open reads the geometry out of it), and the machine that did saves and loads back.
+int fuzz_hardfile(const char *rom_path, uint64_t seed, uint64_t iterations, int image_count, char **image_paths, bool ide = false)
 {
     Random rng(seed);
     const std::vector<uint8_t> rom = read_file(rom_path);
     std::vector<std::vector<uint8_t>> pool;
     for (int i = 0; i < image_count; ++i) pool.push_back(read_file(image_paths[i]));
     p6_config config = valid_config();
+    if (ide) {
+        config.machine = P6_MACHINE_A600;
+        config.hdf_controller = P6_HDF_CONTROLLER_IDE;
+    }
     p6_error error = fresh_error();
     if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
     std::map<int, unsigned> histogram, mounts;
@@ -1057,7 +1063,7 @@ int fuzz_hardfile(const char *rom_path, uint64_t seed, uint64_t iterations, int 
         p6_memory_region regions[8];
         uint32_t count = 0;
         if (p6_memory_regions(regions, 8, &count, nullptr) != P6_OK) bug("p6_memory_regions", i);
-        for (uint32_t k = 0; k < count; ++k) {
+        for (uint32_t k = 0; k < count && !ide; ++k) {
             if (regions[k].type != P6_REGION_CHIP_RAM) continue;
             const uint8_t *chip = static_cast<const uint8_t *>(regions[k].data);
             if (regions[k].bytes < kMountResults + 4 * (kMountAsked + 1)) bug("Chip RAM too small", i);
@@ -1119,7 +1125,8 @@ int main(int argc, char **argv)
         return fuzz_state(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc == 5 ? P6_MACHINE_A500 : state_machine(argv[5]));
     }
     if (argc >= 6 && !strcmp(argv[1], "hardfile")) return fuzz_hardfile(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc - 5, argv + 5);
+    if (argc >= 6 && !strcmp(argv[1], "hardfile-ide")) return fuzz_hardfile(argv[2], strtoull(argv[3], nullptr, 10), strtoull(argv[4], nullptr, 10), argc - 5, argv + 5, true);
     if (argc == 4 && !strcmp(argv[1], "blob")) return fuzz_blob(strtoull(argv[2], nullptr, 10), strtoull(argv[3], nullptr, 10));
-    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200|a500og|a500plus|a1000|a2000og|a2000] | state-writable ROM SEED N | blob SEED N\n", argv[0]);
+    fprintf(stderr, "usage: %s config SEED N | firmware ROM SEED N | media ROM SEED N | state ROM SEED N [a600|a1200|a500og|a500plus|a1000|a2000og|a2000] | state-writable ROM SEED N | hardfile[-ide] ROM SEED N IMAGE... | blob SEED N\n", argv[0]);
     return 64;
 }
