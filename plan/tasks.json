@@ -12953,7 +12953,7 @@
         "tests/test_plan.py"
       ],
       "steps": [
-        "Parches 0310 (la fila 68010 de cputbls apunta a op_smalltbl_13, que cpuemu_13 ya genera con gencpu 13 14 21: GEN01 no cambia) y 0311 (loop_mode_table se llenaba con los manejadores NULL de las tablas cycle-exact: el modo bucle de la 68010 estaba muerto; defecto de upstream 6.0.3). p6_config.cpu_model (offset 63: 0 la CPU de la maquina, 1 68000, 2 68010, 3 68020; la 68010 en las maquinas de 68000, la A1200 solo su 68EC020; error claro en otro caso) y config_hash derivado solo fuera de la CPU de la maquina (dominio p6/config/cpu/v1). Bloque de 10 bytes en P6CP (VBR, SFC, DFC, loop_mode). Probe 68010 (tests/host/test_cpu_010.py) y DET02/estado (test_det02_cpu010.py, test_state_cpu010.py). Superficies: esquema (cpu_model: auto, 68000, 68010, 68020), puae6_cpu_model, headless --cpu, importador .uae (cpu_model 68010 en las maquinas de 68000) y sync setting CpuModel de BizHawk con su campo de Abi.cs; la prueba en Waterbox es T52c. Superficies: esquema (cpu_model: auto, 68000, 68010, 68020), puae6_cpu_model, headless --cpu, importador .uae (cpu_model 68010 en las maquinas de 68000) y sync setting CpuModel de BizHawk con su campo de Abi.cs; la prueba en Waterbox es T52c."
+        "Parches 0310 (la fila 68010 de cputbls apunta a op_smalltbl_13, que cpuemu_13 ya genera con gencpu 13 14 21: GEN01 no cambia) y 0311 (loop_mode_table se llenaba con los manejadores NULL de las tablas cycle-exact: el modo bucle de la 68010 estaba muerto; defecto de upstream 6.0.3). p6_config.cpu_model (offset 63: 0 la CPU de la maquina, 1 68000, 2 68010, 3 68020; la 68010 en las maquinas de 68000, la A1200 solo su 68EC020; error claro en otro caso) y config_hash derivado solo fuera de la CPU de la maquina (dominio p6/config/cpu/v1). Bloque de 10 bytes en P6CP (VBR, SFC, DFC, loop_mode). Probe 68010 (tests/host/test_cpu_010.py) y DET02/estado (test_det02_cpu010.py, test_state_cpu010.py). Superficies: esquema (cpu_model: auto, 68000, 68010, 68020), puae6_cpu_model, headless --cpu, importador .uae (cpu_model 68010 en las maquinas de 68000) y sync setting CpuModel de BizHawk con su campo de Abi.cs; la prueba en Waterbox es T52c. Superficies: esquema (cpu_model: auto, 68000, 68010, 68020), puae6_cpu_model, headless --cpu, importador .uae (cpu_model 68010 en las maquinas de 68000) y sync setting CpuModel de BizHawk con su campo de Abi.cs; la prueba en Waterbox es T52c. Superficies: esquema (cpu_model: auto, 68000, 68010, 68020), puae6_cpu_model, headless --cpu, importador .uae (cpu_model 68010 en las maquinas de 68000) y sync setting CpuModel de BizHawk con su campo de Abi.cs; la prueba en Waterbox es T52c."
       ],
       "checks": [
         "GEN01",
@@ -12961,7 +12961,7 @@
         "STATE01"
       ],
       "acceptance": [
-        "La 68010 ejecuta su probe (MOVEC/VBR, RTD, MOVES, MOVE from CCR, MOVE from SR privilegiado, marcos de excepcion de 4 y 29 palabras, modo bucle) y DET02 con 68010 a mitad de un bucle en modo bucle, de traps con VBR y de un error de direccion pasa; la 68000 no cambia de hash, cota ni estado. tests/config, libretro-host (test_cpu.py) y libretro-ui en verde; la maquina de libretro con puae6_cpu_model=68010 es la de headless --cpu 68010 unidad por unidad. tests/config, libretro-host (test_cpu.py) y libretro-ui en verde; la maquina de libretro con puae6_cpu_model=68010 es la de headless --cpu 68010 unidad por unidad."
+        "La 68010 ejecuta su probe (MOVEC/VBR, RTD, MOVES, MOVE from CCR, MOVE from SR privilegiado, marcos de excepcion de 4 y 29 palabras, modo bucle) y DET02 con 68010 a mitad de un bucle en modo bucle, de traps con VBR y de un error de direccion pasa; la 68000 no cambia de hash, cota ni estado. tests/config, libretro-host (test_cpu.py) y libretro-ui en verde; la maquina de libretro con puae6_cpu_model=68010 es la de headless --cpu 68010 unidad por unidad. tests/config, libretro-host (test_cpu.py) y libretro-ui en verde; la maquina de libretro con puae6_cpu_model=68010 es la de headless --cpu 68010 unidad por unidad. tests/config, libretro-host (test_cpu.py) y libretro-ui en verde; la maquina de libretro con puae6_cpu_model=68010 es la de headless --cpu 68010 unidad por unidad."
       ],
       "stop": "No editar a mano cpuemu_13 ni las tablas generadas; no cambiar hashes golden.",
       "evidence": null
@@ -13001,7 +13001,7 @@
         "tests/test_plan.py"
       ],
       "steps": [
-        "p6_config.cpu_multiplier (offset 64: 0 el de la maquina, 1, 2, 4, 8, 10, 12 o 16 como PUAE5; 2 en las de 68000, 4 en la A1200) en currprefs.cpu_clock_multiplier = N << 8, plegado en el mismo config_hash derivado de la CPU solo fuera del reloj de la maquina. Efecto medido con el temporizador E de la CIA (2000 pasadas de TST.W (An)+/DBRA: 7200/N pulsos en una 68000) y DET02 con cada multiplicador en la A500, la 68010 y la A1200. Superficies: esquema (cpu_multiplier), puae6_cpu_multiplier, headless --cpu-multiplier, importador .uae (cpu_multiplier) y sync setting CpuMultiplier de BizHawk. Superficies: esquema (cpu_multiplier), puae6_cpu_multiplier, headless --cpu-multiplier, importador .uae (cpu_multiplier) y sync setting CpuMultiplier de BizHawk."
+        "p6_config.cpu_multiplier (offset 64: 0 el de la maquina, 1, 2, 4, 8, 10, 12 o 16 como PUAE5; 2 en las de 68000, 4 en la A1200) en currprefs.cpu_clock_multiplier = N << 8, plegado en el mismo config_hash derivado de la CPU solo fuera del reloj de la maquina. Efecto medido con el temporizador E de la CIA (2000 pasadas de TST.W (An)+/DBRA: 7200/N pulsos en una 68000) y DET02 con cada multiplicador en la A500, la 68010 y la A1200. Superficies: esquema (cpu_multiplier), puae6_cpu_multiplier, headless --cpu-multiplier, importador .uae (cpu_multiplier) y sync setting CpuMultiplier de BizHawk. Superficies: esquema (cpu_multiplier), puae6_cpu_multiplier, headless --cpu-multiplier, importador .uae (cpu_multiplier) y sync setting CpuMultiplier de BizHawk. Superficies: esquema (cpu_multiplier), puae6_cpu_multiplier, headless --cpu-multiplier, importador .uae (cpu_multiplier) y sync setting CpuMultiplier de BizHawk."
       ],
       "checks": [
         "DET02",
@@ -13024,7 +13024,7 @@
         "docs/02-contracts.md",
         "docs/04-validation.md"
       ],
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T52a",
         "T52b"
@@ -13062,7 +13062,7 @@
       "title": "CPU 68010 y multiplicador de reloj cycle-exact (opcion de reinicio)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24a",
         "T52a",

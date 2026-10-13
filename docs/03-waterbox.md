@@ -362,6 +362,15 @@ core (el UAE de BizHawk), otro sistema, otro guest, otros sync settings, otro fi
 se rechaza con su motivo antes de que corra una unidad, y no hay conversion de las peliculas de UAE. Mutaciones sembradas (no comprobar el firmware, no comprobar el core, un
 `ClockRate` equivocado) hacen fallar su prueba. El `CycleCount` de la cabecera es el de la ultima unidad.
 
+### La CPU y su reloj en el wrapper (T52)
+
+`CpuModel` (`Auto`, `M68000`, `M68010`, `M68020`) y `CpuMultiplier` (`Auto`, `X1`, `X2`, `X4`, `X8`, `X10`, `X12`, `X16`) son sync settings de reinicio del core BizHawk: dan al guest `p6_config.cpu_model`
+(offset 63) y `cpu_multiplier` (offset 64) y entran en la identidad del estado y de la pelicula **solo fuera de `Auto`** (`;cpu=M68010`, `;cpuclock=X8`; el `config_hash` nativo los deriva
+con el dominio `p6/config/cpu/v1`, ADR 0012). El guest cambia con los parches 0310/0311 y el bloque de 10 bytes de `P6CP`: `guest_sha256` de las 16 claves `measured*` de
+`manifests/waterbox-memory.json` se registra de nuevo con la receta de arriba (las medidas no se mueven: el cambio cabe en las paginas ya contadas) y `runtime_sha256` queda como estaba.
+`tests/waterbox-state/test_wrapper_cpu.py` (WB03 con la 68010 y con otros relojes en el A500 y el A1200, el estado en un sandbox nuevo, el rechazo de un estado de otra CPU o de otro reloj antes de
+tocar el sandbox, la 68010 que no es la 68000, un reloj mas rapido que cambia la maquina y no las unidades, y las combinaciones que no existen que fallan al arrancar con la razon).
+
 ### Resultado de T22b: reproduccion, seeks y ramas de peliculas con el core real
 
 `python3 -m unittest discover -s tests/bizhawk-movies -p test_movie_playback.py` (unos veinte minutos: la pelicula larga son 10000 unidades grabadas y reproducidas dos veces).

@@ -87,6 +87,8 @@ internal static unsafe partial class Program
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
 						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "None")),
 						FpuModel = Enum.Parse<Puae6Fpu>(arguments.GetValueOrDefault("fpu", "None")),
+						CpuModel = Enum.Parse<Puae6Cpu>(arguments.GetValueOrDefault("cpu", "Auto")),
+						CpuMultiplier = Enum.Parse<Puae6CpuClock>(arguments.GetValueOrDefault("clock", "Auto")),
 						SoundSeparation = Enum.Parse<Puae6SoundSeparation>(arguments.GetValueOrDefault("sep", "P70")),
 						SoundInterpolation = Enum.Parse<Puae6SoundInterpolation>(arguments.GetValueOrDefault("interp", "Anti")),
 						SoundFilter = Enum.Parse<Puae6SoundFilter>(arguments.GetValueOrDefault("filter", "Emulated")),

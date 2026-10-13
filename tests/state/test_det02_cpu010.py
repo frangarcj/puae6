@@ -7,10 +7,15 @@ load pays the cycles of a pass that enters the loop and the units after it are n
 supervisor mode alternate through traps and privilege violations, and in the exception that an address error is on a 68010 (format 8, 29 words on the stack). The programs the A500 already has
 (DMA of the disk, the blitter, the copper, audio, the CIAs) run again with the 68010, whose cycle-exact bus is the 68000's. The machinery, the modes and what a divergence table is are in
 tests/state/test_det02.py; nothing is relaxed here.
+
+Opt-in with the owner's Kickstart 1.3 (a path in an environment variable, read in place; no copy, no hash and no byte of it is kept anywhere):
+    P6_KICKSTART_ROM  the Kickstart 1.3 r34.5 .rom (A500, A1000, A2000): exec finds a 68010 (AttnFlags), the system runs to the insert-disk screen, and a state taken on the way comes back
 """
+import os
 import unittest
 
 from tests.state import test_det02 as d
+from tests.state import test_state_input as input_tests
 from tests.state import test_state_upstream as upstream
 
 PROLOGUE = """entry:
@@ -174,6 +179,25 @@ class Det02Cpu010A600Tests(Cpu010Case):
 
 
 d.populate(Det02Cpu010A600Tests, {"c10-loop-chip": SCENARIOS["c10-loop-chip"], "c10-vbr": SCENARIOS["c10-vbr"], "vsync": SCENARIOS["vsync"]}, DIVERGENCES)
+
+
+KICKSTART = os.environ.get("P6_KICKSTART_ROM")
+KICKSTART_SCENARIOS = {
+    "kickstart": ("kickstart", input_tests.KICKSTART_INPUT, (60,), (d.SAME, d.SAME_BEAM, d.NEW, d.NEW_BEAM)),
+    "kickstart-handshake": ("kickstart", input_tests.KICKSTART_INPUT, (107,), (d.SAME_BEAM, d.RESET_BEAM, d.NEW)),
+    "kickstart-steady": ("kickstart", input_tests.KICKSTART_INPUT, (140,), (d.SAME_BEAM, d.RESET_BEAM, d.NEW)),
+    "kickstart-late": ("kickstart", [], (200, 400), (d.SAME_BEAM, d.NEW)),
+}
+
+
+@unittest.skipUnless(KICKSTART, "BLOCKED: set P6_KICKSTART_ROM to an authorized Kickstart 1.3")
+class Det02Cpu010KickstartTests(Cpu010Case):
+    """The owner's Kickstart 1.3 on the A500 with a 68010: the system boots with it and the state of a boot in progress comes back."""
+
+    ROMS = {}
+
+
+d.populate(Det02Cpu010KickstartTests, KICKSTART_SCENARIOS, DIVERGENCES)
 
 
 if __name__ == "__main__":
