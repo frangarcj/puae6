@@ -15,6 +15,10 @@ INC := -I$(REPO)/ports/portable -I$(REPO)/ports/portable/media -I$(REPO)/build/g
 CCFLAGS := -std=c11 $(FP) $(INC)
 CXXFLAGS := -std=c++17 $(FP) $(INC)
 
+# T58: the IPF reader (ipf_track.cpp, with the decoder of MAME included in it) uses std::vector, whose throw sites import C++ runtime names that imports.json does not allow in the guest:
+# it is compiled without exceptions (a failed allocation is the sandbox's, as for any allocation in the guest; see ipf_track.cpp). The path is that of the source in SRCS.
+PER_FILE_FLAGS_ports/portable/media/ipf_track.cpp := -fno-exceptions
+
 override EMULIBC_OBJS = $(OBJ_DIR)/emulibc.c.o
 include $(REPO)/references/machawk/waterbox/common.mak
 

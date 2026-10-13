@@ -9,6 +9,23 @@
 #include <string.h>
 #include <vector>
 
+// An allocation that fails is reported (a refusal, a track that does not decode) wherever the build has exceptions. The Waterbox guest is compiled without them (ports/waterbox/Makefile):
+// libc++'s throw sites would import std::length_error, std::bad_array_new_length and __cxa_free_exception, which HOST01 does not allow, so there a failed allocation ends the sandbox's
+// call as any allocation does in the guest. Every size here is bounded (160000 cells, 256 KiB of data, 168 tracks), so the heap budget (docs/03-waterbox.md) is what decides it.
+#if !defined(__cpp_exceptions) && defined(__linux__) && defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 190000     // the guest: LLVM 18 libc++ on aarch64-linux-gnu (musl)
+// Without exceptions libc++ ends in this function where it would throw (a vector that cannot grow). It is overridable, and the guest does not import it from anywhere: the call stops the
+// sandbox's call as a trap does (an allocation that fails, or a size past max_size(), which the bounds above make impossible).
+namespace std { inline namespace __1 { [[noreturn]] void __libcpp_verbose_abort(const char *, ...) { __builtin_trap(); } } }
+#endif
+
+#if defined(__cpp_exceptions)
+#define P6_TRY try
+#define P6_CATCH(...) catch (...) { __VA_ARGS__ }
+#else
+#define P6_TRY
+#define P6_CATCH(...)
+#endif
+
 namespace p6_ipf {
 
 namespace {
@@ -189,7 +206,7 @@ Image *open(ReadFn read, const void *context, uint64_t bytes, const char **why, 
     if (!read || bytes < kCapsBytes + kInfoBytes) { *why = "an IPF is shorter than its first two tags"; return nullptr; }
     if (bytes > kMaxFileBytes) { *why = "an IPF is larger than the core reads (3 MiB)"; return nullptr; }
     Image *image = nullptr;
-    try {
+    P6_TRY {
         image = new Image;
         image->read = read;
         image->context = context;
@@ -199,11 +216,8 @@ Image *open(ReadFn read, const void *context, uint64_t bytes, const char **why, 
         }
         image->bytes = bytes;
         return index_image(image, why);
-    } catch (...) {
-        delete image;
-        *why = "an IPF could not be indexed for lack of memory";
-        return nullptr;
-    }
+    } P6_CATCH(delete image; *why = "an IPF could not be indexed for lack of memory"; return nullptr;)
+    return nullptr;
 }
 
 Image *open_memory(const uint8_t *data, uint64_t bytes, const char **why)
@@ -214,18 +228,15 @@ Image *open_memory(const uint8_t *data, uint64_t bytes, const char **why)
     if (!data || bytes < kCapsBytes + kInfoBytes) { *why = "an IPF is shorter than its first two tags"; return nullptr; }
     if (bytes > kMaxFileBytes) { *why = "an IPF is larger than the core reads (3 MiB)"; return nullptr; }
     Image *image = nullptr;
-    try {
+    P6_TRY {
         image = new Image;
         image->memory = data;
         image->read = read_memory;
         image->context = image;
         image->bytes = bytes;
         return index_image(image, why);
-    } catch (...) {
-        delete image;
-        *why = "an IPF could not be indexed for lack of memory";
-        return nullptr;
-    }
+    } P6_CATCH(delete image; *why = "an IPF could not be indexed for lack of memory"; return nullptr;)
+    return nullptr;
 }
 
 void close(Image *image) { delete image; }
@@ -245,7 +256,7 @@ int decode(const Image *image, unsigned track, unsigned revolution, uint16_t *wo
     if (!image || !words || !timing || !out || track >= kTracks) return kFailed;
     const int key = image->by_track[track];
     if (key < 0) return kAbsent;
-    try {
+    P6_TRY {
         ipf_format::ipf_decode::track_info t = image->decode.tinfos[key];
         if (!t.size_cells) return kAbsent;                 // an empty description: the drive sees an unformatted track
         std::vector<uint8_t> data;
@@ -304,9 +315,8 @@ int decode(const Image *image, unsigned track, unsigned revolution, uint16_t *wo
         out->splice = splice < 0 ? 0 : uint32_t(splice) % cells;
         out->weak = weak;
         return kDecoded;
-    } catch (...) {
-        return kFailed;
-    }
+    } P6_CATCH(return kFailed;)
+    return kFailed;
 }
 
 const char *check_tracks(const Image *image, unsigned *track)

@@ -267,6 +267,17 @@ TASK_SUITES[('FUZZ01', 'T58a')] = {**TASK_SUITES[('FUZZ01', 'T57')], 'ipf': 'tes
 TASK_SUITES[('MED01', 'T58b')] = {**TASK_SUITES[('MED01', 'T57b')], **TASK_SUITES[('MED01', 'T58a')], 'ipf_engine_reads': 'tests.media.test_ipf_engine'}
 TASK_SUITES[('DET02', 'T58b')] = {**TASK_SUITES[('DET02', 'T57')], 'ipf_restore': 'tests.state.test_det02_ipf'}
 TASK_SUITES[('FUZZ01', 'T58b')] = TASK_SUITES[('FUZZ01', 'T58a')]
+# T58 closes both on the three surfaces. MED01 adds the headless runner (`--disk`, a damaged IPF refused with the decoder's reason), the containers of the libretro adapter (an IPF as it is, in an ADZ and in
+# a ZIP; CT RAW refused) and the Waterbox sandbox (the guest reads the sectors of an IPF with weak areas and timing zones). DET02 is the union of the restores. WB03 is the Waterbox sandbox: a snapshot taken in
+# the middle of a revolution of an IPF with weak cells comes back in the same sandbox and in a new one (test_media_ipf), the same for an FDI and the extended ADF (test_media_trackdisk), and the state of the
+# BizHawk core (tests/waterbox-state: save N, advance M, restore, repeat M). FUZZ01 is T58a's: the decoder on its own and the engine reading mutated IPF images.
+TASK_SUITES[('MED01', 'T58')] = {**TASK_SUITES[('MED01', 'T58b')], 'headless_formats': 'tests.media.test_headless_formats', 'containers': 'tests.media.test_container',
+                                 'libretro_containers': 'tests.libretro-host.test_containers', 'libretro_archives': 'tests.libretro-host.test_archives',
+                                 'waterbox_trackdisk': 'tests.waterbox-media.test_media_trackdisk', 'waterbox_ipf': 'tests.waterbox-media.test_media_ipf'}
+TASK_SUITES[('DET02', 'T58')] = TASK_SUITES[('DET02', 'T58b')]
+TASK_SUITES[('FUZZ01', 'T58')] = TASK_SUITES[('FUZZ01', 'T58b')]
+TASK_SUITES[('WB03', 'T58')] = {'ipf_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_ipf', 'trackdisk_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_trackdisk',
+                                'core_state_save_advance_restore': 'tests.waterbox-state.test_wrapper_state'}
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).

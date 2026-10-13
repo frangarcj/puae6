@@ -412,6 +412,13 @@ la temporizacion por byte); `guest_sha256` de las 16 claves `measured*` se regis
 cambia (el total de los disquetes sigue acotado por 16 ADF planos: 14 417 920 bytes), el buffer de entrada de un FDI es el de su pista mas larga (no los 4 MiB del formato) y la cota del estado nativo crece, pero no el
 snapshot del sandbox mas que por las paginas que toca la pista que se lee (`tests/waterbox-media/test_media_trackdisk.py`).
 
+IPF (T58): el guest cambia con el parche 0340 y con el lector de `third_party/mame-ipf` (BSD-3-Clause; ADR 0013) compilado en `p6_portable` (`ports/portable/media/ipf_track.cpp`, `ipf_blob.cpp`). Esa unidad usa `std::vector` y
+se compila SIN excepciones en el guest (`PER_FILE_FLAGS` en `ports/waterbox/Makefile`): con ellas, los sitios `throw` de libc++ importaban `std::length_error`, `std::bad_array_new_length` y `__cxa_free_exception`,
+que HOST01 (`ports/waterbox/imports.json`) no autoriza; sin ellas libc++ acaba en `__libcpp_verbose_abort`, que la misma unidad define como un trap (un fallo de reserva termina la llamada del sandbox; los tamanos estan
+acotados: 160000 celdas, 256 KiB de datos por pista, 168 pistas, asi que la memoria transitoria de decodificar una pista es de unos 640 KiB de celdas mas 64 KiB, del heap normal). El indice del IPF (unos 17 KiB por
+disquete) se hace al insertar el disco y se libera al expulsarlo; el disco se lee por offsets del almacen de medios, sin copiarlo. `guest_sha256` de las 16 claves `measured*` se registra de nuevo (`runtime_sha256`
+queda como estaba: `cf45f96e`). Un snapshot a mitad de una vuelta de una pista con celdas debiles vuelve en el mismo sandbox y en uno nuevo (`tests/waterbox-media/test_media_ipf.py`, WB03).
+
 
 ### Resultado de T22b: reproduccion, seeks y ramas de peliculas con el core real
 

@@ -24,7 +24,7 @@ class IpfSandboxTests(Sessions):
         adf = disk.make_adf(0x73)
         cls.disk_adf = adf
         both = lambda **kw: ipf.build([ipf.Track(0, 0, ipf.dos_blocks(adf, 0, **kw)), ipf.Track(0, 1, ipf.dos_blocks(adf, 1, **kw))])
-        images = {"dos": both(), "weak": both(weak_bytes=40), "timed": ipf.build([ipf.Track(0, 0, ipf.dos_blocks(adf, 0), type=3), ipf.Track(0, 1, ipf.dos_blocks(adf, 1), type=3, index_cells=40001)])}
+        images = {"dos": both(), "weak": both(weak_bytes=20), "timed": ipf.build([ipf.Track(0, 0, ipf.dos_blocks(adf, 0), type=3), ipf.Track(0, 1, ipf.dos_blocks(adf, 1), type=3, index_cells=40001)])}
         cls.paths = {}
         for name, image in images.items():
             cls.paths[name] = cls.media / f"{name}.ipf"
