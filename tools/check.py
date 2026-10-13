@@ -260,6 +260,13 @@ TASK_SUITES[('MED01', 'T58a')] = {
     'ipf_provenance': 'tests.media.test_ipf_provenance',
 }
 TASK_SUITES[('FUZZ01', 'T58a')] = {**TASK_SUITES[('FUZZ01', 'T57')], 'ipf': 'tests.fuzz.test_ipf'}
+# T58b puts the reader in the engine (patch 0340). MED01: a guest reads the sectors of an IPF (AmigaDOS tracks with and without weak areas, an index in the middle, a track type with timing zones) and a
+# raw track word for word with the write splice where the format puts it, and an IPF the decoder cannot read is refused with its reason. DET02: states before, in the middle of and after the read of an
+# IPF track, with weak cells (the reader fetches the next revolution at every index; DSKX carries its count), timing zones, a noise track and a head walking over tracks of different lengths, with the
+# motor on and off. FUZZ01: the IPF images of the pool (mutated, with checksums put right again) read by the engine under ASan/UBSan, saved and loaded back.
+TASK_SUITES[('MED01', 'T58b')] = {**TASK_SUITES[('MED01', 'T57b')], **TASK_SUITES[('MED01', 'T58a')], 'ipf_engine_reads': 'tests.media.test_ipf_engine'}
+TASK_SUITES[('DET02', 'T58b')] = {**TASK_SUITES[('DET02', 'T57')], 'ipf_restore': 'tests.state.test_det02_ipf'}
+TASK_SUITES[('FUZZ01', 'T58b')] = TASK_SUITES[('FUZZ01', 'T58a')]
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).

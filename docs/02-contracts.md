@@ -675,6 +675,20 @@ bajo nivel (un megabyte como mucho) y el buffer de salida son 40 000 bytes: no h
 con pulsos exactos y con bits debiles); las pruebas son MED01 (`tests/media/test_fdi.py`), DET02 (`tests/state/test_det02_trackdisk.py`, con el motor encendido y apagado) y FUZZ01 (`trackdisk`). Un FDI real y libre
 se prueba por variable de entorno (opt-in, ver `tests/media/test_fdi_real.py`).
 
+IPF (T58, `P6_CAP_MEDIA_IPF`, bit 9): otro formato de `P6_MEDIA_ADF`, por los bytes (el registro `CAPS` de 12 bytes con el que empieza todo IPF), con la misma identidad, los mismos topes y el mismo caracter de solo lectura. El
+decodificador es el lector libre de MAME (`third_party/mame-ipf`, BSD-3-Clause; docs/adr/0013-ipf-decoder-licence.md), no capsimg: `ports/portable/media/ipf_track.h` lo ofrece como un indice de pistas (el fichero se lee por
+offsets, nunca se copia ni se escribe) y una funcion que decodifica UNA revolucion de una pista a palabras MFM de 16 celdas, una temporizacion por cada 8 celdas (milesimas de celda nominal de 2000 ns: la unidad de `tracktiming`) y
+la marca de celdas debiles. **Validacion**: `classify_floppy` solo mira el registro `CAPS` y el tamano; `validate_media` abre el IPF con el decodificador (CRC-32 de cada etiqueta y de los datos de cada pista, INFO antes de IMGE y
+DATA, una descripcion y unos datos por clave, cilindros 0 a 82 y cabezas 0 y 1, cada pista una vez, a lo mas 160000 celdas y 256 KiB de datos por pista) y decodifica todas las pistas una vez: lo que el motor no podria leer es
+`WRONG_MEDIA` con el motivo. **Motor** (parche 0340): `drive_insert` abre el indice del medio del almacen, `drive_fill_bigbuf` decodifica la pista bajo la cabeza como la revolucion que cuenta `fdirev` para la pista `fditrack` (los
+mismos campos de DSKX que el FDI: el estado no crece) y `fetchnextrevolution` pide la siguiente en cada indice de una pista con celdas debiles (`multi_revolution`). Las celdas debiles y las de una pista de ruido toman sus bits de un
+generador propio sembrado por (pista, revolucion), nunca de `uaerand`; el lector no guarda nada entre dos lecturas, asi que no hay estado suyo que guardar: el buffer y su temporizacion van en DSDn, el indice se rehace al insertar el
+medio del estado. La temporizacion es la del formato en valor absoluto (una celda de 2000 ns es 1000), de modo que una vuelta dura lo que sumen sus celdas; el empalme de escritura de la pista es `skipoffset` y la unidad salta alli de 1
+a 3 celdas (`floppy_random_bits` de WinUAE, del generador sembrado del motor), de modo que una lectura que pasa por el empalme no lee un par de celdas de la pista y WORDSYNC realinea las palabras en la siguiente sincronizacion.
+Pruebas: MED01 (`tests/media/test_ipf.py` el decodificador contra un oraculo que codifica el MFM por su cuenta, `test_ipf_provenance.py`, `test_ipf_engine.py` la guest leyendo), DET02 (`tests/state/test_det02_ipf.py`) y FUZZ01
+(`tests/fuzz/test_ipf.py` el decodificador sin motor, `TrackDiskFuzzTests` el motor con imagenes IPF mutadas). Un IPF real solo se prueba por variable de entorno (`tests/media/test_ipf_real.py`, `P6_IPF_FILE`): los de SPS son de
+juegos comerciales y no se descargan.
+
 ADF MVP: buffer inmutable de solo lectura, cargado antes de iniciar/sellar. Mount,
 eject y swap operan sobre IDs precargados. Inventariar los metadatos de floppy
 que tambien afectan al futuro: posicion, track buffers, cambio, motor, bits/MFM,

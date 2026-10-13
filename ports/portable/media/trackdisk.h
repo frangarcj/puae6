@@ -16,6 +16,10 @@
 //               Amiga double-density track (eleven sectors of data, the reader builds the MFM) and 0x80..0xBF a low-level track (the flux transitions of a revolution, with the weak
 //               bits). The other types (the PC and Atari forms, the sector-described and the raw tracks) are refused here: fdi2raw reads them without looking at where the data ends.
 //
+//   IPF         the SPS / CAPS image (T58): the first twelve bytes are the CAPS record {"CAPS", 12, 0x1CD573BA}. Here only that and the size are looked at: the file is a list of tags with
+//               a CRC each, the decoder allocates (it is not of this file's kind) and the bridge opens the image with it (ports/portable/media/ipf_track.h, validate_media) before the
+//               engine is told of the medium, so a file this accepts that the decoder does not is refused there with its reason.
+//
 // What is accepted is what a double-density 3.5" drive can read: a track is at most kMaxTrackBytes (a PAL revolution is 12668 bytes, a long protected track a
 // little more; beyond 20000 bytes upstream switches the drive to high density, which this core does not have). Everything is big-endian, as in the files.
 #ifndef P6_MEDIA_TRACKDISK_H
@@ -33,7 +37,7 @@ constexpr uint32_t kMaxTracks = 2 * 83;                          // disk.cpp MAX
 constexpr uint32_t kMaxTrackBytes = 20000;
 constexpr uint32_t kAmigaDosTrackBytes = 11 * 512;
 
-enum Format : uint8_t { kAdf = 0, kExt2 = 1, kExt1 = 2, kFdi = 3 };
+enum Format : uint8_t { kAdf = 0, kExt2 = 1, kExt1 = 2, kFdi = 3, kIpf = 4 };
 
 struct Verdict {
     bool ok;
@@ -116,6 +120,13 @@ inline const char *fdi_lowlevel(const uint8_t *t, uint64_t length)
     return nullptr;
 }
 
+// The CAPS record that opens every IPF: the tag id, its size (12) and the CRC-32 of the tag with that field cleared.
+inline bool is_ipf(const uint8_t *data, uint64_t bytes)
+{
+    static const uint8_t caps[12] = {0x43, 0x41, 0x50, 0x53, 0x00, 0x00, 0x00, 0x0C, 0x1C, 0xD5, 0x73, 0xBA};
+    return bytes >= sizeof caps && !memcmp(data, caps, sizeof caps);
+}
+
 inline Verdict fdi(const uint8_t *d, uint64_t bytes)
 {
     if (bytes < 512) return bad("an FDI is cut short in its header");
@@ -183,7 +194,12 @@ inline Verdict classify_floppy(const uint8_t *data, uint64_t bytes)
         if (bytes > kMaxTrackDiskBytes) return bad("an FDI is larger than the core reads (3 MiB)");
         return fdi(data, bytes);
     }
-    if (bytes != kPlainAdfBytes) return bad("a disk image must be exactly 901120 bytes, an extended ADF or an FDI");
+    if (is_ipf(data, bytes)) {
+        if (bytes > kMaxTrackDiskBytes) return bad("an IPF is larger than the core reads (3 MiB)");
+        if (bytes < 12 + 96) return bad("an IPF is cut short before its INFO tag");
+        return good(kIpf);
+    }
+    if (bytes != kPlainAdfBytes) return bad("a disk image must be exactly 901120 bytes, an extended ADF, an FDI or an IPF");
     return good(kAdf);
 }
 
@@ -194,6 +210,7 @@ inline const char *format_name(uint8_t format)
     case kExt2: return "UAE-1ADF";
     case kExt1: return "UAE--ADF";
     case kFdi: return "FDI";
+    case kIpf: return "IPF";
     default: return "unknown";
     }
 }

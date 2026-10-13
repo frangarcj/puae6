@@ -20,15 +20,22 @@ constexpr uint32_t kTracks = 2u * 83u;                   // the tracks of a driv
 constexpr uint32_t kNominalCellNs = 2000;
 
 // Reads exactly `length` bytes at `offset` of the image into `out`; false when it cannot.
-typedef bool (*ReadFn)(void *context, uint64_t offset, void *out, size_t length);
+typedef bool (*ReadFn)(const void *context, uint64_t offset, void *out, size_t length);
 
 struct Image;                                            // opaque: the index of the tracks
 
-// Opens the image of `bytes` bytes: nullptr (and a static text in *why) when it is not a well-formed IPF the decoder reads. Allocates; close() frees.
-Image *open(ReadFn read, void *context, uint64_t bytes, const char **why);
+// Opens the image of `bytes` bytes: nullptr (and a static text in *why) when it is not a well-formed IPF the decoder reads. Allocates; close() frees. The callback is given `context`,
+// or, when context_size is not 0 (at most kContextBytes), the image's own copy of those bytes, which lives as long as the image does.
+constexpr size_t kContextBytes = 96;
+Image *open(ReadFn read, const void *context, uint64_t bytes, const char **why, size_t context_size = 0);
 // The same, over bytes that stay where they are while the image is open.
 Image *open_memory(const uint8_t *data, uint64_t bytes, const char **why);
+// The same, over the medium of the bridge's store with that id (blob_io.h): read by offset, never copied, nothing kept between two reads.
+Image *open_blob(const char *id, const char **why);
 void close(Image *image);
+
+// One more than the highest track (cylinder * 2 + head) the image describes.
+unsigned track_count(const Image *image);
 
 // Is the track (cylinder * 2 + head) described by the image? A track that is not is an unformatted one for the drive.
 bool has_track(const Image *image, unsigned track);

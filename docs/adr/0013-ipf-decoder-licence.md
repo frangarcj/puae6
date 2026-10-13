@@ -44,6 +44,11 @@ y WinUAE la carga con `dlopen`, que ni el guest ni el perfil determinista admite
    decodificador y decodifica **todas** las pistas una vez antes de decir al motor que existe: un IPF que el motor no podria leer se rechaza con el motivo, no se juega como un disco de
    pistas sin formato.
 
+8. **Motor y estado (T58b, parche 0340).** `disk.cpp` abre el indice del IPF al insertar (`p6_ipf::open_blob`: lee el medio del almacen por offsets), lo cierra al expulsar y decodifica la pista bajo la cabeza en
+   `drive_fill_bigbuf` y la siguiente revolucion en `fetchnextrevolution` (solo si la pista tiene celdas debiles: `multi_revolution`). El contador de revolucion y la pista a la que pertenece son `fdirev` y `fditrack`, ya
+   en DSKX por el FDI (ADR 0009, punto 17): el estado nativo no crece. Es posible porque el decodificador no tiene estado entre dos lecturas (la revolucion es un argumento) y porque el indice se deriva del medio, que el
+   estado ya nombra por contenido y vuelve a insertar al cargarse. La temporizacion de una pista IPF se guarda por byte (parche 0335, ya hecho para el FDI). La posicion del empalme de escritura es `skipoffset`.
+
 ## Lo que no hay
 
 - Escritura en IPF (los medios son de solo lectura, como el FDI), IPF de alta densidad, los tipos de pista que MAME rechaza, las etiquetas de CT RAW / KryoFlux.

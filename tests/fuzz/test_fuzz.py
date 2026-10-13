@@ -332,6 +332,12 @@ class TrackDiskFuzzTests(unittest.TestCase):
         images = {"ext2.adf": td.ext2_image(raw), "ext2-dos.adf": td.ext2_image(dos), "ext1.adf": td.ext1_image([("raw", td.SYNC, bytes((i * 5 + 1) & 0xFF for i in range(9000)))] + dos[1:]),
                   "plain.adf": adf, "amiga.fdi": fdi.fdi_image([amiga(t) for t in range(12)]), "low.fdi": fdi.fdi_image([("lowlevel", low)] * 6 + [amiga(t) for t in range(6, 12)], version=(2, 1)),
                   "weak.fdi": fdi.fdi_image([("lowlevel", lowweak)] * 4 + [("lowlevel", low), amiga(5)] + [("empty",)] * 6)}
+        # IPF (T58): the seeds of the decoder's own campaign (tests/fuzz/test_ipf.py) and a disk of AmigaDOS sectors with a weak area after each, whose tracks the sweep reads on both heads
+        from tests.fuzz import test_ipf
+        from tests.media import ipf
+        for i, blob in enumerate(test_ipf.seeds()[:3]):
+            images[f"seed{i}.ipf"] = blob
+        images["weak.ipf"] = ipf.build([ipf.Track(t // 2, t % 2, ipf.dos_blocks(adf, t, weak_bytes=20)) for t in range(8)])
         cls.images = []
         for name, data in images.items():
             path = directory / name
@@ -356,6 +362,15 @@ class TrackDiskFuzzTests(unittest.TestCase):
                 loaded = re.search(r"^trackdisk loaded (\d+) extended (\d+) states (\d+)$", result.stdout, re.M)
                 self.assertGreater(int(loaded[2]), 0, "some of the images the oracle accepts are extended ADFs, read by the engine")
                 self.assertEqual(loaded[1], loaded[3], "every loaded image gave a state that loaded back")
+
+    def test_ipf_images_the_bridge_opens_are_read_by_the_engine_and_their_states_load_back(self):
+        """T58: a quarter of the pool is IPF (the seeds of the decoder's campaign and a disk of sectors with weak areas); the mutated ones get most of their checksums put right again, so the
+        descriptions of the blocks reach the decoder, and what the bridge opens (the reader's verdict is checked in tests/fuzz/test_ipf.py) is swept by the micro-ROM and saved and loaded back."""
+        result = self.run_target(7, 160)
+        self.assertTrue(clean(result), result.stderr[-1200:])
+        loaded = re.search(r"^trackdisk loaded (\d+) extended (\d+) states (\d+)$", result.stdout, re.M)
+        self.assertEqual(loaded[1], loaded[3], "every loaded image gave a state that loaded back")
+        self.assertGreater(int(re.search(r"^trackdisk ipf loaded (\d+)$", result.stdout, re.M)[1]), 0, "some of the IPF images the bridge opens are read by the engine")
 
     def test_a_run_is_reproducible(self):
         first = self.run_target(3, 30)

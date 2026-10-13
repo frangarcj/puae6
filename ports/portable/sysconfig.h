@@ -45,6 +45,9 @@
 /* FDI images (T57b): upstream's fdi2raw.cpp, the reader of WinUAE, in memory (the zfile of the portable layer), without a library and with patches 0332 to 0334 (bounded, and the draws of
  * its weak bits a function of the track and the revolution). The guard above refuses it from outside like the others. */
 #define FDI2RAW 1
+/* IPF images (T58): the disk.cpp branches that name P6_IPF read the image through ports/portable/media/ipf_track.h (the free decoder of MAME, third_party/mame-ipf, patch 0340). CAPS, the
+ * capsimg hook of upstream, stays refused above. */
+#define P6_IPF 1
 #define AGA 1 /* Alice/Lisa: without it fixup_prefs clears the AGA bit of chipset_mask; A500/A600 never set it */
 #define SIZEOF_SHORT __SIZEOF_SHORT__
 #define SIZEOF_INT __SIZEOF_INT__

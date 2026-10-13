@@ -43,7 +43,8 @@ inline uint32_t be32(const uint8_t *p) { return get_u32be(p); }
 
 struct Image {
     ReadFn read = nullptr;
-    void *context = nullptr;
+    const void *context = nullptr;
+    char owned[kContextBytes] = {};                      // the copy of the context of open(..., context_size)
     uint64_t bytes = 0;
     ipf_format::ipf_decode decode;                       // INFO, and the IMGE of every track by its key
     uint64_t data_offset[kKeys] = {};                    // where the data of the track of each key starts
@@ -54,7 +55,7 @@ struct Image {
 
 namespace {
 
-bool read_memory(void *context, uint64_t offset, void *out, size_t length)
+bool read_memory(const void *context, uint64_t offset, void *out, size_t length)
 {
     const Image *image = static_cast<const Image *>(context);
     if (offset > image->bytes || length > image->bytes - offset) return false;
@@ -180,7 +181,7 @@ Image *index_image(Image *image, const char **why)
 
 }  // namespace
 
-Image *open(ReadFn read, void *context, uint64_t bytes, const char **why)
+Image *open(ReadFn read, const void *context, uint64_t bytes, const char **why, size_t context_size)
 {
     const char *unused;
     if (!why) why = &unused;
@@ -192,6 +193,10 @@ Image *open(ReadFn read, void *context, uint64_t bytes, const char **why)
         image = new Image;
         image->read = read;
         image->context = context;
+        if (context_size && context_size <= kContextBytes && context) {
+            memcpy(image->owned, context, context_size);
+            image->context = image->owned;
+        }
         image->bytes = bytes;
         return index_image(image, why);
     } catch (...) {
@@ -224,6 +229,14 @@ Image *open_memory(const uint8_t *data, uint64_t bytes, const char **why)
 }
 
 void close(Image *image) { delete image; }
+
+unsigned track_count(const Image *image)
+{
+    unsigned count = 0;
+    for (unsigned n = 0; image && n < kTracks; ++n)
+        if (image->by_track[n] >= 0) count = n + 1;
+    return count;
+}
 
 bool has_track(const Image *image, unsigned track) { return image && track < kTracks && image->by_track[track] >= 0; }
 

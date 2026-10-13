@@ -1207,8 +1207,54 @@ bool oracle_accepts_floppy(const std::vector<uint8_t> &v)
     return size == 901120;
 }
 
+// IPF (T58): a list of tags {id, size, crc, body}, a DATA tag followed by the data of its track. Whether the bridge opens a mutated IPF is decided by the reader and checked against the
+// oracle of tests/fuzz/test_ipf.py (the decoder on its own); here what it opens is read by the engine. The mutations reach the descriptions of the blocks: bytes of the data, a word set to
+// a boundary value, the file cut or extended, and then every checksum put right again (the walk below) most of the time.
+bool is_ipf(const std::vector<uint8_t> &v) { return v.size() >= 12 && !memcmp(v.data(), "CAPS", 4); }
+
+void fix_ipf_checksums(std::vector<uint8_t> &v)
+{
+    uint64_t pos = 0;
+    while (pos + 12 <= v.size()) {
+        const uint64_t size = be_n(v, pos + 4, 4);
+        if (size < 12 || pos + size > v.size()) return;
+        uint64_t end = pos + size;
+        if (!memcmp(&v[pos], "DATA", 4) && size == 28) {
+            const uint64_t length = be_n(v, pos + 12, 4);
+            if (end + length <= v.size()) {
+                const uint32_t crc = crc32_bitwise(&v[end], size_t(length));
+                for (int i = 0; i < 4; ++i) v[pos + 20 + i] = uint8_t(crc >> (24 - 8 * i));
+                end += length;
+            }
+        }
+        memset(&v[pos + 8], 0, 4);
+        const uint32_t crc = crc32_bitwise(&v[pos], size_t(size));
+        for (int i = 0; i < 4; ++i) v[pos + 8 + i] = uint8_t(crc >> (24 - 8 * i));
+        pos = end;
+    }
+}
+
+std::vector<uint8_t> mutate_ipf(std::vector<uint8_t> image, Random &rng)
+{
+    static const uint32_t boundary[] = {0, 1, 7, 8, 15, 16, 0xFF, 0x100, 0xFFFF, 0x10000, 0x7FFFFFFF, 0x80000000u, 0xFFFFFFF0u, 0xFFFFFFFFu, 160000, 160001, 262144, 168, 83, 82};
+    for (unsigned edits = 1 + rng.below(4); edits--;) {
+        switch (rng.below(6)) {
+        case 0: image[rng.below(uint32_t(image.size()))] ^= uint8_t(1u << rng.below(8)); break;
+        case 1: if (image.size() > 300) { const size_t at = 108 + rng.below(uint32_t(image.size() - 108)); for (unsigned i = 0; i < 1 + rng.below(8) && at + i < image.size(); ++i) image[at + i] = uint8_t(rng.next()); } break;
+        case 2: if (image.size() > 300) { const size_t at = 4 * rng.below(uint32_t(image.size() / 4 - 1)); const uint32_t v = boundary[rng.below(sizeof boundary / sizeof boundary[0])]; for (int i = 0; i < 4; ++i) image[at + i] = uint8_t(v >> (24 - 8 * i)); } break;
+        case 3: image.resize(image.size() - 1 - rng.below(uint32_t(std::min<size_t>(image.size() - 1, 4000)))); break;
+        case 4: image.insert(image.end(), 1 + rng.below(64), uint8_t(rng.next())); break;
+        default: if (image.size() > 400) { const size_t a = 108 + rng.below(uint32_t(image.size() - 300)), b = 108 + rng.below(uint32_t(image.size() - 300)); for (unsigned i = 0; i < 32; ++i) image[a + i] = image[b + i]; } break;
+        }
+        if (image.size() < 12) image.resize(12);
+    }
+    if (rng.below(10) < 8) fix_ipf_checksums(image);
+    return image;
+}
+
 std::vector<uint8_t> mutate_floppy(const std::vector<uint8_t> &good, Random &rng)
 {
+    if (is_ipf(good)) return mutate_ipf(good, rng);
     std::vector<uint8_t> image = good;
     const bool ext2 = image.size() > 12 && !memcmp(image.data(), "UAE-1ADF", 8);
     const bool ext1 = image.size() > 648 && !memcmp(image.data(), "UAE--ADF", 8);
@@ -1274,7 +1320,7 @@ int fuzz_trackdisk(const char *rom_path, uint64_t seed, uint64_t iterations, int
     p6_error error = fresh_error();
     if (p6_init(&config, &error) != P6_OK) bug("p6_init", 0);
     std::map<int, unsigned> histogram;
-    unsigned ran = 0, states = 0, accepted_extended = 0;
+    unsigned ran = 0, states = 0, accepted_extended = 0, accepted_ipf = 0;
     std::vector<uint8_t> buffer;
     for (uint64_t i = 0; i < iterations; ++i) {
         const std::vector<uint8_t> image = rng.below(8) == 0 ? pool[rng.below(uint32_t(pool.size()))] : mutate_floppy(pool[rng.below(uint32_t(pool.size()))], rng);
@@ -1282,18 +1328,20 @@ int fuzz_trackdisk(const char *rom_path, uint64_t seed, uint64_t iterations, int
         m.type = P6_MEDIA_ADF;
         m.image = p6_buffer{image.data(), image.size()};
         p6_sha256_hash(image.data(), image.size(), m.content_id);
-        const bool expected = oracle_accepts_floppy(image);
+        const bool ipf = is_ipf(image);           // the reader of an IPF is the decoder, whose verdict tests/fuzz/test_ipf.py checks against its own oracle
+        const bool expected = ipf ? true : oracle_accepts_floppy(image);
         error = fresh_error();
         const p6_result r = p6_load(p6_buffer{rom.data(), rom.size()}, &m, 1, &error);
         ++histogram[int(r)];
         if (!message_is_bounded(error)) bug("unbounded message", i);
-        if ((r == P6_OK) != expected) bug(r == P6_OK ? "a floppy image the oracle refuses was accepted" : "a floppy image the oracle accepts was refused", i);
+        if (!ipf && (r == P6_OK) != expected) bug(r == P6_OK ? "a floppy image the oracle refuses was accepted" : "a floppy image the oracle accepts was refused", i);
         if (r != P6_OK) {
             if (r != P6_ERROR_WRONG_MEDIA) bug("a floppy result outside the documented set", i);
             if (!error.message[0]) bug("error without a message", i);
             continue;
         }
         ++ran;
+        if (ipf) ++accepted_ipf;
         if (image.size() != 901120) ++accepted_extended;
         p6_media_event event{};
         event.abi_version = P6_ABI_VERSION;
@@ -1331,6 +1379,7 @@ int fuzz_trackdisk(const char *rom_path, uint64_t seed, uint64_t iterations, int
     }
     for (const auto &entry : histogram) printf("trackdisk result %d: %u\n", entry.first, entry.second);
     printf("trackdisk loaded %u extended %u states %u\n", ran, accepted_extended, states);
+    printf("trackdisk ipf loaded %u\n", accepted_ipf);
     p6_shutdown(nullptr);
     return 0;
 }

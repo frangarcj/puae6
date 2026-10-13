@@ -75,6 +75,7 @@ add_library(p6_portable STATIC
     ports/portable/blob_io.c
     ports/portable/media/sha256.c
     ports/portable/media/ipf_track.cpp
+    ports/portable/media/ipf_blob.cpp
     ports/portable/civil_time.c
     ports/portable/rtc_time.cpp
     ports/portable/audio_math.cpp

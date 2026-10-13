@@ -87,6 +87,6 @@ disco. Mediciones y referencias de codigo: informe de investigacion de T12 (resu
     de una vuelta, con sus bits debiles); las demas se rechazan porque `fdi2raw` las lee sin comprobar el final del dato. El decodificador de upstream se compila (`fdi2raw.cpp`, parches 0332 a 0335): acotado
     (cada lectura contra el final de los bytes de la pista y limites fijos: pulsos, profundidad del arbol de Huffman, bits de salida, pasos), determinista (los sorteos de los bits debiles salen de un generador
     del decodificador sembrado por pista y revolucion, no del del motor) y con su estado (docs/adr/0009-state-format.md, punto 17). No se usa capsimg ni ninguna biblioteca.
-16. **Enganche para IPF (T58).** El lector de IPF producira pistas MFM con su temporizacion por celda; su sitio natural es `drive_fill_bigbuf` junto a las pistas de
+16. **Enganche para IPF (T58; hecho: ADR 0013 y el parche 0340).** El lector de IPF producira pistas MFM con su temporizacion por celda; su sitio natural es `drive_fill_bigbuf` junto a las pistas de
     este formato (la rama `ADF_IPF`, hoy sin compilar, y `fetchnextrevolution` para varias vueltas), con el estado de pista de este punto 12 mas el contador de
     revolucion de T57b, y el validador de `trackdisk.h` como compuerta antes del motor (un formato nuevo es un `Format` mas y una funcion de comprobacion).

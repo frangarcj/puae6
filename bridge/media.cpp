@@ -11,6 +11,7 @@
 #include "blob_io.h"
 #include "overlay.h"
 #include "trackdisk.h"
+#include "ipf_track.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -67,6 +68,19 @@ p6_result validate_media(const p6_media *media, uint32_t count, p6_error *error)
             const p6_floppy::Verdict verdict = p6_floppy::classify_floppy(static_cast<const uint8_t *>(m.image.data), m.image.bytes);
             if (!verdict.ok)
                 return p6_fail(error, P6_ERROR_WRONG_MEDIA, verdict.why);
+            if (verdict.format == p6_floppy::kIpf) {
+                // An IPF is opened with the decoder the engine will use (T58): every tag has its CRC checked, the tracks are indexed and each one is decoded once, so
+                // an image the engine could not read is refused here with the reason, not played as a disk of unformatted tracks.
+                const char *why = nullptr;
+                p6_ipf::Image *image = p6_ipf::open_memory(static_cast<const uint8_t *>(m.image.data), m.image.bytes, &why);
+                if (!image)
+                    return p6_fail(error, P6_ERROR_WRONG_MEDIA, why ? why : "an IPF the decoder does not read");
+                unsigned track = 0;
+                why = p6_ipf::check_tracks(image, &track);
+                p6_ipf::close(image);
+                if (why)
+                    return p6_fail(error, P6_ERROR_WRONG_MEDIA, why);
+            }
             floppy_bytes += m.image.bytes;
         }
         for (uint32_t j = 0; j < i; ++j)
@@ -477,7 +491,7 @@ extern "C" p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_
     if (media_index >= session.media_count)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium is not in the manifest");
     if (session.media_format[media_index] != p6_floppy::kAdf)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "an extended ADF or FDI image is read only: the guest cannot change it, so there is nothing to export");
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "an extended ADF, FDI or IPF image is read only: the guest cannot change it, so there is nothing to export");
     if (capacity < p6_bridge::kAdfBytes)
         return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than a disk image (901120 bytes)");
     if (!buffer)

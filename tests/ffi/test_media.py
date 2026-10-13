@@ -101,7 +101,7 @@ class MediaTests(unittest.TestCase):
         result = build_waterbox.run_ffi("media", "--runtime", "libwaterboxhost.dylib", "--guest", str(GUEST), "--sha", self.sha, "--firmware", str(self.dir / "disk.rom"),
                                         "--adf", str(short), "--units", "1")
         self.assertEqual(1, result.returncode)
-        self.assertIn("a disk image must be exactly 901120 bytes, an extended ADF or an FDI", result.stderr)      # the guest says why (T57: the core only caps the size)
+        self.assertIn("a disk image must be exactly 901120 bytes, an extended ADF, an FDI or an IPF", result.stderr)      # the guest says why (T57: the core only caps the size)
         before = [(self.dir / f"{name}.adf").read_bytes() for name in "AB"]
         self.core(SWAP)
         self.assertEqual(before, [(self.dir / f"{name}.adf").read_bytes() for name in "AB"])

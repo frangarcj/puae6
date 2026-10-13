@@ -4204,6 +4204,32 @@
           "after_sha256": "f505d36d2243f6be29e2aea81141537344be3deb6d23338c4e4d3cfd5a5d835e"
         }
       ]
+    },
+    {
+      "id": "0340-disk-ipf-reader",
+      "file": "patches/winuae/0340-disk-ipf-reader.patch",
+      "sha256": "292cb4d86f714597c5b8f6b4d74d48e03c70a4caacb61c7fbd66213f53f56c7f",
+      "title": "disk.cpp reads an IPF through the free reader (ipf_track.h): insert, a track, the next revolution, close",
+      "reason": "T58b: ADF_IPF was the capsimg hook (caps_loadimage, caps_loadtrack, caps_loadrevolution) and is not compiled. With P6_IPF the drive keeps the index of the image (opened at insert from the store of media, closed at eject), decodes the track under the head with the revolution it is, which counts from 0 whenever another track is read and is the fdirev/fditrack of the FDI in DSKX, and fetches the next revolution of a track with weak cells at every index. Nothing is added to the state: the reader keeps nothing between two reads, the buffer and its timing are in DSDn and the index is made again when the state's medium is inserted.",
+      "category": "host hooks",
+      "order": 155,
+      "symbols": [
+        "drive_fill_bigbuf",
+        "drive_image_free",
+        "drive_insert",
+        "fetchnextrevolution",
+        "ipf_decode_track"
+      ],
+      "test": "tests/media/test_ipf_engine.py, tests/state/test_det02_ipf.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "f505d36d2243f6be29e2aea81141537344be3deb6d23338c4e4d3cfd5a5d835e",
+          "after_sha256": "140dd76f57c2f0a8ea3f025efbedc30f63b9ee055918f97c506bb9f5c89973bc"
+        }
+      ]
     }
   ]
 }
