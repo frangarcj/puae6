@@ -11360,7 +11360,7 @@
       "title": "Reducir costo de snapshots solo con prueba de reconstruccion",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T34",
         "T21",
@@ -11375,14 +11375,16 @@
         "ports/waterbox/**",
         "adapters/waterbox/**",
         "manifests/waterbox-memory.json",
-        "tests/waterbox-poison/**"
+        "tests/waterbox-poison/**",
+        "tools/check.py"
       ],
       "steps": [
         "Clasificar principales paginas/buffers del costo de snapshot y elegir como maximo una cache candidata por cambio.",
         "Demostrar reconstruccion exacta con poison tras restore, instancia nueva, ambos campos interlaced y cambios de modo.",
         "Repetir audio/drive/movie seek y medir tamaño/latencia/heap; no excluir filtros, estado de pista ni historia causal.",
         "Si no hay exclusion segura, mantener memoria capturada y registrar la razon, sin forzar una mejora.",
-        "Comprobar alineacion y permisos por grupo fisico 16 KiB en MacHawk; no mezclar categorias incompatibles ni asumir que solo se ensucia una pagina 4 KiB."
+        "Comprobar alineacion y permisos por grupo fisico 16 KiB en MacHawk; no mezclar categorias incompatibles ni asumir que solo se ensucia una pagina 4 KiB.",
+        "Integrar en tools/check.py las siete puertas de T36: reusar las suites de runtime y añadir la prueba adversaria de tests/waterbox-poison, sin modificar el guest para la sonda."
       ],
       "checks": [
         "WB03",

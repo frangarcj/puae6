@@ -382,6 +382,29 @@ TASK_SUITES[('REF01', 'T35d')] = TASK_SUITES[('REF01', 'T32a')]
 TASK_SUITES[('HOST01', 'T35d')] = {'guest_elf_and_imports': 'tests.waterbox-smoke.test_build', 'coherent_guest_memory': 'tests.waterbox-smoke.test_memory_manifest'}
 TASK_SUITES[('WB03', 'T35d')] = {'aga_superhires_sprite_sentinel': 'tests.step.test_sprite_nearest.WaterboxSpriteTests',
                               'wrapper_states': 'tests.waterbox-state.test_wrapper_state', 'raster_states': 'tests.waterbox-state.test_wrapper_raster'}
+# T36 keeps the safe captured baseline unless the adversarial probe proves an exclusion.
+# Each gate exercises the actual sandbox, not the native semantic serializer.
+TASK_SUITES[('WB03', 'T36')] = {
+    'adversarial_pixel_history_and_new_process': 'tests.waterbox-poison.test_poison',
+    'coherent_memory_manifest': 'tests.waterbox-smoke.test_memory_manifest',
+}
+_wrapper_state = 'tests.waterbox-state.test_wrapper_state.WrapperStateTests'
+TASK_SUITES[('WB04', 'T36')] = {
+    'alternating_new_sandboxes': _wrapper_state + '.test_a_state_of_one_sandbox_runs_in_a_new_one_and_in_a_third_as_in_the_first_and_they_can_take_turns',
+    'before_first_unit': _wrapper_state + '.test_a_state_made_before_the_first_unit_goes_to_a_new_sandbox_too',
+}
+TASK_SUITES[('WB05', 'T36')] = {
+    'dma_drive_held_key_and_pending_swap': _wrapper_state + '.test_save_go_on_load_and_repeat_gives_the_same_units_and_the_same_machine',
+    'one_hundred_restores': _wrapper_state + '.test_the_second_load_of_a_state_is_as_good_as_the_first_after_a_hundred_cycles',
+    'paula_filter_and_phase': 'tests.waterbox-state.test_wrapper_audio.WrapperAudioTests',
+}
+TASK_SUITES[('WB08', 'T36')] = {
+    'interlaced_suppressed_delivery': 'tests.waterbox-smoke.test_puae6_units.WaterboxUnitTests.test_render_and_audio_switched_off_for_stretches_change_nothing_of_the_units_that_follow',
+}
+TASK_SUITES[('WB09', 'T36')] = {'movie_seek_branch_and_suppressed_delivery': 'tests.bizhawk-movies.test_movie_playback.MoviePlaybackTests'}
+TASK_SUITES[('WB12', 'T36')] = TASK_SUITES[('WB12', 'T33')]
+TASK_SUITES[('WB14', 'T36')] = {'actual_guest_physical_groups_and_restore': 'tests.waterbox-smoke.test_puae6_wb'}
+
 TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
@@ -389,9 +412,13 @@ TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('
 TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1', 'P6_RELEASE_GATE': '1'}      # the second is read only by the OpenDivergenceGate tests of T32
 DRIVER = '''import json, pathlib, sys, unittest
 # T34a: the suites of tests/waterbox-* import their neighbours by the bare name (discover -s DIR puts the directory on the path): so does loading them by dotted name
-_file = pathlib.Path(*sys.argv[1].split('.')).with_suffix('.py')
-if _file.is_file():
-    sys.path.append(str(_file.parent.resolve()))
+_parts = sys.argv[1].split('.')
+while _parts:
+    _file = pathlib.Path(*_parts).with_suffix('.py')
+    if _file.is_file():
+        sys.path.append(str(_file.parent.resolve()))
+        break
+    _parts.pop()  # a registry entry can name a TestCase class or a single method
 suite = unittest.defaultTestLoader.loadTestsFromName(sys.argv[1])
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 report = dict(tests=result.testsRun, failures=len(result.failures),

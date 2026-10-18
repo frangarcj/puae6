@@ -88,17 +88,33 @@
   "candidates_for_exclusion": [
     {
       "symbol": "pixels",
-      "bytes_written_by_first_unit": 4190208,
-      "why": "the engine's chunky picture buffer, written every unit",
-      "needed": "a poison test over both fields and mode changes before it can leave the snapshot (docs/03-waterbox.md); T36"
+      "dirty_pages_first_unit_pal": 1028,
+      "dirty_pages_first_unit_ntsc": 868,
+      "why": "Causal weave history: the renderer overwrites only the current field. T36 poisons every byte after restore with 0xA5 and 0x5A: the just-drawn foreground RGB is correct but the previous field still contains the poison, immediately after both even and odd restore points. This is visible inside the picture, not just in unused X bytes or margins.",
+      "decision": "retain captured",
+      "needed": "T36 rejects exclusion. tests/waterbox-poison/test_poison.py checks both fields, resolution/LACE changes, OCS/ECS/AGA, PAL/NTSC and same/new sandbox/process continuation. A future exclusion needs an exact replacement for the retained field, not two warmup fields after a load."
     },
     {
       "symbol": "cpufunctbl, cpufunctbl_noret, mem_banks, loop_mode_table, cpudatatbl",
-      "bytes_written_by_first_unit": 2326528,
-      "why": "tables that are clean right after the seal and dirty after the first unit: the machine's reset head runs inside that unit, not inside p6_load",
-      "needed": "either run that head before the seal (without consuming a unit) or prove the tables rebuildable; T36"
+      "dirty_pages_first_unit_pal_per_symbol": [129, 129, 129, 93, 93],
+      "why": "Clean at seal, dirty in the first unit. Opcode dispatch/metadata are derived, but build_cpufunctbl is not a pure rebuild: it changes CPU flags and calls set_cpu_caches(true), invalidating live prefetch/cache addresses. mem_banks is live mapping state (ROM overlay/expansion), not solely a function of the initial preset.",
+      "decision": "retain captured",
+      "needed": "T36 retains these tables. Moving the whole reset head before seal also advances hardware cycles, applies/clears queued boot media and sets session.started, changing reset/poke semantics before the first unit (bridge/frame_step.cpp, media.cpp, lifecycle.cpp). Exclusion needs a separately proved pure table rebuild; neither existing path is safe to call after an arbitrary snapshot."
     }
   ],
+  "snapshot_policy": {
+    "decision": "T36 accepts the measured captured baseline; no guest memory is newly excluded and no size or latency improvement is claimed.",
+    "baseline": "The sixteen measured* profiles below remain the budget authority for this unchanged guest/runtime. tests/waterbox-poison additionally measures the public display fixtures at units 12/13 (eight future units, five save/load timings per point); tests.bench.test_wb12 measures frame/snapshot p50/p95 and heaps through both the guest ABI and the real BizHawk core. Timings are advisory on this shared Mac.",
+    "physical_pages": "Counts are intersections of dirty 4 KiB logical pages with symbol ranges, not bytes written by the symbol. A dirty 16 KiB group may overlap two symbols: do not add their page counts. The PAL pixel range intersects 257 dirty physical groups (NTSC 217); the entire candidate's groups are checked uniformly captured RW before poison. No static subrange is reclassified in place.",
+    "other_principal_regions": {
+      "currprefs_and_changed_prefs": "Each occupies 11 457 712 bytes but only 32/11 intersecting pages are dirty after the first public PAL unit. Size in the ELF is not snapshot cost; preferences and pending changes stay captured.",
+      "audio_channel_and_audio_stream": "20/37 intersecting dirty pages in the first PAL unit; phase, filters and queued samples stay captured. WB05 repeats Paula option/restore tests.",
+      "floppy_and_dfxhistory": "55/4 intersecting dirty pages in the first PAL unit; DMA/track and drive history stay captured. WB05 repeats motor/DMA/pending swap and a hundred restores; WB09 repeats movie seeks/branches.",
+      "xcolors_and_rgb_tables": "Derived from preferences but share two 16 KiB groups with other globals, both dirty after the first unit. Excluding whole groups would discard neighbours; relocating and adding a rebuild path for about 19 KiB of tables is not adopted without its own poison proof. No inferred safe exclusion."
+    },
+    "proof": "python3 tools/check.py --check WB03 --task T36 (poison and full future snapshot digests), plus WB04, WB05, WB08, WB09, WB12 and WB14. Invisible/plain heaps remain empty; existing runtime bookkeeping and empty boundary stacks retain their runtime treatment.",
+    "runtime_limit": "The local macOS 26.7.1 allocator failure can also occur while loading a snapshot: SIGBUS in libsystem_malloc's _xzm_xzone_malloc_freelist_outlined, called by waterboxhost::bin::verify_magic (a host allocation before checking the snapshot tag). The isolated case and complete gate pass on repetition; this does not fix the runtime/host failure. Tests fail on a crash without automatic retry; T41 must account for the runtime limitation in docs/07-machawk.md."
+  },
   "measured": {
     "fixture": {
       "machine": "A500",
