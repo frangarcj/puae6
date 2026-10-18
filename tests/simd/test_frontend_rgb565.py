@@ -1,6 +1,7 @@
 """T35c scoped gates; no matrix or measurements means BLOCKED, never PASS."""
 import json
 import os
+import tempfile
 import unittest
 
 from tests.simd import frontend_matrix as matrix
@@ -10,11 +11,12 @@ from tests.simd.frontend_statistics import compare
 
 def current_inputs(row):
     directory = matrix.directory(row)
-    frontend.assets.write_differential(directory / "corpus")
     extension = ".dylib" if row.startswith("macos-") else ".so"
     binaries = {v: directory / "opt" / ("puae6_libretro" + ("_rgb565_candidate" if v == "candidate" else "") + extension)
                 for v in ("current", "candidate")}
-    return frontend.timing_inputs({**binaries, "host": directory / "opt/p6_libretro_host"}, directory / "corpus")
+    with tempfile.TemporaryDirectory(prefix="p6-timing-inputs-") as work:
+        frontend.assets.write_differential(work)
+        return frontend.timing_inputs({**binaries, "host": directory / "opt/p6_libretro_host"}, work)
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "prepare the T35c frontend rows and set P6_TEST_RGB565_FRONTEND=1")
