@@ -13765,7 +13765,7 @@
         "docs/02-contracts.md",
         "docs/04-validation.md"
       ],
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T58a"
       ],
@@ -13813,7 +13813,7 @@
       "title": "IPF con un decodificador de licencia libre (no capsimg), dentro del motor y de Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "blocked",
       "depends": [
         "T57",
         "T58a",
@@ -13871,7 +13871,7 @@
         "Un IPF libre de pruebas y uno autorizado por el usuario arrancan y restauran en libretro y BizHawk."
       ],
       "stop": "No enlazar capsimg ni codigo de licencia no libre.",
-      "evidence": null
+      "evidence": "reports/tasks/T58.md"
     },
     {
       "id": "T59",
