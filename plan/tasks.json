@@ -12262,7 +12262,7 @@
       "title": "Evaluar SIMD y flags sin perder referencia escalar",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T34"
       ],
@@ -12275,13 +12275,16 @@
         "cmake/Optimization.cmake",
         "tests/simd/**",
         "docs/adr/0004-native-optimizations.md",
-        "reports/optimizations/**"
+        "reports/optimizations/**",
+        "tools/check.py",
+        "plan/tasks.json"
       ],
       "steps": [
         "Evaluar un hotspot real de pixel/audio; mantener ruta escalar y dispatch por capacidades probado.",
         "Comparar buffers adversarios, alineamiento/tails y PCM/pixeles bit a bit; no aplicar fast-math al perfil determinista.",
         "Medir LTO/PGO solo con toolchain fijada y corpus representativo, sin -march=native en releases.",
-        "Aceptar la ruta solo con mejora estable y costo razonable; un informe de no conveniencia puede cerrar la tarea."
+        "Aceptar la ruta solo con mejora estable y costo razonable; un informe de no conveniencia puede cerrar la tarea.",
+        "Ampliacion de touch (2026-10-18): registrar suites reales de T35 en tools/check.py y conservar las cuatro puertas. Primera vertical: comparar el RGB565 actual de adapters/libretro/present.h con un prototipo SIMD y una referencia escalar, sin activar una ruta nueva antes de medir y sin tocar CPU/chipset."
       ],
       "checks": [
         "PERF01",

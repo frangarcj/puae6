@@ -1,0 +1,63 @@
+{
+  "compiler": "Homebrew clang version 22.1.8",
+  "compiler_sha256": "305697d3868243dca6e4aabf4f628df7de135d701eb4fd78f6a5d7528fef4395",
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-Wall",
+    "-Wextra",
+    "-Werror"
+  ],
+  "sources": {
+    "tests/simd/rgb565_probe.cpp": "572595294d2b9548f740042894ffe47ffb5bde9192c904efc3450296cc220f14",
+    "tests/simd/rgb565_candidate.h": "10b988d429da5cffed5dbb24d415f7aee91accc4e8c8ddf18924fa4d78136231",
+    "adapters/libretro/present.h": "b680704f01d2827d4a71e6dc7e73a853cb79bbb750f666027da4d809dc820c02",
+    "adapters/libretro/options_generated.h": "5a903b36550648553a6775a6ac1a71f1e8aa9d2f1e478c8b2cc3ca4e68b72400",
+    "bridge/include/p6.h": "4febc487ed31b9b62c1e84bf58285c7c932b78ce1e2545d2fcda2d07a54b3400",
+    "references/libretro-api/include/libretro.h": "c928d8f176b4e4bc45ee2a41ef236d25cc19e9bc2abc2e2e4c32cf08d6423801",
+    "tests/simd/evaluate.py": "93b6015102dc43c483530000d65e449108f37d87b150eae3b0af88251c0bba1f"
+  },
+  "mode": "opt",
+  "environment": {
+    "os": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "isa": "arm64",
+    "load_average": [
+      3.19384765625,
+      2.4482421875,
+      6.88818359375
+    ],
+    "dedicated_runner": false
+  },
+  "verified_rgb_values": 16777216,
+  "backend": "neon",
+  "forced_fallback": "scalar",
+  "row_pixels": 756,
+  "row_copy_included": true,
+  "warmup": 300,
+  "iterations_per_sample": 300,
+  "repetitions": 5,
+  "samples": [
+    {
+      "current_ns": 101166.8,
+      "candidate_ns": 106605.4
+    },
+    {
+      "current_ns": 101946.0,
+      "candidate_ns": 105967.4
+    },
+    {
+      "current_ns": 101445.7,
+      "candidate_ns": 105966.1
+    },
+    {
+      "current_ns": 99975.4,
+      "candidate_ns": 104473.2
+    },
+    {
+      "current_ns": 102948.9,
+      "candidate_ns": 106652.9
+    }
+  ]
+}
