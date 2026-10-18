@@ -351,6 +351,12 @@ TASK_SUITES[('WB02', 'T34a')] = {
 }
 TASK_SUITES[('WB12', 'T34a')] = TASK_SUITES[('WB12', 'T33')]
 TASK_SUITES[('PERF01', 'T34a')] = TASK_SUITES[('PERF01', 'T34')]
+# T35a evaluates the pixel candidate only. T35 keeps flags and full-frontend
+# adoption behind T35b/T35c; opt-in matrix omissions are BLOCKED, never PASS.
+TASK_SUITES[('PERF01', 'T35a')] = {'verified_native_pixel_measurement': 'tests.simd.test_decision.PerformanceTests'}
+TASK_SUITES[('DET04', 'T35a')] = {'pixel_equivalence_in_declared_rows': 'tests.simd.test_matrix.EquivalenceTests'}
+TASK_SUITES[('SAFE01', 'T35a')] = {'pixel_sanitizers_in_declared_rows': 'tests.simd.test_matrix.SafetyTests', 'llvm_pixel_guards_and_selftest': 'tests.simd.test_rgb565'}
+TASK_SUITES[('ADR01', 'T35a')] = {'measured_platform_decision': 'tests.simd.test_decision.DecisionTests'}
 TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,

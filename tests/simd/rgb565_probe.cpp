@@ -20,6 +20,7 @@ __attribute__((noinline)) static void candidate(const uint32_t *in, size_t n, ui
 }
 __attribute__((noinline)) static void fallback(const uint32_t *in, size_t n, uint16_t *out) { p6_simd::convert(in, n, out, false); }
 static uint32_t rng = 1;
+static uint64_t rgb_digest = 1469598103934665603ull;
 static uint32_t random_word() { rng = rng * 1664525u + 1013904223u; return rng; }
 
 static void verify()
@@ -35,6 +36,7 @@ static void verify()
             expected[i] = uint16_t((p / 65536 / 8) * 2048 + ((p / 256) % 256 / 4) * 32 + (p % 256 / 8));
         }
         for (Convert route : routes) { route(input.data(), input.size(), output.data()); require(output == expected, "RGB domain differs"); }
+        for (uint16_t p : output) { rgb_digest = (rgb_digest ^ (p & 255)) * 1099511628211ull; rgb_digest = (rgb_digest ^ (p >> 8)) * 1099511628211ull; }
     }
     for (size_t n : {size_t(0), 1ul, 2ul, 3ul, 4ul, 7ul, 8ul, 15ul, 16ul, 17ul, 31ul, 32ul, 33ul, 63ul, 64ul, 65ul, 755ul, 756ul, 757ul, 1824ul, 756ul * 574}) {
         for (size_t offset = 0; offset < 16; ++offset) {
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
 {
     corrupt_candidate = argc > 1 && !strcmp(argv[1], "--selftest-fail");
     verify();
-    printf("{\"verified_rgb_values\":16777216,\"backend\":\"%s\",\"forced_fallback\":\"%s\",\"row_pixels\":756,\"row_copy_included\":true,\"warmup\":300,\"iterations_per_sample\":300,\"repetitions\":5,\"samples\":[", p6_simd::backend(true), p6_simd::backend(false));
+    printf("{\"rgb_digest\":\"%016llx\",\"verified_rgb_values\":16777216,\"backend\":\"%s\",\"forced_fallback\":\"%s\",\"row_pixels\":756,\"row_copy_included\":true,\"warmup\":300,\"iterations_per_sample\":300,\"repetitions\":5,\"samples\":[", static_cast<unsigned long long>(rgb_digest), p6_simd::backend(true), p6_simd::backend(false));
     std::vector<uint32_t> in(756 * 574); for (auto &p : in) p = random_word();
     std::vector<uint16_t> out(in.size());
     for (unsigned i = 0; i < 300; ++i) { frame(current, in.data(), in.size(), out.data()); frame(candidate, in.data(), in.size(), out.data()); }

@@ -12258,13 +12258,142 @@
       "evidence": null
     },
     {
+      "id": "T35a",
+      "title": "Evaluar RGB565 SIMD frente al codigo real y el fallback en la matriz declarada",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T34"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0004-native-optimizations.md"
+      ],
+      "touch": [
+        "tests/simd/**",
+        "reports/optimizations/**",
+        "docs/adr/0004-native-optimizations.md",
+        "tools/check.py",
+        "plan/tasks.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Conservar el codigo actual de conversion, un candidato SIMD aislado y una referencia escalar; comprobar RGB, alineamientos, colas, origen inmutable, canarios y paginas protegidas.",
+        "Ejecutar los modos optimizado, sin SIMD/autovectorizacion y ASan/UBSan en las cinco filas declaradas (Apple Clang nativo y Clang/GCC Linux ARM64/x86_64 en los contenedores fijados); comprobar identidades/versiones y registrar que x86_64 es traducido.",
+        "Medir la conversion con la misma forma por filas que usa libretro y con resultados verificados; solo adoptar una ruta con ganancia estable y mantenimiento razonable. Documentar la decision y sus limites; no basta un microbenchmark para inferir coste de frame completo.",
+        "No cerrar T35: LTO/PGO y sus efectos sobre el motor/corpus pertenecen a T35b y a las puertas del cierre."
+      ],
+      "checks": [
+        "PERF01",
+        "DET04",
+        "SAFE01",
+        "ADR01"
+      ],
+      "acceptance": [
+        "Las cinco filas ejecutan comparaciones bit a bit con la referencia escalar y prueban el fallback; ninguna fila sin ejecutar se presenta como PASS.",
+        "El experimento de pixel tiene medida reproducible, decision registrada y pruebas de seguridad; no se activa codigo de producto sin evidencia suficiente."
+      ],
+      "stop": "No -march=native ni precision reducida. No tocar CPU/chipset para mejorar la conversion. No presentar ejecucion traducida x86_64 como hardware x86_64.",
+      "evidence": null
+    },
+    {
+      "id": "T35b",
+      "title": "Evaluar LTO/PGO y flags sobre el motor completo sin cambiar el perfil",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T34"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0004-native-optimizations.md"
+      ],
+      "touch": [
+        "cmake/Optimization.cmake",
+        "CMakeLists.txt",
+        "tests/simd/**",
+        "reports/optimizations/**",
+        "docs/adr/0004-native-optimizations.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Elegir y comprobar una toolchain fijada, conservar referencia -O2 y evaluar LTO/PGO por separado con entrenamiento reproducible de corpus representativo; ningun perfil privado entra en artifacts publicos.",
+        "Comparar hardware y A/V canonicos antes de medir, incluidos restore y fallback de flags; medir coste repetido sin cambiar precision, algoritmos CPU/chipset ni baseline de ISA.",
+        "Solo conservar flags con mejora estable y mantenimiento razonable; documentar incompatibilidad, fallo o no conveniencia con reproducer, sin bajar la puerta ni cambiar golden."
+      ],
+      "checks": [
+        "PERF01",
+        "DET04",
+        "SAFE01",
+        "ADR01"
+      ],
+      "acceptance": [
+        "Todo flag conservado tiene equivalencia y medida sobre corpus representativo con toolchain identificada; los no conservados tienen decision y evidencia.",
+        "No se cambia precision del perfil determinista ni se introduce -march=native; T35 mantiene su cierre completo de SIMD y flags."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer/salida/hipotesis y bloquear; no cambiar flags de CPU al azar ni tolerancias.",
+      "evidence": null
+    },
+    {
+      "id": "T35c",
+      "title": "Medir e integrar RGB565 por plataforma solo si mejora el frontend completo",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T35a"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0004-native-optimizations.md"
+      ],
+      "touch": [
+        "ports/portable/simd/**",
+        "adapters/libretro/present.h",
+        "CMakeLists.txt",
+        "cmake/Optimization.cmake",
+        "tests/simd/**",
+        "tests/libretro-host/**",
+        "reports/optimizations/**",
+        "docs/adr/0004-native-optimizations.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Reproducir los tiempos opuestos de T35a: Apple Clang pierde, Linux ARM64 Clang/GCC gana. Medir antes/despues en el frontend real con RGB565, misma maquina/configuracion y corpus representativo, sin inferir tiempo de frame de la microprueba.",
+        "Comparar pixels/PCM/ticks y restore, fallback y limites de buffers; solo conservar una seleccion por plataforma si la ganancia es estable y su mantenimiento razonable. Mantener la referencia portable y no forkar CPU/chipset.",
+        "Documentar la decision cuantitativa, incluidos resultados negativos; T35 no cierra sin esta decision y la evaluacion de flags T35b."
+      ],
+      "checks": [
+        "PERF01",
+        "DET04",
+        "SAFE01",
+        "ADR01"
+      ],
+      "acceptance": [
+        "Una ruta de producto solo se activa donde demuestra ganancia de extremo a extremo y equivalencia con el fallback; las plataformas anunciadas mantienen sus resultados y sus limites.",
+        "La seleccion y cada flag quedan documentados; una decision de no adopcion debe estar respaldada por las medidas del frontend, no solo por el resultado de otro compilador."
+      ],
+      "stop": "No activar NEON globalmente ocultando la regresion de Apple Clang ni descartar la ganancia de Linux sin medir el frontend. No cambiar precision/golden ni baseline de ISA.",
+      "evidence": null
+    },
+    {
       "id": "T35",
       "title": "Evaluar SIMD y flags sin perder referencia escalar",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
-        "T34"
+        "T34",
+        "T35a",
+        "T35b",
+        "T35c"
       ],
       "read": [
         "docs/04-validation.md",
@@ -12277,14 +12406,17 @@
         "docs/adr/0004-native-optimizations.md",
         "reports/optimizations/**",
         "tools/check.py",
-        "plan/tasks.json"
+        "plan/tasks.json",
+        "tests/test_plan.py"
       ],
       "steps": [
         "Evaluar un hotspot real de pixel/audio; mantener ruta escalar y dispatch por capacidades probado.",
         "Comparar buffers adversarios, alineamiento/tails y PCM/pixeles bit a bit; no aplicar fast-math al perfil determinista.",
         "Medir LTO/PGO solo con toolchain fijada y corpus representativo, sin -march=native en releases.",
         "Aceptar la ruta solo con mejora estable y costo razonable; un informe de no conveniencia puede cerrar la tarea.",
-        "Ampliacion de touch (2026-10-18): registrar suites reales de T35 en tools/check.py y conservar las cuatro puertas. Primera vertical: comparar el RGB565 actual de adapters/libretro/present.h con un prototipo SIMD y una referencia escalar, sin activar una ruta nueva antes de medir y sin tocar CPU/chipset."
+        "Ampliacion de touch (2026-10-18): registrar suites reales de T35 en tools/check.py y conservar las cuatro puertas. Primera vertical: comparar el RGB565 actual de adapters/libretro/present.h con un prototipo SIMD y una referencia escalar, sin activar una ruta nueva antes de medir y sin tocar CPU/chipset.",
+        "Division (2026-10-18) para mantener cambios comprobables: T35a cierra el experimento SIMD, su matriz y la decision; T35b evalua flags/LTO/PGO con el motor y corpus representativo. T35 conserva sus cuatro checks y su aceptacion completa. tests/test_plan.py se amplia solo para conteos/dependencias del plan.",
+        "La matriz T35a encuentra regresion en Apple Clang y ganancia en Linux ARM64: T35c debe medir el frontend completo y decidir una seleccion por plataforma. No se descarta ni se activa globalmente el candidato a partir del microbenchmark."
       ],
       "checks": [
         "PERF01",
