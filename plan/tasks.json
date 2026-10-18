@@ -12398,7 +12398,7 @@
       "title": "Medir e integrar RGB565 por plataforma solo si mejora el frontend completo",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T35a",
         "T35d"

@@ -1,6 +1,6 @@
 # T35c: RGB565 en el frontend libretro real
 
-Estado: T35c preparada tras T35d, sin decision de activacion. No se reutiliza la
+Estado: T35c in_progress tras T35d, sin decision de activacion. No se reutiliza la
 ganancia de la microprueba como ganancia de frame.
 
 ## Vertical ejecutable
@@ -102,7 +102,22 @@ derivadas de las filas y sus recibos antes de volver a medir; los resultados del
 guest previo no sustituyen la comprobacion del guest corregido.
 
 T35d termina con sus seis puertas en PASS, incluido el caso A1200 SuperHires
-en Waterbox real y las 16 medidas de memoria coherentes. Las dos filas nativas
-opt/san ya verifican el arreglo con los inputs finales. T35c sigue pending
-hasta reanudar su propia matriz y mediciones; no se retienen los recibos Linux
-anteriores como prueba de 0342.
+en Waterbox real y las 16 medidas de memoria coherentes (commit `ef2b90c`). Las
+dos variantes nativas opt/san ya verifican el arreglo con los inputs finales.
+Al reanudar T35c se conservan las fuentes derivadas y recibos Linux anteriores
+en `build/simd/frontend/<fila>/pre-T35d-20261018/`. La nueva campana los
+materializa mediante las herramientas normales, repite microprueba, matriz y
+sanitizers antes de medir. Log: `build/T35c-campaign-after-T35d.log`.
+
+## Microprueba renovada tras T35d
+
+Las cinco filas vuelven a completar los 2^24 colores, colas, alineamientos y
+paginas protegidas en opt/fallback/san, con el mismo digest. Datos completos:
+`reports/optimizations/T35c-rgb565-micro.json`; no se sobrescribe la evidencia
+historica T35a.
+
+La mediana de las cinco muestras mantiene la diferencia entre compiladores:
+el candidato empeora 6,48 % en Apple Clang 21 (0/5 pares ganados), y reduce el
+coste 56,65 % en Linux ARM64 Clang 18 y 34,69 % en GCC 13 (5/5 en ambos).
+Son tiempos de conversion/copia de filas, no de frame. La decision de T35c
+sigue pendiente de las medidas de `retro_run` completo y de sus puertas.
