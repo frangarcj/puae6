@@ -5,6 +5,7 @@ import unittest
 
 from tests.simd import frontend_matrix as matrix
 from tests.simd import frontend_rgb565 as frontend
+from tests.simd.frontend_statistics import compare
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "prepare the T35c frontend rows and set P6_TEST_RGB565_FRONTEND=1")
@@ -47,6 +48,10 @@ class PerformanceTests(unittest.TestCase):
                         facts.append(tuple(raw[k] for k in ("state_bytes", "pictures", "audio_frames")) +
                                      (tuple(sample["last_run"]), tuple(sample["final_state"])))
                 self.assertEqual(len(set(facts)), 1, scenario.id)
+                comparison = compare([x for x in r["runs"] if x["scenario"] == scenario.id])
+                self.assertEqual(len(comparison["paired_reductions_percent"]), 5)
+                for variant in ("current", "candidate"):
+                    self.assertEqual(comparison["variants"][variant]["median_cpu_ns"], r["summary"][scenario.id][variant]["median_cpu_ns"])
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "T35c needs the measured platform decision")
