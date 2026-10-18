@@ -131,16 +131,23 @@ sigue pendiente de las medidas de `retro_run` completo y de sus puertas.
 
 ## Matriz renovada: primer punto comprobado
 
-Las tres filas ARM64 y la x86_64 Clang optimizadas completan de nuevo sus 27
-casos con 0342 y el manifiesto final. Se comprueba que
+Las cinco filas optimizadas completan de nuevo sus 27 casos con 0342 y el
+manifiesto final. Se comprueba que
 sus recibos son nuevos (no los conservados antes de T35d), que cada verificacion
-identifica su build y que RGB565/PCM/ticks coinciden entre las cuatro filas. Pasan
+identifica su build y que RGB565/PCM/ticks coinciden entre las cinco filas. Pasan
 las restauraciones en el mismo proceso y en otro nuevo, y la igualdad del
 snapshot completo entre las dos bibliotecas de cada fila.
 
 La auditoria renovada de compile_commands confirma los mismos flags del
 adaptador en las tres filas salvo selector, include experimental, EXPORTS y
-objeto de salida. Cada una de las cuatro filas tiene una sola compilacion de
+objeto de salida; GCC x86_64 tambien conserva esa equivalencia. Cada una de las
+cinco filas tiene una sola compilacion de
 los 47 fuentes del motor; sus comandos no introducen fast-math, ISA nativa,
-LTO ni PGO. GCC x86_64, los sanitizers de la matriz completa y las mediciones
-siguen pendientes: este punto no es PASS de DET04/SAFE01 de T35c.
+LTO ni PGO. Las tres filas ARM64 sanitizadas tambien completan los 27 casos
+con los inputs actuales y conservan las salidas de las cinco optimizadas. Se
+verifican recibos, hashes de las bibliotecas/host y los flags ASan/UBSan de los
+47 fuentes del motor y los dos adaptadores. Pasan las restauraciones en el mismo
+proceso y en otro nuevo. Las dos filas x86_64 sanitizadas y las mediciones
+siguen pendientes: este punto no es PASS de DET04/SAFE01 de T35c. La campana
+completa todas las compilaciones y puertas de equivalencia y seguridad antes de
+iniciar los tiempos.
