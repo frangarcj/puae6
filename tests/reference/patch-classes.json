@@ -162,7 +162,8 @@
     "0334-disk-fdi-track-state": "instrumentation",
     "0335-disk-track-timing-state": "instrumentation",
     "0340-disk-ipf-reader": "required",
-    "0341-blitter-channel-mask-restore": "behavior"
+    "0341-blitter-channel-mask-restore": "behavior",
+    "0342-denise-nearest-sprite-sentinel": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -332,6 +333,18 @@
       "why": "Preserves the BLTX channel mask only when restore_blitter_new rebuilds derived state. The REF01 corpus never loads a state, so the uninterrupted execution is identical; the synthetic pending BLTCON0 write captures the restored difference.",
       "test": "tests/state/test_state_upstream.py",
       "scenarios": [],
+      "subsystems": []
+    },
+    "0342-denise-nearest-sprite-sentinel": {
+      "effect": "neutral",
+      "why": "The no-future-sprite counter is derived and neither a negative value below SPRITE_NEAREST_MIN nor its unscaled positive sentinel can trigger matching before the next recomputation. Real distances are unchanged. The dedicated SuperHires pre/post frontend observations and sanitized arithmetic fixture cover the case outside the default corpus.",
+      "test": "tests/step/test_sprite_nearest.py",
+      "scenarios": [
+        "aga-planes8-fmode3-pal",
+        "aga-ham8-ntsc",
+        "aga-sprite64-pal",
+        "aga-bars24-ntsc"
+      ],
       "subsystems": []
     }
   },

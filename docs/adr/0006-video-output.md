@@ -179,3 +179,26 @@ columnas por pixel lores, x`hy` filas por linea) y el aspecto forzado PAL/NTSC t
 `python3 -m unittest tests.step.test_step` (arbol `build/step-trace`), `tests.host.test_a500_profile`,
 `tests.host.test_bridge_caps`. AV01 completo (pixeles con contenido, PAL/NTSC, lores/hires, entrelazado) es T08c.
 T72: `tests.step.test_resolution` (cada raster, con su baseline, el perfil contra los dorados) y `tests/libretro-host/test_resolution.py`.
+
+## Centinela de sprites en AGA SuperHires (T35d)
+
+La campaña T35c descubre un overflow en `spr_nearest`: sin sprite armado por
+delante de los dos contadores, `min` queda en INT_MAX. Se resta el margen de 2 y
+se comprueba ese valor ya restado contra INT_MAX; el test siempre acepta el
+centinela y en SuperHires desplaza INT_MAX-2 por dos bits. UBSan aborta en la
+biblioteca de referencia, con XRGB8888 y RGB565, antes de la primera unidad.
+
+El parche 0342 comprueba `min` antes de escalar, conservando el margen y la escala
+de todas las distancias reales. El centinela no debe generar un match: el valor
+anterior envuelto era menor que SPRITE_NEAREST_MIN y el nuevo es positivo, ambos
+fuera de la ventana de match hasta el siguiente recalculo. Este contador se
+reconstruye por `spr_nearest`, no se serializa (manifests/state-inventory.json).
+No se desactiva el sanitizer ni se define el overflow mediante flags globales.
+
+La prueba aritmetica compila el cuerpo real de la funcion con ASan/UBSan y lo
+compara con un modelo entero de distancias, ausencia de futuro y wrap del contador.
+El caso completo usa el motor y las bibliotecas libretro reales, con restauracion
+en el mismo proceso y otro nuevo. Las observaciones publicas anteriores al parche
+son una medida de regresion, no un oraculo de hardware; no cambian los golden de
+AGA ni de resolucion. T35d exige ademas guest, memoria y Waterbox coherentes antes
+de reanudar T35c.

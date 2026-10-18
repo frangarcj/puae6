@@ -4252,6 +4252,28 @@
           "after_sha256": "47c2066e655cd04cc8c7405cea36257f1f73fdb3f322f60f2733ba61b7c60bfb"
         }
       ]
+    },
+    {
+      "id": "0342-denise-nearest-sprite-sentinel",
+      "file": "patches/winuae/0342-denise-nearest-sprite-sentinel.patch",
+      "sha256": "67a10073ff71d2ad2b12ccdad9fd9a1dffbeab8702593d4d2a4c1a2b879ee91d",
+      "title": "Check the unmodified nearest-sprite sentinel before scaling an AGA countdown",
+      "reason": "T35d: min starts at INT_MAX when no armed sprite lies in the future. Testing min-2 against INT_MAX always succeeds; SuperHires then shifts INT_MAX-2 beyond unsigned-int range. Test min itself so the sentinel stays unscaled. Real distances and the -2 matching margin are unchanged; the derived count is rebuilt and is not serialized.",
+      "category": "build/portability",
+      "order": 157,
+      "symbols": [
+        "spr_nearest"
+      ],
+      "test": "tests/step/test_sprite_nearest.py; tests/step/test_aga.py; T35c frontend resolution corpus",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "04f5df70cb623a9178ada3bf06caa007bf69b1bb2a07d9855a8d217c465b9941",
+          "after_sha256": "34061fa7b8d4df62ae3fcf87fd0fe69a71c060ca95ed7c51ce7c28633c4aa4cb"
+        }
+      ]
     }
   ]
 }

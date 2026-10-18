@@ -365,6 +365,14 @@ TASK_SUITES[('DET04', 'T35c')] = {'rgb565_frontend_rows_and_restore': 'tests.sim
 TASK_SUITES[('SAFE01', 'T35c')] = {'rgb565_frontend_sanitizer_rows': 'tests.simd.test_frontend_rgb565.SafetyTests', 'rgb565_pixel_guards': 'tests.simd.test_rgb565'}
 TASK_SUITES[('PERF01', 'T35c')] = {'rgb565_full_frontend_measurements': 'tests.simd.test_frontend_rgb565.PerformanceTests'}
 TASK_SUITES[('ADR01', 'T35c')] = {'rgb565_measured_platform_decision': 'tests.simd.test_frontend_rgb565.DecisionTests'}
+TASK_SUITES[('SAFE01', 'T35d')] = {'nearest_sprite_counter_arithmetic': 'tests.step.test_sprite_nearest.NearestCounterTests',
+                                'aga_superhires_frontend_sanitizers': 'tests.step.test_sprite_nearest.FrontendSpriteTests.test_actual_sanitized_frontend_and_restores_include_the_failing_aga_superhires_case'}
+TASK_SUITES[('AV01', 'T35d')] = {'aga_pixels_and_sprites': 'tests.step.test_aga.PictureTests', 'resolution_rasters': 'tests.step.test_resolution.RasterTests'}
+TASK_SUITES[('DET02', 'T35d')] = {'pre_patch_frontend_outputs_and_restore': 'tests.step.test_sprite_nearest.FrontendSpriteTests.test_corrected_outputs_equal_the_pre_patch_observations_without_changing_golden'}
+TASK_SUITES[('REF01', 'T35d')] = TASK_SUITES[('REF01', 'T32a')]
+TASK_SUITES[('HOST01', 'T35d')] = {'guest_elf_and_imports': 'tests.waterbox-smoke.test_build', 'coherent_guest_memory': 'tests.waterbox-smoke.test_memory_manifest'}
+TASK_SUITES[('WB03', 'T35d')] = {'aga_superhires_sprite_sentinel': 'tests.step.test_sprite_nearest.WaterboxSpriteTests',
+                              'wrapper_states': 'tests.waterbox-state.test_wrapper_state', 'raster_states': 'tests.waterbox-state.test_wrapper_raster'}
 TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,

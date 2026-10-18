@@ -1,7 +1,7 @@
 # T35c: RGB565 en el frontend libretro real
 
-Estado: experimento en curso, sin decision de activacion. T35c sigue
-`in_progress`; no se reutiliza la ganancia de la microprueba como ganancia de frame.
+Estado: T35c preparada tras T35d, sin decision de activacion. No se reutiliza la
+ganancia de la microprueba como ganancia de frame.
 
 ## Vertical ejecutable
 
@@ -35,10 +35,10 @@ esta traducido en Docker Desktop sobre ARM64; no se anuncia como hardware x86_64
 Las mismas filas ejecutan ambas bibliotecas con ASan/UBSan. Se mantienen los tests
 de colores, alineamientos, tails y paginas protegidas de T35a.
 
-Las pasadas Mac ARM64 Apple Clang, Linux ARM64 Clang/GCC y Linux x86_64 Clang
-han terminado: 27 casos y sus restauraciones en cada fila, OK. Sus observaciones
-de RGB565/PCM/ticks coinciden tambien entre las cuatro filas (no sus snapshots
-crudos). GCC x86_64 sigue compilando. Un
+Las cinco pasadas optimizadas anteriores a T35d terminaron: 27 casos y sus
+restauraciones en cada fila, OK. Sus observaciones de RGB565/PCM/ticks coinciden
+tambien entre filas (no sus snapshots crudos). Son evidencia anterior al arreglo
+del centinela; deben renovarse con las fuentes corregidas. Un
 smoke de benchmark (10 unidades, no medida de rendimiento) confirma las dos rutas
 RGB565, el parseo de ticks y el estado final igual. Se repite la verificacion al
 terminar el runner y sus registros scoped, con el input fingerprint vigente.
@@ -76,10 +76,33 @@ python3 -m tests.simd.frontend_matrix measure
 
 El runner de una fila es `tests/simd/frontend_rgb565.py`. Los resultados estan en
 `build/simd/frontend/<fila>` (los contenedores guardan el experimento en su
-subdirectorio `experiment`). Log de la campana viva: `build/T35c-campaign.log`.
+subdirectorio `experiment`). Log de la campana detenida por el fallo de
+sanitizer: `build/T35c-campaign.log`.
 
 Los cuatro checks scoped de T35c se ejecutaran con
 `P6_TEST_RGB565_FRONTEND=1`; sin matriz/medidas se declaran BLOCKED, nunca PASS.
-Quedan pendientes los resultados Linux, sanitizers, medidas, decision cuantitativa
+Quedan pendientes la matriz renovada, sanitizers, medidas, decision cuantitativa
 y, si procede, integracion del selector por plataforma con su validacion. No
 cerrar T35c ni el padre T35 por el resultado preliminar del Mac.
+
+## Fallo real de sanitizer y tarea duena T35d
+
+Las cinco filas optimizadas completan los 27 casos y coinciden por RGB565/PCM/ticks.
+La primera fila sanitizada, Mac ARM64, falla en AGA planes8/fmode3 con SuperHires:
+`drawing.cpp:2626`, left shift de 2147483645 por 2, proceso -6. El fallo aparece
+en la biblioteca **de referencia**, no solo en el candidato. Una sola unidad y
+XRGB8888 tambien lo reproducen. Logs: `build/T35c-campaign.log` y
+`build/T35d-repro/{24bit,16bit}.log`; esta ejecucion no es PASS ni se reinicia
+como si solo hubiera caducado la observacion.
+
+El centinela de `spr_nearest` se corrige y valida en T35d con un reproducer
+aritmetico y el motor completo. T35c pasa a pending con esa dependencia, conserva
+sus cuatro puertas y todos los escenarios. Tras T35d deben renovarse las fuentes
+derivadas de las filas y sus recibos antes de volver a medir; los resultados del
+guest previo no sustituyen la comprobacion del guest corregido.
+
+T35d termina con sus seis puertas en PASS, incluido el caso A1200 SuperHires
+en Waterbox real y las 16 medidas de memoria coherentes. Las dos filas nativas
+opt/san ya verifican el arreglo con los inputs finales. T35c sigue pending
+hasta reanudar su propia matriz y mediciones; no se retienen los recibos Linux
+anteriores como prueba de 0342.

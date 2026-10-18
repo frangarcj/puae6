@@ -1,0 +1,12 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -2622,7 +2622,7 @@
+ 		}
+ 	}
+ 	denise_spr_nearestcnt = min - 2;
+-	if (aga_mode && denise_spr_nearestcnt > 0 && denise_spr_nearestcnt < 0x7fffffff) {
++	if (aga_mode && denise_spr_nearestcnt > 0 && min < 0x7fffffff) {
+ 		denise_spr_nearestcnt <<= hresolution;
+ 	}
+ }

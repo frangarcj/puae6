@@ -12340,13 +12340,68 @@
       "evidence": null
     },
     {
+      "id": "T35d",
+      "title": "Corregir el centinela de sprite mas cercano en AGA SuperHires sin overflow",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T72",
+        "T58"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0006-video-output.md"
+      ],
+      "touch": [
+        "patches/winuae/0342-denise-nearest-sprite-sentinel.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/step/test_sprite_nearest.py",
+        "tests/simd/**",
+        "manifests/waterbox-memory.json",
+        "docs/adr/0006-video-output.md",
+        "tools/check.py",
+        "plan/tasks.json",
+        "tests/test_plan.py",
+        "reports/tasks/T35d.md",
+        "reports/optimizations/T35c-frontend-rgb565.md"
+      ],
+      "steps": [
+        "Conservar el reproducer minimo: una unidad de aga-planes8-fmode3-pal, A1200 SuperHires, biblioteca de referencia con ASan/UBSan, tanto XRGB8888 como RGB565. spr_nearest resta 2 a INT_MAX antes de comprobar el centinela y desplaza INT_MAX-2 por dos bits.",
+        "Probar el cuerpo real de spr_nearest para distancias validas, wrap del contador y ausencia de sprite futuro; corregir solo el guard del centinela mediante patches/winuae, sin editar pristine ni envolver silenciosamente el overflow.",
+        "Comparar las 27 salidas del frontend optimizado con las anteriores al parche, repetir restauraciones y sanitizer, y comprobar regresiones AGA/sprites/resolucion y clasificacion REF01. No cambiar golden ni tolerancias para aceptar diferencias.",
+        "Reconstruir el guest con la misma toolchain/runtime, validar ELF/imports y las pruebas reales de Waterbox. Regrabar coherentemente las 16 claves measured* si cambia el guest, conforme docs/03-waterbox.md; no sustituir Waterbox por nativo. Reanudar T35c con fuentes y recibos vigentes."
+      ],
+      "checks": [
+        "SAFE01",
+        "AV01",
+        "DET02",
+        "REF01",
+        "HOST01",
+        "WB03"
+      ],
+      "acceptance": [
+        "AGA SuperHires con ningun sprite futuro no desplaza un centinela fuera de rango, y las distancias reales conservan su conteo.",
+        "El reproducer y la cobertura frontend/restore pasan sin sanitizer; pixels/PCM/ticks anteriores, golden cercanos y estado restaurado se conservan.",
+        "Guest y memoria registrada identifican las fuentes corregidas, y se ejecutan las pruebas reales de Waterbox de la ficha."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer/salida y dos hipotesis verificables; bloquear sin desactivar sanitizers, modificar golden ni alterar flags de CPU.",
+      "evidence": "reports/tasks/T35d.md"
+    },
+    {
       "id": "T35c",
       "title": "Medir e integrar RGB565 por plataforma solo si mejora el frontend completo",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
-        "T35a"
+        "T35a",
+        "T35d"
       ],
       "read": [
         "docs/04-validation.md",
@@ -12368,7 +12423,8 @@
       "steps": [
         "Reproducir los tiempos opuestos de T35a: Apple Clang pierde, Linux ARM64 Clang/GCC gana. Medir antes/despues en el frontend real con RGB565, misma maquina/configuracion y corpus representativo, sin inferir tiempo de frame de la microprueba.",
         "Comparar pixels/PCM/ticks y restore, fallback y limites de buffers; solo conservar una seleccion por plataforma si la ganancia es estable y su mantenimiento razonable. Mantener la referencia portable y no forkar CPU/chipset.",
-        "Documentar la decision cuantitativa, incluidos resultados negativos; T35 no cierra sin esta decision y la evaluacion de flags T35b."
+        "Documentar la decision cuantitativa, incluidos resultados negativos; T35 no cierra sin esta decision y la evaluacion de flags T35b.",
+        "Hallazgo de T35c (2026-10-18): ASan/UBSan en la biblioteca de referencia detecta overflow en spr_nearest con AGA SuperHires y ningun sprite futuro. T35d corrige el centinela mediante parche upstream, conserva el reproducer y valida nativo/Waterbox antes de reanudar esta campana. No se eliminan casos ni flags de sanitizer."
       ],
       "checks": [
         "PERF01",
