@@ -24,6 +24,14 @@ class EquivalenceTests(unittest.TestCase):
 class SafetyTests(unittest.TestCase):
     def test_full_rgb565_frontend_and_restore_under_sanitizers_in_every_row(self):
         self.assertEqual(set(matrix.verify(True)), set(matrix.ROWS))
+        for row in matrix.ROWS:
+            commands = json.loads((matrix.directory(row) / "san/compile_commands.json").read_text())
+            tested = [c["command"] for c in commands if any(target in c["command"] for target in
+                      ("p6_engine.dir/", "puae6_libretro.dir/", "puae6_libretro_rgb565_candidate.dir/"))]
+            self.assertTrue(tested, row)
+            for command in tested:
+                self.assertIn("-fsanitize=address,undefined", command, row)
+                self.assertIn("-fno-sanitize-recover=all", command, row)
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "run the T35c measurements first")
