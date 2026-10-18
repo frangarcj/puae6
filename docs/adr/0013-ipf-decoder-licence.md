@@ -28,8 +28,8 @@ y WinUAE la carga con `dlopen`, que ni el guest ni el perfil determinista admite
    capa de imagenes de MAME (conversion a transiciones de flujo, `floppy_image`, E/S de flujos) no se trae; el decodificador entrega la pista como celdas con su tiempo y su tipo
    (0, 1, debil) y la conversion a bits MFM es codigo del proyecto (`ports/portable/media/ipf_track.cpp`). La frontera de ficheros es la frontera de licencias.
 5. **Cambios locales** (`local-changes.diff`, 14 KiB de diff, casi todo lineas borradas): se quita la interfaz de flujo de MAME (`identify`, `load`, `parse`, el explorador de etiquetas que escribia en el buffer
-   de entrada: un medio del guest es de solo lectura); las sumas de tamanos son de 64 bits y se acotan a lo que una unidad de doble densidad lee (160000 celdas por pista, 168 claves de pista,
-   cilindros 0 a 82, 256 KiB de datos por pista); las compensaciones a descripciones se comprueban contra el tamano de los datos; un patron de hueco de cero bits se rechaza (era una
+   de entrada: un medio del guest es de solo lectura); las sumas de tamanos son de 64 bits y se acotan a lo que una unidad de doble densidad lee (160000 celdas por pista, 169 claves de indice (0..168; T58c),
+   cilindros accesibles 0 a 82, 256 KiB de datos por pista); las compensaciones a descripciones se comprueban contra el tamano de los datos; un patron de hueco de cero bits se rechaza (era una
    division por cero); tres comparaciones que daban la vuelta con huecos pequenos o la primera pista se escriben sin que puedan darla; la pista terminada se mueve al llamante.
    Los encontro la lectura del codigo (cada suma, desplazamiento y division sobre un numero del fichero) y los comprueba el fuzzer con ASan/UBSan y un oraculo del formato (FUZZ01 T58a): quitar
    uno a uno tres de esos cambios (el patron vacio, la comparacion de la posicion del indice y la suma de tamanos reales) hace fallar `tests/fuzz/test_ipf.py`; los otros cuatro son
@@ -61,3 +61,7 @@ y WinUAE la carga con `dlopen`, que ni el guest ni el perfil determinista admite
 
 Que MAME cambiara la licencia de estos ficheros (el commit fijado seguiria siendo BSD-3, pero no se actualizaria a una version con otra), que apareciera un IPF real con una proteccion que el
 decodificador no lea (se documenta el caso minimo y se decide entre un parche local y esperar a MAME), o que SPS publicara una biblioteca de licencia libre (no cambiaria nada mientras esta funcione).
+
+## Aclaracion de T58c: geometria del fichero y de la unidad
+
+El IPF de Amiga Soccer suministrado por el usuario el 2026-10-18 usa claves 1..168 y descripciones vacias hasta el cilindro 83. MAME ya reservaba `84*2+1` entradas; el endurecimiento inicial lo redujo indebidamente a 168. El indice admite ahora 169 claves y 84 cilindros de metadatos, pero la unidad conserva sus 166 pistas. El cilindro 83 solo puede ser tipo 1 sin celdas, bloques ni datos: no se ofrece al motor, no amplía `MAX_TRACKS`, y una pista exterior con contenido se rechaza. La regresion es sintetica y el corpus mutado incluye esa geometria. Informe y limites nativos/Waterbox: `reports/tasks/T58c.md`.

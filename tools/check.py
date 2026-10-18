@@ -267,6 +267,11 @@ TASK_SUITES[('FUZZ01', 'T58a')] = {**TASK_SUITES[('FUZZ01', 'T57')], 'ipf': 'tes
 TASK_SUITES[('MED01', 'T58b')] = {**TASK_SUITES[('MED01', 'T57b')], **TASK_SUITES[('MED01', 'T58a')], 'ipf_engine_reads': 'tests.media.test_ipf_engine'}
 TASK_SUITES[('DET02', 'T58b')] = {**TASK_SUITES[('DET02', 'T57')], 'ipf_restore': 'tests.state.test_det02_ipf'}
 TASK_SUITES[('FUZZ01', 'T58b')] = TASK_SUITES[('FUZZ01', 'T58a')]
+# T58c only changes the bounded IPF index: one-based keys and empty cylinder 83.
+# The enclosing T58 gate keeps its full accumulated suites and frontend acceptance.
+TASK_SUITES[('MED01', 'T58c')] = {**TASK_SUITES[('MED01', 'T58a')], 'ipf_engine_reads': 'tests.media.test_ipf_engine'}
+TASK_SUITES[('DET02', 'T58c')] = {'ipf_restore': 'tests.state.test_det02_ipf'}
+TASK_SUITES[('FUZZ01', 'T58c')] = {'ipf': 'tests.fuzz.test_ipf', 'trackdisk': 'tests.fuzz.test_fuzz.TrackDiskFuzzTests'}
 # T58 closes both on the three surfaces. MED01 adds the headless runner (`--disk`, a damaged IPF refused with the decoder's reason), the containers of the libretro adapter (an IPF as it is, in an ADZ and in
 # a ZIP; CT RAW refused) and the Waterbox sandbox (the guest reads the sectors of an IPF with weak areas and timing zones). DET02 is the union of the restores. WB03 is the Waterbox sandbox: a snapshot taken in
 # the middle of a revolution of an IPF with weak cells comes back in the same sandbox and in a new one (test_media_ipf), the same for an FDI and the extended ADF (test_media_trackdisk), and the state of the

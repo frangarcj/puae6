@@ -13809,15 +13809,65 @@
       "evidence": null
     },
     {
+      "id": "T58c",
+      "title": "Aceptar claves IPF desde uno y cilindro 83 vacio sin ampliar la unidad",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T58b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0013-ipf-decoder-licence.md"
+      ],
+      "touch": [
+        "third_party/mame-ipf/**",
+        "ports/portable/media/ipf_track.cpp",
+        "tests/media/ipf.py",
+        "tests/media/test_ipf.py",
+        "tools/check.py",
+        "plan/tasks.json",
+        "reports/tasks/T58c.md",
+        "tests/test_plan.py",
+        "tests/fuzz/test_ipf.py",
+        "reports/tasks/T58.md",
+        "docs/adr/0013-ipf-decoder-licence.md",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reproducir sin bytes del juego: 84 cilindros, claves 1..168 y cilindro exterior sin formato; comprobar el fallo antes del arreglo.",
+        "Aceptar e indexar esas descripciones vacias, manteniendo el limite fisico de 166 pistas: rechazar pistas formateadas fuera de el y claves/cilindros fuera del indice acotado. Actualizar oraculo y procedencia/diff generado de MAME.",
+        "Ejecutar el lector y una lectura por el motor sobre el IPF autorizado de Downloads sin incorporarlo al repositorio. Esta subtarea no cierra el arranque/restauracion de las superficies de T58.",
+        "Ampliacion de touch: tests/test_plan.py fija los conteos exactos del backlog; actualizar a 330 tareas / 322 obligatorias y conservar la comprobacion de las dependencias del cierre T58.",
+        "Ampliacion de touch: incorporar la geometria nueva al corpus de mutaciones de tests/fuzz/test_ipf.py y actualizar reports/tasks/T58.md con la disponibilidad del IPF y el resultado nativo, sin cerrar la puerta Waterbox pendiente.",
+        "Ampliacion de touch: precisar en ADR 0013 y docs/02-contracts.md la diferencia entre el indice IPF (169 claves) y las 166 pistas accesibles, con el cilindro 83 vacio como metadatos."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "La regresion sintetica con claves desde uno y cilindro 83 vacio se abre y sus pistas accesibles se decodifican, mientras un cilindro 83 con celdas o una clave fuera de rango se rechazan.",
+        "El IPF del usuario se valida por completo y puede leerse por el motor; DET02 y las mutaciones del lector no muestran errores."
+      ],
+      "stop": "No ampliar MAX_TRACKS ni ignorar una pista formateada fuera de la unidad. Tras dos intentos locales razonados sin resolver el fallo, conservar el reproducer y bloquear.",
+      "evidence": "reports/tasks/T58c.md"
+    },
+    {
       "id": "T58",
       "title": "IPF con un decodificador de licencia libre (no capsimg), dentro del motor y de Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "pending",
       "depends": [
         "T57",
         "T58a",
-        "T58b"
+        "T58b",
+        "T58c"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13859,7 +13909,8 @@
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk enlaza capsimg (licencia SPS no comercial) estatico en el guest; el usuario pide una version libre. Candidata: el lector IPF de MAME (lib/formats, BSD-3, verificar licencia y procedencia antes de importar), integrado en memoria con estado serializable; si no es viable, reimplementar desde la especificacion publica del formato. ADR de licencia.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/capsimg-config y CAPSIMG-LICENCE-NOTICE.md solo como referencia de integracion en el guest (capsimg NO se reutiliza: licencia no comercial).",
-        "Division (2026-10-13): T58a (decodificador de licencia libre, importacion con procedencia, ADR, validador y fuzzer), T58b (motor: pistas, revoluciones, estado, DET02); T58 es el cierre: libretro (container.h deja de rechazar el IPF, extension ipf), headless (--disk), BizHawk/Waterbox (el cargador entrega .ipf), P6_CAP_MEDIA_IPF, contratos, WB03, el guest Waterbox registrado de nuevo y la parte opcional con un IPF autorizado por el usuario (P6_IPF_FILE). Ampliacion de touch: adapters/headless, adapters/waterbox, tools/check.py, plan, manifests/waterbox-memory.json, las suites de superficies y docs."
+        "Division (2026-10-13): T58a (decodificador de licencia libre, importacion con procedencia, ADR, validador y fuzzer), T58b (motor: pistas, revoluciones, estado, DET02); T58 es el cierre: libretro (container.h deja de rechazar el IPF, extension ipf), headless (--disk), BizHawk/Waterbox (el cargador entrega .ipf), P6_CAP_MEDIA_IPF, contratos, WB03, el guest Waterbox registrado de nuevo y la parte opcional con un IPF autorizado por el usuario (P6_IPF_FILE). Ampliacion de touch: adapters/headless, adapters/waterbox, tools/check.py, plan, manifests/waterbox-memory.json, las suites de superficies y docs.",
+        "T58c (2026-10-18): Amiga Soccer del usuario revela claves desde 1 y descripciones vacias del cilindro 83. Corregir el indice acotado con reproducer sintetico antes de retomar el cierre, sin ampliar las pistas fisicas del motor. Los checks y la aceptacion de T58 se conservan."
       ],
       "checks": [
         "MED01",

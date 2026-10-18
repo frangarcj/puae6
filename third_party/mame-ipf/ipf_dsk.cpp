@@ -10,8 +10,10 @@
 // PUAE6: what a floppy of a double-density 3.5" drive can hold (the bridge reads no more than 20000 bytes of a track), and the number of tracks a drive has. The cap on the
 // cells is also the cap on every size the decoder adds up, so that none of them wraps.
 #define P6_IPF_MAX_CELLS (8u * 20000u)
-#define P6_IPF_MAX_KEYS 168u
-#define P6_IPF_MAX_CYLINDER 82u
+// A file may number its 84*2 descriptions from one (MAME's usual max is 84*2+1).
+// ipf_track.cpp accepts cylinder 83 only as empty padding, outside the drive.
+#define P6_IPF_MAX_KEYS 169u
+#define P6_IPF_MAX_CYLINDER 83u
 
 struct ipf_format::ipf_decode {
 	struct track_info {

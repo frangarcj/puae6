@@ -46,7 +46,7 @@
     {
       "path": "ipf_dsk.cpp",
       "derived_from": "original/ipf_dsk.cpp",
-      "sha256": "023eacd6850bd1f8cc5aa04485748c1c6535e87871bea6bdabc3c3a1d6ca6c7f"
+      "sha256": "c96eded76d3be7e3651f197547b3f1a3b59aa9d52ebc595f9846f61e2b477364"
     },
     {
       "path": "ipf_dsk.h",
@@ -56,7 +56,7 @@
   ],
   "local_changes": {
     "path": "local-changes.diff",
-    "sha256": "e1b136dd521cefa6c1736681d0cd5463b2fc30c2c0e05e880cffd64b8a6f6bd7",
+    "sha256": "a0e148b2e187c3314551cc5a24ecf18ba2d77df705420cc240de9626ab1d1e2b",
     "applied_with": "diff -u original/F F; patch -R recovers original/F"
   },
   "project_files": [

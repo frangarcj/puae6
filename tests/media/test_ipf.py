@@ -85,6 +85,17 @@ def sector_blocks(count=11, gap=200, pattern=0x00):
 
 
 class DecodeTests(Probe, unittest.TestCase):
+    def test_one_based_keys_and_empty_outer_cylinder_do_not_expand_the_drive(self):
+        # SPS-style metadata: 84 cylinders, keys 1..168. The last cylinder is empty;
+        # disk.cpp still has only 83 cylinders, and must never receive track 166/167.
+        track = ipf.Track(0, 0, sector_blocks(2))
+        tracks = [track] + [ipf.Track(t // 2, t % 2, [], type=1) for t in range(1, 168)]
+        blob = ipf.build(tracks, key_base=1)
+        decoded = self.assert_matches(track, blob)
+        self.assertTrue(ipf.accepts(blob))
+        self.assertEqual(sorted(decoded), [(t, 0) for t in range(166)])
+        self.assertTrue(all(decoded[(t, 0)] == "absent" for t in range(1, 166)))
+
     def test_a_track_of_sectors_with_gaps_is_the_mfm_of_its_content(self):
         self.assert_matches(ipf.Track(0, 0, sector_blocks()))
 
@@ -233,6 +244,18 @@ class RefusalTests(Probe, unittest.TestCase):
         self.assertTrue(self.verdict(ipf.build([too_big])).startswith("ok"), "a track of 64000 cells is fine")
         huge = ipf.build([ipf.Track(0, 0, [ipf.Block([("mfm", bytes(11000))], gap_cells=8)])])
         self.assertTrue(self.verdict(huge).startswith("refused"), "176000 cells are more than a drive's track")
+
+    def test_outer_padding_stays_bounded_empty_and_unique(self):
+        track = ipf.Track(0, 0, sector_blocks(2))
+        padding = ipf.Track(83, 0, [], type=1)
+        cases = [ipf.build([track, ipf.Track(83, 0, [], type=1, noise_cells=1)]),
+                 ipf.build([track, ipf.Track(84, 0, [], type=1)]),
+                 ipf.build([track, padding, padding]), ipf.build([padding]),
+                 ipf.build([track], key_base=169)]
+        for blob in cases:
+            with self.subTest(bytes=len(blob)):
+                self.assertTrue(self.verdict(blob).startswith("refused"))
+                self.assertFalse(ipf.accepts(blob))
 
 
 class HostileBlocks(Probe, unittest.TestCase):

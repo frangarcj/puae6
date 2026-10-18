@@ -33,6 +33,7 @@ namespace {
 constexpr uint32_t kInfoBytes = 96, kImgeBytes = 80, kDataBytes = 28, kCapsBytes = 12;
 constexpr uint32_t kTagCaps = 0x43415053, kTagInfo = 0x494e464f, kTagImge = 0x494d4745, kTagData = 0x44415441;
 constexpr uint32_t kKeys = P6_IPF_MAX_KEYS;
+constexpr uint32_t kImageTracks = 2u * (P6_IPF_MAX_CYLINDER + 1u);
 
 struct CrcTable {
     uint32_t value[256];
@@ -66,7 +67,7 @@ struct Image {
     ipf_format::ipf_decode decode;                       // INFO, and the IMGE of every track by its key
     uint64_t data_offset[kKeys] = {};                    // where the data of the track of each key starts
     bool has_data[kKeys] = {};
-    int16_t by_track[kTracks];                           // key of the track cylinder * 2 + head, -1: none
+    int16_t by_track[kImageTracks];                      // includes empty outer padding; only kTracks are accessible to the drive
     const uint8_t *memory = nullptr;                     // open_memory
 };
 
@@ -165,10 +166,12 @@ const char *scan(Image &image)
         if (t.info_set != image.has_data[key]) return "an IPF track has a description and no data, or data and no description";
         if (!t.info_set) continue;
         const uint32_t track = t.cylinder * 2 + t.head;
-        if (track >= kTracks) return "an IPF track beyond the cylinders of a drive";
+        if (track >= kImageTracks) return "an IPF track beyond the image geometry";
+        if (track >= kTracks && (t.type != 1 || t.size_cells || t.datasize_cells || t.gapsize_cells || t.block_count || t.data_size))
+            return "an IPF has a formatted track beyond the cylinders of a drive";
         if (image.by_track[track] >= 0) return "an IPF has two descriptions of the same cylinder and head";
         image.by_track[track] = int16_t(key);
-        ++described;
+        if (track < kTracks) ++described;
     }
     if (!described) return "an IPF has no tracks";
     return nullptr;

@@ -21,7 +21,7 @@ from tests.media.test_ipf import ENV, Probe, build_probe, sector_blocks, SYNC
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNS = ((1, 1500), (2, 1500), (3, 1500), (20261013, 1500))      # (seed, images), recorded: a failure is reproduced by its seed
-BOUNDARY = (0, 1, 2, 7, 8, 15, 16, 31, 32, 0xFF, 0x100, 0xFFFF, 0x10000, 0x7FFFFFFF, 0x80000000, 0xFFFFFFF0, 0xFFFFFFFF, 160000, 160001, 262144, 262145, 168, 167, 166, 83, 82)
+BOUNDARY = (0, 1, 2, 7, 8, 15, 16, 31, 32, 0xFF, 0x100, 0xFFFF, 0x10000, 0x7FFFFFFF, 0x80000000, 0xFFFFFFF0, 0xFFFFFFFF, 160000, 160001, 262144, 262145, 168, 167, 166, 169, 170, 83, 82, 84)
 
 
 def seeds():
@@ -36,7 +36,10 @@ def seeds():
     tracks = [ipf.Track(5, 0, tiny, index_cells=33), ipf.Track(5, 1, both, index_cells=20), ipf.Track(0, 0, sector_blocks(11, gap=200)), ipf.Track(0, 1, sector_blocks(3, gap=64), index_cells=500), ipf.Track(1, 0, weak), ipf.Track(1, 1, raw),
               ipf.Track(2, 0, described), ipf.Track(2, 1, sector_blocks(3, gap=160), type=6), ipf.Track(3, 0, sector_blocks(7, gap=160), type=3), ipf.Track(3, 1, nine, type=9),
               ipf.Track(4, 0, [], type=1, noise_cells=20000)]
-    return [ipf.build(tracks), ipf.build(tracks[2:3]), ipf.build([tracks[4]]), ipf.build(tracks[-1:]), ipf.build(tracks[:2]), ipf.build(tracks, encoder_type=1)]
+    # One-based keys through 168 and empty cylinder 83, without any owner's disk bytes.
+    padded = [tracks[2]] + [ipf.Track(t // 2, t % 2, [], type=1) for t in range(1, 168)]
+    return [ipf.build(tracks), ipf.build(tracks[2:3]), ipf.build([tracks[4]]), ipf.build(tracks[-1:]), ipf.build(tracks[:2]), ipf.build(tracks, encoder_type=1),
+            ipf.build(padded, key_base=1)]
 
 
 def fix_checksums(blob):

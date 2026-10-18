@@ -100,13 +100,13 @@ def track_body(track: Track, key: int, encoder_type: int = 2):
     return imge, data_tag
 
 
-def build(tracks, encoder_type: int = 2, extra_tags=(), order=None) -> bytes:
+def build(tracks, encoder_type: int = 2, extra_tags=(), order=None, key_base=0) -> bytes:
     """A whole IPF: CAPS, INFO, the IMGE tags, then the DATA tags (the order of a real file: all the descriptions first)."""
     cylinders = [t.cylinder for t in tracks]
     heads = [t.head for t in tracks]
     info = tag(b"INFO", struct.pack(">21I", 1, encoder_type, 1, 1, 1, 0, min(cylinders), max(cylinders), min(heads), max(heads), 20260101, 120000000, 1, 0, 0, 0, 0, 0, 0, 0, 0))
     out = tag(CAPS_TAG, b"") + info
-    pairs = [track_body(t, k, encoder_type) for k, t in enumerate(tracks)]
+    pairs = [track_body(t, k, encoder_type) for k, t in enumerate(tracks, key_base)]
     out += b"".join(p[0] for p in pairs)
     for extra in extra_tags:
         out += extra
@@ -243,7 +243,7 @@ def timing(times):
 MAX_FILE = 3 << 20
 MAX_CELLS = 160000
 MAX_DATA = 256 * 1024
-MAX_KEYS = 168
+MAX_KEYS = 169
 
 
 def u32(blob, at):
@@ -283,9 +283,12 @@ def accepts(blob: bytes) -> bool:
             key, cylinder, head = u32(blob, pos + 64), u32(blob, pos + 12), u32(blob, pos + 16)
             if key >= MAX_KEYS or key in imge:
                 return False
-            if not (info[0] <= cylinder <= info[1] and cylinder <= 82 and info[2] <= head <= info[3] and head <= 1):
+            if not (info[0] <= cylinder <= info[1] and cylinder <= 83 and info[2] <= head <= info[3] and head <= 1):
                 return False
             if u32(blob, pos + 24) != 1 or u32(blob, pos + 56) != 0 or u32(blob, pos + 48) > MAX_CELLS:
+                return False
+            outside = cylinder == 83
+            if outside and (u32(blob, pos + 20) != 1 or any(u32(blob, pos + at) for at in (40, 44, 48, 52))):
                 return False
             imge[key] = cylinder * 2 + head
         elif ident == b"DATA":
@@ -301,7 +304,8 @@ def accepts(blob: bytes) -> bool:
         pos = end
     if info is None or set(imge) != set(data) or not imge:
         return False
-    return len(set(imge.values())) == len(imge)
+    return (len(set(imge.values())) == len(imge) and any(t < 166 for t in imge.values())
+            and all(data[key] == 0 for key, t in imge.items() if t >= 166))
 
 
 # ---- AmigaDOS tracks as IPF blocks ----------------------------------------------------------------------------------------------------------------------------------------
