@@ -1,0 +1,18 @@
+{
+  "observed_at": "2026-10-18T16:54:05.326757+00:00",
+  "phase": "compilation; this is not a per-run energy/temperature sample",
+  "cpu": "Apple M1 Pro",
+  "physical_cpus": 8,
+  "logical_cpus": 8,
+  "memory_bytes": 17179869184,
+  "macos": "ProductName:\t\tmacOS\nProductVersion:\t\t26.7.1\nBuildVersion:\t\t25G241",
+  "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=26411107)\t100%; charged; 0:00 remaining present: true",
+  "docker": {
+    "NCPU": 8,
+    "MemTotal": 8319770624,
+    "Architecture": "aarch64",
+    "KernelVersion": "7.0.14-linuxkit",
+    "OperatingSystem": "Docker Desktop",
+    "OSType": "linux"
+  }
+}

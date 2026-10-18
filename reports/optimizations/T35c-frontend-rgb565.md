@@ -64,6 +64,13 @@ medidas son orientativas: Mac de uso diario y Linux en VM, sin runner dedicado;
 el contenedor ve su carga, no ofrece sensores de energia/temperatura del host.
 No hay asset privado en programas ni medidas.
 
+Entorno observado durante la compilacion de la campana renovada: Apple M1 Pro,
+8 nucleos y 16 GiB de RAM, macOS 26.7.1; Docker Desktop ARM64 ofrece 8 vCPU y
+8319770624 bytes de RAM a sus contenedores. El Mac estaba conectado a corriente,
+con bateria al 100 %. Registro: `T35c-host-conditions.json`. Esta lectura no
+equivale a muestrear energia o temperatura durante cada run; las medidas guardan
+la carga antes y despues de cada uno y siguen siendo orientativas.
+
 ## Reproduccion y continuacion
 
 ```
@@ -121,3 +128,19 @@ el candidato empeora 6,48 % en Apple Clang 21 (0/5 pares ganados), y reduce el
 coste 56,65 % en Linux ARM64 Clang 18 y 34,69 % en GCC 13 (5/5 en ambos).
 Son tiempos de conversion/copia de filas, no de frame. La decision de T35c
 sigue pendiente de las medidas de `retro_run` completo y de sus puertas.
+
+## Matriz renovada: primer punto comprobado
+
+Las tres filas ARM64 y la x86_64 Clang optimizadas completan de nuevo sus 27
+casos con 0342 y el manifiesto final. Se comprueba que
+sus recibos son nuevos (no los conservados antes de T35d), que cada verificacion
+identifica su build y que RGB565/PCM/ticks coinciden entre las cuatro filas. Pasan
+las restauraciones en el mismo proceso y en otro nuevo, y la igualdad del
+snapshot completo entre las dos bibliotecas de cada fila.
+
+La auditoria renovada de compile_commands confirma los mismos flags del
+adaptador en las tres filas salvo selector, include experimental, EXPORTS y
+objeto de salida. Cada una de las cuatro filas tiene una sola compilacion de
+los 47 fuentes del motor; sus comandos no introducen fast-math, ISA nativa,
+LTO ni PGO. GCC x86_64, los sanitizers de la matriz completa y las mediciones
+siguen pendientes: este punto no es PASS de DET04/SAFE01 de T35c.
