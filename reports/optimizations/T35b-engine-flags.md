@@ -141,3 +141,33 @@ fusionado contiene 14867 funciones; `llvm-profdata show --counts --function=...`
 confirma que los contadores de `isamigatrack` e `ispctrack` y todos sus bloques
 son cero. No se simula haber ejecutado esas funciones. Quedan la verificacion
 del candidato PGO, sanitizers y medidas antes de cerrar la decision.
+
+## Equivalencia de los builds finales
+
+`P6_TEST_ENGINE_FLAGS=1 python3 tools/check.py --check DET04 --task T35b`:
+**PASS**. Referencia, LTO y PGO completan los 28 escenarios y sus 109
+restauraciones publicas, con recibos de las mismas fuentes actuales, ejecutables
+identificados y hardware/A/V por separado iguales en cada unidad. La verificacion
+PGO anterior ya ha terminado; siguen pendientes SAFE01, PERF01 y ADR01.
+
+Tamanos de los ejecutables Mach-O (bytes; no es medida de memoria ni de tiempo):
+
+| Variante | p6_state_probe | p6_bench_probe |
+| --- | ---: | ---: |
+| -O2 | 12012480 | 11941968 |
+| -O2 + LTO | 11625968 | 11440320 |
+| -O2 + PGO | 7150144 | 7091264 |
+
+La variante LTO + ASan/UBSan tambien completa los 28 escenarios y sus 109
+restauraciones, sin avisos y con hardware/A/V iguales a la referencia. Su build
+completo tardo 220,1 s. PGO + ASan/UBSan completa despues la misma cobertura,
+sin avisos y con los mismos hashes canonicos. Ambas variantes emplean el mismo
+perfil determinista y conservan las comparaciones; no hay excepciones nuevas.
+
+La campana de 75 medidas intercaladas ha empezado despues de terminar los builds
+y las verificaciones sanitizadas. Los recibos estan en
+`build/optimization/{base,lto,pgo,lto-san,pgo-san}/verification.json` y las
+muestras terminadas se escriben incrementalmente en
+`build/optimization/measurements.json`. Para evitar compilar el test de
+configuracion durante las muestras, se ejecutara la puerta SAFE01 completa al
+terminar la campana, junto a PERF01 y ADR01. T35b sigue `in_progress`.
