@@ -1,6 +1,6 @@
 # 0004. Optimizaciones nativas sin cambiar la maquina emulada
 
-Estado: seleccion RGB565 de T35c integrada y medida en el producto; cierre T35 pendiente. LTO/PGO siguen desactivados por defecto.
+Estado: decisiones SIMD y LTO/PGO de T35 validadas. LTO/PGO siguen desactivados por defecto.
 
 ## Contexto
 
@@ -35,16 +35,18 @@ ha ejecutado traducido en Docker, nunca se presenta como hardware x86_64.
 Retener LTO y PGO como opciones explicitas para el experimento nativo medido,
 desactivadas por defecto. Apple Clang 21 ARM64, misma Release -O2 con assertions,
 sin fast-math, contraccion ni cambio de ISA: LTO reduce la mediana CPU por frame
-un 8,02-11,53 %, PGO un 19,34-22,03 %. Cada opcion mejora los 25 pares de la
+un 6,42-12,07 %, PGO un 18,85-23,73 %. Cada opcion mejora los 25 pares de la
 campana (cinco workloads publicos de T33, cinco repeticiones intercaladas,
 330000 unidades). No se descarta una ganancia real por mantener el default portable.
 
 Referencia, LTO y PGO igualan hardware/A/V por separado en los 28 escenarios
 publicos T32 y sus 109 restauraciones por la ABI publica. Las dos variantes con
 ASan/UBSan repiten la misma cobertura sin avisos. Estado y contadores coinciden
-en las 75 medidas; el p95 de save/load no tiene una regresion mayor del 3,27 %.
-LTO baja p95 load de AGA un 12,62 %. PGO reduce el ejecutable de benchmark de
-11941968 a 7091264 bytes; LTO a 11440320 bytes. No son medidas de RSS.
+en las 75 medidas; el p95 de save/load no tiene una regresion mayor del 1,99 %.
+La dispersion entre medianas de repeticiones es 0,17-2,34 % CV. El p95 de pared
+mejora en las cinco cargas: 6,79-12,97 % con LTO y 18,91-22,01 % con PGO.
+LTO baja p95 load de AGA un 10,09 % y de Paula un 11,79 %. PGO reduce el ejecutable
+de benchmark de 11941968 a 7091264 bytes; LTO a 11440320 bytes. No son medidas de RSS.
 
 El coste queda en `cmake/Optimization.cmake` y el runner: sin fork del motor.
 PGO entrena solo programas/medios publicos, con Clang/llvm-profdata coherentes,
@@ -57,10 +59,11 @@ no se publican y son especificos del conjunto de ejecutables entrenado.
 Estas opciones no se activan globalmente ni se anuncian para otros compiladores,
 frontends o Waterbox: esta fila mide las sondas nativas del motor. Un perfil de
 estas sondas no se presenta como valido para libretro. El Mac es de uso diario,
-sin runner dedicado; se conservan deriva, outliers y condiciones. El coste del
-build inicial LTO+san fue 220,1 s; los tiempos incrementales no comparan builds
-limpios. Las medidas pueden repetirse con `tests/simd/engine_flags.py`; los
-resultados temporales se eliminan al cerrar la comprobacion.
+sin runner dedicado; se conservan deriva, outliers y condiciones. El build
+LTO+san de esta ronda tarda 216,9 s, concurrente con DET04; los tiempos
+incrementales no comparan builds limpios. Las medidas pueden repetirse con
+`tests/simd/engine_flags.py`; los resultados temporales se eliminan al cerrar la
+comprobacion.
 
 ## Alternativas y limites
 
@@ -103,7 +106,8 @@ comprueban el mismo codigo. Los pins y flags se conservan en el runner.
 
 Las cuatro puertas scoped de T35a cubren el experimento, su matriz, seguridad y
 decision; T35b ejecuta el motor/corpus y sus cuatro puertas. T35c añade el frontend
-real y la seleccion de producto. T35 requiere cerrar la union de estos alcances.
+real y la seleccion de producto. T35 ejecuta la union de estos alcances y evita
+repetir el mismo modulo de guards compartido por T35a/T35c.
 
 ## Decision de frontend T35c
 

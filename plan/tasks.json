@@ -11314,7 +11314,7 @@
       "title": "Evaluar SIMD y flags sin perder referencia escalar",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T34",
         "T35a",
