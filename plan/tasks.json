@@ -12303,7 +12303,7 @@
       "title": "Evaluar LTO/PGO y flags sobre el motor completo sin cambiar el perfil",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T34"
       ],

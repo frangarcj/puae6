@@ -1,67 +1,70 @@
 # T35b: LTO y PGO sobre el motor completo
 
-Estado: experimento en curso. No hay una decision de adopcion ni cambia ningun
-default del producto. T35b permanece `in_progress` hasta terminar las cuatro puertas.
+Estado: T35b done; DET04, SAFE01, PERF01 y ADR01 PASS. T35 sigue pendiente de T35c y su cierre completo.
 
-## Configuracion y alcance
+## Decision
 
-Fila nativa declarada `macos-arm64-appleclang`: Apple Clang 21.0.0
-(`clang-2100.1.1.101`), C y C++ de `/usr/bin`, host tools fijadas por
-`cmake/toolchains/macos-appleclang.cmake`. La version se compara con
-`plan/toolchains.json`, y el experimento registra el hash del compilador, OS/ISA,
-comandos, identidad de fuentes, tiempos de build y hashes/tamanos de los ejecutables.
+Retener LTO y PGO como opciones explicitas del experimento nativo, con las dos desactivadas por defecto. En la fila Apple Clang 21 ARM64, LTO reduce la mediana de tiempo CPU por frame un 8,02-11,53 % y PGO un 19,34-22,03 %. Cada opcion mejora los 25 pares (cinco escenarios por cinco repeticiones). No se descarta una mejora real ni se cambia el perfil para obtenerla.
 
-Referencia Release `-O2` con assertions; LTO mediante `CheckIPOSupported` de CMake;
-PGO instrumental de Clang, generado y consumido en builds separados. Se mantienen
-`-fno-fast-math -ffp-contract=off`, sin cambiar precision ni ISA. No se combinan
-LTO y PGO: se quiere atribuir el efecto de cada experimento por separado. No se
-evalua Waterbox aqui ni se extrapolan resultados a Linux/GCC.
+La evidencia corresponde al motor completo por la ABI publica en `p6_state_probe` y `p6_bench_probe`. No es una medida del frontend libretro ni del runtime Waterbox, ni de otros compiladores/ISA. No se activa un flag global a partir de una sola fila; LTO puede solicitarse mediante `P6_NATIVE_IPO=ON`. PGO exige entrenamiento de los ejecutables concretos que van a consumirlo: este perfil de las sondas no se anuncia valido para libretro u otros targets. No se distribuye un perfil ni se usa entrenamiento privado.
 
-`cmake/Optimization.cmake` deja ambas opciones desactivadas. Una solicitud de IPO
-no soportada, un modo PGO desconocido, compiladores C/C++ incompatibles, o un
-perfil inexistente/vacio producen un error explicito. PGO USE convierte en error
-los avisos de funciones sin perfil y perfiles desactualizados. No hay fallback
-silencioso a otra optimizacion. GCC requiere su propia receta de PGO; esta opcion
-experimental exige Clang y no simula soporte para GCC.
+El coste de mantenimiento queda en un modulo CMake opcional y el runner: no hay cambios en CPU/chipset, generadores, precision ni baseline ISA. Los errores de toolchain/perfil son explicitos. Las opciones y el entrenamiento quedan reproducibles para la fila medida; la evaluacion de presentacion por plataforma pertenece a T35c.
 
-## Corpus y verificacion previa
+## Medidas terminadas
 
-Se reutilizan los 28 escenarios publicos del corpus diferencial T32, los medios
-sinteticos de `tests/reference/corpus_run.py`, y el parser canonico de T25:
-hardware y A/V separados, con hashes por unidad. No se usa Amiga Soccer, Kickstart
-ni otro asset privado en entrenamiento o medidas.
+75 ejecuciones intercaladas, 330000 unidades medidas. Calentamiento de 300 unidades; 10000 medidas en OCS ocupado y 3000 en los demas; cinco repeticiones rotando el orden referencia/LTO/PGO. Cada ejecucion incluye 20 rondas de guardar/cargar y conserva todas las muestras. El tiempo de CPU siguiente es la mediana de las cinco medianas por ejecucion, en ms por frame; delta respecto de -O2.
 
-Cada candidato compara todos los casos contra la referencia sin flags nuevos.
-Ademas, todos los puntos y modos de restauracion de cada entrada se ejecutan
-mediante el harness DET02 existente con las operaciones publicas `p6_state_*`,
-incluidos procesos nuevos, rewinds, eventos de entrada, cambio de disco y escritura.
-Los digests, las muestras PCM y la imagen despues de cargar deben coincidir con
-la ejecucion original del mismo build. No se comparan snapshots crudos entre builds.
+| Escenario | -O2 CPU ms | LTO CPU ms | Delta LTO | PGO CPU ms | Delta PGO |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| a500-ocs-busy-pal | 3.8927 | 3.5287 | -9.35 % | 3.0447 | -21.78 % |
+| a500-ocs-copper-ntsc | 3.5733 | 3.1612 | -11.53 % | 2.8451 | -20.38 % |
+| a600-ecs-copper-ntsc | 3.6905 | 3.2708 | -11.37 % | 2.9770 | -19.34 % |
+| a1200-aga-planes8-pal | 4.8738 | 4.4827 | -8.02 % | 3.8003 | -22.03 % |
+| a500-ocs-tone4-pal | 3.4374 | 3.0548 | -11.13 % | 2.7321 | -20.52 % |
 
-El entrenamiento ejecuta esos escenarios y restauraciones en el build instrumental
-y los cinco workloads publicos de T33 en `p6_bench_probe` (300 unidades de warmup,
-300 de entrenamiento y 20 rondas save/load). El `llvm-profdata` de la misma Xcode
-fusiona solo los fragmentos producidos por esa verificacion, identificados en el
-recibo. Perfiles y ejecutables permanecen bajo `build/optimization`, fuera de Git.
+p95 de tiempo de pared agregado, ms por frame (todos los samples; no se eliminan outliers):
 
-LTO y PGO tienen cada uno una variante con ASan/UBSan que repite todo el corpus y
-sus restauraciones. Apple Clang ARM64 no ofrece LSan; `detect_leaks=0` es la
-limitacion ya declarada en T25, no una supresion de ASan/UBSan.
+| Escenario | -O2 | LTO | PGO |
+| --- | ---: | ---: | ---: |
+| a500-ocs-busy-pal | 4.3079 | 3.8659 | 3.3085 |
+| a500-ocs-copper-ntsc | 3.7402 | 3.3398 | 2.9756 |
+| a600-ecs-copper-ntsc | 3.9000 | 3.4131 | 3.1300 |
+| a1200-aga-planes8-pal | 5.1206 | 4.8148 | 4.0325 |
+| a500-ocs-tone4-pal | 3.6117 | 3.3286 | 2.9141 |
 
-## Protocolo de medidas
+Los contadores de maquina, muestras de audio, cadencia, dimensiones y estado coinciden entre variantes en las 75 ejecuciones. Las pequenas subidas del p95 de save/load se conservan: el maximo es +3,27 % (PGO load, Paula); no hay regresion sostenida superior al umbral orientativo del plan. LTO reduce el p95 de load de AGA un 12,62 %. Dispersión (MAD/mediana), p99, min/max, todas las muestras y condiciones de cada run estan en los datos.
 
-Solo despues de equivalencia: workloads nativos publicos de T33 (OCS ocupado,
-Copper NTSC OCS y ECS, AGA de ocho planos y Paula de cuatro canales). Cinco
-repeticiones intercaladas por workload, rotando el orden de referencia/LTO/PGO;
-300 unidades de warmup, 10000 medidas en el principal y 3000 en los demas, mas
-20 rondas save/load. Se conservan todas las muestras wall/CPU, estado, memoria y
-condiciones de carga/thermal/swap; mediana, p95 y dispersion con el resumen de T33.
+La mayor relacion wall/CPU media por ejecucion es 1,0102. Hay deriva entre runs del OCS ocupado (por ejemplo la referencia baja de 4,1468 a 3,8718 ms); no se oculta. Aun asi cada par LTO/PGO mejora su referencia de la misma repeticion. Mac de uso diario, no runner dedicado: resultados orientativos, sin ratificar presupuestos ni extrapolar a otros hosts.
 
-Las medidas son orientativas en el Mac de uso diario, sin runner dedicado. La
-campana termina las compilaciones y sanitizers antes de medir para no mezclarlos
-con las muestras. Una regresion o ruido no se elimina de los datos.
+Tamanos de los ejecutables Mach-O en bytes; no son medidas de memoria:
 
-## Reproduccion y continuacion
+| Variante | p6_state_probe | p6_bench_probe |
+| --- | ---: | ---: |
+| base | 12012480 | 11941968 |
+| lto | 11625968 | 11440320 |
+| pgo | 7150144 | 7091264 |
+
+## Toolchain, corpus y seguridad
+
+Fila declarada `macos-arm64-appleclang`: Apple Clang 21.0.0 (`clang-2100.1.1.101`), C/C++ y host tools de `/usr/bin` fijados por `cmake/toolchains/macos-appleclang.cmake`. El runner comprueba la version de `plan/toolchains.json` y registra el hash del compilador, OS/ISA, comandos, fuentes y ejecutables. Reference Release -O2 con assertions; CMake `CheckIPOSupported` para LTO; PGO instrumental de Clang y `llvm-profdata` de la misma Xcode. No se combinan LTO y PGO. Se mantienen `-fno-fast-math -ffp-contract=off`, sin -march=native.
+
+Se reutilizan los 28 escenarios publicos T32: OCS/ECS/AGA, PAL/NTSC, audio/DMA, entradas, reset/swap, disquete y HDF con escritura. Cada variante compara hardware y A/V separados, por unidad, contra -O2. Ademas se ejecutan los 109 puntos/modos de restauracion por `p6_state_*`, con procesos nuevos, rewind y medios, usando el harness DET02 existente. No se comparan snapshots crudos entre builds ni se promete su compatibilidad.
+
+Referencia, LTO, instrumental PGO, PGO, LTO+ASan/UBSan y PGO+ASan/UBSan completan todos los casos y restauraciones. Las dos variantes sanitizadas no emiten avisos y coinciden con los hashes canonicos de referencia. Apple Clang ARM64 no ofrece LSan: detect_leaks=0 es el limite ya declarado en T25; ASan/UBSan conservan no-recover. El build inicial LTO+san tardo 220,1 s. Los build_seconds de otras invocaciones pueden ser incrementales: no se presentan como una comparacion de builds limpios.
+
+El entrenamiento incluye el corpus completo y los cinco workloads publicos de T33 (300 de warmup, 300 de entrenamiento, 20 rondas save/load). No usa Amiga Soccer, Kickstart ni otro asset privado. Se fusionan solo los 190 fragmentos producidos por esa verificacion. Perfiles y binarios quedan en build/optimization, fuera de Git.
+
+## Fallo inicial y correccion del entrenamiento
+
+El primer build PGO fallo en diskutil.cpp con -Werror=profile-instr-unprofiled. nm confirma que isamigatrack/ispctrack existen en su objeto instrumental pero desaparecen de ambas sondas con -dead_strip; por ello sus contadores no llegaron al perfil. Log: build/optimization/pgo-first-failure.log.
+
+El caso minimo build/optimization/pgo-unlinked-repro (main retorna cero y una segunda unidad define una funcion nunca referenciada) reproduce el error con el mismo Clang y -O2 -Wl,-dead_strip. No se quita el diagnostico: un cambio de flujo tambien puede aparecer como profile-instr-unprofiled, de modo que conservar solo profile-instr-out-of-date seria insuficiente. Un primer test que esperaba este ultimo aviso fallo y ayudo a comprobar esa distincion.
+
+La correccion retiene los dos puntos de entrada de diskutil solamente en el enlace GENERATE (P6_PGO_TRAIN_ROOTS, simbolos verificados con nm). No se ejecutan; llvm-profdata confirma que sus contadores y bloques son cero. USE conserva el dead stripping normal y ambos diagnosticos fatales. No se omite ningun escenario, comparacion, sanitizer, precision ni golden. El test permanente genera un perfil con una funcion retenida pero no llamada, lo consume correctamente y despues exige el rechazo al cambiar el flujo de main.
+
+## Evidencia y reproduccion
+
+`reports/optimizations/T35b-engine-flags.json` guarda build/verification receipts, hashes, entrenamiento, decision y resumen. `T35b-engine-measurements.json.gz` guarda los 12930651 bytes originales de medidas, comprimidos sin timestamp; se ha descomprimido y comparado byte a byte con el original y su SHA-256 esta en el JSON. Los seis recibos del corpus son publicos: no incluyen firmware/juegos ni perfiles privados.
 
 El runner no instala herramientas ni modifica MacHawk:
 
@@ -82,14 +85,9 @@ python3 -m tests.simd.engine_flags verify --variant pgo-san
 python3 -m tests.simd.engine_flags measure
 ```
 
-Cada build y verificacion escribe su recibo bajo `build/optimization/<variante>`.
-Los checks scoped de DET04/SAFE01 comprueban recibos, identidad actual de fuentes,
-ejecutable, harness y flags, cobertura completa y equivalencia por subsistema.
-PERF01 comprueba las 75 ejecuciones completas y sus contadores de maquina.
-ADR01 requiere la decision final y la identidad de medidas/entrenamiento. Sin
-`P6_TEST_ENGINE_FLAGS=1` la ausencia de la campana queda BLOCKED, nunca PASS.
+Los recibos estan en build/optimization/<variante>. La campana final y todos sus procesos terminaron en cero (build/optimization/experiment-second.log). Las compilaciones, sanitizers y tests de configuracion no se ejecutaron durante las medidas.
 
-Checks al terminar la campana (no ejecutados aun):
+Checks scoped de T35b (sin P6_TEST_ENGINE_FLAGS=1, las omisiones son BLOCKED):
 
 ```
 P6_TEST_ENGINE_FLAGS=1 python3 tools/check.py --check DET04 --task T35b
@@ -98,76 +96,4 @@ P6_TEST_ENGINE_FLAGS=1 python3 tools/check.py --check PERF01 --task T35b
 P6_TEST_ENGINE_FLAGS=1 python3 tools/check.py --check ADR01 --task T35b
 ```
 
-Pruebas ya terminadas: configuracion/fallback y plan (36 tests, OK), y
-configuracion/dispatcher (7 tests, OK); builds reales de referencia y LTO. Los
-dos completan el corpus de 28 escenarios y sus 109 restauraciones con recibos
-de inputs vigentes. Hardware y A/V de LTO coinciden con la referencia en cada
-unidad. Tamano `p6_bench_probe`: referencia 11941968 B, LTO 11440320 B; tamano
-`p6_state_probe`: referencia 12012480 B, LTO 11625968 B. Esto no demuestra una
-ganancia de tiempo por frame. La campana sigue con el build instrumental de PGO.
-Log inicial: `build/optimization/experiment-first.log`; continuacion actual:
-`build/optimization/experiment-second.log`. No marcar done por
-estas comprobaciones preliminares; faltan candidatos, sanitizers, medidas y decision.
-
-## Primer build PGO: diagnostico de codigo no enlazado
-
-El primer intento se detuvo por `-Werror=profile-instr-unprofiled` en
-`diskutil.cpp`: `isamigatrack`/`ispctrack` existen en su objeto instrumental pero
-no en `p6_state_probe` ni en `p6_bench_probe` despues de `-dead_strip`. No pueden
-generar contadores en ese ejecutable. La falta no se corrige repitiendo el
-entrenamiento. Log conservado: `build/optimization/pgo-first-failure.log`.
-
-Caso minimo `build/optimization/pgo-unlinked-repro`: main retorna cero y una
-segunda unidad define una funcion nunca referenciada. Con el mismo Clang y
-`-O2 -Wl,-dead_strip`, instrumentar/ejecutar/fusionar y compilar USE reproduce
-el error para esa segunda unidad, aunque su codigo nunca podra ejecutarse.
-Sin elevar ese aviso a error, USE compila (aviso visible) y ejecuta correctamente.
-
-No se desactiva ese diagnostico: el experimento minimo mostro tambien que un
-cambio de flujo puede aparecer como `profile-instr-unprofiled`, por lo que
-conservar solo `profile-instr-out-of-date` seria insuficiente. El test inicial
-que esperaba este ultimo aviso fallo y ayudo a identificar esa distincion.
-
-El segundo intento conserva los dos puntos de entrada de diskutil solamente
-en el enlace instrumental (`P6_PGO_TRAIN_ROOTS`, simbolos comprobados con nm).
-No se ejecutan: se guardan sus contadores a cero, sin inventar actividad del
-corpus. USE mantiene el dead stripping normal y ambos diagnosticos fatales.
-El test permanente retiene una funcion no llamada, genera/fusiona su perfil
-cero y comprueba USE; despues cambia el flujo de main y exige el rechazo.
-No se omite ningun escenario, comparacion, sanitizer, precision ni golden.
-
-Segundo build PGO: compila completo con ambos diagnosticos fatales. El perfil
-fusionado contiene 14867 funciones; `llvm-profdata show --counts --function=...`
-confirma que los contadores de `isamigatrack` e `ispctrack` y todos sus bloques
-son cero. No se simula haber ejecutado esas funciones. Quedan la verificacion
-del candidato PGO, sanitizers y medidas antes de cerrar la decision.
-
-## Equivalencia de los builds finales
-
-`P6_TEST_ENGINE_FLAGS=1 python3 tools/check.py --check DET04 --task T35b`:
-**PASS**. Referencia, LTO y PGO completan los 28 escenarios y sus 109
-restauraciones publicas, con recibos de las mismas fuentes actuales, ejecutables
-identificados y hardware/A/V por separado iguales en cada unidad. La verificacion
-PGO anterior ya ha terminado; siguen pendientes SAFE01, PERF01 y ADR01.
-
-Tamanos de los ejecutables Mach-O (bytes; no es medida de memoria ni de tiempo):
-
-| Variante | p6_state_probe | p6_bench_probe |
-| --- | ---: | ---: |
-| -O2 | 12012480 | 11941968 |
-| -O2 + LTO | 11625968 | 11440320 |
-| -O2 + PGO | 7150144 | 7091264 |
-
-La variante LTO + ASan/UBSan tambien completa los 28 escenarios y sus 109
-restauraciones, sin avisos y con hardware/A/V iguales a la referencia. Su build
-completo tardo 220,1 s. PGO + ASan/UBSan completa despues la misma cobertura,
-sin avisos y con los mismos hashes canonicos. Ambas variantes emplean el mismo
-perfil determinista y conservan las comparaciones; no hay excepciones nuevas.
-
-La campana de 75 medidas intercaladas ha empezado despues de terminar los builds
-y las verificaciones sanitizadas. Los recibos estan en
-`build/optimization/{base,lto,pgo,lto-san,pgo-san}/verification.json` y las
-muestras terminadas se escriben incrementalmente en
-`build/optimization/measurements.json`. Para evitar compilar el test de
-configuracion durante las muestras, se ejecutara la puerta SAFE01 completa al
-terminar la campana, junto a PERF01 y ADR01. T35b sigue `in_progress`.
+DET04, SAFE01, PERF01 y ADR01: PASS, sin skips. SAFE01 incluye las dos variantes sanitizadas y los dos tests de configuracion/perfil. ADR01 comprueba la identidad de entrenamiento/medidas y la decision guardada. T35 conserva las puertas completas; la siguiente vertical es T35c (frontend RGB565 por plataforma).

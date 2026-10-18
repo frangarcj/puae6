@@ -1,6 +1,6 @@
 # 0004. Optimizaciones nativas sin cambiar la maquina emulada
 
-Estado: decision SIMD T35a (2026-10-18); cierre T35 pendiente de T35b/T35c. No se activa ninguna ruta ni flag nuevo.
+Estado: decisiones SIMD T35a y flags T35b (2026-10-18); cierre T35 pendiente de T35c. No cambia ningun default del producto.
 
 ## Contexto
 
@@ -28,12 +28,44 @@ ASan/UBSan. La seleccion NEON depende de la ABI AArch64; el fallback se fuerza
 tambien con `P6_SIMD_NO_NEON=1`. No se presupone SVE/AVX ni otra ISA. x86_64 se
 ha ejecutado traducido en Docker, nunca se presenta como hardware x86_64.
 
+## Decision de flags del motor (T35b)
+
+Retener LTO y PGO como opciones explicitas para el experimento nativo medido,
+desactivadas por defecto. Apple Clang 21 ARM64, misma Release -O2 con assertions,
+sin fast-math, contraccion ni cambio de ISA: LTO reduce la mediana CPU por frame
+un 8,02-11,53 %, PGO un 19,34-22,03 %. Cada opcion mejora los 25 pares de la
+campana (cinco workloads publicos de T33, cinco repeticiones intercaladas,
+330000 unidades). No se descarta una ganancia real por mantener el default portable.
+
+Referencia, LTO y PGO igualan hardware/A/V por separado en los 28 escenarios
+publicos T32 y sus 109 restauraciones por la ABI publica. Las dos variantes con
+ASan/UBSan repiten la misma cobertura sin avisos. Estado y contadores coinciden
+en las 75 medidas; el p95 de save/load no tiene una regresion mayor del 3,27 %.
+LTO baja p95 load de AGA un 12,62 %. PGO reduce el ejecutable de benchmark de
+11941968 a 7091264 bytes; LTO a 11440320 bytes. No son medidas de RSS.
+
+El coste queda en `cmake/Optimization.cmake` y el runner: sin fork del motor.
+PGO entrena solo programas/medios publicos, con Clang/llvm-profdata coherentes,
+y rechaza perfiles ausentes/desactualizados. Dos funciones de diskutil eliminadas
+del enlace instrumental se retienen solo en GENERATE para registrar contadores
+cero (comprobados); no se inventa cobertura ni se desactiva el error de perfil.
+El test negativo sigue rechazando un cambio de flujo tras entrenar. Los perfiles
+no se publican y son especificos del conjunto de ejecutables entrenado.
+
+Estas opciones no se activan globalmente ni se anuncian para otros compiladores,
+frontends o Waterbox: esta fila mide las sondas nativas del motor. Un perfil de
+estas sondas no se presenta como valido para libretro. El Mac es de uso diario,
+sin runner dedicado; se conservan deriva, outliers y condiciones. El coste del
+build inicial LTO+san fue 220,1 s; los tiempos incrementales no comparan builds
+limpios. Datos completos y limites en `reports/optimizations/T35b-engine-flags.md`,
+su JSON y `T35b-engine-measurements.json.gz`.
+
 ## Alternativas y limites
 
 - Intrinsecos NEON manuales: mejora local en Linux ARM64 y regresion en el Mac; requieren la decision medida de T35c.
 - Mantener C++ portable y autovectorizacion: resultado actual, con cola escalar del compilador.
-- LTO/PGO (T35b): evaluacion pendiente con toolchain fijada y corpus representativo; este
-  microbenchmark de conversion no basta para adoptarlos en el motor completo.
+- LTO/PGO (T35b): opciones nativas medidas y reproducibles; no default universal ni perfil
+  de produccion. La decision procede del motor completo, no de la microprueba RGB565.
 - `-Ofast`, `-ffast-math`, contraccion FP y `-march=native`: excluidos del perfil
   determinista/distribuible; no se cambia precision ni baseline de ISA para ganar tiempo.
 
@@ -50,5 +82,6 @@ ASan/UBSan no detectan errores. Receta, pins, flags y datos en
 `reports/optimizations/T35-rgb565.md` y sus JSON.
 
 Las cuatro puertas scoped de T35a cubren el experimento, su matriz, seguridad y
-decision; T35 sigue pendiente de T35b (flags/LTO/PGO con motor/corpus) y T35c
-(medida e integracion del frontend si conviene), ademas de su cierre completo.
+decision; T35b conserva su evidencia del motor/corpus y sus cuatro puertas. T35
+sigue pendiente de T35c (medida e integracion del frontend si conviene), ademas
+de su cierre completo.
