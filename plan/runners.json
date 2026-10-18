@@ -1,13 +1,12 @@
 {
   "schema_version": 1,
   "observed_date": "2026-09-26",
-  "evidence": "reports/environment.md",
   "purpose": "Inventario T00; no certifica builds, ejecucion de emuladores ni determinismo.",
   "status_definitions": {
     "tools_available_unvalidated": "Herramientas consultadas; build y ejecucion PUAE6 pendientes.",
     "not_provisioned": "No se ha identificado ni accedido a un runner ejecutable de esta plataforma.",
     "reference_available_unvalidated": "Referencia funcional segun usuario, con receta local documentada; PUAE6 pendiente de validar.",
-    "verified_native": "Build y ejecucion de PUAE6 verificados en esta maquina (T25, tests/portability/evidence.json); no certifica otras plataformas.",
+    "verified_native": "Build y ejecucion de PUAE6 verificados en esta maquina (T25, tests/portability/corpus.golden.json); no certifica otras plataformas.",
     "verified_container": "Build y ejecucion verificados dentro de un contenedor Docker Linux de la ISA del anfitrion (T25).",
     "verified_container_translated": "Build y ejecucion verificados en un contenedor Docker Linux x86_64 TRADUCIDO en un Mac arm64 (T25): no es hardware x86_64 nativo.",
     "verified_waterbox_darwin_arm64": "Guest ARM64 ejecutado en Waterbox/MacHawk Darwin ARM64 (WB02, WB13-WB15 de T19c2, repetidos en T25).",
@@ -38,7 +37,6 @@
         "Solo esta fila Apple Clang; Homebrew LLVM 22 y GCC de Homebrew solo estan en el test opt-in tests/codegen/test_compilers.py (build, sin hashes)."
       ],
       "verified_date": "2026-10-10",
-      "evidence": "reports/platform-matrix.md",
       "compilers": [
         "Apple clang version 21.0.0 (clang-2100.1.1.101)"
       ]
@@ -64,8 +62,7 @@
         "Runtime Waterbox Linux/Windows x86_64: fuera del alcance declarado (decision del usuario 2026-10-10).",
         "Release: la reconstruccion del sysroot desde fuentes sigue sin verificar (plan/toolchains.json)."
       ],
-      "verified_date": "2026-10-10",
-      "evidence": "reports/platform-matrix.md"
+      "verified_date": "2026-10-10"
     },
     {
       "id": "linux-x86_64",
@@ -80,7 +77,6 @@
         "Ningun hardware x86_64 nativo: la fila prueba el codigo x86_64 y sus compiladores bajo traduccion, no una CPU x86_64."
       ],
       "verified_date": "2026-10-10",
-      "evidence": "reports/platform-matrix.md",
       "native_hardware": false,
       "execution_environment": "x86_64 binaries translated by Docker Desktop (Rosetta/QEMU) on macOS arm64; NOT x86_64 hardware",
       "compilers": [
@@ -117,7 +113,6 @@
         "Kernel linuxkit de la VM de Docker Desktop, no una distribucion Linux arm64 instalada en hardware propio."
       ],
       "verified_date": "2026-10-10",
-      "evidence": "reports/platform-matrix.md",
       "native_hardware": true,
       "execution_environment": "container on a Docker Desktop arm64 VM; arm64 code runs on the arm64 CPU of the Mac (virtualized, not a separate Linux machine)",
       "compilers": [
@@ -143,5 +138,5 @@
     }
   ],
   "verified_date": "2026-10-10",
-  "verification": "reports/platform-matrix.md y tests/portability/evidence.json (T25)"
+  "verification": "python3 tools/check.py DET04 --task T25 (ejecucion actual; sin informes guardados)"
 }

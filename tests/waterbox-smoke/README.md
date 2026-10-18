@@ -31,7 +31,7 @@ La puerta completa se construye/ejecuta con `python3 tools/build_waterbox.py --s
 el harness no cubre todas las aserciones de WB01, WB13, WB14 y WB15 o si `validate_elf`
 acepta una de las imagenes dañadas que el harness escribe en `build/waterbox/damaged`.
 Es evidencia SMOKE_RUNTIME: prueba el runtime Waterbox, no Amiga. Lo que el runtime
-acepta o aborta ante cargas dañadas esta en `reports/tasks/T09c.md`.
+acepta o aborta ante cargas dañadas esta en T09c.
 `tls-negative/tpidr_probe.c` es una sonda nativa manual, no parte de ningun check.
 
 El sysroot es una cache binaria local fijada por inventario, no una reconstruccion

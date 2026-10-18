@@ -6,11 +6,10 @@ Un plan validado no es un core validado. Compilar no es arrancar; arrancar no es
 ser determinista; determinismo no demuestra exactitud del hardware. Los runners
 guardan automaticamente build ID, perfil, host/ISA, toolchain, escenario y checks
 cuando esos datos importan; no se rellena una ficha manual por cada ejecucion.
-Hay una primera baseline de rendimiento (T33, `reports/baselines/T33-2026-10-12-a`,
-resumen en `summary.md`, presupuestos en `plan/performance-budgets.json`). Es ORIENTATIVA:
-se tomo en el Mac de uso diario del usuario, sin runner dedicado (plan/runners.json), y
-ningun umbral de este documento se ha convertido en limite duro; las metas siguen siendo
-metas propuestas y la baseline solo dice si las observaciones las cumplen.
+Las metas de rendimiento estan en `plan/performance-budgets.json`. Las medidas de
+T33 fueron orientativas, en el Mac de uso diario y sin runner dedicado. No se
+conservan sus archivos historicos ni se convierten esas observaciones en limites
+duros. `tools/bench.py` permite repetir las medidas con salidas temporales en build/.
 
 ## Runner de escenarios (a implementar en T04)
 
@@ -198,7 +197,7 @@ las cerro T15n (parches 0260 y 0261, ADR 0009 punto 14) y la tabla esta vacia; `
 lo que el corpus encuentra bloquea la release hasta que la tarea duena lo cierra. Un PASS de DET02/DET03 de T32b significa "cada escenario iguala o su divergencia esta fijada", y con la tabla vacia, que iguala.
 
 T32c repite el corpus fuera del proceso que lo creo. DET04/DET06: el mismo corpus (programas, medios y argumentos con `@corpus/`) corre en la matriz de T25 con `P6_MATRIX_SET=differential`
-(`tests/portability/run_matrix.py`, evidencia propia en `tests/portability/evidence-differential.json`; la de T25 no se toca): cinco filas, O0 y O2 con variante `host`, y `san`; las filas de
+(`tests/portability/run_matrix.py`, evidencia propia en `tests/portability/differential.golden.json`; la de T25 no se toca): cinco filas, O0 y O2 con variante `host`, y `san`; las filas de
 Linux necesitan Docker y, si no corrieron, el check es BLOCKED. SAFE01 (`tests/reference/test_corpus_sanitizers.py`): los 28 escenarios y un estado guardado y cargado en el primer punto de cada uno bajo
 ASan/UBSan sin un solo aviso; encontro un desplazamiento indefinido en `expand_bplcon2` (`0x0000FFFF << 4 * plf1pri`, hasta 20 posiciones, con BPLCON2 PF1P=5 de los anillos de Copper) y el parche 0262 lo
 hace sin signo con el mismo valor (clase `behavior`, efecto `neutral`, REF01 lo prueba). FUZZ01 anade `CorpusScenarioFuzzTests`: mutaciones de los 28 escenarios y de los archivos de maquina.
@@ -284,7 +283,7 @@ entrar en el sandbox costaba ~2,8 ms por unidad (frente a ~0,0002 ms con las mis
 Release), y era el unico caso en que un runner superaba el 70 % de la unidad (A1200 con Kickstart
 3.1 y una demo AGA: p95 20,5 ms de 20,03). Con runtime Release el core de BizHawk cuesta +12,5 %
 (A500 busy: 4,50 ms frente a 4,00 ms nativos). Desde T34a el runtime por defecto es Release (el
-Debug es un carril aparte, docs/03-waterbox.md) y la baseline T34a-2026-10-13-a lo mide (reports/baselines).
+Debug es un carril aparte, docs/03-waterbox.md) y se mide con `tools/bench.py`.
 
 ## Orden de optimizacion
 

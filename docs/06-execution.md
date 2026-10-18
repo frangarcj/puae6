@@ -126,8 +126,8 @@ Salida: cambio minimo + test/check + diff entendible.
 
 Antes: leer archivos reales y definir la condicion precisa de exito. Durante: no
 cruzar touch ni mezclar optimizaciones. Despues: ejecutar pruebas, mostrar diff y
-actualizar status al superar aceptacion. Crear `reports/tasks/Txx.md` solo si hay
-un bloqueo o contexto importante que Git/tests no cuentan bien.
+actualizar status al superar aceptacion. Anotar bloqueos en blocked_reason de la
+ficha y decisiones duraderas en codigo o ADR; no guardar informes.
 
 Un mock tiene nombre y proposito limitados: ABI transport o parser, nunca exactitud
 Amiga ni save/restore real. Las pruebas de juego requieren que haya instrucciones

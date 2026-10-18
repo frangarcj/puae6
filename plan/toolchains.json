@@ -55,8 +55,6 @@
   "portability_matrix": {
     "task": "T25",
     "date": "2026-10-10",
-    "evidence": "tests/portability/evidence.json",
-    "report": "reports/platform-matrix.md",
     "note": "Native builds only (CMakeLists.txt refuses cross builds). The Linux rows run in the images of tests/portability/Dockerfile (Ubuntu 24.04, distribution Clang and GCC), one per ISA; x86_64 is translated by Docker Desktop on macOS arm64.",
     "dockerfile_sha256": "25433f2df3f44028b73fbebd3d5c4760b1e6b6cad7cfcec0b49a08d50b99c0fd",
     "images": {
@@ -65,7 +63,7 @@
     },
     "toolchain_files": {
       "cmake/toolchains/linux-clang.cmake": "3f1fb2af42c20119290a9fad5672799d8dd785840307c3116c3b2b9a6c426d11",
-      "cmake/toolchains/linux-gcc.cmake": "a550cb97e905a197c9102099aa7b2308c3194e29da376e0a1ef36e0667e41aab",
+      "cmake/toolchains/linux-gcc.cmake": "063422a6aae162abe1f1f9e79d19051d507dd194dd79d048dc19624eced86281",
       "cmake/toolchains/macos-appleclang.cmake": "f8dc466e1cd7225881d30a7e1e97de8b2c6896301db36d3909dc7e43e283cc76"
     },
     "rows": {

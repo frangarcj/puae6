@@ -1,5 +1,0 @@
-ok      1.2s  test_disk_source  (3 tests, 0 skipped, 0 expected failures)
-ok      1.6s  test_tchar_numeric  (5 tests, 0 skipped, 0 expected failures)
-
-2 modules, 8 tests, 0 skipped, 0 expected failures, 0 failed; wall 2s (preparation 1s, sum of modules 3s, 2 jobs)
-slowest: test_tchar_numeric 2s, test_disk_source 1s

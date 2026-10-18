@@ -7,7 +7,7 @@
 es un error. El motor de WinUAE, en cambio, abre disquetes por nombre a traves de `zfile`, no valida tamaño ni formato
 (una imagen de 901120 bytes con la marca `UAE-1ADF` y 0xFFFF pistas desborda la tabla de pistas y termina en SIGSEGV; una
 de 4 MiB corrompe la estructura de la unidad en silencio), y `default_prefs` deja `df0.adf`..`df3.adf` como nombres de
-disco. Mediciones y referencias de codigo: informe de investigacion de T12 (resumen en reports/tasks/T12a.md).
+disco. Mediciones y referencias de codigo: informe de investigacion de T12 (resumen en T12a).
 
 ## Decision
 

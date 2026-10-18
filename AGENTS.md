@@ -1,6 +1,6 @@
 # Instrucciones para ejecutar PUAE6
 
-Este directorio contiene un PLAN, no una implementacion terminada. Responder en
+Este directorio contiene un port en desarrollo y su plan de tareas. Responder en
 castellano. Prioridades: correccion/determinismo, mantenimiento, rendimiento y
 portabilidad. No sacrificar una prioridad silenciosamente para aprobar otra.
 
@@ -14,17 +14,17 @@ futuro de T46. Preservar los cambios locales identificados en el fingerprint.
 1. Leer README.md, este archivo y la ficha elegida con `python3 tools/plan.py show ID`.
 2. Leer todos los documentos `read` de la ficha y el codigo real antes de editarlo.
 3. Consultar estado local y `python3 tools/plan.py validate`. No tocar trabajo ajeno.
-4. Elegir una unica tarea con dependencias DONE. Empezar por T00.
+4. Elegir una unica tarea con dependencias DONE; consultar tools/plan.py next.
 5. Anunciar en una frase el resultado util que se busca, archivos y check principal.
 6. Implementar la vertical mas pequena que deje algo ejecutable o comprobable.
    Añadir/ajustar el test que capture el comportamiento; no crear ceremonia si un
    check existente ya prueba exactamente el cambio.
 7. Ejecutar los checks de la ficha y regresiones cercanas. Git diff/status y la
-   salida de tests son el registro normal; guardar logs detallados solo para fallos,
-   benchmarks, releases o casos dificiles de reproducir.
-8. Marcar done cuando checks y aceptacion pasan y ejecutar validate. El informe
-   `reports/tasks/ID.md` es OPCIONAL para done; usarlo cuando una decision, hallazgo
-   o continuacion no quede clara en codigo/tests/Git. Un blocked SI requiere nota breve.
+   salida de tests son el registro normal. No guardar informes ni evidencias historicas;
+   los datos temporales de una comprobacion pertenecen a build/ y se eliminan al terminar.
+8. Marcar done cuando checks y aceptacion pasan y ejecutar validate. Explicar un bloqueo
+   brevemente en blocked_reason de la ficha. Conservar decisiones utiles en codigo/ADR,
+   sin informes por tarea.
 9. Mostrar diff y explicar resultado, limites y siguiente tarea desbloqueada. No hacer
    push, publicar releases ni modificar proyectos hermanos sin peticion del usuario.
 
@@ -40,7 +40,7 @@ Si no cabe, dividir su ficha en subtareas con IDs nuevos, dependencias explicita
 la misma puerta de salida; no ampliar el alcance ni borrar checks. No fragmentar
 artificialmente una correccion que necesite ser atomica.
 
-Solo editar rutas `touch` de la ficha y su informe/estado. Si hace falta otra ruta,
+Solo editar rutas `touch` de la ficha y su estado. Si hace falta otra ruta,
 registrar motivo y dividir o ampliar la ficha explicitamente antes del cambio.
 Los glob patterns describen zonas permitidas, no autorizan reescribirlas enteras.
 
@@ -68,8 +68,8 @@ Los glob patterns describen zonas permitidas, no autorizan reescribirlas enteras
 
 ## Bloqueos
 
-Tras dos intentos locales razonados sin resolver un mismo fallo, guardar el caso
-minimo, la salida y dos hipotesis verificables; marcar blocked y elegir otra tarea
+Tras dos intentos locales razonados sin resolver un mismo fallo, conservar el reproducer
+como test y anotar dos hipotesis verificables en la ficha; marcar blocked y elegir otra tarea
 realmente independiente. No inventar una funcion upstream ni cambiar flags de CPU
 al azar. Un problema de ciclo, generador, ABI, aliasing, JIT o snapshot requiere
 un reproducer y revision de la decision correspondiente.

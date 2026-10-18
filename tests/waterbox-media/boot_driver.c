@@ -4,7 +4,7 @@
 //   /tmp/boot_driver build/ffi/bin/Debug/net8.0/libwaterboxhost.dylib build/waterbox/puae6/release/puae6.wbx 1
 //
 // One process is one trial: it ends with "ok" (exit 0), with a signal, or never (a hang: the SIGSEGV handler of the runtime waits for a lock its own thread holds). Run it a few hundred
-// times (the report reports/tasks/T28a.md has the counts) and count the processes that do not exit 0; a process alive after 40 s is a hang (`sample PID` shows where).
+// times (the report T28a has the counts) and count the processes that do not exit 0; a process alive after 40 s is a hang (`sample PID` shows where).
 // The layout is the one of Puae6Core.Heaps() without extra memory; every second host gets 8 MiB more of mmap heap (the heaps are not what matters).
 #include <dlfcn.h>
 #include <stdint.h>

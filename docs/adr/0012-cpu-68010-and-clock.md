@@ -1,6 +1,6 @@
 # ADR 0012: 68010 cycle exact y reloj de la CPU como opciones de reinicio
 
-Continua la ADR 0010 (68020 cycle exact). Paridad con `puae_cpu_model` 68010 y `puae_cpu_multiplier` de PUAE5 (inventario en `reports/research/parity-puae5.md`, P04).
+Continua la ADR 0010 (68020 cycle exact). Paridad con `puae_cpu_model` 68010 y `puae_cpu_multiplier` de PUAE5 (inventario en `plan/tasks.json`, P04).
 
 ## Decisiones (T52)
 

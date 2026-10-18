@@ -99,16 +99,8 @@ def validate_plan(root: Path, data: Any, lock: Any, release: bool = False) -> li
                         errors.append(f"{label}: ruta fuera del proyecto en {field}: {item}")
                     elif field == "read" and not resolved.is_file():
                         errors.append(f"{label}: lectura inexistente: {item}")
-        evidence = task.get("evidence")
-        if evidence is not None:
-            expected = f"reports/tasks/{task_id}.md"
-            resolved = safe_path(root, evidence)
-            if evidence != expected or resolved is None:
-                errors.append(f"{label}: evidence debe ser {expected}")
-            elif not resolved.is_file() or not resolved.read_text(encoding="utf-8").strip():
-                errors.append(f"{label}: nota de tarea inexistente o vacia")
-        if status == "blocked" and evidence is None:
-            errors.append(f"{label}: blocked requiere nota de tarea")
+        if status == "blocked" and not nonempty_string(task.get("blocked_reason")):
+            errors.append(f"{label}: blocked requiere blocked_reason")
 
     if len(progress) > 1:
         errors.append("Mas de una tarea in_progress: " + ", ".join(progress))
@@ -209,8 +201,8 @@ def show_task(task: dict[str, Any]) -> None:
         for index, value in enumerate(task[field], 1):
             print(f"  {index}. {value}")
     print("\nBloqueo: " + task["stop"])
-    note = task.get("evidence")
-    print("Registro: " + (note or "opcional; Git + checks son el registro normal"))
+    if task.get("blocked_reason"):
+        print("Motivo del bloqueo: " + task["blocked_reason"])
 
 
 def main(argv: list[str] | None = None, root: Path = ROOT) -> int:

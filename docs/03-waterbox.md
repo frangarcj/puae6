@@ -4,7 +4,7 @@
 
 Producir `puae6.wbx` y un adaptador C# identificado como PUAE6, coexistiendo con
 UAE existente. No sobrescribir uae.wbx ni cambiar retroactivamente el core ID de
-peliculas guardadas. S5-S8 en 00-evidence.md contienen las rutas inspeccionadas.
+peliculas guardadas. S5-S8 en 00-sources.md contienen las rutas inspeccionadas.
 Referencia principal: ../MacHawk en HEAD 9b62757833c9bdd15bf43cef058c88bf91eb0ad7,
 con fingerprint local en plan/machawk.reference.json. El pin BizHawk publico
 1a140d98b8cc4a705db89d4738d76196c84044ea queda como comparador secundario.
@@ -551,7 +551,7 @@ ejecuta `LoadSaveRam` con una pelicula en cola y empieza las peliculas "desde Sa
 Abierto (T60): ningun EmuHawk real se ha ejecutado aqui (el flujo se reproduce con el mismo algoritmo de MainForm sobre el nucleo y el sandbox reales); el caso de una pista que no es AmigaDOS en una SaveRam (formato extendido) y el
 rendimiento de `SaveRamModified` (exporta los discos tocados) con Kickstart real tampoco estan medidos.
 
-Fallo intermitente al crear un host (T28a, reports/tasks/T28a.md): con este equipo (macOS 26.7.1, `libsystem_malloc` xzone) del orden del 0,5 al 4 % de los procesos que crean un host Waterbox
+Fallo intermitente al crear un host (T28a, T28a): con este equipo (macOS 26.7.1, `libsystem_malloc` xzone) del orden del 0,5 al 4 % de los procesos que crean un host Waterbox
 mueren con SIGSEGV o SIGBUS dentro de malloc o se cuelgan (el manejador de `tripguard` espera un cerrojo que su propio hilo tiene). Pasa con un solo sandbox, sin `FloppyWrites`, antes de T28 y
 sin .NET (`tests/waterbox-media/boot_driver.c`); no es del core ni de un segundo heap. Un test que cree sandboxes y muera con -11, -10 o un timeout de 30 minutos con esa pila no es una
 regresion; el reproducer es `tests/waterbox-media/repro_heaps.py` y el parche que convertiria el cuelgue en aborto esta descrito en el informe (es de MacHawk, que aqui es solo lectura).

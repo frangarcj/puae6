@@ -1,3 +1,0 @@
-# python3 seed_fail.py stdout / file : the -O0 probe's output (a digest) or its state file (one bit) is altered after it ran; test_state_saved_and_loaded_in_the_same_image fails on every ROM:
-AssertionError: -O0 and -O2 differ on `vsync --units 10 --every 1 --save-at 4 .../parity-vsync.state --load-at 7 .../parity-vsync.state`: stdout differs at line 55: 'digest 3 ...
-AssertionError: -O0 and -O2 differ on `vsync --units 10 ...`: parity-vsync.state differs: 1052022 and 1052022 bytes, first different byte at 100

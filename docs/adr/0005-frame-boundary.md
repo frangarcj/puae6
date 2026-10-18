@@ -8,7 +8,7 @@
 perder eventos ni estado, sin hilos, `longjmp` ni un segundo scheduler. La referencia es el PUAE fijado
 (libretro-uae 6536174a, el de `references/puae`): `unlockscr()` pone `libretro_frame_end = true` y
 `set_special(1)`; el `m68k_go` modificado retorna cuando `do_specialties` ve esa marca y la siguiente
-llamada lo reanuda. Correccion a `docs/00-evidence.md`, `01-architecture.md` y `07-machawk.md`: esas
+llamada lo reanuda. Correccion a `docs/00-sources.md`, `01-architecture.md` y `07-machawk.md`: esas
 paginas atribuian `SPCFLAG_CHECK` al PUAE fijado. `set_special(SPCFLAG_CHECK)` es del fork MacHawk
 (`libretro-glue.c` de TASEmulators); el PUAE fijado usa el bit 0, que nadie limpia salvo un reset.
 
@@ -39,7 +39,7 @@ scheduler y sigue creciendo aunque un reset reinicie el contador del motor.
 
 ## Evidencia
 
-Delta con el PUAE fijado y estado de pila: reports/tasks/T07a.md. STEP01 (tests/step/test_step.py): para cada ROM
+Delta con el PUAE fijado y estado de pila: T07a. STEP01 (tests/step/test_step.py): para cada ROM
 de escenario, N llamadas y el mismo motor avanzando N unidades sin volver (semilla de prueba
 `P6_UNIT_TRACE`, parche 0062) dan trazas de digest de estado completo identicas en cada borde, con N en
 {1,2,3,7} y 19 ROMs (contador, VERTB, STOP, doble fallo con CPU detenida, IRQ del copper con 9 posiciones

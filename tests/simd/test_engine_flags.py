@@ -133,14 +133,14 @@ class PerformanceTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("P6_TEST_ENGINE_FLAGS"), "T35b decision requires completed experiments")
 class DecisionTests(unittest.TestCase):
-    def test_the_saved_decision_names_the_measured_builds_and_training(self):
-        r = json.loads((experiment.ROOT / "reports/optimizations/T35b-engine-flags.json").read_text())
-        self.assertEqual(r["measurements_sha256"], experiment.sha(experiment.WORK / "measurements.json"))
-        self.assertEqual(r["training"], json.loads((experiment.WORK / "training.json").read_text()))
-        self.assertFalse(r["training"]["private_assets"])
-        self.assertEqual(set(r["decisions"]), {"lto", "pgo"})
-        self.assertFalse(r["defaults_changed"])
-        self.assertEqual(r["row"], "macos-arm64-appleclang")
+    def test_the_measured_builds_use_public_training_and_explicit_options(self):
+        training = json.loads((experiment.WORK / "training.json").read_text())
+        self.assertFalse(training["private_assets"])
+        measurements = json.loads((experiment.WORK / "measurements.json").read_text())
+        self.assertEqual(set(measurements["verified"]), {"base", "lto", "pgo"})
+        adr = (experiment.ROOT / "docs/adr/0004-native-optimizations.md").read_text()
+        self.assertIn("Decision de flags del motor (T35b)", adr)
+        self.assertIn("desactivadas por defecto", adr)
 
 
 if __name__ == "__main__":

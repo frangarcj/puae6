@@ -330,7 +330,3 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
 4. T21/T22: el wrapper de Waterbox rechaza un estado nativo y el cargador nativo rechaza un envelope de Waterbox.
 5. `tests/state/test_components.py` (T14a): ningun componente causal sin propietario, politica y prueba pendiente identificada, y cada
    chunk de savestate.cpp presente en el inventario.
-
-## Resultados por tarea
-
-Los resultados de cada chunk propio estan en `reports/tasks/` (T15a, T15b1, T15b2, T15c1, T15c2, T15c3); el ADR conserva solo la decision.

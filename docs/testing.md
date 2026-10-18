@@ -109,7 +109,7 @@ python3 -m unittest tests.state.test_state_rtc
 
 El coste de una suite de estado es el probe: `p6_state_probe` en Debug -O0 tarda
 ~165 ms por unidad y es el 95 % del reloj de un test (Python, ROMs y parseo, menos
-del 1 %; medidas en `reports/benchmarks/T48e`). Por eso:
+del 1 % en las medidas de T48e). Por eso:
 
 - **Probe optimizado por defecto.** Los modulos que usan `tests/state/harness.py`
   (`ProbeCase`) ejecutan el probe de `build/state-opt`: RelWithDebInfo con
@@ -188,9 +188,6 @@ python3 -m unittest discover -s tests/bizhawk-movies
 python3 -m unittest discover -s tests/libretro-host
 ```
 
-Medidas y limites: `reports/tasks/T48a.md`, `reports/tasks/T48b.md`,
-`reports/tasks/T48c.md`, `reports/tasks/T48d.md` y `reports/tasks/T48e.md`
-(con `reports/benchmarks/T48e`).
 Separar siempre preparacion, compilacion y ejecucion.
 Una cache caliente no mide el coste de un build limpio.
 Una suite focalizada no comprueba el emulador completo.

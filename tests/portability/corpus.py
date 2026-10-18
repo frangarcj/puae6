@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
 # --- the differential corpus (T32c) ----------------------------------------------------------------------------------------------------------------------------------
 # The 28 scenarios of tests/scenarios/corpus (T32b) as a second corpus of the matrix: the same rows, the same builds, their own directory, results and evidence
-# (tests/portability/evidence-differential.json), so that the evidence of T25 and its report stay as they were. Media the scenarios name are files of the corpus
+# (tests/portability/differential.golden.json). Media the scenarios name are files of the corpus
 # directory and the arguments name them as `@corpus/<file>`: row_driver.py resolves the token against the directory the ROMs are in, which in the `host` variant
 # (DET06) is the odd one.
 

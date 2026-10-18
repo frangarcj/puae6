@@ -1,7 +1,7 @@
 """SAFE01 for the differential corpus (T32c): every scenario of tests/scenarios/corpus runs in the ASan + UBSan build of the probe (no recover: a finding ends the
 process), with its inputs and media, and then once more with a state saved at its first DET02 point and loaded back one unit later, so that the paths of the native state
 (the registry, the bodies of the engine, the BEAM words of T15n) run under the sanitizers too. A process that exits non-zero, or whose stderr names a runtime error or a
-sanitizer, fails the scenario. The portability matrix runs the same corpus under the sanitizers in the five rows (`san` of tests/portability/evidence-differential.json);
+sanitizer, fails the scenario. The portability matrix runs the same corpus under the sanitizers in the five rows (`san` of tests/portability/differential.golden.json);
 this is the direct, per-scenario form on the machine the tests run on."""
 import os
 from pathlib import Path

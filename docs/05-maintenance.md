@@ -5,7 +5,7 @@
 Una sola importacion limpia de WinUAE 6.0.3. plan/upstream.lock.json fija los SHA;
 T01 completa las dependencias aun null. Los pins deben ser commits completos y los
 archivos externos deben tener SHA-256 y licencia. No confundir SHA de tag/blob/tree
-con commit. Todas las fuentes publicas consultadas se enumeran en 00-evidence.md.
+con commit. Todas las fuentes publicas consultadas se enumeran en 00-sources.md.
 
 Para runtime e integracion, el usuario selecciono ../MacHawk. docs/07-machawk.md y
 plan/machawk.reference.json registran el checkout y sus cambios locales; T01 debe

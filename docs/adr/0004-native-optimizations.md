@@ -57,8 +57,8 @@ frontends o Waterbox: esta fila mide las sondas nativas del motor. Un perfil de
 estas sondas no se presenta como valido para libretro. El Mac es de uso diario,
 sin runner dedicado; se conservan deriva, outliers y condiciones. El coste del
 build inicial LTO+san fue 220,1 s; los tiempos incrementales no comparan builds
-limpios. Datos completos y limites en `reports/optimizations/T35b-engine-flags.md`,
-su JSON y `T35b-engine-measurements.json.gz`.
+limpios. Las medidas pueden repetirse con `tests/simd/engine_flags.py`; los
+resultados temporales se eliminan al cerrar la comprobacion.
 
 ## Alternativas y limites
 
@@ -96,10 +96,10 @@ o de coste/tamano de estado superior al 10 %, sin cambiar precision ni umbrales.
 `tests/simd/test_rgb565.py`: los 2^24 RGB, X variable, alineamientos naturales sin
 alineamiento vectorial, colas, canarios, paginas protegidas a ambos lados, longitud
 cero, fallback forzado y defecto sembrado que la comparacion debe detectar.
-ASan/UBSan no detectan errores. Receta, pins, flags y datos en
-`reports/optimizations/T35-rgb565.md` y sus JSON.
+La matriz se ejecuta con `tests/simd/matrix.py`; las variantes con ASan/UBSan
+comprueban el mismo codigo. Los pins y flags se conservan en el runner.
 
 Las cuatro puertas scoped de T35a cubren el experimento, su matriz, seguridad y
-decision; T35b conserva su evidencia del motor/corpus y sus cuatro puertas. T35
+decision; T35b ejecuta el motor/corpus y sus cuatro puertas. T35
 sigue pendiente de T35c (medida e integracion del frontend si conviene), ademas
 de su cierre completo.

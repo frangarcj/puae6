@@ -158,11 +158,11 @@
       "subsystem": "disk",
       "symbols": [],
       "owner": "bridge/media.cpp",
-      "at_load": "see reports/tasks/T12c.md: the registered blobs, the drive contents, the event queue and the sequence number are forgotten at unload",
+      "at_load": "see bridge/media.cpp: the registered blobs, the drive contents, the event queue and the sequence number are forgotten at unload",
       "survives_unload": false,
       "status": "reset",
       "evidence": [
-        "reports/tasks/T12c.md",
+        "bridge/media.cpp",
         "tests/media"
       ]
     },

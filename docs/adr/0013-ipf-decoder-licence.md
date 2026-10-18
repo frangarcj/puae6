@@ -1,6 +1,6 @@
 # ADR 0013: IPF con el lector libre de MAME (no capsimg)
 
-Continua la ADR 0008 (identidad de los medios, puntos 12 a 16). Paridad con la lectura de IPF de PUAE5 (`reports/research/parity-puae5.md`, P10).
+Continua la ADR 0008 (identidad de los medios, puntos 12 a 16). Paridad con la lectura de IPF de PUAE5 (`plan/tasks.json`, P10).
 
 ## Contexto
 
@@ -64,4 +64,4 @@ decodificador no lea (se documenta el caso minimo y se decide entre un parche lo
 
 ## Aclaracion de T58c: geometria del fichero y de la unidad
 
-El IPF de Amiga Soccer suministrado por el usuario el 2026-10-18 usa claves 1..168 y descripciones vacias hasta el cilindro 83. MAME ya reservaba `84*2+1` entradas; el endurecimiento inicial lo redujo indebidamente a 168. El indice admite ahora 169 claves y 84 cilindros de metadatos, pero la unidad conserva sus 166 pistas. El cilindro 83 solo puede ser tipo 1 sin celdas, bloques ni datos: no se ofrece al motor, no amplía `MAX_TRACKS`, y una pista exterior con contenido se rechaza. La regresion es sintetica y el corpus mutado incluye esa geometria. Informe y limites nativos/Waterbox: `reports/tasks/T58c.md`.
+El IPF de Amiga Soccer suministrado por el usuario el 2026-10-18 usa claves 1..168 y descripciones vacias hasta el cilindro 83. MAME ya reservaba `84*2+1` entradas; el endurecimiento inicial lo redujo indebidamente a 168. El indice admite ahora 169 claves y 84 cilindros de metadatos, pero la unidad conserva sus 166 pistas. El cilindro 83 solo puede ser tipo 1 sin celdas, bloques ni datos: no se ofrece al motor, no amplía `MAX_TRACKS`, y una pista exterior con contenido se rechaza. La regresion es sintetica y el corpus mutado incluye esa geometria. Informe y limites nativos/Waterbox: T58c.

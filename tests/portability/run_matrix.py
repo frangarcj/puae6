@@ -1,25 +1,8 @@
 #!/usr/bin/env python3
-"""Builds and runs the rows of the portability matrix (T25) and compares what they print.
+"""Build and execute declared portability rows; compare current results under build/portability.
 
-    run_matrix.py exec ROW OPT [--skip-build] [--skip-host] [--kickstart]   build ROW at OPT, run the corpus (baseline and host variants)
-    run_matrix.py report [--write]                                           compare every result under build/portability and write
-                                                                              tests/portability/evidence.json (--write) or print it
-    run_matrix.py render [--write]                                           the table of reports/platform-matrix.md from the evidence
-
-ROW is a key of rows.ROWS, OPT one of rows.OPTS. A row is built natively where it runs (the machine for the macOS row, a container of
-tests/portability/Dockerfile for the Linux rows: `docker run --platform linux/arm64|linux/amd64`), with the toolchain file of
-cmake/toolchains, from the repository mounted read-only; nothing is written into the source tree. Each row has its own build/ directory
-(build/portability/ROW, mounted at /src/build) so that the generated sources of one compiler never meet those of another.
-
-The canonical hashes are the ones of the corpus (tests/portability/corpus.py): per case, SHA-256 of the hardware lines and of the A/V
-lines that p6_state_probe prints for every unit (tests/portability/row_driver.py says which are which). The reference row is
-rows.REFERENCE; every other row is compared with it, hardware and A/V separately. DET06 compares the `host` variant of a row (another
-locale, time zone, clock, working directory and ROM path) with its own `baseline` variant.
-P6_MATRIX_SET=differential (T32c) runs the same rows and builds over another corpus, the 28 scenarios of tests/scenarios/corpus
-(corpus.write_differential): its own corpus directory, its own result files (`O0-baseline-differential.json`...) and its own evidence
-(tests/portability/evidence-differential.json); the evidence of T25 and its report are not touched. It has no Kickstart case and no p6_headless lines.
-An authorized Kickstart (P6_KICKSTART_ROM) is mounted read-only into the container for the run, as an extra case whose hashes stay in
-build/ and are never written to the evidence: the ROM is not copied, hashed or committed.
+P6_MATRIX_SET=differential selects the public scenario corpus. Private firmware is optional
+and its hashes are never stored in the golden fixtures. report --write only writes build/.
 """
 import argparse
 import collections
@@ -45,7 +28,7 @@ SET = os.environ.get("P6_MATRIX_SET", "")
 if SET not in corpus_module.CORPORA:
     raise SystemExit(f"P6_MATRIX_SET must be one of {sorted(corpus_module.CORPORA)}, not {SET!r}")
 TAG = f"-{SET}" if SET else ""                       # appended to the name of every result file of a set other than the default one
-EVIDENCE = PORT / (f"evidence-{SET}.json" if SET else "evidence.json")
+EVIDENCE = BUILD / (f"comparison-{SET}.json" if SET else "comparison.json")
 CORPUS_DIR = BUILD / (f"corpus-{SET}" if SET else "corpus")
 TARGETS = ("p6_state_probe", "p6_headless")
 FAKE_OFFSET = 800_000_000          # about 25 years ahead: 2051, past the 32-bit time_t of 2038
@@ -371,6 +354,7 @@ def report(write):
         for key in ("states", "audit", "reruns"):          # sections recorded by other commands survive a new comparison
             if key in old and key not in evidence:
                 evidence[key] = old[key]
+        EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
         EVIDENCE.write_text(json.dumps(evidence, indent=1, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
         print("wrote", EVIDENCE.relative_to(ROOT))
     for key, entry in evidence["executions"].items():
@@ -394,8 +378,6 @@ def main():
     t = sub.add_parser("states")
     t.add_argument("mode", choices=("save", "load"))
     t.add_argument("--opt", default="O0", choices=list(OPTS))
-    d = sub.add_parser("render")
-    d.add_argument("--write", action="store_true")
     r = sub.add_parser("report")
     r.add_argument("--write", action="store_true")
     args = parser.parse_args()
@@ -405,16 +387,6 @@ def main():
             print("P6_KICKSTART_ROM does not name a file", file=sys.stderr)
             return 2
         return exec_row(args.row, args.opt, args.skip_build, args.skip_host, kickstart, args.drop_tree)
-    if args.command == "render":
-        from tests.portability import render
-        report_path = ROOT / "reports/platform-matrix.md"
-        text = render.splice(report_path.read_text(encoding="utf-8"), render.render())
-        if args.write:
-            report_path.write_text(text, encoding="utf-8")
-            print("wrote", report_path.relative_to(ROOT))
-        else:
-            print(render.render())
-        return 0
     if args.command == "states":
         return states_phase([(name, args.opt) for name in ROWS], args.mode)
     return report(args.write)

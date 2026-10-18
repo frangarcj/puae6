@@ -407,7 +407,7 @@ A1200 con 8 MiB de Fast 14 410 866; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16
 `p6_config.fpu_model` (los 4 bytes que eran `reserved32`, offset 52; una union anonima conserva el nombre antiguo y el struct sigue midiendo 72 bytes): 0 sin FPU (por defecto), 68881
 o 68882. Solo el A1200 (su 68020 tiene interfaz de coprocesador): en un 68000 o con otro valor `p6_init` falla con `P6_ERROR_UNSUPPORTED` y la razon. La FPU interna del 030/040 llega con
 esas CPUs (T55). Se calcula con `fpp.cpp` + `fpp_softfloat.cpp` + `softfloat/*` (nunca `fpp_native`, x87 ni `long double`): los resultados son bit a bit los mismos en cualquier host e
-ISA (corpus de `tests/host/fpu_corpus.py` en las cinco filas de la matriz, `tests/host/fpu_matrix_evidence.json`). Una maquina sin FPU lanza la excepcion de linea F (vector 11) con
+ISA (corpus de `tests/host/fpu_corpus.py` en las cinco filas de la matriz, `tests/host/fpu_matrix.golden.json`). Una maquina sin FPU lanza la excepcion de linea F (vector 11) con
 las instrucciones de coprocesador, como siempre.
 
 `config_hash`: el modelo entra en la palabra `flags` del hash en los bits 23 y 24 (1 = 68881, 2 = 68882), entre la memoria (bits 8-22 y 31) y `p6_config.flags` (0-7); sin FPU la palabra es la
@@ -469,7 +469,7 @@ la maquina): solo el camino de mezcla de `audio.cpp` y su estado. Cambian el has
 escrituras de la misma maquina (0 y el valor del perfil; `auto` y el modelo de la maquina; cualquier tipo con el filtro apagado, donde el tipo no hace nada) dan el mismo hash. Un estado o una pelicula
 con una combinacion es INCOMPATIBLE en otra; se recalcula con `tests/state/envelope.py` (`config_hash_audio`). Aritmetica: `rh`/`crux`/`none` y la mezcla son enteras; el filtro y el
 `anti` usan los floats que ya usaba el perfil (`-ffp-contract=off`, ADR 0007); el cruce de tipo de filtro (A1200 en A500 o A500 en A1200) y el resto de combinaciones se comprobaron en la matriz de T25: 48 casos (A500 y A1200, dos ROMs, tipos cruzados, filtro off/on, tres interpolaciones, tres separaciones y una combinada) dan los mismos hashes de hardware y A/V
-unidad a unidad en macOS arm64 (Apple Clang) y en Linux arm64 y x86_64 (Clang y GCC), O0; el cruce se soporta (`reports/tasks/T73.md`).
+unidad a unidad en macOS arm64 (Apple Clang) y en Linux arm64 y x86_64 (Clang y GCC), O0; el cruce se soporta (T73).
 Opciones: libretro `puae6_sound_stereo_separation` (0..100 en pasos de 10, 70 por defecto), `puae6_sound_interpolation` (none, anti, rh, crux), `puae6_sound_filter` (emulated, off, on) y
 `puae6_sound_filter_type` (auto, A500, A1200), el importador `.uae` (`sound_stereo_separation` 0..10, `sound_interpol`, `sound_filter`, `sound_filter_type` standard/enhanced). Headless (T73a): `--sound-sep 0..100`, `--sound-interp none|anti|rh|crux`, `--sound-filter emulated|off|on`
 y `--sound-type auto|a500|a1200` (y `--dump-audio DIR`, que escribe `audio-NNN.bin` por unidad como el anfitrion libretro); BizHawk: los sync settings `SoundSeparation` (`P0`..`P100`), `SoundInterpolation`
@@ -831,7 +831,7 @@ como `P6_MEDIA_HDF` sin disquete: el A600 con Kickstart 2.05 arranca desde DH0 (
 `tests/waterbox-media/test_media_hdf.py`, WB03); DET02 lo cubre con estados dentro del arranque, de la carga que sigue a responder el script del disco y con overlay real (`tests/state/test_det02_hdf.py`). WB 2.05 no escribe
 al arrancar; las escrituras de las pruebas salen de una copia derivada en memoria con el flag de bitmap valido del bloque raiz a 0: el sistema de ficheros valida el volumen entre las unidades 170 y 190
 y reescribe los bloques 880 y 881 (un trozo de 4 KiB, el 110), que salen solo por la exportacion explicita (`puae6_hdf_save=on_close`, atomica, y la SaveRAM P6SR v2 en BizHawk) y vuelven con estados, rewind,
-run-ahead y SaveRAM. Limite conocido, ajeno a los HDF (reports/tasks/T63.md): el A600 con Kickstart 2.05 no repone exactamente desde un estado tomado cerca de las unidades 95-125 (DET02 en la 120; run-ahead
+run-ahead y SaveRAM. Limite conocido, ajeno a los HDF (T63): el A600 con Kickstart 2.05 no repone exactamente desde un estado tomado cerca de las unidades 95-125 (DET02 en la 120; run-ahead
 desde el run 0 de libretro), con o sin disco; el A500 con Kickstart 1.3 si.
 
 Archivos de discos (T59, `adapters/libretro/{archive,sevenzip}.h`, `tests/libretro-host/test_archives.py`, FUZZ01 `archive`; sin parches del motor ni ABI nueva): un `.zip`, un `.7z` o un `.rp9` con VARIOS disquetes es un

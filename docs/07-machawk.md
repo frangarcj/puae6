@@ -104,7 +104,7 @@ WBX_HOST_PAGE_SIZE=16384, layout compatible y protecciones coherentes por grupo.
 No usar el default 4096 de common.mak sin fijarlo.
 
 Lo que el runtime de MacHawk valida y lo que NO (medido en T09c, cada carga en un
-proceso hijo; ver reports/tasks/T09c.md): rechaza con error un ELF sin magic o
+proceso hijo; ver T09c): rechaza con error un ELF sin magic o
 truncado, pero ACEPTA un ELF con e_machine x86_64 y un heap que no es multiplo de
 16 KiB, y ABORTA el proceso (SIGABRT) ante una pagina RW dentro de un grupo RX.
 waterboxhost/DARWIN_ARM64.md, que es de MacHawk y no se toca, dice que las
@@ -241,7 +241,7 @@ la revision correspondiente; citar una alternativa no cambia sus condiciones.
 
 ## Propuesta T28a para MacHawk: el manejador de tripguard no debe esperar un cerrojo
 
-Hallazgo de T28a (reports/tasks/T28a.md), redactado para llevarlo a MacHawk; aqui NO se modifica `../MacHawk` ni se aplica a la copia del runtime (el parche esta en
+Hallazgo de T28a (T28a), redactado para llevarlo a MacHawk; aqui NO se modifica `../MacHawk` ni se aplica a la copia del runtime (el parche esta en
 `integration/waterbox-runtime/proposed/0001-tripguard-handler-never-waits.patch`, sin conectar a `tools/build_waterbox.py`, porque no cierra por si solo el fallo intermitente).
 
 Problema, en `waterbox/waterboxhost/src/memory_block/tripguard.rs` (macOS ARM64): `register()` toma `GLOBAL_DATA` y, con el cerrojo tomado, llama a `trip_pal::prepare_thread()`,

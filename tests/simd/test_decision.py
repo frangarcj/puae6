@@ -1,15 +1,12 @@
-"""T35a: measurements and the evidence behind the platform-specific follow-up."""
+"""Live pixel measurement and the required platform-specific follow-up."""
 import json
 from pathlib import Path
-import statistics
 import tempfile
 import unittest
 
-from tests.portability.rows import ROWS
-from tests.simd import evaluate, matrix
+from tests.simd import evaluate
 
 ROOT = evaluate.ROOT
-EVIDENCE = ROOT / "reports/optimizations/T35a-rgb565-matrix.json"
 
 
 class PerformanceTests(unittest.TestCase):
@@ -25,31 +22,8 @@ class PerformanceTests(unittest.TestCase):
 
 
 class DecisionTests(unittest.TestCase):
-    def test_the_evidence_is_complete_current_and_does_not_relax_the_profile(self):
-        r = json.loads(EVIDENCE.read_text())
-        self.assertEqual(set(ROWS), set(r["rows"]))
-        self.assertEqual(r["images"], matrix.IMAGES)
-        signatures = set()
-        for row, entry in r["rows"].items():
-            self.assertEqual(entry["native_hardware"], ROWS[row]["native_hardware"])
-            self.assertEqual(set(entry["results"]), {"opt", "fallback", "san"})
-            for mode, result in entry["results"].items():
-                signatures.add(result["rgb_digest"])
-                self.assertEqual(result["verified_rgb_values"], 1 << 24)
-                self.assertEqual(result["forced_fallback"], "scalar")
-                self.assertEqual(result["backend"], "neon" if ROWS[row]["isa"] == "arm64" and mode != "fallback" else "scalar")
-                for path, sha in result["sources"].items():
-                    self.assertEqual(evaluate.digest(ROOT / path), sha, path)
-                self.assertFalse(set(result["flags"]) & {"-march=native", "-Ofast", "-ffast-math", "-ffp-contract=fast"})
-        self.assertEqual(len(signatures), 1)
 
-    def test_the_decision_preserves_both_the_regression_and_the_promising_rows(self):
-        r = json.loads(EVIDENCE.read_text())["rows"]
-        def median(row, field):
-            return statistics.median(x[field] for x in r[row]["results"]["opt"]["samples"])
-        self.assertLess(median("macos-arm64-appleclang", "current_ns"), median("macos-arm64-appleclang", "candidate_ns"))
-        for row in ("linux-arm64-clang", "linux-arm64-gcc"):
-            self.assertLess(median(row, "candidate_ns"), median(row, "current_ns"))
+    def test_the_followup_requires_both_the_engine_flags_and_the_real_frontend(self):
         tasks = {t["id"]: t for t in json.loads((ROOT / "plan/tasks.json").read_text())["tasks"]}
         self.assertTrue({"T35a", "T35b", "T35c"} <= set(tasks["T35"]["depends"]))
         self.assertTrue(tasks["T35b"]["required"] and tasks["T35c"]["required"])

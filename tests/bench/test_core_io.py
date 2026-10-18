@@ -11,7 +11,6 @@ tests/ffi/IoBench.cs (`Ffi.dll iobench`) keeps the old form of each next to the 
   * the new form of the questions allocates nothing, the old one did (the exact number of bytes is not asserted; it is the length of the names);
   * the host is the Release build (the managed code BizHawk ships, which tools/bench.py measures): the picture copy is faster than the loop it replaced.
 
-The end-to-end before/after (five interleaved repetitions of Puae6Core.FrameAdvance in a Waterbox sandbox) is in reports/optimizations, with reports/optimizations/T34.md.
     python3 -m unittest tests.bench.test_core_io
 """
 import json

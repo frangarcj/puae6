@@ -1,7 +1,6 @@
-# PUAE6: marco de ejecucion del proyecto
+# PUAE6
 
-Estado: PLAN DE IMPLEMENTACION. No existe todavia un core ejecutable.
-Fecha de investigacion: 2026-09-26.
+Estado: port en desarrollo, con core libretro nativo y guest Waterbox ARM64.
 Directorio solicitado: /Users/frangar/Fun/uae.
 Nombre de trabajo: PUAE6; no supone aprobacion de marca ni incorporacion a proyectos upstream.
 
@@ -15,7 +14,7 @@ Crear un motor Amiga derivado de WinUAE 6, facil de actualizar, con dos producto
 Base inicial fijada: WinUAE 6.0.3, tag 6030, commit
 `857f48fcb09399d4d95527e29a2fdeaedb41f827`.
 No sustituirlo por master. Los pins de referencia y los pendientes estan en
-`plan/upstream.lock.json`. Ver fuentes y observaciones en `docs/00-evidence.md`.
+`plan/upstream.lock.json`. Ver fuentes y observaciones en `docs/00-sources.md`.
 
 Referencia principal BizHawk: `../MacHawk/`, seleccionada por el usuario e
 inspeccionada en HEAD `9b62757833c9bdd15bf43cef058c88bf91eb0ad7`. Su Waterbox
@@ -30,18 +29,18 @@ y `plan/machawk.reference.json`; los cambios locales de MacHawk no se modifican.
 4. Ejecutar SOLO una tarea desbloqueada y dejar una vertical pequena funcionando.
 5. No interpretar una prueba del plan como una prueba del emulador.
 
-Los comandos anteriores son herramientas de este paquete. Los comandos CMake,
-CTest, de escenarios y de Waterbox descritos en las tareas son CONTRATOS A
-IMPLEMENTAR; no existen hasta completar su tarea de bootstrap. No crear scripts
-que devuelvan exito sin ejecutar las comprobaciones descritas.
+La preparacion y las pruebas actuales se describen en `docs/testing.md`. El plan
+conserva tareas pendientes: consultar la ficha antes de asumir que una capacidad
+esta completa. `tools/check.py` ejecuta las puertas de cada tarea; un escenario
+sin runner o asset requerido queda BLOCKED.
 
 ## Forma de trabajo: iteraciones rapidas, arquitectura estable
 
 El plan es una guia ejecutable, no un proceso de auditoria. Priorizar ciclos cortos:
 implementar algo observable, probarlo, mirar el diff y continuar. Git y los tests
-son el registro habitual. `reports/tasks` queda para bloqueos, decisiones que no
-se entienden leyendo el cambio, rendimiento y release; no hay informe obligatorio
-por cada tarea terminada.
+son el registro habitual. No se conservan reportes ni evidencias historicas. Solo
+codigo, tests, fixtures de regresion, decisiones utiles y dependencias necesarias;
+las salidas temporales se generan en build/ y se limpian al terminar.
 
 La velocidad no permite romper las fronteras que hacen mantenible el port: WinUAE
 permanece importado limpio, los cambios al motor son parches pequenos, p6_run_frame
@@ -54,7 +53,7 @@ probe ejecutable que valide el riesgo real.
 | Documento | Contenido |
 | --- | --- |
 | `AGENTS.md` | Protocolo de trabajo para una IA con poco contexto |
-| `docs/00-evidence.md` | Que se inspecciono, pins y limites de la investigacion |
+| `docs/00-sources.md` | Fuentes, pins y limites de las referencias |
 | `docs/01-architecture.md` | Capas, alcance, perfiles y decisiones cerradas |
 | `docs/02-contracts.md` | ABI, ciclo de vida, tiempo, entrada, medios y estados |
 | `docs/03-waterbox.md` | Port real, memoria, C#, snapshots y compatibilidad TAS |
@@ -98,13 +97,8 @@ promete compatibilidad con estados antiguos de PUAE/WinUAE/BizHawk.
 - M4: ensayo de actualizacion upstream, paquetes y decision de release basada en pruebas.
 - Posterior: CD32/CDTV, RTG, FPU/MMU y aceleracion nativa, cada uno con su propia puerta de pruebas.
 
-## Estado observado al iniciar
-
-Codexify no listaba uae, pero acepto el directorio indicado directamente. Estaba
-vacio al iniciar la planificacion; no habia AGENTS.md, codigo ni tests. Despues se
-inicializo este repositorio Git local para trabajar con cambios pequenos. Aun no
-se han clonado/importado fuentes, instalado toolchains ni construido un emulador.
+## Assets de pruebas
 
 No hay ROMs Kickstart ni juegos comerciales en este paquete. Los fixtures de CI
-deben tener licencia/procedencia comprobada. Un escenario que necesita un asset
+tienen licencia/procedencia comprobada. Un escenario que necesita un asset
 no disponible queda BLOCKED/SKIP explicito, nunca PASS.

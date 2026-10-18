@@ -1,8 +1,6 @@
-"""The rows of the portability matrix (T25), as data: what each row is, how it is built and run, and which rows cannot be run at all.
+"""Declared portability rows, execution methods and excluded platforms.
 
-The text of reports/platform-matrix.md between its markers is rendered from this file and from tests/portability/evidence.json, and
-tests/portability/test_portability.py compares it with plan/runners.json and plan/toolchains.json, so that a row cannot be called
-supported anywhere without the evidence of a run.
+Actual gates execute the corpus; golden files contain only expected regression hashes.
 """
 
 DATE = "2026-10-10"
@@ -75,7 +73,7 @@ OUT_OF_SCOPE = {
                      "reason": "never part of the declared matrix (no Intel machine; Rosetta was not used as a runner)"},
 }
 
-# The Waterbox row is executed by other suites (tests/waterbox-smoke) and recorded in tests/portability/waterbox-evidence.json.
+# Waterbox execution belongs to tests/waterbox-smoke.
 WATERBOX_ROW = "waterbox-darwin-arm64"
 
 # The (row, opt) pairs of the closing run, and the ones that carry the sanitizers.

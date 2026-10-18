@@ -8,7 +8,7 @@ con un limite del buffer demostrado, no supuesto. El renderizador de WinUAE 6.0.
 XRGB8888 estatico de 1824 x 626 (`ports/portable/video_present.cpp`). El tamaño del raster lo decide
 `compute_framesync()` (custom.cpp:1583-1794) a partir de las preferencias y de la temporizacion MEDIDA de la
 pantalla, no de los registros de video del invitado. Mediciones y referencias de codigo: informe de investigacion de
-T08b (reports/tasks/T08b.md).
+T08b (T08b).
 
 ## Decision
 
@@ -130,7 +130,7 @@ super-hires solo existe si el motor lo dibuja, y la linea simple de un programa 
   1824 x 626 contiene el raster mayor (super-hires PAL, 1520 columnas) con holgura;
 - **la autoresolucion no se ofrece** (`auto` de PUAE5 cambia de resolucion o de modo de linea segun los registros del invitado, con `request_init_custom`): seria una reconfiguracion del motor en marcha
   (`gfx_autoresolution`, `graphics_reset`), con un buffer que cambia, el estado y los hashes dependientes de la historia. El perfil sigue prohibiendola (`P6_VIDEO_CFG_AUTORESOLUTION`); una politica
-  determinista de `auto` seria una tarea propia (ver los limites en `reports/research/parity-puae5.md`).
+  determinista de `auto` seria una tarea propia (ver los limites en `plan/tasks.json`).
 
 **Rasters.** El buffer se anuncia al cargar y no cambia (como en "Haz programado"). Columnas: un cuarto de reloj de color por columna hires, la mitad en lores y el doble en super-hires; filas: una por linea
 (simple) o dos (doble):

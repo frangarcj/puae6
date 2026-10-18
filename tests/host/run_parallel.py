@@ -72,7 +72,6 @@ STATE_OWN_TREE = {"test_probe": "p6_state_probe", "test_envelope_native": None}
 # Modules that need both builds of p6_state_probe.
 STATE_BOTH_TREES = {"test_build_parity"}
 HISTORY = "build/.test-durations.json"
-# Resident memory a state worker is budgeted: unittest, its probes (one at a time) and the files of a state; measured in reports/benchmarks/T48e.
 STATE_WORKER_BYTES = 1 << 30
 
 

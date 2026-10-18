@@ -29,7 +29,6 @@ class PlanTests(unittest.TestCase):
             "read": ["README.md"], "touch": ["src/*.cpp"],
             "steps": ["Check synthetic fixture"], "checks": ["PLAN01"],
             "acceptance": ["Synthetic check passes"], "stop": "Record a blocker",
-            "evidence": None,
         }
         second = copy.deepcopy(task)
         second.update(id="T01", depends=["T00"])
@@ -49,13 +48,6 @@ class PlanTests(unittest.TestCase):
     def finish(self, task_id):
         task = next(task for task in self.data["tasks"] if task["id"] == task_id)
         task["status"] = "done"
-
-    def add_note(self, task_id):
-        task = next(task for task in self.data["tasks"] if task["id"] == task_id)
-        path = self.root / "reports/tasks" / f"{task_id}.md"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("Synthetic task note for validator unit test.\n")
-        task["evidence"] = path.relative_to(self.root).as_posix()
 
     def write_inputs(self):
         (self.root / "plan").mkdir(exist_ok=True)
@@ -372,24 +364,11 @@ class PlanTests(unittest.TestCase):
         self.finish("T01")
         self.assert_error("dependencia T00 no terminada")
 
-    def test_done_with_report_accepted(self):
-        self.finish("T00")
-        self.add_note("T00")
-        self.assertEqual([], self.errors())
-
-    def test_report_template_is_not_evidence(self):
-        self.data["tasks"][0].update(status="done", evidence="README.md")
-        self.assert_error("evidence debe ser reports/tasks/T00.md")
-
-    def test_empty_evidence_rejected(self):
-        self.finish("T00")
-        self.add_note("T00")
-        (self.root / "reports/tasks/T00.md").write_text(" \n")
-        self.assert_error("inexistente o vacia")
-
-    def test_blocked_requires_report(self):
+    def test_blocked_requires_inline_reason(self):
         self.data["tasks"][0]["status"] = "blocked"
-        self.assert_error("requiere nota")
+        self.assert_error("requiere blocked_reason")
+        self.data["tasks"][0]["blocked_reason"] = "Reproducer pendiente de corregir"
+        self.assertEqual([], self.errors())
 
     def test_unknown_check_rejected(self):
         self.data["tasks"][0]["checks"] = ["MADE_UP_SUCCESS"]

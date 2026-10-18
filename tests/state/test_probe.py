@@ -98,7 +98,7 @@ class ProbeTests(unittest.TestCase):
 
     def test_a_reload_gives_the_digests_of_a_clean_process_from_the_first_unit_on(self):
         # Unit 0 is the machine before the power-on reset head has run: a reload still holds what the last session left there (the audio
-        # registers, the chipset latches, the scheduler's dead events), which the head rebuilds; it is not compared (reports/tasks/T13b.md).
+        # registers, the chipset latches, the scheduler's dead events), which the head rebuilds; it is not compared (T13b).
         cases = (("boot", ()), ("vsync", ()), ("long_ops", ()), ("tone", ()), ("lace", ()),
                  ("input_all", ("--port", "0:2:1:5:3", "--port", "1:1:65:0:0")))
         for name, extra in cases:

@@ -8,7 +8,7 @@ es comun y neutral al frontend. No convertir BizHawk en un frontend libretro ni
 duplicar el control del scheduler en un adaptador Waterbox independiente.
 No actualizar el PUAE viejo reemplazando archivos hasta que enlace. Se mantiene
 la semantica WinUAE, portando solo deltas probados y aislando su dependencia del
-host. S1-S8: docs/00-evidence.md.
+host. S1-S8: docs/00-sources.md.
 
 Dependencias permitidas, de arriba hacia abajo:
 
@@ -56,7 +56,6 @@ los invariantes x18/x28, ELF AArch64 y paginas 4/16 KiB. Se prueba desde M0/M1.
     tools/                      importacion, codegen, checks y benchmarks
     tests/                      fixtures legales, contratos, integracion, regresiones
     build/                      materializacion parcheada; nunca fuente de verdad
-    reports/                    notas excepcionales; no ROMs comerciales
 
 ## Tratamiento de upstream
 

@@ -6,7 +6,7 @@
 redondeo por frame, de donde estaba la CPU al cruzar el borde ni de si alguien pide el audio. El puerto ya trae una cola
 acotada de PCM (`ports/portable/audio/pcm_output.cpp`, 16384 palabras int16) y un ciclo de vida de sonido que fija la
 frecuencia; el motor genera una muestra cada `scaled_sample_evtime = clk*512/rate` ticks. Mediciones y referencias de
-codigo: informe de investigacion de T11 (resumen en reports/tasks/T11.md).
+codigo: informe de investigacion de T11 (resumen en T11).
 
 ## Decision
 

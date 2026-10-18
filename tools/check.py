@@ -141,8 +141,8 @@ TASK_SUITES = {
         'hard_file': 'tests.fuzz.test_fuzz.HardFileFuzzTests',
     },
     # T25: the portability matrix. DET04 (the declared ISA/compiler rows agree, hardware and A/V apart) and DET06 (another locale, zone, clock, directory
-    # and ROM path change nothing) are the one module tests.portability.test_portability. Its coherence tests always run (the report, plan/runners.json,
-    # the toolchain files and the recorded evidence say the same thing); the tests that build and run the rows are opt-in (P6_TEST_PORTABILITY=1: the
+    # and ROM path change nothing) are the one module tests.portability.test_portability. Configuration and goldens always run (plan/runners.json,
+    # the toolchain files and golden corpus hashes agree); the tests that build and run the rows are opt-in (P6_TEST_PORTABILITY=1: the
     # macOS row natively, the Linux rows in Docker, which must be up) and are SKIPPED otherwise, which the dispatcher reports as BLOCKED, never as
     # PASS: a matrix that did not run is not a matrix that agreed. A full run builds five trees and runs ~90 cases per row (x86_64 is translated
     # and slow), hence TASK_SUITE_TIMEOUT.
@@ -185,7 +185,7 @@ TASK_SUITES = {
         'corpus_public_a600': 'tests.reference.test_corpus_det03.CorpusDet03A600Tests',
         'corpus_public_a1200': 'tests.reference.test_corpus_det03.CorpusDet03A1200Tests',
     },
-    # T32c: the differential corpus in the portability matrix (P6_MATRIX_SET=differential: its own programs, media and evidence file, evidence-differential.json), the same rows and
+    # T32c: the differential corpus in the portability matrix (P6_MATRIX_SET=differential: its own programs, media and regression goldens), the same rows and
     # variants as T25. Coherence always runs; the rows that build and run are opt-in (P6_TEST_PORTABILITY=1, Docker up) and BLOCKED otherwise. SAFE01 adds the 28 scenarios under ASan/UBSan
     # (a run, and a state saved and loaded); FUZZ01 adds the mutation of the 28 scenario files and of the machine files to the parsers of T59.
     ('DET04', 'T32c'): {
@@ -306,7 +306,7 @@ TASK_SUITES[('PERF01', 'T33')] = {
 TASK_SUITES[('WB12', 'T33')] = {
     'waterbox_probes': 'tests.bench.test_wb12',
 }
-# T34 optimizes what the adapters do around the engine. What the measurement found (reports/optimizations/T34.md) is in the BizHawk core (the names asked of the controller and the copy of
+# T34 optimizes what the adapters do around the engine. The retained optimization is in the BizHawk core (the names asked of the controller and the copy of
 # the picture); the native bridge, libretro and the guest have nothing to remove. PERF01 is the suites of T33 plus the equivalence and cost of the two forms (tests.bench.test_core_io).
 # DET01, DET02 and SAFE01 add what shows that the core still produces the same machine: the picture, the PCM, the timing and the input packet it delivers are those of p6_headless (tests.ffi.test_core),
 # what a saved and loaded state brings back (tests.waterbox-state.test_wrapper_state), and the ownership of the sandbox's memory and the canaries of the ABI (test_wrapper_memory, test_ffi).

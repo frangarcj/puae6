@@ -3,7 +3,7 @@
 In T28 a movie test (core R with FloppyWrites, then Q without, then W and P) died once with SIGSEGV on the second sandbox; the same test alone passed 3 of 3. This creates, runs, alternates
 and frees sandboxes of different heaps in processes of the session host, many times, and counts the processes that die or hang. Nothing is retried: a process that does not exit with 0 is
 reported with its signal and the tail of its output; one that is still alive after --timeout is a hang, it is sampled (`sample`, into --evidence-dir) and killed. The report is
-reports/tasks/T28a.md: it shows that the second sandbox, the heaps and FloppyWrites do not matter, the crash is in libsystem_malloc when the host is created (variant `boot`).
+T28a: it shows that the second sandbox, the heaps and FloppyWrites do not matter, the crash is in libsystem_malloc when the host is created (variant `boot`).
 
 Variants (--variant, several allowed, "all" is every one):
   heaps-keep       A500 with FloppyWrites and A500 without, then two more of each (the shape of the test that failed); all alive until the end of the cycle

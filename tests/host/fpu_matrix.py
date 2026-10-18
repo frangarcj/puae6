@@ -3,7 +3,7 @@
 
     fpu_matrix.py corpus                        write the ROMs and cases.json into build/portability/corpus-fpu
     fpu_matrix.py exec ROW OPT [--skip-build]   build ROW at OPT (as tests/portability/run_matrix.py does) and run that corpus with its p6_state_probe
-    fpu_matrix.py report [--write]              compare every result under build/portability with the reference row and write tests/host/fpu_matrix_evidence.json
+    fpu_matrix.py report [--write]              compare every result under build/portability with the reference row and write a temporary comparison under build/portability
 
 It is the machinery of tests/portability (rows, builds, containers, the canonical per-unit hashes of tests/portability/row_driver.py) pointed at another corpus: the
 A1200 with a 68881 or 68882 running tests/host/fpu_corpus.py (about 2300 coprocessor instructions: the result of each is left in Chip RAM, and the digest of RAM, of the
@@ -27,7 +27,7 @@ from tests.portability import run_matrix as rm  # noqa: E402
 from tests.portability.rows import DATE, REFERENCE, ROWS  # noqa: E402
 
 CORPUS = rm.BUILD / "corpus-fpu"
-EVIDENCE = ROOT / "tests/host/fpu_matrix_evidence.json"
+EVIDENCE = rm.BUILD / "fpu-comparison.json"
 UNITS = 8
 CORPUS_UNITS = 6
 
@@ -146,6 +146,7 @@ def report(write):
         base = entry["baseline"]
         print(f"{entry['row']:26s} {entry['opt']:4s} cases {base['cases']}  hardware equal {base['hardware_equal']}  A/V equal {base['av_equal']}  errors {len(base['errors'])}")
     if write:
+        EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
         EVIDENCE.write_text(json.dumps(document, indent=1, sort_keys=True) + "\n", encoding="utf-8")
         print("wrote", EVIDENCE)
     return 0 if equal else 1

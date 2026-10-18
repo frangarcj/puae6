@@ -52,13 +52,12 @@ class PerformanceTests(unittest.TestCase):
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "T35c needs the measured platform decision")
 class DecisionTests(unittest.TestCase):
     def test_the_decision_covers_each_measured_row_and_preserves_the_other_platforms(self):
-        r = json.loads((frontend.ROOT / "reports/optimizations/T35c-frontend-rgb565.json").read_text())
-        self.assertEqual(set(r["decisions"]), set(matrix.MEASURED))
-        self.assertEqual(set(r["verified_rows"]), set(matrix.ROWS))
-        self.assertEqual(r["images"], matrix.matrix.IMAGES)
+        adr = (frontend.ROOT / "docs/adr/0004-native-optimizations.md").read_text()
+        self.assertIn("## Decision de frontend T35c", adr, "T35c requires the measured platform decision")
         for row in matrix.MEASURED:
-            self.assertEqual(r["measurements_sha256"][row], frontend.digest(matrix.directory(row) / "opt/measurements.json"))
-            self.assertTrue(r["decisions"][row]["reason"])
+            self.assertIn(row, adr)
+            result = json.loads((matrix.directory(row) / "opt/measurements.json").read_text())
+            self.assertEqual(result["verification_sha256"], frontend.digest(matrix.directory(row) / "opt/verification.json"))
 
 
 if __name__ == "__main__":

@@ -15,8 +15,8 @@ State: p6_state_save / p6_state_load (native), retro_serialize / retro_unseriali
 first unit after a load. Memory: peak RSS of each process, the heaps of the sandbox (committed and dirty), the dirty unit of Darwin ARM64 (16 KiB groups of four 4 KiB logical pages).
 
     python3 tools/bench.py build                      build every runner (Release -O2 native tree, the Release and Debug lanes of the runtime, Release core); -j 3 at most
-    python3 tools/bench.py run --id ID [--quick]      run the matrix, interleaved by repetition, raw data under reports/baselines/ID/raw
-    python3 tools/bench.py summarize --id ID          reports/baselines/ID/summary.json and summary.md from the raw data
+    python3 tools/bench.py run --id ID [--quick]      run the matrix, interleaved by repetition, raw data under build/baselines/ID/raw
+    python3 tools/bench.py summarize --id ID          build/baselines/ID/summary.json and summary.md from the raw data
     python3 tools/bench.py compare ID1 ID2            row by row, two baselines taken at different times
     python3 tools/bench.py budgets --id ID            plan/performance-budgets.json from the summary (goals stay goals; nothing becomes a hard threshold)
 
@@ -44,7 +44,7 @@ import build_waterbox  # noqa: E402
 BUILD = ROOT / "build"
 NATIVE_TREE = BUILD / "bench-release"          # Release, -O2: the optimization of the Waterbox guest (tools/build_waterbox.py passes CCFLAGS_RELEASE=-O2)
 WORK = BUILD / "bench"
-BASELINES = ROOT / "reports/baselines"
+BASELINES = BUILD / "baselines"
 BUDGETS = ROOT / "plan/performance-budgets.json"
 WATERBOX = BUILD / "waterbox"
 RELEASE_RUNTIME = WATERBOX / "cargo/aarch64-apple-darwin/release/libwaterboxhost.dylib"
@@ -740,7 +740,7 @@ def render_markdown(result):
 
 def compare(first, second):
     """Reproducibility: two baselines taken at different times with the same tool, row by row. The relative difference of the medians of the run medians and of the pooled p95; a row is
-    reproduced when both stay within the regression goal (5 %). Written to reports/baselines/reproducibility-FIRST-vs-SECOND.json."""
+    reproduced when both stay within the regression goal (5 %). Written to build/baselines/reproducibility-FIRST-vs-SECOND.json."""
     a = json.loads((BASELINES / first / "summary.json").read_text())
     b = json.loads((BASELINES / second / "summary.json").read_text())
     rows = {}
@@ -782,7 +782,7 @@ def write_budgets(identifier, compared_with=None):
                     "runner": runner_id, "layer": r["layer"], "machine": entry["machine"], "standard": entry["standard"], "scenario": scenario_id, "kind": entry["kind"],
                     "unit_ms": round(entry["unit_ms"], 4),
                     "observed": {"p50_ms": round(r["p50_ms"], 3), "p95_ms": round(r["p95_ms"], 3), "p95_unit_fraction": round(r["p95_unit_fraction"], 4), "reps": r["reps"], "units_per_rep": r["units"],
-                                 "between_run_cv": round(r["between_run_cv"], 4), "noisy_runs": r["noisy_runs"], "source": f"reports/baselines/{identifier}/summary.json"},
+                                 "between_run_cv": round(r["between_run_cv"], 4), "noisy_runs": r["noisy_runs"], "source": f"build/baselines/{identifier}/summary.json"},
                     "goal": {"p95_unit_fraction_max": GOAL_P95_FRACTION},
                     "goal_met_by_observation": r["meets_goal_p95_le_70_percent"],
                     "enforcement": "advisory",
@@ -791,19 +791,19 @@ def write_budgets(identifier, compared_with=None):
         "schema_version": 1,
         "status": "ORIENTATIVE",
         "task": "T33",
-        "baseline": f"reports/baselines/{identifier}",
+        "baseline": f"build/baselines/{identifier}",
         "rule": "The goals below are the ones docs/04-validation.md proposed before any measurement. Ratifying a budget here means fixing the formula and the machine/profile it is compared on; it does NOT mean the "
                 "numbers under `observed` are limits. They were taken on a Mac that someone was using (no dedicated runner, plan/runners.json), so no hard threshold derives from them: every entry is advisory "
                 "until a quiet runner repeats the baseline with a small between-run dispersion.",
         "goals": {"p95_unit_fraction_max": GOAL_P95_FRACTION, "time_regression_investigate_above": GOAL_TIME_REGRESSION, "state_size_or_cost_regression_investigate_above": GOAL_STATE_REGRESSION,
                   "steady_state_allocation_per_unit": "none in the bridge and the adapters (measured: see `allocation`)", "note": "A regression sustained above these is investigated and approved by a person, with the run repeated to discard noise; a budget is never lowered in the change that breaks it."},
-        "noise_policy": {"noisy_wait_ratio_above": NOISY_WAIT_RATIO, "load_average": "recorded with every run (reports/baselines/*/raw), never used as a verdict by itself", "minimum_repetitions": 5,
+        "noise_policy": {"noisy_wait_ratio_above": NOISY_WAIT_RATIO, "load_average": "recorded with every run (build/baselines/*/raw), never used as a verdict by itself", "minimum_repetitions": 5,
                          "stable_means": "between_run_cv <= 0.02, no noisy run and at least five repetitions IN THIS BASELINE. It describes these repetitions only and does not promote an entry: enforcement stays advisory until a dedicated runner (plan/runners.json has none) repeats the baseline and a person approves the thresholds"},
         "entries": entries,
     }
     if compared_with:
         comparison = compare(identifier, compared_with)
-        document["reproducibility"] = {"file": f"reports/baselines/reproducibility-{identifier}-vs-{compared_with}.json", "second_baseline": f"reports/baselines/{compared_with}",
+        document["reproducibility"] = {"file": f"build/baselines/reproducibility-{identifier}-vs-{compared_with}.json", "second_baseline": f"build/baselines/{compared_with}",
                                        "rows_compared": comparison["rows_compared"], "rows_with_p50_within_goal": comparison["rows_with_p50_within_goal"], "rows_reproduced_p50_and_p95": comparison["rows_reproduced"],
                                        "largest_p50_difference": round(comparison["largest_p50_difference"], 4),
                                        "reading": "the medians of every compared row repeat within the 5 % goal between two sessions about 1.7 hours apart; the p95 of a row repeats unless a disturbance of the machine fell on one of the sessions"}
@@ -857,7 +857,7 @@ def main():
     build = sub.add_parser("build")
     build.add_argument("--jobs", type=int, default=3)
     run = sub.add_parser("run")
-    run.add_argument("--id", required=True, help="baseline directory under reports/baselines")
+    run.add_argument("--id", required=True, help="baseline directory under build/baselines")
     run.add_argument("--root", default=str(BASELINES), help="where baselines live (a smoke run goes under build/)")
     run.add_argument("--reps", type=int, default=5)
     run.add_argument("--quick", action="store_true", help="400 units, 100 warmup, 5 state rounds: a smoke run, not a baseline")
