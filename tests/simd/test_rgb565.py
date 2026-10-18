@@ -14,11 +14,14 @@ class PixelTests(unittest.TestCase):
         self.assertEqual(1 << 24, report["verified_rgb_values"])
         self.assertEqual("neon" if platform.machine().lower() in ("arm64", "aarch64") else "scalar", report["backend"])
         self.assertEqual("scalar", report["forced_fallback"])
+        if platform.system() == "Darwin":
+            self.assertEqual("portable", report["product_backend"])
 
     def test_the_fallback_needs_no_neon_or_compiler_vectorization(self):
         with tempfile.TemporaryDirectory(prefix="p6-simd-") as directory:
             report = evaluate.evaluate(Path(directory), "fallback")
         self.assertEqual("scalar", report["backend"])
+        self.assertEqual("portable", report["product_backend"])
         self.assertEqual(1 << 24, report["verified_rgb_values"])
 
     def test_the_comparison_harness_can_fail(self):

@@ -1,6 +1,6 @@
 # 0004. Optimizaciones nativas sin cambiar la maquina emulada
 
-Estado: decisiones SIMD T35a y flags T35b (2026-10-18); cierre T35 pendiente de T35c. No cambia ningun default del producto.
+Estado: seleccion RGB565 de T35c integrada, pendiente de validacion final; cierre T35 pendiente. LTO/PGO siguen desactivados por defecto.
 
 ## Contexto
 
@@ -12,15 +12,17 @@ ese codigo real, sin sustituir CPU, chipset, temporizacion o audio por otro algo
 
 ## Decision SIMD por plataforma
 
-No activar el candidato globalmente. Con Apple Clang 21 pierde un 6,08 % en la
-medida por filas; con Homebrew Clang 22 perdia un 4,5-6,4 %. La conversion actual
-ya se autovectoriza en el Mac. **No descartar Linux ARM64**: con Clang 18 y GCC 13
-el candidato gana un 55,29 % y un 35,76 % en la microprueba, respectivamente.
+Mantener el bucle portable en macOS y x86_64. La microprueba repetida con las
+fuentes anteriores a la integracion da -5,48 % en Apple Clang 21 (0/5 parejas),
++55,95 % en Linux ARM64 Clang 18 y +34,70 % en GCC 13 (5/5 en ambos).
+Son tiempos de conversion aislada con copia por filas, no ganancias de frame.
 
-El candidato queda en `tests/simd/`, fuera de los targets del producto. T35c es
-obligatoria antes de cerrar T35: medir el frontend completo con RGB565 y decidir
-una seleccion por plataforma, manteniendo la ruta portable donde convenga. Una
-microprueba no demuestra ganancia de frame ni justifica una bifurcacion global.
+El kernel comun esta en `ports/portable/simd/rgb565.h`. El producto libretro
+selecciona NEON en Linux AArch64 little-endian con Clang 18 o GCC 13. Las demas
+combinaciones conservan el bucle portable, que el compilador puede vectorizar.
+`P6_SIMD_NO_NEON=1` fuerza el fallback; una actualizacion de compilador exige
+repetir la medida antes de ampliar la seleccion. No cambia la ISA base ni hay
+consultas host por pixel. La conversion solo actua al pedir RGB565.
 
 La referencia por canales, el codigo actual y el candidato coinciden en las
 cinco filas declaradas, en modo optimizado, sin SIMD/autovectorizacion y bajo
@@ -103,3 +105,40 @@ Las cuatro puertas scoped de T35a cubren el experimento, su matriz, seguridad y
 decision; T35b ejecuta el motor/corpus y sus cuatro puertas. T35
 sigue pendiente de T35c (medida e integracion del frontend si conviene), ademas
 de su cierre completo.
+
+## Decision de frontend T35c
+
+La primera campana completa usa Apple M1 Pro (8 nucleos, 16 GiB), macOS 26.7.1,
+AC al 100 %, y Docker Linux ARM64 (8 vCPU, 7,75 GiB); maquina de uso diario,
+sin runner dedicado. Compiladores fijados: Apple Clang 21, Clang 18.1.3 y GCC
+13.3.0. Release -O2 con assertions, sin LTO/PGO, fast-math ni contraccion FP.
+
+| Fila | Reduccion de CPU por frame, segun escenario | Parejas favorables |
+| --- | --- | --- |
+| macos-arm64-appleclang | -0,263 a +0,071 % | 6/25; resultado pequeno y mayormente negativo |
+| linux-arm64-clang | +7,223 a +10,827 % | 25/25 |
+| linux-arm64-gcc | +3,994 a +8,756 % | 25/25 |
+
+Son cinco cargas publicas T33 (OCS Copper/blitter, OCS NTSC, ECS, AGA y Paula),
+cinco repeticiones intercaladas de ambas rutas: 300 unidades de calentamiento,
+10000 medidas en la principal y 3000 en las otras, con 20 save/load por ejecucion.
+La dispersion entre medianas de repeticiones es 0,04-0,22 % CV en macOS y
+0,68-3,95 % en Linux. GCC tiene una pareja principal de solo +0,30 %; las
+otras cargas y los 25 pares conservan el signo favorable. No se mezclan cargas
+para esconder un resultado negativo. El p95 de pared baja en las diez cargas
+Linux; el mayor aumento de p95 save/load es +6,26/+4,22 %, bajo el 10 % existente.
+Estados finales, tamano y contadores coinciden en cada conjunto de diez ejecuciones.
+
+La decision es activar las dos filas Linux ARM64 y conservar macOS portable.
+El cambio mantiene una sola implementacion, con la cola escalar original del
+prototipo y el bucle portable anterior. No bifurca CPU/chipset ni cambia el formato
+por defecto XRGB8888. Los porcentajes describen este frontend minimo sin vsync y
+este equipo, no todos los juegos, frontends o CPU ARM64.
+
+La biblioteca estandar es siempre el producto. El target opt-in
+`puae6_libretro_rgb565_alternate` selecciona la ruta opuesta con los mismos objetos
+del motor: portable de referencia en Linux ARM64, NEON contrafactual en macOS.
+La campana final debe validar y medir estos binarios de producto antes de cerrar
+T35c. `python3 -m tests.simd.frontend_statistics` calcula los pares y la dispersion
+desde los datos temporales; los checks comprueban los ejecutables, corpus y
+protocolo exactos. No se conservan informes historicos.

@@ -52,6 +52,9 @@ def run(modes=("opt", "fallback", "san")):
             backend = "neon" if spec["isa"] == "arm64" and mode != "fallback" else "scalar"
             if record["backend"] != backend:
                 raise ValueError(f"wrong dispatch: {row}/{mode}")
+            product = "neon" if row.startswith("linux-arm64-") and mode != "fallback" else "portable"
+            if record["product_backend"] != product:
+                raise ValueError(f"wrong product selection: {row}/{mode}")
             if expected_digest is None:
                 expected_digest = record["rgb_digest"]
             if record["rgb_digest"] != expected_digest:

@@ -12,7 +12,8 @@
 using Convert = void (*)(const uint32_t *, size_t, uint16_t *);
 static bool corrupt_candidate = false;
 static void require(bool ok, const char *why) { if (!ok) { fprintf(stderr, "%s\n", why); exit(2); } }
-__attribute__((noinline)) static void current(const uint32_t *in, size_t n, uint16_t *out) { p6_libretro::to_rgb565(in, n, out); }
+__attribute__((noinline)) static void current(const uint32_t *in, size_t n, uint16_t *out) { p6_simd::portable(in, n, out); }
+__attribute__((noinline)) static void product(const uint32_t *in, size_t n, uint16_t *out) { p6_libretro::to_rgb565(in, n, out); }
 __attribute__((noinline)) static void candidate(const uint32_t *in, size_t n, uint16_t *out)
 {
     p6_simd::convert(in, n, out);
@@ -28,7 +29,7 @@ static void verify()
     // Independent channel arithmetic, every 24-bit RGB value, with varying X.
     std::vector<uint32_t> input(4096);
     std::vector<uint16_t> expected(4096), output(4096);
-    const Convert routes[] = {current, candidate, fallback};
+    const Convert routes[] = {current, candidate, fallback, product};
     for (uint32_t base = 0; base < (1u << 24); base += 4096) {
         for (size_t i = 0; i < input.size(); ++i) {
             input[i] = (base + uint32_t(i)) | (uint32_t(i * 37) << 24);
@@ -92,7 +93,7 @@ int main(int argc, char **argv)
 {
     corrupt_candidate = argc > 1 && !strcmp(argv[1], "--selftest-fail");
     verify();
-    printf("{\"rgb_digest\":\"%016llx\",\"verified_rgb_values\":16777216,\"backend\":\"%s\",\"forced_fallback\":\"%s\",\"row_pixels\":756,\"row_copy_included\":true,\"warmup\":300,\"iterations_per_sample\":300,\"repetitions\":5,\"samples\":[", static_cast<unsigned long long>(rgb_digest), p6_simd::backend(true), p6_simd::backend(false));
+    printf("{\"rgb_digest\":\"%016llx\",\"verified_rgb_values\":16777216,\"backend\":\"%s\",\"forced_fallback\":\"%s\",\"product_backend\":\"%s\",\"row_pixels\":756,\"row_copy_included\":true,\"warmup\":300,\"iterations_per_sample\":300,\"repetitions\":5,\"samples\":[", static_cast<unsigned long long>(rgb_digest), p6_simd::backend(true), p6_simd::backend(false), p6_simd::product_backend());
     std::vector<uint32_t> in(756 * 574); for (auto &p : in) p = random_word();
     std::vector<uint16_t> out(in.size());
     for (unsigned i = 0; i < 300; ++i) { frame(current, in.data(), in.size(), out.data()); frame(candidate, in.data(), in.size(), out.data()); }

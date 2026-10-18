@@ -11294,7 +11294,8 @@
         "Reproducir los tiempos opuestos de T35a: Apple Clang pierde, Linux ARM64 Clang/GCC gana. Medir antes/despues en el frontend real con RGB565, misma maquina/configuracion y corpus representativo, sin inferir tiempo de frame de la microprueba.",
         "Comparar pixels/PCM/ticks y restore, fallback y limites de buffers; solo conservar una seleccion por plataforma si la ganancia es estable y su mantenimiento razonable. Mantener la referencia portable y no forkar CPU/chipset.",
         "Documentar la decision cuantitativa, incluidos resultados negativos; T35 no cierra sin esta decision y la evaluacion de flags T35b.",
-        "Hallazgo de T35c (2026-10-18): ASan/UBSan en la biblioteca de referencia detecta overflow en spr_nearest con AGA SuperHires y ningun sprite futuro. T35d corrige el centinela mediante parche upstream, conserva el reproducer y valida nativo/Waterbox antes de reanudar esta campana. No se eliminan casos ni flags de sanitizer."
+        "Hallazgo de T35c (2026-10-18): ASan/UBSan en la biblioteca de referencia detecta overflow en spr_nearest con AGA SuperHires y ningun sprite futuro. T35d corrige el centinela mediante parche upstream, conserva el reproducer y valida nativo/Waterbox antes de reanudar esta campana. No se eliminan casos ni flags de sanitizer.",
+        "2026-10-18: la primera campana completa gana 7,223-10,827 % de CPU en Linux ARM64 Clang y 3,994-8,756 % en GCC (25/25 parejas por fila); macOS no mejora de forma estable. Promocion atomica del kernel comun a ports/portable/simd con seleccion por OS/ISA/compiler y target de referencia opuesto. Actualizar sus callers y tests juntos evita duplicar el algoritmo; validar y medir la biblioteca estandar de producto antes de done."
       ],
       "checks": [
         "PERF01",

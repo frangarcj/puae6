@@ -28,6 +28,17 @@ RUN = importlib.import_module("tests.libretro-host.test_libretro").RUN
 ROM_NAMES = {"a500": "kick34005.A500", "a600": "kick37350.A600", "a1200": "kick40068.A1200"}
 WORKLOADS = [s for s in SCENARIOS if s.kind == "microrom"]
 EXTRA = ("ecs-shres-ntsc", "aga-ham8-ntsc", "aga-sprite64-pal", "ocs-hires-lace-ntsc")
+NEON_PRODUCT_ROWS = ("linux-arm64-clang", "linux-arm64-gcc")
+
+
+def core_paths(row, tree):
+    extension = ".dylib" if row.startswith("macos-") else ".so"
+    product = Path(tree) / ("puae6_libretro" + extension)
+    alternate = Path(tree) / ("puae6_libretro_rgb565_alternate" + extension)
+    # Always time portable -> NEON. In Linux ARM64 the latter is the real product;
+    # macOS keeps its product portable and tests NEON as the counterfactual.
+    return {"current": alternate if row in NEON_PRODUCT_ROWS else product,
+            "candidate": product if row in NEON_PRODUCT_ROWS else alternate}
 
 
 def digest(path):
@@ -60,9 +71,7 @@ class Frontend:
         self.tree = self.work / ("san" if sanitizers else "opt")
         self.work.mkdir(parents=True, exist_ok=True)
         self.host = self.tree / "p6_libretro_host"
-        extension = ".dylib" if platform.system() == "Darwin" else ".so"
-        self.cores = {v: self.tree / ("puae6_libretro" + ("_rgb565_candidate" if v == "candidate" else "") + extension)
-                      for v in ("current", "candidate")}
+        self.cores = core_paths(row, self.tree)
         self.corpus = self.work / "corpus"
         assets.write_differential(self.corpus)
 
@@ -81,13 +90,14 @@ class Frontend:
                      "-DP6_PGO_MODE=OFF", "-DP6_RGB565_EXPERIMENT=ON", f"-DP6_SANITIZERS={'ON' if self.sanitizers else 'OFF'}"]
         self.tree.mkdir(parents=True, exist_ok=True)
         execute(configure, self.tree / "configure.log")
-        execute(["cmake", "--build", self.tree, "--parallel", "3", "--target", "p6_libretro_host", "puae6_libretro_rgb565_candidate"], self.tree / "build.log")
+        execute(["cmake", "--build", self.tree, "--parallel", "3", "--target", "p6_libretro_host", "puae6_libretro_rgb565_alternate"], self.tree / "build.log")
         if source != source_identity():
             raise ValueError("source changed during build")
         save(self.tree / "build.json", {"row": self.row, "compiler": version, "compiler_sha256": digest(compiler),
              "os": platform.platform(), "isa": actual, "configure": list(map(str, configure)), "source_identity": source,
              "binaries": {v: digest(p) for v, p in {**self.cores, "host": self.host}.items()},
-             "inputs": {p: digest(ROOT / p) for p in ("CMakeLists.txt", "adapters/libretro/present.h", "tests/simd/rgb565_candidate.h", "tests/simd/frontend_rgb565.py")}})
+             "product_variant": "candidate" if self.row in NEON_PRODUCT_ROWS else "current",
+             "inputs": {p: digest(ROOT / p) for p in ("CMakeLists.txt", "adapters/libretro/present.h", "ports/portable/simd/rgb565.h", "tests/simd/frontend_rgb565.py")}})
         print(f"built {self.row} {'san' if self.sanitizers else 'opt'}", flush=True)
 
     def arguments(self, variant, entry, system, *extra):

@@ -179,19 +179,18 @@ set_source_files_properties(bridge/build_identity.cpp PROPERTIES COMPILE_DEFINIT
 # Libretro core and the minimal frontend that tests its contract (T16).
 include(cmake/Libretro.cmake)
 # T35c: compare presentation routes through real retro_run with the SAME engine
-# objects. The extra library is opt-in and is not a product default.
-option(P6_RGB565_EXPERIMENT "Build the test RGB565 candidate libretro library" OFF)
+# objects. The extra library selects the opposite presentation route.
+option(P6_RGB565_EXPERIMENT "Build the alternate RGB565 libretro test library" OFF)
 if(P6_RGB565_EXPERIMENT)
-    add_library(puae6_libretro_rgb565_candidate SHARED adapters/libretro/libretro_core.cpp
+    add_library(puae6_libretro_rgb565_alternate SHARED adapters/libretro/libretro_core.cpp
         adapters/libretro/config_import.cpp $<TARGET_OBJECTS:p6_engine>)
-    add_dependencies(puae6_libretro_rgb565_candidate p6_codegen)
+    add_dependencies(puae6_libretro_rgb565_alternate p6_codegen)
     foreach(_property IN ITEMS INCLUDE_DIRECTORIES LINK_LIBRARIES COMPILE_DEFINITIONS LINK_OPTIONS
             PREFIX CXX_VISIBILITY_PRESET VISIBILITY_INLINES_HIDDEN)
         get_target_property(_value puae6_libretro ${_property})
-        set_target_properties(puae6_libretro_rgb565_candidate PROPERTIES ${_property} "${_value}")
+        set_target_properties(puae6_libretro_rgb565_alternate PROPERTIES ${_property} "${_value}")
     endforeach()
-    target_compile_definitions(puae6_libretro_rgb565_candidate PRIVATE P6_TEST_RGB565_CANDIDATE)
-    target_include_directories(puae6_libretro_rgb565_candidate PRIVATE tests/simd)
+    target_compile_definitions(puae6_libretro_rgb565_alternate PRIVATE P6_TEST_RGB565_ALTERNATE)
 endif()
 # Engine-level probe of the bridge lifecycle (tests/host/test_bridge_lifecycle.py runs it with a ROM).
 add_executable(p6_lifecycle_probe tests/host/bridge_lifecycle_probe.cpp $<TARGET_OBJECTS:p6_engine>)

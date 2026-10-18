@@ -39,7 +39,7 @@ def build(directory, mode, row=None):
     if compiled.returncode:
         raise RuntimeError(f"T35 compile failed: {compiled.stderr[-4000:]}")
     return exe, {"compiler": version, "compiler_sha256": compiler_sha, "flags": flags,
-                 "sources": {str(p.relative_to(ROOT)): digest(p) for p in (source, ROOT / "tests/simd/rgb565_candidate.h", ROOT / "adapters/libretro/present.h", ROOT / "adapters/libretro/options_generated.h", ROOT / "bridge/include/p6.h", ROOT / "references/libretro-api/include/libretro.h", Path(__file__))}}
+                 "sources": {str(p.relative_to(ROOT)): digest(p) for p in (source, ROOT / "tests/simd/rgb565_candidate.h", ROOT / "ports/portable/simd/rgb565.h", ROOT / "adapters/libretro/present.h", ROOT / "adapters/libretro/options_generated.h", ROOT / "bridge/include/p6.h", ROOT / "references/libretro-api/include/libretro.h", Path(__file__))}}
 
 
 def run(exe, *args, asan_options=None):
