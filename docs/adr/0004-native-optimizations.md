@@ -73,6 +73,24 @@ Las medidas son orientativas, en el Mac en uso, sin runner dedicado. No se
 extrapolan fuera de las filas ejecutadas ni al tiempo completo de un frame. Tampoco
 se consideran una prueba de exactitud de hardware.
 
+## Lectura de la campana de frontend T35c
+
+Antes de disponer de los tiempos de la campana completa se fija su lectura:
+por plataforma y escenario, usar la mediana de las cinco medianas de CPU, junto con los cinco
+pares actual/candidato, la dispersion entre repeticiones y las distribuciones
+de pared/CPU. No mezclar workloads en una sola media que oculte un resultado
+negativo. Solo se descartan las 300 unidades de calentamiento previstas; los
+outliers medidos se conservan.
+
+La decision de adopcion se apoya en una mejora de frame que se repita entre
+pares, escenarios y orden de ejecucion, ademas de equivalencia y coste de
+mantenimiento. Se conservan los resultados negativos de la conversion aislada.
+Las ganancias de una microprueba no sustituyen esta medida. Un resultado pequeno
+o mixto exige explicar su relacion con la dispersion; no se declara una mejora
+estable a partir de una sola mediana. Los presupuestos existentes siguen
+vigentes: investigar/repetir una regresion sostenida de tiempo superior al 5 %
+o de coste/tamano de estado superior al 10 %, sin cambiar precision ni umbrales.
+
 ## Validacion y continuacion
 
 `tests/simd/test_rgb565.py`: los 2^24 RGB, X variable, alineamientos naturales sin
