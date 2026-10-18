@@ -65,6 +65,11 @@ def build(variant):
                f"-DP6_NATIVE_IPO={'ON' if variant.startswith('lto') else 'OFF'}",
                f"-DP6_PGO_MODE={'GENERATE' if variant == 'instrument' else 'USE' if variant.startswith('pgo') else 'OFF'}",
                f"-DP6_PGO_DATA={PROFDATA if variant.startswith('pgo') else ''}", f"-DP6_SANITIZERS={'ON' if variant.endswith('-san') else 'OFF'}"]
+    if variant == "instrument":
+        # Both diskutil entry points disappear from the training image otherwise.
+        # Retain their counters, at zero, without ever executing them. USE builds
+        # keep normal dead stripping and both strict profile diagnostics.
+        command += ["-DP6_PGO_TRAIN_ROOTS=__Z12isamigatrackPtPhiS0_S0_iPi;__Z9ispctrackPtPhiS0_S0_iPi"]
     run(command, directory / "configure.log")
     started = time.monotonic()
     run(["cmake", "--build", directory, "--parallel", "3", "--target", "p6_state_probe", "p6_bench_probe"], directory / "build.log")

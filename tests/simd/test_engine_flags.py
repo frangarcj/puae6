@@ -10,6 +10,34 @@ from tests.simd import engine_flags as experiment
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_zero_count_roots_keep_strict_profiles_and_refuse_a_changed_function(self):
+        with tempfile.TemporaryDirectory(prefix="p6-pgo-unlinked-") as work:
+            root = Path(work)
+            (root / "main.cpp").write_text('int main(int n, char**) { return n == 1 ? 0 : 3; }\n')
+            (root / "unused.cpp").write_text('int never_linked(int n) { return n * 3; }\n')
+            (root / "CMakeLists.txt").write_text('cmake_minimum_required(VERSION 3.21)\nproject(pgo_test LANGUAGES C CXX)\n'
+                f'include("{experiment.ROOT}/cmake/Optimization.cmake")\n'
+                'add_executable(linked main.cpp unused.cpp)\ntarget_link_options(linked PRIVATE "LINKER:-dead_strip")\n')
+            def configure(name, *extra):
+                experiment.run(["cmake", "-S", root, "-B", root / name, "-G", "Ninja", "-DCMAKE_C_COMPILER=/usr/bin/clang",
+                                "-DCMAKE_CXX_COMPILER=/usr/bin/clang++", "-DCMAKE_BUILD_TYPE=Release", *extra])
+            configure("generate", "-DP6_PGO_MODE=GENERATE", "-DP6_PGO_TRAIN_ROOTS=__Z12never_linkedi")
+            experiment.run(["cmake", "--build", root / "generate"])
+            experiment.run([root / "generate/linked"])
+            profiles = sorted((root / "generate/profiles").glob("*.profraw"))
+            self.assertTrue(profiles)
+            experiment.run(["/usr/bin/xcrun", "llvm-profdata", "merge", *profiles, "-o", root / "training.profdata"])
+            configure("use", "-DP6_PGO_MODE=USE", f"-DP6_PGO_DATA={root}/training.profdata")
+            result = subprocess.run(["cmake", "--build", str(root / "use")], capture_output=True, text=True, timeout=90)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn('no profile data available', result.stdout + result.stderr)
+            experiment.run([root / "use/linked"])
+            (root / "main.cpp").write_text('int main(int n, char**) { if (n == 1) return 0; if (n == 2) return 3; return 4; }\n')
+            stale = subprocess.run(["cmake", "--build", str(root / "use")], capture_output=True, text=True, timeout=90)
+            self.assertNotEqual(stale.returncode, 0)
+            self.assertIn("-Werror", stale.stdout + stale.stderr)
+            self.assertIn("-Wprofile-instr-", stale.stdout + stale.stderr)
+
     def test_defaults_and_invalid_profile_requests(self):
         with tempfile.TemporaryDirectory(prefix="p6-flags-config-") as work:
             root = Path(work)

@@ -105,5 +105,39 @@ de inputs vigentes. Hardware y A/V de LTO coinciden con la referencia en cada
 unidad. Tamano `p6_bench_probe`: referencia 11941968 B, LTO 11440320 B; tamano
 `p6_state_probe`: referencia 12012480 B, LTO 11625968 B. Esto no demuestra una
 ganancia de tiempo por frame. La campana sigue con el build instrumental de PGO.
-Log del orquestador: `build/optimization/experiment.log`. No marcar done por
+Log inicial: `build/optimization/experiment-first.log`; continuacion actual:
+`build/optimization/experiment-second.log`. No marcar done por
 estas comprobaciones preliminares; faltan candidatos, sanitizers, medidas y decision.
+
+## Primer build PGO: diagnostico de codigo no enlazado
+
+El primer intento se detuvo por `-Werror=profile-instr-unprofiled` en
+`diskutil.cpp`: `isamigatrack`/`ispctrack` existen en su objeto instrumental pero
+no en `p6_state_probe` ni en `p6_bench_probe` despues de `-dead_strip`. No pueden
+generar contadores en ese ejecutable. La falta no se corrige repitiendo el
+entrenamiento. Log conservado: `build/optimization/pgo-first-failure.log`.
+
+Caso minimo `build/optimization/pgo-unlinked-repro`: main retorna cero y una
+segunda unidad define una funcion nunca referenciada. Con el mismo Clang y
+`-O2 -Wl,-dead_strip`, instrumentar/ejecutar/fusionar y compilar USE reproduce
+el error para esa segunda unidad, aunque su codigo nunca podra ejecutarse.
+Sin elevar ese aviso a error, USE compila (aviso visible) y ejecuta correctamente.
+
+No se desactiva ese diagnostico: el experimento minimo mostro tambien que un
+cambio de flujo puede aparecer como `profile-instr-unprofiled`, por lo que
+conservar solo `profile-instr-out-of-date` seria insuficiente. El test inicial
+que esperaba este ultimo aviso fallo y ayudo a identificar esa distincion.
+
+El segundo intento conserva los dos puntos de entrada de diskutil solamente
+en el enlace instrumental (`P6_PGO_TRAIN_ROOTS`, simbolos comprobados con nm).
+No se ejecutan: se guardan sus contadores a cero, sin inventar actividad del
+corpus. USE mantiene el dead stripping normal y ambos diagnosticos fatales.
+El test permanente retiene una funcion no llamada, genera/fusiona su perfil
+cero y comprueba USE; despues cambia el flujo de main y exige el rechazo.
+No se omite ningun escenario, comparacion, sanitizer, precision ni golden.
+
+Segundo build PGO: compila completo con ambos diagnosticos fatales. El perfil
+fusionado contiene 14867 funciones; `llvm-profdata show --counts --function=...`
+confirma que los contadores de `isamigatrack` e `ispctrack` y todos sus bloques
+son cero. No se simula haber ejecutado esas funciones. Quedan la verificacion
+del candidato PGO, sanitizers y medidas antes de cerrar la decision.
