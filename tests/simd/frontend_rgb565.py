@@ -94,6 +94,9 @@ class Frontend:
         built = json.loads((self.tree / "build.json").read_text())
         if built["source_identity"] != source_identity():
             raise ValueError("rebuild current inputs first")
+        for name, path in {**self.cores, "host": self.host}.items():
+            if digest(path) != built["binaries"][name]:
+                raise ValueError(f"rebuilt or replaced executable: {name}")
         entries = [corpus.by_id()[s.corpus_id] for s in WORKLOADS] + [corpus.by_id()[s] for s in EXTRA]
         records = {}
         with tempfile.TemporaryDirectory(prefix="p6-rgb-frontend-") as temporary:
@@ -128,6 +131,9 @@ class Frontend:
         record = json.loads(verified.read_text())
         if record["build"]["source_identity"] != source_identity():
             raise ValueError("verification inputs changed")
+        for name, path in {**self.cores, "host": self.host}.items():
+            if digest(path) != record["build"]["binaries"][name]:
+                raise ValueError(f"verify the current executable before timing: {name}")
         runs = []
         result = {"row": self.row, "verification_sha256": digest(verified), "runs": runs, "summary": {}, "dedicated_runner": False}
         for repetition in range(5):
