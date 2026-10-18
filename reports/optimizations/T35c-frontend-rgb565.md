@@ -35,12 +35,19 @@ esta traducido en Docker Desktop sobre ARM64; no se anuncia como hardware x86_64
 Las mismas filas ejecutan ambas bibliotecas con ASan/UBSan. Se mantienen los tests
 de colores, alineamientos, tails y paginas protegidas de T35a.
 
-Las pasadas Mac ARM64 Apple Clang y Linux ARM64 Clang han terminado: 27 casos
-y sus restauraciones en cada fila, OK. Sus observaciones de RGB565/PCM/ticks
-coinciden tambien entre las dos filas (no sus snapshots crudos). Un
+Las pasadas Mac ARM64 Apple Clang, Linux ARM64 Clang/GCC y Linux x86_64 Clang
+han terminado: 27 casos y sus restauraciones en cada fila, OK. Sus observaciones
+de RGB565/PCM/ticks coinciden tambien entre las cuatro filas (no sus snapshots
+crudos). GCC x86_64 sigue compilando. Un
 smoke de benchmark (10 unidades, no medida de rendimiento) confirma las dos rutas
 RGB565, el parseo de ticks y el estado final igual. Se repite la verificacion al
 terminar el runner y sus registros scoped, con el input fingerprint vigente.
+
+Auditoria de compile_commands en las tres filas ARM64: una sola compilacion por
+cada uno de los 47 fuentes del motor. Los dos adaptadores tienen las mismas
+opciones, salvo el selector candidato, su include de pruebas, las macros EXPORTS
+propias de cada shared target y las rutas de objetos. No se compara una variante
+con otro perfil de CPU, precision, LTO o PGO.
 
 ## Medidas previstas, sin decision anticipada
 
