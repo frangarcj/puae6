@@ -143,11 +143,48 @@ adaptador en las tres filas salvo selector, include experimental, EXPORTS y
 objeto de salida; GCC x86_64 tambien conserva esa equivalencia. Cada una de las
 cinco filas tiene una sola compilacion de
 los 47 fuentes del motor; sus comandos no introducen fast-math, ISA nativa,
-LTO ni PGO. Las tres filas ARM64 sanitizadas tambien completan los 27 casos
-con los inputs actuales y conservan las salidas de las cinco optimizadas. Se
+LTO ni PGO. Las tres filas ARM64 y x86_64 Clang sanitizadas tambien completan
+los 27 casos con los inputs actuales y conservan las salidas de las cinco
+optimizadas. Se
 verifican recibos, hashes de las bibliotecas/host y los flags ASan/UBSan de los
 47 fuentes del motor y los dos adaptadores. Pasan las restauraciones en el mismo
-proceso y en otro nuevo. Las dos filas x86_64 sanitizadas y las mediciones
+proceso y en otro nuevo. GCC x86_64 sanitizado y las mediciones
 siguen pendientes: este punto no es PASS de DET04/SAFE01 de T35c. La campana
 completa todas las compilaciones y puertas de equivalencia y seguridad antes de
 iniciar los tiempos.
+
+## Interrupcion por espacio, sin PASS de la ultima fila
+
+La campana `build/T35c-campaign-after-T35d.log` termina con codigo 1 al construir
+GCC x86_64 sanitizado. El proceso dentro del contenedor no puede escribir
+`experiment/san/build.log`: `OSError: [Errno 28] No space left on device`.
+Docker devuelve 125 y tambien informa de overlay2 en solo lectura. El disco
+del host tiene 319 MiB libres (100 % de capacidad); no se atribuye esta salida
+a un defecto de RGB565 ni se cuenta como PASS de compilacion o sanitizer.
+No han empezado los tiempos ni las puertas completas DET04/SAFE01.
+
+Recuperacion local: el build anterior de T35b esta inactivo. Se quitan sus
+500 objetos CMake recompilables (284778064 bytes), conservando ejecutables,
+fuentes, medidas y perfiles fusionados. Sus 381 perfiles crudos (970304648
+bytes, incluidos experimentos conservados) se archivan en
+`build/T35b-retained-raw-profiles-20261018.tar.gz` (111381769 bytes). Antes de
+quitar los originales se comprueban nombres, tamanos y SHA-256 de cada miembro
+contra los originales. Registro recuperable: `build/T35c-storage-recovery.json`.
+Estos perfiles siguen siendo historicos: T35b requiere reentrenamiento al
+evaluar los inputs nuevos, no reutilizarlos despues de 0342.
+
+Quedan 1,4 GiB libres y se solicita el reinicio normal de Docker, cuyo unico
+contenedor marcado activo es el de esta tarea (sin procesos vivos). No se
+eliminan imagenes, volumenes, proyectos hermanos, assets ni directorios.
+La continuacion debe retomar solo GCC x86_64 sanitizado con los mismos flags
+y escenarios, despues ejecutar las puertas y medir. El PID 25130 y la sesion
+4728 anteriores son terminales; `build/T35c-progress.json` lo registra. Los
+recibos ya comprobados de cinco filas opt y cuatro san se conservan.
+
+El reinicio de Docker termina correctamente y deja 3,7 GiB libres. Una prueba
+de escritura/lectura en `/tmp` del contenedor y en el bind de este build confirma
+que ambos vuelven a ser escribibles; es una comprobacion de infraestructura,
+no de emulacion. Se reanuda solo la fila pendiente con la receta original,
+seguida por DET04, SAFE01 y las medidas. Nuevo log:
+`build/T35c-resume-after-storage.log`; el PID/sesion vigentes se actualizan en
+`build/T35c-progress.json`. No se reutiliza el codigo 125 como prueba aprobada.
