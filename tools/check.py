@@ -365,6 +365,15 @@ TASK_SUITES[('DET04', 'T35c')] = {'rgb565_frontend_rows_and_restore': 'tests.sim
 TASK_SUITES[('SAFE01', 'T35c')] = {'rgb565_frontend_sanitizer_rows': 'tests.simd.test_frontend_rgb565.SafetyTests', 'rgb565_pixel_guards': 'tests.simd.test_rgb565'}
 TASK_SUITES[('PERF01', 'T35c')] = {'rgb565_full_frontend_measurements': 'tests.simd.test_frontend_rgb565.PerformanceTests'}
 TASK_SUITES[('ADR01', 'T35c')] = {'rgb565_measured_platform_decision': 'tests.simd.test_frontend_rgb565.DecisionTests'}
+# T35 closes the full pixel, engine-flags and product-frontend scopes. The native
+# guard module is shared by T35a/T35c: execute it once without dropping any suite.
+for _check in ('PERF01', 'DET04', 'SAFE01', 'ADR01'):
+    _combined = {}
+    for _part in ('T35a', 'T35b', 'T35c'):
+        for _name, _module in TASK_SUITES[(_check, _part)].items():
+            if _module not in _combined.values():
+                _combined[_name] = _module
+    TASK_SUITES[(_check, 'T35')] = _combined
 TASK_SUITES[('SAFE01', 'T35d')] = {'nearest_sprite_counter_arithmetic': 'tests.step.test_sprite_nearest.NearestCounterTests',
                                 'aga_superhires_frontend_sanitizers': 'tests.step.test_sprite_nearest.FrontendSpriteTests.test_actual_sanitized_frontend_and_restores_include_the_failing_aga_superhires_case'}
 TASK_SUITES[('AV01', 'T35d')] = {'aga_pixels_and_sprites': 'tests.step.test_aga.PictureTests', 'resolution_rasters': 'tests.step.test_resolution.RasterTests'}
