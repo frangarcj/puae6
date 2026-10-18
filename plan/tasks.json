@@ -11480,6 +11480,100 @@
       "stop": "Sin candidato apropiado o runner necesario el ensayo queda blocked; no declarar mantenimiento demostrado por contar lineas de parches."
     },
     {
+      "id": "T39a",
+      "title": "Ejecutar puerta PR local con veredictos estrictos y Waterbox real",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T25",
+        "T26",
+        "T32",
+        "T33",
+        "T25a",
+        "T48f",
+        "T36"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tools/ci/**",
+        "tests/ci/**",
+        "docs/ci.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Crear ejecutor CI local sin resultados persistentes: identidad source/patchset/codegen/toolchain/perfil y comandos reproducibles.",
+        "Ejecutar una puerta PR publica nativa y Waterbox real con restauracion y nueva instancia; mantener WB13-WB15 en la puerta inicial.",
+        "Rechazar pruebas vacias, omitidas, xfail, respuestas truncadas, requisitos ausentes y checks fallidos con tests de infraestructura separados de emulacion.",
+        "Integrar los checks de esta vertical en tools/check.py; la matriz acumulada, medidas y workflows completos siguen en T39b y la aceptacion original de T39.",
+        "Actualizar el conteo exacto del test del plan por las dos subtareas T39a/T39b, conservando sus invariantes y checks originales."
+      ],
+      "checks": [
+        "PLAN01",
+        "BUILD01",
+        "DET02",
+        "WB03",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "Ejecutor y recetas PR han corrido en macOS ARM64 y Waterbox Darwin ARM64; un fallo u omision impide PASS.",
+        "Cada veredicto identifica inputs actuales y permite repetir el comando; no presenta esta puerta PR como la CI nightly/release completa."
+      ],
+      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente."
+    },
+    {
+      "id": "T39b",
+      "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T39a"
+      ],
+      "read": [
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        ".github/workflows/**",
+        "tools/ci/**",
+        "tests/ci/**",
+        "docs/ci.md"
+      ],
+      "steps": [
+        "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
+        "Incluir smoke WBX real, restore/new instance, corpus, fuzz, clean-build y presupuesto; separar runners de perf y sanitizers.",
+        "Archivar logs, primeros desyncs y manifests sin ROMs privadas ni rutas sensibles; fijar dependencias/actions.",
+        "Probar que un check faltante/fallido o asset requerido ausente bloquea la puerta, sin convertirlo en continue-on-error.",
+        "Mantener WB13-WB15 y smoke real MacHawk ARM64 desde el primer gate; los jobs x86_64 no lo sustituyen.",
+        "Mantener todos los checks y la puerta de salida originales de T39; registrar por separado la ejecucion local y la remota."
+      ],
+      "checks": [
+        "PLAN01",
+        "BUILD01",
+        "DET02",
+        "WB03",
+        "FUZZ01",
+        "PERF01",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "Las recetas se han ejecutado en los runners declarados; escribir YAML no equivale a tener CI verde.",
+        "Cada resultado identifica source/patchset/codegen/toolchain/perfil y permite reproducir el fallo."
+      ],
+      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente."
+    },
+    {
       "id": "T39",
       "title": "Integrar CI completa y artifacts de diagnostico",
       "milestone": "M4",
@@ -11491,7 +11585,9 @@
         "T32",
         "T33",
         "T25a",
-        "T48f"
+        "T48f",
+        "T39a",
+        "T39b"
       ],
       "read": [
         "docs/04-validation.md",

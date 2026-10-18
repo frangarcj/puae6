@@ -405,6 +405,24 @@ TASK_SUITES[('WB09', 'T36')] = {'movie_seek_branch_and_suppressed_delivery': 'te
 TASK_SUITES[('WB12', 'T36')] = TASK_SUITES[('WB12', 'T33')]
 TASK_SUITES[('WB14', 'T36')] = {'actual_guest_physical_groups_and_restore': 'tests.waterbox-smoke.test_puae6_wb'}
 
+# T39a is the local public PR recipe, not the accumulated nightly/release gate of T39b.
+TASK_SUITES[('PLAN01', 'T39a')] = {'ci_protocol': 'tests.ci.test_runner', 'plan': 'tests.test_plan'}
+TASK_SUITES[('BUILD01', 'T39a')] = {'native_build_and_lifecycle': 'tests.host.test_bridge_lifecycle.BridgeLifecycleTests.test_init_load_apply_unload_and_reload_on_the_real_engine'}
+TASK_SUITES[('DET02', 'T39a')] = {
+    'ocs_same_image': 'tests.reference.test_corpus_det02.CorpusA500Tests.test_det02_ocs_vsync_irq_pal_at_2_same_image_beam_set',
+    'ocs_new_process': 'tests.reference.test_corpus_det02.CorpusA500Tests.test_det02_ocs_vsync_irq_pal_at_2_new_process',
+    'ecs_same_image': 'tests.reference.test_corpus_det02.CorpusA600Tests.test_det02_ecs_beam_var_wide_pal_at_2_same_image_beam_set',
+    'ecs_new_process': 'tests.reference.test_corpus_det02.CorpusA600Tests.test_det02_ecs_beam_var_wide_pal_at_2_new_process',
+    'aga_same_image': 'tests.reference.test_corpus_det02.CorpusA1200Tests.test_det02_aga_planes8_fmode3_pal_at_2_same_image_beam_set',
+    'aga_new_process': 'tests.reference.test_corpus_det02.CorpusA1200Tests.test_det02_aga_planes8_fmode3_pal_at_2_new_process',
+}
+_ci_waterbox = {'actual_guest_snapshots_callbacks_groups_and_new_process': 'tests.waterbox-smoke.test_puae6_wb'}
+TASK_SUITES[('WB03', 'T39a')] = {**_ci_waterbox,
+    'adversarial_weave_and_mode_changes': 'tests.waterbox-poison.test_poison',
+    'core_dma_and_pending_swap': _wrapper_state + '.test_save_go_on_load_and_repeat_gives_the_same_units_and_the_same_machine'}
+for _gate in ('WB13', 'WB14', 'WB15'):
+    TASK_SUITES[(_gate, 'T39a')] = dict(_ci_waterbox)
+
 TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
