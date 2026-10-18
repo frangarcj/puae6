@@ -1,6 +1,6 @@
 # 0004. Optimizaciones nativas sin cambiar la maquina emulada
 
-Estado: seleccion RGB565 de T35c integrada, pendiente de validacion final; cierre T35 pendiente. LTO/PGO siguen desactivados por defecto.
+Estado: seleccion RGB565 de T35c integrada y medida en el producto; cierre T35 pendiente. LTO/PGO siguen desactivados por defecto.
 
 ## Contexto
 
@@ -64,16 +64,16 @@ resultados temporales se eliminan al cerrar la comprobacion.
 
 ## Alternativas y limites
 
-- Intrinsecos NEON manuales: mejora local en Linux ARM64 y regresion en el Mac; requieren la decision medida de T35c.
-- Mantener C++ portable y autovectorizacion: resultado actual, con cola escalar del compilador.
+- Intrinsecos NEON manuales: adoptados solo en Linux ARM64 con Clang 18/GCC 13 tras medir el frontend completo.
+- Mantener C++ portable y autovectorizacion: ruta de macOS, x86_64 y los demas compiladores.
 - LTO/PGO (T35b): opciones nativas medidas y reproducibles; no default universal ni perfil
   de produccion. La decision procede del motor completo, no de la microprueba RGB565.
 - `-Ofast`, `-ffast-math`, contraccion FP y `-march=native`: excluidos del perfil
   determinista/distribuible; no se cambia precision ni baseline de ISA para ganar tiempo.
 
-Las medidas son orientativas, en el Mac en uso, sin runner dedicado. No se
-extrapolan fuera de las filas ejecutadas ni al tiempo completo de un frame. Tampoco
-se consideran una prueba de exactitud de hardware.
+Las medidas son orientativas, en el Mac en uso, sin runner dedicado. La microprueba
+solo mide conversion; T35c mide retro_run con callbacks minimos y sin vsync. No se
+extrapolan fuera de las filas ejecutadas ni prueban exactitud de hardware.
 
 ## Lectura de la campana de frontend T35c
 
@@ -102,32 +102,42 @@ La matriz se ejecuta con `tests/simd/matrix.py`; las variantes con ASan/UBSan
 comprueban el mismo codigo. Los pins y flags se conservan en el runner.
 
 Las cuatro puertas scoped de T35a cubren el experimento, su matriz, seguridad y
-decision; T35b ejecuta el motor/corpus y sus cuatro puertas. T35
-sigue pendiente de T35c (medida e integracion del frontend si conviene), ademas
-de su cierre completo.
+decision; T35b ejecuta el motor/corpus y sus cuatro puertas. T35c añade el frontend
+real y la seleccion de producto. T35 requiere cerrar la union de estos alcances.
 
 ## Decision de frontend T35c
 
-La primera campana completa usa Apple M1 Pro (8 nucleos, 16 GiB), macOS 26.7.1,
-AC al 100 %, y Docker Linux ARM64 (8 vCPU, 7,75 GiB); maquina de uso diario,
+La campana final de producto usa Apple M1 Pro (8 nucleos, 16 GiB), macOS 26.7.1,
+alimentacion de red y bateria al 100 %, y Docker Linux ARM64 (8 vCPU, 7,75 GiB); maquina de uso diario,
 sin runner dedicado. Compiladores fijados: Apple Clang 21, Clang 18.1.3 y GCC
 13.3.0. Release -O2 con assertions, sin LTO/PGO, fast-math ni contraccion FP.
 
 | Fila | Reduccion de CPU por frame, segun escenario | Parejas favorables |
 | --- | --- | --- |
-| macos-arm64-appleclang | -0,263 a +0,071 % | 6/25; resultado pequeno y mayormente negativo |
-| linux-arm64-clang | +7,223 a +10,827 % | 25/25 |
-| linux-arm64-gcc | +3,994 a +8,756 % | 25/25 |
+| macos-arm64-appleclang | -1,164 a +2,252 % | 9/25; resultado mixto |
+| linux-arm64-clang | +7,809 a +11,840 % | 25/25 |
+| linux-arm64-gcc | +4,078 a +6,614 % | 24/25 |
 
 Son cinco cargas publicas T33 (OCS Copper/blitter, OCS NTSC, ECS, AGA y Paula),
 cinco repeticiones intercaladas de ambas rutas: 300 unidades de calentamiento,
 10000 medidas en la principal y 3000 en las otras, con 20 save/load por ejecucion.
-La dispersion entre medianas de repeticiones es 0,04-0,22 % CV en macOS y
-0,68-3,95 % en Linux. GCC tiene una pareja principal de solo +0,30 %; las
-otras cargas y los 25 pares conservan el signo favorable. No se mezclan cargas
+La dispersion entre medianas de repeticiones es 0,79-1,72 % CV en macOS y
+0,47-4,37 % en Linux. GCC gana cuatro de las cinco parejas AGA: la restante pierde
+0,83 %. Las medianas de CPU mejoran en los cinco escenarios y la primera campana tambien
+mejoraba en las cinco cargas Linux de ambos compiladores. No se mezclan cargas
 para esconder un resultado negativo. El p95 de pared baja en las diez cargas
-Linux; el mayor aumento de p95 save/load es +6,26/+4,22 %, bajo el 10 % existente.
-Estados finales, tamano y contadores coinciden en cada conjunto de diez ejecuciones.
+Linux (2,65-11,87 %); el mayor aumento de p95 save/load es +4,22/+4,05 %, bajo el
+10 % existente. Estados finales, tamano y contadores coinciden en cada conjunto
+de diez ejecuciones. La comparacion completa de pixeles/PCM/ticks se hace fuera
+del benchmark, en 27 casos por fila y con restore en el mismo proceso y otro nuevo.
+
+En macOS, el candidato NEON contrafactual sube el p95 save/load de OCS NTSC
+23,79/20,64 %, concentrado en la tercera repeticion y valores extremos posteriores.
+Se repite esa carga aisladamente con el mismo protocolo, cinco parejas y los
+mismos estados finales: save/load cambia -0,28/-2,70 %, sin reproducir el aumento.
+La CPU de esa repeticion aislada gana 3,81 % (4/5 parejas), pero las dos campanas
+completas no dan una mejora estable en el conjunto de cargas macOS. Se conserva
+su ruta portable; los resultados originales y sus outliers no se sustituyen.
 
 La decision es activar las dos filas Linux ARM64 y conservar macOS portable.
 El cambio mantiene una sola implementacion, con la cola escalar original del
@@ -138,7 +148,7 @@ este equipo, no todos los juegos, frontends o CPU ARM64.
 La biblioteca estandar es siempre el producto. El target opt-in
 `puae6_libretro_rgb565_alternate` selecciona la ruta opuesta con los mismos objetos
 del motor: portable de referencia en Linux ARM64, NEON contrafactual en macOS.
-La campana final debe validar y medir estos binarios de producto antes de cerrar
-T35c. `python3 -m tests.simd.frontend_statistics` calcula los pares y la dispersion
-desde los datos temporales; los checks comprueban los ejecutables, corpus y
-protocolo exactos. No se conservan informes historicos.
+La campana final valida y mide estos binarios de producto: 150 ejecuciones mas la
+repeticion aislada de NTSC. `python3 -m tests.simd.frontend_statistics` calcula los
+pares y la dispersion desde los datos temporales; los checks comprueban los
+ejecutables, corpus y protocolo exactos. No se conservan informes historicos.
