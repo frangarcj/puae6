@@ -1,0 +1,119 @@
+"""T35b: flag fallback and explicit failures; full-engine evidence is opt-in."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+
+from tests.simd import engine_flags as experiment
+
+
+class ConfigurationTests(unittest.TestCase):
+    def test_defaults_and_invalid_profile_requests(self):
+        with tempfile.TemporaryDirectory(prefix="p6-flags-config-") as work:
+            root = Path(work)
+            (root / "CMakeLists.txt").write_text('cmake_minimum_required(VERSION 3.21)\nproject(flag_test LANGUAGES C CXX)\n'
+                f'include("{experiment.ROOT}/cmake/Optimization.cmake")\n'
+                'file(WRITE "${CMAKE_BINARY_DIR}/selected.txt" "${P6_NATIVE_IPO}/${P6_PGO_MODE}/${CMAKE_INTERPROCEDURAL_OPTIMIZATION}")\n')
+            cases = (([], None), (["-DP6_PGO_MODE=typo"], "must be OFF, GENERATE or USE"),
+                     (["-DP6_PGO_MODE=USE"], "existing absolute .profdata"),
+                     (["-DP6_NATIVE_IPO=ON", "-DP6_PGO_MODE=GENERATE"], "Evaluate IPO and PGO separately"))
+            for index, (flags, error) in enumerate(cases):
+                result = subprocess.run(["cmake", "-S", str(root), "-B", str(root / str(index)),
+                                         "-DCMAKE_C_COMPILER=/usr/bin/clang", "-DCMAKE_CXX_COMPILER=/usr/bin/clang++", *flags],
+                                        text=True, capture_output=True, timeout=90)
+                if error:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(error, result.stderr)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual((root / str(index) / "selected.txt").read_text(), "OFF/OFF/")
+
+
+@unittest.skipUnless(os.environ.get("P6_TEST_ENGINE_FLAGS"), "prepare T35b builds and set P6_TEST_ENGINE_FLAGS=1; absent experiments are BLOCKED")
+class EquivalenceTests(unittest.TestCase):
+    def receipt(self, variant):
+        directory = experiment.WORK / variant
+        r = json.loads((directory / "verification.json").read_text())
+        self.assertEqual(r["source_identity"], experiment.source_identity())
+        self.assertEqual(r["probe_sha256"], experiment.sha(directory / "p6_state_probe"))
+        for path, digest in r["harness"].items():
+            self.assertEqual(digest, experiment.sha(experiment.ROOT / path), path)
+        expected = [f"{e.id}@{n}/{mode}" for e in experiment.corpus.ENTRIES for n in e.points for mode in e.modes]
+        self.assertEqual(r["restored"], expected)
+        self.assertEqual(set(r["canonical"]["cases"]), {e.id for e in experiment.corpus.ENTRIES})
+        self.assertEqual(r["canonical"]["errors"], {})
+        commands = json.loads((directory / "compile_commands.json").read_text())
+        for command in commands:
+            text = command["command"]
+            self.assertIn("-fno-fast-math", text)
+            self.assertIn("-ffp-contract=off", text)
+            self.assertNotIn("-march=native", text)
+            if variant.startswith("lto"):
+                self.assertIn("-flto", text)
+            if variant.startswith("pgo"):
+                self.assertIn("-fprofile-instr-use=", text)
+            if variant.endswith("-san"):
+                self.assertIn("-fsanitize=address,undefined", text)
+        return r
+
+    def test_full_engine_and_restore_match_the_unoptimized_flag_fallback(self):
+        base = self.receipt("base")["canonical"]["cases"]
+        for variant in ("lto", "pgo"):
+            candidate = self.receipt(variant)["canonical"]["cases"]
+            for name, result in base.items():
+                for key in ("hardware", "av", "per_unit", "units", "lines"):
+                    self.assertEqual(result[key], candidate[name][key], f"{variant} {name}: {key}")
+
+
+class SafetyTests(EquivalenceTests):
+    def test_full_engine_and_restore_match_the_unoptimized_flag_fallback(self):
+        base = self.receipt("base")["canonical"]["cases"]
+        for variant in ("lto-san", "pgo-san"):
+            candidate = self.receipt(variant)["canonical"]["cases"]
+            for name, result in base.items():
+                for key in ("hardware", "av", "per_unit", "units", "lines"):
+                    self.assertEqual(result[key], candidate[name][key], f"{variant} {name}: {key}")
+
+
+@unittest.skipUnless(os.environ.get("P6_TEST_ENGINE_FLAGS"), "run the T35b timing experiment first")
+class PerformanceTests(unittest.TestCase):
+    def test_measurements_follow_equivalence_and_keep_the_same_machine(self):
+        from tools.bench import SCENARIOS
+        r = json.loads((experiment.WORK / "measurements.json").read_text())
+        self.assertEqual(len(r["runs"]), 75)
+        for variant, digest in r["verified"].items():
+            self.assertEqual(digest, experiment.sha(experiment.WORK / variant / "verification.json"))
+            self.assertEqual(r["benchmarks"][variant], experiment.sha(experiment.WORK / variant / "p6_bench_probe"))
+        for scenario in (s for s in SCENARIOS if s.kind == "microrom"):
+            reference = None
+            for variant in ("base", "lto", "pgo"):
+                rows = [x for x in r["runs"] if x["variant"] == variant and x["scenario"] == scenario.id]
+                self.assertEqual({x["repeat"] for x in rows}, set(range(5)))
+                for row in rows:
+                    raw = row["raw"]
+                    self.assertEqual(raw["warmup_units"], 300)
+                    self.assertEqual(raw["units"], 10000 if scenario.primary else 3000)
+                    self.assertEqual(len(raw["unit_cpu_ns"]), raw["units"])
+                    self.assertTrue(all(t > 0 for t in raw["unit_cpu_ns"]))
+                    machine = {k: raw[k] for k in ("master_ticks_at_window_end", "unit_index_at_window_end", "audio_frames", "active", "cadence", "state")}
+                    reference = reference or machine
+                    self.assertEqual(machine, reference)
+            self.assertIn(scenario.id, r["summary"])
+
+
+@unittest.skipUnless(os.environ.get("P6_TEST_ENGINE_FLAGS"), "T35b decision requires completed experiments")
+class DecisionTests(unittest.TestCase):
+    def test_the_saved_decision_names_the_measured_builds_and_training(self):
+        r = json.loads((experiment.ROOT / "reports/optimizations/T35b-engine-flags.json").read_text())
+        self.assertEqual(r["measurements_sha256"], experiment.sha(experiment.WORK / "measurements.json"))
+        self.assertEqual(r["training"], json.loads((experiment.WORK / "training.json").read_text()))
+        self.assertFalse(r["training"]["private_assets"])
+        self.assertEqual(set(r["decisions"]), {"lto", "pgo"})
+        self.assertFalse(r["defaults_changed"])
+        self.assertEqual(r["row"], "macos-arm64-appleclang")
+
+
+if __name__ == "__main__":
+    unittest.main()

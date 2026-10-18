@@ -40,6 +40,7 @@ option(P6_UNIT_TRACE "Test-only: engine reports and can swallow video boundaries
 # an uncontracted one by one least significant bit in a fraction of the samples (measured). Contraction is a compiler and ISA
 # choice that must not reach the machine.
 add_compile_options(-fno-fast-math -ffp-contract=off)
+include(cmake/Optimization.cmake)
 # Dead code is not a link input. The profile leaves modules out (rtarea, the 030 cache, JIT, uaenet...) and some engine functions that nothing calls
 # still name their symbols: expamem_map_uaeboard, add_rtarea_pointer, the *_ce030_cicheck helpers, read_processor_time. Clang drops an unreferenced
 # `static` function at -O0 and GCC keeps it, so GCC -O0 failed to link with undefined references that no execution path reaches. Rather than define
