@@ -34,6 +34,13 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def timing_inputs(binaries, directory):
+    """Executable bytes, actual assets and timing protocol; no receipt metadata."""
+    return {"binaries": {name: digest(path) for name, path in binaries.items()},
+            "corpus": {p.name: digest(p) for p in sorted(Path(directory).iterdir()) if p.is_file()},
+            "harness": {p: digest(ROOT / p) for p in ("tests/simd/frontend_rgb565.py", "tools/bench.py")}}
+
+
 def save(path, value):
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
@@ -97,6 +104,7 @@ class Frontend:
         for name, path in {**self.cores, "host": self.host}.items():
             if digest(path) != built["binaries"][name]:
                 raise ValueError(f"rebuilt or replaced executable: {name}")
+        inputs = timing_inputs({**self.cores, "host": self.host}, self.corpus)
         entries = [corpus.by_id()[s.corpus_id] for s in WORKLOADS] + [corpus.by_id()[s] for s in EXTRA]
         records = {}
         with tempfile.TemporaryDirectory(prefix="p6-rgb-frontend-") as temporary:
@@ -122,7 +130,9 @@ class Frontend:
                         raise AssertionError(f"{key}: converter changes pixels/PCM/ticks/state")
                     records[key] = {"runs": compared["current"], "state_sha256": states["current"], "same_process_restore": True, "new_process_restore": True}
                     print(f"verified {self.row} {key}", flush=True)
-        save(self.tree / "verification.json", {"build": built, "cases": records})
+        if inputs != timing_inputs({**self.cores, "host": self.host}, self.corpus):
+            raise ValueError("verification inputs changed during execution")
+        save(self.tree / "verification.json", {"build": built, "inputs": inputs, "cases": records})
 
     def measure(self):
         if self.sanitizers:
@@ -134,8 +144,11 @@ class Frontend:
         for name, path in {**self.cores, "host": self.host}.items():
             if digest(path) != record["build"]["binaries"][name]:
                 raise ValueError(f"verify the current executable before timing: {name}")
+        inputs = timing_inputs({**self.cores, "host": self.host}, self.corpus)
+        if record.get("inputs") != inputs:
+            raise ValueError("verify the current corpus and timing protocol before timing")
         runs = []
-        result = {"row": self.row, "verification_sha256": digest(verified), "runs": runs, "summary": {}, "dedicated_runner": False}
+        result = {"row": self.row, "inputs": inputs, "runs": runs, "summary": {}, "dedicated_runner": False}
         for repetition in range(5):
             for scenario in WORKLOADS:
                 entry = corpus.by_id()[scenario.corpus_id]
@@ -156,6 +169,8 @@ class Frontend:
                                  "final_state": final.groups(), "raw": raw})
                     save(self.tree / "measurements.json", result)
                     print(f"measured {self.row} {scenario.id} {variant} #{repetition+1}", flush=True)
+        if inputs != timing_inputs({**self.cores, "host": self.host}, self.corpus):
+            raise ValueError("timing inputs changed during execution")
         for scenario in WORKLOADS:
             result["summary"][scenario.id] = {v: {"cpu": describe([n for x in runs if x["variant"] == v and x["scenario"] == scenario.id for n in x["raw"]["run_cpu_ns"][300:]]),
                  "median_cpu_ns": statistics.median(statistics.median(x["raw"]["run_cpu_ns"][300:]) for x in runs if x["variant"] == v and x["scenario"] == scenario.id)} for v in self.cores}

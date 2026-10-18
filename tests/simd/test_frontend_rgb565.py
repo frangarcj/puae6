@@ -8,6 +8,15 @@ from tests.simd import frontend_rgb565 as frontend
 from tests.simd.frontend_statistics import compare
 
 
+def current_inputs(row):
+    directory = matrix.directory(row)
+    frontend.assets.write_differential(directory / "corpus")
+    extension = ".dylib" if row.startswith("macos-") else ".so"
+    binaries = {v: directory / "opt" / ("puae6_libretro" + ("_rgb565_candidate" if v == "candidate" else "") + extension)
+                for v in ("current", "candidate")}
+    return frontend.timing_inputs({**binaries, "host": directory / "opt/p6_libretro_host"}, directory / "corpus")
+
+
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "prepare the T35c frontend rows and set P6_TEST_RGB565_FRONTEND=1")
 class EquivalenceTests(unittest.TestCase):
     def test_actual_rgb565_and_same_and_new_process_restore_in_all_declared_rows(self):
@@ -44,7 +53,9 @@ class PerformanceTests(unittest.TestCase):
     def test_each_measured_row_uses_both_real_libraries_and_the_full_protocol(self):
         for row in matrix.MEASURED:
             r = json.loads((matrix.directory(row) / "opt/measurements.json").read_text())
-            self.assertEqual(r["verification_sha256"], frontend.digest(matrix.directory(row) / "opt/verification.json"))
+            verified = json.loads((matrix.directory(row) / "opt/verification.json").read_text())
+            self.assertEqual(r["inputs"], verified["inputs"])
+            self.assertEqual(r["inputs"], current_inputs(row))
             self.assertEqual(len(r["runs"]), 50)
             for scenario in frontend.WORKLOADS:
                 facts = []
@@ -75,7 +86,7 @@ class DecisionTests(unittest.TestCase):
         for row in matrix.MEASURED:
             self.assertIn(row, adr)
             result = json.loads((matrix.directory(row) / "opt/measurements.json").read_text())
-            self.assertEqual(result["verification_sha256"], frontend.digest(matrix.directory(row) / "opt/verification.json"))
+            self.assertEqual(result["inputs"], current_inputs(row))
 
 
 if __name__ == "__main__":
