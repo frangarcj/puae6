@@ -361,6 +361,10 @@ TASK_SUITES[('DET04', 'T35b')] = {'full_engine_flags_and_restore': 'tests.simd.t
 TASK_SUITES[('SAFE01', 'T35b')] = {'full_engine_flags_sanitizers': 'tests.simd.test_engine_flags.SafetyTests', 'flag_configuration_fallback': 'tests.simd.test_engine_flags.ConfigurationTests'}
 TASK_SUITES[('PERF01', 'T35b')] = {'full_engine_interleaved_measurements': 'tests.simd.test_engine_flags.PerformanceTests'}
 TASK_SUITES[('ADR01', 'T35b')] = {'full_engine_flags_decision': 'tests.simd.test_engine_flags.DecisionTests'}
+TASK_SUITES[('DET04', 'T35c')] = {'rgb565_frontend_rows_and_restore': 'tests.simd.test_frontend_rgb565.EquivalenceTests'}
+TASK_SUITES[('SAFE01', 'T35c')] = {'rgb565_frontend_sanitizer_rows': 'tests.simd.test_frontend_rgb565.SafetyTests', 'rgb565_pixel_guards': 'tests.simd.test_rgb565'}
+TASK_SUITES[('PERF01', 'T35c')] = {'rgb565_full_frontend_measurements': 'tests.simd.test_frontend_rgb565.PerformanceTests'}
+TASK_SUITES[('ADR01', 'T35c')] = {'rgb565_measured_platform_decision': 'tests.simd.test_frontend_rgb565.DecisionTests'}
 TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,

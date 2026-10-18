@@ -22,6 +22,9 @@
 #define P6_LIBRETRO_PRESENT_H
 
 #include "options_generated.h"
+#ifdef P6_TEST_RGB565_CANDIDATE
+#include "rgb565_candidate.h"
+#endif
 
 #include <algorithm>
 #include <math.h>
@@ -303,10 +306,14 @@ inline void compose(const uint8_t *origin, size_t stride, uint32_t native_width,
 
 inline void to_rgb565(const uint32_t *in, size_t count, uint16_t *out)
 {
+#ifdef P6_TEST_RGB565_CANDIDATE
+    p6_simd::convert(in, count, out);
+#else
     for (size_t i = 0; i < count; ++i) {
         const uint32_t p = in[i];
         out[i] = uint16_t(((p >> 8) & 0xF800) | ((p >> 5) & 0x07E0) | ((p >> 3) & 0x001F));
     }
+#endif
 }
 
 // What a unit's picture becomes: pointer, size, pitch and bytes per pixel as retro_video_refresh_t takes them.
