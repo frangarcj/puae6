@@ -685,8 +685,7 @@ generador propio sembrado por (pista, revolucion), nunca de `uaerand`; el lector
 medio del estado. La temporizacion es la del formato en valor absoluto (una celda de 2000 ns es 1000), de modo que una vuelta dura lo que sumen sus celdas; el empalme de escritura de la pista es `skipoffset` y la unidad salta alli de 1
 a 3 celdas (`floppy_random_bits` de WinUAE, del generador sembrado del motor), de modo que una lectura que pasa por el empalme no lee un par de celdas de la pista y WORDSYNC realinea las palabras en la siguiente sincronizacion.
 Pruebas: MED01 (`tests/media/test_ipf.py` el decodificador contra un oraculo que codifica el MFM por su cuenta, `test_ipf_provenance.py`, `test_ipf_engine.py` la guest leyendo), DET02 (`tests/state/test_det02_ipf.py`) y FUZZ01
-(`tests/fuzz/test_ipf.py` el decodificador sin motor, `TrackDiskFuzzTests` el motor con imagenes IPF mutadas). Un IPF real solo se prueba por variable de entorno (`tests/media/test_ipf_real.py`, `P6_IPF_FILE`): los de SPS son de
-juegos comerciales y no se descargan.
+(`tests/fuzz/test_ipf.py` el decodificador sin motor, `TrackDiskFuzzTests` el motor con imagenes IPF mutadas). Un IPF real se prueba por variable de entorno (`tests/media/test_ipf_real.py`, `P6_IPF_FILE`); las puertas de arranque/restauracion de libretro y del core BizHawk son `tests/libretro-host/test_ipf_boot.py` y `tests/waterbox-media/test_ipf_boot.py`, con `P6_KICKSTART_ROM` (1.3) y `P6_IPF_FILE` (IPF o ZIP de un IPF). Sin assets esas puertas quedan BLOCKED. Ambos frontends ejecutan tambien un boot block libre con marcador en Chip RAM; la restauracion compara imagen/audio/ticks y continua en un proceso nuevo. Los IPF comerciales no se descargan por los tests ni se incorporan al repositorio.
 
 ADF MVP: buffer inmutable de solo lectura, cargado antes de iniciar/sellar. Mount,
 eject y swap operan sobre IDs precargados. Inventariar los metadatos de floppy

@@ -110,6 +110,16 @@ internal static unsafe partial class Program
 					break;
 				}
 				case "buffer": Console.WriteLine($"buffer {words[1]} {machines[words[1]].Core.BufferWidth}x{machines[words[1]].Core.BufferHeight}"); break;     // the buffer announced at the load, or the last picture's
+				case "picture":
+				{
+					var core = machines[words[1]].Core;
+					using var writer = new BinaryWriter(File.Create(words[2]));
+					writer.Write(core.BufferWidth); writer.Write(core.BufferHeight); writer.Write(4); writer.Write(core.Frame);
+					var pixels = core.GetVideoBuffer();
+					for (int i = 0; i < core.BufferWidth * core.BufferHeight; ++i) writer.Write(pixels[i] & 0x00FFFFFF);
+					Console.WriteLine($"picture {words[1]} written");
+					break;
+				}
 				case "run": Run(words[1], machines[words[1]], int.Parse(words[2]), arguments); break;
 				case "endmovie": EndMovie(machines[words[1]], words[2]); Console.WriteLine($"movie {words[2]} frames={machines[words[1]].Recorded.Count}"); break;
 				case "movieverify": MovieVerify(machines[words[1]], words[2], int.Parse(words[3]), arguments); break;

@@ -279,10 +279,12 @@ TASK_SUITES[('FUZZ01', 'T58c')] = {'ipf': 'tests.fuzz.test_ipf', 'trackdisk': 't
 TASK_SUITES[('MED01', 'T58')] = {**TASK_SUITES[('MED01', 'T58b')], 'headless_formats': 'tests.media.test_headless_formats', 'containers': 'tests.media.test_container',
                                  'libretro_containers': 'tests.libretro-host.test_containers', 'libretro_archives': 'tests.libretro-host.test_archives',
                                  'waterbox_trackdisk': 'tests.waterbox-media.test_media_trackdisk', 'waterbox_ipf': 'tests.waterbox-media.test_media_ipf'}
-TASK_SUITES[('DET02', 'T58')] = TASK_SUITES[('DET02', 'T58b')]
+TASK_SUITES[('DET02', 'T58')] = {**TASK_SUITES[('DET02', 'T58b')], 'libretro_ipf_boot_restore': 'tests.libretro-host.test_ipf_boot',
+                                 'pending_blitter_channel_mask': 'tests.state.test_state_upstream.UpstreamBodiesTests.test_a_pending_bltcon_write_does_not_replace_the_saved_channel_mask_on_load'}
 TASK_SUITES[('FUZZ01', 'T58')] = TASK_SUITES[('FUZZ01', 'T58b')]
 TASK_SUITES[('WB03', 'T58')] = {'ipf_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_ipf', 'trackdisk_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_trackdisk',
-                                'core_state_save_advance_restore': 'tests.waterbox-state.test_wrapper_state'}
+                                'core_state_save_advance_restore': 'tests.waterbox-state.test_wrapper_state',
+                                'ipf_boot_restore_in_the_bizhawk_core': 'tests.waterbox-media.test_ipf_boot'}
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).

@@ -280,6 +280,15 @@ def upstream_bodies(blob):
 class UpstreamBodiesTests(ProbeCase):
     ROMS = {"vsync": ("vsync", None, None), "input_all": ("input_all", None, None), "busy": (BUSY, None, None), "disk-dma": (DISK_DMA, None, None), "copper_irq": ("copper_irq", {"HP": "2"}, None),
             "lof_stuck": ("lof_stuck", None, None), "long_frame": ("long_frame", None, None), "boot": ("boot", None, None)}
+    ROMS["pending-bltcon"] = ("""; Original MIT reproducer: BLTCON0 written while the blitter is idle, before its deferred update.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.W #$0D00,$DFF040.L
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+""", None, None)
 
     @classmethod
     def setUpClass(cls):
@@ -290,6 +299,16 @@ class UpstreamBodiesTests(ProbeCase):
         cls.mouse = ("--port", "0:2:1:40:-25", "--port", "1:1:65:0:0")
 
     # -- what is saved --------------------------------------------------------------------------------------------------------------------------
+
+    def test_a_pending_bltcon_write_does_not_replace_the_saved_channel_mask_on_load(self):
+        first, second = self.dir / "pending.first", self.dir / "pending.second"
+        run = self.probe("pending-bltcon", "--units", "4", "--save-at", "2", str(first), "--load-at", "4", str(first),
+                         "--save-at", "4", str(second))
+        self.assertEqual([(4, 0, "")], run.loads)
+        a, b = first.read_bytes(), second.read_bytes()
+        self.assertEqual(upstream_bodies(a)[b"P6CH"]["BLTX"][46], upstream_bodies(b)[b"P6CH"]["BLTX"][46],
+                         "blit_ch belongs to the saved pipeline; BLTCON0's deferred channel mask must not replace it")
+        self.assertEqual(a, b)
 
     def layout(self, blob):
         """The order of the sub-bodies of each chunk, checked against the table, and the sub-bodies themselves."""

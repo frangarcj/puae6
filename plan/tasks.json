@@ -13862,7 +13862,7 @@
       "title": "IPF con un decodificador de licencia libre (no capsimg), dentro del motor y de Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T57",
         "T58a",
@@ -13904,13 +13904,18 @@
         "plan/tasks.json",
         "tests/test_plan.py",
         "reports/tasks/T58.md",
-        "manifests/host-surface.json"
+        "manifests/host-surface.json",
+        "patches/winuae/0341-blitter-channel-mask-restore.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en reports/research/parity-puae5.md con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk enlaza capsimg (licencia SPS no comercial) estatico en el guest; el usuario pide una version libre. Candidata: el lector IPF de MAME (lib/formats, BSD-3, verificar licencia y procedencia antes de importar), integrado en memoria con estado serializable; si no es viable, reimplementar desde la especificacion publica del formato. ADR de licencia.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/capsimg-config y CAPSIMG-LICENCE-NOTICE.md solo como referencia de integracion en el guest (capsimg NO se reutiliza: licencia no comercial).",
         "Division (2026-10-13): T58a (decodificador de licencia libre, importacion con procedencia, ADR, validador y fuzzer), T58b (motor: pistas, revoluciones, estado, DET02); T58 es el cierre: libretro (container.h deja de rechazar el IPF, extension ipf), headless (--disk), BizHawk/Waterbox (el cargador entrega .ipf), P6_CAP_MEDIA_IPF, contratos, WB03, el guest Waterbox registrado de nuevo y la parte opcional con un IPF autorizado por el usuario (P6_IPF_FILE). Ampliacion de touch: adapters/headless, adapters/waterbox, tools/check.py, plan, manifests/waterbox-memory.json, las suites de superficies y docs.",
-        "T58c (2026-10-18): Amiga Soccer del usuario revela claves desde 1 y descripciones vacias del cilindro 83. Corregir el indice acotado con reproducer sintetico antes de retomar el cierre, sin ampliar las pistas fisicas del motor. Los checks y la aceptacion de T58 se conservan."
+        "T58c (2026-10-18): Amiga Soccer del usuario revela claves desde 1 y descripciones vacias del cilindro 83. Corregir el indice acotado con reproducer sintetico antes de retomar el cierre, sin ampliar las pistas fisicas del motor. Los checks y la aceptacion de T58 se conservan.",
+        "Ampliacion de touch (2026-10-18): la restauracion real descubre que restore_blitter_new deriva blit_ch desde BLTCON0 y pierde la mascara que BLTX ya guardaba cuando una escritura BLTCON queda pendiente. Conservar esa mascara mediante parche 0341, con reproducer sintetico en tests/state/test_state_upstream.py, antes de aceptar el round-trip exacto de libretro; no cambiar el formato ni eliminar la asercion.",
+        "Ampliacion de touch: clasificar 0341 en tests/reference/patch-classes.json como behavior/inert (solo actua al restaurar; el corpus REF01 no carga estados), manteniendo la prueba sintetica como evidencia del efecto."
       ],
       "checks": [
         "MED01",

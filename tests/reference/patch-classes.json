@@ -161,7 +161,8 @@
     "0333-fdi2raw-deterministic-pulses": "required",
     "0334-disk-fdi-track-state": "instrumentation",
     "0335-disk-track-timing-state": "instrumentation",
-    "0340-disk-ipf-reader": "required"
+    "0340-disk-ipf-reader": "required",
+    "0341-blitter-channel-mask-restore": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -323,6 +324,13 @@
       "effect": "inert",
       "why": "Zeroes the bits past the end of a raw track of the extended ADF, which the drive never reads: only a disk with a raw track whose length is not a multiple of 16 bits reaches it, and the REF01 corpus has none.",
       "test": "tests/state/test_det02_trackdisk.py",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0341-blitter-channel-mask-restore": {
+      "effect": "inert",
+      "why": "Preserves the BLTX channel mask only when restore_blitter_new rebuilds derived state. The REF01 corpus never loads a state, so the uninterrupted execution is identical; the synthetic pending BLTCON0 write captures the restored difference.",
+      "test": "tests/state/test_state_upstream.py",
       "scenarios": [],
       "subsystems": []
     }
