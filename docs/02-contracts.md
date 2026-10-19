@@ -1557,3 +1557,22 @@ el latch y rebuild solicita `map_overlay(oldovl ? 0 : 1)` sin derivarlo de pines
 avanzar tiempo ni emitir IRQ. Otros perfiles autooverlay siguen rechazados.
 STATE01 usa CIA/eventos/visitor reales y un observador de peticiones al mapper;
 la comprobacion del banco real y save/load CD32 completo sigue en NativeChunk.
+
+
+## Estado nativo CD32 (T66m7)
+
+El perfil stock privado añade P6AK al final del registro: controlador Akiko,
+transporte y caches, backend/player CDDA y NVRAM, campo a campo mediante M4. Los
+perfiles anteriores conservan sus once chunks y cotas; CD32 lleva doce. El ciclo
+candidato procede de P6SC y el periodo CDA del reloj fisico identificado PAL/NTSC
+(41179/41558); Validate no consulta el tiempo ni requiere los owners del destino.
+La fase Paula completa se aplica despues de restore_audio_finish y antes de CDA,
+con acceso exclusivo al stream propiedad del backend. CIA conserva el latch
+independiente CD32 y reconstruye el mapa al terminar todos los chunks.
+
+La identidad de medios incluye el binding CD fijo (presencia e ID normalizado del
+Disc) en todos los prefijos del manifiesto. Un CD diferente se rechaza antes de
+mutar. tests/media/test_cd32_state.py ejercita la API nativa con firmware local
+autorizado y un CD sintetico por offset, continuacion AV/estado en otra instancia,
+mapa real y rechazos corruptos. Esto no anuncia modelo CD32 en los frontends ni
+acredita arranque de juego, SaveRAM de frontend o snapshot CD32 Waterbox.

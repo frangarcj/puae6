@@ -4983,7 +4983,14 @@
           "what": "a state that carries this chunk is rejected, never restored in part"
         },
         "probe": null,
-        "waterbox": "not reached by the profile"
+        "waterbox": "not reached by the profile",
+        "native_state": {
+          "task": "T66m7",
+          "chunk": "P6AK (CD32 only), P6AU owned phase",
+          "file": "bridge/state_akiko.cpp; bridge/state_upstream.cpp",
+          "visitor": "visit_akiko; visit_audio",
+          "proves": "tests/media/test_cd32_state.py targets full native continuation with synthetic offset CD and authorized firmware. Legacy profiles retain strict0099; CD32 uses the backend-owned slot0 stereo CDA, semantic M4 controller/transport/device/audio/NVRAM values and full shared Paula phase. No upstream CD restore or host pointer is serialized; Waterbox CD32 remains a separate gate."
+        }
       },
       {
         "id": "audio-pcm-transport",
@@ -7988,8 +7995,10 @@
           "DMC3",
           "DMC4"
         ],
-        "reason": "CD32 and CDTV are excluded features of the profile (sysconfig.h refuses to compile them)",
+        "reason": "Upstream CD32/CDU restore routines are not used: the private stock CD32 profile has semantic native P6AK with fixed CD identity. CDTV/DMAC remain unsupported here; full CD32 Waterbox and game boot remain T66 gates.",
         "evidence": [
+          "bridge/state_akiko.cpp",
+          "ports/portable/state_io/akiko.h",
           "ports/portable/sysconfig.h"
         ]
       },
