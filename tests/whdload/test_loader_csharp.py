@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import struct
 import subprocess
 import unittest
 
@@ -42,6 +43,17 @@ class LoaderCSharpTests(unittest.TestCase):
             result = self.resolve(files, success=False, **options)
             self.assertNotIn("firmware ", result.stdout)
             self.assertIn("WHDLoad", result.stderr)
+
+    def test_zip_slave_takes_priority_over_adf_data_only_in_auto_without_extracting(self):
+        for files, expected in (({"Game/data.adf": b"disk data", "Game/A.slave": b"slave"}, "True"), ({"disk.adf": b"disk"}, "False")):
+            data = bytearray(archive(files))
+            at = data.index(b"PK\x01\x02")
+            struct.pack_into("<I", data, at + 24, 128 * 1024 * 1024)  # extraction would exceed the cap
+            source = self.work / "classify.zip"
+            source.write_bytes(data)
+            result = subprocess.run([DOTNET, str(self.dll), "whdclassify", "--archive", str(source)], cwd=ROOT, env=self.env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(f"auto={expected} disabled=False", result.stdout.strip())
 
     @unittest.skipUnless(support.INPUTS, "authorized WHDLoad provider is required")
     def test_auto_forces_a1200_and_uses_only_the_named_provider_before_firmware(self):

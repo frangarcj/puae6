@@ -98,6 +98,9 @@ internal static unsafe partial class Program
 					}
 					break;
 				}
+				case "whdclassify":
+					var zip = File.ReadAllBytes(options["archive"]);
+					Console.WriteLine($"auto={Puae6Volumes.IsVolumeZip(zip, true)} disabled={Puae6Volumes.IsVolumeZip(zip)}"); break;
 				case "play": Play(options); break;
 				case "session": RunSession(options); break;
 				case "bench": Bench(options); break;                 // T33: tools/bench.py

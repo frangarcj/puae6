@@ -95,11 +95,15 @@ public static class Puae6Volumes
 	public static byte[] FromZip(byte[] archive) => Build(ReadZip(archive));
 
 	/// <summary>A ZIP that holds files and no disk image: a volume. One with an .adf, .adz or .dms (or a disk in a format this core does not read) is a disk.</summary>
-	public static bool IsVolumeZip(byte[] archive)
+	public static bool IsVolumeZip(byte[] archive) => IsVolumeZip(archive, false);
+	public static bool IsVolumeZip(byte[] archive, bool whdLoadAuto)
 	{
 		ZipEntry[] entries;
 		try { entries = ReadZipDirectory(archive, out _); }
 		catch (VolumeException) { return false; }
+		// Installed packs may contain ADF data. Inspect only the central directory;
+		// the bounded archive reader validates/decompresses it after classification.
+		if (whdLoadAuto && entries.Any(e => !ZipIgnored(e) && Extension(BaseName(e.Name)) == "slave")) return true;
 		bool files = false;
 		foreach (var entry in entries)
 		{

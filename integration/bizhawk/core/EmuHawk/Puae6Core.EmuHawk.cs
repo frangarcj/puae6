@@ -30,9 +30,10 @@ public sealed partial class Puae6Core
 		// without them would hide that they were asked for. A directory cannot be a ROM asset of BizHawk's loader: it is not offered here (docs/02-contracts.md, "Volumenes").
 		if (lp.Discs.Count != 0)
 			throw new NotSupportedException("PUAE6 does not load optical discs; open the game with the UAE core");
+		var settings = lp.SyncSettings ?? new Puae6SyncSettings();
 		bool IsHardFile(IRomAsset rom) => rom.Extension.Equals(".hdf", StringComparison.OrdinalIgnoreCase);
 		bool IsVolume(IRomAsset rom) => rom.Extension.Equals(".lha", StringComparison.OrdinalIgnoreCase) || rom.Extension.Equals(".lzh", StringComparison.OrdinalIgnoreCase)
-			|| rom.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase) && Puae6Volumes.IsVolumeZip(rom.FileData);
+			|| rom.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase) && Puae6Volumes.IsVolumeZip(rom.FileData, settings.WhdLoad == Puae6WhdLoadMode.Auto);
 		foreach (var rom in lp.Roms)
 			if (!IsHardFile(rom) && !IsVolume(rom) && !rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase) && !rom.Extension.Equals(".fdi", StringComparison.OrdinalIgnoreCase) && !rom.Extension.Equals(".ipf", StringComparison.OrdinalIgnoreCase))
 				throw new NotSupportedException($"PUAE6 loads ADF (plain or extended), FDI and IPF disks, HDF hard files and LHA or ZIP volumes only ({rom.Extension} is not one); open the game with the UAE core");
@@ -40,7 +41,6 @@ public sealed partial class Puae6Core
 		var hardFiles = lp.Roms.Where(IsHardFile).ToList();
 		var volumes = lp.Roms.Where(IsVolume).ToList();
 		string NameOf(IRomAsset rom) => Path.GetFileName(rom.RomPath.Split('|').Last());
-		var settings = lp.SyncSettings ?? new Puae6SyncSettings();
 		return Puae6WhdLoad.Resolve(new Puae6Parameters
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
