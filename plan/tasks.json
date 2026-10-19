@@ -12954,6 +12954,59 @@
       "stop": "No FPU del host/fast-math, no fingir FRESTORE040 ni cerrar T55c por una captura privada."
     },
     {
+      "id": "T55c5",
+      "title": "Completar todos los tamanos Z3 de referencia en nativo y Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T55c2",
+        "T55c3"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "adapters/headless/**",
+        "adapters/libretro/options_generated.h",
+        "config/schema/**",
+        "integration/bizhawk/**",
+        "tests/state/test_z3.py",
+        "tests/host/bridge_lifecycle_probe.cpp",
+        "tests/libretro-host/test_z3.py",
+        "tests/waterbox-state/test_wrapper_z3.py",
+        "tests/config/**",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Referencia real references/machawk-uae/libretro/libretro-core.c:929-953 ofrece1/2/4/8/16/32/64/128/256/512MiB. Completar la lista como una sola vertical; conservar ABI72, None=0 yMB16=1, asignar MB1..8=2..5 yMB32..512=6..10. Mantener A4030 Normal y sin MMU; defaults no cambian.",
+        "Autoconfig Z3 real y RAM sin alias por todos los tamanos. Para placas menores16MiB upstream anuncia ventana fisica16MiB con subsize: la validacion de estado debe conservar ese contrato sin confundir ventana con RAM asignada. Probar extremos y tipo/subsize, antes/despues del mapeo y restauracion nativa mismo/nuevo proceso, con Z2 Auto/None.",
+        "Actualizar esquema y generar salidas; headless/libretro/C# atomicos, memoria visible e identidad por tamano. Restauracion real Waterbox mismo/nuevo sandbox y proceso, rechazo de tamano diferente sin mutar. Reutilizar las pruebas c2/c3 parametrizadas, sin multiplicar todas sus ventanas para cada capacidad.",
+        "Presupuesto Waterbox extra=RAMsolicitada y mmap mantiene margen2x; medir consumo comprometido real para todos los tamanos con el guest actual, sin rebajar margenes ni reetiquetar dataset historico. Una compilacion integrada -j2 antes de union de checks dirigidos.",
+        "Alcance estimado350-400lineas manuales en varios adaptadores/tests coherentes; salidas generadas excluidas. Si necesita mas o parche motor nuevo, revisar division antes de ampliar. T55c conserva040/060, firmware real y todos sus checks/aceptacion."
+      ],
+      "checks": [
+        "GEN01",
+        "ABI01",
+        "DET02",
+        "LR01",
+        "WB03",
+        "PERF01"
+      ],
+      "acceptance": [
+        "Todos los tamanos Z3 de referencia funcionan desde los tres frontends, respetan autoconfig/subsize real y restauran con identidad y RAM completas; Waterbox real mantiene margen2x medido."
+      ],
+      "stop": "No confundir RAM fisica con ventana Z3 minima, no mover RAM a invisible y no cerrar A4000 real ni040/060 con micro-ROM."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -12964,7 +13017,8 @@
         "T55c1",
         "T55c2",
         "T55c3",
-        "T55c4"
+        "T55c4",
+        "T55c5"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12994,7 +13048,8 @@
         "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
         "Generacion/enlace sin MMU se separa enT55c1, sobre la plataforma030 deT55b1. El padre conserva CPU040/060/FPU/estado, A4040, Z3, frontends, presupuestos y sus checks/aceptacion completos, incluidoT55b.",
         "Fast Z3 avanza sobre la plataforma sintetica A4030 mediante T55c2/c3,16MiB primero. Los otros tamanos de la referencia, 040/060/FPU/estado y firmware real permanecen en el alcance original y no se consideran satisfechos por esas hojas.",
-        "T55c4 separa el estado privado causal de FPU040/060 sobreT54/T55c1, independiente del firmware pendienteT55b. El padre conserva su aceptacion y todos sus checks: controlesCPU/P6CP, FRESTORE040 incompleto upstream, A4040/frontends, todos los tamanosZ3 y presupuesto/firmware reales. No cerrar por generacion ni por el codec privado."
+        "T55c4 separa el estado privado causal de FPU040/060 sobreT54/T55c1, independiente del firmware pendienteT55b. El padre conserva su aceptacion y todos sus checks: controlesCPU/P6CP, FRESTORE040 incompleto upstream, A4040/frontends, todos los tamanosZ3 y presupuesto/firmware reales. No cerrar por generacion ni por el codec privado.",
+        "T55c5 completa todos los tamanos Z3 restantes y sus frontends/presupuestos como vertical unica; no divide por capacidad ni elimina la puerta original del padre."
       ],
       "checks": [
         "GEN01",
