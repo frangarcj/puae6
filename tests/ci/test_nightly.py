@@ -23,6 +23,23 @@ class NightlyRecipeTests(unittest.TestCase):
             self.assertTrue(classes, name)
             self.assertTrue({name + "." + cls for cls in classes} <= selected, name)
 
+    def test_whdload_builder_and_loader_cases_are_selected_once(self):
+        def ids(suite):
+            result = []
+            for case in suite:
+                result.extend(ids(case) if isinstance(case, unittest.TestSuite) else [case.id()])
+            return result
+        names = ("tests.whdload.test_cpp_bundle", "tests.whdload.test_autoload")
+        selected = ci.suites("functional")
+        groups = []
+        for name in names:
+            self.assertIn(name, selected)
+            cases = ids(unittest.defaultTestLoader.loadTestsFromName(name))
+            self.assertTrue(cases)
+            self.assertEqual(len(cases), len(set(cases)))
+            groups.append(set(cases))
+        self.assertFalse(groups[0] & groups[1], "imported builder cases ran again with the loader")
+
     def test_performance_has_no_sanitizer_classes_and_all_lanes_are_nonempty(self):
         for lane in ci.LANES:
             self.assertTrue(ci.suites(lane) or lane == "clean")

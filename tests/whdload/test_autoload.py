@@ -10,7 +10,8 @@ import tempfile
 import unittest
 import zipfile
 from tests.whdload import support
-from tests.whdload.test_cpp_bundle import BUILD, TOOL, CppBundleTests
+from tests.whdload import test_cpp_bundle as cpp
+from tests.whdload.test_cpp_bundle import BUILD, TOOL
 from tests.whdload.test_bundle import SAVE, END, RMB_AT, RMB_UNTIL, SCORE_FIRE, SCORE_UNTIL, assert_saved
 from tests.hdf.volume_support import lha_archive
 from whdload import bundle, ffs, lha
@@ -21,7 +22,7 @@ lr = importlib.import_module("tests.libretro-host.test_libretro")
 class ProviderTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        CppBundleTests.setUpClass()
+        cpp.CppBundleTests.setUpClass()
 
     def test_sha1_recognition_padding_matches_hashlib(self):
         with tempfile.TemporaryDirectory(dir=BUILD) as temp:

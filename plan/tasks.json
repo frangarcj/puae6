@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35"
@@ -11562,7 +11562,8 @@
         "tests/state/test_state_closure_devices.py",
         "manifests/state-inventory.json",
         "tests/libretro-host/test_real_frontend.py",
-        "tests/libretro-host/docker/image.json"
+        "tests/libretro-host/docker/image.json",
+        "tests/whdload/test_autoload.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11578,7 +11579,8 @@
         "Decision del usuario 2026-10-19: task force hasta cuatro frentes independientes, validacion dirigida por cambio y union completa una vez por candidata; conservar checks/aceptacion y diferir las baterias largas mientras se implementa producto. Ajustar protocolo, limite explicito del inspector y sus tests; el coordinador integra y serializa builds pesados.",
         "Integracion de candidata: actualizar la comprobacion estricta del inventario RTC para incluir el nuevo RF5C01A de T55a (25 componentes, propietario especifico y enlace de prueba con formato path:descripcion), sin relajar los otros propietarios ni sus asserts. Limitar a dos los compiladores simultaneos en la receta clean, como el resto de la task force.",
         "Cerrar la ruta offline real de RetroArch: fijar el ID/ISA de la imagen local ya presente, comprobarla antes de preparar lanes que la usan y ejecutar siempre por ID con --pull=never/--network=none. La ausencia o diferencia bloquea sin autobuild/descargas; no modificar la imagen ni Docker global. Mantener controles DiskControl por loopback dentro del mismo contenedor y comprobar negativos de infraestructura sin compilar el motor.",
-        "Reproducer DET06 de inicio ASan/UBSan pasa realmente en las cinco filas declaradas con tres relojes civiles desplazados y monotono intacto; IDs Docker verificados antes/despues. No se ha ejecutado ni acreditado la matriz del emulador ni CI remota. Ruta RetroArch offline verificada con version real y UDP loopback; se conserva el cierre completo para la candidata."
+        "Reproducer DET06 de inicio ASan/UBSan pasa realmente en las cinco filas declaradas con tres relojes civiles desplazados y monotono intacto; IDs Docker verificados antes/despues. No se ha ejecutado ni acreditado la matriz del emulador ni CI remota. Ruta RetroArch offline verificada con version real y UDP loopback; se conserva el cierre completo para la candidata.",
+        "Eliminar la importacion directa de TestCase del constructor en test_autoload: unittest lo estaba ejecutando otra vez al cargar el modulo. Mantener seleccionados ambos modulos originales y probar que sus IDs de casos no se solapan; no quitar assertions ni reducir ventanas de ejecucion."
       ],
       "checks": [
         "PLAN01",
