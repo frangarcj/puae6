@@ -254,6 +254,7 @@ TASK_SUITES[('MED01', 'T66b')] = {'cd_source_regression': 'tests.media.test_cd_s
 TASK_SUITES[('MED01', 'T66e1')] = {'native_seekable_iso_wave': 'tests.media.test_cd_file'}
 TASK_SUITES[('MED01', 'T66e2a')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata'}
 TASK_SUITES[('MED01', 'T66l1')] = {'pinned_nrg_dao_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests'}
+TASK_SUITES[('MED01', 'T66l2')] = {**TASK_SUITES[('MED01', 'T66l1')], 'native_nrg_source': 'tests.media.test_cd_nrg.CdNrgTests'}
 TASK_SUITES[('MED01', 'T66j1')] = {'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}

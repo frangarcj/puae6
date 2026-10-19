@@ -967,7 +967,20 @@ maximo256B por callback y nunca sectores; valida extents contra el directorio y
 longitudes fisicas contra la TOC antes de publicar la salida. MED01 usa fixtures
 DAO v1/v2 y proveedor virtual >4GiB, con ASan/UBSan y regresiones CUE/CCD. TAO,
 multisesion, Mode2 cooked02/03 y chunks semanticos desconocidos devuelven
-Unsupported. La normalizacion IMG/subcanales NRG y su carga CD32 siguen pendientes.
+Unsupported. No habilita el backend legado TAO ni carga CD32.
+
+T66l2 añade `CdNrg`, dueño RAII de un CdFile y una vista por pista DAO. Cada
+vista conserva bytes de audio/datos y convierte solo SUB96 interleaved de2448
+con `sub_to_deinterleaved` fijado; el resto nunca se intercala ni se intercambia.
+Stride debe coincidir exactamente con el modo: padding ambiguo es Unsupported.
+INDEX00 ausente se deriva del delta fisico DAO; cualquier contradiccion con la
+TOC se rechaza. INDEX00 negativo se recorta en LBA0 ajustando offset por stride,
+sin suponer150. SHA256 del archivo completo mas P6NRG1, metadata cruda, catalogo,
+ISRC y IDs de cada stream normalizado vinculan la identidad. Calcularla recorre
+el archivo y luego las vistas, con memoria constante; rebind exige identidades
+iguales con dueños nuevos. MED01 comprueba ambas versiones, recorte/derivacion,
+CRC Q invalida y R-W, fallos transaccionales y hashlib; el real opcional separado
+usa `P6_CD_NRG_FILE`. Esto no añade NRG al selector del frontend ni arranque CD32.
 
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
