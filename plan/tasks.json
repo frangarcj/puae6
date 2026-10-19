@@ -12743,7 +12743,7 @@
       "title": "Tablas 040/060 sin MMU y helpers reales de cache",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T55b1"
       ],
@@ -14232,6 +14232,87 @@
       "stop": "No cargar CD completo en guest, no usar hilos ni promover este probe a soporte CD32."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "id": "T66b",
+      "title": "TOC y lectura acotada de sectores CD sobre fuentes por offset",
+      "depends": [
+        "T66a"
+      ],
+      "touch": [
+        "ports/portable/media/cd_source.h",
+        "ports/portable/media/cd_source.cpp",
+        "ports/portable/media/cd_disc.h",
+        "ports/portable/media/cd_disc.cpp",
+        "tests/media/cd_source_probe.cpp",
+        "tests/media/test_cd_source.py",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "manifests/source-manifest.json"
+      ],
+      "steps": [
+        "Construir un descriptor privado acotado e inmutable de pistas, ADR/control, INDEX00/01, leadout, fuentes por offset/stride y pregaps almacenados o sinteticos; su identidad no contiene callbacks ni rutas. El CUE real Brian the Lion tiene29 pistas e incluye ambos tipos de pregap: no simplificarlo a una TOC falsa.",
+        "Validar orden, rangos y overflow antes de bind/rebind; comparar identidad del disco, TOC y todas las fuentes antes de cambiar callbacks. Añadir byte-source sector_bytes=1 conservando el contrato ISO2048 existente y rechazando read_sector ISO sobre byte-source.",
+        "Leer vistas2048/2352/2448 con staging fijo y sin copiar el CD. Reutilizar encode_l2 real del upstream fijado para ISO2048 a raw2352; preservar raw. Rechazar explicitamente vistas no implementadas y Mode2Form2 en2048 en vez de fingir Mode1. No sintetizar subcanales incorrectos.",
+        "Probe ASan/UBSan dirigido con TOC mixta, limites/cruces de pista, offset>4GiB, pregaps, exactitud de datos y errores/short-read sin modificar salida. Rebind erroneo conserva callback/contexto anteriores. Si supera400 lineas manuales, dividir antes de ampliar.",
+        "Esta vertical consume layout normalizado: no anuncia aun parsers CUE/CCD/ISO/NRG/MDS/CHD, CDDA ni CD32. T66 conserva todas sus puertas de arranque/restore real en ambos adaptadores."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Un layout CD normalizado se valida y entrega sectores por offset de forma acotada y transaccional, preservando datos e identidad sin cargar la imagen completa."
+      ],
+      "stop": "No confundir este lector con CD32, parsers de formatos, CDDA o snapshot de Akiko completos."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "id": "T66c",
+      "title": "EEPROM24C08 real y restauracion de la fase I2C de CD32",
+      "depends": [
+        "T24"
+      ],
+      "touch": [
+        "ports/portable/cd32_eeprom.h",
+        "patches/winuae/0354-cd32-eeprom-state.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/media/cd32_eeprom_probe.cpp",
+        "tests/media/test_cd32_eeprom.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reutilizar eeprom_new/eeprom_i2c_set de flashrom.cpp real con1024 bytes y zf=nullptr. Endpoint privado reutilizable, sin copiar el algoritmo ni simular servicios host. Reservado patch0354; la cola actual usa0349 CPU y0353 paralelo.",
+        "Snapshot semantico de1024 bytes y todos los campos causales de bit/ACK/shift/direcciones/escritura pendiente; geometria y mascaras fijas24C08 derivadas, sin punteros/callbacks. Validar todos los campos antes de modificar estado o memoria.",
+        "Compilar el flashrom.cpp materializado con servicios portables existentes y ASan/UBSan. Probe escribe/lee por I2C, guarda a mitad de byte y ACK, restaura en otro objeto y compara futuro/memoria; pagina16B, wrap y rechazos transaccionales. Sin codegen CPU ni build completo del motor.",
+        "Esta pieza no habilita CD32 ni acredita WB03. NVRAM en Akiko, persistencia/SaveRAM, reset que conserve contenido, trabajador cooperativo y CDDA quedan en T66, con sus puertas originales intactas. Si supera400 lineas manuales, dividir antes de ampliar."
+      ],
+      "checks": [
+        "MED02",
+        "DET02"
+      ],
+      "acceptance": [
+        "El EEPROM real restaura su protocolo y contenido a mitad de transaccion en otro objeto, y un estado invalido no modifica el chip."
+      ],
+      "stop": "No host FS, no stubs exitosos ni copia del algoritmo; no usar save_akiko upstream incompleto como estado de EEPROM."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -14241,7 +14322,9 @@
         "T24",
         "T70",
         "T49",
-        "T66a"
+        "T66a",
+        "T66b",
+        "T66c"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -14263,7 +14346,8 @@
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 y CD32FR (con 8M Fast) y lee CUE/CCD/ISO/CHD/NRG; MacHawk tiene bizhawk-cd.h. Un CD de 650 MB no cabe en el heap: backend de lecturas puras por offset desde el host, determinista; Akiko, NVRAM, audio CD.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/uae-waterbox.patch y el submodulo libretro-uae (akiko.c, blkdev_cdimage.c, cd32_fmv.c), bizhawk-cd.h (CD por lecturas desde el host) y waterboxhost/uae-cd32-smoke.",
-        "Dividida primera fuente por offset enT66a. El padre conserva todas sus puertas y su aceptacion de arranque/restore CD32 en ambos adaptadores; quedan Akiko cooperativo, NVRAM/I2C, CDDA y los seis formatos, sin stubs exitosos."
+        "Dividida primera fuente por offset enT66a. El padre conserva todas sus puertas y su aceptacion de arranque/restore CD32 en ambos adaptadores; quedan Akiko cooperativo, NVRAM/I2C, CDDA y los seis formatos, sin stubs exitosos.",
+        "Task force: T66b normaliza TOC/sectores y T66c conserva EEPROM/I2C real; son componentes independientes. Se mantienen todos los formatos, Akiko cooperativo, CDDA, NVRAM/persistencia, frontends y arranque/restore real para el cierre del padre."
       ],
       "checks": [
         "MED01",
