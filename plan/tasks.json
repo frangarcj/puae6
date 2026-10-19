@@ -14993,7 +14993,7 @@
       "title": "Pausa y estado semantico del stream CDA real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T54",
         "T66g2"
@@ -15025,7 +15025,8 @@
       "acceptance": [
         "El stream CDA real puede pausar y restaurar su estado semantico manteniendo fase y PCM futuro; los demas streams no se aceptan silenciosamente."
       ],
-      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre.",
+      "blocked_reason": "Probe tests/audio/cd_audio_probe.cpp en worktree de entrada: tras dos ajustes del avance, cursor202/386 correcto pero accumulator.cycles==0. Reproducer conservado. Hipotesis1: init_audio sin set_audio deja audio_data/prehandler sin preparar; hipotesis2: activacion altera primer deadline. Revisar inicializacion real antes de otro intento; sin ejecucion de restauracion acreditada."
     },
     {
       "id": "T66i2",
