@@ -15294,11 +15294,13 @@
         "tests/media/cd_audio_probe.cpp",
         "tests/media/test_cd_device.py",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tests/media/cd_device_probe.cpp"
       ],
       "steps": [
         "Sustituir rechazoCDDA de G3 porAudioPlayer real prestado alDispositivo, con lifecycleultimo close/unbind/stop. Respetarsemantica upstream pausa/volumen/status/ready/retardo yQcode conestado/posiciondeaudio; scan noimplementado Unsupported claro. Sinmotor/guestbuild, sin cambiarcodec0099.",
-        "Compartir consultadeclasificacionefectiva G4 por metadata(sinleerQalmacenada): prefijoaudio→datosconrelativo>150puedeserAudio, ultimos150datos. ReutilizarreglaenAudioPlayer ylector sin duplicarla; pista datos sigueerror. Probar PCM/callback/subQ porblkdevreal, pause/mute/close/error yfronteras151/150/pregap, sinoráculosdebilitados. Presupuesto250–350logicas; heredarfixtureI1/I2evitando copiarhardware."
+        "Compartir consultadeclasificacionefectiva G4 por metadata(sinleerQalmacenada): prefijoaudio→datosconrelativo>150puedeserAudio, ultimos150datos. ReutilizarreglaenAudioPlayer ylector sin duplicarla; pista datos sigueerror. Probar PCM/callback/subQ porblkdevreal, pause/mute/close/error yfronteras151/150/pregap, sinoráculosdebilitados. Presupuesto250–350logicas; heredarfixtureI1/I2evitando copiarhardware.",
+        "Ampliacion explicita cd_device_probe.cpp: sus expectativas G3Unsupported para play/pause/volume dejan deserciertas; sustituirlas porsemantica real/scanUnsupported ymontajeI1 compartido en test_cd_device.py, sinstubsdeaudio ni rebajarcasoslector/errores originales. RegresionG3 necesaria poresecambio."
       ],
       "checks": [
         "MED01"
