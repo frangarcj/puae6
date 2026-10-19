@@ -25,7 +25,8 @@ public:
     Result rebind(const Layout &, const Binding *, uint32_t count);
     const Layout &layout() const { return layout_; }
     // One sector, exact 2048/2352/2448-byte view. Failure leaves output intact.
-    // 2048 is Mode1 only; 2448 requires stored subchannels. Audio is raw CD byte order.
+    // 2048 is Mode1 only; normalized 2448 = 2352 data + 96 P-W deinterleaved.
+    // Disc preserves supplied audio bytes; CDDA interpretation belongs to its consumer.
     Result read_sector(uint32_t lba, uint32_t view, void *out, size_t capacity) const;
 private:
     Result prepare(const Layout &, const Binding *, uint32_t);

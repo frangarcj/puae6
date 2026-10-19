@@ -887,7 +887,7 @@ Bind valida orden/rangos/overflow; rebind compara identidad del disco, toda TOC
 y cada ID/longitud/geometria de fuente antes de cambiar callbacks/contextos.
 Una lectura entrega2048 de Mode1,2352 raw o2448 con subcanales ya almacenados;
 Mode2/audio en2048 y subcanales ausentes devuelven `Unsupported`, sin inventarlos.
-El audio raw conserva el orden de bytes CD; interpretar WAV es trabajo posterior.
+El audio conserva los bytes del proveedor; su interpretacion CDDA es trabajo posterior.
 ISO2048 a2352 reutiliza `encode_l2` fijado, con parche0355 de sync conforme
 a [ECMA-130 §14.1](https://ecma-international.org/wp-content/uploads/ECMA-130_2nd_edition_june_1996.pdf):
 00, diez FF,00 antes de calcular EDC/ECC. El staging permanece fijo en2448B y
@@ -920,6 +920,20 @@ segun la longitud declarada: solo pide al fichero los bytes existentes y rellena
 el resto. El blob puede haber escrito parte del destino antes de lanzar; el
 endpoint sectorial futuro debe usar staging. Esto no habilita CD32 ni acredita
 los codecs CHD o el arranque/restauracion del padre T66.
+
+T66d2 añade `Puae6DiscSource`, endpoint privado sobre un `Disc` prestado e
+inmutable del DiscSystem fijado. El llamante conserva su vida util y la de sus
+ficheros. Normaliza LBA0..leadout-1 en sectores2448:2352 datos y96 P-W
+deinterleaved (politica explicita); conserva los bytes de audio que entrega
+DiscSystem. INDEX00 se busca en Q, sin suponer150 sectores, y todas las pistas
+se exponen como almacenadas en esa fuente virtual, incluso los gaps sintetizados.
+Cada lectura por offset pide hasta2448B, con dos buffers fijos de2448B para sector
+y staging;2048 solo admite Mode1. Rango, error o vista no soportada dejan intacta
+la salida. SHA256 cubre TOC canonica, version de politica y todo el flujo2448,
+incluido SBI. Rebind calcula primero la identidad completa del candidato y solo
+cambia lector si coincide; no usa el hash parcial de512 sectores de BizHawk.
+La lectura es de un solo hilo, sin callbacks guest. ISO/CUE BIN/WAV PCM se prueban
+con parsers reales; CHD Darwin requiere aun una biblioteca ARM64 real fijada.
 
 Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro por el controlador UAE (`uaehf.device` y la placa UAEFS, como
 PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256

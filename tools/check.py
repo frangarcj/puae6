@@ -252,6 +252,7 @@ TASK_SUITES[('DET02', 'T66c')] = {
     'eeprom_reject': 'tests.media.test_cd32_eeprom.Cd32EepromTests.test_invalid_states_are_transactional'}
 TASK_SUITES[('MED01', 'T66b')] = {'cd_source_regression': 'tests.media.test_cd_source', 'cd_toc_sectors': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66d1')] = {'disc_blob_exact_reads': 'tests.media.test_cd_blob_reads'}
+TASK_SUITES[('MED01', 'T66d2')] = {'managed_disc_source': 'tests.media.test_cd_source_csharp'}
 TASK_SUITES[('MED01', 'T66d3')] = {'chd_hunk_fragmentation': 'tests.media.test_chd_blob_reads'}
 # T57 closes both: the formats on the three surfaces. MED01 adds the headless runner (`--disk`), the libretro adapter (the containers hold them, the extension list, the identity of the bytes as given:
 # tests/media/test_container.py without an engine and tests/libretro-host/test_containers.py with the core) and the Waterbox sandbox (the guest reads them, a snapshot in the middle of a revolution
