@@ -11560,7 +11560,9 @@
         "README.md",
         "tools/plan.py",
         "tests/state/test_state_closure_devices.py",
-        "manifests/state-inventory.json"
+        "manifests/state-inventory.json",
+        "tests/libretro-host/test_real_frontend.py",
+        "tests/libretro-host/docker/image.json"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11574,7 +11576,8 @@
         "Declarar etiquetas self-hosted para actionlint y ubicar el test BEAMCON0 de audio solo en los presets ECS/AGA que lo soportan, conservando ambas ejecuciones y todas sus assertions.",
         "Corregir el arnes DET06: evitar dlsym recursivo durante el inicio de ASan y anteponer su runtime dinamico real al reloj inyectado. Reproducer minimo con Clang/GCC en ambas ISA Linux; conservar los tres relojes civiles desplazados y el monotono sin desplazar, sin desactivar sanitizers.",
         "Decision del usuario 2026-10-19: task force hasta cuatro frentes independientes, validacion dirigida por cambio y union completa una vez por candidata; conservar checks/aceptacion y diferir las baterias largas mientras se implementa producto. Ajustar protocolo, limite explicito del inspector y sus tests; el coordinador integra y serializa builds pesados.",
-        "Integracion de candidata: actualizar la comprobacion estricta del inventario RTC para incluir el nuevo RF5C01A de T55a (25 componentes, propietario especifico y enlace de prueba con formato path:descripcion), sin relajar los otros propietarios ni sus asserts. Limitar a dos los compiladores simultaneos en la receta clean, como el resto de la task force."
+        "Integracion de candidata: actualizar la comprobacion estricta del inventario RTC para incluir el nuevo RF5C01A de T55a (25 componentes, propietario especifico y enlace de prueba con formato path:descripcion), sin relajar los otros propietarios ni sus asserts. Limitar a dos los compiladores simultaneos en la receta clean, como el resto de la task force.",
+        "Cerrar la ruta offline real de RetroArch: fijar el ID/ISA de la imagen local ya presente, comprobarla antes de preparar lanes que la usan y ejecutar siempre por ID con --pull=never/--network=none. La ausencia o diferencia bloquea sin autobuild/descargas; no modificar la imagen ni Docker global. Mantener controles DiskControl por loopback dentro del mismo contenedor y comprobar negativos de infraestructura sin compilar el motor."
       ],
       "checks": [
         "PLAN01",
