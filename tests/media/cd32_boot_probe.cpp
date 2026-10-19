@@ -5,6 +5,7 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "options.h"
+#include "disk.h"
 #include "memory.h"
 #include "machdep/maccess.h"
 #include "newcpu.h"
