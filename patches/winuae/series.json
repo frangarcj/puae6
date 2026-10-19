@@ -4950,6 +4950,28 @@
           "after_sha256": "30fecc1cd6dacf6c03470142d0d501f7f25dfde0900e19f8507335bf90399d9f"
         }
       ]
+    },
+    {
+      "id": "0367-cd32-combined-firmware",
+      "file": "patches/winuae/0367-cd32-combined-firmware.patch",
+      "sha256": "645d024d4c6e962f7fab7eb45501dfa6456da68c008325726dc01629109096e9",
+      "title": "Load canonical stock CD32 extended and main firmware in portable memory",
+      "reason": "T66p1 opens only the private stock CD32 profile to the canonical one-MiB pair; both halves use exact checked read_kickstart and retain the CD32 E0/F8 maps. Other profiles keep their closed ROM envelope.",
+      "category": "host hooks",
+      "order": 184,
+      "symbols": [
+        "load_kickstart"
+      ],
+      "test": "tests/media/test_cd32_boot.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "e6d35cfd5007cce9094b647a7ff5dbbc60e81d5f2b3009aeea793bfcfe707a1f",
+          "after_sha256": "cc517c3ddde5e90be06711d7610df446f513e5dea89ec7b40b8a029bce32567c"
+        }
+      ]
     }
   ]
 }

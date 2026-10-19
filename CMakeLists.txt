@@ -293,3 +293,10 @@ set_tests_properties(headless-identity PROPERTIES LABELS "headless;link" TIMEOUT
 add_test(NAME headless-rejects-arguments COMMAND p6_headless --boot)
 set_tests_properties(headless-rejects-arguments PROPERTIES LABELS "headless;link" TIMEOUT 30 WILL_FAIL FALSE
     PASS_REGULAR_EXPRESSION "usage:")
+# T66p1: private stock CD32 boot, full native engine and real streaming owners.
+add_executable(p6_cd32_boot_probe tests/media/cd32_boot_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_cd32_boot_probe p6_codegen)
+target_include_directories(p6_cd32_boot_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable"
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_cd32_boot_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_cd32_boot_probe PRIVATE p6_cd_images p6_state p6_bridge p6_portable)

@@ -1494,3 +1494,16 @@ campos exteriores, sin I/O ni callbacks. El dueño aporta Disc de identidad
 verificada y callbacks segun su presencia guardada; un player detenido puede estar
 sin binding aunque el dispositivo siga ligado al Disc. STATE01 compara PCM, Q y
 continuacion en otro binding. No añade chunk nativo, snapshot WB ni perfil CD32.
+
+T66p1 añade el perfil privado CD32 ID9 (sin macro ABI ni modelo de frontend):
+preset8/config0,68EC020 exacto,2MiBChip,AGA,Akiko CD/C2P/NVRAM1024,0disqueteras y
+overlayCD32. Rechaza CPU/precision/reloj alternativos, expansiones y medios ADF/HDF.
+Firmware es exactamente1MiB extended512KiB+main512KiB: SHA1 de los IDs64/19/18
+fijados en rommgr y checksums de ambas mitades se validan antes de iniciar motor;
+0367 carga las mitades en E0/F8 sin abrir la envoltura ROM de otros perfiles.
+SHA256 de identidad cubre ambas ROM. P6_CAP_STATE queda apagado para esta sesion;
+bound/save/load son Unsupported sin mutar hardware hasta integrar codec completo.
+El probe usa CdImage/Disc prestados hasta cerrar Akiko/CDDA, avanza solo p6_run_frame
+y comprueba actividad CD y regresion A1200; informa arranque de firmware, no juego.
+Assets requeridos: P6_CD32_ROM_MAIN/P6_CD32_ROM_EXT, CD publico sintetico por defecto
+o P6_CD_CUE_FILE autorizado. No añade soporte frontend ni acredita restore CD32.

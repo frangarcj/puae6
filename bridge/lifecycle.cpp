@@ -192,6 +192,7 @@ extern "C" p6_result p6_init(const p6_config *supplied, p6_error *error)
     if (const p6_result checked = p6_bridge::validate_config(*supplied, error))
         return checked;
     config = *supplied;
+    p6_bridge::profile_state_supported = config.machine != p6_bridge::kCd32Machine;
     session.state = State::Initialized;
     return P6_OK;
 }
@@ -207,8 +208,10 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
     if (session.state != State::Initialized)
         return p6_fail(error, P6_ERROR_BAD_STATE,
                        session.state == State::Uninitialized ? "p6_init has not been called" : "an image is already loaded");
-    if (const p6_result checked = p6_bridge::validate_firmware(firmware, error))
+    if (const p6_result checked = p6_bridge::validate_firmware(firmware, config.machine, error))
         return checked;
+    if (config.machine == p6_bridge::kCd32Machine && media_count)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "stock CD32 accepts its bound CD only, without floppy/HDF media");
     if (const p6_result checked = p6_bridge::validate_media(media, media_count, error))
         return checked;
 
@@ -269,6 +272,7 @@ extern "C" p6_result p6_shutdown(p6_error *error)
         return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
     if (session.state == State::Loaded || session.state == State::Faulted)
         release_engine();
+    p6_bridge::profile_state_supported = true;
     session.state = State::Uninitialized;
     return P6_OK;
 }

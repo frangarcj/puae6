@@ -61,7 +61,7 @@ typedef struct p6_caps {
 typedef struct p6_config {
     uint32_t abi_version;
     uint32_t struct_size;
-    uint32_t machine;           /* P6_MACHINE_A500, A600 or A1200; any other value is P6_ERROR_UNSUPPORTED. */
+    uint32_t machine;           /* P6_MACHINE_* below. An internal CD32 integration profile is gated separately, without frontend/state support. */
     uint32_t video_standard;    /* P6_VIDEO_PAL or P6_VIDEO_NTSC. */
     uint32_t audio_rate_hz;
     uint32_t flags;             /* P6_CONFIG_*; any other bit is P6_ERROR_BAD_ARGUMENT. */

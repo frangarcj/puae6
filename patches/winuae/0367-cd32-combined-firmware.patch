@@ -1,0 +1,36 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -2116,8 +2116,23 @@
+ 
+ 	if (f != NULL) {
+ #ifdef P6_PORTABLE
+-		// Main firmware for the closed A500 profile; do not select an extended loader.
+ 		const uae_s64 length = zfile_size(f);
++		if (currprefs.cs_cd32cd) {
++			// Only the canonical stock CD32 pair, already verified by the bridge.
++			struct romdata *rd = length == 2 * ROM_SIZE_512 ? getromdatabyzfile(f) : NULL;
++			if (!rd || rd->id != 64) { rom_load_status = P6_ROM_UNSUPPORTED; goto err; }
++			extendedkickmem_type = EXTENDED_ROM_CD32;
++			extendedkickmem_bank.reserved_size = ROM_SIZE_512;
++			extendedkickmem_bank.label = _T("rom_e0");
++			extendedkickmem_bank.start = 0xe00000;
++			mapped_malloc(&extendedkickmem_bank);
++			if (!extendedkickmem_bank.baseaddr) { rom_load_status = P6_ROM_NO_MEMORY; goto err; }
++			if (zfile_fseek(f, 0, SEEK_SET) || read_kickstart(f, extendedkickmem_bank.baseaddr, ROM_SIZE_512, 1, 1) != ROM_SIZE_512 ||
++				zfile_fseek(f, ROM_SIZE_512, SEEK_SET) || read_kickstart(f, kickmem_bank.baseaddr, ROM_SIZE_512, 1, 1) != ROM_SIZE_512)
++				goto err;
++			extendedkickmem_bank.mask = kickmem_bank.mask = ROM_SIZE_512 - 1;
++			kickmem_bank.reserved_size = ROM_SIZE_512;
++		} else {
+ 		uae_u8 header[8];
+ 		if (zfile_fread(header, 1, sizeof header, f) != sizeof header)
+ 			goto err;
+@@ -2146,6 +2161,7 @@
+ 				goto err;
+ 		kickmem_bank.mask = size - 1;
+ 		kickmem_bank.reserved_size = size;
++		}
+ #else
+ 		int filesize, size, maxsize;
+ 		int kspos = ROM_SIZE_512;
