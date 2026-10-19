@@ -74,15 +74,33 @@ playlist M3U. Se crea en memoria y se conserva al cerrar como
 escritura/guardado. Playlists con el mismo nombre comparten esos archivos: usa
 nombres distintos para partidas independientes.
 
+## Packs WHDLoad
+
+Pon tu `WHDLoad_usr.lha` oficial de WHDLoad 20.0 en el directorio de sistema del
+frontend, junto al Kickstart A1200 indicado arriba. Abre el LHA, ZIP o directorio
+de un juego ya instalado con exactamente un `.slave`. `puae6_whdload=auto`
+selecciona A1200 y prepara sus tres discos en memoria. No ejecuta instaladores.
+
+Activa `puae6_hdf_save=on_close` y configura un directorio de guardado para
+conservar las partidas al cerrar normalmente. WHDSaves es compartible entre
+packs; los datos originales del juego permanecen intactos. Rewind y runahead
+conservan unicamente las escrituras de la rama que finalmente cierras.
+
+`puae6_whdload_buttonwait=enabled` añade ButtonWait, si el juego lo admite;
+por defecto esta desactivado. Ambas opciones requieren volver a cargar el contenido.
+Para una instalacion con su propio script de arranque, usa `puae6_whdload=disabled`.
+La carga automatica admite un pack solo; para mezclar otros medios usa ese flujo
+explicito. Los errores nombran el proveedor ausente, la version distinta o el
+slave ambiguo; el core no descarga esos archivos.
+
 ## Limites de esta entrega
 
 Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
 usan interprete de CPU. El preset A4030 Normal es experimental: las pruebas
 sinteticas pasan, pero falta validar su arranque con firmware A4000 real.
-040/060, maquinas CD32/CDTV y la carga automatica WHDLoad siguen en desarrollo.
-El bundle WHDLoad preparado con las herramientas incluidas ya guarda puntuaciones
-en su volumen separado; consulta `docs/whdload.md` en los fuentes para prepararlo
-y cargalo como playlist M3U con A1200 y `puae6_hdf_save=on_close`.
+040/060 y las maquinas CD32/CDTV siguen en desarrollo. Algunos slaves WHDLoad
+necesitan Kickstarts o RTB adicionales; esos archivos debe aportarlos el usuario
+mediante el preparador explicito descrito en `docs/whdload.md` de los fuentes.
 El mando CD32 no implica soporte de la maquina CD32 ni de sus discos CD.
 La integracion Waterbox/MacHawk es un producto separado y no se instala
 con este ZIP. No se declara CI remota ni reproducibilidad binaria auditada.
