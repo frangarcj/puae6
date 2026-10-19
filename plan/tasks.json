@@ -12314,7 +12314,7 @@
       "title": "Modos de CPU rapidos (compatible / normal, sin cycle-exact) como opcion, deterministas",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
@@ -12355,7 +12355,9 @@
         "tests/waterbox-state/test_wrapper_cpu.py",
         "docs/options.md",
         "tests/libretro-ui/**",
-        "manifests/waterbox-memory.json"
+        "manifests/waterbox-memory.json",
+        "tools/bench.py",
+        "tests/bench/**"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: anadir los niveles de PUAE5 (puae_cpu_compatibility normal/compatible/exact). Generar cpuemu sin CE (0/11/20...) y seleccionarlos por opcion de reinicio; m68k_speed nunca ligado al reloj del host; DET02 y estados en cada nivel; ADR que fija que la identidad del estado incluye el nivel.",
@@ -12369,7 +12371,8 @@
         "Integracion por lote: regenerar una vez los presupuestos medidos Waterbox con el guest combinado CPU/CD32/DF0-DF3; no conservar medidas de un binario anterior como si correspondieran al nuevo.",
         "La primera integracion WB expone referencias MMU/040 inalcanzables que el enlace nativo descarta. Resolver la diferencia de receta/perfil preservando todas las entradas exportadas del guest y los flags x18/x28/16KiB, sin stubs de exito; T55b se difiere durante esta correccion.",
         "Registrar los checks funcionales dirigidos existentes, incluido WB03 de los tres niveles; PERF01 conserva su puerta pendiente de medicion comparativa en la candidata, no se sustituye por estadistica del harness ni un build exitoso.",
-        "Antes del cierre de T53 faltan PERF01 comparativo y el re-registro conjunto de memoria de la candidata. Conservar la generacion limitada al perfil soportado y las pruebas reales de snapshot de cada nivel."
+        "Antes del cierre de T53 faltan PERF01 comparativo y el re-registro conjunto de memoria de la candidata. Conservar la generacion limitada al perfil soportado y las pruebas reales de snapshot de cada nivel.",
+        "Preparacion PERF01 de la candidata: reutilizar probes y ventanas existentes con CPU/modelo y precision explicitos en nativo/libretro/WaterboxCore. Primera vertical limitada a propagar argumentos y registrarlos, sin nuevas medidas de flags/SIMD ni reducir warmup/repeticiones del protocolo; campana comparativa completa se ejecuta una vez sobre la candidata estable."
       ],
       "checks": [
         "GEN01",
@@ -14811,7 +14814,7 @@
       "stop": "No cambiar el defecto ni saltar limites de p6_run_frame.",
       "id": "T77a",
       "title": "Niveles de colisiones con identidad y restauracion",
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T24"
       ],
