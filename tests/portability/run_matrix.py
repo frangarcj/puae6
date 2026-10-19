@@ -52,7 +52,7 @@ class Row:
         """Runs a shell command in the row's environment; the output goes to `log` (a Path). Returns (exit code, seconds)."""
         self.host_dir.mkdir(parents=True, exist_ok=True)
         if self.docker:
-            argv = ["docker", "run", "--rm", "--platform", self.spec["platform"], "--user", f"{os.getuid()}:{os.getgid()}",
+            argv = ["docker", "run", "--rm", "--pull=never", "--network=none", "--platform", self.spec["platform"], "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "HOME=/tmp", "-e", "PYTHONDONTWRITEBYTECODE=1", "-v", f"{ROOT}:/src:ro", "-v", f"{self.host_dir}:/src/build",
                     "-v", f"{CORPUS_DIR}:/corpus:ro", "-v", f"{BUILD / 'states'}:/states", "-w", "/src"]
             if kickstart:

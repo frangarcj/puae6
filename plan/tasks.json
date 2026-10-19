@@ -11533,9 +11533,10 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
-        "T39a"
+        "T39a",
+        "T35"
       ],
       "read": [
         "docs/04-validation.md",
@@ -11546,7 +11547,12 @@
         ".github/workflows/**",
         "tools/ci/**",
         "tests/ci/**",
-        "docs/ci.md"
+        "docs/ci.md",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "tests/portability/run_matrix.py",
+        ".github/actionlint.yaml",
+        "tests/audio/test_audio.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11554,7 +11560,10 @@
         "Archivar logs, primeros desyncs y manifests sin ROMs privadas ni rutas sensibles; fijar dependencias/actions.",
         "Probar que un check faltante/fallido o asset requerido ausente bloquea la puerta, sin convertirlo en continue-on-error.",
         "Mantener WB13-WB15 y smoke real MacHawk ARM64 desde el primer gate; los jobs x86_64 no lo sustituyen.",
-        "Mantener todos los checks y la puerta de salida originales de T39; registrar por separado la ejecucion local y la remota."
+        "Mantener todos los checks y la puerta de salida originales de T39; registrar por separado la ejecucion local y la remota.",
+        "Registrar los checks acumulados en tools/check.py y conservar el test de dependencias exactas al añadir T35, cuyas recetas de optimizacion tambien se ejecutan.",
+        "Impedir pulls y red al ejecutar la matriz existente: la CI verifica los IDs de las imagenes locales fijadas antes/despues de cada suite.",
+        "Declarar etiquetas self-hosted para actionlint y ubicar el test BEAMCON0 de audio solo en los presets ECS/AGA que lo soportan, conservando ambas ejecuciones y todas sus assertions."
       ],
       "checks": [
         "PLAN01",

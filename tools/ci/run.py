@@ -36,7 +36,7 @@ def recipe():
 
 def redact(text):
     replacements = [(str(ROOT), "@repo"), (tempfile.gettempdir(), "@tmp"), (str(Path.home()), "@home")]
-    replacements += [(v, "@private-asset") for k, v in os.environ.items() if k.startswith("P6_") and ("ROM" in k or "ZIP" in k or "ADF" in k or "DMS" in k) and v]
+    replacements += [(v, "@private-asset") for k, v in os.environ.items() if k.startswith("P6_") and v and Path(v).is_absolute()]
     for value, replacement in sorted(replacements, key=lambda p: len(p[0]), reverse=True):
         text = text.replace(value, replacement)
     return text

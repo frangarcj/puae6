@@ -32,3 +32,38 @@ acumuladas nightly/release. Esa integracion y sus workflows pertenecen a T39b.
 T39 conserva su aceptacion completa: recetas ejecutadas en los runners declarados
 y evidencia remota ausente bloqueada. No publicar workflows ni configurar
 secretos, runners o servicios sin autorizacion del usuario.
+
+## Nightly y release (T39b)
+
+`python3 tools/ci/nightly.py --lane L` ejecuta una de estas recetas; `--list`
+solo enumera sus suites (`NOT_RUN`):
+
+- `clean`: dos codegens limpios comparados y build nativo desde un temporal vacio.
+- `functional`: todos los modulos actuales fuera de las lanes especializadas,
+  incluido firmware real, estados, medios, peliculas y Waterbox. Los once assets
+  de `ASSETS` deben estar configurados como variables P6_ locales; no se copian,
+  descargan ni publican. Una omission/xfail conserva el bloqueo.
+- `matrix`: los dos corpus completos, cinco filas, O0/O2/sanitizers y entorno
+  host alterado; comprueba los IDs de las imagenes locales fijadas, sin pulls/red.
+- `sanitizers`: toda la suite fuzz; conserva semillas y conteos.
+- `optimization`: prepara/valida todos los experimentos de flags y los cinco
+  frontends normales/sanitizados; incluye equivalencia SIMD y guardas.
+- `performance`: prepara y verifica los inputs antes de las 75 medidas de flags
+  y las 150 medidas del frontend, y ejecuta las suites de medicion y presupuesto.
+  Se mantiene la politica ADVISORY existente; no transforma ruido en limite duro.
+
+La seleccion acumula todos los `test_*.py`; las clases SIMD se reparten
+explicitamente y un modulo nuevo sin clasificar falla. No se sustituyen tests
+actuales por resultados guardados. Los datos intermedios de experimentos estan en
+build/ mientras se validan; al cerrar la ejecucion se eliminan las medidas/logs.
+No se modifica el ADR para ajustar decisiones a medidas nuevas.
+
+El workflow local `.github/workflows/puae6.yml` ofrece PR/nightly/release manuales,
+con checkout fijado a un commit y sin credenciales persistentes. Requiere runners
+ya preparados: etiquetas `puae6` y `puae6-perf`, herramientas/caches offline,
+referencia MacHawk de solo lectura y guest/runtime correspondientes. No instala
+paquetes ni aprovisiona runners. Rendimiento espera a terminar los otros checks;
+no compite con sanitizers. No hay upload de informes ni assets privados.
+
+No hay `origin` configurado en este checkout. Guardar este YAML y ejecutar lanes
+locales no acredita ejecucion remota: T39b/T39 permanecen pendientes de esa puerta.

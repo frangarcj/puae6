@@ -68,7 +68,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(336, len(by_id))
         self.assertEqual(328, sum(task["required"] for task in by_id.values()))
         self.assertEqual(["T25", "T26", "T32", "T33", "T25a", "T48f", "T36"], by_id["T39a"]["depends"])
-        self.assertEqual(["T39a"], by_id["T39b"]["depends"])
+        self.assertEqual(["T39a", "T35"], by_id["T39b"]["depends"])
         self.assertEqual(["T25", "T26", "T32", "T33", "T25a", "T48f", "T39a", "T39b"], by_id["T39"]["depends"])
         self.assertEqual(by_id["T39"]["checks"], by_id["T39b"]["checks"])
         self.assertTrue({"WB13", "WB14", "WB15"} <= set(by_id["T39a"]["checks"]))

@@ -1,0 +1,45 @@
+name: PUAE6
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        type: choice
+        options: [pr, nightly, release]
+        default: pr
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: puae6
+  cancel-in-progress: false
+jobs:
+  checks:
+    runs-on: [self-hosted, macOS, ARM64, puae6]
+    timeout-minutes: 1440
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          clean: false
+          persist-credentials: false
+      - name: Public PR gate
+        if: inputs.suite == 'pr'
+        run: python3 tools/ci/run.py
+      - name: Accumulated checks
+        if: inputs.suite != 'pr'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lane in clean functional matrix sanitizers optimization; do
+            python3 tools/ci/nightly.py --lane "$lane"
+          done
+  performance:
+    needs: checks
+    if: inputs.suite != 'pr'
+    runs-on: [self-hosted, macOS, ARM64, puae6-perf]
+    timeout-minutes: 1440
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          clean: false
+          persist-credentials: false
+      - run: python3 tools/ci/nightly.py --lane performance

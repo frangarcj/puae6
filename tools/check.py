@@ -422,6 +422,9 @@ TASK_SUITES[('WB03', 'T39a')] = {**_ci_waterbox,
     'core_dma_and_pending_swap': _wrapper_state + '.test_save_go_on_load_and_repeat_gives_the_same_units_and_the_same_machine'}
 for _gate in ('WB13', 'WB14', 'WB15'):
     TASK_SUITES[(_gate, 'T39a')] = dict(_ci_waterbox)
+TASK_SUITES[('PLAN01', 'T39b')] = {'ci_recipes': 'tests.ci.test_nightly', 'plan': 'tests.test_plan'}
+CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
+            'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 
 TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
@@ -499,6 +502,26 @@ def dispatch(check_id, task='T04', profile='deterministic-a500', scenario=None, 
         if scenario is not None:
             validate_scenario(load_json(scenario))
             return finish('NOT_IMPLEMENTED', 'Escenario valido, pero no hay runner de emulacion conectado')
+        if task == 'T39b' and check_id in CI_LANES and profile == 'deterministic-a500':
+            from ci.run import command
+            from ci.nightly import validate_result
+            wanted = list(CI_LANES[check_id])
+            if set(required) - set(wanted):
+                return finish('NOT_IMPLEMENTED', 'Lane requerida ausente', set_override=wanted)
+            for lane in wanted:
+                process = command([sys.executable, 'tools/ci/nightly.py', '--lane', lane], timeout=24 * 3600)
+                try:
+                    payload = json.loads(process.stdout.strip().splitlines()[-1])
+                    validate_result(payload, lane)
+                except (ValueError, TypeError, KeyError, IndexError):
+                    return finish('FAIL', 'Veredicto CI invalido/incompleto', set_override=wanted)
+                status = payload['status']
+                if status not in ('PASS', 'FAIL', 'BLOCKED') or payload.get('lane') != lane:
+                    return finish('FAIL', 'Veredicto CI incompleto', set_override=wanted)
+                if status != 'PASS' or process.returncode != 0:
+                    return finish(status if status != 'PASS' else 'FAIL', json.dumps(payload, ensure_ascii=False), set_override=wanted)
+                executed.append(lane)
+            return finish('PASS', 'Lanes CI completas ejecutadas: ' + ', '.join(wanted), 'CI_RUNTIME', wanted)
         if (check_id, task) in TASK_SUITES and profile == 'deterministic-a500':
             def task_finish(status, diagnostic, wanted, evidence='NONE'):
                 return finish(status, diagnostic, evidence, wanted)
