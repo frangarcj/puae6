@@ -15311,6 +15311,45 @@
       "stop": "No declarar CD32 completo: estado causal de maquina, NVRAM, frontends y arranque/restore siguen enT66."
     },
     {
+      "id": "T66m1",
+      "title": "NVRAM Akiko real persistente entre reset y estado privado",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66c",
+        "T66h2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0363-akiko-nvram-lifecycle.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/cd32_nvram.h",
+        "tests/media/cd32_nvram_probe.cpp",
+        "tests/media/test_cd32_nvram.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0363/order180 sobreAkiko tras0362(stockROMguardestable). Backing1024B yEEPROMrealdeT66c; primeracreacioncero, resetconservabytesyrecreachipparareiniciarfasecompletamente. Portable sinflashfile niFS. eeprom_resetupstreamsolo no limpialatotalidaddeestado; demostrarcasobitbangreal.",
+        "akiko_freeconservaNVRAMporqueakiko_init/restorelousan. Exitdesesionregistrado medianteAPIdevice_add_exitreallibera chip/backing/nulls yevitaheredarbytesenotrapoweron. Estado privadoEEPROM+DDR8/SCL/SDA; validacionouterylatchesconprotocolocompletaantesmutacion. Noimport/exportfrontendtodavia.",
+        "Probe porMMIO real, akiko_reset yregistrocallbacksreal, VFS/EEPROMreales, ramasajenascontrampasexplicitassi necesarios. Preservacionreset, continuacionentrebits/ACK/cambiosDDR, rechazotransaccional,cierreidempotenteynuevasesionvacia. Presupuesto300–350manuales; standaloneASan/UBSan, sinengine/guest ni matriz. EstafichaesindependientedelcheckenlaceK1, nohabilitamodelo."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Reset deAkiko conserva1024bytes yreiniciaprotocolo; fin desesionliberaeldueñoysuestadoprivado puedereanudarse sinpunteroshost."
+      ],
+      "stop": "SaveRAMfrontend/codeccompleto yarranque/restoreCD32 siguenenT66; nocerrarpadreporcomponente."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15339,7 +15378,8 @@
         "T66k1",
         "T66l1",
         "T66l2",
-        "T66n1"
+        "T66n1",
+        "T66m1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15368,7 +15408,8 @@
         "T66g2 aporta sintesis P/Q explicita yT66g3 superficie blkdev dirigida. Se conserva la integracion almacenado/sintetico, Akiko cooperativo/estado, CDDA, todoslosformatos y arranque/restore real enambosadaptadores como puerta del padre.",
         "Divisiones previas porpresupuesto: H1servicioAkiko/H2tiempocausal, I1streamCDA/I2player, J1parserCCD/J2proveedor. La conexion completaCDDA/dispositivo, codecsestadoAkiko+audio, NVRAM/SaveRAM, frontends, restantesformatos y arranque/restore real conservan todas las puertas delpadre.",
         "T66k1 ensambla grafo nativo real sin habilitar machine; T66l1/l2 adelantan NRG DAO poroffset. NRG variantes pendientes, MDS/CHD y arranque/estado completo permanecen abiertos en el padre; no se recorta alcance por preview.",
-        "T66n1 conectara CDDA/blkdev yclasificacionefectiva compartida; codeccompletoCDDA/Akiko,NVRAM,frontends yarranque/restore siguenpuertasdelpadre."
+        "T66n1 conectara CDDA/blkdev yclasificacionefectiva compartida; codeccompletoCDDA/Akiko,NVRAM,frontends yarranque/restore siguenpuertasdelpadre.",
+        "T66m1 integraNVRAM real convida desesion/reset yestadoprivado; SaveRAMfrontend/codecmaquina yarranque/restore siguenpendientes."
       ],
       "checks": [
         "MED01",
