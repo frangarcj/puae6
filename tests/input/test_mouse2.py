@@ -54,10 +54,12 @@ class Mouse2Tests(Det02Case):
         for standard in ((), ("--ntsc",)):
             path = self.dir / "registers.bin"
             self.probe("mice", "--units", "8", *standard, "--port", "0:2:0:0:0", "--port", "1:2:0:0:0",
-                       "--port-at", "4", "0:2:1:5:-3", "--port-at", "4", "1:2:6:-7:2", "--ramout-at", "8", "0x1000", "56", str(path))
-            words = struct.unpack(">28H", path.read_bytes())
+                       "--port-at", "4", "0:2:1:5:-3", "--port-at", "4", "1:2:6:-7:2", "--ramout-at", "8", "0x1000", "72", str(path))
+            words = struct.unpack(">36H", path.read_bytes())
+            # VERTB is already pending when this ROM enables INTENA: record0
+            # belongs to the reset head; each completed unit then adds a record.
             for u in range(4, 9):
-                joy0, joy1, pots, fire = words[(u - 2) * 4:(u - 1) * 4]
+                joy0, joy1, pots, fire = words[u * 4:(u + 1) * 4]
                 n = u - 3
                 self.assertEqual((((-3 * n) & 255) << 8) | ((5 * n) & 255), joy0)
                 self.assertEqual((((2 * n) & 255) << 8) | ((-7 * n) & 255), joy1)
