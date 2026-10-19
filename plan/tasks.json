@@ -14607,12 +14607,14 @@
         "tests/media/**",
         "tools/check.py",
         "docs/02-contracts.md",
-        "tests/reference/patch-classes.json"
+        "tests/reference/patch-classes.json",
+        "ports/portable/media/cd_cue_metadata.h"
       ],
       "steps": [
         "Aislar parsecue de blkdev_cdimage.cpp6030 mediante parche pequeno y exportacion de metadata; reutilizar logica de pistas/indices sin enlazar hilos/CDDA/MP3/FLAC. No copiar motor antiguo ni usar cdfs_parse_cue como TOC completa. Antes de editar concretar presupuesto y numero de parche con coordinador.",
         "Endurecer nextstring/skipnspace alNUL, tiempos por longitud/rangos, tipos desconocidos comoerror y t[-1] del primerINDEX01; WAV usa proveedorvalidadoe1. Convertir layout INDEX00/01, PREGAP/POSTGAP/FLAGS sobre fuentes VFS/stdio y SHA canonicodeTOC+IDs.",
-        "Probar BINmultitrack y CUE29pistas Brian con ambos tipos de pregap, errores y rangos, sin copiar CD alguest. Registrar subcanales no almacenados como unsupported2448 hasta sintesis real posterior. Conservar todos los formatos, CDDA y arranque/restore CD32 pendientes en padre; dividir antes de400 lineas manuales."
+        "Probar BINmultitrack y CUE29pistas Brian con ambos tipos de pregap, errores y rangos, sin copiar CD alguest. Registrar subcanales no almacenados como unsupported2448 hasta sintesis real posterior. Conservar todos los formatos, CDDA y arranque/restore CD32 pendientes en padre; dividir antes de400 lineas manuales.",
+        "Reservar patch0356 para aislar/hacer seguro el parser fijado. Ampliacion explicita de ports/portable/media/cd_cue_metadata.h para tipos y callbacks metadata-only host; no enlazar zfile con filesystemhost en perfil deterministic ni redefinir funciones zfile globales del motor. Antes de editar explicar como se adaptan opens/lecturas/seek/duplicados del parser al proveedor CdFile sin cargar CD entero, y estimar total; dividir si supera400 lógicas."
       ],
       "checks": [
         "MED01"
