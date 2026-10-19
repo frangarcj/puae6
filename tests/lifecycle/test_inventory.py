@@ -18,7 +18,7 @@ FIELDS = {"id", "subsystem", "symbols", "owner", "at_load", "survives_unload", "
 def source_text():
     parts = []
     for base, suffixes in ((ROOT / "build/upstream", {".cpp", ".h", ".c"}), (ROOT / "bridge", {".cpp", ".h"}),
-                           (ROOT / "ports/portable", {".cpp", ".h", ".c"})):
+                           (ROOT / "ports/portable", {".cpp", ".h", ".c"}), (ROOT / "adapters/waterbox", {".cpp", ".h"})):
         if base.is_dir():
             parts += [path.read_text(encoding="utf-8", errors="replace") for path in base.rglob("*")
                       if path.suffix in suffixes and path.is_file()]
@@ -74,7 +74,7 @@ class InventoryTests(unittest.TestCase):
         for entry in self.entries:
             for symbol in entry["symbols"]:
                 with self.subTest(entry=entry["id"], symbol=symbol):
-                    self.assertRegex(text, r"\b%s\b" % re.escape(symbol))
+                    self.assertIsNotNone(re.search(r"\b%s\b" % re.escape(symbol), text), f"missing inventory symbol: {symbol}")
 
 
 if __name__ == "__main__":

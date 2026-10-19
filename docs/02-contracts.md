@@ -1604,3 +1604,24 @@ un reset dentro de la sesion conserva su semantica existente. La prueba dirigida
 compara RAM, video, PCM y ticks tras runahead, rewind, recarga y proceso nuevo,
 y rechaza otro CD sin mutar la maquina. NVRAM SaveRAM, CD32FR, playlists/cambio
 de CD, los formatos restantes, Waterbox y arranque de juego siguen en T66.
+
+## Conexion privada CD32 Waterbox (T66r2)
+
+El bind post-Seal conecta el backend al Disc permanente del guest. El firmware
+ya se copio a sealed y p6_load inicializo Akiko sin fuente CD; p6w_cd_activate
+reabre el dispositivo mediante akiko_init antes de la primera unidad. No avanza
+CPU, cambia scheduler ni reinterpreta un reset. Los registros de dispositivos
+deduplican callbacks y los buffers de Akiko viven en heap ordinario. La llamada
+se rechaza antes del bind, tras activarse, fuera de CD32 o despues del primer frame.
+
+Rebind comprueba identidad y TOC con candidatos temporales, pero conserva los
+bytes capturados de metadatos inmutables, incluidos sus rellenos. Solo actualiza
+el thunk derivado de slot0; no reinicia opens, cabezal ni CDDA. p6w_shutdown
+cierra primero el motor y despues desconecta y limpia la fuente CD.
+
+La prueba privada DiscSystem/Waterbox ejecuta firmware autorizado y lecturas
+reales del CUE; tras save300, reset y restore compara 15 unidades de video/PCM,
+ticks, Chip RAM y snapshot completo byte a byte en el mismo sandbox, en otro
+y en otro proceso. La baseline CD vacia y el descriptor2432 siguen probados.
+El loader publico BizHawk, su identidad de pelicula, NVRAM SaveRAM, CD32FR y
+arranque de juego siguen pendientes en T66.

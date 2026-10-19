@@ -2,6 +2,13 @@
 #include "p6w_cd.h"
 #include "p6.h"
 #include "media/cd_disc.h"
+#include "sysconfig.h"
+#include "sysdeps.h"
+#include "media/cd_device.h"
+#include "akiko.h"
+#include "akiko_controller_state.h"
+#include "../../bridge/session.h"
+#include "../../bridge/config.h"
 #include <stddef.h>
 #include <string.h>
 namespace {
@@ -9,6 +16,7 @@ p6_cd::Disc cd_disc;
 p6_cd::Source cd_source;
 p6w_cd_read_fn cd_callback;
 bool cd_bound;
+bool cd_activated;
 static_assert(sizeof(p6w_cd_info) == 2432, "private CD descriptor layout");
 bool read_host(const void *, uint64_t at, void *out, size_t count, size_t *got)
 {
@@ -31,9 +39,12 @@ ECL_EXPORT uint64_t p6w_cd_layout(uint64_t *out, uint64_t capacity)
 }
 ECL_EXPORT int32_t p6w_cd_bind(const p6w_cd_info *info, p6w_cd_read_fn callback, uint32_t rebind)
 {
+ p6_session::Guard guard;
+ if (!guard.ok) return P6_ERROR_BUSY;
  if (!info || !callback || rebind > 1 || info->version != 1 || info->size != sizeof *info
   || !info->count || info->count > 99 || info->bytes != uint64_t(info->leadout) * 2448) return P6_ERROR_BAD_ARGUMENT;
  if (bool(rebind) != cd_bound) return P6_ERROR_BAD_STATE;
+ if (p6_cd::device_bound_disc() != (cd_bound ? &cd_disc : nullptr)) return P6_ERROR_BAD_STATE;
  p6_cd::Layout layout{};
  memcpy(layout.content_id, info->id, 32); layout.tracks = info->count; layout.leadout = info->leadout;
  for (uint32_t n = 0; n < 99; ++n) {
@@ -51,7 +62,35 @@ ECL_EXPORT int32_t p6w_cd_bind(const p6w_cd_info *info, p6w_cd_read_fn callback,
  auto r = rebind ? source.rebind(binding.identity, read_host, nullptr) : source.bind(binding.identity, read_host, nullptr);
  if (r == p6_cd::Result::Ok) r = rebind ? disc.rebind(layout, &binding, 1) : disc.bind(layout, &binding, 1);
  if (r != p6_cd::Result::Ok) return result(r);
- cd_source = source; cd_disc = disc; cd_callback = callback; cd_bound = true; return P6_OK;
+ if (!rebind) {
+  cd_source = source; cd_disc = disc;
+  // Bind only the permanent object. Candidate objects never escape this call.
+  if (p6_cd::device_bind(&cd_disc) != p6_cd::Result::Ok) {
+   cd_source = p6_cd::Source{}; cd_disc = p6_cd::Disc{}; return P6_ERROR_INTERNAL;
+  }
+ }
+ // Metadata and read_host/context are immutable. Retain their captured bytes
+ // on rebind too (including padding); only the derived slot0 thunk changes.
+ cd_callback = callback; cd_bound = true; return P6_OK;
+}
+ECL_EXPORT int32_t p6w_cd_activate(void)
+{
+ p6_session::Guard guard;
+ if (!guard.ok) return P6_ERROR_BUSY;
+ const auto &s = p6_session::session;
+ if (!cd_bound || cd_activated || s.state != p6_session::State::Loaded || s.started
+  || s.config.machine != p6_bridge::kCd32Machine) return P6_ERROR_BAD_STATE;
+ // p6_load ran before Seal, without external CD metadata. Reopen through the
+ // real device lifecycle before any CPU advance; registrations deduplicate.
+ p6_akiko_controller_state state{};
+ if (!akiko_init() || !p6_akiko_controller_get(&state) || state.unitnum != 0) return P6_ERROR_INTERNAL;
+ cd_activated = true; return P6_OK;
+}
+void p6w_cd_session_end(void)
+{
+ if (cd_bound) p6_cd::device_unbind();
+ cd_disc = p6_cd::Disc{}; cd_source = p6_cd::Source{};
+ cd_callback = nullptr; cd_bound = cd_activated = false;
 }
 ECL_EXPORT int32_t p6w_cd_read_at(uint64_t at, void *out, uint32_t count)
 {

@@ -19,6 +19,7 @@ public abstract partial class LibPuae6
  [UnmanagedFunctionPointer(CC)] public delegate int CdRead(ulong offset, IntPtr destination, uint count);
  [BizImport(CC)] public abstract ulong p6w_cd_layout(IntPtr output, ulong capacity);
  [BizImport(CC)] public abstract int p6w_cd_bind(IntPtr info, CdRead callback, uint rebind);
+ [BizImport(CC)] public abstract int p6w_cd_activate();
  [BizImport(CC)] public abstract int p6w_cd_read_at(ulong offset, IntPtr output, uint count);
  [BizImport(CC)] public abstract int p6w_cd_read_sector(uint lba, uint view, IntPtr output, uint capacity);
 }
@@ -67,6 +68,13 @@ public unsafe sealed class P6CdHost
   if (faulted) return P6.BadState;
   using var active = guest.Host.EnterExit();
   fixed (byte* p = output) return guest.Lib.p6w_cd_read_at(offset, (IntPtr)p, (uint)output.Length);
+ }
+ public int Activate(Puae6Guest guest)
+ {
+  if (!ReferenceEquals(host, guest.Host)) return P6.BadArgument;
+  if (!guest.IsSealed || faulted) return P6.BadState;
+  using var active = guest.Host.EnterExit();
+  return guest.Lib.p6w_cd_activate();
  }
  public void Restore(Puae6Guest guest, BinaryReader input, StateIdentity expected)
  {

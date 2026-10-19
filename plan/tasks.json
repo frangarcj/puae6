@@ -16117,6 +16117,54 @@
       "stop": "No anunciar T66 completa; no extender formatos por fallback, no serializar handles/punteros ni reabrir el CD al restaurar."
     },
     {
+      "id": "T66r2",
+      "title": "Conexion CD32 real post-Seal en Waterbox y restauracion del dispositivo",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T66f1",
+        "T66p1",
+        "T66m7",
+        "T66r1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/waterbox/cd_source.cpp",
+        "adapters/waterbox/p6w_cd.h",
+        "adapters/waterbox/puae6_guest.cpp",
+        "integration/bizhawk/core/Puae6/CdHost.cs",
+        "tests/media/csharp-disc/**",
+        "tests/waterbox-media/test_cd_source.py",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "manifests/state-inventory.json",
+        "tests/lifecycle/test_inventory.py"
+      ],
+      "steps": [
+        "Bind post-Seal transaccional conecta el backend al Disc permanente. Rebind valida ID/TOC completos pero conserva los bytes capturados de metadata inmutable y los estados opens/cabezal/CDDA; solo actualiza el thunk derivado slot0. El test real detecto sustitucion de padding de Source por temporales y exige snapshot completo identico, sin normalizacion ni tolerancia.",
+        "Activacion privada antes de la primera unidad mediante akiko_init real: p6_load ya preparo firmware sealed y Akiko sin CD; tras Seal/bind se reabre unidad0. El registro de dispositivos deduplica funciones y los buffers usan heap ordinario; no se avanza hardware ni se simula apertura con setters. Se rechazan fase/modelo/duplicados incompatibles.",
+        "p6w_shutdown conserva errores de unload y desconecta/limpia fuente solo despues del cierre del motor. Inventario incluye cd_activated y estado reset al fin de sesion. Se amplio touch al inventario y a su verificador para leer su propietario adapters/waterbox y acotar errores de simbolos ausentes.",
+        "Guest ARM64 construido y ejecutado realmente con0374/bridge actual: f97280e0c64e6034a9fd9cf315ce05025447b08493a80469241f92c03cd42cc8, 91inputs vinculados verificados identicos al recibo. Runtime existente, sin nueva matriz ni mediciones historicas regrabadas.",
+        "WB03/T66r2 PASS con ROMmain/ext locales y CUE Brian: lecturas de firmware, save300, reset real, futuro15unidades exacto video/PCM/ticks/ChipRAM y snapshot byte a byte, mismo/nuevo sandbox/proceso, identidad ajena sin mutacion y teardown. Tambien baseline vacia ISO/CUE F1 PASS. ABI01 descriptor2432/ABI1/layout31 PASS; inventario4tests y plan34tests PASS. No acredita loader publico, pelicula, SaveRAM ni arranque de juego; el padre conserva esas puertas."
+      ],
+      "checks": [
+        "WB03",
+        "ABI01"
+      ],
+      "acceptance": [
+        "Un CD32 privado ejecuta firmware y lee CD por callback real dentro de Waterbox; snapshot y rebind conservan el dispositivo en otro sandbox/proceso con identidad comprobada."
+      ],
+      "stop": "No dar por terminado T66, no usar nativo como Waterbox ni copiar CD entero a heap."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16159,7 +16207,8 @@
         "T66m5",
         "T66m6",
         "T66m7",
-        "T66r1"
+        "T66r1",
+        "T66r2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16195,7 +16244,8 @@
         "T66m2/m3 separan por presupuesto transporte de la agregacion causal Akiko completa; la puerta de NativeChunk y snapshot WB con CD32 real permanece abierta hasta su integracion.",
         "T66p1 prepara perfil stock y firmware/arranque nativo sin anunciar modelo en libretro; conserva codec, carga frontend, Waterbox y arranque/restauracion de juego como puertas del padre.",
         "T66q1 corrige el reloj CDA excluido del motor portable real; conserva boot/codec/frontend/Waterbox como puertas del padre.",
-        "T66r1 integra CD directo stock en libretro por Automatic con propietario de sesion y estado real. CD32FR, cambio de CD, NVRAM SaveRAM, Waterbox, juego y formatos restantes conservan todas las puertas del padre."
+        "T66r1 integra CD directo stock en libretro por Automatic con propietario de sesion y estado real. CD32FR, cambio de CD, NVRAM SaveRAM, Waterbox, juego y formatos restantes conservan todas las puertas del padre.",
+        "T66r2 conecta el backend CD dentro del guest Waterbox tras Seal y prueba CD32 privado con snapshot; el loader publico, identidad wrapper y SaveRAM siguen en este padre."
       ],
       "checks": [
         "MED01",

@@ -382,12 +382,13 @@
         "cd_disc",
         "cd_source",
         "cd_callback",
-        "cd_bound"
+        "cd_bound",
+        "cd_activated"
       ],
       "owner": "adapters/waterbox/cd_source.cpp",
-      "at_load": "Created once per fresh sandbox after Puae6Guest.Seal captures a common empty-CD baseline. CD metadata/binding are dirty ordinary snapshot state and survive p6 engine load/unload; Source/Disc bindings and slot0 thunk are derived. Restore validates StateEnvelope and rebinds identical metadata before access. No CD image or host context pointer is stored.",
-      "survives_unload": true,
-      "status": "rebuilt",
+      "at_load": "Created after Puae6Guest.Seal captures the common empty-CD baseline. Source/Disc metadata and cd_activated are ordinary dirty snapshot state. The backend borrows the permanent cd_disc. A private pre-frame activation reopens real Akiko after binding. Restore checks identity/geometry, preserves captured immutable metadata bytes and backend opens/head/CDA, and updates only slot0 thunk. p6w_shutdown closes the engine before unbinding and clearing metadata. No CD image or host context pointer is stored.",
+      "survives_unload": false,
+      "status": "reset",
       "evidence": [
         "tests/waterbox-media/test_cd_source.py"
       ]

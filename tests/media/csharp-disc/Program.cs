@@ -87,7 +87,7 @@ internal static unsafe partial class Program
   Refused(output, () => raw.ReadSector(0, 2048, output));
  }
  static void Main(string[] args) {
-  if (args.Length > 1) { Waterbox(args); return; }
+  if (args.Length > 1) { if (args[5].StartsWith("cd32")) Cd32Waterbox(args); else Waterbox(args); return; }
   Iso(args[0]); Cue(args[0]); Console.WriteLine("DiscSystem ISO/CUE offset, identity and rebind PASS");
  }
 }

@@ -13,4 +13,6 @@ typedef struct p6w_cd_info {
 } p6w_cd_info;
 /* Return exact byte count, or a negative error. No exception crosses callback. */
 typedef int32_t (*p6w_cd_read_fn)(uint64_t offset, void *destination, uint32_t count);
+/* Adapter-internal teardown, called after the engine closes Akiko. */
+void p6w_cd_session_end(void);
 #endif

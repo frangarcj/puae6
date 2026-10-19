@@ -26,6 +26,8 @@ class CdLayoutTests(unittest.TestCase):
 @unittest.skipUnless(GUEST.is_file() and wb.runtime_receipt_path().is_file() and shutil.which("dotnet"), "built guest/runtime and dotnet required")
 class CdTransportTests(unittest.TestCase):
     modes = ("save", "load")
+    names = ("disc.iso", "stored.cue")
+    extra_args = ()
     def test_iso_cue_callback_abi_restore_and_rebind_across_processes(self):
         with tempfile.TemporaryDirectory(prefix="cd-wbx-", dir=ROOT / "build") as tmp:
             work = Path(tmp)
@@ -43,7 +45,17 @@ class CdTransportTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             runtime = json.loads(wb.runtime_receipt_path().read_text())["runtime_dylib"]["path"]
             sha = json.loads(RECEIPT.read_text())["guest"]["sha256"]
-            for name in ("disc.iso", "stored.cue"):
+            for name in self.names:
                 for mode in self.modes:
-                    result = subprocess.run(["dotnet", str(work / "bin/Debug/net8.0/DiscSource.dll"), str(work), str(work / name), runtime, str(GUEST), sha, mode], env=env, capture_output=True, text=True, timeout=120)
+                    result = subprocess.run(["dotnet", str(work / "bin/Debug/net8.0/DiscSource.dll"), str(work), str(work / name), runtime, str(GUEST), sha, mode, *self.extra_args], env=env, capture_output=True, text=True, timeout=180)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+class Cd32WaterboxTests(CdTransportTests):
+    modes = ("cd32save", "cd32load")
+    def setUp(self):
+        main, ext = os.environ.get('P6_CD32_ROM_MAIN'), os.environ.get('P6_CD32_ROM_EXT')
+        if not main or not ext:
+            self.skipTest('BLOCKED: authorized CD32 main/ext ROMs required')
+        wb.check_guest_matches_trees(RECEIPT)
+        self.names = (os.environ.get('P6_CD_CUE_FILE', 'device.iso'),)
+        self.extra_args = (main, ext)

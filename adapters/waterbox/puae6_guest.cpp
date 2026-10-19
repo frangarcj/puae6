@@ -6,6 +6,7 @@
 #include "emulibc.h"
 #include "p6.h"
 #include "p6w.h"
+#include "p6w_cd.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -298,7 +299,12 @@ ECL_EXPORT int32_t p6w_reset(void)
 
 ECL_EXPORT int32_t p6w_shutdown(void)
 {
-    if (loaded) p6_unload(nullptr);
+    if (loaded) {
+        const auto result = p6_unload(nullptr);
+        if (result != P6_OK) return result;
+    }
     loaded = false;
-    return p6_shutdown(nullptr);
+    const auto result = p6_shutdown(nullptr);
+    if (result == P6_OK) p6w_cd_session_end();
+    return result;
 }
