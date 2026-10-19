@@ -1482,3 +1482,15 @@ Es un componente privado, sin formato wire ni estado completo: control, TOC/Q,
 reloj, EEPROM/C2P, player/dispositivo, RAM y scheduler se agregaran en M3/N2.
 El probe restaura el transporte bajo contexto de control fijo y compara DMA y
 subcode reales; no acredita aun restore nativo completo ni Waterbox CD32.
+
+## Estado privado del backend CD (T66n2b)
+
+`DeviceState` agrega el player y conserva aperturas, cabeza de lectura normal,
+error de comando, seleccion de cabeza audio y reconocimiento Q terminal. El error
+asincrono del player permanece separado; una lectura tras fin/error puede volver
+a cabeza normal sin perder el terminal pendiente o ya reconocido. Captura y
+preflight no avanzan audio; restore valida todo antes de aplicar el player y los
+campos exteriores, sin I/O ni callbacks. El dueño aporta Disc de identidad
+verificada y callbacks segun su presencia guardada; un player detenido puede estar
+sin binding aunque el dispositivo siga ligado al Disc. STATE01 compara PCM, Q y
+continuacion en otro binding. No añade chunk nativo, snapshot WB ni perfil CD32.

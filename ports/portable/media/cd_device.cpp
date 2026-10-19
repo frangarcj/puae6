@@ -1,6 +1,7 @@
 #include "cd_device.h"
 #include "cd_read.h"
 #include "cd_audio.h"
+#include "cd_device_state.h"
 #include <limits.h>
 #include <string.h>
 namespace {
@@ -47,6 +48,42 @@ int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
 }
 }
 namespace p6_cd {
+bool device_capture(DeviceState *out)
+{
+    if (!out) return false;
+    DeviceState s{};
+    if (!audio.capture(&s.audio)) return false;
+    s.bound = disc != nullptr;
+    if (disc) memcpy(s.disc_id, disc->layout().content_id, sizeof s.disc_id);
+    s.opens = opens; s.position = position; s.audio_head = audio_head; s.terminal_ack = terminal_ack;
+    s.error = int32_t(error); // Do not merge asynchronous audio error as device_last_error does.
+    *out = s; return true;
+}
+bool device_can_restore(const DeviceState &s, const Disc *candidate,
+                        play_status_callback status, play_subchannel_callback sub)
+{
+    if (s.bound > 1 || s.audio_head > 1 || s.terminal_ack > 1 || s.opens > INT_MAX
+        || s.error < int(Result::Ok) || s.error > int(Result::Unsupported)) return false;
+    if (!s.bound) {
+        const uint8_t empty[32]{};
+        if (candidate || memcmp(s.disc_id, empty, sizeof empty) || s.opens || s.position || s.audio_head
+            || s.terminal_ack || s.audio.bound || s.error != int(Result::Invalid)) return false;
+    } else if (!candidate || memcmp(s.disc_id, candidate->layout().content_id, sizeof s.disc_id)
+               || !candidate->layout().tracks || s.position > candidate->layout().leadout) return false;
+    if ((s.audio.bound && !s.opens) || (s.audio_head && !s.audio.bound) || (s.audio.running && !s.audio_head)) return false;
+    const bool terminal = s.audio.status == AUDIO_STATUS_PLAY_COMPLETE || s.audio.status == AUDIO_STATUS_PLAY_ERROR;
+    if (s.terminal_ack && !terminal) return false;
+    return audio.can_restore(s.audio, s.audio.bound ? candidate : nullptr, status, sub);
+}
+bool device_restore(const DeviceState &s, const Disc *candidate,
+                    play_status_callback status, play_subchannel_callback sub)
+{
+    if (!device_can_restore(s, candidate, status, sub)
+        || !audio.restore(s.audio, s.audio.bound ? candidate : nullptr, status, sub)) return false;
+    disc = candidate; opens = s.opens; position = s.position;
+    audio_head = s.audio_head; terminal_ack = s.terminal_ack; error = Result(s.error);
+    return true;
+}
 Result device_bind(const Disc *candidate)
 {
     if (disc || !candidate || !candidate->layout().tracks) return error = Result::Invalid;
