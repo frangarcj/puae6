@@ -12322,7 +12322,7 @@
       "title": "Modos de CPU rapidos (compatible / normal, sin cycle-exact) como opcion, deterministas",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -12390,7 +12390,8 @@
         "La candidata conjunta expone atexit por el destructor global real de AudioPlayer (cd_device.cpp.o, -fno-use-cxa-atexit). Inventariar solo esa dependencia C++ resuelta dentro del libc.a fijado del sandbox, sin stubs ni excepciones al auditor. Actualizar tambien la expectativa antigua de lista de fuentes para el adaptador cd_source ya integrado; ejecutar auditor real y test_build antes de medir.",
         "Candidata integrada: guest b574cb28b21a7230 compila con auditor HOST01 sin imports imprevistos y test_build21PASS. Regrabadas juntas las16medidas del mismo guest/runtime (incluido overlaylleno5600unidades), coherencia/fixtures5PASS, margenes MemoryManifestTests7PASS y acceso real al sandbox8PASS. NativeRelease-O2 prepara p6_bench_probe/coreLR/host; FfiRelease compilado con SHA de ese guest. Sigue pendiente la medicion comparativa completa PERF01; estos checks no la sustituyen.",
         "Campaña comparativa implementada en tools/bench.py --compare-cpu-levels:3familiasx3nivelesx3capasx5repeticiones,300warmup/10000principal/3000otras/20states. PERF01/T53 consume solo mediciones reales completas y actuales; las pruebas del harness no acreditan ese gate. Reanudar valida primero prefijo cronologico y gzip/identidad/muestras; se comprueba tick entre capas solo dentro de una variante. Smoke real68010normal coincide en3capas y guarda/carga, sin acreditar baseline. Preparar esta candidata una vez y mantenerla fija durante campaña; memoria conjunta ya verificada.",
-        "Integracion minima de la nueva puerta en CI: al seleccionarse automaticamente tests.bench.test_cpu_campaign, la lane performance debe preparar sus ejecutables antes de cualquier medicion y producir su campaña completa en un directorio propio build/baselines/ci-cpu antes de consumirla. No leer una campaña local antigua ni repetirla dentro del TestCase; fallar antes del consumo si falla preparacion/medicion. Esta ampliacion solo modifica orquestacion/tests/guia CI, fuera de los inputs de la candidata T53 que sigue midiendo."
+        "Integracion minima de la nueva puerta en CI: al seleccionarse automaticamente tests.bench.test_cpu_campaign, la lane performance debe preparar sus ejecutables antes de cualquier medicion y producir su campaña completa en un directorio propio build/baselines/ci-cpu antes de consumirla. No leer una campaña local antigua ni repetirla dentro del TestCase; fallar antes del consumo si falla preparacion/medicion. Esta ampliacion solo modifica orquestacion/tests/guia CI, fuera de los inputs de la candidata T53 que sigue midiendo.",
+        "Cierre de candidata integrada: PERF01 PASS con135/135ventanas reales (27configuraciones,5repeticiones), identidad completa conservada tras la comprobacion funcional. Union deduplicada GEN01/DET02/STATE01/LR01/WB03:14tests PASS,0skips; incluye guest combinado y exact sin cambios. Memoria conjunta16medidas ya verificada. Rendimiento orientativo en Mac compartido:21/27filas estables;1cuelgue de malloc/.NET muestreado y terminado conSIGTERM se anoto y reanudo porT28a desde68ventanas, sin modificar candidata, datos completados ni timeouts.0reintentos automaticos en las ventanas completadas. No anuncia netplay/runahead ni cierra T55/T66."
       ],
       "checks": [
         "GEN01",

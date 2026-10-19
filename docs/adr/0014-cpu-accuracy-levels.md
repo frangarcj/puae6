@@ -65,8 +65,8 @@ intercaladas y veinte operaciones de estado por ventana. La identidad vincula
 fuentes, ejecutables, guest, runtime y micro-ROMs; solo admite reanudar un prefijo
 cronologico completo. Los ticks se comparan entre capas del mismo nivel. Las
 medidas son orientativas en el Mac compartido; no justifican cambiar el defecto
-exact ni prometer que compatible o normal sean siempre mas rapidos. La campaña
-completa sigue pendiente antes de cerrar T53.
+exact ni prometer que compatible o normal sean siempre mas rapidos. PERF01
+exige las 135 ventanas medidas completas y actuales para acreditar esta puerta.
 
 T55b incorpora el A4000/030 real como maquina 11 (9/10 reservados para CD32/CDTV),
 con mapa de 32 bits, AGA, Fat Gary revision 0, Ramsey 15, Ricoh y el IDE fisico
