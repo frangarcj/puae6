@@ -18,8 +18,9 @@ class Cd32LoadTests(lr.LibretroHarness):
         main, ext = os.environ.get('P6_CD32_ROM_MAIN'), os.environ.get('P6_CD32_ROM_EXT')
         if not main or not ext:
             raise unittest.SkipTest('BLOCKED: authorized P6_CD32_ROM_MAIN and P6_CD32_ROM_EXT required')
-        built = build_targets(ROOT / 'build/state-opt', ['p6_libretro_host', 'puae6_libretro'], optimized=True)
+        built = build_targets(ROOT / 'build/state-opt', ['p6_libretro_host', 'puae6_libretro', 'p6_headless'], optimized=True)
         cls.host, cls.core = built['p6_libretro_host'], built['puae6_libretro']
+        cls.headless = built['p6_headless']
         cls.tmp = tempfile.TemporaryDirectory(prefix='cd32-load-', dir=ROOT / 'build')
         cls.counter = 0
         cls.directory = Path(cls.tmp.name)
@@ -57,7 +58,7 @@ class Cd32LoadTests(lr.LibretroHarness):
     def test_same_cd_in_new_process_and_other_cd_rejected_without_mutation(self):
         state = self.directory / 'cd.state'
         original = self.run_cd('--runs', 301, '--do', f'300:savefile:{state}')
-        accepted = self.run_cd('--runs', 2, '--do', f'1:loadfile:{state}:pos=300', '--no-vfs')
+        accepted = self.run_cd('--runs', 2, '--do', f'1:loadfile:{state}:pos=300', '--no-vfs', '--set', 'puae6_machine=CD32')
         self.assertIn(f'state load {state} pos=300 ok=1', accepted)
         view = lambda r: (r['unit'], r['ticks'], r['hash'], r['ahash'], r['audio'])
         self.assertEqual(view(self.runs(original)[300]), view(self.runs(accepted)[1]))
@@ -67,8 +68,17 @@ class Cd32LoadTests(lr.LibretroHarness):
         hashes = re.findall(r'^state save (?:before|after) ok=1 .* hash=(\w+)', bad, re.M)
         self.assertEqual(2, len(hashes)); self.assertEqual(*hashes)
 
+    def test_headless_accepts_combined_firmware_without_claiming_cd_input(self):
+        rom = (self.system_dir / 'kick40060.CD32.ext').read_bytes() + (self.system_dir / 'kick40060.CD32').read_bytes()
+        result = subprocess.run([str(self.headless), '--run', '/dev/stdin', '--machine', 'cd32', '--units', '2'],
+                                input=rom, capture_output=True, timeout=30)
+        self.assertEqual(0, result.returncode, result.stderr.decode())
+        self.assertIn(b'unit 2 ticks=', result.stdout)
+
     def test_invalid_model_firmware_and_vfs_fail_and_release_handles(self):
         self.run_cd('--set', 'puae6_machine=A1200', expect=3)
+        floppy = self.directory / 'not-a-cd.adf'; floppy.write_bytes(bytes(901120))
+        self.assertIn('requires a direct CD', self.run_cd('--set', 'puae6_machine=CD32', content=floppy, expect=3))
         self.run_cd('--vfs-no-seek', expect=3)
         missing = self.work()
         (missing / 'kick40060.CD32').symlink_to(self.system_dir / 'kick40060.CD32')

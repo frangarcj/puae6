@@ -127,7 +127,7 @@ internal static unsafe partial class Program
 		"a1000" => Puae6Machine.A1000,
 		"a2000og" => Puae6Machine.A2000OG,
 		"a2000" => Puae6Machine.A2000,
-		"a4030" => Puae6Machine.A4030,
+		"a4030" => Puae6Machine.A4030, "cd32" => Puae6Machine.CD32,
 		var other => throw new ArgumentException($"machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og or a2000 (got {other})"),
 	};
 

@@ -78,10 +78,15 @@ public unsafe sealed class P6CdHost
  }
  public void Restore(Puae6Guest guest, BinaryReader input, StateIdentity expected)
  {
-  if (!ReferenceEquals(host, guest.Host)) throw new ArgumentException("Wrong sandbox");
+  if (!ReferenceEquals(host, guest.Host)) throw new ArgumentException("Wrong sandbox", nameof(guest));
   if (!guest.IsSealed) throw new InvalidOperationException("Seal the CD baseline before restoring");
   var payload = StateEnvelope.Read(input, expected); // Reject identity/checksum before touching sandbox.
   using var stream = new MemoryStream(payload, false); using var snapshot = new BinaryReader(stream);
+  LoadSnapshot(guest, snapshot);
+ }
+ internal void LoadSnapshot(Puae6Guest guest, BinaryReader snapshot)
+ {
+  if (!ReferenceEquals(host, guest.Host) || !guest.IsSealed) throw new InvalidOperationException("Wrong or unsealed CD sandbox");
   using var active = guest.Host.EnterExit();
   faulted = true;
   guest.Host.LoadStateBinary(snapshot);

@@ -13,7 +13,7 @@ public enum Puae6WhdLoadMode { Auto, Disabled }
 /// 512 KiB Chip, a Kickstart 1.x image as a ROM) and the A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, the clock and the mains TOD of the A2000) and the A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1). The firmware each asks
 /// of BizHawk's database is in Puae6Core.EmuHawk.cs (FirmwareOf): the database has the entries "A500" (Kickstart 1.3) and "A600" (2.05, 2.04 and the 3.1 r40.063 of the A600 and the A2000).
 /// </summary>
-public enum Puae6Machine { A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000, A4030 }
+public enum Puae6Machine { A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000, A4030, CD32 }
 
 /// <summary>Chip RAM (restart): the machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB) or a size; the A500 (OCS) has 512 KiB or 1 MiB, the other machines also 2 MiB.</summary>
 public enum Puae6Chip { Auto, KB512, MB1, MB2 }

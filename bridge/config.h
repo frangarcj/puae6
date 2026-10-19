@@ -7,8 +7,8 @@
 
 namespace p6_bridge {
 
-// Private boot gate until frontend and complete CD32 state are integrated.
-constexpr uint32_t kCd32Machine = 9;
+// Shared stock CD32 profile; the alias keeps device integration independent of frontend names.
+constexpr uint32_t kCd32Machine = P6_MACHINE_CD32;
 // Set only after validated init; restored on shutdown. Caps remains engine independent.
 extern bool profile_state_supported;
 

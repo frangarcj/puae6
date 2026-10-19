@@ -61,7 +61,7 @@ typedef struct p6_caps {
 typedef struct p6_config {
     uint32_t abi_version;
     uint32_t struct_size;
-    uint32_t machine;           /* P6_MACHINE_* below. An internal CD32 integration profile is gated separately, without frontend/state support. */
+    uint32_t machine;           /* P6_MACHINE_* below. */
     uint32_t video_standard;    /* P6_VIDEO_PAL or P6_VIDEO_NTSC. */
     uint32_t audio_rate_hz;
     uint32_t flags;             /* P6_CONFIG_*; any other bit is P6_ERROR_BAD_ARGUMENT. */
@@ -147,6 +147,7 @@ typedef struct p6_config {
 #define P6_MACHINE_A1000 UINT32_C(6)     /* A1000: the 8361 Agnus and 8362 Denise of upstream's A1000 chipset, 512 KiB Chip, the Kickstart given to p6_load as a ROM (no boot ROM, no WOM). */
 #define P6_MACHINE_A2000OG UINT32_C(7)   /* A2000 with OCS: 512 KiB Chip + 512 KiB Slow, the A2000 chipset table (clock, mains-driven CIA TOD). */
 #define P6_MACHINE_A2000 UINT32_C(8)     /* A2000 with the ECS Agnus and the OCS Denise (PUAE5's), 1 MiB Chip, no Slow RAM. */
+#define P6_MACHINE_CD32 UINT32_C(9)      /* Stock CD32: 68EC020, AGA, 2 MiB Chip, Akiko, no floppy drives. ID10 reserved. */
 #define P6_MACHINE_A4030 UINT32_C(11)     /* A4000/030, 32-bit map, AGA, Ricoh RTC, 2 MiB Chip + 8 MiB Zorro II Fast. Normal CPU only; no MMU. */
 #define P6_VIDEO_PAL    UINT32_C(1)
 #define P6_VIDEO_NTSC   UINT32_C(2)

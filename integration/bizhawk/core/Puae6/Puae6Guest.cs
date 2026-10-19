@@ -55,9 +55,9 @@ public sealed class Puae6Guest : IDisposable
 		.GetCustomAttributes<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "Puae6GuestSha256")?.Value ?? "";
 
 	/// <summary>Opens the guest this wrapper was built with. A build that did not record one cannot open anything.</summary>
-	public static Puae6Guest Open(string directory, string fileName, WaterboxOptions heaps)
+	public static Puae6Guest Open(string directory, string fileName, WaterboxOptions heaps, P6CdHost? cd = null)
 		=> Open(directory, fileName, BuiltWithSha256.Length != 0 ? BuiltWithSha256
-			: throw new InvalidOperationException("this build of the wrapper has no pinned guest hash (Puae6GuestSha256)"), heaps);
+			: throw new InvalidOperationException("this build of the wrapper has no pinned guest hash (Puae6GuestSha256)"), heaps, cd);
 
 	public WaterboxHost Host { get; }
 	public LibPuae6 Lib { get; }

@@ -26,11 +26,23 @@ public sealed partial class Puae6Core
 
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 	{
-		// ADF disks, HDF hard files (T63b) and volumes (T64b: an LHA archive, or a ZIP file of files, becomes a hard file built in memory, ADR 0011); optical discs are not supported by the guest, and booting
-		// without them would hide that they were asked for. A directory cannot be a ROM asset of BizHawk's loader: it is not offered here (docs/02-contracts.md, "Volumenes").
-		if (lp.Discs.Count != 0)
-			throw new NotSupportedException("PUAE6 does not load optical discs; open the game with the UAE core");
-		var settings = lp.SyncSettings ?? new Puae6SyncSettings();
+		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
+		if (lp.Discs.Count > 1 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
+			throw new NotSupportedException("CD32 loads one CD without other media");
+		Puae6DiscSource? cd = null;
+		if (lp.Discs.Count == 1)
+		{
+			settings.Machine = Puae6Machine.CD32;
+			cd = new Puae6DiscSource(lp.Discs[0].DiscData);
+		}
+		byte[] Firmware(Puae6Machine machine)
+		{
+			var main = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(machine), $"A Kickstart for the Amiga {machine} is required");
+			if (machine != Puae6Machine.CD32 || main.Length == 1024 * 1024) return main;
+			var ext = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new(VSystemID.Raw.Amiga, "CD32ext"), "CD32 Extended ROM is required");
+			if (main.Length != 512 * 1024 || ext.Length != 512 * 1024) throw new InvalidDataException("CD32 requires 512 KiB main and extended ROMs, or a combined 1 MiB ROM");
+			return ext.Concat(main).ToArray();
+		}
 		bool IsHardFile(IRomAsset rom) => rom.Extension.Equals(".hdf", StringComparison.OrdinalIgnoreCase);
 		bool IsVolume(IRomAsset rom) => rom.Extension.Equals(".lha", StringComparison.OrdinalIgnoreCase) || rom.Extension.Equals(".lzh", StringComparison.OrdinalIgnoreCase)
 			|| rom.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase) && Puae6Volumes.IsVolumeZip(rom.FileData, settings.WhdLoad == Puae6WhdLoadMode.Auto);
@@ -45,6 +57,8 @@ public sealed partial class Puae6Core
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
 			SyncSettings = settings,
+			CdInfo = cd?.Descriptor(),
+			ReadCd = cd is null ? null : (at, data, count) => cd.ReadAt(at, data, 0, count),
 			Settings = lp.Settings ?? new Puae6Settings(),
 			Media = floppies.Select(rom => rom.FileData).ToList(),
 			MediaNames = floppies.Select(NameOf).ToList(),
@@ -52,7 +66,7 @@ public sealed partial class Puae6Core
 			HardFileNames = hardFiles.Select(NameOf).ToList(),
 			Volumes = volumes.Select(rom => rom.FileData).ToList(),
 			VolumeNames = volumes.Select(NameOf).ToList(),
-		}, machine => lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(machine), $"A Kickstart for the Amiga {machine} is required"),
+		}, Firmware,
 			() => Puae6WhdLoad.ReadProviderFile(lp.Comm.CoreFileProvider.GetUserPath(VSystemID.Raw.Amiga, false)));
 	}
 

@@ -141,8 +141,8 @@ const MachineInfo kMachines[] = {
     {P6_MACHINE_A1000, "A1000", 3, 0, {512, 0, 0}, 68000, CSMASK_A1000, 0, false},
     {P6_MACHINE_A2000OG, "A2000OG", 0, 0, {512, 512, 0}, 68000, CSMASK_OCS, 0, false},
     {P6_MACHINE_A2000, "A2000", 1, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS, 0, false},
-    {kCd32Machine, "CD32", 8, 0, {2048, 0, 0}, 68020, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, CP_CD32, false},
     {P6_MACHINE_A4030, "A4030", 6, 0, {2048, 0, 8192}, 68030, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, false},
+    {P6_MACHINE_CD32, "CD32", 8, 0, {2048, 0, 0}, 68020, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, CP_CD32, false},
 };
 
 const MachineInfo *find_machine(uint32_t machine)

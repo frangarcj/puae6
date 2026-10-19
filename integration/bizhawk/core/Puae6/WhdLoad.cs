@@ -24,6 +24,7 @@ public static class Puae6WhdLoad
 	/// <summary>Resolve before requesting firmware. Callbacks run only during frontend initialization, never in the guest or its MMIO path.</summary>
 	public static Puae6Parameters Resolve(Puae6Parameters p, Func<Puae6Machine, byte[]>? firmware = null, Func<byte[]>? provider = null)
 	{
+		p.ValidateCd();
 		var settings = p.SyncSettings.Clone();
 		if (!Enum.IsDefined(typeof(Puae6WhdLoadMode), settings.WhdLoad)) throw new VolumeException("unknown WHDLoad mode");
 		var trees = settings.WhdLoad == Puae6WhdLoadMode.Disabled ? new List<List<VolumeFile>>() : p.Volumes.Select(Puae6Volumes.ReadArchive).ToList();
@@ -41,7 +42,7 @@ public static class Puae6WhdLoad
 		var result = new Puae6Parameters
 		{
 			GuestDirectory = p.GuestDirectory, GuestFileName = p.GuestFileName, PinnedGuestSha256 = p.PinnedGuestSha256,
-			Firmware = rom, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
+			Firmware = rom, CdInfo = p.CdInfo, ReadCd = p.ReadCd, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
 			HardFiles = p.HardFiles, HardFileNames = p.HardFileNames, Volumes = p.Volumes, VolumeNames = p.VolumeNames,
 		};
 		if (!pack) return result;

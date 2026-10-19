@@ -59,3 +59,33 @@ class Cd32WaterboxTests(CdTransportTests):
         wb.check_guest_matches_trees(RECEIPT)
         self.names = (os.environ.get('P6_CD_CUE_FILE', 'device.iso'),)
         self.extra_args = (main, ext)
+
+class Cd32PublicCoreTests(Cd32WaterboxTests):
+    def test_iso_cue_callback_abi_restore_and_rebind_across_processes(self):
+        sys.path.insert(0, str(ROOT / 'integration/bizhawk/patches'))
+        import build_tree
+        build_tree.check_patches()
+        if build_tree.export_tree():
+            build_tree.apply_patches()
+            build_tree.install_sources()
+        sha = json.loads(RECEIPT.read_text())['guest']['sha256']
+        assembly = build_tree.build(sha)
+        runtime = json.loads(wb.runtime_receipt_path().read_text())['runtime_dylib']['path']
+        with tempfile.TemporaryDirectory(prefix='cd-core-', dir=ROOT / 'build') as tmp:
+            work = Path(tmp)
+            project = work / 'Cd32Loader.csproj'
+            shutil.copyfile(ROOT / 'tests/media/csharp-disc/Cd32Loader.csproj', project)
+            env = {**os.environ, 'NUGET_PACKAGES': str(ROOT / 'build/bizhawk-core/nuget'), 'DOTNET_NOLOGO': '1', 'DOTNET_ROLL_FORWARD': 'Major'}
+            result = subprocess.run(['dotnet', 'build', str(project), '-m:1', '-v:q', f'-p:Puae6Root={ROOT}',
+                                     f'-p:CoreAssemblyDir={assembly.parent}', f'-p:RestoreSources={Path.home() / ".nuget/packages"}'],
+                                    env=env, capture_output=True, text=True, timeout=180)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            path = self.names[0]
+            if path == 'device.iso':
+                path = str(work / path); Path(path).write_bytes(bytes(512 * 2048))
+            for mode in ('publicsave', 'publicload'):
+                result = subprocess.run(['dotnet', str(work / 'bin/Debug/net8.0/Cd32Loader.dll'), str(work), path,
+                                         runtime, str(GUEST), sha, mode, *self.extra_args],
+                                        env=env, capture_output=True, text=True, timeout=180)
+                self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-3000:])
+                self.assertIn('Public BizHawk CD32', result.stdout)

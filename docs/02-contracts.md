@@ -8,8 +8,8 @@ Reglas libretro verificadas: S4. Reglas del wrapper Waterbox verificadas: S5-S7.
 
 `P6_MACHINE_A4030 = 11` selecciona el preset A4000 real de upstream (modelo 6,
 configuracion 0), con CPU 68030, AGA, Gary 0, Ramsey 15, Ricoh RTC y mapa de
-32 bits. El ID9 corresponde al perfil privado CD32, usado tambien por la carga
-automatica de CD directo en libretro; no tiene selector publico. El ID10 sigue
+32 bits. El ID9 corresponde al perfil stock CD32, expuesto por el esquema comun
+y la carga de CD directo (T66r3). El ID10 sigue
 reservado y rechazado. El struct ABI sigue en
 72 bytes. La primera implementacion acepta exclusivamente CPU Normal (byte 66 = 2)
 y no ofrece MMU: PMMU entra en F-line, sin registros ficticios. La FPU externa
@@ -1584,8 +1584,8 @@ frontends, arranque de juego, SaveRAM o snapshot CD32 Waterbox.
 
 ## CD directo en libretro (T66r1)
 
-ISO, CUE, CCD y NRG DAO directos seleccionan CD32 stock con maquina y Kickstart
-Automatic. Las opciones explicitas incompatibles se rechazan; los tags CD32 de
+ISO, CUE, CCD y NRG DAO directos seleccionan CD32 stock con maquina
+Automatic o CD32 y Kickstart Automatic. CD32 sin CD directo se rechaza. Las opciones incompatibles se rechazan; los tags CD32 de
 disquetes conservan su significado anterior. El propietario de la imagen y su
 Disc permanecen inmoviles hasta que p6_unload/p6_shutdown cierran Akiko. Las
 lecturas usan offsets por VFS seekable o stdio; el CD no se copia a RAM. El VFS
@@ -1623,5 +1623,23 @@ La prueba privada DiscSystem/Waterbox ejecuta firmware autorizado y lecturas
 reales del CUE; tras save300, reset y restore compara 15 unidades de video/PCM,
 ticks, Chip RAM y snapshot completo byte a byte en el mismo sandbox, en otro
 y en otro proceso. La baseline CD vacia y el descriptor2432 siguen probados.
-El loader publico BizHawk, su identidad de pelicula, NVRAM SaveRAM, CD32FR y
-arranque de juego siguen pendientes en T66.
+El loader publico se conecta en T66r3. NVRAM SaveRAM, CD32FR y arranque
+de juego conservan sus puertas en T66.
+
+## Carga publica CD32 BizHawk (T66r3)
+
+El loader toma un unico Disc prestado hasta Dispose del core, rechaza mezclas y
+selecciona CD32 en una copia de SyncSettings. Pide Amiga/CD32 y, si no recibe
+un combinado de 1 MiB, Amiga/CD32ext: dos mitades de 512 KiB EXT+MAIN. El bridge valida
+los bytes. El CD se lee por offset sin alojarlo entero en el guest.
+P6_MACHINE_CD32=9 y Machine.CD32 comparten el esquema; los ordinales C# anteriores
+se conservan. Headless acepta firmware combinado, sin entrada de CD.
+
+Cada BootGuest crea su binding, copia firmware antes de Seal y conecta/activa
+el dispositivo despues. El wrapper no tiene disqueteras; la seleccion inactiva
+es 0 y sus cuatro slots permanecen vacios. La identidad añade el ID completo de
+TOC/2448 del CD al hash de medios; los modelos sin CD conservan su calculo.
+LoadStateBinary valida sobre y campos, restaura el sandbox y rebindea antes de
+permitir frames. Un fallo de snapshot/rebind bloquea ejecucion y guardado hasta
+una restauracion completa. El encabezado de pelicula usa la misma identidad;
+esto no acredita todavia una pelicula CD32 completa ni el arranque de juego.

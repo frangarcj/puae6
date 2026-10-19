@@ -261,6 +261,14 @@ TASK_SUITES[('LR01', 'T66r1')] = {'direct_cd32_sessions': 'tests.libretro-host.t
 TASK_SUITES[('WB03', 'T66r2')] = {'cd32_device_snapshot': 'tests.waterbox-media.test_cd_source.Cd32WaterboxTests',
                                'empty_cd_baseline_regression': 'tests.waterbox-media.test_cd_source.CdTransportTests'}
 TASK_SUITES[('ABI01', 'T66r2')] = {'private_cd_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
+TASK_SUITES[('GEN01', 'T66r3')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity',
+                               'real_bizhawk_loader_build': 'tests.ffi.test_bizhawk_tree.BizHawkTreeTests.test_each_machine_asks_the_firmware_database_of_bizhawk_for_its_own_kickstart_and_the_database_has_both',
+                               'core_registration': 'tests.ffi.test_bizhawk_tree.BizHawkTreeTests.test_both_amiga_cores_are_registered_and_uae_is_still_the_one_a_game_opens_with',
+                               'reference_unchanged': 'tests.ffi.test_bizhawk_tree.BizHawkTreeTests.test_macHawk_was_not_touched'}
+TASK_SUITES[('LR01', 'T66r3')] = TASK_SUITES[('LR01', 'T66r1')]
+TASK_SUITES[('WB03', 'T66r3')] = {'stock_wrapper_restore': 'tests.waterbox-state.test_wrapper_machine.WrapperMachineTests.test_a_state_runs_in_a_new_sandbox_and_in_a_third_as_in_the_first_on_both_machines',
+                              'public_cd32_loader_restore': 'tests.waterbox-media.test_cd_source.Cd32PublicCoreTests',
+                              'empty_cd_baseline_regression': 'tests.waterbox-media.test_cd_source.CdTransportTests'}
 TASK_SUITES[('MED01', 'T66j1')] = {'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}

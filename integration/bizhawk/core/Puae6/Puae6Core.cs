@@ -25,6 +25,16 @@ public sealed class Puae6Parameters
 	/// <summary>The rom.key of Amiga Forever (T51), only needed when <see cref="Firmware"/> is an encrypted ROM (AMIROMTYPE1): the core decrypts it (<see cref="Puae6RomKey"/>) and the decrypted image is the firmware whose
 	/// SHA-256 is the identity of states and movies. The key is not kept.</summary>
 	public byte[]? RomKey { get; set; }
+	/// <summary>Immutable CD descriptor and pure offset reader. The owner of the source must outlive this core.</summary>
+	public P6CdInfo? CdInfo { get; set; }
+	public Func<ulong, byte[], int, bool>? ReadCd { get; set; }
+	internal void ValidateCd()
+	{
+		if (CdInfo.HasValue != (ReadCd is not null)) throw new InvalidOperationException("CD descriptor and reader must be provided together");
+		if ((CdInfo.HasValue || SyncSettings.Machine == Puae6Machine.CD32) && (SyncSettings.Machine != Puae6Machine.CD32
+			|| Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || SyncSettings.PhysicalFloppyDrives != Puae6FloppyDrives.Auto))
+			throw new InvalidOperationException("CD32 requires its own model with no floppy drives, hard files or volumes");
+	}
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
 	public Puae6Settings Settings { get; set; } = new();
 	/// <summary>The floppy images the machine may use (ADF of 880 KiB, an extended ADF, an FDI or an IPF, all together at most what 16 ADF take): the first <see cref="Puae6SyncSettings.FloppyDrives"/> are in a drive at power-on.</summary>
@@ -94,7 +104,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// What each machine comes with, in KiB: Chip, Slow.
 	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch
 	{
-		Puae6Machine.A1200 or Puae6Machine.A4030 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
+		Puae6Machine.A1200 or Puae6Machine.A4030 or Puae6Machine.CD32 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
 		Puae6Machine.A500OG or Puae6Machine.A1000 => (512u, 0u), _ => (512u, 512u),   // A500 and A2000 OG: 512 KiB Chip + 512 KiB Slow
 	};
 
@@ -105,7 +115,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static uint MachineNumber(Puae6Machine machine) => machine switch
 	{
 		Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, Puae6Machine.A500OG => P6.MachineA500OG, Puae6Machine.A500PLUS => P6.MachineA500Plus,
-		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, _ => P6.MachineA500,
+		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, Puae6Machine.CD32 => P6.MachineCd32, _ => P6.MachineA500,
 	};
 
 	static uint ChipKib(Puae6Chip chip) => chip switch { Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB2 => 2048u, _ => 0u };
@@ -148,7 +158,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The floppy speed (T62): the numbers of config/schema/options.json (0 is the profile's own, the real drive).
 	static byte FloppySpeedNumber(Puae6FloppySpeed speed) => speed switch { Puae6FloppySpeed.P200 => (byte)2, Puae6FloppySpeed.P400 => (byte)3, Puae6FloppySpeed.P800 => (byte)4, Puae6FloppySpeed.Turbo => (byte)5, _ => (byte)0 };
 	static byte FloppyDrivesNumber(Puae6FloppyDrives drives) => drives switch { Puae6FloppyDrives.One => (byte)1, Puae6FloppyDrives.Two => (byte)2, Puae6FloppyDrives.Three => (byte)3, Puae6FloppyDrives.Four => (byte)4, _ => (byte)0 };
-	int ConnectedFloppyDrives => _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? Math.Max(2, _syncSettings.FloppyDrives) : FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
+	int ConnectedFloppyDrives => _syncSettings.Machine == Puae6Machine.CD32 ? 0 : _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? Math.Max(2, _syncSettings.FloppyDrives) : FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
 
 	// The raster (T72): the numbers of config/schema/options.json (0 is the profile's own, hires and double lines).
 	static byte VideoResolutionNumber(Puae6VideoResolution resolution) => resolution switch { Puae6VideoResolution.Lores => (byte)1, Puae6VideoResolution.SuperHires => (byte)3, _ => (byte)0 };
@@ -244,7 +254,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
 		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
 		if (!Enum.IsDefined(typeof(Puae6FloppyDrives), _syncSettings.PhysicalFloppyDrives)) throw new ArgumentException("unknown physical floppy drive setting", nameof(parameters));
-		if (_syncSettings.FloppyDrives > ConnectedFloppyDrives) throw new ArgumentException("more boot disks than connected floppy drives", nameof(parameters));
+		if (ConnectedFloppyDrives != 0 && _syncSettings.FloppyDrives > ConnectedFloppyDrives) throw new ArgumentException("more boot disks than connected floppy drives", nameof(parameters));
 		if (parameters.Media.Count > P6.MaxMedia) throw new ArgumentException($"at most {P6.MaxMedia} disks are supported", nameof(parameters));
 		foreach (var disk in parameters.Media)
 			// A floppy image is a plain ADF or (T57, T58) an extended ADF, an FDI or an IPF, read only; the guest's bridge says which and why not (WRONG_MEDIA with the reason), here only the cap that keeps the sealed heap's budget.
@@ -257,7 +267,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_parameters = new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
-			Firmware = (byte[])parameters.Firmware.Clone(),
+			Firmware = (byte[])parameters.Firmware.Clone(), CdInfo = parameters.CdInfo, ReadCd = parameters.ReadCd,
 		};
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
@@ -284,9 +294,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	void BootGuest(IReadOnlyList<byte[]> guestMedia, IReadOnlyList<byte[]> guestHardFiles, ImportedSaveRam? imported)
 	{
 		var heaps = Heaps(_syncSettings, _hardFiles.Select(image => image.LongLength));
+		var cd = _parameters.CdInfo is { } info ? new P6CdHost(info, _parameters.ReadCd!) : null;
 		var guest = _parameters.PinnedGuestSha256 is { } pin
-			? Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, pin, heaps)
-			: Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, heaps);
+			? Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, pin, heaps, cd)
+			: Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, heaps, cd);
 		var previous = (Guest: _guest, Sequence: _mediaSequence, Disks: (int[])_driveDisk.Clone(), Imported: _imported);
 		try
 		{
@@ -298,7 +309,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			MountBootDisks();
 			var identity = MakeIdentity(_parameters.Firmware);
 			var domains = CreateMemoryDomains();
-			guest.Host.Seal();
+			guest.Seal();
+			if (cd is not null && cd.Activate(guest) != P6.Ok) throw new InvalidOperationException("CD32 device activation refused");
 			_identity = identity;
 			_domains = domains;
 		}
@@ -359,7 +371,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.SoundFilterType = SoundFilterTypeNumber(_syncSettings.SoundFilterType);
 		init.Config.FloppySpeed = FloppySpeedNumber(_syncSettings.FloppySpeed);
 		init.Config.FloppyDrives = FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
-		if (init.Config.FloppyDrives == 0 && _syncSettings.FloppyDrives > 2) init.Config.FloppyDrives = (byte)_syncSettings.FloppyDrives;
+		if (ConnectedFloppyDrives != 0 && init.Config.FloppyDrives == 0 && _syncSettings.FloppyDrives > 2) init.Config.FloppyDrives = (byte)_syncSettings.FloppyDrives;
 		init.Config.VideoResolution = VideoResolutionNumber(_syncSettings.VideoResolution);
 		init.Config.VideoLineMode = VideoLineModeNumber(_syncSettings.VideoLineMode);
 		fixed (byte* rom = firmware)
@@ -492,6 +504,12 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			media.Add(Encoding.ASCII.GetBytes("hard files"));
 			media.Add(BitConverter.GetBytes(_hardFiles.Count));
 			foreach (var image in _hardFiles) media.Add(StateEnvelope.Sha256(image));
+		}
+		if (_parameters.CdInfo is { } cd)
+		{
+			var id = new byte[32];
+			for (int i = 0; i < id.Length; ++i) id[i] = cd.Id[i];
+			media.Add(Encoding.ASCII.GetBytes("CD2448")); media.Add(id);
 		}
 		return new StateIdentity(_guest.Identity.Sha256, [ heaps.SbrkHeapSizeKB, heaps.SealedHeapSizeKB, heaps.InvisibleHeapSizeKB, heaps.PlainHeapSizeKB, heaps.MmapHeapSizeKB ],
 			ConfigHash(_syncSettings.Machine), StateEnvelope.Sha256(firmware), StateEnvelope.Sha256(media.ToArray()), _syncSettings.Machine.ToString(), others);
@@ -812,9 +830,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		bool ok = s.Frame >= 0 && s.LagCount >= 0 && s.BufferWidth is >= 0 and <= MaxWidth && s.BufferHeight is >= 0 and <= MaxHeight && s.VsyncNumerator > 0 && s.VsyncDenominator > 0
 			&& s.AspectNum > 0 && s.AspectDen > 0 && s.Disk0 >= -1 && s.Disk0 < _media.Count && s.Disk1 >= -1 && s.Disk1 < _media.Count
 			&& s.Disk2 >= -1 && s.Disk2 < _media.Count && s.Disk3 >= -1 && s.Disk3 < _media.Count
-			&& (ConnectedFloppyDrives > 1 || s.Disk1 == -1)
+			&& (ConnectedFloppyDrives > 0 || s.Disk0 == -1) && (ConnectedFloppyDrives > 1 || s.Disk1 == -1)
 			&& (ConnectedFloppyDrives > 2 || s.Disk2 == -1) && (ConnectedFloppyDrives > 3 || s.Disk3 == -1)
-			&& s.CurrentDrive >= 0 && s.CurrentDrive < ConnectedFloppyDrives && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count)
+			&& s.CurrentDrive >= 0 && s.CurrentDrive < Math.Max(1, ConnectedFloppyDrives) && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count)
 			&& s.Mouse2X is >= 0 and <= Controllers.MouseFieldWidth && s.Mouse2Y is >= 0 and <= Controllers.MouseFieldHeight
 			&& (s.Mouse2Known || (s.Mouse2X == 0 && s.Mouse2Y == 0));
 		if (!ok) throw new StateRejectedException(StateRejection.BadFields, "the state has a field that this machine cannot have");
@@ -862,7 +880,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_started = true;                                              // the machine is not the one a SaveRam could still change
 		try
 		{
-			_guest.Host.LoadStateBinary(inner);
+			if (_guest.Cd is { } cd) cd.LoadSnapshot(_guest, inner);
+			else _guest.Host.LoadStateBinary(inner);
 		}
 		catch
 		{

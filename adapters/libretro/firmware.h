@@ -50,6 +50,8 @@ constexpr const char *kA1200KickstartNames[] = {
     "Kickstart v3.1 r40.68 (1993)(Commodore)(A1200)[!].rom",
 };
 
+constexpr const char *kCd32KickstartNames[] = { "kick40060.CD32", "amiga-os-310-cd32.rom" };
+
 constexpr const char *kA4030KickstartNames[] = {
     "kick40068.A4000",
     "amiga-os-310-a4000.rom",
@@ -103,6 +105,7 @@ constexpr FirmwareNames kFirmware[] = {
     {P6_MACHINE_A2000OG, "A2000OG", "1.3", kA500KickstartNames, sizeof kA500KickstartNames / sizeof kA500KickstartNames[0]},
     {P6_MACHINE_A2000, "A2000", "3.1", kA2000KickstartNames, sizeof kA2000KickstartNames / sizeof kA2000KickstartNames[0]},
     {P6_MACHINE_A4030, "A4030", "3.1", kA4030KickstartNames, sizeof kA4030KickstartNames / sizeof kA4030KickstartNames[0]},
+    {P6_MACHINE_CD32, "CD32", "3.1", kCd32KickstartNames, sizeof kCd32KickstartNames / sizeof kCd32KickstartNames[0]},
 };
 
 // T51. puae6_kickstart chooses a Kickstart by version instead of the machine's own. The values are PUAE5's (libretro-uae puae_kickstart: the "normal" file name of each ROM, less the A4000 ones

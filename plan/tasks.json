@@ -16208,7 +16208,8 @@
         "T66m6",
         "T66m7",
         "T66r1",
-        "T66r2"
+        "T66r2",
+        "T66r3"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16245,7 +16246,8 @@
         "T66p1 prepara perfil stock y firmware/arranque nativo sin anunciar modelo en libretro; conserva codec, carga frontend, Waterbox y arranque/restauracion de juego como puertas del padre.",
         "T66q1 corrige el reloj CDA excluido del motor portable real; conserva boot/codec/frontend/Waterbox como puertas del padre.",
         "T66r1 integra CD directo stock en libretro por Automatic con propietario de sesion y estado real. CD32FR, cambio de CD, NVRAM SaveRAM, Waterbox, juego y formatos restantes conservan todas las puertas del padre.",
-        "T66r2 conecta el backend CD dentro del guest Waterbox tras Seal y prueba CD32 privado con snapshot; el loader publico, identidad wrapper y SaveRAM siguen en este padre."
+        "T66r2 conecta el backend CD dentro del guest Waterbox tras Seal y prueba CD32 privado con snapshot; el loader publico, identidad wrapper y SaveRAM siguen en este padre.",
+        "T66r3 integra modelo comun, carga publica e identidad/restore BizHawk. SaveRAM NVRAM, CD32FR, formatos restantes y arranque completo del juego conservan todas las puertas del padre."
       ],
       "checks": [
         "MED01",
@@ -17693,6 +17695,62 @@
         "Un guest no se construye ni se mide con un arbol materializado de otra serie, y un waterbox-memory.json con claves de guests distintos o con otro fixture falla un test."
       ],
       "stop": "No relajar el test de memoria para aceptar claves mezcladas."
+    },
+    {
+      "id": "T66r3",
+      "title": "Modelo CD32 comun y carga publica BizHawk con identidad y restauracion",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T66r1",
+        "T66r2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "config/schema/**",
+        "adapters/headless/main.cpp",
+        "adapters/libretro/firmware.h",
+        "adapters/libretro/cd_session.cpp",
+        "adapters/libretro/libretro_core.cpp",
+        "adapters/libretro/options_generated.h",
+        "integration/bizhawk/core/**",
+        "tests/config/**",
+        "tests/ffi/**",
+        "tests/media/csharp-disc/**",
+        "tests/waterbox-media/test_cd_source.py",
+        "tests/libretro-host/test_cd32_load.py",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "bridge/config.cpp"
+      ],
+      "steps": [
+        "Promover el ID9 CD32 existente al esquema comun sin cambiar IDs ni ordinales C# anteriores. Generar tablas; headless acepta firmware combinado sin anunciar carga CD; libretro permite Automatic o CD32 con CD directo y rechaza CD32 sin CD claramente.",
+        "Loader EmuHawk toma un unico Disc prestado, rechaza mezclas, selecciona Machine CD32 en settings clonados y pide CD32/CD32ext del firmware manager. EXT+MAIN en memoria, nunca escribe ROM ni copia el CD entero al guest.",
+        "Puae6Parameters propaga descriptor completo/proveedor puro. BootGuest instala un binding nuevo por sandbox, inicializa firmware antes de Seal, activa despues; identidad incluye CD y modelo. Snapshot wrapper rebindea antes de permitir frames; cero disqueteras usa seleccion inactiva valida.",
+        "Una vertical atomica compartida estimada menos400lineas logicas manuales, mas salidas generadas. WB03 dirigido carga core publico con ROM/CD locales, lecturas y restauracion mismo/nuevo sandbox/proceso, identidad ajena sin mutar; GEN01 esquema/paridad y build real net48; LR01 explicito/Auto dirigido. El padre conserva juego completo, SaveRAM, formatos, CD32FR y todas sus puertas.",
+        "La fila stock ya existe en bridge/config.cpp con alias privado; promover tambien su nombre publico y situarla al final de la tabla para la paridad del esquema, sin cambiar ningun parametro ni validacion del modelo.",
+        "GEN01, LR01 y WB03 dirigidos PASS: loader/net48 real, esquema/paridad, CD32 explicito y Automatic, headless con firmware combinado por stdin; core publico con CUE Brian y ROMs locales, restore completo mismo/nuevo sandbox/proceso, identidad de estado/pelicula ajena sin mutacion. Regresiones baseline CD vacia y restauracion A500/A600/A1200 pasan. Guest0ed91e73ee6b11aa y sus91fuentes vinculadas verificados; no se acredita UI, pelicula completa, juego completo ni SaveRAM NVRAM."
+      ],
+      "checks": [
+        "GEN01",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "BizHawk carga un CD32 por el core publico con firmware y modelo correctos; estados/peliculas tienen identidad CD completa y restauran en Waterbox real tras rebind. Selector comun y libretro explicito mantienen la paridad. No acredita arranque completo de juego ni persistencia NVRAM."
+      ],
+      "stop": "No ocultar CD32 como A500 en settings, no aceptar disco ajeno ni callback capturado de otro sandbox; no cerrar T66 por este componente."
     }
   ],
   "max_in_progress": 4

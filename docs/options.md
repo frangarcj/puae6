@@ -16,6 +16,19 @@ Se aplica en la siguiente unidad, sin reiniciar. No cambia SyncSettings ni la
 identidad de peliculas o estados. Cargar un estado conserva el volumen que
 el usuario tenga seleccionado; las fases mecanicas si se restauran.
 
+## CD32 stock (T66r3)
+
+Libretro acepta CD directo ISO/CUE/CCD/NRG DAO con `puae6_machine=auto|CD32`
+y Kickstart Automatic. Requiere las mitades de 512 KiB `kick40060.CD32` y
+`kick40060.CD32.ext` en el directorio de sistema (tambien sus alias Amiga Forever).
+CD32 sin un CD directo se rechaza. Los tags CD32 de disquetes conservan su
+significado anterior.
+BizHawk selecciona `Machine=CD32` al cargar un unico CD y pide los firmwares
+`Amiga/CD32` y `Amiga/CD32ext`, o el combinado de 1 MiB del firmware manager.
+El perfil usa 68EC020 exacto, AGA, 2 MiB Chip, sin Fast/FPU/Z3 ni disqueteras.
+CD32FR, cambio de CD y persistencia SaveRAM de NVRAM siguen pendientes;
+el arranque completo de juegos aun no esta acreditado.
+
 ## A4000/030 (T55b)
 
 El modelo `A4030` usa la placa A4000 real: AGA, Gary/Ramsey, Ricoh RTC, mapa de

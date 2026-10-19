@@ -1893,8 +1893,8 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         std::vector<std::string> names;
         p6_libretro::WhdLoadContent pack;
         if (game && p6_libretro::CdSession::content(game->path)) {
-            if (core.settings.machine != p6_options::kMachineAuto || core.settings.kickstart) {
-                notify_error("CD32 content requires Automatic machine and Kickstart"); stop_image(); return false;
+            if ((core.settings.machine != p6_options::kMachineAuto && core.settings.machine != P6_MACHINE_CD32) || core.settings.kickstart) {
+                notify_error("CD32 content requires Automatic or CD32 machine and Automatic Kickstart"); stop_image(); return false;
             }
             core.cd.reset(new p6_libretro::CdSession);
             if (!core.cd->open(game->path, core.cd_vfs, &why)) {
@@ -1924,6 +1924,9 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             for (const std::string &warning : resolved.warnings) notify_warning("%s", warning.c_str());
             core.settings = resolved.settings;
             multidrive = resolved.multidrive;
+        }
+        if (!core.cd && core.settings.machine == P6_MACHINE_CD32) {
+            notify_error("CD32 requires a direct CD image"); stop_image(); return false;
         }
         if (multidrive && core.settings.floppy_drive_count == 0) core.settings.floppy_drive_count = 4;
         std::vector<p6_media> manifest;

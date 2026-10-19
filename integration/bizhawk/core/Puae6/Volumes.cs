@@ -60,6 +60,7 @@ public static class Puae6Volumes
 	/// <summary>The parameters with each <see cref="Puae6Parameters.Volumes"/> archive built into a hard file and added after the hard files (the same parameters when there are none).</summary>
 	public static Puae6Parameters Resolve(Puae6Parameters parameters)
 	{
+		parameters.ValidateCd();
 		if (parameters.Volumes.Count == 0) return parameters;
 		var images = parameters.HardFiles.ToList();
 		var names = parameters.HardFileNames.ToList();

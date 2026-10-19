@@ -24,9 +24,7 @@ bool CdSession::content(const char *path)
 }
 const FirmwareNames &CdSession::firmware_names()
 {
-    static const char *const names[] = {"kick40060.CD32", "amiga-os-310-cd32.rom"};
-    static const FirmwareNames firmware = {p6_bridge::kCd32Machine, "CD32", "3.1", names, 2};
-    return firmware;
+    return *firmware_for(P6_MACHINE_CD32);
 }
 bool CdSession::open(const char *path, const retro_vfs_interface *vfs, std::string *why)
 {
