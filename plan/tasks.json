@@ -12636,13 +12636,61 @@
       "stop": "Sin MMU: no fingirla."
     },
     {
+      "id": "T55b1",
+      "title": "Plataforma A4030 Normal y estado de placa con micro-ROM",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T55a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/**",
+        "bridge/**",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "manifests/**",
+        "adapters/headless/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/**",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Extraer la dependencia tecnica ya implementada de T55b: 68030 Normal, mapa32, Gary/Ramsey/Ricoh, FastZ2 Auto/None, estado nativo y sandbox. Los tests dirigidos existentes prueban PMMU F-line, registros reales, ausencia de alias24, corrupcion transaccional y futuro mismo/nuevo proceso.",
+        "Conservar como evidencia las pruebas nativas/LR ya ejecutadas para esta implementacion; comprobar WB03 A4030 con el guest combinado antes de cerrar esta ficha. No repetir baterias por la division documental.",
+        "Esta dependencia no acredita firmware A4000 ni arranque de OS. T55b conserva todos sus checks/aceptacion y sigue pendiente hasta ese arranque/restauracion autorizado."
+      ],
+      "checks": [
+        "DET02",
+        "WB03"
+      ],
+      "acceptance": [
+        "El micro-ROM A4030 observa la placa y controles030 reales y restaura su futuro en nativo y Waterbox, con Fast Auto o None y sin MMU ficticia."
+      ],
+      "stop": "No confundir arranque sintetico con arranque de firmware A4000."
+    },
+    {
       "id": "T55b",
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T55a"
+        "T55a",
+        "T55b1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12672,7 +12720,8 @@
         "Implementar 68030 y A4000/030 con RTC, FatGary/Ramsey y direccionamiento reales; mantener cerrados los niveles CPU sin soporte y completar los definidos para esta maquina. Exponer preset y opciones coherentes en los tres frontends.",
         "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
         "Reservar IDs de maquina11=A4030 y12=A4040;9/10 quedan reservados paraCD32/CDTV sin aceptarlos hastaimplementados. Validacion explicita de IDs, no rango continuo.",
-        "Native/LR y restauracion Waterbox A4030 Auto/None pasan con micro-ROM. Falta arranque/restauracion con firmware A4000 real autorizado: no anunciar esa compatibilidad hasta probarlo; se aplaza para priorizar la preview utilizable."
+        "Native/LR y restauracion Waterbox A4030 Auto/None pasan con micro-ROM. Falta arranque/restauracion con firmware A4000 real autorizado: no anunciar esa compatibilidad hasta probarlo; se aplaza para priorizar la preview utilizable.",
+        "T55b1 extrae la plataforma sintetica comprobable como dependencia tecnica. Esta ficha mantiene pendiente el arranque/restauracion con firmware A4000 real, todos sus checks y aceptacion. No se elimina esa puerta al permitir generacion040/060 independiente."
       ],
       "checks": [
         "GEN01",
@@ -12686,13 +12735,58 @@
       "stop": "Sin MMU: no fingirla."
     },
     {
+      "id": "T55c1",
+      "title": "Tablas 040/060 sin MMU y helpers reales de cache",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T55b1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/sysconfig.h",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/codegen/**",
+        "tests/host/**",
+        "tests/state/**",
+        "tests/reference/patch-classes.json",
+        "tools/check.py",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Añadir tablas genericas1/0 a la seleccion, sin editar salidas a mano. --no-mmu debe rechazar toda superficie MMU040/060, incluidos PFLUSH/PTEST/PLPAR/PLPAW y MOVEC de registros MMU, con error/exception real en el perfil; no guardar controles fingiendo traduccion.",
+        "Resolver CINVA/CPUSH con implementacion real acotada de flush_cpu_caches_040 y dependencia MMU excluida donde corresponda; sin stub exitoso ni habilitar MMU. Reservar parche0349 y siguientes si se necesita dividir por causa.",
+        "GEN01 conserva herramientas sin argumentos iguales a upstream y CE13/21 byteidenticos. Verificar handlers y ejecucion de familias ya soportadas; primero probar antes de anunciar modelo040/060 o presetA4040.",
+        "Enlazar los perfiles nativo y Waterbox con entradas exportadas completas. No cerrar solo porque la tabla se genere. Si mas de400 lineas manuales, dividir esta vertical antes de editar; modelos/FPU/estado/Z3/opciones y presupuesto permanecen en T55c."
+      ],
+      "checks": [
+        "GEN01",
+        "BUILD01",
+        "DET02"
+      ],
+      "acceptance": [
+        "Las tablas040/060 se generan y enlazan sin MMU aparente, conservando la ejecucion de modelos soportados; ningun frontend ofrece aun un modelo o estado no implementado."
+      ],
+      "stop": "No stubs de MMU/cache, no cambios a goldens para pasar regresiones."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
       "required": true,
       "status": "pending",
       "depends": [
-        "T55b"
+        "T55b",
+        "T55c1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12719,7 +12813,8 @@
       ],
       "steps": [
         "Completar 68040/68060 y preset A4000/040, Fast Z3 y presupuesto real Waterbox, conservando el resto del alcance T55.",
-        "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte."
+        "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
+        "Generacion/enlace sin MMU se separa enT55c1, sobre la plataforma030 deT55b1. El padre conserva CPU040/060/FPU/estado, A4040, Z3, frontends, presupuestos y sus checks/aceptacion completos, incluidoT55b."
       ],
       "checks": [
         "GEN01",
