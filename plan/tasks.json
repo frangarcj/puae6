@@ -12658,7 +12658,8 @@
       ],
       "steps": [
         "Implementar 68030 y A4000/030 con RTC, FatGary/Ramsey y direccionamiento reales; mantener cerrados los niveles CPU sin soporte y completar los definidos para esta maquina. Exponer preset y opciones coherentes en los tres frontends.",
-        "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte."
+        "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
+        "Reservar IDs de maquina11=A4030 y12=A4040;9/10 quedan reservados paraCD32/CDTV sin aceptarlos hastaimplementados. Validacion explicita de IDs, no rango continuo."
       ],
       "checks": [
         "GEN01",
@@ -13748,8 +13749,8 @@
       "stop": "El montaje vivo del FS del host queda fuera."
     },
     {
-      "id": "T65",
-      "title": "WHDLoad completo en libretro y BizHawk: WHDLoad.hdf, volumen RASystem (Kickstarts + prefs), WHDSaves, buttonwait, A1200 forzado",
+      "id": "T65a",
+      "title": "Bundle WHDLoad determinista con RASystem y WHDSaves",
       "milestone": "M3",
       "required": true,
       "status": "in_progress",
@@ -13757,6 +13758,121 @@
         "T30",
         "T64",
         "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "tools/whdload/**",
+        "tools/prepare_whdload.py",
+        "tests/whdload/**",
+        "docs/whdload.md",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Preparar WHDLoad.hdf, RASystem.hdf y WHDSaves.hdf desde inputs autorizados. Usar WHDLoad.VFS DATA para datos solo lectura y SavePath=WHDSaves:, con helper AmigaDOS propio, sin binarios Commodore redistribuidos.",
+        "Incluir prefs y ButtonWait; validar boot real de Fatal Mission y guardado FM1.hisc por resload_SaveFile, no solo archivos del script, en ambos frontends existentes."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "El bundle es reproducible y ejecutable; Fatal Mission escribe FM1.hisc en WHDSaves y restaura sin modificar datos de juego."
+      ],
+      "stop": "No distribuir Kickstarts; los aporta el usuario."
+    },
+    {
+      "id": "T65b",
+      "title": "Carga automatica de packs WHDLoad en libretro",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T65a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/whdload/**",
+        "tests/whdload/**",
+        "tests/libretro-host/**",
+        "tools/check.py",
+        "docs/whdload.md"
+      ],
+      "steps": [
+        "Detectar el slave y preparar/montar los roles del bundle comun desde contenido LHA/ZIP, forzar A1200 y respetar ButtonWait.",
+        "Conservar WHDSaves mediante SaveRAM/persistencia explicita con rollback y sin escrituras del timeline descartado."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Un pack autorizado se carga automaticamente en libretro, guarda partida y restaura."
+      ],
+      "stop": "No distribuir Kickstarts; los aporta el usuario."
+    },
+    {
+      "id": "T65c",
+      "title": "Carga WHDLoad en BizHawk y SaveRAM de WHDSaves",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T65a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "tests/whdload/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "tools/check.py",
+        "docs/whdload.md"
+      ],
+      "steps": [
+        "Integrar el bundle comun y las opciones en el loader C# con RASystem/WHDSaves y A1200 forzado.",
+        "SaveRAM conserva WHDSaves y snapshot restaura juego, preferencias y wrapper dentro de Waterbox real."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Un pack autorizado arranca, guarda partida y restaura en Waterbox/BizHawk real."
+      ],
+      "stop": "No distribuir Kickstarts; los aporta el usuario."
+    },
+    {
+      "id": "T65",
+      "title": "WHDLoad completo en libretro y BizHawk: WHDLoad.hdf, volumen RASystem (Kickstarts + prefs), WHDSaves, buttonwait, A1200 forzado",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T30",
+        "T64",
+        "T49",
+        "T65a",
+        "T65b",
+        "T65c"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13774,7 +13890,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): MacHawk/PUAE5: el pack .lha/.zip se monta de solo lectura, arranca de WHDLoad.hdf, guarda en WHDSaves.hdf (paginas sucias como SaveRAM), RASystem: con Kickstarts y WHDLoad.prefs, WHDLoad fuerza A1200; puae_use_whdload_buttonwait. Licencia de WHDLoad (gratuito desde v18) en manifests/licenses.json.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.WHDLoad.cs (WHDLoad.hdf, WHDSaves.hdf, volumen RASystem con Kickstarts por SHA1 y WHDLoad.prefs, heap por tamano del pack, WHDLoad fuerza A1200) y la regla de UAE.ISettable.cs:328."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.WHDLoad.cs (WHDLoad.hdf, WHDSaves.hdf, volumen RASystem con Kickstarts por SHA1 y WHDLoad.prefs, heap por tamano del pack, WHDLoad fuerza A1200) y la regla de UAE.ISettable.cs:328.",
+        "Particion task force: bundle comun y pruebas reales T65a; carga automatica libretro T65b; integracion C#/SaveRAM T65c. El padre conserva toda su aceptacion y checks. WHDLoad.VFS del usuario permite datos RO sin ampliar ABI ni simular un HDF protegido."
       ],
       "checks": [
         "MED02",
@@ -14019,11 +14136,14 @@
         "bridge/state_probe.cpp",
         "manifests/state-inventory.json",
         "tests/reference/patch-classes.json",
-        "tests/waterbox-state/**"
+        "tests/waterbox-state/**",
+        "bridge/state_cpu.cpp",
+        "bridge/state_upstream.cpp"
       ],
       "steps": [
         "Implementar lightgun/lightpen con coordenadas y niveles definidos, opciones frontend, peliculas y restauracion; usar version/struct_size si hace falta extender entrada sin romper ABI v1.",
-        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical.",
+        "El latch optico y el evento diferido lightpen_trigger_func son causales: anadir ID de scheduler y estado LPEN condicional inferido de CHIP, con restauracion incluso tras desconectar; mantener intacto el cuerpo por defecto y el contrato de un unico sensor optico real."
       ],
       "checks": [
         "IN01",
