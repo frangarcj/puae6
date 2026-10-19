@@ -19,10 +19,10 @@ SCHED_BODY = 314        # P6SC (T15b2)
 RTC_BODY = 31           # P6RT (T15c1)
 CIA_BODY = 143          # P6CI (T15c2)
 BRIDGE_BODY = 40        # P6BR (T15h) with no media event queued: 40 bytes plus 6 per queued event
-INPUT_BODY = 170        # P6IN (T15c3) with an empty keyboard ring: 145 + 25 bytes of ring count and key table, plus the ring
-CHIPSET_BODY = 1702     # P6CH (T15i1, T15f1-T15f3, T15j, T15n): CHIP 360, BLTX 226, BLIT 63, CHSL 245, eight sprites of 25, BEAM 356, COPR 60 and BLTP 72, each with 8 bytes of tag and length
+INPUT_BODY = 170 + 4    # P6IN: empty keyboard ring, plus T70d's two parallel types and two button bytes
+CHIPSET_BODY = 1702 + 24  # P6CH: CHIP/BLTX/BLIT/CHSL/SPRn/BEAM/COPR/BLTP, plus T70c's LPEN (16 + 8 header)
 VIDEO_FIXED = 484       # P6VD (T15j): BPLX 292, DNSP (64) and GEOM (104), each with its tag and length, and then PIXL, the rows of the picture, whose length is the picture's
-AUDIO_BODY = 496        # P6AU: four channels of 25 and AUDP (356), each with its tag and length
+AUDIO_BODY = 496 + 168  # P6AU: four channels of 25 and AUDP (356), plus T74b's DCLK (160 + 8 header)
 DISK_BODY = 441         # P6DK with no medium: four DSKn of 24, four absent DSDn, DISK 17 and DSKX 248, each with its tag and length
 
 
