@@ -519,7 +519,7 @@ def campaign_hash(identity):
     return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
 
 
-def validate_cpu_campaign(directory):
+def validate_cpu_campaign(directory, *, partial=False):
     """Consume actual raw windows; never infer completion from harness tests or summaries."""
     directory = Path(directory)
     identity = cpu_campaign_identity()
@@ -527,8 +527,11 @@ def validate_cpu_campaign(directory):
         raise ValueError("CPU campaign identity differs from current artifacts/inputs")
     matrix = cpu_campaign_matrix(False)
     expected = [(rep, row) for rep in range(1, 6) for row in matrix]
-    names = {f"{s.id}__{r.id}__rep{rep}.json.gz" for rep, (s, r, _, _) in expected}
-    if {p.name for p in (directory / "raw").glob("*.json.gz")} != names:
+    names = [f"{s.id}__{r.id}__rep{rep}.json.gz" for rep, (s, r, _, _) in expected]
+    present = {p.name for p in (directory / "raw").glob("*.json.gz")}
+    if partial:
+        expected, names = expected[:len(present)], names[:len(present)]
+    if present != set(names):
         raise ValueError("CPU campaign coverage is incomplete or contains extra rows")
     groups, ticks, previous_end = {}, {}, 0
     for sequence, (rep, (s, runner, units, warmup)) in enumerate(expected):
@@ -560,6 +563,7 @@ def validate_cpu_campaign(directory):
         groups.setdefault((s.id, runner.id), []).append(run)
     if any(len(values) != 1 for values in ticks.values()):
         raise ValueError("CPU campaign ticks differ within one model/level")
+    if partial: return None  # A validated prefix never certifies campaign completion.
     rows = {key: aggregate(group) for key, group in groups.items()}
     for (scenario, runner), row in rows.items():
         exact = rows[(scenario.rsplit("--", 1)[0] + "--exact", runner)]
@@ -627,12 +631,16 @@ def run_command(args):
     environment_path = directory / "environment.json"
     directory.mkdir(parents=True, exist_ok=True)
     campaign = cpu_campaign_identity() if cpu_compare else None
+    if cpu_compare and args.force:
+        for path in raw.glob("*.json.gz"): path.unlink()
+        if environment_path.is_file(): environment_path.unlink()
     if not environment_path.is_file():
         environment = capture_environment()
         if cpu_compare: environment["cpu_campaign"] = campaign
         environment_path.write_text(json.dumps(environment, indent=2, ensure_ascii=False) + "\n")
     if cpu_compare and json_result(environment_path).get("cpu_campaign") != campaign:
         raise ValueError("refusing to resume a CPU campaign of different artifacts/inputs")
+    if cpu_compare and raw.is_dir(): validate_cpu_campaign(directory, partial=True)
     state_rounds = 5 if args.quick else args.state_rounds
     log = []
     for rep in range(1, args.reps + 1):

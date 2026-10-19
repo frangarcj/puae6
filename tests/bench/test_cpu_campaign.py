@@ -49,6 +49,7 @@ class CpuCampaignHarnessTests(unittest.TestCase):
 
     def test_validator_rejects_missing_stale_mislabeled_and_unmeasured_rows(self):
         identity, records = {"synthetic": "harness only"}, {}
+        real_read = b.read_raw
         with tempfile.TemporaryDirectory() as tmp, patch.object(b, "cpu_campaign_identity", return_value=identity), \
              patch.object(b, "read_raw", side_effect=lambda path: records[Path(path).name]):
             directory = Path(tmp); (directory / "raw").mkdir()
@@ -80,6 +81,20 @@ class CpuCampaignHarnessTests(unittest.TestCase):
             (directory / "raw" / name).touch()
             with patch.object(b, "cpu_campaign_identity", return_value={"different": "artifact"}), self.assertRaisesRegex(ValueError, "identity"):
                 b.validate_cpu_campaign(directory)
+            self.assertIsNone(b.validate_cpu_campaign(directory, partial=True))  # Even a full prefix is not PASS.
+            first, second = list(records)[:2]
+            for name in list(records)[2:]: (directory / "raw" / name).unlink()
+            self.assertIsNone(b.validate_cpu_campaign(directory, partial=True))
+            (directory / "raw" / first).unlink()
+            with self.assertRaisesRegex(ValueError, "coverage"): b.validate_cpu_campaign(directory, partial=True)
+            (directory / "raw" / first).touch()
+            records[first] = {**records[first], "campaign_identity": "stale"}
+            with self.assertRaisesRegex(ValueError, "identity"): b.validate_cpu_campaign(directory, partial=True)
+            records[first] = good
+            with patch.object(b, "read_raw", side_effect=real_read):
+                b.write_raw(directory / "raw" / first, records[first])
+                (directory / "raw" / second).write_bytes(b"\x1f\x8b")  # Interrupted gzip write.
+                with self.assertRaises(EOFError): b.validate_cpu_campaign(directory, partial=True)
 
 
 class CpuCampaignMeasurements(unittest.TestCase):
