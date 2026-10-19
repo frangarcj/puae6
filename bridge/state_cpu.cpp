@@ -544,6 +544,7 @@ void visit_scheduler(Archive &a)
     // ev_misc is armed for the earliest of the slots (MISC_handler), or earlier when a slot was removed without re-arming it.
     if (checks) a.require(!any || (main_active[ev_misc] && main_time[ev_misc] <= earliest), "secondary events are pending but ev_misc is not armed for them");
 
+    if (a.reading() && a.ok()) publish_scheduler_cycle(now);
     if (a.applying() && a.ok()) {
         set_cycles(now);
         p6_custom_extra_cycle_set(extra);

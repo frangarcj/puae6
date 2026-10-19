@@ -503,13 +503,13 @@ void print_field(void *, uint32_t chunk, uint64_t offset, uint64_t size, const c
 void mutate_chunk(const StateOp &op, uint64_t unit, p6_state::Options options)
 {
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
-    uint32_t index = p6_state::kChunkCount;
-    for (uint32_t i = 0; i < p6_state::kChunkCount; ++i)
+    uint32_t index = p6_state::chunk_count();
+    for (uint32_t i = 0; i < p6_state::chunk_count(); ++i)
         if (!strcmp(p6_state::kChunks[i].name, op.chunk)) index = i;
     std::vector<uint8_t> good;
-    if (index == p6_state::kChunkCount || !read_file(op.path, &good)) { printf("mutate %" PRIu64 " error no chunk or file\n", unit); return; }
+    if (index == p6_state::chunk_count() || !read_file(op.path, &good)) { printf("mutate %" PRIu64 " error no chunk or file\n", unit); return; }
     uint64_t at = p6_state::kHeaderSize, body_at = 0, body_length = 0;
-    for (uint32_t i = 0; i < p6_state::kChunkCount; ++i) {
+    for (uint32_t i = 0; i < p6_state::chunk_count(); ++i) {
         const uint64_t length = le64(&good[at + 8]);
         if (i == index) { body_at = at + p6_state::kChunkHeaderSize; body_length = length; }
         at += p6_state::kChunkHeaderSize + length;
@@ -531,7 +531,7 @@ void mutate_chunk(const StateOp &op, uint64_t unit, p6_state::Options options)
             const uint8_t now = variant == 0 ? uint8_t(was ^ 0x01) : variant == 1 ? uint8_t(was ^ 0x80) : variant == 2 ? 0 : 0xFF;
             if (now == was) continue;
             bad[body_at + k] = now;
-            p6_state::seal(bad.data(), bad.size() - p6_state::kHeaderSize, p6_state::kChunkCount, identity, state_unit, state_ticks);
+            p6_state::seal(bad.data(), bad.size() - p6_state::kHeaderSize, p6_state::chunk_count(), identity, state_unit, state_ticks);
             ++attempts;
             result = p6_state::load(bad.data(), bad.size(), options, &error);
             const uint8_t code = uint8_t(result);
@@ -1136,10 +1136,10 @@ int main(int argc, char **argv)
             i += 2;
         } else if (!strcmp(argv[i], "--only") && i + 1 < argc) {
             const char *name = argv[++i];
-            uint32_t found = p6_state::kChunkCount;
-            for (uint32_t k = 0; k < p6_state::kChunkCount; ++k)
+            uint32_t found = p6_state::kMaxChunkCount;
+            for (uint32_t k = 0; k < p6_state::kMaxChunkCount; ++k)
                 if (!strcmp(p6_state::kChunks[k].name, name)) found = k;
-            if (found == p6_state::kChunkCount) { fprintf(stderr, "no chunk named %s\n", name); return 64; }
+            if (found == p6_state::kMaxChunkCount) { fprintf(stderr, "no chunk named %s\n", name); return 64; }
             g_only |= 1u << found;
         } else if (!strcmp(argv[i], "--input-check-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::InputCheck, nullptr, nullptr});
         else if (!strcmp(argv[i], "--public-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Public, nullptr, nullptr});

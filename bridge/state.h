@@ -48,7 +48,13 @@ namespace p6_state {
 
 // The payload order of the ADR: cpu, scheduler, ram, rtc, chipset, video, audio, cia, disk, input, bridge.
 constexpr uint32_t kChunkCount = 11;
-extern const Chunk kChunks[kChunkCount];
+constexpr uint32_t kMaxChunkCount = kChunkCount + 1; // CD32 appends P6AK; legacy stays eleven.
+extern const Chunk kChunks[kMaxChunkCount];
+uint32_t chunk_count();
+// P6SC publishes its validated cycle for later chunks, independent of live time.
+void publish_scheduler_cycle(int64_t);
+int64_t scheduler_cycle(Mode);
+void visit_akiko(Archive &);
 
 // The chunk visitors that live outside state.cpp (state_cpu.cpp, state_devices.cpp).
 void visit_cpu(Archive &a);

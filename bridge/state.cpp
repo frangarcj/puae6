@@ -13,6 +13,8 @@
 #include "frame_step.h"
 #include "config.h"
 #include "media.h"
+#include "media/cd_device.h"
+#include "media/cd_read.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +45,7 @@ namespace {
 struct VisitContext {
     uint64_t unit_index, master_ticks;
     MediaPlan media;
+    int64_t scheduler_cycle = -1;
     uint32_t media_count;       // how many media the manifest of the state had: every medium its bodies name is below it (the live manifest may have grown since)
 };
 VisitContext *g_context = nullptr;
@@ -216,7 +219,14 @@ void visit_ram(Archive &a)
 
 const MediaPlan *loading_media() { return g_context ? &g_context->media : nullptr; }
 
-const Chunk kChunks[kChunkCount] = {
+uint32_t chunk_count() { return session.config.machine == p6_bridge::kCd32Machine ? kMaxChunkCount : kChunkCount; }
+void publish_scheduler_cycle(int64_t cycle) { if (g_context) g_context->scheduler_cycle = cycle; }
+int64_t scheduler_cycle(Mode mode)
+{
+    return mode == Mode::Save ? int64_t(currcycle) : g_context ? g_context->scheduler_cycle : -1;
+}
+
+const Chunk kChunks[kMaxChunkCount] = {
     {"P6CP", "cpu", 1, visit_cpu, nullptr},
     {"P6SC", "scheduler", 1, visit_scheduler, rebuild_scheduler},
     {"P6RM", "ram", 1, visit_ram, nullptr},
@@ -228,6 +238,7 @@ const Chunk kChunks[kChunkCount] = {
     {"P6DK", "disk", 1, visit_disk, rebuild_disk, disk_matches_manifest},
     {"P6IN", "input", 1, visit_input, nullptr},
     {"P6BR", "bridge", 1, visit_bridge, nullptr},
+    {"P6AK", "akiko", 1, visit_akiko, nullptr},
 };
 
 namespace {
@@ -243,6 +254,15 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
         ids[i] = session.media_content_id[i];
     }
     media_manifest_hash(count, types, ids, out);
+    // CD binding is fixed for the session, including every append-only prefix.
+    // Unbound legacy profiles preserve their existing identity byte for byte.
+    const auto *disc = p6_cd::device_bound_disc();
+    if (session.config.machine == p6_bridge::kCd32Machine || disc) {
+        const uint8_t bound = disc ? 1 : 0, empty[32]{};
+        const uint8_t *parts[] = {out, &bound, disc ? disc->layout().content_id : empty};
+        const uint64_t lengths[] = {32, 1, 32};
+        domain_hash("p6/media/cd-binding/v1", parts, lengths, 3, out);
+    }
 }
 
 // The manifest is append-only (p6_media_append), so a state taken before a medium was added is still a state of this image. The header already stores what is needed to say
@@ -340,7 +360,8 @@ bool complete(char *missing, size_t capacity)
     bool all = true;
     size_t used = 0;
     if (missing && capacity) missing[0] = 0;
-    for (const Chunk &chunk : kChunks) {
+    for (uint32_t i = 0; i < chunk_count(); ++i) {
+        const Chunk &chunk = kChunks[i];
         if (chunk.visit) continue;
         all = false;
         if (missing && capacity > used + 1) {
@@ -355,8 +376,9 @@ namespace {
 
 // What the registry says about this build: the chunk table the envelope is checked against and the largest body of each chunk.
 struct Plan {
-    ChunkSpec specs[kChunkCount];
-    uint64_t bounds[kChunkCount];
+    ChunkSpec specs[kMaxChunkCount];
+    uint64_t bounds[kMaxChunkCount];
+    bool valid = true;
     uint64_t total;         // header and every chunk at its largest
 };
 
@@ -364,13 +386,14 @@ Plan make_plan()
 {
     Plan plan = {};
     plan.total = kHeaderSize;
-    for (uint32_t i = 0; i < kChunkCount; ++i) {
+    for (uint32_t i = 0; i < chunk_count(); ++i) {
         const Chunk &chunk = kChunks[i];
         memcpy(plan.specs[i].tag, chunk.tag, 4);
         plan.specs[i].version = chunk.visit ? chunk.version : 0;    // version 0: the placeholder of a chunk that does not exist yet
         if (chunk.visit) {
             Archive measure = Archive::measurer();
             chunk.visit(measure);
+            if (!measure.ok()) { plan.valid = false; return plan; }
             plan.bounds[i] = measure.position();
         }
         plan.total += kChunkHeaderSize + plan.bounds[i];
@@ -384,8 +407,6 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
-    if (session.config.machine == p6_bridge::kCd32Machine)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD32 native state awaits its complete codec");
     char missing[160];
     if (!options.allow_placeholders && !complete(missing, sizeof missing)) {
         char text[P6_ERROR_TEXT_CAPACITY];
@@ -426,7 +447,9 @@ p6_result bound(uint64_t *bytes, const Options &options, p6_error *error)
 {
     if (const p6_result gated = gate(options, error)) return gated;
     if (!bytes) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "bytes is null");
-    *bytes = make_plan().total;
+    const Plan plan = make_plan();
+    if (!plan.valid) return p6_fail(error, P6_ERROR_INTERNAL, "state measurement failed");
+    *bytes = plan.total;
     return P6_OK;
 }
 
@@ -441,6 +464,7 @@ p6_result save(void *buffer, uint64_t capacity, uint64_t *written, const Options
     if (!session.started)
         return p6_fail(error, P6_ERROR_BAD_STATE, "no state before the first unit: run p6_run_frame once");
     const Plan plan = make_plan();
+    if (!plan.valid) return p6_fail(error, P6_ERROR_INTERNAL, "state measurement failed");
     uint8_t *out = static_cast<uint8_t *>(buffer);
     if (capacity < kHeaderSize + kChunkHeaderSize)
         return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than a state");
@@ -448,7 +472,7 @@ p6_result save(void *buffer, uint64_t capacity, uint64_t *written, const Options
     // The body of each chunk is written after the header and its own 16 bytes, then the chunk header is filled in with the length it
     // came to. Nothing is written outside `capacity`: the archive refuses first.
     uint64_t at = kHeaderSize;
-    for (uint32_t i = 0; i < kChunkCount; ++i) {
+    for (uint32_t i = 0; i < chunk_count(); ++i) {
         const Chunk &chunk = kChunks[i];
         if (capacity - at < kChunkHeaderSize)
             return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than the state");
@@ -473,7 +497,7 @@ p6_result save(void *buffer, uint64_t capacity, uint64_t *written, const Options
         put64(out + at + 8, body);
         at += kChunkHeaderSize + body;
     }
-    seal(out, at - kHeaderSize, kChunkCount, current_identity(), session.unit_index, session.master_ticks);
+    seal(out, at - kHeaderSize, chunk_count(), current_identity(), session.unit_index, session.master_ticks);
     *written = at;
     return P6_OK;
 }
@@ -486,7 +510,8 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
 
     // (1)-(6) and the chunk table: the envelope, against what this build and this image are.
     const Plan plan = make_plan();
-    ChunkView views[kChunkCount];
+    if (!plan.valid) return p6_fail(error, P6_ERROR_INTERNAL, "state measurement failed");
+    ChunkView views[kMaxChunkCount];
     Refusal refusal = {};
     uint64_t unit_index = 0, master_ticks = 0;
     // The identity the state has to match: this image, except that its manifest may have grown since the state was taken (append-only: a state names only media
@@ -497,17 +522,17 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         manifest_prefix_hash(prefix, expected.media_manifest_hash);
         state_media = prefix;
     }
-    if (!validate(data, bytes, expected, plan.total - kHeaderSize, plan.specs, kChunkCount, plan.bounds, views, &unit_index, &master_ticks, &refusal)) {
+    if (!validate(data, bytes, expected, plan.total - kHeaderSize, plan.specs, chunk_count(), plan.bounds, views, &unit_index, &master_ticks, &refusal)) {
         char text[P6_ERROR_TEXT_CAPACITY];
         snprintf(text, sizeof text, "state refused: %s: %s", refusal.field, refusal.message);
         return p6_fail(error, refusal.code, text);
     }
 
-    VisitContext context = {unit_index, master_ticks, {}, state_media};
+    VisitContext context = {unit_index, master_ticks, {}, -1, state_media};
 
     // (7) Every body, read exactly as it will be applied and not stored anywhere.
     const ContextScope scope(&context);
-    for (uint32_t i = 0; i < kChunkCount; ++i) {
+    for (uint32_t i = 0; i < chunk_count(); ++i) {
         const Chunk &chunk = kChunks[i];
         if (!chunk.visit) continue;      // a placeholder has bound 0, so the envelope has already refused a body
         Archive archive = Archive::validator(views[i].body, views[i].length);
@@ -520,7 +545,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     // has started): the drives of the live machine are not consulted, so a state is loaded whatever they hold now. Last of the refusals: the next step starts to
     // mutate the image.
     const auto chosen = [&options](uint32_t i) { return !options.only_chunks || (options.only_chunks >> i & 1); };
-    for (uint32_t i = 0; i < kChunkCount; ++i) {
+    for (uint32_t i = 0; i < chunk_count(); ++i) {
         const Chunk &chunk = kChunks[i];
         if (!chunk.visit || !chunk.manifest || !chosen(i)) continue;
         if (const char *why = chunk.manifest(views[i].body, views[i].length, context.media)) {
@@ -541,7 +566,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
             return p6_fail(error, P6_ERROR_INTERNAL, "the reset head did not run before the state was applied; the image is faulted");
         }
     }
-    for (uint32_t i = 0; i < kChunkCount; ++i) {
+    for (uint32_t i = 0; i < chunk_count(); ++i) {
         const Chunk &chunk = kChunks[i];
         if (!chunk.visit || !chosen(i)) continue;
         Archive archive = Archive::applier(views[i].body, views[i].length);
@@ -553,7 +578,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
             return p6_fail(error, P6_ERROR_INTERNAL, "a chunk failed to apply after it was validated; the image is faulted");
         }
     }
-    for (uint32_t i = 0; i < kChunkCount; ++i)
+    for (uint32_t i = 0; i < chunk_count(); ++i)
         if (kChunks[i].visit && kChunks[i].rebuild && chosen(i)) kChunks[i].rebuild();
     // The samples this image produced and has not handed over are its own history, not the state's: the first unit after the load hands over what the saved
     // machine's next unit did. At a boundary the queue is empty (every unit drains it) except in an image that had not started, where the reset head that has just

@@ -109,6 +109,7 @@
 // writes into eventtab, eventtab2 and their indices (schedule_audio, events_schedule, event2_newevent_xx from a register setter) is put back when the body is
 // done.
 #include "state.h"
+#include "media/cd_device.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -426,7 +427,8 @@ int32_t g_audio_phase[kAudioWords];     // read by apply_audp, put in the engine
 uint8_t *produce_audp(int, size_t *len, uint8_t *w)
 {
     int32_t words[kAudioWords];
-    if (!p6_audio_phase_get(words, kAudioWords)) return nullptr;
+    const bool owned = p6_session::session.config.machine == p6_bridge::kCd32Machine;
+    if (!(owned ? p6_cd::device_phase_get(words, kAudioWords) : p6_audio_phase_get(words, kAudioWords))) return nullptr;
     for (unsigned i = 0; i < kAudioWords; ++i)
         for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
     *len = kAudioBytes;
@@ -1212,7 +1214,7 @@ void fail_in(Archive &a, const char *tag, const char *why)
     a.fail(text);
 }
 
-template <size_t N> void visit_bodies(Archive &a, const Sub (&subs)[N], void (*finish)())
+template <size_t N> void visit_bodies(Archive &a, const Sub (&subs)[N], bool (*finish)())
 {
     static uint8_t work[kWork];
     Seen seen = {};
@@ -1267,21 +1269,24 @@ template <size_t N> void visit_bodies(Archive &a, const Sub (&subs)[N], void (*f
         a.val<uint32_t>(length, "upstream.length");
         a.bytes(work, length, sub.tag);
     }
-    if (a.applying() && a.ok() && finish) finish();
+    if (a.applying() && a.ok() && finish) a.require(finish(), "upstream derived state could not be restored");
 }
 
-void finish_chipset()
+bool finish_chipset()
 {
     restore_blitter_finish();
     p6_blitter_phase_set(g_blitter_phase, kBlitterWords);
     p6_custom_rebuild_derived();
     p6_denise_rebuild_derived();      // after CHIP, whose restore_custom has rebuilt acolors: the border colour is derived from COLOR00
+    return true;
 }
-void finish_audio()
+bool finish_audio()
 {
     restore_audio_finish();
-    p6_audio_phase_set(g_audio_phase, kAudioWords);
+    const bool owned = p6_session::session.config.machine == p6_bridge::kCd32Machine;
+    const bool restored = owned ? p6_cd::device_phase_set(g_audio_phase, kAudioWords) : p6_audio_phase_set(g_audio_phase, kAudioWords);
     p6_drive_sound::set(g_drive_sound, p6_drive_sound::kWords);
+    return restored;
 }
 
 }  // namespace

@@ -48,6 +48,7 @@ int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
 }
 }
 namespace p6_cd {
+const Disc *device_bound_disc() { return disc; }
 bool device_phase_get(int32_t *out, unsigned n) { return audio.phase_get(out, n); }
 bool device_phase_set(const int32_t *in, unsigned n) { return audio.phase_set(in, n); }
 bool device_capture(DeviceState *out)

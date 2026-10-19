@@ -192,7 +192,7 @@ extern "C" p6_result p6_init(const p6_config *supplied, p6_error *error)
     if (const p6_result checked = p6_bridge::validate_config(*supplied, error))
         return checked;
     config = *supplied;
-    p6_bridge::profile_state_supported = config.machine != p6_bridge::kCd32Machine;
+    p6_bridge::profile_state_supported = true;
     session.state = State::Initialized;
     return P6_OK;
 }
