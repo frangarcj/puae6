@@ -63,6 +63,22 @@ internal static unsafe partial class Program
 					Console.WriteLine($"volume bytes={image.Length} sha={Convert.ToHexString(SHA256.HashData(image)).ToLowerInvariant()} zip={Puae6Volumes.IsVolumeZip(archive)}");
 					break;
 				}
+				case "whdbundle":
+				{
+					var game = File.ReadAllBytes(options["archive"]);
+					var kickstarts = options.TryGetValue("kickstarts", out var assets) ? Puae6Volumes.ReadArchive(File.ReadAllBytes(assets)).Where(f => !f.IsDirectory).ToDictionary(f => f.Path, f => f.Data) : null;
+					bool wait = options.GetValueOrDefault("buttonwait", "false") == "true";
+					var images = options.TryGetValue("provider", out var provider)
+						? Puae6WhdLoad.Prepare(game, File.ReadAllBytes(provider), wait, kickstarts)
+						: Puae6WhdLoad.Build(Puae6Volumes.ReadArchive(game), File.ReadAllBytes(options["program"]), File.ReadAllBytes(options["vfs"]), wait, kickstarts);
+					if (options.TryGetValue("out", out var directory))
+					{
+						Directory.CreateDirectory(directory);
+						foreach (var image in images) File.WriteAllBytes(Path.Combine(directory, image.Key), image.Value);
+					}
+					foreach (var image in images) Console.WriteLine($"bundle {image.Key} bytes={image.Value.Length} sha={GuestIdentity.Sha256Hex(image.Value)}");
+					break;
+				}
 				case "play": Play(options); break;
 				case "session": RunSession(options); break;
 				case "bench": Bench(options); break;                 // T33: tools/bench.py

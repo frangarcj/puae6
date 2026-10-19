@@ -79,11 +79,14 @@ public static class Puae6Volumes
 	}
 
 	/// <summary>The hard file of an LHA archive or of a ZIP file of files. Throws <see cref="VolumeException"/> for anything else, damaged, unsafe or over a limit.</summary>
-	public static byte[] FromArchive(byte[] archive)
+	public static byte[] FromArchive(byte[] archive) => Build(ReadArchive(archive));
+
+	/// <summary>The validated LHA/ZIP members, without constructing an FFS image.</summary>
+	public static List<VolumeFile> ReadArchive(byte[] archive)
 	{
 		if (archive.Length > MaxArchiveBytes) throw new VolumeException($"the archive is larger than the {MaxArchiveBytes} bytes this core reads as a volume");
-		if (IsLha(archive)) return FromLha(archive);
-		if (IsZip(archive)) return FromZip(archive);
+		if (IsLha(archive)) return ReadLha(archive, MaxEntries, MaxBytes, MaxBytes).Select(e => new VolumeFile(e.Name, e.IsDirectory, e.Data)).ToList();
+		if (IsZip(archive)) return ReadZip(archive);
 		throw new VolumeException("it is neither an LHA archive nor a ZIP file");
 	}
 
@@ -142,7 +145,7 @@ public static class Puae6Volumes
 		return h % HashSize;
 	}
 
-	static string Folded(string name)
+	internal static string Folded(string name)
 	{
 		var chars = name.ToCharArray();
 		for (int i = 0; i < chars.Length; ++i) chars[i] = (char)Upper((byte)chars[i], true);
@@ -181,8 +184,13 @@ public static class Puae6Volumes
 	}
 
 	/// <summary>The FFS volume of a tree: the same bytes as ffs_volume.h's build_ffs_volume and tools/whdload/ffs.py for the same tree, 1 MiB free.</summary>
-	public static byte[] Build(IReadOnlyList<VolumeFile> files)
+	public static byte[] Build(IReadOnlyList<VolumeFile> files) => Build(files, Label, FreeBlocks);
+
+	/// <summary>The same writer, with the label and free blocks of one WHDLoad role.</summary>
+	public static byte[] Build(IReadOnlyList<VolumeFile> files, string label, int freeBlocks)
 	{
+		if (!ValidName(label) || label.Any(c => c > 255 || c < 32 || c == 127)) throw new VolumeException("invalid volume label");
+		if (freeBlocks < 0 || freeBlocks > MaxBlocks) throw new VolumeException("invalid free block count");
 		var nodes = new List<Node> { new() { IsDirectory = true } };
 		bool high = false;
 		foreach (var file in files)
@@ -235,7 +243,7 @@ public static class Puae6Volumes
 			order.Add(n);
 			foreach (var child in nodes[n].Children.Values.Reverse()) stack.Push(child);
 		}
-		ulong needed = Reserved + 1 + FreeBlocks;
+		ulong needed = Reserved + 1UL + (ulong)freeBlocks;
 		foreach (int n in order)
 		{
 			needed += 1;
@@ -359,7 +367,7 @@ public static class Puae6Volumes
 		root[78] = 0xFFFFFFFFu;
 		for (uint page = 0; page < pages; ++page) root[79 + page] = rootBlock + 1 + page;
 		foreach (int baseIndex in new[] { 105, 118, 121 }) root[baseIndex] = Days;
-		PutBString(root, 108, Label);
+		PutBString(root, 108, label);
 		root[127] = StRoot;
 		Seal(root, 5, image, OffsetOf(rootBlock));
 		for (uint page = 0; page < pages; ++page)
@@ -836,7 +844,7 @@ public static class Puae6Volumes
 		return table;
 	}
 
-	static uint Crc32(byte[] data)
+	internal static uint Crc32(byte[] data)
 	{
 		uint crc = 0xFFFFFFFFu;
 		foreach (var b in data) crc = Crc32Table[(crc ^ b) & 0xFF] ^ (crc >> 8);

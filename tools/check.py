@@ -513,6 +513,7 @@ TASK_SUITES[('WB03', 'T70d')] = {
 TASK_SUITES[('MED02', 'T65a')] = {
     'three_role_bundle': 'tests.whdload.test_bundle.BundleTests',
     'real_save_and_immutable_data': 'tests.whdload.test_bundle.BundleLibretroTests.test_real_highscore_save_and_restore_keep_data_immutable'}
+TASK_SUITES[('MED02', 'T65c1')] = {'managed_bundle_bytes': 'tests.whdload.test_bundle_csharp'}
 TASK_SUITES[('DET02', 'T65a')] = {
     'native_state_and_pcm_replay': 'tests.whdload.test_bundle.BundleLibretroTests.test_real_highscore_save_and_restore_keep_data_immutable'}
 TASK_SUITES[('LR01', 'T65a')] = {'real_bundle_frontend': 'tests.whdload.test_bundle.BundleLibretroTests'}

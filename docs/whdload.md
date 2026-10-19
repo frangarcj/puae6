@@ -21,6 +21,17 @@ Cargar la lista M3U en libretro con maquina A1200 y el Kickstart 3.1 del usuario
 Se guardan mediante `puae6_hdf_save=on_close` en libretro y SaveRAM/exportacion en BizHawk. No hay exportacion oculta al ejecutar o restaurar estados.
 La deteccion automatica de packs dentro de los adaptadores sigue en T65b/T65c; este comando prepara el bundle antes de cargarlo. Estos HDF contienen entradas privadas y no se distribuyen.
 
+T65c1 añade `Puae6WhdLoad.Build`/`Prepare`, la misma receta en C# sin Python en
+ejecucion. Usa los lectores LHA/ZIP y escritor FFS existentes; las constantes propias
+P6Assign/arranque/prefs/roles se generan desde T65a, sin incluir programas del usuario.
+`Prepare` verifica los dos miembros de WHDLoad 20.0; `Build` consume bytes explicitos.
+El ZIP de datos usa cabeceras almacenadas fijas, creador Amiga, RWED y UTF8 cuando
+el nombre Latin1 lo necesita. ButtonWait es false por defecto como T65a (PUAE5 lo
+activa por defecto). No es aun carga automatica ni una prueba de guardado/arranque.
+WHDSaves vacio es el mismo medio compartible entre packs: SaveRAM P6SRv2 valida el ID
+de los medios que contienen cambios; estados y peliculas validan las tres bases y
+configuracion. No hay namespace por juego ni un formato nuevo de SaveRAM.
+
 `tests.whdload.test_bundle` comprueba el contenido y determinismo sin assets. Sus dos pruebas opt-in usan los inputs de T30: exigen el fichero real `FM1.hisc` de 112 bytes en WHDSaves,
 los datos inalterados y replay con PCM/imagen; Waterbox añade un sandbox nuevo. No sustituye guardar partida por escribir un log del script.
 
