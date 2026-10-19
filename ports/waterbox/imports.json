@@ -63,13 +63,17 @@
     ],
     "rtti": [
       "_ZTVN10__cxxabiv117__class_type_infoE"
+    ],
+    "finalization": [
+      "atexit"
     ]
   },
   "notes": {
     "exceptions": "Only build/upstream/newcpu.cpp throws and catches (the 68000 core models its exceptions with C++ exceptions). Unwinding inside Waterbox is shown by p6w_probe_exception (T19b, tests/waterbox-smoke/test_puae6.py): an exception thrown 40 frames down is caught and every destructor on the way runs. The A500 profile never reaches the core's own throw (hardware_exception2 sets hardware_bus_error for a compatible 68000), so the probe is the evidence, not a run of the machine.",
     "math": "sinf, cosf and powf are Paula's filter math (audio_math.cpp). Their results come from the musl and compiler-rt of the pinned sysroot, not from the host libm; T19c compares the PCM with headless.",
     "emulibc": "alloc_sealed is the Waterbox runtime's own service (references/machawk/waterbox/emulibc): the firmware and the media are copied into the sealed heap during p6w_init. alloc_plain and alloc_invisible are not used: everything else is malloc, which Waterbox captures. __wbxsysinfo is the layout the runtime writes into the guest (the ranges of its heaps); p6w_memory_info hands it to the host.",
-    "thread_specific": "Only adapters/waterbox/abi_probe.cpp (WB13) uses them: musl's thread-specific data must survive a host callback. The machine creates no thread and keeps nothing in a key."
+    "thread_specific": "Only adapters/waterbox/abi_probe.cpp (WB13) uses them: musl's thread-specific data must survive a host callback. The machine creates no thread and keeps nothing in a key.",
+    "finalization": "The compiler registers the global AudioPlayer destructor in ports/portable/media/cd_device.cpp through atexit because the pinned recipe uses -fno-use-cxa-atexit. The symbol resolves to the pinned sandbox musl libc.a, not a host process service. Device shutdown closes its stream explicitly; the sandbox is disposed by Waterbox. No exit, process creation, clock or filesystem import is authorized."
   },
   "forbidden": [
     "time",

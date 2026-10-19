@@ -12365,7 +12365,9 @@
         "tests/libretro-ui/**",
         "manifests/waterbox-memory.json",
         "tools/bench.py",
-        "tests/bench/**"
+        "tests/bench/**",
+        "ports/waterbox/imports.json",
+        "tests/waterbox-smoke/test_build.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: anadir los niveles de PUAE5 (puae_cpu_compatibility normal/compatible/exact). Generar cpuemu sin CE (0/11/20...) y seleccionarlos por opcion de reinicio; m68k_speed nunca ligado al reloj del host; DET02 y estados en cada nivel; ADR que fija que la identidad del estado incluye el nivel.",
@@ -12381,7 +12383,8 @@
         "Registrar los checks funcionales dirigidos existentes, incluido WB03 de los tres niveles; PERF01 conserva su puerta pendiente de medicion comparativa en la candidata, no se sustituye por estadistica del harness ni un build exitoso.",
         "Antes del cierre de T53 faltan PERF01 comparativo y el re-registro conjunto de memoria de la candidata. Conservar la generacion limitada al perfil soportado y las pruebas reales de snapshot de cada nivel.",
         "Preparacion PERF01 de la candidata: reutilizar probes y ventanas existentes con CPU/modelo y precision explicitos en nativo/libretro/WaterboxCore. Primera vertical limitada a propagar argumentos y registrarlos, sin nuevas medidas de flags/SIMD ni reducir warmup/repeticiones del protocolo; campana comparativa completa se ejecuta una vez sobre la candidata estable.",
-        "Argumentos CPU/modelo y precision integrados en probes nativo/LR/WaterboxCore y separados por identidad. Smoke real C# sobre guest combinado ejecuta68010/normal (1 warmup+3 unidades) y rechaza modelo desconocido antes del runtime. Es comprobacion de cableado, no baseline PERF01; campana comparativa y memoria permanecen pendientes."
+        "Argumentos CPU/modelo y precision integrados en probes nativo/LR/WaterboxCore y separados por identidad. Smoke real C# sobre guest combinado ejecuta68010/normal (1 warmup+3 unidades) y rechaza modelo desconocido antes del runtime. Es comprobacion de cableado, no baseline PERF01; campana comparativa y memoria permanecen pendientes.",
+        "La candidata conjunta expone atexit por el destructor global real de AudioPlayer (cd_device.cpp.o, -fno-use-cxa-atexit). Inventariar solo esa dependencia C++ resuelta dentro del libc.a fijado del sandbox, sin stubs ni excepciones al auditor. Actualizar tambien la expectativa antigua de lista de fuentes para el adaptador cd_source ya integrado; ejecutar auditor real y test_build antes de medir."
       ],
       "checks": [
         "GEN01",

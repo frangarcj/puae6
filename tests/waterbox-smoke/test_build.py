@@ -159,7 +159,7 @@ class Puae6RecipeTests(unittest.TestCase):
         self.assertTrue(set(f"build/generated/{u}" for u in selection["generated_units"]) <= set(sources))
         self.assertTrue(set(build_waterbox.cmake_sources("p6_portable")) <= set(sources))
         self.assertTrue(set(build_waterbox.cmake_sources("p6_bridge")) <= set(sources))
-        self.assertEqual("adapters/waterbox/puae6_guest.cpp", sources[-1])
+        self.assertEqual(["adapters/waterbox/abi_probe.cpp", "adapters/waterbox/puae6_guest.cpp", "adapters/waterbox/cd_source.cpp"], sources[-3:])
         self.assertFalse([source for source in sources if "libretro" in source], "the libretro adapter is never linked into the guest")
         self.assertEqual(len(sources), len(set(sources)))
 
