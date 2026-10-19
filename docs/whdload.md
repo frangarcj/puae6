@@ -4,6 +4,25 @@ Estado: flujo OFFLINE reproducible. Una instalacion WHDLoad (el directorio que d
 autor) se convierte, antes de cargar nada, en UNA imagen de disco duro (`.hdf`) y un manifiesto; el emulador solo
 recibe esa imagen. No es la UX de PUAE5 (ver "Lo que no replica").
 
+## Bundle de tres volumenes (T65a)
+
+`python3 tools/prepare_whdload.py bundle config/whdload/fatal-mission.json --input whdload=WHDLoad_usr.lha --input game=FatalMission.lha --out DIR`
+prepara `WHDLoad.hdf`, `RASystem.hdf`, `WHDSaves.hdf` y una lista `WHDLoad (A1200).m3u`, sin manifiestos historicos.
+La configuracion de T30 sigue comprobando los hashes de los ficheros del usuario. El plugin `C/WHDLoad.VFS` debe ser el incluido en WHDLoad 20.0; falta o version distinta es un error.
+`--buttonwait` añade `ButtonWait` a las preferencias reales que lee WHDLoad (solo tiene efecto si el slave lo admite).
+`--kickstart RUTA` se puede repetir: reconoce en memoria los cuatro Kickstart de MacHawk y los coloca con su nombre WHDLoad en `RASystem:Devs/Kickstarts`; no registra sus hashes.
+
+El programa propio `C:P6Assign` conecta `S:` y `DEVS:` a `RASystem:` mediante la API AmigaDOS v36; no contiene ni necesita `Assign`, `Copy` ni otro comando de Commodore.
+WHDLoad lee sus preferencias de `RASystem:S/WHDLoad.prefs`. Los datos del juego son un ZIP almacenado de orden y fecha fijos en `RASystem:Game.zip`, leido por la interfaz VFS de WHDLoad, que es de solo lectura.
+`SavePath=WHDSaves:` dirige las escrituras `resload_SaveFile` al volumen separado. Los tres HDF usan los overlays, estados y exportacion existentes; el host no monta carpetas ni cambia las entradas.
+
+Cargar la lista M3U en libretro con maquina A1200 y el Kickstart 3.1 del usuario, o pasar los tres HDF en ese orden a `Puae6Parameters.HardFiles` con `SyncSettings.Machine=A1200` en BizHawk.
+Se guardan mediante `puae6_hdf_save=on_close` en libretro y SaveRAM/exportacion en BizHawk. No hay exportacion oculta al ejecutar o restaurar estados.
+La deteccion automatica de packs dentro de los adaptadores sigue en T65b/T65c; este comando prepara el bundle antes de cargarlo. Estos HDF contienen entradas privadas y no se distribuyen.
+
+`tests.whdload.test_bundle` comprueba el contenido y determinismo sin assets. Sus dos pruebas opt-in usan los inputs de T30: exigen el fichero real `FM1.hisc` de 112 bytes en WHDSaves,
+los datos inalterados y replay con PCM/imagen; Waterbox añade un sandbox nuevo. No sustituye guardar partida por escribir un log del script.
+
 ## Que hay
 
 | Pieza | Donde |

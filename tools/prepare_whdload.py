@@ -300,6 +300,13 @@ def main(argv=None):
     prep.add_argument("--asset", action="append", default=[], metavar="PATH_IN_VOLUME=PATH")
     prep.add_argument("--out", required=True)
     prep.add_argument("--allow-missing-assets", action="store_true")
+    bundle = sub.add_parser("bundle", help="three WHDLoad/RASystem/WHDSaves HDFs for the existing frontends")
+    bundle.add_argument("config")
+    bundle.add_argument("--input", action="append", default=[])
+    bundle.add_argument("--asset", action="append", default=[])
+    bundle.add_argument("--kickstart", action="append", default=[])
+    bundle.add_argument("--buttonwait", action="store_true")
+    bundle.add_argument("--out", required=True)
     ident = sub.add_parser("identify")
     ident.add_argument("image")
     ident.add_argument("--sha256", required=True)
@@ -307,6 +314,17 @@ def main(argv=None):
     insp.add_argument("image")
     args = parser.parse_args(argv)
     try:
+        if args.command == "bundle":
+            from whdload.bundle import prepare as prepare_bundle
+            images = prepare_bundle(load_config(args.config), parse_pairs(args.input, "--input"), parse_pairs(args.asset, "--asset"),
+                                    buttonwait=args.buttonwait, kickstarts=args.kickstart)
+            out = Path(args.out)
+            out.mkdir(parents=True, exist_ok=True)
+            for name, image in images.items():
+                write_atomic(out / name, image)
+            write_atomic(out / "WHDLoad (A1200).m3u", ("\n".join(images) + "\n").encode("ascii"))
+            print("WHDLoad bundle prepared (private user inputs; not redistributable)")
+            return 0
         if args.command == "prepare":
             config = load_config(args.config)
             image, manifest, missing = prepare(config, parse_pairs(args.input, "--input"), parse_pairs(args.asset, "--asset"), args.allow_missing_assets)
@@ -331,7 +349,7 @@ def main(argv=None):
         for path in sorted(volume.files):
             print("%9d %s" % (len(volume.files[path]), path))
         return 0
-    except (PrepareError, ffs.FfsError, OSError) as error:
+    except (PrepareError, ffs.FfsError, OSError, ValueError) as error:
         print("ERROR: " + str(error), file=sys.stderr)
         return 2
 
