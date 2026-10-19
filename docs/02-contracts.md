@@ -948,6 +948,17 @@ no abre IMG/SUB ni habilita dispositivos. MED01 selecciona los fixtures legales
 y regresion CUE; la clase real opcional usa `P6_CD_CCD_FILE` y muestra SKIP si falta.
 Normalizacion y composicion IMG/SUB permanecen en T66j2.
 
+T66j2 añade `CdCcd`, dueño RAII de `<base>.img`2352 y `<base>.sub`96
+deinterleaved. Ambos son obligatorios: valida alineacion y numero de sectores,
+y compone lecturas por offset (incluidos cruces) con staging fijo, sin swap ni
+interleave. IMG/SUB empiezan en LBA0 como SS_CCD; INDEX0 negativo de primera pista
+esta fuera de LBA>=0, sin desplazar150 sectores. Conserva los pregaps almacenados
+no negativos y la metadata original completa accesible, incluso ese INDEX0.
+SHA256 cubre todo el stream2448; P6CCD1 añade politica y TOC/indices crudos en LE,
+sin rutas/cursor. Rebind exige ambos IDs; Q con CRC invalida y R-W se conservan.
+No usa fallback sintetico tras error ni precarga el CD. MED01 selecciona fixtures
+legales y parser; el real opcional usa `P6_CD_CCD_FILE`. No habilita carga CD32.
+
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
 El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando
