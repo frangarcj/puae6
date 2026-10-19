@@ -1,0 +1,427 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -503,10 +503,19 @@
+ static volatile int frame2counter;
+ 
+ static smp_comm_pipe requests;
+-static volatile int akiko_thread_running;
+-static uae_sem_t akiko_sem, sub_sem, cda_sem;
+-
+-static void checkint (void)
++static bool akiko_service_running, mute_pending;
++static int request_count(void)
++{
++	return requests.data ? (requests.wrp - requests.rdp + requests.size) % requests.size : 0;
++}
++static bool request_room(int words)
++{
++	return requests.data && request_count() + words < requests.size;
++}
++static void akiko_service(void);
++static uae_sem_t akiko_sem, sub_sem;
++
++static void akiko_checkint (void)
+ {
+ 	if (cdrom_intreq & cdrom_intena) {
+ 		irq ();
+@@ -529,13 +538,13 @@
+ 	}
+ #endif
+ 	cdrom_intreq |= status;
+-	checkint ();
++	akiko_checkint ();
+ 	cdrom_led ^= LED_CD_ACTIVE2;
+ }
+ 
+ static void rethink_akiko(void)
+ {
+-	checkint ();
++	akiko_checkint ();
+ }
+ 
+ static void cdaudiostop_do (void)
+@@ -618,8 +627,6 @@
+ 
+ static int statusfunc_imm(int status, int playpos)
+ {
+-	if (status == -3 || status > AUDIO_STATUS_IN_PROGRESS)
+-		uae_sem_post(&cda_sem);
+ 	if (status < 0)
+ 		return 0;
+ 	return statusfunc(status, playpos);
+@@ -634,7 +641,13 @@
+ 	if (unitnum < 0)
+ 		return;
+ 	sys_command_cd_pause(unitnum, 0);
+-	sys_command_cd_play(unitnum, startlsn, endlsn, scan, immediate ? statusfunc_imm : statusfunc, subfunc);
++	if (!sys_command_cd_play(unitnum, startlsn, endlsn, scan, immediate ? statusfunc_imm : statusfunc, subfunc)) {
++		// A repeated PLAY_ERROR callback may equal the latched status; the
++		// explicit failure must still cancel the pending/previous play intent.
++		cdrom_playing = cdrom_paused = 0;
++		cdrom_audiostatus = AUDIO_STATUS_PLAY_ERROR;
++		cdrom_audiotimeout = -3;
++	}
+ }
+ 
+ static bool isaudiotrack (int startlsn)
+@@ -786,6 +799,8 @@
+ }
+ static bool is_valid_data_sector(int sector)
+ {
++	if (sector < 0 || sector >= cdrom_toc_cd_buffer.lastaddress)
++		return false;
+ 	for (int i = 0; i < cdrom_toc_cd_buffer.points; i++) {
+ 		struct cd_toc *s = &cdrom_toc_cd_buffer.toc[i];
+ 		if (s->point < 1 || s->point > 99)
+@@ -1203,7 +1218,9 @@
+ 
+ static bool can_send_command(void)
+ {
+-	if (!cd_initialized)
++	// A multi command can queue stop + four play words; leave one slot
++	// for the status handler's stop. Full queue means hardware backpressure.
++	if (!request_room(6) || !cd_initialized)
+ 		return false;
+ 	if (cdrom_command_active)
+ 		return false;
+@@ -1460,6 +1477,7 @@
+ 	if (!currprefs.cs_cd32cd || !akiko_inited)
+ 		return;
+ 
++	akiko_service();
+ 	static float framecounter1, framecounter2;
+ 	framecounter1--;
+ 	if (framecounter1 <= 0) {
+@@ -1518,8 +1536,8 @@
+ 	akiko_handler (framesync);
+ }
+ 
+-/* cdrom data buffering thread */
+-static void akiko_thread (void *null)
++/* Bounded work at the emulated hsync boundary, never from MMIO. */
++static void akiko_service(void)
+ {
+ 	int secnum;
+ 	uae_u8 *tmp1;
+@@ -1527,9 +1545,16 @@
+ 	int tmp3;
+ 	int sector;
+ 
+-	while (akiko_thread_running || comm_pipe_has_data (&requests)) {
+-
+-		if (comm_pipe_has_data (&requests)) {
++	if (!akiko_service_running)
++		return;
++	int remaining = request_count();
++	while (remaining) {
++		uae_u32 next = requests.data[requests.rdp].u32;
++		int words = next == 0x0110 || next == 0x0111 ? 4 : 1;
++		if (remaining < words)
++			break; // Never consume a play prefix without its three arguments.
++		remaining -= words;
++		{
+ 			uae_u32 b = read_comm_pipe_u32_blocking (&requests);
+ 			switch (b)
+ 			{
+@@ -1555,109 +1580,105 @@
+ 				break;
+ 			}
+ 		}
+-
+-		if (frame2counter <= 0) {
+-			frame2counter = 312 * 50 / 2;
+-			if (unitnum >= 0 && sys_command_cd_qcode (unitnum, qcode_buf, -1, false)) {
+-				qcode_valid = 1;
+-			}
+-		}
+-
+-		if (mediacheckcounter <= 0) {
+-			mediacheckcounter = 312 * 50 * 2;
+-			int media = sys_command_ismedia (unitnum, 1);
+-			if (media < 0) {
+-				write_log (_T("CD32: device unit %d lost\n"), unitnum);
+-				media = lastmediastate = cdrom_disk = 0;
++	}
++	if (mute_pending) {
++		sys_command_cd_volume(unitnum, cdrom_muted ? 0 : 0x7fff, cdrom_muted ? 0 : 0x7fff);
++		mute_pending = false;
++	}
++
++	if (frame2counter <= 0) {
++		frame2counter = 312 * 50 / 2;
++		if (unitnum >= 0 && sys_command_cd_qcode (unitnum, qcode_buf, -1, false)) {
++			qcode_valid = 1;
++		}
++	}
++
++	if (mediacheckcounter <= 0) {
++		mediacheckcounter = 312 * 50 * 2;
++		int media = sys_command_ismedia (unitnum, 1);
++		if (media < 0) {
++			write_log (_T("CD32: device unit %d lost\n"), unitnum);
++			media = lastmediastate = cdrom_disk = 0;
++			mediachanged = 1;
++			cdaudiostop_do ();
++		} else if (media != lastmediastate) {
++			if (!media && lastmediastate > 1) {
++				// ignore missing media if statefile restored with cd present
++				if (lastmediastate == 2)
++					write_log (_T("CD32: CD missing but statefile was stored with CD inserted: faking media present\n"));
++				lastmediastate = 3;
++			} else {
++				write_log (_T("CD32: media changed = %d\n"), media);
++				lastmediastate = cdrom_disk = media;
+ 				mediachanged = 1;
+ 				cdaudiostop_do ();
+-			} else if (media != lastmediastate) {
+-				if (!media && lastmediastate > 1) {
+-					// ignore missing media if statefile restored with cd present
+-					if (lastmediastate == 2)
+-						write_log (_T("CD32: CD missing but statefile was stored with CD inserted: faking media present\n"));
+-					lastmediastate = 3;
+-				} else {
+-					write_log (_T("CD32: media changed = %d\n"), media);
+-					lastmediastate = cdrom_disk = media;
+-					mediachanged = 1;
+-					cdaudiostop_do ();
++			}
++		}
++	}
++
++	uae_sem_wait (&akiko_sem);
++	sector = cdrom_current_sector;
++	for (secnum = 0; secnum < SECTOR_BUFFER_SIZE; secnum++) {
++		if (sector_buffer_info_1[secnum] == 0xff)
++			break;
++	}
++	if (sector >= 0 && is_valid_data_sector(sector) &&
++		(sector_buffer_sector_1 < 0 || sector < sector_buffer_sector_1 || sector >= sector_buffer_sector_1 + SECTOR_BUFFER_SIZE * 2 / 3 || secnum != SECTOR_BUFFER_SIZE)) {
++		int blocks = 0;
++		memset (sector_buffer_info_2, 0, SECTOR_BUFFER_SIZE);
++		sector_buffer_sector_2 = sector;
++		secnum = 0;
++		if (sector_buffer_sector_1 >= 0 && sector >= sector_buffer_sector_1 && sector < sector_buffer_sector_1 + SECTOR_BUFFER_SIZE) {
++			int secoff = sector - sector_buffer_sector_1;
++			while (secoff < SECTOR_BUFFER_SIZE && sector_buffer_info_1[secoff] &&
++				sector_buffer_info_1[secoff] != 0xff && is_valid_data_sector(sector + secnum)) {
++				memcpy(sector_buffer_2 + secnum * 2352, sector_buffer_1 + secoff * 2352, 2352);
++				sector_buffer_info_2[secnum] = 3;
++				secnum++;
++				secoff++;
++			}
++		}
++		while (secnum + blocks < SECTOR_BUFFER_SIZE && is_valid_data_sector(sector + secnum + blocks))
++			blocks++;
++		if (blocks) {
++#if AKIKO_DEBUG_IO_CMD
++			if (1)
++				write_log(_T("CD32: filling buffer sector=%d-%d, blocks=%d\n"), sector, sector + blocks - 1, blocks);
++#endif
++			uae_sem_post(&akiko_sem);
++			int ok = sys_command_cd_rawread (unitnum, sector_buffer_2 + secnum * 2352, sector + secnum, blocks, 2352);
++			if (!ok) {
++				int offset = secnum;
++				while (offset < SECTOR_BUFFER_SIZE) {
++					int readok = 0;
++					if (is_valid_data_sector(sector + offset)) {
++						readok = sys_command_cd_rawread (unitnum, sector_buffer_2 + offset * 2352, sector + offset, 1, 2352);
++					}
++					sector_buffer_info_2[offset] = readok ? 3 : 0;
++					offset++;
++				}
++			} else {
++				for (int i = secnum; i < secnum + blocks; i++) {
++					sector_buffer_info_2[i] = 3;
+ 				}
+ 			}
+-		}
+-
+-		uae_sem_wait (&akiko_sem);
+-		sector = cdrom_current_sector;
+-		for (secnum = 0; secnum < SECTOR_BUFFER_SIZE; secnum++) {
+-			if (sector_buffer_info_1[secnum] == 0xff)
+-				break;
+-		}
+-		if (sector >= 0 && is_valid_data_sector(sector) &&
+-			(sector_buffer_sector_1 < 0 || sector < sector_buffer_sector_1 || sector >= sector_buffer_sector_1 + SECTOR_BUFFER_SIZE * 2 / 3 || secnum != SECTOR_BUFFER_SIZE)) {
+-			int blocks;
+-			memset (sector_buffer_info_2, 0, SECTOR_BUFFER_SIZE);
+-			sector_buffer_sector_2 = sector;
+-			secnum = 0;
+-			if (sector_buffer_sector_1 >= 0 && sector >= sector_buffer_sector_1 && sector < sector_buffer_sector_1 + SECTOR_BUFFER_SIZE) {
+-				int secoff = sector - sector_buffer_sector_1;
+-				while (secoff < SECTOR_BUFFER_SIZE) {
+-					memcpy(sector_buffer_2 + secnum * 2352, sector_buffer_1 + secoff * 2352, 2352);
+-					sector_buffer_info_2[secnum] = 3;
+-					secnum++;
+-					secoff++;
+-				}
+-			}
+-			if (!is_valid_data_sector(sector + SECTOR_BUFFER_SIZE - 1)) {
+-				for (blocks = SECTOR_BUFFER_SIZE - 1; blocks > secnum; blocks--) {
+-					if (is_valid_data_sector(sector + blocks))
+-						break;
+-				}
+-			} else {
+-				blocks = SECTOR_BUFFER_SIZE - secnum;
+-			}
+-			if (blocks) {
+-#if AKIKO_DEBUG_IO_CMD
+-				if (1)
+-					write_log(_T("CD32: filling buffer sector=%d-%d, blocks=%d\n"), sector, sector + blocks - 1, blocks);
+-#endif
+-				uae_sem_post(&akiko_sem);
+-				int ok = sys_command_cd_rawread (unitnum, sector_buffer_2, sector, blocks, 2352);
+-				if (!ok) {
+-					int offset = secnum;
+-					while (offset < SECTOR_BUFFER_SIZE) {
+-						int readok = 0;
+-						if (is_valid_data_sector(sector)) {
+-							readok = sys_command_cd_rawread (unitnum, sector_buffer_2 + offset * 2352, sector, 1, 2352);
+-						}
+-						sector_buffer_info_2[offset] = readok ? 3 : 0;
+-						offset++;
+-						sector++;
+-					}
+-				} else {
+-					for (int i = 0; i < SECTOR_BUFFER_SIZE; i++) {
+-						sector_buffer_info_2[i] = i < blocks ? 3 : 0;
+-					}
+-				}
+-				uae_sem_wait(&akiko_sem);
+-			}
+-			if (blocks || secnum) {
+-				uae_sem_post(&akiko_sem);
+-				tmp1 = sector_buffer_info_1;
+-				sector_buffer_info_1 = sector_buffer_info_2;
+-				sector_buffer_info_2 = tmp1;
+-				tmp2 = sector_buffer_1;
+-				sector_buffer_1 = sector_buffer_2;
+-				sector_buffer_2 = tmp2;
+-				tmp3 = sector_buffer_sector_1;
+-				sector_buffer_sector_1 = sector_buffer_sector_2;
+-				sector_buffer_sector_2 = tmp3;
+-				uae_sem_wait(&akiko_sem);
+-			}
+-		}
+-		uae_sem_post (&akiko_sem);
+-		sleep_millis (10);
+-	}
+-	akiko_thread_running = -1;
++			uae_sem_wait(&akiko_sem);
++		}
++		if (blocks || secnum) {
++			uae_sem_post(&akiko_sem);
++			tmp1 = sector_buffer_info_1;
++			sector_buffer_info_1 = sector_buffer_info_2;
++			sector_buffer_info_2 = tmp1;
++			tmp2 = sector_buffer_1;
++			sector_buffer_1 = sector_buffer_2;
++			sector_buffer_2 = tmp2;
++			tmp3 = sector_buffer_sector_1;
++			sector_buffer_sector_1 = sector_buffer_sector_2;
++			sector_buffer_sector_2 = tmp3;
++			uae_sem_wait(&akiko_sem);
++		}
++	}
++	uae_sem_post (&akiko_sem);
+ }
+ 
+ STATIC_INLINE uae_u8 akiko_get_long (uae_u32 v, int offset)
+@@ -2093,25 +2114,19 @@
+ 	sector_buffer_info_2 = 0;
+ }
+ 
+-static int akiko_thread_do(int start)
+-{
+-	if (!start) {
+-		if (akiko_thread_running > 0) {
+-			cdaudiostop();
+-			akiko_thread_running = 0;
+-			while (akiko_thread_running == 0)
+-				sleep_millis(10);
+-			akiko_thread_running = 0;
+-			destroy_comm_pipe(&requests);
+-			return 1;
+-		}
+-	} else {
+-		if (!akiko_thread_running) {
+-			akiko_thread_running = 1;
+-			init_comm_pipe(&requests, 100, 1);
+-			uae_start_thread(_T("akiko"), akiko_thread, 0, NULL);
+-			return 1;
+-		}
++static int akiko_service_lifecycle(int start)
++{
++	if (!start && akiko_service_running) {
++		cdaudiostop_do();
++		akiko_service_running = false;
++		destroy_comm_pipe(&requests);
++		mute_pending = false;
++		return 1;
++	}
++	if (start && !akiko_service_running) {
++		init_comm_pipe(&requests, 100, 1);
++		akiko_service_running = true;
++		return 1;
+ 	}
+ 	return 0;
+ }
+@@ -2146,7 +2161,7 @@
+ 
+ static void akiko_free(void)
+ {
+-	akiko_thread_do(0);
++	akiko_service_lifecycle(0);
+ 	akiko_cdrom_free();
+ 	mediacheckcounter = 0;
+ 	akiko_inited = false;
+@@ -2163,16 +2178,17 @@
+ 		sector_buffer_2 = xmalloc(uae_u8, SECTOR_BUFFER_SIZE * 2352);
+ 		sector_buffer_info_1 = xmalloc(uae_u8, SECTOR_BUFFER_SIZE);
+ 		sector_buffer_info_2 = xmalloc(uae_u8, SECTOR_BUFFER_SIZE);
++		memset(sector_buffer_info_1, 0, SECTOR_BUFFER_SIZE);
++		memset(sector_buffer_info_2, 0, SECTOR_BUFFER_SIZE);
+ 		sector_buffer_sector_1 = -1;
+ 		sector_buffer_sector_2 = -1;
+ 		uae_sem_init(&akiko_sem, 0, 1);
+ 		uae_sem_init(&sub_sem, 0, 1);
+-		uae_sem_init(&cda_sem, 0, 0);
+ 		if (!savestate_state) {
+ 			cdrom_playing = cdrom_paused = 0;
+ 			cdrom_data_offset = -1;
+ 		}
+-		akiko_thread_do(1);
++		akiko_service_lifecycle(1);
+ 		gui_flicker_led(LED_HD, 0, -1);
+ 		akiko_inited = true;
+ 		device_add_hsync(AKIKO_hsync_handler);
+@@ -2332,9 +2348,9 @@
+ 		write_comm_pipe_u32(&requests, last_play_pos, 0);
+ 		write_comm_pipe_u32(&requests, last_play_end, 0);
+ 		write_comm_pipe_u32(&requests, 0, 1);
+-		if (!cdrom_paused) {
+-			uae_sem_wait(&cda_sem);
+-		} else {
++		// Intent stays queued until the next emulated hsync; no worker can
++		// signal a host semaphore. The backend still reports a real play error.
++		if (cdrom_paused) {
+ 			write_comm_pipe_u32(&requests, 0x0102, 1); // pause
+ 		}
+ 	}
+@@ -2348,7 +2364,10 @@
+ 	if (muted != cdrom_muted) {
+ 		cdrom_muted = muted;
+ 		if (currprefs.cs_cd32cd && unitnum >= 0) {
+-			write_comm_pipe_u32(&requests, 0x0105, 1);
+-		}
+-	}
+-}
++			if (request_room(1))
++				write_comm_pipe_u32(&requests, 0x0105, 1);
++			else
++				mute_pending = true; // Queued volume commands already use the latest level.
++		}
++	}
++}

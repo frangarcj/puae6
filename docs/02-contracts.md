@@ -993,6 +993,16 @@ sintetico, silencio de audio; los ultimos150 frames usan el modo de datos. Q
 mantiene numero/tiempo de pista actual. Las vistas no representables fallan sin
 publicar salida parcial; gaps Mode2 siguen limitados y no se anuncia CD32.
 
+T66h1 sustituye el worker Akiko por un servicio acotado desde hsync. La FIFO
+conserva paquetes play de cuatro palabras y reserva stop+play antes de admitir
+comandos; la saturacion aplica backpressure sin consumir prefijos incompletos.
+Los dos buffers siguen siendo de128sectores, con fallback por sector, prefijos
+reutilizados y fin de pista explicitos. El cierre libera la cola y restore conserva
+la intencion de audio sin esperar un hilo. No selecciona Akiko en el producto:
+los acumuladores float, reset, estado completo y CDDA siguen pendientes en T66h2/T66.
+El probe usa RAM/IRQ de fixture y Disc real; conversion MSF/BCD e intercalado
+abortan si se alcanzan. No acredita paquetes TOC/subQ ni DMA SUBCODE.
+
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
 fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,

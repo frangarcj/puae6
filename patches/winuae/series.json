@@ -4741,6 +4741,31 @@
           "after_sha256": "43100451b71c69347315059a0e370bed1a7981f8eee27f479461a8516e3c8a22"
         }
       ]
+    },
+    {
+      "id": "0358-akiko-cooperative-service",
+      "file": "patches/winuae/0358-akiko-cooperative-service.patch",
+      "sha256": "2cff3ef1dd7c44d54a49068f3e0b51b8cc70a60c527dc5bdc66fcf08c6267ec6",
+      "title": "Service Akiko CD requests cooperatively at emulated hsync boundaries",
+      "reason": "T66h1 replaces host worker scheduling with one bounded hsync service, complete FIFO play packets and admission backpressure. Sector buffers retain their 128-sector capacity with correct overlap and leadout handling. CD32 selection, timer reset/state and CDDA remain pending.",
+      "category": "host hooks",
+      "order": 175,
+      "symbols": [
+        "akiko_service",
+        "AKIKO_hsync_handler",
+        "can_send_command",
+        "restore_akiko_final"
+      ],
+      "test": "tests/media/test_akiko_service.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "akiko.cpp",
+          "before_sha256": "2e2317a6c9923e013bd6a378994f2dfef3949c7d7e17f643305ac3fa1d5ed9a1",
+          "after_sha256": "3285d462928e7d0cc2d237078df99735886df63b1243095a5988aac4139606a9"
+        }
+      ]
     }
   ]
 }
