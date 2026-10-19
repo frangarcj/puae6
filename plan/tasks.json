@@ -14870,6 +14870,51 @@
       "stop": "No seleccionar backend incompleto en perfil CD32 ni devolver exito falso para reproduccion de audio; conservar puerta completa del padre."
     },
     {
+      "id": "T66g4",
+      "title": "Integrar sectores canonicos2448 y seleccion de subcanales almacenados/sinteticos",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66g1",
+        "T66g2",
+        "T66g3",
+        "T66e2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_read.h",
+        "ports/portable/media/cd_read.cpp",
+        "ports/portable/media/cd_akiko.h",
+        "ports/portable/media/cd_akiko.cpp",
+        "ports/portable/media/cd_device.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "tests/media/cd_device_probe.cpp",
+        "tests/media/test_cd_device.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Capa canonical_read sobre Disc sin cambiar su contrato lowlevel:2448 almacena2352datos+96P-W. Preservar bytes2448/SBI almacenados y erroresIO; sintetizar P/Q deG2 sólo cuando sector no tiene subcanales almacenados. Sin fallback que oculte datos invalidos o fallo de lector.",
+        "Seleccionar pausa en INDEX00 y POSTGAP, CONTROL efectivo de pista audio previa sólo en pregap audio->datos antesde sus ultimos150frames, manteniendo numero/tiempo de pista actual. Canonical2448 sin subcanales junta Disc2352 con metadata sintetica, validaMSF/capacidad antespublicacion y no fabrica gapsMode2 que Disc aunno soporta.",
+        "Akiko Q usa selector96 y conserva status explicito; blkdev usa lectura canonica. Nada cambia wire2432 ni ofrece CD32 en frontend. Probe integrado de storedbytes/faults/nooverride, ISO/audio/gaps/combinados/postgap, frontera151/150 y canarios; mantener regresionesDisc/device.",
+        "Presupuesto200–300logicas y MED01 dirigido con sanitizers; sin rebuildengine/guest, seleccionCMake o campaña completa. ParentT66 mantiene integracionrealAkiko/CDDA/estado/formats/boot."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "La superficie real blkdev y Q de Akiko producen lectura2448 coherente para sectores soportados, conservan los subcanales originales y fallan sin salida parcial."
+      ],
+      "stop": "No sustituir subcanales almacenados/SBI por sintesis ni convertir IOError a Q sintetica; no anunciar CD32 ni Mode2gaps completos."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -14887,7 +14932,8 @@
         "T66f1",
         "T66g1",
         "T66g2",
-        "T66g3"
+        "T66g3",
+        "T66g4"
       ],
       "read": [
         "docs/01-architecture.md",
