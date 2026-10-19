@@ -4878,6 +4878,31 @@
           "after_sha256": "19793828365bcc4de3f0fe9a04669f4cbd5ab8c220c44f16531feb6cd36bf52a"
         }
       ]
+    },
+    {
+      "id": "0363-akiko-nvram-lifecycle",
+      "file": "patches/winuae/0363-akiko-nvram-lifecycle.patch",
+      "sha256": "e2a96f8013630fb2436168f0559f8da54c07f62b1ae9d8a43c2d186d33f9e955",
+      "title": "Own Akiko NVRAM per session and preserve bytes across reset",
+      "reason": "T66m1 excludes flashfile host access, recreates the real 24C08 protocol over persistent session bytes, and frees the owner only at the registered session exit. Private snapshots include every chip field and the real DDR/pin latches, with transactional validation.",
+      "category": "host hooks",
+      "order": 180,
+      "symbols": [
+        "nvram_read",
+        "akiko_session_end",
+        "p6_akiko_nvram_get",
+        "p6_akiko_nvram_set"
+      ],
+      "test": "tests/media/test_cd32_nvram.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "akiko.cpp",
+          "before_sha256": "c51fb47459bbf8b8d2942cf518b5d8051996dc6cc60421db100899dde752ab66",
+          "after_sha256": "3196282e33e87652662f6d25e38c21a1468fe61fabdc8ea709a27a237c653ab7"
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,115 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -197,13 +197,76 @@
+ static void *cd32_eeprom;
+ static uae_u8 cd32_i2c_direction;
+ static bool cd32_i2c_data_scl, cd32_i2c_data_sda;
++#ifndef P6_PORTABLE
+ struct zfile *cd32_flashfile;
++#else
++#include "cd32_nvram.h"
++static void akiko_nvram_free(void)
++{
++	eeprom_free(cd32_eeprom); cd32_eeprom = NULL;
++	xfree(cd32_nvram); cd32_nvram = NULL; cd32_nvram_size = 0;
++	cd32_i2c_direction = 0;
++	cd32_i2c_data_scl = cd32_i2c_data_sda = true;
++}
++static bool akiko_nvram_ready(void)
++{
++	return currprefs.cs_cd32nvram && currprefs.cs_cd32nvram_size == 1024 &&
++		cd32_nvram && cd32_nvram_size == 1024 && cd32_eeprom;
++}
++bool p6_akiko_nvram_get(p6_cd32_nvram_state *out)
++{
++	if (!out || !akiko_nvram_ready())
++		return false;
++	p6_cd32_nvram_state next{};
++	if (!p6_cd32_eeprom_get(cd32_eeprom, &next.chip))
++		return false;
++	next.direction = cd32_i2c_direction;
++	next.scl = cd32_i2c_data_scl; next.sda = cd32_i2c_data_sda;
++	*out = next;
++	return true;
++}
++bool p6_akiko_nvram_set(const p6_cd32_nvram_state *in)
++{
++	if (!in || !akiko_nvram_ready() || in->reserved || in->scl > 1 || in->sda > 1 ||
++		in->chip.last_clock != in->scl || in->chip.last_data != in->sda)
++		return false;
++	if (!p6_cd32_eeprom_set(cd32_eeprom, &in->chip))
++		return false;
++	cd32_i2c_direction = in->direction;
++	cd32_i2c_data_scl = in->scl; cd32_i2c_data_sda = in->sda;
++	return true;
++}
++#endif
+ #ifdef ARCADIA
+ extern uae_u8 *cubo_nvram;
+ #endif
+ 
+ static void nvram_read (void)
+ {
++#ifdef P6_PORTABLE
++	// The bytes belong to the loaded session; only the serial protocol resets.
++	// Recreating the real chip clears state/buffer too, unlike eeprom_reset.
++	eeprom_free(cd32_eeprom); cd32_eeprom = NULL;
++	cd32_i2c_data_scl = cd32_i2c_data_sda = true;
++	cd32_i2c_direction = 0;
++	if (!currprefs.cs_cd32nvram) {
++		akiko_nvram_free();
++		return;
++	}
++	if (currprefs.cs_cd32nvram_size != 1024 || (cd32_nvram && cd32_nvram_size != 1024)) {
++		write_log(_T("Akiko: portable NVRAM supports 1024 bytes only\n"));
++		abort();
++	}
++	if (!cd32_nvram) {
++		cd32_nvram = xcalloc(uae_u8, 1024);
++		cd32_nvram_size = 1024;
++	}
++	cd32_eeprom = p6_cd32_eeprom_new(cd32_nvram);
++	if (!cd32_eeprom) {
++		write_log(_T("Akiko: cannot allocate NVRAM chip/backing\n"));
++		abort();
++	}
++#else
+ #ifdef ARCADIA
+ 	cubo_nvram = NULL;
+ #endif
+@@ -243,6 +306,7 @@
+ 			zfile_fwrite(cd32_nvram + size, 1, maxlen - size, cd32_flashfile);
+ 	}
+ 	cd32_eeprom = eeprom_new(cd32_nvram, currprefs.cs_cd32nvram_size, cd32_flashfile);
++#endif
+ }
+ 
+ static void akiko_nvram_write (int offset, uae_u32 v)
+@@ -2206,6 +2270,14 @@
+ 	akiko_inited = false;
+ }
+ 
++#ifdef P6_PORTABLE
++static void akiko_session_end(void)
++{
++	akiko_free();
++	akiko_nvram_free();
++}
++#endif
++
+ int akiko_init(void)
+ {
+ 	akiko_free();
+@@ -2235,7 +2307,11 @@
+ 		device_add_rethink(rethink_akiko);
+ 	}
+ 
++#ifdef P6_PORTABLE
++	device_add_exit(akiko_session_end, NULL);
++#else
+ 	device_add_exit(akiko_free, NULL);
++#endif
+ 
+ 	return 1;
+ }

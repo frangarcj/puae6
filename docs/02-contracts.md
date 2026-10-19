@@ -1051,6 +1051,15 @@ El probe enlaza todo el motor y accede al banco Akiko por el mapa real de memori
 identificador y conversion de32 pixeles a bitplanes, ademas de lector/TOC CD
 y carga, frames, reset y recarga A1200. No acredita aun arranque ni estado CD32.
 
+T66m1 integra el dueño NVRAM privado de1024B en Akiko: primera sesion a cero,
+reset conserva bytes y recrea el chip real para reiniciar todo el protocolo y
+los pines. `akiko_free` conserva ese dueño durante reinicializacion/restore;
+el callback de salida de sesion registrado libera chip/backing y borra punteros.
+El estado privado añade DDR8/SCL/SDA al de T66c y valida latches/protocolo antes
+de mutar memoria. Cambiar DDR no recalcula pines: se conservan tambien estados
+con direccion de entrada y latch bajo. Portable excluye `flashfile` y todo I/O
+externo. SaveRAM de frontend, codec completo y arranque CD32 siguen en T66.
+
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
 fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,
