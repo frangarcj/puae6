@@ -1547,3 +1547,13 @@ ambos tienen el mismo comportamiento para los estados futuros. RAM, Paula y
 scheduler externos deben restaurarse antes de continuar. El probe compara un
 nuevo owner/Disc, DMA/subcode/PIO y PCM con CDDA activo, pausado, en espera y
 terminal; no acredita aun codec nativo ni snapshot/arranque CD32 Waterbox.
+
+## Overlay CD32 en el estado CIA (T66m6)
+
+P6CI conserva sus 143 bytes en perfiles CIAoverlay y deriva el mapa de PRA/DDRA.
+El perfil CD32 sin CIAoverlay añade un u8 `cia.oldovl` al final (0..1): la primera
+escritura CIAA, incluso ajena a PRA, apaga ese latch independiente. Restore copia
+el latch y rebuild solicita `map_overlay(oldovl ? 0 : 1)` sin derivarlo de pines,
+avanzar tiempo ni emitir IRQ. Otros perfiles autooverlay siguen rechazados.
+STATE01 usa CIA/eventos/visitor reales y un observador de peticiones al mapper;
+la comprobacion del banco real y save/load CD32 completo sigue en NativeChunk.

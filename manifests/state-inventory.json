@@ -2342,10 +2342,10 @@
         "in_profile": true,
         "upstream_compiled": false,
         "policy": "rebuild",
-        "saved_fields": "No memory chunk stores it. Upstream restore re-derives it: CIA_reset with savestate_state set forces oldovl = true and runs bfe001_change(), which maps chip RAM at 0 when CIA-A (PRA | ~DDRA) bit 0 is clear.",
+        "saved_fields": "CIA-overlay profiles derive OVL from PRA/DDRA. CD32 auto-overlay carries the independent oldovl latch as one u8 at the end of P6CI (T66m6); map tables and pointers are rebuilt, never serialized.",
         "omitted": "overlay_state is a static int written only by map_overlay; it also decides ce_banktype (see next record), so a wrong value changes Slow RAM wait states as well as the data seen at address 0.",
         "pointers": "mem_banks[0..31] point at either chipmem_bank or kickmem_bank (static addrbank objects); never serialize.",
-        "rebuild": "After CIA-A PRA/DDRA are restored, compute OVL = (pra | ~ddra) & 1 and call map_overlay(OVL ? 0 : 1); that also runs fill_ce_banks(). A fresh p6_load has NOT run the reset head, so the mapping then is whatever memory_reset left (chip at 0), not the power-on overlay.",
+        "rebuild": "CIA-overlay: derive oldovl=(pra|~ddra)&1. CD32 with cs_ciaoverlay0: preserve the restored one-shot latch, cleared by any first WriteCIAA. Then map_overlay(oldovl ? 0 : 1), including fill_ce_banks. Other auto-overlay profiles remain unsupported. The standalone probe observes the map request; real machine-map/continuation remains the parent NativeChunk gate.",
         "evidence": [
           "build/upstream/memory.cpp:2944",
           "build/upstream/memory.cpp:2946",
@@ -2357,7 +2357,10 @@
           "build/upstream/cia.cpp:1440",
           "build/upstream/cia.cpp:2419",
           "build/upstream/cia.cpp:2425",
-          "build/upstream/cia.cpp:2432"
+          "build/upstream/cia.cpp:2432",
+          "patches/winuae/0371-cd32-overlay-state.patch",
+          "bridge/state_devices.cpp",
+          "tests/host/cia_overlay_state_probe.cpp"
         ],
         "proof": {
           "task": "T15",

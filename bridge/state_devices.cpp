@@ -27,6 +27,7 @@ extern void p6_cia_misc_get(p6_cia_misc_raw *out);
 extern void p6_cia_misc_set(const p6_cia_misc_raw *in);
 extern void p6_cia_overlay_rebuild(void);
 extern bool p6_cia_boundary(const char **why);
+extern bool p6_cia_autooverlay_supported(void);
 extern void p6_input_get(p6_input_raw *out);
 extern void p6_input_set(const p6_input_raw *in);
 extern bool p6_input_boundary(const char **why);
@@ -134,11 +135,12 @@ void visit_rtc(Archive &a)
 // against the counter that the scheduler's chunk has restored. kbcode, kbhandshakestart, passed, timerval_prev and the rest of what the analysis found
 // to be written before it is read are not state.
 // Apply copies fields: nothing that schedules an event or raises an interrupt (CIA_update, CIA_calctimers, CIA_check_ICR, event2_newevent_*), because the
-// scheduler's chunk owns the event tables. The one thing derived is the ROM overlay at address 0, made again from PRA and DDRA by rebuild_cia after every
-// chunk is applied.
+// scheduler's chunk owns the event tables. CIA-overlay profiles derive the map from PRA/DDRA. CD32 instead appends one u8 oldovl latch (144 vs 143 bytes),
+// which any first CIA-A write clears independently of the pins; rebuild_cia maps that latch after every chunk is applied.
 void visit_cia(Archive &a)
 {
     const bool checks = a.mode() != Mode::Measure;
+    if (checks && !currprefs.cs_ciaoverlay) a.require(p6_cia_autooverlay_supported(), "cia: unsupported auto-overlay profile");
     p6_cia_raw ci[2] = {};
     p6_cia_misc_raw m = {};
     int64_t age = 0;
@@ -196,6 +198,7 @@ void visit_cia(Archive &a)
     field<int32_t>(a, m.led_cycles_off, 0, INT32_MAX, "led.off_cycles");
     field<uint8_t>(a, m.powerled, 0, 1, "gui.powerled");
     field<uint8_t>(a, m.powerled_brightness, 0, 255, "gui.powerled_brightness");
+    if (!currprefs.cs_ciaoverlay) field<uint8_t>(a, m.oldovl, 0, 1, "cia.oldovl");
     if (a.applying() && a.ok()) {
         m.led_cycle = get_cycles() - led_age;                       // the scheduler's chunk (index 1) has put the counter back
         p6_cia_set(0, &ci[0]);
