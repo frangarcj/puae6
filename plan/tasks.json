@@ -12629,7 +12629,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T55a"
       ],
@@ -13755,7 +13755,7 @@
       "title": "Bundle WHDLoad determinista con RASystem y WHDSaves",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T30",
         "T64",
@@ -13775,7 +13775,8 @@
       ],
       "steps": [
         "Preparar WHDLoad.hdf, RASystem.hdf y WHDSaves.hdf desde inputs autorizados. Usar WHDLoad.VFS DATA para datos solo lectura y SavePath=WHDSaves:, con helper AmigaDOS propio, sin binarios Commodore redistribuidos.",
-        "Incluir prefs y ButtonWait; validar boot real de Fatal Mission y guardado FM1.hisc por resload_SaveFile, no solo archivos del script, en ambos frontends existentes."
+        "Incluir prefs y ButtonWait; validar boot real de Fatal Mission y guardado FM1.hisc por resload_SaveFile, no solo archivos del script, en ambos frontends existentes.",
+        "Retomar con salida RMB en titulo documentada por el juego: los replays previos no producian FM1.hisc con el flujo de entrada anterior. Probar primero boot/salida/archivo real en ventana corta; no repetir6000 sin causa nueva."
       ],
       "checks": [
         "MED02",
@@ -13786,8 +13787,7 @@
       "acceptance": [
         "El bundle es reproducible y ejecutable; Fatal Mission escribe FM1.hisc en WHDSaves y restaura sin modificar datos de juego."
       ],
-      "stop": "No distribuir Kickstarts; los aporta el usuario.",
-      "blocked_reason": "Dos checks nativos reales sobre preview5bfe0a5 llegan al juego y reproducen PCM/imagen/estado, DATA inmutable, pero FM1.hisc no aparece. Reproducer: tests/whdload/test_bundle.py BundleLibretroTests. Hipotesis verificables: el cleanup SaveFile requiere RMB en titulo (readme del juego), F10 no basta; si RMB ejecuta cleanup, verificar lectura de S:WHDLoad.prefs y escritura efectiva en WHDSaves. Corregido ZIP Amiga OSid1/proteccion RWED; WB03 pendiente."
+      "stop": "No distribuir Kickstarts; los aporta el usuario."
     },
     {
       "id": "T65b",
@@ -14164,7 +14164,7 @@
       "title": "Cuatro jugadores mediante adaptador paralelo",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
@@ -14790,7 +14790,7 @@
       "title": "Opciones de compatibilidad collision_level y waiting_blits (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
