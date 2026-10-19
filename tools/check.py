@@ -439,6 +439,19 @@ TASK_SUITES[('PKG01', 'T40a')] = {'package_policy': 'tests.packages.test_preview
                                 'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 for _gate in ('BUILD01', 'LR01'):
     TASK_SUITES[(_gate, 'T40a')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
+# Each CD32 gate exercises its actual boundary. Other T70 devices retain their own tasks.
+TASK_SUITES[('IN01', 'T70a')] = {
+    'cd32_mapping_and_abi': 'tests.input.test_cd32.Cd32MappingTests',
+    'serial_buttons': 'tests.input.test_cd32.Cd32Tests.test_seven_buttons_and_identification_bits_in_both_ports_pal_and_ntsc',
+    'dpad_quadrature': 'tests.input.test_cd32.Cd32Tests.test_dpad_quadrature_and_opposite_directions_are_independent_in_both_ports',
+    'bk2_codec': 'tests.ffi.test_input_log.InputLogTests'}
+TASK_SUITES[('DET02', 'T70a')] = {
+    'partial_serial_restore': 'tests.input.test_cd32.Cd32Tests.test_partly_read_pad_restores_in_same_and_new_process',
+    'transactional_state_rejection': 'tests.input.test_cd32.Cd32Tests.test_malformed_cd32_tail_is_refused_before_touching_the_machine',
+    'device_changes': 'tests.input.test_cd32.Cd32Tests.test_device_changes_release_cd32_and_bound_always_covers_both_pads'}
+TASK_SUITES[('LR01', 'T70a')] = {'cd32_frontend': 'tests.libretro-host.test_cd32.Cd32FrontendTests'}
+TASK_SUITES[('WB03', 'T70a')] = {
+    'cd32_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_cd32_partial_serial_read_restores_and_replays_a_real_bk2_in_both_ports'}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

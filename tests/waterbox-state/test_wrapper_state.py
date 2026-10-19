@@ -33,6 +33,7 @@ sys.path.insert(0, str(ROOT / "tests/waterbox-smoke"))
 import build_waterbox  # noqa: E402
 from tests.host.test_bridge_lifecycle import TOOLS, builder  # noqa: E402
 from tests.input.test_input import CAPS, ESC, FIXTURES, JOYSTICK, KEY_Q, LEFT, MOUSE, RIGHT, UP, B1, line  # noqa: E402
+from tests.input.test_cd32 import ROM as CD32_ROM  # noqa: E402
 from tests.scenarios.disk import disk  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
 
@@ -55,7 +56,7 @@ class WrapperStateTests(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory(prefix="p6-state-")
         cls.dir = Path(cls.tmp.name)
         for name, source in (("disk", disk.rom_source()), ("input_all", (FIXTURES / "input_all.s").read_text(encoding="utf-8")),
-                             ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8"))):
+                             ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8")), ("cd32", CD32_ROM)):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
         for name, label in (("A", 0x41), ("B", 0x42)):
             (cls.dir / f"{name}.adf").write_bytes(disk.make_adf(label))
@@ -320,6 +321,37 @@ class WrapperStateTests(unittest.TestCase):
         a, b = [u[1:] for u in self.units(first, "A")][85:], [u[1:] for u in self.units(second, "B")]
         self.assertEqual(a, b)
         self.assertEqual(self.digests(first, "A")["end"], self.digests(second, "B")["end"])
+
+    def test_cd32_partial_serial_read_restores_and_replays_a_real_bk2_in_both_ports(self):
+        # Three units leave both pads partway through their serial protocol. After
+        # the save, change every button/direction, independently in each port.
+        masks = (0x286, 0x501, 0x139, 0x6c2, 0, 0x7ff, 0x124, 0x691, 0x482, 0x241, 0x104)
+        script = self.script("cd32", [line(p0=(3, m, 0, 0), p1=(3, masks[-i - 1], 0, 0)) for i, m in enumerate(masks)])
+        state, movie = self.dir / "cd32.state", self.dir / "cd32.bk2"
+        core = lambda name: self.core(name, adf="", port1="cd32", port2="cd32")
+        out = self.session([core("A"), f"run A 3 script={script} record", "save A partial", f"savefile A {state}",
+                            f"run A 8 script={script} record", "digest A first", "peek A Chip_RAM 1000 18",
+                            f"endmovie A {movie}", f"movieverify A {movie} 11 script={script}",
+                            "load A partial", f"run A 8 script={script}", "digest A restored", "peek A Chip_RAM 1000 18",
+                            core("B"), "load B partial", f"run B 8 script={script}", "digest B fresh", "peek B Chip_RAM 1000 18",
+                            core("C"), f"run C 11 movie={movie}", f"moviefinish C {movie}", "digest C movie", "peek C Chip_RAM 1000 18"], firmware="cd32")
+        a = [u[1:] for u in self.units(out, "A")]
+        self.assertEqual(19, len(a))
+        self.assertEqual(a[3:11], a[11:])
+        self.assertEqual(a[3:11], [u[1:] for u in self.units(out, "B")])
+        self.assertEqual(a[:11], [u[1:] for u in self.units(out, "C")])
+        digests = {**self.digests(out, "A"), **self.digests(out, "B"), **self.digests(out, "C")}
+        self.assertEqual({"first", "restored", "fresh", "movie"}, set(digests))
+        self.assertEqual(1, len(set(digests.values())), "whole wrapper and sandbox, including the serial shifters and CIA clock history")
+        peeks = re.findall(r"^peek [ABC] Chip_RAM 1000 ([0-9a-f]+)$", out, re.M)
+        self.assertEqual(4, len(peeks))
+        self.assertEqual(1, len(set(peeks)), "the guest's serial bits, not just the unchanged black picture")
+        self.assertRegex(out, r"movie verified frames=11 buttons=\d+ axes=\d+ compared=\d+ entries=11")
+        self.assertIn("movie finished ok frames=11 ", out)
+        other = self.session([core("D"), f"loadfile D {state}", f"run D 8 script={script}", "digest D process", "peek D Chip_RAM 1000 18"], firmware="cd32")
+        self.assertEqual(a[3:11], [u[1:] for u in self.units(other, "D")])
+        self.assertEqual(digests["first"], self.digests(other, "D")["process"])
+        self.assertIn(f"peek D Chip_RAM 1000 {peeks[0]}", other)
 
 
 if __name__ == "__main__":
