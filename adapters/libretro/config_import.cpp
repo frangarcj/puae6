@@ -180,11 +180,6 @@ constexpr Fixed kFixed[] = {
     {"synchronize_clock", "false", "the clock never follows the host (see the schema's rtc_epoch_seconds)"},
     {"bsdsocket_emu", "false", "there is no network in the deterministic profile"},
     {"scsi", "false", "there is no SCSI controller in the machines of this core"},
-    {"nr_floppies", "2", "the machine has DF0 and DF1 and no more (libretro drives DF0 alone)"},
-    {"floppy0type", "0", "DF0 is a 3.5\" double density drive"},
-    {"floppy1type", "0", "DF1 is a 3.5\" double density drive"},
-    {"floppy2type", "-1", "DF2 does not exist"},
-    {"floppy3type", "-1", "DF3 does not exist"},
     {"floppy0wp", "false", "write protection is one switch for every disk: use floppy_write_protect"},
     {"floppy1wp", "false", "write protection is one switch for every disk: use floppy_write_protect"},
     {"floppy2wp", "false", "write protection is one switch for every disk: use floppy_write_protect"},
@@ -247,6 +242,7 @@ private:
     std::map<std::string, unsigned> claimed_;          // option key -> the line that set it
     const Entry *chipset_ = nullptr, *cpu_ = nullptr, *a2000_ = nullptr;
     const Entry *floppy0_ = nullptr;
+    std::vector<const Entry *> drive_facts_;
     std::vector<std::pair<unsigned, const Entry *>> images_;
     std::vector<const Entry *> timing_flags_;
 
@@ -577,6 +573,10 @@ private:
             else set_name(e, "puae6_floppy_writes", flag ? "disabled" : "enabled");
             return;
         }
+        if (key == "nr_floppies" || key == "floppy0type" || key == "floppy1type" || key == "floppy2type" || key == "floppy3type") {
+            drive_facts_.push_back(&e);       // validate after puae6_floppy_drives, regardless of line order
+            return;
+        }
         if (key == "floppy0") {
             floppy0_ = &e;
             return;
@@ -694,6 +694,16 @@ private:
             bool value = false;
             if (!parse_bool(entry->value, &value) || value != expected)
                 error(*entry, "raw cycle exact/compatible flags must match puae6_cpu_compatibility (expected " + std::string(expected ? "true" : "false") + ")");
+        }
+        // Raw drive keys describe the physical configuration; only the common
+        // option chooses it. Auto preserves the two-drive preset identity.
+        const unsigned drives = out_->settings.floppy_drive_count ? out_->settings.floppy_drive_count : 2;
+        for (const Entry *e : drive_facts_) {
+            const bool count = e->key == "nr_floppies";
+            const unsigned drive = count ? 0 : unsigned(e->key[6] - '0');
+            const std::string expected = count ? std::to_string(drives) : drive < drives ? "0" : "-1";
+            if (e->value != expected)
+                error(*e, "does not match puae6_floppy_drives (" + std::to_string(drives) + " connected 3.5\" double density drives; expected " + expected + ")");
         }
 
         // The disks: DF0 first, then the swap list in number order; a swap entry that is DF0's own file is not listed twice.

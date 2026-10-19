@@ -268,7 +268,7 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"sound_stereo_separation=11", "sound_stereo_separation", "expected 0 to 10"},
         {"sound_stereo_separation=-1", "sound_stereo_separation", "expected 0 to 10"},
         {"cs_ide=true", "cs_ide", "fixed by the machine profile"},
-        {"nr_floppies=4", "nr_floppies", "DF0 and DF1"},
+        {"nr_floppies=4", "nr_floppies", "puae6_floppy_drives"},
         {"floppy0type=1", "floppy0type", "3.5"},
         {"floppy0wp=true", "floppy0wp", "floppy_write_protect"},
         {"floppy1=disk.adf", "floppy1", "DF0 alone"},
@@ -333,6 +333,36 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
     // Every problem of the file is reported, not only the first.
     const Result many = import("filesystem2=a\nscsi=true\nhardfile2=b\ncdimage0=c\n");
     CHECK(!many.ok && many.imported.errors.size() == 4);
+}
+
+static void raw_drive_facts_agree_with_the_final_physical_count()
+{
+    for (unsigned drives = 1; drives <= 4; ++drives) {
+        const std::string option = "puae6_floppy_drives=" + std::to_string(drives) + "\n";
+        std::string facts = "nr_floppies=" + std::to_string(drives) + "\n";
+        for (unsigned drive = 0; drive < 4; ++drive)
+            facts += "floppy" + std::to_string(drive) + "type=" + (drive < drives ? "0\n" : "-1\n");
+        Settings expected = concrete();
+        expected.floppy_drive_count = drives;
+        for (const std::string &file : {option + facts, facts + option}) {
+            const Result r = import(file);
+            CHECK(r.ok && same_config(r.imported.settings, expected));
+        }
+        // The frontend's option also applies when the file only describes it.
+        const Result inherited = import(facts, expected);
+        CHECK(inherited.ok && same_config(inherited.imported.settings, expected));
+    }
+    for (const char *fact : {"nr_floppies=2\n", "floppy2type=-1\n", "floppy3type=-1\n"}) {
+        const std::string line(fact), key = line.substr(0, line.find('='));
+        for (const std::string &file : {"puae6_floppy_drives=4\n" + line, line + "puae6_floppy_drives=4\n"}) {
+            const Result r = import(file);
+            CHECK(!r.ok && mentions(r, key.c_str(), "puae6_floppy_drives"));
+        }
+    }
+    CHECK(!import("floppy1type=0\npuae6_floppy_drives=1\n").ok);
+    CHECK(!import("nr_floppies=0\n").ok);
+    CHECK(!import("floppy3type=0\n").ok);       // Auto means two physical drives
+    CHECK(import("nr_floppies=2\nfloppy2type=-1\npuae6_floppy_drives=auto\n").ok);
 }
 
 static void harmless_keys_are_accepted()
@@ -558,6 +588,7 @@ int main()
     valid_keys_make_the_config_of_the_equivalent_options();
     precedence();
     dangerous_keys_are_refused_with_their_key_and_line();
+    raw_drive_facts_agree_with_the_final_physical_count();
     harmless_keys_are_accepted();
     the_text_is_read_like_a_configuration_file();
     the_bounds_hold();
