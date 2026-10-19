@@ -25,7 +25,12 @@ core. Los errores de firmware o contenido se comunican al frontend.
 Jugador 1: joystick del segundo puerto Amiga y raton del primero; jugador 2:
 joystick del primer puerto. B/A/X son los tres botones del joystick. El teclado
 se lee por simbolo y Caps Lock funciona como pestillo. Cambia los dispositivos
-por puerto desde el menu del frontend. Usa Disk Control para cambiar discos.
+por puerto desde el menu del frontend. Puedes conectar dos ratones independientes.
+Usa Disk Control para cambiar discos.
+
+Tambien estan disponibles Lightgun y Lightpen, con coordenadas absolutas y
+disparo/contacto. Solo puede conectarse un sensor optico a la vez; el juego
+debe admitirlo. El mapeo de posicion respeta el recorte de pantalla.
 
 Tambien puedes elegir `CD32 pad`: B/A/X/Y son rojo/azul/verde/amarillo, L/R son
 retroceso/avance y Start es Play. Para usarlo en jugador 2, desactiva el raton
@@ -39,6 +44,11 @@ cuatro en ese caso. Un numero elegido a mano limita las unidades disponibles.
 Exact es el valor inicial; los otros niveles cambian la temporizacion emulada.
 Reinicia el contenido al cambiarlo. La etiqueta `(CE)` fuerza exact salvo que
 desactives File Name Tags.
+
+`puae6_drive_sound_volume` activa el sonido del motor y de los pasos de
+la disquetera: 0 (defecto, silencio), 10, 25, 50, 75 o 100 %. Puede cambiarse
+durante la partida; cargar un estado conserva el volumen actual. En consola
+se elige con `--drive-sound-volume`.
 
 Las escrituras de disquete estan desactivadas por defecto. Para conservarlas,
 activa `puae6_floppy_writes` y el guardado `puae6_floppy_save=on_close`, configura
@@ -59,8 +69,11 @@ nombres distintos para partidas independientes.
 ## Limites de esta entrega
 
 Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
-usan interprete de CPU. Nuevos modelos 030/040/060, segundo raton, lightgun/lightpen,
-cuatro jugadores, maquinas CD32/CDTV y WHDLoad completo siguen en desarrollo.
+usan interprete de CPU. El preset A4030 Normal es experimental: las pruebas
+sinteticas pasan, pero falta validar su arranque con firmware A4000 real.
+040/060, cuatro jugadores, maquinas CD32/CDTV y WHDLoad completo siguen en
+desarrollo. El guardado real de puntuaciones del nuevo bundle WHDLoad esta
+pendiente; para esta preview utiliza los flujos de disquete/HDF ya disponibles.
 El mando CD32 no implica soporte de la maquina CD32 ni de sus discos CD.
 La integracion Waterbox/MacHawk es un producto separado y no se instala
 con este ZIP. No se declara CI remota ni reproducibilidad binaria auditada.
