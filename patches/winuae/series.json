@@ -4693,6 +4693,30 @@
           "after_sha256": "526263ab9c1df70020ead461ce38fbb637f94f552c46e741e139457426dea8ff"
         }
       ]
+    },
+    {
+      "id": "0356-cue-metadata-only",
+      "file": "patches/winuae/0356-cue-metadata-only.patch",
+      "sha256": "0afc3d4382b75e97851f322df33c1c32b6fbb4c7c514a77a0824a544d4cc41f9",
+      "title": "Isolate pinned CUE parsing through bounded metadata callbacks",
+      "reason": "T66e2a shares parsecue directive/token traversal while the metadata-only branch excludes the image device and codecs. Relative indices, flags and all gaps remain explicit for normalization in T66e2b.",
+      "category": "host hooks",
+      "order": 173,
+      "symbols": [
+        "parsecue",
+        "cue_metadata",
+        "nextstring"
+      ],
+      "test": "tests/media/test_cue_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "008f85acdf39af64494236c20a7fcaeef885f31595d8183552d8d0235a01f59a",
+          "after_sha256": "6b50ea821492a5205b720ceb48873bfe6c8dd67c7735cb70e5112d588c2130a9"
+        }
+      ]
     }
   ]
 }

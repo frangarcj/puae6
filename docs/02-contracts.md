@@ -919,6 +919,15 @@ endian. El consumidor debe conservar esa metadata al construir la identidad del
 medio. `P6_CD_ISO_FILE` y `P6_CD_WAV_FILE` habilitan el check real read-only de
 MED01/T66e1. Aun no añade CUE, CDDA ni carga CD32 al frontend.
 
+T66e2a compila el recorrido y tokenizacion de `parsecue`6030 mediante patch0356
+con `P6_CUE_METADATA`, excluyendo dispositivo, zfile, hilos y codecs. Los callbacks
+acotados entregan lineas CUE y ordinal/longitud de proveedores del llamante; WAV
+se valida con e1. Conserva INDEX00/01 relativos, flags, PREGAP y POSTGAP separados,
+incluso combinados, sin calcular aun el layout. Limites:99 pistas,4095B por linea,
+64KiB de texto; tiempos y orden invalidos, codecs/tipos desconocidos y errores de
+lectura fallan sin publicar metadata parcial. La conversion a Disc y sus rangos
+fisicos queda en T66e2b; no anuncia carga CUE/CD32 en el frontend.
+
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
 El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando

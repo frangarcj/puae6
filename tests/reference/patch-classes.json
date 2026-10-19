@@ -178,7 +178,8 @@
     "0354-cd32-eeprom-state": "instrumentation",
     "0355-cdrom-mode1-sync": "behavior",
     "0350-z3-physical-autoconfig-state": "behavior",
-    "0351-profile-bounded-z3": "required"
+    "0351-profile-bounded-z3": "required",
+    "0356-cue-metadata-only": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -380,6 +381,13 @@
       "effect": "inert",
       "why": "The reference corpus has no Z3 board. Only a guest-configured Z3 board changes its recorded base/access masks, and the native-state accessors gain its mapping and window.",
       "test": "tests.state.test_z3",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0356-cue-metadata-only": {
+      "effect": "inert",
+      "why": "blkdev_cdimage.cpp is not selected by REF01 profiles. The metadata-only branch reuses the pinned directive traversal without the device; standalone parser checks cover strict bounds and preservation of indices, flags and gaps.",
+      "test": "tests/media/test_cue_metadata.py",
       "scenarios": [],
       "subsystems": []
     }
