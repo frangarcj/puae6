@@ -15145,6 +15145,126 @@
       "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
     },
     {
+      "id": "T66k1",
+      "title": "Enlace nativo de Akiko y servicios CD reales",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66h1",
+        "T66c",
+        "T66g4",
+        "T66i1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "CMakeLists.txt",
+        "manifests/source-manifest.json",
+        "ports/portable/sysconfig.h",
+        "ports/portable/hostfs_unsupported.cpp",
+        "ports/portable/media/cd_utilities.cpp",
+        "patches/winuae/0362-cd32-without-fmv.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/media/akiko_link_probe.cpp",
+        "tests/media/test_akiko_link.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Seleccionar akiko.cpp/flashrom.cpp y backend CD real en el grafo comun, quitar solo duplicados sys_command de hostfs_unsupported. Compilar CD32 pero no ofrecer nuevo machine/formatos al frontend antesarranque probado. FMV sigueexcluido mediante guard explicito0362 orden179 en devices.cpp; nunca stub exitoso.",
+        "Portar superficie pura MSF/BCD/subchannel del WinUAE6 fijado con procedencia, sin OSthread/clockhost. Link probe contra motor completo, bancoMMIO real e init/lifecycle y C2P observables, sin mocks motor. Regresion carga/frame A1200 cercano. Presupuesto250–350logicas; un build nativo-j2 coordinado, sin matriz ni WB hasta integrarcohorteH2/I2."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El build nativo enlaza los dispositivos CD reales y el banco Akiko observable sin introducir stubs exitosos ni habilitar perfiles sin prueba."
+      ],
+      "stop": "Componente de T66: conservar todos los formatos, CDDA/NVRAM, estado completo y arranque/restore CD32 real en ambos adaptadores como puertas del padre."
+    },
+    {
+      "id": "T66l1",
+      "title": "Metadata NRG DAO v1/v2 endurecida del parser fijado",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66j1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0361-nrg-metadata-only.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/media/cd_nrg_metadata.h",
+        "tests/media/nrg_metadata_probe.cpp",
+        "tests/media/test_nrg_metadata.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0361 orden178 sobre blkdev_cdimage.cpp tras0357. Aislar recorrido parsenrg real por ReadFn/size, NERO/NER5 footer BE32/64, CUESv1MSF y CUEXv2LBA, DAOI22+30 yDAOX22+42, first/last binarios, SINF/END y cotas/rangos. Corregir errores concretos del pin con fixtures contrastados con DiscSystem fijado, no copiar parserC# completo.",
+        "Conservar INDEX00/01/offsets/control y modos00/05/06/07/0F/10/11; variantes02/03, TAO y multisesion sinimplementacion devuelven Unsupported claro y siguenpendientesdelpadre. ASan/UBSan truncados/overflow/duplicados/endian/BCD y offsets>4GiB conproveedorvirtual, sinblobcompleto. Presupuesto220–300logicas; noengine/guestbuild."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El parser NRG devuelve metadata DAO v1/v2 validada y falla explícitamente ante variantes o rangos no implementados."
+      ],
+      "stop": "Componente de T66: conservar todos los formatos, CDDA/NVRAM, estado completo y arranque/restore CD32 real en ambos adaptadores como puertas del padre."
+    },
+    {
+      "id": "T66l2",
+      "title": "Proveedor NRG por offset y subcanales canonicos",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66l1",
+        "T66g4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_nrg.h",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/cd_nrg_probe.cpp",
+        "tests/media/test_cd_nrg.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "CdFile RAII, Layout/Binding poroffset, SHAarchivo completo+politica/TOC, rebind propietario nuevo yrecorte INDEX0negativo ajustandooffset real porstride sinasumir150. Audio bytes preservados, SUB96 de2448 interleaved convertido adeinterleaved exactamenteuna vez.",
+        "Probe v1/v2 DAOmixto/gaps, CRCQinvalido/R-Wpreservado, errores transaccionales yhashlib/rebind. NRGreal optin separado si disponible. Presupuesto180–260logicas; variantes no implementadas claras ypendientespadre, sinengine/guestbuild."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "NRG DAO entrega sectores/subcanales por offset con memoria constante e identidad completa, sin inventar soporte para variantes excluidas."
+      ],
+      "stop": "Componente de T66: conservar todos los formatos, CDDA/NVRAM, estado completo y arranque/restore CD32 real en ambos adaptadores como puertas del padre."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15169,7 +15289,10 @@
         "T66i1",
         "T66i2",
         "T66j1",
-        "T66j2"
+        "T66j2",
+        "T66k1",
+        "T66l1",
+        "T66l2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15196,7 +15319,8 @@
         "T66d1 corrige lecturas cortas en DiscSystem derivado yT66d2 conecta una fuente C# por offset con identidad completa. Son componentes, no cierre del arranque/restore ni del soporte nativo de formatos del padre.",
         "T66e1 aporta proveedor nativo ISO/WAV seekable yT66e2 reutiliza el parserCUE fijado endurecido. El padre mantiene CCD/NRG/MDS/CHD, CDDA, Akiko cooperativo, NVRAM, frontends y arranque/restore completo.",
         "T66g2 aporta sintesis P/Q explicita yT66g3 superficie blkdev dirigida. Se conserva la integracion almacenado/sintetico, Akiko cooperativo/estado, CDDA, todoslosformatos y arranque/restore real enambosadaptadores como puerta del padre.",
-        "Divisiones previas porpresupuesto: H1servicioAkiko/H2tiempocausal, I1streamCDA/I2player, J1parserCCD/J2proveedor. La conexion completaCDDA/dispositivo, codecsestadoAkiko+audio, NVRAM/SaveRAM, frontends, restantesformatos y arranque/restore real conservan todas las puertas delpadre."
+        "Divisiones previas porpresupuesto: H1servicioAkiko/H2tiempocausal, I1streamCDA/I2player, J1parserCCD/J2proveedor. La conexion completaCDDA/dispositivo, codecsestadoAkiko+audio, NVRAM/SaveRAM, frontends, restantesformatos y arranque/restore real conservan todas las puertas delpadre.",
+        "T66k1 ensambla grafo nativo real sin habilitar machine; T66l1/l2 adelantan NRG DAO poroffset. NRG variantes pendientes, MDS/CHD y arranque/estado completo permanecen abiertos en el padre; no se recorta alcance por preview."
       ],
       "checks": [
         "MED01",
