@@ -14634,7 +14634,7 @@
       ],
       "id": "T66e2b",
       "title": "Normalizar CUE nativo completo con proveedores y gaps sinteticos/almacenados",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66e2a"
       ],
