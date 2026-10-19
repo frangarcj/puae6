@@ -286,10 +286,12 @@ class SchemaValidationTests(unittest.TestCase):
         document["selectors"][0]["libretro"]["category"] = "nowhere"
         self.refuses(document, "libretro category 'nowhere' is not declared")
         real = schema()
-        self.assertEqual([s["id"] for s in real["selectors"]], ["model_fd", "model_hd", "filename_tags", "kickstart"])
+        self.assertEqual([s["id"] for s in real["selectors"]], ["model_fd", "model_hd", "filename_tags", "kickstart", "whdload", "whdload_buttonwait"])
         table = json.loads(gen.generate_table(real))
         self.assertEqual(table["selectors"]["model_hd"]["default"], "A1200")
         self.assertEqual(table["selectors"]["filename_tags"]["values"], {"enabled": 1, "disabled": 0})
+        self.assertEqual(table["selectors"]["whdload"]["default"], "auto")
+        self.assertEqual(table["selectors"]["whdload_buttonwait"]["default"], "disabled")
         with self.assertRaises(gen.ConfigError) as caught:
             gen.normalize_config(real, {"model_fd": "A600"})
         self.assertIn("option model_fd is unknown", str(caught.exception), "a selector is no option of the schema: headless and the wrapper do not take it")

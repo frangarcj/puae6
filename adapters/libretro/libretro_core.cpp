@@ -84,6 +84,7 @@
 #include "statusbar.h"
 #include "vkbd.h"
 #include "volume.h"
+#include "whdload_provider.h"
 
 #include <algorithm>
 #include <stdarg.h>
@@ -859,7 +860,8 @@ enum class VolumeSource { Directory, Lha, Zip };
 
 // A volume (T64a): the directory at `path`, or the LHA (read here) or the ZIP (read already, its bytes are `archive`) turned into one FFS hard file in memory and appended to
 // `hard_files` like an .hdf. Nothing of the host is kept: the image is the content. Returns false after saying why.
-bool load_volume(const std::string &path, size_t ordinal, VolumeSource source, std::vector<uint8_t> *archive, std::vector<Medium> *hard_files, size_t *total_bytes)
+bool load_volume(const std::string &path, size_t ordinal, VolumeSource source, std::vector<uint8_t> *archive, std::vector<Medium> *hard_files, size_t *total_bytes,
+                 p6_libretro::WhdLoadContent *pack)
 {
     using namespace p6_libretro;
     if (!can_take_hard_file(path, hard_files->size())) return false;
@@ -887,6 +889,20 @@ bool load_volume(const std::string &path, size_t ordinal, VolumeSource source, s
         archive->clear();
         archive->shrink_to_fit();
     }
+    if (ok && core.settings.whdload) {
+        size_t slaves = 0;
+        for (const auto &file : files) if (!file.is_dir && container_detail::lower_extension(file.path) == "slave") ++slaves;
+        if (slaves > 1) { notify_error("%s: WHDLoad needs exactly one .slave, found %zu", path.c_str(), slaves); return false; }
+        if (slaves == 1) {
+            const char *system = nullptr;
+            if (!environment_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &system) || !system || !*system || strlen(system) > kMaxPathBytes) {
+                notify_error("WHDLoad needs a system directory containing WHDLoad_usr.lha"); return false;
+            }
+            if (!read_whdload_provider(core.files, system, pack, &why)) { notify_error("%s", why.c_str()); return false; }
+            pack->files = std::move(files);
+            return true; // finish the three bases only after the decrypted firmware is known
+        }
+    }
     VolumeSummary summary;
     Medium medium;
     medium.type = P6_MEDIA_HDF;
@@ -904,7 +920,7 @@ bool load_volume(const std::string &path, size_t ordinal, VolumeSource source, s
 // entry. Returns false after saying why (nothing is half-loaded: the caller drops what was filled). `names` receives the names the automatic model looks at (T76, model.h):
 // the path of the content, then each entry of the playlist in order and, after an archive, the members it holds.
 bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::PlaylistEntry> *configured, std::vector<Medium> *media,
-                std::vector<p6_libretro::Image> *images, std::vector<std::string> *names)
+                std::vector<p6_libretro::Image> *images, std::vector<std::string> *names, p6_libretro::WhdLoadContent *pack)
 {
     using namespace p6_libretro;
     if (!game) return true;                       // no content: the Kickstart boots alone (SET_SUPPORT_NO_GAME)
@@ -977,7 +993,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         std::string archive_path = entry.path, member;
         split_member(entry.path, &archive_path, &member);
         if (member.empty() && core.files.is_directory(entry.path)) {
-            if (!load_volume(entry.path, i, VolumeSource::Directory, nullptr, &hard_files, &hard_bytes)) return false;
+            if (!load_volume(entry.path, i, VolumeSource::Directory, nullptr, &hard_files, &hard_bytes, pack)) return false;
             continue;
         }
         if (member.empty() && is_hard_file_extension(entry.path)) {
@@ -986,7 +1002,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
         }
         if (member.empty() && is_volume_extension(entry.path)) {
             std::vector<uint8_t> archive;
-            if (!load_volume(entry.path, i, VolumeSource::Lha, &archive, &hard_files, &hard_bytes)) return false;
+            if (!load_volume(entry.path, i, VolumeSource::Lha, &archive, &hard_files, &hard_bytes, pack)) return false;
             continue;
         }
         if (!is_disk_extension(archive_path)) {
@@ -1008,7 +1024,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
             return false;
         }
         if (zipped && member.empty() && zip_is_volume(first.bytes)) {
-            if (!load_volume(entry.path, i, VolumeSource::Zip, &first.bytes, &hard_files, &hard_bytes)) return false;
+            if (!load_volume(entry.path, i, VolumeSource::Zip, &first.bytes, &hard_files, &hard_bytes, pack)) return false;
             continue;
         }
         // The disks this entry stands for, in order: one for a plain disk file or a one-disk archive, the whole set (T59) for an archive with several, the member for "#member".
@@ -1074,6 +1090,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
             log(RETRO_LOG_INFO, "disk %zu: medium %zu, label \"%s\"", images->size(), known, label.c_str());
         }
     }
+    if (pack->active() && entries.size() != 1) { notify_error("WHDLoad: load one pack alone, without other media"); return false; }
     if (media->size() + hard_files.size() > P6_MAX_MEDIA) {
         notify_error("the content names %zu distinct floppies and %zu hard disks: the most this core keeps is %u media", media->size(), hard_files.size(), P6_MAX_MEDIA);
         return false;
@@ -1091,7 +1108,8 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
 // the other machine are not tried, so a missing Kickstart is a clear failure and never another machine's ROM in silence. Returns false after saying why.
 // T51: `chosen` is the version puae6_kickstart names (nullptr: Automatic, the machine's own names); then only the names of that version are tried, and the bridge says from the bytes whether this
 // machine can run it. A file Amiga Forever encrypted (AMIROMTYPE1) is decrypted with the rom.key of the same system directory before p6_load; the decrypted image is the firmware.
-bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::FirmwareNames &firmware, const p6_libretro::KickstartChoice *chosen)
+bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNames &firmware, const p6_libretro::KickstartChoice *chosen,
+                   const p6_libretro::WhdLoadContent &pack)
 {
     using namespace p6_libretro;
     const char *directory = nullptr;
@@ -1140,6 +1158,29 @@ bool load_firmware(const std::vector<p6_media> &manifest, const p6_libretro::Fir
             }
             core.firmware.swap(rom);         // the decrypted image is the firmware: its SHA-256 is the identity of the states
             decrypted = true;
+        }
+        if (pack.active()) {
+            std::map<std::string, std::vector<uint8_t>> roms;
+            if (const char *rom_name = whdload_kickstart_name(core.firmware)) roms[rom_name] = core.firmware;
+            WhdLoadBundle bundle;
+            std::string why;
+            if (!build_whdload_bundle(pack.files, pack.program, pack.vfs, roms, core.settings.whdload_buttonwait != 0, &bundle, &why)) {
+                notify_error("WHDLoad: %s", why.c_str()); return false;
+            }
+            core.media.clear(); manifest.clear();
+            size_t total = 0;
+            for (size_t role = 0; role < bundle.images.size(); ++role) {
+                Medium medium;
+                medium.type = P6_MEDIA_HDF; medium.bytes = std::move(bundle.images[role]);
+                if (!can_take_hard_file(whdload_data::kNames[role], core.media.size()) ||
+                    !add_hard_file(std::move(medium), whdload_data::kNames[role], &core.media, &total)) return false;
+            }
+            for (const auto &medium : core.media) {
+                p6_media entry = {};
+                entry.type = medium.type; memcpy(entry.content_id, medium.id, sizeof medium.id);
+                entry.image = {medium.bytes.data(), medium.bytes.size()}; manifest.push_back(entry);
+            }
+            log(RETRO_LOG_INFO, "WHDLoad: three in-memory volumes, ButtonWait %s; source and DATA stay immutable", core.settings.whdload_buttonwait ? "on" : "off");
         }
         p6_error error = make_error();
         const p6_result result = p6_load(p6_buffer{core.firmware.data(), core.firmware.size()}, manifest.data(), uint32_t(manifest.size()), &error);
@@ -1835,15 +1876,20 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     try {
         std::vector<p6_libretro::Image> images;
         std::vector<std::string> names;
-        if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images, &names)) {
+        p6_libretro::WhdLoadContent pack;
+        if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images, &names, &pack)) {
             stop_image();
             return false;
         }
         // The automatic model and video standard (T76) are resolved here, once the content is known and before the machine exists: a pure function of the options, of whether the
         // content has a hard disk and of the names (model.h). What the machine is made with is `core.settings` from here on, so the p6_config below, and with it the state identity,
         // carries the machine a tag picked.
+        if (pack.active()) { // the WHDLoad boot recipe requires the A1200 and its own 3.1 firmware
+            core.settings.machine = P6_MACHINE_A1200;
+            core.settings.kickstart = 0;
+        }
         if (!configured) {          // a .uae was resolved above, before its keys
-            bool hard_disk = false;
+            bool hard_disk = pack.active();
             for (const Medium &medium : core.media) hard_disk = hard_disk || medium.type == P6_MEDIA_HDF;
             const p6_libretro::ModelResolution resolved = p6_libretro::resolve_model(core.settings, hard_disk, names);
             for (const std::string &note : resolved.notes) log(RETRO_LOG_INFO, "%s", note.c_str());
@@ -1879,7 +1925,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             return false;
         }
         core.initialized = true;
-        if (!load_firmware(manifest, *firmware, p6_libretro::kickstart_choice(core.settings.kickstart))) {
+        if (!load_firmware(manifest, *firmware, p6_libretro::kickstart_choice(core.settings.kickstart), pack)) {
             stop_image();
             return false;
         }

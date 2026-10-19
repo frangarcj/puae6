@@ -1,5 +1,5 @@
 // Standalone public builder probe; no engine, fake frontend or user binaries.
-#include "../../adapters/libretro/whdload_bundle.h"
+#include "../../adapters/libretro/whdload_provider.h"
 #include <fstream>
 #include <iostream>
 using namespace p6_libretro;
@@ -20,6 +20,13 @@ static std::string unhex(const std::string &s)
 }
 int main(int argc, char **argv) try
 {
+    if (argc == 3 && std::string(argv[1]) == "sha1") { std::cout << whdload_sha1(read(argv[2])) << '\n'; return 0; }
+    if (argc == 3 && std::string(argv[1]) == "provider") {
+        WhdLoadContent pack;
+        std::string why;
+        if (!read_whdload_provider(FileReader(), argv[2], &pack, &why)) { std::cerr << why << '\n'; return 2; }
+        std::cout << pack.program.size() << ' ' << pack.vfs.size() << '\n'; return 0;
+    }
     if (argc != 8) return 64; // mode, input, program, VFS, kickstarts manifest, output prefix, ButtonWait
     std::vector<VolumeFile> files;
     std::map<std::string, std::vector<uint8_t>> kickstarts;

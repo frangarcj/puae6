@@ -65,7 +65,7 @@ inline bool validate(const std::vector<VolumeFile> &files, std::string *why)
             const size_t slash = file.path.find('/', at);
             const bool last = slash == std::string::npos, directory = !last || file.is_dir;
             const std::string part = file.path.substr(at, last ? std::string::npos : slash - at);
-            if (!ffs::valid_name(part) || part == "." || part == ".." || part.find('\\') != std::string::npos ||
+            if (!ffs::valid_name(part) || part == "." || part == ".." ||
                     volume_detail::control_character(part) || ++depth > ffs::kMaxDepth) { *why = "unsafe WHDLoad member path"; return false; }
             const std::string path = file.path.substr(0, slash), folded = ffs::folded(path);
             const auto old = nodes.find(folded);

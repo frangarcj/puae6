@@ -2609,6 +2609,22 @@
         "kick39106.A1200": 6,
         "kick40068.A1200": 7
       }
+    },
+    "whdload": {
+      "libretro": "puae6_whdload",
+      "default": "auto",
+      "values": {
+        "auto": 1,
+        "disabled": 0
+      }
+    },
+    "whdload_buttonwait": {
+      "libretro": "puae6_whdload_buttonwait",
+      "default": "disabled",
+      "values": {
+        "disabled": 0,
+        "enabled": 1
+      }
     }
   },
   "reserved": {

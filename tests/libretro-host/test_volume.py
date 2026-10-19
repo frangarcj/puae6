@@ -299,7 +299,7 @@ class RealGameVolumeTests(lr.LibretroHarness):
 
     def boot(self, kind, runs, *options, save_dir=None):
         extra = ["--save-dir", save_dir] if save_dir else []
-        return self.frontend("boot", "--runs", runs, *lr.A1200, *extra, *options, content=self.sources[kind], system=self.system_dir).stdout
+        return self.frontend("boot", "--runs", runs, *lr.A1200, "--set", "puae6_whdload=disabled", *extra, *options, content=self.sources[kind], system=self.system_dir).stdout
 
     def played(self, kind):
         """The whole game (fire, F10, the script writes exit.log): (output, the file the core exported when the content closed, the names in the save directory), made once."""

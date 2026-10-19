@@ -29,7 +29,8 @@ class CppBundleTests(unittest.TestCase):
         sources = [ROOT / "tests/whdload/bundle_probe.cpp", *sorted((ROOT / "adapters/libretro").glob("*.h"))]
         if not TOOL.exists() or TOOL.stat().st_mtime < max(p.stat().st_mtime for p in sources):
             subprocess.run(["clang++", "-std=c++17", "-O1", "-g", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
-                            "-fno-sanitize-recover=all", "-I" + str(ROOT / "references/libretro-api/include"), str(sources[0]), "-o", str(TOOL)],
+                            "-fno-sanitize-recover=all", "-I" + str(ROOT / "references/libretro-api/include"), "-I" + str(ROOT / "ports/portable/media"),
+                            "-x", "c++", str(sources[0]), str(ROOT / "ports/portable/media/sha256.c"), "-o", str(TOOL)],
                            check=True, capture_output=True, text=True, timeout=180)
 
     def compare(self, files, *, buttonwait=False, kicks=None, archive=None, program=b"program", vfs=b"vfs", reject=False):
@@ -56,7 +57,7 @@ class CppBundleTests(unittest.TestCase):
             for buttonwait in (False, True):
                 with self.subTest(prefix=prefix, buttonwait=buttonwait):
                     self.compare({prefix + "A.slave": b"slave", prefix + "donn\xe9es/level": bytes(range(256)), "Empty": None,
-                                  "S/Startup-Sequence": b"ignore", "Devs/Kickstarts/kick40068.A1200.RTB": b"rtb"},
+                                  prefix + "literal\\name": b"Amiga name", "S/Startup-Sequence": b"ignore", "Devs/Kickstarts/kick40068.A1200.RTB": b"rtb"},
                                  buttonwait=buttonwait, kicks={"kick40068.A1200": b"private fixture"})
 
     def test_invalid_input_has_no_partial_bundle(self):

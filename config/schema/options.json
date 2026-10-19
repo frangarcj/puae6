@@ -2098,6 +2098,34 @@
         "label": "Kickstart ROM",
         "info": "Automatic looks for the Kickstart of the model (see Model). A version chosen here is looked for in the system directory instead, under PUAE5's names (kick34005.A500, amiga-os-130.rom, the TOSEC names) and the machine runs it if the ROM, identified by its content, can run on that machine: the CPU the ROM needs is checked at load and a Kickstart of another CPU (the 3.1 of the A1200 on an A500) is refused with the reason. A file whose name does not say its version is not found: rename it. ROMs encrypted by Amiga Forever (AMIROMTYPE1) are decrypted with the rom.key that sits in the same system directory; the decrypted ROM is the firmware and its SHA-256 the identity of the states, so a state taken with another Kickstart is refused. PUAE5's AROS is not offered (it is not built in)."
       }
+    },
+    {
+      "id": "whdload",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 1, "label": "Automatic: one slave uses the WHDLoad bundle"},
+        {"value": "disabled", "abi": 0, "label": "Disabled: load as a normal volume"}
+      ],
+      "libretro": {
+        "key": "puae6_whdload",
+        "category": "media",
+        "label": "WHDLoad Support",
+        "info": "A directory, LHA or ZIP with exactly one .slave boots on the A1200 with its Kickstart 3.1. Supply the pinned WHDLoad_usr.lha in the system directory. The core constructs three images in memory, uses its own startup and preferences, and never mounts a host directory. Save Hard Disk Changes keeps writes only when content closes. Multiple slaves or mixed media are refused; Disabled keeps the normal volume flow."
+      }
+    },
+    {
+      "id": "whdload_buttonwait",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_whdload_buttonwait",
+        "category": "media",
+        "label": "WHDLoad ButtonWait",
+        "info": "Add ButtonWait to the core's WHDLoad preferences. Disabled preserves the tested T65a recipe (PUAE5 defaults to enabled). NoWriteCache stays enabled, SplashDelay and ConfigDelay stay zero; scripts and preferences from the game or provider are never used."
+      }
     }
   ],
   "reserved": [

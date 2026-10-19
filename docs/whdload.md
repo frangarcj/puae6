@@ -164,6 +164,22 @@ Para repetirlo: `P6_WHDLOAD_LHA`, `P6_FATALMISSION_LHA` y `P6_KICKSTART_A1200_RO
 `P6_STATE_PROBE_BUILD=debug python3 -m unittest tests.whdload.test_boot_native tests.whdload.test_det02_whdload tests.whdload.test_libretro_whdload tests.whdload.test_waterbox_whdload`
 (el primero y el segundo tardan unos 8 y 17 minutos en -O0; la de Waterbox necesita `tools/build_waterbox.py --puae6`).
 
+## Carga automatica libretro
+
+`puae6_whdload=auto` (defecto) reconoce un unico `.slave` en un directorio, LHA
+o ZIP de archivos. Coloca el `WHDLoad_usr.lha` autorizado en el directorio system
+del frontend: se verifican WHDLoad 20.0 y su VFS por los pins de T30/T65a.
+El core fuerza A1200 y Kickstart 3.1 A1200, conserva CPU/RAM explicitos y copia
+el firmware reconocido a RASystem antes de calcular las identidades de las bases.
+No se usan los scripts ni preferencias del pack/proveedor. Varios slaves o una
+mezcla del pack con otros medios producen error; cero slaves usa el volumen normal.
+`puae6_whdload=disabled` conserva ese flujo normal incluso si hay un slave.
+Las dos opciones WHDLoad necesitan recargar contenido; `puae6_whdload_buttonwait`
+vale `disabled` por defecto y admite `enabled`. Para conservar partidas activa
+`puae6_hdf_save=on_close`: solo el cierre exporta atomicamente la rama actual de
+los HDF. WHDSaves vacio identifica el mismo medio compartible entre juegos.
+Los estados vinculan las tres bases y la configuracion; nunca escriben al host.
+
 ## Pruebas
 
 El constructor C++ puro de `adapters/libretro/whdload_bundle.h` recibe el arbol
@@ -173,7 +189,7 @@ ambiguos, rutas inseguras y limites excedidos sin devolver imagenes parciales.
 `ButtonWait` vale false por defecto (PUAE5 usa true); las preferencias conservan
 `NoWriteCache`, `SplashDelay=0` y `ConfigDelay=0`. Los datos propios compartidos
 con C# se generan con `python3 tools/generate_whdload.py`; no incluyen binarios
-de terceros. Este constructor aun no acredita la carga automatica del frontend.
+de terceros. El probe del constructor solo acredita bytes, no ejecucion del juego.
 `python3 tools/check.py --check MED02 --task T65b1` compara los tres HDF byte a
 byte, tambien con nombres Latin-1/ZIP UTF-8; con las dos variables LHA del usuario
 incluye los archivos reales sin requerir ROM ni compilar el motor.
