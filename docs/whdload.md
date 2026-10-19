@@ -32,6 +32,16 @@ WHDSaves vacio es el mismo medio compartible entre packs: SaveRAM P6SRv2 valida 
 de los medios que contienen cambios; estados y peliculas validan las tres bases y
 configuracion. No hay namespace por juego ni un formato nuevo de SaveRAM.
 
+T65c2 conecta esa receta al loader BizHawk: `WhdLoad=Auto` detecta un unico `.slave`
+en LHA/ZIP y fuerza A1200 antes de solicitar firmware. Cero slaves sigue como volumen
+generico; varios o una mezcla con otros medios fallan claramente. `Disabled` conserva
+el flujo generico anterior, incluidos sus scripts. `WhdLoadButtonWait` es opcion de
+reinicio. El proveedor unico es `WHDLoad_usr.lha` en `GetUserPath(Amiga,false)`; los
+callers de `Puae6Parameters` pueden dar `WhdLoadProvider` y Kickstarts/RTB explicitos.
+Se valida el proveedor antes de pedir firmware y se copia el firmware reconocido a
+RASystem, en memoria. Las escrituras usan los overlays/snapshots y SaveRAM existentes;
+solo `CloneSaveRam`/`StoreSaveRam` hacen persistencia explicita, sin exportacion al rewind.
+
 `tests.whdload.test_bundle` comprueba el contenido y determinismo sin assets. Sus dos pruebas opt-in usan los inputs de T30: exigen el fichero real `FM1.hisc` de 112 bytes en WHDSaves,
 los datos inalterados y replay con PCM/imagen; Waterbox añade un sandbox nuevo. No sustituye guardar partida por escribir un log del script.
 

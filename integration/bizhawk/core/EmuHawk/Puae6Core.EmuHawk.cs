@@ -41,10 +41,9 @@ public sealed partial class Puae6Core
 		var volumes = lp.Roms.Where(IsVolume).ToList();
 		string NameOf(IRomAsset rom) => Path.GetFileName(rom.RomPath.Split('|').Last());
 		var settings = lp.SyncSettings ?? new Puae6SyncSettings();
-		return new Puae6Parameters
+		return Puae6WhdLoad.Resolve(new Puae6Parameters
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
-			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(settings.Machine), $"A Kickstart for the Amiga {settings.Machine.ToString().Substring(1)} is required (the firmware \"{FirmwareName(settings.Machine)}\")"),
 			SyncSettings = settings,
 			Settings = lp.Settings ?? new Puae6Settings(),
 			Media = floppies.Select(rom => rom.FileData).ToList(),
@@ -53,7 +52,8 @@ public sealed partial class Puae6Core
 			HardFileNames = hardFiles.Select(NameOf).ToList(),
 			Volumes = volumes.Select(rom => rom.FileData).ToList(),
 			VolumeNames = volumes.Select(NameOf).ToList(),
-		};
+		}, machine => lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(machine), $"A Kickstart for the Amiga {machine} is required"),
+			() => Puae6WhdLoad.ReadProviderFile(lp.Comm.CoreFileProvider.GetUserPath(VSystemID.Raw.Amiga, false)));
 	}
 
 	/// <summary>The entry of BizHawk's firmware database for each machine (FirmwareDatabase.cs, Amiga): "A500" is Kickstart 1.3 (1.2 and the 3.1 r40.063 are its other options), "A600" Kickstart 2.05 (2.04 of the A500+ and the 3.1

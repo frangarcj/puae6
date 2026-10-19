@@ -79,6 +79,25 @@ internal static unsafe partial class Program
 					foreach (var image in images) Console.WriteLine($"bundle {image.Key} bytes={image.Value.Length} sha={GuestIdentity.Sha256Hex(image.Value)}");
 					break;
 				}
+				case "whdresolve":
+				{
+					var settings = new Puae6SyncSettings { Machine = MachineOf(options.GetValueOrDefault("machine")), WhdLoad = Enum.Parse<Puae6WhdLoadMode>(options.GetValueOrDefault("whdload", "Auto"), true), WhdLoadButtonWait = options.GetValueOrDefault("buttonwait") == "true" };
+					var before = settings.Machine;
+					var source = new Puae6Parameters { SyncSettings = settings, Volumes = [ File.ReadAllBytes(options["archive"]) ], Media = options.ContainsKey("mixed") ? [ new byte[1] ] : [],
+						WhdLoadProvider = options.TryGetValue("provider", out var provider) ? File.ReadAllBytes(provider) : null };
+					var resolved = Puae6WhdLoad.Resolve(source, machine => { Console.WriteLine($"firmware {machine}"); return new byte[] { 0x11, 0x14, 0x4e, 0xf9 }; },
+						options.TryGetValue("providerpath", out var path) ? () => Puae6WhdLoad.ReadProviderFile(path) : null);
+					resolved = Puae6Volumes.Resolve(resolved);
+					Require(settings.Machine == before && source.HardFiles.Count == 0 && source.Volumes.Count == 1, "loader preserves caller parameters");
+					Require(Puae6SyncSettings.NeedsReboot(settings, new Puae6SyncSettings { Machine = before, WhdLoad = settings.WhdLoad == Puae6WhdLoadMode.Auto ? Puae6WhdLoadMode.Disabled : Puae6WhdLoadMode.Auto }), "WHDLoad setting requires restart");
+					Console.WriteLine($"resolved machine={resolved.SyncSettings.Machine} hard={resolved.HardFiles.Count} volumes={resolved.Volumes.Count}");
+					if (options.TryGetValue("out", out var directory))
+					{
+						Directory.CreateDirectory(directory);
+						for (int i = 0; i < resolved.HardFiles.Count; ++i) File.WriteAllBytes(Path.Combine(directory, $"hard-{i}.hdf"), resolved.HardFiles[i]);
+					}
+					break;
+				}
 				case "play": Play(options); break;
 				case "session": RunSession(options); break;
 				case "bench": Bench(options); break;                 // T33: tools/bench.py

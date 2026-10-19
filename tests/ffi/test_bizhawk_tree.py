@@ -92,7 +92,8 @@ class BizHawkTreeTests(unittest.TestCase):
         self.assertEqual(["A500", "A600", "A1200", "A500OG", "A500PLUS", "A1000", "A2000OG", "A2000", "A4030"], machines)
         launcher = (ROOT / "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs").read_text()
         self.assertIn("new(VSystemID.Raw.Amiga, FirmwareName(machine))", launcher)
-        self.assertIn("FirmwareOf(settings.Machine)", launcher)
+        self.assertIn("FirmwareOf(machine)", launcher)
+        self.assertIn("Puae6WhdLoad.Resolve(new Puae6Parameters", launcher)
         # T50: the five machines that came after ask for the entry of their family, so nothing is added to the database (FirmwareName's rows are the whole mapping)
         rows = re.findall(r"((?:Puae6Machine\.\w+(?: or )?)+) => \"(\w+)\"", re.search(r"static string FirmwareName.*?\};", launcher, re.S)[0])
         asked = {member: name for members, name in rows for member in re.findall(r"Puae6Machine\.(\w+)", members)}

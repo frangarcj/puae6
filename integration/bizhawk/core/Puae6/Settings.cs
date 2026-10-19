@@ -5,6 +5,7 @@ using BizHawk.Common;
 namespace Puae6;
 
 public enum Puae6Region { PAL, NTSC }
+public enum Puae6WhdLoadMode { Auto, Disabled }
 
 /// <summary>
 /// The Amiga the core emulates: the A500 (OCS, 512 KiB Chip + 512 KiB Slow RAM, Kickstart 1.3) the A600 (ECS, 1 MiB Chip RAM, Kickstart 2.05, no IDE or PCMCIA) or the A1200 (68EC020, AGA, 2 MiB Chip RAM, Kickstart 3.1, no Gayle).
@@ -94,6 +95,10 @@ public sealed class Puae6Settings
 /// </summary>
 public sealed class Puae6SyncSettings
 {
+	/// <summary>Restart option: Auto builds the three-volume WHDLoad bundle from one installed pack; Disabled keeps the generic volume loader.</summary>
+	public Puae6WhdLoadMode WhdLoad { get; set; } = Puae6WhdLoadMode.Auto;
+	public bool WhdLoadButtonWait { get; set; }
+
 	/// <summary>Which Amiga it is. A state or a movie of one machine is refused by the other; the Kickstart asked of BizHawk's firmware database follows it (FirmwareID Amiga "A500", "A600" or "A1200", the name of the member).</summary>
 	public Puae6Machine Machine { get; set; } = Puae6Machine.A500;
 

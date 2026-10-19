@@ -514,6 +514,9 @@ TASK_SUITES[('MED02', 'T65a')] = {
     'three_role_bundle': 'tests.whdload.test_bundle.BundleTests',
     'real_save_and_immutable_data': 'tests.whdload.test_bundle.BundleLibretroTests.test_real_highscore_save_and_restore_keep_data_immutable'}
 TASK_SUITES[('MED02', 'T65c1')] = {'managed_bundle_bytes': 'tests.whdload.test_bundle_csharp'}
+TASK_SUITES[('LR01', 'T65c2')] = {'managed_loader': 'tests.whdload.test_loader_csharp.LoaderCSharpTests'}
+for _gate in ('MED02', 'DET02', 'WB03'):
+    TASK_SUITES[(_gate, 'T65c2')] = {'managed_auto_save_restore': 'tests.whdload.test_loader_csharp.LoaderWaterboxTests'}
 TASK_SUITES[('DET02', 'T65a')] = {
     'native_state_and_pcm_replay': 'tests.whdload.test_bundle.BundleLibretroTests.test_real_highscore_save_and_restore_keep_data_immutable'}
 TASK_SUITES[('LR01', 'T65a')] = {'real_bundle_frontend': 'tests.whdload.test_bundle.BundleLibretroTests'}

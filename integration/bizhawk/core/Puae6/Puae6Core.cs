@@ -46,6 +46,10 @@ public sealed class Puae6Parameters
 	public IReadOnlyList<byte[]> Volumes { get; set; } = new List<byte[]>();
 	/// <summary>Names of the volumes, for messages and for the export; "volume N" where missing.</summary>
 	public IReadOnlyList<string> VolumeNames { get; set; } = new List<string>();
+	/// <summary>The user's WHDLoad_usr.lha, read once before boot. Required only when Auto detects an installed pack.</summary>
+	public byte[]? WhdLoadProvider { get; set; }
+	/// <summary>Optional explicit Kickstart/RTB bytes, by WHDLoad name; never a live host directory.</summary>
+	public IReadOnlyDictionary<string, byte[]> WhdLoadKickstarts { get; set; } = new Dictionary<string, byte[]>();
 }
 
 /// <summary>
@@ -221,13 +225,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public Puae6Core(CoreComm comm, Puae6Parameters parameters)
 	{
 		CoreComm = comm;
-		if (Puae6RomKey.IsEncrypted(parameters.Firmware))
-			parameters = new Puae6Parameters
-			{
-				GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256, SyncSettings = parameters.SyncSettings, Settings = parameters.Settings,
-				Firmware = Puae6RomKey.Resolve(parameters.Firmware, parameters.RomKey), Media = parameters.Media, MediaNames = parameters.MediaNames, HardFiles = parameters.HardFiles,
-				HardFileNames = parameters.HardFileNames, Volumes = parameters.Volumes, VolumeNames = parameters.VolumeNames,
-			};
+		parameters = Puae6WhdLoad.Resolve(parameters);
 		parameters = Puae6Volumes.Resolve(parameters);
 		_syncSettings = parameters.SyncSettings.Clone();
 		_settings = parameters.Settings.Clone();

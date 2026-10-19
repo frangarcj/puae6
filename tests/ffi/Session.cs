@@ -99,11 +99,14 @@ internal static unsafe partial class Program
 						VideoResolution = Enum.Parse<Puae6VideoResolution>(arguments.GetValueOrDefault("vres", "Hires")),
 						VideoLineMode = Enum.Parse<Puae6VideoLineMode>(arguments.GetValueOrDefault("vlines", "Double")),
 						FloppyWrites = arguments.ContainsKey("writes"),
+						WhdLoad = Enum.Parse<Puae6WhdLoadMode>(arguments.GetValueOrDefault("whdload", "Auto"), true),
+						WhdLoadButtonWait = arguments.GetValueOrDefault("buttonwait", "false") == "true",
 					};
 					var make = new Dictionary<string, string>(fixedOptions);
 					if (arguments.TryGetValue("firmware", out var firmware)) make["firmware"] = firmware;
 					if (arguments.TryGetValue("seed", out var seed)) make["seed"] = seed;
 					if (arguments.TryGetValue("drivevolume", out var volume)) make["drivevolume"] = volume;
+					if (arguments.TryGetValue("whdprovider", out var whdProvider)) make["whdprovider"] = whdProvider;
 					var adfs = arguments.TryGetValue("adf", out var list) ? list.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
 					var machine = new Machine { Mouse = settings.ControllerPort1 == Puae6Port1.Mouse, Options = arguments };
 					var hdfs = arguments.TryGetValue("hdf", out var hardList) ? hardList.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];

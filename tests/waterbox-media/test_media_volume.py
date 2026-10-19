@@ -269,7 +269,7 @@ class RealGameVolumeTests(Sessions):
         self.assertEqual(self.files_before, {p.name: sha(p.read_bytes()) for p in sorted(self.media.iterdir())}, "no file the core was given changed")
 
     def gcore(self, name):
-        return self.core(name, adf="", writes=False, volume=str(self.media / "fatal-mission.lha"), machine="a1200")
+        return self.core(name, adf="", writes=False, volume=str(self.media / "fatal-mission.lha"), machine="a1200", whdload="Disabled")
 
     def test_the_game_boots_from_an_lha_writes_to_the_volume_and_comes_back_from_a_state(self):
         from whdload import ffs

@@ -3,14 +3,65 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 
 namespace Puae6;
 
-/// <summary>T65c1: deterministic three-HDF recipe. No loader, host mounts, runtime Python or shipped WHDLoad/ROM binary.</summary>
+/// <summary>Deterministic three-HDF recipe and frontend resolution. No host mounts, runtime Python or shipped WHDLoad/ROM binary.</summary>
 public static class Puae6WhdLoad
 {
+	public const string ProviderFileName = "WHDLoad_usr.lha";
+
+	/// <summary>The one user-supplied provider location; no fallback, download or host mount.</summary>
+	public static byte[] ReadProviderFile(string directory)
+	{
+		var path = Path.Combine(directory, ProviderFileName);
+		if (!File.Exists(path)) throw new FileNotFoundException($"WHDLoad needs {ProviderFileName} in the Amiga user directory", path);
+		if (new FileInfo(path).Length > Puae6Volumes.MaxArchiveBytes) throw new VolumeException("WHDLoad provider exceeds the archive limit");
+		return File.ReadAllBytes(path);
+	}
+
+	/// <summary>Resolve before requesting firmware. Callbacks run only during frontend initialization, never in the guest or its MMIO path.</summary>
+	public static Puae6Parameters Resolve(Puae6Parameters p, Func<Puae6Machine, byte[]>? firmware = null, Func<byte[]>? provider = null)
+	{
+		var settings = p.SyncSettings.Clone();
+		if (!Enum.IsDefined(typeof(Puae6WhdLoadMode), settings.WhdLoad)) throw new VolumeException("unknown WHDLoad mode");
+		var trees = settings.WhdLoad == Puae6WhdLoadMode.Disabled ? new List<List<VolumeFile>>() : p.Volumes.Select(Puae6Volumes.ReadArchive).ToList();
+		int slaves = trees.Sum(t => t.Count(f => !f.IsDirectory && f.Path.EndsWith(".slave", StringComparison.OrdinalIgnoreCase)));
+		if (slaves > 1) throw new VolumeException("WHDLoad Auto needs exactly one .slave");
+		bool pack = slaves == 1;
+		(byte[] Program, byte[] Vfs) tool = default;
+		if (pack)
+		{
+			if (p.Volumes.Count != 1 || p.Media.Count != 0 || p.HardFiles.Count != 0) throw new VolumeException("WHDLoad Auto cannot be mixed with other media; use Disabled for generic volumes");
+			settings.Machine = Puae6Machine.A1200;
+			tool = ReadProvider(p.WhdLoadProvider ?? provider?.Invoke() ?? throw new VolumeException($"WHDLoad Auto needs the user's {ProviderFileName}"));
+		}
+		var rom = Puae6RomKey.Resolve(firmware?.Invoke(settings.Machine) ?? p.Firmware, p.RomKey);
+		var result = new Puae6Parameters
+		{
+			GuestDirectory = p.GuestDirectory, GuestFileName = p.GuestFileName, PinnedGuestSha256 = p.PinnedGuestSha256,
+			Firmware = rom, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
+			HardFiles = p.HardFiles, HardFileNames = p.HardFileNames, Volumes = p.Volumes, VolumeNames = p.VolumeNames,
+		};
+		if (!pack) return result;
+		var kickstarts = p.WhdLoadKickstarts.ToDictionary(e => e.Key, e => e.Value);
+		using (var sha = SHA1.Create())
+			if (WhdLoadData.KickstartNames.TryGetValue(BitConverter.ToString(sha.ComputeHash(rom)).Replace("-", "").ToLowerInvariant(), out var name)) kickstarts[name] = rom;
+		var images = Build(trees[0], tool.Program, tool.Vfs, settings.WhdLoadButtonWait, kickstarts);
+		result.HardFiles = WhdLoadData.Names.Select(n => images[n]).ToList(); result.HardFileNames = WhdLoadData.Names.ToArray();
+		result.Volumes = new List<byte[]>(); result.VolumeNames = new List<string>();
+		return result;
+	}
+
 	/// <summary>Production entry: the user's install and official WHDLoad package, both bounded LHA/ZIP archives.</summary>
 	public static IReadOnlyDictionary<string, byte[]> Prepare(byte[] game, byte[] provider, bool buttonWait = false, IReadOnlyDictionary<string, byte[]>? kickstarts = null)
+	{
+		var tool = ReadProvider(provider);
+		return Build(Puae6Volumes.ReadArchive(game), tool.Program, tool.Vfs, buttonWait, kickstarts);
+	}
+
+	static (byte[] Program, byte[] Vfs) ReadProvider(byte[] provider)
 	{
 		var tool = Puae6Volumes.ReadArchive(provider);
 		byte[] Member(string name, string hash)
@@ -20,7 +71,7 @@ public static class Puae6WhdLoad
 				throw new VolumeException($"{name} is missing or is not the pinned WHDLoad 20.0 member");
 			return matches[0].Data;
 		}
-		return Build(Puae6Volumes.ReadArchive(game), Member("WHDLoad", WhdLoadData.ProgramSha256), Member("WHDLoad.VFS", WhdLoadData.VfsSha256), buttonWait, kickstarts);
+		return (Member("WHDLoad", WhdLoadData.ProgramSha256), Member("WHDLoad.VFS", WhdLoadData.VfsSha256));
 	}
 
 	/// <summary>Pure recipe over explicit bytes; also usable with synthetic programs in tests. Prepare checks the executable/plugin pins.</summary>
