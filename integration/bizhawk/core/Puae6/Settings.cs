@@ -32,6 +32,7 @@ public enum Puae6Cpu { Auto, M68000, M68010, M68020, M68030 }
 
 /// <summary>Guest collision detection (restart): Auto and Full retain every hardware collision; reduced levels can break games.</summary>
 public enum Puae6CollisionLevel { Auto, None, Sprites, Playfields, Full }
+public enum Puae6Z3Memory { None, MB16 }
 
 /// <summary>CPU accuracy (restart): cycle exact by default, compatible prefetch, or normal instruction timing; always emulated time.</summary>
 public enum Puae6CpuCompatibility { Exact, Compatible, Normal }
@@ -110,6 +111,8 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>Zorro II Fast RAM: Auto is the machine's own (8 MiB on A4030, none otherwise), None disables the board. The Waterbox heap of the core grows with it (<see cref="Puae6Core.Heaps(Puae6SyncSettings)"/>), measured in manifests/waterbox-memory.json.</summary>
 	public Puae6Fast FastMemory { get; set; } = Puae6Fast.Auto;
+	/// <summary>One physical Zorro III board, A4030 only (Normal CPU); requires restart.</summary>
+	public Puae6Z3Memory Z3Memory { get; set; } = Puae6Z3Memory.None;
 
 	/// <summary>The FPU of the machine (A1200 or A4030; another machine refuses it when the core starts). It enters the identity of states and movies when it is not <c>None</c>.</summary>
 	public Puae6Fpu FpuModel { get; set; } = Puae6Fpu.None;

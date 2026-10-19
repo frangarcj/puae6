@@ -460,6 +460,10 @@ TASK_SUITES[('GEN01', 'T55c2')] = {'schema_and_generated_defaults': 'tests.confi
 TASK_SUITES[('ABI01', 'T55c2')] = {'native_c_cpp_layout': 'tests.contracts.test_api', 'standalone_csharp_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
 for _gate in ('DET02', 'STATE01'):
     TASK_SUITES[(_gate, 'T55c2')] = {'z3_autoconfig_and_native_restore': 'tests.state.test_z3'}
+TASK_SUITES[('ABI01', 'T55c3')] = TASK_SUITES[('ABI01', 'T55c2')]
+TASK_SUITES[('LR01', 'T55c3')] = {'z3_shared_option_and_actual_bus_map': 'tests.libretro-host.test_z3'}
+TASK_SUITES[('WB03', 'T55c3')] = {'z3_domain_sandbox_and_process_restore': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_domains_and_same_new_sandbox_and_process_restore'}
+TASK_SUITES[('PERF01', 'T55c3')] = {'z3_actual_committed_heap_margin': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_actual_heap_commitment_has_the_existing_two_times_margin'}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):
     TASK_SUITES[(_gate, 'T53')] = {'cpu_modes_restore_identity_and_no_mmu': 'tests.state.test_cpu_modes'}

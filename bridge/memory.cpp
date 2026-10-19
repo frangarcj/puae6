@@ -53,8 +53,11 @@ extern "C" p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capac
     for (const Source &source : sources) {
         uint64_t bytes = source.bank->allocated_size;
         if (source.reach && bytes > source.reach) bytes = source.reach;
+        uint32_t flags = source.flags;
+        if (source.type == P6_REGION_Z3_FAST_RAM && source.bank->start >= 0x10000000 && source.bank->start < 0xf0000000 && &get_mem_bank(source.bank->start) == source.bank)
+            flags |= P6_REGION_BUS_ADDRESS_VALID | (source.bank->start & P6_REGION_BUS_ADDRESS_MASK);
         if (source.bank->baseaddr && bytes)
-            found[n++] = p6_memory_region{source.type, source.flags, source.bank->baseaddr, bytes};
+            found[n++] = p6_memory_region{source.type, flags, source.bank->baseaddr, bytes};
     }
 
     *count = n;

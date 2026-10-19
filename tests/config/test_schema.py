@@ -421,7 +421,7 @@ class NormalizationTests(unittest.TestCase):
         self.refuses({"machine": 3}, "option machine", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
         self.refuses({"machine": 2}, "option machine", "allowed: A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000")
         self.refuses({"cpu_speed": "max"}, "option cpu_speed is not supported: The machine runs at its real clock")
-        self.refuses({"z3fastmem_size": 64}, "option z3fastmem_size is not supported: Zorro III is available through the native API only")
+        self.refuses({"z3fastmem_size": 64}, "option z3fastmem_size is not supported: Zorro III uses the Z3 Memory option")
         self.refuses({"fastmem2_size": 8}, "option fastmem2_size is not supported: One Zorro II Fast RAM board")
         self.refuses({"chip_size": "3M"}, "option chip_size", "'3M'", "allowed: Auto, KB512, MB1, MB2")
         self.refuses({"fast_size": "16M"}, "option fast_size", "allowed: None, MB1, MB2, MB4, MB8")

@@ -163,6 +163,11 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		(settings.Region == Puae6Region.NTSC && IsOcs(settings.Machine) ? 486 : 576) / (settings.VideoLineMode == Puae6VideoLineMode.Single ? 2 : 1);
 
 	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.None => P6.MemoryNone, Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
+	static byte Z3MemoryNumber(Puae6Z3Memory memory) => memory switch
+	{
+		Puae6Z3Memory.None => (byte)0, Puae6Z3Memory.MB16 => (byte)1,
+		_ => throw new ArgumentOutOfRangeException(nameof(memory), "Z3 memory must be None or MB16"),
+	};
 
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
 	static int ExtraMemoryKiB(Puae6SyncSettings settings)
@@ -172,6 +177,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		uint chip = ChipKib(settings.ChipMemory), slow = SlowKib(settings.SlowMemory);
 		uint fast = FastKib(settings.FastMemory);
 		long extra = (fast == P6.MemoryNone ? 0 : fast == 0 && settings.Machine == Puae6Machine.A4030 ? 8192 : fast) + overlay;
+		extra += Z3MemoryNumber(settings.Z3Memory) * 16384;
 		if (chip > ownChip) extra += chip - ownChip;
 		if (slow != P6.MemoryNone && slow > ownSlow) extra += slow - ownSlow;
 		return (int)extra;
@@ -334,6 +340,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.ChipKib = ChipKib(_syncSettings.ChipMemory);
 		init.Config.SlowKib = SlowKib(_syncSettings.SlowMemory);
 		init.Config.FastKib = FastKib(_syncSettings.FastMemory);
+		init.Config.Z3Memory = Z3MemoryNumber(_syncSettings.Z3Memory);
 		init.Config.FpuModel = FpuNumber(_syncSettings.FpuModel);
 		init.Config.CpuModel = CpuModelNumber(_syncSettings.CpuModel);
 		init.Config.CpuCompatibility = CpuCompatibilityNumber(_syncSettings.CpuCompatibility);
@@ -442,6 +449,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.CpuCompatibility != Puae6CpuCompatibility.Exact) memory += ";cpuaccuracy=" + _syncSettings.CpuCompatibility;
 		if (_syncSettings.CollisionLevel != Puae6CollisionLevel.Auto && _syncSettings.CollisionLevel != Puae6CollisionLevel.Full)
 			memory += ";collisions=" + (CollisionLevelNumber(_syncSettings.CollisionLevel) - 1);
+		if (_syncSettings.Z3Memory != Puae6Z3Memory.None) memory += ";z3=" + _syncSettings.Z3Memory;
 		// And for its clock (T52): the same, off the machine's own.
 		if (_syncSettings.CpuMultiplier != Puae6CpuClock.Auto) memory += ";cpuclock=" + _syncSettings.CpuMultiplier;
 		// And for the controller of the hard files (T56): the native config hash derives from it only while a hard file is behind the IDE (Gayle is never emulated with nothing attached); the text names
@@ -499,7 +507,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		return list;
 	}
 
-	const int P6wAreaCapacity = 4;
+	const int P6wAreaCapacity = 5;
 
 	// ----- IEmulator -----------------------------------------------------------------------------------------------------------------
 

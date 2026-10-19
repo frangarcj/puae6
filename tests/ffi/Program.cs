@@ -48,6 +48,7 @@ internal static unsafe partial class Program
 					if (options.TryGetValue("chip", out var chip)) settings.ChipMemory = Enum.Parse<Puae6Chip>(chip);
 					if (options.TryGetValue("slow", out var slow)) settings.SlowMemory = Enum.Parse<Puae6Slow>(slow);
 					if (options.TryGetValue("fast", out var fast)) settings.FastMemory = Enum.Parse<Puae6Fast>(fast);
+					if (options.TryGetValue("z3", out var z3)) settings.Z3Memory = Enum.Parse<Puae6Z3Memory>(z3);
 					settings.FloppyWrites = options.ContainsKey("writes");
 					// --hdf-bytes N[,N...] (T63b): the sizes of the hard files the core would be given.
 					var hard = options.TryGetValue("hdf-bytes", out var sizes) ? sizes.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(long.Parse).ToArray() : [];

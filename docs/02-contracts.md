@@ -19,8 +19,14 @@ no se habilita RAM de placa. T55c2 permite por API nativa una placa Zorro III
 de16MiB (`z3_memory=1`, byte70); 0 mantiene la maquina anterior. Solo A4030,
 requiere reinicio y tiene identidad propia. La placa se configura por el bus real
 con Z3MAPPING_REAL; P6RM guarda RAM, base/mapeo y la unica cadena Z2/Z3,
-tambien sin Z2. Otros tamaños y las opciones de frontend/presupuesto Waterbox
-siguen pendientes; el esquema deja headless/C# en profile0 y no crea menu LR.
+tambien sin Z2. T55c3 expone None/MB16 en libretro, headless y BizHawk; otros
+tamaños siguen pendientes. Z3 agrega32MiB al presupuesto mmap (margen×2),
+sin cambiar otros heaps ni excluir RAM del snapshot. El test mide el compromiso
+real; la tabla historica completa de presupuestos se regraba con la candidata.
+La region Z3 expone su base actual en flags: BUS_ADDRESS_VALID indica mapeo,
+BUS_ADDRESS_MASK/ADDRESS extraen los bits16..31, una base en pasos de64KiB.
+Libretro anuncia Z3 solo mapeada y actualiza/retira el descriptor al cambiar
+base o validez, incluso tras restore; BizHawk ofrece el backing completo desde load.
 `fast_kib=0` resuelve la propia Z2 y
 `P6_MEMORY_NONE` la desactiva, tambien en los tres frontends. Los estados añaden
 controles 030 a P6CP, los cuatro bytes Gary/Ramsey a P6RM y el IDE fisico a P6DK

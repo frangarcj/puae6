@@ -315,10 +315,10 @@
         {"value": "None", "abi": 0, "label": "None"},
         {"value": "MB16", "abi": 1, "label": "16 MiB"}
       ],
-      "libretro": null,
-      "libretro_policy": "Fixed at None until T55c3 exposes the board, domains and Waterbox budget together. The native API supports one 16 MiB Z3 board on A4030.",
-      "headless": {"how": "profile"},
-      "wrapper": {"how": "profile"}
+      "libretro": {"key": "puae6_z3_memory", "category": "machine", "label": "Zorro III Fast RAM",
+        "info": "One physical 16 MiB Zorro III board, configured by the guest. Available on A4030 with Normal CPU accuracy only; other machines and sizes are refused. No MMU. None retains the machine's original memory."},
+      "headless": {"how": "named", "flag": "--z3", "names": {"None": "none", "MB16": "16"}},
+      "wrapper": {"how": "setting", "setting": "Z3Memory", "type": "Puae6Z3Memory"}
     },
     {
       "id": "collision_level",
@@ -2149,7 +2149,7 @@
     {"id": "floppy_drives", "for": "boot media placement", "wrapper_setting": "FloppyDrives", "why": "How many given disks start mounted (1..4) is a media placement through events; PhysicalFloppyDrives selects the connected hardware. Libretro uses MultiDrive for placement and Disk Control for DF0."}
   ],
   "unsupported": [
-    {"key": "z3fastmem_size", "why": "Zorro III is available through the native API only; the configuration-file importer does not expose it yet."},
+    {"key": "z3fastmem_size", "why": "Zorro III uses the Z3 Memory option; the configuration-file importer does not expose z3fastmem_size yet."},
     {"key": "fastmem2_size", "why": "One Zorro II Fast RAM board is offered; a second board is not."},
     {"key": "kickstart_rom_file", "why": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration."},
     {"key": "cpu_speed", "why": "The machine runs at its real clock; the host speed never changes the emulation."},

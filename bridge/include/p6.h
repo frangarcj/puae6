@@ -341,6 +341,10 @@ typedef struct p6_memory_region {
 #define P6_REGION_FAST_RAM UINT32_C(4)   /* Zorro II Fast RAM (T49): present only when p6_config.fast_kib asked for it, and after the unit that ran its autoconfig reset */
 #define P6_REGION_Z3_FAST_RAM UINT32_C(5) /* Zorro III backing RAM, when configured; guest visibility follows autoconfig. */
 #define P6_REGION_WRITABLE (UINT32_C(1) << 0)
+/* Optional Z3 bus mapping: valid only while mapped. Upper 16 bits encode its 64 KiB page; structs retain their ABI v1 layout. */
+#define P6_REGION_BUS_ADDRESS_VALID (UINT32_C(1) << 1)
+#define P6_REGION_BUS_ADDRESS_MASK UINT32_C(0xffff0000)
+#define P6_REGION_BUS_ADDRESS(flags) ((uint32_t)(flags) & P6_REGION_BUS_ADDRESS_MASK)
 
 typedef struct p6_media_event {
     uint32_t abi_version;

@@ -32,7 +32,7 @@ public static class P6
 	public const uint FrameLag = 1u << 0, FrameNoVideo = 1u << 1, FrameDriveLight = 1u << 2;
 	public const uint RenderVideo = 1u << 0, RenderAudio = 1u << 1;
 	public const int RenderDriveVolumeShift = 8;
-	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4;
+	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4, RegionZ3FastRam = 5;
 	public const uint MemoryNone = uint.MaxValue;
 	public const uint ConfigFloppyWrites = 1;
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;

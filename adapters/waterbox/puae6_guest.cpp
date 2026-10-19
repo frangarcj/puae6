@@ -102,6 +102,7 @@ void memory_access(uint32_t type, void *buffer, int64_t address, int64_t count, 
 void access_chip_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_CHIP_RAM, buffer, address, count, write); }
 void access_slow_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_SLOW_RAM, buffer, address, count, write); }
 void access_fast_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_FAST_RAM, buffer, address, count, write); }
+void access_z3_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_Z3_FAST_RAM, buffer, address, count, write); }
 void access_rom(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_ROM, buffer, address, count, write); }
 
 struct AreaSpec {
@@ -114,6 +115,7 @@ const AreaSpec area_specs[] = {
     {P6_REGION_CHIP_RAM, "Chip RAM", P6W_AREA_PRIMARY, access_chip_ram},     // the one BizHawk treats as main memory
     {P6_REGION_SLOW_RAM, "Slow RAM", 0, access_slow_ram},
     {P6_REGION_FAST_RAM, "Fast RAM", 0, access_fast_ram},      // T49: the Zorro II board, at $200000 once the Kickstart has configured it
+    {P6_REGION_Z3_FAST_RAM, "Z3 Fast RAM", 0, access_z3_ram},
     {P6_REGION_ROM, "ROM", 0, access_rom},
 };
 

@@ -29,6 +29,10 @@ ninguna en los modelos anteriores. `None` desactiva la placa; `MB1`..`MB8` fijan
 su tamaño. Headless acepta `--machine a4030 --cpu-compatibility normal` y
 `--fast auto|none|KIB`; BizHawk usa `Machine=A4030`, `CpuCompatibility=Normal`
 y `FastMemory=Auto|None|MB1|MB2|MB4|MB8`. Cambiarlos requiere recargar.
+Z3 usa una opcion distinta: `puae6_z3_memory=None|MB16`, `--z3 none|16` o
+`Z3Memory=None|MB16` en BizHawk. None es el defecto;16MiB requiere A4030/Normal,
+se configura por autoconfig real y aumenta el presupuesto mmap32MiB. Otros
+modelos/tamaños se rechazan. Cambiarla requiere recargar y cambia la identidad.
 La aceptacion completa de T55b, incluido Waterbox real, sigue pendiente.
 
 ## Clases y la frontera con la emulacion
@@ -327,7 +331,7 @@ Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada
 | `bsdsocket*`, `uaenet*` | Sin red en el perfil determinista. |
 | `pcmcia*` | Sin PCMCIA (Gayle, en el A600 y el A1200, solo lleva su puerto IDE: opcion `puae6_hdf_controller`, T56). |
 | `include*`, `plugin*`, `shell*`, `exec*`, `script*`, `cmd*`, `command*` | Un `.uae` no incluye otro, ni carga plugins ni ejecuta programas. |
-| `z3mem*`, `z3fastmem*`, `mem25bit*`, `a3000mem*`, `mbresmem*`, `megachipmem*` | Sin RAM Zorro III ni de placa base (bus de 24 bits); solo se acepta `0`. |
+| `z3mem*`, `z3fastmem*`, `mem25bit*`, `a3000mem*`, `mbresmem*`, `megachipmem*` | El importador aun no expone Z3 ni RAM de placa base; solo acepta `0`. Z3 se elige con la opcion propia descrita arriba. |
 | `fastmem2*`, `fastmem3*`, `fastmem4*` | Una sola placa Fast Zorro II; las demas, solo `0`. |
 | `cpu_*`, `fpu_*`, `cs_*`, `chipset_*`, `blitter_*`, `agnus_*`, `denise_*`, `rtc`, `sound_*`, `keyboard_*`, `floppy*` (el resto) | Fijados por el perfil de maquina y no son claves del esquema; el importador no puede saber si el fichero coincide, asi que los rechaza. Incluye `cpu_frequency`, `sound_mixed_stereo_delay` y los volumenes (las cuatro claves de audio de la tabla anterior si se traducen). |
 | Cualquier ruta absoluta, `..`, `~`, `$(...)`/`${...}` en un disco | Fuera de la carpeta del `.uae`; el importador no expande nada. |

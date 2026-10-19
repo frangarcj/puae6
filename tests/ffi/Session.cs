@@ -85,6 +85,7 @@ internal static unsafe partial class Program
 						ChipMemory = Enum.Parse<Puae6Chip>(arguments.GetValueOrDefault("chip", "Auto")),
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
 						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "Auto")),
+						Z3Memory = Enum.Parse<Puae6Z3Memory>(arguments.GetValueOrDefault("z3", "None")),
 						FpuModel = Enum.Parse<Puae6Fpu>(arguments.GetValueOrDefault("fpu", "None")),
 						CpuModel = Enum.Parse<Puae6Cpu>(arguments.GetValueOrDefault("cpu", "Auto")),
 						CpuCompatibility = Enum.Parse<Puae6CpuCompatibility>(arguments.GetValueOrDefault("accuracy", "Exact")),
@@ -255,6 +256,10 @@ internal static unsafe partial class Program
 					break;
 				}
 				case "moviefinish": MovieFinish(machines[words[1]], words[2]); break;
+				case "domains":
+					foreach (var domain in machines[words[1]].Core.ServiceProvider.GetService<IMemoryDomains>()!)
+						Console.WriteLine($"domain {words[1]} {domain.Name.Replace(' ', '_')} bytes={domain.Size} writable={domain.Writable}");
+					break;
 				case "peek":
 				{
 					var domain = machines[words[1]].Core.ServiceProvider.GetService<IMemoryDomains>()![words[2].Replace('_', ' ')]!;

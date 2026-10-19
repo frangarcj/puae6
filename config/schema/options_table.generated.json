@@ -1712,12 +1712,19 @@
     },
     "z3_memory": {
       "headless": {
-        "how": "profile"
+        "how": "named",
+        "flag": "--z3",
+        "names": {
+          "None": "none",
+          "MB16": "16"
+        }
       },
       "wrapper": {
-        "how": "profile"
+        "how": "setting",
+        "setting": "Z3Memory",
+        "type": "Puae6Z3Memory"
       },
-      "libretro": null
+      "libretro": "puae6_z3_memory"
     },
     "collision_level": {
       "headless": {
@@ -2655,7 +2662,7 @@
     "floppy_drives": "FloppyDrives"
   },
   "unsupported": {
-    "z3fastmem_size": "Zorro III is available through the native API only; the configuration-file importer does not expose it yet.",
+    "z3fastmem_size": "Zorro III uses the Z3 Memory option; the configuration-file importer does not expose z3fastmem_size yet.",
     "fastmem2_size": "One Zorro II Fast RAM board is offered; a second board is not.",
     "kickstart_rom_file": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration.",
     "cpu_speed": "The machine runs at its real clock; the host speed never changes the emulation.",

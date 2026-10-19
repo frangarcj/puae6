@@ -57,6 +57,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     internal uint MachineId = 1;
     /// p6_config.chip_kib, slow_kib and fast_kib the next TryInit gives the guest (T49): 0 is the machine's own memory, uint.MaxValue (Slow) is none.
     internal uint ChipKib, SlowKib, FastKib;
+    internal byte Z3Memory;
     /// p6_config.fpu_model the next TryInit gives the guest (T54): 0 (none), 68881 or 68882 (A1200 only).
     internal uint FpuModel;
     /// p6_config.flags the next TryInit gives the guest: P6_CONFIG_FLOPPY_WRITES (1) makes the floppies writable (T28, --floppy-writes).
@@ -110,6 +111,8 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             *(long*)(p + 40) = epoch;                                       //   rtc epoch
             *(uint*)(p + 48) = ChipKib; *(uint*)(p + 52) = SlowKib; *(uint*)(p + 56) = FastKib;     //   chip_kib, slow_kib, fast_kib (reserved[2] stays zero)
             *(uint*)(p + 60) = FpuModel;
+            p[8 + 66] = MachineId == 11 ? (byte)2 : (byte)0; // A4030 is Normal, never a fabricated exact profile
+            p[8 + 70] = Z3Memory;
             *(nint*)(p + InitFirmware) = rom; *(ulong*)(p + InitFirmware + 8) = (ulong)firmware.Length;
             *(uint*)(p + InitMediaCount) = mediaCount ?? (uint)media.Length;
             for (int i = 0; i < media.Length && i < 16; ++i)                // p6w_media: type, flags, content_id (SHA-256), data, bytes
@@ -407,12 +410,14 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     /// The areas the guest reports (p6w_memory_areas): data (a guest function), name, size and flags of each, in the order it gives them.
     internal (ulong Data, string Name, long Size, long Flags)[] Areas()
     {
-        nint buffer = Marshal.AllocHGlobal(4 * 32);
+        nint buffer = Marshal.AllocHGlobal(5 * 32);
         try
         {
-            new Span<byte>((void*)buffer, 4 * 32).Fill(0xCD);
-            nuint count = In(() => Guest<Values>("p6w_memory_areas")(buffer, 4));
-            Program.Require(count <= 4, "the guest reports at most four areas");
+            new Span<byte>((void*)buffer, 5 * 32).Fill(0xCD);
+            Program.Require(In(() => Guest<Values>("p6w_memory_areas")(buffer, 4)) == 0, "undersized area buffer refused");
+            Program.Require(new ReadOnlySpan<byte>((void*)buffer, 5 * 32).IndexOfAnyExcept((byte)0xCD) < 0, "undersized buffer untouched");
+            nuint count = In(() => Guest<Values>("p6w_memory_areas")(buffer, 5));
+            Program.Require(count <= 5, "the guest reports at most five areas");
             var areas = new (ulong, string, long, long)[(int)count];
             for (int i = 0; i < areas.Length; ++i)
             {
@@ -420,7 +425,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
                 nint name = *(nint*)(a + 8);                                  // a pointer into the guest: read it while the sandbox is active
                 areas[i] = (*(ulong*)a, In(() => Marshal.PtrToStringUTF8(name)) ?? "", *(long*)(a + 16), *(long*)(a + 24));
             }
-            Program.Require(new ReadOnlySpan<byte>((void*)(buffer + 32 * (int)count), (4 - (int)count) * 32).IndexOfAnyExcept((byte)0xCD) < 0,
+            Program.Require(new ReadOnlySpan<byte>((void*)(buffer + 32 * (int)count), (5 - (int)count) * 32).IndexOfAnyExcept((byte)0xCD) < 0,
                 "the guest wrote nothing past the areas it reported");
             return areas;
         }
@@ -508,8 +513,8 @@ internal static unsafe class Puae6
     /// twice what was measured.
     internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib, bool floppyWrites = false, ulong hardFileKib = 0)
     {
-        uint ownChip = machineId == 3 ? 2048u : machineId is 2 or 5 or 8 ? 1024u : 512u, ownSlow = machineId is 1 or 7 ? 512u : 0u;
-        ulong extra = fastKib;
+        uint ownChip = machineId is 3 or 11 ? 2048u : machineId is 2 or 5 or 8 ? 1024u : 512u, ownSlow = machineId is 1 or 7 ? 512u : 0u;
+        ulong extra = fastKib == uint.MaxValue ? 0 : fastKib == 0 && machineId == 11 ? 8192u : fastKib;
         if (chipKib > ownChip) extra += chipKib - ownChip;
         if (slowKib != uint.MaxValue && slowKib > ownSlow) extra += slowKib - ownSlow;
         if (floppyWrites) extra += 4096;        // T28: the write overlay (Puae6Core.FloppyOverlayKiB), measured in manifests/waterbox-memory.json
@@ -561,10 +566,12 @@ internal static unsafe class Puae6
         ulong units = ulong.Parse(options.Get("units"));
         uint standard = options.Flag("ntsc") ? 2u : 1u;
         string machineName = (options.Optional("machine") ?? "a500").ToLowerInvariant();
-        Program.Require(machineName is "a500" or "a600" or "a1200" or "a500og" or "a500plus" or "a1000" or "a2000og" or "a2000",
-            $"--machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og or a2000 (got {machineName})");
-        uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, "a500og" => 4u, "a500plus" => 5u, "a1000" => 6u, "a2000og" => 7u, "a2000" => 8u, _ => 1u };
+        Program.Require(machineName is "a500" or "a600" or "a1200" or "a500og" or "a500plus" or "a1000" or "a2000og" or "a2000" or "a4030",
+            $"--machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og, a2000 or a4030 (got {machineName})");
+        uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, "a500og" => 4u, "a500plus" => 5u, "a1000" => 6u, "a2000og" => 7u, "a2000" => 8u, "a4030" => 11u, _ => 1u };
         layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"), (ulong)hardFiles.Sum(file => (long)HardFileHeapKiB(file.Length)));
+        byte z3 = (options.Optional("z3") ?? "none") switch { "none" => 0, "16" => 1, _ => throw new ArgumentException("--z3 must be none or 16") };
+        layout.Mmap += (nuint)(z3 * 32 * 1024 * 1024);
         var image = File.ReadAllBytes(guestPath);
         using var api = new Native(dylibPath);
         var report = new Dictionary<string, object?> {
@@ -585,7 +592,7 @@ internal static unsafe class Puae6
             var parts = item.Split(':'); var span = parts[0].Split('-');
             return (ulong.Parse(span[0]), ulong.Parse(span[^1]), uint.Parse(parts[1]));
         }).ToList();
-        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib, FpuModel = fpuModel,
+        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib, FpuModel = fpuModel, Z3Memory = z3,
             ConfigFlags = options.Flag("floppy-writes") ? 1u : 0u, MediaTypes = mediaTypes };
         foreach (var port in options.All("port"))
         {
@@ -613,6 +620,7 @@ internal static unsafe class Puae6
         ulong rewindTo = ulong.Parse(options.Optional("rewind-to") ?? "0"), rewindFrom = ulong.Parse(options.Optional("rewind-from") ?? "0");
         byte[]? rewindState = null;
         bool rewound = false;
+        report["areas"] = machine.Areas().Select(a => new { name = a.Name, bytes = a.Size }).ToArray();
         machine.Seal();
         var afterSeal = Usage(machine);
         var sealedSnapshot = machine.Save().Length;
