@@ -13945,7 +13945,7 @@
       "title": "Carga automatica libretro de WHDLoad y persistencia reversible",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T65b1"
       ],
@@ -13992,7 +13992,7 @@
       "title": "Carga automatica de packs WHDLoad en libretro",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T65a",
         "T65b1",
@@ -14153,7 +14153,7 @@
       "title": "WHDLoad completo en libretro y BizHawk: WHDLoad.hdf, volumen RASystem (Kickstarts + prefs), WHDSaves, buttonwait, A1200 forzado",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T30",
         "T64",
