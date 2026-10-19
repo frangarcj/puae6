@@ -920,6 +920,13 @@ payload, cache, limites y propagacion de errores con un proveedor de hunks de
 prueba. Este proveedor no decodifica CHD ni acredita la biblioteca nativa macOS;
 esa dependencia y el arranque CD32 permanecen pendientes en T66.
 
+T66g1 convierte el layout validado a `cd_toc_head` real de WinUAE: A0, pistas,
+A1 y A2 conservan ADR/control, INDEX01 y leadout, con el mismo orden que
+`command_toc` fijado. Extrae96 P-W deinterleaved o SUBQ_SIZE16 (cabecera con
+estado explicito del llamante y Q12) desde una vista2448; no cambia playback.
+Errores, rangos y buffers cortos preservan salida. Una fuente sin subcanales
+devuelve `Unsupported`; no sintetiza Q ni acredita aun Akiko/CDDA/CD32.
+
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
 fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,

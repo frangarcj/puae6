@@ -1,4 +1,5 @@
 #include "cd_disc.h"
+#include "cd_akiko.h"
 #include "uae/cdrom.h"
 #include <stdio.h>
 #include <string.h>
@@ -138,10 +139,64 @@ static int failures_and_rebind()
     CHECK(bytes.read_at(16, out, 1) == Result::Ok && out[0] == byte(f.p[1], 16));
     return 0;
 }
+static int akiko()
+{
+    Fixture f;
+    Disc disc, absent;
+    CHECK(disc.bind(f.layout, f.bindings, 4) == Result::Ok);
+    struct { uint64_t before; cd_toc_head toc; uint64_t after; } result{};
+    result.before = result.after = UINT64_C(0x123456789abcdef0);
+    CHECK(akiko_toc(disc, &result.toc) == Result::Ok);
+    const auto &toc = result.toc;
+    CHECK(result.before == result.after && result.before == UINT64_C(0x123456789abcdef0));
+    CHECK(toc.first_track == 1 && toc.last_track == 4 && toc.first_track_offset == 1 && toc.last_track_offset == 4);
+    CHECK(toc.tracks == 4 && toc.points == 7 && toc.firstaddress == 0 && toc.lastaddress == 13);
+    CHECK(toc.toc[0].point == 0xa0 && toc.toc[0].track == 1 && toc.toc[0].control == 0);
+    for (unsigned i = 0; i < 4; ++i) {
+        const auto &entry = toc.toc[i + 1];
+        CHECK(entry.track == i + 1 && entry.point == i + 1 && entry.adr == 1);
+        CHECK(entry.paddress == int(f.layout.track[i].index1) && entry.control == f.layout.track[i].control);
+    }
+    CHECK(toc.toc[5].point == 0xa1 && toc.toc[5].track == 4 && toc.toc[5].paddress == 13);
+    CHECK(toc.toc[6].point == 0xa2 && toc.toc[6].paddress == 13 && !f.p[2].calls);
+    const auto before = result.toc;
+    CHECK(akiko_toc(absent, &result.toc) == Result::Invalid && !memcmp(&before, &result.toc, sizeof before));
+    CHECK(akiko_toc(disc, nullptr) == Result::Invalid);
+    uint8_t out[112]; memset(out, 0xa5, sizeof out);
+    CHECK(akiko_qcode(disc, 7, AUDIO_STATUS_IN_PROGRESS, true, out + 8, 96) == Result::Ok);
+    CHECK(filled(out, 8, 0xa5) && filled(out + 104, 8, 0xa5));
+    for (unsigned i = 0; i < 96; ++i) CHECK(out[8 + i] == byte(f.p[2], f.p[2].offset + 2352 + i));
+    memset(out, 0xa5, sizeof out);
+    CHECK(akiko_qcode(disc, 7, AUDIO_STATUS_PAUSED, false, out + 8, 16) == Result::Ok);
+    CHECK(filled(out, 8, 0xa5) && filled(out + 24, 88, 0xa5));
+    CHECK(out[8] == 0 && out[9] == AUDIO_STATUS_PAUSED && out[10] == 0 && out[11] == 12);
+    for (unsigned i = 0; i < 12; ++i) CHECK(out[12 + i] == byte(f.p[2], f.p[2].offset + 2352 + 12 + i));
+    for (int fault : {0, 1, 2}) {
+        f.p[2].fault = fault; memset(out, 0xa5, sizeof out);
+        CHECK(akiko_qcode(disc, fault ? 7 : 0, AUDIO_STATUS_NO_STATUS, true, out, sizeof out) ==
+              (fault ? Result::ReadError : Result::Unsupported));
+        CHECK(filled(out, sizeof out, 0xa5));
+    }
+    f.p[2].fault = 0;
+    CHECK(akiko_qcode(disc, 7, 0xff, true, out, sizeof out) == Result::Invalid);
+    CHECK(akiko_qcode(disc, 7, AUDIO_STATUS_NO_STATUS, true, out, 95) == Result::Invalid);
+    CHECK(akiko_qcode(disc, 13, AUDIO_STATUS_NO_STATUS, false, out, sizeof out) == Result::Range);
+    CHECK(filled(out, sizeof out, 0xa5));
+    Layout maximum{}; maximum.tracks = maximum.leadout = 99;
+    for (unsigned i = 0; i < 99; ++i) maximum.track[i] = {i, i, i + 1, 0, 2448, uint64_t(i) * 2448, Mode::Mode1Raw, 1, 4, true};
+    Provider p{99 * 2448, 0, 0, 2448, 1};
+    Binding binding{{{1}, p.bytes, 1}, provide, &p};
+    Disc full;
+    CHECK(full.bind(maximum, &binding, 1) == Result::Ok && akiko_toc(full, &result.toc) == Result::Ok);
+    CHECK(toc.points == 102 && toc.toc[99].point == 99 && toc.toc[100].point == 0xa1 && toc.toc[101].point == 0xa2);
+    CHECK(toc.toc[0].control == 4 && toc.toc[101].paddress == 99 && result.before == result.after);
+    return 0;
+}
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
     if (!strcmp(argv[1], "reads")) return reads();
     if (!strcmp(argv[1], "failures")) return failures_and_rebind();
+    if (!strcmp(argv[1], "akiko")) return akiko();
     return 2;
 }

@@ -14595,7 +14595,7 @@
         "docs/07-machawk.md"
       ],
       "id": "T66e2",
-      "status": "pending",
+      "status": "in_progress",
       "title": "Normalizar CUE nativo reutilizando parsecue fijado y limites endurecidos",
       "depends": [
         "T66e1"
@@ -14676,7 +14676,7 @@
       "title": "Adaptar TOC y subcanales normalizados al contrato real de Akiko",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66b"
       ],
