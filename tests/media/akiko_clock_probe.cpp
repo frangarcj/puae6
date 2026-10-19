@@ -4,7 +4,6 @@
 #include "events.h"
 
 addrbank extendedkickmem_bank{};
-int savestate_state;
 // ROM patching and persistent NVRAM are outside this fixture; reset calls the
 // real EEPROM/zfile cleanup with no device/file, never these guarded branches.
 void protect_roms(bool) { unexercised("protect_roms"); }

@@ -1,13 +1,12 @@
 // Include the verified derived unit: private state is visible only to this probe.
+#define P6_CDA_FIXTURE_ONLY
+#include "../audio/cd_audio_probe.cpp"
 #include "akiko.cpp"
 #include "media/cd_device.h"
 #include <array>
 #include <cassert>
 #include <vector>
 
-uae_prefs currprefs{};
-regstruct regs{};
-evt_t currcycle;
 static void hsync() { currcycle += 227 * CYCLE_UNIT; AKIKO_hsync_handler(); }
 int maxvpos = 312;
 float vblank_hz = 50;
@@ -22,14 +21,8 @@ void memory_put_long(uaecptr at, uae_u32 v)
 {
     for (unsigned n = 0; n < 4; ++n) dma_put_byte(at + n, v >> (24 - 8 * n));
 }
-// Explicit fixture traps: no TOC/subQ command packets, MSF/BCD conversion or
-// DMA SUBCODE is exercised. Calling one must fail rather than fake a device.
+// Explicit fixture trap for branches outside the component under test.
 [[noreturn]] static void unexercised(const char *name) { fprintf(stderr, "unexercised fixture: %s\n", name); abort(); }
-int msf2lsn(int) { unexercised("msf2lsn"); }
-int lsn2msf(int) { unexercised("lsn2msf"); }
-uae_u8 tobcd(uae_u8) { unexercised("tobcd"); }
-int fromlongbcd(uae_u8 *) { unexercised("fromlongbcd"); }
-void sub_to_interleaved(const uae_u8 *, uae_u8 *) { unexercised("sub_to_interleaved"); }
 
 struct Provider {
     std::vector<unsigned> reads;
@@ -56,6 +49,10 @@ static void check_buffer(unsigned start, unsigned count)
 int main()
 {
     using namespace p6_cd;
+    int16_t dummy[1176]{};
+    cd_audio_state bootstrap{};
+    start(48000, false, bootstrap, dummy);
+    audio_cda_new_buffer(&bootstrap, nullptr, -1, 0, nullptr, nullptr);
     Provider provider;
     Binding binding{{{1}, 262 * 2352, 1}, Provider::read, &provider};
     Layout layout{}; layout.content_id[0] = 1; layout.tracks = 2; layout.leadout = 262;
@@ -104,11 +101,12 @@ int main()
     write_comm_pipe_u32(&requests, 260, 0); write_comm_pipe_u32(&requests, 262, 0);
     hsync(); assert(requests.rdp == 98 && request_count() == 3);
     write_comm_pipe_u32(&requests, 0, 1); hsync();
-    assert(!request_count() && cdrom_audiostatus == AUDIO_STATUS_PLAY_ERROR && device_last_error() == Result::Unsupported);
+    assert(!request_count() && cdrom_audiostatus == AUDIO_STATUS_NOT_SUPPORTED && device_last_error() == Result::Ok);
+    assert(audio_total_extra_streams == 1); // Real stream: ten-sector emulated start delay.
     // Admission leaves space for a complete stop + play, even near ring capacity.
     cdrom_receive_length = cdrom_command_active = 0;
     for (int n = 0; n < 93; ++n) write_comm_pipe_u32(&requests, 0x0104, 1);
-    assert(can_send_command()); cdaudiostop(); assert(cd_play_audio(260, 262, 0));
+    assert(can_send_command()); cdaudiostop(); assert(cd_play_audio(260, 262, 1)); // Scan remains unsupported.
     assert(request_count() == 98 && !can_send_command());
     hsync(); assert(!request_count() && device_last_error() == Result::Unsupported);
     // Saturation backpressures commands; mute has a coalesced pending intent.
@@ -118,9 +116,10 @@ int main()
     hsync(); assert(!request_count() && !mute_pending);
     cdrom_receive_length = cdrom_command_active = 0; assert(can_send_command());
     // Restore queues the complete immediate-play intent, without blocking or fake success.
+    provider.fault = 260; // Immediate play must report a real source failure, including a repeated error latch.
     last_play_pos = 260; last_play_end = 262; cdrom_playing = 1; cdrom_paused = 1;
     restore_akiko_final(); assert(request_count() == 9);
-    hsync(); assert(!request_count() && !cdrom_playing && device_last_error() == Result::Unsupported);
+    hsync(); assert(!request_count() && !cdrom_playing && device_last_error() == Result::ReadError);
     assert(cdrom_audiostatus == AUDIO_STATUS_PLAY_ERROR && (cdrom_result_buffer[1] & CDS_ERROR));
     assert(!akiko_service_lifecycle(1));
     assert(akiko_service_lifecycle(0) && requests.data == nullptr && !akiko_service_lifecycle(0));

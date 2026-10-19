@@ -15563,7 +15563,7 @@
       "title": "Integrar probes Akiko con el mezclador CDDA real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66n1",
         "T66h2",

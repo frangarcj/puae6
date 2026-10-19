@@ -1461,3 +1461,9 @@ un stream agotado durante el ultimo intervalo. La muestra actual puede conservar
 la ganancia anterior a un cambio de volumen. La prueba STATE01 compara PCM y
 callbacks futuros con otro dueño/Disc y rechazo transaccional. El guard0099 sigue
 activo: falta conectar el codec de maquina y acreditar restore CD32 completo.
+
+Los probes de servicio, reloj y NVRAM de Akiko (T66h3) comparten ahora el
+mezclador CDA, eventos, SoftFloat y utilidades de conversion reales. El play
+normal crea un stream; scan conserva su error Unsupported y un fallo de lectura
+en restore inmediato conserva PLAY_ERROR sin quedar playing. Esto mantiene las
+pruebas FIFO/DMA/reset/EEPROM tras N1; no acredita arranque ni codec CD32 completo.

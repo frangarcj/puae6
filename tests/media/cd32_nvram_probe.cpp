@@ -4,7 +4,6 @@
 #include "devices.cpp" // Real registry and the same leave-callback executor used by virtualdevice_free.
 #include "cd32_nvram.h"
 
-int savestate_state;
 static_assert(sizeof(p6_cd32_nvram_state) == 1064, "Private view has explicit padding");
 struct Edge { unsigned reg, value, result; };
 static unsigned mmio(unsigned reg, unsigned value)
