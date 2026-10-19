@@ -12338,7 +12338,8 @@
         "docs/02-contracts.md",
         "tools/check.py",
         "tests/contracts/layout_probe.c",
-        "tests/fuzz/fuzz_probe.cpp"
+        "tests/fuzz/fuzz_probe.cpp",
+        "tests/reference/patch-classes.json"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: anadir los niveles de PUAE5 (puae_cpu_compatibility normal/compatible/exact). Generar cpuemu sin CE (0/11/20...) y seleccionarlos por opcion de reinicio; m68k_speed nunca ligado al reloj del host; DET02 y estados en cada nivel; ADR que fija que la identidad del estado incluye el nivel.",
@@ -13714,7 +13715,8 @@
         "docs/02-contracts.md",
         "tools/check.py",
         "bridge/state_probe.cpp",
-        "manifests/state-inventory.json"
+        "manifests/state-inventory.json",
+        "tests/reference/patch-classes.json"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 pad, analogico, lightpen, 4 jugadores y multimouse. Extender p6_input sin romper la ABI v1 (version/size), aplicado en el borde de unidad, en estados y peliculas.",
