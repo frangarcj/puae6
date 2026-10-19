@@ -36,7 +36,7 @@ public static class Controllers
 	public static readonly string[][] JoystickButtons = [ BuildJoystickButtons(1), BuildJoystickButtons(2) ];
 	public static readonly string[] Cd32Names = [ "Up", "Down", "Left", "Right", "Red", "Blue", "Green", "Yellow", "Rewind", "Forward", "Play" ];
 	public static readonly uint[] Cd32Bits = [ P6.ButtonUp, P6.ButtonDown, P6.ButtonLeft, P6.ButtonRight, P6.Button1, P6.Button2, P6.Button3, P6.Cd32Yellow, P6.Cd32Rewind, P6.Cd32Forward, P6.Cd32Play ];
-	public static readonly string[][] Cd32Buttons = [ Cd32Names.Select(n => $"P1 CD32 {n}").ToArray(), Cd32Names.Select(n => $"P2 CD32 {n}").ToArray() ];
+	public static readonly string[][] Cd32Buttons = [ Cd32Names.Select(n => $"P1 CD32 pad {n}").ToArray(), Cd32Names.Select(n => $"P2 CD32 pad {n}").ToArray() ];
 
 	/// <summary>The mouse buttons and axes of port 1 as the controller names them, built once.</summary>
 	public static readonly string Port1MouseLeft = $"P1 {MouseLeft}", Port1MouseMiddle = $"P1 {MouseMiddle}", Port1MouseRight = $"P1 {MouseRight}", Port1MouseX = $"P1 {MouseX}", Port1MouseY = $"P1 {MouseY}";

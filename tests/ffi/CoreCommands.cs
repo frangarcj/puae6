@@ -73,8 +73,16 @@ internal static unsafe partial class Program
 				controller.Axis($"P1 {Controllers.MouseX}", Math.Clamp(mouseX[at], 0, Controllers.MouseFieldWidth));
 				controller.Axis($"P1 {Controllers.MouseY}", Math.Clamp(mouseY[at], 0, Controllers.MouseFieldHeight));
 			}
+			else if (p0.Type == P6.PortCd32) PressCd32(controller, 1, p0.Buttons);
 			else PressJoystick(controller, 1, p0.Buttons);
-			PressJoystick(controller, 2, ports[at][1].Buttons);
+			if (ports[at][1].Type == P6.PortCd32) PressCd32(controller, 2, ports[at][1].Buttons);
+			else PressJoystick(controller, 2, ports[at][1].Buttons);
+		}
+
+		static void PressCd32(ScriptedController controller, int port, uint buttons)
+		{
+			for (int i = 0; i < Controllers.Cd32Names.Length; ++i)
+				if ((buttons & Controllers.Cd32Bits[i]) != 0) controller.Press(Controllers.Cd32Buttons[port - 1][i]);
 		}
 
 		static void PressJoystick(ScriptedController controller, int port, uint buttons)

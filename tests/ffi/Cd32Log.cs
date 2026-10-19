@@ -13,6 +13,7 @@ internal static unsafe partial class Program
 		var decoded = new Bk2Controller(definition, Bk2LogEntryGenerator.GenerateLogKey(definition));
 		foreach (var button in Controllers.Cd32Buttons.SelectMany(port => port))
 		{
+			Require(definition.MnemonicsCache![button] != '!', $"CD32 has a known mnemonic: {button}");
 			source.Clear(); source.Press(button);
 			decoded.SetFromMnemonic(Bk2LogEntryGenerator.GenerateLogEntry(source));
 			Require(definition.BoolButtons.All(name => source.IsPressed(name) == decoded.IsPressed(name)), $"CD32 BK2 round trip: {button}");
