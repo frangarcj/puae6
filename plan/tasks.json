@@ -14258,14 +14258,18 @@
         "tests/media/test_cd_disc.py",
         "tools/check.py",
         "docs/02-contracts.md",
-        "manifests/source-manifest.json"
+        "manifests/source-manifest.json",
+        "patches/winuae/0355-cdrom-mode1-sync.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json"
       ],
       "steps": [
         "Construir un descriptor privado acotado e inmutable de pistas, ADR/control, INDEX00/01, leadout, fuentes por offset/stride y pregaps almacenados o sinteticos; su identidad no contiene callbacks ni rutas. El CUE real Brian the Lion tiene29 pistas e incluye ambos tipos de pregap: no simplificarlo a una TOC falsa.",
         "Validar orden, rangos y overflow antes de bind/rebind; comparar identidad del disco, TOC y todas las fuentes antes de cambiar callbacks. Añadir byte-source sector_bytes=1 conservando el contrato ISO2048 existente y rechazando read_sector ISO sobre byte-source.",
         "Leer vistas2048/2352/2448 con staging fijo y sin copiar el CD. Reutilizar encode_l2 real del upstream fijado para ISO2048 a raw2352; preservar raw. Rechazar explicitamente vistas no implementadas y Mode2Form2 en2048 en vez de fingir Mode1. No sintetizar subcanales incorrectos.",
         "Probe ASan/UBSan dirigido con TOC mixta, limites/cruces de pista, offset>4GiB, pregaps, exactitud de datos y errores/short-read sin modificar salida. Rebind erroneo conserva callback/contexto anteriores. Si supera400 lineas manuales, dividir antes de ampliar.",
-        "Esta vertical consume layout normalizado: no anuncia aun parsers CUE/CCD/ISO/NRG/MDS/CHD, CDDA ni CD32. T66 conserva todas sus puertas de arranque/restore real en ambos adaptadores."
+        "Esta vertical consume layout normalizado: no anuncia aun parsers CUE/CCD/ISO/NRG/MDS/CHD, CDDA ni CD32. T66 conserva todas sus puertas de arranque/restore real en ambos adaptadores.",
+        "Corregir encode_l2 de cdrom.cpp mediante parche0355: upstream genera once FF en bytes1..11; ECMA-130 seccion14.1 exige 00, diez FF,00 antes de calcular EDC/ECC. Fuente primaria https://ecma-international.org/wp-content/uploads/ECMA-130_2nd_edition_june_1996.pdf . Probar sync, cabecera y EDC con oraculo independiente; no tocar upstream ni hashes golden y no anunciar raw malformado."
       ],
       "checks": [
         "MED01"
