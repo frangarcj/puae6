@@ -2,7 +2,7 @@
 // clock read OUTSIDE the engine (the clock never feeds the emulation: the same ROM, seed and input give the same machine whatever the timings are), what each unit and each state
 // operation costs. tools/bench.py builds this target in a Release tree and runs it; the program prints ONE JSON object with the raw samples, never a verdict.
 //
-//   p6_bench_probe ROM [--machine NAME] [--ntsc] [--disk ADF] [--seed S] [--render 0..3] [--warmup W] [--units N] [--state-rounds R] [--alloc-units A]
+//   p6_bench_probe ROM [--machine NAME] [--cpu auto|68000|68010|68020] [--cpu-compatibility exact|compatible|normal] [--ntsc] [--disk ADF] [--seed S] [--render 0..3] [--warmup W] [--units N] [--state-rounds R] [--alloc-units A]
 //
 // Phases, in this order, in one process (so the numbers of one run share the warmth of its caches):
 //   warmup    W units, not recorded except for their median and first sample (the first units are slower: caches, page faults);
@@ -12,6 +12,7 @@
 // Memory: the resident size and the physical footprint before and after the timed units, the peak resident size of the process and the bytes the malloc zones hold.
 // Not measured here: dirty pages (a native process has no dirty tracking; the state size is the stand-in) and the libretro/Waterbox layers (tools/bench.py runs those separately).
 #include "p6.h"
+#include "cpu_options.h"
 #include "sha256.h"
 #include <algorithm>
 #include <chrono>
@@ -140,7 +141,7 @@ int fail(const char *what, p6_result result, const p6_error &error)
 
 int main(int argc, char **argv)
 {
-    const char *rom_path = nullptr, *disk_path = nullptr;
+    const char *rom_path = nullptr, *disk_path = nullptr, *cpu_name = "auto", *accuracy = "exact";
     uint32_t machine = P6_MACHINE_A500, standard = P6_VIDEO_PAL, render = P6_RENDER_VIDEO | P6_RENDER_AUDIO;
     uint64_t seed = 1, warmup = 300, units = 1000, state_rounds = 20, alloc_units = 200;
     for (int i = 1; i < argc; ++i) {
@@ -156,6 +157,8 @@ int main(int argc, char **argv)
             }
         } else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!strcmp(argv[i], "--disk")) disk_path = next();
+        else if (!strcmp(argv[i], "--cpu")) cpu_name = next();
+        else if (!strcmp(argv[i], "--cpu-compatibility")) accuracy = next();
         else if (!strcmp(argv[i], "--seed")) seed = strtoull(next(), nullptr, 10);
         else if (!strcmp(argv[i], "--render")) render = uint32_t(strtoul(next(), nullptr, 10));
         else if (!strcmp(argv[i], "--warmup")) warmup = strtoull(next(), nullptr, 10);
@@ -164,9 +167,14 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--alloc-units")) alloc_units = strtoull(next(), nullptr, 10);
         else if (argv[i][0] != '-' && !rom_path) rom_path = argv[i];
         else {
-            fprintf(stderr, "usage: %s ROM [--machine NAME] [--ntsc] [--disk ADF] [--seed S] [--render 0..3] [--warmup W] [--units N] [--state-rounds R] [--alloc-units A]\n", argv[0]);
+            fprintf(stderr, "usage: %s ROM [--machine NAME] [--cpu auto|68000|68010|68020] [--cpu-compatibility exact|compatible|normal] [--ntsc] [--disk ADF] [--seed S] [--render 0..3] [--warmup W] [--units N] [--state-rounds R] [--alloc-units A]\n", argv[0]);
             return 64;
         }
+    }
+    uint8_t cpu_model = 0, cpu_compatibility = 0;
+    if (!bench_cpu_options(cpu_name, accuracy, &cpu_model, &cpu_compatibility)) {
+        fprintf(stderr, "invalid --cpu or --cpu-compatibility (auto|68000|68010|68020; exact|compatible|normal)\n");
+        return 64;
     }
     if (!rom_path || !units) return 64;
     std::vector<uint8_t> rom, disk;
@@ -176,6 +184,8 @@ int main(int argc, char **argv)
     config.abi_version = P6_ABI_VERSION;
     config.struct_size = sizeof config;
     config.machine = machine;
+    config.cpu_model = cpu_model;
+    config.cpu_compatibility = cpu_compatibility;
     config.video_standard = standard;
     config.audio_rate_hz = 48000;
     config.random_seed = seed;
@@ -329,7 +339,8 @@ int main(int argc, char **argv)
     p6_unload(nullptr);
     p6_shutdown(nullptr);
 
-    printf("{\"tool\":\"p6_bench_probe\",\"rom_bytes\":%zu,\"disk_bytes\":%zu,\"machine\":%u,\"video_standard\":%u,\"render\":%u,\"seed\":%" PRIu64
+    printf("{\"cpu_model\":\"%s\",\"cpu_compatibility\":\"%s\",", cpu_name, accuracy);
+    printf("\"tool\":\"p6_bench_probe\",\"rom_bytes\":%zu,\"disk_bytes\":%zu,\"machine\":%u,\"video_standard\":%u,\"render\":%u,\"seed\":%" PRIu64
            ",\"warmup_units\":%" PRIu64 ",\"units\":%" PRIu64 ",\"unit_index_at_window_end\":%" PRIu64 ",\"master_ticks_at_window_end\":%" PRIu64 ",\"video_units\":%" PRIu64
            ",\"audio_frames\":%" PRIu64 ",\"active\":[%u,%u],\"cadence\":[%u,%u],\"caps\":%" PRIu64 ",\"window_wall_ns\":%" PRIu64
            ",\"window_user_us\":%" PRIu64 ",\"window_sys_us\":%" PRIu64 ",\"warmup_median_ns\":%" PRIu64 ",\"warmup_first_ns\":%" PRIu64 ",",

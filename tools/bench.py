@@ -23,6 +23,7 @@ first unit after a load. Memory: peak RSS of each process, the heaps of the sand
 Results taken on a machine that someone is using are ORIENTATIVE: the report says so, with the load that each sample ran under, and no threshold is derived from them.
 """
 import argparse
+import copy
 import datetime
 import gzip
 import hashlib
@@ -188,10 +189,25 @@ def artifact_hashes():
 class Scenario:
     """One machine, one standard and one firmware (+ disk). `warmup` and `units` are the protocol's numbers scaled by `scale` (the full protocol is 300 and 10000)."""
 
-    def __init__(self, id, machine, standard, kind, summary, corpus_id=None, env_rom=None, env_disk=None, warmup=300, units=10000, primary=False):
+    def __init__(self, id, machine, standard, kind, summary, corpus_id=None, env_rom=None, env_disk=None, warmup=300, units=10000, primary=False, cpu_model="auto", cpu_compatibility="exact"):
         self.id, self.machine, self.standard, self.kind, self.summary = id, machine, standard, kind, summary
         self.corpus_id, self.env_rom, self.env_disk = corpus_id, env_rom, env_disk
         self.warmup, self.units, self.primary = warmup, units, primary
+        self.base_id = id
+        self._set_cpu(cpu_model, cpu_compatibility)
+
+    def _set_cpu(self, model, compatibility):
+        if model not in ("auto", "68000", "68010", "68020") or compatibility not in ("exact", "compatible", "normal"):
+            raise ValueError("unknown benchmark CPU model or compatibility")
+        if model != "auto" and (model == "68020") != (self.machine == "a1200"):
+            raise ValueError(f"CPU {model} is unsupported on {self.machine}")
+        self.cpu_model, self.cpu_compatibility = model, compatibility
+        self.id = f"{self.base_id}--cpu-{model}--{compatibility}"
+
+    def with_cpu(self, model, compatibility):
+        variant = copy.copy(self)
+        variant._set_cpu(model, compatibility)
+        return variant
 
     def available(self):
         if self.kind == "microrom":
@@ -202,7 +218,7 @@ class Scenario:
         """The firmware file. A micro-ROM is built from its corpus program (tests/scenarios/corpus); a Kickstart is read in place from the environment variable and never copied or hashed."""
         if self.kind == "kickstart":
             return Path(os.environ[self.env_rom])
-        target = WORK / "roms" / f"{self.id}.rom"
+        target = WORK / "roms" / f"{self.base_id}.rom"
         if not target.is_file():
             from tests.scenarios.corpus import corpus
             entry = corpus.by_id()[self.corpus_id]
@@ -232,7 +248,7 @@ SCENARIOS = [
 
 def scenario_by_id(identifier):
     for scenario in SCENARIOS:
-        if scenario.id == identifier:
+        if identifier in (scenario.id, scenario.base_id):
             return scenario
     raise KeyError(identifier)
 
@@ -289,7 +305,8 @@ class NativeRunner(Runner):
 
     def run(self, scenario, rep, units, warmup, state_rounds):
         command = [NATIVE_TREE / "p6_bench_probe", scenario.rom(), "--machine", scenario.machine, "--warmup", warmup, "--units", units, "--render", self.render,
-                   "--state-rounds", state_rounds if self.render else 0, "--alloc-units", 200 if self.render == 3 else 0]
+                   "--state-rounds", state_rounds if self.render else 0, "--alloc-units", 200 if self.render == 3 else 0,
+                   "--cpu", scenario.cpu_model, "--cpu-compatibility", scenario.cpu_compatibility]
         if scenario.ntsc():
             command.append("--ntsc")
         if scenario.disk():
@@ -320,7 +337,8 @@ class LibretroRunner(Runner):
         link.symlink_to(scenario.rom().resolve())              # a link, never a copy: the core reads the Kickstart where it is
         out = WORK / f"libretro-{scenario.id}.json"
         command = [NATIVE_TREE / "p6_libretro_host", NATIVE_TREE / "puae6_libretro.dylib", "--system", system, "--runs", warmup + units, "--bench", out, "--bench-state", state_rounds,
-                   "--set", f"puae6_machine={LIBRETRO_MACHINE[scenario.machine]}", "--set", f"puae6_video_standard={'NTSC' if scenario.ntsc() else 'PAL'}"]
+                   "--set", f"puae6_machine={LIBRETRO_MACHINE[scenario.machine]}", "--set", f"puae6_video_standard={'NTSC' if scenario.ntsc() else 'PAL'}",
+                   "--set", f"puae6_cpu_model={scenario.cpu_model}", "--set", f"puae6_cpu_compatibility={scenario.cpu_compatibility}"]
         if scenario.disk():
             command += ["--content", scenario.disk()]
         code, text, peak = run_process(command, stdout_path=WORK / "libretro.out")
@@ -349,9 +367,11 @@ class WaterboxGuestRunner(Runner):
         self.id, self.runtime_receipt, self.evict, self.description = id, runtime_receipt, evict, description
 
     def available(self, scenario):
-        return SMOKE_DLL.is_file() and GUEST_RECEIPT.is_file() and self.runtime_receipt().is_file()
+        return (scenario.cpu_model, scenario.cpu_compatibility) == ("auto", "exact") and SMOKE_DLL.is_file() and GUEST_RECEIPT.is_file() and self.runtime_receipt().is_file()
 
     def run(self, scenario, rep, units, warmup, state_rounds):
+        if (scenario.cpu_model, scenario.cpu_compatibility) != ("auto", "exact"):
+            raise ValueError("raw guest CPU selection is unavailable; use waterbox-core-release")
         out = WORK / f"{self.id}.json"
         command = ["dotnet", SMOKE_DLL, "--puae6-bench", "--runtime", self.runtime_receipt(), "--guest", GUEST_RECEIPT, "--manifest", MEMORY_MANIFEST, "--firmware", scenario.rom(),
                    "--units", units, "--warmup", warmup, "--state-rounds", state_rounds, "--machine", scenario.machine, "--evict", "1" if self.evict else "0", "--result", out]
@@ -390,7 +410,8 @@ class WaterboxCoreRunner(Runner):
         guest = json_result(GUEST_RECEIPT)["guest"]
         out = WORK / f"{self.id}.json"
         command = ["dotnet", host / "Ffi.dll", "bench", "--runtime", "libwaterboxhost.dylib", "--guest", guest["path"], "--sha", guest["sha256"], "--firmware", scenario.rom(), "--units", units,
-                   "--warmup", warmup, "--state-rounds", state_rounds, "--machine", scenario.machine, "--out", out]
+                   "--warmup", warmup, "--state-rounds", state_rounds, "--machine", scenario.machine, "--out", out,
+                   "--cpu", scenario.cpu_model, "--cpu-compatibility", scenario.cpu_compatibility]
         if scenario.ntsc():
             command += ["--ntsc", "1"]
         if scenario.disk():
@@ -439,7 +460,7 @@ def plan_matrix(scenarios, quick):
         if not scenario.available():
             continue
         for runner in RUNNERS:
-            if runner.layer.startswith("waterbox") and scenario.id not in WATERBOX_SCENARIOS:
+            if runner.layer.startswith("waterbox") and scenario.base_id not in WATERBOX_SCENARIOS:
                 continue
             if runner.id in FULL_ONLY_PRIMARY and not scenario.primary:
                 continue
@@ -491,6 +512,7 @@ def run_command(args):
             if variable not in os.environ and candidate.is_file():
                 os.environ[variable] = str(candidate)
     scenarios = [scenario_by_id(s) for s in args.scenario] if args.scenario else SCENARIOS
+    scenarios = [s.with_cpu(args.cpu, args.cpu_compatibility) for s in scenarios]
     matrix = plan_matrix(scenarios, args.quick)
     if args.runner:
         matrix = [m for m in matrix if m[1].id in args.runner]
@@ -533,6 +555,7 @@ def run_command(args):
                 print(f"  {scenario.id} {runner.id} rep{rep}: repeated after {len(crashes)} crash(es) of the host (T28a)")
             after = system_load()
             result.update({"scenario": scenario.id, "runner": runner.id, "layer": runner.layer, "rep": rep, "units": units, "warmup": warmup, "machine": scenario.machine, "standard": scenario.standard,
+                           "scenario_base": scenario.base_id, "cpu_model": scenario.cpu_model, "cpu_compatibility": scenario.cpu_compatibility,
                            "load_before": before, "load_after": after, "load1_at_start": waited, "harness_seconds": round(time.monotonic() - started, 1), "attempts": attempts, "crashes_before_success": crashes})
             write_raw(target, result)
             wall = describe(result["unit_wall_ns"])
@@ -605,12 +628,21 @@ def summarize(identifier):
         groups.setdefault((record["scenario"], record["runner"]), []).append(summary)
         facts.setdefault((record["scenario"], record["runner"]), record)
     result = {"schema_version": 1, "baseline": identifier, "status": "ORIENTATIVE", "environment": json.loads((directory / "environment.json").read_text()), "scenarios": {}}
-    for scenario in SCENARIOS:
+    scenarios = {}
+    for record in records:
+        base = scenario_by_id(record.get("scenario_base", record["scenario"]))
+        variant = base.with_cpu(record.get("cpu_model", "auto"), record.get("cpu_compatibility", "exact"))
+        if "scenario_base" not in record:  # Legacy default rows stay separate from new explicit CPU identities.
+            variant.id = record["scenario"]
+        if variant.id != record["scenario"]:
+            raise ValueError("benchmark scenario identity differs from its CPU metadata")
+        scenarios[variant.id] = variant
+    for scenario in scenarios.values():
         if not any(key[0] == scenario.id for key in groups):
             continue
         cadence = next((r["cadence"] for (s, rn), g in groups.items() if s == scenario.id for r in g if r.get("cadence")), None)
         unit_ms = unit_ms_from_cadence(cadence) if cadence else NOMINAL_UNIT_MS[scenario.standard]
-        entry = {"summary": scenario.summary, "machine": scenario.machine, "standard": scenario.standard, "kind": scenario.kind, "unit_ms": unit_ms,
+        entry = {"summary": scenario.summary, "machine": scenario.machine, "standard": scenario.standard, "kind": scenario.kind, "cpu_model": scenario.cpu_model, "cpu_compatibility": scenario.cpu_compatibility, "unit_ms": unit_ms,
                  "unit_ms_nominal": NOMINAL_UNIT_MS[scenario.standard], "runners": {}, "ticks_equal_across_runners": None}
         ticks = {}
         for (s, runner_id), group in sorted(groups.items()):
@@ -863,6 +895,8 @@ def main():
     run.add_argument("--quick", action="store_true", help="400 units, 100 warmup, 5 state rounds: a smoke run, not a baseline")
     run.add_argument("--scenario", action="append", default=[])
     run.add_argument("--runner", action="append", default=[])
+    run.add_argument("--cpu", choices=("auto", "68000", "68010", "68020"), default="auto")
+    run.add_argument("--cpu-compatibility", choices=("exact", "compatible", "normal"), default="exact")
     run.add_argument("--state-rounds", type=int, default=20)
     run.add_argument("--wait-quiet", type=int, default=0, metavar="SECONDS", help="before every run wait up to this long for the 1-minute load average to drop")
     run.add_argument("--max-load1", type=float, default=NOISY_LOAD1)
