@@ -15520,7 +15520,7 @@
       "title": "Agregacion privada del estado causal completo Akiko",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66m2",
         "T66n2b"
@@ -15597,6 +15597,53 @@
       "stop": "No convertir estas pruebas de componente en afirmacion de arranque/estado CD32 completo."
     },
     {
+      "id": "T66p1",
+      "title": "Perfil CD32 stock y arranque nativo con firmware combinado",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66k1",
+        "T66o1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/include/p6.h",
+        "bridge/lifecycle.cpp",
+        "bridge/state.cpp",
+        "bridge/caps.cpp",
+        "config/profiles/cd32-aga.json",
+        "patches/winuae/0367-cd32-combined-firmware.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/media/cd32_boot_probe.cpp",
+        "tests/media/test_cd32_boot.py",
+        "CMakeLists.txt",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Crear perfil nativo stock ID9 desde preset real8/config0: 68EC020,2MiBChip,AGA,Akiko CD/C2P/NVRAM,0floppies,overlayCD32. No anunciar modelo/formato en libretro ni aceptar variantes aun no probadas. Validar opciones incompatibles explicitamente.",
+        "0367/order184 modifica solamente memory.cpp: aceptar exclusivamente para CD32 el combinado1MiB canonico extended512KiB+main512KiB verificado con rommgr y checksums de ambas mitades. No activar loader extendido global ni fallback host. La identidad existente cubre todo el buffer. Rechazar antes de mutar firmware de otro modelo/tamano/orden/corrupto.",
+        "Conservar P6_CAP_STATE y codec honestos: estado nativo CD32 devuelve Unsupported hasta conectar codec completo; probar bound/save/load sin mutation. Mantener perfiles existentes y A1200 como regresion cercana.",
+        "Probe nativo real mediante p6_run_frame con ROMs CD32 locales autorizadas, CdImage/Disc/device_bind y teardown respetando el lifetime; usar CD sintentico publico y Brian CUE local como escenario requerido de arranque si hace falta para demostrar lectura. Asserts hardware/prefs/ROM maps y actividad CD/frames, sin confundir splash con arranque de juego. No guardar ROMs, capturas ni informes. Reservar build pesado -j2 con coordinador; objetivo250–390 manuales, dividir antes de exceder400."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El perfil CD32 carga firmware combinado valido, accede al Akiko real y avanza frames en el motor nativo; rechaza estados hasta codec completo y mantiene la regresion A1200. El escenario local informa exactamente si arranca firmware o contenido; no cierra T66."
+      ],
+      "stop": "No proclamar soporte frontend ni restore CD32 completo; codec nativo, Waterbox, SaveRAM y formatos restantes permanecen en T66."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15632,7 +15679,8 @@
         "T66n2b",
         "T66m2",
         "T66m3",
-        "T66h3"
+        "T66h3",
+        "T66p1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15665,7 +15713,8 @@
         "T66m1 integraNVRAM real convida desesion/reset yestadoprivado; SaveRAMfrontend/codecmaquina yarranque/restore siguenpendientes.",
         "T66o1 prepara el propietario nativo comun y sus parsers para la carga real. Seleccion del frontend, firmware/perfiles CD32, estado y arranque/restore conservan sus puertas completas.",
         "T66n2a/n2b separan por presupuesto estado privado de player y backend; codecs de maquina, guard de audio extra, identidad externa y pruebas nativo/WB completas siguen en el padre.",
-        "T66m2/m3 separan por presupuesto transporte de la agregacion causal Akiko completa; la puerta de NativeChunk y snapshot WB con CD32 real permanece abierta hasta su integracion."
+        "T66m2/m3 separan por presupuesto transporte de la agregacion causal Akiko completa; la puerta de NativeChunk y snapshot WB con CD32 real permanece abierta hasta su integracion.",
+        "T66p1 prepara perfil stock y firmware/arranque nativo sin anunciar modelo en libretro; conserva codec, carga frontend, Waterbox y arranque/restauracion de juego como puertas del padre."
       ],
       "checks": [
         "MED01",
