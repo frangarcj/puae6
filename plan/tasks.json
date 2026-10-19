@@ -15718,14 +15718,16 @@
         "tools/check.py",
         "docs/02-contracts.md",
         "tests/host/bridge_lifecycle_probe.cpp",
-        "cmake/Libretro.cmake"
+        "cmake/Libretro.cmake",
+        "tests/host/bridge_caps_probe.cpp"
       ],
       "steps": [
         "Crear perfil nativo stock ID9 desde preset real8/config0: 68EC020,2MiBChip,AGA,Akiko CD/C2P/NVRAM,0floppies,overlayCD32. No anunciar modelo/formato en libretro ni aceptar variantes aun no probadas. Validar opciones incompatibles explicitamente.",
         "0367/order184 modifica solamente memory.cpp: aceptar exclusivamente para CD32 el combinado1MiB canonico extended512KiB+main512KiB verificado con rommgr y checksums de ambas mitades. No activar loader extendido global ni fallback host. La identidad existente cubre todo el buffer. Rechazar antes de mutar firmware de otro modelo/tamano/orden/corrupto.",
         "Conservar P6_CAP_STATE y codec honestos: estado nativo CD32 devuelve Unsupported hasta conectar codec completo; probar bound/save/load sin mutation. Mantener perfiles existentes y A1200 como regresion cercana.",
         "Probe nativo real mediante p6_run_frame con ROMs CD32 locales autorizadas, CdImage/Disc/device_bind y teardown respetando el lifetime; usar CD sintentico publico y Brian CUE local como escenario requerido de arranque si hace falta para demostrar lectura. Asserts hardware/prefs/ROM maps y actividad CD/frames, sin confundir splash con arranque de juego. No guardar ROMs, capturas ni informes. Reservar build pesado -j2 con coordinador; objetivo250–390 manuales, dividir antes de exceder400.",
-        "Ampliacion explicita: bridge_lifecycle_probe usa actualmente9 como ID desconocido; mover su negativo a10 conservando rechazo. cmake/Libretro.cmake puede requerir includes del grafo O1 al ejecutar su primer enlace real. Mantener ID9 privado en bridge/config.h hasta integrar frontend/codec evita anunciarlo en esquema/ABI publico antes de su puerta."
+        "Ampliacion explicita: bridge_lifecycle_probe usa actualmente9 como ID desconocido; mover su negativo a10 conservando rechazo. cmake/Libretro.cmake puede requerir includes del grafo O1 al ejecutar su primer enlace real. Mantener ID9 privado en bridge/config.h hasta integrar frontend/codec evita anunciarlo en esquema/ABI publico antes de su puerta.",
+        "Regression caps: attente du probe standalone omettait P6_CAP_INPUT_V2 annonce depuis45fa667b (adaptateur4joueurs deja implemente). Ajouter uniquement ce bit a la comparaison exacte, puis rejouer ce check rapide; ne pas supprimer ou desserrer assertions. Garder caps.cpp sans dependance de session/moteur."
       ],
       "checks": [
         "MED01"
