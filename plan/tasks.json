@@ -14435,6 +14435,77 @@
       "stop": "No host FS, no stubs exitosos ni copia del algoritmo; no usar save_akiko upstream incompleto como estado de EEPROM."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66d1",
+      "title": "Lecturas exactas de BIN/WAV en DiscSystem derivado sin ocultar truncados",
+      "status": "in_progress",
+      "depends": [
+        "T66b"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0002-disc-blob-exact-reads.patch",
+        "tests/media/csharp-disc-reads/DiscReads.csproj",
+        "tests/media/csharp-disc-reads/Program.cs",
+        "tests/media/test_cd_blob_reads.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Aplicar parche minimo a RawFile.Read y WaveFile.Read del commit fijado, exclusivamente en la copia derivada de integration/bizhawk/patches/build_tree.py; bucle hasta count o EndOfStreamException. No editar references ni MacHawk; no cambiar su fingerprint ni instalar binarios.",
+        "Conservar ZeroPadAdapter y el padding logico segun longitud declarada. Probar BIN y WAV PCM reales, EOF fisico tras declarar longitud, frontera exacta y count0; incluir fin parcial/EOF con padding legitimo. No prometer salida transaccional del blob: el futuro endpoint usa staging.",
+        "Compilar sólo las fuentes reales necesarias y Common fijado con dotnet local, sin motor, dependencias nuevas ni copia de CD completo. Estimacion230–300 lineas manuales; dividir antes de400. Mantener fuera CD32/CHD/CDDA y las puertas completas del padre."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Un truncado fisico no se transforma en lectura sectorial correcta por ignorar el contador de bytes; los casos de padding logico siguen funcionando."
+      ],
+      "stop": "No convertir EOF inesperado en ceros ni modificar el checkout hermano; este check no acredita CD32 ni todos los formatos."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66d2",
+      "title": "Fuente C# CD por offset sobre DiscSystem con identidad completa y rebind",
+      "status": "pending",
+      "depends": [
+        "T66d1"
+      ],
+      "touch": [
+        "integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs",
+        "tests/media/csharp-disc/**",
+        "tests/media/test_cd_source_csharp.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reutilizar Disc prestado, TOC/pistas y DiscSectorReader reales del commit fijado. Fuente virtual por offset con staging2448 constante y vistas coherentes; no cargar CD en memoria. Validar rangos/errores sin ensuciar salida.",
+        "Identidad SHA256 de TOC/politicas y flujo completo2448 incluyendo efectos de subcanales/SBI. Rebind valida identidad/longitud/TOC antes de sustituir lector; no usar OldHash de512 sectores como identidad completa.",
+        "Probar ISO y CUE BIN/WAV PCM con fuentes DiscSystem/ISOParser capturadas y Common real. No anunciar CHD Darwin antes de biblioteca ARM64 real fijada. Verificar INDEX00 desde Q sin inventar pregaps. Mantener el objetivo completo CD32 y la preview actual intactos; dividir antes de400 lineas manuales."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El endpoint consume disco real por offsets acotados y conserva salida y enlace anterior ante fallo o identidad incompatible."
+      ],
+      "stop": "Sin callbacks al guest hasta validar contrato de lectura exacta; no anunciar arranque CD32 ni CHD por probar ISO/CUE."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -14446,7 +14517,8 @@
         "T49",
         "T66a",
         "T66b",
-        "T66c"
+        "T66c",
+        "T66d2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -14469,7 +14541,8 @@
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 y CD32FR (con 8M Fast) y lee CUE/CCD/ISO/CHD/NRG; MacHawk tiene bizhawk-cd.h. Un CD de 650 MB no cabe en el heap: backend de lecturas puras por offset desde el host, determinista; Akiko, NVRAM, audio CD.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/uae-waterbox.patch y el submodulo libretro-uae (akiko.c, blkdev_cdimage.c, cd32_fmv.c), bizhawk-cd.h (CD por lecturas desde el host) y waterboxhost/uae-cd32-smoke.",
         "Dividida primera fuente por offset enT66a. El padre conserva todas sus puertas y su aceptacion de arranque/restore CD32 en ambos adaptadores; quedan Akiko cooperativo, NVRAM/I2C, CDDA y los seis formatos, sin stubs exitosos.",
-        "Task force: T66b normaliza TOC/sectores y T66c conserva EEPROM/I2C real; son componentes independientes. Se mantienen todos los formatos, Akiko cooperativo, CDDA, NVRAM/persistencia, frontends y arranque/restore real para el cierre del padre."
+        "Task force: T66b normaliza TOC/sectores y T66c conserva EEPROM/I2C real; son componentes independientes. Se mantienen todos los formatos, Akiko cooperativo, CDDA, NVRAM/persistencia, frontends y arranque/restore real para el cierre del padre.",
+        "T66d1 corrige lecturas cortas en DiscSystem derivado yT66d2 conecta una fuente C# por offset con identidad completa. Son componentes, no cierre del arranque/restore ni del soporte nativo de formatos del padre."
       ],
       "checks": [
         "MED01",
