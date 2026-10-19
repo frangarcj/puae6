@@ -29,3 +29,15 @@ diff --git a/akiko.cpp b/akiko.cpp
  }
  
  static void akiko_cdrom_free (void)
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -2118,7 +2118,7 @@
+ 	}
+ #endif
+ 
+-#ifdef CD32
++#if defined(CD32) && !defined(P6_PORTABLE)
+ 	// cd32 fmv
+ 	if (!currprefs.monitoremu && vidinfo->tempbuffer.bufmem_allocated && currprefs.cs_cd32fmv) {
+ 		if (!denise_lock()) {

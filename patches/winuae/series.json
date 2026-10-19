@@ -4848,14 +4848,15 @@
     {
       "id": "0362-cd32-without-fmv",
       "file": "patches/winuae/0362-cd32-without-fmv.patch",
-      "sha256": "d2f956368af84043f07c1efd9de6793f81caba864d5d89b07a4c1fc76a6f171b",
+      "sha256": "9dbf0597344932e852d101f2ea62ae0023110f32f31bfb85a53058a1cb504fad",
       "title": "Compile stock CD32 without excluded FMV or accelerator host ROM hooks",
-      "reason": "T66k1 selects Akiko/CD32 hardware, while FMV remains an excluded and unavailable expansion. Guard its sole sync call rather than acknowledge it with a stub. Portable CD32 is stock 68EC020: exclude the accelerator ROM speed workaround and its unavailable protect_roms host hook, rather than provide a fake protection service.",
+      "reason": "T66k1 selects Akiko/CD32 hardware, while FMV remains an excluded and unavailable expansion. Guard its sole sync call rather than acknowledge it with a stub. Portable CD32 is stock 68EC020: exclude the accelerator ROM speed workaround and its unavailable protect_roms host hook, rather than provide a fake protection service. Guard both FMV sync and rendering; the first real link exposed active/genlock references in drawing.cpp.",
       "category": "host hooks",
       "order": 179,
       "symbols": [
         "devices_update_sync",
-        "patchrom"
+        "patchrom",
+        "finish_drawing_frame"
       ],
       "test": "tests/media/test_akiko_link.py",
       "upstream_candidate": false,
@@ -4870,6 +4871,11 @@
           "path": "akiko.cpp",
           "before_sha256": "93c12f89c40dbca0c4489320774e0103a10fccf0e3ef2a6ab433778b9b44eaf8",
           "after_sha256": "c51fb47459bbf8b8d2942cf518b5d8051996dc6cc60421db100899dde752ab66"
+        },
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "5d2765d69ed4a10232aa6c5f99f14e272c50bdb5a865b8c47ba05ba212678986",
+          "after_sha256": "19793828365bcc4de3f0fe9a04669f4cbd5ab8c220c44f16531feb6cd36bf52a"
         }
       ]
     }
