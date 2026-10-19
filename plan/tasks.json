@@ -15359,7 +15359,7 @@
       "title": "Propietario nativo comun de imagenes CD y enlace de parsers",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66e1",
         "T66e2",
@@ -15401,7 +15401,7 @@
       "title": "Estado privado transaccional del player CDDA real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66n1",
         "T66i1"
@@ -15443,7 +15443,7 @@
       "title": "Estado privado del backend CD con identidad y Q terminal",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66n2a"
       ],
