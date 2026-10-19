@@ -1,0 +1,200 @@
+diff --git a/gencpu.cpp b/gencpu.cpp
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -5429,6 +5429,8 @@
+ 
+ }
+ 
++static bool portable_no_mmu;
++
+ static void illg(void)
+ {
+ 	if (func_noret) {
+@@ -5468,8 +5470,9 @@
+ 
+ 	// do not unnecessarily create useless mmuop030
+ 	// functions when CPU is not 68030
+-	if (curi->mnemo == i_MMUOP030 && cpu_level != 3 && !cpu_generic) {
++	if (curi->mnemo == i_MMUOP030 && (portable_no_mmu || (cpu_level != 3 && !cpu_generic))) {
+ 		illg();
++		if (portable_no_mmu) clear_m68k_offset(); // The exception keeps the opcode PC.
+ 		did_prefetch = -1;
+ 		goto end;
+ 	}
+@@ -10288,6 +10291,7 @@
+ 	bool selected[56] = {};
+ 	bool restricted = false;
+ 	for (int a = 1; a < argc; a++) {
++		if (!strcmp(argv[a], "--no-mmu")) { portable_no_mmu = true; continue; }
+ 		char *end;
+ 		long n = strtol(argv[a], &end, 10);
+ 		if (end == argv[a] || *end || n < 0 || n > 55) {
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -1971,7 +1971,9 @@
+ 	// 68010
+ 	{ op_smalltbl_4, NULL, NULL, op_smalltbl_11, op_smalltbl_13, NULL, NULL, NULL },
+ 	// 68020
+-	{ op_smalltbl_3, NULL, NULL, op_smalltbl_20, op_smalltbl_21, NULL, NULL, NULL }
++	{ op_smalltbl_3, NULL, NULL, op_smalltbl_20, op_smalltbl_21, NULL, NULL, NULL },
++	// 68030: normal only; cache/prefetch levels remain unsupported.
++	{ op_smalltbl_2, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+ };
+ #else
+ static const struct cputbl *cputbls[6][8] =
+diff --git a/gayle.cpp b/gayle.cpp
+--- a/gayle.cpp
++++ b/gayle.cpp
+@@ -909,7 +909,6 @@
+ 	gayle2_write (addr, value);
+ }
+ 
+-#ifndef P6_PORTABLE
+ static uae_u8 ramsey_config;
+ static int gary_coldboot;
+ int gary_timeout;
+@@ -1038,6 +1037,19 @@
+ 	ABFLAG_IO, S_READ, S_WRITE, mbres_sub_banks
+ };
+ 
++#ifdef P6_PORTABLE
++// Semantic motherboard registers; the bank mapping is derived from the preset.
++void p6_mbres_get(uae_u8 *r)
++{
++	r[0] = ramsey_config; r[1] = gary_coldboot; r[2] = gary_timeout; r[3] = gary_toenb;
++}
++void p6_mbres_set(const uae_u8 *r)
++{
++	ramsey_config = r[0]; gary_coldboot = r[1]; gary_timeout = r[2]; gary_toenb = r[3];
++}
++#endif
++
++#ifndef P6_PORTABLE
+ static int pcmcia_common_size, pcmcia_attrs_size, pcmcia_attrs_full;
+ static uae_u8 *pcmcia_common;
+ static uae_u8 *pcmcia_attrs;
+@@ -1915,7 +1927,7 @@
+ 	gayle_common_write_byte (addr, value);
+ }
+ 
+-#endif /* !P6_PORTABLE: Fat Gary/Ramsey and the PCMCIA card slot */
++#endif /* !P6_PORTABLE: the PCMCIA card slot */
+ 
+ #ifdef P6_PORTABLE
+ static void gayle_map_pcmcia (void)
+@@ -2294,14 +2306,13 @@
+ 	initide ();
+ #ifdef P6_PORTABLE
+ 	gayle_id_cnt = 0;       // the ID register starts its sequence again with the chip
+-#else
++#endif
+ 	if (hardreset) {
+ 		ramsey_config = 0;
+ 		gary_coldboot = 1;
+ 		gary_timeout = 0;
+ 		gary_toenb = 0;
+ 	}
+-#endif
+ 	_tcscpy (bankname, _T("Gayle (low)"));
+ 	if (currprefs.cs_ide == IDE_A4000)
+ 		_tcscpy (bankname, _T("A4000 IDE"));
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -286,8 +286,6 @@
+ 	}
+ }
+ 
+-#ifndef P6_PORTABLE
+-// gary_timeout/gary_toenb are only set by the A3000 Gary registers (gayle.cpp), not built in the A500 profile.
+ // 250ms delay
+ static void gary_wait(uaecptr addr, int size, bool write)
+ {
+@@ -304,7 +302,6 @@
+ 		cnt--;
+ 	}
+ }
+-#endif
+ 
+ static bool gary_nonrange(uaecptr addr)
+ {
+@@ -333,14 +330,12 @@
+ 		flash_write(addr, val);
+ #endif
+ 
+-#ifndef P6_PORTABLE
+ 	if (gary_nonrange(addr) || (size > sz_byte && gary_nonrange(addr + (1 << size) - 1))) {
+ 		if (gary_timeout)
+ 			gary_wait(addr, size, true);
+ 		if (gary_toenb && currprefs.mmu_model)
+ 			hardware_exception2(addr, val, false, false, size);
+ 	}
+-#endif
+ }
+ 
+ static uae_u32 nonexistingdata(void)
+@@ -434,12 +429,10 @@
+ #endif
+ 
+ 	if (gary_nonrange(addr) || (size > sz_byte && gary_nonrange(addr + (1 << size) - 1))) {
+-#ifndef P6_PORTABLE
+ 		if (gary_timeout)
+ 			gary_wait(addr, size, false);
+ 		if (gary_toenb)
+ 			hardware_exception2(addr, 0, true, false, size);
+-#endif
+ 		return v;
+ 	}
+ 
+@@ -1414,9 +1407,7 @@
+ #endif
+ 
+ 	be_recursive++;
+-#ifndef P6_PORTABLE
+ 	int size = currprefs.cpu_model >= 68020 ? 4 : 2;
+-#endif
+ 	if (quit_program == 0) {
+ 		/* do this only in 68010+ mode, there are some tricky A500 programs.. */
+ 		if ((currprefs.cpu_model > 68000 || !currprefs.cpu_compatible) && !currprefs.mmu_model) {
+@@ -1446,16 +1437,11 @@
+ 				memory_map_dump();
+ #endif
+ 			}
+-#ifdef P6_PORTABLE
+-			// gary_toenb is never set without the A3000 Gary registers.
+-			cpu_halt(CPU_HALT_OPCODE_FETCH_FROM_NON_EXISTING_ADDRESS);
+-#else
+ 			if (0 || (gary_toenb && (gary_nonrange(addr) || (size > 1 && gary_nonrange(addr + size - 1))))) {
+ 				hardware_exception2(addr, 0, true, true, size);
+ 			} else {
+ 				cpu_halt(CPU_HALT_OPCODE_FETCH_FROM_NON_EXISTING_ADDRESS);
+ 			}
+-#endif
+ 		}
+ 	}
+ 	be_recursive--;
+@@ -3164,8 +3150,9 @@
+ #ifdef P6_PORTABLE
+ 			// A ROM that needs more than the preset cannot adapt it: 68030+ (8), 68030 (3), A4000 Ramsey/Gary/IDE (4) and
+ 			// the 68EC020 / full 68020 of the A1200 (1, 2) are checked against the preset CPU, as upstream does.
+-			if ((rd->cpu & 12) ||
+-			    ((rd->cpu & 3) == 3) ||
++			if (((rd->cpu & 8) && currprefs.cpu_model < 68030) ||
++			    ((rd->cpu & 4) && (currprefs.cs_fatgaryrev < 0 || currprefs.cs_ramseyrev < 0 || currprefs.cs_ide != IDE_A4000)) ||
++			    ((rd->cpu & 3) == 3 && currprefs.cpu_model != 68030) ||
+ 			    ((rd->cpu & 3) == 1 && currprefs.cpu_model < 68020) ||
+ 			    ((rd->cpu & 3) == 2 && (currprefs.cpu_model < 68020 || currprefs.address_space_24))) {
+ 				rom_load_status = P6_ROM_UNSUPPORTED;
+@@ -3390,11 +3377,8 @@
+ 		map_banks (&clock_bank, 0xDC, 1, 0); /* none clock */
+ 		clock_bank.startmask = 0xdc0000;
+ 	}
+-#ifndef P6_PORTABLE
+-	// Fat Gary/Ramsey motherboard resources (A3000/A4000) are not part of the A500 profile.
+ 	if (currprefs.cs_fatgaryrev >= 0 || currprefs.cs_ramseyrev >= 0)
+ 		map_banks (&mbres_bank, 0xDE, 1, 0);
+-#endif
+ #ifdef CD32
+ 	if (currprefs.cs_cd32c2p || currprefs.cs_cd32cd || currprefs.cs_cd32nvram) {
+ 		map_banks (&akiko_bank, AKIKO_BASE >> 16, 1, 0);

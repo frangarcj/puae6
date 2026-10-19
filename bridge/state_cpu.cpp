@@ -224,6 +224,32 @@ struct Cpu010 {
     uint8_t sfc = 0, dfc = 0;
 };
 
+// T55b normal 68030: direct instruction reads do not consult the prefetch or cache tables.
+// Control registers and instruction count still decide exceptions, guest reads and audio DMA.
+struct Cpu030Normal {
+    uint32_t vbr = 0, msp = 0, caar = 0, cacr = 0;
+    uint8_t sfc = 0, dfc = 0;
+    int32_t instruction_cnt = 0;
+};
+
+void visit_030_normal(Archive &a, Cpu030Normal &c)
+{
+    c.vbr = a.val<uint32_t>(regs.vbr, "cpu.vbr");
+    c.msp = a.val<uint32_t>(regs.msp, "cpu.msp");
+    c.caar = a.val<uint32_t>(regs.caar, "cpu.caar");
+    c.cacr = a.val<uint32_t>(regs.cacr, "cpu.cacr");
+    if (a.mode() != Mode::Measure) a.require(!(c.cacr & ~UINT32_C(0x3f1f)), "cpu.cacr: a bit a 68030 does not have");
+    c.sfc = get<uint8_t>(a, regs.sfc, 0, 7, "cpu.sfc");
+    c.dfc = get<uint8_t>(a, regs.dfc, 0, 7, "cpu.dfc");
+    c.instruction_cnt = a.val<int32_t>(regs.instruction_cnt, "cpu.instruction_cnt");
+}
+
+void apply_030_normal(const Cpu030Normal &c)
+{
+    regs.vbr = c.vbr; regs.msp = c.msp; regs.caar = c.caar; regs.cacr = c.cacr;
+    regs.sfc = c.sfc; regs.dfc = c.dfc; regs.instruction_cnt = c.instruction_cnt;
+}
+
 void visit_010(Archive &a, Cpu010 &c)
 {
     const bool checks = a.mode() != Mode::Measure;
@@ -337,7 +363,7 @@ void visit_cpu(Archive &a)
     //    TRACE) and without m68k_reset_sr (it loads A7 from the slot of the mode, and A7 is saved raw).
     const uint32_t pc = a.val<uint32_t>(m68k_getpc(), "cpu.pc");
     const uint16_t sr = a.val<uint16_t>(current_sr(), "cpu.sr");
-    if (checks) a.require((sr & ~(m68020 ? kSr68020 : kSr68000)) == 0, m68020 ? "cpu.sr: a bit a 68020 does not have" : "cpu.sr: a bit a 68000 does not have");
+    if (checks) a.require((sr & ~(currprefs.cpu_model >= 68020 ? kSr68020 : kSr68000)) == 0, currprefs.cpu_model >= 68020 ? "cpu.sr: a bit a 68020/030 does not have" : "cpu.sr: a bit a 68000 does not have");
 
     // 3. D0-D7 and A0-A7 as they are, USP and ISP raw: the slot of the current mode is stale in the engine and can become the live one after a
     //    reset (m68k_reset2 clears neither), and the T14b digest hashes both.
@@ -388,6 +414,8 @@ void visit_cpu(Archive &a)
     if (m68020) visit_020(a, c020);
     Cpu010 c010;
     if (currprefs.cpu_model == 68010) visit_010(a, c010);
+    Cpu030Normal c030;
+    if (currprefs.cpu_model == 68030) visit_030_normal(a, c030);
 
     // 9. The FPU, when the configuration has one.
     CpuFpu fpu;
@@ -430,6 +458,7 @@ void visit_cpu(Archive &a)
         p6_rng_set(rng);
         if (m68020) apply_020(c020);
         if (currprefs.cpu_model == 68010) apply_010(c010);
+        if (currprefs.cpu_model == 68030) apply_030_normal(c030);
         if (has_fpu) apply_fpu(fpu);
         // Not touched, on purpose: ir, ird and irc are not refilled from memory (restore_cpu_finish's fill_prefetch_quick would overwrite them with
         // what memory holds now, which can differ from the prefetch queue), doint() is not called (it would recompute ipl_pin from the chipset,

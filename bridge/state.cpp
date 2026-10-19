@@ -24,6 +24,9 @@
 #include "memory.h"
 #include "sounddep/sound.h"
 
+extern void p6_mbres_get(uae_u8 *r);
+extern void p6_mbres_set(const uae_u8 *r);
+
 using p6_session::Guard;
 using p6_session::State;
 using p6_session::session;
@@ -132,7 +135,7 @@ void visit_expansion(Archive &a, uint32_t fast)
 {
     // the hard file adds the UAEFS board and the UAE boot ROM (a card with no autoconfig, expamem_rtarea_init); on Gayle's IDE (T56) it adds one card instead, the IDE port itself (not autoconfig either)
     const bool ide = p6_bridge::ide_attached(session.config, p6_bridge::hard_file_count());
-    const uint32_t cards = (fast ? 1u : 0u) + (ide ? 1u : p6_bridge::hard_file_count() ? 2u : 0u);
+    const uint32_t cards = (fast ? 1u : 0u) + (ide ? 1u : (p6_bridge::hard_file_count() ? 2u : 0u) + (p6_bridge::motherboard_ide(session.config) ? 1u : 0u));
     uint32_t w[kExpansionWords] = {};
     uint8_t ac[256] = {};
     if (a.mode() == Mode::Save)
@@ -173,6 +176,15 @@ void visit_ram(Archive &a)
     a.bytes(chipmem_bank.baseaddr, chip, "ram.chip");
     a.bytes(bogomem_bank.baseaddr, slow, "ram.slow");
     const uint32_t fast = p6_bridge::resolve_memory(session.config).fast_kib * 1024;
+    if (p6_bridge::motherboard_ide(session.config)) {
+        uint8_t r[4] = {};
+        if (a.mode() == Mode::Save) p6_mbres_get(r);
+        r[0] = a.val<uint8_t>(r[0], "mbres.ramsey_config");
+        r[1] = a.val<uint8_t>(r[1], 0, 1, "mbres.gary_coldboot");
+        r[2] = a.val<uint8_t>(r[2], 0, 1, "mbres.gary_timeout");
+        r[3] = a.val<uint8_t>(r[3], 0, 1, "mbres.gary_toenb");
+        if (a.applying() && a.ok()) p6_mbres_set(r);
+    }
     if (!fast) return;
     a.val<uint32_t>(fast, fast, fast, "ram.fast_size");
     if (a.mode() == Mode::Save || a.applying())

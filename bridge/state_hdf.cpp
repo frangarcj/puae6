@@ -284,7 +284,7 @@ void visit_ide(Archive &a)
     }
     if (measuring(a) || !a.ok()) return;
     // What the machine can have, from the number of hard files alone (unit j is slot j): the engine's own pure functions judge the values, so that applying cannot fail.
-    const uint32_t files = p6_bridge::hard_file_count();
+    const uint32_t files = p6_bridge::ide_attached(session.config, p6_bridge::hard_file_count()) ? p6_bridge::hard_file_count() : 0;
     a.require(p6_gayle_words_valid(chip, kGayleWords, files > 2), "ide: the registers of Gayle are outside what the chip can have");
     for (unsigned unit = 0; unit < 4 && a.ok(); ++unit) {
         const bool present = unit < files;
@@ -305,7 +305,8 @@ void visit_ide(Archive &a)
 void visit_hdf(Archive &a)
 {
     const uint32_t files = p6_bridge::hard_file_count();
-    if (!files) return;
+    const bool motherboard = p6_bridge::motherboard_ide(session.config);
+    if (!files && !motherboard) return;
     visit_identity(a, files);
     if (!a.ok()) return;
     if (p6_bridge::ide_attached(session.config, files)) {
@@ -313,6 +314,13 @@ void visit_hdf(Archive &a)
         if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0) visit_expansion(a, 0);
         for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
         return;
+    }
+    if (motherboard) {
+        visit_ide(a);
+        if (!files) {
+            if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0) visit_expansion(a, 0);
+            return;
+        }
     }
     visit_globals(a);
     for (uint32_t j = 0; j < files && a.ok(); ++j) {

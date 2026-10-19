@@ -68,9 +68,9 @@ typedef struct p6_config {
     int64_t rtc_epoch_seconds;  /* UTC epoch; never read from host clock. */
     uint32_t chip_kib;          /* Chip RAM: 0 = the machine's own, else 512, 1024, 1536 or 2048 (A500: 512 or 1024). */
     uint32_t slow_kib;          /* Slow RAM at $C00000: 0 = the machine's own, P6_MEMORY_NONE = none, else 512, 1024, 1536 or 1792. */
-    uint32_t fast_kib;          /* Zorro II Fast RAM (one autoconfig board): 0 or P6_MEMORY_NONE = none, else 1024, 2048, 4096 or 8192. */
+    uint32_t fast_kib;          /* Zorro II Fast RAM: 0 = the machine's own (A4030: 8192 KiB; others: none), P6_MEMORY_NONE = none, else 1024, 2048, 4096 or 8192. */
     union {
-        uint32_t fpu_model;     /* Floating point unit (T54): 0 = none, 68881 or 68882 (A1200 only: it is the 68020's coprocessor), computed by SoftFloat whatever the host. */
+        uint32_t fpu_model;     /* Floating point unit: 0 = none, 68881 or 68882 (A1200/68020 or A4030/68030), computed by SoftFloat whatever the host. */
         uint32_t reserved32;    /* The name these four bytes had until T54 (zero, ABI v1); an earlier source that sets it to zero means no FPU. */
     };
     /* Paula's output (T73), in the first four bytes of what was reserved[0]. Zero in every field is the profile's own setting, so a source that predates them (those bytes zero) is
@@ -91,7 +91,7 @@ typedef struct p6_config {
     uint8_t video_resolution;
     uint8_t video_line_mode;
     /* The CPU (T52), in the eighth byte of what was reserved[0]: 0 = the machine's own (68000 on the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000; 68EC020 on the A1200), else
-     * 1 + (model - 68000) / 10: 1 = 68000, 2 = 68010, 3 = 68020. The 68000 machines also take the 68010 (the same sockets, the cycle-exact 68010 of upstream); the A1200 has its
+     * 1 + (model - 68000) / 10: 1 = 68000, 2 = 68010, 3 = 68020, 4 = 68030 (A4030 only). The 68000 machines also take the 68010; the A1200 has its
      * soldered 68EC020 and nothing else; any other combination is P6_ERROR_UNSUPPORTED with the reason. A restart option: it changes the instruction set, the exception frames and
      * the registers, so it enters config_hash off the machine's own CPU only (a derived hash, bridge/config.cpp cpu_identity, domain p6/config/cpu/v1). */
     uint8_t cpu_model;
@@ -142,6 +142,7 @@ typedef struct p6_config {
 #define P6_MACHINE_A1000 UINT32_C(6)     /* A1000: the 8361 Agnus and 8362 Denise of upstream's A1000 chipset, 512 KiB Chip, the Kickstart given to p6_load as a ROM (no boot ROM, no WOM). */
 #define P6_MACHINE_A2000OG UINT32_C(7)   /* A2000 with OCS: 512 KiB Chip + 512 KiB Slow, the A2000 chipset table (clock, mains-driven CIA TOD). */
 #define P6_MACHINE_A2000 UINT32_C(8)     /* A2000 with the ECS Agnus and the OCS Denise (PUAE5's), 1 MiB Chip, no Slow RAM. */
+#define P6_MACHINE_A4030 UINT32_C(11)     /* A4000/030, 32-bit map, AGA, Ricoh RTC, 2 MiB Chip + 8 MiB Zorro II Fast. Normal CPU only; no MMU. */
 #define P6_VIDEO_PAL    UINT32_C(1)
 #define P6_VIDEO_NTSC   UINT32_C(2)
 

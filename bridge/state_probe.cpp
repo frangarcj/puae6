@@ -88,6 +88,7 @@
 #include <string>
 #include <vector>
 
+extern void p6_mbres_get(uae_u8 *r);
 extern bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig);    // expansion.cpp, patch 0111
 extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first);     // custom.cpp, patch 0103
 
@@ -175,6 +176,8 @@ void cpu(Canon &c)
         // T52: a 68010 appends what its block of the CPU chunk carries; the digest of every other CPU is unchanged byte for byte.
         c.put(regs.vbr).put(regs.sfc).put(regs.dfc).put(regs.loop_mode);
     }
+    if (currprefs.cpu_model == 68030)
+        c.put(regs.vbr).put(regs.msp).put(regs.caar).put(regs.cacr).put(regs.sfc).put(regs.dfc).put(int32_t(regs.instruction_cnt));
     if (currprefs.fpu_model) {
         // T54: with an FPU the digest also holds what the FPU block of the CPU chunk carries (the data registers as bit patterns, the control registers, the pending-exception words
         // and the FSAVE data). A machine without one has the digest it always had.
@@ -227,7 +230,10 @@ void ram(Canon &c)
     }
     // T29c: a machine with a hard file adds its controller and the overlay of its writes, as the state writes them (the section of P6DK: the trap area, the UAEFS board, the units of the
     // file system and of uaehf.device, the EXTER queue and the dirty chunks). Nothing for a machine without one, whose digest is what it was.
-    if (p6_bridge::hard_file_count()) {
+    if (p6_bridge::motherboard_ide(p6_session::session.config)) {
+        uint8_t r[4]; p6_mbres_get(r); c.raw(r, sizeof r);
+    }
+    if (p6_bridge::hard_file_count() || p6_bridge::motherboard_ide(p6_session::session.config)) {
         p6_state::Archive measure = p6_state::Archive::measurer();
         p6_state::visit_hdf(measure);
         std::vector<uint8_t> section(size_t(measure.position()));
@@ -993,6 +999,7 @@ int main(int argc, char **argv)
             else if (!strcmp(name, "a1200")) machine = P6_MACHINE_A1200;
             else if (!strcmp(name, "a2000og")) machine = P6_MACHINE_A2000OG;
             else if (!strcmp(name, "a2000")) machine = P6_MACHINE_A2000;
+            else if (!strcmp(name, "a4030")) machine = P6_MACHINE_A4030;
             else return 64;
         }
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));

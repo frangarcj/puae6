@@ -57,3 +57,15 @@ compara los tres niveles de las tres familias CPU con headless y exige reinicio
 al cambiar la opcion. La prueba equivalente del wrapper esta preparada; su
 ejecucion requiere reconstruir el guest integrado. La aceptacion completa de T53,
 incluidos Waterbox y rendimiento, sigue pendiente en la candidata integrada.
+
+T55b incorpora el A4000/030 real como maquina 11 (9/10 reservados para CD32/CDTV),
+con mapa de 32 bits, AGA, Fat Gary revision 0, Ramsey 15, Ricoh y el IDE fisico
+incluso sin disco. La primera vertical solo acepta CPU normal y declara sin MMU:
+compatible y exact fallan al cargar hasta cubrir sus caches. El generador recibe
+`--no-mmu` en la receta fijada y genera PMMU mediante `op_illg`, sin leer la
+extension ni simular registros MMU. La generacion sin argumentos conserva upstream.
+El nuevo cuerpo CPU guarda controles 030 e instruction_cnt; P6RM añade los cuatro
+bytes Gary/Ramsey y P6DK conserva tambien el controlador IDE vacio. La RAM Fast
+cero sigue significando la del preset (8 MiB Zorro II en A4030), con NONE explicito.
+Esta vertical de motor/probe no anuncia aun el modelo en menus: las tres superficies
+y el arranque/restauracion real Waterbox siguen pendientes en T55b.

@@ -1426,7 +1426,7 @@
       {
         "id": "cpu-020plus-caches-and-fallback",
         "subsystem": "cpu",
-        "component": "68010 state (T52: VBR, SFC, DFC and the loop mode of the cycle-exact 68010) and 68020 state (the A1200, T24c): CACR/CAAR/MSP/VBR/SFC/DFC and T0/M, the instruction cache, the prefetch queue and its pipeline, the cycle-exact core's counters and spans; and the 68030/040/060 and fallback state that no profile reaches",
+        "component": "68010 state (T52: VBR, SFC, DFC and the loop mode of the cycle-exact 68010) and 68020 state (the A1200, T24c): CACR/CAAR/MSP/VBR/SFC/DFC and T0/M, the instruction cache, the prefetch queue and its pipeline, the cycle-exact core's counters and spans; normal 68030 controls and instruction count (T55b); and 040/060/fallback state that no profile reaches",
         "owner": "build/upstream/newcpu.cpp (regstruct tail, static caches, cpu_do_fallback)",
         "chunk": "CPU ",
         "save": "save_cpu (model >= 68010/68020/68030/68040 blocks)",
@@ -1436,7 +1436,7 @@
         "upstream_compiled": false,
         "policy": "extension",
         "saved_fields": "The block of the 68010 appended to P6CP on a machine whose p6_config.cpu_model is a 68010 (T52, 10 bytes, bridge/state_cpu.cpp visit_010): VBR, SFC, DFC and regs.loop_mode (the DBcc loop mode of the 68010, set between two instructions of a loop, patch 0311). The block of the 68020 appended to P6CP on a machine whose CPU is a 68020 (662 bytes, bridge/state_cpu.cpp): VBR, MSP, CAAR, SFC, DFC, CACR; prefetch020addr, cacheholdingaddr020/data020, prefetch020[4] and its valid bits, pipeline_pos/r8/stop and the 64 lines of caches020 (data, tag, valid), which is what upstream's save_cpu carries for a 68020 (save_cpu itself is under SAVESTATE and is not compiled); T0 and M travel in the status register (mask 0xF71F). Added because DET02 found each of them to decide the future (reports in the tests of tests/state/test_det02_a1200.py and tests/state/test_state_a1200.py): ce020extracycles (the 16-instruction count that pays two more cycles), ce020prefetchendcycle (a prefetch that starts in the cycle the last one ended pays two), ce020startcycle/ce020endcycle (the span cpu_prefetch.h overlaps internal cycles with), the sub-colour-clock remainder of do_cycles_ce020 (a function-local static, patch 0108) and instruction_cnt (read by the audio hacks a 68020 enables).",
-        "omitted": "Not carried, and why: cacheholdingdata_valid and fc030 (read only by the 68030 prefetch code, which the profile does not compile), memory_waitstate_cycles (written only by the CPU boards), ce020memcycle_data and ce020_tail/ce020_tail_cycles (written before they are read, or in code under #if 0), pipeline_opcode (debug). Not reachable: the 68030/040/060 caches and MMU registers, fallback_regs and mmu_backup_regs (no accelerator boards). The 68000 machines have none of it: p6_cpu_boundary refuses a save with T0, M, VBR, SFC, DFC or MSP set on a 68000, and lets them through on a 68020.",
+        "omitted": "Not carried, and why: cacheholdingdata_valid and fc030 (read only by the 68030 prefetch code, which the profile does not compile), memory_waitstate_cycles (written only by the CPU boards), ce020memcycle_data and ce020_tail/ce020_tail_cycles (written before they are read, or in code under #if 0), pipeline_opcode (debug). Not reachable: the 68030/040/060 caches and MMU registers, fallback_regs and mmu_backup_regs (no accelerator boards). The 68000 machines have none of it: p6_cpu_boundary refuses a save with T0, M, VBR, SFC, DFC or MSP set on a 68000, and lets them through on 68020/030. Normal 030 stores VBR/MSP/CAAR/CACR/SFC/DFC/instruction_cnt; compatible and exact 030 are refused until the prefetch/cache state is covered.",
         "pointers": "cache020/030/040 arrays are static host structs.",
         "rebuild": "Extension: patch 0108 exposes caches020 (a file-local table) and the remainder of do_cycles_ce020; the rest is read from regs. Apply writes the registers and the pipeline back as values and never refills the prefetch queue from memory.",
         "evidence": [
@@ -2570,11 +2570,11 @@
         "save": null,
         "restore": null,
         "reset": "rtc_hardreset() when cs_rtc == 2",
-        "in_profile": false,
+        "in_profile": true,
         "upstream_compiled": false,
-        "policy": "out_of_profile",
+        "policy": "extension",
         "saved_fields": "Upstream saves none; T55a visit_rtc writes the common clock prefix then D/E/F, all 16 alarm bytes and all 16 battery-RAM bytes through patch 0345.",
-        "omitted": "delayed_write only schedules write_battclock, which is excluded and has no host battery file. Calendar digits are read from the existing emulated clock service, not duplicated. No public preset enables the chip yet (T55b).",
+        "omitted": "delayed_write only schedules write_battclock, which is excluded and has no host battery file. Calendar digits are read from the existing emulated clock service, not duplicated.",
         "pointers": null,
         "rebuild": "visit_rtc validates every control nibble, alarm mask and inaccessible tail before apply; p6_rtc_ricoh_set copies semantic registers without events or host I/O.",
         "evidence": [
@@ -2604,7 +2604,15 @@
             "visit_rtc"
           ]
         },
-        "waterbox": "Plain mutable chip data would be captured by a snapshot; no public preset reaches it and no Ricoh Waterbox run has been performed."
+        "waterbox": "Plain mutable chip data is part of the sandbox; A4030 acceptance still requires a real Waterbox run.",
+        "native_state": {
+          "task": "T55b",
+          "chunk": "P6RT",
+          "file": "bridge/state_devices.cpp",
+          "visitor": "visit_rtc",
+          "proves": "tests/state/test_a4030.py exercises the real A4030 preset and its saved future; tests/state/test_state_ricoh.py covers every reachable register.",
+          "notes": "Same Ricoh block prepared by T55a, now enabled by the actual A4000 chipset table."
+        }
       },
       {
         "id": "rtc-rtc-cpp-decoders",
@@ -7808,6 +7816,54 @@
           "visitor": "visit_disk",
           "proves": "tests/state/test_state_hdf.py: the bound by size, an all-dirty image, the dirty list in ascending order, no base in the state, another base or none refused untouched; tests/state/test_det02_hdf.py",
           "notes": "the hard-file section is visit_hdf in bridge/state_hdf.cpp, called by visit_disk after the bodies of the disks when a hard file is mounted"
+        }
+      },
+      {
+        "id": "a4000-motherboard-registers",
+        "subsystem": "ram",
+        "component": "Fat Gary cold-boot, timeout and timeout-enable bits; Ramsey configuration byte",
+        "owner": "build/upstream/gayle.cpp",
+        "chunk": null,
+        "save": null,
+        "restore": null,
+        "reset": "gayle_reset(hardreset) clears Ramsey configuration and Gary timeout/enabled, sets cold boot",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "extension",
+        "saved_fields": "Four semantic bytes: Ramsey configuration (0..255), Gary coldboot, timeout and toenb (0..1).",
+        "omitted": "Gary/Ramsey revisions are immutable configuration. The bank mapping is derived from that configuration.",
+        "pointers": null,
+        "rebuild": "The MBRES bank is mapped by memory_reset from the real A4000 chipset table; no host pointer is serialized.",
+        "evidence": [
+          "patches/winuae/0347-a4000-motherboard-cpu030.patch:1",
+          "bridge/state.cpp:1",
+          "tests/state/test_a4030.py:1"
+        ],
+        "proof": {
+          "task": "T55b",
+          "checks": [
+            "DET02"
+          ],
+          "status": "pending",
+          "what": "Directed guest writes and restore through the actual A4030 preset."
+        },
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T55b",
+          "covers": [
+            "p6_mbres_get",
+            "p6_mbres_set"
+          ]
+        },
+        "waterbox": "Mutable chip globals belong to the sandbox; real A4030 Waterbox acceptance remains pending.",
+        "native_state": {
+          "task": "T55b",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/state/test_a4030.py",
+          "notes": "Appended only for the A4000 machine, including with no Fast RAM board. Validate checks boolean ranges before Apply copies the registers."
         }
       }
     ],

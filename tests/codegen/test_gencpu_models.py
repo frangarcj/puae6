@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE_MODELS = ("3", "4", "5", "11", "12", "13", "14", "20", "21")
+PROFILE_MODELS = ("2", "3", "4", "5", "11", "12", "13", "14", "20", "21")
 PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_0.cpp", "cpuemu_11.cpp", "cpuemu_13.cpp", "cpuemu_20.cpp", "cpuemu_21.cpp"}
 
 
@@ -74,7 +74,7 @@ class GencpuModelTests(unittest.TestCase):
                 self.assertEqual(actual, (pristine_out / name).read_bytes())
 
     def test_profile_models_match_the_full_generation_and_the_build_tree(self):
-        restricted, restricted_out = self.run_tool(self.patched, *PROFILE_MODELS)
+        restricted, restricted_out = self.run_tool(self.patched, "--no-mmu", *PROFILE_MODELS)
         self.assertEqual(restricted.returncode, 0, restricted.stderr)
         self.assertEqual({p.name for p in restricted_out.iterdir()}, PROFILE_OUTPUTS)
         # The generated tree the engine compiles is exactly this output.
@@ -94,7 +94,7 @@ class GencpuModelTests(unittest.TestCase):
         generic = (restricted_out / "cpuemu_0.cpp").read_text()
         self.assertNotIn("flush_cpu_caches_040", generic)
         self.assertNotIn("mmu_op(opcode", generic)
-        self.assertTrue("mmu_op30(" not in generic, "PMMU handlers belong to excluded CPU models; the table's real line-F handler rejects them")
+        self.assertTrue("mmu_op30(" not in generic, "The no-MMU profile rejects PMMU through the real line-F handler")
 
     def test_invalid_model_numbers_are_rejected(self):
         for argument in ("abc", "56", "-1", "13x", ""):

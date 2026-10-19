@@ -4435,6 +4435,46 @@
           "after_sha256": "a8e287b748ccdd7240e391d5aa1c446a3f093b4feb9daa5c8d29a04bae286b68"
         }
       ]
+    },
+    {
+      "id": "0347-a4000-motherboard-cpu030",
+      "file": "patches/winuae/0347-a4000-motherboard-cpu030.patch",
+      "sha256": "b8f54d4959ce70921218ff29755569744bb51c7bb5517d3835078372b853e12e",
+      "title": "Restore the real A4000 motherboard and normal no-MMU 68030",
+      "reason": "T55b enables real Fat Gary/Ramsey, physical A4000 IDE and CPU030. The explicit generator profile rejects PMMU through line-F while unrestricted upstream generation remains unchanged; only motherboard hardware is restored, PCMCIA and host services stay excluded.",
+      "category": "host hooks",
+      "order": 164,
+      "symbols": [
+        "p6_mbres_get",
+        "p6_mbres_set",
+        "generate_cpu",
+        "cputbls"
+      ],
+      "test": "tests/state/test_a4030.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "ef9a358fb5be8390b76768a28a9ddbd56e7841de3f4510a79fc602ce97108681",
+          "after_sha256": "55bcff520d9ada2e05ecb16524c82b9024129c5179ebe5aa365075f3a0b6fae3"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "a8e287b748ccdd7240e391d5aa1c446a3f093b4feb9daa5c8d29a04bae286b68",
+          "after_sha256": "3526759937af760d3a32ade6e002f4ec3fd5d73cd51ed02aca24d17ea4d5d6c3"
+        },
+        {
+          "path": "gayle.cpp",
+          "before_sha256": "6b52caea7a4141e01d1aa36cece2c57c90707d31614d265e7c5aca207cab2d2d",
+          "after_sha256": "8ae4578995c76a37135bdbfffb90be6be37dad3e4d54eaeac643e030ff8df3a1"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "782c3ca6996937e2f443b9cab1e9d27fa0c90cc57496e9ca9e008cfc2455317f",
+          "after_sha256": "e6d35cfd5007cce9094b647a7ff5dbbc60e81d5f2b3009aeea793bfcfe707a1f"
+        }
+      ]
     }
   ]
 }

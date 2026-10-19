@@ -48,6 +48,8 @@ bool audio_identity(const p6_config &config, uint8_t out[4]);
 // emulated). True when the config asks for IDE on a machine that has Gayle and the list given to p6_load holds `hard_files` hard files (at least one). A config for which this is false
 // is the machine the default config is, in every identity; one for which it is true derives config_hash from the one above and a byte (state.cpp: domain p6/config/ide/v1).
 bool ide_attached(const p6_config &config, uint32_t hard_files);
+// The A4000 motherboard has a physical IDE controller even with no disk attached.
+inline bool motherboard_ide(const p6_config &config) { return config.machine == P6_MACHINE_A4030; }
 
 // Pure checks; the engine is not touched, so a rejected config or firmware costs nothing.
 p6_result validate_config(const p6_config &config, p6_error *error);

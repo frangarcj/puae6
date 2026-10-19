@@ -46,7 +46,7 @@ class FpuOptionTests(lr.LibretroHarness):
 
     def test_an_fpu_on_a_68000_fails_the_load_with_the_reason_and_a_value_of_no_schema_fails_it_naming_the_key(self):
         out = self.frontend("boot", "--set", "puae6_fpu_model=M68882", name=lr.KICKSTART_NAMES[0], expect=3).stdout
-        self.assertIn("an FPU needs a 68020: only the A1200 can have a 68881 or 68882", out)
+        self.assertIn("an FPU needs a 68020 or 68030: only the A1200 and A4030 can have a 68881 or 68882", out)
         self.assertNotIn("run 1 ", out)
         out = self.frontend("boot", "--set", "puae6_fpu_model=68040", expect=3).stdout
         self.assertIn('the option puae6_fpu_model has the value "68040", which this core does not support (allowed: None, M68881, M68882)', out)
