@@ -54,6 +54,10 @@ class CpuOptionTests(lr.LibretroHarness):
         rom = Path(cls.tmp.name) / "cpuid.rom"
         rom.write_bytes(lr.builder.build(CPUID))
         cls.roms["cpuid"] = rom
+        from tests.state.test_a4030 import PROGRAM
+        rom030 = Path(cls.tmp.name) / "a4030.rom"
+        rom030.write_bytes(lr.builder.build(PROGRAM))
+        cls.roms["a4030"] = rom030
 
     def a500(self, rom, *options, **keywords):
         return self.frontend(rom, *options, name=lr.KICKSTART_NAMES[0], **keywords)
@@ -61,6 +65,19 @@ class CpuOptionTests(lr.LibretroHarness):
     def picture(self, out):
         """The hash of the last picture the frontend got."""
         return self.runs(out)[-1]["hash"]
+
+    def test_a4030_preset_matches_headless_and_restores_with_auto_or_no_fast_ram(self):
+        for fast, flag in (("Auto", "auto"), ("None", "none")):
+            with self.subTest(fast=fast):
+                settings = ("--set", "puae6_preset=a4030_normal", "--set", f"puae6_fast_size={fast}")
+                out = self.frontend("a4030", "--runs", 6, *settings, name="kick40068.A4000").stdout
+                self.compare_with_headless(out, "a4030", 6, "--machine", "a4030", "--cpu-compatibility", "normal", "--fast", flag)
+                replay = self.frontend("a4030", "--runs", 13, *settings, "--do", "3:save:s", "--do", "8:load:s", name="kick40068.A4000").stdout
+                self.assertIn("state save s ok=1", replay)
+                self.assertIn("state load s exact ok=1", replay)
+                runs = self.runs(replay)
+                view = lambda r: (r["unit"], r["ticks"], r["audio"], r["ahash"], r["hash"])
+                self.assertEqual(list(map(view, runs[3:8])), list(map(view, runs[8:13])))
 
     def test_accuracy_is_a_restart_option_and_each_level_runs_the_headless_machine(self):
         for machine, flags, names, options in (("a500", (), lr.KICKSTART_NAMES[0], ()),

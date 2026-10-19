@@ -50,6 +50,12 @@ constexpr const char *kA1200KickstartNames[] = {
     "Kickstart v3.1 r40.68 (1993)(Commodore)(A1200)[!].rom",
 };
 
+constexpr const char *kA4030KickstartNames[] = {
+    "kick40068.A4000",
+    "amiga-os-310-a4000.rom",
+    "Kickstart v3.1 rev 40.68 (1993)(Commodore)(A4000)[!].rom",
+};
+
 // T50. The A500 OG and the A2000 OG boot the same Kickstart 1.3 as the A500 (PUAE5: the A500OG and the A2000OG read uae_kickstarts[A500_KS13_ROM]) and share its names.
 // The A500+ boots the Kickstart 2.04 r37.175 (PUAE5: A500_KS204_ROM), the A2000 the 3.1 r40.063 of the A600 (A600_KS31_ROM: the same ROM as the A500-A600-A2000 3.1 of the
 // collections). The A1000 has no PUAE5 model; its Kickstart arrives as a ROM image (the 256 KiB Kickstart 1.x, never the 8 KiB boot ROM plus the disk of the original), so it looks
@@ -96,6 +102,7 @@ constexpr FirmwareNames kFirmware[] = {
     {P6_MACHINE_A1000, "A1000", "1.3", kA1000KickstartNames, sizeof kA1000KickstartNames / sizeof kA1000KickstartNames[0]},
     {P6_MACHINE_A2000OG, "A2000OG", "1.3", kA500KickstartNames, sizeof kA500KickstartNames / sizeof kA500KickstartNames[0]},
     {P6_MACHINE_A2000, "A2000", "3.1", kA2000KickstartNames, sizeof kA2000KickstartNames / sizeof kA2000KickstartNames[0]},
+    {P6_MACHINE_A4030, "A4030", "3.1", kA4030KickstartNames, sizeof kA4030KickstartNames / sizeof kA4030KickstartNames[0]},
 };
 
 // T51. puae6_kickstart chooses a Kickstart by version instead of the machine's own. The values are PUAE5's (libretro-uae puae_kickstart: the "normal" file name of each ROM, less the A4000 ones

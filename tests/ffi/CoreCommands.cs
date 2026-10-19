@@ -115,6 +115,7 @@ internal static unsafe partial class Program
 		"a1000" => Puae6Machine.A1000,
 		"a2000og" => Puae6Machine.A2000OG,
 		"a2000" => Puae6Machine.A2000,
+		"a4030" => Puae6Machine.A4030,
 		var other => throw new ArgumentException($"machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og or a2000 (got {other})"),
 	};
 
@@ -231,7 +232,7 @@ internal static unsafe partial class Program
 			Machine = machine,
 			ChipMemory = Enum.Parse<Puae6Chip>(options.GetValueOrDefault("chip", "Auto")),
 			SlowMemory = Enum.Parse<Puae6Slow>(options.GetValueOrDefault("slow", "Auto")),
-			FastMemory = Enum.Parse<Puae6Fast>(options.GetValueOrDefault("fast", "None")),
+			FastMemory = Enum.Parse<Puae6Fast>(options.GetValueOrDefault("fast", "Auto")),
 		};
 		using var core = MakeCore(options, settings);
 		var domains = core.ServiceProvider.GetService<IMemoryDomains>()!;
@@ -249,7 +250,7 @@ internal static unsafe partial class Program
 		// The Fast RAM board, when there is one, is what the pokes go to (nothing writes it). Else the A500 has Slow RAM, which nothing writes; the A600 and the A1200 have none and the part of
 		// Chip RAM above 512 KiB, which the fixtures leave alone, takes its place.
 		var board = domains["Fast RAM"];
-		Require((board != null) == (settings.FastMemory != Puae6Fast.None), "the Fast RAM domain exists when a board is configured and only then");
+		Require((board != null) == (settings.FastMemory == Puae6Fast.Auto ? settings.Machine == Puae6Machine.A4030 : settings.FastMemory != Puae6Fast.None), "the Fast RAM domain exists when a board is configured and only then");
 		bool hasSlow = settings.SlowMemory switch { Puae6Slow.None => false, Puae6Slow.Auto => machine is Puae6Machine.A500 or Puae6Machine.A2000OG, _ => true };
 		Require((domains["Slow RAM"] != null) == hasSlow, "Slow RAM exists when the machine has it");
 		var slow = board ?? domains["Slow RAM"] ?? chip;

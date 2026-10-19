@@ -6,6 +6,21 @@ deben respetar headless y el wrapper BizHawk). Este documento explica las opcion
 (T31a-T31d); las opciones de maquina (modelo, memoria, estandar de video, disquetes) estan en el esquema y en
 `docs/02-contracts.md`.
 
+## A4000/030 (T55b)
+
+El modelo `A4030` usa la placa A4000 real: AGA, Gary/Ramsey, Ricoh RTC, mapa de
+32 bits e IDE fisico incluso sin disco. Solo admite precision CPU `normal` y no
+implementa MMU; `exact` y `compatible` se rechazan con el motivo. El preset
+`a4030_normal` selecciona modelo y precision juntos. El Kickstart se busca como
+`kick40068.A4000` o `amiga-os-310-a4000.rom`; BizHawk pide el firmware `Amiga/A4000`.
+
+`puae6_fast_size=Auto` (defecto) usa la RAM del preset: 8 MiB Zorro II en A4030 y
+ninguna en los modelos anteriores. `None` desactiva la placa; `MB1`..`MB8` fijan
+su tamaño. Headless acepta `--machine a4030 --cpu-compatibility normal` y
+`--fast auto|none|KIB`; BizHawk usa `Machine=A4030`, `CpuCompatibility=Normal`
+y `FastMemory=Auto|None|MB1|MB2|MB4|MB8`. Cambiarlos requiere recargar.
+La aceptacion completa de T55b, incluido Waterbox real, sigue pendiente.
+
 ## Clases y la frontera con la emulacion
 
 | Clase | Que es | Entra en `p6_config`, `config_hash` y estado | Cuando se aplica |
@@ -14,7 +29,7 @@ deben respetar headless y el wrapper BizHawk). Este documento explica las opcion
 | `presentation` | solo cambia lo que el adaptador muestra o como lee la entrada del frontend | **no** | de inmediato |
 | `presentation` + `restart` | igual, pero el adaptador solo puede leerla al cargar (formato de pixel, modo inicial del D-Pad) | **no** | al recargar; el menu la marca `(Restart)` y un cambio en marcha se avisa |
 
-Regla de diseno (ficha T31): ninguna opcion de esta pagina cambia la maquina. Lo que hacen es:
+Regla de diseno de la interfaz de presentacion/entrada (ficha T31): sus opciones no cambian la maquina. Lo que hacen es:
 
 * **Presentacion** (T31c, T31b, T31a): se dibuja sobre una **copia** del frame que el motor ya produjo (o un buffer del adaptador). El hash de la imagen nativa
   (`p6_frame`), el hash de la configuracion y el estado nativo no se mueven con ninguna de ellas, active o no. `tests/libretro-ui` lo comprueba comparando unidades,
@@ -161,7 +176,7 @@ El orden del archivo, la hora, el directorio de trabajo y el sistema de ficheros
 1. **Lo elegido a mano gana**: un modelo o preset distinto de `auto`, un estandar distinto de los `auto`: ninguna etiqueta lo cambia. Las etiquetas se miran igualmente, para que el registro diga que una no se uso
    (`the tag (A1200) in ... is not used: the model is fixed by puae6_machine or puae6_preset`).
 2. **Etiquetas fuertes de modelo** (tabla siguiente): se prueban los nombres en orden y **decide el primer nombre que contiene una**; dentro de un nombre gana la primera fila de la tabla (orden de PUAE5: un
-   nombre con `(A1200)` y `(A500)` es un A1200). Una etiqueta de una maquina que no existe (`(A4030)`, `(030)`, `(A4040)`, `(040)`) es un **aviso** y deja el modelo a las opciones: no deja que otra
+   nombre con `(A1200)` y `(A500)` es un A1200). Una etiqueta aun no seleccionable automaticamente (`(A4030)`, `(030)`, `(A4040)`, `(040)`) es un **aviso** y deja el modelo a las opciones: no deja que otra
    etiqueta mas debil elija otra maquina en su lugar.
 3. **Palabras de chipset** (`AGA`, `AmigaCD`, `ECS`, `OCS`): solo si ningun nombre tiene una etiqueta fuerte; de nuevo decide el primer nombre que tenga una. Cambian el modelo solo si el modelo del tipo de
    contenido no tiene ya ese chipset (PUAE5): `AGA` -> A1200 si no es ya A1200; `ECS` -> A600 si no es ya A500+, A600 o A2000; `OCS` -> A500 si no es ya A500, A500OG, A500+, A1000 o A2000OG.
@@ -175,7 +190,7 @@ encuentra). Es la unica diferencia de lectura con PUAE5; las etiquetas entre par
 
 | Etiqueta (en el orden de la tabla) | Efecto en PUAE6 | PUAE5 |
 |---|---|---|
-| `(A4030)`, `(030)`, `(A4040)`, `(040)` | **aviso**, sin efecto: no hay 68030/68040; el modelo sale de las opciones | A4000/030 y /040 |
+| `(A4030)`, `(030)`, `(A4040)`, `(040)` | **aviso**, sin efecto: A4030 se elige mediante opciones o preset; 68040 aun no esta implementado | A4000/030 y /040 |
 | `(A1200OG)`, `(A1200NF)` | A1200 (68EC020, AGA, 2 MiB Chip, sin Fast RAM) | A1200OG |
 | `(A1200)`, `(CD32)`, `(CD32NF)`, `(CD32FR)`, `CD32` | A1200 **con 8 MiB de Fast RAM**: el preset `a1200_fast8` (solo toma la memoria que las opciones dejan en su valor por defecto; `puae6_fast_size=MB4` se queda) | A1200 (y `CD32` en contenido de disquete) |
 | `(A600)` | A600 con 2 MiB de Chip y 8 MiB de Fast: el preset `a600_puae5` (misma regla; el Kickstart es el del A600 de este core, 2.05, no el 3.1 de PUAE5) | A600 |
@@ -256,9 +271,9 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 
 | Clave | Que hace |
 |---|---|
-| `chipset_compatible` | `A500`, `A500+`, `A600`, `A1000`, `A1200`, `A2000` -> `puae6_machine` (T50: `A500+` es el A500PLUS; `A2000` es el A2000OG con `chipset=ocs` y el A2000 con `chipset=ecs_agnus` o sin linea de chipset). `-` y `Generic` no nombran maquina. Cualquier otra (`A4000`, `CD32`, ...) se rechaza. El A500OG solo se elige con `puae6_machine=A500OG`: ningun `.uae` lo distingue del A500 sin cambiar la memoria. |
+| `chipset_compatible` | `A500`, `A500+`, `A600`, `A1000`, `A1200`, `A2000`, `A4000` -> `puae6_machine` (T50: `A500+` es el A500PLUS; `A2000` es el A2000OG con `chipset=ocs` y el A2000 con `chipset=ecs_agnus` o sin linea de chipset). `-` y `Generic` no nombran maquina. Cualquier otra (`A4000`, `CD32`, ...) se rechaza. El A500OG solo se elige con `puae6_machine=A500OG`: ningun `.uae` lo distingue del A500 sin cambiar la memoria. |
 | `chipset` | `ocs`/`ecs`/`aga`: si el fichero no nombra maquina la fija (A500/A600/A1200); si la nombra, debe ser la suya (`A2000`: `ocs` o `ecs_agnus`). `ecs_agnus` solo, sin `chipset_compatible=A2000`, y `ecs_denise` se rechazan. |
-| `cpu_model` | `68000` o `68010` en las maquinas de 68000 (A500, A500OG, A500PLUS, A600, A1000, A2000OG, A2000), `68020` en el A1200 (su 68EC020) -> `puae6_cpu_model` (T52). Otro valor, o una CPU que la maquina no puede tener, se rechaza. |
+| `cpu_model` | `68000` o `68010` en las maquinas de 68000 (A500, A500OG, A500PLUS, A600, A1000, A2000OG, A2000), `68020` en el A1200 (su 68EC020), `68030` en A4030 (precision Normal, sin MMU) -> `puae6_cpu_model` (T52). Otro valor, o una CPU que la maquina no puede tener, se rechaza. |
 | `cpu_multiplier` | `1`, `2`, `4`, `8`, `10`, `12`, `16` (veces 3,55 MHz, como PUAE5) -> `puae6_cpu_multiplier`; `0` es el de la maquina (`auto`). Otro numero se rechaza (T52). |
 | `fpu_model` | `0` -> `puae6_fpu_model=None`, `68881`, `68882`. `68040`/`68060` se rechazan. |
 | `chipmem_size` | Unidades de 512 KiB (como WinUAE): `1`=512 KiB, `2`=1 MiB, `4`=2 MiB -> `puae6_chip_size`. `-1` (128 KiB), `0` (256 KiB) y lo que no ofrece el core se rechazan. |
@@ -283,7 +298,7 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 Las flags `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact` y `cycle_exact` deben ser `true` en exact y `false` en compatible/normal; `cpu_compatible` es `true` en exact/compatible y `false` en normal. Describen el nivel final de `puae6_cpu_compatibility`, cualquiera que sea el orden de las claves; una contradiccion se rechaza.
 
 Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada):
-`cpu_24bit_addressing`, `cpu_address_space_24` = `true`; `cpu_speed` = `real`; `cpu_throttle` = `0`; `cachesize` = `0`; `compfpu` = `false`; `mmu_model` = `0`; `immediate_blits` = `false`;
+`cpu_24bit_addressing`, `cpu_address_space_24` = `false` en A4030, `true` en los demas; `cpu_speed` = `real`; `cpu_throttle` = `0`; `cachesize` = `0`; `compfpu` = `false`; `mmu_model` = `0`; `immediate_blits` = `false`;
 `waiting_blits` = `disabled`; `synchronize_clock`, `bsdsocket_emu`, `scsi` = `false`; `nr_floppies` debe coincidir con `puae6_floppy_drives` (Auto conecta dos, o cuatro con MultiDrive/`(MD)`);
 `floppy0type`, `floppy1type`, `floppy2type`, `floppy3type` deben ser `0` en unidades conectadas y `-1` en desconectadas. Las claves descriptivas se comprueban despues de las opciones, sin depender de su orden.
 `floppy0wp`, `floppy1wp`, `floppy2wp`, `floppy3wp` = `false` (la proteccion es un solo interruptor: `floppy_write_protect`). Cualquier contradiccion se rechaza.

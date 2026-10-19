@@ -107,7 +107,7 @@ constexpr WeakWord kWeakWords[] = {{"AGA", Chipset::Aga}, {"AmigaCD", Chipset::A
 inline bool is_chipset(uint32_t machine, Chipset chipset)
 {
     switch (chipset) {
-    case Chipset::Aga: return machine == P6_MACHINE_A1200;
+    case Chipset::Aga: return machine == P6_MACHINE_A1200 || machine == P6_MACHINE_A4030;
     case Chipset::Ecs: return machine == P6_MACHINE_A500PLUS || machine == P6_MACHINE_A600 || machine == P6_MACHINE_A2000;        // PUAE5 only knows the A500+
     case Chipset::Ocs:        // PUAE5: any A500*, the A500+ included; the OCS machines it has no preset for are OCS as well
         return machine == P6_MACHINE_A500 || machine == P6_MACHINE_A500OG || machine == P6_MACHINE_A500PLUS || machine == P6_MACHINE_A1000 || machine == P6_MACHINE_A2000OG;
@@ -227,7 +227,7 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
         } else if (strong) {
             if (strong->effect == Effect::Unsupported) {
                 out.warnings.push_back(std::string("the tag ") + strong->text + " in " + shown(*strong_name) + " names " + strong->meaning +
-                                       ", which this core does not have: the tag is ignored and the model comes from the options");
+                                       ", which this core does not have as an automatic tag: the tag is ignored and the model comes from the options");
             } else {
                 p6_options::Settings picked = chosen;
                 if (strong->effect == Effect::Preset) {

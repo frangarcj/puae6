@@ -299,7 +299,7 @@ class NormalizationTests(unittest.TestCase):
     def test_nothing_requested_gives_the_defaults(self):
         document = schema()
         normalized = gen.normalize_config(document, {})
-        machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "fpu_model": "None", "cpu_model": "auto", "cpu_compatibility": "exact", "cpu_multiplier": "auto", "hdf_controller": "uae", "audio_rate_hz": "48000", "random_seed": 1,
+        machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "Auto", "fpu_model": "None", "cpu_model": "auto", "cpu_compatibility": "exact", "cpu_multiplier": "auto", "hdf_controller": "uae", "audio_rate_hz": "48000", "random_seed": 1,
                    "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled",
                    "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto", "floppy_speed": "100", "floppy_drive_count": "auto", "video_resolution": "hires", "video_line_mode": "double"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
@@ -323,11 +323,13 @@ class NormalizationTests(unittest.TestCase):
     def test_the_presets_are_bundles_of_the_options_and_give_the_memory_of_puae5(self):
         # T49: PUAE5's A1200 has 8 MiB of Fast RAM and its A600 is a 2 MiB Chip + 8 MiB Fast machine. A preset is values of the options, so the ABI has no field for it.
         document = schema()
-        self.assertEqual([entry["id"] for entry in document["presets"]], ["a1200_fast8", "a600_puae5"])
+        self.assertEqual([entry["id"] for entry in document["presets"]], ["a1200_fast8", "a600_puae5", "a4030_normal"])
         a1200 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {}), "a1200_fast8"))
         self.assertEqual((a1200["machine"], a1200["chip_kib"], a1200["slow_kib"], a1200["fast_kib"]), (3, 0, 0, 8192))
         a600 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {"fast_size": "MB1"}), "a600_puae5"))
         self.assertEqual((a600["machine"], a600["chip_kib"], a600["slow_kib"], a600["fast_kib"]), (2, 2048, 0, 8192))
+        a4030 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {}), "a4030_normal"))
+        self.assertEqual((a4030["machine"], a4030["cpu_compatibility"], a4030["fast_kib"]), (11, 2, 0))
         plain = gen.normalize_config(document, {"machine": "A600"})
         self.assertEqual(gen.apply_preset(document, plain, "none"), plain)
         with self.assertRaises(gen.ConfigError) as caught:
@@ -365,7 +367,7 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual((machine["class"], machine["maps_to"], machine["default"]), ("reboot", "p6_config.machine", "A500"))
         self.assertEqual([(v["value"], v["abi"], v["abi_name"]) for v in machine["values"]],
                          [("A500", 1, "P6_MACHINE_A500"), ("A600", 2, "P6_MACHINE_A600"), ("A1200", 3, "P6_MACHINE_A1200"), ("A500OG", 4, "P6_MACHINE_A500OG"),
-                          ("A500PLUS", 5, "P6_MACHINE_A500PLUS"), ("A1000", 6, "P6_MACHINE_A1000"), ("A2000OG", 7, "P6_MACHINE_A2000OG"), ("A2000", 8, "P6_MACHINE_A2000")])
+                          ("A500PLUS", 5, "P6_MACHINE_A500PLUS"), ("A1000", 6, "P6_MACHINE_A1000"), ("A2000OG", 7, "P6_MACHINE_A2000OG"), ("A2000", 8, "P6_MACHINE_A2000"), ("A4030", 11, "P6_MACHINE_A4030")])
         self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A600"}))["machine"], 2)
         self.assertEqual(gen.to_p6_config(document, gen.normalize_config(document, {"machine": "A1200"}))["machine"], 3)
         self.assertIn("no PCMCIA slot", machine["libretro"]["info"])      # the description says what the A600 does not have (T56: Gayle has its IDE port only with the IDE controller)
@@ -464,7 +466,7 @@ class AbiTests(unittest.TestCase):
         self.assertIn("c.video_standard != P6_VIDEO_PAL && c.video_standard != P6_VIDEO_NTSC", source)
         self.assertIn("if (!find_machine(c.machine))", source)           # T50: the machines the bridge accepts are the rows of its table, one per value of the schema
         names = [v["abi_name"] for v in option(schema(), "machine")["values"]]
-        self.assertEqual(names, ["P6_MACHINE_A500", "P6_MACHINE_A600", "P6_MACHINE_A1200", "P6_MACHINE_A500OG", "P6_MACHINE_A500PLUS", "P6_MACHINE_A1000", "P6_MACHINE_A2000OG", "P6_MACHINE_A2000"])
+        self.assertEqual(names, ["P6_MACHINE_A500", "P6_MACHINE_A600", "P6_MACHINE_A1200", "P6_MACHINE_A500OG", "P6_MACHINE_A500PLUS", "P6_MACHINE_A1000", "P6_MACHINE_A2000OG", "P6_MACHINE_A2000", "P6_MACHINE_A4030"])
         table = source[source.index("const MachineInfo kMachines[]"):]
         table = table[:table.index("};")]
         self.assertEqual(re.findall(r"\{(P6_MACHINE_\w+),", table), names)
@@ -536,11 +538,11 @@ class GeneratorTests(unittest.TestCase):
                           "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "floppy_drives": 0, "video_resolution": 0, "video_line_mode": 0})
         self.assertEqual(table["p6_config"]["chip_kib"]["allowed"], [0, 512, 1024, 2048])
         self.assertEqual(table["p6_config"]["slow_kib"]["allowed"], [0, 4294967295, 512, 1024, 1536, 1792])
-        self.assertEqual(table["p6_config"]["fast_kib"]["allowed"], [0, 1024, 2048, 4096, 8192])
+        self.assertEqual(table["p6_config"]["fast_kib"]["allowed"], [4294967295, 1024, 2048, 4096, 8192, 0])
         self.assertEqual(table["p6_config"]["fpu_model"]["allowed"], [0, 68881, 68882])       # T54
         self.assertEqual(table["p6_config"]["fpu_model"]["names"], {"None": 0, "M68881": 68881, "M68882": 68882})
-        self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3, 4, 5, 6, 7, 8])
-        self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3, "A500OG": 4, "A500PLUS": 5, "A1000": 6, "A2000OG": 7, "A2000": 8})
+        self.assertEqual(table["p6_config"]["machine"]["allowed"], [1, 2, 3, 4, 5, 6, 7, 8, 11])
+        self.assertEqual(table["p6_config"]["machine"]["names"], {"A500": 1, "A600": 2, "A1200": 3, "A500OG": 4, "A500PLUS": 5, "A1000": 6, "A2000OG": 7, "A2000": 8, "A4030": 11})
         self.assertNotIn("wrapper_not_offered", table["adapters"]["machine"])
         self.assertEqual(table["p6_config"]["video_standard"]["allowed"], [1, 2])
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])

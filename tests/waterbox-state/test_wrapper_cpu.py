@@ -25,7 +25,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests/waterbox-smoke"))
 import build_waterbox  # noqa: E402
 from tests.host.test_bridge_lifecycle import TOOLS, builder  # noqa: E402
-from tests.state import test_det02_cpu010 as c10  # noqa: E402
+from tests.state import test_det02_cpu010 as c10
+from tests.state.test_a4030 import PROGRAM as A4030_PROGRAM  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
 
 GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
@@ -45,6 +46,7 @@ class WrapperCpuTests(unittest.TestCase):
             source = c10.ROMS[name][0]
             fixture = ROOT / "tests/fixtures/microrom" / f"{source}.s"
             (cls.dir / f"{name}.rom").write_bytes(builder.build(fixture.read_text(encoding="utf-8") if "\n" not in source and fixture.is_file() else source))
+        (cls.dir / "a4030.rom").write_bytes(builder.build(A4030_PROGRAM))
         cls.count = 0
 
     @classmethod
@@ -74,6 +76,24 @@ class WrapperCpuTests(unittest.TestCase):
     @staticmethod
     def core(name, *settings, machine="a500"):
         return f"core {name} machine={machine} " + " ".join(settings)
+
+    def test_a4030_normal_restores_in_same_and_new_sandbox_with_auto_or_no_fast(self):
+        heaps = {}
+        for fast in ("Auto", "None", "MB8"):
+            result = build_waterbox.run_ffi("heaps", "--machine", "A4030", "--fast", fast)
+            self.assertEqual(0, result.returncode, result.stdout[-1500:] + result.stderr[-1500:])
+            heaps[fast] = tuple(map(int, result.stdout.strip().split()[-5:]))
+        self.assertEqual(heaps["Auto"], heaps["MB8"])
+        self.assertEqual(8192, heaps["Auto"][-1] - heaps["None"][-1])
+        for fast in ("Auto", "None"):
+            with self.subTest(fast=fast):
+                settings = ("accuracy=Normal", f"fast={fast}")
+                out = self.session([self.core("A", *settings, machine="a4030"), "run A 3", "save A s", "run A 5", "digest A first",
+                                    "load A s", "run A 5", "digest A second", self.core("B", *settings, machine="a4030"),
+                                    "load B s", "run B 5", "digest B third"], "a4030")
+                digests = self.digests(out, "A")
+                self.assertEqual(digests["first"], digests["second"])
+                self.assertEqual(digests["first"], self.digests(out, "B")["third"])
 
     def test_cpu_accuracy_restores_and_refuses_a_state_of_another_level(self):
         for machine, cpu in (("a500", "Auto"), ("a500", "M68010"), ("a1200", "Auto")):

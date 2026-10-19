@@ -12,7 +12,7 @@ public enum Puae6Region { PAL, NTSC }
 /// 512 KiB Chip, a Kickstart 1.x image as a ROM) and the A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, the clock and the mains TOD of the A2000) and the A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1). The firmware each asks
 /// of BizHawk's database is in Puae6Core.EmuHawk.cs (FirmwareOf): the database has the entries "A500" (Kickstart 1.3) and "A600" (2.05, 2.04 and the 3.1 r40.063 of the A600 and the A2000).
 /// </summary>
-public enum Puae6Machine { A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000 }
+public enum Puae6Machine { A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000, A4030 }
 
 /// <summary>Chip RAM (restart): the machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB) or a size; the A500 (OCS) has 512 KiB or 1 MiB, the other machines also 2 MiB.</summary>
 public enum Puae6Chip { Auto, KB512, MB1, MB2 }
@@ -21,13 +21,13 @@ public enum Puae6Chip { Auto, KB512, MB1, MB2 }
 public enum Puae6Slow { Auto, None, KB512, MB1, MB1_5, MB1_75 }
 
 /// <summary>Zorro II Fast RAM (restart): none, or one autoconfig board that the Kickstart configures, as PUAE5's A600 and A1200 have (8 MiB).</summary>
-public enum Puae6Fast { None, MB1, MB2, MB4, MB8 }
+public enum Puae6Fast { None, MB1, MB2, MB4, MB8, Auto }
 
-/// <summary>The floating point coprocessor (restart): none, or a 68881 or 68882, which only the A1200 can have (the 68000 has no coprocessor interface). SoftFloat computes it, so the results are the same on every host.</summary>
+/// <summary>The floating point coprocessor (restart): none, or a 68881 or 68882, which the A1200 and A4030 can have (the 68000 has no coprocessor interface). SoftFloat computes it, so the results are the same on every host.</summary>
 public enum Puae6Fpu { None, M68881, M68882 }
 
-/// <summary>The CPU (restart): the machine's own (a 68000, the A1200's 68EC020), a 68010 in the socket of a machine with a 68000, or the A1200's 68020. Another combination is refused when the core starts, with the reason.</summary>
-public enum Puae6Cpu { Auto, M68000, M68010, M68020 }
+/// <summary>The CPU (restart): the machine's own (a 68000, the A1200's 68EC020 or the A4030's 68030), a 68010 in the socket of a machine with a 68000, or the A1200's 68020. Another combination is refused when the core starts, with the reason.</summary>
+public enum Puae6Cpu { Auto, M68000, M68010, M68020, M68030 }
 
 /// <summary>CPU accuracy (restart): cycle exact by default, compatible prefetch, or normal instruction timing; always emulated time.</summary>
 public enum Puae6CpuCompatibility { Exact, Compatible, Normal }
@@ -82,16 +82,16 @@ public sealed class Puae6SyncSettings
 	/// <summary>Slow RAM of the machine.</summary>
 	public Puae6Slow SlowMemory { get; set; } = Puae6Slow.Auto;
 
-	/// <summary>Zorro II Fast RAM. The Waterbox heap of the core grows with it (<see cref="Puae6Core.Heaps(Puae6SyncSettings)"/>), measured in manifests/waterbox-memory.json.</summary>
-	public Puae6Fast FastMemory { get; set; } = Puae6Fast.None;
+	/// <summary>Zorro II Fast RAM: Auto is the machine's own (8 MiB on A4030, none otherwise), None disables the board. The Waterbox heap of the core grows with it (<see cref="Puae6Core.Heaps(Puae6SyncSettings)"/>), measured in manifests/waterbox-memory.json.</summary>
+	public Puae6Fast FastMemory { get; set; } = Puae6Fast.Auto;
 
-	/// <summary>The FPU of the machine (A1200 only; another machine refuses it when the core starts). It enters the identity of states and movies when it is not <c>None</c>.</summary>
+	/// <summary>The FPU of the machine (A1200 or A4030; another machine refuses it when the core starts). It enters the identity of states and movies when it is not <c>None</c>.</summary>
 	public Puae6Fpu FpuModel { get; set; } = Puae6Fpu.None;
 
 	/// <summary>The CPU of the machine. It changes the instruction set, the exception frames and the registers, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
 	public Puae6Cpu CpuModel { get; set; } = Puae6Cpu.Auto;
 
-	/// <summary>CPU accuracy changes hardware timing and is part of state/movie identity; changing it requires a reboot.</summary>
+	/// <summary>A4030 requires Normal; its compatible/exact caches are not implemented. CPU accuracy changes hardware timing and is part of state/movie identity; changing it requires a reboot.</summary>
 	public Puae6CpuCompatibility CpuCompatibility { get; set; } = Puae6CpuCompatibility.Exact;
 
 	/// <summary>The clock of the CPU. It changes when everything the CPU does meets the chipset, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>

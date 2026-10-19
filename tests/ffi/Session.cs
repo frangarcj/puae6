@@ -82,7 +82,7 @@ internal static unsafe partial class Program
 						ControllerPort2 = Enum.Parse<Puae6Port2>(arguments.GetValueOrDefault("port2", "joystick"), true),
 						ChipMemory = Enum.Parse<Puae6Chip>(arguments.GetValueOrDefault("chip", "Auto")),
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
-						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "None")),
+						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "Auto")),
 						FpuModel = Enum.Parse<Puae6Fpu>(arguments.GetValueOrDefault("fpu", "None")),
 						CpuModel = Enum.Parse<Puae6Cpu>(arguments.GetValueOrDefault("cpu", "Auto")),
 						CpuCompatibility = Enum.Parse<Puae6CpuCompatibility>(arguments.GetValueOrDefault("accuracy", "Exact")),

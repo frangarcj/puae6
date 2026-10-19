@@ -67,5 +67,6 @@ extension ni simular registros MMU. La generacion sin argumentos conserva upstre
 El nuevo cuerpo CPU guarda controles 030 e instruction_cnt; P6RM añade los cuatro
 bytes Gary/Ramsey y P6DK conserva tambien el controlador IDE vacio. La RAM Fast
 cero sigue significando la del preset (8 MiB Zorro II en A4030), con NONE explicito.
-Esta vertical de motor/probe no anuncia aun el modelo en menus: las tres superficies
-y el arranque/restauracion real Waterbox siguen pendientes en T55b.
+El esquema comun expone el modelo y el preset a4030_normal; los tres frontends
+usan el mismo ABI. La aceptacion de arranque/restauracion real Waterbox sigue
+pendiente en T55b.

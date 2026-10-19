@@ -70,7 +70,7 @@ constexpr const char *kBoards = "expansion boards, CPU boards and host devices a
 constexpr const char *kProfile =
     "this value is fixed by the machine profile and is not a key of the option schema; the importer cannot tell whether the file agrees with it, so it refuses it (remove the line)";
 constexpr const char *kExec = "a .uae cannot include another file, load a plugin or run a program";
-constexpr const char *kZ3 = "Zorro III and motherboard RAM do not exist: every machine here has a 24-bit bus (only 0 is accepted)";
+constexpr const char *kZ3 = "Zorro III and motherboard RAM are not implemented (only 0 is accepted)";
 constexpr const char *kHostWindow = "a host window or input setting: the frontend and the core's own options decide it";
 
 enum class Kind { Reject, Zero, Ignore, Metadata };
@@ -168,8 +168,6 @@ struct Fixed {
 };
 
 constexpr Fixed kFixed[] = {
-    {"cpu_24bit_addressing", "true", "every machine here has a 24-bit bus"},
-    {"cpu_address_space_24", "true", "every machine here has a 24-bit bus"},
     {"cpu_speed", "real", "the machine runs at its real clock; the host speed never changes the emulation"},
     {"cpu_throttle", "0|0.0", "the machine runs at its real clock; the host speed never changes the emulation"},
     {"cachesize", "0", kJit},
@@ -207,13 +205,13 @@ struct MachineFacts {
     const char *cpu;
 };
 constexpr MachineFacts kMachines[] = {{"A500", "ocs", "68000"}, {"A600", "ecs", "68000"}, {"A1200", "aga", "68020"},
-                                      {"A500OG", "ocs", "68000"}, {"A500PLUS", "ecs", "68000"}, {"A1000", "ocs", "68000"}, {"A2000OG", "ocs", "68000"}, {"A2000", "ecs_agnus", "68000"}};
+                                      {"A500OG", "ocs", "68000"}, {"A500PLUS", "ecs", "68000"}, {"A1000", "ocs", "68000"}, {"A2000OG", "ocs", "68000"}, {"A2000", "ecs_agnus", "68000"}, {"A4030", "aga", "68030"}};
 // The spellings of chipset_compatible (WinUAE's cscompa) that name a machine. "A2000" names two: the A2000 OG with the OCS chipset and the A2000 with the ECS Agnus (see finish).
 struct Spelling {
     const char *spelling;
     const char *machine;
 };
-constexpr Spelling kSpellings[] = {{"a500", "A500"}, {"a500+", "A500PLUS"}, {"a600", "A600"}, {"a1000", "A1000"}, {"a1200", "A1200"}, {"a2000", "A2000"}};
+constexpr Spelling kSpellings[] = {{"a500", "A500"}, {"a500+", "A500PLUS"}, {"a600", "A600"}, {"a1000", "A1000"}, {"a1200", "A1200"}, {"a2000", "A2000"}, {"a4000", "A4030"}};
 
 class Importer {
 public:
@@ -244,7 +242,7 @@ private:
     const Entry *floppy0_ = nullptr;
     std::vector<const Entry *> drive_facts_;
     std::vector<std::pair<unsigned, const Entry *>> images_;
-    std::vector<const Entry *> timing_flags_;
+    std::vector<const Entry *> timing_flags_, address_flags_;
 
     void error(unsigned line, const std::string &key, const std::string &message)
     {
@@ -607,6 +605,10 @@ private:
             timing_flags_.push_back(&e);
             return;
         }
+        if (key == "cpu_24bit_addressing" || key == "cpu_address_space_24") {
+            address_flags_.push_back(&e);
+            return;
+        }
         for (const Fixed &fixed : kFixed) {
             if (key != fixed.key) continue;
             std::string value = lower(e.value);
@@ -688,6 +690,12 @@ private:
             }
         }
 
+        for (const Entry *entry : address_flags_) {
+            const bool expected = out_->settings.machine != P6_MACHINE_A4030;
+            bool value = false;
+            if (!parse_bool(entry->value, &value) || value != expected)
+                error(*entry, "address space must match the machine (expected " + std::string(expected ? "true: 24-bit" : "false: 32-bit") + ")");
+        }
         for (const Entry *entry : timing_flags_) {
             const bool expected = entry->key == "cpu_compatible" ? out_->settings.cpu_compatibility != P6_CPU_NORMAL :
                 out_->settings.cpu_compatibility == P6_CPU_EXACT;

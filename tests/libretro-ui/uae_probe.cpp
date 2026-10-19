@@ -105,6 +105,12 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
         CHECK(same_config(r.imported.settings, expected));
         CHECK(!r.imported.applied.empty());
     }
+    const Result a4030 = import("chipset_compatible=A4000\ncpu_model=68030\ncpu_24bit_addressing=false\npuae6_cpu_compatibility=normal\nfastmem_size=0\n");
+    CHECK(a4030.ok);
+    const p6_config cfg030 = config_of(a4030.imported.settings);
+    CHECK(cfg030.machine == P6_MACHINE_A4030 && cfg030.cpu_compatibility == P6_CPU_NORMAL && cfg030.fast_kib == P6_MEMORY_NONE);
+    CHECK(!import("chipset_compatible=A4000\ncpu_24bit_addressing=true\n").ok);
+    CHECK(!import("chipset_compatible=A1200\ncpu_24bit_addressing=false\n").ok);
     // The preset a file names is the preset of the frontend: a600_puae5 = A600 + 2 MiB Chip + 8 MiB Fast, then the keys refine it.
     Settings preset = concrete();
     preset.preset = 2;
@@ -239,9 +245,9 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"cpu_compatible=false", "cpu_compatible", "cycle exact"},
         {"cycle_exact=false", "cycle_exact", "cycle exact"},
         {"mmu_model=68030", "mmu_model", "no MMU"},
-        {"z3mem_size=64", "z3mem_size", "24-bit bus"},
-        {"mbresmem_size=8", "mbresmem_size", "24-bit bus"},
-        {"a3000mem_size=4", "a3000mem_size", "24-bit bus"},
+        {"z3mem_size=64", "z3mem_size", "not implemented"},
+        {"mbresmem_size=8", "mbresmem_size", "not implemented"},
+        {"a3000mem_size=4", "a3000mem_size", "not implemented"},
         {"fastmem2_size=4", "fastmem2_size", "one Zorro II"},
         {"immediate_blits=true", "immediate_blits", "compatibility shortcut"},
         {"waiting_blits=automatic", "waiting_blits", "compatibility shortcut"},
@@ -282,7 +288,7 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"chipset_compatible=A2000\nchipset=aga", "chipset", "A2000: ecs_agnus"},
         {"chipset_compatible=A500+\nchipset=ocs", "chipset", "A500PLUS: ecs"},
         {"chipset_compatible=A1000\nchipset=ecs", "chipset", "A1000: ocs"},
-        {"chipset_compatible=A4000", "chipset_compatible", "A500, A500+, A600, A1000, A1200, A2000"},
+        {"chipset_compatible=A4000\ncpu_model=68020", "cpu_model", "A4030: 68030"},
         {"chipset_compatible=CD32", "chipset_compatible", "A500, A500+, A600, A1000, A1200, A2000"},
         {"fpu_model=68040", "fpu_model", "0, 68881 or 68882"},
         {"fpu_model=abc", "fpu_model", "expected a number"},

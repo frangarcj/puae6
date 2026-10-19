@@ -4,6 +4,25 @@ Son especificaciones A IMPLEMENTAR. Los nombres p6_* son propuestos, no funcione
 existentes de WinUAE. T04 congela un header y tests antes de escribir el bridge.
 Reglas libretro verificadas: S4. Reglas del wrapper Waterbox verificadas: S5-S7.
 
+## A4000/030 en desarrollo (T55b)
+
+`P6_MACHINE_A4030 = 11` selecciona el preset A4000 real de upstream (modelo 6,
+configuracion 0), con CPU 68030, AGA, Gary 0, Ramsey 15, Ricoh RTC y mapa de
+32 bits. Los IDs 9/10 siguen reservados y rechazados; el struct ABI sigue en
+72 bytes. La primera implementacion acepta exclusivamente CPU Normal (byte 66 = 2)
+y no ofrece MMU: PMMU entra en F-line, sin registros ficticios. La FPU externa
+68881/68882 es opcional. Los niveles Compatible/Exact 030 requieren completar
+sus caches y actualmente devuelven UNSUPPORTED.
+
+La memoria propia es 2 MiB Chip y 8 MiB Fast Zorro II, como el A4030 de PUAE5;
+no se habilita RAM de placa ni Zorro III. `fast_kib=0` resuelve la propia y
+`P6_MEMORY_NONE` la desactiva, tambien en los tres frontends. Los estados añaden
+controles 030 a P6CP, los cuatro bytes Gary/Ramsey a P6RM y el IDE fisico a P6DK
+incluso sin disco. Modelo, memoria y nivel CPU forman parte de la identidad.
+El wrapper reserva las paginas de esos 8 MiB tambien con FastMemory=Auto.
+Las pruebas dirigidas nativas existen; la aceptacion completa Waterbox y el
+arranque con firmware real siguen pendientes. No se declara T55b terminada.
+
 ## ABI C pequena
 
 Operaciones del motor: p6_abi_version, p6_query_caps, p6_init, p6_load,

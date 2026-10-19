@@ -11,7 +11,8 @@
         5,
         6,
         7,
-        8
+        8,
+        11
       ],
       "names": {
         "A500": 1,
@@ -21,7 +22,8 @@
         "A500PLUS": 5,
         "A1000": 6,
         "A2000OG": 7,
-        "A2000": 8
+        "A2000": 8,
+        "A4030": 11
       },
       "option": "machine",
       "class": "reboot"
@@ -80,18 +82,20 @@
     "fast_kib": {
       "default": 0,
       "allowed": [
-        0,
+        4294967295,
         1024,
         2048,
         4096,
-        8192
+        8192,
+        0
       ],
       "names": {
-        "None": 0,
+        "None": 4294967295,
         "MB1": 1024,
         "MB2": 2048,
         "MB4": 4096,
-        "MB8": 8192
+        "MB8": 8192,
+        "Auto": 0
       },
       "option": "fast_size",
       "class": "reboot"
@@ -117,13 +121,15 @@
         0,
         1,
         2,
-        3
+        3,
+        4
       ],
       "names": {
         "auto": 0,
         "68000": 1,
         "68010": 2,
-        "68020": 3
+        "68020": 3,
+        "68030": 4
       },
       "option": "cpu_model",
       "class": "reboot"
@@ -1570,7 +1576,8 @@
           "A1000": "a1000",
           "A1200": "a1200",
           "A2000OG": "a2000og",
-          "A2000": "a2000"
+          "A2000": "a2000",
+          "A4030": "a4030"
         }
       },
       "wrapper": {
@@ -1658,7 +1665,8 @@
           "auto": "auto",
           "68000": "68000",
           "68010": "68010",
-          "68020": "68020"
+          "68020": "68020",
+          "68030": "68030"
         }
       },
       "wrapper": {
@@ -2461,6 +2469,13 @@
         "chip_size": "MB2",
         "fast_size": "MB8"
       }
+    },
+    "a4030_normal": {
+      "label": "A4000/030, Normal CPU (2 MiB Chip + 8 MiB Fast, no MMU)",
+      "values": {
+        "machine": "A4030",
+        "cpu_compatibility": "normal"
+      }
     }
   },
   "selectors": {
@@ -2475,7 +2490,8 @@
         "A500PLUS": 5,
         "A1000": 6,
         "A2000OG": 7,
-        "A2000": 8
+        "A2000": 8,
+        "A4030": 11
       }
     },
     "model_hd": {
@@ -2489,7 +2505,8 @@
         "A500PLUS": 5,
         "A1000": 6,
         "A2000OG": 7,
-        "A2000": 8
+        "A2000": 8,
+        "A4030": 11
       }
     },
     "filename_tags": {
@@ -2519,7 +2536,7 @@
     "floppy_drives": "FloppyDrives"
   },
   "unsupported": {
-    "z3fastmem_size": "Zorro III RAM needs a 32-bit bus (68030 and up, T55); every machine here has a 24-bit one.",
+    "z3fastmem_size": "Zorro III RAM is not implemented; the A4030 currently supports Zorro II Fast RAM only.",
     "fastmem2_size": "One Zorro II Fast RAM board is offered; a second board is not.",
     "kickstart_rom_file": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration.",
     "cpu_speed": "The machine runs at its real clock; the host speed never changes the emulation.",

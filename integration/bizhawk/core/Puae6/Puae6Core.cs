@@ -89,7 +89,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// What each machine comes with, in KiB: Chip, Slow.
 	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch
 	{
-		Puae6Machine.A1200 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
+		Puae6Machine.A1200 or Puae6Machine.A4030 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
 		Puae6Machine.A500OG or Puae6Machine.A1000 => (512u, 0u), _ => (512u, 512u),   // A500 and A2000 OG: 512 KiB Chip + 512 KiB Slow
 	};
 
@@ -100,7 +100,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static uint MachineNumber(Puae6Machine machine) => machine switch
 	{
 		Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, Puae6Machine.A500OG => P6.MachineA500OG, Puae6Machine.A500PLUS => P6.MachineA500Plus,
-		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, _ => P6.MachineA500,
+		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, _ => P6.MachineA500,
 	};
 
 	static uint ChipKib(Puae6Chip chip) => chip switch { Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB2 => 2048u, _ => 0u };
@@ -108,7 +108,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static uint SlowKib(Puae6Slow slow) => slow switch { Puae6Slow.None => P6.MemoryNone, Puae6Slow.KB512 => 512u, Puae6Slow.MB1 => 1024u, Puae6Slow.MB1_5 => 1536u, Puae6Slow.MB1_75 => 1792u, _ => 0u };
 
 	// The CPU (T52): the numbers of config/schema/options.json (0 is the machine's own, 1 + (model - 68000) / 10 the others).
-	static byte CpuModelNumber(Puae6Cpu cpu) => cpu switch { Puae6Cpu.M68000 => (byte)1, Puae6Cpu.M68010 => (byte)2, Puae6Cpu.M68020 => (byte)3, _ => (byte)0 };
+	static byte CpuModelNumber(Puae6Cpu cpu) => cpu switch { Puae6Cpu.M68000 => (byte)1, Puae6Cpu.M68010 => (byte)2, Puae6Cpu.M68020 => (byte)3, Puae6Cpu.M68030 => (byte)4, _ => (byte)0 };
 
 	static byte CpuCompatibilityNumber(Puae6CpuCompatibility level) => level switch
 	{
@@ -150,7 +150,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public static int RasterHeight(Puae6SyncSettings settings) =>
 		(settings.Region == Puae6Region.NTSC && IsOcs(settings.Machine) ? 486 : 576) / (settings.VideoLineMode == Puae6VideoLineMode.Single ? 2 : 1);
 
-	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
+	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.None => P6.MemoryNone, Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
 
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
 	static int ExtraMemoryKiB(Puae6SyncSettings settings)
@@ -158,7 +158,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		long overlay = settings.FloppyWrites ? FloppyOverlayKiB : 0;
 		var (ownChip, ownSlow) = OwnMemory(settings.Machine);
 		uint chip = ChipKib(settings.ChipMemory), slow = SlowKib(settings.SlowMemory);
-		long extra = FastKib(settings.FastMemory) + overlay;
+		uint fast = FastKib(settings.FastMemory);
+		long extra = (fast == P6.MemoryNone ? 0 : fast == 0 && settings.Machine == Puae6Machine.A4030 ? 8192 : fast) + overlay;
 		if (chip > ownChip) extra += chip - ownChip;
 		if (slow != P6.MemoryNone && slow > ownSlow) extra += slow - ownSlow;
 		return (int)extra;
@@ -419,7 +420,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	{
 		var heaps = Heaps(_syncSettings, _hardFiles.Select(image => image.LongLength));
 		// The memory enters the identity only when it is not the machine's own: the identity of a core with the stock memory is the one it always had.
-		string memory = _syncSettings.ChipMemory == Puae6Chip.Auto && _syncSettings.SlowMemory == Puae6Slow.Auto && _syncSettings.FastMemory == Puae6Fast.None
+		string memory = _syncSettings.ChipMemory == Puae6Chip.Auto && _syncSettings.SlowMemory == Puae6Slow.Auto && _syncSettings.FastMemory == Puae6Fast.Auto
 			? "" : $";chip={_syncSettings.ChipMemory};slow={_syncSettings.SlowMemory};fast={_syncSettings.FastMemory}";
 		// The same for the floppy writes (T28): a state of a core that can write its disks does not load in one that cannot, and a SaveRam that was stored changes the disks the
 		// guest has, so what it was (its SHA-256) is part of what a state and a movie are valid for. A core without writes keeps the identity it always had.

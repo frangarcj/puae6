@@ -89,16 +89,16 @@ class BizHawkTreeTests(unittest.TestCase):
         # T23e, T24f: Machine.A500 / A600 / A1200 are the FirmwareIDs (Amiga, "A500" / "A600" / "A1200") of BizHawk's database, which MacHawk already has: nothing is added to it.
         settings = (ROOT / "integration/bizhawk/core/Puae6/Settings.cs").read_text()
         machines = re.search(r"enum Puae6Machine \{ ([^}]*) \}", settings)[1].replace(" ", "").split(",")
-        self.assertEqual(["A500", "A600", "A1200", "A500OG", "A500PLUS", "A1000", "A2000OG", "A2000"], machines)
+        self.assertEqual(["A500", "A600", "A1200", "A500OG", "A500PLUS", "A1000", "A2000OG", "A2000", "A4030"], machines)
         launcher = (ROOT / "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs").read_text()
         self.assertIn("new(VSystemID.Raw.Amiga, FirmwareName(machine))", launcher)
         self.assertIn("FirmwareOf(settings.Machine)", launcher)
         # T50: the five machines that came after ask for the entry of their family, so nothing is added to the database (FirmwareName's rows are the whole mapping)
         rows = re.findall(r"((?:Puae6Machine\.\w+(?: or )?)+) => \"(\w+)\"", re.search(r"static string FirmwareName.*?\};", launcher, re.S)[0])
         asked = {member: name for members, name in rows for member in re.findall(r"Puae6Machine\.(\w+)", members)}
-        self.assertEqual({"A500OG": "A500", "A1000": "A500", "A2000OG": "A500", "A500PLUS": "A600", "A2000": "A600"}, asked)
+        self.assertEqual({"A500OG": "A500", "A1000": "A500", "A2000OG": "A500", "A500PLUS": "A600", "A2000": "A600", "A4030": "A4000"}, asked)
         database = (build_tree.TREE / "src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs").read_text(encoding="utf-8-sig")
-        for machine in ["A500", "A600", "A1200"]:
+        for machine in ["A500", "A600", "A1200", "A4000"]:
             self.assertRegex(database, rf'Firmware\("Amiga", "{machine}", ', machine)
             self.assertRegex(database, rf'Option\("Amiga", "{machine}", File\([^\n]*FirmwareOptionStatus\.Ideal\)', f"{machine} has an ideal option")
         self.assertIn("Kickstart v1.3", re.search(r'Option\("Amiga", "A500", [^\n]*Ideal\)', database)[0])

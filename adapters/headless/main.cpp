@@ -34,7 +34,7 @@ static int identity(void)
 {
     printf("core: puae6-headless\n");
     printf("profile: %s\n", P6_PROFILE);
-    printf("machines: A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000\n");
+    printf("machines: A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000 A4030 (Normal CPU only; no MMU)\n");
     printf("abi: %u\n", (unsigned)p6_abi_version());
     printf("upstream: WinUAE %s\n", P6_UPSTREAM_COMMIT);
     printf("patches: %s (%s)\n", P6_PATCH_COUNT, P6_PATCH_SERIES_SHA256);
@@ -115,7 +115,7 @@ static const Named floppy_speed_names[] = {{"100", 0}, {"200", 2}, {"400", 3}, {
 static const Named video_resolution_names[] = {{"lores", 1}, {"hires", 0}, {"superhires", 3}};
 static const Named video_line_mode_names[] = {{"single", 1}, {"double", 0}};
 // The CPU (T52), after --cpu: p6_config.cpu_model as 1 + (model - 68000) / 10; zero (auto) is the machine's own. The bridge refuses the combinations a machine cannot have.
-static const Named cpu_model_names[] = {{"auto", 0}, {"68000", 1}, {"68010", 2}, {"68020", 3}};
+static const Named cpu_model_names[] = {{"auto", 0}, {"68000", 1}, {"68010", 2}, {"68020", 3}, {"68030", 4}};
 // The clock of the CPU (T52), after --cpu-multiplier: upstream's cpu_clock_multiplier / 256, PUAE5's values; zero (auto) is the machine's own (2 with a 68000, 4 on the A1200).
 static const Named cpu_compatibility_names[] = {{"exact", 0}, {"compatible", 1}, {"normal", 2}};
 static const Named cpu_multiplier_names[] = {{"auto", 0}, {"1", 1}, {"2", 2}, {"4", 4}, {"8", 8}, {"10", 10}, {"12", 12}, {"16", 16}};
@@ -191,11 +191,12 @@ static int run(int argc, char **argv)
             else if (!strcmp(name, "a1200")) machine = P6_MACHINE_A1200;
             else if (!strcmp(name, "a2000og")) machine = P6_MACHINE_A2000OG;
             else if (!strcmp(name, "a2000")) machine = P6_MACHINE_A2000;
+            else if (!strcmp(name, "a4030")) machine = P6_MACHINE_A4030;
             else return -1;
         }
         else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
-        else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--fast") && i + 1 < argc) { const char *v = argv[++i]; fast_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : !strcmp(v, "auto") ? 0 : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));       // T54: 0 (none), 68881 or 68882; the bridge refuses the rest
         else if (!strcmp(argv[i], "--sound-sep") && i + 1 < argc) { if (!pick_named(sound_separation_names, argv[++i], &sound_separation)) return -1; }
         else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) { if (!pick_named(sound_interpolation_names, argv[++i], &sound_interpolation)) return -1; }
