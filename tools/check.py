@@ -271,6 +271,7 @@ TASK_SUITES[('MED01', 'T66h2')] = {'actual_akiko_reset_and_clock': 'tests.media.
 TASK_SUITES[('MED01', 'T66m1')] = {'actual_akiko_nvram_lifecycle': 'tests.media.test_cd32_nvram'}
 TASK_SUITES[('MED01', 'T66i2')] = {'real_cdda_player': 'tests.media.test_cd_audio', 'stream_regression': 'tests.audio.test_cd_audio'}
 TASK_SUITES[('MED01', 'T66n1')] = {'blkdev_cdda': 'tests.media.test_cd_device_audio', 'reader_regression': 'tests.media.test_cd_device', 'player_regression': 'tests.media.test_cd_audio'}
+TASK_SUITES[('STATE01', 'T66n2a')] = {'player_semantic_restore': 'tests.media.test_cd_audio_state', 'stream_regression': 'tests.audio.test_cd_audio'}
 TASK_SUITES[('MED01', 'T66d1')] = {'disc_blob_exact_reads': 'tests.media.test_cd_blob_reads'}
 TASK_SUITES[('MED01', 'T66d2')] = {'managed_disc_source': 'tests.media.test_cd_source_csharp'}
 TASK_SUITES[('ABI01', 'T66f1')] = {'cd_transport_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}

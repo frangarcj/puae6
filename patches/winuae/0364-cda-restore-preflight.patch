@@ -1,0 +1,19 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -3215,10 +3215,14 @@
+     if (!s.active) return !s.paused && !s.offset && !s.remaining && !s.event_cycles && !s.userdata;
+     return s.offset <= frames && s.remaining <= frames - s.offset && s.event_cycles <= s.period;
+ }
++bool can_restore(const cd_audio_state &cas, const int16_t *base, uint32_t frames, const State &s)
++{
++    return geometry(base, frames) && available(cas) && valid(s, frames);
++}
+ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s,
+              void (*next)(int, void *), void *context)
+ {
+-    if (!geometry(base, frames) || !available(cas) || !valid(s, frames)) return false;
++    if (!can_restore(cas, base, frames, s)) return false;
+     cas.cda_bufptr = s.active ? base + s.offset * 2 : dummy_buffer;
+     cas.cda_length = int(s.remaining); cas.cda_userdata = s.userdata;
+     cas.cda_paused = s.paused != 0; cas.cda_streamid = s.active ? 1 : 0;

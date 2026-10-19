@@ -186,7 +186,8 @@
     "0362-cd32-without-fmv": "required",
     "0360-akiko-emulated-clock": "required",
     "0361-nrg-metadata-only": "behavior",
-    "0363-akiko-nvram-lifecycle": "required"
+    "0363-akiko-nvram-lifecycle": "required",
+    "0364-cda-restore-preflight": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

@@ -1444,3 +1444,20 @@ y ERROR se reconocen solo tras Q exitoso, tambien all=true; un fallo no consume
 la notificacion. Stop y ultimo close detienen CDDA; el binding de Disc permanece
 hasta unbind. El caller conserva el medio hasta que unbind retorna.
 El estado causal de maquina/restore y el arranque CD32 siguen pendientes en T66.
+
+## Estado privado del player CDA (T66n2a)
+
+`AudioPlayerState` conserva PCM2352, rango/posicion, retardo no encolado, ganancias
+logicas, status/error, flags y el estado I1. Incluye identidad del Disc y presencia
+explicita de ambos callbacks; el dueño verifica el content_id de TOC y fuentes y
+aporta el nuevo Disc y callbacks. No guarda direcciones ni es un formato wire.
+`can_restore` es un preflight puro reutilizable por agregados; restore valida todo
+antes de mutar, reconstruye el stream/callback de agotamiento y copia PCM propio
+sin leer sectores, avanzar audio ni notificar. Un player detenido sin binding
+conserva PCM/rango historicos y se restaura sin Disc; el dispositivo exterior
+validara su propio binding. Paula y scheduler siguen separados.
+WAIT puede tener delay0 con silencio aun encolado; COMPLETE/ERROR pueden conservar
+un stream agotado durante el ultimo intervalo. La muestra actual puede conservar
+la ganancia anterior a un cambio de volumen. La prueba STATE01 compara PCM y
+callbacks futuros con otro dueño/Disc y rechazo transaccional. El guard0099 sigue
+activo: falta conectar el codec de maquina y acreditar restore CD32 completo.

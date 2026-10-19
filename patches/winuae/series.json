@@ -4903,6 +4903,29 @@
           "after_sha256": "3196282e33e87652662f6d25e38c21a1468fe61fabdc8ea709a27a237c653ab7"
         }
       ]
+    },
+    {
+      "id": "0364-cda-restore-preflight",
+      "file": "patches/winuae/0364-cda-restore-preflight.patch",
+      "sha256": "cf3b57a29c823296ecd58a4e40626795780c60e28a91c8953d88c5fe156a50ef",
+      "title": "Expose pure CDA restore preflight for private aggregate state",
+      "reason": "T66n2a validates the complete player before restoring the real stream; the shared predicate preserves I1 geometry, ownership and causal validation without advancing audio.",
+      "category": "instrumentation",
+      "order": 181,
+      "symbols": [
+        "p6_cda::can_restore",
+        "p6_cda::restore"
+      ],
+      "test": "tests/media/test_cd_audio_state.py; tests/audio/test_cd_audio.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "aae36d3beda7401b14cb80cd613562dbdf0d70a4e8c51d640a84c8cd57793e02",
+          "after_sha256": "36d7dfb5c432ca70ac22f5d30b75e2d6b7eebecabea46f46932bdf521e203e69"
+        }
+      ]
     }
   ]
 }

@@ -1,8 +1,73 @@
 #include "cd_audio.h"
-#include "audio_cda_state.h"
+#include "cd_audio_state.h"
 #include <limits.h>
 #include <string.h>
 namespace p6_cd {
+bool AudioPlayer::capture(AudioPlayerState *out) const
+{
+    if (!out) return false;
+    AudioPlayerState s{};
+    if (!p6_cda::capture(stream_, pcm_, 588, &s.stream)) return false;
+    s.delay = delay_; memcpy(s.pcm, pcm_, sizeof pcm_);
+    s.bound = disc_ != nullptr;
+    if (disc_) memcpy(s.disc_id, disc_->layout().content_id, sizeof s.disc_id);
+    s.running = running_; s.sector = sector_;
+    s.callbacks = (status_callback_ ? 1u : 0u) | (sub_callback_ ? 2u : 0u);
+    s.position = position_; s.end = end_; s.left = left_; s.right = right_;
+    s.status = status_; s.error = int32_t(error_);
+    if (!can_restore(s, disc_, status_callback_, sub_callback_)) return false;
+    *out = s; return true;
+}
+bool AudioPlayer::can_restore(const AudioPlayerState &s, const Disc *disc,
+                              play_status_callback status, play_subchannel_callback sub) const
+{
+    const uint64_t max_delay = (uint64_t(INT_MAX) * 44100 + 999) / 1000 + uint64_t(INT_MAX) * 588;
+    if (s.bound > 1 || s.running > 1 || s.sector > 1 || s.callbacks != ((status ? 1u : 0u) | (sub ? 2u : 0u))
+        || s.left > 65535 || s.right > 65535 || s.delay > max_delay || s.position > s.end || s.end > INT_MAX
+        || s.error < int(Result::Ok) || s.error > int(Result::Unsupported) || s.stream.userdata
+        || !p6_cda::can_restore(stream_, pcm_, 588, s.stream)) return false;
+    if (!s.bound) {
+        const uint8_t empty[32]{};
+        return !disc && !s.callbacks && !memcmp(s.disc_id, empty, sizeof empty) && !s.running && !s.sector
+            && !s.delay && s.status == AUDIO_STATUS_NO_STATUS && s.error == int(Result::Ok) && !s.stream.active;
+    }
+    if (!disc || memcmp(s.disc_id, disc->layout().content_id, sizeof s.disc_id)
+        || !s.end || s.end > disc->layout().leadout || (s.stream.paused && !s.running)) return false;
+    if (s.running || s.status == AUDIO_STATUS_PLAY_COMPLETE) {
+        SectorInfo sector;
+        const uint32_t lba = s.status == AUDIO_STATUS_PLAY_COMPLETE ? s.position - 1 : s.position;
+        if (describe_sector(*disc, lba, &sector) != Result::Ok || (sector.effective.control & 4)) return false;
+    }
+    switch (s.status) {
+    case AUDIO_STATUS_NOT_SUPPORTED: // WAIT: last queued silence may have exhausted delay already.
+        if (!s.running || s.sector || !s.stream.active || !s.stream.remaining || s.error != int(Result::Ok)) return false;
+        for (uint32_t i = 0; i < (s.stream.offset + s.stream.remaining) * 2; ++i) if (s.pcm[i]) return false;
+        return s.position < s.end;
+    case AUDIO_STATUS_IN_PROGRESS:
+        return s.running && s.sector && !s.delay && s.error == int(Result::Ok) && s.position < s.end
+            && s.stream.active && s.stream.remaining && s.stream.offset + s.stream.remaining == 588;
+    case AUDIO_STATUS_PLAY_COMPLETE:
+        return !s.running && s.sector && !s.delay && s.error == int(Result::Ok) && s.position == s.end
+            && (!s.stream.active || (s.stream.offset == 588 && !s.stream.remaining));
+    case AUDIO_STATUS_PLAY_ERROR:
+        return !s.running && !s.sector && s.error != int(Result::Ok) && s.position < s.end
+            && (!s.stream.active || (s.stream.offset && !s.stream.remaining));
+    default: return false;
+    }
+}
+bool AudioPlayer::restore(const AudioPlayerState &s, const Disc *disc,
+                          play_status_callback status, play_subchannel_callback sub)
+{
+    if (!can_restore(s, disc, status, sub)
+        || !p6_cda::restore(stream_, pcm_, 588, s.stream, consumed, this)) return false;
+    // No failure or reentry remains after the stream preflight; PCM is owned here.
+    memcpy(pcm_, s.pcm, sizeof pcm_); disc_ = disc;
+    status_callback_ = status; sub_callback_ = sub;
+    position_ = s.position; end_ = s.end; delay_ = s.delay;
+    left_ = uint16_t(s.left); right_ = uint16_t(s.right);
+    status_ = s.status; error_ = Result(s.error); running_ = s.running; sector_ = s.sector;
+    return true;
+}
 AudioPlayer::~AudioPlayer()
 {
     // Teardown does not run the scheduler or read another sector.

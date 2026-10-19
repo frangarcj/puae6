@@ -15,6 +15,8 @@ struct State {
 // transactional. Restore derives pointers and callbacks from these arguments;
 // caller restores shared audio phase and scheduler before advancing again.
 bool capture(const cd_audio_state &, const int16_t *, uint32_t frames, State *);
+// Pure geometry/ownership/value preflight for aggregate restores.
+bool can_restore(const cd_audio_state &, const int16_t *, uint32_t frames, const State &);
 bool restore(cd_audio_state &, int16_t *, uint32_t frames, const State &,
              void (*next)(int, void *), void *context);
 // Caller first brings audio to the command's emulated cycle with update_audio.

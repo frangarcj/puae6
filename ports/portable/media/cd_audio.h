@@ -7,6 +7,7 @@ struct TrapContext;
 #include "blkdev.h"
 #include "cd_read.h"
 namespace p6_cd {
+struct AudioPlayerState;
 class AudioPlayer {
 public:
     AudioPlayer() = default;
@@ -24,6 +25,11 @@ public:
     int status() const { return stream_.cda_paused && running_ ? AUDIO_STATUS_PAUSED : status_; }
     Result error() const { return error_; }
     bool active() const { return running_; }
+    // No I/O, scheduler advance or callbacks. Disc/callback presence is explicit;
+    // restored addresses come from the new owner, never from the value state.
+    bool capture(AudioPlayerState *) const;
+    bool can_restore(const AudioPlayerState &, const Disc *, play_status_callback, play_subchannel_callback) const;
+    bool restore(const AudioPlayerState &, const Disc *, play_status_callback, play_subchannel_callback);
 private:
     static void consumed(int, void *);
     Result queue(uint32_t lba);
