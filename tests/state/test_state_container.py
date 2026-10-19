@@ -22,7 +22,7 @@ BRIDGE_BODY = 40        # P6BR (T15h) with no media event queued: 40 bytes plus 
 INPUT_BODY = 170 + 4    # P6IN: empty keyboard ring, plus T70d's two parallel types and two button bytes
 CHIPSET_BODY = 1702 + 24  # P6CH: CHIP/BLTX/BLIT/CHSL/SPRn/BEAM/COPR/BLTP, plus T70c's LPEN (16 + 8 header)
 VIDEO_FIXED = 484       # P6VD (T15j): BPLX 292, DNSP (64) and GEOM (104), each with its tag and length, and then PIXL, the rows of the picture, whose length is the picture's
-AUDIO_BODY = 496 + 168  # P6AU: four channels of 25 and AUDP (356), plus T74b's DCLK (160 + 8 header)
+AUDIO_BODY = 496 + 168  # P6AU: four channels of 25 and AUDP (356), plus T74a's DCLK (160 + 8 header)
 DISK_BODY = 441         # P6DK with no medium: four DSKn of 24, four absent DSDn, DISK 17 and DSKX 248, each with its tag and length
 
 

@@ -15776,7 +15776,7 @@
       "title": "Estado nativo CD32 completo con chunk Akiko e identidad CD",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66m4",
         "T66m5",
@@ -15815,7 +15815,8 @@
         "Paula usa fachada ownedDevice solo CD32, guarda/aplica fase89words tras restore_audio_finish y antes del agregadoCDA. Otros perfiles mantienen0099estricto. Incluir identidadCD fija bound+Disc.content_id en cada hash de prefijo nativo, no soloADF/HDF; fuente de Disc prestada accesible deforma privada sinserializar. Validar todo antes del reset head y aplicar en owner nuevo. Activar P6_CAP_STATE/estado nativo privado solo tras superar la puerta dirigida, sin anunciar modeloCD32 enfrontend.",
         "Probe nativo real reutiliza helpers de cd32_boot_probe mediante guard fixture-only, firmware18/19local autorizado yCD sintetico publico poroffset. Guardar/avanzar/restaurar/mismo futuro en instancia nueva y enla actual; cortes activo/pausa/delay/terminal cuando seancausales; comparar PCM/video/counters/estado completo ymapaROMreal. RechazosCDdistinto ycampoP6AK tardio conchecksums rehechos conservan RAM/ciclos/estado. Periodo/ciclo candidatos prueban independenciadel live. P1 mantienepayloadbootbloqueado; su gate temporalUnsupported se sustituye por comprobaciondecap/cota al habilitarcodec.",
         "Ejecutar STATE01 de NativeCD32 y regresion cercana del contenedor/perfiles normales, con buildengine coordinado-j2 una vez integrada candidata ycacheverificado. No repetirbateriasniWaterbox. Actualizarcontrato/inventario del NativeChunk; snapshotWB/SaveRAMfrontend/arranquejuego yformatos restantes siguenT66. Objetivo<=400lineaslogicas reutilizando helpers; si supera presupuesto dividir antesdeampliar sin perder gateintegrada.",
-        "Actualizar las cotas fijas obsoletas del test general del contenedor para las extensiones ya entregadas T70c (LPEN), T70d (puertos paralelos) y T74b (DCLK), contrastando el contrato y los codecs independientes; no modificar cuerpos del motor ni tolerancias para resolver estos fallos de expectativas antiguas."
+        "Actualizar las cotas fijas obsoletas del test general del contenedor para las extensiones ya entregadas T70c (LPEN), T70d (puertos paralelos) y T74b (DCLK), contrastando el contrato y los codecs independientes; no modificar cuerpos del motor ni tolerancias para resolver estos fallos de expectativas antiguas.",
+        "Cierre nativo: STATE01 ejecuta y supera legacy_container (14 casos) y native_cd32_machine_restore (maquina CD32 real, cuatro cortes activo/pausa/delay/terminal, owner nuevo y rechazos transaccionales). La preparacion PIO consume respuesta inicial y consulta INFO antes de PLAY; se corrigieron expectativas antiguas de P6IN/LPEN/DCLK sin cambios al motor. Firmware local18/19, CD audio sintetico. No acredita payloadboot ni snapshotCD32Waterbox; P1 sigue blocked."
       ],
       "checks": [
         "STATE01"
