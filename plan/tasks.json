@@ -12579,7 +12579,7 @@
       "title": "Estado nativo del RTC Ricoh para futuros A4000",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T54",
         "T49"
@@ -12625,7 +12625,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T55a"
       ],
