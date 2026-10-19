@@ -15690,7 +15690,7 @@
       "title": "Perfil CD32 stock y arranque nativo con firmware combinado",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T66k1",
         "T66o1"
@@ -15735,7 +15735,8 @@
       "acceptance": [
         "El perfil CD32 carga firmware combinado valido, accede al Akiko real y avanza frames en el motor nativo; rechaza estados hasta codec completo y mantiene la regresion A1200. El escenario local informa exactamente si arranca firmware o contenido; no cierra T66."
       ],
-      "stop": "No proclamar soporte frontend ni restore CD32 completo; codec nativo, Waterbox, SaveRAM y formatos restantes permanecen en T66."
+      "stop": "No proclamar soporte frontend ni restore CD32 completo; codec nativo, Waterbox, SaveRAM y formatos restantes permanecen en T66.",
+      "blocked_reason": "El probe real con ROMs18/19 y Brian CUE carga mapas/perfil y avanza240frames, pero no lee payload. Reproducer conservado en test_cd32_boot.py/cd32_boot_probe.cpp con diagnosticos de fallo: PC00fbfd0c, open1/init2/unit0, flags79000000, cmdf5, RX0/0, TOC32, media1/0. Hipotesis verificables: (1) firmware sigue en secuencia/intro antes de habilitar lectura: contrastar comandos/fase y progreso emulado con referencia sin ampliar240 a ciegas; (2) handshake/IRQ TX-RX queda completado internamente pero no visible al driver: contrastar INTREQ/INTENA, indices DMA y memoria del driver. La compilacion faltaba disk.h, ya corregido; no se declara boot ni se cambia CPU/timing."
     },
     {
       "id": "T66",
