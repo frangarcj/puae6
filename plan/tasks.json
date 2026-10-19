@@ -14920,7 +14920,7 @@
       "title": "Servicio Akiko cooperativo y FIFO de comandos completos",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66g3",
         "T66c"
@@ -14958,7 +14958,7 @@
       "title": "Tiempo causal y reset del servicio Akiko",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66h1"
       ],
@@ -14978,7 +14978,8 @@
       ],
       "steps": [
         "Reproducer real limpio versusreset trasfase parcial: staticfloat framecounter1/2 sobrevivenreset yfaltanestado. Reemplazar por acumuladores enteros del tiempo emulado conrestos explicitos, sinclockhost.",
-        "Concretar/probar periodo1x/2x PAL/NTSC, adelanto5lineas subcode y turbo; conservar decisionesdeterministas y estado de fase. Presupuesto250–350logicas; la serializacion completaAkiko yrestorenativo/WB siguenenT66 hasta suintegracion."
+        "Concretar/probar periodo1x/2x PAL/NTSC, adelanto5lineas subcode y turbo; conservar decisionesdeterministas y estado de fase. Presupuesto250–350logicas; la serializacion completaAkiko yrestorenativo/WB siguenenT66 hasta suintegracion.",
+        "Reservado patch0360-akiko-emulated-clock, ordenfinal177, sobre akiko.cpp tras0358. El probe debe llamar reset real con fixtures declarados o dependencias reales para servicios ajenos; no sustituir comprobacion de reset por helper inventado. Estado/temporizacion de ROM/hardware completo se integrara enT66, sin habilitar perfiles antesdepuerta completa."
       ],
       "checks": [
         "MED01"
