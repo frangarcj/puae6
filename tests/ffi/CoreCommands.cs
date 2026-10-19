@@ -138,6 +138,7 @@ internal static unsafe partial class Program
 		{
 			GuestDirectory = Path.GetDirectoryName(guest)!, GuestFileName = Path.GetFileName(guest), PinnedGuestSha256 = options["sha"],
 			Firmware = File.ReadAllBytes(options["firmware"]), RomKey = options.TryGetValue("romkey", out var key) ? File.ReadAllBytes(key) : null, SyncSettings = settings, Media = media ?? new List<byte[]>(), HardFiles = hardFiles ?? new List<byte[]>(), Volumes = volumes ?? new List<byte[]>(),
+			Settings = new Puae6Settings { DriveSoundVolume = (Puae6DriveSoundVolume)int.Parse(options.GetValueOrDefault("drivevolume", "0")) },
 		});
 	}
 

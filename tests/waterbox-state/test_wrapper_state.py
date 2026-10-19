@@ -37,6 +37,7 @@ from tests.input.test_input import CAPS, ESC, FIXTURES, JOYSTICK, KEY_Q, LEFT, M
 from tests.input.test_cd32 import ROM as CD32_ROM  # noqa: E402
 from tests.input.test_pointer import ROM as POINTER_ROM  # noqa: E402
 from tests.input.test_mouse2 import ROM as MOUSE2_ROM  # noqa: E402
+from tests.audio.test_drive_sound import MECHANICAL  # noqa: E402
 from tests.scenarios.disk import disk  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
 multidrive = importlib.import_module("tests.libretro-host.test_multidrive")
@@ -61,7 +62,7 @@ class WrapperStateTests(unittest.TestCase):
         cls.dir = Path(cls.tmp.name)
         for name, source in (("disk", disk.rom_source()), ("input_all", (FIXTURES / "input_all.s").read_text(encoding="utf-8")),
                              ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8")), ("cd32", CD32_ROM),
-                             ("four", multidrive.rom_source()), ("mouse2", MOUSE2_ROM), ("pointer", POINTER_ROM)):
+                             ("four", multidrive.rom_source()), ("mouse2", MOUSE2_ROM), ("pointer", POINTER_ROM), ("mechanical", MECHANICAL)):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
         for name, label in (("A", 0x41), ("B", 0x42), ("C", 0x43), ("D", 0x44)):
             (cls.dir / f"{name}.adf").write_bytes(disk.make_adf(label))
@@ -168,6 +169,31 @@ class WrapperStateTests(unittest.TestCase):
         out = self.session([self.core("A"), "save A start", self.core("B"), "load B start", "run A 30", "run B 30", "digest A a", "digest B b"])
         self.assertEqual([u[1:] for u in self.units(out, "A")], [u[1:] for u in self.units(out, "B")])
         self.assertEqual(self.digests(out, "A")["a"], self.digests(out, "B")["b"])
+
+    def test_drive_volume_is_live_host_preference_and_restore_keeps_mechanical_phase(self):
+        movie = self.dir / "drive-sound.bk2"
+        out = self.session([self.core("A", adf="", drivevolume=100), "run A 5 record", "save A motor", "run A 9 record", "digest A first", f"endmovie A {movie}",
+                            "peek A Chip_RAM 0 1024", "drivevolume A 0", "load A motor", "drivevolume A", "run A 4", "drivevolume A 100", "run A 5", "digest A returned",
+                            "peek A Chip_RAM 0 1024", "drivevolume A 101", "drivevolume A -1", "load A motor", "run A 9", "digest A replay",
+                            self.core("B", adf="", drivevolume=50), "load B motor", "drivevolume B", f"moviecheck B {movie}", "drivevolume B 100", "run B 9", "digest B fresh"], firmware="mechanical")
+        a, b = ([u[1:] for u in self.units(out, n)] for n in "AB")
+        self.assertEqual(32, len(a))
+        # PCM is field 4; ticks, picture, cadence, lag and events agree while muted.
+        self.assertEqual([u[:4] + u[5:] for u in a[5:14]], [u[:4] + u[5:] for u in a[14:23]])
+        self.assertTrue(any(u[4] != v[4] for u, v in zip(a[5:9], a[14:18])))
+        self.assertEqual(a[9:14], a[18:23], "returning to 100 keeps continuous sample phase")
+        self.assertEqual(a[5:14], a[23:])
+        self.assertEqual(a[5:14], b)
+        self.assertEqual(["0", "0", "100", "100", "100"], re.findall(r"^volume A (\d+)$", out, re.M), "load and invalid updates preserve the current setting")
+        self.assertIn("volume B 50", out)
+        self.assertEqual(2, out.count("rejected volume A"))
+        self.assertIn("movie accepted B", out, "volume is outside BK2 identity")
+        peeks = re.findall(r"^peek A Chip_RAM 0 (\w+)$", out, re.M)
+        self.assertEqual(2, len(peeks))
+        self.assertEqual(peeks[0], peeks[1])
+        digests = {**self.digests(out, "A"), **self.digests(out, "B")}
+        self.assertEqual(4, len(digests))
+        self.assertEqual(1, len(set(digests.values())), "same volume and phase give same complete state")
 
     def test_four_distinct_boot_disks_restore_reads_and_the_complete_wrapper_in_a_new_sandbox(self):
         n, end = multidrive.SAVE, multidrive.UNITS

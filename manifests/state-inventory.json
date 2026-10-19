@@ -8037,7 +8037,8 @@
       "construction": "Fixed when the core is created and never changes afterwards; what a state is valid for is checked against it by the envelope (guest, heaps, config, firmware, media), so a state never needs to carry it.",
       "output": "A buffer that every unit rewrites completely before BizHawk reads it; stale after a load until the next unit, which is what BizHawk expects of a core (the picture shown after a load is the last one drawn).",
       "cleared": "Reset by a load: it belongs to the timeline that was left.",
-      "lifecycle": "Not a property of the emulated machine: object lifetime and error state."
+      "lifecycle": "Not a property of the emulated machine: object lifetime and error state.",
+      "presentation": "Live host preference, outside machine and movie identity. A load leaves the user's current choice in effect; every next unit reapplies it."
     },
     "fields": {
       "_guest": {
@@ -8047,6 +8048,10 @@
       "_syncSettings": {
         "policy": "construction",
         "what": "the sync settings; the config hash of the envelope covers every one of them"
+      },
+      "_settings": {
+        "policy": "presentation",
+        "what": "host drive volume; not serialized or rewound, reapplied as render flags each unit"
       },
       "_serviceProvider": {
         "policy": "construction",

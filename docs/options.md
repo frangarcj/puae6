@@ -6,6 +6,16 @@ deben respetar headless y el wrapper BizHawk). Este documento explica las opcion
 (T31a-T31d); las opciones de maquina (modelo, memoria, estandar de video, disquetes) estan en el esquema y en
 `docs/02-contracts.md`.
 
+## Volumen mecanico de disquetes (T74b)
+
+`puae6_drive_sound_volume` controla la mezcla del motor y los pasos de las
+disqueteras: `0` (silencio, defecto), `10`, `25`, `50`, `75` o `100` por ciento.
+Headless usa `--drive-sound-volume` con esos mismos valores; BizHawk ofrece
+`Settings.DriveSoundVolume` (`P0`, `P10`, `P25`, `P50`, `P75`, `P100`).
+Se aplica en la siguiente unidad, sin reiniciar. No cambia SyncSettings ni la
+identidad de peliculas o estados. Cargar un estado conserva el volumen que
+el usuario tenga seleccionado; las fases mecanicas si se restauran.
+
 ## A4000/030 (T55b)
 
 El modelo `A4030` usa la placa A4000 real: AGA, Gary/Ramsey, Ricoh RTC, mapa de

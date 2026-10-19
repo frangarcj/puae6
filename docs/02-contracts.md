@@ -1092,5 +1092,17 @@ ni llama `audio_activate`. Las fases avanzan incluso con ganancia cero; motor,
 expulsion y pasos del guest llegan por los hooks de DISK. `P6AU.DCLK` guarda
 40 palabras big endian (160 bytes), con validacion antes de aplicar. El volumen
 es presentacion y queda fuera de este cuerpo y de la identidad de maquina.
-`p6_state_probe --drive-sound 0..100` permite comprobar el backend; las opciones
-publicas y sus pruebas en frontends corresponden a T74b.
+`p6_state_probe --drive-sound 0..100` usa el contrato publico de T74b: los bits
+8..14 de `render_flags` contienen un volumen de 0..100. Los valores 101..127 y
+los bits desconocidos se rechazan antes de aplicar cambios. La ganancia se
+aplica despues de APPLY y de validar/aplicar la entrada, antes de RUN, incluso
+cuando no se solicita entregar audio. No cambia `p6_config`, su hash ni la ABI
+de entrada.
+
+Libretro (`puae6_drive_sound_volume`), headless (`--drive-sound-volume`) y
+BizHawk (`Settings.DriveSoundVolume`) ofrecen 0, 10, 25, 50, 75 y 100 por ciento.
+`Puae6Settings` queda fuera de SyncSettings, BK2 y WrapperState: cargar conserva
+la preferencia actual del host, que se reaplica en cada unidad. DCLK restaura
+las fases; un snapshot bruto Waterbox tambien puede contener ganancia
+transitoria y buffers PCM. La comprobacion de volumen compara el futuro de
+hardware y la continuidad PCM al volver al mismo volumen.

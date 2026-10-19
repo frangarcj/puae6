@@ -100,6 +100,7 @@ internal static unsafe partial class Program
 					var make = new Dictionary<string, string>(fixedOptions);
 					if (arguments.TryGetValue("firmware", out var firmware)) make["firmware"] = firmware;
 					if (arguments.TryGetValue("seed", out var seed)) make["seed"] = seed;
+					if (arguments.TryGetValue("drivevolume", out var volume)) make["drivevolume"] = volume;
 					var adfs = arguments.TryGetValue("adf", out var list) ? list.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
 					var machine = new Machine { Mouse = settings.ControllerPort1 == Puae6Port1.Mouse, Options = arguments };
 					var hdfs = arguments.TryGetValue("hdf", out var hardList) ? hardList.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
@@ -123,6 +124,24 @@ internal static unsafe partial class Program
 					break;
 				}
 				case "run": Run(words[1], machines[words[1]], int.Parse(words[2]), arguments); break;
+				case "drivevolume":
+				{
+					var core = machines[words[1]].Core;
+					var settings = core.GetSettings();
+					var before = settings.DriveSoundVolume;
+					try
+					{
+						if (words.Length > 2)
+						{
+							settings.DriveSoundVolume = (Puae6DriveSoundVolume)int.Parse(words[2]);
+							Require(core.GetSettings().DriveSoundVolume == before, "presentation GetSettings returns a copy");
+							Require(core.PutSettings(settings) == PutSettingsDirtyBits.None, "volume does not reboot");
+						}
+					}
+					catch (ArgumentOutOfRangeException) { Console.WriteLine($"rejected volume {words[1]}"); }
+					Console.WriteLine($"volume {words[1]} {(int)core.GetSettings().DriveSoundVolume}");
+					break;
+				}
 				case "endmovie": EndMovie(machines[words[1]], words[2]); Console.WriteLine($"movie {words[2]} frames={machines[words[1]].Recorded.Count}"); break;
 				case "movieverify": MovieVerify(machines[words[1]], words[2], int.Parse(words[3]), arguments); break;
 				case "moviecheck":

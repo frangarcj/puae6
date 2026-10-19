@@ -19,12 +19,12 @@ public sealed partial class Puae6Core
 	/// Config.PreferredCores["Amiga"]), so nothing that exists is replaced and the movies that name UAE keep naming it.
 	/// </summary>
 	[CoreConstructor(VSystemID.Raw.Amiga, Priority = CorePriority.Low)]
-	public Puae6Core(CoreLoadParameters<object, Puae6SyncSettings> lp)
+	public Puae6Core(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 		: this(lp.Comm, ParametersFrom(lp))
 	{
 	}
 
-	static Puae6Parameters ParametersFrom(CoreLoadParameters<object, Puae6SyncSettings> lp)
+	static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 	{
 		// ADF disks, HDF hard files (T63b) and volumes (T64b: an LHA archive, or a ZIP file of files, becomes a hard file built in memory, ADR 0011); optical discs are not supported by the guest, and booting
 		// without them would hide that they were asked for. A directory cannot be a ROM asset of BizHawk's loader: it is not offered here (docs/02-contracts.md, "Volumenes").
@@ -46,6 +46,7 @@ public sealed partial class Puae6Core
 			GuestDirectory = PathUtils.DllDirectoryPath,
 			Firmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(settings.Machine), $"A Kickstart for the Amiga {settings.Machine.ToString().Substring(1)} is required (the firmware \"{FirmwareName(settings.Machine)}\")"),
 			SyncSettings = settings,
+			Settings = lp.Settings ?? new Puae6Settings(),
 			Media = floppies.Select(rom => rom.FileData).ToList(),
 			MediaNames = floppies.Select(NameOf).ToList(),
 			HardFiles = hardFiles.Select(rom => rom.FileData).ToList(),

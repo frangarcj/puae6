@@ -67,6 +67,21 @@ public enum Puae6Port1 { Mouse, Joystick, None, Cd32, Lightgun, Lightpen }
 /// <summary>What is plugged into the second controller port.</summary>
 public enum Puae6Port2 { Joystick, None, Cd32, Mouse, Lightgun, Lightpen }
 
+/// <summary>Live presentation choices, excluded from sync settings, movies and save-state identity.</summary>
+public enum Puae6DriveSoundVolume { P0 = 0, P10 = 10, P25 = 25, P50 = 50, P75 = 75, P100 = 100 }
+
+public sealed class Puae6Settings
+{
+	Puae6DriveSoundVolume _driveSoundVolume;
+	/// <summary>Mechanical drive volume, 0 (silent) to 100 percent. The phase advances even when silent.</summary>
+	public Puae6DriveSoundVolume DriveSoundVolume
+	{
+		get => _driveSoundVolume;
+		set => _driveSoundVolume = Enum.IsDefined(typeof(Puae6DriveSoundVolume), value) ? value : throw new ArgumentOutOfRangeException(nameof(value), "Unknown drive sound volume");
+	}
+	public Puae6Settings Clone() => (Puae6Settings)MemberwiseClone();
+}
+
 /// <summary>
 /// The settings that change what the machine does, so they are part of a movie and of a save state's identity (docs/02-contracts.md, "Configuracion"):
 /// the same normalized values feed the guest, and a change needs a reboot of the core. No hardware option is exposed that the profile cannot run.

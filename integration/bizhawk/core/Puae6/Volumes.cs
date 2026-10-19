@@ -74,7 +74,7 @@ public static class Puae6Volumes
 		return new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256, Firmware = parameters.Firmware,
-			SyncSettings = parameters.SyncSettings, Media = parameters.Media, MediaNames = parameters.MediaNames, HardFiles = images, HardFileNames = names,
+			SyncSettings = parameters.SyncSettings, Settings = parameters.Settings, Media = parameters.Media, MediaNames = parameters.MediaNames, HardFiles = images, HardFileNames = names,
 		};
 	}
 

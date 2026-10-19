@@ -26,6 +26,7 @@ public sealed class Puae6Parameters
 	/// SHA-256 is the identity of states and movies. The key is not kept.</summary>
 	public byte[]? RomKey { get; set; }
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
+	public Puae6Settings Settings { get; set; } = new();
 	/// <summary>The floppy images the machine may use (ADF of 880 KiB, an extended ADF, an FDI or an IPF, all together at most what 16 ADF take): the first <see cref="Puae6SyncSettings.FloppyDrives"/> are in a drive at power-on.</summary>
 	public IReadOnlyList<byte[]> Media { get; set; } = new List<byte[]>();
 	/// <summary>Names to show when a disk is selected or inserted; "disk N" where missing.</summary>
@@ -53,7 +54,7 @@ public sealed class Puae6Parameters
 /// state) and speaks only the ABI of adapters/waterbox/p6w.h.
 /// </summary>
 [PortedCore(name: Puae6Names.Core, author: "WinUAE team and the PUAE6 project", portedVersion: "WinUAE 6.0.3", portedUrl: "https://github.com/tonioni/WinUAE", isReleased: false)]
-public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISaveRam, ISettable<object, Puae6SyncSettings>
+public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISaveRam, ISettable<Puae6Settings, Puae6SyncSettings>
 {
 	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
 	/// <summary>The largest picture any raster option can deliver (super-hires, 1520 columns; 576 rows); the buffer of one machine is <see cref="RasterWidth"/> x <see cref="RasterHeight"/>.</summary>
@@ -168,6 +169,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	Puae6Guest _guest = null!;                  // replaced once, before the first unit, when a SaveRam is stored (the base disks change: StoreSaveRam)
 	readonly Puae6SyncSettings _syncSettings;
+	Puae6Settings _settings;
 	readonly BasicServiceProvider _serviceProvider;
 	readonly int[] _videoBuffer = new int[MaxWidth * MaxHeight];
 	readonly short[] _soundBuffer = new short[2 * MaxAudioFrames];
@@ -215,12 +217,13 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (Puae6RomKey.IsEncrypted(parameters.Firmware))
 			parameters = new Puae6Parameters
 			{
-				GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256, SyncSettings = parameters.SyncSettings,
+				GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256, SyncSettings = parameters.SyncSettings, Settings = parameters.Settings,
 				Firmware = Puae6RomKey.Resolve(parameters.Firmware, parameters.RomKey), Media = parameters.Media, MediaNames = parameters.MediaNames, HardFiles = parameters.HardFiles,
 				HardFileNames = parameters.HardFileNames, Volumes = parameters.Volumes, VolumeNames = parameters.VolumeNames,
 			};
 		parameters = Puae6Volumes.Resolve(parameters);
 		_syncSettings = parameters.SyncSettings.Clone();
+		_settings = parameters.Settings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
 		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
 		if (!Enum.IsDefined(typeof(Puae6FloppyDrives), _syncSettings.PhysicalFloppyDrives)) throw new ArgumentException("unknown physical floppy drive setting", nameof(parameters));
@@ -521,7 +524,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		var input = BuildInput(controller, out bool power);
 		_started = true;
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
-		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0);
+		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0) | ((uint)_settings.DriveSoundVolume << P6.RenderDriveVolumeShift);
 		using (_guest.Host.EnterExit())
 		{
 			ApplyDiskButtons(controller);
@@ -707,10 +710,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public bool DriveLightOn { get; private set; }
 	public string DriveLightIconDescription => "Floppy drive activity";
 
-	// ISettable: no presentation settings yet; the sync settings are the ones the machine was built with
-	public object GetSettings() => null!;
+	// Presentation stays at the user's current choice when a state loads.
+	public Puae6Settings GetSettings() => _settings.Clone();
 	public Puae6SyncSettings GetSyncSettings() => _syncSettings.Clone();
-	public PutSettingsDirtyBits PutSettings(object settings) => PutSettingsDirtyBits.None;
+	public PutSettingsDirtyBits PutSettings(Puae6Settings settings) { _settings = settings.Clone(); return PutSettingsDirtyBits.None; }
 	public PutSettingsDirtyBits PutSyncSettings(Puae6SyncSettings settings) => Puae6SyncSettings.NeedsReboot(_syncSettings, settings) ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
 
 	// ----- IStatable -----------------------------------------------------------------------------------------------------------------
