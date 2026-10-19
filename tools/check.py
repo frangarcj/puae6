@@ -254,6 +254,7 @@ TASK_SUITES[('MED01', 'T66b')] = {'cd_source_regression': 'tests.media.test_cd_s
 TASK_SUITES[('MED01', 'T66e1')] = {'native_seekable_iso_wave': 'tests.media.test_cd_file'}
 TASK_SUITES[('MED01', 'T66e2a')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata'}
 TASK_SUITES[('MED01', 'T66g1')] = {'akiko_toc_qcode': 'tests.media.test_cd_disc'}
+TASK_SUITES[('MED01', 'T66g3')] = {'actual_blkdev_offset_reads': 'tests.media.test_cd_device'}
 TASK_SUITES[('MED01', 'T66d1')] = {'disc_blob_exact_reads': 'tests.media.test_cd_blob_reads'}
 TASK_SUITES[('MED01', 'T66d2')] = {'managed_disc_source': 'tests.media.test_cd_source_csharp'}
 TASK_SUITES[('ABI01', 'T66f1')] = {'cd_transport_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}

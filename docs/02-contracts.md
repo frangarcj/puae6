@@ -942,6 +942,16 @@ estado explicito del llamante y Q12) desde una vista2448; no cambia playback.
 Errores, rangos y buffers cortos preservan salida. Una fuente sin subcanales
 devuelve `Unsupported`; no sintetiza Q ni acredita aun Akiko/CDDA/CD32.
 
+T66g3 implementa las firmas reales de `blkdev.h` sobre un `Disc` prestado e
+inmutable: una unidad, apertura/cierre, informacion, TOC, sectores y Q almacenada.
+`cd_read` devuelve 1/0; `rawread` devuelve bytes completos/0. Cada llamada admite
+hasta 128 sectores y usa staging acotado: un fallo conserva destino y posicion.
+La posicion es el siguiente sector tras la ultima lectura completada; Q con -1
+la consulta, sin inventar leadout si queda fuera del disco. Play/pause/volume
+devuelven error `Unsupported`; el callback de play recibe `PLAY_ERROR`.
+El modulo aun no se selecciona en CMake: antes de sustituir la superficie CD
+desactivada quedan Akiko cooperativo, CDDA, estado y frontends de T66.
+
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
 fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,
