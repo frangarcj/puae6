@@ -431,6 +431,15 @@ TASK_SUITES[('WB03', 'T61')] = {
 TASK_SUITES[('STATE01', 'T55a')] = {'ricoh_registers_and_transactional_restore': 'tests.state.test_state_ricoh.RicohChunkTests'}
 TASK_SUITES[('DET02', 'T55a')] = {
     'ricoh_same_and_new_process': 'tests.state.test_state_ricoh.RicohChunkTests.test_restore_same_and_new_process_preserves_all_subsystems_and_future'}
+TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
+for _gate in ('DET02', 'STATE01'):
+    TASK_SUITES[(_gate, 'T53')] = {'cpu_modes_restore_identity_and_no_mmu': 'tests.state.test_cpu_modes'}
+TASK_SUITES[('LR01', 'T53')] = {
+    'cpu_levels_and_restart': 'tests.libretro-host.test_cpu.CpuOptionTests.test_accuracy_is_a_restart_option_and_each_level_runs_the_headless_machine',
+    'ce_filename_tag': 'tests.libretro-host.test_model_tags.ModelTagTests.test_ce_overrides_faster_cpu_options_and_uae_keys_unless_filename_tags_are_disabled',
+    'raw_cpu_flags': 'tests.libretro-ui.test_uae.UaeProbeTests'}
+TASK_SUITES[('WB03', 'T53')] = {
+    'cpu_levels_snapshot_and_identity': 'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_cpu_accuracy_restores_and_refuses_a_state_of_another_level'}
 # T60 reuses the floppy COW and explicit atomic persistence; only #SAVEDISK adds
 # media. Keep its gate focused on format, real guest writes and timeline rollback.
 TASK_SUITES[('MED02', 'T60')] = {'save_disk_format': 'tests.libretro-host.test_savedisk.SaveDiskFormatTests',
