@@ -15175,11 +15175,13 @@
         "tests/media/akiko_link_probe.cpp",
         "tests/media/test_akiko_link.py",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "ports/portable/media/cd_device.h"
       ],
       "steps": [
         "Seleccionar akiko.cpp/flashrom.cpp y backend CD real en el grafo comun, quitar solo duplicados sys_command de hostfs_unsupported. Compilar CD32 pero no ofrecer nuevo machine/formatos al frontend antesarranque probado. FMV sigueexcluido mediante guard explicito0362 orden179 en devices.cpp; nunca stub exitoso.",
-        "Portar superficie pura MSF/BCD/subchannel del WinUAE6 fijado con procedencia, sin OSthread/clockhost. Link probe contra motor completo, bancoMMIO real e init/lifecycle y C2P observables, sin mocks motor. Regresion carga/frame A1200 cercano. Presupuesto250–350logicas; un build nativo-j2 coordinado, sin matriz ni WB hasta integrarcohorteH2/I2."
+        "Portar superficie pura MSF/BCD/subchannel del WinUAE6 fijado con procedencia, sin OSthread/clockhost. Link probe contra motor completo, bancoMMIO real e init/lifecycle y C2P observables, sin mocks motor. Regresion carga/frame A1200 cercano. Presupuesto250–350logicas; un build nativo-j2 coordinado, sin matriz ni WB hasta integrarcohorteH2/I2.",
+        "Ampliacion de0362 tras H2 para excluir tambien patchrom de aceleradora en portable: protect_roms no pertenece a la superficie portable y el perfil CD32 futuro es stock68EC020, sin caches/m68k_speed. Sin stub de proteccion ni escritura ROMsellada. Actualizar comentario cd_device.h al seleccionarlo en grafo; perfiles siguen cerrados."
       ],
       "checks": [
         "MED01"
