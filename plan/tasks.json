@@ -15053,11 +15053,14 @@
         "tests/media/cd_audio_probe.cpp",
         "tests/media/test_cd_audio.py",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tests/audio/test_cd_audio.py",
+        "tests/audio/cd_audio_probe.cpp"
       ],
       "steps": [
         "Unbuffer2352B, decodificacionLE explicita y callback real de agotamiento del stream, nunca hilos/relojhost. Play/pause/stop/volumen, LBA/cursor/retardo/fin/error causales; subcanales deinterleaved ainterleaved una sola vez porsector.",
-        "Consumir retardo indicado porcallbacksstatus en silencio emulado, sinheuristicas host. Probar L/Rasimetrico, fronteras, pausa/finallectura, error sinavanzar y notificacionfinunica. Presupuesto300–380logicas; conexionblkdev/codecestado/WBse completan despuesenT66."
+        "Consumir retardo indicado porcallbacksstatus en silencio emulado, sinheuristicas host. Probar L/Rasimetrico, fronteras, pausa/finallectura, error sinavanzar y notificacionfinunica. Presupuesto300–380logicas; conexionblkdev/codecestado/WBse completan despuesenT66.",
+        "Ampliacion explícita para reutilizar montaje real deI1: test_audio/test_cd_audio.py parametriza probe/sources y cd_audio_probe.cpp permite fixture sinmain; evitar copiar setup/avancePCM. Conservar pruebaI1 original y ejecutar regresion dirigida al cambiar su montaje."
       ],
       "checks": [
         "MED01"
@@ -15110,7 +15113,7 @@
       "title": "Proveedor CCD por offset con IMG y SUB preservados",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66j1",
         "T66g4"
