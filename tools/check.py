@@ -426,6 +426,11 @@ TASK_SUITES[('PLAN01', 'T39b')] = {'ci_recipes': 'tests.ci.test_nightly', 'plan'
 for _gate in ('MED01', 'DET02', 'LR01'):
     TASK_SUITES[(_gate, 'T61')] = {'four_drive_reads_boot_restore_and_identity': 'tests.libretro-host.test_multidrive',
                                  'config_schema_and_defaults': 'tests.config.test_parity'}
+TASK_SUITES[('WB03', 'T61')] = {
+    'four_drive_snapshot_and_reads': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_four_distinct_boot_disks_restore_reads_and_the_complete_wrapper_in_a_new_sandbox'}
+TASK_SUITES[('STATE01', 'T55a')] = {'ricoh_registers_and_transactional_restore': 'tests.state.test_state_ricoh.RicohChunkTests'}
+TASK_SUITES[('DET02', 'T55a')] = {
+    'ricoh_same_and_new_process': 'tests.state.test_state_ricoh.RicohChunkTests.test_restore_same_and_new_process_preserves_all_subsystems_and_future'}
 # T60 reuses the floppy COW and explicit atomic persistence; only #SAVEDISK adds
 # media. Keep its gate focused on format, real guest writes and timeline rollback.
 TASK_SUITES[('MED02', 'T60')] = {'save_disk_format': 'tests.libretro-host.test_savedisk.SaveDiskFormatTests',
