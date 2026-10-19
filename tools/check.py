@@ -278,6 +278,7 @@ TASK_SUITES[('STATE01', 'T66m3b')] = {'actual_akiko_joint_restore': 'tests.media
 TASK_SUITES[('STATE01', 'T66m4')] = {'akiko_wire_restore': 'tests.media.test_akiko_state'}
 TASK_SUITES[('STATE01', 'T66m5')] = {'owned_cda_paula_phase': 'tests.audio.test_cd_audio', 'joint_phase_restore': 'tests.media.test_akiko_state'}
 TASK_SUITES[('STATE01', 'T66m6')] = {'cd32_cia_overlay_latch': 'tests.host.test_cia_overlay_state'}
+TASK_SUITES[('STATE01', 'T66m7')] = {'native_cd32_machine_restore': 'tests.media.test_cd32_state', 'legacy_container': 'tests.state.test_state_container'}
 TASK_SUITES[('STATE01', 'T66m3')] = {'controller_cut': 'tests.media.test_akiko_controller_state', 'joint_restore': 'tests.media.test_akiko_state'}
 TASK_SUITES[('MED01', 'T66i2')] = {'real_cdda_player': 'tests.media.test_cd_audio', 'stream_regression': 'tests.audio.test_cd_audio'}
 TASK_SUITES[('MED01', 'T66n1')] = {'blkdev_cdda': 'tests.media.test_cd_device_audio', 'reader_regression': 'tests.media.test_cd_device', 'player_regression': 'tests.media.test_cd_audio'}

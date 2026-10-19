@@ -15772,6 +15772,58 @@
       "stop": "El probe observa peticion de mapa; no acredita aun save/load CD32 completo ni mapa real/boot/snapshot Waterbox del padre."
     },
     {
+      "id": "T66m7",
+      "title": "Estado nativo CD32 completo con chunk Akiko e identidad CD",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66m4",
+        "T66m5",
+        "T66m6",
+        "T66q1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/state.h",
+        "bridge/state.cpp",
+        "bridge/state_cpu.cpp",
+        "bridge/state_upstream.cpp",
+        "bridge/state_akiko.cpp",
+        "bridge/state_probe.cpp",
+        "bridge/lifecycle.cpp",
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp",
+        "CMakeLists.txt",
+        "tests/media/cd32_boot_probe.cpp",
+        "tests/media/cd32_state_probe.cpp",
+        "tests/media/test_cd32_state.py",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Integrar P6AK despues de Paula (puede añadirse al final del registro para conservar indices previos). Solo perfil privado CD32 lleva12chunks; perfiles actuales mantienen11 sin cuerpo/cabeceraCDextra. count de registro efectivo se usa en bound/save/load yprobe. El codec M4 cubre controlador/transporte/device/audio/NVRAM; staging heap ordinario, sin guardar punteros ni usar alloc_invisible. El periodo candidato se deriva del reloj fisico identificado PAL/NTSC conforme0025/0369 y contrasta stream.period; el ciclo candidato proviene P6SC validado, nunca envelope master_ticks ni live duranteValidate.",
+        "Paula usa fachada ownedDevice solo CD32, guarda/aplica fase89words tras restore_audio_finish y antes del agregadoCDA. Otros perfiles mantienen0099estricto. Incluir identidadCD fija bound+Disc.content_id en cada hash de prefijo nativo, no soloADF/HDF; fuente de Disc prestada accesible deforma privada sinserializar. Validar todo antes del reset head y aplicar en owner nuevo. Activar P6_CAP_STATE/estado nativo privado solo tras superar la puerta dirigida, sin anunciar modeloCD32 enfrontend.",
+        "Probe nativo real reutiliza helpers de cd32_boot_probe mediante guard fixture-only, firmware18/19local autorizado yCD sintetico publico poroffset. Guardar/avanzar/restaurar/mismo futuro en instancia nueva y enla actual; cortes activo/pausa/delay/terminal cuando seancausales; comparar PCM/video/counters/estado completo ymapaROMreal. RechazosCDdistinto ycampoP6AK tardio conchecksums rehechos conservan RAM/ciclos/estado. Periodo/ciclo candidatos prueban independenciadel live. P1 mantienepayloadbootbloqueado; su gate temporalUnsupported se sustituye por comprobaciondecap/cota al habilitarcodec.",
+        "Ejecutar STATE01 de NativeCD32 y regresion cercana del contenedor/perfiles normales, con buildengine coordinado-j2 una vez integrada candidata ycacheverificado. No repetirbateriasniWaterbox. Actualizarcontrato/inventario del NativeChunk; snapshotWB/SaveRAMfrontend/arranquejuego yformatos restantes siguenT66. Objetivo<=400lineaslogicas reutilizando helpers; si supera presupuesto dividir antesdeampliar sin perder gateintegrada."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "El estado nativo CD32 conserva yrestaura la maquina real por API publica en ownernuevo, valida identidadCD y todos los cuerpos antesdemutar, y coincide su continuacion exacta; los perfiles existentes conservan su registro/bound/codec."
+      ],
+      "stop": "No acredita arranque de juego ni snapshotCD32Waterbox. Ante fallo reproducible preservarpublicgate cerrado hasta resolverlo o marcarblocked con doshipotesis."
+    },
+    {
       "id": "T66h3",
       "title": "Integrar probes Akiko con el mezclador CDDA real",
       "milestone": "M3",
@@ -15942,7 +15994,8 @@
         "T66q1",
         "T66m4",
         "T66m5",
-        "T66m6"
+        "T66m6",
+        "T66m7"
       ],
       "read": [
         "docs/01-architecture.md",
