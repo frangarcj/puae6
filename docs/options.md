@@ -329,7 +329,7 @@ Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada
 | `include*`, `plugin*`, `shell*`, `exec*`, `script*`, `cmd*`, `command*` | Un `.uae` no incluye otro, ni carga plugins ni ejecuta programas. |
 | `z3mem*`, `z3fastmem*`, `mem25bit*`, `a3000mem*`, `mbresmem*`, `megachipmem*` | Sin RAM Zorro III ni de placa base (bus de 24 bits); solo se acepta `0`. |
 | `fastmem2*`, `fastmem3*`, `fastmem4*` | Una sola placa Fast Zorro II; las demas, solo `0`. |
-| `cpu_*`, `fpu_*`, `cs_*`, `chipset_*`, `blitter_*`, `agnus_*`, `denise_*`, `collision_level`, `rtc`, `sound_*`, `keyboard_*`, `floppy*` (el resto) | Fijados por el perfil de maquina y no son claves del esquema; el importador no puede saber si el fichero coincide, asi que los rechaza. Incluye `cpu_frequency`, `sound_mixed_stereo_delay` y los volumenes (las cuatro claves de audio de la tabla anterior si se traducen). |
+| `cpu_*`, `fpu_*`, `cs_*`, `chipset_*`, `blitter_*`, `agnus_*`, `denise_*`, `rtc`, `sound_*`, `keyboard_*`, `floppy*` (el resto) | Fijados por el perfil de maquina y no son claves del esquema; el importador no puede saber si el fichero coincide, asi que los rechaza. Incluye `cpu_frequency`, `sound_mixed_stereo_delay` y los volumenes (las cuatro claves de audio de la tabla anterior si se traducen). |
 | Cualquier ruta absoluta, `..`, `~`, `$(...)`/`${...}` en un disco | Fuera de la carpeta del `.uae`; el importador no expande nada. |
 | Una opcion de presentacion/entrada/OSD del menu (`puae6_video_crop`, `puae6_mapper_*`, ...) | El fichero solo escribe la maquina. |
 | Lo desconocido | `unknown key`. |
@@ -346,3 +346,13 @@ estado es una opcion del core); `kbd_lang*` (la distribucion del teclado es del 
   contenido lo diga; si se quisiera, entraria con este mismo importador y una capa mas en la precedencia.
 * `floppy1`-`floppy3` con disco y mas de DF0: dependen de P13 (cuatro unidades, tag MD); `hardfile2`/`uaehf` con HDF, de T29/P15.
 * Un `.uae` no se exporta: el core no escribe configuracion.
+
+### Colisiones del invitado
+
+`puae6_collision_level` (`--collisions` en headless, `CollisionLevel` en BizHawk)
+requiere reiniciar: `auto` y `full` conservan todas las colisiones del Amiga,
+`none` las desactiva, `sprites` calcula las de sprites entre si y `playfields`
+anade sprites contra bitplanes. Reducirlas puede romper juegos que leen CLXDAT.
+El importador `.uae` traduce `collision_level=none|sprites|playfields|full`.
+Auto y Full comparten identidad de estados y peliculas; los otros niveles son
+incompatibles entre si.

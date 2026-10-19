@@ -47,7 +47,8 @@ OFFSET(p6_config, cpu_multiplier, 64);       /* T52: the first byte of what was 
 OFFSET(p6_config, hdf_controller, 65);       /* T56: the second byte of what was reserved[1] */
 OFFSET(p6_config, cpu_compatibility, 66);       /* T53: formerly reserved */
 OFFSET(p6_config, floppy_drives, 67);
-OFFSET(p6_config, reserved7, 68);
+OFFSET(p6_config, collision_level, 68);
+OFFSET(p6_config, reserved7, 69);
 OFFSET(p6_buffer, bytes, 8);
 OFFSET(p6_media, content_id, 8);
 OFFSET(p6_media, image, 40);

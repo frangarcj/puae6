@@ -111,6 +111,13 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The CPU (T52): the numbers of config/schema/options.json (0 is the machine's own, 1 + (model - 68000) / 10 the others).
 	static byte CpuModelNumber(Puae6Cpu cpu) => cpu switch { Puae6Cpu.M68000 => (byte)1, Puae6Cpu.M68010 => (byte)2, Puae6Cpu.M68020 => (byte)3, Puae6Cpu.M68030 => (byte)4, _ => (byte)0 };
 
+	static byte CollisionLevelNumber(Puae6CollisionLevel level) => level switch
+	{
+		Puae6CollisionLevel.Auto => (byte)0, Puae6CollisionLevel.None => (byte)1, Puae6CollisionLevel.Sprites => (byte)2,
+		Puae6CollisionLevel.Playfields => (byte)3, Puae6CollisionLevel.Full => (byte)4,
+		_ => throw new ArgumentOutOfRangeException(nameof(level)),
+	};
+
 	static byte CpuCompatibilityNumber(Puae6CpuCompatibility level) => level switch
 	{
 		Puae6CpuCompatibility.Exact => (byte)0, Puae6CpuCompatibility.Compatible => (byte)1, Puae6CpuCompatibility.Normal => (byte)2,
@@ -332,6 +339,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.FpuModel = FpuNumber(_syncSettings.FpuModel);
 		init.Config.CpuModel = CpuModelNumber(_syncSettings.CpuModel);
 		init.Config.CpuCompatibility = CpuCompatibilityNumber(_syncSettings.CpuCompatibility);
+		init.Config.CollisionLevel = CollisionLevelNumber(_syncSettings.CollisionLevel);
 		init.Config.CpuMultiplier = CpuMultiplierNumber(_syncSettings.CpuMultiplier);
 		init.Config.HdfController = HdfControllerNumber(_syncSettings.HdfController);
 		init.Config.SoundSeparation = SoundSeparationNumber(_syncSettings.SoundSeparation);
@@ -434,6 +442,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// explicit 68000 from Auto on an A500) and never looser.
 		if (_syncSettings.CpuModel != Puae6Cpu.Auto) memory += ";cpu=" + _syncSettings.CpuModel;
 		if (_syncSettings.CpuCompatibility != Puae6CpuCompatibility.Exact) memory += ";cpuaccuracy=" + _syncSettings.CpuCompatibility;
+		if (_syncSettings.CollisionLevel != Puae6CollisionLevel.Auto && _syncSettings.CollisionLevel != Puae6CollisionLevel.Full)
+			memory += ";collisions=" + (CollisionLevelNumber(_syncSettings.CollisionLevel) - 1);
 		// And for its clock (T52): the same, off the machine's own.
 		if (_syncSettings.CpuMultiplier != Puae6CpuClock.Auto) memory += ";cpuclock=" + _syncSettings.CpuMultiplier;
 		// And for the controller of the hard files (T56): the native config hash derives from it only while a hard file is behind the IDE (Gayle is never emulated with nothing attached); the text names

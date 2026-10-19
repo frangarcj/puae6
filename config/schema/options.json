@@ -306,6 +306,24 @@
       "wrapper": {"how": "setting", "setting": "FpuModel", "type": "Puae6Fpu"}
     },
     {
+      "id": "collision_level",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.collision_level",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Machine's own (Full)", "wrapper_name": "Auto"},
+        {"value": "none", "abi": 1, "label": "None", "wrapper_name": "None"},
+        {"value": "sprites", "abi": 2, "label": "Sprites only", "wrapper_name": "Sprites"},
+        {"value": "playfields", "abi": 3, "label": "Sprites and Playfields", "wrapper_name": "Playfields"},
+        {"value": "full", "abi": 4, "label": "Full", "wrapper_name": "Full"}
+      ],
+      "libretro": {"key": "puae6_collision_level", "category": "machine", "label": "Collision Level",
+        "info": "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity."},
+      "headless": {"how": "named", "flag": "--collisions", "names": {"auto": "auto", "none": "none", "sprites": "sprites", "playfields": "playfields", "full": "full"}},
+      "wrapper": {"how": "setting", "setting": "CollisionLevel", "type": "Puae6CollisionLevel"}
+    },
+    {
       "id": "cpu_model",
       "class": "reboot",
       "type": "enum",

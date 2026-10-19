@@ -4264,7 +4264,7 @@
         "saved_fields": "clxdat|0x8000, clxcon and clxcon2 in CHIP (custom.cpp:8182, 8254); restore clxdat = RW (7959), CLXCON(RW) (8025).",
         "omitted": "Two copies of clxcon/clxcon2 exist (Agnus custom.cpp:729, Denise drawing.cpp:475) plus the decoded clxcon_bpl_enable/_match (+_o, _55, _aa) (drawing.cpp:476-479, expand_clxcon 3477-3487); restore re-queues them with denise_update_reg_queue (custom.cpp:8124-8125). clxdat (custom.cpp:728) is ORed by Denise as pixels are drawn (drawing.cpp:4458-4472, 6502, 6737), i.e. it only contains collisions of lines already drawn; collisions of the part of the line still in the rga_denise ring are not in it. A CLXDAT read forces a partial draw of the current line up to the current position (custom.cpp:4295-4305: draw_line(..., false)), which leaves Denise mid-line with segment state in statics (denise_cck/denise_endcycle, buf pointers): a read changes Denise state, so a snapshot cannot assume no open segment.",
         "pointers": "See video-drawing-pointers-and-scratch for the open-segment pointers.",
-        "rebuild": "expand_clxcon/expand_clxcon2 rebuild the decoded enables and matches.",
+        "rebuild": "expand_clxcon/expand_clxcon2 rebuild the decoded enables and matches. T77a: collision_level is immutable configuration, normalized before reset; denise_reset invalidates clxcon_bpl_enable_o/match_o and expand_colmask derives bplcoltable from that level. CLXCON writes and restored Denise register queues refresh the masks. No table bytes are causal beyond those registers and configuration. tests/state/test_collisions.py checks observable OCS/AGA levels and same/new-process restore.",
         "evidence": [
           "build/upstream/custom.cpp:728",
           "build/upstream/custom.cpp:729",

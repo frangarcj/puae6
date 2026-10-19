@@ -29,6 +29,9 @@ public enum Puae6Fpu { None, M68881, M68882 }
 /// <summary>The CPU (restart): the machine's own (a 68000, the A1200's 68EC020 or the A4030's 68030), a 68010 in the socket of a machine with a 68000, or the A1200's 68020. Another combination is refused when the core starts, with the reason.</summary>
 public enum Puae6Cpu { Auto, M68000, M68010, M68020, M68030 }
 
+/// <summary>Guest collision detection (restart): Auto and Full retain every hardware collision; reduced levels can break games.</summary>
+public enum Puae6CollisionLevel { Auto, None, Sprites, Playfields, Full }
+
 /// <summary>CPU accuracy (restart): cycle exact by default, compatible prefetch, or normal instruction timing; always emulated time.</summary>
 public enum Puae6CpuCompatibility { Exact, Compatible, Normal }
 
@@ -108,6 +111,9 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>A4030 requires Normal; its compatible/exact caches are not implemented. CPU accuracy changes hardware timing and is part of state/movie identity; changing it requires a reboot.</summary>
 	public Puae6CpuCompatibility CpuCompatibility { get; set; } = Puae6CpuCompatibility.Exact;
+
+	/// <summary>Restart collision level. Auto and Full preserve the profile; reduced levels change CLXDAT and state/movie identity.</summary>
+	public Puae6CollisionLevel CollisionLevel { get; set; } = Puae6CollisionLevel.Auto;
 
 	/// <summary>The clock of the CPU. It changes when everything the CPU does meets the chipset, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
 	public Puae6CpuClock CpuMultiplier { get; set; } = Puae6CpuClock.Auto;

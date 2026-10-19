@@ -522,7 +522,7 @@ settings `CpuModel` y `CpuMultiplier` de BizHawk (en la identidad del estado y d
 
 ### Niveles de precision de CPU (T53)
 
-`p6_config.cpu_compatibility` ocupa el byte antes reservado del offset 66; `p6_config` sigue midiendo 72 bytes. El byte 67 es `floppy_drives` (T61) y `reserved7[4]` empieza en 68. Valores: 0 exact (defecto sin cambios),
+`p6_config.cpu_compatibility` ocupa el byte antes reservado del offset 66; `p6_config` sigue midiendo 72 bytes. El byte 67 es `floppy_drives` (T61) y `collision_level` ocupa el byte 68 (T77a) y `reserved7[3]` empieza en 69. Valores: 0 exact (defecto sin cambios),
 1 compatible (prefetch), 2 normal (ciclos por instruccion). Son opciones de reinicio, con el reloj emulado y el mismo `p6_run_frame`; `m68k_speed = 0`, nunca velocidad ligada al host.
 Los tres niveles estan disponibles para las CPUs soportadas 68000, 68010 y 68EC020 en sus maquinas permitidas. Se eligen mediante libretro `puae6_cpu_compatibility`, headless `--cpu-compatibility exact|compatible|normal` y el sync setting `CpuCompatibility` (`Exact`, `Compatible`, `Normal`) de BizHawk. Cambiar la opcion requiere recargar el contenido.
 Con File Name Tags activado, `(CE)` fuerza exact en el contenido como en PUAE5; las flags crudas del importador `.uae` deben concordar con el nivel elegido, sin depender del orden de claves.
@@ -1106,3 +1106,16 @@ la preferencia actual del host, que se reaplica en cada unidad. DCLK restaura
 las fases; un snapshot bruto Waterbox tambien puede contener ganancia
 transitoria y buffers PCM. La comprobacion de volumen compara el futuro de
 hardware y la continuidad PCM al volver al mismo volumen.
+
+### Niveles de colisiones (T77a)
+
+`p6_config.collision_level` ocupa el byte 68; el contrato conserva 72 bytes.
+0 es Auto (Full), 1 None, 2 Sprites, 3 Sprites+Playfields y 4 Full.
+El motor recibe respectivamente 3, 0, 1, 2 y 3: Auto mantiene todas las colisiones
+del perfil anterior. Los niveles reducidos alteran CLXDAT y pueden romper juegos.
+La opcion requiere reinicio en libretro (`puae6_collision_level`), headless
+(`--collisions`) y BizHawk (`CollisionLevel`). Se normaliza antes de crear el motor;
+Auto y Full conservan la identidad anterior. Los demas niveles incorporan su valor
+resuelto a `p6/config/collisions/v1` y rechazan estados de otro nivel.
+CLXDAT/CLXCON siguen en P6CH; las tablas de colisiones se derivan al reset y al
+restaurar CLXCON de la configuracion inmutable. No se anade estado causal.

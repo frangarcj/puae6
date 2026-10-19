@@ -105,6 +105,9 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
         CHECK(same_config(r.imported.settings, expected));
         CHECK(!r.imported.applied.empty());
     }
+    CHECK(import("collision_level=none").imported.settings.collision_level == 1);
+    CHECK(import("collision_level=full").imported.settings.collision_level == 4);
+    CHECK(!import("collision_level=garbage").ok);
     const Result a4030 = import("chipset_compatible=A4000\ncpu_model=68030\ncpu_24bit_addressing=false\npuae6_cpu_compatibility=normal\nfastmem_size=0\n");
     CHECK(a4030.ok);
     const p6_config cfg030 = config_of(a4030.imported.settings);
@@ -264,7 +267,6 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"pcmcia=true", "pcmcia", "PCMCIA"},
         {"include=other.uae", "include", "include another file"},
         {"plugin=x.dll", "plugin", "plugin"},
-        {"collision_level=full", "collision_level", "fixed by the machine profile"},
         {"rtc=MSM6242B", "rtc", "fixed by the machine profile"},
         {"sound_mixed_stereo_delay=2", "sound_mixed_stereo_delay", "fixed by the machine profile"},
         {"sound_interpol=sinc", "sound_interpol", "sinc interpolation is not offered"},

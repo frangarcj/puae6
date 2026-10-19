@@ -67,7 +67,8 @@ public unsafe struct P6Config
 	public byte HdfController;                                   // T56: 0 the UAE controller (uaehf.device), 1 the IDE port of Gayle (A600 and A1200 only; the schema's numbers)
 	public byte CpuCompatibility;                               // T53: 0 exact, 1 compatible, 2 normal
 	public byte FloppyDrives;                                   // T61: 0 the two-drive profile, otherwise 1..4 connected DD drives
-	public fixed byte Reserved7[4];                              // zero in ABI v1
+	public byte CollisionLevel;                                  // T77a: 0 Auto/Full, 1 None, 2 Sprites, 3 Playfields, 4 Full
+	public fixed byte Reserved7[3];                              // zero in ABI v1
 }
 
 [StructLayout(LayoutKind.Sequential)]

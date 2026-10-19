@@ -115,6 +115,25 @@
       "option": "fpu_model",
       "class": "reboot"
     },
+    "collision_level": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "names": {
+        "auto": 0,
+        "none": 1,
+        "sprites": 2,
+        "playfields": 3,
+        "full": 4
+      },
+      "option": "collision_level",
+      "class": "reboot"
+    },
     "cpu_model": {
       "default": 0,
       "allowed": [
@@ -1677,6 +1696,25 @@
         "type": "Puae6Fpu"
       },
       "libretro": "puae6_fpu_model"
+    },
+    "collision_level": {
+      "headless": {
+        "how": "named",
+        "flag": "--collisions",
+        "names": {
+          "auto": "auto",
+          "none": "none",
+          "sprites": "sprites",
+          "playfields": "playfields",
+          "full": "full"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "CollisionLevel",
+        "type": "Puae6CollisionLevel"
+      },
+      "libretro": "puae6_collision_level"
     },
     "cpu_model": {
       "headless": {

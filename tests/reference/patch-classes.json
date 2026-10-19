@@ -171,7 +171,8 @@
     "0351-second-mouse-boundary": "required",
     "0346-portable-generic-no-mmu": "required",
     "0347-a4000-motherboard-cpu030": "required",
-    "0352-optical-pointer-boundary-and-latch": "required"
+    "0352-optical-pointer-boundary-and-latch": "required",
+    "0348-collision-level-bitplane-table": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -353,6 +354,13 @@
         "aga-sprite64-pal",
         "aga-bars24-ntsc"
       ],
+      "subsystems": []
+    },
+    "0348-collision-level-bitplane-table": {
+      "effect": "inert",
+      "why": "The reference corpus uses the unchanged default Full level. Only reduced levels change: None previously leaked CLXDAT bit 0, while Sprites and Playfields leaked that same bit.",
+      "test": "tests.state.test_collisions.CollisionTests.test_none_disables_every_collision_bit",
+      "scenarios": [],
       "subsystems": []
     }
   },

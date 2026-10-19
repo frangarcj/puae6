@@ -431,6 +431,7 @@ TASK_SUITES[('WB03', 'T61')] = {
 TASK_SUITES[('STATE01', 'T55a')] = {'ricoh_registers_and_transactional_restore': 'tests.state.test_state_ricoh.RicohChunkTests'}
 TASK_SUITES[('DET02', 'T55a')] = {
     'ricoh_same_and_new_process': 'tests.state.test_state_ricoh.RicohChunkTests.test_restore_same_and_new_process_preserves_all_subsystems_and_future'}
+TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):
     TASK_SUITES[(_gate, 'T53')] = {'cpu_modes_restore_identity_and_no_mmu': 'tests.state.test_cpu_modes'}

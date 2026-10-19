@@ -225,6 +225,8 @@ uint32_t resolve_floppy_drives(const p6_config &c)
     return c.floppy_drives ? c.floppy_drives : 2;
 }
 
+int resolve_collision_level(const p6_config &c) { return c.collision_level ? int(c.collision_level) - 1 : 3; }
+
 int resolve_cpu(const p6_config &c)
 {
     // 0 is the machine's own CPU; any other value is 1 + (model - 68000) / 10 (p6.h).
@@ -349,6 +351,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu compatibility must be exact, compatible or normal");
     if (c.machine == P6_MACHINE_A4030 && c.cpu_compatibility != P6_CPU_NORMAL)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000/030 currently requires normal CPU accuracy; compatible and exact caches are not implemented");
+    if (c.collision_level > 4)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "collision level must be auto, none, sprites, playfields or full");
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     // The controller of the hard files (T56): the IDE port is Gayle's, and only the A600 and the A1200 have Gayle.
@@ -454,6 +458,7 @@ void build_preferences(const p6_config &c, bool ide)
         // the blit, as an emulation shortcut that no hardware has. The CPU runs its own polling loops instead, as on the 68000 machines.
         currprefs.waiting_blits = 0;
     }
+    currprefs.collision_level = resolve_collision_level(c);
     // The FPU (T54). fpu_mode 1 is upstream's "softfloat" setting; the portable build has no other backend (patch 0140) and fpu_strict/fpu_no_unimplemented keep
     // the 68881/68882 behaviour that built_in_prefs leaves (the strict and no-unimplemented modes are 68040/68060 matters).
     currprefs.fpu_model = int(c.fpu_model);
@@ -540,7 +545,7 @@ p6_result check_preset(p6_error *error)
         p.cpu_compatible != (preset_config.cpu_compatibility != P6_CPU_NORMAL) || p.m68k_speed || p.fpu_model != int(preset_config.fpu_model) ||
         p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict || p.fpu_no_unimplemented || p.mmu_model ||
         p.address_space_24 != (machine.cpu < 68030) || (machine.cpu >= 68020 && p.waiting_blits)) drifted = "cpu";
-    else if (p.chipset_mask != machine.chipset_mask || p.blitter_cycle_exact != p.cpu_cycle_exact) drifted = "chipset";
+    else if (p.chipset_mask != machine.chipset_mask || p.blitter_cycle_exact != p.cpu_cycle_exact || p.collision_level != resolve_collision_level(preset_config)) drifted = "chipset";
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
              p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
     else if (p.cs_compatible != machine.compatible) drifted = "chipset table";

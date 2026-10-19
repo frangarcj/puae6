@@ -18,6 +18,7 @@ struct Settings {
     uint32_t slow_size = 0u;  // reboot, p6_config.slow_kib = Auto
     uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = Auto
     uint32_t fpu_model = 0u;  // reboot, p6_config.fpu_model = None
+    uint32_t collision_level = 0u;  // reboot, p6_config.collision_level = auto
     uint32_t cpu_model = 0u;  // reboot, p6_config.cpu_model = auto
     uint32_t cpu_compatibility = 0u;  // reboot, p6_config.cpu_compatibility = exact
     uint32_t cpu_multiplier = 0u;  // reboot, p6_config.cpu_multiplier = auto
@@ -109,6 +110,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->slow_kib = settings.slow_size;
     config->fast_kib = settings.fast_size;
     config->fpu_model = settings.fpu_model;
+    config->collision_level = settings.collision_level;
     config->cpu_model = settings.cpu_model;
     config->cpu_compatibility = settings.cpu_compatibility;
     config->cpu_multiplier = settings.cpu_multiplier;
@@ -419,6 +421,13 @@ constexpr Value kFpuModelValues[] = {
     {"None", 0u},
     {"M68881", 68881u},
     {"M68882", 68882u},
+};
+constexpr Value kCollisionLevelValues[] = {
+    {"auto", 0u},
+    {"none", 1u},
+    {"sprites", 2u},
+    {"playfields", 3u},
+    {"full", 4u},
 };
 constexpr Value kCpuModelValues[] = {
     {"auto", 0u},
@@ -890,6 +899,7 @@ constexpr Option kOptions[] = {
     {"puae6_slow_size", true, &Settings::slow_size, kSlowSizeValues, 6, 0},
     {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 6, 5},
     {"puae6_fpu_model", true, &Settings::fpu_model, kFpuModelValues, 3, 0},
+    {"puae6_collision_level", true, &Settings::collision_level, kCollisionLevelValues, 5, 0},
     {"puae6_cpu_model", true, &Settings::cpu_model, kCpuModelValues, 5, 0},
     {"puae6_cpu_compatibility", true, &Settings::cpu_compatibility, kCpuCompatibilityValues, 3, 0},
     {"puae6_cpu_multiplier", true, &Settings::cpu_multiplier, kCpuMultiplierValues, 8, 0},
@@ -1026,6 +1036,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "The floating point coprocessor of the A1200 or A4030 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The floating point coprocessor of the A1200 or A4030 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"None", "None"}, {"M68881", "68881"}, {"M68882", "68882"}}, "None"},
+    {"puae6_collision_level", "Collision Level (Restart)", "Collision Level (Restart)",
+     "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"auto", "Machine's own (Full)"}, {"none", "None"}, {"sprites", "Sprites only"}, {"playfields", "Sprites and Playfields"}, {"full", "Full"}}, "auto"},
     {"puae6_cpu_model", "CPU (Restart)", "CPU (Restart)",
      "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The A4030 has a 68030 with Normal accuracy only and no MMU; compatible and exact 030 are rejected. The 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The A4030 has a 68030 with Normal accuracy only and no MMU; compatible and exact 030 are rejected. The 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1339,6 +1353,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_slow_size", "Slow RAM (Restart)", "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and the A2000 OG and none on the others. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (A500 and A2000 OG 512 KiB, the others none)"}, {"None", "None"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB1_75", "1.75 MiB"}}, "Auto"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "Auto uses the machine's own RAM (A4030: 8 MiB, others: none); None disables the board. One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}, {"Auto", "Machine's own (A4030: 8 MiB; others: none)"}}, "Auto"},
     {"puae6_fpu_model", "FPU (Restart)", "The floating point coprocessor of the A1200 or A4030 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"M68881", "68881"}, {"M68882", "68882"}}, "None"},
+    {"puae6_collision_level", "Collision Level (Restart)", "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Machine's own (Full)"}, {"none", "None"}, {"sprites", "Sprites only"}, {"playfields", "Sprites and Playfields"}, {"full", "Full"}}, "auto"},
     {"puae6_cpu_model", "CPU (Restart)", "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The A4030 has a 68030 with Normal accuracy only and no MMU; compatible and exact 030 are rejected. The 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Machine's own (68000; 68EC020 on the A1200)"}, {"68000", "68000"}, {"68010", "68010"}, {"68020", "68020"}, {"68030", "68030 (A4030, Normal only, no MMU)"}}, "auto"},
     {"puae6_cpu_compatibility", "CPU Accuracy (Restart)", "CPU accuracy for the supported 68000, 68010 and 68EC020 machines; the A4030/68030 currently requires Normal and has no MMU. Exact preserves cycle-exact CPU and bus timing (the default); compatible preserves prefetch and normal uses instruction timing. Every level counts emulated time independently of the host clock. Changing the level requires reloading the content; states and movies require the same level. It takes effect the next time the content is loaded; the running machine is not changed.", {{"exact", "Cycle exact"}, {"compatible", "Compatible (prefetch)"}, {"normal", "Normal (instruction timing)"}}, "exact"},
     {"puae6_cpu_multiplier", "CPU Cycle-exact Speed (Restart)", "How fast the cycle-exact CPU runs: the clock of the CPU as a multiple of the 3.55 MHz colour clock (PUAE5's values). 'Machine's own' is 7.09 MHz on the machines with a 68000 and 14.19 MHz on the A1200. A faster CPU needs fewer colour clocks for every instruction and every bus access; the chipset, the DMA and the audio do not change. It is counted in emulated time, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one clock does not load in another. Programs that count on the speed of the CPU (timing loops, copy protections) may not work with another clock. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Machine's own (7.09 MHz; 14.19 MHz on the A1200)"}, {"1", "3.546895 MHz"}, {"2", "7.093790 MHz (A500)"}, {"4", "14.187580 MHz (A1200)"}, {"8", "28.375160 MHz"}, {"10", "35.468950 MHz"}, {"12", "42.562740 MHz"}, {"16", "56.750320 MHz"}}, "auto"},
@@ -1429,6 +1444,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_slow_size", "Slow RAM (Restart); Auto|None|KB512|MB1|MB1_5|MB1_75"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); Auto|None|MB1|MB2|MB4|MB8"},
     {"puae6_fpu_model", "FPU (Restart); None|M68881|M68882"},
+    {"puae6_collision_level", "Collision Level (Restart); auto|none|sprites|playfields|full"},
     {"puae6_cpu_model", "CPU (Restart); auto|68000|68010|68020|68030"},
     {"puae6_cpu_compatibility", "CPU Accuracy (Restart); exact|compatible|normal"},
     {"puae6_cpu_multiplier", "CPU Cycle-exact Speed (Restart); auto|1|2|4|8|10|12|16"},

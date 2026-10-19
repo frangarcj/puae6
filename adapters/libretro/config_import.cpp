@@ -142,7 +142,6 @@ constexpr Rule kRules[] = {
     {"blitter_", true, Kind::Reject, false, kProfile},
     {"agnus_", true, Kind::Reject, false, kProfile},
     {"denise_", true, Kind::Reject, false, kProfile},
-    {"collision_level", false, Kind::Reject, false, kProfile},
     {"rtc", false, Kind::Reject, false, kProfile},
     {"sound_", true, Kind::Reject, false, kProfile},
     {"keyboard_", true, Kind::Reject, false, kProfile},
@@ -188,7 +187,7 @@ constexpr Fixed kFixed[] = {
 constexpr const char *kNativeKeys[] = {
     "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
     "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
-    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_floppy_drives", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model", "puae6_cpu_multiplier", "puae6_cpu_compatibility", "puae6_hdf_controller",
+    "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_floppy_drives", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model", "puae6_cpu_multiplier", "puae6_cpu_compatibility", "puae6_collision_level", "puae6_hdf_controller",
 };
 
 const p6_options::Option *find_option(const char *key)
@@ -467,6 +466,7 @@ private:
             chipset_ = &e;
             return;
         }
+        if (key == "collision_level") { set_name(e, "puae6_collision_level", lower(e.value)); return; }
         if (key == "cpu_model") {
             cpu_ = &e;
             return;

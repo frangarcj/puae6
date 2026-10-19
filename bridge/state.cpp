@@ -300,6 +300,12 @@ Identity current_identity()
         const uint64_t lengths[2] = {32, 1};
         domain_hash("p6/config/floppy-drives/v1", parts, lengths, 2, identity.config_hash);
     }
+    const uint8_t collision = uint8_t(p6_bridge::resolve_collision_level(c));
+    if (collision != 3) {
+        const uint8_t *parts[2] = {identity.config_hash, &collision};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/collisions/v1", parts, lengths, 2, identity.config_hash);
+    }
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;

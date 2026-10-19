@@ -112,7 +112,9 @@ typedef struct p6_config {
     uint8_t cpu_compatibility;
     /* T61: connected DD floppy drives, 0 = the unchanged two-drive profile; otherwise 1..4. Restart and state identity option. */
     uint8_t floppy_drives;
-    uint8_t reserved7[4];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
+    /* T77a: restart collision level: 0 Auto/full, 1 none, 2 sprites, 3 sprites+playfields, 4 full. */
+    uint8_t collision_level;
+    uint8_t reserved7[3];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
 } p6_config;
 #define P6_CPU_EXACT 0u
 #define P6_CPU_COMPATIBLE 1u

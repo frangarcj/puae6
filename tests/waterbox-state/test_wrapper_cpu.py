@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "tests/waterbox-smoke"))
 import build_waterbox  # noqa: E402
 from tests.host.test_bridge_lifecycle import TOOLS, builder  # noqa: E402
 from tests.state import test_det02_cpu010 as c10
+from tests.state.test_collisions import EXPECTED as COLLISIONS_EXPECTED, PROGRAM as COLLISION_PROGRAM
 from tests.state.test_a4030 import PROGRAM as A4030_PROGRAM  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
 
@@ -47,6 +48,7 @@ class WrapperCpuTests(unittest.TestCase):
             fixture = ROOT / "tests/fixtures/microrom" / f"{source}.s"
             (cls.dir / f"{name}.rom").write_bytes(builder.build(fixture.read_text(encoding="utf-8") if "\n" not in source and fixture.is_file() else source))
         (cls.dir / "a4030.rom").write_bytes(builder.build(A4030_PROGRAM))
+        (cls.dir / "collisions.rom").write_bytes(builder.build(COLLISION_PROGRAM))
         cls.count = 0
 
     @classmethod
@@ -76,6 +78,26 @@ class WrapperCpuTests(unittest.TestCase):
     @staticmethod
     def core(name, *settings, machine="a500"):
         return f"core {name} machine={machine} " + " ".join(settings)
+
+    def test_collision_levels_restore_and_auto_full_share_identity(self):
+        for level in ("Auto", "None", "Sprites", "Playfields", "Full"):
+            with self.subTest(level=level):
+                settings = (f"collisions={level}",)
+                out = self.session([self.core("A", *settings), "run A 3", "save A s", "run A 4", "digest A first", "peek A Chip_RAM 1000 2",
+                                    "load A s", "run A 4", "digest A second", self.core("B", *settings),
+                                    "load B s", "run B 4", "digest B third"], "collisions")
+                observed = int(re.search(r"^peek A Chip_RAM 1000 (\w+)$", out, re.M)[1], 16) & 0x7fff
+                self.assertEqual(COLLISIONS_EXPECTED["full" if level == "Auto" else level.lower()], observed)
+                digests = self.digests(out, "A")
+                self.assertEqual(digests["first"], digests["second"])
+                self.assertEqual(digests["first"], self.digests(out, "B")["third"])
+        out = self.session([self.core("A"), "run A 3", "save A s", self.core("B", "collisions=Full"),
+                            "load B s", "run A 4", "run B 4", "digest A full", "digest B full",
+                            self.core("C", "collisions=None"), "run C 3", "digest C before",
+                            "load C s", "digest C after"], "collisions")
+        self.assertEqual(self.digests(out, "A")["full"], self.digests(out, "B")["full"])
+        self.assertRegex(out, r"rejected C s reason=OtherConfig")
+        self.assertEqual(self.digests(out, "C")["before"], self.digests(out, "C")["after"])
 
     def test_a4030_normal_restores_in_same_and_new_sandbox_with_auto_or_no_fast(self):
         heaps = {}
