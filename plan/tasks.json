@@ -12912,6 +12912,46 @@
       "stop": "No sustituir Waterbox por un build nativo ni declarar tamanos/modelos todavia no implementados."
     },
     {
+      "id": "T55c4",
+      "title": "Estado privado de FPU interna040/060 y continuacion real",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T54",
+        "T55c1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0014-cpu-accuracy-levels.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "ports/portable/p6_fpu_state.h",
+        "tests/host/**",
+        "tests/reference/patch-classes.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Preparar una captura semantica privada de la FPU040/060 mediante parche sobre fpp.cpp y POD sin punteros: registros SoftFloat/FPCR/FPSR/FPIAR, estados causales de excepcion y todos los campos de fsave_data. Revisar las lecturas reales;0142 solo conserva ccr/eo de6888x. No cambiar aun el formatoP6CP, la ABI ni los modelos ofrecidos.",
+        "Validacion pura por modelo/rango antes de aplicar; rechazo transaccional. Restaurar FPCR mediante el helper que reconstruye SoftFloat. No borrar silenciosamente fpu_exp_state/fp_unimp_pend ni copiar estructuras con padding. Conservar el camino68881/68882 existente.",
+        "Probe privado con objetos reales del motor y SoftFloat: null/idle y excepcion pendiente alcanzadas por instrucciones; capturar, alterar/reinicializar propietario, aplicar y comprobar FSAVE a RAM, flags y siguiente operacion contra la continuacion original. Invalidos no cambian el propietario. No sustituir esta prueba por roundtrip de un POD o mocks.",
+        "El FRESTORE040 de frames0x28/0x30 tiene TODO upstream. Esta hoja no declara completada esa instruccion ni la exposicionA4040: fijar su semantica y oraculo antes de esa puerta, sin stub exitoso. Los controlesCPU/P6CP, preset/frontends040/060, otros tamanosZ3 y firmware real siguen enT55c.",
+        "Objetivo300-350lineas manuales en parche/header/test y metadata de parches; reutilizar infraestructura de cpu_fpu_probe, sin copiar el motor. STATE01 dirigido y regresion6888x una vez en candidata. Si no cabe, revisar division antes de editar. tools/check.py registra el selector real al implementarlo; tests/test_plan.py mantiene el registro de hojas y la dependencia del padre."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "La captura privada040/060 conserva el estado causal de la FPU y su continuacion real tras reinicializar el propietario; entradas invalidas se rechazan sin mutar. El soporte publico040/060 permanece pendiente hasta la puerta completa deT55c."
+      ],
+      "stop": "No FPU del host/fast-math, no fingir FRESTORE040 ni cerrar T55c por una captura privada."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -12921,7 +12961,8 @@
         "T55b",
         "T55c1",
         "T55c2",
-        "T55c3"
+        "T55c3",
+        "T55c4"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12950,7 +12991,8 @@
         "Completar 68040/68060 y preset A4000/040, Fast Z3 y presupuesto real Waterbox, conservando el resto del alcance T55.",
         "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
         "Generacion/enlace sin MMU se separa enT55c1, sobre la plataforma030 deT55b1. El padre conserva CPU040/060/FPU/estado, A4040, Z3, frontends, presupuestos y sus checks/aceptacion completos, incluidoT55b.",
-        "Fast Z3 avanza sobre la plataforma sintetica A4030 mediante T55c2/c3,16MiB primero. Los otros tamanos de la referencia, 040/060/FPU/estado y firmware real permanecen en el alcance original y no se consideran satisfechos por esas hojas."
+        "Fast Z3 avanza sobre la plataforma sintetica A4030 mediante T55c2/c3,16MiB primero. Los otros tamanos de la referencia, 040/060/FPU/estado y firmware real permanecen en el alcance original y no se consideran satisfechos por esas hojas.",
+        "T55c4 separa el estado privado causal de FPU040/060 sobreT54/T55c1, independiente del firmware pendienteT55b. El padre conserva su aceptacion y todos sus checks: controlesCPU/P6CP, FRESTORE040 incompleto upstream, A4040/frontends, todos los tamanosZ3 y presupuesto/firmware reales. No cerrar por generacion ni por el codec privado."
       ],
       "checks": [
         "GEN01",
