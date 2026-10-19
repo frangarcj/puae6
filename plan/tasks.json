@@ -12785,6 +12785,116 @@
       "stop": "No stubs de MMU/cache, no cambios a goldens para pasar regresiones."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "id": "T55c2",
+      "title": "Fast Z3 de16MiB por API nativa y estado de autoconfig real",
+      "depends": [
+        "T55b1"
+      ],
+      "touch": [
+        "bridge/**",
+        "ports/portable/p6_state_access.h",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
+        "tests/state/**",
+        "tests/host/**",
+        "tests/contracts/**",
+        "tests/fuzz/**",
+        "tests/ffi/Program.cs",
+        "tests/reference/patch-classes.json",
+        "config/schema/options.json",
+        "config/schema/options_table.generated.json",
+        "adapters/libretro/options_generated.h",
+        "tools/generate_options.py",
+        "integration/bizhawk/core/Puae6/Abi.cs",
+        "tests/config/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Reservar byte70 de p6_config como z3_memory (None0,MB16=1), conservando sizeof72 y bytes69/71 reservados. ABI C/C#, layout/defaults/fuzz coherentes. Rechazar valores no implementados y maquinas distintas de A4030. fast_kib sigue ZorroII.",
+        "Cubrir el campo en el esquema comun con default0, libretro=null y libretro_policy explicita; headless/wrapper how=profile. El generador existente soporta esa politica: ningun frontend ofrece Z3 antes de completar c3, sin excepciones para eludir cobertura ni tests rotos. Ajustar diagnostico z3fastmem_size para distinguir API nativa del importador aun no expuesto.",
+        "Configurar placa16MiB Z3 upstream, Z3MAPPING_REAL, sin mapeo anticipado ni UAE hack. Anadir identidad condicional, region nativa propia y serializacion de RAM/direccion/mapeo y cadena unica compartida de autoconfig, incluidas ventanas Z2/Z3 y caso Z2=None. Reservar patch0350 y siguientes hasta0352;0354EEPROM y0355CD son de otros frentes.",
+        "Micro-ROM configura ventanas reales, toca extremos por encima24bits y descarta alias; restore mismo/nuevo proceso durante autoconfig y tras mapear. Bound constante, configuracion invalida y estado corrupto no modifican la maquina. Reutilizar harness A4030/Fast RAM; estimacion390 lineas manuales, dividir antes de exceder400 sin compactacion artificial.",
+        "Esta ficha cierra solo16MiB por API nativa. T55c conserva otros tamanos Z3 de paridad, 040/060/FPU/estado y arranque real con firmware A4000. No atribuir WB03 ni soporte frontend a esta prueba nativa."
+      ],
+      "checks": [
+        "GEN01",
+        "ABI01",
+        "DET02",
+        "STATE01"
+      ],
+      "acceptance": [
+        "La placa16MiB Z3 se configura por el bus real y restaura RAM/autoconfig mediante la API nativa; el esquema y ABI permanecen coherentes sin publicar una opcion frontend incompleta."
+      ],
+      "stop": "No sustituir Z3 por Z2, no mapearla fuera de autoconfig ni cerrar la puerta de firmware A4000 con micro-ROM."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md"
+      ],
+      "id": "T55c3",
+      "title": "Exponer Fast Z3 en los tres frontends con presupuesto Waterbox medido",
+      "depends": [
+        "T55c2"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "adapters/headless/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/**",
+        "bridge/include/p6.h",
+        "bridge/caps.cpp",
+        "bridge/memory.cpp",
+        "config/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "tests/config/**",
+        "tests/contracts/**",
+        "tests/ffi/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-state/**",
+        "tests/state/**",
+        "manifests/waterbox-memory.json",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Cambiar la politica de perfil de z3_memory por las superficies reales de libretro/headless/C#, de forma atomica: opcion de reinicio, defaultsNone e identidad; conservar campos existentes de p6_config. Reutilizar micro-ROM de c2, sin reimplementar autoconfig.",
+        "Incluir region Z3 en capacidades y dominios de memoria, corrigiendo limites actualmente fijados a4 donde corresponda. Actualizar ABI/FFI/layout y error de buffers pequenos sin truncar regiones.",
+        "Agregar16MiB a ExtraMemoryKiB segun la politica existente: mmap aumenta32MiB. Medir consumo real con el guest combinado y registrar el presupuesto correspondiente sin reducir margenes para aprobar. No mover RAM a alloc_invisible.",
+        "LR01 y WB03 reales: acceso a extremos de Z3 y restore mismo/nuevo sandbox, config diferente rechazada sin mutacion, dominios completos. Una generacion/enlace integrado con -j2; no repetir campanas de rendimiento por frontend.",
+        "Conservar en T55c los otros tamanos Z3 y toda la aceptacion 040/060/A4000;16MiB constituye la primera vertical funcional, no el cierre del padre."
+      ],
+      "checks": [
+        "LR01",
+        "WB03",
+        "ABI01",
+        "PERF01"
+      ],
+      "acceptance": [
+        "Z3 se elige desde los tres frontends, expone su dominio completo y restaura en Waterbox real dentro del presupuesto medido."
+      ],
+      "stop": "No sustituir Waterbox por un build nativo ni declarar tamanos/modelos todavia no implementados."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -12792,7 +12902,9 @@
       "status": "pending",
       "depends": [
         "T55b",
-        "T55c1"
+        "T55c1",
+        "T55c2",
+        "T55c3"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -12820,7 +12932,8 @@
       "steps": [
         "Completar 68040/68060 y preset A4000/040, Fast Z3 y presupuesto real Waterbox, conservando el resto del alcance T55.",
         "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
-        "Generacion/enlace sin MMU se separa enT55c1, sobre la plataforma030 deT55b1. El padre conserva CPU040/060/FPU/estado, A4040, Z3, frontends, presupuestos y sus checks/aceptacion completos, incluidoT55b."
+        "Generacion/enlace sin MMU se separa enT55c1, sobre la plataforma030 deT55b1. El padre conserva CPU040/060/FPU/estado, A4040, Z3, frontends, presupuestos y sus checks/aceptacion completos, incluidoT55b.",
+        "Fast Z3 avanza sobre la plataforma sintetica A4030 mediante T55c2/c3,16MiB primero. Los otros tamanos de la referencia, 040/060/FPU/estado y firmware real permanecen en el alcance original y no se consideran satisfechos por esas hojas."
       ],
       "checks": [
         "GEN01",
