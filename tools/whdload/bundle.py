@@ -87,7 +87,10 @@ def build(files, vfs, *, buttonwait=False, kickstarts=None):
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as output:
         for path in sorted(data):
             entry = zipfile.ZipInfo(path, (1980, 1, 1, 0, 0, 0))
-            entry.create_system, entry.external_attr = 0, 0
+            # The pinned VFS accepts Amiga-created archives. archivefs_zip.c
+            # decodes protection as byte(external_attr >> 16) ^ 0x0f: 0x0f
+            # grants RWED (Amiga protection 0), with no DOS directory flag.
+            entry.create_system, entry.external_attr = 1, 0x000f0000
             output.writestr(entry, data[path])
     prefs = b"SplashDelay=0\nConfigDelay=0\nNoWriteCache\nSavePath=WHDSaves:\n" + (b"ButtonWait\n" if buttonwait else b"")
     boot = {"C/WHDLoad": files["C/WHDLoad"], "C/WHDLoad.VFS": vfs, "C/P6Assign": assign_program(), "Game.slave": files[slave],

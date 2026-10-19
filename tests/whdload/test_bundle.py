@@ -27,6 +27,9 @@ class BundleTests(unittest.TestCase):
         self.assertEqual(system.files["Devs/Kickstarts/kick40068.A1200.RTB"], b"user relocation data")
         with zipfile.ZipFile(io.BytesIO(system.files["Game.zip"])) as archive:
             self.assertEqual({n: archive.read(n) for n in archive.namelist()}, {"A.slave": b"slave", "data/x": b"level"})
+            for entry in archive.infolist():
+                self.assertEqual(entry.create_system, 1, "WHDLoad.VFS requires an Amiga creator")
+                self.assertEqual(((entry.external_attr >> 16) & 0xff) ^ 0x0f, 0, "Amiga RWED permissions")
         waited = bundle.build(files, b"vfs", buttonwait=True)
         self.assertIn(b"\nButtonWait\n", ffs.read_volume(waited["RASystem.hdf"]).files["S/WHDLoad.prefs"])
         self.assertEqual(waited["WHDLoad.hdf"], a["WHDLoad.hdf"])
@@ -62,10 +65,10 @@ class BundleLibretroTests(lr.LibretroHarness):
         content.write_text("\n".join(images) + "\n")
         system = self.work()
         shutil.copyfile(support.KICKSTART, system / lr.KICKSTART_NAMES_A1200[0])
-        options = ["--joy-at", "400:0:1", "--joy-at", "404:0:0"]
+        options = ["--joy-at", "400:0:1", "--joy-at", "404:0:0", "--joy-at", "800:0:1", "--joy-at", "804:0:0"]
         out = self.frontend("boot", "--runs", END + END - SAVE, *lr.A1200, *options, "--set", "puae6_hdf_save=on_close",
                             "--do", f"{SAVE}:save:s", "--do", f"{END}:save:first", "--do", f"{END}:load:s",
-                            "--do", f"{END + END - SAVE}:save:replay", content=content, system=system, save_dir=saves).stdout
+                            "--do", f"{END + END - SAVE}:save:replay", "--save-dir", saves, content=content, system=system).stdout
         units = self.runs(out)
         keys = ("hash", "ahash", "ticks", "unit", "audio")
         self.assertEqual([tuple(u[k] for k in keys) for u in units[SAVE:END]], [tuple(u[k] for k in keys) for u in units[END:]])
@@ -98,6 +101,12 @@ class BundleWaterboxTests(wb.Sessions):
         (self.media / "bundle.rom").write_bytes(Path(support.KICKSTART).read_bytes())
         self.files_before = wb_support.tree(self.media)
         script = wb.write_script(self.out / "bundle.script", units=END, leave=False)
+        lines = script.read_text().splitlines()
+        for unit in range(800, 804):
+            fields = lines[unit - 1].split()
+            fields[9] = "1"
+            lines[unit - 1] = " ".join(fields)
+        script.write_text("\n".join(lines) + "\n")
         core = lambda n: self.core(n, adf="", writes=False, hdf=",".join(paths), machine="a1200")
         exports = [f"export A {i} file={self.out / ('export-' + name)}" for i, name in enumerate(images)]
         out = self.session([core("A"), f"run A {SAVE} script={script}", "save A s", f"run A {END - SAVE} script={script}", "digest A first", *exports,

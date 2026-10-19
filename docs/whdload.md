@@ -14,6 +14,7 @@ La configuracion de T30 sigue comprobando los hashes de los ficheros del usuario
 
 El programa propio `C:P6Assign` conecta `S:` y `DEVS:` a `RASystem:` mediante la API AmigaDOS v36; no contiene ni necesita `Assign`, `Copy` ni otro comando de Commodore.
 WHDLoad lee sus preferencias de `RASystem:S/WHDLoad.prefs`. Los datos del juego son un ZIP almacenado de orden y fecha fijos en `RASystem:Game.zip`, leido por la interfaz VFS de WHDLoad, que es de solo lectura.
+Su cabecera identifica creador Amiga y permisos RWED Amiga: el plugin del usuario rechaza archivos marcados como PC/Unix.
 `SavePath=WHDSaves:` dirige las escrituras `resload_SaveFile` al volumen separado. Los tres HDF usan los overlays, estados y exportacion existentes; el host no monta carpetas ni cambia las entradas.
 
 Cargar la lista M3U en libretro con maquina A1200 y el Kickstart 3.1 del usuario, o pasar los tres HDF en ese orden a `Puae6Parameters.HardFiles` con `SyncSettings.Machine=A1200` en BizHawk.
