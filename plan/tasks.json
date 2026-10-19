@@ -15397,6 +15397,166 @@
       "stop": "No anunciar formatos ni CD32 al frontend hasta integrar arranque/estado; TAO y otras variantes NRG, MDS y CHD siguen pendientes en el padre."
     },
     {
+      "id": "T66n2a",
+      "title": "Estado privado transaccional del player CDDA real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66n1",
+        "T66i1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0364-cda-restore-preflight.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/audio_cda_state.h",
+        "ports/portable/media/cd_audio.h",
+        "ports/portable/media/cd_audio.cpp",
+        "ports/portable/media/cd_audio_state.h",
+        "tests/media/cd_audio_state_probe.cpp",
+        "tests/media/test_cd_audio_state.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0364/order181 para preflight I1 puro (geometry/available/valid) reutilizado por restore; no mutar ni avanzar reloj para validar. Estado Player incluye PCM2352, posicion/end/delay, ganancias/status/error/running/sector y p6_cda::State; Disc y callbacks se reconstruyen por binding, sin direcciones guardadas. Identidad de Disc completa verificada antes de mutar.",
+        "Validar invariantes reales: COMPLETE/ERROR pueden tener stream.active y remaining0 en ultimo intervalo; WAIT puede tener delay pendiente0 con bloque silencioso aun en cas. No equiparar running con stream.active. Captura/restore no deben avanzar scheduler ni leer nuevos sectores.",
+        "Probe con mixer real y owner/Disc nuevo: activo/pausa, retardo, mitad de sector, intervalo final y error; PCM/posicion/status futuros exactos, rechazos transaccionales y foreign stream/Disc. Reutilizar fixtures I1/I2 sin copiar motor. Presupuesto320–380 logicas; ejecutar regresion I1 porque se refactoriza su preflight, sin engine/guest ni matriz."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "El player restaura todos sus causales en otro dueño con callbacks derivados y rechaza estados invalidos antes de modificar PCM, stream o posicion."
+      ],
+      "stop": "Estado privado de componente; el guard0099 de maquina sigue hasta conectar el codec completo. No acredita estado nativo/WB ni arranque CD32 del padre."
+    },
+    {
+      "id": "T66n2b",
+      "title": "Estado privado del backend CD con identidad y Q terminal",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66n2a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp",
+        "ports/portable/media/cd_device_state.h",
+        "tests/media/cd_device_state_probe.cpp",
+        "tests/media/test_cd_device_state.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Estado incluye opens/position/error/audio_head/terminal_ack, PlayerState y binding de identidad Disc. Preflight conjunto antes de aplicar; callbacks derivados, ningun puntero ni lectura I/O en carga. Getter tampoco avanza hardware.",
+        "Probar bound/ultimo close, activo/pausa/retardo, error y COMPLETE ya reconocido o pendiente; rebind dueño nuevo conserva PCM/Q/posicion futura, Disc distinto y mutaciones no cambian estado. Presupuesto160–230 logicas; native chunk y snapshot WB quedan en padre."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "El backend conserva estado de apertura, cabeza, errores y reconocimiento Q junto al player, con restauracion transaccional y medio verificado."
+      ],
+      "stop": "Estado privado de componente; el guard0099 de maquina sigue hasta conectar el codec completo. No acredita estado nativo/WB ni arranque CD32 del padre."
+    },
+    {
+      "id": "T66m2",
+      "title": "Estado privado de transporte y caches Akiko",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66m1",
+        "T66h2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0365-akiko-transport-state.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/akiko_transport_state.h",
+        "tests/media/akiko_transport_state_probe.cpp",
+        "tests/media/test_akiko_transport_state.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0365/order182 sobre Akiko tras0363;0364 es audio independiente. Estado de transporte: FIFO hasta99 palabras con cursores/mute/servicio, dos caches128x2352 y sus marcas/cabezas, anillo subcode36x96 y sus marcas/cursores. Caller aporta almacenamiento de heap ordinario, sin direcciones ni alloc_invisible.",
+        "Conservar heads e info0/ff exactamente, porque cambian refill/DMA. Normalizar solo payload no legible (head<0 o info0/ff) a cero; conservar info1..3 y bytes causales. Probar caches invalidas envenenadas con captura/continuacion iguales y sector valido alterado con salida distinta.",
+        "Capture/preflight/apply puros de I/O/avance/IRQ: aplicacion tras validar todo sobre owners existentes, sin asignar ni ejecutar cola. Probe Akiko real: wrap y play incompleto, rechazos sin mutacion, corte con cache valida y continuacion DMA identica bajo el mismo contexto de control. Presupuesto300–360 manuales; no afirmar estado completo, sin engine/guest ni matriz."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "El transporte Akiko conserva cola, cache y subcode causales sin serializar heap indefinido, con preflight transaccional y continuacion DMA real."
+      ],
+      "stop": "Componente privado comprobado; no llamar completo al estado CD32 hasta agregacion M3, codec nativo y restore real Waterbox del padre."
+    },
+    {
+      "id": "T66m3",
+      "title": "Agregacion privada del estado causal completo Akiko",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66m2",
+        "T66n2b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0366-akiko-controller-state.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/akiko_state.h",
+        "ports/portable/akiko_transport_state.h",
+        "ports/portable/cd32_eeprom.h",
+        "ports/portable/cd32_nvram.h",
+        "ports/portable/media/cd_device_state.h",
+        "tests/media/akiko_state_probe.cpp",
+        "tests/media/test_akiko_state.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0366/order183 sobre Akiko y flashrom: completar registros/protocolo TX/RX/TOC/Q/reloj/restos/media/audio y C2P, mas M1/M2/backend. Extraer validadores puros reutilizables existentes EEPROM/NVRAM y usar los de player/device de N2, sin duplicar logica ni mutar al preflight.",
+        "Estado sin padding de estructuras upstream ni punteros; direcciones DMA derivadas de registros, callbacks/semaforos/tablas derivados. No reutilizar restore_akiko* que libera/reabre/lee TOC/encola. Preflight considera configuracion/disco y ciclo candidato del scheduler, nunca exige igualdad con el ciclo presente. Apply no asigna, lee I/O, ejecuta IRQ ni avanza tiempo.",
+        "Cortes con comando TX incompleto, respuesta RX parcial, fase PAL/NTSC y lectura C2P/EEPROM parcial: continuacion RAM DMA/respuesta/IRQ/nueva captura exactas con contexto externo declarado. Corrupcion tardia deja todos los componentes intactos. Presupuesto350–390 manuales; si excede400 dividir antes de ampliar, sin engine/guest ni matriz."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "La agregacion privada cubre todos los causales Akiko inventariados y aplica tras validacion conjunta, sin consultas host ni operaciones de dispositivo durante restore."
+      ],
+      "stop": "Componente privado comprobado; no llamar completo al estado CD32 hasta agregacion M3, codec nativo y restore real Waterbox del padre."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15427,7 +15587,11 @@
         "T66l2",
         "T66n1",
         "T66m1",
-        "T66o1"
+        "T66o1",
+        "T66n2a",
+        "T66n2b",
+        "T66m2",
+        "T66m3"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15458,7 +15622,9 @@
         "T66k1 ensambla grafo nativo real sin habilitar machine; T66l1/l2 adelantan NRG DAO poroffset. NRG variantes pendientes, MDS/CHD y arranque/estado completo permanecen abiertos en el padre; no se recorta alcance por preview.",
         "T66n1 conectara CDDA/blkdev yclasificacionefectiva compartida; codeccompletoCDDA/Akiko,NVRAM,frontends yarranque/restore siguenpuertasdelpadre.",
         "T66m1 integraNVRAM real convida desesion/reset yestadoprivado; SaveRAMfrontend/codecmaquina yarranque/restore siguenpendientes.",
-        "T66o1 prepara el propietario nativo comun y sus parsers para la carga real. Seleccion del frontend, firmware/perfiles CD32, estado y arranque/restore conservan sus puertas completas."
+        "T66o1 prepara el propietario nativo comun y sus parsers para la carga real. Seleccion del frontend, firmware/perfiles CD32, estado y arranque/restore conservan sus puertas completas.",
+        "T66n2a/n2b separan por presupuesto estado privado de player y backend; codecs de maquina, guard de audio extra, identidad externa y pruebas nativo/WB completas siguen en el padre.",
+        "T66m2/m3 separan por presupuesto transporte de la agregacion causal Akiko completa; la puerta de NativeChunk y snapshot WB con CD32 real permanece abierta hasta su integracion."
       ],
       "checks": [
         "MED01",
