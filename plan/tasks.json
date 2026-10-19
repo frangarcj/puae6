@@ -14070,7 +14070,7 @@
       "title": "Carga automatica BizHawk de WHDLoad y persistencia reversible",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T65c1"
       ],
@@ -14112,7 +14112,7 @@
       "title": "Carga WHDLoad en BizHawk y SaveRAM de WHDSaves",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T65a",
         "T65c1",

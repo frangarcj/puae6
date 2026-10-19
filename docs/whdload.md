@@ -1,8 +1,9 @@
-# WHDLoad en PUAE6 (T30)
+# WHDLoad en PUAE6
 
-Estado: flujo OFFLINE reproducible. Una instalacion WHDLoad (el directorio que deja su instalador, o el `.lha` del
-autor) se convierte, antes de cargar nada, en UNA imagen de disco duro (`.hdf`) y un manifiesto; el emulador solo
-recibe esa imagen. No es la UX de PUAE5 (ver "Lo que no replica").
+Los adaptadores preparan en memoria un bundle de tres volumenes desde una
+instalacion WHDLoad ya hecha, con el proveedor y Kickstart aportados por el usuario.
+Libretro acepta directorio/LHA/ZIP; BizHawk acepta LHA/ZIP. El preparador CLI
+permite ademas construir los HDF antes de cargarlos, con entradas explicitas.
 
 ## Bundle de tres volumenes (T65a)
 
@@ -19,7 +20,8 @@ Su cabecera identifica creador Amiga y permisos RWED Amiga: el plugin del usuari
 
 Cargar la lista M3U en libretro con maquina A1200 y el Kickstart 3.1 del usuario, o pasar los tres HDF en ese orden a `Puae6Parameters.HardFiles` con `SyncSettings.Machine=A1200` en BizHawk.
 Se guardan mediante `puae6_hdf_save=on_close` en libretro y SaveRAM/exportacion en BizHawk. No hay exportacion oculta al ejecutar o restaurar estados.
-La deteccion automatica de packs dentro de los adaptadores sigue en T65b/T65c; este comando prepara el bundle antes de cargarlo. Estos HDF contienen entradas privadas y no se distribuyen.
+El comando es la alternativa explicita a la carga automatica descrita abajo.
+Estos HDF contienen entradas privadas y no se distribuyen.
 
 T65c1 añade `Puae6WhdLoad.Build`/`Prepare`, la misma receta en C# sin Python en
 ejecucion. Usa los lectores LHA/ZIP y escritor FFS existentes; las constantes propias
@@ -27,7 +29,7 @@ P6Assign/arranque/prefs/roles se generan desde T65a, sin incluir programas del u
 `Prepare` verifica los dos miembros de WHDLoad 20.0; `Build` consume bytes explicitos.
 El ZIP de datos usa cabeceras almacenadas fijas, creador Amiga, RWED y UTF8 cuando
 el nombre Latin1 lo necesita. ButtonWait es false por defecto como T65a (PUAE5 lo
-activa por defecto). No es aun carga automatica ni una prueba de guardado/arranque.
+activa por defecto). Los constructores puros se prueban por separado del loader real.
 WHDSaves vacio es el mismo medio compartible entre packs: SaveRAM P6SRv2 valida el ID
 de los medios que contienen cambios; estados y peliculas validan las tres bases y
 configuracion. No hay namespace por juego ni un formato nuevo de SaveRAM.
@@ -131,16 +133,15 @@ extension; nombres de 30 bytes como mucho, ASCII con `DOS1`.
 * Referencia de pruebas: A1200 con Kickstart 3.1 (el del usuario, por variable de entorno). Un volumen FFS con
   Kickstart 1.3 en el A500 NO arranca todavia: la maquina muestra "Not a DOS disk in unit 0" (causa sin investigar: sospecha de que el FFS no esta en la ROM 1.3 para discos duros). No se declara soportado.
 
-## Lo que no replica de PUAE5 (T65/P17)
+## Limites de la integracion
 
-La UX de WHDLoad de PUAE5 (opciones `puae_use_whdload`, temas, prefs/splash, `buttonwait`, `QuitKey` con volcado al
-descargar, `WHDSaves.hdf` aparte, copia de Kickstarts de `RASystem:`, instalaciones Retroplay/Arcadia, "Boot HD",
-directorios/LHA montados como volumen vivo) no esta aqui. El flujo de T30 es offline y explicito: la imagen ya hecha
-es el contenido (libretro: `.hdf`; BizHawk: `HardFiles`), y lo que el invitado escribe sale por la exportacion
-explicita de T63a/T63b. P16/P17 (importador dentro del core, UX) quedan en sus tareas. T64a pone en el nucleo libretro la parte de P16 que no es UX: un directorio, un `.lha` o un
-`.zip` de ficheros entran como una imagen FFS construida en memoria con las mismas reglas que `tools/whdload/ffs.py` (que es su oraculo) y el mismo orden y sellos fijos (docs/02-contracts.md "Volumenes (T64a)",
-docs/adr/0011-volumes-from-the-host.md): el arbol de ficheros de Fatal Mission que describe el config de T30 (WHDLoad, el juego y su `S:Startup-Sequence`) arranca como directorio y como LHA con WHDLoad, sin pasar por la imagen de
-`prepare_whdload.py` (`RealGameVolumeTests` de `tests/libretro-host/test_volume.py`, opt-in); el contenido decide que arranca, y quien escribe el script de arranque sigue siendo el flujo de T30.
+La carga automatica prepara la receta propia de tres volumenes y nunca monta
+carpetas vivas del host. No ejecuta instaladores ni proporciona temas, splash
+personalizado o instalaciones Arcadia. Los scripts del pack no sustituyen el
+arranque propio. Un slave que necesita otro Kickstart o RTB requiere aportarlo
+explicitamente; el paquete WHDLoad oficial no incluye RTB. El preparador CLI y
+los parametros C# permiten esas entradas. Disabled conserva el volumen generico
+con sus propios scripts y preferencias.
 
 ## Resultado con un juego real (T30b)
 
