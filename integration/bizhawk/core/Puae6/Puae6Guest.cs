@@ -63,6 +63,7 @@ public sealed class Puae6Guest : IDisposable
 	public LibPuae6 Lib { get; }
 	public GuestIdentity.VerifiedGuest Identity { get; }
 	public P6CdHost? Cd { get; }
+	public bool IsSealed { get; private set; }
 
 	Puae6Guest(WaterboxHost host, LibPuae6 lib, GuestIdentity.VerifiedGuest identity, P6CdHost? cd)
 	{
@@ -122,6 +123,17 @@ public sealed class Puae6Guest : IDisposable
 		for (int i = 0; i < expected.Length; ++i)
 			if (reported[i] != expected[i])
 				throw new GuestLayoutException($"{AbiLayout.Names[i]} is {reported[i]} in the guest and {expected[i]} in the wrapper");
+	}
+
+	/// <summary>Seal the common empty-CD baseline before binding external CD metadata.
+	/// The binding must be dirty snapshot state, never part of an instance's baseline.</summary>
+	public void Seal()
+	{
+		if (IsSealed) throw new InvalidOperationException("The guest is already sealed");
+		using var active = Host.EnterExit();
+		Host.Seal();
+		IsSealed = true;
+		if (Cd is not null && Cd.Bind(this, false) != P6.Ok) throw new InvalidDataException("CD descriptor refused");
 	}
 
 	public void Dispose() => Host.Dispose();

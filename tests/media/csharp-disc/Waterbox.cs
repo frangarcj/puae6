@@ -8,7 +8,7 @@ internal static unsafe partial class Program
  {
   LoadRuntime(args[2]);
   string path = args[1], guestPath = args[3], sha = args[4], statePath = path + ".p6ws";
-  if (args[5] == "save") {
+  if (args[5] == "save" || args[5] == "phase") {
    File.WriteAllBytes(Path.Combine(args[0], "disc.iso"), new byte[520 * 2048]);
    File.WriteAllBytes(Path.Combine(args[0], "data.bin"), new byte[4 * 2048]);
    Wave(Path.Combine(args[0], "audio.wav"));
@@ -21,8 +21,21 @@ internal static unsafe partial class Program
   var heaps = Puae6Core.Heaps(new Puae6SyncSettings());
   StateIdentity Identity(byte[] id) => new(sha, new[] { heaps.SbrkHeapSizeKB, heaps.SealedHeapSizeKB, heaps.InvisibleHeapSizeKB, heaps.PlainHeapSizeKB, heaps.MmapHeapSizeKB }, new byte[32], new byte[32], id);
   var identity = Identity(source.ContentId);
-  Puae6Guest Open(P6CdHost binding) => Puae6Guest.Open(Path.GetDirectoryName(guestPath), Path.GetFileName(guestPath), sha, heaps, binding);
+  Puae6Guest Open(P6CdHost binding) {
+   var g = Puae6Guest.Open(Path.GetDirectoryName(guestPath), Path.GetFileName(guestPath), sha, heaps, binding);
+   if (binding != null) {
+    Require(binding.Bind(g, false) == P6.BadState);
+    using var input = new BinaryReader(new MemoryStream());
+    try { binding.Restore(g, input, identity); throw new Exception("Restore before Seal accepted"); }
+    catch (InvalidOperationException) { Require(input.BaseStream.Position == 0); }
+   }
+   g.Seal();
+   try { g.Seal(); throw new Exception("Second Seal accepted"); }
+   catch (InvalidOperationException) { Require(g.IsSealed); }
+   return g;
+  }
   using var guest = Open(cd);
+  if (args[5] == "phase") { Console.WriteLine("Waterbox CD Seal/Restore phase guards PASS"); return; }
   var expected = new byte[2448]; Require(source.ReadAt(2439, expected, 0, expected.Length));
   var output = new byte[2448];
   void Check(Puae6Guest g, P6CdHost c) { Require(c.ReadAt(g, 2439, output) == P6.Ok && output.SequenceEqual(expected)); }
@@ -53,7 +66,7 @@ internal static unsafe partial class Program
     fail = true; Require(cd.ReadAt(guest, 2439, output) == P6.Io && output.All(b => b == 0xcc)); fail = false;
    }
   }
-  Check(guest, cd); guest.Host.Seal();
+  Check(guest, cd);
   var saved = args[5] == "save" ? Save(guest) : File.ReadAllBytes(statePath);
   Restore(guest, cd, saved, identity); Check(guest, cd);
   var wrong = source.ContentId; wrong[0] ^= 1;
@@ -62,9 +75,9 @@ internal static unsafe partial class Program
   Check(guest, cd);
   using var newDisc = Mount(path); var fresh = new Puae6DiscSource(newDisc);
   var binding = new P6CdHost(fresh.Descriptor(), (at, data, count) => fresh.ReadAt(at, data, 0, count));
-  using var next = Open(binding); next.Host.Seal(); Restore(next, binding, saved, identity); Check(next, binding);
+  using var next = Open(binding); Restore(next, binding, saved, identity); Check(next, binding);
   // A valid envelope around a sandbox without a bound CD must fault the wrapper.
-  using var empty = Open(null); empty.Host.Seal();
+  using var empty = Open(null);
   try { Restore(guest, cd, Save(empty), identity); throw new Exception("Unbound snapshot accepted"); }
   catch (Exception e) when (e is InvalidDataException || e is InvalidOperationException) { Require(cd.ReadAt(guest, 2439, output) == P6.BadState); }
   Restore(guest, cd, saved, identity); Check(guest, cd);

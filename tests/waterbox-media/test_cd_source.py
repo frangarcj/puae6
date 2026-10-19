@@ -25,6 +25,7 @@ class CdLayoutTests(unittest.TestCase):
 
 @unittest.skipUnless(GUEST.is_file() and wb.runtime_receipt_path().is_file() and shutil.which("dotnet"), "built guest/runtime and dotnet required")
 class CdTransportTests(unittest.TestCase):
+    modes = ("save", "load")
     def test_iso_cue_callback_abi_restore_and_rebind_across_processes(self):
         with tempfile.TemporaryDirectory(prefix="cd-wbx-", dir=ROOT / "build") as tmp:
             work = Path(tmp)
@@ -43,6 +44,6 @@ class CdTransportTests(unittest.TestCase):
             runtime = json.loads(wb.runtime_receipt_path().read_text())["runtime_dylib"]["path"]
             sha = json.loads(RECEIPT.read_text())["guest"]["sha256"]
             for name in ("disc.iso", "stored.cue"):
-                for mode in ("save", "load"):
+                for mode in self.modes:
                     result = subprocess.run(["dotnet", str(work / "bin/Debug/net8.0/DiscSource.dll"), str(work), str(work / name), runtime, str(GUEST), sha, mode], env=env, capture_output=True, text=True, timeout=120)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

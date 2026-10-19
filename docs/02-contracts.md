@@ -982,6 +982,11 @@ T66f1 transporta esa fuente al guest mediante extension privada `p6w_cd.h`
 ID, longitud y TOC completos antes de publicar Source/Disc/callback; slot0 se
 registra antes de BizInvoker y permanece vivo en Puae6Guest. Solo se copian
 metadatos y lecturas de hasta2448B mediante CopyFromExternal al staging guest.
+Open registra el callback y comprueba layout sin bind. `Puae6Guest.Seal` sella
+primero una baseline CD vacia comun y despues realiza el bind inicial; Bind y
+Restore se rechazan antes de esa fase, sin consumir estado. Identidad/TOC/binding quedan dirty y forman parte
+del snapshot: no pueden sobrevivir desde una baseline distinta al cargar un
+estado sin CD. Los consumidores de CD deben usar este Seal, no Host.Seal directo.
 StateEnvelope rechaza identidad ajena antes del restore; despues se exige
 rebind identico y cualquier fallo impide leer hasta un restore completo.
 El descriptor es estado ordinario; los bindings se derivan de nuevo, sin

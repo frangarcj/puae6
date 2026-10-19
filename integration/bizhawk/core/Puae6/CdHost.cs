@@ -53,11 +53,11 @@ public unsafe sealed class P6CdHost
   if (guest.Lib.p6w_cd_layout((IntPtr)layout, 3) != 3 || layout[0] != (ulong)sizeof(P6CdInfo)
    || layout[1] != (ulong)Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Bytes)).ToInt64()
    || layout[2] != (ulong)Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Tracks)).ToInt64()) throw new GuestLayoutException("CD descriptor layout differs");
-  if (Bind(guest, false) != P6.Ok) throw new InvalidDataException("CD descriptor refused");
  }
  public int Bind(Puae6Guest guest, bool rebind, P6CdInfo? candidate = null)
  {
   if (!ReferenceEquals(host, guest.Host)) return P6.BadArgument;
+  if (!guest.IsSealed) return P6.BadState;
   using var active = guest.Host.EnterExit();
   var descriptor = candidate ?? info; return guest.Lib.p6w_cd_bind((IntPtr)(&descriptor), callback, rebind ? 1u : 0u);
  }
@@ -71,6 +71,7 @@ public unsafe sealed class P6CdHost
  public void Restore(Puae6Guest guest, BinaryReader input, StateIdentity expected)
  {
   if (!ReferenceEquals(host, guest.Host)) throw new ArgumentException("Wrong sandbox");
+  if (!guest.IsSealed) throw new InvalidOperationException("Seal the CD baseline before restoring");
   var payload = StateEnvelope.Read(input, expected); // Reject identity/checksum before touching sandbox.
   using var stream = new MemoryStream(payload, false); using var snapshot = new BinaryReader(stream);
   using var active = guest.Host.EnterExit();
