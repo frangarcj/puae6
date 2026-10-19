@@ -258,13 +258,13 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
 inline void offer_controllers(retro_environment_t environment)
 {
     static const retro_controller_description port0[] = {
-        {"CD32 pad (Amiga port 2)", kDeviceCd32},
         {"Joystick + Mouse (Amiga ports 2 and 1)", RETRO_DEVICE_JOYPAD}, {"Joystick only (Amiga port 2)", kDeviceJoystickOnly},
+        {"CD32 pad (Amiga port 2)", kDeviceCd32},
         {"Mouse only (Amiga port 1)", RETRO_DEVICE_MOUSE}, {"Keyboard only (port empty)", RETRO_DEVICE_KEYBOARD}, {"None", RETRO_DEVICE_NONE},
     };
     static const retro_controller_description port1[] = {
-        {"CD32 pad (Amiga port 1; needs Player 1 without mouse)", kDeviceCd32},
         {"Joystick (Amiga port 1; needs Player 1 on Joystick only)", RETRO_DEVICE_JOYPAD}, {"Keyboard only (port empty)", RETRO_DEVICE_KEYBOARD},
+        {"CD32 pad (Amiga port 1; needs Player 1 without mouse)", kDeviceCd32},
         {"None", RETRO_DEVICE_NONE},
     };
     static const retro_controller_info ports[] = {
