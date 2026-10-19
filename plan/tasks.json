@@ -12877,7 +12877,8 @@
         "manifests/waterbox-memory.json",
         "docs/02-contracts.md",
         "docs/options.md",
-        "docs/adr/**"
+        "docs/adr/**",
+        "manifests/state-inventory.json"
       ],
       "steps": [
         "Cambiar la politica de perfil de z3_memory por las superficies reales de libretro/headless/C#, de forma atomica: opcion de reinicio, defaultsNone e identidad; conservar campos existentes de p6_config. Reutilizar micro-ROM de c2, sin reimplementar autoconfig.",
@@ -12886,7 +12887,8 @@
         "LR01 y WB03 reales: acceso a extremos de Z3 y restore mismo/nuevo sandbox, config diferente rechazada sin mutacion, dominios completos. Una generacion/enlace integrado con -j2; no repetir campanas de rendimiento por frontend.",
         "Conservar en T55c los otros tamanos Z3 y toda la aceptacion 040/060/A4000;16MiB constituye la primera vertical funcional, no el cierre del padre.",
         "Contrato de direccion Z3: p6_memory_region conserva layout; flag BUS_ADDRESS_VALID y bits16..31 codifican base real en64KiB, solo Z3. LR anuncia/retira ese descriptor segun autoconfig/restauracion y detecta cambios de flags/base aunque puntero/tamano no varien. Probar base elegida22000000, no inventar base fija.",
-        "Medir C3 dentro de Waterbox real y comprobar margen2x con stdout/test como registro normal; ampliar regla Z3 del manifiesto sin escribir measured parcial. El dataset global16claves del mismo guest/runtime se regrabara junto en candidata acumulada T53/T39; no presentar el dataset anterior como medida del nuevo guest ni crear reporte de telemetria."
+        "Medir C3 dentro de Waterbox real y comprobar margen2x con stdout/test como registro normal; ampliar regla Z3 del manifiesto sin escribir measured parcial. El dataset global16claves del mismo guest/runtime se regrabara junto en candidata acumulada T53/T39; no presentar el dataset anterior como medida del nuevo guest ni crear reporte de telemetria.",
+        "Ampliacion explicita: actualizar ram-fast-zorro3-board en state-inventory al pasar WB03; C2 dejo wrapper/presupuesto como pending. No atribuir ejecucion a un guest previo."
       ],
       "checks": [
         "LR01",
@@ -14556,7 +14558,7 @@
         "docs/07-machawk.md"
       ],
       "id": "T66e1",
-      "status": "in_progress",
+      "status": "done",
       "title": "Fuentes nativas CD seekable e ISO/WAV PCM por offset sin copiar imagen",
       "depends": [
         "T66b"
