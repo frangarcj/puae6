@@ -12569,8 +12569,8 @@
       "stop": "No usar fast-math ni la FPU nativa."
     },
     {
-      "id": "T55",
-      "title": "68030/68040/68060, A4000/030 y A4000/040 (KS 3.1, 2M Chip + 8M Fast) y Zorro III",
+      "id": "T55a",
+      "title": "Estado nativo del RTC Ricoh para futuros A4000",
       "milestone": "M3",
       "required": true,
       "status": "in_progress",
@@ -12594,10 +12594,159 @@
         "config/**",
         "adapters/libretro/**",
         "integration/bizhawk/**",
-        "manifests/**"
+        "manifests/**",
+        "adapters/headless/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece A4030 y A4040. CPUs 030/040/060 sin MMU (la MMU es T44, opcional), presets A4000, Fast Z3 medido contra el presupuesto Waterbox."
+        "Cubrir los controles, alarmas y RAM del RTC Ricoh real en acceso de estado, digest y restore transaccional con prueba dirigida. No publicar un A4000 usando chipset/RTC del A1200.",
+        "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "El RTC Ricoh conserva controles, alarmas y RAM al restaurar y rechaza estados corruptos sin alterar el futuro."
+      ],
+      "stop": "Sin MMU: no fingirla."
+    },
+    {
+      "id": "T55b",
+      "title": "68030 y preset A4000/030 real con restauracion",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T55a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/**",
+        "bridge/**",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "manifests/**",
+        "adapters/headless/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Implementar 68030 y A4000/030 con RTC, FatGary/Ramsey y direccionamiento reales; mantener cerrados los niveles CPU sin soporte y completar los definidos para esta maquina. Exponer preset y opciones coherentes en los tres frontends.",
+        "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "WB03",
+        "LR01"
+      ],
+      "acceptance": [
+        "El A4000/030 real arranca y restaura en nativo/Waterbox, con niveles y limites de CPU declarados y sin MMU fingida."
+      ],
+      "stop": "Sin MMU: no fingirla."
+    },
+    {
+      "id": "T55c",
+      "title": "68040/68060, A4000/040 y Fast Zorro III",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T55b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/**",
+        "bridge/**",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "manifests/**",
+        "adapters/headless/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Completar 68040/68060 y preset A4000/040, Fast Z3 y presupuesto real Waterbox, conservando el resto del alcance T55.",
+        "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "WB03",
+        "LR01"
+      ],
+      "acceptance": [
+        "A4000/040 y CPUs040/060 restauran; Fast Z3 se mide contra presupuesto Waterbox y se declaran limites sin MMU."
+      ],
+      "stop": "Sin MMU: no fingirla."
+    },
+    {
+      "id": "T55",
+      "title": "68030/68040/68060, A4000/030 y A4000/040 (KS 3.1, 2M Chip + 8M Fast) y Zorro III",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T54",
+        "T49",
+        "T55a",
+        "T55b",
+        "T55c"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "manifests/codegen.json",
+        "tools/generate_cpu.py",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "tests/**",
+        "bridge/**",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "manifests/**",
+        "adapters/headless/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece A4030 y A4040. CPUs 030/040/060 sin MMU (la MMU es T44, opcional), presets A4000, Fast Z3 medido contra el presupuesto Waterbox.",
+        "Dividida por dependencias reales: RTC Ricoh, luego A4000/030 y CPU030, luego040/060/Z3. Conserva todos los checks y aceptacion originales; ningun preset se simula copiando un A1200."
       ],
       "checks": [
         "GEN01",
