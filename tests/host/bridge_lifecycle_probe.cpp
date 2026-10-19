@@ -280,6 +280,13 @@ static void rejects_invalid_input_without_touching_the_machine(const std::vector
         (void)k.what;
     }
     assert(p6_run_frame(nullptr, P6_RENDER_VIDEO, &frame, &e) == P6_ERROR_BAD_ARGUMENT);
+    const p6_input valid = good();
+    for (unsigned volume = 101; volume <= 127; ++volume) {
+        assert(p6_run_frame(&valid, volume << P6_RENDER_DRIVE_VOLUME_SHIFT, &frame, &e) == P6_ERROR_BAD_ARGUMENT);
+        assert(get_cycles() == before && regs.pc == pc_before && in_m68k_go == 1);
+    }
+    assert(p6_run_frame(&valid, UINT32_C(1) << 7, &frame, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(get_cycles() == before && regs.pc == pc_before && in_m68k_go == 1);
     p6_input full = good();
     full.ports[0].type = P6_PORT_MOUSE; full.ports[0].buttons = P6_BUTTON_1 | P6_BUTTON_3; full.ports[0].dx = -5;
     full.ports[1].type = P6_PORT_JOYSTICK; full.ports[1].buttons = P6_BUTTON_LEFT | P6_BUTTON_RIGHT | P6_BUTTON_UP;  // left+right: neutral

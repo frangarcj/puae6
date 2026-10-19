@@ -1161,7 +1161,6 @@ int main(int argc, char **argv)
         result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
         if (result != P6_OK) return fail("p6_load", result, error);
         g_profile_rtc = currprefs.cs_rtc;
-        p6_drive_sound::gain(drive_sound);
         print_digests(0);
         run_state_ops(state_ops, 0);
         p6_input input = {};
@@ -1179,7 +1178,7 @@ int main(int argc, char **argv)
             p6_frame frame = {};
             frame.abi_version = P6_ABI_VERSION;
             frame.struct_size = sizeof frame;
-            result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
+            result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO | (drive_sound << P6_RENDER_DRIVE_VOLUME_SHIFT), &frame, &error);
             if (result != P6_OK) return fail("p6_run_frame", result, error);
             // The PCM that the unit produced, hashed as it was handed over (T15i3): Paula's filter and resampler are in no digest above, and a lost phase shows only here.
             if (frame.audio && frame.audio_frames) {

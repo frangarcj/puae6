@@ -292,6 +292,10 @@ typedef struct p6_frame {
 #define P6_FRAME_DRIVE_LIGHT (UINT32_C(1) << 2)
 #define P6_RENDER_VIDEO      (UINT32_C(1) << 0)
 #define P6_RENDER_AUDIO      (UINT32_C(1) << 1)
+/* Presentation-only mechanical drive volume, percent 0..100 (0 is silent).
+ * Supply on every call, including muted delivery; not part of config/state identity. */
+#define P6_RENDER_DRIVE_VOLUME_SHIFT 8u
+#define P6_RENDER_DRIVE_VOLUME_MASK (UINT32_C(127) << P6_RENDER_DRIVE_VOLUME_SHIFT)
 
 /* Extensions use caller-owned bounded buffers. State format is native to the
  * exact compatible build/config/media; it is not a Waterbox snapshot or a

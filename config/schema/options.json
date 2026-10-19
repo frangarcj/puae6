@@ -1986,6 +1986,22 @@
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}
+    },
+    {
+      "id": "drive_sound_volume", "class": "presentation", "type": "enum",
+      "maps_to": "presentation.drive_sound_volume", "default": "0",
+      "values": [
+        {"value": "0", "abi": 0, "label": "0 %", "wrapper_name": "P0"},
+        {"value": "10", "abi": 10, "label": "10 %", "wrapper_name": "P10"},
+        {"value": "25", "abi": 25, "label": "25 %", "wrapper_name": "P25"},
+        {"value": "50", "abi": 50, "label": "50 %", "wrapper_name": "P50"},
+        {"value": "75", "abi": 75, "label": "75 %", "wrapper_name": "P75"},
+        {"value": "100", "abi": 100, "label": "100 %", "wrapper_name": "P100"}
+      ],
+      "libretro": {"key": "puae6_drive_sound_volume", "category": "audio", "label": "Floppy Drive Sound Volume",
+        "info": "Mechanical drive sound, 0 (silent) to 100 percent. Applies immediately, with continuous phase even while silent; does not change the Amiga or state/movie identity."},
+      "headless": {"how": "named", "flag": "--drive-sound-volume", "names": {"0": "0", "10": "10", "25": "25", "50": "50", "75": "75", "100": "100"}},
+      "wrapper": {"how": "setting", "setting": "DriveSoundVolume", "type": "Puae6DriveSoundVolume"}
     }
   ],
   "presets": [

@@ -303,7 +303,7 @@ class NormalizationTests(unittest.TestCase):
                    "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled",
                    "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto", "floppy_speed": "100", "floppy_drive_count": "auto", "video_resolution": "hires", "video_line_mode": "double"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
-        presentation = {"floppy_multidrive": "disabled", "video_aspect": "pixel", "floppy_save": "off", "hdf_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
+        presentation = {"drive_sound_volume": "0", "floppy_multidrive": "disabled", "video_aspect": "pixel", "floppy_save": "off", "hdf_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
                         "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit",
                         "analog_mouse": "disabled", "analog_mouse_deadzone": "20", "analog_mouse_speed_left": "1.0", "analog_mouse_speed_right": "1.0",
                         "dpad_mouse_speed": "6", "mouse_speed": "100", "joyport": "joystick", "face_buttons": "disabled", "turbo_fire": "disabled",

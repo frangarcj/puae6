@@ -5,7 +5,7 @@
 //   p6_headless --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882]
 //                         [--hdf-controller uae|ide]
 //                         [--cpu auto|68000|68010|68020] [--cpu-compatibility exact|compatible|normal] [--cpu-multiplier auto|1|2|4|8|10|12|16]
-//                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
+//                         [--drive-sound-volume 0|10|25|50|75|100] [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
 //                         [--floppy-drives auto|1|2|3|4] [--floppy-speed 100|200|400|800|turbo] [--resolution lores|hires|superhires] [--line-mode single|double]
 //                         [--disk ADF|EXTENDED-ADF|FDI|IPF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
 // Only micro-ROM programs have been run so far: no Kickstart compatibility is claimed.
@@ -108,6 +108,7 @@ static const Named sound_separation_names[] = {{"0", 1}, {"10", 2}, {"20", 3}, {
 static const Named sound_interpolation_names[] = {{"none", 1}, {"anti", 0}, {"rh", 4}, {"crux", 5}};
 static const Named sound_filter_names[] = {{"emulated", 0}, {"off", 1}, {"on", 3}};
 static const Named sound_filter_type_names[] = {{"auto", 0}, {"a500", 1}, {"a1200", 2}};
+static const Named drive_sound_volume_names[] = {{"0", 0}, {"10", 10}, {"25", 25}, {"50", 50}, {"75", 75}, {"100", 100}};
 // The floppy drive speed (T62), after --floppy-speed: the percentage of the real drive, or turbo (upstream's floppy_speed 0). Zero is the profile's (100).
 static const Named floppy_drives_names[] = {{"auto", 0}, {"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}};
 static const Named floppy_speed_names[] = {{"100", 0}, {"200", 2}, {"400", 3}, {"800", 4}, {"turbo", 5}};
@@ -170,6 +171,7 @@ static int run(int argc, char **argv)
     uint8_t floppy_speed = 0;                                                                           // 0: the real drive (T62)
     uint8_t video_resolution = 0, video_line_mode = 0;                                                  // 0: the profile's raster, hires and double lines (T72)
     uint8_t cpu_compatibility = 0;
+    uint8_t drive_sound_volume = 0;
     uint8_t cpu_model = 0, cpu_multiplier = 0;                                                          // 0: the machine's own CPU and clock (T52)
     uint8_t hdf_controller = 0;                                                                         // T56: 0 the UAE controller, 1 the IDE port of Gayle (P6_HDF_CONTROLLER_*)
     for (int i = 2; i < argc; ++i) {
@@ -199,6 +201,7 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) { const char *v = argv[++i]; fast_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : !strcmp(v, "auto") ? 0 : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));       // T54: 0 (none), 68881 or 68882; the bridge refuses the rest
         else if (!strcmp(argv[i], "--sound-sep") && i + 1 < argc) { if (!pick_named(sound_separation_names, argv[++i], &sound_separation)) return -1; }
+        else if (!strcmp(argv[i], "--drive-sound-volume") && i + 1 < argc) { if (!pick_named(drive_sound_volume_names, argv[++i], &drive_sound_volume)) return -1; }
         else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) { if (!pick_named(sound_interpolation_names, argv[++i], &sound_interpolation)) return -1; }
         else if (!strcmp(argv[i], "--sound-filter") && i + 1 < argc) { if (!pick_named(sound_filter_names, argv[++i], &sound_filter)) return -1; }
         else if (!strcmp(argv[i], "--sound-type") && i + 1 < argc) { if (!pick_named(sound_filter_type_names, argv[++i], &sound_filter_type)) return -1; }
@@ -299,7 +302,7 @@ static int run(int argc, char **argv)
         frame = {};
         frame.abi_version = P6_ABI_VERSION;
         frame.struct_size = sizeof frame;
-        result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
+        result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO | (drive_sound_volume << P6_RENDER_DRIVE_VOLUME_SHIFT), &frame, &error);
         if (result != P6_OK) {
             status = fail("p6_run_frame", result, error);
             break;
@@ -346,7 +349,7 @@ int main(int argc, char **argv)
         if (code >= 0) return code;
     }
     fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--fpu 0|68881|68882] [--hdf-controller uae|ide]\n"
-                    "                         [--cpu auto|68000|68010|68020] [--cpu-compatibility exact|compatible|normal] [--cpu-multiplier auto|1|2|4|8|10|12|16]\n                         [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-drives auto|1|2|3|4] [--floppy-speed 100|200|400|800|turbo]\n                         [--resolution lores|hires|superhires] [--line-mode single|double]\n"
+                    "                         [--cpu auto|68000|68010|68020] [--cpu-compatibility exact|compatible|normal] [--cpu-multiplier auto|1|2|4|8|10|12|16]\n                         [--drive-sound-volume 0|10|25|50|75|100] [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-drives auto|1|2|3|4] [--floppy-speed 100|200|400|800|turbo]\n                         [--resolution lores|hires|superhires] [--line-mode single|double]\n"
                     "                         [--disk ADF|EXTENDED-ADF|FDI|IPF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
             argv[0], argv[0]);
     return 64;

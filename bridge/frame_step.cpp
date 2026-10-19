@@ -13,6 +13,7 @@
 #include "video.h"
 #include "input.h"
 #include "media.h"
+#include "drive_sound.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -72,8 +73,11 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
                        session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
     if (!frame || frame->abi_version != P6_ABI_VERSION || frame->struct_size != sizeof *frame)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "frame has the wrong ABI version or size");
-    if (render_flags & ~(P6_RENDER_VIDEO | P6_RENDER_AUDIO))
+    if (render_flags & ~(P6_RENDER_VIDEO | P6_RENDER_AUDIO | P6_RENDER_DRIVE_VOLUME_MASK))
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown render flags");
+    const unsigned drive_volume = (render_flags & P6_RENDER_DRIVE_VOLUME_MASK) >> P6_RENDER_DRIVE_VOLUME_SHIFT;
+    if (drive_volume > 100)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "drive sound volume must be 0..100");
     if (!input)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "input is missing");
     if (const p6_result checked = p6_bridge::validate_input(*input, error))
@@ -102,6 +106,7 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
 
     // 3. Input.
     p6_bridge::apply_input(*input);
+    p6_drive_sound::gain(drive_volume);        // APPLY may reopen audio; consume presentation only after it
 
     // 4. One video unit.
     p6_bridge::begin_unit();

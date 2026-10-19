@@ -127,7 +127,7 @@ class HeadlessParity(Schema):
 
     def test_headless_has_no_flag_for_a_key_the_schema_fixes(self):
         flags = set(re.findall(r'strcmp\(argv\[i\], "(--[\w-]+)"\)', self.source))
-        flagged = {o["headless"]["flag"] for o in self.reboot.values() if "flag" in o["headless"]}
+        flagged = {o["headless"]["flag"] for o in self.options.values() if "flag" in o["headless"]}
         # --units, --dump, --dump-from, --dump-audio and --disk are about the run (how long, what to write, what disk), not about the machine.
         self.assertEqual(flags - {"--units", "--dump", "--dump-from", "--dump-audio", "--disk", "--hdf", "--export-hdf"}, flagged, "headless takes a flag for a key the schema does not give it, or lacks one")
 

@@ -1661,7 +1661,8 @@ RETRO_API void retro_run(void)
         frame.abi_version = P6_ABI_VERSION;
         frame.struct_size = sizeof frame;
         p6_error error = make_error();
-        const p6_result result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error);
+        const uint32_t render = P6_RENDER_VIDEO | P6_RENDER_AUDIO | (core.settings.drive_sound_volume << P6_RENDER_DRIVE_VOLUME_SHIFT);
+        const p6_result result = p6_run_frame(&input, render, &frame, &error);
         if (result == P6_OK) {
             have_frame = true;
             core.status.drive_light = (frame.flags & P6_FRAME_DRIVE_LIGHT) != 0;

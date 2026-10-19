@@ -443,7 +443,7 @@ def _validate_adapters(option, klass, where, errors):
             if not (isinstance(names, dict) and sorted(names) == sorted(values) and all(_text(spelling) and spelling == spelling.lower() for spelling in names.values())
                     and len(set(names.values())) == len(names)):
                 errors.append(f"{where}: headless '{how}' names every value of an enum once, in lowercase ASCII (the spelling after the flag)")
-        if (how == "none") != (klass == "presentation"):
+        if (klass == "presentation" and how not in ("none", "value", "named")) or (klass == "reboot" and how == "none"):
             errors.append(f"{where}: headless 'none' is for presentation options only (a reboot option is part of the machine headless runs)")
     if _only(wrapper, {"how", "setting", "type", "where"}, {"how"}, f"{where} wrapper", errors):
         how = wrapper["how"]
@@ -452,7 +452,7 @@ def _validate_adapters(option, klass, where, errors):
         needed = {"setting": {"setting", "type"}, "fixed": {"where"}}.get(how, set())
         if set(wrapper) - {"how"} != needed:
             errors.append(f"{where}: wrapper '{how}' takes exactly the fields {sorted(needed)}")
-        if (how == "none") != (klass == "presentation"):
+        if (klass == "presentation" and how not in ("none", "setting")) or (klass == "reboot" and how == "none"):
             errors.append(f"{where}: wrapper 'none' is for presentation options only")
 
 

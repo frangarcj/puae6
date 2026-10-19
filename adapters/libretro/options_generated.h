@@ -93,6 +93,7 @@ struct Settings {
     uint32_t vkbd_theme = 0u;  // presentation, presentation.vkbd_theme = auto
     uint32_t vkbd_transparency = 25u;  // presentation, presentation.vkbd_transparency = 25%
     uint32_t vkbd_dimming = 25u;  // presentation, presentation.vkbd_dimming = 25%
+    uint32_t drive_sound_volume = 0u;  // presentation, presentation.drive_sound_volume = 0
     uint32_t preset = 0u;  // reboot, a bundle of the options above (the schema's presets, apply_preset); 0 = none. Not a p6_config field
     uint32_t model_fd = 1u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = A500
     uint32_t model_hd = 3u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = A1200
@@ -868,6 +869,14 @@ constexpr Value kVkbdDimmingValues[] = {
     {"75%", 75u},
     {"100%", 100u},
 };
+constexpr Value kDriveSoundVolumeValues[] = {
+    {"0", 0u},
+    {"10", 10u},
+    {"25", 25u},
+    {"50", 50u},
+    {"75", 75u},
+    {"100", 100u},
+};
 
 constexpr Option kOptions[] = {
     {"puae6_machine", true, &Settings::machine, kMachineValues, 10, 0},
@@ -954,6 +963,7 @@ constexpr Option kOptions[] = {
     {"puae6_vkbd_theme", false, &Settings::vkbd_theme, kVkbdThemeValues, 10, 0},
     {"puae6_vkbd_transparency", false, &Settings::vkbd_transparency, kVkbdTransparencyValues, 5, 1},
     {"puae6_vkbd_dimming", false, &Settings::vkbd_dimming, kVkbdDimmingValues, 5, 1},
+    {"puae6_drive_sound_volume", false, &Settings::drive_sound_volume, kDriveSoundVolumeValues, 6, 0},
 };
 constexpr unsigned kOptionCount = sizeof kOptions / sizeof kOptions[0];
 
@@ -1308,6 +1318,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "How much the picture around the virtual keyboard is darkened while it is open.",
      "How much the picture around the virtual keyboard is darkened while it is open.",
      "osd", {{"0%", "0%"}, {"25%", "25%"}, {"50%", "50%"}, {"75%", "75%"}, {"100%", "100%"}}, "25%"},
+    {"puae6_drive_sound_volume", "Floppy Drive Sound Volume", "Floppy Drive Sound Volume",
+     "Mechanical drive sound, 0 (silent) to 100 percent. Applies immediately, with continuous phase even while silent; does not change the Amiga or state/movie identity.",
+     "Mechanical drive sound, 0 (silent) to 100 percent. Applies immediately, with continuous phase even while silent; does not change the Amiga or state/movie identity.",
+     "audio", {{"0", "0 %"}, {"10", "10 %"}, {"25", "25 %"}, {"50", "50 %"}, {"75", "75 %"}, {"100", "100 %"}}, "0"},
     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, {}, nullptr},
 };
 inline retro_core_options_v2 kOptionsV2 = {kCategoriesV2, kDefinitionsV2};
@@ -1398,6 +1412,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_vkbd_theme", "Virtual KBD Theme", "The colors of the virtual keyboard and how its labels are drawn (a shadow or an outline). Automatic is the beige of the A500 and A600 and the light grey of the A1200. Select opens the keyboard by default; see Virtual Keyboard in docs/options.md for the controls.", {{"auto", "Automatic (shadow)"}, {"auto_outline", "Automatic (outline)"}, {"beige", "Beige (shadow)"}, {"beige_outline", "Beige (outline)"}, {"cd32", "CD32 (shadow)"}, {"cd32_outline", "CD32 (outline)"}, {"light", "Light (shadow)"}, {"light_outline", "Light (outline)"}, {"dark", "Dark (shadow)"}, {"dark_outline", "Dark (outline)"}}, "auto"},
     {"puae6_vkbd_transparency", "Virtual KBD Transparency", "How see-through the keys are (100% leaves only the labels). RetroPad A switches the transparency off and on while the keyboard is open.", {{"0%", "0%"}, {"25%", "25%"}, {"50%", "50%"}, {"75%", "75%"}, {"100%", "100%"}}, "25%"},
     {"puae6_vkbd_dimming", "Virtual KBD Dimming", "How much the picture around the virtual keyboard is darkened while it is open.", {{"0%", "0%"}, {"25%", "25%"}, {"50%", "50%"}, {"75%", "75%"}, {"100%", "100%"}}, "25%"},
+    {"puae6_drive_sound_volume", "Floppy Drive Sound Volume", "Mechanical drive sound, 0 (silent) to 100 percent. Applies immediately, with continuous phase even while silent; does not change the Amiga or state/movie identity.", {{"0", "0 %"}, {"10", "10 %"}, {"25", "25 %"}, {"50", "50 %"}, {"75", "75 %"}, {"100", "100 %"}}, "0"},
     {nullptr, nullptr, nullptr, {}, nullptr},
 };
 
@@ -1487,6 +1502,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_vkbd_theme", "Virtual KBD Theme; auto|auto_outline|beige|beige_outline|cd32|cd32_outline|light|light_outline|dark|dark_outline"},
     {"puae6_vkbd_transparency", "Virtual KBD Transparency; 25%|0%|50%|75%|100%"},
     {"puae6_vkbd_dimming", "Virtual KBD Dimming; 25%|0%|50%|75%|100%"},
+    {"puae6_drive_sound_volume", "Floppy Drive Sound Volume; 0|10|25|50|75|100"},
     {nullptr, nullptr},
 };
 
