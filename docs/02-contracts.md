@@ -959,6 +959,16 @@ sin rutas/cursor. Rebind exige ambos IDs; Q con CRC invalida y R-W se conservan.
 No usa fallback sintetico tras error ni precarga el CD. MED01 selecciona fixtures
 legales y parser; el real opcional usa `P6_CD_CCD_FILE`. No habilita carga CD32.
 
+T66l1 exporta `parsenrg` fijado con `P6_NRG_METADATA` y ReadFn por offset:
+footer NERO/NER5 BE32/64, CUES MSF/CUEX LBA firmado, DAOI22+30/DAOX22+42 y
+first/last binarios. Conserva INDEX00/01, offsets, stride, modo, control, ISRC y
+catalogo; limita99 pistas,200 indices,256 chunks y64KiB de metadata. Lee como
+maximo256B por callback y nunca sectores; valida extents contra el directorio y
+longitudes fisicas contra la TOC antes de publicar la salida. MED01 usa fixtures
+DAO v1/v2 y proveedor virtual >4GiB, con ASan/UBSan y regresiones CUE/CCD. TAO,
+multisesion, Mode2 cooked02/03 y chunks semanticos desconocidos devuelven
+Unsupported. La normalizacion IMG/subcanales NRG y su carga CD32 siguen pendientes.
+
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
 El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando
