@@ -15253,11 +15253,15 @@
         "tests/media/cd_nrg_probe.cpp",
         "tests/media/test_cd_nrg.py",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "patches/winuae/0361-nrg-metadata-only.patch",
+        "patches/winuae/series.json",
+        "tests/media/test_nrg_metadata.py"
       ],
       "steps": [
         "CdFile RAII, Layout/Binding poroffset, SHAarchivo completo+politica/TOC, rebind propietario nuevo yrecorte INDEX0negativo ajustandooffset real porstride sinasumir150. Audio bytes preservados, SUB96 de2448 interleaved convertido adeinterleaved exactamenteuna vez.",
-        "Probe v1/v2 DAOmixto/gaps, CRCQinvalido/R-Wpreservado, errores transaccionales yhashlib/rebind. NRGreal optin separado si disponible. Presupuesto180–260logicas; variantes no implementadas claras ypendientespadre, sinengine/guestbuild."
+        "Probe v1/v2 DAOmixto/gaps, CRCQinvalido/R-Wpreservado, errores transaccionales yhashlib/rebind. NRGreal optin separado si disponible. Presupuesto180–260logicas; variantes no implementadas claras ypendientespadre, sinengine/guestbuild.",
+        "Revision real: quitar INDEX00de pista2 conpregapDAO10 reproduceInvalid antesnormalizacionL2. Ampliar0361-END a derivar frontera siguiente deoffset1-offset0 cuandoINDEX00ausente (int64), sin inventarrawmetadata; añadirregresionenparseryproveedor/rebind. Correccionatomica<15lineaslogicassobrealcanceL2, no dejarafirmacionderivaciongeneralsincumplir."
       ],
       "checks": [
         "MED01"
@@ -15272,7 +15276,7 @@
       "title": "Conectar CDDA real al backend blkdev y clasificacion efectiva",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66i2",
         "T66g4"
@@ -15316,7 +15320,7 @@
       "title": "NVRAM Akiko real persistente entre reset y estado privado",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66c",
         "T66h2"
