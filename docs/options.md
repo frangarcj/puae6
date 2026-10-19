@@ -75,8 +75,9 @@ cuenta del reset, botones y hotkeys pulsados en el run anterior (para los flanco
 | `puae6_turbo_pulse` | 2, 4, **6** ... 12 | Unidades por ciclo: mitad pulsado, mitad suelto, empezando pulsado; la fase es un contador de unidades emuladas (0 al soltar). |
 | `puae6_hotkey_mouse_toggle`, `_turbo_toggle`, `_aspect_toggle`, `_crop_toggle`, `_reset` | **---**, f11, f12, pause, print, scrolllock, numlock, menu, rctrl, rshift | Tecla del teclado fisico que ejecuta la accion y **no llega al Amiga**. `reset` mantiene Ctrl-Amiga-Amiga 40 unidades (el reset suave del teclado). PUAE5 trae RCtrl como cambio joystick/raton; aqui queda sin asignar porque RCtrl es el Ctrl del Amiga. |
 
-Diferencias deliberadas con PUAE5: sin `physicalmouse=double`, sin `joyport_order` ni dispositivos CD32/analogico/lightgun (necesitan puertos nuevos en la ABI, tareas P21/P22 aparte),
-sin `save_disk` (depende de P12), y el teclado virtual / la barra de estado son T31a / T31b.
+El dispositivo `CD32 pad` se selecciona por jugador en el frontend: B/A/X/Y son rojo/azul/verde/amarillo, L/R son retroceso/avance y Start es Play. Jugador 1 usa el puerto Amiga 2 y jugador 2 el 1; para este ultimo, jugador 1 debe dejar libre el raton del puerto Amiga 1.
+
+Siguen pendientes el segundo raton (`physicalmouse=double`), `joyport_order`, joystick analogico y lightgun/lightpen (T70). El disco de guardado se crea con `#SAVEDISK` en M3U; el teclado virtual y la barra de estado se describen a continuacion.
 
 ## OSD: barra de estado, mensajes y LED (T31b) — categoria `OSD`
 

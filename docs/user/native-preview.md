@@ -13,7 +13,8 @@ libretro compatible ya instalado. No incluye ROMs Kickstart ni juegos.
    `kick34005.A500` para A500/1.3, `kick37350.A600` para A600/2.05 o
    `kick40068.A1200` para A1200/3.1. El core comprueba su contenido.
 4. Selecciona el modelo en las opciones del core y reinicia el contenido si lo
-   cambias. El modelo predeterminado es A500.
+   cambias. La seleccion automatica usa A500 para disquetes y A1200 para disco duro;
+   las etiquetas del nombre y las opciones pueden elegir otro modelo.
 
 Medios: ADF/ADZ/DMS, ADF extendido, FDI e IPF; ZIP/7z/RP9 de discos,
 playlists M3U, HDF/HDZ y volumenes LHA/directorio/UAE dentro de los limites del
@@ -25,6 +26,19 @@ Jugador 1: joystick del segundo puerto Amiga y raton del primero; jugador 2:
 joystick del primer puerto. B/A/X son los tres botones del joystick. El teclado
 se lee por simbolo y Caps Lock funciona como pestillo. Cambia los dispositivos
 por puerto desde el menu del frontend. Usa Disk Control para cambiar discos.
+
+Tambien puedes elegir `CD32 pad`: B/A/X/Y son rojo/azul/verde/amarillo, L/R son
+retroceso/avance y Start es Play. Para usarlo en jugador 2, desactiva el raton
+de jugador 1, que comparte el puerto Amiga 1.
+
+`puae6_floppy_drives` conecta de una a cuatro disqueteras. MultiDrive o `(MD)` en
+el nombre de una playlist monta sus discos en unidades sucesivas; Auto conecta
+cuatro en ese caso. Un numero elegido a mano limita las unidades disponibles.
+
+`puae6_cpu_compatibility` elige exact, compatible o normal para 68000/68010/68020.
+Exact es el valor inicial; los otros niveles cambian la temporizacion emulada.
+Reinicia el contenido al cambiarlo. La etiqueta `(CE)` fuerza exact salvo que
+desactives File Name Tags.
 
 Las escrituras de disquete estan desactivadas por defecto. Para conservarlas,
 activa `puae6_floppy_writes` y el guardado `puae6_floppy_save=on_close`, configura
@@ -45,9 +59,10 @@ nombres distintos para partidas independientes.
 ## Limites de esta entrega
 
 Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
-usan interprete de CPU con precision de ciclos. CPU rapida, nuevos modelos 030/040/060,
-cuatro disqueteras, mandos CD32, CD32/CDTV y WHDLoad completo siguen en
-desarrollo. La integracion Waterbox/MacHawk es un producto separado y no se instala
+usan interprete de CPU. Nuevos modelos 030/040/060, segundo raton, lightgun/lightpen,
+cuatro jugadores, maquinas CD32/CDTV y WHDLoad completo siguen en desarrollo.
+El mando CD32 no implica soporte de la maquina CD32 ni de sus discos CD.
+La integracion Waterbox/MacHawk es un producto separado y no se instala
 con este ZIP. No se declara CI remota ni reproducibilidad binaria auditada.
 
 ## Consola y fuentes

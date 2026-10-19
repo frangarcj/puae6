@@ -13903,11 +13903,14 @@
         "bridge/state_probe.cpp",
         "manifests/state-inventory.json",
         "tests/reference/patch-classes.json",
-        "tests/waterbox-state/**"
+        "tests/waterbox-state/**",
+        "docs/options.md",
+        "docs/user/native-preview.md"
       ],
       "steps": [
         "Completar el pad CD32 ya implementado: siete botones/cruceta por puerto, protocolo serie, ABI v1 intacta, estado shifter/CIA causal, LR real, codec BK2 y snapshot Waterbox real.",
-        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical.",
+        "Actualizar la guia de la nueva preview nativa y la tabla de controles con el pad CD32 y el lote integrado CPU/DF0-DF3; reconstruir un ZIP nuevo con fuentes correspondientes y ejecutar su smoke extraido antes de anunciarlo."
       ],
       "checks": [
         "IN01",
