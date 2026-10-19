@@ -14634,7 +14634,7 @@
       ],
       "id": "T66e2b",
       "title": "Normalizar CUE nativo completo con proveedores y gaps sinteticos/almacenados",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66e2a"
       ],
@@ -14679,7 +14679,7 @@
         "docs/07-machawk.md"
       ],
       "id": "T66e2",
-      "status": "pending",
+      "status": "done",
       "title": "Normalizar CUE nativo reutilizando parsecue fijado y limites endurecidos",
       "depends": [
         "T66e1",
@@ -14809,7 +14809,7 @@
       ],
       "id": "T66g2",
       "title": "Sintetizar subcanales P/Q acotados desde metadata normalizada",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66b"
       ],
@@ -14845,7 +14845,7 @@
       ],
       "id": "T66g3",
       "title": "Conectar lecturas CD normalizadas a la superficie real de blkdev",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66b",
         "T66g1"
