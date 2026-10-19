@@ -15498,12 +15498,14 @@
         "tests/media/akiko_transport_state_probe.cpp",
         "tests/media/test_akiko_transport_state.py",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tests/audio/test_cd_audio.py"
       ],
       "steps": [
         "Reservar0365/order182 sobre Akiko tras0363;0364 es audio independiente. Estado de transporte: FIFO hasta99 palabras con cursores/mute/servicio, dos caches128x2352 y sus marcas/cabezas, anillo subcode36x96 y sus marcas/cursores. Caller aporta almacenamiento de heap ordinario, sin direcciones ni alloc_invisible.",
         "Conservar heads e info0/ff exactamente, porque cambian refill/DMA. Normalizar solo payload no legible (head<0 o info0/ff) a cero; conservar info1..3 y bytes causales. Probar caches invalidas envenenadas con captura/continuacion iguales y sector valido alterado con salida distinta.",
-        "Capture/preflight/apply puros de I/O/avance/IRQ: aplicacion tras validar todo sobre owners existentes, sin asignar ni ejecutar cola. Probe Akiko real: wrap y play incompleto, rechazos sin mutacion, corte con cache valida y continuacion DMA identica bajo el mismo contexto de control. Presupuesto300–360 manuales; no afirmar estado completo, sin engine/guest ni matriz."
+        "Capture/preflight/apply puros de I/O/avance/IRQ: aplicacion tras validar todo sobre owners existentes, sin asignar ni ejecutar cola. Probe Akiko real: wrap y play incompleto, rechazos sin mutacion, corte con cache valida y continuacion DMA identica bajo el mismo contexto de control. Presupuesto300–360 manuales; no afirmar estado completo, sin engine/guest ni matriz.",
+        "Ampliacion minima del montaje compartido I1: atributo INCLUDED_SOURCES para materializar/verificar TUs incluidas por el probe sin compilarlas dos veces. Solo esa parametrizacion, sin sustituir cadena de hashes ni probar otro motor."
       ],
       "checks": [
         "STATE01"
@@ -15557,6 +15559,44 @@
       "stop": "Componente privado comprobado; no llamar completo al estado CD32 hasta agregacion M3, codec nativo y restore real Waterbox del padre."
     },
     {
+      "id": "T66h3",
+      "title": "Integrar probes Akiko con el mezclador CDDA real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66n1",
+        "T66h2",
+        "T66m1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tests/media/akiko_service_probe.cpp",
+        "tests/media/test_akiko_service.py",
+        "tests/media/akiko_clock_probe.cpp",
+        "tests/media/cd32_nvram_probe.cpp",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Integracion N1: el helper anterior ya no enlaza cd_device sin audio.cpp; sus expectativas de CDDA Unsupported son obsoletas. Compartir fixture real I1, enlazar mixer/events/SoftFloat/PCM/utilidades y mantener RAM/IRQ declarados. Eliminar solo duplicados de globals del fixture; sin stubs de audio ni cambios al motor.",
+        "Conservar FIFO/wrap/admission/restore y errores repetidos: play normal debe crear stream real, scan no implementado sigue Unsupported y restore inmediato con fallo real de fuente produce ReadError sin quedar playing. Helpers MSF/BCD/PW reales sustituyen trampas obsoletas.",
+        "Probar H1/H2/M1 juntos una vez tras adaptar montaje, sin engine/guest ni matriz. Es la regresion cercana necesaria por cambio de backend, no repetir checks ajenos. Presupuesto100–180 logicas."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Los probes previos de servicio, reloj y NVRAM siguen ejecutando sus aserciones con CDDA real y sin dependencia de la antigua superficie Unsupported."
+      ],
+      "stop": "No convertir estas pruebas de componente en afirmacion de arranque/estado CD32 completo."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15591,7 +15631,8 @@
         "T66n2a",
         "T66n2b",
         "T66m2",
-        "T66m3"
+        "T66m3",
+        "T66h3"
       ],
       "read": [
         "docs/01-architecture.md",
