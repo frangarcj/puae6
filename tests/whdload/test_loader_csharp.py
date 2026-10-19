@@ -84,7 +84,7 @@ class LoaderWaterboxTests(unittest.TestCase):
         start, end = 900, 1700
         script = self.work / "controls.txt"
         script.write_text("\n".join("00000000 00000000 00000000 00000000 2 %d 0 0 1 %d 0 0" %
-                                    (int(901 <= u < 908), int(400 <= u < 404 or 1201 <= u < 1208)) for u in range(1, end + 1)) + "\n")
+                                    (2 * int(901 <= u < 908), int(400 <= u < 404 or 1201 <= u < 1208)) for u in range(1, end + 1)) + "\n")
         core = lambda n, wait=False: f"core {n} volume={support.GAME} whdprovider={support.WHDLOAD} buttonwait={str(wait).lower()}"
         exports = lambda n, prefix: [f"export {n} {i} file={self.work / (prefix + name)}" for i, name in enumerate(bundle.NAMES)]
         before = {p: hashlib.sha256(Path(p).read_bytes()).digest() for p in (support.GAME, support.WHDLOAD)}
