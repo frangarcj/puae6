@@ -14528,10 +14528,11 @@
         "docs/options.md",
         "docs/02-contracts.md",
         "tests/config/**",
-        "bridge/state_probe.cpp"
+        "bridge/state_probe.cpp",
+        "tests/host/bridge_lifecycle_probe.cpp"
       ],
       "steps": [
-        "Exponer volumen de presentacion0..100 en bits libres de render_flags, rechazando valores fuera de rango, sin cambiar sizeof ni config_hash. Los flags se consumen en cada p6_run_frame. El probe usa los mismos flags, eliminando su acceso directo a gain; los tests del esquema fijan defaults/paridad de la nueva opcion.",
+        "Exponer volumen de presentacion0..100 en bits libres de render_flags, rechazando valores fuera de rango, sin cambiar sizeof ni config_hash. Los flags se consumen en cada p6_run_frame. El probe usa los mismos flags, eliminando su acceso directo a gain; los tests del esquema fijan defaults/paridad de la nueva opcion. Los valores invalidos se añaden al oraculo transaccional de ciclo de vida existente.",
         "Esquema comun, headless, libretro y C# aplican el mismo volumen; snapshot/BK2/entrada emulada no dependen de la eleccion. Ejecutar check dirigido LR y WB en el guest acumulado. La opcion cruza API, esquema/generador y tres frontends de forma atomica: exceder cinco rutas evita publicitar valores que otra superficie no implemente; mantener el cambio acotado al volumen."
       ],
       "checks": [
