@@ -341,6 +341,21 @@ void visit_input(Archive &a)
         if (pointer) a.require(r.pointer_port == pointer_port, "optical sensor port and the bridge disagree");
     }
     if (a.applying()) { r.pointer_enabled = pointer; r.pointer_port = pointer_port; r.pointer_cx = cx; r.pointer_cy = cy; }
+    uint32_t parallel_type[2], parallel_buttons[2];
+    bool parallel = false;
+    for (int p = 0; p < 2; ++p) {
+        parallel_type[p] = field<uint8_t>(a, ap.parallel_type[p], 0, 1, "parallel.type");
+        parallel |= parallel_type[p] != 0;
+    }
+    for (int p = 0; p < 2; ++p) {
+        parallel_buttons[p] = field<uint8_t>(a, ap.parallel_buttons[p], 0, 127, "parallel.buttons");
+        if (checks) a.require(!(parallel_buttons[p] & ~0x79u) && (parallel_type[p] || !parallel_buttons[p]), "parallel port has unknown buttons or no device");
+        const uint32_t buttons = parallel_buttons[p] & P6_BUTTON_1, directions = p6_bridge::parallel_directions(parallel_buttons[p]);
+        if (a.mode() == Mode::Save) a.require(r.parallel_buttons[p] == buttons && r.parallel_dirs[p] == directions, "parallel hardware levels and the bridge disagree");
+        if (a.applying()) { r.parallel_buttons[p] = buttons; r.parallel_dirs[p] = directions; }
+    }
+    if (a.mode() == Mode::Save) a.require(bool(r.parallel_enabled) == parallel, "parallel adapter mode and the bridge disagree");
+    if (a.applying()) r.parallel_enabled = parallel;
     if (checks) {
         a.require(!(optical[0] && optical[1]), "only one optical sensor is supported");
         if (pointer) {

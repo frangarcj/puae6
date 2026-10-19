@@ -46,6 +46,7 @@ typedef struct p6_caps {
 } p6_caps;
 /* max_video_width x max_video_height is the buffer of the profile's raster (hires, double lines); a configuration that asks for another resolution or line mode
  * (p6_config.video_resolution, video_line_mode) delivers the buffer p6_query_video reports for it. */
+#define P6_CAP_INPUT_V2         (UINT64_C(1) << 10)  /* p6_input_v2: two additional parallel-port joysticks */
 #define P6_CAP_STATE            (UINT64_C(1) << 0)
 #define P6_CAP_MEMORY_REGIONS   (UINT64_C(1) << 1)
 #define P6_CAP_MEDIA_EVENTS     (UINT64_C(1) << 2)
@@ -229,6 +230,18 @@ typedef struct p6_input {
     uint32_t reserved[4];
 } p6_input;
 
+/* Input-only version2. The API/config/frame ABI remains1. Pass &base to
+ * p6_run_frame, with base.abi_version=P6_INPUT_VERSION_2 and size=108.
+ * A v1 packet disconnects both extra ports. The caller provides the accessible
+ * memory declared by struct_size; the engine retains no pointer.
+ * Parallel ports accept NONE or JOYSTICK with D-pad and BUTTON_1 only. */
+#define P6_INPUT_VERSION_2 UINT32_C(2)
+typedef struct p6_input_v2 {
+    p6_input base;
+    p6_port_input parallel[2];
+    uint32_t commands; /* Reserved: must be zero. */
+} p6_input_v2;
+
 typedef struct p6_rect {
     uint32_t x, y, width, height;
 } p6_rect;
@@ -286,7 +299,7 @@ typedef struct p6_frame {
 #define P6_FIELD_PROGRESSIVE UINT32_C(0)
 #define P6_FIELD_EVEN        UINT32_C(1)
 #define P6_FIELD_ODD         UINT32_C(2)
-/* Lag: the emulated CPU read no input register (joystick/mouse counters, POT, CIA-A PRA, CIA-A SDR) during the unit. */
+/* Lag: no CPU input-register read this unit (JOY/POT, CIA-A PRA/SDR and, with the parallel adapter, CIA-A PRB/CIA-B PRA). */
 #define P6_FRAME_LAG         (UINT32_C(1) << 0)
 #define P6_FRAME_NO_VIDEO    (UINT32_C(1) << 1)
 /* Drive light: at the end of the unit a floppy drive's LED is lit (motor on or writing). An output derived from the

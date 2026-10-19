@@ -16,7 +16,8 @@ p6_result validate_input(const p6_input &input, p6_error *error);
 unsigned apply_input(const p6_input &input);
 
 // The lag of a unit (docs/02-contracts.md): the emulated CPU read none of JOY0DAT, JOY1DAT, POT0DAT, POT1DAT, POTGOR,
-// CIA-A PRA (fire buttons and disk lines share it) or CIA-A SDR (the keyboard byte) since begin_input_unit(). A poll by the
+// CIA-A PRA (fire buttons and disk lines share it) or CIA-A SDR (the keyboard byte) since begin_input_unit().
+// CIA-A PRB and CIA-B PRA count while the parallel adapter is attached. A poll by the
 // frontend says nothing: only the guest's reads count.
 void begin_input_unit();
 bool guest_polled_input();
@@ -31,6 +32,7 @@ void applied_set(const p6_applied_raw &in);
 
 // Pure encoding of CD32 button levels to WinUAE's seven hardware bits (not host-device widgets).
 uint32_t cd32_buttons(uint32_t buttons);
+uint32_t parallel_directions(uint32_t buttons);
 
 // The keyboard restarts with a reset requested through the API: the engine's key table and reset chord are cleared, and every key
 // the host still holds goes down again once, after the keyboard's power-up stream.

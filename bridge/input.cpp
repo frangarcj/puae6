@@ -24,6 +24,8 @@ void p6_input_cd32(int port, bool enabled, unsigned buttons, unsigned directions
 void p6_input_mouse2(bool enabled, unsigned buttons, int dx, int dy); // patch 0351, boundary only
 void p6_input_pointer(int port, bool enabled, unsigned buttons, int x, int y); // patch 0352, boundary only
 
+void p6_input_parallel(bool enabled, const uint32_t buttons[2], const uint32_t directions[2]); // patch0353
+
 namespace p6_bridge {
 
 namespace {
@@ -39,6 +41,7 @@ struct Applied {
     uint32_t keys[4];
     uint32_t type[2];
     uint32_t buttons[2];
+    uint32_t parallel_type[2], parallel_buttons[2];
     int axis[2][2];                                            // joystick directions -1, 0, +1 (x, y) per port
 };
 Applied applied;
@@ -139,7 +142,8 @@ uint32_t cd32_buttons(uint32_t buttons)
 
 p6_result validate_input(const p6_input &in, p6_error *error)
 {
-    if (in.abi_version != P6_ABI_VERSION || in.struct_size != sizeof in)
+    if (!((in.abi_version == P6_ABI_VERSION && in.struct_size == sizeof in) ||
+          (in.abi_version == P6_INPUT_VERSION_2 && in.struct_size == sizeof(p6_input_v2))))
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "input has the wrong ABI version or size");
     for (uint32_t r : in.reserved)
         if (r) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "input reserved fields must be zero");
@@ -177,7 +181,22 @@ p6_result validate_input(const p6_input &in, p6_error *error)
             return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown port device");
         }
     }
+    if (in.abi_version == P6_INPUT_VERSION_2) {
+        const auto &extended = *reinterpret_cast<const p6_input_v2 *>(&in);
+        if (extended.commands) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "input commands are reserved");
+        for (const auto &port : extended.parallel) {
+            if (port.type > P6_PORT_JOYSTICK || port.reserved || port.dx || port.dy ||
+                (port.buttons & ~(P6_BUTTON_1 | kDirections)) || (port.type == P6_PORT_NONE && port.buttons))
+                return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "parallel ports accept NONE or a joystick with D-pad and Fire1 only");
+        }
+    }
     return P6_OK;
+}
+
+uint32_t parallel_directions(uint32_t buttons)
+{
+    const int x = axis_of(buttons, P6_BUTTON_LEFT, P6_BUTTON_RIGHT), y = axis_of(buttons, P6_BUTTON_UP, P6_BUTTON_DOWN);
+    return (x < 0 ? 1u : x > 0 ? 2u : 0u) | (y < 0 ? 4u : y > 0 ? 8u : 0u);
 }
 
 unsigned apply_input(const p6_input &in)
@@ -200,6 +219,16 @@ unsigned apply_input(const p6_input &in)
         }
     apply_port(0, in.ports[0]);
     apply_port(1, in.ports[1]);
+    uint32_t buttons[2] = {}, directions[2] = {};
+    bool parallel = false;
+    for (unsigned p = 0; p < 2; ++p) {
+        p6_port_input port = {};
+        if (in.abi_version == P6_INPUT_VERSION_2) port = reinterpret_cast<const p6_input_v2 *>(&in)->parallel[p];
+        applied.parallel_type[p] = port.type; applied.parallel_buttons[p] = port.buttons;
+        parallel |= port.type == P6_PORT_JOYSTICK;
+        buttons[p] = port.buttons & P6_BUTTON_1; directions[p] = parallel_directions(port.buttons);
+    }
+    p6_input_parallel(parallel, buttons, directions);
     if (p6_input_engine_released_keys) {       // a chord ended inside this packet
         p6_input_engine_released_keys = 0;
         memset(applied.keys, 0, sizeof applied.keys);
@@ -214,7 +243,7 @@ void begin_input_unit()
 
 bool guest_polled_input()
 {
-    return p6_input_poll_mask != 0;     // the bits are exactly the seven registers above
+    return p6_input_poll_mask != 0;     // the register bits, including the attached parallel adapter
 }
 
 void reset_keyboard()
@@ -230,6 +259,8 @@ void forget_input()
 void applied_get(p6_applied_raw *out)
 {
     memcpy(out->keys, applied.keys, sizeof out->keys);
+    memcpy(out->parallel_type, applied.parallel_type, sizeof out->parallel_type);
+    memcpy(out->parallel_buttons, applied.parallel_buttons, sizeof out->parallel_buttons);
     for (int p = 0; p < 2; ++p) {
         out->type[p] = applied.type[p];
         out->buttons[p] = applied.buttons[p];
@@ -241,6 +272,8 @@ void applied_get(p6_applied_raw *out)
 void applied_set(const p6_applied_raw &in)
 {
     memcpy(applied.keys, in.keys, sizeof applied.keys);
+    memcpy(applied.parallel_type, in.parallel_type, sizeof applied.parallel_type);
+    memcpy(applied.parallel_buttons, in.parallel_buttons, sizeof applied.parallel_buttons);
     for (int p = 0; p < 2; ++p) {
         applied.type[p] = in.type[p];
         applied.buttons[p] = in.buttons[p];

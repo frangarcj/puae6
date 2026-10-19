@@ -69,7 +69,7 @@ RANGES = {
     "input.frame": (0, (1 << 32) - 1), "input.prev_frame": (0, (1 << 32) - 1), "input.prev_vpos": (0, 4095),
     "edge.joy_buttons": (0, 7), "edge.joy_state": (-1, 1), "edge.mouse_buttons": (0, 7),
     "kb.keys": (0, 255), "kb.reset_mode": (0, 4), "kb.reset_seq": (0, (1 << 31) - 1), "kb.ring_count": (0, 255), "kb.ring": (0, 255),
-    "applied.keys": (0, (1 << 32) - 1), "applied.type": (0, 5), "applied.buttons": (0, 7), "applied.axis": (-1, 1),
+    "applied.keys": (0, (1 << 32) - 1), "applied.type": (0, 5), "applied.buttons": (0, 7), "applied.axis": (-1, 1), "parallel.type": (0, 1), "parallel.buttons": (0, 127),
 }
 SIGNED = {"pot.cap", "mouse.delta", "mouse.x", "mouse.y", "mouse.frame_x", "mouse.frame_y", "edge.joy_state", "kb.reset_seq", "applied.axis"}
 RANGE_MESSAGE = "a field is out of its range"
@@ -154,6 +154,7 @@ class InputChunkTests(ProbeCase):
             expected += [("edge.joy_buttons", 1)] + [("edge.joy_state", 1)] * 18
         expected += [("edge.mouse_buttons", 1)] + [("kb.keys", 1)] * 16 + [("kb.reset_mode", 1), ("kb.reset_seq", 4), ("kb.ring_count", 4), ("kb.ring", 5)]
         expected += [("applied.keys", 4)] * 4 + [("applied.type", 1)] * 2 + [("applied.buttons", 1)] * 2 + [("applied.axis", 1)] * 4
+        expected += [("parallel.type", 1)] * 2 + [("parallel.buttons", 1)] * 2
         self.assertEqual(expected, [(base(label), table.size(label)) for label in table.order])
         offsets = [table.where[label][0] for label in table.order]
         self.assertEqual(sorted(offsets), offsets)
@@ -262,12 +263,14 @@ class InputChunkTests(ProbeCase):
 
         for label in table.order:
             b = base(label)
-            if b in ("kb.ring_count", "kb.ring", "kb.keys", "edge.joy_buttons", "edge.mouse_buttons", "applied.keys", "applied.type", "applied.buttons", "applied.axis"):
+            if b in ("kb.ring_count", "kb.ring", "kb.keys", "edge.joy_buttons", "edge.mouse_buttons", "applied.keys", "applied.type", "applied.buttons", "applied.axis", "parallel.buttons"):
                 continue
             if b == "edge.joy_state" and index(label) % 9 == 8:
                 continue
             value = table.get(label, signed=b in SIGNED)
             out.append(change({label: self.another(label, value, table.size(label))}))
+        for p in range(2):
+            out.append(change({f"parallel.type[{p}]": 1, f"parallel.buttons[{p}]": 1}))
         for i, code in enumerate(self.ring_of(table)):                       # the ring: one code at a time
             offset, _ = table.where["kb.ring"]
             out.append(({f"kb.ring#{i}"}, with_bytes(table.blob, INPUT, offset + i, bytes([code ^ 0x10]))))

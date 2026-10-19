@@ -4533,6 +4533,40 @@
           "after_sha256": "5d2765d69ed4a10232aa6c5f99f14e272c50bdb5a865b8c47ba05ba212678986"
         }
       ]
+    },
+    {
+      "id": "0353-parallel-adapter-boundary-and-cia",
+      "file": "patches/winuae/0353-parallel-adapter-boundary-and-cia.patch",
+      "sha256": "76b7449dad7c6737800d00f366c416b78d897a3f8ce1f51d18e9f8123bad9d0a",
+      "title": "Expose the real parallel joystick adapter at the frame boundary",
+      "reason": "T70d drives the real WinUAE CIA parallel-adapter levels without host parallel services, preserving serial output and causal state. The portable CIA-B branch runs only while the adapter is attached; no unrelated serial feature is enabled.",
+      "category": "host hooks",
+      "order": 167,
+      "symbols": [
+        "p6_input_parallel",
+        "p6_input_parallel_active",
+        "handle_parport_joystick"
+      ],
+      "test": "tests/input/test_parallel.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "54af7c707f8947929aed180e581e1c94f62ae544923abd34a495813e158c0ecb",
+          "after_sha256": "e86f268769ffceb5d58642ddedab3c26648d2aa6b0c5f2132bf360accdb9e996"
+        },
+        {
+          "path": "include/inputdevice.h",
+          "before_sha256": "06c11a339f81020915f81ec2b7c327fae6619f0b911cc14ed5e200a724813c9b",
+          "after_sha256": "6e74b0d271b4e725d0fb63bb329f99c7a8e87069cc5ce9a7b98ef4ac25d458ef"
+        },
+        {
+          "path": "cia.cpp",
+          "before_sha256": "a1571321aa1670c32df936a16ce0f5b57298cab0ddedf1768df37fac62f25109",
+          "after_sha256": "e7e3a38cf3e74f5330468958d135ebac422ace2ea22ee179317275aac39d8581"
+        }
+      ]
     }
   ]
 }

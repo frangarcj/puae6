@@ -371,6 +371,8 @@ void input(Canon &c)
         if (r.cd32_enabled[p]) c.put(r.cd32_shifter[p]).put(r.cd32_clock[p]);
     if (r.second_mouse_enabled) c.put(r.second_mouse_enabled);
     if (r.pointer_enabled) c.put(r.pointer_port).put(r.pointer_cx).put(r.pointer_cy);
+    if (r.parallel_enabled) for (unsigned p = 0; p < 2; ++p)
+        c.put(ap.parallel_type[p]).put(ap.parallel_buttons[p]).put(r.parallel_buttons[p]).put(r.parallel_dirs[p]);
 }
 
 void video(Canon &c)
@@ -455,7 +457,7 @@ std::vector<uint8_t> g_rom;          // what p6_load was given, for the operatio
 std::vector<p6_media> g_media;
 std::vector<std::vector<uint8_t>> g_appended;      // the images --append-at registered: borrowed by the bridge until p6_unload
 
-enum class OpKind { Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Append, Public, PublicSave, PublicLoad, Export, Status, Ram, RamOut };
+enum class OpKind { InputCheck, Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Append, Public, PublicSave, PublicLoad, Export, Status, Ram, RamOut };
 
 struct StateOp {
     uint64_t unit;
@@ -710,6 +712,37 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                         break;
                     }
             printf("ramout %" PRIu64 " %d %lu %lu\n", unit, code, at, length);
+        } else if (op.kind == OpKind::InputCheck) {
+            auto state_hash = []() {
+                uint64_t bound = 0, written = 0; p6_state_bound(&bound, nullptr);
+                std::vector<uint8_t> state(size_t(bound), 0);
+                if (p6_state_save(state.data(), state.size(), &written, nullptr) != P6_OK) abort();
+                uint8_t hash[32]; p6_sha256_hash(state.data(), size_t(written), hash); return hex(hash, 32);
+            };
+            const std::string before = state_hash();
+            for (unsigned kind = 0; kind < 10; ++kind) {
+                struct Guarded { uint64_t pre; p6_input_v2 packet; uint64_t post; } guarded = {};
+                guarded.pre = guarded.post = UINT64_C(0x123456789abcdef0);
+                auto &packet = guarded.packet;
+                packet.base.abi_version = P6_INPUT_VERSION_2; packet.base.struct_size = sizeof packet;
+                packet.parallel[0].type = P6_PORT_JOYSTICK;
+                switch (kind) {
+                case 0: packet.base.abi_version = 1; break; // ABI1 cannot claim108 bytes
+                case 1: packet.base.struct_size = 72; break;
+                case 2: packet.base.struct_size = 104; break;
+                case 3: packet.base.abi_version = 3; break;
+                case 4: packet.parallel[0].type = P6_PORT_MOUSE; break;
+                case 5: packet.parallel[0].buttons = P6_BUTTON_2; break;
+                case 6: packet.parallel[0].dx = 1; break;
+                case 7: packet.parallel[0].reserved = 1; break;
+                case 8: packet.base.struct_size = 0; break;
+                case 9: packet.commands = 1; break;
+                }
+                p6_frame frame = {}; frame.abi_version = 1; frame.struct_size = sizeof frame;
+                const p6_result result = p6_run_frame(&packet.base, 0, &frame, &error);
+                printf("inputcheck %u result=%d unchanged=%d canary=%d\n", kind, int(result), int(before == state_hash()),
+                       int(guarded.pre == UINT64_C(0x123456789abcdef0) && guarded.post == guarded.pre));
+            }
         } else if (op.kind == OpKind::Public) {
             // The public functions of p6.h, in one process: the bound, a save into a buffer of exactly that size, one into a buffer that is too small, a load of
             // garbage and the load of the state just saved. Only the last one changes the machine (to the one it was).
@@ -992,7 +1025,9 @@ int main(int argc, char **argv)
     std::vector<StateOp> state_ops;
     std::vector<const char *> adf_paths;
     std::vector<const char *> hdf_paths;
-    p6_port_input ports[2] = {{P6_PORT_JOYSTICK, 0, 0, 0, 0}, {P6_PORT_JOYSTICK, 0, 0, 0, 0}};
+    p6_port_input ports[4] = {{P6_PORT_JOYSTICK, 0, 0, 0, 0}, {P6_PORT_JOYSTICK, 0, 0, 0, 0}, {}, {}};
+    bool extended_input = false;
+    uint64_t input_v1_at = UINT64_MAX;
     std::vector<InputEvent> input_events;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = strtoull(argv[++i], nullptr, 10);
@@ -1096,15 +1131,17 @@ int main(int argc, char **argv)
                 if (!strcmp(p6_state::kChunks[k].name, name)) found = k;
             if (found == p6_state::kChunkCount) { fprintf(stderr, "no chunk named %s\n", name); return 64; }
             g_only |= 1u << found;
-        } else if (!strcmp(argv[i], "--public-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Public, nullptr, nullptr});
+        } else if (!strcmp(argv[i], "--input-check-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::InputCheck, nullptr, nullptr});
+        else if (!strcmp(argv[i], "--public-at") && i + 1 < argc) state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Public, nullptr, nullptr});
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--adf") && i + 1 < argc) adf_paths.push_back(argv[++i]);
         else if (!strcmp(argv[i], "--hdf") && i + 1 < argc) hdf_paths.push_back(argv[++i]);
         else if (!strcmp(argv[i], "--port") && i + 1 < argc) {
             unsigned port, type, buttons;
             int dx, dy;
-            if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
+            if (sscanf(argv[++i], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 3) return 64;
             ports[port] = {type, buttons, int16_t(dx), int16_t(dy), 0};
+            extended_input |= port >= 2;
         } else if (!strcmp(argv[i], "--key") && i + 3 < argc) {
             // --key UNIT CODE down|up: from UNIT on the packet holds (or no longer holds) the Amiga key CODE (0..0x67)
             InputEvent e{strtoull(argv[i + 1], nullptr, 10), !strcmp(argv[i + 3], "up") ? 1u : 0u, unsigned(strtoul(argv[i + 2], nullptr, 0)), 0, {}};
@@ -1115,11 +1152,13 @@ int main(int argc, char **argv)
             // --port-at UNIT N:type:buttons:dx:dy: from UNIT on the packet carries this for port N (the motion is repeated every unit)
             unsigned port, type, buttons;
             int dx, dy;
-            if (sscanf(argv[i + 2], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 1) return 64;
+            if (sscanf(argv[i + 2], "%u:%u:%u:%d:%d", &port, &type, &buttons, &dx, &dy) != 5 || port > 3) return 64;
+            extended_input |= port >= 2;
             input_events.push_back(InputEvent{strtoull(argv[i + 1], nullptr, 10), 2u, 0, port, {type, buttons, int16_t(dx), int16_t(dy), 0}});
             i += 2;
-        } else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        } else if (!strcmp(argv[i], "--input-v1-at") && i + 1 < argc) input_v1_at = strtoull(argv[++i], nullptr, 10);
+        else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--input-v1-at UNIT] [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -1176,15 +1215,17 @@ int main(int argc, char **argv)
         g_profile_rtc = currprefs.cs_rtc;
         print_digests(0);
         run_state_ops(state_ops, 0);
-        p6_input input = {};
-        input.abi_version = P6_ABI_VERSION;
-        input.struct_size = sizeof input;
+        p6_input_v2 packet = {};
+        p6_input &input = packet.base;
         input.ports[0] = ports[0];
         input.ports[1] = ports[1];
+        packet.parallel[0] = ports[2]; packet.parallel[1] = ports[3];
         for (uint64_t unit = 1; unit <= units; ++unit) {
+            input.abi_version = extended_input && unit < input_v1_at ? P6_INPUT_VERSION_2 : P6_ABI_VERSION;
+            input.struct_size = input.abi_version == P6_INPUT_VERSION_2 ? sizeof packet : sizeof input;
             for (const InputEvent &e : input_events) {
                 if (e.unit != unit && !(e.unit == 0 && unit == 1)) continue;
-                if (e.kind == 2) input.ports[e.port] = e.value;
+                if (e.kind == 2) { if (e.port < 2) input.ports[e.port] = e.value; else packet.parallel[e.port - 2] = e.value; }
                 else if (e.kind == 0) input.keys[e.code / 32] |= 1u << (e.code % 32);
                 else input.keys[e.code / 32] &= ~(1u << (e.code % 32));
             }
@@ -1193,6 +1234,7 @@ int main(int argc, char **argv)
             frame.struct_size = sizeof frame;
             result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO | (drive_sound << P6_RENDER_DRIVE_VOLUME_SHIFT), &frame, &error);
             if (result != P6_OK) return fail("p6_run_frame", result, error);
+            if (extended_input) printf("parallel-poll %" PRIu64 " mask=%u lag=%u\n", unit, p6_input_poll_mask, unsigned((frame.flags & P6_FRAME_LAG) != 0));
             // The PCM that the unit produced, hashed as it was handed over (T15i3): Paula's filter and resampler are in no digest above, and a lost phase shows only here.
             if (frame.audio && frame.audio_frames) {
                 uint8_t pcm[32];
