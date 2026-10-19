@@ -29,6 +29,13 @@ def products():
     for name, value in numbers.items():
         cpp.append(f"inline constexpr uint32_t k{name} = {value};")
         cs.append(f"    internal const uint {name} = {value};")
+    cpp += ["struct KickstartName { const char *sha1; const char *name; };", "inline constexpr KickstartName kKickstartNames[] = {"]
+    cs.append("    internal static readonly System.Collections.Generic.Dictionary<string, string> KickstartNames = new() {")
+    for sha1, name in sorted(bundle.KICKSTARTS.items()):
+        cpp.append(f"    {{{json.dumps(sha1)}, {json.dumps(name)}}},")
+        cs.append(f"        [{json.dumps(sha1)}] = {json.dumps(name)},")
+    cpp.append("};")
+    cs.append("    };")
     encoded = ",".join("0x%02x" % b for b in bundle.assign_program())
     cpp += ["inline constexpr uint8_t kAssignProgram[] = {" + encoded + "};", "}}", ""]
     cs += ["    internal static readonly byte[] AssignProgram = {" + encoded + "};", "}", ""]
