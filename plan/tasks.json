@@ -12917,7 +12917,7 @@
       "title": "Estado privado de FPU interna040/060 y continuacion real",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T54",
         "T55c1"
@@ -15969,7 +15969,7 @@
         "El perfil CD32 carga firmware combinado valido, accede al Akiko real y avanza frames en el motor nativo; conserva las capacidades de estado verificadas por T66m7 y la regresion A1200. El escenario local informa exactamente si arranca firmware o contenido; no cierra T66."
       ],
       "stop": "No proclamar soporte frontend ni snapshot CD32 Waterbox. El codec nativo completo queda probado por T66m7; Waterbox, SaveRAM, arranque de contenido y formatos restantes permanecen en T66.",
-      "blocked_reason": "Dos intentos nuevos con el reproducer de240frames y Brian CUE siguen sin payload. Diagnostico acotado confirma cd.device0000ccb4/v40.22, Status001f, pista1=41 y CONTROL4/ADR1 coincidentes en fuente/controlador: TOC/DATA correctos. Tarea cd.device espera021f0000, input/console esperan y no hay Ready; current exec.library State2 esta en ISR CIA (PCfbfd0c), por lo que wait10/received4 no demuestra Wait bloqueado. El word aSP+74 es solo candidato, no backtrace (cd.device contiene su base). Hipotesis1: IRQ2/PORTS/CIA se reasserta e impide reanudar bootstrap; contrastar INTREQ/INTENA y estado CIA sin leer ICR con efectos. Hipotesis2: bootstrap espera una inicializacion anterior a cdstrap; reconstruir marco real de interrupcion/retorno y recurso esperado antes de inferir caller. No hay deadline observado para ampliar frames. El test conserva fallo no cero y diagnostico en stdout/stderr, sin ROMs/logs/capturas nuevos; se cambia a una tarea independiente."
+      "blocked_reason": "Dos intentos nuevos con el reproducer de240frames y Brian CUE siguen sin payload. Diagnostico acotado confirma cd.device0000ccb4/v40.22, Status001f, pista1=41 y CONTROL4/ADR1 coincidentes en fuente/controlador: TOC/DATA correctos. Tarea cd.device espera021f0000, input/console esperan y no hay Ready; current exec.library State2 se observa en SetICR de CIA (PCfbfd0c), cuyo caller no esta demostrado; wait10/received4 no demuestra Wait bloqueado ni estar en una ISR. El word aSP+74 es solo candidato, no backtrace (cd.device contiene su base). Hipotesis1: IRQ2/PORTS/CIA se reasserta e impide reanudar bootstrap; contrastar INTREQ/INTENA y estado CIA sin leer ICR con efectos. Hipotesis2: bootstrap espera una inicializacion anterior a cdstrap; en SetICR sin ajustes de SP, leer el retorno real aA7 y A6/bases CIA/Exec con rangosRAM validados, identificar caller/recurso y solo reconstruir un marco IRQ si este lo confirma. No hay deadline observado para ampliar frames. El test conserva fallo no cero y diagnostico en stdout/stderr, sin ROMs/logs/capturas nuevos; se cambia a una tarea independiente."
     },
     {
       "id": "T66q1",
