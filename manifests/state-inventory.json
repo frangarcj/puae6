@@ -2271,7 +2271,7 @@
             "p6_expansion_state_get"
           ]
         },
-        "waterbox": "T55c3 pending: no wrapper option or budget exposure in T55c2",
+        "waterbox": "T55c3: tests/waterbox-state/test_wrapper_z3.py proves both RAM ends, same/new sandbox and process restore, transactional config rejection and measured 2x heap margin; the wrapper exposes the full 16 MiB domain",
         "native_state": {
           "task": "T55c2",
           "chunk": "P6RM",

@@ -12845,7 +12845,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "read": [
         "docs/01-architecture.md",
         "docs/02-contracts.md",
