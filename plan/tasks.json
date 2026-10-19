@@ -15767,7 +15767,8 @@
       ],
       "steps": [
         "Fallo de integracion descubierto al arrancar CD32: devices_update_sound excluia update_cda_sound en P6_PORTABLE desde0017, asi que el motor real nunca establece el periodo CDDA; fixtures I1/I2 lo inicializaban manualmente. Reproducir en probe nativo K1 tras un frame A1200 mediante backend CDDA real y fuente audio sintetica inmutable, sin llamada manual a update_cda_sound.",
-        "0369/order186 sobre devices.cpp restaura la llamada upstream al reloj CDA para el grafo portable que ya compila CD32. No cambia scheduler ni adelanta audio en host; conservar A1200/reset/reload/MMIO K1 y comprobar flujo PCM/agotamiento CDDA con el reloj real. Presupuesto80–140 logicas; una compilacion incremental -j2 y check MED01 dirigido, sin matriz/guest."
+        "0369/order186 sobre devices.cpp restaura la llamada upstream al reloj CDA para el grafo portable que ya compila CD32. No cambia scheduler ni adelanta audio en host; conservar A1200/reset/reload/MMIO K1 y comprobar flujo PCM/agotamiento CDDA con el reloj real. Presupuesto80–140 logicas; una compilacion incremental -j2 y check MED01 dirigido, sin matriz/guest.",
+        "Depurador confirma cda_evt0 tras primer frame con interpol1/volcntfalse/delay0: quitar guard en devices no bastaba. compute_framesync tambien omitia toda notificacion con produce_sound0 durante reset;0369 incluye custom.cpp para notificar relojes antes de abrir PCM (update_sound ignora transporte cerrado). Mantener condicion upstream en builds no portables; no cambiar relojes ni flags CPU."
       ],
       "checks": [
         "MED01"

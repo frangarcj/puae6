@@ -11,3 +11,19 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef WITH_X86
  	x86_update_sound(clk / syncadjust);
  #endif
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -1426,7 +1426,11 @@
+ 	} else if (lof_display) {
+ 		svpos += 1.0f;
+ 	}
+-	if (currprefs.produce_sound > 1) {
++	// Portable reset notifies clocks before the PCM transport opens.
++#ifndef P6_PORTABLE
++	if (currprefs.produce_sound > 1)
++#endif
++	{
+ #ifdef P6_PORTABLE
+ 		float clk = currprefs.ntscmode ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL;
+ #else
