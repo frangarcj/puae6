@@ -32,7 +32,8 @@ public enum Puae6Cpu { Auto, M68000, M68010, M68020, M68030 }
 
 /// <summary>Guest collision detection (restart): Auto and Full retain every hardware collision; reduced levels can break games.</summary>
 public enum Puae6CollisionLevel { Auto, None, Sprites, Playfields, Full }
-public enum Puae6Z3Memory { None, MB16 }
+// ABI IDs: retain MB16=1; subsequent capacities occupy 2..10.
+public enum Puae6Z3Memory { None, MB16, MB1, MB2, MB4, MB8, MB32, MB64, MB128, MB256, MB512 }
 
 /// <summary>CPU accuracy (restart): cycle exact by default, compatible prefetch, or normal instruction timing; always emulated time.</summary>
 public enum Puae6CpuCompatibility { Exact, Compatible, Normal }

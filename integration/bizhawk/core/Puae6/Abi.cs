@@ -69,7 +69,7 @@ public unsafe struct P6Config
 	public byte FloppyDrives;                                   // T61: 0 the two-drive profile, otherwise 1..4 connected DD drives
 	public byte CollisionLevel;                                  // T77a: 0 Auto/Full, 1 None, 2 Sprites, 3 Playfields, 4 Full
 	public fixed byte Reserved7[1];                              // byte 69, zero in ABI v1
-	public byte Z3Memory;                                        // byte 70: 0 none, 1 16 MiB; wrapper remains at profile zero until T55c3
+	public byte Z3Memory;                                        // byte 70: none=0, 16MiB=1, 1/2/4/8MiB=2..5, 32/64/128/256/512MiB=6..10
 	public fixed byte Reserved8[1];                              // byte 71, zero in ABI v1
 }
 

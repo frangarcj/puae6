@@ -570,8 +570,13 @@ internal static unsafe class Puae6
             $"--machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og, a2000 or a4030 (got {machineName})");
         uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, "a500og" => 4u, "a500plus" => 5u, "a1000" => 6u, "a2000og" => 7u, "a2000" => 8u, "a4030" => 11u, _ => 1u };
         layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"), (ulong)hardFiles.Sum(file => (long)HardFileHeapKiB(file.Length)));
-        byte z3 = (options.Optional("z3") ?? "none") switch { "none" => 0, "16" => 1, _ => throw new ArgumentException("--z3 must be none or 16") };
-        layout.Mmap += (nuint)(z3 * 32 * 1024 * 1024);
+        (byte z3, int z3Mib) = (options.Optional("z3") ?? "none") switch {
+            "none" => ((byte)0, 0), "16" => ((byte)1, 16),
+            "1" => ((byte)2, 1), "2" => ((byte)3, 2), "4" => ((byte)4, 4), "8" => ((byte)5, 8),
+            "32" => ((byte)6, 32), "64" => ((byte)7, 64), "128" => ((byte)8, 128),
+            "256" => ((byte)9, 256), "512" => ((byte)10, 512),
+            _ => throw new ArgumentException("--z3 must be none or 1/2/4/8/16/32/64/128/256/512 MiB") };
+        layout.Mmap += (nuint)(z3Mib * 2 * 1024 * 1024);
         var image = File.ReadAllBytes(guestPath);
         using var api = new Native(dylibPath);
         var report = new Dictionary<string, object?> {

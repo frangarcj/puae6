@@ -163,10 +163,16 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		(settings.Region == Puae6Region.NTSC && IsOcs(settings.Machine) ? 486 : 576) / (settings.VideoLineMode == Puae6VideoLineMode.Single ? 2 : 1);
 
 	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.None => P6.MemoryNone, Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
-	static byte Z3MemoryNumber(Puae6Z3Memory memory) => memory switch
+	static byte Z3MemoryNumber(Puae6Z3Memory memory) => Enum.IsDefined(typeof(Puae6Z3Memory), memory)
+		? (byte)memory : throw new ArgumentOutOfRangeException(nameof(memory), "Unknown Z3 capacity");
+
+	static int Z3MemoryKiB(Puae6Z3Memory memory) => memory switch
 	{
-		Puae6Z3Memory.None => (byte)0, Puae6Z3Memory.MB16 => (byte)1,
-		_ => throw new ArgumentOutOfRangeException(nameof(memory), "Z3 memory must be None or MB16"),
+		Puae6Z3Memory.None => 0, Puae6Z3Memory.MB16 => 16384,
+		Puae6Z3Memory.MB1 => 1024, Puae6Z3Memory.MB2 => 2048, Puae6Z3Memory.MB4 => 4096, Puae6Z3Memory.MB8 => 8192,
+		Puae6Z3Memory.MB32 => 32768, Puae6Z3Memory.MB64 => 65536, Puae6Z3Memory.MB128 => 131072,
+		Puae6Z3Memory.MB256 => 262144, Puae6Z3Memory.MB512 => 524288,
+		_ => throw new ArgumentOutOfRangeException(nameof(memory), "Unknown Z3 capacity"),
 	};
 
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
@@ -177,7 +183,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		uint chip = ChipKib(settings.ChipMemory), slow = SlowKib(settings.SlowMemory);
 		uint fast = FastKib(settings.FastMemory);
 		long extra = (fast == P6.MemoryNone ? 0 : fast == 0 && settings.Machine == Puae6Machine.A4030 ? 8192 : fast) + overlay;
-		extra += Z3MemoryNumber(settings.Z3Memory) * 16384;
+		extra += Z3MemoryKiB(settings.Z3Memory);
 		if (chip > ownChip) extra += chip - ownChip;
 		if (slow != P6.MemoryNone && slow > ownSlow) extra += slow - ownSlow;
 		return (int)extra;
