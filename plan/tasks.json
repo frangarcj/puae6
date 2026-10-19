@@ -15570,7 +15570,7 @@
       ],
       "id": "T66m3b",
       "title": "Agregar controlador, transporte y backend CD32 transaccionalmente",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66m3a"
       ],
@@ -15608,7 +15608,7 @@
       "title": "Agregacion privada del estado causal completo Akiko",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T66m2",
         "T66n2b",
@@ -15737,7 +15737,7 @@
         "El perfil CD32 carga firmware combinado valido, accede al Akiko real y avanza frames en el motor nativo; rechaza estados hasta codec completo y mantiene la regresion A1200. El escenario local informa exactamente si arranca firmware o contenido; no cierra T66."
       ],
       "stop": "No proclamar soporte frontend ni restore CD32 completo; codec nativo, Waterbox, SaveRAM y formatos restantes permanecen en T66.",
-      "blocked_reason": "El probe real con ROMs18/19 y Brian CUE carga mapas/perfil y avanza240frames, pero no lee payload. Reproducer conservado en test_cd32_boot.py/cd32_boot_probe.cpp con diagnosticos de fallo: PC00fbfd0c, open1/init2/unit0, flags79000000, cmdf5, RX0/0, TOC32, media1/0. Hipotesis verificables: (1) firmware sigue en secuencia/intro antes de habilitar lectura: contrastar comandos/fase y progreso emulado con referencia sin ampliar240 a ciegas; (2) handshake/IRQ TX-RX queda completado internamente pero no visible al driver: contrastar INTREQ/INTENA, indices DMA y memoria del driver. La compilacion faltaba disk.h, ya corregido; no se declara boot ni se cambia CPU/timing."
+      "blocked_reason": "El probe real con ROMs18/19 y Brian CUE carga mapas/perfil y avanza240frames, pero no lee payload. Reproducer conservado en test_cd32_boot.py/cd32_boot_probe.cpp con diagnosticos de fallo: PC00fbfd0c, open1/init2/unit0, flags79000000, cmdf5, RX0/0, TOC32, media1/0. Hipotesis verificables: (1) firmware sigue en secuencia/intro antes de habilitar lectura: contrastar comandos/fase y progreso emulado con referencia sin ampliar240 a ciegas; (2) handshake/IRQ TX-RX queda completado internamente pero no visible al driver: contrastar INTREQ/INTENA, indices DMA y memoria del driver. La compilacion faltaba disk.h, ya corregido; no se declara boot ni se cambia CPU/timing. Tras corregir el reloj CDDA real en T66q1, MED01/P1 conserva exactamente PC/flags/comando y ausencia de lecturas; esa omision de audio queda descartada como causa de este bloqueo."
     },
     {
       "id": "T66q1",

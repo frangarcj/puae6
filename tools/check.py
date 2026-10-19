@@ -275,6 +275,7 @@ TASK_SUITES[('MED01', 'T66m1')] = {'actual_akiko_nvram_lifecycle': 'tests.media.
 TASK_SUITES[('STATE01', 'T66m2')] = {'actual_akiko_transport_cut': 'tests.media.test_akiko_transport_state'}
 TASK_SUITES[('STATE01', 'T66m3a')] = {'actual_akiko_controller_cut': 'tests.media.test_akiko_controller_state'}
 TASK_SUITES[('STATE01', 'T66m3b')] = {'actual_akiko_joint_restore': 'tests.media.test_akiko_state'}
+TASK_SUITES[('STATE01', 'T66m3')] = {'controller_cut': 'tests.media.test_akiko_controller_state', 'joint_restore': 'tests.media.test_akiko_state'}
 TASK_SUITES[('MED01', 'T66i2')] = {'real_cdda_player': 'tests.media.test_cd_audio', 'stream_regression': 'tests.audio.test_cd_audio'}
 TASK_SUITES[('MED01', 'T66n1')] = {'blkdev_cdda': 'tests.media.test_cd_device_audio', 'reader_regression': 'tests.media.test_cd_device', 'player_regression': 'tests.media.test_cd_audio'}
 TASK_SUITES[('STATE01', 'T66n2a')] = {'player_semantic_restore': 'tests.media.test_cd_audio_state', 'stream_regression': 'tests.audio.test_cd_audio'}
