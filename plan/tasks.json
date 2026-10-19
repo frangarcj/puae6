@@ -14648,12 +14648,18 @@
         "tests/media/cd_cue_probe.cpp",
         "tests/media/test_cd_cue.py",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "patches/winuae/0356-cue-metadata-only.patch",
+        "patches/winuae/series.json",
+        "ports/portable/media/cd_cue_metadata.h",
+        "tests/media/cue_metadata_probe.cpp",
+        "tests/media/test_cue_metadata.py"
       ],
       "steps": [
         "Poseer CdFileRAIIporfuente y convertir metadataa aLayout/Bindings sin copiar CD; fuentescompartidas por ordinal, lecturasabsolutas, SHAcanonicoTOC+IDs y sin rutas/cursor. Probar BINmultitrack y Brian29autorizado con sectors reales y ambos pregaps.",
         "Ampliar Track privado con synthetic_pregap/postgap alfinal, defaults0 conservando consumidores actuales y wire2432F1 intacto. Primeralmacenado=stored_pregap?index0+synthetic_pregap:index1, final=end-postgap; sintetizar fuera comohoy Mode1/audio, validar synthetic_pregap<=index1-index0 y postgap<end-index1, comparar ambos enrebind. No descartar combinaciones ni cerrar padre con esa cobertura omitida.",
-        "Probar gaps separados/combinados/finales y errores/restos no representables con mensajeUnsupported explicito; mantener limitacion Mode2gaps actual hasta implementacioncorrecta. Presupuesto200–260+40–80lógicas, dividir antes400 si necesario. Registrar unionMED01 A+B enE2padre al cierre y mantener CD32/CDDA/formatosrestantes pendientes."
+        "Probar gaps separados/combinados/finales y errores/restos no representables con mensajeUnsupported explicito; mantener limitacion Mode2gaps actual hasta implementacioncorrecta. Presupuesto200–260+40–80lógicas, dividir antes400 si necesario. Registrar unionMED01 A+B enE2padre al cierre y mantener CD32/CDDA/formatosrestantes pendientes.",
+        "Ampliacion explicita: conservar frontera FILE con CueTrack.new_file y permitir reinicio de indices al repetir el mismo proveedor en otro FILE. Ajustar parser0356/header/probe y hashes antes de normalizar; no deducir frontera FILE desde ordinal deduplicado. Correccion atomica de10–15lineas y fixture, conservando presupuesto400logicas."
       ],
       "checks": [
         "MED01"
