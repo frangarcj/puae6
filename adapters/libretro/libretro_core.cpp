@@ -1806,6 +1806,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         effective = resolved.settings;
         multidrive = resolved.multidrive;
         if (!import_configuration(game, &effective, &configured_disks)) return false;
+        if (resolved.force_cycle_exact) effective.cpu_compatibility = P6_CPU_EXACT;
     }
     core.settings = effective;
     core.requested = chosen;

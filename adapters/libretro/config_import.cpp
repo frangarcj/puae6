@@ -167,13 +167,7 @@ struct Fixed {
     const char *text;
 };
 
-constexpr const char *kCycleExact = "raw timing flags describe the exact preset: choose the level with puae6_cpu_compatibility";
 constexpr Fixed kFixed[] = {
-    {"cpu_cycle_exact", "true", kCycleExact},
-    {"cpu_memory_cycle_exact", "true", kCycleExact},
-    {"blitter_cycle_exact", "true", kCycleExact},
-    {"cycle_exact", "true", kCycleExact},
-    {"cpu_compatible", "true", kCycleExact},
     {"cpu_24bit_addressing", "true", "every machine here has a 24-bit bus"},
     {"cpu_address_space_24", "true", "every machine here has a 24-bit bus"},
     {"cpu_speed", "real", "the machine runs at its real clock; the host speed never changes the emulation"},
@@ -254,6 +248,7 @@ private:
     const Entry *chipset_ = nullptr, *cpu_ = nullptr, *a2000_ = nullptr;
     const Entry *floppy0_ = nullptr;
     std::vector<std::pair<unsigned, const Entry *>> images_;
+    std::vector<const Entry *> timing_flags_;
 
     void error(unsigned line, const std::string &key, const std::string &message)
     {
@@ -606,6 +601,12 @@ private:
             return;
         }
 
+        // These describe the final CPU level, including a native option later in the file.
+        if (key == "cpu_cycle_exact" || key == "cpu_memory_cycle_exact" || key == "blitter_cycle_exact" ||
+            key == "cycle_exact" || key == "cpu_compatible") {
+            timing_flags_.push_back(&e);
+            return;
+        }
         for (const Fixed &fixed : kFixed) {
             if (key != fixed.key) continue;
             std::string value = lower(e.value);
@@ -685,6 +686,14 @@ private:
                 else if (socket)
                     set_name(*cpu_, "puae6_cpu_model", cpu);
             }
+        }
+
+        for (const Entry *entry : timing_flags_) {
+            const bool expected = entry->key == "cpu_compatible" ? out_->settings.cpu_compatibility != P6_CPU_NORMAL :
+                out_->settings.cpu_compatibility == P6_CPU_EXACT;
+            bool value = false;
+            if (!parse_bool(entry->value, &value) || value != expected)
+                error(*entry, "raw cycle exact/compatible flags must match puae6_cpu_compatibility (expected " + std::string(expected ? "true" : "false") + ")");
         }
 
         // The disks: DF0 first, then the swap list in number order; a swap entry that is DF0's own file is not listed twice.

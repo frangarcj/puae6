@@ -20,8 +20,8 @@
 // A bare word (PAL, NTSC, AGA, ECS, OCS, AmigaCD, CD32, CDTV) must not touch a letter or a digit on either side ("PALADIN" is not PAL; PUAE5's strstr finds it); a tag with
 // parentheses or an underscore marks itself. Matching is case sensitive and byte by byte: nothing depends on the locale.
 //
-// Tags of what this core does not have are warnings and never an error and never another machine: (A4030) (030) (A4040) (040) CDTV _Arcadia. (CE) is already the only
-// mode of every machine here and is only said to be so.
+// Tags of what this core does not have are warnings and never an error and never another machine: (A4030) (030) (A4040) (040) CDTV _Arcadia.
+// (CE) forces cycle-exact CPU timing even when a faster level was selected in the menu.
 #ifndef P6_LIBRETRO_MODEL_H
 #define P6_LIBRETRO_MODEL_H
 
@@ -40,6 +40,7 @@ struct ModelResolution {
     p6_options::Settings settings;       // the options with the model, the video standard and the memory a tag implies made concrete
     bool tags_read = false;              // the tags were looked at (File Name Tags on)
     bool multidrive = false;
+    bool force_cycle_exact = false;
     std::vector<std::string> notes;      // what decided, for the log (one line each)
     std::vector<std::string> warnings;   // what the person should know: a tag this core cannot honour
 };
@@ -207,7 +208,9 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
             }
             if (!said_ce && has_tag(name, "(CE)", false)) {
                 said_ce = true;
-                out.notes.push_back("the tag (CE) in " + shown(name) + " changes nothing: every machine of this core is cycle exact");
+                out.force_cycle_exact = true;
+                settings.cpu_compatibility = P6_CPU_EXACT;
+                out.notes.push_back("the tag (CE) in " + shown(name) + " forces cycle-exact CPU timing");
             }
         }
     }

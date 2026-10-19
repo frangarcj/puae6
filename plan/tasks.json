@@ -12346,7 +12346,9 @@
         "adapters/headless/**",
         "tools/generate_options.py",
         "tests/config/**",
-        "tests/waterbox-state/test_wrapper_cpu.py"
+        "tests/waterbox-state/test_wrapper_cpu.py",
+        "docs/options.md",
+        "tests/libretro-ui/**"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: anadir los niveles de PUAE5 (puae_cpu_compatibility normal/compatible/exact). Generar cpuemu sin CE (0/11/20...) y seleccionarlos por opcion de reinicio; m68k_speed nunca ligado al reloj del host; DET02 y estados en cada nivel; ADR que fija que la identidad del estado incluye el nivel.",
@@ -12354,7 +12356,9 @@
         "Al consumir un byte reservado de p6_config, actualizar probes C y fuzz de layout; mantener sizeof72 y offsets de campos no reservados, sin alias de structs anonimos.",
         "La opcion cpu_compatibility se expone tambien en headless; el esquema unico exige el mapeo para las tres superficies. Se autoriza adapters/headless y el generador comun de opciones para mantenerlos coherentes sin nueva ABI.",
         "Actualizar las comprobaciones existentes de defaults/mapeos del esquema y la prueba del wrapper CPU para el nivel de precision, sin anunciar WB03 hasta ejecutar el guest integrado.",
-        "Codigo 68000/010/020 y opciones integrados; checks nativos dirigidos pasan. Se difiere el cierre hasta ejecutar guest integrado y PERF01 en la candidata acumulada, conforme prioridad de primera version utilizable; no repetir ahora una bateria de rendimiento por feature."
+        "Codigo 68000/010/020 y opciones integrados; checks nativos dirigidos pasan. Se difiere el cierre hasta ejecutar guest integrado y PERF01 en la candidata acumulada, conforme prioridad de primera version utilizable; no repetir ahora una bateria de rendimiento por feature.",
+        "Integracion detecto que (CE) seguia siendo nota sin efecto tras habilitar CPU no exacta: restaurar su semantica PUAE5 de forzar exact, respetando File Name Tags desactivado y probando el p6_config resultante.",
+        "Las flags crudas .uae antes fijas deben contrastarse con el nivel CPU finalmente elegido, sin aceptar cpu_cycle_exact=true junto a normal ni depender del orden de claves. Ampliar parser/probe y tabla de opciones para cubrir esa integracion real."
       ],
       "checks": [
         "GEN01",
@@ -13373,13 +13377,15 @@
         "tools/generate_options.py",
         "docs/02-contracts.md",
         "adapters/headless/**",
-        "manifests/state-inventory.json"
+        "manifests/state-inventory.json",
+        "docs/options.md"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece hasta DF3 y el tag (MD). Unidades DF2/DF3 como configuracion de reinicio y carga de varios discos a la vez.",
         "Task force: DF2/DF3 ya caben en arrays y DSKX pero media/estado los rechazan; ampliar esas rutas de forma atomica. floppy_drives consume byte67 de p6_config (sizeof72), CPU conserva byte66; actualizar C#/layout/fuzz. Cero/2 conserva dos drives y la identidad anterior; 3/4 es opcion Restart con hash derivado. El coordinador integra y serializa builds pesados.",
         "Exponer --floppy-drives en headless desde el mismo esquema/byte67, ademas de libretro y C#, para mantener las superficies coherentes.",
-        "El estado wrapper._driveDisk incorpora Disk2/Disk3: actualizar su entrada en el inventario causal y los offsets de tests corruptos junto con la ampliacion a cuatro unidades."
+        "El estado wrapper._driveDisk incorpora Disk2/Disk3: actualizar su entrada en el inventario causal y los offsets de tests corruptos junto con la ampliacion a cuatro unidades.",
+        "Actualizar allowlist .uae y su tabla: nr_floppies/floppyNtype describen el numero finalmente elegido y deben rechazar contradicciones con puae6_floppy_drives, sin depender del orden."
       ],
       "checks": [
         "MED01",
@@ -13914,7 +13920,7 @@
       "title": "Segundo raton y raton por stick analogico",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],

@@ -472,9 +472,10 @@ settings `CpuModel` y `CpuMultiplier` de BizHawk (en la identidad del estado y d
 
 ### Niveles de precision de CPU (T53)
 
-`p6_config.cpu_compatibility` ocupa el byte antes reservado del offset 66; `p6_config` sigue midiendo 72 bytes y `reserved7[5]` empieza en 67. Valores: 0 exact (defecto sin cambios),
+`p6_config.cpu_compatibility` ocupa el byte antes reservado del offset 66; `p6_config` sigue midiendo 72 bytes. El byte 67 es `floppy_drives` (T61) y `reserved7[4]` empieza en 68. Valores: 0 exact (defecto sin cambios),
 1 compatible (prefetch), 2 normal (ciclos por instruccion). Son opciones de reinicio, con el reloj emulado y el mismo `p6_run_frame`; `m68k_speed = 0`, nunca velocidad ligada al host.
 Los tres niveles estan disponibles para las CPUs soportadas 68000, 68010 y 68EC020 en sus maquinas permitidas. Se eligen mediante libretro `puae6_cpu_compatibility`, headless `--cpu-compatibility exact|compatible|normal` y el sync setting `CpuCompatibility` (`Exact`, `Compatible`, `Normal`) de BizHawk. Cambiar la opcion requiere recargar el contenido.
+Con File Name Tags activado, `(CE)` fuerza exact en el contenido como en PUAE5; las flags crudas del importador `.uae` deben concordar con el nivel elegido, sin depender del orden de claves.
 La precision deriva `config_hash` con su byte y el dominio `p6/config/cpu-compatibility/v1` solo fuera de exact, y un estado cruzado entre niveles es INCOMPATIBLE sin mutacion.
 El blitter sigue la condicion upstream: sin CPU memory CE usa el scheduler normal del blitter. La cache opcional de lineas de pantalla queda desactivada en los niveles no exact hasta inventariar su historia; se conserva el camino completo del chipset. El cuerpo CPU no exact guarda ademas `lastipl` (un byte, flanco de la interrupcion de nivel 7). Decision y comprobacion dirigida en ADR 0014; los checks completos de T53 siguen pendientes.
 

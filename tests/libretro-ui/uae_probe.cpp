@@ -535,8 +535,26 @@ static void whatever_the_bytes_the_answer_is_consistent()
     }
 }
 
+static void timing_flags_describe_the_selected_cpu_level()
+{
+    const char *names[] = {"exact", "compatible", "normal"};
+    for (unsigned level = 0; level < 3; ++level) {
+        for (const char *key : {"cpu_cycle_exact", "cpu_memory_cycle_exact", "blitter_cycle_exact", "cycle_exact", "cpu_compatible"}) {
+            const bool expected = !strcmp(key, "cpu_compatible") ? level != P6_CPU_NORMAL : level == P6_CPU_EXACT;
+            const std::string choice = std::string("puae6_cpu_compatibility=") + names[level] + "\n";
+            const std::string matching = std::string(key) + "=" + (expected ? "true\n" : "false\n");
+            const std::string conflicting = std::string(key) + "=" + (expected ? "false\n" : "true\n");
+            CHECK(import(choice + matching).ok);
+            CHECK(import(matching + choice).ok);
+            CHECK(!import(choice + conflicting).ok);
+            CHECK(!import(conflicting + choice).ok);
+        }
+    }
+}
+
 int main()
 {
+    timing_flags_describe_the_selected_cpu_level();
     valid_keys_make_the_config_of_the_equivalent_options();
     precedence();
     dangerous_keys_are_refused_with_their_key_and_line();

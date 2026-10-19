@@ -229,8 +229,8 @@ class ModelTagTests(lr.LibretroHarness):
                 self.assertEqual(MACHINE.findall(out), ["A500"])
                 self.assertTrue(any(f"the tag {text} in" in m and "is ignored" in m for m in self.messages(out)), self.messages(out))
         out = self.play(self.disk("Game (CE).adf"))
-        self.assertEqual(self.messages(out), [], "(CE) is not a warning: every machine here is cycle exact")
-        self.assertRegex(out, r"the tag \(CE\) in .* changes nothing")
+        self.assertEqual(self.messages(out), [], "(CE) is not a warning when timing is already cycle exact")
+        self.assertRegex(out, r"the tag \(CE\) in .* forces cycle-exact CPU timing")
         # Said once, however many names hold it.
         directory = self.work()
         (directory / "list.m3u").write_text("a (MD).adf\nb (MD).adf\n")
@@ -241,6 +241,19 @@ class ModelTagTests(lr.LibretroHarness):
         self.assertNotIn("has no MultiDrive", text)
 
     # --- playlists and archives -------------------------------------------------------------------------------------------------------------
+
+    def test_ce_overrides_faster_cpu_options_and_uae_keys_unless_filename_tags_are_disabled(self):
+        plain = self.disk("Game.adf", seed="ce-tag")
+        tagged = self.disk("Game (CE).adf", seed="ce-tag")
+        view = lambda text: [(r["unit"], r["ticks"], r["hash"], r["ahash"], r["audio"]) for r in self.runs(text)]
+        exact = view(self.play(plain, option("puae6_cpu_compatibility", "exact"), runs=6))
+        for level in ("compatible", "normal"):
+            self.assertEqual(exact, view(self.play(tagged, option("puae6_cpu_compatibility", level), runs=6)))
+        configuration = tagged.parent / "Game (CE).uae"
+        configuration.write_text("puae6_cpu_compatibility=normal\nfloppy0=Game (CE).adf\n")
+        self.assertEqual(exact, view(self.play(configuration, runs=6)))
+        ignored = view(self.play(tagged, option("puae6_cpu_compatibility", "normal"), option("puae6_filename_tags", "disabled"), runs=6))
+        self.assertEqual(ignored, view(self.play(plain, option("puae6_cpu_compatibility", "normal"), runs=6)))
 
     def playlist(self, name, entries):
         directory = self.work()

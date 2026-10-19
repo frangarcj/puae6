@@ -184,9 +184,11 @@ encuentra). Es la unica diferencia de lectura con PUAE5; las etiquetas entre par
 | `NTSC`, `(USA)` | NTSC si `puae6_video_standard` es `PAL auto` o `NTSC auto` | igual (`NTSC`, `(USA)`) |
 | `PAL`, `(Europe)`, `(France)`, `(Germany)`, `(Italy)`, `(Spain)`, `(Finland)`, `(Denmark)`, `(Sweden)` | PAL, con la misma condicion | igual |
 | `CDTV` | **aviso**: no hay CD ni CDTV | CDTV (solo con CD) |
-| `(MD)` | **aviso**: no hay MultiDrive (DF2, DF3) hasta T61 | MultiDrive |
+| `(MD)` | monta discos sucesivos en unidades separadas; Auto habilita DF0..DF3, un numero explicito limita el montaje | MultiDrive |
 | `_Arcadia` | **aviso**: no hay pad Arcadia | pad Arcadia |
-| `(CE)` | sin efecto, **nota** en el registro: todos los modelos de este core son exactos al ciclo | fuerza CE |
+| `(CE)` | fuerza precision de CPU exacta al ciclo, incluso si el menu eligio compatible o normal | fuerza CE |
+
+Con File Name Tags activado, `(CE)` se aplica tambien despues de las claves de un `.uae`, como en PUAE5.
 
 PUAE5 no tiene etiquetas de memoria, FPU ni velocidad (la memoria va con el modelo): aqui tampoco; son `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model` y `puae6_floppy_speed`. Lo que
 una etiqueta no puede honrar **nunca** falla en silencio ni elige otra cosa: se ignora con un aviso en pantalla y en el registro (una sola vez por etiqueta, aunque la tengan varios nombres).
@@ -272,10 +274,12 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 | `floppy0` | El disco de DF0 (ruta relativa). Vacio = ninguno. |
 | `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
 | `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
-| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed`, `puae6_video_resolution`, `puae6_video_line_mode`, `puae6_cpu_model`, `puae6_cpu_multiplier`, `puae6_hdf_controller` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y `puae6_video_standard=PAL auto` / `NTSC auto` se rechazan (T76): son la eleccion automatica del frontend, que el core resuelve con el nombre del `.uae` antes de leer sus claves; un fichero nombra la maquina y el estandar. |
+| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed`, `puae6_floppy_drives`, `puae6_video_resolution`, `puae6_video_line_mode`, `puae6_cpu_model`, `puae6_cpu_multiplier`, `puae6_cpu_compatibility`, `puae6_hdf_controller` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y `puae6_video_standard=PAL auto` / `NTSC auto` se rechazan (T76): son la eleccion automatica del frontend, que el core resuelve con el nombre del `.uae` antes de leer sus claves; un fichero nombra la maquina y el estandar. |
 | `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`: preset del esquema, que las demas claves refinan. |
 
-Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada): `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact`, `cycle_exact`, `cpu_compatible` = `true`;
+Las flags `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact` y `cycle_exact` deben ser `true` en exact y `false` en compatible/normal; `cpu_compatible` es `true` en exact/compatible y `false` en normal. Describen el nivel final de `puae6_cpu_compatibility`, cualquiera que sea el orden de las claves; una contradiccion se rechaza.
+
+Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada):
 `cpu_24bit_addressing`, `cpu_address_space_24` = `true`; `cpu_speed` = `real`; `cpu_throttle` = `0`; `cachesize` = `0`; `compfpu` = `false`; `mmu_model` = `0`; `immediate_blits` = `false`;
 `waiting_blits` = `disabled`; `synchronize_clock`, `bsdsocket_emu`, `scsi` = `false`; `nr_floppies` = `2` (DF0 y DF1 existen siempre); `floppy0type`, `floppy1type` = `0`;
 `floppy2type`, `floppy3type` = `-1`; `floppy0wp`, `floppy1wp`, `floppy2wp`, `floppy3wp` = `false` (la proteccion es un solo interruptor: `floppy_write_protect`). Cualquier otro valor se rechaza con el motivo de la tabla siguiente.
