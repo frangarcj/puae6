@@ -1,0 +1,58 @@
+diff --git a/gencpu.cpp b/gencpu.cpp
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -10067,6 +10067,7 @@
+ 	char fname[100];
+ 	const char *extra, *extraup;
+ 	static int postfix2 = -1;
++	static bool generic_file_started = false;
+ 	int rp;
+ 
+ 	using_tracer = mode;
+@@ -10078,14 +10079,18 @@
+ 	}
+ 
+ 	postfix = id;
+-	if (id == 0 || id == 11 || id == 13 ||
++	// A restricted generic family may start at 68020 (id 3), without emitting 040/060 handlers.
++	const bool first_generic = id < 6 && !generic_file_started;
++	const int file_id = id < 6 ? 0 : id;
++	if (first_generic) generic_file_started = true;
++	if (first_generic || id == 11 || id == 13 ||
+ 		id == 20 || id == 21 || id == 22 || id == 23 || id == 24 ||
+ 		id == 31 || id == 32 || id == 33 || id == 34 || id == 35 ||
+ 		id == 40 || id == 50) {
+ 		if (generate_stbl)
+-			fprintf(stblfile, "#ifdef CPUEMU_%d%s\n", postfix, extraup);
+-		postfix2 = postfix;
+-		sprintf(fname, "cpuemu_%d%s.cpp", postfix, extra);
++			fprintf(stblfile, "#ifdef CPUEMU_%d%s\n", file_id, extraup);
++		postfix2 = file_id;
++		sprintf(fname, "cpuemu_%d%s.cpp", file_id, extra);
+ 		if (freopen (fname, "wb", stdout) == NULL) {
+ 			abort();
+ 		}
+@@ -10214,6 +10219,9 @@
+ 			opcode_next_clev[rp] = cpu_level;
+ 	} else if (id < 6) {
+ 		cpu_level = 5 - (id - 0); // "generic"
++		if (first_generic)
++			for (rp = 0; rp < nr_cpuop_funcs; rp++)
++				opcode_next_clev[rp] = cpu_level;
+ 		cpu_generic = true;
+ 		need_special_fixup = 1;
+ 	} else if (id >= 40 && id < 46) {
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -4090,8 +4090,8 @@
+ 	op_illg(opcode);
+ }
+ 
+-#ifdef CPUEMU_0
+-
++#if defined(CPUEMU_0) && !defined(P6_PORTABLE)
++// The portable no-MMU profile rejects PMMU opcodes in the generated handler, without fake MMU state.
+ static bool mmu_op30_invea(uae_u32 opcode)
+ {
+ 	int eamode = (opcode >> 3) & 7;

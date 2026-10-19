@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE_MODELS = ("0", "1", "2", "3", "4", "5", "11", "12", "13", "14", "20", "21")
+PROFILE_MODELS = ("3", "4", "5", "11", "12", "13", "14", "20", "21")
 PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_0.cpp", "cpuemu_11.cpp", "cpuemu_13.cpp", "cpuemu_20.cpp", "cpuemu_21.cpp"}
 
 
@@ -91,6 +91,10 @@ class GencpuModelTests(unittest.TestCase):
         names = {line.split("op_smalltbl_")[1].split("[")[0] for line in table.read_text().splitlines()
                  if line.startswith("const struct cputbl op_smalltbl_")}
         self.assertEqual(names, set(PROFILE_MODELS))
+        generic = (restricted_out / "cpuemu_0.cpp").read_text()
+        self.assertNotIn("flush_cpu_caches_040", generic)
+        self.assertNotIn("mmu_op(opcode", generic)
+        self.assertTrue("mmu_op30(" not in generic, "PMMU handlers belong to excluded CPU models; the table's real line-F handler rejects them")
 
     def test_invalid_model_numbers_are_rejected(self):
         for argument in ("abc", "56", "-1", "13x", ""):

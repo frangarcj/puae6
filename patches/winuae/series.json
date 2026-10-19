@@ -4406,6 +4406,35 @@
           "after_sha256": "1b4d8a6eaf62000a13e6d564fe412b3d7f593f2c82b0aca5393465ff4c16de2d"
         }
       ]
+    },
+    {
+      "id": "0346-portable-generic-no-mmu",
+      "file": "patches/winuae/0346-portable-generic-no-mmu.patch",
+      "sha256": "53310b83f3893299a51c0e2a0c06e61f0d4d4f0eafb50828648b7cff64b248b6",
+      "title": "Generate only supported generic CPUs and reject portable PMMU opcodes",
+      "reason": "T53 Waterbox links whole objects: generic 040/060 cache handlers and fake-MMU helpers imported modules the no-MMU profile excludes. Open the generic file at its first requested model and reject PMMU through the real line-F exception; no GC/export change or successful MMU stub.",
+      "category": "build/portability",
+      "order": 163,
+      "symbols": [
+        "generate_cpu",
+        "mmu_op30",
+        "mmu_op"
+      ],
+      "test": "tests/state/test_cpu_modes.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "3d812969c0975dca0d3eee432b60a1e1d6f9f1cd3707c290bbc462ffb4b8265a",
+          "after_sha256": "ef9a358fb5be8390b76768a28a9ddbd56e7841de3f4510a79fc602ce97108681"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "363b19f2023a63cac435d7126b150756e67523a55506dabe69b561b3e331c002",
+          "after_sha256": "a8e287b748ccdd7240e391d5aa1c446a3f093b4feb9daa5c8d29a04bae286b68"
+        }
+      ]
     }
   ]
 }

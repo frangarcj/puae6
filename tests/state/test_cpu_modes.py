@@ -6,6 +6,7 @@ The 68010 loop/VBR and 68020 cache/AGA paths retain their own directed restore c
 Neither this module nor a successful build closes the full T53 gate.
 """
 import unittest
+import struct
 
 from tests.state import envelope as e
 from tests.state import test_det02 as d
@@ -15,6 +16,24 @@ from tests.state import test_det02_a1200 as c20
 from tests.state.harness import SUBSYSTEMS
 
 MODES = {"exact": 0, "compatible": 1, "normal": 2}
+
+PMMU = c20.PROLOGUE + """    MOVE.L #$4000,D0
+    .word $4E7B,$0801           ; MOVEC D0,VBR
+    MOVE.L #fline,$402C.L
+    MOVE.L #$80000000,$3000.L
+    LEA $3000.W,A0
+    MOVE.L #0,D0
+loop:
+    .word $F010,$4000           ; PMOVE (A0),TC: no 68851 is present
+    ADDQ.L #1,D0
+    MOVE.L D0,$2000.L
+    MOVE.L D1,$2004.L
+    BRA.S loop
+fline:
+    ADDQ.L #1,D1
+    .word $58AF,$0002           ; ADDQ.L #4,2(A7): resume after the PMOVE and its extension
+    RTE
+"""
 
 
 class CpuModesTests(d.Det02Case):
@@ -111,6 +130,26 @@ class Cpu020ModesTests(d.Det02Case):
                 for restore in (d.SAME, d.NEW):
                     with self.subTest(level=level, rom=rom, restore=restore):
                         self.assertIsNone(self.first_divergence(rom, ["--cpu-compatibility", level], 3, restore))
+
+
+class Cpu020NoMmuTests(d.Det02Case):
+    MACHINE = "a1200"
+    ROMS = {"pmmu": (PMMU, None, None)}
+    SAVE_OP = "--public-save-at"
+    LOAD_OP = "--public-load-at"
+
+    def test_pmmu_enters_line_f_continues_and_restores_without_fake_mmu(self):
+        for level in MODES:
+            with self.subTest(level=level):
+                flags = ["--cpu-compatibility", level]
+                memory = self.dir / f"pmmu-{level}.ram"
+                run = self.probe("pmmu", "--units", "3", "--ramout-at", "3", "0x2000", "8", str(memory), *flags)
+                resumed, fline = struct.unpack(">II", memory.read_bytes())
+                self.assertGreater(min(resumed, fline), 0, "PMMOVE must reach vector 11 and resume, not fake a working MMU")
+                self.assertLessEqual(abs(resumed - fline), 1)
+                self.assertFalse(run.save_errors)
+                for mode in (d.SAME, d.NEW):
+                    self.assertIsNone(self.first_divergence("pmmu", flags, 3, mode))
 
 
 if __name__ == "__main__":

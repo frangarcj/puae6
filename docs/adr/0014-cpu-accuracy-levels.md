@@ -23,12 +23,23 @@ sus maquinas permitidas. Son opciones de reinicio del esquema comun: libretro
 `CpuCompatibility` de BizHawk. Un cambio durante la ejecucion requiere recargar
 el contenido. No se anuncian netplay ni runahead nuevos.
 
-El generador sigue siendo la autoridad: los modelos genericos 0..5 comparten
+El generador sigue siendo la autoridad: los modelos genericos 3/4/5 comparten
 cpuemu_0, los compatibles 11/12 cpuemu_11 y el compatible 68020 cpuemu_20.
 Los handlers compatibles que devuelven
 ciclos tienen una tabla del tipo correcto separada de los handlers CE void del
 parche 0311. Los fuentes de handlers CE siguen identicos byte a byte. Los parches
 required 0343 y 0344 seleccionan accesos, tablas y bucles existentes de upstream.
+
+El parche 0346 acota el archivo generico a las CPUs ofrecidas (68020/010/000):
+no se generan tablas ni handlers 030/040/060 que importen modulos excluidos.
+El enlace nativo descarta esos caminos, mientras el guest Waterbox enlaza los
+objetos completos; el perfil debe ser correcto en ambos. Los PMMU no entran en
+las tablas generadas; la tabla por defecto los rechaza con la excepcion de linea F
+mediante `op_illg`, y sus helpers MMU y
+MMU ficticia no se compilan en el perfil portable. No se cambian la recoleccion
+de secciones, las exportaciones del guest ni los interpretes CE. La prueba
+dirigida ejecuta un PMOVE sin 68851, comprueba el vector 11, su continuacion y
+su restauracion por la ABI publica en los tres niveles del 68020.
 
 Fuera de exact, la identidad del estado deriva el hash actual con el byte del
 nivel y el dominio `p6/config/cpu-compatibility/v1`. Exact conserva su hash. Los
