@@ -15739,6 +15739,44 @@
       "blocked_reason": "El probe real con ROMs18/19 y Brian CUE carga mapas/perfil y avanza240frames, pero no lee payload. Reproducer conservado en test_cd32_boot.py/cd32_boot_probe.cpp con diagnosticos de fallo: PC00fbfd0c, open1/init2/unit0, flags79000000, cmdf5, RX0/0, TOC32, media1/0. Hipotesis verificables: (1) firmware sigue en secuencia/intro antes de habilitar lectura: contrastar comandos/fase y progreso emulado con referencia sin ampliar240 a ciegas; (2) handshake/IRQ TX-RX queda completado internamente pero no visible al driver: contrastar INTREQ/INTENA, indices DMA y memoria del driver. La compilacion faltaba disk.h, ya corregido; no se declara boot ni se cambia CPU/timing."
     },
     {
+      "id": "T66q1",
+      "title": "Conectar reloj CDDA al mezclador del motor completo",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66n1",
+        "T66i1",
+        "T66k1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0369-devices-cda-clock.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/media/akiko_link_probe.cpp",
+        "tests/media/test_akiko_link.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Fallo de integracion descubierto al arrancar CD32: devices_update_sound excluia update_cda_sound en P6_PORTABLE desde0017, asi que el motor real nunca establece el periodo CDDA; fixtures I1/I2 lo inicializaban manualmente. Reproducir en probe nativo K1 tras un frame A1200 mediante backend CDDA real y fuente audio sintetica inmutable, sin llamada manual a update_cda_sound.",
+        "0369/order186 sobre devices.cpp restaura la llamada upstream al reloj CDA para el grafo portable que ya compila CD32. No cambia scheduler ni adelanta audio en host; conservar A1200/reset/reload/MMIO K1 y comprobar flujo PCM/agotamiento CDDA con el reloj real. Presupuesto80–140 logicas; una compilacion incremental -j2 y check MED01 dirigido, sin matriz/guest."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El backend CDDA reproduce sobre el mezclador del motor real y agota el sector con periodo correcto, establecido por devices_update_sound; el probe ya no prepara ese reloj manualmente y conserva A1200/K1."
+      ],
+      "stop": "No confundir este arreglo de audio con resolucion del bloqueo de arranque P1 ni con estado CD32 completo."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15775,7 +15813,8 @@
         "T66m2",
         "T66m3",
         "T66h3",
-        "T66p1"
+        "T66p1",
+        "T66q1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15809,7 +15848,8 @@
         "T66o1 prepara el propietario nativo comun y sus parsers para la carga real. Seleccion del frontend, firmware/perfiles CD32, estado y arranque/restore conservan sus puertas completas.",
         "T66n2a/n2b separan por presupuesto estado privado de player y backend; codecs de maquina, guard de audio extra, identidad externa y pruebas nativo/WB completas siguen en el padre.",
         "T66m2/m3 separan por presupuesto transporte de la agregacion causal Akiko completa; la puerta de NativeChunk y snapshot WB con CD32 real permanece abierta hasta su integracion.",
-        "T66p1 prepara perfil stock y firmware/arranque nativo sin anunciar modelo en libretro; conserva codec, carga frontend, Waterbox y arranque/restauracion de juego como puertas del padre."
+        "T66p1 prepara perfil stock y firmware/arranque nativo sin anunciar modelo en libretro; conserva codec, carga frontend, Waterbox y arranque/restauracion de juego como puertas del padre.",
+        "T66q1 corrige el reloj CDA excluido del motor portable real; conserva boot/codec/frontend/Waterbox como puertas del padre."
       ],
       "checks": [
         "MED01",
