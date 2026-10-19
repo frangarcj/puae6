@@ -1018,6 +1018,16 @@ en `docs/adr/akiko-emulated-clock.md`; estado completo y CDDA siguen en T66.
 El probe usa RAM/IRQ de fixture y Disc real; conversion MSF/BCD e intercalado
 abortan si se alcanzan. No acredita paquetes TOC/subQ ni DMA SUBCODE.
 
+T66k1 selecciona `akiko.cpp`, `flashrom.cpp` y los servicios CD por offset en
+el grafo comun nativo. Sustituye las tres definiciones CD excluidas de hostfs
+por el backend real; MSF/BCD y conversion P-W proceden del WinUAE6 fijado.
+CD32 se compila, pero no hay aun un nuevo perfil publico. FMV y el workaround
+de ROM para aceleradoras quedan excluidos mediante0362; el objetivo es el
+68EC020 stock, sin llamadas ficticias a proteccion host ni escritura ROM sellada.
+El probe enlaza todo el motor y accede al banco Akiko por el mapa real de memoria:
+identificador y conversion de32 pixeles a bitplanes, ademas de lector/TOC CD
+y carga, frames, reset y recarga A1200. No acredita aun arranque ni estado CD32.
+
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
 fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,
