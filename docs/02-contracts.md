@@ -451,6 +451,14 @@ el multiplicador (el chipset no se mueve). Opciones: libretro `puae6_cpu_model` 
 `puae6_cpu_multiplier` (auto, 1, 2, 4, 8, 10, 12, 16), el importador `.uae` (`cpu_model`, `cpu_multiplier`), headless `--cpu auto|68000|68010|68020` y `--cpu-multiplier auto|1|2|4|8|10|12|16` y los sync
 settings `CpuModel` y `CpuMultiplier` de BizHawk (en la identidad del estado y de la pelicula solo fuera del defecto).
 
+### Niveles de precision de CPU (T53, primera vertical)
+
+`p6_config.cpu_compatibility` ocupa el byte antes reservado del offset 66; `p6_config` sigue midiendo 72 bytes y `reserved7[5]` empieza en 67. Valores: 0 exact (defecto sin cambios),
+1 compatible (prefetch), 2 normal (ciclos por instruccion). Son opciones de reinicio, con el reloj emulado y el mismo `p6_run_frame`; `m68k_speed = 0`, nunca velocidad ligada al host.
+La primera vertical acepta los dos niveles adicionales solo en A500/68000; el resto devuelve UNSUPPORTED hasta completar T53. No se ofrecen todavia opciones nuevas en los frontends.
+La precision deriva `config_hash` con su byte y el dominio `p6/config/cpu-compatibility/v1` solo fuera de exact, y un estado cruzado entre niveles es INCOMPATIBLE sin mutacion.
+El blitter sigue la condicion upstream: sin CPU memory CE usa el scheduler normal del blitter. La cache opcional de lineas de pantalla queda desactivada en los niveles no exact hasta inventariar su historia; se conserva el camino completo del chipset. El cuerpo CPU no exact guarda ademas `lastipl` (un byte, flanco de la interrupcion de nivel 7). Decision y comprobacion dirigida en ADR 0014; los checks completos de T53 siguen pendientes.
+
 ### Opciones de audio de Paula (T73)
 
 `p6_config.sound_separation`, `sound_interpolation`, `sound_filter` y `sound_filter_type` (un byte cada uno, offsets 56 a 59: son los 4 primeros bytes de lo que era `reserved[0]`; los otros 4 pasan

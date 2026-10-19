@@ -1,0 +1,43 @@
+# 0014. La precision de CPU es configuracion de reinicio
+
+T53 incorpora los interpretes normal y compatible con prefetch del WinUAE fijado
+junto al interprete ciclo exacto. Exact conserva el valor cero y sigue siendo el
+defecto. El nivel cambia el timing emulado de instrucciones y bus: es parte de la
+maquina, nunca presentacion ni respuesta automatica a la velocidad del host.
+
+`p6_config.cpu_compatibility` consume el byte reservado del offset 66 (0 exact,
+1 compatible, 2 normal); el struct sigue midiendo 72 bytes. `m68k_speed` queda a
+cero: los niveles avanzan por ciclos emulados mediante el mismo scheduler y
+`p6_run_frame`. Upstream exige memoria CPU CE para el blitter CE, asi que los
+niveles no exact usan el scheduler normal del blitter.
+
+La cache opcional de lineas de pantalla es independiente del nivel CPU y queda
+desactivada (`DISPLAY_OPTIMIZATIONS_NONE`) en los niveles no exact: activa otro
+evento sync e historia de caches ausente del inventario de estados CE. Se
+conserva el camino completo del chipset; habilitar esa optimizacion exige cubrir
+su estado y comparar su rendimiento. Se prioriza correccion sobre ese ahorro.
+
+La primera vertical ofrece los niveles adicionales solo en A500/68000. Las otras
+combinaciones de maquina y CPU devuelven UNSUPPORTED hasta implementarlas. T53
+conserva sus requisitos de 68010/68020, frontends, rendimiento y checks completos.
+No se anuncian netplay ni runahead nuevos.
+
+El generador sigue siendo la autoridad: los modelos genericos 0..5 comparten
+cpuemu_0 y los compatibles 11/12 cpuemu_11. Los handlers compatibles que devuelven
+ciclos tienen una tabla del tipo correcto separada de los handlers CE void del
+parche 0311. Los fuentes de handlers CE siguen identicos byte a byte. El parche
+required 0343 selecciona accesos, tablas y bucles existentes de upstream.
+
+Fuera de exact, la identidad del estado deriva el hash actual con el byte del
+nivel y el dominio `p6/config/cpu-compatibility/v1`. Exact conserva su hash. Los
+estados cruzados fallan antes de mutar la maquina. El helper upstream
+`m68k_setpc_normal` ya reconstruye el PC directo de normal o el indirecto de
+compatible/exact sin rellenar el prefetch guardado. El cuerpo CPU no exact lleva
+ademas `lastipl` (un byte 0..7), causal para detectar el flanco de la interrupcion
+de nivel 7; CE exige cero y conserva su cuerpo anterior.
+
+La prueba dirigida es `tests/state/test_cpu_modes.py`: restauracion por ABI
+publica en el mismo proceso y uno nuevo con VERTB, timers CIA y DMA, cota estable,
+rechazo transaccional entre niveles y ejecucion exact por defecto sin cambios.
+La aceptacion completa de T53 queda pendiente hasta superar sus puertas con
+todas las CPUs y los frontends en la candidata integrada.

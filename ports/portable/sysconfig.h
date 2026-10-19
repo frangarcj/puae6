@@ -36,6 +36,8 @@
  * HDF (bridge/media.cpp). FILESYS, UAE_FILESYS_THREADS and SUPPORT_THREADS stay excluded above: these macros name the single-thread subset instead. */
 #define P6_FILESYS 1
 #define P6_NATIVE2AMIGA 1 /* the queue that carries a finished request to the 68k (upstream keys it on SUPPORT_THREADS) */
+#define CPUEMU_0 1 /* T53: generic 68000, emulated instruction cycles only */
+#define CPUEMU_11 1 /* T53: compatible 68000 prefetch */
 #define CPUEMU_13 1
 #define CPUEMU_21 1 /* 68020 cycle exact, no MMU (ADR 0010); chosen only by a 68020 preset */
 /* 68881/68882 (T54): upstream's fpp.cpp over its integer SoftFloat (fpp_softfloat.cpp), never fpp_native.cpp, a long double or the host FPU. FPUEMU makes

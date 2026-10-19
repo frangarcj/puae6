@@ -106,8 +106,15 @@ typedef struct p6_config {
      * config whose p6_load has no hard file is the machine the default config is, with its identity, its states and its movies. A restart option: it is part of config_hash while it
      * is in effect (derived hash, bridge/config.cpp ide_attached, domain p6/config/ide/v1). Anything above 1 is P6_ERROR_UNSUPPORTED. */
     uint8_t hdf_controller;
-    uint8_t reserved7[6];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
+    /* T53: restart CPU accuracy, 0 exact (the unchanged default), 1 compatible prefetch, 2 normal instruction timing.
+     * The level is part of state identity. Initially the two faster levels are supported only by the A500 with a 68000;
+     * other combinations return UNSUPPORTED, never silently choose another core. No level reads a host clock. */
+    uint8_t cpu_compatibility;
+    uint8_t reserved7[5];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
 } p6_config;
+#define P6_CPU_EXACT 0u
+#define P6_CPU_COMPATIBLE 1u
+#define P6_CPU_NORMAL 2u
 #define P6_HDF_CONTROLLER_UAE 0u
 #define P6_HDF_CONTROLLER_IDE 1u
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay

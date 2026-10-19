@@ -163,7 +163,8 @@
     "0335-disk-track-timing-state": "instrumentation",
     "0340-disk-ipf-reader": "required",
     "0341-blitter-channel-mask-restore": "behavior",
-    "0342-denise-nearest-sprite-sentinel": "behavior"
+    "0342-denise-nearest-sprite-sentinel": "behavior",
+    "0343-cpu-68000-nonexact": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

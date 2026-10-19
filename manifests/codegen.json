@@ -65,12 +65,22 @@
       "outputs": [
         "cputbl.h",
         "cpustbl.cpp",
+        "cpuemu_0.cpp",
+        "cpuemu_11.cpp",
         "cpuemu_13.cpp",
         "cpuemu_21.cpp"
       ],
       "runs": [
         {
           "args": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "11",
+            "12",
             "13",
             "14",
             "21"

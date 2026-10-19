@@ -4274,6 +4274,41 @@
           "after_sha256": "34061fa7b8d4df62ae3fcf87fd0fe69a71c060ca95ed7c51ce7c28633c4aa4cb"
         }
       ]
+    },
+    {
+      "id": "0343-cpu-68000-nonexact",
+      "file": "patches/winuae/0343-cpu-68000-nonexact.patch",
+      "sha256": "0391184626a297746cb731671c0a21b7a5582fffbdf5653d17a6e6c79a4d95d4",
+      "title": "Expose upstream 68000 normal and prefetch-compatible execution",
+      "reason": "T53 first vertical: choose the existing generic/prefetch/CE tables, accessors and loops by restart configuration. Returning compatible loop handlers have their own correctly typed table; the CE generator output stays unchanged. MMU-only opcode debugging remains excluded.",
+      "category": "host hooks",
+      "order": 158,
+      "symbols": [
+        "set_x_funcs",
+        "build_cpufunctbl",
+        "m68k_run",
+        "generate_cpu"
+      ],
+      "test": "tests/state/test_cpu_modes.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "434142d0564bcc110d5fdd5a023af890039f508bbcf2d0f62adce19df4730381",
+          "after_sha256": "c55f641356ca726e383b938acb728ecf79f1c0a1660267a5a38438a0c2b83649"
+        },
+        {
+          "path": "include/newcpu.h",
+          "before_sha256": "af963b3efd129713b9d082fd2e48189d16127d416e346c1122b30e07e1f4adc0",
+          "after_sha256": "2e5db81651871e0a0f4ad18f69464ade6dcaf2b3eff71de2f3b4220cba25472d"
+        },
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "9e6e8ae8d6434867207ea25b0acacaf0e1c601a5a0253d705f96977ae8744271",
+          "after_sha256": "3d812969c0975dca0d3eee432b60a1e1d6f9f1cd3707c290bbc462ffb4b8265a"
+        }
+      ]
     }
   ]
 }

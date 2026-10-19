@@ -335,6 +335,10 @@ p6_result validate_config(const p6_config &c, p6_error *error)
     }
     if (const p6_result memory = validate_memory(c, error))
         return memory;
+    if (c.cpu_compatibility > P6_CPU_NORMAL)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu compatibility must be exact, compatible or normal");
+    if (c.cpu_compatibility != P6_CPU_EXACT && (c.machine != P6_MACHINE_A500 || resolve_cpu(c) != 68000))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "non-exact CPU levels currently require an A500 with a 68000");
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     // The controller of the hard files (T56): the IDE port is Gayle's, and only the A600 and the A1200 have Gayle.
@@ -433,6 +437,12 @@ void build_preferences(const p6_config &c, bool ide)
     // The CPU (T52): the machine's own unless the config names a 68010 for a 68000 machine. Everything else of the preset (cycle exact, 24-bit space, no MMU) is the 68000's and the 68010 shares it;
     // build_cpufunctbl then takes op_smalltbl_13, the 68010 cycle-exact table, and m68k_run_1_ce runs it (patch 0310).
     currprefs.cpu_model = resolve_cpu(c);
+    currprefs.cpu_cycle_exact = c.cpu_compatibility == P6_CPU_EXACT;
+    currprefs.cpu_memory_cycle_exact = currprefs.cpu_cycle_exact;
+    currprefs.cpu_compatible = c.cpu_compatibility != P6_CPU_NORMAL;
+    // fixup_cpu requires memory CE for a CE blitter; the non-exact levels use its normal emulated event scheduling.
+    currprefs.blitter_cycle_exact = currprefs.cpu_cycle_exact;
+    currprefs.m68k_speed = 0;          // instruction cycles, never fastest-possible/host-time execution
     // The clock of the CPU (T52): upstream's cpu_clock_multiplier is the multiplier << 8, and the machine's own is what built_in_prefs has just put there. cpucycleunit is derived from it by the
     // reset head (prefs_changed_cpu), never from a host clock.
     currprefs.cpu_clock_multiplier = resolve_cpu_multiplier(c) << 8;
@@ -477,7 +487,8 @@ void build_preferences(const p6_config &c, bool ide)
     currprefs.lightpen_crosshair = false;    // no drawn cursor: upstream default is on
     currprefs.leds_on_screen = 0;
     currprefs.refresh_indicator = false;
-    currprefs.cs_optimizations = 0;
+    // Fast-line caching is separate from CPU accuracy. Keep the full chipset path until its additional caches have native-state coverage.
+    currprefs.cs_optimizations = c.cpu_compatibility == P6_CPU_EXACT ? DISPLAY_OPTIMIZATIONS_FULL : DISPLAY_OPTIMIZATIONS_NONE;
     currprefs.cs_hvcsync = 0;
     pin_input();
     // Media are identified by content id and arrive through p6_load: upstream's default names df0.adf..df3.adf must never
@@ -500,10 +511,11 @@ p6_result check_preset(p6_error *error)
     const bool no_gayle = machine.no_gayle;
     const Memory memory = resolve_memory(preset_config);
     const char *drifted = nullptr;
-    if (p.cpu_model != resolve_cpu(preset_config) || p.cpu_clock_multiplier != (resolve_cpu_multiplier(preset_config) << 8) || !p.cpu_cycle_exact || !p.cpu_memory_cycle_exact || p.fpu_model != int(preset_config.fpu_model) ||
+    if (p.cpu_model != resolve_cpu(preset_config) || p.cpu_clock_multiplier != (resolve_cpu_multiplier(preset_config) << 8) || p.cpu_cycle_exact != (preset_config.cpu_compatibility == P6_CPU_EXACT) || p.cpu_memory_cycle_exact != p.cpu_cycle_exact ||
+        p.cpu_compatible != (preset_config.cpu_compatibility != P6_CPU_NORMAL) || p.m68k_speed || p.fpu_model != int(preset_config.fpu_model) ||
         p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict || p.fpu_no_unimplemented || p.mmu_model ||
         !p.address_space_24 || (machine.cpu == 68020 && p.waiting_blits)) drifted = "cpu";
-    else if (p.chipset_mask != machine.chipset_mask || !p.blitter_cycle_exact) drifted = "chipset";
+    else if (p.chipset_mask != machine.chipset_mask || p.blitter_cycle_exact != p.cpu_cycle_exact) drifted = "chipset";
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
              p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
     else if (p.cs_compatible != machine.compatible) drifted = "chipset table";
@@ -521,7 +533,7 @@ p6_result check_preset(p6_error *error)
              p.gfx_pscanlines || p.gfx_scandoubler || p.gfx_lores_mode || p.gfx_overscanmode != OVERSCANMODE_OVERSCAN ||
              p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||
              p.gfx_blackerthanblack || p.display_calibration || p.gfx_monitorblankdelay || p.lightpen_crosshair ||
-             p.leds_on_screen || p.cs_optimizations || p.cs_hvcsync) drifted = "video";
+             p.leds_on_screen || p.cs_optimizations != (preset_config.cpu_compatibility == P6_CPU_EXACT ? DISPLAY_OPTIMIZATIONS_FULL : DISPLAY_OPTIMIZATIONS_NONE) || p.cs_hvcsync) drifted = "video";
     if (drifted) {
         char text[64];
         snprintf(text, sizeof text, "the %s preset drifted from the profile (%s)", machine.name, drifted);

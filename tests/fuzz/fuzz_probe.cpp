@@ -129,7 +129,8 @@ bool oracle_accepts(const p6_config &c)
     return inverted ^ c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && machine_accepted(c.machine) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
            (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && fpu_accepted(c) && audio_accepted(c) &&
-           !c.reserved7[0] && !c.reserved7[1] && !c.reserved7[2] && !c.reserved7[3] && !c.reserved7[4] && !c.reserved7[5] && hdf_controller_accepted(c) && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
+           !c.reserved7[0] && !c.reserved7[1] && !c.reserved7[2] && !c.reserved7[3] && !c.reserved7[4] && (c.cpu_compatibility == P6_CPU_EXACT ||
+           (c.cpu_compatibility <= P6_CPU_NORMAL && c.machine == P6_MACHINE_A500 && (c.cpu_model == 0 || c.cpu_model == 1))) && hdf_controller_accepted(c) && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);
 }
 

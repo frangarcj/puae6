@@ -276,6 +276,12 @@ Identity current_identity()
         const uint64_t lengths[2] = {32, 1};
         domain_hash("p6/config/ide/v1", parts, lengths, 2, identity.config_hash);
     }
+    // Accuracy is a restart option. Exact adds nothing, preserving all default config hashes.
+    if (c.cpu_compatibility != P6_CPU_EXACT) {
+        const uint8_t *parts[2] = {identity.config_hash, &c.cpu_compatibility};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/cpu-compatibility/v1", parts, lengths, 2, identity.config_hash);
+    }
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;

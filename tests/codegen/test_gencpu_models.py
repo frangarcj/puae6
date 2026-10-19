@@ -9,7 +9,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_13.cpp", "cpuemu_21.cpp"}
+PROFILE_MODELS = ("0", "1", "2", "3", "4", "5", "11", "12", "13", "14", "21")
+PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_0.cpp", "cpuemu_11.cpp", "cpuemu_13.cpp", "cpuemu_21.cpp"}
 
 
 def digest(path):
@@ -65,10 +66,15 @@ class GencpuModelTests(unittest.TestCase):
         self.assertGreater(len(names), 15)
         for name in names:
             with self.subTest(file=name):
-                self.assertEqual(digest(patched_out / name), digest(pristine_out / name))
+                # T53: the returning loop table of compatible 68010 handlers has its own type;
+                # replacing that symbol recovers upstream byte for byte, including every CE handler unchanged.
+                actual = (patched_out / name).read_bytes()
+                if name == "cpuemu_11.cpp":
+                    actual = actual.replace(b"loop_mode_table_compatible", b"loop_mode_table")
+                self.assertEqual(actual, (pristine_out / name).read_bytes())
 
     def test_profile_models_match_the_full_generation_and_the_build_tree(self):
-        restricted, restricted_out = self.run_tool(self.patched, "13", "14", "21")
+        restricted, restricted_out = self.run_tool(self.patched, *PROFILE_MODELS)
         self.assertEqual(restricted.returncode, 0, restricted.stderr)
         self.assertEqual({p.name for p in restricted_out.iterdir()}, PROFILE_OUTPUTS)
         # The generated tree the engine compiles is exactly this output.
@@ -84,7 +90,7 @@ class GencpuModelTests(unittest.TestCase):
         table = restricted_out / "cpustbl.cpp"
         names = {line.split("op_smalltbl_")[1].split("[")[0] for line in table.read_text().splitlines()
                  if line.startswith("const struct cputbl op_smalltbl_")}
-        self.assertEqual(names, {"13", "14", "21"})
+        self.assertEqual(names, set(PROFILE_MODELS))
 
     def test_invalid_model_numbers_are_rejected(self):
         for argument in ("abc", "56", "-1", "13x", ""):

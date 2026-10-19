@@ -116,7 +116,13 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved7[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
-    c = make_config(); c.reserved7[5] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved7[4] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    for (uint8_t mode : {P6_CPU_EXACT, P6_CPU_COMPATIBLE, P6_CPU_NORMAL}) {
+        c = make_config(); c.cpu_compatibility = mode; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    }
+    c = make_config(); c.cpu_compatibility = 3; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.cpu_compatibility = P6_CPU_NORMAL; c.cpu_model = 2; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.cpu_compatibility = P6_CPU_COMPATIBLE; c.machine = P6_MACHINE_A1200; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     // The controller of the hard files (T56): the UAE controller or the IDE port of Gayle, which only the A600 and the A1200 have.
     c = make_config(); c.hdf_controller = 2;             assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "controller"));
     for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A500OG, P6_MACHINE_A500PLUS, P6_MACHINE_A1000, P6_MACHINE_A2000OG, P6_MACHINE_A2000}) {

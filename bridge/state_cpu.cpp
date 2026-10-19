@@ -394,6 +394,10 @@ void visit_cpu(Archive &a)
     const bool has_fpu = currprefs.fpu_model == 68881 || currprefs.fpu_model == 68882;
     if (has_fpu) visit_fpu(a, fpu);
 
+    // Non-CE specialties detect the level-7 edge against lastipl. CE never reads it and keeps its original body unchanged.
+    uint8_t lastipl = 0;
+    if (!currprefs.cpu_cycle_exact) lastipl = get<uint8_t>(a, regs.lastipl, 0, 7, "cpu.lastipl");
+
     if (a.applying() && a.ok()) {
         quit_program = quit;
         regs.sr = sr;
@@ -407,10 +411,13 @@ void visit_cpu(Archive &a)
         SET_ZFLG((sr >> 2) & 1);
         SET_VFLG((sr >> 1) & 1);
         SET_CFLG(sr & 1);
-        m68k_setpc_normal(pc);            // pc_p = pc_oldp = 0 and regs.pc = instruction_pc = pc (m68k_pc_indirect is 1 after the reset head)
+        // The upstream helper rebuilds the direct host binding in normal mode and leaves it null in compatible/exact.
+        // It never refills the serialized prefetch queue.
+        m68k_setpc_normal(pc);
         regs.stopped = stopped;
         regs.halted = halted;             // m68k_go_unit sets SPCFLAG_CHECK again for a halted CPU when the unit resumes
         regs.spcflags = int32_t(spc);
+        regs.lastipl = lastipl;
         regs.ipl[0] = ipl0;
         regs.ipl[1] = ipl1;
         regs.ipl_pin = pin;
@@ -426,7 +433,7 @@ void visit_cpu(Archive &a)
         if (has_fpu) apply_fpu(fpu);
         // Not touched, on purpose: ir, ird and irc are not refilled from memory (restore_cpu_finish's fill_prefetch_quick would overwrite them with
         // what memory holds now, which can differ from the prefetch queue), doint() is not called (it would recompute ipl_pin from the chipset,
-        // whose delayed events are still pending), and lastipl is 0 in the profile (a save refuses otherwise); vbr, sfc, dfc, msp and the rest of the 020 are the block's.
+        // whose delayed events are still pending), and lastipl is the non-CE edge state (zero in CE); vbr, sfc, dfc, msp and the rest of the 020 are the block's.
     }
 }
 
