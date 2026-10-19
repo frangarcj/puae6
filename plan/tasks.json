@@ -14904,7 +14904,8 @@
         "Capa canonical_read sobre Disc sin cambiar su contrato lowlevel:2448 almacena2352datos+96P-W. Preservar bytes2448/SBI almacenados y erroresIO; sintetizar P/Q deG2 sólo cuando sector no tiene subcanales almacenados. Sin fallback que oculte datos invalidos o fallo de lector.",
         "Seleccionar pausa en INDEX00 y POSTGAP, CONTROL efectivo de pista audio previa sólo en pregap audio->datos antesde sus ultimos150frames, manteniendo numero/tiempo de pista actual. Canonical2448 sin subcanales junta Disc2352 con metadata sintetica, validaMSF/capacidad antespublicacion y no fabrica gapsMode2 que Disc aunno soporta.",
         "Akiko Q usa selector96 y conserva status explicito; blkdev usa lectura canonica. Nada cambia wire2432 ni ofrece CD32 en frontend. Probe integrado de storedbytes/faults/nooverride, ISO/audio/gaps/combinados/postgap, frontera151/150 y canarios; mantener regresionesDisc/device.",
-        "Presupuesto200–300logicas y MED01 dirigido con sanitizers; sin rebuildengine/guest, seleccionCMake o campaña completa. ParentT66 mantiene integracionrealAkiko/CDDA/estado/formats/boot."
+        "Presupuesto200–300logicas y MED01 dirigido con sanitizers; sin rebuildengine/guest, seleccionCMake o campaña completa. ParentT66 mantiene integracionrealAkiko/CDDA/estado/formats/boot.",
+        "Coherencia de canalprincipal sintetico: el prefijo de pregap largo con CONTROL efectivo de audio genera silencio2352 y rechaza vista2048, como SS_Gap de DiscSystem; ultimos150frames usan modo datos. Los bytes almacenados se conservan."
       ],
       "checks": [
         "MED01"
@@ -14913,6 +14914,228 @@
         "La superficie real blkdev y Q de Akiko producen lectura2448 coherente para sectores soportados, conservan los subcanales originales y fallan sin salida parcial."
       ],
       "stop": "No sustituir subcanales almacenados/SBI por sintesis ni convertir IOError a Q sintetica; no anunciar CD32 ni Mode2gaps completos."
+    },
+    {
+      "id": "T66h1",
+      "title": "Servicio Akiko cooperativo y FIFO de comandos completos",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66g3",
+        "T66c"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0358-akiko-cooperative-service.patch",
+        "tests/media/akiko_service_probe.cpp",
+        "tests/media/test_akiko_service.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0358. Sustituir worker real de akiko.cpp por un servicio acotado desde AKIKO_hsync_handler; no ejecutarlo desdeMMIO ni crear otro scheduler. Conservar doblebuffer128/fallback y ordenFIFO. Play requiere4palabras, stop+play5; reservar capacidad antesadmitir y frenar comando si no cabe, sin publicar paquetes parciales.",
+        "Eliminar arranque/cierreOSthread/sleep y espera bloqueantecda_sem enrestore; conservar intencion pendiente y erroresCDDA, sin fingir reproduccion. Cola libera memoria con0160. No cambiar temporizacion float aun: causalidad/reset/estado sigueenH2 antesseleccionproducto.",
+        "Probe incluye akiko.cpp derivado real, backendDisc real y fixturesRAM/IRQ explicitos, sin copiarfunciones: FIFO/wrap/incompleta/saturacion, lectura128 y tail/solapamiento, erroresaudio y unico servicio porhsync. Presupuesto300–380logicas; coordinar unbuild nativo-j2 sólo si necesario paraenlace, sinWB ni matriz."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El worker real progresa por llamadas del scheduler emulado y nunca consume paquetes incompletos ni usa hilos/esperas host."
+      ],
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
+    },
+    {
+      "id": "T66h2",
+      "title": "Tiempo causal y reset del servicio Akiko",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66h1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "ports/portable/**",
+        "tests/media/**",
+        "tools/check.py",
+        "docs/adr/**",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reproducer real limpio versusreset trasfase parcial: staticfloat framecounter1/2 sobrevivenreset yfaltanestado. Reemplazar por acumuladores enteros del tiempo emulado conrestos explicitos, sinclockhost.",
+        "Concretar/probar periodo1x/2x PAL/NTSC, adelanto5lineas subcode y turbo; conservar decisionesdeterministas y estado de fase. Presupuesto250–350logicas; la serializacion completaAkiko yrestorenativo/WB siguenenT66 hasta suintegracion."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Reset y continuacion conservan la fase de servicio decidida y comprobada mediante el reloj emulado."
+      ],
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
+    },
+    {
+      "id": "T66i1",
+      "title": "Pausa y estado semantico del stream CDA real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T54",
+        "T66g2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0359-cda-semantic-stream.patch",
+        "ports/portable/audio_cda_state.h",
+        "tests/audio/cd_audio_probe.cpp",
+        "tests/audio/test_cd_audio.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0359. Reutilizar audio_state_cda/audio_cda_new_buffer/audio_cda_volume reales y su callback de588frames porsector. Pausa emitecero sin consumir buffer/cursor ni reiniciar fase; mute/descartar entrega sigueconsumiendo. No resampler ni relojnuevo.",
+        "Exportar estado semantico del unico streamCDA: fase/temporizadores, muestras actual/anterior, acumuladores/tiemposL/R, offset/longitud y pause. Puntero buffer/callback/streamid derivado. No quitar guard0099 que rechaza otrosstreams extra ni anunciar p6_stateCDA antescodecposterior.",
+        "Probe del codigoaudio real con PCM asimetrico/consumo por eventosemulados, pausa/volumen/fin y restore exacto a mitaddebuffer, incluido estado invalido transaccional. Presupuesto300–350logicas; si necesitaenginebuild solicitar turno-j2, sin recompilarWB ni matriz."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El stream CDA real puede pausar y restaurar su estado semantico manteniendo fase y PCM futuro; los demas streams no se aceptan silenciosamente."
+      ],
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
+    },
+    {
+      "id": "T66i2",
+      "title": "Player CDDA cooperativo de un sector",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66i1",
+        "T66g4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_audio.h",
+        "ports/portable/media/cd_audio.cpp",
+        "tests/media/cd_audio_probe.cpp",
+        "tests/media/test_cd_audio.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Unbuffer2352B, decodificacionLE explicita y callback real de agotamiento del stream, nunca hilos/relojhost. Play/pause/stop/volumen, LBA/cursor/retardo/fin/error causales; subcanales deinterleaved ainterleaved una sola vez porsector.",
+        "Consumir retardo indicado porcallbacksstatus en silencio emulado, sinheuristicas host. Probar L/Rasimetrico, fronteras, pausa/finallectura, error sinavanzar y notificacionfinunica. Presupuesto300–380logicas; conexionblkdev/codecestado/WBse completan despuesenT66."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "La reproduccion avanza por el mezclador real con memoria constante, pausa exacta y fin/error observables."
+      ],
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
+    },
+    {
+      "id": "T66j1",
+      "title": "Parser CCD fijado con TOC e indices estrictos",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66e2a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0357-ccd-metadata-only.patch",
+        "ports/portable/media/cd_ccd_metadata.h",
+        "tests/media/ccd_metadata_probe.cpp",
+        "tests/media/test_ccd_metadata.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Reservar0357. Reutilizar recorrido/secciones reales de parseccd6030 con callbackslinea acotados sinzfile global/dup/chdir ni imagenenblob. Conservar POINT/ADR/control/PLBA/A0/A1/A2/modos/INDEX00/01; no confundir Mode2conMode1.",
+        "Endurecer numeros/overflow, POINT100..159fueraTOC, duplicados/incompletos/orden. Single-session/no scrambling; lo no representable o no implementado daerrorclaro, sin perderdatos o declararsoporteextendido.",
+        "Probe real ASan/UBSan con TOCmixta,gaps,errores/canarios; fixturelegal, realoptin si aparece. Presupuesto220–280logicas; normalizacion yIMG/SUB siguenJ2, sinbuildengine/guest."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El parser fijado entrega metadata CCD completa de la variante soportada y rechaza entrada invalida sin publicar resultados parciales."
+      ],
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
+    },
+    {
+      "id": "T66j2",
+      "title": "Proveedor CCD por offset con IMG y SUB preservados",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66j1",
+        "T66g4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_ccd.h",
+        "adapters/libretro/cd_ccd.cpp",
+        "tests/media/cd_ccd_probe.cpp",
+        "tests/media/test_cd_ccd.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Poseer CdFile IMG2352 ySUB96 deinterleaved, componer fuentevirtual2448 acotada conlecturascruzadas ystaging constante. Validar IMGmultiplo2352 ySUBigualsectores*96; no interleave/swap asumido.",
+        "Layout/index/TOC exactos, SHA256stream2448 completo+politica/TOC/IDs, rebindpropietario nuevoidentico; sinrutas/cursor/imagencompleta enestado. Probar R-Wnozero/QCRCinvalidapreservada,EOF/error/rangos yhashlib. Presupuesto210–280logicas; realCCDoptin, conservarNRG/MDS/CHDyCD32completoenpadre."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "CCD ofrece sectores y subcanales originales por offsets con identidad completa, memoria constante y rebind verificado."
+      ],
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
     },
     {
       "id": "T66",
@@ -14933,7 +15156,13 @@
         "T66g1",
         "T66g2",
         "T66g3",
-        "T66g4"
+        "T66g4",
+        "T66h1",
+        "T66h2",
+        "T66i1",
+        "T66i2",
+        "T66j1",
+        "T66j2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -14959,7 +15188,8 @@
         "Task force: T66b normaliza TOC/sectores y T66c conserva EEPROM/I2C real; son componentes independientes. Se mantienen todos los formatos, Akiko cooperativo, CDDA, NVRAM/persistencia, frontends y arranque/restore real para el cierre del padre.",
         "T66d1 corrige lecturas cortas en DiscSystem derivado yT66d2 conecta una fuente C# por offset con identidad completa. Son componentes, no cierre del arranque/restore ni del soporte nativo de formatos del padre.",
         "T66e1 aporta proveedor nativo ISO/WAV seekable yT66e2 reutiliza el parserCUE fijado endurecido. El padre mantiene CCD/NRG/MDS/CHD, CDDA, Akiko cooperativo, NVRAM, frontends y arranque/restore completo.",
-        "T66g2 aporta sintesis P/Q explicita yT66g3 superficie blkdev dirigida. Se conserva la integracion almacenado/sintetico, Akiko cooperativo/estado, CDDA, todoslosformatos y arranque/restore real enambosadaptadores como puerta del padre."
+        "T66g2 aporta sintesis P/Q explicita yT66g3 superficie blkdev dirigida. Se conserva la integracion almacenado/sintetico, Akiko cooperativo/estado, CDDA, todoslosformatos y arranque/restore real enambosadaptadores como puerta del padre.",
+        "Divisiones previas porpresupuesto: H1servicioAkiko/H2tiempocausal, I1streamCDA/I2player, J1parserCCD/J2proveedor. La conexion completaCDDA/dispositivo, codecsestadoAkiko+audio, NVRAM/SaveRAM, frontends, restantesformatos y arranque/restore real conservan todas las puertas delpadre."
       ],
       "checks": [
         "MED01",
