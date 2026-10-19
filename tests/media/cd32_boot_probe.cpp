@@ -44,19 +44,12 @@ static bool counted(const void *ctx,uint64_t at,void *out,size_t size,size_t *go
     auto &c=*const_cast<Count *>(static_cast<const Count *>(ctx)); ++c.reads;
     return c.original.read(c.original.context,at,out,size,got);
 }
-static void no_states()
+static void state_caps()
 {
-    const auto cycles=get_cycles(); const auto pc=m68k_getpc(); uint8_t before[32],after[32],buffer[64];
-    p6_sha256_hash(chipmem_bank.baseaddr,chipmem_bank.allocated_size,before); memset(buffer,0xa5,sizeof buffer);
-    uint64_t size=123,written=123; auto e=error();
-    assert(p6_state_bound(&size,&e)==P6_ERROR_UNSUPPORTED && size==123);
-    assert(p6_state_save(buffer,sizeof buffer,&written,&e)==P6_ERROR_UNSUPPORTED && !written);
-    assert(p6_state_load(buffer,sizeof buffer,&e)==P6_ERROR_UNSUPPORTED);
-    for(auto byte:buffer) assert(byte==0xa5);
-    p6_sha256_hash(chipmem_bank.baseaddr,chipmem_bank.allocated_size,after);
-    assert(!memcmp(before,after,32) && get_cycles()==cycles && m68k_getpc()==pc);
-    p6_caps caps{P6_ABI_VERSION,sizeof caps}; call(p6_query_caps(&caps,&e),e); assert(!(caps.flags&P6_CAP_STATE));
+    uint64_t size=0; auto e=error(); call(p6_state_bound(&size,&e),e); assert(size>2097152);
+    p6_caps caps{P6_ABI_VERSION,sizeof caps}; call(p6_query_caps(&caps,&e),e); assert(caps.flags&P6_CAP_STATE);
 }
+#ifndef P6_CD32_BOOT_FIXTURE_ONLY
 int main(int argc,char **argv)
 {
     assert(argc==5); auto mainrom=file(argv[1]),extrom=file(argv[2]),a1200=file(argv[4]);
@@ -117,7 +110,7 @@ int main(int argc,char **argv)
     assert(kickmem_bank.reserved_size==524288 && extendedkickmem_bank.reserved_size==524288);
     assert(!memcmp(kickmem_bank.baseaddr,mainrom.data(),524288) && !memcmp(extendedkickmem_bank.baseaddr,extrom.data(),524288));
     assert(get_long(AKIKO_BASE)==0xc0cacafe && get_long(0xe00000)==do_get_mem_long(extrom.data()) && get_long(0xf80000)==do_get_mem_long(mainrom.data()));
-    uint8_t hash[32]; p6_sha256_hash(rom.data(),rom.size(),hash); assert(!memcmp(hash,p6_session::session.firmware_sha256,32)); no_states();
+    uint8_t hash[32]; p6_sha256_hash(rom.data(),rom.size(),hash); assert(!memcmp(hash,p6_session::session.firmware_sha256,32)); state_caps();
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; uint64_t reads=0; unsigned frames=0;
     do {
         call(p6_run_frame(&input,P6_RENDER_VIDEO|P6_RENDER_AUDIO,&frame,&e),e);
@@ -134,11 +127,12 @@ int main(int argc,char **argv)
         p6_diagnostic diagnostic[32]; const auto count=p6_diag_read(diagnostic,32);
         for(int n=0;n<count;++n) fprintf(stderr,"CD32 diagnostic: %s\n",diagnostic[n].text);
     }
-    no_states(); assert(reads); printf("CD32 firmware executed frames=%u payload_reads=%llu; game boot not asserted\n",frames,(unsigned long long)reads);
+    state_caps(); assert(reads); printf("CD32 firmware executed frames=%u payload_reads=%llu; game boot not asserted\n",frames,(unsigned long long)reads);
     call(p6_reset(&e),e); call(p6_run_frame(&input,P6_RENDER_AUDIO,&frame,&e),e); call(p6_unload(&e),e); device_unbind(); disc=Disc{}; call(p6_shutdown(&e),e);
     c=config(P6_MACHINE_A1200); call(p6_init(&c,&e),e); assert(p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_ERROR_WRONG_MEDIA);
     call(p6_load({a1200.data(),a1200.size()},nullptr,0,&e),e); call(p6_run_frame(&input,P6_RENDER_AUDIO,&frame,&e),e);
     p6_caps caps{P6_ABI_VERSION,sizeof caps}; call(p6_query_caps(&caps,&e),e); assert(caps.flags&P6_CAP_STATE);
     assert(currprefs.cpu_model==68020 && !currprefs.cs_cd32cd && frame.master_ticks && frame.audio_frames); call(p6_shutdown(&e),e);
-    puts("stock profile, firmware refusals/state gate and A1200 reload PASS");
+    puts("stock profile, firmware refusals/state caps and A1200 reload PASS");
 }
+#endif
