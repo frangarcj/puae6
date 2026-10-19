@@ -52,7 +52,12 @@ def assert_saved(case, images, exported):
 
 
 lr = importlib.import_module("tests.libretro-host.test_libretro")
-SAVE, END = 700, 6000
+# Observed phases of this pinned installation: game after initial decompression
+# at 900; RMB there reaches the score table by 1200 (including its 200 VBL wait).
+# Score zero needs no name entry: one Fire then executes the slave's SaveFile
+# hook at FM1+$aca. By 1700 the title is visible again after decompression.
+SAVE, END = 900, 1700
+RMB_AT, RMB_UNTIL, SCORE_FIRE, SCORE_UNTIL = 901, 908, 1201, 1208
 
 
 def prefs_probe_program():
@@ -141,15 +146,15 @@ class BundleLibretroTests(lr.LibretroHarness):
         self.assertEqual(prefs, ffs.read_volume(exported["WHDSaves.hdf"]).files["read-prefs.txt"])
         self.assertEqual(images["RASystem.hdf"], exported["RASystem.hdf"])
 
-    def test_title_rmb_exit_does_not_yet_meet_the_real_highscore_oracle(self):
-        # Known blocked reproducer, deliberately still requires the real save.
+    def test_title_rmb_exit_does_not_invoke_the_highscore_save(self):
         # Slave source patches $aca (end-of-game scores); title RMB goes from
         # $706 to $ada and returns without executing that SaveFile hook.
         images, exported, out = self.title_exit(replay=True)
         units = self.runs(out)
         keys = ("hash", "ahash", "ticks", "unit", "audio")
         self.assertEqual([tuple(u[k] for k in keys) for u in units[350:450]], [tuple(u[k] for k in keys) for u in units[450:]])
-        assert_saved(self, images, exported)
+        self.assertEqual({}, ffs.read_volume(exported["WHDSaves.hdf"]).files)
+        self.assertEqual(images["RASystem.hdf"], exported["RASystem.hdf"])
 
     def test_real_highscore_save_and_restore_keep_data_immutable(self):
         images = prepared()
@@ -160,7 +165,8 @@ class BundleLibretroTests(lr.LibretroHarness):
         content.write_text("\n".join(images) + "\n")
         system = self.work()
         shutil.copyfile(support.KICKSTART, system / lr.KICKSTART_NAMES_A1200[0])
-        options = ["--joy-at", "400:0:1", "--joy-at", "404:0:0", "--joy-at", "800:0:1", "--joy-at", "804:0:0"]
+        options = ["--joy-at", "400:0:1", "--joy-at", "404:0:0", "--mouse-at", f"{RMB_AT}:0,0,2", "--mouse-at", f"{RMB_UNTIL}:0,0,0",
+                   "--joy-at", f"{SCORE_FIRE}:0:1", "--joy-at", f"{SCORE_UNTIL}:0:0"]
         out = self.frontend("boot", "--runs", END + END - SAVE, *lr.A1200, *options, "--set", "puae6_hdf_save=on_close",
                             "--do", f"{SAVE}:save:s", "--do", f"{END}:save:first", "--do", f"{END}:load:s",
                             "--do", f"{END + END - SAVE}:save:replay", "--save-dir", saves, content=content, system=system).stdout
@@ -197,9 +203,12 @@ class BundleWaterboxTests(wb.Sessions):
         self.files_before = wb_support.tree(self.media)
         script = wb.write_script(self.out / "bundle.script", units=END, leave=False)
         lines = script.read_text().splitlines()
-        for unit in range(800, 804):
+        for unit in range(1, END + 1):
             fields = lines[unit - 1].split()
-            fields[9] = "1"
+            fields[4] = "2"  # same mouse on Amiga port 1 as the LR frontend
+            fields[5] = "2" if RMB_AT <= unit < RMB_UNTIL else "0"
+            if SCORE_FIRE <= unit < SCORE_UNTIL:
+                fields[9] = "1"
             lines[unit - 1] = " ".join(fields)
         script.write_text("\n".join(lines) + "\n")
         core = lambda n: self.core(n, adf="", writes=False, hdf=",".join(paths), machine="a1200")

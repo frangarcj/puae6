@@ -27,9 +27,15 @@ los datos inalterados y replay con PCM/imagen; Waterbox añade un sandbox nuevo.
 Fatal Mission no guarda al salir del titulo con RMB: ese camino del ejecutable
 vuelve al sistema sin pasar por el hook `resload_SaveFile` que su slave instala
 en `$aca`. El hook esta en el fin de partida/tabla de records, antes de volver
-al titulo. La prueba corta de RMB conserva el oraculo `FM1.hisc` como fallo
-pendiente; la prueba separada de AmigaDOS comprueba la lectura de `S:WHDLoad.prefs`
-y la escritura del volumen WHDSaves, sin confundirlas con guardar una partida.
+al titulo. La prueba corta conserva ese camino como salida sin guardado.
+El recorrido que guarda entra en partida con Fire, espera a terminar la
+descompresion inicial (juego visible en la unidad 900), pulsa RMB durante la
+partida y espera la tabla (visible en 1200, tras su espera minima de 200 VBL).
+Con puntuacion cero basta Fire para confirmar la tabla; si se registra un record,
+hay que confirmar las tres letras con flancos de Fire. El recorrido de prueba
+regresa al titulo en 1700 y exige `FatalMission/FM1.hisc` de 112 bytes, DATA
+inmutable y replay. La prueba separada de AmigaDOS comprueba la lectura de
+`S:WHDLoad.prefs` y la escritura de WHDSaves sin sustituir el oraculo del juego.
 
 ## Que hay
 
