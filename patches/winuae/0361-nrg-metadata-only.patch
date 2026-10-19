@@ -58,7 +58,7 @@ diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
  {
  #ifdef P6_CUE_METADATA
      if (!out || !io.read_line || !io.resolve) return Result::Invalid;
-@@ -2328,181 +2335,196 @@
+@@ -2328,181 +2335,198 @@
  }
  
  #endif
@@ -403,7 +403,9 @@ diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
 +            for (unsigned n = 0; n < 99; ++n) {
 +                const auto &t = candidate.track[n];
 +                if (n >= candidate.tracks) { if (cue_mask[n]) return invalid; continue; }
-+                const int64_t end_lba = n + 1 < candidate.tracks ? (candidate.track[n + 1].has_index0 ? candidate.track[n + 1].index0 : candidate.track[n + 1].index1) : candidate.leadout;
++                const auto &next = candidate.track[n + 1 < candidate.tracks ? n + 1 : n];
++                const int64_t end_lba = n + 1 < candidate.tracks ? (next.has_index0 ? int64_t(next.index0) :
++                    int64_t(next.index1) - int64_t((next.offset1 - next.offset0) / next.stride)) : candidate.leadout;
 +                if (!(cue_mask[n] & 2) || (t.has_index0 && t.index0 > t.index1) || t.index1 < 0 || end_lba <= t.index1 ||
 +                    (t.has_index0 && uint64_t(int64_t(t.index1) - t.index0) != (t.offset1 - t.offset0) / t.stride) ||
 +                    uint64_t(end_lba - t.index1) != (t.end - t.offset1) / t.stride || (n && t.offset0 < candidate.track[n - 1].end) ||

@@ -72,6 +72,11 @@ class NrgMetadataTests(unittest.TestCase):
         for version, modes, base in ((1, (0, 5, 6, 7, 15, 16, 17), 0), (2, (0, 5, 6, 7, 15, 16, 17), 2**32 + 7), (2, (7,) * 99, 0)):
             data, directory, expected = nrg(version, modes, base); self.assertEqual(expected, self.run_nrg(data, directory))
         data, directory, expected = nrg(sinf=False); self.assertEqual(expected, self.run_nrg(data, directory))
+        for version in (1, 2):
+            data, directory, expected = nrg(version); data = bytearray(data)
+            struct.pack_into('>I', data, 4, struct.unpack_from('>I', data, 4)[0] - 8); del data[32:40] # Only track2 INDEX00.
+            row = expected[2].split(); row[6] = row[8] = '0'; expected[2] = ' '.join(row)
+            self.assertEqual(expected, self.run_nrg(data, directory))
 
     def test_invalid_footer_chunks_endian_bcd_extent_and_callback_are_transactional(self):
         data, base, _ = nrg(); dao = data.index(b'DAOX'); start = dao + 8 + 22

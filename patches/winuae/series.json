@@ -4825,7 +4825,7 @@
     {
       "id": "0361-nrg-metadata-only",
       "file": "patches/winuae/0361-nrg-metadata-only.patch",
-      "sha256": "e67a1b4a54d551939290da906e45ff0de2092c7bcea57fd615c80c8752b947f4",
+      "sha256": "affdad0ed1b01287eaa57eeaf1d9bda6d850a636eaa6a1401b371b66b0c4f5fa",
       "title": "Export bounded DAO NRG metadata through pinned parsenrg",
       "reason": "T66l1 reuses the pinned chunk traversal with exact bounded offset reads, correct DAOI/CUES layouts and strict single-session DAO validation. No payload or device loading.",
       "category": "host hooks",
@@ -4841,7 +4841,7 @@
         {
           "path": "blkdev_cdimage.cpp",
           "before_sha256": "43100451b71c69347315059a0e370bed1a7981f8eee27f479461a8516e3c8a22",
-          "after_sha256": "b86820bb93adab794fef392e62b6f8835a27cb7370ee6b4291b62684858c29f9"
+          "after_sha256": "6e1e1d31689b0c35b32b795a54ec4704d23d8245fdc94699325eb30a1557e7db"
         }
       ]
     },

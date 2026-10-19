@@ -67,7 +67,10 @@ class CdNrgTests(unittest.TestCase):
                     frames = tail[at + 5] * 4500 + tail[at + 6] * 75 + tail[at + 7] + shift
                     tail[at + 5:at + 8] = bytes((frames // 4500, frames // 75 % 60, frames % 75))
         if missing:
-            del tail[16:24]; struct.pack_into('>I', tail, 4, cue_length - 8); raw[0][5] = 0; raw[0][7] = 0
+            number = int(missing) - 1; at = 16 + number * 16
+            del tail[at:at + 8]
+            struct.pack_into('>I', tail, 4, cue_length - 8)
+            raw[number][5] = raw[number][7] = 0
         path = self.work / (name + '.nrg'); path.write_bytes(payload + tail)
         return path, raw, streams, directory, int(expected[0].split()[5]) + shift
 
@@ -104,13 +107,16 @@ class CdNrgTests(unittest.TestCase):
         return lines
 
     def test_mixed_dao_v1_v2_clipped_and_derived_pregaps_raw_subchannels_and_vfs_faults(self):
-        for version, shift, missing in ((1, 0, False), (2, 75, False), (2, 0, True)):
+        for version, shift, missing in ((1, 0, False), (2, 75, False), (2, 0, True), (1, 0, 2), (2, 0, 2)):
             fixture = self.fixture(version=version, shift=shift, missing=missing); self.assertEqual(self.verify(fixture), self.verify(fixture, vfs=True))
         fixture = self.fixture(shift=75, modes=(16, 15, 17)); self.assertEqual(self.verify(fixture), self.verify(fixture, vfs=True))
 
     def test_full_container_identity_rebind_new_owner_and_reject_discarded_or_raw_metadata_changes(self):
         first = self.fixture('first')[0]; same = self.fixture('same')[0]; baseline = self.run_nrg(first, rebind=same)[-1]
         self.assertTrue(baseline.startswith('rebind 0 '))
+        absent = self.fixture('missing', missing=2)[0]; renamed = self.fixture('missing-renamed', missing=2)[0]
+        self.assertEqual(self.run_nrg(first, rebind=absent)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+        self.assertEqual(self.run_nrg(absent, rebind=renamed)[-1], baseline)
         for name, at in (('clipped', 0), ('catalog', first.read_bytes().index(b'1234567890123')), ('isrc', first.read_bytes().index(b'US1234567890')), ('unused', first.read_bytes().index(b'CUEX') - 1)):
             target = self.work / (name + '.nrg'); data = bytearray(first.read_bytes()); data[at] ^= 1; target.write_bytes(data)
             self.assertEqual(self.run_nrg(first, rebind=target)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
