@@ -7,6 +7,8 @@
 
 uae_prefs currprefs{};
 regstruct regs{};
+evt_t currcycle;
+static void hsync() { currcycle += 227 * CYCLE_UNIT; AKIKO_hsync_handler(); }
 int maxvpos = 312;
 float vblank_hz = 50;
 static std::array<uae_u8, 0x40000> ram;
@@ -65,7 +67,8 @@ int main()
     assert(akiko_toc(disc, &cdrom_toc_cd_buffer) == Result::Ok);
     currprefs.cs_cd32cd = 1; currprefs.cd_speed = 1;
     akiko_inited = true; cd_initialized = 2; lastmediastate = cdrom_disk = 1;
-    frame2counter = mediacheckcounter = subcodecounter = 100000;
+    cdrom_speed = 1; akiko_clock_reset();
+    akiko_clock.first = false; akiko_clock.sector = akiko_clock.rate - 1;
     cdrom_toc_counter = -1; cdrom_intena = CDINTERRUPT_PBX;
     uae_sem_init(&akiko_sem, 0, 1); uae_sem_init(&sub_sem, 0, 1);
     sector_buffer_1 = new uae_u8[128 * 2352]{}; sector_buffer_2 = new uae_u8[128 * 2352]{};
@@ -76,48 +79,48 @@ int main()
     cdrom_current_sector = cdrom_data_offset = 0; cdrom_addressdata = 0x10000;
     cdrom_flags = CDFLAG_ENABLE | CDFLAG_PBX | CDFLAG_RAW | CDFLAG_CAS; cdrom_pbx = 0x8000;
     akiko_internal(); assert(provider.reads.empty());
-    AKIKO_hsync_handler(); assert(provider.reads.size() == 128 && !cdrom_pbx && irqs);
+    hsync(); assert(provider.reads.size() == 128 && !cdrom_pbx && irqs);
     assert(cdrom_sector_counter == 1 && ram[0x1f004] == Provider::value(4));
     for (unsigned b = 4; b < 2352; ++b) assert(ram[0x1f000 + b] == Provider::value(b));
     cdrom_flags = 0;
-    auto calls = provider.reads.size(); AKIKO_hsync_handler(); assert(provider.reads.size() == calls);
+    auto calls = provider.reads.size(); hsync(); assert(provider.reads.size() == calls);
     // A reused 38-sector prefix must survive the 90-sector read after it.
-    cdrom_current_sector = 90; AKIKO_hsync_handler(); check_buffer(90, 128);
+    cdrom_current_sector = 90; hsync(); check_buffer(90, 128);
     assert(provider.reads.size() == calls + 90 && provider.reads[calls] == 128);
-    cdrom_current_sector = 259; AKIKO_hsync_handler(); check_buffer(259, 1);
+    cdrom_current_sector = 259; hsync(); check_buffer(259, 1);
     assert(provider.reads.back() == 259); calls = provider.reads.size();
-    cdrom_current_sector = 262; AKIKO_hsync_handler(); assert(provider.reads.size() == calls);
+    cdrom_current_sector = 262; hsync(); assert(provider.reads.size() == calls);
     // Transactional burst failure falls back per sector; failed bytes never become valid.
-    provider.fault = 5; cdrom_current_sector = 0; AKIKO_hsync_handler();
+    provider.fault = 5; cdrom_current_sector = 0; hsync();
     assert(sector_buffer_sector_1 == 0 && sector_buffer_info_1[4] && !sector_buffer_info_1[5] && sector_buffer_info_1[6]);
     provider.fault = -1;
     cdrom_flags = CDFLAG_ENABLE | CDFLAG_PBX; cdrom_data_offset = 5; cdrom_sector_counter = 0; cdrom_pbx = 1;
     cdrom_run_read(); assert(cdrom_pbx == 1 && sector_buffer_info_1[5] == 0xff);
-    cdrom_flags = 0; AKIKO_hsync_handler(); check_buffer(5, 128);
+    cdrom_flags = 0; hsync(); check_buffer(5, 128);
     cdrom_current_sector = -1;
     // Wrapped, incomplete play stays wholly queued until its fourth word arrives.
     requests.rdp = requests.wrp = 98;
     write_comm_pipe_u32(&requests, 0x0110, 0);
     write_comm_pipe_u32(&requests, 260, 0); write_comm_pipe_u32(&requests, 262, 0);
-    AKIKO_hsync_handler(); assert(requests.rdp == 98 && request_count() == 3);
-    write_comm_pipe_u32(&requests, 0, 1); AKIKO_hsync_handler();
+    hsync(); assert(requests.rdp == 98 && request_count() == 3);
+    write_comm_pipe_u32(&requests, 0, 1); hsync();
     assert(!request_count() && cdrom_audiostatus == AUDIO_STATUS_PLAY_ERROR && device_last_error() == Result::Unsupported);
     // Admission leaves space for a complete stop + play, even near ring capacity.
     cdrom_receive_length = cdrom_command_active = 0;
     for (int n = 0; n < 93; ++n) write_comm_pipe_u32(&requests, 0x0104, 1);
     assert(can_send_command()); cdaudiostop(); assert(cd_play_audio(260, 262, 0));
     assert(request_count() == 98 && !can_send_command());
-    AKIKO_hsync_handler(); assert(!request_count() && device_last_error() == Result::Unsupported);
+    hsync(); assert(!request_count() && device_last_error() == Result::Unsupported);
     // Saturation backpressures commands; mute has a coalesced pending intent.
     for (int n = 0; n < 99; ++n) write_comm_pipe_u32(&requests, 0x0104, 1);
     cdrom_receive_length = cdrom_command_active = 0;
     assert(!can_send_command()); akiko_mute(1); assert(mute_pending && request_count() == 99);
-    AKIKO_hsync_handler(); assert(!request_count() && !mute_pending);
+    hsync(); assert(!request_count() && !mute_pending);
     cdrom_receive_length = cdrom_command_active = 0; assert(can_send_command());
     // Restore queues the complete immediate-play intent, without blocking or fake success.
     last_play_pos = 260; last_play_end = 262; cdrom_playing = 1; cdrom_paused = 1;
     restore_akiko_final(); assert(request_count() == 9);
-    AKIKO_hsync_handler(); assert(!request_count() && !cdrom_playing && device_last_error() == Result::Unsupported);
+    hsync(); assert(!request_count() && !cdrom_playing && device_last_error() == Result::Unsupported);
     assert(cdrom_audiostatus == AUDIO_STATUS_PLAY_ERROR && (cdrom_result_buffer[1] & CDS_ERROR));
     assert(!akiko_service_lifecycle(1));
     assert(akiko_service_lifecycle(0) && requests.data == nullptr && !akiko_service_lifecycle(0));

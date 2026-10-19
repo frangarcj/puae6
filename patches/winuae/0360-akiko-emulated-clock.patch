@@ -1,0 +1,180 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -160,6 +160,7 @@
+ #include "crc32.h"
+ #include "uae.h"
+ #include "custom.h"
++#include "events.h"
+ #include "newcpu.h"
+ #include "flashrom.h"
+ #include "debug.h"
+@@ -499,8 +500,58 @@
+ static int unitnum = -1;
+ static uae_u8 cdrom_door = 1;
+ static bool akiko_inited;
+-static volatile int mediachanged, mediacheckcounter;
+-static volatile int frame2counter;
++static volatile int mediachanged;
++struct AkikoClock {
++	evt_t cycle;
++	uae_u64 rate, sector, qcode, media;
++	bool first, q_due, media_due;
++	int speed;
++};
++static AkikoClock akiko_clock;
++static void akiko_clock_reset(void)
++{
++	akiko_clock = {get_cycles(), static_cast<uae_u64>(currprefs.ntscmode ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL) * CYCLE_UNIT,
++		0, 0, 0, true, false, false, 1};
++	subcodecounter = 0;
++}
++static bool akiko_clock_step(uae_u64 &phase, uae_u64 increment, uae_u64 period)
++{
++	phase += increment;
++	const bool due = phase >= period;
++	phase %= period;
++	return due;
++}
++static bool akiko_clock_tick(bool *sector_due, bool *sub_due)
++{
++	const evt_t now = get_cycles();
++	if (now == akiko_clock.cycle)
++		return false; // A callback alone cannot move emulated hardware.
++	if (now < akiko_clock.cycle || !akiko_clock.rate || cdrom_speed < 1 || cdrom_speed > 2 ||
++		static_cast<uae_u64>(now - akiko_clock.cycle) > akiko_clock.rate / 150) {
++		write_log(_T("Akiko clock: invalid hsync interval or uninitialized/reset clock\n"));
++		abort();
++	}
++	const uae_u64 delta = now - akiko_clock.cycle;
++	akiko_clock.cycle = now;
++	const uae_u64 increment = delta * (75 * cdrom_speed);
++	*sector_due = akiko_clock_step(akiko_clock.sector, increment, akiko_clock.rate) || akiko_clock.first;
++	akiko_clock.q_due = akiko_clock_step(akiko_clock.qcode, delta * 2, akiko_clock.rate) || akiko_clock.first;
++	akiko_clock.media_due = akiko_clock_step(akiko_clock.media, delta, akiko_clock.rate * 2) || akiko_clock.first;
++	const bool changed = akiko_clock.speed != cdrom_speed;
++	akiko_clock.speed = cdrom_speed;
++	*sub_due = akiko_clock.first || (!changed && subcodecounter > 0 && --subcodecounter == 0);
++	if (*sector_due || changed) {
++		// Predict the next sector boundary from its exact remainder. Lead it
++		// by five lines; never shorten the sector oscillator itself.
++		const uae_u64 left = akiko_clock.rate - akiko_clock.sector;
++		const int lines = int((left + increment - 1) / increment);
++		if (changed && !*sector_due && lines <= 5)
++			*sub_due = true;
++		subcodecounter = lines > 5 ? lines - 5 : 0;
++	}
++	akiko_clock.first = false;
++	return true;
++}
+ 
+ static smp_comm_pipe requests;
+ static bool akiko_service_running, mute_pending;
+@@ -1477,23 +1528,15 @@
+ 	if (!currprefs.cs_cd32cd || !akiko_inited)
+ 		return;
+ 
++	bool subsync;
++	if (!akiko_clock_tick(&framesync, &subsync))
++		return;
+ 	akiko_service();
+-	static float framecounter1, framecounter2;
+-	framecounter1--;
+-	if (framecounter1 <= 0) {
+-		if (cdrom_seek_delay <= 0) {
++	if (framesync) {
++		if (cdrom_seek_delay <= 0)
+ 			cdrom_run_read();
+-		} else {
++		else
+ 			cdrom_seek_delay--;
+-		}
+-		framecounter1 += (float)maxvpos * vblank_hz / (75.0f * cdrom_speed);
+-		if (currprefs.cd_speed == 0 || currprefs.turbo_emulation)
+-			framecounter1 = 1;
+-	}
+-	framecounter2--;
+-	if (framecounter2 <= 0) {
+-		framecounter2 += (float)maxvpos * vblank_hz / (75.0f * cdrom_speed);
+-		framesync = true;
+ 	}
+ 
+ 	if (cdrom_tx_dma_delay > 0)
+@@ -1501,8 +1544,7 @@
+ 	if (cdrom_rx_dma_delay > 0)
+ 		cdrom_rx_dma_delay--;
+ 
+-	subcodecounter--;
+-	if (subcodecounter <= 0) {
++	if (subsync) {
+ 		if ((cdrom_flags & CDFLAG_SUBCODE) && cdrom_playing && subcodebufferoffset != subcodebufferoffsetw) {
+ 			uae_sem_wait (&sub_sem);
+ 			if (subcodebufferinuse[subcodebufferoffset]) {
+@@ -1524,13 +1566,7 @@
+ 			}
+ 			uae_sem_post (&sub_sem);
+ 		}
+-		subcodecounter = (int)(maxvpos * vblank_hz / (75 * cdrom_speed) - 5);
+-	}
+-
+-	if (frame2counter > 0)
+-		frame2counter--;
+-	if (mediacheckcounter > 0)
+-		mediacheckcounter--;
++	}
+ 
+ 	akiko_internal ();
+ 	akiko_handler (framesync);
+@@ -1586,15 +1622,13 @@
+ 		mute_pending = false;
+ 	}
+ 
+-	if (frame2counter <= 0) {
+-		frame2counter = 312 * 50 / 2;
++	if (akiko_clock.q_due) {
+ 		if (unitnum >= 0 && sys_command_cd_qcode (unitnum, qcode_buf, -1, false)) {
+ 			qcode_valid = 1;
+ 		}
+ 	}
+ 
+-	if (mediacheckcounter <= 0) {
+-		mediacheckcounter = 312 * 50 * 2;
++	if (akiko_clock.media_due) {
+ 		int media = sys_command_ismedia (unitnum, 1);
+ 		if (media < 0) {
+ 			write_log (_T("CD32: device unit %d lost\n"), unitnum);
+@@ -2138,6 +2172,9 @@
+ 	nvram_read();
+ 	eeprom_reset(cd32_eeprom);
+ 	akiko_c2p_precalculate();
++	if (requests.data)
++		requests.rdp = requests.wrp = 0;
++	mute_pending = false;
+ 
+ 	cdrom_speed = 1;
+ 	cdrom_current_sector = -1;
+@@ -2156,14 +2193,14 @@
+ 	cdrom_receive_length = 0;
+ 	cdrom_receive_offset = 0;
+ 	cd_initialized = 0;
+-	mediacheckcounter = 0;
++	akiko_clock_reset();
+ }
+ 
+ static void akiko_free(void)
+ {
+ 	akiko_service_lifecycle(0);
+ 	akiko_cdrom_free();
+-	mediacheckcounter = 0;
++	akiko_clock_reset();
+ 	akiko_inited = false;
+ }
+ 
+@@ -2184,6 +2221,7 @@
+ 		sector_buffer_sector_2 = -1;
+ 		uae_sem_init(&akiko_sem, 0, 1);
+ 		uae_sem_init(&sub_sem, 0, 1);
++		akiko_clock_reset();
+ 		if (!savestate_state) {
+ 			cdrom_playing = cdrom_paused = 0;
+ 			cdrom_data_offset = -1;

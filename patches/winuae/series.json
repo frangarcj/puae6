@@ -4798,6 +4798,31 @@
       ]
     },
     {
+      "id": "0360-akiko-emulated-clock",
+      "file": "patches/winuae/0360-akiko-emulated-clock.patch",
+      "sha256": "73f00711ec1c022e3067adf761fbd77a173802aa37f3531ab24ac3c09f94f054",
+      "title": "Anchor Akiko service phases to integer emulated cycles and real reset",
+      "reason": "T66h2 replaces persistent float/line periods with PAL/NTSC cycle accumulators. Turbo never accelerates hardware, zero elapsed cycles do no work, and reset anchors phase and clears pending commands. Complete Akiko state and machine integration remain pending.",
+      "category": "host hooks",
+      "order": 177,
+      "symbols": [
+        "akiko_clock_reset",
+        "akiko_clock_tick",
+        "AKIKO_hsync_handler",
+        "akiko_reset"
+      ],
+      "test": "tests/media/test_akiko_clock.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "akiko.cpp",
+          "before_sha256": "3285d462928e7d0cc2d237078df99735886df63b1243095a5988aac4139606a9",
+          "after_sha256": "93c12f89c40dbca0c4489320774e0103a10fccf0e3ef2a6ab433778b9b44eaf8"
+        }
+      ]
+    },
+    {
       "id": "0362-cd32-without-fmv",
       "file": "patches/winuae/0362-cd32-without-fmv.patch",
       "sha256": "81143d891ed1d36fd163c3044f9cf23fe9d90c0b3158abfdad62dba78bda6730",

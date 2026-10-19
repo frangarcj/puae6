@@ -264,6 +264,7 @@ TASK_SUITES[('MED01', 'T66g4')] = {'canonical_subchannels_and_disc_regression': 
 TASK_SUITES[('MED01', 'T66h1')] = {'actual_akiko_cooperative_service': 'tests.media.test_akiko_service'}
 TASK_SUITES[('MED01', 'T66i1')] = {'real_cda_stream': 'tests.audio.test_cd_audio'}
 TASK_SUITES[('MED01', 'T66k1')] = {'native_akiko_graph': 'tests.media.test_akiko_link'}
+TASK_SUITES[('MED01', 'T66h2')] = {'actual_akiko_reset_and_clock': 'tests.media.test_akiko_clock', 'service_regression': 'tests.media.test_akiko_service'}
 TASK_SUITES[('MED01', 'T66d1')] = {'disc_blob_exact_reads': 'tests.media.test_cd_blob_reads'}
 TASK_SUITES[('MED01', 'T66d2')] = {'managed_disc_source': 'tests.media.test_cd_source_csharp'}
 TASK_SUITES[('ABI01', 'T66f1')] = {'cd_transport_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}

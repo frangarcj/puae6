@@ -1010,7 +1010,11 @@ comandos; la saturacion aplica backpressure sin consumir prefijos incompletos.
 Los dos buffers siguen siendo de128sectores, con fallback por sector, prefijos
 reutilizados y fin de pista explicitos. El cierre libera la cola y restore conserva
 la intencion de audio sin esperar un hilo. No selecciona Akiko en el producto:
-los acumuladores float, reset, estado completo y CDDA siguen pendientes en T66h2/T66.
+T66h2 sustituye los acumuladores float por fases enteras de ciclos emulados
+PAL/NTSC:75/150Hz, Q2Hz y media0,5Hz, con restos y reset explicitos. Un hsync
+sin ciclos nuevos no avanza; turbo no acelera hardware. Subcodigo se adelanta
+cinco lineas sobre el siguiente plazo sin acortar el oscilador. Decision y limites
+en `docs/adr/akiko-emulated-clock.md`; estado completo y CDDA siguen en T66.
 El probe usa RAM/IRQ de fixture y Disc real; conversion MSF/BCD e intercalado
 abortan si se alcanzan. No acredita paquetes TOC/subQ ni DMA SUBCODE.
 
