@@ -152,7 +152,7 @@ class WrapperParity(Schema):
 
     # Settings of the wrapper that are input, not configuration (T17c): the schema lists them as unsupported options, with the reason, and each one is
     # accounted for here by the key that refuses it.
-    INPUT_SETTINGS = {"ControllerPort1": "controller_port1", "ControllerPort2": "controller_port2"}
+    INPUT_SETTINGS = {f"ControllerPort{n}": f"controller_port{n}" for n in range(1, 5)}
 
     def test_every_sync_setting_is_a_schema_option_or_reserved_in_it(self):
         known = {o["wrapper"]["setting"] for o in self.reboot.values() if o["wrapper"]["how"] == "setting"}

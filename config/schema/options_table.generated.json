@@ -2622,6 +2622,8 @@
     "jit": "The deterministic profile has no JIT.",
     "uae_config_file": "A whole .uae file is not a configuration key; only the keys of this schema are accepted here. The libretro core reads one as content through an allowlist that translates its keys to this schema (docs/options.md, Importador .uae).",
     "controller_port1": "The device of a port is input, not configuration: the libretro core offers its types with SET_CONTROLLER_INFO and reads the one chosen with retro_set_controller_port_device at every run (T17c), and the wrapper's ControllerPort1 is a per-session choice; it is not a p6_config field and never enters config_hash.",
-    "controller_port2": "As controller_port1 (the wrapper's ControllerPort2)."
+    "controller_port2": "As controller_port1 (the wrapper's ControllerPort2).",
+    "controller_port3": "Parallel player 3 is p6_input_v2 input, selected through SET_CONTROLLER_INFO or ControllerPort3; it is not a p6_config field.",
+    "controller_port4": "As controller_port3, for parallel player 4 (ControllerPort4)."
   }
 }
