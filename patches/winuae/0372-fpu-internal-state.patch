@@ -1,0 +1,78 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -3911,3 +3911,74 @@
+ 		fsave_data.eo[i] = eo[i];
+ }
+ #endif
++
++#ifdef P6_PORTABLE
++#include "p6_fpu_state.h"
++static p6_fpu_context p6_fpu_context_live()
++{
++    return {uint32_t(currprefs.fpu_model), uint32_t(get_fpu_version(currprefs.fpu_model)),
++        uint32_t((currprefs.fpu_strict ? 1 : 0) | (currprefs.fpu_no_unimplemented ? 2 : 0))};
++}
++bool p6_fpu_state_validate(const p6_fpu_state *s, const p6_fpu_context &c)
++{
++    if (!s || (c.model != 68040 && c.model != 68060) || c.flags > 3 ||
++        (c.model == 68040 ? c.revision != 0x40 && c.revision != 0x41 : c.revision != 0)) return false;
++    if (s->context.model != c.model || s->context.revision != c.revision || s->context.flags != c.flags ||
++        (s->fpcr & ~(c.model == 68040 ? 0xffffu : 0xfff0u)) || (s->fpsr & ~0x0ffffff8u) ||
++        s->state > 1 || s->exp_state > 2 || s->unimp_pend > 3 || s->flags > 31 ||
++        (s->exp_pend && (s->exp_pend < 48 || s->exp_pend > 55))) return false;
++    const auto &f = s->frame;
++    return f.v <= 7 && f.cmdreg1b <= 0xffff && f.cmdreg3b <= 0xffff && f.stag <= 7 && f.dtag <= 7 &&
++        f.e1 <= 1 && f.e3 <= 1 && f.t <= 1 && f.grs <= 7 && f.wbte15 <= 1 && f.wbtm66 <= 1;
++}
++static bool p6_fpu_owner_ready()
++{
++    return (currprefs.cpu_model == 68040 || currprefs.cpu_model == 68060) &&
++        currprefs.cpu_model == currprefs.fpu_model && !currprefs.mmu_model && !use_long_double && fpp_set_mode;
++}
++bool p6_fpu_state_preflight(const p6_fpu_state *s)
++{
++    return p6_fpu_owner_ready() && p6_fpu_state_validate(s, p6_fpu_context_live());
++}
++bool p6_fpu_state_get(p6_fpu_state *out)
++{
++    if (!out || !p6_fpu_owner_ready()) return false;
++    p6_fpu_state s{}; s.context = p6_fpu_context_live();
++    for (unsigned i = 0; i < 8; ++i) { s.high[i] = regs.fp[i].fpx.high; s.low[i] = regs.fp[i].fpx.low; }
++    s.fpcr = regs.fpcr; s.fpsr = regs.fpsr; s.fpiar = regs.fpiar;
++    s.state = regs.fpu_state; s.exp_state = regs.fpu_exp_state;
++    s.exp_pend = regs.fp_exp_pend; s.unimp_pend = regs.fp_unimp_pend;
++    s.opword = regs.fp_opword; s.ea = regs.fp_ea;
++    s.flags = (regs.fp_ea_set ? 1 : 0) | (regs.fpu_exp_pre ? 2 : 0) | (regs.fp_unimp_ins ? 4 : 0) |
++        (regs.fp_exception ? 8 : 0) | (regs.fp_branch ? 16 : 0);
++#define P6_FPU_READ(name) s.frame.name = fsave_data.name;
++    P6_FPU_FRAME_SCALARS(P6_FPU_READ)
++#undef P6_FPU_READ
++    for (unsigned i = 0; i < 3; ++i) {
++        s.frame.eo[i] = fsave_data.eo[i]; s.frame.fpt[i] = fsave_data.fpt[i];
++        s.frame.et[i] = fsave_data.et[i]; s.frame.wbt[i] = fsave_data.wbt[i];
++    }
++    if (!p6_fpu_state_validate(&s, s.context)) return false;
++    *out = s; return true;
++}
++bool p6_fpu_state_apply(const p6_fpu_state *s)
++{
++    if (!p6_fpu_state_preflight(s)) return false;
++    for (unsigned i = 0; i < 8; ++i) { regs.fp[i].fpx.high = s->high[i]; regs.fp[i].fpx.low = s->low[i]; }
++    fpp_set_fpcr(s->fpcr); // Rebuild SoftFloat's rounding and precision without executing an instruction.
++    regs.fpsr = s->fpsr; regs.fpiar = s->fpiar;
++    regs.fpu_state = s->state; regs.fpu_exp_state = s->exp_state;
++    regs.fp_exp_pend = s->exp_pend; regs.fp_unimp_pend = s->unimp_pend;
++    regs.fp_opword = s->opword; regs.fp_ea = s->ea;
++    regs.fp_ea_set = s->flags & 1; regs.fpu_exp_pre = s->flags & 2;
++    regs.fp_unimp_ins = s->flags & 4; regs.fp_exception = s->flags & 8; regs.fp_branch = s->flags & 16;
++#define P6_FPU_WRITE(name) fsave_data.name = s->frame.name;
++    P6_FPU_FRAME_SCALARS(P6_FPU_WRITE)
++#undef P6_FPU_WRITE
++    for (unsigned i = 0; i < 3; ++i) {
++        fsave_data.eo[i] = s->frame.eo[i]; fsave_data.fpt[i] = s->frame.fpt[i];
++        fsave_data.et[i] = s->frame.et[i]; fsave_data.wbt[i] = s->frame.wbt[i];
++    }
++    return true;
++}
++#endif

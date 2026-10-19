@@ -194,7 +194,8 @@
     "0369-devices-cda-clock": "required",
     "0368-akiko-state-aggregate": "instrumentation",
     "0370-cda-owned-paula-phase": "instrumentation",
-    "0371-cd32-overlay-state": "instrumentation"
+    "0371-cd32-overlay-state": "instrumentation",
+    "0372-fpu-internal-state": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

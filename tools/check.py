@@ -489,6 +489,7 @@ TASK_SUITES[('DET02', 'T55c1')] = {
     'real_cache_maintenance': 'tests.host.test_cache040',
     'supported_cpu_restore_regression': 'tests.state.test_cpu_modes',
 }
+TASK_SUITES[('STATE01', 'T55c4')] = {'internal_fpu_owner_and_frames': 'tests.host.test_internal_fpu_state.InternalFpuStateTests', '6888x_state_regression': 'tests.state.test_state_fpu.FpuLayoutTests'}
 TASK_SUITES[('GEN01', 'T55c2')] = {'schema_and_generated_defaults': 'tests.config.test_schema', 'frontend_profile_policy': 'tests.config.test_parity'}
 TASK_SUITES[('ABI01', 'T55c2')] = {'native_c_cpp_layout': 'tests.contracts.test_api', 'standalone_csharp_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
 for _gate in ('DET02', 'STATE01'):

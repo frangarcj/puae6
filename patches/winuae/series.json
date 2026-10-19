@@ -5113,6 +5113,31 @@
           "after_sha256": "eab05e8a67725060268be47db99739e55137657be74713ef36b054c0e85928cd"
         }
       ]
+    },
+    {
+      "id": "0372-fpu-internal-state",
+      "file": "patches/winuae/0372-fpu-internal-state.patch",
+      "sha256": "016e102f0a1fcd2dc4c59017d53e953cb326456d95b8606e7a058901d157091a",
+      "title": "Capture and restore private internal 040/060 SoftFloat state",
+      "reason": "T55c4 preserves every FSAVE word and pending FPU state with pure context validation before transactional application; does not expose models, change P6CP or implement upstream FRESTORE040 TODO.",
+      "category": "host hooks",
+      "order": 189,
+      "symbols": [
+        "p6_fpu_state_get",
+        "p6_fpu_state_validate",
+        "p6_fpu_state_preflight",
+        "p6_fpu_state_apply"
+      ],
+      "test": "tests/host/test_internal_fpu_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "86488ece0bf7a10ac11c9c4a507ab2ebb6ad3601322d3bf2e29ee76fce0f5c08",
+          "after_sha256": "f0366073aa543c1fb26dd4a9677ab2ee194bbe3bf47340dab8f60c3b6e45a864"
+        }
+      ]
     }
   ]
 }
