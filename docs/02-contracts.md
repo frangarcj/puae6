@@ -1501,12 +1501,13 @@ overlayCD32. Rechaza CPU/precision/reloj alternativos, expansiones y medios ADF/
 Firmware es exactamente1MiB extended512KiB+main512KiB: SHA1 de los IDs64/19/18
 fijados en rommgr y checksums de ambas mitades se validan antes de iniciar motor;
 0367 carga las mitades en E0/F8 sin abrir la envoltura ROM de otros perfiles.
-SHA256 de identidad cubre ambas ROM. P6_CAP_STATE queda apagado para esta sesion;
-bound/save/load son Unsupported sin mutar hardware hasta integrar codec completo.
+SHA256 de identidad cubre ambas ROM. El codec nativo completo de T66m7 conserva
+P6_CAP_STATE y bound/save/load; su aceptacion se describe al final de esta seccion.
 El probe usa CdImage/Disc prestados hasta cerrar Akiko/CDDA, avanza solo p6_run_frame
 y comprueba actividad CD y regresion A1200; informa arranque de firmware, no juego.
 Assets requeridos: P6_CD32_ROM_MAIN/P6_CD32_ROM_EXT, CD publico sintetico por defecto
-o P6_CD_CUE_FILE autorizado. No añade soporte frontend ni acredita restore CD32.
+o P6_CD_CUE_FILE autorizado. No añade soporte frontend ni acredita snapshot CD32
+Waterbox o arranque de contenido.
 
 ## Controlador privado Akiko (T66m3a)
 

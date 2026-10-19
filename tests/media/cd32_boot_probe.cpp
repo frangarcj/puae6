@@ -50,6 +50,83 @@ static void state_caps()
     p6_caps caps{P6_ABI_VERSION,sizeof caps}; call(p6_query_caps(&caps,&e),e); assert(caps.flags&P6_CAP_STATE);
 }
 #ifndef P6_CD32_BOOT_FIXTURE_ONLY
+// Failure diagnostics read owned RAM/ROM directly: no MMIO or guest callbacks.
+static const uint8_t *diagnostic_bytes(uint32_t at, uint32_t size, bool rom=false)
+{
+    auto mapped=[&](addrbank &bank,uint32_t base) -> const uint8_t * {
+        if(!bank.baseaddr || at<base || at-base>bank.allocated_size || size>bank.allocated_size-(at-base)) return nullptr;
+        if(!size || get_mem_bank(at).baseaddr!=bank.baseaddr || get_mem_bank(at+size-1).baseaddr!=bank.baseaddr) return nullptr;
+        return bank.baseaddr+(at-base);
+    };
+    if(auto p=mapped(chipmem_bank,0)) return p;
+    if(rom) {
+        if(auto p=mapped(kickmem_bank,0xf80000)) return p;
+        if(auto p=mapped(extendedkickmem_bank,0xe00000)) return p;
+    }
+    return nullptr;
+}
+static bool diagnostic_name(uint32_t at,char (&name)[40])
+{
+    for(unsigned i=0;i<sizeof name;++i) {
+        const auto p=diagnostic_bytes(at+i,1,true);
+        if(!p || *p<0x20 || *p>0x7e) { name[i]=0; return p && !*p; }
+        name[i]=char(*p);
+    }
+    name[sizeof name-1]=0; return false;
+}
+static void diagnostic_tasks(uint32_t base,const uint8_t *exec)
+{
+    auto task=[](const char *list,uint32_t node,bool active) {
+        const auto p=node && !(node&1)?diagnostic_bytes(node,66):nullptr;
+        if(!p || (p[8]!=1 && p[8]!=13)) return;
+        char name[40]{}; const bool named=diagnostic_name(do_get_mem_long(p+10),name);
+        const auto sp=active?m68k_areg(regs,7):do_get_mem_long(p+54);
+        const auto lower=do_get_mem_long(p+58),upper=do_get_mem_long(p+62);
+        const auto saved=!active && sp>=lower && sp<=upper && upper-sp>=78?diagnostic_bytes(sp+74,4):nullptr;
+        // +74 follows the upstream debugger, but is only a candidate word on
+        // this 020: e.g. cd.device keeps its library base there, not a PC.
+        fprintf(stderr,"CD32 task %s base=%08x name=%s state=%u wait=%08x received=%08x sp=%08x stack=%08x..%08x stack_word74=%08x readable=%d\n",
+            list,node,named?name:"<invalid>",p[15],do_get_mem_long(p+22),do_get_mem_long(p+26),sp,lower,upper,
+            saved?do_get_mem_long(saved):0,saved!=nullptr);
+    };
+    task("current",do_get_mem_long(exec+276),true);
+    for(unsigned offset:{406u,420u}) {
+        uint32_t node=do_get_mem_long(exec+offset),seen[64]{}; unsigned count=0;
+        while(node!=base+offset+4 && count<64) {
+            const auto p=node && !(node&1)?diagnostic_bytes(node,4):nullptr;
+            if(!p || std::find(seen,seen+count,node)!=seen+count) break;
+            seen[count++]=node; task(offset==406?"ready":"waiting",node,false); node=do_get_mem_long(p);
+        }
+    }
+}
+static void diagnostic_device()
+{
+    const auto zero=diagnostic_bytes(4,4);
+    const uint32_t base=zero?do_get_mem_long(zero):0;
+    const auto exec=base && !(base&1)?diagnostic_bytes(base,434):nullptr;
+    if(!exec) { fprintf(stderr,"CD32 ExecBase unavailable: %08x\n",base); return; }
+    diagnostic_tasks(base,exec);
+    const uint32_t list=base+350, sentinel=list+4;
+    uint32_t node=do_get_mem_long(exec+350), seen[64]{}; unsigned count=0;
+    while(node!=sentinel && count<64) {
+        const auto p=!(node&1)?diagnostic_bytes(node,34):nullptr;
+        if(!p || !node || std::find(seen,seen+count,node)!=seen+count) break;
+        seen[count++]=node;
+        char name[40]{};
+        if(diagnostic_name(do_get_mem_long(p+10),name) && !strcmp(name,"cd.device")) {
+            const auto size=do_get_mem_word(p+18);
+            const auto device=p[8]==3 && size>=0x230?diagnostic_bytes(node,size):nullptr;
+            fprintf(stderr,"CD32 cd.device base=%08x type=%u size=%u version=%u.%u open=%u valid=%d\n",
+                node,p[8],size,do_get_mem_word(p+20),do_get_mem_word(p+22),do_get_mem_word(p+32),device!=nullptr);
+            if(device) fprintf(stderr,"CD32 firmware Status=%04x track1=%02x toc_phase=%02x fatal=%02x table=%02x%02x%02x%02x%02x%02x%02x%02x\n",
+                do_get_mem_word(device+0x4c),device[0x22e],device[0x133],device[0x135],device[0x228],device[0x229],
+                device[0x22a],device[0x22b],device[0x22c],device[0x22d],device[0x22e],device[0x22f]);
+            return;
+        }
+        node=do_get_mem_long(p);
+    }
+    fprintf(stderr,"CD32 cd.device absent/invalid: ExecBase=%08x nodes=%u next=%08x tail=%08x\n",base,count,node,sentinel);
+}
 int main(int argc,char **argv)
 {
     assert(argc==5); auto mainrom=file(argv[1]),extrom=file(argv[2]),a1200=file(argv[4]);
@@ -124,6 +201,12 @@ int main(int argc,char **argv)
             m68k_getpc(),(unsigned long long)get_cycles(),sys_command_isopen(0),captured,control.cd_initialized,control.unitnum,
             control.cdrom_flags,control.cdrom_command,control.cdrom_receive_offset,control.cdrom_receive_length,
             control.toc.points,control.lastmediastate,control.mediachanged);
+        const auto &track=disc.layout().track[0];
+        fprintf(stderr,"CD32 source track1 mode=%u control=%u adr=%u index1=%u\n",unsigned(track.mode),track.control,track.adr,track.index1);
+        const int index=control.toc.first_track_offset;
+        if(captured && index>=0 && index<103) fprintf(stderr,"CD32 controller track1 slot=%d point=%u control=%u adr=%u\n",
+            index,control.toc.entry[index].point,control.toc.entry[index].control,control.toc.entry[index].adr);
+        diagnostic_device();
         p6_diagnostic diagnostic[32]; const auto count=p6_diag_read(diagnostic,32);
         for(int n=0;n<count;++n) fprintf(stderr,"CD32 diagnostic: %s\n",diagnostic[n].text);
     }
