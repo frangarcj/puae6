@@ -1,4 +1,6 @@
-#include "cd_device.h"
+#define P6_CDA_FIXTURE_ONLY
+#include "../audio/cd_audio_probe.cpp"
+#include "media/cd_device.h"
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,6 +25,9 @@ static int reported_status, status_count;
 static int status(int s, int) { reported_status = s; ++status_count; return 0; }
 int main()
 {
+    int16_t dummy[1176]{}; cd_audio_state bootstrap{};
+    start(48000, false, bootstrap, dummy);
+    audio_cda_new_buffer(&bootstrap, nullptr, -1, 0, nullptr, nullptr);
     Provider providers[] = {{2048, 130}, {2352, 2}, {2448, 4, 0, true}};
     Binding bindings[3]{};
     for (unsigned n = 0; n < 3; ++n) bindings[n] = {{{uint8_t(n + 1)}, uint64_t(providers[n].stride) * providers[n].sectors, 1}, read, &providers[n]};
@@ -85,10 +90,10 @@ int main()
     CHECK(!sys_command_cd_rawread(0, out + 8, 0, 2, 2352) && device_last_error() == Result::ReadError);
     CHECK(filled(out, sizeof out, 0xa5) && device_position() == position);
     providers[0].fault = false;
-    CHECK(sys_command_cd_pause(0, 1) == -1 && device_last_error() == Result::Unsupported);
-    CHECK(!sys_command_cd_play(0, 130, 132, 0, status, nullptr) && status_count == 1 && reported_status == AUDIO_STATUS_PLAY_ERROR);
-    CHECK(device_last_error() == Result::Unsupported && !sys_command_cd_play(0, 130, 132, 0));
-    CHECK(sys_command_cd_volume(0, 0x7fff, 0x7fff) == UINT32_MAX && device_last_error() == Result::Unsupported);
+    CHECK(sys_command_cd_pause(0, 1) == 0 && device_last_error() == Result::Ok);
+    CHECK(!sys_command_cd_play(0, 130, 132, 1, status, nullptr) && status_count == 1 && reported_status == AUDIO_STATUS_PLAY_ERROR);
+    CHECK(device_last_error() == Result::Unsupported && !sys_command_cd_play(0, 130, 132, -1));
+    CHECK(sys_command_cd_volume(0, 0x7fff, 0x7fff) == 0x7fff7fffu && device_last_error() == Result::Ok);
     sys_command_cd_stop(0); CHECK(device_position() == position);
     close_standard_cd_unit(0); CHECK(!sys_command_isopen(0));
     CHECK(!sys_command_cd_qcode(0, out, 132, false) && !sys_command_info(0, &info, 1));

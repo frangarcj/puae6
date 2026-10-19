@@ -1,6 +1,9 @@
 #pragma once
 #include "cd_disc.h"
 namespace p6_cd {
+// Effective type comes from validated metadata, never stored Q (which may be intentionally invalid).
+struct SectorInfo { Track effective; uint32_t number; bool stored_subs, pause, audio_gap; };
+Result describe_sector(const Disc &, uint32_t lba, SectorInfo *);
 // Stored P-W/SBI wins. Otherwise synthesize from validated geometry, including
 // the long audio->data pregap control policy and pauses in pregap/postgap.
 Result read_subchannel(const Disc &, uint32_t lba, void *out, size_t capacity);

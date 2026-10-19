@@ -2,12 +2,10 @@
 #include "cd_subchannel.h"
 #include <string.h>
 namespace p6_cd {
-namespace {
-struct Sector { Track effective; uint32_t number; bool stored_subs, pause, audio_gap; };
-Result describe(const Disc &disc, uint32_t lba, Sector *out)
+Result describe_sector(const Disc &disc, uint32_t lba, SectorInfo *out)
 {
     const auto &layout = disc.layout();
-    if (!layout.tracks) return Result::Invalid;
+    if (!out || !layout.tracks) return Result::Invalid;
     if (lba >= layout.leadout) return Result::Range;
     uint32_t n = 0;
     while (lba >= layout.track[n].end) ++n;
@@ -20,12 +18,11 @@ Result describe(const Disc &disc, uint32_t lba, Sector *out)
     if (audio_prefix) out->effective.control = layout.track[n - 1].control;
     return Result::Ok;
 }
-}
 Result read_subchannel(const Disc &disc, uint32_t lba, void *out, size_t capacity)
 {
     if (!out || capacity < 96) return Result::Invalid;
-    Sector sector;
-    auto result = describe(disc, lba, &sector);
+    SectorInfo sector;
+    auto result = describe_sector(disc, lba, &sector);
     if (result != Result::Ok) return result;
     if (sector.stored_subs) {
         uint8_t bytes[kMaxReadBytes];
@@ -38,8 +35,8 @@ Result read_subchannel(const Disc &disc, uint32_t lba, void *out, size_t capacit
 Result canonical_read(const Disc &disc, uint32_t lba, uint32_t view, void *out, size_t capacity)
 {
     if (!out || capacity < view || (view != 2048 && view != 2352 && view != 2448)) return Result::Invalid;
-    Sector sector;
-    auto result = describe(disc, lba, &sector);
+    SectorInfo sector;
+    auto result = describe_sector(disc, lba, &sector);
     if (result != Result::Ok) return result;
     if (sector.audio_gap && view == 2048) return Result::Unsupported;
     if (view != 2448 && !sector.audio_gap) return disc.read_sector(lba, view, out, capacity);

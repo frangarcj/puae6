@@ -123,4 +123,6 @@ static void errors()
     assert(p.play(f.disc, 3, 4, status_callback, sub_callback) == Result::Unsupported);
     assert(p.error() == Result::Unsupported && audio_total_extra_streams == 0);
 }
+#ifndef P6_CD_PLAYER_FIXTURE_ONLY
 int main() { controls(); delay_and_finish(); boundaries(); errors(); }
+#endif

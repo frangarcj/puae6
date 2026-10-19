@@ -1,10 +1,24 @@
 #include "cd_device.h"
 #include "cd_read.h"
+#include "cd_audio.h"
 #include <limits.h>
 #include <string.h>
 namespace {
 const p6_cd::Disc *disc;
 uint32_t opens, position;
+p6_cd::AudioPlayer audio;
+bool audio_head, terminal_ack;
+uint32_t head()
+{
+    if (!audio_head) return position;
+    return audio.position() - (audio.status() == AUDIO_STATUS_PLAY_COMPLETE ? 1u : 0u);
+}
+void stop_audio()
+{
+    update_audio();
+    const auto last = head(); audio.stop(); position = last;
+    audio_head = terminal_ack = false;
+}
 p6_cd::Result error = p6_cd::Result::Invalid;
 bool ready(int unit)
 {
@@ -28,6 +42,7 @@ int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
     }
     memcpy(out, staging, size_t(count) * view);
     position = uint32_t(block) + uint32_t(count);
+    if (!audio.active()) audio_head = false;
     return count * view;
 }
 }
@@ -37,21 +52,23 @@ Result device_bind(const Disc *candidate)
     if (disc || !candidate || !candidate->layout().tracks) return error = Result::Invalid;
     disc = candidate; opens = position = 0; return error = Result::Ok;
 }
-void device_unbind() { disc = nullptr; opens = position = 0; error = Result::Invalid; }
-Result device_last_error() { return error; }
-uint32_t device_position() { return position; }
+void device_unbind() { stop_audio(); disc = nullptr; opens = position = 0; error = Result::Invalid; }
+Result device_last_error() { return error == Result::Ok && audio_head ? audio.error() : error; }
+uint32_t device_position() { return head(); }
 }
 int sys_command_open(int unit)
 {
     if (unit != 0 || !disc || opens == INT_MAX) { error = p6_cd::Result::Invalid; return 0; }
     const bool already_open = opens != 0;
+    if (!already_open) audio.volume(0x7fff, 0x7fff);
     ++opens; error = p6_cd::Result::Ok; return already_open ? -1 : 1;
 }
 int sys_command_isopen(int unit) { return unit == 0 && disc ? int(opens) : 0; }
 void sys_command_close(int unit)
 {
     if (!ready(unit)) return;
-    --opens; error = p6_cd::Result::Ok;
+    if (!--opens) stop_audio();
+    error = p6_cd::Result::Ok;
 }
 int get_standard_cd_unit(cd_standard_unit kind)
 {
@@ -93,28 +110,44 @@ int sys_command_cd_qcode(int unit, uae_u8 *out, int lba, bool all)
 {
     if (!ready(unit)) return 0;
     if (lba < -1) { error = p6_cd::Result::Invalid; return 0; }
-    error = p6_cd::akiko_qcode(*disc, lba < 0 ? position : uint32_t(lba), AUDIO_STATUS_NO_STATUS,
+    update_audio();
+    int status = audio.status();
+    const bool terminal = status == AUDIO_STATUS_PLAY_COMPLETE || status == AUDIO_STATUS_PLAY_ERROR;
+    if (terminal && terminal_ack) status = AUDIO_STATUS_NO_STATUS;
+    error = p6_cd::akiko_qcode(*disc, lba < 0 ? head() : uint32_t(lba), uint8_t(status),
                              all, out, all ? SUB_CHANNEL_SIZE : SUBQ_SIZE);
+    if (error == p6_cd::Result::Ok && terminal) terminal_ack = true;
     return error == p6_cd::Result::Ok;
 }
-// CDDA remains unavailable. Do not acknowledge play/pause/volume as implemented.
-int sys_command_cd_pause(int unit, int)
+int sys_command_cd_pause(int unit, int paused)
 {
-    if (ready(unit)) error = p6_cd::Result::Unsupported;
-    return -1;
+    if (!ready(unit)) return -1;
+    update_audio();
+    const int old = audio.status() == AUDIO_STATUS_PAUSED;
+    error = audio.active() ? audio.pause(paused != 0) : p6_cd::Result::Ok;
+    return error == p6_cd::Result::Ok ? old : -1;
 }
-void sys_command_cd_stop(int unit) { if (ready(unit)) error = p6_cd::Result::Ok; }
-int sys_command_cd_play(int unit, int, int, int, play_status_callback status, play_subchannel_callback)
+void sys_command_cd_stop(int unit)
 {
-    if (ready(unit)) {
-        if (status) status(AUDIO_STATUS_PLAY_ERROR, int(position));
+    if (ready(unit)) { stop_audio(); error = p6_cd::Result::Ok; }
+}
+int sys_command_cd_play(int unit, int start, int end, int scan, play_status_callback status, play_subchannel_callback sub)
+{
+    if (!ready(unit)) return 0;
+    if (scan) {
         error = p6_cd::Result::Unsupported;
+        if (status) status(AUDIO_STATUS_PLAY_ERROR, int(head()));
+        return 0;
     }
-    return 0;
+    if (start < 0 || end < -1) { error = p6_cd::Result::Range; return 0; }
+    error = audio.play(*disc, uint32_t(start), end == -1 ? disc->layout().leadout : uint32_t(end), status, sub);
+    if (error != p6_cd::Result::Invalid && error != p6_cd::Result::Range) { audio_head = true; terminal_ack = false; }
+    return error == p6_cd::Result::Ok;
 }
 int sys_command_cd_play(int unit, int start, int end, int scan) { return sys_command_cd_play(unit, start, end, scan, nullptr, nullptr); }
-uae_u32 sys_command_cd_volume(int unit, uae_u16, uae_u16)
+uae_u32 sys_command_cd_volume(int unit, uae_u16 left, uae_u16 right)
 {
-    if (ready(unit)) error = p6_cd::Result::Unsupported;
-    return UINT32_MAX; // blkdev's unavailable volume callback returns -1.
+    if (!ready(unit)) return UINT32_MAX;
+    const auto old = audio.volume(left, right); error = p6_cd::Result::Ok;
+    return old;
 }

@@ -23,6 +23,7 @@ public:
     uint32_t position() const { return position_; }
     int status() const { return stream_.cda_paused && running_ ? AUDIO_STATUS_PAUSED : status_; }
     Result error() const { return error_; }
+    bool active() const { return running_; }
 private:
     static void consumed(int, void *);
     Result queue(uint32_t lba);

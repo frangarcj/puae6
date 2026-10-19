@@ -17,10 +17,10 @@ Result AudioPlayer::fail(Result reason)
 Result AudioPlayer::queue(uint32_t lba)
 {
     sector_ = false;
-    const auto &layout = disc_->layout();
-    uint32_t track = 0;
-    while (track < layout.tracks && lba >= layout.track[track].end) ++track;
-    if (track == layout.tracks || layout.track[track].mode != Mode::Audio) return fail(Result::Unsupported);
+    SectorInfo sector;
+    const auto described = describe_sector(*disc_, lba, &sector);
+    if (described != Result::Ok) return fail(described);
+    if (sector.effective.control & 4) return fail(Result::Unsupported);
     if (delay_) {
         const auto frames = uint32_t(delay_ < 588 ? delay_ : 588);
         memset(pcm_, 0, frames * 4); delay_ -= frames;

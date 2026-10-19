@@ -1392,7 +1392,22 @@ notifica disponibilidad del primer buffer. Fin se notifica una vez con end
 exclusivo, conservando el ultimo sample hasta su siguiente evento. Error conserva
 el ultimo LBA publicado y no publica subcanales ni PCM del sector fallido.
 Disc/callbacks son bindings derivados; el medio debe sobrevivir hasta stop o
-teardown. Solo acepta `Track.mode=Audio`: el prefijo con CONTROL efectivo audio
-de un Track de datos espera una consulta de clasificacion compartida con G4.
-No hay scan ni reproduccion de pistas de datos. El codec de maquina,
+teardown. N1 comparte el tipo efectivo con el lector: tampoco hay scan ni
+reproduccion de sectores clasificados como datos. El codec de maquina,
 reset/estado Akiko y seleccion del dispositivo siguen pendientes en T66.
+
+## CDDA por blkdev y tipo efectivo (T66n1)
+
+`describe_sector` comparte la clasificacion de G4 entre lector y player, desde
+metadata validada, sin deducir el tipo de Q almacenada. El prefijo audio→datos
+con relativo mayor de 150 frames es audio; sus ultimos 150 frames son datos. Esto
+hace que player y lector apliquen exactamente la misma politica de CONTROL.
+Las firmas reales `sys_command_cd_*` usan AudioPlayer. Pausa devuelve el valor
+anterior (idle0); volumen devuelve ganancias previas y primer open inicializa
+0x7fff/0x7fff. Scan devuelve Unsupported sin sustituir reproduccion existente.
+Q sigue el LBA de audio mientras reproduce y conserva end-1 al completar, el
+ultimo sector reproducido, mientras Player conserva su end exclusivo. COMPLETE
+y ERROR se reconocen solo tras Q exitoso, tambien all=true; un fallo no consume
+la notificacion. Stop y ultimo close detienen CDDA; el binding de Disc permanece
+hasta unbind. El caller conserva el medio hasta que unbind retorna.
+El estado causal de maquina/restore y el arranque CD32 siguen pendientes en T66.
