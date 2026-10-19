@@ -13808,7 +13808,7 @@
       "title": "Carga automatica de packs WHDLoad en libretro",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T65a"
       ],
@@ -13827,7 +13827,8 @@
       ],
       "steps": [
         "Detectar el slave y preparar/montar los roles del bundle comun desde contenido LHA/ZIP, forzar A1200 y respetar ButtonWait.",
-        "Conservar WHDSaves mediante SaveRAM/persistencia explicita con rollback y sin escrituras del timeline descartado."
+        "Conservar WHDSaves mediante SaveRAM/persistencia explicita con rollback y sin escrituras del timeline descartado.",
+        "Con T65a cerrada, empezar por definir el contrato comun de entradas del frontend y la vertical minima del builder/loader; conservar tres roles, permisos ZIP Amiga, P6Assign propio, SavePath, A1200, ButtonWait y rollback. Si supera400 lineas dividir antes de editar; no invocar Python desde el core ni introducir dependencias de runtime nuevas."
       ],
       "checks": [
         "MED02",
@@ -13845,7 +13846,7 @@
       "title": "Carga WHDLoad en BizHawk y SaveRAM de WHDSaves",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T65a"
       ],
@@ -13864,7 +13865,8 @@
       ],
       "steps": [
         "Integrar el bundle comun y las opciones en el loader C# con RASystem/WHDSaves y A1200 forzado.",
-        "SaveRAM conserva WHDSaves y snapshot restaura juego, preferencias y wrapper dentro de Waterbox real."
+        "SaveRAM conserva WHDSaves y snapshot restaura juego, preferencias y wrapper dentro de Waterbox real.",
+        "Con T65a cerrada, empezar por definir el contrato comun de entradas del frontend y la vertical minima del builder/loader; conservar tres roles, permisos ZIP Amiga, P6Assign propio, SavePath, A1200, ButtonWait y rollback. Si supera400 lineas dividir antes de editar; no invocar Python desde el core ni introducir dependencias de runtime nuevas."
       ],
       "checks": [
         "MED02",
