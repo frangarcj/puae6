@@ -15649,6 +15649,41 @@
       "stop": "Componente privado comprobado; no llamar completo al estado CD32 hasta agregacion M3, codec nativo y restore real Waterbox del padre."
     },
     {
+      "id": "T66m4",
+      "title": "Codec de valores CD32 para el futuro chunk nativo Akiko",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66m3"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/state_io/akiko.h",
+        "tests/media/akiko_state_probe.cpp",
+        "tests/media/test_akiko_state.py",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Serializar el agregado M3 campo a campo con enteros fijos little-endian mediante Archive; ningun padding, puntero o memcpy de structs. Decode a candidato aislado tambien en Validate (Archive.bytes no lo rellena). Estado grande caller-heap, no stack. Reutilizar validacion pura M3 con contexto externo candidato; no tocar guard0099 ni habilitar estados de maquina todavia.",
+        "Prueba dirigida sobre fixture real conjunto: recorrer wire en cortes activos/pausa/retardo/terminal y restaurar en owner nuevo con continuacion exacta; rechazar truncados, bytes sobrantes y corrupcion tardia sin mutar maquina. Verificar todos los campos mediante reserializacion y patrones de payload; no basar cobertura solo en sizeof/memcmp con padding.",
+        "Registrar STATE01 dirigido reutilizando el probe M3. Actualizar solo los conteos obsoletos del test documental del plan (371/361 frente395/385 anteriores), manteniendo las comprobaciones de dependencias. Objetivo<=350 lineas manuales; sin motor/guest ni bateria acumulada."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "La representacion de valores del agregado CD32 es independiente de padding/host y puede validarse/decodificarse antes de crear owners; su restauracion conserva la continuacion de los componentes reales."
+      ],
+      "stop": "No equivale a NativeChunk de maquina: quedan scheduler/Paula, identidad CD, registro y rebuild del codec nativo y snapshot Waterbox en T66."
+    },
+    {
       "id": "T66h3",
       "title": "Integrar probes Akiko con el mezclador CDDA real",
       "milestone": "M3",
@@ -15816,7 +15851,8 @@
         "T66m3",
         "T66h3",
         "T66p1",
-        "T66q1"
+        "T66q1",
+        "T66m4"
       ],
       "read": [
         "docs/01-architecture.md",
