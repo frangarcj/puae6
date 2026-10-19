@@ -10,3 +10,22 @@ diff --git a/devices.cpp b/devices.cpp
  	cd32_fmv_set_sync(svpos, syncadjust);
  #endif
  }
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -2113,6 +2113,7 @@
+ static const uae_u8 patchdata2[] = { 0x0c, 0x82, 0x00, 0x00, 0x03, 0xe8, 0x4e, 0x71, 0x4e, 0x71 };
+ static void patchrom(void)
+ {
++#ifndef P6_PORTABLE // Stock 68EC020 only; no accelerator ROM speed workaround.
+ 	if (currprefs.cs_cd32cd && (currprefs.cpu_model > 68020 || currprefs.cachesize || currprefs.m68k_speed != 0)) {
+ 		uae_u8 *p = extendedkickmem_bank.baseaddr;
+ 		if (p && extendedkickmem_bank.allocated_size >= 524288) {
+@@ -2133,6 +2134,7 @@
+ 			write_log(_T("CD32: couldn't patch extended rom\n"));
+ 		}
+ 	}
++#endif
+ }
+ 
+ static void akiko_cdrom_free (void)
