@@ -361,8 +361,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000/030 currently requires normal CPU accuracy; compatible and exact caches are not implemented");
     if (c.collision_level > 4)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "collision level must be auto, none, sprites, playfields or full");
-    if (c.z3_memory > 1 || (c.z3_memory && c.machine != P6_MACHINE_A4030))
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Zorro III supports one 16 MiB board on A4030 only");
+    if (c.z3_memory >= kZ3Choices || (c.z3_memory && c.machine != P6_MACHINE_A4030))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Zorro III supports one 1/2/4/8/16/32/64/128/256/512 MiB board on A4030 only");
     if (c.reserved8[0]) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");

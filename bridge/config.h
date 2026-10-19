@@ -21,7 +21,11 @@ struct Memory {
 };
 Memory preset_memory(uint32_t machine);
 Memory resolve_memory(const p6_config &config);
-inline uint32_t z3_bytes(const p6_config &config) { return config.z3_memory == 1 ? 16u << 20 : 0; }
+constexpr uint16_t kZ3MiB[] = {0, 16, 1, 2, 4, 8, 32, 64, 128, 256, 512};
+constexpr unsigned kZ3Choices = sizeof kZ3MiB / sizeof *kZ3MiB;
+inline uint32_t z3_bytes(const p6_config &config) {
+    return config.z3_memory < kZ3Choices ? uint32_t(kZ3MiB[config.z3_memory]) << 20 : 0;
+}
 // True when resolve_memory gives the machine's own memory: such a config is the series one in every identity (config_hash included).
 bool memory_is_preset(const p6_config &config);
 

@@ -313,11 +313,20 @@
       "default": "None",
       "values": [
         {"value": "None", "abi": 0, "label": "None"},
-        {"value": "MB16", "abi": 1, "label": "16 MiB"}
+        {"value": "MB16", "abi": 1, "label": "16 MiB"},
+        {"value": "MB1", "abi": 2, "label": "1 MiB"},
+        {"value": "MB2", "abi": 3, "label": "2 MiB"},
+        {"value": "MB4", "abi": 4, "label": "4 MiB"},
+        {"value": "MB8", "abi": 5, "label": "8 MiB"},
+        {"value": "MB32", "abi": 6, "label": "32 MiB"},
+        {"value": "MB64", "abi": 7, "label": "64 MiB"},
+        {"value": "MB128", "abi": 8, "label": "128 MiB"},
+        {"value": "MB256", "abi": 9, "label": "256 MiB"},
+        {"value": "MB512", "abi": 10, "label": "512 MiB"}
       ],
       "libretro": {"key": "puae6_z3_memory", "category": "machine", "label": "Zorro III Fast RAM",
-        "info": "One physical 16 MiB Zorro III board, configured by the guest. Available on A4030 with Normal CPU accuracy only; other machines and sizes are refused. No MMU. None retains the machine's original memory."},
-      "headless": {"how": "named", "flag": "--z3", "names": {"None": "none", "MB16": "16"}},
+        "info": "One Zorro III board with 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512 MiB, configured by the guest. Available on A4030 with Normal CPU accuracy only; other machines are refused. No MMU. None retains the machine's original memory."},
+      "headless": {"how": "named", "flag": "--z3", "names": {"None": "none", "MB16": "16", "MB1": "1", "MB2": "2", "MB4": "4", "MB8": "8", "MB32": "32", "MB64": "64", "MB128": "128", "MB256": "256", "MB512": "512"}},
       "wrapper": {"how": "setting", "setting": "Z3Memory", "type": "Puae6Z3Memory"}
     },
     {

@@ -116,7 +116,7 @@ typedef struct p6_config {
     /* T77a: restart collision level: 0 Auto/full, 1 none, 2 sprites, 3 sprites+playfields, 4 full. */
     uint8_t collision_level;
     uint8_t reserved7[1];           /* Zero; byte 69 is reserved for waiting_blits. */
-    uint8_t z3_memory;              /* T55c2: 0 none, 1 one 16 MiB Zorro III board (A4030 only). Restart option. */
+    uint8_t z3_memory;              /* Z3 board on A4030: 0 none, 1 16MiB; 2..10 = 1,2,4,8,32,64,128,256,512MiB. Restart. */
     uint8_t reserved8[1];           /* Zero in ABI v1. */
 } p6_config;
 #define P6_CPU_EXACT 0u

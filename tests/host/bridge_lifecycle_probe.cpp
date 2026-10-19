@@ -119,8 +119,10 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.reserved8[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.z3_memory = 1;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.machine = P6_MACHINE_A4030; c.cpu_compatibility = P6_CPU_NORMAL;
-    c.z3_memory = 2; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
-    c.z3_memory = 1; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    for (uint8_t value : {11, 255}) { c.z3_memory = value; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED); }
+    for (uint8_t value=1; value<=10; ++value) {
+        c.z3_memory = value; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    }
     for (uint8_t mode : {P6_CPU_EXACT, P6_CPU_COMPATIBLE, P6_CPU_NORMAL}) {
         c = make_config(); c.cpu_compatibility = mode; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     }

@@ -29,10 +29,11 @@ ninguna en los modelos anteriores. `None` desactiva la placa; `MB1`..`MB8` fijan
 su tamaño. Headless acepta `--machine a4030 --cpu-compatibility normal` y
 `--fast auto|none|KIB`; BizHawk usa `Machine=A4030`, `CpuCompatibility=Normal`
 y `FastMemory=Auto|None|MB1|MB2|MB4|MB8`. Cambiarlos requiere recargar.
-Z3 usa una opcion distinta: `puae6_z3_memory=None|MB16`, `--z3 none|16` o
-`Z3Memory=None|MB16` en BizHawk. None es el defecto;16MiB requiere A4030/Normal,
-se configura por autoconfig real y aumenta el presupuesto mmap32MiB. Otros
-modelos/tamaños se rechazan. Cambiarla requiere recargar y cambia la identidad.
+Z3 usa una opcion distinta: `puae6_z3_memory=None|MB1|MB2|MB4|MB8|MB16|MB32|MB64|MB128|MB256|MB512`,
+`--z3 none|1|2|4|8|16|32|64|128|256|512` o los mismos nombres `Z3Memory`
+en BizHawk. None es el defecto; requiere A4030/Normal y autoconfig real.
+El presupuesto mmap aumenta el doble de la RAM elegida. Otros modelos se
+rechazan. Cambiarla requiere recargar y cambia la identidad del estado.
 La aceptacion completa de T55b, incluido Waterbox real, sigue pendiente.
 
 ## Clases y la frontera con la emulacion

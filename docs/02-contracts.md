@@ -15,14 +15,16 @@ y no ofrece MMU: PMMU entra en F-line, sin registros ficticios. La FPU externa
 sus caches y actualmente devuelven UNSUPPORTED.
 
 La memoria propia es 2 MiB Chip y 8 MiB Fast Zorro II, como el A4030 de PUAE5;
-no se habilita RAM de placa. T55c2 permite por API nativa una placa Zorro III
-de16MiB (`z3_memory=1`, byte70); 0 mantiene la maquina anterior. Solo A4030,
-requiere reinicio y tiene identidad propia. La placa se configura por el bus real
-con Z3MAPPING_REAL; P6RM guarda RAM, base/mapeo y la unica cadena Z2/Z3,
-tambien sin Z2. T55c3 expone None/MB16 en libretro, headless y BizHawk; otros
-tamaños siguen pendientes. Z3 agrega32MiB al presupuesto mmap (margen×2),
-sin cambiar otros heaps ni excluir RAM del snapshot. El test mide el compromiso
-real; la tabla historica completa de presupuestos se regraba con la candidata.
+no se habilita RAM de placa. Zorro III ofrece1/2/4/8/16/32/64/128/256/512MiB
+por API, libretro, headless y BizHawk. El byte70 conserva None=0 yMB16=1;
+los valores2..10 representan1/2/4/8/32/64/128/256/512MiB. Solo A4030/Normal,
+requiere reinicio y tiene identidad por tamaño. La placa se configura por el bus
+real con Z3MAPPING_REAL; por debajo16MiB anuncia una ventana fisica16MiB y
+su subsize poblado, sin mapear RAM inexistente. P6RM guarda RAM, base/mapeo y
+la unica cadena Z2/Z3, tambien sin Z2. El presupuesto mmap añade el doble de
+la capacidad solicitada, sin cambiar otros heaps ni excluir RAM del snapshot.
+El test mide compromiso real por tamaño; la tabla historica completa se regraba
+con la candidata acumulada.
 La region Z3 expone su base actual en flags: BUS_ADDRESS_VALID indica mapeo,
 BUS_ADDRESS_MASK/ADDRESS extraen los bits16..31, una base en pasos de64KiB.
 Libretro anuncia Z3 solo mapeada y actualiza/retira el descriptor al cambiar

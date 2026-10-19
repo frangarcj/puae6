@@ -155,7 +155,9 @@ void visit_expansion(Archive &a, uint32_t fast)
     const uint16_t hi = get<uint16_t>(a, w[6], 0, 0xffff, "ram.fast_hi");
     const uint8_t lo = get<uint8_t>(a, w[7], 0, 0xff, "ram.fast_lo");
     const uint32_t pointer = a.val<uint32_t>(w[8], 0, 0xffffffffu, "ram.fast_board_pointer");
-    const uint32_t size = a.val<uint32_t>(w[9], 0, z3 ? z3 : 0x800000u, "ram.fast_board_size");
+    // Z3 allocates a physical window of at least16MiB, with a smaller populated subsize.
+    const uint32_t board_limit = z3 ? (z3 < 0x1000000u ? 0x1000000u : z3) : 0x800000u;
+    const uint32_t size = a.val<uint32_t>(w[9], 0, board_limit, "ram.fast_board_size");
     const uint32_t start = a.val<uint32_t>(w[10], 0, fast ? 0xffffffffu : 0u, "ram.fast_start");
     const uint8_t mapped = get<uint8_t>(a, w[12], 0, fast ? 1 : 0, "ram.fast_mapped");
     a.bytes(ac, sizeof ac, "ram.fast_autoconfig");

@@ -12984,14 +12984,17 @@
         "tools/check.py",
         "manifests/waterbox-memory.json",
         "docs/02-contracts.md",
-        "docs/options.md"
+        "docs/options.md",
+        "patches/winuae/**",
+        "tests/reference/patch-classes.json"
       ],
       "steps": [
         "Referencia real references/machawk-uae/libretro/libretro-core.c:929-953 ofrece1/2/4/8/16/32/64/128/256/512MiB. Completar la lista como una sola vertical; conservar ABI72, None=0 yMB16=1, asignar MB1..8=2..5 yMB32..512=6..10. Mantener A4030 Normal y sin MMU; defaults no cambian.",
         "Autoconfig Z3 real y RAM sin alias por todos los tamanos. Para placas menores16MiB upstream anuncia ventana fisica16MiB con subsize: la validacion de estado debe conservar ese contrato sin confundir ventana con RAM asignada. Probar extremos y tipo/subsize, antes/despues del mapeo y restauracion nativa mismo/nuevo proceso, con Z2 Auto/None.",
         "Actualizar esquema y generar salidas; headless/libretro/C# atomicos, memoria visible e identidad por tamano. Restauracion real Waterbox mismo/nuevo sandbox y proceso, rechazo de tamano diferente sin mutar. Reutilizar las pruebas c2/c3 parametrizadas, sin multiplicar todas sus ventanas para cada capacidad.",
         "Presupuesto Waterbox extra=RAMsolicitada y mmap mantiene margen2x; medir consumo comprometido real para todos los tamanos con el guest actual, sin rebajar margenes ni reetiquetar dataset historico. Una compilacion integrada -j2 antes de union de checks dirigidos.",
-        "Alcance estimado350-400lineas manuales en varios adaptadores/tests coherentes; salidas generadas excluidas. Si necesita mas o parche motor nuevo, revisar division antes de ampliar. T55c conserva040/060, firmware real y todos sus checks/aceptacion."
+        "Alcance estimado350-400lineas manuales en varios adaptadores/tests coherentes; salidas generadas excluidas. Si necesita mas o parche motor nuevo, revisar division antes de ampliar. T55c conserva040/060, firmware real y todos sus checks/aceptacion.",
+        "La prueba dirigida localiza rechazo de todos los tamanos nuevos en la guarda portable de main.cpp del parche0351, limitada a16MiB. Ampliar explicitamente mediante0373 solo esa guarda a potencias de dos1..512MiB; conservar limites de CPU/mapa/una placa y clasificacion REF01 inerte fueraA4030. No cambiar el motor/autoconfig ni el limite de400lineas; ampliar zonas patches y clasificacion antes de editar."
       ],
       "checks": [
         "GEN01",

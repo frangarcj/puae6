@@ -1061,8 +1061,13 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--z3") && i + 1 < argc) {
             const char *value = argv[++i];
             if (!strcmp(value, "none")) z3_memory = 0;
-            else if (!strcmp(value, "16")) z3_memory = 1;
-            else return 64;
+            else {
+                const char *const names[] = {"none", "16", "1", "2", "4", "8", "32", "64", "128", "256", "512"};
+                unsigned choice=1;
+                while (choice < p6_bridge::kZ3Choices && strcmp(value,names[choice])) ++choice;
+                if (choice == p6_bridge::kZ3Choices) return 64;
+                z3_memory = uint8_t(choice);
+            }
         }
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--cpu") && i + 1 < argc) { const uint32_t model = uint32_t(strtoul(argv[++i], nullptr, 10)); cpu_model = model >= 68000 ? 1 + (model - 68000) / 10 : model; }
@@ -1168,7 +1173,7 @@ int main(int argc, char **argv)
             i += 2;
         } else if (!strcmp(argv[i], "--input-v1-at") && i + 1 < argc) input_v1_at = strtoull(argv[++i], nullptr, 10);
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|16] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--input-v1-at UNIT] [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--input-v1-at UNIT] [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;

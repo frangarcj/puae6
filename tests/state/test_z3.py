@@ -10,7 +10,10 @@ Z3 = ["--z3", "16"]
 NONE = ["--fast", "4294967295"]
 
 
-def program(z2):
+SIZES = (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+
+
+def program(z2, mib=16):
     text = PRELUDE
     if z2:
         text += "    MOVE.B #$00,$E8004A.L\n    MOVE.B #$20,$E80048.L\n"
@@ -30,6 +33,11 @@ def program(z2):
     .word $23C0,$0000,$2008
 """,
     ]
+    # Read the physical type/subsize through both real autoconfig nibbles.
+    steps[0] += "".join(f"    .word $1039,$FF00,${offset:04X}\n    .word $13C0,$0000,${0x200c+i:04X}\n"
+                        for i, offset in enumerate((0, 2, 8, 10)))
+    end = 0x22000000 + (mib << 20) - 4
+    steps[3] = steps[3].replace("$22FFFFFC", f"${end:08X}").replace("$22FF,$FFFC", f"${end >> 16:04X},${end & 0xffff:04X}")
     for n, step in enumerate(steps):
         text += delay(n, 20000) + step
     return text + "loop:\n    ADDQ.L #1,D1\n    BRA.S loop\n"
@@ -78,6 +86,50 @@ class Z3Tests(d.Det02Case):
         refused = self.probe("z3", "--units", "14", "--every", "1", "--public-load-at", "13", str(bad), *Z3)
         self.assertEqual(10, refused.loads[0][1])
         self.assertEqual(control.digests, refused.digests)
+
+
+class Z3SizeTests(d.Det02Case):
+    MACHINE = "a4030"
+
+    @classmethod
+    def probe_on(cls, machine, rom, *args):
+        return super().probe_on(machine, rom, *args, "--cpu-compatibility", "normal")
+    # Keep16's original detailed windows in Z3Tests; new sizes use one early
+    # same-image restore and one mapped fresh-process restore per Z2 configuration.
+    ROMS = {f"z3-{mib}-{int(z2)}": (program(z2, mib), None, None)
+            for mib in SIZES if mib != 16 for z2 in (False, True)}
+
+    def test_all_sizes_bus_subsize_and_native_restoration(self):
+        for mib in SIZES:
+            if mib == 16:
+                continue
+            for z2 in (False, True):
+                with self.subTest(mib=mib, z2=z2):
+                    rom = f"z3-{mib}-{int(z2)}"
+                    extra = ["--z3", str(mib)] + ([] if z2 else NONE)
+                    early, mapped, ram = (self.dir / (rom + suffix) for suffix in (".early", ".state", ".ram"))
+                    original = self.probe(rom, "--units", "12", "--every", "12", *extra,
+                                          "--public-save-at", "1", str(early), "--public-save-at", "8", str(mapped),
+                                          "--ramout-at", "12", "0x2000", "16", str(ram))
+                    self.assertFalse(original.save_errors)
+                    self.assertEqual(2, len(original.saves))
+                    self.assertEqual(1, len({row[3] for row in original.saves}))
+                    self.assertTrue(all(row[1] <= row[3] for row in original.saves))
+                    values = ram.read_bytes()
+                    self.assertEqual((0x11223344, 0x55667788, 0x13572468), struct.unpack(">III", values[:12]))
+                    kind = (values[12] & 0xf0) | (values[13] >> 4)
+                    flags = ((values[14] & 0xf0) | (values[15] >> 4)) ^ 0xff
+                    self.assertEqual(0xa0 | max(0, mib.bit_length()-5), kind)
+                    self.assertEqual(0x90 | (0x20 if mib >= 16 else {1:6, 2:7, 4:8, 8:10}[mib]), flags)
+                    for n, at, units, path in ((1, 11, 22, early), (8, 0, 4, mapped)):
+                        replay = self.probe(rom, "--units", str(units), "--every", str(units), *extra,
+                                            "--public-load-at", str(at), str(path))
+                        self.assertEqual([(at, 0, "")], replay.loads)
+                        self.assertEqual(original.unit(12), replay.unit(units))
+                        for j in range(1, 13-n):
+                            self.assertEqual(original.pcm[n+j], replay.pcm[at+j])
+                            self.assertEqual(original.pictures[n+j], replay.pictures[at+j])
+                    early.unlink(); mapped.unlink(); ram.unlink()
 
 
 if __name__ == "__main__":

@@ -498,6 +498,12 @@ TASK_SUITES[('ABI01', 'T55c3')] = TASK_SUITES[('ABI01', 'T55c2')]
 TASK_SUITES[('LR01', 'T55c3')] = {'z3_shared_option_and_actual_bus_map': 'tests.libretro-host.test_z3'}
 TASK_SUITES[('WB03', 'T55c3')] = {'z3_domain_sandbox_and_process_restore': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_domains_and_same_new_sandbox_and_process_restore'}
 TASK_SUITES[('PERF01', 'T55c3')] = {'z3_actual_committed_heap_margin': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_actual_heap_commitment_has_the_existing_two_times_margin'}
+for _gate in ('GEN01', 'ABI01'):
+    TASK_SUITES[(_gate, 'T55c5')] = TASK_SUITES[(_gate, 'T55c2')]
+TASK_SUITES[('DET02', 'T55c5')] = {'all_z3_sizes_autoconfig_and_restore': 'tests.state.test_z3'}
+TASK_SUITES[('LR01', 'T55c5')] = {'all_z3_sizes_native_frontends': 'tests.libretro-host.test_z3'}
+TASK_SUITES[('WB03', 'T55c5')] = TASK_SUITES[('WB03', 'T55c3')]
+TASK_SUITES[('PERF01', 'T55c5')] = TASK_SUITES[('PERF01', 'T55c3')]
 TASK_SUITES[('PERF01', 'T53')] = {'measured_cpu_levels': 'tests.bench.test_cpu_campaign.CpuCampaignMeasurements'}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):

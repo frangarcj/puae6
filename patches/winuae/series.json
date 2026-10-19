@@ -5138,6 +5138,28 @@
           "after_sha256": "f0366073aa543c1fb26dd4a9677ab2ee194bbe3bf47340dab8f60c3b6e45a864"
         }
       ]
+    },
+    {
+      "id": "0373-z3-capacity-range",
+      "file": "patches/winuae/0373-z3-capacity-range.patch",
+      "sha256": "33c877940f94f3c8266b705ae09a53ffbf385949c3616f128231515c1d61fc67",
+      "title": "Allow all bounded Z3 RAM capacities in the portable profile",
+      "reason": "T55c5 extends the single A4030 physical Z3 board to the reference capacities1..512MiB without enabling other CPUs,24-bit maps or extra boards.",
+      "category": "host hooks",
+      "order": 190,
+      "symbols": [
+        "fixup_prefs"
+      ],
+      "test": "tests/state/test_z3.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "526263ab9c1df70020ead461ce38fbb637f94f552c46e741e139457426dea8ff",
+          "after_sha256": "6580b19ed335747630db80065402cc6b2d9ad3fa3b11061676c4b8fee10b1bbd"
+        }
+      ]
     }
   ]
 }
