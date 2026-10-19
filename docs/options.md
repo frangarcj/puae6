@@ -77,7 +77,9 @@ cuenta del reset, botones y hotkeys pulsados en el run anterior (para los flanco
 
 El dispositivo `CD32 pad` se selecciona por jugador en el frontend: B/A/X/Y son rojo/azul/verde/amarillo, L/R son retroceso/avance y Start es Play. Jugador 1 usa el puerto Amiga 2 y jugador 2 el 1; para este ultimo, jugador 1 debe dejar libre el raton del puerto Amiga 1.
 
-Siguen pendientes el segundo raton (`physicalmouse=double`), `joyport_order`, joystick analogico y lightgun/lightpen (T70). El disco de guardado se crea con `#SAVEDISK` en M3U; el teclado virtual y la barra de estado se describen a continuacion.
+Dos ratones: selecciona Mouse en ambos jugadores. El primero usa el puerto Amiga 1; el segundo, el 2, y tiene prioridad sobre el pad de jugador 1 con un aviso explicito. `puae6_mouse_speed` escala ambos con fracciones independientes; el stick de jugador 1 puede seguir moviendo su raton con `puae6_analog_mouse`. Los movimientos pendientes y las fracciones viajan en el estado. Esta ampliacion corresponde al desarrollo posterior a la preview del 19 de octubre.
+
+Siguen pendientes `joyport_order`, joystick analogico y lightgun/lightpen (T70). El disco de guardado se crea con `#SAVEDISK` en M3U; el teclado virtual y la barra de estado se describen a continuacion.
 
 ## OSD: barra de estado, mensajes y LED (T31b) — categoria `OSD`
 
