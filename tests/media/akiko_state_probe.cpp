@@ -192,6 +192,7 @@ static void exercise_joint(int mode)
         if (n == 3) again->device.audio.callbacks = 4;
         if (n == 4) again->transport.words[1] = 1;
         if (n == 5) again->controller.misc_initialized = 2;
+        assert(!p6_akiko_state_apply(again.get(), context)); // Retain direct M3 atomic-rejection coverage.
         reject(wire(*again));
     }
     auto late = encoded; late[late.size() - 1] = 0x7f; reject(late); // device.error, final scalar
