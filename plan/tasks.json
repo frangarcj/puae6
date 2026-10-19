@@ -13707,13 +13707,229 @@
       "stop": "Sin firmware no autorizado."
     },
     {
-      "id": "T70",
-      "title": "ABI de puertos ampliada: CD32 pad, raton analogico, lightgun/lightpen, segundo raton, 4 jugadores (adaptador paralelo)",
+      "id": "T70a",
+      "title": "Pad CD32 en ambos puertos, peliculas y restauracion",
       "milestone": "M3",
       "required": true,
       "status": "in_progress",
       "depends": [
         "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/input.cpp",
+        "patches/winuae/**",
+        "adapters/**",
+        "integration/bizhawk/**",
+        "tests/input/**",
+        "tests/libretro-host/**",
+        "tests/ffi/**",
+        "tests/state/**",
+        "bridge/input.h",
+        "bridge/config.cpp",
+        "bridge/frame_step.cpp",
+        "bridge/state_devices.cpp",
+        "ports/portable/input_devices.cpp",
+        "ports/portable/p6_state_access.h",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "bridge/state_probe.cpp",
+        "manifests/state-inventory.json",
+        "tests/reference/patch-classes.json",
+        "tests/waterbox-state/**"
+      ],
+      "steps": [
+        "Completar el pad CD32 ya implementado: siete botones/cruceta por puerto, protocolo serie, ABI v1 intacta, estado shifter/CIA causal, LR real, codec BK2 y snapshot Waterbox real.",
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+      ],
+      "checks": [
+        "IN01",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Cada dispositivo de esta vertical se aplica en el borde, se graba en peliculas y restaura en nativo y Waterbox real."
+      ],
+      "stop": "Sin callbacks host por acceso."
+    },
+    {
+      "id": "T70b",
+      "title": "Segundo raton y raton por stick analogico",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/input.cpp",
+        "patches/winuae/**",
+        "adapters/**",
+        "integration/bizhawk/**",
+        "tests/input/**",
+        "tests/libretro-host/**",
+        "tests/ffi/**",
+        "tests/state/**",
+        "bridge/input.h",
+        "bridge/config.cpp",
+        "bridge/frame_step.cpp",
+        "bridge/state_devices.cpp",
+        "ports/portable/input_devices.cpp",
+        "ports/portable/p6_state_access.h",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "bridge/state_probe.cpp",
+        "manifests/state-inventory.json",
+        "tests/reference/patch-classes.json",
+        "tests/waterbox-state/**"
+      ],
+      "steps": [
+        "Aplicar dos ratones independientes y raton por stick en el borde comun, exponerlos en frontends y comprobar grabacion y restauracion sin cambiar el futuro de joystick/teclado.",
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+      ],
+      "checks": [
+        "IN01",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Cada dispositivo de esta vertical se aplica en el borde, se graba en peliculas y restaura en nativo y Waterbox real."
+      ],
+      "stop": "Sin callbacks host por acceso."
+    },
+    {
+      "id": "T70c",
+      "title": "Lightgun y lightpen en puertos versionados",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/input.cpp",
+        "patches/winuae/**",
+        "adapters/**",
+        "integration/bizhawk/**",
+        "tests/input/**",
+        "tests/libretro-host/**",
+        "tests/ffi/**",
+        "tests/state/**",
+        "bridge/input.h",
+        "bridge/config.cpp",
+        "bridge/frame_step.cpp",
+        "bridge/state_devices.cpp",
+        "ports/portable/input_devices.cpp",
+        "ports/portable/p6_state_access.h",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "bridge/state_probe.cpp",
+        "manifests/state-inventory.json",
+        "tests/reference/patch-classes.json",
+        "tests/waterbox-state/**"
+      ],
+      "steps": [
+        "Implementar lightgun/lightpen con coordenadas y niveles definidos, opciones frontend, peliculas y restauracion; usar version/struct_size si hace falta extender entrada sin romper ABI v1.",
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+      ],
+      "checks": [
+        "IN01",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Cada dispositivo de esta vertical se aplica en el borde, se graba en peliculas y restaura en nativo y Waterbox real."
+      ],
+      "stop": "Sin callbacks host por acceso."
+    },
+    {
+      "id": "T70d",
+      "title": "Cuatro jugadores mediante adaptador paralelo",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/input.cpp",
+        "patches/winuae/**",
+        "adapters/**",
+        "integration/bizhawk/**",
+        "tests/input/**",
+        "tests/libretro-host/**",
+        "tests/ffi/**",
+        "tests/state/**",
+        "bridge/input.h",
+        "bridge/config.cpp",
+        "bridge/frame_step.cpp",
+        "bridge/state_devices.cpp",
+        "ports/portable/input_devices.cpp",
+        "ports/portable/p6_state_access.h",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "bridge/state_probe.cpp",
+        "manifests/state-inventory.json",
+        "tests/reference/patch-classes.json",
+        "tests/waterbox-state/**"
+      ],
+      "steps": [
+        "Implementar el adaptador paralelo de cuatro jugadores con entrada versionada compatible con ABI v1, mapeo en ambos frontends, pelicula y snapshot/restauracion real.",
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+      ],
+      "checks": [
+        "IN01",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Cada dispositivo de esta vertical se aplica en el borde, se graba en peliculas y restaura en nativo y Waterbox real."
+      ],
+      "stop": "Sin callbacks host por acceso."
+    },
+    {
+      "id": "T70",
+      "title": "ABI de puertos ampliada: CD32 pad, raton analogico, lightgun/lightpen, segundo raton, 4 jugadores (adaptador paralelo)",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T24",
+        "T70a",
+        "T70b",
+        "T70c",
+        "T70d"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13746,7 +13962,8 @@
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 pad, analogico, lightpen, 4 jugadores y multimouse. Extender p6_input sin romper la ABI v1 (version/size), aplicado en el borde de unidad, en estados y peliculas.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk.c (raton por stick analogico, SetJoyDirectionRaw, LEDCallback) y UAE.Controllers.cs.",
         "Task force: empezar por protocolo CD32 en los dos puertos con ABI v1 intacta y estado del shifter/CIA; completar despues los restantes dispositivos originales. Integrar con el frente CPU sin bumps globales de ABI independientes.",
-        "Incluir el estado causal CD32 en el digest condicional de entrada y en state-inventory, sin alterar los digests/goldens de dispositivos existentes."
+        "Incluir el estado causal CD32 en el digest condicional de entrada y en state-inventory, sin alterar los digests/goldens de dispositivos existentes.",
+        "Dividida en T70a/b/c/d para entregar verticales completas sin ocultar dispositivos pendientes; T70 conserva todas las puertas y aceptacion original y depende de las cuatro."
       ],
       "checks": [
         "IN01",
