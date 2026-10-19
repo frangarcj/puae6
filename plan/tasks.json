@@ -14449,13 +14449,101 @@
       "stop": "No cambiar los defectos ni los hashes golden."
     },
     {
-      "id": "T74",
-      "title": "Sonido de disquetera (driveclick) determinista",
+      "id": "T74a",
+      "title": "Driveclick comun determinista con muestras propias y estado nativo",
       "milestone": "M3",
       "required": true,
       "status": "in_progress",
       "depends": [
         "T73"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "ports/portable/**",
+        "bridge/config.cpp",
+        "bridge/state.cpp",
+        "bridge/state.h",
+        "bridge/state_probe.cpp",
+        "CMakeLists.txt",
+        "tests/audio/**",
+        "tests/state/**",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
+        "manifests/licenses.json",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Portar la superficie mecanica driveclick de WinUAE6 a la capa portable: muestras sintetizadas propias de licencia GPL, aritmetica entera, sin FS fisico, rand, reloj host ni audio_activate que altere Paula.",
+        "Compilar, inicializar y serializar juntas las fases de motor/click: requiere mas de cinco rutas porque habilitar DRIVESOUND sin ownership nativo dejaria un estado incompleto. La mezcla se activa solo en el borde de presentacion; por defecto PCM y digests hardware se conservan.",
+        "Guardar fases de presentacion en chunk nativo propio P6DC, fuera de los digests de hardware; restaurar en proceso nuevo y rechazar indices corruptos antes de aplicar. El probe --drive-sound es diagnostico, no otra ruta de scheduler."
+      ],
+      "checks": [
+        "AV02"
+      ],
+      "acceptance": [
+        "El guest mecanico produce PCM repetible, restaura sus fases y activar/atenuar la mezcla no cambia el futuro hardware ni los PCM por defecto."
+      ],
+      "stop": "No alterar el futuro de la maquina."
+    },
+    {
+      "id": "T74b",
+      "title": "Volumen de driveclick en API comun y frontends",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T74a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/frame_step.cpp",
+        "adapters/headless/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "config/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "tests/audio/**",
+        "tests/libretro-host/**",
+        "tests/ffi/**",
+        "tests/contracts/**",
+        "tests/fuzz/**",
+        "tests/waterbox-state/**",
+        "docs/options.md",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Exponer volumen de presentacion0..100 en bits libres de render_flags, rechazando valores fuera de rango, sin cambiar sizeof ni config_hash. Los flags se consumen en cada p6_run_frame.",
+        "Esquema comun, headless, libretro y C# aplican el mismo volumen; snapshot/BK2/entrada emulada no dependen de la eleccion. Ejecutar check dirigido LR y WB en el guest acumulado."
+      ],
+      "checks": [
+        "AV02"
+      ],
+      "acceptance": [
+        "El usuario activa/atenúa sonido de disquetera en ambos frontends y guardar/cargar conserva su continuidad sin cambiar hardware."
+      ],
+      "stop": "No alterar el futuro de la maquina."
+    },
+    {
+      "id": "T74",
+      "title": "Sonido de disquetera (driveclick) determinista",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T73",
+        "T74a",
+        "T74b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -14472,7 +14560,8 @@
         "manifests/licenses.json"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_floppy_sound. Compilar driveclick con muestras de licencia compatible, sin rand ni reloj; opcion de presentacion que no cambia la emulacion."
+        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_floppy_sound. Compilar driveclick con muestras de licencia compatible, sin rand ni reloj; opcion de presentacion que no cambia la emulacion.",
+        "Backend comun/estado enT74a y controles de presentacion enT74b; el padre conserva su aceptacion completa."
       ],
       "checks": [
         "AV02"
