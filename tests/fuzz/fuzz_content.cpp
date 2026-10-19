@@ -199,7 +199,11 @@ Verdict oracle(const std::string &input, const std::string &directory)
         if (first == std::string::npos) continue;
         line = line.substr(first, line.find_last_not_of(" \t") + 1 - first);
         if (line[0] == '#') {
-            if (line.compare(0, 10, "#SAVEDISK:") == 0) ++verdict.save_disks;
+            if (line.compare(0, 10, "#SAVEDISK:") == 0) {
+                if (verdict.paths.size() >= kMaxEntries) { verdict.accepted = false; verdict.error_line = number; return verdict; }
+                ++verdict.save_disks;
+                verdict.paths.emplace_back();       // generated in memory, no path to resolve
+            }
             continue;
         }
         std::string path = line.substr(0, line.find('|'));
@@ -226,7 +230,7 @@ int fuzz_m3u(uint64_t seed, uint64_t iterations)
         std::vector<uint8_t> bytes(input.text.begin(), input.text.end());
         Playlist playlist;
         playlist.entries.push_back({"stale", "stale"});        // the parser clears what an earlier call left
-        playlist.save_disks_ignored = 77;
+        playlist.save_disks = 77;
         std::string error;
         const bool accepted = parse_m3u(bytes, directory, kMaxEntries, &playlist, &error);
         const Verdict expected = oracle(input.text, directory);
@@ -237,9 +241,10 @@ int fuzz_m3u(uint64_t seed, uint64_t iterations)
             if (!error.empty()) bug("an accepted playlist left an error message", iteration, error);
             if (playlist.entries.size() > kMaxEntries) bug("more entries than the cap", iteration);
             if (playlist.entries.size() != expected.paths.size()) bug("a different number of entries", iteration, input.kind);
-            if (playlist.save_disks_ignored != expected.save_disks) bug("a different number of #SAVEDISK lines", iteration);
+            if (playlist.save_disks != expected.save_disks) bug("a different number of #SAVEDISK lines", iteration);
             for (size_t i = 0; i < playlist.entries.size(); ++i) {
                 if (playlist.entries[i].path != expected.paths[i]) bug("a different resolved path", iteration, input.kind);
+                if (playlist.entries[i].save_disk != expected.paths[i].empty()) bug("a different generated disk flag", iteration);
                 if (playlist.entries[i].path.size() > directory.size() + kMaxPathBytes) bug("a path beyond the cap joined to its directory", iteration);
             }
             entries_total += unsigned(playlist.entries.size());

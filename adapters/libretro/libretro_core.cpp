@@ -68,6 +68,7 @@
 #include "container.h"
 #include "content.h"
 #include "disk_control.h"
+#include "save_disk.h"
 #include "firmware.h"
 #include "romkey.h"
 #include "floppy_save.h"
@@ -117,6 +118,7 @@ struct Medium {
     uint8_t id[P6_CONTENT_ID_SIZE];       // SHA-256 of the bytes: the identity of the disk, whatever it is called or wherever it is
     uint8_t origin[P6_CONTENT_ID_SIZE];   // the identity of the disk as its file gave it: the name of the file its changes are saved to (the same as id unless a saved copy replaced it)
     bool saved_copy = false;              // the bytes are a copy saved by an earlier session (T27, T63a), not the file's
+    std::string save_name;                // #SAVEDISK: <playlist>.saveN.adf; ordinary media keep their content-derived name
 };
 
 struct Core {
@@ -589,11 +591,18 @@ std::string save_directory()
 // A disk was just read (its bytes and id are the file's): remembers that id as the origin and, with floppy writes on, swaps in the copy an earlier session
 // saved for it, if there is one and it is a plain ADF the bridge takes. The copy becomes the disk (its own SHA-256 is its identity); a file that is not usable
 // is reported and the original is used.
+std::string floppy_save_path(const Medium &medium)
+{
+    const std::string directory = save_directory();
+    if (directory.empty()) return std::string();
+    return medium.save_name.empty() ? p6_libretro::saved_disk_path(directory, medium.origin) : p6_libretro::join_path(directory, medium.save_name);
+}
+
 void use_saved_copy(Medium *medium)
 {
     memcpy(medium->origin, medium->id, sizeof medium->id);
     if (!core.settings.floppy_writes || medium->bytes.size() != p6_libretro::kDiskBytes) return;      // an extended ADF, an FDI or an IPF is read only (T57, T58): nothing is saved for it
-    const std::string path = p6_libretro::saved_disk_path(save_directory(), medium->origin);
+    const std::string path = floppy_save_path(*medium);
     if (path.empty()) return;
     std::vector<uint8_t> bytes;
     const p6_libretro::ReadResult read = core.files.read(path, p6_libretro::kDiskBytes, &bytes);
@@ -646,7 +655,7 @@ void save_floppy_changes()
                 ++lost;
                 continue;
             }
-            const std::string path = p6_libretro::saved_disk_path(directory, medium.origin);
+            const std::string path = floppy_save_path(medium);
             std::string why;
             if (p6_libretro::write_file_atomically(path, image.data(), image.size(), &why)) {
                 log(RETRO_LOG_INFO, "disk %zu: the changes were saved in %s", i + 1, path.c_str());
@@ -922,8 +931,8 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
             notify_error("the playlist %s lists no disks", content.c_str());
             return false;
         }
-        if (playlist.save_disks_ignored)
-            log(RETRO_LOG_WARN, "%u #SAVEDISK line(s) of the playlist are ignored: the disks are read-only", playlist.save_disks_ignored);
+        if (playlist.save_disks && !core.settings.floppy_writes)
+            notify_warning("#SAVEDISK disks are read-only: Enable Floppy Writes is off");
         entries = std::move(playlist.entries);
     } else if (core.files.is_directory(content)) {        // a directory is a volume (T64a); a frontend that lists "/" among the extensions hands it over as content
         std::string trimmed = content;
@@ -943,6 +952,23 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
     size_t hard_bytes = 0;
     for (size_t i = 0; i < entries.size(); ++i) {
         const PlaylistEntry &entry = entries[i];
+        if (entry.save_disk) {
+            if (images->size() >= P6_MAX_MEDIA) {
+                notify_error("the content names more than %u disks, including save disks", P6_MAX_MEDIA);
+                return false;
+            }
+            Medium medium;
+            medium.bytes = make_save_disk(entry.label, entry.save_index);
+            medium.save_name = save_disk_filename(content, entry.save_index);
+            p6_sha256_hash(medium.bytes.data(), medium.bytes.size(), medium.id);
+            use_saved_copy(&medium);
+            size_t known = 0;
+            while (known < media->size() && memcmp((*media)[known].id, medium.id, sizeof medium.id) != 0) ++known;
+            if (known == media->size()) media->push_back(std::move(medium));
+            images->push_back({content + "#SAVEDISK:" + std::to_string(entry.save_index), "Save Disk " + std::to_string(entry.save_index), uint32_t(known)});
+            log(RETRO_LOG_INFO, "save disk %u: medium %zu, volume \"%s\"", entry.save_index, known, save_disk_volume(entry.label, entry.save_index).c_str());
+            continue;
+        }
         if (entry.path != names->back()) names->push_back(entry.path);
         // "file.zip#member.adf" names one member of an archive (T59); the rest of the checks are about the archive itself.
         std::string archive_path = entry.path, member;

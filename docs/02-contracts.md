@@ -74,7 +74,7 @@ de ese ADF: el contenedor no entra en estados ni peliculas. Un ADF extendido (`U
 es el SHA-256 del fichero tal como esta, la comprobacion es la del puente (`classify_floppy`, antes del motor: el mensaje de un fichero danado es el suyo) y son de solo lectura (nada se guarda para ellos con `puae6_floppy_save`).
 El IPF (T58) se toma tal cual, tambien dentro de un ADZ, un ZIP o un 7z (lo lee el decodificador libre de MAME, no capsimg), y es de solo lectura. Se rechazan con mensaje CT RAW, SCP, RAR (un LHA no es un disco: es un volumen), ZIP cifrado/ZIP64/multivolumen y DMS cifrado, de alta densidad o FMS. Las rutas son bytes UTF-8 que se pasan tal cual y nunca son identidad: los medios se nombran por el SHA-256 de sus
 bytes (ADR 0008), y dos discos con los mismos bytes comparten un medio del manifiesto. Una playlist M3U tiene una entrada `fichero|etiqueta` por linea (la etiqueta es opcional y por
-defecto es el nombre sin extension), las lineas `#` son comentarios (`#SAVEDISK:` avisa y se ignora: los discos solo se escriben con `puae6_floppy_writes`, y se guardan como dice el parrafo de escritura de libretro de mas abajo), las rutas relativas lo son al directorio de la
+defecto es el nombre sin extension), las lineas `#` son comentarios salvo `#SAVEDISK:` (T60, descrito en el parrafo de escritura de libretro de mas abajo), las rutas relativas lo son al directorio de la
 playlist (una ruta con raiz, letra de unidad o `esquema://` se usa tal cual) y se aceptan un BOM UTF-8 inicial y los finales de linea CR, LF y CRLF. Como mucho 16 discos
 (`P6_MAX_MEDIA`) y cada entrada ha de ser un disco (ADF o uno de los contenedores anteriores); un NUL, una entrada sin nombre, una ruta de mas de 4096 bytes, mas de 16 entradas, una playlist vacia o un disco que no es un
 ADF hacen fallar toda la carga con un mensaje que nombra la linea o el disco; nada se carga a medias. Disk Control: la interfaz EXT si el frontend la ofrece y la clasica si no. Las
@@ -729,6 +729,14 @@ disco tal como lo dio su fichero>.adf` mediante un fichero temporal vecino, flus
 copia ES el disco (su SHA-256 es su identidad: un estado guardado con otra copia no carga, como con cualquier otro medio). Un disco con una pista que no es AmigaDOS no se guarda y se
 avisa; con `off` se avisa de cuantos discos cambiaron y se descartan. La cabecera de un ADF guardado que el puente tomaria por otro formato (extendido o ejecutable) se rechaza al
 guardar y al usar. headless siempre `flags = 0`.
+
+Discos de guardado (T60): cada `#SAVEDISK:<volumen>` de una M3U añade en su posicion un ADF OFS DD vacio construido en memoria, dentro del mismo limite de 16 discos.
+Disk Control lo muestra como `Save Disk N` (N empieza en cero y cuenta solo estas directivas). Como PUAE5, el volumen se limita a 30 bytes, `/` y `:` se sustituyen por `_`, y un nombre
+vacio o que empieza por `EMPTY` sin distinguir mayusculas usa `Save Disk N`. La fecha Amiga es fija (epoca mas N ticks), sin reloj host, y distingue dos discos con el mismo nombre.
+No se crea ningun fichero al cargar. Las opciones de escritura y guardado siguen siendo explicitas: sin `puae6_floppy_writes` el disco esta protegido y se avisa; con escrituras y
+`puae6_floppy_save=on_close`, solo un disco modificado se exporta al cerrar mediante el mismo reemplazo atomico, como `<nombre de playlist sin extension>.saveN.adf` en el save directory
+(convencion de PUAE5; playlists con el mismo nombre comparten esos ficheros). La siguiente carga con escrituras habilitadas usa esa copia, cuya identidad sigue siendo el SHA-256 de sus
+bytes. El original y la playlist permanecen intactos. El overlay y el disco seleccionado viajan en el estado: rewind y runahead no escriben ficheros y el cierre exporta solo la rama final.
 
 BizHawk/Waterbox (T28, T28b): el sync setting `FloppyWrites` (por defecto `false`: `flags = 0` y el nucleo no tiene `ISaveRam`) fija `P6_CONFIG_FLOPPY_WRITES`. El overlay viaja en el snapshot
 del sandbox (rollback) y lo duradero es `ISaveRam`: la lista acotada de sectores distintos de la base (`P6SR`, 12 + 40 + 514 n + 32 bytes, nunca una imagen), tomada solo por una llamada explicita

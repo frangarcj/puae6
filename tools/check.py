@@ -423,6 +423,15 @@ TASK_SUITES[('WB03', 'T39a')] = {**_ci_waterbox,
 for _gate in ('WB13', 'WB14', 'WB15'):
     TASK_SUITES[(_gate, 'T39a')] = dict(_ci_waterbox)
 TASK_SUITES[('PLAN01', 'T39b')] = {'ci_recipes': 'tests.ci.test_nightly', 'plan': 'tests.test_plan'}
+# T60 reuses the floppy COW and explicit atomic persistence; only #SAVEDISK adds
+# media. Keep its gate focused on format, real guest writes and timeline rollback.
+TASK_SUITES[('MED02', 'T60')] = {'save_disk_format': 'tests.libretro-host.test_savedisk.SaveDiskFormatTests',
+                               'save_disk_persistence': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests',
+                               'ordinary_floppy_regression': 'tests.libretro-host.test_floppy_write'}
+TASK_SUITES[('LR02', 'T60')] = {
+    'save_disk_rewind': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests.test_rewinding_before_the_writes_discards_them_and_never_creates_a_save_file',
+    'save_disk_runahead': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests.test_the_guest_writes_the_save_disk_and_only_closing_persists_it_then_reopening_uses_it',
+    'ordinary_floppy_rewind': 'tests.libretro-host.test_floppy_write.FloppyWriteTests.test_rewind_run_ahead_and_state_loads_write_nothing_and_the_saved_disk_is_the_final_timeline'}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

@@ -251,11 +251,13 @@ inline std::string join_path(const std::string &directory, const std::string &na
 struct PlaylistEntry {
     std::string path;            // resolved against the playlist's directory
     std::string label;           // from the playlist, or the file's name without its extension
+    bool save_disk = false;      // #SAVEDISK: label is the requested volume name; no host file is read
+    unsigned save_index = 0;
 };
 
 struct Playlist {
     std::vector<PlaylistEntry> entries;
-    unsigned save_disks_ignored = 0;       // "#SAVEDISK:" lines: the core never writes to a disk
+    unsigned save_disks = 0;
 };
 
 // Parses an M3U of disk images: one `file|label` per line (the label may be empty or missing), `#` lines are comments, relative paths are relative
@@ -264,7 +266,7 @@ struct Playlist {
 inline bool parse_m3u(const std::vector<uint8_t> &bytes, const std::string &directory, size_t max_entries, Playlist *playlist, std::string *error)
 {
     playlist->entries.clear();
-    playlist->save_disks_ignored = 0;
+    playlist->save_disks = 0;
     size_t at = 0;
     if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) at = 3;
     unsigned line_number = 0;
@@ -287,7 +289,10 @@ inline bool parse_m3u(const std::vector<uint8_t> &bytes, const std::string &dire
         line = line.substr(first, last - first);
         if (line.empty()) continue;
         if (line[0] == '#') {
-            if (line.compare(0, 10, "#SAVEDISK:") == 0) ++playlist->save_disks_ignored;
+            if (line.compare(0, 10, "#SAVEDISK:") == 0) {
+                if (playlist->entries.size() >= max_entries) return fail("too many disks, including save disks");
+                playlist->entries.push_back({std::string(), line.substr(10), true, playlist->save_disks++});
+            }
             continue;
         }
         const size_t bar = line.find('|');                // a path with a '|' in it cannot be named in a playlist

@@ -679,11 +679,12 @@ class LibretroTests(LibretroHarness):
         out = self.frontend("boot", "--runs", 2, content=self.playlist(sixteen, [f"d{i}.adf" for i in range(16)])).stdout
         self.assertIn("images count=16", out)
 
-    def test_save_disks_in_a_playlist_are_ignored_and_the_disks_stay_read_only(self):
+    def test_save_disks_in_a_playlist_are_created_in_memory_and_writes_remain_opt_in(self):
         m3u = self.playlist("#SAVEDISK:Save|disk.adf\na.adf|A\n")
         out = self.frontend("boot", "--runs", 2, content=m3u).stdout
-        self.assertIn("log 2 [PUAE6] 1 #SAVEDISK line(s) of the playlist are ignored: the disks are read-only", out)
-        self.assertIn("images count=1", out)
+        self.assertIn("#SAVEDISK disks are read-only: Enable Floppy Writes is off", out)
+        self.assertIn("images count=2", out)
+        self.assertIn("label=Save Disk 0", out)
 
     def test_paths_with_unicode_and_very_long_paths_are_read_and_a_path_is_no_identity(self):
         deep = self.work()
