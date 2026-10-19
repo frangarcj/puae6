@@ -6,6 +6,8 @@
 #include "cd32_nvram.h"
 #include "p6_state_access.h"
 #include "audio.h"
+#include "cd_audio.h"
+#include "cd_audio_state.h"
 #include <memory>
 struct DiscFixture {
     uint64_t calls=0;
@@ -111,6 +113,21 @@ int main(int argc,char **argv)
         const auto cut=save(); assert(cut[48]==12); map_matches();
         const auto expected=future(a),end=save();
         load(cut); assert(save()==cut); assert(future(a)==expected && save()==end);
+        if(!mode) {
+            sys_command_cd_stop(0); AudioPlayer foreign;
+            assert(foreign.play(a.disc,0,20,nullptr,nullptr)==Result::Ok);
+            AudioPlayerState before{},after{}; assert(foreign.capture(&before));
+            uint8_t ram[32],again[32]; p6_sha256_hash(chipmem_bank.baseaddr,chipmem_bank.allocated_size,ram);
+            int32_t phase[p6_cda::kPhaseWords],phase_after[p6_cda::kPhaseWords];
+            assert(foreign.phase_get(phase,p6_cda::kPhaseWords));
+            const auto cycle=get_cycles(); const auto pc=m68k_getpc(); const auto calls=a.calls; auto e=error();
+            assert(p6_state_load(cut.data(),cut.size(),&e)==P6_ERROR_BAD_STATE);
+            assert(foreign.capture(&after) && !memcmp(&before,&after,sizeof before));
+            assert(foreign.phase_get(phase_after,p6_cda::kPhaseWords) && !memcmp(phase,phase_after,sizeof phase));
+            p6_sha256_hash(chipmem_bank.baseaddr,chipmem_bank.allocated_size,again);
+            assert(!memcmp(ram,again,32) && get_cycles()==cycle && m68k_getpc()==pc && a.calls==calls);
+            foreign.stop(); load(end);
+        }
         auto corrupt=cut; corrupt.back()=0x7f; reseal(corrupt); reject(corrupt,P6_ERROR_CORRUPT_STATE,a);
         stop(); start(rom,alien,mode&1); step(); reject(cut,P6_ERROR_INCOMPATIBLE,alien); stop();
         start(rom,b,mode&1); set_cycles(17); update_cda_sound(1); // Validate before reset head, with different live time/period.

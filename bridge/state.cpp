@@ -15,6 +15,7 @@
 #include "media.h"
 #include "media/cd_device.h"
 #include "media/cd_read.h"
+#include "audio_cda_state.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -555,6 +556,14 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         }
     }
 
+    // Runtime ownership is separate from candidate validation. Refuse a foreign
+    // stream before reset/Apply; the phase getter needs no initialized CDA owner
+    // when there are no extra streams, including a cold destination.
+    if (session.config.machine == p6_bridge::kCd32Machine) {
+        int32_t phase[p6_cda::kPhaseWords];
+        if (!p6_cd::device_phase_get(phase, p6_cda::kPhaseWords))
+            return p6_fail(error, P6_ERROR_BAD_STATE, "CD32 audio destination has an unsupported or foreign stream");
+    }
     // (9) Nothing can refuse any more. An image that has not started has not run its reset head, which is what builds the CPU's dispatch
     // tables and the scheduler's handlers (build_cpufunctbl, init_eventtab): the head runs first, exactly as p6_run_frame runs it, and every
     // chunk then overwrites what it left. A failure of the head, like a failure of a visitor below, is a defect and not of the state: say so and
