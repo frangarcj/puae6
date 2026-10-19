@@ -862,6 +862,22 @@ aprobado; el cursor o cache mutable no puede ocultar estado fuera del sandbox.
 Cualquier caching externo debe ser semantica de funcion pura y probado tras reset
 arbitrario de la cache. MVP prefiere precargar floppies para reducir esa superficie.
 
+T66a añade el lector privado `ports/portable/media/cd_source.h`: fuente inmutable
+por content-ID SHA-256 de 32 bytes, longitud `uint64_t` y callback de lectura por offset.
+El proveedor garantiza que el ID identifica esos bytes y conserva el contexto
+durante sus lecturas; no hay cursor, reentrada ni efectos del reloj host. El
+consumidor copia solo el descriptor, sin `blob_register` ni asignacion del medio.
+Esta primera geometria es una imagen de sectores ISO de 2048 bytes, longitud
+positiva y multiplo exacto; no interpreta el filesystem ISO9660. `read_sector`
+valida LBA antes de multiplicarlo. `read_at` limita cada peticion a 2448 bytes y
+comprueba el rango antes del callback; una lectura vacia en EOF no lo invoca.
+La lectura usa staging fijo: error, lectura corta o longitud devuelta incorrecta
+dejan intacta la salida. Rebind exige ID, longitud y geometria identicos y un
+callback valido antes de sustituir callback/contexto. El descriptor es la identidad;
+los punteros se vuelven a enlazar y la cache externa puede descartarse. No cambia
+la ABI publica, ni habilita CD32: Akiko, NVRAM/I2C, CDDA, todos los formatos de T66
+y los arranques/restauraciones en ambos adaptadores conservan sus puertas propias.
+
 Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro por el controlador UAE (`uaehf.device` y la placa UAEFS, como
 PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256
 de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs (`P6_BLOB_HDF`, `p6_blob_pread`: lectura por offset de la base inmutable, sin cursor ni fichero del
