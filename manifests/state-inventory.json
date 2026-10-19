@@ -8136,7 +8136,9 @@
         "what": "the disk in each drive, for the on-screen messages only (not causal: the machine's own drive state is in the snapshot)",
         "state": [
           "Disk0",
-          "Disk1"
+          "Disk1",
+          "Disk2",
+          "Disk3"
         ]
       },
       "_currentDrive": {

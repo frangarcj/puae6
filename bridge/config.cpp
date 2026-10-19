@@ -219,6 +219,11 @@ int resolve_floppy_speed(const p6_config &c)
     }
 }
 
+uint32_t resolve_floppy_drives(const p6_config &c)
+{
+    return c.floppy_drives ? c.floppy_drives : 2;
+}
+
 int resolve_cpu(const p6_config &c)
 {
     // 0 is the machine's own CPU; any other value is 1 + (model - 68000) / 10 (p6.h).
@@ -352,6 +357,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "video line mode must be 0 (the profile's), 1 (single) or 2 (double)");
     if (c.floppy_speed > 5)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "floppy speed must be 0 (the profile's), 1 (100 %), 2 (200 %), 3 (400 %), 4 (800 %) or 5 (turbo)");
+    if (c.floppy_drives > 4)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "floppy drives must be 0 (the two-drive profile) or 1 to 4");
     if (c.sound_separation > 11)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "stereo separation must be 0 (the profile's) or 1 to 11 (0 to 100 %)");
     if (c.sound_interpolation == 3)
@@ -402,6 +409,10 @@ void build_preferences(const p6_config &c, bool ide)
     }
     if (currprefs.floppyslots[1].dfxtype == DRV_NONE)
         currprefs.floppyslots[1].dfxtype = DRV_35_DD;     // upstream's A500 OG and A1000 have one drive; the ABI gives every machine DF0 and DF1 (the external drive port)
+    if (resolve_floppy_drives(c) != 2) {
+        currprefs.nr_floppies = int(resolve_floppy_drives(c));
+        for (unsigned i = 0; i < 4; ++i) currprefs.floppyslots[i].dfxtype = i < resolve_floppy_drives(c) ? DRV_35_DD : DRV_NONE;
+    }
     if (machine.no_gayle) {
         // The A600 or A1200 table (CP_A600, CP_A1200) has just been applied once. Gayle, its IDE and its PCMCIA slot are not compiled (P6_PORTABLE),
         // so they are switched off here instead of being declared and missing.
@@ -532,6 +543,9 @@ p6_result check_preset(p6_error *error)
              p.gfx_xcenter || p.gfx_ycenter || p.gfx_extrawidth || p.gfx_extraheight || p.gfx_threebitcolors ||
              p.gfx_blackerthanblack || p.display_calibration || p.gfx_monitorblankdelay || p.lightpen_crosshair ||
              p.leds_on_screen || p.cs_optimizations != (preset_config.cpu_compatibility == P6_CPU_EXACT ? DISPLAY_OPTIMIZATIONS_FULL : DISPLAY_OPTIMIZATIONS_NONE) || p.cs_hvcsync) drifted = "video";
+    if (!drifted && resolve_floppy_drives(preset_config) != 2)
+        for (unsigned i = 0; i < 4; ++i)
+            if (p.floppyslots[i].dfxtype != (i < resolve_floppy_drives(preset_config) ? DRV_35_DD : DRV_NONE)) drifted = "floppy drives";
     if (drifted) {
         char text[64];
         snprintf(text, sizeof text, "the %s preset drifted from the profile (%s)", machine.name, drifted);

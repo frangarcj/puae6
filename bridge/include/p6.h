@@ -110,7 +110,9 @@ typedef struct p6_config {
      * The level is part of state identity. Every supported 68000/68010/68020 machine can select each level at load.
      * No level reads a host clock. */
     uint8_t cpu_compatibility;
-    uint8_t reserved7[5];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
+    /* T61: connected DD floppy drives, 0 = the unchanged two-drive profile; otherwise 1..4. Restart and state identity option. */
+    uint8_t floppy_drives;
+    uint8_t reserved7[4];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
 } p6_config;
 #define P6_CPU_EXACT 0u
 #define P6_CPU_COMPATIBLE 1u
@@ -398,7 +400,7 @@ p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capacity,
                             uint32_t *count, p6_error *error);
 /* Enqueue for the next boundary. EJECT requires media_index to be
  * P6_MEDIA_INDEX_EJECT; MOUNT requires an index of the manifest (passed to p6_load or returned by p6_media_append). Only DF0 and
- * DF1 exist (drives 2 and 3 are UNSUPPORTED, above 3 BAD_ARGUMENT); at most 16
+ * DF1 exist in the default config; floppy_drives enables up to DF3 (a disconnected drive is UNSUPPORTED, above 3 BAD_ARGUMENT); at most 16
  * events wait for a boundary (CAPACITY) and sequence must exceed the last accepted
  * one for the whole session. A refused event queues nothing and uses no sequence.
  * Events queued before the first p6_run_frame set the power-on disks (the last one

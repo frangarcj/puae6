@@ -53,6 +53,7 @@ public enum Puae6SoundFilterType { Auto, A500, A1200 }
 
 /// <summary>The speed of the floppy drives (restart): the real drive (P100, the profile's own setting), twice, four or eight times as fast, or Turbo, which removes the rotation and transfers a whole DSKLEN at once. It is counted in emulated colour clocks, never in wall clock time.</summary>
 public enum Puae6FloppySpeed { P100, P200, P400, P800, Turbo }
+public enum Puae6FloppyDrives { Auto, One, Two, Three, Four }
 
 /// <summary>The resolution of the picture (restart): the width the renderer draws, 378, 756 (Hires, the profile's own setting) or 1512 columns. It is the engine's own resolution, not a scaling.</summary>
 public enum Puae6VideoResolution { Lores, Hires, SuperHires }
@@ -133,7 +134,9 @@ public sealed class Puae6SyncSettings
 
 	public Puae6Port2 ControllerPort2 { get; set; } = Puae6Port2.Joystick;
 
-	/// <summary>How many of the disks the core was given are in a drive at power-on (1 or 2, DF0 and DF1); the rest are slots for the Insert button.</summary>
+	public Puae6FloppyDrives PhysicalFloppyDrives { get; set; } = Puae6FloppyDrives.Auto;
+
+	/// <summary>How many disks are in drives at power-on (1..4). Auto connects at least two drives, growing to fit this number; the rest are slots for Insert.</summary>
 	public int FloppyDrives { get; set; } = 1;
 
 	/// <summary>

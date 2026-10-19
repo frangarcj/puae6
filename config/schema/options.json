@@ -591,6 +591,99 @@
       "wrapper": {"how": "setting", "setting": "FloppySpeed", "type": "Puae6FloppySpeed"}
     },
     {
+      "id": "floppy_drive_count",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.floppy_drives",
+      "default": "auto",
+      "values": [
+        {
+          "value": "auto",
+          "abi": 0,
+          "label": "Default (two drives; MultiDrive enables four)",
+          "wrapper_name": "Auto"
+        },
+        {
+          "value": "1",
+          "abi": 1,
+          "label": "DF0",
+          "wrapper_name": "One"
+        },
+        {
+          "value": "2",
+          "abi": 2,
+          "label": "DF0 and DF1",
+          "wrapper_name": "Two"
+        },
+        {
+          "value": "3",
+          "abi": 3,
+          "label": "DF0 to DF2",
+          "wrapper_name": "Three"
+        },
+        {
+          "value": "4",
+          "abi": 4,
+          "label": "DF0 to DF3",
+          "wrapper_name": "Four"
+        }
+      ],
+      "libretro": {
+        "key": "puae6_floppy_drives",
+        "category": "media",
+        "label": "Floppy Drives",
+        "info": "Connected DD drives. Auto keeps the original two-drive machine and enables four when MultiDrive is requested. Explicit counts limit MultiDrive too. This setting is part of the machine and save-state identity."
+      },
+      "headless": {
+        "how": "named",
+        "flag": "--floppy-drives",
+        "names": {
+          "auto": "auto",
+          "1": "1",
+          "2": "2",
+          "3": "3",
+          "4": "4"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "PhysicalFloppyDrives",
+        "type": "Puae6FloppyDrives"
+      }
+    },
+    {
+      "id": "floppy_multidrive",
+      "class": "presentation",
+      "restart": true,
+      "type": "enum",
+      "maps_to": "presentation.floppy_multidrive",
+      "default": "disabled",
+      "values": [
+        {
+          "value": "disabled",
+          "abi": 0,
+          "label": "Disabled"
+        },
+        {
+          "value": "enabled",
+          "abi": 1,
+          "label": "Mount disks in separate drives"
+        }
+      ],
+      "libretro": {
+        "key": "puae6_floppy_multidrive",
+        "category": "media",
+        "label": "MultiDrive",
+        "info": "At load, insert successive floppy images into separate drives, up to the connected-drive count (four on Auto). The (MD) filename tag also enables this. Save disks remain selectable in Disk Control and are not inserted into extra drives."
+      },
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      }
+    },
+    {
       "id": "video_resolution",
       "class": "reboot",
       "type": "enum",
@@ -1965,7 +2058,7 @@
     }
   ],
   "reserved": [
-    {"id": "floppy_drives", "for": "a later media task", "wrapper_setting": "FloppyDrives", "why": "How many of the given disks start in a drive is a media placement made with media events (DF0 and DF1 exist in the bridge); libretro drives DF0 alone from Disk Control, so there is nothing to offer yet."}
+    {"id": "floppy_drives", "for": "boot media placement", "wrapper_setting": "FloppyDrives", "why": "How many given disks start mounted (1..4) is a media placement through events; PhysicalFloppyDrives selects the connected hardware. Libretro uses MultiDrive for placement and Disk Control for DF0."}
   ],
   "unsupported": [
     {"key": "z3fastmem_size", "why": "Zorro III RAM needs a 32-bit bus (68030 and up, T55); every machine here has a 24-bit one."},

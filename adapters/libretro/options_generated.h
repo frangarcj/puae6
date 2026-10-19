@@ -31,6 +31,8 @@ struct Settings {
     int64_t rtc_epoch_seconds = INT64_C(946684800);  // reboot, p6_config.rtc_epoch_seconds
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
     uint32_t floppy_speed = 0u;  // reboot, p6_config.floppy_speed = 100
+    uint32_t floppy_drive_count = 0u;  // reboot, p6_config.floppy_drives = auto
+    uint32_t floppy_multidrive = 0u;  // presentation, presentation.floppy_multidrive = disabled
     uint32_t video_resolution = 0u;  // reboot, p6_config.video_resolution = hires
     uint32_t video_line_mode = 0u;  // reboot, p6_config.video_line_mode = double
     uint32_t video_aspect = 0u;  // presentation, presentation.video_aspect = pixel
@@ -119,6 +121,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->rtc_epoch_seconds = settings.rtc_epoch_seconds;
     config->flags = settings.floppy_writes;
     config->floppy_speed = settings.floppy_speed;
+    config->floppy_drives = settings.floppy_drive_count;
     config->video_resolution = settings.video_resolution;
     config->video_line_mode = settings.video_line_mode;
 }
@@ -474,6 +477,17 @@ constexpr Value kFloppySpeedValues[] = {
     {"400", 3u},
     {"800", 4u},
     {"turbo", 5u},
+};
+constexpr Value kFloppyDriveCountValues[] = {
+    {"auto", 0u},
+    {"1", 1u},
+    {"2", 2u},
+    {"3", 3u},
+    {"4", 4u},
+};
+constexpr Value kFloppyMultidriveValues[] = {
+    {"disabled", 0u},
+    {"enabled", 1u},
 };
 constexpr Value kVideoResolutionValues[] = {
     {"lores", 1u},
@@ -867,6 +881,8 @@ constexpr Option kOptions[] = {
     {"puae6_sound_filter_type", true, &Settings::sound_filter_type, kSoundFilterTypeValues, 3, 0},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
     {"puae6_floppy_speed", true, &Settings::floppy_speed, kFloppySpeedValues, 5, 0},
+    {"puae6_floppy_drives", true, &Settings::floppy_drive_count, kFloppyDriveCountValues, 5, 0},
+    {"puae6_floppy_multidrive", true, &Settings::floppy_multidrive, kFloppyMultidriveValues, 2, 0},
     {"puae6_video_resolution", true, &Settings::video_resolution, kVideoResolutionValues, 3, 1},
     {"puae6_video_line_mode", true, &Settings::video_line_mode, kVideoLineModeValues, 2, 1},
     {"puae6_video_aspect", false, &Settings::video_aspect, kVideoAspectValues, 4, 0},
@@ -1033,6 +1049,14 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
      "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
      "media", {{"100", "Default (the real drive, 300 RPM)"}, {"200", "2x"}, {"400", "4x"}, {"800", "8x"}, {"turbo", "Turbo"}}, "100"},
+    {"puae6_floppy_drives", "Floppy Drives (Restart)", "Floppy Drives (Restart)",
+     "Connected DD drives. Auto keeps the original two-drive machine and enables four when MultiDrive is requested. Explicit counts limit MultiDrive too. This setting is part of the machine and save-state identity. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "Connected DD drives. Auto keeps the original two-drive machine and enables four when MultiDrive is requested. Explicit counts limit MultiDrive too. This setting is part of the machine and save-state identity. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "media", {{"auto", "Default (two drives; MultiDrive enables four)"}, {"1", "DF0"}, {"2", "DF0 and DF1"}, {"3", "DF0 to DF2"}, {"4", "DF0 to DF3"}}, "auto"},
+    {"puae6_floppy_multidrive", "MultiDrive (Restart)", "MultiDrive (Restart)",
+     "At load, insert successive floppy images into separate drives, up to the connected-drive count (four on Auto). The (MD) filename tag also enables this. Save disks remain selectable in Disk Control and are not inserted into extra drives. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "At load, insert successive floppy images into separate drives, up to the connected-drive count (four on Auto). The (MD) filename tag also enables this. Save disks remain selectable in Disk Control and are not inserted into extra drives. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "media", {{"disabled", "Disabled"}, {"enabled", "Mount disks in separate drives"}}, "disabled"},
     {"puae6_video_resolution", "Resolution (Restart)", "Resolution (Restart)",
      "The width the renderer draws: low (378 columns of the picture), high (756, the default) or super-high (1512). It is the engine's own resolution, not a scaling of the high picture, so the pixels of a program in another mode are chosen by the renderer and the buffer the core announces changes with it (380, 760 or 1520 columns). It is part of the machine: a state, a rewind or a movie of one resolution does not load in another. PUAE5's Automatic value, which switches the resolution as the program changes mode, is not offered. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The width the renderer draws: low (378 columns of the picture), high (756, the default) or super-high (1512). It is the engine's own resolution, not a scaling of the high picture, so the pixels of a program in another mode are chosen by the renderer and the buffer the core announces changes with it (380, 760 or 1520 columns). It is part of the machine: a state, a rewind or a movie of one resolution does not load in another. PUAE5's Automatic value, which switches the resolution as the program changes mode, is not offered. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1301,6 +1325,8 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_sound_filter_type", "Audio Filter Type (Restart)", "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Auto (by machine)"}, {"A500", "A500"}, {"A1200", "A1200"}}, "auto"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
     {"puae6_floppy_speed", "Floppy Speed (Restart)", "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.", {{"100", "Default (the real drive, 300 RPM)"}, {"200", "2x"}, {"400", "4x"}, {"800", "8x"}, {"turbo", "Turbo"}}, "100"},
+    {"puae6_floppy_drives", "Floppy Drives (Restart)", "Connected DD drives. Auto keeps the original two-drive machine and enables four when MultiDrive is requested. Explicit counts limit MultiDrive too. This setting is part of the machine and save-state identity. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Default (two drives; MultiDrive enables four)"}, {"1", "DF0"}, {"2", "DF0 and DF1"}, {"3", "DF0 to DF2"}, {"4", "DF0 to DF3"}}, "auto"},
+    {"puae6_floppy_multidrive", "MultiDrive (Restart)", "At load, insert successive floppy images into separate drives, up to the connected-drive count (four on Auto). The (MD) filename tag also enables this. Save disks remain selectable in Disk Control and are not inserted into extra drives. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled"}, {"enabled", "Mount disks in separate drives"}}, "disabled"},
     {"puae6_video_resolution", "Resolution (Restart)", "The width the renderer draws: low (378 columns of the picture), high (756, the default) or super-high (1512). It is the engine's own resolution, not a scaling of the high picture, so the pixels of a program in another mode are chosen by the renderer and the buffer the core announces changes with it (380, 760 or 1520 columns). It is part of the machine: a state, a rewind or a movie of one resolution does not load in another. PUAE5's Automatic value, which switches the resolution as the program changes mode, is not offered. It takes effect the next time the content is loaded; the running machine is not changed.", {{"lores", "Low (378 columns)"}, {"hires", "High (756 columns, the default)"}, {"superhires", "Super-High (1512 columns)"}}, "hires"},
     {"puae6_video_line_mode", "Line Mode (Restart)", "Rows per line of the picture: double (574 rows on PAL, 484 on NTSC, the default; an interlaced program has its two fields woven into one picture) or single (287 / 242 rows; an interlaced program shows each field as its own picture of half the height, with no weaving). It is the engine's own vertical resolution and is part of the machine: a state, a rewind or a movie of one line mode does not load in another. PUAE5's Automatic value, which switches to double lines on interlaced screens, is not offered. It takes effect the next time the content is loaded; the running machine is not changed.", {{"single", "Single Line"}, {"double", "Double Line (the default)"}}, "double"},
     {"puae6_video_aspect", "Aspect Ratio", "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed.", {{"pixel", "Pixel aspect of the machine"}, {"4:3", "4:3"}, {"PAL", "PAL pixel aspect (26:25)"}, {"NTSC", "NTSC pixel aspect (43:50)"}}, "pixel"},
@@ -1388,6 +1414,8 @@ constexpr retro_variable kVariables[] = {
     {"puae6_sound_filter_type", "Audio Filter Type (Restart); auto|A500|A1200"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
     {"puae6_floppy_speed", "Floppy Speed (Restart); 100|200|400|800|turbo"},
+    {"puae6_floppy_drives", "Floppy Drives (Restart); auto|1|2|3|4"},
+    {"puae6_floppy_multidrive", "MultiDrive (Restart); disabled|enabled"},
     {"puae6_video_resolution", "Resolution (Restart); hires|lores|superhires"},
     {"puae6_video_line_mode", "Line Mode (Restart); double|single"},
     {"puae6_video_aspect", "Aspect Ratio; pixel|4:3|PAL|NTSC"},

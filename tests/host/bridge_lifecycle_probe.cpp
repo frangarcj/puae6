@@ -116,7 +116,7 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved7[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
-    c = make_config(); c.reserved7[4] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved7[3] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     for (uint8_t mode : {P6_CPU_EXACT, P6_CPU_COMPATIBLE, P6_CPU_NORMAL}) {
         c = make_config(); c.cpu_compatibility = mode; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     }

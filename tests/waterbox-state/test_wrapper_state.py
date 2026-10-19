@@ -274,10 +274,10 @@ class WrapperStateTests(unittest.TestCase):
     def test_a_state_with_the_right_checksum_and_fields_that_cannot_be_is_refused_before_the_sandbox_is_touched(self):
         script = self.held_keys()
         # offsets in the payload: Frame 0, LagCount 4, IsLagFrame 8, CycleCount 9, BufferWidth 17, BufferHeight 21, VsyncNumerator 25, VsyncDenominator 29, AspectNum 33,
-        # AspectDen 37, DriveLightOn 41, MouseKnown 42, MouseX 43, MouseY 47, CapsLatched 51, CapsHeld 52, Disk0 53, Disk1 57, CurrentDrive 61, CurrentSlot 65
+        # AspectDen 37, DriveLightOn 41, MouseKnown 42, MouseX 43, MouseY 47, CapsLatched 51, CapsHeld 52, Disk0 53, Disk1 57, Disk2 61, Disk3 65, CurrentDrive 69, CurrentSlot 73
         bad = [("a negative frame", "offset=0 bytes=ffffffff"), ("a picture wider than the buffers", "offset=17 bytes=ffffff7f"), ("a cadence of zero", "offset=25 bytes=00000000"),
-               ("a disk that does not exist", "offset=53 bytes=05000000"), ("a drive that does not exist", "offset=61 bytes=02000000"),
-               ("a slot past the disks", "offset=65 bytes=09000000"), ("a payload that ends inside the fields", "offset=0 bytes=00 length=20")]
+               ("a disk that does not exist", "offset=53 bytes=05000000"), ("a drive that does not exist", "offset=69 bytes=02000000"),
+               ("a slot past the disks", "offset=73 bytes=09000000"), ("a payload that ends inside the fields", "offset=0 bytes=00 length=20")]
         for what, edit in bad:
             with self.subTest(what=what):
                 out = self.session([self.core("A"), f"run A 70 script={script} press={SWAP}", "save A s", f"repack s bad {edit}", "load A bad",

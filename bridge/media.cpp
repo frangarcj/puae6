@@ -4,6 +4,7 @@
 // T12: a 901120-byte file with the extended-ADF magic and a track count of 0xFFFF overruns the drive's track table),
 // so this file is the only gatekeeper: an image reaches the engine only after it passed every check below.
 #include "media.h"
+#include "config.h"
 #include "ide_units.h"
 #include "error_util.h"
 #include "session.h"
@@ -369,8 +370,8 @@ extern "C" p6_result p6_media_event_enqueue(const p6_media_event *event, p6_erro
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown media event type");
     if (event->drive > 3)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "drive number out of range");
-    if (event->drive > 1)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A500 has only DF0 and DF1");
+    if (event->drive >= p6_bridge::resolve_floppy_drives(session.config))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the requested floppy drive is not connected in this configuration");
     if (event->type == P6_MEDIA_EVENT_MOUNT && event->media_index >= session.media_count)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the medium was not passed to p6_load");
     if (event->type == P6_MEDIA_EVENT_MOUNT && session.media_type[event->media_index] != P6_MEDIA_ADF)

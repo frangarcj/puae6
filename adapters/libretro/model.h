@@ -20,7 +20,7 @@
 // A bare word (PAL, NTSC, AGA, ECS, OCS, AmigaCD, CD32, CDTV) must not touch a letter or a digit on either side ("PALADIN" is not PAL; PUAE5's strstr finds it); a tag with
 // parentheses or an underscore marks itself. Matching is case sensitive and byte by byte: nothing depends on the locale.
 //
-// Tags of what this core does not have are warnings and never an error and never another machine: (A4030) (030) (A4040) (040) CDTV (MD) _Arcadia. (CE) is already the only
+// Tags of what this core does not have are warnings and never an error and never another machine: (A4030) (030) (A4040) (040) CDTV _Arcadia. (CE) is already the only
 // mode of every machine here and is only said to be so.
 #ifndef P6_LIBRETRO_MODEL_H
 #define P6_LIBRETRO_MODEL_H
@@ -39,6 +39,7 @@ namespace p6_libretro {
 struct ModelResolution {
     p6_options::Settings settings;       // the options with the model, the video standard and the memory a tag implies made concrete
     bool tags_read = false;              // the tags were looked at (File Name Tags on)
+    bool multidrive = false;
     std::vector<std::string> notes;      // what decided, for the log (one line each)
     std::vector<std::string> warnings;   // what the person should know: a tag this core cannot honour
 };
@@ -148,6 +149,7 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
     out.settings = chosen;
     p6_options::Settings &settings = out.settings;
     out.tags_read = chosen.filename_tags != 0;
+    out.multidrive = chosen.floppy_multidrive != 0;
     const bool auto_machine = chosen.machine == p6_options::kMachineAuto;
     const bool auto_video = chosen.video_standard == p6_options::kVideoStandardPalAuto || chosen.video_standard == p6_options::kVideoStandardNtscAuto;
     const uint32_t content_machine = hard_disk ? chosen.model_hd : chosen.model_fd;
@@ -196,7 +198,8 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
             }
             if (!said_md && has_tag(name, "(MD)", false)) {
                 said_md = true;
-                out.warnings.push_back("the tag (MD) in " + shown(name) + " is ignored: this core has no MultiDrive (DF2 and DF3)");
+                out.multidrive = true;
+                out.notes.push_back("the tag (MD) in " + shown(name) + " enables MultiDrive");
             }
             if (!said_arcadia && has_tag(name, "_Arcadia", false)) {
                 said_arcadia = true;

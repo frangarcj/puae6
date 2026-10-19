@@ -223,7 +223,7 @@ class ModelTagTests(lr.LibretroHarness):
             with self.subTest(name=name):
                 out = self.play(self.disk(name), option("puae6_model_fd", "A600"))
                 self.assertEqual(MACHINE.findall(out), ["A600"], name)
-        for name, text in (("Game CDTV.adf", "CDTV"), ("Game (MD).adf", "(MD)"), ("Game_Arcadia.adf", "_Arcadia")):
+        for name, text in (("Game CDTV.adf", "CDTV"), ("Game_Arcadia.adf", "_Arcadia")):
             with self.subTest(name=name):
                 out = self.play(self.disk(name))
                 self.assertEqual(MACHINE.findall(out), ["A500"])
@@ -236,7 +236,9 @@ class ModelTagTests(lr.LibretroHarness):
         (directory / "list.m3u").write_text("a (MD).adf\nb (MD).adf\n")
         for name in ("a (MD).adf", "b (MD).adf"):
             (directory / name).write_bytes(lr.adf(name))
-        self.assertEqual(len([m for m in self.messages(self.play(directory / "list.m3u")) if "(MD)" in m]), 1)
+        text = self.play(directory / "list.m3u")
+        self.assertIn("enables MultiDrive", text)
+        self.assertNotIn("has no MultiDrive", text)
 
     # --- playlists and archives -------------------------------------------------------------------------------------------------------------
 

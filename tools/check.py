@@ -423,6 +423,9 @@ TASK_SUITES[('WB03', 'T39a')] = {**_ci_waterbox,
 for _gate in ('WB13', 'WB14', 'WB15'):
     TASK_SUITES[(_gate, 'T39a')] = dict(_ci_waterbox)
 TASK_SUITES[('PLAN01', 'T39b')] = {'ci_recipes': 'tests.ci.test_nightly', 'plan': 'tests.test_plan'}
+for _gate in ('MED01', 'DET02', 'LR01'):
+    TASK_SUITES[(_gate, 'T61')] = {'four_drive_reads_boot_restore_and_identity': 'tests.libretro-host.test_multidrive',
+                                 'config_schema_and_defaults': 'tests.config.test_parity'}
 # T60 reuses the floppy COW and explicit atomic persistence; only #SAVEDISK adds
 # media. Keep its gate focused on format, real guest writes and timeline rollback.
 TASK_SUITES[('MED02', 'T60')] = {'save_disk_format': 'tests.libretro-host.test_savedisk.SaveDiskFormatTests',

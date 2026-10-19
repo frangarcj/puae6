@@ -375,7 +375,7 @@ void bridge(Canon &c)
     for (int32_t index : s.drive_media) c.put(index);
     // The medium each drive of the engine holds, which is not what the session believes it holds (a change in flight, or a state loaded into a drive with another disk): the CRC
     // drive_insert measured, the one save_disk puts in DSKn (T15d2). The rest of the drive mechanics is not here.
-    for (int n = 0; n < 2; ++n) {
+    for (int n = 0; n < int(p6_bridge::resolve_floppy_drives(s.config)); ++n) {
         uint8_t body[64];
         size_t length = 0;
         c.put(save_disk(n, &length, body, false) && length == 24 ? uint32_t(body[12]) << 24 | uint32_t(body[13]) << 16 | uint32_t(body[14]) << 8 | body[15] : 0u);
@@ -384,6 +384,7 @@ void bridge(Canon &c)
     for (uint32_t i = 0; i < s.media_count && i < P6_MAX_MEDIA; ++i) c.raw(s.media_content_id[i], P6_CONTENT_ID_SIZE);
     c.put(s.config.machine).put(s.config.video_standard).put(s.config.audio_rate_hz).put(s.config.flags).put(s.config.random_seed)
         .put(s.config.rtc_epoch_seconds);
+    if (p6_bridge::resolve_floppy_drives(s.config) != 2) c.put(p6_bridge::resolve_floppy_drives(s.config));
     if (!p6_bridge::memory_is_preset(s.config)) c.put(s.config.chip_kib).put(s.config.slow_kib).put(s.config.fast_kib);
 }
 
@@ -945,6 +946,7 @@ int main(int argc, char **argv)
     uint32_t cpu_model = 0;                                  // T52: p6_config cpu_model as the ABI number (--cpu 68000|68010|68020; 0 the machine's own)
     uint32_t fpu_model = 0;                                  // T54: 0 = none, 68881 or 68882 (--fpu 68882)
     uint32_t hdf_controller = 0;                             // T56: p6_config hdf_controller as the ABI number (--hdf-controller uae|ide: 0 the UAE controller, 1 the IDE port of Gayle)
+    uint32_t floppy_drives = 0;
     uint32_t floppy_speed = 0;                               // T62: p6_config floppy_speed as the ABI number (--floppy-speed: 0 the profile, 1 100 %, 2 200 %, 3 400 %, 4 800 %, 5 turbo)
     uint32_t sound[4] = {0, 0, 0, 0};                       // T73: p6_config sound_separation, sound_interpolation, sound_filter, sound_filter_type as ABI numbers (--sound-sep, --sound-interp, --sound-filter, --sound-type)
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
@@ -991,6 +993,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) sound[1] = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-filter") && i + 1 < argc) sound[2] = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-type") && i + 1 < argc) sound[3] = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--floppy-drives") && i + 1 < argc) floppy_drives = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--floppy-speed") && i + 1 < argc) floppy_speed = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) g_dump = argv[++i];
         else if ((!strcmp(argv[i], "--save-at") || !strcmp(argv[i], "--save-fields-at") || !strcmp(argv[i], "--load-at") ||
@@ -1113,6 +1116,7 @@ int main(int argc, char **argv)
     config.hdf_controller = uint8_t(hdf_controller);
     config.sound_separation = uint8_t(sound[0]); config.sound_interpolation = uint8_t(sound[1]); config.sound_filter = uint8_t(sound[2]); config.sound_filter_type = uint8_t(sound[3]);
     config.floppy_speed = uint8_t(floppy_speed);
+    config.floppy_drives = uint8_t(floppy_drives);
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) return fail("p6_init", result, error);

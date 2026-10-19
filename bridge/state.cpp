@@ -76,8 +76,8 @@ void visit_bridge(Archive &a)
     const uint8_t have = get<uint8_t>(a, s.have_sequence, 0, 1, "bridge.have_sequence");
     const uint64_t sequence = a.val<uint64_t>(s.last_sequence, "bridge.last_sequence");
     int32_t drives[4];
-    for (uint32_t i = 0; i < 4; ++i)       // the A500 has DF0 and DF1: the others are never mounted
-        drives[i] = get<int32_t>(a, s.drive_media[i], -1, i < 2 ? int32_t(manifest_count()) - 1 : -1, "bridge.drive_media");
+    for (uint32_t i = 0; i < 4; ++i)
+        drives[i] = get<int32_t>(a, s.drive_media[i], -1, i < p6_bridge::resolve_floppy_drives(s.config) ? int32_t(manifest_count()) - 1 : -1, "bridge.drive_media");
     if (a.reading() && a.ok() && g_context) memcpy(g_context->media.drive_media, drives, sizeof drives);     // the disk chunk is checked against it before anything is applied
     uint32_t queued = s.media_queued;
     const uint32_t count = a.count(queued, s.kMediaQueue, "bridge.media_queued");
@@ -85,7 +85,7 @@ void visit_bridge(Archive &a)
     for (uint32_t i = 0; i < count && a.ok(); ++i) {
         const auto &live = s.media_queue[i];
         const uint32_t type = get<uint8_t>(a, live.type, P6_MEDIA_EVENT_MOUNT, P6_MEDIA_EVENT_EJECT, "bridge.event_type");
-        const uint32_t drive = get<uint8_t>(a, live.drive, 0, 1, "bridge.event_drive");
+        const uint32_t drive = get<uint8_t>(a, live.drive, 0, p6_bridge::resolve_floppy_drives(s.config) - 1, "bridge.event_drive");
         const uint32_t index = a.val<uint32_t>(live.media_index, "bridge.event_index");
         if (a.mode() != Mode::Measure)
             a.require(type == P6_MEDIA_EVENT_MOUNT ? index < manifest_count() : index == P6_MEDIA_INDEX_EJECT, "bridge event: invalid media index for its type");
@@ -281,6 +281,12 @@ Identity current_identity()
         const uint8_t *parts[2] = {identity.config_hash, &c.cpu_compatibility};
         const uint64_t lengths[2] = {32, 1};
         domain_hash("p6/config/cpu-compatibility/v1", parts, lengths, 2, identity.config_hash);
+    }
+    if (p6_bridge::resolve_floppy_drives(c) != 2) {
+        const uint8_t drives = uint8_t(p6_bridge::resolve_floppy_drives(c));
+        const uint8_t *parts[2] = {identity.config_hash, &drives};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/floppy-drives/v1", parts, lengths, 2, identity.config_hash);
     }
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);

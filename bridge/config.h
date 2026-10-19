@@ -25,6 +25,7 @@ uint32_t identity_flags(const p6_config &config);
 
 // The floppy drive speed (T62, p6_config.floppy_speed) as upstream's floppy_speed: 100, 200, 400 or 800 (percent of the real drive), 0 for the turbo mode that transfers a whole DSKLEN at once.
 int resolve_floppy_speed(const p6_config &config);
+uint32_t resolve_floppy_drives(const p6_config &config);
 // The CPU of the config (T52, p6_config.cpu_model): 68000, 68010 or 68020 (the machine's own when the field is 0). cpu_identity is true when it is not the machine's own and writes the
 // two bytes config_hash is derived from (state.cpp: domain p6/config/cpu/v1, over the hash so far and these bytes): the model, 0 = 68000, 1 = 68010, 2 = 68020, and the multiplier of the clock (0 = the machine's own).
 int resolve_cpu(const p6_config &config);

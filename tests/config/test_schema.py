@@ -301,9 +301,9 @@ class NormalizationTests(unittest.TestCase):
         normalized = gen.normalize_config(document, {})
         machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "None", "fpu_model": "None", "cpu_model": "auto", "cpu_compatibility": "exact", "cpu_multiplier": "auto", "hdf_controller": "uae", "audio_rate_hz": "48000", "random_seed": 1,
                    "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled",
-                   "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto", "floppy_speed": "100", "video_resolution": "hires", "video_line_mode": "double"}
+                   "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto", "floppy_speed": "100", "floppy_drive_count": "auto", "video_resolution": "hires", "video_line_mode": "double"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
-        presentation = {"video_aspect": "pixel", "floppy_save": "off", "hdf_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
+        presentation = {"floppy_multidrive": "disabled", "video_aspect": "pixel", "floppy_save": "off", "hdf_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
                         "video_vertical_pos": "auto", "video_horizontal_pos": "auto", "video_gamma": "0", "video_color_depth": "24bit",
                         "analog_mouse": "disabled", "analog_mouse_deadzone": "20", "analog_mouse_speed_left": "1.0", "analog_mouse_speed_right": "1.0",
                         "dpad_mouse_speed": "6", "mouse_speed": "100", "joyport": "joystick", "face_buttons": "disabled", "turbo_fire": "disabled",
@@ -318,7 +318,7 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(normalized, {**machine, **presentation})
         self.assertEqual(gen.to_p6_config(document, normalized),
                          {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
-                          "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "video_resolution": 0, "video_line_mode": 0})
+                          "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "floppy_drives": 0, "video_resolution": 0, "video_line_mode": 0})
 
     def test_the_presets_are_bundles_of_the_options_and_give_the_memory_of_puae5(self):
         # T49: PUAE5's A1200 has 8 MiB of Fast RAM and its A600 is a 2 MiB Chip + 8 MiB Fast machine. A preset is values of the options, so the ABI has no field for it.
@@ -533,7 +533,7 @@ class GeneratorTests(unittest.TestCase):
         table = json.loads(gen.TABLE.read_text())
         self.assertEqual({name: entry["default"] for name, entry in table["p6_config"].items()},
                          {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "audio_rate_hz": 48000, "random_seed": 1, "rtc_epoch_seconds": 946684800, "flags": 0,
-                          "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "video_resolution": 0, "video_line_mode": 0})
+                          "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "floppy_drives": 0, "video_resolution": 0, "video_line_mode": 0})
         self.assertEqual(table["p6_config"]["chip_kib"]["allowed"], [0, 512, 1024, 2048])
         self.assertEqual(table["p6_config"]["slow_kib"]["allowed"], [0, 4294967295, 512, 1024, 1536, 1792])
         self.assertEqual(table["p6_config"]["fast_kib"]["allowed"], [0, 1024, 2048, 4096, 8192])
@@ -546,9 +546,9 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(table["p6_config"]["audio_rate_hz"]["allowed"], [44100, 48000])
         presentation = [o["id"] for o in schema()["options"] if o["class"] == "presentation"]
         self.assertEqual(list(table["presentation"]), presentation)
-        self.assertEqual(presentation[:10], ["video_aspect", "floppy_save", "hdf_save", "video_crop", "video_crop_mode", "video_crop_delay", "video_vertical_pos",
+        self.assertEqual(presentation[:11], ["floppy_multidrive", "video_aspect", "floppy_save", "hdf_save", "video_crop", "video_crop_mode", "video_crop_delay", "video_vertical_pos",
                                             "video_horizontal_pos", "video_gamma", "video_color_depth"])
-        self.assertEqual([name for name, entry in table["presentation"].items() if entry.get("restart")], ["video_color_depth", "joyport"])
+        self.assertEqual([name for name, entry in table["presentation"].items() if entry.get("restart")], ["floppy_multidrive", "video_color_depth", "joyport"])
 
 
 if __name__ == "__main__":

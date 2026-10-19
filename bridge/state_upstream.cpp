@@ -127,6 +127,7 @@
 #include "video_present.h"
 #include "media.h"
 #include "session.h"
+#include "config.h"
 #include "blob_io.h"
 #include "overlay.h"
 
@@ -1239,7 +1240,7 @@ void put_media_in_drives()
     const MediaPlan *plan = loading_media();
     if (!plan) return;
     const ApplyScope scope(true);
-    for (int n = 0; n < 2; ++n) {       // DF0 and DF1: the others are never mounted (P6BR)
+    for (int n = 0; n < int(p6_bridge::resolve_floppy_drives(p6_session::session.config)); ++n) {
         uint8_t live[64];
         size_t produced = 0;
         {
@@ -1329,7 +1330,7 @@ void visit_disk(Archive &a)
 void rebuild_disk()
 {
     const p6_session::Session &s = p6_session::session;
-    for (uint32_t n = 0; n < 2; ++n) {
+    for (uint32_t n = 0; n < p6_bridge::resolve_floppy_drives(s.config); ++n) {
         char id[p6_bridge::kMediaBlobIdBytes] = "";
         if (s.drive_media[n] >= 0) p6_bridge::media_blob_id(s.media_content_id[s.drive_media[n]], id);
         _tcscpy(changed_prefs.floppyslots[n].df, id);

@@ -318,6 +318,25 @@
       "option": "floppy_speed",
       "class": "reboot"
     },
+    "floppy_drives": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "names": {
+        "auto": 0,
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4
+      },
+      "option": "floppy_drive_count",
+      "class": "reboot"
+    },
     "video_resolution": {
       "default": 0,
       "allowed": [
@@ -348,6 +367,20 @@
     }
   },
   "presentation": {
+    "floppy_multidrive": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "disabled": 0,
+        "enabled": 1
+      },
+      "option": "floppy_multidrive",
+      "class": "presentation",
+      "restart": true
+    },
     "video_aspect": {
       "default": 0,
       "allowed": [
@@ -1828,6 +1861,34 @@
         "type": "Puae6FloppySpeed"
       },
       "libretro": "puae6_floppy_speed"
+    },
+    "floppy_drive_count": {
+      "headless": {
+        "how": "named",
+        "flag": "--floppy-drives",
+        "names": {
+          "auto": "auto",
+          "1": "1",
+          "2": "2",
+          "3": "3",
+          "4": "4"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "PhysicalFloppyDrives",
+        "type": "Puae6FloppyDrives"
+      },
+      "libretro": "puae6_floppy_drives"
+    },
+    "floppy_multidrive": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_floppy_multidrive"
     },
     "video_resolution": {
       "headless": {

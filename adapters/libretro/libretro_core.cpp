@@ -1794,6 +1794,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
     // A .uae as content lays its keys over the frontend's options (config_import.h): `core.requested` stays what the frontend holds, so that only a change in
     // the menu is reported later, and `core.settings` is what the machine runs with.
     p6_options::Settings effective = chosen;
+    bool multidrive = chosen.floppy_multidrive != 0;
     std::vector<p6_libretro::PlaylistEntry> configured_disks;
     const bool configured = game && game->path && p6_libretro::has_extension(game->path, "uae");
     if (configured) {
@@ -1803,6 +1804,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         for (const std::string &note : resolved.notes) log(RETRO_LOG_INFO, "%s", note.c_str());
         for (const std::string &warning : resolved.warnings) notify_warning("%s", warning.c_str());
         effective = resolved.settings;
+        multidrive = resolved.multidrive;
         if (!import_configuration(game, &effective, &configured_disks)) return false;
     }
     core.settings = effective;
@@ -1827,7 +1829,9 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             for (const std::string &note : resolved.notes) log(RETRO_LOG_INFO, "%s", note.c_str());
             for (const std::string &warning : resolved.warnings) notify_warning("%s", warning.c_str());
             core.settings = resolved.settings;
+            multidrive = resolved.multidrive;
         }
+        if (multidrive && core.settings.floppy_drive_count == 0) core.settings.floppy_drive_count = 4;
         std::vector<p6_media> manifest;
         for (const Medium &medium : core.media) {
             p6_media entry = {};
@@ -1868,6 +1872,24 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             const bool matches = core.initial_index < images.size() && images[core.initial_index].path == core.initial_path;
             if (matches) initial = core.initial_index;
             else log(RETRO_LOG_WARN, "the remembered disk %u (%s) is not in the content: starting with the first", core.initial_index, core.initial_path.c_str());
+        }
+        if (multidrive) {
+            unsigned drive = 1;
+            const unsigned connected = config.floppy_drives ? config.floppy_drives : 2;
+            for (unsigned i = 0; i < images.size() && drive < connected; ++i) {
+                if (i == initial || !core.media[images[i].medium].save_name.empty()) continue;
+                p6_media_event event = {};
+                event.abi_version = P6_ABI_VERSION;
+                event.struct_size = sizeof event;
+                event.type = P6_MEDIA_EVENT_MOUNT;
+                event.drive = drive;
+                event.media_index = images[i].medium;
+                event.sequence = ++core.event_sequence;
+                error = make_error();
+                const p6_result mounted = p6_media_event_enqueue(&event, &error);
+                if (mounted != P6_OK) { report("p6_media_event_enqueue", mounted, error); stop_image(); return false; }
+                log(RETRO_LOG_INFO, "DF%u: medium %u inserted (MultiDrive)", drive++, images[i].medium);
+            }
         }
         core.tray.start(std::move(images), initial);      // the first boundary mounts it: events before the first unit are the power-on disks
     } catch (const std::bad_alloc &) {

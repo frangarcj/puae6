@@ -135,6 +135,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	// The floppy speed (T62): the numbers of config/schema/options.json (0 is the profile's own, the real drive).
 	static byte FloppySpeedNumber(Puae6FloppySpeed speed) => speed switch { Puae6FloppySpeed.P200 => (byte)2, Puae6FloppySpeed.P400 => (byte)3, Puae6FloppySpeed.P800 => (byte)4, Puae6FloppySpeed.Turbo => (byte)5, _ => (byte)0 };
+	static byte FloppyDrivesNumber(Puae6FloppyDrives drives) => drives switch { Puae6FloppyDrives.One => (byte)1, Puae6FloppyDrives.Two => (byte)2, Puae6FloppyDrives.Three => (byte)3, Puae6FloppyDrives.Four => (byte)4, _ => (byte)0 };
+	int ConnectedFloppyDrives => _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? Math.Max(2, _syncSettings.FloppyDrives) : FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
 
 	// The raster (T72): the numbers of config/schema/options.json (0 is the profile's own, hires and double lines).
 	static byte VideoResolutionNumber(Puae6VideoResolution resolution) => resolution switch { Puae6VideoResolution.Lores => (byte)1, Puae6VideoResolution.SuperHires => (byte)3, _ => (byte)0 };
@@ -178,14 +180,14 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	bool _capsLatched, _capsHeld;               // the Caps Lock latch, and whether the button was down in the previous frame
 	// Media: the disk in each drive (an index into the media, -1 empty), what Next Drive and Next Slot selected, whether each disk button was down in the
 	// previous frame (a press is an edge: a held button does not repeat) and the last sequence number given to the machine, which only ever grows.
-	const int Drives = 2;
+	const int Drives = 4;
 	readonly List<byte[]> _media;
 	readonly IReadOnlyList<string> _mediaNames;
 	// The hard files (T63b), as the core was given them: the bases of the SaveRam's diff and what the media hash covers. They are mounted at power-on and are the p6 media after the floppies
 	// (the index of hard file n in p6w_media_export and the write status is _media.Count + n); the guest keeps the writes in its overlay, so these arrays never change.
 	readonly List<byte[]> _hardFiles;
 	readonly IReadOnlyList<string> _hardFileNames;
-	readonly int[] _driveDisk = [ -1, -1 ];
+	readonly int[] _driveDisk = [ -1, -1, -1, -1 ];
 	int _currentDrive, _currentSlot;
 	bool _ejectHeld, _insertHeld, _slotHeld, _driveHeld;
 	ulong _mediaSequence;
@@ -218,6 +220,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_syncSettings = parameters.SyncSettings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
 		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
+		if (!Enum.IsDefined(typeof(Puae6FloppyDrives), _syncSettings.PhysicalFloppyDrives)) throw new ArgumentException("unknown physical floppy drive setting", nameof(parameters));
+		if (_syncSettings.FloppyDrives > ConnectedFloppyDrives) throw new ArgumentException("more boot disks than connected floppy drives", nameof(parameters));
 		if (parameters.Media.Count > P6.MaxMedia) throw new ArgumentException($"at most {P6.MaxMedia} disks are supported", nameof(parameters));
 		foreach (var disk in parameters.Media)
 			// A floppy image is a plain ADF or (T57, T58) an extended ADF, an FDI or an IPF, read only; the guest's bridge says which and why not (WRONG_MEDIA with the reason), here only the cap that keeps the sealed heap's budget.
@@ -265,7 +269,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		{
 			_guest = guest;
 			_mediaSequence = 0;
-			_driveDisk[0] = _driveDisk[1] = -1;
+			for (int i = 0; i < Drives; ++i) _driveDisk[i] = -1;
 			_imported = imported;
 			InitializeMachine(_parameters.Firmware, guestMedia, guestHardFiles);
 			MountBootDisks();
@@ -329,6 +333,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
 		init.Config.SoundFilterType = SoundFilterTypeNumber(_syncSettings.SoundFilterType);
 		init.Config.FloppySpeed = FloppySpeedNumber(_syncSettings.FloppySpeed);
+		init.Config.FloppyDrives = FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
+		if (init.Config.FloppyDrives == 0 && _syncSettings.FloppyDrives > 2) init.Config.FloppyDrives = (byte)_syncSettings.FloppyDrives;
 		init.Config.VideoResolution = VideoResolutionNumber(_syncSettings.VideoResolution);
 		init.Config.VideoLineMode = VideoLineModeNumber(_syncSettings.VideoLineMode);
 		fixed (byte* rom = firmware)
@@ -384,7 +390,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		bool eject = controller.IsPressed(Controllers.EjectDisk), insert = controller.IsPressed(Controllers.InsertDisk);
 		if (drive && !_driveHeld)
 		{
-			_currentDrive = (_currentDrive + 1) % _syncSettings.FloppyDrives;
+			_currentDrive = (_currentDrive + 1) % (_syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? _syncSettings.FloppyDrives : ConnectedFloppyDrives);
 			CoreComm.Notify($"Selected drive DF{_currentDrive}: {(_driveDisk[_currentDrive] < 0 ? "empty" : DiskName(_driveDisk[_currentDrive]))}", 4);
 		}
 		if (slot && !_slotHeld)
@@ -436,6 +442,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (sound.Length != 0) memory += ";sound=" + sound.Substring(1);
 		// And for the floppy speed (T62): the native config hash carries it off the real drive's speed, and when every transfer ends depends on it.
 		if (_syncSettings.FloppySpeed != Puae6FloppySpeed.P100) memory += ";floppyspeed=" + _syncSettings.FloppySpeed;
+		if (ConnectedFloppyDrives != 2) memory += ";physicaldrives=" + ConnectedFloppyDrives;
 		// And for the raster (T72): the resolution and the line mode are the engine's own and change the picture the machine draws and the state it goes on from; a core at the profile's raster keeps its identity.
 		if (_syncSettings.VideoResolution != Puae6VideoResolution.Hires) memory += ";resolution=" + _syncSettings.VideoResolution;
 		if (_syncSettings.VideoLineMode != Puae6VideoLineMode.Double) memory += ";linemode=" + _syncSettings.VideoLineMode;
@@ -703,7 +710,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	sealed class WrapperState
 	{
-		public int Frame, LagCount, BufferWidth, BufferHeight, VsyncNumerator, VsyncDenominator, AspectNum, AspectDen, MouseX, MouseY, Disk0, Disk1, CurrentDrive, CurrentSlot;
+		public int Frame, LagCount, BufferWidth, BufferHeight, VsyncNumerator, VsyncDenominator, AspectNum, AspectDen, MouseX, MouseY, Disk0, Disk1, Disk2, Disk3, CurrentDrive, CurrentSlot;
 		public bool IsLagFrame, DriveLightOn, MouseKnown, CapsLatched, CapsHeld, EjectHeld, InsertHeld, SlotHeld, DriveHeld;
 		public long CycleCount;
 		public ulong MediaSequence;
@@ -714,7 +721,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		Frame = Frame, LagCount = LagCount, IsLagFrame = IsLagFrame, CycleCount = CycleCount, BufferWidth = BufferWidth, BufferHeight = BufferHeight,
 		VsyncNumerator = VsyncNumerator, VsyncDenominator = VsyncDenominator, AspectNum = _aspectNum, AspectDen = _aspectDen, DriveLightOn = DriveLightOn,
 		MouseKnown = _mouseKnown, MouseX = _mouseReferenceX, MouseY = _mouseReferenceY, CapsLatched = _capsLatched, CapsHeld = _capsHeld,
-		Disk0 = _driveDisk[0], Disk1 = _driveDisk[1], CurrentDrive = _currentDrive, CurrentSlot = _currentSlot,
+		Disk0 = _driveDisk[0], Disk1 = _driveDisk[1], Disk2 = _driveDisk[2], Disk3 = _driveDisk[3], CurrentDrive = _currentDrive, CurrentSlot = _currentSlot,
 		EjectHeld = _ejectHeld, InsertHeld = _insertHeld, SlotHeld = _slotHeld, DriveHeld = _driveHeld, MediaSequence = _mediaSequence,
 	};
 
@@ -723,7 +730,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		w.Write(s.Frame); w.Write(s.LagCount); w.Write(s.IsLagFrame); w.Write(s.CycleCount);
 		w.Write(s.BufferWidth); w.Write(s.BufferHeight); w.Write(s.VsyncNumerator); w.Write(s.VsyncDenominator); w.Write(s.AspectNum); w.Write(s.AspectDen); w.Write(s.DriveLightOn);
 		w.Write(s.MouseKnown); w.Write(s.MouseX); w.Write(s.MouseY); w.Write(s.CapsLatched); w.Write(s.CapsHeld);
-		w.Write(s.Disk0); w.Write(s.Disk1); w.Write(s.CurrentDrive); w.Write(s.CurrentSlot);
+		w.Write(s.Disk0); w.Write(s.Disk1); w.Write(s.Disk2); w.Write(s.Disk3); w.Write(s.CurrentDrive); w.Write(s.CurrentSlot);
 		w.Write(s.EjectHeld); w.Write(s.InsertHeld); w.Write(s.SlotHeld); w.Write(s.DriveHeld); w.Write(s.MediaSequence);
 	}
 
@@ -737,7 +744,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 				Frame = r.ReadInt32(), LagCount = r.ReadInt32(), IsLagFrame = r.ReadBoolean(), CycleCount = r.ReadInt64(),
 				BufferWidth = r.ReadInt32(), BufferHeight = r.ReadInt32(), VsyncNumerator = r.ReadInt32(), VsyncDenominator = r.ReadInt32(), AspectNum = r.ReadInt32(),
 				AspectDen = r.ReadInt32(), DriveLightOn = r.ReadBoolean(), MouseKnown = r.ReadBoolean(), MouseX = r.ReadInt32(), MouseY = r.ReadInt32(),
-				CapsLatched = r.ReadBoolean(), CapsHeld = r.ReadBoolean(), Disk0 = r.ReadInt32(), Disk1 = r.ReadInt32(), CurrentDrive = r.ReadInt32(), CurrentSlot = r.ReadInt32(),
+				CapsLatched = r.ReadBoolean(), CapsHeld = r.ReadBoolean(), Disk0 = r.ReadInt32(), Disk1 = r.ReadInt32(), Disk2 = r.ReadInt32(), Disk3 = r.ReadInt32(), CurrentDrive = r.ReadInt32(), CurrentSlot = r.ReadInt32(),
 				EjectHeld = r.ReadBoolean(), InsertHeld = r.ReadBoolean(), SlotHeld = r.ReadBoolean(), DriveHeld = r.ReadBoolean(), MediaSequence = r.ReadUInt64(),
 			};
 		}
@@ -747,7 +754,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		}
 		bool ok = s.Frame >= 0 && s.LagCount >= 0 && s.BufferWidth is >= 0 and <= MaxWidth && s.BufferHeight is >= 0 and <= MaxHeight && s.VsyncNumerator > 0 && s.VsyncDenominator > 0
 			&& s.AspectNum > 0 && s.AspectDen > 0 && s.Disk0 >= -1 && s.Disk0 < _media.Count && s.Disk1 >= -1 && s.Disk1 < _media.Count
-			&& s.CurrentDrive >= 0 && s.CurrentDrive < _syncSettings.FloppyDrives && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count);
+			&& s.Disk2 >= -1 && s.Disk2 < _media.Count && s.Disk3 >= -1 && s.Disk3 < _media.Count
+			&& (ConnectedFloppyDrives > 1 || s.Disk1 == -1)
+			&& (ConnectedFloppyDrives > 2 || s.Disk2 == -1) && (ConnectedFloppyDrives > 3 || s.Disk3 == -1)
+			&& s.CurrentDrive >= 0 && s.CurrentDrive < ConnectedFloppyDrives && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count);
 		if (!ok) throw new StateRejectedException(StateRejection.BadFields, "the state has a field that this machine cannot have");
 		return s;
 	}
@@ -758,7 +768,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		BufferWidth = s.BufferWidth; BufferHeight = s.BufferHeight; VsyncNumerator = s.VsyncNumerator; VsyncDenominator = s.VsyncDenominator;
 		_aspectNum = s.AspectNum; _aspectDen = s.AspectDen; DriveLightOn = s.DriveLightOn;
 		_mouseKnown = s.MouseKnown; _mouseReferenceX = s.MouseX; _mouseReferenceY = s.MouseY; _capsLatched = s.CapsLatched; _capsHeld = s.CapsHeld;
-		_driveDisk[0] = s.Disk0; _driveDisk[1] = s.Disk1; _currentDrive = s.CurrentDrive; _currentSlot = s.CurrentSlot;
+		_driveDisk[0] = s.Disk0; _driveDisk[1] = s.Disk1; _driveDisk[2] = s.Disk2; _driveDisk[3] = s.Disk3; _currentDrive = s.CurrentDrive; _currentSlot = s.CurrentSlot;
 		_ejectHeld = s.EjectHeld; _insertHeld = s.InsertHeld; _slotHeld = s.SlotHeld; _driveHeld = s.DriveHeld; _mediaSequence = s.MediaSequence;
 		_soundFrames = 0;                          // pending output of the timeline that was left is not part of this one
 	}

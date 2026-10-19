@@ -426,7 +426,7 @@ class AdaptersAgree(Schema):
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
         self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
-                                    "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "video_resolution": 0, "video_line_mode": 0})
+                                    "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "floppy_drives": 0, "video_resolution": 0, "video_line_mode": 0})
         for field, value in defaults.items():
             name = self.table["p6_config"][field]["option"]
             extras = self.table["adapters"][name].get("libretro_extra_values")
