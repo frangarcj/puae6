@@ -14204,7 +14204,7 @@
       "steps": [
         "Implementar el adaptador paralelo de cuatro jugadores con entrada versionada compatible con ABI v1, mapeo en ambos frontends, pelicula y snapshot/restauracion real.",
         "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical.",
-        "Input ABI1/72B intacta; p6_input_v2 prefijo+dos puertos104B usa cabecera2/104, API/config/frame siguen1. Extras NONE/JOYSTICK unFire; capability explicita y validacion antes de leer cola; v1 desconecta paralelo."
+        "Input ABI1/72B intacta; p6_input_v2 de 108 B contiene prefijo de 72 B, dos puertos de 16 B y commands uint32 en offset 104; cabecera 2/108, API/config/frame siguen en 1. commands debe ser 0 en esta vertical. Extras NONE/JOYSTICK con un Fire; capability explicita y validacion antes de leer cola; v1 desconecta paralelo."
       ],
       "checks": [
         "IN01",
@@ -14763,7 +14763,7 @@
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T24"
       ],
@@ -14780,7 +14780,8 @@
         "tests/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece cartuchos y freeze. Opcional, con ROM aportada por el usuario."
+        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece cartuchos y freeze. Opcional, con ROM aportada por el usuario.",
+        "Prioridad confirmada por el usuario: primera version utilizable. Esta funcion opcional queda fuera de la ruta critica de la preview; conservar sus criterios originales para una iteracion posterior, sin presentarla como terminada."
       ],
       "checks": [
         "DET02"
@@ -14849,7 +14850,7 @@
       "stop": "No cambiar el defecto ni saltar limites de p6_run_frame.",
       "id": "T77b",
       "title": "Esperas de blitter compatibles con el limite de unidad",
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T24"
       ],
@@ -14875,7 +14876,9 @@
       ],
       "steps": [
         "No exponer waiting_blits activo hasta resolver su espera dentro de MMIO: producir caso real donde DMA supera una unidad y revisar decision de continuacion. Reservar byte69, sin cambiar defecto0.",
-        "No cortar el bucle adelantando escrituras: MOVEM y otras instrucciones con multiples accesos requieren la misma secuencia que upstream, snapshot nativo/Waterbox incluido. Implementar continuacion segura y luego opciones/frontends/tests."
+        "No cortar el bucle adelantando escrituras: MOVEM y otras instrucciones con multiples accesos requieren la misma secuencia que upstream, snapshot nativo/Waterbox incluido. Implementar continuacion segura y luego opciones/frontends/tests.",
+        "Prioridad confirmada por el usuario: primera version utilizable. Esta funcion opcional queda fuera de la ruta critica de la preview; conservar sus criterios originales para una iteracion posterior, sin presentarla como terminada.",
+        "Reproducer tests/state/test_waiting_blits.py: con A1200 Normal, blit grande y poke diagnostico waiting-blits:3 una llamada entrega mas de 1700 frames de audio stereo frente a unos 960 del defecto 0. El bucle waitingblits corre dentro de una escritura MMIO; no basta cortar x_do_cycles si MOVEM conserva accesos pendientes."
       ],
       "acceptance": [
         "waiting_blits mantiene su semantica de MMIO sin saltarse unidades ni avanzar CPU prematuramente; restaura en los modos soportados."

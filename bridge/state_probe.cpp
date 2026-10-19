@@ -763,6 +763,11 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 if (sscanf(op.chunk + 5, "%d:%d:%d", &v, &l, &h) == 3) { vpos = v; linear_vpos = l; agnus_hpos = uae_u8(h); }
             } else if (!strcmp(op.chunk, "rtc-fault")) p6_rtc_read(nullptr, 0);       // latches the clock's sticky fault, as a failed read would
             else if (!strcmp(op.chunk, "cs-rtc")) currprefs.cs_rtc = 4;               // an unsupported clock chip
+            else if (!strncmp(op.chunk, "waiting-blits:", 14)) {
+                // Reproducer only: production still refuses synchronous waits inside MMIO.
+                const unsigned mode = unsigned(strtoul(op.chunk + 14, nullptr, 10));
+                if (mode <= 3) currprefs.waiting_blits = changed_prefs.waiting_blits = int(mode);
+            }
             else if (!strcmp(op.chunk, "rtc-ricoh")) {
                 // Diagnostic-only chip selection after the reset head, until the real A4000 preset is implemented.
                 // No public configuration or frontend offers this hybrid machine.
