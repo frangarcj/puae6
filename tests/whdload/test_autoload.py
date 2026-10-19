@@ -82,6 +82,7 @@ class AutoloadTests(lr.LibretroHarness):
         self.assertEqual(before, content.read_bytes())
         again = self.run_pack(content, system, saves, 1)
         self.assertIn("earlier session saved", again)
+        self.assertIn("puae6-" + hashlib.sha256(images["WHDSaves.hdf"]).hexdigest()[:24] + ".hdf", again)
         assert_saved(self, images, self.exports(images, saves))
         abandoned = self.work()
         self.run_pack(content, system, abandoned, END, *options, "--do", f"{SAVE}:save:s", "--do", f"{END}:load:s")
