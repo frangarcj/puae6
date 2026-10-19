@@ -61,7 +61,14 @@ class RicohChunkTests(ProbeCase):
         self.assertEqual([ram[0]] * 13 + [0, 0, 0], ram)
 
     def test_restore_same_and_new_process_preserves_all_subsystems_and_future(self):
-        _, path, _ = self.table()
+        _, path, saved = self.table()
+        later = self.dir / "ricoh-later.state"
+        saved_later = self.probe("ricoh", "--units", "6", "--save-at", "6", str(later))
+        self.assertFalse(saved_later.save_errors)
+        self.assertEqual(1, len(saved_later.saves))
+        self.assertEqual(saved.saves[0][3], saved_later.saves[0][3], "the RTC state bound stays constant")
+        self.assertLessEqual(len(path.read_bytes()), saved.saves[0][3])
+        self.assertLessEqual(len(later.read_bytes()), saved_later.saves[0][3])
         control = self.probe("ricoh", "--units", "8", "--every", "1")
         for loaded in (2, 6):
             with self.subTest(load_at=loaded):
