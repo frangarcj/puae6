@@ -21,6 +21,10 @@ static std::string unhex(const std::string &s)
 int main(int argc, char **argv) try
 {
     if (argc == 3 && std::string(argv[1]) == "sha1") { std::cout << whdload_sha1(read(argv[2])) << '\n'; return 0; }
+    if (argc == 4 && std::string(argv[1]) == "zipkind") {
+        const auto bytes = read(argv[2]);
+        std::cout << (zip_is_volume(bytes) || (std::string(argv[3]) == "auto" && zip_has_whdload_slave(bytes)) ? "volume" : "disk") << '\n'; return 0;
+    }
     if (argc == 3 && std::string(argv[1]) == "provider") {
         WhdLoadContent pack;
         std::string why;

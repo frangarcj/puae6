@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from tests.whdload import support
 from tests.whdload.test_cpp_bundle import BUILD, TOOL, CppBundleTests
 from tests.whdload.test_bundle import SAVE, END, RMB_AT, RMB_UNTIL, SCORE_FIRE, SCORE_UNTIL, assert_saved
@@ -30,6 +31,16 @@ class ProviderTests(unittest.TestCase):
                 path.write_bytes(data)
                 result = subprocess.run([str(TOOL), "sha1", str(path)], capture_output=True, text=True, check=True, timeout=20)
                 self.assertEqual(hashlib.sha1(data).hexdigest(), result.stdout.strip())
+
+    def test_auto_zip_with_slave_and_adf_is_a_pack_disabled_preserves_disk_detection(self):
+        with tempfile.TemporaryDirectory(dir=BUILD) as temp:
+            path = Path(temp) / "pack.zip"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("Game/A.slave", b"slave")
+                archive.writestr("Game/Data/disk.adf", b"game data")
+            for mode, expected in (("auto", "volume"), ("disabled", "disk")):
+                out = subprocess.run([str(TOOL), "zipkind", str(path), mode], check=True, capture_output=True, text=True, timeout=20)
+                self.assertEqual(expected, out.stdout.strip())
 
     def test_missing_and_modified_provider_fail_clearly(self):
         with tempfile.TemporaryDirectory(dir=BUILD) as temp:

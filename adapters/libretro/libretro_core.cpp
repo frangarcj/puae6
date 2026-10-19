@@ -1023,7 +1023,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
             notify_error("disk %zu (%s): %s", i + 1, entry.path.c_str(), describe(read));
             return false;
         }
-        if (zipped && member.empty() && zip_is_volume(first.bytes)) {
+        if (zipped && member.empty() && (zip_is_volume(first.bytes) || (core.settings.whdload && zip_has_whdload_slave(first.bytes)))) {
             if (!load_volume(entry.path, i, VolumeSource::Zip, &first.bytes, &hard_files, &hard_bytes, pack)) return false;
             continue;
         }

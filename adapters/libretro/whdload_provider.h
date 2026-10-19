@@ -9,6 +9,15 @@ struct WhdLoadContent {
     std::vector<uint8_t> program, vfs;
     bool active() const { return !files.empty(); }
 };
+inline bool zip_has_whdload_slave(const std::vector<uint8_t> &bytes)
+{
+    container_detail::ZipDirectory directory;
+    std::string why;
+    if (!container_detail::read_zip_directory(bytes, &directory, &why)) return false;
+    for (const auto &entry : directory.entries)
+        if (!container_detail::zip_entry_ignored(entry) && container_detail::lower_extension(entry.name) == "slave") return true;
+    return false;
+}
 
 // SHA-1 is used only to recognize the public Kickstart names of the T65a recipe.
 // Message length, padding and words follow FIPS 180-4; no OS crypto dependency.
