@@ -13218,11 +13218,13 @@
         "bridge/state_probe.cpp",
         "tools/check.py",
         "tools/generate_options.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "adapters/headless/**"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece hasta DF3 y el tag (MD). Unidades DF2/DF3 como configuracion de reinicio y carga de varios discos a la vez.",
-        "Task force: DF2/DF3 ya caben en arrays y DSKX pero media/estado los rechazan; ampliar esas rutas de forma atomica. floppy_drives consume byte67 de p6_config (sizeof72), CPU conserva byte66; actualizar C#/layout/fuzz. Cero/2 conserva dos drives y la identidad anterior; 3/4 es opcion Restart con hash derivado. El coordinador integra y serializa builds pesados."
+        "Task force: DF2/DF3 ya caben en arrays y DSKX pero media/estado los rechazan; ampliar esas rutas de forma atomica. floppy_drives consume byte67 de p6_config (sizeof72), CPU conserva byte66; actualizar C#/layout/fuzz. Cero/2 conserva dos drives y la identidad anterior; 3/4 es opcion Restart con hash derivado. El coordinador integra y serializa builds pesados.",
+        "Exponer --floppy-drives en headless desde el mismo esquema/byte67, ademas de libretro y C#, para mantener las superficies coherentes."
       ],
       "checks": [
         "MED01",
