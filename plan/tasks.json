@@ -14670,6 +14670,41 @@
       "stop": "No sustituir ejecucion Waterbox por nativo ni snapshot/rebind por prueba del callback aislado; no anunciar CD32 aun."
     },
     {
+      "id": "T66g1",
+      "title": "Adaptar TOC y subcanales normalizados al contrato real de Akiko",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_akiko.h",
+        "ports/portable/media/cd_akiko.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Convertir Layout validado a cd_toc_head real de blkdev.h, con A0/pistas/A1/A2, indices/ADR/control y leadout siguiendo command_toc6030. Es metadata derivada, sin nuevo estado ni copia de CD. No inventar drive fisico ni stubs de play soportado.",
+        "Entregar subcanales96deinterleaved o SUBQ_SIZE16 (cabeceraestado+Q12) desde Disc2448 con staging constante y status explicito del llamante. ISO sin subcanales devuelve Unsupported: no sintetizar Q incorrecto ni inferir estado de CDDA inexistente.",
+        "Reutilizar probe real Disc/encode_l20355 y tipos upstream fijados. Probar ordenTOC mixto y99tracks, indices/pregaps, controlmask, leadout, Qexacta/errores/canarios y bufferscortos. MED01dirigido, sin engine ni guest. No cerrar backendCD32/CDDA/NVRAM ni soporte de formatos del padre."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El contrato de TOC/Q que consume Akiko se obtiene de la fuente normalizada sin perdida de pistas ni alteracion de bytes y falla claramente para vistas no disponibles."
+      ],
+      "stop": "No presentar traduccion estatica de metadata como arranque CD32 ni inventar subcanales para superar pruebas."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -14684,7 +14719,8 @@
         "T66c",
         "T66d2",
         "T66e2",
-        "T66f1"
+        "T66f1",
+        "T66g1"
       ],
       "read": [
         "docs/01-architecture.md",
