@@ -66,6 +66,10 @@ class WrapperZ3Tests(unittest.TestCase):
                         a = self.digests(out, "A")
                         self.assertEqual(a["first"], a["second"])
                         self.assertEqual(a["first"], self.digests(out, "B")["third"])
+                        units = base.WrapperCpuTests.units(out, "A")
+                        future = [row[1:] for row in units[12:12+follow]]
+                        self.assertEqual(future, [row[1:] for row in units[-follow:]])
+                        self.assertEqual(future, [row[1:] for row in base.WrapperCpuTests.units(out, "B")])
                         self.assertRegex(out, r"rejected C s reason=OtherHeaps")
                         self.assertEqual(self.digests(out, "C")["before"], self.digests(out, "C")["after"])
                         if mib == 16:
@@ -74,6 +78,7 @@ class WrapperZ3Tests(unittest.TestCase):
                         fresh = self.session([self.core("D", *settings, machine="a4030"), f"loadfile D {state}",
                                               f"run D {follow}", "digest D fourth"], rom)
                         self.assertEqual(a["first"], self.digests(fresh, "D")["fourth"])
+                        self.assertEqual(future, [row[1:] for row in base.WrapperCpuTests.units(fresh, "D")])
                     finally:
                         # Each session process disposes its sandboxes; don't retain large states between capacities.
                         state.unlink(missing_ok=True)

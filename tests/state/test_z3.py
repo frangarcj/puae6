@@ -38,6 +38,9 @@ def program(z2, mib=16):
                         for i, offset in enumerate((0, 2, 8, 10)))
     end = 0x22000000 + (mib << 20) - 4
     steps[3] = steps[3].replace("$22FFFFFC", f"${end:08X}").replace("$22FF,$FFFC", f"${end >> 16:04X},${end & 0xffff:04X}")
+    if mib < 16:
+        # The unpopulated part of the16MiB window must not mirror allocated RAM.
+        steps[3] = steps[3].replace("    .word $2039,$2200,$0000", f"    MOVE.L #$AABBCCDD,${end+4:08X}.L\n    .word $2039,$2200,$0000")
     for n, step in enumerate(steps):
         text += delay(n, 20000) + step
     return text + "loop:\n    ADDQ.L #1,D1\n    BRA.S loop\n"

@@ -12958,7 +12958,7 @@
       "title": "Completar todos los tamanos Z3 de referencia en nativo y Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T55c2",
         "T55c3"
@@ -12994,7 +12994,8 @@
         "Actualizar esquema y generar salidas; headless/libretro/C# atomicos, memoria visible e identidad por tamano. Restauracion real Waterbox mismo/nuevo sandbox y proceso, rechazo de tamano diferente sin mutar. Reutilizar las pruebas c2/c3 parametrizadas, sin multiplicar todas sus ventanas para cada capacidad.",
         "Presupuesto Waterbox extra=RAMsolicitada y mmap mantiene margen2x; medir consumo comprometido real para todos los tamanos con el guest actual, sin rebajar margenes ni reetiquetar dataset historico. Una compilacion integrada -j2 antes de union de checks dirigidos.",
         "Alcance estimado350-400lineas manuales en varios adaptadores/tests coherentes; salidas generadas excluidas. Si necesita mas o parche motor nuevo, revisar division antes de ampliar. T55c conserva040/060, firmware real y todos sus checks/aceptacion.",
-        "La prueba dirigida localiza rechazo de todos los tamanos nuevos en la guarda portable de main.cpp del parche0351, limitada a16MiB. Ampliar explicitamente mediante0373 solo esa guarda a potencias de dos1..512MiB; conservar limites de CPU/mapa/una placa y clasificacion REF01 inerte fueraA4030. No cambiar el motor/autoconfig ni el limite de400lineas; ampliar zonas patches y clasificacion antes de editar."
+        "La prueba dirigida localiza rechazo de todos los tamanos nuevos en la guarda portable de main.cpp del parche0351, limitada a16MiB. Ampliar explicitamente mediante0373 solo esa guarda a potencias de dos1..512MiB; conservar limites de CPU/mapa/una placa y clasificacion REF01 inerte fueraA4030. No cambiar el motor/autoconfig ni el limite de400lineas; ampliar zonas patches y clasificacion antes de editar.",
+        "Cierre dirigido: GEN01/ABI01, saneador/clasificacion/plan115tests; DET02 nativo3tests con todos los tamanos y Auto/None, mas corte dirigido1/2/4/8 tras añadir escritura fuera de subsize; LR01 3tests; WB03/PERF01 2tests reales sin skips. Guest345a4b3671fd4dba y91fuentes verificados:10capacidades, restauracion mismo/nuevo sandbox/proceso y PCM/video futuro. Mmap512:551387136bytes comprometidos de1107296256; todos los heaps cumplen margen2x en seal/primera/ultima unidad. Sin modificar measured* historico ni cerrar firmwareA4000/040/060."
       ],
       "checks": [
         "GEN01",
@@ -13052,7 +13053,8 @@
         "Generacion/enlace sin MMU se separa enT55c1, sobre la plataforma030 deT55b1. El padre conserva CPU040/060/FPU/estado, A4040, Z3, frontends, presupuestos y sus checks/aceptacion completos, incluidoT55b.",
         "Fast Z3 avanza sobre la plataforma sintetica A4030 mediante T55c2/c3,16MiB primero. Los otros tamanos de la referencia, 040/060/FPU/estado y firmware real permanecen en el alcance original y no se consideran satisfechos por esas hojas.",
         "T55c4 separa el estado privado causal de FPU040/060 sobreT54/T55c1, independiente del firmware pendienteT55b. El padre conserva su aceptacion y todos sus checks: controlesCPU/P6CP, FRESTORE040 incompleto upstream, A4040/frontends, todos los tamanosZ3 y presupuesto/firmware reales. No cerrar por generacion ni por el codec privado.",
-        "T55c5 completa todos los tamanos Z3 restantes y sus frontends/presupuestos como vertical unica; no divide por capacidad ni elimina la puerta original del padre."
+        "T55c5 completa todos los tamanos Z3 restantes y sus frontends/presupuestos como vertical unica; no divide por capacidad ni elimina la puerta original del padre.",
+        "Antes del cierre del padre, extender de forma coherente el oraculo FUZZ01 a A4030/CPU030/FPU/IDE/memoria y Z3: actualmente machine_accepted del fuzzer solo cubre1..8 y z3_memory<=1. Las pruebas dirigidas de T55c5 no atribuyen cobertura fuzz a los nuevos perfiles."
       ],
       "checks": [
         "GEN01",
