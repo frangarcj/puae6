@@ -2,7 +2,7 @@ using System.Text;
 using BizHawk.Emulation.DiscSystem;
 using Puae6;
 
-static class Program
+internal static unsafe partial class Program
 {
  static void Require(bool value) { if (!value) throw new Exception("CD source assertion failed"); }
  static Disc Mount(string path)
@@ -86,5 +86,8 @@ static class Program
   Require(raw.ReadSector(0, 2352, output) && output.AsSpan(0, 2352).SequenceEqual(mode2));
   Refused(output, () => raw.ReadSector(0, 2048, output));
  }
- static void Main(string[] args) { Iso(args[0]); Cue(args[0]); Console.WriteLine("DiscSystem ISO/CUE offset, identity and rebind PASS"); }
+ static void Main(string[] args) {
+  if (args.Length > 1) { Waterbox(args); return; }
+  Iso(args[0]); Cue(args[0]); Console.WriteLine("DiscSystem ISO/CUE offset, identity and rebind PASS");
+ }
 }

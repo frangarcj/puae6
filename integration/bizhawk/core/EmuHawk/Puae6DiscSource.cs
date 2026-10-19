@@ -24,6 +24,16 @@ internal sealed class Puae6DiscSource
  internal int Leadout { get; }
  internal ulong Length => (ulong)Leadout * 2448;
  internal byte[] ContentId => (byte[])identity.Clone();
+ internal unsafe P6CdInfo Descriptor()
+ {
+  var result = new P6CdInfo { Version = 1, Size = (uint)sizeof(P6CdInfo), Bytes = Length, Count = (uint)tracks.Length, Leadout = (uint)Leadout };
+  for (int i = 0; i < 32; ++i) result.Id[i] = identity[i];
+  for (int i = 0; i < tracks.Length; ++i) {
+   var t = tracks[i]; uint* p = result.Tracks + i * 6;
+   p[0] = (uint)t.Index0; p[1] = (uint)t.Index1; p[2] = (uint)t.End; p[3] = (uint)t.Mode; p[4] = (uint)t.Control;
+  }
+  return result;
+ }
 
  internal Puae6DiscSource(Disc disc)
  {

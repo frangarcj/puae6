@@ -33,6 +33,8 @@ internal static unsafe partial class Program
 			switch (args.FirstOrDefault())
 			{
 				case "layout": Layout(); break;
+                case "cdlayout": Require(sizeof(P6CdInfo) == 2432 && Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Bytes)).ToInt64() == 40
+                    && Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Tracks)).ToInt64() == 56, "private CD layout"); break;
 				case "cd32log": Cd32Log(); break; // Controller definition / real BK2 log, no sandbox.
 				case "mouse2log": Mouse2Log(); break;
 				case "pointerlog": PointerLog(); break;

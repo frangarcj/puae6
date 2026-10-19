@@ -968,6 +968,16 @@ cambia lector si coincide; no usa el hash parcial de512 sectores de BizHawk.
 La lectura es de un solo hilo, sin callbacks guest. ISO/CUE BIN/WAV PCM se prueban
 con parsers reales; CHD Darwin requiere aun una biblioteca ARM64 real fijada.
 
+T66f1 transporta esa fuente al guest mediante extension privada `p6w_cd.h`
+(descriptor version1/2432B), sin cambiar ABI1 ni layout31. Bind/rebind validan
+ID, longitud y TOC completos antes de publicar Source/Disc/callback; slot0 se
+registra antes de BizInvoker y permanece vivo en Puae6Guest. Solo se copian
+metadatos y lecturas de hasta2448B mediante CopyFromExternal al staging guest.
+StateEnvelope rechaza identidad ajena antes del restore; despues se exige
+rebind identico y cualquier fallo impide leer hasta un restore completo.
+El descriptor es estado ordinario; los bindings se derivan de nuevo, sin
+punteros C# guardados. Esto no instala carga CD32 ni un scheduler Akiko.
+
 Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro por el controlador UAE (`uaehf.device` y la placa UAEFS, como
 PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256
 de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs (`P6_BLOB_HDF`, `p6_blob_pread`: lectura por offset de la base inmutable, sin cursor ni fichero del

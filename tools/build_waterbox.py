@@ -661,7 +661,7 @@ def puae6_sources() -> list[str]:
     sources = ([f"build/upstream/{unit}" for unit in selection["upstream_units"]]
                + [f"build/generated/{unit}" for unit in selection["generated_units"]]
                + cmake_sources("p6_portable") + cmake_sources("p6_bridge")
-               + ["adapters/waterbox/abi_probe.cpp", "adapters/waterbox/puae6_guest.cpp"])
+               + ["adapters/waterbox/abi_probe.cpp", "adapters/waterbox/puae6_guest.cpp", "adapters/waterbox/cd_source.cpp"])
     if len(sources) != len(set(sources)):
         raise BuildError("fuentes duplicadas en la lista de puae6.wbx")
     missing = [source for source in sources if not (ROOT / source).is_file()]

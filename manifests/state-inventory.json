@@ -374,6 +374,23 @@
       "evidence": [
         "tests/audio/test_drive_sound.py"
       ]
+    },
+    {
+      "id": "waterbox-cd-source",
+      "subsystem": "media",
+      "symbols": [
+        "cd_disc",
+        "cd_source",
+        "cd_callback",
+        "cd_bound"
+      ],
+      "owner": "adapters/waterbox/cd_source.cpp",
+      "at_load": "Created once per fresh sandbox, independent of p6 engine load/unload. Immutable CD identity/TOC are ordinary snapshotted state; Source/Disc bindings and slot0 thunk are derived. Restore validates StateEnvelope and rebinds identical metadata before access. No CD image or host context pointer is stored.",
+      "survives_unload": true,
+      "status": "rebuilt",
+      "evidence": [
+        "tests/waterbox-media/test_cd_source.py"
+      ]
     }
   ],
   "savestate": {

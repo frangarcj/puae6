@@ -57,7 +57,8 @@
     "native2amiga.cpp",
     "traps.cpp",
     "uaeresource.cpp",
-    "def_icons.cpp"
+    "def_icons.cpp",
+    "cdrom.cpp"
   ],
   "selection": {
     "status": "requires-port-patches-and-link-proof",
@@ -102,7 +103,8 @@
       "native2amiga.cpp",
       "traps.cpp",
       "uaeresource.cpp",
-      "def_icons.cpp"
+      "def_icons.cpp",
+      "cdrom.cpp"
     ],
     "generated_units": [
       "cpudefs.cpp",

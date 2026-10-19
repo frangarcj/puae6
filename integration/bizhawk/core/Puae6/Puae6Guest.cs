@@ -13,7 +13,7 @@ using BizHawk.Emulation.Cores.Waterbox;
 namespace Puae6;
 
 /// <summary>The exports of puae6.wbx that the wrapper calls (adapters/waterbox/p6w.h). Pointers are sandbox or host addresses as the header says.</summary>
-public abstract class LibPuae6
+public abstract partial class LibPuae6
 {
 	public const CallingConvention CC = CallingConvention.Cdecl;
 
@@ -62,18 +62,20 @@ public sealed class Puae6Guest : IDisposable
 	public WaterboxHost Host { get; }
 	public LibPuae6 Lib { get; }
 	public GuestIdentity.VerifiedGuest Identity { get; }
+	public P6CdHost? Cd { get; }
 
-	Puae6Guest(WaterboxHost host, LibPuae6 lib, GuestIdentity.VerifiedGuest identity)
+	Puae6Guest(WaterboxHost host, LibPuae6 lib, GuestIdentity.VerifiedGuest identity, P6CdHost? cd)
 	{
 		Host = host;
 		Lib = lib;
 		Identity = identity;
+		Cd = cd;
 	}
 
 	/// <param name="directory">Where <paramref name="fileName"/> is.</param>
 	/// <param name="pinnedSha256">SHA-256 of the guest this wrapper was built with.</param>
 	/// <param name="heaps">Heap sizes, which are part of what a snapshot is compatible with; <c>Path</c> and <c>Filename</c> are set here.</param>
-	public static Puae6Guest Open(string directory, string fileName, string pinnedSha256, WaterboxOptions heaps)
+	public static Puae6Guest Open(string directory, string fileName, string pinnedSha256, WaterboxOptions heaps, P6CdHost? cd = null)
 	{
 		var identity = GuestIdentity.Verify(Path.Combine(directory, fileName), pinnedSha256);
 		var options = new WaterboxOptions
@@ -88,11 +90,12 @@ public sealed class Puae6Guest : IDisposable
 			LibPuae6 lib;
 			using (host.EnterExit())
 			{
-				var adapter = CallingConventionAdapters.MakeWaterbox([ ], host);
+				var adapter = CallingConventionAdapters.MakeWaterbox(cd?.Callbacks(host) ?? [], host);
 				lib = BizInvoker.GetInvoker<LibPuae6>(host, host, adapter);
 			}
-			var guest = new Puae6Guest(host, lib, identity);
+			var guest = new Puae6Guest(host, lib, identity, cd);
 			guest.CheckLayout();
+			cd?.Attach(guest);
 			return guest;
 		}
 		catch
