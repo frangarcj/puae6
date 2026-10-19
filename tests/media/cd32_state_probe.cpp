@@ -31,6 +31,15 @@ static p6_frame step()
     auto e=error(); p6_frame frame{P6_ABI_VERSION,sizeof frame};
     call(p6_run_frame(&input,P6_RENDER_VIDEO|P6_RENDER_AUDIO,&frame,&e),e); return frame;
 }
+static void pio_command(std::initializer_list<uint8_t> bytes)
+{
+    p6_akiko_controller_state s{}; assert(p6_akiko_controller_get(&s));
+    assert(!s.cdrom_command_active && !s.cdrom_command_length);
+    for(int n=s.cdrom_receive_offset;n<s.cdrom_receive_length;++n) get_byte(AKIKO_BASE+0x28);
+    uint8_t sum=0xff;
+    for(auto byte:bytes) { put_byte(AKIKO_BASE+0x28,byte); sum-=byte; }
+    put_byte(AKIKO_BASE+0x28,sum); step();
+}
 static std::vector<uint8_t> save()
 {
     auto e=error(); uint64_t bound=0,written=0; call(p6_state_bound(&bound,&e),e);
@@ -97,10 +106,9 @@ int main(int argc,char **argv)
             if(mode==3) step();
         } else {
             // Real Akiko play request supplies its canonical ten-sector delay.
-            const uint8_t command[12]={4,0,2,0,0,2,0x20,0,0,0,0,0}; uint8_t sum=0xff;
             put_long(AKIKO_BASE+0x24,0);
-            for(auto byte:command) { put_byte(AKIKO_BASE+0x28,byte); sum-=byte; }
-            put_byte(AKIKO_BASE+0x28,sum); step();
+            pio_command({7}); // Consume startup media status and query INFO before PLAY.
+            pio_command({4,0,2,0,0,2,0x20,0,0,0,0,0});
         }
         auto component=std::make_unique<p6_akiko_state>(); assert(p6_akiko_state_get(component.get()));
         const auto &audio=component->device.audio;
