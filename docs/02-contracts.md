@@ -901,7 +901,8 @@ todo fallo conserva la salida. No añade parsers de formatos, CDDA ni CD32.
 
 T66e1 añade `adapters/libretro/cd_file.h`, proveedor nativo RAII seekable por
 VFS o stdio, separado de FileReader. Solo lectura, offsets64bit y peticiones de
-hasta64KiB con staging: short/error/rango no publican salida parcial. Cada
+hasta64KiB con staging: completa fragmentos positivos y rechaza EOF/error/rango
+sin publicar salida parcial. En VFS verifica el cursor con `tell` tras `seek`. Cada
 peticion posiciona el cursor absoluto; el binding se publica una sola vez y
 el objeto/VFS deben vivir hasta la ultima lectura. El archivo se mantiene inmutable.
 SHA256 streaming identifica todo ISO/BIN, o solo el payload WAV, sin precargarlo.

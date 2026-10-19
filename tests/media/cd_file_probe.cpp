@@ -3,7 +3,7 @@
 using namespace p6_cd;
 using p6_libretro::CdFile;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "line %d: %s\n", __LINE__, #x); return 1; } } while (0)
-struct retro_vfs_file_handle { uint64_t bytes = 0, position = 0; int fault = 0, reads = 0, closes = 0; };
+struct retro_vfs_file_handle { uint64_t bytes = 0, position = 0; int fault = 0, reads = 0, closes = 0; bool seek_zero = false; };
 static retro_vfs_file_handle fake;
 static uint8_t value(uint64_t at) { return uint8_t((at ^ (at >> 32)) * 17); }
 static retro_vfs_file_handle *RETRO_CALLCONV open_file(const char *, unsigned mode, unsigned)
@@ -12,22 +12,30 @@ static retro_vfs_file_handle *RETRO_CALLCONV open_file(const char *, unsigned mo
 }
 static int RETRO_CALLCONV close_file(retro_vfs_file_handle *f) { ++f->closes; return 0; }
 static int64_t RETRO_CALLCONV file_size(retro_vfs_file_handle *f) { return f->fault == 4 ? -1 : int64_t(f->bytes); }
+static int64_t RETRO_CALLCONV tell_file(retro_vfs_file_handle *f) { return int64_t(f->position); }
 static int64_t RETRO_CALLCONV seek_file(retro_vfs_file_handle *f, int64_t at, int origin)
 {
-    if (at < 0 || origin != RETRO_VFS_SEEK_POSITION_START) return -1;
-    f->position = uint64_t(at); return at + (f->fault == 3);
+    if (at < 0 || origin != RETRO_VFS_SEEK_POSITION_START || f->fault == 7) return -1;
+    f->position = uint64_t(at) + (f->fault == 3);
+    return f->seek_zero ? 0 : int64_t(f->position);
 }
 static int64_t RETRO_CALLCONV read_file(retro_vfs_file_handle *f, void *out, uint64_t length)
 {
     ++f->reads;
-    for (size_t n = 0; n < length; ++n) static_cast<uint8_t *>(out)[n] = value(f->position + n);
-    return f->fault == 1 ? int64_t(length) - 1 : f->fault == 2 ? -1 : f->fault == 5 ? int64_t(length) + 1 : int64_t(length);
+    if (f->fault == 1 || f->position >= f->bytes) return 0;
+    if (f->fault == 2) return -1;
+    if (f->position == 3 && (f->fault == 8 || f->fault == 9)) return f->fault == 8 ? 0 : -1;
+    uint64_t got = length < f->bytes - f->position ? length : f->bytes - f->position;
+    if ((f->fault == 6 || f->fault == 8 || f->fault == 9) && got > 3) got = 3;
+    for (size_t n = 0; n < got; ++n) static_cast<uint8_t *>(out)[n] = value(f->position + n);
+    f->position += got;
+    return f->fault == 5 ? int64_t(length) + 1 : int64_t(got);
 }
 static void hex(const uint8_t *bytes) { for (unsigned n = 0; n < 32; ++n) printf("%02x", bytes[n]); }
 static int vfs_tests()
 {
     retro_vfs_interface api{};
-    api.open = open_file; api.close = close_file; api.size = file_size; api.seek = seek_file; api.read = read_file;
+    api.open = open_file; api.close = close_file; api.size = file_size; api.seek = seek_file; api.tell = tell_file; api.read = read_file;
     fake.bytes = (UINT64_C(1) << 32) + 8193;
     uint8_t out[32]; memset(out, 0xa5, sizeof out);
     {
@@ -39,7 +47,13 @@ static int vfs_tests()
         CHECK(!file.read_at(UINT64_MAX, out, 1) && !file.read_at(fake.bytes, out, 1) && fake.reads == calls);
         CHECK(!file.read_at(0, nullptr, 1) && !file.read_at(0, out, 65537) && fake.reads == calls);
         CHECK(file.read_at(fake.bytes, nullptr, 0));
-        for (int fault : {1, 2, 3, 5}) {
+        fake.fault = 6;
+        for (bool zero : {false, true}) {
+            fake.seek_zero = zero;
+            CHECK(file.read_at(fake.bytes - 8, out + 8, 8));
+            for (unsigned n = 0; n < 8; ++n) CHECK(out[8 + n] == value(fake.bytes - 8 + n));
+        }
+        for (int fault : {1, 2, 3, 5, 7, 8, 9}) {
             fake.fault = fault; memset(out, 0xa5, sizeof out);
             CHECK(!file.read_at(0, out + 8, 8));
             for (uint8_t byte : out) CHECK(byte == 0xa5);
@@ -51,6 +65,8 @@ static int vfs_tests()
     CHECK(fake.closes == 2);
     auto incomplete = api; incomplete.read = nullptr;
     { CdFile missing; CHECK(!missing.open("no-fallback", &incomplete)); }
+    incomplete = api; incomplete.tell = nullptr;
+    { CdFile missing; CHECK(!missing.open("no-tell", &incomplete)); }
     fake.bytes = 131073; fake.fault = 1;
     CdFile file;
     Binding binding{}; binding.identity.content_id[0] = 0xa5;

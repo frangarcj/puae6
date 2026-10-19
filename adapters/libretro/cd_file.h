@@ -20,7 +20,7 @@ public:
         if (file_ || handle_ || !path) return false;
         int64_t size = -1;
         if (vfs) {
-            if (!vfs->open || !vfs->close || !vfs->size || !vfs->seek || !vfs->read) return false;
+            if (!vfs->open || !vfs->close || !vfs->size || !vfs->seek || !vfs->tell || !vfs->read) return false;
             vfs_ = vfs;
             handle_ = vfs->open(path, RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
             if (handle_) size = vfs->size(handle_);
@@ -47,10 +47,14 @@ public:
         if (!length) return true;
         uint8_t staging[kChunk];
         if (handle_) {
-            if (vfs_->seek(handle_, int64_t(offset), RETRO_VFS_SEEK_POSITION_START) != int64_t(offset) ||
-                vfs_->read(handle_, staging, length) != int64_t(length)) return false;
-        } else {
-            if (!seek(offset, SEEK_SET) || fread(staging, 1, length, file_) != length) return false;
+            if (vfs_->seek(handle_, int64_t(offset), RETRO_VFS_SEEK_POSITION_START) < 0 ||
+                vfs_->tell(handle_) != int64_t(offset)) return false;
+        } else if (!seek(offset, SEEK_SET)) return false;
+        for (size_t done = 0; done < length;) {
+            const size_t want = length - done;
+            const int64_t got = handle_ ? vfs_->read(handle_, staging + done, want) : int64_t(fread(staging + done, 1, want, file_));
+            if (got <= 0 || uint64_t(got) > want) return false;
+            done += size_t(got);
         }
         memcpy(out, staging, length);
         return true;
