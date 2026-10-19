@@ -15069,7 +15069,7 @@
       "title": "Parser CCD fijado con TOC e indices estrictos",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66e2a"
       ],
@@ -15107,7 +15107,7 @@
       "title": "Proveedor CCD por offset con IMG y SUB preservados",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66j1",
         "T66g4"
