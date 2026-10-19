@@ -14527,12 +14527,14 @@
         "tests/media/csharp-disc/**",
         "tests/media/test_cd_source_csharp.py",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "ports/portable/media/cd_disc.h"
       ],
       "steps": [
         "Reutilizar Disc prestado, TOC/pistas y DiscSectorReader reales del commit fijado. Fuente virtual por offset con staging2448 constante y vistas coherentes; no cargar CD en memoria. Validar rangos/errores sin ensuciar salida.",
         "Identidad SHA256 de TOC/politicas y flujo completo2448 incluyendo efectos de subcanales/SBI. Rebind valida identidad/longitud/TOC antes de sustituir lector; no usar OldHash de512 sectores como identidad completa.",
-        "Probar ISO y CUE BIN/WAV PCM con fuentes DiscSystem/ISOParser capturadas y Common real. No anunciar CHD Darwin antes de biblioteca ARM64 real fijada. Verificar INDEX00 desde Q sin inventar pregaps. Mantener el objetivo completo CD32 y la preview actual intactos; dividir antes de400 lineas manuales."
+        "Probar ISO y CUE BIN/WAV PCM con fuentes DiscSystem/ISOParser capturadas y Common real. No anunciar CHD Darwin antes de biblioteca ARM64 real fijada. Verificar INDEX00 desde Q sin inventar pregaps. Mantener el objetivo completo CD32 y la preview actual intactos; dividir antes de400 lineas manuales.",
+        "Formato normalizado2448 explicito:2352 bytes de sector y96 P-W deinterleaved, acorde DiscSectorReader y Akiko qcode previo a sub_to_interleaved. Ampliar comentario de cd_disc.h sin alterar ABI ni convertir datos en Disc. Mantener politica C# explicita y documentar bytes de audio tal como los entrega DiscSystem hasta la integracion CDDA, sin swap asumido."
       ],
       "checks": [
         "MED01"
