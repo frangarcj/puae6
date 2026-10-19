@@ -8,8 +8,9 @@ Reglas libretro verificadas: S4. Reglas del wrapper Waterbox verificadas: S5-S7.
 
 `P6_MACHINE_A4030 = 11` selecciona el preset A4000 real de upstream (modelo 6,
 configuracion 0), con CPU 68030, AGA, Gary 0, Ramsey 15, Ricoh RTC y mapa de
-32 bits. El ID9 corresponde al perfil privado CD32 de pruebas nativas y no se
-ofrece en frontends; el ID10 sigue reservado y rechazado. El struct ABI sigue en
+32 bits. El ID9 corresponde al perfil privado CD32, usado tambien por la carga
+automatica de CD directo en libretro; no tiene selector publico. El ID10 sigue
+reservado y rechazado. El struct ABI sigue en
 72 bytes. La primera implementacion acepta exclusivamente CPU Normal (byte 66 = 2)
 y no ofrece MMU: PMMU entra en F-line, sin registros ficticios. La FPU externa
 68881/68882 es opcional. Los niveles Compatible/Exact 030 requieren completar
@@ -1498,7 +1499,7 @@ verificada y callbacks segun su presencia guardada; un player detenido puede est
 sin binding aunque el dispositivo siga ligado al Disc. STATE01 compara PCM, Q y
 continuacion en otro binding. No añade chunk nativo, snapshot WB ni perfil CD32.
 
-T66p1 añade el perfil privado CD32 ID9 (sin macro ABI ni modelo de frontend):
+T66p1 añade el perfil privado CD32 ID9 (sin macro ABI ni selector de frontend):
 preset8/config0,68EC020 exacto,2MiBChip,AGA,Akiko CD/C2P/NVRAM1024,0disqueteras y
 overlayCD32. Rechaza CPU/precision/reloj alternativos, expansiones y medios ADF/HDF.
 Firmware es exactamente1MiB extended512KiB+main512KiB: SHA1 de los IDs64/19/18
@@ -1578,5 +1579,28 @@ La identidad de medios incluye el binding CD fijo (presencia e ID normalizado de
 Disc) en todos los prefijos del manifiesto. Un CD diferente se rechaza antes de
 mutar. tests/media/test_cd32_state.py ejercita la API nativa con firmware local
 autorizado y un CD sintetico por offset, continuacion AV/estado en otra instancia,
-mapa real y rechazos corruptos. Esto no anuncia modelo CD32 en los frontends ni
-acredita arranque de juego, SaveRAM de frontend o snapshot CD32 Waterbox.
+mapa real y rechazos corruptos. Estas pruebas no acreditan por si solas carga en
+frontends, arranque de juego, SaveRAM o snapshot CD32 Waterbox.
+
+## CD directo en libretro (T66r1)
+
+ISO, CUE, CCD y NRG DAO directos seleccionan CD32 stock con maquina y Kickstart
+Automatic. Las opciones explicitas incompatibles se rechazan; los tags CD32 de
+disquetes conservan su significado anterior. El propietario de la imagen y su
+Disc permanecen inmoviles hasta que p6_unload/p6_shutdown cierran Akiko. Las
+lecturas usan offsets por VFS seekable o stdio; el CD no se copia a RAM. El VFS
+ofrecido pero incompleto es un error, sin fallback oculto. DiskControl no permite
+insertar disquetes ni cambiar de CD durante esta sesion.
+
+El directorio de sistema contiene kick40060.CD32 y kick40060.CD32.ext (o los
+alias amiga-os-310-cd32.rom y amiga-os-310-cd32-ext.rom), cada uno de 512 KiB;
+la carga combina EXT+MAIN tras decodificar Cloanto cuando procede. El bridge
+identifica los bytes completos, que tambien forman la identidad del estado.
+
+P6CH incluye CTOD tambien en CD32: cia_hsync determina su oscilador TOD propio,
+aunque cs_ciaatod sea cero (16 bytes adicionales solo en P6CH de CD32). Una
+sesion nueva reinicia el resto sub-CCK del 020;
+un reset dentro de la sesion conserva su semantica existente. La prueba dirigida
+compara RAM, video, PCM y ticks tras runahead, rewind, recarga y proceso nuevo,
+y rechaza otro CD sin mutar la maquina. NVRAM SaveRAM, CD32FR, playlists/cambio
+de CD, los formatos restantes, Waterbox y arranque de juego siguen en T66.

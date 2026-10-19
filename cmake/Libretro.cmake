@@ -8,12 +8,14 @@ set(_libretro_include "${CMAKE_CURRENT_SOURCE_DIR}/references/libretro-api/inclu
 string(SUBSTRING "${_upstream_commit}" 0 12 _upstream_short)
 set(_libretro_version "0.1.0-winuae-${_upstream_short}-p${_patch_count}")
 
-add_library(puae6_libretro SHARED adapters/libretro/libretro_core.cpp adapters/libretro/config_import.cpp $<TARGET_OBJECTS:p6_engine>)
+add_library(puae6_libretro SHARED adapters/libretro/libretro_core.cpp adapters/libretro/config_import.cpp adapters/libretro/cd_session.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(puae6_libretro p6_codegen)
+set_source_files_properties(adapters/libretro/cd_session.cpp PROPERTIES INCLUDE_DIRECTORIES
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable;${CMAKE_CURRENT_SOURCE_DIR}/bridge;${P6_INCLUDE_DIRS}")
 # The portable SHA-256 is included as "sha256.h", like the bridge does; options_generated.h (tools/generate_options.py) sits next to the sources.
 target_include_directories(puae6_libretro PRIVATE "${_libretro_include}" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media")
 # p6_state is what makes the image announce P6_CAP_STATE (T15, T18): the core links it, offers states, and falls back to serialize_size 0 without it.
-target_link_libraries(puae6_libretro PRIVATE p6_state p6_bridge p6_portable)
+target_link_libraries(puae6_libretro PRIVATE p6_state p6_bridge p6_portable p6_cd_images)
 target_compile_definitions(puae6_libretro PRIVATE P6_LIBRETRO_VERSION="${_libretro_version}")
 set_target_properties(puae6_libretro PROPERTIES PREFIX "" CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 if(APPLE)

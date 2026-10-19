@@ -67,6 +67,7 @@
 #include "config_import.h"
 #include "container.h"
 #include "content.h"
+#include "cd_session.h"
 #include "disk_control.h"
 #include "save_disk.h"
 #include "firmware.h"
@@ -135,8 +136,10 @@ struct Core {
     p6_libretro::InputMemory input;       // what the input keeps between two runs (state_frame.h carries it)
     std::vector<uint8_t> firmware;        // p6_load borrows it until p6_unload
     std::vector<Medium> media;            // the manifest: one entry per distinct disk of the content
+    std::unique_ptr<p6_libretro::CdSession> cd; // immutable source; kept until the engine has closed Akiko
     p6_libretro::DiskTray tray;           // the images of the playlist and the virtual tray (what the frontend asks for)
     p6_libretro::FileReader files;
+    const retro_vfs_interface *cd_vfs = nullptr; // retain offered table even if too incomplete for CD; never fall back silently
     uint64_t event_sequence = 0;          // of the media events handed to the bridge (it asks for strictly increasing numbers per image)
     bool have_initial = false;            // set_initial_image was called before this load
     unsigned initial_index = 0;
@@ -246,6 +249,7 @@ void stop_image()
         if (result != P6_OK) report("p6_unload", result, error);
     }
     if (core.initialized) p6_shutdown(nullptr);
+    core.cd.reset();
     core.loaded = core.initialized = core.faulted = false;
     core.settings = core.requested = p6_options::Settings();
     core.firmware.clear();                  // only now: p6_unload was the last user of what it borrowed
@@ -1159,6 +1163,13 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
             core.firmware.swap(rom);         // the decrypted image is the firmware: its SHA-256 is the identity of the states
             decrypted = true;
         }
+        if (core.cd) {
+            std::string why;
+            if (!core.cd->extend_firmware(core.files, directory, &core.firmware, &why)) {
+                refusals += std::string(refusals.empty() ? "" : "; ") + why;
+                continue;
+            }
+        }
         if (pack.active()) {
             std::map<std::string, std::vector<uint8_t>> roms;
             if (const char *rom_name = whdload_kickstart_name(core.firmware)) roms[rom_name] = core.firmware;
@@ -1265,7 +1276,7 @@ void refresh_options()
 
 bool RETRO_CALLCONV disk_set_eject_state(bool ejected)
 {
-    if (!core.loaded) return false;
+    if (!core.loaded || core.cd) return false;
     return core.tray.set_ejected(ejected);
 }
 
@@ -1274,7 +1285,7 @@ unsigned RETRO_CALLCONV disk_get_image_index(void) { return core.tray.selected()
 
 bool RETRO_CALLCONV disk_set_image_index(unsigned index)
 {
-    if (!core.loaded) return false;
+    if (!core.loaded || core.cd) return false;
     if (!core.tray.select(index)) {
         log(RETRO_LOG_WARN, "the image can only be chosen while the tray is open, and it must hold a disk");
         return false;
@@ -1358,7 +1369,7 @@ uint32_t register_added_disk(Medium &&medium)
 // the manifest holds uses that one). Only with the tray open, like the removal. The image stays registered for the rest of the session; nothing here touches the machine.
 bool RETRO_CALLCONV disk_replace_image_index(unsigned index, const retro_game_info *info)
 {
-    if (!core.loaded) return false;
+    if (!core.loaded || core.cd) return false;
     if (!info) {
         if (!core.tray.remove(index)) {
             log(RETRO_LOG_WARN, "image %u cannot be removed (the tray must be open and the image must exist)", index);
@@ -1484,7 +1495,7 @@ void announce_state_support()
     caps.abi_version = P6_ABI_VERSION;
     caps.struct_size = sizeof caps;
     p6_query_caps(&caps, nullptr);
-    core.can_append = (caps.flags & P6_CAP_MEDIA_APPEND) != 0;
+    core.can_append = !core.cd && (caps.flags & P6_CAP_MEDIA_APPEND) != 0;
     // The buffer of the configuration that is loaded (T72): caps describes the profile's raster, a resolution or line mode option scales it.
     const p6_video_geometry geometry = running_geometry(core.settings.video_standard == P6_VIDEO_NTSC);
     core.max_width = geometry.buffer_width;
@@ -1608,7 +1619,9 @@ RETRO_API void retro_init(void)
     for (const unsigned wanted : {3u, 1u}) {
         vfs = {};
         vfs.required_interface_version = wanted;
-        if (environment_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs) && vfs.iface && vfs.iface->open && vfs.iface->read && vfs.iface->close) {
+        if (!environment_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs) || !vfs.iface) continue;
+        core.cd_vfs = vfs.iface;
+        if (vfs.iface->open && vfs.iface->read && vfs.iface->close) {
             core.files.use_vfs(vfs.iface, std::max(wanted, vfs.required_interface_version));
             break;
         }
@@ -1626,6 +1639,7 @@ RETRO_API void retro_deinit(void)
     save_hard_file_changes();
     stop_image();
     core.files.use_vfs(nullptr);
+    core.cd_vfs = nullptr;
     log_cb = nullptr;
 }
 
@@ -1634,7 +1648,7 @@ RETRO_API void retro_get_system_info(struct retro_system_info *info)
     memset(info, 0, sizeof *info);
     info->library_name = "PUAE6";
     info->library_version = P6_LIBRETRO_VERSION;
-    info->valid_extensions = "adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/";
+    info->valid_extensions = "adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|iso|cue|ccd|nrg|/";
     info->need_fullpath = true;           // the disks are read by path (through the VFS), the Kickstart by name from the system directory
     info->block_extract = true;           // a zip is read by the core, in memory: the frontend must not extract it to a temporary directory
 }
@@ -1878,7 +1892,20 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         std::vector<p6_libretro::Image> images;
         std::vector<std::string> names;
         p6_libretro::WhdLoadContent pack;
-        if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images, &names, &pack)) {
+        if (game && p6_libretro::CdSession::content(game->path)) {
+            if (core.settings.machine != p6_options::kMachineAuto || core.settings.kickstart) {
+                notify_error("CD32 content requires Automatic machine and Kickstart"); stop_image(); return false;
+            }
+            core.cd.reset(new p6_libretro::CdSession);
+            if (!core.cd->open(game->path, core.cd_vfs, &why)) {
+                notify_error("%s", why.c_str()); stop_image(); return false;
+            }
+            // Floppy CD32 tags historically request A1200+8M; a real CD uses
+            // stock memory. Retain explicit options and resolve only its region.
+            core.settings.video_standard = p6_libretro::resolve_model(core.settings, false, {game->path}).settings.video_standard;
+            core.settings.machine = p6_libretro::CdSession::firmware_names().machine;
+            multidrive = false;
+        } else if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images, &names, &pack)) {
             stop_image();
             return false;
         }
@@ -1889,7 +1916,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             core.settings.machine = P6_MACHINE_A1200;
             core.settings.kickstart = 0;
         }
-        if (!configured) {          // a .uae was resolved above, before its keys
+        if (!configured && !core.cd) {          // a .uae was resolved above, before its keys
             bool hard_disk = pack.active();
             for (const Medium &medium : core.media) hard_disk = hard_disk || medium.type == P6_MEDIA_HDF;
             const p6_libretro::ModelResolution resolved = p6_libretro::resolve_model(core.settings, hard_disk, names);
@@ -1911,7 +1938,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         config.abi_version = P6_ABI_VERSION;
         config.struct_size = sizeof config;
         p6_options::to_config(core.settings, &config);       // machine, standard, audio rate, seed and clock epoch: the schema's values, none of them typed here
-        const p6_libretro::FirmwareNames *firmware = p6_libretro::firmware_for(config.machine);
+        const p6_libretro::FirmwareNames *firmware = core.cd ? &p6_libretro::CdSession::firmware_names() : p6_libretro::firmware_for(config.machine);
         if (!firmware) {            // the schema only produces the machines the table has: a mismatch is a build defect, not a configuration to run
             notify_error("the machine %u has no Kickstart names in this core", unsigned(config.machine));
             stop_image();

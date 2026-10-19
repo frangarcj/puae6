@@ -16075,6 +16075,48 @@
       "stop": "No confundir este arreglo de audio con resolucion del bloqueo de arranque P1 ni con estado CD32 completo."
     },
     {
+      "id": "T66r1",
+      "title": "Carga directa de CD32 stock en libretro con propietario por offset y restauracion",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T66o1",
+        "T66p1",
+        "T66m7"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "cmake/Libretro.cmake",
+        "tests/libretro-host/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "bridge/state_upstream.cpp",
+        "bridge/lifecycle.cpp",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "CD directo ISO/CUE/CCD/NRG DAO selecciona stock privado por Automatic. Rechaza modelo, firmware y VFS incompatibles; no cambia menu, presets ni tags de disquetes. CdSession opaco mantiene la frontera del core y los propietarios por offset hasta cerrar Akiko.",
+        "Firmware de cada mitad acotado512KiB (Cloanto con rom.key opcional), EXT+MAIN validado por bytes, alias alternativos tras rechazo. DiskControl mantiene lista vacia y rechaza inserciones en la sesion CD. Todo fallo descarga motor, binding y handles.",
+        "Correcciones atomicas requeridas por el CUE real: CTOD incluye el oscilador CD32 aunque cs_ciaatod==0 (+16B P6CH soloCD32); start_engine reinicia ce020_extra a cero como un proceso nuevo, sin alterar resets de sesion. Se ampliaron touch a esos dos archivos y al conteo del plan antes de cambiarlos.",
+        "LR01/T66r1 PASS con main/ext locales y CUE Brian: dos cargas de345unidades, lecturas durante retro_run, runahead305:2, save300/load330 y RAM/AV/ticks315==345; mismo ISO en nuevo proceso y otroCD rechazado sinmutacion; firmware/modelo/VFS/handles negativos. Sin arranque de juego afirmado.",
+        "Regresiones cercanas PASS: codec nativo CD32 completo, geometria de modelos/A1200 y contrato libretro (4tests,34.681s); runahead existente y tags CD32 de disquetes (2tests,50.290s); plan34tests. El padre conserva todas las puertas y el resto del soporte."
+      ],
+      "checks": [
+        "LR01"
+      ],
+      "acceptance": [
+        "El core libretro carga un CD directo con el firmware CD32 autorizado, lee sectores mientras ejecuta p6_run_frame y restaura sin perder identidad ni vida de la fuente. No acredita arranque de juego ni soporte Waterbox."
+      ],
+      "stop": "No anunciar T66 completa; no extender formatos por fallback, no serializar handles/punteros ni reabrir el CD al restaurar."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16116,7 +16158,8 @@
         "T66m4",
         "T66m5",
         "T66m6",
-        "T66m7"
+        "T66m7",
+        "T66r1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16151,7 +16194,8 @@
         "T66n2a/n2b separan por presupuesto estado privado de player y backend; codecs de maquina, guard de audio extra, identidad externa y pruebas nativo/WB completas siguen en el padre.",
         "T66m2/m3 separan por presupuesto transporte de la agregacion causal Akiko completa; la puerta de NativeChunk y snapshot WB con CD32 real permanece abierta hasta su integracion.",
         "T66p1 prepara perfil stock y firmware/arranque nativo sin anunciar modelo en libretro; conserva codec, carga frontend, Waterbox y arranque/restauracion de juego como puertas del padre.",
-        "T66q1 corrige el reloj CDA excluido del motor portable real; conserva boot/codec/frontend/Waterbox como puertas del padre."
+        "T66q1 corrige el reloj CDA excluido del motor portable real; conserva boot/codec/frontend/Waterbox como puertas del padre.",
+        "T66r1 integra CD directo stock en libretro por Automatic con propietario de sesion y estado real. CD32FR, cambio de CD, NVRAM SaveRAM, Waterbox, juego y formatos restantes conservan todas las puertas del padre."
       ],
       "checks": [
         "MED01",

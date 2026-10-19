@@ -211,7 +211,7 @@ struct Sub {
     int index;
     bool whole;                     // restore_* reads every byte of the body (restore_blitter reads 4 of the 63)
     bool aga_only = false;          // a body of the AGA machines alone (T24c): the other machines have no such body, not an empty one
-    bool mains_only = false;        // a body of the machines whose CIA-A TOD counts the mains (T50, cs_ciaatod 1 or 2): the others have none
+    bool mains_only = false;        // CTOD: mains-driven CIA-A or CD32's independent oscillator
 };
 
 uint8_t *produce_dsk(int n, size_t *len, uint8_t *w) { return save_disk(n, len, w, false); }
@@ -320,7 +320,8 @@ const char *check_lpen(const Sub &, const Body &b, Seen &)
 // Two words of the machines whose CIA-A TOD counts the mains (the A1000 and the A2000s, cs_ciaatod 1 or 2): cia_hsync, the colour clocks to the next tick, and the bits of vblank_hz, the
 // frame rate the length of a mains period is computed from (compute_framesync sets it from the frame the machine is in: short, long or interlaced). Each line lowers cia_hsync by its length,
 // and the line in which it falls below that length ticks the TOD and adds the period (about 71000 clocks at 50 Hz): never negative, and a few periods at most. The machines whose TOD
-// follows the vertical sync have no such body.
+// follows the vertical sync have no such body. CD32 also consumes cia_hsync:
+// its dedicated branch adds 262/313 lines independently of cs_ciaatod.
 constexpr uint32_t kCiaTodWords = 2, kCiaTodBytes = kCiaTodWords * 4;
 constexpr int32_t kCiaTodMax = 1 << 20;
 
@@ -1221,7 +1222,7 @@ template <size_t N> void visit_bodies(Archive &a, const Sub (&subs)[N], bool (*f
     const ApplyScope scope(a.applying());
     for (const Sub &sub : subs) {
         if (sub.aga_only && !aga_machine()) continue;
-        if (sub.mains_only && currprefs.cs_ciaatod == 0) continue;
+        if (sub.mains_only && currprefs.cs_ciaatod == 0 && !currprefs.cs_cd32cd) continue;
         uint32_t length = sub.maximum;      // Measure: the largest body, whatever the machine holds
         if (a.mode() == Mode::Save) {
             size_t produced = 0;

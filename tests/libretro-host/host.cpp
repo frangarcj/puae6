@@ -105,6 +105,7 @@ struct Options {
     bool has_save = false, has_system = false, has_content = false, no_vfs = false, legacy_disk = false, legacy_message = false, has_initial = false;
     int64_t vfs_claim = -1;
     unsigned vfs_version = 3;                                   // --vfs-version N: the newest VFS interface the frontend has (1 has no directory calls)
+    bool vfs_no_seek = false;
     unsigned initial_index = 0;
     std::string initial_path;
     int options_api = 2;
@@ -216,6 +217,9 @@ bool has_game = false;
 retro_disk_control_ext_callback disk = {};      // what the core registered (the legacy interface fills its first seven members)
 bool disk_registered = false, disk_is_ext = false;
 int vfs_opens = 0;
+int vfs_live = 0;
+bool running_vfs = false;
+uint64_t vfs_run_reads = 0;
 
 // What the core registered: key -> default and value names, in the order it gave them.
 struct Registered {
@@ -324,11 +328,13 @@ retro_vfs_file_handle *RETRO_CALLCONV vfs_open(const char *path, unsigned mode, 
     FILE *file = fopen(path, "rb");
     printf("vfs open %s%s\n", path, file ? "" : " (failed)");
     ++vfs_opens;
+    if (file) ++vfs_live;
     return file ? new retro_vfs_file_handle{file, path} : nullptr;
 }
 int RETRO_CALLCONV vfs_close(retro_vfs_file_handle *handle)
 {
     fclose(handle->file);
+    --vfs_live;
     delete handle;
     return 0;
 }
@@ -343,6 +349,7 @@ int64_t RETRO_CALLCONV vfs_size(retro_vfs_file_handle *handle)
 }
 int64_t RETRO_CALLCONV vfs_read(retro_vfs_file_handle *handle, void *buffer, uint64_t length)
 {
+    if (running_vfs) ++vfs_run_reads;
     const size_t got = fread(buffer, 1, size_t(length), handle->file);
     return got == 0 && ferror(handle->file) ? -1 : int64_t(got);
 }
@@ -1049,7 +1056,9 @@ void make_run(int at, bool speculative)
             }
     const bool timed = !options.bench_out.empty() && !speculative;
     const uint64_t bench_w0 = timed ? bench_wall_ns() : 0, bench_c0 = timed ? bench_cpu_ns() : 0;
+    running_vfs = true;
     core.run();
+    running_vfs = false;
     if (timed) {
         bench_run_cpu.push_back(bench_cpu_ns() - bench_c0);
         bench_run_wall.push_back(bench_wall_ns() - bench_w0);
@@ -1160,6 +1169,7 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--no-vfs")) options.no_vfs = true;
         else if (!strcmp(a, "--vfs-claim")) options.vfs_claim = atoll(next());
         else if (!strcmp(a, "--vfs-version")) options.vfs_version = unsigned(atoi(next()));
+        else if (!strcmp(a, "--vfs-no-seek")) options.vfs_no_seek = true;
         else if (!strcmp(a, "--retry-system")) options.retry_system = next();
         else if (!strcmp(a, "--legacy-disk-control")) options.legacy_disk = true;
         else if (!strcmp(a, "--legacy-message")) options.legacy_message = true;
@@ -1283,6 +1293,7 @@ int main(int argc, char **argv)
     core.set_audio_sample_batch(audio_batch);
     core.set_input_poll(input_poll);
     core.set_input_state(input_state);
+    if (options.vfs_no_seek) vfs_interface.seek = nullptr;
     core.init();
     retro_system_info info = {};
     core.get_system_info(&info);
@@ -1362,6 +1373,8 @@ int main(int argc, char **argv)
         if (shutdown_requested) status = 1;
     }
     core.deinit();
+    printf("vfs closed live=%d run_reads=%" PRIu64 "\n", vfs_live, vfs_run_reads);
+    if (vfs_live) violation("VFS handles survived deinit");
     if (!options.bench_out.empty()) {
         if (FILE *out = fopen(options.bench_out.c_str(), "w")) {
             auto array = [&](const char *key, const std::vector<uint64_t> &values, bool last) {

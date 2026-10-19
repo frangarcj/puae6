@@ -47,6 +47,7 @@ Session session;
 extern void (*p6_counter_restart_hook)(void);   // newcpu.cpp, patch 0073: called by the reset head as the cycle counter starts over
 extern void p6_cia_session_begin(void);          // cia.cpp, patch 0074: the CIA's per-frame state is a clean process's at the start of a load
 extern void p6_input_session_begin(void);        // inputdevice.cpp, patch 0075: the counters a session of mouse input leaves behind
+extern void p6_custom_ce020_extra_set(int);      // custom.cpp 0108: a new power-on starts at sub-CCK phase zero
 
 using p6_session::Guard;
 using p6_session::State;
@@ -158,6 +159,7 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     DISK_init();
     reset_frame_rate_hack();
     memset(&regs, 0, sizeof regs);
+    p6_custom_ce020_extra_set(0);
     init_m68k();
     if (p6_video_init() != P6_VIDEO_CFG_OK)
         return p6_fail(error, P6_ERROR_INTERNAL, "video presentation could not start");
