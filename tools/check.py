@@ -454,6 +454,10 @@ TASK_SUITES[('DET02', 'T55c1')] = {
     'real_cache_maintenance': 'tests.host.test_cache040',
     'supported_cpu_restore_regression': 'tests.state.test_cpu_modes',
 }
+TASK_SUITES[('GEN01', 'T55c2')] = {'schema_and_generated_defaults': 'tests.config.test_schema', 'frontend_profile_policy': 'tests.config.test_parity'}
+TASK_SUITES[('ABI01', 'T55c2')] = {'native_c_cpp_layout': 'tests.contracts.test_api', 'standalone_csharp_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
+for _gate in ('DET02', 'STATE01'):
+    TASK_SUITES[(_gate, 'T55c2')] = {'z3_autoconfig_and_native_restore': 'tests.state.test_z3'}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):
     TASK_SUITES[(_gate, 'T53')] = {'cpu_modes_restore_identity_and_no_mmu': 'tests.state.test_cpu_modes'}

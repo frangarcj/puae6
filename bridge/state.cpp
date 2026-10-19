@@ -125,7 +125,7 @@ void visit_bridge(Archive &a)
 // listed in p6_expansion_state_get and the 256 bytes of the card's nibbles). A machine without one keeps the body it always had, so no state of the
 // three presets changes by a byte. The size is the configured one, not the allocated one: the board is allocated by the reset head, and the bound
 // (made before the first unit) and the validation of a load into an image that has not started it have to know it already.
-constexpr unsigned kExpansionWords = 13;
+constexpr unsigned kExpansionWords = 16;  // final three words exist only with Z3 (0350); legacy bodies keep their layout
 
 }  // namespace
 
@@ -133,13 +133,15 @@ constexpr unsigned kExpansionWords = 13;
 // those two has the same words with the Fast RAM ones at zero, and its chain is described by the hard-file section of P6DK (visit_hdf), which calls this with `fast` 0.
 void visit_expansion(Archive &a, uint32_t fast)
 {
+    const uint32_t z3 = p6_bridge::z3_bytes(session.config);
+    const unsigned words = z3 ? kExpansionWords : 13;
     // the hard file adds the UAEFS board and the UAE boot ROM (a card with no autoconfig, expamem_rtarea_init); on Gayle's IDE (T56) it adds one card instead, the IDE port itself (not autoconfig either)
     const bool ide = p6_bridge::ide_attached(session.config, p6_bridge::hard_file_count());
-    const uint32_t cards = (fast ? 1u : 0u) + (ide ? 1u : (p6_bridge::hard_file_count() ? 2u : 0u) + (p6_bridge::motherboard_ide(session.config) ? 1u : 0u));
+    const uint32_t cards = (fast ? 1u : 0u) + (z3 ? 1u : 0u) + (ide ? 1u : (p6_bridge::hard_file_count() ? 2u : 0u) + (p6_bridge::motherboard_ide(session.config) ? 1u : 0u));
     uint32_t w[kExpansionWords] = {};
     uint8_t ac[256] = {};
     if (a.mode() == Mode::Save)
-        a.require(fastmem_bank[0].allocated_size == fast && p6_expansion_state_get(w, kExpansionWords, ac), "the Fast RAM board or its autoconfig chain is not in a state that can be saved");
+        a.require(fastmem_bank[0].allocated_size == fast && z3fastmem_bank[0].allocated_size == z3 && p6_expansion_state_get(w, words, ac), "the Fast RAM board or its autoconfig chain is not in a state that can be saved");
     const uint8_t ecard = get<uint8_t>(a, w[0], 0, cards, "ram.fast_ecard");
     get<uint8_t>(a, w[1], cards, cards, "ram.fast_cardno");
     const uint8_t chipdone = get<uint8_t>(a, w[2], 0, 1, "ram.fast_chipdone");
@@ -149,10 +151,18 @@ void visit_expansion(Archive &a, uint32_t fast)
     const uint16_t hi = get<uint16_t>(a, w[6], 0, 0xffff, "ram.fast_hi");
     const uint8_t lo = get<uint8_t>(a, w[7], 0, 0xff, "ram.fast_lo");
     const uint32_t pointer = a.val<uint32_t>(w[8], 0, 0xffffffffu, "ram.fast_board_pointer");
-    const uint32_t size = a.val<uint32_t>(w[9], 0, 0x800000u, "ram.fast_board_size");
+    const uint32_t size = a.val<uint32_t>(w[9], 0, z3 ? z3 : 0x800000u, "ram.fast_board_size");
     const uint32_t start = a.val<uint32_t>(w[10], 0, fast ? 0xffffffffu : 0u, "ram.fast_start");
     const uint8_t mapped = get<uint8_t>(a, w[12], 0, fast ? 1 : 0, "ram.fast_mapped");
     a.bytes(ac, sizeof ac, "ram.fast_autoconfig");
+    if (z3) {
+        w[13] = a.val<uint32_t>(w[13], "ram.z3_start");
+        a.val<uint32_t>(z3, z3, z3, "ram.z3_allocated");
+        w[14] = z3;
+        w[15] = get<uint8_t>(a, w[15], 0, 1, "ram.z3_mapped");
+        a.require(w[13] == 0xffffffff || !(w[13] & 0xffff), "Z3: unaligned base");
+        a.require(!w[15] || (w[13] >= 0x10000000 && uint64_t(w[13]) + z3 <= 0xf0000000), "Z3: mapped base outside the bus");
+    }
     if (a.mode() == Mode::Measure) return;
     // The base of the board: none (0), a shut-up board ($FFFFFFFF) or an address in 64 KiB steps, the slot the chain suggests or the one the guest gave it. Where the board answers it
     // lies inside $200000-$9FFFFF (the guest decides; an 8 MiB board can only be at $200000).
@@ -162,7 +172,7 @@ void visit_expansion(Archive &a, uint32_t fast)
     if (a.applying() && a.ok()) {
         w[0] = ecard; w[1] = cards; w[2] = chipdone; w[3] = map_set; w[4] = bank_current; w[5] = 0; w[6] = hi; w[7] = lo;
         w[8] = pointer; w[9] = size; w[10] = start; w[11] = fast; w[12] = mapped;
-        a.require(p6_expansion_state_set(w, kExpansionWords, ac), "the autoconfig chain does not fit the machine");
+        a.require(p6_expansion_state_set(w, words, ac), "the autoconfig chain does not fit the machine");
     }
 }
 
@@ -185,11 +195,20 @@ void visit_ram(Archive &a)
         r[3] = a.val<uint8_t>(r[3], 0, 1, "mbres.gary_toenb");
         if (a.applying() && a.ok()) p6_mbres_set(r);
     }
-    if (!fast) return;
-    a.val<uint32_t>(fast, fast, fast, "ram.fast_size");
-    if (a.mode() == Mode::Save || a.applying())
-        a.require(fastmem_bank[0].allocated_size == fast && fastmem_bank[0].baseaddr, "the Fast RAM board is not allocated");
-    a.bytes(fastmem_bank[0].baseaddr, fast, "ram.fast");
+    const uint32_t z3 = p6_bridge::z3_bytes(session.config);
+    if (!fast && !z3) return;
+    if (fast) {
+        a.val<uint32_t>(fast, fast, fast, "ram.fast_size");
+        if (a.mode() == Mode::Save || a.applying())
+            a.require(fastmem_bank[0].allocated_size == fast && fastmem_bank[0].baseaddr, "the Fast RAM board is not allocated");
+        a.bytes(fastmem_bank[0].baseaddr, fast, "ram.fast");
+    }
+    if (z3) {
+        a.val<uint32_t>(z3, z3, z3, "ram.z3_size");
+        if (a.mode() == Mode::Save || a.applying())
+            a.require(z3fastmem_bank[0].allocated_size == z3 && z3fastmem_bank[0].baseaddr, "the Z3 board is not allocated");
+        a.bytes(z3fastmem_bank[0].baseaddr, z3, "ram.z3");
+    }
     visit_expansion(a, fast);
 }
 
@@ -307,6 +326,11 @@ Identity current_identity()
         domain_hash("p6/config/collisions/v1", parts, lengths, 2, identity.config_hash);
     }
     manifest_prefix_hash(session.media_count, identity.media_manifest_hash);
+    if (c.z3_memory) {
+        const uint8_t *parts[2] = {identity.config_hash, &c.z3_memory};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/z3/v1", parts, lengths, 2, identity.config_hash);
+    }
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;
 }

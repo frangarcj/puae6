@@ -15,6 +15,7 @@ Needs the Waterbox runtime and the guest (tools/build_waterbox.py --puae6-run bu
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,7 +33,7 @@ GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
 RECEIPT = build_waterbox.BUILD / "puae6/puae6-receipt.json"
 # C# struct -> (C struct, {C# field: C field}); the C name is the C# name in snake case except where it says otherwise.
 STRUCTS = {
-    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "Reserved7"]),
+    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "Reserved7", "Z3Memory", "Reserved8"]),
     "P6PortInput": ("p6_port_input", ["Type", "Buttons", "Dx", "Dy", "Reserved"]),
     "P6Input": ("p6_input", ["AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved"]),
     "P6Rect": ("p6_rect", ["X", "Y", "Width", "Height"]),
@@ -59,6 +60,25 @@ def snake(name):
 
 def c_expression(struct, field):
     return SPECIAL.get((struct, field)) or f"offsetof({STRUCTS[struct][0]}, {snake(field)})"
+
+
+class ConfigLayoutTests(unittest.TestCase):
+    def test_csharp_config_size_and_reserved_tail_match_the_native_contract(self):
+        dotnet = shutil.which('dotnet')
+        self.assertIsNotNone(dotnet, 'C# compiler required for ABI01')
+        with tempfile.TemporaryDirectory(prefix='p6-managed-layout-') as tmp:
+            work = Path(tmp)
+            (work / 'Layout.csproj').write_text(f'''<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>
+<OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+<RollForward>Major</RollForward>
+<ImplicitUsings>enable</ImplicitUsings></PropertyGroup><ItemGroup>
+<Compile Include="{ROOT / 'integration/bizhawk/core/Puae6/Abi.cs'}" /></ItemGroup></Project>''')
+            (work / 'Program.cs').write_text('''using Puae6; using System.Runtime.InteropServices;
+unsafe { Console.WriteLine($"{sizeof(P6Config)} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Reserved7))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Z3Memory))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Reserved8))}"); }''')
+            result = subprocess.run([dotnet, 'run', '--project', str(work / 'Layout.csproj'), '--verbosity', 'quiet',
+                                     f'-p:RestoreSources={Path.home() / ".nuget/packages"}'], capture_output=True, text=True, timeout=120)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertEqual('72 69 70 71', result.stdout.strip())
 
 
 @unittest.skipUnless(runtime_available(), "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")

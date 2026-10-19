@@ -220,13 +220,15 @@ void ram(Canon &c)
     c.put(uint32_t(bogomem_bank.allocated_size));
     if (bogomem_bank.baseaddr) c.raw(bogomem_bank.baseaddr, bogomem_bank.allocated_size);
     // T49: a Zorro II Fast RAM board adds itself and the autoconfig chain it is on (nothing for the machines without one, whose digest is what it was).
-    if (fastmem_bank[0].allocated_size) {
+    if (fastmem_bank[0].allocated_size || z3fastmem_bank[0].allocated_size) {
         c.put(uint32_t(fastmem_bank[0].allocated_size)).raw(fastmem_bank[0].baseaddr, fastmem_bank[0].allocated_size);
-        uint32_t w[13] = {};
+        const unsigned words = z3fastmem_bank[0].allocated_size ? 16 : 13;
+        if (z3fastmem_bank[0].allocated_size) c.put(uint32_t(z3fastmem_bank[0].allocated_size)).raw(z3fastmem_bank[0].baseaddr, z3fastmem_bank[0].allocated_size);
+        uint32_t w[16] = {};
         uint8_t ac[256] = {};
-        const bool got = p6_expansion_state_get(w, 13, ac);
+        const bool got = p6_expansion_state_get(w, words, ac);
         c.put(uint8_t(got));
-        for (uint32_t v : w) c.put(v);
+        for (unsigned i = 0; i < words; ++i) c.put(w[i]);
         c.raw(ac, sizeof ac);
     }
     // T29c: a machine with a hard file adds its controller and the overlay of its writes, as the state writes them (the section of P6DK: the trap area, the UAEFS board, the units of the
@@ -410,6 +412,7 @@ void bridge(Canon &c)
     c.put(s.config.machine).put(s.config.video_standard).put(s.config.audio_rate_hz).put(s.config.flags).put(s.config.random_seed)
         .put(s.config.rtc_epoch_seconds);
     if (p6_bridge::resolve_floppy_drives(s.config) != 2) c.put(p6_bridge::resolve_floppy_drives(s.config));
+    if (s.config.z3_memory) c.put(s.config.z3_memory);
     if (!p6_bridge::memory_is_preset(s.config)) c.put(s.config.chip_kib).put(s.config.slow_kib).put(s.config.fast_kib);
 }
 
@@ -1020,6 +1023,7 @@ int main(int argc, char **argv)
     uint32_t floppy_speed = 0;                               // T62: p6_config floppy_speed as the ABI number (--floppy-speed: 0 the profile, 1 100 %, 2 200 %, 3 400 %, 4 800 %, 5 turbo)
     uint32_t sound[4] = {0, 0, 0, 0};                       // T73: p6_config sound_separation, sound_interpolation, sound_filter, sound_filter_type as ABI numbers (--sound-sep, --sound-interp, --sound-filter, --sound-type)
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
+    uint8_t z3_memory = 0;
     uint64_t seed = 1;
     bool floppy_writes = false;
     std::vector<StateOp> state_ops;
@@ -1054,6 +1058,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
+        else if (!strcmp(argv[i], "--z3") && i + 1 < argc) {
+            const char *value = argv[++i];
+            if (!strcmp(value, "none")) z3_memory = 0;
+            else if (!strcmp(value, "16")) z3_memory = 1;
+            else return 64;
+        }
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--cpu") && i + 1 < argc) { const uint32_t model = uint32_t(strtoul(argv[++i], nullptr, 10)); cpu_model = model >= 68000 ? 1 + (model - 68000) / 10 : model; }
         else if (!strcmp(argv[i], "--cpu-compatibility") && i + 1 < argc) {
@@ -1158,7 +1168,7 @@ int main(int argc, char **argv)
             i += 2;
         } else if (!strcmp(argv[i], "--input-v1-at") && i + 1 < argc) input_v1_at = strtoull(argv[++i], nullptr, 10);
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--input-v1-at UNIT] [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|16] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--input-v1-at UNIT] [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -1196,6 +1206,7 @@ int main(int argc, char **argv)
     config.chip_kib = chip_kib;
     config.slow_kib = slow_kib;
     config.fast_kib = fast_kib;
+    config.z3_memory = z3_memory;
     config.fpu_model = fpu_model;
     config.cpu_model = uint8_t(cpu_model);
     config.cpu_compatibility = uint8_t(cpu_compatibility);

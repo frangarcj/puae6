@@ -115,7 +115,9 @@ typedef struct p6_config {
     uint8_t floppy_drives;
     /* T77a: restart collision level: 0 Auto/full, 1 none, 2 sprites, 3 sprites+playfields, 4 full. */
     uint8_t collision_level;
-    uint8_t reserved7[3];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
+    uint8_t reserved7[1];           /* Zero; byte 69 is reserved for waiting_blits. */
+    uint8_t z3_memory;              /* T55c2: 0 none, 1 one 16 MiB Zorro III board (A4030 only). Restart option. */
+    uint8_t reserved8[1];           /* Zero in ABI v1. */
 } p6_config;
 #define P6_CPU_EXACT 0u
 #define P6_CPU_COMPATIBLE 1u
@@ -337,6 +339,7 @@ typedef struct p6_memory_region {
 #define P6_REGION_SLOW_RAM UINT32_C(2)
 #define P6_REGION_ROM      UINT32_C(3)
 #define P6_REGION_FAST_RAM UINT32_C(4)   /* Zorro II Fast RAM (T49): present only when p6_config.fast_kib asked for it, and after the unit that ran its autoconfig reset */
+#define P6_REGION_Z3_FAST_RAM UINT32_C(5) /* Zorro III backing RAM, when configured; guest visibility follows autoconfig. */
 #define P6_REGION_WRITABLE (UINT32_C(1) << 0)
 
 typedef struct p6_media_event {

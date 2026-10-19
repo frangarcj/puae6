@@ -16,6 +16,7 @@ struct Memory {
 };
 Memory preset_memory(uint32_t machine);
 Memory resolve_memory(const p6_config &config);
+inline uint32_t z3_bytes(const p6_config &config) { return config.z3_memory == 1 ? 16u << 20 : 0; }
 // True when resolve_memory gives the machine's own memory: such a config is the series one in every identity (config_hash included).
 bool memory_is_preset(const p6_config &config);
 

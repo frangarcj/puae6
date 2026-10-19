@@ -2216,6 +2216,54 @@
         }
       },
       {
+        "id": "ram-fast-zorro3-board",
+        "subsystem": "ram",
+        "component": "One real 16 MiB Zorro III autoconfig board on A4030 (z3fastmem_bank[0], p6_config.z3_memory)",
+        "owner": "build/upstream/expansion.cpp (patch 0350), bridge/state.cpp",
+        "chunk": null,
+        "save": "visit_ram and p6_expansion_state_get (16 words with Z3)",
+        "restore": "visit_ram and p6_expansion_state_set (patch 0350)",
+        "reset": "expamem_reset at the end of custom_reset (the chain is rebuilt from the preferences), expansion_clear zeroes the board in memory_clear, expansion_cleanup frees it at unload",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "serialize_extended",
+        "saved_fields": "Configured size and RAM bytes; suggested/chosen base and mapped flag. P6RM carries the single shared Z2/Z3 chain, including with Z2=None; no duplicate chain in P6DK.",
+        "omitted": "cards[], slot tables and suggested addresses are rebuilt from fixed preferences at reset; the active Z2/Z3 window derives from cards[ecard].zorro. Other boards and Z3 sizes remain unsupported.",
+        "pointers": "RAM pointer and map function are rebound; startmask/startaccessmask derive from the saved base. The bank map and highram_temp_bank are rebuilt through map_banks_z3.",
+        "rebuild": "Allocate at load, map only after guest autoconfig with Z3MAPPING_REAL. Restore removes live mapping, applies base/mapping and rebuilds the shared chain window.",
+        "evidence": [
+          "bridge/state.cpp",
+          "bridge/memory.cpp",
+          "patches/winuae/0350-z3-physical-autoconfig-state.patch"
+        ],
+        "proof": {
+          "task": "T55c2",
+          "checks": [
+            "DET02",
+            "STATE01"
+          ],
+          "status": "done",
+          "what": "tests/state/test_z3.py: real windows, both ends above 24 bits, no Chip alias, same/new-process restore, bound and transactional rejection"
+        },
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T55c2",
+          "covers": [
+            "z3fastmem_bank[0]",
+            "p6_expansion_state_get"
+          ]
+        },
+        "waterbox": "T55c3 pending: no wrapper option or budget exposure in T55c2",
+        "native_state": {
+          "task": "T55c2",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/state/test_z3.py: Z2+Z3 and Z3-only autoconfig, mapping, RAM and future restore"
+        }
+      },
+      {
         "id": "ram-kickstart-rom",
         "subsystem": "ram",
         "component": "Kickstart ROM image (kickmem_bank) and the ROM chunk",
@@ -2401,7 +2449,7 @@
       {
         "id": "ram-expansion-and-extended-rom",
         "subsystem": "ram",
-        "component": "Expansion and alternative memory: Z3 RAM boards (the Zorro II Fast RAM board is ram-fast-zorro2-board), A3000 motherboard RAM, 25-bit RAM, custom RAM, debug RAM, extended Kickstart, A1000 WCS, rtarea/boot ROM",
+        "component": "Expansion and alternative memory: Additional Z3 RAM boards/sizes (the supported 16 MiB board is ram-fast-zorro3-board; Z2 is ram-fast-zorro2-board), A3000 motherboard RAM, 25-bit RAM, custom RAM, debug RAM, extended Kickstart, A1000 WCS, rtarea/boot ROM",
         "owner": "build/upstream/memory.cpp, expansion.cpp (AUTOCONFIG undefined)",
         "chunk": "A3K1",
         "save": "save_a3000lram (also save_a3000hram, save_fram, save_zram, save_bootrom)",
@@ -2410,7 +2458,7 @@
         "in_profile": false,
         "upstream_compiled": false,
         "policy": "out_of_profile",
-        "saved_fields": "Raw RAM contents per board (chunks A3K1, A3K2, FRAM, ZRAM, ZCRM, BORO); none of these exists in the profile (check_preset requires z3fastmem/mbresmem sizes 0 and no board but the first Zorro II one).",
+        "saved_fields": "Raw RAM contents per board (chunks A3K1, A3K2, FRAM, ZRAM, ZCRM, BORO); none of these exists in the profile (check_preset permits only the first Z2 board and optionally one 16 MiB Z3 board on A4030; motherboard and other boards remain absent).",
         "omitted": null,
         "pointers": "Static addrbank objects only; their baseaddr stay NULL.",
         "rebuild": null,
@@ -7902,7 +7950,7 @@
           "EXPB",
           "EXPI"
         ],
-        "reason": "the profile has no Zorro III or motherboard memory and no board but one Zorro II Fast RAM board; that board is saved by the native P6RM body (ram-fast-zorro2-board), not by upstream's chunks",
+        "reason": "the profile has no motherboard RAM; the supported Z2 board and optional 16 MiB Z3 board use native P6RM (ram-fast-zorro2-board and ram-fast-zorro3-board), not upstream chunks",
         "evidence": [
           "bridge/config.cpp",
           "bridge/state.cpp"

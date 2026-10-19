@@ -353,6 +353,9 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000/030 currently requires normal CPU accuracy; compatible and exact caches are not implemented");
     if (c.collision_level > 4)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "collision level must be auto, none, sprites, playfields or full");
+    if (c.z3_memory > 1 || (c.z3_memory && c.machine != P6_MACHINE_A4030))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Zorro III supports one 16 MiB board on A4030 only");
+    if (c.reserved8[0]) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     // The controller of the hard files (T56): the IDE port is Gayle's, and only the A600 and the A1200 have Gayle.
@@ -479,6 +482,12 @@ void build_preferences(const p6_config &c, bool ide)
     currprefs.chipmem.size = memory.chip_kib * 1024;
     currprefs.bogomem.size = memory.slow_kib * 1024;
     currprefs.fastmem[0].size = memory.fast_kib * 1024;     // one Zorro II autoconfig board (patch 0110); fixup_prefs keeps board 0 only
+    currprefs.z3fastmem[0].size = z3_bytes(c);
+    if (c.z3_memory) {
+        currprefs.z3_mapping_mode = Z3MAPPING_REAL;
+        currprefs.cs_z3autoconfig = true;
+        currprefs.z3fastmem[0].no_reset_unmap = false;
+    }
     currprefs.ntscmode = c.video_standard == P6_VIDEO_NTSC;
     currprefs.seed = fold_seed(c.random_seed);
     currprefs.sound_freq = int(c.audio_rate_hz);
@@ -547,7 +556,8 @@ p6_result check_preset(p6_error *error)
         p.address_space_24 != (machine.cpu < 68030) || (machine.cpu >= 68020 && p.waiting_blits)) drifted = "cpu";
     else if (p.chipset_mask != machine.chipset_mask || p.blitter_cycle_exact != p.cpu_cycle_exact || p.collision_level != resolve_collision_level(preset_config)) drifted = "chipset";
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
-             p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
+             p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size != z3_bytes(preset_config) || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
+    else if (preset_config.z3_memory && (p.z3_mapping_mode != Z3MAPPING_REAL || !p.cs_z3autoconfig || p.z3fastmem[0].no_reset_unmap)) drifted = "Z3 autoconfig";
     else if (p.cs_compatible != machine.compatible) drifted = "chipset table";
     else if (no_gayle && (p.cs_ide != (preset_ide ? IDE_A600A1200 : 0) || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (preset_config.machine == P6_MACHINE_A4030 && (p.cs_ide != IDE_A4000 || p.cs_fatgaryrev != 0 || p.cs_ramseyrev != 15 || p.cs_rtc != 2)) drifted = "A4000 motherboard";

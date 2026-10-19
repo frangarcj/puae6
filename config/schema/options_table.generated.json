@@ -115,6 +115,19 @@
       "option": "fpu_model",
       "class": "reboot"
     },
+    "z3_memory": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "None": 0,
+        "MB16": 1
+      },
+      "option": "z3_memory",
+      "class": "reboot"
+    },
     "collision_level": {
       "default": 0,
       "allowed": [
@@ -1697,6 +1710,15 @@
       },
       "libretro": "puae6_fpu_model"
     },
+    "z3_memory": {
+      "headless": {
+        "how": "profile"
+      },
+      "wrapper": {
+        "how": "profile"
+      },
+      "libretro": null
+    },
     "collision_level": {
       "headless": {
         "how": "named",
@@ -2633,7 +2655,7 @@
     "floppy_drives": "FloppyDrives"
   },
   "unsupported": {
-    "z3fastmem_size": "Zorro III RAM is not implemented; the A4030 currently supports Zorro II Fast RAM only.",
+    "z3fastmem_size": "Zorro III is available through the native API only; the configuration-file importer does not expose it yet.",
     "fastmem2_size": "One Zorro II Fast RAM board is offered; a second board is not.",
     "kickstart_rom_file": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration.",
     "cpu_speed": "The machine runs at its real clock; the host speed never changes the emulation.",

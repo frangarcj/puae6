@@ -18,6 +18,7 @@ struct Settings {
     uint32_t slow_size = 0u;  // reboot, p6_config.slow_kib = Auto
     uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = Auto
     uint32_t fpu_model = 0u;  // reboot, p6_config.fpu_model = None
+    uint32_t z3_memory = 0u;  // reboot, p6_config.z3_memory = None
     uint32_t collision_level = 0u;  // reboot, p6_config.collision_level = auto
     uint32_t cpu_model = 0u;  // reboot, p6_config.cpu_model = auto
     uint32_t cpu_compatibility = 0u;  // reboot, p6_config.cpu_compatibility = exact
@@ -112,6 +113,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->slow_kib = settings.slow_size;
     config->fast_kib = settings.fast_size;
     config->fpu_model = settings.fpu_model;
+    config->z3_memory = settings.z3_memory;
     config->collision_level = settings.collision_level;
     config->cpu_model = settings.cpu_model;
     config->cpu_compatibility = settings.cpu_compatibility;

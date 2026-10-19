@@ -45,6 +45,7 @@ extern "C" p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capac
         {P6_REGION_CHIP_RAM, P6_REGION_WRITABLE, &chipmem_bank, 0},
         {P6_REGION_SLOW_RAM, P6_REGION_WRITABLE, &bogomem_bank, currprefs.bogomem.size},
         {P6_REGION_FAST_RAM, P6_REGION_WRITABLE, &fastmem_bank[0], 0},
+        {P6_REGION_Z3_FAST_RAM, P6_REGION_WRITABLE, &z3fastmem_bank[0], 0},
         {P6_REGION_ROM, 0, &kickmem_bank, 0},
     };
     p6_memory_region found[sizeof sources / sizeof sources[0]];

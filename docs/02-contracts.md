@@ -15,7 +15,13 @@ y no ofrece MMU: PMMU entra en F-line, sin registros ficticios. La FPU externa
 sus caches y actualmente devuelven UNSUPPORTED.
 
 La memoria propia es 2 MiB Chip y 8 MiB Fast Zorro II, como el A4030 de PUAE5;
-no se habilita RAM de placa ni Zorro III. `fast_kib=0` resuelve la propia y
+no se habilita RAM de placa. T55c2 permite por API nativa una placa Zorro III
+de16MiB (`z3_memory=1`, byte70); 0 mantiene la maquina anterior. Solo A4030,
+requiere reinicio y tiene identidad propia. La placa se configura por el bus real
+con Z3MAPPING_REAL; P6RM guarda RAM, base/mapeo y la unica cadena Z2/Z3,
+tambien sin Z2. Otros tamaños y las opciones de frontend/presupuesto Waterbox
+siguen pendientes; el esquema deja headless/C# en profile0 y no crea menu LR.
+`fast_kib=0` resuelve la propia Z2 y
 `P6_MEMORY_NONE` la desactiva, tambien en los tres frontends. Los estados añaden
 controles 030 a P6CP, los cuatro bytes Gary/Ramsey a P6RM y el IDE fisico a P6DK
 incluso sin disco. Modelo, memoria y nivel CPU forman parte de la identidad.

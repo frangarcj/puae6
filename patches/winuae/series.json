@@ -4647,6 +4647,52 @@
           "after_sha256": "d9008a1a79ef9494662fe57df72a590d2e4b0eac147c51f6da139adc9d8349d0"
         }
       ]
+    },
+    {
+      "id": "0350-z3-physical-autoconfig-state",
+      "file": "patches/winuae/0350-z3-physical-autoconfig-state.patch",
+      "sha256": "4c7c89fec04862a11ddc73767e20c613c98f975d31f912d0a59b2e2fc0493ca8",
+      "title": "Restore the physical Z3 board mapping and shared autoconfig window",
+      "reason": "T55c2 keeps one real Z3 board unmapped until guest autoconfig and restores its chosen base and the Z2/Z3 chain window without host pointers.",
+      "category": "host hooks",
+      "order": 171,
+      "symbols": [
+        "expamem_map_z3fastmem",
+        "p6_expansion_state_get",
+        "p6_expansion_state_set"
+      ],
+      "test": "tests/state/test_z3.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "f3d6522e49610eb794e9ddbe5eb1ba669904f6aea5ec1bbfd9262be3869d7beb",
+          "after_sha256": "83ff9a79f6b04d189f4a961284ddf5104e3e6a057d3bf62681efd348ec3eb227"
+        }
+      ]
+    },
+    {
+      "id": "0351-profile-bounded-z3",
+      "file": "patches/winuae/0351-profile-bounded-z3.patch",
+      "sha256": "ef1484c0e7e214aaa79a7d7ed7c488af59e5dcb24218e4ed9686a865f68e5281",
+      "title": "Keep only the supported 16 MiB Z3 board in the portable profile",
+      "reason": "Without AUTOCONFIG the portable allowlist previously erased every Z3 size. Keep only board0 on the 32-bit68030 at the size the bridge accepts; all other boards remain excluded.",
+      "category": "build/portability",
+      "order": 172,
+      "symbols": [
+        "fixup_prefs"
+      ],
+      "test": "tests/state/test_z3.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "98677ba8b1cfeafc97a59d51087154025206c377b243a723e0e645bf9ee5dddb",
+          "after_sha256": "526263ab9c1df70020ead461ce38fbb637f94f552c46e741e139457426dea8ff"
+        }
+      ]
     }
   ]
 }

@@ -176,7 +176,9 @@
     "0353-parallel-adapter-boundary-and-cia": "required",
     "0349-generic-040-060-no-mmu-cache": "required",
     "0354-cd32-eeprom-state": "instrumentation",
-    "0355-cdrom-mode1-sync": "behavior"
+    "0355-cdrom-mode1-sync": "behavior",
+    "0350-z3-physical-autoconfig-state": "behavior",
+    "0351-profile-bounded-z3": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -371,6 +373,13 @@
       "effect": "inert",
       "why": "CD sources and cdrom.cpp are not selected in the REF01 machine profiles. Only the new standalone CD sector reader calls the encoder; its independent ECMA-130 sync/header/EDC oracle captures the correction.",
       "test": "tests/media/test_cd_disc.py",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0350-z3-physical-autoconfig-state": {
+      "effect": "inert",
+      "why": "The reference corpus has no Z3 board. Only a guest-configured Z3 board changes its recorded base/access masks, and the native-state accessors gain its mapping and window.",
+      "test": "tests.state.test_z3",
       "scenarios": [],
       "subsystems": []
     }

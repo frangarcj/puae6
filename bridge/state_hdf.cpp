@@ -311,14 +311,14 @@ void visit_hdf(Archive &a)
     if (!a.ok()) return;
     if (p6_bridge::ide_attached(session.config, files)) {
         visit_ide(a);
-        if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0) visit_expansion(a, 0);
+        if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0 && !p6_bridge::z3_bytes(session.config)) visit_expansion(a, 0);
         for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
         return;
     }
     if (motherboard) {
         visit_ide(a);
         if (!files) {
-            if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0) visit_expansion(a, 0);
+            if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0 && !p6_bridge::z3_bytes(session.config)) visit_expansion(a, 0);
             return;
         }
     }
@@ -329,7 +329,7 @@ void visit_hdf(Archive &a)
     }
     if (a.ok()) visit_trap_area(a);
     if (a.ok()) visit_board(a);
-    if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0) visit_expansion(a, 0);
+    if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0 && !p6_bridge::z3_bytes(session.config)) visit_expansion(a, 0);
     if (a.ok()) visit_expamem_image(a);          // after the chain: putting the card's first 256 bytes back rebuilds the buffer (expamem_next)
     if (a.ok()) visit_queue(a);
     for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
