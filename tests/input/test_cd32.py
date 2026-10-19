@@ -7,11 +7,12 @@ calculated from the input, never captured from the engine. No commercial assets.
 from pathlib import Path
 import tempfile
 import subprocess
+import struct
 import unittest
 
 from tests.build_support import ROOT, build_targets
-from tests.input.test_input import Run as InputRun, line
-from tests.state.harness import FieldTable, ProbeCase, parse_chunks, reforge
+from tests.state.harness import FieldTable, parse_chunks, reforge
+from tests.state.test_det02 import Det02Case, SAME, NEW
 from tests.step.test_step import builder
 
 CD32 = 3
@@ -76,16 +77,22 @@ int main() {
             subprocess.run([str(path / "probe")], check=True)
 
 
-class Cd32Tests(ProbeCase):
+class Cd32Tests(Det02Case):
+    SAVE_OP, LOAD_OP = "--public-save-at", "--public-load-at"
+
     @classmethod
     def setUpClass(cls):
-        products = build_targets(ROOT / "build/cd32", ["p6_step_probe", "p6_state_probe"], trace=True, optimized=True)
-        cls.step, cls.exe = products["p6_step_probe"], products["p6_state_probe"]
+        # state_probe has no STEP01 trace observers; use its public RAM view, not a trace build shared with step_probe.
+        cls.exe = build_targets(ROOT / "build/cd32", ["p6_state_probe"], optimized=True)["p6_state_probe"]
         cls.tmp = tempfile.TemporaryDirectory(prefix="cd32-", dir=ROOT / "build")
         cls.dir = Path(cls.tmp.name)
         path = cls.dir / "cd32.rom"
         path.write_bytes(builder.build(ROM))
         cls.roms = {"cd32": path, "vsync": path}
+        directions = cls.dir / "directions.rom"
+        directions.write_bytes(builder.build(ROM.replace("MOVE.W $DFF016.L,(A0)+", "MOVE.W $DFF00A.L,(A0)+\n    MOVE.W $DFF00C.L,(A0)+")))
+        cls.roms["directions"] = directions
+        cls.cache = {}
 
     def ports(self, mask=ALL):
         return ("--port", f"0:3:{mask}:0:0", "--port", f"1:3:{mask}:0:0")
@@ -93,13 +100,15 @@ class Cd32Tests(ProbeCase):
     def test_seven_buttons_and_identification_bits_in_both_ports_pal_and_ntsc(self):
         for standard in ("pal", "ntsc"):
             for mask in (0, ALL, *BUTTONS):
-                script = [line(p0=(CD32, mask, 0, 0), p1=(CD32, mask, 0, 0))] * 11
-                run = InputRun(self.step, self.roms["cd32"], script, 11, standard=standard)
-                words = [word for unit in sorted(run.logged) for word in run.unit_words(unit)]
-                self.assertGreaterEqual(len(words), 9)
-                expected = [int(not (mask & b)) for b in BUTTONS] + [1, 0]
+                path = self.dir / "wire.bin"
+                masks = (mask, ALL ^ mask)  # opposite levels also detect crossed/aliased ports.
+                flags = ("--ntsc",) if standard == "ntsc" else ()
+                self.probe("cd32", "--units", "11", *flags, "--port", f"0:3:{masks[0]}:0:0", "--port", f"1:3:{masks[1]}:0:0",
+                           "--ramout-at", "11", "0x1000", "18", str(path))
+                words = struct.unpack(">9H", path.read_bytes())
                 for p in (0, 1):
-                    self.assertEqual(expected, [(w >> (10 + 4 * p)) & 1 for w in words[:9]], (standard, mask, p))
+                    expected = [int(not (masks[p] & b)) for b in BUTTONS] + [1, 0]
+                    self.assertEqual(expected, [(w >> (10 + 4 * p)) & 1 for w in words], (standard, mask, p))
 
     def saved(self, unit=3):
         path = self.dir / "source.state"
@@ -107,19 +116,31 @@ class Cd32Tests(ProbeCase):
         self.assertEqual([], run.save_errors)
         return path, run, FieldTable(path.read_bytes(), 9, run.fields)
 
+    def test_dpad_quadrature_and_opposite_directions_are_independent_in_both_ports(self):
+        def buttons(x, y):
+            return {0: 0, -1: 32, 1: 64, 2: 96}[x] | {0: 0, -1: 8, 1: 16, 2: 24}[y]
+
+        def quadrature(x, y):
+            left, right, up, down = x == -1, x == 1, y == -1, y == 1
+            return int(down ^ right) | (int(right) << 1) | (int(up ^ left) << 8) | (int(left) << 9)
+
+        for x, y in [(x, y) for x in (-1, 0, 1) for y in (-1, 0, 1)] + [(2, 2)]:
+            path = self.dir / "directions.bin"
+            opposite = (2 if x == 2 else -x, 2 if y == 2 else -y)
+            masks = (buttons(x, y), buttons(*opposite))
+            self.probe("directions", "--units", "4", "--port", f"0:3:{masks[0]}:0:0", "--port", f"1:3:{masks[1]}:0:0", "--ramout-at", "4", "0x1000", "4", str(path))
+            # JOYxDAT quadrature encoding from the Amiga hardware contract, not an engine capture.
+            self.assertEqual((quadrature(x, y), quadrature(*opposite)), tuple(w & 0x0303 for w in struct.unpack(">2H", path.read_bytes())))
+
     def test_partly_read_pad_restores_in_same_and_new_process(self):
-        path, control, table = self.saved()
+        _, _, table = self.saved()
         self.assertIn(table.get("cd32.shifter[0]"), range(1, 8))
         self.assertEqual(1, table.get("cd32.clock[0]"))
-        same = self.probe("cd32", "--units", "9", "--every", "1", *self.ports(), "--public-load-at", "6", str(path))
-        fresh = self.probe("cd32", "--units", "4", "--every", "1", *self.ports(), "--public-load-at", "0", str(path))
-        for run, start in ((same, 6), (fresh, 0)):
-            self.assertEqual([(start, 0, "")], run.loads)
-            self.assertEqual(control.unit(3), run.after[0])
-            for j in range(1, 4):
-                self.assertEqual(control.unit(3 + j), run.unit(start + j))
-                self.assertEqual(control.pcm[3 + j], run.pcm[start + j])
-                self.assertEqual(control.pictures[3 + j], run.pictures[start + j])
+        # Existing DET02 oracle: custom_storage's last-write scratch is excluded, every causal group and A/V is compared.
+        # This ROM's first scratch difference is POTGO ($034), canonical offset97: $2200 versus0; live potgo_value agrees.
+        for mode in (SAME, NEW):
+            with self.subTest(mode=mode):
+                self.assertIsNone(self.first_divergence("cd32", list(self.ports()), 3, mode))
 
     def test_malformed_cd32_tail_is_refused_before_touching_the_machine(self):
         _, _, table = self.saved()
@@ -129,6 +150,7 @@ class Cd32Tests(ProbeCase):
             ("shifter", table.with_values({"cd32.shifter[0]": 9}), 9, "a field is out of its range"),
             ("clock", table.with_values({"cd32.clock[1]": 2}), 9, "a field is out of its range"),
             ("buttons", table.with_values({"cd32.buttons_extra[0]": 16}), 9, "a field is out of its range"),
+            ("ordinary button", table.with_values({"joy.button[0]": 1}), 9, "CD32 has no ordinary joystick button bits"),
         ], rom="cd32", extra=self.ports(), unit=4, units=5)
 
     def test_device_changes_release_cd32_and_bound_always_covers_both_pads(self):

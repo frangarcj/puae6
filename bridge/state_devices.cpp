@@ -232,11 +232,11 @@ void visit_input(Archive &a)
             field<uint8_t>(a, r.pot_dat[p][i], 0, 255, "pot.dat");
             field<uint8_t>(a, r.pot_dat_act[p][i], 0, 2, "pot.dat_act");
         }
-    uint8_t joy_dir[2] = {};
+    uint8_t joy_dir[2] = {}, joy_button[2] = {};
     for (int p = 0; p < 2; ++p) {
         p6_input_port_raw &g = r.port[p];
         uint32_t buttons = r.cd32_enabled[p] ? g.joybutton & 7 : g.joybutton;
-        field<uint8_t>(a, buttons, 0, 7, "joy.button"); // CD32's upper seven bits are derived from its applied levels below.
+        joy_button[p] = field<uint8_t>(a, buttons, 0, 7, "joy.button"); // CD32's upper seven bits are derived from its applied levels below.
         if (a.applying()) g.joybutton = buttons;
         joy_dir[p] = field<uint8_t>(a, g.joydir, 0, 15, "joy.dir");
         field<uint8_t>(a, g.oleft, 0, 1, "joy.left");
@@ -317,6 +317,7 @@ void visit_input(Archive &a)
         for (int p = 0; p < 2; ++p) {
             const bool joystick = applied_type[p] == P6_PORT_JOYSTICK, mouse = applied_type[p] == P6_PORT_MOUSE, cd32 = applied_type[p] == P6_PORT_CD32;
             if (cd32) {
+                a.require(joy_button[p] == 0, "CD32 has no ordinary joystick button bits");
                 const unsigned directions = (applied_axis[p][0] < 0 ? 1 : applied_axis[p][0] > 0 ? 2 : 0) |
                     (applied_axis[p][1] < 0 ? 4 : applied_axis[p][1] > 0 ? 8 : 0);
                 a.require(joy_dir[p] == directions, "CD32 directions and the bridge disagree");
