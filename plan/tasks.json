@@ -14710,7 +14710,7 @@
       "title": "Transporte CD por callback real en Waterbox con snapshot y rebind",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66b",
         "T66d2"
