@@ -497,6 +497,7 @@ TASK_SUITES[('ABI01', 'T55c3')] = TASK_SUITES[('ABI01', 'T55c2')]
 TASK_SUITES[('LR01', 'T55c3')] = {'z3_shared_option_and_actual_bus_map': 'tests.libretro-host.test_z3'}
 TASK_SUITES[('WB03', 'T55c3')] = {'z3_domain_sandbox_and_process_restore': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_domains_and_same_new_sandbox_and_process_restore'}
 TASK_SUITES[('PERF01', 'T55c3')] = {'z3_actual_committed_heap_margin': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_actual_heap_commitment_has_the_existing_two_times_margin'}
+TASK_SUITES[('PERF01', 'T53')] = {'measured_cpu_levels': 'tests.bench.test_cpu_campaign.CpuCampaignMeasurements'}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):
     TASK_SUITES[(_gate, 'T53')] = {'cpu_modes_restore_identity_and_no_mmu': 'tests.state.test_cpu_modes'}
@@ -602,7 +603,7 @@ for _gate in ('IN01', 'DET02', 'LR01', 'WB03'):
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 
-TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
+TASK_SUITE_TIMEOUT = {('PERF01', 'T53'): 4 * 3600, ('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
                       ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
                       ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
                       ('DET04', 'T32'): 6 * 3600, ('DET06', 'T32'): 6 * 3600}

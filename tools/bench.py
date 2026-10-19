@@ -43,7 +43,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import build_waterbox  # noqa: E402
 
 BUILD = ROOT / "build"
-NATIVE_TREE = BUILD / "bench-release"          # Release, -O2: the optimization of the Waterbox guest (tools/build_waterbox.py passes CCFLAGS_RELEASE=-O2)
+NATIVE_TREE = Path(os.environ.get("P6_BENCH_NATIVE_TREE") or BUILD / "bench-release")          # Release, -O2: the optimization of the Waterbox guest (tools/build_waterbox.py passes CCFLAGS_RELEASE=-O2)
 WORK = BUILD / "bench"
 BASELINES = BUILD / "baselines"
 BUDGETS = ROOT / "plan/performance-budgets.json"
@@ -473,6 +473,106 @@ def plan_matrix(scenarios, quick):
     return matrix
 
 
+# T53: one frozen candidate, three CPU families/levels and production frontends.
+CPU_CASES = (("a500-ocs-busy-pal", "68000"), ("a600-ecs-copper-ntsc", "68010"), ("a1200-aga-planes8-pal", "68020"))
+CPU_LEVELS = ("exact", "compatible", "normal")
+CPU_RUNNERS = ("native", "libretro", "waterbox-core-release")
+
+
+def cpu_campaign_matrix(check_available=True):
+    matrix = []
+    for name, model in CPU_CASES:
+        for level in CPU_LEVELS:
+            scenario = scenario_by_id(name).with_cpu(model, level)
+            for identifier in CPU_RUNNERS:
+                runner = next(r for r in RUNNERS if r.id == identifier)
+                if check_available and not runner.available(scenario):
+                    raise ValueError(f"required CPU campaign runner unavailable: {identifier}/{scenario.id}")
+                matrix.append((scenario, runner, scenario.units, 300))
+    return matrix
+
+
+def cpu_campaign_identity():
+    receipt = json_result(GUEST_RECEIPT)
+    guest = receipt["guest"]
+    if not receipt.get("sources") or any(sha256_of(ROOT / name) != digest for name, digest in receipt["sources"].items()):
+        raise ValueError("CPU campaign guest was built from different sources")
+    runtime = json_result(RELEASE_RUNTIME_RECEIPT)["runtime_dylib"]
+    paths = [NATIVE_TREE / n for n in ("p6_bench_probe", "p6_libretro_host", "puae6_libretro.dylib", "CMakeCache.txt")]
+    paths += [GUEST_RECEIPT, RELEASE_RUNTIME_RECEIPT, Path(guest["path"]), Path(runtime["path"]), FFI_RELEASE / "Ffi.dll"]
+    paths += sorted(FFI_RELEASE.glob("*.dll")) + sorted(FFI_RELEASE.glob("*.json"))
+    artifacts = {str(p.resolve()): sha256_of(p) for p in paths}
+    if not all(artifacts.values()) or sha256_of(guest["path"]) != guest["sha256"] or sha256_of(runtime["path"]) != runtime["sha256"]:
+        raise ValueError("CPU campaign requires all current, receipt-verified artifacts")
+    cache = (NATIVE_TREE / "CMakeCache.txt").read_text()
+    if any(value not in cache for value in ("CMAKE_BUILD_TYPE:STRING=Release", "P6_SANITIZERS:BOOL=OFF", "CMAKE_CXX_FLAGS_RELEASE:STRING=-O2\n", "CMAKE_C_FLAGS_RELEASE:STRING=-O2\n")):
+        raise ValueError("CPU campaign requires Release -O2 native code without sanitizers")
+    sources = [ROOT / n for n in ("CMakeLists.txt", "manifests/codegen.json", "manifests/source-manifest.json", "patches/winuae/series.json", "tools/bench.py")]
+    for folder in ("bridge", "ports/portable", "adapters", "integration/bizhawk", "tests/bench", "tests/ffi", "tests/libretro-host", "tests/scenarios", "config"):
+        sources += sorted(p for p in (ROOT / folder).rglob("*") if p.suffix in (".cpp", ".c", ".h", ".inc", ".cs", ".csproj", ".json", ".py") and not {"obj", "bin"}.intersection(p.parts))
+    source_hash = hashlib.sha256("".join(f"{p.relative_to(ROOT)}:{sha256_of(p)}\n" for p in sources).encode()).hexdigest()
+    roms = {s.base_id: sha256_of(s.rom()) for s, _, _, _ in cpu_campaign_matrix(False)}
+    return {"artifacts": artifacts, "sources": source_hash, "public_roms": roms, "protocol": "T53/300/10000-primary-3000-other/5/20/v1"}
+
+
+def campaign_hash(identity):
+    return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+
+
+def validate_cpu_campaign(directory):
+    """Consume actual raw windows; never infer completion from harness tests or summaries."""
+    directory = Path(directory)
+    identity = cpu_campaign_identity()
+    if json_result(directory / "environment.json").get("cpu_campaign") != identity:
+        raise ValueError("CPU campaign identity differs from current artifacts/inputs")
+    matrix = cpu_campaign_matrix(False)
+    expected = [(rep, row) for rep in range(1, 6) for row in matrix]
+    names = {f"{s.id}__{r.id}__rep{rep}.json.gz" for rep, (s, r, _, _) in expected}
+    if {p.name for p in (directory / "raw").glob("*.json.gz")} != names:
+        raise ValueError("CPU campaign coverage is incomplete or contains extra rows")
+    groups, ticks, previous_end = {}, {}, 0
+    for sequence, (rep, (s, runner, units, warmup)) in enumerate(expected):
+        record = read_raw(directory / "raw" / f"{s.id}__{runner.id}__rep{rep}.json.gz")
+        metadata = dict(scenario=s.id, scenario_base=s.base_id, cpu_model=s.cpu_model, cpu_compatibility=s.cpu_compatibility,
+                        runner=runner.id, layer=runner.layer, rep=rep, units=units, warmup=warmup, machine=s.machine, standard=s.standard,
+                        state_rounds=20, campaign_identity=campaign_hash(identity), campaign_sequence=sequence)
+        if any(record.get(k) != v for k, v in metadata.items()):
+            raise ValueError("CPU campaign row identity/protocol differs")
+        start, end = record.get("started_ns", 0), record.get("ended_ns", 0)
+        if start <= previous_end or end <= start:
+            raise ValueError("CPU campaign windows are not interleaved in recorded order")
+        previous_end = end
+        for field, count in (("unit_wall_ns", units), ("unit_cpu_ns", units), ("state_save_ns", 20), ("state_load_ns", 20), ("first_unit_after_load_ns", 20)):
+            values = record.get(field, [])
+            if len(values) != count or any(not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in values):
+                raise ValueError(f"CPU campaign missing/invalid measured samples: {field}")
+        facts = record.get("facts", {})
+        state_bytes = facts.get("state", {}).get("bytes", facts.get("state_bytes", 0))
+        if state_bytes <= 0 or any(facts.get(k, v) != v for k, v in (("cpu_model", s.cpu_model), ("cpu_compatibility", s.cpu_compatibility))):
+            raise ValueError("CPU campaign has no real state or reports another CPU")
+        if runner.id == "waterbox-core-release" and (facts.get("managed_build") != "Release" or facts.get("evict_blocks_forced_off") is not True):
+            raise ValueError("CPU campaign requires Release managed code and eviction off")
+        tick, index = record.get("master_ticks_at_window_end"), record.get("unit_index_at_window_end")
+        if not isinstance(tick, int) or tick <= 0 or index != warmup + units or record.get("peak_rss_bytes", 0) <= 0:
+            raise ValueError("CPU campaign has no real boundary/RSS counters")
+        ticks.setdefault(s.id, set()).add((tick, index))  # Never compare different CPU levels.
+        run = run_summary(record); run["_samples"] = record["unit_wall_ns"]
+        groups.setdefault((s.id, runner.id), []).append(run)
+    if any(len(values) != 1 for values in ticks.values()):
+        raise ValueError("CPU campaign ticks differ within one model/level")
+    rows = {key: aggregate(group) for key, group in groups.items()}
+    for (scenario, runner), row in rows.items():
+        exact = rows[(scenario.rsplit("--", 1)[0] + "--exact", runner)]
+        row["p50_vs_exact"] = row["median_of_run_medians_ns"] / exact["median_of_run_medians_ns"]
+        row["p95_vs_exact"] = row["pooled"]["p95"] / exact["pooled"]["p95"]
+        row["stable"] = not row["noisy_runs"] and row["between_run_cv"] <= 0.02
+        group = groups[(scenario, runner)]
+        row["peak_rss_bytes"] = max(run["peak_rss_bytes"] for run in group)
+        row["state_cost_ns"] = {key: {q: median_field(group, key, q) for q in ("p50", "p95")}
+                                for key in ("state_save_ns", "state_load_ns", "first_unit_after_load_ns")}
+    return rows
+
+
 def write_raw(path, record):
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "wb") as raw:
@@ -511,9 +611,12 @@ def run_command(args):
             candidate = Path.home() / "Downloads" / name
             if variable not in os.environ and candidate.is_file():
                 os.environ[variable] = str(candidate)
+    cpu_compare = getattr(args, "compare_cpu_levels", False)
+    if cpu_compare and (args.quick or args.reps != 5 or args.state_rounds != 20 or args.scenario or args.runner or args.cpu != "auto" or args.cpu_compatibility != "exact"):
+        raise ValueError("CPU campaign fixes scenarios/runners/models: no quick/subset or protocol override")
     scenarios = [scenario_by_id(s) for s in args.scenario] if args.scenario else SCENARIOS
     scenarios = [s.with_cpu(args.cpu, args.cpu_compatibility) for s in scenarios]
-    matrix = plan_matrix(scenarios, args.quick)
+    matrix = cpu_campaign_matrix() if cpu_compare else plan_matrix(scenarios, args.quick)
     if args.runner:
         matrix = [m for m in matrix if m[1].id in args.runner]
     if not matrix:
@@ -523,12 +626,17 @@ def run_command(args):
     raw = directory / "raw"
     environment_path = directory / "environment.json"
     directory.mkdir(parents=True, exist_ok=True)
+    campaign = cpu_campaign_identity() if cpu_compare else None
     if not environment_path.is_file():
-        environment_path.write_text(json.dumps(capture_environment(), indent=2, ensure_ascii=False) + "\n")
+        environment = capture_environment()
+        if cpu_compare: environment["cpu_campaign"] = campaign
+        environment_path.write_text(json.dumps(environment, indent=2, ensure_ascii=False) + "\n")
+    if cpu_compare and json_result(environment_path).get("cpu_campaign") != campaign:
+        raise ValueError("refusing to resume a CPU campaign of different artifacts/inputs")
     state_rounds = 5 if args.quick else args.state_rounds
     log = []
     for rep in range(1, args.reps + 1):
-        for scenario, runner, units, warmup in matrix:               # interleaved: repetition 1 of everything, then 2: a drift of the machine hits every runner alike
+        for position, (scenario, runner, units, warmup) in enumerate(matrix):               # interleaved: repetition 1 of everything, then 2: a drift of the machine hits every runner alike
             if rep > (3 if runner.id in SLOW_RUNNERS else args.reps):       # the runners that only contrast a configuration (Debug host, eviction on) run three times
                 continue
             target = raw / f"{scenario.id}__{runner.id}__rep{rep}.json.gz"
@@ -536,6 +644,7 @@ def run_command(args):
                 continue
             waited = wait_for_quiet(args.max_load1, args.wait_quiet) if args.wait_quiet else os.getloadavg()[0]
             before = system_load()
+            started_ns = time.time_ns()
             started = time.monotonic()
             attempts, crashes, result = 0, [], None
             while result is None and attempts < 3:
@@ -550,6 +659,7 @@ def run_command(args):
             if result is None:
                 print(f"FAILED {scenario.id} {runner.id} rep{rep}: {crashes[-1][-200:]}")
                 log.append({"scenario": scenario.id, "runner": runner.id, "rep": rep, "attempts": attempts, "errors": crashes})
+                if cpu_compare: return 1  # Resume only a chronological prefix, never a skipped row.
                 continue
             if crashes:
                 print(f"  {scenario.id} {runner.id} rep{rep}: repeated after {len(crashes)} crash(es) of the host (T28a)")
@@ -557,11 +667,15 @@ def run_command(args):
             result.update({"scenario": scenario.id, "runner": runner.id, "layer": runner.layer, "rep": rep, "units": units, "warmup": warmup, "machine": scenario.machine, "standard": scenario.standard,
                            "scenario_base": scenario.base_id, "cpu_model": scenario.cpu_model, "cpu_compatibility": scenario.cpu_compatibility,
                            "load_before": before, "load_after": after, "load1_at_start": waited, "harness_seconds": round(time.monotonic() - started, 1), "attempts": attempts, "crashes_before_success": crashes})
+            if cpu_compare:
+                result.update(campaign_identity=campaign_hash(campaign), campaign_sequence=(rep - 1) * len(matrix) + position,
+                              started_ns=started_ns, ended_ns=time.time_ns(), state_rounds=state_rounds)
             write_raw(target, result)
             wall = describe(result["unit_wall_ns"])
             print(f"{scenario.id:24s} {runner.id:34s} rep{rep} p50={ms(wall['p50']):7.3f} ms p95={ms(wall['p95']):7.3f} ms  load1={before['load'][0]:.1f}  [{result['harness_seconds']} s]", flush=True)
     if log:
         (directory / "failures.json").write_text(json.dumps(log, indent=2) + "\n")
+    if cpu_compare: validate_cpu_campaign(directory)
     return 1 if log else 0
 
 
@@ -892,6 +1006,7 @@ def main():
     run.add_argument("--id", required=True, help="baseline directory under build/baselines")
     run.add_argument("--root", default=str(BASELINES), help="where baselines live (a smoke run goes under build/)")
     run.add_argument("--reps", type=int, default=5)
+    run.add_argument("--compare-cpu-levels", action="store_true", help="T53 complete CPU campaign, fixed protocol and production frontends")
     run.add_argument("--quick", action="store_true", help="400 units, 100 warmup, 5 state rounds: a smoke run, not a baseline")
     run.add_argument("--scenario", action="append", default=[])
     run.add_argument("--runner", action="append", default=[])
