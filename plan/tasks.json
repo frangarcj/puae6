@@ -11580,7 +11580,8 @@
         "Integracion de candidata: actualizar la comprobacion estricta del inventario RTC para incluir el nuevo RF5C01A de T55a (25 componentes, propietario especifico y enlace de prueba con formato path:descripcion), sin relajar los otros propietarios ni sus asserts. Limitar a dos los compiladores simultaneos en la receta clean, como el resto de la task force.",
         "Cerrar la ruta offline real de RetroArch: fijar el ID/ISA de la imagen local ya presente, comprobarla antes de preparar lanes que la usan y ejecutar siempre por ID con --pull=never/--network=none. La ausencia o diferencia bloquea sin autobuild/descargas; no modificar la imagen ni Docker global. Mantener controles DiskControl por loopback dentro del mismo contenedor y comprobar negativos de infraestructura sin compilar el motor.",
         "Reproducer DET06 de inicio ASan/UBSan pasa realmente en las cinco filas declaradas con tres relojes civiles desplazados y monotono intacto; IDs Docker verificados antes/despues. No se ha ejecutado ni acreditado la matriz del emulador ni CI remota. Ruta RetroArch offline verificada con version real y UDP loopback; se conserva el cierre completo para la candidata.",
-        "Eliminar la importacion directa de TestCase del constructor en test_autoload: unittest lo estaba ejecutando otra vez al cargar el modulo. Mantener seleccionados ambos modulos originales y probar que sus IDs de casos no se solapan; no quitar assertions ni reducir ventanas de ejecucion."
+        "Eliminar la importacion directa de TestCase del constructor en test_autoload: unittest lo estaba ejecutando otra vez al cargar el modulo. Mantener seleccionados ambos modulos originales y probar que sus IDs de casos no se solapan; no quitar assertions ni reducir ventanas de ejecucion.",
+        "Prioridad de entrega confirmada: usar primero la preview local T40a ya probada desde el ZIP. CD32/CDTV, Z3 y040/060 siguen pendientes o aislados y no bloquean esta entrega; la matriz amplia/release formal conserva sus puertas originales y se ejecuta sobre su candidata correspondiente."
       ],
       "checks": [
         "PLAN01",
@@ -12810,6 +12811,7 @@
         "tests/contracts/**",
         "tests/fuzz/**",
         "tests/ffi/Program.cs",
+        "tests/ffi/test_ffi.py",
         "tests/reference/patch-classes.json",
         "config/schema/options.json",
         "config/schema/options_table.generated.json",
@@ -12826,7 +12828,8 @@
         "Cubrir el campo en el esquema comun con default0, libretro=null y libretro_policy explicita; headless/wrapper how=profile. El generador existente soporta esa politica: ningun frontend ofrece Z3 antes de completar c3, sin excepciones para eludir cobertura ni tests rotos. Ajustar diagnostico z3fastmem_size para distinguir API nativa del importador aun no expuesto.",
         "Configurar placa16MiB Z3 upstream, Z3MAPPING_REAL, sin mapeo anticipado ni UAE hack. Anadir identidad condicional, region nativa propia y serializacion de RAM/direccion/mapeo y cadena unica compartida de autoconfig, incluidas ventanas Z2/Z3 y caso Z2=None. Reservar patch0350 y siguientes hasta0352;0354EEPROM y0355CD son de otros frentes.",
         "Micro-ROM configura ventanas reales, toca extremos por encima24bits y descarta alias; restore mismo/nuevo proceso durante autoconfig y tras mapear. Bound constante, configuracion invalida y estado corrupto no modifican la maquina. Reutilizar harness A4030/Fast RAM; estimacion390 lineas manuales, dividir antes de exceder400 sin compactacion artificial.",
-        "Esta ficha cierra solo16MiB por API nativa. T55c conserva otros tamanos Z3 de paridad, 040/060/FPU/estado y arranque real con firmware A4000. No atribuir WB03 ni soporte frontend a esta prueba nativa."
+        "Esta ficha cierra solo16MiB por API nativa. T55c conserva otros tamanos Z3 de paridad, 040/060/FPU/estado y arranque real con firmware A4000. No atribuir WB03 ni soporte frontend a esta prueba nativa.",
+        "Ampliacion explicita: tests/ffi/test_ffi.py enumera miembros ABI junto a Program.cs; ajustar ambos al reutilizar byte70 para mantener ABI01 completo. Esta vertical sigue aislada y no retrasa ni modifica la preview ya entregada."
       ],
       "checks": [
         "GEN01",
@@ -14349,7 +14352,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "read": [
         "docs/01-architecture.md",
         "docs/02-contracts.md",
