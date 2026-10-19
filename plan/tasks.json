@@ -11642,6 +11642,45 @@
       "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente."
     },
     {
+      "id": "T40a",
+      "title": "Entregar preview local utilizable del core libretro macOS ARM64",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T39a",
+        "T35"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tools/package.py",
+        "docs/user/**",
+        "manifests/release/**",
+        "tests/packages/**",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Decision del usuario 2026-10-19: priorizar una primera version utilizable. Preparar paquete local del core libretro nativo macOS ARM64 y ejecutable headless a partir del main estable; CPU rapida, SAVEDISK y nuevos mandos siguen aislados hasta validacion dirigida.",
+        "Incluir fuentes/cola de parches/receta/licencias correspondientes al binario, identificacion verificable y guia breve de instalacion, firmware, medios, guardado y limites; nunca ROMs/juegos privados ni informes de pruebas.",
+        "Comprobar instalacion en un directorio aislado con el core realmente empaquetado, carga/avance/estado y firmware ausente; no sustituirlo por probar el binario del arbol de desarrollo.",
+        "La preview no declara CI remota ni reproducibilidad binaria pendiente. No publicar ni instalar encima de MacHawk. Mantener T40/T41 y todos sus criterios de cierre formal pendientes."
+      ],
+      "checks": [
+        "PKG01",
+        "BUILD01",
+        "LR01"
+      ],
+      "acceptance": [
+        "El paquete local puede utilizarse en un frontend libretro compatible sin depender del arbol de trabajo y contiene los fuentes/licencias de sus binarios.",
+        "Los checks dirigidos se ejecutan sobre el paquete extraido; el alcance inicial y las funciones pendientes quedan claros en la guia de usuario."
+      ],
+      "stop": "No presentar la preview como cierre de paridad, CI completa ni release auditada; no publicar sin solicitud."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -11653,7 +11692,8 @@
         "T30",
         "T31",
         "T35",
-        "T36"
+        "T36",
+        "T40a"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -13121,12 +13161,14 @@
         "tests/libretro-host/**",
         "tests/media-cow/**",
         "docs/02-contracts.md",
-        "tools/check.py"
+        "tools/check.py",
+        "tests/fuzz/fuzz_content.cpp"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 crea discos de guardado y redirige escrituras. Sobre el overlay de T27: exportacion explicita y atomica (SAVE_RAM acotado o VFS), nunca durante runahead/rewind.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: el bitmap de paginas sucias de bizhawk-hd.c y UAE.ISaveRam.cs como modelo de exportacion explicita de escrituras.",
-        "Task force: completar #SAVEDISK reutilizando COW/exportacion atomica existentes, sin forzar opciones del usuario ni flush durante run/save/load; integrar T61 despues por su solape en montaje/tray."
+        "Task force: completar #SAVEDISK reutilizando COW/exportacion atomica existentes, sin forzar opciones del usuario ni flush durante run/save/load; integrar T61 despues por su solape en montaje/tray.",
+        "Actualizar el oraculo independiente de fuzz_content.cpp para la directiva SAVEDISK; comprobarlo con casos dirigidos sin repetir el fuzz completo."
       ],
       "checks": [
         "MED02",
