@@ -15235,7 +15235,7 @@
       "title": "Proveedor NRG por offset y subcanales canonicos",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66l1",
         "T66g4"
@@ -15355,6 +15355,48 @@
       "stop": "SaveRAMfrontend/codeccompleto yarranque/restoreCD32 siguenenT66; nocerrarpadreporcomponente."
     },
     {
+      "id": "T66o1",
+      "title": "Propietario nativo comun de imagenes CD y enlace de parsers",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66e1",
+        "T66e2",
+        "T66j2",
+        "T66l2",
+        "T66g4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_image.h",
+        "adapters/libretro/cd_image.cpp",
+        "cmake/Libretro.cmake",
+        "tests/media/cd_image_probe.cpp",
+        "tests/media/test_cd_image.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "CdImage RAII delega ISO/CUE/CCD/NRG DAO a los proveedores existentes, con la misma API open/layout/bindings/sources. Extension ASCII sin distincion de mayusculas; sin adivinar BIN ni fallback tras error. ISO usa CdFile, Mode1_2048 e identidad P6ISO1 ligada a todos los bytes y politica. Mantener VFS y dueños vivos hasta soltar Disc.",
+        "Tres targets metadata STATIC sobre la misma TU derivada, con P6_CUE_METADATA/P6_CCD_METADATA/P6_NRG_METADATA separados por target; nunca source_properties que mezclen flags. Target p6_cd_images para factory y dueños con PIC al enlazar libretro. No tocar core ni extensiones anunciadas ni WB/C#: su host conserva DiscSystem.",
+        "Probe standalone enlaza los tres endpoints reales a la vez, sin motor ni generar CPU: seleccion/case, fallos claros sin fallback, vida VFS, identidad y rebind. CMake probe opcional EXCLUDE_FROM_ALL comparte los mismos targets si ayuda. Presupuesto250–330 lineas logicas; no engine/guest ni matriz."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Un propietario nativo selecciona y conserva las imagenes CD implementadas por offset, con todos los parsers enlazados sin colisiones ni mezcla de flags."
+      ],
+      "stop": "No anunciar formatos ni CD32 al frontend hasta integrar arranque/estado; TAO y otras variantes NRG, MDS y CHD siguen pendientes en el padre."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15384,7 +15426,8 @@
         "T66l1",
         "T66l2",
         "T66n1",
-        "T66m1"
+        "T66m1",
+        "T66o1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15414,7 +15457,8 @@
         "Divisiones previas porpresupuesto: H1servicioAkiko/H2tiempocausal, I1streamCDA/I2player, J1parserCCD/J2proveedor. La conexion completaCDDA/dispositivo, codecsestadoAkiko+audio, NVRAM/SaveRAM, frontends, restantesformatos y arranque/restore real conservan todas las puertas delpadre.",
         "T66k1 ensambla grafo nativo real sin habilitar machine; T66l1/l2 adelantan NRG DAO poroffset. NRG variantes pendientes, MDS/CHD y arranque/estado completo permanecen abiertos en el padre; no se recorta alcance por preview.",
         "T66n1 conectara CDDA/blkdev yclasificacionefectiva compartida; codeccompletoCDDA/Akiko,NVRAM,frontends yarranque/restore siguenpuertasdelpadre.",
-        "T66m1 integraNVRAM real convida desesion/reset yestadoprivado; SaveRAMfrontend/codecmaquina yarranque/restore siguenpendientes."
+        "T66m1 integraNVRAM real convida desesion/reset yestadoprivado; SaveRAMfrontend/codecmaquina yarranque/restore siguenpendientes.",
+        "T66o1 prepara el propietario nativo comun y sus parsers para la carga real. Seleccion del frontend, firmware/perfiles CD32, estado y arranque/restore conservan sus puertas completas."
       ],
       "checks": [
         "MED01",
