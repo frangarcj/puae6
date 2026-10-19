@@ -22,6 +22,7 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import struct
 import sys
 import tempfile
 import unittest
@@ -36,6 +37,7 @@ from tests.input.test_input import CAPS, ESC, FIXTURES, JOYSTICK, KEY_Q, LEFT, M
 from tests.input.test_cd32 import ROM as CD32_ROM  # noqa: E402
 from tests.scenarios.disk import disk  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
+multidrive = importlib.import_module("tests.libretro-host.test_multidrive")
 
 GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
 RECEIPT = build_waterbox.BUILD / "puae6/puae6-receipt.json"
@@ -56,9 +58,10 @@ class WrapperStateTests(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory(prefix="p6-state-")
         cls.dir = Path(cls.tmp.name)
         for name, source in (("disk", disk.rom_source()), ("input_all", (FIXTURES / "input_all.s").read_text(encoding="utf-8")),
-                             ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8")), ("cd32", CD32_ROM)):
+                             ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8")), ("cd32", CD32_ROM),
+                             ("four", multidrive.rom_source())):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
-        for name, label in (("A", 0x41), ("B", 0x42)):
+        for name, label in (("A", 0x41), ("B", 0x42), ("C", 0x43), ("D", 0x44)):
             (cls.dir / f"{name}.adf").write_bytes(disk.make_adf(label))
         cls.count = 0
 
@@ -163,6 +166,41 @@ class WrapperStateTests(unittest.TestCase):
         out = self.session([self.core("A"), "save A start", self.core("B"), "load B start", "run A 30", "run B 30", "digest A a", "digest B b"])
         self.assertEqual([u[1:] for u in self.units(out, "A")], [u[1:] for u in self.units(out, "B")])
         self.assertEqual(self.digests(out, "A")["a"], self.digests(out, "B")["b"])
+
+    def test_four_distinct_boot_disks_restore_reads_and_the_complete_wrapper_in_a_new_sandbox(self):
+        n, end = multidrive.SAVE, multidrive.UNITS
+
+        def captures(name):
+            return [f"peek {name} Chip_RAM 6000 8"] + [
+                f"peek {name} Chip_RAM {multidrive.BASE + drive * multidrive.STEP:x} {2 * multidrive.td.CAPTURE_WORDS}"
+                for drive in range(4)]
+
+        out = self.session([self.core("A", adf="A,B,C,D", drives=4), f"run A {n}", "save A four", f"run A {end - n}", "digest A first",
+                            *captures("A"),
+                            # Change the selected drive, eject DF3 and change the slot
+                            # before restoring all four drive identities and held edges.
+                            "run A 8 press=221:Next_Drive;223:Next_Drive;225:Next_Drive;227-228:Eject_Disk;227-228:Next_Slot",
+                            "load A four", f"run A {end - n}", "digest A replay", *captures("A"),
+                            self.core("B", adf="A,B,C,D", drives=4), "load B four", f"run B {end - n}", "digest B fresh", *captures("B")], firmware="four")
+        a = [u[1:] for u in self.units(out, "A")]
+        self.assertEqual(end + 8 + end - n, len(a))
+        self.assertEqual(a[n:end], a[end + 8:], "same sandbox: every unit, picture, PCM and media event")
+        self.assertEqual(a[n:end], [u[1:] for u in self.units(out, "B")], "new sandbox: every unit, picture, PCM and media event")
+        digests = {**self.digests(out, "A"), **self.digests(out, "B")}
+        self.assertEqual({"first", "replay", "fresh"}, set(digests))
+        self.assertEqual(1, len(set(digests.values())), "whole sandbox and wrapper, including DF2/DF3, selection and held edges")
+        peeks = re.findall(r"^peek [AB] Chip_RAM (\w+) ([0-9a-f]+)$", out, re.M)
+        self.assertEqual(15, len(peeks))
+        self.assertEqual(peeks[:5], peeks[5:10])
+        self.assertEqual(peeks[:5], peeks[10:])
+        self.assertEqual(bytes.fromhex(peeks[0][1]), b"\xca\xfe" * 4, "all four DMA reads completed")
+        for drive, (_, raw) in enumerate(peeks[1:5]):
+            found = disk.decode_capture(struct.unpack(f">{multidrive.td.CAPTURE_WORDS}H", bytes.fromhex(raw)))
+            self.assertGreaterEqual(len(found), 10, f"DF{drive} did not read a track")
+            image = disk.make_adf(0x41 + drive)
+            for (track, sector), payload in found.items():
+                self.assertEqual(track, 0)
+                self.assertEqual(payload, disk.adf_sector(image, track, sector), f"DF{drive} read its own disk")
 
     # --- WB06 -----------------------------------------------------------------------------------------------------------------------
 
