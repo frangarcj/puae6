@@ -13709,12 +13709,15 @@
         "ports/portable/input_devices.cpp",
         "ports/portable/p6_state_access.h",
         "docs/02-contracts.md",
-        "tools/check.py"
+        "tools/check.py",
+        "bridge/state_probe.cpp",
+        "manifests/state-inventory.json"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 pad, analogico, lightpen, 4 jugadores y multimouse. Extender p6_input sin romper la ABI v1 (version/size), aplicado en el borde de unidad, en estados y peliculas.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk.c (raton por stick analogico, SetJoyDirectionRaw, LEDCallback) y UAE.Controllers.cs.",
-        "Task force: empezar por protocolo CD32 en los dos puertos con ABI v1 intacta y estado del shifter/CIA; completar despues los restantes dispositivos originales. Integrar con el frente CPU sin bumps globales de ABI independientes."
+        "Task force: empezar por protocolo CD32 en los dos puertos con ABI v1 intacta y estado del shifter/CIA; completar despues los restantes dispositivos originales. Integrar con el frente CPU sin bumps globales de ABI independientes.",
+        "Incluir el estado causal CD32 en el digest condicional de entrada y en state-inventory, sin alterar los digests/goldens de dispositivos existentes."
       ],
       "checks": [
         "IN01",
