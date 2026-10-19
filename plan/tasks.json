@@ -14993,7 +14993,7 @@
       "title": "Pausa y estado semantico del stream CDA real",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T54",
         "T66g2"
@@ -15017,7 +15017,8 @@
       "steps": [
         "Reservar0359. Reutilizar audio_state_cda/audio_cda_new_buffer/audio_cda_volume reales y su callback de588frames porsector. Pausa emitecero sin consumir buffer/cursor ni reiniciar fase; mute/descartar entrega sigueconsumiendo. No resampler ni relojnuevo.",
         "Exportar estado semantico del unico streamCDA: fase/temporizadores, muestras actual/anterior, acumuladores/tiemposL/R, offset/longitud y pause. Puntero buffer/callback/streamid derivado. No quitar guard0099 que rechaza otrosstreams extra ni anunciar p6_stateCDA antescodecposterior.",
-        "Probe del codigoaudio real con PCM asimetrico/consumo por eventosemulados, pausa/volumen/fin y restore exacto a mitaddebuffer, incluido estado invalido transaccional. Presupuesto300–350logicas; si necesitaenginebuild solicitar turno-j2, sin recompilarWB ni matriz."
+        "Probe del codigoaudio real con PCM asimetrico/consumo por eventosemulados, pausa/volumen/fin y restore exacto a mitaddebuffer, incluido estado invalido transaccional. Presupuesto300–350logicas; si necesitaenginebuild solicitar turno-j2, sin recompilarWB ni matriz.",
+        "Revision del fallo del probe: cursor202/386 era correcto pero acumulador0 porque init_audio no prepara audio_data; set_audio real si lo hace (audio.cpp2314). Usar inicializacion real como test_audio_config, sin debilitar asserts ni flags. Capturar fin/sentinel y corregir tabla extra con terminador/capacidad y limpiar los2canales solo al crear streamCDA nuevo, nunca enrefill/restore. Ajustesdirectos<20lineas, mantener limite400 y guard0099."
       ],
       "checks": [
         "MED01"
@@ -15025,8 +15026,7 @@
       "acceptance": [
         "El stream CDA real puede pausar y restaurar su estado semantico manteniendo fase y PCM futuro; los demas streams no se aceptan silenciosamente."
       ],
-      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre.",
-      "blocked_reason": "Probe tests/audio/cd_audio_probe.cpp en worktree de entrada: tras dos ajustes del avance, cursor202/386 correcto pero accumulator.cycles==0. Reproducer conservado. Hipotesis1: init_audio sin set_audio deja audio_data/prehandler sin preparar; hipotesis2: activacion altera primer deadline. Revisar inicializacion real antes de otro intento; sin ejecucion de restauracion acreditada."
+      "stop": "No declarar CD32 completo por esta componente; preservar arranque/estado/CDDA y todos los formatos como puertas del padre."
     },
     {
       "id": "T66i2",
