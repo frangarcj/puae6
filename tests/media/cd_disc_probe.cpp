@@ -1,5 +1,6 @@
 #include "cd_disc.h"
 #include "cd_akiko.h"
+#include "cd_read.h"
 #include "uae/cdrom.h"
 #include <stdio.h>
 #include <string.h>
@@ -190,10 +191,11 @@ static int akiko()
     CHECK(filled(out, 8, 0xa5) && filled(out + 24, 88, 0xa5));
     CHECK(out[8] == 0 && out[9] == AUDIO_STATUS_PAUSED && out[10] == 0 && out[11] == 12);
     for (unsigned i = 0; i < 12; ++i) CHECK(out[12 + i] == byte(f.p[2], f.p[2].offset + 2352 + 12 + i));
-    for (int fault : {0, 1, 2}) {
+    CHECK(akiko_qcode(disc, 0, AUDIO_STATUS_NO_STATUS, true, out, sizeof out) == Result::Ok);
+    CHECK(out[12] == 0x41 && out[13] == 1 && out[14] == 1);
+    for (int fault : {1, 2}) {
         f.p[2].fault = fault; memset(out, 0xa5, sizeof out);
-        CHECK(akiko_qcode(disc, fault ? 7 : 0, AUDIO_STATUS_NO_STATUS, true, out, sizeof out) ==
-              (fault ? Result::ReadError : Result::Unsupported));
+        CHECK(akiko_qcode(disc, 7, AUDIO_STATUS_NO_STATUS, true, out, sizeof out) == Result::ReadError);
         CHECK(filled(out, sizeof out, 0xa5));
     }
     f.p[2].fault = 0;
@@ -211,11 +213,64 @@ static int akiko()
     CHECK(toc.toc[0].control == 4 && toc.toc[101].paddress == 99 && result.before == result.after);
     return 0;
 }
+static int canonical()
+{
+    Fixture f; Disc disc, absent;
+    CHECK(disc.bind(f.layout, f.bindings, 4) == Result::Ok);
+    uint8_t out[2464], main[2352], stored[2448];
+    memset(out, 0xa5, sizeof out);
+    CHECK(canonical_read(disc, 0, 2448, out + 8, 2448) == Result::Ok);
+    CHECK(disc.read_sector(0, 2352, main, sizeof main) == Result::Ok && !memcmp(out + 8, main, sizeof main));
+    const uint8_t q[] = {0x41,1,1,0,0,0,0,0,2,0,0x28,0x32};
+    CHECK(filled(out + 2360, 12, 0) && !memcmp(out + 2372, q, sizeof q) && filled(out + 2384, 72, 0));
+    CHECK(filled(out, 8, 0xa5) && filled(out + 2456, 8, 0xa5));
+    CHECK(canonical_read(disc, 3, 2448, out, sizeof out) == Result::Ok);
+    CHECK(filled(out, 2352, 0) && filled(out + 2352, 12, 0xff));
+    CHECK(out[2364] == 1 && out[2365] == 2 && out[2366] == 0 && out[2369] == 2 && out[2373] == 3);
+    CHECK(canonical_read(disc, 5, 2448, out, sizeof out) == Result::Ok && filled(out + 2352, 12, 0));
+    for (size_t n = 0; n < 2352; ++n) CHECK(out[n] == byte(f.p[1], f.p[1].offset + n));
+    CHECK(out[2365] == 2 && out[2366] == 1 && out[2369] == 0);
+    CHECK(disc.read_sector(7, 2448, stored, sizeof stored) == Result::Ok);
+    const auto calls = f.p[2].calls;
+    CHECK(canonical_read(disc, 7, 2448, out, sizeof out) == Result::Ok && !memcmp(out, stored, 2448));
+    CHECK(f.p[2].calls == calls + 1); // preserve all stored P-W/SBI with one read
+    CHECK(read_subchannel(disc, 7, out, sizeof out) == Result::Ok && !memcmp(out, stored + 2352, 96));
+    for (int fault : {1, 2, 3}) {
+        f.p[2].fault = fault; memset(out, 0xa5, sizeof out);
+        CHECK(read_subchannel(disc, 7, out, sizeof out) == Result::ReadError && filled(out, sizeof out, 0xa5));
+        CHECK(canonical_read(disc, 7, 2448, out, sizeof out) == Result::ReadError && filled(out, sizeof out, 0xa5));
+    }
+    f.p[2].fault = 0;
+    Layout layout{}; layout.tracks = 2; layout.leadout = 205;
+    layout.track[0] = {0, 0, 2, 1, 2352, 0, Mode::Audio, 1, 2, false};
+    layout.track[1] = {2, 202, 205, 0, 2048, 0, Mode::Mode1_2048, 1, 4, false, 200, 2};
+    Disc gaps; CHECK(gaps.bind(layout, f.bindings, 4) == Result::Ok);
+    CHECK(canonical_read(gaps, 51, 2448, out, sizeof out) == Result::Ok);
+    CHECK(filled(out, 2352, 0) && out[2364] == 0x21 && out[2365] == 2 && out[2366] == 0); //151 before INDEX01
+    CHECK(canonical_read(gaps, 52, 2448, out, sizeof out) == Result::Ok);
+    CHECK(out[11] == 0 && out[15] == 1 && filled(out + 16, 2048, 0) && out[2364] == 0x41); //150 before INDEX01
+    for (uint32_t lba : {202u, 203u, 204u}) {
+        CHECK(canonical_read(gaps, lba, 2448, out, sizeof out) == Result::Ok);
+        CHECK(out[2366] == 1 && out[2369] == lba - 202);
+        CHECK(filled(out + 2352, 12, lba == 202 ? 0 : 0xff));
+    }
+    memset(out, 0xa5, sizeof out);
+    CHECK(canonical_read(gaps, 51, 2048, out, sizeof out) == Result::Unsupported);
+    CHECK(canonical_read(absent, 0, 2448, out, sizeof out) == Result::Invalid);
+    CHECK(canonical_read(disc, 13, 2448, out, sizeof out) == Result::Range);
+    CHECK(canonical_read(disc, 0, 2448, out, 2447) == Result::Invalid);
+    CHECK(read_subchannel(disc, 0, out, 95) == Result::Invalid && filled(out, sizeof out, 0xa5));
+    layout.track[1].mode = Mode::Mode2Raw; layout.track[1].stride = 2352;
+    Disc mode2; CHECK(mode2.bind(layout, f.bindings, 4) == Result::Ok);
+    CHECK(canonical_read(mode2, 52, 2448, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
+    return 0;
+}
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
     if (!strcmp(argv[1], "reads")) return reads();
     if (!strcmp(argv[1], "failures")) return failures_and_rebind();
     if (!strcmp(argv[1], "akiko")) return akiko();
+    if (!strcmp(argv[1], "canonical")) return canonical();
     return 2;
 }

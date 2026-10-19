@@ -29,7 +29,7 @@ class CdDeviceTests(unittest.TestCase):
                        '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-DUAE_SYSDEPS_H', '-include', 'cstring',
                        '-I' + str(ROOT / 'ports/portable'), '-I' + str(ROOT / 'ports/portable/media'), '-I' + str(ROOT / 'upstream/winuae/include'),
                        str(ROOT / 'tests/media/cd_device_probe.cpp'), str(target)]
-            command += [str(ROOT / 'ports/portable/media' / (name + '.cpp')) for name in ('cd_device', 'cd_akiko', 'cd_disc', 'cd_source')]
+            command += [str(ROOT / 'ports/portable/media' / (name + '.cpp')) for name in ('cd_device', 'cd_akiko', 'cd_disc', 'cd_source', 'cd_read', 'cd_subchannel')]
             result = subprocess.run(command + ['-o', str(exe)], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=30)

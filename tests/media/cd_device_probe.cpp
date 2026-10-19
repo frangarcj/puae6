@@ -69,6 +69,8 @@ int main()
     for (size_t n = 0; n < 2448; ++n) CHECK(out[n] == value(providers[2], n));
     CHECK(sys_command_cd_read(0, out, 132, 1) == 1);
     for (size_t n = 0; n < 2048; ++n) CHECK(out[n] == value(providers[2], 16 + n));
+    CHECK(sys_command_cd_rawread(0, out, 0, 1, 2448) == 2448 && out[15] == 1 && out[2364] == 0x41);
+    CHECK(sys_command_cd_qcode(0, out, 0, false) == 1 && out[1] == AUDIO_STATUS_NO_STATUS && out[4] == 0x41);
     const auto position = device_position(), calls = providers[0].calls + providers[1].calls + providers[2].calls;
     memset(out, 0xa5, sizeof out);
     for (int unit : {-1, 1, INT_MAX}) CHECK(!sys_command_cd_rawread(unit, out, 0, 1, 2352));
@@ -76,9 +78,8 @@ int main()
     for (int block : {-1, 136, INT_MAX}) CHECK(!sys_command_cd_rawread(0, out, block, 1, 2352));
     CHECK(!sys_command_cd_rawread(0, nullptr, 0, 1, 2352) && !sys_command_cd_rawread(0, out, 135, 2, 2352));
     CHECK(!sys_command_cd_rawread(0, out, 0, 1, 2368) && device_last_error() == Result::Unsupported);
-    CHECK(!sys_command_cd_rawread(0, out, 0, 1, 2448) && device_last_error() == Result::Unsupported);
     CHECK(!sys_command_cd_read(0, out, 130, 1) && device_last_error() == Result::Unsupported);
-    CHECK(!sys_command_cd_qcode(0, out, -2, true) && !sys_command_cd_qcode(0, out, 0, false));
+    CHECK(!sys_command_cd_qcode(0, out, -2, true) && !sys_command_cd_qcode(0, out, 136, false));
     CHECK(calls == providers[0].calls + providers[1].calls + providers[2].calls);
     providers[0].fault = true;
     CHECK(!sys_command_cd_rawread(0, out + 8, 0, 2, 2352) && device_last_error() == Result::ReadError);

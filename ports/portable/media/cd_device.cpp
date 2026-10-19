@@ -1,4 +1,5 @@
 #include "cd_device.h"
+#include "cd_read.h"
 #include <limits.h>
 #include <string.h>
 namespace {
@@ -22,7 +23,7 @@ int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
     // also preserves position; no caller sees a half-published buffer as valid.
     uint8_t staging[kDeviceMaxBurst * kMaxReadBytes];
     for (int n = 0; n < count; ++n) {
-        error = disc->read_sector(uint32_t(block + n), uint32_t(view), staging + size_t(n) * view, size_t(view));
+        error = canonical_read(*disc, uint32_t(block + n), uint32_t(view), staging + size_t(n) * view, size_t(view));
         if (error != Result::Ok) return 0;
     }
     memcpy(out, staging, size_t(count) * view);

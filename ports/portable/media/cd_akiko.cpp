@@ -1,4 +1,5 @@
 #include "cd_akiko.h"
+#include "cd_read.h"
 #include <string.h>
 namespace p6_cd {
 Result akiko_toc(const Disc &disc, cd_toc_head *out)
@@ -40,13 +41,13 @@ Result akiko_qcode(const Disc &disc, uint32_t lba, uint8_t status, bool all,
     if (!out || capacity < length ||
         (status != AUDIO_STATUS_NOT_SUPPORTED && (status < AUDIO_STATUS_IN_PROGRESS || status > AUDIO_STATUS_NO_STATUS)))
         return Result::Invalid;
-    uint8_t sector[kMaxReadBytes];
-    const auto result = disc.read_sector(lba, 2448, sector, sizeof sector);
+    uint8_t subchannels[SUB_CHANNEL_SIZE];
+    const auto result = read_subchannel(disc, lba, subchannels, sizeof subchannels);
     if (result != Result::Ok) return result;
-    if (all) memcpy(out, sector + 2352, length);
+    if (all) memcpy(out, subchannels, length);
     else {
         uint8_t q[SUBQ_SIZE] = {0, status, 0, 12};
-        memcpy(q + 4, sector + 2352 + SUB_ENTRY_SIZE, SUB_ENTRY_SIZE);
+        memcpy(q + 4, subchannels + SUB_ENTRY_SIZE, SUB_ENTRY_SIZE);
         memcpy(out, q, sizeof q);
     }
     return Result::Ok;

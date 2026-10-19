@@ -14874,7 +14874,7 @@
       "title": "Integrar sectores canonicos2448 y seleccion de subcanales almacenados/sinteticos",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66g1",
         "T66g2",

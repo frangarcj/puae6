@@ -961,11 +961,11 @@ el consumidor puede pasar una copia con CONTROL de la pista audio anterior en
 un pregap audio->datos largo, segun la politica fijada. No se infiere vecino,
 pausa ni estado de audio. Solo representa INDEX00/01 del modelo normalizado.
 Valida numero1..99, rangos, MSF BCD hasta99:59:74 y buffer antes de escribir.
-Esta politica sintetica no reemplaza subcanales almacenados/SBI y aun no se
-selecciona en Disc, Akiko o el producto.
+Esta politica sintetica no reemplaza subcanales almacenados/SBI. T66g4 la
+selecciona en la capa canonica; Disc conserva su contrato de lectura almacenada.
 
 T66g3 implementa las firmas reales de `blkdev.h` sobre un `Disc` prestado e
-inmutable: una unidad, apertura/cierre, informacion, TOC, sectores y Q almacenada.
+inmutable: una unidad, apertura/cierre, informacion, TOC, sectores y Q.
 `cd_read` devuelve 1/0; `rawread` devuelve bytes completos/0. Cada llamada admite
 hasta 128 sectores y usa staging acotado: un fallo conserva destino y posicion.
 La posicion es el siguiente sector tras la ultima lectura completada; Q con -1
@@ -973,6 +973,15 @@ la consulta, sin inventar leadout si queda fuera del disco. Play/pause/volume
 devuelven error `Unsupported`; el callback de play recibe `PLAY_ERROR`.
 El modulo aun no se selecciona en CMake: antes de sustituir la superficie CD
 desactivada quedan Akiko cooperativo, CDDA, estado y frontends de T66.
+
+T66g4 conecta `canonical_read` y `read_subchannel` a blkdev y Akiko. Sectores con
+96 P-W almacenados preservan todos sus bytes, incluso SBI/CRC invalida; un error
+de lectura nunca activa sintesis. ISO, audio y gaps soportados pueden ofrecer
+2352 bytes de datos mas 96 sinteticos, con pausa en INDEX00 y POSTGAP. En un
+pregap audio->datos de mas de150 frames, el prefijo usa CONTROL anterior y, si es
+sintetico, silencio de audio; los ultimos150 frames usan el modo de datos. Q
+mantiene numero/tiempo de pista actual. Las vistas no representables fallan sin
+publicar salida parcial; gaps Mode2 siguen limitados y no se anuncia CD32.
 
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene

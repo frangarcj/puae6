@@ -39,6 +39,7 @@ class CdDiscTests(unittest.TestCase):
                    "-I" + str(ROOT / "ports/portable"), "-I" + str(ROOT / "ports/portable/media"), "-I" + str(ROOT / "upstream/winuae/include"),
                    str(ROOT / "tests/media/cd_disc_probe.cpp"), str(ROOT / "ports/portable/media/cd_disc.cpp"),
                    str(ROOT / "ports/portable/media/cd_akiko.cpp"),
+                   str(ROOT / "ports/portable/media/cd_read.cpp"), str(ROOT / "ports/portable/media/cd_subchannel.cpp"),
                    str(ROOT / "ports/portable/media/cd_source.cpp"), str(target), "-o", str(cls.exe)]
         out = subprocess.run(command, capture_output=True, text=True, timeout=60)
         if out.returncode:
@@ -57,3 +58,6 @@ class CdDiscTests(unittest.TestCase):
 
     def test_akiko_toc_and_subchannels_use_real_upstream_layouts(self):
         self.run_probe("akiko")
+
+    def test_canonical_stored_and_synthetic_sectors_and_pause_boundaries(self):
+        self.run_probe("canonical")
