@@ -14596,7 +14596,7 @@
       ],
       "id": "T66e2a",
       "title": "Aislar parser CUE fijado con callbacks de metadata y limites estrictos",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66e1"
       ],
