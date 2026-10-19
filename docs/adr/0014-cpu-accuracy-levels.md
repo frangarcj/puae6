@@ -54,9 +54,19 @@ publica en el mismo proceso y uno nuevo con VERTB, timers CIA y DMA, modo bucle 
 VBR del 68010, cache y audio del 68020, cota estable, rechazo transaccional entre
 niveles y ejecucion exact por defecto sin cambios. La prueba dirigida de libretro
 compara los tres niveles de las tres familias CPU con headless y exige reinicio
-al cambiar la opcion. La prueba equivalente del wrapper esta preparada; su
-ejecucion requiere reconstruir el guest integrado. La aceptacion completa de T53,
-incluidos Waterbox y rendimiento, sigue pendiente en la candidata integrada.
+al cambiar la opcion. La prueba equivalente del wrapper ya se ha ejecutado con
+el guest integrado: snapshot y continuacion identica en los tres niveles de las
+tres familias, y rechazo de un estado de otro nivel antes de mutar el sandbox.
+
+La puerta de rendimiento consume una unica candidata fija con
+`tools/bench.py run --id t53-cpu --compare-cpu-levels`: tres familias, tres
+niveles y tres capas (nativo, libretro y WaterboxCore Release), cinco repeticiones
+intercaladas y veinte operaciones de estado por ventana. La identidad vincula
+fuentes, ejecutables, guest, runtime y micro-ROMs; solo admite reanudar un prefijo
+cronologico completo. Los ticks se comparan entre capas del mismo nivel. Las
+medidas son orientativas en el Mac compartido; no justifican cambiar el defecto
+exact ni prometer que compatible o normal sean siempre mas rapidos. La campaña
+completa sigue pendiente antes de cerrar T53.
 
 T55b incorpora el A4000/030 real como maquina 11 (9/10 reservados para CD32/CDTV),
 con mapa de 32 bits, AGA, Fat Gary revision 0, Ramsey 15, Ricoh y el IDE fisico
