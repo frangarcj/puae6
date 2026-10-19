@@ -11551,6 +11551,9 @@
         "tools/check.py",
         "tests/test_plan.py",
         "tests/portability/run_matrix.py",
+        "tests/portability/row_driver.py",
+        "tests/portability/faketime.c",
+        "tests/portability/test_clock.py",
         ".github/actionlint.yaml",
         "tests/audio/test_audio.py"
       ],
@@ -11563,7 +11566,8 @@
         "Mantener todos los checks y la puerta de salida originales de T39; registrar por separado la ejecucion local y la remota.",
         "Registrar los checks acumulados en tools/check.py y conservar el test de dependencias exactas al añadir T35, cuyas recetas de optimizacion tambien se ejecutan.",
         "Impedir pulls y red al ejecutar la matriz existente: la CI verifica los IDs de las imagenes locales fijadas antes/despues de cada suite.",
-        "Declarar etiquetas self-hosted para actionlint y ubicar el test BEAMCON0 de audio solo en los presets ECS/AGA que lo soportan, conservando ambas ejecuciones y todas sus assertions."
+        "Declarar etiquetas self-hosted para actionlint y ubicar el test BEAMCON0 de audio solo en los presets ECS/AGA que lo soportan, conservando ambas ejecuciones y todas sus assertions.",
+        "Corregir el arnes DET06: evitar dlsym recursivo durante el inicio de ASan y anteponer su runtime dinamico real al reloj inyectado. Reproducer minimo con Clang/GCC en ambas ISA Linux; conservar los tres relojes civiles desplazados y el monotono sin desplazar, sin desactivar sanitizers."
       ],
       "checks": [
         "PLAN01",

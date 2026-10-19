@@ -49,6 +49,18 @@ HEADLESS_CASES = (("lace-a500-pal-200", "a500-hires-lace-fields", ["--units", "2
 ODD_DIRECTORY = "con espacios ñandú 日本語 ✓"
 
 
+def preload_environment(probe, library):
+    """Keep the binary's own dynamic ASan runtime first; never disable its checks."""
+    clock = str(Path(library).resolve())
+    if sys.platform == "darwin":
+        return {"DYLD_INSERT_LIBRARIES": clock}
+    dependencies = subprocess.check_output(["ldd", str(probe)], text=True, timeout=30)
+    runtimes = re.findall(r"^\s*(?:libasan|libclang_rt\.asan)\S*\s+=>\s+(\S+)", dependencies, re.M)
+    if any(not Path(path).is_file() for path in runtimes):
+        raise ValueError("the binary's ASan runtime could not be resolved")
+    return {"LD_PRELOAD": ":".join([*runtimes, clock])}
+
+
 def classify(text):
     """-> {unit: {"hardware": [lines], "av": [lines]}}, by the unit the probe printed on each line, and the number of lines recognized."""
     units, recognized = {}, 0
@@ -113,8 +125,7 @@ def main():
     else:
         environment.update(HOST_ENV)
         if args.preload:
-            key = "DYLD_INSERT_LIBRARIES" if sys.platform == "darwin" else "LD_PRELOAD"
-            environment[key] = str(Path(args.preload).resolve())
+            environment.update(preload_environment(Path(args.probe).resolve(), args.preload))
             environment["P6_FAKE_TIME_OFFSET"] = str(args.fake_offset)
         rom_directory = Path(work.name) / ODD_DIRECTORY / "roms"
         rom_directory.mkdir(parents=True)

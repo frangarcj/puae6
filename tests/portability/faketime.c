@@ -1,6 +1,6 @@
 /* Shifts the host clock of a process by P6_FAKE_TIME_OFFSET seconds (T25, DET06: a different date must not change what the machine does).
  *
- *   Linux:  cc -shared -fPIC -o faketime.so faketime.c -ldl      LD_PRELOAD=./faketime.so
+ *   Linux:  cc -shared -fPIC -o faketime.so faketime.c          LD_PRELOAD=./faketime.so
  *   macOS:  cc -dynamiclib -o faketime.dylib faketime.c          DYLD_INSERT_LIBRARIES=./faketime.dylib
  *
  * It wraps time(), gettimeofday() and clock_gettime() for the realtime clock only; the monotonic clock is left alone because a process
@@ -23,10 +23,11 @@ static long offset(void)
 int main(void)
 {
     struct timeval tv;
-    struct timespec ts;
+    struct timespec ts, mono;
     gettimeofday(&tv, NULL);
     clock_gettime(CLOCK_REALTIME, &ts);
-    printf("time=%ld gettimeofday=%ld clock_gettime=%ld\n", (long)time(NULL), (long)tv.tv_sec, (long)ts.tv_sec);
+    clock_gettime(CLOCK_MONOTONIC, &mono);
+    printf("time=%ld gettimeofday=%ld clock_gettime=%ld monotonic=%ld\n", (long)time(NULL), (long)tv.tv_sec, (long)ts.tv_sec, (long)mono.tv_sec);
     return 0;
 }
 #elif defined(__APPLE__)
@@ -56,28 +57,29 @@ INTERPOSE(fake_time, time);
 INTERPOSE(fake_gettimeofday, gettimeofday);
 INTERPOSE(fake_clock_gettime, clock_gettime);
 #else
-#include <dlfcn.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+/* ASan calls these during initialization. dlsym(RTLD_NEXT) can reenter the
+ * loader's error handling through ASan and double-free its error buffer.
+ * Linux syscalls do not allocate or resolve symbols; the Mac interposer above
+ * continues to use dyld's original bindings. */
 time_t time(time_t *out)
 {
-    static time_t (*real)(time_t *);
-    if (!real) real = (time_t (*)(time_t *))dlsym(RTLD_NEXT, "time");
-    time_t t = real(NULL) + offset();
+    struct timespec ts;
+    if (syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts)) return (time_t)-1;
+    time_t t = ts.tv_sec + offset();
     if (out) *out = t;
     return t;
 }
 int gettimeofday(struct timeval *tv, void *tz)
 {
-    static int (*real)(struct timeval *, void *);
-    if (!real) real = (int (*)(struct timeval *, void *))dlsym(RTLD_NEXT, "gettimeofday");
-    int result = real(tv, tz);
+    int result = syscall(SYS_gettimeofday, tv, tz);
     if (!result && tv) tv->tv_sec += offset();
     return result;
 }
 int clock_gettime(clockid_t id, struct timespec *ts)
 {
-    static int (*real)(clockid_t, struct timespec *);
-    if (!real) real = (int (*)(clockid_t, struct timespec *))dlsym(RTLD_NEXT, "clock_gettime");
-    int result = real(id, ts);
+    int result = syscall(SYS_clock_gettime, id, ts);
     if (!result && ts && id == CLOCK_REALTIME) ts->tv_sec += offset();
     return result;
 }
