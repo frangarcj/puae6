@@ -36,6 +36,7 @@ internal static unsafe partial class Program
 				case "cd32log": Cd32Log(); break; // Controller definition / real BK2 log, no sandbox.
 				case "mouse2log": Mouse2Log(); break;
 				case "pointerlog": PointerLog(); break;
+                case "parallellog": ParallelLog(); break;
 				case "pin": Console.WriteLine("pin " + Puae6Guest.BuiltWithSha256); break;
 				case "identity": Identity(options["guest"], options["sha"]); break;
 				case "open": Open(options, int.Parse(options["units"])); break;

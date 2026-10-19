@@ -52,6 +52,12 @@ class InputLogTests(unittest.TestCase):
         expected |= {f"ok optical {device}:{port} axis P{port + 1} Lightgun {axis}" for device in (4, 5) for port in (0, 1) for axis in ("X", "Y")}
         self.assertEqual(24, len(lines)); self.assertEqual(expected, set(lines))
 
+    def test_parallel_joysticks_round_trip_through_the_actual_bk2_codec(self):
+        lines = self.codec("parallellog")
+        expected = {f"ok parallel {check} P{p} Joystick {button}" for p in (3, 4) for button in ("Up", "Down", "Left", "Right", "Button 1") for check in ("mnemonic", "round trip")}
+        expected.add("ok parallel ABI v1/v2 sizes")
+        self.assertEqual(21, len(lines)); self.assertEqual(expected, set(lines))
+
 
 if __name__ == "__main__":
     unittest.main()

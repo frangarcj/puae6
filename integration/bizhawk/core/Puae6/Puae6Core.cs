@@ -462,6 +462,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// And for the raster (T72): the resolution and the line mode are the engine's own and change the picture the machine draws and the state it goes on from; a core at the profile's raster keeps its identity.
 		if (_syncSettings.VideoResolution != Puae6VideoResolution.Hires) memory += ";resolution=" + _syncSettings.VideoResolution;
 		if (_syncSettings.VideoLineMode != Puae6VideoLineMode.Double) memory += ";linemode=" + _syncSettings.VideoLineMode;
+		if (_syncSettings.ControllerPort3 != Puae6ParallelPort.None || _syncSettings.ControllerPort4 != Puae6ParallelPort.None)
+            memory += $";parallel={_syncSettings.ControllerPort3},{_syncSettings.ControllerPort4}";
 		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;
@@ -531,7 +533,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public bool FrameAdvance(IController controller, bool render, bool renderSound = true)
 	{
 		if (_faulted) throw new InvalidOperationException("a state load failed halfway and the machine is undefined; load a state that is whole, or create the core again");
-		var input = BuildInput(controller, out bool power);
+        var packet = new P6InputV2 { Base = BuildInput(controller, out bool power) };
+        if (_syncSettings.ControllerPort3 == Puae6ParallelPort.Joystick) packet.Port2 = JoystickPacket(controller, 3);
+        if (_syncSettings.ControllerPort4 == Puae6ParallelPort.Joystick) packet.Port3 = JoystickPacket(controller, 4);
+        if (packet.Port2.Type != 0 || packet.Port3.Type != 0) { packet.Base.AbiVersion = 2; packet.Base.StructSize = (uint)sizeof(P6InputV2); }
 		_started = true;
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
 		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0) | ((uint)_settings.DriveSoundVolume << P6.RenderDriveVolumeShift);
@@ -544,7 +549,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 				int reset = _guest.Lib.p6w_reset();
 				if (reset != P6.Ok) throw new InvalidOperationException($"the machine refused a reset ({P6.ResultName(reset)})");
 			}
-			int result = _guest.Lib.p6w_frame_advance((IntPtr)(&input), flags, (IntPtr)(&frame));
+			int result = _guest.Lib.p6w_frame_advance((IntPtr)(&packet), flags, (IntPtr)(&frame));
 			if (result != P6.Ok)
 				throw new InvalidOperationException($"unit {Frame + 1}: {P6.ResultName(result)}: {Mershul.PtrToStringUtf8((IntPtr)frame.Error)}");
 			CopyOut(in frame.Frame, render, renderSound);

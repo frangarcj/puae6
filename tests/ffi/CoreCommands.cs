@@ -44,7 +44,9 @@ internal static unsafe partial class Program
 				var f = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 				keys.Add(f[..4].Select(v => uint.Parse(v, NumberStyles.HexNumber)).ToArray());
 				var p0 = (uint.Parse(f[4]), uint.Parse(f[5]), int.Parse(f[6]), int.Parse(f[7]));
-				ports.Add([p0, (uint.Parse(f[8]), uint.Parse(f[9]), int.Parse(f[10]), int.Parse(f[11]))]);
+				ports.Add([p0, (uint.Parse(f[8]), uint.Parse(f[9]), int.Parse(f[10]), int.Parse(f[11])),
+                    f.Length >= 20 ? (uint.Parse(f[12]), uint.Parse(f[13]), int.Parse(f[14]), int.Parse(f[15])) : (0u, 0u, 0, 0),
+                    f.Length >= 20 ? (uint.Parse(f[16]), uint.Parse(f[17]), int.Parse(f[18]), int.Parse(f[19])) : (0u, 0u, 0, 0)]);
 				if (p0.Item1 == P6.PortMouse) { x += p0.Item3; y += p0.Item4; }
 				mouseX.Add(x); mouseY.Add(y);
 				var p1 = ports[^1][1];
@@ -91,6 +93,7 @@ internal static unsafe partial class Program
 			else if (ports[at][1].Type is P6.PortLightgun or P6.PortLightpen) PressPointer(controller, 1, ports[at][1].Buttons, ports[at][1].Dx, ports[at][1].Dy);
 			else if (ports[at][1].Type == P6.PortCd32) PressCd32(controller, 2, ports[at][1].Buttons);
 			else PressJoystick(controller, 2, ports[at][1].Buttons);
+            for (int p = 2; p < 4; ++p) if (ports[at][p].Type == P6.PortJoystick) PressJoystick(controller, p + 1, ports[at][p].Buttons);
 		}
 
 		static void PressPointer(ScriptedController controller, int port, uint buttons, int x, int y)

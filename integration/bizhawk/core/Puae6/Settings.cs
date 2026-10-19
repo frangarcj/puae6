@@ -70,6 +70,9 @@ public enum Puae6Port1 { Mouse, Joystick, None, Cd32, Lightgun, Lightpen }
 /// <summary>What is plugged into the second controller port.</summary>
 public enum Puae6Port2 { Joystick, None, Cd32, Mouse, Lightgun, Lightpen }
 
+/// <summary>One extra joystick on the real parallel adapter (D-pad and one fire button).</summary>
+public enum Puae6ParallelPort { None, Joystick }
+
 /// <summary>Live presentation choices, excluded from sync settings, movies and save-state identity.</summary>
 public enum Puae6DriveSoundVolume { P0 = 0, P10 = 10, P25 = 25, P50 = 50, P75 = 75, P100 = 100 }
 
@@ -154,6 +157,9 @@ public sealed class Puae6SyncSettings
 	public Puae6Port1 ControllerPort1 { get; set; } = Puae6Port1.Mouse;
 
 	public Puae6Port2 ControllerPort2 { get; set; } = Puae6Port2.Joystick;
+
+	public Puae6ParallelPort ControllerPort3 { get; set; } = Puae6ParallelPort.None;
+	public Puae6ParallelPort ControllerPort4 { get; set; } = Puae6ParallelPort.None;
 
 	public Puae6FloppyDrives PhysicalFloppyDrives { get; set; } = Puae6FloppyDrives.Auto;
 

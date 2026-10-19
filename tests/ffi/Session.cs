@@ -80,6 +80,8 @@ internal static unsafe partial class Program
 						FloppyDrives = int.Parse(arguments.GetValueOrDefault("drives", "1")),
 						ControllerPort1 = Enum.Parse<Puae6Port1>(arguments.GetValueOrDefault("port1", "mouse"), true),
 						ControllerPort2 = Enum.Parse<Puae6Port2>(arguments.GetValueOrDefault("port2", "joystick"), true),
+                        ControllerPort3 = Enum.Parse<Puae6ParallelPort>(arguments.GetValueOrDefault("port3", "none"), true),
+                        ControllerPort4 = Enum.Parse<Puae6ParallelPort>(arguments.GetValueOrDefault("port4", "none"), true),
 						ChipMemory = Enum.Parse<Puae6Chip>(arguments.GetValueOrDefault("chip", "Auto")),
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
 						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "Auto")),

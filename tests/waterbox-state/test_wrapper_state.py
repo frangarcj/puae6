@@ -35,6 +35,7 @@ import build_waterbox  # noqa: E402
 from tests.host.test_bridge_lifecycle import TOOLS, builder  # noqa: E402
 from tests.input.test_input import CAPS, ESC, FIXTURES, JOYSTICK, KEY_Q, LEFT, MOUSE, RIGHT, UP, B1, line  # noqa: E402
 from tests.input.test_cd32 import ROM as CD32_ROM  # noqa: E402
+from tests.input.test_parallel import ROM as PARALLEL_ROM  # noqa: E402
 from tests.input.test_pointer import ROM as POINTER_ROM  # noqa: E402
 from tests.input.test_mouse2 import ROM as MOUSE2_ROM  # noqa: E402
 from tests.audio.test_drive_sound import MECHANICAL  # noqa: E402
@@ -62,7 +63,7 @@ class WrapperStateTests(unittest.TestCase):
         cls.dir = Path(cls.tmp.name)
         for name, source in (("disk", disk.rom_source()), ("input_all", (FIXTURES / "input_all.s").read_text(encoding="utf-8")),
                              ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8")), ("cd32", CD32_ROM),
-                             ("four", multidrive.rom_source()), ("mouse2", MOUSE2_ROM), ("pointer", POINTER_ROM), ("mechanical", MECHANICAL)):
+                             ("four", multidrive.rom_source()), ("mouse2", MOUSE2_ROM), ("pointer", POINTER_ROM), ("mechanical", MECHANICAL), ("parallel", PARALLEL_ROM)):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
         for name, label in (("A", 0x41), ("B", 0x42), ("C", 0x43), ("D", 0x44)):
             (cls.dir / f"{name}.adf").write_bytes(disk.make_adf(label))
@@ -486,6 +487,37 @@ class WrapperStateTests(unittest.TestCase):
                 self.assertEqual(a[3:11], [u[1:] for u in self.units(other, "D")])
                 self.assertEqual(digests["first"], self.digests(other, "D")["process"])
                 self.assertIn(f"peek D Chip_RAM 1000 {peeks[0]}", other)
+
+    def test_four_players_parallel_pins_and_bk2_restore_in_same_and_new_sandbox_and_process(self):
+        frames = []
+        for i in range(11):
+            a, b = (9, 81) if i < 5 else (33, 17)
+            frames.append(line(p0=(1, 9, 0, 0), p1=(1, 65, 0, 0)) + f" 1 {a} 0 0 1 {b} 0 0")
+        script = self.script("parallel", frames)
+        state, movie = self.dir / "parallel.state", self.dir / "parallel.bk2"
+        core = lambda name: self.core(name, adf="", port1="joystick", port2="joystick", port3="joystick", port4="joystick")
+        out = self.session([core("A"), f"run A 3 script={script} record", "save A playing", f"savefile A {state}",
+                            f"run A 8 script={script} record", "digest A first", "peek A Chip_RAM 1000 120",
+                            f"endmovie A {movie}", f"movieverify A {movie} 11 script={script}",
+                            "load A playing", f"run A 8 script={script}", "digest A restored", "peek A Chip_RAM 1000 120",
+                            core("B"), "load B playing", f"run B 8 script={script}", "digest B fresh", "peek B Chip_RAM 1000 120",
+                            core("C"), f"run C 11 movie={movie}", f"moviefinish C {movie}", "digest C movie", "peek C Chip_RAM 1000 120"], firmware="parallel")
+        a = [u[1:] for u in self.units(out, "A")]
+        self.assertEqual(19, len(a)); self.assertEqual(a[3:11], a[11:])
+        self.assertEqual(a[3:11], [u[1:] for u in self.units(out, "B")])
+        self.assertEqual(a[:11], [u[1:] for u in self.units(out, "C")])
+        digests = {**self.digests(out, "A"), **self.digests(out, "B"), **self.digests(out, "C")}
+        self.assertEqual({"first", "restored", "fresh", "movie"}, set(digests)); self.assertEqual(1, len(set(digests.values())))
+        peeks = re.findall(r"^peek [ABC] Chip_RAM 1000 ([0-9a-f]+)$", out, re.M)
+        self.assertEqual(4, len(peeks)); self.assertEqual(1, len(set(peeks)))
+        words = struct.unpack(">60H", bytes.fromhex(peeks[0]))[-5:]
+        self.assertEqual((0xdb, 2), (words[3] & 255, words[4] & 7))
+        self.assertRegex(out, r"movie verified frames=11 buttons=\d+ axes=0 compared=\d+ entries=11")
+        self.assertIn("movie finished ok frames=11 ", out)
+        other = self.session([core("D"), f"loadfile D {state}", f"run D 8 script={script}", "digest D process", "peek D Chip_RAM 1000 120"], firmware="parallel")
+        self.assertEqual(a[3:11], [u[1:] for u in self.units(other, "D")])
+        self.assertEqual(digests["first"], self.digests(other, "D")["process"])
+        self.assertIn(f"peek D Chip_RAM 1000 {peeks[0]}", other)
 
 
 if __name__ == "__main__":

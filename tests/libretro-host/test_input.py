@@ -144,8 +144,10 @@ class InputTests(lr.LibretroHarness):
                                     "Keyboard only (port empty)": "3", "None": "0", "CD32 pad (Amiga port 2)": "513", "Lightgun (Amiga port 2)": "4", "Lightpen (Amiga port 2)": "6"})
         self.assertEqual(ports[1], {"Joystick (Amiga port 1; needs Player 1 on Joystick only)": "1", "Keyboard only (port empty)": "3", "None": "0",
                                   "CD32 pad (Amiga port 1; needs Player 1 without mouse)": "513", "Mouse (Amiga port 2; overrides Player 1 pad)": "2", "Lightgun (Amiga port 1)": "4", "Lightpen (Amiga port 1)": "6"})
-        self.assertEqual(sorted(ports), [0, 1])
-        self.assertRegex(out, r"(?m)^input descriptors count=\d+ ports=3$")                                  # port 0 and port 1 have names for their controls
+        self.assertEqual(ports[2], {"Joystick (parallel player 3)": "1", "None": "0"})
+        self.assertEqual(ports[3], {"Joystick (parallel player 4)": "1", "None": "0"})
+        self.assertEqual(sorted(ports), [0, 1, 2, 3])
+        self.assertRegex(out, r"(?m)^input descriptors count=\d+ ports=15$")                                  # port 0 and port 1 have names for their controls
         refused = self.frontend("boot", "--runs", 2, "--reject-optional").stdout          # a frontend with neither interface still gets the same core
         self.assertNotIn("controller port", refused)
         self.assertEqual(self.runs(refused)[1]["hash"], self.runs(out)[1]["hash"])

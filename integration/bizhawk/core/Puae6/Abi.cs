@@ -89,6 +89,15 @@ public unsafe struct P6Input
 	public fixed uint Reserved[4];
 }
 
+/// <summary>Input-only version2; Base stays byte-for-byte compatible with P6Input.</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6InputV2
+{
+    public P6Input Base;
+    public P6PortInput Port2, Port3;
+    public uint Commands; // Reserved, must be zero until a command is supported.
+}
+
 [StructLayout(LayoutKind.Sequential)]
 public struct P6Rect
 {

@@ -494,6 +494,17 @@ TASK_SUITES[('AV02', 'T74b')] = {
     'live_libretro_volume': 'tests.libretro-host.test_drive_sound.DriveVolumeTests',
     'live_waterbox_volume': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_drive_volume_is_live_host_preference_and_restore_keeps_mechanical_phase'}
 TASK_SUITES[('AV02', 'T74')] = {**TASK_SUITES[('AV02', 'T74a')], **TASK_SUITES[('AV02', 'T74b')]}
+TASK_SUITES[('IN01', 'T70d')] = {
+    'input_v1_v2_layout': 'tests.contracts.test_api.NativeContractTests',
+    'parallel_mapping': 'tests.libretro-host.test_parallel.ParallelMappingTests',
+    'parallel_cia_pins': 'tests.input.test_parallel.ParallelTests.test_independent_parallel_direction_and_fire_pins_pal_ntsc_and_v1_disconnect',
+    'parallel_bk2': 'tests.ffi.test_input_log.InputLogTests.test_parallel_joysticks_round_trip_through_the_actual_bk2_codec'}
+TASK_SUITES[('DET02', 'T70d')] = {
+    'parallel_restore': 'tests.input.test_parallel.ParallelTests.test_parallel_levels_and_device_changes_restore_in_same_and_new_process',
+    'parallel_rejection': 'tests.input.test_parallel.ParallelTests.test_truncated_parallel_tail_and_invalid_types_or_buttons_are_transactionally_refused'}
+TASK_SUITES[('LR01', 'T70d')] = {'parallel_frontend': 'tests.libretro-host.test_parallel.ParallelFrontendTests'}
+TASK_SUITES[('WB03', 'T70d')] = {
+    'parallel_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_four_players_parallel_pins_and_bk2_restore_in_same_and_new_sandbox_and_process'}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

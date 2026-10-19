@@ -33,7 +33,7 @@ public static class Controllers
 	public static readonly string?[] KeyButtons = BuildKeyButtons();
 
 	/// <summary>The joystick buttons of port 1 and port 2, in the order of <see cref="JoystickNames"/> (the names <see cref="Joystick"/> makes), built once.</summary>
-	public static readonly string[][] JoystickButtons = [ BuildJoystickButtons(1), BuildJoystickButtons(2) ];
+	public static readonly string[][] JoystickButtons = [ BuildJoystickButtons(1), BuildJoystickButtons(2), BuildJoystickButtons(3), BuildJoystickButtons(4) ];
 	public static readonly string[] Cd32Names = [ "Up", "Down", "Left", "Right", "Red", "Blue", "Green", "Yellow", "Rewind", "Forward", "Play" ];
 	public static readonly uint[] Cd32Bits = [ P6.ButtonUp, P6.ButtonDown, P6.ButtonLeft, P6.ButtonRight, P6.Button1, P6.Button2, P6.Button3, P6.Cd32Yellow, P6.Cd32Rewind, P6.Cd32Forward, P6.Cd32Play ];
 	public static readonly string[][] Cd32Buttons = [ Cd32Names.Select(n => $"P1 CD32 pad {n}").ToArray(), Cd32Names.Select(n => $"P2 CD32 pad {n}").ToArray() ];
@@ -112,6 +112,9 @@ public static class Controllers
 			controller.AddAxis(MouseAxes[1][0], 0.RangeTo(MouseFieldWidth), MouseFieldWidth / 2)
 				.AddAxis(MouseAxes[1][1], 0.RangeTo(MouseFieldHeight), MouseFieldHeight / 2);
 		}
+        for (int port = 3; port <= 4; ++port)
+            if ((port == 3 ? settings.ControllerPort3 : settings.ControllerPort4) == Puae6ParallelPort.Joystick)
+                foreach (var name in JoystickNames.Take(5)) controller.BoolButtons.Add(Joystick(port, name));
 		// The disk controls exist when there is something to put in a drive: drive and slot are selected first, then Eject or Insert acts on them.
 		if (mediaCount > 0) controller.BoolButtons.AddRange([ NextDrive, NextSlot, EjectDisk, InsertDisk ]);
 		// Hard reset only: the machine has one (p6_reset); a Reset button would be a different thing that nobody implemented.

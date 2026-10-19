@@ -97,6 +97,7 @@ constexpr KeyMapping kKeyMap[] = {
 inline bool device_allowed(unsigned port, unsigned device)
 {
     if (port >= kPortCount) return false;
+    if (port >= 2) return device == RETRO_DEVICE_NONE || device == RETRO_DEVICE_JOYPAD;
     switch (device) {
     case RETRO_DEVICE_NONE:
     case RETRO_DEVICE_JOYPAD:
@@ -307,6 +308,20 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
     return input;
 }
 
+// The old packet remains useful to two-port callers. Only the frame adapter
+// asks for the optional v2 tail; no extra edge memory or scheduler is needed.
+inline p6_input_v2 read_input_v2(retro_input_state_t state, const unsigned device[kPortCount], const InputConfig &config, InputMemory *memory)
+{
+    p6_input_v2 packet = {};
+    packet.base = read_input(state, device, config, memory);
+    for (unsigned p = 0; p < 2; ++p) if (device[p + 2] == RETRO_DEVICE_JOYPAD) {
+        read_joystick(state, p + 2, &packet.parallel[p]);
+        packet.parallel[p].buttons &= P6_BUTTON_1 | P6_BUTTON_UP | P6_BUTTON_DOWN | P6_BUTTON_LEFT | P6_BUTTON_RIGHT;
+        packet.base.abi_version = P6_INPUT_VERSION_2; packet.base.struct_size = sizeof packet;
+    }
+    return packet;
+}
+
 // What the frontend is told in RETRO_ENVIRONMENT_SET_CONTROLLER_INFO (the lists end with a null description) and SET_INPUT_DESCRIPTORS.
 inline void offer_controllers(retro_environment_t environment)
 {
@@ -323,8 +338,11 @@ inline void offer_controllers(retro_environment_t environment)
         {"Lightgun (Amiga port 1)", RETRO_DEVICE_LIGHTGUN}, {"Lightpen (Amiga port 1)", RETRO_DEVICE_POINTER},
         {"None", RETRO_DEVICE_NONE},
     };
+    static const retro_controller_description parallel3[] = {{"Joystick (parallel player 3)", RETRO_DEVICE_JOYPAD}, {"None", RETRO_DEVICE_NONE}};
+    static const retro_controller_description parallel4[] = {{"Joystick (parallel player 4)", RETRO_DEVICE_JOYPAD}, {"None", RETRO_DEVICE_NONE}};
     static const retro_controller_info ports[] = {
-        {port0, sizeof port0 / sizeof port0[0]}, {port1, sizeof port1 / sizeof port1[0]}, {nullptr, 0},
+        {port0, sizeof port0 / sizeof port0[0]}, {port1, sizeof port1 / sizeof port1[0]},
+        {parallel3, 2}, {parallel4, 2}, {nullptr, 0},
     };
     environment(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, const_cast<retro_controller_info *>(ports));      // optional
 }
@@ -344,6 +362,16 @@ inline void offer_input_descriptors(retro_environment_t environment)
     static const retro_input_descriptor descriptors[] = {
         P6_JOYSTICK_DESCRIPTORS(0),
         P6_JOYSTICK_DESCRIPTORS(1),
+#define P6_PARALLEL_DESCRIPTORS(port) \
+        {port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "Up"}, \
+        {port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "Down"}, \
+        {port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Left"}, \
+        {port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Right"}, \
+        {port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Fire"}, \
+        {port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Stick X"}, \
+        {port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "Stick Y"}
+        P6_PARALLEL_DESCRIPTORS(2), P6_PARALLEL_DESCRIPTORS(3),
+#undef P6_PARALLEL_DESCRIPTORS
         {0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_X, "Mouse X"},
         {0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_Y, "Mouse Y"},
         {0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_LEFT, "Mouse left button"},

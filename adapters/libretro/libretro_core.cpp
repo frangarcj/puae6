@@ -1622,7 +1622,7 @@ RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)
 RETRO_API void retro_set_controller_port_device(unsigned port, unsigned device)
 {
     if (p6_libretro::device_allowed(port, device)) {
-        if (p6_libretro::optical_device(device) && p6_libretro::optical_device(core.device[1 - port])) {
+        if (port < 2 && p6_libretro::optical_device(device) && p6_libretro::optical_device(core.device[1 - port])) {
             log(RETRO_LOG_WARN, "only one optical sensor is supported; the port keeps its device");
             return;
         }
@@ -1655,7 +1655,8 @@ RETRO_API void retro_run(void)
     if (!core.faulted) {
         apply_disk_requests();      // what the frontend asked of the tray since the last unit lands on this boundary
         input_poll_cb();
-        const p6_input input = p6_libretro::read_input(input_state_cb, core.device, p6_libretro::input_config(core.settings), &core.input);
+        const p6_input_v2 packet = p6_libretro::read_input_v2(input_state_cb, core.device, p6_libretro::input_config(core.settings), &core.input);
+        const p6_input &input = packet.base;
         core.status.ports[0] = input.ports[0];
         core.status.ports[1] = input.ports[1];
         frame.abi_version = P6_ABI_VERSION;
@@ -1672,6 +1673,9 @@ RETRO_API void retro_run(void)
                 (unsigned long long)frame.master_ticks, input.ports[0].type, input.ports[0].buttons, input.ports[0].dx,
                 input.ports[0].dy, input.ports[1].type, input.ports[1].buttons, input.ports[1].dx, input.ports[1].dy, input.keys[3], input.keys[2],
                 input.keys[1], input.keys[0]);
+            if (input.abi_version == P6_INPUT_VERSION_2)
+                log(RETRO_LOG_DEBUG, "parallel unit=%llu ports=%u:%x,%u:%x", (unsigned long long)frame.unit_index,
+                    packet.parallel[0].type, packet.parallel[0].buttons, packet.parallel[1].type, packet.parallel[1].buttons);
         } else {
             report("p6_run_frame", result, error);
             core.faulted = true;

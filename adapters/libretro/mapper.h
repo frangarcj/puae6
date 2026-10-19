@@ -37,7 +37,7 @@
 
 namespace p6_libretro {
 
-constexpr unsigned kPortCount = 2;
+constexpr unsigned kPortCount = 4;
 constexpr int kMouseMaxCounts = 120;               // what the engine delivers per axis and unit (docs/02-contracts.md)
 constexpr int kMouseBacklog = 8 * kMouseMaxCounts; // the most movement kept for later runs, per axis
 constexpr int kStickThreshold = 20000;             // of 32767, the same as PUAE5 uses for a stick as buttons

@@ -65,4 +65,20 @@ internal static unsafe partial class Program
 			}
 		}
 	}
+    static void ParallelLog()
+    {
+        Require(sizeof(P6Input) == 72 && sizeof(P6InputV2) == 108, "parallel ABI v1/v2 sizes");
+        var definition = Controllers.Define(new Puae6SyncSettings { ControllerPort1 = Puae6Port1.Joystick, ControllerPort2 = Puae6Port2.Joystick,
+            ControllerPort3 = Puae6ParallelPort.Joystick, ControllerPort4 = Puae6ParallelPort.Joystick }, 0);
+        definition.BuildMnemonicsCache("Amiga");
+        var source = new ScriptedController(definition);
+        var decoded = new Bk2Controller(definition, Bk2LogEntryGenerator.GenerateLogKey(definition));
+        foreach (int port in new[] { 3, 4 }) foreach (var button in Controllers.JoystickButtons[port - 1].Take(5))
+        {
+            Require(definition.MnemonicsCache![button] != '!', $"parallel mnemonic {button}");
+            source.Clear(); source.Press(button); decoded.SetFromMnemonic(Bk2LogEntryGenerator.GenerateLogEntry(source));
+            Require(definition.BoolButtons.All(n => source.IsPressed(n) == decoded.IsPressed(n)), $"parallel round trip {button}");
+        }
+    }
+
 }

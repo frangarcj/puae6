@@ -93,7 +93,7 @@ struct Options {
     int dump_from = 1;                                          // --dump-from RUN: from this visible run on
     size_t audio_partial = 0;
     int stall_first = -1, stall_last = -1;
-    unsigned joy[2] = {0, 0};
+    unsigned joy[4] = {0, 0};
     bool mouse = false;
     int mouse_dx = 0, mouse_dy = 0;
     unsigned mouse_buttons = 0;
@@ -144,8 +144,8 @@ struct Options {
         unsigned buttons;
     };
     std::vector<MouseStep> mouse_steps;
-    int analog[2][2] = {{0, 0}, {0, 0}};
-    int analog_right[2][2] = {{0, 0}, {0, 0}};                  // the right stick
+    int analog[4][2] = {{0, 0}, {0, 0}};
+    int analog_right[4][2] = {{0, 0}, {0, 0}};                  // the right stick
     struct StickStep {
         int position;
         unsigned port, index;                                   // index 0: the left stick, 1: the right one
@@ -725,7 +725,7 @@ void RETRO_CALLCONV input_poll(void) { ++run.polls; }
 int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned index, unsigned id)
 {
     ++run.states;
-    if (port > 1) return 0;
+    if (port > 3 || (port >= 2 && device != RETRO_DEVICE_JOYPAD && device != RETRO_DEVICE_ANALOG)) return 0;
     if (device == RETRO_DEVICE_KEYBOARD) {
         bool down = false;
         for (const Options::KeyStep &step : options.key_steps)            // the last change of this key at or before this position holds
@@ -1204,7 +1204,7 @@ bool parse(int argc, char **argv)
         } else if (!strcmp(a, "--ahead-every")) options.ahead_every = atoi(next());
         else if (!strcmp(a, "--joy-at")) {
             Options::JoyStep step = {};
-            if (sscanf(next(), "%d:%u:%x", &step.position, &step.port, &step.mask) != 3 || step.port > 1) return false;
+            if (sscanf(next(), "%d:%u:%x", &step.position, &step.port, &step.mask) != 3 || step.port > 3) return false;
             options.joy_steps.push_back(step);
         }
         else if (!strcmp(a, "--key-at")) {
@@ -1220,18 +1220,18 @@ bool parse(int argc, char **argv)
         } else if (!strcmp(a, "--analog")) {
             unsigned port = 0;
             int x = 0, y = 0;
-            if (sscanf(next(), "%u:%d,%d", &port, &x, &y) != 3 || port > 1) return false;
+            if (sscanf(next(), "%u:%d,%d", &port, &x, &y) != 3 || port > 3) return false;
             options.analog[port][0] = x;
             options.analog[port][1] = y;
         } else if (!strcmp(a, "--analog-right")) {
             unsigned port = 0;
             int x = 0, y = 0;
-            if (sscanf(next(), "%u:%d,%d", &port, &x, &y) != 3 || port > 1) return false;
+            if (sscanf(next(), "%u:%d,%d", &port, &x, &y) != 3 || port > 3) return false;
             options.analog_right[port][0] = x;
             options.analog_right[port][1] = y;
         } else if (!strcmp(a, "--stick-at")) {
             Options::StickStep step = {};
-            if (sscanf(next(), "%d:%u:%u:%d,%d", &step.position, &step.port, &step.index, &step.x, &step.y) != 5 || step.port > 1 || step.index > 1) return false;
+            if (sscanf(next(), "%d:%u:%u:%d,%d", &step.position, &step.port, &step.index, &step.x, &step.y) != 5 || step.port > 3 || step.index > 1) return false;
             options.stick_steps.push_back(step);
         } else if (!strcmp(a, "--device")) {
             Options::DeviceSetting setting = {};
@@ -1242,7 +1242,7 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--audio-stall")) sscanf(next(), "%d:%d", &options.stall_first, &options.stall_last);
         else if (!strcmp(a, "--joy")) {
             unsigned port = 0, mask = 0;
-            if (sscanf(next(), "%u:%x", &port, &mask) == 2 && port < 2) options.joy[port] = mask;
+            if (sscanf(next(), "%u:%x", &port, &mask) == 2 && port < 4) options.joy[port] = mask;
         } else if (!strcmp(a, "--pointer")) {
             unsigned port = 0, buttons = 0; int x = 0, y = 0;
             if (sscanf(next(), "%u:%d,%d,%u", &port, &x, &y, &buttons) != 4 || port > 1) return false;
