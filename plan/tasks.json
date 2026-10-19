@@ -15586,11 +15586,16 @@
         "tests/media/test_akiko_state.py",
         "tests/media/akiko_controller_state_probe.cpp",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "ports/portable/audio_cda_state.h",
+        "ports/portable/media/cd_audio.h",
+        "ports/portable/media/cd_audio.cpp",
+        "ports/portable/media/cd_device.cpp"
       ],
       "steps": [
         "0368/order185 agrega los tres endpoints M3a/M2/N2b usando sus preflights puros antes de cualquier apply. Estado caller-heap ordinario; identidad del medio y callbacks derivados, ciclo candidato y validacion cruzada de owner/control cuando sea causal. Ningun puntero host, I/O/alloc/IRQ/callback/advance en restore.",
-        "Cortes conjuntos con FIFO parcial, cache/subcode DMA, CDDA activo/pausa/retardo/terminal, RX/TX y EEPROM/C2P; comparar RAM/IRQ/respuestas/PCM y captura futura. Corrupcion del ultimo componente deja todos los anteriores intactos. Reutilizar fixture real M3a con guard fixture-only si procede. Presupuesto160–260 manuales, sin engine/guest."
+        "Cortes conjuntos con FIFO parcial, cache/subcode DMA, CDDA activo/pausa/retardo/terminal, RX/TX y EEPROM/C2P; comparar RAM/IRQ/respuestas/PCM y captura futura. Corrupcion del ultimo componente deja todos los anteriores intactos. Reutilizar fixture real M3a con guard fixture-only si procede. Presupuesto160–260 manuales, sin engine/guest.",
+        "Integracion futura NativeChunk valida antes del reset head de otro owner: separar validacion intrinseca del candidato de disponibilidad del destino en transporte/device/player/stream. Ampliacion explicita a esos endpoints y audio.cpp dentro0368; reutilizar validadores, no stubs ni crear buffers durante validate. Apply revalida owner listo; no cambiar guard0099 aun. Presupuesto ampliado a<=350 manuales si esta separacion lo requiere."
       ],
       "acceptance": [
         "Estado privado agregado conserva controlador, transporte y backend/player con restauracion conjunta transaccional y continuacion exacta."
