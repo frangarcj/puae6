@@ -13766,7 +13766,7 @@
       "title": "Bundle WHDLoad determinista con RASystem y WHDSaves",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T30",
         "T64",
@@ -13782,13 +13782,15 @@
         "tools/prepare_whdload.py",
         "tests/whdload/**",
         "docs/whdload.md",
-        "manifests/licenses.json"
+        "manifests/licenses.json",
+        "tools/check.py"
       ],
       "steps": [
         "Preparar WHDLoad.hdf, RASystem.hdf y WHDSaves.hdf desde inputs autorizados. Usar WHDLoad.VFS DATA para datos solo lectura y SavePath=WHDSaves:, con helper AmigaDOS propio, sin binarios Commodore redistribuidos.",
         "Incluir prefs y ButtonWait; validar boot real de Fatal Mission y guardado FM1.hisc por resload_SaveFile, no solo archivos del script, en ambos frontends existentes.",
         "Retomar con salida RMB en titulo documentada por el juego: los replays previos no producian FM1.hisc con el flujo de entrada anterior. Probar primero boot/salida/archivo real en ventana corta; no repetir6000 sin causa nueva.",
-        "Nuevo dato estatico permite un intento razonado: RMB durante juego toma la ruta $7c6 hacia tabla, distinta de RMB en titulo. Tras sus 200 VBL de espera, hasta tres flancos Fire1 separados por al menos siete unidades completan las letras y alcanzan SaveFile $aca (112 B). Confirmar fase visible antes de pulsar; no mas bucles largos sin trigger ni sustitucion por escritura DOS."
+        "Nuevo dato estatico permite un intento razonado: RMB durante juego toma la ruta $7c6 hacia tabla, distinta de RMB en titulo. Tras sus 200 VBL de espera, hasta tres flancos Fire1 separados por al menos siete unidades completan las letras y alcanzan SaveFile $aca (112 B). Confirmar fase visible antes de pulsar; no mas bucles largos sin trigger ni sustitucion por escritura DOS.",
+        "Registrar MED02/DET02/LR01/WB03 con los escenarios reales de bundle y replay, sin sustituir el oraculo por logs. LR del ZIP fdf4f8b pasa dos recorridos reales y estado completo; guest 57a7d790e464e9837503b1725e6bf8e75786ca9f2f03f8c7a6793e3c111581a8 pasa SaveFile112B, DATA/base inmutables y replay mismo/nuevo sandbox. No se cierra el automontaje/persistencia de T65b/c."
       ],
       "checks": [
         "MED02",
@@ -13924,7 +13926,7 @@
       "title": "Fuente CD inmutable por offset y lector ISO2048 acotado",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24",
         "T70",
