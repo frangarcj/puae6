@@ -7,8 +7,8 @@
 #ifndef P6_BRIDGE_STATE_H
 #define P6_BRIDGE_STATE_H
 #include "p6.h"
-#include "archive.h"
-#include "envelope.h"
+#include "state_io/archive.h"
+#include "state_io/envelope.h"
 
 namespace p6_state {
 
