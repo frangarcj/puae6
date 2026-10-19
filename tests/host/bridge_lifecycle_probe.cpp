@@ -123,11 +123,11 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.cpu_compatibility = 3; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.cpu_compatibility = P6_CPU_NORMAL; c.cpu_model = 2; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.cpu_compatibility = P6_CPU_COMPATIBLE; c.machine = P6_MACHINE_A1200; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
-    // The controller of the hard files (T56): the UAE controller or the IDE port of Gayle, which only the A600 and the A1200 have.
+    // The controller of the hard files (T56): the UAE controller or the IDE port of Gayle, available on the A600, A1200 and A4030.
     c = make_config(); c.hdf_controller = 2;             assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "controller"));
     for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A500OG, P6_MACHINE_A500PLUS, P6_MACHINE_A1000, P6_MACHINE_A2000OG, P6_MACHINE_A2000}) {
         c = make_config(); c.machine = machine; c.hdf_controller = P6_HDF_CONTROLLER_IDE;
-                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "A600 and the A1200"));
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "no supported IDE port"));
         c = make_config(); c.machine = machine; c.hdf_controller = P6_HDF_CONTROLLER_UAE;
                                                          assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     }
@@ -143,8 +143,9 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
         for (uint8_t multiplier : {0, 1, 2, 4, 8, 10, 12, 16}) {
             c = make_config(); c.machine = machine; c.cpu_multiplier = multiplier; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
         }
-    // The CPU (T52): 0 is the machine's own, 68010 is offered on the machines with a 68000, the A1200 has its soldered 68EC020 only, anything above 3 is refused with the reason.
-    c = make_config(); c.cpu_model = 4;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "cpu model"));
+    // The CPU (T52): 0 is the machine's own, 68010 is offered on the machines with a 68000, the A1200 has its soldered 68EC020 only, 68030 is restricted to A4030 and anything above 4 is refused with the reason.
+    c = make_config(); c.cpu_model = 5;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "cpu model"));
+    c = make_config(); c.cpu_model = 4;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "68000"));
     c = make_config(); c.cpu_model = 3;                  assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "68020"));
     c = make_config(); c.machine = P6_MACHINE_A1200; c.cpu_model = 2; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "A1200"));
     c = make_config(); c.machine = P6_MACHINE_A1200; c.cpu_model = 1; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "A1200"));
