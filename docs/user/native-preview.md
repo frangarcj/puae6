@@ -28,6 +28,10 @@ se lee por simbolo y Caps Lock funciona como pestillo. Cambia los dispositivos
 por puerto desde el menu del frontend. Puedes conectar dos ratones independientes.
 Usa Disk Control para cambiar discos.
 
+Los jugadores 3 y 4 usan un adaptador paralelo de joystick. Conecta Joypad en
+los puertos 3 y 4 del frontend; cada uno tiene direcciones y un boton de fuego.
+El juego debe admitir ese adaptador.
+
 Tambien estan disponibles Lightgun y Lightpen, con coordenadas absolutas y
 disparo/contacto. Solo puede conectarse un sensor optico a la vez; el juego
 debe admitirlo. El mapeo de posicion respeta el recorte de pantalla.
@@ -44,6 +48,10 @@ cuatro en ese caso. Un numero elegido a mano limita las unidades disponibles.
 Exact es el valor inicial; los otros niveles cambian la temporizacion emulada.
 Reinicia el contenido al cambiarlo. La etiqueta `(CE)` fuerza exact salvo que
 desactives File Name Tags.
+
+`puae6_collision_level` usa todas las colisiones por defecto (Auto/Full).
+Los niveles reducidos cambian lo que ve el juego y pueden afectar su funcionamiento;
+forman parte de la configuracion de estados y peliculas.
 
 `puae6_drive_sound_volume` activa el sonido del motor y de los pasos de
 la disquetera: 0 (defecto, silencio), 10, 25, 50, 75 o 100 %. Puede cambiarse
@@ -71,9 +79,10 @@ nombres distintos para partidas independientes.
 Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
 usan interprete de CPU. El preset A4030 Normal es experimental: las pruebas
 sinteticas pasan, pero falta validar su arranque con firmware A4000 real.
-040/060, cuatro jugadores, maquinas CD32/CDTV y WHDLoad completo siguen en
-desarrollo. El guardado real de puntuaciones del nuevo bundle WHDLoad esta
-pendiente; para esta preview utiliza los flujos de disquete/HDF ya disponibles.
+040/060, maquinas CD32/CDTV y la carga automatica WHDLoad siguen en desarrollo.
+El bundle WHDLoad preparado con las herramientas incluidas ya guarda puntuaciones
+en su volumen separado; consulta `docs/whdload.md` en los fuentes para prepararlo
+y cargalo como playlist M3U con A1200 y `puae6_hdf_save=on_close`.
 El mando CD32 no implica soporte de la maquina CD32 ni de sus discos CD.
 La integracion Waterbox/MacHawk es un producto separado y no se instala
 con este ZIP. No se declara CI remota ni reproducibilidad binaria auditada.
