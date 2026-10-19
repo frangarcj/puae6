@@ -12308,7 +12308,7 @@
       "title": "Modos de CPU rapidos (compatible / normal, sin cycle-exact) como opcion, deterministas",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T24"
       ],
@@ -12629,7 +12629,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T55a"
       ],
@@ -13752,7 +13752,7 @@
       "title": "WHDLoad completo en libretro y BizHawk: WHDLoad.hdf, volumen RASystem (Kickstarts + prefs), WHDSaves, buttonwait, A1200 forzado",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T30",
         "T64",
@@ -13988,7 +13988,7 @@
       "title": "Lightgun y lightpen en puertos versionados",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
@@ -14333,7 +14333,7 @@
       "title": "Sonido de disquetera (driveclick) determinista",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T73"
       ],
