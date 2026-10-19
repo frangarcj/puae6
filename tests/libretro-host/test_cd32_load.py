@@ -75,6 +75,21 @@ class Cd32LoadTests(lr.LibretroHarness):
         self.assertEqual(0, result.returncode, result.stderr.decode())
         self.assertIn(b'unit 2 ticks=', result.stdout)
 
+    def test_nvram_sram_persistence_reset_and_snapshot_use_the_same_backing(self):
+        work = self.work(); seed = work / 'seed.srm'; durable = work / 'saved.srm'; restored = work / 'restored.srm'
+        initial = bytes((i * 17 + 9) & 255 for i in range(1024)); seed.write_bytes(initial)
+        out = self.run_cd('--runs', 7, '--do', f'0:sramload:{seed}', '--do', '1:save:s',
+                          '--do', '2:srampoke:13:cc', '--do', '3:reset', '--do', f'4:sramsave:{durable}',
+                          '--do', '5:load:s', '--do', f'7:sramsave:{restored}')
+        changed = bytearray(initial); changed[13] = 0xcc
+        self.assertEqual(bytes(changed), durable.read_bytes())
+        self.assertEqual(initial, restored.read_bytes())
+        pointers = re.findall(r'sram size=1024 ptr=(\S+)', out)
+        self.assertEqual(4, len(pointers)); self.assertEqual(1, len(set(pointers)))
+        imported = work / 'imported.srm'
+        self.run_cd('--runs', 1, '--do', f'0:sramload:{durable}', '--do', f'1:sramsave:{imported}')
+        self.assertEqual(durable.read_bytes(), imported.read_bytes())
+
     def test_invalid_model_firmware_and_vfs_fail_and_release_handles(self):
         self.run_cd('--set', 'puae6_machine=A1200', expect=3)
         floppy = self.directory / 'not-a-cd.adf'; floppy.write_bytes(bytes(901120))

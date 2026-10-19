@@ -2013,14 +2013,14 @@ RETRO_API unsigned retro_get_region(void) { return core.settings.video_standard 
 // pointer from the load to the unload and no engine call is made (a frontend may ask from a thread that is not the one that runs the core).
 RETRO_API void *retro_get_memory_data(unsigned id)
 {
-    if (id != RETRO_MEMORY_SYSTEM_RAM || !core.loaded || core.faulted || !core.memory_announced) return nullptr;
-    return const_cast<void *>(core.memory_map.system_ram);
+    if (!core.loaded || core.faulted || !core.memory_announced) return nullptr;
+    return const_cast<void *>(id == RETRO_MEMORY_SYSTEM_RAM ? core.memory_map.system_ram : id == RETRO_MEMORY_SAVE_RAM ? core.memory_map.save_ram : nullptr);
 }
 
 RETRO_API size_t retro_get_memory_size(unsigned id)
 {
-    if (id != RETRO_MEMORY_SYSTEM_RAM || !core.loaded || core.faulted || !core.memory_announced) return 0;
-    return core.memory_map.system_ram_bytes;
+    if (!core.loaded || core.faulted || !core.memory_announced) return 0;
+    return id == RETRO_MEMORY_SYSTEM_RAM ? core.memory_map.system_ram_bytes : id == RETRO_MEMORY_SAVE_RAM ? core.memory_map.save_ram_bytes : 0;
 }
 
 }  // extern "C"

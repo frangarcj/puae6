@@ -8429,6 +8429,10 @@
         "state": [
           "Mouse2Y"
         ]
+      },
+      "_nvramInitialHash": {
+        "policy": "construction",
+        "what": "T66r4: SHA-256 of CD32 NVRAM at boot, canonical 1024 zero bytes before import and updated only by validated StoreSaveRam before the first frame or state LOAD. Included in config identity; Clone, dirty, reset and snapshot rollback do not change it. Starting a movie from an imported-NVRAM snapshot is tracked by T66r5."
       }
     }
   }

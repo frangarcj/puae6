@@ -73,7 +73,8 @@ internal static unsafe partial class Program
   byte[] main = File.ReadAllBytes(args[6]), ext = File.ReadAllBytes(args[7]);
   using var disc = Mount(args[1]);
   long reads = 0;
-  Puae6Core Open(Disc image, bool combined = false) {
+  var seed = Enumerable.Range(0, 1024).Select(i => (byte)(i * 17 + 9)).ToArray();
+  Puae6Core Open(Disc image, bool combined = false, byte[] imported = null) {
    var firmware = new Firmware(main, ext, combined);
    var comm = new CoreComm(_ => { }, (_, _) => { }, firmware, CoreComm.CorePreferencesFlags.None, null);
    var original = new Puae6SyncSettings { ControllerPort2 = Puae6Port2.Cd32 };
@@ -93,6 +94,28 @@ internal static unsafe partial class Program
    var core = new Puae6Core(comm, p);
    Require(core.GetSyncSettings().Machine == Puae6Machine.CD32);
    Require(!core.ControllerDefinition.BoolButtons.Contains(Controllers.NextDrive));
+   Require(ReferenceEquals(core.ServiceProvider.GetService<ISaveRam>(), core));
+   Require(!core.SaveRamModified && core.CloneSaveRam(false).SequenceEqual(new byte[1024]));
+   var initialConfig = core.Identity.ConfigHash;
+   Save(core); // Real TAS may SAVE before importing the same initial SRAM again.
+   core.StoreSaveRam(new byte[1024]); Require(core.Identity.ConfigHash.SequenceEqual(initialConfig));
+   foreach (int size in new[] { 0, 1023, 1025 }) {
+    try { core.StoreSaveRam(new byte[size]); throw new Exception("Wrong SRAM length accepted"); }
+    catch (SaveRamRejectedException e) { Require(e.Reason == SaveRamRejection.BadLength); }
+   }
+   Require(core.CloneSaveRam(false).SequenceEqual(new byte[1024]));
+   var nv = core.ServiceProvider.GetService<IMemoryDomains>()["CD32 NVRAM"];
+   Require(nv.Size == 1024 && nv.WordSize == 1 && nv.Writable);
+   nv.PokeByte(13, 0x51); Require(core.SaveRamModified && core.CloneSaveRam(false)[13] == 0x51);
+   Require(core.SaveRamModified); core.CloneSaveRam(); Require(!core.SaveRamModified);
+   core.ReplayInProgress = true;
+   Require(core.CloneSaveRam() == null && !core.SaveRamModified);
+   try { core.StoreSaveRam(seed); throw new Exception("Replay SRAM import accepted"); }
+   catch (SaveRamRejectedException e) { Require(e.Reason == SaveRamRejection.TooLate); }
+   core.ReplayInProgress = false;
+   core.StoreSaveRam(imported ?? seed);
+   Require(!core.SaveRamModified && core.CloneSaveRam(false).SequenceEqual(imported ?? seed));
+   Require(core.Identity.ConfigHash.SequenceEqual(initialConfig) == (imported ?? seed).All(b => b == 0));
    return core;
   }
   using var core = Open(disc);
@@ -101,11 +124,17 @@ internal static unsafe partial class Program
   if (args[5] == "publicsave") {
    Run(core, 300); Require(reads > 0);
    state = Save(core); File.WriteAllBytes(statePath, state);
+   File.WriteAllBytes(statePath + ".nvram", core.CloneSaveRam());
    future = Run(core, 15); File.WriteAllLines(statePath + ".future", future);
    File.WriteAllBytes(statePath + ".bin", Save(core));
+   var nv = core.ServiceProvider.GetService<IMemoryDomains>()["CD32 NVRAM"];
+   nv.PokeByte(13, (byte)(nv.PeekByte(13) ^ 255)); Require(core.SaveRamModified);
   } else { state = File.ReadAllBytes(statePath); future = File.ReadAllLines(statePath + ".future"); }
   void Check(Puae6Core c) {
-   Restore(c, state); Require(Run(c, 15).SequenceEqual(future));
+   Restore(c, state); Require(c.CloneSaveRam(false).SequenceEqual(File.ReadAllBytes(statePath + ".nvram")));
+   try { c.StoreSaveRam(seed); throw new Exception("Late SRAM import accepted"); }
+   catch (SaveRamRejectedException e) { Require(e.Reason == SaveRamRejection.TooLate); }
+   Require(Run(c, 15).SequenceEqual(future));
    Require(Save(c).SequenceEqual(File.ReadAllBytes(statePath + ".bin")));
   }
   Check(core);
@@ -119,6 +148,9 @@ internal static unsafe partial class Program
   try { Puae6Movie.Validate(Puae6Movie.Header(core), other); throw new Exception("Other CD movie accepted"); }
   catch (MovieRejectedException e) { Require(e.Reason == MovieRejection.OtherMedia); }
   Require(before.SequenceEqual(Save(other)));
+  other.Dispose();
+  using var durable = Open(disc, true, File.ReadAllBytes(statePath + ".nvram"));
+  Require(durable.CloneSaveRam(false).SequenceEqual(File.ReadAllBytes(statePath + ".nvram")));
   Console.WriteLine($"Public BizHawk CD32 loader/firmware/model/reads/snapshot/new process/movie identity PASS reads={reads}; full game boot not asserted");
  }
 }

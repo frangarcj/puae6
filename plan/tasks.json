@@ -16209,7 +16209,9 @@
         "T66m7",
         "T66r1",
         "T66r2",
-        "T66r3"
+        "T66r3",
+        "T66r4",
+        "T66r5"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16247,7 +16249,8 @@
         "T66q1 corrige el reloj CDA excluido del motor portable real; conserva boot/codec/frontend/Waterbox como puertas del padre.",
         "T66r1 integra CD directo stock en libretro por Automatic con propietario de sesion y estado real. CD32FR, cambio de CD, NVRAM SaveRAM, Waterbox, juego y formatos restantes conservan todas las puertas del padre.",
         "T66r2 conecta el backend CD dentro del guest Waterbox tras Seal y prueba CD32 privado con snapshot; el loader publico, identidad wrapper y SaveRAM siguen en este padre.",
-        "T66r3 integra modelo comun, carga publica e identidad/restore BizHawk. SaveRAM NVRAM, CD32FR, formatos restantes y arranque completo del juego conservan todas las puertas del padre."
+        "T66r3 integra modelo comun, carga publica e identidad/restore BizHawk. SaveRAM NVRAM, CD32FR, formatos restantes y arranque completo del juego conservan todas las puertas del padre.",
+        "T66r4 conecta NVRAM real con SaveRAM y su identidad inicial. No cierra arranque completo, CD32FR ni formatos restantes del padre."
       ],
       "checks": [
         "MED01",
@@ -17751,6 +17754,105 @@
         "BizHawk carga un CD32 por el core publico con firmware y modelo correctos; estados/peliculas tienen identidad CD completa y restauran en Waterbox real tras rebind. Selector comun y libretro explicito mantienen la paridad. No acredita arranque completo de juego ni persistencia NVRAM."
       ],
       "stop": "No ocultar CD32 como A500 en settings, no aceptar disco ajeno ni callback capturado de otro sandbox; no cerrar T66 por este componente."
+    },
+    {
+      "id": "T66r4",
+      "title": "Persistencia NVRAM CD32 mediante SaveRAM real en ambos frontends",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T66r3",
+        "T66m1",
+        "T66m7"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "ports/portable/cd32_nvram.h",
+        "bridge/include/p6.h",
+        "bridge/memory.cpp",
+        "adapters/libretro/memory_map.h",
+        "adapters/libretro/libretro_core.cpp",
+        "adapters/waterbox/p6w.h",
+        "adapters/waterbox/puae6_guest.cpp",
+        "integration/bizhawk/core/Puae6/Abi.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.Persistence.cs",
+        "tests/media/cd32_state_probe.cpp",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/libretro-host/host.cpp",
+        "tests/libretro-host/test_cd32_load.py",
+        "tests/reference/patch-classes.json",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "manifests/state-inventory.json"
+      ],
+      "steps": [
+        "Exponer el backing real de1024bytes de la24C08 por un accessor privado pequeno, sin cambiar protocolo ni lifetime. Region NVRAM separada de RAM/bus; libretro RETRO_MEMORY_SAVE_RAM apunta al propietario estable y consulta de nuevo tras reset/restore. Waterbox ofrece dominio de byte y transferencia acotada por hooks existentes, sin punteros host.",
+        "BizHawk persiste1024bytes crudos, como libretro. Clone y dirty no mutan hardware; Store valida tamano/replay/fase antes de tocar el guest y solo antes de la primera unidad o snapshot. Identidad de pelicula/estado incluye NVRAM inicial canonica: cero sin importacion equivale a importar1024ceros. Restaurar un estado conserva el hash de arranque y recupera los bytes y protocolo del snapshot.",
+        "Pruebas dirigidas: save/load/restauracion/reset nativo y SRAM entre procesos libretro; core publico Waterbox con servicio ISaveRam, dirty, importacion y limites, rechazo sin mutar, snapshot/rollback y proceso nuevo. Sin guardar ROMs, CDs, informes ni logs historicos. Presupuesto menos400lineas logicas manuales; el padre conserva arranque completo, CD32FR y formatos restantes.",
+        "Revision de solo lectura confirma owner preframe por device_add_reset_imm. Se corrige clean inicial a hash de1024ceros y se conserva importacion tras mero SAVE. El flujo de pelicula desde snapshot con NVRAM importada queda explicitamente en T66r5 antes de afirmar TAS completo.",
+        "Ampliar inventario del wrapper antes del cierre: _nvramInitialHash es dato de construccion canonico validado en la identidad, y _saveRamClean sigue siendo bookkeeping durable fuera de rollback. No añade estado oculto al sandbox ni cambia hashes durante Clone/reset.",
+        "MED02, LR01 y WB03 PASS: backing/codec nativo real y owner I2C, SRAM libretro preframe/reset/rollback y otro proceso, core publico BizHawk/net48 con dominio de byte y servicio ISaveRam, clean/dirty/guardas/importacion canonica, snapshot completo y recarga con CUE Brian y ROMs locales. Inventario wrapper3tests y ABI C/C++ pasan; serie/clasificacion/plan55tests pasan. Guest8d1870718eefeac9 y fuentes vinculadas verificados; se mantienen pendientes T66r5 y arranque completo del padre."
+      ],
+      "checks": [
+        "MED02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "La NVRAM de Akiko que ve el firmware es la misma que exportan ambos frontends, persiste al cerrar y recargar, y retrocede con estados sin contaminar peliculas ni ignorar el estado inicial."
+      ],
+      "stop": "No crear un buffer SRAM desacoplado, no descargar ROMs ni confundir snapshot con escritura durable."
+    },
+    {
+      "id": "T66r5",
+      "title": "Arranque de peliculas CD32 desde SaveRAM y desde estado con identidad inicial",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66r4"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "tests/bizhawk-movies/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "tests/media/csharp-disc/**",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md"
+      ],
+      "steps": [
+        "Reproducer de revision T66r4: MainForm omite LoadSaveRam con pelicula encolada; MovieSession ProcessSavestate precede ProcessSram. Un snapshot con NVRAM inicial importada no cero no coincide con el hash inicial cero de un core fresco. Resolver transporte de identidad/base inicial sin omitir validacion de firmware, modelo o CD.",
+        "Probar flujo real BK2/TAS de arranque desde SaveRAM y desde snapshot, repeticion Store tras mero SAVE, seek y nuevo proceso; no confundir igualdad manual de encabezados con reproduccion real. Mantener pendiente TAS completo hasta pasar estos flujos."
+      ],
+      "checks": [
+        "WB08",
+        "WB09",
+        "WB03"
+      ],
+      "acceptance": [
+        "Peliculas CD32 iniciadas desde SaveRAM o desde estado con NVRAM importada arrancan y hacen seek en Waterbox real con identidad comprobada y futuro determinista."
+      ],
+      "stop": "No relajar identidad global ni reconstruir desde la copia durable del usuario durante replay."
     }
   ],
   "max_in_progress": 4

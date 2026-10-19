@@ -14,6 +14,7 @@
 #include "sysdeps.h"
 #include "options.h"
 #include "memory.h"
+#include "cd32_nvram.h"
 
 using p6_session::Guard;
 using p6_session::State;
@@ -48,7 +49,7 @@ extern "C" p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capac
         {P6_REGION_Z3_FAST_RAM, P6_REGION_WRITABLE, &z3fastmem_bank[0], 0},
         {P6_REGION_ROM, 0, &kickmem_bank, 0},
     };
-    p6_memory_region found[sizeof sources / sizeof sources[0]];
+    p6_memory_region found[sizeof sources / sizeof sources[0] + 1];
     uint32_t n = 0;
     for (const Source &source : sources) {
         uint64_t bytes = source.bank->allocated_size;
@@ -60,6 +61,11 @@ extern "C" p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capac
             found[n++] = p6_memory_region{source.type, flags, source.bank->baseaddr, bytes};
     }
 
+    if (session.config.machine == P6_MACHINE_CD32) {
+        auto *nvram = p6_akiko_nvram_data();
+        if (!nvram) return p6_fail(error, P6_ERROR_BAD_STATE, "CD32 EEPROM backing is unavailable");
+        found[n++] = p6_memory_region{P6_REGION_NVRAM, P6_REGION_WRITABLE, nvram, 1024};
+    }
     *count = n;
     if (!regions) return P6_OK;
     if (capacity < n) return p6_fail(error, P6_ERROR_CAPACITY, "regions is too small");

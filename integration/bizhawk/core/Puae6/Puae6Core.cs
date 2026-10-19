@@ -281,9 +281,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		BootGuest(_media, _hardFiles, null);
 		_serviceProvider = new BasicServiceProvider(this);
 		_serviceProvider.Register<IMemoryDomains>(_domains);
-		// ISaveRam exists only when something can be written: without the flag every floppy is protected, and a hard file is always writable (T63b).
+		// ISaveRam exists for writable floppies, hard files and CD32 EEPROM; a core with none of these has no durable memory.
 		if (!SaveRamPossible) _serviceProvider.Unregister<ISaveRam>();
-		else _saveRamClean = SaveRamHash(null);
+		else _saveRamClean = _syncSettings.Machine == Puae6Machine.CD32 ? _nvramInitialHash : SaveRamHash(null);
 	}
 
 	/// <summary>
@@ -488,6 +488,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.VideoLineMode != Puae6VideoLineMode.Double) memory += ";linemode=" + _syncSettings.VideoLineMode;
 		if (_syncSettings.ControllerPort3 != Puae6ParallelPort.None || _syncSettings.ControllerPort4 != Puae6ParallelPort.None)
             memory += $";parallel={_syncSettings.ControllerPort3},{_syncSettings.ControllerPort4}";
+		if (_syncSettings.Machine == Puae6Machine.CD32) memory += ";nvram=" + BitConverter.ToString(_nvramInitialHash).Replace("-", "").ToLowerInvariant();
 		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;
@@ -531,7 +532,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		return list;
 	}
 
-	const int P6wAreaCapacity = 5;
+	const int P6wAreaCapacity = 6;
 
 	// ----- IEmulator -----------------------------------------------------------------------------------------------------------------
 

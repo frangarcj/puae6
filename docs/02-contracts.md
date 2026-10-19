@@ -1643,3 +1643,25 @@ LoadStateBinary valida sobre y campos, restaura el sandbox y rebindea antes de
 permitir frames. Un fallo de snapshot/rebind bloquea ejecucion y guardado hasta
 una restauracion completa. El encabezado de pelicula usa la misma identidad;
 esto no acredita todavia una pelicula CD32 completa ni el arranque de juego.
+
+## Persistencia NVRAM CD32 (T66r4)
+
+P6_REGION_NVRAM expone los 1024 bytes reales de la EEPROM 24C08 desde load,
+antes de la primera unidad. Es memoria serial, sin direccion de bus Amiga.
+Libretro entrega ese backing estable por RETRO_MEMORY_SAVE_RAM; el frontend
+lo importa al cargar y decide cuando hacerlo durable. Reset y estados conservan
+la misma memoria; no hay copia sincronizada por frame ni escritura de ficheros
+desde Akiko. Waterbox ofrece CD32 NVRAM como dominio de bytes y hooks acotados.
+
+BizHawk ISaveRam guarda 1024 bytes crudos, incluso cuando todos son cero.
+Clone devuelve una copia y dirty compara con la ultima copia durable; restaurar
+un snapshot recupera los bytes/protocolo, sin alterar el registro de persistencia.
+Store acepta exactamente 1024 bytes antes de FrameAdvance o LOAD de estado y
+fuera del guard de replay; un mero SAVE no cierra la importacion. La identidad
+incluye el hash inicial canonico: importar ceros equivale a empezar sin SaveRAM,
+y las escrituras durante el juego no cambian esa identidad.
+
+La pelicula iniciada desde un estado con NVRAM inicial importada necesita el
+transporte de esa identidad al core fresco (T66r5): BizHawk omite la lectura de
+SaveRAM al encolar una pelicula. No se acredita TAS completo con el roundtrip
+manual de SaveRAM y estados; esa puerta sigue abierta en el padre.

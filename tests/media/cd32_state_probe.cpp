@@ -9,6 +9,7 @@
 #include "cd_audio.h"
 #include "cd_audio_state.h"
 #include <memory>
+#include <algorithm>
 struct DiscFixture {
     uint64_t calls=0;
     Disc disc;
@@ -55,6 +56,13 @@ static void start(const std::vector<uint8_t> &rom,DiscFixture &disc,bool ntsc)
     auto c=config(); c.video_standard=ntsc?P6_VIDEO_NTSC:P6_VIDEO_PAL; auto e=error();
     call(p6_init(&c,&e),e); assert(device_bind(&disc.disc)==Result::Ok);
     call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); state_caps();
+    p6_memory_region regions[8]; uint32_t count=0;
+    call(p6_memory_regions(regions,8,&count,&e),e);
+    const auto found=std::find_if(regions,regions+count,[](const auto &r){ return r.type==P6_REGION_NVRAM; });
+    assert(found!=regions+count && found->bytes==1024 && (found->flags&P6_REGION_WRITABLE));
+    assert(found->data==p6_akiko_nvram_data()); // Backing already exists before the first unit.
+    auto *bytes=static_cast<uint8_t *>(const_cast<void *>(found->data)); bytes[13]=0x41;
+    p6_cd32_nvram_state nv{}; assert(p6_akiko_nvram_get(&nv) && nv.chip.memory[13]==0x41);
 }
 static void stop()
 {

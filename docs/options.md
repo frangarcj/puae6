@@ -26,8 +26,11 @@ significado anterior.
 BizHawk selecciona `Machine=CD32` al cargar un unico CD y pide los firmwares
 `Amiga/CD32` y `Amiga/CD32ext`, o el combinado de 1 MiB del firmware manager.
 El perfil usa 68EC020 exacto, AGA, 2 MiB Chip, sin Fast/FPU/Z3 ni disqueteras.
-CD32FR, cambio de CD y persistencia SaveRAM de NVRAM siguen pendientes;
-el arranque completo de juegos aun no esta acreditado.
+SaveRAM contiene los 1024 bytes crudos de la EEPROM. BizHawk solo permite
+importarlos antes de ejecutar o cargar un estado; libretro los ofrece como
+RETRO_MEMORY_SAVE_RAM. CD32FR, cambio de CD y pelicula desde un estado con
+NVRAM inicial importada siguen pendientes; el arranque completo de juegos
+aun no esta acreditado.
 
 ## A4000/030 (T55b)
 

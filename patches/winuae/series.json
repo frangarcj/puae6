@@ -5183,6 +5183,28 @@
           "after_sha256": "7b3d1bc26108a26977a8b1957eebdc5a43853e2e9070cf41afa098939d027c52"
         }
       ]
+    },
+    {
+      "id": "0375-akiko-nvram-backing-view",
+      "file": "patches/winuae/0375-akiko-nvram-backing-view.patch",
+      "sha256": "afde53241b24f394c1f488c70174c7ee00936a6b1de385a3ef2d746034347ec4",
+      "title": "Expose the active CD32 EEPROM backing for frontend persistence",
+      "reason": "T66r4 reads the same1024bytes as the real I2C chip through an optional memory region; no mirror, allocation, protocol or lifecycle change.",
+      "category": "host hooks",
+      "order": 192,
+      "symbols": [
+        "p6_akiko_nvram_data"
+      ],
+      "test": "tests/media/test_cd32_state.py; tests/libretro-host/test_cd32_load.py; tests/waterbox-media/test_cd_source.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "akiko.cpp",
+          "before_sha256": "0c63c8a3e63240e0b07a6a0e0e516eea1eb35ca694fa336ca04e51b14ec8f207",
+          "after_sha256": "f89e8d54ad21c5c027a67dec7ec73800c793be3d351a2731544d8fa852492ebf"
+        }
+      ]
     }
   ]
 }

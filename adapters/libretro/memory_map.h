@@ -40,9 +40,12 @@ struct MemoryMap {
     unsigned count = 0;
     const void *system_ram = nullptr;                       // RETRO_MEMORY_SYSTEM_RAM: the Chip RAM
     size_t system_ram_bytes = 0;
+    const void *save_ram = nullptr;                          // EEPROM, without a CPU bus descriptor
+    size_t save_ram_bytes = 0;
 
     bool same_as(const MemoryMap &other) const
     {
+        if (save_ram != other.save_ram || save_ram_bytes != other.save_ram_bytes) return false;
         if (count != other.count || system_ram != other.system_ram || system_ram_bytes != other.system_ram_bytes) return false;
         for (unsigned i = 0; i < count; ++i)
             if (descriptor[i].ptr != other.descriptor[i].ptr || descriptor[i].len != other.descriptor[i].len || descriptor[i].start != other.descriptor[i].start ||
@@ -98,6 +101,9 @@ inline bool build_memory_map(const p6_memory_region *regions, uint32_t count, Me
         case P6_REGION_Z3_FAST_RAM:
             if (region.flags & P6_REGION_BUS_ADDRESS_VALID)
                 out->descriptor[out->count++] = describe_region(region, P6_REGION_BUS_ADDRESS(region.flags), "Z3", RETRO_MEMDESC_SYSTEM_RAM);
+            break;
+        case P6_REGION_NVRAM:
+            out->save_ram = region.data; out->save_ram_bytes = size_t(region.bytes);
             break;
         case P6_REGION_ROM:
             if (region.bytes <= kAddressSpaceEnd) out->descriptor[out->count++] = describe_region(region, kAddressSpaceEnd - size_t(region.bytes), "ROM", RETRO_MEMDESC_CONST);

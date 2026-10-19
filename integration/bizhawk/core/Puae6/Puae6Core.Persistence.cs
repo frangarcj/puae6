@@ -131,6 +131,18 @@ public sealed unsafe partial class Puae6Core
 
 	// ----- ISaveRam -------------------------------------------------------------------------------------------------------------------------
 
+	byte[] _nvramInitialHash = StateEnvelope.Sha256(new byte[P6.Cd32NvramBytes]);
+
+	byte[] Nvram(byte[]? stored = null)
+	{
+		var data = stored ?? new byte[P6.Cd32NvramBytes];
+		using var active = _guest.Host.EnterExit();
+		var refused = _guest.Lib.p6w_memory_refused();
+		fixed (byte* p = data) _guest.Lib.p6w_memory_access(P6.RegionNvram, (IntPtr)p, 0, data.Length, stored is null ? 0u : 1u);
+		if (refused != _guest.Lib.p6w_memory_refused()) throw new InvalidOperationException("CD32 EEPROM transfer refused");
+		return data;
+	}
+
 	static readonly byte[] NoSaveRamHash = StateEnvelope.Sha256([ ]);
 
 	static byte[] SaveRamHash(byte[]? blob) => blob is null ? NoSaveRamHash : StateEnvelope.Sha256(blob);
@@ -150,6 +162,7 @@ public sealed unsafe partial class Puae6Core
 	byte[]? SerializeSaveRam(out List<int> leftOut)
 	{
 		leftOut = new List<int>();
+		if (_syncSettings.Machine == Puae6Machine.CD32) return Nvram();
 		var current = new byte[_media.Count][];
 		for (int i = 0; i < _media.Count && _syncSettings.FloppyWrites; ++i)
 		{
@@ -175,8 +188,8 @@ public sealed unsafe partial class Puae6Core
 		return SaveRam.Build(_media, current, _hardFiles, hardCurrent);
 	}
 
-	/// <summary>Something of this core can be made durable: its floppies when they are writable, and its hard files (always writable).</summary>
-	bool SaveRamPossible => _syncSettings.FloppyWrites || _hardFiles.Count != 0;
+	/// <summary>Something of this core can be made durable: its floppies when they are writable, its hard files (always writable), and CD32 EEPROM.</summary>
+	bool SaveRamPossible => _syncSettings.Machine == Puae6Machine.CD32 || _syncSettings.FloppyWrites || _hardFiles.Count != 0;
 
 	bool SaveRamAvailable => SaveRamPossible && !ReplayInProgress && !_faulted && !_disposed;
 
@@ -192,7 +205,7 @@ public sealed unsafe partial class Puae6Core
 	}
 
 	/// <summary>
-	/// The bounded durable form of what the guest wrote (<see cref="SaveRam"/>): null when no disk or hard file differs from its base, when the core cannot write anything, and during a replay. It is never a
+	/// CD32 returns its complete 1024-byte EEPROM. Other models return the bounded durable form of what the guest wrote (<see cref="SaveRam"/>): null when no disk or hard file differs from its base, when the core cannot write anything, and during a replay. It is never a
 	/// disk image (a hard file contributes the 4 KiB chunks that differ, not its image). A disk with a track that is not AmigaDOS is left out (see <see cref="DisksWithRawTracks"/>) and the frontend is told. Taking it changes nothing in the machine.
 	/// </summary>
 	public byte[]? CloneSaveRam(bool clearDirty = true)
@@ -208,7 +221,7 @@ public sealed unsafe partial class Puae6Core
 	}
 
 	/// <summary>
-	/// Gives the core a SaveRam it made: its sectors become part of the disks the machine has. Only before the first unit and before any state is loaded, and not during a replay: the base disks
+	/// CD32 takes exactly 1024 raw EEPROM bytes without rebuilding the machine. Other models take a SaveRam they made: its sectors become part of the disks the machine has. Only before the first unit and before any state is loaded, and not during a replay: the base disks
 	/// live in the sealed heap, so the machine is built again with the disks the SaveRam makes (as a new core would be) and what the SaveRam was becomes part of the identity of states and movies.
 	/// A SaveRam that is not whole, not ours or not for these disks is refused with its reason (also notified on screen) and nothing changes; the exception is an IOException, which is what
 	/// EmuHawk's LoadSaveRam catches. Zero bytes after the end of the data are padding and are ignored.
@@ -231,6 +244,16 @@ public sealed unsafe partial class Puae6Core
 		if (!SaveRamPossible) throw new SaveRamRejectedException(SaveRamRejection.WritesDisabled, "this core was created without floppy writes and without hard files: there is no SaveRam");
 		if (ReplayInProgress) throw new SaveRamRejectedException(SaveRamRejection.TooLate, "a movie is being replayed: the durable copy is not read into it");
 		if (_started || _faulted) throw new SaveRamRejectedException(SaveRamRejection.TooLate, "the machine already ran or loaded a state: the SaveRam is stored before the first unit");
+		if (_syncSettings.Machine == Puae6Machine.CD32)
+		{
+			if (data is null || data.Length != P6.Cd32NvramBytes) throw new SaveRamRejectedException(SaveRamRejection.BadLength, "CD32 SaveRAM must contain exactly 1024 bytes");
+			var hash = StateEnvelope.Sha256(data);
+			Nvram(data);
+			_nvramInitialHash = hash;
+			_identity = MakeIdentity(_parameters.Firmware);
+			_saveRamClean = hash;
+			return;
+		}
 		var contents = SaveRam.Parse(data, _media, _hardFiles);          // the zero padding after the data is not part of what the SaveRam is: two files that differ in it are one
 		if (contents.Floppy.Count != 0 && !_syncSettings.FloppyWrites)
 			throw new SaveRamRejectedException(SaveRamRejection.WritesDisabled, "the SaveRam holds floppy writes and this core was created without them");

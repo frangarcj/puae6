@@ -197,7 +197,8 @@
     "0371-cd32-overlay-state": "instrumentation",
     "0372-fpu-internal-state": "instrumentation",
     "0373-z3-capacity-range": "required",
-    "0374-reset-registered-devices-without-expansion": "required"
+    "0374-reset-registered-devices-without-expansion": "required",
+    "0375-akiko-nvram-backing-view": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

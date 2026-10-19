@@ -321,7 +321,7 @@ typedef struct p6_frame {
  *
  * Memory regions (T20a) are the memory as the emulated CPU sees it, in the order of the 68000: bytes are in big-endian
  * order and offset n of a region is byte n of that memory. The profile reports Chip RAM, Slow RAM, Fast RAM and the ROM, each
- * with its real size; a RAM that the machine does not have is not reported. Only RAM carries P6_REGION_WRITABLE: the
+ * with its real size; a RAM that the machine does not have is not reported. RAM and the byte-indexed serial EEPROM (P6_REGION_NVRAM) carry P6_REGION_WRITABLE: the
  * ROM is read-only. A host write is an external action that the emulated machine did not do, so a caller that records
  * a replay has to treat it as input. The pointers are valid until the next call that changes the machine (a
  * p6_run_frame, a reset, an unload); a caller that keeps a region across those has to ask again. Measured (T75): while one image is
@@ -341,6 +341,7 @@ typedef struct p6_memory_region {
 #define P6_REGION_ROM      UINT32_C(3)
 #define P6_REGION_FAST_RAM UINT32_C(4)   /* Zorro II Fast RAM (T49): present only when p6_config.fast_kib asked for it, and after the unit that ran its autoconfig reset */
 #define P6_REGION_Z3_FAST_RAM UINT32_C(5) /* Zorro III backing RAM, when configured; guest visibility follows autoconfig. */
+#define P6_REGION_NVRAM UINT32_C(6) /* CD32 24C08 backing, 1024 bytes, byte indexed; serial EEPROM, no Amiga bus mapping. */
 #define P6_REGION_WRITABLE (UINT32_C(1) << 0)
 /* Optional Z3 bus mapping: valid only while mapped. Upper 16 bits encode its 64 KiB page; structs retain their ABI v1 layout. */
 #define P6_REGION_BUS_ADDRESS_VALID (UINT32_C(1) << 1)

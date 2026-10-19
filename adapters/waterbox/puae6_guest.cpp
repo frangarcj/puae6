@@ -104,6 +104,7 @@ void access_chip_ram(void *buffer, int64_t address, int64_t count, bool write) {
 void access_slow_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_SLOW_RAM, buffer, address, count, write); }
 void access_fast_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_FAST_RAM, buffer, address, count, write); }
 void access_z3_ram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_Z3_FAST_RAM, buffer, address, count, write); }
+void access_nvram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_NVRAM, buffer, address, count, write); }
 void access_rom(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_ROM, buffer, address, count, write); }
 
 struct AreaSpec {
@@ -118,6 +119,7 @@ const AreaSpec area_specs[] = {
     {P6_REGION_FAST_RAM, "Fast RAM", 0, access_fast_ram},      // T49: the Zorro II board, at $200000 once the Kickstart has configured it
     {P6_REGION_Z3_FAST_RAM, "Z3 Fast RAM", 0, access_z3_ram},
     {P6_REGION_ROM, "ROM", 0, access_rom},
+    {P6_REGION_NVRAM, "CD32 NVRAM", 0, access_nvram},
 };
 
 }  // namespace
@@ -136,8 +138,9 @@ ECL_EXPORT size_t p6w_memory_areas(p6w_memory_area *out, size_t capacity)
         for (uint32_t i = 0; i < n; ++i)
             if (regions[i].type == spec.type) {
                 const int64_t writable = (regions[i].flags & P6_REGION_WRITABLE) ? P6W_AREA_WRITABLE : 0;
+                const auto word = spec.type == P6_REGION_NVRAM ? P6W_AREA_WORD_SIZE_1 : P6W_AREA_WORD_SIZE_2;
                 out[written++] = p6w_memory_area{reinterpret_cast<const void *>(spec.access), spec.name, int64_t(regions[i].bytes),
-                                                 spec.flags | writable | P6W_AREA_BIG_ENDIAN | P6W_AREA_WORD_SIZE_2 | P6W_AREA_FUNCTION_HOOK};
+                                                 spec.flags | writable | P6W_AREA_BIG_ENDIAN | word | P6W_AREA_FUNCTION_HOOK};
             }
     return written;
 }

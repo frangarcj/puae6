@@ -1021,6 +1021,27 @@ void do_action(const std::string &text)
         memory_report();
     } else if (command == "peek" || command == "poke") {
         memory_access(command == "poke", argument, variant);
+    } else if (command == "sramload" || command == "sramsave" || command == "srampoke") {
+        auto *data = static_cast<uint8_t *>(core.get_memory_data(RETRO_MEMORY_SAVE_RAM));
+        const size_t size = core.get_memory_size(RETRO_MEMORY_SAVE_RAM);
+        if (!data || !size || size > 1024 * 1024) { violation("no bounded SRAM region"); return; }
+        if (command == "srampoke") {
+            const auto at = size_t(strtoull(argument.c_str(), nullptr, 0));
+            if (at >= size) { violation("SRAM poke out of range"); return; }
+            data[at] = uint8_t(strtoul(variant.c_str(), nullptr, 16));
+        } else {
+            FILE *file = fopen(argument.c_str(), command == "sramload" ? "rb" : "wb");
+            if (!file) { violation("cannot open SRAM file"); return; }
+            bool ok;
+            if (command == "sramload") {
+                std::vector<uint8_t> incoming(size);
+                ok = fread(incoming.data(), 1, size, file) == size && fgetc(file) == EOF && !ferror(file);
+                if (ok) memcpy(data, incoming.data(), size);
+            } else ok = fwrite(data, 1, size, file) == size;
+            ok = fclose(file) == 0 && ok;
+            if (!ok) violation("SRAM file transfer failed");
+        }
+        printf("sram size=%zu ptr=%s hash=%016" PRIx64 "\n", size, pointer_id(data).c_str(), fnv(kFnvBasis, data, size));
     } else if (command == "images") {
         printf("state images count=%u index=%u eject=%d\n", disk_registered ? disk.get_num_images() : 0, disk_registered ? disk.get_image_index() : 0,
                int(disk_registered && disk.get_eject_state()));

@@ -269,6 +269,10 @@ TASK_SUITES[('LR01', 'T66r3')] = TASK_SUITES[('LR01', 'T66r1')]
 TASK_SUITES[('WB03', 'T66r3')] = {'stock_wrapper_restore': 'tests.waterbox-state.test_wrapper_machine.WrapperMachineTests.test_a_state_runs_in_a_new_sandbox_and_in_a_third_as_in_the_first_on_both_machines',
                               'public_cd32_loader_restore': 'tests.waterbox-media.test_cd_source.Cd32PublicCoreTests',
                               'empty_cd_baseline_regression': 'tests.waterbox-media.test_cd_source.CdTransportTests'}
+TASK_SUITES[('MED02', 'T66r4')] = {'native_nvram_backing_and_restore': 'tests.media.test_cd32_state.Cd32StateTests',
+                               'eeprom_owner_regression': 'tests.media.test_cd32_nvram.Cd32NvramTests'}
+TASK_SUITES[('LR01', 'T66r4')] = {'nvram_sram_persistence': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_nvram_sram_persistence_reset_and_snapshot_use_the_same_backing'}
+TASK_SUITES[('WB03', 'T66r4')] = {'public_cd32_nvram_persistence': 'tests.waterbox-media.test_cd_source.Cd32PublicCoreTests'}
 TASK_SUITES[('MED01', 'T66j1')] = {'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}
