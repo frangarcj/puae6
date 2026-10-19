@@ -187,7 +187,8 @@
     "0360-akiko-emulated-clock": "required",
     "0361-nrg-metadata-only": "behavior",
     "0363-akiko-nvram-lifecycle": "required",
-    "0364-cda-restore-preflight": "instrumentation"
+    "0364-cda-restore-preflight": "instrumentation",
+    "0365-akiko-transport-state": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

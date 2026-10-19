@@ -1467,3 +1467,18 @@ mezclador CDA, eventos, SoftFloat y utilidades de conversion reales. El play
 normal crea un stream; scan conserva su error Unsupported y un fallo de lectura
 en restore inmediato conserva PLAY_ERROR sin quedar playing. Esto mantiene las
 pruebas FIFO/DMA/reset/EEPROM tras N1; no acredita arranque ni codec CD32 completo.
+
+## Transporte privado Akiko (T66m2)
+
+`akiko_transport_state.h` conserva FIFO/cursor/mute, las dos caches de128
+sectores y el anillo subcode. Requiere un propietario inicializado, activo y
+quiescente; caller aporta unos592KiB de heap ordinario. Capture/preflight/apply
+no asignan, leen medios, ejecutan callbacks, disparan IRQ ni adelantan hardware.
+Apply comprueba todo antes de modificar y reutiliza los buffers existentes.
+Solo los bytes de sectores ilegibles (head=-1 o info0/ff), subcode no ocupado
+y palabras FIFO no pendientes se normalizan a cero. Cabezas y marcas se
+conservan exactamente: info0 puede pasar a ff durante DMA y afecta al relleno.
+Es un componente privado, sin formato wire ni estado completo: control, TOC/Q,
+reloj, EEPROM/C2P, player/dispositivo, RAM y scheduler se agregaran en M3/N2.
+El probe restaura el transporte bajo contexto de control fijo y compara DMA y
+subcode reales; no acredita aun restore nativo completo ni Waterbox CD32.
