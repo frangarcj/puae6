@@ -982,6 +982,17 @@ iguales con dueños nuevos. MED01 comprueba ambas versiones, recorte/derivacion,
 CRC Q invalida y R-W, fallos transaccionales y hashlib; el real opcional separado
 usa `P6_CD_NRG_FILE`. Esto no añade NRG al selector del frontend ni arranque CD32.
 
+T66o1 reúne los dueños nativos en `CdImage`: extension ASCII sin distincion de
+mayusculas ISO/CUE/CCD/NRG DAO, sin adivinar BIN ni probar otro formato tras un
+error. ISO es una pista Mode1/2048 y SHA256(P6ISO1 + longitud LE64 + SHA256 de
+todos sus bytes); los demas conservan exactamente las identidades/Layout/Binding
+de sus proveedores. El dueño y la tabla VFS viven hasta soltar o rebind de Disc.
+CMake prepara tres STATIC de metadata con flags privados separados sobre la misma
+TU derivada y PIC, mas `p6_cd_images`; quedan fuera de ALL hasta necesitarlos.
+MED01 enlaza los tres endpoints reales en un probe ASan/UBSan sin motor, comprueba
+VFS/vida util/rebind y configura CMake sin build para verificar flags/PIC. No
+cambia formatos anunciados ni seleccion en libretro, ni el host DiscSystem de WB.
+
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
 El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando

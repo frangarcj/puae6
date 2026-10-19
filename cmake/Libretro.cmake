@@ -28,3 +28,22 @@ add_executable(p6_libretro_host tests/libretro-host/host.cpp)
 add_dependencies(p6_libretro_host puae6_libretro)
 target_include_directories(p6_libretro_host PRIVATE "${_libretro_include}")
 target_link_libraries(p6_libretro_host PRIVATE ${CMAKE_DL_LIBS})
+
+# T66o1: native CD owners are prepared independently of the announced formats.
+# The same derived TU is compiled three times with target-local parser flags.
+set(_cd_metadata "${P6_UPSTREAM_DIR}/blkdev_cdimage.cpp")
+set_source_files_properties("${_cd_metadata}" PROPERTIES GENERATED TRUE)
+foreach(_kind IN ITEMS cue ccd nrg)
+    string(TOUPPER "${_kind}" _upper)
+    add_library(p6_cd_metadata_${_kind} STATIC EXCLUDE_FROM_ALL "${_cd_metadata}")
+    add_dependencies(p6_cd_metadata_${_kind} p6_codegen)
+    target_include_directories(p6_cd_metadata_${_kind} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media")
+    target_compile_definitions(p6_cd_metadata_${_kind} PRIVATE P6_${_upper}_METADATA)
+    set_target_properties(p6_cd_metadata_${_kind} PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET hidden)
+endforeach()
+add_library(p6_cd_images STATIC EXCLUDE_FROM_ALL adapters/libretro/cd_image.cpp
+    adapters/libretro/cd_cue.cpp adapters/libretro/cd_ccd.cpp adapters/libretro/cd_nrg.cpp ports/portable/media/cd_wave.cpp)
+target_include_directories(p6_cd_images PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/adapters/libretro" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media"
+    PRIVATE "${_libretro_include}" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+target_link_libraries(p6_cd_images PRIVATE p6_cd_metadata_cue p6_cd_metadata_ccd p6_cd_metadata_nrg p6_portable)
+set_target_properties(p6_cd_images PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET hidden)
