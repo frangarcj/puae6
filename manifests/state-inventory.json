@@ -6402,8 +6402,8 @@
         "upstream_compiled": true,
         "policy": "serialize_extended",
         "saved_fields": "save_inputstate/restore_inputstate ('for state recorder use only', inputdevice.cpp:10718-10781) are compiled but referenced only by the excluded rerecording code (savestate.cpp:1531, 1815); no chunk id uses them. They cover joydir, joybutton, otop/obot/oleft/oright per port, cd32_shifter, pot_cap, joydirpot, mouse_delta, mouse_deltanoreset, mouse_frame_x/y. The CHIP chunk saves the low bytes of JOY0DAT/JOY1DAT (JOYGET, custom.cpp:8180) and restores them with JOYSET (custom.cpp:7957), which also overwrites mouse_frame_x/y; compiled out.",
-        "omitted": "mouse_x[]/mouse_y[] (uae_s16, up to MOUSEXY_MAX 16384: only the low byte is visible to the guest but the high bits decide the max = 120 clamp against mouse_frame_*); input_frame, prev_input_frame, prev_input_vpos (time base used by readinput to decide how much of mouse_delta a JOYxDAT read consumes: input_frame increments per vsync, vpos is absolute within the frame); mouse_delta residual (additive: a dx from apply_input is consumed one unit per read/vsync, so it spans several units). Surprise for the reload contract: mouse_x/y/mouse_frame_x/y are not reset by p6_load, inputdevice_reset or resetinput (assignments exist only in mouseupdate, joymousecounter, pulse_joydat, JOYSET, JOYTEST), so a second load after a session that moved the mouse or joystick starts with the old JOYxDAT counters; manifests/state-inventory.json does not list them. Noncausal in the profile: inputread (idev read() is a no-op), mxd/myd (function statics feeding only mouseedge_*), fract (input_mouse_speed pinned 100, bridge/config.cpp:84), relativecount, horizclear/vertclear (never non-zero), mouse_axis/oldm_axis (per-call temporaries), oldstate[2] in handle_cd32_joystick_cia (CD32 only).",
-        "pointers": "No pointers. Static locals that would hide state (mxd/myd, fract, oldstate, can_inject) were checked one by one and are noncausal under the pinned configuration.",
+        "omitted": "mouse_x[]/mouse_y[] (uae_s16, up to MOUSEXY_MAX 16384: only the low byte is visible to the guest but the high bits decide the max = 120 clamp against mouse_frame_*); input_frame, prev_input_frame, prev_input_vpos (time base used by readinput to decide how much of mouse_delta a JOYxDAT read consumes: input_frame increments per vsync, vpos is absolute within the frame); mouse_delta residual (additive: a dx from apply_input is consumed one unit per read/vsync, so it spans several units). Surprise for the reload contract: mouse_x/y/mouse_frame_x/y are not reset by p6_load, inputdevice_reset or resetinput (assignments exist only in mouseupdate, joymousecounter, pulse_joydat, JOYSET, JOYTEST), so a second load after a session that moved the mouse or joystick starts with the old JOYxDAT counters; manifests/state-inventory.json does not list them. Noncausal in the profile: inputread (idev read() is a no-op), mxd/myd (function statics feeding only mouseedge_*), fract (input_mouse_speed pinned 100, bridge/config.cpp:84), relativecount, horizclear/vertclear (never non-zero), mouse_axis/oldm_axis (per-call temporaries).",
+        "pointers": "No pointers. Static locals that would hide state (mxd/myd, fract, can_inject) were checked one by one and are noncausal under the pinned configuration.",
         "rebuild": "Serialize mouse_x/y, mouse_frame_x/y, mouse_delta(+noreset), joydir, joybutton, the four o* arrays, input_frame, prev_input_frame and prev_input_vpos in a bridge extension; zero mouse_x/y/mouse_frame_x/y at load. Pending tests: LIFE01 reload (tests/lifecycle/test_reload.py) with a mouse-moving script, DET02 with a save while mouse_delta != 0.",
         "evidence": [
           "build/upstream/inputdevice.cpp:465",
@@ -6463,7 +6463,7 @@
           "file": "bridge/state_devices.cpp",
           "visitor": "visit_input",
           "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
-          "notes": "Per gameport (0 and 1; the other two are refused by Save if they have anything): joybutton (<= 7), joydir (<= 15), the four direction memories, the four pending motions and their no-reset flags, and mouse_x/y and mouse_frame_x/y as shorts (JOYxDAT is the low byte of x and y; the high bits decide the clipping of one unit's motion). input_frame, prev_input_frame and prev_input_vpos travel as they are although readinput only uses their difference, so that the digest of a restored machine is the original's. horizclear, vertclear, relativecount, joydirpot, mouse_axis, oldm_axis, mxd and myd are not state in the profile: the bridge drives each axis through setjoystickstate with max 1, which writes the direction memories directly."
+          "notes": "Per gameport (0 and 1; the other two are refused by Save if they have anything): joybutton (<= 7), joydir (<= 15), the four direction memories, the four pending motions and their no-reset flags, and mouse_x/y and mouse_frame_x/y as shorts (JOYxDAT is the low byte of x and y; the high bits decide the clipping of one unit's motion). input_frame, prev_input_frame and prev_input_vpos travel as they are although readinput only uses their difference, so that the digest of a restored machine is the original's. horizclear, vertclear, relativecount, joydirpot, mouse_axis, oldm_axis, mxd and myd are not state in the profile: the bridge drives each axis through setjoystickstate with max 1, which writes the direction memories directly. T70 CD32: P6IN appends three bytes per attached pad (upper four buttons, shifter 0..8, previous CIA clock 0..1). cd32_pad_enabled follows applied.type; upper joybutton bits derive from applied buttons and are cross-checked on save. CIA clock is read from PRA&DDR when attaching, and preserved exactly while connected. Measure reserves six bytes regardless of current devices. Native protocol/restore coverage: tests/input/test_cd32.py; Waterbox validation remains pending integration."
         }
       },
       {
@@ -6644,7 +6644,7 @@
       {
         "id": "input-port-mapping-derived",
         "subsystem": "input",
-        "component": "Derived port mapping: mouse_port, digital_port, analog_port, lightpen_port, cd32_pad_enabled, joymodes, use_*, device .enabled",
+        "component": "Derived port mapping: mouse_port, digital_port, analog_port, lightpen_port, joymodes, use_*, device .enabled",
         "owner": "build/upstream/inputdevice.cpp",
         "chunk": null,
         "save": null,
@@ -6656,7 +6656,7 @@
         "saved_fields": "Not saved, and must not be.",
         "omitted": null,
         "pointers": "Pure functions of the configured ports (pin_input: port 0 = mouse + gamepad joystick 0, port 1 = gamepad joystick 1, autofire 0, mouse speed 100): scanevents (inputdevice.cpp:6866-6990) recomputes them; the device name/configname strings are heap allocated by matchdevices and freed by release_input_device_names.",
-        "rebuild": "Do not serialize; they come back with p6_load. NOTE: calling inputdevice_updateconfig after restoring dynamic input state would wipe it (resetinput), so restore dynamic input last. Pending test: STATE02 with a state from a build whose pin_input differs (config_hash mismatch). T15c3: nothing is rebuilt: these are fixed by the configuration at p6_load (the config hash binds it) and a restore never calls inputdevice_updateconfig.",
+        "rebuild": "Do not serialize; they come back with p6_load. NOTE: calling inputdevice_updateconfig after restoring dynamic input state would wipe it (resetinput), so restore dynamic input last. Pending test: STATE02 with a state from a build whose pin_input differs (config_hash mismatch). T15c3: nothing is rebuilt: these are fixed by the configuration at p6_load (the config hash binds it) and a restore never calls inputdevice_updateconfig. CD32 mode is dynamic boundary input, derived from the serialized Applied type, not rebuilt with device mappings (T70).",
         "evidence": [
           "build/upstream/inputdevice.cpp:476",
           "build/upstream/inputdevice.cpp:488",
@@ -6712,7 +6712,7 @@
       {
         "id": "input-out-of-profile-paths",
         "subsystem": "input",
-        "component": "Input features the profile never reaches: autofire queue, contact bounce, delayed custom events, pending AKS codes, text paste, mouse hack/tablet/light pen, CD32 pad, on-screen keyboard",
+        "component": "Input features the profile never reaches: autofire queue, contact bounce, delayed custom events, pending AKS codes, text paste, mouse hack/tablet/light pen, on-screen keyboard",
         "owner": "build/upstream/inputdevice.cpp",
         "chunk": null,
         "save": null,
@@ -6722,9 +6722,9 @@
         "upstream_compiled": false,
         "policy": "out_of_profile",
         "saved_fields": "Not covered (none of it has a chunk).",
-        "omitted": "input_queue[16] (autofire/linecnt state: jd.autofire is pinned 0 so no ID_FLAG_AUTOFIRE mapping exists), bouncy/bouncy_cycles (input_contact_bounce pinned 0), delayed_events list and inputcode_pending[] (need custom events or codes >= 0x80), keyinject*, mouseedge_*/lastmx/lightpen_* (input_tablet off, no light pen), cd32_shifter/cd32_pad_enabled (gamepad mode, not CD32), osk_state (never non-zero).",
+        "omitted": "input_queue[16] (autofire/linecnt state: jd.autofire is pinned 0 so no ID_FLAG_AUTOFIRE mapping exists), bouncy/bouncy_cycles (input_contact_bounce pinned 0), delayed_events list and inputcode_pending[] (need custom events or codes >= 0x80), keyinject*, mouseedge_*/lastmx/lightpen_* (input_tablet off, no light pen), osk_state (never non-zero).",
         "pointers": "delayed_events (heap list) and input_queue[].custom (heap strings) would be non-serializable pointers if ever used.",
-        "rebuild": "Guard at save time: input_queue all linecnt < 0, bouncy == 0, delayed_events == NULL, inputcode_pending empty, keyinject == NULL, cd32_pad_enabled == 0; refuse the state otherwise.",
+        "rebuild": "Guard at save time: input_queue all linecnt < 0, bouncy == 0, delayed_events == NULL, inputcode_pending empty, keyinject == NULL; refuse the state otherwise.",
         "evidence": [
           "build/upstream/inputdevice.cpp:171",
           "build/upstream/inputdevice.cpp:504",

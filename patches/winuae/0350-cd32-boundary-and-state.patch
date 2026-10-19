@@ -1,0 +1,110 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -476,6 +476,7 @@
+ static int mouse_port[NORMAL_JPORTS];
+ static int cd32_shifter[NORMAL_JPORTS];
+ static int cd32_pad_enabled[NORMAL_JPORTS];
++static int cd32_oldstate[NORMAL_JPORTS]; // CIA clock level; causal across frame/state boundaries
+ static int parport_joystick_enabled;
+ static int oleft[MAX_JPORTS], oright[MAX_JPORTS], otop[MAX_JPORTS], obot[MAX_JPORTS];
+ static int horizclear[MAX_JPORTS], vertclear[MAX_JPORTS];
+@@ -4086,7 +4087,6 @@
+ /* joystick 1 button 1 is used as a output for incrementing shift register */
+ void handle_cd32_joystick_cia (uae_u8 pra, uae_u8 dra)
+ {
+-	static int oldstate[2];
+ 	int i;
+ 
+ 	maybe_read_input();
+@@ -4097,7 +4097,7 @@
+ 	for (i = 0; i < 2; i++) {
+ 		uae_u8 but = 0x40 << i;
+ 		if (cd32padmode(i)) {
+-			if ((dra & but) && (pra & but) != oldstate[i]) {
++			if ((dra & but) && (pra & but) != cd32_oldstate[i]) {
+ 				if (!(pra & but)) {
+ 					cd32_shifter[i]--;
+ 					if (cd32_shifter[i] < 0)
+@@ -4107,7 +4107,7 @@
+ 				}
+ 			}
+ 		}
+-		oldstate[i] = dra & pra & but;
++		cd32_oldstate[i] = dra & pra & but;
+ 	}
+ }
+ 
+@@ -4686,6 +4686,7 @@
+ // getvelocity() divides by, and the host edge detector. The in-session reset keeps them, as the hardware and upstream do.
+ void p6_input_session_begin(void)
+ {
++	memset(cd32_oldstate, 0, sizeof cd32_oldstate);
+ 	memset(mouse_axis, 0, sizeof mouse_axis);
+ 	memset(oldm_axis, 0, sizeof oldm_axis);
+ 	memset(mouse_x, 0, sizeof mouse_x);
+@@ -10857,6 +10858,11 @@
+ 	memset(out, 0, sizeof *out);
+ 	out->potgo_value = potgo_value;
+ 	for (int p = 0; p < 2; p++) {
++		out->cd32_enabled[p] = cd32_pad_enabled[p];
++		out->cd32_shifter[p] = cd32_shifter[p];
++		out->cd32_clock[p] = cd32_oldstate[p] ? 1 : 0;
++	}
++	for (int p = 0; p < 2; p++) {
+ 		for (int i = 0; i < 2; i++) {
+ 			out->pot_cap[p][i] = pot_cap[p][i];
+ 			out->pot_dat[p][i] = pot_dat[p][i];
+@@ -10899,6 +10905,11 @@
+ {
+ 	potgo_value = in->potgo_value;
+ 	for (int p = 0; p < 2; p++) {
++		cd32_pad_enabled[p] = in->cd32_enabled[p];
++		cd32_shifter[p] = in->cd32_shifter[p];
++		cd32_oldstate[p] = in->cd32_clock[p] ? (0x40 << p) : 0;
++	}
++	for (int p = 0; p < 2; p++) {
+ 		for (int i = 0; i < 2; i++) {
+ 			pot_cap[p][i] = in->pot_cap[p][i];
+ 			pot_dat[p][i] = in->pot_dat[p][i];
+@@ -10938,7 +10949,7 @@
+ }
+ 
+ // True when the input is in a state that the fields of p6_input_raw describe completely: nothing queued, delayed or latched that they do not hold, and
+-// nothing outside the profile (the A500's keyboard, two gameports with a mouse or a joystick, no CD32 pad, light pen, on screen keyboard or key injection).
++// nothing outside the profile (keyboard, two gameports with mouse/joystick/CD32, no light pen, on screen keyboard or key injection).
+ bool p6_input_boundary(const char **why)
+ {
+ 	const char *w = NULL;
+@@ -10954,8 +10965,6 @@
+ 		w = "an input qualifier is held";
+ 	if (!w && (osk_state || lightpen_enabled2))
+ 		w = "the on screen keyboard or a light pen is active";
+-	if (!w && (cd32_pad_enabled[0] || cd32_pad_enabled[1]))
+-		w = "a CD32 pad is configured";
+ 	if (!w && (currprefs.keyboard_mode || currprefs.cs_resetwarning))
+ 		w = "a keyboard mode or a reset warning that is not the A500's";
+ 	if (!w && (currprefs.turbo_emulation || currprefs.input_mouse_speed != 100))
+@@ -10987,3 +10996,22 @@
+ 	return w == NULL;
+ }
+ #endif
++
++#ifdef P6_PORTABLE
++// A CD32 pad does not need host-device enumeration or a configuration change.
++// The bridge sends all its levels once at the boundary, as MacHawk's bizhawk.c does.
++extern void p6_cia_get(int num, p6_cia_raw *out);
++void p6_input_cd32(int port, bool enabled, unsigned buttons, unsigned directions)
++{
++	if (cd32_pad_enabled[port] != int(enabled)) {
++		cd32_shifter[port] = 8;
++		p6_cia_raw cia{};
++		p6_cia_get(0, &cia);
++		cd32_oldstate[port] = cia.pra & cia.dra & (0x40 << port);
++	}
++	cd32_pad_enabled[port] = enabled ? 1 : 0;
++	joybutton[port] = buttons;
++	joydir[port] = directions;
++	joymousecounter(port);
++}
++#endif

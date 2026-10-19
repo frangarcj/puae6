@@ -346,6 +346,8 @@ void input(Canon &c)
     for (int p = 0; p < 2; ++p) {
         c.put(ap.type[p]).put(ap.buttons[p]).put(ap.axis[p][0]).put(ap.axis[p][1]);
     }
+    for (int p = 0; p < 2; ++p)
+        if (r.cd32_enabled[p]) c.put(r.cd32_shifter[p]).put(r.cd32_clock[p]);
 }
 
 void video(Canon &c)

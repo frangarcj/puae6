@@ -4,7 +4,7 @@
 // that feeds the CIA serial line, additive mouse deltas and the JOYxDAT counters. The bridge keeps what it already
 // applied and sends only the difference, through the engine's own setters and never through registers.
 //   keys    the 128-key bitmap; key n is Amiga raw code n; bit 0x62 (Caps Lock) is the latch
-//   port 0  a mouse (buttons, relative dx/dy) or a joystick, on the same connector; port 1 a joystick
+//   port 0  a mouse (buttons, relative dx/dy), joystick or CD32 pad; port 1 a joystick or CD32 pad
 // A mouse on port 1 would need a second logical mouse and is refused (P6_ERROR_UNSUPPORTED).
 #include "input.h"
 #include "error_util.h"
@@ -21,6 +21,7 @@
 // (ports/portable/input_devices.cpp, release_keys()).
 extern int p6_input_engine_released_keys;
 void p6_input_reset_keys();     // patch 0066
+void p6_input_cd32(int port, bool enabled, unsigned buttons, unsigned directions); // patch 0350, boundary only
 
 namespace p6_bridge {
 
@@ -29,6 +30,7 @@ namespace {
 constexpr uint32_t kMouseButtons = P6_BUTTON_1 | P6_BUTTON_2 | P6_BUTTON_3;
 constexpr uint32_t kJoystickBits = 0x7f;                       // three buttons and four directions
 constexpr uint32_t kDirections = P6_BUTTON_UP | P6_BUTTON_DOWN | P6_BUTTON_LEFT | P6_BUTTON_RIGHT;
+constexpr uint32_t kCd32Buttons = P6_CD32_RED | P6_CD32_BLUE | P6_CD32_GREEN | P6_CD32_YELLOW | P6_CD32_REWIND | P6_CD32_FORWARD | P6_CD32_PLAY;
 constexpr int kKeyLimit = 0x68;                                // 0x68..0x7f: reserved, and 0x78 injects a reset warning
 constexpr int kEdgeCost = 2;                                   // ring places one edge may use, with margin
 
@@ -65,6 +67,8 @@ void release_port(int port)
     if (a.type[port] == P6_PORT_MOUSE) {
         for (int b = 0; b < 3; ++b)
             if ((a.buttons[port] >> b) & 1) setmousebuttonstate(0, b, 0);
+    } else if (a.type[port] == P6_PORT_CD32) {
+        p6_input_cd32(port, false, 0, 0);
     } else if (a.type[port] == P6_PORT_JOYSTICK) {
         for (int b = 0; b < 3; ++b)
             if ((a.buttons[port] >> b) & 1) setjoybuttonstate(port, b, 0);
@@ -90,6 +94,14 @@ void apply_port(int port, const p6_port_input &in)
         // Relative motion is added by the engine; the packet carries this unit's motion only.
         if (in.dx) setmousestate(0, 0, in.dx, 0);
         if (in.dy) setmousestate(0, 1, in.dy, 0);
+    } else if (in.type == P6_PORT_CD32) {
+        const int x = axis_of(in.buttons, P6_BUTTON_LEFT, P6_BUTTON_RIGHT);
+        const int y = axis_of(in.buttons, P6_BUTTON_UP, P6_BUTTON_DOWN);
+        const unsigned dir = (x < 0 ? DIR_LEFT : x > 0 ? DIR_RIGHT : 0) | (y < 0 ? DIR_UP : y > 0 ? DIR_DOWN : 0);
+        p6_input_cd32(port, true, cd32_buttons(in.buttons), dir);
+        a.buttons[port] = in.buttons & kCd32Buttons;
+        a.axis[port][0] = x;
+        a.axis[port][1] = y;
     } else if (in.type == P6_PORT_JOYSTICK) {
         const int x = axis_of(in.buttons, P6_BUTTON_LEFT, P6_BUTTON_RIGHT);
         const int y = axis_of(in.buttons, P6_BUTTON_UP, P6_BUTTON_DOWN);
@@ -106,6 +118,14 @@ void apply_port(int port, const p6_port_input &in)
 }
 
 }  // namespace
+
+uint32_t cd32_buttons(uint32_t buttons)
+{
+    const uint32_t bits[] = {P6_CD32_PLAY, P6_CD32_REWIND, P6_CD32_FORWARD, P6_CD32_GREEN, P6_CD32_YELLOW, P6_CD32_RED, P6_CD32_BLUE};
+    uint32_t raw = 0;
+    for (unsigned i = 0; i < 7; ++i) if (buttons & bits[i]) raw |= 1u << (JOYBUTTON_CD32_PLAY + i);
+    return raw;
+}
 
 p6_result validate_input(const p6_input &in, p6_error *error)
 {
@@ -126,6 +146,10 @@ p6_result validate_input(const p6_input &in, p6_error *error)
         case P6_PORT_JOYSTICK:
             if (port.buttons & ~kJoystickBits) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown joystick buttons");
             if (port.dx || port.dy) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "a joystick has no relative motion");
+            break;
+        case P6_PORT_CD32:
+            if (port.buttons & ~(kCd32Buttons | kDirections)) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown CD32 buttons");
+            if (port.dx || port.dy) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "a CD32 pad has no relative motion");
             break;
         case P6_PORT_MOUSE:
             if (port.buttons & ~kMouseButtons) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown mouse buttons");

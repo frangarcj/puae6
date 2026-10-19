@@ -170,6 +170,25 @@ solo las diferencias, porque una pulsacion de tecla no es idempotente en el moto
 - Orden completo dentro de un boundary: reset (cabecera), eventos de medios, entrada (teclas, puerto 0, puerto 1), unidad.
   La entrada va despues de la cabecera del reset para no mezclarse con la secuencia de arranque del teclado.
 
+T70, primera vertical (CD32): ambos puertos admiten `P6_PORT_CD32` con siete botones y cruceta.
+`P6_CD32_RED/BLUE/GREEN` reutilizan los bits 0..2; Yellow/Rewind/Forward/Play ocupan 7..10.
+Los bits 3..6 siguen siendo direcciones; opuestas se neutralizan como en un joystick. No admite dx/dy.
+No cambia `P6_ABI_VERSION`, `sizeof(p6_input)` (72), `sizeof(p6_port_input)` (16) ni sus offsets.
+El bridge aplica niveles una vez en el borde mediante el parche 0350, sin reconfigurar dispositivos ni borrar teclas.
+P6IN conserva el cuerpo anterior para raton/joystick y agrega tres bytes por pad conectado: botones altos,
+indice del shifter (0..8) y ultimo nivel de reloj CIA. El modo y los bits hardware de botones se derivan del
+tipo y botones aplicados, cotejados al guardar. Al conectar se toma el reloj actual de PRA&DDR, sin conservar
+historia invisible de un dispositivo anterior. La cota reserva seis bytes aunque no haya pad conectado;
+se pueden cambiar dispositivos sin variar la cota. Una cola truncada o invalida se rechaza antes de aplicar.
+Libretro ofrece la subclase CD32 (513) en ambos jugadores: B/A/X/Y son Red/Blue/Green/Yellow,
+L/R son Rewind/Forward y Start es Play. Se usa la cruceta o el stick izquierdo; los botones CD32 tienen
+este mapa fijo, mientras los hotkeys de teclado siguen funcionando. El jugador 1 ocupa el puerto Amiga 2,
+el 2 el puerto Amiga 1; el raton tiene prioridad en este ultimo si el jugador 1 lo selecciona.
+BizHawk ofrece `ControllerPort1/2 = Cd32` y once botones por mando (cruceta y siete botones);
+la definicion se usa para grabar/reproducir el log BK2 y la identidad ya incluye ambos tipos de puerto.
+Las pruebas dirigidas estan en `tests/input/test_cd32.py`; la ejecucion Waterbox/pelicula de esta ampliacion
+queda pendiente de integrar el guest, sin cerrar T70 ni afirmar soporte de los otros dispositivos previstos.
+
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
 - Teclado: siempre conectado, sea cual sea el dispositivo de los puertos. Cada RETROK_* se mapea por simbolo sin Shift (en un teclado US, la posicion

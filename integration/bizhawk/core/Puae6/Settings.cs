@@ -61,10 +61,10 @@ public enum Puae6VideoResolution { Lores, Hires, SuperHires }
 public enum Puae6VideoLineMode { Single, Double }
 
 /// <summary>What is plugged into the first controller port of the Amiga (the one the mouse normally uses).</summary>
-public enum Puae6Port1 { Mouse, Joystick, None }
+public enum Puae6Port1 { Mouse, Joystick, None, Cd32 }
 
 /// <summary>What is plugged into the second controller port. A mouse there is not supported (docs/02-contracts.md).</summary>
-public enum Puae6Port2 { Joystick, None }
+public enum Puae6Port2 { Joystick, None, Cd32 }
 
 /// <summary>
 /// The settings that change what the machine does, so they are part of a movie and of a save state's identity (docs/02-contracts.md, "Configuracion"):

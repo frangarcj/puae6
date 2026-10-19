@@ -55,6 +55,7 @@ namespace p6_libretro {
 // Player 1's RetroPad without the mouse: a subclass of RETRO_DEVICE_JOYPAD, which is how a frontend names a variant of the pad. Plain RETRO_DEVICE_JOYPAD
 // in port 0 is the pad plus the mouse.
 constexpr unsigned kDeviceJoystickOnly = RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 0);
+constexpr unsigned kDeviceCd32 = RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 1);
 
 // The Amiga key (raw code 0..0x67) each RETROK_* code presses, in the order of the Amiga codes. Several host keys may press the same Amiga key; the
 // bit is set when any is down. Caps Lock (0x62) is not here: it latches (see read_input).
@@ -100,6 +101,7 @@ inline bool device_allowed(unsigned port, unsigned device)
     case RETRO_DEVICE_NONE:
     case RETRO_DEVICE_JOYPAD:
     case RETRO_DEVICE_KEYBOARD:
+    case kDeviceCd32:
         return true;
     case RETRO_DEVICE_MOUSE:
     case kDeviceJoystickOnly:
@@ -166,6 +168,16 @@ inline void read_joystick(retro_input_state_t state, unsigned port, p6_port_inpu
     if (pressed(RETRO_DEVICE_ID_JOYPAD_RIGHT) || x > kStickThreshold) out->buttons |= P6_BUTTON_RIGHT;
 }
 
+// Fixed CD32 layout: B/A/X/Y = red/blue/green/yellow, L/R = rewind/forward, Start = Play.
+inline void read_cd32(retro_input_state_t state, unsigned port, p6_port_input *out)
+{
+    read_joystick(state, port, out);
+    out->type = P6_PORT_CD32;
+    const unsigned ids[] = {RETRO_DEVICE_ID_JOYPAD_Y, RETRO_DEVICE_ID_JOYPAD_L, RETRO_DEVICE_ID_JOYPAD_R, RETRO_DEVICE_ID_JOYPAD_START};
+    const uint32_t bits[] = {P6_CD32_YELLOW, P6_CD32_REWIND, P6_CD32_FORWARD, P6_CD32_PLAY};
+    for (unsigned i = 0; i < 4; ++i) if (state(port, RETRO_DEVICE_JOYPAD, 0, ids[i])) out->buttons |= bits[i];
+}
+
 // Takes `want` counts of the movement owed on one axis: at most kMouseMaxCounts now, the rest stays owed (bounded).
 inline int16_t take_counts(int32_t *owed, int want)
 {
@@ -209,7 +221,7 @@ inline bool reads_mouse(unsigned device) { return device == RETRO_DEVICE_JOYPAD 
 // True when libretro port 1's joystick has no Amiga port to drive because libretro port 0's mouse holds it.
 inline bool joystick_shadowed_by_mouse(const unsigned device[kPortCount])
 {
-    return reads_mouse(device[0]) && device[1] == RETRO_DEVICE_JOYPAD;
+    return reads_mouse(device[0]) && (device[1] == RETRO_DEVICE_JOYPAD || device[1] == kDeviceCd32);
 }
 
 // The packet of one run, from the frontend's state (polled once, just before), the options that shape the input and the device of each libretro port. An
@@ -236,7 +248,9 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
         input.ports[joystick_amiga_port(0)].type = P6_PORT_JOYSTICK;
         input.ports[joystick_amiga_port(0)].buttons = effects.joy;
     }
+    if (device[0] == kDeviceCd32) read_cd32(state, 0, &input.ports[joystick_amiga_port(0)]);
     if (device[1] == RETRO_DEVICE_JOYPAD && !joystick_shadowed_by_mouse(device)) read_joystick(state, 1, &input.ports[joystick_amiga_port(1)]);
+    if (device[1] == kDeviceCd32 && !joystick_shadowed_by_mouse(device)) read_cd32(state, 1, &input.ports[joystick_amiga_port(1)]);
     return input;
 }
 
@@ -244,10 +258,12 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
 inline void offer_controllers(retro_environment_t environment)
 {
     static const retro_controller_description port0[] = {
+        {"CD32 pad (Amiga port 2)", kDeviceCd32},
         {"Joystick + Mouse (Amiga ports 2 and 1)", RETRO_DEVICE_JOYPAD}, {"Joystick only (Amiga port 2)", kDeviceJoystickOnly},
         {"Mouse only (Amiga port 1)", RETRO_DEVICE_MOUSE}, {"Keyboard only (port empty)", RETRO_DEVICE_KEYBOARD}, {"None", RETRO_DEVICE_NONE},
     };
     static const retro_controller_description port1[] = {
+        {"CD32 pad (Amiga port 1; needs Player 1 without mouse)", kDeviceCd32},
         {"Joystick (Amiga port 1; needs Player 1 on Joystick only)", RETRO_DEVICE_JOYPAD}, {"Keyboard only (port empty)", RETRO_DEVICE_KEYBOARD},
         {"None", RETRO_DEVICE_NONE},
     };

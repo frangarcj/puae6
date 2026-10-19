@@ -188,6 +188,7 @@ typedef struct p6_port_input {
 #define P6_PORT_NONE      UINT32_C(0)
 #define P6_PORT_JOYSTICK  UINT32_C(1)
 #define P6_PORT_MOUSE     UINT32_C(2)
+#define P6_PORT_CD32      UINT32_C(3)  /* Seven buttons and a digital D-pad, either gameport; no relative motion. */
 #define P6_BUTTON_1       (UINT32_C(1) << 0)
 #define P6_BUTTON_2       (UINT32_C(1) << 1)
 #define P6_BUTTON_3       (UINT32_C(1) << 2)
@@ -195,6 +196,13 @@ typedef struct p6_port_input {
 #define P6_BUTTON_DOWN    (UINT32_C(1) << 4)
 #define P6_BUTTON_LEFT    (UINT32_C(1) << 5)
 #define P6_BUTTON_RIGHT   (UINT32_C(1) << 6)
+#define P6_CD32_RED       P6_BUTTON_1
+#define P6_CD32_BLUE      P6_BUTTON_2
+#define P6_CD32_GREEN     P6_BUTTON_3
+#define P6_CD32_YELLOW    (UINT32_C(1) << 7)
+#define P6_CD32_REWIND    (UINT32_C(1) << 8)
+#define P6_CD32_FORWARD   (UINT32_C(1) << 9)
+#define P6_CD32_PLAY      (UINT32_C(1) << 10)
 
 /* keys is a 128-key Amiga key bitmap; key n is keys[n / 32] bit (n % 32).
  * Bits are key positions, not text. For P6_PORT_NONE all fields are zero.

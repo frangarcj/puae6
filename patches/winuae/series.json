@@ -4309,6 +4309,31 @@
           "after_sha256": "3d812969c0975dca0d3eee432b60a1e1d6f9f1cd3707c290bbc462ffb4b8265a"
         }
       ]
+    },
+    {
+      "id": "0350-cd32-boundary-and-state",
+      "file": "patches/winuae/0350-cd32-boundary-and-state.patch",
+      "sha256": "c6dc7b0be901c16ef3423a38a237e07dccbeb275112079d93b5f4bc469748b2b",
+      "title": "Apply CD32 pad levels at the common unit boundary and expose its serial protocol state",
+      "reason": "T70 CD32 vertical: preserve both pad shifters and CIA clock edges in native state; no host polling, mapping reconfiguration or second scheduler. Button application follows the small MacHawk bizhawk.c boundary idea.",
+      "category": "host hooks",
+      "order": 159,
+      "symbols": [
+        "p6_input_cd32",
+        "p6_input_get",
+        "p6_input_set",
+        "handle_cd32_joystick_cia"
+      ],
+      "test": "tests/input/test_cd32.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "d470ff4525baf4e96ad792dd8cc31abf16106c285c12e472454fdef1815c3817",
+          "after_sha256": "bdc9f698adf78b9bc9f273e90eb4554e36af8d2ddfba8073e1a5fd088c89440e"
+        }
+      ]
     }
   ]
 }

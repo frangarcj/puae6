@@ -555,18 +555,21 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		{
 			case Puae6Port1.Mouse: input.Port0 = MousePacket(controller); break;
 			case Puae6Port1.Joystick: input.Port0 = JoystickPacket(controller, 1); break;
+			case Puae6Port1.Cd32: input.Port0 = JoystickPacket(controller, 1, true); break;
 		}
 		if (_syncSettings.ControllerPort2 == Puae6Port2.Joystick) input.Port1 = JoystickPacket(controller, 2);
+		else if (_syncSettings.ControllerPort2 == Puae6Port2.Cd32) input.Port1 = JoystickPacket(controller, 2, true);
 		power = controller.IsPressed(Controllers.Power);
 		return input;
 	}
 
-	static P6PortInput JoystickPacket(IController controller, int port)
+	static P6PortInput JoystickPacket(IController controller, int port, bool cd32 = false)
 	{
-		var packet = new P6PortInput { Type = P6.PortJoystick };
-		var buttons = Controllers.JoystickButtons[port - 1];
+		var packet = new P6PortInput { Type = cd32 ? P6.PortCd32 : P6.PortJoystick };
+		var buttons = (cd32 ? Controllers.Cd32Buttons : Controllers.JoystickButtons)[port - 1];
+		var bits = cd32 ? Controllers.Cd32Bits : Controllers.JoystickBits;
 		for (int i = 0; i < buttons.Length; ++i)
-			if (controller.IsPressed(buttons[i])) packet.Buttons |= Controllers.JoystickBits[i];
+			if (controller.IsPressed(buttons[i])) packet.Buttons |= bits[i];
 		return packet;
 	}
 

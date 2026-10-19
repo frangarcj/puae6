@@ -141,8 +141,9 @@ class InputTests(lr.LibretroHarness):
         out = self.frontend("boot", "--runs", 2).stdout
         ports = {int(m[1]): dict(re.findall(r"(\S.*?)=(\d+)", m[2])) for m in re.finditer(r"(?m)^controller port (\d+):(.*)$", out)}
         self.assertEqual(ports[0], {"Joystick + Mouse (Amiga ports 2 and 1)": "1", "Joystick only (Amiga port 2)": "257", "Mouse only (Amiga port 1)": "2",
-                                    "Keyboard only (port empty)": "3", "None": "0"})
-        self.assertEqual(ports[1], {"Joystick (Amiga port 1; needs Player 1 on Joystick only)": "1", "Keyboard only (port empty)": "3", "None": "0"})   # no mouse in player 2
+                                    "Keyboard only (port empty)": "3", "None": "0", "CD32 pad (Amiga port 2)": "513"})
+        self.assertEqual(ports[1], {"Joystick (Amiga port 1; needs Player 1 on Joystick only)": "1", "Keyboard only (port empty)": "3", "None": "0",
+                                  "CD32 pad (Amiga port 1; needs Player 1 without mouse)": "513"})   # no mouse in player 2
         self.assertEqual(sorted(ports), [0, 1])
         self.assertRegex(out, r"(?m)^input descriptors count=\d+ ports=3$")                                  # port 0 and port 1 have names for their controls
         refused = self.frontend("boot", "--runs", 2, "--reject-optional").stdout          # a frontend with neither interface still gets the same core

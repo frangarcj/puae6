@@ -33,6 +33,7 @@ internal static unsafe partial class Program
 			switch (args.FirstOrDefault())
 			{
 				case "layout": Layout(); break;
+				case "cd32log": Cd32Log(); break; // Controller definition / real BK2 log, no sandbox.
 				case "pin": Console.WriteLine("pin " + Puae6Guest.BuiltWithSha256); break;
 				case "identity": Identity(options["guest"], options["sha"]); break;
 				case "open": Open(options, int.Parse(options["units"])); break;

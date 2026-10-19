@@ -69,7 +69,7 @@ RANGES = {
     "input.frame": (0, (1 << 32) - 1), "input.prev_frame": (0, (1 << 32) - 1), "input.prev_vpos": (0, 4095),
     "edge.joy_buttons": (0, 7), "edge.joy_state": (-1, 1), "edge.mouse_buttons": (0, 7),
     "kb.keys": (0, 255), "kb.reset_mode": (0, 4), "kb.reset_seq": (0, (1 << 31) - 1), "kb.ring_count": (0, 255), "kb.ring": (0, 255),
-    "applied.keys": (0, (1 << 32) - 1), "applied.type": (0, 2), "applied.buttons": (0, 7), "applied.axis": (-1, 1),
+    "applied.keys": (0, (1 << 32) - 1), "applied.type": (0, 3), "applied.buttons": (0, 7), "applied.axis": (-1, 1),
 }
 SIGNED = {"pot.cap", "mouse.delta", "mouse.x", "mouse.y", "mouse.frame_x", "mouse.frame_y", "edge.joy_state", "kb.reset_seq", "applied.axis"}
 RANGE_MESSAGE = "a field is out of its range"

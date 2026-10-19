@@ -29,6 +29,9 @@ void forget_input();
 void applied_get(p6_applied_raw *out);
 void applied_set(const p6_applied_raw &in);
 
+// Pure encoding of CD32 button levels to WinUAE's seven hardware bits (not host-device widgets).
+uint32_t cd32_buttons(uint32_t buttons);
+
 // The keyboard restarts with a reset requested through the API: the engine's key table and reset chord are cleared, and every key
 // the host still holds goes down again once, after the keyboard's power-up stream.
 void reset_keyboard();
