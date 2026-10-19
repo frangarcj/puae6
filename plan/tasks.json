@@ -15516,14 +15516,97 @@
       "stop": "Componente privado comprobado; no llamar completo al estado CD32 hasta agregacion M3, codec nativo y restore real Waterbox del padre."
     },
     {
-      "id": "T66m3",
-      "title": "Agregacion privada del estado causal completo Akiko",
       "milestone": "M3",
       "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "id": "T66m3a",
+      "title": "Estado privado completo del controlador Akiko y NVRAM",
       "status": "in_progress",
       "depends": [
         "T66m2",
         "T66n2b"
+      ],
+      "touch": [
+        "patches/winuae/0366-akiko-controller-state.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/akiko_controller_state.h",
+        "ports/portable/cd32_eeprom.h",
+        "ports/portable/cd32_nvram.h",
+        "tests/media/akiko_controller_state_probe.cpp",
+        "tests/media/test_akiko_controller_state.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "0366/order183 sobre akiko.cpp+flashrom.cpp: controlador completo inventariado (registros,TX/RX buffers/cursores/checksum/flags,TOC semantico sin padding y raw,Q,LED/door/media/audio latches,reloj/restos/due, C2P buffer+cursores y NVRAM). Transporte M2 y backend N2 se agregan en M3b. Extraer preflight puro EEPROM/NVRAM existente sin usar setter para validar.",
+        "Preflight con ciclo candidato del scheduler, sin compararlo al presente; no falsos rechazos RX PIO length0/offset residual, speed pendiente de hsync, subcodeoffset0xc2 o latches MSF/Q fuera del disco. Punteros DMA/C2P tablas derivados, no I/O/alloc/callback/IRQ/advance. No restore_akiko* upstream.",
+        "Probar cortes TX incompleto/RX parcial, fase PAL/NTSC, C2P y EEPROM parciales, futuro respuesta/IRQ/estado exacto bajo contexto externo declarado; rechazos tardios atomicos. Target <=350 manuales; sin engine/guest."
+      ],
+      "acceptance": [
+        "El controlador conserva todos los causales inventariados y valida NVRAM antes de aplicar, con continuacion componente exacta sin avanzar tiempo ni operar sobre el dispositivo."
+      ],
+      "stop": "No acredita aun estado agregado M3 ni codec/snapshot CD32 de maquina."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "id": "T66m3b",
+      "title": "Agregar controlador, transporte y backend CD32 transaccionalmente",
+      "status": "pending",
+      "depends": [
+        "T66m3a"
+      ],
+      "touch": [
+        "patches/winuae/0368-akiko-state-aggregate.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/akiko_state.h",
+        "ports/portable/akiko_controller_state.h",
+        "ports/portable/akiko_transport_state.h",
+        "ports/portable/media/cd_device_state.h",
+        "tests/media/akiko_state_probe.cpp",
+        "tests/media/test_akiko_state.py",
+        "tests/media/akiko_controller_state_probe.cpp",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "0368/order185 agrega los tres endpoints M3a/M2/N2b usando sus preflights puros antes de cualquier apply. Estado caller-heap ordinario; identidad del medio y callbacks derivados, ciclo candidato y validacion cruzada de owner/control cuando sea causal. Ningun puntero host, I/O/alloc/IRQ/callback/advance en restore.",
+        "Cortes conjuntos con FIFO parcial, cache/subcode DMA, CDDA activo/pausa/retardo/terminal, RX/TX y EEPROM/C2P; comparar RAM/IRQ/respuestas/PCM y captura futura. Corrupcion del ultimo componente deja todos los anteriores intactos. Reutilizar fixture real M3a con guard fixture-only si procede. Presupuesto160–260 manuales, sin engine/guest."
+      ],
+      "acceptance": [
+        "Estado privado agregado conserva controlador, transporte y backend/player con restauracion conjunta transaccional y continuacion exacta."
+      ],
+      "stop": "El padre conserva codec nativo, identidad externa y snapshot/arranque real Waterbox; no anunciar estado CD32 de maquina por este componente."
+    },
+    {
+      "id": "T66m3",
+      "title": "Agregacion privada del estado causal completo Akiko",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66m2",
+        "T66n2b",
+        "T66m3b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15548,7 +15631,8 @@
       "steps": [
         "Reservar0366/order183 sobre Akiko y flashrom: completar registros/protocolo TX/RX/TOC/Q/reloj/restos/media/audio y C2P, mas M1/M2/backend. Extraer validadores puros reutilizables existentes EEPROM/NVRAM y usar los de player/device de N2, sin duplicar logica ni mutar al preflight.",
         "Estado sin padding de estructuras upstream ni punteros; direcciones DMA derivadas de registros, callbacks/semaforos/tablas derivados. No reutilizar restore_akiko* que libera/reabre/lee TOC/encola. Preflight considera configuracion/disco y ciclo candidato del scheduler, nunca exige igualdad con el ciclo presente. Apply no asigna, lee I/O, ejecuta IRQ ni avanza tiempo.",
-        "Cortes con comando TX incompleto, respuesta RX parcial, fase PAL/NTSC y lectura C2P/EEPROM parcial: continuacion RAM DMA/respuesta/IRQ/nueva captura exactas con contexto externo declarado. Corrupcion tardia deja todos los componentes intactos. Presupuesto350–390 manuales; si excede400 dividir antes de ampliar, sin engine/guest ni matriz."
+        "Cortes con comando TX incompleto, respuesta RX parcial, fase PAL/NTSC y lectura C2P/EEPROM parcial: continuacion RAM DMA/respuesta/IRQ/nueva captura exactas con contexto externo declarado. Corrupcion tardia deja todos los componentes intactos. Presupuesto350–390 manuales; si excede400 dividir antes de ampliar, sin engine/guest ni matriz.",
+        "Division previa a implementar por estimacion450–500 manuales: M3a conserva controlador/TOC/Q/reloj/C2P/NVRAM; M3b agrega transporte/backend/player transaccionalmente. El padre conserva STATE01 y toda la aceptacion original; no cierra por una hoja sola."
       ],
       "checks": [
         "STATE01"
