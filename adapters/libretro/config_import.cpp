@@ -697,7 +697,7 @@ private:
         }
         // Raw drive keys describe the physical configuration; only the common
         // option chooses it. Auto preserves the two-drive preset identity.
-        const unsigned drives = out_->settings.floppy_drive_count ? out_->settings.floppy_drive_count : 2;
+        const unsigned drives = out_->settings.floppy_drive_count ? out_->settings.floppy_drive_count : out_->settings.floppy_multidrive ? 4 : 2;
         for (const Entry *e : drive_facts_) {
             const bool count = e->key == "nr_floppies";
             const unsigned drive = count ? 0 : unsigned(e->key[6] - '0');

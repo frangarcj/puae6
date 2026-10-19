@@ -13951,11 +13951,13 @@
         "bridge/state_probe.cpp",
         "manifests/state-inventory.json",
         "tests/reference/patch-classes.json",
-        "tests/waterbox-state/**"
+        "tests/waterbox-state/**",
+        "tests/host/bridge_lifecycle_probe.cpp"
       ],
       "steps": [
         "Aplicar dos ratones independientes y raton por stick en el borde comun, exponerlos en frontends y comprobar grabacion y restauracion sin cambiar el futuro de joystick/teclado.",
-        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical.",
+        "Actualizar el contrato negativo de lifecycle: mouse en port1 deja de ser UNSUPPORTED; sustituirlo por paquete de segundo raton con botones invalidos, sin retirar cobertura negativa."
       ],
       "checks": [
         "IN01",

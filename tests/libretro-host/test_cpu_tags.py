@@ -31,6 +31,9 @@ int main() {
             chosen.filename_tags = 0;
             const auto ignored = p6_libretro::resolve_model(chosen, false, {"Game (CE).adf"});
             assert(ignored.settings.cpu_compatibility == level && !ignored.force_cycle_exact);
+            chosen.filename_tags = 1;
+            const auto multi = p6_libretro::resolve_model(chosen, false, {"Game (MD).uae"});
+            assert(multi.multidrive && multi.settings.floppy_multidrive == 1);
         }
     }
 }

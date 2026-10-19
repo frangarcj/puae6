@@ -363,6 +363,11 @@ static void raw_drive_facts_agree_with_the_final_physical_count()
     CHECK(!import("nr_floppies=0\n").ok);
     CHECK(!import("floppy3type=0\n").ok);       // Auto means two physical drives
     CHECK(import("nr_floppies=2\nfloppy2type=-1\npuae6_floppy_drives=auto\n").ok);
+    Settings multi = concrete();
+    multi.floppy_multidrive = 1;
+    CHECK(import("nr_floppies=4\nfloppy2type=0\npuae6_floppy_drives=auto\n", multi).ok);
+    CHECK(!import("nr_floppies=2\n", multi).ok);
+    CHECK(import("nr_floppies=2\npuae6_floppy_drives=2\n", multi).ok);
 }
 
 static void harmless_keys_are_accepted()

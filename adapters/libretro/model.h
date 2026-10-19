@@ -215,6 +215,9 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
         }
     }
 
+    // Carry filename-triggered MultiDrive into .uae validation as well as boot placement.
+    settings.floppy_multidrive = out.multidrive ? 1u : 0u;
+
     // The model.
     if (auto_machine) {
         uint32_t machine = content_machine;

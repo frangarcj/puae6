@@ -281,8 +281,9 @@ Las flags `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact` y `
 
 Valores que la maquina ya tiene (se aceptan solo con este valor, o no hacen nada):
 `cpu_24bit_addressing`, `cpu_address_space_24` = `true`; `cpu_speed` = `real`; `cpu_throttle` = `0`; `cachesize` = `0`; `compfpu` = `false`; `mmu_model` = `0`; `immediate_blits` = `false`;
-`waiting_blits` = `disabled`; `synchronize_clock`, `bsdsocket_emu`, `scsi` = `false`; `nr_floppies` = `2` (DF0 y DF1 existen siempre); `floppy0type`, `floppy1type` = `0`;
-`floppy2type`, `floppy3type` = `-1`; `floppy0wp`, `floppy1wp`, `floppy2wp`, `floppy3wp` = `false` (la proteccion es un solo interruptor: `floppy_write_protect`). Cualquier otro valor se rechaza con el motivo de la tabla siguiente.
+`waiting_blits` = `disabled`; `synchronize_clock`, `bsdsocket_emu`, `scsi` = `false`; `nr_floppies` debe coincidir con `puae6_floppy_drives` (Auto conecta dos, o cuatro con MultiDrive/`(MD)`);
+`floppy0type`, `floppy1type`, `floppy2type`, `floppy3type` deben ser `0` en unidades conectadas y `-1` en desconectadas. Las claves descriptivas se comprueban despues de las opciones, sin depender de su orden.
+`floppy0wp`, `floppy1wp`, `floppy2wp`, `floppy3wp` = `false` (la proteccion es un solo interruptor: `floppy_write_protect`). Cualquier contradiccion se rechaza.
 
 ### Claves rechazadas (y por que)
 
