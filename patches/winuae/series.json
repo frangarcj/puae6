@@ -4567,6 +4567,40 @@
           "after_sha256": "e7e3a38cf3e74f5330468958d135ebac422ace2ea22ee179317275aac39d8581"
         }
       ]
+    },
+    {
+      "id": "0349-generic-040-060-no-mmu-cache",
+      "file": "patches/winuae/0349-generic-040-060-no-mmu-cache.patch",
+      "sha256": "e1fdec02c1616e91d8e3cbf42a30ee791643ad091c235af3491d4abe1a119ce5",
+      "title": "Generate 040/060 instruction tables without MMU and retain real cache maintenance",
+      "reason": "T55c1 prepares normal 040/060 handlers without exposing models. Every PMMU opcode and MOVEC translation control is rejected by the no-MMU profile. Upstream cache pushes and invalidations operate on the real cache arrays and memory writer; only unavailable MMU maintenance is excluded.",
+      "category": "host hooks",
+      "order": 168,
+      "symbols": [
+        "gen_opcode",
+        "movec_illg",
+        "flush_cpu_caches_040"
+      ],
+      "test": "tests/host/test_cache040.py; tests/codegen/test_gencpu_models.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "55bcff520d9ada2e05ecb16524c82b9024129c5179ebe5aa365075f3a0b6fae3",
+          "after_sha256": "54427250b7288f110392377748dd11d145d602bc0e2c2a8262b9b33c3a33c41b"
+        },
+        {
+          "path": "newcpu_common.cpp",
+          "before_sha256": "96601a4ded9f9e54a0589738b289f20f16f3bd5ad61ee0b06ac9b006bfbd5670",
+          "after_sha256": "b3011e8f0fbf840984cb5af38111b1950fbd4d4c5ce606da81480187c665ac0e"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "3526759937af760d3a32ade6e002f4ec3fd5d73cd51ed02aca24d17ea4d5d6c3",
+          "after_sha256": "a3d6cf3092eef7b8f92efd973d754d0434bac917bfc0323db7fb0155e6fb4319"
+        }
+      ]
     }
   ]
 }

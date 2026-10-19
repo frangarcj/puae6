@@ -70,3 +70,11 @@ cero sigue significando la del preset (8 MiB Zorro II en A4030), con NONE explic
 El esquema comun expone el modelo y el preset a4030_normal; los tres frontends
 usan el mismo ABI. La aceptacion de arranque/restauracion real Waterbox sigue
 pendiente en T55b.
+
+T55c1 prepara tambien las tablas normales 040/060 en la receta sin MMU. Las
+opciones publicas siguen rechazando ambos modelos hasta completar sus controles,
+FPU y estado. Los opcodes PMMU se rechazan antes de leer extensiones; MOVEC de
+controles de traduccion tambien es ilegal, sin fingir que una escritura activa
+una traduccion. CINVA/CPUSH conservan las funciones upstream sobre las caches
+reales; solo se excluye mantenimiento MMU, con pagina fisica de 4 KiB al no
+admitirse TC. No se habilitan los bucles compatibles/CE de 040/060.

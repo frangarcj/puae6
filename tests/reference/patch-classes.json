@@ -173,7 +173,8 @@
     "0347-a4000-motherboard-cpu030": "required",
     "0352-optical-pointer-boundary-and-latch": "required",
     "0348-collision-level-bitplane-table": "behavior",
-    "0353-parallel-adapter-boundary-and-cia": "required"
+    "0353-parallel-adapter-boundary-and-cia": "required",
+    "0349-generic-040-060-no-mmu-cache": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

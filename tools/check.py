@@ -437,6 +437,11 @@ TASK_SUITES[('DET02', 'T55b1')] = {'a4030_platform_state': 'tests.state.test_a40
 TASK_SUITES[('WB03', 'T55b1')] = {
     'a4030_auto_none_sandbox': 'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_a4030_normal_restores_in_same_and_new_sandbox_with_auto_or_no_fast'}
 TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
+TASK_SUITES[('GEN01', 'T55c1')] = {'generic_040_060_no_mmu': 'tests.codegen.test_gencpu_models'}
+TASK_SUITES[('DET02', 'T55c1')] = {
+    'real_cache_maintenance': 'tests.host.test_cache040',
+    'supported_cpu_restore_regression': 'tests.state.test_cpu_modes',
+}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):
     TASK_SUITES[(_gate, 'T53')] = {'cpu_modes_restore_identity_and_no_mmu': 'tests.state.test_cpu_modes'}

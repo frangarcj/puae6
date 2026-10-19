@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE_MODELS = ("2", "3", "4", "5", "11", "12", "13", "14", "20", "21")
+PROFILE_MODELS = ("0", "1", "2", "3", "4", "5", "11", "12", "13", "14", "20", "21")
 PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_0.cpp", "cpuemu_11.cpp", "cpuemu_13.cpp", "cpuemu_20.cpp", "cpuemu_21.cpp"}
 
 
@@ -92,8 +92,13 @@ class GencpuModelTests(unittest.TestCase):
                  if line.startswith("const struct cputbl op_smalltbl_")}
         self.assertEqual(names, set(PROFILE_MODELS))
         generic = (restricted_out / "cpuemu_0.cpp").read_text()
-        self.assertNotIn("flush_cpu_caches_040", generic)
+        self.assertIn("flush_cpu_caches_040", generic)
         self.assertNotIn("mmu_op(opcode", generic)
+        for opcode in ("f500", "f508", "f510", "f518", "f548", "f568", "f588", "f5c8"):
+            handler = generic.split(f"op_{opcode}_0_ff(uae_u32 opcode)\n", 1)[1].split("\n}", 1)[0]
+            self.assertIn("op_illg(opcode);", handler)
+            self.assertNotIn("get_", handler, "a rejected PMMU must not fetch an extension or operand")
+            self.assertNotIn("incpc", handler, "the line-F exception must retain the opcode PC")
         self.assertTrue("mmu_op30(" not in generic, "The no-MMU profile rejects PMMU through the real line-F handler")
 
     def test_invalid_model_numbers_are_rejected(self):
