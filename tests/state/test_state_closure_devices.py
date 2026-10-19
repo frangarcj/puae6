@@ -25,6 +25,8 @@ from tests.state.harness import FieldTable, ProbeCase  # noqa: E402
 INVENTORY = json.loads((ROOT / "manifests/state-inventory.json").read_text())["savestate"]
 CAUSAL = {"serialize", "serialize_extended", "extension"}
 CHUNK_TASKS = {"P6RT": "T15c1", "P6CI": "T15c2", "P6IN": "T15c3", "P6SC": "T15b2"}       # the chunk that carries a component, and the task that wrote it
+# Ricoh adds a second RTC serializer after the original MSM6242B closure.
+COMPONENT_TASKS = {"rtc-ricoh-rf5c01a-registers": "T55a"}
 FULL = ("--only", "cpu", "--only", "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input")
 COMPARED = ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "input")
 UNITS_AFTER = 5
@@ -42,7 +44,7 @@ class InventoryClosureTests(unittest.TestCase):
                 if component["policy"] in CAUSAL:
                     native = component.get("native_state")
                     self.assertIsNotNone(native, "a causal component without the chunk that carries it")
-                    self.assertEqual(CHUNK_TASKS[native["chunk"]], native["task"])
+                    self.assertEqual(COMPONENT_TASKS.get(component["id"], CHUNK_TASKS[native["chunk"]]), native["task"])
                     self.assertTrue((ROOT / native["proves"].split(":")[0]).is_file(), "the test that proves it does not exist")
                     self.assertIn(component["probe"]["status"], ("implemented", "partial"), "a probe digest that sees what the chunk carries")
                     if component["probe"]["status"] == "partial":
@@ -51,7 +53,7 @@ class InventoryClosureTests(unittest.TestCase):
                     self.assertIn("T15c", component["rebuild"], "a derived component says what rebuilds it after a restore, or why nothing has to")
                 else:
                     self.assertEqual("noncausal", component["policy"])
-        self.assertEqual(24, found)          # 4 of the clock, 13 of the CIAs and 7 of the input that are in the profile
+        self.assertEqual(25, found)          # 5 of the clock, 13 of the CIAs and 7 of the input that are in the profile
         applied = next(c for c in INVENTORY["components"] if c["id"] == "bridge-input-applied-edges")
         self.assertEqual(("P6IN", "T15c3"), (applied["native_state"]["chunk"], applied["native_state"]["task"]))
 

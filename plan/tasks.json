@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35"
@@ -11558,7 +11558,9 @@
         "tests/audio/test_audio.py",
         "AGENTS.md",
         "README.md",
-        "tools/plan.py"
+        "tools/plan.py",
+        "tests/state/test_state_closure_devices.py",
+        "manifests/state-inventory.json"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11571,7 +11573,8 @@
         "Impedir pulls y red al ejecutar la matriz existente: la CI verifica los IDs de las imagenes locales fijadas antes/despues de cada suite.",
         "Declarar etiquetas self-hosted para actionlint y ubicar el test BEAMCON0 de audio solo en los presets ECS/AGA que lo soportan, conservando ambas ejecuciones y todas sus assertions.",
         "Corregir el arnes DET06: evitar dlsym recursivo durante el inicio de ASan y anteponer su runtime dinamico real al reloj inyectado. Reproducer minimo con Clang/GCC en ambas ISA Linux; conservar los tres relojes civiles desplazados y el monotono sin desplazar, sin desactivar sanitizers.",
-        "Decision del usuario 2026-10-19: task force hasta cuatro frentes independientes, validacion dirigida por cambio y union completa una vez por candidata; conservar checks/aceptacion y diferir las baterias largas mientras se implementa producto. Ajustar protocolo, limite explicito del inspector y sus tests; el coordinador integra y serializa builds pesados."
+        "Decision del usuario 2026-10-19: task force hasta cuatro frentes independientes, validacion dirigida por cambio y union completa una vez por candidata; conservar checks/aceptacion y diferir las baterias largas mientras se implementa producto. Ajustar protocolo, limite explicito del inspector y sus tests; el coordinador integra y serializa builds pesados.",
+        "Integracion de candidata: actualizar la comprobacion estricta del inventario RTC para incluir el nuevo RF5C01A de T55a (25 componentes, propietario especifico y enlace de prueba con formato path:descripcion), sin relajar los otros propietarios ni sus asserts. Limitar a dos los compiladores simultaneos en la receta clean, como el resto de la task force."
       ],
       "checks": [
         "PLAN01",

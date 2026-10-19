@@ -118,7 +118,7 @@ def prepare(lane):
         with tempfile.TemporaryDirectory(prefix="ci-clean-", dir=root) as tree:
             execute(["cmake", "-S", ci.ROOT, "-B", tree, "-G", "Ninja", "-DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/macos-appleclang.cmake",
                      "-DCMAKE_BUILD_TYPE=RelWithDebInfo", "-DCMAKE_C_FLAGS_RELWITHDEBINFO=-O2 -g", "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g"])
-            execute(["cmake", "--build", tree, "--parallel", "3", "--target", "p6_headless", "puae6_libretro"])
+            execute(["cmake", "--build", tree, "--parallel", "2", "--target", "p6_headless", "puae6_libretro"])
             return {name: ci.sha(Path(tree) / name) for name in ("p6_headless", "puae6_libretro.dylib")}
     return {}
 

@@ -2606,11 +2606,11 @@
         },
         "waterbox": "Plain mutable chip data is part of the sandbox; A4030 acceptance still requires a real Waterbox run.",
         "native_state": {
-          "task": "T55b",
+          "task": "T55a",
           "chunk": "P6RT",
           "file": "bridge/state_devices.cpp",
           "visitor": "visit_rtc",
-          "proves": "tests/state/test_a4030.py exercises the real A4030 preset and its saved future; tests/state/test_state_ricoh.py covers every reachable register.",
+          "proves": "tests/state/test_state_ricoh.py: covers every reachable register; tests/state/test_a4030.py exercises the real A4030 preset and its saved future.",
           "notes": "Same Ricoh block prepared by T55a, now enabled by the actual A4000 chipset table."
         }
       },
