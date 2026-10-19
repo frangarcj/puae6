@@ -97,7 +97,13 @@
     },
     {
       "symbol": "cpufunctbl, cpufunctbl_noret, mem_banks, loop_mode_table, cpudatatbl",
-      "dirty_pages_first_unit_pal_per_symbol": [129, 129, 129, 93, 93],
+      "dirty_pages_first_unit_pal_per_symbol": [
+        129,
+        129,
+        129,
+        93,
+        93
+      ],
       "why": "Clean at seal, dirty in the first unit. Opcode dispatch/metadata are derived, but build_cpufunctbl is not a pure rebuild: it changes CPU flags and calls set_cpu_caches(true), invalidating live prefetch/cache addresses. mem_banks is live mapping state (ROM overlay/expansion), not solely a function of the initial preset.",
       "decision": "retain captured",
       "needed": "T36 retains these tables. Moving the whole reset head before seal also advances hardware cycles, applies/clears queued boot media and sets session.started, changing reset/poke semantics before the first unit (bridge/frame_step.cpp, media.cpp, lifecycle.cpp). Exclusion needs a separately proved pure table rebuild; neither existing path is safe to call after an arbitrary snapshot."
@@ -124,11 +130,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -170,8 +176,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -212,8 +218,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -253,8 +259,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 9171172
+      "after_seal": 47348,
+      "after_last_unit": 9517300
     }
   },
   "measured_a600": {
@@ -265,11 +271,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -311,8 +317,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -353,8 +359,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -394,8 +400,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 9154788
+      "after_seal": 47348,
+      "after_last_unit": 9500916
     }
   },
   "measured_a1200": {
@@ -406,11 +412,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -452,8 +458,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -494,8 +500,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -535,8 +541,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 10203364
+      "after_seal": 47348,
+      "after_last_unit": 10549492
     }
   },
   "measured_a1200_fast8192": {
@@ -548,11 +554,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -594,8 +600,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -636,8 +642,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -677,8 +683,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 53476,
-      "after_last_unit": 10309860
+      "after_seal": 55540,
+      "after_last_unit": 10655988
     }
   },
   "measured_a600_chip2048_fast8192": {
@@ -691,11 +697,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -737,8 +743,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -779,8 +785,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -820,8 +826,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 54500,
-      "after_last_unit": 10310884
+      "after_seal": 56564,
+      "after_last_unit": 10657012
     }
   },
   "measured_a1200_slow1536_fast8192": {
@@ -834,11 +840,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -880,8 +886,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -922,8 +928,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -963,8 +969,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 55012,
-      "after_last_unit": 12424932
+      "after_seal": 57076,
+      "after_last_unit": 12771060
     }
   },
   "measured_a500_fast2048": {
@@ -976,11 +982,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1022,8 +1028,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1064,8 +1070,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8130560,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8474624,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1105,8 +1111,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 47332,
-      "after_last_unit": 9271524
+      "after_seal": 49396,
+      "after_last_unit": 9617652
     }
   },
   "measured_a500_floppy_writes_full": {
@@ -1124,11 +1130,11 @@
       "units": 5600,
       "note": "the adversarial writer: every track of both disks is rewritten, 3520 sectors, the whole pool of the overlay (WB12)"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1170,8 +1176,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8048640,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8409088,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1212,8 +1218,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8048640,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8409088,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1253,8 +1259,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 49380,
-      "after_last_unit": 11059428
+      "after_seal": 51444,
+      "after_last_unit": 11421940
     }
   },
   "measured_a1200_fpu68882": {
@@ -1266,11 +1272,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1312,8 +1318,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1354,8 +1360,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1395,8 +1401,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 10203364
+      "after_seal": 47348,
+      "after_last_unit": 10549492
     }
   },
   "measured_a500_hdf2048": {
@@ -1410,11 +1416,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1456,8 +1462,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8261632,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8605696,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1498,8 +1504,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8261632,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8605696,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1539,8 +1545,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 49444,
-      "after_last_unit": 9781540
+      "after_seal": 51508,
+      "after_last_unit": 10127668
     }
   },
   "measured_a500_hdf32768": {
@@ -1554,11 +1560,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1600,8 +1606,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8261632,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8605696,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1642,8 +1648,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8261632,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8605696,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1683,8 +1689,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 110892,
-      "after_last_unit": 9842988
+      "after_seal": 112956,
+      "after_last_unit": 10189116
     }
   },
   "measured_a500og": {
@@ -1695,11 +1701,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1741,8 +1747,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1783,8 +1789,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1824,8 +1830,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 8630500
+      "after_seal": 47348,
+      "after_last_unit": 8976628
     }
   },
   "measured_a500plus": {
@@ -1836,11 +1842,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -1882,8 +1888,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1924,8 +1930,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -1965,8 +1971,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 9154788
+      "after_seal": 47348,
+      "after_last_unit": 9500916
     }
   },
   "measured_a1000": {
@@ -1977,11 +1983,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -2023,8 +2029,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -2065,8 +2071,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -2106,8 +2112,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 8630500
+      "after_seal": 47348,
+      "after_last_unit": 8976628
     }
   },
   "measured_a2000og": {
@@ -2118,11 +2124,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -2164,8 +2170,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -2206,8 +2212,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -2247,8 +2253,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 9171172
+      "after_seal": 47348,
+      "after_last_unit": 9517300
     }
   },
   "measured_a2000": {
@@ -2259,11 +2265,11 @@
       "units": 60,
       "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
     },
-    "guest_sha256": "a825144e274e9ca937526e4060f3aace0f85ddc5776f769ef7ab09e5a55e2c00",
+    "guest_sha256": "b574cb28b21a7230d8b9b850f511df4d32a66859ce0d8aef6d8eaa470bc49515",
     "runtime_sha256": "cf45f96e2a32e4aff5b989e0d528c65bca9568a21594b976af828bd8f002c70c",
     "after_seal": {
       "elf": {
-        "committed_bytes": 51937280,
+        "committed_bytes": 56098816,
         "dirty_bytes": 4096,
         "invisible_bytes": 4096
       },
@@ -2305,8 +2311,8 @@
     },
     "after_first_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -2347,8 +2353,8 @@
     },
     "after_last_unit": {
       "elf": {
-        "committed_bytes": 51937280,
-        "dirty_bytes": 8032256,
+        "committed_bytes": 56098816,
+        "dirty_bytes": 8376320,
         "invisible_bytes": 4096
       },
       "main_thread": {
@@ -2388,8 +2394,8 @@
       }
     },
     "snapshot_bytes": {
-      "after_seal": 45284,
-      "after_last_unit": 9154788
+      "after_seal": 47348,
+      "after_last_unit": 9500916
     }
   }
 }
