@@ -71,6 +71,11 @@ add_library(p6_engine OBJECT ${P6_UPSTREAM_SOURCES} ${P6_GENERATED_SOURCES})
 add_library(p6_portable STATIC
     ports/portable/media/cd_source.cpp
     ports/portable/media/cd_disc.cpp
+    ports/portable/media/cd_akiko.cpp
+    ports/portable/media/cd_read.cpp
+    ports/portable/media/cd_subchannel.cpp
+    ports/portable/media/cd_device.cpp
+    ports/portable/media/cd_utilities.cpp
     ports/portable/drive_sound.cpp
     ports/portable/atomic.cpp
     ports/portable/text_services.cpp
@@ -202,6 +207,13 @@ target_include_directories(p6_lifecycle_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_lifecycle_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_lifecycle_probe PRIVATE p6_bridge p6_portable)
+# T66k1: real Akiko bank and C2P, linked with the complete engine, no fixtures.
+add_executable(p6_akiko_link_probe tests/media/akiko_link_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_akiko_link_probe p6_codegen)
+target_include_directories(p6_akiko_link_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_akiko_link_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_akiko_link_probe PRIVATE p6_bridge p6_portable)
 # Identity, validation and registration of the media of p6_load (tests/media/test_media.py runs it with a ROM).
 add_executable(p6_media_probe tests/media/media_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_media_probe p6_codegen)

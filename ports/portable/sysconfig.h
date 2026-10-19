@@ -32,6 +32,7 @@
 #endif
 
 #define P6_PORTABLE 1
+#define CD32 1 /* T66k1: real Akiko is linked; machine profile remains gated. */
 #define DRIVESOUND 1 /* T74: portable mechanical PCM, no physical drive or external sample loader. */
 /* T29a: the hard file units of the engine (uaehf.device, the UAEFS board, the trap area) are compiled; a machine has them only when its media list holds a
  * HDF (bridge/media.cpp). FILESYS, UAE_FILESYS_THREADS and SUPPORT_THREADS stay excluded above: these macros name the single-thread subset instead. */

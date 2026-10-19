@@ -4796,6 +4796,28 @@
           "after_sha256": "d18d8f8fc0fb1f975cbb82c59655ee62834530cb3d54ba8ec5d56670269d7565"
         }
       ]
+    },
+    {
+      "id": "0362-cd32-without-fmv",
+      "file": "patches/winuae/0362-cd32-without-fmv.patch",
+      "sha256": "81143d891ed1d36fd163c3044f9cf23fe9d90c0b3158abfdad62dba78bda6730",
+      "title": "Compile CD32 Akiko without the excluded FMV device",
+      "reason": "T66k1 selects Akiko/CD32 hardware, while FMV remains an excluded and unavailable expansion. Guard its sole sync call rather than acknowledge it with a stub.",
+      "category": "host hooks",
+      "order": 179,
+      "symbols": [
+        "devices_update_sync"
+      ],
+      "test": "tests/media/test_akiko_link.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "e033bc47534ca080e07941668e9acf212cf8e11c7152508376f2e26c25180e05",
+          "after_sha256": "2c81d00baff43a49bf525ab2935f03026e78b330a333ac961f218ad9d3023e71"
+        }
+      ]
     }
   ]
 }

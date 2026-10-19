@@ -58,7 +58,9 @@
     "traps.cpp",
     "uaeresource.cpp",
     "def_icons.cpp",
-    "cdrom.cpp"
+    "cdrom.cpp",
+    "akiko.cpp",
+    "flashrom.cpp"
   ],
   "selection": {
     "status": "requires-port-patches-and-link-proof",
@@ -104,7 +106,9 @@
       "traps.cpp",
       "uaeresource.cpp",
       "def_icons.cpp",
-      "cdrom.cpp"
+      "cdrom.cpp",
+      "akiko.cpp",
+      "flashrom.cpp"
     ],
     "generated_units": [
       "cpudefs.cpp",
@@ -133,7 +137,8 @@
       "AGA",
       "FPUEMU",
       "WITH_SOFTFLOAT",
-      "DRIVESOUND"
+      "DRIVESOUND",
+      "CD32"
     ],
     "features_off": [
       "JIT",
@@ -149,7 +154,6 @@
       "WITH_PPC",
       "MMUEMU",
       "PICASSO96",
-      "CD32",
       "CDTV",
       "WITH_LUA",
       "BSDSOCKET",
@@ -294,7 +298,7 @@
     "capsimg": "IPF fuera de M1; licencia y alternativa MAME pendientes de revision propia",
     "genp2c/gencomp": "Sin invocacion genp2c hallada en proyectos actuales; gencomp es JIT excluido. No agregar por glob.",
     "gayle.cpp/ide.cpp": "T56: gayle.cpp e ide.cpp se compilan para el puerto IDE de Gayle del A600 y el A1200 con discos duros (opcion hdf_controller = ide; sin ella los presets siguen con cs_ide=cs_pcmcia=cs_compatible=0 y Gayle apagado). Quedan fuera (parches 0320, 0321): la ranura PCMCIA y sus tarjetas, Fat Gary/Ramsey, el SCSI del A4000T y el Dataflyer, los dispositivos ATAPI (CD-ROM, cinta), los .ini de identidad y el hilo del IDE (cada orden se sirve al escribirla). Gayle solo se enciende con un disco detras. Un dispositivo soportado nunca se simula con stubs de exito.",
-    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "Fuera de los perfiles A500/A600/A1200 salvo la FPU 68881/68882 por SoftFloat del A1200 (T54); JIT, PPC, MMU (T55), RTG, CD32 y CDTV siguen apagados (MMUEMU apagado); no enlazar por conveniencia",
+    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "JIT, PPC, MMU, RTG y CDTV excluidos. CD32 se compila en T66k1 con Akiko y servicios CD reales; todavia no hay perfil CD32 publico hasta arranque/estado completo. FMV excluido por0362. FPU 68881/68882 SoftFloat disponible en perfiles compatibles.",
     "red/hostfs/dispositivos fisicos/plugins/archives": "Sin backend ni contrato determinista M1; rechazo explicito"
   },
   "unresolved": [
