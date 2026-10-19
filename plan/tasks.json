@@ -15727,7 +15727,7 @@
         "Conservar P6_CAP_STATE y codec honestos: estado nativo CD32 devuelve Unsupported hasta conectar codec completo; probar bound/save/load sin mutation. Mantener perfiles existentes y A1200 como regresion cercana.",
         "Probe nativo real mediante p6_run_frame con ROMs CD32 locales autorizadas, CdImage/Disc/device_bind y teardown respetando el lifetime; usar CD sintentico publico y Brian CUE local como escenario requerido de arranque si hace falta para demostrar lectura. Asserts hardware/prefs/ROM maps y actividad CD/frames, sin confundir splash con arranque de juego. No guardar ROMs, capturas ni informes. Reservar build pesado -j2 con coordinador; objetivo250–390 manuales, dividir antes de exceder400.",
         "Ampliacion explicita: bridge_lifecycle_probe usa actualmente9 como ID desconocido; mover su negativo a10 conservando rechazo. cmake/Libretro.cmake puede requerir includes del grafo O1 al ejecutar su primer enlace real. Mantener ID9 privado en bridge/config.h hasta integrar frontend/codec evita anunciarlo en esquema/ABI publico antes de su puerta.",
-        "Regression caps: attente du probe standalone omettait P6_CAP_INPUT_V2 annonce depuis45fa667b (adaptateur4joueurs deja implemente). Ajouter uniquement ce bit a la comparaison exacte, puis rejouer ce check rapide; ne pas supprimer ou desserrer assertions. Garder caps.cpp sans dependance de session/moteur."
+        "Regresion caps: la expectativa del probe standalone omitia P6_CAP_INPUT_V2 anunciado desde45fa667b (adaptador4jugadores ya implementado). Añadir unicamente ese bit a la comparacion exacta y repetir ese check rapido; no eliminar ni relajar assertions. Mantener caps.cpp sin dependencia de sesion/motor."
       ],
       "checks": [
         "MED01"
