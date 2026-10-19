@@ -15732,7 +15732,7 @@
       "title": "Preservar latch de overlay CD32 en el chunk CIA nativo",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T15",
         "T66m4",
