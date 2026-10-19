@@ -13804,13 +13804,96 @@
       "stop": "No distribuir Kickstarts; los aporta el usuario."
     },
     {
-      "id": "T65b",
-      "title": "Carga automatica de packs WHDLoad en libretro",
+      "id": "T65b1",
+      "title": "Builder C++ del bundle WHDLoad con paridad de tres HDF",
       "milestone": "M3",
       "required": true,
       "status": "in_progress",
       "depends": [
         "T65a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "tests/whdload/**",
+        "tools/check.py",
+        "docs/whdload.md",
+        "tools/generate_whdload.py",
+        "tools/whdload/bundle.py",
+        "adapters/libretro/whdload_data.generated.h",
+        "integration/bizhawk/core/Puae6/WHDLoadData.generated.cs"
+      ],
+      "steps": [
+        "Reutilizar lector LHA/ZIP y writer FFS existentes. Producir los tres HDF exactamente como tools/whdload/bundle.py: labels, bloques libres, ZIP stored Amiga/RWED/1980, un slave, P6Assign original y preferencias. Sin motor ni ABI publica nueva; no montar directorios vivos ni invocar Python desde el core.",
+        "El generador de datos compartidos pertenece al frente C++: deriva P6Assign/prefs/startup/roles publicos desde la receta T65a y emite las constantes C++ y C#; no incluye WHDLoad, plugin, ROMs ni juegos. C# consume esa salida sin editarla a mano. Ambos builders comparan bytes con el oraculo Python en fixtures sintéticos y provider real autorizado.",
+        "ButtonWait false por defecto conserva T65a (PUAE5 usa true, diferencia explicita); NoWriteCache activo, SplashDelay/ConfigDelay cero. Kickstarts/RTB extra son entradas explicitas; el paquete oficial WHDLoad no trae RTB. WHDSaves permanece compartible como el mismo medio, sin namespace ni envelope SaveRAM nuevos.",
+        "Esta pieza solo construye bytes y valida errores. No acreditar arranque, restauracion, SaveRAM ni carga automatica por este probe. Si no cabe en400 lineas manuales, dividir antes de ampliar."
+      ],
+      "checks": [
+        "MED02"
+      ],
+      "acceptance": [
+        "Los tres HDF del builder coinciden byte a byte con T65a para las mismas entradas; errores de slave ambiguo, rutas y limites no producen un bundle parcial."
+      ],
+      "stop": "No redistribuir binarios de WHDLoad ni Kickstarts; ninguna dependencia nueva de runtime."
+    },
+    {
+      "id": "T65b2",
+      "title": "Carga automatica libretro de WHDLoad y persistencia reversible",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T65b1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/whdload/**",
+        "tests/whdload/**",
+        "tests/libretro-host/**",
+        "tools/check.py",
+        "docs/whdload.md",
+        "config/schema/options.json",
+        "tools/generate_options.py",
+        "tests/config/**"
+      ],
+      "steps": [
+        "Integrar el builder antes de pedir firmware: Auto detecta exactamente un .slave; cero usa el volumen existente, varios fallan claramente. Disabled conserva el flujo anterior. A1200 y su firmware se fuerzan para el pack; el contenido de scripts/prefs del archivo no sustituye la receta propia.",
+        "Proveedor del usuario WHDLoad_usr.lha bajo directorio system de libretro o GetUserPath(Amiga,false) en C#, con alternativa de bytes explicitos en Parameters/FFI. Extraer solo WHDLoad/C/WHDLoad y WHDLoad/C/WHDLoad.VFS, verificar pins T30/T65a y fallar con error claro si faltan o difieren; no descargar ni redistribuirlos.",
+        "Opciones de reinicio frontend: whdload auto|disabled y ButtonWait disabled|enabled. Sin campos nuevos de p6_config: el contenido de los tres HDF vincula estados/peliculas. Copiar firmware reconocido a RASystem; KS/RTB adicionales solo por entrada explicita.",
+        "Reutilizar guardado HDF/SaveRAM P6SRv2, reemplazo atomico y rollback existentes. WHDSaves es compartible como en PUAE5: una base identica identifica el mismo medio, sin nuevo envelope ni namespace por juego. No afirmar rechazo de otro pack si solo difieren medios sin escrituras. Estados/peliculas siguen vinculados a las tres bases y configuracion.",
+        "Probar pack real autorizado: arranque, FM1.hisc112B en WHDSaves, bases y DATA inmutables, restore con PCM/imagen y persistencia de la rama final sin fugas de rewind/runahead. Conservar todos los checks del padre; WB03 no se sustituye por un build nativo."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Un pack autorizado se carga automaticamente en libretro, guarda partida y restaura."
+      ],
+      "stop": "No distribuir Kickstarts; los aporta el usuario."
+    },
+    {
+      "id": "T65b",
+      "title": "Carga automatica de packs WHDLoad en libretro",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T65a",
+        "T65b1",
+        "T65b2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13828,7 +13911,8 @@
       "steps": [
         "Detectar el slave y preparar/montar los roles del bundle comun desde contenido LHA/ZIP, forzar A1200 y respetar ButtonWait.",
         "Conservar WHDSaves mediante SaveRAM/persistencia explicita con rollback y sin escrituras del timeline descartado.",
-        "Con T65a cerrada, empezar por definir el contrato comun de entradas del frontend y la vertical minima del builder/loader; conservar tres roles, permisos ZIP Amiga, P6Assign propio, SavePath, A1200, ButtonWait y rollback. Si supera400 lineas dividir antes de editar; no invocar Python desde el core ni introducir dependencias de runtime nuevas."
+        "Con T65a cerrada, empezar por definir el contrato comun de entradas del frontend y la vertical minima del builder/loader; conservar tres roles, permisos ZIP Amiga, P6Assign propio, SavePath, A1200, ButtonWait y rollback. Si supera400 lineas dividir antes de editar; no invocar Python desde el core ni introducir dependencias de runtime nuevas.",
+        "Dividida en builder puro y carga/persistencia reales. Se conservan todas las puertas y aceptacion del padre; WHDSaves compartible sigue la referencia PUAE5 y el contrato de identidad por medio, sin formatos extra."
       ],
       "checks": [
         "MED02",
@@ -13842,13 +13926,92 @@
       "stop": "No distribuir Kickstarts; los aporta el usuario."
     },
     {
-      "id": "T65c",
-      "title": "Carga WHDLoad en BizHawk y SaveRAM de WHDSaves",
+      "id": "T65c1",
+      "title": "Builder C# del bundle WHDLoad con paridad de tres HDF",
       "milestone": "M3",
       "required": true,
       "status": "in_progress",
       "depends": [
         "T65a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Volumes.cs",
+        "integration/bizhawk/core/Puae6/WhdLoad.cs",
+        "integration/bizhawk/core/Puae6/WHDLoadData.generated.cs",
+        "tests/ffi/Program.cs",
+        "tests/whdload/test_bundle_csharp.py",
+        "tools/check.py",
+        "docs/whdload.md"
+      ],
+      "steps": [
+        "Reutilizar lector LHA/ZIP y writer FFS existentes. Producir los tres HDF exactamente como tools/whdload/bundle.py: labels, bloques libres, ZIP stored Amiga/RWED/1980, un slave, P6Assign original y preferencias. Sin motor ni ABI publica nueva; no montar directorios vivos ni invocar Python desde el core.",
+        "El generador de datos compartidos pertenece al frente C++: deriva P6Assign/prefs/startup/roles publicos desde la receta T65a y emite las constantes C++ y C#; no incluye WHDLoad, plugin, ROMs ni juegos. C# consume esa salida sin editarla a mano. Ambos builders comparan bytes con el oraculo Python en fixtures sintéticos y provider real autorizado.",
+        "ButtonWait false por defecto conserva T65a (PUAE5 usa true, diferencia explicita); NoWriteCache activo, SplashDelay/ConfigDelay cero. Kickstarts/RTB extra son entradas explicitas; el paquete oficial WHDLoad no trae RTB. WHDSaves permanece compartible como el mismo medio, sin namespace ni envelope SaveRAM nuevos.",
+        "Esta pieza solo construye bytes y valida errores. No acreditar arranque, restauracion, SaveRAM ni carga automatica por este probe. Si no cabe en400 lineas manuales, dividir antes de ampliar."
+      ],
+      "checks": [
+        "MED02"
+      ],
+      "acceptance": [
+        "Los tres HDF del builder coinciden byte a byte con T65a para las mismas entradas; errores de slave ambiguo, rutas y limites no producen un bundle parcial."
+      ],
+      "stop": "No redistribuir binarios de WHDLoad ni Kickstarts; ninguna dependencia nueva de runtime."
+    },
+    {
+      "id": "T65c2",
+      "title": "Carga automatica BizHawk de WHDLoad y persistencia reversible",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T65c1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "integration/bizhawk/**",
+        "tests/whdload/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "tools/check.py",
+        "docs/whdload.md"
+      ],
+      "steps": [
+        "Integrar el builder antes de pedir firmware: Auto detecta exactamente un .slave; cero usa el volumen existente, varios fallan claramente. Disabled conserva el flujo anterior. A1200 y su firmware se fuerzan para el pack; el contenido de scripts/prefs del archivo no sustituye la receta propia.",
+        "Proveedor del usuario WHDLoad_usr.lha bajo directorio system de libretro o GetUserPath(Amiga,false) en C#, con alternativa de bytes explicitos en Parameters/FFI. Extraer solo WHDLoad/C/WHDLoad y WHDLoad/C/WHDLoad.VFS, verificar pins T30/T65a y fallar con error claro si faltan o difieren; no descargar ni redistribuirlos.",
+        "Opciones de reinicio frontend: whdload auto|disabled y ButtonWait disabled|enabled. Sin campos nuevos de p6_config: el contenido de los tres HDF vincula estados/peliculas. Copiar firmware reconocido a RASystem; KS/RTB adicionales solo por entrada explicita.",
+        "Reutilizar guardado HDF/SaveRAM P6SRv2, reemplazo atomico y rollback existentes. WHDSaves es compartible como en PUAE5: una base identica identifica el mismo medio, sin nuevo envelope ni namespace por juego. No afirmar rechazo de otro pack si solo difieren medios sin escrituras. Estados/peliculas siguen vinculados a las tres bases y configuracion.",
+        "Probar pack real autorizado: arranque, FM1.hisc112B en WHDSaves, bases y DATA inmutables, restore con PCM/imagen y persistencia de la rama final sin fugas de rewind/runahead. Conservar todos los checks del padre; WB03 no se sustituye por un build nativo."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Un pack autorizado arranca, guarda partida y restaura en Waterbox/BizHawk real."
+      ],
+      "stop": "No distribuir Kickstarts; los aporta el usuario."
+    },
+    {
+      "id": "T65c",
+      "title": "Carga WHDLoad en BizHawk y SaveRAM de WHDSaves",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T65a",
+        "T65c1",
+        "T65c2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13866,7 +14029,8 @@
       "steps": [
         "Integrar el bundle comun y las opciones en el loader C# con RASystem/WHDSaves y A1200 forzado.",
         "SaveRAM conserva WHDSaves y snapshot restaura juego, preferencias y wrapper dentro de Waterbox real.",
-        "Con T65a cerrada, empezar por definir el contrato comun de entradas del frontend y la vertical minima del builder/loader; conservar tres roles, permisos ZIP Amiga, P6Assign propio, SavePath, A1200, ButtonWait y rollback. Si supera400 lineas dividir antes de editar; no invocar Python desde el core ni introducir dependencias de runtime nuevas."
+        "Con T65a cerrada, empezar por definir el contrato comun de entradas del frontend y la vertical minima del builder/loader; conservar tres roles, permisos ZIP Amiga, P6Assign propio, SavePath, A1200, ButtonWait y rollback. Si supera400 lineas dividir antes de editar; no invocar Python desde el core ni introducir dependencias de runtime nuevas.",
+        "Dividida en builder puro y carga/persistencia reales. Se conservan todas las puertas y aceptacion del padre; WHDSaves compartible sigue la referencia PUAE5 y el contrato de identidad por medio, sin formatos extra."
       ],
       "checks": [
         "MED02",
