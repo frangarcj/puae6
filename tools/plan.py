@@ -44,6 +44,9 @@ def validate_plan(root: Path, data: Any, lock: Any, release: bool = False) -> li
     errors: list[str] = []
     if not isinstance(data, dict) or data.get("schema_version") != 1:
         return ["tasks.json: schema_version debe ser 1 y la raiz un objeto"]
+    limit = data.get("max_in_progress", 1)
+    if type(limit) is not int or not 1 <= limit <= 4:
+        return ["tasks.json: max_in_progress debe ser un entero de 1 a 4"]
     tasks = data.get("tasks")
     if not isinstance(tasks, list) or not tasks:
         return ["tasks.json: tasks debe ser una lista no vacia"]
@@ -102,8 +105,9 @@ def validate_plan(root: Path, data: Any, lock: Any, release: bool = False) -> li
         if status == "blocked" and not nonempty_string(task.get("blocked_reason")):
             errors.append(f"{label}: blocked requiere blocked_reason")
 
-    if len(progress) > 1:
-        errors.append("Mas de una tarea in_progress: " + ", ".join(progress))
+    if len(progress) > limit:
+        label = "Mas de una tarea" if limit == 1 else f"Mas de {limit} tareas"
+        errors.append(label + " in_progress: " + ", ".join(progress))
 
     graph: dict[str, list[str]] = {}
     for task_id, task in by_id.items():
@@ -247,9 +251,9 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
         unfinished = [task for task in data["tasks"] if task["status"] != "done"]
         print("No hay tarea preparada; revisar bloqueos." if unfinished else "Todas las tareas estan terminadas.")
         return 1 if unfinished else 0
-    first = candidates[0]
-    print(("CONTINUAR: " if progress else "SIGUIENTE: ") + f"{first['id']} - {first['title']}")
-    print(f"Leer: python3 tools/plan.py show {first['id']}")
+    for task in (progress or candidates[:1]):
+        print(("CONTINUAR: " if progress else "SIGUIENTE: ") + f"{task['id']} - {task['title']}")
+        print(f"Leer: python3 tools/plan.py show {task['id']}")
     print("No se ha ejecutado ni cambiado el estado de ninguna tarea.")
     return 0
 

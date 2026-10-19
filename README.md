@@ -26,7 +26,7 @@ y `plan/machawk.reference.json`; los cambios locales de MacHawk no se modifican.
 1. Leer `AGENTS.md`, `docs/01-architecture.md` y `docs/07-machawk.md`.
 2. Ejecutar `python3 tools/plan.py validate`.
 3. Ejecutar `python3 tools/plan.py next` y despues `python3 tools/plan.py show T00`.
-4. Ejecutar SOLO una tarea desbloqueada y dejar una vertical pequena funcionando.
+4. Ejecutar una tarea desbloqueada por responsable y dejar una vertical funcionando.
 5. No interpretar una prueba del plan como una prueba del emulador.
 
 La preparacion y las pruebas actuales se describen en `docs/testing.md`. El plan
@@ -47,6 +47,13 @@ permanece importado limpio, los cambios al motor son parches pequenos, p6_run_fr
 es comun a todos los frontends y Waterbox/libretro no duplican scheduler. Si una
 tarea produce solo documentos durante demasiado tiempo, dividirla o adelantar un
 probe ejecutable que valide el riesgo real.
+
+Task force autorizada el 2026-10-19: hasta cuatro frentes independientes en
+worktrees aislados; CPU, medios y entrada avanzan en paralelo, con un coordinador
+de integracion. Durante desarrollo se prueban el comportamiento cambiado y sus
+regresiones cercanas. La validacion acumulada, matriz y rendimiento se concentran
+en una candidata integrada y se repiten solo cuando un cambio o fallo lo justifica.
+Esto no reduce el alcance ni permite cerrar fichas con checks pendientes.
 
 ## Documentos normativos
 

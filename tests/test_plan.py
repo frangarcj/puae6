@@ -361,6 +361,30 @@ class PlanTests(unittest.TestCase):
             task["status"] = "in_progress"
         self.assert_error("Mas de una tarea")
 
+    def test_explicit_task_force_limit_keeps_dependencies_and_bounds(self):
+        self.data["max_in_progress"] = 2
+        for task in self.data["tasks"]:
+            task["status"] = "in_progress"
+        self.assert_error("dependencia T00 no terminada")
+        self.data["tasks"][1]["depends"] = []
+        self.assertEqual([], self.errors())
+        self.data["max_in_progress"] = 1
+        self.assert_error("Mas de una tarea")
+        for value in (True, 0, -1, 5, "4", None):
+            self.data["max_in_progress"] = value
+            self.assert_error("max_in_progress")
+
+    def test_next_lists_every_active_task_force_front(self):
+        self.data["max_in_progress"] = 2
+        for task in self.data["tasks"]:
+            task.update(status="in_progress", depends=[])
+        self.write_inputs()
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(0, plan.main(["next"], self.root))
+        self.assertIn("CONTINUAR: T00", output.getvalue())
+        self.assertIn("CONTINUAR: T01", output.getvalue())
+
     def test_done_without_evidence_accepted(self):
         self.data["tasks"][0]["status"] = "done"
         self.assertEqual([], self.errors())

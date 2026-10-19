@@ -14,12 +14,18 @@ futuro de T46. Preservar los cambios locales identificados en el fingerprint.
 1. Leer README.md, este archivo y la ficha elegida con `python3 tools/plan.py show ID`.
 2. Leer todos los documentos `read` de la ficha y el codigo real antes de editarlo.
 3. Consultar estado local y `python3 tools/plan.py validate`. No tocar trabajo ajeno.
-4. Elegir una unica tarea con dependencias DONE; consultar tools/plan.py next.
+4. Elegir una tarea por responsable con dependencias DONE; consultar tools/plan.py next.
+   En task force respetar max_in_progress del plan y usar worktrees aislados.
 5. Anunciar en una frase el resultado util que se busca, archivos y check principal.
 6. Implementar la vertical mas pequena que deje algo ejecutable o comprobable.
    Añadir/ajustar el test que capture el comportamiento; no crear ceremonia si un
    check existente ya prueba exactamente el cambio.
-7. Ejecutar los checks de la ficha y regresiones cercanas. Git diff/status y la
+7. Durante implementacion ejecutar el check dirigido del comportamiento cambiado y
+   sus regresiones cercanas. La union acumulada de checks, matriz completa y medidas
+   extensas se ejecutan al integrar una candidata, sin repetirlas por cada cambio.
+   Repetir una bateria solo por fallo, cambio relevante o incertidumbre concreta.
+   Los checks y la aceptacion de cada ficha siguen siendo obligatorios antes de done.
+   Git diff/status y la
    salida de tests son el registro normal. No guardar informes ni evidencias historicas;
    los datos temporales de una comprobacion pertenecen a build/ y se eliminan al terminar.
 8. Marcar done cuando checks y aceptacion pasan y ejecutar validate. Explicar un bloqueo
@@ -28,8 +34,12 @@ futuro de T46. Preservar los cambios locales identificados en el fingerprint.
 9. Mostrar diff y explicar resultado, limites y siguiente tarea desbloqueada. No hacer
    push, publicar releases ni modificar proyectos hermanos sin peticion del usuario.
 
-Estados permitidos: pending, in_progress, blocked, done. Como maximo una tarea
-in_progress. Un bloqueo no cuenta como tarea completada. No marcar done porque
+Estados permitidos: pending, in_progress, blocked, done. El limite de tareas
+in_progress lo fija max_in_progress (una por defecto; cuatro en la task force
+autorizada el 2026-10-19). El coordinador actualiza el plan, reparte propietarios,
+integra commits y serializa compilaciones pesadas; los agentes no editan metadata
+compartida ni ejecutan baterias completas por su cuenta. Un bloqueo no cuenta como
+tarea completada. No marcar done porque
 compila o muestra una pantalla: deben pasar los checks/aceptacion de la ficha.
 
 ## Tamaño y alcance

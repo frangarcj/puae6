@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35"
@@ -11555,7 +11555,10 @@
         "tests/portability/faketime.c",
         "tests/portability/test_clock.py",
         ".github/actionlint.yaml",
-        "tests/audio/test_audio.py"
+        "tests/audio/test_audio.py",
+        "AGENTS.md",
+        "README.md",
+        "tools/plan.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11567,7 +11570,8 @@
         "Registrar los checks acumulados en tools/check.py y conservar el test de dependencias exactas al añadir T35, cuyas recetas de optimizacion tambien se ejecutan.",
         "Impedir pulls y red al ejecutar la matriz existente: la CI verifica los IDs de las imagenes locales fijadas antes/despues de cada suite.",
         "Declarar etiquetas self-hosted para actionlint y ubicar el test BEAMCON0 de audio solo en los presets ECS/AGA que lo soportan, conservando ambas ejecuciones y todas sus assertions.",
-        "Corregir el arnes DET06: evitar dlsym recursivo durante el inicio de ASan y anteponer su runtime dinamico real al reloj inyectado. Reproducer minimo con Clang/GCC en ambas ISA Linux; conservar los tres relojes civiles desplazados y el monotono sin desplazar, sin desactivar sanitizers."
+        "Corregir el arnes DET06: evitar dlsym recursivo durante el inicio de ASan y anteponer su runtime dinamico real al reloj inyectado. Reproducer minimo con Clang/GCC en ambas ISA Linux; conservar los tres relojes civiles desplazados y el monotono sin desplazar, sin desactivar sanitizers.",
+        "Decision del usuario 2026-10-19: task force hasta cuatro frentes independientes, validacion dirigida por cambio y union completa una vez por candidata; conservar checks/aceptacion y diferir las baterias largas mientras se implementa producto. Ajustar protocolo, limite explicito del inspector y sus tests; el coordinador integra y serializa builds pesados."
       ],
       "checks": [
         "PLAN01",
@@ -12261,7 +12265,7 @@
       "title": "Modos de CPU rapidos (compatible / normal, sin cycle-exact) como opcion, deterministas",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
@@ -12285,10 +12289,18 @@
         "integration/bizhawk/**",
         "tests/ffi/**",
         "tests/state/**",
-        "docs/adr/**"
+        "docs/adr/**",
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "bridge/state.cpp",
+        "bridge/state_cpu.cpp",
+        "bridge/state_probe.cpp",
+        "docs/02-contracts.md",
+        "tools/check.py"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: anadir los niveles de PUAE5 (puae_cpu_compatibility normal/compatible/exact). Generar cpuemu sin CE (0/11/20...) y seleccionarlos por opcion de reinicio; m68k_speed nunca ligado al reloj del host; DET02 y estados en cada nivel; ADR que fija que la identidad del estado incluye el nivel."
+        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: anadir los niveles de PUAE5 (puae_cpu_compatibility normal/compatible/exact). Generar cpuemu sin CE (0/11/20...) y seleccionarlos por opcion de reinicio; m68k_speed nunca ligado al reloj del host; DET02 y estados en cada nivel; ADR que fija que la identidad del estado incluye el nivel.",
+        "Task force: empezar por vertical atomica A500 con generacion, ABI de configuracion y restore del PC directo; completar 68010/020 y frontends antes de cerrar T53. Coordinar T55 en el mismo frente CPU. Reservar la comprobacion acumulada para la candidata integrada."
       ],
       "checks": [
         "GEN01",
@@ -13094,7 +13106,7 @@
       "title": "Discos de guardado y persistencia de escrituras en libretro (#SAVEDISK, redireccion de escritura)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T28"
       ],
@@ -13107,11 +13119,14 @@
         "adapters/libretro/**",
         "bridge/media.cpp",
         "tests/libretro-host/**",
-        "tests/media-cow/**"
+        "tests/media-cow/**",
+        "docs/02-contracts.md",
+        "tools/check.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 crea discos de guardado y redirige escrituras. Sobre el overlay de T27: exportacion explicita y atomica (SAVE_RAM acotado o VFS), nunca durante runahead/rewind.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: el bitmap de paginas sucias de bizhawk-hd.c y UAE.ISaveRam.cs como modelo de exportacion explicita de escrituras."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: el bitmap de paginas sucias de bizhawk-hd.c y UAE.ISaveRam.cs como modelo de exportacion explicita de escrituras.",
+        "Task force: completar #SAVEDISK reutilizando COW/exportacion atomica existentes, sin forzar opciones del usuario ni flush durante run/save/load; integrar T61 despues por su solape en montaje/tray."
       ],
       "checks": [
         "MED02",
@@ -13626,7 +13641,7 @@
       "title": "ABI de puertos ampliada: CD32 pad, raton analogico, lightgun/lightpen, segundo raton, 4 jugadores (adaptador paralelo)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
@@ -13644,11 +13659,20 @@
         "tests/input/**",
         "tests/libretro-host/**",
         "tests/ffi/**",
-        "tests/state/**"
+        "tests/state/**",
+        "bridge/input.h",
+        "bridge/config.cpp",
+        "bridge/frame_step.cpp",
+        "bridge/state_devices.cpp",
+        "ports/portable/input_devices.cpp",
+        "ports/portable/p6_state_access.h",
+        "docs/02-contracts.md",
+        "tools/check.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 pad, analogico, lightpen, 4 jugadores y multimouse. Extender p6_input sin romper la ABI v1 (version/size), aplicado en el borde de unidad, en estados y peliculas.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk.c (raton por stick analogico, SetJoyDirectionRaw, LEDCallback) y UAE.Controllers.cs."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk.c (raton por stick analogico, SetJoyDirectionRaw, LEDCallback) y UAE.Controllers.cs.",
+        "Task force: empezar por protocolo CD32 en los dos puertos con ABI v1 intacta y estado del shifter/CIA; completar despues los restantes dispositivos originales. Integrar con el frente CPU sin bumps globales de ABI independientes."
       ],
       "checks": [
         "IN01",
@@ -14576,5 +14600,6 @@
       ],
       "stop": "No relajar el test de memoria para aceptar claves mezcladas."
     }
-  ]
+  ],
+  "max_in_progress": 4
 }
