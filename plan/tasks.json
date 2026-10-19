@@ -15529,7 +15529,7 @@
       ],
       "id": "T66m3a",
       "title": "Estado privado completo del controlador Akiko y NVRAM",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66m2",
         "T66n2b"
@@ -15570,7 +15570,7 @@
       ],
       "id": "T66m3b",
       "title": "Agregar controlador, transporte y backend CD32 transaccionalmente",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66m3a"
       ],
