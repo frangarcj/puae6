@@ -11646,7 +11646,7 @@
       "title": "Entregar preview local utilizable del core libretro macOS ARM64",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T39a",
         "T35"
