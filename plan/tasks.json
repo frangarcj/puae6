@@ -12314,7 +12314,7 @@
       "title": "Modos de CPU rapidos (compatible / normal, sin cycle-exact) como opcion, deterministas",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T24"
       ],
@@ -13764,7 +13764,7 @@
       "title": "Bundle WHDLoad determinista con RASystem y WHDSaves",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T30",
         "T64",
@@ -13785,7 +13785,8 @@
       "steps": [
         "Preparar WHDLoad.hdf, RASystem.hdf y WHDSaves.hdf desde inputs autorizados. Usar WHDLoad.VFS DATA para datos solo lectura y SavePath=WHDSaves:, con helper AmigaDOS propio, sin binarios Commodore redistribuidos.",
         "Incluir prefs y ButtonWait; validar boot real de Fatal Mission y guardado FM1.hisc por resload_SaveFile, no solo archivos del script, en ambos frontends existentes.",
-        "Retomar con salida RMB en titulo documentada por el juego: los replays previos no producian FM1.hisc con el flujo de entrada anterior. Probar primero boot/salida/archivo real en ventana corta; no repetir6000 sin causa nueva."
+        "Retomar con salida RMB en titulo documentada por el juego: los replays previos no producian FM1.hisc con el flujo de entrada anterior. Probar primero boot/salida/archivo real en ventana corta; no repetir6000 sin causa nueva.",
+        "Nuevo dato estatico permite un intento razonado: RMB durante juego toma la ruta $7c6 hacia tabla, distinta de RMB en titulo. Tras sus 200 VBL de espera, hasta tres flancos Fire1 separados por al menos siete unidades completan las letras y alcanzan SaveFile $aca (112 B). Confirmar fase visible antes de pulsar; no mas bucles largos sin trigger ni sustitucion por escritura DOS."
       ],
       "checks": [
         "MED02",
@@ -13796,8 +13797,7 @@
       "acceptance": [
         "El bundle es reproducible y ejecutable; Fatal Mission escribe FM1.hisc en WHDSaves y restaura sin modificar datos de juego."
       ],
-      "stop": "No distribuir Kickstarts; los aporta el usuario.",
-      "blocked_reason": "Dos probes cortos sobre ZIPfdf4f8b: RMB en titulo vuelve a Shell sin SaveFile; programa DOS confirma S:WHDLoad.prefs y escritura en WHDSaves. Source/disassembly situa SaveFile en$aca de finpartida/tabla; RMB$706→$ada lo evita. Reproductores tests/whdload/test_bundle.py; hipotesis: alcanzar finpartida y confirmar tabla; si hook se alcanza sinFM1, revisar SavePath/VFS. No otro6000 sin ese trigger."
+      "stop": "No distribuir Kickstarts; los aporta el usuario."
     },
     {
       "id": "T65b",
@@ -14174,7 +14174,7 @@
       "title": "Cuatro jugadores mediante adaptador paralelo",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -14213,7 +14213,8 @@
       "steps": [
         "Implementar el adaptador paralelo de cuatro jugadores con entrada versionada compatible con ABI v1, mapeo en ambos frontends, pelicula y snapshot/restauracion real.",
         "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical.",
-        "Input ABI1/72B intacta; p6_input_v2 de 108 B contiene prefijo de 72 B, dos puertos de 16 B y commands uint32 en offset 104; cabecera 2/108, API/config/frame siguen en 1. commands debe ser 0 en esta vertical. Extras NONE/JOYSTICK con un Fire; capability explicita y validacion antes de leer cola; v1 desconecta paralelo."
+        "Input ABI1/72B intacta; p6_input_v2 de 108 B contiene prefijo de 72 B, dos puertos de 16 B y commands uint32 en offset 104; cabecera 2/108, API/config/frame siguen en 1. commands debe ser 0 en esta vertical. Extras NONE/JOYSTICK con un Fire; capability explicita y validacion antes de leer cola; v1 desconecta paralelo.",
+        "Guest combinado 57a7d790e464e9837503b1725e6bf8e75786ca9f2f03f8c7a6793e3c111581a8: WB03 real pasa pins CIA, BK2, snapshot mismo/nuevo sandbox y proceso. Nativo/libretro/contrato y negativos dirigidos pasan antes de integrar; la union acumulada pertenece a candidata T39b."
       ],
       "checks": [
         "IN01",
@@ -14231,7 +14232,7 @@
       "title": "ABI de puertos ampliada: CD32 pad, raton analogico, lightgun/lightpen, segundo raton, 4 jugadores (adaptador paralelo)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24",
         "T70a",
@@ -14271,7 +14272,8 @@
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: bizhawk.c (raton por stick analogico, SetJoyDirectionRaw, LEDCallback) y UAE.Controllers.cs.",
         "Task force: empezar por protocolo CD32 en los dos puertos con ABI v1 intacta y estado del shifter/CIA; completar despues los restantes dispositivos originales. Integrar con el frente CPU sin bumps globales de ABI independientes.",
         "Incluir el estado causal CD32 en el digest condicional de entrada y en state-inventory, sin alterar los digests/goldens de dispositivos existentes.",
-        "Dividida en T70a/b/c/d para entregar verticales completas sin ocultar dispositivos pendientes; T70 conserva todas las puertas y aceptacion original y depende de las cuatro."
+        "Dividida en T70a/b/c/d para entregar verticales completas sin ocultar dispositivos pendientes; T70 conserva todas las puertas y aceptacion original y depende de las cuatro.",
+        "Cuatro verticales completas. El dispatcher del padre conserva la union exacta de IN01/DET02/LR01/WB03 de T70a/b/c/d; no reemplaza sus escenarios por un smoke. La preview ya entregada no incorpora aun cuatro jugadores."
       ],
       "checks": [
         "IN01",
@@ -14814,7 +14816,7 @@
       "stop": "No cambiar el defecto ni saltar limites de p6_run_frame.",
       "id": "T77a",
       "title": "Niveles de colisiones con identidad y restauracion",
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -14839,7 +14841,8 @@
       ],
       "steps": [
         "Consumir byte68 con 0=Auto/full3,1=None0,2=Sprites1,3=Sprites+Playfields2,4=Full3; conservar sizeof72 y hash default/aliasFull. Opciones de reinicio comunes a tres frontends.",
-        "Micro-ROM OCS/AGA verifica CLXDAT observable y restauracion por nivel; no cambiar goldens full3. Si aparece colision con none, reproducir antes de parche0348."
+        "Micro-ROM OCS/AGA verifica CLXDAT observable y restauracion por nivel; no cambiar goldens full3. Si aparece colision con none, reproducir antes de parche0348.",
+        "Dirigidos O2 OCS/AGA y LR/headless pasan; guest combinado 57a7d790e464e9837503b1725e6bf8e75786ca9f2f03f8c7a6793e3c111581a8 pasa niveles CLXDAT, restore mismo/nuevo sandbox, alias Auto/Full y rechazo sin mutacion. T77b sigue pendiente."
       ],
       "acceptance": [
         "Los cuatro niveles observables son deterministas y restauran; default y Full conservan futuro e identidad actuales."

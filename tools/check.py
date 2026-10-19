@@ -505,6 +505,10 @@ TASK_SUITES[('DET02', 'T70d')] = {
 TASK_SUITES[('LR01', 'T70d')] = {'parallel_frontend': 'tests.libretro-host.test_parallel.ParallelFrontendTests'}
 TASK_SUITES[('WB03', 'T70d')] = {
     'parallel_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_four_players_parallel_pins_and_bk2_restore_in_same_and_new_sandbox_and_process'}
+for _gate in ('IN01', 'DET02', 'LR01', 'WB03'):
+    TASK_SUITES[(_gate, 'T70')] = {
+        f'{_task}:{_name}': _suite for _task in ('T70a', 'T70b', 'T70c', 'T70d')
+        for _name, _suite in TASK_SUITES[(_gate, _task)].items()}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 
