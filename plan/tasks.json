@@ -15684,6 +15684,50 @@
       "stop": "No equivale a NativeChunk de maquina: quedan scheduler/Paula, identidad CD, registro y rebuild del codec nativo y snapshot Waterbox en T66."
     },
     {
+      "id": "T66m5",
+      "title": "Conservar fase Paula con el CDA propiedad del backend CD",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66m4",
+        "T66q1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0370-cda-owned-paula-phase.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "ports/portable/audio_cda_state.h",
+        "ports/portable/media/cd_audio.h",
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp",
+        "tests/audio/cd_audio_probe.cpp",
+        "tests/media/akiko_state_probe.cpp",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "0370/order187 sobre audio.cpp: extraer implementacion comun de phase get/set conservando los endpoints estrictos0099. Añadir acceso privado con cd_audio_state owner explicito; permitir0extras o exactamente slot0 estereo con callback CDA y cb_data==owner. No basta reconocer callback ni dar exito a streams ajenos. Mantener restricciones sinc/volcnt/delay y rechazo sin mutacion. No cambiar ritmo/scheduler ni NativeChunk todavia.",
+        "Exponer fachadas privadas AudioPlayer->Device que pasan su owner sin publicar el puntero. Es una correccion atomica de propietario/fase a traves de capas; los headers adicionales evitan abrir internos al bridge. Estado/audio.cpp mediante parche nuevo; no editar arbol derivado manualmente.",
+        "Reutilizar fixture conjunto M3/M4: capturar/restaurar fase completa mediante fachada del Device en lugar de reparar manualmente last_cycles/next_sample_evtime; scheduler candidato y Paula antes del agregado CDA. Continuacion PCM/respuestas/RAM/IRQ/estado exacta en cuatro cortes y cold. Mantener rechazos corruptos directos y wire existentes.",
+        "Ampliar probe CDA existente con owner correcto/otro owner/segundo stream y endpoint estricto intacto, null/cota y no mutacion ante rechazo. STATE01 dirigido con componente CDA y agregado, no motor/guest ni matriz acumulada. Presupuesto<=350 lineas manuales; registrar clasificacion instrumentation para endpoints sin efecto en avance."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "La fase compartida de Paula se conserva con CDA propio y el agregado continua exactamente en otro propietario; fuentes ajenas siguen rechazadas antes de mutar y la ruta estricta0099 conserva comportamiento."
+      ],
+      "stop": "Componente previo al NativeChunk de maquina; no habilitar estados CD32 publicos ni atribuir snapshot Waterbox completo a esta prueba."
+    },
+    {
       "id": "T66h3",
       "title": "Integrar probes Akiko con el mezclador CDDA real",
       "milestone": "M3",
@@ -15852,7 +15896,8 @@
         "T66h3",
         "T66p1",
         "T66q1",
-        "T66m4"
+        "T66m4",
+        "T66m5"
       ],
       "read": [
         "docs/01-architecture.md",
