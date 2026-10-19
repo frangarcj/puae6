@@ -20,6 +20,13 @@ KICKSTARTS = {
     "e21545723fe8374e91342617604f1b3d703094f1": "kick40068.A1200",
 }
 VFS_SHA256 = "4b9c51581c3b581ae9c72f01635c9f05a1e9ac744518a1915202a4a1f071ec96"
+NAMES = ("WHDLoad.hdf", "RASystem.hdf", "WHDSaves.hdf")
+LABELS = ("WHDLoad", "RASystem", "WHDSaves")
+FREE_BLOCKS = (2048, 0, 8192)
+PREFERENCES = b"SplashDelay=0\nConfigDelay=0\nNoWriteCache\nSavePath=WHDSaves:\n"
+BUTTON_WAIT_LINE = b"ButtonWait\n"
+STARTUP_SEQUENCE = b"C:P6Assign\nIF WARN\n  QUIT 20\nENDIF\nC:WHDLoad SLAVE=SYS:Game.slave DATA=RASystem:Game.zip\n"
+ZIP_MADE_BY, ZIP_EXTERNAL_ATTRIBUTES, ZIP_DOS_DATE = 0x114, 0x000f0000, 33
 
 
 def assign_program():
@@ -90,11 +97,11 @@ def build(files, vfs, *, buttonwait=False, kickstarts=None):
             # The pinned VFS accepts Amiga-created archives. archivefs_zip.c
             # decodes protection as byte(external_attr >> 16) ^ 0x0f: 0x0f
             # grants RWED (Amiga protection 0), with no DOS directory flag.
-            entry.create_system, entry.external_attr = 1, 0x000f0000
+            entry.create_system, entry.external_attr = ZIP_MADE_BY >> 8, ZIP_EXTERNAL_ATTRIBUTES
             output.writestr(entry, data[path])
-    prefs = b"SplashDelay=0\nConfigDelay=0\nNoWriteCache\nSavePath=WHDSaves:\n" + (b"ButtonWait\n" if buttonwait else b"")
+    prefs = PREFERENCES + (BUTTON_WAIT_LINE if buttonwait else b"")
     boot = {"C/WHDLoad": files["C/WHDLoad"], "C/WHDLoad.VFS": vfs, "C/P6Assign": assign_program(), "Game.slave": files[slave],
-            "S/Startup-Sequence": b"C:P6Assign\nIF WARN\n  QUIT 20\nENDIF\nC:WHDLoad SLAVE=SYS:Game.slave DATA=RASystem:Game.zip\n"}
+            "S/Startup-Sequence": STARTUP_SEQUENCE}
     system = {"S/WHDLoad.prefs": prefs, "Devs/Kickstarts": None, "Game.zip": archive.getvalue()}
     system.update({p: b for p, b in files.items() if p.startswith("Devs/Kickstarts/")})
     for name, contents in sorted((kickstarts or {}).items()):
@@ -106,8 +113,7 @@ def build(files, vfs, *, buttonwait=False, kickstarts=None):
         root = ffs.build_tree(tree)
         return ffs.write_volume(root, label, blocks=ffs.volume_blocks(root, free_blocks=free))
 
-    return {"WHDLoad.hdf": image(boot, "WHDLoad", 2048), "RASystem.hdf": image(system, "RASystem", 0),
-            "WHDSaves.hdf": image({}, "WHDSaves", 8192)}
+    return {name: image(tree, label, free) for name, tree, label, free in zip(NAMES, (boot, system, {}), LABELS, FREE_BLOCKS)}
 
 
 def prepare(config, inputs, assets, *, buttonwait=False, kickstarts=()):
