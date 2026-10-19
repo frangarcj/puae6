@@ -5066,6 +5066,29 @@
           "after_sha256": "1ab1e1aedd61f65b703bdd4bfb81e9a6f4e826d85847bbe6bba764dda1ebfb6c"
         }
       ]
+    },
+    {
+      "id": "0370-cda-owned-paula-phase",
+      "file": "patches/winuae/0370-cda-owned-paula-phase.patch",
+      "sha256": "6b8f214e9da9e49f0a8546fc5dd9fd11b71e116fbc434ae4a01d373ac9b1e4d2",
+      "title": "Preserve Paula phase with an explicitly owned CDA stream",
+      "reason": "T66m5 shares phase capture/application with strict0099 while permitting only the backend-owned slot0 stereo CDA stream; no clock advancement or stream scheduling.",
+      "category": "host hooks",
+      "order": 187,
+      "symbols": [
+        "p6_cda::phase_get",
+        "p6_cda::phase_set"
+      ],
+      "test": "tests/audio/test_cd_audio.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "2d2eb3492fd1d3a2f9ea4b02db43dc2643eceef90e7ef6cafd882c003bd62357",
+          "after_sha256": "77a937afc625022bb5517fe7ff4fa1568cac41c67f8ebe55dbd4bfd5aed5c48d"
+        }
+      ]
     }
   ]
 }

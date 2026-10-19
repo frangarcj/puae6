@@ -119,9 +119,11 @@ static void cold_dma_cut(const Disc &disc)
     ram[0] = 0; ram[1] = 0xff; ram[0x200] = 0x0b;
     auto cold = std::make_unique<Whole>(); whole_get(*cold);
     const p6_akiko_context context{cold->controller.config, cold->device.audio.stream.period, get_cycles(), &disc};
+    int32_t phase[p6_cda::kPhaseWords]; assert(device_phase_get(phase, p6_cda::kPhaseWords));
     akiko_internal(); akiko_internal(); assert(cdrom_receive_length == 2 && cdrom_result_buffer[0] == 0);
     const auto encoded = wire(*cold);
     assert(p6_state::akiko_candidate_decode(encoded.data(), encoded.size(), *cold, context));
+    set_cycles(context.cycle); assert(device_phase_set(phase, p6_cda::kPhaseWords));
     assert(p6_akiko_state_apply(cold.get(), context));
     akiko_internal(); akiko_internal(); assert(cdrom_receive_length == 2 && cdrom_result_buffer[0] == 0);
     fixed_control();
@@ -161,7 +163,8 @@ static void exercise_joint(int mode)
     akiko_lput(AKIKO_BASE + 0x14, 0x4000);
     partial_inputs(mode & 1); requests.rdp = requests.wrp = 98;
     write_comm_pipe_u32(&requests, 0x0110, 0); write_comm_pipe_u32(&requests, 0, 0); write_comm_pipe_u32(&requests, 1, 0);
-    p6_pcm_reset(); const float phase = next_sample_evtime;
+    p6_pcm_reset(); int32_t phase[p6_cda::kPhaseWords], expected_phase[p6_cda::kPhaseWords];
+    assert(device_phase_get(phase, p6_cda::kPhaseWords));
     auto cut = std::make_unique<Whole>(), end = std::make_unique<Whole>(), again = std::make_unique<Whole>();
     whole_get(*cut); p6_akiko_context context{cut->controller.config, cut->device.audio.stream.period, get_cycles(), &a.disc};
     assert(p6_akiko_state_validate(cut.get(), context));
@@ -169,6 +172,7 @@ static void exercise_joint(int mode)
     const auto saved_ram = ram; const auto saved_irqs = irqs; const auto calls = a.provider.calls;
     const auto expected = joint_future(mode & 1); const auto expected_pcm = pcm(); const auto expected_ram = ram;
     const auto expected_irqs = irqs; whole_get(*end); const auto expected_calls = a.provider.calls - calls;
+    assert(device_phase_get(expected_phase, p6_cda::kPhaseWords));
     const auto end_wire = wire(*end); const auto untouched_cycle = get_cycles();
     assert(!p6_state::akiko_candidate_decode(nullptr, 0, *again, context));
     assert(!p6_state::akiko_candidate_decode(nullptr, encoded.size(), *again, context));
@@ -202,10 +206,11 @@ static void exercise_joint(int mode)
     equal_fields(*cut, *again);
     assert(!p6_akiko_state_preflight(cut.get(), context));
     setup(); begin_owner(b.disc); fixed_control(); nvram_read();
+    set_cycles(context.cycle); assert(device_phase_set(phase, p6_cda::kPhaseWords));
     const auto now = get_cycles(); const auto count = b.provider.calls;
     assert(p6_akiko_state_apply(again.get(), context));
     assert(get_cycles() == now && b.provider.calls == count); // Restore is not device work.
-    set_cycles(context.cycle); last_cycles = get_cycles(); next_sample_evtime = phase; p6_pcm_reset();
+    p6_pcm_reset();
     ram = saved_ram; irqs = saved_irqs;
     const auto repeated = joint_future(mode & 1); const auto repeated_pcm = pcm();
     if (repeated != expected || repeated_pcm != expected_pcm) {
@@ -215,6 +220,8 @@ static void exercise_joint(int mode)
     }
     assert(repeated == expected && repeated_pcm == expected_pcm);
     whole_get(*again); equal_fields(*again, *end); assert(wire(*again) == end_wire);
+    int32_t repeated_phase[p6_cda::kPhaseWords]; assert(device_phase_get(repeated_phase, p6_cda::kPhaseWords));
+    assert(!memcmp(repeated_phase, expected_phase, sizeof repeated_phase));
     assert(ram == expected_ram && irqs == expected_irqs && b.provider.calls - count == expected_calls);
     end_owner();
 }

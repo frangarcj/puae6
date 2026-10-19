@@ -3,6 +3,7 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "audio.h"
+#include "audio_cda_state.h"
 struct TrapContext;
 #include "blkdev.h"
 #include "cd_read.h"
@@ -27,6 +28,8 @@ public:
     bool active() const { return running_; }
     // No I/O, scheduler advance or callbacks. Disc/callback presence is explicit;
     // restored addresses come from the new owner, never from the value state.
+    bool phase_get(int32_t *out, unsigned n) const { return p6_cda::phase_get(stream_, out, n); }
+    bool phase_set(const int32_t *in, unsigned n) const { return p6_cda::phase_set(stream_, in, n); }
     bool capture(AudioPlayerState *) const;
     static bool validate(const AudioPlayerState &, const Disc *, uint32_t period);
     bool can_restore(const AudioPlayerState &, const Disc *, play_status_callback, play_subchannel_callback) const;

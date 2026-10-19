@@ -54,11 +54,12 @@ static void restore_case(int rate, bool ntsc)
     p6_cda::State saved{};
     assert(p6_cda::capture(cas, buffer, 588, &saved));
     assert(saved.offset == 202 && saved.remaining == 386 && saved.channel[0].cycles > 0);
-    const float global_phase = next_sample_evtime;
+    int32_t global_phase[p6_cda::kPhaseWords]; const auto cut_cycle = get_cycles();
+    assert(p6_cda::phase_get(cas, global_phase, p6_cda::kPhaseWords));
     advance(int(cda_evt * 100 + 53)); const auto control = pcm();
     p6_cda::State future{}; assert(p6_cda::capture(cas, buffer, 588, &future));
-    assert(p6_cda::restore(cas, rebound, 588, saved, ended, nullptr));
-    last_cycles = get_cycles(); next_sample_evtime = global_phase; p6_pcm_reset();
+    set_cycles(cut_cycle); assert(p6_cda::phase_set(cas, global_phase, p6_cda::kPhaseWords));
+    assert(p6_cda::restore(cas, rebound, 588, saved, ended, nullptr)); p6_pcm_reset();
     advance(int(cda_evt * 100 + 53));
     assert(pcm() == control);
     p6_cda::State again{}; assert(p6_cda::capture(cas, rebound, 588, &again));
@@ -79,14 +80,15 @@ static void restore_case(int rate, bool ntsc)
     // Paused ticks produce silence while sample cursor and fractional deadline persist.
     assert(p6_cda::pause(cas, true)); advance(int(cda_evt * 3)); pcm();
     assert(p6_cda::capture(cas, rebound, 588, &saved));
-    const float pause_phase = next_sample_evtime;
+    int32_t pause_phase[p6_cda::kPhaseWords]; const auto pause_cycle = get_cycles();
+    assert(p6_cda::phase_get(cas, pause_phase, p6_cda::kPhaseWords));
     advance(int(cda_evt * 20)); auto silence = pcm();
     for (auto v : silence) assert(v == 0);
     assert(p6_cda::capture(cas, rebound, 588, &again));
     assert(saved.offset == again.offset && saved.remaining == again.remaining && saved.event_cycles == again.event_cycles);
     const auto paused_future = again;
-    assert(p6_cda::restore(cas, rebound, 588, saved, ended, nullptr));
-    last_cycles = get_cycles(); next_sample_evtime = pause_phase; p6_pcm_reset();
+    set_cycles(pause_cycle); assert(p6_cda::phase_set(cas, pause_phase, p6_cda::kPhaseWords));
+    assert(p6_cda::restore(cas, rebound, 588, saved, ended, nullptr)); p6_pcm_reset();
     advance(int(cda_evt * 20)); assert(pcm() == silence);
     assert(p6_cda::capture(cas, rebound, 588, &again) && memcmp(&again, &paused_future, sizeof again) == 0);
     assert(p6_cda::pause(cas, false));
@@ -98,9 +100,45 @@ static void restore_case(int rate, bool ntsc)
     memset(&again, 0xA5, sizeof again); const auto canary = again;
     assert(!p6_cda::capture(cas, nullptr, 588, &again));
     assert(!p6_cda::capture(cas, rebound, 589, &again) && memcmp(&again, &canary, sizeof again) == 0);
-    // A foreign stream is rejected; the old native-state guard is still intact.
-    int32_t phase[P6_AUDIO_PHASE_WORDS]; assert(!p6_audio_phase_get(phase, P6_AUDIO_PHASE_WORDS));
+    // Strict0099 remains closed; owned phase rejects forged owners and streams.
+    int32_t phase[p6_cda::kPhaseWords], check[p6_cda::kPhaseWords], sentinel[p6_cda::kPhaseWords];
+    assert(p6_cda::phase_get(cas, phase, p6_cda::kPhaseWords));
+    memset(sentinel, 0xa5, sizeof sentinel); memcpy(check, sentinel, sizeof check);
+    assert(!p6_audio_phase_get(check, p6_cda::kPhaseWords));
+    assert(!memcmp(check, sentinel, sizeof check));
+    assert(!p6_audio_phase_set(phase, p6_cda::kPhaseWords));
+    cd_audio_state forged = cas; // Correct callback/id, wrong owner address.
+    assert(!p6_cda::phase_get(forged, check, p6_cda::kPhaseWords));
+    assert(!memcmp(check, sentinel, sizeof check));
+    assert(!p6_cda::phase_set(forged, global_phase, p6_cda::kPhaseWords));
+    assert(!p6_cda::phase_get(cas, nullptr, p6_cda::kPhaseWords));
+    assert(!p6_cda::phase_set(cas, nullptr, p6_cda::kPhaseWords));
+    for (unsigned n : {0u, p6_cda::kPhaseWords - 1, p6_cda::kPhaseWords + 1}) {
+        assert(!p6_cda::phase_get(cas, check, n)); assert(!memcmp(check, sentinel, sizeof check));
+        assert(!p6_cda::phase_set(cas, global_phase, n));
+    }
+    audio_extra_streams[1] = 2; audio_set_extra_channels();
+    assert(!p6_cda::phase_get(cas, check, p6_cda::kPhaseWords));
+    assert(!p6_cda::phase_set(cas, global_phase, p6_cda::kPhaseWords));
+    audio_extra_streams[1] = 0; audio_set_extra_channels();
+    const auto callback = audio_stream[0].cb; audio_stream[0].cb = nullptr;
+    assert(!p6_cda::phase_get(cas, check, p6_cda::kPhaseWords));
+    assert(!p6_cda::phase_set(cas, global_phase, p6_cda::kPhaseWords));
+    audio_stream[0].cb = callback;
+    for (int kind = 0; kind < 3; ++kind) {
+        currprefs.sound_interpol = kind == 0 ? 2 : 0;
+        currprefs.sound_volcnt = kind == 1; currprefs.sound_mixed_stereo_delay = kind == 2;
+        assert(!p6_cda::phase_get(cas, check, p6_cda::kPhaseWords));
+        assert(!p6_cda::phase_set(cas, global_phase, p6_cda::kPhaseWords));
+    }
+    currprefs.sound_interpol = currprefs.sound_volcnt = currprefs.sound_mixed_stereo_delay = 0;
+    assert(!memcmp(check, sentinel, sizeof check));
+    assert(p6_cda::phase_get(cas, check, p6_cda::kPhaseWords) && !memcmp(check, phase, sizeof check));
     audio_cda_new_buffer(&cas, nullptr, -1, 0, nullptr, nullptr);
+    assert(p6_audio_phase_get(check, p6_cda::kPhaseWords));
+    assert(p6_audio_phase_set(check, p6_cda::kPhaseWords));
+    assert(p6_cda::phase_get(forged, phase, p6_cda::kPhaseWords) && !memcmp(phase, check, sizeof phase));
+    assert(p6_cda::phase_set(forged, phase, p6_cda::kPhaseWords));
     audio_extra_streams[1] = 2; audio_set_extra_channels();
     assert(!p6_cda::capture(cas, rebound, 588, &again));
     assert(!p6_cda::restore(cas, rebound, 588, saved, ended, nullptr));

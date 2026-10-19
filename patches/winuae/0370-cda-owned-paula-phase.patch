@@ -1,0 +1,78 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -2949,19 +2949,21 @@
+ #define P6_AUDIO_PHASE_GLOBAL 25
+ #define P6_AUDIO_PHASE_CHANNEL 16
+ #define P6_AUDIO_PHASE_WORDS (P6_AUDIO_PHASE_GLOBAL + AUDIO_CHANNELS_PAULA * P6_AUDIO_PHASE_CHANNEL)
++static bool p6_audio_phase_geometry(unsigned n)
++{
++    return n == P6_AUDIO_PHASE_WORDS && currprefs.sound_interpol != 2 && !currprefs.sound_volcnt && !currprefs.sound_mixed_stereo_delay;
++}
+ static bool p6_audio_phase_supported(unsigned n)
+ {
+-	return n == P6_AUDIO_PHASE_WORDS && currprefs.sound_interpol != 2 && !currprefs.sound_volcnt && currprefs.sound_mixed_stereo_delay == 0
+-		&& audio_total_extra_streams == 0;
++    return p6_audio_phase_geometry(n) && !audio_total_extra_streams;
+ }
+ 
+ static int32_t p6_float_bits(float f) { int32_t w; memcpy(&w, &f, sizeof w); return w; }
+ static float p6_bits_float(int32_t w) { float f; memcpy(&f, &w, sizeof f); return f; }
+ 
+-bool p6_audio_phase_get(int32_t *out, unsigned n)
++static bool p6_audio_phase_get_values(int32_t *out)
+ {
+ 	static_assert(sizeof(float) == sizeof(int32_t), "the audio phase carries floats as 32-bit words");
+-	if (!out || !p6_audio_phase_supported(n)) return false;
+ 	out[0] = p6_float_bits(next_sample_evtime);
+ 	const uint64_t pending = uint64_t(get_cycles () - last_cycles);
+ 	out[1] = int32_t(pending); out[2] = int32_t(pending >> 32);
+@@ -2984,9 +2986,8 @@
+ 	return true;
+ }
+ 
+-bool p6_audio_phase_set(const int32_t *in, unsigned n)
+-{
+-	if (!in || !p6_audio_phase_supported(n)) return false;
++static bool p6_audio_phase_set_values(const int32_t *in)
++{
+ 	next_sample_evtime = p6_bits_float(in[0]);
+ 	last_cycles = get_cycles () - evt_t(uint64_t(uint32_t(in[1])) | uint64_t(uint32_t(in[2])) << 32);
+ 	audio_work_to_do = in[3];
+@@ -3007,6 +3008,36 @@
+ 	}
+ 	return true;
+ }
++
++// Keep the strict native-state endpoints unchanged: extra streams are refused.
++bool p6_audio_phase_get(int32_t *out, unsigned n)
++{
++    return out && p6_audio_phase_supported(n) && p6_audio_phase_get_values(out);
++}
++bool p6_audio_phase_set(const int32_t *in, unsigned n)
++{
++    return in && p6_audio_phase_supported(n) && p6_audio_phase_set_values(in);
++}
++#ifdef P6_PORTABLE
++namespace p6_cda {
++static bool available(const cd_audio_state &);
++static bool phase_supported(const cd_audio_state &owner, unsigned n)
++{
++    static_assert(kPhaseWords == P6_AUDIO_PHASE_WORDS, "Paula phase word count");
++    // No active extra stream needs ownership. Otherwise require this exact CDA
++    // owner, slot0 stereo and the real callback, using the stream preflight.
++    return p6_audio_phase_geometry(n) && (!audio_total_extra_streams || available(owner));
++}
++bool phase_get(const cd_audio_state &owner, int32_t *out, unsigned n)
++{
++    return out && phase_supported(owner, n) && p6_audio_phase_get_values(out);
++}
++bool phase_set(const cd_audio_state &owner, const int32_t *in, unsigned n)
++{
++    return in && phase_supported(owner, n) && p6_audio_phase_set_values(in);
++}
++}
++#endif
+ 
+ static void audio_set_extra_channels(void)
+ {

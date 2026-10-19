@@ -4,6 +4,12 @@
 struct cd_audio_state;
 namespace p6_cda {
 constexpr uint32_t kMaxFrames = 588;
+constexpr unsigned kPhaseWords = 89;
+// Shared Paula values, not a CDA codec. Caller supplies candidate scheduler cycle
+// before set and restores CDA separately. Only no extras or this exact owner at
+// slot0 stereo is accepted. No allocation, I/O, scheduling or hardware advance.
+bool phase_get(const cd_audio_state &, int32_t *, unsigned);
+bool phase_set(const cd_audio_state &, const int32_t *, unsigned);
 struct Channel { int32_t current, previous, accumulator, cycles; };
 struct State {
     uint32_t active, paused, frames, offset, remaining, event_cycles, period;
