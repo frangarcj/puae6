@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35"
@@ -14473,6 +14473,42 @@
     {
       "milestone": "M3",
       "required": true,
+      "status": "in_progress",
+      "id": "T66d3",
+      "title": "Corregir avance entre hunks en el lector CHD derivado de DiscSystem",
+      "depends": [
+        "T66b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0003-disc-chd-cross-hunk.patch",
+        "tests/media/csharp-chd-reads/ChdReads.csproj",
+        "tests/media/csharp-chd-reads/Program.cs",
+        "tests/media/test_chd_blob_reads.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Blob_CHD.Read del commit fijado reduce count y aumenta offset sin avanzar byte_pos: una peticion que cruza un hunk repite el primero. Corregir el cursor mediante parche minimo sobre la copia derivada; no editar MacHawk ni references.",
+        "Probar el Blob_CHD real parcheado con un proveedor de hunks de prueba explicitamente identificado, patrones distintos y llamadas registradas: comienzo/fin de hunk, cruces de dos/tres hunks, lecturas consecutivas y error de proveedor. Compilar proyecto dotnet local minimo, sin motor ni codecs nuevos. El test demuestra fragmentacion, no soporte CHD/macOS ni decodificacion.",
+        "Reproducir el fallo antes del parche y verificar su correccion. La disponibilidad del codec nativo y los formatos/arranque CD32 permanecen en T66; esta correccion no habilita una feature ni cambia la preview entregada."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Cada fragmento de una lectura CHD procede del hunk y offset correctos; errores del proveedor se propagan."
+      ],
+      "stop": "No usar un proveedor de prueba como evidencia de decodificacion CHD real, ni modificar la referencia fijada."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
       "read": [
         "docs/01-architecture.md",
         "docs/02-contracts.md",
@@ -14483,7 +14519,8 @@
       "title": "Fuente C# CD por offset sobre DiscSystem con identidad completa y rebind",
       "status": "pending",
       "depends": [
-        "T66d1"
+        "T66d1",
+        "T66d3"
       ],
       "touch": [
         "integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs",
