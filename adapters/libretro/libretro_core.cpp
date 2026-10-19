@@ -1174,6 +1174,7 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
                 medium.type = P6_MEDIA_HDF; medium.bytes = std::move(bundle.images[role]);
                 if (!can_take_hard_file(whdload_data::kNames[role], core.media.size()) ||
                     !add_hard_file(std::move(medium), whdload_data::kNames[role], &core.media, &total)) return false;
+                log(RETRO_LOG_INFO, "WHDLoad %s: medium %zu sha256=%s", whdload_data::kNames[role], role, to_hex(core.media.back().id, sizeof core.media.back().id).c_str());
             }
             for (const auto &medium : core.media) {
                 p6_media entry = {};

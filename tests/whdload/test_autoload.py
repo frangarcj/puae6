@@ -67,7 +67,7 @@ class AutoloadTests(lr.LibretroHarness):
         return content, system, saves, images
 
     def run_pack(self, content, system, saves, runs, *extra):
-        return self.frontend("boot", "--runs", runs, "--set", "puae6_machine=A500", "--set", "puae6_hdf_save=on_close", *extra,
+        return self.frontend("boot", "--runs", runs, "--save-dir", saves, "--set", "puae6_machine=A500", "--set", "puae6_hdf_save=on_close", *extra,
                              content=content, system=system).stdout
 
     def exports(self, images, saves):
@@ -103,7 +103,7 @@ class AutoloadTests(lr.LibretroHarness):
         content, system, saves, _ = self.inputs()
         (system / "WHDLoad_usr.lha").unlink()
         (system / lr.KICKSTART_NAMES_A1200[0]).unlink()
-        out = self.frontend("boot", "--runs", 1, content=content, system=system, expect=2)
+        out = self.frontend("boot", "--runs", 1, content=content, system=system, expect=3)
         self.assertIn("WHDLoad_usr.lha", out.stdout + out.stderr)
         self.assertNotIn("p6_init", out.stdout + out.stderr)
         directory = self.work()
