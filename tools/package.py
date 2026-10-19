@@ -68,6 +68,11 @@ def verify(directory):
         members = {m.name for m in archive.getmembers() if m.isfile()}
     if 'source/tools/package.py' not in members or any('/whdload/' in p and p.endswith('.hdf') for p in members):
         raise ValueError('Incomplete or private source payload')
+    if 'source/tools/generate_whdload.py' in members:
+        shared = {'source/adapters/libretro/whdload_data.generated.h',
+                  'source/integration/bizhawk/core/Puae6/WHDLoadData.generated.cs'}
+        if not shared <= members:
+            raise ValueError('Incomplete shared WHDLoad generator outputs')
     return manifest
 
 

@@ -11653,7 +11653,7 @@
       "title": "Entregar preview local utilizable del core libretro macOS ARM64",
       "milestone": "M4",
       "required": true,
-      "status": "done",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35"
@@ -14077,14 +14077,16 @@
         "tests/ffi/**",
         "tests/waterbox-state/**",
         "tools/check.py",
-        "docs/whdload.md"
+        "docs/whdload.md",
+        "tests/waterbox-media/test_media_volume.py"
       ],
       "steps": [
         "Integrar el builder antes de pedir firmware: Auto detecta exactamente un .slave; cero usa el volumen existente, varios fallan claramente. Disabled conserva el flujo anterior. A1200 y su firmware se fuerzan para el pack; el contenido de scripts/prefs del archivo no sustituye la receta propia.",
         "Proveedor del usuario WHDLoad_usr.lha bajo directorio system de libretro o GetUserPath(Amiga,false) en C#, con alternativa de bytes explicitos en Parameters/FFI. Extraer solo WHDLoad/C/WHDLoad y WHDLoad/C/WHDLoad.VFS, verificar pins T30/T65a y fallar con error claro si faltan o difieren; no descargar ni redistribuirlos.",
         "Opciones de reinicio frontend: whdload auto|disabled y ButtonWait disabled|enabled. Sin campos nuevos de p6_config: el contenido de los tres HDF vincula estados/peliculas. Copiar firmware reconocido a RASystem; KS/RTB adicionales solo por entrada explicita.",
         "Reutilizar guardado HDF/SaveRAM P6SRv2, reemplazo atomico y rollback existentes. WHDSaves es compartible como en PUAE5: una base identica identifica el mismo medio, sin nuevo envelope ni namespace por juego. No afirmar rechazo de otro pack si solo difieren medios sin escrituras. Estados/peliculas siguen vinculados a las tres bases y configuracion.",
-        "Probar pack real autorizado: arranque, FM1.hisc112B en WHDSaves, bases y DATA inmutables, restore con PCM/imagen y persistencia de la rama final sin fugas de rewind/runahead. Conservar todos los checks del padre; WB03 no se sustituye por un build nativo."
+        "Probar pack real autorizado: arranque, FM1.hisc112B en WHDSaves, bases y DATA inmutables, restore con PCM/imagen y persistencia de la rama final sin fugas de rewind/runahead. Conservar todos los checks del padre; WB03 no se sustituye por un build nativo.",
+        "Regresion de volumen previo: test_media_volume fija Disabled cuando verifica el script propio T30b, para conservar explicita su semantica anterior tras activar Auto."
       ],
       "checks": [
         "MED02",
