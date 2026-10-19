@@ -20,7 +20,7 @@ class AkikoServiceTests(unittest.TestCase):
             strip = '-Wl,-dead_strip' if platform.system() == 'Darwin' else '-Wl,--gc-sections'
             sources = [ROOT / 'tests/media/akiko_service_probe.cpp', tree / 'crc32.cpp', tree / 'cdrom.cpp',
                        ROOT / 'ports/portable/diagnostics.cpp', ROOT / 'ports/portable/gui.cpp']
-            sources += [ROOT / 'ports/portable/media' / (name + '.cpp') for name in ('cd_device', 'cd_akiko', 'cd_disc', 'cd_source')]
+            sources += [ROOT / 'ports/portable/media' / (name + '.cpp') for name in ('cd_device', 'cd_akiko', 'cd_disc', 'cd_source', 'cd_read', 'cd_subchannel')]
             command = ['clang++', '-std=c++17', '-O1', '-g', '-UNDEBUG', '-DSAVESTATE', '-ffunction-sections', '-fdata-sections',
                        '-fsanitize=address,undefined', '-fno-sanitize-recover=all', strip,
                        '-I' + str(ROOT / 'ports/portable'), '-I' + str(tree / 'include'), '-I' + str(tree), *map(str, sources), '-o', str(exe)]

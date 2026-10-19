@@ -180,11 +180,8 @@
     "0350-z3-physical-autoconfig-state": "behavior",
     "0351-profile-bounded-z3": "required",
     "0356-cue-metadata-only": "behavior",
-<<<<<<< HEAD
-    "0357-ccd-metadata-only": "behavior"
-=======
+    "0357-ccd-metadata-only": "behavior",
     "0358-akiko-cooperative-service": "required"
->>>>>>> 4772d0bb (Service Akiko requests cooperatively from hsync)
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
