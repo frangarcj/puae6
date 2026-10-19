@@ -174,7 +174,8 @@
     "0352-optical-pointer-boundary-and-latch": "required",
     "0348-collision-level-bitplane-table": "behavior",
     "0353-parallel-adapter-boundary-and-cia": "required",
-    "0349-generic-040-060-no-mmu-cache": "required"
+    "0349-generic-040-060-no-mmu-cache": "required",
+    "0354-cd32-eeprom-state": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

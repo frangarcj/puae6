@@ -878,6 +878,18 @@ los punteros se vuelven a enlazar y la cache externa puede descartarse. No cambi
 la ABI publica, ni habilita CD32: Akiko, NVRAM/I2C, CDDA, todos los formatos de T66
 y los arranques/restauraciones en ambos adaptadores conservan sus puertas propias.
 
+T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
+`cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
+fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,
+SDA/SCL previos, salida del dispositivo, registro de desplazamiento, fase de
+direccion, direccion actual y comienzo de escritura pendiente. Tamano, mascaras
+y direccion de dispositivo se derivan de la geometria fija; no se guardan punteros.
+La carga valida todos los campos y el tipo de chip antes de modificar protocolo
+o contenido. Este endpoint no es un formato binario ni una ABI publica. El probe
+ASan/UBSan restaura en otro objeto entre cada transicion de pines y comprueba
+lectura, escritura y wrap de pagina/direccion. Integracion Akiko, reset que
+conserve NVRAM, SaveRAM y snapshots Waterbox siguen pendientes en T66.
+
 Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro por el controlador UAE (`uaehf.device` y la placa UAEFS, como
 PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256
 de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs (`P6_BLOB_HDF`, `p6_blob_pread`: lectura por offset de la base inmutable, sin cursor ni fichero del

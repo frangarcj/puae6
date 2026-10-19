@@ -245,6 +245,11 @@ TASK_SUITES[('DET02', 'T57b')] = TASK_SUITES[('DET02', 'T57a')]
 TASK_SUITES[('FUZZ01', 'T57b')] = TASK_SUITES[('FUZZ01', 'T57a')]
 # T66a is only the bounded immutable source/ISO2048 reader, without a CD device or engine.
 TASK_SUITES[('MED01', 'T66a')] = {'cd_source': 'tests.media.test_cd_source'}
+# T66c exercises only the real 24C08 component, without enabling Akiko/CD32.
+TASK_SUITES[('MED02', 'T66c')] = {'eeprom_protocol': 'tests.media.test_cd32_eeprom.Cd32EepromTests.test_protocol_page_and_address_wrap'}
+TASK_SUITES[('DET02', 'T66c')] = {
+    'eeprom_restore': 'tests.media.test_cd32_eeprom.Cd32EepromTests.test_restore_between_every_pin_transition',
+    'eeprom_reject': 'tests.media.test_cd32_eeprom.Cd32EepromTests.test_invalid_states_are_transactional'}
 # T57 closes both: the formats on the three surfaces. MED01 adds the headless runner (`--disk`), the libretro adapter (the containers hold them, the extension list, the identity of the bytes as given:
 # tests/media/test_container.py without an engine and tests/libretro-host/test_containers.py with the core) and the Waterbox sandbox (the guest reads them, a snapshot in the middle of a revolution
 # of an FDI with weak pulses comes back in another sandbox); FUZZ01 adds the parsers of the adapter (ContentFuzzTests builds container.h with the sanitizers).
