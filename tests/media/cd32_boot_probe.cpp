@@ -10,6 +10,8 @@
 #include "machdep/maccess.h"
 #include "newcpu.h"
 #include "events.h"
+#include "custom.h"
+#include "p6_state_access.h"
 #include "akiko.h"
 #include "rom_status.h"
 #include "cd_image.h"
@@ -73,6 +75,30 @@ static bool diagnostic_name(uint32_t at,char (&name)[40])
         name[i]=char(*p);
     }
     name[sizeof name-1]=0; return false;
+}
+static void diagnostic_irq(const p6_akiko_controller_state &control)
+{
+    const auto pc=m68k_getpc(), sp=m68k_areg(regs,7), a6=m68k_areg(regs,6);
+    const auto stack=diagnostic_bytes(sp,64), resource=diagnostic_bytes(a6,128);
+    // This pinned ROM's public SetICR has no stack adjustment before RTS.
+    const bool seticr=pc>=0xfbfce2 && pc<0xfbfd52;
+    fprintf(stderr,"CD32 CPU s=%u m=%u mask=%d ipl=%d D0=%08x D1=%08x A6=%08x A7=%08x seticr_return_valid=%d return=%08x resource_valid=%d cia_base=%08x exec_base=%08x INTREQ=%04x INTENA=%04x AkikoIRQ=%08x/%08x\n",
+        unsigned(regs.s),unsigned(regs.m),regs.intmask,regs.ipl_pin,m68k_dreg(regs,0),m68k_dreg(regs,1),a6,sp,
+        seticr && stack,stack && seticr?do_get_mem_long(stack):0,resource!=nullptr,
+        resource?do_get_mem_long(resource+0x22):0,resource?do_get_mem_long(resource+0x7c):0,
+        intreq,intena,control.cdrom_intreq,control.cdrom_intena);
+    if(stack) {
+        fprintf(stderr,"CD32 active stack words (not a backtrace):");
+        for(unsigned n=0;n<64;n+=4) fprintf(stderr," %08x",do_get_mem_long(stack+n));
+        fprintf(stderr,"\n");
+    }
+    extern void p6_cia_get(int,p6_cia_raw *);
+    for(int n=0;n<2;++n) {
+        p6_cia_raw cia{}; p6_cia_get(n,&cia); // Pure accessor, never reads MMIO ICR.
+        fprintf(stderr,"CD32 CIA%c icr1=%02x icr2=%02x change=%02x mask=%02x TA=%04x/%04x cr=%02x TB=%04x/%04x cr=%02x\n",
+            n?'B':'A',cia.icr1,cia.icr2,cia.icr_change,cia.imask,cia.t[0].timer,cia.t[0].latch,cia.t[0].cr,
+            cia.t[1].timer,cia.t[1].latch,cia.t[1].cr);
+    }
 }
 static void diagnostic_tasks(uint32_t base,const uint8_t *exec)
 {
@@ -189,12 +215,24 @@ int main(int argc,char **argv)
     assert(get_long(AKIKO_BASE)==0xc0cacafe && get_long(0xe00000)==do_get_mem_long(extrom.data()) && get_long(0xf80000)==do_get_mem_long(mainrom.data()));
     uint8_t hash[32]; p6_sha256_hash(rom.data(),rom.size(),hash); assert(!memcmp(hash,p6_session::session.firmware_sha256,32)); state_caps();
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; uint64_t reads=0; unsigned frames=0;
+    struct ClockSample { unsigned frame; uint32_t pc,sp,tb,icr,a2,timehi,timelo; } samples[3]{}; unsigned nsamples=0;
     do {
         call(p6_run_frame(&input,P6_RENDER_VIDEO|P6_RENDER_AUDIO,&frame,&e),e);
         assert(frame.master_ticks && frame.audio_frames && frame.video_bytes); ++frames;
         reads=0; for(const auto &counter:counters) reads+=counter.reads;
+        if(frames==30 || frames==120 || frames==240) {
+            extern void p6_cia_get(int,p6_cia_raw *);
+            p6_cia_raw cia{}; p6_cia_get(0,&cia);
+            const auto a2=m68k_areg(regs,2); const auto timer=diagnostic_bytes(a2,0x50);
+            samples[nsamples++]={frames,m68k_getpc(),m68k_areg(regs,7),cia.t[1].timer,cia.icr1,a2,
+                timer?do_get_mem_long(timer+0x48):0,timer?do_get_mem_long(timer+0x4c):0};
+        }
     } while(frames<240 && (frames<30 || !reads));
     if (!reads) {
+        for(unsigned n=0;n<nsamples;++n) {
+            const auto &s=samples[n]; fprintf(stderr,"CD32 clock frame=%u PC=%08x SP=%08x TB=%04x icr=%02x A2=%08x words48=%08x/%08x\n",
+                s.frame,s.pc,s.sp,s.tb,s.icr,s.a2,s.timehi,s.timelo);
+        }
         p6_akiko_controller_state control{};
         const bool captured = p6_akiko_controller_get(&control);
         fprintf(stderr,"CD32 no payload: PC=%08x cycles=%llu open=%d controller=%d init=%d unit=%d flags=%08x command=%02x rx=%d/%d toc=%d media=%d/%d\n",
@@ -206,7 +244,7 @@ int main(int argc,char **argv)
         const int index=control.toc.first_track_offset;
         if(captured && index>=0 && index<103) fprintf(stderr,"CD32 controller track1 slot=%d point=%u control=%u adr=%u\n",
             index,control.toc.entry[index].point,control.toc.entry[index].control,control.toc.entry[index].adr);
-        diagnostic_device();
+        diagnostic_irq(control); diagnostic_device();
         p6_diagnostic diagnostic[32]; const auto count=p6_diag_read(diagnostic,32);
         for(int n=0;n<count;++n) fprintf(stderr,"CD32 diagnostic: %s\n",diagnostic[n].text);
     }
