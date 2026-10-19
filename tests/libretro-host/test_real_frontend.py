@@ -9,7 +9,7 @@ no window, no display, no foreground. The same sources are built there for Linux
 that core, an ADF (or an M3U of two) as content and a micro-ROM under a Kickstart file name in its system directory (T17a), which also
 checks that the core builds and behaves the same outside macOS. The disks are changed with RetroArch's own network commands
 (DISK_EJECT_TOGGLE, DISK_NEXT), sent by tests/libretro-host/drive_retroarch.py while it runs. Skipped when Docker is not
-running or when P6_TEST_REAL_FRONTEND=0. The first run builds the image (a few minutes of downloads) and the Linux core (minutes).
+running or when P6_TEST_REAL_FRONTEND=0. Requires the pinned local image in docker/image.json; never builds or downloads an image.
     python3 -m unittest discover -s tests/libretro-host -p "test_real_frontend.py"
 """
 import hashlib
@@ -25,9 +25,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tests.host.test_bridge_lifecycle import TOOLS, build_probe, builder  # noqa: E402
+from tools.ci import retroarch_image  # noqa: E402
 
-IMAGE = "puae6-libretro-test"
-DOCKER_DIR = ROOT / "tests/libretro-host/docker"
 LINUX_BUILD = "build/arm64"            # inside the container; on the host it is build/linux/arm64
 FRAMES = 120
 UNIT = re.compile(r"^\[libretro DEBUG\] \[PUAE6\] unit=(\d+) ticks=(\d+) ports=(\S+) keys=(\w+)$", re.M)
@@ -52,24 +51,21 @@ def container(command, work=None, timeout=300):
     # build/ is a separate host directory (build/linux), so the Linux build has its own build/upstream and build/generated and never
     # meets the macOS ones: the code generator refuses to overwrite an output made with another compiler.
     (ROOT / "build/linux").mkdir(parents=True, exist_ok=True)
-    arguments = ["docker", "run", "--rm", "--user", f"{os.getuid()}:{os.getgid()}", "-e", "HOME=/work/home", "-v", f"{ROOT}:/src",
+    arguments = ["--user", f"{os.getuid()}:{os.getgid()}", "-e", "HOME=/work/home", "-v", f"{ROOT}:/src",
                  "-v", f"{ROOT}/build/linux:/src/build", "-w", "/src"]
     if work:
         arguments += ["-v", f"{work}:/work"]
-    return subprocess.run(arguments + [IMAGE, "bash", "-c", command], capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(retroarch_image.run_arguments(command, arguments), capture_output=True, text=True, timeout=timeout)
 
 
 @unittest.skipUnless(enabled(), "Docker is not running (or P6_TEST_REAL_FRONTEND=0)")
 class RealFrontendTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True).returncode:
-            built = subprocess.run(["docker", "build", "-t", IMAGE, "-f", str(DOCKER_DIR / "Dockerfile"), str(DOCKER_DIR)],
-                                   capture_output=True, text=True, timeout=1800)
-            assert built.returncode == 0, built.stdout[-800:] + built.stderr[-800:]
+        retroarch_image.verify()
         configure = (f"cmake -S /src -B /src/{LINUX_BUILD} -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ "
                      "-DCMAKE_BUILD_TYPE=Debug -DP6_SANITIZERS=OFF > /dev/null")
-        built = container(f"{configure} && cmake --build /src/{LINUX_BUILD} --target puae6_libretro p6_headless", timeout=3600)
+        built = container(f"{configure} && cmake --build /src/{LINUX_BUILD} --parallel 2 --target puae6_libretro p6_headless", timeout=3600)
         assert built.returncode == 0, built.stdout[-1500:] + built.stderr[-1500:]
         cls.tmp = tempfile.TemporaryDirectory(prefix="p6-retroarch-")
         (Path(cls.tmp.name) / "home").mkdir()
@@ -147,17 +143,24 @@ class RealFrontendTests(unittest.TestCase):
 
     def test_the_frontend_accepts_the_controller_info_and_input_descriptors_and_the_core_polls_a_keyboard_that_nobody_presses(self):
         # T17c. RetroArch is started with input_driver "null": there is no device to press, so no key, mouse movement or button can be injected from
-        # outside (its network commands carry no input), and what the real frontend can show is that it takes the declared types (mouse in port 1 only,
-        # joystick-only in port 1 and keyboard-only in both, besides the RetroPad and None it adds itself) and the descriptors, and that the core polls every unit without anything
+        # outside (its network commands carry no input), and what the real frontend can show is that it takes the declared mouse, optical, CD32,
+        # joystick and keyboard types and the descriptors, and that the core polls every unit without anything
         # arriving. The mapping itself is tested with the minimal frontend (tests/libretro-host/test_input.py).
         text = self.retroarch("input", frames=20)
         info = text[text.index("SET_CONTROLLER_INFO."):text.index("SET_INPUT_DESCRIPTORS")]
-        first, second = info.split("Port 2:")
+        sections = re.split(r"Port (\d+):", info)
+        ports = dict(zip(sections[1::2], sections[2::2]))
+        first, second = ports["1"], ports["2"]
         self.assertIn('"Mouse only (Amiga port 1)" (2)', first)
         self.assertIn('"Joystick only (Amiga port 2)" (257)', first)                                  # the subclass of the RetroPad that frees the mouse port
         self.assertIn('"Keyboard only (port empty)" (3)', first)
         self.assertIn('"Keyboard only (port empty)" (3)', second)
-        self.assertNotIn("(2)", second)                                                            # the contract has no mouse in player 2
+        self.assertIn('"Mouse (Amiga port 2; overrides Player 1 pad)" (2)', second)
+        for section, port in ((first, 2), (second, 1)):
+            self.assertIn(f'"Lightgun (Amiga port {port})" (4)', section)
+            self.assertIn(f'"Lightpen (Amiga port {port})" (6)', section)
+        self.assertIn('"CD32 pad (Amiga port 2)" (513)', first)
+        self.assertIn('"CD32 pad (Amiga port 1; needs Player 1 without mouse)" (513)', second)
         self.assertIn("SET_INPUT_DESCRIPTORS", text)
         self.assertEqual(set(m[3] for m in UNIT.finditer(text)), {"2:0:0:0,1:0:0:0"})
         self.assertEqual(set(m[4] for m in UNIT.finditer(text)), {"0" * 32})                      # the 128-bit keyboard bitmap: nothing pressed

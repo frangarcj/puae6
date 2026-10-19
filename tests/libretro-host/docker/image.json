@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "tag": "puae6-libretro-test",
+  "id": "sha256:b75c86abfc440525d6a7d6006f7c60a7e8ff441b831a628ea715f3313a61e89b",
+  "platform": "linux/arm64",
+  "provenance": "Existing local image, inspected on 2026-10-19. Dockerfile documents its origin; rebuilding that recipe is not claimed to reproduce this ID. Tests never build, download or replace it."
+}

@@ -67,5 +67,14 @@ referencia MacHawk de solo lectura y guest/runtime correspondientes. No instala
 paquetes ni aprovisiona runners. Rendimiento espera a terminar los otros checks;
 no compite con sanitizers. No hay upload de informes ni assets privados.
 
+La lane funcional tambien exige la imagen RetroArch local fijada por ID e ISA
+en `tests/libretro-host/docker/image.json`. Se comprueba antes del codegen y de
+preparar pruebas, se incluye en la identidad y se vuelve a comprobar entre suites.
+Una imagen ausente o distinta bloquea: el test no la construye ni descarga.
+Docker ejecuta ese ID con `--pull=never --network=none`; los comandos de Disk
+Control siguen por loopback dentro del mismo contenedor. El pin identifica una
+imagen local existente, sin prometer que reconstruir su Dockerfile reproduzca
+los mismos bytes.
+
 No hay `origin` configurado en este checkout. Guardar este YAML y ejecutar lanes
 locales no acredita ejecucion remota: T39b/T39 permanecen pendientes de esa puerta.

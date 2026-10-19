@@ -11,6 +11,7 @@ import tempfile
 
 sys.path[:0] = [str(Path(__file__).resolve().parents[2])]
 from tools.ci import run as ci
+from tools.ci import retroarch_image
 
 LANES = ("clean", "functional", "matrix", "sanitizers", "optimization", "performance")
 ENV = dict(ci.ENV, P6_TEST_PORTABILITY="1", P6_TEST_SIMD_MATRIX="1", P6_TEST_ENGINE_FLAGS="1", P6_TEST_RGB565_FRONTEND="1",
@@ -46,7 +47,7 @@ def suites(lane):
     return selected
 
 
-def images():
+def images(retroarch=False):
     from tests.simd.matrix import IMAGES
     from tests.portability.rows import ROWS
     found = {}
@@ -60,6 +61,9 @@ def images():
         if image["Id"] != IMAGES[spec["platform"]] or "linux/" + image["Architecture"] != spec["platform"]:
             raise ValueError("Docker image differs from the frozen matrix")
         found[spec["image"]] = image["Id"]
+    if retroarch:
+        image = retroarch_image.verify(ci.command)
+        found[image["tag"]] = image["id"]
     return found
 
 
@@ -70,9 +74,11 @@ def execute(argv, timeout=14400):
         raise RuntimeError(ci.redact(p.stdout[-2000:] + p.stderr[-6000:]))
 
 
-def identity():
+def identity(docker=None):
     facts = ci.identity()
     facts["test_environment"] = ENV
+    if docker is not None:
+        facts["images"] = docker
     return facts
 
 
@@ -128,9 +134,9 @@ def run(lane):
     try:
         selected = suites(lane)
         ci.preflight(ASSETS if lane == "functional" else ())
-        docker = images() if lane != "clean" else {}
+        docker = images(retroarch=lane == "functional") if lane != "clean" else {}
         execute([sys.executable, "tools/generate_cpu.py"])
-        facts = identity()
+        facts = identity(docker)
         prepared = prepare(lane)
         for module in selected:
             print("RUN " + module, file=sys.stderr, flush=True)
@@ -139,9 +145,9 @@ def run(lane):
             if status != "PASS":
                 return dict(status=status, lane=lane, module=module, reason=counts, diagnostic=ci.redact(p.stderr[-6000:]), completed=completed, identity=facts)
             completed.append(dict(module=module, counts=counts))
-            if lane != "clean" and images() != docker:
+            if lane != "clean" and images(retroarch=lane == "functional") != docker:
                 raise RuntimeError("Docker inputs changed during CI")
-        if identity() != facts:
+        if identity(images(retroarch=lane == "functional") if lane != "clean" else {}) != facts:
             raise RuntimeError("source/codegen/toolchain inputs changed during CI")
         return dict(status="PASS", lane=lane, completed=completed, preparation=prepared, identity=facts, images=docker,
                     budget_policy="advisory, unchanged plan/performance-budgets.json; not remote CI evidence")
