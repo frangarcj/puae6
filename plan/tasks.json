@@ -12788,7 +12788,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "read": [
         "docs/01-architecture.md",
         "docs/02-contracts.md",
@@ -12845,7 +12845,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "read": [
         "docs/01-architecture.md",
         "docs/02-contracts.md",
@@ -14517,7 +14517,7 @@
       ],
       "id": "T66d2",
       "title": "Fuente C# CD por offset sobre DiscSystem con identidad completa y rebind",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66d1",
         "T66d3"
