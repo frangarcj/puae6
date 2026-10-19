@@ -12884,7 +12884,9 @@
         "Incluir region Z3 en capacidades y dominios de memoria, corrigiendo limites actualmente fijados a4 donde corresponda. Actualizar ABI/FFI/layout y error de buffers pequenos sin truncar regiones.",
         "Agregar16MiB a ExtraMemoryKiB segun la politica existente: mmap aumenta32MiB. Medir consumo real con el guest combinado y registrar el presupuesto correspondiente sin reducir margenes para aprobar. No mover RAM a alloc_invisible.",
         "LR01 y WB03 reales: acceso a extremos de Z3 y restore mismo/nuevo sandbox, config diferente rechazada sin mutacion, dominios completos. Una generacion/enlace integrado con -j2; no repetir campanas de rendimiento por frontend.",
-        "Conservar en T55c los otros tamanos Z3 y toda la aceptacion 040/060/A4000;16MiB constituye la primera vertical funcional, no el cierre del padre."
+        "Conservar en T55c los otros tamanos Z3 y toda la aceptacion 040/060/A4000;16MiB constituye la primera vertical funcional, no el cierre del padre.",
+        "Contrato de direccion Z3: p6_memory_region conserva layout; flag BUS_ADDRESS_VALID y bits16..31 codifican base real en64KiB, solo Z3. LR anuncia/retira ese descriptor segun autoconfig/restauracion y detecta cambios de flags/base aunque puntero/tamano no varien. Probar base elegida22000000, no inventar base fija.",
+        "Medir C3 dentro de Waterbox real y comprobar margen2x con stdout/test como registro normal; ampliar regla Z3 del manifiesto sin escribir measured parcial. El dataset global16claves del mismo guest/runtime se regrabara junto en candidata acumulada T53/T39; no presentar el dataset anterior como medida del nuevo guest ni crear reporte de telemetria."
       ],
       "checks": [
         "LR01",
@@ -14619,6 +14621,55 @@
       "stop": "No inventar TOC de una pista para anunciar arranque de un CD29pistas ni aceptar codecs no implementados."
     },
     {
+      "id": "T66f1",
+      "title": "Transporte CD por callback real en Waterbox con snapshot y rebind",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66b",
+        "T66d2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/waterbox/p6w_cd.h",
+        "adapters/waterbox/cd_source.cpp",
+        "CMakeLists.txt",
+        "tools/build_waterbox.py",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
+        "integration/bizhawk/core/Puae6/Puae6Guest.cs",
+        "integration/bizhawk/core/Puae6/CdHost.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs",
+        "tests/media/csharp-disc/**",
+        "tests/waterbox-media/test_cd_source.py",
+        "tests/ffi/Program.cs",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Extension privada separada de ABI1/layout31 existentes: descriptor v1/size2432, ID32/bytes64/trackcount/leadout y99filas24B(index0,index1,end,mode,control,reserved0). Validar todo antes bind/rebind; virtualsource0/stride2448/ADR1/offsetindex0*2448 almacenado. Reutilizar Source/Disc reales y seleccionar cdrom.cpp materializado con0355 por encode_l2, sin encoder sustituto.",
+        "Callback con slot fijo registrado antes de BizInvoker en Puae6Guest.Open, delegate mantenido vivo; devuelve cuenta exacta o error, hasta2448bytes. CopyFromExternal hacia stagingguest respeta dirty tracking; no Marshal.Copy directo al guest ni puntero C# en snapshot. Exportar bind/rebind/read_at/read_sector/layout privado; no instalar todavia carga CD32 en frontend.",
+        "Registrar descriptor/TOC como estado sandbox ordinario y binding/contexto como derivados. Mismo slot sobre nuevo Disc/sandbox/proceso: validar identidad y StateEnvelope antes restore y rebind explicito antes primer acceso; fallo postrestore detiene instancia. Mantener uso prestado/lifetime y excepciones host convertidas a IO.",
+        "WB03 real dirigido: ISO/CUE mediante DiscSystem, offset/sector, seal/save/load en mismo y nuevo sandbox/proceso, ID/TOC/size/callbacknull rechazados sinmutacion, error y salida intacta. Extender harness existente sin nuevo formato de estado. Una compilacion guest -j2 coordinada despues del lote C3; no runtime nuevo ni matriz completa. Presupuesto350–400 lineas manuales para cambio atomico entre capas; si excede400 proponer particion antes de ampliar.",
+        "No cerrar Akiko cooperativo, maquina CD32, NVRAM persistente ni CDDA con esta prueba de transporte; el padre mantiene todos esos criterios y formatos. No alterar la preview empaquetada ni modificar MacHawk/references."
+      ],
+      "checks": [
+        "WB03",
+        "ABI01"
+      ],
+      "acceptance": [
+        "El guest Waterbox real lee CD inmutable del host por offsets acotados y restaura/rebinda en otro sandbox/proceso con identidad comprobada, sin copiar CD entero ni conservar punteros host."
+      ],
+      "stop": "No sustituir ejecucion Waterbox por nativo ni snapshot/rebind por prueba del callback aislado; no anunciar CD32 aun."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -14632,7 +14683,8 @@
         "T66b",
         "T66c",
         "T66d2",
-        "T66e2"
+        "T66e2",
+        "T66f1"
       ],
       "read": [
         "docs/01-architecture.md",
