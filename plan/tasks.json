@@ -12629,7 +12629,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T55a"
       ],
@@ -13755,7 +13755,7 @@
       "title": "Bundle WHDLoad determinista con RASystem y WHDSaves",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T30",
         "T64",
@@ -13787,7 +13787,8 @@
       "acceptance": [
         "El bundle es reproducible y ejecutable; Fatal Mission escribe FM1.hisc en WHDSaves y restaura sin modificar datos de juego."
       ],
-      "stop": "No distribuir Kickstarts; los aporta el usuario."
+      "stop": "No distribuir Kickstarts; los aporta el usuario.",
+      "blocked_reason": "Dos probes cortos sobre ZIPfdf4f8b: RMB en titulo vuelve a Shell sin SaveFile; programa DOS confirma S:WHDLoad.prefs y escritura en WHDSaves. Source/disassembly situa SaveFile en$aca de finpartida/tabla; RMB$706→$ada lo evita. Reproductores tests/whdload/test_bundle.py; hipotesis: alcanzar finpartida y confirmar tabla; si hook se alcanza sinFM1, revisar SavePath/VFS. No otro6000 sin ese trigger."
     },
     {
       "id": "T65b",
@@ -14195,11 +14196,15 @@
         "bridge/state_probe.cpp",
         "manifests/state-inventory.json",
         "tests/reference/patch-classes.json",
-        "tests/waterbox-state/**"
+        "tests/waterbox-state/**",
+        "bridge/caps.cpp",
+        "tests/contracts/**",
+        "tests/fuzz/**"
       ],
       "steps": [
         "Implementar el adaptador paralelo de cuatro jugadores con entrada versionada compatible con ABI v1, mapeo en ambos frontends, pelicula y snapshot/restauracion real.",
-        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical."
+        "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical.",
+        "Input ABI1/72B intacta; p6_input_v2 prefijo+dos puertos104B usa cabecera2/104, API/config/frame siguen1. Extras NONE/JOYSTICK unFire; capability explicita y validacion antes de leer cola; v1 desconecta paralelo."
       ],
       "checks": [
         "IN01",
@@ -14758,7 +14763,7 @@
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
@@ -14786,13 +14791,106 @@
       "stop": "Sin ROMs no autorizadas."
     },
     {
+      "milestone": "FUTURE",
+      "required": false,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "stop": "No cambiar el defecto ni saltar limites de p6_run_frame.",
+      "id": "T77a",
+      "title": "Niveles de colisiones con identidad y restauracion",
+      "status": "in_progress",
+      "depends": [
+        "T24"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "bridge/config.cpp",
+        "bridge/state.cpp",
+        "bridge/state_probe.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "adapters/headless/**",
+        "integration/bizhawk/**",
+        "tests/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "patches/winuae/**",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Consumir byte68 con 0=Auto/full3,1=None0,2=Sprites1,3=Sprites+Playfields2,4=Full3; conservar sizeof72 y hash default/aliasFull. Opciones de reinicio comunes a tres frontends.",
+        "Micro-ROM OCS/AGA verifica CLXDAT observable y restauracion por nivel; no cambiar goldens full3. Si aparece colision con none, reproducir antes de parche0348."
+      ],
+      "acceptance": [
+        "Los cuatro niveles observables son deterministas y restauran; default y Full conservan futuro e identidad actuales."
+      ]
+    },
+    {
+      "milestone": "FUTURE",
+      "required": false,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "stop": "No cambiar el defecto ni saltar limites de p6_run_frame.",
+      "id": "T77b",
+      "title": "Esperas de blitter compatibles con el limite de unidad",
+      "status": "in_progress",
+      "depends": [
+        "T24"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "bridge/config.cpp",
+        "bridge/state.cpp",
+        "bridge/state_probe.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "adapters/headless/**",
+        "integration/bizhawk/**",
+        "tests/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "patches/winuae/**",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/**",
+        "CMakeLists.txt"
+      ],
+      "steps": [
+        "No exponer waiting_blits activo hasta resolver su espera dentro de MMIO: producir caso real donde DMA supera una unidad y revisar decision de continuacion. Reservar byte69, sin cambiar defecto0.",
+        "No cortar el bucle adelantando escrituras: MOVEM y otras instrucciones con multiples accesos requieren la misma secuencia que upstream, snapshot nativo/Waterbox incluido. Implementar continuacion segura y luego opciones/frontends/tests."
+      ],
+      "acceptance": [
+        "waiting_blits mantiene su semantica de MMIO sin saltarse unidades ni avanzar CPU prematuramente; restaura en los modos soportados."
+      ]
+    },
+    {
       "id": "T77",
       "title": "Opciones de compatibilidad collision_level y waiting_blits (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
-        "T24"
+        "T24",
+        "T77a",
+        "T77b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -14806,7 +14904,8 @@
         "tests/**"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_collision_level; waiting_blits es un atajo de upstream para 020+. Opciones de reinicio apagadas por defecto."
+        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece puae_collision_level; waiting_blits es un atajo de upstream para 020+. Opciones de reinicio apagadas por defecto.",
+        "Colisiones enT77a y espera/continuacion enT77b: el padre conserva los checks y la aceptacion completa, sin cerrar la espera por pruebas de colisiones."
       ],
       "checks": [
         "DET02"
