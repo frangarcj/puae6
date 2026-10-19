@@ -973,3 +973,328 @@ la consulta, sin inventar leadout si queda fuera del disco. Play/pause/volume
 devuelven error `Unsupported`; el callback de play recibe `PLAY_ERROR`.
 El modulo aun no se selecciona en CMake: antes de sustituir la superficie CD
 desactivada quedan Akiko cooperativo, CDDA, estado y frontends de T66.
+
+T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
+`cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
+fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,
+SDA/SCL previos, salida del dispositivo, registro de desplazamiento, fase de
+direccion, direccion actual y comienzo de escritura pendiente. Tamano, mascaras
+y direccion de dispositivo se derivan de la geometria fija; no se guardan punteros.
+La carga valida todos los campos y el tipo de chip antes de modificar protocolo
+o contenido. Este endpoint no es un formato binario ni una ABI publica. El probe
+ASan/UBSan restaura en otro objeto entre cada transicion de pines y comprueba
+lectura, escritura y wrap de pagina/direccion. Integracion Akiko, reset que
+conserve NVRAM, SaveRAM y snapshots Waterbox siguen pendientes en T66.
+
+T66d1 aplica a la copia derivada fijada de DiscSystem el parche
+`0002-disc-blob-exact-reads`: los blobs BIN/WAV completan la peticion o lanzan
+`EndOfStreamException`. Los synthesizers que ignoran el contador ya no ocultan
+un EOF fisico inesperado. `Blob_ZeroPadAdapter` conserva el padding previsto
+segun la longitud declarada: solo pide al fichero los bytes existentes y rellena
+el resto. El blob puede haber escrito parte del destino antes de lanzar; el
+endpoint sectorial futuro debe usar staging. Esto no habilita CD32 ni acredita
+los codecs CHD o el arranque/restauracion del padre T66.
+
+T66d2 añade `Puae6DiscSource`, endpoint privado sobre un `Disc` prestado e
+inmutable del DiscSystem fijado. El llamante conserva su vida util y la de sus
+ficheros. Normaliza LBA0..leadout-1 en sectores2448:2352 datos y96 P-W
+deinterleaved (politica explicita); conserva los bytes de audio que entrega
+DiscSystem. INDEX00 se busca en Q, sin suponer150 sectores, y todas las pistas
+se exponen como almacenadas en esa fuente virtual, incluso los gaps sintetizados.
+Cada lectura por offset pide hasta2448B, con dos buffers fijos de2448B para sector
+y staging;2048 solo admite Mode1. Rango, error o vista no soportada dejan intacta
+la salida. SHA256 cubre TOC canonica, version de politica y todo el flujo2448,
+incluido SBI. Rebind calcula primero la identidad completa del candidato y solo
+cambia lector si coincide; no usa el hash parcial de512 sectores de BizHawk.
+La lectura es de un solo hilo, sin callbacks guest. ISO/CUE BIN/WAV PCM se prueban
+con parsers reales; CHD Darwin requiere aun una biblioteca ARM64 real fijada.
+
+T66f1 transporta esa fuente al guest mediante extension privada `p6w_cd.h`
+(descriptor version1/2432B), sin cambiar ABI1 ni layout31. Bind/rebind validan
+ID, longitud y TOC completos antes de publicar Source/Disc/callback; slot0 se
+registra antes de BizInvoker y permanece vivo en Puae6Guest. Solo se copian
+metadatos y lecturas de hasta2448B mediante CopyFromExternal al staging guest.
+Open registra el callback y comprueba layout sin bind. `Puae6Guest.Seal` sella
+primero una baseline CD vacia comun y despues realiza el bind inicial; Bind y
+Restore se rechazan antes de esa fase, sin consumir estado. Identidad/TOC/binding quedan dirty y forman parte
+del snapshot: no pueden sobrevivir desde una baseline distinta al cargar un
+estado sin CD. Los consumidores de CD deben usar este Seal, no Host.Seal directo.
+StateEnvelope rechaza identidad ajena antes del restore; despues se exige
+rebind identico y cualquier fallo impide leer hasta un restore completo.
+El descriptor es estado ordinario; los bindings se derivan de nuevo, sin
+punteros C# guardados. Esto no instala carga CD32 ni un scheduler Akiko.
+
+Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro por el controlador UAE (`uaehf.device` y la placa UAEFS, como
+PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256
+de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs (`P6_BLOB_HDF`, `p6_blob_pread`: lectura por offset de la base inmutable, sin cursor ni fichero del
+host) y el presupuesto de memoria es su tamaño (CAPACITY si no cabe). Una imagen que empieza por `RDSK` trae su RDB; cualquier otra es una particion (32 sectores, 1 cabeza, 2 bloques
+reservados, prioridad de arranque 0). Un HDF no es un disquete: ni `MOUNT` en una unidad, ni `p6_media_append`. La E/S es sincrona y sin retardo emulado: la peticion se sirve
+dentro de `BeginIO` (sin hilo por unidad) y el invitado ve la respuesta en la siguiente INT2 (cola EXTER de `native2amiga`, sin hilos); `HD_SCSICMD` responde `IOERR_NOCMD` (no se compila
+`scsi.cpp`), y se rechazan los volumenes del host en vivo (directorios, archivos, CD, cinta) y cualquier controlador distinto del UAE; un directorio, un LHA o un ZIP entran como una imagen construida por el adaptador ("Volumenes (T64a)").
+Kickstart 1.3 o posterior (version 34+): con una anterior `p6_load` responde UNSUPPORTED. La placa UAEFS y la ROM de arranque UAE ($F00000) existen SOLO si hay un HDF: sin el, la maquina,
+sus digests y sus hashes son los de antes. RDB y particiones se validan sin reservar tamaños leidos del disco (tamaño de bloque del RDB: potencia de dos entre 256 y 8192; cadena de
+FSHD acotada a 1024; sin VHD ni CHD). Con un HDF montado el estado nativo existe desde T29c (parrafo siguiente; T29a y T29b respondian UNSUPPORTED). Cierre de T29 (T29d): `P6_CAP_MEDIA_HDF` (bit 6) en `p6_query_caps` anuncia `P6_MEDIA_HDF`, su overlay de escritura, la exportacion y el estado; `p6_headless` acepta `--hdf IMAGEN` (repetible) y `--export-hdf FICHERO`; el guest Waterbox recibe los HDF por `p6w_init` sin copiarlos al heap sellado; el fuzzer de discos duros (`FUZZ01`, parche 0190) muta RDSK, PART, FSHD y LSEG.
+
+Escritura de HDF (T29b, sin parches del motor: todo en `ports/portable`): un HDF es siempre escribible. La base registrada es inmutable (ni el buffer del llamante ni la copia del almacen de blobs cambian
+jamas); una escritura del invitado copia el trozo de 4 KiB (`P6_HDF_CHUNK`, el `HARDDISK_CHUNK` de MacHawk) a un overlay la primera vez que lo toca, lo marca en un bitmap de sucios y escribe ahi; toda lectura
+ve el overlay sobre la base. La memoria del overlay (el tamaño de la imagen mas su bitmap) se reserva al registrar el medio en `p6_load`, asi que una escritura no asigna ni puede fallar por falta de sitio
+(presupuesto como MacHawk: tamaño del fichero, ahora dos veces: base y sitio para el overlay). `p6_media_export` de un indice de HDF copia la imagen tal como esta ahora (la base con el overlay encima) a un
+buffer de al menos su tamaño (CAPACITY sin escribir nada si es menor) y `p6_media_write_status_get` cuenta en trozos (`overlay_capacity` = trozos de la imagen, `overlay_used` = `medium_sectors` = trozos
+escritos, `refused_writes` = `raw_tracks` = 0). Nada sale del proceso solo: ni flush ni fichero; la exportacion duradera es del llamante. `CMD_WRITE`, `CMD_FORMAT` y sus versiones TD64/NSD escriben; una escritura
+fuera de la imagen es `IOERR_BADLENGTH` y no almacena nada. El overlay es estado desde T29c (parrafo siguiente).
+
+Estado de un HDF (T29c, parches 0180-0182, `bridge/state_hdf.cpp`): con un HDF montado el chunk P6DK lleva, despues de los cuerpos del motor y antes del overlay de los disquetes, una seccion que NO existe sin HDF (un estado sin
+HDF no cambia ni de bytes). Lleva el controlador UAE como valores y bytes del invitado, jamas punteros ni rutas del host (el `save_filesys` de upstream guarda rutas y reconstruye las unidades montandolas): el numero de HDF y el
+content id de cada base, los globales de `filesys.cpp` (incluido el avance de la interrupcion EXTER en curso y si retiene su semaforo), por unidad los campos que el arranque y el invitado escribieron en `UnitInfo` (placa de
+dispositivo, `startup`, nodo, paquete de parametros, particiones del RDB, el gestor de ficheros que trajo el RDB como bytes en `rdb_filesysstore`, hasta 262144), el `hardfpd[]` de `uaehf.device` (peticiones sin terminar con sus
+48 bytes de IORequest), los 64 KiB de la zona de traps ($F00000) con sus cursores y la linea de peticion de EXTER (`uae_int_requested`), la placa UAEFS (base, si tiene memoria, si responde, 64 KiB), la cadena autoconfig cuando
+no hay Fast RAM (con ella la lleva P6RM; con HDF la cadena tiene dos tarjetas mas: la placa UAEFS y la ROM de arranque UAE), la cola EXTER (los mensajes en orden; uno con puntero del host no se guarda) y, por HDF, el overlay:
+los trozos de 4 KiB sucios (indice ascendente y bytes), NUNCA la base. Cargar un estado SUSTITUYE el overlay entero. La identidad de la base (content id) se comprueba antes de tocar la maquina: un estado tomado con otro HDF
+(aunque del mismo tamaño), sin HDF, o con un HDF y un disquete donde esta imagen tiene el disquete y el HDF, es INCOMPATIBLE (`media_manifest_hash`, y el content id del cuerpo contra el registrado si alguien lo forja con
+checksums validos); un cuerpo fuera de lo que la maquina puede tener es CORRUPT_STATE y no toca nada. Un HDF no es un anexo del manifiesto (esta desde `p6_load`), asi que un prefijo del manifiesto que no lo contenga no es
+un estado de esta imagen. `p6_state_bound` cuenta cada trozo de cada HDF como escrito (el tamaño de la imagen mas 4 bytes por trozo, mas hasta 256 KiB de gestor de ficheros por HDF y los 64 KiB + 64 KiB de zona de traps y placa):
+es una cota que no cambia hasta `p6_unload` (contrato de STATE01), asi que crece con el tamaño del HDF aunque el estado real solo lleve los trozos sucios; un estado de un HDF de 4 MiB con tres trozos sucios ocupa lo que la
+maquina (unos 1,3 MB), no 4 MiB. Quien reserve el buffer por la cota con HDF grandes paga el tamaño de la imagen; la memoria del overlay ya se reserva entera en `p6_load` (T29b) y el coste en Waterbox se mide en T29d.
+
+Libretro (T63a, `adapters/libretro/hdf.h`, `libretro_core.cpp`): un `.hdf` (o un `.hdz`, gzip de un HDF) como contenido o como entrada de una playlist `.m3u` se registra en `p6_load` como `P6_MEDIA_HDF`
+(requiere `P6_CAP_MEDIA_HDF`; si no, el load falla con mensaje). Los discos duros van DESPUES de todos los disquetes del manifiesto, en el orden en que la playlist los nombra (DH0, DH1... hasta `P6_MAX_HDF` = 4), y se montan
+todos a la vez desde el arranque; Disk Control no los lista (la bandeja sigue siendo solo de disquetes, con los mismos indices con o sin discos duros) y una playlist puede mezclar disquetes y discos duros en cualquier
+orden. Un HDF no es un disquete: no se inserta, no se expulsa y `add_image_index`/`replace_image_index` solo admiten disquetes. Cotas, siempre aplicadas antes de reservar nada y nunca con el tamaño que el fichero dice
+tener: un HDF (o un HDZ ya decodificado) como mucho `kMaxHdfBytes` = 128 MiB y todos los de una carga juntos 128 MiB (el puente guarda la imagen tres veces: el buffer del core, la base registrada y el sitio del overlay,
+y la cota de estado `p6_state_bound`, y con ella `retro_serialize_size`, crece con el tamaño de la imagen: ver Estado de un HDF); un `.hdz` ha de ser gzip de un miembro que acaba el fichero (CRC y tamaño comprobados) o un ZIP con exactamente un `.hdf` (los demas miembros se ignoran; varios piden una playlist) y
+una bomba se detiene en la cota (`container.h` `gunzip` con limite); la imagen es un multiplo de 512 bytes de al menos un bloque (si no, el load falla nombrando el fichero y el tamaño); dos HDF con los mismos bytes no
+se montan dos veces (mensaje) y mas de cuatro tampoco. Un fichero cuyo nombre es `.hdf` es la imagen tal cual aunque empiece como un gzip (la identidad de un medio son sus bytes). Geometria: el motor decide
+(T29a): una imagen que empieza por `RDSK` trae su RDB y sus particiones; cualquier otra es UNA particion de 32 sectores, 1 cabeza, 2 bloques reservados y prioridad de arranque 0; el core solo lo registra en el log
+(`hard disk DH0 (ruta): N blocks with a Rigid Disk Block` / `one partition`). PUAE5 estimaba 16 superficies para imagenes de 1 GiB o mas; con la cota de 128 MiB no hace falta. Los cambios del invitado: el HDF es
+siempre escribible, el fichero NUNCA se toca y las escrituras (trozos de 4 KiB) son estado de la maquina, asi que los estados, el rewind y el runahead las llevan y las devuelven. Salen de la maquina solo si el
+contenido se cierra (`retro_unload_game`/`retro_deinit`, jamas durante un run, una carga de estado, un rewind o un runahead) y `puae6_hdf_save` = `on_close` (por defecto `off`: se avisa de cuantos discos duros
+cambiaron y se descartan): `p6_media_write_status_get` dice si el invitado escribio algun trozo (un disco intacto no se exporta), `p6_media_export` copia la imagen (base con overlay) y, si difiere de los bytes con los
+que se cargo, se escribe en el save directory como `puae6-<24 hex del SHA-256 del HDF tal como lo dio su fichero>.hdf` por un fichero temporal vecino, flush/fsync y rename (siempre queda el disco viejo o el nuevo; un fallo
+se avisa y deja el viejo). Con `on_close` la carga siguiente del mismo fichero usa esa copia (su SHA-256 es su identidad: un estado guardado con otra copia no carga); una copia de otro tamaño se avisa y se usa el original.
+Un estado libretro (marco `P6LRSTAT`) lleva el HDF a traves del estado nativo (controlador UAE y trozos sucios, nunca la base); la identidad de la base se comprueba antes de tocar la maquina, asi que un estado de otro
+disco, o sin disco, se rechaza. Con Kickstart real (opt-in, nunca copiado) KS 1.3 monta la particion del RDB tambien desde una playlist con un disquete, y KS 3.1 (A1200) valida el volumen y el core lo guarda al cerrar.
+No hecho (deliberadamente): disco de arranque vacio (`puae6_boot_hd` de PUAE5). Una particion sin sistema de ficheros pide formatearla desde el invitado, la cota de 128 MiB no cubre sus opciones de hasta 512 MB, y
+necesitaria crear ficheros en el save directory fuera de la exportacion explicita: queda como subtarea de T63 (junto a WHDLoad, T30). BizHawk/Waterbox monta los discos como MacHawk en T63b.
+
+ADF extendido y FDI en el nucleo BizHawk/Waterbox (T57): sin cambios en `p6.h` ni en `p6w.h`; el cargador de EmuHawk entrega tambien los ficheros `.fdi` como disco (el ADF extendido es un `.adf`), el
+constructor del nucleo solo acota su tamaño (3 MiB como mucho si no son un ADF de 901120 bytes) y el guest, con el mismo `classify_floppy`, dice por que rechaza uno (`ArgumentException` con el motivo al crear el
+nucleo). Son medios de solo lectura aun con `FloppyWrites`: `ISaveRam` no los incluye (un `.SaveRAM` que nombra sectores suyos es `BadFields`), y la identidad de estados y peliculas es el SHA-256 de los bytes que
+se dieron al nucleo, como siempre. Un snapshot del sandbox a mitad de una vuelta de un FDI con pulsos debiles vuelve en el mismo sandbox y en otro, y las unidades siguientes son las mismas
+(`tests/waterbox-media/test_media_trackdisk.py`, WB03). El guest cambia con los parches 0330 a 0335: `manifests/waterbox-memory.json` se registra de nuevo con la receta de `docs/03-waterbox.md` (las 16 claves,
+`runtime_sha256` como estaba). EmuHawk no se ha ejecutado aqui (el constructor se prueba por compilacion en net8 y net48 y por el arnes de `tests/ffi`).
+
+HDF en el nucleo BizHawk/Waterbox (T63b, `integration/bizhawk/core/Puae6`, `tests/waterbox-media/test_media_hdf.py`): sin cambios en `p6.h`, `p6w.h` ni en el motor (no hay bit de capacidad ni parche nuevos). El cargador da
+al nucleo los ficheros `.hdf` junto a los `.adf` (`Puae6Parameters.HardFiles`; el constructor de EmuHawk reparte `lp.Roms` por extension), hasta `P6_MAX_HDF` = 4, multiplos de 512 bytes y sin dos copias de una imagen
+(`ArgumentException` con el motivo al crear el nucleo). Se montan en `p6w_init` tras los disquetes (el medio p6 de un HDF es `MediaCount + n`, el que usan `p6w_media_export` y `p6w_media_write_status`), siempre
+escribibles y sin `FloppyWrites`. El mmap heap del sandbox crece `2 x HardFileHeapKiB` de cada imagen (`Puae6Core.HardFileHeapKiB`, la misma regla que el smoke y que `manifests/waterbox-memory.json`; el heap sellado no
+crece). La identidad de estados y peliculas añade, solo si hay HDF, el numero de HDF y el SHA-256 de cada imagen tal como se dio al nucleo (el hash de medios de un nucleo sin HDF es el de siempre), asi que otro HDF
+(aunque del mismo tamaño), ninguno o dos se rechazan antes de tocar el sandbox (`OtherMedia`, o `OtherHeaps` si el heap difiere); lo que el invitado escribio es el overlay del sandbox y viaja en el snapshot.
+`ISaveRam` existe cuando hay algo escribible (disquetes con `FloppyWrites` o algun HDF). Una SaveRam con HDF es la version 2 de `P6SR` (la de solo disquetes sigue siendo la version 1, byte a byte la de T28):
+`"P6SR" | u32 2 | u32 disquetes | (disquetes como en la version 1) | u32 discos duros (1..4)` y por cada uno `u32 indice | 32 bytes content id de la base | u64 bytes de la imagen | u32 4096 | u32 trozos | (u32 trozo |
+bytes del trozo)*` en orden creciente (el ultimo trozo de una imagen que no es multiplo de 4096 es corto) y el SHA-256 de todo lo anterior. Es el formato disperso de MacHawk (`UAE.ISaveRam.cs`: trozos de 4 KiB sucios)
+con la identidad de la base añadida y SOLO los trozos cuyos bytes difieren de la imagen (un trozo escrito con los mismos bytes no esta; el nucleo exporta la imagen con `p6_media_export` y la compara con su base,
+asi que `CloneSaveRam`/`SaveRamModified` cuestan el tamaño de la imagen cuando hay escrituras, y nada si el overlay esta vacio). `StoreSaveRam`, solo antes de la primera unidad, reconstruye el guest con la base y los
+trozos encima (como para los disquetes: el overlay del guest empieza vacio y el hash de lo guardado entra en la identidad); una SaveRam de otra imagen (`OtherMedia`), cortada (`BadLength`), danada (`Corrupt`), de un
+nucleo con otros medios (`BadFields`), a un nucleo sin nada escribible (`WritesDisabled`) o despues de la primera unidad (`TooLate`) se rechaza sin cambiar nada. EmuHawk la carga entera por el parche
+`0001-register-puae6.patch` (T28b); el menu "Export Hard Disk" de MacHawk no se porta (el API es `GetHardDiskContents`, `GetHardDiskName`, `HasHardDisk`).
+
+Cierre de T63 (HDF con Workbench, opt-in con `P6_KICKSTART_A600_ZIP` + `P6_WB205_ZIP`, sin cambios de produccion): los bytes del ADF de Workbench 2.05 (901120 = 1760 bloques = 55 cilindros de 32, `DOS\0`,
+bloque raiz 880) SON una particion plana valida (T29a: 32 sectores, 1 cabeza, 2 reservados, DosType = primer long del bloque 0), asi que "el HDF con Workbench" es el ADF leido en memoria del zip del usuario y dado
+como `P6_MEDIA_HDF` sin disquete: el A600 con Kickstart 2.05 arranca desde DH0 (unidad ~510) a la misma ultima imagen, pixel por pixel, que el mismo disco desde DF0 (unidad ~2370), en el motor nativo
+(`tests/hdf/test_workbench_hdf.py`), en libretro (`WorkbenchHardFileTests` de `tests/libretro-host/test_hdf.py`) y en el nucleo BizHawk dentro de Waterbox (`WorkbenchHardFileTests` de
+`tests/waterbox-media/test_media_hdf.py`, WB03); DET02 lo cubre con estados dentro del arranque, de la carga que sigue a responder el script del disco y con overlay real (`tests/state/test_det02_hdf.py`). WB 2.05 no escribe
+al arrancar; las escrituras de las pruebas salen de una copia derivada en memoria con el flag de bitmap valido del bloque raiz a 0: el sistema de ficheros valida el volumen entre las unidades 170 y 190
+y reescribe los bloques 880 y 881 (un trozo de 4 KiB, el 110), que salen solo por la exportacion explicita (`puae6_hdf_save=on_close`, atomica, y la SaveRAM P6SR v2 en BizHawk) y vuelven con estados, rewind,
+run-ahead y SaveRAM. Limite conocido, ajeno a los HDF (T63): el A600 con Kickstart 2.05 no repone exactamente desde un estado tomado cerca de las unidades 95-125 (DET02 en la 120; run-ahead
+desde el run 0 de libretro), con o sin disco; el A500 con Kickstart 1.3 si.
+
+Archivos de discos (T59, `adapters/libretro/{archive,sevenzip}.h`, `tests/libretro-host/test_archives.py`, FUZZ01 `archive`; sin parches del motor ni ABI nueva): un `.zip`, un `.7z` o un `.rp9` con VARIOS disquetes es un
+conjunto, leido en memoria como cualquier contenedor (sin directorio temporal ni escritura; el archivo no se conserva) y expandido en su sitio en la playlist: es lo que hace PUAE5 (descomprime, ordena los discos y escribe un M3U) sin el directorio ni el
+fichero. La identidad de cada medio sigue siendo el SHA-256 de su ADF (ADR 0008), de modo que el mismo conjunto desde un ZIP, un 7z, un RP9 o una playlist de ADF sueltos son los mismos medios en el mismo orden, el mismo futuro y estados que cargan entre
+si (`test_archives.py`). Reglas: (1) un disco es un miembro `.adf`, `.adz`, `.dms`, `.fdi` o `.ipf`; un miembro en un formato que el core rechaza (`.ctr`...) o un `.7z` anidado rechaza todo el archivo nombrandolo (un conjunto al que
+falta un disco en silencio es peor que ninguno); lo demas (lecturas, capturas, carpetas, basura de macOS) se ignora y el registro dice cuantos. (2) El orden es el de PUAE5 (`qsort` con `sensible_strcmp`, libretro-glue.c) hecho total: los nombres con
+"(Program" van primero (No-Intro marca asi el disco de programa; PUAE5 lo hace con una comparacion incoherente que depende de `qsort`), despues byte a byte con el espacio contando como `/` (asi `Turrican.adf` < `Turrican II.adf` < `Turrican III.adf`, que
+el orden de bytes pone al reves), despues bytes, despues la posicion; el orden del propio archivo nunca cuenta, y los miembros en carpetas participan con su ruta completa. (3) `fichero.zip#miembro.adf` (tambien `.7z` y `.rp9`, y como entrada de un M3U) es
+ese miembro solo: la forma en que RetroArch nombra un fichero de un archivo; el nombre es la ruta del miembro o su nombre de fichero si es unico; el ultimo `#` cuenta y solo tras una extension de archivo. (4) RP9 (el paquete de RetroPlatform de Cloanto: un ZIP con
+`rp9-manifest.xml`; un ZIP con ese manifiesto se lee como RP9 sea cual sea su extension): la seccion `<media>` de `<application>` lista los `<floppy>` del paquete y su atributo `priority` da el orden (el del documento si falta o empata); es la playlist. Un
+`<floppy root="shared">` esta en la carpeta compartida del reproductor, no en el paquete, y se ignora con aviso; un floppy que el manifiesto nombra y el paquete no trae, o con una ruta insegura, rechaza el paquete. El resto del manifiesto (maquina, memoria, Kickstart,
+perifericos, discos duros, CD, cintas, snapshots, arranque) NO se lee y el registro lo dice: la maquina se elige con `puae6_machine`. El formato del manifiesto se reconstruyo de la documentacion publica de Cloanto (kb 15-122/19-109, sin esquema ni ejemplos de `<media>`) y
+del lector de Amiberry (BlitterStudio/amiberry, `rp9_manifest.cpp`, solo para saber que elementos y atributos existen); no se probo con un paquete real de Cloanto, solo con los sinteticos de `tests/libretro-host/archives.py`. (5) Un 7z se lee con un lector propio (`sevenzip.h`, ver abajo); es solo de discos: un 7z de ficheros se rechaza
+(un volumen viene de un ZIP o un LHA); un archivo con discos y un `.hdf` es un conjunto de discos y el `.hdf` se ignora; un `.zip` sin discos es un volumen (T64a) y un disco duro dentro de un ZIP es un `.hdz` (T63a): la regla no deja ningun archivo ambiguo. (6) Cotas, antes de
+reservar nada: 4096 entradas, 16 discos (`P6_MAX_MEDIA`: tambien para el total de imagenes de una playlist, porque un estado lleva la lista de la bandeja), un miembro de 2 MiB (un fichero de disco), 64 MiB de archivo, 32 MiB de datos desempaquetados de un 7z (la suma de lo que
+declaran sus carpetas, comprobada antes de decodificar nada), un manifiesto de 256 KiB y 64 niveles de elementos; un archivo hostil es un mensaje, nunca una reserva grande. Disk Control (`replace_image_index`) acepta un archivo de UN disco o un `fichero#miembro`; uno de varios se rechaza
+diciendolo (se anade de uno en uno). El lector de 7z (`sevenzip.h`, escrito aqui y no el SDK de LZMA de Igor Pavlov, que seria un tercero de ~6000 lineas de C con otro sistema de compilacion; el SDK es dominio publico y `references/machawk-uae/deps/7zip` lo tiene, pero la
+parte que hace falta es pequena) lee la cabecera de firma con sus dos CRC, cabeceras planas y comprimidas con LZMA (incluso anidadas), carpetas solidas y no solidas, ficheros vacios y carpetas, con los metodos Copy, LZMA y LZMA2; los filtros (BCJ, Delta, ARM...), BCJ2, PPMd, BZip2 y AES se
+rechazan nombrando el metodo. El diccionario es el propio buffer de salida (el tamano de diccionario que pide el archivo no cuesta nada) y una distancia es valida si no llega antes del inicio de los datos (o del ultimo reinicio de diccionario de LZMA2). Se comprobo contra el LZMA de liblzma (el
+codificador de Python, por un escritor de 7z en Python puro) y contra 7-Zip real (p7zip 17.05) (LZMA, LZMA2 multihilo, `lc`/`lp`/`pb` extremos, sin cabecera comprimida, no solido, Copy). BizHawk/Waterbox: sin cambios (`integration/bizhawk`): el cargador de BizHawk (HawkFile) ya abre `.zip` y
+`.7z` y da al nucleo el miembro elegido (`archivo.zip|miembro` en su sintaxis), asi que cada disco llega como un fichero propio; el conjunto ordenado, la playlist en memoria y el `.rp9` son de libretro (en EmuHawk no se ejecutaron aqui).
+Volumenes (T64a, `adapters/libretro/{ffs_volume,lha,volume}.h`, `docs/adr/0011-volumes-from-the-host.md`; sin parches del motor ni ABI nueva): un directorio, un `.lha`/`.lzh` o un `.zip` de ficheros como contenido
+(o como entrada de un M3U) se lee UNA vez, al cargar, y se convierte en una particion plana FFS en memoria (la forma de un HDF sin RDB) que el nucleo registra como un `.hdf` (`P6_MEDIA_HDF`, DH0, DH1...
+tras los disquetes, fuera de Disk Control). El host nunca se monta ni se vuelve a leer: lo que entra en la maquina es esa imagen, con content id = SHA-256 de sus bytes, y estados, rewind, run-ahead, overlay de
+escrituras, exportacion (`puae6_hdf_save=on_close`) y Waterbox son los de cualquier HDF. La eleccion frente a un volumen de archivo de UAE como el de MacHawk (filesys/zfile en memoria) y por que esta es la de
+menor superficie estan en el ADR 0011. Determinismo (identidad = contenido): la imagen depende solo de los nombres (ISO 8859-1) y los bytes de los ficheros y de los directorios vacios; no de la ruta, del nombre
+del directorio o del archivo, de fechas, permisos, usuario, orden de `readdir` ni orden de los miembros. Hijos y bloques en orden de bytes del nombre; todas las fechas 1990-01-01 00:00:00; el volumen se llama
+`PUAE6`; proteccion 0; DOS\1 (FFS), DOS\3 si un nombre tiene un byte mayor que 127; 1 MiB libre para el invitado. El mismo arbol desde un directorio, un LHA y un ZIP es el mismo medio y un estado tomado con uno
+carga con otro. Fuentes: un directorio por el VFS de libretro version 3 (`stat` y las llamadas de directorio; version 1 o sin VFS, la biblioteca C), sin `.DS_Store`, `._*` ni `__MACOSX`, con un enlace simbolico
+tratado como lo que apunta; un LHA con cabeceras de nivel 0, 1 y 2 y metodos `-lh0-`, `-lh5-`, `-lh6-`, `-lh7-` y `-lhd-` (`lha.h`, port de `tools/whdload/lha.py`, CRC-16 de cada miembro); un ZIP almacenado o
+deflate (todos sus miembros por `container.h`; un `.zip` con un `.adf`/`.adz`/`.dms` sigue siendo un disco). El escritor es un port de `tools/whdload/ffs.py` y es su oraculo: `tests/hdf/test_volume.py` compara los
+bytes. Cotas aplicadas antes de reservar y nunca con un tamaño que la fuente declara: 4096 entradas, 48 MiB de ficheros (25 paginas de bitmap en la raiz, ~49 MiB; la cadena de extension no se escribe), 64 MiB el
+archivo, 64 niveles, nombres de 30 bytes. Es un error con mensaje, y la carga falla, un nombre fuera de ISO 8859-1, `:` o `/` en un nombre, dos nombres que solo difieren en mayusculas, un fichero que tambien es
+directorio, un miembro repetido, un LHA con CRC o metodo que no se lee, un nombre de ZIP o LHA que sale del volumen (`..`, absoluto, vacio) o un arbol que no cabe. Limites: Kickstart 1.3 o anterior no arranca estos
+volumenes (la ROM no trae FFS y no se escribe OFS); el contenido decide que arranca (un volumen sin `S:Startup-Sequence` no arranca solo: la UX de WHDLoad es T65); el volumen es de solo lectura para el HOST (la fuente
+no se toca jamas) y escribible para el invitado como cualquier HDF. Pruebas: `tests/hdf/test_volume.py` (el escritor y el lector contra el oraculo, ASan/UBSan), `tests/libretro-host/test_volume.py` (LR01/MED02/MED03/DET02:
+directorio, LHA y ZIP en el nucleo con el VFS 3, con el 1 y sin VFS; la micro-ROM lee y escribe bloques; estados entre procesos y entre fuentes; Fatal Mission con WHDLoad arranca desde un directorio y desde un LHA con el
+Kickstart 3.1 del usuario, opt-in), `FUZZ01` (`volume` de `tests/fuzz`). Un LHA no puede nombrar un fichero con el byte 0xFF (es el separador de ruta de sus cabeceras).
+
+Volumenes en el nucleo BizHawk/Waterbox (T64b, `integration/bizhawk/core/Puae6/Volumes.cs`, `tests/waterbox-media/test_media_volume.py`): sin cambios en `p6.h`, `p6w.h` ni en el motor (el guest no cambia). `Puae6Parameters.Volumes` lleva LHA y ZIP de ficheros (EmuHawk: un `.lha`, un `.lzh` o un `.zip` sin disco que el cargador da como ROM; un directorio no es un fichero ROM del cargador de BizHawk y no se ofrece; el cargador de BizHawk abre un `.zip` y da al nucleo sus miembros, salvo el de MacHawk, que da entero el que trae un `.slave`, `LoadWhdLoadArchive`; EmuHawk no se ha ejecutado aqui: el constructor se prueba por compilacion en net8 y net48 y por el arnes de `tests/ffi`); el constructor del nucleo los convierte con `Puae6Volumes` (el mismo algoritmo que `volume.h`, `ffs_volume.h` y `lha.h`, con las mismas cotas, y el ZIP con su propio lector de directorio central: ninguna ruta del host, ningun orden ni fecha del archivo entra) en discos duros que se montan como `Puae6Parameters.HardFiles`, tras ellos y con el mismo tope de `P6_MAX_HDF` = 4 y sin dos copias de una imagen. Un archivo que no es un volumen hace fallar la creacion del nucleo con el motivo (`ArgumentException`, nombra el volumen). La identidad de estados y peliculas es la del HDF (el SHA-256 de la imagen que se dio al nucleo): el mismo contenido desde un LHA y desde un ZIP es un medio, y un estado tomado con uno carga con el otro. Los bytes son los de libretro y los del oraculo (`tools/whdload/ffs.py` y `lha.py`): el arnes `Ffi.dll volume` los escribe y `test_media_volume.py` los compara en archivos sinteticos de todos los niveles de cabecera y metodos y en arboles aleatorios. Escrituras, SaveRAM P6SR v2, exportacion, estados, peliculas y rewind son los de cualquier HDF (T63b). Con el Kickstart 3.1 del usuario (opt-in) Fatal Mission con WHDLoad arranca desde un LHA dentro de Waterbox, escribe `boot.log` y `exit.log` en el volumen y vuelve desde un estado, en el mismo sandbox y en otro proceso.
+
+## Regiones de memoria
+
+Implementado (T20a): `p6_memory_regions` (capacidad `P6_CAP_MEMORY_REGIONS`) devuelve vistas de la memoria que el motor asigno, no copias: Chip RAM,
+Slow RAM y la ROM con su tamano real (el perfil A500 no tiene Fast RAM y una RAM que la maquina no tiene no se informa), con los bytes en el orden
+del 68000 (big endian) y el offset n de una region es el byte n de esa memoria. Solo la RAM lleva `P6_REGION_WRITABLE`. Una escritura del host es una
+accion externa que la maquina no hizo: quien graba una pelicula la trata como entrada. Los punteros valen hasta la siguiente llamada que cambie la
+maquina (una unidad, un reset, un unload); el motor libera y reasigna su RAM en `memory_reset`, asi que un puntero guardado puede quedar colgando.
+Solo se pide en LOADED (BAD_STATE si no), `count` es obligatorio y con `regions` nulo y capacidad cero devuelve el numero necesario; una capacidad
+insuficiente devuelve CAPACITY con el numero necesario y sin salida parcial.
+
+El tamano de la Slow RAM es el que la CPU alcanza, no el asignado (T75a): el motor asigna 2 MiB (potencia de dos) para las opciones de 1,5 y 1,75 MiB, pero solo mapea
+`currprefs.bogomem.size` en `$C00000`, asi que `p6_memory_regions` informa 1536 o 1792 KiB y la cola asignada no se ofrece. Los adaptadores (el mapa de libretro y el dominio `Slow RAM`
+de BizHawk, y cualquier otro cliente) ven el mismo tamano que la CPU para cada opcion; el adaptador libretro ya no recorta nada. La memoria asignada y el estado no cambian.
+
+El guest de Waterbox las ofrece al wrapper como `p6w_memory_areas` (adapters/waterbox/p6w.h): la estructura es la de `LibWaterboxCore.MemoryArea` de
+BizHawk y cada area es una funcion de acceso que se ejecuta dentro del sandbox y resuelve el puntero del motor en cada llamada. Es necesario por
+dos razones medidas: una escritura managed en una pagina que el seguimiento de paginas sucias aun protege es un `AccessViolationException` fatal
+(T19c2), y justo despues del seal ninguna pagina de la maquina ha sido escrita. Lo fuera de rango, una escritura en la ROM o un acceso sin maquina
+no hacen nada (una lectura da ceros) y los cuenta `p6w_memory_refused`.
+
+## Estados nativos (libretro/headless)
+
+Reutilizar el serializador semantico upstream donde sea valido, por I/O en memoria,
+añadiendo un envelope y extensiones para bridge/inputs/medios/filtros que falten.
+No guardar el heap de un proceso nativo mediante memcpy; punteros/ASLR/padding lo
+hacen distinto de Waterbox. No prometer compatibilidad .uss completa sin una tarea.
+
+Cabecera propuesta: magic, format_version, core_build_id, upstream_sha,
+patchset_hash, codegen_hash, profile_id, config_hash, media_manifest_hash,
+payload_length y checksum. Codificar endian/tamanos y validar overflow antes de
+asignar. El build ID incluye todo cambio que pueda modificar la semantica.
+
+Inventario minimo: CPU/prefetch/cache permitida, scheduler y eventos, chipsets,
+CIA/timers/RTC, RAM/mapas, discos/overlay, input y latched keys, audio/fases,
+video/historia necesaria, bridge y control del bucle. Los recursos host se vuelven
+a enlazar, no se guardan sus direcciones. Las caches derivadas solo se omiten con
+reconstruccion determinista probada.
+
+Estado valido unicamente en el boundary definido y sin callback activo.
+state_load primero valida cabecera, identidad y limites; si falla, no deja la
+maquina medio restaurada. El payload se valida estructuralmente antes del commit
+o se usa rollback a un estado anterior. Una corrupcion tardia tambien se prueba.
+
+retro_serialize_size anuncia al terminar load un bound que no crece hasta unload.
+Reservar maximo de perfil/medios/overlay, no medir solo el estado actual. Si la
+feature todavia no es correcta, devolver 0 y no declarar rewind. No se escriben
+bytes fuera de capacidad.
+
+Estados libretro (T18). El core enlaza `p6_state` y solo ofrece estados si `p6_query_caps`
+anuncia `P6_CAP_STATE`; si no, el tamaño es 0. `p6_state_load` exige la longitud exacta que
+escribio `p6_state_save` y libretro entrega blobs de `serialize_size` (rewind, runahead) o
+del tamaño de un fichero, asi que el adaptador enmarca el estado nativo, sin adivinar:
+`[cabecera de 64 bytes][seccion del adaptador][estado nativo][ceros hasta serialize_size]`.
+La cabecera (little-endian) lleva el magic `P6LRSTAT`, la version del marco (1), las longitudes
+exactas de la seccion y del estado nativo y el SHA-256 de la seccion. `serialize_size` =
+cabecera + cota de la seccion + `p6_state_bound`, calculado una vez tras la carga; la cota de la
+seccion es fija (cola de audio acotada, hasta 16 imagenes, y la ultima imagen solo si el
+frontend no puede repetir cuadros). `retro_serialize` exige un buffer de al menos ese tamaño,
+escribe exactamente `serialize_size` bytes (rellena con ceros el espacio que el estado nativo no
+usa y no toca lo que haya mas alla) y devuelve false, sin tocar la maquina, antes de la primera
+unidad (no hay maquina que describir). `retro_unserialize` valida todo antes de tocar nada:
+magic, version, longitudes sin desbordamiento contra el tamaño recibido, checksum de la seccion,
+seccion decodificada y encajada en esta carga (la lista de imagenes de la bandeja debe ser la
+misma) y todos los bytes tras el estado nativo EN CERO; despues pasa exactamente su longitud a
+`p6_state_load`, que valida identidad, firmware, configuracion y manifiesto de medios, y solo
+cuando la maquina lo ha aceptado se aplica la parte del adaptador. Un blob mas corto que
+`serialize_size` es valido si lo que falta eran ceros de relleno (un fichero sin relleno carga);
+uno mas largo es valido si lo añadido es cero; basura en el relleno, un corte dentro del estado,
+una cabecera o seccion alteradas o un estado de otra configuracion, firmware o medios se
+rechazan con false y dejan la maquina bit a bit como estaba.
+
+La seccion del adaptador lleva lo que el adaptador guarda entre dos runs y el frontend aun no ha
+visto: la bandeja de discos (seleccion, bandeja abierta, peticiones registradas y no aplicadas, el
+medio que tiene la unidad, contador de eventos de medios), el audio que el frontend no ha tomado y
+la geometria (y los pixeles, solo sin GET_CAN_DUPE) del ultimo cuadro. Un load los sustituye por
+los del instante guardado: una rama de rewind o runahead no deja ni peticiones de disco, ni audio
+pendiente, ni entrada de su futuro abandonado. La entrada no se guarda: el adaptador la lee de nuevo
+en cada `retro_run` y su memoria de flancos esta en el estado nativo. La geometria ya anunciada es
+conocimiento del frontend y no se toca. Un estado de un frontend de otro tipo (con o sin
+GET_CAN_DUPE) carga igual: la imagen se descarta o no se pide.
+
+Quirks: el core anuncia `ENDIAN_DEPENDENT` y `PLATFORM_DEPENDENT` (el estado es de este build,
+firmware, configuracion y medios, como dice la compatibilidad inicial) y no `INCOMPLETE` ni
+`CORE_VARIABLE_SIZE`. No anuncia `MUST_INITIALIZE`: el tamaño se conoce tras la carga, y RetroArch
+desactiva el runahead de un core que lo declara. RetroArch 1.18 no conoce la llamada de quirks de
+la cabecera fijada (responde UNSUPPORTED). Netplay NO se declara ni se prueba: sigue
+deshabilitado hasta su propia prueba. Runahead de segunda instancia tampoco: hay una instancia nativa
+por imagen cargada y RetroArch 1.18 corre con una sola instancia aunque se la pida. El runahead
+de instancia unica y el rewind se prueban en RetroArch real (ticks de cada unidad iguales a la
+ejecucion normal, incluidas las repeticiones tras un load); RetroArch solo ofrece runahead si el
+`.info` del core dice `savestate_features = "deterministic"`, y ese `.info` no se publica
+mientras las limitaciones siguientes no esten cerradas.
+
+Limitaciones conocidas del estado nativo (T15, no del adaptador; los tests
+`test_GAP_*` de `tests/libretro-host/test_state.py` son su reproductor y pasan el dia que se cierren):
+el cuadro dibujado en la primera unidad tras un load puede salir con la paleta de la linea
+temporal abandonada (o la de una maquina recien arrancada, al cargar un fichero en otro proceso)
+si el invitado puso la paleta una vez y no la reescribe; una unidad que no tenia cuadro nuevo
+puede dibujarse tras un load; y tras un load y algunas unidades un byte del cuerpo CHIP (DIWHIGH)
+difiere del de una maquina que nunca cargo. CPU, RAM, audio, ticks y la parte del adaptador
+convergen; con un juego real (Speedball 2, pistas en carga y en juego) los cuadros tambien.
+
+Compatibilidad inicial: mismo formato/build compatible declarado, mismos medios
+y configuracion. Cross-build/cross-ISA/cross-version se habilita solo con evidencia;
+ABI portable no equivale a estados portable ni a determinismo bit-exacto.
+
+## Estados Waterbox
+
+Contrato distinto: snapshot del sandbox mas estado C# no contenido en el sandbox.
+No ejecutar el serializador nativo para fingir una prueba Waterbox. Ver documento 03.
+La restauracion debe reponer callbacks y limpiar referencias host temporales.
+Compatibilidad snapshot depende de WBX, layout, toolchain y runtime exactos. No se
+intercambia con un .state nativo y no se hereda el identificador del UAE anterior.
+
+### Sonido mecanico comun (T74a)
+
+`ports/portable/drive_sound.cpp` implementa la frontera driveclick con ondas propias
+sintetizadas mediante enteros, sin archivos de muestras ni dispositivos fisicos.
+La mezcla aditiva satura a int16 y por defecto su ganancia es cero: no toca Paula
+ni llama `audio_activate`. Las fases avanzan incluso con ganancia cero; motor,
+expulsion y pasos del guest llegan por los hooks de DISK. `P6AU.DCLK` guarda
+40 palabras big endian (160 bytes), con validacion antes de aplicar. El volumen
+es presentacion y queda fuera de este cuerpo y de la identidad de maquina.
+`p6_state_probe --drive-sound 0..100` usa el contrato publico de T74b: los bits
+8..14 de `render_flags` contienen un volumen de 0..100. Los valores 101..127 y
+los bits desconocidos se rechazan antes de aplicar cambios. La ganancia se
+aplica despues de APPLY y de validar/aplicar la entrada, antes de RUN, incluso
+cuando no se solicita entregar audio. No cambia `p6_config`, su hash ni la ABI
+de entrada.
+
+Libretro (`puae6_drive_sound_volume`), headless (`--drive-sound-volume`) y
+BizHawk (`Settings.DriveSoundVolume`) ofrecen 0, 10, 25, 50, 75 y 100 por ciento.
+`Puae6Settings` queda fuera de SyncSettings, BK2 y WrapperState: cargar conserva
+la preferencia actual del host, que se reaplica en cada unidad. DCLK restaura
+las fases; un snapshot bruto Waterbox tambien puede contener ganancia
+transitoria y buffers PCM. La comprobacion de volumen compara el futuro de
+hardware y la continuidad PCM al volver al mismo volumen.
+
+### Niveles de colisiones (T77a)
+
+`p6_config.collision_level` ocupa el byte 68; el contrato conserva 72 bytes.
+0 es Auto (Full), 1 None, 2 Sprites, 3 Sprites+Playfields y 4 Full.
+El motor recibe respectivamente 3, 0, 1, 2 y 3: Auto mantiene todas las colisiones
+del perfil anterior. Los niveles reducidos alteran CLXDAT y pueden romper juegos.
+La opcion requiere reinicio en libretro (`puae6_collision_level`), headless
+(`--collisions`) y BizHawk (`CollisionLevel`). Se normaliza antes de crear el motor;
+Auto y Full conservan la identidad anterior. Los demas niveles incorporan su valor
+resuelto a `p6/config/collisions/v1` y rechazan estados de otro nivel.
+CLXDAT/CLXCON siguen en P6CH; las tablas de colisiones se derivan al reset y al
+restaurar CLXCON de la configuracion inmutable. No se anade estado causal.

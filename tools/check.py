@@ -257,3 +257,465 @@ TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue
 TASK_SUITES[('MED01', 'T66g1')] = {'akiko_toc_qcode': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66g2')] = {'synthetic_subchannels': 'tests.media.test_cd_subchannel'}
 TASK_SUITES[('MED01', 'T66g3')] = {'actual_blkdev_offset_reads': 'tests.media.test_cd_device'}
+TASK_SUITES[('MED01', 'T66d1')] = {'disc_blob_exact_reads': 'tests.media.test_cd_blob_reads'}
+TASK_SUITES[('MED01', 'T66d2')] = {'managed_disc_source': 'tests.media.test_cd_source_csharp'}
+TASK_SUITES[('ABI01', 'T66f1')] = {'cd_transport_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
+TASK_SUITES[('WB03', 'T66f1')] = {'cd_transport_restore': 'tests.waterbox-media.test_cd_source.CdTransportTests'}
+TASK_SUITES[('MED01', 'T66d3')] = {'chd_hunk_fragmentation': 'tests.media.test_chd_blob_reads'}
+# T57 closes both: the formats on the three surfaces. MED01 adds the headless runner (`--disk`), the libretro adapter (the containers hold them, the extension list, the identity of the bytes as given:
+# tests/media/test_container.py without an engine and tests/libretro-host/test_containers.py with the core) and the Waterbox sandbox (the guest reads them, a snapshot in the middle of a revolution
+# of an FDI with weak pulses comes back in another sandbox); FUZZ01 adds the parsers of the adapter (ContentFuzzTests builds container.h with the sanitizers).
+TASK_SUITES[('MED01', 'T57')] = {**TASK_SUITES[('MED01', 'T57b')], 'headless_formats': 'tests.media.test_headless_formats', 'containers': 'tests.media.test_container',
+                                 'libretro_containers': 'tests.libretro-host.test_containers', 'libretro_archives': 'tests.libretro-host.test_archives',
+                                 'waterbox_trackdisk': 'tests.waterbox-media.test_media_trackdisk'}
+TASK_SUITES[('DET02', 'T57')] = TASK_SUITES[('DET02', 'T57b')]
+TASK_SUITES[('FUZZ01', 'T57')] = TASK_SUITES[('FUZZ01', 'T57b')]
+# T58a is the IPF reader with a free license (the decoder of MAME, third_party/mame-ipf), on its own and without the engine. MED01: the decoder against an oracle that encodes MFM itself (cells, timing
+# zones, the write splice, weak and noise cells that differ between revolutions and are the same in every process, the files it opens) and where the files come from (hashes, the license in the files,
+# the diff against what MAME has, no capsimg). FUZZ01 adds the `ipf` target: mutated images, with every checksum put right again most of the time, against an independent oracle of which files open,
+# under ASan/UBSan. T58b and T58 add the engine, the state and the three surfaces.
+TASK_SUITES[('MED01', 'T58a')] = {
+    'ipf_decoder': 'tests.media.test_ipf',
+    'ipf_provenance': 'tests.media.test_ipf_provenance',
+}
+TASK_SUITES[('FUZZ01', 'T58a')] = {**TASK_SUITES[('FUZZ01', 'T57')], 'ipf': 'tests.fuzz.test_ipf'}
+# T58b puts the reader in the engine (patch 0340). MED01: a guest reads the sectors of an IPF (AmigaDOS tracks with and without weak areas, an index in the middle, a track type with timing zones) and a
+# raw track word for word with the write splice where the format puts it, and an IPF the decoder cannot read is refused with its reason. DET02: states before, in the middle of and after the read of an
+# IPF track, with weak cells (the reader fetches the next revolution at every index; DSKX carries its count), timing zones, a noise track and a head walking over tracks of different lengths, with the
+# motor on and off. FUZZ01: the IPF images of the pool (mutated, with checksums put right again) read by the engine under ASan/UBSan, saved and loaded back.
+TASK_SUITES[('MED01', 'T58b')] = {**TASK_SUITES[('MED01', 'T57b')], **TASK_SUITES[('MED01', 'T58a')], 'ipf_engine_reads': 'tests.media.test_ipf_engine'}
+TASK_SUITES[('DET02', 'T58b')] = {**TASK_SUITES[('DET02', 'T57')], 'ipf_restore': 'tests.state.test_det02_ipf'}
+TASK_SUITES[('FUZZ01', 'T58b')] = TASK_SUITES[('FUZZ01', 'T58a')]
+# T58c only changes the bounded IPF index: one-based keys and empty cylinder 83.
+# The enclosing T58 gate keeps its full accumulated suites and frontend acceptance.
+TASK_SUITES[('MED01', 'T58c')] = {**TASK_SUITES[('MED01', 'T58a')], 'ipf_engine_reads': 'tests.media.test_ipf_engine'}
+TASK_SUITES[('DET02', 'T58c')] = {'ipf_restore': 'tests.state.test_det02_ipf'}
+TASK_SUITES[('FUZZ01', 'T58c')] = {'ipf': 'tests.fuzz.test_ipf', 'trackdisk': 'tests.fuzz.test_fuzz.TrackDiskFuzzTests'}
+# T58 closes both on the three surfaces. MED01 adds the headless runner (`--disk`, a damaged IPF refused with the decoder's reason), the containers of the libretro adapter (an IPF as it is, in an ADZ and in
+# a ZIP; CT RAW refused) and the Waterbox sandbox (the guest reads the sectors of an IPF with weak areas and timing zones). DET02 is the union of the restores. WB03 is the Waterbox sandbox: a snapshot taken in
+# the middle of a revolution of an IPF with weak cells comes back in the same sandbox and in a new one (test_media_ipf), the same for an FDI and the extended ADF (test_media_trackdisk), and the state of the
+# BizHawk core (tests/waterbox-state: save N, advance M, restore, repeat M). FUZZ01 is T58a's: the decoder on its own and the engine reading mutated IPF images.
+TASK_SUITES[('MED01', 'T58')] = {**TASK_SUITES[('MED01', 'T58b')], 'headless_formats': 'tests.media.test_headless_formats', 'containers': 'tests.media.test_container',
+                                 'libretro_containers': 'tests.libretro-host.test_containers', 'libretro_archives': 'tests.libretro-host.test_archives',
+                                 'waterbox_trackdisk': 'tests.waterbox-media.test_media_trackdisk', 'waterbox_ipf': 'tests.waterbox-media.test_media_ipf'}
+TASK_SUITES[('DET02', 'T58')] = {**TASK_SUITES[('DET02', 'T58b')], 'libretro_ipf_boot_restore': 'tests.libretro-host.test_ipf_boot',
+                                 'pending_blitter_channel_mask': 'tests.state.test_state_upstream.UpstreamBodiesTests.test_a_pending_bltcon_write_does_not_replace_the_saved_channel_mask_on_load'}
+TASK_SUITES[('FUZZ01', 'T58')] = TASK_SUITES[('FUZZ01', 'T58b')]
+TASK_SUITES[('WB03', 'T58')] = {'ipf_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_ipf', 'trackdisk_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_trackdisk',
+                                'core_state_save_advance_restore': 'tests.waterbox-state.test_wrapper_state',
+                                'ipf_boot_restore_in_the_bizhawk_core': 'tests.waterbox-media.test_ipf_boot'}
+# T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
+# relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
+# pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).
+TASK_SUITES[('UPD01', 'T37')] = {'update_tool': 'tests.upstream-update.test_update'}
+TASK_SUITES[('SRC01', 'T37')] = {'import_sources': 'tests.test_import_sources',
+                                 'pinned_snapshot': 'tests.upstream-update.test_update.RealPinnedSnapshotTests',
+                                 'new_snapshot_verification': 'tests.upstream-update.test_update.DirectorySnapshotTests'}
+TASK_SUITES[('GEN01', 'T37')] = {'regeneration_of_the_candidate': 'tests.upstream-update.test_update.GeneratorTests'}
+
+# T33 measures. PERF01 is the statistics and summary of tools/bench.py (no emulator), the native and libretro probes in the optimized tree (what a sample is, that the clock does not feed the
+# engine, no allocation in the steady state) and the committed baseline with the budgets derived from it (a function of the raw files, goals apart from observations, everything advisory
+# unless stable). WB12 runs the Waterbox probes (guest ABI and core) in a real sandbox: p50/p95 of a unit and of a snapshot, the dirty unit of Darwin ARM64, the heaps; without a runtime the
+# suite skips and the gate is BLOCKED, never PASS. The baseline itself is ORIENTATIVE: no dedicated runner exists (plan/runners.json).
+TASK_SUITES[('PERF01', 'T33')] = {
+    'bench_statistics': 'tests.bench.test_statistics',
+    'native_and_libretro_probes': 'tests.bench.test_native',
+    'baseline_and_budgets': 'tests.bench.test_budgets',
+}
+TASK_SUITES[('WB12', 'T33')] = {
+    'waterbox_probes': 'tests.bench.test_wb12',
+}
+# T34 optimizes what the adapters do around the engine. The retained optimization is in the BizHawk core (the names asked of the controller and the copy of
+# the picture); the native bridge, libretro and the guest have nothing to remove. PERF01 is the suites of T33 plus the equivalence and cost of the two forms (tests.bench.test_core_io).
+# DET01, DET02 and SAFE01 add what shows that the core still produces the same machine: the picture, the PCM, the timing and the input packet it delivers are those of p6_headless (tests.ffi.test_core),
+# what a saved and loaded state brings back (tests.waterbox-state.test_wrapper_state), and the ownership of the sandbox's memory and the canaries of the ABI (test_wrapper_memory, test_ffi).
+TASK_SUITES[('PERF01', 'T34')] = {**TASK_SUITES[('PERF01', 'T33')], 'core_io_equivalence_and_cost': 'tests.bench.test_core_io'}
+TASK_SUITES[('DET01', 'T34')] = {**TASK_SUITES[('DET01', 'T32a')], 'core_picture_pcm_timing_and_input': 'tests.ffi.test_core'}
+TASK_SUITES[('DET02', 'T34')] = {**TASK_SUITES[('DET02', 'T32b')], 'core_state_round_trip': 'tests.waterbox-state.test_wrapper_state'}
+TASK_SUITES[('SAFE01', 'T34')] = {'canary_self_test': 'tests.canaries.test_canaries', 'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
+                                 'core_memory_ownership': 'tests.waterbox-state.test_wrapper_memory', 'core_abi': 'tests.ffi.test_ffi'}
+# T34a builds the local Waterbox runtime Release (plan/toolchains.json) and keeps a Debug lane for what only that runtime has (tests/waterbox-smoke/test_runtime_lanes.py runs the ABI/identity
+# and host-callback/page suites in it). The gate is the whole Waterbox side with the Release runtime: the build receipts and imports (HOST01), the guest inside a real sandbox on every machine, the
+# memory manifest as a whole, the media and hard-file limits, the BizHawk core's state, memory ownership and ABI (tests/waterbox-state, tests/ffi), and the Waterbox probes (WB12) and benchmark suites (PERF01).
+# A suite that skips (no Kickstart in the environment) leaves the gate BLOCKED, never PASS.
+TASK_SUITES[('HOST01', 'T34a')] = {'imports_and_build_receipts': 'tests.waterbox-smoke.test_build'}
+TASK_SUITES[('WB02', 'T34a')] = {
+    'memory_manifest_recorded_as_a_whole': 'tests.waterbox-smoke.test_memory_manifest',
+    'runtime_lanes': 'tests.waterbox-smoke.test_runtime_lanes',
+    'guest_in_waterbox': 'tests.waterbox-smoke.test_puae6',
+    'memory_budgets': 'tests.waterbox-smoke.test_puae6_memory',
+    'contract': 'tests.waterbox-smoke.test_puae6_contract',
+    'hard_files': 'tests.waterbox-smoke.test_puae6_hdf',
+    'host_calls_pages_and_restore': 'tests.waterbox-smoke.test_puae6_wb',
+    'units_against_headless': 'tests.waterbox-smoke.test_puae6_units',
+    'media_frontend': 'tests.waterbox-media.test_media_frontend',
+    'media_hdf': 'tests.waterbox-media.test_media_hdf',
+    'media_limits': 'tests.waterbox-media.test_media_limits',
+    'media_overlay': 'tests.waterbox-media.test_media_overlay',
+    'media_volume': 'tests.waterbox-media.test_media_volume',
+    'wrapper_audio': 'tests.waterbox-state.test_wrapper_audio',
+    'wrapper_floppy': 'tests.waterbox-state.test_wrapper_floppy',
+    'wrapper_cpu': 'tests.waterbox-state.test_wrapper_cpu',
+    'wrapper_fpu': 'tests.waterbox-state.test_wrapper_fpu',
+    'wrapper_inventory': 'tests.waterbox-state.test_wrapper_inventory',
+    'wrapper_machine': 'tests.waterbox-state.test_wrapper_machine',
+    'wrapper_machines_t50': 'tests.waterbox-state.test_wrapper_machines_t50',
+    'wrapper_memory': 'tests.waterbox-state.test_wrapper_memory',
+    'wrapper_raster': 'tests.waterbox-state.test_wrapper_raster',
+    'wrapper_state': 'tests.waterbox-state.test_wrapper_state',
+    'ffi_abi': 'tests.ffi.test_ffi',
+    'ffi_core': 'tests.ffi.test_core',
+    'ffi_media': 'tests.ffi.test_media',
+    'ffi_saveram_format': 'tests.ffi.test_saveram_format',
+}
+TASK_SUITES[('WB12', 'T34a')] = TASK_SUITES[('WB12', 'T33')]
+TASK_SUITES[('PERF01', 'T34a')] = TASK_SUITES[('PERF01', 'T34')]
+# T35a evaluates the pixel candidate only. T35 keeps flags and full-frontend
+# adoption behind T35b/T35c; opt-in matrix omissions are BLOCKED, never PASS.
+TASK_SUITES[('PERF01', 'T35a')] = {'verified_native_pixel_measurement': 'tests.simd.test_decision.PerformanceTests'}
+TASK_SUITES[('DET04', 'T35a')] = {'pixel_equivalence_in_declared_rows': 'tests.simd.test_matrix.EquivalenceTests'}
+TASK_SUITES[('SAFE01', 'T35a')] = {'pixel_sanitizers_in_declared_rows': 'tests.simd.test_matrix.SafetyTests', 'llvm_pixel_guards_and_selftest': 'tests.simd.test_rgb565'}
+TASK_SUITES[('ADR01', 'T35a')] = {'measured_platform_decision': 'tests.simd.test_decision.DecisionTests'}
+TASK_SUITES[('DET04', 'T35b')] = {'full_engine_flags_and_restore': 'tests.simd.test_engine_flags.EquivalenceTests'}
+TASK_SUITES[('SAFE01', 'T35b')] = {'full_engine_flags_sanitizers': 'tests.simd.test_engine_flags.SafetyTests', 'flag_configuration_fallback': 'tests.simd.test_engine_flags.ConfigurationTests'}
+TASK_SUITES[('PERF01', 'T35b')] = {'full_engine_interleaved_measurements': 'tests.simd.test_engine_flags.PerformanceTests'}
+TASK_SUITES[('ADR01', 'T35b')] = {'full_engine_flags_decision': 'tests.simd.test_engine_flags.DecisionTests'}
+TASK_SUITES[('DET04', 'T35c')] = {'rgb565_frontend_rows_and_restore': 'tests.simd.test_frontend_rgb565.EquivalenceTests'}
+TASK_SUITES[('SAFE01', 'T35c')] = {'rgb565_frontend_sanitizer_rows': 'tests.simd.test_frontend_rgb565.SafetyTests', 'rgb565_pixel_guards': 'tests.simd.test_rgb565'}
+TASK_SUITES[('PERF01', 'T35c')] = {'rgb565_full_frontend_measurements': 'tests.simd.test_frontend_rgb565.PerformanceTests'}
+TASK_SUITES[('ADR01', 'T35c')] = {'rgb565_measured_platform_decision': 'tests.simd.test_frontend_rgb565.DecisionTests'}
+# T35 closes the full pixel, engine-flags and product-frontend scopes. The native
+# guard module is shared by T35a/T35c: execute it once without dropping any suite.
+for _check in ('PERF01', 'DET04', 'SAFE01', 'ADR01'):
+    _combined = {}
+    for _part in ('T35a', 'T35b', 'T35c'):
+        for _name, _module in TASK_SUITES[(_check, _part)].items():
+            if _module not in _combined.values():
+                _combined[_name] = _module
+    TASK_SUITES[(_check, 'T35')] = _combined
+TASK_SUITES[('SAFE01', 'T35d')] = {'nearest_sprite_counter_arithmetic': 'tests.step.test_sprite_nearest.NearestCounterTests',
+                                'aga_superhires_frontend_sanitizers': 'tests.step.test_sprite_nearest.FrontendSpriteTests.test_actual_sanitized_frontend_and_restores_include_the_failing_aga_superhires_case'}
+TASK_SUITES[('AV01', 'T35d')] = {'aga_pixels_and_sprites': 'tests.step.test_aga.PictureTests', 'resolution_rasters': 'tests.step.test_resolution.RasterTests'}
+TASK_SUITES[('DET02', 'T35d')] = {'pre_patch_frontend_outputs_and_restore': 'tests.step.test_sprite_nearest.FrontendSpriteTests.test_corrected_outputs_equal_the_pre_patch_observations_without_changing_golden'}
+TASK_SUITES[('REF01', 'T35d')] = TASK_SUITES[('REF01', 'T32a')]
+TASK_SUITES[('HOST01', 'T35d')] = {'guest_elf_and_imports': 'tests.waterbox-smoke.test_build', 'coherent_guest_memory': 'tests.waterbox-smoke.test_memory_manifest'}
+TASK_SUITES[('WB03', 'T35d')] = {'aga_superhires_sprite_sentinel': 'tests.step.test_sprite_nearest.WaterboxSpriteTests',
+                              'wrapper_states': 'tests.waterbox-state.test_wrapper_state', 'raster_states': 'tests.waterbox-state.test_wrapper_raster'}
+# T36 keeps the safe captured baseline unless the adversarial probe proves an exclusion.
+# Each gate exercises the actual sandbox, not the native semantic serializer.
+TASK_SUITES[('WB03', 'T36')] = {
+    'adversarial_pixel_history_and_new_process': 'tests.waterbox-poison.test_poison',
+    'coherent_memory_manifest': 'tests.waterbox-smoke.test_memory_manifest',
+}
+_wrapper_state = 'tests.waterbox-state.test_wrapper_state.WrapperStateTests'
+TASK_SUITES[('WB04', 'T36')] = {
+    'alternating_new_sandboxes': _wrapper_state + '.test_a_state_of_one_sandbox_runs_in_a_new_one_and_in_a_third_as_in_the_first_and_they_can_take_turns',
+    'before_first_unit': _wrapper_state + '.test_a_state_made_before_the_first_unit_goes_to_a_new_sandbox_too',
+}
+TASK_SUITES[('WB05', 'T36')] = {
+    'dma_drive_held_key_and_pending_swap': _wrapper_state + '.test_save_go_on_load_and_repeat_gives_the_same_units_and_the_same_machine',
+    'one_hundred_restores': _wrapper_state + '.test_the_second_load_of_a_state_is_as_good_as_the_first_after_a_hundred_cycles',
+    'paula_filter_and_phase': 'tests.waterbox-state.test_wrapper_audio.WrapperAudioTests',
+}
+TASK_SUITES[('WB08', 'T36')] = {
+    'interlaced_suppressed_delivery': 'tests.waterbox-smoke.test_puae6_units.WaterboxUnitTests.test_render_and_audio_switched_off_for_stretches_change_nothing_of_the_units_that_follow',
+}
+TASK_SUITES[('WB09', 'T36')] = {'movie_seek_branch_and_suppressed_delivery': 'tests.bizhawk-movies.test_movie_playback.MoviePlaybackTests'}
+TASK_SUITES[('WB12', 'T36')] = TASK_SUITES[('WB12', 'T33')]
+TASK_SUITES[('WB14', 'T36')] = {'actual_guest_physical_groups_and_restore': 'tests.waterbox-smoke.test_puae6_wb'}
+
+# T39a is the local public PR recipe, not the accumulated nightly/release gate of T39b.
+TASK_SUITES[('PLAN01', 'T39a')] = {'ci_protocol': 'tests.ci.test_runner', 'plan': 'tests.test_plan'}
+TASK_SUITES[('BUILD01', 'T39a')] = {'native_build_and_lifecycle': 'tests.host.test_bridge_lifecycle.BridgeLifecycleTests.test_init_load_apply_unload_and_reload_on_the_real_engine'}
+TASK_SUITES[('DET02', 'T39a')] = {
+    'ocs_same_image': 'tests.reference.test_corpus_det02.CorpusA500Tests.test_det02_ocs_vsync_irq_pal_at_2_same_image_beam_set',
+    'ocs_new_process': 'tests.reference.test_corpus_det02.CorpusA500Tests.test_det02_ocs_vsync_irq_pal_at_2_new_process',
+    'ecs_same_image': 'tests.reference.test_corpus_det02.CorpusA600Tests.test_det02_ecs_beam_var_wide_pal_at_2_same_image_beam_set',
+    'ecs_new_process': 'tests.reference.test_corpus_det02.CorpusA600Tests.test_det02_ecs_beam_var_wide_pal_at_2_new_process',
+    'aga_same_image': 'tests.reference.test_corpus_det02.CorpusA1200Tests.test_det02_aga_planes8_fmode3_pal_at_2_same_image_beam_set',
+    'aga_new_process': 'tests.reference.test_corpus_det02.CorpusA1200Tests.test_det02_aga_planes8_fmode3_pal_at_2_new_process',
+}
+_ci_waterbox = {'actual_guest_snapshots_callbacks_groups_and_new_process': 'tests.waterbox-smoke.test_puae6_wb'}
+TASK_SUITES[('WB03', 'T39a')] = {**_ci_waterbox,
+    'adversarial_weave_and_mode_changes': 'tests.waterbox-poison.test_poison',
+    'core_dma_and_pending_swap': _wrapper_state + '.test_save_go_on_load_and_repeat_gives_the_same_units_and_the_same_machine'}
+for _gate in ('WB13', 'WB14', 'WB15'):
+    TASK_SUITES[(_gate, 'T39a')] = dict(_ci_waterbox)
+TASK_SUITES[('PLAN01', 'T39b')] = {'ci_recipes': 'tests.ci.test_nightly', 'plan': 'tests.test_plan'}
+for _gate in ('MED01', 'DET02', 'LR01'):
+    TASK_SUITES[(_gate, 'T61')] = {'four_drive_reads_boot_restore_and_identity': 'tests.libretro-host.test_multidrive',
+                                 'config_schema_and_defaults': 'tests.config.test_parity'}
+TASK_SUITES[('WB03', 'T61')] = {
+    'four_drive_snapshot_and_reads': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_four_distinct_boot_disks_restore_reads_and_the_complete_wrapper_in_a_new_sandbox'}
+TASK_SUITES[('STATE01', 'T55a')] = {'ricoh_registers_and_transactional_restore': 'tests.state.test_state_ricoh.RicohChunkTests'}
+TASK_SUITES[('DET02', 'T55a')] = {
+    'ricoh_same_and_new_process': 'tests.state.test_state_ricoh.RicohChunkTests.test_restore_same_and_new_process_preserves_all_subsystems_and_future'}
+TASK_SUITES[('DET02', 'T55b1')] = {'a4030_platform_state': 'tests.state.test_a4030'}
+TASK_SUITES[('WB03', 'T55b1')] = {
+    'a4030_auto_none_sandbox': 'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_a4030_normal_restores_in_same_and_new_sandbox_with_auto_or_no_fast'}
+TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
+TASK_SUITES[('BUILD01', 'T55c1')] = {
+    'linked_native_and_full_waterbox_exports': 'tests.host.test_cpu_backend_build',
+}
+TASK_SUITES[('GEN01', 'T55c1')] = {'generic_040_060_no_mmu': 'tests.codegen.test_gencpu_models'}
+TASK_SUITES[('DET02', 'T55c1')] = {
+    'real_cache_maintenance': 'tests.host.test_cache040',
+    'supported_cpu_restore_regression': 'tests.state.test_cpu_modes',
+}
+TASK_SUITES[('GEN01', 'T55c2')] = {'schema_and_generated_defaults': 'tests.config.test_schema', 'frontend_profile_policy': 'tests.config.test_parity'}
+TASK_SUITES[('ABI01', 'T55c2')] = {'native_c_cpp_layout': 'tests.contracts.test_api', 'standalone_csharp_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
+for _gate in ('DET02', 'STATE01'):
+    TASK_SUITES[(_gate, 'T55c2')] = {'z3_autoconfig_and_native_restore': 'tests.state.test_z3'}
+TASK_SUITES[('ABI01', 'T55c3')] = TASK_SUITES[('ABI01', 'T55c2')]
+TASK_SUITES[('LR01', 'T55c3')] = {'z3_shared_option_and_actual_bus_map': 'tests.libretro-host.test_z3'}
+TASK_SUITES[('WB03', 'T55c3')] = {'z3_domain_sandbox_and_process_restore': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_domains_and_same_new_sandbox_and_process_restore'}
+TASK_SUITES[('PERF01', 'T55c3')] = {'z3_actual_committed_heap_margin': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_actual_heap_commitment_has_the_existing_two_times_margin'}
+TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
+for _gate in ('DET02', 'STATE01'):
+    TASK_SUITES[(_gate, 'T53')] = {'cpu_modes_restore_identity_and_no_mmu': 'tests.state.test_cpu_modes'}
+TASK_SUITES[('LR01', 'T53')] = {
+    'cpu_levels_and_restart': 'tests.libretro-host.test_cpu.CpuOptionTests.test_accuracy_is_a_restart_option_and_each_level_runs_the_headless_machine',
+    'ce_filename_tag': 'tests.libretro-host.test_model_tags.ModelTagTests.test_ce_overrides_faster_cpu_options_and_uae_keys_unless_filename_tags_are_disabled',
+    'raw_cpu_flags': 'tests.libretro-ui.test_uae.UaeProbeTests'}
+TASK_SUITES[('WB03', 'T53')] = {
+    'cpu_levels_snapshot_and_identity': 'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_cpu_accuracy_restores_and_refuses_a_state_of_another_level'}
+# T60 reuses the floppy COW and explicit atomic persistence; only #SAVEDISK adds
+# media. Keep its gate focused on format, real guest writes and timeline rollback.
+TASK_SUITES[('MED02', 'T60')] = {'save_disk_format': 'tests.libretro-host.test_savedisk.SaveDiskFormatTests',
+                               'save_disk_persistence': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests',
+                               'ordinary_floppy_regression': 'tests.libretro-host.test_floppy_write'}
+TASK_SUITES[('LR02', 'T60')] = {
+    'save_disk_rewind': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests.test_rewinding_before_the_writes_discards_them_and_never_creates_a_save_file',
+    'save_disk_runahead': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests.test_the_guest_writes_the_save_disk_and_only_closing_persists_it_then_reopening_uses_it',
+    'ordinary_floppy_rewind': 'tests.libretro-host.test_floppy_write.FloppyWriteTests.test_rewind_run_ahead_and_state_loads_write_nothing_and_the_saved_disk_is_the_final_timeline'}
+TASK_SUITES[('PKG01', 'T40a')] = {'package_policy': 'tests.packages.test_preview.PolicyTests',
+                                'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
+for _gate in ('BUILD01', 'LR01'):
+    TASK_SUITES[(_gate, 'T40a')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
+# Each CD32 gate exercises its actual boundary. Other T70 devices retain their own tasks.
+TASK_SUITES[('IN01', 'T70a')] = {
+    'cd32_mapping_and_abi': 'tests.input.test_cd32.Cd32MappingTests',
+    'serial_buttons': 'tests.input.test_cd32.Cd32Tests.test_seven_buttons_and_identification_bits_in_both_ports_pal_and_ntsc',
+    'dpad_quadrature': 'tests.input.test_cd32.Cd32Tests.test_dpad_quadrature_and_opposite_directions_are_independent_in_both_ports',
+    'bk2_codec': 'tests.ffi.test_input_log.InputLogTests.test_cd32_controls_round_trip_through_bizhawks_actual_bk2_codec'}
+TASK_SUITES[('DET02', 'T70a')] = {
+    'partial_serial_restore': 'tests.input.test_cd32.Cd32Tests.test_partly_read_pad_restores_in_same_and_new_process',
+    'transactional_state_rejection': 'tests.input.test_cd32.Cd32Tests.test_malformed_cd32_tail_is_refused_before_touching_the_machine',
+    'device_changes': 'tests.input.test_cd32.Cd32Tests.test_device_changes_release_cd32_and_bound_always_covers_both_pads'}
+TASK_SUITES[('LR01', 'T70a')] = {'cd32_frontend': 'tests.libretro-host.test_cd32.Cd32FrontendTests'}
+TASK_SUITES[('WB03', 'T70a')] = {
+    'cd32_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_cd32_partial_serial_read_restores_and_replays_a_real_bk2_in_both_ports'}
+TASK_SUITES[('IN01', 'T70b')] = {
+    'mouse_mapping_and_state': 'tests.libretro-host.test_mouse2.Mouse2MappingTests',
+    'mouse_pins': 'tests.input.test_mouse2.Mouse2Tests.test_independent_motion_and_three_buttons_reach_both_ports_pal_and_ntsc',
+    'mouse_bk2': 'tests.ffi.test_input_log.InputLogTests.test_two_mice_buttons_and_absolute_positions_round_trip_through_the_actual_bk2_codec'}
+TASK_SUITES[('DET02', 'T70b')] = {
+    'mouse_native_restore': 'tests.input.test_mouse2.Mouse2Tests.test_motion_in_flight_restores_in_same_and_new_process',
+    'mouse_device_and_validation': 'tests.input.test_mouse2.Mouse2Tests.test_second_mouse_buttons_are_checked_and_device_changes_release_pending_motion'}
+TASK_SUITES[('LR01', 'T70b')] = {'two_mice_and_stick_restore': 'tests.libretro-host.test_mouse2.Mouse2FrontendTests'}
+TASK_SUITES[('WB03', 'T70b')] = {
+    'mouse_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_two_mouse_references_motion_and_bk2_restore_in_same_and_new_sandbox_and_process'}
+TASK_SUITES[('AV02', 'T74a')] = {'mechanical_pcm_and_native_restore': 'tests.audio.test_drive_sound'}
+TASK_SUITES[('IN01', 'T70c')] = {
+    'pointer_levels': 'tests.input.test_pointer.PointerTests.test_sensor_position_and_trigger_are_independent_in_both_ports_pal_and_ntsc',
+    'pointer_bk2': 'tests.ffi.test_input_log.InputLogTests.test_optical_coordinates_trigger_and_offscreen_round_trip_through_the_actual_bk2_codec'}
+TASK_SUITES[('DET02', 'T70c')] = {
+    'pointer_restore': 'tests.input.test_pointer.PointerTests.test_optical_latch_and_levels_restore_in_same_and_new_process_even_after_detach',
+    'disabled_lpen_pending_event': 'tests.input.test_pointer.PointerTests.test_guest_clearing_lpen_with_a_pending_optical_event_restores_the_latch_even_while_disabled',
+    'pointer_transactional_rejection': 'tests.input.test_pointer.PointerTests.test_invalid_pointer_tail_latch_and_pending_event_are_refused_transactionally'}
+TASK_SUITES[('LR01', 'T70c')] = {
+    'pointer_mapping_and_state': 'tests.libretro-host.test_pointer.PointerMappingTests',
+    'pointer_frontend': 'tests.libretro-host.test_pointer.PointerFrontendTests'}
+TASK_SUITES[('WB03', 'T70c')] = {
+    'pointer_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_optical_levels_beam_and_bk2_restore_in_same_and_new_sandbox_and_process'}
+TASK_SUITES[('AV02', 'T74b')] = {
+    'live_libretro_volume': 'tests.libretro-host.test_drive_sound.DriveVolumeTests',
+    'live_waterbox_volume': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_drive_volume_is_live_host_preference_and_restore_keeps_mechanical_phase'}
+TASK_SUITES[('AV02', 'T74')] = {**TASK_SUITES[('AV02', 'T74a')], **TASK_SUITES[('AV02', 'T74b')]}
+TASK_SUITES[('IN01', 'T70d')] = {
+    'input_v1_v2_layout': 'tests.contracts.test_api.NativeContractTests',
+    'parallel_mapping': 'tests.libretro-host.test_parallel.ParallelMappingTests',
+    'parallel_cia_pins': 'tests.input.test_parallel.ParallelTests.test_independent_parallel_direction_and_fire_pins_pal_ntsc_and_v1_disconnect',
+    'parallel_bk2': 'tests.ffi.test_input_log.InputLogTests.test_parallel_joysticks_round_trip_through_the_actual_bk2_codec'}
+TASK_SUITES[('DET02', 'T70d')] = {
+    'parallel_restore': 'tests.input.test_parallel.ParallelTests.test_parallel_levels_and_device_changes_restore_in_same_and_new_process',
+    'parallel_rejection': 'tests.input.test_parallel.ParallelTests.test_truncated_parallel_tail_and_invalid_types_or_buttons_are_transactionally_refused'}
+TASK_SUITES[('LR01', 'T70d')] = {'parallel_frontend': 'tests.libretro-host.test_parallel.ParallelFrontendTests'}
+TASK_SUITES[('WB03', 'T70d')] = {
+    'parallel_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_four_players_parallel_pins_and_bk2_restore_in_same_and_new_sandbox_and_process'}
+TASK_SUITES[('MED02', 'T65a')] = {
+    'three_role_bundle': 'tests.whdload.test_bundle.BundleTests',
+    'real_save_and_immutable_data': 'tests.whdload.test_bundle.BundleLibretroTests.test_real_highscore_save_and_restore_keep_data_immutable'}
+TASK_SUITES[('MED02', 'T65c1')] = {'managed_bundle_bytes': 'tests.whdload.test_bundle_csharp'}
+TASK_SUITES[('LR01', 'T65c2')] = {'managed_loader': 'tests.whdload.test_loader_csharp.LoaderCSharpTests'}
+for _gate in ('MED02', 'DET02', 'WB03'):
+    TASK_SUITES[(_gate, 'T65c2')] = {'managed_auto_save_restore': 'tests.whdload.test_loader_csharp.LoaderWaterboxTests'}
+TASK_SUITES[('DET02', 'T65a')] = {
+    'native_state_and_pcm_replay': 'tests.whdload.test_bundle.BundleLibretroTests.test_real_highscore_save_and_restore_keep_data_immutable'}
+TASK_SUITES[('LR01', 'T65a')] = {'real_bundle_frontend': 'tests.whdload.test_bundle.BundleLibretroTests'}
+TASK_SUITES[('WB03', 'T65a')] = {
+    'real_bundle_new_sandbox': 'tests.whdload.test_bundle.BundleWaterboxTests.test_real_highscore_save_replays_in_same_and_new_sandbox'}
+TASK_SUITES[('MED02', 'T65b1')] = {'cpp_bundle_parity': 'tests.whdload.test_cpp_bundle.CppBundleTests'}
+TASK_SUITES[('MED02', 'T65b2')] = {'provider_pins': 'tests.whdload.test_autoload.ProviderTests',
+    'real_autoload_save': 'tests.whdload.test_autoload.AutoloadTests.test_auto_game_save_restore_and_next_session_keep_data_immutable'}
+TASK_SUITES[('DET02', 'T65b2')] = {'autoload_replay': 'tests.whdload.test_autoload.AutoloadTests.test_auto_game_save_restore_and_next_session_keep_data_immutable'}
+TASK_SUITES[('LR01', 'T65b2')] = {'autoload_frontend': 'tests.whdload.test_autoload.AutoloadTests'}
+TASK_SUITES[('WB03', 'T65b2')] = {'shared_auto_bundle_sandbox': 'tests.whdload.test_loader_csharp.LoaderWaterboxTests'}
+# Both builders produce identical media; the actual automatic managed load supplies
+# the shared Waterbox gate. Keep every parent gate and run an identical suite once.
+for _parent, _children in (('T65b', ('T65b1', 'T65b2')), ('T65c', ('T65c1', 'T65c2')), ('T65', ('T65a', 'T65b', 'T65c'))):
+    for _gate in ('MED02', 'DET02', 'LR01', 'WB03'):
+        TASK_SUITES[(_gate, _parent)] = {
+            _suite: _suite for _child in _children
+            for _suite in TASK_SUITES.get((_gate, _child), {}).values()}
+for _gate in ('IN01', 'DET02', 'LR01', 'WB03'):
+    TASK_SUITES[(_gate, 'T70')] = {
+        f'{_task}:{_name}': _suite for _task in ('T70a', 'T70b', 'T70c', 'T70d')
+        for _name, _suite in TASK_SUITES[(_gate, _task)].items()}
+CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
+            'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
+
+TASK_SUITE_TIMEOUT = {('DET01', 'T34'): 4 * 3600, ('DET02', 'T34'): 4 * 3600, ('SAFE01', 'T34'): 4 * 3600,
+                      ('DET04', 'T25'): 6 * 3600, ('DET06', 'T25'): 6 * 3600,
+                      ('DET04', 'T32c'): 6 * 3600, ('DET06', 'T32c'): 6 * 3600,
+                      ('DET04', 'T32'): 6 * 3600, ('DET06', 'T32'): 6 * 3600}
+TASK_SUITE_ENV = {'P6_TEST_SANITIZERS': '1', 'P6_RELEASE_GATE': '1'}      # the second is read only by the OpenDivergenceGate tests of T32
+DRIVER = '''import json, pathlib, sys, unittest
+# T34a: the suites of tests/waterbox-* import their neighbours by the bare name (discover -s DIR puts the directory on the path): so does loading them by dotted name
+_parts = sys.argv[1].split('.')
+while _parts:
+    _file = pathlib.Path(*_parts).with_suffix('.py')
+    if _file.is_file():
+        sys.path.append(str(_file.parent.resolve()))
+        break
+    _parts.pop()  # a registry entry can name a TestCase class or a single method
+suite = unittest.defaultTestLoader.loadTestsFromName(sys.argv[1])
+result = unittest.TextTestRunner(verbosity=2).run(suite)
+report = dict(tests=result.testsRun, failures=len(result.failures),
+              errors=len(result.errors), skipped=len(result.skipped),
+              expected_failures=len(result.expectedFailures),
+              unexpected_successes=len(result.unexpectedSuccesses))
+print(json.dumps(report))
+sys.exit(0 if result.wasSuccessful() else 1)
+'''
+
+
+def _run_suite(module, env=None, timeout=120):
+    environment = None if env is None else {**os.environ, **env}
+    return subprocess.run([sys.executable, '-c', DRIVER, module], cwd=ROOT, env=environment,
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def _dispatch_task_suites(check_id, task, required, finish, executed):
+    suites = TASK_SUITES[(check_id, task)]
+    wanted = sorted(set(suites) | set(required))
+    missing = [name for name in wanted if name not in suites]
+    if missing:
+        return finish('NOT_IMPLEMENTED', 'Falta cobertura requerida: ' + ', '.join(missing), wanted)
+    if not all(shutil.which(tool) for tool in ('clang', 'clang++', 'cmake')):
+        return finish('BLOCKED', 'Faltan compiladores HOST clang/clang++/cmake', wanted, 'HARNESS')
+    for name in wanted:
+        result = _run_suite(suites[name], TASK_SUITE_ENV, TASK_SUITE_TIMEOUT.get((check_id, task), 3600))
+        try:
+            counts = json.loads(result.stdout.strip().splitlines()[-1])
+            if type(counts) is not dict or any(type(n) is not int or n < 0 for n in counts.values()):
+                raise ValueError('Contadores de suite invalidos')
+        except (ValueError, TypeError, IndexError) as error:
+            return finish('FAIL', f'{name}: salida invalida/truncada: {error}\n{result.stderr[-4000:]}', wanted, 'HARNESS')
+        if result.returncode or counts['failures'] or counts['errors'] or counts['unexpected_successes']:
+            return finish('FAIL', f'{name}: fallo de suite\n{result.stderr[-4000:]}', wanted, 'HARNESS')
+        if not counts['tests']:
+            return finish('FAIL', f'{name}: suite vacia; no hay prueba', wanted, 'HARNESS')
+        if counts['skipped'] or counts['expected_failures']:
+            return finish('BLOCKED', f'{name}: assertions omitidas o pendientes', wanted, 'HARNESS')
+        executed.append(name)
+    return finish('PASS', 'Suites nativas ejecutadas (sanitizers, fuzzing, matriz de portabilidad segun la tarea); no es un resultado de emulacion', wanted, 'HARNESS')
+
+
+def dispatch(check_id, task='T04', profile='deterministic-a500', scenario=None, required=()):
+    assertions = list(REQUIRED_ASSERTIONS) + sorted(set(required) - set(REQUIRED_ASSERTIONS))
+    executed = []
+    def finish(status, diagnostic, evidence='NONE', set_override=None):
+        return dict(schema_version=1, check_id=check_id, task=task, profile=profile,
+                    status=status, exit_code=EXIT[status], evidence=evidence,
+                    core_build_id=None, scenario_executed=False,
+                    assertion_set=(set_override if set_override is not None else
+                                   assertions if check_id == 'HARNESS01' else []),
+                    assertions_executed=executed, diagnostic=diagnostic)
+    try:
+        plan = load_json(ROOT / 'plan/tasks.json')
+        if check_id not in plan['check_ids']:
+            return finish('FAIL', 'Check desconocido: ' + check_id)
+        if task not in {t['id'] for t in plan['tasks']}:
+            return finish('FAIL', 'Tarea desconocida: ' + task)
+        if scenario is not None:
+            validate_scenario(load_json(scenario))
+            return finish('NOT_IMPLEMENTED', 'Escenario valido, pero no hay runner de emulacion conectado')
+        if task == 'T39b' and check_id in CI_LANES and profile == 'deterministic-a500':
+            from ci.run import command
+            from ci.nightly import validate_result
+            wanted = list(CI_LANES[check_id])
+            if set(required) - set(wanted):
+                return finish('NOT_IMPLEMENTED', 'Lane requerida ausente', set_override=wanted)
+            for lane in wanted:
+                process = command([sys.executable, 'tools/ci/nightly.py', '--lane', lane], timeout=24 * 3600)
+                try:
+                    payload = json.loads(process.stdout.strip().splitlines()[-1])
+                    validate_result(payload, lane)
+                except (ValueError, TypeError, KeyError, IndexError):
+                    return finish('FAIL', 'Veredicto CI invalido/incompleto', set_override=wanted)
+                status = payload['status']
+                if status not in ('PASS', 'FAIL', 'BLOCKED') or payload.get('lane') != lane:
+                    return finish('FAIL', 'Veredicto CI incompleto', set_override=wanted)
+                if status != 'PASS' or process.returncode != 0:
+                    return finish(status if status != 'PASS' else 'FAIL', json.dumps(payload, ensure_ascii=False), set_override=wanted)
+                executed.append(lane)
+            return finish('PASS', 'Lanes CI completas ejecutadas: ' + ', '.join(wanted), 'CI_RUNTIME', wanted)
+        if (check_id, task) in TASK_SUITES and profile == 'deterministic-a500':
+            def task_finish(status, diagnostic, wanted, evidence='NONE'):
+                return finish(status, diagnostic, evidence, wanted)
+            return _dispatch_task_suites(check_id, task, required, task_finish, executed)
+        if check_id != 'HARNESS01' or task != 'T04' or profile != 'deterministic-a500':
+            return finish('NOT_IMPLEMENTED', 'No hay assertions implementadas para este check/tarea/perfil')
+        missing = set(assertions) - set(SUITES)
+        if missing:
+            return finish('NOT_IMPLEMENTED', 'Falta cobertura requerida: ' + ', '.join(sorted(missing)))
+        if not all(shutil.which(tool) for tool in ('clang', 'clang++')):
+            return finish('BLOCKED', 'Faltan compiladores HOST clang/clang++ para contrato nativo', 'HARNESS')
+        for assertion in assertions:
+            result = _run_suite(SUITES[assertion])
+            try:
+                counts = json.loads(result.stdout)
+                expected = {'tests', 'failures', 'errors', 'skipped', 'expected_failures', 'unexpected_successes'}
+                if (type(counts) is not dict or set(counts) != expected
+                        or any(type(n) is not int or n < 0 for n in counts.values())):
+                    raise ValueError('Contadores de suite invalidos')
+            except (ValueError, TypeError) as error:
+                return finish('FAIL', f'{assertion}: salida invalida/truncada: {error}\n{result.stderr[-4000:]}', 'HARNESS')
+            if result.returncode or counts['failures'] or counts['errors'] or counts['unexpected_successes']:
+                return finish('FAIL', f'{assertion}: fallo de suite\n{result.stderr[-4000:]}', 'HARNESS')
+            if not counts['tests']:
+                return finish('FAIL', f'{assertion}: suite vacia; no hay prueba', 'HARNESS')
+            if counts['skipped'] or counts['expected_failures']:
+                return finish('BLOCKED', f'{assertion}: assertions omitidas o pendientes', 'HARNESS')
+            executed.append(assertion)
+        return finish('PASS', 'Contrato nativo, schemas, fixture y dispatcher probados; no emulacion', 'HARNESS')
+    except (OSError, ValueError, RecursionError, subprocess.TimeoutExpired) as error:
+        return finish('FAIL', str(error))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', required=True)
+    parser.add_argument('--task', default='T04')
+    parser.add_argument('--profile', default='deterministic-a500')
+    parser.add_argument('--scenario', type=Path)
+    parser.add_argument('--require', action='append', default=[], help='Assertion adicional exigida por la puerta')
+    args = parser.parse_args()
+    result = dispatch(args.check, args.task, args.profile, args.scenario, args.require)
+    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    return result['exit_code']
+
+
+if __name__ == '__main__':
+    sys.exit(main())
