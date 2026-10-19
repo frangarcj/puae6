@@ -166,7 +166,8 @@
     "0342-denise-nearest-sprite-sentinel": "behavior",
     "0343-cpu-68000-nonexact": "required",
     "0350-cd32-boundary-and-state": "required",
-    "0344-cpu-68010-020-nonexact": "required"
+    "0344-cpu-68010-020-nonexact": "required",
+    "0345-rtc-ricoh-state": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

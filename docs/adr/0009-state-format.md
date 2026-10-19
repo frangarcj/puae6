@@ -309,6 +309,18 @@ se sirven con un serializador upstream tal cual. Los hallazgos transversales est
     del 0335 divergia desde la primera unidad; con el motor encendido y apagado; el estado con una de las palabras cambiada no continua).
 
 
+### RTC Ricoh (T55a)
+
+El cuerpo `P6RT` sigue el chip de la maquina. El RF5C01A conserva el prefijo de
+reloj emulado y anade 35 bytes: controles D/E/F, 16 alarmas y 16 bytes de RAM de
+bateria. El visitante valida los nibbles de control, las mascaras de alarmas de
+`put_clock_ricoh` y las colas inaccesibles de los bancos antes de aplicar nada.
+`delayed_write` solo exportaria un archivo de bateria excluido del perfil; no
+decide el futuro. El cuerpo del MSM6242B no cambia. Hasta el preset A4000 real,
+solo una seleccion diagnostica del probe alcanza Ricoh; su test compara todos
+los subsistemas, PCM e imagen tras restaurar en el mismo proceso y uno nuevo.
+Esto no valida un A4000 ni su ejecucion Waterbox.
+
 ## Riesgos
 
 - Estado oculto que aun no se ha catalogado: la auditoria es de lectura y no ejecuto los serializadores; T15 la confirma con pruebas que

@@ -186,11 +186,11 @@ class ClockChunkTests(ProbeCase):
         self.assertIn("chunk rtc could not be saved: rtc: the clock service failed", run.save_errors[0][2])
         self.assertFalse((self.dir / "failed.state").exists())
 
-    def test_a_clock_chip_that_is_not_the_msm6242b_is_not_saved_and_nothing_is_written(self):
+    def test_an_unsupported_clock_chip_is_not_saved_and_nothing_is_written(self):
         run = self.probe("clock", "--units", "4", "--poke-at", "4", "cs-rtc", "--save-at", "4", str(self.dir / "chip.state"), "--poke-at", "4", "clear",
                          "--save-at", "4", str(self.dir / "chip-clear.state"))
         self.assertEqual([(4, 2)], [(unit, code) for unit, code, _ in run.save_errors])
-        self.assertIn("rtc: only the MSM6242B is in the profile", run.save_errors[0][2])
+        self.assertIn("rtc: only the MSM6242B and RF5C01A are supported", run.save_errors[0][2])
         self.assertFalse((self.dir / "chip.state").exists())
         self.assertEqual(1, len(run.saves), "with the chip back it is saved")
 

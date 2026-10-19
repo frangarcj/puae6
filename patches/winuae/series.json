@@ -4359,6 +4359,29 @@
           "after_sha256": "363b19f2023a63cac435d7126b150756e67523a55506dabe69b561b3e331c002"
         }
       ]
+    },
+    {
+      "id": "0345-rtc-ricoh-state",
+      "file": "patches/winuae/0345-rtc-ricoh-state.patch",
+      "sha256": "e240c8555d31914c6fbb53ea5b134b0fab44306817d046838ad7291210d11047",
+      "title": "Expose the RF5C01A controls, alarm registers and battery RAM for native state",
+      "reason": "T55a prepares the real A4000 RTC without publishing an incomplete machine. Semantic copies preserve every reachable chip register; the calendar remains the existing emulated-clock service.",
+      "category": "host hooks",
+      "order": 161,
+      "symbols": [
+        "p6_rtc_ricoh_get",
+        "p6_rtc_ricoh_set"
+      ],
+      "test": "tests/state/test_state_ricoh.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cia.cpp",
+          "before_sha256": "61c7ccd3714cd4203a7293406cff4bb62e6b3bc23edc8b7c387d00c497221b26",
+          "after_sha256": "a1571321aa1670c32df936a16ce0f5b57298cab0ddedf1768df37fac62f25109"
+        }
+      ]
     }
   ]
 }

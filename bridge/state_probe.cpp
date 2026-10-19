@@ -98,6 +98,8 @@ extern bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigne
 extern bool p6_caches020_set(const uae_u32 *data, const uae_u32 *tag, const uae_u8 *valid, unsigned n);
 extern void p6_custom_ce020_extra_set(int v);
 extern void p6_rtc_msm_get(uae_u8 out[3]);                             // cia.cpp, patch 0081: the MSM6242B's control registers D, E and F
+extern void p6_rtc_ricoh_get(uae_u8 out[35]);
+extern void rtc_hardreset(void);
 extern void p6_cia_get(int num, p6_cia_raw *out);                      // cia.cpp, patch 0082: both CIAs and what cia.cpp keeps beside them
 extern void p6_cia_set(int num, const p6_cia_raw *in);
 extern void p6_cia_misc_get(p6_cia_misc_raw *out);
@@ -248,9 +250,15 @@ void rtc(Canon &c)
     if (status == 0)
         c.put(s.clock.seconds).put(s.clock.ticks_per_second).put(s.clock.subsecond).put(s.clock.seed).put(s.clock.version).put(s.cycle);
     c.put(int32_t(p6_rtc_status()));
-    uae_u8 msm[3];
-    p6_rtc_msm_get(msm);                                    // T15c1: what the chunk carries and the digest did not see
-    c.put(msm[0]).put(msm[1]).put(msm[2]);
+    if (currprefs.cs_rtc == 2) {
+        uae_u8 ricoh[35];
+        p6_rtc_ricoh_get(ricoh);
+        c.raw(ricoh, sizeof ricoh);
+    } else {
+        uae_u8 msm[3];
+        p6_rtc_msm_get(msm);                                // T15c1: what the chunk carries and the digest did not see
+        c.put(msm[0]).put(msm[1]).put(msm[2]);
+    }
 }
 
 // T15c2: every field of both CIAs and of what cia.cpp keeps beside them that the chunk carries. The timers are the raw counters, in the epoch of
@@ -738,7 +746,13 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 int v = 0, l = 0, h = 0;
                 if (sscanf(op.chunk + 5, "%d:%d:%d", &v, &l, &h) == 3) { vpos = v; linear_vpos = l; agnus_hpos = uae_u8(h); }
             } else if (!strcmp(op.chunk, "rtc-fault")) p6_rtc_read(nullptr, 0);       // latches the clock's sticky fault, as a failed read would
-            else if (!strcmp(op.chunk, "cs-rtc")) currprefs.cs_rtc = 2;               // another clock chip than the profile's MSM6242B
+            else if (!strcmp(op.chunk, "cs-rtc")) currprefs.cs_rtc = 4;               // an unsupported clock chip
+            else if (!strcmp(op.chunk, "rtc-ricoh")) {
+                // Diagnostic-only chip selection after the reset head, until the real A4000 preset is implemented.
+                // No public configuration or frontend offers this hybrid machine.
+                currprefs.cs_rtc = 2;
+                rtc_hardreset();
+            }
             else if (!strcmp(op.chunk, "cia-tod2") || !strcmp(op.chunk, "cia-tod2-event")) {
                 // A TOD increment pending in CIA-A (state 2), without the event that carries it or with it (the engine's own call, data = the CIA's number).
                 cia_poke_begin();

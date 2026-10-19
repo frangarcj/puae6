@@ -2547,7 +2547,7 @@
       {
         "id": "rtc-ricoh-rf5c01a-registers",
         "subsystem": "rtc",
-        "component": "RF5C01A registers, alarm RAM and 16-nibble RAM (rtc_ricoh)",
+        "component": "RF5C01A controls, 16 alarm bytes and 16 battery-RAM bytes (rtc_ricoh)",
         "owner": "build/upstream/cia.cpp (static rtc_ricoh), rtc.cpp",
         "chunk": null,
         "save": null,
@@ -2556,30 +2556,38 @@
         "in_profile": false,
         "upstream_compiled": false,
         "policy": "out_of_profile",
-        "saved_fields": "Nothing saved upstream either.",
-        "omitted": null,
+        "saved_fields": "Upstream saves none; T55a visit_rtc writes the common clock prefix then D/E/F, all 16 alarm bytes and all 16 battery-RAM bytes through patch 0345.",
+        "omitted": "delayed_write only schedules write_battclock, which is excluded and has no host battery file. Calendar digits are read from the existing emulated clock service, not duplicated. No public preset enables the chip yet (T55b).",
         "pointers": null,
-        "rebuild": null,
+        "rebuild": "visit_rtc validates every control nibble, alarm mask and inaccessible tail before apply; p6_rtc_ricoh_set copies semantic registers without events or host I/O.",
         "evidence": [
-          "build/upstream/cia.cpp:188",
-          "build/upstream/cia.cpp:1391",
-          "build/upstream/cia.cpp:3012",
-          "build/upstream/cia.cpp:3017",
-          "build/upstream/rtc.cpp:95",
-          "build/upstream/include/rtc.h:12",
-          "config/profiles/a500-ocs.json:102",
-          "manifests/state-inventory.json:272"
+          "bridge/state_devices.cpp:75",
+          "bridge/state_probe.cpp:238",
+          "patches/winuae/0345-rtc-ricoh-state.patch:1",
+          "upstream/winuae/include/rtc.h:12",
+          "upstream/winuae/rtc.cpp:93",
+          "tests/state/test_state_ricoh.py:1"
         ],
         "proof": {
-          "task": "T15",
+          "task": "T55a",
           "checks": [
-            "FUZZ01"
+            "STATE01",
+            "DET02"
           ],
-          "status": "pending",
-          "what": "a state that carries this chunk is rejected, never restored in part"
+          "status": "done",
+          "what": "Four directed tests verify guest writes, every reachable register applied, same/new process restoration and full subsystem/PCM/picture future, and corrupt fields refused transactionally. The diagnostic selects Ricoh after the reset head; no A4000 preset or Waterbox claim."
         },
-        "probe": null,
-        "waterbox": "not reached by the profile"
+        "probe": {
+          "probe": "rtc",
+          "status": "implemented",
+          "task": "T55a",
+          "covers": [
+            "p6_rtc_ricoh_get",
+            "p6_rtc_ricoh_set",
+            "visit_rtc"
+          ]
+        },
+        "waterbox": "Plain mutable chip data would be captured by a snapshot; no public preset reaches it and no Ricoh Waterbox run has been performed."
       },
       {
         "id": "rtc-rtc-cpp-decoders",

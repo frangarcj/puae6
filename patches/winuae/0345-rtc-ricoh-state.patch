@@ -1,0 +1,29 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -3531,3 +3531,25 @@
+ 	return w == NULL;
+ }
+ #endif
++
++#ifdef P6_PORTABLE
++// T55a: RF5C01A state, controls D/E/F then all alarm and battery-RAM bytes.
++// delayed_write only exports a host battery file, absent from this profile.
++void p6_rtc_ricoh_get(uae_u8 out[35])
++{
++	out[0] = rtc_ricoh.clock_control_d;
++	out[1] = rtc_ricoh.clock_control_e;
++	out[2] = rtc_ricoh.clock_control_f;
++	memcpy(out + 3, rtc_ricoh.rtc_alarm, RF5C01A_RAM_SIZE);
++	memcpy(out + 19, rtc_ricoh.rtc_memory, RF5C01A_RAM_SIZE);
++}
++
++void p6_rtc_ricoh_set(const uae_u8 in[35])
++{
++	rtc_ricoh.clock_control_d = in[0];
++	rtc_ricoh.clock_control_e = in[1];
++	rtc_ricoh.clock_control_f = in[2];
++	memcpy(rtc_ricoh.rtc_alarm, in + 3, RF5C01A_RAM_SIZE);
++	memcpy(rtc_ricoh.rtc_memory, in + 19, RF5C01A_RAM_SIZE);
++}
++#endif

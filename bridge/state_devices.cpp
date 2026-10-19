@@ -19,6 +19,8 @@
 // What the engine patches add (patches/winuae/0081, 0082, 0084, 0085), declared here as lifecycle.cpp declares p6_cia_session_begin.
 extern void p6_rtc_msm_get(uae_u8 out[3]);
 extern void p6_rtc_msm_set(const uae_u8 in[3]);
+extern void p6_rtc_ricoh_get(uae_u8 out[35]);
+extern void p6_rtc_ricoh_set(const uae_u8 in[35]);
 extern void p6_cia_get(int num, p6_cia_raw *out);
 extern void p6_cia_set(int num, const p6_cia_raw *in);
 extern void p6_cia_misc_get(p6_cia_misc_raw *out);
@@ -67,6 +69,8 @@ template <class W, class L> W field(Archive &a, L &live, long long lo, long long
 // The anchor of the clock (the cycle count it was last brought up to) is NOT written. A save brings the clock up to the cycle counter, and Apply anchors
 // it to the counter that the scheduler's chunk has just restored, so the clock goes on from the instant it was saved whatever the machine's counter said
 // before. p6_rtc_save and p6_rtc_read are never called while applying: with the counter put back they would latch the clock's sticky fault.
+// T55a: the RF5C01A (cs_rtc 2) keeps the same calendar prefix, followed by D/E/F, 16 alarm bytes and 16 battery-RAM bytes.
+// Its body follows the machine's chip; no existing MSM body changes. E/F are write-only but causal chip state, not discarded.
 // A machine with no clock chip (cs_rtc == 0: the A600 of the profile) has nothing to carry: the chunk stays in the table, as for every machine, and its body is empty. Nothing
 // of the machine reads the clock service then (only the chip does), so its position is not machine state; the live machine decides whether the body is empty, and a body of
 // the other kind is refused by its length. The A500 body below is unchanged.
@@ -77,7 +81,7 @@ void visit_rtc(Archive &a)
     p6_rtc_state s = {};
     uint8_t msm[3] = {};
     if (a.mode() == Mode::Save) {
-        a.require(currprefs.cs_rtc == 1, "rtc: only the MSM6242B is in the profile");
+        a.require(currprefs.cs_rtc == 1 || currprefs.cs_rtc == 2, "rtc: only the MSM6242B and RF5C01A are supported");
         a.require(p6_rtc_save(&s) == P6_CLOCK_OK, "rtc: the clock service failed");
         p6_rtc_msm_get(msm);
     }
@@ -86,11 +90,25 @@ void visit_rtc(Archive &a)
     const uint64_t ticks = get<uint64_t>(a, s.clock.ticks_per_second, rate, rate, "rtc.ticks_per_second");
     const uint64_t subsecond = get<uint64_t>(a, s.clock.subsecond, 0, rate - 1, "rtc.subsecond");
     const uint32_t seed = get<uint32_t>(a, s.clock.seed, clock_seed(), clock_seed(), "rtc.seed");
-    uint8_t chosen[3];
-    chosen[0] = get<uint8_t>(a, msm[0], 0, 9, "rtc.msm_d");
-    if (checks) a.require(chosen[0] == 0 || chosen[0] == 1 || chosen[0] == 8 || chosen[0] == 9, "rtc.msm_d: a bit the MSM6242B does not keep");
-    chosen[1] = get<uint8_t>(a, msm[1], 0, 15, "rtc.msm_e");
-    chosen[2] = get<uint8_t>(a, msm[2], 0, 15, "rtc.msm_f");
+    uint8_t chosen[35] = {};
+    const bool ricoh = currprefs.cs_rtc == 2;
+    if (ricoh) {
+        uint8_t live[35] = {};
+        if (a.mode() == Mode::Save) p6_rtc_ricoh_get(live);
+        for (unsigned i = 0; i < 3; ++i)
+            chosen[i] = get<uint8_t>(a, live[i], 0, 15, i == 0 ? "rtc.ricoh_d" : i == 1 ? "rtc.ricoh_e" : "rtc.ricoh_f");
+        // put_clock_ricoh's masks, including the inaccessible tail of each bank (reset to zero).
+        static const uint8_t alarm_mask[16] = {0, 0, 15, 7, 15, 3, 7, 15, 3, 0, 1, 3, 0, 0, 0, 0};
+        for (unsigned i = 0; i < 16; ++i)
+            chosen[3 + i] = get<uint8_t>(a, live[3 + i], 0, alarm_mask[i], "rtc.ricoh_alarm");
+        for (unsigned i = 0; i < 16; ++i)
+            chosen[19 + i] = get<uint8_t>(a, live[19 + i], 0, i < 13 ? 255 : 0, "rtc.ricoh_ram");
+    } else {
+        chosen[0] = get<uint8_t>(a, msm[0], 0, 9, "rtc.msm_d");
+        if (checks) a.require(chosen[0] == 0 || chosen[0] == 1 || chosen[0] == 8 || chosen[0] == 9, "rtc.msm_d: a bit the MSM6242B does not keep");
+        chosen[1] = get<uint8_t>(a, msm[1], 0, 15, "rtc.msm_e");
+        chosen[2] = get<uint8_t>(a, msm[2], 0, 15, "rtc.msm_f");
+    }
     if (a.applying() && a.ok()) {
         p6_rtc_state next = {};
         next.clock.seconds = seconds;
@@ -100,7 +118,8 @@ void visit_rtc(Archive &a)
         next.clock.version = 1;
         next.cycle = get_cycles();                      // the scheduler's chunk (index 1) has put the counter back
         if (p6_rtc_restore(&next) != P6_CLOCK_OK) a.fail("rtc: the clock refused a state that was validated");
-        p6_rtc_msm_set(chosen);
+        if (ricoh) p6_rtc_ricoh_set(chosen);
+        else p6_rtc_msm_set(chosen);
     }
 }
 

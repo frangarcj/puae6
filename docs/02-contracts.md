@@ -133,6 +133,8 @@ cambio sincronizado. Semillas explicitas y serializadas para cualquier fuente de
 aleatoriedad del emulador. No eliminar aleatoriedad real del hardware: modelarla
 con el algoritmo upstream y una semilla/configuracion registrada.
 
+T55a prepara tambien el estado del RF5C01A de Ricoh: conserva D/E/F, alarmas y RAM de bateria con el mismo reloj emulado y valida sus mascaras antes de aplicar. Ningun preset publico ofrece todavia ese chip; el probe lo selecciona de forma diagnostica para probar restauracion y rechazo transaccional antes del A4000 real de T55b. El cuerpo MSM6242B existente no cambia.
+
 sleep, host_vsync, audio-fill feedback, reloj monotono y wall-clock no pueden variar
 los ciclos del perfil deterministic. Puede leerse un reloj monotono FUERA del
 motor para benchmarking, sin alimentar decisiones del emulador.
