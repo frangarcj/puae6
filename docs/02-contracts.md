@@ -905,6 +905,15 @@ ASan/UBSan restaura en otro objeto entre cada transicion de pines y comprueba
 lectura, escritura y wrap de pagina/direccion. Integracion Akiko, reset que
 conserve NVRAM, SaveRAM y snapshots Waterbox siguen pendientes en T66.
 
+T66d1 aplica a la copia derivada fijada de DiscSystem el parche
+`0002-disc-blob-exact-reads`: los blobs BIN/WAV completan la peticion o lanzan
+`EndOfStreamException`. Los synthesizers que ignoran el contador ya no ocultan
+un EOF fisico inesperado. `Blob_ZeroPadAdapter` conserva el padding previsto
+segun la longitud declarada: solo pide al fichero los bytes existentes y rellena
+el resto. El blob puede haber escrito parte del destino antes de lanzar; el
+endpoint sectorial futuro debe usar staging. Esto no habilita CD32 ni acredita
+los codecs CHD o el arranque/restauracion del padre T66.
+
 Implementado (T29a, parches 0160-0167): `P6_MEDIA_HDF` en la lista de `p6_load` monta un disco duro por el controlador UAE (`uaehf.device` y la placa UAEFS, como
 PUAE5; sin Gayle) como DH0, DH1... en el orden de la lista, hasta `P6_MAX_HDF` = 4. La imagen es un multiplo de 512 bytes (al menos un bloque), `flags` = 0, su `content_id` es el SHA-256
 de sus bytes y no hay tope fijo de tamaño: se copia entera al almacen de blobs (`P6_BLOB_HDF`, `p6_blob_pread`: lectura por offset de la base inmutable, sin cursor ni fichero del
