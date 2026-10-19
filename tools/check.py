@@ -519,6 +519,7 @@ TASK_SUITES[('DET02', 'T65a')] = {
 TASK_SUITES[('LR01', 'T65a')] = {'real_bundle_frontend': 'tests.whdload.test_bundle.BundleLibretroTests'}
 TASK_SUITES[('WB03', 'T65a')] = {
     'real_bundle_new_sandbox': 'tests.whdload.test_bundle.BundleWaterboxTests.test_real_highscore_save_replays_in_same_and_new_sandbox'}
+TASK_SUITES[('MED02', 'T65b1')] = {'cpp_bundle_parity': 'tests.whdload.test_cpp_bundle.CppBundleTests'}
 for _gate in ('IN01', 'DET02', 'LR01', 'WB03'):
     TASK_SUITES[(_gate, 'T70')] = {
         f'{_task}:{_name}': _suite for _task in ('T70a', 'T70b', 'T70c', 'T70d')

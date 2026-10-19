@@ -156,6 +156,18 @@ Para repetirlo: `P6_WHDLOAD_LHA`, `P6_FATALMISSION_LHA` y `P6_KICKSTART_A1200_RO
 
 ## Pruebas
 
+El constructor C++ puro de `adapters/libretro/whdload_bundle.h` recibe el arbol
+del juego, WHDLoad y su VFS como bytes, mas Kickstarts/RTB explicitos. Genera
+`WHDLoad.hdf`, `RASystem.hdf` y `WHDSaves.hdf` con la receta T65a; rechaza slaves
+ambiguos, rutas inseguras y limites excedidos sin devolver imagenes parciales.
+`ButtonWait` vale false por defecto (PUAE5 usa true); las preferencias conservan
+`NoWriteCache`, `SplashDelay=0` y `ConfigDelay=0`. Los datos propios compartidos
+con C# se generan con `python3 tools/generate_whdload.py`; no incluyen binarios
+de terceros. Este constructor aun no acredita la carga automatica del frontend.
+`python3 tools/check.py --check MED02 --task T65b1` compara los tres HDF byte a
+byte, tambien con nombres Latin-1/ZIP UTF-8; con las dos variables LHA del usuario
+incluye los archivos reales sin requerir ROM ni compilar el motor.
+
 Sin entradas externas corren (`python3 -m unittest discover -s tests/whdload -t .`): LHA y FFS con archivos
 sinteticos, determinismo, fallos visibles, licencias y "el replay no monta carpetas". Con `P6_WHDLOAD_LHA`,
 `P6_FATALMISSION_LHA` y `P6_KICKSTART_A1200_ROM` (descargas libres y el Kickstart del usuario, nunca en el
