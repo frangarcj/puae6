@@ -336,8 +336,8 @@ typedef struct p6_media_event {
  * mix with the keyboard's power-up sequence) and exactly one video unit is run.
  * Input semantics are in docs/02-contracts.md ("Entrada"): the packet is the host
  * state of the unit, only differences reach the machine, keys 0x68..0x7f and
- * inconsistent ports are rejected before anything is touched, and a mouse is on
- * port 0 only.
+ * inconsistent ports are rejected before anything is touched. Either port can
+ * carry a mouse, joystick or CD32 pad.
  *
  * Version/size mismatches, nonzero reserved fields, unknown flags, and
  * unsupported settings are rejected. Optional p6_error must be initialized

@@ -324,10 +324,12 @@ void visit_input(Archive &a)
             ap.buttons[p] = applied_buttons[p];
         }
     }
+    if (a.mode() == Mode::Save)
+        a.require(bool(r.second_mouse_enabled) == (applied_type[1] == P6_PORT_MOUSE), "second mouse mode and the bridge's device disagree");
+    if (a.applying()) r.second_mouse_enabled = applied_type[1] == P6_PORT_MOUSE;
     if (checks) {
         a.require((keys[13] | keys[14] | keys[15]) == 0, "kb.keys: a key above 0x67 is down");
         a.require((applied_keys[3] >> 8) == 0, "applied.keys: a key above 0x67 is down");
-        a.require(applied_type[1] != P6_PORT_MOUSE, "applied.type: the mouse is on port 0 only");
         for (int k = 0; k < 4; ++k) {
             uint32_t engine = 0;
             for (int b = 0; b < 4; ++b) engine |= uint32_t(keys[k * 4 + b]) << (8 * b);
@@ -343,6 +345,10 @@ void visit_input(Archive &a)
             }
             if (!joystick && !mouse && !cd32) a.require(applied_buttons[p] == 0 && applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "applied: a port without a device has buttons or a direction down");
             if (mouse) a.require(applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "applied: a mouse has a direction down");
+            if (mouse && p == 1) {
+                a.require(joy_button[p] == applied_buttons[p], "the second mouse buttons and the bridge disagree");
+                a.require(joy_dir[p] == 0, "the second mouse has a joystick direction");
+            }
             a.require(joy_buttons[p] == (joystick ? applied_buttons[p] : 0), "the engine's joystick buttons and the bridge's disagree");
             a.require(joy_axis[p][0] == (joystick ? applied_axis[p][0] : 0) && joy_axis[p][1] == (joystick ? applied_axis[p][1] : 0),
                       "the engine's joystick directions and the bridge's disagree");

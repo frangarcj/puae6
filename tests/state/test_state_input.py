@@ -367,7 +367,7 @@ class InputChunkTests(ProbeCase):
             ("a key above 0x67 in the bridge's memory", table.with_values({"applied.keys[3]": table.get("applied.keys[3]") | 0x100}), 9, "applied.keys: a key above 0x67 is down"),
             ("a key down in the engine and not in the bridge", table.with_values({"kb.keys[4]": table.get("kb.keys[4]") ^ 1}), 9, "the engine's key table and the bridge's disagree"),
             ("a key down in the bridge and not in the engine", table.with_values({"applied.keys[1]": table.get("applied.keys[1]") ^ 1}), 9, "the engine's key table and the bridge's disagree"),
-            ("the mouse on port 1", table.with_values({"applied.type[1]": 2}), 9, "applied.type: the mouse is on port 0 only"),
+            ("second mouse buttons disagree", table.with_values({"applied.type[1]": 2, "joy.button[1]": 1, "applied.buttons[1]": 0}), 9, "the second mouse buttons and the bridge disagree"),
             ("a joystick button that the bridge does not know", table.with_values({"edge.joy_buttons[1]": 1}), 9, "the engine's joystick buttons and the bridge's disagree"),
             ("a joystick button that the engine does not know", table.with_values({"applied.buttons[0]": 1}), 9, "the engine's joystick buttons and the bridge's disagree"),
             ("a direction that the bridge does not know", table.with_values({"edge.joy_state[26]": 1}), 9, "the engine's joystick directions and the bridge's disagree"),

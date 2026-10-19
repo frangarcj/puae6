@@ -4382,6 +4382,30 @@
           "after_sha256": "a1571321aa1670c32df936a16ce0f5b57298cab0ddedf1768df37fac62f25109"
         }
       ]
+    },
+    {
+      "id": "0351-second-mouse-boundary",
+      "file": "patches/winuae/0351-second-mouse-boundary.patch",
+      "sha256": "b5a98709830f6c5cc0fe4aa36587cdc8cb1af922b34da39b1303641317818c0e",
+      "title": "Apply the second mouse at the video boundary",
+      "reason": "T70b adds an independent pointer without rebuilding host mappings or dropping keyboard edges. Its existing counters, deltas and buttons already belong to P6IN; mouse_port[1] is derived from the applied device on restore.",
+      "category": "host hooks",
+      "order": 162,
+      "symbols": [
+        "p6_input_mouse2",
+        "p6_input_get",
+        "p6_input_set"
+      ],
+      "test": "tests/input/test_mouse2.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "bdc9f698adf78b9bc9f273e90eb4554e36af8d2ddfba8073e1a5fd088c89440e",
+          "after_sha256": "1b4d8a6eaf62000a13e6d564fe412b3d7f593f2c82b0aca5393465ff4c16de2d"
+        }
+      ]
     }
   ]
 }

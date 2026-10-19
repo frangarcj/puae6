@@ -4,8 +4,7 @@
 // that feeds the CIA serial line, additive mouse deltas and the JOYxDAT counters. The bridge keeps what it already
 // applied and sends only the difference, through the engine's own setters and never through registers.
 //   keys    the 128-key bitmap; key n is Amiga raw code n; bit 0x62 (Caps Lock) is the latch
-//   port 0  a mouse (buttons, relative dx/dy), joystick or CD32 pad; port 1 a joystick or CD32 pad
-// A mouse on port 1 would need a second logical mouse and is refused (P6_ERROR_UNSUPPORTED).
+//   either port: mouse (buttons, relative dx/dy), joystick or CD32 pad
 #include "input.h"
 #include "error_util.h"
 
@@ -22,6 +21,7 @@
 extern int p6_input_engine_released_keys;
 void p6_input_reset_keys();     // patch 0066
 void p6_input_cd32(int port, bool enabled, unsigned buttons, unsigned directions); // patch 0350, boundary only
+void p6_input_mouse2(bool enabled, unsigned buttons, int dx, int dy); // patch 0351, boundary only
 
 namespace p6_bridge {
 
@@ -65,7 +65,8 @@ void release_port(int port)
 {
     Applied &a = applied;
     if (a.type[port] == P6_PORT_MOUSE) {
-        for (int b = 0; b < 3; ++b)
+        if (port == 1) p6_input_mouse2(false, 0, 0, 0);
+        else for (int b = 0; b < 3; ++b)
             if ((a.buttons[port] >> b) & 1) setmousebuttonstate(0, b, 0);
     } else if (a.type[port] == P6_PORT_CD32) {
         p6_input_cd32(port, false, 0, 0);
@@ -86,14 +87,17 @@ void apply_port(int port, const p6_port_input &in)
     if (a.type[port] != in.type) release_port(port);
     a.type[port] = in.type;
     if (in.type == P6_PORT_MOUSE) {
-        for (int b = 0; b < 3; ++b) {
-            const uint32_t now = (in.buttons >> b) & 1;
-            if (now != ((a.buttons[port] >> b) & 1)) setmousebuttonstate(0, b, int(now));
+        if (port == 1) p6_input_mouse2(true, in.buttons, in.dx, in.dy);
+        else {
+            for (int b = 0; b < 3; ++b) {
+                const uint32_t now = (in.buttons >> b) & 1;
+                if (now != ((a.buttons[port] >> b) & 1)) setmousebuttonstate(0, b, int(now));
+            }
+            // Relative motion is added by the engine; the packet carries this unit's motion only.
+            if (in.dx) setmousestate(0, 0, in.dx, 0);
+            if (in.dy) setmousestate(0, 1, in.dy, 0);
         }
         a.buttons[port] = in.buttons & kMouseButtons;
-        // Relative motion is added by the engine; the packet carries this unit's motion only.
-        if (in.dx) setmousestate(0, 0, in.dx, 0);
-        if (in.dy) setmousestate(0, 1, in.dy, 0);
     } else if (in.type == P6_PORT_CD32) {
         const int x = axis_of(in.buttons, P6_BUTTON_LEFT, P6_BUTTON_RIGHT);
         const int y = axis_of(in.buttons, P6_BUTTON_UP, P6_BUTTON_DOWN);
@@ -153,7 +157,6 @@ p6_result validate_input(const p6_input &in, p6_error *error)
             break;
         case P6_PORT_MOUSE:
             if (port.buttons & ~kMouseButtons) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown mouse buttons");
-            if (p != 0) return p6_fail(error, P6_ERROR_UNSUPPORTED, "the mouse is on port 0 only");
             break;
         default:
             return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown port device");

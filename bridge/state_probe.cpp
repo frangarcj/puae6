@@ -356,6 +356,7 @@ void input(Canon &c)
     }
     for (int p = 0; p < 2; ++p)
         if (r.cd32_enabled[p]) c.put(r.cd32_shifter[p]).put(r.cd32_clock[p]);
+    if (r.second_mouse_enabled) c.put(r.second_mouse_enabled);
 }
 
 void video(Canon &c)

@@ -269,7 +269,7 @@ static void rejects_invalid_input_without_touching_the_machine(const std::vector
     add("joystick with motion", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[0].type = P6_PORT_JOYSTICK; in.ports[0].dx = 1; });
     add("joystick unknown button", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[1].type = P6_PORT_JOYSTICK; in.ports[1].buttons = 0x80; });
     add("mouse with a direction", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[0].type = P6_PORT_MOUSE; in.ports[0].buttons = P6_BUTTON_UP; });
-    add("mouse on port 1", P6_ERROR_UNSUPPORTED, [](p6_input &in) { in.ports[1].type = P6_PORT_MOUSE; });
+    add("unknown second mouse buttons", P6_ERROR_BAD_ARGUMENT, [](p6_input &in) { in.ports[1].type = P6_PORT_MOUSE; in.ports[1].buttons = 8; });
     const evt_t before = get_cycles();
     const uint32_t pc_before = regs.pc;
     for (const Case &k : cases) {
