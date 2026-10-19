@@ -40,9 +40,11 @@ solo enumera sus suites (`NOT_RUN`):
 
 - `clean`: dos codegens limpios comparados y build nativo desde un temporal vacio.
 - `functional`: todos los modulos actuales fuera de las lanes especializadas,
-  incluido firmware real, estados, medios, peliculas y Waterbox. Los once assets
+  incluido firmware real, estados, medios, peliculas y Waterbox. Los doce inputs
   de `ASSETS` deben estar configurados como variables P6_ locales; no se copian,
-  descargan ni publican. Una omission/xfail conserva el bloqueo.
+  descargan ni publican. `P6_PACKAGE_ZIP` apunta a la preview producida por
+  `python3 tools/package.py build`; se prueba el ZIP extraido, sin recompilarlo.
+  Una omission/xfail conserva el bloqueo.
 - `matrix`: los dos corpus completos, cinco filas, O0/O2/sanitizers y entorno
   host alterado; comprueba los IDs de las imagenes locales fijadas, sin pulls/red.
 - `sanitizers`: toda la suite fuzz; conserva semillas y conteos.

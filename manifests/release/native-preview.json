@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "platform": "macos-arm64",
+  "source_paths": [
+    "CMakeLists.txt", "CMakePresets.json", "README.md", "AGENTS.md",
+    "adapters", "bridge", "cmake", "config", "docs", "manifests", "patches",
+    "plan", "ports", "tests", "third_party", "tools", "upstream/winuae",
+    "references/libretro-api", "references/machawk-uae/COPYING"
+  ],
+  "licenses": {
+    "COPYING": "references/machawk-uae/COPYING",
+    "MAME-IPF-BSD.txt": "third_party/mame-ipf/LICENSE-BSD-3-Clause.txt",
+    "MAME-IPF-NOTICE.md": "third_party/mame-ipf/NOTICE.md"
+  }
+}

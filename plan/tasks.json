@@ -11661,13 +11661,16 @@
         "docs/user/**",
         "manifests/release/**",
         "tests/packages/**",
-        "tools/check.py"
+        "tools/check.py",
+        "tools/ci/nightly.py",
+        "docs/ci.md"
       ],
       "steps": [
         "Decision del usuario 2026-10-19: priorizar una primera version utilizable. Preparar paquete local del core libretro nativo macOS ARM64 y ejecutable headless a partir del main estable; CPU rapida, SAVEDISK y nuevos mandos siguen aislados hasta validacion dirigida.",
         "Incluir fuentes/cola de parches/receta/licencias correspondientes al binario, identificacion verificable y guia breve de instalacion, firmware, medios, guardado y limites; nunca ROMs/juegos privados ni informes de pruebas.",
         "Comprobar instalacion en un directorio aislado con el core realmente empaquetado, carga/avance/estado y firmware ausente; no sustituirlo por probar el binario del arbol de desarrollo.",
-        "La preview no declara CI remota ni reproducibilidad binaria pendiente. No publicar ni instalar encima de MacHawk. Mantener T40/T41 y todos sus criterios de cierre formal pendientes."
+        "La preview no declara CI remota ni reproducibilidad binaria pendiente. No publicar ni instalar encima de MacHawk. Mantener T40/T41 y todos sus criterios de cierre formal pendientes.",
+        "Registrar el check del paquete extraido y exigir P6_PACKAGE_ZIP en el preflight acumulado, sin reconstruir ni revalidar la matriz por cada feature."
       ],
       "checks": [
         "PKG01",
@@ -13150,7 +13153,7 @@
       "title": "Discos de guardado y persistencia de escrituras en libretro (#SAVEDISK, redireccion de escritura)",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T28"
       ],
