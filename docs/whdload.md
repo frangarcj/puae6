@@ -24,6 +24,13 @@ La deteccion automatica de packs dentro de los adaptadores sigue en T65b/T65c; e
 `tests.whdload.test_bundle` comprueba el contenido y determinismo sin assets. Sus dos pruebas opt-in usan los inputs de T30: exigen el fichero real `FM1.hisc` de 112 bytes en WHDSaves,
 los datos inalterados y replay con PCM/imagen; Waterbox añade un sandbox nuevo. No sustituye guardar partida por escribir un log del script.
 
+Fatal Mission no guarda al salir del titulo con RMB: ese camino del ejecutable
+vuelve al sistema sin pasar por el hook `resload_SaveFile` que su slave instala
+en `$aca`. El hook esta en el fin de partida/tabla de records, antes de volver
+al titulo. La prueba corta de RMB conserva el oraculo `FM1.hisc` como fallo
+pendiente; la prueba separada de AmigaDOS comprueba la lectura de `S:WHDLoad.prefs`
+y la escritura del volumen WHDSaves, sin confundirlas con guardar una partida.
+
 ## Que hay
 
 | Pieza | Donde |

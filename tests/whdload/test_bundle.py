@@ -5,6 +5,7 @@ import io
 from pathlib import Path
 import re
 import shutil
+import struct
 import unittest
 import zipfile
 
@@ -54,8 +55,102 @@ lr = importlib.import_module("tests.libretro-host.test_libretro")
 SAVE, END = 700, 6000
 
 
+def prefs_probe_program():
+    """Original AmigaDOS v36 HUNK: copy the assigned prefs to the save volume.
+
+    Open/Read/Write/Close use dos.library -30/-42/-48/-36; this checks the
+    mounted filesystem and the S: assignment without pretending to save a game.
+    """
+    code, labels, fixups = bytearray(), {}, []
+    def words(*values):
+        code.extend(struct.pack(">" + "H" * len(values), *(v & 0xffff for v in values)))
+    def relative(opcode, label):
+        words(opcode)
+        fixups.append((len(code), label))
+        words(0)
+    words(0x48e7, 0x3c02, 0x2c78, 4)  # preserve d2-d5/a6; execbase
+    relative(0x43fa, "dos")
+    words(0x7024, 0x4eae, -552, 0x4a80)
+    relative(0x6700, "fail")
+    words(0x2c40)
+    relative(0x41fa, "source")
+    words(0x2208, 0x243c, 0, 1005, 0x4eae, -30, 0x2a00)  # MODE_OLDFILE; d5=fh
+    relative(0x6700, "closefail")
+    words(0x2205)
+    relative(0x41fa, "buffer")
+    words(0x2408, 0x263c, 0, 512, 0x4eae, -42, 0x2800, 0x2205, 0x4eae, -36)
+    words(0x4a84)
+    relative(0x6f00, "closefail")  # read must return positive bytes
+    relative(0x41fa, "destination")
+    words(0x2208, 0x243c, 0, 1006, 0x4eae, -30, 0x2a00)  # MODE_NEWFILE
+    relative(0x6700, "closefail")
+    words(0x2205)
+    relative(0x41fa, "buffer")
+    words(0x2408, 0x2604, 0x4eae, -48, 0x9880, 0x2205, 0x4eae, -36)  # d4=expected-written
+    relative(0x6000, "close")
+    labels["closefail"] = len(code)
+    words(0x7814)
+    labels["close"] = len(code)
+    words(0x224e, 0x2c78, 4, 0x4eae, -414, 0x2004)
+    relative(0x6000, "end")
+    labels["fail"] = len(code)
+    words(0x7014)
+    labels["end"] = len(code)
+    words(0x4cdf, 0x403c, 0x4e75)
+    for name, value in (("dos", b"dos.library\0"), ("source", b"S:WHDLoad.prefs\0"),
+                        ("destination", b"WHDSaves:read-prefs.txt\0"), ("buffer", bytes(512))):
+        labels[name] = len(code)
+        code.extend(value)
+        code.extend(b"\0" * (len(code) % 2))
+    for at, label in fixups:
+        struct.pack_into(">h", code, at, labels[label] - at)
+    code.extend(b"\0" * (-len(code) % 4))
+    size = len(code) // 4
+    return struct.pack(">8I", 1011, 0, 1, 0, 0, size, 1001, size) + code + struct.pack(">I", 1010)
+
+
 @unittest.skipUnless(lr.TOOLS and support.AVAILABLE, support.SKIP)
 class BundleLibretroTests(lr.LibretroHarness):
+    def title_exit(self, *, probe=False, replay=False):
+        images = prepared()
+        if probe:
+            tree = dict(ffs.read_volume(images["WHDLoad.hdf"]).files)
+            tree["C/P6PrefsProbe"] = prefs_probe_program()
+            tree["S/Startup-Sequence"] = tree["S/Startup-Sequence"].replace(b"C:WHDLoad SLAVE=", b"C:P6PrefsProbe\nC:WHDLoad SLAVE=")
+            root = ffs.build_tree(tree)
+            images["WHDLoad.hdf"] = ffs.write_volume(root, "WHDLoad", blocks=ffs.volume_blocks(root, free_blocks=2048))
+        directory, saves, system = self.work(), self.work(), self.work()
+        for name, image in images.items():
+            (directory / name).write_bytes(image)
+        content = directory / "bundle.m3u"
+        content.write_text("\n".join(images) + "\n")
+        shutil.copyfile(support.KICKSTART, system / lr.KICKSTART_NAMES_A1200[0])
+        options = ["--do", "350:save:s", "--do", "450:save:first", "--do", "450:load:s", "--do", "550:save:replay"] if replay else []
+        out = self.frontend("boot", "--runs", 550 if replay else 450, *lr.A1200, "--mouse-at", "400:0,0,2", "--mouse-at", "404:0,0,0",
+                            "--set", "puae6_hdf_save=on_close", *options, "--save-dir", saves, content=content, system=system).stdout
+        exported = {}
+        for name, image in images.items():
+            self.assertEqual(image, (directory / name).read_bytes())
+            saved = saves / ("puae6-" + hashlib.sha256(image).hexdigest()[:24] + ".hdf")
+            exported[name] = saved.read_bytes() if saved.exists() else image
+        return images, exported, out
+
+    def test_assigned_prefs_are_readable_and_save_volume_is_writable(self):
+        images, exported, _ = self.title_exit(probe=True)
+        prefs = ffs.read_volume(images["RASystem.hdf"]).files["S/WHDLoad.prefs"]
+        self.assertEqual(prefs, ffs.read_volume(exported["WHDSaves.hdf"]).files["read-prefs.txt"])
+        self.assertEqual(images["RASystem.hdf"], exported["RASystem.hdf"])
+
+    def test_title_rmb_exit_does_not_yet_meet_the_real_highscore_oracle(self):
+        # Known blocked reproducer, deliberately still requires the real save.
+        # Slave source patches $aca (end-of-game scores); title RMB goes from
+        # $706 to $ada and returns without executing that SaveFile hook.
+        images, exported, out = self.title_exit(replay=True)
+        units = self.runs(out)
+        keys = ("hash", "ahash", "ticks", "unit", "audio")
+        self.assertEqual([tuple(u[k] for k in keys) for u in units[350:450]], [tuple(u[k] for k in keys) for u in units[450:]])
+        assert_saved(self, images, exported)
+
     def test_real_highscore_save_and_restore_keep_data_immutable(self):
         images = prepared()
         directory, saves = self.work(), self.work()
