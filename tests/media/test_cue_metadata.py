@@ -45,12 +45,12 @@ class CueMetadataTests(unittest.TestCase):
         text = ('FILE "mixed.bin" BINARY\n TRACK 01 MODE1/2352\n INDEX 01 00:00:00\n'
                 ' TRACK 02 AUDIO\n FLAGS PRE DCP 4CH\n PREGAP 00:01:00\n INDEX 00 00:02:00\n INDEX 01 00:04:00\n POSTGAP 00:03:00\n'
                 'FILE "audio.wav" WAVE\n TRACK 03 AUDIO\n INDEX 01 00:00:00')
-        self.assertEqual(['tracks=3 calls=3', '1 0 2352 1 4 0 0 0 0 0', '2 0 2352 3 11 1 150 300 75 225',
-                          '3 1 2352 3 0 0 0 0 0 0'], self.run_cue(text))
-        self.assertEqual('1 0 2048 0 4 0 0 0 0 0', self.run_cue('file mixed.bin binary\ntrack 1 mode1/2048\nindex 1 00:00:00')[-1])
+        self.assertEqual(['tracks=3 calls=3', '1 0 2352 1 4 0 0 0 0 0 1', '2 0 2352 3 11 1 150 300 75 225 0',
+                          '3 1 2352 3 0 0 0 0 0 0 1'], self.run_cue(text))
+        self.assertEqual('1 0 2048 0 4 0 0 0 0 0 1', self.run_cue('file mixed.bin binary\ntrack 1 mode1/2048\nindex 1 00:00:00')[-1])
         for mode in ('MODE2/2336', 'CDI/2336'):
-            self.assertEqual('1 0 2336 2 4 0 0 0 0 0', self.run_cue(f'FILE mixed.bin BINARY\nTRACK 1 {mode}\nINDEX 1 00:00:00')[-1])
-        self.assertEqual('2 0 2352 3 0 0 0 75 0 0', self.run_cue('FILE mixed.bin BINARY\nTRACK 1 AUDIO\nFLAGS PRE\nINDEX 1 00:00:00\nTRACK 2 AUDIO\nINDEX 1 00:01:00')[-1])
+            self.assertEqual('1 0 2336 2 4 0 0 0 0 0 1', self.run_cue(f'FILE mixed.bin BINARY\nTRACK 1 {mode}\nINDEX 1 00:00:00')[-1])
+        self.assertEqual('2 0 2352 3 0 0 0 75 0 0 0', self.run_cue('FILE mixed.bin BINARY\nTRACK 1 AUDIO\nFLAGS PRE\nINDEX 1 00:00:00\nTRACK 2 AUDIO\nINDEX 1 00:01:00')[-1])
 
     def test_bad_tokens_order_times_types_and_callback_failures_keep_output(self):
         base = 'FILE mixed.bin BINARY\nTRACK 1 MODE1/2048\nINDEX 1 00:00:00\n'
@@ -69,6 +69,7 @@ class CueMetadataTests(unittest.TestCase):
         for fault in range(1, 7): self.run_cue(base, code=2, fault=fault)
         self.run_cue(base + 'INDEX 2 00:01:00', code=2)
         self.run_cue(base + 'TRACK 2 AUDIO\nINDEX 1 00:00:00', code=2)
+        self.assertEqual('2 0 2048 0 4 0 0 0 0 0 1', self.run_cue(base + base.replace('TRACK 1', 'TRACK 2'))[-1])
         self.assertTrue(self.run_cue('REM comment\nCATALOG 123\nTITLE "Album"\n' + base)[0].startswith('tracks=1'))
 
     def test_99_track_bound_and_no_synthetic_or_stored_metadata_lost(self):

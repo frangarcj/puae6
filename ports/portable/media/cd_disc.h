@@ -12,6 +12,7 @@ struct Track {
     Mode mode;
     uint8_t adr, control;        // ADR 1; control bit 2 distinguishes data from audio
     bool stored_pregap;          // false: INDEX00..01 is synthesized zero data/silence
+    uint32_t synthetic_pregap = 0, postgap = 0; // zero preserves existing descriptors/wire
 };
 struct Layout {
     uint8_t content_id[32];      // host verifies disc identity, including normalized TOC and sources

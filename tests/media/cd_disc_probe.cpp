@@ -86,6 +86,21 @@ static int reads()
         CHECK(filled(out + 16, 2048, 0));
     }
     CHECK(calls == f.p[0].calls + f.p[2].calls);
+    f.layout.track[2].stored_pregap = true;
+    f.layout.track[2].synthetic_pregap = 1; f.layout.track[2].postgap = 1;
+    f.layout.track[0].postgap = 1; f.layout.track[1].postgap = 1;
+    Disc combined;
+    CHECK(combined.bind(f.layout, f.bindings, 4) == Result::Ok);
+    const auto before = f.p[0].calls + f.p[1].calls + f.p[2].calls;
+    for (uint32_t lba : {0u, 2u, 3u, 6u, 7u, 10u}) {
+        const unsigned view = lba < 3 || lba >= 7 ? 2048 : 2352;
+        CHECK(combined.read_sector(lba, view, out, sizeof out) == Result::Ok && filled(out, view, 0));
+    }
+    CHECK(before == f.p[0].calls + f.p[1].calls + f.p[2].calls);
+    CHECK(combined.read_sector(10, 2352, out, sizeof out) == Result::Ok && out[15] == 1 && filled(out + 16, 2048, 0));
+    CHECK(combined.read_sector(8, 2448, out, sizeof out) == Result::Ok);
+    for (unsigned n = 0; n < 2448; ++n) CHECK(out[n] == byte(f.p[2], f.p[2].offset + n));
+    CHECK(combined.read_sector(9, 2448, out, sizeof out) == Result::Ok && f.p[2].last == f.p[2].offset + 2448);
     return 0;
 }
 static int failures_and_rebind()
@@ -104,7 +119,7 @@ static int failures_and_rebind()
         CHECK(disc.read_sector(7, 2448, out, sizeof out) == Result::ReadError && filled(out, sizeof out, 0xa5));
     }
     f.p[2].fault = 0;
-    for (unsigned n = 0; n < 18; ++n) {
+    for (unsigned n = 0; n < 22; ++n) {
         Layout bad = f.layout;
         Binding bindings[4]; memcpy(bindings, replacement.bindings, sizeof bindings);
         if (n == 0) bad.content_id[0] ^= 1;
@@ -125,6 +140,10 @@ static int failures_and_rebind()
         if (n == 15) bad.track[2].adr = 0;
         if (n == 16) --bad.track[2].end;
         if (n == 17) --bad.tracks;
+        if (n == 18) bad.track[2].synthetic_pregap = 1;
+        if (n == 19) bad.track[2].postgap = 1;
+        if (n == 20) bad.track[2].synthetic_pregap = 3;
+        if (n == 21) bad.track[2].postgap = 2;
         CHECK(disc.rebind(bad, bindings, 4) != Result::Ok);
         CHECK(disc.read_sector(7, 2352, out, sizeof out) == Result::Ok && !replacement.p[2].calls);
     }

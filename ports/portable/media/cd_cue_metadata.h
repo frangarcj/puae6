@@ -8,7 +8,7 @@ struct CueTrack {
     uint32_t source, stride, index0, index1, pregap, postgap;
     Mode mode;
     uint8_t control;
-    bool has_index0;
+    bool has_index0, new_file; // FILE boundary survives provider deduplication
 };
 struct CueMetadata { uint32_t tracks; CueTrack track[kMaxTracks]; };
 struct CueIo {

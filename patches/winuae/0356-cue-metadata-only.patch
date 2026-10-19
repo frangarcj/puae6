@@ -276,7 +276,7 @@ diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
  			if (tracknum >= 1 && tracknum <= 99) {
  				struct cdtoc *t = &cdu->toc[tracknum - 1];
 +#ifdef P6_CUE_METADATA
-+                const auto type = file_type; file_pending = false;
++                const auto type = file_type; t->raw.new_file = file_pending; file_pending = false;
 +                if (type == Encoding::AudioPcmS16Le && (ctrl & 4)) return Result::Unsupported;
 +                const auto resolved = io.resolve(io.context, fname, type, &t->source);
 +                if (resolved != Result::Ok) return resolved;
@@ -383,7 +383,7 @@ diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
 +                t.zero_seen = true; t.raw.has_index0 = true; t.raw.index0 = unsigned(tn);
 +            } else if (idxnum == 1) {
 +                if (t.index_seen || (t.zero_seen && unsigned(tn) < t.raw.index0)) return Result::Invalid;
-+                if (tracknum > 1 && cdu->toc[tracknum - 2].raw.source == t.raw.source &&
++                if (!t.raw.new_file && tracknum > 1 && cdu->toc[tracknum - 2].raw.source == t.raw.source &&
 +                    unsigned(tn) <= cdu->toc[tracknum - 2].raw.index1) return Result::Invalid;
 +                t.index_seen = true; t.raw.index1 = unsigned(tn); t.raw.control = uint8_t(ctrl);
 +            } else return Result::Unsupported;

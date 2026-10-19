@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     printf("tracks=%u calls=%u\n", result.tracks, input.calls);
     for (unsigned n = 0; n < result.tracks; ++n) {
         const auto &t = result.track[n];
-        printf("%u %u %u %u %u %u %u %u %u %u\n", n + 1, t.source, t.stride, unsigned(t.mode), t.control,
-               t.has_index0, t.index0, t.index1, t.pregap, t.postgap);
+        printf("%u %u %u %u %u %u %u %u %u %u %u\n", n + 1, t.source, t.stride, unsigned(t.mode), t.control,
+               t.has_index0, t.index0, t.index1, t.pregap, t.postgap, t.new_file);
     }
 }

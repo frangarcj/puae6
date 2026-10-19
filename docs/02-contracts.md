@@ -928,6 +928,16 @@ incluso combinados, sin calcular aun el layout. Limites:99 pistas,4095B por line
 lectura fallan sin publicar metadata parcial. La conversion a Disc y sus rangos
 fisicos queda en T66e2b; no anuncia carga CUE/CD32 en el frontend.
 
+T66e2b añade `CdCue`, dueño RAII de proveedores CdFile y bindings. Deduplica por
+ruta/tipo pero conserva fronteras FILE, incluso al repetir la misma fuente.
+Convierte tiempos a offsets por stride, valida restos/rangos y conserva gaps
+combinados y POSTGAP final. Track privado añade synthetic_pregap/postgap default0;
+los sectores sinteticos no consumen fuente. Wire Waterbox2432B permanece igual.
+SHA256 canonico LE incluye politica P6CUE1, encoding WAV/BIN, TOC y IDs completos,
+sin padding/rutas/cursor. MODE2/CDI2336 devuelve Unsupported; gaps Mode2 y2448
+sin subcanales siguen Unsupported. MED01 usa `P6_CD_CUE_FILE` para Brian29 opt-in;
+no hay carga CD32, CDDA ni anuncio nuevo de formatos en la preview.
+
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
 El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando
