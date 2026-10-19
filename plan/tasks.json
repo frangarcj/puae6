@@ -15036,7 +15036,7 @@
       "title": "Player CDDA cooperativo de un sector",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66i1",
         "T66g4"
@@ -15267,6 +15267,48 @@
       "stop": "Componente de T66: conservar todos los formatos, CDDA/NVRAM, estado completo y arranque/restore CD32 real en ambos adaptadores como puertas del padre."
     },
     {
+      "id": "T66n1",
+      "title": "Conectar CDDA real al backend blkdev y clasificacion efectiva",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66i2",
+        "T66g4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp",
+        "ports/portable/media/cd_read.h",
+        "ports/portable/media/cd_read.cpp",
+        "ports/portable/media/cd_audio.cpp",
+        "ports/portable/media/cd_audio.h",
+        "tests/media/cd_device_audio_probe.cpp",
+        "tests/media/test_cd_device_audio.py",
+        "tests/media/cd_audio_probe.cpp",
+        "tests/media/test_cd_device.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Sustituir rechazoCDDA de G3 porAudioPlayer real prestado alDispositivo, con lifecycleultimo close/unbind/stop. Respetarsemantica upstream pausa/volumen/status/ready/retardo yQcode conestado/posiciondeaudio; scan noimplementado Unsupported claro. Sinmotor/guestbuild, sin cambiarcodec0099.",
+        "Compartir consultadeclasificacionefectiva G4 por metadata(sinleerQalmacenada): prefijoaudio→datosconrelativo>150puedeserAudio, ultimos150datos. ReutilizarreglaenAudioPlayer ylector sin duplicarla; pista datos sigueerror. Probar PCM/callback/subQ porblkdevreal, pause/mute/close/error yfronteras151/150/pregap, sinoráculosdebilitados. Presupuesto250–350logicas; heredarfixtureI1/I2evitando copiarhardware."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Las firmas blkdev reales reproducen, pausan y finalizan CDDA por reloj emulado con Q/subcanales coherentes y prefijos clasificados poruna politica compartida."
+      ],
+      "stop": "No declarar CD32 completo: estado causal de maquina, NVRAM, frontends y arranque/restore siguen enT66."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -15294,7 +15336,8 @@
         "T66j2",
         "T66k1",
         "T66l1",
-        "T66l2"
+        "T66l2",
+        "T66n1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -15322,7 +15365,8 @@
         "T66e1 aporta proveedor nativo ISO/WAV seekable yT66e2 reutiliza el parserCUE fijado endurecido. El padre mantiene CCD/NRG/MDS/CHD, CDDA, Akiko cooperativo, NVRAM, frontends y arranque/restore completo.",
         "T66g2 aporta sintesis P/Q explicita yT66g3 superficie blkdev dirigida. Se conserva la integracion almacenado/sintetico, Akiko cooperativo/estado, CDDA, todoslosformatos y arranque/restore real enambosadaptadores como puerta del padre.",
         "Divisiones previas porpresupuesto: H1servicioAkiko/H2tiempocausal, I1streamCDA/I2player, J1parserCCD/J2proveedor. La conexion completaCDDA/dispositivo, codecsestadoAkiko+audio, NVRAM/SaveRAM, frontends, restantesformatos y arranque/restore real conservan todas las puertas delpadre.",
-        "T66k1 ensambla grafo nativo real sin habilitar machine; T66l1/l2 adelantan NRG DAO poroffset. NRG variantes pendientes, MDS/CHD y arranque/estado completo permanecen abiertos en el padre; no se recorta alcance por preview."
+        "T66k1 ensambla grafo nativo real sin habilitar machine; T66l1/l2 adelantan NRG DAO poroffset. NRG variantes pendientes, MDS/CHD y arranque/estado completo permanecen abiertos en el padre; no se recorta alcance por preview.",
+        "T66n1 conectara CDDA/blkdev yclasificacionefectiva compartida; codeccompletoCDDA/Akiko,NVRAM,frontends yarranque/restore siguenpuertasdelpadre."
       ],
       "checks": [
         "MED01",

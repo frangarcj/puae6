@@ -75,6 +75,7 @@ add_library(p6_portable STATIC
     ports/portable/media/cd_read.cpp
     ports/portable/media/cd_subchannel.cpp
     ports/portable/media/cd_device.cpp
+    ports/portable/media/cd_audio.cpp
     ports/portable/media/cd_utilities.cpp
     ports/portable/drive_sound.cpp
     ports/portable/atomic.cpp
