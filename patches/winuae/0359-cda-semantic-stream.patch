@@ -1,0 +1,180 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -21,6 +21,9 @@
+ #include "newcpu.h"
+ #include "gensound.h"
+ #include "audio.h"
++#ifdef P6_PORTABLE
++#include "audio_cda_state.h"
++#endif
+ #include "sounddep/sound.h"
+ #include "events.h"
+ #include "savestate.h"
+@@ -357,7 +360,7 @@
+ 
+ static struct audio_channel_data audio_channel[AUDIO_CHANNELS_PAULA];
+ static struct audio_stream_data audio_stream[AUDIO_CHANNEL_STREAMS];
+-static struct audio_channel_data2 *audio_data[AUDIO_CHANNELS_PAULA + AUDIO_CHANNEL_STREAMS * AUDIO_CHANNEL_MAX_STREAM_CH];
++static struct audio_channel_data2 *audio_data[AUDIO_CHANNELS_PAULA + AUDIO_CHANNEL_STREAMS * AUDIO_CHANNEL_MAX_STREAM_CH + 1];
+ int sound_available = 0;
+ void (*sample_handler) (void);
+ static void(*sample_prehandler) (unsigned long best_evtime);
+@@ -3016,6 +3019,7 @@
+ 			audio_data[index++] = &audio_stream[i].data[j];
+ 		}
+ 	}
++	audio_data[index] = NULL; // Terminate after removing the last stream too.
+ 	set_extra_prehandler();
+ }
+ 
+@@ -3096,13 +3100,20 @@
+ static bool audio_state_cda(int streamid, void *state)
+ {
+ 	struct cd_audio_state *cas = (struct cd_audio_state*)state;
+-	if (cas->cda_bufptr >= dummy_buffer && cas->cda_bufptr <= dummy_buffer + 4) {
++	if (cas->cda_bufptr == dummy_buffer || cas->cda_length <= 0) {
+ 		audio_enable_stream(false, cas->cda_streamid, 0, NULL, NULL);
+ 		cas->cda_streamid = 0;
+ 		return false;
+ 	}
+ 	if (cas->cda_streamid <= 0)
+ 		return false;
++#ifdef P6_PORTABLE
++	if (cas->cda_paused) {
++		int silence[2] = { 0, 0 };
++		audio_state_stream_state(streamid, silence, 2, cda_evt);
++		return true;
++	}
++#endif
+ 	int samples[2];
+ 	samples[0] = cas->cda_bufptr[0] * cas->cda_volume[0] / 32768;
+ 	samples[1] = cas->cda_bufptr[1] * cas->cda_volume[1] / 32768;
+@@ -3120,6 +3131,9 @@
+ 	if (length < 0 && cas->cda_streamid > 0) {
+ 		audio_enable_stream(false, cas->cda_streamid, 0, NULL, cas);
+ 		cas->cda_streamid = 0;
++#ifdef P6_PORTABLE
++		cas->cda_paused = false;
++#endif
+ 		return;
+ 	}
+ 	if (!buffer) {
+@@ -3129,11 +3143,103 @@
+ 		cas->cda_bufptr = buffer;
+ 		cas->cda_length = length;
+ 		cas->cda_userdata = userdata;
+-		if (cas->cda_streamid <= 0)
++		if (cas->cda_streamid <= 0) {
+ 			cas->cda_streamid = audio_enable_stream(true, -1, 2, audio_state_cda, cas);
++#ifdef P6_PORTABLE
++			cas->cda_paused = false;
++			if (cas->cda_streamid > 0) {
++				for (int i = 0; i < 2; ++i) {
++					auto &ch = audio_stream[cas->cda_streamid - 1].data[i];
++					ch = {}; ch.mixvol = 1; ch.adk_mask = ~0u;
++				}
++			}
++#endif
++		}
+ 	}
+ 	cas->cda_next_cd_audio_buffer_callback = next_cd_audio_buffer_callback;
+ 	cas->cb_data = cb_data;
+ 	if (cas->cda_streamid > 0)
+ 		audio_activate();
+ }
++
++#ifdef P6_PORTABLE
++namespace p6_cda {
++static bool available(const cd_audio_state &cas)
++{
++    if (currprefs.sound_interpol == 2 || currprefs.sound_volcnt || currprefs.sound_mixed_stereo_delay) return false;
++    if (!audio_total_extra_streams) return cas.cda_streamid <= 0;
++    return audio_total_extra_streams == 1 && cas.cda_streamid == 1 && audio_extra_streams[0] == 2
++        && audio_stream[0].cb == audio_state_cda && audio_stream[0].cb_data == &cas;
++}
++static bool geometry(const int16_t *base, uint32_t frames)
++{
++    return base && reinterpret_cast<uintptr_t>(base) % alignof(int16_t) == 0 && frames && frames <= kMaxFrames;
++}
++static bool valid(const State &, uint32_t);
++bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, State *out)
++{
++    if (!out || !geometry(base, frames) || !available(cas)) return false;
++    State s{};
++    s.frames = frames; s.period = cda_evt;
++    for (int i = 0; i < 2; ++i) s.volume[i] = cas.cda_volume[i];
++    if (cas.cda_streamid > 0) {
++        const uintptr_t begin = reinterpret_cast<uintptr_t>(base), at = reinterpret_cast<uintptr_t>(cas.cda_bufptr);
++        if (cas.cda_length < 0 || (cas.cda_bufptr == dummy_buffer && cas.cda_length)) return false;
++        if (cas.cda_bufptr != dummy_buffer && (at < begin || at - begin > frames * 4 || (at - begin) % 4)) return false;
++        s.active = 1; s.paused = cas.cda_paused;
++        s.offset = cas.cda_bufptr == dummy_buffer ? 0 : uint32_t((at - begin) / 4);
++        s.remaining = uint32_t(cas.cda_length); s.userdata = cas.cda_userdata;
++        if (s.remaining > frames - s.offset) return false;
++        const auto &stream = audio_stream[0];
++        s.event_cycles = stream.evtime;
++        for (int i = 0; i < 2; ++i) {
++            const auto &ch = stream.data[i];
++            if (ch.mixvol != 1 || ch.adk_mask != ~0u) return false;
++            s.channel[i] = {ch.current_sample, ch.last_sample, ch.sample_accum, ch.sample_accum_time};
++        }
++    }
++    if (!valid(s, frames)) return false;
++    *out = s; return true;
++}
++static bool valid(const State &s, uint32_t frames)
++{
++    if (s.active > 1 || s.paused > 1 || s.frames != frames || !s.period || s.period != cda_evt) return false;
++    for (int i = 0; i < 2; ++i) {
++        if (s.volume[i] < 0 || s.volume[i] > 32768) return false;
++        const auto &ch = s.channel[i];
++        if (ch.current < -32768 || ch.current > 32767 || ch.previous < -32768 || ch.previous > 32767
++            || ch.cycles < 0 || ch.cycles > int(s.period + 1)
++            || int64_t(ch.accumulator) < -32768LL * ch.cycles || int64_t(ch.accumulator) > 32767LL * ch.cycles) return false;
++        if (!s.active && (ch.current || ch.previous || ch.accumulator || ch.cycles)) return false;
++    }
++    if (!s.active) return !s.paused && !s.offset && !s.remaining && !s.event_cycles && !s.userdata;
++    return s.offset <= frames && s.remaining <= frames - s.offset && s.event_cycles <= s.period;
++}
++bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s,
++             void (*next)(int, void *), void *context)
++{
++    if (!geometry(base, frames) || !available(cas) || !valid(s, frames)) return false;
++    cas.cda_bufptr = s.active ? base + s.offset * 2 : dummy_buffer;
++    cas.cda_length = int(s.remaining); cas.cda_userdata = s.userdata;
++    cas.cda_paused = s.paused != 0; cas.cda_streamid = s.active ? 1 : 0;
++    cas.cda_next_cd_audio_buffer_callback = next; cas.cb_data = context;
++    auto &stream = audio_stream[0];
++    stream = {}; stream.evtime = s.active ? s.event_cycles : MAX_EV;
++    stream.cb = audio_state_cda; stream.cb_data = &cas;
++    for (int i = 0; i < 2; ++i) {
++        cas.cda_volume[i] = s.volume[i];
++        auto &ch = stream.data[i]; const auto &in = s.channel[i];
++        ch.current_sample = in.current; ch.last_sample = in.previous;
++        ch.sample_accum = in.accumulator; ch.sample_accum_time = in.cycles;
++        ch.mixvol = 1; ch.adk_mask = ~0u;
++    }
++    audio_extra_streams[0] = s.active ? 2 : 0;
++    audio_set_extra_channels(); return true;
++}
++bool pause(cd_audio_state &cas, bool paused)
++{
++    if (!available(cas) || cas.cda_streamid != 1) return false;
++    cas.cda_paused = paused; return true;
++}
++}
++#endif
+diff --git a/include/audio.h b/include/audio.h
+--- a/include/audio.h
++++ b/include/audio.h
+@@ -59,6 +59,9 @@
+ 
+ struct cd_audio_state
+ {
++#ifdef P6_PORTABLE
++	bool cda_paused = false;
++#endif
+ 	uae_s16 *cda_bufptr;
+ 	int cda_length, cda_userdata;
+ 	CDA_CALLBACK cda_next_cd_audio_buffer_callback;

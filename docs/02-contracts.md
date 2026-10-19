@@ -1327,3 +1327,18 @@ Auto y Full conservan la identidad anterior. Los demas niveles incorporan su val
 resuelto a `p6/config/collisions/v1` y rechazan estados de otro nivel.
 CLXDAT/CLXCON siguen en P6CH; las tablas de colisiones se derivan al reset y al
 restaurar CLXCON de la configuracion inmutable. No se anade estado causal.
+
+## Componente CDA semantico (T66i1)
+
+El stream real de `audio.cpp` consume PCM signed16 nativo, dos canales, mediante
+el scheduler emulado existente. La frontera futura del proveedor decodificara
+s16le explicitamente; este componente no transforma sectores. Pausa entrega cero
+sin consumir muestras ni reiniciar el deadline; mute sigue consumiendo. El caller
+sincroniza `update_audio` antes de cambiar pausa o volumen. Un buffer agotado o el
+sentinel se desactiva antes de leer, tambien sin callback de relleno.
+`audio_cda_state.h` limita captura/restauracion al unico stream CDA, slot0 stereo,
+y 588 frames como maximo. Conserva cursor, longitud, pausa, volumen, deadline,
+muestras y acumuladores. Punteros/callback/contexto se derivan de argumentos del
+caller. La aplicacion valida antes de mutar y no avanza ni programa eventos: fase
+Paula y scheduler se restauran por separado. El guard0099 sigue rechazando streams
+extra en estados de maquina; faltan el codec nativo y la integracion CDDA/Akiko.

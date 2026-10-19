@@ -4766,6 +4766,36 @@
           "after_sha256": "3285d462928e7d0cc2d237078df99735886df63b1243095a5988aac4139606a9"
         }
       ]
+    },
+    {
+      "id": "0359-cda-semantic-stream",
+      "file": "patches/winuae/0359-cda-semantic-stream.patch",
+      "sha256": "eb8c4f98ef85ced60834580f7b88b77ecc6114a88a870deaa1fae17ab0359432",
+      "title": "Pause and capture the real CDA stream without host time",
+      "reason": "T66i1 exposes bounded semantic values for the single stereo CDA stream, preserves paused sample position and rejects other streams. Exhausted/sentinel buffers stop before dereferencing; native machine-state support remains guarded until its codec exists.",
+      "category": "host hooks",
+      "order": 176,
+      "symbols": [
+        "audio_state_cda",
+        "p6_cda::capture",
+        "p6_cda::restore",
+        "p6_cda::pause"
+      ],
+      "test": "tests/audio/test_cd_audio.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "3a7028cc404b712077210932bcc93e5748ba77833fb4c64324c4c5c600dec8d3",
+          "after_sha256": "aae36d3beda7401b14cb80cd613562dbdf0d70a4e8c51d640a84c8cd57793e02"
+        },
+        {
+          "path": "include/audio.h",
+          "before_sha256": "1744cd83f4bff41d29ac2f27814f68dc4149350886ee441f0ccaed4ee73ccedd",
+          "after_sha256": "d18d8f8fc0fb1f975cbb82c59655ee62834530cb3d54ba8ec5d56670269d7565"
+        }
+      ]
     }
   ]
 }
