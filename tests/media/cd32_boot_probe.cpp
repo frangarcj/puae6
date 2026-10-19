@@ -14,6 +14,8 @@
 #include "rom_status.h"
 #include "cd_image.h"
 #include "cd_device.h"
+#include "akiko_controller_state.h"
+#include "diagnostics.h"
 #include "sha256.h"
 #include <algorithm>
 #include <cassert>
@@ -122,6 +124,16 @@ int main(int argc,char **argv)
         assert(frame.master_ticks && frame.audio_frames && frame.video_bytes); ++frames;
         reads=0; for(const auto &counter:counters) reads+=counter.reads;
     } while(frames<240 && (frames<30 || !reads));
+    if (!reads) {
+        p6_akiko_controller_state control{};
+        const bool captured = p6_akiko_controller_get(&control);
+        fprintf(stderr,"CD32 no payload: PC=%08x cycles=%llu open=%d controller=%d init=%d unit=%d flags=%08x command=%02x rx=%d/%d toc=%d media=%d/%d\n",
+            m68k_getpc(),(unsigned long long)get_cycles(),sys_command_isopen(0),captured,control.cd_initialized,control.unitnum,
+            control.cdrom_flags,control.cdrom_command,control.cdrom_receive_offset,control.cdrom_receive_length,
+            control.toc.points,control.lastmediastate,control.mediachanged);
+        p6_diagnostic diagnostic[32]; const auto count=p6_diag_read(diagnostic,32);
+        for(int n=0;n<count;++n) fprintf(stderr,"CD32 diagnostic: %s\n",diagnostic[n].text);
+    }
     no_states(); assert(reads); printf("CD32 firmware executed frames=%u payload_reads=%llu; game boot not asserted\n",frames,(unsigned long long)reads);
     call(p6_reset(&e),e); call(p6_run_frame(&input,P6_RENDER_AUDIO,&frame,&e),e); call(p6_unload(&e),e); device_unbind(); disc=Disc{}; call(p6_shutdown(&e),e);
     c=config(P6_MACHINE_A1200); call(p6_init(&c,&e),e); assert(p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_ERROR_WRONG_MEDIA);
