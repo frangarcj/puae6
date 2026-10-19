@@ -4475,6 +4475,42 @@
           "after_sha256": "e6d35cfd5007cce9094b647a7ff5dbbc60e81d5f2b3009aeea793bfcfe707a1f"
         }
       ]
+    },
+    {
+      "id": "0352-optical-pointer-boundary-and-latch",
+      "file": "patches/winuae/0352-optical-pointer-boundary-and-latch.patch",
+      "sha256": "e69c1cf62021bfefd3ef9a83320541b2aead33a0b97fa8da97ed274ca7e4dd5f",
+      "title": "Apply an absolute optical sensor at the boundary and expose its hardware latch",
+      "reason": "T70c feeds normalized optical input without host MMIO callbacks or drawing-dependent conversions. The photodiode event remains in the emulated scheduler; its beam latch is explicit causal state.",
+      "category": "host hooks",
+      "order": 165,
+      "symbols": [
+        "p6_input_pointer",
+        "p6_pointer_beam",
+        "p6_lightpen_latch_get",
+        "p6_lightpen_latch_set",
+        "p6_custom_event2_handler"
+      ],
+      "test": "tests/input/test_pointer.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "inputdevice.cpp",
+          "before_sha256": "1b4d8a6eaf62000a13e6d564fe412b3d7f593f2c82b0aca5393465ff4c16de2d",
+          "after_sha256": "54af7c707f8947929aed180e581e1c94f62ae544923abd34a495813e158c0ecb"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "c29320d477ac40348bae076d4354a04b899e448ec4e1d317a9ac005ccd0b5c3b",
+          "after_sha256": "4d525abfde88ae592c145d872393ab91d19db81f2fa29c0fc6d1eab25528d047"
+        },
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "34061fa7b8d4df62ae3fcf87fd0fe69a71c060ca95ed7c51ce7c28633c4aa4cb",
+          "after_sha256": "d858b216d6b183c29b993b5c2572d6c555de541dc1743c7f39f171bf1e8895c5"
+        }
+      ]
     }
   ]
 }

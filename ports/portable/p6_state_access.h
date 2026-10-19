@@ -55,6 +55,8 @@ struct p6_input_raw {
     int32_t reset_seq, reset_seq_mode;               // the keyboard reset chord: 0 none, 1 soft, 2 hard, 3 and 4 only with a reset warning
     uint32_t cd32_enabled[2], cd32_shifter[2], cd32_clock[2]; // protocol mode, bit index 0..8, previous CIA clock level
     uint32_t second_mouse_enabled;                  // derived from applied.type[1], never an extra serialized field
+    uint32_t pointer_enabled, pointer_port;
+    int32_t pointer_cx, pointer_cy;                  // the beam position already converted at the preceding input boundary
 };
 
 // What the bridge remembers of what it sent the engine (bridge/input.cpp): the host's edge memory, so that only differences reach the engine.

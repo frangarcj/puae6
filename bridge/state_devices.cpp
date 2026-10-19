@@ -295,7 +295,7 @@ void visit_input(Archive &a)
     uint32_t applied_buttons[2] = {};
     int8_t applied_axis[2][2] = {};
     for (int k = 0; k < 4; ++k) applied_keys[k] = field<uint32_t>(a, ap.keys[k], 0, 0xFFFFFFFFll, "applied.keys");
-    for (int p = 0; p < 2; ++p) applied_type[p] = field<uint8_t>(a, ap.type[p], 0, P6_PORT_CD32, "applied.type");
+    for (int p = 0; p < 2; ++p) applied_type[p] = field<uint8_t>(a, ap.type[p], 0, P6_PORT_LIGHTPEN, "applied.type");
     for (int p = 0; p < 2; ++p) {
         uint32_t buttons = ap.type[p] == P6_PORT_CD32 ? ap.buttons[p] & 7 : ap.buttons[p];
         applied_buttons[p] = field<uint8_t>(a, buttons, 0, 7, "applied.buttons");
@@ -327,7 +327,26 @@ void visit_input(Archive &a)
     if (a.mode() == Mode::Save)
         a.require(bool(r.second_mouse_enabled) == (applied_type[1] == P6_PORT_MOUSE), "second mouse mode and the bridge's device disagree");
     if (a.applying()) r.second_mouse_enabled = applied_type[1] == P6_PORT_MOUSE;
+    const bool optical[2] = {applied_type[0] == P6_PORT_LIGHTGUN || applied_type[0] == P6_PORT_LIGHTPEN,
+                             applied_type[1] == P6_PORT_LIGHTGUN || applied_type[1] == P6_PORT_LIGHTPEN};
+    const bool pointer = optical[0] || optical[1];
+    const unsigned pointer_port = optical[1] ? 1 : 0;
+    int16_t cx = -1, cy = -1;
+    if (pointer || a.mode() == Mode::Measure) {
+        cx = field<int16_t>(a, r.pointer_cx, -1, 255, "pointer.cx");
+        cy = field<int16_t>(a, r.pointer_cy, -1, 2047, "pointer.cy");
+    }
+    if (a.mode() == Mode::Save) {
+        a.require(bool(r.pointer_enabled) == pointer, "optical sensor mode and the bridge disagree");
+        if (pointer) a.require(r.pointer_port == pointer_port, "optical sensor port and the bridge disagree");
+    }
+    if (a.applying()) { r.pointer_enabled = pointer; r.pointer_port = pointer_port; r.pointer_cx = cx; r.pointer_cy = cy; }
     if (checks) {
+        a.require(!(optical[0] && optical[1]), "only one optical sensor is supported");
+        if (pointer) {
+            a.require((cx < 0) == (cy < 0), "optical coordinates must be on screen or both absent");
+            a.require(!(applied_buttons[pointer_port] & P6_POINTER_OFFSCREEN) || cx == -1, "an offscreen pointer has a beam hit");
+        }
         a.require((keys[13] | keys[14] | keys[15]) == 0, "kb.keys: a key above 0x67 is down");
         a.require((applied_keys[3] >> 8) == 0, "applied.keys: a key above 0x67 is down");
         for (int k = 0; k < 4; ++k) {
@@ -343,8 +362,13 @@ void visit_input(Archive &a)
                     (applied_axis[p][1] < 0 ? 4 : applied_axis[p][1] > 0 ? 8 : 0);
                 a.require(joy_dir[p] == directions, "CD32 directions and the bridge disagree");
             }
-            if (!joystick && !mouse && !cd32) a.require(applied_buttons[p] == 0 && applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "applied: a port without a device has buttons or a direction down");
+            if (!joystick && !mouse && !cd32 && !optical[p]) a.require(applied_buttons[p] == 0 && applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "applied: a port without a device has buttons or a direction down");
             if (mouse) a.require(applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "applied: a mouse has a direction down");
+            if (optical[p]) {
+                a.require(applied_buttons[p] <= 3 && applied_axis[p][0] == 0 && applied_axis[p][1] == 0, "optical pointer has unknown buttons or a joystick direction");
+                a.require(joy_button[p] == ((applied_buttons[p] & P6_POINTER_TRIGGER) ? 4 : 0) && joy_dir[p] == 0,
+                          "optical pointer hardware buttons and the bridge disagree");
+            }
             if (mouse && p == 1) {
                 a.require(joy_button[p] == applied_buttons[p], "the second mouse buttons and the bridge disagree");
                 a.require(joy_dir[p] == 0, "the second mouse has a joystick direction");

@@ -170,7 +170,8 @@
     "0345-rtc-ricoh-state": "instrumentation",
     "0351-second-mouse-boundary": "required",
     "0346-portable-generic-no-mmu": "required",
-    "0347-a4000-motherboard-cpu030": "required"
+    "0347-a4000-motherboard-cpu030": "required",
+    "0352-optical-pointer-boundary-and-latch": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

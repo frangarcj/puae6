@@ -22,6 +22,7 @@ extern int p6_input_engine_released_keys;
 void p6_input_reset_keys();     // patch 0066
 void p6_input_cd32(int port, bool enabled, unsigned buttons, unsigned directions); // patch 0350, boundary only
 void p6_input_mouse2(bool enabled, unsigned buttons, int dx, int dy); // patch 0351, boundary only
+void p6_input_pointer(int port, bool enabled, unsigned buttons, int x, int y); // patch 0352, boundary only
 
 namespace p6_bridge {
 
@@ -70,6 +71,8 @@ void release_port(int port)
             if ((a.buttons[port] >> b) & 1) setmousebuttonstate(0, b, 0);
     } else if (a.type[port] == P6_PORT_CD32) {
         p6_input_cd32(port, false, 0, 0);
+    } else if (a.type[port] == P6_PORT_LIGHTGUN || a.type[port] == P6_PORT_LIGHTPEN) {
+        p6_input_pointer(port, false, 0, 0, 0);
     } else if (a.type[port] == P6_PORT_JOYSTICK) {
         for (int b = 0; b < 3; ++b)
             if ((a.buttons[port] >> b) & 1) setjoybuttonstate(port, b, 0);
@@ -98,6 +101,9 @@ void apply_port(int port, const p6_port_input &in)
             if (in.dy) setmousestate(0, 1, in.dy, 0);
         }
         a.buttons[port] = in.buttons & kMouseButtons;
+    } else if (in.type == P6_PORT_LIGHTGUN || in.type == P6_PORT_LIGHTPEN) {
+        p6_input_pointer(port, true, in.buttons, in.dx, in.dy);
+        a.buttons[port] = in.buttons;
     } else if (in.type == P6_PORT_CD32) {
         const int x = axis_of(in.buttons, P6_BUTTON_LEFT, P6_BUTTON_RIGHT);
         const int y = axis_of(in.buttons, P6_BUTTON_UP, P6_BUTTON_DOWN);
@@ -139,6 +145,7 @@ p6_result validate_input(const p6_input &in, p6_error *error)
         if (r) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "input reserved fields must be zero");
     for (int n = kKeyLimit; n < 128; ++n)
         if (key_down(in.keys, n)) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "key codes 0x68..0x7f are reserved");
+    unsigned pointers = 0;
     for (int p = 0; p < 2; ++p) {
         const p6_port_input &port = in.ports[p];
         if (port.reserved) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "port reserved field must be zero");
@@ -157,6 +164,14 @@ p6_result validate_input(const p6_input &in, p6_error *error)
             break;
         case P6_PORT_MOUSE:
             if (port.buttons & ~kMouseButtons) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown mouse buttons");
+            break;
+        case P6_PORT_LIGHTGUN:
+        case P6_PORT_LIGHTPEN:
+            if (port.buttons & ~(P6_POINTER_TRIGGER | P6_POINTER_OFFSCREEN))
+                return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown optical pointer buttons");
+            if (port.dx == INT16_MIN || port.dy == INT16_MIN)
+                return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "optical pointer coordinates are -32767..32767");
+            if (++pointers > 1) return p6_fail(error, P6_ERROR_UNSUPPORTED, "only one optical sensor is supported");
             break;
         default:
             return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown port device");

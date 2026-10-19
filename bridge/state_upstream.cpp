@@ -136,6 +136,8 @@ extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *rema
 extern void p6_events_set(int idx, int next, int remain);
 extern bool p6_custom_beam_get(int32_t *out, unsigned n);       // custom.cpp 0094
 extern bool p6_custom_beam_set(const int32_t *in, unsigned n);
+extern bool p6_lightpen_latch_get(int32_t out[4]);
+extern void p6_lightpen_latch_set(const int32_t in[4]);
 extern bool p6_custom_ciatod_get(int32_t *out, unsigned n);     // custom.cpp 0240
 extern bool p6_custom_ciatod_set(const int32_t *in, unsigned n);
 extern bool p6_custom_copper_get(int32_t *out, unsigned n);     // custom.cpp 0095
@@ -286,6 +288,30 @@ uint8_t *apply_beam(int, uint8_t *body)
     int32_t words[kBeamWords];
     for (unsigned i = 0; i < kBeamWords; ++i) words[i] = int32_t(Body{body, kBeamBytes}.u32(i * 4));
     return p6_custom_beam_set(words, kBeamWords) ? body + kBeamBytes : nullptr;
+}
+
+uint8_t *produce_lpen(int, size_t *len, uint8_t *w)
+{
+    int32_t words[4];
+    p6_lightpen_latch_get(words);
+    for (unsigned i = 0; i < 4; ++i)
+        for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
+    *len = 16;
+    return w;
+}
+
+uint8_t *apply_lpen(int, uint8_t *body)
+{
+    int32_t words[4];
+    for (unsigned i = 0; i < 4; ++i) words[i] = int32_t(Body{body, 16}.u32(i * 4));
+    p6_lightpen_latch_set(words);
+    return body + 16;
+}
+
+const char *check_lpen(const Sub &, const Body &b, Seen &)
+{
+    const int32_t v = int32_t(b.u32(0));
+    return v < -1 || v > 2047 || b.u32(4) > 255 || b.u32(8) > 65535 || b.u32(12) > 1 ? "optical beam latch is out of range" : nullptr;
 }
 
 // -- CTOD: where the TOD that the mains drives is in its count (patch 0240, T50) -------------------------------------------------------------------
@@ -1113,6 +1139,7 @@ constexpr Sub kChipsetBodies[] = {
     {"CTOD", kCiaTodBytes, kCiaTodBytes, produce_ctod, apply_ctod, check_ctod, 0, true, false, true},
     {"COPR", kCopperBytes, kCopperBytes, produce_copr, apply_copr, check_copr, 0, true},
     {"BLTP", kBlitterBytes, kBlitterBytes, produce_bltp, apply_bltp, check_bltp, 0, true},
+    {"LPEN", 16, 16, produce_lpen, apply_lpen, check_lpen, 0, true},
 };
 const char *check_drive_sound(const Sub &, const Body &b, Seen &) { return check_drive_sound_body(b); }
 constexpr Sub kAudioBodies[] = {

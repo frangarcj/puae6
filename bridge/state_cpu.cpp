@@ -53,7 +53,7 @@ constexpr uint16_t kSr68000 = 0xA71F;       // T1, S, the interrupt mask, X N Z 
 constexpr uint16_t kSr68020 = 0xF71F;       // T1, T0, S, M, the interrupt mask, X N Z V C
 constexpr int kEvent2Slots = ev2_max;       // 16
 constexpr uint8_t kEv2Blitter = 1;          // ids of the secondary-event handlers a state can name (scheduler_handler_id)
-constexpr uint8_t kEv2Last = 12;
+constexpr uint8_t kEv2Last = 13;
 
 // SR as MakeSR() builds it (newcpu.cpp), without writing the cache field regs.sr: a save must not touch the machine.
 uint16_t current_sr()
@@ -80,6 +80,7 @@ evfunc2 scheduler_handler(uint8_t id)
     case 10: return p6_disk_motordelay_handler();
     case 11: return p6_custom_event2_handler(2);
     case 12: return p6_custom_event2_handler(3);
+    case 13: return p6_custom_event2_handler(4);
     default: return nullptr;
     }
 }
@@ -88,8 +89,8 @@ evfunc2 scheduler_handler(uint8_t id)
 // of event2_newevent* in the compiled units): 1 blitter_handler (slot 0 only, assigned by init_eventtab; never active with a cycle-exact blitter),
 // 2 event_doint_delay_do_ext, 3 event_doint_delay_do_intreq, 4 event_doint_delay_do_intena (m68k_interrupt_delay is true), 5 event_audxdat_func,
 // 6 event_setdsr, 7 event_CIA_synced_interrupt, 8 event_CIA_tod_inc_event, 9 event_DISK_handler, 10 motordelay_func, 11 fakehsync_handler. 12 is
-// setup_fmodes_delayed, reachable only with AGA (setup_fmodes queues it two colour clocks after a write that changes FMODE; T24c). Not
-// reachable: doint_delayed (needs cs_ipldelay), lightpen_trigger_func (no lightpen port), keymcu_event and
+// setup_fmodes_delayed, reachable only with AGA (setup_fmodes queues it two colour clocks after a write that changes FMODE; T24c).
+// 13 lightpen_trigger_func (T70c). Not reachable: doint_delayed (needs cs_ipldelay), keymcu_event and
 // cputester_event (keyboard_mode 0). 0 is "no handler that a state can name": a save refuses an active event that has one.
 uint8_t scheduler_handler_id(evfunc2 f)
 {
@@ -105,6 +106,7 @@ uint8_t scheduler_handler_id(evfunc2 f)
     if (f == p6_disk_motordelay_handler()) return 10;
     if (f == p6_custom_event2_handler(2)) return 11;
     if (f == p6_custom_event2_handler(3)) return 12;
+    if (f == p6_custom_event2_handler(4)) return 13;
     return 0;
 }
 
@@ -531,6 +533,7 @@ void visit_scheduler(Archive &a)
             if (sec_active[i]) {
                 a.require(sec_id[i] != 0 && sec_time[i] >= now, "a secondary event has no handler or is in the past");
                 a.require((i == ev2_blitter) == (sec_id[i] == kEv2Blitter), "slot 0 holds the blitter's event and nothing else does");
+                if (sec_id[i] == 13) a.require(sec_data[i] <= 255, "optical event horizontal position is out of range");
                 any = true;
                 if (sec_time[i] < earliest) earliest = sec_time[i];
             } else {

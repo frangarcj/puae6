@@ -95,6 +95,7 @@ extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **firs
 extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);   // events.cpp, patch 0078: the secondary scheduler's statics
 extern int p6_custom_extra_cycle_get(void);                            // custom.cpp, patch 0079: the half-CCK remainder of the CPU
+extern bool p6_lightpen_latch_get(int32_t out[4]);
 extern int p6_custom_ce020_extra_get(void);                            // custom.cpp, patch 0108: the same for the cycle-exact 68020
 extern bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigned n);      // newcpu.cpp, patch 0108: the instruction cache of the 68020
 extern bool p6_caches020_set(const uae_u32 *data, const uae_u32 *tag, const uae_u8 *valid, unsigned n);
@@ -289,7 +290,12 @@ void cias(Canon &c)
 
 // The chipset digest in contiguous groups, so that a divergence can be told apart by what it is (T15i3): the groups are written one after the other in the order the
 // digest has always had, and each is also digested alone under "chip UNIT GROUP HEX".
-void chip_beam(Canon &c) { c.put(int32_t(vpos)).put(int32_t(linear_vpos)).put(agnus_hpos); }
+void chip_beam(Canon &c) {
+    c.put(int32_t(vpos)).put(int32_t(linear_vpos)).put(agnus_hpos);
+    int32_t latch[4];
+    const bool lpen = p6_lightpen_latch_get(latch);
+    if (lpen || latch[3]) for (int32_t value : latch) c.put(value);
+}
 void chip_counters(Canon &c) { c.put(hsync_counter).put(vsync_counter); }
 // Bits 14 and 13 of dmacon are not state: a CPU read of DMACONR stores the derived blitter busy and zero flags into the live variable (DMACONR) and the next write of DMACON clears
 // them, so a machine whose program reads DMACONR has them where one that loaded the state, which holds the register image without them, does not (T15k: the Kickstart 2.05 does it on the A500).
@@ -364,6 +370,7 @@ void input(Canon &c)
     for (int p = 0; p < 2; ++p)
         if (r.cd32_enabled[p]) c.put(r.cd32_shifter[p]).put(r.cd32_clock[p]);
     if (r.second_mouse_enabled) c.put(r.second_mouse_enabled);
+    if (r.pointer_enabled) c.put(r.pointer_port).put(r.pointer_cx).put(r.pointer_cy);
 }
 
 void video(Canon &c)
@@ -551,13 +558,13 @@ void print_handler_table()
     struct Expected { uint8_t id; evfunc2 handler; };
     const Expected table[] = {{1, blitter_handler}, {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
                               {5, event_audxdat_func}, {6, event_setdsr}, {7, event_CIA_synced_interrupt}, {8, event_CIA_tod_inc_event},
-                              {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}, {12, p6_custom_event2_handler(3)}};
+                              {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}, {12, p6_custom_event2_handler(3)}, {13, p6_custom_event2_handler(4)}};
     for (const Expected &e : table) {
         const bool ok = e.handler && p6_state::scheduler_handler(e.id) == e.handler && p6_state::scheduler_handler_id(e.handler) == e.id;
         printf("handler %u %s\n", unsigned(e.id), ok ? "OK" : "BAD");
     }
     printf("handler 0 %s\n", !p6_state::scheduler_handler(0) && p6_state::scheduler_handler_id(nullptr) == 0 ? "OK" : "BAD");
-    printf("handler 13 %s\n", !p6_state::scheduler_handler(13) ? "OK" : "BAD");
+    printf("handler 14 %s\n", !p6_state::scheduler_handler(14) ? "OK" : "BAD");
     printf("handler foreign %s\n", p6_state::scheduler_handler_id(foreign_handler) == 0 ? "OK" : "BAD");
 }
 
@@ -745,10 +752,11 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             else if (!strcmp(op.chunk, "spc-int")) regs.spcflags |= SPCFLAG_INT;
             else if (!strcmp(op.chunk, "lastipl")) regs.lastipl = 5;
             else if (!strncmp(op.chunk, "ev2:", 4)) {
-                // A real secondary event, scheduled through the engine's own call (slot 0 is the blitter's): ev2:ID, ID of scheduler_handler.
-                const int id = atoi(op.chunk + 4);
+                // A real secondary event, scheduled through the engine's own call (slot 0 is the blitter's): ev2:ID[:delay], ID of scheduler_handler and optional emulated-clock delay.
+                int id = 0; unsigned delay = 0;
+                sscanf(op.chunk + 4, "%d:%u", &id, &delay);
                 const evfunc2 handler = p6_state::scheduler_handler(uint8_t(id));
-                if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(2000 + 100 * id) * CYCLE_UNIT, uae_u32(0x1000 + id), handler);
+                if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(delay ? delay : 2000 + 100 * id) * CYCLE_UNIT, uae_u32(id == 13 ? 128 : 0x1000 + id), handler);
             } else if (!strncmp(op.chunk, "beam:", 5)) {
                 // beam:VPOS:LINEAR:HPOS puts the beam counters where a state had them (diagnosis only: what DET02 shows once the beam is out of the way).
                 int v = 0, l = 0, h = 0;

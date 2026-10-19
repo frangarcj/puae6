@@ -192,6 +192,14 @@ typedef struct p6_port_input {
 #define P6_PORT_JOYSTICK  UINT32_C(1)
 #define P6_PORT_MOUSE     UINT32_C(2)
 #define P6_PORT_CD32      UINT32_C(3)  /* Seven buttons and a digital D-pad, either gameport; no relative motion. */
+#define P6_PORT_LIGHTGUN  UINT32_C(4)
+#define P6_PORT_LIGHTPEN  UINT32_C(5)
+/* Absolute pointing devices reuse dx/dy as normalized raster coordinates:
+ * -32767 left/top, +32767 right/bottom. One optical sensor; either gameport
+ * carries its trigger (POT line/third button). Offscreen suppresses the beam
+ * hit independently of the trigger. Neither flag represents a relative axis. */
+#define P6_POINTER_TRIGGER   (UINT32_C(1) << 0)
+#define P6_POINTER_OFFSCREEN (UINT32_C(1) << 1)
 #define P6_BUTTON_1       (UINT32_C(1) << 0)
 #define P6_BUTTON_2       (UINT32_C(1) << 1)
 #define P6_BUTTON_3       (UINT32_C(1) << 2)
@@ -209,7 +217,8 @@ typedef struct p6_port_input {
 
 /* keys is a 128-key Amiga key bitmap; key n is keys[n / 32] bit (n % 32).
  * Bits are key positions, not text. For P6_PORT_NONE all fields are zero.
- * dx/dy are signed int16 relative deltas and are meaningful only for mouse. */
+ * dx/dy are relative deltas for mouse, absolute coordinates for optical types,
+ * and zero for the other types. */
 typedef struct p6_input {
     uint32_t abi_version;
     uint32_t struct_size;
@@ -338,7 +347,7 @@ typedef struct p6_media_event {
  * Input semantics are in docs/02-contracts.md ("Entrada"): the packet is the host
  * state of the unit, only differences reach the machine, keys 0x68..0x7f and
  * inconsistent ports are rejected before anything is touched. Either port can
- * carry a mouse, joystick or CD32 pad.
+ * carry a mouse, joystick, CD32 pad or the single optical sensor.
  *
  * Version/size mismatches, nonzero reserved fields, unknown flags, and
  * unsupported settings are rejected. Optional p6_error must be initialized

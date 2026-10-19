@@ -17,7 +17,7 @@ from tests.state import envelope as e
 from tests.state.harness import FieldTable, ProbeCase, SCENARIOS, SUBSYSTEMS, TRACE, USER, parse_chunks, reforge
 
 SCHEDULER = 1           # index of the chunk in the state
-IDS = tuple(range(1, 13))
+IDS = tuple(range(1, 13))  # legacy handlers; optical event13 runs with the LPEN fixture in tests/input/test_pointer.py
 MISC, SYNC = 2, 0       # indexes of ev_misc and ev_sync in eventtab
 POKES = [f"ev2:{i}" for i in IDS]
 EVENTS_AT = 5           # the unit in which the events are scheduled
@@ -62,7 +62,7 @@ class SchedulerChunkTests(ProbeCase):
             if line.startswith("handler "):
                 _, ident, verdict = line.split()
                 lines[ident] = verdict
-        self.assertEqual({str(i) for i in IDS} | {"0", "13", "foreign"}, set(lines))
+        self.assertEqual({str(i) for i in IDS} | {"0", "13", "14", "foreign"}, set(lines))
         self.assertEqual({"OK"}, set(lines.values()), lines)
 
     # -- the chunk puts the scheduler back ---------------------------------------------------------------------------------------------------
@@ -292,7 +292,7 @@ class SchedulerChunkTests(ProbeCase):
             ("a secondary round of 17", forge({"ev2.idx": 17}), 9, rng_range),
             ("a next slot of 0", forge({"ev2.next": 0}), 9, rng_range),
             ("a next slot of 16", forge({"ev2.next": 16}), 9, rng_range),
-            ("a handler id of 13", forge({"ev2.handler[1]": 13}), 9, rng_range),
+            ("a handler id of 14", forge({"ev2.handler[1]": 14}), 9, rng_range),
             ("an active slot with no handler", forge({"ev2.handler[1]": 0}), 9, "has no handler or is in the past"),
             ("an active slot in the past", forge({"ev2.evtime[1]": now - 1}), 9, "has no handler or is in the past"),
             ("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),
