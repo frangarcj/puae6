@@ -6,6 +6,7 @@
 #include "memory.h"
 #include "akiko.h"
 #include "cd_device.h"
+#include "media/cd_device_state.h"
 #include <cassert>
 #include <cstdio>
 #include <vector>
@@ -55,6 +56,36 @@ static void c2p()
     for (auto plane : expected) assert(get_long(AKIKO_BASE + 0x38) == plane);
     currprefs.cs_cd32c2p = false;
 }
+static bool audio_read(const void *, uint64_t at, void *out, size_t length, size_t *got)
+{
+    const uint8_t sample[] = {0xd0, 0x07, 0x48, 0xf4}; // LE stereo: +2000 / -3000.
+    for (size_t n = 0; n < length; ++n) static_cast<uint8_t *>(out)[n] = sample[(at + n) % 4];
+    *got = length; return at + length <= 2352;
+}
+static void cdda()
+{
+    using namespace p6_cd;
+    Layout layout{}; layout.tracks = 1; layout.leadout = 1;
+    layout.track[0] = {0, 0, 1, 0, 2352, 0, Mode::Audio, 1, 0, false};
+    Binding binding{{{1}, 2352, 1}, audio_read, nullptr};
+    Disc disc; assert(disc.bind(layout, &binding, 1) == Result::Ok);
+    assert(device_bind(&disc) == Result::Ok && sys_command_open(0) == 1);
+    // The full machine must establish CDA timing itself. No fixture clock setup.
+    assert(sys_command_cd_play(0, 0, 1, 0));
+    DeviceState state{}; assert(device_capture(&state));
+    assert(state.audio.stream.period && state.audio.running && state.audio.stream.remaining == 588);
+    p6_input input{P6_ABI_VERSION, sizeof input}; p6_frame frame{P6_ABI_VERSION, sizeof frame};
+    p6_error error{P6_ABI_VERSION, sizeof error};
+    assert(p6_run_frame(&input, P6_RENDER_AUDIO, &frame, &error) == P6_OK);
+    assert(device_capture(&state) && !state.audio.running && state.audio.position == 1);
+    assert(state.audio.status == AUDIO_STATUS_PLAY_COMPLETE && frame.audio_frames);
+    bool signal = false;
+    for (uint64_t n = 0; n < frame.audio_frames; ++n)
+        signal |= frame.audio[n * 2] > 0 && frame.audio[n * 2 + 1] < 0;
+    assert(signal);
+    sys_command_close(0); device_unbind();
+    puts("native backend CDDA PCM and completion ok");
+}
 int main(int argc, char **argv)
 {
     assert(argc == 2); FILE *file = fopen(argv[1], "rb"); assert(file);
@@ -73,6 +104,7 @@ int main(int argc, char **argv)
         assert(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &frame, &error) == P6_OK);
         assert(frame.master_ticks && frame.audio_frames && frame.video_bytes);
         c2p();
+        cdda();
         assert(p6_reset(&error) == P6_OK);
         assert(p6_run_frame(&input, P6_RENDER_AUDIO, &frame, &error) == P6_OK);
         assert(frame.master_ticks && frame.audio_frames);

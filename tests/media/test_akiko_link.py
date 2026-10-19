@@ -18,3 +18,4 @@ class AkikoLinkTests(unittest.TestCase):
                                     env={**os.environ, 'ASAN_OPTIONS': 'detect_leaks=0'})
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertIn('real Akiko link, MMIO/C2P and A1200 reload/frame ok', result.stdout)
+            self.assertIn('native backend CDDA PCM and completion ok', result.stdout)

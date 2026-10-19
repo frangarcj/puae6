@@ -190,7 +190,8 @@
     "0364-cda-restore-preflight": "instrumentation",
     "0365-akiko-transport-state": "instrumentation",
     "0367-cd32-combined-firmware": "behavior",
-    "0366-akiko-controller-state": "instrumentation"
+    "0366-akiko-controller-state": "instrumentation",
+    "0369-devices-cda-clock": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

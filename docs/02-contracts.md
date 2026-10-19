@@ -1522,3 +1522,10 @@ recortan al disco. Se limitan solo al dominio seguro de conversion MSF y se
 reservan los slots TOC que los consumidores leen como sucesores/sentinel.
 Transporte y backend se agregaran en M3b; no es codec nativo
 ni snapshot de maquina CD32.
+
+El grafo portable vuelve a ejecutar `update_cda_sound` desde
+`devices_update_sound` (T66q1). La exclusion inicial de CDA impedia iniciar
+reproduccion en el motor completo, aunque los fixtures de componente establecian
+el periodo manualmente. El probe nativo reproduce un sector stereo conocido por
+blkdev, comprueba PCM y fin de reproduccion durante `p6_run_frame`, sin preparar
+ese reloj desde el test. No acredita arranque ni estados CD32 de maquina.

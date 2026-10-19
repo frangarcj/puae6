@@ -5006,6 +5006,29 @@
           "after_sha256": "cc517c3ddde5e90be06711d7610df446f513e5dea89ec7b40b8a029bce32567c"
         }
       ]
+    },
+    {
+      "id": "0369-devices-cda-clock",
+      "file": "patches/winuae/0369-devices-cda-clock.patch",
+      "sha256": "feb423be76a19dff5cd05518f15c6e324c9a33b58b76c02ac5265364ed5bc166",
+      "title": "Restore CDA clock update in the portable device graph",
+      "reason": "T66q1 reproduces native CDDA play failure: 0017 excluded update_cda_sound while component fixtures initialized it manually. The portable graph now links the real CDA mixer and must keep its upstream emulated clock update.",
+      "category": "host hooks",
+      "order": 186,
+      "symbols": [
+        "devices_update_sound",
+        "update_cda_sound"
+      ],
+      "test": "tests/media/test_akiko_link.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "2c81d00baff43a49bf525ab2935f03026e78b330a333ac961f218ad9d3023e71",
+          "after_sha256": "daaef6e12c5c714b89b9bfbbcd39d750dcbe1d7ad1c056e3a98d36ca313e4e93"
+        }
+      ]
     }
   ]
 }

@@ -268,6 +268,7 @@ TASK_SUITES[('MED01', 'T66g4')] = {'canonical_subchannels_and_disc_regression': 
 TASK_SUITES[('MED01', 'T66h1')] = {'actual_akiko_cooperative_service': 'tests.media.test_akiko_service'}
 TASK_SUITES[('MED01', 'T66i1')] = {'real_cda_stream': 'tests.audio.test_cd_audio'}
 TASK_SUITES[('MED01', 'T66k1')] = {'native_akiko_graph': 'tests.media.test_akiko_link'}
+TASK_SUITES[('MED01', 'T66q1')] = {'native_backend_cdda_clock': 'tests.media.test_akiko_link'}
 TASK_SUITES[('MED01', 'T66h2')] = {'actual_akiko_reset_and_clock': 'tests.media.test_akiko_clock', 'service_regression': 'tests.media.test_akiko_service'}
 TASK_SUITES[('MED01', 'T66h3')] = {'actual_service_cdda': 'tests.media.test_akiko_service', 'clock_regression': 'tests.media.test_akiko_clock', 'nvram_regression': 'tests.media.test_cd32_nvram'}
 TASK_SUITES[('MED01', 'T66m1')] = {'actual_akiko_nvram_lifecycle': 'tests.media.test_cd32_nvram'}
