@@ -58,7 +58,9 @@ static void c2p()
 int main(int argc, char **argv)
 {
     assert(argc == 2); FILE *file = fopen(argv[1], "rb"); assert(file);
-    std::vector<uint8_t> rom(512 * 1024); assert(fread(rom.data(), 1, rom.size(), file) == rom.size()); fclose(file);
+    assert(fseek(file, 0, SEEK_END) == 0); const long bytes = ftell(file);
+    assert(bytes > 0 && fseek(file, 0, SEEK_SET) == 0);
+    std::vector<uint8_t> rom(size_t(bytes), 0); assert(fread(rom.data(), 1, rom.size(), file) == rom.size()); fclose(file);
     utilities(); device();
     for (int session = 0; session < 2; ++session) {
         p6_config config{}; config.abi_version = P6_ABI_VERSION; config.struct_size = sizeof config;

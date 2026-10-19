@@ -15149,7 +15149,7 @@
       "title": "Enlace nativo de Akiko y servicios CD reales",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66h1",
         "T66c",
