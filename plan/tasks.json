@@ -13918,6 +13918,45 @@
       "stop": "No distribuir Kickstarts; los aporta el usuario."
     },
     {
+      "id": "T66a",
+      "title": "Fuente CD inmutable por offset y lector ISO2048 acotado",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T24",
+        "T70",
+        "T49"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_source.h",
+        "ports/portable/media/cd_source.cpp",
+        "tests/media/cd_source_probe.cpp",
+        "tests/media/test_cd_source.py",
+        "docs/02-contracts.md",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Primera vertical de T66: descriptor privado inmutable con content-ID, longitud y ReadFn(context, uint64 offset, ...); lectura exacta por sector ISO2048 con buffer fijo de como maximo2448B. No copiar medio entero ni usar blob_register, no cambiar ABI publica ni anunciar CD32.",
+        "Validar rango/overflow antes del proveedor, rechazar short/error sin salida parcial; lectura sin cursor y caché no causal. Rebind conserva ID, longitud y geometria antes de sustituir contexto/callback; un error no cambia el vinculo anterior.",
+        "Probe real ASan/UBSan con medio sintetico650MiB y otro>4GiB, lectura desordenada/ultimo sector/bordes, error proveedor y rebind. No construir ni ejecutar motor ni habilitar stubs CD. Añadir solo el checkMED01 de esta pieza.",
+        "T66 conserva ISO/CUE/CCD/NRG/MDS/CHD, Akiko cooperativo sin hilos, EEPROM/I2C, CDDA, ambos adaptadores y arranque/restauracion reales como puertas posteriores; esta pieza no los sustituye."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El lector consume por offset una fuente de tamaño mayor que el espacio de direcciones de32bits sin asignarla entera; lecturas correctas y errores/rebind son acotados y transaccionales."
+      ],
+      "stop": "No cargar CD completo en guest, no usar hilos ni promover este probe a soporte CD32."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -13926,7 +13965,8 @@
       "depends": [
         "T24",
         "T70",
-        "T49"
+        "T49",
+        "T66a"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13947,7 +13987,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 y CD32FR (con 8M Fast) y lee CUE/CCD/ISO/CHD/NRG; MacHawk tiene bizhawk-cd.h. Un CD de 650 MB no cabe en el heap: backend de lecturas puras por offset desde el host, determinista; Akiko, NVRAM, audio CD.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/uae-waterbox.patch y el submodulo libretro-uae (akiko.c, blkdev_cdimage.c, cd32_fmv.c), bizhawk-cd.h (CD por lecturas desde el host) y waterboxhost/uae-cd32-smoke."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/uae-waterbox.patch y el submodulo libretro-uae (akiko.c, blkdev_cdimage.c, cd32_fmv.c), bizhawk-cd.h (CD por lecturas desde el host) y waterboxhost/uae-cd32-smoke.",
+        "Dividida primera fuente por offset enT66a. El padre conserva todas sus puertas y su aceptacion de arranque/restore CD32 en ambos adaptadores; quedan Akiko cooperativo, NVRAM/I2C, CDDA y los seis formatos, sin stubs exitosos."
       ],
       "checks": [
         "MED01",
