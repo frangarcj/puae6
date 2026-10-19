@@ -94,7 +94,7 @@ def build(files, vfs, *, buttonwait=False, kickstarts=None):
             output.writestr(entry, data[path])
     prefs = b"SplashDelay=0\nConfigDelay=0\nNoWriteCache\nSavePath=WHDSaves:\n" + (b"ButtonWait\n" if buttonwait else b"")
     boot = {"C/WHDLoad": files["C/WHDLoad"], "C/WHDLoad.VFS": vfs, "C/P6Assign": assign_program(), "Game.slave": files[slave],
-            "S/Startup-Sequence": b"C:P6Assign\nIF WARN\n  QUIT 20\nENDIF\nC:WHDLoad SLAVE=SYS:Game.slave DATA=RASystem:Game.zip\nEcho ended >WHDSaves:exit.log\n"}
+            "S/Startup-Sequence": b"C:P6Assign\nIF WARN\n  QUIT 20\nENDIF\nC:WHDLoad SLAVE=SYS:Game.slave DATA=RASystem:Game.zip\n"}
     system = {"S/WHDLoad.prefs": prefs, "Devs/Kickstarts": None, "Game.zip": archive.getvalue()}
     system.update({p: b for p, b in files.items() if p.startswith("Devs/Kickstarts/")})
     for name, contents in sorted((kickstarts or {}).items()):
