@@ -12362,7 +12362,8 @@
         "Las flags crudas .uae antes fijas deben contrastarse con el nivel CPU finalmente elegido, sin aceptar cpu_cycle_exact=true junto a normal ni depender del orden de claves. Ampliar parser/probe y tabla de opciones para cubrir esa integracion real.",
         "Integracion por lote: regenerar una vez los presupuestos medidos Waterbox con el guest combinado CPU/CD32/DF0-DF3; no conservar medidas de un binario anterior como si correspondieran al nuevo.",
         "La primera integracion WB expone referencias MMU/040 inalcanzables que el enlace nativo descarta. Resolver la diferencia de receta/perfil preservando todas las entradas exportadas del guest y los flags x18/x28/16KiB, sin stubs de exito; T55b se difiere durante esta correccion.",
-        "Registrar los checks funcionales dirigidos existentes, incluido WB03 de los tres niveles; PERF01 conserva su puerta pendiente de medicion comparativa en la candidata, no se sustituye por estadistica del harness ni un build exitoso."
+        "Registrar los checks funcionales dirigidos existentes, incluido WB03 de los tres niveles; PERF01 conserva su puerta pendiente de medicion comparativa en la candidata, no se sustituye por estadistica del harness ni un build exitoso.",
+        "Antes del cierre de T53 faltan PERF01 comparativo y el re-registro conjunto de memoria de la candidata. Conservar la generacion limitada al perfil soportado y las pruebas reales de snapshot de cada nivel."
       ],
       "checks": [
         "GEN01",
@@ -13356,7 +13357,7 @@
       "title": "Cuatro unidades de disquete y MultiDrive (tag (MD))",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -13874,7 +13875,7 @@
       "title": "Pad CD32 en ambos puertos, peliculas y restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -13930,7 +13931,7 @@
       "title": "Segundo raton y raton por stick analogico",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24"
       ],
