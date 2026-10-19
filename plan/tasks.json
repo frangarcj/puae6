@@ -13191,7 +13191,7 @@
       "title": "Cuatro unidades de disquete y MultiDrive (tag (MD))",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
