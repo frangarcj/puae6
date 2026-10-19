@@ -16,5 +16,6 @@ struct p6_akiko_transport_state {
 // Preflight checks the existing owner too. Apply rechecks before any mutation;
 // controller, disc/player, clock, scheduler and RAM are separate components.
 bool p6_akiko_transport_get(p6_akiko_transport_state *);
+bool p6_akiko_transport_validate(const p6_akiko_transport_state *);
 bool p6_akiko_transport_preflight(const p6_akiko_transport_state *);
 bool p6_akiko_transport_apply(const p6_akiko_transport_state *);

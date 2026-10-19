@@ -18,14 +18,13 @@ bool AudioPlayer::capture(AudioPlayerState *out) const
     if (!can_restore(s, disc_, status_callback_, sub_callback_)) return false;
     *out = s; return true;
 }
-bool AudioPlayer::can_restore(const AudioPlayerState &s, const Disc *disc,
-                              play_status_callback status, play_subchannel_callback sub) const
+bool AudioPlayer::validate(const AudioPlayerState &s, const Disc *disc, uint32_t period)
 {
     const uint64_t max_delay = (uint64_t(INT_MAX) * 44100 + 999) / 1000 + uint64_t(INT_MAX) * 588;
-    if (s.bound > 1 || s.running > 1 || s.sector > 1 || s.callbacks != ((status ? 1u : 0u) | (sub ? 2u : 0u))
+    if (s.bound > 1 || s.running > 1 || s.sector > 1 || s.callbacks > 3
         || s.left > 65535 || s.right > 65535 || s.delay > max_delay || s.position > s.end || s.end > INT_MAX
         || s.error < int(Result::Ok) || s.error > int(Result::Unsupported) || s.stream.userdata
-        || !p6_cda::can_restore(stream_, pcm_, 588, s.stream)) return false;
+        || !p6_cda::validate(s.stream, 588, period)) return false;
     if (!s.bound) {
         const uint8_t empty[32]{};
         return !disc && !s.callbacks && !memcmp(s.disc_id, empty, sizeof empty) && !s.running && !s.sector
@@ -54,6 +53,12 @@ bool AudioPlayer::can_restore(const AudioPlayerState &s, const Disc *disc,
             && (!s.stream.active || (s.stream.offset && !s.stream.remaining));
     default: return false;
     }
+}
+bool AudioPlayer::can_restore(const AudioPlayerState &s, const Disc *disc,
+                              play_status_callback status, play_subchannel_callback sub) const
+{
+    return validate(s, disc, s.stream.period) && s.callbacks == ((status ? 1u : 0u) | (sub ? 2u : 0u)) &&
+        p6_cda::can_restore(stream_, pcm_, 588, s.stream);
 }
 bool AudioPlayer::restore(const AudioPlayerState &s, const Disc *disc,
                           play_status_callback status, play_subchannel_callback sub)

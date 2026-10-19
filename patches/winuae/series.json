@@ -5008,6 +5008,38 @@
       ]
     },
     {
+      "id": "0368-akiko-state-aggregate",
+      "file": "patches/winuae/0368-akiko-state-aggregate.patch",
+      "sha256": "a92186ff887411d7012dd75effdd82ca43a0469469f7cd0df680b291ff40fa57",
+      "title": "Aggregate private Akiko state and validate candidates without owners",
+      "reason": "T66m3b preflights controller, transport and backend/player together before applying; callback bindings are reconstructed without replaying device work. Value-only validators accept candidate scheduler/configuration/CDA period before destination owners exist.",
+      "category": "host hooks",
+      "order": 185,
+      "symbols": [
+        "p6_akiko_state_get",
+        "p6_akiko_state_validate",
+        "p6_akiko_state_preflight",
+        "p6_akiko_state_apply",
+        "p6_akiko_transport_validate",
+        "p6_cda::validate"
+      ],
+      "test": "tests/media/test_akiko_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "akiko.cpp",
+          "before_sha256": "98d45d056c61dbfca951e47b336ca0519c9b48b3aa5877f4bbe0aa15b978644e",
+          "after_sha256": "0c63c8a3e63240e0b07a6a0e0e516eea1eb35ca694fa336ca04e51b14ec8f207"
+        },
+        {
+          "path": "audio.cpp",
+          "before_sha256": "36d7dfb5c432ca70ac22f5d30b75e2d6b7eebecabea46f46932bdf521e203e69",
+          "after_sha256": "2d2eb3492fd1d3a2f9ea4b02db43dc2643eceef90e7ef6cafd882c003bd62357"
+        }
+      ]
+    },
+    {
       "id": "0369-devices-cda-clock",
       "file": "patches/winuae/0369-devices-cda-clock.patch",
       "sha256": "0a11525b3358fbbcde00803e460b3d87b8de1087a5254205e0ec843eefacc97a",

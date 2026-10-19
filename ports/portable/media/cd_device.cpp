@@ -59,8 +59,7 @@ bool device_capture(DeviceState *out)
     s.error = int32_t(error); // Do not merge asynchronous audio error as device_last_error does.
     *out = s; return true;
 }
-bool device_can_restore(const DeviceState &s, const Disc *candidate,
-                        play_status_callback status, play_subchannel_callback sub)
+bool device_validate(const DeviceState &s, const Disc *candidate, uint32_t period)
 {
     if (s.bound > 1 || s.audio_head > 1 || s.terminal_ack > 1 || s.opens > INT_MAX
         || s.error < int(Result::Ok) || s.error > int(Result::Unsupported)) return false;
@@ -73,7 +72,13 @@ bool device_can_restore(const DeviceState &s, const Disc *candidate,
     if ((s.audio.bound && !s.opens) || (s.audio_head && !s.audio.bound) || (s.audio.running && !s.audio_head)) return false;
     const bool terminal = s.audio.status == AUDIO_STATUS_PLAY_COMPLETE || s.audio.status == AUDIO_STATUS_PLAY_ERROR;
     if (s.terminal_ack && !terminal) return false;
-    return audio.can_restore(s.audio, s.audio.bound ? candidate : nullptr, status, sub);
+    return AudioPlayer::validate(s.audio, s.audio.bound ? candidate : nullptr, period);
+}
+bool device_can_restore(const DeviceState &s, const Disc *candidate,
+                        play_status_callback status, play_subchannel_callback sub)
+{
+    return device_validate(s, candidate, s.audio.stream.period) &&
+        audio.can_restore(s.audio, s.audio.bound ? candidate : nullptr, status, sub);
 }
 bool device_restore(const DeviceState &s, const Disc *candidate,
                     play_status_callback status, play_subchannel_callback sub)

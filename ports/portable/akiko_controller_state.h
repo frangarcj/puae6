@@ -50,6 +50,7 @@
  X(int32_t, unitnum)
 struct p6_akiko_controller_state {
     uint32_t config; // CD=1, C2P=2, NVRAM=4, NTSC=8; must match current profile.
+    uint32_t misc_initialized; // 0: cold bus tuple0/0/0; 1: derive from addressmisc.
 #define P6_AKIKO_DECLARE(type, name) type name;
     P6_AKIKO_CONTROL_FIELDS(P6_AKIKO_DECLARE)
 #undef P6_AKIKO_DECLARE

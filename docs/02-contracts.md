@@ -1529,3 +1529,21 @@ reproduccion en el motor completo, aunque los fixtures de componente establecian
 el periodo manualmente. El probe nativo reproduce un sector stereo conocido por
 blkdev, comprueba PCM y fin de reproduccion durante `p6_run_frame`, sin preparar
 ese reloj desde el test. No acredita arranque ni estados CD32 de maquina.
+
+## Agregado privado Akiko (T66m3b)
+
+`akiko_state.h` agrupa controlador, transporte y backend/player; el caller aporta
+heap ordinario y contexto con configuracion, ciclo y periodo CDA candidatos y
+Disc de identidad verificada. El periodo procede de Paula/configuracion: no se
+supone solo PAL/NTSC, pues `update_cda_sound` usa clk/syncadjust. Validacion de
+valores es independiente de propietarios, punteros PCM y periodo vivo; preflight
+completo y apply exigen el destino listo. Todos los componentes se comprueban
+antes de aplicar; no hay I/O, asignaciones, IRQ, callbacks ni avance durante load.
+El tag inferido misc_initialized conserva la tupla DMA fria0/0/0 antes de la
+primera escritura de addressmisc; los demas valores derivan de ese registro.
+Los callbacks restaurados son los de Akiko segun presencia. `statusfunc_imm` y
+`statusfunc` difieren en consultas negativas iniciales; restore no las repite y
+ambos tienen el mismo comportamiento para los estados futuros. RAM, Paula y
+scheduler externos deben restaurarse antes de continuar. El probe compara un
+nuevo owner/Disc, DMA/subcode/PIO y PCM con CDDA activo, pausado, en espera y
+terminal; no acredita aun codec nativo ni snapshot/arranque CD32 Waterbox.

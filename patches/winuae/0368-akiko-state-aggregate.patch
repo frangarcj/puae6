@@ -1,0 +1,139 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -657,9 +657,9 @@
+     for (size_t n = 0; n < count; ++n) if (p[n]) return false;
+     return true;
+ }
+-bool p6_akiko_transport_preflight(const p6_akiko_transport_state *s)
+-{
+-    if (!s || !akiko_transport_ready() || s->service != 1 || s->mute_pending > 1 ||
++bool p6_akiko_transport_validate(const p6_akiko_transport_state *s)
++{
++    if (!s || s->service != 1 || s->mute_pending > 1 ||
+         s->read >= 100 || s->write >= 100 || s->sub_read >= 36 || s->sub_write >= 36)
+         return false;
+     const unsigned count = (s->write + 100 - s->read) % 100;
+@@ -678,6 +678,10 @@
+         if (s->sub_used[n] > 1 || (!s->sub_used[n] && !akiko_transport_zero(s->sub[n], 96)))
+             return false;
+     return true;
++}
++bool p6_akiko_transport_preflight(const p6_akiko_transport_state *s)
++{
++    return p6_akiko_transport_validate(s) && akiko_transport_ready();
+ }
+ bool p6_akiko_transport_get(p6_akiko_transport_state *s)
+ {
+@@ -2310,7 +2314,8 @@
+ }
+ bool p6_akiko_controller_validate(const p6_akiko_controller_state *s, uint32_t config, int64_t cycle)
+ {
+-    if (!s || !(config & 1) || (config & ~15u) || s->config != config) return false;
++    if (!s || !(config & 1) || (config & ~15u) || s->config != config ||
++        s->misc_initialized > 1 || (!s->misc_initialized && s->cdrom_addressmisc)) return false;
+     const auto &c = s->clock;
+     const uint64_t rate = uint64_t((config & 8) ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL) * CYCLE_UNIT;
+     if (cycle < 0 || c.cycle < 0 || c.cycle > cycle || c.rate != rate || uint64_t(cycle - c.cycle) > rate / 150 ||
+@@ -2356,7 +2361,10 @@
+ bool p6_akiko_controller_get(p6_akiko_controller_state *s)
+ {
+     if (!s || !akiko_transport_ready()) return false;
+-    memset(s, 0, sizeof *s); s->config = akiko_state_config();
++    const bool cold = !cdrom_addressmisc && !subcode_address && !cdrx_address && !cdtx_address;
++    const bool mapped = subcode_address == (cdrom_addressmisc | 0x100) && cdrx_address == cdrom_addressmisc && cdtx_address == (cdrom_addressmisc | 0x200);
++    if (!cold && !mapped) return false;
++    memset(s, 0, sizeof *s); s->config = akiko_state_config(); s->misc_initialized = mapped;
+ #define P6_AKIKO_CAPTURE(type, name) s->name = name;
+     P6_AKIKO_CONTROL_FIELDS(P6_AKIKO_CAPTURE)
+ #undef P6_AKIKO_CAPTURE
+@@ -2391,9 +2399,50 @@
+     }
+     const auto &c = s->clock;
+     akiko_clock = {c.cycle, c.rate, c.sector, c.qcode, c.media, bool(c.first), bool(c.q_due), bool(c.media_due), int(c.speed)};
+-    subcode_address = cdrom_addressmisc | 0x100; cdrx_address = cdrom_addressmisc; cdtx_address = cdrom_addressmisc | 0x200;
++    subcode_address = s->misc_initialized ? cdrom_addressmisc | 0x100 : 0;
++    cdrx_address = s->misc_initialized ? cdrom_addressmisc : 0;
++    cdtx_address = s->misc_initialized ? cdrom_addressmisc | 0x200 : 0;
+     akiko_c2p_precalculate();
+     return true;
++}
++#endif
++
++#ifdef P6_PORTABLE
++#include "akiko_state.h"
++bool p6_akiko_state_get(p6_akiko_state *s)
++{
++    return s && p6_akiko_controller_get(&s->controller) && p6_akiko_transport_get(&s->transport) &&
++        p6_cd::device_capture(&s->device);
++}
++bool p6_akiko_state_validate(const p6_akiko_state *s, const p6_akiko_context &c)
++{
++    return s && p6_akiko_controller_validate(&s->controller, c.config, c.cycle) &&
++        p6_akiko_transport_validate(&s->transport) && p6_cd::device_validate(s->device, c.disc, c.cda_period) &&
++        (s->controller.unitnum == -1 || (s->device.bound && s->device.opens));
++}
++// Canonical Akiko binding: statusfunc_imm differs only in initial negative
++// delay queries. Restore issues no such query; both share future status handling.
++static play_status_callback akiko_state_status(const p6_akiko_state &s)
++{
++    return s.device.audio.callbacks & 1 ? statusfunc : nullptr;
++}
++static play_subchannel_callback akiko_state_sub(const p6_akiko_state &s)
++{
++    return s.device.audio.callbacks & 2 ? subfunc : nullptr;
++}
++bool p6_akiko_state_preflight(const p6_akiko_state *s, const p6_akiko_context &c)
++{
++    return p6_akiko_state_validate(s, c) && p6_akiko_controller_preflight(&s->controller, c.cycle) &&
++        p6_akiko_transport_preflight(&s->transport) &&
++        p6_cd::device_can_restore(s->device, c.disc, akiko_state_status(*s), akiko_state_sub(*s));
++}
++bool p6_akiko_state_apply(const p6_akiko_state *s, const p6_akiko_context &c)
++{
++    if (!p6_akiko_state_preflight(s, c)) return false;
++    // No callbacks/reentry: applying the backend leaves controller/transport
++    // readiness unchanged, and all candidate values were validated together.
++    return p6_cd::device_restore(s->device, c.disc, akiko_state_status(*s), akiko_state_sub(*s)) &&
++        p6_akiko_controller_apply(&s->controller, c.cycle) && p6_akiko_transport_apply(&s->transport);
+ }
+ #endif
+ 
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -3175,7 +3175,6 @@
+ {
+     return base && reinterpret_cast<uintptr_t>(base) % alignof(int16_t) == 0 && frames && frames <= kMaxFrames;
+ }
+-static bool valid(const State &, uint32_t);
+ bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, State *out)
+ {
+     if (!out || !geometry(base, frames) || !available(cas)) return false;
+@@ -3198,12 +3197,13 @@
+             s.channel[i] = {ch.current_sample, ch.last_sample, ch.sample_accum, ch.sample_accum_time};
+         }
+     }
+-    if (!valid(s, frames)) return false;
++    if (!validate(s, frames, cda_evt)) return false;
+     *out = s; return true;
+ }
+-static bool valid(const State &s, uint32_t frames)
+-{
+-    if (s.active > 1 || s.paused > 1 || s.frames != frames || !s.period || s.period != cda_evt) return false;
++bool validate(const State &s, uint32_t frames, uint32_t period)
++{
++    if (!frames || frames > kMaxFrames || !period || period >= INT_MAX ||
++        s.active > 1 || s.paused > 1 || s.frames != frames || s.period != period) return false;
+     for (int i = 0; i < 2; ++i) {
+         if (s.volume[i] < 0 || s.volume[i] > 32768) return false;
+         const auto &ch = s.channel[i];
+@@ -3217,7 +3217,7 @@
+ }
+ bool can_restore(const cd_audio_state &cas, const int16_t *base, uint32_t frames, const State &s)
+ {
+-    return geometry(base, frames) && available(cas) && valid(s, frames);
++    return geometry(base, frames) && available(cas) && validate(s, frames, cda_evt);
+ }
+ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s,
+              void (*next)(int, void *), void *context)

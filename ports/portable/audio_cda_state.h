@@ -15,6 +15,8 @@ struct State {
 // transactional. Restore derives pointers and callbacks from these arguments;
 // caller restores shared audio phase and scheduler before advancing again.
 bool capture(const cd_audio_state &, const int16_t *, uint32_t frames, State *);
+// Value-only validation accepts the verified candidate period, without owners.
+bool validate(const State &, uint32_t frames, uint32_t period);
 // Pure geometry/ownership/value preflight for aggregate restores.
 bool can_restore(const cd_audio_state &, const int16_t *, uint32_t frames, const State &);
 bool restore(cd_audio_state &, int16_t *, uint32_t frames, const State &,

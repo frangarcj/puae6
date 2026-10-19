@@ -28,6 +28,7 @@ public:
     // No I/O, scheduler advance or callbacks. Disc/callback presence is explicit;
     // restored addresses come from the new owner, never from the value state.
     bool capture(AudioPlayerState *) const;
+    static bool validate(const AudioPlayerState &, const Disc *, uint32_t period);
     bool can_restore(const AudioPlayerState &, const Disc *, play_status_callback, play_subchannel_callback) const;
     bool restore(const AudioPlayerState &, const Disc *, play_status_callback, play_subchannel_callback);
 private:
