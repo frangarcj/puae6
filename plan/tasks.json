@@ -12699,7 +12699,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "blocked",
       "depends": [
         "T55a",
         "T55b1"
@@ -12744,7 +12744,8 @@
       "acceptance": [
         "El A4000/030 real arranca y restaura en nativo/Waterbox, con niveles y limites de CPU declarados y sin MMU fingida."
       ],
-      "stop": "Sin MMU: no fingirla."
+      "stop": "Sin MMU: no fingirla.",
+      "blocked_reason": "La aceptacion pendiente requiere arranque/restauracion real A4000/030 en nativo y Waterbox. Busqueda local en Downloads y MacHawk:21ROM/bin/kick plausibles contrastadas con rommgr fijado, sin firmware A4000; ZIPs relevantes solo A600/AmigaSoccer. kick40068.A4000.RTB es tabla de relocacion, no ROM. Se ha pedido ruta local autorizada al usuario. La plataforma/micro-ROM sigue DONE en T55b1; no sustituye esta puerta. Otros tamanos Z3 y CPU040/060 pueden avanzar por subtareas independientes sin cerrar este bloqueo."
     },
     {
       "id": "T55c1",
