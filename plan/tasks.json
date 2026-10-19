@@ -15443,7 +15443,7 @@
       "title": "Estado privado del backend CD con identidad y Q terminal",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66n2a"
       ],
