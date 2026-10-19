@@ -76,6 +76,28 @@ class NightlyRecipeTests(unittest.TestCase):
         preflight.assert_called_once_with(ci.ASSETS)
         prepare.assert_not_called()
 
+    def test_cpu_campaign_is_prepared_once_before_its_measurements_are_consumed(self):
+        with mock.patch.object(ci, "execute") as execute:
+            ci.prepare("performance")
+        commands = [list(map(str, call.args[0])) for call in execute.call_args_list]
+        build = [ci.sys.executable, "tools/bench.py", "build", "--jobs", "2"]
+        run = [ci.sys.executable, "tools/bench.py", "run", "--root", str(ci.CPU_PERF_DIR.parent),
+               "--id", ci.CPU_PERF_DIR.name, "--compare-cpu-levels", "--force"]
+        self.assertEqual(commands.count(build), 1)
+        self.assertEqual(commands.count(run), 1)
+        self.assertLess(commands.index(build), next(i for i, argv in enumerate(commands) if "measure" in argv))
+        self.assertEqual(ci.ENV["P6_CPU_PERF_DIR"], str(ci.CPU_PERF_DIR))
+        self.assertEqual(ci.ENV["P6_RUN_CPU_PERF"], "0")
+        self.assertIn("tests.bench.test_cpu_campaign", ci.suites("performance"))
+
+    def test_cpu_campaign_preparation_failure_stops_before_measurement(self):
+        def stop(argv):
+            if "tools/bench.py" in argv:
+                raise RuntimeError("missing CPU benchmark artifact")
+        with mock.patch.object(ci, "execute", side_effect=stop) as execute, self.assertRaisesRegex(RuntimeError, "missing CPU"):
+            ci.prepare("performance")
+        self.assertFalse(any("measure" in call.args[0] for call in execute.call_args_list))
+
     def test_changed_image_tags_do_not_authorize_other_container_bytes(self):
         p = subprocess.CompletedProcess([], 0, json.dumps([{"Id": "wrong", "Architecture": "arm64"}]), "")
         with mock.patch.object(ci.ci, "command", return_value=p), self.assertRaisesRegex(ValueError, "frozen"):

@@ -51,7 +51,11 @@ solo enumera sus suites (`NOT_RUN`):
 - `optimization`: prepara/valida todos los experimentos de flags y los cinco
   frontends normales/sanitizados; incluye equivalencia SIMD y guardas.
 - `performance`: prepara y verifica los inputs antes de las 75 medidas de flags
-  y las 150 medidas del frontend, y ejecuta las suites de medicion y presupuesto.
+  y las 150 medidas del frontend, y construye los probes nativo/libretro y C# Release
+  antes de medir. Ejecuta tambien la comparacion CPU completa (135 ventanas) en
+  `build/baselines/ci-cpu`, renovada para esta ejecucion; su TestCase solo consume
+  esos datos y verifica identidad/cobertura, sin lanzar otra campaña. Despues ejecuta
+  las suites de medicion y presupuesto.
   Se mantiene la politica ADVISORY existente; no transforma ruido en limite duro.
 
 La seleccion acumula todos los `test_*.py`; las clases SIMD se reparten
