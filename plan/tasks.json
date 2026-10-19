@@ -14796,6 +14796,80 @@
       "stop": "No presentar traduccion estatica de metadata como arranque CD32 ni inventar subcanales para superar pruebas."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "id": "T66g2",
+      "title": "Sintetizar subcanales P/Q acotados desde metadata normalizada",
+      "status": "in_progress",
+      "depends": [
+        "T66b"
+      ],
+      "touch": [
+        "ports/portable/media/cd_subchannel.h",
+        "ports/portable/media/cd_subchannel.cpp",
+        "tests/media/cd_subchannel_probe.cpp",
+        "tests/media/test_cd_subchannel.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Helper puro P/Q96deinterleaved desde Track validado, numero1..99, LBA y pause explicito del consumidor; INDEX00cuenta atras hastaINDEX01, absolutoLBA+150, control/ADR y CRC16invertido. R-Wcero es politica de sintesis declarada, no sustitucion de subcanales almacenados oSBI. Reusar convencion de DiscSystem fijado, contrastar con oraculo independiente.",
+        "Validar rangos/MSF BCD y buffers antes de escribir; error salida intacta. Probar extremos99tracks/minutos, prestored/syntheticpregap, INDEX01 y pausa postgap explicita. Sin editar Disc/normalizador del frente B ni cambiar wire2448.",
+        "Presupuesto150–250logicas incluido probe. MED01directo ASan/UBSan, sin build motor/guest. La seleccion stored-versus-synthetic y consumo Akiko se integran despues enT66; no declarar arranqueCD32 ni todoslosformatos."
+      ],
+      "acceptance": [
+        "Los96bytes P-W sinteticos representan posicion/indice/pausa con CRC correcto sin I/O ni estado host, y los errores no alteran destino."
+      ],
+      "stop": "No sobrescribir subcanales de la imagen ni sintetizar estado de audio; pausa es un dato explicito del consumidor."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "id": "T66g3",
+      "title": "Conectar lecturas CD normalizadas a la superficie real de blkdev",
+      "status": "in_progress",
+      "depends": [
+        "T66b",
+        "T66g1"
+      ],
+      "touch": [
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp",
+        "tests/media/cd_device_probe.cpp",
+        "tests/media/test_cd_device.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Implementar firmas reales de blkdev.h para una unidad inmutable prestada: bind/unbind privados, get_standard_cd_unit, open/close/isopen, info/ismedia/toc, cd_read2048 y rawread2352/2448, qcode desdeG1. No FS/OSthread/sleep ni nuevo scheduler; no seleccionar aun en producto donde stubs hostfs tienen esasfirmas.",
+        "Respetar contratos fijados: read retorna1/0; rawread cantidadbytes oerror, no booleano. Max128sectores por operacion, staging constante para error sin salida parcial; validar LBA/numero/vista/overflow, fuentes y fin antesI/O. Posicion actual sólo avanza al completarlectura. unit0validada antesacceso.",
+        "CDDA no implementada: pause/play devuelvenerror real y callback PLAY_ERROR si procede, stop limpia estado y qcode usaNO_STATUS; no anunciar audio funcionando. Todavia pendientes playbackcooperativo, seleccionCMake, Akiko/serializacion/bridge/frontends y arranque real deT66.",
+        "Probe real de firmas/upstreamcdrom0355 y Disc, ASan/UBSan: cooked/raw/mixedTOC, fallos al segundo sector con canarios intactos, rangos/limites128, unitinvalid/closed, info/open lifecycle y qcode almacenada. Presupuesto250–350logicas total, dividir antes400. No rebuildengine/guest."
+      ],
+      "acceptance": [
+        "La superficie real consumida por Akiko lee sectores/TOC del Disc normalizado con retornos y limites correctos y falla expresamente para CDDA ausente."
+      ],
+      "stop": "No seleccionar backend incompleto en perfil CD32 ni devolver exito falso para reproduccion de audio; conservar puerta completa del padre."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -14811,7 +14885,9 @@
         "T66d2",
         "T66e2",
         "T66f1",
-        "T66g1"
+        "T66g1",
+        "T66g2",
+        "T66g3"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -14836,7 +14912,8 @@
         "Dividida primera fuente por offset enT66a. El padre conserva todas sus puertas y su aceptacion de arranque/restore CD32 en ambos adaptadores; quedan Akiko cooperativo, NVRAM/I2C, CDDA y los seis formatos, sin stubs exitosos.",
         "Task force: T66b normaliza TOC/sectores y T66c conserva EEPROM/I2C real; son componentes independientes. Se mantienen todos los formatos, Akiko cooperativo, CDDA, NVRAM/persistencia, frontends y arranque/restore real para el cierre del padre.",
         "T66d1 corrige lecturas cortas en DiscSystem derivado yT66d2 conecta una fuente C# por offset con identidad completa. Son componentes, no cierre del arranque/restore ni del soporte nativo de formatos del padre.",
-        "T66e1 aporta proveedor nativo ISO/WAV seekable yT66e2 reutiliza el parserCUE fijado endurecido. El padre mantiene CCD/NRG/MDS/CHD, CDDA, Akiko cooperativo, NVRAM, frontends y arranque/restore completo."
+        "T66e1 aporta proveedor nativo ISO/WAV seekable yT66e2 reutiliza el parserCUE fijado endurecido. El padre mantiene CCD/NRG/MDS/CHD, CDDA, Akiko cooperativo, NVRAM, frontends y arranque/restore completo.",
+        "T66g2 aporta sintesis P/Q explicita yT66g3 superficie blkdev dirigida. Se conserva la integracion almacenado/sintetico, Akiko cooperativo/estado, CDDA, todoslosformatos y arranque/restore real enambosadaptadores como puerta del padre."
       ],
       "checks": [
         "MED01",
