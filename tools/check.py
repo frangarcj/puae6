@@ -476,6 +476,7 @@ TASK_SUITES[('DET02', 'T70b')] = {
 TASK_SUITES[('LR01', 'T70b')] = {'two_mice_and_stick_restore': 'tests.libretro-host.test_mouse2.Mouse2FrontendTests'}
 TASK_SUITES[('WB03', 'T70b')] = {
     'mouse_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_two_mouse_references_motion_and_bk2_restore_in_same_and_new_sandbox_and_process'}
+TASK_SUITES[('AV02', 'T74a')] = {'mechanical_pcm_and_native_restore': 'tests.audio.test_drive_sound'}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

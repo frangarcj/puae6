@@ -14455,7 +14455,7 @@
       "title": "Driveclick comun determinista con muestras propias y estado nativo",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T73"
       ],
@@ -14501,7 +14501,7 @@
       "title": "Volumen de driveclick en API comun y frontends",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T74a"
       ],
@@ -14530,7 +14530,7 @@
       ],
       "steps": [
         "Exponer volumen de presentacion0..100 en bits libres de render_flags, rechazando valores fuera de rango, sin cambiar sizeof ni config_hash. Los flags se consumen en cada p6_run_frame.",
-        "Esquema comun, headless, libretro y C# aplican el mismo volumen; snapshot/BK2/entrada emulada no dependen de la eleccion. Ejecutar check dirigido LR y WB en el guest acumulado."
+        "Esquema comun, headless, libretro y C# aplican el mismo volumen; snapshot/BK2/entrada emulada no dependen de la eleccion. Ejecutar check dirigido LR y WB en el guest acumulado. La opcion cruza API, esquema/generador y tres frontends de forma atomica: exceder cinco rutas evita publicitar valores que otra superficie no implemente; mantener el cambio acotado al volumen."
       ],
       "checks": [
         "AV02"

@@ -61,12 +61,12 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 356, "COPR": 60, "BLTP": 72, "AUDP": 356, "DNSP": 64, "GEOM": 104, "DSKX": 248,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 356, "COPR": 60, "BLTP": 72, "AUDP": 356, "DCLK": 160, "DNSP": 64, "GEOM": 104, "DSKX": 248,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP"],
     b"P6VD": ["BPLX", "DNSP", "GEOM", "PIXL"],
-    b"P6AU": [f"AUD{i}" for i in range(4)] + ["AUDP"],
+    b"P6AU": [f"AUD{i}" for i in range(4)] + ["AUDP", "DCLK"],
     b"P6DK": [f"DSK{i}" for i in range(4)] + [f"DSD{i}" for i in range(4)] + ["DISK", "DSKX"],
 }
 DSD_FIXED = 4 + 2 + 4 + 2 + 4 + 4 + 2       # mode, bit counter, track length, speed, skip offset, index offset, revolutions

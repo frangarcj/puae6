@@ -19,7 +19,7 @@ class CPUHaltAudioTests(unittest.TestCase):
                   "-I" + str(tree / "include"), "-I" + str(tree)]
         sources = [ROOT / "tests/host/cpu_halt_audio_probe.cpp", tree / "events.cpp"]
         sources += [ROOT / "ports/portable" / name for name in (
-            "atomic.cpp", "pcm_output.cpp", "sound_lifecycle.cpp", "diagnostics.cpp", "gui.cpp")]
+            "atomic.cpp", "pcm_output.cpp", "sound_lifecycle.cpp", "drive_sound.cpp", "diagnostics.cpp", "gui.cpp")]
         strip = "-Wl,-dead_strip" if platform.system() == "Darwin" else "-Wl,--gc-sections"
         with tempfile.TemporaryDirectory(prefix="p6-halt-audio-") as tmp:
             exe, obj = Path(tmp) / "probe", Path(tmp) / "cpu.o"

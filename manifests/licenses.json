@@ -664,6 +664,20 @@
         ],
         "set_sha256": "125afee40cd989567032bffe80ddfc62630275f8711ea93ace73b7b59d4092d0"
       }
+    },
+    {
+      "id": "portable-drive-sound",
+      "source_id": "winuae",
+      "scope": "portable mechanical presentation using the WinUAE driveclick boundary and playback model; integer synthesized PCM authored in this project, no recordings",
+      "declared_license": "GPL-2.0-or-later; upstream model Copyright 2004 James Bagg, Toni Wilen",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/driveclick.cpp",
+          "sha256": "c0fe8ddfe814a20049475f69285860104128cd789e1f5a57c5630199cf276c38"
+        }
+      ],
+      "handling": "Preserve the upstream notice and the SPDX/attribution in ports/portable/drive_sound.cpp. No external sample files are distributed.",
+      "build_eligibility": "portable native and Waterbox presentation"
     }
   ],
   "exclusions": [

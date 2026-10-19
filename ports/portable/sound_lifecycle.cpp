@@ -6,6 +6,8 @@
 #include "audio.h"
 #include "gensound.h"
 #include "sounddep/sound.h"
+#include "drive_sound.h"
+#include "driveclick.h"
 
 static bool opened, paused, buffer_paused, ntsc;
 static int rate;
@@ -52,6 +54,7 @@ bool p6_sound_validate_config(const uae_prefs &p)
 
 int p6_sound_status()
 {
+    if (!p6_drive_sound::healthy()) return P6_SOUND_UNSUPPORTED;
     return lifecycle_error ? lifecycle_error : p6_pcm_status();
 }
 
@@ -82,6 +85,7 @@ int init_sound()
     scaled_sample_evtime = chipset_clock() * float(CYCLE_UNIT) / rate;
     p6_pcm_reset();
     p6_pcm_set_delivery(true);
+    driveclick_init();
     return 1;
 }
 

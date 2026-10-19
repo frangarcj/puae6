@@ -357,6 +357,23 @@
         "bridge/lifecycle.cpp",
         "tests/state/test_probe.py"
       ]
+    },
+    {
+      "id": "mechanical-pcm",
+      "subsystem": "audio",
+      "symbols": [
+        "drives",
+        "mix_gain",
+        "prefs_ok",
+        "driveclick_wave_initialized"
+      ],
+      "owner": "ports/portable/drive_sound.cpp",
+      "at_load": "init_sound calls driveclick_init: all phases reset. devices_free calls driveclick_free at unload, resetting gain to zero; immutable integer waves contain no history. Native P6AU.DCLK stores 40 phase words; gain is a host presentation setting. Waterbox captures phases in its snapshot.",
+      "survives_unload": false,
+      "status": "reset",
+      "evidence": [
+        "tests/audio/test_drive_sound.py"
+      ]
     }
   ],
   "savestate": {

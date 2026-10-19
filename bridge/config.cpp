@@ -509,6 +509,7 @@ void build_preferences(const p6_config &c, bool ide)
     currprefs.floppy_read_only = !preset_floppy_writes;      // every disk is write protected unless the session reserved a write overlay (T27)
     currprefs.reset_delay = 0;        // config-invariants.json: the delayed-reset wait cannot poll
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
+    for (auto &drive : currprefs.floppyslots) drive.dfxclick = 1;
     _tcscpy(currprefs.romfile, kFirmwareId);
     fixup_prefs(&currprefs, true);
 }

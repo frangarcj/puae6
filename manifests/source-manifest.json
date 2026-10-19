@@ -130,7 +130,8 @@
       "CPUEMU_21",
       "AGA",
       "FPUEMU",
-      "WITH_SOFTFLOAT"
+      "WITH_SOFTFLOAT",
+      "DRIVESOUND"
     ],
     "features_off": [
       "JIT",
@@ -148,7 +149,6 @@
       "PICASSO96",
       "CD32",
       "CDTV",
-      "DRIVESOUND",
       "WITH_LUA",
       "BSDSOCKET",
       "WITH_SLIRP",

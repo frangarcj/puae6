@@ -57,6 +57,7 @@
 #include "p6.h"
 #include "session.h"
 #include "state.h"
+#include "drive_sound.h"
 #include "config.h"
 #include "p6_state_access.h"
 #include "sha256.h"
@@ -962,6 +963,7 @@ int main(int argc, char **argv)
     uint32_t fpu_model = 0;                                  // T54: 0 = none, 68881 or 68882 (--fpu 68882)
     uint32_t hdf_controller = 0;                             // T56: p6_config hdf_controller as the ABI number (--hdf-controller uae|ide: 0 the UAE controller, 1 the IDE port of Gayle)
     uint32_t floppy_drives = 0;
+    uint32_t drive_sound = 0;
     uint32_t floppy_speed = 0;                               // T62: p6_config floppy_speed as the ABI number (--floppy-speed: 0 the profile, 1 100 %, 2 200 %, 3 400 %, 4 800 %, 5 turbo)
     uint32_t sound[4] = {0, 0, 0, 0};                       // T73: p6_config sound_separation, sound_interpolation, sound_filter, sound_filter_type as ABI numbers (--sound-sep, --sound-interp, --sound-filter, --sound-type)
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
@@ -977,6 +979,10 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--loads") && i + 1 < argc) loads = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
+        else if (!strcmp(argv[i], "--drive-sound") && i + 1 < argc) {
+            drive_sound = uint32_t(strtoul(argv[++i], nullptr, 10));
+            if (drive_sound > 100) return 64;
+        }
         else if (!strcmp(argv[i], "--machine") && i + 1 < argc) {
             const char *name = argv[++i];
             if (!strcmp(name, "a500")) machine = P6_MACHINE_A500;
@@ -1140,6 +1146,7 @@ int main(int argc, char **argv)
         result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
         if (result != P6_OK) return fail("p6_load", result, error);
         g_profile_rtc = currprefs.cs_rtc;
+        p6_drive_sound::gain(drive_sound);
         print_digests(0);
         run_state_ops(state_ops, 0);
         p6_input input = {};

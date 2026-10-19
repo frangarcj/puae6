@@ -41,7 +41,8 @@ class PCMTests(unittest.TestCase):
                     subprocess.run([*common, optimization, "-ffunction-sections", "-fdata-sections", strip,
                                     "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
                                     str(ROOT / "tests/host" / probe),
-                                    str(ROOT / "ports/portable/pcm_output.cpp"), *extra, "-o", str(exe)],
+                                    str(ROOT / "ports/portable/pcm_output.cpp"),
+                                    str(ROOT / "ports/portable/drive_sound.cpp"), *extra, "-o", str(exe)],
                                    check=True, timeout=60)
                     subprocess.run([str(exe)], check=True, timeout=30)
 

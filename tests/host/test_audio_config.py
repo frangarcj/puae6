@@ -22,7 +22,7 @@ class AudioConfigTests(unittest.TestCase):
         sources = [tree / "events.cpp", tree / "softfloat/softfloat.cpp",
                    tree / "softfloat/softfloat_fpsp.cpp"]
         sources += [ROOT / "ports/portable" / name for name in (
-            "audio_math.cpp", "pcm_output.cpp", "sound_lifecycle.cpp",
+            "audio_math.cpp", "pcm_output.cpp", "sound_lifecycle.cpp", "drive_sound.cpp",
             "diagnostics.cpp", "gui.cpp")]
         with tempfile.TemporaryDirectory(prefix="p6-audio-config-") as tmp:
             tmp = Path(tmp)

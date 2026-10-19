@@ -5,7 +5,7 @@
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (248), the last ours and not upstream's
 //   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (320), COPR (60) and BLTP (72), the last three ours and not upstream's
-//   P6AU  AUD0..AUD3 (25 each) and AUDP (356), ours and not upstream's
+//   P6AU  AUD0..AUD3 (25 each), AUDP (356) and DCLK (160), the last two portable extensions
 //   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
 //
 // BEAM (patch 0103 added four words) also carries the first and last line of the vertical display window and the flag that tests them: calcvdiw derives the lines from the registers and
@@ -130,6 +130,7 @@
 #include "config.h"
 #include "blob_io.h"
 #include "overlay.h"
+#include "drive_sound.h"
 
 extern void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain);       // events.cpp 0078
 extern void p6_events_set(int idx, int next, int remain);
@@ -411,6 +412,32 @@ uint8_t *apply_audp(int, uint8_t *body)
 {
     for (unsigned i = 0; i < kAudioWords; ++i) g_audio_phase[i] = int32_t(Body{body, kAudioBytes}.u32(i * 4));
     return body + kAudioBytes;
+}
+
+// Presentation phases are independent of Paula. Keep them out of AUDn/AUDP and
+// hardware digests; their future is checked against the delivered PCM.
+constexpr uint32_t kDriveSoundBytes = p6_drive_sound::kWords * 4;
+uint32_t g_drive_sound[p6_drive_sound::kWords];
+uint8_t *produce_drive_sound(int, size_t *len, uint8_t *out)
+{
+    uint32_t words[p6_drive_sound::kWords];
+    if (!p6_drive_sound::get(words, p6_drive_sound::kWords)) return nullptr;
+    for (unsigned i = 0; i < p6_drive_sound::kWords; ++i)
+        for (unsigned b = 0; b < 4; ++b) out[4 * i + b] = uint8_t(words[i] >> (24 - 8 * b));
+    *len = kDriveSoundBytes;
+    return out;
+}
+uint8_t *apply_drive_sound(int, uint8_t *body)
+{
+    for (unsigned i = 0; i < p6_drive_sound::kWords; ++i)
+        g_drive_sound[i] = Body{body, kDriveSoundBytes}.u32(4 * i);
+    return body + kDriveSoundBytes;
+}
+const char *check_drive_sound_body(Body b)
+{
+    uint32_t words[p6_drive_sound::kWords];
+    for (unsigned i = 0; i < p6_drive_sound::kWords; ++i) words[i] = b.u32(4 * i);
+    return p6_drive_sound::valid(words, p6_drive_sound::kWords) ? nullptr : "invalid mechanical sound phase";
 }
 
 // -- DNSP: Denise's output pipeline (patch 0100) ---------------------------------------------------------------------------------------------------------
@@ -1087,10 +1114,12 @@ constexpr Sub kChipsetBodies[] = {
     {"COPR", kCopperBytes, kCopperBytes, produce_copr, apply_copr, check_copr, 0, true},
     {"BLTP", kBlitterBytes, kBlitterBytes, produce_bltp, apply_bltp, check_bltp, 0, true},
 };
+const char *check_drive_sound(const Sub &, const Body &b, Seen &) { return check_drive_sound_body(b); }
 constexpr Sub kAudioBodies[] = {
     {"AUD0", 25, 25, produce_aud, apply_aud, check_aud, 0, true}, {"AUD1", 25, 25, produce_aud, apply_aud, check_aud, 1, true},
     {"AUD2", 25, 25, produce_aud, apply_aud, check_aud, 2, true}, {"AUD3", 25, 25, produce_aud, apply_aud, check_aud, 3, true},
     {"AUDP", kAudioBytes, kAudioBytes, produce_audp, apply_audp, check_audp, 0, true},
+    {"DCLK", kDriveSoundBytes, kDriveSoundBytes, produce_drive_sound, apply_drive_sound, check_drive_sound, 0, true},
 };
 constexpr Sub kVideoBodies[] = {
     {"BPLX", 292, 292, produce_bplx, apply_bplx, check_bplx, 0, true},
@@ -1225,6 +1254,7 @@ void finish_audio()
 {
     restore_audio_finish();
     p6_audio_phase_set(g_audio_phase, kAudioWords);
+    p6_drive_sound::set(g_drive_sound, p6_drive_sound::kWords);
 }
 
 }  // namespace

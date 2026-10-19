@@ -1042,3 +1042,15 @@ No ejecutar el serializador nativo para fingir una prueba Waterbox. Ver document
 La restauracion debe reponer callbacks y limpiar referencias host temporales.
 Compatibilidad snapshot depende de WBX, layout, toolchain y runtime exactos. No se
 intercambia con un .state nativo y no se hereda el identificador del UAE anterior.
+
+### Sonido mecanico comun (T74a)
+
+`ports/portable/drive_sound.cpp` implementa la frontera driveclick con ondas propias
+sintetizadas mediante enteros, sin archivos de muestras ni dispositivos fisicos.
+La mezcla aditiva satura a int16 y por defecto su ganancia es cero: no toca Paula
+ni llama `audio_activate`. Las fases avanzan incluso con ganancia cero; motor,
+expulsion y pasos del guest llegan por los hooks de DISK. `P6AU.DCLK` guarda
+40 palabras big endian (160 bytes), con validacion antes de aplicar. El volumen
+es presentacion y queda fuera de este cuerpo y de la identidad de maquina.
+`p6_state_probe --drive-sound 0..100` permite comprobar el backend; las opciones
+publicas y sus pruebas en frontends corresponden a T74b.
