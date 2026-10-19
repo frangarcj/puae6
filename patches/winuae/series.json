@@ -4717,6 +4717,30 @@
           "after_sha256": "fdd9676d0b747fd9620cf0635ac1344294f37446299050960fa18df6305bcb45"
         }
       ]
+    },
+    {
+      "id": "0357-ccd-metadata-only",
+      "file": "patches/winuae/0357-ccd-metadata-only.patch",
+      "sha256": "c09372ff2ebbc63875fff9a6b6c14231f6f167b3e196cf5cd91ef6d4727f87dc",
+      "title": "Export bounded CCD metadata through the pinned parseccd traversal",
+      "reason": "T66j1 isolates the real CCD section traversal, validates numeric/TOC/index consistency and retains raw Q fields, without opening IMG/SUB or enabling a CD device.",
+      "category": "host hooks",
+      "order": 174,
+      "symbols": [
+        "parseccd",
+        "ccd_metadata",
+        "readval"
+      ],
+      "test": "tests/media/test_ccd_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "fdd9676d0b747fd9620cf0635ac1344294f37446299050960fa18df6305bcb45",
+          "after_sha256": "43100451b71c69347315059a0e370bed1a7981f8eee27f479461a8516e3c8a22"
+        }
+      ]
     }
   ]
 }

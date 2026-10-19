@@ -1,0 +1,359 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -11,7 +11,7 @@
+ * Copyright 2010-2013 Toni Wilen
+ *
+ */
+-#ifndef P6_CUE_METADATA
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA)
+ #include "sysconfig.h"
+ #include "sysdeps.h"
+ 
+@@ -1206,7 +1206,11 @@
+ }
+ 
+ #else
++#ifdef P6_CCD_METADATA
++#include "cd_ccd_metadata.h"
++#else
+ #include "cd_cue_metadata.h"
++#endif
+ #include <ctype.h>
+ #include <string.h>
+ #include <initializer_list>
+@@ -1227,6 +1231,29 @@
+ #define _tcsicmp(a,b) cue_compare(a,b,SIZE_MAX)
+ #define _tstoi cue_number
+ #define MAX_DPATH 4096
++#ifdef P6_CCD_METADATA
++#define _tstol readval
++struct cdunit { int tracks = 0; };
++static int readval(const char *s, bool section = false)
++{
++    while (_istspace(*s)) ++s;
++    const bool negative = *s == '-';
++    if (*s == '-' || *s == '+') ++s;
++    unsigned base = 10;
++    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) { base = 16; s += 2; }
++    uint64_t value = 0; unsigned digits = 0;
++    for (;;) {
++        const unsigned c = static_cast<unsigned char>(*s);
++        const unsigned digit = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : 255;
++        if (digit >= base) break;
++        if (value > (INT32_MAX - digit) / base) return INT32_MIN;
++        value = value * base + digit; ++digits; ++s;
++    }
++    if (section) { if (*s != ']') return INT32_MIN; ++s; }
++    while (_istspace(*s)) ++s;
++    return digits && !*s ? (negative ? -int(value) : int(value)) : INT32_MIN;
++}
++#else
+ enum audenc { AUDENC_NONE, AUDENC_PCM };
+ struct cdtoc {
+     CueTrack raw{};
+@@ -1251,12 +1278,14 @@
+     return seconds < 60 && frames < 75 ? ((s[0] - '0') * 10 + s[1] - '0') * 4500 + seconds * 75 + frames : -1;
+ }
+ #endif
++#endif
+ 
+ static void skipspace (TCHAR **s)
+ {
+ 	while (_istspace (**s))
+ 		(*s)++;
+ }
++#ifndef P6_CCD_METADATA
+ static void skipnspace (TCHAR **s)
+ {
+ 	while (**s && !_istspace (**s))
+@@ -1292,7 +1321,8 @@
+ 	return out;
+ }
+ 
+-#ifndef P6_CUE_METADATA
++#endif
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA)
+ static int readval (const TCHAR *s)
+ {
+ 	int base = 10;
+@@ -1579,16 +1609,31 @@
+ }
+ #endif
+ 
++#endif
++#ifndef P6_CUE_METADATA
++#ifdef P6_CCD_METADATA
++Result ccd_metadata(void *context, CcdReadLine read_line, CcdMetadata *out)
++#else
+ static int parseccd (struct cdunit *cdu, struct zfile *zcue, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+-{
+-	int mode;
+-	int num, tracknum, trackmode;
+-	int adr, control, lba;
+-	bool gotlba;
++#endif
++{
++#ifdef P6_CCD_METADATA
++    if (!out || !read_line) return Result::Invalid;
++    CcdMetadata candidate{}; cdunit storage; auto *cdu = &storage;
++    CcdEntry entry{}; unsigned entry_mask = 0, track_mask = 0, flags = 0, tracks_seen = 0;
++    bool clone_seen = false, disc_seen = false, session_seen = false; unsigned session_mask = 0;
++    size_t text_bytes = 0;
++#else
+ 	struct cdtoc *t;
+ 	struct zfile *zimg, *zsub;
+ 	TCHAR fname[MAX_DPATH];
++#endif
++	int mode;
++	int num, tracknum, trackmode;
++	[[maybe_unused]] int adr, control, lba;
++	[[maybe_unused]] bool gotlba;
+ 	
++#ifndef P6_CCD_METADATA
+ 	write_log (_T("CCD TOC: '%s'\n"), img);
+ 	_tcscpy (fname, zfile_getname(zcue));
+ 	TCHAR *ext = _tcsrchr (fname, '.');
+@@ -1611,31 +1656,129 @@
+ 	if (curdir)
+ 		my_setcurrentdir(ocurdir, NULL);
+ 
++#endif
+ 	num = -1;
+ 	mode = -1;
++#ifdef P6_CCD_METADATA
++    auto flush = [&]() {
++        if (mode == 2) {
++            if (entry_mask != (1u << CcdFields) - 1 || candidate.entries >= 102) return false;
++            candidate.entry[candidate.entries++] = entry;
++        }
++        return mode != 3 || (track_mask & 3) == 3;
++    };
++#endif
+ 	for (;;) {
+ 		TCHAR buf[MAX_DPATH], *p;
++#ifdef P6_CCD_METADATA
++        const int length = read_line(context, buf, sizeof buf);
++        if (length < 0) return Result::ReadError;
++        if (!length) break;
++        if (size_t(length) >= sizeof buf || memchr(buf, 0, size_t(length)) || buf[length] || (text_bytes += size_t(length)) > 65536) return Result::Invalid;
++#else
+ 		if (!zfile_fgets (buf, sizeof buf / sizeof (TCHAR), zcue))
+ 			break;
++#endif
+ 		p = buf;
+ 		skipspace (&p);
++#ifdef P6_CCD_METADATA
++        if (!*p || *p == ';') continue;
++        if (*p == '[') {
++            if (!flush()) return Result::Invalid;
++            const char *close = strchr(p, ']');
++            if (!close) return Result::Invalid;
++            for (const char *tail = close + 1; *tail; ++tail) if (!_istspace(*tail)) return Result::Invalid;
++            entry = {}; entry_mask = track_mask = 0;
++            if (!_tcsnicmp(p, "[CloneCD]", 9)) {
++                if (clone_seen) return Result::Invalid;
++                clone_seen = true; mode = 4; continue;
++            }
++            if (!_tcsnicmp(p, "[Session ", 9)) {
++                if (readval(p + 9, true) != 1) return Result::Unsupported;
++                if (session_seen) return Result::Invalid;
++                session_seen = true; mode = 5; continue;
++            }
++            if (_tcsnicmp(p, "[Disc]", 6) && _tcsnicmp(p, "[Entry ", 7) && _tcsnicmp(p, "[Track ", 7)) return Result::Unsupported;
++        } else {
++            if (mode < 0) return Result::Invalid;
++            char *equals = strchr(p, '=');
++            if (!equals) return Result::Invalid;
++            const int value = readval(equals + 1);
++            if (value == INT32_MIN) return Result::Invalid;
++            if (mode == 4) {
++                if (_tcsnicmp(p, "Version=", 8) || (flags & 1)) return Result::Invalid;
++                if (value != 3) return Result::Unsupported;
++                flags |= 1; continue;
++            }
++            if (mode == 5) {
++                const unsigned bit = !_tcsnicmp(p, "PreGapMode=", 11) ? 1 : !_tcsnicmp(p, "PreGapSubC=", 11) ? 2 : 0;
++                if (!bit || value < 0 || value > (bit == 1 ? 2 : 1)) return Result::Unsupported;
++                if (session_mask & bit) return Result::Invalid;
++                session_mask |= bit;
++                if (bit == 1) candidate.pregap_mode = unsigned(value); else candidate.pregap_subc = unsigned(value);
++                continue;
++            }
++            if (mode == 1) {
++                const unsigned bit = !_tcsnicmp(p, "TocEntries=", 11) ? 2 : !_tcsnicmp(p, "Sessions=", 9) ? 4 :
++                    !_tcsnicmp(p, "DataTracksScrambled=", 20) ? 8 : !_tcsnicmp(p, "CDTextLength=", 13) ? 16 : 0;
++                if (!bit || (flags & bit)) return Result::Invalid;
++                flags |= bit;
++                if ((bit == 4 && value != 1) || (bit >= 8 && value != 0)) return Result::Unsupported;
++                if (bit == 2 && (value < 4 || value > 102)) return Result::Range;
++            }
++            if (mode == 2) {
++                static const char *keys[CcdFields] = {"Session=","Point=","ADR=","Control=","TrackNo=","AMin=","ASec=","AFrame=","ALBA=","Zero=","PMin=","PSec=","PFrame=","PLBA="};
++                unsigned field = 0;
++                while (field < CcdFields && _tcsnicmp(p, keys[field], strlen(keys[field]))) ++field;
++                if (field == CcdFields || (entry_mask & (1u << field))) return Result::Invalid;
++                entry.value[field] = value; entry_mask |= 1u << field;
++            }
++            if (mode == 3) {
++                auto &track = candidate.track[tracknum - 1];
++                const unsigned bit = !_tcsnicmp(p, "MODE=", 5) ? 1 : !_tcsnicmp(p, "INDEX 1=", 8) ? 2 : !_tcsnicmp(p, "INDEX 0=", 8) ? 4 : 0;
++                if (!bit) return Result::Unsupported;
++                if (track_mask & bit) return Result::Invalid;
++                track_mask |= bit;
++                if (bit == 1) { if (value < 0 || value > 2) return Result::Unsupported; track.mode = value; }
++                if (bit == 2) track.index1 = value;
++                if (bit == 4) { track.index0 = value; track.has_index0 = true; }
++            }
++        }
++#endif
+ 		if (!_tcsnicmp (p, _T("[DISC]"), 6)) {
++#ifdef P6_CCD_METADATA
++            if (!(flags & 1) || disc_seen) return Result::Invalid;
++            disc_seen = true;
++#endif
+ 			mode = 1;
+ 		} else if (!_tcsnicmp (p, _T("[ENTRY "), 7)) {
++#ifdef P6_CCD_METADATA
++            num = readval(p + 7, true);
++            if (num != int(candidate.entries) || num >= cdu->tracks + 3) return Result::Invalid;
++#else
+ 			t = NULL;
++			num = readval (p + 7);
++#endif
+ 			mode = 2;
+-			num = readval (p + 7);
+ 			if (num < 0)
+ 				break;
+ 			adr = control = -1;
+ 			gotlba = false;
+ 		} else if (!_tcsnicmp (p, _T("[TRACK "), 7)) {
+ 			mode = 3;
++#ifdef P6_CCD_METADATA
++            tracknum = readval(p + 7, true);
++            if (tracknum != int(tracks_seen) + 1 || tracknum > cdu->tracks) return Result::Invalid;
++            ++tracks_seen;
++#else
+ 			tracknum = readval (p + 7);
++#endif
+ 			trackmode = -1;
+ 			if (tracknum <= 0 || tracknum > 99)
+ 				break;
++#ifndef P6_CCD_METADATA
+ 			t = &cdu->toc[tracknum - 1];
++#endif
+ 		}
+ 		if (mode < 0)
+ 			continue;
+@@ -1653,11 +1796,18 @@
+ 		if (mode == 2) {
+ 
+ 			if (!_tcsnicmp (p, _T("SESSION="), 8)) {
++#ifdef P6_CCD_METADATA
++                if (readval(p + 8) != 1) return Result::Unsupported;
++#else
+ 				if (readval (p + 8) != 1)
+ 					mode = -1;
++#endif
+ 				continue;
+ 			} else if (!_tcsnicmp (p, _T("POINT="), 6)) {
+ 				tracknum = readval (p + 6);
++#ifdef P6_CCD_METADATA
++                if ((tracknum < 1 || tracknum > cdu->tracks) && (tracknum < 0xa0 || tracknum > 0xa2)) return Result::Invalid;
++#else
+ 				if (tracknum <= 0)
+ 					break;
+ 				if (tracknum >= 0xa0 && tracknum != 0xa2) {
+@@ -1667,6 +1817,7 @@
+ 				if (tracknum == 0xa2)
+ 					tracknum = cdu->tracks + 1;
+ 				t = &cdu->toc[tracknum - 1];
++#endif
+ 				continue;
+ 			}
+ 			if (!_tcsnicmp (p, _T("ADR="), 4))
+@@ -1677,6 +1828,7 @@
+ 				lba = readval (p + 5);
+ 				gotlba = true;
+ 			}
++#ifndef P6_CCD_METADATA
+ 			if (gotlba && adr >= 0 && control >= 0) {
+ 				t->adr = adr;
+ 				t->ctrl = control;
+@@ -1697,6 +1849,7 @@
+ 				}
+ 				mode = -1;
+ 			}
++#endif
+ 
+ 		} else if (mode == 3) {
+ 
+@@ -1708,17 +1861,53 @@
+ 		}
+ 
+ 	}
++#ifdef P6_CCD_METADATA
++    if (!flush() || (flags & 7) != 7 || tracks_seen != unsigned(cdu->tracks) || candidate.entries != unsigned(cdu->tracks + 3)) return Result::Invalid;
++    bool points[163] = {}; const CcdEntry *by_track[100] = {};
++    for (unsigned n = 0; n < candidate.entries; ++n) {
++        const auto *v = candidate.entry[n].value;
++        if (v[CcdSession] != 1 || v[CcdAdr] != 1) return Result::Unsupported;
++        if (v[CcdControl] < 0 || v[CcdControl] > 15 || v[CcdTrackNo] || v[CcdZero]) return Result::Invalid;
++        for (unsigned field : {unsigned(CcdAMin), unsigned(CcdPMin)}) {
++            if (v[field] < 0 || v[field] > 99 || v[field + 1] < 0 || v[field + 1] > 59 || v[field + 2] < 0 || v[field + 2] > 74 ||
++                int64_t(v[field]) * 4500 + v[field + 1] * 75 + v[field + 2] != int64_t(v[field + 3]) + 150) return Result::Invalid;
++        }
++        const unsigned point = unsigned(v[CcdPoint]);
++        if (points[point]) return Result::Invalid;
++        points[point] = true;
++        if (point <= unsigned(cdu->tracks)) by_track[point] = &candidate.entry[n];
++    }
++    if (!points[0xa0] || !points[0xa1] || !points[0xa2]) return Result::Invalid;
++    int32_t previous = -1, leadout = 0;
++    for (unsigned n = 0; n < candidate.entries; ++n) {
++        const auto *v = candidate.entry[n].value;
++        if (v[CcdPoint] == 0xa0 && (v[CcdPMin] != 1 || (v[CcdPSec] != 0 && v[CcdPSec] != 0x10 && v[CcdPSec] != 0x20))) return Result::Unsupported;
++        if (v[CcdPoint] == 0xa1 && v[CcdPMin] != cdu->tracks) return Result::Invalid;
++        if (v[CcdPoint] == 0xa2) leadout = v[CcdPLba];
++    }
++    for (unsigned n = 0; n < tracks_seen; ++n) {
++        const auto &t = candidate.track[n]; const auto *v = by_track[n + 1];
++        if (!v || t.index1 <= previous || t.index1 != v->value[CcdPLba] || bool(v->value[CcdControl] & 4) != (t.mode != 0) ||
++            (t.has_index0 && ((n && t.index0 <= previous) || t.index0 > t.index1))) return Result::Invalid;
++        previous = t.index1;
++    }
++    if (leadout <= previous) return Result::Invalid;
++    candidate.tracks = tracks_seen; *out = candidate; return Result::Ok;
++#else
++
+ 	zfile_fclose (zimg);
+ 	zfile_fclose (zsub);
+ 	return cdu->tracks;
+-}
+-
+-#else
++#endif
++}
++#endif
++
++#ifdef P6_CUE_METADATA
+ Result cue_metadata(const CueIo &io, CueMetadata *out)
+-#endif
+-#ifndef P6_CUE_METADATA
++#elif !defined(P6_CCD_METADATA)
+ static int parsecue (struct cdunit *cdu, struct zfile *zcue, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+ #endif
++#ifndef P6_CCD_METADATA
+ {
+ #ifdef P6_CUE_METADATA
+     if (!out || !io.read_line || !io.resolve) return Result::Invalid;
+@@ -2138,7 +2327,8 @@
+ #endif
+ }
+ 
+-#ifndef P6_CUE_METADATA
++#endif
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA)
+ static int parsenrg(struct cdunit *cdu, struct zfile *znrg, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+ {
+ 	uae_s64 size;

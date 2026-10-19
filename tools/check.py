@@ -253,6 +253,7 @@ TASK_SUITES[('DET02', 'T66c')] = {
 TASK_SUITES[('MED01', 'T66b')] = {'cd_source_regression': 'tests.media.test_cd_source', 'cd_toc_sectors': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66e1')] = {'native_seekable_iso_wave': 'tests.media.test_cd_file'}
 TASK_SUITES[('MED01', 'T66e2a')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata'}
+TASK_SUITES[('MED01', 'T66j1')] = {'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66e2')] = dict(TASK_SUITES[('MED01', 'T66e2b')])
 TASK_SUITES[('MED01', 'T66g1')] = {'akiko_toc_qcode': 'tests.media.test_cd_disc'}

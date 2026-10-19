@@ -938,6 +938,16 @@ sin padding/rutas/cursor. MODE2/CDI2336 devuelve Unsupported; gaps Mode2 y2448
 sin subcanales siguen Unsupported. MED01 usa `P6_CD_CUE_FILE` para Brian29 opt-in;
 no hay carga CD32, CDDA ni anuncio nuevo de formatos en la preview.
 
+T66j1 exporta el recorrido de `parseccd`6030 con patch0357 despues de0356 y
+`P6_CCD_METADATA`: Version3, una sesion y sin scrambling. Preserva los14 campos
+Q de cada ENTRY (incluidos A0/A1/A2), modos0/1/2 e INDEX00/01, incluso lead-in
+negativo del primer track. Valida numeros, duplicados, secuencia, tiempos
+redundantes MSF/LBA y coherencia de MODE/control/INDEX1 sin publicar parciales.
+Usa callbacks de linea acotados a4095B/linea y64KiB total, hasta99tracks/102entries;
+no abre IMG/SUB ni habilita dispositivos. MED01 selecciona los fixtures legales
+y regresion CUE; la clase real opcional usa `P6_CD_CCD_FILE` y muestra SKIP si falta.
+Normalizacion y composicion IMG/SUB permanecen en T66j2.
+
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
 El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando
