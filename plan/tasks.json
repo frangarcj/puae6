@@ -12917,7 +12917,7 @@
       "title": "Estado privado de FPU interna040/060 y continuacion real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T54",
         "T55c1"
@@ -12942,7 +12942,8 @@
         "Validacion pura por modelo/rango antes de aplicar; rechazo transaccional. Restaurar FPCR mediante el helper que reconstruye SoftFloat. No borrar silenciosamente fpu_exp_state/fp_unimp_pend ni copiar estructuras con padding. Conservar el camino68881/68882 existente.",
         "Probe privado con objetos reales del motor y SoftFloat: null/idle y excepcion pendiente alcanzadas por instrucciones; capturar, alterar/reinicializar propietario, aplicar y comprobar FSAVE a RAM, flags y siguiente operacion contra la continuacion original. Invalidos no cambian el propietario. No sustituir esta prueba por roundtrip de un POD o mocks.",
         "El FRESTORE040 de frames0x28/0x30 tiene TODO upstream. Esta hoja no declara completada esa instruccion ni la exposicionA4040: fijar su semantica y oraculo antes de esa puerta, sin stub exitoso. Los controlesCPU/P6CP, preset/frontends040/060, otros tamanosZ3 y firmware real siguen enT55c.",
-        "Objetivo300-350lineas manuales en parche/header/test y metadata de parches; reutilizar infraestructura de cpu_fpu_probe, sin copiar el motor. STATE01 dirigido y regresion6888x una vez en candidata. Si no cabe, revisar division antes de editar. tools/check.py registra el selector real al implementarlo; tests/test_plan.py mantiene el registro de hojas y la dependencia del padre."
+        "Objetivo300-350lineas manuales en parche/header/test y metadata de parches; reutilizar infraestructura de cpu_fpu_probe, sin copiar el motor. STATE01 dirigido y regresion6888x una vez en candidata. Si no cabe, revisar division antes de editar. tools/check.py registra el selector real al implementarlo; tests/test_plan.py mantiene el registro de hojas y la dependencia del padre.",
+        "Cierre: STATE01 por union de selectores ejecutados:12cortes reales040rev40/41 y060, mas5regresiones6888x; clasificacion7tests y29salidas CPU verificadas. La primera invocacion fallo por tamano incorrecto del fixture; el selector interno paso tras corregirlo. Codec privado sin cambios de ABI/P6CP/presets; soporte publico y FRESTORE040 siguen enT55c."
       ],
       "checks": [
         "STATE01"
