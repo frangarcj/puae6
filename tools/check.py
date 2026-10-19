@@ -527,7 +527,14 @@ TASK_SUITES[('MED02', 'T65b2')] = {'provider_pins': 'tests.whdload.test_autoload
     'real_autoload_save': 'tests.whdload.test_autoload.AutoloadTests.test_auto_game_save_restore_and_next_session_keep_data_immutable'}
 TASK_SUITES[('DET02', 'T65b2')] = {'autoload_replay': 'tests.whdload.test_autoload.AutoloadTests.test_auto_game_save_restore_and_next_session_keep_data_immutable'}
 TASK_SUITES[('LR01', 'T65b2')] = {'autoload_frontend': 'tests.whdload.test_autoload.AutoloadTests'}
-TASK_SUITES[('WB03', 'T65b2')] = {'three_role_sandbox': 'tests.whdload.test_bundle.BundleWaterboxTests'}
+TASK_SUITES[('WB03', 'T65b2')] = {'shared_auto_bundle_sandbox': 'tests.whdload.test_loader_csharp.LoaderWaterboxTests'}
+# Both builders produce identical media; the actual automatic managed load supplies
+# the shared Waterbox gate. Keep every parent gate and run an identical suite once.
+for _parent, _children in (('T65b', ('T65b1', 'T65b2')), ('T65c', ('T65c1', 'T65c2')), ('T65', ('T65a', 'T65b', 'T65c'))):
+    for _gate in ('MED02', 'DET02', 'LR01', 'WB03'):
+        TASK_SUITES[(_gate, _parent)] = {
+            _suite: _suite for _child in _children
+            for _suite in TASK_SUITES.get((_gate, _child), {}).values()}
 for _gate in ('IN01', 'DET02', 'LR01', 'WB03'):
     TASK_SUITES[(_gate, 'T70')] = {
         f'{_task}:{_name}': _suite for _task in ('T70a', 'T70b', 'T70c', 'T70d')
