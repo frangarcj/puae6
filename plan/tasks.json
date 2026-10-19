@@ -12308,7 +12308,7 @@
       "title": "Modos de CPU rapidos (compatible / normal, sin cycle-exact) como opcion, deterministas",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T24"
       ],
@@ -12353,7 +12353,8 @@
         "Task force: empezar por vertical atomica A500 con generacion, ABI de configuracion y restore del PC directo; completar 68010/020 y frontends antes de cerrar T53. Coordinar T55 en el mismo frente CPU. Reservar la comprobacion acumulada para la candidata integrada.",
         "Al consumir un byte reservado de p6_config, actualizar probes C y fuzz de layout; mantener sizeof72 y offsets de campos no reservados, sin alias de structs anonimos.",
         "La opcion cpu_compatibility se expone tambien en headless; el esquema unico exige el mapeo para las tres superficies. Se autoriza adapters/headless y el generador comun de opciones para mantenerlos coherentes sin nueva ABI.",
-        "Actualizar las comprobaciones existentes de defaults/mapeos del esquema y la prueba del wrapper CPU para el nivel de precision, sin anunciar WB03 hasta ejecutar el guest integrado."
+        "Actualizar las comprobaciones existentes de defaults/mapeos del esquema y la prueba del wrapper CPU para el nivel de precision, sin anunciar WB03 hasta ejecutar el guest integrado.",
+        "Codigo 68000/010/020 y opciones integrados; checks nativos dirigidos pasan. Se difiere el cierre hasta ejecutar guest integrado y PERF01 en la candidata acumulada, conforme prioridad de primera version utilizable; no repetir ahora una bateria de rendimiento por feature."
       ],
       "checks": [
         "GEN01",
@@ -12572,7 +12573,7 @@
       "title": "68030/68040/68060, A4000/030 y A4000/040 (KS 3.1, 2M Chip + 8M Fast) y Zorro III",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T54",
         "T49"
