@@ -84,7 +84,10 @@ class WrapperCpuTests(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stdout[-1500:] + result.stderr[-1500:])
             heaps[fast] = tuple(map(int, result.stdout.strip().split()[-5:]))
         self.assertEqual(heaps["Auto"], heaps["MB8"])
-        self.assertEqual(8192, heaps["Auto"][-1] - heaps["None"][-1])
+        self.assertEqual(heaps["Auto"][:-1], heaps["None"][:-1])
+        # T49 reserves twice the extra RAM as a budget margin, not another RAM copy.
+        factor = json.loads((ROOT / "manifests/waterbox-memory.json").read_text())["memory_budget"]["mmap_extra_factor"]
+        self.assertEqual(8192 * factor, heaps["Auto"][-1] - heaps["None"][-1])
         for fast in ("Auto", "None"):
             with self.subTest(fast=fast):
                 settings = ("accuracy=Normal", f"fast={fast}")
