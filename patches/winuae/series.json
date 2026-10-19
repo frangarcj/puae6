@@ -5160,6 +5160,29 @@
           "after_sha256": "6580b19ed335747630db80065402cc6b2d9ad3fa3b11061676c4b8fee10b1bbd"
         }
       ]
+    },
+    {
+      "id": "0374-reset-registered-devices-without-expansion",
+      "file": "patches/winuae/0374-reset-registered-devices-without-expansion.patch",
+      "sha256": "2631657bd9e692e4a0f839a113c828fe89d29c44630d0d9d8d655221e4a66cf6",
+      "title": "Reset registered portable devices without an expansion chain",
+      "reason": "T66p1 stock CD32 has no Fast/HDF/IDE chain: reset callbacks marked pending by devices_reset must run before CPU prefetch resumes, as expamem_reset does for expansion machines.",
+      "category": "host hooks",
+      "order": 191,
+      "symbols": [
+        "custom_reset",
+        "devices_reset_ext"
+      ],
+      "test": "tests/media/test_cd32_boot.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "1ab1e1aedd61f65b703bdd4bfb81e9a6f4e826d85847bbe6bba764dda1ebfb6c",
+          "after_sha256": "7b3d1bc26108a26977a8b1957eebdc5a43853e2e9070cf41afa098939d027c52"
+        }
+      ]
     }
   ]
 }

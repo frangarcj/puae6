@@ -31,3 +31,10 @@ El probe usa el reset Akiko y cleanup EEPROM/zfile reales. ROM persistente,
 conversion MSF/BCD e intercalado no ejercidos son fixtures que abortan si se
 alcanzan. Estado completo, TOC/subQ, DMA SUBCODE con disco y arranque CD32
 siguen pendientes en T66.
+
+El arranque stock real de T66p1 ejercita tambien p6_reset tras leer el CD.
+Sin Fast/HDF/IDE, custom_reset no recorria expamem_reset y dejaba pendientes
+los callbacks registrados; el reloj Akiko conservaba la epoca anterior.0374
+ejecuta devices_reset_ext en esa rama, despues del reset de memoria/chips y
+antes del prefetch CPU. Se conserva el rechazo de intervalos retrogrados; no
+se corrige el fallo ocultando la discontinuidad ni cambiando el reloj sectorial.

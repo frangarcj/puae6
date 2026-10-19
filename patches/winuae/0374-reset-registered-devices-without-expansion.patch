@@ -1,0 +1,12 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7202,6 +7202,8 @@
+ 	// T56: and while Gayle has its IDE port (a card of the chain that is not autoconfig: it resets the drives and registers the hooks of the chip)
+ 	if (currprefs.fastmem[0].size || currprefs.mountitems || currprefs.cs_ide)
+ 		expamem_reset(hardreset);
++	else
++		devices_reset_ext(hardreset); // Registered devices also reset when no expansion chain exists.
+ #endif
+ }
+ 

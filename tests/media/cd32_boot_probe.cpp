@@ -76,10 +76,19 @@ static bool diagnostic_name(uint32_t at,char (&name)[40])
     }
     name[sizeof name-1]=0; return false;
 }
+static const uint8_t *diagnostic_boot_context()
+{
+    const auto pc=m68k_getpc();
+    const auto s=diagnostic_bytes(m68k_areg(regs,7),96);
+    // Exact pinned-ROM call chain and level3 frame: no stack scanning/guessing.
+    return s && pc>=0xfbfce2 && pc<0xfbfd52 && do_get_mem_long(s)==0xfc22e4 &&
+        do_get_mem_long(s+28)==0xfc2514 && do_get_mem_long(s+44)==0xf817ce &&
+        do_get_mem_word(s+94)==0x006c?s:nullptr;
+}
 static void diagnostic_irq(const p6_akiko_controller_state &control)
 {
     const auto pc=m68k_getpc(), sp=m68k_areg(regs,7), a6=m68k_areg(regs,6);
-    const auto stack=diagnostic_bytes(sp,64), resource=diagnostic_bytes(a6,128);
+    const auto stack=diagnostic_bytes(sp,96), resource=diagnostic_bytes(a6,128);
     // This pinned ROM's public SetICR has no stack adjustment before RTS.
     const bool seticr=pc>=0xfbfce2 && pc<0xfbfd52;
     fprintf(stderr,"CD32 CPU s=%u m=%u mask=%d ipl=%d D0=%08x D1=%08x A6=%08x A7=%08x seticr_return_valid=%d return=%08x resource_valid=%d cia_base=%08x exec_base=%08x INTREQ=%04x INTENA=%04x AkikoIRQ=%08x/%08x\n",
@@ -89,7 +98,7 @@ static void diagnostic_irq(const p6_akiko_controller_state &control)
         intreq,intena,control.cdrom_intreq,control.cdrom_intena);
     if(stack) {
         fprintf(stderr,"CD32 active stack words (not a backtrace):");
-        for(unsigned n=0;n<64;n+=4) fprintf(stderr," %08x",do_get_mem_long(stack+n));
+        for(unsigned n=0;n<96;n+=4) fprintf(stderr," %08x",do_get_mem_long(stack+n));
         fprintf(stderr,"\n");
     }
     extern void p6_cia_get(int,p6_cia_raw *);
@@ -215,23 +224,28 @@ int main(int argc,char **argv)
     assert(get_long(AKIKO_BASE)==0xc0cacafe && get_long(0xe00000)==do_get_mem_long(extrom.data()) && get_long(0xf80000)==do_get_mem_long(mainrom.data()));
     uint8_t hash[32]; p6_sha256_hash(rom.data(),rom.size(),hash); assert(!memcmp(hash,p6_session::session.firmware_sha256,32)); state_caps();
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; uint64_t reads=0; unsigned frames=0;
-    struct ClockSample { unsigned frame; uint32_t pc,sp,tb,icr,a2,timehi,timelo; } samples[3]{}; unsigned nsamples=0;
+    // The cold ROM reads all1024 EEPROM bytes over I2C (E62238 -> E61980).
+    // Keep the reset window plus one PAL unit per byte; a240-unit cut was mid-transfer.
+    constexpr unsigned boot_limit=240+1024;
+    struct ClockSample { unsigned frame; uint32_t pc,sp,tb,icr,a2,timehi,timelo,bootpc,a1,d6; } samples[6]{}; unsigned nsamples=0;
     do {
         call(p6_run_frame(&input,P6_RENDER_VIDEO|P6_RENDER_AUDIO,&frame,&e),e);
         assert(frame.master_ticks && frame.audio_frames && frame.video_bytes); ++frames;
         reads=0; for(const auto &counter:counters) reads+=counter.reads;
-        if(frames==30 || frames==120 || frames==240) {
+        if(frames==30 || frames==120 || frames==240 || frames==512 || frames==1024 || frames==boot_limit) {
             extern void p6_cia_get(int,p6_cia_raw *);
             p6_cia_raw cia{}; p6_cia_get(0,&cia);
             const auto a2=m68k_areg(regs,2); const auto timer=diagnostic_bytes(a2,0x50);
+            const auto context=diagnostic_boot_context();
             samples[nsamples++]={frames,m68k_getpc(),m68k_areg(regs,7),cia.t[1].timer,cia.icr1,a2,
-                timer?do_get_mem_long(timer+0x48):0,timer?do_get_mem_long(timer+0x4c):0};
+                timer?do_get_mem_long(timer+0x48):0,timer?do_get_mem_long(timer+0x4c):0,
+                context?do_get_mem_long(context+90):0,context?do_get_mem_long(context+76):0,m68k_dreg(regs,6)};
         }
-    } while(frames<240 && (frames<30 || !reads));
+    } while(frames<boot_limit && (frames<30 || !reads));
     if (!reads) {
         for(unsigned n=0;n<nsamples;++n) {
-            const auto &s=samples[n]; fprintf(stderr,"CD32 clock frame=%u PC=%08x SP=%08x TB=%04x icr=%02x A2=%08x words48=%08x/%08x\n",
-                s.frame,s.pc,s.sp,s.tb,s.icr,s.a2,s.timehi,s.timelo);
+            const auto &s=samples[n]; fprintf(stderr,"CD32 clock frame=%u PC=%08x SP=%08x TB=%04x icr=%02x A2=%08x words48=%08x/%08x bootPC=%08x savedA1=%08x liveD6=%08x\n",
+                s.frame,s.pc,s.sp,s.tb,s.icr,s.a2,s.timehi,s.timelo,s.bootpc,s.a1,s.d6);
         }
         p6_akiko_controller_state control{};
         const bool captured = p6_akiko_controller_get(&control);
@@ -249,7 +263,10 @@ int main(int argc,char **argv)
         for(int n=0;n<count;++n) fprintf(stderr,"CD32 diagnostic: %s\n",diagnostic[n].text);
     }
     state_caps(); assert(reads); printf("CD32 firmware executed frames=%u payload_reads=%llu; game boot not asserted\n",frames,(unsigned long long)reads);
-    call(p6_reset(&e),e); call(p6_run_frame(&input,P6_RENDER_AUDIO,&frame,&e),e); call(p6_unload(&e),e); device_unbind(); disc=Disc{}; call(p6_shutdown(&e),e);
+    const auto old_cycles=get_cycles();
+    call(p6_reset(&e),e); call(p6_run_frame(&input,P6_RENDER_AUDIO,&frame,&e),e);
+    assert(get_cycles()<old_cycles); // Full-machine reset must also restart the registered Akiko clock.
+    call(p6_unload(&e),e); device_unbind(); disc=Disc{}; call(p6_shutdown(&e),e);
     c=config(P6_MACHINE_A1200); call(p6_init(&c,&e),e); assert(p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_ERROR_WRONG_MEDIA);
     call(p6_load({a1200.data(),a1200.size()},nullptr,0,&e),e); call(p6_run_frame(&input,P6_RENDER_AUDIO,&frame,&e),e);
     p6_caps caps{P6_ABI_VERSION,sizeof caps}; call(p6_query_caps(&caps,&e),e); assert(caps.flags&P6_CAP_STATE);

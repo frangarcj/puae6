@@ -15983,7 +15983,7 @@
       "title": "Perfil CD32 stock y arranque nativo con firmware combinado",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "done",
       "depends": [
         "T66k1",
         "T66o1"
@@ -16012,7 +16012,9 @@
         "docs/02-contracts.md",
         "tests/host/bridge_lifecycle_probe.cpp",
         "cmake/Libretro.cmake",
-        "tests/host/bridge_caps_probe.cpp"
+        "tests/host/bridge_caps_probe.cpp",
+        "patches/winuae/0374-reset-registered-devices-without-expansion.patch",
+        "docs/adr/akiko-emulated-clock.md"
       ],
       "steps": [
         "Crear perfil nativo stock ID9 desde preset real8/config0: 68EC020,2MiBChip,AGA,Akiko CD/C2P/NVRAM,0floppies,overlayCD32. No anunciar modelo/formato en libretro ni aceptar variantes aun no probadas. Validar opciones incompatibles explicitamente.",
@@ -16021,8 +16023,9 @@
         "Probe nativo real mediante p6_run_frame con ROMs CD32 locales autorizadas, CdImage/Disc/device_bind y teardown respetando el lifetime; usar CD sintentico publico y Brian CUE local como escenario requerido de arranque si hace falta para demostrar lectura. Asserts hardware/prefs/ROM maps y actividad CD/frames, sin confundir splash con arranque de juego. No guardar ROMs, capturas ni informes. Reservar build pesado -j2 con coordinador; objetivo250–390 manuales, dividir antes de exceder400.",
         "Ampliacion explicita: bridge_lifecycle_probe usa actualmente9 como ID desconocido; mover su negativo a10 conservando rechazo. cmake/Libretro.cmake puede requerir includes del grafo O1 al ejecutar su primer enlace real. Mantener ID9 privado en bridge/config.h hasta integrar frontend/codec evita anunciarlo en esquema/ABI publico antes de su puerta.",
         "Regresion caps: la expectativa del probe standalone omitia P6_CAP_INPUT_V2 anunciado desde45fa667b (adaptador4jugadores ya implementado). Añadir unicamente ese bit a la comparacion exacta y repetir ese check rapido; no eliminar ni relajar assertions. Mantener caps.cpp sin dependencia de sesion/motor.",
-        "Reabrir tras T53 con un discriminador nuevo, sin ampliar240frames: en la rama sin payload recorrer Exec.DeviceList (base+350decimal) con limites de ChipRAM, enlaces/nombres validos y guardas de ciclos; localizar cd.device por nombre y comprobar Status+0x4c, pista1+0x22e y faseTOC+0x133. La revision estatica confirma CONTROL4/ADR1 se empaqueta0x41 en backend y ROM. La observacion distingue clasificacion DATA/TOC incompleta de un bloqueo posterior en cdstrap/CD_INFO; no inferir la fase desde PC de ISR. Mantener fallo con salida no cero y todas las assertions originales.",
-        "Tras la vertical independienteT55c4, contrastar las dos hipotesis pendientes con retorno real de SetICR (A7, solo dentro de su rutina sin ajustes de pila), A6 y basesRAM validadas, INTREQ/INTENA y capturaCIA sin efectos. Conservar240frames y fallo no cero; no inferir ISR de una PC dentro de un recurso publico."
+        "Arranque frio: E62238/E61980 lee1024bytes NVRAM porI2C; la reconstruccion exacta del marcoIRQ identifica E61ACA y direccion431 enframe240. El probe usa limite finito240+1024frames para incluir esa inicializacion y sigue exigiendo lecturaCD, con timeout host180s. Diagnosticos acotados usan RAM/ROM y capturas puras, sin leer MMIO ICR ni avanzar hardware; no confundir la PC del servicioVBlank con el caller de arranque.",
+        "0374 completa devices_reset_ext al final de custom_reset cuando no hay cadena Fast/HDF/IDE. El reproducer real APIreset+run_frame detecto el reloj Akiko reteniendo su epoca anterior; la correccion conserva el orden de reset de memoria/chips, el prefetch posterior y las guardas de intervalos invalidos. El probe conserva reinicio, nueva epoca de ciclos y posterior cargaA1200; decision en ADR del reloj.",
+        "Cierre: MED01/T66p1 PASS con ambas ROM locales autorizadas y BrianCUE:128lecturas de contenido enframe285, reset real y recargaA1200 completados. Regresiones cercanas15tests PASS (relojAkiko, NVRAM, clasificacion/materializacion y lifecycle nativo);29salidas CPU verificadas. La prueba acredita firmware/accesoCD; juego, frontends y snapshotWaterbox siguen enT66."
       ],
       "checks": [
         "MED01"
@@ -16030,8 +16033,7 @@
       "acceptance": [
         "El perfil CD32 carga firmware combinado valido, accede al Akiko real y avanza frames en el motor nativo; conserva las capacidades de estado verificadas por T66m7 y la regresion A1200. El escenario local informa exactamente si arranca firmware o contenido; no cierra T66."
       ],
-      "stop": "No proclamar soporte frontend ni snapshot CD32 Waterbox. El codec nativo completo queda probado por T66m7; Waterbox, SaveRAM, arranque de contenido y formatos restantes permanecen en T66.",
-      "blocked_reason": "Dos intentos dirigidos mantienen el fallo sin payload a240frames. Nuevo reproducer conserva captura pura de CIA/IRQ y pilaRAM validada: SetICR retorna aFC22E4 desde lectorEClock, llamado por timerFC2514 y cadenaIRQ ExecF817CE; es servicioVBlank, no prueba de bootstrap detenido ahi. No CIA pendiente ni AkikoIRQ habilitada comun; INTENA master esta temporalmente apagado por esa rutina. Contador extendido guest+48/+4c avanza de0000/00070000(frame120) a0000/00210000(frame240), compatible con EClock operativo; no justifica parcheIRQ ni ampliar frames. Hipotesis1: el contexto interrumpido espera antes de cdstrap; reconstruir el marcoIRQ desde los pushes exactos de ROM y pilaRAM acotada para obtener su PC real. Hipotesis2: el firmware espera una condicion de arranque/CD distinta de TOC/DATA (ya correctos); resolverla desde esa PC y datosguest, sin sustituirla por una espera arbitraria. Test conserva asserts y salida no cero; se cambia a trabajo independiente."
+      "stop": "No proclamar soporte frontend ni snapshot CD32 Waterbox. El codec nativo completo queda probado por T66m7; Waterbox, SaveRAM, arranque de contenido y formatos restantes permanecen en T66."
     },
     {
       "id": "T66q1",

@@ -8,7 +8,8 @@ Reglas libretro verificadas: S4. Reglas del wrapper Waterbox verificadas: S5-S7.
 
 `P6_MACHINE_A4030 = 11` selecciona el preset A4000 real de upstream (modelo 6,
 configuracion 0), con CPU 68030, AGA, Gary 0, Ramsey 15, Ricoh RTC y mapa de
-32 bits. Los IDs 9/10 siguen reservados y rechazados; el struct ABI sigue en
+32 bits. El ID9 corresponde al perfil privado CD32 de pruebas nativas y no se
+ofrece en frontends; el ID10 sigue reservado y rechazado. El struct ABI sigue en
 72 bytes. La primera implementacion acepta exclusivamente CPU Normal (byte 66 = 2)
 y no ofrece MMU: PMMU entra en F-line, sin registros ficticios. La FPU externa
 68881/68882 es opcional. Los niveles Compatible/Exact 030 requieren completar
