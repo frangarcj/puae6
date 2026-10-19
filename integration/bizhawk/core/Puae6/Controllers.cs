@@ -42,6 +42,9 @@ public static class Controllers
 	public static readonly string Port1MouseLeft = $"P1 {MouseLeft}", Port1MouseMiddle = $"P1 {MouseMiddle}", Port1MouseRight = $"P1 {MouseRight}", Port1MouseX = $"P1 {MouseX}", Port1MouseY = $"P1 {MouseY}";
 	public static readonly string[][] MouseButtons = [ [Port1MouseLeft, Port1MouseRight, Port1MouseMiddle], [$"P2 {MouseLeft}", $"P2 {MouseRight}", $"P2 {MouseMiddle}"] ];
 	public static readonly string[][] MouseAxes = [ [Port1MouseX, Port1MouseY], [$"P2 {MouseX}", $"P2 {MouseY}"] ];
+	// Shared optical controls use BizHawk's standard BK2 names for both pen and gun.
+	public static readonly string[][] PointerButtons = [ ["P1 Lightgun Trigger", "P1 Lightgun Offscreen Shot"], ["P2 Lightgun Trigger", "P2 Lightgun Offscreen Shot"] ];
+	public static readonly string[][] PointerAxes = [ ["P1 Lightgun X", "P1 Lightgun Y"], ["P2 Lightgun X", "P2 Lightgun Y"] ];
 
 	static string?[] BuildKeyButtons() => KeyNames.Select(name => name is null ? null : $"Key {name}").ToArray();
 
@@ -79,6 +82,15 @@ public static class Controllers
 	public static ControllerDefinition Define(Puae6SyncSettings settings, int mediaCount)
 	{
 		var controller = new ControllerDefinition("Amiga Controller");
+		bool pointer0 = settings.ControllerPort1 is Puae6Port1.Lightgun or Puae6Port1.Lightpen;
+		bool pointer1 = settings.ControllerPort2 is Puae6Port2.Lightgun or Puae6Port2.Lightpen;
+		if (pointer0 && pointer1) throw new System.ArgumentException("only one optical sensor is supported");
+		for (int p = 0; p < 2; ++p)
+			if (p == 0 ? pointer0 : pointer1)
+			{
+				controller.BoolButtons.AddRange(PointerButtons[p]);
+				controller.AddAxis(PointerAxes[p][0], (-32767).RangeTo(32767), 0).AddAxis(PointerAxes[p][1], (-32767).RangeTo(32767), 0);
+			}
 		if (settings.ControllerPort1 == Puae6Port1.Mouse)
 		{
 			controller.BoolButtons.AddRange([ $"P1 {MouseLeft}", $"P1 {MouseMiddle}", $"P1 {MouseRight}" ]);

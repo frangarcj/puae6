@@ -477,6 +477,18 @@ TASK_SUITES[('LR01', 'T70b')] = {'two_mice_and_stick_restore': 'tests.libretro-h
 TASK_SUITES[('WB03', 'T70b')] = {
     'mouse_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_two_mouse_references_motion_and_bk2_restore_in_same_and_new_sandbox_and_process'}
 TASK_SUITES[('AV02', 'T74a')] = {'mechanical_pcm_and_native_restore': 'tests.audio.test_drive_sound'}
+TASK_SUITES[('IN01', 'T70c')] = {
+    'pointer_levels': 'tests.input.test_pointer.PointerTests.test_sensor_position_and_trigger_are_independent_in_both_ports_pal_and_ntsc',
+    'pointer_bk2': 'tests.ffi.test_input_log.InputLogTests.test_optical_coordinates_trigger_and_offscreen_round_trip_through_the_actual_bk2_codec'}
+TASK_SUITES[('DET02', 'T70c')] = {
+    'pointer_restore': 'tests.input.test_pointer.PointerTests.test_optical_latch_and_levels_restore_in_same_and_new_process_even_after_detach',
+    'disabled_lpen_pending_event': 'tests.input.test_pointer.PointerTests.test_guest_clearing_lpen_with_a_pending_optical_event_restores_the_latch_even_while_disabled',
+    'pointer_transactional_rejection': 'tests.input.test_pointer.PointerTests.test_invalid_pointer_tail_latch_and_pending_event_are_refused_transactionally'}
+TASK_SUITES[('LR01', 'T70c')] = {
+    'pointer_mapping_and_state': 'tests.libretro-host.test_pointer.PointerMappingTests',
+    'pointer_frontend': 'tests.libretro-host.test_pointer.PointerFrontendTests'}
+TASK_SUITES[('WB03', 'T70c')] = {
+    'pointer_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_optical_levels_beam_and_bk2_restore_in_same_and_new_sandbox_and_process'}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

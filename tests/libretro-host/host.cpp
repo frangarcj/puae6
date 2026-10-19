@@ -99,6 +99,8 @@ struct Options {
     unsigned mouse_buttons = 0;
     int mouse2_dx = 0, mouse2_dy = 0;
     unsigned mouse2_buttons = 0;
+    int pointer_x[2] = {0, 0}, pointer_y[2] = {0, 0};
+    unsigned pointer_buttons[2] = {0, 0};
     std::string system_dir, content, retry_system, save_dir;
     bool has_save = false, has_system = false, has_content = false, no_vfs = false, legacy_disk = false, legacy_message = false, has_initial = false;
     int64_t vfs_claim = -1;
@@ -740,6 +742,15 @@ int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned inde
         return 0;
     }
     if (index != 0) return 0;
+    if (device == RETRO_DEVICE_LIGHTGUN || device == RETRO_DEVICE_POINTER) {
+        const bool gun = device == RETRO_DEVICE_LIGHTGUN;
+        if (id == (gun ? RETRO_DEVICE_ID_LIGHTGUN_SCREEN_X : RETRO_DEVICE_ID_POINTER_X)) return int16_t(options.pointer_x[port]);
+        if (id == (gun ? RETRO_DEVICE_ID_LIGHTGUN_SCREEN_Y : RETRO_DEVICE_ID_POINTER_Y)) return int16_t(options.pointer_y[port]);
+        if (id == (gun ? RETRO_DEVICE_ID_LIGHTGUN_TRIGGER : RETRO_DEVICE_ID_POINTER_PRESSED)) return int16_t(options.pointer_buttons[port] & 1);
+        if (id == 15) return int16_t((options.pointer_buttons[port] >> 1) & 1);
+        if (gun && id == RETRO_DEVICE_ID_LIGHTGUN_RELOAD) return int16_t((options.pointer_buttons[port] >> 2) & 1);
+        return 0;
+    }
     if (device == RETRO_DEVICE_JOYPAD) {
         unsigned mask = options.joy[port];
         for (const Options::JoyStep &step : options.joy_steps)            // the last change at or before this position holds
@@ -1232,6 +1243,10 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--joy")) {
             unsigned port = 0, mask = 0;
             if (sscanf(next(), "%u:%x", &port, &mask) == 2 && port < 2) options.joy[port] = mask;
+        } else if (!strcmp(a, "--pointer")) {
+            unsigned port = 0, buttons = 0; int x = 0, y = 0;
+            if (sscanf(next(), "%u:%d,%d,%u", &port, &x, &y, &buttons) != 4 || port > 1) return false;
+            options.pointer_x[port] = x; options.pointer_y[port] = y; options.pointer_buttons[port] = buttons;
         } else if (!strcmp(a, "--mouse2")) {
             sscanf(next(), "%d,%d,%u", &options.mouse2_dx, &options.mouse2_dy, &options.mouse2_buttons);
         } else if (!strcmp(a, "--mouse")) {

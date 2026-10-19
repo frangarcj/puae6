@@ -22,6 +22,7 @@
 
 #include "disk_control.h"
 #include "input_map.h"
+#include "present.h"
 #include "sha256.h"
 
 #include <stddef.h>
@@ -32,10 +33,10 @@
 namespace p6_libretro {
 
 constexpr size_t kStateHeaderBytes = 64;
-constexpr uint32_t kStateVersion = 7;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d); 5: the statusbar's flag and the message of the last action (T31b); 6: the virtual keyboard's memory (T31a); 7: independent second mouse backlog/fractions (T70b)
+constexpr uint32_t kStateVersion = 8;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d); 5: the statusbar's flag and the message of the last action (T31b); 6: the virtual keyboard's memory (T31a); 7: independent second mouse backlog/fractions (T70b); 8: optical viewport and automatic crop memory (T70c)
 constexpr size_t kSectionAlign = 16;
 constexpr size_t kMaxImages = 16;                                   // P6_MAX_MEDIA: a playlist cannot name more
-constexpr size_t kInputBytes = 14 * 4;                               // the input memory in the section: fourteen 32-bit words
+constexpr size_t kInputBytes = 30 * 4;                               // the input memory in the section: thirty 32-bit words including optical presentation memory
 
 enum class FrameError { None, TooSmall, BadMagic, BadVersion, BadLayout, NonZeroPadding, BadChecksum };
 
@@ -67,6 +68,7 @@ struct Section {
     uint32_t last_width = 0, last_height = 0;
     std::vector<uint8_t> picture;           // last_width * last_height * 4 bytes, or empty
     InputMemory input;
+    CropMemory pointer_crop;
 };
 
 // The most a section can take for the given limits; the serialization size is built from it, so it must hold for every Section the adapter can make.
@@ -109,6 +111,10 @@ inline void encode_section(const Section &section, std::vector<uint8_t> *out)
     u32(uint32_t(in.mouse2_rx));
     u32(uint32_t(in.mouse2_ry));
     u32(uint32_t(uint16_t(in.host2_frac[0])) | uint32_t(uint16_t(in.host2_frac[1])) << 16);
+    u32(uint32_t(in.pointer_view_x)); u32(uint32_t(in.pointer_view_y));
+    u32(in.pointer_view_w); u32(in.pointer_view_h); u32(in.pointer_raster_w); u32(in.pointer_raster_h);
+    u32(section.pointer_crop.have ? 1 : 0); u32(section.pointer_crop.stable);
+    for (const Box &b : {section.pointer_crop.current, section.pointer_crop.candidate}) { u32(b.x); u32(b.y); u32(b.width); u32(b.height); }
     out->resize(align_up(out->size(), kSectionAlign), 0);
 }
 
@@ -156,7 +162,7 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     out->picture.assign(data + at, data + at + picture);
     at += picture;
     if (!room(kInputBytes)) return fail("the section is cut short");
-    uint32_t word[14];
+    uint32_t word[30];
     for (uint32_t &w : word) {
         w = get32(data + at);
         at += 4;
@@ -204,6 +210,22 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
         return fail("the second mouse movement owed is beyond the backlog");
     if (!fraction(word[13], 99, &out->input.host2_frac[0]) || !fraction(word[13] >> 16, 99, &out->input.host2_frac[1]))
         return fail("a fraction of a second mouse count is out of range");
+    auto &in = out->input;
+    in.pointer_view_x = int32_t(word[14]); in.pointer_view_y = int32_t(word[15]);
+    in.pointer_view_w = word[16]; in.pointer_view_h = word[17]; in.pointer_raster_w = word[18]; in.pointer_raster_h = word[19];
+    if (in.pointer_raster_w == 0 && in.pointer_raster_h == 0) {
+        if (in.pointer_view_x || in.pointer_view_y || in.pointer_view_w || in.pointer_view_h) return fail("an unknown optical viewport has geometry");
+    } else if (!in.pointer_raster_w || in.pointer_raster_w > max_width || !in.pointer_raster_h || in.pointer_raster_h > max_height ||
+               !in.pointer_view_w || in.pointer_view_w > 2 * max_width || !in.pointer_view_h || in.pointer_view_h > 2 * max_height ||
+               int64_t(in.pointer_view_x) < -2 * int64_t(max_width) || int64_t(in.pointer_view_x) > 2 * int64_t(max_width) ||
+               int64_t(in.pointer_view_y) < -2 * int64_t(max_height) || int64_t(in.pointer_view_y) > 2 * int64_t(max_height)) return fail("optical viewport is out of range");
+    if (word[20] > 1 || word[21] >= kCropDelayUnits) return fail("optical crop memory is out of range");
+    out->pointer_crop.have = word[20] != 0; out->pointer_crop.stable = word[21];
+    unsigned at_box = 22;
+    for (Box *b : {&out->pointer_crop.current, &out->pointer_crop.candidate}) {
+        b->x = word[at_box++]; b->y = word[at_box++]; b->width = word[at_box++]; b->height = word[at_box++];
+        if (b->x > max_width || b->y > max_height || b->width > max_width || b->height > max_height) return fail("optical crop box is out of range");
+    }
     out->input.mouse_rx = rx;
     out->input.mouse_ry = ry;
     out->input.turbo_phase = uint8_t(word[3] & 0xFF);

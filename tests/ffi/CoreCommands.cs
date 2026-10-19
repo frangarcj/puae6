@@ -78,6 +78,7 @@ internal static unsafe partial class Program
 				controller.Axis($"P1 {Controllers.MouseX}", Math.Clamp(mouseX[at], 0, Controllers.MouseFieldWidth));
 				controller.Axis($"P1 {Controllers.MouseY}", Math.Clamp(mouseY[at], 0, Controllers.MouseFieldHeight));
 			}
+			else if (p0.Type is P6.PortLightgun or P6.PortLightpen) PressPointer(controller, 0, p0.Buttons, p0.Dx, p0.Dy);
 			else if (p0.Type == P6.PortCd32) PressCd32(controller, 1, p0.Buttons);
 			else PressJoystick(controller, 1, p0.Buttons);
 			if (ports[at][1].Type == P6.PortMouse)
@@ -87,8 +88,16 @@ internal static unsafe partial class Program
 				controller.Axis(Controllers.MouseAxes[1][0], Math.Clamp(mouse2X[at], 0, Controllers.MouseFieldWidth));
 				controller.Axis(Controllers.MouseAxes[1][1], Math.Clamp(mouse2Y[at], 0, Controllers.MouseFieldHeight));
 			}
+			else if (ports[at][1].Type is P6.PortLightgun or P6.PortLightpen) PressPointer(controller, 1, ports[at][1].Buttons, ports[at][1].Dx, ports[at][1].Dy);
 			else if (ports[at][1].Type == P6.PortCd32) PressCd32(controller, 2, ports[at][1].Buttons);
 			else PressJoystick(controller, 2, ports[at][1].Buttons);
+		}
+
+		static void PressPointer(ScriptedController controller, int port, uint buttons, int x, int y)
+		{
+			for (int i = 0; i < 2; ++i)
+				if ((buttons & (1u << i)) != 0) controller.Press(Controllers.PointerButtons[port][i]);
+			controller.Axis(Controllers.PointerAxes[port][0], x); controller.Axis(Controllers.PointerAxes[port][1], y);
 		}
 
 		static void PressCd32(ScriptedController controller, int port, uint buttons)

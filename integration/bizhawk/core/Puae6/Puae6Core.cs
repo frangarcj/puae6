@@ -566,12 +566,24 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			case Puae6Port1.Mouse: input.Port0 = MousePacket(controller); break;
 			case Puae6Port1.Joystick: input.Port0 = JoystickPacket(controller, 1); break;
 			case Puae6Port1.Cd32: input.Port0 = JoystickPacket(controller, 1, true); break;
+			case Puae6Port1.Lightgun: input.Port0 = PointerPacket(controller, 0, P6.PortLightgun); break;
+			case Puae6Port1.Lightpen: input.Port0 = PointerPacket(controller, 0, P6.PortLightpen); break;
 		}
 		if (_syncSettings.ControllerPort2 == Puae6Port2.Joystick) input.Port1 = JoystickPacket(controller, 2);
 		else if (_syncSettings.ControllerPort2 == Puae6Port2.Cd32) input.Port1 = JoystickPacket(controller, 2, true);
 		else if (_syncSettings.ControllerPort2 == Puae6Port2.Mouse) input.Port1 = MousePacket(controller, 2);
+		else if (_syncSettings.ControllerPort2 == Puae6Port2.Lightgun) input.Port1 = PointerPacket(controller, 1, P6.PortLightgun);
+		else if (_syncSettings.ControllerPort2 == Puae6Port2.Lightpen) input.Port1 = PointerPacket(controller, 1, P6.PortLightpen);
 		power = controller.IsPressed(Controllers.Power);
 		return input;
+	}
+
+	static P6PortInput PointerPacket(IController controller, int port, uint type)
+	{
+		return new P6PortInput { Type = type,
+			Buttons = (controller.IsPressed(Controllers.PointerButtons[port][0]) ? 1u : 0u) | (controller.IsPressed(Controllers.PointerButtons[port][1]) ? 2u : 0u),
+			Dx = (short)Clamp(controller.AxisValue(Controllers.PointerAxes[port][0]), -32767, 32767),
+			Dy = (short)Clamp(controller.AxisValue(Controllers.PointerAxes[port][1]), -32767, 32767) };
 	}
 
 	static P6PortInput JoystickPacket(IController controller, int port, bool cd32 = false)

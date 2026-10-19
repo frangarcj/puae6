@@ -218,6 +218,27 @@ BizHawk ofrece `ControllerPort2=Mouse`, tres botones y dos ejes absolutos `P2 Mo
 con el mismo limite de 120 cuentas/unidad. Su referencia conocida/X/Y ocupa nueve bytes propios al final del estado del wrapper.
 Los botones y ejes de ambos ratones se graban y leen con el codec BK2 real; la identidad incluye el tipo de ambos puertos.
 
+T70c: `P6_PORT_LIGHTGUN=4` y `P6_PORT_LIGHTPEN=5` conservan la ABI v1 y los tamaños anteriores.
+Reutilizan dx/dy como coordenadas absolutas del raster completo: -32767 izquierda/arriba, +32767 derecha/abajo;
+-32768 se rechaza. `P6_POINTER_TRIGGER` (bit0) lleva el gatillo al tercer boton/POT del puerto elegido.
+`P6_POINTER_OFFSCREEN` (bit1) suprime el impacto optico independientemente del gatillo. Un sensor puede apuntar
+sin pulsar o seguir pulsado fuera de pantalla. Solo hay un sensor optico: dos dispositivos opticos simultaneos se rechazan.
+El parche 0352 convierte coordenadas con enteros en el borde usando la geometria emulada. No depende de dibujar,
+recibir video o consultar un dispositivo host desde MMIO; el scheduler del motor produce el evento de captura.
+P6IN agrega cuatro bytes solo con sensor conectado (cx/cy ya convertidas); modo y puerto se derivan del tipo aplicado.
+P6CH agrega siempre el subcuerpo LPEN (16 bytes y cabecera de ocho): vpos_lpen, hpos_lpen, hhpos_lpen y
+lightpen_triggered son causales incluso tras desconectar o desactivar LPEN. Un evento pendiente puede volver a capturar
+el haz despues de que el guest borre BPLCON0.LPEN; inferir presencia por ese registro perderia el latch. P6SC identifica su evento pendiente como ID13,
+con hpos 0..255. La cota nativa reserva 28 bytes adicionales aunque el sensor no este conectado; P6IN por defecto no cambia; LPEN agrega 24 bytes a P6CH tambien sin sensor. Coordenadas parciales, extensiones truncadas y valores imposibles se rechazan antes de aplicar estado.
+Libretro ofrece LIGHTGUN (4) y POINTER (6) en ambos jugadores, cruzados como los joysticks. El optico tiene prioridad
+sobre el raton que comparte puerto. LIGHTGUN lee SCREEN_X/Y, TRIGGER, IS_OFFSCREEN y RELOAD; POINTER lee X/Y/PRESSED,
+con contacto ausente fuera de pantalla. La seccion de estado v8 conserva la ventana presentada, su raster y la historia
+causal del recorte automatico para invertir el mismo mapa al restaurar. El puntero de la ventana se transforma al raster
+antes de enviar el paquete. BizHawk ofrece Lightgun/Lightpen en ambos puertos y usa los nombres BK2 conocidos
+`P1/P2 Lightgun X/Y`, `Trigger` y `Offscreen Shot` para ambos tipos; no agrega historia al wrapper.
+Las pruebas dirigidas son tests/input/test_pointer.py, tests/libretro-host/test_pointer.py, el codec BK2 real y
+la prueba optica de tests/waterbox-state/test_wrapper_state.py; T70c permanece abierta hasta ejecutar el guest integrado.
+
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
 - Teclado: siempre conectado, sea cual sea el dispositivo de los puertos. Cada RETROK_* se mapea por simbolo sin Shift (en un teclado US, la posicion

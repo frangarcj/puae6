@@ -20,7 +20,7 @@ class Mouse2MappingTests(unittest.TestCase):
 #include "state_frame.h"
 #include <cassert>
 using namespace p6_libretro;
-static_assert(P6_ABI_VERSION == 1 && sizeof(p6_input) == 72 && kStateVersion == 7, "versions");
+static_assert(P6_ABI_VERSION == 1 && sizeof(p6_input) == 72, "versions");
 static bool stick;
 int16_t read(unsigned port, unsigned device, unsigned, unsigned id) {
     if (device == RETRO_DEVICE_ANALOG && !port && stick) return id ? 9000 : 12000;

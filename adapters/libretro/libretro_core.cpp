@@ -358,6 +358,9 @@ Picture plan_picture(const p6_frame &frame, bool have_frame)
     picture.native_height = frame.active.height;
     picture.window = core.presenter.plan(present_options(), picture.origin, picture.stride, picture.native_width, picture.native_height, frame.aspect_num,
                                          frame.aspect_den);
+    core.input.pointer_view_x = picture.window.x; core.input.pointer_view_y = picture.window.y;
+    core.input.pointer_view_w = picture.window.width; core.input.pointer_view_h = picture.window.height;
+    core.input.pointer_raster_w = picture.native_width; core.input.pointer_raster_h = picture.native_height;
     return picture;
 }
 
@@ -1491,6 +1494,7 @@ p6_libretro::Section capture_section()
     section.last_width = core.last_width;
     section.last_height = core.last_height;
     section.input = core.input;
+    section.pointer_crop = core.presenter.crop;
     if (!core.can_dupe && core.last_width) section.picture = core.last_picture;
     return section;
 }
@@ -1505,6 +1509,7 @@ void apply_section(p6_libretro::Section &&section)
     core.last_width = section.last_width;
     core.last_height = section.last_height;
     core.input = section.input;
+    core.presenter.crop = section.pointer_crop;
     core.last_picture.clear();
     if (!core.can_dupe) {
         // Saved by a frontend that repeats pictures, or in the other pixel format (a state of a 16-bit session in a 24-bit one): nothing to show again.
@@ -1517,6 +1522,9 @@ void apply_section(p6_libretro::Section &&section)
 // Player 2's joystick has no Amiga port while player 1 has the mouse: say so, since the default devices make it so.
 void note_shadowed_joystick()
 {
+    if ((p6_libretro::optical_device(core.device[0]) && core.device[1] == RETRO_DEVICE_MOUSE) ||
+        (p6_libretro::optical_device(core.device[1]) && p6_libretro::reads_mouse(core.device[0])))
+        log(RETRO_LOG_INFO, "the optical sensor takes priority over the mouse sharing its Amiga port");
     if (p6_libretro::joystick_shadowed_by_mouse(core.device))
         log(RETRO_LOG_INFO, "player 2's joystick is not sent: the mouse holds its Amiga port (set player 1 to Joystick only to free it)");
     if (p6_libretro::player1_pad_shadowed_by_mouse(core.device))
@@ -1614,6 +1622,10 @@ RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)
 RETRO_API void retro_set_controller_port_device(unsigned port, unsigned device)
 {
     if (p6_libretro::device_allowed(port, device)) {
+        if (p6_libretro::optical_device(device) && p6_libretro::optical_device(core.device[1 - port])) {
+            log(RETRO_LOG_WARN, "only one optical sensor is supported; the port keeps its device");
+            return;
+        }
         const bool changed = core.device[port] != device;
         core.device[port] = device;
         if (changed) note_shadowed_joystick();

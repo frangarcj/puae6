@@ -40,4 +40,29 @@ internal static unsafe partial class Program
 			Require(definition.Axes.Keys.All(name => source.AxisValue(name) == decoded.AxisValue(name)), $"mouse BK2 axis round trip: {axis}");
 		}
 	}
+
+	static void PointerLog()
+	{
+		foreach (int device in new[] { 4, 5 })
+		for (int port = 0; port < 2; ++port)
+		{
+			var settings = new Puae6SyncSettings { ControllerPort1 = port == 0 ? (Puae6Port1)device : Puae6Port1.None,
+				ControllerPort2 = port == 1 ? (Puae6Port2)device : Puae6Port2.None };
+			var definition = Controllers.Define(settings, 0); definition.BuildMnemonicsCache("Amiga");
+			var source = new ScriptedController(definition);
+			var decoded = new Bk2Controller(definition, Bk2LogEntryGenerator.GenerateLogKey(definition));
+			foreach (var button in Controllers.PointerButtons[port])
+			{
+				Require(definition.MnemonicsCache![button] != '!', $"optical {device}:{port} mnemonic {button}");
+				source.Clear(); source.Press(button);
+				decoded.SetFromMnemonic(Bk2LogEntryGenerator.GenerateLogEntry(source));
+				Require(definition.BoolButtons.All(n => source.IsPressed(n) == decoded.IsPressed(n)), $"optical {device}:{port} button {button}");
+			}
+			foreach (var axis in Controllers.PointerAxes[port])
+			{
+				source.Axis(axis, -23456); decoded.SetFromMnemonic(Bk2LogEntryGenerator.GenerateLogEntry(source));
+				Require(definition.Axes.Keys.All(n => source.AxisValue(n) == decoded.AxisValue(n)), $"optical {device}:{port} axis {axis}");
+			}
+		}
+	}
 }

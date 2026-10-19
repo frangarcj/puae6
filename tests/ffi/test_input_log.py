@@ -45,6 +45,13 @@ class InputLogTests(unittest.TestCase):
         self.assertEqual(16, len(lines))
         self.assertEqual(expected, set(lines))
 
+    def test_optical_coordinates_trigger_and_offscreen_round_trip_through_the_actual_bk2_codec(self):
+        lines = self.codec("pointerlog")
+        expected = {f"ok optical {device}:{port} {check} P{port + 1} Lightgun {button}" for device in (4, 5) for port in (0, 1)
+                    for check in ("mnemonic", "button") for button in ("Trigger", "Offscreen Shot")}
+        expected |= {f"ok optical {device}:{port} axis P{port + 1} Lightgun {axis}" for device in (4, 5) for port in (0, 1) for axis in ("X", "Y")}
+        self.assertEqual(24, len(lines)); self.assertEqual(expected, set(lines))
+
 
 if __name__ == "__main__":
     unittest.main()

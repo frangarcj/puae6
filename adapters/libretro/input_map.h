@@ -103,6 +103,8 @@ inline bool device_allowed(unsigned port, unsigned device)
     case RETRO_DEVICE_KEYBOARD:
     case kDeviceCd32:
     case RETRO_DEVICE_MOUSE:
+    case RETRO_DEVICE_LIGHTGUN:
+    case RETRO_DEVICE_POINTER:
         return true;
     case kDeviceJoystickOnly:
         return port == 0;            // this subclass only distinguishes player 1's pad from its default pad+mouse
@@ -240,6 +242,34 @@ inline bool player1_pad_shadowed_by_mouse(const unsigned device[kPortCount])
     return device[1] == RETRO_DEVICE_MOUSE && (reads_pad(device[0]) || device[0] == kDeviceCd32);
 }
 
+inline bool optical_device(unsigned device) { return device == RETRO_DEVICE_LIGHTGUN || device == RETRO_DEVICE_POINTER; }
+
+inline int16_t pointer_axis(int value, int32_t origin, uint32_t window, uint32_t raster, bool *offscreen)
+{
+    value = std::max(-32767, value);
+    if (raster < 2 || !window) return int16_t(value);
+    const int64_t at = int64_t(origin) * 65534 + int64_t(value + 32767) * (window - 1);
+    const int64_t limit = int64_t(raster - 1) * 65534;
+    if (at < 0 || at > limit) *offscreen = true;
+    return int16_t(std::clamp<int64_t>(at / (raster - 1) - 32767, -32767, 32767));
+}
+
+inline void read_pointer(retro_input_state_t state, unsigned port, unsigned device, const InputMemory &memory, p6_port_input *out)
+{
+    auto read = [&](unsigned id) { return int(state(port, device, 0, id)); };
+    const bool gun = device == RETRO_DEVICE_LIGHTGUN;
+    const bool reload = gun && read(RETRO_DEVICE_ID_LIGHTGUN_RELOAD);
+    const bool trigger = reload || read(gun ? RETRO_DEVICE_ID_LIGHTGUN_TRIGGER : RETRO_DEVICE_ID_POINTER_PRESSED);
+    const int x = read(gun ? RETRO_DEVICE_ID_LIGHTGUN_SCREEN_X : RETRO_DEVICE_ID_POINTER_X);
+    const int y = read(gun ? RETRO_DEVICE_ID_LIGHTGUN_SCREEN_Y : RETRO_DEVICE_ID_POINTER_Y);
+    bool offscreen = reload || read(gun ? RETRO_DEVICE_ID_LIGHTGUN_IS_OFFSCREEN : RETRO_DEVICE_ID_POINTER_IS_OFFSCREEN) ||
+                     x == -32768 || y == -32768 || (!gun && !trigger);
+    out->type = gun ? P6_PORT_LIGHTGUN : P6_PORT_LIGHTPEN;
+    out->dx = pointer_axis(x, memory.pointer_view_x, memory.pointer_view_w, memory.pointer_raster_w, &offscreen);
+    out->dy = pointer_axis(y, memory.pointer_view_y, memory.pointer_view_h, memory.pointer_raster_h, &offscreen);
+    out->buttons = (trigger ? P6_POINTER_TRIGGER : 0) | (offscreen ? P6_POINTER_OFFSCREEN : 0);
+}
+
 // The packet of one run, from the frontend's state (polled once, just before), the options that shape the input and the device of each libretro port. An
 // Amiga port nothing drives is empty (P6_PORT_NONE with all fields zero). Called once per p6_run_frame: it moves InputMemory.
 inline p6_input read_input(retro_input_state_t state, const unsigned device[kPortCount], const InputConfig &config, InputMemory *memory)
@@ -247,7 +277,7 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
     p6_input input = {};
     input.abi_version = P6_ABI_VERSION;
     input.struct_size = sizeof input;
-    const bool pad = reads_pad(device[0]), mouse_port = reads_mouse(device[0]);
+    const bool pad = reads_pad(device[0]), mouse_port = reads_mouse(device[0]) && !optical_device(device[1]);
     Controls controls;
     read_controls(state, config, pad, &controls);
     Effects effects;
@@ -267,11 +297,13 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
     if (device[0] == kDeviceCd32 && !player1_pad_shadowed_by_mouse(device)) read_cd32(state, 0, &input.ports[joystick_amiga_port(0)]);
     if (device[1] == RETRO_DEVICE_JOYPAD && !joystick_shadowed_by_mouse(device)) read_joystick(state, 1, &input.ports[joystick_amiga_port(1)]);
     if (device[1] == kDeviceCd32 && !joystick_shadowed_by_mouse(device)) read_cd32(state, 1, &input.ports[joystick_amiga_port(1)]);
-    if (device[1] == RETRO_DEVICE_MOUSE) read_second_mouse(state, config, memory, &input.ports[1]);
+    if (device[1] == RETRO_DEVICE_MOUSE && !optical_device(device[0])) read_second_mouse(state, config, memory, &input.ports[1]);
     else {
         memory->mouse2_rx = memory->mouse2_ry = 0;
         memory->host2_frac[0] = memory->host2_frac[1] = 0;
     }
+    for (unsigned p = 0; p < 2; ++p)
+        if (optical_device(device[p])) read_pointer(state, p, device[p], *memory, &input.ports[joystick_amiga_port(p)]);
     return input;
 }
 
@@ -281,12 +313,14 @@ inline void offer_controllers(retro_environment_t environment)
     static const retro_controller_description port0[] = {
         {"Joystick + Mouse (Amiga ports 2 and 1)", RETRO_DEVICE_JOYPAD}, {"Joystick only (Amiga port 2)", kDeviceJoystickOnly},
         {"CD32 pad (Amiga port 2)", kDeviceCd32},
+        {"Lightgun (Amiga port 2)", RETRO_DEVICE_LIGHTGUN}, {"Lightpen (Amiga port 2)", RETRO_DEVICE_POINTER},
         {"Mouse only (Amiga port 1)", RETRO_DEVICE_MOUSE}, {"Keyboard only (port empty)", RETRO_DEVICE_KEYBOARD}, {"None", RETRO_DEVICE_NONE},
     };
     static const retro_controller_description port1[] = {
         {"Joystick (Amiga port 1; needs Player 1 on Joystick only)", RETRO_DEVICE_JOYPAD}, {"Keyboard only (port empty)", RETRO_DEVICE_KEYBOARD},
         {"CD32 pad (Amiga port 1; needs Player 1 without mouse)", kDeviceCd32},
         {"Mouse (Amiga port 2; overrides Player 1 pad)", RETRO_DEVICE_MOUSE},
+        {"Lightgun (Amiga port 1)", RETRO_DEVICE_LIGHTGUN}, {"Lightpen (Amiga port 1)", RETRO_DEVICE_POINTER},
         {"None", RETRO_DEVICE_NONE},
     };
     static const retro_controller_info ports[] = {
@@ -320,9 +354,22 @@ inline void offer_input_descriptors(retro_environment_t environment)
         {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_LEFT, "Mouse 2 left button"},
         {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_RIGHT, "Mouse 2 right button"},
         {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_MIDDLE, "Mouse 2 middle button"},
+        {0, RETRO_DEVICE_LIGHTGUN, 0, RETRO_DEVICE_ID_LIGHTGUN_SCREEN_X, "Lightgun X"},
+        {0, RETRO_DEVICE_LIGHTGUN, 0, RETRO_DEVICE_ID_LIGHTGUN_SCREEN_Y, "Lightgun Y"},
+        {0, RETRO_DEVICE_LIGHTGUN, 0, RETRO_DEVICE_ID_LIGHTGUN_TRIGGER, "Lightgun trigger"},
+        {0, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_X, "Lightpen X"},
+        {0, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_Y, "Lightpen Y"},
+        {0, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_PRESSED, "Lightpen contact"},
+        {1, RETRO_DEVICE_LIGHTGUN, 0, RETRO_DEVICE_ID_LIGHTGUN_SCREEN_X, "Lightgun X"},
+        {1, RETRO_DEVICE_LIGHTGUN, 0, RETRO_DEVICE_ID_LIGHTGUN_SCREEN_Y, "Lightgun Y"},
+        {1, RETRO_DEVICE_LIGHTGUN, 0, RETRO_DEVICE_ID_LIGHTGUN_TRIGGER, "Lightgun trigger"},
+        {1, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_X, "Lightpen X"},
+        {1, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_Y, "Lightpen Y"},
+        {1, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_PRESSED, "Lightpen contact"},
         {0, 0, 0, 0, nullptr},
     };
 #undef P6_JOYSTICK_DESCRIPTORS
+
     environment(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, const_cast<retro_input_descriptor *>(descriptors));      // optional
 }
 

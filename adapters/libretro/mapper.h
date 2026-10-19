@@ -84,11 +84,15 @@ struct InputMemory {
     int16_t host_frac[2] = {0, 0};     // hundredths of a count the Mouse Speed left over, per axis
     int32_t mouse2_rx = 0, mouse2_ry = 0;
     int16_t host2_frac[2] = {0, 0};     // the second physical mouse has its own backlog and scaling fractions
+    int32_t pointer_view_x = 0, pointer_view_y = 0;
+    uint32_t pointer_view_w = 0, pointer_view_h = 0, pointer_raster_w = 0, pointer_raster_h = 0;
     int16_t stick_frac[2][2] = {{0, 0}, {0, 0}};      // thousandths of a count a stick left over: [left, right][x, y]
 
     bool operator==(const InputMemory &other) const
     {
-        return mouse2_rx == other.mouse2_rx && mouse2_ry == other.mouse2_ry && host2_frac[0] == other.host2_frac[0] && host2_frac[1] == other.host2_frac[1] &&
+        return pointer_view_x == other.pointer_view_x && pointer_view_y == other.pointer_view_y && pointer_view_w == other.pointer_view_w && pointer_view_h == other.pointer_view_h &&
+               pointer_raster_w == other.pointer_raster_w && pointer_raster_h == other.pointer_raster_h &&
+               mouse2_rx == other.mouse2_rx && mouse2_ry == other.mouse2_ry && host2_frac[0] == other.host2_frac[0] && host2_frac[1] == other.host2_frac[1] &&
                caps_latched == other.caps_latched && caps_held == other.caps_held && mouse_rx == other.mouse_rx && mouse_ry == other.mouse_ry &&
                dpad_mouse == other.dpad_mouse && turbo_toggled == other.turbo_toggled && crop_toggled == other.crop_toggled &&
                aspect_toggled == other.aspect_toggled && statusbar_shown == other.statusbar_shown && message == other.message &&
