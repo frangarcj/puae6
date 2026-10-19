@@ -1507,3 +1507,18 @@ El probe usa CdImage/Disc prestados hasta cerrar Akiko/CDDA, avanza solo p6_run_
 y comprueba actividad CD y regresion A1200; informa arranque de firmware, no juego.
 Assets requeridos: P6_CD32_ROM_MAIN/P6_CD32_ROM_EXT, CD publico sintetico por defecto
 o P6_CD_CUE_FILE autorizado. No añade soporte frontend ni acredita restore CD32.
+
+## Controlador privado Akiko (T66m3a)
+
+`akiko_controller_state.h` conserva registros, protocolo TX/RX, TOC semantica
+sin padding upstream y bytes cacheados, Q, latches de medio/audio/LED, C2P y
+reloj/restos, junto a NVRAM. `validate` usa configuracion y ciclo candidatos,
+sin consultar propietarios ni el ciclo presente; EEPROM/NVRAM comparten sus
+validadores puros. `preflight` añade disponibilidad del destino y `apply` valida
+antes de modificar, sin I/O, asignaciones, callbacks, IRQ ni avance. El caller
+restaura scheduler/Paula antes de continuar. RX PIO agotado conserva cursor;
+velocidad solicitada y ultimo tick pueden diferir; posiciones MSF/Q no se
+recortan al disco. Se limitan solo al dominio seguro de conversion MSF y se
+reservan los slots TOC que los consumidores leen como sucesores/sentinel.
+Transporte y backend se agregaran en M3b; no es codec nativo
+ni snapshot de maquina CD32.

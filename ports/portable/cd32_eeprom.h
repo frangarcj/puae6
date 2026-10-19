@@ -12,5 +12,7 @@ struct p6_cd32_eeprom_state {
  * Existing eeprom_i2c_set/eeprom_free operate on this object. No host backing. */
 void *p6_cd32_eeprom_new(uint8_t *memory);
 bool p6_cd32_eeprom_get(void *chip, p6_cd32_eeprom_state *out);
+bool p6_cd32_eeprom_validate(const p6_cd32_eeprom_state *in);
+bool p6_cd32_eeprom_preflight(const void *chip, const p6_cd32_eeprom_state *in);
 bool p6_cd32_eeprom_set(void *chip, const p6_cd32_eeprom_state *in);
 #endif

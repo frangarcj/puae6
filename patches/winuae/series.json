@@ -4952,6 +4952,40 @@
       ]
     },
     {
+      "id": "0366-akiko-controller-state",
+      "file": "patches/winuae/0366-akiko-controller-state.patch",
+      "sha256": "fc5ee4388462b6d146f52b9bb388f838f216d54fc4b9cdbe97ffd18cba9c17bd",
+      "title": "Preserve private Akiko controller and NVRAM causal state",
+      "reason": "T66m3a captures explicit controller/TOC/Q/C2P/clock state and extracts pure EEPROM/NVRAM preflights. Applying a valid component does not reopen a disc, execute a command, allocate, notify or advance; transport and backend are aggregated separately.",
+      "category": "host hooks",
+      "order": 183,
+      "symbols": [
+        "p6_akiko_controller_get",
+        "p6_akiko_controller_preflight",
+        "p6_akiko_controller_apply",
+        "p6_cd32_eeprom_preflight",
+        "p6_akiko_nvram_preflight",
+        "p6_akiko_controller_validate",
+        "p6_cd32_eeprom_validate",
+        "p6_akiko_nvram_validate"
+      ],
+      "test": "tests/media/test_akiko_controller_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "akiko.cpp",
+          "before_sha256": "30fecc1cd6dacf6c03470142d0d501f7f25dfde0900e19f8507335bf90399d9f",
+          "after_sha256": "98d45d056c61dbfca951e47b336ca0519c9b48b3aa5877f4bbe0aa15b978644e"
+        },
+        {
+          "path": "flashrom.cpp",
+          "before_sha256": "b8ada53722f491e8b0bfac87df33fe5f852dffaf8ef5b7a844a98a533f2ab0cd",
+          "after_sha256": "cfc02dc1193d4ed00b87658bc4a67879a163830c4b3945f7d0adad141a697fd0"
+        }
+      ]
+    },
+    {
       "id": "0367-cd32-combined-firmware",
       "file": "patches/winuae/0367-cd32-combined-firmware.patch",
       "sha256": "645d024d4c6e962f7fab7eb45501dfa6456da68c008325726dc01629109096e9",

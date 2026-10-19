@@ -1,0 +1,171 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -225,12 +225,22 @@
+ 	*out = next;
+ 	return true;
+ }
+-bool p6_akiko_nvram_set(const p6_cd32_nvram_state *in)
+-{
+-	if (!in || !akiko_nvram_ready() || in->reserved || in->scl > 1 || in->sda > 1 ||
++bool p6_akiko_nvram_validate(const p6_cd32_nvram_state *in)
++{
++	if (!in || in->reserved || in->scl > 1 || in->sda > 1 ||
+ 		in->chip.last_clock != in->scl || in->chip.last_data != in->sda)
+ 		return false;
+-	if (!p6_cd32_eeprom_set(cd32_eeprom, &in->chip))
++	if (!p6_cd32_eeprom_validate(&in->chip))
++		return false;
++	return true;
++}
++bool p6_akiko_nvram_preflight(const p6_cd32_nvram_state *in)
++{
++	return akiko_nvram_ready() && p6_akiko_nvram_validate(in) && p6_cd32_eeprom_preflight(cd32_eeprom, &in->chip);
++}
++bool p6_akiko_nvram_set(const p6_cd32_nvram_state *in)
++{
++	if (!p6_akiko_nvram_preflight(in) || !p6_cd32_eeprom_set(cd32_eeprom, &in->chip))
+ 		return false;
+ 	cd32_i2c_direction = in->direction;
+ 	cd32_i2c_data_scl = in->scl; cd32_i2c_data_sda = in->sda;
+@@ -2287,6 +2297,106 @@
+ #endif
+ }
+ 
++#ifdef P6_PORTABLE
++#include "akiko_controller_state.h"
++static uint32_t akiko_state_config(void)
++{
++    return 1 | (currprefs.cs_cd32c2p ? 2 : 0) | (currprefs.cs_cd32nvram ? 4 : 0) | (currprefs.ntscmode ? 8 : 0);
++}
++// Keep lsn2msf's signed minute shift and seek/subtraction arithmetic defined.
++static bool akiko_state_position(int64_t position)
++{
++    return position >= -150 && position <= int64_t(0x7fff) * 60 * 75 - 150;
++}
++bool p6_akiko_controller_validate(const p6_akiko_controller_state *s, uint32_t config, int64_t cycle)
++{
++    if (!s || !(config & 1) || (config & ~15u) || s->config != config) return false;
++    const auto &c = s->clock;
++    const uint64_t rate = uint64_t((config & 8) ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL) * CYCLE_UNIT;
++    if (cycle < 0 || c.cycle < 0 || c.cycle > cycle || c.rate != rate || uint64_t(cycle - c.cycle) > rate / 150 ||
++        c.sector >= rate || c.qcode >= rate || c.media >= rate * 2 || c.first > 1 || c.q_due > 1 || c.media_due > 1 ||
++        c.speed < 1 || c.speed > 2 || s->cdrom_speed < 1 || s->cdrom_speed > 2 || s->subcodecounter < 0)
++        return false;
++    if ((s->cdrom_intena & 0x00ffffff) || (s->cdrom_intreq & 0x01ffffff) ||
++        (s->cdrom_addressdata & ~0x00fff000u) || (s->cdrom_addressmisc & ~0x00fffc00u) ||
++        (s->cdrom_flags & ~0xff800000u) || s->cdrom_pbx > 65535 ||
++        s->cdrom_command_active < 0 || s->cdrom_command_active > 1 ||
++        s->cdrom_command_length < 0 || s->cdrom_command_length > 13 ||
++        s->cdrom_receive_length < 0 || s->cdrom_receive_length > 32 ||
++        s->cdrom_receive_offset < 0 || s->cdrom_receive_offset > 32 ||
++        (s->cdrom_receive_length && s->cdrom_receive_offset >= s->cdrom_receive_length) ||
++        s->akiko_read_offset < -1 || s->akiko_read_offset > 7 || s->akiko_write_offset < 0 || s->akiko_write_offset > 7 ||
++        s->cdrom_tx_dma_delay < 0 || s->cdrom_tx_dma_delay > 3 || s->cdrom_rx_dma_delay < 0 || s->cdrom_rx_dma_delay > 3 ||
++        s->cd_initialized < 0 || s->cd_initialized > 2 || s->cdrom_playing < 0 || s->cdrom_playing > 2 ||
++        s->unitnum < -1 || s->unitnum > 0 || s->cdrom_door > 1 || (s->cdrom_led & ~3) ||
++        s->lastmediastate < -1 || s->lastmediastate > 3 || s->cdrom_seek_delay < 0 || s->cdrom_seek_delay > 100 ||
++        s->cdrom_audiotimeout < -3 || s->cdrom_audiotimeout > 10 || s->cdrom_sector_counter < 0 ||
++        !akiko_state_position(int64_t(s->cdrom_data_offset) + s->cdrom_sector_counter) ||
++        (s->cdrom_audiostatus && (s->cdrom_audiostatus < AUDIO_STATUS_IN_PROGRESS || s->cdrom_audiostatus > AUDIO_STATUS_NO_STATUS))) return false;
++    const int32_t flags[] = {s->qcode_valid, s->cdrom_disk, s->cdrom_paused, s->cdrom_checksum_error, s->cdrom_unknown_command, s->mediachanged};
++    for (auto f : flags) if (f < 0 || f > 1) return false;
++    const auto &t = s->toc;
++    if (t.points < 0 || t.points > 102 || t.tracks < 0 || t.tracks > 99 ||
++        t.first_track_offset < 0 || t.first_track_offset >= 102 || t.last_track_offset < 0 || t.last_track_offset >= 102 ||
++        s->cdrom_toc_counter < -1 || s->cdrom_toc_counter >= (t.points ? t.points * TOC_REPEAT : 1)) return false;
++    const int32_t positions[] = {t.firstaddress, t.lastaddress, s->last_play_pos, s->last_play_end, s->cdrom_data_offset, s->cdrom_current_sector};
++    for (auto position : positions) if (!akiko_state_position(position)) return false;
++    // Consumers need a sentinel and cd_play_audio can read two following entries.
++    for (unsigned n = 0; n < 103; ++n)
++        if (!akiko_state_position(t.entry[n].address) || !akiko_state_position(t.entry[n].paddress) ||
++            (n >= 101 && (t.entry[n].control & 12) == 4)) return false;
++    return s->config & 4 ? p6_akiko_nvram_validate(&s->nvram) :
++        akiko_transport_zero(reinterpret_cast<const uae_u8 *>(&s->nvram), sizeof s->nvram);
++}
++bool p6_akiko_controller_preflight(const p6_akiko_controller_state *s, int64_t cycle)
++{
++    return p6_akiko_controller_validate(s, akiko_state_config(), cycle) && akiko_transport_ready() &&
++        (!(s->config & 4) || p6_akiko_nvram_preflight(&s->nvram));
++}
++bool p6_akiko_controller_get(p6_akiko_controller_state *s)
++{
++    if (!s || !akiko_transport_ready()) return false;
++    memset(s, 0, sizeof *s); s->config = akiko_state_config();
++#define P6_AKIKO_CAPTURE(type, name) s->name = name;
++    P6_AKIKO_CONTROL_FIELDS(P6_AKIKO_CAPTURE)
++#undef P6_AKIKO_CAPTURE
++    memcpy(s->input, akiko_buffer, sizeof s->input); memcpy(s->result, akiko_result, sizeof s->result);
++    memcpy(s->command, cdrom_command_buffer, 32); memcpy(s->response, cdrom_result_buffer, 32);
++    memcpy(s->toc_bytes, cdrom_toc_buffer, sizeof s->toc_bytes); memcpy(s->q, qcode_buf, 16);
++    const auto &t = cdrom_toc_cd_buffer;
++    s->toc = {t.first_track, t.first_track_offset, t.last_track, t.last_track_offset, t.firstaddress, t.lastaddress, t.tracks, t.points, {}};
++    for (unsigned n = 0; n < 103; ++n) {
++        const auto &e = t.toc[n];
++        s->toc.entry[n] = {e.adr, e.control, e.tno, e.point, e.track, e.zero, {e.crc[0], e.crc[1]}, e.address, e.paddress};
++    }
++    const auto &c = akiko_clock;
++    s->clock = {c.cycle, c.rate, c.sector, c.qcode, c.media, c.first, c.q_due, c.media_due, uint32_t(c.speed)};
++    return (!(s->config & 4) || p6_akiko_nvram_get(&s->nvram)) && p6_akiko_controller_preflight(s, get_cycles());
++}
++bool p6_akiko_controller_apply(const p6_akiko_controller_state *s, int64_t cycle)
++{
++    if (!p6_akiko_controller_preflight(s, cycle)) return false;
++    if ((s->config & 4) && !p6_akiko_nvram_set(&s->nvram)) return false;
++#define P6_AKIKO_APPLY(type, name) name = s->name;
++    P6_AKIKO_CONTROL_FIELDS(P6_AKIKO_APPLY)
++#undef P6_AKIKO_APPLY
++    memcpy(akiko_buffer, s->input, sizeof s->input); memcpy(akiko_result, s->result, sizeof s->result);
++    memcpy(cdrom_command_buffer, s->command, 32); memcpy(cdrom_result_buffer, s->response, 32);
++    memcpy(cdrom_toc_buffer, s->toc_bytes, sizeof s->toc_bytes); memcpy(qcode_buf, s->q, 16);
++    const auto &t = s->toc;
++    cdrom_toc_cd_buffer = {t.first_track, t.first_track_offset, t.last_track, t.last_track_offset, t.firstaddress, t.lastaddress, t.tracks, t.points, {}};
++    for (unsigned n = 0; n < 103; ++n) {
++        const auto &e = t.entry[n];
++        cdrom_toc_cd_buffer.toc[n] = {e.adr, e.control, e.tno, e.point, e.track, e.address, e.paddress, e.zero, {e.crc[0], e.crc[1]}};
++    }
++    const auto &c = s->clock;
++    akiko_clock = {c.cycle, c.rate, c.sector, c.qcode, c.media, bool(c.first), bool(c.q_due), bool(c.media_due), int(c.speed)};
++    subcode_address = cdrom_addressmisc | 0x100; cdrx_address = cdrom_addressmisc; cdtx_address = cdrom_addressmisc | 0x200;
++    akiko_c2p_precalculate();
++    return true;
++}
++#endif
++
+ static void akiko_cdrom_free (void)
+ {
+ 	sys_cddev_close ();
+diff --git a/flashrom.cpp b/flashrom.cpp
+--- a/flashrom.cpp
++++ b/flashrom.cpp
+@@ -622,15 +622,26 @@
+  return true;
+ }
+ 
+-bool p6_cd32_eeprom_set(void *chip, const p6_cd32_eeprom_state *in)
+-{
+- auto *s = static_cast<bitbang_i2c_interface *>(chip);
+- if (!in || !p6_cd32_eeprom_shape(s) || in->state > SENT_NACK
++bool p6_cd32_eeprom_validate(const p6_cd32_eeprom_state *in)
++{
++ if (!in || in->state > SENT_NACK
+   || in->estate > I2C_DATA || in->last_data > 1 || in->last_clock > 1
+   || in->device_out > 1 || in->buffer > 255
+   || in->current_addr < -1 || in->current_addr > 255
+   || in->eeprom_addr < 0 || in->eeprom_addr >= 1024
+   || in->write_offset < -1 || in->write_offset >= 1024) return false;
++ return true;
++}
++
++bool p6_cd32_eeprom_preflight(const void *chip, const p6_cd32_eeprom_state *in)
++{
++ return p6_cd32_eeprom_shape(static_cast<const bitbang_i2c_interface *>(chip)) && p6_cd32_eeprom_validate(in);
++}
++
++bool p6_cd32_eeprom_set(void *chip, const p6_cd32_eeprom_state *in)
++{
++ auto *s = static_cast<bitbang_i2c_interface *>(chip);
++ if (!p6_cd32_eeprom_preflight(chip, in)) return false;
+  s->state = static_cast<bitbang_i2c_state>(in->state);
+  s->last_data = in->last_data; s->last_clock = in->last_clock;
+  s->device_out = in->device_out; s->buffer = in->buffer;

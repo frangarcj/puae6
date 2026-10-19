@@ -10,5 +10,7 @@ struct p6_cd32_nvram_state {
  * validates chip and latched pins before mutation; DDR keeps all eight bits.
  * Session creation/reset/destruction use Akiko's real device lifecycle. */
 bool p6_akiko_nvram_get(p6_cd32_nvram_state *out);
+bool p6_akiko_nvram_validate(const p6_cd32_nvram_state *in);
+bool p6_akiko_nvram_preflight(const p6_cd32_nvram_state *in);
 bool p6_akiko_nvram_set(const p6_cd32_nvram_state *in);
 #endif
