@@ -29,6 +29,9 @@ public enum Puae6Fpu { None, M68881, M68882 }
 /// <summary>The CPU (restart): the machine's own (a 68000, the A1200's 68EC020), a 68010 in the socket of a machine with a 68000, or the A1200's 68020. Another combination is refused when the core starts, with the reason.</summary>
 public enum Puae6Cpu { Auto, M68000, M68010, M68020 }
 
+/// <summary>CPU accuracy (restart): cycle exact by default, compatible prefetch, or normal instruction timing; always emulated time.</summary>
+public enum Puae6CpuCompatibility { Exact, Compatible, Normal }
+
 /// <summary>The clock of the cycle-exact CPU (restart), PUAE5's multipliers of the 3.55 MHz colour clock: Auto is the machine's own (7.09 MHz, 14.19 MHz on the A1200), X1 is 3.55 MHz and X16 56.75 MHz. It counts emulated time, never the host's.</summary>
 public enum Puae6CpuClock { Auto, X1, X2, X4, X8, X10, X12, X16 }
 
@@ -86,6 +89,9 @@ public sealed class Puae6SyncSettings
 
 	/// <summary>The CPU of the machine. It changes the instruction set, the exception frames and the registers, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
 	public Puae6Cpu CpuModel { get; set; } = Puae6Cpu.Auto;
+
+	/// <summary>CPU accuracy changes hardware timing and is part of state/movie identity; changing it requires a reboot.</summary>
+	public Puae6CpuCompatibility CpuCompatibility { get; set; } = Puae6CpuCompatibility.Exact;
 
 	/// <summary>The clock of the CPU. It changes when everything the CPU does meets the chipset, so it enters the identity of states and movies when it is not <c>Auto</c>.</summary>
 	public Puae6CpuClock CpuMultiplier { get; set; } = Puae6CpuClock.Auto;

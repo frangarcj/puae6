@@ -62,6 +62,19 @@ class CpuOptionTests(lr.LibretroHarness):
         """The hash of the last picture the frontend got."""
         return self.runs(out)[-1]["hash"]
 
+    def test_accuracy_is_a_restart_option_and_each_level_runs_the_headless_machine(self):
+        for machine, flags, names, options in (("a500", (), lr.KICKSTART_NAMES[0], ()),):
+            for level in ("exact", "compatible", "normal"):
+                with self.subTest(machine=machine, flags=flags, level=level):
+                    out = self.frontend("boot", "--runs", 6, *options, "--set", f"puae6_cpu_compatibility={level}", name=names).stdout
+                    self.compare_with_headless(out, "boot", 6, *flags, "--cpu-compatibility", level)
+        system = self.system_for("boot", lr.KICKSTART_NAMES[0])
+        before = self.frontend("boot", "--runs", 8, system=system).stdout
+        changed = self.frontend("boot", "--runs", 8, "--set-at", "3:puae6_cpu_compatibility=normal", system=system).stdout
+        self.assertEqual(self.messages(changed), ["PUAE6: puae6_cpu_compatibility is now normal but the machine runs with exact: reload the content to apply it"])
+        self.assertEqual(self.runs(before), self.runs(changed))
+        self.assertEqual(size_of(before), size_of(changed))
+
     def test_the_machine_with_a_68010_is_the_machine_headless_runs_with_cpu(self):
         for machine, flags, names, option in (("A500", (), lr.KICKSTART_NAMES[0], ()), ("A600", ("--machine", "a600"), lr.KICKSTART_NAMES_A600[0], lr.A600)):
             for rom, units in (("cpuid", 12), ("boot", 12), ("long_frame", 10)):

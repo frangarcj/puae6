@@ -128,6 +128,21 @@
       "option": "cpu_model",
       "class": "reboot"
     },
+    "cpu_compatibility": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2
+      ],
+      "names": {
+        "exact": 0,
+        "compatible": 1,
+        "normal": 2
+      },
+      "option": "cpu_compatibility",
+      "class": "reboot"
+    },
     "cpu_multiplier": {
       "default": 0,
       "allowed": [
@@ -1619,6 +1634,23 @@
         "type": "Puae6Cpu"
       },
       "libretro": "puae6_cpu_model"
+    },
+    "cpu_compatibility": {
+      "headless": {
+        "how": "named",
+        "flag": "--cpu-compatibility",
+        "names": {
+          "exact": "exact",
+          "compatible": "compatible",
+          "normal": "normal"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "CpuCompatibility",
+        "type": "Puae6CpuCompatibility"
+      },
+      "libretro": "puae6_cpu_compatibility"
     },
     "cpu_multiplier": {
       "headless": {

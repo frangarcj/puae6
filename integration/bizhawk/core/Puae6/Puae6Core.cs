@@ -110,6 +110,12 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The CPU (T52): the numbers of config/schema/options.json (0 is the machine's own, 1 + (model - 68000) / 10 the others).
 	static byte CpuModelNumber(Puae6Cpu cpu) => cpu switch { Puae6Cpu.M68000 => (byte)1, Puae6Cpu.M68010 => (byte)2, Puae6Cpu.M68020 => (byte)3, _ => (byte)0 };
 
+	static byte CpuCompatibilityNumber(Puae6CpuCompatibility level) => level switch
+	{
+		Puae6CpuCompatibility.Exact => (byte)0, Puae6CpuCompatibility.Compatible => (byte)1, Puae6CpuCompatibility.Normal => (byte)2,
+		_ => throw new ArgumentOutOfRangeException(nameof(level), level, "CPU accuracy must be Exact, Compatible or Normal"),
+	};
+
 	// The clock of the CPU (T52): the numbers of config/schema/options.json (0 is the machine's own, the others the multiplier itself).
 	static byte CpuMultiplierNumber(Puae6CpuClock clock) => clock switch { Puae6CpuClock.X1 => (byte)1, Puae6CpuClock.X2 => (byte)2, Puae6CpuClock.X4 => (byte)4, Puae6CpuClock.X8 => (byte)8, Puae6CpuClock.X10 => (byte)10, Puae6CpuClock.X12 => (byte)12, Puae6CpuClock.X16 => (byte)16, _ => (byte)0 };
 
@@ -315,6 +321,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.FastKib = FastKib(_syncSettings.FastMemory);
 		init.Config.FpuModel = FpuNumber(_syncSettings.FpuModel);
 		init.Config.CpuModel = CpuModelNumber(_syncSettings.CpuModel);
+		init.Config.CpuCompatibility = CpuCompatibilityNumber(_syncSettings.CpuCompatibility);
 		init.Config.CpuMultiplier = CpuMultiplierNumber(_syncSettings.CpuMultiplier);
 		init.Config.HdfController = HdfControllerNumber(_syncSettings.HdfController);
 		init.Config.SoundSeparation = SoundSeparationNumber(_syncSettings.SoundSeparation);
@@ -414,6 +421,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// And for the CPU (T52): the native config hash derives from the resolved model when it is not the machine's own; the text names whatever the setting is off Auto, which is stricter (it also tells an
 		// explicit 68000 from Auto on an A500) and never looser.
 		if (_syncSettings.CpuModel != Puae6Cpu.Auto) memory += ";cpu=" + _syncSettings.CpuModel;
+		if (_syncSettings.CpuCompatibility != Puae6CpuCompatibility.Exact) memory += ";cpuaccuracy=" + _syncSettings.CpuCompatibility;
 		// And for its clock (T52): the same, off the machine's own.
 		if (_syncSettings.CpuMultiplier != Puae6CpuClock.Auto) memory += ";cpuclock=" + _syncSettings.CpuMultiplier;
 		// And for the controller of the hard files (T56): the native config hash derives from it only while a hard file is behind the IDE (Gayle is never emulated with nothing attached); the text names

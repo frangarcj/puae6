@@ -63,7 +63,7 @@ public unsafe struct P6Config
 	public byte CpuModel;                                        // T52: 0 the machine's own, 1 68000, 2 68010 (68000 machines), 3 68020 (A1200; the schema's numbers)
 	public byte CpuMultiplier;                                   // T52: 0 the machine's own, else 1, 2, 4, 8, 10, 12 or 16 (the schema's numbers)
 	public byte HdfController;                                   // T56: 0 the UAE controller (uaehf.device), 1 the IDE port of Gayle (A600 and A1200 only; the schema's numbers)
-	public byte CpuCompatibility;                               // T53: 0 exact, 1 compatible, 2 normal; no sync setting until the full T53 frontend vertical
+	public byte CpuCompatibility;                               // T53: 0 exact, 1 compatible, 2 normal
 	public fixed byte Reserved7[5];                              // zero in ABI v1
 }
 

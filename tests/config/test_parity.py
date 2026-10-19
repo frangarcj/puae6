@@ -221,6 +221,16 @@ class WrapperParity(Schema):
             default_name = next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
             self.assertIn(f'if (_syncSettings.{member} != {option["wrapper"]["type"]}.{default_name}) memory += ";{key}=" + _syncSettings.{member};', self.core)
 
+    def test_cpu_accuracy_reaches_the_guest_and_identity_with_the_schema_numbers(self):
+        option = self.reboot["cpu_compatibility"]
+        self.assertEqual(option["default"], "exact")
+        body = re.search(r"static byte CpuCompatibilityNumber\(.*?\};", self.core, re.S)[0]
+        numbers = {m[1]: int(m[2]) for m in re.finditer(r"Puae6CpuCompatibility\.(\w+) => \(byte\)(\d+)", body)}
+        self.assertEqual(numbers, {v["wrapper_name"]: v["abi"] for v in option["values"]})
+        self.assertIn("throw new ArgumentOutOfRangeException", body)
+        self.assertIn("init.Config.CpuCompatibility = CpuCompatibilityNumber(_syncSettings.CpuCompatibility);", self.core)
+        self.assertIn('if (_syncSettings.CpuCompatibility != Puae6CpuCompatibility.Exact) memory += ";cpuaccuracy=" + _syncSettings.CpuCompatibility;', self.core)
+
     def test_the_standard_reaches_the_machine_as_the_abi_numbers_of_the_schema(self):
         pal, ntsc = (self.number(self.options["video_standard"], v) for v in ("PAL", "NTSC"))
         self.assertIn(f"const uint VideoPal = {pal}, VideoNtsc = {ntsc};", self.abi)
@@ -415,7 +425,7 @@ class AdaptersAgree(Schema):
         headless = read(HEADLESS)
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
-        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "cpu_model": 0, "cpu_multiplier": 0, "hdf_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
+        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
                                     "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "video_resolution": 0, "video_line_mode": 0})
         for field, value in defaults.items():
             name = self.table["p6_config"][field]["option"]

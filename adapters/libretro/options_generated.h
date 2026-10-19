@@ -19,6 +19,7 @@ struct Settings {
     uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = None
     uint32_t fpu_model = 0u;  // reboot, p6_config.fpu_model = None
     uint32_t cpu_model = 0u;  // reboot, p6_config.cpu_model = auto
+    uint32_t cpu_compatibility = 0u;  // reboot, p6_config.cpu_compatibility = exact
     uint32_t cpu_multiplier = 0u;  // reboot, p6_config.cpu_multiplier = auto
     uint32_t hdf_controller = 0u;  // reboot, p6_config.hdf_controller = uae
     uint32_t audio_rate_hz = 48000u;  // reboot, p6_config.audio_rate_hz = 48000
@@ -106,6 +107,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->fast_kib = settings.fast_size;
     config->fpu_model = settings.fpu_model;
     config->cpu_model = settings.cpu_model;
+    config->cpu_compatibility = settings.cpu_compatibility;
     config->cpu_multiplier = settings.cpu_multiplier;
     config->hdf_controller = settings.hdf_controller;
     config->audio_rate_hz = settings.audio_rate_hz;
@@ -409,6 +411,11 @@ constexpr Value kCpuModelValues[] = {
     {"68000", 1u},
     {"68010", 2u},
     {"68020", 3u},
+};
+constexpr Value kCpuCompatibilityValues[] = {
+    {"exact", 0u},
+    {"compatible", 1u},
+    {"normal", 2u},
 };
 constexpr Value kCpuMultiplierValues[] = {
     {"auto", 0u},
@@ -850,6 +857,7 @@ constexpr Option kOptions[] = {
     {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 5, 0},
     {"puae6_fpu_model", true, &Settings::fpu_model, kFpuModelValues, 3, 0},
     {"puae6_cpu_model", true, &Settings::cpu_model, kCpuModelValues, 4, 0},
+    {"puae6_cpu_compatibility", true, &Settings::cpu_compatibility, kCpuCompatibilityValues, 3, 0},
     {"puae6_cpu_multiplier", true, &Settings::cpu_multiplier, kCpuMultiplierValues, 8, 0},
     {"puae6_hdf_controller", true, &Settings::hdf_controller, kHdfControllerValues, 2, 0},
     {"puae6_audio_rate", true, &Settings::audio_rate_hz, kAudioRateHzValues, 2, 1},
@@ -985,6 +993,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "The CPU of the machine, cycle exact. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The 68030, 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The CPU of the machine, cycle exact. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The 68030, 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"auto", "Machine's own (68000; 68EC020 on the A1200)"}, {"68000", "68000"}, {"68010", "68010"}, {"68020", "68020"}}, "auto"},
+    {"puae6_cpu_compatibility", "CPU Accuracy (Restart)", "CPU Accuracy (Restart)",
+     "Exact keeps cycle-exact CPU and bus timing (the default). Compatible uses the upstream instruction interpreter with prefetch; normal uses instruction timing without prefetch. All levels count emulated time and use the same scheduler, never the host clock. Non-exact levels also use the normal blitter scheduler; the optional fast-line display cache is disabled until its state is supported. The level is part of state and movie identity: states do not cross levels. No new netplay or runahead claim is made for the non-exact levels. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "Exact keeps cycle-exact CPU and bus timing (the default). Compatible uses the upstream instruction interpreter with prefetch; normal uses instruction timing without prefetch. All levels count emulated time and use the same scheduler, never the host clock. Non-exact levels also use the normal blitter scheduler; the optional fast-line display cache is disabled until its state is supported. The level is part of state and movie identity: states do not cross levels. No new netplay or runahead claim is made for the non-exact levels. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"exact", "Cycle exact"}, {"compatible", "Compatible (prefetch)"}, {"normal", "Normal (instruction timing)"}}, "exact"},
     {"puae6_cpu_multiplier", "CPU Cycle-exact Speed (Restart)", "CPU Cycle-exact Speed (Restart)",
      "How fast the cycle-exact CPU runs: the clock of the CPU as a multiple of the 3.55 MHz colour clock (PUAE5's values). 'Machine's own' is 7.09 MHz on the machines with a 68000 and 14.19 MHz on the A1200. A faster CPU needs fewer colour clocks for every instruction and every bus access; the chipset, the DMA and the audio do not change. It is counted in emulated time, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one clock does not load in another. Programs that count on the speed of the CPU (timing loops, copy protections) may not work with another clock. It takes effect the next time the content is loaded; the running machine is not changed.",
      "How fast the cycle-exact CPU runs: the clock of the CPU as a multiple of the 3.55 MHz colour clock (PUAE5's values). 'Machine's own' is 7.09 MHz on the machines with a 68000 and 14.19 MHz on the A1200. A faster CPU needs fewer colour clocks for every instruction and every bus access; the chipset, the DMA and the audio do not change. It is counted in emulated time, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one clock does not load in another. Programs that count on the speed of the CPU (timing loops, copy protections) may not work with another clock. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1279,6 +1291,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}}, "None"},
     {"puae6_fpu_model", "FPU (Restart)", "The floating point coprocessor of the A1200 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"M68881", "68881"}, {"M68882", "68882"}}, "None"},
     {"puae6_cpu_model", "CPU (Restart)", "The CPU of the machine, cycle exact. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The 68030, 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Machine's own (68000; 68EC020 on the A1200)"}, {"68000", "68000"}, {"68010", "68010"}, {"68020", "68020"}}, "auto"},
+    {"puae6_cpu_compatibility", "CPU Accuracy (Restart)", "Exact keeps cycle-exact CPU and bus timing (the default). Compatible uses the upstream instruction interpreter with prefetch; normal uses instruction timing without prefetch. All levels count emulated time and use the same scheduler, never the host clock. Non-exact levels also use the normal blitter scheduler; the optional fast-line display cache is disabled until its state is supported. The level is part of state and movie identity: states do not cross levels. No new netplay or runahead claim is made for the non-exact levels. It takes effect the next time the content is loaded; the running machine is not changed.", {{"exact", "Cycle exact"}, {"compatible", "Compatible (prefetch)"}, {"normal", "Normal (instruction timing)"}}, "exact"},
     {"puae6_cpu_multiplier", "CPU Cycle-exact Speed (Restart)", "How fast the cycle-exact CPU runs: the clock of the CPU as a multiple of the 3.55 MHz colour clock (PUAE5's values). 'Machine's own' is 7.09 MHz on the machines with a 68000 and 14.19 MHz on the A1200. A faster CPU needs fewer colour clocks for every instruction and every bus access; the chipset, the DMA and the audio do not change. It is counted in emulated time, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one clock does not load in another. Programs that count on the speed of the CPU (timing loops, copy protections) may not work with another clock. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Machine's own (7.09 MHz; 14.19 MHz on the A1200)"}, {"1", "3.546895 MHz"}, {"2", "7.093790 MHz (A500)"}, {"4", "14.187580 MHz (A1200)"}, {"8", "28.375160 MHz"}, {"10", "35.468950 MHz"}, {"12", "42.562740 MHz"}, {"16", "56.750320 MHz"}}, "auto"},
     {"puae6_hdf_controller", "Hard Disk Controller (Restart)", "The controller the hard disks (.hdf, .hdz) are on. 'UAE' is uaehf.device with the UAEFS board, as PUAE5 mounts them, on every machine. 'IDE' is the IDE port of Gayle, as the real A600 and A1200 have it, and only exists on those two machines (any other fails the load with the reason); the Kickstart sees the drive by its registers (Kickstart 2.05 or 3.1: the 1.3 has no IDE driver). Gayle is switched on only while a hard disk is behind it: with IDE chosen and no hard disk the machine is the one without it. The controller is part of the machine: a state, a rewind or a movie of one controller does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.", {{"uae", "UAE (uaehf.device, like PUAE5)"}, {"ide", "IDE (Gayle, A600 and A1200)"}}, "uae"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart)", "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate. It takes effect the next time the content is loaded; the running machine is not changed.", {{"44100", "44100 Hz"}, {"48000", "48000 Hz"}}, "48000"},
@@ -1365,6 +1378,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); None|MB1|MB2|MB4|MB8"},
     {"puae6_fpu_model", "FPU (Restart); None|M68881|M68882"},
     {"puae6_cpu_model", "CPU (Restart); auto|68000|68010|68020"},
+    {"puae6_cpu_compatibility", "CPU Accuracy (Restart); exact|compatible|normal"},
     {"puae6_cpu_multiplier", "CPU Cycle-exact Speed (Restart); auto|1|2|4|8|10|12|16"},
     {"puae6_hdf_controller", "Hard Disk Controller (Restart); uae|ide"},
     {"puae6_audio_rate", "Audio Sample Rate (Restart); 48000|44100"},
