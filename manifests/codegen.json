@@ -68,6 +68,7 @@
         "cpuemu_0.cpp",
         "cpuemu_11.cpp",
         "cpuemu_13.cpp",
+        "cpuemu_20.cpp",
         "cpuemu_21.cpp"
       ],
       "runs": [
@@ -83,6 +84,7 @@
             "12",
             "13",
             "14",
+            "20",
             "21"
           ],
           "cwd": "generated"

@@ -1,15 +1,17 @@
-"""T53 first vertical: A500/68000 exact, prefetch-compatible and normal instruction timing.
+"""T53: exact, prefetch-compatible and normal instruction timing.
 
 The public state ABI must continue from the saved instruction in the same process and in a
 fresh process. These directed cases exercise VERTB, CIA timers and active chipset/audio DMA.
-The two faster levels remain unavailable on other machine/CPU combinations until T53 extends
-this vertical; neither this module nor a successful build closes the full T53 gate.
+The 68010 loop/VBR and 68020 cache/AGA paths retain their own directed restore cases.
+Neither this module nor a successful build closes the full T53 gate.
 """
 import unittest
 
 from tests.state import envelope as e
 from tests.state import test_det02 as d
 from tests.state import test_state_a600 as a600
+from tests.state import test_det02_cpu010 as c10
+from tests.state import test_det02_a1200 as c20
 from tests.state.harness import SUBSYSTEMS
 
 MODES = {"exact": 0, "compatible": 1, "normal": 2}
@@ -78,6 +80,37 @@ class CpuModesTests(d.Det02Case):
                 self.assertEqual(a.saves[0][3], b.saves[0][3])
                 self.assertLessEqual(len(first), a.saves[0][3])
                 self.assertLessEqual(len(later), b.saves[0][3])
+
+
+class Cpu010ModesTests(d.Det02Case):
+    ROMS = {name: c10.ROMS[name] for name in ("c10-loop", "c10-vbr", "busy")}
+    SAVE_OP = "--public-save-at"
+    LOAD_OP = "--public-load-at"
+
+    @classmethod
+    def probe_on(cls, machine, rom, *arguments):
+        return super().probe_on(machine, rom, *arguments, "--cpu", "68010")
+
+    def test_each_level_restores_loop_mode_vbr_and_dma(self):
+        for level in MODES:
+            for rom in self.ROMS:
+                for restore in (d.SAME, d.NEW):
+                    with self.subTest(level=level, rom=rom, restore=restore):
+                        self.assertIsNone(self.first_divergence(rom, ["--cpu-compatibility", level], 3, restore))
+
+
+class Cpu020ModesTests(d.Det02Case):
+    MACHINE = "a1200"
+    ROMS = {name: c20.ROMS[name] for name in ("cache020", "busy", "tone")}
+    SAVE_OP = "--public-save-at"
+    LOAD_OP = "--public-load-at"
+
+    def test_each_level_restores_cache_dma_and_audio_phase(self):
+        for level in MODES:
+            for rom in self.ROMS:
+                for restore in (d.SAME, d.NEW):
+                    with self.subTest(level=level, rom=rom, restore=restore):
+                        self.assertIsNone(self.first_divergence(rom, ["--cpu-compatibility", level], 3, restore))
 
 
 if __name__ == "__main__":

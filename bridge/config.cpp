@@ -337,8 +337,6 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return memory;
     if (c.cpu_compatibility > P6_CPU_NORMAL)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu compatibility must be exact, compatible or normal");
-    if (c.cpu_compatibility != P6_CPU_EXACT && (c.machine != P6_MACHINE_A500 || resolve_cpu(c) != 68000))
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "non-exact CPU levels currently require an A500 with a 68000");
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     // The controller of the hard files (T56): the IDE port is Gayle's, and only the A600 and the A1200 have Gayle.

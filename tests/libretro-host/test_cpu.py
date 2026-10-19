@@ -63,7 +63,9 @@ class CpuOptionTests(lr.LibretroHarness):
         return self.runs(out)[-1]["hash"]
 
     def test_accuracy_is_a_restart_option_and_each_level_runs_the_headless_machine(self):
-        for machine, flags, names, options in (("a500", (), lr.KICKSTART_NAMES[0], ()),):
+        for machine, flags, names, options in (("a500", (), lr.KICKSTART_NAMES[0], ()),
+                                                ("a500", ("--cpu", "68010"), lr.KICKSTART_NAMES[0], ("--set", "puae6_cpu_model=68010")),
+                                                ("a1200", ("--machine", "a1200"), lr.KICKSTART_NAMES_A1200[0], lr.A1200)):
             for level in ("exact", "compatible", "normal"):
                 with self.subTest(machine=machine, flags=flags, level=level):
                     out = self.frontend("boot", "--runs", 6, *options, "--set", f"puae6_cpu_compatibility={level}", name=names).stdout

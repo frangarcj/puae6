@@ -9,8 +9,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE_MODELS = ("0", "1", "2", "3", "4", "5", "11", "12", "13", "14", "21")
-PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_0.cpp", "cpuemu_11.cpp", "cpuemu_13.cpp", "cpuemu_21.cpp"}
+PROFILE_MODELS = ("0", "1", "2", "3", "4", "5", "11", "12", "13", "14", "20", "21")
+PROFILE_OUTPUTS = {"cputbl.h", "cpustbl.cpp", "cpuemu_0.cpp", "cpuemu_11.cpp", "cpuemu_13.cpp", "cpuemu_20.cpp", "cpuemu_21.cpp"}
 
 
 def digest(path):

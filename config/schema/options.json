@@ -319,7 +319,7 @@
         "key": "puae6_cpu_model",
         "category": "machine",
         "label": "CPU",
-        "info": "The CPU of the machine, cycle exact. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The 68030, 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another."
+        "info": "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The 68030, 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another."
       },
       "headless": {"how": "named", "flag": "--cpu", "names": {"auto": "auto", "68000": "68000", "68010": "68010", "68020": "68020"}},
       "wrapper": {"how": "setting", "setting": "CpuModel", "type": "Puae6Cpu"}
@@ -354,7 +354,7 @@
         "key": "puae6_cpu_compatibility",
         "category": "machine",
         "label": "CPU Accuracy",
-        "info": "Exact keeps cycle-exact CPU and bus timing (the default). Compatible uses the upstream instruction interpreter with prefetch; normal uses instruction timing without prefetch. All levels count emulated time and use the same scheduler, never the host clock. Non-exact levels also use the normal blitter scheduler; the optional fast-line display cache is disabled until its state is supported. The level is part of state and movie identity: states do not cross levels. No new netplay or runahead claim is made for the non-exact levels."
+        "info": "CPU accuracy for the supported 68000, 68010 and 68EC020 machines. Exact preserves cycle-exact CPU and bus timing (the default); compatible preserves prefetch and normal uses instruction timing. Every level counts emulated time independently of the host clock. Changing the level requires reloading the content; states and movies require the same level."
       },
       "headless": {
         "how": "named",

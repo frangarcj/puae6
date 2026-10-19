@@ -76,10 +76,11 @@ class WrapperCpuTests(unittest.TestCase):
         return f"core {name} machine={machine} " + " ".join(settings)
 
     def test_cpu_accuracy_restores_and_refuses_a_state_of_another_level(self):
-        for level in ("Exact", "Compatible", "Normal"):
-            with self.subTest(level=level):
-                out = self.session([self.core("A", f"accuracy={level}"), "run A 4", "save A s", "run A 5", "digest A first", "load A s", "run A 5", "digest A second"], "vsync")
-                self.assertEqual(self.digests(out, "A")["first"], self.digests(out, "A")["second"])
+        for machine, cpu in (("a500", "Auto"), ("a500", "M68010"), ("a1200", "Auto")):
+            for level in ("Exact", "Compatible", "Normal"):
+                with self.subTest(machine=machine, cpu=cpu, level=level):
+                    out = self.session([self.core("A", f"cpu={cpu}", f"accuracy={level}", machine=machine), "run A 4", "save A s", "run A 5", "digest A first", "load A s", "run A 5", "digest A second"], "busy")
+                    self.assertEqual(self.digests(out, "A")["first"], self.digests(out, "A")["second"])
         out = self.session([self.core("A", "accuracy=Normal"), "run A 4", "save A s", self.core("B"), "run B 3", "digest B before", "load B s", "digest B after"], "vsync")
         self.assertRegex(out, r"rejected B s reason=OtherConfig")
         self.assertEqual(self.digests(out, "B")["before"], self.digests(out, "B")["after"])

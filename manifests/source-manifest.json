@@ -12,6 +12,7 @@
     "cpuemu_0.cpp",
     "cpuemu_11.cpp",
     "cpuemu_13.cpp",
+    "cpuemu_20.cpp",
     "cpuemu_21.cpp",
     "cpustbl.cpp",
     "cpudefs.cpp",
@@ -109,6 +110,7 @@
       "cpuemu_0.cpp",
       "cpuemu_11.cpp",
       "cpuemu_13.cpp",
+      "cpuemu_20.cpp",
       "cpuemu_21.cpp",
       "blitfunc.cpp",
       "blittable.cpp"
@@ -119,11 +121,12 @@
       "sinctable.cpp",
       "filesys_bootrom.cpp"
     ],
-    "cpu_dispatch": "CPUEMU_0 generic and CPUEMU_11 prefetch-compatible are offered on the A500/68000 by T53; CPUEMU_13 keeps the 68000/68010 exact tables and CPUEMU_21 the 68020 exact table. The ABI defaults to exact; other non-exact machine/CPU combinations remain explicitly unsupported until T53 extends them.",
+    "cpu_dispatch": "CPUEMU_0 generic tables, CPUEMU_11 prefetch 68000/68010, CPUEMU_13 cycle-exact 68000/68010, CPUEMU_20 prefetch 68020 and CPUEMU_21 cycle-exact 68020. Restart p6_config.cpu_compatibility selects the matching table/accessors/loop, with exact as the unchanged default. No MMU/JIT/host clock.",
     "features_on": [
       "CPUEMU_0",
       "CPUEMU_11",
       "CPUEMU_13",
+      "CPUEMU_20",
       "CPUEMU_21",
       "AGA",
       "FPUEMU",
@@ -237,6 +240,7 @@
         "cpuemu_0.cpp",
         "cpuemu_11.cpp",
         "cpuemu_13.cpp",
+        "cpuemu_20.cpp",
         "cpuemu_21.cpp"
       ],
       "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"

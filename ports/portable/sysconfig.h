@@ -39,6 +39,7 @@
 #define CPUEMU_0 1 /* T53: generic 68000, emulated instruction cycles only */
 #define CPUEMU_11 1 /* T53: compatible 68000 prefetch */
 #define CPUEMU_13 1
+#define CPUEMU_20 1 /* T53: compatible 68020 prefetch */
 #define CPUEMU_21 1 /* 68020 cycle exact, no MMU (ADR 0010); chosen only by a 68020 preset */
 /* 68881/68882 (T54): upstream's fpp.cpp over its integer SoftFloat (fpp_softfloat.cpp), never fpp_native.cpp, a long double or the host FPU. FPUEMU makes
  * cpuemu_21 compile the coprocessor handlers; whether a machine has an FPU is currprefs.fpu_model (0 = none), a configuration choice of p6_config. */

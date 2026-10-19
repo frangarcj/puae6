@@ -4334,6 +4334,31 @@
           "after_sha256": "bdc9f698adf78b9bc9f273e90eb4554e36af8d2ddfba8073e1a5fd088c89440e"
         }
       ]
+    },
+    {
+      "id": "0344-cpu-68010-020-nonexact",
+      "file": "patches/winuae/0344-cpu-68010-020-nonexact.patch",
+      "sha256": "fb964347d2f73be40fff8a4100d3f3a3ecba9df65be15cb68278b3d1f44b27cd",
+      "title": "Select upstream normal and compatible cores for the 68010 and 68020",
+      "reason": "T53 extends the three accuracy levels to every supported CPU. Existing 68010 tables and the generated 68020 prefetch core use the same emulated scheduler; excluded input-recording callbacks stay excluded.",
+      "category": "host hooks",
+      "order": 160,
+      "symbols": [
+        "set_x_funcs",
+        "m68k_run",
+        "m68k_run_2p",
+        "cputbls"
+      ],
+      "test": "tests/state/test_cpu_modes.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "c55f641356ca726e383b938acb728ecf79f1c0a1660267a5a38438a0c2b83649",
+          "after_sha256": "363b19f2023a63cac435d7126b150756e67523a55506dabe69b561b3e331c002"
+        }
+      ]
     }
   ]
 }

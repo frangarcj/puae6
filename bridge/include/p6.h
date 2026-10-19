@@ -107,8 +107,8 @@ typedef struct p6_config {
      * is in effect (derived hash, bridge/config.cpp ide_attached, domain p6/config/ide/v1). Anything above 1 is P6_ERROR_UNSUPPORTED. */
     uint8_t hdf_controller;
     /* T53: restart CPU accuracy, 0 exact (the unchanged default), 1 compatible prefetch, 2 normal instruction timing.
-     * The level is part of state identity. Initially the two faster levels are supported only by the A500 with a 68000;
-     * other combinations return UNSUPPORTED, never silently choose another core. No level reads a host clock. */
+     * The level is part of state identity. Every supported 68000/68010/68020 machine can select each level at load.
+     * No level reads a host clock. */
     uint8_t cpu_compatibility;
     uint8_t reserved7[5];           /* Zero in ABI v1 (the rest of what was reserved[1]). */
 } p6_config;
