@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35"
@@ -11577,7 +11577,8 @@
         "Corregir el arnes DET06: evitar dlsym recursivo durante el inicio de ASan y anteponer su runtime dinamico real al reloj inyectado. Reproducer minimo con Clang/GCC en ambas ISA Linux; conservar los tres relojes civiles desplazados y el monotono sin desplazar, sin desactivar sanitizers.",
         "Decision del usuario 2026-10-19: task force hasta cuatro frentes independientes, validacion dirigida por cambio y union completa una vez por candidata; conservar checks/aceptacion y diferir las baterias largas mientras se implementa producto. Ajustar protocolo, limite explicito del inspector y sus tests; el coordinador integra y serializa builds pesados.",
         "Integracion de candidata: actualizar la comprobacion estricta del inventario RTC para incluir el nuevo RF5C01A de T55a (25 componentes, propietario especifico y enlace de prueba con formato path:descripcion), sin relajar los otros propietarios ni sus asserts. Limitar a dos los compiladores simultaneos en la receta clean, como el resto de la task force.",
-        "Cerrar la ruta offline real de RetroArch: fijar el ID/ISA de la imagen local ya presente, comprobarla antes de preparar lanes que la usan y ejecutar siempre por ID con --pull=never/--network=none. La ausencia o diferencia bloquea sin autobuild/descargas; no modificar la imagen ni Docker global. Mantener controles DiskControl por loopback dentro del mismo contenedor y comprobar negativos de infraestructura sin compilar el motor."
+        "Cerrar la ruta offline real de RetroArch: fijar el ID/ISA de la imagen local ya presente, comprobarla antes de preparar lanes que la usan y ejecutar siempre por ID con --pull=never/--network=none. La ausencia o diferencia bloquea sin autobuild/descargas; no modificar la imagen ni Docker global. Mantener controles DiskControl por loopback dentro del mismo contenedor y comprobar negativos de infraestructura sin compilar el motor.",
+        "Reproducer DET06 de inicio ASan/UBSan pasa realmente en las cinco filas declaradas con tres relojes civiles desplazados y monotono intacto; IDs Docker verificados antes/despues. No se ha ejecutado ni acreditado la matriz del emulador ni CI remota. Ruta RetroArch offline verificada con version real y UDP loopback; se conserva el cierre completo para la candidata."
       ],
       "checks": [
         "PLAN01",
@@ -12372,7 +12373,8 @@
         "La primera integracion WB expone referencias MMU/040 inalcanzables que el enlace nativo descarta. Resolver la diferencia de receta/perfil preservando todas las entradas exportadas del guest y los flags x18/x28/16KiB, sin stubs de exito; T55b se difiere durante esta correccion.",
         "Registrar los checks funcionales dirigidos existentes, incluido WB03 de los tres niveles; PERF01 conserva su puerta pendiente de medicion comparativa en la candidata, no se sustituye por estadistica del harness ni un build exitoso.",
         "Antes del cierre de T53 faltan PERF01 comparativo y el re-registro conjunto de memoria de la candidata. Conservar la generacion limitada al perfil soportado y las pruebas reales de snapshot de cada nivel.",
-        "Preparacion PERF01 de la candidata: reutilizar probes y ventanas existentes con CPU/modelo y precision explicitos en nativo/libretro/WaterboxCore. Primera vertical limitada a propagar argumentos y registrarlos, sin nuevas medidas de flags/SIMD ni reducir warmup/repeticiones del protocolo; campana comparativa completa se ejecuta una vez sobre la candidata estable."
+        "Preparacion PERF01 de la candidata: reutilizar probes y ventanas existentes con CPU/modelo y precision explicitos en nativo/libretro/WaterboxCore. Primera vertical limitada a propagar argumentos y registrarlos, sin nuevas medidas de flags/SIMD ni reducir warmup/repeticiones del protocolo; campana comparativa completa se ejecuta una vez sobre la candidata estable.",
+        "Argumentos CPU/modelo y precision integrados en probes nativo/LR/WaterboxCore y separados por identidad. Smoke real C# sobre guest combinado ejecuta68010/normal (1 warmup+3 unidades) y rechaza modelo desconocido antes del runtime. Es comprobacion de cableado, no baseline PERF01; campana comparativa y memoria permanecen pendientes."
       ],
       "checks": [
         "GEN01",
@@ -13943,16 +13945,16 @@
         "tools/check.py"
       ],
       "steps": [
-        "Primera vertical de T66: descriptor privado inmutable con content-ID, longitud y ReadFn(context, uint64 offset, ...); lectura exacta por sector ISO2048 con buffer fijo de como maximo2448B. No copiar medio entero ni usar blob_register, no cambiar ABI publica ni anunciar CD32.",
+        "Primera vertical de T66: descriptor privado inmutable con content-ID, longitud y ReadFn(context, uint64 offset, ...); lectura exacta por sector ISO2048 con buffer fijo de como maximo 2448 B. No copiar medio entero ni usar blob_register, no cambiar ABI publica ni anunciar CD32.",
         "Validar rango/overflow antes del proveedor, rechazar short/error sin salida parcial; lectura sin cursor y caché no causal. Rebind conserva ID, longitud y geometria antes de sustituir contexto/callback; un error no cambia el vinculo anterior.",
-        "Probe real ASan/UBSan con medio sintetico650MiB y otro>4GiB, lectura desordenada/ultimo sector/bordes, error proveedor y rebind. No construir ni ejecutar motor ni habilitar stubs CD. Añadir solo el checkMED01 de esta pieza.",
+        "Probe real ASan/UBSan con medio sintetico de 650 MiB y otro mayor de 4 GiB, lectura desordenada/ultimo sector/bordes, error proveedor y rebind. No construir ni ejecutar motor ni habilitar stubs CD. Añadir solo el check MED01 de esta pieza.",
         "T66 conserva ISO/CUE/CCD/NRG/MDS/CHD, Akiko cooperativo sin hilos, EEPROM/I2C, CDDA, ambos adaptadores y arranque/restauracion reales como puertas posteriores; esta pieza no los sustituye."
       ],
       "checks": [
         "MED01"
       ],
       "acceptance": [
-        "El lector consume por offset una fuente de tamaño mayor que el espacio de direcciones de32bits sin asignarla entera; lecturas correctas y errores/rebind son acotados y transaccionales."
+        "El lector consume por offset una fuente de tamaño mayor que el espacio de direcciones de 32 bits sin asignarla entera; lecturas correctas y errores/rebind son acotados y transaccionales."
       ],
       "stop": "No cargar CD completo en guest, no usar hilos ni promover este probe a soporte CD32."
     },
