@@ -33,10 +33,12 @@ internal static unsafe partial class Program
 		readonly List<uint[]> keys = [];
 		readonly List<(uint Type, uint Buttons, int Dx, int Dy)[]> ports = [];
 		readonly List<int> mouseX = [], mouseY = [];
+		readonly List<int> mouse2X = [], mouse2Y = [];
 
 		internal Script(string path)
 		{
 			int x = Controllers.MouseFieldWidth / 2, y = Controllers.MouseFieldHeight / 2;
+			int x2 = x, y2 = y;
 			foreach (var line in File.ReadAllLines(path).Where(l => l.Trim().Length > 0))
 			{
 				var f = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -45,6 +47,9 @@ internal static unsafe partial class Program
 				ports.Add([p0, (uint.Parse(f[8]), uint.Parse(f[9]), int.Parse(f[10]), int.Parse(f[11]))]);
 				if (p0.Item1 == P6.PortMouse) { x += p0.Item3; y += p0.Item4; }
 				mouseX.Add(x); mouseY.Add(y);
+				var p1 = ports[^1][1];
+				if (p1.Type == P6.PortMouse) { x2 += p1.Dx; y2 += p1.Dy; }
+				mouse2X.Add(x2); mouse2Y.Add(y2);
 			}
 		}
 
@@ -75,7 +80,14 @@ internal static unsafe partial class Program
 			}
 			else if (p0.Type == P6.PortCd32) PressCd32(controller, 1, p0.Buttons);
 			else PressJoystick(controller, 1, p0.Buttons);
-			if (ports[at][1].Type == P6.PortCd32) PressCd32(controller, 2, ports[at][1].Buttons);
+			if (ports[at][1].Type == P6.PortMouse)
+			{
+				for (int b = 0; b < 3; ++b)
+					if ((ports[at][1].Buttons & (1u << b)) != 0) controller.Press(Controllers.MouseButtons[1][b]);
+				controller.Axis(Controllers.MouseAxes[1][0], Math.Clamp(mouse2X[at], 0, Controllers.MouseFieldWidth));
+				controller.Axis(Controllers.MouseAxes[1][1], Math.Clamp(mouse2Y[at], 0, Controllers.MouseFieldHeight));
+			}
+			else if (ports[at][1].Type == P6.PortCd32) PressCd32(controller, 2, ports[at][1].Buttons);
 			else PressJoystick(controller, 2, ports[at][1].Buttons);
 		}
 

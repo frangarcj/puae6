@@ -32,10 +32,10 @@
 namespace p6_libretro {
 
 constexpr size_t kStateHeaderBytes = 64;
-constexpr uint32_t kStateVersion = 6;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d); 5: the statusbar's flag and the message of the last action (T31b); 6: the virtual keyboard's memory (T31a)
+constexpr uint32_t kStateVersion = 7;       // 2: the input memory joined the section (T17c); 3: the list of the tray may end before the live one and hold slots with no disk (T17e); 4: the input memory grew the mapper's and the turbo's (T31d); 5: the statusbar's flag and the message of the last action (T31b); 6: the virtual keyboard's memory (T31a); 7: independent second mouse backlog/fractions (T70b)
 constexpr size_t kSectionAlign = 16;
 constexpr size_t kMaxImages = 16;                                   // P6_MAX_MEDIA: a playlist cannot name more
-constexpr size_t kInputBytes = 11 * 4;                               // the input memory in the section: eleven 32-bit words
+constexpr size_t kInputBytes = 14 * 4;                               // the input memory in the section: fourteen 32-bit words
 
 enum class FrameError { None, TooSmall, BadMagic, BadVersion, BadLayout, NonZeroPadding, BadChecksum };
 
@@ -106,6 +106,9 @@ inline void encode_section(const Section &section, std::vector<uint8_t> *out)
     u32(uint32_t(in.message) | uint32_t(in.message_left) << 8);
     u32((in.vkbd_open ? 1u : 0u) | (in.vkbd_opaque ? 2u : 0u) | uint32_t(in.vk_cursor) << 8 | uint32_t(in.vk_held) << 16);
     u32(uint32_t(in.vk_latch) | uint32_t(in.vk_repeat) << 8);
+    u32(uint32_t(in.mouse2_rx));
+    u32(uint32_t(in.mouse2_ry));
+    u32(uint32_t(uint16_t(in.host2_frac[0])) | uint32_t(uint16_t(in.host2_frac[1])) << 16);
     out->resize(align_up(out->size(), kSectionAlign), 0);
 }
 
@@ -153,7 +156,7 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     out->picture.assign(data + at, data + at + picture);
     at += picture;
     if (!room(kInputBytes)) return fail("the section is cut short");
-    uint32_t word[11];
+    uint32_t word[14];
     for (uint32_t &w : word) {
         w = get32(data + at);
         at += 4;
@@ -194,6 +197,13 @@ inline bool decode_section(const uint8_t *data, size_t size, size_t max_pending_
     out->input.statusbar_shown = word[0] & 64;
     out->input.message = uint8_t(word[8] & 0xFF);
     out->input.message_left = uint8_t((word[8] >> 8) & 0xFF);
+    out->input.mouse2_rx = int32_t(word[11]);
+    out->input.mouse2_ry = int32_t(word[12]);
+    if (out->input.mouse2_rx < -kMouseBacklog || out->input.mouse2_rx > kMouseBacklog ||
+        out->input.mouse2_ry < -kMouseBacklog || out->input.mouse2_ry > kMouseBacklog)
+        return fail("the second mouse movement owed is beyond the backlog");
+    if (!fraction(word[13], 99, &out->input.host2_frac[0]) || !fraction(word[13] >> 16, 99, &out->input.host2_frac[1]))
+        return fail("a fraction of a second mouse count is out of range");
     out->input.mouse_rx = rx;
     out->input.mouse_ry = ry;
     out->input.turbo_phase = uint8_t(word[3] & 0xFF);

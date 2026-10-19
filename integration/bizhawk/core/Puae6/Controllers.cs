@@ -40,6 +40,8 @@ public static class Controllers
 
 	/// <summary>The mouse buttons and axes of port 1 as the controller names them, built once.</summary>
 	public static readonly string Port1MouseLeft = $"P1 {MouseLeft}", Port1MouseMiddle = $"P1 {MouseMiddle}", Port1MouseRight = $"P1 {MouseRight}", Port1MouseX = $"P1 {MouseX}", Port1MouseY = $"P1 {MouseY}";
+	public static readonly string[][] MouseButtons = [ [Port1MouseLeft, Port1MouseRight, Port1MouseMiddle], [$"P2 {MouseLeft}", $"P2 {MouseRight}", $"P2 {MouseMiddle}"] ];
+	public static readonly string[][] MouseAxes = [ [Port1MouseX, Port1MouseY], [$"P2 {MouseX}", $"P2 {MouseY}"] ];
 
 	static string?[] BuildKeyButtons() => KeyNames.Select(name => name is null ? null : $"Key {name}").ToArray();
 
@@ -92,6 +94,12 @@ public static class Controllers
 		if (settings.ControllerPort2 == Puae6Port2.Joystick)
 			foreach (var name in JoystickNames) controller.BoolButtons.Add(Joystick(2, name));
 		else if (settings.ControllerPort2 == Puae6Port2.Cd32) controller.BoolButtons.AddRange(Cd32Buttons[1]);
+		else if (settings.ControllerPort2 == Puae6Port2.Mouse)
+		{
+			controller.BoolButtons.AddRange(MouseButtons[1]);
+			controller.AddAxis(MouseAxes[1][0], 0.RangeTo(MouseFieldWidth), MouseFieldWidth / 2)
+				.AddAxis(MouseAxes[1][1], 0.RangeTo(MouseFieldHeight), MouseFieldHeight / 2);
+		}
 		// The disk controls exist when there is something to put in a drive: drive and slot are selected first, then Eject or Insert acts on them.
 		if (mediaCount > 0) controller.BoolButtons.AddRange([ NextDrive, NextSlot, EjectDisk, InsertDisk ]);
 		// Hard reset only: the machine has one (p6_reset); a Reset button would be a different thing that nobody implemented.

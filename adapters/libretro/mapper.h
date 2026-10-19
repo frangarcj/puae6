@@ -82,11 +82,14 @@ struct InputMemory {
     uint8_t reset_hold = 0;            // units left of the Ctrl-Amiga-Amiga of a soft reset
     uint32_t held = 0;                 // the inputs and hotkeys that were down at the last run (bit n of Controls::down)
     int16_t host_frac[2] = {0, 0};     // hundredths of a count the Mouse Speed left over, per axis
+    int32_t mouse2_rx = 0, mouse2_ry = 0;
+    int16_t host2_frac[2] = {0, 0};     // the second physical mouse has its own backlog and scaling fractions
     int16_t stick_frac[2][2] = {{0, 0}, {0, 0}};      // thousandths of a count a stick left over: [left, right][x, y]
 
     bool operator==(const InputMemory &other) const
     {
-        return caps_latched == other.caps_latched && caps_held == other.caps_held && mouse_rx == other.mouse_rx && mouse_ry == other.mouse_ry &&
+        return mouse2_rx == other.mouse2_rx && mouse2_ry == other.mouse2_ry && host2_frac[0] == other.host2_frac[0] && host2_frac[1] == other.host2_frac[1] &&
+               caps_latched == other.caps_latched && caps_held == other.caps_held && mouse_rx == other.mouse_rx && mouse_ry == other.mouse_ry &&
                dpad_mouse == other.dpad_mouse && turbo_toggled == other.turbo_toggled && crop_toggled == other.crop_toggled &&
                aspect_toggled == other.aspect_toggled && statusbar_shown == other.statusbar_shown && message == other.message &&
                message_left == other.message_left && vkbd_open == other.vkbd_open && vkbd_opaque == other.vkbd_opaque && vk_cursor == other.vk_cursor &&

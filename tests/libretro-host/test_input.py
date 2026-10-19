@@ -143,7 +143,7 @@ class InputTests(lr.LibretroHarness):
         self.assertEqual(ports[0], {"Joystick + Mouse (Amiga ports 2 and 1)": "1", "Joystick only (Amiga port 2)": "257", "Mouse only (Amiga port 1)": "2",
                                     "Keyboard only (port empty)": "3", "None": "0", "CD32 pad (Amiga port 2)": "513"})
         self.assertEqual(ports[1], {"Joystick (Amiga port 1; needs Player 1 on Joystick only)": "1", "Keyboard only (port empty)": "3", "None": "0",
-                                  "CD32 pad (Amiga port 1; needs Player 1 without mouse)": "513"})   # no mouse in player 2
+                                  "CD32 pad (Amiga port 1; needs Player 1 without mouse)": "513", "Mouse (Amiga port 2; overrides Player 1 pad)": "2"})
         self.assertEqual(sorted(ports), [0, 1])
         self.assertRegex(out, r"(?m)^input descriptors count=\d+ ports=3$")                                  # port 0 and port 1 have names for their controls
         refused = self.frontend("boot", "--runs", 2, "--reject-optional").stdout          # a frontend with neither interface still gets the same core
@@ -155,9 +155,9 @@ class InputTests(lr.LibretroHarness):
         self.assertEqual([p[:8] for p in default], [IDLE, IDLE])                    # a frontend that never calls retro_set_controller_port_device: pad and mouse
         _, both = self.run_input("--device", "0:2", "--device", "1:0", runs=2)
         self.assertEqual(both[0][:8], (MOUSE, 0, 0, 0, 0, 0, 0, 0))
-        out, port1 = self.run_input("--device", "0:257", "--device", "1:2", runs=2)      # a mouse in player 2: the contract refuses it, so the port keeps its joystick
-        self.assertEqual(port1[0][:8], (JOYSTICK, 0, 0, 0, JOYSTICK, 0, 0, 0))
-        self.assertRegex(out, r"(?m)^log \d+ \[PUAE6\] device 2 is not available in port 1; the port keeps device 1$")
+        out, port1 = self.run_input("--device", "0:257", "--device", "1:2", runs=2)
+        self.assertEqual(port1[0][:8], (0, 0, 0, 0, MOUSE, 0, 0, 0))
+        self.assertIn("player 1's pad is not sent: player 2's mouse holds Amiga port 2", out)
         out, bogus = self.run_input("--device", "0:77", "--device", "5:1", "--device", "1:257", runs=2)       # the joystick-only subclass is player 1's alone
         self.assertEqual(bogus[0][:8], IDLE)
         self.assertRegex(out, r"device 77 is not available in port 0")

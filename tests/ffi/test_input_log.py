@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class InputLogTests(unittest.TestCase):
-    def test_cd32_controls_round_trip_through_bizhawks_actual_bk2_codec(self):
+    def codec(self, command):
         dotnet = shutil.which("dotnet")
         cache = Path.home() / ".nuget/packages"
         if not dotnet or not cache.is_dir():
@@ -24,14 +24,26 @@ class InputLogTests(unittest.TestCase):
                                 f"-p:RestoreSources={cache}", "-p:P6ManagedTestSuffix=-input-log"],
                                cwd=ROOT, env=env, text=True, capture_output=True, timeout=180)
         self.assertEqual(0, built.returncode, built.stdout[-4000:] + built.stderr[-4000:])
-        out = subprocess.run([dotnet, str(ROOT / "build/ffi-input-log/bin/Debug/net8.0/Ffi.dll"), "cd32log"],
+        out = subprocess.run([dotnet, str(ROOT / "build/ffi-input-log/bin/Debug/net8.0/Ffi.dll"), command],
                              cwd=ROOT, env=env, text=True, capture_output=True, timeout=30)
         self.assertEqual(0, out.returncode, out.stderr)
+        return out.stdout.splitlines()
+
+    def test_cd32_controls_round_trip_through_bizhawks_actual_bk2_codec(self):
+        lines = self.codec("cd32log")
         expected = {f"ok {check}: P{p} CD32 pad {button}" for p in (1, 2)
                     for button in ("Up", "Down", "Left", "Right", "Red", "Blue", "Green", "Yellow", "Rewind", "Forward", "Play")
                     for check in ("CD32 has a known mnemonic", "CD32 BK2 round trip")}
-        self.assertEqual(44, len(out.stdout.splitlines()))
-        self.assertEqual(expected, set(out.stdout.splitlines()))
+        self.assertEqual(44, len(lines))
+        self.assertEqual(expected, set(lines))
+
+    def test_two_mice_buttons_and_absolute_positions_round_trip_through_the_actual_bk2_codec(self):
+        lines = self.codec("mouse2log")
+        expected = {f"ok mouse {check}: P{p} Mouse {button} Button" for p in (1, 2)
+                    for button in ("Left", "Middle", "Right") for check in ("has a known mnemonic", "BK2 round trip")}
+        expected |= {f"ok mouse BK2 axis round trip: P{p} Mouse {axis}" for p in (1, 2) for axis in ("X", "Y")}
+        self.assertEqual(16, len(lines))
+        self.assertEqual(expected, set(lines))
 
 
 if __name__ == "__main__":

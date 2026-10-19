@@ -449,7 +449,7 @@ TASK_SUITES[('IN01', 'T70a')] = {
     'cd32_mapping_and_abi': 'tests.input.test_cd32.Cd32MappingTests',
     'serial_buttons': 'tests.input.test_cd32.Cd32Tests.test_seven_buttons_and_identification_bits_in_both_ports_pal_and_ntsc',
     'dpad_quadrature': 'tests.input.test_cd32.Cd32Tests.test_dpad_quadrature_and_opposite_directions_are_independent_in_both_ports',
-    'bk2_codec': 'tests.ffi.test_input_log.InputLogTests'}
+    'bk2_codec': 'tests.ffi.test_input_log.InputLogTests.test_cd32_controls_round_trip_through_bizhawks_actual_bk2_codec'}
 TASK_SUITES[('DET02', 'T70a')] = {
     'partial_serial_restore': 'tests.input.test_cd32.Cd32Tests.test_partly_read_pad_restores_in_same_and_new_process',
     'transactional_state_rejection': 'tests.input.test_cd32.Cd32Tests.test_malformed_cd32_tail_is_refused_before_touching_the_machine',
@@ -457,6 +457,16 @@ TASK_SUITES[('DET02', 'T70a')] = {
 TASK_SUITES[('LR01', 'T70a')] = {'cd32_frontend': 'tests.libretro-host.test_cd32.Cd32FrontendTests'}
 TASK_SUITES[('WB03', 'T70a')] = {
     'cd32_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_cd32_partial_serial_read_restores_and_replays_a_real_bk2_in_both_ports'}
+TASK_SUITES[('IN01', 'T70b')] = {
+    'mouse_mapping_and_state': 'tests.libretro-host.test_mouse2.Mouse2MappingTests',
+    'mouse_pins': 'tests.input.test_mouse2.Mouse2Tests.test_independent_motion_and_three_buttons_reach_both_ports_pal_and_ntsc',
+    'mouse_bk2': 'tests.ffi.test_input_log.InputLogTests.test_two_mice_buttons_and_absolute_positions_round_trip_through_the_actual_bk2_codec'}
+TASK_SUITES[('DET02', 'T70b')] = {
+    'mouse_native_restore': 'tests.input.test_mouse2.Mouse2Tests.test_motion_in_flight_restores_in_same_and_new_process',
+    'mouse_device_and_validation': 'tests.input.test_mouse2.Mouse2Tests.test_second_mouse_buttons_are_checked_and_device_changes_release_pending_motion'}
+TASK_SUITES[('LR01', 'T70b')] = {'two_mice_and_stick_restore': 'tests.libretro-host.test_mouse2.Mouse2FrontendTests'}
+TASK_SUITES[('WB03', 'T70b')] = {
+    'mouse_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_two_mouse_references_motion_and_bk2_restore_in_same_and_new_sandbox_and_process'}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

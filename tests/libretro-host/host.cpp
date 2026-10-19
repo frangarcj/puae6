@@ -97,6 +97,8 @@ struct Options {
     bool mouse = false;
     int mouse_dx = 0, mouse_dy = 0;
     unsigned mouse_buttons = 0;
+    int mouse2_dx = 0, mouse2_dy = 0;
+    unsigned mouse2_buttons = 0;
     std::string system_dir, content, retry_system, save_dir;
     bool has_save = false, has_system = false, has_content = false, no_vfs = false, legacy_disk = false, legacy_message = false, has_initial = false;
     int64_t vfs_claim = -1;
@@ -744,12 +746,13 @@ int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsigned inde
             if (step.port == port && step.position <= position) mask = step.mask;
         return int16_t((mask >> id) & 1);
     }
-    if (device == RETRO_DEVICE_MOUSE && port == 0 && (options.mouse || !options.mouse_steps.empty())) {
-        int dx = options.mouse ? options.mouse_dx : 0, dy = options.mouse ? options.mouse_dy : 0;
-        unsigned buttons = options.mouse ? options.mouse_buttons : 0;
+    if (device == RETRO_DEVICE_MOUSE && (port == 1 || (options.mouse || !options.mouse_steps.empty()))) {
+        int dx = port == 1 ? options.mouse2_dx : options.mouse ? options.mouse_dx : 0;
+        int dy = port == 1 ? options.mouse2_dy : options.mouse ? options.mouse_dy : 0;
+        unsigned buttons = port == 1 ? options.mouse2_buttons : options.mouse ? options.mouse_buttons : 0;
         for (const Options::MouseStep &step : options.mouse_steps) {
-            if (step.position == position) dx = step.dx, dy = step.dy;     // movement belongs to one position only
-            if (step.position <= position) buttons = step.buttons;
+            if (port == 0 && step.position == position) dx = step.dx, dy = step.dy;     // movement belongs to one position only
+            if (port == 0 && step.position <= position) buttons = step.buttons;
         }
         switch (id) {
         case RETRO_DEVICE_ID_MOUSE_X: return int16_t(dx);
@@ -1229,6 +1232,8 @@ bool parse(int argc, char **argv)
         else if (!strcmp(a, "--joy")) {
             unsigned port = 0, mask = 0;
             if (sscanf(next(), "%u:%x", &port, &mask) == 2 && port < 2) options.joy[port] = mask;
+        } else if (!strcmp(a, "--mouse2")) {
+            sscanf(next(), "%d,%d,%u", &options.mouse2_dx, &options.mouse2_dy, &options.mouse2_buttons);
         } else if (!strcmp(a, "--mouse")) {
             options.mouse = true;
             sscanf(next(), "%d,%d,%u", &options.mouse_dx, &options.mouse_dy, &options.mouse_buttons);

@@ -6394,7 +6394,7 @@
           "file": "bridge/state_devices.cpp",
           "visitor": "visit_input",
           "proves": "tests/state/test_state_input.py: every field of the body comes back to the unit the state was taken in (programs with the mouse in flight, keys in the ring, the reset chord held, the pot lines measuring with a button down and the ports changing device, and the owner's Kickstart 1.3 with input at three boundaries), in the same process and in a new one after the reset head; every field is applied and saved again unchanged; the engine's and the bridge's edge memories are checked against each other; the future of the whole machine waits for the closure (DET02, T15c)",
-          "notes": "potgo_value (u16, bits 8..15: POTGO keeps only direction and data bits), per pot line cap (0..511), dat (u8, wraps) and dat_act (0..2: 0 stopped, 1 discharging, 2 counting). analog_port, digital_port and mouse_port are configuration, fixed at p6_load."
+          "notes": "potgo_value (u16, bits 8..15: POTGO keeps only direction and data bits), per pot line cap (0..511), dat (u8, wraps) and dat_act (0..2: 0 stopped, 1 discharging, 2 counting). analog_port and digital_port are configuration fixed at p6_load; second mouse mode is derived from Applied.type[1] (T70b)."
         }
       },
       {
@@ -6664,7 +6664,7 @@
         "saved_fields": "Not saved, and must not be.",
         "omitted": null,
         "pointers": "Pure functions of the configured ports (pin_input: port 0 = mouse + gamepad joystick 0, port 1 = gamepad joystick 1, autofire 0, mouse speed 100): scanevents (inputdevice.cpp:6866-6990) recomputes them; the device name/configname strings are heap allocated by matchdevices and freed by release_input_device_names.",
-        "rebuild": "Do not serialize; they come back with p6_load. NOTE: calling inputdevice_updateconfig after restoring dynamic input state would wipe it (resetinput), so restore dynamic input last. Pending test: STATE02 with a state from a build whose pin_input differs (config_hash mismatch). T15c3: nothing is rebuilt: these are fixed by the configuration at p6_load (the config hash binds it) and a restore never calls inputdevice_updateconfig. CD32 mode is dynamic boundary input, derived from the serialized Applied type, not rebuilt with device mappings (T70).",
+        "rebuild": "Do not serialize; they come back with p6_load. NOTE: calling inputdevice_updateconfig after restoring dynamic input state would wipe it (resetinput), so restore dynamic input last. Pending test: STATE02 with a state from a build whose pin_input differs (config_hash mismatch). T15c3: nothing is rebuilt: these are fixed by the configuration at p6_load (the config hash binds it) and a restore never calls inputdevice_updateconfig. CD32 mode is dynamic boundary input, derived from the serialized Applied type, not rebuilt with device mappings (T70). T70b: mouse_port[1] is also dynamic boundary input, derived from Applied.type[1] on native restore; its live mode and buttons are checked against Applied before save. Counters, deltas and buttons already reside in P6IN. Host mappings and first mouse remain fixed.",
         "evidence": [
           "build/upstream/inputdevice.cpp:476",
           "build/upstream/inputdevice.cpp:488",
@@ -8232,6 +8232,30 @@
       "ReplayInProgress": {
         "policy": "lifecycle",
         "what": "a movie is being replayed (T28): the SaveRam is neither read nor replaced; set by the frontend, not machine state"
+      },
+      "_mouse2Known": {
+        "policy": "saved",
+        "proof": "WB03 T70b two mouse references and BK2 replay",
+        "what": "whether the independent second pointer reference is known",
+        "state": [
+          "Mouse2Known"
+        ]
+      },
+      "_mouse2ReferenceX": {
+        "policy": "saved",
+        "proof": "WB03 T70b two mouse references and BK2 replay",
+        "what": "the last applied absolute second-pointer X, including movement still owed",
+        "state": [
+          "Mouse2X"
+        ]
+      },
+      "_mouse2ReferenceY": {
+        "policy": "saved",
+        "proof": "WB03 T70b two mouse references and BK2 replay",
+        "what": "the last applied absolute second-pointer Y, including movement still owed",
+        "state": [
+          "Mouse2Y"
+        ]
       }
     }
   }

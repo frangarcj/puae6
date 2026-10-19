@@ -14,11 +14,11 @@
 // never the text it would type under the host's layout. Caps Lock is the Amiga's latching key: every press toggles it (contract: make when it turns on,
 // break when it turns off), so its two bits live in InputMemory.
 //
-// Ports. The Amiga has the mouse port (Amiga port 1, p6_input.ports[0]) and the joystick port (Amiga port 2, p6_input.ports[1]); the contract has a mouse
-// only in ports[0]. Like PUAE5 and the BizHawk wrapper, the frontend's first player is the joystick of the second Amiga port and the mouse is in the first:
+// Ports. The Amiga has the usual mouse port (Amiga port 1, p6_input.ports[0]) and joystick port (Amiga port 2, p6_input.ports[1]); both accept mice.
+// Like PUAE5 and the BizHawk wrapper, the frontend's first player is the joystick of the second Amiga port and the mouse is in the first:
 //   libretro port 0 (player 1): "Joystick + Mouse" (RETRO_DEVICE_JOYPAD, the default) -> the RetroPad drives ports[1] and the mouse ports[0], both at once;
 //                               "Joystick only" (a JOYPAD subclass) -> ports[1];  "Mouse only" -> ports[0];  Keyboard only / None -> nothing
-//   libretro port 1 (player 2): Joystick -> ports[0] (the mouse port, which is where two-player games read their second stick);  Keyboard only / None -> nothing
+//   libretro port 1 (player 2): Joystick -> ports[0] (the mouse port, which is where two-player games read their second stick);  Mouse -> ports[1] (takes priority over player 1 pad); Keyboard only / None -> nothing
 // The default is the combined type, like PUAE5 (which reads the physical mouse besides the pad) and the BizHawk wrapper (mouse in the first port, joystick in the
 // second). RetroArch hands a core RETRO_DEVICE_JOYPAD for every port a person has not changed, so the plain JOYPAD of port 0 is the combined type and the
 // "Joystick only" subclass is what a person picks to free the mouse port for player 2. A mouse that does not move sends zero counts, so a joystick player loses nothing.
@@ -26,14 +26,14 @@
 // keeps the Amiga port and the second player's joystick is not sent (a mouse and a stick cannot share a connector); an INFO message says so at load and when a
 // call to retro_set_controller_port_device makes it so. The rule is a function of the two devices, which are the frontend's configuration, not the timeline.
 //
-// Mouse. RETRO_DEVICE_MOUSE gives the movement since the last poll, read at libretro port 0 (where RetroArch delivers the one physical mouse). At most 120
+// Mouse. RETRO_DEVICE_MOUSE gives the movement since the last poll, read at libretro ports 0/1 for the corresponding physical mouse. At most 120
 // counts per axis and unit reach the guest (docs/02-contracts.md); what does not fit is not lost but kept in InputMemory and sent in the next runs (the
 // BizHawk wrapper does the same with its pointer reference). The backlog is bounded, so a long burst never keeps the pointer moving for seconds after the
 // hand stopped. The host's own pointer speed and acceleration are the frontend's business: the core adds none and reads no clock.
 //
 // Joystick. By default B, A and X are the buttons 1, 2 and 3 (the two fire buttons and the third of a gamepad); the D-pad and the left stick give the four
 // directions, the stick beyond a fixed threshold (a pure function of the reading, no timers). Since T31d (mapper.h) what each button and stick direction of
-// player 1 does is an option, with these as the defaults, and turbo fire, the mouse by stick or D-Pad and the hotkeys are part of the same step. The CD32 pad, the Arcadia pad, the analog joystick, the
+// player 1 does is an option, with these as the defaults, and turbo fire, the mouse by stick or D-Pad and the hotkeys are part of the same step. The Arcadia pad, the analog joystick, the
 // light gun and light pen of PUAE5, and the keyboard-as-joystick emulation, are not part of the A500 profile of p6_input (docs/02-contracts.md).
 //
 // Double input. A frontend that binds host keys to a RetroPad (RetroArch's default binds the arrows and some letters) makes those keys reach the core twice:
@@ -102,10 +102,10 @@ inline bool device_allowed(unsigned port, unsigned device)
     case RETRO_DEVICE_JOYPAD:
     case RETRO_DEVICE_KEYBOARD:
     case kDeviceCd32:
-        return true;
     case RETRO_DEVICE_MOUSE:
+        return true;
     case kDeviceJoystickOnly:
-        return port == 0;            // the one physical mouse is libretro port 0's, and it goes to the contract's only mouse port
+        return port == 0;            // this subclass only distinguishes player 1's pad from its default pad+mouse
     default:
         return false;
     }
@@ -211,6 +211,17 @@ inline void read_mouse(retro_input_state_t state, const InputConfig &config, con
     if (read(RETRO_DEVICE_ID_MOUSE_MIDDLE)) out->buttons |= P6_BUTTON_3;
 }
 
+inline void read_second_mouse(retro_input_state_t state, const InputConfig &config, InputMemory *memory, p6_port_input *out)
+{
+    auto read = [&](unsigned id) { return int(state(1, RETRO_DEVICE_MOUSE, 0, id)); };
+    out->type = P6_PORT_MOUSE;
+    out->dx = take_counts(&memory->mouse2_rx, scale_mouse(read(RETRO_DEVICE_ID_MOUSE_X), config.mouse_speed, &memory->host2_frac[0]));
+    out->dy = take_counts(&memory->mouse2_ry, scale_mouse(read(RETRO_DEVICE_ID_MOUSE_Y), config.mouse_speed, &memory->host2_frac[1]));
+    if (read(RETRO_DEVICE_ID_MOUSE_LEFT)) out->buttons |= P6_BUTTON_1;
+    if (read(RETRO_DEVICE_ID_MOUSE_RIGHT)) out->buttons |= P6_BUTTON_2;
+    if (read(RETRO_DEVICE_ID_MOUSE_MIDDLE)) out->buttons |= P6_BUTTON_3;
+}
+
 // The Amiga port (index in p6_input.ports) the joystick of a libretro port drives: player 1 the joystick port, player 2 the mouse port.
 inline unsigned joystick_amiga_port(unsigned libretro_port) { return libretro_port == 0 ? 1 : 0; }
 
@@ -222,6 +233,11 @@ inline bool reads_mouse(unsigned device) { return device == RETRO_DEVICE_JOYPAD 
 inline bool joystick_shadowed_by_mouse(const unsigned device[kPortCount])
 {
     return reads_mouse(device[0]) && (device[1] == RETRO_DEVICE_JOYPAD || device[1] == kDeviceCd32);
+}
+
+inline bool player1_pad_shadowed_by_mouse(const unsigned device[kPortCount])
+{
+    return device[1] == RETRO_DEVICE_MOUSE && (reads_pad(device[0]) || device[0] == kDeviceCd32);
 }
 
 // The packet of one run, from the frontend's state (polled once, just before), the options that shape the input and the device of each libretro port. An
@@ -244,13 +260,18 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
         memory->mouse_rx = memory->mouse_ry = 0;                                           // no movement is owed to a mouse that is not there
         memory->host_frac[0] = memory->host_frac[1] = 0;
     }
-    if (pad) {
+    if (pad && !player1_pad_shadowed_by_mouse(device)) {
         input.ports[joystick_amiga_port(0)].type = P6_PORT_JOYSTICK;
         input.ports[joystick_amiga_port(0)].buttons = effects.joy;
     }
-    if (device[0] == kDeviceCd32) read_cd32(state, 0, &input.ports[joystick_amiga_port(0)]);
+    if (device[0] == kDeviceCd32 && !player1_pad_shadowed_by_mouse(device)) read_cd32(state, 0, &input.ports[joystick_amiga_port(0)]);
     if (device[1] == RETRO_DEVICE_JOYPAD && !joystick_shadowed_by_mouse(device)) read_joystick(state, 1, &input.ports[joystick_amiga_port(1)]);
     if (device[1] == kDeviceCd32 && !joystick_shadowed_by_mouse(device)) read_cd32(state, 1, &input.ports[joystick_amiga_port(1)]);
+    if (device[1] == RETRO_DEVICE_MOUSE) read_second_mouse(state, config, memory, &input.ports[1]);
+    else {
+        memory->mouse2_rx = memory->mouse2_ry = 0;
+        memory->host2_frac[0] = memory->host2_frac[1] = 0;
+    }
     return input;
 }
 
@@ -265,6 +286,7 @@ inline void offer_controllers(retro_environment_t environment)
     static const retro_controller_description port1[] = {
         {"Joystick (Amiga port 1; needs Player 1 on Joystick only)", RETRO_DEVICE_JOYPAD}, {"Keyboard only (port empty)", RETRO_DEVICE_KEYBOARD},
         {"CD32 pad (Amiga port 1; needs Player 1 without mouse)", kDeviceCd32},
+        {"Mouse (Amiga port 2; overrides Player 1 pad)", RETRO_DEVICE_MOUSE},
         {"None", RETRO_DEVICE_NONE},
     };
     static const retro_controller_info ports[] = {
@@ -293,6 +315,11 @@ inline void offer_input_descriptors(retro_environment_t environment)
         {0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_LEFT, "Mouse left button"},
         {0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_RIGHT, "Mouse right button"},
         {0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_MIDDLE, "Mouse middle button"},
+        {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_X, "Mouse 2 X"},
+        {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_Y, "Mouse 2 Y"},
+        {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_LEFT, "Mouse 2 left button"},
+        {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_RIGHT, "Mouse 2 right button"},
+        {1, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_MIDDLE, "Mouse 2 middle button"},
         {0, 0, 0, 0, nullptr},
     };
 #undef P6_JOYSTICK_DESCRIPTORS

@@ -163,9 +163,8 @@ solo las diferencias, porque una pulsacion de tecla no es idempotente en el moto
 - Ctrl-Amiga-Amiga reinicia dentro de la propia aplicacion del paquete; la unidad que lo contiene cubre el resto del
   reinicio. Tras el reinicio toda tecla que el host siga manteniendo se pulsa de nuevo, una vez, despues de la secuencia de
   arranque del teclado ($00, $FD, $FE), y su liberacion posterior llega como una liberacion normal.
-- Puerto 0: raton (botones izquierdo, derecho y central = P6_BUTTON_1..3; dx/dy relativos de esta unidad) o joystick;
-  puerto 1: joystick (tres botones y cuatro direcciones; izquierda+derecha o arriba+abajo dan eje neutro). Un raton en el
-  puerto 1 es UNSUPPORTED (haria falta un segundo raton logico). Un puerto NONE no lleva botones ni movimiento; un joystick no
+- Ambos puertos: raton (botones izquierdo, derecho y central = P6_BUTTON_1..3; dx/dy relativos de esta unidad) o joystick
+  (tres botones y cuatro direcciones; izquierda+derecha o arriba+abajo dan eje neutro). Un puerto NONE no lleva botones ni movimiento; un joystick no
   lleva dx/dy; un raton no lleva bits de direccion (BAD_ARGUMENT). La validacion ocurre antes de tocar la maquina.
 - El motor entrega como mucho 120 cuentas por eje y por lectura de JOYxDAT y descarta el resto: dx/dy son exactos para
   |d| <= 120 por unidad. Los joysticks son gamepads, de modo que sus botones 2 y 3 se ven en POTGOR.
@@ -191,6 +190,15 @@ la definicion se usa para grabar/reproducir el log BK2 y la identidad ya incluye
 Las pruebas dirigidas estan en `tests/input/test_cd32.py`; la ejecucion Waterbox/pelicula de esta ampliacion
 queda pendiente de integrar el guest, sin cerrar T70 ni afirmar soporte de los otros dispositivos previstos.
 
+T70b: los dos puertos admiten `P6_PORT_MOUSE` en la ABI v1. El segundo usa los contadores, deltas y botones ya existentes
+por puerto; `mouse_port[1]` se deriva de `Applied.type[1]` al cargar y se coteja al guardar. No crece P6IN ni su cota,
+ni se reconfiguran mapas de dispositivos. Desconectarlo libera botones y movimiento pendiente, conservando los contadores hardware.
+Libretro guarda el arrastre y las fracciones de escala de cada raton en la seccion v7. El raton por stick ya usa
+`puae6_analog_mouse`, deadzone y velocidad, con fracciones de cada stick guardadas; se conserva esa conversion.
+BizHawk ofrece `ControllerPort2=Mouse`, tres botones y dos ejes absolutos `P2 Mouse X/Y`; convierte cada raton por separado
+con el mismo limite de 120 cuentas/unidad. Su referencia conocida/X/Y ocupa nueve bytes propios al final del estado del wrapper.
+Los botones y ejes de ambos ratones se graban y leen con el codec BK2 real; la identidad incluye el tipo de ambos puertos.
+
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
 - Teclado: siempre conectado, sea cual sea el dispositivo de los puertos. Cada RETROK_* se mapea por simbolo sin Shift (en un teclado US, la posicion
@@ -198,9 +206,9 @@ teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.p
   y Help dan Help, Home y End los parentesis del teclado numerico, Page Up/LMeta/LSuper dan Left Amiga y Page Down/RMeta/RSuper Right Amiga, LCtrl y
   RCtrl dan Control. Los codigos que el Amiga no tiene (F11 en adelante, Pause, Print, NumLock...) o desconocidos se ignoran; nunca se envia 0x68..0x7f.
   Caps Lock es el pestillo del contrato: cada pulsacion de la tecla del host (flanco de arriba a abajo) lo conmuta.
-- Raton: RETRO_DEVICE_MOUSE leido en el puerto libretro 0 (el unico raton fisico de RetroArch), con "Joystick + Mouse" o "Mouse only" en ese puerto; botones izquierdo, derecho y central = P6_BUTTON_1..3. Cada
+- Raton: RETRO_DEVICE_MOUSE leido en el puerto libretro 0, con "Joystick + Mouse" o "Mouse only" en ese puerto; botones izquierdo, derecho y central = P6_BUTTON_1..3. Cada
   unidad envia como mucho 120 cuentas por eje; lo que no cabe se arrastra a las unidades siguientes con un tope de 8 unidades (960 cuentas) por eje, sin
-  aceleracion ni reloj. El arrastre se descarta si el puerto 0 deja de leer el raton.
+  aceleracion ni reloj. El arrastre se descarta si el dispositivo deja de leer el raton. T70b permite un segundo raton fisico en el puerto libretro 1, dirigido al puerto Amiga 2; cada uno mantiene arrastre y fracciones propios.
 - Joystick: B, A, X = botones 1, 2, 3; cruceta y stick izquierdo (umbral fijo 20000 de 32767) = las cuatro direcciones.
 - Puertos: el jugador 2 de libretro (puerto 1) es un joystick en el primer puerto Amiga (`ports[0]`, el del raton, donde los juegos de dos jugadores leen su
   segundo mando). El jugador 1 (puerto 0) ofrece, con SET_CONTROLLER_INFO: "Joystick + Mouse" (RETRO_DEVICE_JOYPAD, el valor por defecto), "Joystick only"
@@ -209,15 +217,15 @@ teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.p
   fisico ademas del pad) y el wrapper BizHawk (raton en el primer puerto, joystick en el segundo); un raton sin movimiento envia cero cuentas, de modo que
   quien juega solo con mando no pierde nada. RetroArch entrega RETRO_DEVICE_JOYPAD en todo puerto que nadie ha cambiado, por eso el JOYPAD simple del
   puerto 0 es la combinacion; "Joystick only" es lo que se elige para dejar libre `ports[0]` al jugador 2. "Mouse only" solo mueve `ports[0]`;
-  "Keyboard only" y None dejan vacios los puertos Amiga que ese jugador manejaria (P6_PORT_NONE). El puerto 1 ofrece Joystick, "Keyboard only" y None
-  (el contrato no tiene un segundo raton, ni "Joystick only" ahi). Un tipo no ofrecido se rechaza y el puerto conserva el suyo. Si el jugador 1 tiene el
+  "Keyboard only" y None dejan vacios los puertos Amiga que ese jugador manejaria (P6_PORT_NONE). El puerto 1 ofrece Joystick, CD32, Mouse, "Keyboard only" y None
+  ("Joystick only" sigue siendo exclusivo del jugador 1). El segundo raton ocupa `ports[1]` y tiene prioridad sobre el pad del jugador 1: un mensaje INFO lo indica. Un tipo no ofrecido se rechaza y el puerto conserva el suyo. Si el jugador 1 tiene el
   raton ("Joystick + Mouse" o "Mouse only") y el jugador 2 es Joystick, ambos pedirian `ports[0]`: gana el raton y el joystick del jugador 2 no se envia;
   un mensaje INFO lo dice al cargar y cuando una llamada a retro_set_controller_port_device lo provoca. La regla depende solo de los dos dispositivos, que son
   configuracion del frontend y no de la linea temporal; un cambio de dispositivo se ve en el siguiente retro_run.
 - Doble entrada: el nucleo no puede saber que teclas del host estan ligadas a un RetroPad (RetroArch liga flechas y letras por defecto), asi que esas teclas
   llegan como joystick y como teclas Amiga. La mitigacion es el tipo "Keyboard only" (un puerto sin RetroPad), no una opcion del nucleo.
 - Memoria de entrada: el pestillo de Caps Lock, el flanco previo de esa tecla y el arrastre del raton son estado del adaptador, no del bridge. Viajan en la
-  seccion del adaptador del estado de libretro (version de marco 2; un estado de la version 1 se rechaza), de modo que un load, un rewind o una rama de
+  seccion del adaptador del estado de libretro (version de marco 7; versiones distintas se rechazan), de modo que un load, un rewind o una rama de
   runahead devuelven la memoria de la linea temporal que restauran. Lo que el frontend mantiene pulsado no se guarda: se vuelve a leer en cada ejecucion.
 
 Lag (T10b). `P6_FRAME_LAG` de una unidad significa que la CPU emulada no leyo ninguno de JOY0DAT, JOY1DAT, POT0DAT,

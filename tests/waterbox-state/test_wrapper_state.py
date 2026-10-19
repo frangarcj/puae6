@@ -35,6 +35,7 @@ import build_waterbox  # noqa: E402
 from tests.host.test_bridge_lifecycle import TOOLS, builder  # noqa: E402
 from tests.input.test_input import CAPS, ESC, FIXTURES, JOYSTICK, KEY_Q, LEFT, MOUSE, RIGHT, UP, B1, line  # noqa: E402
 from tests.input.test_cd32 import ROM as CD32_ROM  # noqa: E402
+from tests.input.test_mouse2 import ROM as MOUSE2_ROM  # noqa: E402
 from tests.scenarios.disk import disk  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
 multidrive = importlib.import_module("tests.libretro-host.test_multidrive")
@@ -59,7 +60,7 @@ class WrapperStateTests(unittest.TestCase):
         cls.dir = Path(cls.tmp.name)
         for name, source in (("disk", disk.rom_source()), ("input_all", (FIXTURES / "input_all.s").read_text(encoding="utf-8")),
                              ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8")), ("cd32", CD32_ROM),
-                             ("four", multidrive.rom_source())):
+                             ("four", multidrive.rom_source()), ("mouse2", MOUSE2_ROM)):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
         for name, label in (("A", 0x41), ("B", 0x42), ("C", 0x43), ("D", 0x44)):
             (cls.dir / f"{name}.adf").write_bytes(disk.make_adf(label))
@@ -387,6 +388,42 @@ class WrapperStateTests(unittest.TestCase):
         self.assertRegex(out, r"movie verified frames=11 buttons=\d+ axes=\d+ compared=\d+ entries=11")
         self.assertIn("movie finished ok frames=11 ", out)
         other = self.session([core("D"), f"loadfile D {state}", f"run D 8 script={script}", "digest D process", "peek D Chip_RAM 1000 18"], firmware="cd32")
+        self.assertEqual(a[3:11], [u[1:] for u in self.units(other, "D")])
+        self.assertEqual(digests["first"], self.digests(other, "D")["process"])
+        self.assertIn(f"peek D Chip_RAM 1000 {peeks[0]}", other)
+
+    def test_two_mouse_references_motion_and_bk2_restore_in_same_and_new_sandbox_and_process(self):
+        # At unit3 both absolute references still owe movement (>120 counts),
+        # in opposite directions. Replaying needs both references, not just RAM.
+        script = self.script("mouse2", [line(p0=(2, i % 8, 150 if i == 3 else 1 if i > 3 else 0, -2 if i > 3 else 0),
+                                               p1=(2, 7 - i % 8, -180 if i == 3 else -3 if i > 3 else 0, 4 if i > 3 else 0)) for i in range(1, 12)])
+        state, movie = self.dir / "mouse2.state", self.dir / "mouse2.bk2"
+        core = lambda name: self.core(name, adf="", port1="mouse", port2="mouse")
+        out = self.session([core("A"), f"run A 3 script={script} record", "save A moving", f"savefile A {state}",
+                            # Wrapper: second reference appended at89, X at90; 98bytes in total.
+                            "repack moving bad offset=90 bytes=ffffffff", "load A bad",
+                            "repack moving cut offset=0 bytes=03 length=97", "load A cut",
+                            f"run A 8 script={script} record", "digest A first", "peek A Chip_RAM 1000 80",
+                            f"endmovie A {movie}", f"movieverify A {movie} 11 script={script}",
+                            "load A moving", f"run A 8 script={script}", "digest A restored", "peek A Chip_RAM 1000 80",
+                            core("B"), "load B moving", f"run B 8 script={script}", "digest B fresh", "peek B Chip_RAM 1000 80",
+                            core("C"), f"run C 11 movie={movie}", f"moviefinish C {movie}", "digest C movie", "peek C Chip_RAM 1000 80"], firmware="mouse2")
+        a = [u[1:] for u in self.units(out, "A")]
+        self.assertEqual(19, len(a))
+        self.assertEqual(a[3:11], a[11:])
+        self.assertEqual(a[3:11], [u[1:] for u in self.units(out, "B")])
+        self.assertEqual(a[:11], [u[1:] for u in self.units(out, "C")])
+        digests = {**self.digests(out, "A"), **self.digests(out, "B"), **self.digests(out, "C")}
+        self.assertEqual({"first", "restored", "fresh", "movie"}, set(digests))
+        self.assertEqual(1, len(set(digests.values())))
+        peeks = re.findall(r"^peek [ABC] Chip_RAM 1000 ([0-9a-f]+)$", out, re.M)
+        self.assertEqual(4, len(peeks))
+        self.assertEqual(1, len(set(peeks)))
+        self.assertRegex(out, r"movie verified frames=11 buttons=\d+ axes=4 compared=\d+ entries=11")
+        self.assertIn("movie finished ok frames=11 ", out)
+        self.assertRegex(out, r"rejected A bad reason=BadFields message=")
+        self.assertRegex(out, r"rejected A cut reason=BadFields message=")
+        other = self.session([core("D"), f"loadfile D {state}", f"run D 8 script={script}", "digest D process", "peek D Chip_RAM 1000 80"], firmware="mouse2")
         self.assertEqual(a[3:11], [u[1:] for u in self.units(other, "D")])
         self.assertEqual(digests["first"], self.digests(other, "D")["process"])
         self.assertIn(f"peek D Chip_RAM 1000 {peeks[0]}", other)

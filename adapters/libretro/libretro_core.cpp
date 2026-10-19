@@ -1519,6 +1519,8 @@ void note_shadowed_joystick()
 {
     if (p6_libretro::joystick_shadowed_by_mouse(core.device))
         log(RETRO_LOG_INFO, "player 2's joystick is not sent: the mouse holds its Amiga port (set player 1 to Joystick only to free it)");
+    if (p6_libretro::player1_pad_shadowed_by_mouse(core.device))
+        log(RETRO_LOG_INFO, "player 1's pad is not sent: player 2's mouse holds Amiga port 2");
 }
 
 }  // namespace

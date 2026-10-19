@@ -177,6 +177,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// What the wrapper knows that the machine does not: all of it is causal (it decides what the next p6_input holds) and is saved with the state.
 	bool _mouseKnown;
 	int _mouseReferenceX, _mouseReferenceY;     // the position the machine was last told about
+	bool _mouse2Known;
+	int _mouse2ReferenceX, _mouse2ReferenceY;
 	bool _capsLatched, _capsHeld;               // the Caps Lock latch, and whether the button was down in the previous frame
 	// Media: the disk in each drive (an index into the media, -1 empty), what Next Drive and Next Slot selected, whether each disk button was down in the
 	// previous frame (a press is an edge: a held button does not repeat) and the last sequence number given to the machine, which only ever grows.
@@ -566,6 +568,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		}
 		if (_syncSettings.ControllerPort2 == Puae6Port2.Joystick) input.Port1 = JoystickPacket(controller, 2);
 		else if (_syncSettings.ControllerPort2 == Puae6Port2.Cd32) input.Port1 = JoystickPacket(controller, 2, true);
+		else if (_syncSettings.ControllerPort2 == Puae6Port2.Mouse) input.Port1 = MousePacket(controller, 2);
 		power = controller.IsPressed(Controllers.Power);
 		return input;
 	}
@@ -584,22 +587,28 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// unit reach the guest (docs/02-contracts.md): what does not fit is not lost, the reference moves only by what was sent and the rest follows.
 	static int Clamp(int value, int low, int high) => value < low ? low : value > high ? high : value;
 
-	P6PortInput MousePacket(IController controller)
+	P6PortInput MousePacket(IController controller, int port = 1)
 	{
 		var packet = new P6PortInput { Type = P6.PortMouse };
-		if (controller.IsPressed(Controllers.Port1MouseLeft)) packet.Buttons |= P6.Button1;
-		if (controller.IsPressed(Controllers.Port1MouseRight)) packet.Buttons |= P6.Button2;
-		if (controller.IsPressed(Controllers.Port1MouseMiddle)) packet.Buttons |= P6.Button3;
-		int x = controller.AxisValue(Controllers.Port1MouseX), y = controller.AxisValue(Controllers.Port1MouseY);
-		if (!_mouseKnown)
+		var buttons = Controllers.MouseButtons[port - 1];
+		var axes = Controllers.MouseAxes[port - 1];
+		if (controller.IsPressed(buttons[0])) packet.Buttons |= P6.Button1;
+		if (controller.IsPressed(buttons[1])) packet.Buttons |= P6.Button2;
+		if (controller.IsPressed(buttons[2])) packet.Buttons |= P6.Button3;
+		int x = controller.AxisValue(axes[0]), y = controller.AxisValue(axes[1]);
+		if (port == 2) { x = Clamp(x, 0, Controllers.MouseFieldWidth); y = Clamp(y, 0, Controllers.MouseFieldHeight); }
+		ref bool known = ref (port == 1 ? ref _mouseKnown : ref _mouse2Known);
+		ref int referenceX = ref (port == 1 ? ref _mouseReferenceX : ref _mouse2ReferenceX);
+		ref int referenceY = ref (port == 1 ? ref _mouseReferenceY : ref _mouse2ReferenceY);
+		if (!known)
 		{
-			_mouseKnown = true;
-			_mouseReferenceX = x;
-			_mouseReferenceY = y;
+			known = true;
+			referenceX = x;
+			referenceY = y;
 		}
-		int dx = Clamp(x - _mouseReferenceX, -120, 120), dy = Clamp(y - _mouseReferenceY, -120, 120);
-		_mouseReferenceX += dx;
-		_mouseReferenceY += dy;
+		int dx = Clamp(x - referenceX, -120, 120), dy = Clamp(y - referenceY, -120, 120);
+		referenceX += dx;
+		referenceY += dy;
 		packet.Dx = (short)dx;
 		packet.Dy = (short)dy;
 		return packet;
@@ -714,6 +723,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		public bool IsLagFrame, DriveLightOn, MouseKnown, CapsLatched, CapsHeld, EjectHeld, InsertHeld, SlotHeld, DriveHeld;
 		public long CycleCount;
 		public ulong MediaSequence;
+		public bool Mouse2Known;
+		public int Mouse2X, Mouse2Y;
 	}
 
 	WrapperState Capture() => new()
@@ -723,6 +734,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		MouseKnown = _mouseKnown, MouseX = _mouseReferenceX, MouseY = _mouseReferenceY, CapsLatched = _capsLatched, CapsHeld = _capsHeld,
 		Disk0 = _driveDisk[0], Disk1 = _driveDisk[1], Disk2 = _driveDisk[2], Disk3 = _driveDisk[3], CurrentDrive = _currentDrive, CurrentSlot = _currentSlot,
 		EjectHeld = _ejectHeld, InsertHeld = _insertHeld, SlotHeld = _slotHeld, DriveHeld = _driveHeld, MediaSequence = _mediaSequence,
+		Mouse2Known = _mouse2Known, Mouse2X = _mouse2ReferenceX, Mouse2Y = _mouse2ReferenceY,
 	};
 
 	static void Write(BinaryWriter w, WrapperState s)
@@ -732,6 +744,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		w.Write(s.MouseKnown); w.Write(s.MouseX); w.Write(s.MouseY); w.Write(s.CapsLatched); w.Write(s.CapsHeld);
 		w.Write(s.Disk0); w.Write(s.Disk1); w.Write(s.Disk2); w.Write(s.Disk3); w.Write(s.CurrentDrive); w.Write(s.CurrentSlot);
 		w.Write(s.EjectHeld); w.Write(s.InsertHeld); w.Write(s.SlotHeld); w.Write(s.DriveHeld); w.Write(s.MediaSequence);
+		w.Write(s.Mouse2Known); w.Write(s.Mouse2X); w.Write(s.Mouse2Y);
 	}
 
 	WrapperState Parse(BinaryReader r)
@@ -746,6 +759,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 				AspectDen = r.ReadInt32(), DriveLightOn = r.ReadBoolean(), MouseKnown = r.ReadBoolean(), MouseX = r.ReadInt32(), MouseY = r.ReadInt32(),
 				CapsLatched = r.ReadBoolean(), CapsHeld = r.ReadBoolean(), Disk0 = r.ReadInt32(), Disk1 = r.ReadInt32(), Disk2 = r.ReadInt32(), Disk3 = r.ReadInt32(), CurrentDrive = r.ReadInt32(), CurrentSlot = r.ReadInt32(),
 				EjectHeld = r.ReadBoolean(), InsertHeld = r.ReadBoolean(), SlotHeld = r.ReadBoolean(), DriveHeld = r.ReadBoolean(), MediaSequence = r.ReadUInt64(),
+				Mouse2Known = r.ReadBoolean(), Mouse2X = r.ReadInt32(), Mouse2Y = r.ReadInt32(),
 			};
 		}
 		catch (EndOfStreamException)
@@ -757,7 +771,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			&& s.Disk2 >= -1 && s.Disk2 < _media.Count && s.Disk3 >= -1 && s.Disk3 < _media.Count
 			&& (ConnectedFloppyDrives > 1 || s.Disk1 == -1)
 			&& (ConnectedFloppyDrives > 2 || s.Disk2 == -1) && (ConnectedFloppyDrives > 3 || s.Disk3 == -1)
-			&& s.CurrentDrive >= 0 && s.CurrentDrive < ConnectedFloppyDrives && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count);
+			&& s.CurrentDrive >= 0 && s.CurrentDrive < ConnectedFloppyDrives && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count)
+			&& s.Mouse2X is >= 0 and <= Controllers.MouseFieldWidth && s.Mouse2Y is >= 0 and <= Controllers.MouseFieldHeight
+			&& (s.Mouse2Known || (s.Mouse2X == 0 && s.Mouse2Y == 0));
 		if (!ok) throw new StateRejectedException(StateRejection.BadFields, "the state has a field that this machine cannot have");
 		return s;
 	}
@@ -768,6 +784,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		BufferWidth = s.BufferWidth; BufferHeight = s.BufferHeight; VsyncNumerator = s.VsyncNumerator; VsyncDenominator = s.VsyncDenominator;
 		_aspectNum = s.AspectNum; _aspectDen = s.AspectDen; DriveLightOn = s.DriveLightOn;
 		_mouseKnown = s.MouseKnown; _mouseReferenceX = s.MouseX; _mouseReferenceY = s.MouseY; _capsLatched = s.CapsLatched; _capsHeld = s.CapsHeld;
+		_mouse2Known = s.Mouse2Known; _mouse2ReferenceX = s.Mouse2X; _mouse2ReferenceY = s.Mouse2Y;
 		_driveDisk[0] = s.Disk0; _driveDisk[1] = s.Disk1; _driveDisk[2] = s.Disk2; _driveDisk[3] = s.Disk3; _currentDrive = s.CurrentDrive; _currentSlot = s.CurrentSlot;
 		_ejectHeld = s.EjectHeld; _insertHeld = s.InsertHeld; _slotHeld = s.SlotHeld; _driveHeld = s.DriveHeld; _mediaSequence = s.MediaSequence;
 		_soundFrames = 0;                          // pending output of the timeline that was left is not part of this one
