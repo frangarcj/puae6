@@ -14445,7 +14445,7 @@
       ],
       "id": "T66d1",
       "title": "Lecturas exactas de BIN/WAV en DiscSystem derivado sin ocultar truncados",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66b"
       ],
@@ -14473,7 +14473,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "id": "T66d3",
       "title": "Corregir avance entre hunks en el lector CHD derivado de DiscSystem",
       "depends": [
@@ -14517,7 +14517,7 @@
       ],
       "id": "T66d2",
       "title": "Fuente C# CD por offset sobre DiscSystem con identidad completa y rebind",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66d1",
         "T66d3"

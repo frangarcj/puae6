@@ -893,6 +893,13 @@ a [ECMA-130 §14.1](https://ecma-international.org/wp-content/uploads/ECMA-130_2
 00, diez FF,00 antes de calcular EDC/ECC. El staging permanece fijo en2448B y
 todo fallo conserva la salida. No añade parsers de formatos, CDDA ni CD32.
 
+T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
+el destino como la posicion de origen antes de seleccionar el siguiente hunk.
+El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando
+payload, cache, limites y propagacion de errores con un proveedor de hunks de
+prueba. Este proveedor no decodifica CHD ni acredita la biblioteca nativa macOS;
+esa dependencia y el arranque CD32 permanecen pendientes en T66.
+
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
 fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,
