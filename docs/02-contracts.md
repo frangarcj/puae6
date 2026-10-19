@@ -1357,3 +1357,22 @@ muestras y acumuladores. Punteros/callback/contexto se derivan de argumentos del
 caller. La aplicacion valida antes de mutar y no avanza ni programa eventos: fase
 Paula y scheduler se restauran por separado. El guard0099 sigue rechazando streams
 extra en estados de maquina; faltan el codec nativo y la integracion CDDA/Akiko.
+
+## Player CDA cooperativo (T66i2)
+
+`AudioPlayer` conserva un sector PCM (2352 bytes), la posicion/rango exclusivo,
+retardo pendiente en frames, ganancias logicas y el stream CDA real. Lee mediante
+`canonical_read(2448)` en staging acotado y decodifica signed16 LE explicitamente.
+Publica P-W convirtiendo deinterleaved a interleaved una vez con la funcion fijada
+de WinUAE; los callbacks no pueden reentrar. La publicacion ocurre al encolar el
+sector, siguiendo el callback real de agotamiento, sin otro scheduler.
+Las consultas status -1(ms) y -2(sectores) se suman en frames a 44,1 kHz, redondeando
+ms arriba. Silencio y pausa no leen ni adelantan LBA; mute sigue consumiendo. -3
+notifica disponibilidad del primer buffer. Fin se notifica una vez con end
+exclusivo, conservando el ultimo sample hasta su siguiente evento. Error conserva
+el ultimo LBA publicado y no publica subcanales ni PCM del sector fallido.
+Disc/callbacks son bindings derivados; el medio debe sobrevivir hasta stop o
+teardown. Solo acepta `Track.mode=Audio`: el prefijo con CONTROL efectivo audio
+de un Track de datos espera una consulta de clasificacion compartida con G4.
+No hay scan ni reproduccion de pistas de datos. El codec de maquina,
+reset/estado Akiko y seleccion del dispositivo siguen pendientes en T66.

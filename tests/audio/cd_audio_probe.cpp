@@ -43,6 +43,7 @@ static void start(int rate, bool ntsc, cd_audio_state &cas, int16_t *buffer)
     audio_cda_volume(&cas, 32768, 32768);
     audio_cda_new_buffer(&cas, buffer, 588, 7, ended, nullptr);
 }
+#ifndef P6_CDA_FIXTURE_ONLY
 static void restore_case(int rate, bool ntsc)
 {
     int16_t buffer[1176], rebound[1176];
@@ -132,3 +133,5 @@ int main()
 {
     for (int rate : {44100, 48000}) for (bool ntsc : {false, true}) restore_case(rate, ntsc);
 }
+
+#endif

@@ -14,11 +14,14 @@ from tests.host.test_audio_math import function
 
 
 class CdAudioTests(unittest.TestCase):
+    PROBE = ROOT / 'tests/audio/cd_audio_probe.cpp'
+    EXTRA_SOURCES = ()
+    UPSTREAM_SOURCES = ()
     def test_pcm_pause_semantic_restore_and_bounds(self):
         with tempfile.TemporaryDirectory(prefix='cda-', dir=ROOT / 'build') as tmp:
             tree = Path(tmp)
             series = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-            names = {'audio.cpp', 'events.cpp'} | {p.relative_to(ROOT / 'upstream/winuae').as_posix() for p in (ROOT / 'upstream/winuae/softfloat').iterdir() if p.is_file()} | {f['path'] for e in series for f in e['files'] if f['path'].endswith('.h')}
+            names = {'audio.cpp', 'events.cpp', *self.UPSTREAM_SOURCES} | {p.relative_to(ROOT / 'upstream/winuae').as_posix() for p in (ROOT / 'upstream/winuae/softfloat').iterdir() if p.is_file()} | {f['path'] for e in series for f in e['files'] if f['path'].endswith('.h')}
             for name in names:
                 dest = tree / name; dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes((ROOT / 'upstream/winuae' / name).read_bytes())
@@ -44,7 +47,7 @@ class CdAudioTests(unittest.TestCase):
                       '-I' + str(ROOT / 'ports/portable'), '-I' + str(tree / 'include'), '-I' + str(tree),
                       '-I' + str(ROOT / 'upstream/winuae/include'), '-I' + str(ROOT / 'upstream/winuae')]
             strip = '-Wl,-dead_strip' if platform.system() == 'Darwin' else '-Wl,--gc-sections'
-            sources = [ROOT / 'tests/audio/cd_audio_probe.cpp', tree / 'events.cpp',
+            sources = [self.PROBE, *self.EXTRA_SOURCES, *(tree / name for name in self.UPSTREAM_SOURCES), tree / 'events.cpp',
                        tree / 'softfloat/softfloat.cpp',
                        tree / 'softfloat/softfloat_fpsp.cpp']
             sources += [ROOT / 'ports/portable' / n for n in
