@@ -13903,7 +13903,7 @@
       "title": "Builder C++ del bundle WHDLoad con paridad de tres HDF",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T65a"
       ],
@@ -13941,7 +13941,7 @@
       "title": "Carga automatica libretro de WHDLoad y persistencia reversible",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T65b1"
       ],
@@ -13959,14 +13959,18 @@
         "docs/whdload.md",
         "config/schema/options.json",
         "tools/generate_options.py",
-        "tests/config/**"
+        "tests/config/**",
+        "tools/generate_whdload.py",
+        "tools/whdload/bundle.py",
+        "integration/bizhawk/core/Puae6/WHDLoadData.generated.cs"
       ],
       "steps": [
         "Integrar el builder antes de pedir firmware: Auto detecta exactamente un .slave; cero usa el volumen existente, varios fallan claramente. Disabled conserva el flujo anterior. A1200 y su firmware se fuerzan para el pack; el contenido de scripts/prefs del archivo no sustituye la receta propia.",
         "Proveedor del usuario WHDLoad_usr.lha bajo directorio system de libretro o GetUserPath(Amiga,false) en C#, con alternativa de bytes explicitos en Parameters/FFI. Extraer solo WHDLoad/C/WHDLoad y WHDLoad/C/WHDLoad.VFS, verificar pins T30/T65a y fallar con error claro si faltan o difieren; no descargar ni redistribuirlos.",
         "Opciones de reinicio frontend: whdload auto|disabled y ButtonWait disabled|enabled. Sin campos nuevos de p6_config: el contenido de los tres HDF vincula estados/peliculas. Copiar firmware reconocido a RASystem; KS/RTB adicionales solo por entrada explicita.",
         "Reutilizar guardado HDF/SaveRAM P6SRv2, reemplazo atomico y rollback existentes. WHDSaves es compartible como en PUAE5: una base identica identifica el mismo medio, sin nuevo envelope ni namespace por juego. No afirmar rechazo de otro pack si solo difieren medios sin escrituras. Estados/peliculas siguen vinculados a las tres bases y configuracion.",
-        "Probar pack real autorizado: arranque, FM1.hisc112B en WHDSaves, bases y DATA inmutables, restore con PCM/imagen y persistencia de la rama final sin fugas de rewind/runahead. Conservar todos los checks del padre; WB03 no se sustituye por un build nativo."
+        "Probar pack real autorizado: arranque, FM1.hisc112B en WHDSaves, bases y DATA inmutables, restore con PCM/imagen y persistencia de la rama final sin fugas de rewind/runahead. Conservar todos los checks del padre; WB03 no se sustituye por un build nativo.",
+        "El frente libretro mantiene el generador compartido: añadir la tabla publica SHA1/nombre Kickstart desde bundle.KICKSTARTS para reconocer en memoria el firmware de RASystem, sin incluir ROMs ni inventar RTB. C# consume la misma salida generada."
       ],
       "checks": [
         "MED02",
