@@ -14545,6 +14545,80 @@
       "stop": "Sin callbacks al guest hasta validar contrato de lectura exacta; no anunciar arranque CD32 ni CHD por probar ISO/CUE."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66e1",
+      "status": "in_progress",
+      "title": "Fuentes nativas CD seekable e ISO/WAV PCM por offset sin copiar imagen",
+      "depends": [
+        "T66b"
+      ],
+      "touch": [
+        "adapters/libretro/cd_file.h",
+        "ports/portable/media/cd_wave.h",
+        "ports/portable/media/cd_wave.cpp",
+        "tests/media/cd_file_probe.cpp",
+        "tests/media/test_cd_file.py",
+        "tools/check.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Crear proveedor seekable RAII VFS/stdio independiente de FileReader whole-file, con size/read_at exactos y SHA256 streaming. Identidad por contenido, no ruta; errores/rangos/short reads no fingen exito. No modificar FileReader ni copiar CD completo.",
+        "Normalizar ISO2048 a Source/Disc y WAV mediante RIFF chunks acotados a payloadPCM16le stereo44.1k. Metadata explicita AudioPcmS16Le, sin swap: WinUAE6030 blkdev_cdimage637–641 y C#WaveFile/SS2352 conservan bytesPCM; CHD es una rama distinta. BINraw permanece opaco. Validar fmt, count/chunks/longitudes, paddingRIFF y alineacion2352; rechazar codecs/colas no representables.",
+        "Check ASan/UBSan con VFS corto/error/rango/canarios, fuente grande simulada por offset, fixtures de RIFF invalidos e identidad contrastada con hashlib. Ejecutar ISO y WAV de Brian autorizado mediante variables de entorno locales, sin pathsprivados ni bytes de CD en Git. Presupuesto350 lineas logicas, dividir antes de400. No engine/guest ni CDDA/CD32 claim."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Archivos ISO y payloadWAV se leen por offset acotado y producen identidades completas sin copiar la imagen al guest; entrada invalida falla claramente."
+      ],
+      "stop": "No tratar WAV little endian como endian universal de BIN/CHD ni ampliar a CUE antes del siguiente componente."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66e2",
+      "status": "pending",
+      "title": "Normalizar CUE nativo reutilizando parsecue fijado y limites endurecidos",
+      "depends": [
+        "T66e1"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "adapters/libretro/cd_cue.h",
+        "adapters/libretro/cd_cue.cpp",
+        "tests/media/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "tests/reference/patch-classes.json"
+      ],
+      "steps": [
+        "Aislar parsecue de blkdev_cdimage.cpp6030 mediante parche pequeno y exportacion de metadata; reutilizar logica de pistas/indices sin enlazar hilos/CDDA/MP3/FLAC. No copiar motor antiguo ni usar cdfs_parse_cue como TOC completa. Antes de editar concretar presupuesto y numero de parche con coordinador.",
+        "Endurecer nextstring/skipnspace alNUL, tiempos por longitud/rangos, tipos desconocidos comoerror y t[-1] del primerINDEX01; WAV usa proveedorvalidadoe1. Convertir layout INDEX00/01, PREGAP/POSTGAP/FLAGS sobre fuentes VFS/stdio y SHA canonicodeTOC+IDs.",
+        "Probar BINmultitrack y CUE29pistas Brian con ambos tipos de pregap, errores y rangos, sin copiar CD alguest. Registrar subcanales no almacenados como unsupported2448 hasta sintesis real posterior. Conservar todos los formatos, CDDA y arranque/restore CD32 pendientes en padre; dividir antes de400 lineas manuales."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "La TOC normalizada conserva pistas de audio/datos y pregaps reales, con fallos claros ante CUE invalido."
+      ],
+      "stop": "No inventar TOC de una pista para anunciar arranque de un CD29pistas ni aceptar codecs no implementados."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -14557,7 +14631,8 @@
         "T66a",
         "T66b",
         "T66c",
-        "T66d2"
+        "T66d2",
+        "T66e2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -14581,7 +14656,8 @@
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: waterbox/uae/uae-waterbox.patch y el submodulo libretro-uae (akiko.c, blkdev_cdimage.c, cd32_fmv.c), bizhawk-cd.h (CD por lecturas desde el host) y waterboxhost/uae-cd32-smoke.",
         "Dividida primera fuente por offset enT66a. El padre conserva todas sus puertas y su aceptacion de arranque/restore CD32 en ambos adaptadores; quedan Akiko cooperativo, NVRAM/I2C, CDDA y los seis formatos, sin stubs exitosos.",
         "Task force: T66b normaliza TOC/sectores y T66c conserva EEPROM/I2C real; son componentes independientes. Se mantienen todos los formatos, Akiko cooperativo, CDDA, NVRAM/persistencia, frontends y arranque/restore real para el cierre del padre.",
-        "T66d1 corrige lecturas cortas en DiscSystem derivado yT66d2 conecta una fuente C# por offset con identidad completa. Son componentes, no cierre del arranque/restore ni del soporte nativo de formatos del padre."
+        "T66d1 corrige lecturas cortas en DiscSystem derivado yT66d2 conecta una fuente C# por offset con identidad completa. Son componentes, no cierre del arranque/restore ni del soporte nativo de formatos del padre.",
+        "T66e1 aporta proveedor nativo ISO/WAV seekable yT66e2 reutiliza el parserCUE fijado endurecido. El padre mantiene CCD/NRG/MDS/CHD, CDDA, Akiko cooperativo, NVRAM, frontends y arranque/restore completo."
       ],
       "checks": [
         "MED01",
