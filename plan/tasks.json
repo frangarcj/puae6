@@ -12654,7 +12654,8 @@
         "tools/generate_options.py",
         "tools/check.py",
         "docs/02-contracts.md",
-        "docs/adr/**"
+        "docs/adr/**",
+        "docs/options.md"
       ],
       "steps": [
         "Implementar 68030 y A4000/030 con RTC, FatGary/Ramsey y direccionamiento reales; mantener cerrados los niveles CPU sin soporte y completar los definidos para esta maquina. Exponer preset y opciones coherentes en los tres frontends.",
@@ -13753,7 +13754,7 @@
       "title": "Bundle WHDLoad determinista con RASystem y WHDSaves",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T30",
         "T64",
@@ -13784,7 +13785,8 @@
       "acceptance": [
         "El bundle es reproducible y ejecutable; Fatal Mission escribe FM1.hisc en WHDSaves y restaura sin modificar datos de juego."
       ],
-      "stop": "No distribuir Kickstarts; los aporta el usuario."
+      "stop": "No distribuir Kickstarts; los aporta el usuario.",
+      "blocked_reason": "Dos checks nativos reales sobre preview5bfe0a5 llegan al juego y reproducen PCM/imagen/estado, DATA inmutable, pero FM1.hisc no aparece. Reproducer: tests/whdload/test_bundle.py BundleLibretroTests. Hipotesis verificables: el cleanup SaveFile requiere RMB en titulo (readme del juego), F10 no basta; si RMB ejecuta cleanup, verificar lectura de S:WHDLoad.prefs y escritura efectiva en WHDSaves. Corregido ZIP Amiga OSid1/proteccion RWED; WB03 pendiente."
     },
     {
       "id": "T65b",
@@ -14475,12 +14477,16 @@
         "manifests/state-inventory.json",
         "manifests/licenses.json",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "bridge/state_upstream.cpp",
+        "tests/host/test_pcm.py",
+        "tests/host/test_audio_config.py",
+        "tests/host/test_cpu_halt_audio.py"
       ],
       "steps": [
         "Portar la superficie mecanica driveclick de WinUAE6 a la capa portable: muestras sintetizadas propias de licencia GPL, aritmetica entera, sin FS fisico, rand, reloj host ni audio_activate que altere Paula.",
-        "Compilar, inicializar y serializar juntas las fases de motor/click: requiere mas de cinco rutas porque habilitar DRIVESOUND sin ownership nativo dejaria un estado incompleto. La mezcla se activa solo en el borde de presentacion; por defecto PCM y digests hardware se conservan.",
-        "Guardar fases de presentacion en chunk nativo propio P6DC, fuera de los digests de hardware; restaurar en proceso nuevo y rechazar indices corruptos antes de aplicar. El probe --drive-sound es diagnostico, no otra ruta de scheduler."
+        "Compilar, inicializar y serializar juntas las fases de motor/click: requiere mas de cinco rutas porque habilitar DRIVESOUND sin ownership nativo dejaria un estado incompleto. La mezcla se activa solo en el borde de presentacion; por defecto PCM y digests hardware se conservan. Los tres probes aislados de transporte deben enlazar el nuevo backend de ciclo de vida.",
+        "Guardar fases de presentacion en subbody P6AU.DCLK, sin ampliar la tabla del envelope ni los digests de hardware; restaurar en proceso nuevo y rechazar indices corruptos antes de aplicar. El probe --drive-sound es diagnostico, no otra ruta de scheduler."
       ],
       "checks": [
         "AV02"
