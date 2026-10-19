@@ -899,6 +899,19 @@ a [ECMA-130 §14.1](https://ecma-international.org/wp-content/uploads/ECMA-130_2
 00, diez FF,00 antes de calcular EDC/ECC. El staging permanece fijo en2448B y
 todo fallo conserva la salida. No añade parsers de formatos, CDDA ni CD32.
 
+T66e1 añade `adapters/libretro/cd_file.h`, proveedor nativo RAII seekable por
+VFS o stdio, separado de FileReader. Solo lectura, offsets64bit y peticiones de
+hasta64KiB con staging: short/error/rango no publican salida parcial. Cada
+peticion posiciona el cursor absoluto; el binding se publica una sola vez y
+el objeto/VFS deben vivir hasta la ultima lectura. El archivo se mantiene inmutable.
+SHA256 streaming identifica todo ISO/BIN, o solo el payload WAV, sin precargarlo.
+`cd_wave.h` acepta RIFF con un fmt y un data, PCM16le estereo44100Hz y longitud
+multiplo2352; valida bounds, padding y un maximo1024chunks. Expone el slice como
+`AudioPcmS16Le`, conservando bytes sin swap; BIN sigue `Opaque` y no hereda ese
+endian. El consumidor debe conservar esa metadata al construir la identidad del
+medio. `P6_CD_ISO_FILE` y `P6_CD_WAV_FILE` habilitan el check real read-only de
+MED01/T66e1. Aun no añade CUE, CDDA ni carga CD32 al frontend.
+
 T66d3 corrige en la copia derivada `Blob_CHD.Read`: cada fragmento avanza tanto
 el destino como la posicion de origen antes de seleccionar el siguiente hunk.
 El reproducer falla con la fuente fijada y pasa con el parche0003, comprobando
