@@ -15728,6 +15728,50 @@
       "stop": "Componente previo al NativeChunk de maquina; no habilitar estados CD32 publicos ni atribuir snapshot Waterbox completo a esta prueba."
     },
     {
+      "id": "T66m6",
+      "title": "Preservar latch de overlay CD32 en el chunk CIA nativo",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T15",
+        "T66m4",
+        "T66m5"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/0371-cd32-overlay-state.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "bridge/state_devices.cpp",
+        "tests/host/cia_overlay_state_probe.cpp",
+        "tests/host/test_cia_overlay_state.py",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "CD32 usa cs_ciaoverlay0: oldovl cae con la primera escritura CIAA cualquiera y no es derivable de PRA/DDRA. Añadir u8 cia.oldovl al final P6CI solo para ese modo; rango0..1, Validate no muta. Conservar sin cambios los143bytes de perfiles CIAoverlay. Getter/setter raw ya lleva oldovl; no ampliar structs ni ABI.",
+        "0371/order188 sobre cia.cpp: p6_cia_boundary admite modo autooverlay solo CP_CD32 con hardware CD32, preserva otros rechazos y comprueba concordancia PRA/DDRA solo cuando CIA gobierna overlay. Rebuild CD32 conserva latch restaurado y pide map_overlay; perfiles CIAoverlay derivan como antes. No modificar MMIO, reset ni tiempo del hardware para facilitar estado.",
+        "Probe con cia.cpp/events.cpp reales y bridge/state_devices.cpp, secciones no usadas descartadas: map_overlay es observador declarado. Materializacion parcial con SHAchain de cia.cpp/events.cpp/headers, reutilizar patron test_cd_audio sin ensure_generated ni cacheprincipal. Primera escritura real WriteCIAA ajenaPRA baja latch; restaurar0/1 con mismoPRA/DDRA pide ambosmapas; Validate/corrupto2 no mutan; A500143bytes/derivado y perfilautooverlaygenerico rechazado. ASan/UBSan, sin engine/guest/codegen.",
+        "Actualizar inventario/contrato en la frontera del nuevo latch; reservar comprobacion del mapa real de maquina a NativeChunk. Cambio atomico latch/visitor/rebuild con su probe, objetivo<=350manuales. Mantener toda aceptacion de T66."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "El visitor CIA conserva el latch CD32 independiente y solicita la reconstruccion correcta sin avanzar hardware ni IRQ; los perfiles CIAoverlay mantienen wire y derivacion anteriores y otros modos siguen rechazados."
+      ],
+      "stop": "El probe observa peticion de mapa; no acredita aun save/load CD32 completo ni mapa real/boot/snapshot Waterbox del padre."
+    },
+    {
       "id": "T66h3",
       "title": "Integrar probes Akiko con el mezclador CDDA real",
       "milestone": "M3",
@@ -15897,7 +15941,8 @@
         "T66p1",
         "T66q1",
         "T66m4",
-        "T66m5"
+        "T66m5",
+        "T66m6"
       ],
       "read": [
         "docs/01-architecture.md",
