@@ -2628,6 +2628,8 @@
     }
   },
   "reserved": {
+    "whdload": "WhdLoad",
+    "whdload_buttonwait": "WhdLoadButtonWait",
     "floppy_drives": "FloppyDrives"
   },
   "unsupported": {

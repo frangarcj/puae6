@@ -97,7 +97,7 @@ public sealed class Puae6SyncSettings
 {
 	/// <summary>Restart option: Auto builds the three-volume WHDLoad bundle from one installed pack; Disabled keeps the generic volume loader.</summary>
 	public Puae6WhdLoadMode WhdLoad { get; set; } = Puae6WhdLoadMode.Auto;
-	public bool WhdLoadButtonWait { get; set; }
+	public bool WhdLoadButtonWait { get; set; } = false;
 
 	/// <summary>Which Amiga it is. A state or a movie of one machine is refused by the other; the Kickstart asked of BizHawk's firmware database follows it (FirmwareID Amiga "A500", "A600" or "A1200", the name of the member).</summary>
 	public Puae6Machine Machine { get; set; } = Puae6Machine.A500;
