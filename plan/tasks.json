@@ -15744,7 +15744,7 @@
       "title": "Conectar reloj CDDA al mezclador del motor completo",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66n1",
         "T66i1",
