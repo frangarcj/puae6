@@ -10,13 +10,13 @@ constexpr size_t kMaxReadBytes = 2448;
 struct Identity {
     uint8_t content_id[32]; // SHA-256 supplied/verified by the host, never a path.
     uint64_t bytes;
-    uint32_t sector_bytes;  // T66a: ISO2048 only, bytes nonzero and a multiple of 2048.
+    uint32_t sector_bytes;  // 2048: aligned ISO source; 1: opaque byte source (BIN/container).
 };
 // The caller owns the context through the last read. For a given identity, bytes
 // must be immutable; no reentry, wall-clock effects or cursor between requests.
 // Write at most length bytes, set *got even on error; true alone is not an exact read.
 using ReadFn = bool (*)(const void *context, uint64_t offset, void *out, size_t length, size_t *got);
-enum class Result { Ok, Invalid, Incompatible, Range, ReadError };
+enum class Result { Ok, Invalid, Incompatible, Range, ReadError, Unsupported };
 
 class Source {
 public:

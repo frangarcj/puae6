@@ -4625,6 +4625,28 @@
           "after_sha256": "b8ada53722f491e8b0bfac87df33fe5f852dffaf8ef5b7a844a98a533f2ab0cd"
         }
       ]
+    },
+    {
+      "id": "0355-cdrom-mode1-sync",
+      "file": "patches/winuae/0355-cdrom-mode1-sync.patch",
+      "sha256": "cbdfe950e0839a62b5b3c8a67a7ed32f421bfcd058347aada300e1c6f55ba733",
+      "title": "Encode the ECMA-130 Mode1 synchronization field exactly",
+      "reason": "T66b: ECMA-130 section14.1 requires00, tenFF and00. The old elevenFF changed both the synchronization field and the EDC/ECC computed from it. Only the pinned pure encoder is used by the CD probe; no CD32 device is enabled.",
+      "category": "host hooks",
+      "order": 170,
+      "symbols": [
+        "encode_l2"
+      ],
+      "test": "tests/media/test_cd_disc.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cdrom.cpp",
+          "before_sha256": "130625da79ef9676e4e3ad420d385bfe826fbe0c5618fdcc37a5d7eaad12e598",
+          "after_sha256": "d9008a1a79ef9494662fe57df72a590d2e4b0eac147c51f6da139adc9d8349d0"
+        }
+      ]
     }
   ]
 }

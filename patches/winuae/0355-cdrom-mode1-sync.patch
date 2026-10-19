@@ -1,0 +1,13 @@
+diff --git a/cdrom.cpp b/cdrom.cpp
+--- a/cdrom.cpp
++++ b/cdrom.cpp
+@@ -220,7 +220,8 @@
+ 			uae_u32 v;
+ 
+ 			p[0] = 0x00;
+-			memset (p + 1, 0xff, 11);
++			memset (p + 1, 0xff, 10);
++			p[11] = 0x00;
+ 			p[12] = tobcd ((uae_u8)(address / (60 * 75)));
+ 			p[13] = tobcd ((uae_u8)((address / 75) % 60));
+ 			p[14] = tobcd ((uae_u8)(address % 75));

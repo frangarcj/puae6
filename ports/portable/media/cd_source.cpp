@@ -4,7 +4,8 @@
 namespace p6_cd {
 static bool valid(const Identity &id, ReadFn read)
 {
-    return read && id.sector_bytes == kIsoSectorBytes && id.bytes && id.bytes % kIsoSectorBytes == 0;
+    return read && id.bytes && (id.sector_bytes == 1 ||
+        (id.sector_bytes == kIsoSectorBytes && id.bytes % kIsoSectorBytes == 0));
 }
 
 Result Source::bind(const Identity &id, ReadFn read, const void *context)
@@ -40,7 +41,7 @@ Result Source::read_at(uint64_t offset, void *out, size_t length) const
 
 Result Source::read_sector(uint64_t lba, void *out, size_t capacity) const
 {
-    if (!read_ || capacity < kIsoSectorBytes || !out) return Result::Invalid;
+    if (!read_ || identity_.sector_bytes != kIsoSectorBytes || capacity < kIsoSectorBytes || !out) return Result::Invalid;
     // Division before multiplication: even an LBA near UINT64_MAX cannot wrap.
     if (lba >= identity_.bytes / kIsoSectorBytes) return Result::Range;
     return read_at(lba * kIsoSectorBytes, out, kIsoSectorBytes);

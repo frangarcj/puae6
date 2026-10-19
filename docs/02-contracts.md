@@ -878,6 +878,21 @@ los punteros se vuelven a enlazar y la cache externa puede descartarse. No cambi
 la ABI publica, ni habilita CD32: Akiko, NVRAM/I2C, CDDA, todos los formatos de T66
 y los arranques/restauraciones en ambos adaptadores conservan sus puertas propias.
 
+T66b añade `cd_disc.h`: layout privado copiado, hasta99 pistas y99 fuentes,
+INDEX00/01 y final exclusivo, leadout, ADR/control, modo, fuente, offset y stride.
+Las pistas son contiguas desde LBA0; INDEX00..01 puede estar almacenado o ser un
+pregap sintetico. Fuentes opacas (`sector_bytes=1`) admiten contenedores no
+alineados y solo `read_at`; `Source::read_sector` sigue siendo ISO2048.
+Bind valida orden/rangos/overflow; rebind compara identidad del disco, toda TOC
+y cada ID/longitud/geometria de fuente antes de cambiar callbacks/contextos.
+Una lectura entrega2048 de Mode1,2352 raw o2448 con subcanales ya almacenados;
+Mode2/audio en2048 y subcanales ausentes devuelven `Unsupported`, sin inventarlos.
+El audio raw conserva el orden de bytes CD; interpretar WAV es trabajo posterior.
+ISO2048 a2352 reutiliza `encode_l2` fijado, con parche0355 de sync conforme
+a [ECMA-130 §14.1](https://ecma-international.org/wp-content/uploads/ECMA-130_2nd_edition_june_1996.pdf):
+00, diez FF,00 antes de calcular EDC/ECC. El staging permanece fijo en2448B y
+todo fallo conserva la salida. No añade parsers de formatos, CDDA ni CD32.
+
 T66c expone la EEPROM 24C08 real de `flashrom.cpp` mediante el endpoint privado
 `cd32_eeprom.h`. El llamante conserva sus 1024 bytes de memoria; el chip no tiene
 fichero ni callbacks. El snapshot semantico incluye contenido, fase de bit/ACK,
