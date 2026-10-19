@@ -11646,7 +11646,7 @@
       "title": "Entregar preview local utilizable del core libretro macOS ARM64",
       "milestone": "M4",
       "required": true,
-      "status": "done",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35"
@@ -12629,7 +12629,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T55a"
       ],
@@ -12660,7 +12660,8 @@
       "steps": [
         "Implementar 68030 y A4000/030 con RTC, FatGary/Ramsey y direccionamiento reales; mantener cerrados los niveles CPU sin soporte y completar los definidos para esta maquina. Exponer preset y opciones coherentes en los tres frontends.",
         "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
-        "Reservar IDs de maquina11=A4030 y12=A4040;9/10 quedan reservados paraCD32/CDTV sin aceptarlos hastaimplementados. Validacion explicita de IDs, no rango continuo."
+        "Reservar IDs de maquina11=A4030 y12=A4040;9/10 quedan reservados paraCD32/CDTV sin aceptarlos hastaimplementados. Validacion explicita de IDs, no rango continuo.",
+        "Native/LR y restauracion Waterbox A4030 Auto/None pasan con micro-ROM. Falta arranque/restauracion con firmware A4000 real autorizado: no anunciar esa compatibilidad hasta probarlo; se aplaza para priorizar la preview utilizable."
       ],
       "checks": [
         "GEN01",
@@ -14107,7 +14108,7 @@
       "title": "Lightgun y lightpen en puertos versionados",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24"
       ],
@@ -14145,7 +14146,7 @@
       "steps": [
         "Implementar lightgun/lightpen con coordenadas y niveles definidos, opciones frontend, peliculas y restauracion; usar version/struct_size si hace falta extender entrada sin romper ABI v1.",
         "Task force: check dirigido durante desarrollo y guest/validacion acumulada por lote; no cerrar sin pasar todos los checks y aceptacion de esta vertical.",
-        "El latch optico y el evento diferido lightpen_trigger_func son causales: anadir ID de scheduler y estado LPEN condicional inferido de CHIP, con restauracion incluso tras desconectar; mantener intacto el cuerpo por defecto y el contrato de un unico sensor optico real."
+        "El latch optico y lightpen_trigger_func son causales: ID13 y cuerpo LPEN fijo16B (+8B de cabecera), incluso desconectado o con BPLCON0.LPEN apagado: un callback ya agendado puede activar el latch despues de apagarlo. Conservar goldens hardware y el contrato de un unico sensor optico real."
       ],
       "checks": [
         "IN01",
@@ -14501,7 +14502,7 @@
       "title": "Volumen de driveclick en API comun y frontends",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T74a"
       ],
@@ -14549,7 +14550,7 @@
       "title": "Sonido de disquetera (driveclick) determinista",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T73",
         "T74a",

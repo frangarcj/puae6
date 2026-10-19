@@ -489,6 +489,10 @@ TASK_SUITES[('LR01', 'T70c')] = {
     'pointer_frontend': 'tests.libretro-host.test_pointer.PointerFrontendTests'}
 TASK_SUITES[('WB03', 'T70c')] = {
     'pointer_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_optical_levels_beam_and_bk2_restore_in_same_and_new_sandbox_and_process'}
+TASK_SUITES[('AV02', 'T74b')] = {
+    'live_libretro_volume': 'tests.libretro-host.test_drive_sound.DriveVolumeTests',
+    'live_waterbox_volume': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_drive_volume_is_live_host_preference_and_restore_keeps_mechanical_phase'}
+TASK_SUITES[('AV02', 'T74')] = {**TASK_SUITES[('AV02', 'T74a')], **TASK_SUITES[('AV02', 'T74b')]}
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

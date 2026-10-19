@@ -84,7 +84,7 @@ public static class Controllers
 		var controller = new ControllerDefinition("Amiga Controller");
 		bool pointer0 = settings.ControllerPort1 is Puae6Port1.Lightgun or Puae6Port1.Lightpen;
 		bool pointer1 = settings.ControllerPort2 is Puae6Port2.Lightgun or Puae6Port2.Lightpen;
-		if (pointer0 && pointer1) throw new System.ArgumentException("only one optical sensor is supported");
+		if (pointer0 && pointer1) throw new System.ArgumentException("only one optical sensor is supported", nameof(settings));
 		for (int p = 0; p < 2; ++p)
 			if (p == 0 ? pointer0 : pointer1)
 			{

@@ -2,6 +2,8 @@
 import importlib
 from pathlib import Path
 import re
+import tempfile
+from tests.build_support import build_targets
 
 lr = importlib.import_module("tests.libretro-host.test_libretro")
 from tests.audio.test_drive_sound import MECHANICAL
@@ -10,7 +12,10 @@ from tests.audio.test_drive_sound import MECHANICAL
 class DriveVolumeTests(lr.LibretroHarness):
     @classmethod
     def setUpClass(cls):
-        super().setUpClass()
+        products = build_targets(lr.ROOT / "build/state-opt", ["p6_libretro_host", "puae6_libretro"], optimized=True)
+        cls.host, cls.core = products["p6_libretro_host"], products["puae6_libretro"]
+        cls.tmp = tempfile.TemporaryDirectory(prefix="drive-volume-", dir=lr.ROOT / "build")
+        cls.roms, cls.counter = {}, 0
         rom = Path(cls.tmp.name) / "mechanical.rom"
         rom.write_bytes(lr.builder.build(MECHANICAL))
         cls.roms["mechanical"] = rom
