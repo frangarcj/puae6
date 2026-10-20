@@ -6,6 +6,7 @@
 //   keys    the 128-key bitmap; key n is Amiga raw code n; bit 0x62 (Caps Lock) is the latch
 //   either port: mouse (buttons, relative dx/dy), joystick or CD32 pad
 #include "input.h"
+#include "config.h"
 #include "error_util.h"
 
 #include "sysconfig.h"
@@ -38,6 +39,7 @@ constexpr int kKeyLimit = 0x68;                                // 0x68..0x7f: re
 constexpr int kEdgeCost = 2;                                   // ring places one edge may use, with margin
 
 struct Applied {
+    uint32_t commands;
     uint32_t keys[4];
     uint32_t type[2];
     uint32_t buttons[2];
@@ -183,7 +185,8 @@ p6_result validate_input(const p6_input &in, p6_error *error)
     }
     if (in.abi_version == P6_INPUT_VERSION_2) {
         const auto &extended = *reinterpret_cast<const p6_input_v2 *>(&in);
-        if (extended.commands) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "input commands are reserved");
+        if (extended.commands & ~P6_COMMAND_FREEZE) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown input commands");
+        if (extended.commands && !hrtmon_bound()) return p6_fail(error, P6_ERROR_UNSUPPORTED, "Freeze requires HRTMon");
         for (const auto &port : extended.parallel) {
             if (port.type > P6_PORT_JOYSTICK || port.reserved || port.dx || port.dy ||
                 (port.buttons & ~(P6_BUTTON_1 | kDirections)) || (port.type == P6_PORT_NONE && port.buttons))
@@ -229,6 +232,9 @@ unsigned apply_input(const p6_input &in)
         buttons[p] = port.buttons & P6_BUTTON_1; directions[p] = parallel_directions(port.buttons);
     }
     p6_input_parallel(parallel, buttons, directions);
+    const uint32_t commands = in.abi_version == P6_INPUT_VERSION_2 ? reinterpret_cast<const p6_input_v2 *>(&in)->commands : 0;
+    if ((commands & ~applied.commands) & P6_COMMAND_FREEZE) request_hrtmon_freeze();
+    applied.commands = commands; // Consume even during monitor/first boot; a held level is never a pending action.
     if (p6_input_engine_released_keys) {       // a chord ended inside this packet
         p6_input_engine_released_keys = 0;
         memset(applied.keys, 0, sizeof applied.keys);
@@ -258,6 +264,7 @@ void forget_input()
 
 void applied_get(p6_applied_raw *out)
 {
+    out->commands = applied.commands;
     memcpy(out->keys, applied.keys, sizeof out->keys);
     memcpy(out->parallel_type, applied.parallel_type, sizeof out->parallel_type);
     memcpy(out->parallel_buttons, applied.parallel_buttons, sizeof out->parallel_buttons);
@@ -271,6 +278,7 @@ void applied_get(p6_applied_raw *out)
 
 void applied_set(const p6_applied_raw &in)
 {
+    applied.commands = in.commands;
     memcpy(applied.keys, in.keys, sizeof applied.keys);
     memcpy(applied.parallel_type, in.parallel_type, sizeof applied.parallel_type);
     memcpy(applied.parallel_buttons, in.parallel_buttons, sizeof applied.parallel_buttons);

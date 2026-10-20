@@ -29,7 +29,7 @@ int main()
         p6_error error = fresh_error();
         assert(p6_query_caps(&caps, &error) == P6_OK && error.message[0] == 0);
         assert(caps.abi_version == P6_ABI_VERSION && caps.struct_size == sizeof caps);
-        assert(caps.flags == (P6_CAP_INPUT_V2 | P6_CAP_LAG_FLAG | P6_CAP_MEDIA_EVENTS | P6_CAP_MEMORY_REGIONS | P6_CAP_MEDIA_APPEND | P6_CAP_MEDIA_WRITE | P6_CAP_MEDIA_HDF | P6_CAP_MEDIA_EXT_ADF | P6_CAP_MEDIA_FDI | P6_CAP_MEDIA_IPF));  // capability bits describe implemented behaviour only
+        assert(caps.flags == (P6_CAP_HRTMON | P6_CAP_INPUT_V2 | P6_CAP_LAG_FLAG | P6_CAP_MEDIA_EVENTS | P6_CAP_MEMORY_REGIONS | P6_CAP_MEDIA_APPEND | P6_CAP_MEDIA_WRITE | P6_CAP_MEDIA_HDF | P6_CAP_MEDIA_EXT_ADF | P6_CAP_MEDIA_FDI | P6_CAP_MEDIA_IPF));  // capability bits describe implemented behaviour only
         assert(caps.max_media == P6_MAX_MEDIA && caps.max_video_width == 760 && caps.max_video_height == 576 &&
                caps.max_audio_frames == 8192);
         caps = fresh_caps();

@@ -47,6 +47,7 @@ typedef struct p6_caps {
 /* max_video_width x max_video_height is the buffer of the profile's raster (hires, double lines); a configuration that asks for another resolution or line mode
  * (p6_config.video_resolution, video_line_mode) delivers the buffer p6_query_video reports for it. */
 #define P6_CAP_INPUT_V2         (UINT64_C(1) << 10)  /* p6_input_v2: two additional parallel-port joysticks */
+#define P6_CAP_HRTMON           (UINT64_C(1) << 11)  /* P6_CONFIG_HRTMON and restorable Freeze input level */
 #define P6_CAP_STATE            (UINT64_C(1) << 0)
 #define P6_CAP_MEMORY_REGIONS   (UINT64_C(1) << 1)
 #define P6_CAP_MEDIA_EVENTS     (UINT64_C(1) << 2)
@@ -242,10 +243,11 @@ typedef struct p6_input {
  * memory declared by struct_size; the engine retains no pointer.
  * Parallel ports accept NONE or JOYSTICK with D-pad and BUTTON_1 only. */
 #define P6_INPUT_VERSION_2 UINT32_C(2)
+#define P6_COMMAND_FREEZE UINT32_C(1) /* Level, rising edge only; requires a bound HRTMon. v1 releases it. */
 typedef struct p6_input_v2 {
     p6_input base;
     p6_port_input parallel[2];
-    uint32_t commands; /* Reserved: must be zero. */
+    uint32_t commands; /* P6_COMMAND_* levels; unknown bits are BAD_ARGUMENT. */
 } p6_input_v2;
 
 typedef struct p6_rect {

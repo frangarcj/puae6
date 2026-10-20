@@ -62,6 +62,7 @@ struct p6_input_raw {
 
 // What the bridge remembers of what it sent the engine (bridge/input.cpp): the host's edge memory, so that only differences reach the engine.
 struct p6_applied_raw {
+    uint32_t commands;
     uint32_t keys[4];                                // bit n = Amiga key n is down as far as the engine was told
     uint32_t type[2];                                // P6_PORT_NONE, P6_PORT_JOYSTICK or P6_PORT_MOUSE
     uint32_t buttons[2];

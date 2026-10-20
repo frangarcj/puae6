@@ -1,6 +1,7 @@
 // Private monitor gate: real Kickstart initializes the machine, our RAM loop proves return.
 #include "p6.h"
 #include "config.h"
+#include "input.h"
 #include "state.h"
 #include "session.h"
 #include "blob_io.h"
@@ -39,10 +40,14 @@ static p6_config config(uint32_t machine=P6_MACHINE_A1200)
     c.cpu_compatibility=cpu_mode; c.audio_rate_hz=48000; c.random_seed=1; c.rtc_epoch_seconds=946684800; return c;
 }
 static p6_sha256 observed;
+static uint32_t command_level=0;
+static bool input_v2=false;
 static void observe(const void *data,size_t n) { p6_sha256_update(&observed,data,n); }
 static void step(int units=1,int key=-1)
 {
-    p6_input input{P6_ABI_VERSION,sizeof input}; if(key>=0) input.keys[key/32]|=1u<<(key%32);
+    p6_input_v2 packet{}; auto &input=packet.base; input.abi_version=P6_ABI_VERSION; input.struct_size=sizeof input;
+    if(input_v2) { input.abi_version=P6_INPUT_VERSION_2; input.struct_size=sizeof packet; packet.commands=command_level; }
+    if(key>=0) input.keys[key/32]|=1u<<(key%32);
     auto e=error();
     while(units--) {
         p6_frame f{P6_ABI_VERSION,sizeof f}; call(p6_run_frame(&input,P6_RENDER_VIDEO|P6_RENDER_AUDIO,&f,&e),e);
@@ -204,6 +209,58 @@ static void continuations(const std::vector<uint8_t> &rom,const std::vector<uint
     }
     cpu_mode=P6_CPU_EXACT;
 }
+static void level(uint32_t commands,int units=1) { input_v2=true; command_level=commands; step(units); }
+static uint32_t held_command() { p6_applied_raw a{}; p6_bridge::applied_get(&a); return a.commands; }
+static void reject_commands(uint32_t commands,p6_result expected)
+{
+    const auto before=save(); const auto ticks=p6_session::session.master_ticks;
+    struct { uint64_t head; p6_input_v2 packet; uint64_t tail; } guarded{};
+    guarded.head=guarded.tail=UINT64_C(0x123456789abcdef0); auto &input=guarded.packet;
+    input.base.abi_version=P6_INPUT_VERSION_2; input.base.struct_size=sizeof input; input.commands=commands;
+    uint8_t original[sizeof guarded]; memcpy(original,&guarded,sizeof guarded);
+    p6_frame f; memset(&f,0xa5,sizeof f); f.abi_version=P6_ABI_VERSION; f.struct_size=sizeof f;
+    uint8_t output[sizeof f]; memcpy(output,&f,sizeof f); auto e=error();
+    assert(p6_run_frame(&input.base,3,&f,&e)==expected);
+    assert(!memcmp(output,&f,sizeof f) && !memcmp(original,&guarded,sizeof guarded));
+    assert(save()==before && p6_session::session.master_ticks==ticks);
+}
+static std::array<uint8_t,32> command_future()
+{
+    p6_sha256_init(&observed); assert(held_command()==1 && hrtmon_flag==ACTION_REPLAY_ACTIVE);
+    const auto counter=get_long(0x11000); level(1,8); assert(get_long(0x11000)==counter);
+    command("o 10000 10004 5a"); assert(get_long(0x10000)==0x5a5a5a5a && get_long(0x11000)==counter);
+    command("x"); level(1,8); assert(hrtmon_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>counter);
+    const auto held=save(); level(1,5); assert(hrtmon_flag==ACTION_REPLAY_IDLE);
+    auto e=error(); call(p6_reset(&e),e); level(1,6); assert(held_command()==1 && hrtmon_flag==ACTION_REPLAY_IDLE);
+    load(held); same_state(held); level(1,5); assert(hrtmon_flag==ACTION_REPLAY_IDLE);
+    input_v2=false; step(); assert(!held_command()); // ABI1 releases the command without an extension read.
+    level(1,80); assert(hrtmon_flag==ACTION_REPLAY_ACTIVE); // Release followed by press reactivates.
+    command("x"); level(1,8); assert(hrtmon_flag==ACTION_REPLAY_IDLE);
+    const auto final=save(); observe(final.data(),final.size()); std::array<uint8_t,32> digest{};
+    p6_sha256_final(&observed,digest.data()); return digest;
+}
+static void public_commands(const std::vector<uint8_t> &rom,const char *directory,bool writing)
+{
+    static_assert(sizeof(p6_input_v2)==108 && offsetof(p6_input_v2,commands)==104);
+    auto c=config(); c.flags=P6_CONFIG_HRTMON; auto e=error(); call(p6_init(&c,&e),e);
+    call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); p6_sha256_init(&observed);
+    const auto path=std::string(directory)+"/commands.state"; std::vector<uint8_t> state;
+    if(writing) {
+        level(1,300); assert(held_command()==1 && hrtmon_flag==ACTION_REPLAY_IDLE); // First boot press is consumed, never queued.
+        install_loop(); level(1,2); assert(get_long(0x11000)>0 && hrtmon_flag==ACTION_REPLAY_IDLE);
+        level(0); level(1,80); assert(hrtmon_flag==ACTION_REPLAY_ACTIVE);
+        level(0); level(1,8); assert(held_command()==1 && hrtmon_flag==ACTION_REPLAY_ACTIVE); // Press within monitor is consumed.
+        state=save(); FILE *f=fopen(path.c_str(),"wb"); assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f);
+    } else { state=file(path.c_str()); load(state); input_v2=true; command_level=1; }
+    same_state(state); reject_commands(2,P6_ERROR_BAD_ARGUMENT); reject_commands(3,P6_ERROR_BAD_ARGUMENT);
+    auto bad=state; bad[fields.at("applied.commands")]=2;
+    reseal(bad,p6_state::current_identity()); reject(bad,P6_ERROR_CORRUPT_STATE);
+    const auto first=command_future(); load(state); same_state(state); assert(first==command_future());
+    printf("HRTMon command continuation "); for(auto byte:first) printf("%02x",byte); puts(""); stop();
+    c.flags=0; call(p6_init(&c,&e),e); call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
+    level(0); reject_commands(1,P6_ERROR_UNSUPPORTED); reject_commands(2,P6_ERROR_BAD_ARGUMENT); stop();
+    puts("HRTMon command edges/held/reset/ABI/refusals PASS");
+}
 static void public_builtin(const std::vector<uint8_t> &rom,const char *directory,bool writing)
 {
     auto e=error();
@@ -246,6 +303,9 @@ int main(int argc,char **argv)
 {
     const char *debug=getenv("P6_HRTMON_DEBUG_NORMAL"); normal_only=debug && !strcmp(debug,"1");
     assert(argc==5);
+    if(!strcmp(argv[3],"commands-write") || !strcmp(argv[3],"commands-read")) {
+        public_commands(file(argv[1]),argv[4],!strcmp(argv[3],"commands-write")); return 0;
+    }
     if(!strcmp(argv[3],"builtin-write") || !strcmp(argv[3],"builtin-read")) {
         public_builtin(file(argv[1]),argv[4],!strcmp(argv[3],"builtin-write")); return 0;
     }

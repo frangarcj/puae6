@@ -87,17 +87,25 @@ p6_result load_builtin_hrtmon(p6_error *error)
     return register_hrtmon({hrtmon_builtin, sizeof hrtmon_builtin}, error);
 }
 
+static bool hrtmon_ready()
+{
+    const auto &s = p6_session::session;
+    // apply_boot_media sets started before first input: unit_index distinguishes that first boundary.
+    return s.state == p6_session::State::Loaded && s.started && s.unit_index && !s.reset_queued && hrtmon_bound() &&
+        s.config.machine == P6_MACHINE_A1200 && hrtmem_size == 0x100000 && hrtmon_flag == ACTION_REPLAY_IDLE;
+}
+
+bool request_hrtmon_freeze() { return hrtmon_ready() && action_replay_freeze(); }
+
 p6_result freeze_hrtmon(p6_error *error)
 {
     if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
     p6_error_clear(error);
     p6_session::Guard guard;
     if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
-    const auto &s = p6_session::session;
-    if (s.state != p6_session::State::Loaded || !s.started || s.reset_queued || !hrtmon_bound() ||
-        s.config.machine != P6_MACHINE_A1200 || hrtmem_size != 0x100000 || hrtmon_flag != ACTION_REPLAY_IDLE)
+    if (!hrtmon_ready())
         return p6_fail(error, P6_ERROR_BAD_STATE, "HRTMon is not idle in a running image");
-    if (!action_replay_freeze()) return p6_fail(error, P6_ERROR_INTERNAL, "HRTMon refused Freeze");
+    if (!request_hrtmon_freeze()) return p6_fail(error, P6_ERROR_INTERNAL, "HRTMon refused Freeze");
     return P6_OK;
 }
 

@@ -49,6 +49,24 @@ class HrtMonBuiltinTests(unittest.TestCase):
             self.assertEqual(*twins)
 
 
+class HrtMonCommandTests(unittest.TestCase):
+    def test_public_freeze_level_survives_commands_return_reset_and_cold_restore(self):
+        firmware = os.environ.get('P6_KICKSTART_A1200_ROM')
+        if not firmware:
+            self.skipTest('BLOCKED: set P6_KICKSTART_A1200_ROM to an authorized local Kickstart')
+        exe = build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='hrtmon-commands-',dir=ROOT/'build') as tmp:
+            twins = []
+            for mode in ('commands-write','commands-read'):
+                result = subprocess.run([str(exe),firmware,'-',mode,tmp],capture_output=True,text=True,timeout=180,
+                                        env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                self.assertEqual(result.returncode,0,result.stdout[-1200:]+result.stderr[-4000:])
+                twins.append([line for line in result.stdout.splitlines() if line.startswith('HRTMon command continuation ')])
+                self.assertEqual(len(twins[-1]),1)
+                self.assertIn('HRTMon command edges/held/reset/ABI/refusals PASS',result.stdout)
+            self.assertEqual(*twins)
+
+
 class HrtMonTests(unittest.TestCase):
     def test_complete_native_state_cuts_command_return_cold_owners_and_refusals(self):
         firmware = os.environ.get('P6_KICKSTART_A1200_ROM')

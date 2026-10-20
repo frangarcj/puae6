@@ -281,7 +281,7 @@ Las pruebas dirigidas son tests/input/test_pointer.py, tests/libretro-host/test_
 la prueba optica de tests/waterbox-state/test_wrapper_state.py; T70c permanece abierta hasta ejecutar el guest integrado.
 
 T70d: `P6_CAP_INPUT_V2` anuncia `p6_input_v2`: el prefijo `p6_input` de 72 bytes, dos `p6_port_input`
-paralelos en offsets72/88 y `commands` u32 reservado0 en offset104 (total108, alineacion4). Solo la cabecera de entrada
+paralelos en offsets72/88 y `commands` u32 en offset104 (total108, alineacion4). Solo la cabecera de entrada
 usa version2/size108; `P6_ABI_VERSION`, config/frame/API siguen1. El llamante aporta la memoria accesible declarada.
 Un paquete v1/72 desconecta ambos puertos paralelos; cabeceras2/72,2/104,1/108 y comandos no soportados se rechazan
 antes de leer la extension o tocar la maquina. Los extras admiten NONE/JOYSTICK, cruceta y Fire1; sin deltas ni botones2/3.
@@ -291,11 +291,21 @@ El parche0353 conserva los registros, DDR, timers y salida serial CIA del motor 
 paralelos host. La rama CIA-B portable adicional solo corre con el adaptador conectado y conserva el comportamiento anterior al desconectarlo. Estas lecturas cuentan para lag cuando el adaptador esta conectado. No hay callbacks host por acceso.
 P6IN agrega siempre cuatro bytes (tipo3/4, botones3/4); modo y niveles raw se derivan y cotejan al guardar, sin nueva historia
 ni registros CIA duplicados. La cota crece cuatro bytes, incluido con entrada v1. LPEN permanece fijo y los sensores previos siguen ABI1.
+
 Libretro ofrece Joystick/None en los puertos2/3 (jugadores3/4), B=Fire y cruceta/stick izquierdo. Seleccionar Joystick only para
 el jugador1 libera el puerto Amiga1 para el jugador2. La seccion LRv8 no crece: el adaptador no guarda flancos nuevos.
 BizHawk ofrece ControllerPort3/4=None/Joystick, P3/P4 Joystick Up/Down/Left/Right/Button1 en peliculas BK2 y su identidad
 incluye ambos tipos. El wrapper no agrega campos causales. Pruebas dirigidas en tests/input/test_parallel.py y
 tests/libretro-host/test_parallel.py, mas codecBK2 y snapshotWB03; T70d permanece abierta hasta el guest integrado.
+
+T69c2: `P6_CAP_HRTMON` anuncia el builtin A1200 (`P6_CONFIG_HRTMON`, apagado por defecto)
+y `P6_COMMAND_FREEZE` (bit0 de commands). Es un nivel: el bridge activa en su flanco
+ascendente, despues de reset/medios/entrada y antes de ejecutar la unidad. Una pulsacion
+en la primera unidad o dentro del monitor se consume sin cola; mantenerla tras `x`,
+reset o restauracion no activa otra vez. Soltar y volver a pulsar si activa. Entrada v1
+equivale a commands0. Bits desconocidos dan BAD_ARGUMENT; Freeze sin owner da UNSUPPORTED
+antes de mutar maquina o salida. P6IN guarda el nivel en un byte 0..1 solo con HRTMon;
+Apply lo copia sin emitir accion. Reset del teclado conserva este flanco y unload/load lo borra.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):

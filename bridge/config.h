@@ -74,6 +74,8 @@ bool hrtmon_bound();
 bool hrtmon_identity(uint8_t out[32]);
 // Internal load bootstrap: caller owns the session Guard and has validated config/firmware/media.
 p6_result load_builtin_hrtmon(p6_error *error);
+// Internal boundary action, without Guard. An ineligible press is consumed by input, never queued.
+bool request_hrtmon_freeze();
 
 // Fills currprefs with the preset for `config` (upstream built_in_prefs config 0 of model 0 = A500, 2 = A600 or 4 = A1200, the
 // overrides of the profile file, then upstream fixup_prefs). Touches only preference globals. `ide` is ide_attached(config, hard files of the list): the preset then has Gayle's IDE port.

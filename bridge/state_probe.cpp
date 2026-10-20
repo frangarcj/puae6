@@ -751,7 +751,7 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 case 6: packet.parallel[0].dx = 1; break;
                 case 7: packet.parallel[0].reserved = 1; break;
                 case 8: packet.base.struct_size = 0; break;
-                case 9: packet.commands = 1; break;
+                case 9: packet.commands = 2; break;
                 }
                 p6_frame frame = {}; frame.abi_version = 1; frame.struct_size = sizeof frame;
                 const p6_result result = p6_run_frame(&packet.base, 0, &frame, &error);
