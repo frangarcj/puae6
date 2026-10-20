@@ -16939,7 +16939,7 @@
       "title": "Normalizar CHD cooked, Mode2 mixto y subcanales por datasize",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t6",
         "T66l4"
@@ -16962,7 +16962,8 @@
         "Separar Packingalmacenado deMode normalizado: Mode1Cooked/Raw, Mode2Body2336/Form1Cooked/Raw yAudio. PGTYPEcomparaporpacking+datasize+PGSUB, no porModefinal. Añadir MODE1/2048 conRW/RW_RAW comoMode1Raw2448, manteniendo exactamenteMode1NONE/2048 eidentidadesT6; MODE2/2336/FORM_MIX conserva2336body+header16; MODE2_FORM1/2048 usaoffset24/subheader8cero yhelperreal0391paraEDC/PQ. FORM_MIXpuedecontenerForm2rawpero noadmiteTYPE_FORM2/2324 niinventabytesfaltantes.",
         "ExtraerSUB96 desdeunidadCHD+data_bytes ANTESde moverpayload oparidad; RW_RAW desintercalado1vez, salida+2352. CabecerausaLBAfisico(stored?index0:index1)+ordinal+150, nuncaoffsetCHD/padding/tiemporelativoINDEX. Mode1encode_l2 yForm1encode_l2_mode2_form1 de0391. Staging/out/got0 yviews2048Mode1/UnsupportedMode2 conservados. HashP6CHD1 ycasosT6sin cambios; nuevos sourceIDs incluyenheadersporLBA ysubcanalesnormalizados.",
         "CdChdTestsconserva cuatrofixtures originales+cuatrometodosT6; añadir test_cooked_modes_sub_offsets_headers_and_view_frontiers ytest_cooked_identity_rebind_and_transactional_reads. OraculosPython polinomicosmode1 yheader/form1_body deNRGindependientes. NONE/RW/RW_RAW/aliases/gapsstored/sinteticoscompatibles/crucesunidades-hunk/BCD74-75y4499-4500/VFSoutintacto. Fixturevalidoconpregappreviodistinto/CRCregenerado cambiaheaders/vistas/ID yrechazarebind; renombradoaceptado. Nuncamutargoldenparaajustarencoder.",
-        "Mismascuatrorutas280..360manuales; frente cd32_close aislado. Standalone-j2 materializacadenaoficialverificadaCdNrgTests hasta0391 ycompilasolocdrom.cpp derivado/helperheader, no engine/guest. MED01 acumulalector+dependencia+CdChdTestsASan/UBSan. CDI/Form2/HTOA/postgap/PGdistinto/gap>150siguenUnsupportedexplícitos ypendientesrequeridosT66; sinfactory/publico hasta cerrarproveedor."
+        "Mismascuatrorutas280..360manuales; frente cd32_close aislado. Standalone-j2 materializacadenaoficialverificadaCdNrgTests hasta0391 ycompilasolocdrom.cpp derivado/helperheader, no engine/guest. MED01 acumulalector+dependencia+CdChdTestsASan/UBSan. CDI/Form2/HTOA/postgap/PGdistinto/gap>150siguenUnsupportedexplícitos ypendientesrequeridosT66; sinfactory/publico hasta cerrarproveedor.",
+        "Integrado b0f913b7: coordinador ejecuta MED01 formal con bounded_chd_reader/canonical_chd_provider/pinned_chd_regression, PASS. Se mantienen Form2/2324, HTOA/postgap/PGdistintos y carga publica como pendientes requeridos del padre."
       ],
       "checks": [
         "MED01"
