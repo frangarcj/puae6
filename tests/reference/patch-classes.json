@@ -206,7 +206,8 @@
     "0380-fsave040-sqrt-command-stage": "behavior",
     "0381-z3-normal-040-060": "required",
     "0382-sprite-restore-unsigned-words": "behavior",
-    "0383-state-pending-config": "behavior"
+    "0383-state-pending-config": "behavior",
+    "0384-integer-fline-040-060": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -478,6 +479,13 @@
       "effect": "inert",
       "why": "REF01 has no native sprite-state restore. The directed real-function fixture covers high bits in32/64-bit words; native Brian6500 restore exposes the four overwrittenSPR0 bytes without changing the oracle.",
       "test": "tests/step/test_sprite_restore.py",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0384-integer-fline-040-060": {
+      "effect": "inert",
+      "why": "REF01 has no CPU040/060. Directed public instruction fixtures exercise cache maintenance, MOVE16 data and LPSTOP wakeup/restore while absent PMMU/FPU remain F-line; authorized firmware exposes the CINVA bootstrap regression.",
+      "test": "tests/state/test_kickstart_a4040.py; tests/state/test_integer_fline.py",
       "scenarios": [],
       "subsystems": []
     }

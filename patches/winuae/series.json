@@ -5386,6 +5386,28 @@
           "after_sha256": "4ae2f062c2efe082774b5c5d9b436d54f5b147aca13e549e8f38c81395777df6"
         }
       ]
+    },
+    {
+      "id": "0384-integer-fline-040-060",
+      "file": "patches/winuae/0384-integer-fline-040-060.patch",
+      "sha256": "3936f7b076cb3bcf628fa4363a61b16d9cdbd8e72be7458d9474e5a06471324f",
+      "title": "Retain generated integer F-line handlers on 040 and 060",
+      "reason": "T55c: the old absent-coprocessor filter also replaced CINVA and other integer F-line instructions with op_illg. Kickstart A4000 enters alert8000000B at F80C6E/F4D8. Preserve generated CPU/privilege checks for cache maintenance, MOVE16 and LPSTOP without enabling absent PMMU or FPU.",
+      "category": "profile support",
+      "order": 201,
+      "symbols": [
+        "build_cpufunctbl"
+      ],
+      "test": "tests/state/test_integer_fline.py; tests/state/test_kickstart_a4040.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "a3d6cf3092eef7b8f92efd973d754d0434bac917bfc0323db7fb0155e6fb4319",
+          "after_sha256": "a8fd0336e54b4af9a4ba78c5cd78cd0361036194ff45fb0e1b1f3ed6f1a3f54b"
+        }
+      ]
     }
   ]
 }

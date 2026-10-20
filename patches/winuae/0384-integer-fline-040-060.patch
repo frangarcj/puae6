@@ -1,0 +1,32 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -2153,13 +2153,24 @@
+ 
+ #ifdef P6_PORTABLE
+ 	if (currprefs.cpu_model >= 68020) {
+-		// The profile has no MMU (MMUEMU is off) and cpuemu_21 compiles the PMMU handlers empty, so every F-line opcode takes the line F exception,
+-		// as on a 68020 without that coprocessor. The one coprocessor it may have is the FPU (T54, FPUEMU): coprocessor id 1, opcodes $F200-$F3FF
+-		// (cpGEN, cpScc, cpDBcc, cpTRAPcc, cpBcc, cpSAVE, cpRESTORE), served by fpp.cpp when currprefs.fpu_model is 68881 or 68882. Without one,
+-		// those take the line F exception too.
++		// No PMMU is present on 020/030 and no integrated MMU is enabled on 040/060.
++		// Preserve the generated integer F-line instructions on 040/060 below.
++		// FPU coprocessor id 1 ($F200-$F3FF: cpGEN/conditions/SAVE/RESTORE) is
++		// available only when the configuration explicitly supplies an FPU.
+ 		for (opcode = 0xf000; opcode <= 0xffff; opcode++) {
+ 			if (currprefs.fpu_model && (opcode & 0xfe00) == 0xf200)
+ 				continue;
++			// Keep the generated handler, including CPU and privilege checks.
++			if (currprefs.cpu_model >= 68040) {
++				switch (table68k[opcode].mnemo) {
++				case i_CINVL: case i_CINVP: case i_CINVA:
++				case i_CPUSHL: case i_CPUSHP: case i_CPUSHA:
++				case i_MOVE16: case i_LPSTOP:
++					continue;
++				default:
++					break;
++				}
++			}
+ 			cpufunctbl[opcode] = op_illg_1;
+ 			cpufunctbl_noret[opcode] = op_illg_1_noret;
+ 		}
