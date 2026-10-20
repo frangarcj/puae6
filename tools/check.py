@@ -320,7 +320,7 @@ for _gate in ('LR01', 'STATE01'):
         'callback_deferred_regression': 'tests.libretro-host.test_libretro.LibretroTests.test_a_request_made_inside_a_callback_waits_for_the_next_boundary',
         'same_disc_reinsert_regression': 'tests.libretro-host.test_libretro.LibretroTests.test_opening_and_closing_the_tray_on_the_same_disk_is_still_a_disk_change'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
-for _task in ('T66t2', 'T66t3', 'T66t4'):
+for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
     TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',
                                      'pinned_chd_regression': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}

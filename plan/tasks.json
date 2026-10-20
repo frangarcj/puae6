@@ -16817,6 +16817,47 @@
       "stop": "No enlazar CHD al producto hasta completar hardening conjunto y proveedor/restore; conservar todas las puertas y variantes pendientes de T66."
     },
     {
+      "id": "T66t5",
+      "title": "Interpretar TOC CHD v5 y reutilizar un hunk decodificado",
+      "status": "in_progress",
+      "milestone": "M3",
+      "required": true,
+      "depends": [
+        "T66t4"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/chd_reader.h",
+        "ports/portable/media/chd_reader.cpp",
+        "ports/portable/media/cd_chd_metadata.h",
+        "ports/portable/media/cd_chd_metadata.cpp",
+        "cmake/Chd.cmake",
+        "tests/media/test_chd_reader.py",
+        "tests/media/chd_reader_probe.cpp"
+      ],
+      "steps": [
+        "Exponer consulta privada de metadata con presencia explicita separada del Result: NOT_FOUND es ausencia, IO y OOM siguen ReadError. Payload/longitud/flags se publican juntos o quedan intactos; limites del lector T4 conservados. Parser CHTR/CHT2 transaccional ASCII acotado, campos exactos, decimales sin overflow y NUL final opcional unico; max99tracks consecutivos1..N, consultar entrada100 para no truncar. Ambas familias presentes se rechazan Unsupported explicitamente hasta decidir precedencia; formatos noCD/CHCD/GD/DVD sin soporte siguen explicitos.",
+        "Conservar TYPE/SUBTYPE/FRAMES/PREGAP/PGTYPE/PGSUB/POSTGAP/datasize/stored_pregap/offsetframes, sin reducir PGTYPE/PGSUB al track principal. CHTR implica gaps0; CHT2 prefijoV significa pregap almacenado dentro FRAMES. FRAMES>0, pregap almacenado<FRAMES; cursor fisico suma round_up(FRAMES,4) con64bits verificados contra logicalbytes/2448, separado del futuro cursor LBA. Registrar politica para padding final a partir de fuentes fijadas, no inventar pregap inicial perdido. Modo Form2 y pregap distinto se conservan sin fingir proveedor completo.",
+        "Cache derivada de un hunk sobre scratch existente, clave invalida al abrir; hit sin chd_read/ReadFn. Invalidar antes de miss y cualquier error, publicar clave solo tras decodeOK; cruce mantiene staging transaccional. Sin segunda reserva, punteros ni cache serializada; probar reuse/eviction/falloB/retryA con contadores deterministas, no benchmarks de reloj.",
+        "MED01 conjunta ChdReaderTests+ChdDependencyTests bajo ASan/UBSan. Metodos nuevos: test_cd_metadata_chtr_cht2_offsets_gaps_padding_and_limits, test_cd_metadata_errors_and_short_reads_do_not_publish, test_one_hunk_cache_reuse_eviction_failure_and_retry; conservar fixtures/negativos de T2-T4. TOC esperada independiente, tipos/subtipos/gaps/99-100/truncados/overflow/IO y salida intacta. Baseline debe demostrar ausencia de capacidad o fallo del comportamento nuevo antes del cambio.",
+        "Frente cd32_close en t53-cpu, siete rutas atomicas, estimacion300..370manuales. Coordinador metadata/checks; standalone-j2 autorizado sin engine/guest ni cambios a pins/pristine. Proveedor con CDDA BE->LE, subcode en offset datasize y RW/RW_RAW, identidad de contenedor completo+vistas y rebind, PGTYPE/PGSUB distintos y Form2, carga publica/restauracion permanecen puertas posteriores explicitas deT66."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "TOC conserva semantica CHTR/CHT2 y offsets fisicos exactos sin confundir padding con LBA; negativos/IO no publican salida parcial. Cache reduce relecturas porhunk y se recupera de fallos sin cambiar bytes, bajo puerta conjunta del lector; no anuncia proveedor ni CHD publico."
+      ],
+      "stop": "No enlazar CHD al producto por esta hoja ni ocultar PGTYPE/PGSUB o Form2 mediante normalizacion inventada; conservar proveedor/publico y puerta completa T66."
+    },
+    {
       "id": "T66l3",
       "title": "Leer NRG DAO Mode2 de2336bytes con cabeceras por LBA",
       "milestone": "M3",
@@ -17186,7 +17227,8 @@
         "T66u2",
         "T66l5",
         "T66g5",
-        "T66u3"
+        "T66u3",
+        "T66t5"
       ],
       "read": [
         "docs/01-architecture.md",
