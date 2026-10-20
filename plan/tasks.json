@@ -16952,7 +16952,7 @@
       "title": "Catalogo CD inmutable con seleccion y restauracion nativa entre discos",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66u1",
         "T66m7"
@@ -16997,7 +16997,7 @@
       "title": "Leer NRG ETNF multitrack con pregap canonico explicito",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66l4",
         "T66g5"
@@ -17041,7 +17041,7 @@
       "title": "Sintetizar pregaps y postgaps Mode2 vacios con direccion real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66b",
         "T66g2",
