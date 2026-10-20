@@ -17576,7 +17576,7 @@
       "title": "Definir contrato CD regional WBv2 y conversion transaccional sin activar transporte",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t10",
         "T80a"
