@@ -13272,7 +13272,8 @@
         "Vertical nativa atomica: habilitar A4040/040 y 060 Normal sin MMU, FPU interna opcional, identidad, oraculo FUZZ y pruebas publicas de restauracion junto con el guard Z3. Se amplian los archivos del cambio por ser inseparables API/validacion/oraculo/parche/CLI; conservar los checks del padre y la puerta independiente de frontends/firmware/Waterbox.",
         "T55c10 conecta selectores de los frontends sobre la API nativa87cda89b en worktree aislado; el padre conserva firmware real, FRESTORE, presupuestos y sus puertas completas.",
         "Firmware real A4000 autorizado: primer smoke040/68040 conFPU interna tras1800unidades sigue negro. Investigar PC/estado del motor y conservar reproducer antes de corregir; no acreditar arranque por salida0 ni por micro-ROMs.",
-        "tests/state/test_kickstart_a4040.py conserva la puerta real040/060 reutilizando la animacion/imagen, paridad headless/libretro y futuros nativos del A4030. Diagnostico0382: en040 con/sinFPU la ROM entra en alerta8000000B, no halted; atribuir instruccion de origen antes de editar motor."
+        "tests/state/test_kickstart_a4040.py conserva la puerta real040/060 reutilizando la animacion/imagen, paridad headless/libretro y futuros nativos del A4030. Diagnostico0382: en040 con/sinFPU la ROM entra en alerta8000000B, no halted; atribuir instruccion de origen antes de editar motor.",
+        "Atribucion real del negro040: F4D8/CINVA BC enF80C6E llega a op_illg porque build_cpufunctbl conserva el antiguo filtro totalF-line020. Frente aislado a4040-frontends corrige parche0384, preservando instrucciones enteras/cache040/060 generadas y rechazo PMMU/FPU ausente. Reproducer de opcode publico y regresiones cache/MOVE16 antes del firmware; coordinador registra serie/clasificacion, sin editar generados ni fingir MMU."
       ],
       "checks": [
         "GEN01",
