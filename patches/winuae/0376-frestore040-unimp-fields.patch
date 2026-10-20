@@ -1,0 +1,58 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -2721,12 +2721,43 @@
+ 
+ 			} else if (frame_size == 0x30 || frame_size == 0x28) { // unimp
+ 
+-				// TODO: restore frame contents
+-				ad += frame_size;
++				// MC68040UM 9.8, figure 9-10. Read the complete frame before
++				// publishing it; even reserved words are real bus accesses.
++				auto restored = fsave_data;
++				restored.cmdreg3b = 0;
++				if (frame_size == 0x30) {
++					restored.cmdreg3b = x_cp_get_long(ad) >> 16; ad += 4;
++					x_cp_get_long(ad); ad += 4;
++				}
++				uae_u32 bits = x_cp_get_long(ad); ad += 4;
++				restored.stag = (bits >> 29) & 7;
++				restored.wbtm66 = (bits >> 26) & 1;
++				restored.grs = (bits >> 23) & 7;
++				restored.cmdreg1b = x_cp_get_long(ad) >> 16; ad += 4;
++				bits = x_cp_get_long(ad); ad += 4;
++				restored.dtag = (bits >> 29) & 7;
++				restored.wbte15 = (bits >> 20) & 1;
++				bits = x_cp_get_long(ad); ad += 4;
++				restored.e1 = (bits >> 26) & 1;
++				restored.e3 = (bits >> 25) & 1;
++				restored.t = (bits >> 20) & 1;
++				for (int i = 0; i < 3; ++i) { restored.fpt[i] = x_cp_get_long(ad); ad += 4; }
++				for (int i = 0; i < 3; ++i) { restored.et[i] = x_cp_get_long(ad); ad += 4; }
++				fsave_data = restored;
++				regs.fpu_state = 1;
++				regs.fp_unimp_pend = 0;
++				// Motorola FPSP gen_except: E3 takes precedence over E1;
++				// only overflow, underflow and inexact belong to the WB stage.
++				uae_u32 exceptions = regs.fpsr & regs.fpcr & 0xff00;
++				if (restored.e3) exceptions &= FPSR_OVFL | FPSR_UNFL | FPSR_INEX2 | FPSR_INEX1;
++				else if (!restored.e1) exceptions = 0;
++				regs.fp_exp_pend = fpsr_get_vector(exceptions);
++				regs.fpu_exp_state = regs.fp_exp_pend ? 1 : 0;
+ 
+ 			} else if (frame_size == 0x00) { // idle
+ 				regs.fpu_state = 1;
+ 				regs.fpu_exp_state = 0;
++				regs.fp_exp_pend = regs.fp_unimp_pend = 0;
+ 			} else {
+ 				write_log(_T("FRESTORE invalid frame size %02x %08x %08x\n"), frame_size, d, ad_orig);
+ 
+@@ -2736,6 +2767,8 @@
+ 			}
+ 		} else if (frame_version == 0x00) { // null frame
+ 			fpu_null();
++			fpp_set_fpcr(0);
++			regs.fp_exp_pend = regs.fp_unimp_pend = 0;
+ 		} else {
+ 			if (!currprefs.fpu_no_unimplemented && frame_version == 0x1f && currprefs.fpu_model == fpu_model) {
+ 				// horrible hack to support on the fly 6888x <> 68040 FPU switching

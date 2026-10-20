@@ -99,3 +99,17 @@ y Apply reconstruye el modo SoftFloat. El probe enlaza el visitor real y compara
 MOVEC, FSAVE y la siguiente operacion aritmetica tras reinicializar y alterar
 todo el estado privado. Es una puerta de componente: configuracion publica,
 ejecucion por frames, FRESTORE040 y aceptacion de A4040 siguen en T55c.
+
+T55c7 corrige la rama UNIMP de FRESTORE040 que solo saltaba el cuerpo:
+recupera campos definidos de los frames $28/$30 mediante el bus real y publica
+la excepcion aritmetica indicada por FPSR/FPCR y E1/E3. E3 se selecciona antes
+que E1 y solo corresponde a overflow/underflow/inexact. Sin excepcion activa
+la FPU queda idle. NULL/IDLE descartan pendientes del contexto anterior; NULL
+reinicializa tambien el modo SoftFloat. El frame no restaura los registros del
+programador, excepto los efectos de NULL que upstream ya define.
+El oraculo construye frames por offsets independientes del writer y verifica
+lecturas, campos, FSAVE, postincremento, formato erroneo y aritmetica posterior.
+Fuentes: [MC68040UM, 9.8 y figura9-10](https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf)
+y [Motorola FPSP gen_except 3.7](https://github.com/torvalds/linux/blob/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2/arch/m68k/fpsp040/gen_except.S).
+La reanudacion completa de BUSY (CU_SAVEPC/writeback), los casos no aritmeticos
+y la habilitacion publica de A4040 siguen pendientes en T55c.

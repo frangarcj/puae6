@@ -198,7 +198,8 @@
     "0372-fpu-internal-state": "instrumentation",
     "0373-z3-capacity-range": "required",
     "0374-reset-registered-devices-without-expansion": "required",
-    "0375-akiko-nvram-backing-view": "instrumentation"
+    "0375-akiko-nvram-backing-view": "instrumentation",
+    "0376-frestore040-unimp-fields": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -428,6 +429,13 @@
       "effect": "inert",
       "why": "REF01 profiles contain no CD32. Only the private stock CD32 profile takes the new one-MiB combined firmware branch; other ROM envelopes are unchanged.",
       "test": "tests/media/test_cd32_boot.py",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0376-frestore040-unimp-fields": {
+      "effect": "inert",
+      "why": "REF01 does not offer CPU040. The directed fpp probe restores independently built rev40/41 UNIMP frames, checks fields, arithmetic priority, bus accesses and subsequent instructions.",
+      "test": "tests/host/test_frestore040.py",
       "scenarios": [],
       "subsystems": []
     }

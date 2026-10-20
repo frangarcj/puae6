@@ -526,6 +526,11 @@ TASK_SUITES[('STATE01', 'T55c6')] = {
     'p6cp_late_controls_and_internal_fpu': 'tests.host.test_cpu_late_state.CpuLateStateTests',
     'a4030_state_regression': 'tests.state.test_a4030',
     '6888x_state_regression': 'tests.state.test_state_fpu.FpuLayoutTests'}
+TASK_SUITES[('STATE01', 'T55c7')] = {
+    'frestore040_real_bus_and_arithmetic': 'tests.host.test_frestore040.Frestore040Tests',
+    'p6cp040060_regression': 'tests.host.test_cpu_late_state.CpuLateStateTests',
+    '6888x_state_regression': 'tests.state.test_state_fpu.FpuLayoutTests',
+    'patch_classification': 'tests.reference.test_patch_classes.ClassificationTests'}
 TASK_SUITES[('GEN01', 'T55c2')] = {'schema_and_generated_defaults': 'tests.config.test_schema', 'frontend_profile_policy': 'tests.config.test_parity'}
 TASK_SUITES[('ABI01', 'T55c2')] = {'native_c_cpp_layout': 'tests.contracts.test_api', 'standalone_csharp_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
 for _gate in ('DET02', 'STATE01'):

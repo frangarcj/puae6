@@ -5205,6 +5205,28 @@
           "after_sha256": "f89e8d54ad21c5c027a67dec7ec73800c793be3d351a2731544d8fa852492ebf"
         }
       ]
+    },
+    {
+      "id": "0376-frestore040-unimp-fields",
+      "file": "patches/winuae/0376-frestore040-unimp-fields.patch",
+      "sha256": "6383e454b59be423065cf3d8491df5e2a394f9af04e289a2edaf10f3edb6cf37",
+      "title": "Restore defined UNIMP040 fields and pending arithmetic exception",
+      "reason": "T55c7 replaces the FRESTORE040 frame-size skip with real bus reads of the defined fields and E3/E1 arithmetic priority. Null/idle clear stale pending exceptions. Busy pipeline resumption remains outside this correction.",
+      "category": "state corrections",
+      "order": 193,
+      "symbols": [
+        "fpuop_restore"
+      ],
+      "test": "tests/host/test_frestore040.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "f0366073aa543c1fb26dd4a9677ab2ee194bbe3bf47340dab8f60c3b6e45a864",
+          "after_sha256": "6f932a04dda23cd046711811078640136eae58f767998a1fc458fb47a7d6d29f"
+        }
+      ]
     }
   ]
 }
