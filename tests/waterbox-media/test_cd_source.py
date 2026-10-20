@@ -93,3 +93,12 @@ class Cd32PublicCoreTests(Cd32WaterboxTests):
 
 class Cd32FastCoreTests(Cd32PublicCoreTests):
     public_modes = ('frsave', 'frload')
+
+class Cd32GameCoreTests(Cd32PublicCoreTests):
+    public_modes = ('gamesave', 'gameload')
+    def setUp(self):
+        super().setUp()
+        content = os.environ.get('P6_CD32_GAME_CUE')
+        if not content:
+            self.skipTest('BLOCKED: authorized Brian the Lion P6_CD32_GAME_CUE required')
+        self.names = (content,)

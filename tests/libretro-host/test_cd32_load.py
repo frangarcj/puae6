@@ -12,7 +12,7 @@ import test_libretro as lr
 from tests.build_support import ROOT, build_targets
 
 
-class Cd32LoadTests(lr.LibretroHarness):
+class Cd32Session(lr.LibretroHarness):
     @classmethod
     def setUpClass(cls):
         main, ext = os.environ.get('P6_CD32_ROM_MAIN'), os.environ.get('P6_CD32_ROM_EXT')
@@ -30,14 +30,16 @@ class Cd32LoadTests(lr.LibretroHarness):
         cls.iso = cls.directory / 'public.iso'; cls.iso.write_bytes(bytes(512 * 2048))
         cls.other = cls.directory / 'other.iso'; cls.other.write_bytes(b'x' * (512 * 2048))
 
-    def run_cd(self, *flags, content=None, system=None, expect=0):
+    def run_cd(self, *flags, content=None, system=None, expect=0, timeout=180):
         result = subprocess.run([str(self.host), str(self.core), '--system', str(system or self.system_dir),
-                                 '--content', str(content or self.iso), *map(str, flags)], capture_output=True, text=True, timeout=180)
+                                 '--content', str(content or self.iso), *map(str, flags)], capture_output=True, text=True, timeout=timeout)
         self.assertEqual(expect, result.returncode, result.stdout[-2000:] + result.stderr[-3000:])
         self.assertIn('vfs closed live=0', result.stdout)
         self.assertNotIn('VIOLATION', result.stdout)
         return result.stdout
 
+
+class Cd32LoadTests(Cd32Session):
     def test_real_reads_replay_runahead_and_fresh_owner(self):
         content = os.environ.get('P6_CD_CUE_FILE', str(self.iso))
         out = self.run_cd('--runs', 345, '--cycles', 2, '--do', '300:save:s', '--do', '315:memory',
@@ -133,6 +135,72 @@ class Cd32LoadTests(lr.LibretroHarness):
         (missing / 'kick40060.CD32').unlink()
         (missing / 'kick40060.CD32').write_bytes(bytes(512 * 1024))
         self.run_cd(system=missing, expect=3)
+
+
+class Cd32GameTests(Cd32Session):
+    def brian_session(self):
+        content = os.environ.get('P6_CD32_GAME_CUE')
+        if not content:
+            self.skipTest('BLOCKED: authorized Brian the Lion P6_CD32_GAME_CUE required')
+        # English, skip logos, select NO SAVE, enter THE STEAMY JUNGLE, move right.
+        phases = ((1400, 1), (1410, 0), (2100, 1), (2110, 0), (3100, 1), (3110, 0),
+                  (4501, 0x20), (4502, 0), (4504, 0x20), (4506, 0), (4508, 0x20), (4510, 0),
+                  (4520, 1), (4530, 0), (5501, 1), (5510, 0), (6501, 0x80), (6541, 0))
+        buttons = ('--device', '0:513', *(arg for at, mask in phases for arg in ('--joy-at', f'{at}:0:{mask:x}')))
+        return content, buttons
+
+    def test_brian_gameplay_and_restore(self):
+        content, buttons = self.brian_session()
+        work = self.work(); cut = work / 'game.state'
+        end, replayed, fresh = (work / name for name in ('end.state', 'replayed.state', 'fresh.state'))
+        n, m = 6500, 80
+        # Visually checked against the authorized game: language wheel and Brian
+        # standing in the first jungle level with its HUD. No pixels/assets kept.
+        menu, level = '5a9b63564f6b4283', '4ee0d34fdf9a835b'
+        out = self.run_cd(*buttons, '--runs', n + 2 * m,
+                          '--do', f'{n}:savefile:{cut}', '--do', f'{n + m}:savefile:{end}',
+                          '--do', f'{n + m}:memory', '--do', f'{n + m}:loadfile:{cut}:pos={n}',
+                          '--do', f'{n + 2 * m}:savefile:{replayed}', '--do', f'{n + 2 * m}:memory',
+                          content=content, timeout=240)
+        view = lambda r: (r['unit'], r['ticks'], r['hash'], r['ahash'], r['audio'])
+        runs = self.runs(out)
+        self.assertEqual(len(runs), n + 2 * m)
+        self.assertEqual(runs[1399]['hash'], menu, 'must reach the game language wheel')
+        self.assertEqual(runs[n - 1]['hash'], level, 'must reach gameplay, beyond firmware/logos')
+        future = [view(r) for r in runs[n:n + m]]
+        self.assertEqual(future, [view(r) for r in runs[n + m:]])
+        memory = re.findall(r'^memory hash (.*)$', out, re.M)
+        self.assertEqual(len(memory), 2); self.assertEqual(*memory)
+        self.assertIn(f'state load {cut} pos={n} ok=1', out)
+        def silence(frames):
+            value = 1469598103934665603
+            for _ in range(frames * 4): value = value * 1099511628211 & ((1 << 64) - 1)
+            return f'{value:016x}'
+        self.assertTrue(any(r['ahash'] != silence(r['audio']) for r in runs[n:n + m]), 'game audio must be active')
+        self.assertEqual(end.read_bytes(), replayed.read_bytes(), 'all native chunks and adapter state must return')
+        # Both owners restore the original game's cut before their first run;
+        # they do not merely produce their own independent cold-boot snapshots.
+        other = self.run_cd(*buttons, '--runs', m, '--cycles', 2, '--do', f'0:loadfile:{cut}:pos={n}',
+                            '--do', f'{m}:savefile:{fresh}', '--do', f'{m}:memory', content=content)
+        for chunk in re.split(r'cycle \d+ end[^\n]*\n', other)[:2]:
+            self.assertEqual([view(r) for r in self.runs(chunk)], future)
+            self.assertIn(f'state load {cut} pos={n} ok=1', chunk)
+            self.assertEqual(re.findall(r'^memory hash (.*)$', chunk, re.M), [memory[0]])
+        self.assertEqual(end.read_bytes(), fresh.read_bytes())
+        idle = self.run_cd('--device', '0:513', '--runs', m, '--do', f'0:loadfile:{cut}:pos={n}', content=content)
+        self.assertNotEqual(self.runs(idle)[-1]['hash'], self.runs(other)[-1]['hash'], 'Right must move Brian on screen')
+
+    def test_brian_cold_reload_matches_fresh_session(self):
+        # T66r8 reproducer: a completed game session contaminates early video of
+        # the next cold load. This is a separate gate from restoring a game cut.
+        content, buttons = self.brian_session()
+        out = self.run_cd(*buttons, '--runs', 6580, '--cycles', 2, content=content, timeout=360)
+        chunks = re.split(r'cycle \d+ end[^\n]*\n', out)[:2]
+        first, second = (self.runs(chunk) for chunk in chunks)
+        self.assertEqual(len(first), 6580); self.assertEqual(len(second), 6580)
+        view = lambda r: (r['unit'], r['ticks'], r['hash'], r['ahash'], r['audio'])
+        for a, b in zip(first, second):
+            self.assertEqual(view(a), view(b), f'cold reload differs at unit {a["unit"]}')
 
 
 if __name__ == '__main__':
