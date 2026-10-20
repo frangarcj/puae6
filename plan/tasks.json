@@ -16854,6 +16854,54 @@
       "stop": "No anunciar soporte NRG completo; TAO/Mode02/multisesion y todas las puertas originales T66 siguen pendientes."
     },
     {
+      "id": "T66u1",
+      "title": "Conservar unidad CD al expulsar y restaurar presencia sin entregas antiguas",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66m7",
+        "T66r3",
+        "T66r8"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp",
+        "ports/portable/media/cd_device_state.h",
+        "ports/portable/state_io/akiko.h",
+        "ports/portable/akiko_state.h",
+        "patches/winuae/0390-akiko-media-presence.patch",
+        "tests/media/cd_device_probe.cpp",
+        "tests/media/cd_device_state_probe.cpp",
+        "tests/media/akiko_state_probe.cpp",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Separar presencia de medio de existencia deunidad: device_set_inserted conserva Disc/owner/ID/opens; sys_command_ismedia devuelve0ausente y-1solo unidadinexistente, info.media_inserted0 ysinTOC cuandoausente. Lectura/TOC/play sinmedio fallan claramente, salidaintacta/ningunIO; no device_unbind paraexpulsion.",
+        "DeviceState.inserted causal encapture/validate/restore ycodecAkiko, ausencia incompatible conaudioactivo. Conservar identidad prestada yrestauracion sinIO/avance/callbacks; no serializar punteros ni permitir presencia enunidad noasociada. No se promete compatibilidad entrebuilds.",
+        "Reservar0390 posterior0389, parche derivadoAkiko yAPIprivada p6_akiko_media_set(bool) soloenfronteraquiescente. Eyectar/insertar detieneCDDA e invalida ambas caches/subcode/requestsplay pendientes ytransferenciasprevias; cdrom_run_read noentrega sectoresviejos tras cambio. Conservar CPU/reloj/restomaquina ynotificacionmedia real0/1, no simular exito.",
+        "MED01 CdDeviceTests+CdDeviceStateTests ySTATE01 AkikoStateTests existentes ASan/UBSan: ausencia/salidaintacta/noIO, estadoexpulsado/corteduranteaudio, restoreowner nuevo/futuroidentico, cachePBX/subcode sinDMA/IRQantiguos yestado coherentepresente/ausente. No buildmotor/guest hasta turno coordinado; probes dirigidos existentes suficientes.",
+        "Frente cd_swap usa worktreeaislado t66-cd-swap; coordinador poseeplan/checks/serie/clasificacion e integra. Diezrutas necesarias devertical atomica presencia+codec+invalidacion+probes+contrato, estimacion220..320manuales; anunciar ampliacionantes deexceder. Enviar hashpatch/before/after antes degates para registro.",
+        "No acredita cambiofrontend: siguientes piezas deben preparar catalogoinmutable/hashconjunto/seleccionrestaurable antespreflightnative yUX DiskControl/BizHawk. GuardarDiscA yrestaurartrasDiscBdelmismoconjunto debe poder funcionar; reemplazoexterno puede rechazarseporidentidad. Mantener todaslaspuertas originalesT66."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01"
+      ],
+      "acceptance": [
+        "La unidad CD permanece abierta sinmedio, la presencia restaura conidentidad/audio/controller coherentes yninguna transferencia/subcanal anterior seentrega tras expulsar, probado porprobes reales bajo sanitizers. No acredita aun cambio deCD publico."
+      ],
+      "stop": "No anunciar cambioCDfrontend hasta catalogo/identidad/seleccion+restore yconexionespublicas. No usar unbind como falsa expulsion ni resetCPU para limpiar caches."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16912,7 +16960,8 @@
         "T66t2",
         "T66t3",
         "T66t4",
-        "T66l3"
+        "T66l3",
+        "T66u1"
       ],
       "read": [
         "docs/01-architecture.md",
