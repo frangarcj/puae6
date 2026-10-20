@@ -319,6 +319,18 @@ for _gate in ('LR01', 'STATE01'):
         'public_mds_regression': 'tests.libretro-host.test_cd32_load.Cd32MdsTests',
         'callback_deferred_regression': 'tests.libretro-host.test_libretro.LibretroTests.test_a_request_made_inside_a_callback_waits_for_the_next_boundary',
         'same_disc_reinsert_regression': 'tests.libretro-host.test_libretro.LibretroTests.test_opening_and_closing_the_tray_on_the_same_disk_is_still_a_disk_change'}
+TASK_SUITES[('ABI01', 'T66u4')] = {'private_cd_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
+TASK_SUITES[('WB03', 'T66u4')] = {
+    'cd_catalogue_sandbox_restore': 'tests.waterbox-media.test_cd_source.Cd32CatalogWaterboxTests',
+    'single_cd32_regression': 'tests.waterbox-media.test_cd_source.Cd32WaterboxTests',
+    'legacy_cd_transport_regression': 'tests.waterbox-media.test_cd_source.CdTransportTests'}
+TASK_SUITES[('GEN01', 'T66u5')] = TASK_SUITES[('GEN01', 'T66r3')]
+TASK_SUITES[('WB03', 'T66u5')] = {
+    'public_cd_catalogue_restore': 'tests.waterbox-media.test_cd_source.Cd32CatalogCoreTests',
+    'public_single_cd_regression': 'tests.waterbox-media.test_cd_source.Cd32PublicCoreTests'}
+TASK_SUITES[('WB09', 'T66u6')] = {
+    'real_cd32_movie_swap': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieSwapTests',
+    'real_cd32_startup_regression': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieStartTests'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
     TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',

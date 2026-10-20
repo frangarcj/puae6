@@ -17079,6 +17079,131 @@
       "stop": "No confundir slot con ordinal deduplicado, no seleccionar Disc antes de preflight y no anunciar soporte de cambio BizHawk/TAS por prueba libretro."
     },
     {
+      "id": "T66u4",
+      "title": "Catalogo CD y cambio causal dentro del sandbox Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66u1",
+        "T66u2",
+        "T66r2",
+        "T66u3"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "adapters/waterbox/p6w_cd.h",
+        "adapters/waterbox/cd_source.cpp",
+        "integration/bizhawk/core/Puae6/CdHost.cs",
+        "tests/media/csharp-disc/Cd32.cs",
+        "tests/waterbox-media/test_cd_source.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Catalogo1..16 de owners/sources fijos, IDs unicos en orden y callbacks porordinal canonico explicito, nunca seleccion mutablehost. Mantener exportslegacy1CD y ABI1/layout31/P6CdInfo2432; añadir p6w_cd_catalog_bind, p6w_cd_change ystatus(count,selected,present,opens). Bind/rebind transaccionales, rechazar duplicados/cotas/TOCinvalida sinIO ni mutacion.",
+        "Callbacks legacy slot0 ycatalogo slot1 siempre registrados antes de BizInvoker, baselinecomun vacio sellado antes de bind. CdHost copia descriptor/readers inmutables; constructorlegacy conserva caso1. Rebindpost-snapshot valida todoslosdescriptores/IDs/orden y solo publica thunktrasexito; no vuelvebind ni reinstala seleccioninicial. Un rebind fallido conservalectores previos y latchfault impideusar restoreincompleto.",
+        "Eject/select/reinsert en frontera guardada usandoU1/U2; cambio con presencia requiereexpulsion, conservaunidad/opens. Status yread_sector demuestran datosA/B/ausencia reales. Antes Activate/BUSY oargumentosincoherentes retornan error claro; repeticion idempotente ysame-disc open-close no duplicanaperturas.",
+        "Nueva Cd32CatalogWaterboxTests ymodos cd32catalogsave/load enCd32.cs (Programya StartsWithcd32). ISOA/B propios conpayload distinto+firmwarereal, A300/futuro15 AV/PCM/ticks/RAM/fullsnapshot, Binsertado yBausente; restoreA mismoguest/nuevosandbox/nuevoproceso conownersfrescos, ordinals/presence/opens ydatosreales. Negativos catalogo reordenado/cambiado/TOC yfalloscallback; rechazo de rebind antesdesnapshot prueba no mutacion, identidadpublica se cierraU5.",
+        "ABI01 CdLayoutTests existente+firma nueva ejercida, WB03 nueva clase+CdTransportTests+Cd32WaterboxTests. Seisrutas atomicas280..380manuales; frente cd_swap aislado sin buildguest hasta integracionroot-j2. Baseline/export/runnerWaterboxrealobligatorios; no fingirWBcon nativo. Loader/IController/identidadpublica ypelicula siguenU5/U6, todaspuertasT66 conservadas."
+      ],
+      "checks": [
+        "ABI01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Catalogo y seleccion deCD restauran dentro deWaterboxreal en otro sandbox/proceso, datosB yopens probados, rebind no altera seleccioncausal ni aceptaotrodescriptor; aun sin acreditarloaderpublico/peliculas."
+      ],
+      "stop": "No basarcallback enindicefrontend mutable, no bind/seleccioninicial despuesde restore ni atribuirTASpor snapshot."
+    },
+    {
+      "id": "T66u5",
+      "title": "Conectar catalogo CD a loader, botones e identidad publica BizHawk",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66u4",
+        "T66r3",
+        "T66u3"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/Puae6/WhdLoad.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/waterbox-media/test_cd_source.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Loader acepta1..16lp.Discs sinRoms, ownersDiscSystem prestados hastaDispose. Deduplicar porIDnormalizado enprimerorden, conservar slots/aliases/nombres copiados. Mantener camposlegacyCdInfo/ReadCd para1CD, rechazar ambosmodos a la vez; clone y WhdLoad.Resolve transportancatalogo.",
+        "Identidad estado/pelicula incluyeIDsunicos ordenados+mapaslots, no rutas/seleccion. StateEnvelope/campos validan antes del sandbox, Attach/SRAM oIO. ControllerDefinition CD añadeNextSlot/EjectDisk/InsertDisk sinNextDrive; aplicar alinicioFrameAdvance usandoIController grabable. Serializarvalidar latches, seleccion/ausencia/aplicado ypeticiones; applywrapperdespues de restoreexitoso, rebindU4 respetaordinalguardado.",
+        "Cd32CatalogCoreTests conloaderpublico+IController: A/B/A-alias, datorealB, heldbuttons sinrepeticion, A->B->restoreA ycorteausente enownersnuevos/sandbox/proceso; catalogo/mapa distintosrechazados sinmutacion. Antigua negativa2CD pasa a >16/mezcla, conservar singleCD/SRAM. WB03 clase nueva+Cd32PublicCoreTests; GEN01 registro/layout/referenciaMacHawk existentes. Sieterutas atomicas240..360manuales, rootbuildguestcoordinado; pelicula decambio sigueU6."
+      ],
+      "checks": [
+        "GEN01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Carga publica ybotones grabables cambianCDreal yrestauran seleccion/futuro/identidad enotro sandbox/proceso;catalogosajenos rechazados antesdemutacion. No acredita aunpeliculaTASdecambio."
+      ],
+      "stop": "No inventarIDiskControl que noexiste enCommonfijado; usarIController y no endpointinmediatoque escape alinputlog."
+    },
+    {
+      "id": "T66u6",
+      "title": "Grabar y reproducir cambio CD en peliculas BK2 y TAS",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66u5",
+        "T66r5"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "tests/media/csharp-disc/Cd32Movies.cs",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/bizhawk-movies/test_cd32_start.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "ReutilizarMovieSessionreal/BK2/TASproj/startuptransport; grabarNextSlot/Eject/Insert enA/B/alias concambioyausencia alrededor delseek. Ownersfrescos/nuevoproceso, seek/rebranch yrender/audio suprimidos; exigirseleccion/presencia/datosB reales, AV/PCM/ticks yestadofinalcompleto.",
+        "Negativosorden/ID/mapaalias debenfallarantes deAttach/SRAM/sandbox. Conservar seisvariantes power/SRAM/state porBK2/TAS como regresion; no tocarMainForm ni formato de pelicula. NuevaCd32MovieSwapTests compartebuild yWB09 conCd32MovieStartTests;cuatrorutas120..220manuales. Rootcoordina runnerWBreal, sin afirmacionesTASpor compilacion o snapshotprivado."
+      ],
+      "checks": [
+        "WB09"
+      ],
+      "acceptance": [
+        "Peliculas reales BK2/TAS graban cambioCD yreproducen/seek/restauran futuro exacto conownersnuevos;otro catalogo/mapa serechazaantesde efectos."
+      ],
+      "stop": "No sustituirMovieSessionporcabecera manual niTASpor snapshotWaterbox."
+    },
+    {
       "id": "T66l5",
       "title": "Leer NRG ETNF multitrack con pregap canonico explicito",
       "milestone": "M3",
@@ -17228,7 +17353,10 @@
         "T66l5",
         "T66g5",
         "T66u3",
-        "T66t5"
+        "T66t5",
+        "T66u4",
+        "T66u5",
+        "T66u6"
       ],
       "read": [
         "docs/01-architecture.md",
