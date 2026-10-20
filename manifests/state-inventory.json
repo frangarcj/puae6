@@ -2347,7 +2347,7 @@
         "upstream_compiled": false,
         "policy": "rebuild",
         "saved_fields": "CIA-overlay profiles derive OVL from PRA/DDRA. CD32 auto-overlay carries the independent oldovl latch as one u8 at the end of P6CI (T66m6); map tables and pointers are rebuilt, never serialized.",
-        "omitted": "overlay_state is a static int written only by map_overlay; it also decides ce_banktype (see next record), so a wrong value changes Slow RAM wait states as well as the data seen at address 0. Private HRTMon additionally owns a saved map bit for its sixteen $A10000-$B0FFFF pages; P6RM restores it independently of PC/flag, with Normal PC binding refreshed afterwards.",
+        "omitted": "overlay_state is a static int written only by map_overlay; it also decides ce_banktype (see next record), so a wrong value changes Slow RAM wait states as well as the data seen at address 0. Private HRTMon additionally owns a saved map shape (dummy, HRTMon, or A1200 Kickstart mirrors) for its sixteen $A10000-$B0FFFF pages; P6RM restores it independently of PC/flag, with Normal PC binding refreshed afterwards.",
         "pointers": "mem_banks[0..31] point at either chipmem_bank or kickmem_bank (static addrbank objects); never serialize.",
         "rebuild": "CIA-overlay: derive oldovl=(pra|~ddra)&1. CD32 with cs_ciaoverlay0: preserve the restored one-shot latch, cleared by any first WriteCIAA. Then map_overlay(oldovl ? 0 : 1), including fill_ce_banks. Other auto-overlay profiles remain unsupported. The standalone probe observes the map request; real machine-map/continuation remains the parent NativeChunk gate.",
         "evidence": [
@@ -8001,7 +8001,7 @@
       },
       {
         "id": "cartridge-hrtmon-native",
-        "subsystem": "cartridge",
+        "subsystem": "ram",
         "component": "Private pinned HRTMon on A1200; complete fixed 1 MiB RAM owner",
         "owner": "build/upstream/ar.cpp (patches 0394 and 0398), bridge/state.cpp",
         "chunk": null,
@@ -8011,10 +8011,10 @@
         "in_profile": true,
         "upstream_compiled": false,
         "policy": "serialize_extended",
-        "saved_fields": "All 1048576 HRTMon bytes, hrtmon_flag (IDLE/ACTIVATE/ACTIVE), triggered_once, actual mapping across sixteen 64 KiB pages, ar_custom[512], ar_ciaa[16], ar_ciab[16]. Chip RAM owns the NMI vector/stack and P6CP the CPU/interrupt pipeline. A pending Freeze is not executed while saving.",
+        "saved_fields": "All 1048576 HRTMon bytes, hrtmon_flag (IDLE/ACTIVATE/ACTIVE), triggered_once, actual mapping across sixteen 64 KiB pages:0 all dummy,1 all HRTMon,2 dummy A1..A7 and Kickstart A8..B0, ar_custom[512], ar_ciaa[16], ar_ciab[16]. Chip RAM owns the NMI vector/stack and P6CP the CPU/interrupt pipeline. A pending Freeze is not executed while saving.",
         "omitted": "Fixed private owner facts are checked: CART_HRTMON, armodel=0, start=$A10000, size=1MiB, no extra banks/ROM mode/zero-page, CIA stride256 and English keyboard. AR state, RTG state and host-path .uss codecs are excluded. Without a cart, legacy identity and bodies are unchanged.",
         "pointers": "No pointer is serialized. RAM belongs to the loaded bank; masks and custom/CIA pointers derive from that owner. The immutable copied raw asset is hashed into p6/media/hrtmon/v1, separately from mutable monitor RAM.",
-        "rebuild": "Apply uses original map/unmap functions from the saved mapping bit (x may leave an IDLE monitor mapped). P6RM rebuild rebinds Normal PC after all RAM/mapping applies without fill_prefetch; no reload or I/O in Apply.",
+        "rebuild": "Apply uses original map/unmap functions from the saved map shape (x may leave an IDLE monitor mapped). Shape2 restores only A8..B0 mirrors (two original bank spans), preserving B1..B7 and ROM offsets. P6RM rebuild rebinds Normal PC after all RAM/mapping applies without fill_prefetch; no reload or I/O in Apply.",
         "evidence": [
           "patches/winuae/0398-hrtmon-native-state.patch",
           "bridge/state.cpp",
@@ -8033,10 +8033,24 @@
         "waterbox": "Not credited by this native gate; public cartridge/Freeze frontend wiring remains T69c.",
         "native_state": {
           "task": "T69b",
-          "chunk": "P6RM + P6CP",
+          "chunk": "P6RM",
           "file": "bridge/state.cpp",
-          "visitor": "visit_hrtmon / visit_cpu",
-          "proves": "Pending integrated tests/cartridge/test_hrtmon.py:HrtMonTests; bound includes the fixed allocation before the reset head."
+          "visitor": "visit_ram",
+          "proves": "Pending integrated tests/cartridge/test_hrtmon.py:HrtMonTests; bound includes the fixed allocation before the reset head.",
+          "notes": "P6CP additionally carries SPCFLAG_ACTION_REPLAY and publishes the incoming word for the P6RM control cross-check."
+        },
+        "probe": {
+          "probe": "private p6_hrtmon_probe (not the generic p6_digest)",
+          "status": "implemented",
+          "task": "T69b",
+          "covers": [
+            "hrtmon_flag",
+            "triggered_once",
+            "all 1MiB HRTMon RAM",
+            "ar_custom/ar_ciaa/ar_ciab",
+            "exact sixteen-page map shape",
+            "CPU SPCFLAG_ACTION_REPLAY"
+          ]
         }
       }
     ],

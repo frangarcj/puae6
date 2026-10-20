@@ -197,12 +197,12 @@ void visit_hrtmon(Archive &a)
     a.val<uint32_t>(0x100000,0x100000,0x100000,"hrt.size");
     h.flag=a.val<uint32_t>(h.flag,1,3,"hrt.flag");
     h.triggered=a.val<uint32_t>(h.triggered,0,1,"hrt.triggered");
-    h.mapped=a.val<uint32_t>(h.mapped,0,1,"hrt.mapped");
+    h.mapped=a.val<uint32_t>(h.mapped,0,2,"hrt.mapped");
     if (a.mode()!=Mode::Measure) {
         a.require(ram, "HRTMon has no allocated owner");
         a.require((h.flag!=ACTION_REPLAY_IDLE)==bool(cpu_spc(a.mode())&SPCFLAG_ACTION_REPLAY), "HRTMon and CPU pending flags disagree");
-        a.require(!h.mapped || h.triggered, "mapped HRTMon was never triggered");
-        a.require(h.flag!=ACTION_REPLAY_ACTIVE || (h.triggered && h.mapped), "active HRTMon has no trigger or mapping");
+        a.require(h.mapped!=1 || h.triggered, "mapped HRTMon was never triggered");
+        a.require(h.flag!=ACTION_REPLAY_ACTIVE || (h.triggered && h.mapped==1), "active HRTMon has no trigger or mapping");
     }
     a.bytes(h.custom,sizeof h.custom,"hrt.custom"); a.bytes(h.ciaa,sizeof h.ciaa,"hrt.ciaa"); a.bytes(h.ciab,sizeof h.ciab,"hrt.ciab");
     a.bytes(ram,0x100000,"hrt.memory");

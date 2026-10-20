@@ -11,7 +11,7 @@ diff --git a/ar.cpp b/ar.cpp
  #ifdef PICASSO96
  #include "gfxboard.h"
  #endif
-@@ -2047,6 +2050,38 @@
+@@ -2047,6 +2050,50 @@
  	if (armodel == 1)
  		action_replay_flag = ACTION_REPLAY_ACTIVE;
  }
@@ -29,9 +29,13 @@ diff --git a/ar.cpp b/ar.cpp
 +{
 +	if (!out || !p6_hrtmon_memory() || hrtmon_flag < ACTION_REPLAY_IDLE || hrtmon_flag > ACTION_REPLAY_ACTIVE ||
 +		triggered_once < 0 || triggered_once > 1) return false;
-+	const bool mapped = &get_mem_bank(hrtmem_start) == &hrtmem_bank;
-+	for (unsigned n = 0; n < 16; ++n)
-+		if (&get_mem_bank(hrtmem_start + (n << 16)) != (mapped ? &hrtmem_bank : &dummy_bank)) return false;
++	// Three exact shapes: preboot dummy, HRTMon, or the A1200 Kickstart mirrors.
++	const unsigned mapped = &get_mem_bank(hrtmem_start) == &hrtmem_bank ? 1 :
++		&get_mem_bank(0xa80000) == &kickmem_bank ? 2 : 0;
++	for (unsigned n = 0; n < 16; ++n) {
++		addrbank *expected = mapped == 1 ? &hrtmem_bank : mapped == 2 && n >= 7 ? &kickmem_bank : &dummy_bank;
++		if (&get_mem_bank(hrtmem_start + (n << 16)) != expected) return false;
++	}
 +	out->flag = hrtmon_flag; out->triggered = triggered_once; out->mapped = mapped;
 +	memcpy(out->custom, ar_custom, sizeof ar_custom);
 +	memcpy(out->ciaa, ar_ciaa, sizeof ar_ciaa); memcpy(out->ciab, ar_ciab, sizeof ar_ciab);
@@ -44,7 +48,15 @@ diff --git a/ar.cpp b/ar.cpp
 +	memcpy(ar_ciaa, in->ciaa, sizeof ar_ciaa); memcpy(ar_ciab, in->ciab, sizeof ar_ciab);
 +	hrtmem_mask = hrtmem_size - 1;
 +	hrtmon_custom = hrtmemory + 0x8f000; hrtmon_ciaa = hrtmemory + 0x8e000; hrtmon_ciab = hrtmemory + 0x8d000;
-+	if (in->mapped) hrtmon_map_banks(); else hrtmon_unmap_banks();
++	if (in->mapped == 1) hrtmon_map_banks();
++	else {
++		hrtmon_unmap_banks();
++		if (in->mapped == 2) {
++			// Realsize0 uses each span's size. The bank's mask keeps B0 at ROM offset0.
++			map_banks(&kickmem_bank, 0xa8, 8, 0);
++			map_banks(&kickmem_bank, 0xb0, 1, 0); // B1..B7 are outside this owner.
++		}
++	}
 +}
 +#endif
  

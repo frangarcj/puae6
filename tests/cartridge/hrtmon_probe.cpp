@@ -74,7 +74,19 @@ static std::vector<uint8_t> save()
     std::vector<uint8_t> out(size); p6_state::Options opts; opts.on_field=field; fields.clear();
     call(p6_state::save(out.data(),out.size(),&written,opts,&e),e); out.resize(written); return out;
 }
-static void load(const std::vector<uint8_t> &s) { auto e=error(); call(p6_state_load(s.data(),s.size(),&e),e); }
+static void check_mirrors()
+{
+    if(!p6_bridge::hrtmon_bound()) return;
+    p6_hrtmon_raw h{}; assert(p6_hrtmon_get(&h));
+    // The B1..B7 mirrors are outside HRTMon even while it is mapped.
+    assert(&get_mem_bank(0xb10000)==&kickmem_bank && &get_mem_bank(0xb70000)==&kickmem_bank);
+    assert(get_long(0xb10000)==get_long(0xf90000) && get_long(0xb7fffc)==get_long(0xfffffc));
+    if(h.mapped==2) {
+        assert(get_long(0xa80000)==get_long(0xf80000) && get_long(0xb00000)==get_long(0xf80000));
+        assert(get_real_address(0xb00000)==kickmem_bank.baseaddr);
+    }
+}
+static void load(const std::vector<uint8_t> &s) { auto e=error(); call(p6_state_load(s.data(),s.size(),&e),e); check_mirrors(); }
 static uint64_t le64(const uint8_t *p) { uint64_t v=0; for(int n=7;n>=0;--n) v=(v<<8)|p[n]; return v; }
 static void reseal(std::vector<uint8_t> &s,const p6_state::Identity &identity)
 {
@@ -146,17 +158,17 @@ static void continuations(const std::vector<uint8_t> &rom,const std::vector<uint
         if(writing) {
             start(rom,cart); step(300); assert(get_long(4)>0 && get_long(4)<currprefs.chipmem.size);
             assert(hrtmon_flag==ACTION_REPLAY_IDLE); install_loop(); step(2); assert(get_long(0x11000)>0);
-            p6_hrtmon_raw h{}; assert(p6_hrtmon_get(&h) && !h.mapped && !h.triggered); cuts.push_back(save());
+            p6_hrtmon_raw h{}; assert(p6_hrtmon_get(&h) && h.mapped==2 && !h.triggered); check_mirrors(); cuts.push_back(save());
             auto e=error(); call(p6_bridge::freeze_hrtmon(&e),e); assert(hrtmon_flag==ACTION_REPLAY_ACTIVATE); cuts.push_back(save());
             step(80); command("o 10000 10004 5",false); step(3,AK_A); cuts.push_back(save());
             if(cpu_mode==P6_CPU_EXACT) {
-                const std::pair<const char *,uint32_t> invalid[]={{"hrt.size",0},{"hrt.flag",0},{"hrt.triggered",0},{"hrt.mapped",0},{"cpu.spcflags",0}};
+                const std::pair<const char *,uint32_t> invalid[]={{"hrt.size",0},{"hrt.flag",0},{"hrt.triggered",0},{"hrt.mapped",0},{"hrt.mapped",2},{"hrt.mapped",3},{"cpu.spcflags",0}};
                 for(const auto &entry:invalid) corrupt(cuts[2],entry.first,entry.second);
                 auto foreign=cuts[2]; auto identity=p6_state::current_identity(); identity.media_manifest_hash[0]^=1;
                 reseal(foreign,identity); reject(foreign,P6_ERROR_INCOMPATIBLE);
                 step(3); step(3,AK_RET); step(12); command("x"); step(8); assert(hrtmon_flag==ACTION_REPLAY_IDLE);
-                assert(p6_hrtmon_get(&h) && h.mapped && h.triggered); cuts.push_back(save());
-                call(p6_reset(&e),e); step(); assert(p6_hrtmon_get(&h) && !h.mapped && h.triggered); cuts.push_back(save());
+                assert(p6_hrtmon_get(&h) && h.mapped==1 && h.triggered); check_mirrors(); cuts.push_back(save());
+                call(p6_reset(&e),e); step(); assert(p6_hrtmon_get(&h) && h.mapped==2 && h.triggered); check_mirrors(); cuts.push_back(save());
             }
         }
         for(unsigned cut=0;cut<5;++cut) {

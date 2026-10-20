@@ -70,7 +70,7 @@ struct p6_applied_raw {
 };
 // HRTMon control and write shadows; the separate memory accessor names an existing owner only.
 struct p6_hrtmon_raw {
-    uint32_t flag, triggered, mapped;
+    uint32_t flag, triggered, mapped; // mapped:0 dummy,1 HRTMon,2 dummy A1..A7 + Kick A8..B0.
     uint8_t custom[512], ciaa[16], ciab[16];
 };
 uint8_t *p6_hrtmon_memory();
