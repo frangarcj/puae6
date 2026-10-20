@@ -17848,6 +17848,47 @@
       "stop": "No usar binario chd-rs de otra ISA, duplicar motor/parser ni instalar dependencias. Tras dos fallos razonados del mismo comportamiento, conservar reproducer y bloquear con dos hipotesis; dividir antes de ampliar el limite manual."
     },
     {
+      "id": "T66t15b",
+      "title": "Traducir regiones DiscSystem a descriptor regional canonico V2",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t15a",
+        "T66t13",
+        "T66t11"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_chd_canonical_csharp.py",
+        "tests/media/test_chd_host_csharp.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Cuando Disc.Regions exista, construir TOC, modos y pregaps desde metadata tipada, sin inferir INDEX00 por Q (puede ser contradictoria o SBI). Validar cobertura continua [0,leadout), pistas ordenadas, programa unico y pregap representable por un modo/control. Rechazar contradicciones. Mantener exactamente la ruta v1 para ISO/CUE sin regiones.",
+        "DescriptorV2 describe wire2448 YA materializado por DiscSystem, no packing CHD: StoredPregap=1 si hay INDEX00, SyntheticPregap=0; SUB96 siempre en programa y tambien en pregap/postgap existentes. Con postgap activar Stored/Sub96/Index2 correspondientes. Modo/control de pregap vienen de regiones. No copiar Synthetic o SubType fisicos porque perderia Q/SBI o resintetizaria bytes.",
+        "La vista2048 consulta modo regional, no siempre el del programa; respetar la extraccion/rechazos del contrato nativo real. Identidad regional con dominio P6CD2448, politica2, geometria, registros V2 y wire completo. Politica1 conserva exactamente bytes y hash actuales. Rebind valida el candidato entero antes de publicar lector/estado; reservas e inactivos cero.",
+        "MED01 ChdCanonicalCSharpTests.test_regional_descriptor_materialization_identity_and_rejections reutiliza fixtures y oraculos T13; exporta descriptor4808 y verifica campos, reservas, modos de gap diferentes, Q contradictoria, identidad y rechazos sin mutar. Unir ChdHostCSharpTests.test_four_codecs_real_mount_regions_audio_subq_crossings_and_ownership (backend real de cuatro codecs) y DiscSourceCSharpTests como regresion v1. No repetir toda la matriz T13 ni la partida6500.",
+        "cd32_close implementa en worktree aislado: 5 rutas, objetivo290-360 lineas manuales. Sin parser/synth nuevo, metadata compartida ni motor/guest build. Root coordina compilaciones de CDTV; avisar antes de CMake standalone de la prueba host. Si necesita otra ruta o supera400, parar y dividir antes. Loader publico, politica XA de montaje en ese loader y gate Waterbox quedan en hoja posterior; no atribuirlos a este traductor host."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "La fuente tipada genera descriptorV2 coherente con el wire2448 real, conserva Q/SBI y modos regionales, y valida identidad/rebind sin mutacion. La ruta v1 mantiene sus bytes y checks. Sin afirmacion de loader publico o restauracion Waterbox."
+      ],
+      "stop": "No derivar metadata de Q cuando existen regiones, copiar packing CHD a wire, relajar checks de descriptor ni acreditar sandbox por C# host."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17926,7 +17967,8 @@
         "T66t12",
         "T66t13",
         "T66t14",
-        "T66t15a"
+        "T66t15a",
+        "T66t15b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -18070,14 +18112,17 @@
         "tests/media/test_cdtv_state.py",
         "CMakeLists.txt",
         "manifests/state-inventory.json",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json"
       ],
       "steps": [
         "Infraestructura del componente CDTV privado, sin habilitar estado nativo. Separada de la integracion P6CT para respetar el limite manual: 7 rutas, objetivo 350-395 lineas incluyendo probe. Padre T67 conserva codec completo, perfil, autoconfig y arranque. Estado p6_state_* mantiene UNSUPPORTED mientras currprefs.cs_cdtvcd.",
         "DTO tipado completo y accesores mediante patch0400, sin editar upstream ni dumps de structs. Una funcion tipada field(value,live,operacion,rango) comparte lista EXPLICITA de campos entre capture/validate/apply; Validate no lee refs live, y Apply solo sigue a validacion y preflight completos. No arrays anonimos de palabras ni macros para ocultar logica. DeviceState/CDA usan contratos existentes.",
         "Incluir FIFO logica, parser/respuesta parcial/last_out, DMAC/6525/latches/strobes, control/media/error/posiciones/volumen/DAC/TOC/Q cacheados, NVRAM32768, ring36x96 y transferencia SUB/contadores, SEEK y modo callback CDA0/normal/inmediato. Los buffers/TOC se validan explicitamente, no se reconstruyen desde el medio actual. Getter de subcode_handler solo para futura reconstruccion; ningun puntero guardado. E9 se deriva con dmac_bank y un banco ajeno se rechaza antes de mutar. Apply no provoca IRQ, callback, backend read, audio advance ni eventos nuevos.",
         "MED01 CdtvStateComponentTests.test_local_roundtrip_and_transactional_refusals, exe p6_cdtv_state_probe modo local. Dueno real A500+Disc: get, alteracion valida de registros/FIFO/parser/respuesta/NVRAM/SUB y CDA permitido, apply y get iguales; volver al original. Negativos de rango, cola, SUB, callback, Disc y DMA deben preservar estado, get_cycles, reads, callbacks observados y slots/fechas event2. Un contador privado excluido del DTO observa callbacks reales. Incluir modos de audio alcanzables sin afirmar futuro completo. DTO local inicializado, nunca formato persistido.",
-        "Regresion cercana CdtvLinkTests una vez. Inventario distingue componente privado verificado de codec nativo AUSENTE, sin P6CT falso. cd_swap trabaja aislado y no edita metadata; root registra serie/clasificacion y serializa build -j2. Si alcanza400 o necesita otra ruta, parar y dividir explicitamente antes. La puerta completa de restauracion fria/futuro pertenece a T67b2."
+        "Regresion cercana CdtvLinkTests una vez. Inventario distingue componente privado verificado de codec nativo AUSENTE, sin P6CT falso. cd_swap trabaja aislado y no edita metadata; root registra serie/clasificacion y serializa build -j2. Si alcanza400 o necesita otra ruta, parar y dividir explicitamente antes. La puerta completa de restauracion fria/futuro pertenece a T67b2.",
+        "Root registra patch0400 y clasificacion required para integrar el DTO, sin modificar upstream directo. Estas dos rutas son metadata de integracion; la implementacion conserva sus siete rutas y limite395."
       ],
       "checks": [
         "MED01"
