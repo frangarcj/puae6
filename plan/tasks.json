@@ -16526,7 +16526,7 @@
       "title": "Exportar metadata MDS v1 acotada desde el parser fijado",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66j1",
         "T66o1"
@@ -16547,7 +16547,8 @@
         "Reutilizar el recorrido y offsets de parsemds del WinUAE6030 fijado mediante parche, sin editar upstream ni copiar el motor PUAE. Export P6_MDS_METADATA sobre ReadFn+size: campos endian-explicitos, salida transaccional, sin filesystem/handles ni copiar sectores. Corregir firma, cotas de tablas/footers/strings, extras de pregap/length y offsets64bits.",
         "Primera vertical MDSv1 de una sesion y MDF unico; tipos de pista reales compatibles con Layout actual, nombres ASCII/UTF16LE y wildcard MDF deben tener semantica explicita atribuida al codigo fijado/DiscSystem. No inferir pregap ambiguo para aprobar fixtures; decidirlo con offsets y fixture independiente. Versiones/sesiones/archivos o modos fuera del decoder devuelven Unsupported claro y permanecen visibles enT66.",
         "MED01: compilar TU real derivada bajo ASan/UBSan con fixtures binarios independientes; probar TOC, pregap/longitud, modos, nombres, offset>4GiB sin asignacion proporcional, truncados/firma/endian/overflow/IOcorto y salida intacta. Conservar compilacion de endpointsCUE/CCD/NRG existentes como regresion cercana.",
-        "Frente busy_reference reutiliza worktree a4040-frontends y fusiona main normalmente. Coordinador posee serie/clasificacion/checks/plan y reserva0388; enviar contrato y hashes antes de materializar. Solo tests parser, sin compilar motor ni guest ni bateria completa. Limite orientativo400lineas logicas; comunicar ampliacion atomica necesaria antes de editar fuera del touch."
+        "Frente busy_reference reutiliza worktree a4040-frontends y fusiona main normalmente. Coordinador posee serie/clasificacion/checks/plan y reserva0388; enviar contrato y hashes antes de materializar. Solo tests parser, sin compilar motor ni guest ni bateria completa. Limite orientativo400lineas logicas; comunicar ampliacion atomica necesaria antes de editar fuera del touch.",
+        "MED01 dirigido PASS con0388:4tests ASan/UBSan, TUderivadaMDS yregresionCUE/CCD/NRG, hashbefore/patch/after estrictos. Truncadosporbyte, camposMSF,99pistas, Unicode/IO/budget/nombres/offset64 ysalidaintacta. No acredita proveedor MDF ni carga publica; temporaleslimpios, sin buildmotor/guest."
       ],
       "checks": [
         "MED01"
@@ -16597,6 +16598,45 @@
         "La dependencia fijada se importa/verifica offline con licencias y receta explicita y decodifica byte a byte los cuatro codecs CDv5 legales de prueba sin depender de paquetes externos ni del motor antiguo. No acredita aun lectura segura por offset ni carga CHD del producto."
       ],
       "stop": "No anunciar CHD ni enlazar archivos arbitrarios sin hardening/ReadFn y proveedor/restore; todas las puertas originalesT66 permanecen abiertas."
+    },
+    {
+      "id": "T66s2",
+      "title": "Leer MDF por offset y normalizar pistas MDS con identidad completa",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66s1",
+        "T66b",
+        "T66e1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_mds.h",
+        "adapters/libretro/cd_mds.cpp",
+        "cmake/Libretro.cmake",
+        "tests/media/test_cd_mds.py",
+        "tests/media/cd_mds_probe.cpp"
+      ],
+      "steps": [
+        "Implementar CdMds sobre metadata cruda0388 y CdFile/VFS con RAII, sin precargar MDF ni copiar motorviejo. Registrar targetmetadataMDScuarto y proveedor en p6_cd_images, todavia sin anunciarextension ni seleccionarCdImage; eso queda para integracion publica posterior.",
+        "Normalizacion atribuida: libMirage oficial a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e/libmirage/images/image-mds/parser.c:461..474 crea pregap sintetico,492 start_offset apunta datos,543..545 extra.length es longitud de datos,646..651 session_start es inicio disco. Usar semantica y fixtures independientes, sin copiar fuente. Desde session_start acumular pregap+sectors, exigir concordancia con start_sector/Q/A2/session_end y contiguidad; clip negativo de primera pista fueraLBA>=0 sin desplazar datos. Inconsistencias se rechazan, no heuristicas silenciosas.",
+        "Una MDF compartida: expandir *.mdf con basenameMDS y resolver nombre relativo conservando mayusculas/UTF8 como CdCue. Modos/strides permitidos por metadata; normalizar soloSUB96interleaved a deinterleaved sin tocar audio/data. Mantener limites expresos del Disc comun, incluidos viewsMode2 no soportados, sin stub de exito.",
+        "Identidad incluye MDS y MDF completos por SHA256, normalizacion/TOC y fuentes, sin rutas ni punteros/padding. Rebind en owner nuevo verifica IDs/layout completos y conserva owner previo ante fallo. Validar spans/longitudes/overflow antes de publicar y lecturas acotadas/transaccionales con falloVFS; no fallback a sectores sinteticos tras error.",
+        "MED01 dirigido con build aislado sinmotor/guest: fixtures legales de modo1cooked/raw, audio,Mode2raw ySUB2448, pregaps inicial/intermedio, Unicode/wildcard, offsets arbitrarios ystrides mixtos, IDs/mutacionesenmetadata/payload/padding, nuevosowners/rebind, erroresVFS/archivoausente/corto ysalidasintactas. RegresioncercanaDisc/parsers si cambia dependencia relevante. Frente busy_reference reutiliza a4040-frontends; coordinador metadata/checks e integra. <=400lógicasmanuales orientativas,5rutas; anunciar necesidad atomica antes de ampliar."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El proveedor MDS/MDF produce TOC y lecturas exactas por offset con gaps/strides/SUB96 coherentes, identidad completa y rebind transaccional en otro owner bajo sanitizers y VFS. No acredita aun seleccion/carga/restore publico libretro."
+      ],
+      "stop": "No anunciar extension MDS hasta comprobar fabrica, sesion y restauracion publica; el padre conserva CHD/NRG/cambioCD y todas sus puertas."
     },
     {
       "id": "T66",
@@ -16651,7 +16691,8 @@
         "T66r8",
         "T66r9",
         "T66s1",
-        "T66t1"
+        "T66t1",
+        "T66s2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16696,7 +16737,8 @@
         "T66r8 conserva como puerta requerida la contaminacion visual de una nueva sesion nativa tras jugar, descubierta por T66r7; no queda cerrada por el restore del corte en nuevo owner.",
         "T66r9 cierra seleccion por etiquetas de CD directo sin alterar los tags de disquete. Formatos/variantes y cambioCD siguen pendientes, ademas de las puertas completas del padre.",
         "T66s1 separa parserMDSv1 por presupuesto: metadata acotada primero, proveedor MDF y carga publica despues. El padre conserva soporteMDS integrado, CHD, variantesNRG, cambioCD y todas sus puertas originales.",
-        "T66t1 prepara libchdr standalone fijado y sus codecs offline; reader ReadFn/hardening, proveedor CD y carga publica siguen pendientes explicitos. No copiar motor antiguo ni anunciar CHD por un build de dependencia."
+        "T66t1 prepara libchdr standalone fijado y sus codecs offline; reader ReadFn/hardening, proveedor CD y carga publica siguen pendientes explicitos. No copiar motor antiguo ni anunciar CHD por un build de dependencia.",
+        "T66s2 conecta proveedor MDF/TOC con identidad completa sobre metadata0388; seleccion CdImage/sesion/extension y prueba publica MDS quedan despues de esta pieza. Se conservan formatos/variantes/cambioCD y las puertas originales."
       ],
       "checks": [
         "MED01",
