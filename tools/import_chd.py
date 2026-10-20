@@ -28,7 +28,13 @@ PATCHES = [PATCH_META, {"path": "patches/0002-readfn-header.patch",
     "include/libchdr/coretypes.h": "ce189f4057f4e1fdaef674887624a8b977952cd496df14b207fa22e2f7ab21e4",
     "src/libchdr_chd.c": "ff7a30bedbe97c9e7c9068a42ea378111e6ff2206c40e26306d91d462cb10d9e",
     "src/libchdr_bitstream.c": "3610c14a487a103ea61b45630e08953e93d3ef4df8a8c5efdd7717fb201c8eef",
-    "src/libchdr_huffman.c": "5e75d3527ef8fcb8a8cf1d8f9d2bf8347607f5759c88b6c57ec2548703d56783"}}]
+    "src/libchdr_huffman.c": "5e75d3527ef8fcb8a8cf1d8f9d2bf8347607f5759c88b6c57ec2548703d56783"}},
+    {"path": "patches/0003-v5-map-metadata.patch",
+    "sha256": "b6307ec26286d902e590f583e0602390455df4c89e3f9247eae9b57a1b4d97bf", "after": {
+    "src/libchdr_bitstream.c": "cc58fe03235a8948e14cc94ba8209f28407fc732bc905beed33f82c6aecbd3b3",
+    "include/libchdr/bitstream.h": "36382f8797459cc696424c09f285de56b414e7aeacb9fcb064e6869f3aa71927",
+    "src/libchdr_huffman.c": "bd42f4334a9258879507b9623b338dbc522f981400252e4666152374cc93c432",
+    "src/libchdr_chd.c": "920720563f0689bc348543aed88ce45f96e0f39f5edf724cfab37f8706d97c42"}}]
 CHDR = ["src/libchdr_" + n + ".c" for n in ("bitstream", "cdrom", "chd", "flac", "huffman")]
 CHDR += ["include/libchdr/" + n + ".h" for n in ("bitstream", "cdrom", "chd", "chdconfig", "coretypes", "flac", "huffman")]
 CHDR += ["include/dr_libs/dr_flac.h", "LICENSE.txt"]

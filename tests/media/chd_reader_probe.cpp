@@ -1,5 +1,9 @@
 #include "chd_reader.h"
 #include <libchdr/chd.h>
+extern "C" {
+#include <libchdr/bitstream.h>
+#include <libchdr/huffman.h>
+}
 #include <algorithm>
 #include <fstream>
 #include <iterator>
@@ -90,9 +94,52 @@ static void headers(Fake original, Fake compressed) {
     CHECK(chd_open("unused", CHD_OPEN_READ, nullptr, &decoder) == CHDERR_NOT_SUPPORTED && !decoder);
     CHECK(chd_precache(nullptr) == CHDERR_NOT_SUPPORTED);
 }
+static void metadata(Fake f) {
+    core_file file{Fake::read, &f, f.data.size()}; chd_file *decoder = nullptr;
+    CHECK(chd_open_file(&file, CHD_OPEN_READ, nullptr, &decoder) == CHDERR_NONE);
+    uint8_t out[4], flags = 0; uint32_t length = 0, tag = 0;
+    const auto wanted = CHD_MAKE_TAG('T','E','S','T');
+    CHECK(chd_get_metadata(decoder, wanted, 0, out, sizeof out, &length, &tag, &flags) == CHDERR_NONE);
+    CHECK(length == 4 && tag == wanted && flags == 0x81 && !memcmp(out, "\1\2\3\4", 4));
+    memset(out, 0xa5, 4); length = 0x12345678; tag = 0x98765432; flags = 0xa5; f.fault = f.calls + 1;
+    CHECK(chd_get_metadata(decoder, wanted + 1, 0, out, 4, &length, &tag, &flags) == CHDERR_READ_ERROR && out[0] == 0xa5);
+    f.fault = f.calls + 2; f.short_read = true;
+    CHECK(chd_get_metadata(decoder, wanted, 0, out, 4, &length, &tag, &flags) == CHDERR_READ_ERROR);
+    CHECK(length == 0x12345678 && tag == 0x98765432 && flags == 0xa5);
+    CHECK(std::all_of(out, out + 4, [](uint8_t b) { return b == 0xa5; }) && f.calls < 5000);
+    chd_close(decoder);
+}
+static void bits() {
+    uint8_t bytes[4] = {0x80,0,0,0}; auto *stream = create_bitstream(bytes, 4);
+    CHECK(bitstream_read(stream, 32) == 0x80000000u && !bitstream_overflow(stream));
+    CHECK(bitstream_flush(stream) == 4); bitstream_read(stream, 1); CHECK(bitstream_overflow(stream)); free(stream);
+    stream = create_bitstream(bytes, 1); CHECK(bitstream_peek(stream, 8) == 0x80 && !bitstream_overflow(stream));
+    CHECK(bitstream_read(stream, 1) == 1 && bitstream_read(stream, 7) == 0 && !bitstream_overflow(stream));
+    bitstream_read(stream, 33); CHECK(bitstream_overflow(stream)); free(stream);
+    uint8_t unaligned[5] = {0xff,0x80,0,0,0}; stream = create_bitstream(unaligned, 5);
+    CHECK(bitstream_read(stream, 1) == 1 && bitstream_peek(stream, 32) == 0xff000000u);
+    CHECK(bitstream_read(stream, 32) == 0xff000000u && !bitstream_overflow(stream)); free(stream);
+    auto *decoder = create_huffman_decoder(16, 8); stream = create_bitstream(bytes, 1);
+    huffman_decode_one(decoder, stream); CHECK(bitstream_overflow(stream)); delete_huffman_decoder(decoder); free(stream);
+}
 int main(int argc, char **argv) {
     CHECK(argc == 4); Fake f{load(argv[2])};
     if (!strcmp(argv[1], "positive")) positive(f, load(argv[3]));
     else if (!strcmp(argv[1], "faults")) faults(f, load(argv[3]));
-    else { CHECK(!strcmp(argv[1], "headers")); headers(f, Fake{load(argv[3])}); }
+    else if (!strcmp(argv[1], "headers")) headers(f, Fake{load(argv[3])});
+    else if (!strcmp(argv[1], "metadata")) metadata(f);
+    else if (!strcmp(argv[1], "bits")) bits();
+    else {
+        ChdReader r; auto status = r.open(Fake::read, &f, f.data.size()); uint8_t out[2448];
+        if (!strcmp(argv[1], "reject") || !strcmp(argv[1], "limit")) {
+            CHECK(status == (!strcmp(argv[1], "limit") ? Result::Unsupported : Result::Invalid) && !r.bytes() && f.calls < 5000);
+            memset(out, 0xa5, sizeof out); CHECK(r.read_at(0, out, 1) == Result::Invalid && out[0] == 0xa5);
+        } else if (!strcmp(argv[1], "accept")) CHECK(status == Result::Ok && f.calls < 5000);
+        else if (!strcmp(argv[1], "zero")) { CHECK(status == Result::Ok); auto calls = f.calls;
+            CHECK(r.read_at(0, out, sizeof out) == Result::Ok && f.calls == calls && std::all_of(out, out + sizeof out, [](uint8_t b) { return b == 0; }));
+        } else { CHECK(!strcmp(argv[1], "self") && status == Result::Ok); auto expected = load(argv[3]);
+            for (uint64_t at = 0; at < r.bytes(); at += 2448) CHECK(r.read_at(at, out, sizeof out) == Result::Ok && !memcmp(out, expected.data(), sizeof out));
+            CHECK(f.calls < r.bytes() / 2448 + 100);
+        }
+    }
 }
