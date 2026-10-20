@@ -13229,7 +13229,7 @@
       "title": "Reanudar NaN SINGLE reconstruido en CU06 rev40 por FPSP",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T55c8"
       ],
