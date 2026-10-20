@@ -678,6 +678,33 @@
       ],
       "handling": "Preserve the upstream notice and the SPDX/attribution in ports/portable/drive_sound.cpp. No external sample files are distributed.",
       "build_eligibility": "portable native and Waterbox presentation"
+    },
+    {
+      "id": "portable-libchdr-standalone",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "selected_standalone_chd_decoder_dependency_not_linked_to_product",
+      "declared_license": "libchdr BSD-3-Clause; LZMA SDK19.00 public domain; zlib snapshot API header1.2.7 with some implementation notices1.2.8 under zlib license; dr_flac0.12.28 MIT-0 option of its dual public-domain/MIT-0 notice.",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/libchdr/LICENSE.txt",
+          "sha256": "e3989a7aee74a91b8cdbdfe204a6b8d03288863ec7533a21c51f1a987ba73539"
+        },
+        {
+          "path": "references/machawk-uae/deps/7zip/LzmaDec.c",
+          "sha256": "7433738640c26bc09b28bc14a90e47f97733267d358571729b3185c37c531c0d"
+        },
+        {
+          "path": "references/machawk-uae/deps/libz/zlib.h",
+          "sha256": "31b7ed2b5bceea407626bdbcf16a1efa9770e91b646012906ac8303aa3f1f242"
+        },
+        {
+          "path": "references/machawk-uae/deps/libchdr/include/dr_libs/dr_flac.h",
+          "sha256": "2ee1488449762812fe309967dcdb71a1565fc611e67511f6fed6099163e557e6"
+        }
+      ],
+      "provenance": "T66t1: source commit ccecb1ead642c1bbe391308b88a7ffa9478b918d, selected byte-exact copies in third_party/libchdr/selection.json; standalone portability patches apply only to a verified build copy.",
+      "handling": "Preserve all embedded notices and standalone NOTICE.md/selection.json. Reproduce libchdr BSD notices in binary distribution materials before linking the product. No PUAE engine is imported. ReadFn bounds/hardening, normalized CD provider and public loading/restore remain required before exposing CHD content.",
+      "build_eligibility": "standalone_component_only_pending_readfn_hardening_and_cd_provider"
     }
   ],
   "exclusions": [
