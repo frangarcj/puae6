@@ -208,14 +208,31 @@ class Cd32PlaylistTests(Cd32Session):
         return playlist, paths
 
     def device(self, path):
-        data = path.read_bytes(); at = 64 + struct.unpack_from('<I', data, 24)[0] + 336
-        while at < len(data):
-            tag, version, size = struct.unpack_from('<4sIQ', data, at); at += 16
+        data = path.read_bytes()
+        self.assertEqual(b'P6LRSTAT', data[:8])
+        version, header, native_bytes, section_bytes = struct.unpack_from('<IIQI', data, 8)
+        self.assertEqual((8, 64), (version, header))
+        native_at = header + section_bytes; end = native_at + native_bytes
+        self.assertLessEqual(end, len(data)); self.assertGreater(native_bytes, 0)
+        self.assertEqual(data[32:64], hashlib.sha256(data[header:native_at]).digest())
+        self.assertFalse(any(data[end:]))
+        native = data[native_at:end]
+        self.assertEqual(b'P6NATIVE', native[:8])
+        version, header = struct.unpack_from('<II', native, 8)
+        self.assertEqual((1, 336), (version, header))
+        payload_bytes, count = struct.unpack_from('<QI', native, 40)
+        self.assertEqual(len(native), header + payload_bytes)
+        at = header; device = None
+        for _ in range(count):
+            self.assertLessEqual(at + 16, len(native))
+            tag, version, size = struct.unpack_from('<4sIQ', native, at); at += 16
+            self.assertLessEqual(size, len(native) - at)
             if tag == b'P6AK':
-                self.assertEqual(1, version)
-                return struct.unpack_from('<32s7I', data, at + size - 60)
-            self.assertGreater(size, 0); at += size
-        self.fail('missing native P6AK')
+                self.assertIsNone(device); self.assertEqual(1, version); self.assertGreaterEqual(size, 60)
+                device = struct.unpack_from('<32s7I', native, at + size - 60)
+            at += size # P6RT is legitimately empty on a CD32 without RTC.
+        self.assertEqual(at, len(native)); self.assertIsNotNone(device)
+        return device
 
     @staticmethod
     def iso_id(path):
@@ -225,13 +242,13 @@ class Cd32PlaylistTests(Cd32Session):
     def test_slots_initial_aliases_boundary_and_fixed_catalog(self):
         content, paths = self.playlist(); work = self.work()
         states = [work / f'{i}.state' for i in range(5)]
-        out = self.run_cd('--initial', f'1:{paths[1]}', '--runs', 5,
-                          '--do', f'0:savefile:{states[0]}', '--do', '0:images',
-                          '--disk', '1:eject', '--do', f'1:savefile:{states[1]}',
-                          '--disk', '2:index=2', '--disk', '2:insert', '--do', f'2:savefile:{states[2]}',
-                          '--disk-during', '3:eject', '--do', f'3:savefile:{states[3]}',
-                          '--do', f'4:savefile:{states[4]}', '--disk', '5:add',
-                          '--disk', '5:remove=0', '--disk', f'5:replace=0:{paths[1]}', content=content)
+        out = self.run_cd('--initial', f'1:{paths[1]}', '--runs', 6,
+                          '--do', f'1:savefile:{states[0]}', '--do', '1:images',
+                          '--disk', '2:eject', '--do', f'2:savefile:{states[1]}',
+                          '--disk', '3:index=2', '--disk', '3:insert', '--do', f'3:savefile:{states[2]}',
+                          '--disk-during', '4:eject', '--do', f'4:savefile:{states[3]}',
+                          '--do', f'5:savefile:{states[4]}', '--disk', '6:add',
+                          '--disk', '6:remove=0', '--disk', f'6:replace=0:{paths[1]}', content=content)
         self.assertRegex(out, r'state images count=3 index=1 eject=0')
         self.assertEqual(self.iso_id(paths[1]), self.device(states[0])[0])
         for i, present in enumerate((1, 0, 1, 1, 0)):
