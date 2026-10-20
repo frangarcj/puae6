@@ -3009,7 +3009,7 @@
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
           "proves": "tests/state/test_state_upstream.py: BEAM (patch 0094, 260 bytes since patch 0103 added the vertical window lines, their flag and the interlace) is saved without changing the machine, validated by structure before anything is applied (the line against the standard of the configuration, the flags, the latches, the strobe) and applied as values, and save, load, save re-emits it byte for byte with the rest of the state, in the same process and in a new one; tests/state/test_det02.py: a fresh image that loads a state is on the original's line and in its frame, and the first unit that differs is attributed to its own cause",
-          "notes": "vpos, vpos_prev, agnus_hpos(+_prev,_next), agnus_vpos_next, agnus_pos_change, hhpos, the linear_* history and the sync latches of Agnus travel as 32-bit words in BEAM; the line length is derived by setmaxhpos from the lol of CHIP and the linetoggle of BEAM. current_linear_* and the geometry derived from it travel in GEOM (T15g). Not saved: agnus_trigger_cck and the other timestamps of the display (T15g), currcycle_cck (debug). T15l (patch 0220, 67 to 80 words): the monitor's no-signal countdown (nosignal_cnt, nosignal_status, nosignal_trigger, custom.cpp handle_nosignal), lines_after_beamcon_change, syncs_stopped and the bltadd and conflictaddr of the four DMA pipeline slots (rga_pipe, which save_custom_slots does not write: a blit D write in flight advances its pointer by bltadd) travel in BEAM: a change of the programmed beam (the Kickstart 2.05 switching the display on) blanks the picture for two vertical blanks (getlinetype answers LINETYPE_BLANK), and BPLCON0 ERSY stops the beam counters at the end of a line (the line is then paced by fakehsync_handler); a state taken inside them drew the display on one or two units before the original, or ran with real hsyncs. T66r7 (patch0383, BEAM89\u219291words): config_changed and config_changed_flags preserve the pending preference check across a new owner. init_m68k and compute_framesync request a two-vsync countdown; check_prefs_changed_custom can change programmed beam and Denise latches even with fixed prefs. Preserve0/1/2 and flags32 verbatim after beam-derived initialization, never clear the request unconditionally."
+          "notes": "vpos, vpos_prev, agnus_hpos(+_prev,_next), agnus_vpos_next, agnus_pos_change, hhpos, the linear_* history and the sync latches of Agnus travel as 32-bit words in BEAM; the line length is derived by setmaxhpos from the lol of CHIP and the linetoggle of BEAM. current_linear_* and the geometry derived from it travel in GEOM (T15g). Not saved: agnus_trigger_cck and the other timestamps of the display (T15g), currcycle_cck (debug). T15l (patch 0220, 67 to 80 words): the monitor's no-signal countdown (nosignal_cnt, nosignal_status, nosignal_trigger, custom.cpp handle_nosignal), lines_after_beamcon_change, syncs_stopped and the bltadd and conflictaddr of the four DMA pipeline slots (rga_pipe, which save_custom_slots does not write: a blit D write in flight advances its pointer by bltadd) travel in BEAM: a change of the programmed beam (the Kickstart 2.05 switching the display on) blanks the picture for two vertical blanks (getlinetype answers LINETYPE_BLANK), and BPLCON0 ERSY stops the beam counters at the end of a line (the line is then paced by fakehsync_handler); a state taken inside them drew the display on one or two units before the original, or ran with real hsyncs. T66r7 (patch0383, BEAM89→91words): config_changed and config_changed_flags preserve the pending preference check across a new owner. init_m68k and compute_framesync request a two-vsync countdown; check_prefs_changed_custom can change programmed beam and Denise latches even with fixed prefs. Preserve0/1/2 and flags32 verbatim after beam-derived initialization, never clear the request unconditionally."
         }
       },
       {
@@ -8027,8 +8027,8 @@
             "STATE01",
             "DET02"
           ],
-          "status": "pending",
-          "what": "HrtMonTests integration gate: S0 idle/unmapped, S1 pending Freeze, S2 active partial command/held key, S3 exited/mapped, S4 reset; same owner and cold new process, commands/RAM/counter and per-unit futures, candidate corruption and foreign identity rejection."
+          "status": "done",
+          "what": "Integrated STATE01 union passed HrtMonTests: seven cuts across Exact/Compatible/Normal, identical full state before continuation and future digest in another process, command/RAM/counter and refusal/teardown cases. Same union passed CPU020 cache/DMA/audio and CPU interrupt/timer/DMA restore regressions. DET02 selects the identical HrtMonTests and is covered by that execution."
         },
         "waterbox": "Not credited by this native gate; public cartridge/Freeze frontend wiring remains T69c.",
         "native_state": {
@@ -8036,7 +8036,7 @@
           "chunk": "P6RM",
           "file": "bridge/state.cpp",
           "visitor": "visit_ram",
-          "proves": "Pending integrated tests/cartridge/test_hrtmon.py:HrtMonTests; bound includes the fixed allocation before the reset head.",
+          "proves": "tests/cartridge/test_hrtmon.py:HrtMonTests; complete cold native restore, including the A1200 mirror shapes and preserved CPU interrupt pipeline",
           "notes": "P6CP additionally carries SPCFLAG_ACTION_REPLAY and publishes the incoming word for the P6RM control cross-check."
         },
         "probe": {
