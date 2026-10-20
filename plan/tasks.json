@@ -17535,7 +17535,7 @@
       "title": "Normalizar pregaps CHD de otro tipo y postgaps con identidad regional",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t9",
         "T66t8"
