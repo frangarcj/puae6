@@ -455,6 +455,8 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    if (currprefs.cs_cdtvcd)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "native CDTV controller state is not implemented");
     uint8_t cartridge[32];
     if (p6_bridge::hrtmon_bound() && !p6_bridge::hrtmon_identity(cartridge))
         return p6_fail(error, P6_ERROR_BAD_STATE, "HRTMon immutable owner is invalid");

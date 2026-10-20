@@ -33,6 +33,7 @@
 
 #define P6_PORTABLE 1
 #define ACTION_REPLAY 1 /* T69a: private HRTMon through the original CPU/memory/custom/CIA hooks. */
+#define CDTV 1 /* T67a: private stock controller; no public profile or native state. */
 #define CD32 1 /* T66k1: real Akiko is linked; machine profile remains gated. */
 #define DRIVESOUND 1 /* T74: portable mechanical PCM, no physical drive or external sample loader. */
 /* T29a: the hard file units of the engine (uaehf.device, the UAEFS board, the trap area) are compiled; a machine has them only when its media list holds a

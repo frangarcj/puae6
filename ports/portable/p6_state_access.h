@@ -5,6 +5,14 @@
 #define P6_STATE_ACCESS_H
 #include <stdint.h>
 
+// T67a private test boundary: the real MMIO device advances only in devices_hsync.
+struct p6_cdtv_probe_state {
+    uint32_t acr, words, interrupt, queued, command_input, error, dma, finished, seek;
+};
+bool p6_cdtv_private_start(void);
+bool p6_cdtv_private_request(uint32_t word);
+p6_cdtv_probe_state p6_cdtv_private_status(void);
+
 // One CIA timer. `timer` is the raw counter in the epoch of eventtab[ev_cia].oldcycles (the scheduler's chunk restores that), not the visible value.
 struct p6_cia_timer_raw {
     uint32_t timer, latch, inputpipe, loaddelay, preovfl, cr;

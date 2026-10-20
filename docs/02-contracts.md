@@ -1804,3 +1804,10 @@ Los modos cd32regionalsave/load y cd32regionalcatalogsave/load del escenario
 usan TOC numerica sobre ISO canonico, no metadata inferida de Q. Su puerta WB03
 real incluye restauracion300+15 y proceso/sandbox nuevos; un fallo del runner la
 deja BLOCKED. Esta extension no acredita metadata DiscSystem ni carga CHD publica.
+
+T67a enlaza el controlador CDTV stock privado: FIFO acotada, servicio en hsync emulado,
+DMAC/6525 originales y NVRAM volatil de 32768 bytes. Las entradas privadas de prueba
+no avanzan el reloj; solo `p6_run_frame` ejecuta el dispositivo. No incluye SCSI, CR,
+tarjeta, persistencia, autoconfig/perfil publico ni arranque CDTV. Mientras
+`currprefs.cs_cdtvcd` este activo, todo estado nativo devuelve `UNSUPPORTED` antes
+de medir/aplicar; necesita un codec causal propio, nunca un P6AK prestado.
