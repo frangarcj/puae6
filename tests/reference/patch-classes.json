@@ -218,7 +218,8 @@
     "0392-nrg-etnf-canonical-pregap": "required",
     "0395-frestore040-fpsp-cu06-nan": "behavior",
     "0394-hrtmon-port": "required",
-    "0396-chd-mode2-form2-edc": "required"
+    "0396-chd-mode2-form2-edc": "required",
+    "0397-frestore040-fpsp-cu06-single-denorm": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -503,6 +504,13 @@
     "0395-frestore040-fpsp-cu06-nan": {
       "effect": "inert",
       "why": "REF01 has no FRESTORE040. Independent reconstructed SINGLE NaN frames check sign/payload, quiet/signaling arithmetic, compare/test without writes, enabled SNAN and E3 priority, private codec and following execution. Denormals and general BUSY completion remain pending.",
+      "test": "tests/host/test_frestore040.py",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0397-frestore040-fpsp-cu06-single-denorm": {
+      "effect": "inert",
+      "why": "REF01 has no FRESTORE040. Directed independent F*2^-149 fixtures cover fraction limits, signs, registers, rounding modes/precisions, new exceptions, E3 priority and private state after backend reset. Other CU stages remain pending.",
       "test": "tests/host/test_frestore040.py",
       "scenarios": [],
       "subsystems": []
