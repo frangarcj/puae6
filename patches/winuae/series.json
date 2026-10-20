@@ -5621,6 +5621,31 @@
           "after_sha256": "bcfe8b5861703e27856fbfba83c5b586bd674695f952e79ccd19f422ad6959a6"
         }
       ]
+    },
+    {
+      "id": "0394-hrtmon-port",
+      "file": "patches/winuae/0394-hrtmon-port.patch",
+      "sha256": "499a610e39d91f1efcc104aeefe1e8b36d3a4bd8a99b14105915f62774013c8d",
+      "title": "Port pinned HRTMon owner and lifecycle through original Action Replay hooks",
+      "reason": "T69a: private raw pinned GPL HRTMon through copied blob asset, no built-in gzip dependency or host FS. Exclude RTG calls and validate reads/allocation, reset monitor flags/shadows across sessions. Native state is explicitly unsupported until complete cartridge codec.",
+      "category": "optional cartridge host boundary",
+      "order": 211,
+      "symbols": [
+        "cartridge_enter",
+        "cartridge_exit",
+        "action_replay_cleanup",
+        "hrtmon_load"
+      ],
+      "test": "tests/cartridge/test_hrtmon.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ar.cpp",
+          "before_sha256": "7b3d207f00da646ea239f9b393fd55b2eb72989d583b408d15b57b8e9d2e3cb6",
+          "after_sha256": "25ca6a63f251906227d2dbe06ab9a410612c40d7209d3b00f2804124274429d8"
+        }
+      ]
     }
   ]
 }

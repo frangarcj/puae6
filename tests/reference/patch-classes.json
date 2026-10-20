@@ -216,7 +216,8 @@
     "0390-akiko-media-presence": "required",
     "0391-nrg-dao-mode2-form1": "required",
     "0392-nrg-etnf-canonical-pregap": "required",
-    "0395-frestore040-fpsp-cu06-nan": "behavior"
+    "0395-frestore040-fpsp-cu06-nan": "behavior",
+    "0394-hrtmon-port": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
