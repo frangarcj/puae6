@@ -43,7 +43,7 @@ public unsafe sealed class P6CdHost
  public P6CdHost(P6CdInfo[] descriptors, Func<uint, ulong, byte[], int, bool> provider)
   : this(default, (_, _, _) => false)
  {
-  if (descriptors is null || descriptors.Length < 1 || descriptors.Length > 16) throw new ArgumentException("CD catalog requires 1..16 descriptors");
+  if (descriptors is null || descriptors.Length < 1 || descriptors.Length > 16) throw new ArgumentException("CD catalog requires 1..16 descriptors", nameof(descriptors));
   catalog = (P6CdInfo[])descriptors.Clone(); readCatalog = provider ?? throw new ArgumentNullException(nameof(provider));
  }
  internal Delegate[] Callbacks(WaterboxHost owner)

@@ -277,7 +277,7 @@ recibo, que queda en el ensamblado (`Puae6Guest.BuiltWithSha256`): el wrapper ab
   ausente) y un `uae.wbx` en el mismo directorio no es una salida. Ademas se rechaza un hermano `.zst`: `WaterboxHost` carga `nombre.zst` en
   lugar de `nombre` si existe, y entonces el fichero verificado no seria el que corre. Limite: entre la verificacion y la lectura del host el
   fichero se lee dos veces; un atacante con escritura en el directorio del guest tambien podria cambiar el ensamblado, asi que no se cierra esa
-  carrera. Un guest comprimido (`.zst`) no se acepta todavia: necesitaria descomprimirlo para verificarlo y libzstd no esta en macOS.
+  carrera. Un guest comprimido (`.zst`) no se acepta todavia: su verificacion aun no integra la descompresion.
 - Layout (ABI01): los 18 valores de `p6w_layout` y cada campo de cada estructura (offsets de C# frente a `offsetof` de un compilador C sobre las
   cabeceras) coinciden, y `Puae6Guest.Open` falla si el guest abierto informa otra cosa. Un `p6w_init` con bandas de guarda al que el guest rechaza de
   cuatro maneras vuelve sin cambios salvo result y error.
@@ -604,3 +604,16 @@ y compara A/V, ticks, NVRAM y snapshot completo tras replay y seek en otro proce
 En Darwin el arnes selecciona Zwinder/TempFile real y un alias temporal al Zstd
 ya instalado; no acredita el gestor Paged predeterminado ni la UI WinForms.
 Esos limites del host y la conexion real de peliculas ADF/HDF se auditan en T80.
+
+## Buffers de estados del host Darwin (T80a)
+
+El parche derivado `0006-darwin-state-buffers-and-zstd.patch` conserva los bloques
+logicos Paged de 4096 bytes (4092 de datos). MemoryBlock conserva su tamaño logico y
+redondea solo la reserva y proteccion a la pagina host; Darwin usa MAP_ANON=0x1000.
+El guard global de 4KiB de MemoryBlockUtils y el formato del sandbox permanecen intactos.
+LibZstd pide `libzstd.dylib` en Darwin; requiere un codec instalado y accesible al
+loader o en /opt/homebrew/lib o /usr/local/lib, sin instalarlo ni crear alias Linux. `tests/bizhawk-movies/test_host_states.py`
+prueba Client.Common/net48 real: limites de pagina, captura fuera de orden,
+invalidacion, vuelta del buffer circular y compresion Zwinder Memory/TempFile.
+El historial se lee en un proceso nuevo contra bytes independientes. Es una prueba del host; T80 conserva
+la aceptacion Waterbox, identidad de peliculas ADF/HDF y UI real.

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <UseAppHost>false</UseAppHost>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(AssemblyDir)/BizHawk.Common.dll;$(AssemblyDir)/BizHawk.Client.Common.dll;$(AssemblyDir)/BizHawk.Emulation.Common.dll" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Include="$(Puae6Root)/tests/bizhawk-movies/HostStates.cs" />
+  </ItemGroup>
+</Project>
