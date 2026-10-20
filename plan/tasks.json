@@ -16811,6 +16811,49 @@
       "stop": "No enlazar CHD al producto hasta completar hardening conjunto y proveedor/restore; conservar todas las puertas y variantes pendientes de T66."
     },
     {
+      "id": "T66l3",
+      "title": "Leer NRG DAO Mode2 de2336bytes con cabeceras por LBA",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66l2",
+        "T66s3"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/options.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0389-nrg-dao-mode3-2336.patch",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/test_nrg_metadata.py",
+        "tests/media/test_cd_nrg.py",
+        "tests/media/cd_nrg_probe.cpp",
+        "tests/media/test_cd_image.py",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Reservar0389 posterior0388; no reescribir0361. Exportar DAO mode03/stride2336 crudo, con offsets/INDEX intactos. DiscSystem fijado CUE_Synths.cs SS_Mode2_2336 y SynthUtils.SectorHeader especifican header16(LBA+150BCD,modo2)+2336integros; libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e image-nrg/parser.c confirma modo03/2336 yoffsetsDAO. Leer fuentes reales antes de implementar.",
+        "CdNrg normaliza binding2352=header16porLBAreal+payload2336 intacto, Layout Mode2Raw/stride2352 sin ampliar ABI/enum/Disc. Conservar offsetsfisicos2336 enmetadata, clip yhashstream en2352, INDEX00negativo, lecturas cruzadas deheader/cuerpo/sector, boundsMSF/overflow antes depublicar. No headerconstante ni sintesis de gap tras IOerror.",
+        "MED01 tres clases NrgMetadataTests+CdNrgTests+CdImageTests, ASan/UBSan sinmotor/guest: fixtures DAOI/DAOX independientes conpistasmixtas, clipping, cruces/BCDlimites, payload/hashstream exactos, VFS transaccional, identidad/rebind yfactory4parsers. Actualizar stagingestricto dehashcadena0388a0389 enlos tresarneses; coordinador registraserie/clasificacion antes degates.",
+        "Actualizar docs/options con elsuporteMode03/2336 comprobado; siete rutas atomicas parser+proveedor+probes/factory+guia, estimacion200..300lineasmanuales. Frente busy_reference reutilizaa4040-frontends ymerge main; coordinador poseeplan/checks/serie, sinbuildmotor hasta turnoexplicito.",
+        "Conservar TAO, Mode02/2048 y multisesion pendientes enT66: TAO necesitaresolver ETN.sector/pregap confixture atribuido, Mode02 requiere subheader/EDC/ECCMode2Form1 (encoderMode1 no vale), multisesion requiere contratoLayout yconsultas dispositivo. No cerrar esas variantes con esta hoja ni recortar alcance original."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "DAO Mode03/2336 produce sectores raw2352 exactos con direccion MSF real ypayload intacto, identidad/rebind yrechazoIO transaccionales; parsers/factory existentes siguen pasando sanitizers. No acredita TAO/Mode02/multisesion."
+      ],
+      "stop": "No anunciar soporte NRG completo; TAO/Mode02/multisesion y todas las puertas originales T66 siguen pendientes."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16868,7 +16911,8 @@
         "T66s3",
         "T66t2",
         "T66t3",
-        "T66t4"
+        "T66t4",
+        "T66l3"
       ],
       "read": [
         "docs/01-architecture.md",

@@ -255,6 +255,9 @@ TASK_SUITES[('MED01', 'T66e1')] = {'native_seekable_iso_wave': 'tests.media.test
 TASK_SUITES[('MED01', 'T66e2a')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata'}
 TASK_SUITES[('MED01', 'T66l1')] = {'pinned_nrg_dao_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests'}
 TASK_SUITES[('MED01', 'T66l2')] = {**TASK_SUITES[('MED01', 'T66l1')], 'native_nrg_source': 'tests.media.test_cd_nrg.CdNrgTests'}
+TASK_SUITES[('MED01', 'T66l3')] = {'nrg_mode3_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
+                                   'nrg_mode3_source': 'tests.media.test_cd_nrg.CdNrgTests',
+                                   'native_cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66o1')] = {'native_cd_image_owner': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66p1')] = {'caps_standalone': 'tests.host.test_bridge_caps', 'private_stock_cd32_boot': 'tests.media.test_cd32_boot.Cd32BootTests'}
 TASK_SUITES[('LR01', 'T66r1')] = {'direct_cd32_sessions': 'tests.libretro-host.test_cd32_load.Cd32LoadTests'}
