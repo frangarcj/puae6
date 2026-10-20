@@ -5673,28 +5673,6 @@
           "after_sha256": "7d85f774666b0914114cefa400e665983d38500bde6114ee95bedfd68edc9f4b"
         }
       ]
-    },
-    {
-      "id": "0397-frestore040-fpsp-cu06-single-denorm",
-      "file": "patches/winuae/0397-frestore040-fpsp-cu06-single-denorm.patch",
-      "sha256": "63056870f5312a5a0fa02c59d1deddaa99129d387279e0daddb26e3a24394dbf",
-      "title": "Normalize reconstructed SINGLE denormals before CU06 arithmetic",
-      "reason": "T55c12: FPSP remaps SINGLE minimum exponent3f80 to3c00 while preserving STAG5 and23-bit fraction. Reconstruct SINGLE and use the existing conversion/normalizer, retaining arithmetic, rounding and exception handling; no native DOUBLE06 or other micro-PC claimed.",
-      "category": "FPU state correction",
-      "order": 213,
-      "symbols": [
-        "fpuop_restore"
-      ],
-      "test": "tests/host/test_frestore040.py",
-      "upstream_candidate": true,
-      "removal_version": null,
-      "files": [
-        {
-          "path": "fpp.cpp",
-          "before_sha256": "bcfe8b5861703e27856fbfba83c5b586bd674695f952e79ccd19f422ad6959a6",
-          "after_sha256": "330d5a388b234515251aa3a57fd066b71827ef9038aa9e405831db2073c4a56d"
-        }
-      ]
     }
   ]
 }
