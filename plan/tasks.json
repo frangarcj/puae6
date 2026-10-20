@@ -13265,7 +13265,7 @@
       "title": "Reanudar denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T55c11"
       ],
@@ -13279,7 +13279,8 @@
       "touch": [
         "patches/winuae/0397-frestore040-fpsp-cu06-single-denorm.patch",
         "tests/host/frestore040_probe.cpp",
-        "tests/host/test_frestore040.py"
+        "tests/host/test_frestore040.py",
+        "docs/adr/0016-frestore040-cu06-denormals.md"
       ],
       "steps": [
         "Solo rev40/CU06/CMD15400/STAG5/absETEMPexp3c00/fraccion23bitsno0/J0/low8=0/ETM2=0. FPSP bugfix.S:op2sgl/op2_xi/op2_com yget_op.S:src_sd_dnrm/is_single/common enpinLinux1da177e4c3f41524e886b7f1b8a0c1fc7321cac2, MC68040UM9.3tabla9-3/9.8: reconstruir bitsSINGLEsigno|ETM1>>8, fpp_to_single+fpp_normalize antesdearitmeticaexistente. Allowunnormal solo no basta; no inventarotrobackend.",
@@ -13292,7 +13293,8 @@
       "acceptance": [
         "DenormalesSINGLEreconstruidosreanudanconvalor/redondeo/flags/excepciones independientes ycodecprivadocausal, sin ampliarformatosdesconocidosnicerrarFRESTOREcompleto."
       ],
-      "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear."
+      "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear.",
+      "blocked_reason": "Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
     },
     {
       "id": "T55c",
