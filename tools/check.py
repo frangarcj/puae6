@@ -339,7 +339,7 @@ for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
 TASK_SUITES[('MED01', 'T66t7')] = {**TASK_SUITES[('MED01', 'T66t5')], 'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
 TASK_SUITES[('MED01', 'T66t8')] = dict(TASK_SUITES[('MED01', 'T66t7')])
 TASK_SUITES[('STATE01', 'T80a')] = {'darwin_host_state_buffers': 'tests.bizhawk-movies.test_host_states.DarwinHostStateTests'}
-TASK_SUITES[('MED01', 'T66t13')] = {'typed_chd_canonical': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests', 'managed_disc_regression': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests', 'chd_blob_reads': 'tests.media.test_chd_cross_hunk.ChdBlobReadTests'}
+TASK_SUITES[('MED01', 'T66t13')] = {'typed_chd_canonical': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests', 'managed_disc_regression': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests', 'chd_blob_reads': 'tests.media.test_chd_blob_reads.ChdBlobReadTests'}
 TASK_SUITES[('STATE01', 'T80b')] = {'media_movie_identity': 'tests.bizhawk-movies.test_media_start.MediaMovieIdentityTests'}
 for _gate in ('WB09', 'WB03'):
     TASK_SUITES[(_gate, 'T80b')] = {'real_media_movie_start': 'tests.bizhawk-movies.test_media_start.MediaMovieStartTests'}
