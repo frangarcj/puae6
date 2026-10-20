@@ -18089,7 +18089,7 @@
       "title": "Capturar validar y aplicar el componente privado CDTV sin efectos host",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67a",
         "T66h1",
@@ -18122,7 +18122,8 @@
         "Incluir FIFO logica, parser/respuesta parcial/last_out, DMAC/6525/latches/strobes, control/media/error/posiciones/volumen/DAC/TOC/Q cacheados, NVRAM32768, ring36x96 y transferencia SUB/contadores, SEEK y modo callback CDA0/normal/inmediato. Los buffers/TOC se validan explicitamente, no se reconstruyen desde el medio actual. Getter de subcode_handler solo para futura reconstruccion; ningun puntero guardado. E9 se deriva con dmac_bank y un banco ajeno se rechaza antes de mutar. Apply no provoca IRQ, callback, backend read, audio advance ni eventos nuevos.",
         "MED01 CdtvStateComponentTests.test_local_roundtrip_and_transactional_refusals, exe p6_cdtv_state_probe modo local. Dueno real A500+Disc: get, alteracion valida de registros/FIFO/parser/respuesta/NVRAM/SUB y CDA permitido, apply y get iguales; volver al original. Negativos de rango, cola, SUB, callback, Disc y DMA deben preservar estado, get_cycles, reads, callbacks observados y slots/fechas event2. Un contador privado excluido del DTO observa callbacks reales. Incluir modos de audio alcanzables sin afirmar futuro completo. DTO local inicializado, nunca formato persistido.",
         "Regresion cercana CdtvLinkTests una vez. Inventario distingue componente privado verificado de codec nativo AUSENTE, sin P6CT falso. cd_swap trabaja aislado y no edita metadata; root registra serie/clasificacion y serializa build -j2. Si alcanza400 o necesita otra ruta, parar y dividir explicitamente antes. La puerta completa de restauracion fria/futuro pertenece a T67b2.",
-        "Root registra patch0400 y clasificacion required para integrar el DTO, sin modificar upstream directo. Estas dos rutas son metadata de integracion; la implementacion conserva sus siete rutas y limite395."
+        "Root registra patch0400 y clasificacion required para integrar el DTO, sin modificar upstream directo. Estas dos rutas son metadata de integracion; la implementacion conserva sus siete rutas y limite395.",
+        "Integrado 3a104dad con patch0400 registrado en a83bc88c. Union dirigida real en root: CdtvStateComponentTests, CdtvLinkTests y tests.state.test_components, 15 PASS en 40.208 s sin skips. Captura/aplicacion local, modos de callback, negativos transaccionales, regresion de comandos/DMA/ciclo de vida e inventario de trece comprobaciones aprobados. Sin codec P6CT aun: el estado nativo CDTV conserva UNSUPPORTED hasta T67b2. No se repite la matriz acumulada."
       ],
       "checks": [
         "MED01"
@@ -18137,7 +18138,7 @@
       "title": "Restaurar CDTV privado con P6CT scheduler audio e identidad completos",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T67b1",
         "T15",
@@ -18167,7 +18168,7 @@
         "tests/state/test_components.py"
       ],
       "steps": [
-        "Integrar el componente b1 sin volver a enumerar motor/get/apply. Diez rutas, 340-395 lineas nuevas incluyendo ampliacion del mismo probe. Registrar visitor P6CT field-by-field (DTO, DeviceState/PCM) y retirar UNSUPPORTED solo cuando esten todos los duenos y la puerta completa. No ofrecer aun perfil/autoconfig/arranque CDTV.",
+        "Integrar el componente b1 sin volver a enumerar motor/get/apply. Once rutas, 340-395 lineas nuevas incluyendo ampliacion del mismo probe. Registrar visitor P6CT field-by-field (DTO, DeviceState/PCM) y retirar UNSUPPORTED solo cuando esten todos los duenos y la puerta completa. No ofrecer aun perfil/autoconfig/arranque CDTV.",
         "P6SC agrega ID14 reversible para subcode_interrupt mediante getter del motor, solo con dueno CDTV; conservar slot/fecha/data sin ptr serializado. P6AU obtiene/aplica device_phase para CDTV ademas de CD32. P6CT reconstruye callbacks desde selector y Disc validado; E9 se remapea al aplicar sin IRQ, lectura host o event2_newevent. P6RM sigue dueno de Chip/Slow. Identidad agrega dominio CDTV privado condicional y chunk_count propio: A500 sin CDTV con el MISMO catalogo rechaza antes de reset/Apply.",
         "Probar p6_load, bind catalogo, private_start y state_load ANTES del primer run; validar candidato, reset head existente y remapeo E9 por P6CT tras memory_reset. La correccion comun CPU/IRQ aplicada durante T69b ya forma parte del motor actual; esta hoja no necesita ni habilita el cartucho HRTMon. Su dependencia de infraestructura nativa es T15, y se conserva la regresion CPU/IRQ pertinente.",
         "STATE01/DET02 CdtvStateTests.test_cold_restore_and_future, misma fixture una vez. Writer/reader con siete cortes: parser parcial, respuesta parcial, SEEK con cola, DMA real de dos sectores antes de terminal (416hsync sin cuotas), IRQ latched, CDA playing con SUB/event14 activo, pausa/stop con fase retenida. Mismo dueno y nuevo dueno/proceso sin run previo: save exacto al restaurar y futuro MMIO/RAM/AV/PCM/ticks mas save final completo. Rechazos de campo/evento sin dueno/identidad preservan estado, callbacks y reads.",
