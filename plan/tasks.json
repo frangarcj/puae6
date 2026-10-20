@@ -16992,6 +16992,49 @@
       "stop": "No anunciar cambioCDpublico hasta conexiones yrestauracionfrontend; no usar selecciontemporalni fallbackaliveDisc para aprobar estado deotromedio."
     },
     {
+      "id": "T66l5",
+      "title": "Leer NRG ETNF multitrack con pregap canonico explicito",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66l4"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/options.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0392-nrg-etnf-canonical-pregap.patch",
+        "ports/portable/media/cd_nrg_metadata.h",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/test_nrg_metadata.py",
+        "tests/media/test_cd_nrg.py",
+        "tests/media/cd_nrg_probe.cpp",
+        "tests/media/test_cd_image.py",
+        "docs/options.md"
+      ],
+      "steps": [
+        "ETNF una sesion1..99pistas:00/2048,02/2048Form1,03/2336,07/2352audio. Primero start_sector0; posicionescompactadas/offsetscontiguos ylongitudesalineadasconstride, SINFcoincide. DiscriminadorDAO/ETNFexplicitoconmetadatafisicacruda. Permitirmezcla00+02si igualstride/contratoporregistro; mixedstride/ETN2/TINF/DAO+TAO/multisesion siguenUnsupportedexplicito.",
+        "Contrato primario auditado: GNUVCDImager23f0738652e1cc0cab52b6e8a44f806e9e5e5739/lib/image_nrg.c175..257 quita pregapsantesdeguardar start_lsn/offset/length; GNULibcdio68ea374f83d5e63122168e4e182b15ba10e0d2eb/lib/driver/image/nrg.c654..751 exige offset=start_lsn*stride yreconstruyeINDEX01=start_lsn+ordinal0*150. VCDImagerlib/vcd.c793..804 permitepregap1..300sinserializarlo: politica canonicainteroperable150 explicita, no afirmarreconstrucciondelpregaporiginalausente. SHAsexternos referenciassemanticas, no nuevosinputsrelease.",
+        "INDEX00=INDEX01-150, recortarsolo primeronegativo; gaps sinteticosDisccomoMDS, offsetsfisicos apuntandatos sinprefijofalso. Identidad incluye archivocompleto+TOC+politicacanonica. IOerror nofabricagaps. Trespistaslongitudes300/225/375: startsETNF0/300/525, index01=0/450/825, gapstartsvisibles0/300/675, fines300/675/1200; expectativasfijasantesdeserializarfixturelegalpropia.",
+        "MED01 NrgMetadataTests+CdNrgTests+CdImageTests ASan/UBSan, cuatrofixtureshomogeneos+mezcla00/02validada,99/100pistas,truncados/overflow/offset/SINFcontradictorios,crucesdato-gap-dato,VFStransaccional,identidad/rebind/factory. Staginghashestricto0392posterior0391; sinmotor/guest. Ochorutasatomicas parser+contrato+proveedor+probes+guia,300..380manuales, avisarampliacionantesdeexceder.",
+        "Frente busy_reference reutilizaa4040-frontends ymerge main; coordinador poseeplan/checks/serie/clasificacion. Reservado0392order209, enviarSHA/before/afterantesgates; rootregistra trasliberargateSTATE01U2paraconservaridentidadfuentes. ETNFcanonicoparcialnoequivale aTAOgeneral ni cierredelpadreT66."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "ETNF soportado produce pistas/datos/pregaps canonicos150 yheadersporLBAreal exactos, identidadcompleta yrebindtransaccional conregresionDAO/factorybajo sanitizers; contratodeinformacionperdidadocumentado. ETN2/mixedstride/multisesion permanecenpendientes."
+      ],
+      "stop": "No inventar pregap original perdido, trasladarreglaETNF aETN2nirecortarpuerta completaT66; fuenteoriginalpristina ypatchderivado."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17053,7 +17096,8 @@
         "T66l3",
         "T66u1",
         "T66l4",
-        "T66u2"
+        "T66u2",
+        "T66l5"
       ],
       "read": [
         "docs/01-architecture.md",
