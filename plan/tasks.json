@@ -18537,6 +18537,50 @@
       "stop": "No instalar libzstd ni crearaliasLinux; no modificarMemoryBlockUtilsglobal ni asumirhosttestcomoPUAE6Waterbox/UI. Ausenciadependencia local produceBLOCKED explicito."
     },
     {
+      "id": "T80b",
+      "title": "Validar inicio real de peliculas PowerOn y SaveRAM con ADF HDF y volumen",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T20",
+        "T66r5",
+        "T80a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0007-media-movie-start.patch",
+        "integration/bizhawk/core/Puae6/Movie.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.Movie.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/bizhawk-movies/test_media_start.py",
+        "tests/bizhawk-movies/MediaMovies.cs",
+        "tests/bizhawk-movies/MediaMovies.csproj",
+        "docs/03-waterbox.md"
+      ],
+      "steps": [
+        "Conectar MainForm.Movie/MovieSession reales antesAttach para peliculas noCD32. Una fixture mixta ADF+HDF+volumen acredita los3medios, sinmatrizdepresets. HeaderForStart antesreboot proyecta basesoriginalescrudasPowerOn oSaveRam.Parse.Length+SHAcanonicosSRAM sinpadding, nunca_imported.Hash anterior. Preflight validaidentidades/blob/bases/writeflags sinmutar; StoreSaveRamreal reconstruyebases selladas cuandoAttach/ProcessSramloejecuta.",
+        "PowerOnignoraimportaciondurableprevia; SRAMseleccionadoBfrentegrabadorimportadoA usaBreal. CloneSaveRamnull algrabarStartsFromSaveRam se normalizaPowerOn antesflags/header, noficheroSRAMtruncadoaceptado. StateEnvelopeestricto no serelaja. State-startsinbaseimportadaconservavalidacion; state-startconbaseimportadanecesitatransportebinarioseparado requeridoenT80 porqueBK2IOeligeCorestateelseMovieSaveRam.",
+        "STATE01 MediaMovieIdentityTests purohost canonizaP6SR conbasesADF/HDF/volumen sinteticas, hash/bytes sinpadding ybasesvolumenequivalentesZIP/LHA. Sinanuncio dereplay. WB09/WB03 comparten MediaMovieStartTests: MovieSessionnet48realBK2/TAS, PowerOn/SRAM, RunQueuedMovie,12unidades, Pagedseekdesde5,guardar/reabrirenprocesonuevo; A/V/ticks/snapshotcompleto yexportadostresmediosiguales. Mutarbase/headers/blob/checksumrechazaantesAttach ysesion/corequedanintactos.",
+        "Ochorutas atomicas objetivo330..390lineas; identidad/preflight/hooks/escenariorealdebenacoplarse. Avisarantes400sinfragmentartestsartificialmente. busy_referenceaislado noeditar metadata ni buildmotor/guest. Reusar fixtures existenteshdf_rom.loop_rom/rdb_image/volumefixtures/ADFlibre. Rootserializa guestcompartido trasB+contratoCD. NoejecutarWBguestobsoleto ni repetirporlabelWB09/WB03. Si hostSIGBUS o runnerausente, BLOCKEDhonesto; STATE01nobastaDONE. PadreT80conservaUIreal/stateimportado."
+      ],
+      "checks": [
+        "STATE01",
+        "WB09",
+        "WB03"
+      ],
+      "acceptance": [
+        "PeliculasPowerOn/SaveRAMnoCD32 conADF/HDF/volumenproyectanla identidad inicialcorrecta, usanbasesefectivas yreplay/seek realenWaterboxyotroproceso determinista, conrechazospreviosaAttach transaccionales."
+      ],
+      "stop": "Noaceptarhashmanualcomoreplay, usaridentidadimportadavieja nillevarbasesporoverrideglobaldeStateEnvelope; nativo nosustituyeWaterbox."
+    },
+    {
       "id": "T80",
       "title": "Cierre de paridad con PUAE5: cada capacidad del inventario hecha, o fuera con justificacion registrada",
       "milestone": "M3",
@@ -18575,7 +18619,8 @@
         "T75a",
         "T15l",
         "T72a",
-        "T80a"
+        "T80a",
+        "T80b"
       ],
       "read": [
         "docs/01-architecture.md",
