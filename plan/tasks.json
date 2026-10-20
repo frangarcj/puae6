@@ -17894,6 +17894,55 @@
       "stop": "No cargar el CD entero en memoria del guest."
     },
     {
+      "id": "T67a",
+      "title": "Controlador CDTV privado cooperativo con comandos y DMA reales",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66k1",
+        "T66h1",
+        "T66n1",
+        "T66u1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md",
+        "docs/00-sources.md"
+      ],
+      "touch": [
+        "patches/winuae/0399-cdtv-cooperative-service.patch",
+        "manifests/source-manifest.json",
+        "ports/portable/sysconfig.h",
+        "ports/portable/p6_state_access.h",
+        "CMakeLists.txt",
+        "bridge/state.cpp",
+        "tests/media/cdtv_link_probe.cpp",
+        "tests/media/test_cdtv_link.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Primera vertical privada independiente de T66 padre: backend CD_STANDARD_UNIT_CDTV ya acepta unidad real0; stock CDTV utiliza cdtv.cpp/DMAC/6525, no WD/A2091 opcional ni CDTV-CR. Padre T67 conserva dependencias T66/T50 y arranque/restore publicos completos. Sin perfil publico ni ROM necesaria en esta hoja.",
+        "Portar cdtv.cpp original mediante0399, nunca upstream directo: servicio cooperativo desde CDTV_hsync_handler registrado en devices_hsync y avance exclusivo p6_run_frame. FIFO acotada/prefijos PLAY4palabras atomicos, no hilos/sem_wait/sleep ni scheduler nuevo. SEEK usa deadline emulado equivalente. NVRAM32768 en RAM sin flashfilepath host, sin afirmar persistencia. Desactivar estado nativo de currprefs.cs_cdtvcd con UNSUPPORTED hasta codec propio, no P6AK falso.",
+        "Conservar algoritmo DMAC/6525/IRQ y contabilidad dma_wait/WTC/ACR; buffer sector persiste entre iteraciones (upstream reutiliza local no inicializado), validar signed/rangos/multiplicaciones y read fallido sin copiar. Requests DMA esperan cooperativamente completion pendiente, trabajo acotado por WTC/READ. Si requiere cambiar cadencia/cuotas o supera400manuales, parar y registrar subdivision/exception atomica antes editar alcance adicional; no deadline/hardware inventado.",
+        "Probe privado sobre A500 microrom real p6_init/load/run, banco MMIO E90000, mascara24bit, bind Disc comun real. Entradas privadas no avanzan reloj/CPU. Comandos80/00 AA55,83MODEL,84/85sector2048,TOC/capacity,READ1sector a ChipRAM con canarios/WTC/terminal IRQ+clear,PREST reset,error real/missingmedia,overflow/prefix parcial sin aborto; cierre libera callbacks/opens y nueva sesion A500 limpia. MED01 CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle; DET02 mismafixture dosprocesos/futurodigest, union una vez.",
+        "cd_swap worktree aislado; root registra series/patch-classes/imports si necesarios tras diff y serializa compilacion pesada -j2. Agente no metadata compartida ni engine/guest build. Fuente audit/excluded y docs02 describen solo controlador privado comprobado. Siguiente hoja necesita autoconfig real (portableexpansion soloide_mb), presetECSAgnus1MiB0FDD/RTC1/ROMextendida y codec CDTV completo antes perfil/boot; no acreditar esos gates con MMIO."
+      ],
+      "checks": [
+        "MED01",
+        "DET02"
+      ],
+      "acceptance": [
+        "Controlador CDTV real enlaza y procesa comandos/MMIO/DMA de un sector mediante p6_run_frame sin hilos/reloj host, con errores y ciclo de vida comprobados; dos procesos producen mismo futuro. Ningun perfil publico/estado/boot CDTV se anuncia antes de hojas restantes."
+      ],
+      "stop": "No copiar motor antiguo, no usar stubs de exito ni backend CD simulado, ni relajar puertas del padre. Respetar limite manual o dividir explicitamente antes ampliar."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -17901,7 +17950,8 @@
       "status": "pending",
       "depends": [
         "T66",
-        "T50"
+        "T50",
+        "T67a"
       ],
       "read": [
         "docs/01-architecture.md",
