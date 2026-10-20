@@ -18964,14 +18964,16 @@
         "adapters/libretro/input_map.h",
         "tests/libretro-ui/mapper_probe.cpp",
         "tests/libretro-ui/test_hrtmon.py",
-        "tests/config/test_parity.py"
+        "tests/config/test_parity.py",
+        "tests/config/test_schema.py"
       ],
       "steps": [
         "Opcionrebootcartridgedisabled0/hrtmon2→p6_config.flags,puae6_cartridge; hotkey_freeze---/targetfreezeABI23. FlagsdeFloppyWrites1yHRT2componenOR,sinpisarescrituras. Validatormaps_toduplicadossolo0/bitunicosdisjuntos, otrosduplicadosrejectedlegacy. to_p6_config yto_configlimpianuna vez yORpartes; tablageneradaflags{default0,allowed0..3,parts...}. Testparidadrecorreparts sinperderdefaultniopciones. Dosoutputssegeneranconherramienta,nomanual. CorecomunrechazaHRTenmachineincompatible, defaultoff. Headless/wrapperconservannot_offeredhastaC4.",
         "Effects.commandsnivel/InputConfig.hrtmon, nocolocarFreezeenrun_actionpulse niturbo. ConcartoffignorarhotkeyparanofaultRun. DosmappingsORmantienen1hastasoltarlosdos. VKBDposeepadlimitasolopadmapping, hotkeyfisicofuncionaconVKBD. InputABI2siCommandsaunqueparallel0, ABI108. Octavahotkeybit31unsigned probadoUBSan, state_frame.maskactual8bits24alreadyvalid,sinrewrites. Edge/historypertenecenbridgeC2, norepetirfrontend.",
         "IN01 MapperProbeTests.test_the_mapper_holds_its_own_checks(ASanUBSanO1) extiendecasosbit31/hold/release/dosbotones/turbo/VKBD/off/ABI108/roundtripInputMemory; HrtMonOptionTests normalizaflags0..3/tablaparts/rechazossolapadosyotrosmapsduplicados. GEN01test_schema/test_parityygenerate_options--check. LR01/STATE01compartenHrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process, unionunavez.",
         "Hostlibretrorealyaofreceact/loadfile/key-at/savefile/peek/poke/traza: A1200Kickstartautorizado300unidades, F11held301+,corteACTIVEheld380, o...5a/x poreltecladoreal,RAM/futuroAVPCM/ticks/estadofinalcompleto; otroprocesorestauraantesRunyrepite. ParseP6LRSTATv8header64/P6NATIVEheader336/chunksconlayoutparaRAM/HRT/P6INlevel, nopatternbytesciego. Offrechazaestadoon savebefore==after. Norepetir7cortesB ni buildsWBporC3.",
-        "Nueverutasatomicas objetivo250..330manualexcluidos2generados;paridad9arutanecesariapormapflagscompuesto. cd_swapaislado nometadatamotor/guest, rootcompila-j2/directgatesyrootmantieneplan. Excepcionesextraanteseditar; GEN01esIDexistente(noOPT01). C4managed/TASpublicosWBrealconservanpuertasyARcomercialpadreintacto."
+        "Nueverutasatomicas objetivo250..330manualexcluidos2generados;paridad9arutanecesariapormapflagscompuesto. cd_swapaislado nometadatamotor/guest, rootcompila-j2/directgatesyrootmantieneplan. Excepcionesextraanteseditar; GEN01esIDexistente(noOPT01). C4managed/TASpublicosWBrealconservanpuertasyARcomercialpadreintacto.",
+        "GEN01dirigidofalladosdefaultslegadosnuevosnormalizados(cartridge=disabled,hotkey_freeze=---). Ampliar10arutatests/config/test_schema.pysoloesas2clavesexpected,sinquitarigualdadniasserts; test_parityyaautorizadoajustaasignacionflags|=conassert. NuevohotkeyCount8ocupa32bitsheldcompletos(24pad+8hotkeys); negativokHotkeyBit+kHotkeyCountseria1<<32UB/nobitdesconocidorepresentable. Enprobeautorizadosustituiresecasoporaceptacionexplicitabit31/UINT32_MAXyroundtripUBSan,conservarnegativosrangos/truncacionrestocodec. No falsaextensionwiresize ni limitar8hotkeysparaevitarelcontrato."
       ],
       "checks": [
         "GEN01",
