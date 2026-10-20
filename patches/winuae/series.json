@@ -5703,6 +5703,34 @@
           "after_sha256": "72a0b1f29d14c296ac1b50861db0427155dddb757d00e12bb69eaff704393290"
         }
       ]
+    },
+    {
+      "id": "0399-cdtv-cooperative-service",
+      "file": "patches/winuae/0399-cdtv-cooperative-service.patch",
+      "sha256": "b5c9dcd5e1d5703661dfeca56d66cb35893c814bd2ef6d27fb26c410675da62b",
+      "title": "Serve the private stock CDTV controller cooperatively at hsync",
+      "reason": "T67a: original DMAC/6525 and command protocol over the common CD backend, with bounded FIFO, emulated SEEK delay, synchronous lifecycle and no host threads or file persistence. Public CDTV profile and causal state remain gated.",
+      "category": "CDTV host service boundary",
+      "order": 215,
+      "symbols": [
+        "CDTV_hsync_handler",
+        "cdtv_service",
+        "cdtv_init",
+        "cdtv_free",
+        "p6_cdtv_private_start",
+        "p6_cdtv_private_request",
+        "p6_cdtv_private_status"
+      ],
+      "test": "tests/media/test_cdtv_link.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cdtv.cpp",
+          "before_sha256": "58f1b2a32fa00554bf26f39972e1a50d051ac8cd30622f497b810c3d1dd4c15c",
+          "after_sha256": "c78109a748a91d9caeba522c49ce838e36fdc31b93793d67e4a0eddc9db71c41"
+        }
+      ]
     }
   ]
 }

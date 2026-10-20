@@ -341,6 +341,7 @@ TASK_SUITES[('MED01', 'T66t8')] = dict(TASK_SUITES[('MED01', 'T66t7')])
 TASK_SUITES[('STATE01', 'T80a')] = {'darwin_host_state_buffers': 'tests.bizhawk-movies.test_host_states.DarwinHostStateTests'}
 for _gate in ('MED01', 'DET02'):
     TASK_SUITES[(_gate, 'T67a')] = {'real_cdtv_dmac': 'tests.media.test_cdtv_link.CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle'}
+TASK_SUITES[('MED01', 'T66t15a')] = {'real_chd_host': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests', 'canonical_csharp': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests', 'legacy_blob_reads': 'tests.media.test_chd_blob_reads.ChdBlobReadTests'}
 TASK_SUITES[('MED01', 'T66t14')] = {'public_chd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('LR01', 'T66t14')] = {'public_chd_load_catalog_restore': 'tests.libretro-host.test_cd32_load.Cd32ChdTests', 'cue_read_restore_regression': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner', 'real_chd_game': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore'}
 TASK_SUITES[('DET02', 'T66t14')] = {'real_chd_game': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore'}

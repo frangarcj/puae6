@@ -17798,6 +17798,53 @@
       "stop": "Sin fallbackbinariox86/nuevasinstalaciones/IOguest ni tocargolden/identidadesparapasar; outputscomercialesderivadossolobuildtempseeliminan."
     },
     {
+      "id": "T66t15a",
+      "title": "Backend CHD host opt-in para DiscSystem con decoder real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t14",
+        "T66t13",
+        "T66t11"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md"
+      ],
+      "touch": [
+        "ports/portable/media/chd_host.h",
+        "ports/portable/media/chd_host.cpp",
+        "integration/bizhawk/chd-host/CMakeLists.txt",
+        "integration/bizhawk/patches/0010-disc-chd-host.patch",
+        "integration/bizhawk/patches/build_tree.py",
+        "tests/media/test_cd_source_csharp.py",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_chd_host_csharp.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Crear una fachada C pequena y versionada sobre ChdReader y chd_metadata fijados: abrir archivo host de solo lectura, consultar geometria y DTO de ChdTrack validado, leer transaccionalmente hasta 2448 bytes y cerrar. No exportar chd_header/chd_file, fingir ABI chd-rs ni inventar campos de cabecera. Los anchos, offsets, version y tamano se verifican entre C y C#.",
+        "Nuevo SafeHandle/IBlob managed con adopcion unica por Disc, cierre en montaje fallido y rechazo antes de tocar el destino ante lectura fallida. LoadPuae6Chd(path,policy) es opt-in; no sustituir LoadCHDToDisc(path) ni restringir el decoder de otros cores. Adaptar el seam T13 a unidades y metadata reales, reutilizando su parser/tipos/sintetizadores; no duplicar parser textual ni sintetizar cabecera chd-rs ficticia.",
+        "Mantener CDv5 CHTR/CHT2, none/cdzl/cdlz/cdfl y limites actuales del reader/metadatos. Sin parent, HTOA, CDI, GD o DVD ni fallback despues de error. La biblioteca es host, adyacente al ensamblado, sin instalacion global, descargas ni I/O dentro del guest. CMake standalone reutiliza Chd.cmake/PIC y verificacion offline de los pins existentes.",
+        "MED01 ChdHostCSharpTests: los cuatro fixtures legales existentes recorren decoder, DiscSystem y regiones/sectores reales hasta Puae6DiscSource. Comprobar audio, SUB/Q y stream completo contra oraculos numericos independientes; cruces de hunk, truncamiento, apertura fallida, disposicion y rechazo sin mutacion. Regresiones cercanas ChdCanonicalCSharpTests y ChdBlobReadTests; no repetir juego de 6500 frames ni matrices de codecs completas ya aprobadas.",
+        "busy_reference implementa en worktree aislado, sin metadata ni motor/guest build. Nueve rutas, objetivo 330-390 lineas manuales incluyendo patch C# y tests; avisar y dividir antes de superar 400 o ampliar rutas. Root coordina compilaciones pesadas de CDTV y la biblioteca standalone no debe coincidir con ellas sin acuerdo. Patch 0010 reservado aqui; 0009 queda reservado al transporte futuro de bases de estados de T80.",
+        "Esta hoja no conecta el loader publico PUAE6 ni acredita descriptor regional V2/Waterbox: Puae6DiscSource aun construye v1. La hoja posterior debe seleccionar explicitamente esta ruta solo para PUAE6, fijar politica XA canonica, traducir Disc.Regions a P6CdInfoV2 y pasar WB03 real. El bloqueo host conocido no se transforma en PASS por el backend nativo."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "DiscSystem monta CHD comprimidos reales de cuatro codecs mediante backend host opt-in, con geometria/sectores/regiones correctos, ownership y errores comprobados; el default de otros cores queda intacto. No se atribuye conexion publica regional ni restore Waterbox."
+      ],
+      "stop": "No usar binario chd-rs de otra ISA, duplicar motor/parser ni instalar dependencias. Tras dos fallos razonados del mismo comportamiento, conservar reproducer y bloquear con dos hipotesis; dividir antes de ampliar el limite manual."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17875,7 +17922,8 @@
         "T66t11",
         "T66t12",
         "T66t13",
-        "T66t14"
+        "T66t14",
+        "T66t15a"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -17968,7 +18016,9 @@
         "bridge/state.cpp",
         "tests/media/cdtv_link_probe.cpp",
         "tests/media/test_cdtv_link.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json"
       ],
       "steps": [
         "Primera vertical privada independiente del cierre T66. CD_STANDARD_UNIT_CDTV ya acepta la unidad real 0. El CDTV stock utiliza cdtv.cpp, DMAC y 6525; WD/A2091 es expansion opcional y CDTV-CR es otro dispositivo. T67 conserva T66/T50 y sus puertas de arranque y restauracion publicos. No ofrecer perfil CDTV en esta hoja.",
@@ -17976,7 +18026,8 @@
         "Conservar algoritmo DMAC/6525, IRQ y contabilidad dma_wait/WTC/ACR. El buffer de sector debe persistir entre iteraciones; el original reutiliza un local sin inicializar. Validar signed, rangos y productos; no copiar tras read fallido. Las solicitudes DMA esperan cooperativamente la completion pendiente. Si acotar el trabajo requiere cambiar cadencia o quotas, parar y dividir explicitamente antes de editar. Objetivo total de implementacion y probe: menos de 400 lineas manuales; no ocultar cambios en macros.",
         "Probe privado con A500 y microrom real p6_init/load/run, banco MMIO E90000 y mascara de 24 bits, sobre Disc comun real. Los accesores privados no avanzan CPU ni reloj. Probar comandos 80/00 AA55, 83 MODEL, 84/85 sector 2048, TOC y capacidad; READ de un sector a Chip RAM con canarios, WTC, terminal IRQ y clear; PREST, error real y medio ausente, overflow y prefijo parcial sin aborto. El cierre libera callbacks y opens, y permite otra sesion A500 limpia.",
         "MED01: CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle. DET02: misma fixture con dos procesos y digest del futuro, union una vez. cd_swap usa worktree aislado y no edita metadata ni compila motor o guest sin coordinacion. Root registra series, clasificacion e imports necesarios y serializa compilaciones pesadas con -j2. docs/02-contracts.md y source-manifest describen solo la pieza privada comprobada.",
-        "La hoja posterior necesita autoconfig real (portable expansion solo ofrece ide_mb), preset ECS Agnus, 1 MiB Chip, cero disqueteras, RTC1, ROM extendida y codec causal propio CDTV antes de habilitar perfil/arranque. Las pruebas MMIO de esta hoja no acreditan esas puertas."
+        "La hoja posterior necesita autoconfig real (portable expansion solo ofrece ide_mb), preset ECS Agnus, 1 MiB Chip, cero disqueteras, RTC1, ROM extendida y codec causal propio CDTV antes de habilitar perfil/arranque. Las pruebas MMIO de esta hoja no acreditan esas puertas.",
+        "Root registra 0399 y su clasificacion required como parte de la integracion. El probe enlaza p6_state porque comprueba los rechazos publicos de estado. Mantener los valores originales de scan=0 y cnt_out, y limpiar un inicio privado fallido antes de devolver error. La regresion cercana reutiliza AkikoLinkTests para CD32/A1200 tras activar CDTV en compilacion."
       ],
       "checks": [
         "MED01",
