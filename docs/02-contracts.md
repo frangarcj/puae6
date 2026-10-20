@@ -4,7 +4,7 @@ Son especificaciones A IMPLEMENTAR. Los nombres p6_* son propuestos, no funcione
 existentes de WinUAE. T04 congela un header y tests antes de escribir el bridge.
 Reglas libretro verificadas: S4. Reglas del wrapper Waterbox verificadas: S5-S7.
 
-## A4000/030 en desarrollo (T55b)
+## A4000/030 (T55b)
 
 `P6_MACHINE_A4030 = 11` selecciona el preset A4000 real de upstream (modelo 6,
 configuracion 0), con CPU 68030, AGA, Gary 0, Ramsey 15, Ricoh RTC y mapa de
@@ -36,8 +36,11 @@ base o validez, incluso tras restore; BizHawk ofrece el backing completo desde l
 controles 030 a P6CP, los cuatro bytes Gary/Ramsey a P6RM y el IDE fisico a P6DK
 incluso sin disco. Modelo, memoria y nivel CPU forman parte de la identidad.
 El wrapper reserva las paginas de esos 8 MiB tambien con FastMemory=Auto.
-Las pruebas dirigidas nativas existen; la aceptacion completa Waterbox y el
-arranque con firmware real siguen pendientes. No se declara T55b terminada.
+Kickstart 3.1 r40.68 A4000 llega a la pantalla animada de insertar disco. Los
+tests opt-in con `P6_KICKSTART_A4000_ROM` comparan el futuro tras restaurar
+en nativo, libretro y Waterbox, tambien en un proceso nuevo; Waterbox comprueba
+ademas otro sandbox. Se compara el estado causal por el oraculo DET02 existente,
+video y PCM, sin afirmar compatibilidad con software aun no probado.
 
 ## ABI C pequena
 

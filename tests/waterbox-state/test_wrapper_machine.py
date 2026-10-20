@@ -14,6 +14,7 @@ is kept anywhere):
     P6_KICKSTART_A600_ZIP  zip with the Kickstart 2.05 .rom (A600, 512 KiB): WB03/WB04/WB15 with the real ROM on the A600
     P6_KICKSTART_ROM       the Kickstart 1.3 .rom of the A500 (a raw file): the same on the A500
     P6_KICKSTART_A1200_ROM the Kickstart 3.1 r40.68 .rom of the A1200 (a raw 512 KiB file): the same on the A1200
+    P6_KICKSTART_A4000_ROM the authorized A4000 Kickstart 3.1 r40.68: real boot and A4030/Normal restoration
     P6_AGA_ADF             an ADF (901120 bytes) of a free AGA demo (Catabasis): with the Kickstart 3.1, a snapshot in the middle of the demo, restored in a new sandbox and in
                            another process, continues unit for unit (WB03/WB04/WB15 with real AGA code running)
 
@@ -47,6 +48,7 @@ MACHINES = ("a500", "a600", "a1200")
 KICKSTART_A600_ZIP = os.environ.get("P6_KICKSTART_A600_ZIP")
 KICKSTART_A500 = os.environ.get("P6_KICKSTART_ROM")
 KICKSTART_A1200 = os.environ.get("P6_KICKSTART_A1200_ROM")
+KICKSTART_A4000 = os.environ.get("P6_KICKSTART_A4000_ROM")
 AGA_ADF = os.environ.get("P6_AGA_ADF")
 ADF_BYTES = 901120
 AGA_UNITS = int(os.environ.get("P6_A1200_DEMO_UNITS", "1500"))      # the first AGA scenes of Catabasis are on the screen by unit ~1500-2000 (tests/step/test_kickstart_a1200.py)
@@ -65,7 +67,7 @@ class WrapperMachineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sha = json.loads(RECEIPT.read_text())["guest"]["sha256"]
-        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-machine-")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-machine-", dir=ROOT / "build")
         cls.dir = Path(cls.tmp.name)
         for name, source in (("disk", disk.rom_source()), ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8"))):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
@@ -231,17 +233,25 @@ class WrapperMachineTests(unittest.TestCase):
 
     # --- real firmware (opt-in) ----------------------------------------------------------------------------------------------------
 
-    def real_firmware_roundtrip(self, machine, rom, disk=None, n=300):
+    def real_firmware_roundtrip(self, machine, rom, disk=None, n=300, verify_boot=False, **options):
         """WB03, WB04 and WB15 with a real Kickstart: with no disk the machine sits at the insert-disk screen after its boot; keys and the mouse keep the input path alive.
         With `disk` (the path of an ADF of the owner) it boots that disk and the snapshot is taken `n` units into it."""
         script = self.held_keys()
         m = 60
         state = self.dir / f"real-{machine}.state"
-        core = lambda name: f"core {name} adf={disk} machine={machine}" if disk else self.core(name, machine, adf="")
-        out = self.session([core("A"), f"run A {n} script={script}", "save A s", f"savefile A {state}", f"run A {m} script={script}", "digest A first",
+        core = lambda name: self.core(name, machine, adf="", **options) + (f" adf={disk}" if disk else "")
+        picture = self.dir / "frame-boot.bin"
+        boot = [f"picture A {picture}"] if verify_boot else []
+        out = self.session([core("A"), f"run A {n} script={script}", *boot, "save A s", f"savefile A {state}", f"run A {m} script={script}", "digest A first",
                             "load A s", f"run A {m} script={script}", "digest A second",
                             core("B"), "load B s", f"run B {m} script={script}", "digest B b"], firmware=rom)
         a, b = [u[1:] for u in self.units(out, "A")], [u[1:] for u in self.units(out, "B")]
+        if verify_boot:
+            from tests.step.test_kickstart_a1200 import last_picture
+            width, height, colours, _ = last_picture(self.dir)
+            self.assertGreaterEqual(len(colours), 5, "no Kickstart logo/text/drive")
+            self.assertGreater(colours.most_common(1)[0][1], width * height // 2, "no insert-disk background")
+            self.assertGreater(len({u[2] for u in a[n - 200:n]}), 1, "Kickstart animation stopped")
         self.assertEqual(a[n:n + m], a[n + m:], "the real Kickstart: every unit after the load is the one that followed the save")
         self.assertEqual(a[n:n + m], b, "and in a new sandbox")
         digests = {**self.digests(out, "A"), **self.digests(out, "B")}
@@ -250,6 +260,12 @@ class WrapperMachineTests(unittest.TestCase):
         self.assertEqual(a[n:n + m], [u[1:] for u in self.units(later, "C")], "and in another process")
         self.assertEqual(digests["first"], self.digests(later, "C")["c"])
         return a
+
+    @unittest.skipUnless(KICKSTART_A4000 and os.path.isfile(KICKSTART_A4000 or ""),
+                         "BLOCKED: set P6_KICKSTART_A4000_ROM to an authorized A4000 Kickstart 3.1")
+    def test_wb03_real_a4000_boot_and_snapshot_in_same_new_sandbox_and_process(self):
+        self.assertEqual(524288, os.path.getsize(KICKSTART_A4000))
+        self.real_firmware_roundtrip("a4030", str(Path(KICKSTART_A4000).resolve()), n=1800, verify_boot=True, accuracy="Normal")
 
     @unittest.skipUnless(KICKSTART_A600_ZIP, "BLOCKED: set P6_KICKSTART_A600_ZIP to a zip with an authorized Kickstart 2.05")
     def test_wb03_with_the_real_kickstart_205_on_the_a600(self):

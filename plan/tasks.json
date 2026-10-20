@@ -12704,7 +12704,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T55a",
         "T55b1"
@@ -12737,9 +12737,9 @@
         "Implementar 68030 y A4000/030 con RTC, FatGary/Ramsey y direccionamiento reales; mantener cerrados los niveles CPU sin soporte y completar los definidos para esta maquina. Exponer preset y opciones coherentes en los tres frontends.",
         "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
         "Reservar IDs de maquina11=A4030 y12=A4040;9/10 quedan reservados paraCD32/CDTV sin aceptarlos hastaimplementados. Validacion explicita de IDs, no rango continuo.",
-        "Native/LR y restauracion Waterbox A4030 Auto/None pasan con micro-ROM. Con la ROM A4000 obtenida por la excepcion explicita queda pendiente ejecutar arranque/restauracion reales; no anunciar esa compatibilidad antes de probarla.",
-        "T55b1 extrae la plataforma sintetica comprobable como dependencia tecnica. Esta ficha mantiene pendiente el arranque/restauracion con firmware A4000 real, todos sus checks y aceptacion. No se elimina esa puerta al permitir generacion040/060 independiente.",
-        "La excepcion explicita del usuario del20oct permite descargar solo la KickstartA4000 enlazada para pruebas locales. SHA1 5fe04842d04a489720f0f4bb0e46948199406f49 coincide con rommgr fijado; archivo guardado en Downloads, fuera del proyecto. T55b se retoma despues, sin incluir ese binario en Git. Ruta local: /Users/frangar/Downloads/Kickstart v3.1 r40.68 (1993)(Commodore)(A4000).rom; fuente GitHub commit602a91e9bbbf1c4966b4e8b7fd04917002ace730. Pendiente ejecutar la aceptacion, no es DONE por obtener firmware."
+        "Native/LR y Waterbox A4030 Auto/None pasan con micro-ROM. La Kickstart A4000 autorizada llega a la pantalla animada de insertar disco; GEN01/DET02/LR01/WB03 pasan con restauracion del futuro, incluido proceso nuevo y sandbox Waterbox nuevo. CPU Normal, sin MMU; no se amplia a juegos no probados.",
+        "T55b1 conserva la plataforma sintetica como dependencia tecnica. Esta ficha completa la puerta de firmware A4000 real con tests opt-in P6_KICKSTART_A4000_ROM; mantiene los checks y aceptacion originales.",
+        "La excepcion explicita del usuario del20oct permite descargar solo la KickstartA4000 enlazada para pruebas locales. SHA1 5fe04842d04a489720f0f4bb0e46948199406f49 coincide con rommgr fijado; archivo guardado en Downloads, fuera del proyecto. El binario se lee en su ubicacion, sin incluirlo en Git. Ruta local: /Users/frangar/Downloads/Kickstart v3.1 r40.68 (1993)(Commodore)(A4000).rom; fuente GitHub commit602a91e9bbbf1c4966b4e8b7fd04917002ace730. Aceptacion real ejecutada en los tres adaptadores; los temporales se eliminan al terminar."
       ],
       "checks": [
         "GEN01",

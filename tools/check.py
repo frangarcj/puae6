@@ -504,6 +504,14 @@ TASK_SUITES[('DET02', 'T55a')] = {
 TASK_SUITES[('DET02', 'T55b1')] = {'a4030_platform_state': 'tests.state.test_a4030'}
 TASK_SUITES[('WB03', 'T55b1')] = {
     'a4030_auto_none_sandbox': 'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_a4030_normal_restores_in_same_and_new_sandbox_with_auto_or_no_fast'}
+TASK_SUITES[('GEN01', 'T55b')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('DET02', 'T55b')] = {
+    'a4030_platform_state': 'tests.state.test_a4030',
+    'real_a4000_native_restore': 'tests.state.test_kickstart_a4030.NativeKickstartTests'}
+TASK_SUITES[('LR01', 'T55b')] = {
+    'real_a4000_boot_headless_parity_and_restore': 'tests.state.test_kickstart_a4030.LibretroKickstartTests'}
+TASK_SUITES[('WB03', 'T55b')] = {
+    'real_a4000_boot_and_snapshot': 'tests.waterbox-state.test_wrapper_machine.WrapperMachineTests.test_wb03_real_a4000_boot_and_snapshot_in_same_new_sandbox_and_process'}
 TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
 TASK_SUITES[('BUILD01', 'T55c1')] = {
     'linked_native_and_full_waterbox_exports': 'tests.host.test_cpu_backend_build',
