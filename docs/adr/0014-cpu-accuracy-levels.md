@@ -78,8 +78,8 @@ El nuevo cuerpo CPU guarda controles 030 e instruction_cnt; P6RM añade los cuat
 bytes Gary/Ramsey y P6DK conserva tambien el controlador IDE vacio. La RAM Fast
 cero sigue significando la del preset (8 MiB Zorro II en A4030), con NONE explicito.
 El esquema comun expone el modelo y el preset a4030_normal; los tres frontends
-usan el mismo ABI. La aceptacion de arranque/restauracion real Waterbox sigue
-pendiente en T55b.
+usan el mismo ABI. T55b verifica el arranque con Kickstart A4000 autorizado y la
+restauracion del futuro en nativo, libretro y Waterbox, incluido proceso nuevo.
 
 T55c1 prepara tambien las tablas normales 040/060 en la receta sin MMU. Las
 opciones publicas siguen rechazando ambos modelos hasta completar sus controles,
@@ -88,3 +88,14 @@ controles de traduccion tambien es ilegal, sin fingir que una escritura activa
 una traduccion. CINVA/CPUSH conservan las funciones upstream sobre las caches
 reales; solo se excluye mantenimiento MMU, con pagina fisica de 4 KiB al no
 admitirse TC. No se habilitan los bucles compatibles/CE de 040/060.
+
+T55c6 conecta al visitor P6CP los controles de 040/060 Normal y la captura
+privada de FPU de T55c4. Guarda VBR/MSP/CACR/SFC/DFC e instruction_cnt;
+060 añade BUSCR/PCR y permite el estado LPSTOP. Las mascaras siguen MOVEC de
+upstream y la parte inmutable de PCR debe coincidir con modelo/revision/FPU.
+El bloque interno de FPU es semantico, campo a campo, con todos los operandos
+FSAVE y estados pendientes; Validate comprueba el contexto sin tocar el owner
+y Apply reconstruye el modo SoftFloat. El probe enlaza el visitor real y compara
+MOVEC, FSAVE y la siguiente operacion aritmetica tras reinicializar y alterar
+todo el estado privado. Es una puerta de componente: configuracion publica,
+ejecucion por frames, FRESTORE040 y aceptacion de A4040 siguen en T55c.

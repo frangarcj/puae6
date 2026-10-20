@@ -24,6 +24,7 @@
 #include "blitter.h"
 #include "newcpu.h"
 #include "fpp.h"
+#include "p6_fpu_state.h"
 
 // What the engine patches add (patches/winuae/0076-0080), declared here as lifecycle.cpp declares p6_cia_session_begin.
 extern uae_u32 p6_rng_get(void);                                                           // main.cpp 0076
@@ -332,6 +333,68 @@ void apply_fpu(const CpuFpu &f)
     p6_fpu_fsave_set(f.fsave_ccr, f.fsave_eo);
 }
 
+// Normal 040/060 instruction reads bypass caches, as on Normal 030. Translation
+// controls are unavailable; preserve the architectural controls and CPU counter.
+struct CpuLate {
+    uint32_t vbr = 0, msp = 0, cacr = 0, buscr = 0, pcr = 0;
+    uint8_t sfc = 0, dfc = 0;
+    int32_t instruction_cnt = 0;
+};
+
+void visit_late(Archive &a, CpuLate &c)
+{
+    const bool is060 = currprefs.cpu_model == 68060;
+    if (a.mode() != Mode::Measure)
+        a.require(!currprefs.mmu_model && !currprefs.cpu_compatible && !currprefs.cpu_cycle_exact &&
+                  !currprefs.cpu_memory_cycle_exact && !currprefs.cpu_data_cache, "cpu: only normal no-MMU 040/060 state is supported");
+    c.vbr = a.val<uint32_t>(regs.vbr, "cpu.vbr");
+    c.msp = a.val<uint32_t>(regs.msp, "cpu.msp");
+    c.cacr = a.val<uint32_t>(regs.cacr, "cpu.cacr");
+    c.sfc = get<uint8_t>(a, regs.sfc, 0, 7, "cpu.sfc");
+    c.dfc = get<uint8_t>(a, regs.dfc, 0, 7, "cpu.dfc");
+    c.instruction_cnt = a.val<int32_t>(regs.instruction_cnt, "cpu.instruction_cnt");
+    if (a.mode() != Mode::Measure)
+        a.require(!(c.cacr & ~(is060 ? UINT32_C(0xf8e0e000) : UINT32_C(0x80008000))), "cpu.cacr: unsupported control bits");
+    if (is060) {
+        c.buscr = a.val<uint32_t>(regs.buscr, "cpu.buscr");
+        c.pcr = a.val<uint32_t>(regs.pcr, "cpu.pcr");
+        const uint32_t owner = (currprefs.fpu_model == 68060 ? 0x04300000u : 0x04310000u) |
+                               (uint32_t(currprefs.cpu060_revision & 255) << 8);
+        if (a.mode() != Mode::Measure) {
+            a.require(!(c.buscr & ~UINT32_C(0xf0000000)), "cpu.buscr: unsupported control bits");
+            a.require((c.pcr & ~0x43u) == owner && (currprefs.fpu_model || (c.pcr & 2)), "cpu.pcr: wrong processor identity");
+        }
+    }
+}
+
+void apply_late(const CpuLate &c)
+{
+    regs.vbr = c.vbr; regs.msp = c.msp; regs.cacr = c.cacr;
+    regs.sfc = c.sfc; regs.dfc = c.dfc; regs.instruction_cnt = c.instruction_cnt;
+    if (currprefs.cpu_model == 68060) { regs.buscr = c.buscr; regs.pcr = c.pcr; }
+    // Rebuild derived cache geometry, never refill serialized instruction data.
+    set_cpu_caches(false);
+}
+
+void visit_internal_fpu(Archive &a, p6_fpu_state &f)
+{
+    const p6_fpu_context owner{uint32_t(currprefs.fpu_model),
+        uint32_t(currprefs.fpu_model == 68040 ? (currprefs.fpu_revision == 0x40 ? 0x40 : 0x41) : 0),
+        uint32_t((currprefs.fpu_strict ? 1 : 0) | (currprefs.fpu_no_unimplemented ? 2 : 0))};
+    if (a.mode() == Mode::Save) a.require(p6_fpu_state_get(&f), "fpu: internal owner is not ready");
+#define FIELD(name) f.name = a.val<std::remove_reference_t<decltype(f.name)>>(f.name, "fpu.internal." #name)
+    FIELD(context.model); FIELD(context.revision); FIELD(context.flags);
+    for (unsigned i = 0; i < 8; ++i) { FIELD(high[i]); FIELD(low[i]); }
+    FIELD(fpcr); FIELD(fpsr); FIELD(fpiar); FIELD(state); FIELD(exp_state);
+    FIELD(exp_pend); FIELD(unimp_pend); FIELD(ea); FIELD(opword); FIELD(flags);
+#define FRAME(name) FIELD(frame.name);
+    P6_FPU_FRAME_SCALARS(FRAME)
+#undef FRAME
+    for (unsigned i = 0; i < 3; ++i) { FIELD(frame.eo[i]); FIELD(frame.fpt[i]); FIELD(frame.et[i]); FIELD(frame.wbt[i]); }
+#undef FIELD
+    if (a.mode() != Mode::Measure) a.require(p6_fpu_state_validate(&f, owner), "fpu: invalid internal state or owner");
+}
+
 }  // namespace
 
 // Body, little endian, in this order:
@@ -390,7 +453,7 @@ void visit_cpu(Archive &a)
 
     // 5. STOP, HALT and the special flags. TRACE and DOTRACE verbatim (activate_trace() clears TRACE while T1 stays set); CHECK, INT, DOINT,
     //    CPU_SLOW and the rest are derived or never set (p6_cpu_boundary refuses a save with anything else pending). Apply REPLACES the word.
-    const uint8_t stopped = get<uint8_t>(a, regs.stopped, 0, 1, "cpu.stopped");               // 2 (LPSTOP) is a 68060 state
+    const uint8_t stopped = get<uint8_t>(a, regs.stopped, 0, currprefs.cpu_model == 68060 ? 2 : 1, "cpu.stopped");
     const uint8_t halted = get<uint8_t>(a, regs.halted, 0, 13, "cpu.halted");
     if (checks) a.require(halted != CPU_HALT_ACCELERATOR_CPU_FALLBACK, "cpu.halted: the accelerator fallback is not in the profile");
     const uint32_t spc = a.val<uint32_t>(uint32_t(regs.spcflags) & kSpcSaved, "cpu.spcflags");
@@ -418,11 +481,16 @@ void visit_cpu(Archive &a)
     if (currprefs.cpu_model == 68010) visit_010(a, c010);
     Cpu030Normal c030;
     if (currprefs.cpu_model == 68030) visit_030_normal(a, c030);
+    CpuLate late;
+    if (currprefs.cpu_model == 68040 || currprefs.cpu_model == 68060) visit_late(a, late);
 
     // 9. The FPU, when the configuration has one.
     CpuFpu fpu;
     const bool has_fpu = currprefs.fpu_model == 68881 || currprefs.fpu_model == 68882;
     if (has_fpu) visit_fpu(a, fpu);
+    p6_fpu_state internal{};
+    const bool has_internal = currprefs.fpu_model == 68040 || currprefs.fpu_model == 68060;
+    if (has_internal) visit_internal_fpu(a, internal);
 
     // Non-CE specialties detect the level-7 edge against lastipl. CE never reads it and keeps its original body unchanged.
     uint8_t lastipl = 0;
@@ -461,7 +529,9 @@ void visit_cpu(Archive &a)
         if (m68020) apply_020(c020);
         if (currprefs.cpu_model == 68010) apply_010(c010);
         if (currprefs.cpu_model == 68030) apply_030_normal(c030);
+        if (currprefs.cpu_model == 68040 || currprefs.cpu_model == 68060) apply_late(late);
         if (has_fpu) apply_fpu(fpu);
+        if (has_internal) a.require(p6_fpu_state_apply(&internal), "fpu: internal owner changed after validation");
         // Not touched, on purpose: ir, ird and irc are not refilled from memory (restore_cpu_finish's fill_prefetch_quick would overwrite them with
         // what memory holds now, which can differ from the prefetch queue), doint() is not called (it would recompute ipl_pin from the chipset,
         // whose delayed events are still pending), and lastipl is the non-CE edge state (zero in CE); vbr, sfc, dfc, msp and the rest of the 020 are the block's.

@@ -13011,6 +13011,46 @@
       "stop": "No confundir RAM fisica con ventana Z3 minima, no mover RAM a invisible y no cerrar A4000 real ni040/060 con micro-ROM."
     },
     {
+      "id": "T55c6",
+      "title": "Conectar controles040/060 y FPU interna al cuerpo nativo P6CP",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T55b",
+        "T55c1",
+        "T55c4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md",
+        "docs/adr/0014-cpu-accuracy-levels.md"
+      ],
+      "touch": [
+        "bridge/state_cpu.cpp",
+        "tests/host/**",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Integrar controles normales040/060, BUSCR/PCR060 y LPSTOP en P6CP; campos de ancho fijo y validacion por modelo. Sin caches compatibles/exact ni MMU fingida; no modificar cuerpos existentes030/6888x.",
+        "Consumir la captura privada T55c4 de la FPU interna como campos semanticos, incluidos todos los datos FSAVE y excepciones pendientes. Validar sin mutar y reconstruir SoftFloat al aplicar; no copiar structs con padding ni depender del propietario vivo para validar valores del cuerpo.",
+        "Probe enlazado al visitorCPU y objetos reales: owner040rev40/41 y060 inicializado, null/idle/pendiente, captura de P6CP, alteracion y reinicializacion, restauracion y siguiente instruccion MOVEC/FPU/FSAVE. Comparar con futuro sin restauracion; corruptos y truncados fallan antes de aplicar. Regresion dirigida030/6888x.",
+        "La prueba es de componente privado, no de perfil publico ni de ejecucion CPU040 por frames. Presets/ABI/frontends/firmware real y Waterbox siguen obligatorios en T55c, junto al FRESTORE040 pendiente y el oraculoFUZZ01."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "El visitorP6CP conserva los controles040/060 y toda la FPU interna con continuacion real de instrucciones tras reinicializar propietario; valida datos malformados sin mutar y mantiene las regresiones030/6888x."
+      ],
+      "stop": "No ofrecer aun CPUs ni fingir FRESTORE040; conservar la puerta publica completa en T55c."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -13022,7 +13062,8 @@
         "T55c2",
         "T55c3",
         "T55c4",
-        "T55c5"
+        "T55c5",
+        "T55c6"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13054,7 +13095,9 @@
         "Fast Z3 avanza sobre la plataforma sintetica A4030 mediante T55c2/c3,16MiB primero. Los otros tamanos de la referencia, 040/060/FPU/estado y firmware real permanecen en el alcance original y no se consideran satisfechos por esas hojas.",
         "T55c4 separa el estado privado causal de FPU040/060 sobreT54/T55c1, independiente del firmware pendienteT55b. El padre conserva su aceptacion y todos sus checks: controlesCPU/P6CP, FRESTORE040 incompleto upstream, A4040/frontends, todos los tamanosZ3 y presupuesto/firmware reales. No cerrar por generacion ni por el codec privado.",
         "T55c5 completa todos los tamanos Z3 restantes y sus frontends/presupuestos como vertical unica; no divide por capacidad ni elimina la puerta original del padre.",
-        "Antes del cierre del padre, extender de forma coherente el oraculo FUZZ01 a A4030/CPU030/FPU/IDE/memoria y Z3: actualmente machine_accepted del fuzzer solo cubre1..8 y z3_memory<=1. Las pruebas dirigidas de T55c5 no atribuyen cobertura fuzz a los nuevos perfiles."
+        "Antes del cierre del padre, extender de forma coherente el oraculo FUZZ01 a A4030/CPU030/FPU/IDE/memoria y Z3: actualmente machine_accepted del fuzzer solo cubre1..8 y z3_memory<=1. Las pruebas dirigidas de T55c5 no atribuyen cobertura fuzz a los nuevos perfiles.",
+        "T55c6 conecta los controles040/060 y el estado privado de FPU al cuerpo P6CP, con prueba del visitor real y continuacion de instrucciones. El padre conserva presetA4040, ABI/frontends, ejecucion por frames, firmware/Waterbox, FRESTORE040 y cierre FUZZ01; esta hoja no habilita publicamente esas CPUs.",
+        "Al habilitar perfiles040/060, extender inventario de estado y digestCPU para los controles/FPU interna y mantener FUZZ01 coherente con todos los modelos ofrecidos; el codec privado de T55c6 no acredita esas puertas publicas."
       ],
       "checks": [
         "GEN01",
