@@ -16815,7 +16815,7 @@
       "title": "Leer NRG DAO Mode2 de2336bytes con cabeceras por LBA",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66l2",
         "T66s3"
@@ -16843,7 +16843,8 @@
         "CdNrg normaliza binding2352=header16porLBAreal+payload2336 intacto, Layout Mode2Raw/stride2352 sin ampliar ABI/enum/Disc. Conservar offsetsfisicos2336 enmetadata, clip yhashstream en2352, INDEX00negativo, lecturas cruzadas deheader/cuerpo/sector, boundsMSF/overflow antes depublicar. No headerconstante ni sintesis de gap tras IOerror.",
         "MED01 tres clases NrgMetadataTests+CdNrgTests+CdImageTests, ASan/UBSan sinmotor/guest: fixtures DAOI/DAOX independientes conpistasmixtas, clipping, cruces/BCDlimites, payload/hashstream exactos, VFS transaccional, identidad/rebind yfactory4parsers. Actualizar stagingestricto dehashcadena0388a0389 enlos tresarneses; coordinador registraserie/clasificacion antes degates.",
         "Actualizar docs/options con elsuporteMode03/2336 comprobado; siete rutas atomicas parser+proveedor+probes/factory+guia, estimacion200..300lineasmanuales. Frente busy_reference reutilizaa4040-frontends ymerge main; coordinador poseeplan/checks/serie, sinbuildmotor hasta turnoexplicito.",
-        "Conservar TAO, Mode02/2048 y multisesion pendientes enT66: TAO necesitaresolver ETN.sector/pregap confixture atribuido, Mode02 requiere subheader/EDC/ECCMode2Form1 (encoderMode1 no vale), multisesion requiere contratoLayout yconsultas dispositivo. No cerrar esas variantes con esta hoja ni recortar alcance original."
+        "Conservar TAO, Mode02/2048 y multisesion pendientes enT66: TAO necesitaresolver ETN.sector/pregap confixture atribuido, Mode02 requiere subheader/EDC/ECCMode2Form1 (encoderMode1 no vale), multisesion requiere contratoLayout yconsultas dispositivo. No cerrar esas variantes con esta hoja ni recortar alcance original.",
+        "Integrado7f11f166:MED01 nrg_mode3_metadata3+nrg_mode3_source5+native_cd_factory4=12testsASan/UBSanPASS. DAOI/DAOX/pistasmixtas/INDEX00ausente, hashprefijonegativo, BCDminuto/cruces2352a2336, identidad/rebind yfalloVFS transaccional. FueraMSF rechazadoanteshash consparsefixture, temporaleslimpios. Sinmotor/guest; TAO/Mode02/multisesion siguenpendientes."
       ],
       "checks": [
         "MED01"
