@@ -631,3 +631,17 @@ sobre una base importada sigue pendiente de transporte binario de esa base; el
 snapshot y su hash solos no reconstruyen el heap sellado. STATE01 prueba solo la
 canonizacion host. WB09/WB03 requieren el guest compartido actual explicitado por
 `P6_MEDIA_MOVIE_GUEST_RECEIPT`, replay/seek y otro proceso; sin el, quedan BLOCKED.
+
+
+## HRTMon publico en BizHawk (T69c4)
+
+`Cartridge=HrtMon` requiere A1200 y reinicio; por defecto queda Disabled. Freeze
+es un boton grabable de nivel que usa commands bit0 de ABI2, incluso sin puertos
+paralelos. Su flanco vive en P6IN dentro del guest, sin historial adicional C#.
+El config hash incluye modo y SHA256 raw del builtin solo cuando esta activo.
+La reserva base se conserva: el gate mide sbrk/mmap con margen doble y sealed,
+sin memoria invisible. El blob builtin se registra mediante malloc y HRTMon tiene
+1MiB mutable; no se supone que esos bytes esten sellados.
+STATE01 compila/prueba configuracion host. El gate publico WB03/WB04/WB09 usa
+comandos reales, snapshot held, BK2/TAS y seek en proceso nuevo; si falla el runtime
+host conocido sigue BLOCKED y no se acredita por compilacion ni prueba nativa.

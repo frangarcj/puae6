@@ -175,7 +175,7 @@ class WrapperParity(Schema):
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
                     # A value the schema marks "wrapper": false is one the wrapper does not offer yet (none since T24f): the enum lists the others, in order.
                     offered = [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
-                    self.assertEqual([m.strip() for m in members[1].split(",")], offered,
+                    self.assertEqual([m.partition("=")[0].strip() for m in members[1].split(",")], offered,
                                      f"enum {kind} does not list the schema's values in order, less the ones marked wrapper false")
                     default_name = next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
                     self.assertEqual(default, f"{kind}.{default_name}", f"{how['setting']} defaults to {default}, the schema to {option['default']}")

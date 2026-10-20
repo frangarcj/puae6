@@ -10,7 +10,7 @@ namespace Puae6;
 /// <summary>The buttons, axes and keys of the PUAE6 machine, and what each one is in the p6_input packet (docs/02-contracts.md, "Entrada").</summary>
 public static class Controllers
 {
-	public const string Power = "Power";
+	public const string Power = "Power", Freeze = "Freeze";
 	public const string EjectDisk = "Eject Disk", InsertDisk = "Insert Disk", NextSlot = "Next Slot", NextDrive = "Next Drive";
 	public const string MouseLeft = "Mouse Left Button", MouseMiddle = "Mouse Middle Button", MouseRight = "Mouse Right Button";
 	public const string MouseX = "Mouse X", MouseY = "Mouse Y";
@@ -119,6 +119,7 @@ public static class Controllers
 		if (mediaCount > 0) controller.BoolButtons.AddRange([ NextDrive, NextSlot, EjectDisk, InsertDisk ]);
 		// Hard reset only: the machine has one (p6_reset); a Reset button would be a different thing that nobody implemented.
 		controller.BoolButtons.Add(Power);
+		if (settings.Cartridge == Puae6Cartridge.HrtMon) controller.BoolButtons.Add(Freeze);
 		foreach (var name in KeyNames)
 		{
 			if (name is null) continue;

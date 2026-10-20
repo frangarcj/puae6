@@ -77,6 +77,15 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The heaps are part of what a snapshot is compatible with; they are the budgets of manifests/waterbox-memory.json (a test compares them). The mmap heap holds
 	// Chip, Slow and Fast RAM among other large blocks, so it grows with the memory the settings ask for beyond the machine's own (T49: twice the extra memory, which
 	// keeps the rule of the manifest, a budget of at least twice what was measured; the measurements are recorded per configuration).
+	/// <summary>Compose the public flags and reject unsupported cartridge settings before opening a guest.</summary>
+	public static uint ConfigFlags(Puae6Cartridge cartridge, bool floppyWrites, Puae6Machine machine)
+	{
+		if (!Enum.IsDefined(typeof(Puae6Cartridge), cartridge)
+			|| (cartridge != Puae6Cartridge.Disabled && machine != Puae6Machine.A1200))
+			throw new ArgumentException("HRTMon requires A1200 and a known cartridge setting", nameof(cartridge));
+		return (floppyWrites ? P6.ConfigFloppyWrites : 0) | (uint)cartridge;
+	}
+
 	public static WaterboxOptions Heaps() => Heaps(new Puae6SyncSettings());
 
 	public static WaterboxOptions Heaps(Puae6SyncSettings settings) => Heaps(settings, Array.Empty<long>());
@@ -250,6 +259,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		parameters = Puae6WhdLoad.Resolve(parameters);
 		parameters = Puae6Volumes.Resolve(parameters);
 		_syncSettings = parameters.SyncSettings.Clone();
+		ConfigFlags(_syncSettings.Cartridge, _syncSettings.FloppyWrites, _syncSettings.Machine);
 		_settings = parameters.Settings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
 		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
@@ -352,7 +362,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.Machine = MachineNumber(_syncSettings.Machine);
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
 		init.Config.AudioRateHz = 48000;
-		init.Config.Flags = _syncSettings.FloppyWrites ? P6.ConfigFloppyWrites : 0;      // off: every disk is write protected, as in ABI v1
+		init.Config.Flags = ConfigFlags(_syncSettings.Cartridge, _syncSettings.FloppyWrites, _syncSettings.Machine);
 		init.Config.RandomSeed = _syncSettings.RandomSeed;
 		init.Config.RtcEpochSeconds = _syncSettings.RtcEpochSeconds;
 		init.Config.ChipKib = ChipKib(_syncSettings.ChipMemory);
@@ -462,6 +472,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// The same for the floppy writes (T28): a state of a core that can write its disks does not load in one that cannot, and a SaveRam that was stored changes the disks the
 		// guest has, so what it was (its SHA-256) is part of what a state and a movie are valid for. A core without writes keeps the identity it always had.
 		if (_syncSettings.FloppyWrites) memory += ";floppywrites=1";
+		if (_syncSettings.Cartridge == Puae6Cartridge.HrtMon) memory += ";cartridge=hrtmon;cartsha=" + P6.HrtMonRawSha256;
 		// And for the FPU (T54): the model is in the config hash of the native state too, and a state or a movie of a machine with a 68882 means nothing to one without.
 		if (_syncSettings.FpuModel != Puae6Fpu.None) memory += ";fpu=" + _syncSettings.FpuModel;
 		// And for the CPU (T52): the native config hash derives from the resolved model when it is not the machine's own; the text names whatever the setting is off Auto, which is stricter (it also tells an
@@ -571,7 +582,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
         var packet = new P6InputV2 { Base = BuildInput(controller, out bool power) };
         if (_syncSettings.ControllerPort3 == Puae6ParallelPort.Joystick) packet.Port2 = JoystickPacket(controller, 3);
         if (_syncSettings.ControllerPort4 == Puae6ParallelPort.Joystick) packet.Port3 = JoystickPacket(controller, 4);
-        if (packet.Port2.Type != 0 || packet.Port3.Type != 0) { packet.Base.AbiVersion = 2; packet.Base.StructSize = (uint)sizeof(P6InputV2); }
+        if (_syncSettings.Cartridge == Puae6Cartridge.HrtMon && controller.IsPressed(Controllers.Freeze)) packet.Commands = P6.CommandFreeze;
+        if (packet.Port2.Type != 0 || packet.Port3.Type != 0 || packet.Commands != 0) { packet.Base.AbiVersion = 2; packet.Base.StructSize = (uint)sizeof(P6InputV2); }
 		_started = true;
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
 		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0) | ((uint)_settings.DriveSoundVolume << P6.RenderDriveVolumeShift);

@@ -627,15 +627,15 @@
       "maps_to": "p6_config.flags",
       "default": "disabled",
       "values": [
-        {"value": "disabled", "abi": 0, "label": "Disabled"},
-        {"value": "hrtmon", "abi": 2, "abi_name": "P6_CONFIG_HRTMON", "label": "HRTMon builtin (A1200 only)"}
+        {"value": "disabled", "abi": 0, "label": "Disabled", "wrapper_name": "Disabled"},
+        {"value": "hrtmon", "abi": 2, "abi_name": "P6_CONFIG_HRTMON", "label": "HRTMon builtin (A1200 only)", "wrapper_name": "HrtMon"}
       ],
       "libretro": {
         "key": "puae6_cartridge", "category": "machine", "label": "Cartridge",
         "info": "The pinned GPL HRTMon monitor for A1200. Activate it with the Freeze hotkey or mapper target."
       },
       "headless": {"how": "fixed"},
-      "wrapper": {"how": "fixed", "where": "flags"}
+      "wrapper": {"how": "setting", "setting": "Cartridge", "type": "Puae6Cartridge"}
     },
     {
       "id": "floppy_speed",

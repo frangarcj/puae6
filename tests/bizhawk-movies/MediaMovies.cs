@@ -1,5 +1,8 @@
 using System.Security.Cryptography;
 using BizHawk.Client.Common;
+using BizHawk.Common;
+using BizHawk.Emulation.Cores.Waterbox;
+using System.Runtime.InteropServices;
 using BizHawk.Emulation.Common;
 using Puae6;
 
@@ -158,5 +161,156 @@ internal static unsafe partial class Program
   Require(Save(core).SequenceEqual(Read(args[1], "False.tasproj.end"))); (valid as IDisposable)?.Dispose();
   Console.WriteLine("real media movie rejects before Attach without mutation and preserves future PASS");
  }
- static void Main(string[] args) { if (args[0] == "identity") Identity(args[1]); else { LoadRuntime(args[2]); Movies(args); } }
+ static void HrtConfig(string expectedSha)
+ {
+  var off = new Puae6SyncSettings(); Require(off.Cartridge == Puae6Cartridge.Disabled && Puae6Core.ConfigFlags(off.Cartridge,off.FloppyWrites,off.Machine) == 0, "default");
+  Require(sizeof(P6InputV2) == 108 && (int)System.Runtime.InteropServices.Marshal.OffsetOf<P6InputV2>(nameof(P6InputV2.Commands)) == 104, "ABI2");
+  Require(P6.HrtMonRawSha256 == expectedSha && P6.CommandFreeze == 1 && P6.ConfigHrtMon == 2, "pinned asset/ABI");
+  foreach (bool writes in new[] {false,true}) foreach (var cartridge in new[] {Puae6Cartridge.Disabled,Puae6Cartridge.HrtMon}) {
+   var settings = new Puae6SyncSettings {Machine = Puae6Machine.A1200, Cartridge = cartridge, FloppyWrites = writes};
+   Require(Puae6Core.ConfigFlags(settings.Cartridge,settings.FloppyWrites,settings.Machine) == (uint)((writes ? 1 : 0) | (cartridge == Puae6Cartridge.HrtMon ? 2 : 0)), "flags OR");
+   var buttons = Controllers.Define(settings,0); Require(buttons.BoolButtons.Contains(Controllers.Freeze) == (cartridge == Puae6Cartridge.HrtMon), "Freeze offered");
+   buttons.BuildMnemonicsCache("Amiga"); var pressed = new HrtButtons(buttons) {Frame = -1};
+   var session = new MovieSession(new MovieConfig(),Path.GetTempPath(),null,() => {},() => {},(_,_) => {});
+   var decoded = session.GenerateMovieController(buttons); decoded.SetFromMnemonic(Bk2LogEntryGenerator.GenerateLogEntry(pressed));
+   Require(decoded.IsPressed(Controllers.Freeze) == (cartridge == Puae6Cartridge.HrtMon), "BK2 Freeze level");
+   var heaps = Puae6Core.Heaps(settings); Require(heaps.InvisibleHeapSizeKB == 16 && heaps.PlainHeapSizeKB == 16, "ordinary mutable heap");
+  }
+  var factory = Puae6Guest.CreateHost; int hosts = 0;
+  Puae6Guest.CreateHost = _ => { ++hosts; throw new Exception("invalid configuration opened host"); };
+  try {
+   foreach (var settings in new[] {new Puae6SyncSettings {Cartridge=Puae6Cartridge.HrtMon},
+                                    new Puae6SyncSettings {Machine=Puae6Machine.A1200, Cartridge=(Puae6Cartridge)1}}) {
+    try { using var invalid = new Puae6Core(new CoreComm(_ => {}, (_,_) => {}, null, CoreComm.CorePreferencesFlags.None, null),
+      new Puae6Parameters {Firmware=[1], SyncSettings=settings}); throw new Exception("invalid cartridge accepted"); }
+    catch (ArgumentException) { }
+   }
+   Require(hosts == 0, "validation precedes host");
+  } finally { Puae6Guest.CreateHost = factory; }
+  Console.WriteLine("HRTMon managed default/flags/controls/BK2/ABI/SHA/heaps/preflight PASS");
+ }
+ static readonly Dictionary<int,string> HrtKeys = new();
+ static readonly Dictionary<int,(byte First,byte Second)> HrtChecks = new();
+ static int HrtRelease, HrtEnd;
+ static int HrtType(int at, string text)
+ {
+  foreach (char c in text) { string key = "Key " + (c == ' ' ? "Space" : char.ToUpperInvariant(c).ToString());
+   for (int n = 0; n < 3; n++) HrtKeys[at+n] = key; at += 6;
+  }
+  for (int n = 0; n < 3; n++) HrtKeys[at+n] = "Key Return"; return at + 15;
+ }
+ static void HrtSchedule()
+ {
+  int filled = HrtType(6,"o 140000 140004 5a"); HrtChecks[filled] = (0x5a,0);
+  int exited = HrtType(filled+1,"x");
+  int ignored = HrtType(exited+8,"o 140004 140008 7c"); HrtChecks[ignored] = (0x5a,0); // Held after x must not reenter.
+  HrtRelease = ignored+1;
+  int rearmed = HrtType(HrtRelease+81,"o 140004 140008 6b"); HrtChecks[rearmed] = (0x5a,0x6b);
+  HrtEnd = HrtType(rearmed+1,"x")+8;
+ }
+ sealed class HrtButtons(ControllerDefinition definition) : IController
+ {
+  public int Frame;
+  public ControllerDefinition Definition => definition;
+  public bool IsPressed(string name) => definition.BoolButtons.Contains(name) &&
+   ((name == Controllers.Freeze && Frame != HrtRelease) || HrtKeys.GetValueOrDefault(Frame) == name);
+  public int AxisValue(string name) => definition.Axes[name].Neutral;
+  public IReadOnlyCollection<(string Name,int Strength)> GetHapticsSnapshot() => [];
+  public void SetHapticChannelStrength(string name,int strength) { }
+ }
+ static WaterboxHost HrtHost;
+ [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate nuint HrtRanges(ulong* output,nuint capacity);
+ static void HrtBudget(string phase)
+ {
+  using var enter = HrtHost.EnterExit(); ulong* ranges = stackalloc ulong[16];
+  var call = Marshal.GetDelegateForFunctionPointer<HrtRanges>(HrtHost.GetCallinProcAddr(HrtHost.GetProcAddrOrThrow("p6w_memory_info")));
+  Require(call(ranges,16) == 16,"memory ranges"); var pages = HrtHost.GetPagesDomain();
+  string[] names = ["sbrk","sealed","invisible","plain","mmap"];
+  for (int heap = 3; heap < 8; heap++) {
+   ulong committed = 0, first = (ranges[2*heap]-ranges[0])/4096, count = ranges[2*heap+1]/4096;
+   for (ulong page = first; page < first+count; page++) if ((pages.PeekByte((long)page)&0x3f) != 0) committed += 4096;
+   ulong capacity = ranges[2*heap+1]; Require(heap is 5 or 6 ? committed == 0 : (heap == 4 ? committed <= capacity : committed*2 <= capacity), $"{phase}/{names[heap-3]} committed={committed} budget={capacity}");
+   Console.WriteLine($"HRTMon budget {phase}/{names[heap-3]}={committed}/{capacity}");
+  }
+ }
+ static Puae6Core HrtOpen(string[] args, bool enabled = true)
+ {
+  var factory = Puae6Guest.CreateHost;
+  try {
+   Puae6Guest.CreateHost = options => HrtHost = factory(options);
+   return new(
+  new CoreComm(_ => {}, (_,_) => {}, null, CoreComm.CorePreferencesFlags.None, null), new Puae6Parameters {
+   Firmware = File.ReadAllBytes(args[5]), GuestDirectory = Path.GetDirectoryName(args[3])!, GuestFileName = Path.GetFileName(args[3]), PinnedGuestSha256 = args[4],
+   SyncSettings = new Puae6SyncSettings {Machine=Puae6Machine.A1200, Cartridge=enabled ? Puae6Cartridge.HrtMon : Puae6Cartridge.Disabled}
+  });
+  } finally { Puae6Guest.CreateHost = factory; }
+ }
+ static MemoryDomain HrtRam(Puae6Core core) => core.ServiceProvider.GetService<IMemoryDomains>()!["Chip RAM"];
+ static byte[] HrtBytes(Puae6Core core) => Enumerable.Range(0,8).Select(n => HrtRam(core).PeekByte(0x140000+n)).ToArray();
+ static MovieSession HrtSession(string directory,Puae6Core core)
+ {
+  var session = Session(directory,core);
+  var settings = (PagedStateManager.PagedSettings)session.Settings.DefaultTasStateManagerSettings;
+  settings.FramesBetweenNewStates = 40; settings.FramesBetweenSavedStates = 40;
+  session.MovieIn = new HrtButtons(core.ControllerDefinition); return session;
+ }
+ static string[] HrtPlay(Puae6Core core, MovieSession session = null)
+ {
+  var rows = new List<string>(); var buttons = session is null ? new HrtButtons(core.ControllerDefinition) : (HrtButtons)session.MovieIn;
+  while (core.Frame < HrtEnd) {
+   buttons.Frame = core.Frame; session?.HandleFrameBefore(); IController input = session is null ? buttons : session.MovieOut;
+   foreach (var name in core.ControllerDefinition.BoolButtons) Require(input.IsPressed(name) == buttons.IsPressed(name), $"input at {core.Frame}: {name}");
+   Require(core.FrameAdvance(input,true,true), "frame advance"); core.GetSamplesSync(out var samples,out int count);
+   var pcm = new byte[count*4]; Buffer.BlockCopy(samples,0,pcm,0,pcm.Length);
+   var pixels = new byte[core.BufferWidth*core.BufferHeight*4]; Buffer.BlockCopy(core.GetVideoBuffer(),0,pixels,0,pixels.Length);
+   if (HrtChecks.TryGetValue(core.Frame,out var check)) Require(HrtBytes(core).SequenceEqual(Enumerable.Repeat(check.First,4).Concat(Enumerable.Repeat(check.Second,4))), $"monitor command/held/rearm at {core.Frame}");
+   rows.Add($"{core.Frame} {core.CycleCount} {Hash(pixels)} {Hash(pcm)} {Convert.ToHexString(HrtBytes(core))}"); session?.HandleFrameAfter(true);
+  }
+  return rows.ToArray();
+ }
+ static void HrtMovies(string[] args)
+ {
+  HrtSchedule(); string initial = Path.Combine(args[1],"hrt.initial"); Phase = args[0]+"/HRTMon";
+  if (args[0] == "hrtsave") {
+   using var original = HrtOpen(args); HrtBudget("sealed"); var idle = new HrtButtons(original.ControllerDefinition) {Frame=HrtRelease};
+   for (int frame = 0; frame < 300; frame++) original.FrameAdvance(idle,true,true);
+   idle.Frame = -1; for (int frame = 0; frame < 80; frame++) original.FrameAdvance(idle,true,true);
+   for (int n = 0; n < 8; n++) HrtRam(original).PokeByte(0x140000+n,0);
+   HrtBudget("held380"); File.WriteAllBytes(initial,Save(original)); original.ResetCounters();
+   File.WriteAllLines(initial+".future",HrtPlay(original)); File.WriteAllBytes(initial+".end",Save(original)); HrtBudget("future");
+  }
+  var expected = File.ReadAllLines(initial+".future"); var end = File.ReadAllBytes(initial+".end");
+  foreach (string extension in new[] {"bk2","tasproj"}) {
+   Phase = args[0]+"/HRTMon/"+extension; string path = Path.Combine(args[1],"hrt."+extension);
+   if (args[0] == "hrtsave") {
+    using var recording = HrtOpen(args); var session = HrtSession(args[1],recording); var movie = session.Get(path,false);
+    movie.StartsFromSavestate = true; movie.BinarySavestate = File.ReadAllBytes(initial);
+    movie.SyncSettingsJson = ConfigService.SaveWithType(recording.GetSyncSettings());
+    foreach (var h in Puae6Movie.HeaderForStart(recording,true,null)) movie.HeaderEntries[h.Key] = h.Value;
+    Start(session,movie,recording,true); if (movie is ITasMovie tas) tas.Markers.Add(new TasMovieMarker(6,"held cut 5"));
+    Require(HrtPlay(recording,session).SequenceEqual(expected) && Save(recording).SequenceEqual(end), "record vs live continuation");
+    Require(!movie.Save().IsError,"movie write"); (movie as IDisposable)?.Dispose();
+   }
+   using var core = HrtOpen(args); var replay = HrtSession(args[1],core); var loaded = replay.Get(path,true);
+   if (loaded is ITasMovie history) Require(history.TasStateManager.HasState(5),"serialized held cut");
+   Start(replay,loaded,core,false); Require(HrtPlay(core,replay).SequenceEqual(expected) && Save(core).SequenceEqual(end),"replay vs live continuation");
+   if (loaded is ITasMovie movieTas) {
+    var state = movieTas.TasStateManager.GetStateClosestToFrame(5);
+    Require(state.Key == 5,$"held seek key={state.Key} count={movieTas.TasStateManager.Count} last={movieTas.TasStateManager.Last}");
+    using (var reader = new BinaryReader(state.Value)) core.LoadStateBinary(reader);
+    Require(HrtPlay(core,replay).SequenceEqual(expected.Skip(5)) && Save(core).SequenceEqual(end),"held seek continuation");
+   }
+   using var off = HrtOpen(args,false); var before = Save(off); bool rejected = false;
+   try { using var reader = new BinaryReader(File.OpenRead(initial)); off.LoadStateBinary(reader); }
+   catch (StateRejectedException e) { rejected = e.Reason == StateRejection.OtherConfig; }
+   Require(rejected && Save(off).SequenceEqual(before),"off state rejection before snapshot");
+   var offSession = HrtSession(args[1],off); var foreign = offSession.Get(path,true); rejected = false;
+   try { Start(offSession,foreign,off,false); } catch (MovieRejectedException e) { rejected = e.Reason == MovieRejection.OtherConfig; }
+   Require(rejected && offSession.Movie == null && Save(off).SequenceEqual(before),"off movie rejection before Attach");
+   (loaded as IDisposable)?.Dispose(); (foreign as IDisposable)?.Dispose();
+   Console.WriteLine($"HRTMon real {extension}/{args[0]} commands/held/rearm/replay/seek/cold/off PASS");
+  }
+ }
+ static void Main(string[] args) { if (args[0] == "identity") Identity(args[1]); else if (args[0] == "hrtconfig") HrtConfig(args[1]);
+  else { LoadRuntime(args[2]); if (args[0].StartsWith("hrt")) HrtMovies(args); else Movies(args); } }
 }

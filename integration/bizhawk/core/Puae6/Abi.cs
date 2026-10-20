@@ -35,7 +35,8 @@ public static class P6
 	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4, RegionZ3FastRam = 5, RegionNvram = 6;
 	public const int Cd32NvramBytes = 1024;
 	public const uint MemoryNone = uint.MaxValue;
-	public const uint ConfigFloppyWrites = 1;
+	public const uint ConfigFloppyWrites = 1, ConfigHrtMon = 2, CommandFreeze = 1;
+	public const string HrtMonRawSha256 = "15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5";
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
 	public const int AdfBytes = 901120;                          // an 880 KiB ADF (the other medium of ABI v1 is a hard file of any multiple of 512 bytes)
 	public const int MaxTrackDiskBytes = 3 * 1024 * 1024;        // the largest extended ADF, FDI or IPF the bridge reads (T57, T58); a floppy image is read only unless it is a plain ADF
@@ -55,7 +56,7 @@ public static class P6
 public unsafe struct P6Config
 {
 	public uint AbiVersion, StructSize;
-	public uint Machine, VideoStandard, AudioRateHz, Flags;     // flags must be zero in ABI v1
+	public uint Machine, VideoStandard, AudioRateHz, Flags;     // P6_CONFIG_* flags
 	public ulong RandomSeed;
 	public long RtcEpochSeconds;                                 // UTC; never read from the host clock
 	public uint ChipKib, SlowKib, FastKib;                       // 0: the machine's own memory; P6.MemoryNone (Slow, Fast): none
@@ -98,7 +99,7 @@ public unsafe struct P6InputV2
 {
     public P6Input Base;
     public P6PortInput Port2, Port3;
-    public uint Commands; // Reserved, must be zero until a command is supported.
+    public uint Commands; // P6_COMMAND_* levels; the bridge owns the rising edge.
 }
 
 [StructLayout(LayoutKind.Sequential)]

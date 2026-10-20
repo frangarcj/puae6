@@ -2018,8 +2018,9 @@
         "how": "fixed"
       },
       "wrapper": {
-        "how": "fixed",
-        "where": "flags"
+        "how": "setting",
+        "setting": "Cartridge",
+        "type": "Puae6Cartridge"
       },
       "libretro": "puae6_cartridge"
     },

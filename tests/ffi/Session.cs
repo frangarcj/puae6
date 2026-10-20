@@ -100,6 +100,7 @@ internal static unsafe partial class Program
 						VideoResolution = Enum.Parse<Puae6VideoResolution>(arguments.GetValueOrDefault("vres", "Hires")),
 						VideoLineMode = Enum.Parse<Puae6VideoLineMode>(arguments.GetValueOrDefault("vlines", "Double")),
 						FloppyWrites = arguments.ContainsKey("writes"),
+						Cartridge = Enum.Parse<Puae6Cartridge>(arguments.GetValueOrDefault("cartridge", "Disabled")),
 						WhdLoad = Enum.Parse<Puae6WhdLoadMode>(arguments.GetValueOrDefault("whdload", "Auto"), true),
 						WhdLoadButtonWait = arguments.GetValueOrDefault("buttonwait", "false") == "true",
 					};

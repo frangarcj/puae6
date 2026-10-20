@@ -93,3 +93,27 @@ class MediaMovieStartTests(unittest.TestCase):
         for mode in ('save', 'load'):
             output = run(['dotnet', str(EXE), mode, str(WORK), runtime['path'], str(guest), data['guest']['sha256']])
             self.assertEqual(5, output.count(' PASS'), output); print(output, end='')
+
+
+class HrtMonManagedConfigTests(unittest.TestCase):
+    def test_public_setting_flags_controls_and_pinned_abi_without_guest(self):
+        from tools.prepare_hrtmon import RAW_SHA
+        output = run(['dotnet', str(EXE), 'hrtconfig', RAW_SHA])
+        self.assertEqual(1, output.count(' PASS'), output); print(output, end='')
+
+
+@unittest.skipUnless(os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT') and os.environ.get('P6_KICKSTART_A1200_ROM'),
+                     'BLOCKED: falta guest coordinado actual o Kickstart A1200 autorizado')
+class HrtMonWrapperTests(unittest.TestCase):
+    def test_public_freeze_bk2_tas_and_held_snapshot_in_new_process(self):
+        receipt = Path(os.environ['P6_MEDIA_MOVIE_GUEST_RECEIPT']); data = json.loads(receipt.read_text())
+        wb.check_guest_matches_trees(receipt, root=ROOT)
+        self.assertTrue(all(wb.sha256(ROOT / path) == digest for path, digest in data['sources'].items()))
+        for key, path in {'makefile': 'ports/waterbox/Makefile', 'common_mak': 'references/machawk/waterbox/common.mak',
+                          'linkscript_aarch64': 'references/machawk/waterbox/linkscript_aarch64.T', 'build_recipe': 'tools/build_waterbox.py'}.items():
+            self.assertEqual(data['recipe'][key], wb.sha256(ROOT / path))
+        guest = Path(data['guest']['path']); self.assertEqual(data['guest']['sha256'], wb.sha256(guest)); wb.validate_elf(guest); wb.check_no_compiler_tls(guest)
+        runtime = json.loads(wb.runtime_receipt_path().read_text())['runtime_dylib']; self.assertEqual(runtime['sha256'], wb.sha256(Path(runtime['path'])))
+        for mode in ('hrtsave', 'hrtload'):
+            output = run(['dotnet', str(EXE), mode, str(WORK), runtime['path'], str(guest), data['guest']['sha256'], os.environ['P6_KICKSTART_A1200_ROM']])
+            self.assertEqual(2, output.count(' PASS'), output); print(output, end='')
