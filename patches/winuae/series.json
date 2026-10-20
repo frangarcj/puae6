@@ -5544,6 +5544,39 @@
           "after_sha256": "44f14b04ebb9d74534560d02a380bede28626171c720d7c51a2b0565191a6db7"
         }
       ]
+    },
+    {
+      "id": "0391-nrg-dao-mode2-form1",
+      "file": "patches/winuae/0391-nrg-dao-mode2-form1.patch",
+      "sha256": "79e1002d0464bc7b5ed6ec91178d12f36083267039289f4257f8a48c674d1cc0",
+      "title": "Export NRG Mode02 metadata and encode Mode2 Form1 EDC/P/Q",
+      "reason": "T66l4: preserve cooked2048 payload and expose existing WinUAE EDC/P/Q through a Form1 wrapper. Header bytes12..15 are zero during ECC, then restored as required by the primary libMirage sector implementation; no Mode1 encoder or CHD dependency. TAO and multisession remain pending.",
+      "category": "CD media normalization",
+      "order": 208,
+      "symbols": [
+        "nrg_metadata",
+        "encode_l2_mode2_form1"
+      ],
+      "test": "tests/media/test_cd_nrg.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "764775b19ce319557b2b6777d8ac8ae771baff14369236ba811cf788264bdd99",
+          "after_sha256": "265eaca619b378c1165d0ef8b1cbb05a1a9ff9ded033dc790206a883a1b46d11"
+        },
+        {
+          "path": "cdrom.cpp",
+          "before_sha256": "d9008a1a79ef9494662fe57df72a590d2e4b0eac147c51f6da139adc9d8349d0",
+          "after_sha256": "90f580d2eb0e4dfb3aaea517a7fd65500645a8caee5ef2e0c60e1ebd6e8f37ec"
+        },
+        {
+          "path": "include/uae/cdrom.h",
+          "before_sha256": "b5f641611c123f3e38f944c59e66af975ac07f590e363e5b9ca751ec52e8b15e",
+          "after_sha256": "f2e89c73ec809d165caad013a4a9a00768d2d2efc3219d60572327025625b06c"
+        }
+      ]
     }
   ]
 }

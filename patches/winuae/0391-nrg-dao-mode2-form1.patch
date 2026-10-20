@@ -1,0 +1,48 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -2581,9 +2581,8 @@
+                 const uint64_t index0 = be(buf + 18, width), index1 = be(buf + 18 + width, width), end = be(buf + 18 + width * 2, width);
+                 if (end > INT64_MAX || !sectorsize || index0 > index1 || index1 >= end || end > directory || (index1 - index0) % sectorsize || (end - index1) % sectorsize) return invalid;
+ #ifdef P6_NRG_METADATA
+-                if (type == 2) return Result::Unsupported;
+-                const unsigned minimum = type == 0 ? 2048 : type == 3 ? 2336 : type == 5 || type == 6 || type == 7 ? 2352 : type == 15 || type == 16 || type == 17 ? 2448 : 0;
+-                if (!minimum || sectorsize < minimum || (type == 3 ? sectorsize != 2336 : (sectorsize != 2048 && sectorsize != 2352 && sectorsize != 2448))) return Result::Unsupported;
++                const unsigned minimum = type == 0 || type == 2 ? 2048 : type == 3 ? 2336 : type == 5 || type == 6 || type == 7 ? 2352 : type == 15 || type == 16 || type == 17 ? 2448 : 0;
++                if (!minimum || sectorsize < minimum || (type == 2 ? sectorsize != 2048 : type == 3 ? sectorsize != 2336 : (sectorsize != 2048 && sectorsize != 2352 && sectorsize != 2448))) return Result::Unsupported;
+                 auto &t = candidate.track[tracknum - 1];
+                 t.offset0 = index0; t.offset1 = index1; t.end = end; t.stride = sectorsize; t.mode = type;
+                 memcpy(t.isrc, buf, 12);
+diff --git a/cdrom.cpp b/cdrom.cpp
+--- a/cdrom.cpp
++++ b/cdrom.cpp
+@@ -235,3 +235,18 @@
+ 			encode_L2_P (p + 12);
+ 			encode_L2_Q (p + 12);
+ 		}
++
++// Form1 EDC/ECC; caller supplies a 2352-byte sector with header/subheader/payload.
++// Preserve those bytes; only the four header bytes are zeroed during P/Q coding.
++// libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e mirage/sector.c:755..767.
++void encode_l2_mode2_form1(uae_u8 *p)
++{
++    const uae_u32 edc = build_edc(p, 16, 2071);
++    for (unsigned n = 0; n < 4; ++n) p[2072 + n] = (uae_u8)(edc >> (8 * n));
++    uae_u8 header[4];
++    memcpy(header, p + 12, 4);
++    memset(p + 12, 0, 4);
++    encode_L2_P(p + 12);
++    encode_L2_Q(p + 12);
++    memcpy(p + 12, header, 4);
++}
+diff --git a/include/uae/cdrom.h b/include/uae/cdrom.h
+--- a/include/uae/cdrom.h
++++ b/include/uae/cdrom.h
+@@ -4,5 +4,7 @@
+ #include "uae/types.h"
+ 
+ void encode_l2(uae_u8 *p, int address);
++// Recompute only Form1 EDC/P/Q in a 2352-byte sector; preserve header and body.
++void encode_l2_mode2_form1(uae_u8 *p);
+ 
+ #endif /* UAE_CDROM_H */
