@@ -352,6 +352,8 @@ TASK_SUITES[('STATE01', 'T66t9')] = {
     'player_region_restore': 'tests.media.test_cd_audio_state.CdPlayerStateTests',
     'device_region_restore': 'tests.media.test_cd_device_state.CdDeviceStateTests'}
 TASK_SUITES[('STATE01', 'T66t10')] = dict(TASK_SUITES[('STATE01', 'T66t9')])
+TASK_SUITES[('MED01', 'T66t11')] = {'regional_wire_descriptor': 'tests.media.test_cd_disc.CdDiscTests'}
+TASK_SUITES[('ABI01', 'T66t11')] = {'legacy_and_regional_cd_layouts': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
 TASK_SUITES[('ABI01', 'T66t9')] = {'legacy_cd_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}

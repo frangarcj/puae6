@@ -17572,6 +17572,46 @@
       "stop": "No inferirPGTYPEdeQ, perderSUBopaco, incluirpaddingenSource ni cambiarP6CHD1 paraformatosyaaceptados."
     },
     {
+      "id": "T66t11",
+      "title": "Definir contrato CD regional WBv2 y conversion transaccional sin activar transporte",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t10",
+        "T80a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/waterbox/p6w_cd.h",
+        "adapters/waterbox/cd_descriptor.h",
+        "integration/bizhawk/core/Puae6/CdHost.cs",
+        "tests/ffi/Program.cs",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py"
+      ],
+      "steps": [
+        "Contrato/conversorpuro antesdeltransporte: p6w_cd_info_v2 header56+99pistas48=4808. Prefijo6u32v1intacto ystored_pregap/synthetic_pregap/postgap/flags/pregap_mode/pregap_control enoffset24/28/32/36/40/44. V1size2432/layout31/exportsABI1inalterados. TiposC#v2solo, sinimportsexports/binding nuevos enestahoja.",
+        "Nuevo cd_descriptor.h convierteaLayoutreal deformatransaccional sinIO. Wiremodos0Audio/1Mode1Raw/2Mode2Raw; reserved/inactivos0, flagsT9conocidos. Canonicalwire espacioLBA2448; Sourceoffset=(stored?index0+synthetic:index1)*2448. Stored/SUBdescribenflujotransportadomaterializado(Q/SBIincluidos), noprocedenciafisicaCHD. Documentarjuntoatipos.",
+        "ProbeC++ejecutable conviertefixturev2 yDiscbind/read/rebind reales; layoutsC/C#exactos. Negativosversion/tamaño/count/reservas/sobrantes/controlsintruncamiento/modos/flags/geometria/regiones ycanarios/sinIOpreflight. CubrirAudio→dataPG,postgap,SUBopaca/sintetica yrechazosderebind. AñadirmetodoCdDiscTests; Program.cs cdlayout compruebaamboslayoutsC#.",
+        "Seisrutas atomicasobjetivo220..300lineas; cd32_closeaislado sinmetadata/motor/guest. ABI01CdLayoutTestsexistente+assertsC++enMED01CdDiscTests; uniondirigidasinrepeticiones. Hoja posteriorrequireddeexports/binding/catalogo incluyeescenarioC#Waterboxreal yWB03; sihostcaequedaBLOCKED. MetadatatipeadaDiscSystemesotracapaindependientenecesariaantesproveedorpublico; ninguna prueba deestahojaacreditatransporte/snapshotWaterbox."
+      ],
+      "checks": [
+        "ABI01",
+        "MED01"
+      ],
+      "acceptance": [
+        "Descriptorv2convierteexactamentearegionesDisc convalidacion/lecturas/rebind ylayout4808C/C#; v1permaneceintacto. Exportstransporte/DiscSystemtyped/publicloader/WB03siguenpendientesrequeridos."
+      ],
+      "stop": "No anunciarlabinding/transporteWaterbox porunconversornativo; no inferirregionesdeQ ni cambiarreservedv1."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17645,7 +17685,8 @@
         "T66t7",
         "T66t8",
         "T66t9",
-        "T66t10"
+        "T66t10",
+        "T66t11"
       ],
       "read": [
         "docs/01-architecture.md",
