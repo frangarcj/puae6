@@ -17616,7 +17616,7 @@
       "title": "Conectar transporte regional CD WBv2 y restauracion real de sandbox",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T66t11",
         "T66u2",
@@ -17653,7 +17653,8 @@
       "acceptance": [
         "Los exportsV2 yP6CdHost conservanregion/identidad/callbackyrestauracioncausal enWaterboxreal, incluidosV1/catalogo yotroproceso; ningúnchecknativo sustituyeWB03."
       ],
-      "stop": "NoocultarregionesenreservedV1, publicarcallbackantespreflight ni marcarDONEconrunnerfallido; noconectarCHDpublicosinmetadataregionaltipada."
+      "stop": "NoocultarregionesenreservedV1, publicarcallbackantespreflight ni marcarDONEconrunnerfallido; noconectarCHDpublicosinmetadataregionaltipada.",
+      "blocked_reason": "WBXactualeb29becddb4bcd9e25ce8a85fbbda301ec59210f66f7651e9ba427834de7a9ad/93fuentes+4recetasverificadas yELF/TLS/importsPASS. WB03uniondetieneenlegacycatalog: SIGSEGVaddr178 durantewbx_load_state→verify_magic→_xzm_segment_group_alloc_segment. EscenarionuevoregionaldirectotambiencaeSIGBUSen_xzm_xzone_malloc_tiny→CoreCLR TieredCompilationManager, antescerrarassertions. MismofallohostT66u4/WB13, nonativocomoWB. H1presiondememoriaactualswap9.9GiB/11GiB, contrastarmismacandidatasinpresion; H2interaccion.NET/mapas/protecciones/TLSruntime, contrastardirigidomanagedvsCconmismosheaps. ABI01/MED01exactosT11ycompilacionC#PASS; WBrealpendiente, dosescenariosfallidosnobateriasiguales."
     },
     {
       "id": "T66t13",
@@ -17686,7 +17687,8 @@
         "Parchederivado sobreDisc.cs/CHD_format.cs/SynthUtils.cs fijados: lista inmutablederegionestipadas coninicio/fin/pista/indice/modo/control/procedenciasinteticaSUB. LoadCHDToDisc emitedesdemetadataoriginalPG/programa/postnormalizandoleadinterno150, nuncaQ/synthtype/DiscTrack.Modeheuristico. Entradainterna recibeCHDFile+IBlob paraejercitarmontajerealunidadesdescomprimidas, sinpretenderdecodercompleto niCHDpublicofuncional.",
         "CorregirSynthUtils.SectorSubHeaderForm2 duplicacionbit en[2]/[6], actual[5]esincorrecto ymodificaEDC. OraculosindependientesPythonT7..T10verifican2448bytes,BCD,AudioBE→LE,SUBendata_size,RW/RW_RAW,PGstored/synthetic,postgapINDEX02,padding4fuera. ExtraFramesyaomiteredondeo4, PaddingGDdistinto noconfundir. Form1/Mode1EDC/PQ yForm2polinomiobitabitsindependientes, tambiensintetizadorescompartidosMDS. Ningungoldencambiadosinexplicacion.",
         "MED01unionChdCanonicalCSharpTests(test_typed_regions_offsets_padding_audio_subchannels_and_postgap,test_cooked_mode2_xa_headers_edc_and_parity_match_independent_oracles)+DiscSourceCSharpTests+ChdBlobReadTests, cadaclaseunavez. OfflineC#sinmotor/guest. Pruebadeseamnodeclaradecodercorrecto; backendhostchd_capi noDarwinARM64enpinactualpermanecependienteconrecetapin/ABIreal,preferirevaluarlibchdrBSDendurecidoexistente.",
-        "Cincorutasatomicasobjetivo280..350manuales. cd32_closeaislado actualizaaestemain, nometadata/engine/guest. Rootcoordinaintegra. T12siguepuertaWB03pendienteindependiente: metadataescontractoadicionalnoconexioncore, porellodepsT10/T11/Apermitenavanzarantes. Backendhostreal+4fixturescomprimidos yconexiontypedPuae6DiscSource→Core→WBv2 conservanpuertapublicaWB03enT66. RootT39bpendinghastacandidataestable, sinquitarsuschecks."
+        "Cincorutasatomicasobjetivo280..350manuales. cd32_closeaislado actualizaaestemain, nometadata/engine/guest. Rootcoordinaintegra. T12siguepuertaWB03pendienteindependiente: metadataescontractoadicionalnoconexioncore, porellodepsT10/T11/Apermitenavanzarantes. Backendhostreal+4fixturescomprimidos yconexiontypedPuae6DiscSource→Core→WBv2 conservanpuertapublicaWB03enT66. RootT39bpendinghastacandidataestable, sinquitarsuschecks.",
+        "Gatecanonicaldirigidoencuentra mismatchLBA236 PGForm1almacenado: SynthUtils.ECM_Mode2_Form1 llamaECC_Populate(...false), incluyendoMSF/modo12..15enP/Q, mientrasencoderT7/native0391loszeroea. ECM.csyaofrecezeroSectorAddress yBlob_ECMloinvocatrueenForm1. Ampliarsemanticaexplicitamenteanteseditarsoloesa llamadaatrueenmismo0008/SynthUtilsrutaautorizada, probando baselineForm1independienteademasForm2; conservarEDC/oraculo/golden. Esmismaverticalstreamcanonical, sinmeternosbackend niotrosalgoritmos."
       ],
       "checks": [
         "MED01"
