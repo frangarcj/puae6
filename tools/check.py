@@ -600,6 +600,7 @@ TASK_SUITES[('STATE01', 'T55c7')] = {
     'patch_classification': 'tests.reference.test_patch_classes.ClassificationTests'}
 TASK_SUITES[('STATE01', 'T55c8')] = dict(TASK_SUITES[('STATE01', 'T55c7')],
     private_frame_regression='tests.host.test_internal_fpu_state.InternalFpuStateTests')
+TASK_SUITES[('STATE01', 'T55c11')] = dict(TASK_SUITES[('STATE01', 'T55c8')])
 TASK_SUITES[('FUZZ01', 'T55c9')] = {
     'public_profile_config_oracle': 'tests.fuzz.test_fuzz.ConfigProfileFuzzTests',
     'dispatch_regression': 'tests.fuzz.test_check.TaskSuiteDispatchTests'}

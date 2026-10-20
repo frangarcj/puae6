@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35"
@@ -11593,7 +11593,8 @@
         "Actualizar la guia de la preview al renovar la candidata nativa: ya hay arranque/restore de firmware A4000 real y juego CD32, frente a los limites antiguos del texto. Ampliar touch solo docs/user/native-preview.md; describir formatos realmente disponibles, firmware, presets experimentales y pendientes sin declarar cierreCPU/T66 ni release formal. Usar receta/package smoke existente sobre ZIP extraido; no repetir matriz por una guia.",
         "Preflight del paquete de candidata: reproducer mostraba PASS de receta conZIPdeotrarevision. Exigir manifiesto acotado64KiB/local-preview/macos-arm64 yrevision del checkoutlimpio antes de imagenes/build, reutilizando clean_revision del empaquetador. tests.ci.test_nightly17PASS incluyen rechazo temprano, JSON/ZIPinvalidos yfuentesdirty; la prueba instalada completa sigue seleccionada y no se acredita CIreal/remota.",
         "Integracion de dependencias: source_identity del arnes omite third_party aunque compila MAME/IPF y ahora se preparaCHD. Ampliar touch a tests/build_support.py ytests/test_build_support.py; incluir bytes de dependencias en identidad y probar invalidacion de cache/receipt con contenido cambiado y mtime conservado, sin compilar emulador ni alterar testsfuncionales.",
-        "Integracion REF01: al ablar0356/0357/0361 se elimina la cadena de guards/parsers CUE/CCD/NRG del que0388 y0389/0391/0392 dependen; materializacion de referencia falla antes de compilar. Mantener0356/0357/0361 como behavior retenidos con razon explicita de dependencia, sin fingir ablation ni cambiar resultados golden. Reutilizar tests de clasificacion y materializacion exacta existentes; ampliar touch solo tests/reference/patch-classes.json. Puerta acumulada permanece para candidata."
+        "Integracion REF01: al ablar0356/0357/0361 se elimina la cadena de guards/parsers CUE/CCD/NRG del que0388 y0389/0391/0392 dependen; materializacion de referencia falla antes de compilar. Mantener0356/0357/0361 como behavior retenidos con razon explicita de dependencia, sin fingir ablation ni cambiar resultados golden. Reutilizar tests de clasificacion y materializacion exacta existentes; ampliar touch solo tests/reference/patch-classes.json. Puerta acumulada permanece para candidata.",
+        "La candidata acumulada se difiere hasta integrar las funciones en curso; T39b vuelve a pending sin quitar puertas. El coordinador retoma la correccion independiente T55c11 en worktree aislado; se mantienen cuatro responsables activos como maximo."
       ],
       "checks": [
         "PLAN01",
@@ -13224,6 +13225,42 @@
       "stop": "No modificar proyectos hermanos ni cambiar opciones del motor al azar; no llamar Waterbox a un build o biblioteca nativa. El coordinador autoriza turno de compilacion y ampliaciones de alcance."
     },
     {
+      "id": "T55c11",
+      "title": "Reanudar NaN SINGLE reconstruido en CU06 rev40 por FPSP",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T55c8"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0395-frestore040-fpsp-cu06-nan.patch",
+        "tests/host/frestore040_probe.cpp",
+        "tests/host/test_frestore040.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json"
+      ],
+      "steps": [
+        "Decodificar exclusivamente CU_SAVEPC06 rev40/CMD15400 reconstruido desde SINGLE por Motorola FPSP bugfix.S:op2_xi/op2_com (commitLinux1da177e4c3f41524e886b7f1b8a0c1fc7321cac2). STAG3 y exponente maximo remapeado43ff indican NaN; conservar signo/payload y distinguir quiet/signaling sin inventar DOBLE06 nativo ni denormales. Leer MC68040UM9.8 y formatos/semantica NaN de9.3/9.7 antes del cambio.",
+        "Añadir al probe real frames calculados independientemente para ambos signos, quiet/signaling y payloads extremos; FMOVE/FADD/FCMP/FTST, FP0..7, SNANenmascarada/permitida y prioridadE3. Comprobar bus, flags, vector/FPIAR, estado privado tras reinicializacion y futuro. Baseline anterior debe fallar antes del parche. No cambiar hashesgolden ni tolerancias.",
+        "Vertical de tres archivos de implementacion/test mas dos metadatos de integracion, objetivo<400lineas manuales. Root reserva0395; series ordenada por dependencias reales y hash exacto, sin editar upstream ni generados. Serializar buildmotor-j2 y ejecutar STATE01 dirigido con regresiones cercanas; padre conserva FRESTORE completo, firmware y WB."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "NaN SINGLE reconstruido por FPSP reanuda aritmetica y excepciones con resultado/flags/payload independientes, respeta E3 y sobrevive codec privado; no atribuye cierre completo040 ni hardware fisico."
+      ],
+      "stop": "Sin fuente primaria o tras dos intentos razonados fallidos, conservar reproducer y marcar bloqueo con dos hipotesis; no ampliar a formatos desconocidos."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -13240,7 +13277,8 @@
         "T55c7",
         "T55c8",
         "T55c9",
-        "T55c10"
+        "T55c10",
+        "T55c11"
       ],
       "read": [
         "docs/01-architecture.md",
