@@ -13089,6 +13089,44 @@
       "stop": "No fingir reanudacionBUSY ni dar por habilitados perfiles040/060 por esta correccion."
     },
     {
+      "id": "T55c8",
+      "title": "Conservar frames BUSY040 y priorizar su excepcion aritmetica",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T55c7"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/adr/0014-cpu-accuracy-levels.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "tests/host/**",
+        "tests/reference/patch-classes.json",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/adr/**",
+        "ports/portable/p6_fpu_state.h"
+      ],
+      "steps": [
+        "Leer el frameBUSY040 completo por el bus real, publicar sus campos definidos tras la ultima lectura y conservarlos en FSAVE y en el codec privado/P6CP. Offsets de MC68040UM9.8 figura9-10 y MotorolaFPSP fpsp.h fijado; no conservar palabras reservadas como estado causal.",
+        "Recuperar la excepcion aritmetica E3/E1 antes de la reanudacion CU existente. No ejecutar CU ni sobreescribir FPn mientras esa excepcion este pendiente. Preservar CU_SAVEPC, dirty, shadow, comandos, indicadores y operandos sin inferir la semantica de writeback ni S/X.",
+        "Probar rev40/41 con frames independientes, longitudes y lecturas exactas, registrosFP preservados, prioridad/vector real, reemisionFSAVE y restauracion privada. Reutilizar regresiones UNIMP, codec040/060,6888x y clasificacion de parches."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "Los framesBUSY040 con excepcion aritmetica activa recuperan todos sus campos definidos, llegan al vector correcto sin ejecutar prematuramente CU y sobreviven a FSAVE/codec privado; las regresiones pasan. La reanudacion completa y perfilespublicos siguen enT55c."
+      ],
+      "stop": "No deducir writeback de dirty ni semantica S/X sin un oraculo; CU_SAVEPC06, reanudacion completa y excepciones no aritmeticas siguen pendientes enT55c."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -13102,7 +13140,8 @@
         "T55c4",
         "T55c5",
         "T55c6",
-        "T55c7"
+        "T55c7",
+        "T55c8"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13137,7 +13176,8 @@
         "Antes del cierre del padre, extender de forma coherente el oraculo FUZZ01 a A4030/CPU030/FPU/IDE/memoria y Z3: actualmente machine_accepted del fuzzer solo cubre1..8 y z3_memory<=1. Las pruebas dirigidas de T55c5 no atribuyen cobertura fuzz a los nuevos perfiles.",
         "T55c6 conecta los controles040/060 y el estado privado de FPU al cuerpo P6CP, con prueba del visitor real y continuacion de instrucciones. El padre conserva presetA4040, ABI/frontends, ejecucion por frames, firmware/Waterbox, FRESTORE040 y cierre FUZZ01; esta hoja no habilita publicamente esas CPUs.",
         "Al habilitar perfiles040/060, extender inventario de estado y digestCPU para los controles/FPU interna y mantener FUZZ01 coherente con todos los modelos ofrecidos; el codec privado de T55c6 no acredita esas puertas publicas.",
-        "T55c7 corrige el TODO de contenidos UNIMP040 $28/$30 y su excepcion aritmetica pendiente. No acredita la reanudacion completa del frame BUSY (CU_SAVEPC/writeback), los formatos no aritmeticos ni la puerta publica A4040; siguen en este padre."
+        "T55c7 corrige el TODO de contenidos UNIMP040 $28/$30 y su excepcion aritmetica pendiente. No acredita la reanudacion completa del frame BUSY (CU_SAVEPC/writeback), los formatos no aritmeticos ni la puerta publica A4040; siguen en este padre.",
+        "T55c8 conserva los camposBUSY040 y prioriza E3/E1 antes de reanudar CU. No acredita writeback, S/X, CU_SAVEPC06 ni reanudacion completa; siguen en la puerta original del padre."
       ],
       "checks": [
         "GEN01",

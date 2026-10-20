@@ -30,6 +30,65 @@ static void install(const Words &words) {
     m68k_areg(regs,0)=0x10000; reads.clear();
 }
 static void move(int reg,int value) { m68k_dreg(regs,0)=value; fpuop_arithmetic(0xf200,0x4000|(reg<<7)); }
+static void busy(int rev,int event) {
+    owner(rev); move(0,7); move(1,9); regs.fpiar=0x123456;
+    // MC68040UM fig9-10 and Motorola FPSP fpsp.h: byte offsets from header.
+    Words w(25,0); w[0]=(unsigned(rev)<<24)|0x00600000;
+    w[0x08/4]=0xfe5a0000; // CU_SAVEPC and dirty mask, NOT a request to commit WB.
+    w[0x18/4]=0x40020000; w[0x1c/4]=0xa0000000; w[0x20/4]=0x12345678;
+    w[0x24/4]=0x08000628; w[0x28/4]=0x1234000; w[0x30/4]=0x12345678;
+    w[0x34/4]=0x01910000; w[0x38/4]=0x03450000;
+    w[0x3c/4]=(4u<<29)|(1u<<28)|(1u<<26)|(5u<<23);
+    w[0x40/4]=0x00220000; // CU FADD to FP0; WB command names a different FPn.
+    w[0x44/4]=(4u<<29)|(1u<<28)|(1u<<20);
+    bool e1=event!=0,e3=event!=1;
+    w[0x48/4]=(unsigned(e1)<<26)|(unsigned(e3)<<25)|(1u<<24)|(1u<<23)|(1u<<21)|(1u<<20);
+    w[0x4c/4]=0x3fff0000; w[0x50/4]=0x80000000;
+    w[0x58/4]=0x40000000; w[0x5c/4]=0x80000000;
+    fpp_set_fpcr(0x0600); fpp_set_fpsr(0x0600);
+    auto before=capture(); install(w); fpuop_restore(0xf358);
+    assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+    for(unsigned i=0;i<reads.size();i++) assert(reads[i]==0x10000+4*i);
+    auto got=capture();
+    const auto &f=got.frame;
+    assert(f.cusavepc==0xfe && f.fpr_dirty==0x5a && f.fpsr_shadow==0x08000628);
+    assert(f.fpiarcu==0x1234000 && f.cmdreg2b==0x12345678 && f.cmdreg3b==0x0191 && f.cmdreg1b==0x0022);
+    assert(f.nmnexc==3 && f.nmcexc==0x45 && f.stag==4 && f.dtag==4 && f.grs==5);
+    assert(f.ete15==1 && f.fpte15==1 && f.wbte15==1 && f.wbtm66==1);
+    assert(f.e1==unsigned(e1) && f.e3==unsigned(e3) && f.s==1 && f.x==1 && f.u==1 && f.t==1);
+    for(unsigned i=0;i<3;i++) assert(f.wbt[i]==w[6+i] && f.fpt[i]==w[19+i] && f.et[i]==w[22+i]);
+    assert(got.fpcr==before.fpcr && got.fpsr==before.fpsr && got.fpiar==before.fpiar);
+    for(unsigned i=0;i<8;i++) assert(got.high[i]==before.high[i] && got.low[i]==before.low[i]);
+    assert(got.state==1 && got.exp_state==2 && got.exp_pend==unsigned(e3 ? 49:50));
+    // FSAVE and a backend reinitialization must preserve the same pending frame.
+    put_long(0x11064,0xa5a5a5a5); m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+    for(unsigned i=0;i<w.size();i++) assert(get_long(0x11000+4*i)==w[i]);
+    assert(get_long(0x11064)==0xa5a5a5a5);
+    owner(rev); assert(p6_fpu_state_apply(&got));
+    m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+    for(unsigned i=0;i<w.size();i++) assert(get_long(0x11000+4*i)==w[i]);
+    assert(p6_fpu_state_apply(&got));
+    const unsigned vector=e3 ? 49:50; put_long(vector*4,0x2000);
+    fpuop_arithmetic(0xf200,0x0422); // The pending exception precedes this FADD.
+    assert(m68k_getpc()==0x2000 && regs.fp_exception && !regs.fp_exp_pend);
+    for(unsigned i=0;i<8;i++) assert(regs.fp[i].fpx.high==before.high[i] && regs.fp[i].fpx.low==before.low[i]);
+    printf("FRESTORE040 rev%x BUSY%d fields/bus/frame/vector PASS\n",rev,event);
+}
+static void busy_resume(int rev) {
+    owner(rev); move(0,7); move(3,9);
+    Words w(25,0); w[0]=(unsigned(rev)<<24)|0x00600000;
+    w[2]=0xfe000000; // FPSP-style continuation, E1/E3 and WB destination dirty=0.
+    w[6]=0x40020000; w[7]=0xa0000000; // WBT=10 differs from corrected FP3=9.
+    w[13]=0x01910000; w[16]=0x00220000; // WB FP3, CU FADD to FP0.
+    w[19]=0x3fff0000; w[20]=0x80000000; // FPTEMP=1.
+    w[22]=0x40000000; w[23]=0x80000000; // ETEMP=2.
+    install(w); fpuop_restore(0xf358);
+    assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+    assert(regs.fp[0].fpx.high==0x4000 && regs.fp[0].fpx.low==0xc000000000000000ULL);
+    assert(regs.fp[3].fpx.high==0x4002 && regs.fp[3].fpx.low==0x9000000000000000ULL);
+    assert(!regs.fp_exp_pend && !regs.fp_unimp_pend && !regs.fpu_exp_state);
+    printf("FRESTORE040 rev%x BUSY existing-FE/preserve-corrected-WB PASS\n",rev);
+}
 int main(int argc,char **argv) {
     assert(argc==2); std::ifstream file(argv[1],std::ios::binary);
     std::vector<uint8_t> rom{std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()};
@@ -39,6 +98,8 @@ int main(int argc,char **argv) {
     p6_error e{P6_ABI_VERSION,sizeof e,{}}; assert(p6_init(&c,&e)==P6_OK && p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_OK);
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; assert(p6_run_frame(&input,0,&frame,&e)==P6_OK);
     for(int rev : {0x40,0x41}) {
+        for(int event=0;event<3;event++) busy(rev,event);
+        busy_resume(rev);
         for(int event=0;event<5;event++) {
             owner(rev); move(0,1); move(1,2); regs.fpiar=0x123456;
             // Sizes/offsets are from the frame diagram, not from FSAVE output.

@@ -113,3 +113,17 @@ Fuentes: [MC68040UM, 9.8 y figura9-10](https://www.nxp.com/docs/en/reference-man
 y [Motorola FPSP gen_except 3.7](https://github.com/torvalds/linux/blob/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2/arch/m68k/fpsp040/gen_except.S).
 La reanudacion completa de BUSY (CU_SAVEPC/writeback), los casos no aritmeticos
 y la habilitacion publica de A4040 siguen pendientes en T55c.
+
+T55c8 conserva los campos definidos del frame BUSY040 de100bytes: CU_SAVEPC,
+mascara dirty, WBTEMP, FPSR_SHADOW/FPIARCU, comandos1/2/3, NMNEXC/NMCEXC,
+exponentes extendidos, tags y S/X/U/T. Se leen todas las palabras por el bus
+antes de publicar; las reservadas no forman parte del codec. FSAVE y el estado
+privado/P6CP retienen esos campos. La excepcion aritmetica E3/E1 se publica antes
+de la reanudacion CU existente, sin ejecutar la operacion joven ni cambiar FPn.
+El probe construye los offsets independientemente del writer, restaura otro
+owner y comprueba tambien el vector real de la siguiente instruccion.
+Offsets y prioridad: [Motorola FPSP fpsp.h](https://github.com/torvalds/linux/blob/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2/arch/m68k/fpsp040/fpsp.h)
+y gen_except.S de la misma revision. Preservar esos campos no acredita la semantica
+completa de writeback, dirty, S/X ni CU_SAVEPC06. No copiar WBTEMP a FPn por
+CU_SAVEPC=FE: FPSP puede haber escrito el resultado corregido y limpiado su
+bit dirty antes de FRESTORE. Esa reanudacion completa sigue pendiente en T55c.

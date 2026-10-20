@@ -1,0 +1,167 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -324,6 +324,9 @@
+ 	uae_u32 grs;
+ 	uae_u32 wbte15;
+ 	uae_u32 wbtm66;
++	// BUSY040 pipeline fields (Motorola FPSP fpsp.h).
++	uae_u32 cusavepc, fpr_dirty, fpsr_shadow, cmdreg2b, nmnexc, nmcexc;
++	uae_u32 ete15, fpte15, s, x, u;
+ } fsave_data;
+ 
+ static void reset_fsave_data(void)
+@@ -348,6 +351,9 @@
+ 	fsave_data.wbte15 = 0;
+ 	fsave_data.wbtm66 = 0;
+ 	fsave_data.grs = 0;
++	fsave_data.cusavepc = fsave_data.fpr_dirty = fsave_data.fpsr_shadow = 0;
++	fsave_data.cmdreg2b = fsave_data.nmnexc = fsave_data.nmcexc = 0;
++	fsave_data.ete15 = fsave_data.fpte15 = fsave_data.s = fsave_data.x = fsave_data.u = 0;
+ }
+ 
+ static uae_u32 get_ftag(fpdata *src, int size)
+@@ -2458,7 +2464,7 @@
+ 				/* BUSY frame */
+ 				x_cp_put_long(ad, 0);
+ 				ad += 4;
+-				x_cp_put_long(ad, 0); // CU_SAVEPC (Software shouldn't care)
++				x_cp_put_long(ad, (fsave_data.cusavepc << 24) | (fsave_data.fpr_dirty << 16)); // CU_SAVEPC/dirty
+ 				ad += 4;
+ 				x_cp_put_long(ad, 0);
+ 				ad += 4;
+@@ -2472,28 +2478,30 @@
+ 				ad += 4;
+ 				x_cp_put_long(ad, fsave_data.wbt[2]); // WBTM
+ 				ad += 4;
++				x_cp_put_long(ad, fsave_data.fpsr_shadow);
++				ad += 4;
++				x_cp_put_long(ad, fsave_data.fpiarcu); // FPIARCU
++				ad += 4;
+ 				x_cp_put_long(ad, 0);
+ 				ad += 4;
+-				x_cp_put_long(ad, fsave_data.fpiarcu); // FPIARCU (same as FPU PC or something else?)
+-				ad += 4;
+-				x_cp_put_long(ad, 0);
+-				ad += 4;
+-				x_cp_put_long(ad, 0);
++				x_cp_put_long(ad, fsave_data.cmdreg2b);
+ 				ad += 4;
+ 			}
+ 			if (fpu_version >= 0x41 || regs.fpu_exp_state == 2) {
+ 				x_cp_put_long(ad, fsave_data.cmdreg3b << 16); // CMDREG3B
+ 				ad += 4;
+-				x_cp_put_long (ad, 0);
+-				ad += 4;
+-			}
+-			x_cp_put_long (ad, (fsave_data.stag << 29) | (fsave_data.wbtm66 << 26) | (fsave_data.grs << 23)); // STAG
++				x_cp_put_long (ad, regs.fpu_exp_state == 2 ? (fsave_data.nmnexc << 24) | (fsave_data.nmcexc << 16) : 0);
++				ad += 4;
++			}
++			const bool busy = regs.fpu_exp_state == 2;
++			x_cp_put_long (ad, (fsave_data.stag << 29) | (fsave_data.wbtm66 << 26) | (fsave_data.grs << 23) | (busy ? fsave_data.ete15 << 28 : 0)); // STAG
+ 			ad += 4;
+ 			x_cp_put_long (ad, fsave_data.cmdreg1b << 16); // CMDREG1B
+ 			ad += 4;
+-			x_cp_put_long (ad, (fsave_data.dtag << 29) | (fsave_data.wbte15 << 20)); // DTAG
++			x_cp_put_long (ad, (fsave_data.dtag << 29) | (fsave_data.wbte15 << 20) | (busy ? fsave_data.fpte15 << 28 : 0)); // DTAG
+ 			ad += 4;
+-			x_cp_put_long (ad, (fsave_data.e1 << 26) | (fsave_data.e3 << 25) | (fsave_data.t << 20));
++			x_cp_put_long (ad, (fsave_data.e1 << 26) | (fsave_data.e3 << 25) | (fsave_data.t << 20) |
++				(busy ? (fsave_data.s << 24) | (fsave_data.x << 23) | (fsave_data.u << 21) : 0));
+ 			ad += 4;
+ 			x_cp_put_long(ad, fsave_data.fpt[0]); // FPTS/FPTE
+ 			ad += 4;
+@@ -2662,38 +2670,51 @@
+ 
+ 			if (frame_size == 0x60) { // busy
+ 				fpdata src, dst;
+-				uae_u32 tmp, v, opclass, cmdreg1b, fpte15, et15, cusavepc;
+-
+-				ad += 0x4; // offset to CU_SAVEPC field
+-				tmp = x_cp_get_long(ad);
+-				cusavepc = tmp >> 24;
+-				ad += 0x34; // offset to ET15 field
+-				tmp = x_cp_get_long(ad);
+-				et15 = (tmp & 0x10000000) >> 28;
+-				ad += 0x4; // offset to CMDREG1B field
+-				fsave_data.cmdreg1b = x_cp_get_long(ad);
+-				fsave_data.cmdreg1b >>= 16;
+-				cmdreg1b = fsave_data.cmdreg1b;
+-				ad += 0x4; // offset to FPTE15 field
+-				tmp = x_cp_get_long(ad);
+-				fpte15 = (tmp & 0x10000000) >> 28;
+-				ad += 0x8; // offset to FPTE field
+-				fsave_data.fpt[0] = x_cp_get_long(ad);
+-				ad += 0x4;
+-				fsave_data.fpt[1] = x_cp_get_long(ad);
+-				ad += 0x4;
+-				fsave_data.fpt[2] = x_cp_get_long(ad);
+-				ad += 0x4; // offset to ET field
+-				fsave_data.et[0] = x_cp_get_long(ad);
+-				ad += 0x4;
+-				fsave_data.et[1] = x_cp_get_long(ad);
+-				ad += 0x4;
+-				fsave_data.et[2] = x_cp_get_long(ad);
+-				ad += 0x4;
+-				
++				// Read all 100 bytes, including reserved bus words, before publishing.
++				// Named fields follow MC68040UM fig9-10 and Motorola FPSP fpsp.h.
++				auto restored = fsave_data;
++				uae_u32 body[24];
++				for (auto &word : body) { word = x_cp_get_long(ad); ad += 4; }
++				restored.cusavepc = body[1] >> 24;
++				restored.fpr_dirty = (body[1] >> 16) & 0xff;
++				for (int i = 0; i < 3; ++i) restored.wbt[i] = body[5 + i];
++				restored.fpsr_shadow = body[8];
++				restored.fpiarcu = body[9];
++				restored.cmdreg2b = body[11];
++				restored.cmdreg3b = body[12] >> 16;
++				restored.nmnexc = body[13] >> 24;
++				restored.nmcexc = (body[13] >> 16) & 0xff;
++				restored.stag = (body[14] >> 29) & 7;
++				restored.ete15 = (body[14] >> 28) & 1;
++				restored.wbtm66 = (body[14] >> 26) & 1;
++				restored.grs = (body[14] >> 23) & 7;
++				restored.cmdreg1b = body[15] >> 16;
++				restored.dtag = (body[16] >> 29) & 7;
++				restored.fpte15 = (body[16] >> 28) & 1;
++				restored.wbte15 = (body[16] >> 20) & 1;
++				restored.e1 = (body[17] >> 26) & 1;
++				restored.e3 = (body[17] >> 25) & 1;
++				restored.s = (body[17] >> 24) & 1;
++				restored.x = (body[17] >> 23) & 1;
++				restored.u = (body[17] >> 21) & 1;
++				restored.t = (body[17] >> 20) & 1;
++				for (int i = 0; i < 3; ++i) { restored.fpt[i] = body[18 + i]; restored.et[i] = body[21 + i]; }
++				fsave_data = restored;
++				regs.fpu_state = 1;
++				regs.fp_unimp_pend = 0;
++				uae_u32 exceptions = regs.fpsr & regs.fpcr & 0xff00;
++				// FPSP gen_except services WB/E3 before CU/E1. A pending
++				// trap must not execute the younger operation or overwrite FPn.
++				if (restored.e3) exceptions &= FPSR_OVFL | FPSR_UNFL | FPSR_INEX2 | FPSR_INEX1;
++				else if (!restored.e1) exceptions = 0;
++				regs.fp_exp_pend = fpsr_get_vector(exceptions);
++				regs.fpu_exp_state = regs.fp_exp_pend ? 2 : 0;
++				uae_u32 v, opclass, cmdreg1b = restored.cmdreg1b;
++				uae_u32 fpte15 = restored.fpte15, et15 = restored.ete15, cusavepc = restored.cusavepc;
++
+ 				opclass = (cmdreg1b >> 13) & 0x7; // just to be sure
+ 				
+-				if (cusavepc == 0xFE) {
++				if (!regs.fp_exp_pend && cusavepc == 0xFE) {
+ 					if (opclass == 0 || opclass == 2) {
+ 						fpp_to_exten_fmovem(&dst, fsave_data.fpt[0], fsave_data.fpt[1], fsave_data.fpt[2]);
+ 						fpp_denormalize(&dst, fpte15);
+@@ -3962,7 +3983,9 @@
+         (s->exp_pend && (s->exp_pend < 48 || s->exp_pend > 55))) return false;
+     const auto &f = s->frame;
+     return f.v <= 7 && f.cmdreg1b <= 0xffff && f.cmdreg3b <= 0xffff && f.stag <= 7 && f.dtag <= 7 &&
+-        f.e1 <= 1 && f.e3 <= 1 && f.t <= 1 && f.grs <= 7 && f.wbte15 <= 1 && f.wbtm66 <= 1;
++        f.e1 <= 1 && f.e3 <= 1 && f.t <= 1 && f.grs <= 7 && f.wbte15 <= 1 && f.wbtm66 <= 1 &&
++        f.cusavepc <= 0xff && f.fpr_dirty <= 0xff && f.nmnexc <= 0xff && f.nmcexc <= 0xff &&
++        f.ete15 <= 1 && f.fpte15 <= 1 && f.s <= 1 && f.x <= 1 && f.u <= 1;
+ }
+ static bool p6_fpu_owner_ready()
+ {

@@ -199,7 +199,8 @@
     "0373-z3-capacity-range": "required",
     "0374-reset-registered-devices-without-expansion": "required",
     "0375-akiko-nvram-backing-view": "instrumentation",
-    "0376-frestore040-unimp-fields": "behavior"
+    "0376-frestore040-unimp-fields": "behavior",
+    "0377-frestore040-busy-pending": "behavior"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -435,6 +436,13 @@
     "0376-frestore040-unimp-fields": {
       "effect": "inert",
       "why": "REF01 does not offer CPU040. The directed fpp probe restores independently built rev40/41 UNIMP frames, checks fields, arithmetic priority, bus accesses and subsequent instructions.",
+      "test": "tests/host/test_frestore040.py",
+      "scenarios": [],
+      "subsystems": []
+    },
+    "0377-frestore040-busy-pending": {
+      "effect": "inert",
+      "why": "REF01 offers no CPU040. Independent rev40/41 BUSY frames exercise full bus reads, field retention, FSAVE and E3/E1 priority before CU; private and P6CP codec probes cover backend reinitialization.",
       "test": "tests/host/test_frestore040.py",
       "scenarios": [],
       "subsystems": []

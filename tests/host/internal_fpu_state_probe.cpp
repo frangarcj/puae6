@@ -110,7 +110,7 @@ int main(int argc,char **argv) {
             assert(get_cycles()==cycle && get_long(0x10000)==ram);
             assert(future(bytes,header,cut==1)==expected);
             owner(model,rev); assert(p6_fpu_state_apply(&saved)); rejected(nullptr);
-            for(int field=0;field<19;field++) {
+            for(int field=0;field<28;field++) {
                 auto bad=saved;
                 switch(field) {
                 case 0: bad.context.model=68882; break; case 1: bad.context.revision^=1; break;
@@ -122,6 +122,10 @@ int main(int argc,char **argv) {
                 case 14: bad.frame.e1=2; break; case 15: bad.frame.e3=2; break;
                 case 16: bad.frame.t=2; break; case 17: bad.frame.grs=8; break;
                 case 18: bad.frame.wbtm66=2; break;
+                case 19: bad.frame.cusavepc=256; break; case 20: bad.frame.fpr_dirty=256; break;
+                case 21: bad.frame.nmnexc=256; break; case 22: bad.frame.nmcexc=256; break;
+                case 23: bad.frame.ete15=2; break; case 24: bad.frame.fpte15=2; break;
+                case 25: bad.frame.s=2; break; case 26: bad.frame.x=2; break; case 27: bad.frame.u=2; break;
                 }
                 rejected(&bad);
             }

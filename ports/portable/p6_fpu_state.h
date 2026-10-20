@@ -4,10 +4,12 @@
 struct p6_fpu_context {
     uint32_t model, revision, flags; // 040 rev40/41, 060 rev0; strict=1, no-unimplemented=2.
 };
-// All25 words of fpp.cpp's FSAVE data, including currently inactive operands.
+// All semantic words of fpp.cpp's FSAVE data, including inactive operands.
 #define P6_FPU_FRAME_SCALARS(X) \
  X(ccr) X(v) X(fpiarcu) X(cmdreg3b) X(cmdreg1b) X(stag) X(dtag) \
- X(e1) X(e3) X(t) X(grs) X(wbte15) X(wbtm66)
+ X(e1) X(e3) X(t) X(grs) X(wbte15) X(wbtm66) \
+ X(cusavepc) X(fpr_dirty) X(fpsr_shadow) X(cmdreg2b) X(nmnexc) X(nmcexc) \
+ X(ete15) X(fpte15) X(s) X(x) X(u)
 struct p6_fpu_state {
     p6_fpu_context context;
     uint16_t high[8];
