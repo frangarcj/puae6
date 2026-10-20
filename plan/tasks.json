@@ -16690,7 +16690,7 @@
     {
       "id": "T66t2",
       "title": "Leer CHD v5 CD por ReadFn con cabecera y propiedad acotadas",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t1"
       ],
@@ -16711,7 +16711,8 @@
         "Validar antes de divisiones/asignaciones: magic, cabecera124/version5, sin padre ni escritura, unitbytes2448, hunkbytes positivo/multiplo2448<=512KiB, logicalbytes positivo/alineado, techo por resta segura. Maximo2^20hunks, mapaexpandido12MiB/comprimido16MiB; limites documentados encontrato y Unsupported, tipos/overflow/offsets comprobados. No atribuir aun mapas/codecs arbitrarios seguros.",
         "Lecturas por offset exactas fragmentadas<=2448bytes, contexto prestado con ownership explicito; construccion y salida publicas transaccionales, staging dehunk y cleanup parcial correcto. Slots decodec repetidos inicializan/liberan estado compartido una sola vez. ReadFn nunca devuelve exito tras fallo/lectura corta.",
         "MED01 dirigido: cuatrofixturesCDv5 T1 bytes completos adelante/atras/repetido mediante ReadFn, negativos cabecera/divisiones/limites/padre/write/IOcorto ysalidaintacta con ASan/UBSan. Conservar regresion checksum/import+minimalcheckout T1 adaptando probe a callbacks host; no motor/guest/matriz.",
-        "Frente cd32_close reutiliza t53-cpu y merge main, coordinador poseeplan/checks e integra. Diezrutas devertical atomica contrato+parche+receta+manifest+probes: limite orientativo400lineasmanuales, proponer ampliacion antes deexceder. No aceptar contenido publico CHD hasta T66t3/T66t4 yproveedor/restore; ningun stub seguro por completar esta hoja."
+        "Frente cd32_close reutiliza t53-cpu y merge main, coordinador poseeplan/checks e integra. Diezrutas devertical atomica contrato+parche+receta+manifest+probes: limite orientativo400lineasmanuales, proponer ampliacion antes deexceder. No aceptar contenido publico CHD hasta T66t3/T66t4 yproveedor/restore; ningun stub seguro por completar esta hoja.",
+        "Integrado00325451:MED01/bounded_chd_reader+pinned_chd_regressionPASS,7tests ejecutados;4codecs exactos poroffsets/cruces/repeticion, false/shortIO porpaso deja salidaintacta/reintenta, negativosgeometry/overflow/limites/padre/write yownershipduplicado/cleanupparcial. DosUBunsignedshift atribuidas/corregidas en0002, sin cambiaroraculos. ReaderPIC/hidden;38inputsverificados, temporaleslimpios. Mapas/metadata/codecs arbitrarios ypublico siguenT3/T4+proveedor."
       ],
       "acceptance": [
         "El lector independiente valida geometria y recursos antes de operar, decodifica los cuatro fixtures exactos por offsets acotados y rechaza errores de cabecera/IO de forma transaccional bajo sanitizers. No acredita aun hardening completo de mapas/codecs ni soporte CHD publico."
@@ -16734,7 +16735,7 @@
     {
       "id": "T66t3",
       "title": "Acotar mapas CHD v5, referencias SELF y cadenas de metadata",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66t2"
       ],
@@ -16751,7 +16752,8 @@
         "Comprobar CRC del mapa original y cada entrada: slot inicializado, longitud, offset/span valido, tipo soportado y rechazoPARENT aunque header no declareparent. Mapas no comprimidos conservan entrada0 comohunkceros y exigen lectura completa delresto. Buffercomprimido dimensionado tras validar mapa con limite1MiB porbloque explicito.",
         "Resolver SELF una vez alabrir mediante colores y compresiondecaminos, recorridos iterativos O(hunks) sinrecursion/pila proporcional; rechazar ciclos/fuerarango, conservar CRCoriginal antes de normalizar.",
         "Validar cadena metadata antes depublicar: offsets/cabecera16/payload/sumas, max4096entradas/64KiBpayload/1MiBagregado, ciclos/pasos deterministas. Conservar flags/tags desconocidos opacos; IOerror no equivale metadataausente.",
-        "MED01 ASan/UBSan con mismos cuatrofixtures y mutaciones dirigidas mapa truncado/CRC/tipos/offsets/bitstream, SELF largo/ciclico, metadata ciclica/limites/IOcorto y salidasintactas; numero callbacks acotado. Mantener CHDfuera producto, <=400lineasmanuales o proponer subdivision sin recortar puerta."
+        "MED01 ASan/UBSan con mismos cuatrofixtures y mutaciones dirigidas mapa truncado/CRC/tipos/offsets/bitstream, SELF largo/ciclico, metadata ciclica/limites/IOcorto y salidasintactas; numero callbacks acotado. Mantener CHDfuera producto, <=400lineasmanuales o proponer subdivision sin recortar puerta.",
+        "Frente cd32_close continua enworktree t53-cpu trasmerge main; coordinador plan/checks/integra. Pruebasstandalone dirigidas-j2 autorizadas, no motor/guest/producto. Mantener afterhashes porcada fuente derivada ypin original, sin editar pristine."
       ],
       "acceptance": [
         "Los mapas y metadata no producen lecturas/asignaciones fuera de limites ni recursion no acotada, conservan bytes de fixtures y rechazan mutaciones dirigidas con errores transaccionales bajo sanitizers. El soporte publico y codecs arbitrarios siguen pendientes."
