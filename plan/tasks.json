@@ -17144,14 +17144,17 @@
         "integration/bizhawk/core/Puae6/CdHost.cs",
         "tests/media/csharp-disc/Cd32.cs",
         "tests/waterbox-media/test_cd_source.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp"
       ],
       "steps": [
         "Catalogo1..16 de owners/sources fijos, IDs unicos en orden y callbacks porordinal canonico explicito, nunca seleccion mutablehost. Mantener exportslegacy1CD y ABI1/layout31/P6CdInfo2432; añadir p6w_cd_catalog_bind, p6w_cd_change ystatus(count,selected,present,opens). Bind/rebind transaccionales, rechazar duplicados/cotas/TOCinvalida sinIO ni mutacion.",
         "Callbacks legacy slot0 ycatalogo slot1 siempre registrados antes de BizInvoker, baselinecomun vacio sellado antes de bind. CdHost copia descriptor/readers inmutables; constructorlegacy conserva caso1. Rebindpost-snapshot valida todoslosdescriptores/IDs/orden y solo publica thunktrasexito; no vuelvebind ni reinstala seleccioninicial. Un rebind fallido conservalectores previos y latchfault impideusar restoreincompleto.",
         "Eject/select/reinsert en frontera guardada usandoU1/U2; cambio con presencia requiereexpulsion, conservaunidad/opens. Status yread_sector demuestran datosA/B/ausencia reales. Antes Activate/BUSY oargumentosincoherentes retornan error claro; repeticion idempotente ysame-disc open-close no duplicanaperturas.",
         "Nueva Cd32CatalogWaterboxTests ymodos cd32catalogsave/load enCd32.cs (Programya StartsWithcd32). ISOA/B propios conpayload distinto+firmwarereal, A300/futuro15 AV/PCM/ticks/RAM/fullsnapshot, Binsertado yBausente; restoreA mismoguest/nuevosandbox/nuevoproceso conownersfrescos, ordinals/presence/opens ydatosreales. Negativos catalogo reordenado/cambiado/TOC yfalloscallback; rechazo de rebind antesdesnapshot prueba no mutacion, identidadpublica se cierraU5.",
-        "ABI01 CdLayoutTests existente+firma nueva ejercida, WB03 nueva clase+CdTransportTests+Cd32WaterboxTests. Seisrutas atomicas280..380manuales; frente cd_swap aislado sin buildguest hasta integracionroot-j2. Baseline/export/runnerWaterboxrealobligatorios; no fingirWBcon nativo. Loader/IController/identidadpublica ypelicula siguenU5/U6, todaspuertasT66 conservadas."
+        "ABI01 CdLayoutTests existente+firma nueva ejercida, WB03 nueva clase+CdTransportTests+Cd32WaterboxTests. Seisrutas atomicas280..380manuales; frente cd_swap aislado sin buildguest hasta integracionroot-j2. Baseline/export/runnerWaterboxrealobligatorios; no fingirWBcon nativo. Loader/IController/identidadpublica ypelicula siguenU5/U6, todaspuertasT66 conservadas.",
+        "Correccion de integracion: status deowner fresco trasActivate falla porque device_capture incluyevalidacion completa CDA aun no preparada antesdelprimerframe. Ampliar touch con cd_device.h/.cpp para getterpurodeopens yconsultarcount/selected/inserted/opens sin capturarcodecdeaudio. El testWB nuevo ya reproduceStatusantesdeprimerRun; no alterar estados/Toc/audio para hacerpasarconsulta. Dosrutas adicionales ygetter minimo, puertaWBconservada."
       ],
       "checks": [
         "ABI01",
