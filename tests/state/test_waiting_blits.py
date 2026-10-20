@@ -26,20 +26,52 @@ loop:
 """
 
 
+# Original MIT micro-ROM. The list repeatedly writes BLTCON0 then COPJMP1.
+# A VBI starts a large D-only blit while the CPU runs an ordinary RAM-free loop.
+# This exposes nested Copper waits without changing CPU timing or source policy.
+COPPER_CHAIN = """entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.L #handler,$6C.L
+    MOVE.W #2,$DFF02E.L
+    MOVE.L #$0401FFFE,$2000.L
+    MOVE.L #$00400100,$2004.L
+    MOVE.L #$00880000,$2008.L
+    MOVE.L #$2000,$DFF080.L
+    MOVE.W #$0100,$DFF040.L
+    MOVE.W #0,$DFF042.L
+    MOVE.L #$10000,$DFF054.L
+    MOVE.W #0,$DFF066.L
+    MOVE.W #$82C0,$DFF096.L
+    MOVE.W #$C020,$DFF09A.L
+    MOVE.W #$2000,SR
+loop:
+    ADDQ.L #1,D0
+    BRA.S loop
+handler:
+    MOVE.W #$FFC0,$DFF058.L
+    ADDQ.L #1,D1
+    MOVE.W #$0020,$DFF09C.L
+    RTE
+"""
+
+
 class WaitingBlitsReproducer(ProbeCase):
-    ROMS = {"large-blit": (LARGE_BLIT, None, None)}
+    ROMS = {"large-blit": (LARGE_BLIT, None, None), "copper-chain": (COPPER_CHAIN, None, None)}
     MACHINE = "a1200"
 
-    def audio_counts(self, raw_mode=None):
-        command = [str(self.exe), str(self.roms["large-blit"]), "--machine", self.MACHINE,
-                   "--cpu-compatibility", "normal", "--units", "5", "--every", "1"]
+    def audio_counts(self, raw_mode=None, scenario="large-blit", units=5):
+        command = [str(self.exe), str(self.roms[scenario]), "--machine", self.MACHINE,
+                   "--cpu-compatibility", "normal", "--units", str(units), "--every", "1"]
         if raw_mode is not None:
             command += ["--poke-at", "1", f"waiting-blits:{raw_mode}"]
         run = subprocess.run(command, capture_output=True, text=True, timeout=30)
         self.assertEqual(0, run.returncode, run.stderr[-2000:])
         counts = {int(m[1]): int(m[3]) for line in run.stdout.splitlines()
                   if (m := PCM.match(line))}
-        self.assertEqual(set(range(1, 6)), set(counts))
+        self.assertEqual(set(range(1, units + 1)), set(counts))
         return counts
 
     def test_production_default_returns_one_pal_unit(self):
@@ -47,6 +79,15 @@ class WaitingBlitsReproducer(ProbeCase):
         self.assertEqual(default, self.audio_counts(0))
         # PAL at 48 kHz is about 960 frames; allow reset/long-field variation.
         self.assertTrue(all(940 < n < 1000 for n in default.values()), default)
+
+    def test_copper_loop_raw_wait_swallows_multiple_units(self):
+        # Regression reproducer, not support for raw waiting_blits. ADR0015
+        # explains why the nested Copper path needs a causal decision first.
+        control = self.audio_counts(0, "copper-chain", 3)
+        raw = self.audio_counts(3, "copper-chain", 3)
+        self.assertTrue(all(940 < n < 1000 for n in control.values()), control)
+        self.assertEqual(control[1], raw[1])
+        self.assertTrue(all(n > 1700 for unit, n in raw.items() if unit > 1), raw)
 
     def test_unsupported_raw_wait_reproduces_multiple_units_in_one_call(self):
         raw = self.audio_counts(3)
