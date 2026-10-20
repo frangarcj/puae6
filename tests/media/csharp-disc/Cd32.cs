@@ -3,6 +3,14 @@ using System.Security.Cryptography;
 using System.Text;
 using Puae6;
 using BizHawk.Common;
+using BizHawk.BizInvoke;
+
+// Raw callback argument is used only for rejects, never an executable binding.
+public abstract class CatalogRebindProbe
+{
+ [BizImport(LibPuae6.CC, EntryPoint = "p6w_cd_catalog_bind")]
+ public abstract int Bind(IntPtr info, uint count, IntPtr callback, uint rebind);
+}
 
 internal static unsafe partial class Program
 {
@@ -132,13 +140,14 @@ internal static unsafe partial class Program
    busy = true; Data(g, 0, true); Require(!busy);
    var sentinel = Enumerable.Repeat((byte)0xcc, 2448).ToArray(); fail = true;
    Require(g.Cd.ReadAt(g, 0, sentinel) == P6.Io && sentinel.All(b => b == 0xcc)); fail = false;
-   var beforeReject = Save(g); long beforeReads = reads; int replacementReads = 0;
-   LibPuae6.CdCatalogRead replacement = (_, _, _, _) => { ++replacementReads; return -P6.Io; };
+   var beforeReject = Save(g); long beforeReads = reads;
+   var replacement = new IntPtr(1); // Non-null, so bounds failures cannot be hidden by a null callback check.
    using (g.Host.EnterExit()) {
+    var raw = BizInvoker.GetInvoker<CatalogRebindProbe>(g.Host, g.Host, CallingConventionAdapters.MakeWaterboxDepartureOnly(g.Host));
     var info = new[] { source.Descriptor(), second.Descriptor() };
     fixed (P6CdInfo* p = info) {
-     Require(g.Lib.p6w_cd_catalog_bind((IntPtr)p, 0, replacement, 1) == P6.BadArgument);
-     Require(g.Lib.p6w_cd_catalog_bind((IntPtr)p, 17, replacement, 1) == P6.BadArgument);
+     Require(raw.Bind((IntPtr)p, 0, replacement, 1) == P6.BadArgument);
+     Require(raw.Bind((IntPtr)p, 17, replacement, 1) == P6.BadArgument);
      Require(g.Lib.p6w_cd_change(0, 2) == P6.BadArgument);
     }
     for (int bad = 0; bad < 4; ++bad) {
@@ -147,10 +156,13 @@ internal static unsafe partial class Program
      if (bad == 1) info[1].Id[0] ^= 1;
      if (bad == 2) info[1].Tracks[1]++;
      if (bad == 3) info[1] = info[0];
-     fixed (P6CdInfo* p = info) Require(g.Lib.p6w_cd_catalog_bind((IntPtr)p, 2, replacement, 1) == (bad == 3 ? P6.BadArgument : P6.WrongMedia));
+     fixed (P6CdInfo* p = info) Require(raw.Bind((IntPtr)p, 2, replacement, 1) == (bad == 3 ? P6.BadArgument : P6.WrongMedia));
     }
    }
-   Require(beforeReads == reads && beforeReject.SequenceEqual(Save(g))); Data(g, 0, true); Require(replacementReads == 0); GC.KeepAlive(replacement);
+   // Captured BSS includes the callback pointer: check it before a data read
+   // could try to execute a wrongly published sentinel.
+   Require(beforeReads == reads && beforeReject.SequenceEqual(Save(g)));
+   Data(g, 0, true);
    // Loading a snapshot with a different internal catalog fails rebind and latches
    // the wrapper. This is not a public OtherMedia preflight claim (U5).
    using var wrongGuest = Open(second, source); var wrongState = Save(wrongGuest);
