@@ -1217,11 +1217,21 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
 }
 
 // What the frontend asked of the tray since the last unit becomes media events for this boundary, in order.
-void apply_disk_requests()
+bool apply_disk_requests()
 {
     p6_libretro::DiskTray::Change changes[2];
     const unsigned count = core.tray.due(changes);
     for (unsigned i = 0; i < count; ++i) {
+        if (core.cd) {
+            if (!core.cd->apply(changes[i].mount, changes[i].medium)) {
+                notify_error("CD change failed at the frame boundary");
+                core.faulted = true;
+                environment_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
+                return false;
+            }
+            core.tray.applied(changes[i]);
+            continue;
+        }
         p6_media_event event = {};
         event.abi_version = P6_ABI_VERSION;
         event.struct_size = sizeof event;
@@ -1241,6 +1251,7 @@ void apply_disk_requests()
         else log(RETRO_LOG_INFO, "DF0: ejected");
     }
     core.tray.settled();
+    return true;
 }
 
 // The options may have changed in the frontend's menu since the last unit. A presentation option is applied at once. A reboot option is part of the
@@ -1276,7 +1287,7 @@ void refresh_options()
 
 bool RETRO_CALLCONV disk_set_eject_state(bool ejected)
 {
-    if (!core.loaded || core.cd) return false;
+    if (!core.loaded || core.faulted) return false;
     return core.tray.set_ejected(ejected);
 }
 
@@ -1285,7 +1296,7 @@ unsigned RETRO_CALLCONV disk_get_image_index(void) { return core.tray.selected()
 
 bool RETRO_CALLCONV disk_set_image_index(unsigned index)
 {
-    if (!core.loaded || core.cd) return false;
+    if (!core.loaded || core.faulted) return false;
     if (!core.tray.select(index)) {
         log(RETRO_LOG_WARN, "the image can only be chosen while the tray is open, and it must hold a disk");
         return false;
@@ -1708,8 +1719,7 @@ RETRO_API void retro_run(void)
     refresh_options();
     p6_frame frame = {};
     bool have_frame = false;
-    if (!core.faulted) {
-        apply_disk_requests();      // what the frontend asked of the tray since the last unit lands on this boundary
+    if (!core.faulted && apply_disk_requests()) {
         input_poll_cb();
         const p6_input_v2 packet = p6_libretro::read_input_v2(input_state_cb, core.device, p6_libretro::input_config(core.settings), &core.input);
         const p6_input &input = packet.base;
@@ -1809,7 +1819,8 @@ RETRO_API bool retro_unserialize(const void *data, size_t size)
         log(RETRO_LOG_WARN, "the state is refused: %s", why);
         return false;
     }
-    if (!core.tray.fits(section.tray, uint32_t(core.media.size()))) {
+    if (!core.tray.fits(section.tray, core.cd ? core.cd->count() : uint32_t(core.media.size())) ||
+        (core.cd && section.tray.media != core.tray.snapshot().media)) {
         log(RETRO_LOG_WARN, "the state is refused: its disk list does not start with the list of this session (a disk that was added after the load has to be added again, in the same order)");
         return false;
     }
@@ -1892,20 +1903,42 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         std::vector<p6_libretro::Image> images;
         std::vector<std::string> names;
         p6_libretro::WhdLoadContent pack;
-        if (game && p6_libretro::CdSession::content(game->path)) {
+        std::vector<p6_libretro::PlaylistEntry> cd_entries;
+        const std::vector<p6_libretro::PlaylistEntry> *entries = configured ? &configured_disks : nullptr;
+        p6_libretro::Playlist playlist;
+        if (game && game->path && p6_libretro::has_extension(game->path, "m3u")) {
+            std::vector<uint8_t> text;
+            if (core.files.read(game->path, p6_libretro::kMaxPlaylistBytes, &text) != p6_libretro::ReadResult::Ok ||
+                !p6_libretro::parse_m3u(text, p6_libretro::directory_of(game->path), P6_MAX_MEDIA, &playlist, &why) || playlist.entries.empty()) {
+                notify_error("CD/disk playlist cannot be loaded: %s", why.c_str()); stop_image(); return false;
+            }
+            entries = &playlist.entries;
+            for (const auto &entry : *entries)
+                if (p6_libretro::CdSession::content(entry.path.c_str())) { cd_entries = *entries; break; }
+            if (playlist.save_disks && cd_entries.empty() && !core.settings.floppy_writes)
+                notify_warning("#SAVEDISK disks are read-only: Enable Floppy Writes is off");
+        } else if (game && p6_libretro::CdSession::content(game->path)) {
+            cd_entries.push_back({game->path, p6_libretro::without_extension(p6_libretro::file_name(game->path))});
+        }
+        if (!cd_entries.empty()) {
+            for (const auto &entry : cd_entries) {
+                if (entry.save_disk || !p6_libretro::CdSession::content(entry.path.c_str())) {
+                    notify_error("a CD playlist must contain only supported CD images, without #SAVEDISK"); stop_image(); return false;
+                }
+                images.push_back({entry.path, entry.label, 0});
+            }
+            names.push_back(game->path);
+            for (const auto &entry : cd_entries) names.push_back(entry.path);
             if ((core.settings.machine != p6_options::kMachineAuto && core.settings.machine != P6_MACHINE_CD32) || core.settings.kickstart) {
                 notify_error("CD32 content requires Automatic or CD32 machine and Automatic Kickstart"); stop_image(); return false;
             }
             core.cd.reset(new p6_libretro::CdSession);
-            if (!core.cd->open(game->path, core.cd_vfs, &why)) {
-                notify_error("%s", why.c_str()); stop_image(); return false;
-            }
-            const auto resolved = p6_libretro::resolve_model(core.settings, false, {game->path}, true);
+            const auto resolved = p6_libretro::resolve_model(core.settings, false, names, true);
             for (const std::string &note : resolved.notes) log(RETRO_LOG_INFO, "%s", note.c_str());
             for (const std::string &warning : resolved.warnings) notify_warning("%s", warning.c_str());
             core.settings = resolved.settings;
             multidrive = false;
-        } else if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images, &names, &pack)) {
+        } else if (!load_disks(game, entries, &core.media, &images, &names, &pack)) {
             stop_image();
             return false;
         }
@@ -1927,6 +1960,16 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         }
         if (!core.cd && core.settings.machine == P6_MACHINE_CD32) {
             notify_error("CD32 requires a direct CD image"); stop_image(); return false;
+        }
+        // The image the frontend remembers from its last session, if the content still has it at that index; else the first.
+        unsigned initial = 0;
+        if (core.have_initial) {
+            const bool matches = core.initial_index < images.size() && images[core.initial_index].path == core.initial_path;
+            if (matches) initial = core.initial_index;
+            else log(RETRO_LOG_WARN, "the remembered disk %u (%s) is not in the content: starting with the first", core.initial_index, core.initial_path.c_str());
+        }
+        if (core.cd && !core.cd->open(cd_entries, initial, core.cd_vfs, &images, &why)) {
+            notify_error("%s", why.c_str()); stop_image(); return false;
         }
         if (multidrive && core.settings.floppy_drive_count == 0) core.settings.floppy_drive_count = 4;
         std::vector<p6_media> manifest;
@@ -1963,13 +2006,6 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         core.loaded = true;
         announce_state_support();
         refresh_memory_map();
-        // The image the frontend remembers from its last session, if the content still has it at that index; else the first.
-        unsigned initial = 0;
-        if (core.have_initial) {
-            const bool matches = core.initial_index < images.size() && images[core.initial_index].path == core.initial_path;
-            if (matches) initial = core.initial_index;
-            else log(RETRO_LOG_WARN, "the remembered disk %u (%s) is not in the content: starting with the first", core.initial_index, core.initial_path.c_str());
-        }
         if (multidrive) {
             unsigned drive = 1;
             const unsigned connected = config.floppy_drives ? config.floppy_drives : 2;
@@ -1988,7 +2024,11 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
                 log(RETRO_LOG_INFO, "DF%u: medium %u inserted (MultiDrive)", drive++, images[i].medium);
             }
         }
-        core.tray.start(std::move(images), initial);      // the first boundary mounts it: events before the first unit are the power-on disks
+        core.tray.start(std::move(images), initial);      // floppy events mount at the first boundary
+        if (core.cd) { // catalog binding already selected the power-on CD before p6_load
+            core.tray.applied({true, core.tray.image(initial)->medium});
+            core.tray.settled();
+        }
     } catch (const std::bad_alloc &) {
         notify_error("not enough memory to load the content");
         stop_image();

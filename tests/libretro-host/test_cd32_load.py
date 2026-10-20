@@ -1,4 +1,5 @@
 """Direct CD sessions through retro_*; local firmware stays outside the tree."""
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -157,8 +158,8 @@ class Cd32LoadTests(Cd32Session):
         (missing / 'kick40060.CD32.ext').write_bytes(bytes(512 * 1024))
         (missing / 'amiga-os-310-cd32-ext.rom').symlink_to(self.system_dir / 'kick40060.CD32.ext')
         out = self.run_cd('--runs', 2, '--disk', '1:add', '--disk', '2:eject', system=missing)
-        self.assertRegex(out, r'(?m)^disk 1 add result=0 .* count=0$')
-        self.assertRegex(out, r'(?m)^disk 2 eject result=0 .* count=0$')
+        self.assertRegex(out, r'(?m)^disk 1 add result=0 .* count=1$')
+        self.assertRegex(out, r'(?m)^disk 2 eject result=1 .* count=1$')
         (missing / 'kick40060.CD32').unlink()
         (missing / 'kick40060.CD32').write_bytes(bytes(512 * 1024))
         self.run_cd(system=missing, expect=3)
@@ -195,6 +196,105 @@ class Cd32MdsTests(Cd32Session):
                                  '--do',f'1:savefile:{after}',content=disc(mutation,mutation))
             self.assertIn(f'state load {state} exact ok=0',rejected)
             self.assertEqual(before.read_bytes(),after.read_bytes(),'rejection must not mutate native or adapter state')
+
+
+class Cd32PlaylistTests(Cd32Session):
+    def playlist(self, names=('A', 'B', 'Alias'), order=(0, 1, 0)):
+        work = self.work(); paths = []
+        for name, index in zip(names, order):
+            path = work / (name + '.iso'); path.write_bytes((self.iso, self.other)[index].read_bytes()); paths.append(path)
+        playlist = work / 'set.m3u'
+        playlist.write_text(''.join(f'{p.name}|Disc {i}\n' for i, p in enumerate(paths)))
+        return playlist, paths
+
+    def device(self, path):
+        data = path.read_bytes(); at = 64 + struct.unpack_from('<I', data, 24)[0] + 336
+        while at < len(data):
+            tag, version, size = struct.unpack_from('<4sIQ', data, at); at += 16
+            if tag == b'P6AK':
+                self.assertEqual(1, version)
+                return struct.unpack_from('<32s7I', data, at + size - 60)
+            self.assertGreater(size, 0); at += size
+        self.fail('missing native P6AK')
+
+    @staticmethod
+    def iso_id(path):
+        data = path.read_bytes()
+        return hashlib.sha256(b'P6ISO1' + struct.pack('<Q', len(data)) + hashlib.sha256(data).digest()).digest()
+
+    def test_slots_initial_aliases_boundary_and_fixed_catalog(self):
+        content, paths = self.playlist(); work = self.work()
+        states = [work / f'{i}.state' for i in range(5)]
+        out = self.run_cd('--initial', f'1:{paths[1]}', '--runs', 5,
+                          '--do', f'0:savefile:{states[0]}', '--do', '0:images',
+                          '--disk', '1:eject', '--do', f'1:savefile:{states[1]}',
+                          '--disk', '2:index=2', '--disk', '2:insert', '--do', f'2:savefile:{states[2]}',
+                          '--disk-during', '3:eject', '--do', f'3:savefile:{states[3]}',
+                          '--do', f'4:savefile:{states[4]}', '--disk', '5:add',
+                          '--disk', '5:remove=0', '--disk', f'5:replace=0:{paths[1]}', content=content)
+        self.assertRegex(out, r'state images count=3 index=1 eject=0')
+        self.assertEqual(self.iso_id(paths[1]), self.device(states[0])[0])
+        for i, present in enumerate((1, 0, 1, 1, 0)):
+            dev = self.device(states[i]); self.assertEqual((1, present, 1), dev[1:4])
+            self.assertEqual(self.iso_id(paths[1 if i < 2 else 0]), dev[0])
+        for operation in ('add', 'remove=0', f'replace=0:{paths[1]}'):
+            self.assertIn(f'{operation} result=0', out)
+        before, after = work / 'fixed-before', work / 'fixed-after'
+        self.run_cd('--runs', 1, '--disk', '1:eject', '--do', f'1:savefile:{before}',
+                    '--do', '1:disk:add', '--do', '1:disk:remove=0', '--do', f'1:disk:replace=0:{paths[1]}',
+                    '--do', f'1:savefile:{after}', content=content)
+        self.assertEqual(before.read_bytes(), after.read_bytes())
+        # Legacy callbacks route to the same real unit, including same-disc close.
+        closed = work / 'closed.state'
+        legacy = self.run_cd('--legacy-disk-control', '--runs', 2, '--disk', '1:eject',
+                             '--disk', '1:index=2', '--disk', '1:insert', '--do', f'2:savefile:{closed}', content=content)
+        self.assertIn('index=2 result=1', legacy)
+        self.assertEqual((self.iso_id(paths[0]), 1, 1, 1), self.device(closed)[:4])
+
+    def test_restore_a_after_b_in_new_process_and_reject_foreign_catalog(self):
+        content, paths = self.playlist(); work = self.work()
+        cut, end, fresh, selected_b = [work / name for name in ('cut', 'end', 'fresh', 'b')]
+        original = self.run_cd('--runs', 315, '--do', f'300:savefile:{cut}', '--do', f'315:savefile:{end}', content=content)
+        renamed, newpaths = self.playlist(('renamed-a', 'renamed-b', 'renamed-alias'))
+        resumed = self.run_cd('--no-vfs', '--runs', 17, '--disk', '2:eject', '--disk', '2:index=1', '--disk', '2:insert',
+                              '--do', f'2:savefile:{selected_b}', '--do', f'2:loadfile:{cut}:pos=300',
+                              '--do', '2:images', '--do', f'17:savefile:{fresh}', content=renamed)
+        self.assertEqual(self.iso_id(newpaths[1]), self.device(selected_b)[0])
+        self.assertIn(f'state load {cut} pos=300 ok=1', resumed)
+        self.assertIn('state images count=3 index=0 eject=0', resumed)
+        view = lambda r: (r['unit'], r['ticks'], r['hash'], r['ahash'], r['audio'])
+        self.assertEqual([view(r) for r in self.runs(original)[300:315]], [view(r) for r in self.runs(resumed)[2:17]])
+        self.assertEqual(end.read_bytes(), fresh.read_bytes())
+        for order in ((1, 0, 1), (0, 0, 1), (0, 1), (0, 1, 0)):
+            bad, badpaths = self.playlist(order=order); before, after = work / 'before', work / 'after'
+            if order == (0, 1, 0): badpaths[1].write_bytes(b'z' * (512 * 2048))
+            out = self.run_cd('--runs', 1, '--do', f'1:savefile:{before}', '--do', f'1:loadfile:{cut}',
+                              '--do', f'1:savefile:{after}', content=bad)
+            self.assertIn(f'state load {cut} exact ok=0', out)
+            self.assertEqual(before.read_bytes(), after.read_bytes())
+
+    def test_ejected_and_pending_selection_restore(self):
+        content, paths = self.playlist(); work = self.work()
+        for pending in (False, True):
+            cut, end, fresh = [work / f'{pending}-{name}' for name in ('cut', 'end', 'fresh')]
+            flags = ('--disk-during', '2:eject', '--disk-during', '2:index=1', '--disk-during', '2:insert') if pending else (
+                '--disk', '2:eject', '--disk', '2:index=1')
+            original = self.run_cd('--runs', 5, *flags, '--do', f'2:savefile:{cut}', '--do', f'5:savefile:{end}', content=content)
+            replay = self.run_cd('--runs', 4, '--disk', '1:eject', '--disk', '1:index=2',
+                                 '--do', f'1:loadfile:{cut}:pos=2', '--do', f'4:savefile:{fresh}', content=content)
+            self.assertIn(f'state load {cut} pos=2 ok=1', replay)
+            self.assertEqual(end.read_bytes(), fresh.read_bytes())
+            self.assertEqual(self.iso_id(paths[1 if pending else 0]), self.device(fresh)[0])
+            self.assertEqual(int(pending), self.device(fresh)[2])
+
+    def test_invalid_playlists_release_handles(self):
+        content, paths = self.playlist(); work = self.work()
+        floppy = work / 'floppy.adf'; floppy.write_bytes(bytes(901120))
+        for text in (f'{paths[0]}\n{floppy}\n', f'{paths[0]}\n#SAVEDISK:save\n',
+                     f'{paths[0]}\nmissing.iso\n', f'{paths[0]}\n' * 17):
+            bad = work / 'bad.m3u'; bad.write_text(text)
+            self.run_cd(content=bad, expect=3)
+        self.run_cd('--vfs-no-seek', content=content, expect=3)
 
 
 class Cd32GameTests(Cd32Session):

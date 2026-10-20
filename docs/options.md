@@ -267,6 +267,18 @@ Con File Name Tags activado, `(CE)` se aplica tambien despues de las claves de u
 En disquetes, la memoria de las etiquetas va con el modelo: no hay etiquetas independientes de memoria, FPU ni velocidad; son `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model` y `puae6_floppy_speed`. Lo que
 una etiqueta no puede honrar **nunca** falla en silencio ni elige otra cosa: se ignora con un aviso en pantalla y en el registro (una sola vez por etiqueta, aunque la tengan varios nombres).
 
+### Playlists y cambio de CD en libretro
+
+Un CD directo o `.m3u` de 1..16 CDs ofrece Disk Control. La playlist conserva
+orden, rutas y etiquetas; aliases con los mismos bytes comparten un disco del
+catalogo fijo. No mezcla CD con disquetes ni `#SAVEDISK`. Seleccionar exige
+expulsar primero; el cambio se aplica al comenzar el siguiente `retro_run`.
+Añadir, reemplazar o eliminar entradas devuelve false: recargar otro conjunto
+requiere una sesion nueva. Los estados restauran seleccion, ausencia y peticiones
+pendientes; el mismo conjunto renombrado se admite, pero otro orden, contenido o
+mapa de aliases se rechaza. Esta conexion no acredita aun cambio de CD en BizHawk
+ni su registro/replay TAS.
+
 ### CD directo: stock y CD32FR
 
 Un CD directo con `puae6_machine=auto` parte de CD32, independientemente de

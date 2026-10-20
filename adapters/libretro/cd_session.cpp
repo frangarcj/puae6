@@ -3,14 +3,16 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "cd_device.h"
+#include "akiko_state.h"
+#include "disk_control.h"
 #include "content.h"
 #include "firmware.h"
 #include "romkey.h"
 #include "config.h"
 namespace p6_libretro {
 struct CdSession::Data {
-    CdImage image;
-    p6_cd::Disc disc;
+    struct Entry { CdImage image; p6_cd::Disc disc; };
+    std::vector<std::unique_ptr<Entry>> entries;
     bool bound = false;
     ~Data() { if (bound) p6_cd::device_unbind(); }
 };
@@ -26,17 +28,48 @@ const FirmwareNames &CdSession::firmware_names()
 {
     return *firmware_for(P6_MACHINE_CD32);
 }
-bool CdSession::open(const char *path, const retro_vfs_interface *vfs, std::string *why)
+bool CdSession::open(const std::vector<PlaylistEntry> &slots, unsigned selected, const retro_vfs_interface *vfs,
+                     std::vector<Image> *images, std::string *why)
 {
     using p6_cd::Result;
-    if (data_->bound || data_->image.open(path, vfs) != Result::Ok ||
-        data_->disc.bind(*data_->image.layout(), data_->image.bindings(), data_->image.sources()) != Result::Ok ||
-        p6_cd::device_bind(&data_->disc) != Result::Ok) {
-        *why = "CD image cannot be opened (requires a supported layout and exact seekable reads)";
-        return false;
+    std::unique_ptr<Data> next(new Data);
+    std::vector<Image> mapped;
+    const p6_cd::Disc *catalog[p6_cd::kDeviceMaxDiscs]{};
+    if (data_->bound || slots.empty() || slots.size() > p6_cd::kDeviceMaxDiscs || selected >= slots.size()) {
+        *why = "CD catalog requires 1..16 fixed images and a valid selection"; return false;
     }
-    data_->bound = true;
+    for (const auto &slot : slots) {
+        std::unique_ptr<Data::Entry> entry(new Data::Entry);
+        if (slot.save_disk || !content(slot.path.c_str()) || entry->image.open(slot.path.c_str(), vfs) != Result::Ok ||
+            entry->disc.bind(*entry->image.layout(), entry->image.bindings(), entry->image.sources()) != Result::Ok) {
+            *why = "CD image cannot be opened (requires a supported layout and exact seekable reads)"; return false;
+        }
+        unsigned index = 0;
+        for (; index < next->entries.size(); ++index)
+            if (!memcmp(catalog[index]->layout().content_id, entry->disc.layout().content_id, 32)) break;
+        if (index == next->entries.size()) {
+            catalog[index] = &entry->disc;
+            next->entries.push_back(std::move(entry));
+        }
+        mapped.push_back({slot.path, slot.label, index});
+    }
+    if (p6_cd::device_catalog_bind(catalog, unsigned(next->entries.size()), mapped[selected].medium) != Result::Ok) {
+        *why = "CD catalog cannot be bound"; return false;
+    }
+    next->bound = true;
+    data_.swap(next); images->swap(mapped);
     return true;
+}
+unsigned CdSession::count() const { return unsigned(data_->entries.size()); }
+bool CdSession::apply(bool mount, uint32_t medium)
+{
+    if (!mount) return p6_akiko_media_set(false);
+    if (medium >= count()) return false;
+    // A settled insertion of the same owner is a no-op; a different one needs
+    // the real absence action first, retaining the existing unit and open count.
+    if (p6_cd::device_bound_disc() != &data_->entries[medium]->disc &&
+        p6_cd::device_select(medium) != p6_cd::Result::Ok) return false;
+    return p6_akiko_media_set(true);
 }
 bool CdSession::extend_firmware(const FileReader &files, const char *directory, std::vector<uint8_t> *rom, std::string *why)
 {

@@ -1624,16 +1624,16 @@ subcanales y solicitudes de reproduccion anteriores; el handler emulado entrega
 la notificacion 0/1 y regenera la TOC al reinsertar. Una accion repetida no cambia
 nada. Las respuestas ya publicadas, CPU y reloj se conservan. `cdrom_door` mantiene
 la semantica del pin: no se infiere el estado fisico de la tapa desde la presencia.
-Esta superficie privada no habilita aun cambio de CD en los frontends; faltan
-sus conexiones a DiskControl, BizHawk y peliculas/TAS.
+La conexion libretro se define en T66u3; BizHawk y peliculas/TAS requieren
+sus conexiones y puertas propias.
 
-ISO, CUE, CCD y NRG DAO directos seleccionan CD32 stock con maquina
-Automatic o CD32 y Kickstart Automatic. CD32 sin CD directo se rechaza. Las opciones incompatibles se rechazan; los tags CD32 de
+ISO, CUE, CCD, NRG y MDS, directos o en M3U de CD, seleccionan CD32 stock con maquina
+Automatic o CD32 y Kickstart Automatic. CD32 sin contenido CD se rechaza. Las opciones incompatibles se rechazan; los tags CD32 de
 disquetes conservan su significado anterior. El propietario de la imagen y su
 Disc permanecen inmoviles hasta que p6_unload/p6_shutdown cierran Akiko. Las
 lecturas usan offsets por VFS seekable o stdio; el CD no se copia a RAM. El VFS
-ofrecido pero incompleto es un error, sin fallback oculto. DiskControl no permite
-insertar disquetes ni cambiar de CD durante esta sesion.
+ofrecido pero incompleto es un error, sin fallback oculto. DiskControl cambia
+entre CDs del catalogo fijo; no inserta disquetes ni sustituye su contenido.
 
 El directorio de sistema contiene kick40060.CD32 y kick40060.CD32.ext (o los
 alias amiga-os-310-cd32.rom y amiga-os-310-cd32-ext.rom), cada uno de 512 KiB;
@@ -1724,3 +1724,23 @@ FastMemory.MB8 en BizHawk o --machine cd32 --fast 8192 en headless. La memoria
 forma parte de la identidad y del estado; Waterbox reserva 32 MiB de mmap para
 esta configuracion mediante la regla comun (base 16 MiB + 2 veces 8 MiB). No se anuncia
 aun el arranque completo de juego ni seleccion de FR por etiquetas de CD.
+
+
+## Catalogo y cambio publico CD libretro (T66u3)
+
+CD directo y M3U de hasta16 entradas usan DiskTray; las entradas conservan orden,
+labels y rutas, pero owners estables y IDs unicos forman el catalogo nativo en
+primer orden declarado. Aliases comparten ordinal canonico, sin compartir indices
+de frontend. La carga valida todos antes del unico bind, y selecciona el inicial
+antes de p6_load. No se mezcla CD con otros medios ni SAVEDISK; el catalogo es fijo.
+Los callbacks solo registran peticiones: al siguiente retro_run la ausencia real,
+device_select y reinsercion retienen unidad y opens. Abrir/cerrar el mismo disco
+produce ambas acciones; repetir el mismo estado no cancela una transferencia.
+Un fallo de frontera impide avanzar y pide shutdown. Presencia no infiere doorbit.
+El frame de estado existente conserva seleccion frontend, medio aplicado y
+peticiones pendientes. El mapa completo de aliases debe coincidir; despues del
+preflight nativo U2 se restaura el frontend, sin seleccionar antes de validar.
+Renombres con los mismos bytes se admiten; cambios de catalogo/orden/mapa se
+rechazan sin modificar maquina ni frontend. LR01/STATE01 comprueban IDs/presencia
+P6AK y restauracion A tras B en otro proceso con futuro y estado completo exactos.
+Cambio BizHawk y pelicula TAS siguen pendientes de sus puertas propias.
