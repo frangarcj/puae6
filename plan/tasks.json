@@ -17122,7 +17122,7 @@
       "title": "Catalogo CD y cambio causal dentro del sandbox Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T66u1",
         "T66u2",
@@ -17163,7 +17163,8 @@
       "acceptance": [
         "Catalogo y seleccion deCD restauran dentro deWaterboxreal en otro sandbox/proceso, datosB yopens probados, rebind no altera seleccioncausal ni aceptaotrodescriptor; aun sin acreditarloaderpublico/peliculas."
       ],
-      "stop": "No basarcallback enindicefrontend mutable, no bind/seleccioninicial despuesde restore ni atribuirTASpor snapshot."
+      "stop": "No basarcallback enindicefrontend mutable, no bind/seleccioninicial despuesde restore ni atribuirTASpor snapshot.",
+      "blocked_reason": "La prueba real conserva reproducer Cd32CatalogWaterboxTests pero el host termina en SIGBUS/SIGSEGV dentro del asignador xzone en dos procesos de la misma candidata/runtime. H1: incidencia previa del runtime/Darwin, contrastar boot_driver.c sin.NET/CD. H2: cruce callback/reentrada, contrastar WB13 de registros/TLS y localizar primera frontera con el mismo guest; no cambiar flags ni acreditar snapshot nativo comoWaterbox."
     },
     {
       "id": "T66u5",
@@ -18276,7 +18277,7 @@
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T24"
       ],
