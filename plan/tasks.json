@@ -13189,13 +13189,16 @@
         "tests/libretro-host/**",
         "tests/waterbox-state/**",
         "tests/state/**",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tests/ffi/CoreCommands.cs",
+        "tests/ffi/test_bizhawk_tree.py"
       ],
       "steps": [
         "Partir de la vertical nativa integrada87cda89b: A4040 ID12, CPU0/5=040 o7=060, Normal sin MMU, FPU0 o matching interna, Z2/Z3 e identidad semantica. El coordinador asigna worktree aislado y mantiene plan/checks/series; no modificar metadata compartida ni MacHawk.",
         "Conectar el esquema comun, presets/opciones libretro y sync settings BizHawk/firmware A4000. Mantener rechazos claros de combinaciones no admitidas, defaults antiguos e identidad. Añadir selectores utiles para040/060 con FPU interna y Z3; no habilitar Compatible/Exact ni MMU.",
         "Probar la vertical dirigida de interfaz: carga/instrucciones/restauracion con ambos modelos en libretro y Waterbox real, incluidos nuevo proceso/sandbox. Reusar el micro-ROM y oraculo nativo T55c; sin asset real bloquear solo la puerta que lo exige. Pedir turno antes de compilar targets pesados y no repetir baterias del padre.",
-        "El padre conserva firmware real, reanudacion FRESTORE pendiente, matriz/presupuestos acumulados y aceptacion completa. Esta hoja conecta los frontends y no cierra T55c por ella."
+        "El padre conserva firmware real, reanudacion FRESTORE pendiente, matriz/presupuestos acumulados y aceptacion completa. Esta hoja conecta los frontends y no cierra T55c por ella.",
+        "Ampliacion dirigida de touch: CoreCommands.cs debe admitir machine=a4040 y comprobar Fast Auto para ejecutar WB03 real; test_bizhawk_tree.py mantiene listas de modelo/firmware coherentes con el selector. Son arnes y contrato del mismo frontend, no ampliacion de motor."
       ],
       "checks": [
         "GEN01",
@@ -16400,13 +16403,15 @@
         "integration/bizhawk/**",
         "bridge/**",
         "ports/portable/**",
-        "patches/winuae/**"
+        "patches/winuae/**",
+        "tests/step/test_sprite_restore.py"
       ],
       "steps": [
         "Frente delegado en worktree aislado; el coordinador mantiene plan/checks/series/clasificacion e integra commits. Leer T66/T66r6, codigo y pruebas actuales; usar firmware CD32 y CUE Brian the Lion autorizados y existentes en Downloads, sin descargar assets comerciales ni modificar MacHawk.",
         "Completar el arranque real del juego por la carga publica y fuente por offset, hasta una pantalla/interaccion de juego comprobable, mas alla de la animacion del firmware. Capturar un corte util y comparar futuro A/V, tiempo y memoria tras restaurar en libretro y Waterbox real, incluidos nuevo owner/sandbox y proceso cuando sus contratos lo requieren.",
         "Si aparece un fallo, conservar el reproducer como test y corregir la vertical minima dentro de touch. Antes de ampliar mas de400lineas o tocar metadata compartida, comunicar alcance al coordinador. Checks dirigidos; compilaciones pesadas serializadas por el coordinador. No informes ni evidencias historicas; temporales en build/ y limpieza al terminar.",
-        "El padre conserva MED01/DET02/AV02/WB03/LR01, todos los formatos y variantes restantes, cambio de CD y seleccion automatica por tags. Esta hoja solo acredita el juego elegido y su restauracion publica; no cerrar T66 con ella."
+        "El padre conserva MED01/DET02/AV02/WB03/LR01, todos los formatos y variantes restantes, cambio de CD y seleccion automatica por tags. Esta hoja solo acredita el juego elegido y su restauracion publica; no cerrar T66 con ella.",
+        "Ampliacion dirigida de touch: tests/step/test_sprite_restore.py compila la funcion real restore_custom_sprite_denise, por el bug de promocion int/extension de signo al reconstruir operandos64 deSPR0. Probar32/64bits y high-bit en cada palabra antes/despues del parche0382; conservar el gate de juego/estado completo. La desviacion de arranque frio queda enT66r8, independiente."
       ],
       "checks": [
         "LR01",
