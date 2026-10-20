@@ -16558,6 +16558,47 @@
       "stop": "No anunciar MDS en frontend hasta conectar proveedor y comprobar lectura/identidad/restore; el padre conserva todos sus checks y formatos restantes."
     },
     {
+      "id": "T66t1",
+      "title": "Preparar decoder CHD fijado y codecs con build offline",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66o1",
+        "T66a"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "third_party/libchdr/**",
+        "tools/import_chd.py",
+        "cmake/Chd.cmake",
+        "tests/media/test_chd_dependencies.py",
+        "tests/media/chd_dependencies_probe.c",
+        "tests/fixtures/chd/**",
+        "manifests/licenses.json"
+      ],
+      "steps": [
+        "Importar solo libchdr y dependencias necesarias desde snapshot bizhawk_uae_reference fijado ccecb1ead642c1bbe391308b88a7ffa9478b918d, previa verificacion offline de su manifest. Nada de motorPUAE, nuevos paquetes ni cambiosMacHawk. Originales verificados y notices/hashes/pin en third_party; modificaciones posteriores al decoder por parche derivado explicito.",
+        "Receta CMake aislada con5fuentes libchdr, LzmaDec/LzmaEnc/LzFind _7ZIP_ST y6fuentes inflate/zlib1.2.7 seleccionadas; dr_flac sin STDIO/OGG. Sin zlib del sistema ni red/libretro-common. No enlazar todavia el producto ni anunciar CHD: primero dependencia comprobable.",
+        "MED01 dirigido: compilar libreria/probe sin motor ni guest y decodificar fixtures CDv5 legales none/cdzl/cdlz/cdfl comparando todos los bytes esperados. Generar patrones publicos con chdman0.287 local disponible sin instalar, o conservar fixtures minimos reproducibles con receta/procedencia en el propio generador/test; el producto no depende de chdman. Pruebas no escriben evidencia historica; temporales build se limpian.",
+        "Mantener separados reader acotado ReadFn/hardening (cabecera/mapas/metadata/codec/ciclosSELF/lectura corta), proveedor CD/TOC/subcanales/identidad y carga publica. Son pendientes explicitos del padre; no exponer un decoder inseguro a contenido arbitrario por completar esta pieza.",
+        "Frente cd32_close reutiliza worktree t53-cpu aislado y merge normalmain; no editar metadata compartida ni ejecutar baterias completas. Coordinador posee plan/checks/licencias. Maximo orientativo400lineas manuales, imports/generados identificados aparte; proponer subdivision antes de excederlo. Tests de dependencia pequenos autorizados, compilacionmotor/guest requiere turno del coordinador."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "La dependencia fijada se importa/verifica offline con licencias y receta explicita y decodifica byte a byte los cuatro codecs CDv5 legales de prueba sin depender de paquetes externos ni del motor antiguo. No acredita aun lectura segura por offset ni carga CHD del producto."
+      ],
+      "stop": "No anunciar CHD ni enlazar archivos arbitrarios sin hardening/ReadFn y proveedor/restore; todas las puertas originalesT66 permanecen abiertas."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16609,7 +16650,8 @@
         "T66r7",
         "T66r8",
         "T66r9",
-        "T66s1"
+        "T66s1",
+        "T66t1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16653,7 +16695,8 @@
         "T66r7 concentra arranque/restauracion publica de un juego CD32 real en ambos adaptadores. El padre conserva formatos/variantes restantes, cambio de CD, tags y todas sus puertas originales; el coordinador integra la vertical del worktree aislado.",
         "T66r8 conserva como puerta requerida la contaminacion visual de una nueva sesion nativa tras jugar, descubierta por T66r7; no queda cerrada por el restore del corte en nuevo owner.",
         "T66r9 cierra seleccion por etiquetas de CD directo sin alterar los tags de disquete. Formatos/variantes y cambioCD siguen pendientes, ademas de las puertas completas del padre.",
-        "T66s1 separa parserMDSv1 por presupuesto: metadata acotada primero, proveedor MDF y carga publica despues. El padre conserva soporteMDS integrado, CHD, variantesNRG, cambioCD y todas sus puertas originales."
+        "T66s1 separa parserMDSv1 por presupuesto: metadata acotada primero, proveedor MDF y carga publica despues. El padre conserva soporteMDS integrado, CHD, variantesNRG, cambioCD y todas sus puertas originales.",
+        "T66t1 prepara libchdr standalone fijado y sus codecs offline; reader ReadFn/hardening, proveedor CD y carga publica siguen pendientes explicitos. No copiar motor antiguo ni anunciar CHD por un build de dependencia."
       ],
       "checks": [
         "MED01",
