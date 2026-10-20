@@ -4,6 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "zlib.h"
+static bool read_host(const void *context, uint64_t offset, void *out, size_t count, size_t *got)
+{
+    FILE *file = (FILE *)context;
+    if (fseek(file, (long)offset, SEEK_SET)) { *got = 0; return false; }
+    *got = fread(out, 1, count, file); return *got == count;
+}
 
 int main(int argc, char **argv)
 {
@@ -20,7 +26,10 @@ int main(int argc, char **argv)
             adler32(1, bytes, sizeof bytes) != a || crc32(0, bytes, sizeof bytes) != c;
     }
     chd_file *chd = NULL;
-    chd_error error = chd_open(argv[1], CHD_OPEN_READ, NULL, &chd);
+    FILE *source = fopen(argv[1], "rb");
+    if (!source || fseek(source, 0, SEEK_END)) return 1;
+    core_file file = {read_host, source, (uint64_t)ftell(source)};
+    chd_error error = chd_open_file(&file, CHD_OPEN_READ, NULL, &chd);
     if (error != CHDERR_NONE) { fprintf(stderr, "chd_open: %s (%d)\n", chd_error_string(error), error); return 1; }
     const chd_header *h = chd_get_header(chd);
     uint32_t codec = strcmp(argv[3], "none") ? CHD_MAKE_TAG(argv[3][0], argv[3][1], argv[3][2], argv[3][3]) : 0;
@@ -45,6 +54,6 @@ int main(int argc, char **argv)
                 chd_read(chd, n, actual) != CHDERR_NONE || memcmp(actual, want, h->hunkbytes)) return 6;
         }
     }
-    free(want); free(actual); fclose(expected); chd_close(chd);
+    free(want); free(actual); fclose(expected); chd_close(chd); fclose(source);
     return 0;
 }

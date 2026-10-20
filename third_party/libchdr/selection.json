@@ -12,6 +12,16 @@
         "deps/zlib/zutil.h": "8efb77720b79c73845015dd9a710b42922cf47e924b24911bbbef8bded9e1459",
         "deps/zlib/zutil.c": "b854a4b5fc643af109ed62dd14c597f8fd22563f5635ea806571070477676bee"
       }
+    },
+    {
+      "path": "patches/0002-readfn-header.patch",
+      "sha256": "b98f643a3b87b356cc95ae7df2c48919302ab21d5d16de6057ee42e2f3cab0fd",
+      "after": {
+        "include/libchdr/coretypes.h": "ce189f4057f4e1fdaef674887624a8b977952cd496df14b207fa22e2f7ab21e4",
+        "src/libchdr_chd.c": "ff7a30bedbe97c9e7c9068a42ea378111e6ff2206c40e26306d91d462cb10d9e",
+        "src/libchdr_bitstream.c": "3610c14a487a103ea61b45630e08953e93d3ef4df8a8c5efdd7717fb201c8eef",
+        "src/libchdr_huffman.c": "5e75d3527ef8fcb8a8cf1d8f9d2bf8347607f5759c88b6c57ec2548703d56783"
+      }
     }
   ],
   "files": [

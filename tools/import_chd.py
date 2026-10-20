@@ -23,6 +23,12 @@ PATCH_META = {"path": PATCH, "sha256": PATCH_SHA, "after": {
     "deps/zlib/adler32.c": "cc4cdf1611c5bb7c4d93f94113e49a49948c09c3b1c879588e026838c683e0e0",
     "deps/zlib/zutil.h": "8efb77720b79c73845015dd9a710b42922cf47e924b24911bbbef8bded9e1459",
     "deps/zlib/zutil.c": "b854a4b5fc643af109ed62dd14c597f8fd22563f5635ea806571070477676bee"}}
+PATCHES = [PATCH_META, {"path": "patches/0002-readfn-header.patch",
+    "sha256": "b98f643a3b87b356cc95ae7df2c48919302ab21d5d16de6057ee42e2f3cab0fd", "after": {
+    "include/libchdr/coretypes.h": "ce189f4057f4e1fdaef674887624a8b977952cd496df14b207fa22e2f7ab21e4",
+    "src/libchdr_chd.c": "ff7a30bedbe97c9e7c9068a42ea378111e6ff2206c40e26306d91d462cb10d9e",
+    "src/libchdr_bitstream.c": "3610c14a487a103ea61b45630e08953e93d3ef4df8a8c5efdd7717fb201c8eef",
+    "src/libchdr_huffman.c": "5e75d3527ef8fcb8a8cf1d8f9d2bf8347607f5759c88b6c57ec2548703d56783"}}]
 CHDR = ["src/libchdr_" + n + ".c" for n in ("bitstream", "cdrom", "chd", "flac", "huffman")]
 CHDR += ["include/libchdr/" + n + ".h" for n in ("bitstream", "cdrom", "chd", "chdconfig", "coretypes", "flac", "huffman")]
 CHDR += ["include/dr_libs/dr_flac.h", "LICENSE.txt"]
@@ -50,10 +56,13 @@ No PUAE engine or libretro-common source is included.
 
 patches/0001 corrects Adler-32 ABI and standalone includes, without
 changing the 32-bit calculation. Applied only to a derived build copy.
+patches/0002 replaces host FILE/cursor with borrowed ReadFn offsets, validates
+CDv5 geometry/resources, and makes construction/cleanup transactional. Full
+map/metadata/codec hardening remains T66t3/T66t4; do not expose public content yet.
 
-This dependency is not linked to a product. The imported reader still requires
-bounded ReadFn I/O and hardening before accepting arbitrary files. CD TOC,
-identity, subchannels, provider restore and public loading are later gates.
+This dependency is not linked to a product. ReadFn I/O is implemented; full
+map/metadata/codec hardening is still required before arbitrary files. CD TOC,
+identity, subchannels, provider restore and public loading remain later gates.
 """
 
 
@@ -68,7 +77,7 @@ def selection(reference=None):
     if reference is None:
         result = json.loads((DEST / "selection.json").read_text())
         if (result["commit"] != PIN or result["source"] != SOURCE or
-            result["patches"] != [PATCH_META] or
+            result["patches"] != PATCHES or
             {f["path"]: f["source"] for f in result["files"]} != paths):
             raise ValueError("CHD selected provenance differs")
         return result
@@ -79,7 +88,7 @@ def selection(reference=None):
     hashes = {f["path"]: f["sha256"] for f in manifest["files"]}
     files = [{"path": path, "source": origin, "sha256": hashes[origin]} for path, origin in paths.items()]
     return {"schema_version": 1, "source": SOURCE, "commit": PIN,
-            "repository": source["repository"], "patches": [PATCH_META],
+            "repository": source["repository"], "patches": PATCHES,
             "files": sorted(files, key=lambda f: f["path"])}
 
 
@@ -87,7 +96,7 @@ def verify(destination=DEST):
     expected = selection()
     if json.loads((destination / "selection.json").read_text()) != expected:
         raise ValueError("CHD selection differs from pinned manifest")
-    allowed = {f["path"] for f in expected["files"]} | {"selection.json", "NOTICE.md", PATCH}
+    allowed = {f["path"] for f in expected["files"] + PATCHES} | {"selection.json", "NOTICE.md"}
     actual = {str(p.relative_to(destination)) for p in destination.rglob("*") if p.is_file()}
     if actual != allowed or any(p.is_symlink() for p in destination.rglob("*")):
         raise ValueError("CHD selection contains missing/extra files or symlinks")
@@ -102,7 +111,8 @@ def verify(destination=DEST):
 def materialize(destination):
     expected = verify()
     outputs = {f["path"]: f["sha256"] for f in expected["files"]}
-    outputs.update(PATCH_META["after"])
+    for patch in PATCHES:
+        outputs.update(patch["after"])
     destination = destination.resolve()
     destination.relative_to((ROOT / "build").resolve())
     if destination == (ROOT / "build").resolve():
@@ -122,8 +132,9 @@ def materialize(destination):
         shutil.copyfile(DEST / f["path"], path)
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env["GIT_CEILING_DIRECTORIES"] = str(destination.parent)
-    subprocess.run(["git", "apply", "--verbose", str(DEST / PATCH)], cwd=destination,
-                   env=env, check=True, capture_output=True)
+    for patch in PATCHES:
+        subprocess.run(["git", "apply", "--verbose", str(DEST / patch["path"])], cwd=destination,
+                       env=env, check=True, capture_output=True)
     hashes = {str(p.relative_to(destination)): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(destination.rglob("*")) if p.is_file()}
     if hashes != outputs:

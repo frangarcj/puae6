@@ -26,3 +26,10 @@ target_compile_definitions(p6_chd PRIVATE _7ZIP_ST DR_FLAC_NO_STDIO DR_FLAC_NO_O
 set_target_properties(p6_chd PROPERTIES C_STANDARD 99 POSITION_INDEPENDENT_CODE ON
     C_VISIBILITY_PRESET hidden)
 add_dependencies(p6_chd p6_chd_verify)
+if(CMAKE_CXX_COMPILER_LOADED)
+    add_library(p6_chd_reader STATIC EXCLUDE_FROM_ALL "${_chd_root}/ports/portable/media/chd_reader.cpp")
+    target_link_libraries(p6_chd_reader PUBLIC p6_chd)
+    target_include_directories(p6_chd_reader PUBLIC "${_chd_root}/ports/portable/media")
+    target_compile_features(p6_chd_reader PUBLIC cxx_std_17)
+    set_target_properties(p6_chd_reader PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET hidden)
+endif()
