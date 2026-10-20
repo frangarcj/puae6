@@ -182,7 +182,7 @@ foreach(_file IN LISTS _core_files)
     string(APPEND _core_lines "${_relative}:${_file_sha256}\n")
 endforeach()
 string(SHA256 _sources_sha256 "${_core_lines}")
-add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp bridge/state_cpu.cpp bridge/state_devices.cpp bridge/state_upstream.cpp bridge/state_hdf.cpp bridge/state_akiko.cpp)
+add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp bridge/state_cpu.cpp bridge/state_devices.cpp bridge/state_upstream.cpp bridge/state_hdf.cpp bridge/state_akiko.cpp bridge/state_cdtv.cpp)
 add_dependencies(p6_state p6_codegen)
 target_include_directories(p6_state PUBLIC bridge)
 target_include_directories(p6_state PRIVATE
@@ -227,7 +227,7 @@ target_include_directories(p6_cdtv_link_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_cdtv_link_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_cdtv_link_probe PRIVATE p6_state p6_bridge p6_portable)
-# T67b1: private value component; native CDTV state remains unsupported.
+# T67b1/b2: private value component and complete native CDTV restore.
 add_executable(p6_cdtv_state_probe tests/media/cdtv_state_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_cdtv_state_probe p6_codegen)
 target_include_directories(p6_cdtv_state_probe PRIVATE

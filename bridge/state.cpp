@@ -256,14 +256,14 @@ uint32_t cpu_spc(Mode mode) { return mode==Mode::Save ? uint32_t(regs.spcflags) 
 
 const MediaPlan *loading_media() { return g_context ? &g_context->media : nullptr; }
 
-uint32_t chunk_count() { return session.config.machine == p6_bridge::kCd32Machine ? kMaxChunkCount : kChunkCount; }
+uint32_t chunk_count() { return currprefs.cs_cdtvcd || session.config.machine == p6_bridge::kCd32Machine ? kMaxChunkCount : kChunkCount; }
 void publish_scheduler_cycle(int64_t cycle) { if (g_context) g_context->scheduler_cycle = cycle; }
 int64_t scheduler_cycle(Mode mode)
 {
     return mode == Mode::Save ? int64_t(currcycle) : g_context ? g_context->scheduler_cycle : -1;
 }
 
-const Chunk kChunks[kMaxChunkCount] = {
+const Chunk kChunks[kMaxChunkCount + 1] = {
     {"P6CP", "cpu", 1, visit_cpu, nullptr},
     {"P6SC", "scheduler", 1, visit_scheduler, rebuild_scheduler},
     {"P6RM", "ram", 1, visit_ram, rebuild_ram},
@@ -276,9 +276,12 @@ const Chunk kChunks[kMaxChunkCount] = {
     {"P6IN", "input", 1, visit_input, nullptr},
     {"P6BR", "bridge", 1, visit_bridge, nullptr},
     {"P6AK", "akiko", 1, visit_akiko, nullptr},
+    {"P6CT", "cdtv", 1, visit_cdtv, nullptr},
 };
 
 namespace {
+
+const Chunk &active_chunk(uint32_t i) { return kChunks[i == kChunkCount && currprefs.cs_cdtvcd ? kMaxChunkCount : i]; }
 
 void put32(uint8_t *p, uint32_t v);
 
@@ -387,6 +390,10 @@ Identity current_identity()
         const uint64_t lengths[2] = {32, 1};
         domain_hash("p6/config/floppy-drives/v1", parts, lengths, 2, identity.config_hash);
     }
+    if (currprefs.cs_cdtvcd) {
+        const uint8_t *parts[1] = {identity.config_hash}; const uint64_t lengths[1] = {32};
+        domain_hash("p6/config/cdtv-private/v1", parts, lengths, 1, identity.config_hash);
+    }
     const uint8_t collision = uint8_t(p6_bridge::resolve_collision_level(c));
     if (collision != 3) {
         const uint8_t *parts[2] = {identity.config_hash, &collision};
@@ -409,7 +416,7 @@ bool complete(char *missing, size_t capacity)
     size_t used = 0;
     if (missing && capacity) missing[0] = 0;
     for (uint32_t i = 0; i < chunk_count(); ++i) {
-        const Chunk &chunk = kChunks[i];
+        const Chunk &chunk = active_chunk(i);
         if (chunk.visit) continue;
         all = false;
         if (missing && capacity > used + 1) {
@@ -435,7 +442,7 @@ Plan make_plan()
     Plan plan = {};
     plan.total = kHeaderSize;
     for (uint32_t i = 0; i < chunk_count(); ++i) {
-        const Chunk &chunk = kChunks[i];
+        const Chunk &chunk = active_chunk(i);
         memcpy(plan.specs[i].tag, chunk.tag, 4);
         plan.specs[i].version = chunk.visit ? chunk.version : 0;    // version 0: the placeholder of a chunk that does not exist yet
         if (chunk.visit) {
@@ -455,8 +462,8 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
-    if (currprefs.cs_cdtvcd)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "native CDTV controller state is not implemented");
+    if (currprefs.cs_cdtvcd && session.config.machine != P6_MACHINE_A500)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV state requires its A500 test owner");
     uint8_t cartridge[32];
     if (p6_bridge::hrtmon_bound() && !p6_bridge::hrtmon_identity(cartridge))
         return p6_fail(error, P6_ERROR_BAD_STATE, "HRTMon immutable owner is invalid");
@@ -526,7 +533,7 @@ p6_result save(void *buffer, uint64_t capacity, uint64_t *written, const Options
     // came to. Nothing is written outside `capacity`: the archive refuses first.
     uint64_t at = kHeaderSize;
     for (uint32_t i = 0; i < chunk_count(); ++i) {
-        const Chunk &chunk = kChunks[i];
+        const Chunk &chunk = active_chunk(i);
         if (capacity - at < kChunkHeaderSize)
             return p6_fail(error, P6_ERROR_CAPACITY, "the buffer is smaller than the state");
         uint64_t body = 0;
@@ -586,7 +593,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     // (7) Every body, read exactly as it will be applied and not stored anywhere.
     const ContextScope scope(&context);
     for (uint32_t i = 0; i < chunk_count(); ++i) {
-        const Chunk &chunk = kChunks[i];
+        const Chunk &chunk = active_chunk(i);
         if (!chunk.visit) continue;      // a placeholder has bound 0, so the envelope has already refused a body
         Archive archive = Archive::validator(views[i].body, views[i].length);
         chunk.visit(archive);
@@ -599,7 +606,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     // mutate the image.
     const auto chosen = [&options](uint32_t i) { return !options.only_chunks || (options.only_chunks >> i & 1); };
     for (uint32_t i = 0; i < chunk_count(); ++i) {
-        const Chunk &chunk = kChunks[i];
+        const Chunk &chunk = active_chunk(i);
         if (!chunk.visit || !chunk.manifest || !chosen(i)) continue;
         if (const char *why = chunk.manifest(views[i].body, views[i].length, context.media)) {
             char text[P6_ERROR_TEXT_CAPACITY];
@@ -611,7 +618,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     // Runtime ownership is separate from candidate validation. Refuse a foreign
     // stream before reset/Apply; the phase getter needs no initialized CDA owner
     // when there are no extra streams, including a cold destination.
-    if (session.config.machine == p6_bridge::kCd32Machine) {
+    if (currprefs.cs_cdtvcd || session.config.machine == p6_bridge::kCd32Machine) {
         int32_t phase[p6_cda::kPhaseWords];
         if (!p6_cd::device_phase_get(phase, p6_cda::kPhaseWords))
             return p6_fail(error, P6_ERROR_BAD_STATE, "CD32 audio destination has an unsupported or foreign stream");
@@ -628,7 +635,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         }
     }
     for (uint32_t i = 0; i < chunk_count(); ++i) {
-        const Chunk &chunk = kChunks[i];
+        const Chunk &chunk = active_chunk(i);
         if (!chunk.visit || !chosen(i)) continue;
         Archive archive = Archive::applier(views[i].body, views[i].length);
         chunk.visit(archive);
@@ -640,7 +647,7 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         }
     }
     for (uint32_t i = 0; i < chunk_count(); ++i)
-        if (kChunks[i].visit && kChunks[i].rebuild && chosen(i)) kChunks[i].rebuild();
+        if (active_chunk(i).visit && active_chunk(i).rebuild && chosen(i)) active_chunk(i).rebuild();
     // The samples this image produced and has not handed over are its own history, not the state's: the first unit after the load hands over what the saved
     // machine's next unit did. At a boundary the queue is empty (every unit drains it) except in an image that had not started, where the reset head that has just
     // run left its samples. The PCM transport is not state (docs/02-contracts.md); a sticky transport error stays for the next unit to report.

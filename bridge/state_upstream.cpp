@@ -430,7 +430,7 @@ int32_t g_audio_phase[kAudioWords];     // read by apply_audp, put in the engine
 uint8_t *produce_audp(int, size_t *len, uint8_t *w)
 {
     int32_t words[kAudioWords];
-    const bool owned = p6_session::session.config.machine == p6_bridge::kCd32Machine;
+    const bool owned = currprefs.cs_cdtvcd || p6_session::session.config.machine == p6_bridge::kCd32Machine;
     if (!(owned ? p6_cd::device_phase_get(words, kAudioWords) : p6_audio_phase_get(words, kAudioWords))) return nullptr;
     for (unsigned i = 0; i < kAudioWords; ++i)
         for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
@@ -1310,7 +1310,7 @@ bool finish_chipset()
 bool finish_audio()
 {
     restore_audio_finish();
-    const bool owned = p6_session::session.config.machine == p6_bridge::kCd32Machine;
+    const bool owned = currprefs.cs_cdtvcd || p6_session::session.config.machine == p6_bridge::kCd32Machine;
     const bool restored = owned ? p6_cd::device_phase_set(g_audio_phase, kAudioWords) : p6_audio_phase_set(g_audio_phase, kAudioWords);
     p6_drive_sound::set(g_drive_sound, p6_drive_sound::kWords);
     return restored;

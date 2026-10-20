@@ -4962,7 +4962,7 @@
         "upstream_compiled": false,
         "policy": "out_of_profile",
         "saved_fields": "None.",
-        "omitted": "Sinc/BLEP interpolator state (audio_channel_data2.sinc_queue[256], sinc_queue_time/head, sinc_output_state, only with sound_interpol == 2, audio.cpp:95-107, 616-640; the profile keeps the default 1 = anti, cfgfile.cpp:8565); rh/crux handlers that need last_sample (interpol 3/4); volcnt and FIR path (volcnt, volcntbuf[4096] floats per channel, volcntbufcnt, firmem[1025], previous_volcnt_update, update_audio_volcnt 2355-2400; sound_volcnt is false); foreign extra-stream owners, CDTV and AHI; the supported CD32 slot0 stereo stream, cda_evt and audio_state_cda belong to the separate cd32-akiko-controller-transport-audio component; sample ripper (excluded by P6_PORTABLE, audio.cpp:171); SOUNDSTUFF > 1 statics (samplecounter, extrasamples/outputsample/doublesample logic). Delayed crossfeed buffers right_word_saved/left_word_saved/right2_word_saved/left2_word_saved/saved_ptr/saved_ptr2 are transient here: separation 7 turns mixed_on on but the delay is pinned to 0 (bridge/config.cpp:135-136), so mixed_stereo_size is 0 and each cell is written and read inside one sample (audio.cpp:521-560, 2262-2263). They become causal if sound_mixed_stereo_delay is ever non-zero.",
+        "omitted": "Sinc/BLEP interpolator state (audio_channel_data2.sinc_queue[256], sinc_queue_time/head, sinc_output_state, only with sound_interpol == 2, audio.cpp:95-107, 616-640; the profile keeps the default 1 = anti, cfgfile.cpp:8565); rh/crux handlers that need last_sample (interpol 3/4); volcnt and FIR path (volcnt, volcntbuf[4096] floats per channel, volcntbufcnt, firmem[1025], previous_volcnt_update, update_audio_volcnt 2355-2400; sound_volcnt is false); foreign extra-stream owners and AHI; supported private CDTV stream belongs to P6CT/P6SC with shared phase in P6AU; the supported CD32 slot0 stereo stream, cda_evt and audio_state_cda belong to the separate cd32-akiko-controller-transport-audio component; sample ripper (excluded by P6_PORTABLE, audio.cpp:171); SOUNDSTUFF > 1 statics (samplecounter, extrasamples/outputsample/doublesample logic). Delayed crossfeed buffers right_word_saved/left_word_saved/right2_word_saved/left2_word_saved/saved_ptr/saved_ptr2 are transient here: separation 7 turns mixed_on on but the delay is pinned to 0 (bridge/config.cpp:135-136), so mixed_stereo_size is 0 and each cell is written and read inside one sample (audio.cpp:521-560, 2262-2263). They become causal if sound_mixed_stereo_delay is ever non-zero.",
         "pointers": null,
         "rebuild": null,
         "evidence": [
@@ -8052,6 +8052,23 @@
             "CPU SPCFLAG_ACTION_REPLAY"
           ]
         }
+      },
+      {
+        "id": "cdtv-controller-transport-audio", "subsystem": "disk",
+        "component": "Private stock CDTV DMAC/6525, FIFO/SUB, NVRAM and owned CDA",
+        "owner": "build/upstream/cdtv.cpp", "chunk": "P6CT",
+        "save": "p6_cdtv_state_get", "restore": "p6_cdtv_state_apply",
+        "reset": "cdtv_init/private_start; registered cdtv_free closes the unit",
+        "in_profile": true, "upstream_compiled": true, "policy": "serialize_extended",
+        "saved_fields": "All typed controller fields, parser/response, ordered pending FIFO, cached TOC/Q, 32768-byte volatile NVRAM, SUB ring/transfer and counters, SEEK/DMA timing; DeviceState with disc ID/opens/presence and complete CDA delay/PCM/stream/callback selector.",
+        "omitted": "P6SC owns cycles and secondary slots including handler14; P6AU owns shared Paula phase; P6RM owns Chip/Slow. PROM and E9 bank address are derived. Commercial CDTV profile/ROM boot and Waterbox remain separate gates.",
+        "pointers": "No Disc/bank/PCM/callback pointer or padding is persisted; candidate resolves a verified catalog Disc and binds canonical callbacks.",
+        "rebuild": "After reset head/previous chunks, apply reconstructs E9 from dmac_bank and CDA owner without I/O, IRQ, scheduling or advancement; invalid candidates are refused before Apply.",
+        "evidence": ["bridge/state_cdtv.cpp:20", "bridge/state_cpu.cpp:87", "bridge/state_upstream.cpp:434", "ports/portable/cdtv_state.h:1"],
+        "proof": {"task": "T67b2", "checks": ["STATE01", "DET02"], "status": "pending", "what": "tests/media/test_cdtv_state.py seven real cuts, same/new owner and process before first run, exact full-state future and transactional identity/field/event refusals."},
+        "probe": {"probe": null, "status": "pending", "task": "T67b2", "why": "Generic canonical p6_state_probe has no CDTV digest; the dedicated fixture compares complete state and AV/PCM/RAM/MMIO/ticks instead."},
+        "waterbox": "No Waterbox restore claim; native private codec only.",
+        "native_state": {"task": "T67b2", "chunk": "P6CT", "file": "bridge/state_cdtv.cpp", "visitor": "visit_cdtv", "proves": "tests/media/test_cdtv_state.py CdtvStateTests.test_cold_restore_and_future"}
       }
     ],
     "out_of_profile_chunks": [
@@ -8090,7 +8107,7 @@
           "DMC3",
           "DMC4"
         ],
-        "reason": "Upstream CD32/CDU restore routines are not used: the private stock CD32 profile has semantic native P6AK with fixed CD identity. CDTV/DMAC has a private semantic DTO (ports/portable/cdtv_state.h, patch0400) with local capture/validate/apply checks in tests/media/test_cdtv_state.py; its FIFO, DMAC/6525, cached TOC/Q, volatile NVRAM, SUB and DeviceState/CDA are component values only. P6SC event binding, P6AU phase, native P6CT, cold restore and complete future remain T67b2, and p6_state_* still rejects CDTV as UNSUPPORTED; full CD32 Waterbox and game boot remain T66 gates.",
+        "reason": "Legacy CD32/CDTV/DMAC serializers are excluded. Native P6AK and private P6CT carry semantic controller/device state, shared Paula remains P6AU and callback14 lives in P6SC. Public CDTV profile, firmware boot and Waterbox remain future gates.",
         "evidence": [
           "bridge/state_akiko.cpp",
           "ports/portable/state_io/akiko.h",

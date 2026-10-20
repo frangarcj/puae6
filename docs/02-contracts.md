@@ -1834,11 +1834,18 @@ T67a enlaza el controlador CDTV stock privado: FIFO acotada, servicio en hsync e
 DMAC/6525 originales y NVRAM volatil de 32768 bytes. Las entradas privadas de prueba
 no avanzan el reloj; solo `p6_run_frame` ejecuta el dispositivo. No incluye SCSI, CR,
 tarjeta, persistencia, autoconfig/perfil publico ni arranque CDTV. Mientras
-`currprefs.cs_cdtvcd` este activo, todo estado nativo devuelve `UNSUPPORTED` antes
-de medir/aplicar; necesita un codec causal propio, nunca un P6AK prestado.
+`currprefs.cs_cdtvcd` este activo, el estado nativo privado requiere el codec
+causal P6CT y sus duenos P6SC/P6AU; nunca se usa P6AK para CDTV.
 
 T67b1 ofrece solo un DTO privado CDTV con captura, validacion y aplicacion local.
 Incluye registros, FIFO/SUB, TOC/Q cacheados, NVRAM y CDA/PCM, sin guardar punteros.
 Su aplicacion no lee medios, avanza ciclos, emite IRQ/callbacks ni agenda eventos.
-P6SC/P6AU y restauracion fria/futuro completos siguen en T67b2; `p6_state_*`
-con CDTV continua `UNSUPPORTED`. No es un formato persistente ni un perfil publico.
+P6SC/P6AU y restauracion fria/futuro completos pertenecen a T67b2. El DTO no es
+un formato persistente ni un perfil publico; solo P6CT lo integra en p6_state.
+
+T67b2 agrega P6CT solo al dueno CDTV privado A500: DTO, NVRAM/SUB y CDA/PCM.
+P6SC identifica subcode_interrupt como14; P6AU conserva su fase Paula compartida.
+El dominio de identidad CDTV rechaza A500 sin ese dueno aun con el mismo catalogo.
+La carga valida antes del reset head, reconstruye E9 y callbacks sin adelantar
+hardware, y admite otro proceso sin primer run. Perfil/autoconfig/arranque publico
+y snapshots Waterbox siguen pendientes; no hay compatibilidad entre builds.

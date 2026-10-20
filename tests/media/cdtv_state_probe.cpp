@@ -1,4 +1,4 @@
-// Local component proof; P6SC/P6AU and full native restore remain T67b2.
+// Private local component and complete native CDTV restore/future proof.
 #include "p6.h"
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -12,6 +12,9 @@
 #include <cstdio>
 #include <memory>
 #include <vector>
+#include <string>
+#include "../../bridge/state.h"
+#include "../../bridge/session.h"
 static p6_error error{P6_ABI_VERSION, sizeof error};
 static unsigned reads;
 static bool image_read(const void *, uint64_t at, void *out, size_t size, size_t *got)
@@ -56,13 +59,150 @@ static void local(const p6_cd::Disc &disc, unsigned mode)
     assert(!memcmp(actual.get(), original.get(), sizeof *actual) && get_cycles() == context.cycle);
     assert(reads == before_reads && p6_cdtv_callback_observations() == callbacks && !memcmp(slots, eventtab2, sizeof slots));
 }
+static std::vector<uint8_t> save(p6_state::Options options = {})
+{
+    uint64_t size = 0, used = 0; assert(p6_state_bound(&size, &error) == P6_OK);
+    std::vector<uint8_t> state(size); assert(p6_state::save(state.data(), size, &used, options, &error) == P6_OK);
+    state.resize(used); return state;
+}
+static void observe(uint64_t &hash, const void *ptr, size_t bytes)
+{
+    const auto *p = static_cast<const uint8_t *>(ptr); while (bytes--) hash = (hash ^ *p++) * 1099511628211ull;
+}
+static uint64_t future(unsigned cut)
+{
+    uint64_t hash = 1469598103934665603ull;
+    if (cut == 0) put_byte(0xe900a1, 0);
+    if (cut == 1) { unsigned value = get_byte(0xe900a1); assert(value == 0x55); observe(hash, &value, sizeof value); }
+    if (cut == 4) { assert(get_byte(0xe90041) & 0x20); put_byte(0xe900e4, 0); }
+    if (cut == 6) assert(p6_cdtv_private_request(0x106));
+    bool signal = false; p6_input in{P6_ABI_VERSION, sizeof in}; p6_frame out{P6_ABI_VERSION, sizeof out};
+    for (unsigned n = 0; n < (cut == 2 ? 30u : 4u); ++n) {
+        assert(p6_run_frame(&in, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error) == P6_OK);
+        if (cut >= 5) for (uint64_t n = 0; n < out.audio_frames * 2; ++n) signal |= out.audio[n] != 0;
+        observe(hash, out.video, out.video_bytes); observe(hash, out.audio, out.audio_frames * 4); observe(hash, &out.master_ticks, sizeof out.master_ticks);
+    }
+    if (cut >= 5) assert(signal);
+    if (cut == 0 || cut == 2) assert(get_byte(0xe900a1) == 0xaa && get_byte(0xe900a1) == 0x55);
+    for (unsigned n = 0; n < 8192; ++n) { unsigned value = get_byte(0x1fffe + n); observe(hash, &value, sizeof value); }
+    if (cut == 3) assert(get_word(0x22000) == 0x000d && !p6_cdtv_private_status().error);
+    if (cut == 6) { assert(p6_cdtv_private_request(0x104)); frames(); }
+    auto final = save(); observe(hash, final.data(), final.size()); return hash;
+}
+static std::vector<uint8_t> file_bytes(const std::string &path)
+{
+    FILE *f = fopen(path.c_str(), "rb"); assert(f); assert(!fseek(f, 0, SEEK_END)); long size = ftell(f); rewind(f);
+    std::vector<uint8_t> bytes(size); assert(fread(bytes.data(), 1, bytes.size(), f) == bytes.size()); fclose(f); return bytes;
+}
+static void write_bytes(const std::string &path, const void *data, size_t size)
+{
+    FILE *f = fopen(path.c_str(), "wb"); assert(f); assert(fwrite(data, 1, size, f) == size); fclose(f);
+}
+static void send(std::initializer_list<unsigned> bytes) { for (auto byte : bytes) put_byte(0xe900a1, byte); }
+static void dma(unsigned words, unsigned address)
+{
+    for (unsigned n = 0; n < 4; ++n) { put_byte(0xe90080 + n, words >> (24 - n * 8)); put_byte(0xe90084 + n, address >> (24 - n * 8)); }
+    put_byte(0xe90043, 0x90); put_byte(0xe900e0, 0);
+}
+static void cut_at(unsigned cut)
+{
+    if (cut == 0) { send({0x80}); frames(); }
+    if (cut == 1) { send({0x80, 0}); frames(); assert(get_byte(0xe900a1) == 0xaa); }
+    if (cut == 2) { send({1, 0, 0, 0, 0, 0, 0}); frames(); send({0x80, 0}); assert(p6_cdtv_private_status().seek); }
+    if (cut == 3 || cut == 4) {
+        for (unsigned n = 0; n < 4100; ++n) put_byte(0x1fffe + n, 0xcc);
+        send({2, 0, 0, 0, 0, cut == 3 ? 2u : 1u, 0}); frames(); dma(cut == 3 ? 2048 : 1024, 0x20000); frames();
+        for (unsigned n = 0; n < (cut == 3 ? 4096u : 2048u); ++n) assert(get_byte(0x20000 + n) == uint8_t(n * 13));
+        assert(get_word(0x1fffe) == 0xcccc && get_word(cut == 3 ? 0x21000 : 0x20800) == 0xcccc);
+        if (cut == 3) { assert(p6_cdtv_private_status().finished); send({2, 0, 0, 1, 0, 1, 0}); dma(1, 0x22000); }
+        else assert(get_byte(0xe90041) & 0x20);
+    }
+    if (cut >= 5) {
+        // Program the original serial DAC latch to audible gain through 6525 port B.
+        for (unsigned n = 0; n < 12; ++n) { put_byte(0xe900b2, 0x20); put_byte(0xe900b2, 0x60); }
+        put_byte(0xe900b2, 0xa0);
+        for (auto word : {0x111u, 2u, 258u, 0u}) assert(p6_cdtv_private_request(word)); frames();
+        bool event = false;
+        for (unsigned n = 0; n < 104 && !event; ++n) {
+            for (const auto &slot : eventtab2) event |= slot.active && slot.handler == p6_cdtv_subcode_handler();
+            if (!event) frames();
+        }
+        assert(event);
+        if (cut == 6) { assert(p6_cdtv_private_request(0x105)); frames(); }
+    }
+}
+struct Fields { uint64_t queue = 0, event = 0; };
+static void field(void *context, uint32_t, uint64_t at, uint64_t, const char *name)
+{
+    auto &found = *static_cast<Fields *>(context);
+    if (!strcmp(name, "cdtv.request_size")) found.queue = at;
+    if (!strcmp(name, "ev2.handler") && !found.event) found.event = at;
+}
+static void refusals()
+{
+    Fields found; p6_state::Options options; options.on_field = field; options.on_field_context = &found;
+    auto good = save(options); const auto callbacks = p6_cdtv_callback_observations(); const auto cycle = get_cycles(); unsigned prior_reads = reads;
+    for (auto at : {found.queue, found.event}) {
+        assert(at); auto bad = good; bad[at] = at == found.queue ? 101 : 15;
+        p6_state::seal(bad.data(), bad.size() - p6_state::kHeaderSize, p6_state::chunk_count(), p6_state::current_identity(),
+                       p6_session::session.unit_index, p6_session::session.master_ticks);
+        assert(p6_state_load(bad.data(), bad.size(), &error) == P6_ERROR_CORRUPT_STATE && save() == good);
+    }
+    assert(cycle == get_cycles() && reads == prior_reads && callbacks == p6_cdtv_callback_observations());
+}
+static void native(const std::vector<uint8_t> &rom, const p6_config &config, const char *role, const char *directory)
+{
+    p6_cd::Layout layout{}; layout.tracks = 2; layout.leadout = 258;
+    layout.track[0] = {0, 0, 2, 0, 2048, 0, p6_cd::Mode::Mode1_2048, 1, 4, false};
+    layout.track[1] = {2, 2, 258, 0, 2352, 4096, p6_cd::Mode::Audio, 1, 0, false};
+    p6_cd::Binding binding{{{1}, 4096 + 256 * 2352, 1}, image_read, nullptr}; p6_cd::Disc disc;
+    assert(disc.bind(layout, &binding, 1) == p6_cd::Result::Ok); const bool writer = !strcmp(role, "write");
+    const char *selected = getenv("P6_CDTV_STATE_CUT");
+    const unsigned first = selected ? unsigned(strtoul(selected, nullptr, 10)) : 0, last = selected ? first + 1 : 7;
+    assert(first < 7);
+    for (unsigned cut = first; cut < last; ++cut) {
+        assert(p6_init(&config, &error) == P6_OK && p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK);
+        if (writer) frames(); assert(p6_cd::device_bind(&disc) == p6_cd::Result::Ok && p6_cdtv_private_start());
+        const std::string path = std::string(directory) + "/" + std::to_string(cut);
+        if (writer) { frames(2); cut_at(cut); } // Reader restores before its first run.
+        auto state = writer ? save() : file_bytes(path + ".state");
+        if (!writer) assert(p6_state_load(state.data(), state.size(), &error) == P6_OK && save() == state);
+        refusals(); const uint64_t expected = future(cut);
+        assert(p6_state_load(state.data(), state.size(), &error) == P6_OK && save() == state && future(cut) == expected);
+        if (writer) { write_bytes(path + ".state", state.data(), state.size()); write_bytes(path + ".future", &expected, sizeof expected); }
+        else { auto prior = file_bytes(path + ".future"); assert(prior.size() == sizeof expected && !memcmp(prior.data(), &expected, sizeof expected)); }
+        assert(p6_shutdown(&error) == P6_OK); p6_cd::device_unbind();
+        if (!writer) {
+            assert(p6_init(&config, &error) == P6_OK && p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK);
+            frames(); assert(p6_cd::device_bind(&disc) == p6_cd::Result::Ok); auto before = save();
+            const auto cycle = get_cycles(); const auto callbacks = p6_cdtv_callback_observations(); const unsigned prior_reads = reads;
+            assert(p6_state_load(state.data(), state.size(), &error) == P6_ERROR_INCOMPATIBLE && save() == before);
+            assert(get_cycles() == cycle && reads == prior_reads && p6_cdtv_callback_observations() == callbacks);
+            assert(p6_shutdown(&error) == P6_OK); p6_cd::device_unbind();
+        }
+        if (!writer && cut == 6) {
+            auto other = binding; other.identity.content_id[0] ^= 1; p6_cd::Disc foreign;
+            assert(foreign.bind(layout, &other, 1) == p6_cd::Result::Ok);
+            assert(p6_init(&config, &error) == P6_OK && p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); frames();
+            assert(p6_cd::device_bind(&foreign) == p6_cd::Result::Ok && p6_cdtv_private_start()); frames(); auto before = save();
+            const auto cycle = get_cycles(); const auto callbacks = p6_cdtv_callback_observations(); const unsigned prior_reads = reads;
+            assert(p6_state_load(state.data(), state.size(), &error) == P6_ERROR_INCOMPATIBLE && save() == before);
+            assert(get_cycles() == cycle && reads == prior_reads && p6_cdtv_callback_observations() == callbacks);
+            assert(p6_shutdown(&error) == P6_OK); p6_cd::device_unbind();
+        }
+        printf("CDTV cut %u %s exact\n", cut, role);
+    }
+}
+
 int main(int argc, char **argv)
 {
-    assert(argc == 3 && !strcmp(argv[2], "local")); FILE *f = fopen(argv[1], "rb"); assert(f);
+    assert(argc == 3 || argc == 4); FILE *f = fopen(argv[1], "rb"); assert(f);
     assert(!fseek(f, 0, SEEK_END)); long size = ftell(f); assert(size > 0); rewind(f);
     std::vector<uint8_t> rom(size); assert(fread(rom.data(), 1, rom.size(), f) == rom.size()); fclose(f);
     p6_config c{P6_ABI_VERSION, sizeof c}; c.machine = P6_MACHINE_A500; c.audio_rate_hz = 48000; c.video_standard = P6_VIDEO_PAL;
-    c.random_seed = 1; c.rtc_epoch_seconds = 946684800; assert(p6_init(&c, &error) == P6_OK);
+    c.random_seed = 1; c.rtc_epoch_seconds = 946684800;
+    if (argc == 4) { native(rom, c, argv[2], argv[3]); return 0; }
+    assert(p6_init(&c, &error) == P6_OK);
     assert(p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); frames();
     p6_cd::Layout layout{}; layout.tracks = 1; layout.leadout = 32;
     layout.track[0] = {0, 0, 32, 0, 2352, 0, p6_cd::Mode::Audio, 1, 0, false};
@@ -73,7 +213,7 @@ int main(int argc, char **argv)
         for (auto word : {0x104u, mode == 1 ? 0x110u : 0x111u, 0u, 32u, 0u}) assert(p6_cdtv_private_request(word));
         frames(); local(disc, mode); assert(p6_cdtv_private_request(0x102)); frames(); local(disc, mode);
     }
-    uint64_t bound = 9; assert(p6_state_bound(&bound, &error) == P6_ERROR_UNSUPPORTED && bound == 9);
+    uint64_t bound = 9; assert(p6_state_bound(&bound, &error) == P6_OK && bound > 9);
     assert(p6_shutdown(&error) == P6_OK && !p6_cd::device_open_count()); p6_cd::device_unbind();
     puts("CDTV local component roundtrip and transactional refusals ok");
 }

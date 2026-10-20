@@ -76,11 +76,10 @@ int main(int argc, char **argv)
         assert(disc.bind(layout, &binding, 1) == Result::Ok && device_bind(&disc) == Result::Ok);
         assert(p6_cdtv_private_start() && !p6_cdtv_private_start());
         assert(device_open_count() == 1); frames(2);
-        uint64_t bound = 123; assert(p6_state_bound(&bound, &error) == P6_ERROR_UNSUPPORTED && bound == 123);
-        uint8_t rejected[16]; memset(rejected, 0x5a, sizeof rejected); uint64_t written = 9;
-        assert(p6_state_save(rejected, sizeof rejected, &written, &error) == P6_ERROR_UNSUPPORTED && !written);
-        assert(p6_state_load(rejected, sizeof rejected, &error) == P6_ERROR_UNSUPPORTED);
-        for (auto v : rejected) assert(v == 0x5a);
+        uint64_t bound = 0, written = 0; assert(p6_state_bound(&bound, &error) == P6_OK && bound);
+        std::vector<uint8_t> state_bytes(bound);
+        assert(p6_state_save(state_bytes.data(), bound, &written, &error) == P6_OK && written <= bound);
+        assert(p6_state_load(state_bytes.data(), written, &error) == P6_OK);
         command({0x80, 0}); response({0xaa, 0x55}); command({0, 0}); response({0xaa, 0x55});
         command({0x83, 0, 0, 0, 0, 0, 0});
         for (char c : "MATSHITA0.96") if (c) assert(reg_byte(0xa1) == unsigned(c));

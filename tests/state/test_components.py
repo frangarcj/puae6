@@ -118,8 +118,8 @@ class StateComponentTests(unittest.TestCase):
             "P6CH": ("chipset", "visit_chipset"), "P6VD": ("video", "visit_video"),
             "P6AU": ("audio", "visit_audio"), "P6CI": ("cia", "visit_cia"),
             "P6DK": ("disk", "visit_disk"), "P6IN": ("input", "visit_input"),
-            "P6BR": ("bridge", "visit_bridge"), "P6AK": ("akiko", "visit_akiko"),
-        }, registry, "eleven base chunks and the CD32-only Akiko chunk retain their owners")
+            "P6BR": ("bridge", "visit_bridge"), "P6AK": ("akiko", "visit_akiko"), "P6CT": ("cdtv", "visit_cdtv"),
+        }, registry, "eleven base chunks and the alternative CD32/CDTV chunks retain their owners")
         written = [c for c in self.components if "native_state" in c]
         self.assertTrue(written)
         self.assertEqual(set(registry), {c["native_state"]["chunk"] for c in written},
