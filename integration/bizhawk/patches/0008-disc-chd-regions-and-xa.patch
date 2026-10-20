@@ -37,7 +37,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/Disc.cs b/src/BizHawk.Emulation.Di
 diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
 --- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
 +++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
-@@ -718,18 +718,31 @@
+@@ -718,18 +718,33 @@
  				throw loadResults.FailureException;
  			}
  
@@ -48,7 +48,9 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
 +		// Adopt a real decompressed-unit source. This seam does not decode a CHD.
 +		internal static Disc LoadCHDToDisc(CHDFile chdf, IBlob chdBlob, DiscMountPolicy IN_DiscMountPolicy)
 +		{
-+			if (chdf == null || chdBlob == null || IN_DiscMountPolicy == null) throw new ArgumentNullException();
++			if (chdf == null) throw new ArgumentNullException(nameof(chdf));
++			if (chdBlob == null) throw new ArgumentNullException(nameof(chdBlob));
++			if (IN_DiscMountPolicy == null) throw new ArgumentNullException(nameof(IN_DiscMountPolicy));
  			var disc = new Disc();
  			try
  			{
@@ -71,7 +73,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
  					RawTOCEntry EmitRawTOCEntry()
  					{
  						var q = default(SubchannelQ);
-@@ -788,35 +801,36 @@
+@@ -788,35 +803,36 @@
  					}
  
  					var pregapLength = cdMetadata.Pregap;
@@ -113,7 +115,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
  							? EControlQ.DATA
  							: EControlQ.None;
  						synth.sq.SetStatus(kADR, control);
-@@ -835,8 +849,8 @@
+@@ -835,8 +851,8 @@
  							// wrap the base synth with our special synth if we have subcode in the chd
  							ISectorSynthJob2448 chdSynth = cdMetadata.PregapSubType switch
  							{
@@ -124,7 +126,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
  								LibChd.chd_sub_type.CD_SUB_NONE => synth,
  								_ => throw new InvalidOperationException(),
  							};
-@@ -852,6 +866,10 @@
+@@ -852,6 +868,10 @@
  						relMSF++;
  					}
  
@@ -135,7 +137,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
  					session.RawTOCEntries.Add(EmitRawTOCEntry());
  
  					var trackLength = cdMetadata.Frames;
-@@ -860,6 +878,7 @@
+@@ -860,6 +880,7 @@
  						trackLength -= pregapLength - prevTrackPadding;
  					}
  
@@ -143,7 +145,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
  					for (var i = 0; i < trackLength; i++)
  					{
  						var synth = CreateSynth(cdMetadata.TrackType, cdMetadata.ByteSwapAudio);
-@@ -890,7 +909,9 @@
+@@ -890,7 +911,9 @@
  						relMSF++;
  					}
  
@@ -153,7 +155,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
  
  					for (var i = 0; i < cdMetadata.PostGap; i++)
  					{
-@@ -914,6 +935,7 @@
+@@ -914,6 +937,7 @@
  						disc._Sectors.Add(synth);
  						relMSF++;
  					}
@@ -161,7 +163,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/Bi
  				}
  
  				SessionFormat GuessSessionFormat()
-@@ -946,6 +968,7 @@
+@@ -946,6 +970,7 @@
  				TOCMiscInfo.Run(session.RawTOCEntries);
  
  				disc.Sessions.Add(session);
