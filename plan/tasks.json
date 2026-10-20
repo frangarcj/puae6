@@ -17040,7 +17040,7 @@
       "title": "Conectar catalogo CD a M3U, Disk Control y restauracion publica libretro",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66u1",
         "T66u2",
