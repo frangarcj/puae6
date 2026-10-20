@@ -1762,3 +1762,13 @@ completo. WB03 prueba A/B/Bausente con datos distintos, futuro AV/PCM/ticks/RAM 
 snapshot completo en sandbox/proceso nuevos; rechazos de rebind conservan thunk
 anterior. La identidad publica previa al snapshot y botones BizHawk pertenecenU5;
 registro/replay BK2/TAS pertenecenU6, sin acreditarlos por esta puerta privada.
+
+T66t12 añade transporte privado regional version2 mediante bind_v2/catalog_bind_v2
+y layout_v2:4808B, tracks48B y contrato/conversorT11. No cambia v1(2432B), ABI1,
+layout31 ni slots0/1. La version enlazada se captura despues del seal vacio;
+rebind valida version, catalogo/orden, regiones e identidad antes de publicar
+callbacks y conserva seleccion/presencia/opens. P6CdHost copia los descriptores.
+Los modos cd32regionalsave/load y cd32regionalcatalogsave/load del escenario
+usan TOC numerica sobre ISO canonico, no metadata inferida de Q. Su puerta WB03
+real incluye restauracion300+15 y proceso/sandbox nuevos; un fallo del runner la
+deja BLOCKED. Esta extension no acredita metadata DiscSystem ni carga CHD publica.

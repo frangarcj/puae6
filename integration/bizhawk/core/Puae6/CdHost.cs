@@ -14,7 +14,7 @@ public unsafe struct P6CdInfo
  public uint Count, Leadout;
  public fixed uint Tracks[99 * 6];
 }
-// Contract only; v1 imports, callback slots and binding remain unchanged.
+// V2 is additive; v1 imports, callback slots and binding remain unchanged.
 // Modes0/1/2: Audio/Mode1Raw/Mode2Raw. Stored/SUB refer to canonical wire data,
 // including supplied Q/SBI, rather than physical image packing. Inactive fields0.
 [StructLayout(LayoutKind.Sequential)]
@@ -41,6 +41,9 @@ public abstract partial class LibPuae6
  [BizImport(CC)] public abstract int p6w_cd_status(IntPtr output, uint capacity);
  [BizImport(CC)] public abstract ulong p6w_cd_layout(IntPtr output, ulong capacity);
  [BizImport(CC)] public abstract int p6w_cd_bind(IntPtr info, CdRead callback, uint rebind);
+ [BizImport(CC)] public abstract ulong p6w_cd_layout_v2(IntPtr output, ulong capacity);
+ [BizImport(CC)] public abstract int p6w_cd_bind_v2(IntPtr info, CdRead callback, uint rebind);
+ [BizImport(CC)] public abstract int p6w_cd_catalog_bind_v2(IntPtr info, uint count, CdCatalogRead callback, uint rebind);
  [BizImport(CC)] public abstract int p6w_cd_activate();
  [BizImport(CC)] public abstract int p6w_cd_read_at(ulong offset, IntPtr output, uint count);
  [BizImport(CC)] public abstract int p6w_cd_read_sector(uint lba, uint view, IntPtr output, uint capacity);
@@ -53,16 +56,27 @@ public unsafe sealed class P6CdHost
  readonly LibPuae6.CdRead callback;
  readonly LibPuae6.CdCatalogRead catalogCallback;
  readonly P6CdInfo[] catalog;
+ readonly P6CdInfoV2 infoV2;
+ readonly P6CdInfoV2[] catalogV2;
+ readonly bool regional;
  readonly Func<uint, ulong, byte[], int, bool> readCatalog;
  WaterboxHost host;
  bool faulted;
  public P6CdHost(P6CdInfo descriptor, Func<ulong, byte[], int, bool> provider)
   { info = descriptor; read = provider ?? throw new ArgumentNullException(nameof(provider)); callback = Read; catalogCallback = ReadCatalog; }
  public P6CdHost(P6CdInfo[] descriptors, Func<uint, ulong, byte[], int, bool> provider)
-  : this(default, (_, _, _) => false)
+  : this(default(P6CdInfo), (_, _, _) => false)
  {
   if (descriptors is null || descriptors.Length < 1 || descriptors.Length > 16) throw new ArgumentException("CD catalog requires 1..16 descriptors", nameof(descriptors));
   catalog = (P6CdInfo[])descriptors.Clone(); readCatalog = provider ?? throw new ArgumentNullException(nameof(provider));
+ }
+ public P6CdHost(P6CdInfoV2 descriptor, Func<ulong, byte[], int, bool> provider)
+  : this(default(P6CdInfo), provider) { infoV2=descriptor; regional=true; }
+ public P6CdHost(P6CdInfoV2[] descriptors, Func<uint, ulong, byte[], int, bool> provider)
+  : this(default(P6CdInfoV2), (_, _, _) => false)
+ {
+  if (descriptors is null || descriptors.Length < 1 || descriptors.Length > 16) throw new ArgumentException("CD catalog requires 1..16 descriptors", nameof(descriptors));
+  catalogV2=(P6CdInfoV2[])descriptors.Clone(); readCatalog=provider ?? throw new ArgumentNullException(nameof(provider));
  }
  internal Delegate[] Callbacks(WaterboxHost owner)
  {
@@ -74,7 +88,7 @@ public unsafe sealed class P6CdHost
  int CopyRead(uint disc, ulong at, IntPtr destination, uint count, bool indexed)
  {
   try {
-   if (count > 2448 || faulted || (indexed && (catalog is null || disc >= catalog.Length))) return -P6.Io;
+   if (count > 2448 || faulted || (indexed && disc >= (catalog?.Length ?? catalogV2?.Length ?? 0))) return -P6.Io;
    var data = new byte[count];
    if (!(indexed ? readCatalog(disc, at, data, (int)count) : read(at, data, (int)count))) return -P6.Io;
    host.CopyFromExternal(data, destination); return (int)count;
@@ -87,12 +101,23 @@ public unsafe sealed class P6CdHost
   if (guest.Lib.p6w_cd_layout((IntPtr)layout, 3) != 3 || layout[0] != (ulong)sizeof(P6CdInfo)
    || layout[1] != (ulong)Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Bytes)).ToInt64()
    || layout[2] != (ulong)Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Tracks)).ToInt64()) throw new GuestLayoutException("CD descriptor layout differs");
+  if (regional) {
+   ulong Offset(string field) => (ulong)Marshal.OffsetOf<P6CdTrackV2>(field).ToInt64();
+   var expected=new ulong[] { (ulong)sizeof(P6CdInfoV2), (ulong)Marshal.OffsetOf<P6CdInfoV2>(nameof(P6CdInfoV2.Bytes)).ToInt64(),
+    (ulong)Marshal.OffsetOf<P6CdInfoV2>(nameof(P6CdInfoV2.Tracks)).ToInt64(), (ulong)sizeof(P6CdTrackV2),
+    Offset(nameof(P6CdTrackV2.StoredPregap)),Offset(nameof(P6CdTrackV2.SyntheticPregap)),Offset(nameof(P6CdTrackV2.Postgap)),
+    Offset(nameof(P6CdTrackV2.Flags)),Offset(nameof(P6CdTrackV2.PregapMode)),Offset(nameof(P6CdTrackV2.PregapControl)) };
+   ulong* actual=stackalloc ulong[10];
+   if (guest.Lib.p6w_cd_layout_v2((IntPtr)actual,10)!=10) throw new GuestLayoutException("Missing regional CD layout");
+   for(int n=0;n<10;++n) if(actual[n]!=expected[n]) throw new GuestLayoutException("Regional CD descriptor layout differs");
+  }
  }
  public int Bind(Puae6Guest guest, bool rebind, P6CdInfo? candidate = null)
  {
   if (!ReferenceEquals(host, guest.Host)) return P6.BadArgument;
   if (!guest.IsSealed) return P6.BadState;
   using var active = guest.Host.EnterExit();
+  if (regional) return candidate.HasValue ? P6.BadArgument : BindV2(guest,rebind);
   if (catalog is not null) return candidate.HasValue ? P6.BadArgument : BindCatalog(guest, rebind);
   var descriptor = candidate ?? info; return guest.Lib.p6w_cd_bind((IntPtr)(&descriptor), callback, rebind ? 1u : 0u);
  }
@@ -103,6 +128,22 @@ public unsafe sealed class P6CdHost
   using var active = guest.Host.EnterExit();
   var descriptors = candidate ?? catalog;
   fixed (P6CdInfo* p = descriptors) return guest.Lib.p6w_cd_catalog_bind((IntPtr)p, (uint)descriptors.Length, catalogCallback, rebind ? 1u : 0u);
+ }
+ public int BindV2(Puae6Guest guest, bool rebind, P6CdInfoV2? candidate = null)
+ {
+  if (!ReferenceEquals(host,guest.Host)) return P6.BadArgument;
+  if (!guest.IsSealed || !regional) return P6.BadState;
+  using var active=guest.Host.EnterExit();
+  if (catalogV2 is not null) return candidate.HasValue ? P6.BadArgument : BindCatalogV2(guest,rebind);
+  var descriptor=candidate ?? infoV2;
+  return guest.Lib.p6w_cd_bind_v2((IntPtr)(&descriptor),callback,rebind ? 1u : 0u);
+ }
+ public int BindCatalogV2(Puae6Guest guest, bool rebind, P6CdInfoV2[] candidate = null)
+ {
+  if (!ReferenceEquals(host,guest.Host)) return P6.BadArgument;
+  if (!guest.IsSealed || catalogV2 is null) return P6.BadState;
+  using var active=guest.Host.EnterExit(); var descriptors=candidate ?? catalogV2;
+  fixed(P6CdInfoV2* p=descriptors) return guest.Lib.p6w_cd_catalog_bind_v2((IntPtr)p,(uint)descriptors.Length,catalogCallback,rebind ? 1u : 0u);
  }
  public int Change(Puae6Guest guest, uint index, bool inserted)
  {

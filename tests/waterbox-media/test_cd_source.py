@@ -66,6 +66,9 @@ class Cd32CatalogWaterboxTests(Cd32WaterboxTests):
         super().setUp()
         self.names = ("device.iso",) # Two synthetic payloads, never a game campaign.
 
+class Cd32RegionalWaterboxTests(Cd32CatalogWaterboxTests):
+    modes = ("cd32regionalsave", "cd32regionalload", "cd32regionalcatalogsave", "cd32regionalcatalogload")
+
 class Cd32PublicCoreTests(Cd32WaterboxTests):
     public_modes = ('publicsave', 'publicload')
     def test_iso_cue_callback_abi_restore_and_rebind_across_processes(self):
