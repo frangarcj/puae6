@@ -17661,7 +17661,7 @@
       "title": "Exponer regiones CHD tipadas y sintetizar XA canonico en DiscSystem",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t10",
         "T66t11",
@@ -17690,7 +17690,8 @@
         "MED01unionChdCanonicalCSharpTests(test_typed_regions_offsets_padding_audio_subchannels_and_postgap,test_cooked_mode2_xa_headers_edc_and_parity_match_independent_oracles)+DiscSourceCSharpTests+ChdBlobReadTests, cadaclaseunavez. OfflineC#sinmotor/guest. Pruebadeseamnodeclaradecodercorrecto; backendhostchd_capi noDarwinARM64enpinactualpermanecependienteconrecetapin/ABIreal,preferirevaluarlibchdrBSDendurecidoexistente.",
         "Cincorutasatomicasobjetivo280..350manuales. cd32_closeaislado actualizaaestemain, nometadata/engine/guest. Rootcoordinaintegra. T12siguepuertaWB03pendienteindependiente: metadataescontractoadicionalnoconexioncore, porellodepsT10/T11/Apermitenavanzarantes. Backendhostreal+4fixturescomprimidos yconexiontypedPuae6DiscSource→Core→WBv2 conservanpuertapublicaWB03enT66. RootT39bpendinghastacandidataestable, sinquitarsuschecks.",
         "Gatecanonicaldirigidoencuentra mismatchLBA236 PGForm1almacenado: SynthUtils.ECM_Mode2_Form1 llamaECC_Populate(...false), incluyendoMSF/modo12..15enP/Q, mientrasencoderT7/native0391loszeroea. ECM.csyaofrecezeroSectorAddress yBlob_ECMloinvocatrueenForm1. Ampliarsemanticaexplicitamenteanteseditarsoloesa llamadaatrueenmismo0008/SynthUtilsrutaautorizada, probando baselineForm1independienteademasForm2; conservarEDC/oraculo/golden. Esmismaverticalstreamcanonical, sinmeternosbackend niotrosalgoritmos.",
-        "Revisionposterioralbloqueo2intentosconC3independienteactiva: rootleecodigoECM198..260ySynthUtilsForm1. ConfirmaH1 Get/Setlimpian24bits12..14yprocesanP/Qdesde12;mode2byte15permaneceyexplica8paridadesdistintas. H2orden: PseescribedestysirveaQantesrestaurar3bytes, portanto ambosnecesitanmode0. 0391(native)/oraculobitabitsT7fijadosguardan/zeroean4bytes; Blob_ECMtambienincorrectonoespruebadecorreccion. Reanudarsolo fixlocaldelcallerSynthUtilsForm1: guardarbyte15,zero15,ECCtrue,restaurar15, conservandoEDC/cabecera/oraculoyECMglobal. Nuevadecisionconcodigo, notercerintentoalazar. Ampliar6arutatests/waterbox-media/test_cd_source.py paraaplicar0008enexportdeProgram.cscomun; noejecutarWBniatribuirgatehasta runnerestable. MantenerreproducerMED01exacto2metodos+regresiones."
+        "Revisionposterioralbloqueo2intentosconC3independienteactiva: rootleecodigoECM198..260ySynthUtilsForm1. ConfirmaH1 Get/Setlimpian24bits12..14yprocesanP/Qdesde12;mode2byte15permaneceyexplica8paridadesdistintas. H2orden: PseescribedestysirveaQantesrestaurar3bytes, portanto ambosnecesitanmode0. 0391(native)/oraculobitabitsT7fijadosguardan/zeroean4bytes; Blob_ECMtambienincorrectonoespruebadecorreccion. Reanudarsolo fixlocaldelcallerSynthUtilsForm1: guardarbyte15,zero15,ECCtrue,restaurar15, conservandoEDC/cabecera/oraculoyECMglobal. Nuevadecisionconcodigo, notercerintentoalazar. Ampliar6arutatests/waterbox-media/test_cd_source.py paraaplicar0008enexportdeProgram.cscomun; noejecutarWBniatribuirgatehasta runnerestable. MantenerreproducerMED01exacto2metodos+regresiones.",
+        "UniónMED01exacta6pruebasPASS19.363s,sinSKIP(ChdCanonicalCSharpTests2+DiscSourceCSharpTests1+ChdBlobReadTests3)encommitbe1708f8integradoidentico. Ambaspoliticasgap, padding,Audio/SUB/regions/XA/EDC/PQ 2448bytes, baselineoriginaldiffatribuido. OchoBizHawkpatchesapplyalpin,restodiffchecklimpio; literalCRLF/contextpatchpreservado. Noengine/guestniWBacreditados, backendhost/conexionpublicasiguenT66."
       ],
       "checks": [
         "MED01"
