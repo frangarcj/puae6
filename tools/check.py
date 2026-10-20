@@ -611,6 +611,11 @@ for _gate in ('STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T69b')] = {'complete_native_hrtmon_restore': 'tests.cartridge.test_hrtmon.HrtMonTests'}
 TASK_SUITES[('BUILD01', 'T69c1')] = {'pinned_builtin_generation': 'tests.cartridge.test_hrtmon.HrtMonBuiltinTests.test_generation_is_reproducible_and_rejects_changed_source'}
 TASK_SUITES[('STATE01', 'T69c1')] = {'public_builtin_config_restore': 'tests.cartridge.test_hrtmon.HrtMonBuiltinTests.test_public_config_builtin_load_restore_identity_and_teardown'}
+for _gate in ('IN01', 'STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T69c2')] = {'public_freeze_level_restore': 'tests.cartridge.test_hrtmon.HrtMonCommandTests'}
+TASK_SUITES[('STATE01', 'T69c2')].update({
+    'parallel_restore_regression': 'tests.input.test_parallel.ParallelTests.test_parallel_levels_and_device_changes_restore_in_same_and_new_process',
+    'parallel_rejection_regression': 'tests.input.test_parallel.ParallelTests.test_truncated_parallel_tail_and_invalid_types_or_buttons_are_transactionally_refused'})
 TASK_SUITES[('STATE01', 'T69b')].update({
     'cpu_interrupt_restore_regression': 'tests.state.test_cpu_modes.CpuModesTests.test_restore_continues_through_interrupts_timers_and_dma',
     'cpu020_restore_regression': 'tests.state.test_cpu_modes.Cpu020ModesTests'})

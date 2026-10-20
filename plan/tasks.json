@@ -18792,7 +18792,7 @@
       "title": "Activar HRTMon builtin desde la configuracion publica comun",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69a",
         "T69b"
@@ -18834,6 +18834,53 @@
       "stop": "No Guardanidado niInflater/FSguest, sincartuchocomercialdescargado ni cambiarCPUserializacion/golden; scopeextraanteseditar."
     },
     {
+      "id": "T69c2",
+      "title": "Aplicar Freeze publico por nivel de entrada y restaurar su flanco",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69c1",
+        "T69b"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/caps.cpp",
+        "bridge/config.h",
+        "bridge/config.cpp",
+        "bridge/input.cpp",
+        "ports/portable/p6_state_access.h",
+        "bridge/state_devices.cpp",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "P6_COMMAND_FREEZE bit0 enp6_input_v2.commands, ABI108/tail/prefixv1intactos. Entrada esnivel: bridge calcula risingedge unavez, consume pressduranteACTIVEsinencolar; mantenertrasx/reset/loadstate no retrigger; release+press activa. v1 equivalelevel0. BitsdesconocidosBAD_ARGUMENT yFreezesinownerUNSUPPORTEDantesmutarmaquina. Reusarhelperinterno sinGuard conservandowrapperprivadoGuard; no invocarAPIguardadadentroRun. Conservar reset→media→input→run; no reiniciarflancoconreset_keyboard, soloownerload/forget_input.",
+        "Applied.commands yrawsoloenteros, P6INañadelevelu8condicionalownerHRTMon enMeasure/Save/Validate/Apply, conservando bytesnocart. Rango0..1 ynegativotransaccional, statecargado restauraheldsinreemitirNMI. P6_CAP_HRTMON bit11soloalcerrarcomportamiento, flagsconfigbit2yaC1. Noestadohostduplicado ni nuevopunteros/colas.",
+        "HrtMonCommandTests fixturepublicacompartidaIN01/STATE01/DET02: bootrealA1200+builtinconfig, input_v2Freeze activaHRTMon, comandoRAM5a/x, holdnoactivaciontrasx/reset/restoreheld, release+presssi, presionACTIVEconsumida, v1release, unknowncommands/sincartrechazantransaccional. Writer/readerotroprocesoconestado/futurosAV/PCM/ticks/RAM/CPU/fullsave ycanarios. ReusarhelpersBsinrepetir7cortes. RegresionparalelaABI2/P6INcontests.input.test_parallel.ParallelTests dosmetodosrestore/rechazos; unionexactaseejecutaunavez.",
+        "Diezrutas atomicas objetivo150..240manuales. Agentecd_swapaislado no metadatani buildmotor/guest; rootserializa-j2. C1STATE01realPASSyBUILD01exactoPASS. SiC2estacerca, rootcombinaenunWBX conBfix/T12yC1 paraevitarrebuildprevioalaAPIqueusaranfrontends. Libretro/BizHawk/TASsiguenhojaspublicasyWBrealobligado, ARcomercialpadreintacto."
+      ],
+      "checks": [
+        "IN01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "Freeze porABI2 esunflancocausalrestaurable,comandorealysalidaRAMfuncionanendeterminismodeotroproceso; hold/release/reset/ACTIVEysincartcorrectos, noduplicaciontrasestado. Nativo noacreditaWBfrontends."
+      ],
+      "stop": "Sin Guardanidado, pulsofrontendfalso, accionpendienteoculta ni extensionnocartP6IN; no serializarpunteros/alterarIRQhardware."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -18843,7 +18890,8 @@
         "T24",
         "T69a",
         "T69b",
-        "T69c1"
+        "T69c1",
+        "T69c2"
       ],
       "read": [
         "docs/01-architecture.md",
