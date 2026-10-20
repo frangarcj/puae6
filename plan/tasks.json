@@ -17508,13 +17508,15 @@
         "ports/portable/media/cd_subchannel.cpp",
         "tests/media/cd_disc_probe.cpp",
         "tests/media/test_cd_disc.py",
-        "tests/media/cd_audio_state_probe.cpp"
+        "tests/media/cd_audio_state_probe.cpp",
+        "tests/media/test_cd_cue.py"
       ],
       "steps": [
         "Añadir Track::Regions flagsExplicit/ProgramSub96/PregapSub96/PostgapStored/PostgapSub96/PostgapIndex2 ypregap_mode/control. Flags0 conserva exactamente politica actual CUE/CCD/NRG/MDS/CHD, incluidosprefijos ypostgapINDEX01; validar residuos/flags/rangos. Explicit define modo/CONTROL de todoINDEX00 ySUB porregion almacenada, no inferir metadata desdeQ. Programa conservaTOC; postgap usa modo/control programa yINDEX02 solo explicito. Qalmacenado incluso invalido/SBI prevalece.",
         "Mover SectorInfo a cd_disc.h yresolver Disc::describe en cd_disc.cpp: un solo descriptor efectivo para read_sector/describe_sector/canonical_read/AudioPlayer, sin dependencia nueva Disc→cd_read. Offset Source comun incluye postgap solo siStored; gaps sinteticos sinIO. SUBrequiere2448 yregionalmacenada; vista2448 Unsupported si faltaSUB aunque stridecomun sea2448. Pregap/programas de diferente packing deben normalizarse a2352/2448 porproveedor futuro, no aceptarstrideincompatible.",
         "CdDiscTests nuevo test_explicit_regions_modes_subchannels_postgap_and_rebind cubre Audio↔Mode1, Mode1↔Mode2, stored/synthetic, SUBdistintos,2048/offsets, INDEX02vslegacy01, Qinvalida/SBI, noIOsintetico, flags/rangos yrebindcampoacampo. AudioPlayerState prueba snapshotmediomuestra en pregapAudio depistadata, otroDisc/owner/PCM/SUB/tiempo yPLAY_ERRORentrandoendata; inversorechazaantesdeconsumirdelay. Restore/preflight sinIO.",
-        "Excepcion atomica de8rutas yobjetivo330..390lineas manuales porque descriptor/resolver/subcanal/player deben ser coherentes juntos; avisarantesdesuperar400. Standalone-j2, noengine/guest. MED01regresiones de todoslosproveedoresactuales, STATE01componentesplayer/device yABI01layout2432/31sin cambios. P6AKserializa estado dinamico eIDs, noTrack; regiones inmutables secomparanenrebind. ProveedorCHDconPGdistintos/postgap, hashcondicionalP6CHR1 ytransporteWBv2aditivo son hojas posterioresrequeridas. HTOAnegativo sigue separado; no anunciarCHDpublico."
+        "Excepcion atomica de8rutas yobjetivo330..390lineas manuales porque descriptor/resolver/subcanal/player deben ser coherentes juntos; avisarantesdesuperar400. Standalone-j2, noengine/guest. MED01regresiones de todoslosproveedoresactuales, STATE01componentesplayer/device yABI01layout2432/31sin cambios. P6AKserializa estado dinamico eIDs, noTrack; regiones inmutables secomparanenrebind. ProveedorCHDconPGdistintos/postgap, hashcondicionalP6CHR1 ytransporteWBv2aditivo son hojas posterioresrequeridas. HTOAnegativo sigue separado; no anunciarCHDpublico.",
+        "Regresion dirigida detecta expectativaCUE obsoleta anterior aT66g5: gapMode2esperaUnsupported en2352 aunque el contrato ya sintetizaheaderMode2+body2336cero. Confirmar mismofallo enbaselineT8sinregiones y ampliar solo test_cd_cue.py para mantener2048Unsupported ycomprobar2352pororaculonumerico independiente; no cambiarencoder/golden/tolerancias. Novenaruta detestjustificada porregresioncomun, sinrecortar escenarioBrianautorizado."
       ],
       "checks": [
         "MED01",
