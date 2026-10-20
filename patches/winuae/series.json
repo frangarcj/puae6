@@ -5673,6 +5673,36 @@
           "after_sha256": "7d85f774666b0914114cefa400e665983d38500bde6114ee95bedfd68edc9f4b"
         }
       ]
+    },
+    {
+      "id": "0398-hrtmon-native-state",
+      "file": "patches/winuae/0398-hrtmon-native-state.patch",
+      "sha256": "5e9aa05a77369396252d0b0b4656bf6ccd857f46263e284aa59093a78728303f",
+      "title": "Preserve native HRTMon memory mapping shadows and CPU pending action",
+      "reason": "T69b: private fixed HRTMon owner accessors and boundary support for complete native state; memory and causal flags restore without paths or serialized pointers. The bridge requires these endpoints; no-cartridge execution remains unchanged.",
+      "category": "cartridge state host boundary",
+      "order": 214,
+      "symbols": [
+        "p6_hrtmon_memory",
+        "p6_hrtmon_get",
+        "p6_hrtmon_set",
+        "p6_cpu_boundary"
+      ],
+      "test": "tests/cartridge/test_hrtmon.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ar.cpp",
+          "before_sha256": "72ba5a7d0a8314c4eb9b17cf90775e5ddb680e6ce68f804cee1f280914f00c27",
+          "after_sha256": "86c230f73896b4d656359062cdada7287858682f258ca0e28f4bc7c802898430"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "a8fd0336e54b4af9a4ba78c5cd78cd0361036194ff45fb0e1b1f3ed6f1a3f54b",
+          "after_sha256": "72a0b1f29d14c296ac1b50861db0427155dddb757d00e12bb69eaff704393290"
+        }
+      ]
     }
   ]
 }
