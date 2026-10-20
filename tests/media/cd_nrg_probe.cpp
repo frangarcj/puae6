@@ -1,5 +1,6 @@
 #include "../../adapters/libretro/cd_nrg.h"
 #include "cd_read.h"
+#include "uae/cdrom.h"
 #include "sha256.h"
 #include "libretro.h"
 #include <stdio.h>
@@ -70,10 +71,11 @@ int main(int argc, char **argv)
             printf("sector %u %u %u ", lba, view, unsigned(result));
             if (result == Result::Ok) { if (t.mode == Mode::Mode1_2048 && view == 2352) digest(out + 24, 2048); else digest(out + 8, view); } else CHECK(untouched(out, sizeof out));
             puts("");
+            if (view == 2352 && owner->metadata()->track[n].mode == 2) { CHECK(result == Result::Ok); printf("parity %u %u ", n, lba); digest(out + 8 + 2072, 280); puts(""); }
             if (view == 2448) { CHECK(read_subchannel(disc, lba, out, 96) == Result::Ok); printf("sub %u ", lba); digest(out, 96); puts(""); }
         }
     }
-    if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448 || owner->metadata()->track[n].mode == 3) {
+    if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448 || (owner->metadata()->track[n].mode == 2 || owner->metadata()->track[n].mode == 3)) {
         const auto &b = owner->bindings()[n]; fault_at = owner->metadata()->track[n].offset0 + 2448;
         for (fault = 1; fault <= 3; ++fault) {
             memset(out, 0xa5, sizeof out);
@@ -85,6 +87,16 @@ int main(int argc, char **argv)
         break;
     }
     fault = 0;
+    // Pure wrapper contract: preserve a nonzero duplicated XA subheader and payload.
+    memset(out, 0xa5, sizeof out); auto *sector = out + 8;
+    memset(sector, 0, 24); memset(sector + 1, 0xff, 10);
+    sector[13] = 0x18; sector[14] = 0x34; sector[15] = 2; // LBA1234+150.
+    for (unsigned n = 0; n < 8; ++n) sector[16 + n] = uint8_t(n % 4);
+    for (unsigned n = 0; n < 2048; ++n) sector[24 + n] = uint8_t(n * 13 + 7);
+    uint8_t original[2072]; memcpy(original, sector, sizeof original);
+    encode_l2_mode2_form1(sector);
+    CHECK(!memcmp(original, sector, sizeof original) && untouched(out, 8) && untouched(out + 2360, sizeof out - 2360));
+    printf("encoder "); digest(sector, 2352); puts("");
     if (argc == 3) {
         auto fresh = std::make_unique<CdNrg>(); CHECK(fresh->open(argv[2], vfs) == Result::Ok);
         const auto result = disc.rebind(*fresh->layout(), fresh->bindings(), fresh->sources());

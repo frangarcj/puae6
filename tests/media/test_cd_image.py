@@ -22,16 +22,17 @@ class CdImageTests(unittest.TestCase):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp=tempfile.TemporaryDirectory(prefix='cd-image-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); entries=json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336'):
-            e=next(x for x in entries if x['id']==identifier); r=e['files'][0]; target=cls.work/r['path']
-            if not target.exists(): target.write_bytes((ROOT/'upstream/winuae'/r['path']).read_bytes())
-            patch=(ROOT/e['file']).read_bytes()
-            assert hashlib.sha256(target.read_bytes()).hexdigest()==r['before_sha256']
-            assert hashlib.sha256(patch).hexdigest()==e['sha256']
-            mat._apply(patch,cls.work,True); mat._apply(patch,cls.work,False)
-            assert hashlib.sha256(target.read_bytes()).hexdigest()==r['after_sha256']
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1'):
+            e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
+            for record in e['files']:
+                target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
+                if not target.exists(): target.write_bytes((ROOT / 'upstream/winuae' / record['path']).read_bytes())
+                assert hashlib.sha256(target.read_bytes()).hexdigest() == record['before_sha256']
+            assert hashlib.sha256(patch).hexdigest() == e['sha256']
+            mat._apply(patch, cls.work, True); mat._apply(patch, cls.work, False)
+            for record in e['files']: assert hashlib.sha256((cls.work / record['path']).read_bytes()).hexdigest() == record['after_sha256']
         common=['clang++','-std=c++17','-O1','-g','-Wall','-Wextra','-Werror','-fPIC','-fsanitize=address,undefined','-fno-sanitize-recover=all',
-                '-I'+str(ROOT/'ports/portable/media')]
+                '-I'+str(cls.work/'include'),'-I'+str(ROOT/'ports/portable/media')]
         objects=[]
         for kind in ('cue','ccd','nrg','mds'):
             obj=cls.work/(kind+'.o'); objects.append(str(obj))
@@ -69,8 +70,8 @@ class CdImageTests(unittest.TestCase):
         cue_lines=self.run_image(cue,vfs=True); self.assertEqual(iso_sectors,[r for r in cue_lines if r.startswith('sector ')])
         ccd=test_cd_ccd.CdCcdTests.fixture(self,'ccd')[0]; renamed=ccd.with_suffix('.CcD'); ccd.rename(renamed)
         nrg=test_cd_nrg.CdNrgTests.fixture(self,'dao')[0]; nrg_case=nrg.with_suffix('.NrG'); nrg.rename(nrg_case)
-        mode3=test_cd_nrg.CdNrgTests.fixture(self,'mode3',modes=(3,7))[0]
-        for image,tracks in ((renamed,3),(nrg_case,7),(mode3,2)):
+        mode3=test_cd_nrg.CdNrgTests.fixture(self,'mode3',modes=(2,3,7))[0]
+        for image,tracks in ((renamed,3),(nrg_case,7),(mode3,3)):
             lines=self.run_image(image); self.assertEqual(tracks,int(lines[0].split()[1])); self.assertEqual(lines,self.run_image(image,vfs=True))
             self.assertTrue(self.run_image(image,rebind=image,vfs=True)[-2].startswith('rebind 0 '))
         for suffix in ('bin','mdf','chd','iso.trailing'):

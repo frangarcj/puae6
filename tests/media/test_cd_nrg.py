@@ -1,5 +1,6 @@
 """DAO offset owner, raw audio and canonical SUB96; no engine/CD32 claims."""
 import binascii
+import functools
 import hashlib
 import json
 import os
@@ -22,6 +23,38 @@ def mode2_header(lba):
     return b'\0' + b'\xff' * 10 + b'\0' + bytes((n // 10 * 16 + n % 10) for n in (absolute // 4500, absolute // 75 % 60, absolute % 75)) + b'\2'
 
 
+@functools.lru_cache(maxsize=16)
+def form1_body(payload, subheader=bytes(8)):
+    # Independent polynomial/field oracle: no WinUAE CRC/RS tables or encoder.
+    sector = bytearray(2352); sector[16:24] = subheader; sector[24:2072] = payload
+    edc = 0
+    for value in sector[16:2072]:
+        edc ^= value
+        for _ in range(8): edc = (edc >> 1) ^ (0xd8018001 if edc & 1 else 0)
+    struct.pack_into('<I', sector, 2072, edc)
+    def mul(a, b):
+        result = 0
+        while b:
+            if b & 1: result ^= a
+            a <<= 1
+            if a & 256: a ^= 0x11d
+            b >>= 1
+        return result
+    inverse3 = next(n for n in range(256) if mul(n, 3) == 1)
+    def parity(row):
+        total = power = 0
+        for value in row: total ^= value; power = mul(power ^ value, 2)
+        first = mul(mul(power, 2) ^ total, inverse3)
+        return first, first ^ total
+    # Header12..15 remains zero for both codes; Q consumes the computed P bytes.
+    for col in range(86):
+        sector[2076 + col], sector[2162 + col] = parity(sector[12 + col + i * 86] for i in range(24))
+    for col in range(52):
+        start = col // 2 * 86 + col % 2
+        sector[2248 + col], sector[2300 + col] = parity(sector[12 + (start + i * 88) % 2236] for i in range(43))
+    return bytes(sector[16:])
+
+
 def interleave(pw):
     return bytes(sum(((pw[ch * 12 + bit // 8] >> (7 - bit % 8)) & 1) << (7 - ch) for ch in range(8)) for bit in range(96))
 
@@ -33,17 +66,18 @@ class CdNrgTests(unittest.TestCase):
         (ROOT / 'build').mkdir(exist_ok=True)
         cls.temp = tempfile.TemporaryDirectory(prefix='cd-nrg-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336'):
-            e = next(x for x in entries if x['id'] == identifier); record = e['files'][0]; target = cls.work / record['path']
-            if not target.exists(): target.write_bytes((ROOT / 'upstream/winuae' / record['path']).read_bytes())
-            patch = (ROOT / e['file']).read_bytes()
-            assert hashlib.sha256(target.read_bytes()).hexdigest() == record['before_sha256']
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1'):
+            e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
+            for record in e['files']:
+                target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
+                if not target.exists(): target.write_bytes((ROOT / 'upstream/winuae' / record['path']).read_bytes())
+                assert hashlib.sha256(target.read_bytes()).hexdigest() == record['before_sha256']
             assert hashlib.sha256(patch).hexdigest() == e['sha256']
             mat._apply(patch, cls.work, True); mat._apply(patch, cls.work, False)
-            assert hashlib.sha256(target.read_bytes()).hexdigest() == record['after_sha256']
+            for record in e['files']: assert hashlib.sha256((cls.work / record['path']).read_bytes()).hexdigest() == record['after_sha256']
         cls.exe = cls.work / 'probe'
         command = ['clang++', '-std=c++17', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fno-exceptions', '-fno-rtti', '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
-                   '-DP6_NRG_METADATA', '-DUAE_SYSDEPS_H', '-include', 'cstring', '-I' + str(ROOT / 'ports/portable'), '-I' + str(ROOT / 'ports/portable/media'),
+                   '-I' + str(cls.work / 'include'), '-DP6_NRG_METADATA', '-DUAE_SYSDEPS_H', '-include', 'cstring', '-I' + str(ROOT / 'ports/portable'), '-I' + str(ROOT / 'ports/portable/media'),
                    '-I' + str(ROOT / 'references/libretro-api/include'), '-I' + str(ROOT / 'upstream/winuae/include'), '-x', 'c++', str(ROOT / 'tests/media/cd_nrg_probe.cpp'), str(ROOT / 'adapters/libretro/cd_nrg.cpp'), str(ROOT / 'ports/portable/media/sha256.c')]
         command += [str(ROOT / 'ports/portable/media' / (name + '.cpp')) for name in ('cd_source', 'cd_wave', 'cd_disc', 'cd_read', 'cd_subchannel', 'cd_utilities')]
         out = subprocess.run(command + [str(cls.work / n) for n in ('cdrom.cpp', 'blkdev_cdimage.cpp')] + ['-o', str(cls.exe)], capture_output=True, text=True, timeout=60)
@@ -62,6 +96,7 @@ class CdNrgTests(unittest.TestCase):
                     pw = bytearray((at // stride + n * 13 + 1) & 255 for n in range(96)); pw[22:24] = b'\0\0'
                     self.assertNotEqual(0, binascii.crc_hqx(pw[12:22], 0) ^ 0xffff)
                     sector[2352:] = interleave(pw); stream.extend(sector[:2352] + pw)
+                elif mode == 2: stream.extend(mode2_header(idx0 + (at - off0) // stride + shift) + form1_body(bytes(sector)))
                 elif mode == 3: stream.extend(mode2_header(idx0 + (at - off0) // stride + shift) + sector)
                 else: stream.extend(sector)
                 payload[at:at + stride] = sector
@@ -97,10 +132,16 @@ class CdNrgTests(unittest.TestCase):
         tracks = [list(map(int, line.split()[1:])) for line in lines if line.startswith('track ')]
         for n, (r, t, stream) in enumerate(zip(raw, tracks, streams)):
             start = r[5] if r[7] else r[6] - (r[1] - r[0]) // r[3]; clipped = max(0, start)
-            width = 2352 if r[4] == 3 else r[3]
-            self.assertEqual(t, [clipped, r[6], r[6] + (r[2] - r[1]) // r[3], n, width, (clipped - start) * width, 0 if r[4] == 0 else 3 if r[4] in (7, 16) else 2 if r[4] in (3, 6, 17) else 1])
+            width = 2352 if r[4] in (2, 3) else r[3]
+            self.assertEqual(t, [clipped, r[6], r[6] + (r[2] - r[1]) // r[3], n, width, (clipped - start) * width, 0 if r[4] == 0 else 3 if r[4] in (7, 16) else 2 if r[4] in (2, 3, 6, 17) else 1])
             self.assertIn(f'source {n} {len(stream)} {hashlib.sha256(stream).hexdigest()}', lines)
         for row in map(str.split, lines):
+            if row[0] == 'encoder':
+                expected = mode2_header(1234) + form1_body(bytes((n * 13 + 7) & 255 for n in range(2048)), bytes(range(4)) * 2)
+                self.assertEqual(row[1], hashlib.sha256(expected).hexdigest())
+            if row[0] == 'parity':
+                n, lba = map(int, row[1:3]); t = tracks[n]; at = t[5] + (lba - t[0]) * 2352
+                self.assertEqual(row[3], hashlib.sha256(streams[n][at + 2072:at + 2352]).hexdigest())
             if row[0] == 'bytes':
                 n, at, length = map(int, row[1:4]); self.assertEqual(row[4], hashlib.sha256(streams[n][at:at + length]).hexdigest())
             if row[0] in ('sector', 'sub'):
@@ -130,6 +171,22 @@ class CdNrgTests(unittest.TestCase):
         baseline = self.run_nrg(first, rebind=same, vfs=True)[-1]; self.assertTrue(baseline.startswith('rebind 0 '))
         changed = self.fixture('changed-mode3', modes=(3,))[0]; data = bytearray(changed.read_bytes()); data[17] ^= 1; changed.write_bytes(data)
         self.assertEqual(self.run_nrg(first, rebind=changed, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+
+    def test_mode2_form1_edc_ecc_are_exact_and_independent_of_lba(self):
+        for version in (1, 2):
+            for shift, missing in ((0, False), (75, 2)):
+                fixture = self.fixture(f'form1-{version}-{shift}', version, shift, missing, modes=(2, 2, 3, 7))
+                lines = self.verify(fixture); self.assertEqual(lines, self.verify(fixture, vfs=True))
+                tails = [r.split()[3] for r in lines if r.startswith('parity 0 ')]
+                self.assertEqual(3, len(tails)); self.assertEqual(1, len(set(tails)), 'identical payload has identical EDC/P/Q at different LBAs')
+        first = self.fixture('first-form1', modes=(2,))[0]; same = self.fixture('same-form1', modes=(2,))[0]
+        baseline = self.run_nrg(first, rebind=same, vfs=True)[-1]; self.assertTrue(baseline.startswith('rebind 0 '))
+        changed = self.fixture('changed-form1', modes=(2,))[0]; data = bytearray(changed.read_bytes()); data[150 * 2048 + 17] ^= 1; changed.write_bytes(data)
+        self.assertEqual(self.run_nrg(first, rebind=changed, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+        tail, directory, _ = nrg(modes=(2,), sectors=449851)
+        path = self.work / 'form1-msf-overflow.nrg'
+        with path.open('wb') as stream: stream.seek(directory); stream.write(tail)
+        self.assertEqual(self.run_nrg(path, code=2), ['error 5'])
 
     def test_mode3_impossible_msf_is_rejected_before_reading_sparse_payload(self):
         # The parser validates this large extent; the owner must refuse its unrepresentable header before hashing it.
