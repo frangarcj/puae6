@@ -255,7 +255,8 @@ static void busy_06_nan() {
     // https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf
     unsigned n=0;
     for(unsigned op : {0u,0x22u,0x38u,0x3au})
-    for(unsigned payload : {0x40000000u,0x7fffff00u,0x00000100u,0x3fffff00u})
+    for(unsigned payload : {0x40000000u,0x7fffff00u,0x00000100u,0x3fffff00u,
+                            0xc0000000u,0xffffff00u,0x80000100u,0xbfffff00u})
     for(unsigned sign : {0u,0x8000u}) for(unsigned mode=0;mode<3;mode++) {
         const unsigned dest=n++&7;
         const bool signaling=!(payload&0x40000000), pending=mode==2;
