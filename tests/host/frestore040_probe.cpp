@@ -171,6 +171,44 @@ static void busy_06(bool dbl=false) {
         printf("FRESTORE040 rev40 BUSY06-%s case%u arithmetic/flags/registers/frame PASS\n",dbl ? "double-normal":"extended",n);
     }
 }
+static void busy_06_zero_inf() {
+    // MC68040UM9.8 STAG1/2 and FPSP bugfix.S:op2_com retain sign/tag,
+    // remapping single min/max exponents to double $3c00/$43ff.
+    // Table9-5/9-7 gives independent extended results and condition codes.
+    for(unsigned mode=0;mode<3;mode++) for(unsigned tag : {1u,2u}) for(unsigned sign : {0u,0x8000u}) {
+        const unsigned dest=(2*(tag-1)+(sign ? 1:0)+4*mode)&7;
+        owner(0x40); for(int i=0;i<8;i++) move(i,10+i); move(dest,7);
+        // New exceptions: 7/(+/-0) is DZ; (+Inf)/(+/-Inf) is OPERR.
+        if(mode==2 && tag==2) { regs.fp[dest].fpx.high=0x7fff; regs.fp[dest].fpx.low=0; }
+        regs.fpiar=0xabcdef; auto before=capture();
+        Words w(25,0); w[0]=0x40600000; w[2]=0x06000000; w[0x28/4]=0x4000;
+        w[0x40/4]=(0x5400u|(dest<<7)|(mode==2 ? 0x20u:0u))<<16;
+        const unsigned exponent=tag==1 ? 0x3c00:0x43ff;
+        w[0x3c/4]=(tag<<29)|((exponent&0x4000) ? 0:1u<<28);
+        w[0x58/4]=(exponent|sign)<<16;
+        const unsigned exception=tag==1 ? 0x0400:0x2000;
+        if(mode==1) w[0x48/4]=1u<<25;
+        fpp_set_fpcr(mode==1 ? 0x0200:mode==2 ? exception:0);
+        fpp_set_fpsr(mode==1 ? 0x08000200:0); install(w); fpuop_restore(0xf358);
+        assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+        for(unsigned i=0;i<reads.size();i++) assert(reads[i]==0x10000+4*i);
+        for(unsigned i=0;i<8;i++) {
+            assert(regs.fp[i].fpx.high==(mode==0 && i==dest ? sign|(tag==2 ? 0x7fff:0):before.high[i]));
+            assert(regs.fp[i].fpx.low==(mode==0 && i==dest ? 0:before.low[i]));
+        }
+        const unsigned cc=mode==1 ? 0x08000000:mode==2 && tag==2 ? 0x01000000:
+            (sign ? 0x08000000:0)|(tag==1 && mode==0 ? 0x04000000:0x02000000);
+        // The sign of a generated default NaN is unspecified by the manual.
+        assert((regs.fpsr&(mode==2 && tag==2 ? 0x07000000:0x0f000000))==cc);
+        const unsigned vector=mode==1 ? 49:mode==2 ? (tag==1 ? 50:52):0;
+        assert(regs.fp_exp_pend==vector && regs.fpu_exp_state==(mode==1 ? 2:mode==2 ? 1:0));
+        assert(regs.fpiar==(mode==2 ? 0x4000:0xabcdef));
+        if(mode==2) assert((regs.fpsr&0xff00)==exception);
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        assert(get_long(0x11000)==(mode==1 ? 0x40600000u:mode==2 ? 0x40280000u:0x40000000u));
+        printf("FRESTORE040 rev40 BUSY06-double tag%u/sign%x mode%u result/flags/pending PASS\n",tag,sign,mode);
+    }
+}
 static void produced_commands(int rev) {
     // MC68040UM9.8/fig9-11/table9-16: execute the actual instruction first;
     // command words, stage and byte counts below are independent of its writer.
@@ -218,7 +256,7 @@ int main(int argc,char **argv) {
     c.audio_rate_hz=48000; c.random_seed=1; c.rtc_epoch_seconds=946684800;
     p6_error e{P6_ABI_VERSION,sizeof e,{}}; assert(p6_init(&c,&e)==P6_OK && p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_OK);
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; assert(p6_run_frame(&input,0,&frame,&e)==P6_OK);
-    busy_06(); busy_06(true);
+    busy_06(); busy_06(true); busy_06_zero_inf();
     for(int rev : {0x40,0x41}) {
         produced_commands(rev);
         for(int event=0;event<3;event++) busy(rev,event);
