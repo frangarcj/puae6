@@ -17731,7 +17731,8 @@
         "tests/media/test_cd_image.py",
         "tests/libretro-host/test_cd32_load.py",
         "third_party/libchdr/NOTICE.md",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tools/import_chd.py"
       ],
       "steps": [
         "IncluirmoduloChd.cmakeenLibretro, cd_chd.cppenp6_cd_images ylinkprivadop6_chd_reader→p6_chdstatic/PIC/hidden/verificacionoffline. Comentarios/NOTICEdejan nodecirno-productcuandoahoralinkreal. NoCMakeLists/engine/ABI/WB/C#/generados. CdImageData poseeCdChdyreusatemplateuse;factoryextensionchdcaseinsensitivesinfallback. CdSessiondirectoyM3UCDmixtoconcatalogo16/dedupeporidentity/cambiodiferido. coreinfo valid_extensionschd, nobin/mdf.",
@@ -17739,7 +17740,8 @@
         "MED01CdImageTestsnuevo test_chd_four_codecs_factory_vfs_identity_and_fresh_owner:4fixtureslegales40framesexistentesporfactory/VFS/canonical/sourceID/rebind/cierre/fallo/outintacto. RecetastandalonedeclaramismolinkChd.cmakeycd_chd.cpp+helper0396,conserva4parsersflagsPIC/sourcesincluidas. Quitarchddeunknownasercionpermanecerechazootrosformatos. NorepetirT7..T10matricesenteras.",
         "LR01Cd32ChdTests2metodos test_chd_direct_snapshot_new_process_vfs_and_container_identity ytest_chd_playlist_catalog_switch_and_restore. FixturepropiaPythonstoredv5ISO512cerousacd_map/metadata_chain: pruebasCDreal/read315ycachemiss/fault/no-seek/renamealias/appendopacoidentityrechazosincambiarmaquina/newprocessstdIOVFS/fullbytesyplaylistCHD/ISO/alias. EsISOvacio,nobootapp. RegresioncercanaunicaCd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner conBrianCUElocalautorizadosolo345, noR7completaotravez.",
         "GatejuegorealunavezparaformatoCHD: rootusa chdman0.287yainstalado(sininstalacion/red),createcd -np1 -hs19584 cdzl delBrianCUEautorizadoconoutputsSOLOtempbuild/,verify, reutilizasinmodificargoldenCd32GameTests.test_brian_gameplay_and_restoreconP6_CD32_GAME_CUErutaCHD. Mismosmenu1399/juego6500/interaccion/PCM/futuro80/sandboxnativoownerproceso; no6500porcodec. DET02seleccionamismogamefixtureincluidaLR01,unionunavez. BorrarCHDtemporalalterminarcheck. Siincompatibilidadcodec/streamrealconservarreproducerydoshipotesis sinrelajaroraculo.",
-        "Nueverutasatomicas objetivo220..290manuales; cd32_closeaisladonometadatani motor/guest/rootcompile-j2. PuedeprobarMEDstandaloneChd/CSharpnoenginecoordinado, avisarantesbuildheavy. RootserializalibretroproductoytestsgameactualescandidataconC3estable. BackendhostCSharp/typedpublicWBsiguenotrah ojaT66sinatribuirporlanative."
+        "Nueverutasatomicas objetivo220..290manuales; cd32_closeaisladonometadatani motor/guest/rootcompile-j2. PuedeprobarMEDstandaloneChd/CSharpnoenginecoordinado, avisarantesbuildheavy. RootserializalibretroproductoytestsgameactualescandidataconC3estable. BackendhostCSharp/typedpublicWBsiguenotrah ojaT66sinatribuirporlanative.",
+        "Ampliar10arutatools/import_chd.pysolobloqueconstanteNOTICE: configuracionMEDrechazaCHDnotice differs alretirarafirmacionno-producto. Mantenerpins/selection/hashes/verifyintactos; regenerarNOTICEdesdeconstantedeherramienta, no importarnuevasfuentesnieditarhandoutputs. Configurarp6_chdverificaexactamenteestocontrato. Primerpreflightnologrócompile, nofallomotor. Rootya creó CHDBrian528438294bytesconchdman0.287/cdzl/1proc yverifyraw/overallSHA1PASS; tempora lbuild/chd-public-qon6jrxp/Brian.chdseeliminatrasesc enario, noesfixtureGit."
       ],
       "checks": [
         "MED01",
