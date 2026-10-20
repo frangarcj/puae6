@@ -25,6 +25,8 @@ core. Los errores de firmware o contenido se comunican al frontend.
 Para CD32, abre directamente un ISO, CUE, CCD o NRG DAO, con modelo y Kickstart
 en Automatic. Pon `kick40060.CD32` y `kick40060.CD32.ext` en el directorio de
 sistema; ambos son necesarios. El preset `cd32_fast8` añade 8 MiB de Fast RAM.
+En Automatic, `(CD32FR)` o la palabra `FastRAM` en el nombre del CD tambien
+activan esos 8 MiB; los ajustes explicitos y File Name Tags tienen prioridad.
 CD32 guarda su NVRAM mediante SaveRAM del frontend. Se ha probado arranque,
 partida y restauracion de Brian the Lion; no se promete compatibilidad con todos
 los juegos. MDS/CHD nativos, otras variantes NRG y cambio de CD siguen pendientes.
