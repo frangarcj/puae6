@@ -10,7 +10,9 @@ names (the path of the content, then each disk of the playlist, then the members
 """
 from pathlib import Path
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -28,6 +30,74 @@ SIZE = re.compile(r"^state size=(\d+)", re.M)
 
 def option(key, value):
     return ("--set", f"{key}={value}")
+
+
+class CdModelResolutionTests(unittest.TestCase):
+    def test_direct_cd_tags_and_precedence(self):
+        source = r'''
+#include "model.h"
+#include <cassert>
+int main() {
+    using p6_options::Settings;
+    const auto cd = [](const char *name, Settings options = {}) {
+        return p6_libretro::resolve_model(options, false, {name}, true).settings;
+    };
+    for (const char *name : {"Disc (CD32FR).cue", "FastRAM/Disc.iso", "Disc FastRAM.cue",
+                             "Disc (CD32NF) (CD32FR).cue", "Disc (CD32) FastRAM.iso"}) {
+        const auto result = cd(name);
+        assert(result.machine == P6_MACHINE_CD32 && result.fast_size == 8192);
+    }
+    for (const char *name : {"Disc.iso", "Disc (CD32).cue", "Disc (CD32NF).cue", "Disc CD32.iso",
+                             "XFastRAM.iso", "FastRAM2.iso", "Disc (cd32fr).cue", "Disc (CD32FR ).cue",
+                             "Disc (A1200).cue", "Disc (A500) (AGA).cue"}) {
+        const auto result = cd(name);
+        assert(result.machine == P6_MACHINE_CD32 && result.fast_size == 0);
+    }
+    Settings options;
+    options.model_fd = P6_MACHINE_A600; options.model_hd = P6_MACHINE_A1200;
+    assert(cd("Disc.iso", options).machine == P6_MACHINE_CD32);
+    options.filename_tags = 0;
+    assert(cd("Disc (CD32FR) (NTSC).cue", options).fast_size == 0);
+    assert(cd("Disc (CD32FR) (NTSC).cue", options).video_standard == P6_VIDEO_PAL);
+    options.filename_tags = 1;
+    for (unsigned fast : {P6_MEMORY_NONE, 4096u, 8192u}) {
+        options.fast_size = fast;
+        assert(cd("Disc (CD32FR).cue", options).fast_size == fast);
+        assert(cd("Disc (CD32NF).cue", options).fast_size == fast);
+    }
+    options = {}; options.machine = P6_MACHINE_CD32;
+    assert(cd("Disc (CD32FR).cue", options).fast_size == 0);
+    options.machine = P6_MACHINE_A1200;
+    assert(cd("Disc (CD32FR).cue", options).machine == P6_MACHINE_A1200);
+    options = {}; options.preset = p6_options::kPresetCd32Fast8; p6_options::apply_preset(&options);
+    assert(cd("Disc (CD32NF).cue", options).fast_size == 8192);
+    options.preset = p6_options::kPresetA1200Fast8; p6_options::apply_preset(&options);
+    assert(cd("Disc (CD32FR).cue", options).machine == P6_MACHINE_A1200);
+    assert(cd("Disc (PAL) (NTSC).cue").video_standard == P6_VIDEO_NTSC);
+    options = {}; options.video_standard = P6_VIDEO_PAL;
+    assert(cd("Disc (NTSC).cue", options).video_standard == P6_VIDEO_PAL);
+    options = {}; options.cpu_compatibility = P6_CPU_NORMAL;
+    assert(cd("Disc (CE).cue", options).cpu_compatibility == P6_CPU_NORMAL);
+    const auto first = p6_libretro::resolve_model({}, false, {"Disc (CD32NF).cue", "later (CD32FR).iso"}, true);
+    assert(first.settings.fast_size == 0);
+    for (const char *name : {"Disc (CD32).adf", "Disc (CD32NF).adf", "Disc (CD32FR).adf"}) {
+        const auto floppy = p6_libretro::resolve_model({}, false, {name}).settings;
+        assert(floppy.machine == P6_MACHINE_A1200 && floppy.fast_size == 8192);
+    }
+    assert(p6_libretro::resolve_model({}, false, {"Disc FastRAM.adf"}).settings.machine == P6_MACHINE_A500);
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="cd-model-tags-", dir=lr.ROOT / "build") as temporary:
+            path = Path(temporary); cpp, exe = path / "tags.cpp", path / "tags"
+            cpp.write_text(source)
+            includes = ("adapters/libretro", "bridge/include", "references/libretro-api/include")
+            built = subprocess.run(["clang++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                                    "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
+                                    *("-I" + str(lr.ROOT / name) for name in includes), str(cpp), "-o", str(exe)],
+                                   capture_output=True, text=True, timeout=60)
+            self.assertEqual(0, built.returncode, built.stderr)
+            ran = subprocess.run([str(exe)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, ran.returncode, ran.stderr)
 
 
 @unittest.skipUnless(lr.TOOLS, "toolchain unavailable")

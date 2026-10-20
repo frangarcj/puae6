@@ -92,11 +92,9 @@ class Cd32LoadTests(Cd32Session):
         self.run_cd('--runs', 1, '--do', f'0:sramload:{durable}', '--do', f'1:sramsave:{imported}')
         self.assertEqual(durable.read_bytes(), imported.read_bytes())
 
-    def test_cd32fr_preset_fast_memory_restore_and_stock_refusal(self):
+    def assert_fast_memory_restore_and_stock_refusal(self, flags, content):
         work = self.work(); state = work / 'cd32fr.state'
-        content = os.environ.get('P6_CD_CUE_FILE', str(self.iso))
-        out = self.run_cd(
-                          '--set', 'puae6_preset=cd32_fast8', '--runs', 315,
+        out = self.run_cd(*flags, '--runs', 315,
                           '--do', '300:poke:0x200100:1234abcd', '--do', '300:poke:0x9ffffc:a9876543',
                           '--do', f'300:savefile:{state}', '--do', '315:memory', content=content)
         self.assertRegex(out, r'memory-desc \d+ name=FAST start=0x200000 len=0x800000 ')
@@ -107,16 +105,43 @@ class Cd32LoadTests(Cd32Session):
         view = lambda r: (r['unit'], r['ticks'], r['hash'], r['ahash'], r['audio'])
         self.assertEqual([view(r) for r in self.runs(out)[300:315]], [view(r) for r in self.runs(manual)[1:16]])
         self.assertEqual(re.findall(r'^memory hash (.*)$', out, re.M), re.findall(r'^memory hash (.*)$', manual, re.M))
-        refused = self.run_cd('--runs', 1, '--do', '1:save:before', '--do', f'1:loadfile:{state}',
+        refused = self.run_cd('--set', 'puae6_machine=CD32', '--runs', 1, '--do', '1:save:before', '--do', f'1:loadfile:{state}',
                               '--do', '1:save:after', content=content)
         self.assertIn(f'state load {state} exact ok=0', refused)
         hashes = re.findall(r'^state save (?:before|after) ok=1 .* hash=(\w+)', refused, re.M)
         self.assertEqual(len(hashes), 2); self.assertEqual(*hashes)
+
+    def test_cd32fr_preset_fast_memory_restore_and_stock_refusal(self):
+        self.assert_fast_memory_restore_and_stock_refusal(('--set', 'puae6_preset=cd32_fast8'),
+                                                         os.environ.get('P6_CD_CUE_FILE', str(self.iso)))
         rom = (self.system_dir / 'kick40060.CD32.ext').read_bytes() + (self.system_dir / 'kick40060.CD32').read_bytes()
         cli = subprocess.run([str(self.headless), '--run', '/dev/stdin', '--machine', 'cd32', '--fast', '8192', '--units', '2'],
                              input=rom, capture_output=True, timeout=30)
         self.assertEqual(cli.returncode, 0, cli.stderr.decode())
         self.assertIn(b'unit 2 ticks=', cli.stdout)
+
+    def test_direct_cd_filename_tags_fast_memory_and_restore(self):
+        def disc(tag):
+            path = self.work() / f'Disc {tag}.iso'; path.symlink_to(self.iso)
+            return path
+        for tag in ('(CD32FR)', 'FastRAM'):
+            with self.subTest(tag=tag):
+                self.assert_fast_memory_restore_and_stock_refusal((), disc(tag))
+        fr = disc('(CD32FR)')
+        for content, flags in ((disc('(CD32)'), ()), (disc('(CD32NF)'), ()),
+                               (fr, ('--set', 'puae6_filename_tags=disabled')),
+                               (fr, ('--set', 'puae6_machine=CD32')),
+                               (fr, ('--set', 'puae6_fast_size=None'))):
+            with self.subTest(content=content.name, flags=flags):
+                out = self.run_cd(*flags, '--runs', 2, content=content)
+                self.assertIn('machine CD32', out)
+                self.assertNotRegex(out, r'memory-desc \d+ name=FAST ')
+        preset = self.run_cd('--set', 'puae6_preset=cd32_fast8', '--runs', 2, content=disc('(CD32NF)'))
+        self.assertRegex(preset, r'memory-desc \d+ name=FAST start=0x200000 len=0x800000 ')
+        unsupported = self.run_cd('--set', 'puae6_fast_size=MB4', content=fr, expect=3)
+        self.assertIn('either no Fast RAM or the CD32FR 8 MiB board', unsupported)
+        incompatible = self.run_cd('--set', 'puae6_machine=A1200', content=fr, expect=3)
+        self.assertIn('requires Automatic or CD32 machine', incompatible)
 
     def test_invalid_model_firmware_and_vfs_fail_and_release_handles(self):
         self.run_cd('--set', 'puae6_machine=A1200', expect=3)

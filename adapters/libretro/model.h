@@ -2,7 +2,7 @@
 // standard before the machine exists. PUAE5 does the same with puae_model=auto and the path of the content (libretro-core.c retro_create_config, retro_config_force_region);
 // MacHawk takes the model from its sync setting and has no tags, so the idea is PUAE5's and the code is new.
 //
-// The resolution is a PURE function of three things: the options as read (Settings), whether the content has a hard disk, and the list of names to look at. It reads no file,
+// The resolution is a PURE function of the options as read (Settings), the content type (hard disk or direct CD), and the list of names to look at. It reads no file,
 // no clock, no environment and no locale; the same inputs give the same machine on every host, and the result is a p6_config like any other (so it enters config_hash and the
 // state identity: a state of a content whose tag picked another machine is refused by p6_state_load, like a state of another machine).
 //
@@ -11,7 +11,7 @@
 //   1. An explicit option wins: a model or a preset other than Automatic is never changed by a tag (PUAE5 reads the tags only on Automatic); a video standard other than the
 //      automatic ones likewise. Tags are still looked at, so that the log can say that one was not used.
 //   2. Model, strong tags: names are tried in order and the FIRST name that holds one decides; inside a name the tag listed first in the table below wins (PUAE5's order, a name
-//      that holds (A1200) and (A500) is an A1200). A tag of a machine this core does not have (68030, 68040) is a warning and leaves the model to the options: it does not let a
+//      that holds (A1200) and (A500) is an A1200). A tag not supported for automatic selection (68030, 68040) is a warning and leaves the model to the options: it does not let a
 //      weaker tag of the same or another name choose another machine in its place.
 //   3. Model, weak words (AGA, AmigaCD, ECS, OCS): only if no name holds a strong tag, again the first name that holds one; they move the model only when the model the content
 //      type would have is not already of that chipset (PUAE5).
@@ -20,7 +20,7 @@
 // A bare word (PAL, NTSC, AGA, ECS, OCS, AmigaCD, CD32, CDTV) must not touch a letter or a digit on either side ("PALADIN" is not PAL; PUAE5's strstr finds it); a tag with
 // parentheses or an underscore marks itself. Matching is case sensitive and byte by byte: nothing depends on the locale.
 //
-// Tags of what this core does not have are warnings and never an error and never another machine: (A4030) (030) (A4040) (040) CDTV _Arcadia.
+// Unsupported automatic tags are warnings and never an error or another machine: (A4030) (030) (A4040) (040) CDTV _Arcadia.
 // (CE) forces cycle-exact CPU timing even when a faster level was selected in the menu.
 #ifndef P6_LIBRETRO_MODEL_H
 #define P6_LIBRETRO_MODEL_H
@@ -96,6 +96,15 @@ constexpr ModelTag kModelTags[] = {
     {"(A1000)", false, Effect::Machine, P6_MACHINE_A1000, "the A1000"},
 };
 
+// A direct CD has its own PUAE5 selection path; floppy CD32 tags keep the A1200 fallback above.
+constexpr ModelTag kCdModelTags[] = {
+    {"(CD32FR)", false, Effect::Preset, p6_options::kPresetCd32Fast8, "the CD32 with 8 MiB of Fast RAM"},
+    {"FastRAM", true, Effect::Preset, p6_options::kPresetCd32Fast8, "the CD32 with 8 MiB of Fast RAM"},
+    {"(CD32)", false, Effect::Machine, P6_MACHINE_CD32, "the stock CD32"},
+    {"(CD32NF)", false, Effect::Machine, P6_MACHINE_CD32, "the stock CD32"},
+    {"CD32", true, Effect::Machine, P6_MACHINE_CD32, "the stock CD32"},
+};
+
 // The words that name a chipset (PUAE5): they move the model only when the model the content type would have is not already of that chipset.
 enum class Chipset { Aga, Ecs, Ocs };
 struct WeakWord {
@@ -141,9 +150,9 @@ inline std::string shown(const std::string &name)
 }  // namespace model_detail
 
 // Resolves `chosen` (what read_options gave, with a .uae laid over it if the content is one) for the content `names` (see above); `hard_disk` is true when the content has a
-// hard disk. The result is `settings` with machine and video_standard made concrete (never Automatic) and, for the two tags that carry memory, the memory options still at
+// hard disk; `direct_cd` selects the separate CD32 tag table instead of the floppy/hard-disk fallback. The result is `settings` with machine and video_standard made concrete (never Automatic) and, for tags that carry memory, the memory options still at
 // their defaults replaced by the tag's.
-inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool hard_disk, const std::vector<std::string> &names)
+inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool hard_disk, const std::vector<std::string> &names, bool direct_cd = false)
 {
     using namespace model_detail;
     ModelResolution out;
@@ -153,7 +162,7 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
     out.multidrive = chosen.floppy_multidrive != 0;
     const bool auto_machine = chosen.machine == p6_options::kMachineAuto;
     const bool auto_video = chosen.video_standard == p6_options::kVideoStandardPalAuto || chosen.video_standard == p6_options::kVideoStandardNtscAuto;
-    const uint32_t content_machine = hard_disk ? chosen.model_hd : chosen.model_fd;
+    const uint32_t content_machine = direct_cd ? uint32_t(P6_MACHINE_CD32) : hard_disk ? chosen.model_hd : chosen.model_fd;
 
     // What the names hold. `strong` is the tag that decides the model (null: none), `weak` the chipset word; `decided_by` is the name that holds it.
     const ModelTag *strong = nullptr;
@@ -165,14 +174,19 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
     bool said_cdtv = false, said_md = false, said_arcadia = false, said_ce = false;
     if (out.tags_read) {
         for (const std::string &name : names) {
-            if (!strong)
-                for (const ModelTag &tag : kModelTags)
+            if (!strong) {
+                const ModelTag *tags = direct_cd ? kCdModelTags : kModelTags;
+                const size_t count = direct_cd ? sizeof kCdModelTags / sizeof *tags : sizeof kModelTags / sizeof *tags;
+                for (size_t i = 0; i < count; ++i) {
+                    const ModelTag &tag = tags[i];
                     if (has_tag(name, tag.text, tag.bare)) {
                         strong = &tag;
                         strong_name = &name;
                         break;
                     }
-            if (!weak)
+                }
+            }
+            if (!weak && !direct_cd)
                 for (const WeakWord &word : kWeakWords)
                     if (has_tag(name, word.text, true)) {
                         weak = &word;
@@ -195,9 +209,9 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
             // What this core cannot honour is said once per tag, for the first name that holds it.
             if (!said_cdtv && has_tag(name, "CDTV", true)) {
                 said_cdtv = true;
-                out.warnings.push_back("the tag CDTV in " + shown(name) + " is ignored: this core has no CD drive or CDTV");
+                out.warnings.push_back("the tag CDTV in " + shown(name) + " is ignored: this core has no CDTV");
             }
-            if (!said_md && has_tag(name, "(MD)", false)) {
+            if (!direct_cd && !said_md && has_tag(name, "(MD)", false)) {
                 said_md = true;
                 out.multidrive = true;
                 out.notes.push_back("the tag (MD) in " + shown(name) + " enables MultiDrive");
@@ -206,7 +220,7 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
                 said_arcadia = true;
                 out.warnings.push_back("the tag _Arcadia in " + shown(name) + " is ignored: this core has no Arcadia pad");
             }
-            if (!said_ce && has_tag(name, "(CE)", false)) {
+            if (!direct_cd && !said_ce && has_tag(name, "(CE)", false)) {
                 said_ce = true;
                 out.force_cycle_exact = true;
                 settings.cpu_compatibility = P6_CPU_EXACT;
@@ -221,7 +235,7 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
     // The model.
     if (auto_machine) {
         uint32_t machine = content_machine;
-        std::string why = hard_disk ? "the content has a hard disk: puae6_model_hd" : "the content has no hard disk: puae6_model_fd";
+        std::string why = direct_cd ? "the content is a direct CD: CD32" : hard_disk ? "the content has a hard disk: puae6_model_hd" : "the content has no hard disk: puae6_model_fd";
         if (!out.tags_read) {
             why += " (File Name Tags is off)";
         } else if (strong) {

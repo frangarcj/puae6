@@ -190,7 +190,7 @@ Opciones (todas `reboot`, no son campos de `p6_config`, salvo las dos primeras q
 |---|---|---|
 | `puae6_machine` | `auto`, `A500`, `A600`, `A1200`, `A500OG`, `A500PLUS`, `A1000`, `A2000OG`, `A2000` | `auto` = etiquetas y tipo de contenido; cualquier otro valor es el modelo y **ninguna etiqueta lo cambia**. Un `puae6_preset` distinto de `none` cuenta como modelo elegido. |
 | `puae6_video_standard` | `PAL auto`, `NTSC auto`, `PAL`, `NTSC` | `PAL auto` = la etiqueta de region si la hay, si no PAL; `NTSC auto` = igual con NTSC por defecto. `PAL`/`NTSC` fijan el estandar. |
-| `puae6_model_fd` | `A500` y los demas modelos | modelo de `auto` para contenido **sin** disco duro (disquetes, o sin contenido). `puae_model_fd` de PUAE5. |
+| `puae6_model_fd` | `A500` y los demas modelos | modelo de `auto` para disquetes o sin contenido. El CD directo tiene su propia seleccion CD32 descrita abajo. `puae_model_fd` de PUAE5. |
 | `puae6_model_hd` | `A1200` y los demas | modelo de `auto` para contenido **con** disco duro (`.hdf`, `.hdz`, directorio o `.lha` como volumen, solo o con disquetes). `puae_model_hd` de PUAE5; el disco duro pide un Kickstart 2.0 o posterior. |
 | `puae6_filename_tags` | `enabled`, `disabled` | `disabled`: no se lee ninguna etiqueta (el modelo sale de las opciones y del tipo de contenido, el estandar de la opcion). |
 | `puae6_kickstart` | `auto`, `kick33180.A500` (1.2), `kick34005.A500` (1.3), `kick37175.A500` (2.04), `kick37350.A600` (2.05), `kick40063.A600` (3.1 r40.063), `kick39106.A1200` (3.0), `kick40068.A1200` (3.1 r40.068) | T51, `puae_kickstart` de PUAE5 (mismos valores, sin los A4000 ni `aros`). `auto` busca los nombres del modelo; una version busca solo los nombres de esa version (los de `uae_kickstarts[]` de PUAE5: normal, Amiga Forever, TOSEC `[!]`, TOSEC) y la maquina la ejecuta si el contenido del ROM lo permite: un ROM que pide mas CPU que la maquina (el 3.1 del A1200 en una maquina con 68000) se rechaza con el motivo. No es un campo de `p6_config`: la identidad del firmware es el SHA-256 de sus bytes (un estado tomado con otro Kickstart se rechaza). Un ROM cifrado por Amiga Forever se descifra con el `rom.key` del mismo directorio de sistema, ver `docs/02-contracts.md` ("Kickstart alternativo y rom.key"). |
@@ -225,7 +225,7 @@ encuentra). Es la unica diferencia de lectura con PUAE5; las etiquetas entre par
 
 | Etiqueta (en el orden de la tabla) | Efecto en PUAE6 | PUAE5 |
 |---|---|---|
-| `(A4030)`, `(030)`, `(A4040)`, `(040)` | **aviso**, sin efecto: A4030 se elige mediante opciones o preset; 68040 aun no esta implementado | A4000/030 y /040 |
+| `(A4030)`, `(030)`, `(A4040)`, `(040)` | **aviso**, sin efecto automatico: A4030 y A4040 con CPU040/060 se eligen explicitamente mediante opciones o preset | A4000/030 y /040 |
 | `(A1200OG)`, `(A1200NF)` | A1200 (68EC020, AGA, 2 MiB Chip, sin Fast RAM) | A1200OG |
 | `(A1200)`, `(CD32)`, `(CD32NF)`, `(CD32FR)`, `CD32` | A1200 **con 8 MiB de Fast RAM**: el preset `a1200_fast8` (solo toma la memoria que las opciones dejan en su valor por defecto; `puae6_fast_size=MB4` se queda) | A1200 (y `CD32` en contenido de disquete) |
 | `(A600)` | A600 con 2 MiB de Chip y 8 MiB de Fast: el preset `a600_puae5` (misma regla; el Kickstart es el del A600 de este core, 2.05, no el 3.1 de PUAE5) | A600 |
@@ -236,15 +236,35 @@ encuentra). Es la unica diferencia de lectura con PUAE5; las etiquetas entre par
 | `AGA`, `AmigaCD` / `ECS` / `OCS` | palabras de chipset, regla 3 | igual |
 | `NTSC`, `(USA)` | NTSC si `puae6_video_standard` es `PAL auto` o `NTSC auto` | igual (`NTSC`, `(USA)`) |
 | `PAL`, `(Europe)`, `(France)`, `(Germany)`, `(Italy)`, `(Spain)`, `(Finland)`, `(Denmark)`, `(Sweden)` | PAL, con la misma condicion | igual |
-| `CDTV` | **aviso**: no hay CD ni CDTV | CDTV (solo con CD) |
+| `CDTV` | **aviso**: CDTV no esta implementado | CDTV (solo con CD) |
 | `(MD)` | monta discos sucesivos en unidades separadas; Auto habilita DF0..DF3, un numero explicito limita el montaje | MultiDrive |
 | `_Arcadia` | **aviso**: no hay pad Arcadia | pad Arcadia |
 | `(CE)` | fuerza precision de CPU exacta al ciclo, incluso si el menu eligio compatible o normal | fuerza CE |
 
 Con File Name Tags activado, `(CE)` se aplica tambien despues de las claves de un `.uae`, como en PUAE5.
 
-PUAE5 no tiene etiquetas de memoria, FPU ni velocidad (la memoria va con el modelo): aqui tampoco; son `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model` y `puae6_floppy_speed`. Lo que
+En disquetes, la memoria de las etiquetas va con el modelo: no hay etiquetas independientes de memoria, FPU ni velocidad; son `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model` y `puae6_floppy_speed`. Lo que
 una etiqueta no puede honrar **nunca** falla en silencio ni elige otra cosa: se ignora con un aviso en pantalla y en el registro (una sola vez por etiqueta, aunque la tengan varios nombres).
+
+### CD directo: stock y CD32FR
+
+Un CD directo con `puae6_machine=auto` parte de CD32, independientemente de
+`puae6_model_fd` y `puae6_model_hd`. Con File Name Tags activado, su tabla propia
+elige la primera coincidencia en este orden dentro de cada nombre:
+
+| Etiqueta | Efecto |
+|---|---|
+| `(CD32FR)`, palabra `FastRAM` | CD32 con 8 MiB de Fast RAM cuando `puae6_fast_size` es Auto |
+| `(CD32)`, `(CD32NF)`, palabra `CD32` | CD32 stock cuando la memoria es Auto |
+
+Las opciones explicitas ganan: `puae6_machine=CD32` ignora las etiquetas de modelo;
+el preset `cd32_fast8` conserva sus 8 MiB incluso con `(CD32NF)`. Un modelo
+explicito incompatible con CD se rechaza. Una memoria distinta de Auto conserva
+su valor: None desactiva Fast, MB8 activa la placa y MB4 sigue siendo unsupported
+en CD32. Con File Name Tags desactivado, Auto elige stock salvo memoria o preset
+explicitos. Las etiquetas de region conservan la precedencia anterior y `FastRAM`
+respeta los mismos limites de palabra y mayusculas. En disquetes, las etiquetas
+CD32 siguen eligiendo A1200 con Fast; esta tabla solo se usa para CD directo.
 
 ### Que se dice y donde
 

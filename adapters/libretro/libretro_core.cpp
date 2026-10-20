@@ -1900,10 +1900,10 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             if (!core.cd->open(game->path, core.cd_vfs, &why)) {
                 notify_error("%s", why.c_str()); stop_image(); return false;
             }
-            // Floppy CD32 tags historically request A1200+8M. A real CD retains
-            // the explicit CD32/CD32FR memory choice and resolves only its region.
-            core.settings.video_standard = p6_libretro::resolve_model(core.settings, false, {game->path}).settings.video_standard;
-            core.settings.machine = p6_libretro::CdSession::firmware_names().machine;
+            const auto resolved = p6_libretro::resolve_model(core.settings, false, {game->path}, true);
+            for (const std::string &note : resolved.notes) log(RETRO_LOG_INFO, "%s", note.c_str());
+            for (const std::string &warning : resolved.warnings) notify_warning("%s", warning.c_str());
+            core.settings = resolved.settings;
             multidrive = false;
         } else if (!load_disks(game, configured ? &configured_disks : nullptr, &core.media, &images, &names, &pack)) {
             stop_image();
