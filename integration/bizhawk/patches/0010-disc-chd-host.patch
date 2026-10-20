@@ -86,7 +86,6 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_Puae6.cs b/src/Biz
 --- /dev/null
 +++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_Puae6.cs
 @@ -0,0 +1,87 @@
-+using System;
 +using System.Collections.Generic;
 +using System.IO;
 +using System.Runtime.InteropServices;
@@ -132,7 +131,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_Puae6.cs b/src/Biz
 +   static extern void Close(IntPtr owner);
 +   internal readonly Info Geometry;
 +   readonly byte[] staging = new byte[2448];
-+   static Puae6ChdBlob()
++   static void CheckLayout()
 +   {
 +    if (sizeof(Info) != 32 || Marshal.OffsetOf<Info>(nameof(Info.Bytes)).ToInt32() != 24
 +     || sizeof(TrackDto) != 96 || Marshal.OffsetOf<TrackDto>(nameof(TrackDto.OffsetFrames)).ToInt32() != 40
@@ -140,6 +139,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_Puae6.cs b/src/Biz
 +   }
 +   internal Puae6ChdBlob(string path) : base(true)
 +   {
++    CheckLayout();
 +    if (path == null) throw new ArgumentNullException(nameof(path));
 +    if (path.IndexOf('\0') >= 0) throw new ArgumentException("CHD path contains NUL", nameof(path));
 +    var info = new Info { Version = 1, Size = (uint)sizeof(Info) };

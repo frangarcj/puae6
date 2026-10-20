@@ -1,5 +1,6 @@
 """Compressed CHD -> host ABI -> real DiscSystem/regions/source; no guest."""
 import ctypes
+import functools
 import hashlib
 import importlib.util
 import json
@@ -22,9 +23,22 @@ class ChdHostCSharpTests(unittest.TestCase):
         cls.work=Path(cls.temp.name); cls.dll,cls.env=source.build_disc_source(cls.work)
         for name in ('DYLD_LIBRARY_PATH','LD_LIBRARY_PATH'): cls.env.pop(name,None)
         spec=importlib.util.spec_from_file_location('chd_host_recipe',source.ROOT/'integration/bizhawk/patches/build_tree.py')
-        recipe=importlib.util.module_from_spec(spec); spec.loader.exec_module(recipe)
+        recipe=importlib.util.module_from_spec(spec); spec.loader.exec_module(recipe); cls.recipe=recipe
         cls.library=recipe.build_chd_host(cls.dll.parent)
         cls.pattern=reader.dependency.load('chd_host_pattern',source.ROOT/'tests/fixtures/chd/generate.py')
+
+    def test_real_discsystem_target_and_analyzers(self):
+        recipe=self.recipe
+        recipe.MACHAWK=Path(os.environ.get('P6_MACHAWK_REFERENCE',str(recipe.MACHAWK)))
+        recipe.git=functools.partial(recipe.git,cwd=recipe.MACHAWK)
+        receipt=Path(os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT',str(source.ROOT/'build/waterbox/puae6/puae6-receipt.json')))
+        if not receipt.is_file(): raise RuntimeError('BLOCKED: missing guest receipt SHA build parameter')
+        guest=json.loads(receipt.read_text())['guest']['sha256'] # Compile parameter only; no guest execution/validation.
+        tree=self.work/'real-discsystem'; recipe.check_patches()
+        self.assertTrue(recipe.export_tree(tree)); recipe.apply_patches(tree)
+        assembly=recipe.build(guest,tree,'src/BizHawk.Emulation.DiscSystem/BizHawk.Emulation.DiscSystem.csproj',
+            'src/BizHawk.Emulation.DiscSystem/bin/Debug/BizHawk.Emulation.DiscSystem.dll')
+        self.assertTrue(assembly.is_file()); (tree/'build.log').unlink()
 
     def test_four_codecs_real_mount_regions_audio_subq_crossings_and_ownership(self):
         audio=self.pattern.audio(); expected=b''.join(audio[n*2352:(n+1)*2352]+subq(1,1,n,0,0) for n in range(40))
