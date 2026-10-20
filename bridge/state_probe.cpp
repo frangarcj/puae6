@@ -180,7 +180,11 @@ void cpu(Canon &c)
     }
     if (currprefs.cpu_model == 68030)
         c.put(regs.vbr).put(regs.msp).put(regs.caar).put(regs.cacr).put(regs.sfc).put(regs.dfc).put(int32_t(regs.instruction_cnt));
-    if (!p6_probe_cpu_late(c)) {
+    // p6_load precedes the reset head: no internal FPU owner exists yet. Mark
+    // that phase explicitly; after the head, a failed observation is an error.
+    const bool late = currprefs.cpu_model == 68040 || currprefs.cpu_model == 68060;
+    if (late) c.put(uint8_t(p6_session::session.started));
+    if ((!late || p6_session::session.started) && !p6_probe_cpu_late(c)) {
         fprintf(stderr, "cpu probe: internal FPU owner is not ready\n");
         exit(1);
     }
@@ -1058,6 +1062,7 @@ int main(int argc, char **argv)
             else if (!strcmp(name, "a2000og")) machine = P6_MACHINE_A2000OG;
             else if (!strcmp(name, "a2000")) machine = P6_MACHINE_A2000;
             else if (!strcmp(name, "a4030")) machine = P6_MACHINE_A4030;
+            else if (!strcmp(name, "a4040")) machine = P6_MACHINE_A4040;
             else return 64;
         }
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));

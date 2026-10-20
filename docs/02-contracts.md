@@ -42,6 +42,23 @@ en nativo, libretro y Waterbox, tambien en un proceso nuevo; Waterbox comprueba
 ademas otro sandbox. Se compara el estado causal por el oraculo DET02 existente,
 video y PCM, sin afirmar compatibilidad con software aun no probado.
 
+## A4000/040 y 68060: primera vertical nativa (T55c)
+
+`P6_MACHINE_A4040 = 12` usa el preset upstream A4000 configuracion1,
+AGA/Gary/Ramsey/Ricoh y la misma memoria Z2/Z3 que A4030. Solo CPU Normal,
+sin MMU ni caches de instrucciones/datos: CPU0/5 selecciona68040 y CPU7
+selecciona68060. FPU0 conserva su significado de ninguna; FPU68040/68060
+requiere la CPU correspondiente y usa SoftFloat estricto, con instrucciones
+no implementadas emuladas por el backend. El reloj Auto conserva el multiplicador2
+del preset; se puede pedir otro multiplicador admitido. La ABI sigue en72bytes.
+
+La API nativa y headless ofrecen esta vertical; los selectores libretro/BizHawk,
+firmware real, presupuesto Waterbox y aceptacion completa siguen enT55c.
+P6CP y el digestCPU incluyen controles040/060 y todo el estado semantico de la
+FPU interna, sin punteros ni padding. La identidad distingue CPU/FPU, incluso
+sin FPU; Auto y68040 explicito representan la misma configuracion. No se anuncia
+compatibilidad universal de framesFRESTORE ni de estados entre builds.
+
 ## ABI C pequena
 
 Operaciones del motor: p6_abi_version, p6_query_caps, p6_init, p6_load,

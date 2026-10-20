@@ -67,13 +67,13 @@ p6_config valid_config(uint32_t machine = P6_MACHINE_A500)
     c.random_seed = 1;
     c.rtc_epoch_seconds = 946684800;
     c.flags = g_writable ? P6_CONFIG_FLOPPY_WRITES : 0;
-    if (machine == P6_MACHINE_A4030) c.cpu_compatibility = P6_CPU_NORMAL;
+    if (machine == P6_MACHINE_A4030 || machine == P6_MACHINE_A4040) c.cpu_compatibility = P6_CPU_NORMAL;
     return c;
 }
 
 // The memory rules of p6_config (T49), written again from the header comments: 0 is the machine's own, P6_MEMORY_NONE is none. The A500 has an OCS Agnus (Chip RAM 512 KiB or 1 MiB),
 // AGA maps 1.5 MiB of Slow RAM at most, and the Fast RAM board is 1, 2, 4 or 8 MiB.
-bool machine_accepted(uint32_t machine) { return (machine >= 1 && machine <= 9) || machine == 11; }
+bool machine_accepted(uint32_t machine) { return (machine >= 1 && machine <= 9) || machine == 11 || machine == 12; }
 
 // OCS Agnus: the A500, the A500 OG and the A2000 OG (the A1000 has its own rule); the others have the ECS Agnus or AGA and take 2 MiB of Chip RAM.
 bool ocs_agnus(uint32_t machine) { return machine == P6_MACHINE_A500 || machine == P6_MACHINE_A500OG || machine == P6_MACHINE_A2000OG; }
@@ -82,21 +82,23 @@ bool memory_accepted(const p6_config &c)
 {
     if (c.machine == P6_MACHINE_A1000)         // the memory of its preset: 512 KiB of Chip RAM, nothing else
         return (c.chip_kib == 0 || c.chip_kib == 512) && (c.slow_kib == 0 || c.slow_kib == P6_MEMORY_NONE) && (c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE);
-    if (c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_CD32) {
+    if (c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040 || c.machine == P6_MACHINE_CD32) {
         if ((c.chip_kib && c.chip_kib != 2048) || (c.slow_kib && c.slow_kib != P6_MEMORY_NONE)) return false;
         if (c.machine == P6_MACHINE_CD32)
             return c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE || c.fast_kib == 8192;
     }
-    const bool a500 = ocs_agnus(c.machine), aga = c.machine == P6_MACHINE_A1200 || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_CD32;
+    const bool a500 = ocs_agnus(c.machine), aga = c.machine == P6_MACHINE_A1200 || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040 || c.machine == P6_MACHINE_CD32;
     const bool chip = c.chip_kib == 0 || c.chip_kib == 512 || c.chip_kib == 1024 || (!a500 && c.chip_kib == 2048);
     const bool slow = c.slow_kib == 0 || c.slow_kib == P6_MEMORY_NONE || c.slow_kib == 512 || c.slow_kib == 1024 || c.slow_kib == 1536 || (!aga && c.slow_kib == 1792);
     const bool fast = c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE || c.fast_kib == 1024 || c.fast_kib == 2048 || c.fast_kib == 4096 || c.fast_kib == 8192;
     return chip && slow && fast;
 }
 
-// External FPU: 68881/82 on A1200/020 or A4030/030; internal 040/060 not public.
+// External 68881/82 on020/030; matching internal040/060 on A4040.
 bool fpu_accepted(const p6_config &c)
 {
+    if (c.machine == P6_MACHINE_A4040) return c.fpu_model == 0 ||
+        c.fpu_model == (c.cpu_model == 7 ? 68060u : 68040u);
     return c.fpu_model == 0 || ((c.fpu_model == 68881 || c.fpu_model == 68882) &&
            (c.machine == P6_MACHINE_A1200 || c.machine == P6_MACHINE_A4030));
 }
@@ -108,6 +110,7 @@ bool fpu_accepted(const p6_config &c)
 // CD32 takes its stock68020/Exact and multiplier0/4. The remaining bytes have separate validators below.
 bool cpu_accepted(const p6_config &c)
 {
+    if (c.machine == P6_MACHINE_A4040) return (c.cpu_model == 0 || c.cpu_model == 5 || c.cpu_model == 7) && c.cpu_compatibility == P6_CPU_NORMAL;
     if (c.machine == P6_MACHINE_A4030) return (c.cpu_model == 0 || c.cpu_model == 4) && c.cpu_compatibility == P6_CPU_NORMAL;
     if (c.machine == P6_MACHINE_CD32) return (c.cpu_model == 0 || c.cpu_model == 3) && c.cpu_compatibility == P6_CPU_EXACT;
     return c.cpu_model == 0 || (c.machine == P6_MACHINE_A1200 ? c.cpu_model == 3 : (c.cpu_model == 1 || c.cpu_model == 2));
@@ -124,7 +127,7 @@ bool clock_accepted(const p6_config &c)
 bool hdf_controller_accepted(const p6_config &c)
 {
     return c.hdf_controller == P6_HDF_CONTROLLER_UAE || (c.hdf_controller == P6_HDF_CONTROLLER_IDE &&
-           (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200 || c.machine == P6_MACHINE_A4030));
+           (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200 || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040));
 }
 
 bool audio_accepted(const p6_config &c)
@@ -141,7 +144,7 @@ bool oracle_accepts(const p6_config &c)
     const bool accepted = c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && machine_accepted(c.machine) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
            (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && fpu_accepted(c) && audio_accepted(c) &&
-           !c.reserved7[0] && !c.reserved8[0] && c.z3_memory <= 10 && (!c.z3_memory || c.machine == P6_MACHINE_A4030) &&
+           !c.reserved7[0] && !c.reserved8[0] && c.z3_memory <= 10 && (!c.z3_memory || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040) &&
            (c.machine != P6_MACHINE_CD32 || (!c.flags && !c.floppy_drives)) && c.collision_level <= 4 && c.floppy_drives <= 4 &&
            c.cpu_compatibility <= P6_CPU_NORMAL && hdf_controller_accepted(c) && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);
@@ -184,6 +187,23 @@ ConfigCases config_cases()
                 c.z3_memory = z3; c.fpu_model = fpu; c.cpu_model = cpu;
                 c.hdf_controller = ide; c.fast_kib = fast; out.accept(c);
             }
+    for (uint8_t cpu : {0, 5, 7}) for (bool fpu : {false, true})
+        for (uint8_t z3=0; z3<=10; ++z3) for (uint8_t ide : {0, 1})
+            for (uint32_t fast : {0u, P6_MEMORY_NONE, 1024u, 2048u, 4096u, 8192u}) {
+                auto c=valid_config(P6_MACHINE_A4040); c.cpu_model=cpu;
+                c.fpu_model=fpu ? (cpu==7 ? 68060:68040):0;
+                c.z3_memory=z3; c.hdf_controller=ide; c.fast_kib=fast; out.accept(c);
+            }
+    for (uint8_t cpu : {1, 2, 3, 4, 6, 8, 255}) {
+        auto c=valid_config(P6_MACHINE_A4040); c.cpu_model=cpu; out.reject(c);
+    }
+    for (uint8_t cpu : {0, 5, 7}) for (uint32_t fpu : {1u, 68881u, 68882u, 68040u, 68060u}) {
+        auto c=valid_config(P6_MACHINE_A4040); c.cpu_model=cpu; c.fpu_model=fpu;
+        if(fpu!=(cpu==7 ? 68060u:68040u)) out.reject(c);
+    }
+    for (uint8_t accuracy : {0, 1, 3, 255}) {
+        auto c=valid_config(P6_MACHINE_A4040); c.cpu_compatibility=accuracy; out.reject(c);
+    }
     for (uint32_t fast : {0u, P6_MEMORY_NONE, 8192u}) for (uint8_t cpu : {0, 3}) for (uint8_t clock : {0, 4}) {
         auto c = valid_config(P6_MACHINE_CD32); c.fast_kib = fast;
         c.cpu_model = cpu; c.cpu_multiplier = clock; out.accept(c);
@@ -210,7 +230,7 @@ ConfigCases config_cases()
     for (uint8_t clock : {0, 1, 2, 4, 8, 10, 12, 16}) {
         auto c = valid_config(P6_MACHINE_A4030); c.cpu_multiplier = clock; out.accept(c);
     }
-    for (uint32_t m : {0u, 10u, 12u, 13u, 0xffffffffu}) { auto c = valid_config(m); out.reject(c); }
+    for (uint32_t m : {0u, 10u, 13u, 0xffffffffu}) { auto c = valid_config(m); out.reject(c); }
     for (uint32_t fast : {1u, 1024u, 2048u, 4096u, 16384u}) {
         auto c = valid_config(P6_MACHINE_CD32); c.fast_kib = fast; out.reject(c);
     }
@@ -236,7 +256,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
     Random rng(seed);
     std::map<int, unsigned> histogram;
     const auto cases = config_cases();
-    uint32_t machines = 0, z3 = 0, fpus = 0, controllers = 0, cd32_fast = 0;
+    uint32_t machines = 0, z3 = 0, fpus = 0, controllers = 0, cd32_fast = 0, late_cpus = 0;
     for (uint64_t i = 0; i < iterations; ++i) {
         const bool witness = i < cases.witnesses.size();
         p6_config c = witness ? cases.witnesses[i].first : cases.seeds[rng.below(unsigned(cases.seeds.size()))];
@@ -296,6 +316,12 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
                 fpus |= 1u << (c.fpu_model == 0 ? 0 : c.fpu_model == 68881 ? 1 : 2);
                 controllers |= 1u << c.hdf_controller;
             }
+            if (c.machine == P6_MACHINE_A4040) {
+                late_cpus |= c.cpu_model==7 ? 2:1;
+                z3 |= 1u << c.z3_memory;
+                fpus |= 1u << (c.fpu_model==0 ? 0:c.fpu_model==68040 ? 3:4);
+                controllers |= 1u << c.hdf_controller;
+            }
             if (c.machine == P6_MACHINE_CD32) cd32_fast |= c.fast_kib == 8192 ? 2 : 1;
             const p6_result twice = p6_init(&c, nullptr);
             if (twice != P6_ERROR_BAD_STATE) bug("second init did not report BAD_STATE", i);
@@ -303,7 +329,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
         }
     }
     for (const auto &entry : histogram) printf("config result %d: %u\n", entry.first, entry.second);
-    printf("config coverage machines=%x z3=%x fpus=%x controllers=%x cd32_fast=%x\n", machines, z3, fpus, controllers, cd32_fast);
+    printf("config coverage machines=%x z3=%x fpus=%x controllers=%x cd32_fast=%x late_cpus=%x\n", machines, z3, fpus, controllers, cd32_fast, late_cpus);
     return 0;
 }
 

@@ -203,7 +203,8 @@
     "0377-frestore040-busy-pending": "behavior",
     "0378-frestore040-cu-exception-address": "behavior",
     "0379-frestore040-fpsp-cu06-extended": "behavior",
-    "0380-fsave040-sqrt-command-stage": "behavior"
+    "0380-fsave040-sqrt-command-stage": "behavior",
+    "0381-z3-normal-040-060": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

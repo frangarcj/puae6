@@ -5317,6 +5317,28 @@
           "after_sha256": "cded560a499e01f7eb9fbac953459b6b03d4ccb9bc37e43bab6e54d4c932fdb9"
         }
       ]
+    },
+    {
+      "id": "0381-z3-normal-040-060",
+      "file": "patches/winuae/0381-z3-normal-040-060.patch",
+      "sha256": "c4ca7f27487ce619b2528b544abda5956fb0d09e87dcebd248d5d3ec109c1621",
+      "title": "Retain the physical Z3 board on Normal no-MMU 040 and 060",
+      "reason": "T55c: the native A4040 profile uses the same real Z3 autoconfig/backing as A4030; the portable guard must retain its validated power-of-two capacity on all three 32-bit CPUs.",
+      "category": "profile support",
+      "order": 198,
+      "symbols": [
+        "fixup_prefs"
+      ],
+      "test": "tests/state/test_a4040.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "6580b19ed335747630db80065402cc6b2d9ad3fa3b11061676c4b8fee10b1bbd",
+          "after_sha256": "923832bcff7f4f44b4c6d8b5bdd4fb2dbb8ad3e9017f89a2841e04f528c68ef1"
+        }
+      ]
     }
   ]
 }

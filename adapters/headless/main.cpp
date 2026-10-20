@@ -2,9 +2,9 @@
 // dependency, reports the identity of the build and what the native ABI implements, and runs a
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
-//   p6_headless --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000|a4030|cd32] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--fpu 0|68881|68882]
+//   p6_headless --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000|a4030|a4040|cd32] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--fpu 0|68881|68882|68040|68060]
 //                         [--hdf-controller uae|ide]
-//                         [--cpu auto|68000|68010|68020] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--cpu-multiplier auto|1|2|4|8|10|12|16]
+//                         [--cpu auto|68000|68010|68020|68030|68040|68060] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--cpu-multiplier auto|1|2|4|8|10|12|16]
 //                         [--drive-sound-volume 0|10|25|50|75|100] [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
 //                         [--floppy-drives auto|1|2|3|4] [--floppy-speed 100|200|400|800|turbo] [--resolution lores|hires|superhires] [--line-mode single|double]
 //                         [--disk ADF|EXTENDED-ADF|FDI|IPF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]
@@ -34,7 +34,7 @@ static int identity(void)
 {
     printf("core: puae6-headless\n");
     printf("profile: %s\n", P6_PROFILE);
-    printf("machines: A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000 CD32 (combined firmware only, no CD input) A4030 (Normal CPU only; no MMU)\n");
+    printf("machines: A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000 CD32 (combined firmware only, no CD input) A4030 A4040 (Normal CPU only; no MMU)\n");
     printf("abi: %u\n", (unsigned)p6_abi_version());
     printf("upstream: WinUAE %s\n", P6_UPSTREAM_COMMIT);
     printf("patches: %s (%s)\n", P6_PATCH_COUNT, P6_PATCH_SERIES_SHA256);
@@ -119,7 +119,7 @@ static const Named video_line_mode_names[] = {{"single", 1}, {"double", 0}};
 static const Named z3_memory_names[] = {{"none", 0}, {"16", 1}, {"1", 2}, {"2", 3}, {"4", 4}, {"8", 5},
     {"32", 6}, {"64", 7}, {"128", 8}, {"256", 9}, {"512", 10}};
 static const Named collision_level_names[] = {{"auto", 0}, {"none", 1}, {"sprites", 2}, {"playfields", 3}, {"full", 4}};
-static const Named cpu_model_names[] = {{"auto", 0}, {"68000", 1}, {"68010", 2}, {"68020", 3}, {"68030", 4}};
+static const Named cpu_model_names[] = {{"auto", 0}, {"68000", 1}, {"68010", 2}, {"68020", 3}, {"68030", 4}, {"68040", 5}, {"68060", 7}};
 // The clock of the CPU (T52), after --cpu-multiplier: upstream's cpu_clock_multiplier / 256, PUAE5's values; zero (auto) is the machine's own (2 with a 68000, 4 on the A1200).
 static const Named cpu_compatibility_names[] = {{"exact", 0}, {"compatible", 1}, {"normal", 2}};
 static const Named cpu_multiplier_names[] = {{"auto", 0}, {"1", 1}, {"2", 2}, {"4", 4}, {"8", 8}, {"10", 10}, {"12", 12}, {"16", 16}};
@@ -199,6 +199,7 @@ static int run(int argc, char **argv)
             else if (!strcmp(name, "a2000og")) machine = P6_MACHINE_A2000OG;
             else if (!strcmp(name, "a2000")) machine = P6_MACHINE_A2000;
             else if (!strcmp(name, "a4030")) machine = P6_MACHINE_A4030;
+            else if (!strcmp(name, "a4040")) machine = P6_MACHINE_A4040;
             else if (!strcmp(name, "cd32")) machine = P6_MACHINE_CD32;
             else return -1;
         }
@@ -358,8 +359,8 @@ int main(int argc, char **argv)
         const int code = run(argc, argv);
         if (code >= 0) return code;
     }
-    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000|a4030|cd32] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--fpu 0|68881|68882] [--hdf-controller uae|ide]\n"
-                    "                         [--cpu auto|68000|68010|68020] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--cpu-multiplier auto|1|2|4|8|10|12|16]\n                         [--drive-sound-volume 0|10|25|50|75|100] [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-drives auto|1|2|3|4] [--floppy-speed 100|200|400|800|turbo]\n                         [--resolution lores|hires|superhires] [--line-mode single|double]\n"
+    fprintf(stderr, "usage: %s [--identity]\n       %s --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000|a4030|a4040|cd32] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--fpu 0|68881|68882|68040|68060] [--hdf-controller uae|ide]\n"
+                    "                         [--cpu auto|68000|68010|68020|68030|68040|68060] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--cpu-multiplier auto|1|2|4|8|10|12|16]\n                         [--drive-sound-volume 0|10|25|50|75|100] [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]\n                         [--floppy-drives auto|1|2|3|4] [--floppy-speed 100|200|400|800|turbo]\n                         [--resolution lores|hires|superhires] [--line-mode single|double]\n"
                     "                         [--disk ADF|EXTENDED-ADF|FDI|IPF] [--hdf IMAGE]... [--export-hdf FILE] [--units N] [--ntsc] [--seed S] [--dump DIR [--dump-from N]] [--dump-audio DIR]\n",
             argv[0], argv[0]);
     return 64;

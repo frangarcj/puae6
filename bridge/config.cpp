@@ -142,6 +142,7 @@ const MachineInfo kMachines[] = {
     {P6_MACHINE_A2000OG, "A2000OG", 0, 0, {512, 512, 0}, 68000, CSMASK_OCS, 0, false},
     {P6_MACHINE_A2000, "A2000", 1, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS, 0, false},
     {P6_MACHINE_A4030, "A4030", 6, 0, {2048, 0, 8192}, 68030, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, false},
+    {P6_MACHINE_A4040, "A4040", 6, 1, {2048, 0, 8192}, 68040, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, false},
     {P6_MACHINE_CD32, "CD32", 8, 0, {2048, 0, 0}, 68020, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, CP_CD32, false},
 };
 
@@ -162,7 +163,8 @@ const MachineInfo &machine_info(uint32_t machine)
 bool is_aga(uint32_t machine) { return (machine_info(machine).chipset_mask & CSMASK_AGA) != 0; }
 
 // Physical IDE controllers supported by the profile: Gayle and the A4000 motherboard.
-bool has_gayle(uint32_t machine) { return machine == P6_MACHINE_A600 || machine == P6_MACHINE_A1200 || machine == P6_MACHINE_A4030; }
+bool is_a4000(uint32_t machine) { return machine == P6_MACHINE_A4030 || machine == P6_MACHINE_A4040; }
+bool has_gayle(uint32_t machine) { return machine == P6_MACHINE_A600 || machine == P6_MACHINE_A1200 || is_a4000(machine); }
 
 }  // namespace
 
@@ -193,7 +195,8 @@ Memory resolve_memory(const p6_config &c)
 // defined flag, so the memory can never collide with them), 8 to 11 fast_kib / 1024, 12 to 16 slow_kib / 64, 17 to 22 chip_kib / 64, 31 marks that the memory is not the preset's.
 constexpr uint32_t kMemoryIdentityBit = 0x80000000u;
 
-// T54: 23 and 24 carry the FPU (1 = 68881, 2 = 68882), so a config without one hashes as it always did, and the memory bits above never meet them (chip_kib / 64 is at most 32 << 17 = bit 22).
+// Bits23/24 carry FPU: 1=68881, 2=68882, 3=internal (CPU identity distinguishes040/060).
+// None keeps the original hash; Chip RAM ends at bit22.
 constexpr unsigned kFpuIdentityShift = 23;
 
 // T62: 25 to 27 carry the floppy speed as the step above the real drive's (0 = 100 %, 1 = 200 %, 2 = 400 %, 3 = 800 %, 4 = turbo): 100 % is the zero of every config that predates the option,
@@ -282,7 +285,8 @@ bool audio_identity(const p6_config &c, uint8_t out[4])
 
 uint32_t identity_flags(const p6_config &c)
 {
-    const uint32_t fpu = (c.fpu_model == 68881 ? 1u : c.fpu_model == 68882 ? 2u : 0u) << kFpuIdentityShift;
+    // Internal models share code3; CPU identity distinguishes 040 from060.
+    const uint32_t fpu = (c.fpu_model == 68881 ? 1u : c.fpu_model == 68882 ? 2u : c.fpu_model ? 3u : 0u) << kFpuIdentityShift;
     const uint32_t floppy = (c.floppy_speed >= 2 ? uint32_t(c.floppy_speed) - 1u : 0u) << kFloppyIdentityShift;
     const uint32_t raster = raster_identity(c);
     if (memory_is_preset(c)) return c.flags | fpu | floppy | raster;
@@ -305,7 +309,7 @@ p6_result validate_memory(const p6_config &c, p6_error *error)
     if (c.machine == kCd32Machine && ((c.chip_kib && c.chip_kib != 2048) ||
         (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE && c.fast_kib != 8192)))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD32 has 2 MiB Chip, no Slow RAM and either no Fast RAM or the CD32FR 8 MiB board");
-    if (c.machine == P6_MACHINE_A4030 && ((c.chip_kib && c.chip_kib != 2048) || (c.slow_kib && c.slow_kib != P6_MEMORY_NONE)))
+    if (is_a4000(c.machine) && ((c.chip_kib && c.chip_kib != 2048) || (c.slow_kib && c.slow_kib != P6_MEMORY_NONE)))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000 has 2 MiB Chip and no Slow RAM trapdoor");
     if (c.machine == P6_MACHINE_A1000) {
         // The 8361 Agnus of the A1000 addresses 512 KiB and the machine has no expansion the profile could name: the memory is the preset's.
@@ -338,14 +342,16 @@ p6_result validate_config(const p6_config &c, p6_error *error)
     if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags");
     // The FPU (T54) is the coprocessor of a 68020: the 68000 machines have no coprocessor interface, and the internal FPU of the 68030/68040 comes with those CPUs (T55).
-    if (c.fpu_model != 0 && c.fpu_model != 68881 && c.fpu_model != 68882)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "fpu model must be 0 (none), 68881 or 68882");
-    if (c.fpu_model != 0 && c.machine != P6_MACHINE_A1200 && c.machine != P6_MACHINE_A4030)
+    const bool internal_fpu = c.machine == P6_MACHINE_A4040 && c.fpu_model == uint32_t(resolve_cpu(c));
+    if (c.fpu_model != 0 && c.fpu_model != 68881 && c.fpu_model != 68882 && !internal_fpu)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "fpu model must be 0 (none), 68881/68882, or the matching A4040 internal CPU");
+    if (c.fpu_model != 0 && !internal_fpu && c.machine != P6_MACHINE_A1200 && c.machine != P6_MACHINE_A4030)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "an FPU needs a 68020 or 68030: only the A1200 and A4030 can have a 68881 or 68882");
     // The CPU (T52): the machines with a 68000 take a 68010 in its socket; the A1200's 68EC020 is soldered and it is the only CPU its AGA preset, its Kickstart 3.1 and its 24-bit map are made for.
-    if (c.cpu_model > 4)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu model must be auto, 68000, 68010, 68020 or 68030");
-    if (c.cpu_model != 0 && resolve_cpu(c) != machine_info(c.machine).cpu) {
+    if (c.cpu_model > 7 || c.cpu_model == 6 || (c.cpu_model > 4 && c.machine != P6_MACHINE_A4040))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu model must be auto, 68000, 68010, 68020, 68030, 68040 or 68060");
+    const bool late_cpu = c.machine == P6_MACHINE_A4040 && (resolve_cpu(c) == 68040 || resolve_cpu(c) == 68060);
+    if (!late_cpu && c.cpu_model != 0 && resolve_cpu(c) != machine_info(c.machine).cpu) {
         if (machine_info(c.machine).cpu == 68020)
             return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A1200 has a soldered 68EC020: no other CPU is offered for it");
         if (machine_info(c.machine).cpu >= 68020)
@@ -357,12 +363,12 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return memory;
     if (c.cpu_compatibility > P6_CPU_NORMAL)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu compatibility must be exact, compatible or normal");
-    if (c.machine == P6_MACHINE_A4030 && c.cpu_compatibility != P6_CPU_NORMAL)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000/030 currently requires normal CPU accuracy; compatible and exact caches are not implemented");
+    if (is_a4000(c.machine) && c.cpu_compatibility != P6_CPU_NORMAL)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000 currently requires normal CPU accuracy; compatible and exact caches are not implemented");
     if (c.collision_level > 4)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "collision level must be auto, none, sprites, playfields or full");
-    if (c.z3_memory >= kZ3Choices || (c.z3_memory && c.machine != P6_MACHINE_A4030))
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Zorro III supports one 1/2/4/8/16/32/64/128/256/512 MiB board on A4030 only");
+    if (c.z3_memory >= kZ3Choices || (c.z3_memory && !is_a4000(c.machine)))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Zorro III supports one 1/2/4/8/16/32/64/128/256/512 MiB board on A4000 only");
     if (c.reserved8[0]) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
@@ -439,7 +445,7 @@ void build_preferences(const p6_config &c, bool ide)
     // The chipset tables read the video standard (the mains-driven CIA TOD of the A1000 and the A2000 counts 50 or 60 Hz): WinUAE has it chosen before the model.
     currprefs.ntscmode = c.video_standard == P6_VIDEO_NTSC;
     built_in_prefs(&currprefs, machine.model, machine.config, 0, 0);
-    if (c.machine == P6_MACHINE_A4030) {
+    if (is_a4000(c.machine)) {
         // PUAE5's A4030 uses an 8 MiB Zorro II board, not WinUAE's motherboard Fast RAM.
         currprefs.mbresmem_low.size = currprefs.mbresmem_high.size = 0;
         currprefs.address_space_24 = false;
@@ -491,6 +497,8 @@ void build_preferences(const p6_config &c, bool ide)
     // the 68881/68882 behaviour that built_in_prefs leaves (the strict and no-unimplemented modes are 68040/68060 matters).
     currprefs.fpu_model = int(c.fpu_model);
     currprefs.fpu_mode = c.fpu_model ? 1 : 0;
+    currprefs.fpu_strict = c.machine == P6_MACHINE_A4040;
+    currprefs.fpu_no_unimplemented = false;
     // The CPU (T52): the machine's own unless the config names a 68010 for a 68000 machine. Everything else of the preset (cycle exact, 24-bit space, no MMU) is the 68000's and the 68010 shares it;
     // build_cpufunctbl then takes op_smalltbl_13, the 68010 cycle-exact table, and m68k_run_1_ce runs it (patch 0310).
     currprefs.cpu_model = resolve_cpu(c);
@@ -578,7 +586,7 @@ p6_result check_preset(p6_error *error)
     const char *drifted = nullptr;
     if (p.cpu_model != resolve_cpu(preset_config) || p.cpu_clock_multiplier != (resolve_cpu_multiplier(preset_config) << 8) || p.cpu_cycle_exact != (preset_config.cpu_compatibility == P6_CPU_EXACT) || p.cpu_memory_cycle_exact != p.cpu_cycle_exact ||
         p.cpu_compatible != (preset_config.cpu_compatibility != P6_CPU_NORMAL) || p.m68k_speed || p.fpu_model != int(preset_config.fpu_model) ||
-        p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict || p.fpu_no_unimplemented || p.mmu_model ||
+        p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict != (preset_config.machine == P6_MACHINE_A4040) || p.fpu_no_unimplemented || p.mmu_model ||
         p.address_space_24 != (machine.cpu < 68030) || (machine.cpu >= 68020 && p.waiting_blits)) drifted = "cpu";
     else if (p.chipset_mask != machine.chipset_mask || p.blitter_cycle_exact != p.cpu_cycle_exact || p.collision_level != resolve_collision_level(preset_config)) drifted = "chipset";
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
@@ -586,8 +594,8 @@ p6_result check_preset(p6_error *error)
     else if (preset_config.z3_memory && (p.z3_mapping_mode != Z3MAPPING_REAL || !p.cs_z3autoconfig || p.z3fastmem[0].no_reset_unmap)) drifted = "Z3 autoconfig";
     else if (p.cs_compatible != machine.compatible) drifted = "chipset table";
     else if (no_gayle && (p.cs_ide != (preset_ide ? IDE_A600A1200 : 0) || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
-    else if (preset_config.machine == P6_MACHINE_A4030 && (p.cs_ide != IDE_A4000 || p.cs_fatgaryrev != 0 || p.cs_ramseyrev != 15 || p.cs_rtc != 2)) drifted = "A4000 motherboard";
-    else if (!no_gayle && preset_config.machine != P6_MACHINE_A4030 && p.cs_ide) drifted = "gayle";
+    else if (is_a4000(preset_config.machine) && (p.cs_ide != IDE_A4000 || p.cs_fatgaryrev != 0 || p.cs_ramseyrev != 15 || p.cs_rtc != 2)) drifted = "A4000 motherboard";
+    else if (!no_gayle && !is_a4000(preset_config.machine) && p.cs_ide) drifted = "gayle";
     else if (preset_config.machine == kCd32Machine && (!p.cs_cd32cd || !p.cs_cd32c2p || !p.cs_cd32nvram || p.cs_cd32nvram_size != 1024 ||
              p.cs_ciaoverlay || p.cs_cd32fmv || p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.cs_ksmirror_e0 || !p.cs_ksmirror_a8)) drifted = "CD32 motherboard";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
@@ -633,6 +641,7 @@ static p6_result refused_by_cpu(p6_error *error)
     const MachineInfo &machine = machine_info(preset_config.machine);
     char text[P6_ERROR_TEXT_CAPACITY];
     snprintf(text, sizeof text, "the ROM \"%.100s\" needs %s but the %s has a %s: it is the firmware of another machine", name, requirement, machine.name,
+             resolve_cpu(preset_config) == 68060 ? "68060" : resolve_cpu(preset_config) == 68040 ? "68040" :
              resolve_cpu(preset_config) == 68030 ? "68030" : resolve_cpu(preset_config) == 68020 ? "68EC020" : resolve_cpu(preset_config) == 68010 ? "68010" : "68000");
     return p6_fail(error, P6_ERROR_WRONG_MEDIA, text);
 }

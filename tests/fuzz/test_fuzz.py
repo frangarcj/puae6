@@ -60,9 +60,10 @@ class ConfigProfileFuzzTests(NativeFuzzBase):
         self.assertTrue(clean(result), result.stderr[-1000:])
         coverage = re.search(r"config coverage machines=([0-9a-f]+) z3=([0-9a-f]+) fpus=([0-9a-f]+) controllers=([0-9a-f]+) cd32_fast=([0-9a-f]+)", result.stdout)
         self.assertIsNotNone(coverage, result.stdout)
-        # Public machine IDs1..9 and11; all eleven Z3 choices, three FPUs,
+        # Public machine IDs1..9,11,12; all eleven Z3 choices, five FPUs,
         # both controllers and both stock/FR. These masks come from the ABI.
-        self.assertEqual([0xbfe, 0x7ff, 7, 3, 3], [int(v, 16) for v in coverage.groups()])
+        self.assertEqual([0x1bfe, 0x7ff, 0x1f, 3, 3], [int(v, 16) for v in coverage.groups()])
+        self.assertIn("late_cpus=3", result.stdout)
         self.assertRegex(result.stdout, r"config result 0: [1-9]")
         self.assertRegex(result.stdout, r"config result 4: [1-9]")
 
