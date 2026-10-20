@@ -26,6 +26,30 @@
   "licenses": {
     "COPYING": "references/machawk-uae/COPYING",
     "MAME-IPF-BSD.txt": "third_party/mame-ipf/LICENSE-BSD-3-Clause.txt",
-    "MAME-IPF-NOTICE.md": "third_party/mame-ipf/NOTICE.md"
+    "MAME-IPF-NOTICE.md": "third_party/mame-ipf/NOTICE.md",
+    "LIBCHDR-BSD.txt": "third_party/libchdr/LICENSE.txt",
+    "LIBCHDR-NOTICE.md": "third_party/libchdr/NOTICE.md",
+    "LIBCHDR-AARON-GILES.txt": [
+      {"path": "third_party/libchdr/src/libchdr_chd.c", "lines": [1, 38]}
+    ],
+    "ZLIB.txt": [
+      {"path": "third_party/libchdr/deps/zlib/zlib.h", "lines": [1, 29]}
+    ],
+    "LZMA-PD.txt": [
+      {"path": "third_party/libchdr/deps/lzma/LzmaEnc.c", "lines": [1, 2]}
+    ],
+    "DR-FLAC-MIT-0.txt": [
+      {"path": "third_party/libchdr/include/dr_libs/dr_flac.h", "lines": [12195, 12214]}
+    ],
+    "SOFTFLOAT-NOTICES.txt": [
+      {"path": "upstream/winuae/softfloat/softfloat.cpp", "lines": [9, 88]},
+      {"path": "upstream/winuae/softfloat/softfloat.h", "lines": [3, 82]},
+      {"path": "upstream/winuae/softfloat/SOFTFLOAT-MACROS.H", "lines": [1, 80]},
+      {"path": "upstream/winuae/softfloat/softfloat-specialize.h", "lines": [1, 80]},
+      {"path": "upstream/winuae/softfloat/softfloat_fpsp.cpp", "lines": [2, 9]},
+      {"path": "upstream/winuae/softfloat/softfloat_decimal.cpp", "lines": [1, 6]},
+      {"path": "upstream/winuae/fpp.cpp", "lines": [1, 9]},
+      {"path": "upstream/winuae/fpp_softfloat.cpp", "lines": [1, 9]}
+    ]
   }
 }

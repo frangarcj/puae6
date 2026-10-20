@@ -46,6 +46,31 @@ def source_paths():
     return paths
 
 
+def notice_files(policy, read):
+    """Exact copies or inclusive line slices; read comes from ROOT or the archive."""
+    files = {}
+    for name, spec in policy['licenses'].items():
+        if not name or '/' in name or '\\' in name or name in ('.', '..'):
+            raise ValueError('Invalid notice filename')
+        pieces = []
+        for part in ([{'path': spec}] if isinstance(spec, str) else spec):
+            path = part['path']
+            if Path(path).is_absolute() or '..' in Path(path).parts or '\\' in path:
+                raise ValueError('Invalid notice source')
+            data = read(path)
+            if 'lines' in part:
+                bounds = part['lines']; lines = data.splitlines(keepends=True)
+                if (len(bounds) != 2 or any(type(n) is not int for n in bounds)
+                        or not 1 <= bounds[0] <= bounds[1] <= len(lines)):
+                    raise ValueError('Invalid notice slice')
+                data = ('Source: ' + path + '\n').encode() + b''.join(lines[bounds[0]-1:bounds[1]])
+            pieces.append(data)
+        if not pieces or not all(pieces):
+            raise ValueError('Empty notice')
+        files[name] = b'\n'.join(pieces)
+    return files
+
+
 def verify(directory):
     directory = Path(directory)
     manifest = json.loads((directory / 'manifest.json').read_text())
@@ -66,6 +91,13 @@ def verify(directory):
                 raise ValueError('Non-system dependency: ' + dependency)
     with tarfile.open(directory / 'source.tar.gz') as archive:
         members = {m.name for m in archive.getmembers() if m.isfile()}
+        def read(path):
+            return archive.extractfile('source/' + path).read()
+        policy = json.loads(read('manifests/release/native-preview.json'))
+        for name, data in notice_files(policy, read).items():
+            notice = directory / 'licenses' / name
+            if not notice.is_file() or notice.read_bytes() != data:
+                raise ValueError('Missing or changed notice: ' + name)
     if 'source/tools/package.py' not in members or any('/whdload/' in p and p.endswith('.hdf') for p in members):
         raise ValueError('Incomplete or private source payload')
     if 'source/tools/generate_whdload.py' in members:
@@ -147,8 +179,8 @@ def build(output, tree):
         for name in PRODUCTS:
             shutil.copy2(tree / name, stage / 'bin' / name)
         (stage / 'licenses').mkdir()
-        for name, original in policy['licenses'].items():
-            shutil.copyfile(ROOT / original, stage / 'licenses' / name)
+        for name, data in notice_files(policy, lambda path: (ROOT / path).read_bytes()).items():
+            (stage / 'licenses' / name).write_bytes(data)
         shutil.copyfile(ROOT / 'docs/user/native-preview.md', stage / 'LEEME.md')
         with (stage / 'source.tar.gz').open('wb') as stream:
             subprocess.run(['git', 'archive', '--format=tar.gz', '--prefix=source/', revision, '--', *paths],

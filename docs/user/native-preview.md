@@ -22,7 +22,7 @@ core. Los errores de firmware o contenido se comunican al frontend.
 
 ## CD32 y A4000 experimentales
 
-Para CD32, abre directamente un ISO, CUE, CCD, NRG DAO/ETNF o MDS v1, con modelo
+Para CD32, abre directamente un ISO, CUE, CCD, NRG DAO/ETNF, MDS v1 o CHD, con modelo
 y Kickstart en Automatic. Tambien puedes abrir una M3U con hasta16 entradas CD. Pon `kick40060.CD32` y `kick40060.CD32.ext` en el directorio de
 sistema; ambos son necesarios. El preset `cd32_fast8` añade 8 MiB de Fast RAM.
 En Automatic, `(CD32FR)` o la palabra `FastRAM` en el nombre del CD tambien
@@ -35,13 +35,21 @@ y un mismo tamaño de sector por disco; ETN2 y multisesion siguen pendientes.
 Para cambiar CD, abre la bandeja con Disk Control, elige otro indice y cierra
 la bandeja. El cambio se aplica en el siguiente frame y la seleccion se restaura
 con el estado. La lista de CD es fija: no admite añadir, quitar o reemplazar
-entradas durante la sesion, ni mezclar CD/disquetes o usar #SAVEDISK. CHD nativo
-sigue pendiente.
+entradas durante la sesion, ni mezclar CD/disquetes o usar #SAVEDISK. CHD admite
+CDv5 sin parent con codecs none/cdzl/cdlz/cdfl; HTOA, CDI, GD y DVD quedan fuera.
+Se ha probado la misma partida/restauracion con Brian convertido localmente a CHD.
 
 A4000 usa `kick40068.A4000` en el mismo directorio de sistema. Los presets
 `a4030_normal`, `a4040_normal` y `a4060_normal` seleccionan 030, 040 y 060.
 Su arranque con firmware real y restauracion estan probados; siguen siendo
-experimentales, sin MMU ni caches, y FRESTORE040 conserva casos pendientes.
+experimentales, sin MMU ni caches. La FPU interna de 040/060 se activa explicitamente
+con la CPU correspondiente y usa SoftFloat. FRESTORE040 incluye NaN SINGLE
+reconstruido por FPSP; denormales y otros formatos conservan casos pendientes.
+
+En A1200 puedes elegir `Cartridge: HRTMon builtin` y asignar `HRTMon Freeze`
+en las opciones de hotkeys o del mapper. Activa el monitor una vez por pulsacion;
+suelta antes de volver a pulsar. El monitor GPL procede del snapshot WinUAE fijado,
+se incluye en el core y no requiere descargar una ROM adicional.
 
 ## Controles y guardado
 
@@ -137,6 +145,8 @@ sustituye al frontend grafico.
 tests publicos. Extraelo y compila con Python3, CMake, Ninja y Xcode Command Line
 Tools: `cmake -S source -B source/build/native -G Ninja -DCMAKE_BUILD_TYPE=Release`,
 seguido de `cmake --build source/build/native --target puae6_libretro p6_headless`.
-No descarga dependencias. Los avisos por componente estan en los fuentes y en
-`manifests/licenses.json`; se conservan los textos GPL, BSD de MAME e indicaciones
-MIT de libretro. No se distribuye CAPSImg ni software WHDLoad de terceros.
+No descarga dependencias. PUAE6 incluye un derivado de SoftFloat2a con cambios de
+QEMU, WinUAE y PUAE6; conserva sus avisos mixtos SoftFloat2a/BSD/GPL y atribucion
+FPSP. `licenses/` acompaña los binarios con los textos GPL, MAME/IPF, libchdr,
+zlib, LZMA, dr_flac y SoftFloat; los fuentes y `manifests/licenses.json` conservan
+la procedencia por componente. No se distribuye CAPSImg ni software WHDLoad de terceros.
