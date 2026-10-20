@@ -14,19 +14,26 @@ static p6_error error{P6_ABI_VERSION, sizeof error};
 static uint64_t digest = 1469598103934665603ull;
 static bool fail_read;
 static unsigned reads;
-static void observe(const void *ptr, size_t size)
+static void observe(const void *ptr, size_t size, uint64_t &hash = digest)
 {
     const auto *p = static_cast<const uint8_t *>(ptr);
-    while (size--) digest = (digest ^ *p++) * 1099511628211ull;
+    while (size--) hash = (hash ^ *p++) * 1099511628211ull;
 }
-static void frames(unsigned count = 1)
+static uint64_t frames(unsigned count = 1)
 {
+    uint64_t fingerprint = 1469598103934665603ull;
     p6_input in{P6_ABI_VERSION, sizeof in}; p6_frame out{P6_ABI_VERSION, sizeof out};
     while (count--) {
         assert(p6_run_frame(&in, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error) == P6_OK);
         observe(out.video, out.video_bytes); observe(out.audio, out.audio_frames * 4);
         observe(&out.master_ticks, sizeof out.master_ticks);
+        fingerprint = 1469598103934665603ull;
+        observe(&out.video_bytes, sizeof out.video_bytes, fingerprint);
+        observe(&out.audio_frames, sizeof out.audio_frames, fingerprint);
+        observe(out.video, out.video_bytes, fingerprint); observe(out.audio, out.audio_frames * 4, fingerprint);
+        observe(&out.master_ticks, sizeof out.master_ticks, fingerprint);
     }
+    return fingerprint;
 }
 static bool image_read(const void *, uint64_t offset, void *out, size_t size, size_t *got)
 {
@@ -60,7 +67,7 @@ int main(int argc, char **argv)
         config.machine = P6_MACHINE_A500; config.video_standard = P6_VIDEO_PAL; config.audio_rate_hz = 48000;
         config.random_seed = 1; config.rtc_epoch_seconds = 946684800;
         assert(p6_init(&config, &error) == P6_OK);
-        assert(p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); frames();
+        assert(p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); const uint64_t clean_frame = frames();
         assert(!p6_cdtv_private_start() && !currprefs.cs_cdtvcd && !changed_prefs.cs_cdtvcd);
         using namespace p6_cd;
         Layout layout{}; layout.tracks = 1; layout.leadout = 2;
@@ -104,7 +111,7 @@ int main(int argc, char **argv)
         assert(p6_shutdown(&error) == P6_OK && !device_open_count()); device_unbind();
         assert(!p6_cdtv_private_request(0x100));
         assert(p6_init(&config, &error) == P6_OK && p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK);
-        assert(!currprefs.cs_cdtvcd); frames(); assert(p6_state_bound(&bound, &error) == P6_OK && bound > 123);
+        assert(!currprefs.cs_cdtvcd); assert(frames() == clean_frame); assert(p6_state_bound(&bound, &error) == P6_OK && bound > 123);
         assert(p6_shutdown(&error) == P6_OK);
     }
     printf("real CDTV DMAC commands, DMA, lifecycle and future %016llx\n", (unsigned long long)digest);
