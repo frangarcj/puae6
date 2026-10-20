@@ -17278,7 +17278,7 @@
         "Catalogo y seleccion deCD restauran dentro deWaterboxreal en otro sandbox/proceso, datosB yopens probados, rebind no altera seleccioncausal ni aceptaotrodescriptor; aun sin acreditarloaderpublico/peliculas."
       ],
       "stop": "No basarcallback enindicefrontend mutable, no bind/seleccioninicial despuesde restore ni atribuirTASpor snapshot.",
-      "blocked_reason": "La prueba real conserva reproducer Cd32CatalogWaterboxTests pero el host termina en SIGBUS/SIGSEGV dentro del asignador xzone en dos procesos de la misma candidata/runtime. H1: incidencia previa del runtime/Darwin, contrastar boot_driver.c sin.NET/CD. H2: cruce callback/reentrada, contrastar WB13 de registros/TLS y localizar primera frontera con el mismo guest; no cambiar flags ni acreditar snapshot nativo comoWaterbox."
+      "blocked_reason": "Cd32CatalogWaterboxTests conserva el fallo real SIGBUS/SIGSEGV del host xzone/CoreCLR. Control WB13 sin catalogo ni CD tambien cae con el mismo guest7351/runtimecf45; boot_driver C sin.NET/CD pasa en3procesos, por tanto el callbackCD no es necesario para provocar el fallo. H1: presion de memoria/Darwin como T28a, contrastar la misma candidata sin presion; H2: interaccion de.NET con el mapa/protecciones Waterbox, contrastar control managed minimo y C con los mismos heaps. No acreditar snapshot nativo ni repetir bateria en el mismo entorno sin un cambio concreto."
     },
     {
       "id": "T66u5",
