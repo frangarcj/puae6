@@ -41,7 +41,7 @@ internal static unsafe partial class Program
   return new Puae6Core(comm, new Puae6Parameters {
    Firmware = Read(args[1], "loop.rom"), GuestDirectory = Path.GetDirectoryName(args[3])!, GuestFileName = Path.GetFileName(args[3]), PinnedGuestSha256 = args[4],
    Media = [bases[0]], HardFiles = [bases[1]], Volumes = [Read(args[1], changed == 2 ? "other.zip" : "volume.zip")],
-   SyncSettings = new Puae6SyncSettings { FloppyWrites = true }
+   SyncSettings = new Puae6SyncSettings { FloppyWrites = true, WhdLoad = Puae6WhdLoadMode.Disabled }
   });
  }
  sealed class Buttons(ControllerDefinition definition) : IController
