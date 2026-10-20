@@ -14,7 +14,7 @@ is kept anywhere):
     P6_KICKSTART_A600_ZIP  zip with the Kickstart 2.05 .rom (A600, 512 KiB): WB03/WB04/WB15 with the real ROM on the A600
     P6_KICKSTART_ROM       the Kickstart 1.3 .rom of the A500 (a raw file): the same on the A500
     P6_KICKSTART_A1200_ROM the Kickstart 3.1 r40.68 .rom of the A1200 (a raw 512 KiB file): the same on the A1200
-    P6_KICKSTART_A4000_ROM the authorized A4000 Kickstart 3.1 r40.68: real boot and A4030/Normal restoration
+    P6_KICKSTART_A4000_ROM the authorized A4000 Kickstart 3.1 r40.68: real boot and A4030/A4040 Normal restoration
     P6_AGA_ADF             an ADF (901120 bytes) of a free AGA demo (Catabasis): with the Kickstart 3.1, a snapshot in the middle of the demo, restored in a new sandbox and in
                            another process, continues unit for unit (WB03/WB04/WB15 with real AGA code running)
 
@@ -266,6 +266,15 @@ class WrapperMachineTests(unittest.TestCase):
     def test_wb03_real_a4000_boot_and_snapshot_in_same_new_sandbox_and_process(self):
         self.assertEqual(524288, os.path.getsize(KICKSTART_A4000))
         self.real_firmware_roundtrip("a4030", str(Path(KICKSTART_A4000).resolve()), n=1800, verify_boot=True, accuracy="Normal")
+
+    @unittest.skipUnless(KICKSTART_A4000 and os.path.isfile(KICKSTART_A4000 or ""),
+                         "BLOCKED: set P6_KICKSTART_A4000_ROM to an authorized A4000 Kickstart 3.1")
+    def test_wb03_real_a4000_040_060_boot_and_snapshot(self):
+        self.assertEqual(524288, os.path.getsize(KICKSTART_A4000))
+        for cpu in ("M68040", "M68060"):
+            with self.subTest(cpu=cpu):
+                self.real_firmware_roundtrip("a4040", str(Path(KICKSTART_A4000).resolve()),
+                                             n=1800, verify_boot=True, accuracy="Normal", cpu=cpu, fpu=cpu)
 
     @unittest.skipUnless(KICKSTART_A600_ZIP, "BLOCKED: set P6_KICKSTART_A600_ZIP to a zip with an authorized Kickstart 2.05")
     def test_wb03_with_the_real_kickstart_205_on_the_a600(self):
