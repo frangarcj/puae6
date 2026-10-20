@@ -59,6 +59,7 @@ const Disc *device_resolve_disc(const uint8_t id[32])
     return nullptr;
 }
 const Disc *device_bound_disc() { return disc; }
+uint32_t device_open_count() { return uint32_t(opens); }
 Result device_select(uint32_t n)
 {
     if (inserted || n >= catalog_count) return Result::Invalid;

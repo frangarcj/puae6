@@ -8,7 +8,6 @@
 #include "akiko.h"
 #include "akiko_controller_state.h"
 #include "akiko_state.h"
-#include "media/cd_device_state.h"
 #include "../../bridge/session.h"
 #include "../../bridge/config.h"
 #include <stddef.h>
@@ -129,9 +128,8 @@ ECL_EXPORT int32_t p6w_cd_status(uint32_t *out, uint32_t capacity)
  p6_session::Guard guard;
  if (!guard.ok) return P6_ERROR_BUSY;
  if (!out || capacity < 4) return P6_ERROR_BAD_ARGUMENT;
- p6_cd::DeviceState state{};
- if (!cd_bound || selected() >= cd_count || !p6_cd::device_capture(&state)) return P6_ERROR_BAD_STATE;
- const uint32_t values[] = {cd_count, selected(), state.inserted, state.opens};
+ if (!cd_bound || selected() >= cd_count) return P6_ERROR_BAD_STATE;
+ const uint32_t values[] = {cd_count, selected(), p6_cd::device_inserted() ? 1u : 0u, p6_cd::device_open_count()};
  memcpy(out, values, sizeof values); return P6_OK;
 }
 ECL_EXPORT int32_t p6w_cd_activate(void)

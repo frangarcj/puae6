@@ -22,6 +22,7 @@ const Disc *device_bound_disc(); // Borrowed binding for identity/preflight, nev
 // medium is absent; Akiko callers must also invalidate its transport deliveries.
 Result device_set_inserted(bool);
 bool device_inserted();
+uint32_t device_open_count(); // Pure status, valid before the first emulated frame.
 void device_unbind();
 Result device_last_error();
 uint32_t device_position(); // Read: next sector. Audio: current/last played sector.
