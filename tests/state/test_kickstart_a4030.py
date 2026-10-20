@@ -24,6 +24,7 @@ FUTURE = 60
 @unittest.skipUnless(AVAILABLE, "BLOCKED: set P6_KICKSTART_A4000_ROM to an authorized A4000 ROM")
 class NativeKickstartTests(ProbeCase):
     MACHINE = "a4030"
+    CPU_FLAGS = ()
     SAVE_OP = "--public-save-at"
     LOAD_OP = "--public-load-at"
     # DET02 compares chipset groups, excluding only upstream's write-only
@@ -38,12 +39,12 @@ class NativeKickstartTests(ProbeCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.tmp.cleanup()
-        cls.tmp = tempfile.TemporaryDirectory(prefix="a4030-native-", dir=ROOT / "build")
+        cls.tmp = tempfile.TemporaryDirectory(prefix=cls.MACHINE + "-native-", dir=ROOT / "build")
         cls.dir = Path(cls.tmp.name)
 
     def test_real_firmware_public_restore_same_and_new_process(self):
         state = self.dir / "cut.state"
-        flags = ("--cpu-compatibility", "normal")
+        flags = ("--cpu-compatibility", "normal", *self.CPU_FLAGS)
         # Hash the full machine only where futures are compared, rather than
         # hashing 10 MiB of RAM on every unit of the 1800-unit firmware boot.
         digests = [part for u in range(BOOT + 1, BOOT + 2 * FUTURE + 1)
@@ -71,12 +72,16 @@ class NativeKickstartTests(ProbeCase):
 
 @unittest.skipUnless(AVAILABLE, "BLOCKED: set P6_KICKSTART_A4000_ROM to an authorized A4000 ROM")
 class LibretroKickstartTests(lr.LibretroHarness):
+    MACHINE = "a4030"
+    PRESET = "a4030_normal"
+    CPU_FLAGS = ()
+
     @classmethod
     def setUpClass(cls):
         directory, optimized = state_probe_tree()
         binaries = build_targets(directory, ["p6_libretro_host", "puae6_libretro", "p6_headless"], optimized=optimized)
         cls.host, cls.core, cls.headless = (binaries[t] for t in ("p6_libretro_host", "puae6_libretro", "p6_headless"))
-        cls.tmp = tempfile.TemporaryDirectory(prefix="a4030-libretro-", dir=ROOT / "build")
+        cls.tmp = tempfile.TemporaryDirectory(prefix=cls.MACHINE + "-libretro-", dir=ROOT / "build")
         cls.roms = {"real": Path(ROM).resolve()}
         cls.counter = 0
 
@@ -85,7 +90,7 @@ class LibretroKickstartTests(lr.LibretroHarness):
         (system / "kick40068.A4000").symlink_to(self.roms["real"])
         state = self.work() / "cut.state"
         pictures = self.work()
-        settings = ("--set", "puae6_preset=a4030_normal")
+        settings = ("--set", "puae6_preset=" + self.PRESET)
         out = self.frontend("real", "--runs", BOOT + 2 * FUTURE, *settings,
                             "--dump-pictures", pictures, "--dump-from", BOOT + 2 * FUTURE,
                             "--do", f"{BOOT}:save:s", "--do", f"{BOOT}:savefile:{state}",
@@ -98,7 +103,7 @@ class LibretroKickstartTests(lr.LibretroHarness):
         width, height, colours, _ = last_picture(pictures)
         self.assertGreaterEqual(len(colours), 5, "no Kickstart logo/text/drive")
         self.assertGreater(colours.most_common(1)[0][1], width * height // 2, "no insert-disk background")
-        native = self.headless_units("real", BOOT, "--machine", "a4030", "--cpu-compatibility", "normal")
+        native = self.headless_units("real", BOOT, "--machine", self.MACHINE, "--cpu-compatibility", "normal", *self.CPU_FLAGS)
         for row in rows[:BOOT]:
             unit = native[row["unit"]]
             self.assertEqual((row["ticks"], row["hash"], row["audio"], row["size"]),
