@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import re
+import struct
 import subprocess
 import sys
 import tempfile
@@ -10,6 +11,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_libretro as lr
 from tests.build_support import ROOT, build_targets
+from tests.media import test_mds_metadata as mds_ref
 
 
 class Cd32Session(lr.LibretroHarness):
@@ -160,6 +162,39 @@ class Cd32LoadTests(Cd32Session):
         (missing / 'kick40060.CD32').unlink()
         (missing / 'kick40060.CD32').write_bytes(bytes(512 * 1024))
         self.run_cd(system=missing, expect=3)
+
+
+class Cd32MdsTests(Cd32Session):
+    def test_mds_public_snapshot_new_process_and_media_identity(self):
+        def disc(name, mutation=None):
+            folder=self.directory/name; folder.mkdir()
+            path=folder/(name+'.MdS'); data,_,at=mds_ref.mds(modes=((0xaa,2048,0),),name='*.mdf')
+            # Synthetic 150-sector pregap, then 512 data sectors at byte17; no MDF pregap prefix.
+            struct.pack_into('<i',data,92,512); data[112+160+9:112+160+12]=bytes((0,8,62))
+            struct.pack_into('<Q',data,at['track']+40,17); struct.pack_into('<II',data,at['extra'],150,512)
+            payload=b'offset padding...'+self.iso.read_bytes()+b'unmapped tail'
+            if mutation=='mds': data[60]^=1
+            if mutation=='mdf': payload=bytes((payload[0]^1,))+payload[1:]
+            path.write_bytes(data); path.with_suffix('.mdf').write_bytes(payload); return path
+        state=self.directory/'mds.state'; end=self.directory/'end.state'; fresh=self.directory/'fresh.state'
+        content=disc('original (CD32)')
+        original=self.run_cd('--runs',315,'--do',f'300:savefile:{state}','--do',f'315:savefile:{end}',content=content)
+        self.assertIn('machine CD32',original)
+        extensions=re.search(r'extensions=(\S+)',original)[1].split('|')
+        self.assertIn('mds',extensions); self.assertNotIn('chd',extensions); self.assertNotIn('mdf',extensions)
+        self.assertGreater(int(re.search(r'vfs closed live=0 run_reads=(\d+)',original)[1]),0)
+        accepted=self.run_cd('--runs',16,'--do',f'1:loadfile:{state}:pos=300','--do',f'16:savefile:{fresh}',
+                             '--no-vfs','--set','puae6_machine=CD32',content=disc('renamed'))
+        self.assertIn(f'state load {state} pos=300 ok=1',accepted)
+        view=lambda r:(r['unit'],r['ticks'],r['hash'],r['ahash'],r['audio'])
+        self.assertEqual([view(r) for r in self.runs(original)[300:315]],[view(r) for r in self.runs(accepted)[1:16]])
+        self.assertEqual(end.read_bytes(),fresh.read_bytes(),'all native/adapter state and CD identity must match')
+        for mutation in ('mds','mdf'):
+            before=self.directory/(mutation+'-before.state'); after=self.directory/(mutation+'-after.state')
+            rejected=self.run_cd('--runs',1,'--do',f'1:savefile:{before}','--do',f'1:loadfile:{state}',
+                                 '--do',f'1:savefile:{after}',content=disc(mutation,mutation))
+            self.assertIn(f'state load {state} exact ok=0',rejected)
+            self.assertEqual(before.read_bytes(),after.read_bytes(),'rejection must not mutate native or adapter state')
 
 
 class Cd32GameTests(Cd32Session):

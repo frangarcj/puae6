@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from tests.media import test_cd_ccd, test_cd_nrg
+from tests.media import test_cd_ccd, test_cd_nrg, test_mds_metadata as mds_ref
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tools'))
 import materialize_upstream as mat
@@ -22,7 +22,7 @@ class CdImageTests(unittest.TestCase):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp=tempfile.TemporaryDirectory(prefix='cd-image-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); entries=json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only'):
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only'):
             e=next(x for x in entries if x['id']==identifier); r=e['files'][0]; target=cls.work/r['path']
             if not target.exists(): target.write_bytes((ROOT/'upstream/winuae'/r['path']).read_bytes())
             patch=(ROOT/e['file']).read_bytes()
@@ -33,11 +33,11 @@ class CdImageTests(unittest.TestCase):
         common=['clang++','-std=c++17','-O1','-g','-Wall','-Wextra','-Werror','-fPIC','-fsanitize=address,undefined','-fno-sanitize-recover=all',
                 '-I'+str(ROOT/'ports/portable/media')]
         objects=[]
-        for kind in ('cue','ccd','nrg'):
+        for kind in ('cue','ccd','nrg','mds'):
             obj=cls.work/(kind+'.o'); objects.append(str(obj))
             out=subprocess.run(common+['-DP6_'+kind.upper()+'_METADATA','-c',str(cls.work/'blkdev_cdimage.cpp'),'-o',str(obj)],capture_output=True,text=True,timeout=60)
             if out.returncode: raise AssertionError(out.stderr)
-        sources=['tests/media/cd_image_probe.cpp']+['adapters/libretro/'+name+'.cpp' for name in ('cd_image','cd_cue','cd_ccd','cd_nrg')]
+        sources=['tests/media/cd_image_probe.cpp']+['adapters/libretro/'+name+'.cpp' for name in ('cd_image','cd_cue','cd_ccd','cd_nrg','cd_mds')]
         sources+=['ports/portable/media/'+name for name in ('cd_source.cpp','cd_wave.cpp','cd_disc.cpp','cd_read.cpp','cd_subchannel.cpp','cd_utilities.cpp','sha256.c')]
         cls.exe=cls.work/'probe'
         out=subprocess.run(common+['-DUAE_SYSDEPS_H','-include','cstring','-I'+str(ROOT/'ports/portable'),'-I'+str(ROOT/'references/libretro-api/include'),'-I'+str(ROOT/'upstream/winuae/include'),'-x','c++']+
@@ -72,12 +72,25 @@ class CdImageTests(unittest.TestCase):
         for image,tracks in ((renamed,3),(nrg_case,7)):
             lines=self.run_image(image); self.assertEqual(tracks,int(lines[0].split()[1])); self.assertEqual(lines,self.run_image(image,vfs=True))
             self.assertTrue(self.run_image(image,rebind=image,vfs=True)[-2].startswith('rebind 0 '))
-        for suffix in ('bin','mds','chd','iso.trailing'):
+        for suffix in ('bin','mdf','chd','iso.trailing'):
             unknown,_=self.iso('unsupported.'+suffix); self.assertEqual(self.run_image(unknown,code=2,vfs=True),['error 5 opens 0'])
         bad,_=self.iso('bad.cue'); self.assertTrue(self.run_image(bad,code=2,vfs=True)[0].startswith('error '))
+        bad,_=self.iso('bad.mds'); self.assertTrue(self.run_image(bad,code=2,vfs=True)[0].startswith('error '))
         bad,_=self.iso('bad.nrg'); self.assertTrue(self.run_image(bad,code=2,vfs=True)[0].startswith('error '))
         for name,data in (('empty.iso',b''),('short.iso',b'X')):
             bad,_=self.iso(name,data); self.assertEqual(self.run_image(bad,code=2,vfs=True),['error 3 opens 1'])
+
+    def test_mds_delegates_with_four_parsers_identity_vfs_and_fresh_owner(self):
+        path,payload=self.iso(); data,_,at=mds_ref.mds(modes=((0xaa,2048,0),),name='disc.ISO')
+        struct.pack_into('<i',data,92,4); data[112+160+9:112+160+12]=bytes((0,2,4))
+        struct.pack_into('<Q',data,at['track']+40,0); struct.pack_into('<II',data,at['extra'],150,4)
+        descriptor=self.work/'disc.MdS'; descriptor.write_bytes(data)
+        lines=self.run_image(descriptor,vfs=True); self.assertEqual(lines,self.run_image(descriptor))
+        self.assertEqual([r for r in self.run_image(path) if r.startswith('sector ')],[r for r in lines if r.startswith('sector ')])
+        renamed=self.work/'renamed.mds'; renamed.write_bytes(data)
+        self.assertTrue(self.run_image(descriptor,rebind=renamed,vfs=True)[-2].startswith('rebind 0 '))
+        data[60]^=1; renamed.write_bytes(data)
+        self.assertTrue(self.run_image(descriptor,rebind=renamed,vfs=True)[-2].startswith('rebind 2 '))
 
     def test_cmake_has_four_target_local_pic_compilations_without_building(self):
         if not shutil.which('cmake') or not shutil.which('ninja'): self.fail('cmake and ninja required to inspect the real native graph')

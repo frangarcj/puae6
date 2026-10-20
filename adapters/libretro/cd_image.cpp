@@ -2,6 +2,7 @@
 #include "cd_cue.h"
 #include "cd_ccd.h"
 #include "cd_nrg.h"
+#include "cd_mds.h"
 #include "cd_file.h"
 namespace p6_libretro {
 using namespace p6_cd;
@@ -26,6 +27,7 @@ struct CdImage::Data {
     CdCue cue;
     CdCcd ccd;
     CdNrg nrg;
+    CdMds mds;
     CdFile iso;
     Layout iso_layout{};
     Binding iso_binding{};
@@ -64,7 +66,8 @@ Result CdImage::open(const char *path, const retro_vfs_interface *vfs)
     const auto result = extension(path, "iso") ? candidate->open_iso(path, vfs) :
         extension(path, "cue") ? candidate->use(candidate->cue, path, vfs) :
         extension(path, "ccd") ? candidate->use(candidate->ccd, path, vfs) :
-        extension(path, "nrg") ? candidate->use(candidate->nrg, path, vfs) : Result::Unsupported;
+        extension(path, "nrg") ? candidate->use(candidate->nrg, path, vfs) :
+        extension(path, "mds") ? candidate->use(candidate->mds, path, vfs) : Result::Unsupported;
     if (result == Result::Ok) data_ = std::move(candidate);
     return result;
 }

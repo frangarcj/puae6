@@ -19,7 +19,7 @@ CdSession::~CdSession() = default;
 bool CdSession::content(const char *path)
 {
     if (!path) return false;
-    for (const char *ext : {"iso", "cue", "ccd", "nrg"}) if (has_extension(path, ext)) return true;
+    for (const char *ext : {"iso", "cue", "ccd", "nrg", "mds"}) if (has_extension(path, ext)) return true;
     return false;
 }
 const FirmwareNames &CdSession::firmware_names()

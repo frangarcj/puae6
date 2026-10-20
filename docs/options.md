@@ -18,9 +18,15 @@ el usuario tenga seleccionado; las fases mecanicas si se restauran.
 
 ## CD32 stock (T66r3)
 
-Libretro acepta CD directo ISO/CUE/CCD/NRG DAO con `puae6_machine=auto|CD32`
+Libretro acepta CD directo ISO/CUE/CCD/NRG DAO/MDS v1 con `puae6_machine=auto|CD32`
 y Kickstart Automatic. Requiere las mitades de 512 KiB `kick40060.CD32` y
 `kick40060.CD32.ext` en el directorio de sistema (tambien sus alias Amiga Forever).
+MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de
+2048/2352 y Mode2 raw de 2352; tambien sectores de 2448 con SUB96 intercalado. El pregap es
+sintetico y los offsets apuntan a datos; TOC, PLBA y longitudes deben concordar.
+El nombre MDF puede ser relativo, UTF16LE o `*.mdf`; MDF solo no se carga.
+La identidad incluye el MDS y MDF completos: cambiar metadata, datos o padding
+impide restaurar sus estados. Versiones/modos/multipart no soportados se rechazan.
 CD32 sin un CD directo se rechaza. Los tags CD32 de disquetes conservan su
 significado anterior.
 BizHawk selecciona `Machine=CD32` al cargar un unico CD y pide los firmwares
