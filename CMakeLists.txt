@@ -132,7 +132,12 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/pcm_out.cpp bridge/media.cpp bridge/memory.cpp)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/build/assets/hrtmon_builtin.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_hrtmon.py" --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    DEPENDS tools/prepare_hrtmon.py upstream/winuae/hrtmon.rom.cpp
+    VERBATIM)
+add_library(p6_bridge STATIC bridge/caps.cpp bridge/config.cpp bridge/lifecycle.cpp bridge/frame_step.cpp bridge/video.cpp bridge/input.cpp bridge/pcm_out.cpp bridge/media.cpp bridge/memory.cpp build/assets/hrtmon_builtin.cpp)
 add_dependencies(p6_bridge p6_codegen)
 target_include_directories(p6_bridge PUBLIC bridge/include)
 target_include_directories(p6_bridge PRIVATE

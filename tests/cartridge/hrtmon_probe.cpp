@@ -204,10 +204,52 @@ static void continuations(const std::vector<uint8_t> &rom,const std::vector<uint
     }
     cpu_mode=P6_CPU_EXACT;
 }
+static void public_builtin(const std::vector<uint8_t> &rom,const char *directory,bool writing)
+{
+    auto e=error();
+    for(uint32_t machine:{P6_MACHINE_A500,P6_MACHINE_A600,P6_MACHINE_CD32,P6_MACHINE_A4030,P6_MACHINE_A4040}) {
+        auto c=config(machine); c.flags=P6_CONFIG_HRTMON;
+        assert(p6_init(&c,&e)==P6_ERROR_UNSUPPORTED && !p6_bridge::hrtmon_bound());
+        assert(p6_session::session.state==p6_session::State::Uninitialized);
+    }
+    auto c=config(); c.flags=4; assert(p6_init(&c,&e)==P6_ERROR_BAD_ARGUMENT);
+    // The two flag bits compose, and unload/reload recreates only an immutable owner.
+    c.flags=P6_CONFIG_HRTMON|P6_CONFIG_FLOPPY_WRITES; call(p6_init(&c,&e),e);
+    assert(p6_load({nullptr,0},nullptr,0,&e)==P6_ERROR_NEED_FIRMWARE && !p6_bridge::hrtmon_bound());
+    call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
+    assert(p6_session::session.config.flags==3 && p6_bridge::hrtmon_bound());
+    call(p6_unload(&e),e); assert(!p6_bridge::hrtmon_bound());
+    call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); stop();
+    c.flags=P6_CONFIG_HRTMON; call(p6_init(&c,&e),e);
+    call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
+    assert(!p6_session::session.started && !currprefs.cart_internal && !strcmp(currprefs.cartfile,"p6-cartridge.rom"));
+    uint8_t raw[32]; assert(p6_bridge::hrtmon_identity(raw));
+    const char *sha="15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5";
+    for(unsigned i=0;i<32;++i) { char byte[3]; snprintf(byte,sizeof byte,"%02x",raw[i]); assert(!memcmp(byte,sha+2*i,2)); }
+    const auto path=std::string(directory)+"/builtin.state";
+    p6_sha256_init(&observed);
+    auto state=writing?std::vector<uint8_t>{}:file(path.c_str());
+    if(writing) {
+        step(); state=save(); FILE *f=fopen(path.c_str(),"wb");
+        assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f);
+    } else load(state); // A cold owner, before its first p6_run_frame.
+    same_state(state); assert(hrtmem_size==0x100000 && hrtmon_flag==ACTION_REPLAY_IDLE);
+    p6_sha256_init(&observed); step(5); const auto final=save(); observe(final.data(),final.size());
+    uint8_t digest[32]; p6_sha256_final(&observed,digest);
+    printf("HRTMon builtin continuation "); for(auto byte:digest) printf("%02x",byte); puts(""); stop();
+    c.flags=0; call(p6_init(&c,&e),e); call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
+    p6_sha256_init(&observed); step(); reject(state,P6_ERROR_INCOMPATIBLE);
+    assert(!p6_bridge::hrtmon_bound() && !hrtmem_size && hrtmon_flag==ACTION_REPLAY_INACTIVE); stop();
+    puts("HRTMon builtin config/identity/teardown PASS");
+}
 int main(int argc,char **argv)
 {
     const char *debug=getenv("P6_HRTMON_DEBUG_NORMAL"); normal_only=debug && !strcmp(debug,"1");
-    assert(argc==5); const bool writing=!strcmp(argv[3],"write");
+    assert(argc==5);
+    if(!strcmp(argv[3],"builtin-write") || !strcmp(argv[3],"builtin-read")) {
+        public_builtin(file(argv[1]),argv[4],!strcmp(argv[3],"builtin-write")); return 0;
+    }
+    const bool writing=!strcmp(argv[3],"write");
     assert(writing || !strcmp(argv[3],"read")); const auto rom=file(argv[1]),cart=file(argv[2]); auto e=error();
     assert(p6_bridge::bind_hrtmon({cart.data(),cart.size()},&e)==P6_ERROR_BAD_STATE);
     auto c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e);

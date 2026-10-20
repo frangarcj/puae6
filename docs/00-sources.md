@@ -24,6 +24,13 @@ El sitio oficial lista WinUAE 6.0.3: https://www.winuae.net/category/news/
 Se fija esta version por ser una base 6.x verificable; no se necesita afirmar que
 sea la ultima revision de desarrollo disponible.
 
+HRTMon se toma de `hrtmon.rom.cpp` de ese snapshot fijado, sin descargar otro
+asset. La guia del autor (https://github.com/wepl/hrtmon/blob/master/HRTmon.guide)
+declara GPL. `tools/prepare_hrtmon.py` verifica el SHA del fuente y del raw,
+descomprime solo durante build y genera un array const en `build/assets/` para
+los productos nativo y Waterbox. No se guarda una ROM raw en Git ni se necesita
+un inflater o acceso a ficheros del host durante la ejecucion del guest.
+
 ### S2. WinUAE tiene una via Unix reciente
 
 https://github.com/tonioni/WinUAE/blob/master/README_unix.md

@@ -53,6 +53,20 @@ bool hrtmon_identity(uint8_t out[32])
     p6_sha256_final(&hash,out); return true;
 }
 
+static p6_result register_hrtmon(p6_buffer image, p6_error *error)
+{
+    // Both the private probe and public config admit only this pinned raw builtin.
+    static const uint8_t expected[32] = {0x15,0xe3,0xe1,0x06,0x24,0x88,0x22,0x66,0x5c,0xc6,0x4f,0x5c,0x9a,0x3e,0xd5,0xf5,
+        0x2a,0x67,0xc0,0x7f,0x81,0xb0,0x6e,0xb7,0x11,0x8d,0xa3,0x90,0x99,0xd1,0x71,0xf5};
+    uint8_t hash[32];
+    if (!image.data || image.bytes != 198732) return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected pinned raw HRTMon");
+    p6_sha256_hash(image.data, image.bytes, hash);
+    if (memcmp(hash, expected, sizeof hash)) return p6_fail(error, P6_ERROR_WRONG_MEDIA, "HRTMon content differs from pinned builtin");
+    if (p6_blob_register(kCartridgeId, P6_BLOB_ROM, image.data, size_t(image.bytes)) != P6_BLOB_OK)
+        return p6_fail(error, P6_ERROR_CAPACITY, "cannot copy HRTMon into the image");
+    return P6_OK;
+}
+
 p6_result bind_hrtmon(p6_buffer image, p6_error *error)
 {
     if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
@@ -63,16 +77,14 @@ p6_result bind_hrtmon(p6_buffer image, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_STATE, "bind HRTMon once, before load");
     if (p6_session::session.config.machine != P6_MACHINE_A1200)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private HRTMon requires A1200");
-    // Only the builtin of the pinned upstream is admitted in this first private vertical.
-    static const uint8_t expected[32] = {0x15,0xe3,0xe1,0x06,0x24,0x88,0x22,0x66,0x5c,0xc6,0x4f,0x5c,0x9a,0x3e,0xd5,0xf5,
-        0x2a,0x67,0xc0,0x7f,0x81,0xb0,0x6e,0xb7,0x11,0x8d,0xa3,0x90,0x99,0xd1,0x71,0xf5};
-    uint8_t hash[32];
-    if (!image.data || image.bytes != 198732) return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected pinned raw HRTMon");
-    p6_sha256_hash(image.data, image.bytes, hash);
-    if (memcmp(hash, expected, sizeof hash)) return p6_fail(error, P6_ERROR_WRONG_MEDIA, "HRTMon content differs from pinned builtin");
-    if (p6_blob_register(kCartridgeId, P6_BLOB_ROM, image.data, size_t(image.bytes)) != P6_BLOB_OK)
-        return p6_fail(error, P6_ERROR_CAPACITY, "cannot copy HRTMon into the image");
-    return P6_OK;
+    return register_hrtmon(image, error);
+}
+
+p6_result load_builtin_hrtmon(p6_error *error)
+{
+    if (!(p6_session::session.config.flags & P6_CONFIG_HRTMON) || hrtmon_bound()) return P6_OK;
+    extern const uint8_t hrtmon_builtin[198732];
+    return register_hrtmon({hrtmon_builtin, sizeof hrtmon_builtin}, error);
 }
 
 p6_result freeze_hrtmon(p6_error *error)
@@ -395,8 +407,10 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio rate must be 44100 or 48000 Hz");
-    if ((c.flags & ~P6_CONFIG_FLOPPY_WRITES) != 0)
+    if ((c.flags & ~(P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON)) != 0)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags");
+    if ((c.flags & P6_CONFIG_HRTMON) && c.machine != P6_MACHINE_A1200)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "HRTMon builtin requires A1200");
     // The FPU (T54) is the coprocessor of a 68020: the 68000 machines have no coprocessor interface, and the internal FPU of the 68030/68040 comes with those CPUs (T55).
     const bool internal_fpu = c.machine == P6_MACHINE_A4040 && c.fpu_model == uint32_t(resolve_cpu(c));
     if (c.fpu_model != 0 && c.fpu_model != 68881 && c.fpu_model != 68882 && !internal_fpu)

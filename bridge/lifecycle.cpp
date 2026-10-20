@@ -98,6 +98,8 @@ void release_engine()
 // and init_audio (see below).
 p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media_count, p6_error *error)
 {
+    if (const p6_result cartridge = p6_bridge::load_builtin_hrtmon(error))
+        return cartridge;
     // T56: Gayle's IDE port is there only while a hard file is behind it
     const bool ide = p6_bridge::ide_attached(config, p6_bridge::hard_files_in(media, media_count));
     p6_bridge::build_preferences(config, ide);

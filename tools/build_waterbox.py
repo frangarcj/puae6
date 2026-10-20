@@ -709,6 +709,8 @@ def ensure_current_trees(root: Path = ROOT) -> dict:
 def build_puae6(tc: dict, jobs: int) -> dict:
     """Compile and link puae6.wbx with the pinned recipe and check the result; it does not run a machine."""
     ensure_current_trees()
+    import prepare_hrtmon
+    prepare_hrtmon.prepare(ROOT)
     out = BUILD / "puae6"
     out.mkdir(parents=True, exist_ok=True)
     sources = puae6_sources()
@@ -742,16 +744,16 @@ _TREES_CHECKED = False
 
 def check_guest_matches_trees(guest_receipt: Path, root: Path = ROOT) -> None:
     """T48f: a guest is only measured if the engine trees are the current series' (checked once per process) and puae6.wbx was built from exactly those files:
-    its receipt lists the sha256 of every source, and the ones under build/upstream and build/generated must still be the ones on disk."""
+    its receipt lists the sha256 of every source, including the pinned builtin under build/assets, and generated inputs must still be the ones on disk."""
     global _TREES_CHECKED
     if not _TREES_CHECKED:
         ensure_current_trees(root)
         _TREES_CHECKED = True
     sources = json.loads(Path(guest_receipt).read_text())["sources"]
     stale = sorted(name for name, digest in sources.items()
-                   if name.startswith(("build/upstream/", "build/generated/")) and (not (root / name).is_file() or sha256(root / name) != digest))
+                   if name.startswith(("build/upstream/", "build/generated/", "build/assets/")) and (not (root / name).is_file() or sha256(root / name) != digest))
     if stale:
-        raise BuildError(f"{guest_receipt} se construyo con otro build/upstream o build/generated ({len(stale)} fuentes distintas, p. ej. {stale[:3]}): "
+        raise BuildError(f"{guest_receipt} se construyo con otro build/upstream, build/generated o build/assets ({len(stale)} fuentes distintas, p. ej. {stale[:3]}): "
                          "reconstruir el guest con tools/build_waterbox.py --puae6")
 
 

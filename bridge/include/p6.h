@@ -129,6 +129,8 @@ typedef struct p6_config {
  * load or a rewind takes the writes back and the base is never touched. Without the flag every disk is write protected, as in ABI v1. The flag is
  * part of the configuration identity: a state of one setting does not load in the other. Getting the writes out is explicit: p6_media_export. */
 #define P6_CONFIG_FLOPPY_WRITES UINT32_C(1)
+/* Pinned GPL HRTMon builtin; A1200 only. Disabled by default. Selection takes effect at load. */
+#define P6_CONFIG_HRTMON UINT32_C(2)
 #define P6_OVERLAY_SECTORS UINT32_C(3520)    /* 512-byte sectors: two disks' worth */
 #define P6_MEMORY_NONE UINT32_C(0xFFFFFFFF)
 /* The flags word of config_hash carries p6_config.flags in bits 0 to 7 (the defined P6_CONFIG_* flags; any other bit is refused) and, when the memory is not the preset's,

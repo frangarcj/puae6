@@ -8,6 +8,45 @@ import subprocess
 import tempfile
 import unittest
 from tests.build_support import ROOT, build_targets
+from tools import prepare_hrtmon
+
+
+class HrtMonBuiltinTests(unittest.TestCase):
+    def test_generation_is_reproducible_and_rejects_changed_source(self):
+        with tempfile.TemporaryDirectory(prefix='hrtmon-asset-', dir=ROOT/'build') as tmp:
+            root = Path(tmp)
+            source = root/'upstream/winuae/hrtmon.rom.cpp'
+            source.parent.mkdir(parents=True)
+            source.write_bytes((ROOT/'upstream/winuae/hrtmon.rom.cpp').read_bytes())
+            output = prepare_hrtmon.prepare(root)
+            first, stamp = output.read_bytes(), output.stat().st_mtime_ns
+            self.assertEqual(prepare_hrtmon.prepare(root).read_bytes(), first)
+            self.assertEqual(output.stat().st_mtime_ns, stamp)
+            raw = bytes(int(x,16) for x in re.findall(rb'0x([0-9a-fA-F]{2})', first))
+            self.assertEqual((len(raw),raw[4:8]), (198732,b'HRT!'))
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), prepare_hrtmon.RAW_SHA)
+            output.write_bytes(b'changed generated output')
+            self.assertEqual(prepare_hrtmon.prepare(root).read_bytes(), first)
+            source.write_bytes(source.read_bytes()+b'\n')
+            with self.assertRaisesRegex(ValueError, 'pinned snapshot'):
+                prepare_hrtmon.prepare(root)
+            self.assertEqual(output.read_bytes(), first)
+
+    def test_public_config_builtin_load_restore_identity_and_teardown(self):
+        firmware = os.environ.get('P6_KICKSTART_A1200_ROM')
+        if not firmware:
+            self.skipTest('BLOCKED: set P6_KICKSTART_A1200_ROM to an authorized local Kickstart')
+        exe = build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='hrtmon-builtin-',dir=ROOT/'build') as tmp:
+            twins = []
+            for mode in ('builtin-write','builtin-read'):
+                result = subprocess.run([str(exe),firmware,'-',mode,tmp],capture_output=True,text=True,timeout=120,
+                                        env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                self.assertEqual(result.returncode,0,result.stdout[-1200:]+result.stderr[-4000:])
+                twins.append([line for line in result.stdout.splitlines() if line.startswith('HRTMon builtin continuation ')])
+                self.assertEqual(len(twins[-1]),1)
+                self.assertIn('HRTMon builtin config/identity/teardown PASS',result.stdout)
+            self.assertEqual(*twins)
 
 
 class HrtMonTests(unittest.TestCase):
