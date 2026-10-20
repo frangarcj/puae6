@@ -11565,7 +11565,9 @@
         "tests/libretro-host/docker/image.json",
         "tests/whdload/test_autoload.py",
         "tests/state/test_components.py",
-        "docs/user/native-preview.md"
+        "docs/user/native-preview.md",
+        "tests/build_support.py",
+        "tests/test_build_support.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11588,7 +11590,8 @@
         "InventarioCD32 corregido3b3f6630: registro exacto11base+P6AK, componente causal separado, propiedadPaulaP6AU explicita, sin visitor bajoout_of_profile. tests.state.test_components13PASS y contratoestatico inventario/probePASS sin buildmotor; cobertura de digestAkiko generico sigue pendiente visible, no se inventa. Matriz/cierreCI sigue para candidata integrada estable.",
         "Preflight012d92d3: exigir ROM A4000, ROMprincipal/extendida CD32 y CUE del juego antes de imagenes/preparacion/build. tests.ci.test_nightly15PASS con negativos de los cuatro assets y sin ejecutar motor; no acredita ejecucion acumulada/remota.",
         "Actualizar la guia de la preview al renovar la candidata nativa: ya hay arranque/restore de firmware A4000 real y juego CD32, frente a los limites antiguos del texto. Ampliar touch solo docs/user/native-preview.md; describir formatos realmente disponibles, firmware, presets experimentales y pendientes sin declarar cierreCPU/T66 ni release formal. Usar receta/package smoke existente sobre ZIP extraido; no repetir matriz por una guia.",
-        "Preflight del paquete de candidata: reproducer mostraba PASS de receta conZIPdeotrarevision. Exigir manifiesto acotado64KiB/local-preview/macos-arm64 yrevision del checkoutlimpio antes de imagenes/build, reutilizando clean_revision del empaquetador. tests.ci.test_nightly17PASS incluyen rechazo temprano, JSON/ZIPinvalidos yfuentesdirty; la prueba instalada completa sigue seleccionada y no se acredita CIreal/remota."
+        "Preflight del paquete de candidata: reproducer mostraba PASS de receta conZIPdeotrarevision. Exigir manifiesto acotado64KiB/local-preview/macos-arm64 yrevision del checkoutlimpio antes de imagenes/build, reutilizando clean_revision del empaquetador. tests.ci.test_nightly17PASS incluyen rechazo temprano, JSON/ZIPinvalidos yfuentesdirty; la prueba instalada completa sigue seleccionada y no se acredita CIreal/remota.",
+        "Integracion de dependencias: source_identity del arnes omite third_party aunque compila MAME/IPF y ahora se preparaCHD. Ampliar touch a tests/build_support.py ytests/test_build_support.py; incluir bytes de dependencias en identidad y probar invalidacion de cache/receipt con contenido cambiado y mtime conservado, sin compilar emulador ni alterar testsfuncionales."
       ],
       "checks": [
         "PLAN01",
