@@ -16486,7 +16486,7 @@
       "title": "Resolver CD32FR y stock por etiquetas de CD directo",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66r8",
         "T66r6"
@@ -16508,7 +16508,8 @@
         "Completar la seleccion automatica pendiente del padre: references/machawk-uae/libretro/libretro-core.c:7047 y references/puae/libretro/libretro-core.c:7120 resuelven (CD32FR)/FastRAM a CD32+8MiB y (CD32)/(CD32NF) a stock solo en Automatic. Aplicar una resolucion pura para CD directo sin heredar el fallback A1200 de disquetes. Conservar region y limites lexicos actuales.",
         "Respetar filename_tags desactivado, modelo/preset explicito y memoria elegida; documentar precedencias coherentes con opciones existentes. Probar CD32FR, FastRAM, stock y colisiones, ademas de disquetes que retienen su semantica anterior. No implementar CDTV ni formatos/cambio de CD en esta hoja.",
         "Prueba publica con ROMs CD32 locales: verificar Fast real/mapa, guardar estado del tagFR, restaurarlo en configuracion manual equivalente y rechazarlo en stock sin mutacion. Reutilizar fixture/ventana pequena existente, no repetir juego6500 ni guest por este cambio de seleccion libretro.",
-        "Frente cd32_close reutiliza worktree aislado t53-cpu, merge normal de main. Coordinador posee metadata compartida/check mapping e integra. Compilacion ligera libretro despues del slot CPU0387; no tocar MacHawk ni crear informes."
+        "Frente cd32_close reutiliza worktree aislado t53-cpu, merge normal de main. Coordinador posee metadata compartida/check mapping e integra. Compilacion ligera libretro despues del slot CPU0387; no tocar MacHawk ni crear informes.",
+        "LR01T66r9 PASS: resolucion pura ASan/UBSan y carga publica con ROMs CD32 locales, Fast real/mapa, FR/FastRAM, restore en configuracion manual, rechazo stock sin mutacion y precedencias/MB4. Regresion presetFR315 original y CpuTagTests PASS; cuatro smokesFD optimizados conservan CD32/NF/FR→A1200+8M y FastRAM.adf→A500sinFast. ModelTagTests original intacto para la candidata acumulada; sin repetir6500 ni guest."
       ],
       "checks": [
         "LR01"
