@@ -247,6 +247,7 @@ const Chunk kChunks[kMaxChunkCount] = {
 namespace {
 
 // The hash of the first `count` media of the live manifest, as media_manifest_hash defines it. current_identity() is the whole manifest (count == media_count).
+void put32(uint8_t *p, uint32_t v);
 void manifest_prefix_hash(uint32_t count, uint8_t out[32])
 {
     uint32_t types[P6_MAX_MEDIA];
