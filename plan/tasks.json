@@ -16733,7 +16733,7 @@
     {
       "id": "T66t3",
       "title": "Acotar mapas CHD v5, referencias SELF y cadenas de metadata",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t2"
       ],
@@ -16774,7 +16774,7 @@
     {
       "id": "T66t4",
       "title": "Acotar codecs CD CHD y cerrar la puerta conjunta del lector",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66t3"
       ],
@@ -16784,13 +16784,16 @@
         "tools/import_chd.py",
         "third_party/libchdr/selection.json",
         "tests/media/test_chd_reader.py",
-        "tests/media/chd_reader_probe.cpp"
+        "tests/media/chd_reader_probe.cpp",
+        "ports/portable/media/chd_reader.h",
+        "third_party/libchdr/NOTICE.md"
       ],
       "steps": [
         "Parche derivado libchdr_chd.c/libchdr_flac.c: cdzl/cdlz comprueban header minimo, complen_base y longitudes ambaspartes, retornos decoders antes de reconstruccion/ECC. Zlib exige finaldestream y entrada/salidaexactas; LZMA comprueba SRes y ELzmaStatus por separado preservando fin sinmarker permitido porCHD y tamaños exactos.",
         "FLAC valida44100Hz/doscanales/16bits, lecturas producen exactamente frames solicitados, offsetfinal<=complen antes de restas/seek ysin underflow. Corregir cleanup constructores fallidos y LzmaEnc_Destroy conallocator correcto, sin cambiar oraculos positivos.",
         "Puerta conjunta MED01 ASan/UBSan delreader con cuatrofixtures positivas T1 ymutaciones pequeñas dirigidas decabecera/mapas/SELF/metadata/longitudescodecs/IOcorto; salidaintacta y callbacks acotados. No campañas, relojhost, nueva dependenciapin ni comprobacion por simpleexito.",
-        "Cerrar lector solo tras pasar puerta conjunta; proveedor TOC/CHTR/CHT2/padding4frames/subcanales/identidad/rebind ycarga publica siguen posteriores delpadre. <=400lineasmanuales orientativas; coordinador integra y responsable noedita metadata."
+        "Cerrar lector solo tras pasar puerta conjunta; proveedor TOC/CHTR/CHT2/padding4frames/subcanales/identidad/rebind ycarga publica siguen posteriores delpadre. <=400lineasmanuales orientativas; coordinador integra y responsable noedita metadata.",
+        "Actualizar contrato privado ChdReader yNOTICE/importer al cerrarlector, retirando pendientesReadFn/mapas yaresueltos yconservando proveedor/cargapublica posteriores. Ochorutas atomicas codigo+patch/importer/manifest+probes+contrato/notice; frente cd32_close continuaaislado, sinmotor/guest."
       ],
       "acceptance": [
         "El lector CHDv5CD sin padre supera conjuntamente fixtures exactos y negativos de cabecera/mapas/metadata/codecs bajo ASan/UBSan sin IO parcial ni salida mutada. Todavia no anuncia extension ni soporte de proveedor/publico."

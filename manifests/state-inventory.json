@@ -4997,10 +4997,10 @@
         "in_profile": true,
         "upstream_compiled": true,
         "policy": "serialize_extended",
-        "saved_fields": "CD32 only: semantic controller registers, C2P, command/result queues, TOC/subcode and emulated clock; EEPROM/NVRAM; transport rings and service state; verified disc identity, open-unit count, medium presence and device position; CDA delay, PCM, callback presence, stereo stream position/volume/accumulators. ports/portable/state_io/akiko.h writes each value explicitly, without padding.",
+        "saved_fields": "CD32 only: semantic controller registers, C2P, command/result queues, TOC/subcode and emulated clock; EEPROM/NVRAM; transport rings and service state; selected disc ID within the immutable ordered catalog, open-unit count, medium presence and device position; CDA delay, PCM, callback presence, stereo stream position/volume/accumulators. ports/portable/state_io/akiko.h writes each value explicitly, without padding.",
         "omitted": "Shared Paula phase is owned by P6AU/AUDP (89 words), scheduler cycles by P6SC and emulated RAM by P6RM. The optional P6AK follows those owners; all non-CD32 profiles retain their eleven base chunks.",
         "pointers": "Disc pointers, PCM buffer pointers, callback addresses and service owners are never serialized. Staging uses ordinary caller-owned heap; no alloc_invisible.",
-        "rebuild": "Validate the candidate scheduler cycle, physical PAL/NTSC CDA period and verified live Disc identity before applying. Rebind the canonical Akiko callbacks and the exact slot0 stereo owner; reject foreign owners before mutating the machine.",
+        "rebuild": "The envelope verifies the complete ordered CD catalog. Resolve the saved device disc ID without changing the live selection, then validate the candidate scheduler cycle and physical PAL/NTSC CDA period using that resolved Disc. Rebind canonical Akiko callbacks and the exact slot0 stereo owner only after complete preflight; reject foreign owners before mutating the machine.",
         "evidence": [
           "bridge/state.cpp:224",
           "bridge/state.cpp:232",
