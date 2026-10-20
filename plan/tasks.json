@@ -13261,6 +13261,40 @@
       "stop": "Sin fuente primaria o tras dos intentos razonados fallidos, conservar reproducer y marcar bloqueo con dos hipotesis; no ampliar a formatos desconocidos."
     },
     {
+      "id": "T55c12",
+      "title": "Reanudar denormales SINGLE reconstruidos por FPSP en CU06 rev40",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T55c11"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0397-frestore040-fpsp-cu06-single-denorm.patch",
+        "tests/host/frestore040_probe.cpp",
+        "tests/host/test_frestore040.py"
+      ],
+      "steps": [
+        "Solo rev40/CU06/CMD15400/STAG5/absETEMPexp3c00/fraccion23bitsno0/J0/low8=0/ETM2=0. FPSP bugfix.S:op2sgl/op2_xi/op2_com yget_op.S:src_sd_dnrm/is_single/common enpinLinux1da177e4c3f41524e886b7f1b8a0c1fc7321cac2, MC68040UM9.3tabla9-3/9.8: reconstruir bitsSINGLEsigno|ETM1>>8, fpp_to_single+fpp_normalize antesdearitmeticaexistente. Allowunnormal solo no basta; no inventarotrobackend.",
+        "Oraculoindependiente F23representa signo×F×2^-149; k=floor(log2F), extendedexp3f6a+k/mantisaF<<(63-k). Probar23potencias+max/ambossignos/FP0..7, FMOVE/FMUL/FDIV/raizexacta, FCMP/FTSTsinwrite, FADD1±minen4roundmodes×precision24/53/64 convecinosliterales/INEX; INEXhabilitada, OPERRraiznegativa yE3prioritario. Bus25lecturas/A0+100, FPIAR/vector/FSAVE, codecprivadoreinicializadoyfuturo. Baseline395 fallaantesdelparche.",
+        "Tresrutas150..220lineasmanuales, patchsolo fpp.cpp; busy_referenceusa ramacodex/frestore040-denorm aislada conservandoWIPT77b enramaanterior. Rootregistra serie/hash/clasificacion ycompila-j2; agente puede probeaisladoreutilizandoobjetos identificados sinbuildmotor/guest. STATE01dirigidoFrestore040Tests+InternalFpuStateTests; padreconservaDOUBLE06nativo/rev41/otrosCU/dirty/SX/firmware/WB ypuertaacumulada."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "DenormalesSINGLEreconstruidosreanudanconvalor/redondeo/flags/excepciones independientes ycodecprivadocausal, sin ampliarformatosdesconocidosnicerrarFRESTOREcompleto."
+      ],
+      "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -13278,7 +13312,8 @@
         "T55c8",
         "T55c9",
         "T55c10",
-        "T55c11"
+        "T55c11",
+        "T55c12"
       ],
       "read": [
         "docs/01-architecture.md",

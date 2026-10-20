@@ -616,6 +616,9 @@ TASK_SUITES[('STATE01', 'T55c7')] = {
 TASK_SUITES[('STATE01', 'T55c8')] = dict(TASK_SUITES[('STATE01', 'T55c7')],
     private_frame_regression='tests.host.test_internal_fpu_state.InternalFpuStateTests')
 TASK_SUITES[('STATE01', 'T55c11')] = dict(TASK_SUITES[('STATE01', 'T55c8')])
+TASK_SUITES[('STATE01', 'T55c12')] = {
+    'frestore040_single_denorm': 'tests.host.test_frestore040.Frestore040Tests',
+    'private_frame_regression': 'tests.host.test_internal_fpu_state.InternalFpuStateTests'}
 TASK_SUITES[('FUZZ01', 'T55c9')] = {
     'public_profile_config_oracle': 'tests.fuzz.test_fuzz.ConfigProfileFuzzTests',
     'dispatch_regression': 'tests.fuzz.test_check.TaskSuiteDispatchTests'}
