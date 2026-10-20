@@ -135,6 +135,7 @@ static std::array<uint8_t,32> future(unsigned cut)
     assert(get_long(0x10000)==0x5a5a5a5a && get_long(0x11000)==counter);
     command("x"); step(8); assert(hrtmon_flag==ACTION_REPLAY_IDLE && !(regs.spcflags&SPCFLAG_ACTION_REPLAY));
     assert(get_long(0x11000)>counter && m68k_getpc()>=0x1200a && m68k_getpc()<0x12012);
+    const auto state=save(); observe(state.data(),state.size());
     std::array<uint8_t,32> digest{}; p6_sha256_final(&observed,digest.data()); return digest;
 }
 static std::string state_path(const char *directory,unsigned cut) { return std::string(directory)+"/"+std::to_string(cpu_mode)+"-"+std::to_string(cut)+".state"; }
