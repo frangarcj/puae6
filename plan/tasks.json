@@ -11714,7 +11714,7 @@
       "id": "T40b",
       "title": "Renovar preview nativa con CHD HRTMon y avisos de sus binarios",
       "milestone": "M4",
-      "required": true,
+      "required": false,
       "status": "in_progress",
       "depends": [
         "T40a",
@@ -11735,7 +11735,7 @@
         "docs/user/native-preview.md"
       ],
       "steps": [
-        "Entregar ZIP local D macOSARM64 confuncionesnativasyaaprobadas CHDpublico/HRTMon/NaNFPSP0395, reemplazandoaliaspreviewutilsoloalterminar. Sinpublicar/releaseformal/instalarMacHawk niROM/juegos. PadreT40/T41conservanpuertas completas. Cuatrorutas110..150manuales, cd32_closeaisladoimplementa yrootserializabuild-release-j2 una vez.",
+        "Entregar ZIP local D macOSARM64 confuncionesnativasyaaprobadas CHDpublico/HRTMon/NaNFPSP0395, reemplazandoaliaspreviewutilsoloalterminar. Sinpublicar/releaseformal/instalarMacHawk niROM/juegos. PadreT40/T41conservanpuertas completas. Cuatrorutas110..150manuales, cd32_closeaisladoimplementa yrootserializabuild-release-j2 una vez. Renovacionopcionaldepreviewlocal, no dependenciaformal deT40; HRTMonpermaneceopcionalenrelease ysu dependenciaseconservaexplicitaenestahoja.",
         "PolicylicensesmantienecopiasexactasCOPYING/MAME yLIBCHDRLICENSE/NOTICE; soportarslicesdeavisosincrustadospath/linesinclusivaspreservaexactbytesrotuladosconfuente sinheadersenormes niarchivosreportes. libchdrRomainBSD3+AaronGilesMAME38lineas; zlibGailly/Adler;LzmaEncPublicdomainIgorPavlov;dr_flacMIT0alternativa2. SoftFloat9fuentesinventariadosmixto2a/Hauser,BSD Bellard,GPL/FPSPAndreasGrabher/PreviousyautoresFPU. LEEMEavisoprominentePUAE6derivadoSoftFloat. HRTGPLbuiltinprocedenciadocs00preservada. Noalterarfuentesdeps/pins/NOTICEselection.",
         "Helpernotice_filesunico paraROOTenbuildylecturasource.tar.gzenverify. Exigirpresenciaybytesexactosdetodosavisosexigidosporpolicyarchivada,ademasmanifesthash/exactset; negativoremove/cambiaravisoinclusoactualizandomanifestdeberechazarse. PolicyTestsexactospresenciaBSD/SoftFloat/slices. Fuentescorrespondientesnuevasfuncionesincluidassourcearchive.",
         "GuiaCHDv5CD none/cdzl/cdlz/cdflsinparent/HTOA/CDI/GD/DVD, directoyM3U16/DiskControl, mismoestado/builtinHRTMonA1200cartridge/hotkeyFreeze. DescribirFPU040/060SoftFloatopcionalylimitacionesFRESTOREsinproclamarcierreparentT55; conservarCDTV/MMU/WBpendientes. ZIPCanteriornomodificado.",
@@ -11764,8 +11764,7 @@
         "T31",
         "T35",
         "T36",
-        "T40a",
-        "T40b"
+        "T40a"
       ],
       "read": [
         "docs/05-maintenance.md",
