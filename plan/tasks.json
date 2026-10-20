@@ -18416,14 +18416,16 @@
         "bridge/state.cpp",
         "CMakeLists.txt",
         "tests/cartridge/hrtmon_probe.cpp",
-        "tests/cartridge/test_hrtmon.py"
+        "tests/cartridge/test_hrtmon.py",
+        "bridge/lifecycle.cpp"
       ],
       "steps": [
         "Verticalprivada ejecutable conmonitorHRTMon original, sinfrontend ni estadosparciales. Añadir ar.cpp aselectedunits y ACTION_REPLAYcentral para hooksCPU/memory/custom/CIA existentes; gencpu no consultamacro. Parche0394soloar.cpp eliminaRTGexcluido, deshabilitabuiltingzipfaltanteenportable yvalida rawHRT!/longitud/asignacion/lectura. Noeditarpristine. RootreservaID394ycoordinasuordencon393, enviarbef/after/SHAantesderegistrar. Nueve rutas atomicas260..360manuales: se amplianexplicitamentesysconfig.h yCMakeLists porqueenlace/macro/bridge/probe debensercoherentes.",
         "Extraer/decomprimir builtinEXACTOdelupstreamfijado soloabuild/, sincompilarhrtmon.rom.cpp ni añadirinflater. SourceSHAf3cdc921cb33d9f7b16197d66a182dda63a107e331032fb30ffad96dc98b9367, gzip41970->raw198732, rawSHA15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5/HRT!offset4. GPLguiaautor https://github.com/wepl/hrtmon/blob/master/HRTmon.guide esreferenciasemantica, no mastercomoinputrelease. NoROMcomercialdescargada; otroscartuchos se rechazanclearly yActionReplay comercialconservaasset/puertaenpadreT69.",
         "BindprivadosoloInitialized: copiaP6_BLOB_ROM bajo nombrelogico p6-cartridge.rom, build_preferences cart_internal0/cartfile siassetpresente; release_engineya limpialosblobsentodasfases. Loaderengine usa zfile/blob sinFSfallback. Freezeprivadoenfrontera validaowner/modeloyestado; pideSPCFLAGyNMIoriginal, noreturn1deaction_replay_freeze comooraculopuespuedeestarflaginactivo. Limpiarflags/triggered/shadowscustomCIA/punterosderivados entreowners; sinstubsdeexito.",
         "ProbeCMakep6_hrtmon_probe realA1200+Kickstartautorizado2+/3.x; monitorfreeze ejecutacomando o10000 10004 5apor teclado emulado, verifica4bytes5a yxretornaaprograma/counter. Twinsmismoproceso/nuevoproceso comparanticks/PC/flags/RAM/AV/PCMporunidad. Rechazarsinasset/antesload/rawmal/truncado/oversize sinregistro. NativeState devuelveUNSUPPORTEDconcartucho hastacodeccompletoT69b; regresionA1200sincartucho. MicroROMpropia controlNMI no sustituye gateromreal, siassetfaltabloquearexplicitamente.",
-        "BUILD01/DET02 comparten HrtMonTests yunionse ejecutauna vez; coordinador buildmotor-j2 yregistroplan/series/checks. Frente cd_swap enworktreet66-cd-swap, responsablesin compilarmotor/guest hasta coordinar. PadreT69 conservacodeccompleto(identityrawcart,RAM1MiB,flag/triggered/shadows/mapeo ySPC_ACTIONvalidado) yconexionpublicafreeze/mapper/held-edge, mascartuchosARautorizados; no cierreporprivadoniPCenROM."
+        "BUILD01/DET02 comparten HrtMonTests yunionse ejecutauna vez; coordinador buildmotor-j2 yregistroplan/series/checks. Frente cd_swap enworktreet66-cd-swap, responsablesin compilarmotor/guest hasta coordinar. PadreT69 conservacodeccompleto(identityrawcart,RAM1MiB,flag/triggered/shadows/mapeo ySPC_ACTIONvalidado) yconexionpublicafreeze/mapper/held-edge, mascartuchosARautorizados; no cierreporprivadoniPCenROM.",
+        "Reproducerreal de integracion falla en shutdown del estado Initialized tras bindprivado: p6_shutdown solo llama release_engine siLoaded/Faulted ydejaelblobcopiado. Ampliartouch con bridge/lifecycle.cpp para que shutdown libere tambienpropiedadpreload conlimpiezaexistente segura por Stage; conservar no-cart/defaults yreutilizarnegativoHrtMonTestsantesdearranque. Diezrutas atomicas por propiedad/lifecycle, sin quitar assertions ni atribuir monitor por este fix."
       ],
       "checks": [
         "BUILD01",
