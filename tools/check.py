@@ -336,6 +336,7 @@ TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_de
 for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
     TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',
                                      'pinned_chd_regression': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
+TASK_SUITES[('MED01', 'T66t7')] = {**TASK_SUITES[('MED01', 'T66t5')], 'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66e2')] = dict(TASK_SUITES[('MED01', 'T66e2b')])
@@ -576,6 +577,8 @@ for _gate in ('DET02', 'STATE01'):
     TASK_SUITES[(_gate, 'T77b1')] = {'waiting_blits_causal_restore': 'tests.state.test_waiting_blits'}
 TASK_SUITES[('STEP01', 'T77b1')] = {'unit_boundary_continuation': 'tests.step.test_step.StepTests'}
 TASK_SUITES[('WB03', 'T77b1')] = {'waiting_blits_sandbox_restore': 'tests.waterbox-state.test_waiting_blits.WaitingBlitsWaterboxTests'}
+for _gate in ('BUILD01', 'DET02'):
+    TASK_SUITES[(_gate, 'T69a')] = {'real_hrtmon_monitor_freeze': 'tests.cartridge.test_hrtmon.HrtMonTests'}
 TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
 TASK_SUITES[('BUILD01', 'T55c1')] = {
     'linked_native_and_full_waterbox_exports': 'tests.host.test_cpu_backend_build',
