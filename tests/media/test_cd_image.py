@@ -1,4 +1,4 @@
-"""All three pinned metadata endpoints linked into the one native CD owner."""
+"""Native CD image factory and target-local metadata compilation inventory."""
 import hashlib
 import json
 import os
@@ -79,16 +79,16 @@ class CdImageTests(unittest.TestCase):
         for name,data in (('empty.iso',b''),('short.iso',b'X')):
             bad,_=self.iso(name,data); self.assertEqual(self.run_image(bad,code=2,vfs=True),['error 3 opens 1'])
 
-    def test_cmake_has_three_target_local_pic_compilations_without_building(self):
+    def test_cmake_has_four_target_local_pic_compilations_without_building(self):
         if not shutil.which('cmake') or not shutil.which('ninja'): self.fail('cmake and ninja required to inspect the real native graph')
         build=self.work/'configure'
         out=subprocess.run(['cmake','-S',str(ROOT),'-B',str(build),'-G','Ninja'],capture_output=True,text=True,timeout=60)
         self.assertEqual(0,out.returncode,out.stderr+out.stdout[-300:])
         entries=json.loads((build/'compile_commands.json').read_text())
         parsers=[e['command'] for e in entries if e['file'].endswith('/blkdev_cdimage.cpp')]
-        self.assertEqual(3,len(parsers))
-        for kind in ('CUE','CCD','NRG'):
+        self.assertEqual(4,len(parsers))
+        for kind in ('CUE','CCD','NRG','MDS'):
             self.assertEqual(1,sum('-DP6_'+kind+'_METADATA' in command for command in parsers))
         for command in parsers:
-            self.assertEqual(1,sum('-DP6_'+kind+'_METADATA' in command for kind in ('CUE','CCD','NRG'))); self.assertIn('-fPIC',command)
+            self.assertEqual(1,sum('-DP6_'+kind+'_METADATA' in command for kind in ('CUE','CCD','NRG','MDS'))); self.assertIn('-fPIC',command)
         self.assertTrue(all('-fPIC' in e['command'] for e in entries if e['file'].endswith('/cd_image.cpp')))

@@ -16566,7 +16566,7 @@
       "title": "Preparar decoder CHD fijado y codecs con build offline",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66o1",
         "T66a"
@@ -16592,7 +16592,8 @@
         "Receta CMake aislada con5fuentes libchdr, LzmaDec/LzmaEnc/LzFind _7ZIP_ST y6fuentes inflate/zlib1.2.7 seleccionadas; dr_flac sin STDIO/OGG. Sin zlib del sistema ni red/libretro-common. No enlazar todavia el producto ni anunciar CHD: primero dependencia comprobable.",
         "MED01 dirigido: compilar libreria/probe sin motor ni guest y decodificar fixtures CDv5 legales none/cdzl/cdlz/cdfl comparando todos los bytes esperados. Generar patrones publicos con chdman0.287 local disponible sin instalar, o conservar fixtures minimos reproducibles con receta/procedencia en el propio generador/test; el producto no depende de chdman. Pruebas no escriben evidencia historica; temporales build se limpian.",
         "Mantener separados reader acotado ReadFn/hardening (cabecera/mapas/metadata/codec/ciclosSELF/lectura corta), proveedor CD/TOC/subcanales/identidad y carga publica. Son pendientes explicitos del padre; no exponer un decoder inseguro a contenido arbitrario por completar esta pieza.",
-        "Frente cd32_close reutiliza worktree t53-cpu aislado y merge normalmain; no editar metadata compartida ni ejecutar baterias completas. Coordinador posee plan/checks/licencias. Maximo orientativo400lineas manuales, imports/generados identificados aparte; proponer subdivision antes de excederlo. Tests de dependencia pequenos autorizados, compilacionmotor/guest requiere turno del coordinador."
+        "Frente cd32_close reutiliza worktree t53-cpu aislado y merge normalmain; no editar metadata compartida ni ejecutar baterias completas. Coordinador posee plan/checks/licencias. Maximo orientativo400lineas manuales, imports/generados identificados aparte; proponer subdivision antes de excederlo. Tests de dependencia pequenos autorizados, compilacionmotor/guest requiere turno del coordinador.",
+        "Integrado c19b25c8:38inputs pristinos, parcheportabilidad con3afterhashes fijos, selección/notices ytarget p6_chd independiente. MED01/pinned_chd_codecs PASS:4tests, ninguno sin ejecutar; los4codecs comparan97920bytes adelante/atras/repetido, Adler/CRC frentePython, import/derivado/receipt corruptos yfuentes sinreferences rechazados. FixturesCC0 de40frames verificadas por chdman; temporaleslimpios. No hay CHD publiconi hardeningReadFn aun."
       ],
       "checks": [
         "MED01"
@@ -16607,7 +16608,7 @@
       "title": "Leer MDF por offset y normalizar pistas MDS con identidad completa",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66s1",
         "T66b",
@@ -16633,7 +16634,8 @@
         "Una MDF compartida: expandir *.mdf con basenameMDS y resolver nombre relativo conservando mayusculas/UTF8 como CdCue. Modos/strides permitidos por metadata; normalizar soloSUB96interleaved a deinterleaved sin tocar audio/data. Mantener limites expresos del Disc comun, incluidos viewsMode2 no soportados, sin stub de exito.",
         "Identidad incluye MDS y MDF completos por SHA256, normalizacion/TOC y fuentes, sin rutas ni punteros/padding. Rebind en owner nuevo verifica IDs/layout completos y conserva owner previo ante fallo. Validar spans/longitudes/overflow antes de publicar y lecturas acotadas/transaccionales con falloVFS; no fallback a sectores sinteticos tras error.",
         "MED01 dirigido con build aislado sinmotor/guest: fixtures legales de modo1cooked/raw, audio,Mode2raw ySUB2448, pregaps inicial/intermedio, Unicode/wildcard, offsets arbitrarios ystrides mixtos, IDs/mutacionesenmetadata/payload/padding, nuevosowners/rebind, erroresVFS/archivoausente/corto ysalidasintactas. RegresioncercanaDisc/parsers si cambia dependencia relevante. Frente busy_reference reutiliza a4040-frontends; coordinador metadata/checks e integra. <=400lógicasmanuales orientativas,5rutas; anunciar necesidad atomica antes de ampliar.",
-        "Dependencia atomica detectada porresponsable: test_cd_image fija exactamente3targetsmetadata. Ampliar touch solo a ese testexistente para exigir4targets/flagsPICconMDS al integrarCMake; ajuste mínimo necesario del mismo contrato, sin relajar comprobaciones ni abrir nueva bateria. El coordinador realiza este sextoarchivo de integracion cuando el proveedor este listo."
+        "Dependencia atomica detectada porresponsable: test_cd_image fija exactamente3targetsmetadata. Ampliar touch solo a ese testexistente para exigir4targets/flagsPICconMDS al integrarCMake; ajuste mínimo necesario del mismo contrato, sin relajar comprobaciones ni abrir nueva bateria. El coordinador realiza este sextoarchivo de integracion cuando el proveedor este listo.",
+        "MED01/native_mds_source PASS:3tests ASan/UBSan conVFS, modos/pregaps/SUB96, hashes completos yrebindtransaccional;5rutas codigo integradas5d3950fe. Coordinador ajusto inventario exactoCMake4 y ejecuto metodo deconfiguracion/PIC sinbuildmotor:PASS. Seleccion/fabrica/restauracionpublica siguenpendientes."
       ],
       "checks": [
         "MED01"
@@ -16642,6 +16644,47 @@
         "El proveedor MDS/MDF produce TOC y lecturas exactas por offset con gaps/strides/SUB96 coherentes, identidad completa y rebind transaccional en otro owner bajo sanitizers y VFS. No acredita aun seleccion/carga/restore publico libretro."
       ],
       "stop": "No anunciar extension MDS hasta comprobar fabrica, sesion y restauracion publica; el padre conserva CHD/NRG/cambioCD y todas sus puertas."
+    },
+    {
+      "id": "T66s3",
+      "title": "Conectar MDS a la fabrica y carga publica CD32 con restauracion",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66s2",
+        "T66r9"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/options.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_image.cpp",
+        "adapters/libretro/cd_session.cpp",
+        "adapters/libretro/libretro_core.cpp",
+        "tests/media/test_cd_image.py",
+        "tests/libretro-host/test_cd32_load.py",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Conectar CdMds probado porT66s2 aCdImage yCdSession, anunciar extensionmds enlibretro, sin alterar scheduler/ABI ni aceptar MDFsinmetadata. SeleccionAutomatic/CD32 ytags aplicanigual que otrosCD; versiones/modos/variantes noimplementadas siguenUnsupported claro.",
+        "MED01: actualizar factorytest para4endpoints reales yproveedorMDS, incluyendo seleccioncase-insensitive, nuevoowner/identidad,VFS yregresionISO/CUE/CCD/NRG. Usar infraestructuraaislada de test_cd_image, sinbuildmotor para atribucion.",
+        "LR01 publico con ROMsCD32locales autorizadas: cargarMDS/MDF legal y comprobar avance+snapshot enproceso nuevo, futuros iguales ymismomediaID; cambiosenMDS/MDF impidenrestaurar sinmutar maquina. ReusarfixtureISO/ROM yventana corta de300unidades, sinrepetirBrian6500ni guest; S2 ya compara bytes ypregaps del lector.",
+        "Actualizar docs/options conformatos/subconjuntoMDS/limites reales. Seisrutas necesarias deunaverticalatomica fabrica+seleccion+anuncio+doschecks+guia, manteniendo<400lineasmanuales orientativas; no crearhojas artificialespara la linea de extension/documentacion.",
+        "Frente busy_reference reutiliza a4040-frontends ymerge normalmain. Coordinador poseeplan/checks e integra; compilacion nativa -j2 serializada autorizadacuando codigoeste listo, sin guest/matrizcompleta. Materializacion porherramientaoficial ymtime soloparabytesSHAidenticos verificados; no editarbuildsourcesamanoni recibos."
+      ],
+      "checks": [
+        "MED01",
+        "LR01"
+      ],
+      "acceptance": [
+        "Libretro acepta MDSv1/MDF soportado, avanza yrestaura enproceso nuevo conidentidad completa; rechaza cambiosdel medio sinmutar estado. Factory yformatosprevios siguen pasando, limitesdocumentados."
+      ],
+      "stop": "Conservar enT66CHD/NRG/cambioCD y puertas completas; MDSnoimplica soportar todaslasversiones/sesiones/modos del formato."
     },
     {
       "id": "T66",
@@ -16697,7 +16740,8 @@
         "T66r9",
         "T66s1",
         "T66t1",
-        "T66s2"
+        "T66s2",
+        "T66s3"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16743,7 +16787,8 @@
         "T66r9 cierra seleccion por etiquetas de CD directo sin alterar los tags de disquete. Formatos/variantes y cambioCD siguen pendientes, ademas de las puertas completas del padre.",
         "T66s1 separa parserMDSv1 por presupuesto: metadata acotada primero, proveedor MDF y carga publica despues. El padre conserva soporteMDS integrado, CHD, variantesNRG, cambioCD y todas sus puertas originales.",
         "T66t1 prepara libchdr standalone fijado y sus codecs offline; reader ReadFn/hardening, proveedor CD y carga publica siguen pendientes explicitos. No copiar motor antiguo ni anunciar CHD por un build de dependencia.",
-        "T66s2 conecta proveedor MDF/TOC con identidad completa sobre metadata0388; seleccion CdImage/sesion/extension y prueba publica MDS quedan despues de esta pieza. Se conservan formatos/variantes/cambioCD y las puertas originales."
+        "T66s2 conecta proveedor MDF/TOC con identidad completa sobre metadata0388; seleccion CdImage/sesion/extension y prueba publica MDS quedan despues de esta pieza. Se conservan formatos/variantes/cambioCD y las puertas originales.",
+        "T66s3 integraMDS/MDF en fabrica/sesion/extensionlibretro yrestorepublico sobre elproveedorT66s2; no cierraCHD, variantesNRG, cambioCD ni laspuertas delpadre."
       ],
       "checks": [
         "MED01",

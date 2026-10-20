@@ -294,6 +294,7 @@ for _gate in ('WB03', 'WB08', 'WB09'):
 TASK_SUITES[('MED01', 'T66j1')] = {'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66s1')] = {'pinned_mds_metadata': 'tests.media.test_mds_metadata.MdsMetadataTests'}
 TASK_SUITES[('MED01', 'T66s2')] = {'native_mds_source': 'tests.media.test_cd_mds.CdMdsTests'}
+TASK_SUITES[('MED01', 'T66s3')] = {'native_cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}
