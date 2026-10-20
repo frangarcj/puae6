@@ -29,6 +29,9 @@ sigue sin soporte. TAO y multisesion nativos se rechazan.
 MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de
 2048/2352 y Mode2 raw de 2352; tambien sectores de 2448 con SUB96 intercalado. El pregap es
 sintetico y los offsets apuntan a datos; TOC, PLBA y longitudes deben concordar.
+Los gaps sinteticos Mode2 entregan Form1 vacia: cabecera MSF real y cuerpo cero,
+incluidos EDC/ECC; raw2448 agrega los subcanales P/Q canonicos. La vista2048 de
+Mode2 sigue sin soporte y los sectores almacenados se conservan byte a byte.
 El nombre MDF puede ser relativo, UTF16LE o `*.mdf`; MDF solo no se carga.
 La identidad incluye el MDS y MDF completos: cambiar metadata, datos o padding
 impide restaurar sus estados. Versiones/modos/multipart no soportados se rechazan.

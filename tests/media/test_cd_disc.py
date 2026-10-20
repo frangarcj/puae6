@@ -1,4 +1,5 @@
 """MED01/T66b: normalized TOC/sectors; fixed upstream encoder, no engine build."""
+import binascii
 import hashlib
 import json
 import os
@@ -61,3 +62,17 @@ class CdDiscTests(unittest.TestCase):
 
     def test_canonical_stored_and_synthetic_sectors_and_pause_boundaries(self):
         self.run_probe("canonical")
+
+    def test_mode2_empty_form1_gaps_headers_subq_no_io_and_msf_limits(self):
+        out = subprocess.run([str(self.exe), 'mode2-gaps'], capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, out.returncode, out.stderr)
+        headers = {0: '000200', 74: '000274', 75: '000300', 4349: '005974', 4350: '010000', 4501: '010201', 4503: '010203'}
+        self.assertEqual(14, len(out.stdout.splitlines()))
+        for row in map(str.split, out.stdout.splitlines()):
+            lba = int(row[2]); self.assertEqual(row[3], '00' + 'ff' * 10 + '00' + headers[lba] + '02')
+            relative = abs(4502 - lba)
+            def bcd(n): return n // 10 * 16 + n % 10
+            clock = bytes(map(bcd, (relative // 4500, relative // 75 % 60, relative % 75)))
+            q = bytes((0x41, 1, int(lba >= 4502))) + clock + b'\0' + bytes.fromhex(headers[lba])
+            expected = b'\xff' * 12 + q + (binascii.crc_hqx(q, 0) ^ 0xffff).to_bytes(2, 'big') + bytes(72)
+            self.assertEqual(bytes.fromhex(row[4]), expected)

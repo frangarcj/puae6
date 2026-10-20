@@ -98,9 +98,10 @@ class CdMdsTests(unittest.TestCase):
             if row[0] not in ('sector', 'sub'): continue
             lba = int(row[1]); t = next(t for t in tracks if lba < t[2]); gap = lba < t[1]; stride, mode = t[4], t[6]
             at = (lba - t[1]) * stride; main = bytes(2048 if mode == 0 else 2352) if gap else streams[t[3]][at:at + min(stride, 2352)]
+            if gap and mode == 2: main = nrg_ref.mode2_header(lba) + bytes(2336)  # Empty Form1, header excluded from ECC.
             sub = subq(t, lba, t[3] + 1) if gap or stride != 2448 else streams[t[3]][at + 2352:at + 2448]
             if row[0] == 'sub': self.assertEqual(row[2], hashlib.sha256(sub).hexdigest()); continue
-            view = int(row[2]); unsupported = (view == 2048 and mode in (2, 3)) or (gap and mode == 2)
+            view = int(row[2]); unsupported = view == 2048 and mode in (2, 3)
             self.assertEqual(row[3], '5' if unsupported else '0')
             if unsupported: continue
             expected = main[16:2064] if mode == 1 and (view == 2048 or (gap and view == 2352)) else main

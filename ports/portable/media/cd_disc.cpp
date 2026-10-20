@@ -69,8 +69,8 @@ Result Disc::read_sector(uint32_t lba, uint32_t view, void *out, size_t capacity
     const uint32_t first = t.stored_pregap ? t.index0 + t.synthetic_pregap : t.index1;
     const bool cooked = t.mode == Mode::Mode1_2048, gap = lba < first || lba >= t.end - t.postgap;
     if ((view == 2048 && (t.mode == Mode::Audio || t.mode == Mode::Mode2Raw)) ||
-        (view == 2448 && (cooked || gap || t.stride != 2448)) || (gap && t.mode == Mode::Mode2Raw)) return Result::Unsupported;
-    if (view == 2352 && (cooked || (gap && t.mode == Mode::Mode1Raw)) && lba > 100 * 60 * 75 - 151)
+        (view == 2448 && (cooked || gap || t.stride != 2448))) return Result::Unsupported;
+    if (view == 2352 && (cooked || (gap && t.mode != Mode::Audio)) && lba > 100 * 60 * 75 - 151)
         return Result::Unsupported; // synthesized MSF has two BCD digits, validated before I/O
     uint8_t sector[kMaxReadBytes] = {};
     if (!gap) {
@@ -80,6 +80,15 @@ Result Disc::read_sector(uint32_t lba, uint32_t view, void *out, size_t capacity
     }
     if (view == 2352 && (cooked || (gap && t.mode == Mode::Mode1Raw))) {
         encode_l2(sector, int(lba) + 150);
+    }
+    if (gap && t.mode == Mode::Mode2Raw) {
+        // libMirage a9d6a204 sector.c:feed_data selects Form1 for empty Mode2Mixed.
+        // Zero subheader/data yield zero EDC/P/Q; Form1 excludes header from ECC.
+        const uint32_t absolute = lba + 150;
+        auto bcd = [](uint32_t n) { return uint8_t(n / 10 * 16 + n % 10); };
+        memset(sector + 1, 0xff, 10);
+        sector[12] = bcd(absolute / 4500); sector[13] = bcd(absolute / 75 % 60);
+        sector[14] = bcd(absolute % 75); sector[15] = 2;
     }
     const uint8_t *data = sector;
     if (view == 2048 && t.mode == Mode::Mode1Raw && !gap) {

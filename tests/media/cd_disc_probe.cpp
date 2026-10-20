@@ -262,9 +262,52 @@ static int canonical()
     CHECK(read_subchannel(disc, 0, out, 95) == Result::Invalid && filled(out, sizeof out, 0xa5));
     layout.track[1].mode = Mode::Mode2Raw; layout.track[1].stride = 2352;
     Disc mode2; CHECK(mode2.bind(layout, f.bindings, 4) == Result::Ok);
-    CHECK(canonical_read(mode2, 52, 2448, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
+    CHECK(canonical_read(mode2, 52, 2448, out, sizeof out) == Result::Ok && out[15] == 2 && filled(out + 16, 2336, 0));
     return 0;
 }
+static int mode2_gaps()
+{
+    for (unsigned stride : {2352u, 2448u}) {
+        Provider p{17 + 2 * stride, 17, 0, stride, 2};
+        Binding binding{{{1}, p.bytes, 1}, provide, &p};
+        Layout layout{}; layout.tracks = 1; layout.leadout = 4504;
+        layout.track[0] = {0, 4502, 4504, 0, stride, 17, Mode::Mode2Raw, 1, 4, false, 4502, 1};
+        Disc disc; CHECK(disc.bind(layout, &binding, 1) == Result::Ok);
+        uint8_t out[2464];
+        for (uint32_t lba : {0u, 74u, 75u, 4349u, 4350u, 4501u, 4503u}) {
+            memset(out, 0xa5, sizeof out);
+            CHECK(canonical_read(disc, lba, 2448, out + 8, 2448) == Result::Ok && !p.calls);
+            CHECK(filled(out, 8, 0xa5) && filled(out + 2456, 8, 0xa5) && filled(out + 24, 2336, 0));
+            printf("gap %u %u ", stride, lba);
+            for (unsigned n = 0; n < 16; ++n) printf("%02x", out[8 + n]);
+            putchar(' '); for (unsigned n = 0; n < 96; ++n) printf("%02x", out[2360 + n]); puts("");
+        }
+        CHECK(canonical_read(disc, 4502, 2448, out, sizeof out) == Result::Ok);
+        for (unsigned n = 0; n < 2352; ++n) CHECK(out[n] == byte(p, p.offset + n)); // Stored Form2 stays intact.
+        for (int fault = 1; fault <= 3; ++fault) {
+            p.fault = fault; const auto calls = p.calls;
+            CHECK(canonical_read(disc, 4501, 2448, out, sizeof out) == Result::Ok && p.calls == calls);
+            memset(out, 0xa5, sizeof out);
+            CHECK(canonical_read(disc, 4502, 2448, out, sizeof out) == Result::ReadError && filled(out, sizeof out, 0xa5));
+        }
+        memset(out, 0xa5, sizeof out);
+        CHECK(disc.read_sector(4501, 2048, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
+        CHECK(disc.read_sector(4501, 2448, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
+        layout.track[0].index1 = layout.track[0].synthetic_pregap = 449851;
+        layout.leadout = layout.track[0].end = 449853;
+        Disc limit; CHECK(limit.bind(layout, &binding, 1) == Result::Ok);
+        const auto calls = p.calls;
+        CHECK(limit.read_sector(449849, 2352, out, sizeof out) == Result::Ok && !memcmp(out + 12, "\x99\x59\x74\x02", 4));
+        for (uint32_t lba : {449850u, 449852u}) {
+            memset(out, 0xa5, sizeof out);
+            CHECK(limit.read_sector(lba, 2352, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
+            CHECK(canonical_read(limit, lba, 2448, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
+        }
+        CHECK(p.calls == calls);
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
@@ -272,5 +315,6 @@ int main(int argc, char **argv)
     if (!strcmp(argv[1], "failures")) return failures_and_rebind();
     if (!strcmp(argv[1], "akiko")) return akiko();
     if (!strcmp(argv[1], "canonical")) return canonical();
+    if (!strcmp(argv[1], "mode2-gaps")) return mode2_gaps();
     return 2;
 }
