@@ -1,0 +1,33 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13221,7 +13221,10 @@
+ //  which the DMA had been holding off the bus, ran 148 colour clocks earlier. ddfstrt_val is the colour clock at which a fetch may start (DDFSTRT | 1: a write of DDFSTRT sets it and
+ //  custom_reset never does, so a machine that never wrote the register has 0 where restore_custom derives 1), kept so that the latch ddf_enable_on is set at the same clock after a load
+ //  as in the machine that never loaded. ddf_limit_out is not here: decide_bpl derives it from ddf_limit_in at every colour clock.
+-#define P6_BEAM_WORDS 89
++//  89 config_changed  90 config_changed_flags: the pending preference check and its flags. init_m68k and compute_framesync request it; the next two vertical blanks consume it.
++//  Even with fixed preferences it is causal: check_prefs_changed_custom can enable the programmed beam latches and write Denise sync flags. A new image must inherit the saved
++//  countdown, not the request its own reset head left. Flags are kept as a full word: the portable callers currently pass zero, and the Win32 GUI is the only writer of bit 2.
++#define P6_BEAM_WORDS 91
+ bool p6_custom_beam_get(int32_t *out, unsigned n)
+ {
+ 	if (!out || n != P6_BEAM_WORDS) return false;
+@@ -13241,7 +13244,8 @@
+ 		nosignal_cnt, nosignal_status, nosignal_trigger, lines_after_beamcon_change, syncs_stopped,
+ 		rga_pipe[0].bltadd, rga_pipe[1].bltadd, rga_pipe[2].bltadd, rga_pipe[3].bltadd,
+ 		int32_t(rga_pipe[0].conflictaddr), int32_t(rga_pipe[1].conflictaddr), int32_t(rga_pipe[2].conflictaddr), int32_t(rga_pipe[3].conflictaddr),
+-		bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old, ddfstrt_val
++		bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old, ddfstrt_val,
++		config_changed, config_changed_flags
+ 	};
+ 	static_assert(sizeof head / sizeof head[0] == P6_BEAM_WORDS, "review the beam word list");
+ 	memcpy(out, head, sizeof head);
+@@ -13288,6 +13292,7 @@
+ 	bprun = in[80]; bprun_cycle = in[81]; ddf_stopping = in[82]; ddf_enable_on = in[83];
+ 	ddf_limit_in = in[84] != 0; ddf_limit = in[85] != 0; ddfstrt_match = in[86] != 0; hwi_old = in[87] != 0; ddfstrt_val = uae_u16(in[88]);
+ 	setmaxhpos();
++	config_changed = in[89]; config_changed_flags = in[90];
+ 	return true;
+ }
+ 

@@ -5361,6 +5361,31 @@
           "after_sha256": "6af1f03f335196827febb68bfb02e13cd64c51fcf677583898758d666cdbd4ef"
         }
       ]
+    },
+    {
+      "id": "0383-state-pending-config",
+      "file": "patches/winuae/0383-state-pending-config.patch",
+      "sha256": "107a7304fe5cb0d78e99b4c392f8b4d5f590be37b99f35d00486d724c855c2cd",
+      "title": "Preserve the pending preference countdown across native restore",
+      "reason": "T66r7: a fresh owner inherits a reset-head config_changed request absent in the saved game; its next vsync changes programmed beam latches and Denise state. Serialize both countdown and flags, including legitimate early pending requests.",
+      "category": "state corrections",
+      "order": 200,
+      "symbols": [
+        "p6_custom_beam_get",
+        "p6_custom_beam_set",
+        "config_changed",
+        "config_changed_flags"
+      ],
+      "test": "tests/state/test_state_upstream.py; tests/libretro-host/test_cd32_load.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "7b3d1bc26108a26977a8b1957eebdc5a43853e2e9070cf41afa098939d027c52",
+          "after_sha256": "4ae2f062c2efe082774b5c5d9b436d54f5b147aca13e549e8f38c81395777df6"
+        }
+      ]
     }
   ]
 }
