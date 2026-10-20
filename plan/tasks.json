@@ -13273,7 +13273,8 @@
         "T55c10 conecta selectores de los frontends sobre la API nativa87cda89b en worktree aislado; el padre conserva firmware real, FRESTORE, presupuestos y sus puertas completas.",
         "Firmware real A4000 autorizado: primer smoke040/68040 conFPU interna tras1800unidades sigue negro. Investigar PC/estado del motor y conservar reproducer antes de corregir; no acreditar arranque por salida0 ni por micro-ROMs.",
         "tests/state/test_kickstart_a4040.py conserva la puerta real040/060 reutilizando la animacion/imagen, paridad headless/libretro y futuros nativos del A4030. Diagnostico0382: en040 con/sinFPU la ROM entra en alerta8000000B, no halted; atribuir instruccion de origen antes de editar motor.",
-        "Atribucion real del negro040: F4D8/CINVA BC enF80C6E llega a op_illg porque build_cpufunctbl conserva el antiguo filtro totalF-line020. Frente aislado a4040-frontends corrige parche0384, preservando instrucciones enteras/cache040/060 generadas y rechazo PMMU/FPU ausente. Reproducer de opcode publico y regresiones cache/MOVE16 antes del firmware; coordinador registra serie/clasificacion, sin editar generados ni fingir MMU."
+        "Atribucion real del negro040: F4D8/CINVA BC enF80C6E llega a op_illg porque build_cpufunctbl conserva el antiguo filtro totalF-line020. Frente aislado a4040-frontends corrige parche0384, preservando instrucciones enteras/cache040/060 generadas y rechazo PMMU/FPU ausente. Reproducer de opcode publico y regresiones cache/MOVE16 antes del firmware; coordinador registra serie/clasificacion, sin editar generados ni fingir MMU.",
+        "Candidata0384: IntegerFlineTests3PASS; firmware real040/060 libretro/headless yrestoreproceso nuevo PASS. WBguestce7f0918/91sources+4recipe:040 realPASS;060mismoowneroriginal/replayiguales, pero SIGBUS del host al load B s en segundo sandbox (exit-10,pc0x1867acf94). Reproducer en test_wrapper_machine.py conservado; atribuir host/runtime antes de tocarCPU o darWB060porbueno."
       ],
       "checks": [
         "GEN01",
@@ -16388,7 +16389,7 @@
       "title": "Arrancar un juego CD32 real y restaurarlo en libretro y Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66r6"
       ],
@@ -16419,7 +16420,7 @@
         "El padre conserva MED01/DET02/AV02/WB03/LR01, todos los formatos y variantes restantes, cambio de CD y seleccion automatica por tags. Esta hoja solo acredita el juego elegido y su restauracion publica; no cerrar T66 con ella.",
         "Ampliacion dirigida de touch: tests/step/test_sprite_restore.py compila la funcion real restore_custom_sprite_denise, por el bug de promocion int/extension de signo al reconstruir operandos64 deSPR0. Probar32/64bits y high-bit en cada palabra antes/despues del parche0382; conservar el gate de juego/estado completo. La desviacion de arranque frio queda enT66r8, independiente.",
         "Ampliacion dirigida: preservar config_changed/config_changed_flags en BEAM por la divergencia causal de nuevo owner tras la primera unidad. Parche0383 reservado; bridge/state_probe.cpp incluye ambos en el oraculo. tests/state/test_state_upstream.py actualiza cuerpo/validacion y test_pending_config.py prueba countdown y cortes tempranos sin normalizarlo a0. El coordinador actualiza inventario/series/clasificacion y serializa builds.",
-        "Estado actual414f99da/0383: STATE01 countdown/flags y cortes1/2/6/7 PASS, rechazo BEAM invalido PASS; LR01 juego real+sprite PASS, incluidos todos los bytes del estado final en mismo/nuevo owner/proceso. Solo falta WB03 con candidata integrada0383+0384; no repetir gates nativos sin cambio relevante."
+        "Cierre414f99da/0383 + candidata0384: STATE01 countdown/flags y cortes1/2/6/7 PASS, rechazo BEAM invalido PASS; LR01 juego real+sprite PASS, incluidos todos los bytes del estado final en mismo/nuevo owner/proceso. WB03 juego real PASS231.7s con guestce7f0918148a908c y91fuentes/4recetas verificadas: futuro A/V/ticks, snapshots nuevo sandbox/proceso e interaccion jugable. Sin imagenes/estados historicos; T66r8 conserva su puerta independiente."
       ],
       "checks": [
         "LR01",
@@ -16436,7 +16437,7 @@
       "title": "Eliminar contaminacion de video CD32 entre cargas de sesion",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66r7"
       ],
@@ -16459,7 +16460,8 @@
       "steps": [
         "Conservar el reproducer independiente hallado en T66r7: tras jugar Brian the Lion, descargar y cargar otra sesion en la misma imagen nativa cambia video desde la unidad23, con ticks y PCM iguales. Los landmarks y futuros restaurados de T66r7 no sustituyen esta puerta de vida de sesion.",
         "Localizar el estado de video que sobrevive al unload/load y corregir su propietario/reset minimo, sin cambiar hashes ni tolerancias. Comparar arranque frio completo de dos ciclos nativos tras llegar al nivel jugable6500; mantener la restauracion y sus landmarks. No modificar MacHawk ni descargar assets.",
-        "Usar el test independiente, sin expectedFailure/skip para ocultar el desvio; el coordinador asigna compilacion pesada. Tras dos intentos razonados conservar reproducer y dos hipotesis verificables si queda bloqueado."
+        "Usar el test independiente, sin expectedFailure/skip para ocultar el desvio; el coordinador asigna compilacion pesada. Tras dos intentos razonados conservar reproducer y dos hipotesis verificables si queda bloqueado.",
+        "Frente cd32_close en worktree t53-cpu tras cierreR7; integrar candidata main por merge normal, coordinador mantiene serie/clasificacion/plan y reserva parche0385. Usar reproducer existente; no recompilar guest ni repetir juego/restore completo durante atribucion. Compilacion nativa dirigida serializada; conservar regresion de restauracion al integrar correccion."
       ],
       "checks": [
         "LR01"
