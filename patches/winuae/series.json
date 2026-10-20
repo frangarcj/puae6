@@ -5408,6 +5408,52 @@
           "after_sha256": "a8fd0336e54b4af9a4ba78c5cd78cd0361036194ff45fb0e1b1f3ed6f1a3f54b"
         }
       ]
+    },
+    {
+      "id": "0385-reset-registers-before-fmode",
+      "file": "patches/winuae/0385-reset-registers-before-fmode.patch",
+      "sha256": "427046c97d7306521cc3490c202d908d3b4b71c2d3dd6d96f47be31c9c52be68",
+      "title": "Publish reset registers before FMODE can reapply their saved values",
+      "reason": "T66r8: FMODE(0) calls set_chipset_mode when the previous session used nonzero FMODE, reapplying stale BPLCON/DIWHIGH before their saved values were synchronized. Reorder eight existing assignments without changing warm-reset policy.",
+      "category": "state corrections",
+      "order": 202,
+      "symbols": [
+        "custom_reset",
+        "FMODE",
+        "set_chipset_mode"
+      ],
+      "test": "tests/libretro-host/test_cd32_load.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "4ae2f062c2efe082774b5c5d9b436d54f5b147aca13e549e8f38c81395777df6",
+          "after_sha256": "dff70c94ec68d8d4c3029d61ffea9e0ed1363e708e7294aefc29f4e59f0f27a0"
+        }
+      ]
+    },
+    {
+      "id": "0386-frestore040-fpsp-cu06-double-normal",
+      "file": "patches/winuae/0386-frestore040-fpsp-cu06-double-normal.patch",
+      "sha256": "d8f0bf9b955a1fddf83a3e75067bb39446603f4b2a35e6bf829e36544e9a2d23",
+      "title": "Resume FPSP CU06 double commands reconstructed from normal single sources",
+      "reason": "T55c: Motorola FPSP op2_xi/op2_com preserves a converted normal SINGLE ETEMP while rewriting CMD1 to double. Decode only that documented rev40/CU06 shape and use live FPn; retain exception priority, and leave double-native and special/denormal variants explicitly pending.",
+      "category": "FPU correctness",
+      "order": 203,
+      "symbols": [
+        "fpuop_restore"
+      ],
+      "test": "tests/host/test_frestore040.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "cded560a499e01f7eb9fbac953459b6b03d4ccb9bc37e43bab6e54d4c932fdb9",
+          "after_sha256": "6889a19eb664d973ad73a8ac85a450c1c83e35ffe9edd87b50c6441a61e98d33"
+        }
+      ]
     }
   ]
 }

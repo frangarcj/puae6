@@ -1,0 +1,27 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -2721,10 +2721,21 @@
+ 				// ETEMP and the live FPn destination. ETE15=!ETE14 encodes this
+ 				// earlier stage; FE instead supplies converted FPTEMP/ETEMP.
+ 				const bool restart_extended = frame_version == 0x40 && cusavepc == 0x06 && (cmdreg1b & 0xfc00) == 0x4800;
+-				if (!regs.fp_exp_pend && (cusavepc == 0xFE || restart_extended)) {
++				// FPSP bugfix.S:op2_xi/op2_com retains a SINGLE source in
++				// ETEMP while changing CMD1 to double and using the live FPn.
++				// Only its finite normal singles are decoded here: exponent
++				// $3f81..$407e, explicit integer bit and 24-bit significand.
++				// Specials/denormals and remapped $3c00/$43ff remain pending.
++				const uae_u32 source_exp = restored.et[0] & 0x7fff0000;
++				const bool restart_double_normal = frame_version == 0x40 && cusavepc == 0x06 &&
++					(cmdreg1b & 0xfc00) == 0x5400 && restored.stag == 0 &&
++					source_exp >= 0x3f810000 && source_exp <= 0x407e0000 &&
++					(restored.et[1] & 0x800000ff) == 0x80000000 && restored.et[2] == 0;
++				const bool restart_cu06 = restart_extended || restart_double_normal;
++				if (!regs.fp_exp_pend && (cusavepc == 0xFE || restart_cu06)) {
+ 					if (opclass == 0 || opclass == 2) {
+ 						fpp_to_exten_fmovem(&src, fsave_data.et[0], fsave_data.et[1], fsave_data.et[2]);
+-						if (restart_extended) {
++						if (restart_cu06) {
+ 							dst = regs.fp[(cmdreg1b >> 7) & 7];
+ 						} else {
+ 							fpp_to_exten_fmovem(&dst, fsave_data.fpt[0], fsave_data.fpt[1], fsave_data.fpt[2]);
