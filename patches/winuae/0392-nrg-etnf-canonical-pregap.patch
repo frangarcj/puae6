@@ -1,0 +1,64 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -2493,7 +2493,30 @@
+         const uint64_t next = position + size;
+         if (!memcmp(buf, "ETN2", 4) || !memcmp(buf, "ETNF", 4) || !memcmp(buf, "TINF", 4)) {
+ #ifdef P6_NRG_METADATA
+-            return Result::Unsupported;
++            if (memcmp(buf, "ETNF", 4) || dao_seen || cue_seen || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
++            if (!size || size % 20 || size / 20 > 99) return invalid;
++            candidate.layout = NrgLayout::EtnfCanonical150; candidate.tracks = size / 20;
++            candidate.leadin = -150;
++            uint64_t packed = 0, physical = 0;
++            // VCDImager23f07386 image_nrg.c:_map/_write_tail drops pregaps.
++            // GNUlibcdio68ea374f nrg.c:ETNF restores150 per preceding track.
++            // Original nonstandard pregap lengths are absent, not recoverable.
++            for (unsigned n = 0; n < candidate.tracks; ++n) {
++                if (!read(buf, 20)) return io_error;
++                auto &t = candidate.track[n];
++                t.offset0 = t.offset1 = be(buf, 4); const auto length = be(buf + 4, 4), mode = be(buf + 8, 4);
++                t.start_sector = uint32_t(be(buf + 12, 4));
++                if (be(buf + 16, 4)) return Result::Unsupported;
++                t.stride = mode == 0 || mode == 2 ? 2048 : mode == 3 ? 2336 : mode == 7 ? 2352 : 0;
++                if (!t.stride || (n && t.stride != candidate.track[0].stride)) return Result::Unsupported;
++                t.mode = uint8_t(mode); t.adr = 1; t.control = mode == 7 ? 0 : 4;
++                if (!length || length % t.stride || t.start_sector != packed || t.offset1 != physical ||
++                    uint64_t(t.start_sector) * t.stride != t.offset1 || t.offset1 > directory || length > directory - t.offset1) return invalid;
++                packed += length / t.stride; physical += length; t.end = physical;
++                if (packed + uint64_t(n) * 150 > INT32_MAX - 150) return invalid;
++                t.index1 = int32_t(t.start_sector + uint64_t(n) * 150); t.index0 = t.index1 - 150;
++                candidate.leadout = int32_t(packed + uint64_t(n) * 150);
++            }
+ #else
+             if (memcmp(buf, "ETN2", 4) || gotsession || size % 32 || size / 32 > 99) return invalid;
+             tracknum = 1;
+@@ -2523,7 +2546,7 @@
+             const bool newformat = !memcmp(buf, "CUEX", 4);
+             if (newformat != ner5 || !size || size % 8 || size / 8 > 200) return invalid;
+ #ifdef P6_NRG_METADATA
+-            if (cue_seen) return Result::Unsupported;
++            if (cue_seen || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
+             cue_seen = true;
+ #endif
+             while (size >= 8) {
+@@ -2568,7 +2591,7 @@
+             const unsigned first_track = buf[20], last_track = buf[21]; // Binary, NOT BCD.
+             if (!first_track || first_track > last_track || last_track > 99 || (size - 22) / blocksize != last_track - first_track + 1) return invalid;
+ #ifdef P6_NRG_METADATA
+-            if (dao_seen || first_track != 1) return Result::Unsupported;
++            if (dao_seen || first_track != 1 || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
+             dao_seen = true; candidate.tracks = last_track; candidate.disk_type = buf[18]; candidate.session_hint = buf[19];
+             if (buf[19] > 1 || (buf[18] != 0 && buf[18] != 0x10 && buf[18] != 0x20)) return Result::Unsupported;
+             memcpy(candidate.catalog, buf + 4, 13);
+@@ -2602,6 +2625,10 @@
+         } else if (!memcmp(buf, "END!", 4)) {
+             if (size || next != footer) return invalid;
+ #ifdef P6_NRG_METADATA
++            if (candidate.layout == NrgLayout::EtnfCanonical150) {
++                if (session_tracks != candidate.tracks) return invalid;
++                *out = candidate; return Result::Ok;
++            }
+             if (!dao_seen || !cue_seen || !leadout_seen || candidate.leadout <= 0 || (session_tracks && session_tracks != candidate.tracks)) return invalid;
+             for (unsigned n = 0; n < 99; ++n) {
+                 const auto &t = candidate.track[n];

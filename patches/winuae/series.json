@@ -5577,6 +5577,28 @@
           "after_sha256": "f2e89c73ec809d165caad013a4a9a00768d2d2efc3219d60572327025625b06c"
         }
       ]
+    },
+    {
+      "id": "0392-nrg-etnf-canonical-pregap",
+      "file": "patches/winuae/0392-nrg-etnf-canonical-pregap.patch",
+      "sha256": "930529b99858b4353bb2f49e1607bc894999c6baa8162ed0acf3b5400636372d",
+      "title": "Read packed ETNF tracks with explicit canonical 150-sector pregaps",
+      "reason": "T66l5: GNU VCDImager strips pregaps from ETNF offsets; GNU libcdio reconstructs 150 sectors per preceding track. Expose this explicit interoperable policy for contiguous single-session layouts; original nonstandard pregaps, ETN2 and multisession remain unsupported.",
+      "category": "CD media normalization",
+      "order": 209,
+      "symbols": [
+        "nrg_metadata"
+      ],
+      "test": "tests/media/test_nrg_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "265eaca619b378c1165d0ef8b1cbb05a1a9ff9ded033dc790206a883a1b46d11",
+          "after_sha256": "de96a994d933265c3f45b6d275778d7f57edf92fff7c9c383847e33cd3bdd2a4"
+        }
+      ]
     }
   ]
 }
