@@ -145,8 +145,19 @@ el registro fuente IEEE extended en ETEMP, con ETE15=!ETE14. La conversion FE
 no sirve para esa etapa: para1.0 ETE15 vale1. Se reutilizan la aritmetica y la
 prioridad de pendientes existentes. El oraculo usa resultados matematicos,
 FCMP/FTST sin escritura y el protocolo FPSP; no es una captura de hardware.
-La revision41, el formato double de op2_xi, otros micro-PC y la semantica general
+Para op2_xi/op2_com tambien se reconoce la reconstruccion desde SINGLE normal:
+FPSP cambia CMD1 a double pero conserva ETEMP convertido, con exponente
+$3f81..$407e, bit entero presente y significando de24bits. La guarda se limita
+a revision40/CU06/STAG0; no infiere el formato DOUBLE nativo a partir del comando.
+El mismo probe comprueba aritmetica, FP0..7, limites de entrada SINGLE,
+FCMP/FTST sin escritura y prioridad de excepciones (74 casos con0386).
+La revision41, DOUBLE06 nativo, NaNs/denorms, otros micro-PC y la semantica general
 de dirty/SX/writeback siguen en la puerta pendiente de T55c.
+
+La continuacion conserva la diferencia entre excepciones: SNAN/OPERR/DZ
+habilitadas interrumpen el calculo sin escribir FPn; INEX almacena el resultado
+redondeado antes del handler, como define MC68040UM9.7.7/tabla9-15. Por eso los
+casos1/3 y sqrt2 con INEX habilitada verifican tanto resultado como excepcion.
 
 El productor de excepciones040 codifica FSQRT04 como05 enCMDREG1B y21 enCMDREG3B
 ([MC68040UM9.8/fig9-11/tabla9-16](https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf)).
