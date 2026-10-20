@@ -314,7 +314,10 @@ void chip_irq_dma(Canon &c) { c.put(uint16_t(dmacon & ~0x6000)).put(intena).put(
 // Bit 15 is not state: a read of CLXDAT is (clxdat | 0x8000) and restore_custom stores the saved image, bit included, so a restored machine has it set where a live one does not.
 void chip_clxdat(Canon &c) { c.put(uint16_t(clxdat & 0x7FFF)); }
 void chip_lof(Canon &c) { c.put(uint8_t(lof_store)).put(uint8_t(lof_display)); }
-void chip_timing(Canon &c) { c.put(int32_t(maxvpos)).put(int32_t(maxhpos)).put(beamcon0).put(new_beamcon0).put(htotal).put(vtotal); }
+void chip_timing(Canon &c) {
+    c.put(int32_t(maxvpos)).put(int32_t(maxhpos)).put(beamcon0).put(new_beamcon0).put(htotal).put(vtotal);
+    c.put(int32_t(config_changed)).put(int32_t(config_changed_flags));
+}
 void chip_registers(Canon &c) { for (int i = 0; i < 256; ++i) c.put(custom_storage[i].value); }        // the last value written to each register (not its writer's pc)
 // T24c: the AGA palette as Agnus holds it (the body CAGA, which reads without side effects; Denise's copy and the registers that select the bank show in the picture and in CHIP). Nothing for a machine without AGA, so the chipset digest of the A500 and the A600 is the one it was.
 void chip_aga(Canon &c)

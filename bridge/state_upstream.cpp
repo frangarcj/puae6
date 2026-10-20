@@ -270,6 +270,7 @@ enum BeamWord : unsigned {
     kNoSignalCount, kNoSignalStatus, kNoSignalTrigger, kLinesAfterBeamcon, kSyncsStopped,      // patch 0220: the monitor's no-signal countdown (two blank vertical blanks after a change of the programmed beam), its request and the stopped syncs (BPLCON0 ERSY)
     kRgaBltadd, kRgaConflictAddr = kRgaBltadd + 4,      // patch 0220: bltadd and conflictaddr of the four slots of the DMA pipeline (a blit D write in flight advances its pointer by the first)
     kBprun = kRgaConflictAddr + 4, kBprunCycle, kDdfStopping, kDdfEnableOn, kDdfLimitIn, kDdfLimit, kDdfStrtMatch, kHwiOld, kDdfStrtVal,      // patch 0261: the bitplane sequencer of Agnus (bprun, how far its fetch has gone, DDF passed, DDF enabled, the hard limits, the DDFSTRT match, the edge detector of "DMA and window and DDF" and the clock at which a fetch may start)
+    kConfigChanged, kConfigChangedFlags,      // patch 0383: preference checks can change the beam even when preferences are fixed
     kBeamWords
 };
 constexpr uint32_t kBeamBytes = kBeamWords * 4;
@@ -1074,6 +1075,9 @@ const char *check_beam(const Sub &, const Body &b, Seen &)
     if (!within(kBprun, 0, 3) || !within(kDdfStopping, -1, 2) || !within(kBprunCycle, 0, 0xffff)) return "the bitplane sequencer is not in one of its states (BPRUN 0 to 3, DDF passed -1 to 2, a cycle count of its fetch)";
     if (!within(kDdfEnableOn, 0, 1) || !within(kDdfLimitIn, 0, 1) || !within(kDdfLimit, 0, 1) || !within(kDdfStrtMatch, 0, 1) || !within(kHwiOld, 0, 1)) return "a latch of the bitplane sequencer is not a flag";
     if (!within(kDdfStrtVal, 0, 0xff)) return "the colour clock at which a fetch may start is beyond the line";
+    if (!within(kConfigChanged, 0, 2)) return "the pending preference check is not a countdown from 2 to 0";
+    // Flags are an opaque bitset, not an index: the portable callers use zero;
+    // Win32's GUI also uses bit 2. Preserve all 32 bits without inventing a mask.
     for (unsigned slot = 0; slot < 4; ++slot)
         if (!within(kRgaBltadd + slot, -2, 2) || (at(kRgaBltadd + slot) & 1)) return "the pointer increment of a slot of the DMA pipeline is not one the blitter sets (-2, 0 or 2)";
     if (at(kLastHsyncHigh) < 0 || at(kLastVsyncHigh) < 0) return "a time stamp of the display is negative";
