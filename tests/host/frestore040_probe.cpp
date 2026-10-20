@@ -89,6 +89,32 @@ static void busy_resume(int rev) {
     assert(!regs.fp_exp_pend && !regs.fp_unimp_pend && !regs.fpu_exp_state);
     printf("FRESTORE040 rev%x BUSY existing-FE/preserve-corrected-WB PASS\n",rev);
 }
+static void busy_new_exception(int rev) {
+    owner(rev); move(0,7); regs.fpiar=0xaabbccdd;
+    // FPSP round.S:nrm_set and res_func.S:wrap_div/fix_stk. Original
+    // extended denorm mantissas1 and3 normalize with exponents-63/-62;
+    // the inverse shifts are exact, and FDIV gives1/3 in extended nearest.
+    Words w(25,0); w[0]=(unsigned(rev)<<24)|0x00600000;
+    w[2]=0xfe000000; w[0x28/4]=0x4000; w[0x40/4]=0x00200000;
+    w[0x3c/4]=w[0x44/4]=1u<<28; // ETE15/FPTE15, normalized tags.
+    w[0x4c/4]=0x7fc10000; w[0x50/4]=0x80000000;
+    w[0x58/4]=0x7fc20000; w[0x5c/4]=0xc0000000;
+    fpp_set_fpcr(0x0200); fpp_set_fpsr(0); install(w); fpuop_restore(0xf358);
+    assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+    assert(regs.fp[0].fpx.high==0x3ffd && regs.fp[0].fpx.low==0xaaaaaaaaaaaaaaabULL);
+    assert(regs.fp_exp_pend==49 && regs.fpu_exp_state==2 && regs.fpiar==0x4000);
+    // MC68040UM9.2.4: FPIAR names the cause; the pre-instruction exception
+    // stack names the following instruction to retry, not that old cause.
+    m68k_setpc_normal(0x1104); regs.instruction_pc=0x1100; regs.m=0;
+    put_long(49*4,0x2000); fpuop_arithmetic(0xf200,0x0422);
+    assert(m68k_getpc()==0x2000 && regs.fp_exception && !regs.fp_exp_pend && regs.fpiar==0x4000);
+    assert(get_word(m68k_areg(regs,7)+6)==49*4 && get_long(m68k_areg(regs,7)+2)==0x1100);
+    m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+    assert(get_long(0x11000)==((unsigned(rev)<<24)|0x00600000));
+    assert(get_long(0x11028)==0x4000 && (get_long(0x11048)&(3u<<25))==(1u<<25));
+    assert(get_long(0x11040)==0x00200000);
+    printf("FRESTORE040 rev%x BUSY FE-denorm/new-exception-identity PASS\n",rev);
+}
 int main(int argc,char **argv) {
     assert(argc==2); std::ifstream file(argv[1],std::ios::binary);
     std::vector<uint8_t> rom{std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()};
@@ -100,6 +126,7 @@ int main(int argc,char **argv) {
     for(int rev : {0x40,0x41}) {
         for(int event=0;event<3;event++) busy(rev,event);
         busy_resume(rev);
+        busy_new_exception(rev);
         for(int event=0;event<5;event++) {
             owner(rev); move(0,1); move(1,2); regs.fpiar=0x123456;
             // Sizes/offsets are from the frame diagram, not from FSAVE output.

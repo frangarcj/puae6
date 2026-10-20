@@ -13165,7 +13165,7 @@
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T55b",
         "T55c1",
@@ -13213,7 +13213,8 @@
         "Al habilitar perfiles040/060, extender inventario de estado y digestCPU para los controles/FPU interna y mantener FUZZ01 coherente con todos los modelos ofrecidos; el codec privado de T55c6 no acredita esas puertas publicas.",
         "T55c7 corrige el TODO de contenidos UNIMP040 $28/$30 y su excepcion aritmetica pendiente. No acredita la reanudacion completa del frame BUSY (CU_SAVEPC/writeback), los formatos no aritmeticos ni la puerta publica A4040; siguen en este padre.",
         "T55c8 conserva los camposBUSY040 y prioriza E3/E1 antes de reanudar CU. No acredita writeback, S/X, CU_SAVEPC06 ni reanudacion completa; siguen en la puerta original del padre.",
-        "T55c9 extiende FUZZ01 a todos los perfiles publicos actuales (A4030/030, Z3 y CD32/FR) por p6_init bajo sanitizers. No acredita ejecucion/estado ni los futuros perfiles040/060; antes de habilitarlos hay que ampliar otra vez su oraculo."
+        "T55c9 extiende FUZZ01 a todos los perfiles publicos actuales (A4030/030, Z3 y CD32/FR) por p6_init bajo sanitizers. No acredita ejecucion/estado ni los futuros perfiles040/060; antes de habilitarlos hay que ampliar otra vez su oraculo.",
+        "Correccion dirigida de identidad FE: MC68040UM9.2.4/9.8 exige FPIAR de la instruccion causante y define FPIARCU como direccion CU. Pasar la copia local restaurada al checker solo cuando la continuacion genera una excepcion nueva; no cambiar FPIAR al recuperar E3 anterior ni inferir EA/opword. ProbeFDIV de denorms1/3 normalizados por FPSP nrm_set, shifts63/62, comprueba resultado, vector49, formatoCPU0/PC de reintento y FPIARCU del FSAVE posterior. Mantener la puerta completa pendiente del padre."
       ],
       "checks": [
         "GEN01",

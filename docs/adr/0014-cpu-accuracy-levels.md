@@ -127,3 +127,13 @@ y gen_except.S de la misma revision. Preservar esos campos no acredita la semant
 completa de writeback, dirty, S/X ni CU_SAVEPC06. No copiar WBTEMP a FPn por
 CU_SAVEPC=FE: FPSP puede haber escrito el resultado corregido y limpiado su
 bit dirty antes de FRESTORE. Esa reanudacion completa sigue pendiente en T55c.
+
+La continuacion FE que genera una excepcion aritmetica nueva utiliza FPIARCU
+como direccion causante (MC68040UM9.2.4/9.8); el chequeo recibe la copia local
+del frame antes de reinicializar fsave_data. No se altera FPIAR para una E3
+ya pendiente ni se inventa la EA/opword original. El probe normaliza denorms
+extendidos de mantisas1 y3 segun [FPSP round.S:nrm_set](https://github.com/torvalds/linux/blob/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2/arch/m68k/fpsp040/round.S)
+y res_func.S:wrap_div/fix_stk: exponentes-63/-62 y bitsE15. La inversa conserva
+exactamente esas mantisas; FDIV da1/3 e INEX2, con FPIAR causante separado del
+PC de reintento del frameCPU0 y preservado por FSAVE. No acredita exponentes
+FE arbitrarios ni completa writeback/SX/SAVEPC06 o los perfiles publicos040/060.

@@ -5251,6 +5251,28 @@
           "after_sha256": "3a68f2b5d0ce2fbda4e8743b014d95a1bc7467c91d25c0e09ce5d43477035799"
         }
       ]
+    },
+    {
+      "id": "0378-frestore040-cu-exception-address",
+      "file": "patches/winuae/0378-frestore040-cu-exception-address.patch",
+      "sha256": "49d3ad2bdf7c165ab240372d60a4a1a590df7ebc50736af8e031d1796bf61737",
+      "title": "Identify a new restored CU arithmetic exception with FPIARCU",
+      "reason": "T55c: MC68040UM9.2.4/9.8 identifies the causative instruction through FPIAR and records the CU address in FPIARCU. Only a newly generated FE arithmetic exception updates it; preserved E3 context is unchanged.",
+      "category": "state corrections",
+      "order": 195,
+      "symbols": [
+        "fpuop_restore"
+      ],
+      "test": "tests/host/test_frestore040.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "3a68f2b5d0ce2fbda4e8743b014d95a1bc7467c91d25c0e09ce5d43477035799",
+          "after_sha256": "b9f027c0234ff14ff1730089e825a9fc708aa4a368cd537bde631eb13e3dfacf"
+        }
+      ]
     }
   ]
 }

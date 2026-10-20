@@ -1,0 +1,14 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -2734,7 +2734,9 @@
+ 						if (v)
+ 							regs.fp[(cmdreg1b>>7)&7] = dst;
+ 						
+-						fpsr_check_arithmetic_exception(0, &src, regs.fp_opword, cmdreg1b, regs.fp_ea, regs.fp_ea_set, 0xffffffff);
++						// A new CU exception must identify its instruction, not the
++						// previous context. restored survives the checker resetting fsave_data.
++						fpsr_check_arithmetic_exception(0, &src, regs.fp_opword, cmdreg1b, regs.fp_ea, regs.fp_ea_set, restored.fpiarcu);
+ 					} else {
+ 						write_log(_T("FRESTORE resume of opclass %d instruction not supported %08x\n"), opclass, ad_orig);
+ 					}
