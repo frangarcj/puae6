@@ -41,8 +41,10 @@ def setUpModule():
     BEFORE = (build_tree.git('rev-parse', 'HEAD').stdout, build_tree.git('diff', '--no-ext-diff').stdout)
     build_tree.check_patches(); (ROOT / 'build').mkdir(exist_ok=True)
     WORK = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='media-movies-', dir=ROOT / 'build')))
-    tree = WORK / 'bizhawk'; build_tree.export_tree(tree, build_tree.EXPORT_EMUHAWK)
-    build_tree.apply_patches(tree); build_tree.install_sources(tree)
+    # Cache only the immutable build inputs, keyed by all core/patch/recipe bytes.
+    tree = ROOT / 'build/bizhawk-tree' / (build_tree.tree_key() + '-media-movies')
+    if build_tree.export_tree(tree, build_tree.EXPORT_EMUHAWK):
+        build_tree.apply_patches(tree); build_tree.install_sources(tree)
     ENV = {**os.environ, 'DOTNET_NOLOGO': '1', 'DOTNET_ROLL_FORWARD': 'Major', 'DOTNET_CLI_TELEMETRY_OPTOUT': '1',
            'DOTNET_CLI_HOME': str(WORK / 'dotnet'), 'NUGET_PACKAGES': str(main / 'build/bizhawk-core/nuget'), 'TMPDIR': str(WORK)}
     for name in ('DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH'):

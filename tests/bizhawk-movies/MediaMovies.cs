@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Runtime.CompilerServices;
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 using Puae6;
@@ -7,8 +6,8 @@ using Puae6;
 internal static unsafe partial class Program
 {
  static string Phase = "host identity";
- static void Require(bool value, string detail = "", [CallerArgumentExpression("value")] string condition = "")
- { if (!value) throw new Exception($"media movie {Phase}: {detail}; assertion={condition}"); }
+ static void Require(bool value, string detail = "")
+ { if (!value) throw new Exception($"media movie {Phase}: {detail}"); }
  static byte[] Read(string directory, string name) => File.ReadAllBytes(Path.Combine(directory, name));
  static string Hash(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
  static byte[][] Bases(string directory) => [Read(directory, "A.adf"), Read(directory, "H.hdf"), Read(directory, "V.ffs")];
