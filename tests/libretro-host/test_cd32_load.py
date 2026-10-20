@@ -12,7 +12,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_libretro as lr
 from tests.build_support import ROOT, build_targets
-from tests.media import test_mds_metadata as mds_ref
+from tests.media import test_mds_metadata as mds_ref, test_chd_reader as chd_ref
 
 
 class Cd32Session(lr.LibretroHarness):
@@ -182,7 +182,7 @@ class Cd32MdsTests(Cd32Session):
         original=self.run_cd('--runs',315,'--do',f'300:savefile:{state}','--do',f'315:savefile:{end}',content=content)
         self.assertIn('machine CD32',original)
         extensions=re.search(r'extensions=(\S+)',original)[1].split('|')
-        self.assertIn('mds',extensions); self.assertNotIn('chd',extensions); self.assertNotIn('mdf',extensions)
+        self.assertIn('mds',extensions); self.assertIn('chd',extensions); self.assertNotIn('mdf',extensions)
         self.assertGreater(int(re.search(r'vfs closed live=0 run_reads=(\d+)',original)[1]),0)
         accepted=self.run_cd('--runs',16,'--do',f'1:loadfile:{state}:pos=300','--do',f'16:savefile:{fresh}',
                              '--no-vfs','--set','puae6_machine=CD32',content=disc('renamed'))
@@ -312,6 +312,62 @@ class Cd32PlaylistTests(Cd32Session):
             bad = work / 'bad.m3u'; bad.write_text(text)
             self.run_cd(content=bad, expect=3)
         self.run_cd('--vfs-no-seek', content=content, expect=3)
+
+
+class Cd32ChdTests(Cd32Session):
+    def chd(self, name='disc', tail=b''):
+        # Own stored-v5 data fixture, not a bootable application. No chdman in CI.
+        payload=self.iso.read_bytes(); units=b''.join(payload[n:n+2048]+bytes(400) for n in range(0,len(payload),2048))
+        data=chd_ref.cd_map([(4,units[n:n+19584]) for n in range(0,len(units),19584)],sector=bytes(19584))
+        text=b'TRACK:1 TYPE:MODE1 SUBTYPE:NONE FRAMES:512 PREGAP:0 PGTYPE:MODE1 PGSUB:NONE POSTGAP:0\0'
+        path=self.work()/(name+'.ChD'); path.write_bytes(chd_ref.metadata_chain(data,[text],tag=0x43485432)+tail)
+        return path
+
+    def test_chd_direct_snapshot_new_process_vfs_and_container_identity(self):
+        content=self.chd(); work=self.work(); cut,end,fresh=(work/name for name in ('cut','end','fresh'))
+        original=self.run_cd('--runs',315,'--do',f'300:savefile:{cut}','--do',f'315:savefile:{end}',content=content)
+        self.assertIn('machine CD32',original); self.assertIn('chd',re.search(r'extensions=(\S+)',original)[1].split('|'))
+        self.assertGreater(int(re.search(r'vfs closed live=0 run_reads=(\d+)',original)[1]),0)
+        accepted=self.run_cd('--no-vfs','--set','puae6_machine=CD32','--runs',16,
+                             '--do',f'1:loadfile:{cut}:pos=300','--do',f'16:savefile:{fresh}',content=self.chd('renamed'))
+        self.assertIn(f'state load {cut} pos=300 ok=1',accepted)
+        view=lambda r:(r['unit'],r['ticks'],r['hash'],r['ahash'],r['audio'])
+        self.assertEqual([view(r) for r in self.runs(original)[300:315]],[view(r) for r in self.runs(accepted)[1:16]])
+        self.assertEqual(end.read_bytes(),fresh.read_bytes())
+        changed=self.chd('opaque',b'valid unmapped tail'); before,after=work/'before',work/'after'
+        rejected=self.run_cd('--runs',1,'--do',f'1:savefile:{before}','--do',f'1:loadfile:{cut}',
+                             '--do',f'1:savefile:{after}',content=changed)
+        self.assertIn(f'state load {cut} exact ok=0',rejected); self.assertEqual(before.read_bytes(),after.read_bytes())
+        self.run_cd('--vfs-no-seek',content=content,expect=3)
+        broken=work/'truncated.chd'; broken.write_bytes(content.read_bytes()[:100])
+        self.run_cd(content=broken,expect=3)
+
+    def test_chd_playlist_catalog_switch_and_restore(self):
+        def playlist():
+            a=self.chd(); folder=a.parent; b=folder/'other.iso'; alias=folder/'alias.chd'
+            b.write_bytes(self.other.read_bytes()); alias.write_bytes(a.read_bytes())
+            path=folder/'mixed.m3u'; path.write_text(f'{a.name}|A\n{b.name}|B\n{alias.name}|Alias A\n')
+            return path,(a,b,alias)
+        content,paths=playlist(); work=self.work(); cut,end,fresh,selected,alias=(work/name for name in ('cut','end','fresh','selected','alias'))
+        original=self.run_cd('--runs',315,'--do',f'300:savefile:{cut}','--do',f'315:savefile:{end}',content=content)
+        renamed,newpaths=playlist()
+        resumed=self.run_cd('--no-vfs','--runs',17,'--disk','2:eject','--disk','2:index=1','--disk','2:insert',
+                            '--do',f'2:savefile:{selected}','--do',f'2:loadfile:{cut}:pos=300',
+                            '--do','2:images','--do',f'17:savefile:{fresh}',content=renamed)
+        device=lambda p:Cd32PlaylistTests.device(self,p)
+        self.assertEqual(Cd32PlaylistTests.iso_id(newpaths[1]),device(selected)[0])
+        self.assertIn('state images count=3 index=0 eject=0',resumed)
+        self.assertIn(f'state load {cut} pos=300 ok=1',resumed)
+        view=lambda r:(r['unit'],r['ticks'],r['hash'],r['ahash'],r['audio'])
+        self.assertEqual([view(r) for r in self.runs(original)[300:315]],[view(r) for r in self.runs(resumed)[2:17]])
+        self.assertEqual(end.read_bytes(),fresh.read_bytes())
+        switched=self.run_cd('--initial',f'2:{newpaths[2]}','--runs',1,'--do',f'1:savefile:{alias}',content=renamed)
+        self.assertIn('images count=3 index=2 eject=0',switched); self.assertEqual(device(cut)[0],device(alias)[0])
+        before,after=work/'foreign-before',work/'foreign-after'
+        renamed.write_text(f'{newpaths[1].name}\n{newpaths[0].name}\n{newpaths[2].name}\n')
+        refused=self.run_cd('--runs',1,'--do',f'1:savefile:{before}','--do',f'1:loadfile:{cut}',
+                            '--do',f'1:savefile:{after}',content=renamed)
+        self.assertIn(f'state load {cut} exact ok=0',refused); self.assertEqual(before.read_bytes(),after.read_bytes())
 
 
 class Cd32GameTests(Cd32Session):

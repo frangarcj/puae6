@@ -1,4 +1,4 @@
-# Standalone dependency only. Intentionally not included by the product build.
+# Verified offline dependency, shared by standalone probes and native CD owners.
 include_guard(GLOBAL)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 get_filename_component(_chd_root "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)

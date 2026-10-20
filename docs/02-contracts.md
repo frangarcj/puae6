@@ -1051,6 +1051,16 @@ padding fisico de4frames y conserva literalmente ambas politicas de gap Mode2;
 el futuro conector canonico debe elegir false explicitamente. Esto no acredita
 el backend host `chd_capi`, la conexion publica tipada ni su restauracion WB.
 
+T66t14 conecta `CdChd` a `CdImage` y a la carga libretro directa/M3U por extension
+`.chd`, sin fallback. Enlaza estaticamente el lector verificado offline, con
+las mismas identidades P6CHD1/P6CHR1 y las mismas reglas VFS, catalogo y estado.
+Admite CDv5 sin parent y codecs none/cdzl/cdlz/cdfl dentro de los limites del
+lector; HTOA, CDI, GD y DVD siguen siendo Unsupported. MED01 prueba los cuatro
+codecs por la factory; LR01 usa un CHD sintetico para restauracion en otro
+proceso y Brian convertido localmente para juego/interaccion con el oraculo
+existente. El ISO sintetico no es una aplicacion bootable. Esta conexion nativa
+no conecta el backend C# ni acredita Waterbox, y no cambia el ZIP preview C.
+
 T66g1 convierte el layout validado a `cd_toc_head` real de WinUAE: A0, pistas,
 A1 y A2 conservan ADR/control, INDEX01 y leadout, con el mismo orden que
 `command_toc` fijado. Extrae96 P-W deinterleaved o SUBQ_SIZE16 (cabecera con

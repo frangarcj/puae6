@@ -73,9 +73,10 @@ patches/0003 validates bounded maps/metadata, resolves SELF iteratively and
 checks bitstream/Huffman input. patches/0004 validates CD codec split lengths,
 exact decoder completion, FLAC format/positions and failed codec cleanup.
 
-The private CDv5 reader uses bounded ReadFn offsets, validated maps/metadata
-and checked codec payloads. This dependency is not linked to a product. CD TOC,
-identity, subchannels, provider restore and public loading remain later gates.
+The CDv5 reader uses bounded ReadFn offsets, validated maps/metadata and checked
+codec payloads. Native libretro links this dependency statically through CdImage;
+CD TOC, identity and normalized sector views belong to its CdChd owner. The C#
+host backend and public typed Waterbox connection remain separate gates.
 """
 
 

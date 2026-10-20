@@ -3,6 +3,7 @@
 #include "cd_ccd.h"
 #include "cd_nrg.h"
 #include "cd_mds.h"
+#include "cd_chd.h"
 #include "cd_file.h"
 namespace p6_libretro {
 using namespace p6_cd;
@@ -28,6 +29,7 @@ struct CdImage::Data {
     CdCcd ccd;
     CdNrg nrg;
     CdMds mds;
+    CdChd chd;
     CdFile iso;
     Layout iso_layout{};
     Binding iso_binding{};
@@ -67,7 +69,8 @@ Result CdImage::open(const char *path, const retro_vfs_interface *vfs)
         extension(path, "cue") ? candidate->use(candidate->cue, path, vfs) :
         extension(path, "ccd") ? candidate->use(candidate->ccd, path, vfs) :
         extension(path, "nrg") ? candidate->use(candidate->nrg, path, vfs) :
-        extension(path, "mds") ? candidate->use(candidate->mds, path, vfs) : Result::Unsupported;
+        extension(path, "mds") ? candidate->use(candidate->mds, path, vfs) :
+        extension(path, "chd") ? candidate->use(candidate->chd, path, vfs) : Result::Unsupported;
     if (result == Result::Ok) data_ = std::move(candidate);
     return result;
 }
