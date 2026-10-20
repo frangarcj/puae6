@@ -17990,7 +17990,7 @@
       "title": "Controlador CDTV privado cooperativo con comandos y DMA reales",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66k1",
         "T66h1",
@@ -18027,7 +18027,8 @@
         "Probe privado con A500 y microrom real p6_init/load/run, banco MMIO E90000 y mascara de 24 bits, sobre Disc comun real. Los accesores privados no avanzan CPU ni reloj. Probar comandos 80/00 AA55, 83 MODEL, 84/85 sector 2048, TOC y capacidad; READ de un sector a Chip RAM con canarios, WTC, terminal IRQ y clear; PREST, error real y medio ausente, overflow y prefijo parcial sin aborto. El cierre libera callbacks y opens, y permite otra sesion A500 limpia.",
         "MED01: CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle. DET02: misma fixture con dos procesos y digest del futuro, union una vez. cd_swap usa worktree aislado y no edita metadata ni compila motor o guest sin coordinacion. Root registra series, clasificacion e imports necesarios y serializa compilaciones pesadas con -j2. docs/02-contracts.md y source-manifest describen solo la pieza privada comprobada.",
         "La hoja posterior necesita autoconfig real (portable expansion solo ofrece ide_mb), preset ECS Agnus, 1 MiB Chip, cero disqueteras, RTC1, ROM extendida y codec causal propio CDTV antes de habilitar perfil/arranque. Las pruebas MMIO de esta hoja no acreditan esas puertas.",
-        "Root registra 0399 y su clasificacion required como parte de la integracion. El probe enlaza p6_state porque comprueba los rechazos publicos de estado. Mantener los valores originales de scan=0 y cnt_out, y limpiar un inicio privado fallido antes de devolver error. La regresion cercana reutiliza AkikoLinkTests para CD32/A1200 tras activar CDTV en compilacion."
+        "Root registra 0399 y su clasificacion required como parte de la integracion. El probe enlaza p6_state porque comprueba los rechazos publicos de estado. Mantener los valores originales de scan=0 y cnt_out, y limpiar un inicio privado fallido antes de devolver error. La regresion cercana reutiliza AkikoLinkTests para CD32/A1200 tras activar CDTV en compilacion.",
+        "Gate real nativo PASS: CdtvLinkTests y regresion AkikoLinkTests (2 tests,39.108s). El controlador original ejecuta comandos, SEEK y DMA de 2048 bytes con canarios/IRQ; errores y FIFO acotada; dos procesos y dos owners; la A500 posterior reproduce AV/PCM/ticks de su primer frame limpio. MED01/DET02 comparten esa fixture, sin repetirla. Aplicacion exacta0399 y29 generados verificados. Estado CDTV sigue UNSUPPORTED hasta codec completo y no hay perfil publico ni prueba Waterbox atribuida."
       ],
       "checks": [
         "MED01",
