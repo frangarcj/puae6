@@ -16905,6 +16905,48 @@
       "stop": "No anunciar cambioCDfrontend hasta catalogo/identidad/seleccion+restore yconexionespublicas. No usar unbind como falsa expulsion ni resetCPU para limpiar caches."
     },
     {
+      "id": "T66l4",
+      "title": "Reconstruir NRG DAO Mode02 Form1 desde payload2048 con EDC y ECC correctos",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66l3"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/options.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0391-nrg-dao-mode2-form1.patch",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/test_nrg_metadata.py",
+        "tests/media/test_cd_nrg.py",
+        "tests/media/cd_nrg_probe.cpp",
+        "tests/media/test_cd_image.py",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Reservar0391 posterior0390 sin reescribirhistoria. Metadata mode02 mantiene stride2048/offsetfisico. Exponer wrapper pequeño en cdrom.cpp/include/uae/cdrom.h derivados reutilizando build_edc+encode_L2_P/Q; no encoderMode1 ni enlazarCHD. Preservar sync/mode2/headerMSF ypayload2048 en24..2071 consubheader8cero.",
+        "Semantica primaria libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e libmirage/mirage/sector.c:755..767: EDC16..2071 a2072LE, ponerheader12..15a0 duranteECCP/Q yrestaurarlo. DiscSystem SS_Mode2_Form1_2048 confirmaoffsets/subheader, pero ECM_Mode2_Form1/ECCfalse contradiceXA yconservaTODO: no usarlooraculoECCcompleto. Leer fuentesreales; semantica sincopiarimplementacionexterna.",
+        "CdNrg expone Mode2Raw2352 sobre2048fisicos, conservaboundsMSF/clipping/identidad/rebind ylecturascruzadas transaccionales de0389. VistaMode2Raw2048 delDisccomun mantieneUnsupportedexplicito, no cambiarABI/enum/Disc ni inventarsubtipoinferido.",
+        "MED01 NrgMetadataTests+CdNrgTests+CdImageTests ASan/UBSan sinmotor/guest: oraculoPython EDCbitabit+GF256 independiente, comparar2352completos/hashes ypayloadigual enLBA distintos concabeceradistinta/EDCECCiguales; mixtos02/03,INDEX00/clipping/cruces/VFS/rebind/bounds/factory. Stagingestricto de todosarchivos patch0391, before/afterSHA yprioridadincludeheaderderivado; coordinador registra serie/clasificacion antes degates.",
+        "Frente busy_reference reutilizaa4040-frontends, merge main normal;7rutas atomicas metadata/encoder/proveedor/probes/guia, estimacion220..320manuales. Coordinador poseeplan/checks/serie, sinbuildmotor hasta turnoexplicito. TAO ymultisesion siguenpendientesT66 yconservantodaspuertasoriginales."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "DAO Mode02/2048 produce raw2352 conpayload intacto yEDC/ECC exactos independientes delLBA, conidentidad/rebind yfallosIO transaccionales bajo sanitizers; mode03/formatosprevios siguenpasando. TAO ymultisesion no se atribuyen a esta hoja."
+      ],
+      "stop": "No anunciar NRG completo ni sustituirECCMode2 porMode1; conservar variantespendientes ypuertas delpadre."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16964,7 +17006,8 @@
         "T66t3",
         "T66t4",
         "T66l3",
-        "T66u1"
+        "T66u1",
+        "T66l4"
       ],
       "read": [
         "docs/01-architecture.md",
