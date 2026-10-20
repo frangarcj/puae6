@@ -602,6 +602,9 @@ for _gate in ('BUILD01', 'DET02'):
     TASK_SUITES[(_gate, 'T69a')] = {'real_hrtmon_monitor_freeze': 'tests.cartridge.test_hrtmon.HrtMonTests'}
 for _gate in ('STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T69b')] = {'complete_native_hrtmon_restore': 'tests.cartridge.test_hrtmon.HrtMonTests'}
+TASK_SUITES[('STATE01', 'T69b')].update({
+    'cpu_interrupt_restore_regression': 'tests.state.test_cpu_modes.CpuModesTests.test_restore_continues_through_interrupts_timers_and_dma',
+    'cpu020_restore_regression': 'tests.state.test_cpu_modes.Cpu020ModesTests'})
 TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
 TASK_SUITES[('BUILD01', 'T55c1')] = {
     'linked_native_and_full_waterbox_exports': 'tests.host.test_cpu_backend_build',
