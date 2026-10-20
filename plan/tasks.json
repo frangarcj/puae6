@@ -11564,7 +11564,8 @@
         "tests/libretro-host/test_real_frontend.py",
         "tests/libretro-host/docker/image.json",
         "tests/whdload/test_autoload.py",
-        "tests/state/test_components.py"
+        "tests/state/test_components.py",
+        "docs/user/native-preview.md"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11585,7 +11586,8 @@
         "Prioridad de entrega confirmada: usar primero la preview local T40a ya probada desde el ZIP. CD32/CDTV, Z3 y040/060 siguen pendientes o aislados y no bloquean esta entrega; la matriz amplia/release formal conserva sus puertas originales y se ejecuta sobre su candidata correspondiente.",
         "Integracion dirigida del inventario: el checkestatico falla porregistro12(P6AK condicionalCD32) frente11 y native_stateCD32 insertado dentro deaudio-out_of_profile. Ampliar touch a tests/state/test_components.py para verificar exactamente los11basicos yP6AK, y separar componenteCD32 causal con archivo/visitor reales deP6AK yfasePaula propiaP6AU. Mantener asserts estrictos, sin modificar motor ni repetir matriz mientras R8/FRESTORE se implementan; coordinador realiza esta vertical encheckoutprincipal, agentes permanecen aislados.",
         "InventarioCD32 corregido3b3f6630: registro exacto11base+P6AK, componente causal separado, propiedadPaulaP6AU explicita, sin visitor bajoout_of_profile. tests.state.test_components13PASS y contratoestatico inventario/probePASS sin buildmotor; cobertura de digestAkiko generico sigue pendiente visible, no se inventa. Matriz/cierreCI sigue para candidata integrada estable.",
-        "Preflight012d92d3: exigir ROM A4000, ROMprincipal/extendida CD32 y CUE del juego antes de imagenes/preparacion/build. tests.ci.test_nightly15PASS con negativos de los cuatro assets y sin ejecutar motor; no acredita ejecucion acumulada/remota."
+        "Preflight012d92d3: exigir ROM A4000, ROMprincipal/extendida CD32 y CUE del juego antes de imagenes/preparacion/build. tests.ci.test_nightly15PASS con negativos de los cuatro assets y sin ejecutar motor; no acredita ejecucion acumulada/remota.",
+        "Actualizar la guia de la preview al renovar la candidata nativa: ya hay arranque/restore de firmware A4000 real y juego CD32, frente a los limites antiguos del texto. Ampliar touch solo docs/user/native-preview.md; describir formatos realmente disponibles, firmware, presets experimentales y pendientes sin declarar cierreCPU/T66 ni release formal. Usar receta/package smoke existente sobre ZIP extraido; no repetir matriz por una guia."
       ],
       "checks": [
         "PLAN01",
