@@ -11715,7 +11715,7 @@
       "title": "Renovar preview nativa con CHD HRTMon y avisos de sus binarios",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T40a",
         "T66t14",
@@ -11740,7 +11740,8 @@
         "La politica conserva las copias exactas GPL/MAME y añade LICENSE/NOTICE de libchdr. Permitir slices inclusivos de avisos incrustados, con bytes exactos y rotulo del fuente: BSD de Romain Tisserand y Aaron Giles/MAME; zlib Gailly/Adler; LZMA publico de Igor Pavlov; alternativa MIT-0 de dr_flac. SoftFloat conserva sus ocho bloques de aviso existentes en los nueve fuentes inventariados; la tabla FPSP sin cabecera de licencia permanece completa en source.tar.gz. No inventar textos ni copiar tablas como avisos. LEEME identifica prominentemente el derivado PUAE6 de SoftFloat y sus cambios. HRTMon conserva la procedencia GPL de docs/00-sources.md.",
         "Un helper notice_files sirve para build (leer ROOT) y verify (leer politica y fuentes de source.tar.gz). Exigir presencia y bytes exactos de cada aviso, ademas de hashes y conjunto exacto de archivos. PolicyTests comprueba los avisos requeridos, slices y rechazo si falta o se altera un aviso aun actualizando el manifest.",
         "Actualizar la guia: CHD CDv5 none/cdzl/cdlz/cdfl, directo y M3U de hasta 16 CD; sin parent, HTOA, CDI, GD ni DVD. Describir HRTMon builtin solo A1200, Cartridge y hotkey Freeze. Mantener visibles los limites FRESTORE, MMU, CDTV y Waterbox. ZIP C anterior permanece intacto.",
-        "PKG01 combina PolicyTests y el smoke real del ZIP D extraido. BUILD01/LR01 usan el mismo InstalledPreviewTests/package.smoke: 12 unidades libretro, 3 futuras restauradas, 3 headless y rechazo de firmware ausente. Ejecutar la union una vez, ya incluida en package.build. No repetir la partida de 6500 frames, codecs ni matrices. Incluir fuentes y avisos correspondientes al binario; no crear informes historicos."
+        "PKG01 combina PolicyTests y el smoke real del ZIP D extraido. BUILD01/LR01 usan el mismo InstalledPreviewTests/package.smoke: 12 unidades libretro, 3 futuras restauradas, 3 headless y rechazo de firmware ausente. Ejecutar la union una vez, ya incluida en package.build. No repetir la partida de 6500 frames, codecs ni matrices. Incluir fuentes y avisos correspondientes al binario; no crear informes historicos.",
+        "Preview D creada en build/product/puae6-preview-20261021d-macos-arm64.zip sobre revision090256399a3c70bce51ccf4d27ef30414e444167. PolicyTests4 PASS; package.build verifica avisos/fuentes y ejecuta el smoke del ZIP extraido: libretro12, restore3, headless3 y firmware ausente rechazado. PKG01/BUILD01/LR01 comparten esta union, sin repetir juego o matriz. El alias local apunta a D; C permanece para sus estados previos."
       ],
       "checks": [
         "PKG01",
