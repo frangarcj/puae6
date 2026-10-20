@@ -416,6 +416,8 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    if (p6_bridge::hrtmon_bound())
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "native HRTMon state requires the complete cartridge codec");
     char missing[160];
     if (!options.allow_placeholders && !complete(missing, sizeof missing)) {
         char text[P6_ERROR_TEXT_CAPACITY];

@@ -60,7 +60,8 @@
     "def_icons.cpp",
     "cdrom.cpp",
     "akiko.cpp",
-    "flashrom.cpp"
+    "flashrom.cpp",
+    "ar.cpp"
   ],
   "selection": {
     "status": "requires-port-patches-and-link-proof",
@@ -108,7 +109,8 @@
       "def_icons.cpp",
       "cdrom.cpp",
       "akiko.cpp",
-      "flashrom.cpp"
+      "flashrom.cpp",
+      "ar.cpp"
     ],
     "generated_units": [
       "cpudefs.cpp",
@@ -138,7 +140,8 @@
       "FPUEMU",
       "WITH_SOFTFLOAT",
       "DRIVESOUND",
-      "CD32"
+      "CD32",
+      "ACTION_REPLAY"
     ],
     "features_off": [
       "JIT",

@@ -8,6 +8,9 @@
 // neither inherited nor declared cannot appear silently.
 #include "config.h"
 #include "error_util.h"
+#include "session.h"
+#include "blob_io.h"
+#include "media/sha256.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -20,6 +23,7 @@
 #include "gensound.h"
 #include "rommgr.h"
 #include "crc32.h"
+#include "ar.h"
 #include "rom_status.h"
 #include "sounddep/sound.h"
 #include "civil_time.h"
@@ -32,6 +36,45 @@
 #include <set>
 
 namespace p6_bridge {
+
+namespace { const char *const kCartridgeId = "p6-cartridge.rom"; }
+bool hrtmon_bound() { return p6_blob_exists(kCartridgeId) == P6_BLOB_OK; }
+
+p6_result bind_hrtmon(p6_buffer image, p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    p6_session::Guard guard;
+    if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
+    if (p6_session::session.state != p6_session::State::Initialized || hrtmon_bound())
+        return p6_fail(error, P6_ERROR_BAD_STATE, "bind HRTMon once, before load");
+    if (p6_session::session.config.machine != P6_MACHINE_A1200)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private HRTMon requires A1200");
+    // Only the builtin of the pinned upstream is admitted in this first private vertical.
+    static const uint8_t expected[32] = {0x15,0xe3,0xe1,0x06,0x24,0x88,0x22,0x66,0x5c,0xc6,0x4f,0x5c,0x9a,0x3e,0xd5,0xf5,
+        0x2a,0x67,0xc0,0x7f,0x81,0xb0,0x6e,0xb7,0x11,0x8d,0xa3,0x90,0x99,0xd1,0x71,0xf5};
+    uint8_t hash[32];
+    if (!image.data || image.bytes != 198732) return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected pinned raw HRTMon");
+    p6_sha256_hash(image.data, image.bytes, hash);
+    if (memcmp(hash, expected, sizeof hash)) return p6_fail(error, P6_ERROR_WRONG_MEDIA, "HRTMon content differs from pinned builtin");
+    if (p6_blob_register(kCartridgeId, P6_BLOB_ROM, image.data, size_t(image.bytes)) != P6_BLOB_OK)
+        return p6_fail(error, P6_ERROR_CAPACITY, "cannot copy HRTMon into the image");
+    return P6_OK;
+}
+
+p6_result freeze_hrtmon(p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    p6_session::Guard guard;
+    if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
+    const auto &s = p6_session::session;
+    if (s.state != p6_session::State::Loaded || !s.started || s.reset_queued || !hrtmon_bound() ||
+        s.config.machine != P6_MACHINE_A1200 || hrtmem_size != 0x100000 || hrtmon_flag != ACTION_REPLAY_IDLE)
+        return p6_fail(error, P6_ERROR_BAD_STATE, "HRTMon is not idle in a running image");
+    if (!action_replay_freeze()) return p6_fail(error, P6_ERROR_INTERNAL, "HRTMon refused Freeze");
+    return P6_OK;
+}
 
 void release_input_device_names()
 {
@@ -573,6 +616,9 @@ void build_preferences(const p6_config &c, bool ide)
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
     for (auto &drive : currprefs.floppyslots) drive.dfxclick = 1;
     if (c.machine == kCd32Machine) { currprefs.flashfile[0] = currprefs.romextfile[0] = currprefs.romextfile2[0] = 0; }
+    currprefs.cart_internal = 0;
+    currprefs.cartfile[0] = 0;
+    if (hrtmon_bound()) _tcscpy(currprefs.cartfile, kCartridgeId);
     _tcscpy(currprefs.romfile, kFirmwareId);
     fixup_prefs(&currprefs, true);
 }

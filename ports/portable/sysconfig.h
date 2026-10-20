@@ -13,7 +13,7 @@
     defined(CAPS) || defined(SCP) || defined(FDI2RAW) || defined(FLOPPYBRIDGE) || \
     defined(WITH_PPC) || defined(FPUEMU) || defined(MMUEMU) || defined(PICASSO96) || \
     defined(CD32) || defined(CDTV) || defined(DRIVESOUND) || defined(WITH_LUA) || \
-    defined(BSDSOCKET) || defined(WITH_SLIRP) || defined(AHI) || defined(AHI_v2) || \
+    defined(ACTION_REPLAY) || defined(BSDSOCKET) || defined(WITH_SLIRP) || defined(AHI) || defined(AHI_v2) || \
     defined(AVIOUTPUT) || defined(RETROPLATFORM) || defined(WITH_SPECIALMONITORS) || \
     defined(WITH_BEAMRACER) || defined(SUPPORT_THREADS) || defined(UAE_MINI) || \
     defined(SAHF_SETO_PROFITABLE) || defined(WITH_SOFTFLOAT) || \
@@ -32,6 +32,7 @@
 #endif
 
 #define P6_PORTABLE 1
+#define ACTION_REPLAY 1 /* T69a: private HRTMon through the original CPU/memory/custom/CIA hooks. */
 #define CD32 1 /* T66k1: real Akiko is linked; machine profile remains gated. */
 #define DRIVESOUND 1 /* T74: portable mechanical PCM, no physical drive or external sample loader. */
 /* T29a: the hard file units of the engine (uaehf.device, the UAEFS board, the trap area) are compiled; a machine has them only when its media list holds a
