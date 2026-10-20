@@ -1,0 +1,27 @@
+--- a/src/BizHawk.Client.Common/movie/MovieSession.cs
++++ b/src/BizHawk.Client.Common/movie/MovieSession.cs
+@@ -222,6 +222,10 @@
+ 
+ 		public void RunQueuedMovie(bool recordMode, IEmulator emulator)
+ 		{
++			using var puae6Start = emulator is global::Puae6.Puae6Core p6 && p6.Identity.Machine == "CD32"
++				? global::Puae6.Puae6Movie.PrepareStart(new Dictionary<string, string>(_queuedMovie.HeaderEntries), p6,
++					_queuedMovie.StartsFromSavestate, _queuedMovie.BinarySavestate, _queuedMovie.StartsFromSaveRam, _queuedMovie.SaveRam)
++				: null;
+ 			MovieController = new Bk2Controller(emulator.ControllerDefinition, _queuedMovie.LogKey);
+ 
+ 			Movie = _queuedMovie;
+--- a/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
++++ b/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
+@@ -181,6 +181,11 @@
+ 			{
+ 				movie.SyncSettingsJson = ConfigService.SaveWithType(settable.GetSyncSettings());
+ 			}
++			if (Emulator is global::Puae6.Puae6Core p6 && p6.Identity.Machine == "CD32")
++			{
++				foreach (var entry in global::Puae6.Puae6Movie.HeaderForStart(p6, movie.StartsFromSavestate, movie.StartsFromSaveRam ? movie.SaveRam : null))
++					movie.HeaderEntries[entry.Key] = entry.Value;
++			}
+ 		}
+ 
+ 		/// <summary>

@@ -92,6 +92,7 @@ internal static unsafe partial class Program
    p.GuestDirectory = Path.GetDirectoryName(args[3]); p.GuestFileName = Path.GetFileName(args[3]); p.PinnedGuestSha256 = args[4];
    var reader = p.ReadCd; p.ReadCd = (at, data, count) => { ++reads; return reader(at, data, count); };
    var core = new Puae6Core(comm, p);
+   if (args[5].StartsWith("movie")) { if (imported != null) core.StoreSaveRam(imported); return core; }
    Require(core.GetSyncSettings().Machine == Puae6Machine.CD32);
    Require(!core.ControllerDefinition.BoolButtons.Contains(Controllers.NextDrive));
    Require(ReferenceEquals(core.ServiceProvider.GetService<ISaveRam>(), core));
@@ -118,6 +119,9 @@ internal static unsafe partial class Program
    Require(core.Identity.ConfigHash.SequenceEqual(initialConfig) == (imported ?? seed).All(b => b == 0));
    return core;
   }
+#if MOVIES
+  if (args[5].StartsWith("movie")) { Movies(args, nv => Open(disc, true, nv)); return; }
+#endif
   using var core = Open(disc);
   byte[] state;
   string[] future;

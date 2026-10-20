@@ -7,11 +7,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <UseAppHost>false</UseAppHost>
+    <DefineConstants Condition="'$(MovieAssemblyDir)' != ''">$(DefineConstants);MOVIES</DefineConstants>
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <!-- Exercise the real net48 core and EmuHawk loader, not a duplicate of their source. -->
-    <Reference Include="$(CoreAssemblyDir)/*.dll" />
+    <Reference Include="$(CoreAssemblyDir)/*.dll" Exclude="$(CoreAssemblyDir)/Newtonsoft.Json.dll" />
+    <Reference Include="$(MovieAssemblyDir)/*.dll" Exclude="$(MovieAssemblyDir)/Newtonsoft.Json.dll" Condition="'$(MovieAssemblyDir)' != ''" />
+    <!-- Use the same Newtonsoft 13.0.3 API with its net8-compatible runtime asset. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32Movies.cs" Condition="'$(MovieAssemblyDir)' != ''" />
     <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32Loader.cs;$(Puae6Root)/tests/ffi/Runtime.cs" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,50 @@
+--- a/src/BizHawk.Common/MemoryBlock/MemoryBlockUtils.cs
++++ b/src/BizHawk.Common/MemoryBlock/MemoryBlockUtils.cs
+@@ -3,7 +3,7 @@
+ 
+ namespace BizHawk.Common
+ {
+-	public static class MemoryBlockUtils
++	public static class StreamCopyUtils
+ 	{
+ 		/// <summary>
+ 		/// copy `len` bytes from `src` to `dest`
+@@ -31,6 +31,12 @@
+ 				ArrayPool<byte>.Shared.Return(tmpBuf);
+ 			}
+ 		}
++
++	}
++
++	public static class MemoryBlockUtils
++	{
++		public static void CopySome(Stream src, Stream dst, long len) => StreamCopyUtils.CopySome(src, dst, len);
+ 
+ 		/// <summary>
+ 		/// System page size, currently hardcoded/assumed to be 4096
+--- a/src/BizHawk.Client.Common/rewind/ZwinderBuffer.cs
++++ b/src/BizHawk.Client.Common/rewind/ZwinderBuffer.cs
+@@ -332,12 +332,12 @@
+ 				if (startByte > endByte)
+ 				{
+ 					_backingStore.Position = startByte;
+-					MemoryBlockUtils.CopySome(_backingStore, writer.BaseStream, Size - startByte);
++					StreamCopyUtils.CopySome(_backingStore, writer.BaseStream, Size - startByte);
+ 					startByte = 0;
+ 				}
+ 				{
+ 					_backingStore.Position = startByte;
+-					MemoryBlockUtils.CopySome(_backingStore, writer.BaseStream, endByte - startByte);
++					StreamCopyUtils.CopySome(_backingStore, writer.BaseStream, endByte - startByte);
+ 				}
+ 			}
+ 		}
+@@ -359,7 +359,7 @@
+ 				nextByte += _states[i].Size;
+ 			}
+ 			_backingStore.Position = 0;
+-			MemoryBlockUtils.CopySome(reader.BaseStream, _backingStore, nextByte);
++			StreamCopyUtils.CopySome(reader.BaseStream, _backingStore, nextByte);
+ 		}
+ 
+ 		private sealed class SaveStateStream : Stream, ISpanStream

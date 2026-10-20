@@ -8432,7 +8432,11 @@
       },
       "_nvramInitialHash": {
         "policy": "construction",
-        "what": "T66r4: SHA-256 of CD32 NVRAM at boot, canonical 1024 zero bytes before import and updated only by validated StoreSaveRam before the first frame or state LOAD. Included in config identity; Clone, dirty, reset and snapshot rollback do not change it. Starting a movie from an imported-NVRAM snapshot is tracked by T66r5."
+        "what": "SHA-256 of CD32 NVRAM at boot. Canonical zero before import, updated by validated StoreSaveRam before first frame/LOAD or adopted after a successful, fully preflighted movie initial snapshot LOAD. Included in config identity; Clone, dirty, reset and ordinary snapshot rollback do not change it."
+      },
+      "_movieStart": {
+        "policy": "lifecycle",
+        "what": "T66r5: temporary movie startup authorization, cleared on initial snapshot load or scope disposal. Contains only the fully validated projected CD32 boot identity/hash; never changes normal state identity checks or emulated bytes before LOAD."
       }
     }
   }

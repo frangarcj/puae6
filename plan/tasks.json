@@ -17061,7 +17061,9 @@
         "docs/parity-puae5.md"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Recorrer el inventario completo y marcar cada fila con su tarea/commit y check; lo que quede fuera (JIT, red, RTG que PUAE5 tampoco compila; montaje vivo del FS del host; cheats vacios en PUAE5) con su justificacion."
+        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Recorrer el inventario completo y marcar cada fila con su tarea/commit y check; lo que quede fuera (JIT, red, RTG que PUAE5 tampoco compila; montaje vivo del FS del host; cheats vacios en PUAE5) con su justificacion.",
+        "Auditar la conexion real de identidad de peliculas ADF/HDF/volumen: T66r5 conecta CD32; el arnes antiguo valida encabezados manualmente y no acredita transporte de bases importadas al MovieSession real.",
+        "La prueba real TAS CD32 usa Zwinder/TempFile y codec Zstd instalado. Auditar Darwin del gestor Paged predeterminado (mmap flags Linux) y nombre libzstd.so.1 del host; no declarar UI/macOS completa por compilar EmuHawk WinForms."
       ],
       "checks": [
         "LR01",
@@ -17820,7 +17822,7 @@
       "title": "Arranque de peliculas CD32 desde SaveRAM y desde estado con identidad inicial",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T66r4"
       ],
@@ -17838,11 +17840,18 @@
         "tools/check.py",
         "tests/test_plan.py",
         "docs/02-contracts.md",
-        "docs/03-waterbox.md"
+        "docs/03-waterbox.md",
+        "manifests/state-inventory.json",
+        "ports/portable/media/cd_disc.cpp"
       ],
       "steps": [
         "Reproducer de revision T66r4: MainForm omite LoadSaveRam con pelicula encolada; MovieSession ProcessSavestate precede ProcessSram. Un snapshot con NVRAM inicial importada no cero no coincide con el hash inicial cero de un core fresco. Resolver transporte de identidad/base inicial sin omitir validacion de firmware, modelo o CD.",
-        "Probar flujo real BK2/TAS de arranque desde SaveRAM y desde snapshot, repeticion Store tras mero SAVE, seek y nuevo proceso; no confundir igualdad manual de encabezados con reproduccion real. Mantener pendiente TAS completo hasta pasar estos flujos."
+        "Probar flujo real BK2/TAS de arranque desde SaveRAM y desde snapshot, repeticion Store tras mero SAVE, seek y nuevo proceso; no confundir igualdad manual de encabezados con reproduccion real. Mantener pendiente TAS completo hasta pasar estos flujos.",
+        "Conectar encabezados CD32 al MainForm y MovieSession reales antes de Attach, con contexto temporal validado para el snapshot inicial; inventariar ese contexto lifecycle. Mantener formato P6WS v1 y rechazo normal de estados con otra identidad.",
+        "Compilar EmuHawk derivado y ejecutar BK2/TASproj reales (Client.Common net48) con SaveRAM, snapshot y power-on; guardar/cargar peliculas y comparar futuro/seek en proceso nuevo.",
+        "Inicializar Disc candidate por valor en bind/rebind: el replay BK2 real detecto padding de Source Identity sin usar procedente de pila. Se exige igualdad de snapshot completo; no se excluyen bytes ni se cambian tolerancias.",
+        "TAS real en Darwin16KiB alcanza SaveStateHistory: CopySome de streams dispara el constructor de MemoryBlockUtils, que exige paginas4KiB sin usar memoria virtual. Separar esa copia acotada a StreamCopyUtils y usarla en Zwinder; conservar intacto el guard de paginas de MemoryBlockUtils y sus operaciones de memoria.",
+        "WB09 PASS en dispatcher; WB08/WB03 PASS con una unica ejecucion de su escenario compartido. Client.Common net48 y EmuHawk derivados compilan; BK2/TASproj reales desde SaveRAM, snapshot binario y PowerOn guardan/abren, reproducen y hacen seek en Waterbox y otro proceso con A/V/ticks/NVRAM/snapshot completo identicos; salida suprimida converge. Rechazos previos a Attach comprobados tambien con TAS. Regresion de identidad A500, inventario wrapper3 y sectores/subcanales sanitizados4 PASS. Se conserva T66 y auditoria host/UI de T80 pendientes."
       ],
       "checks": [
         "WB08",

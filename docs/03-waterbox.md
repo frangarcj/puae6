@@ -593,3 +593,14 @@ WB12 medir p50/p95 de frame y snapshot, bytes/paginas mutadas y ocupacion de hea
 
 Estos IDs pertenecen a docs/04-validation.md y deben ejecutarse en las tareas
 correspondientes. No afirmar soporte de Waterbox a partir de WB01 solo.
+
+## Arranque CD32 de peliculas reales (T66r5)
+
+El parche derivado de MainForm captura identidad antes del reboot y MovieSession
+la comprueba antes de Attach. BK2 y TASproj conservan NVRAM inicial y snapshot sin
+consultar SaveRAM durable al reproducir. La prueba usa Client.Common/net48 real
+y guest Waterbox, graba/abre ambos formatos desde PowerOn, SaveRAM y estado binario,
+y compara A/V, ticks, NVRAM y snapshot completo tras replay y seek en otro proceso.
+En Darwin el arnes selecciona Zwinder/TempFile real y un alias temporal al Zstd
+ya instalado; no acredita el gestor Paged predeterminado ni la UI WinForms.
+Esos limites del host y la conexion real de peliculas ADF/HDF se auditan en T80.

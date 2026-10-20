@@ -243,7 +243,7 @@ public sealed unsafe partial class Puae6Core
 	{
 		if (!SaveRamPossible) throw new SaveRamRejectedException(SaveRamRejection.WritesDisabled, "this core was created without floppy writes and without hard files: there is no SaveRam");
 		if (ReplayInProgress) throw new SaveRamRejectedException(SaveRamRejection.TooLate, "a movie is being replayed: the durable copy is not read into it");
-		if (_started || _faulted) throw new SaveRamRejectedException(SaveRamRejection.TooLate, "the machine already ran or loaded a state: the SaveRam is stored before the first unit");
+		if (_started || _faulted || _movieStart is not null) throw new SaveRamRejectedException(SaveRamRejection.TooLate, "the machine already ran, loaded a state or is starting a state movie: the SaveRam is stored before the first unit");
 		if (_syncSettings.Machine == Puae6Machine.CD32)
 		{
 			if (data is null || data.Length != P6.Cd32NvramBytes) throw new SaveRamRejectedException(SaveRamRejection.BadLength, "CD32 SaveRAM must contain exactly 1024 bytes");

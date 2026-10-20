@@ -31,7 +31,8 @@ Result Disc::prepare(const Layout &layout, const Binding *bindings, uint32_t cou
 Result Disc::bind(const Layout &layout, const Binding *bindings, uint32_t count)
 {
     if (count_) return Result::Invalid;
-    Disc candidate;
+    // Value-init also zeroes padding in unused Source identities: Waterbox snapshots the object representation.
+    Disc candidate{};
     const auto result = candidate.prepare(layout, bindings, count);
     if (result == Result::Ok) *this = candidate;
     return result;
@@ -39,7 +40,8 @@ Result Disc::bind(const Layout &layout, const Binding *bindings, uint32_t count)
 Result Disc::rebind(const Layout &layout, const Binding *bindings, uint32_t count)
 {
     if (!count_) return Result::Invalid;
-    Disc candidate;
+    // Value-init also zeroes padding in unused Source identities: Waterbox snapshots the object representation.
+    Disc candidate{};
     const auto result = candidate.prepare(layout, bindings, count);
     if (result != Result::Ok) return result;
     if (count != count_ || layout.tracks != layout_.tracks || layout.leadout != layout_.leadout ||

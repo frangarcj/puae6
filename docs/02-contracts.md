@@ -1661,7 +1661,11 @@ fuera del guard de replay; un mero SAVE no cierra la importacion. La identidad
 incluye el hash inicial canonico: importar ceros equivale a empezar sin SaveRAM,
 y las escrituras durante el juego no cambian esa identidad.
 
-La pelicula iniciada desde un estado con NVRAM inicial importada necesita el
-transporte de esa identidad al core fresco (T66r5): BizHawk omite la lectura de
-SaveRAM al encolar una pelicula. No se acredita TAS completo con el roundtrip
-manual de SaveRAM y estados; esa puerta sigue abierta en el padre.
+Las peliculas CD32 registran PUAE6InitialNvram antes de reiniciar el core:
+PowerOn usa el hash de1024ceros, SaveRAM el de los bytes capturados y snapshot
+el hash del arranque original, aunque el juego haya escrito despues. MovieSession
+valida encabezado, modo, SaveRAM o envelope y campos del snapshot antes de Attach
+(TAS puede importar SaveRAM dentro de Attach). Solo el LOAD inicial validado puede
+adoptar esa identidad; un LOAD normal mantiene su rechazo estricto. El contexto
+se retira al cargar o salir por excepcion, sin leer la copia durable del usuario.
+El formato P6WS v1 no cambia. La compilacion EmuHawk no acredita ejecucion de su UI.

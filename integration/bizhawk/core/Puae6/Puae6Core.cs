@@ -450,7 +450,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_driveHeld = drive; _slotHeld = slot; _ejectHeld = eject; _insertHeld = insert;
 	}
 
-	StateIdentity MakeIdentity(byte[] firmware)
+	StateIdentity MakeIdentity(byte[] firmware, byte[]? initialNvramHash = null)
 	{
 		var heaps = Heaps(_syncSettings, _hardFiles.Select(image => image.LongLength));
 		// The memory enters the identity only when it is not the machine's own: the identity of a core with the stock memory is the one it always had.
@@ -488,7 +488,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.VideoLineMode != Puae6VideoLineMode.Double) memory += ";linemode=" + _syncSettings.VideoLineMode;
 		if (_syncSettings.ControllerPort3 != Puae6ParallelPort.None || _syncSettings.ControllerPort4 != Puae6ParallelPort.None)
             memory += $";parallel={_syncSettings.ControllerPort3},{_syncSettings.ControllerPort4}";
-		if (_syncSettings.Machine == Puae6Machine.CD32) memory += ";nvram=" + BitConverter.ToString(_nvramInitialHash).Replace("-", "").ToLowerInvariant();
+		if (_syncSettings.Machine == Puae6Machine.CD32) memory += ";nvram=" + BitConverter.ToString(initialNvramHash ?? _nvramInitialHash).Replace("-", "").ToLowerInvariant();
 		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;
@@ -563,6 +563,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	public bool FrameAdvance(IController controller, bool render, bool renderSound = true)
 	{
+		if (_movieStart is not null) throw new InvalidOperationException("load the movie's initial state before advancing");
 		if (_faulted) throw new InvalidOperationException("a state load failed halfway and the machine is undefined; load a state that is whole, or create the core again");
         var packet = new P6InputV2 { Base = BuildInput(controller, out bool power) };
         if (_syncSettings.ControllerPort3 == Puae6ParallelPort.Joystick) packet.Port2 = JoystickPacket(controller, 3);
@@ -873,7 +874,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	public void LoadStateBinary(BinaryReader reader)
 	{
-		var payload = StateEnvelope.Read(reader, _identity);          // refuses, before anything is touched, a state that is not this machine's, whole and unaltered
+		var movieStart = _movieStart;
+		var payload = StateEnvelope.Read(reader, movieStart?.Identity ?? _identity); // the movie scope has already validated the whole initial state
 		using var stream = new MemoryStream(payload, false);
 		using var inner = new BinaryReader(stream);
 		var fields = Parse(inner);                                    // and one whose fields cannot be
@@ -890,6 +892,12 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			throw;
 		}
 		Apply(fields);
+		if (movieStart is not null)
+		{
+			_identity = movieStart.Identity;
+			_nvramInitialHash = movieStart.NvramHash;
+			_movieStart = null;
+		}
 		_faulted = false;
 	}
 
