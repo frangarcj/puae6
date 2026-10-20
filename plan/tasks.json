@@ -16906,7 +16906,7 @@
       "title": "Reconstruir NRG DAO Mode02 Form1 desde payload2048 con EDC y ECC correctos",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66l3"
       ],
