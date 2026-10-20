@@ -1,0 +1,38 @@
+Make the selected snapshot's zlib compile standalone on LP64 without changing
+its checksum arithmetic or allocation policy. Match Adler's public ABI, include
+stdint declarations used by the modified inflater, and remove the unused gzip
+internal header from zutil.c. Imported sources remain pristine.
+--- a/deps/zlib/adler32.c
++++ b/deps/zlib/adler32.c
+@@ -46,7 +46,8 @@
+ #endif
+ 
+ /* ========================================================================= */
+-uint32_t adler32(uint32_t adler, const uint8_t *buf, size_t len)
++/* PUAE6 derived copy: match the zlib.h public ABI; arithmetic is unchanged. */
++uLong ZEXPORT adler32(uLong adler, const Bytef *buf, uInt len)
+ {
+    int k;
+    uint32_t s1 = adler & 0xffff;
+--- a/deps/zlib/zutil.h
++++ b/deps/zlib/zutil.h
+@@ -25,5 +25,7 @@
+ #include <zlib.h>
++/* PUAE6 standalone copy: declarations used by this snapshot's inflater. */
++#include <stdint.h>
+ 
+ #if defined(STDC) && !defined(Z_SOLO)
+ #  if !(defined(_WIN32_WCE) && defined(_MSC_VER))
+ #    include <stddef.h>
+--- a/deps/zlib/zutil.c
++++ b/deps/zlib/zutil.c
+@@ -7,8 +7,6 @@
+ 
+ #include "zutil.h"
+-#ifndef Z_SOLO
+-#  include "gzguts.h"
+-#endif
++/* PUAE6 standalone copy: no gzip implementation uses gzguts.h here. */
+ 
+ char z_errmsg[10][21] = {
+    "need dictionary",     /* Z_NEED_DICT       2  */
