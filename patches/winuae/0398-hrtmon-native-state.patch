@@ -1,0 +1,65 @@
+diff --git a/ar.cpp b/ar.cpp
+--- a/ar.cpp
++++ b/ar.cpp
+@@ -214,6 +214,9 @@
+ #include "ar.h"
+ #include "savestate.h"
+ #include "crc32.h"
++#ifdef P6_PORTABLE
++#include "p6_state_access.h"
++#endif
+ #ifdef PICASSO96
+ #include "gfxboard.h"
+ #endif
+@@ -2047,6 +2050,38 @@
+ 	if (armodel == 1)
+ 		action_replay_flag = ACTION_REPLAY_ACTIVE;
+ }
++
++#ifdef P6_PORTABLE
++// Private fixed HRTMon owner. No host pointer or reload path enters its state.
++uint8_t *p6_hrtmon_memory()
++{
++	return cart_type == CART_HRTMON && !armodel && hrtmemory && hrtmemory == hrtmem_bank.baseaddr &&
++		hrtmem_start == 0xa10000 && hrtmem_size == 0x100000 && hrtmem_bank.allocated_size == 0x100000 && !hrtmem2_size && !hrtmem2_size2 &&
++		!hrtmem3_size && !hrtmem_end && !hrtmem2_end && !hrtmem_rom && hrtmon_ciadiv == 256 &&
++		!hrtmon_zeropage && !armemory_rom && !armemory_ram && !hrtmon_lang ? hrtmemory : NULL;
++}
++bool p6_hrtmon_get(p6_hrtmon_raw *out)
++{
++	if (!out || !p6_hrtmon_memory() || hrtmon_flag < ACTION_REPLAY_IDLE || hrtmon_flag > ACTION_REPLAY_ACTIVE ||
++		triggered_once < 0 || triggered_once > 1) return false;
++	const bool mapped = &get_mem_bank(hrtmem_start) == &hrtmem_bank;
++	for (unsigned n = 0; n < 16; ++n)
++		if (&get_mem_bank(hrtmem_start + (n << 16)) != (mapped ? &hrtmem_bank : &dummy_bank)) return false;
++	out->flag = hrtmon_flag; out->triggered = triggered_once; out->mapped = mapped;
++	memcpy(out->custom, ar_custom, sizeof ar_custom);
++	memcpy(out->ciaa, ar_ciaa, sizeof ar_ciaa); memcpy(out->ciab, ar_ciab, sizeof ar_ciab);
++	return true;
++}
++void p6_hrtmon_set(const p6_hrtmon_raw *in)
++{
++	hrtmon_flag = in->flag; triggered_once = in->triggered;
++	memcpy(ar_custom, in->custom, sizeof ar_custom);
++	memcpy(ar_ciaa, in->ciaa, sizeof ar_ciaa); memcpy(ar_ciab, in->ciab, sizeof ar_ciab);
++	hrtmem_mask = hrtmem_size - 1;
++	hrtmon_custom = hrtmemory + 0x8f000; hrtmon_ciaa = hrtmemory + 0x8e000; hrtmon_ciab = hrtmemory + 0x8d000;
++	if (in->mapped) hrtmon_map_banks(); else hrtmon_unmap_banks();
++}
++#endif
+ 
+ #ifndef P6_PORTABLE
+ // Legacy .uss codec serializes host paths; native cartridge state stays gated until T69b.
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -10755,7 +10755,8 @@
+ 	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || (regs.lastipl && currprefs.cpu_cycle_exact) || regs.lastipl < 0 || regs.lastipl > 7 ||
+ 			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
+ 		w = "a register or mode that the CPU of this machine does not have is set";
+-	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))
++	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK |
++		((hrtmem_size == 0x100000 && (hrtmon_flag == ACTION_REPLAY_ACTIVATE || hrtmon_flag == ACTION_REPLAY_ACTIVE)) ? SPCFLAG_ACTION_REPLAY : 0)))
+ 		w = "a special flag is pending that the profile never leaves pending at a unit boundary";
+ 	else if (cpu_tracer || cpu_prefs_changed_flag || m68k_reset_delay || pissoff)
+ 		w = "a file-local CPU counter is not at its boundary value";

@@ -947,7 +947,7 @@
       {
         "id": "cpu-spcflags",
         "subsystem": "cpu",
-        "component": "Special flags word (regs.spcflags): TRACE, DOTRACE, CPUINRESET, CHECK, INT/DOINT, BLTNASTY, UNIT_END",
+        "component": "Special flags word (regs.spcflags): TRACE, DOTRACE, CPUINRESET, CHECK, INT/DOINT, BLTNASTY, UNIT_END, ACTION_REPLAY with private HRTMon",
         "owner": "build/upstream/newcpu.cpp (regs.spcflags, set_special/unset_special in include/newcpu.h)",
         "chunk": null,
         "save": null,
@@ -957,9 +957,9 @@
         "upstream_compiled": false,
         "policy": "extension",
         "saved_fields": "Nothing: neither save_cpu nor any other chunk stores spcflags; restore relies on m68k_reset2 zeroing it.",
-        "omitted": "Causal bits at a unit boundary: SPCFLAG_DOTRACE (trace exception pending for the next instruction, set by do_trace/activate_trace in the pass that ended the unit), SPCFLAG_TRACE (must equal T1|T0 but MakeFromSR_x sets it only on a change, m68k_reset_sr does not), SPCFLAG_CPUINRESET (CPU held in reset by the keyboard reset chord, cpu_inreset; m68k_go_unit resumes into the wait loop). SPCFLAG_CHECK is derivable: haltloop consumes it, and m68k_go_unit sets it again from regs.halted when it resumes. Inert in the profile: INT/DOINT (m68k_interrupt_delay and m68k_accurate_ipl are true, so doint() never sets them), CPU_SLOW (only with JIT or m68k_speed<0), BLTNASTY (loop guarded by !blitter_cycle_exact), UAEINT/TRAP/EXEC/ACTION_REPLAY (no producers). UNIT_END (value 1) is cleared by m68k_go_unit before it returns.",
+        "omitted": "Causal bits at a unit boundary: SPCFLAG_DOTRACE (trace exception pending for the next instruction, set by do_trace/activate_trace in the pass that ended the unit), SPCFLAG_TRACE (must equal T1|T0 but MakeFromSR_x sets it only on a change, m68k_reset_sr does not), SPCFLAG_CPUINRESET (CPU held in reset by the keyboard reset chord, cpu_inreset; m68k_go_unit resumes into the wait loop). SPCFLAG_CHECK is derivable: haltloop consumes it, and m68k_go_unit sets it again from regs.halted when it resumes. Inert in the profile: INT/DOINT (m68k_interrupt_delay and m68k_accurate_ipl are true, so doint() never sets them), CPU_SLOW (only with JIT or m68k_speed<0), BLTNASTY (loop guarded by !blitter_cycle_exact), UAEINT/TRAP/EXEC (no producers); ACTION_REPLAY is causal with a private HRTMon owner (ACTIVATE/ACTIVE), and is carried by P6CP with a candidate cross-check against P6RM. UNIT_END (value 1) is cleared by m68k_go_unit before it returns.",
         "pointers": "volatile uae_atomic word written with atomic_or/atomic_and (ports/portable/atomic.cpp); the atomicity is a host detail, serialize the plain value.",
-        "rebuild": "Extension: save the DOTRACE and CPUINRESET bits verbatim; on restore also set TRACE if T1|T0 and CHECK if regs.halted (m68k_go_unit does the latter itself). Everything else is recomputed by the first do_specialties pass.",
+        "rebuild": "Native Apply replaces the saved CPUINRESET/TRACE/DOTRACE/BLTNASTY word, plus ACTION_REPLAY only for a bound HRTMon owner. TRACE is not derived from T1/T0. CHECK is set again from halt state when the loop resumes; cartridge NMI itself remains the original synchronous do_interrupt(7).",
         "evidence": [
           "build/upstream/include/newcpu.h:202",
           "build/upstream/include/newcpu.h:337",
@@ -1008,7 +1008,7 @@
           "file": "bridge/state_cpu.cpp",
           "visitor": "visit_cpu",
           "proves": "tests/state/test_state_cpu.py: the cpu digest and the bytes of the chunk come back to the unit the state was taken in (8 programs and the owner's Kickstart 1.3), in the same process and in a new one after the reset head; the future of the whole machine waits for the other chunks (DET02, T15)",
-          "notes": "Only CPUINRESET, TRACE, DOTRACE and BLTNASTY travel, verbatim: TRACE is not derivable from T1|T0 because activate_trace() clears it while T1 stays set. BLTNASTY is behaviourally inert in the cycle-exact profile and is saved because the digest hashes it. Apply REPLACES the word. Any other flag pending makes p6_cpu_boundary refuse the save."
+          "notes": "CPUINRESET, TRACE, DOTRACE and BLTNASTY travel verbatim. T69b adds ACTION_REPLAY only with an immutable HRTMon owner: P6CP publishes the candidate word and P6RM requires ACTIVATE/ACTIVE iff the bit is set before any Apply. A pending Freeze is ACTIVATE plus that bit; no invented NMI queue. Other flags still fail p6_cpu_boundary."
         }
       },
       {
@@ -2347,7 +2347,7 @@
         "upstream_compiled": false,
         "policy": "rebuild",
         "saved_fields": "CIA-overlay profiles derive OVL from PRA/DDRA. CD32 auto-overlay carries the independent oldovl latch as one u8 at the end of P6CI (T66m6); map tables and pointers are rebuilt, never serialized.",
-        "omitted": "overlay_state is a static int written only by map_overlay; it also decides ce_banktype (see next record), so a wrong value changes Slow RAM wait states as well as the data seen at address 0.",
+        "omitted": "overlay_state is a static int written only by map_overlay; it also decides ce_banktype (see next record), so a wrong value changes Slow RAM wait states as well as the data seen at address 0. Private HRTMon additionally owns a saved map bit for its sixteen $A10000-$B0FFFF pages; P6RM restores it independently of PC/flag, with Normal PC binding refreshed afterwards.",
         "pointers": "mem_banks[0..31] point at either chipmem_bank or kickmem_bank (static addrbank objects); never serialize.",
         "rebuild": "CIA-overlay: derive oldovl=(pra|~ddra)&1. CD32 with cs_ciaoverlay0: preserve the restored one-shot latch, cleared by any first WriteCIAA. Then map_overlay(oldovl ? 0 : 1), including fill_ce_banks. Other auto-overlay profiles remain unsupported. The standalone probe observes the map request; real machine-map/continuation remains the parent NativeChunk gate.",
         "evidence": [
@@ -3009,7 +3009,7 @@
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_chipset",
           "proves": "tests/state/test_state_upstream.py: BEAM (patch 0094, 260 bytes since patch 0103 added the vertical window lines, their flag and the interlace) is saved without changing the machine, validated by structure before anything is applied (the line against the standard of the configuration, the flags, the latches, the strobe) and applied as values, and save, load, save re-emits it byte for byte with the rest of the state, in the same process and in a new one; tests/state/test_det02.py: a fresh image that loads a state is on the original's line and in its frame, and the first unit that differs is attributed to its own cause",
-          "notes": "vpos, vpos_prev, agnus_hpos(+_prev,_next), agnus_vpos_next, agnus_pos_change, hhpos, the linear_* history and the sync latches of Agnus travel as 32-bit words in BEAM; the line length is derived by setmaxhpos from the lol of CHIP and the linetoggle of BEAM. current_linear_* and the geometry derived from it travel in GEOM (T15g). Not saved: agnus_trigger_cck and the other timestamps of the display (T15g), currcycle_cck (debug). T15l (patch 0220, 67 to 80 words): the monitor's no-signal countdown (nosignal_cnt, nosignal_status, nosignal_trigger, custom.cpp handle_nosignal), lines_after_beamcon_change, syncs_stopped and the bltadd and conflictaddr of the four DMA pipeline slots (rga_pipe, which save_custom_slots does not write: a blit D write in flight advances its pointer by bltadd) travel in BEAM: a change of the programmed beam (the Kickstart 2.05 switching the display on) blanks the picture for two vertical blanks (getlinetype answers LINETYPE_BLANK), and BPLCON0 ERSY stops the beam counters at the end of a line (the line is then paced by fakehsync_handler); a state taken inside them drew the display on one or two units before the original, or ran with real hsyncs. T66r7 (patch0383, BEAM89→91words): config_changed and config_changed_flags preserve the pending preference check across a new owner. init_m68k and compute_framesync request a two-vsync countdown; check_prefs_changed_custom can change programmed beam and Denise latches even with fixed prefs. Preserve0/1/2 and flags32 verbatim after beam-derived initialization, never clear the request unconditionally."
+          "notes": "vpos, vpos_prev, agnus_hpos(+_prev,_next), agnus_vpos_next, agnus_pos_change, hhpos, the linear_* history and the sync latches of Agnus travel as 32-bit words in BEAM; the line length is derived by setmaxhpos from the lol of CHIP and the linetoggle of BEAM. current_linear_* and the geometry derived from it travel in GEOM (T15g). Not saved: agnus_trigger_cck and the other timestamps of the display (T15g), currcycle_cck (debug). T15l (patch 0220, 67 to 80 words): the monitor's no-signal countdown (nosignal_cnt, nosignal_status, nosignal_trigger, custom.cpp handle_nosignal), lines_after_beamcon_change, syncs_stopped and the bltadd and conflictaddr of the four DMA pipeline slots (rga_pipe, which save_custom_slots does not write: a blit D write in flight advances its pointer by bltadd) travel in BEAM: a change of the programmed beam (the Kickstart 2.05 switching the display on) blanks the picture for two vertical blanks (getlinetype answers LINETYPE_BLANK), and BPLCON0 ERSY stops the beam counters at the end of a line (the line is then paced by fakehsync_handler); a state taken inside them drew the display on one or two units before the original, or ran with real hsyncs. T66r7 (patch0383, BEAM89\u219291words): config_changed and config_changed_flags preserve the pending preference check across a new owner. init_m68k and compute_framesync request a two-vsync countdown; check_prefs_changed_custom can change programmed beam and Denise latches even with fixed prefs. Preserve0/1/2 and flags32 verbatim after beam-derived initialization, never clear the request unconditionally."
         }
       },
       {
@@ -7998,6 +7998,46 @@
           "proves": "tests/state/test_a4030.py",
           "notes": "Appended only for the A4000 machine, including with no Fast RAM board. Validate checks boolean ranges before Apply copies the registers."
         }
+      },
+      {
+        "id": "cartridge-hrtmon-native",
+        "subsystem": "cartridge",
+        "component": "Private pinned HRTMon on A1200; complete fixed 1 MiB RAM owner",
+        "owner": "build/upstream/ar.cpp (patches 0394 and 0398), bridge/state.cpp",
+        "chunk": null,
+        "save": "visit_hrtmon within visit_ram (P6RM), plus SPCFLAG_ACTION_REPLAY in P6CP",
+        "restore": "same field visitor with candidate validation before Apply",
+        "reset": "The original HRTMon reset/configure flow; action_replay_cleanup clears flags/shadows/derived pointers between owners, and shutdown releases preload blobs too.",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "serialize_extended",
+        "saved_fields": "All 1048576 HRTMon bytes, hrtmon_flag (IDLE/ACTIVATE/ACTIVE), triggered_once, actual mapping across sixteen 64 KiB pages, ar_custom[512], ar_ciaa[16], ar_ciab[16]. Chip RAM owns the NMI vector/stack and P6CP the CPU/interrupt pipeline. A pending Freeze is not executed while saving.",
+        "omitted": "Fixed private owner facts are checked: CART_HRTMON, armodel=0, start=$A10000, size=1MiB, no extra banks/ROM mode/zero-page, CIA stride256 and English keyboard. AR state, RTG state and host-path .uss codecs are excluded. Without a cart, legacy identity and bodies are unchanged.",
+        "pointers": "No pointer is serialized. RAM belongs to the loaded bank; masks and custom/CIA pointers derive from that owner. The immutable copied raw asset is hashed into p6/media/hrtmon/v1, separately from mutable monitor RAM.",
+        "rebuild": "Apply uses original map/unmap functions from the saved mapping bit (x may leave an IDLE monitor mapped). P6RM rebuild rebinds Normal PC after all RAM/mapping applies without fill_prefetch; no reload or I/O in Apply.",
+        "evidence": [
+          "patches/winuae/0398-hrtmon-native-state.patch",
+          "bridge/state.cpp",
+          "bridge/state_cpu.cpp",
+          "tests/cartridge/hrtmon_probe.cpp"
+        ],
+        "proof": {
+          "task": "T69b",
+          "checks": [
+            "STATE01",
+            "DET02"
+          ],
+          "status": "pending",
+          "what": "HrtMonTests integration gate: S0 idle/unmapped, S1 pending Freeze, S2 active partial command/held key, S3 exited/mapped, S4 reset; same owner and cold new process, commands/RAM/counter and per-unit futures, candidate corruption and foreign identity rejection."
+        },
+        "waterbox": "Not credited by this native gate; public cartridge/Freeze frontend wiring remains T69c.",
+        "native_state": {
+          "task": "T69b",
+          "chunk": "P6RM + P6CP",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_hrtmon / visit_cpu",
+          "proves": "Pending integrated tests/cartridge/test_hrtmon.py:HrtMonTests; bound includes the fixed allocation before the reset head."
+        }
       }
     ],
     "out_of_profile_chunks": [
@@ -8106,9 +8146,11 @@
           "CONF",
           "LOG "
         ],
-        "reason": "arcade and laserdisc boards, HRTMon, the debugger memory watch points, the configuration text and the log are not part of the profile or of the machine state",
+        "reason": "HRTM/ACTR are excluded legacy .uss codecs with host paths. Private HRTMon uses complete semantic P6RM/P6CP and immutable raw identity instead; commercial Action Replay still needs its own authorized asset and proof. Arcade/laserdisc boards, debugger watch points, configuration text and log remain outside the profile.",
         "evidence": [
-          "bridge/config.cpp"
+          "bridge/config.cpp",
+          "patches/winuae/0394-hrtmon-port.patch",
+          "bridge/state.cpp"
         ]
       },
       {

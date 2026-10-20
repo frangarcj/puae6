@@ -40,6 +40,19 @@ namespace p6_bridge {
 namespace { const char *const kCartridgeId = "p6-cartridge.rom"; }
 bool hrtmon_bound() { return p6_blob_exists(kCartridgeId) == P6_BLOB_OK; }
 
+bool hrtmon_identity(uint8_t out[32])
+{
+    uint64_t bytes=0; uint32_t kind=0;
+    if (p6_blob_size(kCartridgeId,&bytes,&kind)!=P6_BLOB_OK || bytes!=198732 || kind!=P6_BLOB_ROM) return false;
+    p6_sha256 hash; p6_sha256_init(&hash); uint8_t block[4096];
+    for (uint64_t at=0;at<bytes;) {
+        const size_t n=bytes-at<sizeof block ? size_t(bytes-at) : sizeof block; size_t got=0;
+        if (p6_blob_pread(kCartridgeId,at,block,n,&got)!=P6_BLOB_OK || got!=n) return false;
+        p6_sha256_update(&hash,block,n); at+=n;
+    }
+    p6_sha256_final(&hash,out); return true;
+}
+
 p6_result bind_hrtmon(p6_buffer image, p6_error *error)
 {
     if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;

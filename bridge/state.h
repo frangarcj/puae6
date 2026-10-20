@@ -54,6 +54,9 @@ uint32_t chunk_count();
 // P6SC publishes its validated cycle for later chunks, independent of live time.
 void publish_scheduler_cycle(int64_t);
 int64_t scheduler_cycle(Mode);
+// P6CP publishes the incoming flags; P6RM checks cartridge control against that candidate.
+void publish_cpu_spc(uint32_t);
+uint32_t cpu_spc(Mode);
 void visit_akiko(Archive &);
 
 // The chunk visitors that live outside state.cpp (state_cpu.cpp, state_devices.cpp).

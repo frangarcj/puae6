@@ -11,7 +11,7 @@ from tests.build_support import ROOT, build_targets
 
 
 class HrtMonTests(unittest.TestCase):
-    def test_real_monitor_command_return_twins_refusals_and_no_cart_state(self):
+    def test_complete_native_state_cuts_command_return_cold_owners_and_refusals(self):
         firmware = os.environ.get('P6_KICKSTART_A1200_ROM')
         if not firmware:
             self.skipTest('BLOCKED: set P6_KICKSTART_A1200_ROM to an authorized local Kickstart 2+/3.x')
@@ -26,10 +26,11 @@ class HrtMonTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='hrtmon-',dir=ROOT/'build') as tmp:
             cart = Path(tmp)/'hrtmon.rom'; cart.write_bytes(raw)
             twins = []
-            for _ in range(2):
-                result = subprocess.run([str(exe),firmware,str(cart)],capture_output=True,text=True,timeout=300,
+            for mode in ("write","read"):
+                result = subprocess.run([str(exe),firmware,str(cart),mode,tmp],capture_output=True,text=True,timeout=300,
                                         env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
                 self.assertEqual(result.returncode,0,result.stdout[-1200:]+result.stderr[-4000:])
-                twins.append(next(line for line in result.stdout.splitlines() if line.startswith('HRTMon Freeze/command/return twins ')))
+                twins.append([line for line in result.stdout.splitlines() if line.startswith('HRTMon continuation ')])
+                self.assertEqual(len(twins[-1]),7)
                 self.assertIn('HRTMon refusal/teardown and A1200 without cartridge PASS',result.stdout)
             self.assertEqual(*twins)

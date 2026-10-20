@@ -11,6 +11,7 @@
 //    out too small. Every check is skipped in Measure.
 //  * Save refuses what Validate would refuse: a live value outside its range is a defect of the machine, not something to write.
 #include "state.h"
+#include "config.h"
 
 #include <stdint.h>
 
@@ -49,7 +50,7 @@ namespace {
 
 static_assert(sizeof(int) == 4 && sizeof(evt_t) == 8, "the widths of the engine's own types are part of the format");
 
-constexpr uint32_t kSpcSaved = SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY;
+constexpr uint32_t kSpcSaved = SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_ACTION_REPLAY;
 constexpr uint16_t kSr68000 = 0xA71F;       // T1, S, the interrupt mask, X N Z V C: a 68000 has no T0 and no M
 constexpr uint16_t kSr68020 = 0xF71F;       // T1, T0, S, M, the interrupt mask, X N Z V C
 constexpr int kEvent2Slots = ev2_max;       // 16
@@ -401,7 +402,7 @@ void visit_internal_fpu(Archive &a, p6_fpu_state &f)
 //   i32 go.quit_program (-4..0, not -1)
 //   u32 pc  u16 sr  u32 d0..d7 a0..a7 (a7 raw: the active stack pointer)  u32 usp  u32 isp
 //   u16 ir irc ird read_buffer write_buffer db opcode  u32 latch_rw latch_read latch_write
-//   u8 stopped (0..1)  u8 halted (0..13, not 4)  u32 spcflags (CPUINRESET|TRACE|DOTRACE|BLTNASTY)
+//   u8 stopped (0..1)  u8 halted (0..13, not 4)  u32 spcflags (CPUINRESET|TRACE|DOTRACE|BLTNASTY|ACTION_REPLAY with owner)
 //   u8 ipl0 ipl1 ipl_pin ipl_pin_p (0..7)  u8 ipl_evt_pre_mode (0..1)  i64 ipl_evt ipl_evt_pre ipl_pin_change_evt ipl_pin_change_evt_p (>= 0)
 //   u32 xorshiftstate (>= 1)
 // A 68010 (T52) appends the block of the 68010 (visit_010 above, 10 bytes) and keeps the SR of a 68000 (it has neither T0 nor M).
@@ -458,6 +459,9 @@ void visit_cpu(Archive &a)
     if (checks) a.require(halted != CPU_HALT_ACCELERATOR_CPU_FALLBACK, "cpu.halted: the accelerator fallback is not in the profile");
     const uint32_t spc = a.val<uint32_t>(uint32_t(regs.spcflags) & kSpcSaved, "cpu.spcflags");
     if (checks) a.require((spc & ~kSpcSaved) == 0, "cpu.spcflags: a flag that cannot be pending at a unit boundary");
+
+    if (checks) a.require(!(spc&SPCFLAG_ACTION_REPLAY) || p6_bridge::hrtmon_bound(), "CPU cartridge flag without an owner");
+    if (a.reading()) publish_cpu_spc(spc);
 
     // 6. The interrupt pipeline. The times are absolute in the epoch of the scheduler's chunk, or stale ones from before a counter restart: no
     //    upper bound.

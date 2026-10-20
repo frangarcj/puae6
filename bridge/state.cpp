@@ -23,8 +23,12 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "options.h"
+#include "ar.h"
+#include "p6_state_access.h"
 #include "events.h"
 #include "memory.h"
+#include "machdep/maccess.h"
+#include "newcpu.h"
 #include "sounddep/sound.h"
 
 extern void p6_mbres_get(uae_u8 *r);
@@ -48,6 +52,7 @@ struct VisitContext {
     MediaPlan media;
     int64_t scheduler_cycle = -1;
     uint32_t media_count;       // how many media the manifest of the state had: every medium its bodies name is below it (the live manifest may have grown since)
+    uint32_t cpu_flags = 0;
 };
 VisitContext *g_context = nullptr;
 struct ContextScope {
@@ -184,6 +189,31 @@ void visit_expansion(Archive &a, uint32_t fast)
 
 namespace {
 
+void visit_hrtmon(Archive &a)
+{
+    if (!p6_bridge::hrtmon_bound()) return;
+    p6_hrtmon_raw h{}; uint8_t *ram=p6_hrtmon_memory();
+    if (a.mode()==Mode::Save) a.require(p6_hrtmon_get(&h), "HRTMon owner or bank map is invalid");
+    a.val<uint32_t>(0x100000,0x100000,0x100000,"hrt.size");
+    h.flag=a.val<uint32_t>(h.flag,1,3,"hrt.flag");
+    h.triggered=a.val<uint32_t>(h.triggered,0,1,"hrt.triggered");
+    h.mapped=a.val<uint32_t>(h.mapped,0,1,"hrt.mapped");
+    if (a.mode()!=Mode::Measure) {
+        a.require(ram, "HRTMon has no allocated owner");
+        a.require((h.flag!=ACTION_REPLAY_IDLE)==bool(cpu_spc(a.mode())&SPCFLAG_ACTION_REPLAY), "HRTMon and CPU pending flags disagree");
+        a.require(!h.mapped || h.triggered, "mapped HRTMon was never triggered");
+        a.require(h.flag!=ACTION_REPLAY_ACTIVE || (h.triggered && h.mapped), "active HRTMon has no trigger or mapping");
+    }
+    a.bytes(h.custom,sizeof h.custom,"hrt.custom"); a.bytes(h.ciaa,sizeof h.ciaa,"hrt.ciaa"); a.bytes(h.ciab,sizeof h.ciab,"hrt.ciab");
+    a.bytes(ram,0x100000,"hrt.memory");
+    if (a.applying() && a.ok()) p6_hrtmon_set(&h);
+}
+void rebuild_ram()
+{
+    // P6CP precedes the restored bank map. Rebind a Normal CPU without refilling its saved queue.
+    if (p6_bridge::hrtmon_bound()) m68k_setpc_normal(m68k_getpc());
+}
+
 void visit_ram(Archive &a)
 {
     const uint32_t chip = chipmem_bank.allocated_size, slow = bogomem_bank.allocated_size;
@@ -201,6 +231,7 @@ void visit_ram(Archive &a)
         r[3] = a.val<uint8_t>(r[3], 0, 1, "mbres.gary_toenb");
         if (a.applying() && a.ok()) p6_mbres_set(r);
     }
+    visit_hrtmon(a);
     const uint32_t z3 = p6_bridge::z3_bytes(session.config);
     if (!fast && !z3) return;
     if (fast) {
@@ -220,6 +251,9 @@ void visit_ram(Archive &a)
 
 }  // namespace
 
+void publish_cpu_spc(uint32_t spc) { if (g_context) g_context->cpu_flags=spc; }
+uint32_t cpu_spc(Mode mode) { return mode==Mode::Save ? uint32_t(regs.spcflags) : g_context ? g_context->cpu_flags : 0; }
+
 const MediaPlan *loading_media() { return g_context ? &g_context->media : nullptr; }
 
 uint32_t chunk_count() { return session.config.machine == p6_bridge::kCd32Machine ? kMaxChunkCount : kChunkCount; }
@@ -232,7 +266,7 @@ int64_t scheduler_cycle(Mode mode)
 const Chunk kChunks[kMaxChunkCount] = {
     {"P6CP", "cpu", 1, visit_cpu, nullptr},
     {"P6SC", "scheduler", 1, visit_scheduler, rebuild_scheduler},
-    {"P6RM", "ram", 1, visit_ram, nullptr},
+    {"P6RM", "ram", 1, visit_ram, rebuild_ram},
     {"P6RT", "rtc", 1, visit_rtc, nullptr},
     {"P6CH", "chipset", 1, visit_chipset, nullptr},
     {"P6VD", "video", 1, visit_video, nullptr},
@@ -259,6 +293,11 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
         ids[i] = session.media_content_id[i];
     }
     media_manifest_hash(count, types, ids, out);
+    uint8_t cartridge[32];
+    if (p6_bridge::hrtmon_identity(cartridge)) {
+        const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};
+        domain_hash("p6/media/hrtmon/v1",parts,lengths,2,out);
+    }
     // The ordered CD catalog is fixed; which of its discs is selected is state.
     // Unbound legacy profiles preserve their existing identity byte for byte.
     const uint32_t discs = p6_cd::device_catalog_size();
@@ -416,8 +455,9 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
-    if (p6_bridge::hrtmon_bound())
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "native HRTMon state requires the complete cartridge codec");
+    uint8_t cartridge[32];
+    if (p6_bridge::hrtmon_bound() && !p6_bridge::hrtmon_identity(cartridge))
+        return p6_fail(error, P6_ERROR_BAD_STATE, "HRTMon immutable owner is invalid");
     char missing[160];
     if (!options.allow_placeholders && !complete(missing, sizeof missing)) {
         char text[P6_ERROR_TEXT_CAPACITY];
