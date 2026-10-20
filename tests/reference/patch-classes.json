@@ -210,7 +210,8 @@
     "0384-integer-fline-040-060": "behavior",
     "0385-reset-registers-before-fmode": "behavior",
     "0386-frestore040-fpsp-cu06-double-normal": "behavior",
-    "0387-frestore040-fpsp-cu06-zero-infinity": "behavior"
+    "0387-frestore040-fpsp-cu06-zero-infinity": "behavior",
+    "0388-mds-metadata-only": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

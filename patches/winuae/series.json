@@ -5476,6 +5476,29 @@
           "after_sha256": "d54de3cfb8636aae019faf164003c034162d7b5c13e473a59316f72ba98a9430"
         }
       ]
+    },
+    {
+      "id": "0388-mds-metadata-only",
+      "file": "patches/winuae/0388-mds-metadata-only.patch",
+      "sha256": "dc0fc963fe5c6b37c98ae4ed11566cf14b0ecaaabe511534f090f1f8d48bebf1",
+      "title": "Export bounded MDS v1 metadata without handles or payload reads",
+      "reason": "T66s1: preserve the pinned parsemds layout with explicit endian, bounded reads, exact signature and raw pregap/length/offset/name fields. No filesystem, index inference or public MDS claim; malformed/unsupported inputs leave output intact.",
+      "category": "media parser portability",
+      "order": 205,
+      "symbols": [
+        "parsemds",
+        "mds_metadata"
+      ],
+      "test": "tests/media/test_mds_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "6e1e1d31689b0c35b32b795a54ec4704d23d8245fdc94699325eb30a1557e7db",
+          "after_sha256": "2d0643824998f36c3ddb54686e931ce8664d727d343da80455da40a09f020638"
+        }
+      ]
     }
   ]
 }
