@@ -42,7 +42,9 @@ class ChdHostCSharpTests(unittest.TestCase):
 
     def test_four_codecs_real_mount_regions_audio_subq_crossings_and_ownership(self):
         audio=self.pattern.audio(); expected=b''.join(audio[n*2352:(n+1)*2352]+subq(1,1,n,0,0) for n in range(40))
-        identity=hashlib.sha256(b'P6CD2448\0'+struct.pack('<8I',1,40,1,0,0,40,0,0)+expected).hexdigest().upper()
+        record=(0,0,40,0,0,0,0,0,0,3,0,0)
+        metadata=b'P6CD2448\0'+struct.pack('<3I',2,40,1)+struct.pack('<12I',*record)
+        identity=hashlib.sha256(metadata+expected).hexdigest().upper()
         ids=[]
         hashes=json.loads((source.ROOT/'tests/fixtures/chd/sha256.json').read_text())
         for codec in self.pattern.CODECS:
@@ -56,6 +58,11 @@ class ChdHostCSharpTests(unittest.TestCase):
                 self.assertEqual(rows[1:],['0 40 1 1 0 0 False 7 2'])
                 self.assertEqual(Path(str(path)+'.actual').read_bytes(),expected)
                 self.assertEqual(Path(str(path)+'.units').read_bytes(),self.pattern.expected()[19577:19577+2448])
+                wire=Path(str(path)+'.descriptor').read_bytes()
+                self.assertEqual(len(wire),4808); self.assertEqual(struct.unpack_from('<II',wire),(2,4808))
+                self.assertEqual(wire[8:40].hex().upper(),identity)
+                self.assertEqual(struct.unpack_from('<QII12I',wire,40),(40*2448,1,40,*record))
+                self.assertEqual(wire[104:],bytes(98*48))
         self.assertEqual(len(set(ids)),1) # Codec/path are not canonical media identity.
 
     def test_native_layout_version_range_and_failed_open_are_transactional(self):

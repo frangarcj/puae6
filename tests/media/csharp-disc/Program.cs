@@ -23,6 +23,8 @@ internal static unsafe partial class Program
   bytes[^1] ^= 1; File.WriteAllBytes(changed, bytes);
   using var disc = Mount(path); using var identical = Mount(same); using var tail = Mount(changed);
   var source = new Puae6DiscSource(disc); var output = new byte[2449];
+  var descriptor = source.Descriptor(); Require(descriptor.Version == 1 && descriptor.Size == 2432 && descriptor.Bytes == 520UL * 2448);
+  try { source.DescriptorV2(); throw new Exception("Invented typed ISO regions"); } catch (InvalidOperationException) { }
   Require(source.Tracks.Count == 1 && source.Tracks[0].Index0 == 0 && source.Leadout == 520);
   Require(source.ReadSector(0, 2048, output, 1) && output.AsSpan(1, 2048).SequenceEqual(bytes.AsSpan(0, 2048)));
   var direct = new DiscSectorReader(disc) { Policy = { DeinterleavedSubcode = true } };
@@ -98,7 +100,7 @@ internal static unsafe partial class Program
   }
   public void Dispose() { Closes=1; }
  }
- static void ChdUnits(string path)
+ static void ChdUnits(string path, bool regional = false)
  {
   using var input=JsonDocument.Parse(File.ReadAllText(path)); var rows=input.RootElement.GetProperty("tracks");
   var chd=new CHD_Format.CHDFile { Header=new LibChd.chd_header { unitbytes=2448, hunkbytes=19584 } };
@@ -122,6 +124,7 @@ internal static unsafe partial class Program
    Require(typeof(Disc).GetProperty(nameof(Disc.Regions)).GetSetMethod(true).IsAssembly);
    foreach(var r in disc.Regions) Console.WriteLine($"region {r.Start} {r.End} {r.Track} {r.Index} {r.Mode} {r.Control} {(r.Synthetic?1:0)} {(uint)r.Type} {(uint)r.SubType}");
    disc.SynthProvider=new ArraySectorSynthProvider { Sectors=disc._Sectors, FirstLBA=-150 }; // Same provider as DiscMountJob.
+   if (regional) RegionalSource(disc,path);
    var reader=new DiscSectorReader(disc); var output=new byte[2464];
    using var rendered=File.Create(Path.ChangeExtension(path,"actual"));
    for(int lba=0;lba<disc._Sectors.Count-150;++lba) {
@@ -141,14 +144,65 @@ internal static unsafe partial class Program
    Console.WriteLine("mds "+CdHash(output.AsSpan(8,2352).ToArray()));
   }
  }
+ static void FinalizeChd(Disc disc) {
+  disc.SynthProvider=new ArraySectorSynthProvider { Sectors=disc._Sectors, FirstLBA=-150 };
+  foreach(var session in disc.Sessions.Skip(1)) {
+   var toc=new Synthesize_DiscTOC_From_RawTOCEntries_Job(session.RawTOCEntries); toc.Run(); session.TOC=toc.Result;
+   new Synthesize_DiscTracks_From_DiscTOC_Job(disc,session).Run();
+  }
+ }
+ static void RegionalSource(Disc disc,string path) {
+  FinalizeChd(disc);
+  var source=new Puae6DiscSource(disc);
+  var wire=source.DescriptorV2();
+  File.WriteAllBytes(Path.ChangeExtension(path,"descriptor"),new ReadOnlySpan<byte>(&wire,sizeof(P6CdInfoV2)).ToArray());
+  try { source.Descriptor(); throw new Exception("Flattened typed regions into V1"); } catch(InvalidOperationException) { }
+  var regions=disc.Regions.ToArray(); var identity=source.ContentId;
+  var direct=new DiscSectorReader(disc) { Policy={ DeinterleavedSubcode=true, DeterministicClearBuffer=true } };
+  var actual=new byte[2448]; var output=new byte[2464];
+  for(int lba=0;lba<source.Leadout;++lba) {
+   Require(direct.ReadLBA_2448(lba,actual,0)==2448);
+   Array.Fill(output,(byte)0xa5); Require(source.ReadAt((ulong)lba*2448,output,8,2448));
+   Require(output.AsSpan(8,2448).SequenceEqual(actual)&&output.Take(8).Concat(output.Skip(2456)).All(v=>v==0xa5));
+   var region=regions.Single(r=>lba>=r.Start&&lba<r.End);
+   if(region.Mode==1&&actual[15]==1) {
+    Require(source.ReadSector(lba,2048,output,8)&&output.AsSpan(8,2048).SequenceEqual(actual.AsSpan(16,2048)));
+   } else Refused(output,()=>source.ReadSector(lba,2048,output,8));
+  }
+  DiscRegionInfo Change(DiscRegionInfo r,int? start=null,int? end=null,int? track=null,int? index=null,LibChd.chd_track_type? type=null)
+   =>new(start??r.Start,end??r.End,track??r.Track,index??r.Index,type??r.Type,r.SubType,r.Synthetic);
+  int pg=Array.FindIndex(regions,r=>r.Index==0), program=Array.FindIndex(regions,r=>r.Index==1), post=Array.FindIndex(regions,r=>r.Index==2);
+  var split=regions.ToList(); split[pg]=Change(split[pg],end:split[pg].Start+1);
+  var remainder=regions[pg]; split.Insert(pg+1,new(split[pg].End,remainder.End,remainder.Track,0,remainder.Type,LibChd.chd_sub_type.CD_SUB_NONE,!remainder.Synthetic));
+  disc.Regions=Array.AsReadOnly(split.ToArray()); Require(source.Rebind(disc)&&source.ContentId.SequenceEqual(identity));
+  for(int bad=0;bad<11;++bad) {
+   var rows=regions.ToList();
+   if(bad==0) rows[0]=Change(rows[0],start:1);
+   if(bad==1) rows[0]=Change(rows[0],end:rows[0].End+1);
+   if(bad==2) rows[program]=Change(rows[program],index:2);
+   if(bad==3) { rows[program]=Change(rows[program],end:rows[program].Start+1); rows.Insert(program+1,Change(regions[program],start:rows[program].End)); }
+   if(bad==4) { rows[pg]=Change(rows[pg],end:rows[pg].Start+1); rows.Insert(pg+1,Change(regions[pg],start:rows[pg].End,type:LibChd.chd_track_type.CD_TRACK_MODE1)); }
+   if(bad==5) rows[post]=Change(rows[post],type:LibChd.chd_track_type.CD_TRACK_MODE1);
+   if(bad==6) rows[^1]=Change(rows[^1],end:source.Leadout+1);
+   if(bad==7) rows[0]=Change(rows[0],track:2);
+   if(bad==8) rows[0]=Change(rows[0],type:(LibChd.chd_track_type)99);
+   if(bad==9) rows[pg]=Change(rows[pg],index:3);
+   if(bad==10) rows[program]=Change(rows[program],type:LibChd.chd_track_type.CD_TRACK_MODE1);
+   disc.Regions=Array.AsReadOnly(rows.ToArray());
+   Require(!source.Rebind(disc));
+   try { _=new Puae6DiscSource(disc); throw new Exception("Accepted contradictory regions"); } catch(InvalidDataException) { }
+   Require(source.ContentId.SequenceEqual(identity)&&source.ReadSector(0,2448,output));
+  }
+  // Same immutable sector provider, different effective pregap metadata: hash it too.
+  disc.Regions=Array.AsReadOnly(regions.Select(r=>r.Track==regions[pg].Track&&r.Index==0?Change(r,type:LibChd.chd_track_type.CD_TRACK_MODE2_RAW):r).ToArray());
+  Require(!new Puae6DiscSource(disc).ContentId.SequenceEqual(identity)&&!source.Rebind(disc));
+  disc.Regions=Array.AsReadOnly(regions); Require(source.Rebind(disc));
+  Require(source.ContentId.SequenceEqual(identity)&&source.ReadSector(0,2448,output));
+ }
  static Disc MountedChdHost(string path, DiscMountPolicy policy) {
   var disc=CHD_Format.LoadPuae6Chd(path,policy);
   try {
-   disc.SynthProvider=new ArraySectorSynthProvider { Sectors=disc._Sectors, FirstLBA=-150 };
-   foreach(var session in disc.Sessions.Skip(1)) {
-    var toc=new Synthesize_DiscTOC_From_RawTOCEntries_Job(session.RawTOCEntries); toc.Run(); session.TOC=toc.Result;
-    new Synthesize_DiscTracks_From_DiscTOC_Job(disc,session).Run();
-   }
+   FinalizeChd(disc);
    return disc; // The existing DiscMountJob finalization jobs, without a public selector.
   } catch { disc.Dispose(); throw; }
  }
@@ -167,6 +221,8 @@ internal static unsafe partial class Program
   }
   using var disc=MountedChdHost(path,policy);
   var source=new Puae6DiscSource(disc); var canonical=new byte[(int)source.Length];
+  var descriptor=source.DescriptorV2();
+  File.WriteAllBytes(path+".descriptor",new ReadOnlySpan<byte>(&descriptor,sizeof(P6CdInfoV2)).ToArray());
   for(int at=0;at<canonical.Length;at+=2448) Require(source.ReadAt((ulong)at,canonical,at,2448));
   File.WriteAllBytes(path+".actual",canonical);
   Console.WriteLine(Convert.ToHexString(source.ContentId));
@@ -182,6 +238,7 @@ internal static unsafe partial class Program
  static void Main(string[] args) {
   if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }
   if(args.Length==2&&args[0]=="chd-units") { ChdUnits(args[1]); return; }
+  if(args.Length==2&&args[0]=="chd-regional") { ChdUnits(args[1],true); return; }
   if (args.Length > 1) { if (args[5].StartsWith("cd32")) Cd32Waterbox(args); else Waterbox(args); return; }
   Iso(args[0]); Cue(args[0]); Console.WriteLine("DiscSystem ISO/CUE offset, identity and rebind PASS");
  }

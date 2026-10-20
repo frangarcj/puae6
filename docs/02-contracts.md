@@ -1060,7 +1060,21 @@ permanecer inmutable hasta Dispose; no hay reentrada ni I/O dentro del guest.
 La receta standalone verifica offline el pin y conserva las licencias del
 decoder/codecs y del codigo PUAE6; no instala bibliotecas. Cuatro fixtures legales
 prueban decoder→DiscSystem→regiones/stream/source. Seleccion publica PUAE6,
-politica XA canonica, descriptor regional V2 y restore WB siguen pendientes.
+politica XA canonica en ese loader y restore WB siguen pendientes.
+
+T66t15b traduce `Disc.Regions` a `P6CdInfoV2` en `Puae6DiscSource`, con cobertura
+continua, pistas ordenadas, un programa por pista y modo/control de pregap
+representables. La TOC tipada prevalece sobre Q/SBI; regiones contradictorias
+se rechazan. Todo LBA transportado ya contiene datos y P-W deinterleaved:
+`StoredPregap=1` si hay INDEX00, `SyntheticPregap=0`, SUB96 activo en cada region
+y postgap almacenado con INDEX02. No se copian `Synthetic`/`SubType` fisicos:
+hacerlo perderia bytes existentes o los volveria a sintetizar. La vista2048
+solo extrae Mode1, consultando el modo regional incluso dentro del pregap.
+SHA256 cubre `P6CD2448\0`, politica2, leadout, numero de pistas, sus doce palabras
+V2 en LE32 y todo el wire2448. Procedencias fisicas equivalentes conservan la
+identidad; cambios de geometria, politica o bytes la alteran. Rebind valida el
+candidato entero antes de publicar lector. ISO/CUE sin regiones conservan V1 y
+su identidad politica1 exacta. No conecta el loader publico ni acredita Waterbox.
 
 T66t14 conecta `CdChd` a `CdImage` y a la carga libretro directa/M3U por extension
 `.chd`, sin fallback. Enlaza estaticamente el lector verificado offline, con

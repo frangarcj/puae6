@@ -26,7 +26,7 @@ class ChdCanonicalCSharpTests(unittest.TestCase):
         cls.temp=tempfile.TemporaryDirectory(prefix='chd-canonical-',dir=source.ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); cls.dll,cls.env=source.build_disc_source(cls.work)
 
-    def fixture(self,name,specs,*,xa=False,padding=0,mds=False):
+    def fixture(self,name,specs,*,xa=False,padding=0,mds=False,contradictory_q=False):
         units=[]; tracks=[]; regions=[]; sectors={}; old={}; cursor=0
         def region(start,end,n,index,kind,sub,synthetic):
             if start<end: regions.append([start,end,n,index,mode(kind),0 if kind==7 else 4,int(synthetic),kind,sub])
@@ -49,6 +49,7 @@ class ChdCanonicalCSharpTests(unittest.TestCase):
                 elif selected==0: body=chd.mode1(raw,lba)
                 else: body=nrg.mode2_header(lba)+(raw if size==2336 else chd.form2_body(raw) if size==2324 else nrg.form1_body(raw))
                 pw=bytes((n*11+k+i*13)&255 for i in range(96)); index=0 if lba<one else 1
+                if contradictory_q: pw=subq(n,1,lba,one,0 if selected==7 else 4) # Valid CRC, wrong INDEX01 in stored pregaps.
                 sectors[lba]=body+(pw if st!=2 else subq(n,index,lba,one,0 if selected==7 else 4))
                 if selected==4:
                     wrong=chd.form2_body(raw,b'\0\0\x20\0\0\x20\0\0')
@@ -75,6 +76,37 @@ class ChdCanonicalCSharpTests(unittest.TestCase):
         result=subprocess.run([source.DOTNET,str(dll or self.dll),'chd-units',str(path)],env=self.env,capture_output=True,text=True,timeout=60)
         self.assertEqual(result.returncode,0,result.stdout[-1000:]+result.stderr)
         return result.stdout.splitlines()
+
+    def test_regional_descriptor_materialization_identity_and_rejections(self):
+        specs=[(7,2,8,0,0,2,False,1),(0,0,5,2,7,1,True,1),
+               (7,2,5,3,0,2,False,2),(6,1,5,2,1,0,True,1)]
+        path,expected,_=self.fixture('regional',specs)
+        result=subprocess.run([source.DOTNET,str(self.dll),'chd-regional',str(path)],env=self.env,capture_output=True,text=True,timeout=60)
+        self.assertEqual(result.returncode,0,result.stdout[-1000:]+result.stderr)
+        self.assertEqual(result.stdout.splitlines(),expected)
+        actual=path.with_suffix('.actual').read_bytes(); self.assertEqual(actual,path.with_suffix('.expected').read_bytes())
+        wire=path.with_suffix('.descriptor').read_bytes(); self.assertEqual(len(wire),4808)
+        records=[]; cursor=0
+        for kind,sub,frames,gap,pg,pgsub,stored,post in specs:
+            one=cursor+gap; end=one+frames-(gap if stored else 0)+post
+            records.append((cursor,one,end,mode(kind),0 if kind==7 else 4,0,int(gap!=0),0,post,
+                            3+(4 if gap else 0)+(56 if post else 0),mode(pg) if gap else 0,0 if not gap or pg==7 else 4))
+            cursor=end
+        self.assertEqual(struct.unpack_from('<II',wire),(2,4808))
+        self.assertEqual(struct.unpack_from('<QII',wire,40),(cursor*2448,len(specs),cursor))
+        for n,record in enumerate(records): self.assertEqual(struct.unpack_from('<12I',wire,56+n*48),record)
+        self.assertEqual(wire[56+len(specs)*48:],bytes((99-len(specs))*48))
+        metadata=b'P6CD2448\0'+struct.pack('<3I',2,cursor,len(specs))+b''.join(struct.pack('<12I',*t) for t in records)
+        self.assertEqual(wire[8:40],hashlib.sha256(metadata+actual).digest())
+        previous=wire
+        path,expected,_=self.fixture('regional-valid-q',specs,contradictory_q=True)
+        result=subprocess.run([source.DOTNET,str(self.dll),'chd-regional',str(path)],env=self.env,capture_output=True,text=True,timeout=60)
+        self.assertEqual(result.returncode,0,result.stdout[-1000:]+result.stderr)
+        self.assertEqual(result.stdout.splitlines(),expected)
+        actual=path.with_suffix('.actual').read_bytes(); self.assertEqual(actual,path.with_suffix('.expected').read_bytes())
+        wire=path.with_suffix('.descriptor').read_bytes()
+        self.assertEqual(wire[:8]+wire[40:],previous[:8]+previous[40:]) # Metadata comes from regions, even with usable contradictory Q.
+        self.assertEqual(wire[8:40],hashlib.sha256(metadata+actual).digest()); self.assertNotEqual(wire[8:40],previous[8:40])
 
     def test_typed_regions_offsets_padding_audio_subchannels_and_postgap(self):
         specs=[(7,2,66,0,0,2,False,0),(0,2,5,2,7,1,True,1),(7,0,5,151,0,0,False,2),
