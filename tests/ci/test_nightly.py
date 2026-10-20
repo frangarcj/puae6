@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest import mock
+import zipfile
 
 from tools.ci import nightly as ci
 
@@ -97,6 +98,52 @@ class NightlyRecipeTests(unittest.TestCase):
                 images.assert_not_called()
                 prepare.assert_not_called()
                 execute.assert_not_called()
+
+    def test_stale_package_stops_before_build_or_image_preparation(self):
+        with tempfile.TemporaryDirectory(prefix="ci-package-", dir=ci.ci.ROOT / "build") as directory:
+            archive = Path(directory) / "preview.zip"
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("manifest.json", json.dumps(dict(schema_version=1, kind="local-preview",
+                            platform="macos-arm64", revision="b" * 40)))
+            counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
+            with mock.patch.dict(ci.os.environ, P6_PACKAGE_ZIP=str(archive)), \
+                 mock.patch("tools.package.clean_revision", return_value="a" * 40), \
+                 mock.patch.object(ci.ci, "preflight"), mock.patch.object(ci, "suites", return_value=["fixture"]), \
+                 mock.patch.object(ci, "identity", return_value={}), mock.patch.object(ci, "images", return_value={}) as images, \
+                 mock.patch.object(ci, "prepare", return_value={}) as prepare, mock.patch.object(ci, "execute") as execute, \
+                 mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 0, json.dumps(counts), "")):
+                result = ci.run("functional")
+            self.assertEqual("BLOCKED", result["status"])
+            self.assertIn("package revision", result["diagnostic"])
+            images.assert_not_called(); prepare.assert_not_called(); execute.assert_not_called()
+
+    def test_package_manifest_is_bounded_and_matches_the_clean_candidate(self):
+        manifest = dict(schema_version=1, kind="local-preview", platform="macos-arm64", revision="a" * 40)
+        with tempfile.TemporaryDirectory(prefix="ci-package-", dir=ci.ci.ROOT / "build") as directory:
+            path = Path(directory) / "preview.zip"
+            with mock.patch.dict(ci.os.environ, P6_PACKAGE_ZIP=str(path)), \
+                 mock.patch("tools.package.clean_revision", return_value="a" * 40) as clean:
+                for payload in (b"[]", b"{}", b"not JSON", b" " * (64 * 1024 + 1),
+                                json.dumps(dict(manifest, platform="other")), json.dumps(dict(manifest, kind="other"))):
+                    with self.subTest(payload=str(payload)[:40]):
+                        with zipfile.ZipFile(path, "w") as archive:
+                            archive.writestr("manifest.json", payload)
+                        with self.assertRaisesRegex(ValueError, "package manifest"):
+                            ci.candidate_package()
+                for name in ("manifest.json", "missing.json"):
+                    with zipfile.ZipFile(path, "w") as archive:
+                        archive.writestr(name, json.dumps(manifest))
+                    if name == "manifest.json":
+                        ci.candidate_package()
+                    else:
+                        with self.assertRaisesRegex(ValueError, "package manifest"):
+                            ci.candidate_package()
+                path.write_bytes(b"not ZIP")
+                with self.assertRaisesRegex(ValueError, "package manifest"):
+                    ci.candidate_package()
+                clean.side_effect = ValueError("Commit the public sources before packaging")
+                with self.assertRaisesRegex(ValueError, "Commit the public sources"):
+                    ci.candidate_package()
 
     def test_cpu_campaign_is_prepared_once_before_its_measurements_are_consumed(self):
         with mock.patch.object(ci, "execute") as execute:

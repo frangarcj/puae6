@@ -8,10 +8,12 @@ import shlex
 from pathlib import Path
 import sys
 import tempfile
+import zipfile
 
 sys.path[:0] = [str(Path(__file__).resolve().parents[2])]
 from tools.ci import run as ci
 from tools.ci import retroarch_image
+from tools import package
 
 LANES = ("clean", "functional", "matrix", "sanitizers", "optimization", "performance")
 CPU_PERF_DIR = ci.ROOT / "build/baselines/ci-cpu"
@@ -77,6 +79,24 @@ def execute(argv, timeout=14400):
         raise RuntimeError(ci.redact(p.stdout[-2000:] + p.stderr[-6000:]))
 
 
+def candidate_package():
+    """Reject an unrelated preview before preparing the expensive functional lane."""
+    revision = package.clean_revision()
+    try:
+        with zipfile.ZipFile(os.environ["P6_PACKAGE_ZIP"]) as archive:
+            entry = archive.getinfo("manifest.json")
+            if entry.file_size > 64 * 1024:
+                raise ValueError("oversized manifest")
+            manifest = json.loads(archive.read(entry))
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile) as error:
+        raise ValueError("invalid candidate package manifest") from error
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or \
+            manifest.get("kind") != "local-preview" or manifest.get("platform") != "macos-arm64":
+        raise ValueError("invalid candidate package manifest")
+    if manifest.get("revision") != revision:
+        raise ValueError("candidate package revision differs from the current clean sources; rebuild the preview")
+
+
 def identity(docker=None):
     facts = ci.identity()
     facts["test_environment"] = ENV
@@ -140,6 +160,8 @@ def run(lane):
     try:
         selected = suites(lane)
         ci.preflight(ASSETS if lane == "functional" else ())
+        if lane == "functional":
+            candidate_package()
         docker = images(retroarch=lane == "functional") if lane != "clean" else {}
         execute([sys.executable, "tools/generate_cpu.py"])
         facts = identity(docker)

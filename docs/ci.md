@@ -44,6 +44,9 @@ solo enumera sus suites (`NOT_RUN`):
   de `ASSETS` deben estar configurados como variables P6_ locales; no se copian,
   descargan ni publican. `P6_PACKAGE_ZIP` apunta a la preview producida por
   `python3 tools/package.py build`; se prueba el ZIP extraido, sin recompilarlo.
+  Antes de preparar pruebas se exige que su manifiesto corresponda a la revision
+  actual y que los fuentes esten limpios. Genera el paquete despues del ultimo
+  commit de la candidata: un ZIP anterior no acredita los cambios actuales.
   Las pruebas A4000 y CD32 requieren ademas `P6_KICKSTART_A4000_ROM`,
   `P6_CD32_ROM_MAIN`, `P6_CD32_ROM_EXT` y `P6_CD32_GAME_CUE`: su ausencia
   bloquea antes de preparar imagenes, compilar o lanzar el motor.
