@@ -513,9 +513,15 @@ void visit_cpu(Archive &a)
         SET_ZFLG((sr >> 2) & 1);
         SET_VFLG((sr >> 1) & 1);
         SET_CFLG(sr & 1);
-        // The upstream helper rebuilds the direct host binding in normal mode and leaves it null in compatible/exact.
-        // It never refills the serialized prefetch queue.
-        m68k_setpc_normal(pc);
+        // HRTMon's bank map arrives in P6RM. A direct lookup here can enter dummy_xlate,
+        // whose cpu_halt changes SR/IPL before the real bank exists. Keep only the numeric PC;
+        // rebuild_ram binds it after mapping, without refilling the serialized prefetch queue.
+        if (p6_bridge::hrtmon_bound()) {
+            regs.pc_p = regs.pc_oldp = nullptr;
+            m68k_setpci(pc);
+        } else {
+            m68k_setpc_normal(pc);
+        }
         regs.stopped = stopped;
         regs.halted = halted;             // m68k_go_unit sets SPCFLAG_CHECK again for a halted CPU when the unit resumes
         regs.spcflags = int32_t(spc);
