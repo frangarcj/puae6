@@ -298,6 +298,82 @@ static void busy_06_nan() {
         printf("FRESTORE040 rev40 BUSY06-nan op%x/payload%x/sign%x mode%u result/flags/private/future PASS\n",op,payload,sign,mode);
     }
 }
+static void busy_06_single_denorm() {
+    // FPSP bugfix.S:op2sgl/op2_xi/op2_com and get_op.S:src_sd_dnrm,
+    // is_single/common, Linux 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2.
+    // STAG5 survives the $3f80->$3c00 remap, with j=0 and F23<<40.
+    // MC68040UM table9-3: value = +/-F*2^-149. This integer oracle
+    // does not call the conversion or normalization under test.
+    struct Case { unsigned f, sign, op, precision, rounding, event; int left;
+                  uint16_t high; uint64_t low; unsigned cc, status; };
+    std::vector<Case> cases;
+    for(unsigned bit=0;bit<24;bit++) for(unsigned sign : {0u,0x8000u}) {
+        unsigned f=bit==23 ? 0x7fffff:1u<<bit;
+        unsigned k=bit==23 ? 22:bit;
+        cases.push_back({f,sign,0,0,0,0,7,uint16_t(sign|(0x3f6a+k)),uint64_t(f)<<(63-k),sign ? 0x08000000u:0u,0});
+    }
+    cases.push_back({0x7fffff,0,0x23,0,0,0,2,0x3f81,0xfffffe0000000000ULL,0,0});
+    cases.push_back({1,0,0x20,0,0,0,1,0x4094,0x8000000000000000ULL,0,0}); //1/2^-149
+    cases.push_back({2,0,0x05,0,0,0,7,0x3fb5,0x8000000000000000ULL,0,0}); //sqrt(2^-148)
+    cases.push_back({1,0,0x38,0,0,0,2,0x4000,0x8000000000000000ULL,0,0}); //compare, no write
+    cases.push_back({1,0x8000,0x3a,0,0,0,2,0x4000,0x8000000000000000ULL,0x08000000,0});
+    // Literal neighbours of1 in extended/single/double precision.
+    const uint64_t above[]={0x8000000000000001ULL,0x8000010000000000ULL,0x8000000000000800ULL};
+    const uint64_t below[]={0xffffffffffffffffULL,0xffffff0000000000ULL,0xfffffffffffff800ULL};
+    for(unsigned precision=0;precision<3;precision++) for(unsigned rounding=0;rounding<4;rounding++)
+    for(unsigned sign : {0u,0x8000u}) {
+        bool down=sign && (rounding==1 || rounding==2), up=!sign && rounding==3;
+        cases.push_back({1,sign,0x22,precision,rounding,0,1,uint16_t(down ? 0x3ffe:0x3fff),
+                         down ? below[precision]:up ? above[precision]:0x8000000000000000ULL,0,0x0200});
+    }
+    cases.push_back({1,0,0x22,0,0,1,1,0x3fff,0x8000000000000000ULL,0,0x0200}); //new INEX2
+    cases.push_back({1,0x8000,0x05,0,0,2,7,0x4001,0xe000000000000000ULL,0x01000000,0x2000}); //OPERR
+    cases.push_back({1,0x8000,0x05,0,0,3,7,0x4001,0xe000000000000000ULL,0x08000000,0x0200}); //E3 before CU
+    unsigned n=0;
+    for(const auto &c:cases) {
+        const unsigned dest=n++&7, vector=c.event==2 ? 52:c.event ? 49:0;
+        owner(0x40); for(int i=0;i<8;i++) move(i,10+i); move(dest,c.left);
+        regs.fpiar=0xabcdef; auto before=capture();
+        Words w(25,0); w[0]=0x40600000; w[2]=0x06000000;
+        w[0x28/4]=0x4000; w[0x40/4]=(0x5400u|(dest<<7)|c.op)<<16;
+        w[0x3c/4]=(5u<<29)|(1u<<28); w[0x58/4]=(c.sign|0x3c00)<<16; w[0x5c/4]=c.f<<8;
+        if(c.event==3) w[0x48/4]=1u<<25;
+        unsigned enable=c.event==2 ? 0x2000:c.event ? 0x0200:0;
+        fpp_set_fpcr((c.precision<<6)|(c.rounding<<4)|enable);
+        fpp_set_fpsr(c.event==3 ? 0x08000200:0); install(w); fpuop_restore(0xf358);
+        assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+        for(unsigned i=0;i<reads.size();i++) assert(reads[i]==0x10000+4*i);
+        for(unsigned i=0;i<8;i++) {
+            bool result=i==dest && c.event!=3;
+            assert(regs.fp[i].fpx.high==(result ? c.high:before.high[i]));
+            assert(regs.fp[i].fpx.low==(result ? c.low:before.low[i]));
+        }
+        assert((regs.fpsr&0x07000000)==(c.cc&0x07000000));
+        if(c.event!=2) assert((regs.fpsr&0x08000000)==(c.cc&0x08000000));
+        assert((regs.fpsr&0xff00)==c.status && regs.fp_exp_pend==vector);
+        assert(regs.fpu_exp_state==(c.event==2 ? 1:c.event ? 2:0));
+        assert(regs.fpiar==(c.event==1 || c.event==2 ? 0x4000:0xabcdef));
+        auto saved=capture(); owner(0x40); assert(p6_fpu_state_apply(&saved));
+        // Reinitialized private codec must preserve result, control and cause.
+        auto restored=capture();
+        for(unsigned i=0;i<8;i++) assert(restored.high[i]==saved.high[i] && restored.low[i]==saved.low[i]);
+        assert(restored.fpcr==saved.fpcr && restored.fpsr==saved.fpsr && restored.fpiar==saved.fpiar);
+        assert(restored.exp_pend==saved.exp_pend && restored.exp_state==saved.exp_state);
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        assert(get_long(0x11000)==(c.event==2 ? 0x40280000u:c.event ? 0x40600000u:0x40000000u));
+        if(vector) {
+            assert(p6_fpu_state_apply(&saved)); put_long(vector*4,0x2000);
+            m68k_setpc_normal(0x1104); regs.instruction_pc=0x1100; regs.m=0;
+            fpuop_arithmetic(0xf200,0x0422);
+            assert(m68k_getpc()==0x2000 && regs.fp_exception && !regs.fp_exp_pend);
+            assert(get_word(m68k_areg(regs,7)+6)==vector*4 && get_long(m68k_areg(regs,7)+2)==0x1100);
+        } else {
+            fpp_set_fpcr(0); move(0,1); move(1,2); fpuop_arithmetic(0xf200,0x0422);
+            assert(regs.fp[0].fpx.high==0x4000 && regs.fp[0].fpx.low==0xc000000000000000ULL);
+        }
+        printf("FRESTORE040 rev40 BUSY06-single-denorm case%u result/round/flags/bus/private/future PASS\n",n);
+    }
+}
 int main(int argc,char **argv) {
     assert(argc==2); std::ifstream file(argv[1],std::ios::binary);
     std::vector<uint8_t> rom{std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()};
@@ -306,7 +382,7 @@ int main(int argc,char **argv) {
     c.audio_rate_hz=48000; c.random_seed=1; c.rtc_epoch_seconds=946684800;
     p6_error e{P6_ABI_VERSION,sizeof e,{}}; assert(p6_init(&c,&e)==P6_OK && p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_OK);
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; assert(p6_run_frame(&input,0,&frame,&e)==P6_OK);
-    busy_06(); busy_06(true); busy_06_zero_inf(); busy_06_nan();
+    busy_06(); busy_06(true); busy_06_zero_inf(); busy_06_nan(); busy_06_single_denorm();
     for(int rev : {0x40,0x41}) {
         produced_commands(rev);
         for(int event=0;event<3;event++) busy(rev,event);
