@@ -16480,6 +16480,43 @@
       "blocked_reason": ""
     },
     {
+      "id": "T66r9",
+      "title": "Resolver CD32FR y stock por etiquetas de CD directo",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66r8",
+        "T66r6"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/options.md"
+      ],
+      "touch": [
+        "adapters/libretro/model.h",
+        "adapters/libretro/libretro_core.cpp",
+        "tests/libretro-host/test_cd32_load.py",
+        "tests/libretro-host/test_model_tags.py",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Completar la seleccion automatica pendiente del padre: references/machawk-uae/libretro/libretro-core.c:7047 y references/puae/libretro/libretro-core.c:7120 resuelven (CD32FR)/FastRAM a CD32+8MiB y (CD32)/(CD32NF) a stock solo en Automatic. Aplicar una resolucion pura para CD directo sin heredar el fallback A1200 de disquetes. Conservar region y limites lexicos actuales.",
+        "Respetar filename_tags desactivado, modelo/preset explicito y memoria elegida; documentar precedencias coherentes con opciones existentes. Probar CD32FR, FastRAM, stock y colisiones, ademas de disquetes que retienen su semantica anterior. No implementar CDTV ni formatos/cambio de CD en esta hoja.",
+        "Prueba publica con ROMs CD32 locales: verificar Fast real/mapa, guardar estado del tagFR, restaurarlo en configuracion manual equivalente y rechazarlo en stock sin mutacion. Reutilizar fixture/ventana pequena existente, no repetir juego6500 ni guest por este cambio de seleccion libretro.",
+        "Frente cd32_close reutiliza worktree aislado t53-cpu, merge normal de main. Coordinador posee metadata compartida/check mapping e integra. Compilacion ligera libretro despues del slot CPU0387; no tocar MacHawk ni crear informes."
+      ],
+      "checks": [
+        "LR01"
+      ],
+      "acceptance": [
+        "Un CD directo etiquetado CD32FR/FastRAM con Automatic ofrece 8MiB reales y su estado restaura en la configuracion manual equivalente; stock se distingue y las selecciones explicitas/tags desactivadas conservan prioridad. Los disquetes no cambian su modelo."
+      ],
+      "stop": "Mantener en T66 los formatos/variantes y cambioCD pendientes; esta hoja no cierra el padre."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16529,7 +16566,8 @@
         "T66r5",
         "T66r6",
         "T66r7",
-        "T66r8"
+        "T66r8",
+        "T66r9"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16571,7 +16609,8 @@
         "T66r4 conecta NVRAM real con SaveRAM y su identidad inicial. No cierra arranque completo, CD32FR ni formatos restantes del padre.",
         "T66r6 implementa CD32FR como CD32+8MiB Fast por configuracion comun y preset; el padre conserva formatos restantes, cambio/seleccion automatica por tags de CD y arranque/restauracion completo de juego.",
         "T66r7 concentra arranque/restauracion publica de un juego CD32 real en ambos adaptadores. El padre conserva formatos/variantes restantes, cambio de CD, tags y todas sus puertas originales; el coordinador integra la vertical del worktree aislado.",
-        "T66r8 conserva como puerta requerida la contaminacion visual de una nueva sesion nativa tras jugar, descubierta por T66r7; no queda cerrada por el restore del corte en nuevo owner."
+        "T66r8 conserva como puerta requerida la contaminacion visual de una nueva sesion nativa tras jugar, descubierta por T66r7; no queda cerrada por el restore del corte en nuevo owner.",
+        "T66r9 cierra seleccion por etiquetas de CD directo sin alterar los tags de disquete. Formatos/variantes y cambioCD siguen pendientes, ademas de las puertas completas del padre."
       ],
       "checks": [
         "MED01",
