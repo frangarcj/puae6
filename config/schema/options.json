@@ -180,19 +180,20 @@
         {"value": "A2000OG", "abi": 7, "abi_name": "P6_MACHINE_A2000OG", "label": "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"},
         {"value": "A2000", "abi": 8, "abi_name": "P6_MACHINE_A2000", "label": "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"},
         {"value": "A4030", "abi": 11, "abi_name": "P6_MACHINE_A4030", "label": "A4000/030 (AGA, 2 MiB Chip + 8 MiB Fast; Normal CPU, no MMU)"},
-        {"value": "CD32", "abi": 9, "abi_name": "P6_MACHINE_CD32", "label": "CD32 (68EC020, AGA, 2 MiB Chip, direct CD; main + extended ROM)"}
+        {"value": "CD32", "abi": 9, "abi_name": "P6_MACHINE_CD32", "label": "CD32 (68EC020, AGA, 2 MiB Chip, direct CD; main + extended ROM)"},
+        {"value": "A4040", "abi": 12, "abi_name": "P6_MACHINE_A4040", "label": "A4000/040 or 060 (AGA, 2 MiB Chip + 8 MiB Fast; Normal CPU, no MMU)"}
       ],
       "libretro": {
         "key": "puae6_machine",
         "category": "machine",
         "label": "Model",
-        "info": "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The A4030 is the real A4000/030 motherboard with AGA, Gary/Ramsey, Ricoh RTC, 32-bit addressing and IDE even without a disk. It requires Normal CPU accuracy and has no MMU; its Kickstart is kick40068.A4000. The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have Gayle's IDE port only when the hard disk controller option says IDE and a hard disk is given (no PCMCIA slot). The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). Automatic (T76) chooses the model when the content loads, before the machine exists: a tag in the name of the file or of one of its disks (for instance (A1200), (A600), (A500OG), see docs/options.md) if File Name Tags is on, else Automatic Floppy Model for floppy disks and Automatic Hard Disk Model for hard disks. A model or a preset chosen here is never changed by a tag. The model it picks is part of the state identity like any other. CD32 loads a direct CD with kick40060.CD32 and kick40060.CD32.ext, using stock memory and no floppy drives. Automatic selects CD32 for a direct CD; other explicit models are refused. The cd32_fast8 preset or Fast RAM 8 MiB selects CD32FR (the same CD32 with a Zorro II board); disc changes remain unavailable.",
+        "info": "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The A4030 is the real A4000/030 motherboard with AGA, Gary/Ramsey, Ricoh RTC, 32-bit addressing and IDE even without a disk. It requires Normal CPU accuracy and has no MMU; its Kickstart is kick40068.A4000. The A4040 uses the same A4000 motherboard, memory and Kickstart, with a 68040 or 68060 (Normal only, no MMU or instruction/data caches). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have Gayle's IDE port only when the hard disk controller option says IDE and a hard disk is given (no PCMCIA slot). The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). Automatic (T76) chooses the model when the content loads, before the machine exists: a tag in the name of the file or of one of its disks (for instance (A1200), (A600), (A500OG), see docs/options.md) if File Name Tags is on, else Automatic Floppy Model for floppy disks and Automatic Hard Disk Model for hard disks. A model or a preset chosen here is never changed by a tag. The model it picks is part of the state identity like any other. CD32 loads a direct CD with kick40060.CD32 and kick40060.CD32.ext, using stock memory and no floppy drives. Automatic selects CD32 for a direct CD; other explicit models are refused. The cd32_fast8 preset or Fast RAM 8 MiB selects CD32FR (the same CD32 with a Zorro II board); disc changes remain unavailable.",
         "extra_values": [
           {"value": "auto", "abi": 0, "label": "Automatic (file name tags, else by content)", "const": "Auto"}
         ],
         "default": "auto"
       },
-      "headless": {"how": "choice", "flag": "--machine", "names": {"A500": "a500", "A500OG": "a500og", "A500PLUS": "a500plus", "A600": "a600", "A1000": "a1000", "A1200": "a1200", "A2000OG": "a2000og", "A2000": "a2000", "A4030": "a4030", "CD32": "cd32"}},
+      "headless": {"how": "choice", "flag": "--machine", "names": {"A500": "a500", "A500OG": "a500og", "A500PLUS": "a500plus", "A600": "a600", "A1000": "a1000", "A1200": "a1200", "A2000OG": "a2000og", "A2000": "a2000", "A4030": "a4030", "A4040": "a4040", "CD32": "cd32"}},
       "wrapper": {"how": "setting", "setting": "Machine", "type": "Puae6Machine"}
     },
     {
@@ -275,13 +276,13 @@
         {"value": "MB2", "abi": 2048, "label": "2 MiB"},
         {"value": "MB4", "abi": 4096, "label": "4 MiB"},
         {"value": "MB8", "abi": 8192, "label": "8 MiB"},
-        {"value": "Auto", "abi": 0, "label": "Machine's own (A4030: 8 MiB; others: none)"}
+        {"value": "Auto", "abi": 0, "label": "Machine's own (A4030/A4040: 8 MiB; others: none)"}
       ],
       "libretro": {
         "key": "puae6_fast_size",
         "category": "machine",
         "label": "Fast RAM (Zorro II)",
-        "info": "Auto uses the machine's own RAM (A4030: 8 MiB, others: none); None disables the board. One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board."
+        "info": "Auto uses the machine's own RAM (A4030/A4040: 8 MiB, others: none); None disables the board. One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board."
       },
       "headless": {"how": "kib", "flag": "--fast"},
       "wrapper": {"how": "setting", "setting": "FastMemory", "type": "Puae6Fast"}
@@ -295,13 +296,15 @@
       "values": [
         {"value": "None", "abi": 0, "label": "None"},
         {"value": "M68881", "abi": 68881, "label": "68881"},
-        {"value": "M68882", "abi": 68882, "label": "68882"}
+        {"value": "M68882", "abi": 68882, "label": "68882"},
+        {"value": "M68040", "abi": 68040, "label": "68040 internal (matching CPU only)"},
+        {"value": "M68060", "abi": 68060, "label": "68060 internal (matching CPU only)"}
       ],
       "libretro": {
         "key": "puae6_fpu_model",
         "category": "machine",
         "label": "FPU",
-        "info": "The floating point coprocessor of the A1200 or A4030 (a 68881 or a 68882; the other machines have a 68000, which has no coprocessor interface, and the choice is refused at load). It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882."
+        "info": "The A1200 and A4030 accept a 68881 or 68882. A4040 accepts no FPU or the internal 68040/68060 FPU matching its CPU. Other combinations are refused at load. It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882."
       },
       "headless": {"how": "kib", "flag": "--fpu"},
       "wrapper": {"how": "setting", "setting": "FpuModel", "type": "Puae6Fpu"}
@@ -326,7 +329,7 @@
         {"value": "MB512", "abi": 10, "label": "512 MiB"}
       ],
       "libretro": {"key": "puae6_z3_memory", "category": "machine", "label": "Zorro III Fast RAM",
-        "info": "One Zorro III board with 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512 MiB, configured by the guest. Available on A4030 with Normal CPU accuracy only; other machines are refused. No MMU. None retains the machine's original memory."},
+        "info": "One Zorro III board with 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512 MiB, configured by the guest. Available on A4030/A4040 with Normal CPU accuracy only; other machines are refused. No MMU. None retains the machine's original memory."},
       "headless": {"how": "named", "flag": "--z3", "names": {"None": "none", "MB16": "16", "MB1": "1", "MB2": "2", "MB4": "4", "MB8": "8", "MB32": "32", "MB64": "64", "MB128": "128", "MB256": "256", "MB512": "512"}},
       "wrapper": {"how": "setting", "setting": "Z3Memory", "type": "Puae6Z3Memory"}
     },
@@ -359,15 +362,17 @@
         {"value": "68000", "abi": 1, "label": "68000", "wrapper_name": "M68000"},
         {"value": "68010", "abi": 2, "label": "68010", "wrapper_name": "M68010"},
         {"value": "68020", "abi": 3, "label": "68020", "wrapper_name": "M68020"},
-        {"value": "68030", "abi": 4, "label": "68030 (A4030, Normal only, no MMU)", "wrapper_name": "M68030"}
+        {"value": "68030", "abi": 4, "label": "68030 (A4030, Normal only, no MMU)", "wrapper_name": "M68030"},
+        {"value": "68040", "abi": 5, "label": "68040 (A4040, Normal only, no MMU)", "wrapper_name": "M68040"},
+        {"value": "68060", "abi": 7, "label": "68060 (A4040, Normal only, no MMU)", "wrapper_name": "M68060"}
       ],
       "libretro": {
         "key": "puae6_cpu_model",
         "category": "machine",
         "label": "CPU",
-        "info": "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The A4030 has a 68030 with Normal accuracy only and no MMU; compatible and exact 030 are rejected. The 68040 and 68060 are not offered. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another."
+        "info": "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The A4030 has a 68030 with Normal accuracy only and no MMU; compatible and exact 030 are rejected. The A4040 has a 68040 by default and also accepts a 68060, both Normal only, without MMU or instruction/data caches. Its internal FPU is an explicit matching choice. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another."
       },
-      "headless": {"how": "named", "flag": "--cpu", "names": {"auto": "auto", "68000": "68000", "68010": "68010", "68020": "68020", "68030": "68030"}},
+      "headless": {"how": "named", "flag": "--cpu", "names": {"auto": "auto", "68000": "68000", "68010": "68010", "68020": "68020", "68030": "68030", "68040": "68040", "68060": "68060"}},
       "wrapper": {"how": "setting", "setting": "CpuModel", "type": "Puae6Cpu"}
     },
     {
@@ -400,7 +405,7 @@
         "key": "puae6_cpu_compatibility",
         "category": "machine",
         "label": "CPU Accuracy",
-        "info": "CPU accuracy for the supported 68000, 68010 and 68EC020 machines; the A4030/68030 currently requires Normal and has no MMU. Exact preserves cycle-exact CPU and bus timing (the default); compatible preserves prefetch and normal uses instruction timing. Every level counts emulated time independently of the host clock. Changing the level requires reloading the content; states and movies require the same level."
+        "info": "CPU accuracy for the supported 68000, 68010 and 68EC020 machines; the A4030/68030 and A4040/68040/68060 require Normal and have no MMU. Exact preserves cycle-exact CPU and bus timing (the default); compatible preserves prefetch and normal uses instruction timing. Every level counts emulated time independently of the host clock. Changing the level requires reloading the content; states and movies require the same level."
       },
       "headless": {
         "how": "named",
@@ -2071,6 +2076,18 @@
       "label": "CD32FR (2 MiB Chip + 8 MiB Fast RAM)",
       "values": {"machine": "CD32", "fast_size": "MB8"},
       "note": "Stock CD32 hardware and firmware plus one 8 MiB Zorro II Fast RAM board. Equivalent to Machine CD32 and Fast RAM 8 MiB; requires a direct CD."
+    },
+    {
+      "id": "a4040_normal",
+      "label": "A4000/040, Normal CPU + internal FPU",
+      "values": {"machine": "A4040", "cpu_model": "68040", "cpu_compatibility": "normal", "fpu_model": "M68040"},
+      "note": "A4000 motherboard, matching SoftFloat FPU, 2 MiB Chip + 8 MiB Fast; no MMU or instruction/data caches."
+    },
+    {
+      "id": "a4060_normal",
+      "label": "A4000/060, Normal CPU + internal FPU",
+      "values": {"machine": "A4040", "cpu_model": "68060", "cpu_compatibility": "normal", "fpu_model": "M68060"},
+      "note": "A4000 motherboard, matching SoftFloat FPU, 2 MiB Chip + 8 MiB Fast; no MMU or instruction/data caches."
     }
   ],
   "selectors": [

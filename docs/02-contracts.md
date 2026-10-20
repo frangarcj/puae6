@@ -52,8 +52,13 @@ requiere la CPU correspondiente y usa SoftFloat estricto, con instrucciones
 no implementadas emuladas por el backend. El reloj Auto conserva el multiplicador2
 del preset; se puede pedir otro multiplicador admitido. La ABI sigue en72bytes.
 
-La API nativa y headless ofrecen esta vertical; los selectores libretro/BizHawk,
-firmware real, presupuesto Waterbox y aceptacion completa siguen enT55c.
+La API nativa, headless, libretro y BizHawk ofrecen esta vertical. Libretro añade
+`a4040_normal` y `a4060_normal`, con CPU Normal y FPU interna coincidente; la
+seleccion explicita de A4040 conserva FPU None y exige elegir Normal. BizHawk
+expone A4040 con CpuModel M68040/M68060 y FpuModel None/M68040/M68060,
+y solicita el firmware A4000. Z3 y Fast Auto usan las mismas capacidades y
+reserva que A4030. Firmware real, presupuesto Waterbox y aceptacion completa
+siguen enT55c.
 P6CP y el digestCPU incluyen controles040/060 y todo el estado semantico de la
 FPU interna, sin punteros ni padding. La identidad distingue CPU/FPU, incluso
 sin FPU; Auto y68040 explicito representan la misma configuracion. No se anuncia

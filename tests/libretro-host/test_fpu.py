@@ -49,7 +49,7 @@ class FpuOptionTests(lr.LibretroHarness):
         self.assertIn("an FPU needs a 68020 or 68030: only the A1200 and A4030 can have a 68881 or 68882", out)
         self.assertNotIn("run 1 ", out)
         out = self.frontend("boot", "--set", "puae6_fpu_model=68040", expect=3).stdout
-        self.assertIn('the option puae6_fpu_model has the value "68040", which this core does not support (allowed: None, M68881, M68882)', out)
+        self.assertIn('the option puae6_fpu_model has the value "68040", which this core does not support (allowed: None, M68881, M68882, M68040, M68060)', out)
 
     def test_a_model_changed_while_the_machine_runs_is_reported_and_applies_at_the_next_load(self):
         system = self.system_for("identify", lr.KICKSTART_NAMES_A1200[0])

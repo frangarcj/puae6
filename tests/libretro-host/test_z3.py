@@ -71,7 +71,7 @@ class Z3FrontendTests(lr.LibretroHarness):
         self.assertIn("reload the content to apply it", out)
         self.assertIn("Z3", descriptors(out)[0])
         refused = self.frontend("boot", "--set", "puae6_z3_memory=MB16", expect=3).stdout
-        self.assertIn("Zorro III supports one 1/2/4/8/16/32/64/128/256/512 MiB board on A4030 only", refused)
+        self.assertIn("Zorro III supports one 1/2/4/8/16/32/64/128/256/512 MiB board on A4000 only", refused)
 
 
 if __name__ == "__main__":

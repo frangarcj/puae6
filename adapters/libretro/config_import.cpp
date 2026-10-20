@@ -204,7 +204,7 @@ struct MachineFacts {
     const char *cpu;
 };
 constexpr MachineFacts kMachines[] = {{"A500", "ocs", "68000"}, {"A600", "ecs", "68000"}, {"A1200", "aga", "68020"},
-                                      {"A500OG", "ocs", "68000"}, {"A500PLUS", "ecs", "68000"}, {"A1000", "ocs", "68000"}, {"A2000OG", "ocs", "68000"}, {"A2000", "ecs_agnus", "68000"}, {"A4030", "aga", "68030"}};
+                                      {"A500OG", "ocs", "68000"}, {"A500PLUS", "ecs", "68000"}, {"A1000", "ocs", "68000"}, {"A2000OG", "ocs", "68000"}, {"A2000", "ecs_agnus", "68000"}, {"A4030", "aga", "68030"}, {"A4040", "aga", "68040"}};
 // The spellings of chipset_compatible (WinUAE's cscompa) that name a machine. "A2000" names two: the A2000 OG with the OCS chipset and the A2000 with the ECS Agnus (see finish).
 struct Spelling {
     const char *spelling;
@@ -480,11 +480,13 @@ private:
             return;
         }
         if (key == "fpu_model") {
-            if (!parse_int(e.value, false, &number)) error(e, "expected a number (0, 68881 or 68882)");
+            if (!parse_int(e.value, false, &number)) error(e, "expected a number (0, 68881, 68882, 68040 or 68060)");
             else if (number == 0) set_name(e, "puae6_fpu_model", "None");
             else if (number == 68881) set_name(e, "puae6_fpu_model", "M68881");
             else if (number == 68882) set_name(e, "puae6_fpu_model", "M68882");
-            else error(e, "FPU model " + e.value + " is not offered (0, 68881 or 68882)");
+            else if (number == 68040) set_name(e, "puae6_fpu_model", "M68040");
+            else if (number == 68060) set_name(e, "puae6_fpu_model", "M68060");
+            else error(e, "FPU model " + e.value + " is not offered (0, 68881, 68882, 68040 or 68060)");
             return;
         }
         if (key == "chipmem_size") {
@@ -683,15 +685,16 @@ private:
                 // else is the reason the load would give.
                 const std::string cpu = lower(cpu_->value);
                 const bool socket = cpu == "68010" && std::string(facts->cpu) == "68000";
-                if (cpu != facts->cpu && !socket)
+                const bool internal = std::string(facts->name) == "A4040" && (cpu == "68040" || cpu == "68060");
+                if (cpu != facts->cpu && !socket && !internal)
                     error(*cpu_, "the CPU " + cpu_->value + " is not the one of the machine (" + facts->name + ": " + facts->cpu + (std::string(facts->cpu) == "68000" ? " or 68010" : "") + ")");
-                else if (socket)
+                else if (socket || internal)
                     set_name(*cpu_, "puae6_cpu_model", cpu);
             }
         }
 
         for (const Entry *entry : address_flags_) {
-            const bool expected = out_->settings.machine != P6_MACHINE_A4030;
+            const bool expected = out_->settings.machine != P6_MACHINE_A4030 && out_->settings.machine != P6_MACHINE_A4040;
             bool value = false;
             if (!parse_bool(entry->value, &value) || value != expected)
                 error(*entry, "address space must match the machine (expected " + std::string(expected ? "true: 24-bit" : "false: 32-bit") + ")");

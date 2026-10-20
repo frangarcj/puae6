@@ -169,8 +169,8 @@ class CpuOptionTests(lr.LibretroHarness):
         for value in ("68010", "68000"):
             out = self.frontend("boot", *lr.A1200, "--set", f"puae6_cpu_model={value}", name=lr.KICKSTART_NAMES_A1200[0], expect=3).stdout
             self.assertIn("the A1200 has a soldered 68EC020: no other CPU is offered for it", out)
-        out = self.frontend("boot", "--set", "puae6_cpu_model=68040", expect=3).stdout
-        self.assertIn('the option puae6_cpu_model has the value "68040", which this core does not support (allowed: auto, 68000, 68010, 68020)', out)
+        out = self.frontend("boot", "--set", "puae6_cpu_model=68050", expect=3).stdout
+        self.assertIn('the option puae6_cpu_model has the value "68050", which this core does not support (allowed: auto, 68000, 68010, 68020, 68030, 68040, 68060)', out)
         out = self.frontend("boot", "--set", "puae6_cpu_multiplier=3", expect=3).stdout
         self.assertIn('the option puae6_cpu_multiplier has the value "3", which this core does not support (allowed: auto, 1, 2, 4, 8, 10, 12, 16)', out)
 

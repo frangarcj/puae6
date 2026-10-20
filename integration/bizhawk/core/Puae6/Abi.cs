@@ -21,7 +21,7 @@ public static class P6
 	public const int Ok = 0, BadArgument = 1, BadState = 2, Busy = 3, Unsupported = 4, NeedFirmware = 5, WrongMedia = 6, Capacity = 7, Io = 8,
 		CorruptState = 9, Incompatible = 10, Internal = 11;
 
-	public const uint MachineA500 = 1, MachineA600 = 2, MachineA1200 = 3, MachineA500OG = 4, MachineA500Plus = 5, MachineA1000 = 6, MachineA2000OG = 7, MachineA2000 = 8, MachineA4030 = 11, MachineCd32 = 9;
+	public const uint MachineA500 = 1, MachineA600 = 2, MachineA1200 = 3, MachineA500OG = 4, MachineA500Plus = 5, MachineA1000 = 6, MachineA2000OG = 7, MachineA2000 = 8, MachineA4030 = 11, MachineA4040 = 12, MachineCd32 = 9;
 	public const uint VideoPal = 1, VideoNtsc = 2;
 	public const uint MediaAdf = 1, MediaHdf = 2;
 	public const uint PortNone = 0, PortJoystick = 1, PortMouse = 2, PortCd32 = 3, PortLightgun = 4, PortLightpen = 5;
@@ -59,7 +59,7 @@ public unsafe struct P6Config
 	public ulong RandomSeed;
 	public long RtcEpochSeconds;                                 // UTC; never read from the host clock
 	public uint ChipKib, SlowKib, FastKib;                       // 0: the machine's own memory; P6.MemoryNone (Slow, Fast): none
-	public uint FpuModel;                                        // T54: 0 (none), 68881 or 68882 (A1200 only); was Reserved32
+	public uint FpuModel;                                        // T54: 0 (none), external 68881/68882 or matching internal 68040/68060; was Reserved32
 	public byte SoundSeparation, SoundInterpolation, SoundFilter, SoundFilterType;     // T73: Paula's output; 0 in each is the profile's own setting (the schema's numbers, config/schema/options.json)
 	public byte FloppySpeed;                                     // T62: 0 the profile's (the real drive), 2 200 %, 3 400 %, 4 800 %, 5 turbo (the schema's numbers; 1 is a named 100 %)
 	public byte VideoResolution, VideoLineMode;                  // T72: the raster; 0 in each is the profile's (hires, double lines), else 1 lores, 3 super-hires / 1 single (the schema's numbers; 2 is a named hires / double)

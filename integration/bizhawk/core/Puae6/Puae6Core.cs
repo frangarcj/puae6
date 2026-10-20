@@ -104,7 +104,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// What each machine comes with, in KiB: Chip, Slow.
 	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch
 	{
-		Puae6Machine.A1200 or Puae6Machine.A4030 or Puae6Machine.CD32 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
+		Puae6Machine.A1200 or Puae6Machine.A4030 or Puae6Machine.A4040 or Puae6Machine.CD32 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
 		Puae6Machine.A500OG or Puae6Machine.A1000 => (512u, 0u), _ => (512u, 512u),   // A500 and A2000 OG: 512 KiB Chip + 512 KiB Slow
 	};
 
@@ -115,7 +115,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static uint MachineNumber(Puae6Machine machine) => machine switch
 	{
 		Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, Puae6Machine.A500OG => P6.MachineA500OG, Puae6Machine.A500PLUS => P6.MachineA500Plus,
-		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, Puae6Machine.CD32 => P6.MachineCd32, _ => P6.MachineA500,
+		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, Puae6Machine.A4040 => P6.MachineA4040, Puae6Machine.CD32 => P6.MachineCd32, _ => P6.MachineA500,
 	};
 
 	static uint ChipKib(Puae6Chip chip) => chip switch { Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB2 => 2048u, _ => 0u };
@@ -123,7 +123,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static uint SlowKib(Puae6Slow slow) => slow switch { Puae6Slow.None => P6.MemoryNone, Puae6Slow.KB512 => 512u, Puae6Slow.MB1 => 1024u, Puae6Slow.MB1_5 => 1536u, Puae6Slow.MB1_75 => 1792u, _ => 0u };
 
 	// The CPU (T52): the numbers of config/schema/options.json (0 is the machine's own, 1 + (model - 68000) / 10 the others).
-	static byte CpuModelNumber(Puae6Cpu cpu) => cpu switch { Puae6Cpu.M68000 => (byte)1, Puae6Cpu.M68010 => (byte)2, Puae6Cpu.M68020 => (byte)3, Puae6Cpu.M68030 => (byte)4, _ => (byte)0 };
+	static byte CpuModelNumber(Puae6Cpu cpu) => cpu switch { Puae6Cpu.M68000 => (byte)1, Puae6Cpu.M68010 => (byte)2, Puae6Cpu.M68020 => (byte)3, Puae6Cpu.M68030 => (byte)4, Puae6Cpu.M68040 => (byte)5, Puae6Cpu.M68060 => (byte)7, _ => (byte)0 };
 
 	static byte CollisionLevelNumber(Puae6CollisionLevel level) => level switch
 	{
@@ -144,7 +144,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The controller of the hard files (T56): the numbers of config/schema/options.json (0 the UAE controller, 1 the IDE port of Gayle).
 	static byte HdfControllerNumber(Puae6HdfController controller) => controller switch { Puae6HdfController.Ide => (byte)1, _ => (byte)0 };
 
-	static uint FpuNumber(Puae6Fpu fpu) => fpu switch { Puae6Fpu.M68881 => 68881u, Puae6Fpu.M68882 => 68882u, _ => 0u };
+	static uint FpuNumber(Puae6Fpu fpu) => fpu switch { Puae6Fpu.M68881 => 68881u, Puae6Fpu.M68882 => 68882u, Puae6Fpu.M68040 => 68040u, Puae6Fpu.M68060 => 68060u, _ => 0u };
 
 	// Paula's output (T73a): the numbers of config/schema/options.json (0 in each is the profile's own setting; 70 % is 0, not 8). The enums list the values of the schema in order.
 	static byte SoundSeparationNumber(Puae6SoundSeparation separation) => separation == Puae6SoundSeparation.P70 ? (byte)0 : (byte)(1 + (int)separation);
@@ -192,7 +192,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		var (ownChip, ownSlow) = OwnMemory(settings.Machine);
 		uint chip = ChipKib(settings.ChipMemory), slow = SlowKib(settings.SlowMemory);
 		uint fast = FastKib(settings.FastMemory);
-		long extra = (fast == P6.MemoryNone ? 0 : fast == 0 && settings.Machine == Puae6Machine.A4030 ? 8192 : fast) + overlay;
+		long extra = (fast == P6.MemoryNone ? 0 : fast == 0 && (settings.Machine is Puae6Machine.A4030 or Puae6Machine.A4040) ? 8192 : fast) + overlay;
 		extra += Z3MemoryKiB(settings.Z3Memory);
 		if (chip > ownChip) extra += chip - ownChip;
 		if (slow != P6.MemoryNone && slow > ownSlow) extra += slow - ownSlow;

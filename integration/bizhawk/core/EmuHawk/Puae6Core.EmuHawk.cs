@@ -80,7 +80,7 @@ public sealed partial class Puae6Core
 	{
 		Puae6Machine.A500OG or Puae6Machine.A1000 or Puae6Machine.A2000OG => "A500",
 		Puae6Machine.A500PLUS or Puae6Machine.A2000 => "A600",
-		Puae6Machine.A4030 => "A4000",
+		Puae6Machine.A4030 or Puae6Machine.A4040 => "A4000",
 		_ => machine.ToString(),
 	};
 }
