@@ -337,6 +337,7 @@ for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
     TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',
                                      'pinned_chd_regression': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 TASK_SUITES[('MED01', 'T66t7')] = {**TASK_SUITES[('MED01', 'T66t5')], 'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
+TASK_SUITES[('MED01', 'T66t8')] = dict(TASK_SUITES[('MED01', 'T66t7')])
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66e2')] = dict(TASK_SUITES[('MED01', 'T66e2b')])

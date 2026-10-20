@@ -17408,6 +17408,44 @@
       "stop": "No inferirForm2 desdegapvacio, introducirencoderMode1paraMode2 ni retornargapsintetico trasfallode datosreales."
     },
     {
+      "id": "T66t8",
+      "title": "Normalizar CHD Mode2 Form2 de2324bytes con EDC real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t7"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_chd.h",
+        "adapters/libretro/cd_chd.cpp",
+        "tests/media/cd_chd_probe.cpp",
+        "tests/media/test_cd_chd.py",
+        "patches/winuae/0396-chd-mode2-form2-edc.patch"
+      ],
+      "steps": [
+        "Packing Mode2Form2 admite MODE2_FORM2/MODE2/2324; normalizaMode2Raw2352/2448 conCONTROL4 yvista2048 Unsupported. SUBseextraede2324 antesdemoverpayload24; headerfisicoLBA+150 ysubheader XA duplicado00 00 20 00 00 00 20 00. ReferenciaUNECMv1.0deNeillCorlettduplica4+4; no reproducir[5]=20 presenteenMacHawk/libMirage, quecontradicesu duplicacion. Documentarrazonencomentario/test, no copiarcodigoexterno.",
+        "Helperencode_l2_mode2_form2 en cdrom.cpp/include/uae/cdrom.h mediante0396 calculaEDCsobre16..2347 inclusive, escribeLE2348..2351 yno tocaheader/subheader/payload niP/Q. ContrastefuenteprimariaUNECMv1.0 ylibMiragea9d6a2044b3c7bdf63ca44517ddd5738fd68c69e sector.c770..772. Rootregistraorder/hash/clasificacion; agentenoedita series.",
+        "Extendercooked_fixture ytest_form2_2324_edc_subchannels_and_rebind conambosaliases×NONE/RW/RW_RAW, oraculoPythonpolinomialD8018001, payload2324completo, SUBoffset2324, duplicaciondesubheader, BCD, gapsstored/sinteticoscompatibles, identidad/rebindyIOatomico. Helperdirectoverificasolo4bytesEDCconsubheaderarbitrarioysentinels. Baselinedebe rechazarsinproveedor/parche.",
+        "Cinco rutas atomicas100..180lineas objetivo<400; cd32_close aislado/standalone-j2, compilasolocdrom derivadoverificado. MED01acumulativo T7+casoForm2 bajoASan/UBSan. HTOA/postgap/PGTYPE/PGSUBdistintos necesitan descriptorcomunderegion yseconservanpendientesrequeridos; sincargapublica/engine/guest."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "SectoresForm2conservanlos2324bytes ySUB96porpacking, subheaderduplicado yEDCexactos sinparidadP/Q; identidades/restauraciondelectores/IO/regresionesT7pasan yno seatribuyeCHDpublico."
+      ],
+      "stop": "No usarencoderForm1paraForm2 ni copiar fallo de subheader; HTOA/gapsdistintos conservanpuertaspropias."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17478,7 +17516,8 @@
         "T66u5",
         "T66u6",
         "T66t6",
-        "T66t7"
+        "T66t7",
+        "T66t8"
       ],
       "read": [
         "docs/01-architecture.md",
