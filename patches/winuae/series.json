@@ -5522,6 +5522,28 @@
           "after_sha256": "764775b19ce319557b2b6777d8ac8ae771baff14369236ba811cf788264bdd99"
         }
       ]
+    },
+    {
+      "id": "0390-akiko-media-presence",
+      "file": "patches/winuae/0390-akiko-media-presence.patch",
+      "sha256": "a067c483fb0480087afe145a6fe74414d341b8f703486909455ee2810b393e57",
+      "title": "Invalidate pending Akiko deliveries when explicit media presence changes",
+      "reason": "T66u1: keep the immutable Disc and opened unit while changing media presence, stop CDDA and discard old requests/caches/subchannels at a quiescent boundary. Normal emulated handling owns notification and IRQ timing; preserve response FIFO, CPU, clock and undocumented door bit.",
+      "category": "CD media lifecycle",
+      "order": 207,
+      "symbols": [
+        "p6_akiko_media_set"
+      ],
+      "test": "tests/media/test_akiko_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "akiko.cpp",
+          "before_sha256": "f89e8d54ad21c5c027a67dec7ec73800c793be3d351a2731544d8fa852492ebf",
+          "after_sha256": "44f14b04ebb9d74534560d02a380bede28626171c720d7c51a2b0565191a6db7"
+        }
+      ]
     }
   ]
 }
