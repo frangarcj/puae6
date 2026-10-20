@@ -11711,6 +11711,47 @@
       "stop": "No presentar la preview como cierre de paridad, CI completa ni release auditada; no publicar sin solicitud."
     },
     {
+      "id": "T40b",
+      "title": "Renovar preview nativa con CHD HRTMon y avisos de sus binarios",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40a",
+        "T66t14",
+        "T69c3",
+        "T55c11"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md"
+      ],
+      "touch": [
+        "tools/package.py",
+        "manifests/release/native-preview.json",
+        "tests/packages/test_preview.py",
+        "docs/user/native-preview.md"
+      ],
+      "steps": [
+        "Entregar ZIP local D macOSARM64 confuncionesnativasyaaprobadas CHDpublico/HRTMon/NaNFPSP0395, reemplazandoaliaspreviewutilsoloalterminar. Sinpublicar/releaseformal/instalarMacHawk niROM/juegos. PadreT40/T41conservanpuertas completas. Cuatrorutas110..150manuales, cd32_closeaisladoimplementa yrootserializabuild-release-j2 una vez.",
+        "PolicylicensesmantienecopiasexactasCOPYING/MAME yLIBCHDRLICENSE/NOTICE; soportarslicesdeavisosincrustadospath/linesinclusivaspreservaexactbytesrotuladosconfuente sinheadersenormes niarchivosreportes. libchdrRomainBSD3+AaronGilesMAME38lineas; zlibGailly/Adler;LzmaEncPublicdomainIgorPavlov;dr_flacMIT0alternativa2. SoftFloat9fuentesinventariadosmixto2a/Hauser,BSD Bellard,GPL/FPSPAndreasGrabher/PreviousyautoresFPU. LEEMEavisoprominentePUAE6derivadoSoftFloat. HRTGPLbuiltinprocedenciadocs00preservada. Noalterarfuentesdeps/pins/NOTICEselection.",
+        "Helpernotice_filesunico paraROOTenbuildylecturasource.tar.gzenverify. Exigirpresenciaybytesexactosdetodosavisosexigidosporpolicyarchivada,ademasmanifesthash/exactset; negativoremove/cambiaravisoinclusoactualizandomanifestdeberechazarse. PolicyTestsexactospresenciaBSD/SoftFloat/slices. Fuentescorrespondientesnuevasfuncionesincluidassourcearchive.",
+        "GuiaCHDv5CD none/cdzl/cdlz/cdflsinparent/HTOA/CDI/GD/DVD, directoyM3U16/DiskControl, mismoestado/builtinHRTMonA1200cartridge/hotkeyFreeze. DescribirFPU040/060SoftFloatopcionalylimitacionesFRESTOREsinproclamarcierreparentT55; conservarCDTV/MMU/WBpendientes. ZIPCanteriornomodificado.",
+        "PKG01policytests+smoke realextracciondelZIPDaislada; BUILD01/LR01mismoInstalledPreviewTests/package.smoke12libretro+restore3/headless3/firmwareausente,unionunavezyaejecutadaporpackage.build. No repetirpartida6500/codec/matriz ni fabricarfeaturesfixture. Rootcomprobacandidatalimpia/revisionSHA/sourcehash/depusrsolo; newZIPDarchivobuild/product/limpioysinreporteshistoricos."
+      ],
+      "checks": [
+        "PKG01",
+        "BUILD01",
+        "LR01"
+      ],
+      "acceptance": [
+        "PreviewDextraidaejecutacore/headless/restauracionyrechazafirmwareausente, incluyefuentes/avisosexactosdeCHD/SoftFloatyguiaactual; limitessiguenvisibles,sinpresentarlacomoCI/releaseformal."
+      ],
+      "stop": "Sinpublicar/push/alterarproyectoshermanos, niacreditarWaterboxporelZIPnativo. Pruebainstaladasobrebinarioempaquetado,noarboldesarrollo."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -11723,7 +11764,8 @@
         "T31",
         "T35",
         "T36",
-        "T40a"
+        "T40a",
+        "T40b"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -19147,7 +19189,7 @@
         "BizHawkofreceHRTMonporSyncSettingyFreezelevel, identidadeinmutabilidadcorrectas; BK2/TASreplay/seekheldysnapshotnewprocesspasanenWaterboxreal. HostfallidomarcaBLOCKED,sinDONEporcompilacion."
       ],
       "stop": "Sin serializarpunteros/overrideStateEnvelope/historiafrontendFreezeduplicada, sininscribirgateWBporenginehostnativo ni relajaridentidad/heap paraapagarfallos.",
-      "blocked_reason": "GEN01 schema/parity66PASS ygenerador--check; STATE01 managedrealPASS1/5.614s. Gatepubliconuevo WB03/WB04/WB09 intento unico conguestbedde522 actual llegaHRTMonheld380 ypresupuestossbrk409600/4194304,sealed524288/16777216,mmap7421952/16777216,invisible/plain0/16384. AbortaSIGBUS(-10)antesfuturo/replay enhost _xzm_xzone_malloc_freelist_outlined ->operatornew->CoreCLR CodeFragmentHeap.RealAllocAlignedMem/VirtualCallStubManager.GenerateResolveStub. IPS2026-10-21-010814: escritura103732a40 enmappedfile r--/r-x, no guardpage; x28coincidex8,no pruebaTLSfiltrado. Causa pendiente, n oDONEporcompile/native. H1metadatosmalloc alterados por mapeo/proteccion/interopWaterbox: vigilar primerpunteroinvalido alrededortransiciones. H2CoreCLR/macOSxzone enresolucionvirtualtardia: reproducer managedsinWaterbox o contraste runtime independiente. Sinrepetirknobs/bateriasyaagotadosb8be1be3 ni cambiarentornoglobal. Snapshot/BK2/TAS/seeknewprocesssinacreditar."
+      "blocked_reason": "GEN01 schema/parity66PASS ygenerador--check; STATE01 managedrealPASS1/5.614s. Gatepubliconuevo WB03/WB04/WB09 intento unico conguestbedde522 actual llegaHRTMonheld380 ypresupuestossbrk409600/4194304,sealed524288/16777216,mmap7421952/16777216,invisible/plain0/16384. AbortaSIGBUS(-10)antesfuturo/replay enhost _xzm_xzone_malloc_freelist_outlined ->operatornew->CoreCLR CodeFragmentHeap.RealAllocAlignedMem/VirtualCallStubManager.GenerateResolveStub. IPS2026-10-21-010814: escritura103732a40 enmappedfile r--/r-x, no guardpage; x28coincidex8,no pruebaTLSfiltrado. Causa pendiente, noDONEporcompile/native. H1metadatosmalloc alterados por mapeo/proteccion/interopWaterbox: vigilar primerpunteroinvalido alrededortransiciones. H2CoreCLR/macOSxzone enresolucionvirtualtardia: reproducer managedsinWaterbox o contraste runtime independiente. Sinrepetirknobs/bateriasyaagotadosb8be1be3 ni cambiarentornoglobal. Snapshot/BK2/TAS/seeknewprocesssinacreditar."
     },
     {
       "id": "T69",

@@ -695,6 +695,9 @@ TASK_SUITES[('LR02', 'T60')] = {
     'save_disk_rewind': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests.test_rewinding_before_the_writes_discards_them_and_never_creates_a_save_file',
     'save_disk_runahead': 'tests.libretro-host.test_savedisk.SaveDiskFrontendTests.test_the_guest_writes_the_save_disk_and_only_closing_persists_it_then_reopening_uses_it',
     'ordinary_floppy_rewind': 'tests.libretro-host.test_floppy_write.FloppyWriteTests.test_rewind_run_ahead_and_state_loads_write_nothing_and_the_saved_disk_is_the_final_timeline'}
+TASK_SUITES[('PKG01', 'T40b')] = {'package_policy': 'tests.packages.test_preview.PolicyTests', 'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
+for _gate in ('BUILD01', 'LR01'):
+    TASK_SUITES[(_gate, 'T40b')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 TASK_SUITES[('PKG01', 'T40a')] = {'package_policy': 'tests.packages.test_preview.PolicyTests',
                                 'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 for _gate in ('BUILD01', 'LR01'):
