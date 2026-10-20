@@ -18476,13 +18476,15 @@
         "tests/bizhawk-movies/test_host_states.py",
         "tests/bizhawk-movies/HostStates.cs",
         "tests/bizhawk-movies/HostStates.csproj",
-        "docs/03-waterbox.md"
+        "docs/03-waterbox.md",
+        "integration/bizhawk/core/Puae6/CdHost.cs"
       ],
       "steps": [
         "Reproducir con clases managed reales los tres fallos independientes: guard4KiB de MemoryBlockUtils con host16KiB, flags mmapLinux0x22 invalidos enDarwin y soname libzstd.so.1 ausente. Parche derivado sobre MacHawk fijado, sin modificar hermano/references ni instalar dependencias o alias.",
         "Conservar pagina logica Paged4096 ypayload4092; alinear reserva/proteccion MemoryBlock a pagina host mediante helper privado sin activar constructor global MemoryBlockUtils. LinuxPal selecciona MAP_ANON Darwin0x1000 vs Linux0x20; LibZstd selecciona libzstd.dylib enDarwin y conserva otras plataformas. No alterar ABI/paginas del sandbox Waterbox.",
         "Check purohost DarwinHostStateTests compila Client.Common net48 real desde export/patch local y harnessnet8 con cacheoffline. MemoryBlock reservar/proteger/escribir offsets0/4096/8192/12288; Paged captura fueraorden/seek/invalidate/historySave ylectura enproceso nuevo con limites4091/4092/4093/16383/16384/16385. ZwinderMemory yTempFile usan compresionZstdreal, wrapring/seek/history yrecuperacionfria contraoraculoarray.",
-        "Vertical5rutas250..350lineas, avisar antes de400. busy_reference aislado; sinmotor/guest/bateriamatriz. Root registraSTATE01 yserializa builds. Temporales build eliminados alterminar; no guardarreportes. PadreT80 conserva LR01/WB03/identidadADF-HDF/UI: prueba hostnoacreditaWaterbox."
+        "Vertical5rutas250..350lineas, avisar antes de400. busy_reference aislado; sinmotor/guest/bateriamatriz. Root registraSTATE01 yserializa builds. Temporales build eliminados alterminar; no guardarreportes. PadreT80 conserva LR01/WB03/identidadADF-HDF/UI: prueba hostnoacreditaWaterbox.",
+        "BuildrealClient.CommonreferenciaCores ydetecta MA0015 enCdHostconstructorcatalogo: ArgumentExceptionomiteparamname. Ampliar sexta ruta solo para añadir nameof(descriptors), preservandovalidacion yanalizadores. Reutilizar buildreal como check, sinbateriaCDni modificarsemantica. No usarassemblyantigua paraevitar integrar erroractual."
       ],
       "checks": [
         "STATE01"
