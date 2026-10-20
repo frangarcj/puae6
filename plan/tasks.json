@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35"
@@ -17656,6 +17656,47 @@
       "stop": "NoocultarregionesenreservedV1, publicarcallbackantespreflight ni marcarDONEconrunnerfallido; noconectarCHDpublicosinmetadataregionaltipada."
     },
     {
+      "id": "T66t13",
+      "title": "Exponer regiones CHD tipadas y sintetizar XA canonico en DiscSystem",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t10",
+        "T66t11",
+        "T80a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0008-disc-chd-regions-and-xa.patch",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_cd_source_csharp.py",
+        "tests/media/test_chd_canonical_csharp.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Parchederivado sobreDisc.cs/CHD_format.cs/SynthUtils.cs fijados: lista inmutablederegionestipadas coninicio/fin/pista/indice/modo/control/procedenciasinteticaSUB. LoadCHDToDisc emitedesdemetadataoriginalPG/programa/postnormalizandoleadinterno150, nuncaQ/synthtype/DiscTrack.Modeheuristico. Entradainterna recibeCHDFile+IBlob paraejercitarmontajerealunidadesdescomprimidas, sinpretenderdecodercompleto niCHDpublicofuncional.",
+        "CorregirSynthUtils.SectorSubHeaderForm2 duplicacionbit en[2]/[6], actual[5]esincorrecto ymodificaEDC. OraculosindependientesPythonT7..T10verifican2448bytes,BCD,AudioBE→LE,SUBendata_size,RW/RW_RAW,PGstored/synthetic,postgapINDEX02,padding4fuera. ExtraFramesyaomiteredondeo4, PaddingGDdistinto noconfundir. Form1/Mode1EDC/PQ yForm2polinomiobitabitsindependientes, tambiensintetizadorescompartidosMDS. Ningungoldencambiadosinexplicacion.",
+        "MED01unionChdCanonicalCSharpTests(test_typed_regions_offsets_padding_audio_subchannels_and_postgap,test_cooked_mode2_xa_headers_edc_and_parity_match_independent_oracles)+DiscSourceCSharpTests+ChdBlobReadTests, cadaclaseunavez. OfflineC#sinmotor/guest. Pruebadeseamnodeclaradecodercorrecto; backendhostchd_capi noDarwinARM64enpinactualpermanecependienteconrecetapin/ABIreal,preferirevaluarlibchdrBSDendurecidoexistente.",
+        "Cincorutasatomicasobjetivo280..350manuales. cd32_closeaislado actualizaaestemain, nometadata/engine/guest. Rootcoordinaintegra. T12siguepuertaWB03pendienteindependiente: metadataescontractoadicionalnoconexioncore, porellodepsT10/T11/Apermitenavanzarantes. Backendhostreal+4fixturescomprimidos yconexiontypedPuae6DiscSource→Core→WBv2 conservanpuertapublicaWB03enT66. RootT39bpendinghastacandidataestable, sinquitarsuschecks."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "DiscSystem describeregionesCHDdesdesumetadatareal yproducebytescanonicosindependientementecomprobadosincluidosXAForm2/EDC/SUB/gaps/padding; noconfundirmontajedescomprimidoconbackendCHDrealocargapublica."
+      ],
+      "stop": "No inferirregionesdesdeQ niusarel mismoproveedorcomooraculo; sinbinariosx86fallbackennativoARM64, sinmodificarMacHawk."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17731,7 +17772,8 @@
         "T66t9",
         "T66t10",
         "T66t11",
-        "T66t12"
+        "T66t12",
+        "T66t13"
       ],
       "read": [
         "docs/01-architecture.md",
