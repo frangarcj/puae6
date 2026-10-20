@@ -19,10 +19,15 @@ public:
     // Decoders require exact input/output and stream completion (LZMA permits
     // CHD termination without an end marker); CD FLAC is 44100Hz/stereo/16-bit.
     Result read_at(uint64_t, void *, size_t) const;
+    // cap0 queries presence/length/flags only. Otherwise payload must fit (<=64KiB).
+    // Missing: Ok and found=false; errors preserve all outputs and invalidate cache.
+    Result metadata(uint32_t tag, uint32_t index, void *, size_t capacity,
+                    uint32_t *length, uint8_t *flags, bool *found) const;
     uint64_t bytes() const;
     uint32_t hunk_bytes() const;
     const char *error() const { return error_ ? error_ : ""; }
 private:
+    Result fail(Result, const char *) const;
     struct Data;
     std::unique_ptr<Data> data_;
     mutable const char *error_ = nullptr;

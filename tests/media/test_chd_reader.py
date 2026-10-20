@@ -60,14 +60,14 @@ def flac_constant(frames=588, rate=9, bits=4, channels=1):
     return frame + crc(frame, 16, 0x8005).to_bytes(2,"big")
 
 
-def metadata_chain(container, payloads, cycle=None):
+def metadata_chain(container, payloads, cycle=None, tag=0x54455354, flags=0x81):
     result = bytearray(container); positions, at = [], len(result)
     for payload in payloads:
         positions.append(at); at += 16 + len(payload)
     struct.pack_into(">Q", result, 48, positions[0])
     for n, payload in enumerate(payloads):
         next_at = positions[n + 1] if n + 1 < len(positions) else positions[cycle] if cycle is not None else 0
-        result += struct.pack(">IIQ", 0x54455354, 0x81000000 | len(payload), next_at) + payload
+        result += struct.pack(">IIQ", tag if isinstance(tag, int) else tag[n], (flags << 24) | len(payload), next_at) + payload
     return result
 
 
@@ -199,3 +199,52 @@ class ChdReaderTests(unittest.TestCase):
     def test_failed_codec_allocations_cleanup_and_retry(self):
         for codec in self.pattern.CODECS:
             with self.subTest(codec=codec): self.probe("allocations", FIXTURES / (codec + ".chd"), self.expected)
+
+    def test_one_hunk_cache_reuse_eviction_failure_and_retry(self):
+        for codec in self.pattern.CODECS:
+            with self.subTest(codec=codec): self.probe("cache", FIXTURES / (codec + ".chd"), self.expected)
+
+    def toc_case(self, name, records, units, mode="toc-invalid", expected=None, tag=0x43485432):
+        base = cd_map([(4,SECTOR * 8)] * ((units + 7) // 8), sector=SECTOR * 8)
+        struct.pack_into(">Q", base, 32, units * 2448)
+        self.case(name, metadata_chain(base, records, tag=tag), mode, expected)
+
+    def test_cd_metadata_chtr_cht2_offsets_gaps_padding_and_limits(self):
+        def verify(name, rows, units=None, modern=True):
+            total = sum((r[2] + 3) // 4 * 4 for r in rows); units = total if units is None else units
+            expected = bytearray(struct.pack("<IQQ", len(rows), total, units - total)); records = []; at = 0
+            for n, (kind, sub, frames, gap, pgtype, pgsub, post, size, pgsize) in enumerate(rows):
+                text = f"TRACK:{n+1} TYPE:{kind} SUBTYPE:{sub} FRAMES:{frames}"
+                if modern: text += f" PREGAP:{gap} PGTYPE:{pgtype} PGSUB:{pgsub} POSTGAP:{post}"
+                records.append(text.encode() + (b"\0" if n % 2 else b""))
+                expected += struct.pack("<Q7I2B", at, n+1, frames, gap, post, (-frames) & 3, size, pgsize, pgtype.startswith('V'), 0x81)
+                for value, width in ((kind,16),(sub,8),(pgtype,16),(pgsub,8)): expected += value.encode().ljust(width,b"\0")
+                at += (frames + 3) // 4 * 4
+            oracle = self.work / (name + '.toc'); oracle.write_bytes(expected)
+            self.toc_case(name, records, units, "toc", oracle, 0x43485432 if modern else 0x43485452)
+        kinds = (("MODE1",2048),("MODE1/2048",2048),("MODE1_RAW",2352),("MODE1/2352",2352),("MODE2",2336),
+            ("MODE2/2336",2336),("MODE2_FORM1",2048),("MODE2/2048",2048),("MODE2_FORM2",2324),("MODE2/2324",2324),
+            ("MODE2_FORM_MIX",2336),("MODE2_RAW",2352),("MODE2/2352",2352),("CDI/2352",2352),("AUDIO",2352))
+        verify("chtr-types", [(kind,('NONE','RW','RW_RAW')[n % 3],5,0,'MODE1','NONE',0,size,2048) for n,(kind,size) in enumerate(kinds)], modern=False)
+        verify("cht2-gaps", [('AUDIO','RW',7,2,'VMODE1','RW_RAW',3,2352,2048),('MODE2_FORM2','RW_RAW',5,99,'AUDIO','NONE',4,2324,2352)])
+        for units in (12,13,16): verify('last-hunk-' + str(units), [('MODE1','NONE',9,0,'MODE1','NONE',0,2048,2048)], units)
+        verify('99tracks', [('AUDIO','NONE',1,0,'MODE1','NONE',0,2352,2048)] * 99)
+
+    def test_cd_metadata_errors_and_short_reads_do_not_publish(self):
+        good = b'TRACK:1 TYPE:AUDIO SUBTYPE:NONE FRAMES:9 PREGAP:0 PGTYPE:MODE1 PGSUB:NONE POSTGAP:0'
+        for name, text in {'zero': good.replace(b'FRAMES:9',b'FRAMES:0'), 'gap': good.replace(b'PREGAP:0 PGTYPE:MODE1',b'PREGAP:9 PGTYPE:VAUDIO'),
+            'stored-zero': good.replace(b'PGTYPE:MODE1',b'PGTYPE:VAUDIO'), 'number': good.replace(b'TRACK:1',b'TRACK:2'),
+            'overflow': good.replace(b'FRAMES:9',b'FRAMES:4294967296'), 'rounding': good.replace(b'FRAMES:9',b'FRAMES:4294967295'),
+            'negative': good.replace(b'FRAMES:9',b'FRAMES:-1'), 'extra': good + b' EXTRA:1', 'nul': good + b'\0\0',
+            'ascii': good + b'\xff', 'spaces': good.replace(b' TYPE:',b'  TYPE:'), 'truncated': good[:-2]}.items():
+            with self.subTest(case=name): self.toc_case(name,[text],12)
+        for units in (11,17): self.toc_case('bad-tail-' + str(units),[good],units)
+        self.toc_case('duplicate', [good,good],24)
+        for text in (good.replace(b'TYPE:AUDIO',b'TYPE:UNKNOWN'), good.replace(b'SUBTYPE:NONE',b'SUBTYPE:X'), bytes(257)):
+            self.toc_case('unsupported-text',[text],12,'toc-unsupported')
+        self.toc_case('mixed',[good,b'TRACK:1 TYPE:AUDIO SUBTYPE:NONE FRAMES:9'],12,'toc-unsupported',tag=[0x43485432,0x43485452])
+        for tag in (0x43484344,0x43484754,0x43484744,0x44564420,0x54455354): self.toc_case('noncd',[b''],12,'toc-unsupported',tag=tag)
+        tracks = [good.replace(b'TRACK:1 ',f'TRACK:{n} '.encode()).replace(b'FRAMES:9',b'FRAMES:1') for n in range(1,101)]
+        self.toc_case('100tracks',tracks,400,'toc-unsupported')
+        self.toc_case('toc-io',[good],12,'toc-errors')
+        self.case('query-io', metadata_chain((FIXTURES/'none.chd').read_bytes(),[b'\1\2\3\4']), 'query', self.expected)
