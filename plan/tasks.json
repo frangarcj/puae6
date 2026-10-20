@@ -17661,7 +17661,7 @@
       "title": "Exponer regiones CHD tipadas y sintetizar XA canonico en DiscSystem",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T66t10",
         "T66t11",
@@ -17696,7 +17696,8 @@
       "acceptance": [
         "DiscSystem describeregionesCHDdesdesumetadatareal yproducebytescanonicosindependientementecomprobadosincluidosXAForm2/EDC/SUB/gaps/padding; noconfundirmontajedescomprimidoconbackendCHDrealocargapublica."
       ],
-      "stop": "No inferirregionesdesdeQ niusarel mismoproveedorcomooraculo; sinbinariosx86fallbackennativoARM64, sinmodificarMacHawk."
+      "stop": "No inferirregionesdesdeQ niusarel mismoproveedorcomooraculo; sinbinariosx86fallbackennativoARM64, sinmodificarMacHawk.",
+      "blocked_reason": "DosintentosdirigidosconreproducercanonicalLBA236Form1: baselineECCfalsefalla; truecorrigeparteperoquedan8bytesPQ2079/2165/2295/2297/2299/2347/2349/2351,cabecera/datos/EDC/SUBiguales. Detenerantes3erensayo yrevisarcontratoECCmodo2. H1: ECM.Get/SetSectorAddress sololimpia12..14ypreservabyte15comentado; ese2extraexplicalas8paridades. H2: elordenP→Q/restauraciondecabecera delhelper requierecallerquezeroee4bytes yno3; contrastarconBlob_ECMForm1yencoderT7/native391 antesdecambiarcaller. TestWIPconservadoenworktreeaisladocd32_close, nointegrarfixparcialni tocaroraculo. PuertaMED01pendiente. RootcontinuaC3independiente, revisadecisionconcodigoantesreanudar."
     },
     {
       "id": "T66",
@@ -18882,7 +18883,7 @@
       "title": "Aplicar Freeze publico por nivel de entrada y restaurar su flanco",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69c1",
         "T69b"
