@@ -112,9 +112,18 @@ class StateComponentTests(unittest.TestCase):
         text = (ROOT / "bridge/state.cpp").read_text(encoding="utf-8")
         for tag, name, visitor in re.findall(r'\{"(P6[A-Z]{2})", "(\w+)", \d+, (nullptr|\w+), (?:nullptr|\w+)(?:, \w+)?\}', text):
             registry[tag] = (name, visitor)
-        self.assertEqual(11, len(registry), "the registry of bridge/state.cpp has one entry per subsystem chunk")
+        self.assertEqual({
+            "P6CP": ("cpu", "visit_cpu"), "P6SC": ("scheduler", "visit_scheduler"),
+            "P6RM": ("ram", "visit_ram"), "P6RT": ("rtc", "visit_rtc"),
+            "P6CH": ("chipset", "visit_chipset"), "P6VD": ("video", "visit_video"),
+            "P6AU": ("audio", "visit_audio"), "P6CI": ("cia", "visit_cia"),
+            "P6DK": ("disk", "visit_disk"), "P6IN": ("input", "visit_input"),
+            "P6BR": ("bridge", "visit_bridge"), "P6AK": ("akiko", "visit_akiko"),
+        }, registry, "eleven base chunks and the CD32-only Akiko chunk retain their owners")
         written = [c for c in self.components if "native_state" in c]
         self.assertTrue(written)
+        self.assertEqual(set(registry), {c["native_state"]["chunk"] for c in written},
+                         "every registered chunk has an explicit causal inventory component")
         for c in written:
             with self.subTest(component=c["id"]):
                 native = c["native_state"]

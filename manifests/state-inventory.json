@@ -4945,7 +4945,8 @@
           "chunk": "P6AU",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
-          "proves": "tests/state/test_state_upstream.py: AUDP (patch 0099, the last sub-body of P6AU, 340 bytes (356 since patch 0250, T15m: mixvol): the resampler phase, the cycles not yet integrated, the activation counter, the LED filter, the five RC stages of the four output filters and 15 words per channel: DMA latches, the exact period with its PERIOD_MAX - 1 sentinel, dat2, the fast-CPU latches, the interpolation integrator and the ADKCON mask) is saved without changing the machine, validated by structure before anything is applied (finite floats, the phase between two samples, flags, latch widths, the period AUDn rounds) and applied as values after restore_audio_finish; a new image saves again the Paula it loaded. tests/state/test_det02.py: the PCM after the load is the original's sample for sample in every scenario and mode, tone-modulated (ADKCON USE0V1 with the LED filter on) included"
+          "proves": "tests/state/test_state_upstream.py: AUDP (patch 0099, the last sub-body of P6AU, 340 bytes (356 since patch 0250, T15m: mixvol): the resampler phase, the cycles not yet integrated, the activation counter, the LED filter, the five RC stages of the four output filters and 15 words per channel: DMA latches, the exact period with its PERIOD_MAX - 1 sentinel, dat2, the fast-CPU latches, the interpolation integrator and the ADKCON mask) is saved without changing the machine, validated by structure before anything is applied (finite floats, the phase between two samples, flags, latch widths, the period AUDn rounds) and applied as values after restore_audio_finish; a new image saves again the Paula it loaded. tests/state/test_det02.py: the PCM after the load is the original's sample for sample in every scenario and mode, tone-modulated (ADKCON USE0V1 with the LED filter on) included",
+          "notes": "CD32 retains this same P6AU/AUDP phase through p6_cd::device_phase_get/set, checked against the owned slot0 stereo CDA stream (ports/portable/audio_cda_state.h). P6AK owns the CDA stream itself, its PCM and callback-presence values; P6SC owns the scheduler. Legacy profiles use the strict non-extra-stream phase accessor. tests/media/test_cd32_state.py covers active/pause/delay/terminal continuation and foreign-owner refusal."
         }
       },
       {
@@ -4961,7 +4962,7 @@
         "upstream_compiled": false,
         "policy": "out_of_profile",
         "saved_fields": "None.",
-        "omitted": "Sinc/BLEP interpolator state (audio_channel_data2.sinc_queue[256], sinc_queue_time/head, sinc_output_state, only with sound_interpol == 2, audio.cpp:95-107, 616-640; the profile keeps the default 1 = anti, cfgfile.cpp:8565); rh/crux handlers that need last_sample (interpol 3/4); volcnt and FIR path (volcnt, volcntbuf[4096] floats per channel, volcntbufcnt, firmem[1025], previous_volcnt_update, update_audio_volcnt 2355-2400; sound_volcnt is false); extra streams and CD audio (audio_stream[9], audio_extra_streams, audio_total_extra_streams, cda_evt, audio_state_cda; CD32/CDTV/AHI off); sample ripper (excluded by P6_PORTABLE, audio.cpp:171); SOUNDSTUFF > 1 statics (samplecounter, extrasamples/outputsample/doublesample logic). Delayed crossfeed buffers right_word_saved/left_word_saved/right2_word_saved/left2_word_saved/saved_ptr/saved_ptr2 are transient here: separation 7 turns mixed_on on but the delay is pinned to 0 (bridge/config.cpp:135-136), so mixed_stereo_size is 0 and each cell is written and read inside one sample (audio.cpp:521-560, 2262-2263). They become causal if sound_mixed_stereo_delay is ever non-zero.",
+        "omitted": "Sinc/BLEP interpolator state (audio_channel_data2.sinc_queue[256], sinc_queue_time/head, sinc_output_state, only with sound_interpol == 2, audio.cpp:95-107, 616-640; the profile keeps the default 1 = anti, cfgfile.cpp:8565); rh/crux handlers that need last_sample (interpol 3/4); volcnt and FIR path (volcnt, volcntbuf[4096] floats per channel, volcntbufcnt, firmem[1025], previous_volcnt_update, update_audio_volcnt 2355-2400; sound_volcnt is false); foreign extra-stream owners, CDTV and AHI; the supported CD32 slot0 stereo stream, cda_evt and audio_state_cda belong to the separate cd32-akiko-controller-transport-audio component; sample ripper (excluded by P6_PORTABLE, audio.cpp:171); SOUNDSTUFF > 1 statics (samplecounter, extrasamples/outputsample/doublesample logic). Delayed crossfeed buffers right_word_saved/left_word_saved/right2_word_saved/left2_word_saved/saved_ptr/saved_ptr2 are transient here: separation 7 turns mixed_on on but the delay is pinned to 0 (bridge/config.cpp:135-136), so mixed_stereo_size is 0 and each cell is written and read inside one sample (audio.cpp:521-560, 2262-2263). They become causal if sound_mixed_stereo_delay is ever non-zero.",
         "pointers": null,
         "rebuild": null,
         "evidence": [
@@ -4982,13 +4983,55 @@
           "what": "a state that carries this chunk is rejected, never restored in part"
         },
         "probe": null,
-        "waterbox": "not reached by the profile",
+        "waterbox": "not reached by the profile"
+      },
+      {
+        "id": "cd32-akiko-controller-transport-audio",
+        "subsystem": "disk",
+        "component": "CD32 Akiko controller, transport, disc device, owned CDA stream and NVRAM",
+        "owner": "build/upstream/akiko.cpp",
+        "chunk": "P6AK",
+        "save": "p6_akiko_state_get",
+        "restore": "p6_akiko_state_apply",
+        "reset": "akiko_reset; p6_cd::device_unbind on session unload",
+        "in_profile": true,
+        "upstream_compiled": true,
+        "policy": "serialize_extended",
+        "saved_fields": "CD32 only: semantic controller registers, C2P, command/result queues, TOC/subcode and emulated clock; EEPROM/NVRAM; transport rings and service state; verified disc identity and device position; CDA delay, PCM, callback presence, stereo stream position/volume/accumulators. ports/portable/state_io/akiko.h writes each value explicitly, without padding.",
+        "omitted": "Shared Paula phase is owned by P6AU/AUDP (89 words), scheduler cycles by P6SC and emulated RAM by P6RM. The optional P6AK follows those owners; all non-CD32 profiles retain their eleven base chunks.",
+        "pointers": "Disc pointers, PCM buffer pointers, callback addresses and service owners are never serialized. Staging uses ordinary caller-owned heap; no alloc_invisible.",
+        "rebuild": "Validate the candidate scheduler cycle, physical PAL/NTSC CDA period and verified live Disc identity before applying. Rebind the canonical Akiko callbacks and the exact slot0 stereo owner; reject foreign owners before mutating the machine.",
+        "evidence": [
+          "bridge/state.cpp:224",
+          "bridge/state.cpp:232",
+          "bridge/state_akiko.cpp:9",
+          "ports/portable/state_io/akiko.h:22",
+          "build/upstream/akiko.cpp:2416",
+          "build/upstream/akiko.cpp:2443",
+          "ports/portable/audio_cda_state.h:1",
+          "tests/media/cd32_state_probe.cpp:131"
+        ],
+        "proof": {
+          "task": "T66m7",
+          "checks": [
+            "STATE01"
+          ],
+          "status": "done",
+          "what": "tests/media/test_cd32_state.py exercises the public native CD32 machine with active, paused, delayed and terminal CDA cuts; exact future A/V and complete state in the same/new owner, disc identity, map and transactional malformed-state/foreign-owner refusal. Real game continuation is separately proved by T66r7."
+        },
+        "probe": {
+          "probe": null,
+          "status": "pending",
+          "task": "T15",
+          "why": "The generic p6_state_probe has no Akiko canonical digest accessor. Cd32StateTests compares the complete semantic native state and future A/V instead; this does not claim canonical probe coverage."
+        },
+        "waterbox": "Captured by the real sandbox snapshot; T66r7 exercises a gameplay cut in the same/new sandbox and process.",
         "native_state": {
           "task": "T66m7",
-          "chunk": "P6AK (CD32 only), P6AU owned phase",
-          "file": "bridge/state_akiko.cpp; bridge/state_upstream.cpp",
-          "visitor": "visit_akiko; visit_audio",
-          "proves": "tests/media/test_cd32_state.py targets full native continuation with synthetic offset CD and authorized firmware. Legacy profiles retain strict0099; CD32 uses the backend-owned slot0 stereo CDA, semantic M4 controller/transport/device/audio/NVRAM values and full shared Paula phase. No upstream CD restore or host pointer is serialized; Waterbox CD32 remains a separate gate."
+          "chunk": "P6AK",
+          "file": "bridge/state_akiko.cpp",
+          "visitor": "visit_akiko",
+          "proves": "tests/media/test_cd32_state.py: public complete native snapshot and exact continuation with active/pause/delay/terminal CDA and a new owner; tests/libretro-host/test_cd32_load.py: Cd32GameTests.test_brian_gameplay_and_restore compares full state after an interactive real-game cut."
         }
       },
       {
