@@ -17706,7 +17706,7 @@
       "title": "Cargar CHD publico en libretro con catalogo estado y juego real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t10",
         "T66t13",
@@ -17741,7 +17741,8 @@
         "LR01Cd32ChdTests2metodos test_chd_direct_snapshot_new_process_vfs_and_container_identity ytest_chd_playlist_catalog_switch_and_restore. FixturepropiaPythonstoredv5ISO512cerousacd_map/metadata_chain: pruebasCDreal/read315ycachemiss/fault/no-seek/renamealias/appendopacoidentityrechazosincambiarmaquina/newprocessstdIOVFS/fullbytesyplaylistCHD/ISO/alias. EsISOvacio,nobootapp. RegresioncercanaunicaCd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner conBrianCUElocalautorizadosolo345, noR7completaotravez.",
         "GatejuegorealunavezparaformatoCHD: rootusa chdman0.287yainstalado(sininstalacion/red),createcd -np1 -hs19584 cdzl delBrianCUEautorizadoconoutputsSOLOtempbuild/,verify, reutilizasinmodificargoldenCd32GameTests.test_brian_gameplay_and_restoreconP6_CD32_GAME_CUErutaCHD. Mismosmenu1399/juego6500/interaccion/PCM/futuro80/sandboxnativoownerproceso; no6500porcodec. DET02seleccionamismogamefixtureincluidaLR01,unionunavez. BorrarCHDtemporalalterminarcheck. Siincompatibilidadcodec/streamrealconservarreproducerydoshipotesis sinrelajaroraculo.",
         "Nueverutasatomicas objetivo220..290manuales; cd32_closeaisladonometadatani motor/guest/rootcompile-j2. PuedeprobarMEDstandaloneChd/CSharpnoenginecoordinado, avisarantesbuildheavy. RootserializalibretroproductoytestsgameactualescandidataconC3estable. BackendhostCSharp/typedpublicWBsiguenotrah ojaT66sinatribuirporlanative.",
-        "Ampliar10arutatools/import_chd.pysolobloqueconstanteNOTICE: configuracionMEDrechazaCHDnotice differs alretirarafirmacionno-producto. Mantenerpins/selection/hashes/verifyintactos; regenerarNOTICEdesdeconstantedeherramienta, no importarnuevasfuentesnieditarhandoutputs. Configurarp6_chdverificaexactamenteestocontrato. Primerpreflightnologrócompile, nofallomotor. Rootya creó CHDBrian528438294bytesconchdman0.287/cdzl/1proc yverifyraw/overallSHA1PASS; tempora lbuild/chd-public-qon6jrxp/Brian.chdseeliminatrasesc enario, noesfixtureGit."
+        "Ampliar10arutatools/import_chd.pysolobloqueconstanteNOTICE: configuracionMEDrechazaCHDnotice differs alretirarafirmacionno-producto. Mantenerpins/selection/hashes/verifyintactos; regenerarNOTICEdesdeconstantedeherramienta, no importarnuevasfuentesnieditarhandoutputs. Configurarp6_chdverificaexactamenteestocontrato. Primerpreflightnologrócompile, nofallomotor. Rootya creó CHDBrian528438294bytesconchdman0.287/cdzl/1proc yverifyraw/overallSHA1PASS; tempora lbuild/chd-public-qon6jrxp/Brian.chdseeliminatrasesc enario, noesfixtureGit.",
+        "Integrado0010ed5a: MED01 CdImageTests6PASS18.330s ASan/UBSan (factory4codecs); LR01 Cue345yCd32ChdTests2PASS en dispatcher; partida CHD real exacta PASS105.236s6500+80, menu/nivel golden intactos, PCM/interaccion/fullstate/futuro, owner/procesonuevo y control sinmando. DET02mismafixturegame incluidaunion, no repetida. Dospreflights root pararon antesgamepor cambios de inputs concurrentes del coordinador; luego treeinmutable ygamePASS. chdman0.287verifyraw/overallSHA1PASS; derivado528438294Btemporal eliminado tras escenario. SinatribuirbackendC#/Waterbox ni anunciarCHDenZIPC."
       ],
       "checks": [
         "MED01",
@@ -19095,7 +19096,7 @@
       "title": "Exponer HRTMon Freeze y restauracion de peliculas en BizHawk",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T69c3",
         "T21",
@@ -19145,7 +19146,8 @@
       "acceptance": [
         "BizHawkofreceHRTMonporSyncSettingyFreezelevel, identidadeinmutabilidadcorrectas; BK2/TASreplay/seekheldysnapshotnewprocesspasanenWaterboxreal. HostfallidomarcaBLOCKED,sinDONEporcompilacion."
       ],
-      "stop": "Sin serializarpunteros/overrideStateEnvelope/historiafrontendFreezeduplicada, sininscribirgateWBporenginehostnativo ni relajaridentidad/heap paraapagarfallos."
+      "stop": "Sin serializarpunteros/overrideStateEnvelope/historiafrontendFreezeduplicada, sininscribirgateWBporenginehostnativo ni relajaridentidad/heap paraapagarfallos.",
+      "blocked_reason": "GEN01 schema/parity66PASS ygenerador--check; STATE01 managedrealPASS1/5.614s. Gatepubliconuevo WB03/WB04/WB09 intento unico conguestbedde522 actual llegaHRTMonheld380 ypresupuestossbrk409600/4194304,sealed524288/16777216,mmap7421952/16777216,invisible/plain0/16384. AbortaSIGBUS(-10)antesfuturo/replay enhost _xzm_xzone_malloc_freelist_outlined ->operatornew->CoreCLR CodeFragmentHeap.RealAllocAlignedMem/VirtualCallStubManager.GenerateResolveStub. IPS2026-10-21-010814: escritura103732a40 enmappedfile r--/r-x, no guardpage; x28coincidex8,no pruebaTLSfiltrado. Causa pendiente, n oDONEporcompile/native. H1metadatosmalloc alterados por mapeo/proteccion/interopWaterbox: vigilar primerpunteroinvalido alrededortransiciones. H2CoreCLR/macOSxzone enresolucionvirtualtardia: reproducer managedsinWaterbox o contraste runtime independiente. Sinrepetirknobs/bateriasyaagotadosb8be1be3 ni cambiarentornoglobal. Snapshot/BK2/TAS/seeknewprocesssinacreditar."
     },
     {
       "id": "T69",
