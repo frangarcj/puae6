@@ -11735,11 +11735,12 @@
         "docs/user/native-preview.md"
       ],
       "steps": [
-        "Entregar ZIP local D macOSARM64 confuncionesnativasyaaprobadas CHDpublico/HRTMon/NaNFPSP0395, reemplazandoaliaspreviewutilsoloalterminar. Sinpublicar/releaseformal/instalarMacHawk niROM/juegos. PadreT40/T41conservanpuertas completas. Cuatrorutas110..150manuales, cd32_closeaisladoimplementa yrootserializabuild-release-j2 una vez. Renovacionopcionaldepreviewlocal, no dependenciaformal deT40; HRTMonpermaneceopcionalenrelease ysu dependenciaseconservaexplicitaenestahoja.",
-        "PolicylicensesmantienecopiasexactasCOPYING/MAME yLIBCHDRLICENSE/NOTICE; soportarslicesdeavisosincrustadospath/linesinclusivaspreservaexactbytesrotuladosconfuente sinheadersenormes niarchivosreportes. libchdrRomainBSD3+AaronGilesMAME38lineas; zlibGailly/Adler;LzmaEncPublicdomainIgorPavlov;dr_flacMIT0alternativa2. SoftFloat9fuentesinventariadosmixto2a/Hauser,BSD Bellard,GPL/FPSPAndreasGrabher/PreviousyautoresFPU. LEEMEavisoprominentePUAE6derivadoSoftFloat. HRTGPLbuiltinprocedenciadocs00preservada. Noalterarfuentesdeps/pins/NOTICEselection.",
-        "Helpernotice_filesunico paraROOTenbuildylecturasource.tar.gzenverify. Exigirpresenciaybytesexactosdetodosavisosexigidosporpolicyarchivada,ademasmanifesthash/exactset; negativoremove/cambiaravisoinclusoactualizandomanifestdeberechazarse. PolicyTestsexactospresenciaBSD/SoftFloat/slices. Fuentescorrespondientesnuevasfuncionesincluidassourcearchive.",
-        "GuiaCHDv5CD none/cdzl/cdlz/cdflsinparent/HTOA/CDI/GD/DVD, directoyM3U16/DiskControl, mismoestado/builtinHRTMonA1200cartridge/hotkeyFreeze. DescribirFPU040/060SoftFloatopcionalylimitacionesFRESTOREsinproclamarcierreparentT55; conservarCDTV/MMU/WBpendientes. ZIPCanteriornomodificado.",
-        "PKG01policytests+smoke realextracciondelZIPDaislada; BUILD01/LR01mismoInstalledPreviewTests/package.smoke12libretro+restore3/headless3/firmwareausente,unionunavezyaejecutadaporpackage.build. No repetirpartida6500/codec/matriz ni fabricarfeaturesfixture. Rootcomprobacandidatalimpia/revisionSHA/sourcehash/depusrsolo; newZIPDarchivobuild/product/limpioysinreporteshistoricos."
+        "Renovar la preview local macOS ARM64 con CHD publico, HRTMon nativo y la correccion NaN FPSP 0395 ya probados. Es una renovacion opcional de T40a; HRTMon no pasa a ser obligatorio para la release formal T40/T41. Preparar ZIP D nuevo y actualizar el alias solo despues de verificarlo, sin publicar, instalar en MacHawk ni incorporar ROMs o juegos.",
+        "Cuatro rutas, objetivo 110-150 lineas manuales. cd32_close implementa en worktree aislado; root integra y serializa el build Release con -j2. No cambiar motor, ABI, dependencias fijadas ni avisos originales.",
+        "La politica conserva las copias exactas GPL/MAME y añade LICENSE/NOTICE de libchdr. Permitir slices inclusivos de avisos incrustados, con bytes exactos y rotulo del fuente: BSD de Romain Tisserand y Aaron Giles/MAME; zlib Gailly/Adler; LZMA publico de Igor Pavlov; alternativa MIT-0 de dr_flac. SoftFloat conserva sus ocho bloques de aviso existentes en los nueve fuentes inventariados; la tabla FPSP sin cabecera de licencia permanece completa en source.tar.gz. No inventar textos ni copiar tablas como avisos. LEEME identifica prominentemente el derivado PUAE6 de SoftFloat y sus cambios. HRTMon conserva la procedencia GPL de docs/00-sources.md.",
+        "Un helper notice_files sirve para build (leer ROOT) y verify (leer politica y fuentes de source.tar.gz). Exigir presencia y bytes exactos de cada aviso, ademas de hashes y conjunto exacto de archivos. PolicyTests comprueba los avisos requeridos, slices y rechazo si falta o se altera un aviso aun actualizando el manifest.",
+        "Actualizar la guia: CHD CDv5 none/cdzl/cdlz/cdfl, directo y M3U de hasta 16 CD; sin parent, HTOA, CDI, GD ni DVD. Describir HRTMon builtin solo A1200, Cartridge y hotkey Freeze. Mantener visibles los limites FRESTORE, MMU, CDTV y Waterbox. ZIP C anterior permanece intacto.",
+        "PKG01 combina PolicyTests y el smoke real del ZIP D extraido. BUILD01/LR01 usan el mismo InstalledPreviewTests/package.smoke: 12 unidades libretro, 3 futuras restauradas, 3 headless y rechazo de firmware ausente. Ejecutar la union una vez, ya incluida en package.build. No repetir la partida de 6500 frames, codecs ni matrices. Incluir fuentes y avisos correspondientes al binario; no crear informes historicos."
       ],
       "checks": [
         "PKG01",
@@ -11747,7 +11748,7 @@
         "LR01"
       ],
       "acceptance": [
-        "PreviewDextraidaejecutacore/headless/restauracionyrechazafirmwareausente, incluyefuentes/avisosexactosdeCHD/SoftFloatyguiaactual; limitessiguenvisibles,sinpresentarlacomoCI/releaseformal."
+        "La preview D extraida ejecuta el core, headless y restauracion, rechaza firmware ausente y contiene fuentes y avisos exactos de CHD/SoftFloat y guia actual. No se presenta como cierre de CI, Waterbox ni release formal."
       ],
       "stop": "Sinpublicar/push/alterarproyectoshermanos, niacreditarWaterboxporelZIPnativo. Pruebainstaladasobrebinarioempaquetado,noarboldesarrollo."
     },
@@ -17969,20 +17970,21 @@
         "docs/02-contracts.md"
       ],
       "steps": [
-        "Primera vertical privada independiente de T66 padre: backend CD_STANDARD_UNIT_CDTV ya acepta unidad real0; stock CDTV utiliza cdtv.cpp/DMAC/6525, no WD/A2091 opcional ni CDTV-CR. Padre T67 conserva dependencias T66/T50 y arranque/restore publicos completos. Sin perfil publico ni ROM necesaria en esta hoja.",
-        "Portar cdtv.cpp original mediante0399, nunca upstream directo: servicio cooperativo desde CDTV_hsync_handler registrado en devices_hsync y avance exclusivo p6_run_frame. FIFO acotada/prefijos PLAY4palabras atomicos, no hilos/sem_wait/sleep ni scheduler nuevo. SEEK usa deadline emulado equivalente. NVRAM32768 en RAM sin flashfilepath host, sin afirmar persistencia. Desactivar estado nativo de currprefs.cs_cdtvcd con UNSUPPORTED hasta codec propio, no P6AK falso.",
-        "Conservar algoritmo DMAC/6525/IRQ y contabilidad dma_wait/WTC/ACR; buffer sector persiste entre iteraciones (upstream reutiliza local no inicializado), validar signed/rangos/multiplicaciones y read fallido sin copiar. Requests DMA esperan cooperativamente completion pendiente, trabajo acotado por WTC/READ. Si requiere cambiar cadencia/cuotas o supera400manuales, parar y registrar subdivision/exception atomica antes editar alcance adicional; no deadline/hardware inventado.",
-        "Probe privado sobre A500 microrom real p6_init/load/run, banco MMIO E90000, mascara24bit, bind Disc comun real. Entradas privadas no avanzan reloj/CPU. Comandos80/00 AA55,83MODEL,84/85sector2048,TOC/capacity,READ1sector a ChipRAM con canarios/WTC/terminal IRQ+clear,PREST reset,error real/missingmedia,overflow/prefix parcial sin aborto; cierre libera callbacks/opens y nueva sesion A500 limpia. MED01 CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle; DET02 mismafixture dosprocesos/futurodigest, union una vez.",
-        "cd_swap worktree aislado; root registra series/patch-classes/imports si necesarios tras diff y serializa compilacion pesada -j2. Agente no metadata compartida ni engine/guest build. Fuente audit/excluded y docs02 describen solo controlador privado comprobado. Siguiente hoja necesita autoconfig real (portableexpansion soloide_mb), presetECSAgnus1MiB0FDD/RTC1/ROMextendida y codec CDTV completo antes perfil/boot; no acreditar esos gates con MMIO."
+        "Primera vertical privada independiente del cierre T66. CD_STANDARD_UNIT_CDTV ya acepta la unidad real 0. El CDTV stock utiliza cdtv.cpp, DMAC y 6525; WD/A2091 es expansion opcional y CDTV-CR es otro dispositivo. T67 conserva T66/T50 y sus puertas de arranque y restauracion publicos. No ofrecer perfil CDTV en esta hoja.",
+        "Portar cdtv.cpp mediante 0399, sin editar upstream: servicio cooperativo desde CDTV_hsync_handler registrado en devices_hsync y avance exclusivamente por p6_run_frame. FIFO acotada con prefijos PLAY de cuatro palabras atomicos, sin hilos, sem_wait, sleep ni otro scheduler. SEEK utiliza tiempo emulado equivalente. NVRAM de 32768 bytes en RAM sin flashfilepath host; persistencia y codec quedan pendientes. Rechazar estado nativo si currprefs.cs_cdtvcd con UNSUPPORTED, sin reutilizar P6AK.",
+        "Conservar algoritmo DMAC/6525, IRQ y contabilidad dma_wait/WTC/ACR. El buffer de sector debe persistir entre iteraciones; el original reutiliza un local sin inicializar. Validar signed, rangos y productos; no copiar tras read fallido. Las solicitudes DMA esperan cooperativamente la completion pendiente. Si acotar el trabajo requiere cambiar cadencia o quotas, parar y dividir explicitamente antes de editar. Objetivo total de implementacion y probe: menos de 400 lineas manuales; no ocultar cambios en macros.",
+        "Probe privado con A500 y microrom real p6_init/load/run, banco MMIO E90000 y mascara de 24 bits, sobre Disc comun real. Los accesores privados no avanzan CPU ni reloj. Probar comandos 80/00 AA55, 83 MODEL, 84/85 sector 2048, TOC y capacidad; READ de un sector a Chip RAM con canarios, WTC, terminal IRQ y clear; PREST, error real y medio ausente, overflow y prefijo parcial sin aborto. El cierre libera callbacks y opens, y permite otra sesion A500 limpia.",
+        "MED01: CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle. DET02: misma fixture con dos procesos y digest del futuro, union una vez. cd_swap usa worktree aislado y no edita metadata ni compila motor o guest sin coordinacion. Root registra series, clasificacion e imports necesarios y serializa compilaciones pesadas con -j2. docs/02-contracts.md y source-manifest describen solo la pieza privada comprobada.",
+        "La hoja posterior necesita autoconfig real (portable expansion solo ofrece ide_mb), preset ECS Agnus, 1 MiB Chip, cero disqueteras, RTC1, ROM extendida y codec causal propio CDTV antes de habilitar perfil/arranque. Las pruebas MMIO de esta hoja no acreditan esas puertas."
       ],
       "checks": [
         "MED01",
         "DET02"
       ],
       "acceptance": [
-        "Controlador CDTV real enlaza y procesa comandos/MMIO/DMA de un sector mediante p6_run_frame sin hilos/reloj host, con errores y ciclo de vida comprobados; dos procesos producen mismo futuro. Ningun perfil publico/estado/boot CDTV se anuncia antes de hojas restantes."
+        "El controlador CDTV real procesa comandos MMIO y DMA de un sector a traves de p6_run_frame, sin hilos ni reloj host, con errores y ciclo de vida comprobados. Dos procesos producen el mismo futuro. Arranque, perfil publico y estado CDTV siguen sujetos a sus hojas restantes."
       ],
-      "stop": "No copiar motor antiguo, no usar stubs de exito ni backend CD simulado, ni relajar puertas del padre. Respetar limite manual o dividir explicitamente antes ampliar."
+      "stop": "No copiar el motor antiguo, usar stubs de exito ni backend CD simulado, ni relajar puertas de T67. Respetar el limite manual o dividir explicitamente antes de ampliar."
     },
     {
       "id": "T67",
