@@ -1,11 +1,14 @@
 using System.Security.Cryptography;
+using System.Runtime.CompilerServices;
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 using Puae6;
 
 internal static unsafe partial class Program
 {
- static void Require(bool value) { if (!value) throw new Exception("media movie mismatch"); }
+ static string Phase = "host identity";
+ static void Require(bool value, string detail = "", [CallerArgumentExpression("value")] string condition = "")
+ { if (!value) throw new Exception($"media movie {Phase}: {detail}; assertion={condition}"); }
  static byte[] Read(string directory, string name) => File.ReadAllBytes(Path.Combine(directory, name));
  static string Hash(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
  static byte[][] Bases(string directory) => [Read(directory, "A.adf"), Read(directory, "H.hdf"), Read(directory, "V.ffs")];
@@ -94,6 +97,7 @@ internal static unsafe partial class Program
  {
   foreach (string extension in new[] {"bk2", "tasproj"}) foreach (bool sram in new[] {false, true}) {
    string path = Path.Combine(args[1], $"{sram}.{extension}");
+   Phase = $"{args[0]}/{extension}/sram={sram}/record";
    if (args[0] == "save") {
     IMovie movie; MovieSession session;
     using (var original = Open(args)) {
@@ -101,26 +105,32 @@ internal static unsafe partial class Program
      movie.StartsFromSaveRam = sram; if (sram) movie.SaveRam = Read(args[1], "B.sram");
      movie.SyncSettingsJson = ConfigService.SaveWithType(original.GetSyncSettings());
      foreach (var h in Puae6Movie.HeaderForStart(original, false, sram ? movie.SaveRam : null)) movie.HeaderEntries[h.Key] = h.Value;
-     if (movie is ITasMovie tas) tas.Markers.Add(new TasMovieMarker(5, "cut"));
     }
     using var recording = Open(args); Start(session, movie, recording, true);
+    // StartNewRecording clears markers; IsReserved keeps the state BEFORE its marker.
+    if (movie is ITasMovie tas) tas.Markers.Add(new TasMovieMarker(6, "cut after state 5"));
     string expected = string.Join(" ", Enumerable.Range(0, 3).Select(i => Hash(sram ? Read(args[1], $"B{i}.bin") : Bases(args[1])[i])));
     Require(Media(recording) == expected); // Actual sealed guest bases after Attach AND ProcessSram.
     File.WriteAllLines(path + ".future", Play(session, recording)); File.WriteAllBytes(path + ".end", Save(recording));
     File.WriteAllText(path + ".media", Media(recording)); var result = movie.Save(); Require(!result.IsError); (movie as IDisposable)?.Dispose();
    }
+   Phase = $"{args[0]}/{extension}/sram={sram}/replay";
    using var core = Open(args); var replay = Session(args[1], core); var loaded = replay.Get(path, true);
+   if (loaded is ITasMovie history) Require(history.TasStateManager.HasState(5),
+    $"history before Attach: requested=5 count={history.TasStateManager.Count} last={history.TasStateManager.Last}");
    Start(replay, loaded, core, false); var expectedRows = File.ReadAllLines(path + ".future");
    Require(Play(replay, core).SequenceEqual(expectedRows)); Require(Save(core).SequenceEqual(Read(args[1], $"{sram}.{extension}.end")));
    Require(Media(core) == File.ReadAllText(path + ".media"));
    if (loaded is ITasMovie movieTas) {
-    var state = movieTas.TasStateManager.GetStateClosestToFrame(5); Require(state.Key == 5);
+    Phase = $"{args[0]}/{extension}/sram={sram}/seek";
+    var manager = movieTas.TasStateManager; var state = manager.GetStateClosestToFrame(5);
+    Require(state.Key == 5, $"requested=5 key={state.Key} count={manager.Count} last={manager.Last}");
     using (var reader = new BinaryReader(state.Value)) core.LoadStateBinary(reader);
     Require(Play(replay, core).SequenceEqual(expectedRows.Skip(5)) && Save(core).SequenceEqual(File.ReadAllBytes(path + ".end")));
    }
    (loaded as IDisposable)?.Dispose(); Console.WriteLine($"real media movie {extension}/{sram} replay/seek/full state/exports/{args[0]} PASS");
   }
-  Reject(args);
+  Phase = $"{args[0]}/rejection"; Reject(args);
  }
  static void Reject(string[] args)
  {
