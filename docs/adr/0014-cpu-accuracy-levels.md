@@ -147,3 +147,12 @@ prioridad de pendientes existentes. El oraculo usa resultados matematicos,
 FCMP/FTST sin escritura y el protocolo FPSP; no es una captura de hardware.
 La revision41, el formato double de op2_xi, otros micro-PC y la semantica general
 de dirty/SX/writeback siguen en la puerta pendiente de T55c.
+
+El productor de excepciones040 codifica FSQRT04 como05 enCMDREG1B y21 enCMDREG3B
+([MC68040UM9.8/fig9-11/tabla9-16](https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf)).
+La etapa WB/E3 reconoce04/05/41/45 de SQRT, incluido05 al reanudarFE; FDMOVE44 pertenece aCU/E1. La mascara
+anterior confundia FDMOVE con SQRT y excluia las precisiones explicitas de raiz.
+El probe parte de instrucciones reales, habilita INEX2/OPERR y verifica comandos,
+etapa, longitud y el ciclo FSAVE/FRESTORE/estado privado en rev40/41. Se conserva
+la otra mascara de aritmetica, incluida la politica existente de FMOD/FREM/FSCALE
+emulados por SoftFloat; el formato de esas operaciones queda para decision propia.

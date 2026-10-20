@@ -89,19 +89,24 @@ static void busy_resume(int rev) {
     assert(!regs.fp_exp_pend && !regs.fp_unimp_pend && !regs.fpu_exp_state);
     printf("FRESTORE040 rev%x BUSY existing-FE/preserve-corrected-WB PASS\n",rev);
 }
-static void busy_new_exception(int rev) {
+static void busy_new_exception(int rev,bool sqrt=false) {
     owner(rev); move(0,7); regs.fpiar=0xaabbccdd;
     // FPSP round.S:nrm_set and res_func.S:wrap_div/fix_stk. Original
     // extended denorm mantissas1 and3 normalize with exponents-63/-62;
     // the inverse shifts are exact, and FDIV gives1/3 in extended nearest.
     Words w(25,0); w[0]=(unsigned(rev)<<24)|0x00600000;
-    w[2]=0xfe000000; w[0x28/4]=0x4000; w[0x40/4]=0x00200000;
-    w[0x3c/4]=w[0x44/4]=1u<<28; // ETE15/FPTE15, normalized tags.
-    w[0x4c/4]=0x7fc10000; w[0x50/4]=0x80000000;
-    w[0x58/4]=0x7fc20000; w[0x5c/4]=0xc0000000;
+    w[2]=0xfe000000; w[0x28/4]=0x4000; w[0x40/4]=sqrt ? 0x00050000:0x00200000;
+    if(sqrt) { w[0x58/4]=0x40000000; w[0x5c/4]=0x80000000; } //sqrt2, internal command05.
+    else {
+        w[0x3c/4]=w[0x44/4]=1u<<28; // ETE15/FPTE15, normalized tags.
+        w[0x4c/4]=0x7fc10000; w[0x50/4]=0x80000000;
+        w[0x58/4]=0x7fc20000; w[0x5c/4]=0xc0000000;
+    }
     fpp_set_fpcr(0x0200); fpp_set_fpsr(0); install(w); fpuop_restore(0xf358);
     assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
-    assert(regs.fp[0].fpx.high==0x3ffd && regs.fp[0].fpx.low==0xaaaaaaaaaaaaaaabULL);
+    // sqrt2 significand = nearest integer sqrt(2 * 2^126), independent of fpp.
+    assert(regs.fp[0].fpx.high==(sqrt ? 0x3fff:0x3ffd) && regs.fp[0].fpx.low==
+        (sqrt ? 0xb504f333f9de6484ULL:0xaaaaaaaaaaaaaaabULL));
     assert(regs.fp_exp_pend==49 && regs.fpu_exp_state==2 && regs.fpiar==0x4000);
     // MC68040UM9.2.4: FPIAR names the cause; the pre-instruction exception
     // stack names the following instruction to retry, not that old cause.
@@ -112,8 +117,9 @@ static void busy_new_exception(int rev) {
     m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
     assert(get_long(0x11000)==((unsigned(rev)<<24)|0x00600000));
     assert(get_long(0x11028)==0x4000 && (get_long(0x11048)&(3u<<25))==(1u<<25));
-    assert(get_long(0x11040)==0x00200000);
-    printf("FRESTORE040 rev%x BUSY FE-denorm/new-exception-identity PASS\n",rev);
+    assert(get_long(0x11040)==w[0x40/4]);
+    if(sqrt) assert(get_long(0x11034)==0x00210000);
+    printf("FRESTORE040 rev%x BUSY FE-%s/new-exception-identity PASS\n",rev,sqrt ? "sqrt05":"denorm");
 }
 static void busy_06() {
     // Motorola FPSP bugfix.S:op0_xi/op0_sete15 reconstructs rev40 CU:
@@ -155,6 +161,45 @@ static void busy_06() {
         printf("FRESTORE040 rev40 BUSY06 case%u arithmetic/flags/registers/frame PASS\n",n);
     }
 }
+static void produced_commands(int rev) {
+    // MC68040UM9.8/fig9-11/table9-16: execute the actual instruction first;
+    // command words, stage and byte counts below are independent of its writer.
+    struct Case { unsigned op, command, wb_command; uint16_t high; uint64_t low; unsigned mode, vector; };
+    const Case cases[] = {
+        {0x04,0x05,0x21,0x4000,0x8000000000000000ULL,0,49}, //sqrt2, extended
+        {0x41,0x41,0x41,0x4000,0x8000000000000000ULL,0,49}, //single sqrt2
+        {0x45,0x45,0x61,0x4000,0x8000000000000000ULL,0,49}, //double sqrt2
+        {0x00,0x00,0,0x3fff,0x8000000200000000ULL,0x40,49}, //move, FPCRsingle
+        {0x40,0x40,0,0x3fff,0x8000000200000000ULL,0,49}, //single move
+        {0x44,0x44,0,0x3fff,0x8000000000000008ULL,0,49}, //double move
+        {0x04,0x05,0,0xbfff,0x8000000000000000ULL,0,52}, //sqrt(-1), OPERR/CU
+    };
+    for(const auto &c:cases) {
+        owner(rev); move(2,7); regs.fp[1].fpx.high=c.high; regs.fp[1].fpx.low=c.low;
+        fpp_set_fpcr((c.vector==49 ? 0x0200:0x2000)|c.mode); fpp_set_fpsr(0);
+        m68k_setpc_normal(0x1004); regs.instruction_pc=0x1000;
+        fpuop_arithmetic(0xf200,0x0500|c.op); // FP1 -> FP2, actual SoftFloat.
+        const bool wb=c.wb_command!=0; const unsigned bytes=wb ? 100:rev==0x40 ? 44:52;
+        auto saved=capture(); assert(saved.exp_pend==c.vector && saved.exp_state==unsigned(wb ? 2:1));
+        m68k_areg(regs,0)=0x10000; put_long(0x10000+bytes,0xa5a5a5a5); fpuop_save(0xf310);
+        Words wire(bytes/4); for(unsigned i=0;i<wire.size();i++) wire[i]=get_long(0x10000+4*i);
+        assert(wire[0]==((unsigned(rev)<<24)|((bytes-4)<<16)) && get_long(0x10000+bytes)==0xa5a5a5a5);
+        const unsigned cmd1=wb ? 0x40:rev==0x40 ? 8:0x10, flags=wb ? 0x48:rev==0x40 ? 0x10:0x18;
+        assert(wire[cmd1/4]==((0x0500|c.command)<<16));
+        assert((wire[flags/4]&(3u<<25))==(wb ? 1u<<25:1u<<26));
+        if(wb) assert(wire[0x34/4]==((0x100|c.wb_command)<<16));
+        install(wire); fpuop_restore(0xf358);
+        assert(m68k_areg(regs,0)==0x10000+bytes && regs.fp_exp_pend==int(c.vector));
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        for(unsigned i=0;i<wire.size();i++) assert(get_long(0x11000+4*i)==wire[i]);
+        owner(rev); assert(p6_fpu_state_apply(&saved)); // Reset backend and all features.
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        for(unsigned i=0;i<wire.size();i++) assert(get_long(0x11000+4*i)==wire[i]);
+        assert(p6_fpu_state_apply(&saved)); put_long(c.vector*4,0x2000);
+        fpuop_arithmetic(0xf200,0x0422); assert(m68k_getpc()==0x2000 && regs.fp_exception);
+        printf("FSAVE040 rev%x op%02x vector%u command/stage/restore/private/future PASS\n",rev,c.op,c.vector);
+    }
+}
 int main(int argc,char **argv) {
     assert(argc==2); std::ifstream file(argv[1],std::ios::binary);
     std::vector<uint8_t> rom{std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()};
@@ -165,9 +210,11 @@ int main(int argc,char **argv) {
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; assert(p6_run_frame(&input,0,&frame,&e)==P6_OK);
     busy_06();
     for(int rev : {0x40,0x41}) {
+        produced_commands(rev);
         for(int event=0;event<3;event++) busy(rev,event);
         busy_resume(rev);
         busy_new_exception(rev);
+        busy_new_exception(rev,true);
         for(int event=0;event<5;event++) {
             owner(rev); move(0,1); move(1,2); regs.fpiar=0x123456;
             // Sizes/offsets are from the frame diagram, not from FSAVE output.

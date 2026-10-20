@@ -21,5 +21,5 @@ class Frestore040Tests(unittest.TestCase):
                             str(tree / "libp6_portable.a"), "-o", str(exe)], check=True, timeout=300)
             result = subprocess.run([str(exe), str(rom)], capture_output=True, text=True, timeout=120)
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-            self.assertEqual(36, result.stdout.count(" PASS"), result.stdout)
+            self.assertEqual(52, result.stdout.count(" PASS"), result.stdout)
             print(result.stdout, end="")

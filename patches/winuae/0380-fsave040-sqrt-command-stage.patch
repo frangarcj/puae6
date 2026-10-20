@@ -1,0 +1,26 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -552,16 +552,19 @@
+ 				fpp_from_exten_fmovem(src, &fsave_data.et[0], &fsave_data.et[1], &fsave_data.et[2]);
+ 				fsave_data.stag = get_ftag(src, -1);
+ 			} else { // OPCLASS 000 and 010
+-				fsave_data.cmdreg1b = extra;
++				// MC68040UM 9.8: FSQRT04 becomes05; FRESTORE supplies05 already.
++				const uae_u16 frame_opmode = (extra & 0x7f) == 0x04 ? 0x05 : extra & 0x7f;
++				const uae_u16 frame_extra = (extra & 0xff80) | frame_opmode;
++				fsave_data.cmdreg1b = frame_extra;
+ 				fsave_data.e1 = 1;
+ 				fsave_data.wbte15 = (regs.fp_exp_pend == 54) ? 1 : 0; // SNAN (undocumented)
+ 
+ 				if (regs.fp_exp_pend == 51 || regs.fp_exp_pend == 53 || regs.fp_exp_pend == 49) { // UNFL, OVFL, INEX
+-					if ((extra & 0x30) == 0x20 || (extra & 0x3f) == 0x04) { // FADD, FSUB, FMUL, FDIV, FSQRT
++					if ((extra & 0x30) == 0x20 || frame_opmode == 0x05 || frame_opmode == 0x41 || frame_opmode == 0x45) { // SQRT variants are WB; FDMOVE is CU
+ 						regs.fpu_exp_state = 2; // 68040 BUSY frame
+ 						fsave_data.e3 = 1;
+ 						fsave_data.e1 = 0;
+-						fsave_data.cmdreg3b = (extra & 0x3C3) | ((extra & 0x038)>>1) | ((extra & 0x004)<<3);
++						fsave_data.cmdreg3b = (frame_extra & 0x3C3) | ((frame_extra & 0x038)>>1) | ((frame_extra & 0x004)<<3);
+ 						if (regs.fp_exp_pend == 51) { // UNFL
+ 							fpp_get_internal(&eo);
+ 						} else { // OVFL, INEX

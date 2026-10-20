@@ -5295,6 +5295,28 @@
           "after_sha256": "8eb2e5a07e171183586ecf94f90e09cc8eb33168b0924c614d0efcddbb9bb6db"
         }
       ]
+    },
+    {
+      "id": "0380-fsave040-sqrt-command-stage",
+      "file": "patches/winuae/0380-fsave040-sqrt-command-stage.patch",
+      "sha256": "e3800143aed6128652d54f8bf0185e830bfab5f258621440f2f52718847a6e2a",
+      "title": "Encode FSQRT state commands and distinguish sqrt from double move",
+      "reason": "T55c: MC68040UM9.8/fig9-11/table9-16 requires FSQRT04->05->21, WB/E3 for all sqrt precisions and CU/E1 for FDMOVE44. The broad low-six-bit test confuses these opmodes. Preserve the other arithmetic-family mask.",
+      "category": "state corrections",
+      "order": 197,
+      "symbols": [
+        "fpsr_check_arithmetic_exception"
+      ],
+      "test": "tests/host/test_frestore040.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "8eb2e5a07e171183586ecf94f90e09cc8eb33168b0924c614d0efcddbb9bb6db",
+          "after_sha256": "cded560a499e01f7eb9fbac953459b6b03d4ccb9bc37e43bab6e54d4c932fdb9"
+        }
+      ]
     }
   ]
 }
