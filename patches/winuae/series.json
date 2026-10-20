@@ -5339,6 +5339,28 @@
           "after_sha256": "923832bcff7f4f44b4c6d8b5bdd4fb2dbb8ad3e9017f89a2841e04f528c68ef1"
         }
       ]
+    },
+    {
+      "id": "0382-sprite-restore-unsigned-words",
+      "file": "patches/winuae/0382-sprite-restore-unsigned-words.patch",
+      "sha256": "e937c2d90c7dee2cb4be3fabfc0e7a7a9a60aa5327387d0a64764ee6d6d71b68",
+      "title": "Reconstruct sprite state words without signed extension",
+      "reason": "T66r7: restore_custom_sprite_denise promoted uint16 words to int; high-bit words sign-extended to uint64 and overwrote the other half of native sprite state. Use unsigned32 intermediates for both32/64-bit modes.",
+      "category": "state corrections",
+      "order": 199,
+      "symbols": [
+        "restore_custom_sprite_denise"
+      ],
+      "test": "tests/step/test_sprite_restore.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "19793828365bcc4de3f0fe9a04669f4cbd5ab8c220c44f16531feb6cd36bf52a",
+          "after_sha256": "6af1f03f335196827febb68bfb02e13cd64c51fcf677583898758d666cdbd4ef"
+        }
+      ]
     }
   ]
 }

@@ -279,7 +279,8 @@ TASK_SUITES[('LR01', 'T66r6')] = {'cd32fr_session_restore': 'tests.libretro-host
                                   'stock_profile_rejections': 'tests.media.test_cd32_boot.Cd32BootTests'}
 TASK_SUITES[('WB03', 'T66r6')] = {'public_cd32fr_memory_restore': 'tests.waterbox-media.test_cd_source.Cd32FastCoreTests'}
 TASK_SUITES[('LR01', 'T66r7')] = {
-    'real_brian_gameplay_restore': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore'}
+    'real_brian_gameplay_restore': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore',
+    'sprite_restore_unsigned_words': 'tests.step.test_sprite_restore.SpriteRestoreTests'}
 TASK_SUITES[('WB03', 'T66r7')] = {
     'real_brian_gameplay_snapshot': 'tests.waterbox-media.test_cd_source.Cd32GameCoreTests'}
 TASK_SUITES[('LR01', 'T66r8')] = {
