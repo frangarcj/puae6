@@ -420,27 +420,6 @@
       "scenarios": [],
       "subsystems": []
     },
-    "0356-cue-metadata-only": {
-      "effect": "inert",
-      "why": "blkdev_cdimage.cpp is not selected by REF01 profiles. The metadata-only branch reuses the pinned directive traversal without the device; standalone parser checks cover strict bounds and preservation of indices, flags and gaps.",
-      "test": "tests/media/test_cue_metadata.py",
-      "scenarios": [],
-      "subsystems": []
-    },
-    "0357-ccd-metadata-only": {
-      "effect": "inert",
-      "why": "blkdev_cdimage.cpp is excluded from REF01 profiles. CCD/CUE metadata-only exports are exercised by the standalone parser probe, without selecting the device backend.",
-      "test": "tests/media/test_ccd_metadata.py",
-      "scenarios": [],
-      "subsystems": []
-    },
-    "0361-nrg-metadata-only": {
-      "effect": "inert",
-      "why": "blkdev_cdimage.cpp is excluded from REF01 profiles. The standalone metadata endpoint reuses parsenrg without its device backend; directed DAO fixtures cover sizes, offsets and unsupported variants.",
-      "test": "tests/media/test_nrg_metadata.py",
-      "scenarios": [],
-      "subsystems": []
-    },
     "0367-cd32-combined-firmware": {
       "effect": "inert",
       "why": "REF01 profiles contain no CD32. Only the private stock CD32 profile takes the new one-MiB combined firmware branch; other ROM envelopes are unchanged.",
@@ -521,6 +500,9 @@
   },
   "keep": {
     "0359-cda-semantic-stream": "The portable cd_audio_state header layout and its audio.cpp implementation must remain paired. REF01 retains this component endpoint; its corpus creates no CDA stream, while the directed PCM probe exercises the new pause and restoration behavior.",
-    "0383-state-pending-config": "BEAM endpoint word count must remain paired with bridge/state_upstream.cpp. The preference countdown is causal even under fixed preferences; native early-cut and real CD32 cross-owner restore exercise it. REF01 does not load native states."
+    "0383-state-pending-config": "BEAM endpoint word count must remain paired with bridge/state_upstream.cpp. The preference countdown is causal even under fixed preferences; native early-cut and real CD32 cross-owner restore exercise it. REF01 does not load native states.",
+    "0361-nrg-metadata-only": "The required MDS metadata patch0388 extends the NRG compile guard and decoder branch, and required NRG extensions0389/0391/0392 need this parser. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate NRG parsing. Directed metadata/provider tests cover its layouts and failures; no corpus golden is changed.",
+    "0356-cue-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
+    "0357-ccd-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks."
   }
 }
