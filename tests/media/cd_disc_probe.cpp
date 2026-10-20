@@ -2,6 +2,8 @@
 #include "cd_akiko.h"
 #include "cd_read.h"
 #include "uae/cdrom.h"
+#include "../../adapters/waterbox/cd_descriptor.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <initializer_list>
@@ -308,6 +310,115 @@ static int mode2_gaps()
     return 0;
 }
 
+static int waterbox_v2_descriptor()
+{
+    static_assert(sizeof(p6w_cd_info)==2432 && sizeof(p6w_cd_track)==24 &&
+        offsetof(p6w_cd_info,bytes)==40 && offsetof(p6w_cd_info,tracks)==56, "unchanged v1");
+    static_assert(sizeof(p6w_cd_info_v2)==4808 && sizeof(p6w_cd_track_v2)==48 &&
+        offsetof(p6w_cd_info_v2,bytes)==40 && offsetof(p6w_cd_info_v2,tracks)==56, "v2 header");
+    static_assert(offsetof(p6w_cd_track_v2,index0)==0 && offsetof(p6w_cd_track_v2,index1)==4 &&
+        offsetof(p6w_cd_track_v2,end)==8 && offsetof(p6w_cd_track_v2,mode)==12 &&
+        offsetof(p6w_cd_track_v2,control)==16 && offsetof(p6w_cd_track_v2,reserved)==20 &&
+        offsetof(p6w_cd_track_v2,stored_pregap)==24 && offsetof(p6w_cd_track_v2,synthetic_pregap)==28 &&
+        offsetof(p6w_cd_track_v2,postgap)==32 && offsetof(p6w_cd_track_v2,flags)==36 &&
+        offsetof(p6w_cd_track_v2,pregap_mode)==40 && offsetof(p6w_cd_track_v2,pregap_control)==44, "v2 track");
+    using R=Track::Regions;
+    p6w_cd_info_v2 wire{}; wire.version=2; wire.size=sizeof wire; wire.count=4; wire.leadout=20;
+    wire.id[0]=0x71; wire.bytes=20*2448;
+    wire.tracks[0]={0,0,3,0,0,0,0,0,0,0,0,0}; // Complete legacy policy remains expressible.
+    wire.tracks[1]={3,5,9,1,4,0,1,1,2,R::Explicit|R::ProgramSub96|R::PregapSub96|R::PostgapIndex2,0,0};
+    wire.tracks[2]={9,11,15,0,0,0,0,2,2,R::Explicit|R::PostgapStored|R::PostgapSub96|R::PostgapIndex2,2,4};
+    wire.tracks[3]={15,17,20,2,4,0,1,0,0,R::Explicit|R::ProgramSub96,1,4};
+    Provider p{wire.bytes,0,0,2448,1}; Binding binding{{{0x71},wire.bytes,1},provide,&p};
+    struct Guarded { uint64_t before; Layout layout; uint64_t after; } guarded;
+    memset(&guarded,0xa5,sizeof guarded);
+    CHECK(p6_waterbox::cd_descriptor_v2(&wire,binding,&guarded.layout)==Result::Ok&&!p.calls);
+    CHECK(guarded.before==UINT64_C(0xa5a5a5a5a5a5a5a5)&&guarded.after==guarded.before);
+    const auto base=guarded.layout; CHECK(base.tracks==4&&base.leadout==20&&!memcmp(base.content_id,wire.id,32));
+    const Mode modes[]={Mode::Audio,Mode::Mode1Raw,Mode::Audio,Mode::Mode2Raw};
+    const Mode prefixes[]={Mode::Mode1_2048,Mode::Audio,Mode::Mode2Raw,Mode::Mode1Raw};
+    for(unsigned n=0;n<4;++n) {
+        const auto &t=base.track[n]; const auto &w=wire.tracks[n];
+        CHECK(t.index0==w.index0&&t.index1==w.index1&&t.end==w.end&&t.source==0&&t.stride==2448&&t.adr==1);
+        CHECK(t.mode==modes[n]&&t.control==w.control&&t.stored_pregap==bool(w.stored_pregap)&&
+            t.synthetic_pregap==w.synthetic_pregap&&t.postgap==w.postgap&&t.regions.flags==w.flags&&
+            t.regions.pregap_mode==prefixes[n]&&t.regions.pregap_control==w.pregap_control);
+        CHECK(t.offset==uint64_t(n==0?0:n==1?4:n==2?11:15)*2448);
+    }
+    Disc disc; CHECK(disc.bind(base,&binding,1)==Result::Ok&&!p.calls);
+    uint8_t out[2464];
+    for(uint32_t lba=0;lba<20;++lba) {
+        const bool synthetic=lba==3||lba==7||lba==8||lba==9||lba==10;
+        const bool sub=!synthetic&&lba!=11&&lba!=12&&lba!=15&&lba!=16;
+        const Mode mode=(lba<5||(lba>=11&&lba<15))?Mode::Audio:(lba<9||(lba>=15&&lba<17))?Mode::Mode1Raw:Mode::Mode2Raw;
+        SectorInfo info; CHECK(disc.describe(lba,&info)==Result::Ok&&info.synthetic==synthetic&&info.stored_subs==sub&&info.effective.mode==mode);
+        CHECK(info.effective.control==(mode==Mode::Audio?0:4)&&(synthetic||info.source_offset==uint64_t(lba)*2448));
+        const auto calls=p.calls; memset(out,0xa5,sizeof out);
+        CHECK(canonical_read(disc,lba,2448,out+8,2448)==Result::Ok&&filled(out,8,0xa5)&&filled(out+2456,8,0xa5));
+        if(synthetic) CHECK(p.calls==calls&&(mode!=Mode::Audio||filled(out+8,2352,0)));
+        else for(unsigned n=0;n<2352;++n) CHECK(out[8+n]==byte(p,uint64_t(lba)*2448+n));
+        if(synthetic&&mode!=Mode::Audio) CHECK(out[23]==(mode==Mode::Mode1Raw?1:2)&&filled(out+24,2048,0));
+        if(sub) for(unsigned n=0;n<96;++n) CHECK(out[2360+n]==byte(p,uint64_t(lba)*2448+2352+n));
+        else { printf("wire %u ",lba); for(unsigned n=0;n<96;++n) printf("%02x",out[2360+n]); puts(""); }
+        memset(out,0xa5,sizeof out);
+        CHECK(disc.read_sector(lba,2448,out,2448)==(sub?Result::Ok:Result::Unsupported));
+        if(!sub) CHECK(filled(out,sizeof out,0xa5));
+    }
+    for(unsigned bad=0;bad<30;++bad) {
+        auto other=wire; auto b=binding; auto &t=other.tracks[1];
+        switch(bad) {
+        case 0: other.version=1; break; case 1: --other.size; break;
+        case 2: other.count=0; break; case 3: other.count=100; break;
+        case 4: ++other.bytes; break; case 5: --other.leadout; break;
+        case 6: t.reserved=1; break; case 7: t.mode=3; break; case 8: t.control=260; break;
+        case 9: t.stored_pregap=2; break; case 10: t.synthetic_pregap=3; break;
+        case 11: t.flags|=64; break; case 12: t.flags&=~R::Explicit; break;
+        case 13: t.pregap_mode=3; break; case 14: t.pregap_control=256; break;
+        case 15: t.pregap_control=4; break; case 16: t.index0=4; break; case 17: t.end=t.index1; break;
+        case 18: t.postgap=4; break; case 19: t.flags|=R::PostgapSub96; break;
+        case 20: other.tracks[0].pregap_mode=1; break; case 21: other.tracks[0].pregap_control=2; break;
+        case 22: other.tracks[98].synthetic_pregap=1; break; case 23: other.tracks[98].reserved=1; break;
+        case 24: other.count=1; break; case 25: t.synthetic_pregap=UINT32_MAX; break;
+        case 26: b.identity.sector_bytes=2048; break; case 27: b.identity.content_id[0]^=1; break;
+        case 28: --b.identity.bytes; break; case 29: b.read=nullptr; break;
+        }
+        memset(&guarded,0xa5,sizeof guarded); const auto calls=p.calls;
+        CHECK(p6_waterbox::cd_descriptor_v2(&other,b,&guarded.layout)==Result::Invalid);
+        CHECK(filled(reinterpret_cast<uint8_t *>(&guarded),sizeof guarded,0xa5)&&p.calls==calls);
+    }
+    CHECK(p6_waterbox::cd_descriptor_v2(nullptr,binding,&guarded.layout)==Result::Invalid);
+    CHECK(p6_waterbox::cd_descriptor_v2(&wire,binding,nullptr)==Result::Invalid);
+    Provider fresh=p; fresh.calls=0; auto renamed=binding; renamed.context=&fresh;
+    CHECK(p6_waterbox::cd_descriptor_v2(&wire,renamed,&guarded.layout)==Result::Ok);
+    auto calls=p.calls; CHECK(disc.rebind(guarded.layout,&renamed,1)==Result::Ok&&!fresh.calls&&p.calls==calls);
+    CHECK(disc.read_sector(4,2448,out,2448)==Result::Ok&&fresh.calls==1&&p.calls==calls);
+    for(unsigned change=0;change<8;++change) {
+        auto other=wire; auto b=renamed; auto &t=other.tracks[1];
+        switch(change) {
+        case 0: other.id[0]^=1; b.identity.content_id[0]^=1; break;
+        case 1: t.pregap_control=2; break; case 2: other.tracks[3].control=5; break;
+        case 3: t.synthetic_pregap=0; break; case 4: --t.postgap; break;
+        case 5: t.pregap_mode=1; t.pregap_control=4; break;
+        case 6: t.flags&=~R::PregapSub96; break; case 7: ++other.tracks[3].index1; break;
+        }
+        calls=fresh.calls;
+        CHECK(p6_waterbox::cd_descriptor_v2(&other,b,&guarded.layout)==Result::Ok&&fresh.calls==calls);
+        CHECK(disc.rebind(guarded.layout,&b,1)==Result::Incompatible&&fresh.calls==calls);
+        CHECK(disc.read_sector(4,2448,out,2448)==Result::Ok&&fresh.calls==calls+1);
+        for(unsigned n=0;n<2448;++n) CHECK(out[n]==byte(fresh,4*2448+n));
+    }
+    for(int fault : {1,2,3}) {
+        fresh.fault=fault; memset(out,0xa5,sizeof out);
+        CHECK(canonical_read(disc,4,2448,out+8,2448)==Result::ReadError&&filled(out,sizeof out,0xa5));
+    }
+    fresh.fault=0;
+    auto maximum=wire; maximum.count=maximum.leadout=99; maximum.bytes=99*2448;
+    for(unsigned n=0;n<99;++n) maximum.tracks[n]={n,n,n+1,1,4,0,0,0,0,0,0,0};
+    auto b=renamed; b.identity.bytes=maximum.bytes; calls=fresh.calls;
+    CHECK(p6_waterbox::cd_descriptor_v2(&maximum,b,&guarded.layout)==Result::Ok&&fresh.calls==calls&&guarded.layout.tracks==99);
+    return 0;
+}
+
 static int explicit_regions()
 {
     using R = Track::Regions;
@@ -395,6 +506,7 @@ static int explicit_regions()
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
+    if (!strcmp(argv[1], "wire-v2")) return waterbox_v2_descriptor();
     if (!strcmp(argv[1], "regions")) return explicit_regions();
     if (!strcmp(argv[1], "reads")) return reads();
     if (!strcmp(argv[1], "failures")) return failures_and_rebind();

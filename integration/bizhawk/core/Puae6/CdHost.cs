@@ -14,6 +14,24 @@ public unsafe struct P6CdInfo
  public uint Count, Leadout;
  public fixed uint Tracks[99 * 6];
 }
+// Contract only; v1 imports, callback slots and binding remain unchanged.
+// Modes0/1/2: Audio/Mode1Raw/Mode2Raw. Stored/SUB refer to canonical wire data,
+// including supplied Q/SBI, rather than physical image packing. Inactive fields0.
+[StructLayout(LayoutKind.Sequential)]
+public struct P6CdTrackV2
+{
+ public uint Index0, Index1, End, Mode, Control, Reserved;
+ public uint StoredPregap, SyntheticPregap, Postgap, Flags, PregapMode, PregapControl;
+}
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct P6CdInfoV2
+{
+ public uint Version, Size;
+ public fixed byte Id[32];
+ public ulong Bytes;
+ public uint Count, Leadout;
+ public fixed uint Tracks[99 * 12]; // 48-byte P6CdTrackV2 records; version2, size4808.
+}
 public abstract partial class LibPuae6
 {
  [UnmanagedFunctionPointer(CC)] public delegate int CdRead(ulong offset, IntPtr destination, uint count);

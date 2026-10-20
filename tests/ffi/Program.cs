@@ -34,7 +34,17 @@ internal static unsafe partial class Program
 			{
 				case "layout": Layout(); break;
                 case "cdlayout": Require(sizeof(P6CdInfo) == 2432 && Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Bytes)).ToInt64() == 40
-                    && Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Tracks)).ToInt64() == 56, "private CD layout"); break;
+                    && Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Tracks)).ToInt64() == 56, "private CD layout");
+                    Require(sizeof(P6CdInfoV2) == 4808 && sizeof(P6CdTrackV2) == 48
+                     && Marshal.OffsetOf<P6CdInfoV2>(nameof(P6CdInfoV2.Bytes)).ToInt64() == 40
+                     && Marshal.OffsetOf<P6CdInfoV2>(nameof(P6CdInfoV2.Tracks)).ToInt64() == 56, "regional CD layout");
+                    var fields = new[] { nameof(P6CdTrackV2.Index0), nameof(P6CdTrackV2.Index1), nameof(P6CdTrackV2.End),
+                     nameof(P6CdTrackV2.Mode), nameof(P6CdTrackV2.Control), nameof(P6CdTrackV2.Reserved),
+                     nameof(P6CdTrackV2.StoredPregap), nameof(P6CdTrackV2.SyntheticPregap), nameof(P6CdTrackV2.Postgap),
+                     nameof(P6CdTrackV2.Flags), nameof(P6CdTrackV2.PregapMode), nameof(P6CdTrackV2.PregapControl) };
+                    for (int i = 0; i < fields.Length; ++i)
+                     Require(Marshal.OffsetOf<P6CdTrackV2>(fields[i]).ToInt64() == i * 4, "regional CD " + fields[i]);
+                    break;
 				case "cd32log": Cd32Log(); break; // Controller definition / real BK2 log, no sandbox.
 				case "mouse2log": Mouse2Log(); break;
 				case "pointerlog": PointerLog(); break;

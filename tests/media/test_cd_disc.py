@@ -55,6 +55,18 @@ class CdDiscTests(unittest.TestCase):
     def test_mixed_toc_raw_payload_ecma_sync_edc_and_both_pregaps(self):
         self.run_probe("reads")
 
+    def test_waterbox_v2_descriptor_layout_regions_and_rebind(self):
+        rows=self.run_probe('wire-v2').splitlines()
+        self.assertEqual([int(row.split()[1]) for row in rows],[3,7,8,9,10,11,12,15,16])
+        for row in map(str.split,rows):
+            lba=int(row[1]); track=2 if lba<9 else 3 if lba<15 else 4
+            index1=5 if track==2 else 11 if track==3 else 17
+            pre,post=lba<index1, lba in (7,8)
+            control=0 if lba in (3,11,12) else 4
+            q=bytes((control*16+1,track,0 if pre else 2 if post else 1,0,0,abs(lba-index1),0,0,2,(lba//10)*16+lba%10))
+            expected=(b'\xff' if pre or post else b'\0')*12+q+(binascii.crc_hqx(q,0)^0xffff).to_bytes(2,'big')+bytes(72)
+            self.assertEqual(bytes.fromhex(row[2]),expected)
+
     def test_rejections_faults_and_rebind_are_transactional(self):
         self.run_probe("failures")
 
