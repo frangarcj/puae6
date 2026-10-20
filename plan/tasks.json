@@ -11584,7 +11584,8 @@
         "Eliminar la importacion directa de TestCase del constructor en test_autoload: unittest lo estaba ejecutando otra vez al cargar el modulo. Mantener seleccionados ambos modulos originales y probar que sus IDs de casos no se solapan; no quitar assertions ni reducir ventanas de ejecucion.",
         "Prioridad de entrega confirmada: usar primero la preview local T40a ya probada desde el ZIP. CD32/CDTV, Z3 y040/060 siguen pendientes o aislados y no bloquean esta entrega; la matriz amplia/release formal conserva sus puertas originales y se ejecuta sobre su candidata correspondiente.",
         "Integracion dirigida del inventario: el checkestatico falla porregistro12(P6AK condicionalCD32) frente11 y native_stateCD32 insertado dentro deaudio-out_of_profile. Ampliar touch a tests/state/test_components.py para verificar exactamente los11basicos yP6AK, y separar componenteCD32 causal con archivo/visitor reales deP6AK yfasePaula propiaP6AU. Mantener asserts estrictos, sin modificar motor ni repetir matriz mientras R8/FRESTORE se implementan; coordinador realiza esta vertical encheckoutprincipal, agentes permanecen aislados.",
-        "InventarioCD32 corregido3b3f6630: registro exacto11base+P6AK, componente causal separado, propiedadPaulaP6AU explicita, sin visitor bajoout_of_profile. tests.state.test_components13PASS y contratoestatico inventario/probePASS sin buildmotor; cobertura de digestAkiko generico sigue pendiente visible, no se inventa. Matriz/cierreCI sigue para candidata integrada estable."
+        "InventarioCD32 corregido3b3f6630: registro exacto11base+P6AK, componente causal separado, propiedadPaulaP6AU explicita, sin visitor bajoout_of_profile. tests.state.test_components13PASS y contratoestatico inventario/probePASS sin buildmotor; cobertura de digestAkiko generico sigue pendiente visible, no se inventa. Matriz/cierreCI sigue para candidata integrada estable.",
+        "Preflight012d92d3: exigir ROM A4000, ROMprincipal/extendida CD32 y CUE del juego antes de imagenes/preparacion/build. tests.ci.test_nightly15PASS con negativos de los cuatro assets y sin ejecutar motor; no acredita ejecucion acumulada/remota."
       ],
       "checks": [
         "PLAN01",
@@ -13278,7 +13279,8 @@
         "tests/state/test_kickstart_a4040.py conserva la puerta real040/060 reutilizando la animacion/imagen, paridad headless/libretro y futuros nativos del A4030. Diagnostico0382: en040 con/sinFPU la ROM entra en alerta8000000B, no halted; atribuir instruccion de origen antes de editar motor.",
         "Atribucion real del negro040: F4D8/CINVA BC enF80C6E llega a op_illg porque build_cpufunctbl conserva el antiguo filtro totalF-line020. Frente aislado a4040-frontends corrige parche0384, preservando instrucciones enteras/cache040/060 generadas y rechazo PMMU/FPU ausente. Reproducer de opcode publico y regresiones cache/MOVE16 antes del firmware; coordinador registra serie/clasificacion, sin editar generados ni fingir MMU.",
         "Candidata0384: IntegerFlineTests3PASS; firmware real040/060 nativo ylibretro4testsPASS (boot visual/animado, paridad headless yrestoreSame/Newproceso). WBguestce7f0918/91sources+4recipe:040 realPASS y060PASS en repeticion dirigida con el mismo guest/runtime, incluidos nuevo sandbox/proceso. El primer060 falloSIGBUS host en _xzm_xzone_malloc_tiny→verify_hash→wbx_load_state, guardpageMALLOC, antes de aplicar paginas de esa carga; causa ultima pendiente, no first-pass ni falloCPU demostrado. Mantener visible la inestabilidad host para candidata/release. FRESTORE completo y puerta acumulada del padre siguen pendientes.",
-        "Incremento0386: reanudar solo CU06rev40 reconstruido porFPSP op2_xi/op2_com desde SINGLEnormal, CMD15400, STAG0, exp3f81..407e y significando24bits. Oraculo literal paraaritmetica/FP0..7/limites/compare/INEX/E3; no acreditar DOUBLE06nativo ni especiales/denorms. El padre mantiene la puerta completa, cuyo siguiente incremento decodifica esas variantes con fuenteprimaria, y no se cierra por este subcaso."
+        "Incremento0386: reanudar solo CU06rev40 reconstruido porFPSP op2_xi/op2_com desde SINGLEnormal, CMD15400, STAG0, exp3f81..407e y significando24bits. Oraculo literal paraaritmetica/FP0..7/limites/compare/INEX/E3; no acreditar DOUBLE06nativo ni especiales/denorms. El padre mantiene la puerta completa, cuyo siguiente incremento decodifica esas variantes con fuenteprimaria, y no se cierra por este subcaso.",
+        "Incremento0387 en comprobacion: CU06double reconstruido desde SINGLE zero/infinity, STAG1/ex3c00 o STAG2/ex43ff, mantisa0 y signo conservado. Baseline0386 reproduce fallo en primer+0;12fixtures nuevos mantienen destino ante DZ/OPERR y prioridadE3. No cerrar padre ni acreditar NaNs/denorms o DOUBLE06nativo."
       ],
       "checks": [
         "GEN01",
@@ -16441,7 +16443,7 @@
       "title": "Eliminar contaminacion de video CD32 entre cargas de sesion",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66r7"
       ],
@@ -16465,7 +16467,8 @@
         "Conservar el reproducer independiente hallado en T66r7: tras jugar Brian the Lion, descargar y cargar otra sesion en la misma imagen nativa cambia video desde la unidad23, con ticks y PCM iguales. Los landmarks y futuros restaurados de T66r7 no sustituyen esta puerta de vida de sesion.",
         "Localizar el estado de video que sobrevive al unload/load y corregir su propietario/reset minimo, sin cambiar hashes ni tolerancias. Comparar arranque frio completo de dos ciclos nativos tras llegar al nivel jugable6500; mantener la restauracion y sus landmarks. No modificar MacHawk ni descargar assets.",
         "Usar el test independiente, sin expectedFailure/skip para ocultar el desvio; el coordinador asigna compilacion pesada. Tras dos intentos razonados conservar reproducer y dos hipotesis verificables si queda bloqueado.",
-        "Frente cd32_close en worktree t53-cpu tras cierreR7; integrar candidata main por merge normal, coordinador mantiene serie/clasificacion/plan y reserva parche0385. Usar reproducer existente; no recompilar guest ni repetir juego/restore completo durante atribucion. Compilacion nativa dirigida serializada; conservar regresion de restauracion al integrar correccion."
+        "Frente cd32_close en worktree t53-cpu tras cierreR7; integrar candidata main por merge normal, coordinador mantiene serie/clasificacion/plan y reserva parche0385. Usar reproducer existente; no recompilar guest ni repetir juego/restore completo durante atribucion. Compilacion nativa dirigida serializada; conservar regresion de restauracion al integrar correccion.",
+        "Candidata0385: LR01 cold_reload_after_gameplay PASS, dos sesiones completas6580 con video/PCM/ticks iguales desdeunidad1. Regresion LR01T66r7 PASS, incluido restore completo en nuevos owners/proceso y fixture sprite; sin cambiar test/oraculo. No guest nuevo: esta puerta es nativa; T66 conserva formatos, variantes, cambioCD y tags pendientes."
       ],
       "checks": [
         "LR01"
@@ -16473,7 +16476,8 @@
       "acceptance": [
         "Dos cargas sucesivas del CD32 real, tras ejecutar el juego hasta6500, producen el mismo video/PCM/ticks desde el arranque, y los cortes de juego siguen restaurando. El fallo previo debe reproducirse en el test antes de la correccion."
       ],
-      "stop": "No rebajar el oraculo ni cerrar por landmarks o por restauracion; conservar la puerta independiente de limpieza de sesion."
+      "stop": "No rebajar el oraculo ni cerrar por landmarks o por restauracion; conservar la puerta independiente de limpieza de sesion.",
+      "blocked_reason": ""
     },
     {
       "id": "T66",

@@ -504,6 +504,13 @@
       "test": "tests/host/test_frestore040.py",
       "scenarios": [],
       "subsystems": []
+    },
+    "0387-frestore040-fpsp-cu06-zero-infinity": {
+      "effect": "inert",
+      "why": "REF01 has no FRESTORE040. Directed independent signed-zero/infinity frames cover results/flags, E3 priority and newly enabled DZ/OPERR with destination unchanged. NaNs, denormals and general BUSY completion remain pending.",
+      "test": "tests/host/test_frestore040.py",
+      "scenarios": [],
+      "subsystems": []
     }
   },
   "keep": {

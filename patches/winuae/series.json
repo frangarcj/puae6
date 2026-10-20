@@ -5454,6 +5454,28 @@
           "after_sha256": "6889a19eb664d973ad73a8ac85a450c1c83e35ffe9edd87b50c6441a61e98d33"
         }
       ]
+    },
+    {
+      "id": "0387-frestore040-fpsp-cu06-zero-infinity",
+      "file": "patches/winuae/0387-frestore040-fpsp-cu06-zero-infinity.patch",
+      "sha256": "6632cd5ca978306fe6d855d96e2c490a16e6fb4db2b5135b4f0a0848eb4e9591",
+      "title": "Decode FPSP CU06 reconstructed single zero and infinity",
+      "reason": "T55c: FPSP op2_com maps source sentinel exponents to double while retaining STAG/sign. Decode only documented zero/infinity shapes, preserving pending E3 priority and enabled DZ/OPERR destinations.",
+      "category": "FPU correctness",
+      "order": 204,
+      "symbols": [
+        "fpuop_restore"
+      ],
+      "test": "tests/host/test_frestore040.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "6889a19eb664d973ad73a8ac85a450c1c83e35ffe9edd87b50c6441a61e98d33",
+          "after_sha256": "d54de3cfb8636aae019faf164003c034162d7b5c13e473a59316f72ba98a9430"
+        }
+      ]
     }
   ]
 }
