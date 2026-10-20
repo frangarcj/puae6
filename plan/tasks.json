@@ -18179,6 +18179,57 @@
       ]
     },
     {
+      "id": "T77b1",
+      "title": "Continuacion semantica CPU/MMIO para esperas de blitter en Normal020",
+      "status": "in_progress",
+      "milestone": "FUTURE",
+      "required": false,
+      "depends": [
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/0005-frame-boundary.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/0393-waiting-blits-continuation.patch",
+        "ports/portable/p6_cpu_continuation.h",
+        "bridge/state_cpu.cpp",
+        "bridge/state_probe.cpp",
+        "manifests/state-inventory.json",
+        "tests/state/test_waiting_blits.py",
+        "tests/step/step_probe.cpp",
+        "tests/step/test_step.py",
+        "tests/host/cpu_continuation_probe.cpp",
+        "tests/host/test_cpu_continuation.py",
+        "tests/waterbox-state/test_waiting_blits.py",
+        "docs/adr/0015-mmio-continuation.md"
+      ],
+      "steps": [
+        "Decision previa T77b: no basta cortar waitingblits ni modificar dos opcodes. MOVEM conserva locales; custom_lput y acceso impar tienen subpalabras; Copper y escritura pipelined alcanzan los mismos setters. Primera vertical privada ejecutable para A1200 Normal020 sinFPU: mecanismo generado mas MMIO/espera mas codec de estado e instruccion real. Opcion publica byte69 y frontends siguen en padreT77b, defecto0 intacto y ningun modo adicional anunciado por esta hoja.",
+        "Excepcion de tamaño atomica explicita del coordinador:1000..1800lineasmanuales estimadas,12rutas, porque generador/consumidor/estado y reproducer deben permanecer coherentes. No dividir una estructura sin integracion real ni tocar outputs generados a mano. Solo parche0393 modifica gencpu/newcpu/custom/blitter y headers necesarios; enviar SHA/before/after para registro root antes de gates. No ampliar alcance a FPU, MMU, JIT ni otros modelos sin nueva ficha.",
+        "Generador produce frame tipado de locales vivos y discriminadores deopcode/fase. Acceso Pending sale de todos los llamadores sin ejecutar escritura pendiente, avanzar mascaras, cobrar ciclos finales ni entregar IRQ prematuramente. Reentrada completa una sola vez los efectos pendientes; CPU, MMIO compuesto y espera guardan EA/valor/anchura/subpalabra/mascaras/fase/watchdog y procedenciaCPU/Copper/evento. Revisar caminos de excepcion y accesos multiples, no lista de dos handlers. Sin pila C serializada, return addresses, punteros de funcion, journal/replay ni longjmp/excepciones usadas como continuacion.",
+        "Codec nativo valida fases/opcodes/mascaras/EA/subpalabra en preflight antes de mutacion y aplica despues; Waterbox conserva mismosdatos. Reset/cambio de owner limpian causalidad; cache/punteros se reconstruyen. Espera ejecuta eventos existentes hasta borde o fin y reanuda misma instruccion, sin segundo scheduler ni relojhost. Codigo de opcion0 conserva salida y orden de accesos.",
+        "GEN01: CpuContinuationTests compila emisores/handlers reales con ASan/UBSan y regresion GencpuModelTests. DET02/STATE01: ampliar reproducerWaitingBlits con blit grande MOVE.W y MOVEM.W D0-D1,(A0) aDFF040, long/impar yCopper, IRQpendiente; muestrear registros anteriores durante espera y escrituras una vez/enorden. Guardar antes/durante/despues, nuevo proceso, compararCPU/chipset/RAM/PCM/futuro y rechazos de fase transaccionales. STEP01: llamadas separadas vs avance continuo. WB03 real snapshot intermedio y nuevo sandbox/proceso; ningun nativo sustituyeWaterbox.",
+        "Frente busy_reference reutiliza worktree a4040-frontends aislado. Coordinador plan/checks/serie/clasificacion e integracion, serializa compilaciones motor/guest. Responsable puede construir generador/probe standalone dirigido-j2, no motor ni guest ni bateria completa sin coordinar. Ante dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis antes de blocked; no inventar finalizacion por compilar."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "STATE01",
+        "STEP01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Una instruccion real Normal020 se suspende en la espera sin efectos adelantados ni duplicados, entrega cada unidad y reanuda exactamente tras restauracion nativa y Waterbox real; accesos compuestos y Copper preservan orden y negativos rechazan sin mutar. Opcion publica sigue desactivada hasta cierre padre."
+      ],
+      "stop": "No prometer soportegeneral por dosopcodes ni snapshot privado por compilacion; sin continuacion completa no habilitar waiting_blits. No serializar pila/host pointers ni romper scheduler comun."
+    },
+    {
       "milestone": "FUTURE",
       "required": false,
       "read": [
@@ -18194,7 +18245,8 @@
       "title": "Esperas de blitter compatibles con el limite de unidad",
       "status": "pending",
       "depends": [
-        "T24"
+        "T24",
+        "T77b1"
       ],
       "touch": [
         "bridge/include/p6.h",
@@ -18220,7 +18272,8 @@
         "No exponer waiting_blits activo hasta resolver su espera dentro de MMIO: producir caso real donde DMA supera una unidad y revisar decision de continuacion. Reservar byte69, sin cambiar defecto0.",
         "No cortar el bucle adelantando escrituras: MOVEM y otras instrucciones con multiples accesos requieren la misma secuencia que upstream, snapshot nativo/Waterbox incluido. Implementar continuacion segura y luego opciones/frontends/tests.",
         "Prioridad confirmada por el usuario: primera version utilizable. Esta funcion opcional queda fuera de la ruta critica de la preview; conservar sus criterios originales para una iteracion posterior, sin presentarla como terminada.",
-        "Reproducer tests/state/test_waiting_blits.py: con A1200 Normal, blit grande y poke diagnostico waiting-blits:3 una llamada entrega mas de 1700 frames de audio stereo frente a unos 960 del defecto 0. El bucle waitingblits corre dentro de una escritura MMIO; no basta cortar x_do_cycles si MOVEM conserva accesos pendientes."
+        "Reproducer tests/state/test_waiting_blits.py: con A1200 Normal, blit grande y poke diagnostico waiting-blits:3 una llamada entrega mas de 1700 frames de audio stereo frente a unos 960 del defecto 0. El bucle waitingblits corre dentro de una escritura MMIO; no basta cortar x_do_cycles si MOVEM conserva accesos pendientes.",
+        "Decision usuario2026-10-20 incluye opcionales. T77b1 implementa continuacion privada ypuerta real atomica; este padre conserva opcion/config/identidad/frontends y todos sus criterios, sin habilitar por prototipo ni por dosopcodes."
       ],
       "acceptance": [
         "waiting_blits mantiene su semantica de MMIO sin saltarse unidades ni avanzar CPU prematuramente; restaura en los modos soportados."

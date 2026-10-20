@@ -557,6 +557,12 @@ TASK_SUITES[('LR01', 'T55b')] = {
     'real_a4000_boot_headless_parity_and_restore': 'tests.state.test_kickstart_a4030.LibretroKickstartTests'}
 TASK_SUITES[('WB03', 'T55b')] = {
     'real_a4000_boot_and_snapshot': 'tests.waterbox-state.test_wrapper_machine.WrapperMachineTests.test_wb03_real_a4000_boot_and_snapshot_in_same_new_sandbox_and_process'}
+TASK_SUITES[('GEN01', 'T77b1')] = {'generated_mmio_continuation': 'tests.host.test_cpu_continuation.CpuContinuationTests',
+                                      'cpu_model_regression': 'tests.codegen.test_gencpu_models.GencpuModelTests'}
+for _gate in ('DET02', 'STATE01'):
+    TASK_SUITES[(_gate, 'T77b1')] = {'waiting_blits_causal_restore': 'tests.state.test_waiting_blits'}
+TASK_SUITES[('STEP01', 'T77b1')] = {'unit_boundary_continuation': 'tests.step.test_step.StepTests'}
+TASK_SUITES[('WB03', 'T77b1')] = {'waiting_blits_sandbox_restore': 'tests.waterbox-state.test_waiting_blits.WaitingBlitsWaterboxTests'}
 TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
 TASK_SUITES[('BUILD01', 'T55c1')] = {
     'linked_native_and_full_waterbox_exports': 'tests.host.test_cpu_backend_build',
