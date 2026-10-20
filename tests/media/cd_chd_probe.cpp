@@ -45,7 +45,13 @@ int main(int argc, char **argv) {
         const uint64_t at = t.stride-8; const size_t length = size_t(b.identity.bytes-at < 2448 ? b.identity.bytes-at : 2448);
         CHECK(b.read(b.context,at,out,length,&got) && got == length);
         printf("bytes %u %llu %zu ",n,(unsigned long long)at,length); digest(out,length); puts("");
+        const uint64_t last = b.identity.bytes > t.stride+8 ? b.identity.bytes-t.stride-8 : 0;
+        const size_t tail = size_t(b.identity.bytes-last < 2448 ? b.identity.bytes-last : 2448);
+        CHECK(b.read(b.context,last,out,tail,&got) && got == tail);
+        printf("bytes %u %llu %zu ",n,(unsigned long long)last,tail); digest(out,tail); puts("");
         memset(out,0xa5,sizeof out); CHECK(b.read(b.context,b.identity.bytes,nullptr,0,&got) && !got);
+        CHECK(!b.read(b.context,0,nullptr,1,&got) && !got && untouched(out,sizeof out));
+        CHECK(!b.read(b.context,0,out,1,nullptr) && untouched(out,sizeof out));
         for (const auto &bad : {std::pair{b.identity.bytes,size_t(1)}, {UINT64_MAX,size_t(1)}, {uint64_t(0),size_t(2449)}})
             CHECK(!b.read(b.context,bad.first,out,bad.second,&got) && !got && untouched(out,sizeof out));
     }
@@ -58,19 +64,20 @@ int main(int argc, char **argv) {
             if (r == Result::Ok) digest(out+8,view); else CHECK(untouched(out,sizeof out)); puts("");
         }
     }
-    if (vfs) for (unsigned n = 0; n + 1 < layout.tracks; ++n) if (layout.track[n].stride == 2448) {
+    if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448) {
         uint8_t saved[2448]; const auto &t = layout.track[n]; const auto &b = owner->bindings()[n];
+        // Choose a different CHD hunk even for the final source before inducing I/O failure.
+        const auto evict = layout.track[n+1 < layout.tracks ? layout.tracks-1 : 0].index1;
         CHECK(canonical_read(disc,t.index1,2448,saved,sizeof saved) == Result::Ok);
-        CHECK(canonical_read(disc,layout.track[layout.tracks-1].index1,2448,out,sizeof out) == Result::Ok);
+        CHECK(canonical_read(disc,evict,2448,out,sizeof out) == Result::Ok);
         for (int error : {1,4}) {
             fault=error; memset(out,0xa5,sizeof out);
             CHECK(!b.read(b.context,t.stride-8,out,2448,&got) && !got && untouched(out,sizeof out));
             CHECK(canonical_read(disc,t.index1,2448,out,2448) == Result::ReadError && untouched(out,sizeof out));
             CHECK(read_subchannel(disc,t.index1,out,96) == Result::ReadError && untouched(out,sizeof out));
             fault=0; CHECK(canonical_read(disc,t.index1,2448,out,2448) == Result::Ok && !memcmp(out,saved,2448));
-            CHECK(canonical_read(disc,layout.track[layout.tracks-1].index1,2448,out,sizeof out) == Result::Ok);
+            CHECK(canonical_read(disc,evict,2448,out,sizeof out) == Result::Ok);
         }
-        break;
     }
     if (argc == 3) {
         auto fresh = std::make_unique<CdChd>(); CHECK(fresh->open(argv[2],vfs) == Result::Ok);
