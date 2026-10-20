@@ -5499,6 +5499,29 @@
           "after_sha256": "2d0643824998f36c3ddb54686e931ce8664d727d343da80455da40a09f020638"
         }
       ]
+    },
+    {
+      "id": "0389-nrg-dao-mode3-2336",
+      "file": "patches/winuae/0389-nrg-dao-mode3-2336.patch",
+      "sha256": "b7e7c71180d7ccde929912f8c22ebe927019cef3372bcca8985a09e1b6dc5a0d",
+      "title": "Export NRG DAO Mode2 2336-byte track metadata",
+      "reason": "T66l3: keep exact physical stride and offsets for mode03 while the native provider reconstructs only header16 by real LBA. TAO, mode02 and multisession remain unsupported and pending.",
+      "category": "media parser portability",
+      "order": 206,
+      "symbols": [
+        "parsenrg",
+        "nrg_metadata"
+      ],
+      "test": "tests/media/test_nrg_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "2d0643824998f36c3ddb54686e931ce8664d727d343da80455da40a09f020638",
+          "after_sha256": "764775b19ce319557b2b6777d8ac8ae771baff14369236ba811cf788264bdd99"
+        }
+      ]
     }
   ]
 }

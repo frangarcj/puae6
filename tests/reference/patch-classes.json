@@ -211,7 +211,8 @@
     "0385-reset-registers-before-fmode": "behavior",
     "0386-frestore040-fpsp-cu06-double-normal": "behavior",
     "0387-frestore040-fpsp-cu06-zero-infinity": "behavior",
-    "0388-mds-metadata-only": "required"
+    "0388-mds-metadata-only": "required",
+    "0389-nrg-dao-mode3-2336": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
