@@ -305,6 +305,8 @@ TASK_SUITES[('LR01', 'T66s3')] = {'public_mds_restore_identity': 'tests.libretro
 TASK_SUITES[('MED01', 'T66u1')] = {'cd_media_presence': 'tests.media.test_cd_device.CdDeviceTests',
                                    'cd_device_presence_state': 'tests.media.test_cd_device_state.CdDeviceStateTests'}
 TASK_SUITES[('STATE01', 'T66u1')] = {'akiko_presence_and_delivery_state': 'tests.media.test_akiko_state.AkikoStateTests'}
+TASK_SUITES[('MED01', 'T66u2')] = TASK_SUITES[('MED01', 'T66u1')]
+TASK_SUITES[('STATE01', 'T66u2')] = {'native_cd_catalogue_restore': 'tests.media.test_cd32_state.Cd32StateTests'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 for _task in ('T66t2', 'T66t3', 'T66t4'):
     TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',

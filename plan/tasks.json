@@ -16944,6 +16944,51 @@
       "stop": "No anunciar NRG completo ni sustituirECCMode2 porMode1; conservar variantespendientes ypuertas delpadre."
     },
     {
+      "id": "T66u2",
+      "title": "Catalogo CD inmutable con seleccion y restauracion nativa entre discos",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66u1",
+        "T66m7"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_device.h",
+        "ports/portable/media/cd_device.cpp",
+        "bridge/state.cpp",
+        "bridge/state_akiko.cpp",
+        "tests/media/cd_device_probe.cpp",
+        "tests/media/cd_device_state_probe.cpp",
+        "tests/media/cd32_state_probe.cpp",
+        "tests/media/test_cd32_state.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Catalogo privado fijo de1..16Disc prestados (mismo limiteP6_MAX_MEDIA/kMaxImages), IDs unicos yorden declarado estable; no ordenar lexicograficamente ni guardar rutas/punteros. Bindingtransaccional; device_bind conserva caso1. Seleccion soloexpulsado conserva unidad/opens y cambiaDisc/posicion sinunitunbind. Reinsercionpasa por0390 yregeneraTOC, sintransferencias antiguas.",
+        "Identidadnativa incluye count+IDs enorden delcatalogo, nunca seleccion/rutas. DeviceState.disc_id es seleccioncausal: decodeP6AK resuelveidcontracatalogo mediante lookup puro antesdevalidar, contexto candidato no usaliveDisc. Applyrestaurapunteroseleccionadosolotraspreflight completo; no selecciontemporalprevia, IO ni advance para probar candidato.",
+        "MED01 CdDeviceTests+CdDeviceStateTests ASan/UBSan: cotas/null/duplicados/seleccionpresente rechazosinmutar, A↔Bausente yrestoreowner. STATE01 Cd32StateTests nativo:saveA,cambiarBdelmismoconjunto,loadA/futuroexacto; Bexpulsado,ownersnuevos ycatalogosustituido/reordenado rechazados sinmutacion/IO. PayloadA/Bdistinto: no oraculo basado solamente enIDs.",
+        "Frente cd_swap reutilizat66-cd-swap, merge main normal ycoordinador metadata/checks. Nueve rutas atomicas catalogo+headeridentity+preflight+probes/guia, estimacion240..340manuales. MED01 standalone enworktree primero; rootintegracodigo manteniendoficha in_progress hastaSTATE01sobre candidata comun conunbuildmotor-j2 coordinado. No compilarmotor enworktreenuevo; no nuevo patchWinUAE.",
+        "DiskControl/publicolibretro, BizHawk yTAS permanecen piezas posteriores explícitas; esta hoja conserva su alcance completo enT66. Reemplazodemedio fueradelcatalogo puede rechazarseclaramenteporidentidad, restaurarDiscAtrasDiscBdelmismoconjunto debe funcionar."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01"
+      ],
+      "acceptance": [
+        "Catalogo inmutable yseleccion causal permiten restaurar estado nativo completo deotroCDdelmismoconjunto, concontinuacion exacta ypreflight sinmutacion/IO; catalogo distinto/reordenado serechaza. Sin acreditar aun conexionespublicasfrontends/TAS."
+      ],
+      "stop": "No anunciar cambioCDpublico hasta conexiones yrestauracionfrontend; no usar selecciontemporalni fallbackaliveDisc para aprobar estado deotromedio."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17004,7 +17049,8 @@
         "T66t4",
         "T66l3",
         "T66u1",
-        "T66l4"
+        "T66l4",
+        "T66u2"
       ],
       "read": [
         "docs/01-architecture.md",
