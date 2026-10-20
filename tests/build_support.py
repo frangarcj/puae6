@@ -40,7 +40,7 @@ def output_path(directory, target):
 def source_identity():
     """Content identity, including uncommitted code; never an mtime-only shortcut."""
     paths = {ROOT / name for name in ("CMakeLists.txt", "CMakePresets.json", "plan/upstream.lock.json", "tests/build_support.py")}
-    for name in ("adapters", "bridge", "cmake", "config", "manifests", "patches", "ports", "tools", "upstream/winuae", "references/libretro-api"):
+    for name in ("adapters", "bridge", "cmake", "config", "manifests", "patches", "ports", "third_party", "tools", "upstream/winuae", "references/libretro-api"):
         paths.update(p for p in (ROOT / name).rglob("*") if p.is_file() and "__pycache__" not in p.parts)
     paths.update(p for p in (ROOT / "tests").rglob("*") if p.suffix in (".c", ".cpp", ".h", ".hpp", ".s") and p.is_file())
     h = hashlib.sha256()

@@ -61,6 +61,31 @@ class BuildSupportTests(unittest.TestCase):
         self.assertEqual(len(self.commands), 6)
         self.assertIn("-DP6_SANITIZERS=ON", self.commands[-2])
 
+    def test_dependency_bytes_invalidate_preparation_even_with_original_mtime(self):
+        dependency = self.root / "third_party/decoder/source.c"
+        dependency.parent.mkdir(parents=True)
+        dependency.write_text("original")
+        self.build()
+        stamp = dependency.stat()
+        dependency.write_text("modified")
+        os.utime(dependency, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+        self.build()
+        self.assertEqual(4, len(self.commands))
+
+    def test_worker_rejects_a_receipt_before_a_dependency_changed(self):
+        dependency = self.root / "third_party/decoder/source.h"
+        dependency.parent.mkdir(parents=True)
+        dependency.write_text("original")
+        self.build()
+        receipt = self.root / "prepared.json"
+        b.write_receipt(receipt)
+        dependency.write_text("modified")
+        self.commands.clear()
+        with patch.dict(os.environ, {b.RECEIPT_ENV: str(receipt)}), patch.dict(b._BUILDS, {}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "receipt"):
+                self.build()
+        self.assertEqual([], self.commands)
+
     def test_an_optimized_build_is_a_different_recipe_with_asserts_kept(self):
         self.build()
         optimized = self.build(optimized=True)
