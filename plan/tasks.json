@@ -19073,14 +19073,17 @@
         "config/schema/options.json",
         "docs/03-waterbox.md",
         "config/schema/options_table.generated.json",
-        "adapters/libretro/options_generated.h"
+        "adapters/libretro/options_generated.h",
+        "tests/config/test_parity.py",
+        "integration/bizhawk/patches/0008-disc-chd-regions-and-xa.patch"
       ],
       "steps": [
         "CombinarC4yC5enunaverticalatomicapublica300..380manuales(9rutasmanuales+2generadas), depsC3GENflagscompuestosestable. CartridgeDisabled/HrtMon enum0/2, defaultoffsoloA1200, validarantesguest. P6flagsORwrites1/HRT2; nuevoSyncSettingrebootyschemawrappercartridgeofrecido, retirarwrapper_not_offered correspondiente, headlessaunexplicito. Generar2outputsconherramienta,nomanual.",
         "Controller.DefineagregaFreezeunicamenteconcartOn;FrameAdvanceP6InputV2.Commands=1porboollevel yABI2/108concommandsaunparallel0. Releasesv1equivale0enbridgeC2; sinhistoriaC#extra/edgequeoculteheld. ABI.layoutcommands104enC#/Cintacto. MakeIdentitycondicional ;cartridge=hrtmon;cartsha=15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5; testcontraRAW_SHAhelperpin, offidentidadintacta. SnapshotEnvelopepreflightestrictoon/offsinmutacion. Heapsdefaultspreservados; medirbudgetOnymutable1MiB,reservaadicionalsiexigidapormmapreal,nuncainvisible.",
         "GEN01schema/parityyscript--check, STATE01HrtMonManagedConfigTestscompilacionmanagedrealoffline+default/off/controls/ABI108offset104/ORflags/heap/SHA. ReusarmoduleMediaMoviescacheporcontenidoanadido105a78cc, sin CallerArgumentExpression ambiguonet48/net8. testsffiSessionvalidaconfig/controlcampossincrearhostenmodohrtconfig siadecuado. Avisarantesextrascope400.",
         "WB03/WB04/WB09mismaclaseHrtMonWrapperTests.test_public_freeze_bk2_tas_and_held_snapshot_in_new_process, unionuna vez. PublicoA1200Kickstartautorizado/buttonFreeze/tecladorealcomandoRAM5a/x, hold/release/rearm/snapshotheld, owner/sandbox/procesonuevo, BK2/TASyseekreservado(marcador6postStartparacorte5segunAPI). AV/PCM/ticks/RAM/fullsnapshotigual, on/offrechazaprevioLoadSnapshot. NohelperFreezeprivado ni fallbacknativo. Guestbedde522actualC2no cambiaporestosmanaged. PuertaWBactualhostmallocconocidobloqueadaT80b/T12: preparar/validartodoloindependienteyno repetirbateriaigual; escenarionuevopublicopuedeintentarseunavezconguestverificado yquedaBLOCKEDsifallahost.",
-        "busy_referenceworktreeaisladoactualizaaestemain, nometadatani motor/guest; rootserializapesados-j2yintegragates. C3LR01realrootPASS(HrtMon/cut380/futuro/newprocess/off) yGEN01/IN01exactos68testsagentPASSen476572c8bytesintegrados73135556. STATE01C3esmismafixtureLR01,norepetir. PadreT69conservaARcomercialasset/codec propio yningunacapacidadWBseacreditapornativo."
+        "busy_referenceworktreeaisladoactualizaaestemain, nometadatani motor/guest; rootserializapesados-j2yintegragates. C3LR01realrootPASS(HrtMon/cut380/futuro/newprocess/off) yGEN01/IN01exactos68testsagentPASSen476572c8bytesintegrados73135556. STATE01C3esmismafixtureLR01,norepetir. PadreT69conservaARcomercialasset/codec propio yningunacapacidadWBseacreditapornativo.",
+        "GEN01WrapperParitydosfallosdeclaranCartridgeDisabled=0/HrtMon=2: ampliar12arutatest_parity.pysoloparserdenombresenumconasignacion(comoZ3)sinrelajaresperados/checks. Flagsregexseconservapasando_syncSettings.CartridgeexplicitoalhelperConfigFlags. STATE01realnet48compilaciondep0008fallaMA0015ArgumentNullExceptionsinparam; ampliar13aruta0008paraROOTsoloseparar3guardasnameof(chdf/chdBlob/IN_DiscMountPolicy),mismorechazoprenullsinmodificarSynth/metadata. Agentenoedita13aruta,rootenviaSHA; analisadorespermanecenobligatorios. SourcevalidfixtureT13igual, noguestbuildportipografia."
       ],
       "checks": [
         "GEN01",
