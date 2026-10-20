@@ -17612,6 +17612,50 @@
       "stop": "No anunciarlabinding/transporteWaterbox porunconversornativo; no inferirregionesdeQ ni cambiarreservedv1."
     },
     {
+      "id": "T66t12",
+      "title": "Conectar transporte regional CD WBv2 y restauracion real de sandbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t11",
+        "T66u2",
+        "T66r3"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "adapters/waterbox/p6w_cd.h",
+        "adapters/waterbox/cd_source.cpp",
+        "integration/bizhawk/core/Puae6/CdHost.cs",
+        "tests/media/csharp-disc/Cd32.cs",
+        "tests/waterbox-media/test_cd_source.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Añadir exports p6w_cd_bind_v2/catalog_bind_v2/layout_v2 usando contrato/conversorT11. V1size2432/layout31/ABI1yslotscallback0/1permanecenintactos. Versionenlazadacapturadaensandboximpiderebindv1↔v2; catalogocompletosevalidaantespublicarcallbacks/owners. Preservarseleccion/presencia/opens trasrestore. UsacatalogonativovalidadoT66u2;T66u4sigueBLOCKEDypuertaWBcomunno seelimina.",
+        "P6CdHostconstructoresV2 individual/catalogocopiansusdescriptores yverificanlayoutV2; Bind/Seal/Restoresiguenrutasactualeselegidasporversion. Ningúnslotdelegateadicional/retenertemporales. Estado no serializapunteros; rebindvalidatodasregiones/orden/identidadantesmutarcallback.",
+        "EscenariorealenCd32.cs agrega cd32regionalsave/load ycd32regionalcatalogsave/load; Program.csyaenrutaprefijocd32sinmodificarlo. ISOexistente+colaregionalnumerica tienePGaudio→Mode1,sintetico/materializado,SUBopaca/postgapsintetico eidentidadincorporaregiones/stream. NodependeaúnDiscSystemtyped. Run300/corte/futuro15 comparaA/V/PCM/ticks/RAM/snapshotcompleto yrestauraowner/sandbox/procesonuevo. CatálogoA/B/ausencia/opens; lecturaregionalconcanarios ysinIOsintetico; rebindfalsoincluidaversionrechazasincambiarsnapshot/callback.",
+        "Seisrutas atomicasobjetivo340..390lineas;avisarantes400. cd32_closeaislado solocompilacionC#dirigidaoffline ysyntaxsinmotor/guest. RootcompilaunWBXcompartidotrasBfix+transporteestable, nuncausarreciboviejo. ABI01CdLayoutTests/MED01CdDiscTests; WB03nuevaclaseCd32RegionalWaterboxTests+CdTransportTests+Cd32CatalogWaterboxTests+Cd32WaterboxTests, unionunavez. HostSIGBUS/runnerausentemarcaBLOCKEDhonesto, noDONEpornativo. MetadatatipeadaDiscSystem/publicloaderCHDsiguenrequeridosenT66."
+      ],
+      "checks": [
+        "ABI01",
+        "MED01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Los exportsV2 yP6CdHost conservanregion/identidad/callbackyrestauracioncausal enWaterboxreal, incluidosV1/catalogo yotroproceso; ningúnchecknativo sustituyeWB03."
+      ],
+      "stop": "NoocultarregionesenreservedV1, publicarcallbackantespreflight ni marcarDONEconrunnerfallido; noconectarCHDpublicosinmetadataregionaltipada."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17686,7 +17730,8 @@
         "T66t8",
         "T66t9",
         "T66t10",
-        "T66t11"
+        "T66t11",
+        "T66t12"
       ],
       "read": [
         "docs/01-architecture.md",
