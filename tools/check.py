@@ -618,6 +618,10 @@ TASK_SUITES[('GEN01', 'T69c3')] = {'schema': 'tests.config.test_schema', 'fronte
 TASK_SUITES[('IN01', 'T69c3')] = {'mapper_levels': 'tests.libretro-ui.test_mapper.MapperProbeTests.test_the_mapper_holds_its_own_checks', 'composed_flags': 'tests.libretro-ui.test_hrtmon.HrtMonOptionTests'}
 for _gate in ('LR01', 'STATE01'):
     TASK_SUITES[(_gate, 'T69c3')] = {'real_libretro_hrtmon': 'tests.libretro-ui.test_hrtmon.HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process'}
+TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}
+for _gate in ('WB03', 'WB04', 'WB09'):
+    TASK_SUITES[(_gate, 'T69c4')] = {'public_hrtmon_snapshot_movies': 'tests.bizhawk-movies.test_media_start.HrtMonWrapperTests.test_public_freeze_bk2_tas_and_held_snapshot_in_new_process'}
 TASK_SUITES[('HOST01', 'T69c2')] = {'guest_import_recipe': 'tests.waterbox-smoke.test_build.Puae6RecipeTests'}
 TASK_SUITES[('IN01', 'T69c2')]['exact_capabilities_regression'] = 'tests.host.test_bridge_caps.BridgeCapsTests'
 TASK_SUITES[('STATE01', 'T69c2')].update({

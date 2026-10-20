@@ -18940,7 +18940,7 @@
       "title": "Exponer HRTMon y Freeze por opciones y mapper libretro",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69c2",
         "T16",
@@ -18988,6 +18988,60 @@
       "stop": "Sin editaroutputsmanuales, masksignedUB, perderflagsdeescritura, nuevohistoryfrontend ni declararWBporpruebanativa."
     },
     {
+      "id": "T69c4",
+      "title": "Exponer HRTMon Freeze y restauracion de peliculas en BizHawk",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69c3",
+        "T21",
+        "T22",
+        "T22b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md",
+        "docs/00-sources.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Abi.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/ffi/Session.cs",
+        "tests/bizhawk-movies/MediaMovies.cs",
+        "tests/bizhawk-movies/test_media_start.py",
+        "config/schema/options.json",
+        "docs/03-waterbox.md",
+        "config/schema/options_table.generated.json",
+        "adapters/libretro/options_generated.h"
+      ],
+      "steps": [
+        "CombinarC4yC5enunaverticalatomicapublica300..380manuales(9rutasmanuales+2generadas), depsC3GENflagscompuestosestable. CartridgeDisabled/HrtMon enum0/2, defaultoffsoloA1200, validarantesguest. P6flagsORwrites1/HRT2; nuevoSyncSettingrebootyschemawrappercartridgeofrecido, retirarwrapper_not_offered correspondiente, headlessaunexplicito. Generar2outputsconherramienta,nomanual.",
+        "Controller.DefineagregaFreezeunicamenteconcartOn;FrameAdvanceP6InputV2.Commands=1porboollevel yABI2/108concommandsaunparallel0. Releasesv1equivale0enbridgeC2; sinhistoriaC#extra/edgequeoculteheld. ABI.layoutcommands104enC#/Cintacto. MakeIdentitycondicional ;cartridge=hrtmon;cartsha=15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5; testcontraRAW_SHAhelperpin, offidentidadintacta. SnapshotEnvelopepreflightestrictoon/offsinmutacion. Heapsdefaultspreservados; medirbudgetOnymutable1MiB,reservaadicionalsiexigidapormmapreal,nuncainvisible.",
+        "GEN01schema/parityyscript--check, STATE01HrtMonManagedConfigTestscompilacionmanagedrealoffline+default/off/controls/ABI108offset104/ORflags/heap/SHA. ReusarmoduleMediaMoviescacheporcontenidoanadido105a78cc, sin CallerArgumentExpression ambiguonet48/net8. testsffiSessionvalidaconfig/controlcampossincrearhostenmodohrtconfig siadecuado. Avisarantesextrascope400.",
+        "WB03/WB04/WB09mismaclaseHrtMonWrapperTests.test_public_freeze_bk2_tas_and_held_snapshot_in_new_process, unionuna vez. PublicoA1200Kickstartautorizado/buttonFreeze/tecladorealcomandoRAM5a/x, hold/release/rearm/snapshotheld, owner/sandbox/procesonuevo, BK2/TASyseekreservado(marcador6postStartparacorte5segunAPI). AV/PCM/ticks/RAM/fullsnapshotigual, on/offrechazaprevioLoadSnapshot. NohelperFreezeprivado ni fallbacknativo. Guestbedde522actualC2no cambiaporestosmanaged. PuertaWBactualhostmallocconocidobloqueadaT80b/T12: preparar/validartodoloindependienteyno repetirbateriaigual; escenarionuevopublicopuedeintentarseunavezconguestverificado yquedaBLOCKEDsifallahost.",
+        "busy_referenceworktreeaisladoactualizaaestemain, nometadatani motor/guest; rootserializapesados-j2yintegragates. C3LR01realrootPASS(HrtMon/cut380/futuro/newprocess/off) yGEN01/IN01exactos68testsagentPASSen476572c8bytesintegrados73135556. STATE01C3esmismafixtureLR01,norepetir. PadreT69conservaARcomercialasset/codec propio yningunacapacidadWBseacreditapornativo."
+      ],
+      "checks": [
+        "GEN01",
+        "STATE01",
+        "WB03",
+        "WB04",
+        "WB09"
+      ],
+      "acceptance": [
+        "BizHawkofreceHRTMonporSyncSettingyFreezelevel, identidadeinmutabilidadcorrectas; BK2/TASreplay/seekheldysnapshotnewprocesspasanenWaterboxreal. HostfallidomarcaBLOCKED,sinDONEporcompilacion."
+      ],
+      "stop": "Sin serializarpunteros/overrideStateEnvelope/historiafrontendFreezeduplicada, sininscribirgateWBporenginehostnativo ni relajaridentidad/heap paraapagarfallos."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -18999,7 +19053,8 @@
         "T69b",
         "T69c1",
         "T69c2",
-        "T69c3"
+        "T69c3",
+        "T69c4"
       ],
       "read": [
         "docs/01-architecture.md",
