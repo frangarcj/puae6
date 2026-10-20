@@ -42,6 +42,21 @@ def nrg(version=2, modes=(0, 7), base=0, *, prefix=b'', sinf=True, sectors=50):
     return data, directory, [f'nrg {version} {len(modes)} {directory} -150 {lba} 32 1'] + rows
 
 
+def etnf(modes=(3, 3, 3), lengths=(300, 225, 375), version=1):
+    # VCDImager23f07386 image_nrg.c:_write_tail: packed ETNF, no pregap bytes.
+    # Expectations originate in fixed cues0/450/825, not in the parser output.
+    records = bytearray(); rows = []; packed = physical = 0
+    for n, (mode, count) in enumerate(zip(modes, lengths)):
+        stride = 2048 if mode in (0, 2) else 2336 if mode == 3 else 2352
+        index1 = packed + n * 150; length = count * stride
+        records.extend(struct.pack('>IIIII', physical, length, mode, packed, 0))
+        rows.append(f'track {physical} {physical} {physical + length} {stride} {mode} {index1 - 150} {index1} 0 1 {0 if mode == 7 else 4}')
+        packed += count; physical += length
+    data = chunk('ETNF', records) + chunk('SINF', struct.pack('>I', len(modes))) + chunk('END!')
+    data += b'NERO' + struct.pack('>I', physical) if version == 1 else b'NER5' + struct.pack('>Q', physical)
+    return data, physical, [f'nrg {version} {len(modes)} {physical} -150 {packed + (len(modes) - 1) * 150} 0 0'] + rows
+
+
 @unittest.skipUnless(shutil.which('clang++'), 'clang++ unavailable')
 class NrgMetadataTests(unittest.TestCase):
     @classmethod
@@ -50,7 +65,7 @@ class NrgMetadataTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix='nrg-metadata-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); target = cls.work / 'blkdev_cdimage.cpp'; target.write_bytes((ROOT / 'upstream/winuae/blkdev_cdimage.cpp').read_bytes())
         entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -82,6 +97,38 @@ class NrgMetadataTests(unittest.TestCase):
             row = expected[2].split(); row[6] = row[8] = '0'; expected[2] = ' '.join(row)
             self.assertEqual(expected, self.run_nrg(data, directory))
 
+    def test_etnf_packed_three_tracks_four_modes_mixed2048_and_track_limit(self):
+        for modes in ((0,) * 3, (2,) * 3, (3,) * 3, (7,) * 3, (0, 2, 0)):
+            data, base, expected = etnf(modes)
+            self.assertEqual(expected, self.run_nrg(data, base))
+            tracks = [row.split() for row in expected[1:]]
+            self.assertEqual([0, 450, 825], [int(row[7]) for row in tracks])
+        data, base, expected = etnf((7,) * 99, (1,) * 99, version=2)
+        self.assertEqual(expected, self.run_nrg(data, base))
+
+    def test_etnf_bad_geometry_and_unsupported_contracts_leave_metadata_intact(self):
+        data, base, _ = etnf(); invalid = [data[:-1], data[:4] + struct.pack('>I', 59) + data[8:]]
+        for at, value in ((8, 1), (12, 0), (12, 300 * 2336 + 1), (20, 1), (28, 0), (40, 301), (76, 2), (8, 2**32 - 1), (20, 2**32 - 1), (12, (2**32 - 1) // 2336 * 2336)):
+            bad = bytearray(data); struct.pack_into('>I', bad, at, value); invalid.append(bad)
+        for bad in invalid: self.run_nrg(bad, base, error=1)
+        self.run_nrg(*etnf((7,) * 100, (1,) * 100)[:2], error=1)
+        self.run_nrg(*etnf((), ())[:2], error=1)
+        for fault in (1, 2, 3): self.run_nrg(data, base, fault=fault, error=4)
+        for modes in ((0, 3, 0), (7, 0, 7)):
+            d, b, _ = etnf(modes); self.run_nrg(d, b, error=5)
+        for at, value in ((16, 4), (24, 1)):
+            bad = bytearray(data); struct.pack_into('>I', bad, at, value); self.run_nrg(bad, base, error=5)
+        for tag in (b'ETN2', b'TINF'):
+            self.run_nrg(tag + data[4:], base, error=5)
+        end = data.index(b'END!'); sinf = chunk('SINF', struct.pack('>I', 3))
+        self.run_nrg(data[:end] + sinf + data[end:], base, error=5)
+        self.run_nrg(data[:end] + data[:68] + data[end:], base, error=5)
+        self.run_nrg(data.replace(sinf, b''), base, error=1)
+        for tag in ('DAOI', 'CUES'):
+            dao, _, _ = nrg(version=1); at = dao.index(tag.encode()); size = struct.unpack_from('>I', dao, at + 4)[0]
+            # Valid DAO/CUE chunks cannot reinterpret an ETNF session.
+            self.run_nrg(data[:end] + dao[at:at + 8 + size] + data[end:], base, error=5)
+
     def test_invalid_footer_chunks_endian_bcd_extent_and_callback_are_transactional(self):
         data, base, _ = nrg(); dao = data.index(b'DAOX'); start = dao + 8 + 22
         invalid = [b'', b'NERO', data[:-1], data[:-12] + b'NER5' + struct.pack('>Q', 2**64 - 1), data + b'x', data.replace(b'END!\0\0\0\0', chunk('END!', b'x'))]
@@ -99,7 +146,7 @@ class NrgMetadataTests(unittest.TestCase):
             data, base, _ = nrg(modes=(mode,)); self.run_nrg(data, base, error=5)
         data, base, _ = nrg(modes=(3,)); at = data.index(b'DAOX') + 8 + 22 + 14
         self.run_nrg(data[:at] + b'\2' + data[at + 1:], base, error=5) # Mode02 cannot have padded2336 geometry.
-        for tag in ('ETN2', 'ETNF', 'TINF', 'CDTX', 'MTYP'):
+        for tag in ('ETN2', 'TINF', 'CDTX', 'MTYP'):
             data, base, _ = nrg(prefix=chunk(tag)); self.run_nrg(data, base, error=5)
         data, base, _ = nrg(); self.run_nrg(data.replace(b'END!', b'SINF'), base, error=1)
         for tag in ('CUEX', 'DAOX'):

@@ -64,6 +64,11 @@ int main(int argc, char **argv)
     }
     for (uint32_t n = 0; n < layout.tracks; ++n) {
         const auto &t = layout.track[n];
+        if (owner->metadata()->layout == NrgLayout::EtnfCanonical150) {
+            const auto &raw = owner->metadata()->track[n];
+            CHECK(!t.stored_pregap && t.synthetic_pregap == t.index1 - t.index0 && !t.offset && raw.offset0 == raw.offset1);
+            printf("etnf %u %u\n", n, raw.start_sector);
+        }
         printf("track %u %u %u %u %u %llu %u\n", t.index0, t.index1, t.end, t.source, t.stride, (unsigned long long)t.offset, unsigned(t.mode));
         for (uint32_t lba : {t.index0, t.index1, t.end - 1}) for (unsigned view : {2048u, 2352u, 2448u}) {
             memset(out, 0xa5, sizeof out); const auto result = canonical_read(disc, lba, view, out + 8, view);
@@ -74,17 +79,29 @@ int main(int argc, char **argv)
             if (view == 2352 && owner->metadata()->track[n].mode == 2) { CHECK(result == Result::Ok); printf("parity %u %u ", n, lba); digest(out + 8 + 2072, 280); puts(""); }
             if (view == 2448) { CHECK(read_subchannel(disc, lba, out, 96) == Result::Ok); printf("sub %u ", lba); digest(out, 96); puts(""); }
         }
+        if (n && owner->metadata()->layout == NrgLayout::EtnfCanonical150) for (uint32_t lba : {t.index0 - 1, t.index1 - 1}) {
+            CHECK(canonical_read(disc, lba, 2448, out, sizeof out) == Result::Ok);
+            printf("sector %u 2448 0 ", lba); digest(out, 2448); puts("");
+        }
     }
     if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448 || (owner->metadata()->track[n].mode == 2 || owner->metadata()->track[n].mode == 3)) {
         const auto &b = owner->bindings()[n]; fault_at = owner->metadata()->track[n].offset0 + 2448;
         for (fault = 1; fault <= 3; ++fault) {
             memset(out, 0xa5, sizeof out);
             CHECK(!b.read(b.context, 2440, out + 8, 2448, &got) && !got && untouched(out, sizeof out));
-            CHECK(canonical_read(disc, layout.track[n].index1, 2448, out + 8, 2448) == Result::ReadError && untouched(out, sizeof out));
-            if (layout.track[n].stride == 2448) CHECK(read_subchannel(disc, layout.track[n].index1, out, 96) == Result::ReadError && untouched(out, sizeof out));
-            else CHECK(!b.read(b.context, 2352, out + 8, 16, &got) && !got && untouched(out, sizeof out));
+            CHECK(canonical_read(disc, layout.track[n].index1 + 2, 2448, out + 8, 2448) == Result::ReadError && untouched(out, sizeof out));
+            if (layout.track[n].stride == 2448) CHECK(read_subchannel(disc, layout.track[n].index1 + 2, out, 96) == Result::ReadError && untouched(out, sizeof out));
+            else CHECK(!b.read(b.context, 2 * 2352, out + 8, 16, &got) && !got && untouched(out, sizeof out));
         }
         break;
+    }
+    if (vfs && owner->metadata()->layout == NrgLayout::EtnfCanonical150) {
+        fault = 1;
+        for (unsigned n = 1; n < layout.tracks; ++n) {
+            CHECK(canonical_read(disc, layout.track[n].index1 - 1, 2448, out, sizeof out) == Result::Ok);
+            memset(out, 0xa5, sizeof out);
+            CHECK(canonical_read(disc, layout.track[n].index1, 2448, out, sizeof out) == Result::ReadError && untouched(out, sizeof out));
+        }
     }
     fault = 0;
     // Pure wrapper contract: preserve a nonzero duplicated XA subheader and payload.

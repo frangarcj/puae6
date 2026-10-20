@@ -18,14 +18,21 @@ el usuario tenga seleccionado; las fases mecanicas si se restauran.
 
 ## CD32 stock (T66r3)
 
-Libretro acepta CD directo ISO/CUE/CCD/NRG DAO/MDS v1 con `puae6_machine=auto|CD32`
+Libretro acepta CD directo ISO/CUE/CCD/NRG DAO/ETNF/MDS v1 con `puae6_machine=auto|CD32`
 y Kickstart Automatic. Requiere las mitades de 512 KiB `kick40060.CD32` y
 `kick40060.CD32.ext` en el directorio de sistema (tambien sus alias Amiga Forever).
 NRG DAO admite tambien Mode2 codigo03 con cuerpo de 2336 bytes: reconstruye
 solo la cabecera MSF por LBA y conserva subheader, datos y EDC/ECC. Mode02
 admite payload de2048 bytes: sintetiza subheader cero y EDC/ECC de Mode2 Form1,
 con la cabecera excluida de ECC. Ambos entregan raw2352; la vista2048 de Mode2
-sigue sin soporte. TAO y multisesion nativos se rechazan.
+sigue sin soporte.
+NRG ETNF admite una sesion con pistas00/02 de2048 bytes (incluida su mezcla),
+03 de2336 o audio07 de2352. Exige datos contiguos y un mismo stride por disco.
+Reconstruye pregaps sinteticos de150 sectores por la politica interoperable
+GNU libcdio/VCDImager: ETNF omite sus bytes y no almacena la longitud original,
+por lo que los pregaps no estandar no se pueden recuperar. La identidad incluye
+el archivo completo y esta politica canonica. ETN2, mezclas de stride y
+multisesion siguen sin soporte; esto no equivale a soporte TAO general.
 MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de
 2048/2352 y Mode2 raw de 2352; tambien sectores de 2448 con SUB96 intercalado. El pregap es
 sintetico y los offsets apuntan a datos; TOC, PLBA y longitudes deben concordar.

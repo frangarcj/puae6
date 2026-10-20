@@ -22,7 +22,7 @@ class CdImageTests(unittest.TestCase):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp=tempfile.TemporaryDirectory(prefix='cd-image-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); entries=json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1'):
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +93,15 @@ class CdImageTests(unittest.TestCase):
         self.assertTrue(self.run_image(descriptor,rebind=renamed,vfs=True)[-2].startswith('rebind 0 '))
         data[60]^=1; renamed.write_bytes(data)
         self.assertTrue(self.run_image(descriptor,rebind=renamed,vfs=True)[-2].startswith('rebind 2 '))
+
+    def test_etnf_factory_three_tracks_and_fresh_owner_restore_binding(self):
+        path = test_cd_nrg.CdNrgTests.etnf_fixture(self, 'etnf-factory', (0, 2, 0))[0]
+        lines = self.run_image(path); self.assertEqual(lines, self.run_image(path, vfs=True))
+        self.assertTrue(lines[0].startswith('disc 3 1200 3 '))
+        same = test_cd_nrg.CdNrgTests.etnf_fixture(self, 'etnf-renamed', (0, 2, 0))[0]
+        baseline = self.run_image(path, rebind=same, vfs=True)[-2]; self.assertTrue(baseline.startswith('rebind 0 '))
+        data = bytearray(same.read_bytes()); data[610000] ^= 1; same.write_bytes(data)
+        self.assertEqual(self.run_image(path, rebind=same, vfs=True)[-2], baseline.replace('rebind 0 ', 'rebind 2 '))
 
     def test_cmake_has_four_target_local_pic_compilations_without_building(self):
         if not shutil.which('cmake') or not shutil.which('ninja'): self.fail('cmake and ninja required to inspect the real native graph')
