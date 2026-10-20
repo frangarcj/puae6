@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35"
@@ -11563,7 +11563,8 @@
         "manifests/state-inventory.json",
         "tests/libretro-host/test_real_frontend.py",
         "tests/libretro-host/docker/image.json",
-        "tests/whdload/test_autoload.py"
+        "tests/whdload/test_autoload.py",
+        "tests/state/test_components.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11581,7 +11582,8 @@
         "Cerrar la ruta offline real de RetroArch: fijar el ID/ISA de la imagen local ya presente, comprobarla antes de preparar lanes que la usan y ejecutar siempre por ID con --pull=never/--network=none. La ausencia o diferencia bloquea sin autobuild/descargas; no modificar la imagen ni Docker global. Mantener controles DiskControl por loopback dentro del mismo contenedor y comprobar negativos de infraestructura sin compilar el motor.",
         "Reproducer DET06 de inicio ASan/UBSan pasa realmente en las cinco filas declaradas con tres relojes civiles desplazados y monotono intacto; IDs Docker verificados antes/despues. No se ha ejecutado ni acreditado la matriz del emulador ni CI remota. Ruta RetroArch offline verificada con version real y UDP loopback; se conserva el cierre completo para la candidata.",
         "Eliminar la importacion directa de TestCase del constructor en test_autoload: unittest lo estaba ejecutando otra vez al cargar el modulo. Mantener seleccionados ambos modulos originales y probar que sus IDs de casos no se solapan; no quitar assertions ni reducir ventanas de ejecucion.",
-        "Prioridad de entrega confirmada: usar primero la preview local T40a ya probada desde el ZIP. CD32/CDTV, Z3 y040/060 siguen pendientes o aislados y no bloquean esta entrega; la matriz amplia/release formal conserva sus puertas originales y se ejecuta sobre su candidata correspondiente."
+        "Prioridad de entrega confirmada: usar primero la preview local T40a ya probada desde el ZIP. CD32/CDTV, Z3 y040/060 siguen pendientes o aislados y no bloquean esta entrega; la matriz amplia/release formal conserva sus puertas originales y se ejecuta sobre su candidata correspondiente.",
+        "Integracion dirigida del inventario: el checkestatico falla porregistro12(P6AK condicionalCD32) frente11 y native_stateCD32 insertado dentro deaudio-out_of_profile. Ampliar touch a tests/state/test_components.py para verificar exactamente los11basicos yP6AK, y separar componenteCD32 causal con archivo/visitor reales deP6AK yfasePaula propiaP6AU. Mantener asserts estrictos, sin modificar motor ni repetir matriz mientras R8/FRESTORE se implementan; coordinador realiza esta vertical encheckoutprincipal, agentes permanecen aislados."
       ],
       "checks": [
         "PLAN01",
