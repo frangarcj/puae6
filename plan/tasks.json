@@ -18163,14 +18163,16 @@
         "tests/media/cdtv_state_probe.cpp",
         "tests/media/test_cdtv_state.py",
         "manifests/state-inventory.json",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tests/state/test_components.py"
       ],
       "steps": [
         "Integrar el componente b1 sin volver a enumerar motor/get/apply. Diez rutas, 340-395 lineas nuevas incluyendo ampliacion del mismo probe. Registrar visitor P6CT field-by-field (DTO, DeviceState/PCM) y retirar UNSUPPORTED solo cuando esten todos los duenos y la puerta completa. No ofrecer aun perfil/autoconfig/arranque CDTV.",
         "P6SC agrega ID14 reversible para subcode_interrupt mediante getter del motor, solo con dueno CDTV; conservar slot/fecha/data sin ptr serializado. P6AU obtiene/aplica device_phase para CDTV ademas de CD32. P6CT reconstruye callbacks desde selector y Disc validado; E9 se remapea al aplicar sin IRQ, lectura host o event2_newevent. P6RM sigue dueno de Chip/Slow. Identidad agrega dominio CDTV privado condicional y chunk_count propio: A500 sin CDTV con el MISMO catalogo rechaza antes de reset/Apply.",
         "Probar p6_load, bind catalogo, private_start y state_load ANTES del primer run; validar candidato, reset head existente y remapeo E9 por P6CT tras memory_reset. La correccion comun CPU/IRQ aplicada durante T69b ya forma parte del motor actual; esta hoja no necesita ni habilita el cartucho HRTMon. Su dependencia de infraestructura nativa es T15, y se conserva la regresion CPU/IRQ pertinente.",
         "STATE01/DET02 CdtvStateTests.test_cold_restore_and_future, misma fixture una vez. Writer/reader con siete cortes: parser parcial, respuesta parcial, SEEK con cola, DMA real de dos sectores antes de terminal (416hsync sin cuotas), IRQ latched, CDA playing con SUB/event14 activo, pausa/stop con fase retenida. Mismo dueno y nuevo dueno/proceso sin run previo: save exacto al restaurar y futuro MMIO/RAM/AV/PCM/ticks mas save final completo. Rechazos de campo/evento sin dueno/identidad preservan estado, callbacks y reads.",
-        "Reutilizar exe/helpers de b1. Regresiones cortas: modo local b1, CdtvLinkTests, AkikoLinkTests y CPUinterrupt relevante, una sola union; inventario estatico de componentes. No duplicar siete cortes ni afirmar Waterbox por native. Padre T67 queda pendiente de perfil, firmware extendido, autoconfig y ambos frontends. Si no cabe400, parar antes de ampliar; no excepcion retrospectiva."
+        "Reutilizar exe/helpers de b1. Regresiones cortas: modo local b1, CdtvLinkTests, AkikoLinkTests y CPUinterrupt relevante, una sola union; inventario estatico de componentes. No duplicar siete cortes ni afirmar Waterbox por native. Padre T67 queda pendiente de perfil, firmware extendido, autoconfig y ambos frontends. Si no cabe400, parar antes de ampliar; no excepcion retrospectiva.",
+        "Ampliacion previa de scope: tests/state/test_components.py enumera exactamente los11chunks base yP6AK. Al agregar P6CT, actualizar esa asercion para incluir su propietario explicito y exigir el nuevo componente causal en inventario; conservar todos los anteriores y sus verificaciones. No relajar el set ni marcar un componente out_of_profile como codec. Son11rutas, sin ampliar el presupuesto manual de la hoja."
       ],
       "checks": [
         "STATE01",
