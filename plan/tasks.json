@@ -17661,7 +17661,7 @@
       "title": "Exponer regiones CHD tipadas y sintetizar XA canonico en DiscSystem",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T66t10",
         "T66t11",
@@ -17681,14 +17681,16 @@
         "tests/media/csharp-disc/Program.cs",
         "tests/media/test_cd_source_csharp.py",
         "tests/media/test_chd_canonical_csharp.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tests/waterbox-media/test_cd_source.py"
       ],
       "steps": [
         "Parchederivado sobreDisc.cs/CHD_format.cs/SynthUtils.cs fijados: lista inmutablederegionestipadas coninicio/fin/pista/indice/modo/control/procedenciasinteticaSUB. LoadCHDToDisc emitedesdemetadataoriginalPG/programa/postnormalizandoleadinterno150, nuncaQ/synthtype/DiscTrack.Modeheuristico. Entradainterna recibeCHDFile+IBlob paraejercitarmontajerealunidadesdescomprimidas, sinpretenderdecodercompleto niCHDpublicofuncional.",
         "CorregirSynthUtils.SectorSubHeaderForm2 duplicacionbit en[2]/[6], actual[5]esincorrecto ymodificaEDC. OraculosindependientesPythonT7..T10verifican2448bytes,BCD,AudioBE→LE,SUBendata_size,RW/RW_RAW,PGstored/synthetic,postgapINDEX02,padding4fuera. ExtraFramesyaomiteredondeo4, PaddingGDdistinto noconfundir. Form1/Mode1EDC/PQ yForm2polinomiobitabitsindependientes, tambiensintetizadorescompartidosMDS. Ningungoldencambiadosinexplicacion.",
         "MED01unionChdCanonicalCSharpTests(test_typed_regions_offsets_padding_audio_subchannels_and_postgap,test_cooked_mode2_xa_headers_edc_and_parity_match_independent_oracles)+DiscSourceCSharpTests+ChdBlobReadTests, cadaclaseunavez. OfflineC#sinmotor/guest. Pruebadeseamnodeclaradecodercorrecto; backendhostchd_capi noDarwinARM64enpinactualpermanecependienteconrecetapin/ABIreal,preferirevaluarlibchdrBSDendurecidoexistente.",
         "Cincorutasatomicasobjetivo280..350manuales. cd32_closeaislado actualizaaestemain, nometadata/engine/guest. Rootcoordinaintegra. T12siguepuertaWB03pendienteindependiente: metadataescontractoadicionalnoconexioncore, porellodepsT10/T11/Apermitenavanzarantes. Backendhostreal+4fixturescomprimidos yconexiontypedPuae6DiscSource→Core→WBv2 conservanpuertapublicaWB03enT66. RootT39bpendinghastacandidataestable, sinquitarsuschecks.",
-        "Gatecanonicaldirigidoencuentra mismatchLBA236 PGForm1almacenado: SynthUtils.ECM_Mode2_Form1 llamaECC_Populate(...false), incluyendoMSF/modo12..15enP/Q, mientrasencoderT7/native0391loszeroea. ECM.csyaofrecezeroSectorAddress yBlob_ECMloinvocatrueenForm1. Ampliarsemanticaexplicitamenteanteseditarsoloesa llamadaatrueenmismo0008/SynthUtilsrutaautorizada, probando baselineForm1independienteademasForm2; conservarEDC/oraculo/golden. Esmismaverticalstreamcanonical, sinmeternosbackend niotrosalgoritmos."
+        "Gatecanonicaldirigidoencuentra mismatchLBA236 PGForm1almacenado: SynthUtils.ECM_Mode2_Form1 llamaECC_Populate(...false), incluyendoMSF/modo12..15enP/Q, mientrasencoderT7/native0391loszeroea. ECM.csyaofrecezeroSectorAddress yBlob_ECMloinvocatrueenForm1. Ampliarsemanticaexplicitamenteanteseditarsoloesa llamadaatrueenmismo0008/SynthUtilsrutaautorizada, probando baselineForm1independienteademasForm2; conservarEDC/oraculo/golden. Esmismaverticalstreamcanonical, sinmeternosbackend niotrosalgoritmos.",
+        "Revisionposterioralbloqueo2intentosconC3independienteactiva: rootleecodigoECM198..260ySynthUtilsForm1. ConfirmaH1 Get/Setlimpian24bits12..14yprocesanP/Qdesde12;mode2byte15permaneceyexplica8paridadesdistintas. H2orden: PseescribedestysirveaQantesrestaurar3bytes, portanto ambosnecesitanmode0. 0391(native)/oraculobitabitsT7fijadosguardan/zeroean4bytes; Blob_ECMtambienincorrectonoespruebadecorreccion. Reanudarsolo fixlocaldelcallerSynthUtilsForm1: guardarbyte15,zero15,ECCtrue,restaurar15, conservandoEDC/cabecera/oraculoyECMglobal. Nuevadecisionconcodigo, notercerintentoalazar. Ampliar6arutatests/waterbox-media/test_cd_source.py paraaplicar0008enexportdeProgram.cscomun; noejecutarWBniatribuirgatehasta runnerestable. MantenerreproducerMED01exacto2metodos+regresiones."
       ],
       "checks": [
         "MED01"
@@ -17696,8 +17698,7 @@
       "acceptance": [
         "DiscSystem describeregionesCHDdesdesumetadatareal yproducebytescanonicosindependientementecomprobadosincluidosXAForm2/EDC/SUB/gaps/padding; noconfundirmontajedescomprimidoconbackendCHDrealocargapublica."
       ],
-      "stop": "No inferirregionesdesdeQ niusarel mismoproveedorcomooraculo; sinbinariosx86fallbackennativoARM64, sinmodificarMacHawk.",
-      "blocked_reason": "DosintentosdirigidosconreproducercanonicalLBA236Form1: baselineECCfalsefalla; truecorrigeparteperoquedan8bytesPQ2079/2165/2295/2297/2299/2347/2349/2351,cabecera/datos/EDC/SUBiguales. Detenerantes3erensayo yrevisarcontratoECCmodo2. H1: ECM.Get/SetSectorAddress sololimpia12..14ypreservabyte15comentado; ese2extraexplicalas8paridades. H2: elordenP→Q/restauraciondecabecera delhelper requierecallerquezeroee4bytes yno3; contrastarconBlob_ECMForm1yencoderT7/native391 antesdecambiarcaller. TestWIPconservadoenworktreeaisladocd32_close, nointegrarfixparcialni tocaroraculo. PuertaMED01pendiente. RootcontinuaC3independiente, revisadecisionconcodigoantesreanudar."
+      "stop": "No inferirregionesdesdeQ niusarel mismoproveedorcomooraculo; sinbinariosx86fallbackennativoARM64, sinmodificarMacHawk."
     },
     {
       "id": "T66",
@@ -18631,7 +18632,7 @@
       "title": "Validar inicio real de peliculas PowerOn y SaveRAM con ADF HDF y volumen",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T20",
         "T66r5",
@@ -18668,7 +18669,8 @@
       "acceptance": [
         "PeliculasPowerOn/SaveRAMnoCD32 conADF/HDF/volumenproyectanla identidad inicialcorrecta, usanbasesefectivas yreplay/seek realenWaterboxyotroproceso determinista, conrechazospreviosaAttach transaccionales."
       ],
-      "stop": "Noaceptarhashmanualcomoreplay, usaridentidadimportadavieja nillevarbasesporoverrideglobaldeStateEnvelope; nativo nosustituyeWaterbox."
+      "stop": "Noaceptarhashmanualcomoreplay, usaridentidadimportadavieja nillevarbasesporoverrideglobaldeStateEnvelope; nativo nosustituyeWaterbox.",
+      "blocked_reason": "GuestpostC2bedde52289dadad9566b3091591995e4477b644315f24c1e4c41f60a65483d92/93fuentesrecetasELF/TLS/importsactuales. SetupmixtoWHDDisabled yreservamarker6postStartparacorte5corregidos; serdehistorypreAttach añadida. ReintentoWB03realtrascambioscaeSIGBUSenhost_xzm_xzone_malloc_tiny(addrMALLOCguardpage,x28=84)alabrirTAS, sincompletarreplay/seek/newprocess/rechazos. Mismofallofondot28a/U4/T12, nomarcarDONEporSTATE01hostni repetirWB09claseidéntica. H1presionmemoriaaltaactual,contrastarmismaguestconmenorpresionnatural; H2punteros/mapa/proteccionesdeinteropruntime/.NET, contrasteminimoC/managedmismosheaps. Tiered/GC/mallocknobsyaensayadossinresolver, nootraigualbateria. Correccionesfixturenoacreditanpuertarealcompleta."
     },
     {
       "id": "T80",
