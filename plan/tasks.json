@@ -18521,7 +18521,7 @@
     {
       "id": "T77b1",
       "title": "Continuacion semantica CPU/MMIO para esperas de blitter en Normal020",
-      "status": "in_progress",
+      "status": "blocked",
       "milestone": "FUTURE",
       "required": false,
       "depends": [
@@ -18568,7 +18568,8 @@
       "acceptance": [
         "Una instruccion real Normal020 se suspende en la espera sin efectos adelantados ni duplicados, entrega cada unidad y reanuda exactamente tras restauracion nativa y Waterbox real; accesos compuestos y Copper preservan orden y negativos rechazan sin mutar. Opcion publica sigue desactivada hasta cierre padre."
       ],
-      "stop": "No prometer soportegeneral por dosopcodes ni snapshot privado por compilacion; sin continuacion completa no habilitar waiting_blits. No serializar pila/host pointers ni romper scheduler comun."
+      "stop": "No prometer soportegeneral por dosopcodes ni snapshot privado por compilacion; sin continuacion completa no habilitar waiting_blits. No serializar pila/host pointers ni romper scheduler comun.",
+      "blocked_reason": "El reproducer Copper conserva varias esperas MMIO con avance real de reloj;32marcos no bastan y una arena sola reconstruye recursion C++ al reentrar. Se requiere dispatcher iterativo y cota global demostrada compatible con state_bound. H1: tamaño de blit/latencia/throttle con DMAactivo dan cota; H2: alternancia DMA/rearme de10CCK puede renovar esperas antes del timeout exterior y hacerla no acotada. Contrastar ambas con deadline/eventos/profundidad; no ampliar arena ni cambiar politica sin decision ADR0015/oraculo. Prototipo privado no acredita DET02/STATE01/STEP01/WB03."
     },
     {
       "milestone": "FUTURE",
