@@ -338,6 +338,18 @@ for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
                                      'pinned_chd_regression': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 TASK_SUITES[('MED01', 'T66t7')] = {**TASK_SUITES[('MED01', 'T66t5')], 'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
 TASK_SUITES[('MED01', 'T66t8')] = dict(TASK_SUITES[('MED01', 'T66t7')])
+TASK_SUITES[('MED01', 'T66t9')] = {
+    'explicit_cd_regions': 'tests.media.test_cd_disc.CdDiscTests',
+    'chd_regression': 'tests.media.test_cd_chd.CdChdTests',
+    'cue_regression': 'tests.media.test_cd_cue.CdCueTests',
+    'ccd_regression': 'tests.media.test_cd_ccd.CdCcdTests',
+    'nrg_regression': 'tests.media.test_cd_nrg.CdNrgTests',
+    'mds_regression': 'tests.media.test_cd_mds.CdMdsTests',
+    'factory_regression': 'tests.media.test_cd_image.CdImageTests'}
+TASK_SUITES[('STATE01', 'T66t9')] = {
+    'player_region_restore': 'tests.media.test_cd_audio_state.CdPlayerStateTests',
+    'device_region_restore': 'tests.media.test_cd_device_state.CdDeviceStateTests'}
+TASK_SUITES[('ABI01', 'T66t9')] = {'legacy_cd_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66e2')] = dict(TASK_SUITES[('MED01', 'T66e2b')])
@@ -580,6 +592,8 @@ TASK_SUITES[('STEP01', 'T77b1')] = {'unit_boundary_continuation': 'tests.step.te
 TASK_SUITES[('WB03', 'T77b1')] = {'waiting_blits_sandbox_restore': 'tests.waterbox-state.test_waiting_blits.WaitingBlitsWaterboxTests'}
 for _gate in ('BUILD01', 'DET02'):
     TASK_SUITES[(_gate, 'T69a')] = {'real_hrtmon_monitor_freeze': 'tests.cartridge.test_hrtmon.HrtMonTests'}
+for _gate in ('STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T69b')] = {'complete_native_hrtmon_restore': 'tests.cartridge.test_hrtmon.HrtMonTests'}
 TASK_SUITES[('DET02', 'T77a')] = {'collision_levels_restore_identity': 'tests.state.test_collisions'}
 TASK_SUITES[('BUILD01', 'T55c1')] = {
     'linked_native_and_full_waterbox_exports': 'tests.host.test_cpu_backend_build',

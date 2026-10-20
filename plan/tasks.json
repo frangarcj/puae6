@@ -17446,6 +17446,52 @@
       "stop": "No usarencoderForm1paraForm2 ni copiar fallo de subheader; HTOA/gapsdistintos conservanpuertaspropias."
     },
     {
+      "id": "T66t9",
+      "title": "Resolver regiones CD privadas coherentes para modo CONTROL SUB y postgap",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t8",
+        "T66g5",
+        "T66n2a",
+        "T66n2b"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_disc.h",
+        "ports/portable/media/cd_disc.cpp",
+        "ports/portable/media/cd_read.h",
+        "ports/portable/media/cd_read.cpp",
+        "ports/portable/media/cd_subchannel.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "tests/media/cd_audio_state_probe.cpp"
+      ],
+      "steps": [
+        "Añadir Track::Regions flagsExplicit/ProgramSub96/PregapSub96/PostgapStored/PostgapSub96/PostgapIndex2 ypregap_mode/control. Flags0 conserva exactamente politica actual CUE/CCD/NRG/MDS/CHD, incluidosprefijos ypostgapINDEX01; validar residuos/flags/rangos. Explicit define modo/CONTROL de todoINDEX00 ySUB porregion almacenada, no inferir metadata desdeQ. Programa conservaTOC; postgap usa modo/control programa yINDEX02 solo explicito. Qalmacenado incluso invalido/SBI prevalece.",
+        "Mover SectorInfo a cd_disc.h yresolver Disc::describe en cd_disc.cpp: un solo descriptor efectivo para read_sector/describe_sector/canonical_read/AudioPlayer, sin dependencia nueva Disc→cd_read. Offset Source comun incluye postgap solo siStored; gaps sinteticos sinIO. SUBrequiere2448 yregionalmacenada; vista2448 Unsupported si faltaSUB aunque stridecomun sea2448. Pregap/programas de diferente packing deben normalizarse a2352/2448 porproveedor futuro, no aceptarstrideincompatible.",
+        "CdDiscTests nuevo test_explicit_regions_modes_subchannels_postgap_and_rebind cubre Audio↔Mode1, Mode1↔Mode2, stored/synthetic, SUBdistintos,2048/offsets, INDEX02vslegacy01, Qinvalida/SBI, noIOsintetico, flags/rangos yrebindcampoacampo. AudioPlayerState prueba snapshotmediomuestra en pregapAudio depistadata, otroDisc/owner/PCM/SUB/tiempo yPLAY_ERRORentrandoendata; inversorechazaantesdeconsumirdelay. Restore/preflight sinIO.",
+        "Excepcion atomica de8rutas yobjetivo330..390lineas manuales porque descriptor/resolver/subcanal/player deben ser coherentes juntos; avisarantesdesuperar400. Standalone-j2, noengine/guest. MED01regresiones de todoslosproveedoresactuales, STATE01componentesplayer/device yABI01layout2432/31sin cambios. P6AKserializa estado dinamico eIDs, noTrack; regiones inmutables secomparanenrebind. ProveedorCHDconPGdistintos/postgap, hashcondicionalP6CHR1 ytransporteWBv2aditivo son hojas posterioresrequeridas. HTOAnegativo sigue separado; no anunciarCHDpublico."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01",
+        "ABI01"
+      ],
+      "acceptance": [
+        "Modo/CONTROL/SUB/offset efectivo es unico para lectura/CDDA/Q yrestauracion, sin cambiarregioneslegacy niABI2432/layout31; nuevosCHD/transporteWB/HTOA conservan sus puertas."
+      ],
+      "stop": "No ocultar regiones en reserved delABI ni inferirlasdeQ; no descartarSUBalmacenado ni normalizarbytesconCONTROLincorrecto."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17517,7 +17563,8 @@
         "T66u6",
         "T66t6",
         "T66t7",
-        "T66t8"
+        "T66t8",
+        "T66t9"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -18437,6 +18484,53 @@
       "stop": "Sinexito ficticioporPC/retornofreeze, noestadosparciales ni loaderconFS host; noretocarotrosproyectos/ROMscomerciales."
     },
     {
+      "id": "T69b",
+      "title": "Guardar y restaurar HRTMon completo con identidad y causalidad NMI",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69a",
+        "T15"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/0398-hrtmon-native-state.patch",
+        "ports/portable/p6_state_access.h",
+        "bridge/config.h",
+        "bridge/config.cpp",
+        "bridge/state.h",
+        "bridge/state.cpp",
+        "bridge/state_cpu.cpp",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "manifests/state-inventory.json"
+      ],
+      "steps": [
+        "Parche0398 soloar.cpp/newcpu.cpp: accessor privado validaperfilHRTMonfijo(CART_HRTMON/armodel0/A10000/1MiB/extra-banks0/ROMmode0/ciadiv256/zeropageNULL) yguarda RAM1MiB, flagIDLE/ACTIVATE/ACTIVE, triggered_once, mapeo real16paginas ysombras512+16+16. Mapeo no se infiere dePC/flag; xpuededejarlomapeado. Punteros/masks/start/configse rederivan delowner, no se serializan. NMIoriginal essincrono; Freeze pendiente esACTIVATE+SPC_ACTION yCPU/RAM, no inventarcola.",
+        "P6RM apendicecondicionalsoloconblob antesdelreturn sinFast/Z3, tamaño1MiB calculable enMeasure. Memoria/mapeoseaplicanconfuncionesoriginales yrebindPCnormaldespuesdeRAMsinfill_prefetch. NoIO/recargaROMenApply. manifest_prefix_hash usa dominio p6/media/hrtmon/v1+SHArawcopiado; sincartidentidadybodyseconservanexactos. RetirarUNSUPPORTEDsolocuandocodeccompletoestaintegradoconpruebas.",
+        "p6_cpu_boundary ykSpcSaved admitenSPC_ACTION soloownerHRT cargado/flagcoherente. VisitContext publicaspc candidato deP6CP; P6RMvalidaflagACTIVATE/ACTIVE↔SPC_ACTION yACTIVE⇒triggered/mapped contraestadoentranteantesdeApply, nuncaflaglive deldestino. ActualizarinventariocausalHRTMon/P6RM/CPU-SPC yrazonHRTMlegacyexcluido, sin atribuircodec.uss.",
+        "HrtMonTestsreal conserva negativos/teardown/no-cartT69a yextiendeS0IDLEunmapped,S1Freezependiente,S2ACTIVEconcomandoparcial/teclaretenida,S3salidaIDLEmapped,S4reset. Guardar/restaurarmisma sesion/otroowner/procesofrio antesprimerRun; comparar porunidadticks/PC/flags/RAM/AV/PCM ycomandoRAM5a/x/contador. NormalACTIVEfrio prueba rebindPC, Compatible/Exactregresion. Negativoscart→nocart, rawdiferentebind yestadoforjadode tamaño/flag/triggered/mapped/CPU-SPC conservansave_before==save_after/clocks/RAM.",
+        "Excepcionatomica de10rutas y≤450lineas manuales: RAM+flags+CPU+identidad/inventario nopuedenhacerseparcialmente. Agentecd_swapaislado sinmetadataserie ni buildmotor/guest; rootregistrahashes/order yserializa-j2. STATE01/DET02 comparten claseunionunavez; T69cpúblico/mapper/inputedge yARcomercialesconassetautorizado siguenpadre."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "HRTMon privado restaura comando/ejecucioncausal completa dentro/fuera/Freezependiente enowner/procesonuevo, con identidadynegativostransaccionales; nogatespublicos oWBacreditadosporestanativa."
+      ],
+      "stop": "No guardar punteros, inferirmapeodesdeflag, aceptarCPU-SPCdiscordante ni usarcodec.uss/pathsenApply; assetsARcomerciales siguenautorizacionaparte."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -18444,7 +18538,8 @@
       "status": "pending",
       "depends": [
         "T24",
-        "T69a"
+        "T69a",
+        "T69b"
       ],
       "read": [
         "docs/01-architecture.md",
