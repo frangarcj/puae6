@@ -616,9 +616,8 @@ void build_preferences(const p6_config &c, bool ide)
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
     for (auto &drive : currprefs.floppyslots) drive.dfxclick = 1;
     if (c.machine == kCd32Machine) { currprefs.flashfile[0] = currprefs.romextfile[0] = currprefs.romextfile2[0] = 0; }
-    currprefs.cart_internal = 0;
     currprefs.cartfile[0] = 0;
-    if (hrtmon_bound()) _tcscpy(currprefs.cartfile, kCartridgeId);
+    if (hrtmon_bound()) { currprefs.cart_internal = 0; _tcscpy(currprefs.cartfile, kCartridgeId); }
     _tcscpy(currprefs.romfile, kFirmwareId);
     fixup_prefs(&currprefs, true);
 }
