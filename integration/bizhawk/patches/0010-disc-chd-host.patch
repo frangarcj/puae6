@@ -1,0 +1,175 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
+@@ -16,7 +16,7 @@
+ 
+ namespace BizHawk.Emulation.DiscSystem
+ {
+-	public static class CHD_Format
++	public static partial class CHD_Format
+ 	{
+ 		/// <summary>
+ 		/// Represents a CHD file.
+@@ -728,6 +728,11 @@
+ 			if (chdf == null) throw new ArgumentNullException(nameof(chdf));
+ 			if (chdBlob == null) throw new ArgumentNullException(nameof(chdBlob));
+ 			if (IN_DiscMountPolicy == null) throw new ArgumentNullException(nameof(IN_DiscMountPolicy));
++			return LoadCHDToDisc(chdf.CdMetadatas, chdf.Header.unitbytes, chdBlob, IN_DiscMountPolicy);
++		}
++
++		private static Disc LoadCHDToDisc(IList<CHDCdMetadata> metadata, uint unitBytes, IBlob chdBlob, DiscMountPolicy IN_DiscMountPolicy)
++		{
+ 			var disc = new Disc();
+ 			try
+ 			{
+@@ -737,7 +742,7 @@
+ 				var session = new DiscSession { Number = 1 };
+ 				var chdOffset = 0L;
+ 				var regions = new List<DiscRegionInfo>();
+-				foreach (var cdMetadata in chdf.CdMetadatas)
++				foreach (var cdMetadata in metadata)
+ 				{
+ 					void Region(int start, int end, int index, LibChd.chd_track_type type, LibChd.chd_sub_type sub, bool synthetic)
+ 					{
+@@ -811,7 +816,7 @@
+ 						pregapLength = 150;
+ 					}
+ 
+-					var prevTrackPadding = cdMetadata.Track == 1 ? 0 : chdf.CdMetadatas[(int)cdMetadata.Track - 2].Padding;
++					var prevTrackPadding = cdMetadata.Track == 1 ? 0 : metadata[(int)cdMetadata.Track - 2].Padding;
+ 					pregapLength += prevTrackPadding;
+ 
+ 					var pregapStart = disc._Sectors.Count - 150;
+@@ -858,7 +863,7 @@
+ 							};
+ 
+ 							disc._Sectors.Add(chdSynth);
+-							chdOffset += chdf.Header.unitbytes;
++							chdOffset += unitBytes;
+ 						}
+ 						else
+ 						{
+@@ -907,12 +912,12 @@
+ 							_ => throw new InvalidOperationException(),
+ 						};
+ 						disc._Sectors.Add(chdSynth);
+-						chdOffset += chdf.Header.unitbytes;
++						chdOffset += unitBytes;
+ 						relMSF++;
+ 					}
+ 
+ 					Region(programStart, disc._Sectors.Count - 150, 1, cdMetadata.TrackType, cdMetadata.SubType, false);
+-					chdOffset += cdMetadata.ExtraFrames * chdf.Header.unitbytes;
++					chdOffset += cdMetadata.ExtraFrames * unitBytes;
+ 					var postStart = disc._Sectors.Count - 150;
+ 
+ 					for (var i = 0; i < cdMetadata.PostGap; i++)
+@@ -942,7 +947,7 @@
+ 
+ 				SessionFormat GuessSessionFormat()
+ 				{
+-					foreach (var cdMetadata in chdf.CdMetadatas)
++					foreach (var cdMetadata in metadata)
+ 					{
+ 						if (cdMetadata.IsCDI)
+ 						{
+@@ -964,7 +969,7 @@
+ 
+ 				var TOCMiscInfo = new Synthesize_A0A1A2_Job(
+ 					firstRecordedTrackNumber: 1,
+-					lastRecordedTrackNumber: chdf.CdMetadatas.Count,
++					lastRecordedTrackNumber: metadata.Count,
+ 					sessionFormat: GuessSessionFormat(),
+ 					leadoutTimestamp: disc._Sectors.Count);
+ 				TOCMiscInfo.Run(session.RawTOCEntries);
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_Puae6.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_Puae6.cs
+--- /dev/null
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_Puae6.cs
+@@ -0,0 +1,87 @@
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Runtime.InteropServices;
++using System.Text;
++using Microsoft.Win32.SafeHandles;
++
++namespace BizHawk.Emulation.DiscSystem
++{
++ public static partial class CHD_Format
++ {
++  // Explicit PUAE6 CDv5 backend; the default chd-rs path is unchanged.
++  public static Disc LoadPuae6Chd(string path, DiscMountPolicy policy)
++  {
++   if (policy == null) throw new ArgumentNullException(nameof(policy));
++   var blob = new Puae6ChdBlob(path);
++   try
++   {
++    var metadata = new List<CHDCdMetadata>();
++    for (uint i = 0; i < blob.Geometry.Tracks; ++i) metadata.Add(blob.Metadata(i));
++    return LoadCHDToDisc(metadata, blob.Geometry.UnitBytes, blob, policy);
++   }
++   catch { blob.Dispose(); throw; }
++  }
++  internal sealed unsafe class Puae6ChdBlob : SafeHandleZeroOrMinusOneIsInvalid, IBlob
++  {
++   [StructLayout(LayoutKind.Sequential)]
++   internal struct Info { public uint Version, Size, UnitBytes, HunkBytes, Tracks, Reserved; public ulong Bytes; }
++   [StructLayout(LayoutKind.Sequential)]
++   struct TrackDto
++   {
++    public uint Version, Size, Number, Frames, Pregap, Postgap, ExtraFrames, StoredPregap, Flags, Reserved;
++    public ulong OffsetFrames;
++    public fixed byte Type[16], Subtype[8], Pgtype[16], Pgsub[8];
++   }
++   const string Library = "p6_chd_host";
++   [DllImport(Library, EntryPoint = "p6_chd_host_open", CallingConvention = CallingConvention.Cdecl)]
++   static extern int Open(byte[] path, out IntPtr owner, ref Info info);
++   [DllImport(Library, EntryPoint = "p6_chd_host_get_track", CallingConvention = CallingConvention.Cdecl)]
++   static extern int GetTrack(Puae6ChdBlob owner, uint index, ref TrackDto track);
++   [DllImport(Library, EntryPoint = "p6_chd_host_read", CallingConvention = CallingConvention.Cdecl)]
++   static extern int ReadNative(Puae6ChdBlob owner, ulong offset, byte* output, uint count);
++   [DllImport(Library, EntryPoint = "p6_chd_host_close", CallingConvention = CallingConvention.Cdecl)]
++   static extern void Close(IntPtr owner);
++   internal readonly Info Geometry;
++   readonly byte[] staging = new byte[2448];
++   static Puae6ChdBlob()
++   {
++    if (sizeof(Info) != 32 || Marshal.OffsetOf<Info>(nameof(Info.Bytes)).ToInt32() != 24
++     || sizeof(TrackDto) != 96 || Marshal.OffsetOf<TrackDto>(nameof(TrackDto.OffsetFrames)).ToInt32() != 40
++     || Marshal.OffsetOf<TrackDto>(nameof(TrackDto.Type)).ToInt32() != 48) throw new TypeLoadException("PUAE6 CHD ABI layout");
++   }
++   internal Puae6ChdBlob(string path) : base(true)
++   {
++    if (path == null) throw new ArgumentNullException(nameof(path));
++    if (path.IndexOf('\0') >= 0) throw new ArgumentException("CHD path contains NUL", nameof(path));
++    var info = new Info { Version = 1, Size = (uint)sizeof(Info) };
++    Check(Open(Encoding.UTF8.GetBytes(path + '\0'), out var owner, ref info), "open");
++    SetHandle(owner); Geometry = info;
++   }
++   static void Check(int status, string phase)
++   {
++    if (status != 0) throw new IOException($"PUAE6 CHD host {phase} failed: {status}");
++   }
++   static string Text(byte* p) => Marshal.PtrToStringAnsi((IntPtr)p);
++   internal CHDCdMetadata Metadata(uint index)
++   {
++    var t = new TrackDto { Version = 1, Size = (uint)sizeof(TrackDto) };
++    Check(GetTrack(this, index, ref t), "track");
++    var type = GetTrackType(Text(t.Type)); var sub = GetSubType(Text(t.Subtype));
++    var (pgtype, stored) = GetTrackTypeForPregap(Text(t.Pgtype));
++    return new CHDCdMetadata { Track = t.Number, TrackType = type, SubType = sub, Frames = t.Frames,
++     Pregap = t.Pregap, PostGap = t.Postgap, ExtraFrames = t.ExtraFrames, PregapInChd = stored,
++     PregapTrackType = pgtype, PregapSubType = GetSubType(Text(t.Pgsub)), ByteSwapAudio = true,
++     SectorSize = GetSectorSize(type), SubSize = GetSubSize(sub) };
++   }
++   public int Read(long bytePos, byte[] buffer, int offset, int count)
++   {
++    if (IsClosed || bytePos < 0 || count < 0 || count > 2448 || buffer == null || offset < 0
++     || offset > buffer.Length - count) throw new IOException("PUAE6 CHD read range/disposed");
++    fixed (byte* output = staging) Check(ReadNative(this, (ulong)bytePos, output, (uint)count), "read");
++    Buffer.BlockCopy(staging, 0, buffer, offset, count); return count;
++   }
++   protected override bool ReleaseHandle() { Close(handle); return true; }
++  }
++ }
++}

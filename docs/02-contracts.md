@@ -1051,6 +1051,17 @@ padding fisico de4frames y conserva literalmente ambas politicas de gap Mode2;
 el futuro conector canonico debe elegir false explicitamente. Esto no acredita
 el backend host `chd_capi`, la conexion publica tipada ni su restauracion WB.
 
+T66t15a ofrece `CHD_Format.LoadPuae6Chd(path, policy)` como entrada host opt-in:
+`libp6_chd_host` adyacente al ensamblado reutiliza ChdReader/metadatos CDv5
+endurecidos y entrega DTO v1 con anchos/offsets comprobados; no implementa la ABI
+chd-rs ni altera el loader predeterminado. SafeHandle/IBlob transfiere propiedad
+a Disc, cierra ante fallo y preserva el destino ante error. El archivo base debe
+permanecer inmutable hasta Dispose; no hay reentrada ni I/O dentro del guest.
+La receta standalone verifica offline el pin y conserva las licencias del
+decoder/codecs y del codigo PUAE6; no instala bibliotecas. Cuatro fixtures legales
+prueban decoder→DiscSystem→regiones/stream/source. Seleccion publica PUAE6,
+politica XA canonica, descriptor regional V2 y restore WB siguen pendientes.
+
 T66t14 conecta `CdChd` a `CdImage` y a la carga libretro directa/M3U por extension
 `.chd`, sin fallback. Enlaza estaticamente el lector verificado offline, con
 las mismas identidades P6CHD1/P6CHR1 y las mismas reglas VFS, catalogo y estado.

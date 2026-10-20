@@ -141,7 +141,46 @@ internal static unsafe partial class Program
    Console.WriteLine("mds "+CdHash(output.AsSpan(8,2352).ToArray()));
   }
  }
+ static Disc MountedChdHost(string path, DiscMountPolicy policy) {
+  var disc=CHD_Format.LoadPuae6Chd(path,policy);
+  try {
+   disc.SynthProvider=new ArraySectorSynthProvider { Sectors=disc._Sectors, FirstLBA=-150 };
+   foreach(var session in disc.Sessions.Skip(1)) {
+    var toc=new Synthesize_DiscTOC_From_RawTOCEntries_Job(session.RawTOCEntries); toc.Run(); session.TOC=toc.Result;
+    new Synthesize_DiscTracks_From_DiscTOC_Job(disc,session).Run();
+   }
+   return disc; // The existing DiscMountJob finalization jobs, without a public selector.
+  } catch { disc.Dispose(); throw; }
+ }
+ static void ChdHost(string path) {
+  var policy=new DiscMountPolicy();
+  using(var blob=new CHD_Format.Puae6ChdBlob(path)) {
+   Require(blob.Geometry.UnitBytes==2448&&blob.Geometry.HunkBytes==19584&&blob.Geometry.Bytes==40*2448&&blob.Geometry.Tracks==1);
+   Require(blob.Metadata(0).TrackType==LibChd.chd_track_type.CD_TRACK_AUDIO);
+   var output=Enumerable.Repeat((byte)0xa5,2464).ToArray();
+   Require(blob.Read(19577,output,8,2448)==2448&&output.Take(8).Concat(output.Skip(2456)).All(v=>v==0xa5));
+   File.WriteAllBytes(path+".units",output.AsSpan(8,2448).ToArray());
+   Array.Fill(output,(byte)0xa5);
+   try { blob.Read(40*2448-3,output,8,4); throw new Exception("Accepted CHD EOF"); } catch(IOException) { }
+   Require(output.All(v=>v==0xa5)); blob.Dispose();
+   try { blob.Read(0,output,8,4); throw new Exception("Read disposed CHD"); } catch(IOException) { }
+  }
+  using var disc=MountedChdHost(path,policy);
+  var source=new Puae6DiscSource(disc); var canonical=new byte[(int)source.Length];
+  for(int at=0;at<canonical.Length;at+=2448) Require(source.ReadAt((ulong)at,canonical,at,2448));
+  File.WriteAllBytes(path+".actual",canonical);
+  Console.WriteLine(Convert.ToHexString(source.ContentId));
+  foreach(var r in disc.Regions) Console.WriteLine($"{r.Start} {r.End} {r.Track} {r.Index} {r.Mode} {r.Control} {r.Synthetic} {(uint)r.Type} {(uint)r.SubType}");
+  string copy=path+".copy"; File.Copy(path,copy,true);
+  using var replacement=MountedChdHost(copy,policy);
+  Require(source.Rebind(replacement)); disc.Dispose();
+  var probe=new byte[2449]; Require(source.ReadAt(19577,probe,1,2448)&&probe.AsSpan(1,2448).SequenceEqual(canonical.AsSpan(19577,2448)));
+  using(var file=new FileStream(copy,FileMode.Open,FileAccess.Write,FileShare.ReadWrite)) file.SetLength(0);
+  Refused(probe,()=>source.ReadAt(0,probe,1,2448));
+  replacement.Dispose(); Refused(probe,()=>source.ReadAt(0,probe,1,2448));
+ }
  static void Main(string[] args) {
+  if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }
   if(args.Length==2&&args[0]=="chd-units") { ChdUnits(args[1]); return; }
   if (args.Length > 1) { if (args[5].StartsWith("cd32")) Cd32Waterbox(args); else Waterbox(args); return; }
   Iso(args[0]); Cue(args[0]); Console.WriteLine("DiscSystem ISO/CUE offset, identity and rebind PASS");

@@ -24,7 +24,7 @@ def build_disc_source(work, *, legacy_xa=False):
         target = work / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-    for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch", "0008-disc-chd-regions-and-xa.patch"):
+    for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch", "0008-disc-chd-regions-and-xa.patch", "0010-disc-chd-host.patch"):
         subprocess.run(["patch", "-p1", "--no-backup-if-mismatch", "-i", str(ROOT / "integration/bizhawk/patches" / name)],
                        cwd=work, check=True, capture_output=True, timeout=30)
     if legacy_xa:

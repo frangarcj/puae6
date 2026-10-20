@@ -7,7 +7,7 @@ integration/bizhawk/core/EmuHawk) are copied into BizHawk.Emulation.Cores. The p
 net48 reference assemblies, restored from the local NuGet cache (never from the network).
 
     python3 integration/bizhawk/patches/build_tree.py            # export, patch, install the sources and build; prints the assembly
-    python3 integration/bizhawk/patches/build_tree.py --check    # only: does every patch apply to the pinned commit (nothing is written)
+    python3 integration/bizhawk/patches/build_tree.py --check    # verify the ordered queue on a temporary export of the pin, then remove it
     python3 integration/bizhawk/patches/build_tree.py --emuhawk  # the same in a second tree (<key>-emuhawk) that also has EmuHawk, and builds EmuHawk.exe (WinForms, net48; it is
                                                                  # compiled, never run here): proves that what the patches change in MainForm.cs compiles against the core
 """
@@ -35,7 +35,16 @@ def tree_key() -> str:
     for path in [*PATCHES, *(f for d in CORE_SOURCES for f in sorted(d.glob("*.cs"))), Path(__file__)]:
         digest.update(path.name.encode())
         digest.update(path.read_bytes())
+    for path in chd_host_inputs():
+        digest.update(str(path.relative_to(ROOT)).encode()); digest.update(path.read_bytes())
     return digest.hexdigest()[:12]
+
+
+def chd_host_inputs():
+    return [ROOT / p for p in ("ports/portable/media/chd_host.h", "ports/portable/media/chd_host.cpp",
+        "ports/portable/media/chd_reader.h", "ports/portable/media/chd_reader.cpp", "ports/portable/media/cd_chd_metadata.h",
+        "ports/portable/media/cd_chd_metadata.cpp", "ports/portable/media/cd_source.h", "cmake/Chd.cmake", "tools/import_chd.py",
+        "integration/bizhawk/chd-host/CMakeLists.txt")] + sorted(p for p in (ROOT / "third_party/libchdr").rglob("*") if p.is_file())
 
 
 TREE = ROOT / "build/bizhawk-tree" / tree_key()
@@ -75,12 +84,25 @@ def check_source() -> str:
 
 
 def check_patches() -> None:
-    """Every patch applies to the pinned commit: `git apply --check` reads the files and writes nothing."""
-    check_source()
-    for patch in PATCHES:
-        result = git("apply", "--check", str(patch))
-        if result.returncode:
-            raise RecipeError(f"{patch.name} no se aplica al commit fijado de MacHawk:\n{result.stderr.decode()}")
+    """Verify the ordered queue, including dependencies, on a temporary export of the pin."""
+    commit = check_source()
+    paths = sorted({line[6:] for patch in PATCHES for line in patch.read_text().splitlines() if line.startswith("+++ b/")})
+    tracked = git("ls-tree", "-r", "--name-only", commit, "--", *paths).stdout.decode().splitlines()
+    (ROOT / "build").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="bizhawk-patch-check-", dir=ROOT / "build") as directory:
+        tree = Path(directory)
+        archive = git("archive", "--format=tar", commit, "--", *tracked)
+        if archive.returncode: raise RecipeError(archive.stderr.decode())
+        subprocess.run(["tar", "-x", "-C", directory], input=archive.stdout, check=True)
+        apply_patches(tree)
+
+
+def build_chd_host(output: Path) -> Path:
+    build = output / "p6-chd-host-build"
+    subprocess.run(["cmake", "-S", str(ROOT / "integration/bizhawk/chd-host"), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release"], check=True)
+    subprocess.run(["cmake", "--build", str(build), "--target", "p6_chd_host", "-j2"], check=True)
+    name = "libp6_chd_host.dylib" if sys.platform == "darwin" else "libp6_chd_host.so"
+    return Path(shutil.copy2(build / name, output / name))
 
 
 def export_tree(tree: Path = TREE, paths: list[str] = EXPORT) -> bool:
@@ -99,8 +121,8 @@ def apply_patches(tree: Path = TREE) -> None:
     """GNU patch, not `git apply`: inside a subdirectory of another repository (build/ is one) `git apply` silently skips every file outside the
     directory it runs in. Each patch must then be reversible, which proves that it is there."""
     for patch in PATCHES:
-        for command, what in ((["patch", "-p1", "--no-backup-if-mismatch", "-i", str(patch)], "se aplica"),
-                              (["patch", "-p1", "-R", "--dry-run", "-i", str(patch)], "queda aplicado")):
+        for command, what in ((["patch", "-p1", "--fuzz=0", "--no-backup-if-mismatch", "-i", str(patch)], "se aplica"),
+                              (["patch", "-p1", "--fuzz=0", "-R", "--dry-run", "-i", str(patch)], "queda aplicado")):
             result = subprocess.run(command, cwd=tree, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode:
                 raise RecipeError(f"{patch.name} no {what} a la copia: {(result.stdout + result.stderr).decode()}")
@@ -131,6 +153,7 @@ def build(guest_sha256: str, tree: Path = TREE, project: str = "src/BizHawk.Emul
     assembly = tree / output
     if not assembly.is_file():
         raise RecipeError(f"no se encuentra {assembly}")
+    build_chd_host(assembly.parent)
     return assembly
 
 
