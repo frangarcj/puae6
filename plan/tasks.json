@@ -13161,11 +13161,58 @@
       "stop": "No importar validacion de produccion como oraculo ni confundir init con arranque o restauracion; CPU040/060 y su fuzz permanecen enT55c."
     },
     {
+      "id": "T55c10",
+      "title": "Ofrecer A4040 y CPU040/060 en libretro y BizHawk",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T55b",
+        "T55c1",
+        "T55c5",
+        "T55c6",
+        "T55c9"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "tools/generate_options.py",
+        "tests/config/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-state/**",
+        "tests/state/**",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Partir de la vertical nativa integrada87cda89b: A4040 ID12, CPU0/5=040 o7=060, Normal sin MMU, FPU0 o matching interna, Z2/Z3 e identidad semantica. El coordinador asigna worktree aislado y mantiene plan/checks/series; no modificar metadata compartida ni MacHawk.",
+        "Conectar el esquema comun, presets/opciones libretro y sync settings BizHawk/firmware A4000. Mantener rechazos claros de combinaciones no admitidas, defaults antiguos e identidad. Añadir selectores utiles para040/060 con FPU interna y Z3; no habilitar Compatible/Exact ni MMU.",
+        "Probar la vertical dirigida de interfaz: carga/instrucciones/restauracion con ambos modelos en libretro y Waterbox real, incluidos nuevo proceso/sandbox. Reusar el micro-ROM y oraculo nativo T55c; sin asset real bloquear solo la puerta que lo exige. Pedir turno antes de compilar targets pesados y no repetir baterias del padre.",
+        "El padre conserva firmware real, reanudacion FRESTORE pendiente, matriz/presupuestos acumulados y aceptacion completa. Esta hoja conecta los frontends y no cierra T55c por ella."
+      ],
+      "checks": [
+        "GEN01",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Libretro y BizHawk ofrecen A4040/040 y CPU060, FPU interna y Z3 con configuracion/identidad coherente, y restauran el microprograma dirigido en los contextos de cada frontend sin alterar perfiles previos."
+      ],
+      "stop": "No modificar proyectos hermanos ni cambiar opciones del motor al azar; no llamar Waterbox a un build o biblioteca nativa. El coordinador autoriza turno de compilacion y ampliaciones de alcance."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T55b",
         "T55c1",
@@ -13176,7 +13223,8 @@
         "T55c6",
         "T55c7",
         "T55c8",
-        "T55c9"
+        "T55c9",
+        "T55c10"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13216,7 +13264,9 @@
         "T55c9 extiende FUZZ01 a todos los perfiles publicos actuales (A4030/030, Z3 y CD32/FR) por p6_init bajo sanitizers. No acredita ejecucion/estado ni los futuros perfiles040/060; antes de habilitarlos hay que ampliar otra vez su oraculo.",
         "Correccion dirigida de identidad FE: MC68040UM9.2.4/9.8 exige FPIAR de la instruccion causante y define FPIARCU como direccion CU. Pasar la copia local restaurada al checker solo cuando la continuacion genera una excepcion nueva; no cambiar FPIAR al recuperar E3 anterior ni inferir EA/opword. ProbeFDIV de denorms1/3 normalizados por FPSP nrm_set, shifts63/62, comprueba resultado, vector49, formatoCPU0/PC de reintento y FPIARCU del FSAVE posterior. Mantener la puerta completa pendiente del padre.",
         "Reanudar la reconstruccionCU_SAVEPC06/opclass2 extended documentada por MotorolaFPSP bugfix.S:op0_xi/op0_sete15: ETEMP contiene el registro fuente IEEE con ETE15=!ETE14; el destino vigente es FPn, FPTEMP queda vacio. Separar de FE, reutilizar aritmetica/pendientes del motor y probar resultados independientes, exponentes ETE14 en ambos estados, FCMP/FTST sin escritura, excepcion nueva y prioridadE3. El formato double06 de op2_xi, otros micro-PC y dirty/SX/writeback siguen pendientes; no se atribuye oraculo de hardware fisico ni cierre del padre.",
-        "Corregir atomicamente el productor aritmetico040 segun MC68040UM9.8/fig9-11/tabla9-16: FSQRT04 se codifica05 enCMD1 y21 enCMD3; FSSQRT41/FDSQRT45 generanWB/E3, FDMOVE44 esCU/E1. Sustituir solo el predicadoSQRT y conservar la clasificacion previa de FMOD/FREM/FSCALE hasta decidir su formato de emulacion. Probe desde instrucciones reales conINEX2/OPERR, rev40/41: comandos/etapa/longitud independientes, FSAVE/FRESTORE y estado privado tras reinicializacion. No cerrar perfiles publicos ni el padre con esta correccion de componente. Canonicalizar tambien el comando interno05 recibido desde FRESTORE/FE, con SQRT2 reanudado y resultado independiente por raiz entera."
+        "Corregir atomicamente el productor aritmetico040 segun MC68040UM9.8/fig9-11/tabla9-16: FSQRT04 se codifica05 enCMD1 y21 enCMD3; FSSQRT41/FDSQRT45 generanWB/E3, FDMOVE44 esCU/E1. Sustituir solo el predicadoSQRT y conservar la clasificacion previa de FMOD/FREM/FSCALE hasta decidir su formato de emulacion. Probe desde instrucciones reales conINEX2/OPERR, rev40/41: comandos/etapa/longitud independientes, FSAVE/FRESTORE y estado privado tras reinicializacion. No cerrar perfiles publicos ni el padre con esta correccion de componente. Canonicalizar tambien el comando interno05 recibido desde FRESTORE/FE, con SQRT2 reanudado y resultado independiente por raiz entera.",
+        "Vertical nativa atomica: habilitar A4040/040 y 060 Normal sin MMU, FPU interna opcional, identidad, oraculo FUZZ y pruebas publicas de restauracion junto con el guard Z3. Se amplian los archivos del cambio por ser inseparables API/validacion/oraculo/parche/CLI; conservar los checks del padre y la puerta independiente de frontends/firmware/Waterbox.",
+        "T55c10 conecta selectores de los frontends sobre la API nativa87cda89b en worktree aislado; el padre conserva firmware real, FRESTORE, presupuestos y sus puertas completas."
       ],
       "checks": [
         "GEN01",
@@ -16368,6 +16418,44 @@
       "stop": "No cargar el CD entero en el guest, no cerrar por compilacion/firmware ni atribuir compatibilidad con otros juegos/formatos; pedir al coordinador turno de compilacion pesada y decisiones de metadata."
     },
     {
+      "id": "T66r8",
+      "title": "Eliminar contaminacion de video CD32 entre cargas de sesion",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T66r7"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "tests/libretro-host/**",
+        "tests/media/**",
+        "bridge/**",
+        "ports/portable/**",
+        "patches/winuae/**",
+        "adapters/libretro/**",
+        "manifests/**",
+        "docs/adr/**"
+      ],
+      "steps": [
+        "Conservar el reproducer independiente hallado en T66r7: tras jugar Brian the Lion, descargar y cargar otra sesion en la misma imagen nativa cambia video desde la unidad23, con ticks y PCM iguales. Los landmarks y futuros restaurados de T66r7 no sustituyen esta puerta de vida de sesion.",
+        "Localizar el estado de video que sobrevive al unload/load y corregir su propietario/reset minimo, sin cambiar hashes ni tolerancias. Comparar arranque frio completo de dos ciclos nativos tras llegar al nivel jugable6500; mantener la restauracion y sus landmarks. No modificar MacHawk ni descargar assets.",
+        "Usar el test independiente, sin expectedFailure/skip para ocultar el desvio; el coordinador asigna compilacion pesada. Tras dos intentos razonados conservar reproducer y dos hipotesis verificables si queda bloqueado."
+      ],
+      "checks": [
+        "LR01"
+      ],
+      "acceptance": [
+        "Dos cargas sucesivas del CD32 real, tras ejecutar el juego hasta6500, producen el mismo video/PCM/ticks desde el arranque, y los cortes de juego siguen restaurando. El fallo previo debe reproducirse en el test antes de la correccion."
+      ],
+      "stop": "No rebajar el oraculo ni cerrar por landmarks o por restauracion; conservar la puerta independiente de limpieza de sesion."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16416,7 +16504,8 @@
         "T66r4",
         "T66r5",
         "T66r6",
-        "T66r7"
+        "T66r7",
+        "T66r8"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16457,7 +16546,8 @@
         "T66r3 integra modelo comun, carga publica e identidad/restore BizHawk. SaveRAM NVRAM, CD32FR, formatos restantes y arranque completo del juego conservan todas las puertas del padre.",
         "T66r4 conecta NVRAM real con SaveRAM y su identidad inicial. No cierra arranque completo, CD32FR ni formatos restantes del padre.",
         "T66r6 implementa CD32FR como CD32+8MiB Fast por configuracion comun y preset; el padre conserva formatos restantes, cambio/seleccion automatica por tags de CD y arranque/restauracion completo de juego.",
-        "T66r7 concentra arranque/restauracion publica de un juego CD32 real en ambos adaptadores. El padre conserva formatos/variantes restantes, cambio de CD, tags y todas sus puertas originales; el coordinador integra la vertical del worktree aislado."
+        "T66r7 concentra arranque/restauracion publica de un juego CD32 real en ambos adaptadores. El padre conserva formatos/variantes restantes, cambio de CD, tags y todas sus puertas originales; el coordinador integra la vertical del worktree aislado.",
+        "T66r8 conserva como puerta requerida la contaminacion visual de una nueva sesion nativa tras jugar, descubierta por T66r7; no queda cerrada por el restore del corte en nuevo owner."
       ],
       "checks": [
         "MED01",
